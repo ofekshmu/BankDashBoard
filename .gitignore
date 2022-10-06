@@ -1,6 +1,8 @@
 venv
-*.xlsx
+*.xls
 *.docx
 .vscode
 *.db
 __pycache__
+personal information
+personal_config.json

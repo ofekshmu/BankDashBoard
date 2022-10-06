@@ -2,3 +2,5 @@ venv
 *.xlsx
 *.docx
 .vscode
+*.db
+__pycache__

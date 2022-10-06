@@ -19,6 +19,7 @@ class DataBase:
                                 ID          CHAR(4)     PRIMARY KEY,
                                 date        DATE NOT    NULL,
                                 amount      INT NOT     NULL,
+                                source      CHAR,
                                 description TEXT,
                                 cardID      CHAR(4),
                                 FOREIGN KEY(cardID)
@@ -26,21 +27,31 @@ class DataBase:
                                 );"""
                             )
 
-        self.connection.commit()
-
-
     def insert_transaction(self,
                            id: str,
                            date: datetime,
                            amount: int,
-                           description: str,
+                           source: str,
+                           description: str = "",
                            card_id: str = None):
-        pass
+        '''
+        Insert a new transaction to local DB.
+        '''
+        self.cursor.execute(f"""
+            INSERT INTO Transactions VALUES(?, ?, ?, ?, ?, ?)
+            """, (id, date, amount, source, description, card_id))
+        self.connection.commit()
 
     def insert_card(self,
                     id: str,
                     description: str):
-        pass
+        '''
+        Insert a new card to local DB.
+        '''
+        self.cursor.execute(f"""
+            INSERT INTO Card VALUES(?, ?)
+            """, (id, description))
+        self.connection.commit()
 
     def close(self):
         '''

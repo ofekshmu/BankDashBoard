@@ -21,3 +21,16 @@ class personal:
 class Messaging:
     DEBUG = True
     SYSTEM = True
+
+
+class creditFile:
+    HEADERS = ["מספר הכרטיס",
+               "תאריך העסקה",
+               "שם בית העסק",
+               "סכום העסקה",
+               "מטבע העסקה",
+               "סכום החיוב",
+               "מטבע חיוב העסקה",
+               "סוג העסקה",
+               "פרטים",
+               "תאריך החיוב"]

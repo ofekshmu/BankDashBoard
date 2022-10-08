@@ -13,6 +13,8 @@ def main():
     #                         "test des",
     #                         '1234')
     # mydb.close()
+    ans = p.parse_credit(p.get_files()[1])
+    print(ans)
 
 
 if __name__ == "__main__":

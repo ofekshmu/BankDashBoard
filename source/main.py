@@ -20,7 +20,7 @@ def main():
     table = ans[0]
     for row in table:
         print(row)
-        db.insert_transaction(row[1], row[3], row[2], row[7], row[0])
+        db.insert_transaction(row[0], row[1], row[2], row[3], row[7], row[9])
         print("inserted")
 
 

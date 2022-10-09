@@ -1,6 +1,9 @@
 import sqlite3
 from datetime import datetime
 
+# local imports
+from decorators import try_catch
+
 
 class DataBase:
 
@@ -27,9 +30,18 @@ class DataBase:
             description         TEXT                    ,
             FOREIGN KEY(cardID)
             REFERENCES Card(cardID)
-            );"""
-                            )
+            );""")
 
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS Files (
+            Name                CHAR        NOT NULL PRIMARY KEY ,
+            Date                DATE        NOT NULL,
+            Description         CHAR                ,
+            Transaction_count   INT         NOT NULL,
+            Last_update         DATE        NOT NULL
+            );""")
+
+    @try_catch
     def insert_transaction(self,
                            cardID: str,
                            transaction_date: datetime,
@@ -41,6 +53,12 @@ class DataBase:
         '''
         Insert a new transaction to local DB.
         '''
+        if not self.is_card_exists(cardID):
+            print(f'New card found: ->{cardID}<-')
+            if not self.insert_card(cardID, "Auto Insertion"):
+                return False
+            print(f'Card ID {cardID} has been added!')
+
         self.cursor.execute(f"""
             INSERT INTO Transactions(cardID, transaction_date, business_name,
                 amount, transaction_type, charge_date, description)
@@ -50,6 +68,16 @@ class DataBase:
             )
         self.connection.commit()
 
+    @try_catch
+    def is_card_exists(self, cardID: str) -> bool:
+        ans = self.cursor.execute("""
+                    SELECT 1
+                    FROM Card
+                    WHERE cardID = ?;
+                """, (cardID,)).fetchone()
+        return False if ans is None else True
+
+    @try_catch
     def insert_card(self,
                     id: str,
                     description: str):
@@ -60,7 +88,22 @@ class DataBase:
             INSERT INTO Card VALUES(?, ?)
             """, (id, description))
         self.connection.commit()
+    
+    @try_catch
+    def update_files(self,
+                     name: str,
+                     date: datetime,
+                     transaction_count: int,
+                     description: str = '-'):
+        last_update = datetime.now()
+        self.cursor.execute(f"""
+            INSERT INTO Files(Name, Date, Description,
+                Transaction_count, Last_update)
+            VALUES(?, ?, ?, ?, ?)
+            """, (name, date, description, transaction_count, last_update)
+            )
 
+    @try_catch
     def close(self):
         '''
         Close The connection to the database.

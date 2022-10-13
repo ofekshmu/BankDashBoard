@@ -19,6 +19,15 @@ class DataBase:
             );""")
 
         self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS Files (
+            Name                CHAR        NOT NULL PRIMARY KEY,
+            Date                DATE        NOT NULL,
+            Description         CHAR                ,
+            Transaction_count   INT         NOT NULL,
+            Last_update         DATE        NOT NULL
+            );""")
+
+        self.cursor.execute("""
             CREATE TABLE IF NOT EXISTS Transactions (
             ID                  INTEGER     PRIMARY KEY ,
             cardID              CHAR(4)                 ,
@@ -27,18 +36,10 @@ class DataBase:
             amount              INT         NOT NULL    ,
             transaction_type    CHAR                    ,
             charge_date         DATE        NOT NULL    ,
+            source_file         CHAR        NOT NULL    ,
             description         TEXT                    ,
-            FOREIGN KEY(cardID)
-            REFERENCES Card(cardID)
-            );""")
-
-        self.cursor.execute("""
-            CREATE TABLE IF NOT EXISTS Files (
-            Name                CHAR        NOT NULL PRIMARY KEY ,
-            Date                DATE        NOT NULL,
-            Description         CHAR                ,
-            Transaction_count   INT         NOT NULL,
-            Last_update         DATE        NOT NULL
+            FOREIGN KEY(cardID)         REFERENCES Card(cardID),
+            FOREIGN KEY(source_file)    REFERENCES File(Name)
             );""")
 
     @try_catch
@@ -49,6 +50,7 @@ class DataBase:
                            amount: int,
                            transaction_type: str,
                            charge_date: datetime,
+                           source_file: str,
                            description: str = ""):
         '''
         Insert a new transaction to local DB.
@@ -61,10 +63,10 @@ class DataBase:
 
         self.cursor.execute(f"""
             INSERT INTO Transactions(cardID, transaction_date, business_name,
-                amount, transaction_type, charge_date, description)
-            VALUES(?, ?, ?, ?, ?, ?, ?)
+                amount, transaction_type, charge_date, source_file, description)
+            VALUES(?, ?, ?, ?, ?, ?, ?, ?)
             """, (cardID, transaction_date, business_name, amount,
-                  transaction_type, charge_date, description)
+                  transaction_type, charge_date, source_file, description)
             )
         self.connection.commit()
 

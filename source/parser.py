@@ -5,6 +5,7 @@ import xlwings as xw
 from os import listdir
 from os.path import isfile, join
 from config import local, Messaging, personal, creditFile
+from database import DataBase
 
 
 class Parser:
@@ -26,25 +27,30 @@ class Parser:
         '''
         return self.files
 
-    def parse_credit(self, file_name: str = None):
-        '''
-        The function receives the name of a file in the download Folder.
-        Returns the data table and the date of the file.
-        '''
-        # file_name = self.files[1]
-
+    def __read(self, file_name: str):
         if Messaging.DEBUG:
             print(f'DEBUG: reading file...\n\t{file_name}')
         wb = xw.Book(join(local.XLSX_PATH, file_name))
         sheet = wb.sheets[0]
         if Messaging.SYSTEM:
             print('SYSTEM: WorkBook Loaded succesfuly.')
+        return sheet
 
-        if self.__validate_credit(sheet):
-            print('Credit sheet is valid.')
-        else:
-            print('Credit sheet is INVALID')
+    def parse_credit(self, file_name: str):
+        '''
+        The function receives the name of a file in the download Folder.
+        Returns the data table and the date of the file.
+        '''
+        # file_name = self.files[1]
+
+        sheet = self.__read(file_name)
+        
+        if not self.__accept_file(file_name, sheet):
+            if Messaging.SYSTEM:
+                print(f'SYSTEM: File: {file_name} was not parsed.')
             return False
+        
+        date = sheet['B5'].value
 
         row = 11  # initial row in table
         cc_end = self.cell(sheet, row, 0)  # cc stands for credits card
@@ -63,10 +69,34 @@ class Parser:
         last_row = row - 1
         table = sheet[11:last_row, 0:col_count].value
 
-        date = sheet['B5'].value
         return table, date
 
-    def __validate_credit(self, sheet: xw.Sheet) -> False:
+    def __accept_file(self, file_name: str, sheet: xw.Sheet) -> bool:
+
+        if DataBase.file_name_exists(file_name):
+            if Messaging.SYSTEM:
+                print(f'file: {file_name} - Name already exists.')
+            return False
+
+        date = sheet['B5'].value
+        if DataBase.date_exists(date):
+            if Messaging.SYSTEM:
+                print(f'date: {date} already exists.')
+            return False
+
+        
+        if self.__validate_credit(sheet):
+            print('Credit sheet is valid.')
+        else:
+            print('Credit sheet is INVALID')
+            return False
+
+
+        # check the number of transactions and compare. if smaller than existsing-> reparse
+        # change row date if file was changed.
+        # update the new trans count
+
+    def __validate_credit(self, sheet: xw.Sheet) -> bool:
         '''
         The functions validates the credit file's structure.
         Returns true if the Bank account number and table headers location

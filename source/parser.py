@@ -102,8 +102,7 @@ class Parser:
                                  creditFile.HEADER_ROW + c1 + creditFile.TABLE_SKIP,
                                  c2,
                                  creditFile.COL_COUNT)
-        print(table1)
-        print(table2)
+
         return table1 + table2
 
     def __accept_file(self, file_name: str, sheet: xw.Sheet) -> bool:

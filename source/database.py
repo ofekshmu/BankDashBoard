@@ -70,7 +70,6 @@ class DataBase:
             )
         self.connection.commit()
 
-    @try_catch
     def insert_file(self,
                     name: str,
                     date: datetime,
@@ -81,7 +80,7 @@ class DataBase:
         '''
         last_update = datetime.now()
         self.cursor.execute(f"""
-            INSERT INTO File(Name, Date, Description, Transction_count, Last_update)
+            INSERT INTO File(Name, Date, Description, Transaction_count, Last_update)
             VALUES(?, ?, ?, ?, ?)
             """, (name, date, description, trans_count, last_update)
             )
@@ -108,22 +107,21 @@ class DataBase:
             """, (id, description))
         self.connection.commit()
 
-    @try_catch
-    def update_files(self,
-                     name: str,
-                     date: datetime,
-                     transaction_count: int,
-                     description: str = '-'):
-        last_update = datetime.now()
-        self.cursor.execute(f"""
-            INSERT INTO Files(Name, Date, Description,
-                Transaction_count, Last_update)
-            VALUES(?, ?, ?, ?, ?)
-            """, (name, date, description, transaction_count, last_update)
-            )
+    # @try_catch
+    # def update_files(self,
+    #                  name: str,
+    #                  date: datetime,
+    #                  transaction_count: int,
+    #                  description: str = '-'):
+    #     last_update = datetime.now()
+    #     self.cursor.execute(f"""
+    #         INSERT INTO Files(Name, Date, Description,
+    #             Transaction_count, Last_update)
+    #         VALUES(?, ?, ?, ?, ?)
+    #         """, (name, date, description, transaction_count, last_update)
+    #         )
 
-    @try_catch
-    def file_name_exists(self, file_name):
+    def file_name_exists(self, file_name: str):
         '''
         Returns True if a file with the given name exists.
         False otherwise.
@@ -158,7 +156,7 @@ class DataBase:
                     SELECT Transaction_count
                     FROM File
                     WHERE Name = ?;
-                """, (file_name,)).fetchone()
+                """, (file_name,)).fetchone()[0]
         return res
 
     @try_catch

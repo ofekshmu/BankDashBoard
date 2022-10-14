@@ -1,4 +1,5 @@
 from ast import Str
+from asyncio import constants
 from distutils.debug import DEBUG
 from msilib.schema import Error
 import xlwings as xw
@@ -51,24 +52,31 @@ class Parser:
             if Messaging.SYSTEM:
                 print(f'SYSTEM: File: {file_name} is not Valid.')
             return False
-        #-----------------------------------------------------------
+        else:
+            if Messaging.SYSTEM:
+                print(f'SYSTEM: File: {file_name} is Valid. Starting parse...')
+        # -----------------------------------------------------------
         date_b = False
         name_b = False
         
-        if DataBase.file_name_exists(file_name):
+        if DataBase().file_name_exists(file_name):
             name_b = True
             if Messaging.SYSTEM:
                 print(f'SYSTEM: {file_name} - Name already exists.')
 
         date = sheet[creditFile.DATE].value
-        if DataBase.date_exists(date):
+        if DataBase().date_exists(date):
             date_b = True
             if Messaging.SYSTEM:
                 print(f'SYSTEM: {date} already exists.')
 
         c1, c2 = self.__count_transactions(sheet)
+        if Messaging.DEBUG:
+            print(f'c1: {c1} , c2: {c2}')
         if date_b and name_b:
-            count_existing = DataBase.transaction_count(file_name)
+            count_existing = DataBase().transaction_count(file_name)
+            if Messaging.DEBUG:
+                print(f'count_existing: {count_existing}')
             if count_existing == c1 + c2:
                 if Messaging.SYSTEM:
                     print(f'SYSTEM: Skipping File...')
@@ -80,19 +88,22 @@ class Parser:
             if Messaging.SYSTEM:
                 print(f'SYSTEM: date is {date_b} | name is {name_b}')
                 print(f'SYSTEM: adding {file_name} to db.')
-                DataBase.insert_file(file_name,
-                                     date,
-                                     description="Nothing",
-                                     trans_count=c1 + c2)
+                DataBase().insert_file(file_name,
+                                       date,
+                                       description="Nothing",
+                                       trans_count=c1 + c2)
 
         # -----------------------------------------------------------
-        table1 = self.crop_table(creditFile.HEADER_ROW + 1,
+        table1 = self.crop_table(sheet,
+                                 creditFile.HEADER_ROW,
                                  c1,
                                  creditFile.COL_COUNT)
-        table2 = self.crop_table(creditFile.HEADER_ROW + 1 + c1 + creditFile.TABLE_SKIP,
+        table2 = self.crop_table(sheet,
+                                 creditFile.HEADER_ROW + c1 + creditFile.TABLE_SKIP,
                                  c2,
                                  creditFile.COL_COUNT)
-
+        print(table1)
+        print(table2)
         return table1 + table2
 
     def __accept_file(self, file_name: str, sheet: xw.Sheet) -> bool:
@@ -123,11 +134,18 @@ class Parser:
         counter1 = 0
         row = creditFile.HEADER_ROW + 1
         cc_end = self.cell(sheet, row, 0)
-
+        if Messaging.DEBUG:
+            print(f'DEBUG: In function "__count_transactions":')
+            print(f'DEBUG: cc_end = {cc_end}')
+            print(f'DEBUG: cc_end type: {type(cc_end)}')
         while cc_end.isdigit() and len(cc_end) == 4:
             counter1 += 1
             row += 1
             cc_end = self.cell(sheet, row, 0)
+            if Messaging.DEBUG:
+                print(f'DEBUG: cc_end = {cc_end}, counter = {counter1}, row = {row}')
+            if cc_end is None:
+                break
 
         counter2 = 0
         row += creditFile.TABLE_SKIP
@@ -136,14 +154,19 @@ class Parser:
             counter2 += 1
             row += 1
             cc_end = self.cell(sheet, row, 0)
+            if Messaging.DEBUG:
+                print(f'DEBUG: cc_end = {cc_end}, counter = {counter1}, row = {row}')
+            if cc_end is None:
+                break
 
         return counter1, counter2
 
-    def crop_table(sheet: xw.Sheet, initial_row, row_count, col_count):
+    def crop_table(self, sheet: xw.Sheet, initial_row, row_count, col_count):
         '''
         returns an array of values according to the inserted demensions.
         '''
-        return sheet[initial_row: initial_row + row_count, 0: col_count].value
+        table = sheet[initial_row: initial_row + row_count, 0: col_count].value
+        return [table] if row_count == 1 else table
 
     def __validate_headers(self, sheet: xw.Sheet) -> bool:
         '''

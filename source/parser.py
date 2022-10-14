@@ -2,25 +2,26 @@ from ast import Str
 from asyncio import constants
 from distutils.debug import DEBUG
 from msilib.schema import Error
+from unicodedata import category
 import xlwings as xw
 from os import listdir
 from os.path import isfile, join
 from config import local, Messaging, personal, creditFile
 from database import DataBase
+from source.config import log
 
 
 class Parser:
 
     def __init__(self):
-        mypath = local.XLSX_PATH
 
+        self.sheet = None
         self.files = []
         for f in listdir(local.XLSX_PATH):
             if isfile(join(local.XLSX_PATH, f)) and f.endswith(local.EXTENSION):
                 self.files.append(f)
 
-        if Messaging.SYSTEM:
-            print(f'SYSTEM: found {len(self.files)} files in {local.XLSX_PATH} ending with {local.EXTENSION}.')
+        log(f'SYSTEM: found {len(self.files)} files in {local.XLSX_PATH} ending with {local.EXTENSION}.', category='system')
 
     def get_files(self) -> list[str]:
         '''
@@ -37,6 +38,36 @@ class Parser:
             print('SYSTEM: WorkBook Loaded succesfuly.')
         return sheet
 
+    def read(self, file_name: str):
+        try:
+            log(f'Reading {file_name}...', category='system')
+            wb = xw.Book(join(local.XLSX_PATH, file_name))
+            self.sheet = wb.sheets[0]
+            log(f'WorkBook Loaded succesfuly.', category='system')
+            return True
+        except Exception as e:
+            log(e, category='debug')
+            log(f'Failed reading file: {file_name}', category='error')
+            return False
+
+    def validate(self):
+        if self.sheet is None:
+            log(f'No sheet loaded: self.sheet is None', category='error')
+            return False
+        else:
+            s = self.sheet
+            if s[creditFile.BANK_ACC].value != personal.BANK_ACC:
+                log(f'Bank Account number does not match!', category='system')
+                return False
+            log('Bank account number match.', category='system')
+
+            if not self.__validate_headers():
+                log('Credit sheet is INVALID', category='system')
+                return False
+            log('Credit sheet is valid.', category='system')
+
+            return True
+
     def parse_credit(self, file_name: str):
         '''
         The function receives the name of a file in the download Folder.
@@ -49,30 +80,25 @@ class Parser:
         # TODO identify type of File
 
         if not self.__accept_file(file_name, sheet):
-            if Messaging.SYSTEM:
-                print(f'SYSTEM: File: {file_name} is not Valid.')
+            log(f'SYSTEM: File: {file_name} is not Valid.', category='system')
             return False
         else:
-            if Messaging.SYSTEM:
-                print(f'SYSTEM: File: {file_name} is Valid. Starting parse...')
+            log(f'SYSTEM: File: {file_name} is Valid. Starting parse...', category='system')
         # -----------------------------------------------------------
         date_b = False
         name_b = False
         
         if DataBase().file_name_exists(file_name):
             name_b = True
-            if Messaging.SYSTEM:
-                print(f'SYSTEM: {file_name} - Name already exists.')
+            log(f'SYSTEM: {file_name} - Name already exists.', category='system')
 
         date = sheet[creditFile.DATE].value
         if DataBase().date_exists(date):
             date_b = True
-            if Messaging.SYSTEM:
-                print(f'SYSTEM: {date} already exists.')
+            log(f'SYSTEM: {date} already exists.',category='system')
 
         c1, c2 = self.__count_transactions(sheet)
-        if Messaging.DEBUG:
-            print(f'c1: {c1} , c2: {c2}')
+        log(f'c1: {c1} , c2: {c2}', category='debug')
         if date_b and name_b:
             count_existing = DataBase().transaction_count(file_name)
             if Messaging.DEBUG:
@@ -121,10 +147,6 @@ class Parser:
             return False
 
         return True
-        
-        # check the number of transactions and compare. if smaller than existsing-> reparse
-        # change row date if file was changed.
-        # update the new trans count
 
     def __count_transactions(self, sheet: xw.Sheet):
         '''
@@ -167,7 +189,7 @@ class Parser:
         table = sheet[initial_row: initial_row + row_count, 0: col_count].value
         return [table] if row_count == 1 else table
 
-    def __validate_headers(self, sheet: xw.Sheet) -> bool:
+    def __validate_headers(self) -> bool:
         '''
         The functions validates the credit file's structure.
         Returns true if the Bank account number and table headers location
@@ -183,10 +205,10 @@ class Parser:
         for i in range(0, len(creditFile.HEADERS)):
             col = 65 + i  # 65 is for 'A' in ascii
             row = 10
-            if not sheet[f'{chr(col)}{row}'].value == creditFile.HEADERS[i]:
+            if not self.sheet[f'{chr(col)}{row}'].value == creditFile.HEADERS[i]:
                 if Messaging.SYSTEM:
                     print(f'SYSTEM: cell {chr(col)}{row} does not match the expected {creditFile.HEADERS[i]}.\
-                            got {sheet[f"{chr(col)}{row}"].value} instead.')
+                            got {self.sheet[f"{chr(col)}{row}"].value} instead.')
                     return False
         return True
 

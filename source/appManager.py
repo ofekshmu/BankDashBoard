@@ -16,11 +16,12 @@ class appManager:
 
         files = self.parser.get_files()
         for f in files:
-            if not self.parser.validate(f):
-                print(f'file {f} is INVALID.')
+            if not self.parser.read(f):
+                continue
+            if not self.parser.validate():
                 continue
             
-            meta_data = self.parse.get_meta(f)
+            date, trans_count = self.parse.get_metadata(f)
 
             res = self.__check_file_status(meta_data)
 

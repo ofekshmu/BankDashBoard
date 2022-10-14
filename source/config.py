@@ -1,6 +1,16 @@
 import json
 
 
+def log(msg: str, category: str):
+    match category:
+        case 'debug':
+            print(f'\n{"-"*30}\n[DEBUG]: {msg}\n{"-"*30}\n')
+        case 'system':
+            print(f'-> [SYSTEM]: {msg}')
+        case other:
+            raise ValueError('Insert either system/debug')
+
+
 class local:
     '''
     Include all local enviroment related valriables

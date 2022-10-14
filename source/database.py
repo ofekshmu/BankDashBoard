@@ -19,7 +19,7 @@ class DataBase:
             );""")
 
         self.cursor.execute("""
-            CREATE TABLE IF NOT EXISTS Files (
+            CREATE TABLE IF NOT EXISTS File (
             Name                CHAR        NOT NULL PRIMARY KEY,
             Date                DATE        NOT NULL,
             Description         CHAR                ,
@@ -104,6 +104,45 @@ class DataBase:
             VALUES(?, ?, ?, ?, ?)
             """, (name, date, description, transaction_count, last_update)
             )
+
+    @try_catch
+    def file_name_exists(self, file_name):
+        '''
+        Returns True if a file with the given name exists.
+        False otherwise.
+        '''
+        ans = self.cursor.execute("""
+                    SELECT 1
+                    FROM File
+                    WHERE Name = ?;
+                """, (file_name,)).fetchone()
+        return False if ans is None else True
+
+    @try_catch
+    def date_exists(self, date: datetime):
+        '''
+        Returns True if a file with the given date exists.
+        False otherwise.
+        '''
+        ans = self.cursor.execute("""
+                    SELECT 1
+                    FROM File
+                    WHERE Date = ?;
+                """, (date,)).fetchone()
+        return False if ans is None else True
+
+    @try_catch
+    def transaction_count(self, file_name):
+        '''
+        Returns True if a file with the given date exists.
+        False otherwise.
+        '''
+        res = self.cursor.execute("""
+                    SELECT Transaction_count
+                    FROM File
+                    WHERE Name = ?;
+                """, (file_name,)).fetchone()
+        return res
 
     @try_catch
     def close(self):

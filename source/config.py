@@ -34,3 +34,9 @@ class creditFile:
                "סוג העסקה",
                "פרטים",
                "תאריך החיוב"]
+    
+    COL_COUNT = len(HEADERS)
+    DATE =          'B5'
+    BANK_ACC =      'B3'
+    HEADER_ROW =  10
+    TABLE_SKIP =     3               # 3 rows different between data sections

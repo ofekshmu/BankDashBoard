@@ -71,6 +71,23 @@ class DataBase:
         self.connection.commit()
 
     @try_catch
+    def insert_file(self,
+                    name: str,
+                    date: datetime,
+                    description: str,
+                    trans_count: int):
+        '''
+        Insert a new file to local DB.
+        '''
+        last_update = datetime.now()
+        self.cursor.execute(f"""
+            INSERT INTO File(Name, Date, Description, Transction_count, Last_update)
+            VALUES(?, ?, ?, ?, ?)
+            """, (name, date, description, trans_count, last_update)
+            )
+        self.connection.commit()
+
+    @try_catch
     def is_card_exists(self, cardID: str) -> bool:
         ans = self.cursor.execute("""
                     SELECT 1
@@ -90,7 +107,7 @@ class DataBase:
             INSERT INTO Card VALUES(?, ?)
             """, (id, description))
         self.connection.commit()
-    
+
     @try_catch
     def update_files(self,
                      name: str,

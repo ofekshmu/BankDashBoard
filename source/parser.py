@@ -46,14 +46,46 @@ class Parser:
         sheet = self.__read(file_name)
 
         # TODO identify type of File
-        
+
         if not self.__accept_file(file_name, sheet):
             if Messaging.SYSTEM:
-                print(f'SYSTEM: File: {file_name} was not parsed.')
+                print(f'SYSTEM: File: {file_name} is not Valid.')
             return False
+        #-----------------------------------------------------------
+        date_b = False
+        name_b = False
         
-        c1, c2 = self.__count_transactions(sheet)
+        if DataBase.file_name_exists(file_name):
+            name_b = True
+            if Messaging.SYSTEM:
+                print(f'SYSTEM: {file_name} - Name already exists.')
 
+        date = sheet[creditFile.DATE].value
+        if DataBase.date_exists(date):
+            date_b = True
+            if Messaging.SYSTEM:
+                print(f'SYSTEM: {date} already exists.')
+
+        c1, c2 = self.__count_transactions(sheet)
+        if date_b and name_b:
+            count_existing = DataBase.transaction_count(file_name)
+            if count_existing == c1 + c2:
+                if Messaging.SYSTEM:
+                    print(f'SYSTEM: Skipping File...')
+            elif count_existing < c1 + c2:
+                if Messaging.SYSTEM:
+                    print(f'SYSTEM: Updating file...')
+                    print(f"\n{'-'*30}\nSYSTEM: TODO THIS...\n{'-'*30}\n")
+        else:
+            if Messaging.SYSTEM:
+                print(f'SYSTEM: date is {date_b} | name is {name_b}')
+                print(f'SYSTEM: adding {file_name} to db.')
+                DataBase.insert_file(file_name,
+                                     date,
+                                     description="Nothing",
+                                     trans_count=c1 + c2)
+
+        # -----------------------------------------------------------
         table1 = self.crop_table(creditFile.HEADER_ROW + 1,
                                  c1,
                                  creditFile.COL_COUNT)
@@ -78,23 +110,8 @@ class Parser:
             print('Credit sheet is INVALID')
             return False
 
-        if DataBase.file_name_exists(file_name):
-            if Messaging.SYSTEM:
-                print(f'file: {file_name} - Name already exists.')
-
-        date = sheet['B5'].value
-        if DataBase.date_exists(date):
-            if Messaging.SYSTEM:
-                print(f'date: {date} already exists.')
-
-
-        count = self.__count_transactions(sheet)
-        if count == DataBase.transaction_count(file_name):
-            pass
-            # TODO decide what happens
-        
         return True
-
+        
         # check the number of transactions and compare. if smaller than existsing-> reparse
         # change row date if file was changed.
         # update the new trans count

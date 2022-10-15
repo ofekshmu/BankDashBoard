@@ -1,19 +1,16 @@
-from ast import Str
-from asyncio import constants
-from distutils.debug import DEBUG
 from msilib.schema import Error
-from unicodedata import category
 import xlwings as xw
 from os import listdir
 from os.path import isfile, join
-from config import local, Messaging, personal, creditFile, log
-from database import DataBase
+from decorators import File
+from config import local, Messaging, personal, creditFile, MonthlyFile, VisaFile, log
 
 
 class Parser:
 
     def __init__(self):
-
+        
+        self.type = File.INVALID
         self.sheet = None
         self.files = []
         for f in listdir(local.XLSX_PATH):
@@ -49,29 +46,43 @@ class Parser:
             log(f'Failed reading file: {file_name}', category='error')
             return False
 
-    def validate(self) -> bool:
+    def __validate(self, bank_acc_cell: str, header_row_index: int, headers: list[str]) -> bool:
         '''
         The function validates the file's validity by comparing known data
         to the variables in the config file.
         Table header names and bank account number is checked and returns
         True if both are valid, False otherwise.
         '''
+        s = self.sheet
+        if s[bank_acc_cell].value != personal.BANK_ACC:
+            log(f'Bank Account number does not match!', category='system')
+            return False
+
+        if not self.__validate_headers(header_row_index, headers):
+            log('Credit sheet is INVALID', category='system')
+            return False
+
+        return True
+
+    def identify_and_validate(self):
+        '''
+
+        '''
         if self.sheet is None:
             log(f'No sheet loaded: self.sheet is None', category='error')
-            return False
+            raise Error(f'self.sheet is None, Please read a sheet file first...')
         else:
-            s = self.sheet
-            if s[creditFile.BANK_ACC].value != personal.BANK_ACC:
-                log(f'Bank Account number does not match!', category='system')
-                return False
-            log('Bank account number match.', category='system')
-
-            if not self.__validate_headers():
-                log('Credit sheet is INVALID', category='system')
-                return False
-            log('Credit sheet is valid.', category='system')
-
-            return True
+            if self.__validate(creditFile.BANK_ACC, creditFile.HEADER_ROW, creditFile.HEADERS):
+                log(f'File is of type "credit".', category='system')
+                return File.credit
+            elif self.__validate(MonthlyFile.BANK_ACC, MonthlyFile.HEADER_ROW, MonthlyFile.HEADERS):
+                log(f'File is of type "monthly".', category='system')
+                return File.montly
+            elif self.__validate(VisaFile.BANK_ACC, VisaFile.HEADER_ROW, VisaFile.HEADERS):
+                log(f'File is of type "visa".', category='system')
+                return File.visa
+            else:
+                return File.INVALID
 
     def get_metadata(self):
         '''
@@ -79,7 +90,7 @@ class Parser:
         '''
         if self.sheet is None:
             log(f'No sheet loaded: self.sheet is None', category='error')
-            return False
+            raise Error(f'self.sheet is None, Please read a sheet file first...')
         else:
             date = self.sheet[creditFile.DATE].value
             c1, c2 = self.__count_transactions(self.sheet)
@@ -149,15 +160,15 @@ class Parser:
         table = self.sheet[initial_row: initial_row + row_count, 0: col_count].value
         return [table] if row_count == 1 else table
 
-    def __validate_headers(self) -> bool:
+    def __validate_headers(self, header_row_index: int, headers: list) -> bool:
         '''
         The functions validates the credit file's structure.
         Returns true if the Bank account number and table headers location
         and value match, False otherwise
         '''
         col = 0
-        row = creditFile.HEADER_ROW
-        for name in creditFile.HEADERS:
+        row = header_row_index
+        for name in headers:
             log(f'row = {row}, col = {col}, name = {name[::-1]}', category='debug')
             if not self.cell(row, col) == name:
                 log(f'cell [{row},{col}] does not match the expected {name[::-1]}.\

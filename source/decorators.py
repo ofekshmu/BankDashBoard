@@ -27,3 +27,10 @@ class Status(Enum):
     exists = 1
     new = 2
     update = 3
+
+
+class File(Enum):
+    credit = 1
+    montly = 2
+    visa = 3
+    INVALID = 4

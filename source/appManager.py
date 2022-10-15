@@ -1,7 +1,7 @@
 from database import DataBase
 from parser import Parser
 from config import log
-from decorators import Status
+from decorators import Status, File
 
 
 class appManager:
@@ -20,8 +20,10 @@ class appManager:
         for f in files:
             if not self.parser.read(f):
                 continue
-            if not self.parser.validate():
-                continue
+            file_type = self.parser.identify_and_validate()
+            if file_type == File.INVALID:
+                log(f'The file {f} is INVALID.', category='error')
+                break
 
             date, c1, c2 = self.parser.get_metadata()
 

@@ -25,7 +25,7 @@ class appManager:
 
             date, c1, c2 = self.parser.get_metadata()
 
-            res = self.__check_file_status(date, c1, c2, f)
+            res = self.check_file_status(date, c1, c2, f)
 
             match res:
                 case Status.new:
@@ -45,11 +45,11 @@ class appManager:
 
         self.db.close()
 
-    def __check_file_status(self, date, c1, c2, file_name: str):
+    def check_file_status(self, date, c1, c2, file_name: str):
         log(f'c1: {c1} , c2: {c2}', category='debug')
         date_b = False
         name_b = False
-        
+
         if DataBase().file_name_exists(file_name):
             name_b = True
             log(f'SYSTEM: {file_name} - Name already exists.', category='system')

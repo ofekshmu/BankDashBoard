@@ -54,3 +54,35 @@ class creditFile:
     BANK_ACC =      'B3'
     HEADER_ROW =  10
     TABLE_SKIP =     3               # 3 rows different between data sections
+
+
+class MonthlyFile:
+    HEADERS = ['כרטיס',
+               'סכום',
+               'תאריך חיוב']
+    COL_COUNT = len(HEADERS)
+    DATE =          'B3'
+    BANK_ACC =      'B2'
+    HEADER_ROW =    9
+    TABLE_SKIP =     3
+
+
+class VisaFile:
+    HEADERS = ['תאריך',
+               'תאריך ערך',
+               'תיאור',
+               'אסמכתא',
+               'בחובה',
+               'בזכות',
+               'היתרה בש"ח',
+               'תאור מורחב',
+               'הערה']
+
+    COL_COUNT = len(HEADERS)
+    HEADER_ROW =  12
+    BANK_ACC = 'A2'
+    BANK_ACC_VAL = ''
+    DATE =     'A3'
+    DATE_VAL = ''
+    
+    

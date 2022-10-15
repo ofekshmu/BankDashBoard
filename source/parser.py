@@ -6,9 +6,8 @@ from unicodedata import category
 import xlwings as xw
 from os import listdir
 from os.path import isfile, join
-from config import local, Messaging, personal, creditFile
+from config import local, Messaging, personal, creditFile, log
 from database import DataBase
-from source.config import log
 
 
 class Parser:
@@ -21,7 +20,7 @@ class Parser:
             if isfile(join(local.XLSX_PATH, f)) and f.endswith(local.EXTENSION):
                 self.files.append(f)
 
-        log(f'SYSTEM: found {len(self.files)} files in {local.XLSX_PATH} ending with {local.EXTENSION}.', category='system')
+        log(f'found {len(self.files)} files in {local.XLSX_PATH} ending with {local.EXTENSION}.', category='system')
 
     def get_files(self) -> list[str]:
         '''
@@ -29,16 +28,16 @@ class Parser:
         '''
         return self.files
 
-    def __read(self, file_name: str):
-        if Messaging.DEBUG:
-            print(f'DEBUG: reading file...\n\t{file_name}')
-        wb = xw.Book(join(local.XLSX_PATH, file_name))
-        sheet = wb.sheets[0]
-        if Messaging.SYSTEM:
-            print('SYSTEM: WorkBook Loaded succesfuly.')
-        return sheet
+    def read(self, file_name: str) -> bool:
+        '''
+        Read a work book and store an active sheet in the self.sheet.
+        File is read from local.XLSX_PATH, and true is returned upon succesful read,
+        False otherwise.
 
-    def read(self, file_name: str):
+        Parameters
+        ----------
+        file_name: a string indicating the name of the file
+        '''
         try:
             log(f'Reading {file_name}...', category='system')
             wb = xw.Book(join(local.XLSX_PATH, file_name))
@@ -50,7 +49,13 @@ class Parser:
             log(f'Failed reading file: {file_name}', category='error')
             return False
 
-    def validate(self):
+    def validate(self) -> bool:
+        '''
+        The function validates the file's validity by comparing known data
+        to the variables in the config file.
+        Table header names and bank account number is checked and returns
+        True if both are valid, False otherwise.
+        '''
         if self.sheet is None:
             log(f'No sheet loaded: self.sheet is None', category='error')
             return False
@@ -68,93 +73,42 @@ class Parser:
 
             return True
 
-    def parse_credit(self, file_name: str):
+    def get_metadata(self):
         '''
-        The function receives the name of a file in the download Folder.
-        Returns the data table and the date of the file.
+        Returns the date and the total transactions of the current file read.
         '''
-        # file_name = self.files[1]
-
-        sheet = self.__read(file_name)
-
-        # TODO identify type of File
-
-        if not self.__accept_file(file_name, sheet):
-            log(f'SYSTEM: File: {file_name} is not Valid.', category='system')
+        if self.sheet is None:
+            log(f'No sheet loaded: self.sheet is None', category='error')
             return False
         else:
-            log(f'SYSTEM: File: {file_name} is Valid. Starting parse...', category='system')
-        # -----------------------------------------------------------
-        date_b = False
-        name_b = False
-        
-        if DataBase().file_name_exists(file_name):
-            name_b = True
-            log(f'SYSTEM: {file_name} - Name already exists.', category='system')
+            date = self.sheet[creditFile.DATE].value
+            c1, c2 = self.__count_transactions(self.sheet)
+            return date, c1, c2
 
-        date = sheet[creditFile.DATE].value
-        if DataBase().date_exists(date):
-            date_b = True
-            log(f'SYSTEM: {date} already exists.',category='system')
-
-        c1, c2 = self.__count_transactions(sheet)
-        log(f'c1: {c1} , c2: {c2}', category='debug')
-        if date_b and name_b:
-            count_existing = DataBase().transaction_count(file_name)
-            if Messaging.DEBUG:
-                print(f'count_existing: {count_existing}')
-            if count_existing == c1 + c2:
-                if Messaging.SYSTEM:
-                    print(f'SYSTEM: Skipping File...')
-            elif count_existing < c1 + c2:
-                if Messaging.SYSTEM:
-                    print(f'SYSTEM: Updating file...')
-                    print(f"\n{'-'*30}\nSYSTEM: TODO THIS...\n{'-'*30}\n")
-        else:
-            if Messaging.SYSTEM:
-                print(f'SYSTEM: date is {date_b} | name is {name_b}')
-                print(f'SYSTEM: adding {file_name} to db.')
-                DataBase().insert_file(file_name,
-                                       date,
-                                       description="Nothing",
-                                       trans_count=c1 + c2)
-
-        # -----------------------------------------------------------
-        table1 = self.crop_table(sheet,
-                                 creditFile.HEADER_ROW,
+    def get_transactions(self):
+        '''
+        The function returns all the transactions in the active file.
+        Transactions are returned as a List of Lists.
+        '''
+        c1, c2 = self.__count_transactions(self.sheet)
+        table1 = self.crop_table(creditFile.HEADER_ROW,
                                  c1,
                                  creditFile.COL_COUNT)
-        table2 = self.crop_table(sheet,
-                                 creditFile.HEADER_ROW + c1 + creditFile.TABLE_SKIP,
+        table2 = self.crop_table(creditFile.HEADER_ROW + c1 + creditFile.TABLE_SKIP,
                                  c2,
                                  creditFile.COL_COUNT)
 
         return table1 + table2
 
-    def __accept_file(self, file_name: str, sheet: xw.Sheet) -> bool:
-
-        if sheet['B3'].value != personal.BANK_ACC:
-            if Messaging.SYSTEM:
-                print(f'SYSTEM: Bank Account number does not match!')
-            return False
-        if Messaging.SYSTEM:
-            print('SYSTEM: Bank account number match.')
-        
-        if self.__validate_headers(sheet):
-            print('Credit sheet is valid.')
-        else:
-            print('Credit sheet is INVALID')
-            return False
-
-        return True
-
     def __count_transactions(self, sheet: xw.Sheet):
         '''
         Count the number of transaction.
+        The function Takes into account 2 different charts by using the
+        'skip' constant indicating the number of empty rows between charts.
         '''
         counter1 = 0
         row = creditFile.HEADER_ROW + 1
-        cc_end = self.cell(sheet, row, 0)
+        cc_end = self.cell(row, 0)
         if Messaging.DEBUG:
             print(f'DEBUG: In function "__count_transactions":')
             print(f'DEBUG: cc_end = {cc_end}')
@@ -162,7 +116,7 @@ class Parser:
         while cc_end.isdigit() and len(cc_end) == 4:
             counter1 += 1
             row += 1
-            cc_end = self.cell(sheet, row, 0)
+            cc_end = self.cell(row, 0)
             if Messaging.DEBUG:
                 print(f'DEBUG: cc_end = {cc_end}, counter = {counter1}, row = {row}')
             if cc_end is None:
@@ -170,11 +124,11 @@ class Parser:
 
         counter2 = 0
         row += creditFile.TABLE_SKIP
-        cc_end = self.cell(sheet, row, 0)
+        cc_end = self.cell(row, 0)
         while cc_end.isdigit() and len(cc_end) == 4:
             counter2 += 1
             row += 1
-            cc_end = self.cell(sheet, row, 0)
+            cc_end = self.cell(row, 0)
             if Messaging.DEBUG:
                 print(f'DEBUG: cc_end = {cc_end}, counter = {counter1}, row = {row}')
             if cc_end is None:
@@ -182,11 +136,17 @@ class Parser:
 
         return counter1, counter2
 
-    def crop_table(self, sheet: xw.Sheet, initial_row, row_count, col_count):
+    def crop_table(self, initial_row, row_count, col_count):
         '''
         returns an array of values according to the inserted demensions.
+        
+        Parameters
+        ----------
+        initial_row: The index of the row with the header names
+        row_count: The number of total rows with data (transactions)
+        col_count: The number of columns in the table
         '''
-        table = sheet[initial_row: initial_row + row_count, 0: col_count].value
+        table = self.sheet[initial_row: initial_row + row_count, 0: col_count].value
         return [table] if row_count == 1 else table
 
     def __validate_headers(self) -> bool:
@@ -194,30 +154,24 @@ class Parser:
         The functions validates the credit file's structure.
         Returns true if the Bank account number and table headers location
         and value match, False otherwise
-
-        Parameters:
-        -----------
-        sheet: xw.Sheet
-            The sheet to validate.
         '''
-
-        # Validating headers
-        for i in range(0, len(creditFile.HEADERS)):
-            col = 65 + i  # 65 is for 'A' in ascii
-            row = 10
-            if not self.sheet[f'{chr(col)}{row}'].value == creditFile.HEADERS[i]:
-                if Messaging.SYSTEM:
-                    print(f'SYSTEM: cell {chr(col)}{row} does not match the expected {creditFile.HEADERS[i]}.\
-                            got {self.sheet[f"{chr(col)}{row}"].value} instead.')
-                    return False
+        col = 0
+        row = creditFile.HEADER_ROW
+        for name in creditFile.HEADERS:
+            log(f'row = {row}, col = {col}, name = {name[::-1]}', category='debug')
+            if not self.cell(row, col) == name:
+                log(f'cell [{row},{col}] does not match the expected {name[::-1]}.\
+                            got {self.cell(row, col)[::-1]} instead.', category='error')
+                return False
+            col += 1
         return True
 
-    def cell(self, sheet: xw.Sheet, row: int, col: int) -> str:
+    def cell(self, row: int, col: int) -> str:
         '''
         Returns the value of the cell with indexes [row, col]
         '''
         if row >= 0 and col >= 0:
-            return sheet[f'{chr(65 + col)}{row}'].value
+            return self.sheet[f'{chr(65 + col)}{row}'].value
         else:
             raise Error("Invalid indexes.")
 

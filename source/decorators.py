@@ -1,3 +1,7 @@
+from enum import Enum
+
+
+
 def try_catch(function):
     '''
     This decorator add a try-except wrapper to the appointed function.
@@ -17,3 +21,9 @@ def try_catch(function):
             return False
 
     return wrapper
+
+
+class Status(Enum):
+    exists = 1
+    new = 2
+    update = 3

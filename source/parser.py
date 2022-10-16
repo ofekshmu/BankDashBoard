@@ -72,17 +72,22 @@ class Parser:
             log(f'No sheet loaded: self.sheet is None', category='error')
             raise Error(f'self.sheet is None, Please read a sheet file first...')
         else:
+            log("Checking if the file is of type 'credit'...", category='debug')
             if self.__validate(creditFile.BANK_ACC, creditFile.HEADER_ROW, creditFile.HEADERS):
                 log(f'File is of type "credit".', category='system')
+                self.type = File.credit
                 return File.credit
-            elif self.__validate(MonthlyFile.BANK_ACC, MonthlyFile.HEADER_ROW, MonthlyFile.HEADERS):
+            log("Checking if the file is of type 'monthly'...", category='debug')
+            if self.__validate(MonthlyFile.BANK_ACC, MonthlyFile.HEADER_ROW, MonthlyFile.HEADERS):
                 log(f'File is of type "monthly".', category='system')
+                self.type = File.montly
                 return File.montly
-            elif self.__validate(VisaFile.BANK_ACC, VisaFile.HEADER_ROW, VisaFile.HEADERS):
+            log("Checking if the file is of type 'Visa'...", category='debug')
+            if self.__validate(VisaFile.BANK_ACC, VisaFile.HEADER_ROW, VisaFile.HEADERS):
                 log(f'File is of type "visa".', category='system')
+                self.type = File.visa
                 return File.visa
-            else:
-                return File.INVALID
+            return File.INVALID
 
     def get_metadata(self):
         '''
@@ -92,7 +97,16 @@ class Parser:
             log(f'No sheet loaded: self.sheet is None', category='error')
             raise Error(f'self.sheet is None, Please read a sheet file first...')
         else:
-            date = self.sheet[creditFile.DATE].value
+            match self.type:
+                case File.credit:
+                    cell = creditFile.DATE
+                case File.visa:
+                    cell = VisaFile.DATE
+                case File.montly:
+                    cell = MonthlyFile.DATE
+                case other:
+                    log(f"In Parser: field 'type' contains {self.type}.", category='error')
+            date = self.sheet[cell].value
             c1, c2 = self.__count_transactions(self.sheet)
             return date, c1, c2
 

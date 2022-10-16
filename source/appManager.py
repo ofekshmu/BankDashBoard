@@ -48,7 +48,7 @@ class appManager:
         self.db.close()
 
     def check_file_status(self, date, c1, c2, file_name: str):
-        log(f'c1: {c1} , c2: {c2}', category='debug')
+        log(f'c1= {c1}, c2= {c2}, date= {date}', category='debug')
         date_b = False
         name_b = False
 

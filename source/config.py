@@ -33,7 +33,7 @@ class personal:
 
 
 class Messaging:
-    DEBUG = False
+    DEBUG = True
     SYSTEM = True
 
 
@@ -58,8 +58,8 @@ class creditFile:
 
 class MonthlyFile:
     HEADERS = ['כרטיס',
-               'סכום',
-               'תאריך חיוב']
+               'סכום החיוב',
+               'תאריך החיוב']
     COL_COUNT = len(HEADERS)
     DATE =          'B3'
     BANK_ACC =      'B2'

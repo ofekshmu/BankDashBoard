@@ -1,3 +1,4 @@
+import re
 from msilib.schema import Error
 import xlwings as xw
 from os import listdir
@@ -100,65 +101,80 @@ class Parser:
             match self.type:
                 case File.credit:
                     cell = creditFile.DATE
+                    c1, c2 = self.__count_transactions(creditFile.HEADER_ROW, creditFile.TABLE_SKIP)
                 case File.visa:
                     cell = VisaFile.DATE
+                    c1, c2 = self.__count_transactions(VisaFile.HEADER_ROW)
                 case File.montly:
                     cell = MonthlyFile.DATE
+                    c1, c2 = self.__count_transactions(MonthlyFile.HEADER_ROW)
                 case other:
                     log(f"In Parser: field 'type' contains {self.type}.", category='error')
             date = self.sheet[cell].value
-            c1, c2 = self.__count_transactions(self.sheet)
             return date, c1, c2
 
-    def get_transactions(self):
+    def get_transactions(self, c1: int, c2: int):
         '''
         The function returns all the transactions in the active file.
         Transactions are returned as a List of Lists.
         '''
-        c1, c2 = self.__count_transactions(self.sheet)
-        table1 = self.crop_table(creditFile.HEADER_ROW,
+        match self.type:
+            case File.credit:
+                a, b, c = creditFile.HEADER_ROW, creditFile.COL_COUNT, creditFile.TABLE_SKIP
+            case File.visa:
+                a, b, c = VisaFile.HEADER_ROW, VisaFile.COL_COUNT, VisaFile.TABLE_SKIP
+
+            case File.montly:
+                a, b, c = MonthlyFile.HEADER_ROW, MonthlyFile.COL_COUNT, MonthlyFile.TABLE_SKIP
+
+            case other:
+                log(f"In Parser: field 'type' contains {self.type}.", category='error')
+
+        table1 = self.crop_table(a,
                                  c1,
-                                 creditFile.COL_COUNT)
-        table2 = self.crop_table(creditFile.HEADER_ROW + c1 + creditFile.TABLE_SKIP,
+                                 b)
+        table2 = self.crop_table(a + c1 + c,
                                  c2,
-                                 creditFile.COL_COUNT)
+                                 b)
 
         return table1 + table2
 
-    def __count_transactions(self, sheet: xw.Sheet):
+    def __count_transactions(self, initial_header_row: int, skip: int = 0):
         '''
         Count the number of transaction.
         The function Takes into account 2 different charts by using the
         'skip' constant indicating the number of empty rows between charts.
         '''
         counter1 = 0
-        row = creditFile.HEADER_ROW + 1
+        row = initial_header_row + 1
         cc_end = self.cell(row, 0)
-        if Messaging.DEBUG:
-            print(f'DEBUG: In function "__count_transactions":')
-            print(f'DEBUG: cc_end = {cc_end}')
-            print(f'DEBUG: cc_end type: {type(cc_end)}')
+        cc_end = self.reduce_char(cc_end)
+        log(f"""
+                In function "__count_transactions"
+                cc_end = {cc_end}, cc_end type: {type(cc_end)}')
+            """, category='debug')
         while cc_end.isdigit() and len(cc_end) == 4:
             counter1 += 1
             row += 1
             cc_end = self.cell(row, 0)
-            if Messaging.DEBUG:
-                print(f'DEBUG: cc_end = {cc_end}, counter = {counter1}, row = {row}')
+            cc_end = self.reduce_char(cc_end)
             if cc_end is None:
                 break
+        log(f'First Loop End stats: cc_end={cc_end}, counter1={counter1}, row={row}', category='debug')
 
         counter2 = 0
-        row += creditFile.TABLE_SKIP
+        row += skip
         cc_end = self.cell(row, 0)
+        cc_end = self.reduce_char(cc_end)
         while cc_end.isdigit() and len(cc_end) == 4:
             counter2 += 1
             row += 1
             cc_end = self.cell(row, 0)
-            if Messaging.DEBUG:
-                print(f'DEBUG: cc_end = {cc_end}, counter = {counter1}, row = {row}')
+            cc_end = self.reduce_char(cc_end)
+            log(f'cc_end = {cc_end}, counter = {counter1}, row = {row}', category='debug')
             if cc_end is None:
                 break
-
+        log(f'Second Loop End stats: cc_end={cc_end}, counter1={counter2}, row={row}', category='debug')
         return counter1, counter2
 
     def crop_table(self, initial_row, row_count, col_count):
@@ -172,6 +188,8 @@ class Parser:
         col_count: The number of columns in the table
         '''
         table = self.sheet[initial_row: initial_row + row_count, 0: col_count].value
+        if table is None:
+            return []
         return [table] if row_count == 1 else table
 
     def __validate_headers(self, header_row_index: int, headers: list) -> bool:
@@ -200,6 +218,10 @@ class Parser:
         else:
             raise Error("Invalid indexes.")
 
-
+    def reduce_char(self, s: str):
+        """
+        Use regex to eliminate all non numeric chracters from a string.
+        """
+        return re.sub("[^0-9]", "", str(s))
 
 

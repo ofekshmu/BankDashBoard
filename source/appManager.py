@@ -1,6 +1,6 @@
 from database import DataBase
 from parser import Parser
-from config import log
+from config import creditFile, log
 from decorators import Status, File
 
 
@@ -35,8 +35,11 @@ class appManager:
                                         date,
                                         description="Auto add",
                                         trans_count=c1 + c2)
-                    table = self.parser.get_transactions()
-                    self.insert_transactions(table, f)
+                    table = self.parser.get_transactions(c1, c2)
+                    if len(table[0]) == creditFile.COL_COUNT:
+                        self.insert_transactions(table, f)
+                    else:
+                        log('NOT IMPLEMENTED INSERTION FOR THIS TYPE OF FILE','error')
                 case Status.exists:
                     pass
                 case Status.update:

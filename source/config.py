@@ -33,7 +33,7 @@ class personal:
 
 
 class Messaging:
-    DEBUG = True
+    DEBUG = False
     SYSTEM = True
 
 
@@ -84,5 +84,6 @@ class VisaFile:
     BANK_ACC_VAL = ''
     DATE =     'A3'
     DATE_VAL = ''
+    TABLE_SKIP =     0
     
     

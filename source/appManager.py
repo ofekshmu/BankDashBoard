@@ -1,7 +1,7 @@
 from database import DataBase
 from parser import Parser
 from config import creditFile, log
-from decorators import Status, File
+from decorators import Status
 
 
 class appManager:
@@ -21,7 +21,7 @@ class appManager:
             if not self.parser.read(f):
                 continue
             file_type = self.parser.identify_and_validate()
-            if file_type == File.INVALID:
+            if file_type is None:
                 log(f'The file {f} is INVALID.', category='error')
                 break
 
@@ -39,7 +39,7 @@ class appManager:
                     if len(table[0]) == creditFile.COL_COUNT:
                         self.insert_transactions(table, f)
                     else:
-                        log('NOT IMPLEMENTED INSERTION FOR THIS TYPE OF FILE','error')
+                        log('NOT IMPLEMENTED INSERTION FOR THIS TYPE OF FILE', 'error')
                 case Status.exists:
                     pass
                 case Status.update:
@@ -76,15 +76,8 @@ class appManager:
         else:
             log(f'SYSTEM: date is {date_b} | name is {name_b}', category='system')
             log(f'SYSTEM: adding {file_name} to db.', category='system')
-            return Status.new 
+            return Status.new
 
     def insert_transactions(self, table, file_name):
         for row in table:
             self.db.insert_transaction(row[0], row[1], row[2], row[3], row[7], row[9], file_name)
-
-
-
-
-
-
-

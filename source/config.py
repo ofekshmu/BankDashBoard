@@ -34,7 +34,7 @@ class personal:
 
 
 class Messaging:
-    DEBUG = True
+    DEBUG = False
     SYSTEM = True
 
 
@@ -51,10 +51,10 @@ class creditFile:
                "תאריך החיוב"]
 
     COL_COUNT = len(HEADERS)
-    DATE =          'B5'
-    BANK_ACC =      'B3'
-    HEADER_ROW =  10
-    TABLE_SKIP =     3               # 3 rows different between data sections
+    DATE = 'B5'
+    BANK_ACC = 'B3'
+    HEADER_ROW = 10
+    TABLE_SKIP = 3               # 3 rows different between data sections
 
 
 class MonthlyFile:
@@ -62,10 +62,10 @@ class MonthlyFile:
                'סכום החיוב',
                'תאריך החיוב']
     COL_COUNT = len(HEADERS)
-    DATE =          'B3'
-    BANK_ACC =      'B2'
-    HEADER_ROW =    9
-    TABLE_SKIP =     3
+    DATE = 'B3'
+    BANK_ACC = 'B2'
+    HEADER_ROW = 9
+    TABLE_SKIP = 3
 
 
 class VisaFile:
@@ -80,10 +80,7 @@ class VisaFile:
                '  הערה']
 
     COL_COUNT = len(HEADERS)
-    HEADER_ROW =  12
+    DATE = 'A3'
     BANK_ACC = 'A2'
-    DATE =     'A3'
-    DATE_VAL = ''
-    TABLE_SKIP =     0
-    
-    
+    HEADER_ROW = 12
+    TABLE_SKIP = 0

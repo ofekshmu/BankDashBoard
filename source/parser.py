@@ -10,8 +10,8 @@ from config import local, Messaging, personal, creditFile, MonthlyFile, VisaFile
 class Parser:
 
     def __init__(self):
-        
-        self.type = File.INVALID
+
+        self.type = None
         self.sheet = None
         self.files = []
         for f in listdir(local.XLSX_PATH):
@@ -70,7 +70,7 @@ class Parser:
         '''
 
         '''
-        self.type = File.unknown
+        self.type = None
         if self.sheet is None:
             log(f'No sheet loaded: self.sheet is None', category='error')
             raise Error(f'self.sheet is None, Please read a sheet file first...')
@@ -78,19 +78,19 @@ class Parser:
             log("Checking if the file is of type 'credit'...", category='debug')
             if self.__validate(creditFile.BANK_ACC, creditFile.HEADER_ROW, creditFile.HEADERS):
                 log(f'File is of type "credit".', category='system')
-                self.type = File.credit
-                return File.credit
+                self.type = creditFile
+                return creditFile
             log("Checking if the file is of type 'monthly'...", category='debug')
             if self.__validate(MonthlyFile.BANK_ACC, MonthlyFile.HEADER_ROW, MonthlyFile.HEADERS):
                 log(f'File is of type "monthly".', category='system')
-                self.type = File.montly
-                return File.montly
+                self.type = MonthlyFile
+                return VisaFile
             log("Checking if the file is of type 'Visa'...", category='debug')
             if self.__validate(VisaFile.BANK_ACC, VisaFile.HEADER_ROW, VisaFile.HEADERS):
                 log(f'File is of type "visa".', category='system')
-                self.type = File.visa
-                return File.visa
-            return File.INVALID
+                self.type = VisaFile
+                return VisaFile
+            return None
 
     def get_metadata(self):
         '''
@@ -100,19 +100,8 @@ class Parser:
             log(f'No sheet loaded: self.sheet is None', category='error')
             raise Error(f'self.sheet is None, Please read a sheet file first...')
         else:
-            match self.type:
-                case File.credit:
-                    cell = creditFile.DATE
-                    c1, c2 = self.__count_transactions(creditFile.HEADER_ROW, creditFile.TABLE_SKIP)
-                case File.visa:
-                    cell = VisaFile.DATE
-                    c1, c2 = self.__count_transactions(VisaFile.HEADER_ROW)
-                case File.montly:
-                    cell = MonthlyFile.DATE
-                    c1, c2 = self.__count_transactions(MonthlyFile.HEADER_ROW)
-                case other:
-                    log(f"In Parser: field 'type' contains {self.type}.", category='error')
-            date = self.sheet[cell].value
+            c1, c2 = self.__count_transactions(self.type.HEADER_ROW, self.type.TABLE_SKIP)
+            date = self.sheet[self.type.DATE].value
             return date, c1, c2
 
     def get_transactions(self, c1: int, c2: int):
@@ -120,24 +109,12 @@ class Parser:
         The function returns all the transactions in the active file.
         Transactions are returned as a List of Lists.
         '''
-        match self.type:
-            case File.credit:
-                a, b, c = creditFile.HEADER_ROW, creditFile.COL_COUNT, creditFile.TABLE_SKIP
-            case File.visa:
-                a, b, c = VisaFile.HEADER_ROW, VisaFile.COL_COUNT, VisaFile.TABLE_SKIP
-
-            case File.montly:
-                a, b, c = MonthlyFile.HEADER_ROW, MonthlyFile.COL_COUNT, MonthlyFile.TABLE_SKIP
-
-            case other:
-                log(f"In Parser: field 'type' contains {self.type}.", category='error')
-
-        table1 = self.crop_table(a,
+        table1 = self.crop_table(self.type.HEADER_ROW,
                                  c1,
-                                 b)
-        table2 = self.crop_table(a + c1 + c,
+                                 self.type.COL_COUNT)
+        table2 = self.crop_table(self.type.HEADER_ROW + c1 + self.type.TABLE_SKIP,
                                  c2,
-                                 b)
+                                 self.type.COL_COUNT)
 
         return table1 + table2
 
@@ -182,7 +159,7 @@ class Parser:
     def crop_table(self, initial_row, row_count, col_count):
         '''
         returns an array of values according to the inserted demensions.
-        
+
         Parameters
         ----------
         initial_row: The index of the row with the header names
@@ -225,5 +202,3 @@ class Parser:
         Use regex to eliminate all non numeric chracters from a string.
         """
         return re.sub("[^0-9]", "", str(s))
-
-

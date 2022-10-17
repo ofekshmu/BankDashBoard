@@ -55,7 +55,8 @@ class Parser:
         True if both are valid, False otherwise.
         '''
         s = self.sheet
-        if s[bank_acc_cell].value != personal.BANK_ACC:
+        temp = s[bank_acc_cell].value
+        if s[bank_acc_cell].value != personal.BANK_ACC and s[bank_acc_cell].value != personal.BANK_ACC_VisaFile:
             log(f'Bank Account number does not match!', category='system')
             return False
 
@@ -69,6 +70,7 @@ class Parser:
         '''
 
         '''
+        self.type = File.unknown
         if self.sheet is None:
             log(f'No sheet loaded: self.sheet is None', category='error')
             raise Error(f'self.sheet is None, Please read a sheet file first...')

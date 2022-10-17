@@ -34,3 +34,4 @@ class File(Enum):
     montly = 2
     visa = 3
     INVALID = 4
+    unknown = 5

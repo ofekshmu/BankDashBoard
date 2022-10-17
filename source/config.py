@@ -29,11 +29,12 @@ class personal:
     All constants in this class are taken from the personal_config.json
     which is only avaliable in the local repository.
     '''
-    BANK_ACC = json.load(open(local.Personal_PATH))['bank_account']
+    BANK_ACC = json.load(open(local.Personal_PATH, encoding='utf-8'))['bank_account']
+    BANK_ACC_VisaFile = json.load(open(local.Personal_PATH, encoding='utf-8'))['bank_account_visa_file']
 
 
 class Messaging:
-    DEBUG = False
+    DEBUG = True
     SYSTEM = True
 
 
@@ -48,7 +49,7 @@ class creditFile:
                "סוג העסקה",
                "פרטים",
                "תאריך החיוב"]
-    
+
     COL_COUNT = len(HEADERS)
     DATE =          'B5'
     BANK_ACC =      'B3'
@@ -76,12 +77,11 @@ class VisaFile:
                'בזכות',
                'היתרה בש"ח',
                'תאור מורחב',
-               'הערה']
+               '  הערה']
 
     COL_COUNT = len(HEADERS)
     HEADER_ROW =  12
     BANK_ACC = 'A2'
-    BANK_ACC_VAL = ''
     DATE =     'A3'
     DATE_VAL = ''
     TABLE_SKIP =     0

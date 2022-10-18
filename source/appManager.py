@@ -17,33 +17,25 @@ class appManager:
                 continue
             file_type = self.parser.identify_and_validate()
             if file_type is None:
-                log(f'The file {f} is INVALID.', category='error')
+                log(f'FILE DROPPED. {f} was not identified.', category='error')
                 break
 
             date, c1, c2 = self.parser.get_metadata()
-
             res = self.check_file_status(date, c1, c2, f)
 
             match res:
                 case Status.new:
-                    self.db.insert_file(f,
-                                        date,
+                    self.db.insert_file(f, date,
                                         description="Auto add",
                                         trans_count=c1 + c2)
                     table = self.parser.get_transactions(c1, c2)
-                    if file_type == creditFile:
-                        self.insert_transactions(table, f)
-                    elif file_type == VisaFile:
-                        self.insert_card_movement(table, f)
-                    else:
-                        log('NOT IMPLEMENTED INSERTION FOR THIS TYPE OF FILE', 'error')
+                    self.insert_data(table, f)
                 case Status.exists:
-                    pass
+                    log(f"File Exists.. Skipping..", 'system')
                 case Status.update:
-                    pass
+                    log(f"case update NOT IMPLEMENTED", 'error')
                 case other:
-                    pass
-            log(f'~ Loop END ~ Ended with status {res}', category='system')
+                    log(f"Received unknown status: {res}", 'error')
 
         self.db.close()
 
@@ -75,27 +67,30 @@ class appManager:
             log(f'SYSTEM: adding {file_name} to db.', category='system')
             return Status.new
 
-    def insert_transactions(self, table, file_name):
-        for row in table:
-            self.db.insert_transaction(row[0], row[1], row[2], row[3], row[7], row[9], file_name)
+    def insert_data(self, table, file_name):
+        """
+        ?
+        """
+        if self.type == VisaFile:
+            for row in table:
+                if row[4] == 0:
+                    amount = row[5]
+                elif row[5] == 0:
+                    amount = -row[4]
+                else:
+                    log('None of the amount values are ZERO!', 'error')
+                self.db.insert_bank_transaction(id=row[3],
+                                                date=row[0],
+                                                charge_date=row[1],
+                                                src_dst=row[2],
+                                                amount=amount,
+                                                balance=row[6],
+                                                desc=row[7],
+                                                file_name=file_name)
+        elif self.type == creditFile:
+            for row in table:
+                self.db.insert_transaction(row[0], row[1], row[2], row[3], row[7], row[9], file_name)
+        else:
+            print("Case ({self.type}) not implemented in function 'insert_data'", 'error')
 
-    def insert_card_movement(self, table, file_name):
-        for row in table:
-            # TODO add id option
-            date = row[0]
-            charge_date = row[1]
-            src_dst = row[2]
-            id = row[3]
-            balance = row[6]
-            desc = row[7]
-            if row[4] == 0:
-                amount = row[5]
-            elif row[5] == 0:
-                amount = -row[4]
-            else:
-                log('There is a problem with chart values', 'error')
-            trans_type = row[7]
-            self.db.insert_bank_transaction(id, date, charge_date,
-                                            src_dst, amount, balance,
-                                            desc, file_name)
 

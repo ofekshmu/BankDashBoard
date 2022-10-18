@@ -84,8 +84,10 @@ class appManager:
             # TODO add id option
             date = row[0]
             charge_date = row[1]
-            business = row[2]
+            src_dst = row[2]
             id = row[3]
+            balance = row[6]
+            desc = row[7]
             if row[4] == 0:
                 amount = row[5]
             elif row[5] == 0:
@@ -93,11 +95,7 @@ class appManager:
             else:
                 log('There is a problem with chart values', 'error')
             trans_type = row[7]
-            self.db.insert_transaction(cardID='None',
-                                       transaction_date=date,
-                                       business_name=business,
-                                       amount=amount,
-                                       transaction_type=trans_type,
-                                       charge_date=charge_date,
-                                       source_file=file_name,
-                                       description='')
+            self.db.insert_bank_transaction(id, date, charge_date,
+                                            src_dst, amount, balance,
+                                            desc, file_name)
+

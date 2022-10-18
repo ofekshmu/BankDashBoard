@@ -28,6 +28,21 @@ class DataBase:
             );""")
 
         self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS BankTransactions (
+            ID                  INTEGER        PRIMARY KEY ,
+            Ref                 CHAR        NOT NULL    ,
+            Date                DATE        NOT NULL    ,
+            Date_value          DATE        NOT NULL    ,
+            Source_Dest         CHAR        NOL NULL    ,
+            Amount              INT         NOT NULL    ,
+            Balance             INT         NOT NULL    ,
+            Description         DATE                    ,
+            source_file         CHAR        NOT NULL    ,
+            Ex_description      CHAR        NOT NULL,
+            FOREIGN KEY(source_file)    REFERENCES File(Name)
+            );""")
+
+        self.cursor.execute("""
             CREATE TABLE IF NOT EXISTS Transactions (
             ID                  INTEGER     PRIMARY KEY ,
             cardID              CHAR(4)                 ,
@@ -42,6 +57,27 @@ class DataBase:
             FOREIGN KEY(source_file)    REFERENCES File(Name)
             );""")
 
+    def insert_bank_transaction(self,
+                                ref: str,
+                                date: datetime,
+                                date_value: str,
+                                source_dest: str,
+                                amount: int,
+                                balance: str,
+                                desc: datetime,
+                                source_file: str):
+        '''
+        Insert a new transaction to local DB.
+        '''
+        self.cursor.execute(f"""
+            INSERT INTO BankTransactions(Ref, Date, Date_value, Source_Dest, Amount,
+                Balance, Description, source_file, Ex_description)
+            VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (ref, date, date_value, source_dest, amount, balance,
+                  desc, source_file, '')
+            )
+        self.connection.commit()
+
     def insert_transaction(self,
                            cardID: str,
                            transaction_date: datetime,
@@ -49,8 +85,7 @@ class DataBase:
                            amount: int,
                            transaction_type: str,
                            charge_date: datetime,
-                           source_file: str,
-                           description: str = ""):
+                           source_file: str):
         '''
         Insert a new transaction to local DB.
         '''
@@ -65,7 +100,7 @@ class DataBase:
                 amount, transaction_type, charge_date, source_file, description)
             VALUES(?, ?, ?, ?, ?, ?, ?, ?)
             """, (cardID, transaction_date, business_name, amount,
-                  transaction_type, charge_date, source_file, description)
+                  transaction_type, charge_date, source_file, '')
             )
         self.connection.commit()
 
@@ -105,20 +140,6 @@ class DataBase:
             INSERT INTO Card VALUES(?, ?)
             """, (id, description))
         self.connection.commit()
-
-    # @try_catch
-    # def update_files(self,
-    #                  name: str,
-    #                  date: datetime,
-    #                  transaction_count: int,
-    #                  description: str = '-'):
-    #     last_update = datetime.now()
-    #     self.cursor.execute(f"""
-    #         INSERT INTO Files(Name, Date, Description,
-    #             Transaction_count, Last_update)
-    #         VALUES(?, ?, ?, ?, ?)
-    #         """, (name, date, description, transaction_count, last_update)
-    #         )
 
     def file_name_exists(self, file_name: str):
         '''

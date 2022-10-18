@@ -42,7 +42,6 @@ class DataBase:
             FOREIGN KEY(source_file)    REFERENCES File(Name)
             );""")
 
-    @try_catch
     def insert_transaction(self,
                            cardID: str,
                            transaction_date: datetime,

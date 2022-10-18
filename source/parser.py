@@ -84,7 +84,7 @@ class Parser:
             if self.__validate(MonthlyFile.BANK_ACC, MonthlyFile.HEADER_ROW, MonthlyFile.HEADERS):
                 log(f'File is of type "monthly".', category='system')
                 self.type = MonthlyFile
-                return VisaFile
+                return MonthlyFile
             log("Checking if the file is of type 'Visa'...", category='debug')
             if self.__validate(VisaFile.BANK_ACC, VisaFile.HEADER_ROW, VisaFile.HEADERS):
                 log(f'File is of type "visa".', category='system')
@@ -99,6 +99,9 @@ class Parser:
         if self.sheet is None:
             log(f'No sheet loaded: self.sheet is None', category='error')
             raise Error(f'self.sheet is None, Please read a sheet file first...')
+        elif self.type is None:
+            log(f"Sheet type wasn't identified: Run 'identify_and_validate' first.", 'error')
+            raise Error(f'self.type is None, Make sure sheet is valid/identified.')
         else:
             c1, c2 = self.__count_transactions(self.type.HEADER_ROW, self.type.TABLE_SKIP)
             date = self.sheet[self.type.DATE].value
@@ -127,32 +130,27 @@ class Parser:
         counter1 = 0
         row = initial_header_row + 1
         cc_end = self.cell(row, 0)
-        cc_end = self.reduce_char(cc_end)
+        # cc_end = self.reduce_char(cc_end)
         log(f"""
                 In function "__count_transactions"
                 cc_end = {cc_end}, cc_end type: {type(cc_end)}')
             """, category='debug')
-        while cc_end.isdigit() and len(cc_end) == 4:
+        while cc_end is not None:
             counter1 += 1
             row += 1
             cc_end = self.cell(row, 0)
-            cc_end = self.reduce_char(cc_end)
-            if cc_end is None:
-                break
+   
         log(f'First Loop End stats: cc_end={cc_end}, counter1={counter1}, row={row}', category='debug')
 
         counter2 = 0
         row += skip
         cc_end = self.cell(row, 0)
-        cc_end = self.reduce_char(cc_end)
-        while cc_end.isdigit() and len(cc_end) == 4:
+        while cc_end is not None:
             counter2 += 1
             row += 1
             cc_end = self.cell(row, 0)
-            cc_end = self.reduce_char(cc_end)
-            log(f'cc_end = {cc_end}, counter = {counter1}, row = {row}', category='debug')
-            if cc_end is None:
-                break
+            log(f'(second loop)\ncc_end = {cc_end}, counter = {counter1}, row = {row}', category='debug')
+
         log(f'Second Loop End stats: cc_end={cc_end}, counter1={counter2}, row={row}', category='debug')
         return counter1, counter2
 

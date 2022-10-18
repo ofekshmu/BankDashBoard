@@ -15,12 +15,22 @@ def log(msg: str, category: str):
             raise ValueError('Insert either system/debug')
 
 
+class Messaging:
+    DEBUG = False
+    SYSTEM = True
+    LAPTOP = True
+
+
 class local:
     '''
     Include all local enviroment related valriables
     '''
-    XLSX_PATH = 'C:/Users/ofeks/OneDrive/Temporary/BankProject/Inputs'
-    Personal_PATH = 'C:/Users/ofeks/OneDrive/Temporary/BankProject/personal information/personal_config.json'
+    if Messaging.LAPTOP:
+        XLSX_PATH = 'C:/Users/Ofek Shmuel/OneDrive/Temporary/BankProject/Inputs'
+        Personal_PATH = 'C:/Users/Ofek Shmuel/OneDrive/Temporary/BankProject/personal information/personal_config.json'
+    else:
+        XLSX_PATH = 'C:/Users/ofeks/OneDrive/Temporary/BankProject/Inputs'
+        Personal_PATH = 'C:/Users/ofeks/OneDrive/Temporary/BankProject/personal information/personal_config.json'
     EXTENSION = '.xls'
 
 
@@ -31,11 +41,6 @@ class personal:
     '''
     BANK_ACC = json.load(open(local.Personal_PATH, encoding='utf-8'))['bank_account']
     BANK_ACC_VisaFile = json.load(open(local.Personal_PATH, encoding='utf-8'))['bank_account_visa_file']
-
-
-class Messaging:
-    DEBUG = False
-    SYSTEM = True
 
 
 class creditFile:

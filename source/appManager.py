@@ -1,6 +1,6 @@
 from database import DataBase
 from parser import Parser
-from config import creditFile, log
+from config import creditFile, log, VisaFile
 from decorators import Status
 
 
@@ -11,11 +11,6 @@ class appManager:
         self.parser = Parser()
 
     def run(self):
-
-        # table = self.parser.parse_credit(self.parser.get_files()[1])
-        # for row in table:
-        #     self.db.insert_transaction(row[0], row[1], row[2], row[3], row[7], row[9], self.parser.get_files()[1])
-
         files = self.parser.get_files()
         for f in files:
             if not self.parser.read(f):
@@ -36,8 +31,10 @@ class appManager:
                                         description="Auto add",
                                         trans_count=c1 + c2)
                     table = self.parser.get_transactions(c1, c2)
-                    if len(table[0]) == creditFile.COL_COUNT:
+                    if file_type == creditFile:
                         self.insert_transactions(table, f)
+                    elif file_type == VisaFile:
+                        self.insert_card_movement(table, f)
                     else:
                         log('NOT IMPLEMENTED INSERTION FOR THIS TYPE OF FILE', 'error')
                 case Status.exists:
@@ -81,3 +78,26 @@ class appManager:
     def insert_transactions(self, table, file_name):
         for row in table:
             self.db.insert_transaction(row[0], row[1], row[2], row[3], row[7], row[9], file_name)
+
+    def insert_card_movement(self, table, file_name):
+        for row in table:
+            # TODO add id option
+            date = row[0]
+            charge_date = row[1]
+            business = row[2]
+            id = row[3]
+            if row[4] == 0:
+                amount = row[5]
+            elif row[5] == 0:
+                amount = -row[4]
+            else:
+                log('There is a problem with chart values', 'error')
+            trans_type = row[7]
+            self.db.insert_transaction(cardID='None',
+                                       transaction_date=date,
+                                       business_name=business,
+                                       amount=amount,
+                                       transaction_type=trans_type,
+                                       charge_date=charge_date,
+                                       source_file=file_name,
+                                       description='')

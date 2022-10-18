@@ -29,7 +29,7 @@ class appManager:
                                         description="Auto add",
                                         trans_count=c1 + c2)
                     table = self.parser.get_transactions(c1, c2)
-                    self.insert_data(table, f)
+                    self.insert_data(file_type, table, f)
                 case Status.exists:
                     log(f"File Exists.. Skipping..", 'system')
                 case Status.update:
@@ -67,11 +67,11 @@ class appManager:
             log(f'SYSTEM: adding {file_name} to db.', category='system')
             return Status.new
 
-    def insert_data(self, table, file_name):
+    def insert_data(self, type, table, file_name):
         """
         ?
         """
-        if self.type == VisaFile:
+        if type == VisaFile:
             for row in table:
                 if row[4] == 0:
                     amount = row[5]
@@ -79,15 +79,15 @@ class appManager:
                     amount = -row[4]
                 else:
                     log('None of the amount values are ZERO!', 'error')
-                self.db.insert_bank_transaction(id=row[3],
+                self.db.insert_bank_transaction(ref=row[3],
                                                 date=row[0],
-                                                charge_date=row[1],
-                                                src_dst=row[2],
+                                                date_value=row[1],
+                                                source_dest=row[2],
                                                 amount=amount,
                                                 balance=row[6],
                                                 desc=row[7],
-                                                file_name=file_name)
-        elif self.type == creditFile:
+                                                source_file=file_name)
+        elif type == creditFile:
             for row in table:
                 self.db.insert_transaction(row[0], row[1], row[2], row[3], row[7], row[9], file_name)
         else:

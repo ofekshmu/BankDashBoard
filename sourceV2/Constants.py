@@ -30,3 +30,63 @@ class local:
         XLSX_PATH = 'C:/Users/ofeks/OneDrive/Temporary/BankProject/Inputs'
         Personal_PATH = 'C:/Users/ofeks/OneDrive/Temporary/BankProject/personal information/personal_config.json'
     EXTENSION = '.xls'
+
+
+class InnerCredit:
+    NAME = "לאומי-פירוט העסקאות בכרטיסי האשראי"
+    DATE = 'B5'
+    HEADERS = ["מספר הכרטיס",
+               "תאריך העסקה",
+               "שם בית העסק",
+               "סכום העסקה",
+               "מטבע העסקה",
+               "סכום החיוב",
+               "מטבע חיוב העסקה",
+               "סוג העסקה",
+               "פרטים",
+               "תאריך החיוב"]
+
+    INITIAL_ROW = 10  # This is the row with the table titles
+    TABLE_SKIP = 3  # Number of rows between trasnactions
+
+
+class OuterCredit:
+    NAME = "transaction-details_export"
+    DATE = 'B3'  # This isn't the date of the xlsx creation.
+    HEADERS = ["תאריך עסקה",
+               "שם בית העסק",
+               "קטגוריה",
+               "4 ספרות אחרונות של כרטיס האשראי",
+               "סוג עסקה",
+               "סכום חיוב",
+               "מטבע חיוב",
+               "סכום עסקה",
+               "מטבע עסקה",
+               "תאריך חיוב",
+               "הערות",
+               "הערות",
+               "תיוגים",
+               "מועדון הנחות",
+               "מפתח דיסקונט",
+               "אופן ביצוע העסקה",
+               "שער המרה ממטבע מקור/התחשבנות לש\"ח"]
+
+    INITIAL_ROW = 4
+    TABLE_SKIP = 0
+
+
+class BankTransaction:
+    Name = "תנועות בחשבון"
+    DATE = "A3"
+    HEADERS = ['תאריך',
+               'תאריך ערך',
+               'תיאור',
+               'אסמכתא',
+               'בחובה',
+               'בזכות',
+               'היתרה בש"ח',
+               'תאור מורחב',
+               '  הערה']
+
+    INITIAL_ROW = 12
+    TABLE_SKIP = 0

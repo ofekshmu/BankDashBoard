@@ -15,7 +15,6 @@ class Parser():
 
         log(f"found {len(self.files)} files.", 'system')
 
-
     def __next__(self):
         if self.n < len(self.file_names):
             result = self.file_names[self.n]
@@ -38,7 +37,8 @@ class Parser():
         2->
         3->
         """
-        pass
+        match filename:
+            case 
 
     def __read(file_name):
         """

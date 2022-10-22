@@ -1,12 +1,9 @@
-from enum import Enum
+from sourceV2.File import File
 
 
-# TODO: figure how to abstract class in python
-class File:
+class OuterCredit(File):
     def __init__(self, name: str):
-        self.name = name
-        self.date = 'Not read'
-        self.data = None
+        super().__init__(name)
 
     def validate(self):
         """

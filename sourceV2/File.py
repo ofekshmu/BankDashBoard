@@ -31,3 +31,9 @@ class File:
 
         """
         pass
+
+    def read(self):
+        """
+
+        """
+        pass

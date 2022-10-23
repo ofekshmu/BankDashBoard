@@ -23,12 +23,12 @@ class Parser():
         else:
             return None
 
-    def create_file(self):
+    def identify(self):
         file_name = self.file_names[self.n]
         res = self.__match_file(file_name)
         sheet = self.__read(file_name)
 
-        return self.__parse()
+        return file_name, self.__parse()
 
     def __match_file(file_name):
         """

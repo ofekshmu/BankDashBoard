@@ -1,23 +1,23 @@
 from Parser import Parser
+from sourceV2.Constants import BankTransaction, InnerCredit, OuterCredit
+from Context import Context
 
 
 class AppManager:
 
     def __init__(self):
-        self.db = DataBase()
         self.parser = Parser()
 
     def run(self):
-
+        context = Context()
         while next(self.parser):
-            file = self.parser.create_file()
-            if file.validate():
-                raise ValueError()
-            if file.clean():
-                raise ValueError()
-            if file.reduce():
-                raise ValueError()
-            if file.insert:
-                raise ValueError()
+            name, type = self.parser.identify()
+            
+            if type == BankTransaction:
+                context.setFile(BankTransaction(name))
+            elif type == InnerCredit:
+                context.setFile(InnerCredit(name))
+            elif type == OuterCredit:
+                context.setFile(OuterCredit(name))
 
-    
+            context.render()

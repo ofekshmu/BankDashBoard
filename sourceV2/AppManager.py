@@ -1,5 +1,7 @@
 from Parser import Parser
-from sourceV2.Constants import BankTransaction, InnerCredit, OuterCredit
+from BankTransactionsFile import BankTransactionsFile
+from InnerCreditFile import InnerCreditFile
+from OuterCreditFile import OuterCreditFile
 from Context import Context
 
 
@@ -12,12 +14,12 @@ class AppManager:
         context = Context()
         while next(self.parser):
             name, type = self.parser.identify()
-            
-            if type == BankTransaction:
-                context.setFile(BankTransaction(name))
-            elif type == InnerCredit:
-                context.setFile(InnerCredit(name))
-            elif type == OuterCredit:
-                context.setFile(OuterCredit(name))
+
+            if type == BankTransactionsFile:
+                context.setFile(BankTransactionsFile(name))
+            elif type == InnerCreditFile:
+                context.setFile(InnerCreditFile(name))
+            elif type == OuterCreditFile:
+                context.setFile(OuterCreditFile(name))
 
             context.render()

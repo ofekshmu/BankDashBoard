@@ -1,5 +1,9 @@
 from os import listdir
 from os.path import isfile, join
+from Constants import InnerCredit, OuterCredit, BankTransactions
+from OuterCreditFile import OuterCreditFile
+from InnerCreditFile import InnerCreditFile
+from BankTransactionsFile import BankTransactionsFile
 
 # Local
 from Constants import log, local
@@ -25,28 +29,14 @@ class Parser():
 
     def identify(self):
         file_name = self.file_names[self.n]
-        res = self.__match_file(file_name)
-        sheet = self.__read(file_name)
 
-        return file_name, self.__parse()
+        if InnerCredit.NAME in file_name:
+            res = InnerCreditFile
+        elif OuterCredit.NAME in file_name:
+            res = OuterCreditFile
+        elif BankTransactions.Name in file_name:
+            res = BankTransactionsFile
+        else:
+            raise ValueError(f"The file name: {file_name} does not contain a known string.")
 
-    def __match_file(file_name):
-        """
-        Check the file_name received and categorize into one of the following
-        1->
-        2->
-        3->
-        """
-        match filename:
-            case 
-
-    def __read(file_name):
-        """
-        The file is read and a work sheet is returned.
-        """
-        pass
-
-    def __parse(file_name):
-        """
-        The function reads relevant file data into the File class
-        """
+        return file_name, res

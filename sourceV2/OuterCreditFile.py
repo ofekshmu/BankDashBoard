@@ -1,7 +1,7 @@
 from sourceV2.File import File
 
 
-class BankTransaction(File):
+class OuterCreditFile(File):
     def __init__(self, name: str):
         super().__init__(name)
 

@@ -19,7 +19,7 @@ def log(msg: str, category: str):
             raise ValueError('Insert either system/debug')
 
 
-class local:
+class Local:
     '''
     Include all local enviroment related valriables
     '''
@@ -75,7 +75,7 @@ class OuterCredit:
     TABLE_SKIP = 0
 
 
-class BankTransaction:
+class BankTransactions:
     Name = "תנועות בחשבון"
     DATE = "A3"
     HEADERS = ['תאריך',

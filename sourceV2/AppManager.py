@@ -3,6 +3,7 @@ from BankTransactionsFile import BankTransactionsFile
 from InnerCreditFile import InnerCreditFile
 from OuterCreditFile import OuterCreditFile
 from Context import Context
+from sourceV2.Constants import InnerCredit
 
 
 class AppManager:
@@ -18,7 +19,12 @@ class AppManager:
             if type == BankTransactionsFile:
                 context.setFile(BankTransactionsFile(name))
             elif type == InnerCreditFile:
-                context.setFile(InnerCreditFile(name))
+                context.setFile(InnerCreditFile(name,
+                                                InnerCredit.DATE_LOC,
+                                                InnerCredit.BANK_NUM_LOC,
+                                                InnerCredit.HEADERS,
+                                                InnerCredit.INITIAL_ROW,
+                                                InnerCredit.TABLE_SKIP))
             elif type == OuterCreditFile:
                 context.setFile(OuterCreditFile(name))
 

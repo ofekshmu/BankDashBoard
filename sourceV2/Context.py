@@ -10,21 +10,17 @@ class Context:
         if file is not None:
             self.file = file
         else:
-            self.file = File('Default')
+            log(f"file is of class {type(file)}.", 'error')
 
     def render(self) -> bool:
-        log(f'Reading {self.file.name}...', category='system')
+        log(f'Reading {self.file.name}...', 'system')
         if not self.file.load():
             log(f'Failed reading file: {self.file.name}', category='error')
             return False
-        if not self.file.validate():
-            
-        #     return False
-        # if self.__file.clean():
-        #     raise ValueError()
-        # if self.__file.reduce():
-        #     raise ValueError()
-        # if self.__file.insert:
-        #     raise ValueError()
+        if not self.file.validate_bank_number():
+            log(f'Bank Account number in file: {self.file.name} , does not match!', category='error')
+            return False
+        if not self.file.validate_headers():
+            log(f'Headers in file: {self.file.name} , does not match!', 'error')
 
         return True

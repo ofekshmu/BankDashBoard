@@ -6,18 +6,18 @@ from InnerCreditFile import InnerCreditFile
 from BankTransactionsFile import BankTransactionsFile
 
 # Local
-from Constants import log, local
+from Constants import log, Local
 
 
 class Parser():
     def __init___(self):
         self.n = 0
         self.file_names = []
-        for file in listdir(local.XLSX_PATH):
-            if isfile(join(local.XLSX_PATH, file)) and file.endswith(local.EXTENSION):
+        for file in listdir(Local.XLSX_PATH):
+            if isfile(join(Local.XLSX_PATH, file)) and file.endswith(Local.EXTENSION):
                 self.file_names.append(file)
 
-        log(f"found {len(self.files)} files.", 'system')
+        log(f"found {len(self.file_names)} files.", 'system')
 
     def __next__(self):
         if self.n < len(self.file_names):
@@ -30,11 +30,11 @@ class Parser():
     def identify(self):
         file_name = self.file_names[self.n]
 
-        if InnerCredit.NAME in file_name:
+        if InnerCredit.SUB_STRING in file_name:
             res = InnerCreditFile
-        elif OuterCredit.NAME in file_name:
+        elif OuterCredit.SUB_STRING in file_name:
             res = OuterCreditFile
-        elif BankTransactions.Name in file_name:
+        elif BankTransactions.SUB_STRING in file_name:
             res = BankTransactionsFile
         else:
             raise ValueError(f"The file name: {file_name} does not contain a known string.")

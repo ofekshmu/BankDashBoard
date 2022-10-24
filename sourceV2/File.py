@@ -1,14 +1,38 @@
 from abc import abstractmethod
-from Constants import log, Local
+from Constants import log, Local, Personal
 import xlwings as xw
+from xlwings import Sheet
 from os.path import join
 
 
 class File:
-    def __init__(self, name: str):
+    def __init__(self,
+                 name: str,
+                 bank_num_loc: str,
+                 initial_row: int,
+                 headers: list):
+        '''
+        Read a work book and store an active sheet in the self.sheet.
+        File is read from local.XLSX_PATH.
+        A File object will be rturned upon successful read.
+
+        Parameters
+        ----------
+        name: a string indicating the name of the file
+        bank_acc_loc: a 2 character string indicating the cell index
+        initial row: a number indicating the header row
+        headers: a list of string containing table headers
+        '''
         self.name = name
-        self.sheet = xw.Sheet()
-        self.constants = None
+        self.bank_num_loc = bank_num_loc
+        self.initial_row = initial_row
+        self.headers = headers
+
+        try:
+            wb = xw.Book(join(Local.XLSX_PATH, self.name))
+            self.sheet = wb.sheets[0]
+        except Exception as e:
+            log(str(e), 'error')
 
     def load(self) -> bool:
         '''
@@ -29,24 +53,40 @@ class File:
             return False
 
     @abstractmethod
-    def validate(self):
+    def validate_bank_number(self):
         '''
-        The function validates the file's validity by comparing known data
-        to the variables in the config file.
-        Table header names and bank account number is checked and returns
-        True if both are valid, False otherwise.
+        The function validates the Bank account specified in the file.
+        The cell indicating the number is specified trough the Constants.py
         '''
-        s = self.sheet
-        consts = self.constants
-        temp = s[consts.].value
-        if s[self.constants.BANK_ACC].value != personal.BANK_ACC and s[bank_acc_cell].value != personal.BANK_ACC_VisaFile:
-            log(f'Bank Account number does not match!', category='system')
+        if self.sheet[self.bank_num_loc].value != Personal.BANK_ACC:
             return False
+        return True
 
-        if not self.__validate_headers(header_row_index, headers):
-            log('Credit sheet is INVALID', category='system')
-            return False
+    def validate_headers(self):
+        '''
+        The function validates the table headers in the file.
+        The values of the headers and the initial row are given in the Constants.py.
+        '''
+        def cell(row: int, col: int, sheet: Sheet) -> str:
+            '''
+            Returns the value of the cell with indexes [row, col]
+            '''
+            if row >= 0 and col >= 0:
+                return str(sheet[f'{chr(65 + col)}{row}'].value)
+            else:
+                log(f"Invalid indexes -> ({row}, {col})", "error")
+                return ""
 
+        col = 0
+        row = self.initial_row
+        for name in self.headers:
+            log(f'row number = {row}, col = {col}, name = {name[::-1]}', 'debug')
+            value = cell(row, col, self.sheet)
+            if not value == name:
+                log(f"""cell ->[{row},{col}]<- did not match the expected value ->{name[::-1]}<-.
+got ->{value[::-1]}<- instead.""", category='error')
+                return False
+            col += 1
         return True
 
     @abstractmethod

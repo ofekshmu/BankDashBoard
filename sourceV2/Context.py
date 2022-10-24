@@ -17,13 +17,14 @@ class Context:
         if not self.file.load():
             log(f'Failed reading file: {self.file.name}', category='error')
             return False
-        if self.__file.validate():
-            raise ValueError()
-        if self.__file.clean():
-            raise ValueError()
-        if self.__file.reduce():
-            raise ValueError()
-        if self.__file.insert:
-            raise ValueError()
+        if not self.file.validate():
+            
+        #     return False
+        # if self.__file.clean():
+        #     raise ValueError()
+        # if self.__file.reduce():
+        #     raise ValueError()
+        # if self.__file.insert:
+        #     raise ValueError()
 
         return True

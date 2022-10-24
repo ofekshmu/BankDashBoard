@@ -1,3 +1,6 @@
+import json
+
+
 class Settings:
     DEBUG = True
     SYSTEM = True
@@ -19,6 +22,15 @@ def log(msg: str, category: str):
             raise ValueError('Insert either system/debug')
 
 
+class personal:
+    '''
+    All constants in this class are taken from the personal_config.json
+    which is only avaliable in the local repository.
+    '''
+    BANK_ACC = json.load(open(local.Personal_PATH, encoding='utf-8'))['bank_account']
+    BANK_ACC_VisaFile = json.load(open(local.Personal_PATH, encoding='utf-8'))['bank_account_visa_file']
+
+
 class Local:
     '''
     Include all local enviroment related valriables
@@ -32,22 +44,7 @@ class Local:
     EXTENSION = '.xls'
 
 
-class InnerCredit:
-    NAME = "לאומי-פירוט העסקאות בכרטיסי האשראי"
-    DATE = 'B5'
-    HEADERS = ["מספר הכרטיס",
-               "תאריך העסקה",
-               "שם בית העסק",
-               "סכום העסקה",
-               "מטבע העסקה",
-               "סכום החיוב",
-               "מטבע חיוב העסקה",
-               "סוג העסקה",
-               "פרטים",
-               "תאריך החיוב"]
 
-    INITIAL_ROW = 10  # This is the row with the table titles
-    TABLE_SKIP = 3  # Number of rows between trasnactions
 
 
 class OuterCredit:

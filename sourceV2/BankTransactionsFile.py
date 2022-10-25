@@ -3,15 +3,14 @@ from Constants import BankTransactions
 
 
 class BankTransactionsFile(File):
-    def __init__(self, name: str):
-        super().__init__(name)
-        self.constants = BankTransactions
-
-    def validate(self):
-        """
-
-        """
-        pass
+    def __init__(self,
+                 name: str,
+                 date_loc: str,
+                 bank_num_loc: str,
+                 headers: list,
+                 initial_row: int):
+        super().__init__(name, bank_num_loc, initial_row, headers)
+        self.date_loc = date_loc
 
     def clean(self):
         """

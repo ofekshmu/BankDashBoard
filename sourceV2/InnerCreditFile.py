@@ -17,12 +17,6 @@ class InnerCreditFile(File):
         self.date_loc = date_loc
         self.table_skip = table_skip
 
-    def validate(self):
-        """
-
-        """
-        pass
-
     def clean(self):
         """
 

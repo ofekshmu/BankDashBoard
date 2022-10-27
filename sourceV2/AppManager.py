@@ -3,7 +3,7 @@ from BankTransactionsFile import BankTransactionsFile
 from InnerCreditFile import InnerCreditFile
 from OuterCreditFile import OuterCreditFile
 from Context import Context
-from sourceV2.Constants import InnerCredit, BankTransactions
+from Constants import InnerCredit, BankTransactions, OuterCredit
 
 
 class AppManager:
@@ -30,6 +30,9 @@ class AppManager:
                                                 InnerCredit.INITIAL_ROW,
                                                 InnerCredit.TABLE_SKIP))
             elif type == OuterCreditFile:
-                context.setFile(OuterCreditFile(name))
+                context.setFile(OuterCreditFile(name,
+                                                OuterCredit.DATE,
+                                                OuterCredit.HEADERS,
+                                                OuterCredit.INITIAL_ROW))
 
             context.render()

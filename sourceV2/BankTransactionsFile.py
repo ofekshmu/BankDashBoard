@@ -1,5 +1,4 @@
-from sourceV2.File import File
-from Constants import BankTransactions
+from File import File
 
 
 class BankTransactionsFile(File):

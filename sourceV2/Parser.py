@@ -10,7 +10,7 @@ from Constants import log, Local
 
 
 class Parser():
-    def __init___(self):
+    def __init__(self):
         self.n = 0
         self.file_names = []
         for file in listdir(Local.XLSX_PATH):

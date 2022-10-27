@@ -28,8 +28,8 @@ class Local:
     Include all local enviroment related valriables
     '''
     if Settings.LAPTOP:
-        XLSX_PATH = 'C:/Users/Ofek Shmuel/OneDrive/Temporary/BankProject/Inputs'
-        Personal_PATH = 'C:/Users/Ofek Shmuel/OneDrive/Temporary/BankProject/personal information/personal_config.json'
+        XLSX_PATH = 'C:/Users/Ofek Shmuel/OneDrive/Work/Projects/Personal/BankProject/Inputs'
+        Personal_PATH = 'C:/Users/Ofek Shmuel/OneDrive/Work/Projects/Personal/BankProject/personal information/personal_config.json'
     else:
         XLSX_PATH = 'C:/Users/ofeks/OneDrive/Temporary/BankProject/Inputs'
         Personal_PATH = 'C:/Users/ofeks/OneDrive/Temporary/BankProject/personal information/personal_config.json'

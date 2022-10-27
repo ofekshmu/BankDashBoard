@@ -1,8 +1,8 @@
-from appManager import appManager
+from AppManager import AppManager
 
 
 def main():
-    myApp = appManager()
+    myApp = AppManager()
     myApp.run()
 
 

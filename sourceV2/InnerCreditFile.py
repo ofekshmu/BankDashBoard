@@ -1,7 +1,4 @@
-from sqlite3 import Row
-from typing import List
-from sourceV2.File import File
-from Constants import InnerCredit
+from File import File
 
 
 class InnerCreditFile(File):

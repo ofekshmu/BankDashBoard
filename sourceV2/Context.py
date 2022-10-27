@@ -1,4 +1,4 @@
-from Constants import log
+from Constants import log, name_he
 from File import File
 
 
@@ -13,7 +13,7 @@ class Context:
             log(f"file is of class {type(file)}.", 'error')
 
     def render(self) -> bool:
-        log(f'Reading {self.file.name}...', 'system')
+        log(f'Reading {name_he(self.file.name)}...', 'system')
         if not self.file.load():
             log(f'Failed reading file: {self.file.name}', category='error')
             return False

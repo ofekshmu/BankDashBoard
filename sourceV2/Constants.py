@@ -23,6 +23,12 @@ def log(msg: str, category: str):
             raise ValueError('Insert either system/debug')
 
 
+def name_he(name: str):
+    i = name[::-1].index(' ')
+    j = len(name) - i
+    return name[:j][::-1] + " " + name[j:]
+
+
 class Local:
     '''
     Include all local enviroment related valriables

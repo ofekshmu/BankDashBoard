@@ -58,9 +58,10 @@ class File:
         The function validates the Bank account specified in the file.
         The cell indicating the number is specified trough the Constants.py
         '''
-        if self.sheet[self.bank_num_loc].value != Personal.BANK_ACC:
-            return False
-        return True
+        value = self.sheet[self.bank_num_loc].value
+        if Personal.BANK_ACC in value:
+            return True
+        return False
 
     def validate_headers(self):
         '''

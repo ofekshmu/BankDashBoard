@@ -19,16 +19,17 @@ class Parser():
 
         log(f"found {len(self.file_names)} files.", 'system')
 
-    def __next__(self):
+    def __next__(self) -> bool:
         if self.n < len(self.file_names):
-            result = self.file_names[self.n]
+            self.current = self.file_names[self.n]
             self.n += 1
-            return result
+            return True
         else:
-            return None
+            return False
 
     def identify(self):
-        file_name = self.file_names[self.n]
+        file_name = self.current
+        res = None
 
         if InnerCredit.SUB_STRING in file_name:
             res = InnerCreditFile
@@ -37,6 +38,6 @@ class Parser():
         elif BankTransactions.SUB_STRING in file_name:
             res = BankTransactionsFile
         else:
-            raise ValueError(f"The file name: {file_name} does not contain a known string.")
+            log(f"The file name: {file_name} does not contain a known string.", 'error')
 
         return file_name, res

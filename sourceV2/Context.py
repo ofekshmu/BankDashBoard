@@ -18,9 +18,10 @@ class Context:
             log(f'Failed reading file: {self.file.name}', category='error')
             return False
         if not self.file.validate_bank_number():
-            log(f'Bank Account number in file: {self.file.name} , does not match!', category='error')
+            log(f'Bank Account number in file: {name_he(self.file.name)} , does not match!', category='error')
             return False
         if not self.file.validate_headers():
             log(f'Headers in file: {self.file.name} , does not match!', 'error')
+        log(f'Validation in file: {name_he(self.file.name)} Completed.', 'system')
 
         return True

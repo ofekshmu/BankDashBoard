@@ -3,6 +3,7 @@ from Constants import log, Local, Personal
 import xlwings as xw
 from xlwings import Sheet
 from os.path import join
+from typing import Union
 
 
 class File:
@@ -53,7 +54,7 @@ class File:
             return False
 
     @abstractmethod
-    def validate_bank_number(self):
+    def validate_bank_number(self) -> bool:
         '''
         The function validates the Bank account specified in the file.
         The cell indicating the number is specified trough the Constants.py
@@ -63,7 +64,7 @@ class File:
             return True
         return False
 
-    def validate_headers(self):
+    def validate_headers(self) -> bool:
         '''
         The function validates the table headers in the file.
         The values of the headers and the initial row are given in the Constants.py.
@@ -81,28 +82,16 @@ got ->{value[::-1]}<- instead.""", category='error')
         return True
 
     @abstractmethod
-    def clean(self):
+    def parse(self) -> bool:
         pass
 
-    @abstractmethod
-    def reduce(self):
-        pass
-
-    @abstractmethod
-    def insert(self):
-        pass
-
-    @abstractmethod
-    def read(self):
-        pass
-    
     @staticmethod
-    def cell(row: int, col: int, sheet: Sheet) -> str:
+    def cell(row: int, col: int, sheet: Sheet) -> Union[str, None]:
         '''
         Returns the value of the cell with indexes [row, col]
         '''
         if row >= 0 and col >= 0:
-            return str(sheet[f'{chr(65 + col)}{row}'].value)
+            return sheet[f'{chr(65 + col)}{row}'].value
         else:
             log(f"Invalid indexes -> ({row}, {col})", "error")
             return ""

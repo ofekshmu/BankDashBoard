@@ -18,14 +18,17 @@ class InnerCreditFile(File):
         self.counter2 = -1
         self.data = None
 
-    def parse(self):
+    def parse(self) -> bool:
         '''
-        Edit this
+        The parse function for InnerCreditFile updates the following fields:
+        self.counter1: number of transactions in the first table
+        self.counter2: number of transaction in the second table
+        self.data: table1 and table2 data in a 2d array
+        self.date: the date specified in the file
         '''
         counter1 = 0
         row = self.initial_row + 1
         cc_end = File.cell(row, 0, self.sheet)
-        # cc_end = self.reduce_char(cc_end)
         log(f"""
                 In function "__count_transactions"
                 cc_end = {cc_end}, cc_end type: {type(cc_end)}')
@@ -65,6 +68,8 @@ class InnerCreditFile(File):
             table2 = [table2]
 
         self.data = table1 + table2
+        self.date = self.sheet[self.date_loc].value
+        return True
 
     def clean(self):
         """

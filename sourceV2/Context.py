@@ -13,15 +13,24 @@ class Context:
             log(f"file is of class {type(file)}.", 'error')
 
     def render(self) -> bool:
-        log(f'Reading {name_he(self.file.name)}...', 'system')
+        log(f'Reading{name_he(self.file.name)}...', 'system')
         if not self.file.load():
             log(f'Failed reading file: {self.file.name}', category='error')
             return False
         if not self.file.validate_bank_number():
             log(f'Bank Account number in file: {name_he(self.file.name)} , does not match!', category='error')
             return False
+        print('-> [SYSTEM]: Validation...\t', end='')
         if not self.file.validate_headers():
-            log(f'Headers in file: {self.file.name} , does not match!', 'error')
-        log(f'Validation in file: {name_he(self.file.name)} Completed.', 'system')
+            print('FAILED.')
+            return False
+        else:
+            print('Completed.')
+        print('-> [SYSTEM]: Parsing...\t\t', end='')
+        if not self.file.parse():
+            print('FAILED.')
+            return False
+        else:
+            print('Completed.')
 
         return True

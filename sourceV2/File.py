@@ -68,21 +68,11 @@ class File:
         The function validates the table headers in the file.
         The values of the headers and the initial row are given in the Constants.py.
         '''
-        def cell(row: int, col: int, sheet: Sheet) -> str:
-            '''
-            Returns the value of the cell with indexes [row, col]
-            '''
-            if row >= 0 and col >= 0:
-                return str(sheet[f'{chr(65 + col)}{row}'].value)
-            else:
-                log(f"Invalid indexes -> ({row}, {col})", "error")
-                return ""
-
         col = 0
         row = self.initial_row
         for name in self.headers:
             log(f'row number = {row}, col = {col}, name = {name[::-1]}', 'debug')
-            value = cell(row, col, self.sheet)
+            value = File.cell(row, col, self.sheet)
             if not value == name:
                 log(f"""cell ->[{row},{col}]<- did not match the expected value ->{name[::-1]}<-.
 got ->{value[::-1]}<- instead.""", category='error')
@@ -105,3 +95,14 @@ got ->{value[::-1]}<- instead.""", category='error')
     @abstractmethod
     def read(self):
         pass
+    
+    @staticmethod
+    def cell(row: int, col: int, sheet: Sheet) -> str:
+        '''
+        Returns the value of the cell with indexes [row, col]
+        '''
+        if row >= 0 and col >= 0:
+            return str(sheet[f'{chr(65 + col)}{row}'].value)
+        else:
+            log(f"Invalid indexes -> ({row}, {col})", "error")
+            return ""

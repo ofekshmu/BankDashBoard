@@ -76,6 +76,11 @@ class InnerCreditFile(File):
         """
 
         """
+        DataBase().insert_file(self.name, 
+                               self.date, 
+                               "Auto Insertion",
+                               self.counter1 + self.counter2)
+
         counter = 0
         for row in self.data:
             counter += 1

@@ -1,6 +1,7 @@
 venv
 venv_laptop
 *.xls
+inputs
 *.docx
 .vscode
 *.db

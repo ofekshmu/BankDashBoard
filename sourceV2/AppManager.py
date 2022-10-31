@@ -3,7 +3,13 @@ from BankTransactionsFile import BankTransactionsFile
 from InnerCreditFile import InnerCreditFile
 from OuterCreditFile import OuterCreditFile
 from Context import Context
-from Constants import InnerCredit, BankTransactions, OuterCredit
+from Constants import InnerCredit, BankTransactions, OuterCredit, log
+from Constants import name_he
+from database import DataBase
+
+
+def exists(name: str) -> bool:
+    return DataBase().is_file_exists(name)
 
 
 class AppManager:
@@ -15,6 +21,10 @@ class AppManager:
         context = Context()
         while next(self.parser):
             name, type = self.parser.identify()
+            
+            if exists(name):
+                log(f'Skipping {name_he(name)}...', 'system')
+                continue
 
             if type == BankTransactionsFile:
                 context.setFile(BankTransactionsFile(name,

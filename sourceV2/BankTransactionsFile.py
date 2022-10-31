@@ -50,7 +50,11 @@ class BankTransactionsFile(File):
     def insert(self):
         """
         """
-        counter = 0
+        DataBase().insert_file(self.name,
+                               self.date,
+                               "Auto Insertion",
+                               self.counter)
+
         for row in self.data:
             ref = row[3]
             date = row[0]
@@ -58,7 +62,6 @@ class BankTransactionsFile(File):
             source_dest = row[2]
             balance = row[-3]
             decs = 'Empty'
-
             hova = row[4]
             zhoot = row[5]
             if hova == 0:

@@ -130,6 +130,7 @@ class DataBase:
                 """, (cardID,)).fetchone()
         return False if ans is None else True
 
+
     @try_catch
     def insert_card(self,
                     id: str,
@@ -142,7 +143,7 @@ class DataBase:
             """, (id, description))
         self.connection.commit()
 
-    def file_name_exists(self, file_name: str):
+    def is_file_exists(self, file_name: str) -> bool:
         '''
         Returns True if a file with the given name exists.
         False otherwise.

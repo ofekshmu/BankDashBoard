@@ -3,6 +3,7 @@ from datetime import datetime
 
 # local imports
 from decorators import try_catch
+from Constants import log
 
 
 class DataBase:
@@ -64,7 +65,7 @@ class DataBase:
                                 source_dest: str,
                                 amount: int,
                                 balance: str,
-                                desc: datetime,
+                                desc: str,
                                 source_file: str):
         '''
         Insert a new transaction to local DB.
@@ -90,10 +91,10 @@ class DataBase:
         Insert a new transaction to local DB.
         '''
         if not self.is_card_exists(cardID):
-            print(f'New card found: ->{cardID}<-')
+            log(f'New card found: ->{cardID}<-', 'db')
             if not self.insert_card(cardID, "Auto Insertion"):
                 return False
-            print(f'Card ID {cardID} has been added!')
+            log(f'Card ID {cardID} has been added!', 'db')
 
         self.cursor.execute(f"""
             INSERT INTO Transactions(cardID, transaction_date, business_name,

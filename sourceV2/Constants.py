@@ -8,17 +8,19 @@ class Settings:
     LAPTOP = False
 
 
-def log(msg: str, category: str):
+def log(msg: str, category: str, e: str = "\n"):
     match category:
         case 'debug':
             if Settings.DEBUG:
-                print(f'->>>>>> [DEBUG]: {msg}\n{"-"*30}\n')
+                print(f'->>>>>> [DEBUG]: {msg}\n{"-"*30}\n', end=e)
         case 'system':
             if Settings.SYSTEM:
-                print(f'-> [SYSTEM]: {msg}')
+                print(f'-> [SYSTEM]: {msg}', end=e)
         case 'error':
-            print(f"\n\t\tX[ERROR]X\n{25*'-'}\n: {msg}\n")
+            print(f"\n\t\tX[ERROR]X\n{25*'-'}\n: {msg}\n", end=e)
             raise ValueError("\nBreaking code...")
+        case 'db':
+            print(f'    -> [DataBase]: {msg}', end=e)
         case other:
             raise ValueError('Insert either system/debug')
 
@@ -57,15 +59,15 @@ class InnerCredit:
     DATE_LOC = 'B5'
     BANK_NUM_LOC = 'B3'
     HEADERS = ["מספר הכרטיס",
-            "תאריך העסקה",
-            "שם בית העסק",
-            "סכום העסקה",
-            "מטבע העסקה",
-            "סכום החיוב",
-            "מטבע חיוב העסקה",
-            "סוג העסקה",
-            "פרטים",
-            "תאריך החיוב"]
+                "תאריך העסקה",
+                "שם בית העסק",
+                "סכום העסקה",
+                "מטבע העסקה",
+                "סכום החיוב",
+                "מטבע חיוב העסקה",
+                "סוג העסקה",
+                "פרטים",
+                "תאריך החיוב"]
 
     INITIAL_ROW = 10  # This is the row with the table titles
     TABLE_SKIP = 3  # Number of rows between trasnactions

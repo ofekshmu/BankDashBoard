@@ -13,7 +13,7 @@ class Context:
             log(f"file is of class {type(file)}.", 'error')
 
     def render(self) -> bool:
-        log(f'Reading{name_he(self.file.name)}...', 'system')
+        log(f'Reading{name_he(self.file.name)}... {self.file}', 'system')
         if not self.file.load():
             log(f'Failed reading file: {self.file.name}', category='error')
             return False
@@ -32,5 +32,11 @@ class Context:
             return False
         else:
             print('Completed.')
+        print('-> [SYSTEM]: Inserting...\t')
+        if not self.file.insert():
+            print('FAILED.')
+            return False
+        else:
+            log('Completed.', 'system')
 
         return True

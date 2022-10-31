@@ -1,5 +1,6 @@
 from File import File
 from Constants import log
+from database import DataBase
 
 
 class InnerCreditFile(File):
@@ -71,20 +72,15 @@ class InnerCreditFile(File):
         self.date = self.sheet[self.date_loc].value
         return True
 
-    def clean(self):
-        """
-
-        """
-        pass
-
-    def reduce(self):
-        """
-
-        """
-        pass
-
     def insert(self):
         """
 
         """
-        pass
+        counter = 0
+        for row in self.data:
+            counter += 1
+            DataBase().insert_transaction(row[0], row[1], row[2], row[3], row[7], row[-1], self.name)
+        return True
+
+    def __str__(self):
+        return f"\t -> InnerCreditFile"

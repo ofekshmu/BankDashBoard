@@ -1,4 +1,6 @@
 from File import File
+from Constants import log
+from database import DataBase
 
 
 class BankTransactionsFile(File):
@@ -11,20 +13,62 @@ class BankTransactionsFile(File):
         super().__init__(name, bank_num_loc, initial_row, headers)
         self.date_loc = date_loc
 
-    def clean(self):
-        """
+    def parse(self):
+        '''
+        The parse function for InnerCreditFile updates the following fields:
+        self.counter1: number of transactions in the first table
+        self.counter2: number of transaction in the second table
+        self.data: table1 and table2 data in a 2d array
+        self.date: the date specified in the file
+        '''
+        counter = 0
+        row = self.initial_row + 1
+        cc_end = File.cell(row, 0, self.sheet)
+        log(f"""
+                In function "__count_transactions"
+                cc_end = {cc_end}, cc_end type: {type(cc_end)}')
+            """, category='debug')
+        while cc_end is not None:
+            counter += 1
+            row += 1
+            cc_end = File.cell(row, 0, self.sheet)
 
-        """
-        pass
+        self.counter = counter
+        log(f'First Loop End stats: cc_end={cc_end}, counter1={counter}, row={row}', category='debug')
 
-    def reduce(self):
-        """
+        col_count = len(self.headers)
+        table = self.sheet[self.initial_row: self.initial_row + self.counter, 0: col_count].value
+        if table is None:
+            table = []
+        elif counter == 1:
+            table = [table]
 
-        """
-        pass
+        self.data = table
+        self.date = self.sheet[self.date_loc].value
+        return True
 
     def insert(self):
         """
-
         """
-        pass
+        counter = 0
+        for row in self.data:
+            ref = row[3]
+            date = row[0]
+            date_value = row[1]
+            source_dest = row[2]
+            balance = row[-3]
+            decs = 'Empty'
+
+            hova = row[4]
+            zhoot = row[5]
+            if hova == 0:
+                amount = zhoot
+            elif zhoot == 0:
+                amount = hova
+            else:
+                raise ValueError('There is a bug here')
+            DataBase().insert_bank_transaction(ref, date, date_value, source_dest, amount, balance, decs, self.name)
+        return True
+
+    def __str__(self):
+        return f"\t -> BankTransactionFile"

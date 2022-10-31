@@ -85,6 +85,10 @@ got ->{value[::-1]}<- instead.""", category='error')
     def parse(self) -> bool:
         pass
 
+    @abstractmethod
+    def insert(self) -> bool:
+        pass
+
     @staticmethod
     def cell(row: int, col: int, sheet: Sheet) -> Union[str, None]:
         '''
@@ -95,3 +99,6 @@ got ->{value[::-1]}<- instead.""", category='error')
         else:
             log(f"Invalid indexes -> ({row}, {col})", "error")
             return ""
+
+    def __str__(self):
+        return f"\t -> GenericFileClass"

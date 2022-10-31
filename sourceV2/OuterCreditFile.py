@@ -10,26 +10,15 @@ class OuterCreditFile(File):
         super().__init__(name, 'None Exsisting', initial_row, headers)
         self.loc = date_loc
 
-    def validate(self):
-        """
+    def validate_bank_number(self) -> bool:
+        """ Outer credit has no Bank acc number """
+        return True
 
-        """
+    def validate_headers(self) -> bool:
         pass
 
-    def clean(self):
-        """
-
-        """
+    def parse(self) -> bool:
         pass
 
-    def reduce(self):
-        """
-
-        """
-        pass
-
-    def insert(self):
-        """
-
-        """
+    def insert(self) -> bool:
         pass

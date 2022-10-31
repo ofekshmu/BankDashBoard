@@ -21,7 +21,7 @@ class AppManager:
         context = Context()
         while next(self.parser):
             name, type = self.parser.identify()
-            
+
             if exists(name):
                 log(f'Skipping {name_he(name)}...', 'system')
                 continue
@@ -44,5 +44,7 @@ class AppManager:
                                                 OuterCredit.DATE,
                                                 OuterCredit.HEADERS,
                                                 OuterCredit.INITIAL_ROW))
+            else:
+                log("The file type is not supported", 'error')
 
             context.render()

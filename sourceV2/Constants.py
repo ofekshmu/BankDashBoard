@@ -1,4 +1,5 @@
 import json
+from msilib.schema import Error
 
 
 class Settings:
@@ -26,9 +27,12 @@ def log(msg: str, category: str, e: str = "\n"):
 
 
 def name_he(name: str):
-    i = name[::-1].index(' ')
-    j = len(name) - i
-    return name[:j][::-1] + " " + name[j:]
+    try:
+        i = name[::-1].index(' ')
+        j = len(name) - i
+        return name[:j][::-1] + " " + name[j:]
+    except ValueError:
+        return name
 
 
 class Local:
@@ -41,7 +45,8 @@ class Local:
     else:
         XLSX_PATH = 'C:/Users/ofeks/OneDrive/Work/Projects/Personal/BankProject/Inputs'
         Personal_PATH = 'C:/Users/ofeks/OneDrive/Work/Projects/Personal/BankProject/personal information/personal_config.json'
-    EXTENSION = '.xls'
+    EXTENSION_1 = '.xls'
+    EXTENSION_2 = '.xlsx'
 
 
 class Personal:

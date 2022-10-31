@@ -14,7 +14,10 @@ class Parser():
         self.n = 0
         self.file_names = []
         for file in listdir(Local.XLSX_PATH):
-            if isfile(join(Local.XLSX_PATH, file)) and file.endswith(Local.EXTENSION):
+            cond1 = isfile(join(Local.XLSX_PATH, file))
+            cond2 = file.endswith(Local.EXTENSION_1)
+            cond3 = file.endswith(Local.EXTENSION_2)
+            if cond1 and (cond2 or cond3):
                 self.file_names.append(file)
 
         log(f"found {len(self.file_names)} files.", 'system')

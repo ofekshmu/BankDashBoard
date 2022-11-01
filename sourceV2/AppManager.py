@@ -41,7 +41,6 @@ class AppManager:
                                                 InnerCredit.TABLE_SKIP))
             elif type == OuterCreditFile:
                 context.setFile(OuterCreditFile(name,
-                                                OuterCredit.DATE,
                                                 OuterCredit.HEADERS,
                                                 OuterCredit.INITIAL_ROW))
             else:

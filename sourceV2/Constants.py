@@ -80,7 +80,6 @@ class InnerCredit:
 
 class OuterCredit:
     SUB_STRING = "transaction-details_export"
-    DATE = 'B3'  # This isn't the date of the xlsx creation.
     HEADERS = ["תאריך עסקה",
                "שם בית העסק",
                "קטגוריה",
@@ -88,15 +87,14 @@ class OuterCredit:
                "סוג עסקה",
                "סכום חיוב",
                "מטבע חיוב",
-               "סכום עסקה",
-               "מטבע עסקה",
+               "סכום עסקה מקורי",
+               "מטבע עסקה מקורי",
                "תאריך חיוב",
-               "הערות",
                "הערות",
                "תיוגים",
                "מועדון הנחות",
                "מפתח דיסקונט",
-               "אופן ביצוע העסקה",
+               "אופן ביצוע ההעסקה",
                "שער המרה ממטבע מקור/התחשבנות לש\"ח"]
 
     INITIAL_ROW = 4

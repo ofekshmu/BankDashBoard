@@ -18,26 +18,33 @@ class OuterCreditFile(File):
 
     def parse(self) -> bool:
         """
+        The parse function for InnerCreditFile updates the following fields:
+        self.counter: number of transactions
+        self.data: table data in a 2d array
+        self.card_num: the card_num specified in the file
         """
         counter = 0
         row = self.initial_row + 1
         cc_end = File.cell(row, 0, self.sheet)
-        log(f"""
-                In function "__count_transactions"
-                cc_end = {cc_end}, cc_end type: {type(cc_end)}')
-            """, category='debug')
+        
+        # Empty cell is read as None
         while cc_end is not None:
             counter += 1
             row += 1
             cc_end = File.cell(row, 0, self.sheet)
 
+        # Number of transactions
         self.counter = counter
         log(f'First Loop End stats: cc_end={cc_end}, counter1={counter}, row={row}', category='debug')
 
         col_count = len(self.headers)
+        # Extract table data
         table = self.sheet[self.initial_row: self.initial_row + self.counter, 0: col_count].value
+
+        # Happens if table is empty (No transactions)
         if table is None:
             table = []
+        # To stay consistent with the data structure
         elif counter == 1:
             table = [table]
 

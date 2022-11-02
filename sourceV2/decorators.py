@@ -1,7 +1,6 @@
 from enum import Enum
 
 
-
 def try_catch(function):
     '''
     This decorator add a try-except wrapper to the appointed function.

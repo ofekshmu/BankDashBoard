@@ -64,15 +64,15 @@ class InnerCredit:
     DATE_LOC = 'B5'
     BANK_NUM_LOC = 'B3'
     HEADERS = ["מספר הכרטיס",
-                "תאריך העסקה",
-                "שם בית העסק",
-                "סכום העסקה",
-                "מטבע העסקה",
-                "סכום החיוב",
-                "מטבע חיוב העסקה",
-                "סוג העסקה",
-                "פרטים",
-                "תאריך החיוב"]
+               "תאריך העסקה",
+               "שם בית העסק",
+               "סכום העסקה",
+               "מטבע העסקה",
+               "סכום החיוב",
+               "מטבע חיוב העסקה",
+               "סוג העסקה",
+               "פרטים",
+               "תאריך החיוב"]
 
     INITIAL_ROW = 10  # This is the row with the table titles
     TABLE_SKIP = 3  # Number of rows between trasnactions
@@ -97,6 +97,7 @@ class OuterCredit:
                "אופן ביצוע ההעסקה",
                "שער המרה ממטבע מקור/התחשבנות לש\"ח"]
 
+    CARD_CELL = 'A2'
     INITIAL_ROW = 4
     TABLE_SKIP = 0
 

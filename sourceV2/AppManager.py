@@ -42,6 +42,7 @@ class AppManager:
             elif type == OuterCreditFile:
                 context.setFile(OuterCreditFile(name,
                                                 OuterCredit.HEADERS,
+                                                OuterCredit.CARD_CELL,
                                                 OuterCredit.INITIAL_ROW))
             else:
                 log("The file type is not supported", 'error')

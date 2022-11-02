@@ -86,6 +86,11 @@ got ->{value[::-1]}<- instead.""", category='error')
         pass
 
     @abstractmethod
+    def clean(self) -> bool:
+        pass
+
+
+    @abstractmethod
     def insert(self) -> bool:
         pass
 

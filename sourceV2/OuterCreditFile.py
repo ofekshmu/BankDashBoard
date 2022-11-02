@@ -1,13 +1,16 @@
 from File import File
 from Constants import log
+from database import DataBase
 
 
 class OuterCreditFile(File):
     def __init__(self,
                  name: str,
                  headers: list,
+                 card_cell: str,
                  initial_row: int):
         super().__init__(name, 'None Exsisting', initial_row, headers)
+        self.card_cell = card_cell
 
     def validate_bank_number(self) -> bool:
         """ Outer credit has no Bank acc number """
@@ -39,8 +42,29 @@ class OuterCreditFile(File):
             table = [table]
 
         self.data = table
+        self.card_num = self.sheet[self.card_cell].value
         return True
 
-
     def insert(self) -> bool:
-        pass
+
+        DataBase().insert_file(self.name,
+                               'None',
+                               "Auto Insertion",
+                               self.counter)
+
+        for row in self.data:
+            card_id = self.card_num
+            transaction_date = row[0]
+            business_name = row[1]
+            amount = row[5]
+            trans_type = row[4]
+            charge_date = row[9]
+            source_file = self.name
+            DataBase().insert_transaction(card_id,
+                                          transaction_date,
+                                          business_name,
+                                          amount,
+                                          trans_type,
+                                          charge_date,
+                                          source_file)
+        return True

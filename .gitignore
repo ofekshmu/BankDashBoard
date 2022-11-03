@@ -2,3 +2,10 @@ venv
 *.xlsx
 *.docx
 .vscode
+inputs
+__pycache__
+*.db
+setup.cfg
+personal information
+venv_laptop
+venv2

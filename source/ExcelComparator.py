@@ -35,19 +35,33 @@ def row(row: int, col_init: int, col_end: int, sheet: Sheet) -> Union[str, None]
         return ""
 
 
-def compare_excel(file_name1: str, file_name2: str, start: int = 1, max_rows: int = 100):
+def compare_excel(old_file: dict, new_file: dict):
     """
     file_name1 will be the new excel
     file_name2 will be the old excel
     """
 
-    sheet1 = read_sheet(file_name1)
-    sheet2 = read_sheet(file_name2)
-
-    test = sheet1['A7:K7'].value
+    old_sheet = read_sheet(old_file["name"])
+    new_sheet = read_sheet(new_file["name"])
+    x = old_sheet[0:20, 0:13].value
+    old_table = old_sheet[old_file["initial_row"]: old_file["initial_row"] + old_file["trans_count"], 0: old_file["col_count"]].value
+    new_table = new_sheet[new_file["initial_row"]: new_file["initial_row"] + new_file["trans_count"], 0: new_file["col_count"]].value
 
     lst = []
-    for offset in range(0, max_rows):
+    i = -1
+    row = old_table[0]
+    if row in new_table:
+        i = new_table.index(row)
+        for j in range(1, len(new_table) - i):
+            if  j>= len(old_table) or i + j >= len(new_table):
+                break
+            if old_table[j] != new_table[i + j]:
+                return []
+    return new_table[:i]
+
+
+    lst = []
+    for offset in range(old_table):
         rate = 0
         for i in range(0, max_rows):
             row1 = row(start + i + offset, 0, 10, sheet1)
@@ -64,6 +78,16 @@ def compare_excel(file_name1: str, file_name2: str, start: int = 1, max_rows: in
     # find index of max value in list
     chosen_offset = lst.index(highest_rate)
 
+    table = sheet1[start: start + chosen_offset, 0: 10].value
+    # Happens if table is empty (No transactions)
+    if table is None:
+        table = []
+    # To stay consistent with the data structure
+    elif chosen_offset == 1:
+        table = [table]
+
+    print(table)
+
     return chosen_offset
 
 
@@ -74,10 +98,19 @@ def main():
             file_names.append(file)
     print(file_names)
 
-    f1 = file_names[1]
-    f2 = file_names[0]
+    f1 = file_names[3]
+    f2 = file_names[2]
     # print(f'offset: {compare_excel(f1, f2, 13, 50)}')
-    # print(f'offset: {compare_excel(f1, f2, 11, 35)}')
+
+    old_file = {"name": f1,
+                "initial_row": 13,
+                "trans_count": 40,
+                "col_count": 9}
+    new_file = {"name": f1,
+                "initial_row": 13,
+                "trans_count": 42,
+                "col_count": 9}
+    print(f'offset: {compare_excel(old_file, new_file)}')
 
 
 main()

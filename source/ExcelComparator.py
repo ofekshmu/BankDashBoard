@@ -13,6 +13,11 @@ def read_sheet(file_name: str) -> Sheet:
     #     #log(str(e), category='debug')
     #     return False
 
+def get_date(str):
+    import re
+
+    txt = "The rain in Spain"
+    return re.search("\w{1,2}_\w{1,2}_\w{4}", str).group()
 
 def cell(row: int, col: int, sheet: Sheet) -> Union[str, None]:
     '''
@@ -66,45 +71,18 @@ def compare_excel(old_file: dict, new_file: dict):
     return new_table[:i]
 
 
-    lst = []
-    for offset in range(old_table):
-        rate = 0
-        for i in range(0, max_rows):
-            row1 = row(start + i + offset, 0, 10, sheet1)
-            row2 = row(start + i, 0, 10, sheet2)
-
-            if row1 == row2:
-                rate += 1
-        lst.append(rate/max_rows)
-
-    # get the offset with the gihest rate
-    # find max value in list
-    highest_rate = max(lst)
-    print(f'The highest rate: {highest_rate}')
-    # find index of max value in list
-    chosen_offset = lst.index(highest_rate)
-
-    table = sheet1[start: start + chosen_offset, 0: 10].value
-    # Happens if table is empty (No transactions)
-    if table is None:
-        table = []
-    # To stay consistent with the data structure
-    elif chosen_offset == 1:
-        table = [table]
-
-    print(table)
-
-    return chosen_offset
-
-
 def main():
     file_names = []
     for file in listdir("C:/Users/ofeks/OneDrive/Work/Projects/Personal/BankProject/Inputs"):
         if isfile(join("C:/Users/ofeks/OneDrive/Work/Projects/Personal/BankProject/Inputs", file)) and file.endswith(".xls"):
             file_names.append(file)
     print(file_names)
-
-
+    for n in file_names:
+        print(get_date(n))
+    
+    date_lst = [get_date(name) for name in file_names]
+    print(sorted(date_lst))
+    
     old_file = {"name": file_names[3],
                 "initial_row": 13 - 1,
                 "trans_count": 40,

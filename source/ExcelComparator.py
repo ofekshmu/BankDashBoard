@@ -45,6 +45,11 @@ def get_row(table):
             pass
         else:
             return i, row
+
+def to_date(str):
+    date = str.split("_")
+    import datetime
+    return datetime.datetime(int(date[2]), int(date[1]), int(date[0]))
         
 def compare_excel(old_file: dict, new_file: dict):
     """
@@ -82,7 +87,11 @@ def main():
     
     date_lst = [get_date(name) for name in file_names]
     print(sorted(date_lst))
-    
+
+    print(to_date(date_lst[0]) > to_date(date_lst[1]))
+    print(to_date(date_lst[0]) < to_date(date_lst[2]))
+    print(to_date(date_lst[1]) == to_date(date_lst[4]))
+
     old_file = {"name": file_names[3],
                 "initial_row": 13 - 1,
                 "trans_count": 40,

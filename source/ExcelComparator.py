@@ -50,7 +50,14 @@ def to_date(str):
     date = str.split("_")
     import datetime
     return datetime.datetime(int(date[2]), int(date[1]), int(date[0]))
-        
+
+def get_last(date_str: str, date_lst):
+    sorted_lst = sorted(date_lst, key=to_date)
+    i = sorted_lst.index(date_str)
+    return sorted_lst[i - 1]
+
+
+
 def compare_excel(old_file: dict, new_file: dict):
     """
     file_name1 will be the new excel
@@ -86,12 +93,15 @@ def main():
         print(get_date(n))
     
     date_lst = [get_date(name) for name in file_names]
-    print(sorted(date_lst))
-
+    
+    print(f"Not sorted: {date_lst}")
     print(to_date(date_lst[0]) > to_date(date_lst[1]))
     print(to_date(date_lst[0]) < to_date(date_lst[2]))
     print(to_date(date_lst[1]) == to_date(date_lst[4]))
 
+
+    print("sorted: ", sorted(date_lst, key=to_date))
+    print(get_last(date_lst[3], date_lst))
     old_file = {"name": file_names[3],
                 "initial_row": 13 - 1,
                 "trans_count": 40,

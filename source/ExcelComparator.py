@@ -34,7 +34,13 @@ def row(row: int, col_init: int, col_end: int, sheet: Sheet) -> Union[str, None]
     else:
         return ""
 
-
+def get_row(table):
+    for i, row in enumerate(table):
+        if row[8] == "  * תנועות היום":
+            pass
+        else:
+            return i, row
+        
 def compare_excel(old_file: dict, new_file: dict):
     """
     file_name1 will be the new excel
@@ -49,13 +55,13 @@ def compare_excel(old_file: dict, new_file: dict):
 
     lst = []
     i = -1
-    row = old_table[0]
+    index, row = get_row(old_table)
     if row in new_table:
         i = new_table.index(row)
         for j in range(1, len(new_table) - i):
             if  j>= len(old_table) or i + j >= len(new_table):
                 break
-            if old_table[j] != new_table[i + j]:
+            if old_table[index + j] != new_table[i + j]:
                 return []
     return new_table[:i]
 
@@ -98,19 +104,18 @@ def main():
             file_names.append(file)
     print(file_names)
 
-    f1 = file_names[3]
-    f2 = file_names[2]
-    # print(f'offset: {compare_excel(f1, f2, 13, 50)}')
 
-    old_file = {"name": f1,
-                "initial_row": 13,
+    old_file = {"name": file_names[3],
+                "initial_row": 13 - 1,
                 "trans_count": 40,
                 "col_count": 9}
-    new_file = {"name": f1,
-                "initial_row": 13,
-                "trans_count": 42,
+    new_file = {"name": file_names[2],
+                "initial_row": 13 - 1,
+                "trans_count": 40,
                 "col_count": 9}
-    print(f'offset: {compare_excel(old_file, new_file)}')
+    table = compare_excel(old_file, new_file)
+    for line, row in enumerate(table):
+        print(f"{1+line}: {row}\n")
 
 
 main()

@@ -99,6 +99,11 @@ got ->{value[::-1]}<- instead.""", category='error')
             return datetime.datetime(int(date[2]), int(date[1]), int(date[0]))
 
         def get_last_file_name(file_date: datetime) -> str:
+            """
+            Function receives the date of the current file specified in its name
+            and returns the name of the most recent file of the same type, in the
+            input folder
+            """
             from Parser import Parser
             p = Parser()
             lst = []
@@ -107,9 +112,11 @@ got ->{value[::-1]}<- instead.""", category='error')
                 if type == BankTransactionsFile:
                     lst.append(name)
             
-            # sorted_lst = sorted(date_lst, key=to_date)
-
-            return ""
+            dict = {to_date(name): name for name in lst}
+            sorted_dates = sorted(dict.keys())
+            idx = sorted_dates.index(file_date)
+            chosen_date = sorted_dates[idx - 1]
+            return dict[chosen_date]
 
         file_date = to_date(self.name)
         old_file_name = get_last_file_name(file_date)

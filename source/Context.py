@@ -32,6 +32,12 @@ class Context:
             return False
         else:
             print('Completed.')
+        print('-> [SYSTEM]: Cleaning...\t\t', end='')
+        if not self.file.clean():
+            print('FAILED.')
+            return False
+        else:
+            print('Completed.')
         print('-> [SYSTEM]: Inserting...\t')
         if not self.file.insert():
             print('FAILED.')

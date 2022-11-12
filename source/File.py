@@ -5,7 +5,6 @@ from xlwings import Sheet
 from os.path import join
 from typing import Union
 from datetime import datetime
-from BankTransactionsFile import BankTransactionsFile
 from Constants import BankTransactions
 from database import DataBase
 
@@ -95,8 +94,10 @@ got ->{value[::-1]}<- instead.""", category='error')
         Given a table of transactions, it will change the table to contain only new
         ones which did not appear before.
         """
-        def to_date(str):
-            date = str.split("_")
+        def to_date(name: str) -> datetime:
+            import re
+            date_str = re.search("\w{1,2}_\w{1,2}_\w{4}", name).group()
+            date = date_str.split("_")
             import datetime
             return datetime.datetime(int(date[2]), int(date[1]), int(date[0]))
 
@@ -111,8 +112,9 @@ got ->{value[::-1]}<- instead.""", category='error')
             lst = []
             while next(p):
                 name, type = p.identify()
-                if type == BankTransactionsFile:
-                    lst.append(name)
+                # if type == BankTransactionsFile:
+                log('THE SYSTEM DOES NOT RECOGNIZE BETWEEN FILES', 'system')
+                lst.append(name)
 
             dict = {to_date(name): name for name in lst}
             sorted_dates = sorted(dict.keys())
@@ -147,7 +149,7 @@ got ->{value[::-1]}<- instead.""", category='error')
             if row in new_table:
                 i = new_table.index(row)
                 for j in range(1, len(new_table) - i):
-                    if  j>= len(old_table) or i + j >= len(new_table):
+                    if j >= len(old_table) or i + j >= len(new_table):
                         break
                     if old_table[index + j] != new_table[i + j]:
                         return []

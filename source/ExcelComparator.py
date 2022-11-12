@@ -6,12 +6,9 @@ from typing import Union
 
 
 def read_sheet(file_name: str) -> Sheet:
-    # try:
     wb = xw.Book(join("C:/Users/ofeks/OneDrive/Work/Projects/Personal/BankProject/Inputs", file_name))
     return wb.sheets[0]
-    # except Exception as e:
-    #     #log(str(e), category='debug')
-    #     return False
+
 
 def get_date(str):
     import re

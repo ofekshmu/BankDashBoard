@@ -6,6 +6,8 @@ from os.path import join
 from typing import Union
 from datetime import datetime
 from BankTransactionsFile import BankTransactionsFile
+from Constants import BankTransactions
+from database import DataBase
 
 
 class File:
@@ -111,16 +113,60 @@ got ->{value[::-1]}<- instead.""", category='error')
                 name, type = p.identify()
                 if type == BankTransactionsFile:
                     lst.append(name)
-            
+
             dict = {to_date(name): name for name in lst}
             sorted_dates = sorted(dict.keys())
             idx = sorted_dates.index(file_date)
             chosen_date = sorted_dates[idx - 1]
             return dict[chosen_date]
 
+        def read_sheet(file_name: str) -> Sheet:
+            wb = xw.Book(join("C:/Users/ofeks/OneDrive/Work/Projects/Personal/BankProject/Inputs", file_name))
+            return wb.sheets[0]
+
+        def get_row(table):
+            for i, row in enumerate(table):
+                if row[8] == "  * תנועות היום":
+                    pass
+                else:
+                    return i, row
+
+        def compare_excel(old_file: dict, new_file: dict):
+            """
+            file_name1 will be the new excel
+            file_name2 will be the old excel
+            """
+
+            old_sheet = read_sheet(old_file["name"])
+            new_sheet = read_sheet(new_file["name"])
+            old_table = old_sheet[old_file["initial_row"]: old_file["initial_row"] + old_file["trans_count"], 0: old_file["col_count"]].value
+            new_table = new_sheet[new_file["initial_row"]: new_file["initial_row"] + new_file["trans_count"], 0: new_file["col_count"]].value
+
+            i = -1
+            index, row = get_row(old_table)
+            if row in new_table:
+                i = new_table.index(row)
+                for j in range(1, len(new_table) - i):
+                    if  j>= len(old_table) or i + j >= len(new_table):
+                        break
+                    if old_table[index + j] != new_table[i + j]:
+                        return []
+            return new_table[:i]
+
         file_date = to_date(self.name)
         old_file_name = get_last_file_name(file_date)
-        self.table = compare_files(old_file_name, self.name)
+        old_file = {"name": old_file_name,
+                    "initial_row": BankTransactions.INITIAL_ROW,
+                    "trans_count": DataBase().transaction_count(old_file_name),
+                    "col_count": len(BankTransactions.HEADERS)}
+        new_file = {"name": self.name,
+                    "initial_row": BankTransactions.INITIAL_ROW,
+                    "trans_count": self.counter,
+                    "col_count": len(BankTransactions.HEADERS)}
+        new_table = compare_excel(old_file, new_file)
+        log(f'Out of {len(self.table)} Transactions, {len(new_table)} new were found!', 'system')
+        self.table = new_table
+
 
 
     @abstractmethod

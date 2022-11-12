@@ -130,7 +130,6 @@ class DataBase:
                 """, (cardID,)).fetchone()
         return False if ans is None else True
 
-
     @try_catch
     def insert_card(self,
                     id: str,
@@ -175,11 +174,13 @@ class DataBase:
         False otherwise.
         '''
         res = self.cursor.execute("""
-                    SELECT Transaction_count
-                    FROM File
+                    SELECT ID
+                    FROM BankTransactions
                     WHERE Name = ?;
-                """, (file_name,)).fetchone()[0]
-        return res
+                """, (file_name,)).fetchall()
+        return len(res)
+
+
 
     @try_catch
     def close(self):

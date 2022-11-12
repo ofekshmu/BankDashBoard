@@ -174,9 +174,9 @@ class DataBase:
         False otherwise.
         '''
         res = self.cursor.execute("""
-                    SELECT ID
+                    SELECT *
                     FROM BankTransactions
-                    WHERE Name = ?;
+                    WHERE source_file = ?;
                 """, (file_name,)).fetchall()
         return len(res)
 

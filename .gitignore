@@ -1,5 +1,4 @@
 venv
-venv_laptop
 *.xls
 inputs
 *.docx
@@ -9,3 +8,4 @@ __pycache__
 personal information
 personal_config.json
 setup.cfg
+

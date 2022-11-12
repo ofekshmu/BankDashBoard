@@ -4,6 +4,7 @@ from Constants import InnerCredit, OuterCredit, BankTransactions
 from OuterCreditFile import OuterCreditFile
 from InnerCreditFile import InnerCreditFile
 from BankTransactionsFile import BankTransactionsFile
+from datetime import datetime
 
 # Local
 from Constants import log, Local
@@ -21,6 +22,17 @@ class Parser():
                 self.file_names.append(file)
 
         log(f"found {len(self.file_names)} files.", 'system')
+        
+        def to_date(name: str) -> datetime:
+            import re
+            date_str = re.search("\w{1,2}_\w{1,2}_\w{4}", name).group()
+            date = date_str.split("_")
+            import datetime
+            return datetime.datetime(int(date[2]), int(date[1]), int(date[0]))
+
+        dict = {to_date(name): name for name in self.file_names}
+        self.file_names = [v for k, v in sorted(dict.items(), key=lambda item: item[0])]
+        print()
 
     def __next__(self) -> bool:
         if self.n < len(self.file_names):

@@ -101,7 +101,7 @@ got ->{value[::-1]}<- instead.""", category='error')
             import datetime
             return datetime.datetime(int(date[2]), int(date[1]), int(date[0]))
 
-        def get_last_file_name(file_date: datetime) -> str:
+        def get_last_file_name(file_date: datetime) -> Union[str, None]:
             """
             Function receives the date of the current file specified in its name
             and returns the name of the most recent file of the same type, in the
@@ -119,6 +119,8 @@ got ->{value[::-1]}<- instead.""", category='error')
             dict = {to_date(name): name for name in lst}
             sorted_dates = sorted(dict.keys())
             idx = sorted_dates.index(file_date)
+            if idx == 0:
+                return None
             chosen_date = sorted_dates[idx - 1]
             return dict[chosen_date]
 
@@ -157,9 +159,16 @@ got ->{value[::-1]}<- instead.""", category='error')
 
         file_date = to_date(self.name)
         old_file_name = get_last_file_name(file_date)
+        if old_file_name is None:
+            log(f"{self.name} has not earlier file - Nothing to clean", "system")
+            return True
+
+        trans_count = DataBase().transaction_count(old_file_name)
+        if not trans_count:
+            log(f"There is a problem retriving transactions for {old_file_name}", "error")
         old_file = {"name": old_file_name,
                     "initial_row": BankTransactions.INITIAL_ROW,
-                    "trans_count": DataBase().transaction_count(old_file_name),
+                    "trans_count": trans_count,
                     "col_count": len(BankTransactions.HEADERS)}
         new_file = {"name": self.name,
                     "initial_row": BankTransactions.INITIAL_ROW,
@@ -168,6 +177,7 @@ got ->{value[::-1]}<- instead.""", category='error')
         new_table = compare_excel(old_file, new_file)
         log(f'Out of {len(self.table)} Transactions, {len(new_table)} new were found!', 'system')
         self.table = new_table
+        return True
 
 
 

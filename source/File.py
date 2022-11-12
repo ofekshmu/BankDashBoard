@@ -4,6 +4,8 @@ import xlwings as xw
 from xlwings import Sheet
 from os.path import join
 from typing import Union
+from datetime import datetime
+from BankTransactionsFile import BankTransactionsFile
 
 
 class File:
@@ -85,9 +87,33 @@ got ->{value[::-1]}<- instead.""", category='error')
     def parse(self) -> bool:
         pass
 
-    @abstractmethod
     def clean(self) -> bool:
-        pass
+        """
+        Function will clean the read data.
+        Given a table of transactions, it will change the table to contain only new
+        ones which did not appear before.
+        """
+        def to_date(str):
+            date = str.split("_")
+            import datetime
+            return datetime.datetime(int(date[2]), int(date[1]), int(date[0]))
+
+        def get_last_file_name(file_date: datetime) -> str:
+            from Parser import Parser
+            p = Parser()
+            lst = []
+            while next(p):
+                name, type = p.identify()
+                if type == BankTransactionsFile:
+                    lst.append(name)
+            
+            # sorted_lst = sorted(date_lst, key=to_date)
+
+            return ""
+
+        file_date = to_date(self.name)
+        old_file_name = get_last_file_name(file_date)
+        self.table = compare_files(old_file_name, self.name)
 
 
     @abstractmethod

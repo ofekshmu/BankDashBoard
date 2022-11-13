@@ -33,6 +33,7 @@ class BankTransactionsFile(File):
 
         # Number of transactions
         self.counter = counter
+        self.new_trans_count = counter
         log(f'First Loop End stats: cc_end={cc_end}, counter1={counter}, row={row}', 'debug')
 
         col_count = len(self.headers)
@@ -56,6 +57,7 @@ class BankTransactionsFile(File):
         DataBase().insert_file(self.name,
                                self.date,
                                "Auto Insertion",
+                               self.new_trans_count,
                                self.counter)
 
         for row in self.data:

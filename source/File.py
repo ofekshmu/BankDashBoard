@@ -163,7 +163,7 @@ got ->{value[::-1]}<- instead.""", category='error')
             log(f"{self.name} has not earlier file - Nothing to clean", "system")
             return True
 
-        trans_count = DataBase().transaction_count(old_file_name)
+        trans_count = DataBase().total_transactions(old_file_name)
         if not trans_count:
             log(f"There is a problem retriving transactions for {old_file_name}", "error")
         old_file = {"name": old_file_name,
@@ -175,8 +175,9 @@ got ->{value[::-1]}<- instead.""", category='error')
                     "trans_count": self.counter,
                     "col_count": len(BankTransactions.HEADERS)}
         new_table = compare_excel(old_file, new_file)
-        log(f'Out of {len(self.table)} Transactions, {len(new_table)} new were found!', 'system')
-        self.table = new_table
+        log(f'Out of {len(self.data)} Transactions, {len(new_table)} new were found!', 'system')
+        self.new_trans_count = len(new_table)
+        self.data = new_table
         return True
 
 

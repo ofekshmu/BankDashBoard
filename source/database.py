@@ -24,6 +24,7 @@ class DataBase:
             Name                CHAR        NOT NULL PRIMARY KEY,
             Date                DATE        NOT NULL,
             Description         CHAR                ,
+            New_Transactions    INT                 ,
             Transaction_count   INT         NOT NULL,
             Last_update         DATE        NOT NULL
             );""")
@@ -109,15 +110,16 @@ class DataBase:
                     name: str,
                     date: datetime,
                     description: str,
+                    new_trans_count: int,
                     trans_count: int):
         '''
         Insert a new file to local DB.
         '''
         last_update = datetime.now()
         self.cursor.execute(f"""
-            INSERT INTO File(Name, Date, Description, Transaction_count, Last_update)
-            VALUES(?, ?, ?, ?, ?)
-            """, (name, date, description, trans_count, last_update)
+            INSERT INTO File(Name, Date, Description, New_Transactions, Transaction_count, Last_update)
+            VALUES(?, ?, ?, ?, ?, ?)
+            """, (name, date, description, new_trans_count, trans_count, last_update)
             )
         self.connection.commit()
 
@@ -168,19 +170,16 @@ class DataBase:
         return False if ans is None else True
 
     @try_catch
-    def transaction_count(self, file_name):
+    def total_transactions(self, file_name):
         '''
         Returns True if a file with the given date exists.
         False otherwise.
         '''
-        res = self.cursor.execute("""
-                    SELECT *
-                    FROM BankTransactions
-                    WHERE source_file = ?;
-                """, (file_name,)).fetchall()
-        return len(res)
-
-
+        return self.cursor.execute("""
+                    SELECT Transaction_count
+                    FROM File
+                    WHERE Name = ?;
+                """, (file_name,)).fetchone()[0]
 
     @try_catch
     def close(self):

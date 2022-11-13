@@ -41,7 +41,6 @@ class Parser():
                 if cond1 and (cond2 or cond3):
                     self.file_dict[file] = self.__identify(file)
 
-            log(f"found {len(self.file_dict)} files.", 'system')
 
             def to_date(name: str) -> datetime:
                 import re
@@ -50,8 +49,10 @@ class Parser():
                 import datetime
                 return datetime.datetime(int(date[2]), int(date[1]), int(date[0]))
 
-            dict = {to_date(name): name for name in self.file_dict.keys()}
-            self.file_lst = [v for _, v in sorted(dict.items(), key=lambda item: item[0])]
+            dict = {name: to_date(name) for name in self.file_dict.keys()}
+            self.file_lst = [k for k, _ in sorted(dict.items(), key=lambda item: item[1])]
+
+            log(f"found {len(self.file_dict)} files.", 'system')
 
     def __next__(self):
         if self.n < len(self.file_lst):

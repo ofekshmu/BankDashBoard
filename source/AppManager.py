@@ -19,8 +19,10 @@ class AppManager:
 
     def run(self):
         context = Context()
-        while next(self.parser):
-            name, type = self.parser.identify()
+        while True:
+            name, type = next(self.parser)
+            if type is None:
+                break   # End of loop
 
             if exists(name):
                 log(f'Skipping {name_he(name)}...', 'system')

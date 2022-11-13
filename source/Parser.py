@@ -5,6 +5,8 @@ from OuterCreditFile import OuterCreditFile
 from InnerCreditFile import InnerCreditFile
 from BankTransactionsFile import BankTransactionsFile
 from datetime import datetime
+from File import File
+from typing import Union
 
 # Local
 from Constants import log, Local
@@ -13,16 +15,18 @@ from Constants import log, Local
 class Parser():
     def __init__(self):
         self.n = 0
-        self.file_names = []
+        self.file_dict = {}
+        self.file_lst = []
+
         for file in listdir(Local.XLSX_PATH):
             cond1 = isfile(join(Local.XLSX_PATH, file))
             cond2 = file.endswith(Local.EXTENSION_1)
             cond3 = file.endswith(Local.EXTENSION_2)
             if cond1 and (cond2 or cond3):
-                self.file_names.append(file)
+                self.file_dict[file] = self.__identify(file)
 
-        log(f"found {len(self.file_names)} files.", 'system')
-        
+        log(f"found {len(self.file_dict)} files.", 'system')
+
         def to_date(name: str) -> datetime:
             import re
             date_str = re.search("\w{1,2}_\w{1,2}_\w{4}", name).group()
@@ -30,20 +34,18 @@ class Parser():
             import datetime
             return datetime.datetime(int(date[2]), int(date[1]), int(date[0]))
 
-        dict = {to_date(name): name for name in self.file_names}
-        self.file_names = [v for k, v in sorted(dict.items(), key=lambda item: item[0])]
-        print()
+        dict = {to_date(name): name for name in self.file_dict.keys()}
+        self.file_lst = [v for _, v in sorted(dict.items(), key=lambda item: item[0])]
 
-    def __next__(self) -> bool:
-        if self.n < len(self.file_names):
-            self.current = self.file_names[self.n]
+    def __next__(self):
+        if self.n < len(self.file_lst):
             self.n += 1
-            return True
+            file_name = self.file_lst[self.n - 1]
+            return file_name, self.file_dict[file_name]
         else:
-            return False
+            return None, None
 
-    def identify(self):
-        file_name = self.current
+    def __identify(self, file_name: str) -> File:
         res = None
 
         if InnerCredit.SUB_STRING in file_name:
@@ -55,4 +57,6 @@ class Parser():
         else:
             log(f"The file name: {file_name} does not contain a known string.", 'error')
 
-        return file_name, res
+        return res
+
+    def get_type()

@@ -108,13 +108,7 @@ got ->{value[::-1]}<- instead.""", category='error')
             input folder
             """
             from Parser import Parser
-            p = Parser()
-            lst = []
-            while next(p):
-                name, type = p.identify()
-                # if type == BankTransactionsFile:
-                log('THE SYSTEM DOES NOT RECOGNIZE BETWEEN FILES', 'system')
-                lst.append(name)
+            lst = Parser.getInstance().get_name_lst(self)
 
             dict = {to_date(name): name for name in lst}
             sorted_dates = sorted(dict.keys())

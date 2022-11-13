@@ -13,29 +13,45 @@ from Constants import log, Local
 
 
 class Parser():
+
+    __instance = None
+
+    @staticmethod
+    def getInstance():
+        """ Static access method """
+        if Parser.__instance is None:
+            Parser()
+        return Parser.__instance
+
     def __init__(self):
-        self.n = 0
-        self.file_dict = {}
-        self.file_lst = []
+        """ Virtually private constructor. """
+        if Parser.__instance is not None:
+            raise Exception("This class is a singleton!")
+        else:
+            Parser.__instance = self
 
-        for file in listdir(Local.XLSX_PATH):
-            cond1 = isfile(join(Local.XLSX_PATH, file))
-            cond2 = file.endswith(Local.EXTENSION_1)
-            cond3 = file.endswith(Local.EXTENSION_2)
-            if cond1 and (cond2 or cond3):
-                self.file_dict[file] = self.__identify(file)
+            self.n = 0
+            self.file_dict = {}
+            self.file_lst = []
 
-        log(f"found {len(self.file_dict)} files.", 'system')
+            for file in listdir(Local.XLSX_PATH):
+                cond1 = isfile(join(Local.XLSX_PATH, file))
+                cond2 = file.endswith(Local.EXTENSION_1)
+                cond3 = file.endswith(Local.EXTENSION_2)
+                if cond1 and (cond2 or cond3):
+                    self.file_dict[file] = self.__identify(file)
 
-        def to_date(name: str) -> datetime:
-            import re
-            date_str = re.search("\w{1,2}_\w{1,2}_\w{4}", name).group()
-            date = date_str.split("_")
-            import datetime
-            return datetime.datetime(int(date[2]), int(date[1]), int(date[0]))
+            log(f"found {len(self.file_dict)} files.", 'system')
 
-        dict = {to_date(name): name for name in self.file_dict.keys()}
-        self.file_lst = [v for _, v in sorted(dict.items(), key=lambda item: item[0])]
+            def to_date(name: str) -> datetime:
+                import re
+                date_str = re.search("\w{1,2}_\w{1,2}_\w{4}", name).group()
+                date = date_str.split("_")
+                import datetime
+                return datetime.datetime(int(date[2]), int(date[1]), int(date[0]))
+
+            dict = {to_date(name): name for name in self.file_dict.keys()}
+            self.file_lst = [v for _, v in sorted(dict.items(), key=lambda item: item[0])]
 
     def __next__(self):
         if self.n < len(self.file_lst):
@@ -59,4 +75,5 @@ class Parser():
 
         return res
 
-    def get_type()
+    def get_name_lst(self, obj_class: File):
+        return [k for k, v in self.file_dict.items() if isinstance(obj_class, v)]

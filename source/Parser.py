@@ -48,11 +48,13 @@ class Parser():
                 num_str = re.search("_\d{1,}", name).group()
                 return num_str[1:]
 
+            count = 0
             for file in listdir(Local.XLSX_PATH):
                 cond1 = isfile(join(Local.XLSX_PATH, file))
                 cond2 = file.endswith(Local.EXTENSION_1)
                 cond3 = file.endswith(Local.EXTENSION_2)
                 if cond1 and (cond2 or cond3):
+                    count += 1
                     file_type = self.__identify(file)
                     if file_type == OuterCreditFile:
                         value = to_num(file)
@@ -67,9 +69,12 @@ class Parser():
             for k, v in self.file_dict.items():
                 self.file_dict[k] = {name: value for name, value in sorted(v.items(), key=lambda item: item[1])}
 
-            log(f"found {len(self.file_dict)} files in {Local.XLSX_PATH}", 'system')
+            log(f"found {count} files in {Local.XLSX_PATH}", 'system')
 
     def __next__(self):
+        # TODO Need to make this return a file name on each call
+        for v in self.file_dict.values():
+            lst += list(v.values())
         if self.n < len(self.file_lst):
             self.n += 1
             file_name = self.file_lst[self.n - 1]

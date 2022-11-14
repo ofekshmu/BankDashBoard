@@ -41,7 +41,6 @@ class Parser():
                 if cond1 and (cond2 or cond3):
                     self.file_dict[file] = self.__identify(file)
 
-
             def to_date(name: str) -> datetime:
                 import re
                 date_str = re.search("\w{1,2}_\w{1,2}_\w{4}", name).group()

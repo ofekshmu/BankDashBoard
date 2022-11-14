@@ -43,7 +43,8 @@ class Local:
         XLSX_PATH = 'C:/Users/Ofek Shmuel/OneDrive/Work/Projects/Personal/BankProject/Inputs'
         Personal_PATH = 'C:/Users/Ofek Shmuel/OneDrive/Work/Projects/Personal/BankProject/personal information/personal_config.json'
     else:
-        XLSX_PATH = 'C:/Users/ofeks/OneDrive/Work/Projects/Personal/BankProject/Inputs'
+        # XLSX_PATH = 'C:/Users/ofeks/OneDrive/Work/Projects/Personal/BankProject/Inputs'
+        XLSX_PATH = 'C:/Users/ofeks/Desktop/excel'
         Personal_PATH = 'C:/Users/ofeks/OneDrive/Work/Projects/Personal/BankProject/personal information/personal_config.json'
     EXTENSION_1 = '.xls'
     EXTENSION_2 = '.xlsx'

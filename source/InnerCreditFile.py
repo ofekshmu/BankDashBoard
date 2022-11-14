@@ -27,6 +27,25 @@ class InnerCreditFile(File):
         self.data: table1 and table2 data in a 2d array
         self.date: the date specified in the file
         '''
+
+        self.data_dict = {}
+        none_counter = 2
+        col_count = len(self.headers)        
+        row_idx = self.initial_row + 1
+        while none_counter > 0:
+            cc_end = File.cell(row_idx, 0, self.sheet)
+            if cc_end is None:
+                none_counter -= 1
+            else:
+                row = self.sheet[row_idx - 1: row_idx, 0: col_count].value
+                if cc_end in self.data_dict.keys():
+                    self.data_dict[cc_end] += [row]
+                else:
+                    self.data_dict[cc_end] = [row]
+            row_idx += 1
+        print("test")
+
+
         counter1 = 0
         row = self.initial_row + 1
         cc_end = File.cell(row, 0, self.sheet)

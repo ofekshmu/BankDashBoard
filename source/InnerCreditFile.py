@@ -72,20 +72,24 @@ class InnerCreditFile(File):
         self.date = self.sheet[self.date_loc].value
         return True
 
+    def clean(self):
+        print("skipping clean")
+
     def insert(self):
         """
 
         """
-        DataBase().insert_file(self.name, 
-                               self.date, 
-                               "Auto Insertion",
-                               self.counter1 + self.counter2)
+        print("skipping insert")
+        # DataBase().insert_file(self.name, 
+        #                        self.date, 
+        #                        "Auto Insertion",
+        #                        self.counter1 + self.counter2)
 
-        counter = 0
-        for row in self.data:
-            counter += 1
-            DataBase().insert_transaction(row[0], row[1], row[2], row[3], row[7], row[-1], self.name)
-        return True
+        # counter = 0
+        # for row in self.data:
+        #     counter += 1
+        #     DataBase().insert_transaction(row[0], row[1], row[2], row[3], row[7], row[-1], self.name)
+        # return True
 
     def __str__(self):
         return f"\t -> InnerCreditFile"

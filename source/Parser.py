@@ -33,13 +33,8 @@ class Parser():
             self.n = 0
             self.file_dict = {}
             self.file_lst = []
-
-            for file in listdir(Local.XLSX_PATH):
-                cond1 = isfile(join(Local.XLSX_PATH, file))
-                cond2 = file.endswith(Local.EXTENSION_1)
-                cond3 = file.endswith(Local.EXTENSION_2)
-                if cond1 and (cond2 or cond3):
-                    self.file_dict[file] = self.__identify(file)
+            
+            log(f"Looking for files...", 'system')
 
             def to_date(name: str) -> datetime:
                 import re
@@ -48,8 +43,29 @@ class Parser():
                 import datetime
                 return datetime.datetime(int(date[2]), int(date[1]), int(date[0]))
 
-            dict = {name: to_date(name) for name in self.file_dict.keys()}
-            self.file_lst = [k for k, _ in sorted(dict.items(), key=lambda item: item[1])]
+            def to_num(name: str):
+                import re
+                num_str = re.search("_\d{1,}", name).group()
+                return num_str[1:]
+
+            for file in listdir(Local.XLSX_PATH):
+                cond1 = isfile(join(Local.XLSX_PATH, file))
+                cond2 = file.endswith(Local.EXTENSION_1)
+                cond3 = file.endswith(Local.EXTENSION_2)
+                if cond1 and (cond2 or cond3):
+                    file_type = self.__identify(file)
+                    if file_type == OuterCreditFile:
+                        value = to_num(file)
+                    else:
+                        value = to_date(file)
+
+                    if file_type in self.file_dict.keys():
+                        self.file_dict[file_type][file] = value
+                    else:
+                        self.file_dict[file_type] = {file: value}
+
+            for k, v in self.file_dict.items():
+                self.file_dict[k] = {name: value for name, value in sorted(v.items(), key=lambda item: item[1])}
 
             log(f"found {len(self.file_dict)} files in {Local.XLSX_PATH}", 'system')
 

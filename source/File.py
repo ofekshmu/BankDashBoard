@@ -119,7 +119,7 @@ got ->{value[::-1]}<- instead.""", category='error')
             return dict[chosen_date]
 
         def read_sheet(file_name: str) -> Sheet:
-            wb = xw.Book(join("C:/Users/ofeks/OneDrive/Work/Projects/Personal/BankProject/Inputs", file_name))
+            wb = xw.Book(join(Local.XLSX_PATH, file_name))
             return wb.sheets[0]
 
         def get_row(table):

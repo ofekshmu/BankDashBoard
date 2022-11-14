@@ -51,7 +51,7 @@ class Parser():
             dict = {name: to_date(name) for name in self.file_dict.keys()}
             self.file_lst = [k for k, _ in sorted(dict.items(), key=lambda item: item[1])]
 
-            log(f"found {len(self.file_dict)} files.", 'system')
+            log(f"found {len(self.file_dict)} files in {Local.XLSX_PATH}", 'system')
 
     def __next__(self):
         if self.n < len(self.file_lst):

@@ -137,6 +137,8 @@ got ->{value[::-1]}<- instead.""", category='error')
                         break
                     if old_table[index + j] != new_table[i + j]:
                         return []
+            if i == -1:
+                return new_table
             return new_table[:i]
 
         old_file_name = get_last_file_name()
@@ -148,13 +150,13 @@ got ->{value[::-1]}<- instead.""", category='error')
         if not trans_count:
             log(f"There is a problem retriving transactions for {old_file_name}", "error")
         old_file = {"name": old_file_name,
-                    "initial_row": BankTransactions.INITIAL_ROW,
+                    "initial_row": self.initial_row,
                     "trans_count": trans_count,
-                    "col_count": len(BankTransactions.HEADERS)}
+                    "col_count": len(self.headers)}
         new_file = {"name": self.name,
-                    "initial_row": BankTransactions.INITIAL_ROW,
+                    "initial_row": self.initial_row,
                     "trans_count": self.counter,
-                    "col_count": len(BankTransactions.HEADERS)}
+                    "col_count": len(self.headers)}
         new_table = compare_excel(old_file, new_file)
         log(f'Out of {len(self.data)} Transactions, {len(new_table)} new were found!', 'system')
         self.new_trans_count = len(new_table)

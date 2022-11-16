@@ -51,7 +51,7 @@ class BankTransactionsFile(File):
         self.date = self.sheet[self.date_loc].value
         return True
 
-    def clean(self, type):
+    def clean(self):
         from Parser import Parser
         self.sorted_names = Parser.getInstance().get_names(BankTransactionsFile)
         return super().clean()

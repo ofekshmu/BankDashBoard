@@ -52,11 +52,17 @@ class OuterCreditFile(File):
         self.card_num = self.sheet[self.card_cell].value
         return True
 
+    def clean(self):
+        from Parser import Parser
+        self.sorted_names = Parser.getInstance().get_names(OuterCreditFile)
+        return super().clean()
+
     def insert(self) -> bool:
 
         DataBase().insert_file(self.name,
                                'None',
                                "Auto Insertion",
+                               self.counter,
                                self.counter)
 
         for row in self.data:
@@ -75,3 +81,6 @@ class OuterCreditFile(File):
                                           charge_date,
                                           source_file)
         return True
+
+    def __str__(self):
+        return f"\t -> OuterCreditFile"

@@ -30,9 +30,9 @@ class Parser():
         else:
             Parser.__instance = self
 
-            self.n = 0
-            self.file_dict = {}
-            self.file_lst = []
+            self.idx = 0
+            self.type_to_name = {}
+            self.names = []
             
             log(f"Looking for files...", 'system')
 
@@ -48,39 +48,38 @@ class Parser():
                 num_str = re.search("_\d{1,}", name).group()
                 return num_str[1:]
 
-            count = 0
-            for file in listdir(Local.XLSX_PATH):
-                cond1 = isfile(join(Local.XLSX_PATH, file))
-                cond2 = file.endswith(Local.EXTENSION_1)
-                cond3 = file.endswith(Local.EXTENSION_2)
+            for name in listdir(Local.XLSX_PATH):
+                cond1 = isfile(join(Local.XLSX_PATH, name))
+                cond2 = name.endswith(Local.EXTENSION_1)
+                cond3 = name.endswith(Local.EXTENSION_2)
                 if cond1 and (cond2 or cond3):
-                    count += 1
-                    file_type = self.__identify(file)
+                    file_type = self.__identify(name)
                     if file_type == OuterCreditFile:
-                        value = to_num(file)
+                        value = to_num(name)
                     else:
-                        value = to_date(file)
+                        value = to_date(name)
 
-                    if file_type in self.file_dict.keys():
-                        self.file_dict[file_type][file] = value
+                    if file_type in self.type_to_name.keys():
+                        self.type_to_name[file_type][name] = value
                     else:
-                        self.file_dict[file_type] = {file: value}
+                        self.type_to_name[file_type] = {name: value}
 
-            for k, v in self.file_dict.items():
-                self.file_dict[k] = {name: value for name, value in sorted(v.items(), key=lambda item: item[1])}
+                    self.names.append(name)
 
-            log(f"found {count} files in {Local.XLSX_PATH}", 'system')
+            for k, v in self.type_to_name.items():  
+                self.type_to_name[k] = {name: value for name, value in sorted(v.items(), key=lambda item: item[1])}
+
+            log(f"found {len(self.names)} files in {Local.XLSX_PATH}", 'system')
 
     def __next__(self):
-        # TODO Need to make this return a file name on each call
-        for v in self.file_dict.values():
-            lst += list(v.values())
-        if self.n < len(self.file_lst):
-            self.n += 1
-            file_name = self.file_lst[self.n - 1]
-            return file_name, self.file_dict[file_name]
-        else:
-            return None, None
+        if self.idx < len(self.names):
+            return True
+        return False
+
+    def get_next(self):
+        name = self.names[self.idx]
+        self.idx += 1
+        return name, self.__identify(name)
 
     def __identify(self, file_name: str) -> File:
         res = None
@@ -96,5 +95,5 @@ class Parser():
 
         return res
 
-    def get_name_lst(self, obj_class: File):
-        return [k for k, v in self.file_dict.items() if isinstance(obj_class, v)]
+    def get_names(self, obj_class: File):
+        return [k for k in self.type_to_name[obj_class].keys()]

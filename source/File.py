@@ -94,29 +94,17 @@ got ->{value[::-1]}<- instead.""", category='error')
         Given a table of transactions, it will change the table to contain only new
         ones which did not appear before.
         """
-        def to_date(name: str) -> datetime:
-            import re
-            date_str = re.search("\w{1,2}_\w{1,2}_\w{4}", name).group()
-            date = date_str.split("_")
-            import datetime
-            return datetime.datetime(int(date[2]), int(date[1]), int(date[0]))
 
-        def get_last_file_name(file_date: datetime) -> Union[str, None]:
+        def get_last_file_name() -> Union[str, None]:
             """
             Function receives the date of the current file specified in its name
             and returns the name of the most recent file of the same type, in the
             input folder
             """
-            from Parser import Parser
-            lst = Parser.getInstance().get_name_lst(self)
-
-            dict = {to_date(name): name for name in lst}
-            sorted_dates = sorted(dict.keys())
-            idx = sorted_dates.index(file_date)
+            idx = self.sorted_names.index(self.name)
             if idx == 0:
                 return None
-            chosen_date = sorted_dates[idx - 1]
-            return dict[chosen_date]
+            return self.sorted_names[idx - 1]
 
         def read_sheet(file_name: str) -> Sheet:
             wb = xw.Book(join(Local.XLSX_PATH, file_name))
@@ -151,8 +139,7 @@ got ->{value[::-1]}<- instead.""", category='error')
                         return []
             return new_table[:i]
 
-        file_date = to_date(self.name)
-        old_file_name = get_last_file_name(file_date)
+        old_file_name = get_last_file_name()
         if old_file_name is None:
             log(f"{self.name} has not earlier file - Nothing to clean", "system")
             return True

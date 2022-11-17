@@ -66,9 +66,10 @@ class OuterCreditFile(File):
             from datetime import datetime
             if isinstance(str, datetime):
                 return str
-            pattern = "\d{1,2}/\d{1,2}/\d{4}|\d{1,2}-\d{1,2}-\d{4}"
+            pattern = "\d{1,2}/\d{1,2}/\d{2,4}|\d{1,2}-\d{1,2}-\d{4}"
             str = re.search(pattern, str).group()
-            print(str)
+            if len(str.split('/')[-1]) == 2:
+                str = str[:-2] + "20" + str[-2:]
             if "/" in str:
                 return datetime.strptime(str, "%d/%m/%Y")
             else:

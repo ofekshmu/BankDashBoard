@@ -1,6 +1,7 @@
 from File import File
 from Constants import log
 from database import DataBase
+from datetime import datetime
 
 
 class BankTransactionsFile(File):
@@ -59,6 +60,19 @@ class BankTransactionsFile(File):
     def insert(self):
         """
         """
+        def date_conversion(str):
+            import re
+            from datetime import datetime
+            if isinstance(str, datetime):
+                return str
+            pattern = "\d{1,2}/\d{1,2}/\d{2,4}|\d{1,2}-\d{1,2}-\d{4}"
+            str = re.search(pattern, str).group()
+            print(str)
+            if "/" in str:
+                return datetime.strptime(str, "%d/%m/%Y")
+            else:
+                return datetime.strptime(str, "%d-%m-%Y")
+
         DataBase().insert_file(self.name,
                                self.date,
                                "Auto Insertion",
@@ -67,8 +81,8 @@ class BankTransactionsFile(File):
 
         for row in self.data:
             ref = row[3]
-            date = row[0]
-            date_value = row[1]
+            date = date_conversion(row[0])
+            date_value = date_conversion(row[1])
             source_dest = row[2]
             balance = row[-3]
             decs = 'Empty'

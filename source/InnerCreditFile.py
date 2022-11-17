@@ -52,6 +52,20 @@ class InnerCreditFile(File):
         """
 
         """
+        def date_conversion(str):
+            import re
+            from datetime import datetime
+            if isinstance(str, datetime):
+                return str
+            pattern = "\d{1,2}/\d{1,2}/\d{4}|\d{1,2}-\d{1,2}-\d{4}"
+            str = re.search(pattern, str).group()
+            print(str)
+            if "/" in str:
+                return datetime.strptime(str, "%d/%m/%Y")
+            else:
+                return datetime.strptime(str, "%d-%m-%Y")
+
+
         total = []
         for v in self.data_dict.values():
             total += v
@@ -65,7 +79,7 @@ class InnerCreditFile(File):
         counter = 0
         for row in total:
             counter += 1
-            DataBase().insert_transaction(row[0], row[1], row[2], -row[3], row[7], row[-1], self.name)
+            DataBase().insert_transaction(row[0], date_conversion(row[1]), row[2], -row[3], row[7], row[-1], self.name)
         return True
 
     def __str__(self):

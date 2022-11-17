@@ -17,7 +17,7 @@ class AppManager:
     def __init__(self):
         self.parser = Parser()
 
-    def run(self):
+    def load_data(self):
         context = Context()
         Context.counter = 0
         while next(self.parser):
@@ -50,3 +50,6 @@ class AppManager:
 
             Context.counter += 1
             context.render()
+
+    def plot_data(self):
+        pass

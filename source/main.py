@@ -3,7 +3,8 @@ from AppManager import AppManager
 
 def main():
     myApp = AppManager()
-    myApp.run()
+    myApp.load_data()
+    myApp.plot_data()
 
 
 if __name__ == "__main__":

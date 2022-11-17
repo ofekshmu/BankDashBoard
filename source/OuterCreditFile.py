@@ -1,6 +1,7 @@
 from File import File
 from Constants import log
 from database import DataBase
+from datetime import datetime
 
 
 class OuterCreditFile(File):
@@ -60,6 +61,19 @@ class OuterCreditFile(File):
 
     def insert(self) -> bool:
 
+        def date_conversion(str):
+            import re
+            from datetime import datetime
+            if isinstance(str, datetime):
+                return str
+            pattern = "\d{1,2}/\d{1,2}/\d{4}|\d{1,2}-\d{1,2}-\d{4}"
+            str = re.search(pattern, str).group()
+            print(str)
+            if "/" in str:
+                return datetime.strptime(str, "%d/%m/%Y")
+            else:
+                return datetime.strptime(str, "%d-%m-%Y")
+
         DataBase().insert_file(self.name,
                                'None',
                                "Auto Insertion",
@@ -68,12 +82,13 @@ class OuterCreditFile(File):
 
         for row in self.data:
             card_id = self.card_num
-            transaction_date = row[0]
+            transaction_date = date_conversion(row[0])
             business_name = row[1]
             amount = -row[5]
             trans_type = row[4]
-            charge_date = row[9]
+            charge_date = date_conversion(row[9])
             source_file = self.name
+
             DataBase().insert_transaction(card_id,
                                           transaction_date,
                                           business_name,

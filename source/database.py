@@ -157,19 +157,6 @@ class DataBase:
         return False if ans is None else True
 
     @try_catch
-    def date_exists(self, date: datetime):
-        '''
-        Returns True if a file with the given date exists.
-        False otherwise.
-        '''
-        ans = self.cursor.execute("""
-                    SELECT 1
-                    FROM File
-                    WHERE Date = ?;
-                """, (date,)).fetchone()
-        return False if ans is None else True
-
-    @try_catch
     def total_transactions(self, file_name):
         '''
         Returns True if a file with the given date exists.
@@ -187,3 +174,5 @@ class DataBase:
         Close The connection to the database.
         '''
         self.connection.close()
+
+# ----------------- Extracting Data from Db

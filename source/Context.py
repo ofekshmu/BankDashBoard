@@ -5,6 +5,7 @@ from File import File
 class Context:
 
     file: File
+    counter: int
 
     def setFile(self, file: File = None) -> None:
         if file is not None:
@@ -13,6 +14,7 @@ class Context:
             log(f"file is of class {type(file)}.", 'error')
 
     def render(self) -> bool:
+        log(f"{100*'-'} file no' {self.counter}")
         log(f'Reading {name_he(self.file.name)}... {self.file}', 'system')
         if not self.file.load():
             log(f'Failed reading file: {self.file.name}', category='error')
@@ -32,12 +34,12 @@ class Context:
             return False
         else:
             print('Completed.')
-        print('-> [SYSTEM]: Cleaning...\t\t', end='')
+        print('-> [SYSTEM]: Cleaning...')
         if not self.file.clean():
-            print('FAILED.')
+            print('\t\t\t\tFAILED.')
             return False
         else:
-            print('Completed.')
+            print('\t\t\t\tCompleted.')
         print('-> [SYSTEM]: Inserting...\t')
         if not self.file.insert():
             print('FAILED.')

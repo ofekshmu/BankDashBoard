@@ -65,7 +65,7 @@ class InnerCreditFile(File):
         counter = 0
         for row in total:
             counter += 1
-            DataBase().insert_transaction(row[0], row[1], row[2], row[3], row[7], row[-1], self.name)
+            DataBase().insert_transaction(row[0], row[1], row[2], -row[3], row[7], row[-1], self.name)
         return True
 
     def __str__(self):

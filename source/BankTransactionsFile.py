@@ -77,7 +77,7 @@ class BankTransactionsFile(File):
             if hova == 0:
                 amount = zhoot
             elif zhoot == 0:
-                amount = hova
+                amount = -hova
             else:
                 raise ValueError('There is a bug here')
             DataBase().insert_bank_transaction(ref, date, date_value, source_dest, amount, balance, decs, self.name)

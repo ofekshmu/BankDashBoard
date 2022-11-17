@@ -19,6 +19,7 @@ class AppManager:
 
     def run(self):
         context = Context()
+        Context.counter = 0
         while next(self.parser):
             name, type = self.parser.get_next()
 
@@ -47,4 +48,5 @@ class AppManager:
             else:
                 log("The file type is not supported", 'error')
 
+            Context.counter += 1
             context.render()

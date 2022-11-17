@@ -9,7 +9,7 @@ class Settings:
     LAPTOP = False
 
 
-def log(msg: str, category: str, e: str = "\n"):
+def log(msg: str, category: str = "", e: str = "\n"):
     match category:
         case 'debug':
             if Settings.DEBUG:
@@ -22,6 +22,10 @@ def log(msg: str, category: str, e: str = "\n"):
             raise ValueError("\nBreaking code...")
         case 'db':
             print(f'    -> [DataBase]: {msg}', end=e)
+        case '':
+            print(f'{msg}', end=e)
+        case 'warning':
+            print(f'X [!WARNING!]: {msg}', end=e)
         case other:
             raise ValueError('Insert either system/debug')
 

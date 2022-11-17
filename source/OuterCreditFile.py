@@ -14,6 +14,7 @@ class OuterCreditFile(File):
 
     def validate_bank_number(self) -> bool:
         """ Outer credit has no Bank acc number """
+        log("Bank number is not being validated for this file", "warning")
         return True
 
     def parse(self) -> bool:
@@ -69,7 +70,7 @@ class OuterCreditFile(File):
             card_id = self.card_num
             transaction_date = row[0]
             business_name = row[1]
-            amount = row[5]
+            amount = -row[5]
             trans_type = row[4]
             charge_date = row[9]
             source_file = self.name

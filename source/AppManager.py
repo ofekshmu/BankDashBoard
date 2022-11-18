@@ -52,4 +52,5 @@ class AppManager:
             context.render()
 
     def plot_data(self):
-        pass
+        lst = DataBase().get_transactions(year=2022, month=10)
+        print()

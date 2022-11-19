@@ -79,7 +79,8 @@ class OuterCreditFile(File):
                                'None',
                                "Auto Insertion",
                                self.counter,
-                               self.counter)
+                               self.counter,
+                               self.initial_row)
 
         for row in self.data:
             card_id = self.card_num

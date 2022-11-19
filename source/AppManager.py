@@ -67,8 +67,12 @@ class AppManager:
             else:
                 spendings.append((name[::-1], amount))
 
-        df = pd.DataFrame({'earnings': [tup[1] for tup in earnings]},
-                          index=[tup[0] + f" ({tup[1]})" for tup in earnings])
-        df.plot.pie(y='earnings', figsize=(5, 5), legend=False, title=f"Total Earnings:{sum([tup[1] for tup in earnings])}")
+        df_1 = pd.DataFrame({'earnings': [tup[1] for tup in earnings]},
+                            index=[tup[0] + f" ({tup[1]})" for tup in earnings])
+        df_1.plot.pie(y='earnings', figsize=(5, 5), legend=False, title=f"Total Earnings:{sum([tup[1] for tup in earnings])}")
+        
+        df_2 = pd.DataFrame({'spendings': [-tup[1] for tup in spendings]},
+                            index=[tup[0] + f" ({tup[1]})" for tup in spendings])
+        df_2.plot.pie(y='spendings', figsize=(5, 5), legend=False, title=f"Total Spendings:{sum([-tup[1] for tup in spendings])}")
 
         input()

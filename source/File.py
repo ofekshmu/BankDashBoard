@@ -72,17 +72,24 @@ class File:
         The function validates the table headers in the file.
         The values of the headers and the initial row are given in the Constants.py.
         '''
-        col = 0
-        row = self.initial_row
-        for name in self.headers:
-            log(f'row number = {row}, col = {col}, name = {name[::-1]}', 'debug')
-            value = File.cell(row, col, self.sheet)
-            if not value == name:
-                log(f"""cell ->[{row},{col}]<- did not match the expected value ->{name[::-1]}<-.
-got ->{value[::-1]}<- instead.""", category='error')
-                return False
-            col += 1
-        return True
+        err = 2
+        for i in range(self.initial_row - err, self.initial_row + err):
+            valid = True
+            col = 0
+            row = i
+            for name in self.headers:
+                log(f'row number = {row}, col = {col}, name = {name[::-1]}', 'debug')
+                value = File.cell(row, col, self.sheet)
+                if not value == name:
+                    valid = False
+                    break
+                col += 1
+            if valid:
+                if row != self.initial_row:
+                    log(f"\n\tHeaders were found at line {row}, Not in {self.initial_row} as specified.", "warning")
+                self.initial_row = row
+                return True
+        return False
 
     @abstractmethod
     def parse(self) -> bool:
@@ -147,10 +154,11 @@ got ->{value[::-1]}<- instead.""", category='error')
             return True
 
         trans_count = DataBase().total_transactions(old_file_name)
+        header_idx = DataBase().get_header_idx(old_file_name)
         if not trans_count:
             log(f"There is a problem retriving transactions for {old_file_name}", "error")
         old_file = {"name": old_file_name,
-                    "initial_row": self.initial_row,
+                    "initial_row": header_idx,
                     "trans_count": trans_count,
                     "col_count": len(self.headers)}
         new_file = {"name": self.name,
@@ -162,8 +170,6 @@ got ->{value[::-1]}<- instead.""", category='error')
         self.new_trans_count = len(new_table)
         self.data = new_table
         return True
-
-
 
     @abstractmethod
     def insert(self) -> bool:

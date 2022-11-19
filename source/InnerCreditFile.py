@@ -75,7 +75,8 @@ class InnerCreditFile(File):
                                self.date, 
                                "Auto Insertion",
                                len(total),
-                               len(total))
+                               len(total),
+                               self.initial_row)
 
         counter = 0
         for row in total:

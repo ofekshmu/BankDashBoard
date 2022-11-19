@@ -26,6 +26,7 @@ class DataBase:
             Description         CHAR                ,
             New_Transactions    INT                 ,
             Transaction_count   INT         NOT NULL,
+            Header_idx          INT         NOT NULL,
             Last_update         DATE        NOT NULL
             );""")
 
@@ -111,15 +112,16 @@ class DataBase:
                     date: datetime,
                     description: str,
                     new_trans_count: int,
-                    trans_count: int):
+                    trans_count: int,
+                    header_idx: int):
         '''
         Insert a new file to local DB.
         '''
         last_update = datetime.now()
         self.cursor.execute(f"""
-            INSERT INTO File(Name, Date, Description, New_Transactions, Transaction_count, Last_update)
-            VALUES(?, ?, ?, ?, ?, ?)
-            """, (name, date, description, new_trans_count, trans_count, last_update)
+            INSERT INTO File(Name, Date, Description, New_Transactions, Transaction_count, Header_idx, Last_update)
+            VALUES(?, ?, ?, ?, ?, ?, ?)
+            """, (name, date, description, new_trans_count, trans_count, header_idx, last_update)
             )
         self.connection.commit()
 
@@ -169,6 +171,18 @@ class DataBase:
                 """, (file_name,)).fetchone()[0]
 
     @try_catch
+    def get_header_idx(self, file_name):
+        '''
+        Returns True if a file with the given date exists.
+        False otherwise.
+        '''
+        return self.cursor.execute("""
+                    SELECT Header_idx
+                    FROM File
+                    WHERE Name = ?;
+                """, (file_name,)).fetchone()[0]
+
+    @try_catch
     def close(self):
         '''
         Close The connection to the database.
@@ -183,4 +197,3 @@ class DataBase:
         day1 = datetime(year, month, 1).strftime('%Y-%m-%d %H:%M:%S')
         day2 = datetime(year, month, last_day).strftime('%Y-%m-%d %H:%M:%S')
         return self.cursor.execute("select * from BankTransactions where date >= ? and date <= ?", (day1, day2)).fetchall()
-        

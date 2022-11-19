@@ -78,7 +78,8 @@ class BankTransactionsFile(File):
                                self.date,
                                "Auto Insertion",
                                self.new_trans_count,
-                               self.counter)
+                               self.counter,
+                               self.initial_row)
 
         for row in self.data:
             ref = row[3]

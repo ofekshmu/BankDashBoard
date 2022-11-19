@@ -62,17 +62,21 @@ class AppManager:
             name = ele[7]
             if name is None:
                 name = ele[4]
+
+            import re
+            striped = re.sub(r'\d+', '', name[::-1])
+
             if amount > 0:
-                earnings.append((name[::-1], amount))
+                earnings.append((striped, amount))
             else:
-                spendings.append((name[::-1], amount))
+                spendings.append((striped, amount))
 
         df_1 = pd.DataFrame({'earnings': [tup[1] for tup in earnings]},
                             index=[tup[0] + f" ({tup[1]})" for tup in earnings])
         df_1.plot.pie(y='earnings', figsize=(5, 5), legend=False, title=f"Total Earnings:{sum([tup[1] for tup in earnings])}")
-        
+
         df_2 = pd.DataFrame({'spendings': [-tup[1] for tup in spendings]},
-                            index=[tup[0] + f" ({tup[1]})" for tup in spendings])
+                            index=[f"({tup[1]}) " + tup[0] for tup in spendings])
         df_2.plot.pie(y='spendings', figsize=(5, 5), legend=False, title=f"Total Spendings:{sum([-tup[1] for tup in spendings])}")
 
         input()

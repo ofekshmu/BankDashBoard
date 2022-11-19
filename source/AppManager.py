@@ -52,7 +52,7 @@ class AppManager:
             context.render()
 
     def plot_data(self):
-        lst = DataBase().get_transactions(year=2022, month=10)
+        lst = DataBase().get_transactions(year=2022, month=11)
         import matplotlib.pyplot as plt
         import pandas as pd
         spendings = []
@@ -60,6 +60,8 @@ class AppManager:
         for ele in lst:
             amount = ele[5]
             name = ele[7]
+            if name is None:
+                name = ele[4]
             if amount > 0:
                 earnings.append((name[::-1], amount))
             else:

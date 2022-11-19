@@ -64,7 +64,7 @@ class BankTransactionsFile(File):
             import re
             from datetime import datetime
             if isinstance(str, datetime):
-                return str
+                return datetime(str.year, str.day, str.month)
             pattern = "\d{1,2}/\d{1,2}/\d{2,4}|\d{1,2}-\d{1,2}-\d{4}"
             str = re.search(pattern, str).group()
             if len(str.split('/')[-1]) == 2:
@@ -86,7 +86,7 @@ class BankTransactionsFile(File):
             date_value = date_conversion(row[1])
             source_dest = row[2]
             balance = row[-3]
-            decs = 'Empty'
+            decs = row[7]
             hova = row[4]
             zhoot = row[5]
             if hova == 0:

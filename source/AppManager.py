@@ -53,4 +53,20 @@ class AppManager:
 
     def plot_data(self):
         lst = DataBase().get_transactions(year=2022, month=10)
-        print()
+        import matplotlib.pyplot as plt
+        import pandas as pd
+        spendings = []
+        earnings = []
+        for ele in lst:
+            amount = ele[5]
+            name = ele[7]
+            if amount > 0:
+                earnings.append((name[::-1], amount))
+            else:
+                spendings.append((name[::-1], amount))
+
+        df = pd.DataFrame({'earnings': [tup[1] for tup in earnings]},
+                          index=[tup[0] + f" ({tup[1]})" for tup in earnings])
+        df.plot.pie(y='earnings', figsize=(5, 5), legend=False, title=f"Total Earnings:{sum([tup[1] for tup in earnings])}")
+
+        input()

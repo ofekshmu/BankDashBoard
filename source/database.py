@@ -27,6 +27,9 @@ class DataBase:
             New_Transactions    INT                 ,
             Transaction_count   INT         NOT NULL,
             Header_idx          INT         NOT NULL,
+            idx_2               INT                 ,
+            idx_3               INT                 ,
+            idx_4               INT                 ,
             Last_update         DATE        NOT NULL
             );""")
 
@@ -215,3 +218,13 @@ class DataBase:
         lst1 = self.cursor.execute("SELECT * FROM BankTransactions WHERE source_file = ?", (file_name,)).fetchall()
         lst2 = self.cursor.execute("SELECT * FROM Transactions WHERE source_file = ?", (file_name,)).fetchall()
         return lst1 + lst2
+
+    def get_table_stats(self, file_name: str):
+        """
+        Return a list of the table stats of the @file_name
+        """
+        return self.cursor.execute("""
+                                    SELECT header_idx, idx_2, idx_3, idx_4
+                                    From File
+                                    WHERE Name = ?
+                                    """, (file_name,)).fetchone()[0]

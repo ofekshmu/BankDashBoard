@@ -6,7 +6,6 @@ from InnerCreditFile import InnerCreditFile
 from BankTransactionsFile import BankTransactionsFile
 from datetime import datetime
 from File import File
-from typing import Union
 
 # Local
 from Constants import log, Local

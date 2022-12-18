@@ -191,9 +191,15 @@ class DataBase:
 
 # ----------------- Extracting Data from Db --------------------
 
-    def get_transactions(self, year: int, month: int):
+    def get_transactions(self, table: str, year: int, month: int):
+        """
+
+        """
         import calendar
         last_day = calendar.monthrange(year, month)[1]
         day1 = datetime(year, month, 1).strftime('%Y-%m-%d %H:%M:%S')
         day2 = datetime(year, month, last_day).strftime('%Y-%m-%d %H:%M:%S')
-        return self.cursor.execute("select * from BankTransactions where date >= ? and date <= ?", (day1, day2)).fetchall()
+        if table == "BankTransactions":
+            return self.cursor.execute("select * from BankTransactions where date >= ? and date <= ?", (day1, day2)).fetchall()
+        else:
+            return self.cursor.execute("select * from Transactions where transaction_date >= ? and transaction_date <= ?", (day1, day2)).fetchall()

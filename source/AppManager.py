@@ -52,7 +52,7 @@ class AppManager:
             context.render()
 
     def plot_data(self):
-        lst = DataBase().get_transactions(year=2022, month=11)
+        lst = DataBase().get_transactions(table="BankTransactions", year=2022, month=12)
         import matplotlib.pyplot as plt
         import pandas as pd
         spendings = []
@@ -75,8 +75,24 @@ class AppManager:
                             index=[tup[0] + f" ({tup[1]})" for tup in earnings])
         df_1.plot.pie(y='earnings', figsize=(5, 5), legend=False, title=f"Total Earnings:{sum([tup[1] for tup in earnings])}")
 
+        # df_2 = pd.DataFrame({'spendings': [-tup[1] for tup in spendings]},
+        #                     index=[f"({tup[1]}) " + tup[0] for tup in spendings])
+        # df_2.plot.pie(y='spendings', figsize=(5, 5), legend=False, title=f"Total Spendings:{sum([-tup[1] for tup in spendings])}")
+
+        spendings = []
+        lst = DataBase().get_transactions(table="", year=2022, month=12)
+        for ele in lst:
+            import re
+            card = re.sub("[^0-9]", "", ele[1])
+            name = ele[3]
+            amount = ele[4]
+            striped = re.sub(r'\d+', '', name[::-1])
+            spendings.append((striped, amount, card))
+            
         df_2 = pd.DataFrame({'spendings': [-tup[1] for tup in spendings]},
-                            index=[f"({tup[1]}) " + tup[0] for tup in spendings])
+                            index=[f"({tup[1]}) " + tup[0] +" "+ tup[2] for tup in spendings])
         df_2.plot.pie(y='spendings', figsize=(5, 5), legend=False, title=f"Total Spendings:{sum([-tup[1] for tup in spendings])}")
+
+        plt.show()
 
         input()

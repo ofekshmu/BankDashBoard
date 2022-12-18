@@ -27,14 +27,15 @@ class InnerCreditFile(File):
         
         # This dictionary will hold daata about the different tables in the file
         # this is created for the cleaning process
-        self.table_stats = {}
-        dirty_bit = True
-        last_card = None
-        table_counter = 1
+        # The assumption is that there are no more than 4 tables!
+        self.table_stats = {1: -1, 2: -1, 3: -1, 4: -1}
+        dirty_bit = True  # will be True if the next index should be recorded in table
+        last_card = None  # sa  ve last card in order to trigger dirt bid uppon change
+        table_counter = 1  # for counting found tables
         # ------------------------------------------
         self.data_dict = {}
         none_counter = 4
-        col_count = len(self.headers)        
+        col_count = len(self.headers)
         row_idx = self.initial_row + 1
         while none_counter > 0:
             cc_end = File.cell(row_idx, 0, self.sheet)
@@ -88,12 +89,15 @@ class InnerCreditFile(File):
         for v in self.data_dict.values():
             total += v
 
-        DataBase().insert_file(self.name, 
-                               self.date, 
+        DataBase().insert_file(self.name,
+                               self.date,
                                "Auto Insertion",
+                               "EDIT THIS",
                                len(total),
-                               len(total),
-                               self.initial_row)
+                               self.initial_row,
+                               self.table_stats[2],
+                               self.table_stats[3],
+                               self.table_stats[4])
 
         counter = 0
         for row in total:

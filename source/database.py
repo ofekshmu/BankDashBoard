@@ -113,15 +113,19 @@ class DataBase:
                     description: str,
                     new_trans_count: int,
                     trans_count: int,
-                    header_idx: int):
+                    header_idx: int,
+                    idx_2: int = -1,
+                    idx_3: int = -1,
+                    idx_4: int = -1):
         '''
         Insert a new file to local DB.
         '''
         last_update = datetime.now()
         self.cursor.execute(f"""
-            INSERT INTO File(Name, Date, Description, New_Transactions, Transaction_count, Header_idx, Last_update)
-            VALUES(?, ?, ?, ?, ?, ?, ?)
-            """, (name, date, description, new_trans_count, trans_count, header_idx, last_update)
+            INSERT INTO File(Name, Date, Description, New_Transactions, Transaction_count, Header_idx,
+                             idx_2, idx_3, idx_4, Last_update)
+            VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (name, date, description, new_trans_count, trans_count, header_idx, idx_2, idx_3, idx_4, last_update)
             )
         self.connection.commit()
 
@@ -203,3 +207,11 @@ class DataBase:
             return self.cursor.execute("select * from BankTransactions where date >= ? and date <= ?", (day1, day2)).fetchall()
         else:
             return self.cursor.execute("select * from Transactions where transaction_date >= ? and transaction_date <= ?", (day1, day2)).fetchall()
+
+    def get_data_by_file_name(self, file_name: str):
+        """
+        return all transactions parsed from the file.
+        """
+        lst1 = self.cursor.execute("SELECT * FROM BankTransactions WHERE source_file = ?", (file_name,)).fetchall()
+        lst2 = self.cursor.execute("SELECT * FROM Transactions WHERE source_file = ?", (file_name,)).fetchall()
+        return lst1 + lst2

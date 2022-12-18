@@ -173,8 +173,8 @@ class DataBase:
     @try_catch
     def get_header_idx(self, file_name):
         '''
-        Returns True if a file with the given date exists.
-        False otherwise.
+        Returns the header_idx value of @file_name,
+        The header_idx represent the index of the header row.
         '''
         return self.cursor.execute("""
                     SELECT Header_idx

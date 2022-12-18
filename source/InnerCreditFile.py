@@ -24,7 +24,14 @@ class InnerCreditFile(File):
         self.data: table1 and table2 data in a 2d array
         self.date: the date specified in the file
         '''
-
+        
+        # This dictionary will hold daata about the different tables in the file
+        # this is created for the cleaning process
+        self.table_stats = {}
+        dirty_bit = True
+        last_card = None
+        table_counter = 1
+        # ------------------------------------------
         self.data_dict = {}
         none_counter = 4
         col_count = len(self.headers)        
@@ -33,12 +40,22 @@ class InnerCreditFile(File):
             cc_end = File.cell(row_idx, 0, self.sheet)
             if cc_end is None or not cc_end.isdigit():
                 none_counter -= 1
+                dirty_bit = True
             else:
+
+                if cc_end != last_card:
+                    dirty_bit = True
+
+                if dirty_bit:
+                    self.table_stats[table_counter] = row_idx
+                    dirty_bit = not dirty_bit
+                    table_counter += 1
                 row = self.sheet[row_idx - 1: row_idx, 0: col_count].value
                 if cc_end in self.data_dict.keys():
                     self.data_dict[cc_end] += [row]
                 else:
                     self.data_dict[cc_end] = [row]
+            last_card = cc_end
             row_idx += 1
 
         self.date = self.sheet[self.date_loc].value

@@ -141,10 +141,13 @@ def is_exectued_today():
     date_format = "%Y-%m-%d"
     try:
         with open("update_execution.txt", "r") as output:
-            str_string = output.readline().strip("\n")
-            date = datetime.strptime(str_string, date_format)
-            if date == datetime.now():
+            str_date = output.readline().strip("\n")
+            curr_date = datetime.now().strftime(date_format)
+            if str_date == curr_date:
                 return True
+            f = open("update_execution.txt", "w")
+            f.write(curr_date)
+            f.close()
             return False
     except Exception:
         with open("update_execution.txt", "w") as output:

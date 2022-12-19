@@ -28,23 +28,26 @@ class AppManager:
                 4. Change personal info
                 5. Exit
             """)
-        answer = input()
-        match answer:
-            case 1:
-                self.__update_bank_files()
-            case 2:
-                self.__load_data()
-            case 3:
-                self.__plots_and_data()
-            case 4:
-                raise NotImplemented("This need implementation")
-            case 5:
-                exit()
-            case _:
-                print("Please insert a valid number.")
+        while True:
+            answer = input()
+            match answer:
+                case 1:
+                    self.__update_bank_files()
+                case 2:
+                    self.__load_data()
+                case 3:
+                    self.__plots_and_data()
+                case 4:
+                    raise NotImplemented("This needs implementation")
+                case 5:
+                    break
+                case _:
+                    print("Please insert a valid number.")
 
     def __update_bank_files(self):
         pass
+        if is_exectued_today():
+            raise FileExistsError("Function exectued today already!")
         # Check if the function was already executed today
 
     def __load_data(self):
@@ -126,3 +129,19 @@ class AppManager:
         plt.show()
 
         input()
+
+
+
+import datetime
+
+def is_exectued_today():
+    try:
+        with open("update_execution.txt", "r") as output:
+            if output.readline()....
+                # check if date is today
+                return True
+            return False
+    except Exception:
+        with open("update_execution.txt", "r") as output:
+            output.write(datetime.datetime.now().strftime("%d/%m/%Y"))
+        return False

@@ -31,7 +31,7 @@ class AppManager:
                 5. Exit
             """)
         while True:
-            answer = input()
+            answer = int(input())
             match answer:
                 case 1:
                     self.__update_bank_files()
@@ -52,7 +52,7 @@ class AppManager:
 
         user_name = input("User name: ")
         password = input("Password: ")
-
+        log("Opening Browser..")
         mySel = MySelenium()
         mySel.start(user_name, password)
 
@@ -147,6 +147,6 @@ def is_exectued_today():
                 return True
             return False
     except Exception:
-        with open("update_execution.txt", "r") as output:
+        with open("update_execution.txt", "w") as output:
             output.write(datetime.now().strftime(date_format))
         return False

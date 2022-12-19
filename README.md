@@ -12,6 +12,10 @@
 
 local repor contains personal information such as bank account and other numbers to validate when reading the xls files. these files will not appear in this repo
 
+## Selenium
+
+1. Downloading edge/chrome driver (Fllow this instructions for downlo ading the edge driver)
+2. 
 
 # Notes
 

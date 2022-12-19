@@ -7,6 +7,7 @@ from Constants import InnerCredit, BankTransactions, OuterCredit, log
 from Constants import name_he
 from database import DataBase
 from datetime import datetime
+from MySelenium import MySelenium
 
 
 def exists(name: str) -> bool:
@@ -46,10 +47,14 @@ class AppManager:
                     print("Please insert a valid number.")
 
     def __update_bank_files(self):
-        pass
         if is_exectued_today():
             raise FileExistsError("Function exectued today already!")
-        # Check if the function was already executed today
+
+        user_name = input("User name: ")
+        password = input("Password: ")
+
+        mySel = MySelenium()
+        mySel.start(user_name, password)
 
     def __load_data(self):
         context = Context()

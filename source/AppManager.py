@@ -6,6 +6,7 @@ from Context import Context
 from Constants import InnerCredit, BankTransactions, OuterCredit, log
 from Constants import name_he
 from database import DataBase
+from datetime import datetime
 
 
 def exists(name: str) -> bool:
@@ -121,7 +122,7 @@ class AppManager:
             amount = ele[4]
             striped = re.sub(r'\d+', '', name[::-1])
             spendings.append((striped, amount, card))
-            
+ 
         df_2 = pd.DataFrame({'spendings': [-tup[1] for tup in spendings]},
                             index=[f"({tup[1]}) " + tup[0] +" "+ tup[2] for tup in spendings])
         df_2.plot.pie(y='spendings', figsize=(5, 5), legend=False, title=f"Total Spendings:{sum([-tup[1] for tup in spendings])}")
@@ -131,17 +132,16 @@ class AppManager:
         input()
 
 
-
-import datetime
-
 def is_exectued_today():
+    date_format = "%Y-%m-%d"
     try:
         with open("update_execution.txt", "r") as output:
-            if output.readline()....
-                # check if date is today
+            str_string = output.readline().strip("\n")
+            date = datetime.strptime(str_string, date_format)
+            if date == datetime.now():
                 return True
             return False
     except Exception:
         with open("update_execution.txt", "r") as output:
-            output.write(datetime.datetime.now().strftime("%d/%m/%Y"))
+            output.write(datetime.now().strftime(date_format))
         return False

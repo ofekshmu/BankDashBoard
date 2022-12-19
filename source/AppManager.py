@@ -17,7 +17,37 @@ class AppManager:
     def __init__(self):
         self.parser = Parser()
 
-    def load_data(self):
+    def run(self) -> None:
+        print("""
+                Hello Ofek!
+                What would you like to do today?
+
+                1. Update files
+                2. Parse files
+                3. Show statistics
+                4. Change personal info
+                5. Exit
+            """)
+        answer = input()
+        match answer:
+            case 1:
+                self.__update_bank_files()
+            case 2:
+                self.__load_data()
+            case 3:
+                self.__plots_and_data()
+            case 4:
+                raise NotImplemented("This need implementation")
+            case 5:
+                exit()
+            case _:
+                print("Please insert a valid number.")
+
+    def __update_bank_files(self):
+        pass
+        # Check if the function was already executed today
+
+    def __load_data(self):
         context = Context()
         Context.counter = 0
         while next(self.parser):
@@ -51,7 +81,7 @@ class AppManager:
             Context.counter += 1
             context.render()
 
-    def plot_data(self):
+    def __plots_and_data(self):
         lst = DataBase().get_transactions(table="BankTransactions", year=2022, month=12)
         import matplotlib.pyplot as plt
         import pandas as pd

@@ -34,6 +34,15 @@ class DataBase:
             );""")
 
         self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS TableMeta (
+            ID                  INTEGER         PRIMARY KEY ,
+            source_file         CHAR            NOT NULL    ,
+            Initial_index       INT             NOT NULL    ,
+            Row_count           INT             NOT NULL    ,
+            FOREIGN KEY(source_file)    REFERENCES File(Name)
+            );""")
+
+        self.cursor.execute("""
             CREATE TABLE IF NOT EXISTS BankTransactions (
             ID                  INTEGER        PRIMARY KEY ,
             Ref                 CHAR        NOT NULL    ,
@@ -82,6 +91,17 @@ class DataBase:
             """, (ref, date, date_value, source_dest, amount, balance,
                   desc, source_file, '')
             )
+        self.connection.commit()
+
+    def insert_table_meta_data(self,
+                               source_file_name: str,
+                               initial_index: int,
+                               row_count: int):
+        """
+        """ 
+        self.cursor.execute("""
+            INSERT INTO TableMeta(source_file, Initial_index, Row_count)
+            VALUES(?, ?, ?)""", (source_file_name, initial_index, row_count))
         self.connection.commit()
 
     def insert_transaction(self,

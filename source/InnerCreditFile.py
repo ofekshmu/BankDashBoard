@@ -1,7 +1,7 @@
 from File import File
 from Constants import log
 from database import DataBase
-
+from typing import Union
 
 class InnerCreditFile(File):
 
@@ -114,15 +114,16 @@ class InnerCreditFile(File):
         old_table_stats = DataBase().get_table_stats(old_file_name)
         cleaned = []
         for idx, row_id in enumerate(old_table_stats, start=1):
-            old_table_i = {"name": old_file_name,
-                           "initial_row": row_id - 1,
-                           "trans_count": old_trans_count,
-                           "col_count": len(self.headers)}
-            new_table_i = {"name": self.name,
-                           "initial_row": self.table_stats[idx] - 1,
-                           "trans_count": self.counter,
-                           "col_count": len(self.headers)}
-            cleaned += compare_excel(old_table_i, new_table_i)
+            if idx != -1:  # Table exists
+                old_table_i = {"name": old_file_name,
+                            "initial_row": row_id - 1,
+                            "trans_count": old_trans_count,
+                            "col_count": len(self.headers)}
+                new_table_i = {"name": self.name,
+                            "initial_row": self.table_stats[idx] - 1,
+                            "trans_count": self.counter,
+                            "col_count": len(self.headers)}
+                cleaned += compare_excel(old_table_i, new_table_i)
         log(f'Out of {len(self.data)} Transactions, {len(cleaned)} new were found!', 'system')
         self.new_trans_count = len(cleaned)
         self.data = cleaned

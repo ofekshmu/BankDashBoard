@@ -227,4 +227,4 @@ class DataBase:
                                     SELECT header_idx, idx_2, idx_3, idx_4
                                     From File
                                     WHERE Name = ?
-                                    """, (file_name,)).fetchone()[0]
+                                    """, (file_name,)).fetchall()[0]

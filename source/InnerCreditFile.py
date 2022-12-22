@@ -14,6 +14,7 @@ class InnerCreditFile(File):
                  table_skip: int):
         super().__init__(name, bank_num_loc, initial_row, headers)
         self.date_loc = date_loc
+        self.counter = 0
         self.data = None
 
     def parse(self) -> bool:
@@ -56,6 +57,7 @@ class InnerCreditFile(File):
                     self.data_dict[cc_end] += [row]
                 else:
                     self.data_dict[cc_end] = [row]
+                self.counter += 1
             last_card = cc_end
             row_idx += 1
 
@@ -123,6 +125,7 @@ class InnerCreditFile(File):
                             "initial_row": self.table_stats[idx] - 1,
                             "trans_count": self.counter,
                             "col_count": len(self.headers)}
+                # The current problem is that each table requires its length and i only have the length of the totals transactions
                 cleaned += compare_excel(old_table_i, new_table_i)
         log(f'Out of {len(self.data)} Transactions, {len(cleaned)} new were found!', 'system')
         self.new_trans_count = len(cleaned)

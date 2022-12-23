@@ -19,7 +19,7 @@ class InnerCreditFile(File):
         super().__init__(name, bank_num_loc, initial_row, headers)
         self.date_loc = date_loc
         self.counter = 0
-        self.data = None
+        self.data = []
 
     def parse(self) -> bool:
         '''
@@ -55,10 +55,7 @@ class InnerCreditFile(File):
                 total_counter += 1
 
                 row = self.sheet[row_index - 1: row_index, 0: COL_COUNT].value
-                if curr_pos in self.data_dict.keys():
-                    self.data_dict[curr_pos] += [row]
-                else:
-                    self.data_dict[curr_pos] = [row]
+                self.data.append(row)
 
                 if next_pos is None or \
                    not next_pos.isdigit() or \
@@ -183,19 +180,19 @@ class InnerCreditFile(File):
                 return datetime.strptime(str, "%d-%m-%Y")
 
 
-        total = []
-        for v in self.data_dict.values():
-            total += v
+        # total = []
+        # for v in self.data_dict.values():
+        #     total += v
 
         DataBase().insert_file(self.name,
                                self.date,
                                "Auto Insertion",
                                "EDIT THIS",
-                               len(total),
+                               "BLANK",
                                self.initial_row)
 
         counter = 0
-        for row in total:
+        for row in self.data:
             counter += 1
             DataBase().insert_transaction(row[0], date_conversion(row[1]), row[2], -row[3], row[7], row[-1], self.name)
         return True

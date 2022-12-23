@@ -25,43 +25,56 @@ class InnerCreditFile(File):
         self.data: table1 and table2 data in a 2d array
         self.date: the date specified in the file
         '''
+        COL_COUNT = len(self.headers)
         
-        # This dictionary will hold daata about the different tables in the file
-        # this is created for the cleaning process
-        # The assumption is that there are no more than 4 tables!
-        self.table_stats = {1: -1, 2: -1, 3: -1, 4: -1}
-        dirty_bit = True  # will be True if the next index should be recorded in table
-        last_card = None  # sa  ve last card in order to trigger dirt bid uppon change
-        table_counter = 1  # for counting found tables
-        # ------------------------------------------
         self.data_dict = {}
         none_counter = 4
-        col_count = len(self.headers)
-        row_idx = self.initial_row + 1
+        row_index = self.initial_row + 1  # The first data row
+
+        table_row_counter = 0
+        total_counter = 0
+        initial_table_index = row_index
+
+        curr_pos = File.cell(row_index, 0, self.sheet)
+        next_pos = File.cell(row_index + 1, 0, self.sheet)
+
         while none_counter > 0:
-            cc_end = File.cell(row_idx, 0, self.sheet)
-            if cc_end is None or not cc_end.isdigit():
+
+            if curr_pos is None or not curr_pos.isdigit():
                 none_counter -= 1
-                dirty_bit = True
+
+                if next_pos is not None and \
+                   next_pos.isdigit():
+                    initial_table_index = row_index + 1
             else:
+                table_row_counter += 1
+                total_counter += 1
 
-                if cc_end != last_card:
-                    dirty_bit = True
-
-                if dirty_bit:
-                    self.table_stats[table_counter] = row_idx
-                    dirty_bit = not dirty_bit
-                    table_counter += 1
-                row = self.sheet[row_idx - 1: row_idx, 0: col_count].value
-                if cc_end in self.data_dict.keys():
-                    self.data_dict[cc_end] += [row]
+                row = self.sheet[row_index - 1: row_index, 0: COL_COUNT].value
+                if curr_pos in self.data_dict.keys():
+                    self.data_dict[curr_pos] += [row]
                 else:
-                    self.data_dict[cc_end] = [row]
-                self.counter += 1
-            last_card = cc_end
-            row_idx += 1
+                    self.data_dict[curr_pos] = [row]
+
+                if next_pos is None or \
+                   not next_pos.isdigit() or \
+                   (next_pos.isdigit() and curr_pos.isdigit() and curr_pos != next_pos):
+                    DataBase().insert_table_meta_data(self.name,
+                                                      initial_table_index,
+                                                      table_row_counter)
+                    table_row_counter = 0
+                    initial_table_index = row_index + 1
+
+            row_index += 1
+            curr_pos = next_pos
+            next_pos = File.cell(row_index + 1, 0, self.sheet)
+
 
         self.date = self.sheet[self.date_loc].value
+
+
+        # -------------------------------------------------
+
         return True
 
     def clean(self):

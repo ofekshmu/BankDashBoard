@@ -30,42 +30,51 @@ class InnerCreditFile(File):
         self.date: the date specified in the file
         '''
         COL_COUNT = len(self.headers)
-        
-        self.data_dict = {}
-        none_counter = 4
-        row_index = self.initial_row + 1  # The first data row
 
-        table_row_counter = 0
-        total_counter = 0
-        initial_table_index = row_index
+        # There might be a way to remove this dict, since data can be read again later
+        self.data_dict = {}
+        none_counter = 4                    # Number of "None" fields in the file
+        row_index = self.initial_row + 1    # The first data row
+
+        table_row_counter = 0               # Counts the valid rows in each table (A file might have more than one table)
+        total_counter = 0                   # The total valid Transations in the file
+        initial_table_index = row_index     # The first row of data in a table
 
         curr_pos = File.cell(row_index, 0, self.sheet)
         next_pos = File.cell(row_index + 1, 0, self.sheet)
 
         while none_counter > 0:
-
+            # If the current row is invalid
             if curr_pos is None or not curr_pos.isdigit():
                 none_counter -= 1
-
+                # If the next row is valid ->
+                # Than set the initial index of the next table
                 if next_pos is not None and \
                    next_pos.isdigit():
                     initial_table_index = row_index + 1
+            # If the current row is valid
             else:
+                # Raise the counter for the current and total tables
                 table_row_counter += 1
                 total_counter += 1
 
+                # Extract data (This might not be needed)
                 row = self.sheet[row_index - 1: row_index, 0: COL_COUNT].value
                 self.data.append(row)
 
+                # If the next row is invalid ->
+                # Add the data about the current table to db
                 if next_pos is None or \
                    not next_pos.isdigit() or \
                    (next_pos.isdigit() and curr_pos.isdigit() and curr_pos != next_pos):
                     DataBase().insert_table_meta_data(self.name,
                                                       initial_table_index,
                                                       table_row_counter)
+                    # Reset table info
                     table_row_counter = 0
                     initial_table_index = row_index + 1
 
+            # iterate over to the next row
             row_index += 1
             curr_pos = next_pos
             next_pos = File.cell(row_index + 1, 0, self.sheet)
@@ -146,8 +155,8 @@ class InnerCreditFile(File):
         cleaned = []
         for curr_info, old_info in zip(curr_table_stats, old_table_stats):
             old_table_i = {"name": old_file_name,
-                           "initial_row": old_info[-2] - 1,
-                           "trans_count": old_info[-1],
+                           "initial_row": old_info[-2] - 1,  # dict value represent the index of the header row (a row before the actual data)
+                           "trans_count": old_info[-1],      # Number of transations in the current table
                            "col_count": len(self.headers)}
             new_table_i = {"name": self.name,
                            "initial_row": curr_info[-2] - 1,

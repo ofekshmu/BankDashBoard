@@ -173,10 +173,7 @@ class InnerCreditFile(File):
                                "Auto Insertion",
                                "EDIT THIS",
                                len(total),
-                               self.initial_row,
-                               self.table_stats[2],
-                               self.table_stats[3],
-                               self.table_stats[4])
+                               self.initial_row)
 
         counter = 0
         for row in total:

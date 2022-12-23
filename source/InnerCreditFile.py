@@ -1,7 +1,11 @@
 from File import File
-from Constants import log
+from Constants import log, Local
+from os.path import join
+import xlwings as xw
+from xlwings import Sheet
 from database import DataBase
 from typing import Union
+
 
 class InnerCreditFile(File):
 
@@ -69,12 +73,7 @@ class InnerCreditFile(File):
             curr_pos = next_pos
             next_pos = File.cell(row_index + 1, 0, self.sheet)
 
-
         self.date = self.sheet[self.date_loc].value
-
-
-        # -------------------------------------------------
-
         return True
 
     def clean(self):
@@ -93,6 +92,22 @@ class InnerCreditFile(File):
                 return None
             return self.sorted_names[idx - 1]
 
+        def read_sheet(file_name: str) -> Sheet:
+            wb = xw.Book(join(Local.XLSX_PATH, file_name))
+            return wb.sheets[0]
+
+        def onion(lst):
+            if not isinstance(lst[0], list):
+                return [lst]
+            return lst
+
+        def get_row(table):
+            for i, row in enumerate(table):
+                if row[8] == "  * תנועות היום":
+                    pass
+                else:
+                    return i, row
+
         def compare_excel(old_file: dict, new_file: dict):
             """
             file_name1 will be the new excel
@@ -103,6 +118,9 @@ class InnerCreditFile(File):
             new_sheet = read_sheet(new_file["name"])
             old_table = old_sheet[old_file["initial_row"]: old_file["initial_row"] + old_file["trans_count"], 0: old_file["col_count"]].value
             new_table = new_sheet[new_file["initial_row"]: new_file["initial_row"] + new_file["trans_count"], 0: new_file["col_count"]].value
+
+            old_table = onion(old_table)
+            new_table = onion(new_table)
 
             i = -1
             index, row = get_row(old_table)
@@ -126,21 +144,22 @@ class InnerCreditFile(File):
         if not old_trans_count:
             log(f"There is a problem retriving transactions for {old_file_name}", "error")
         
-        old_table_stats = DataBase().get_table_stats(old_file_name)
+        old_table_stats = DataBase().get_table_Meta(old_file_name)
+        curr_table_stats = DataBase().get_table_Meta(self.name)
         cleaned = []
-        for idx, row_id in enumerate(old_table_stats, start=1):
-            if idx != -1:  # Table exists
-                old_table_i = {"name": old_file_name,
-                            "initial_row": row_id - 1,
-                            "trans_count": old_trans_count,
-                            "col_count": len(self.headers)}
-                new_table_i = {"name": self.name,
-                            "initial_row": self.table_stats[idx] - 1,
-                            "trans_count": self.counter,
-                            "col_count": len(self.headers)}
-                # The current problem is that each table requires its length and i only have the length of the totals transactions
-                cleaned += compare_excel(old_table_i, new_table_i)
-        log(f'Out of {len(self.data)} Transactions, {len(cleaned)} new were found!', 'system')
+        for curr_info, old_info in zip(curr_table_stats, old_table_stats):
+            old_table_i = {"name": old_file_name,
+                           "initial_row": old_info[-2] - 1,
+                           "trans_count": old_info[-1],
+                           "col_count": len(self.headers)}
+            new_table_i = {"name": self.name,
+                           "initial_row": curr_info[-2] - 1,
+                           "trans_count": curr_info[-1],
+                           "col_count": len(self.headers)}
+            # The current problem is that each table requires its length and i only have the length of the totals transactions
+            cleaned += compare_excel(old_table_i, new_table_i)
+        tot = sum([x[-1] for x in curr_table_stats])
+        log(f'Out of {tot} Transactions, {len(cleaned)} new were found!', 'system')
         self.new_trans_count = len(cleaned)
         self.data = cleaned
         return True

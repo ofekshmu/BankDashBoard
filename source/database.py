@@ -104,6 +104,16 @@ class DataBase:
             VALUES(?, ?, ?)""", (source_file_name, initial_index, row_count))
         self.connection.commit()
 
+    def get_table_Meta(self, file_name: str):
+        """
+        Return a list of the table stats of the @file_name
+        """
+        return self.cursor.execute("""
+                                    SELECT *
+                                    From TableMeta
+                                    WHERE source_file = ?
+                                    """, (file_name,)).fetchall()
+
     def insert_transaction(self,
                            cardID: str,
                            transaction_date: datetime,

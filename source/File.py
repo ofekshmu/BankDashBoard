@@ -93,7 +93,40 @@ class File:
 
     @abstractmethod
     def parse(self) -> bool:
-        pass
+        """
+        Function responsibility is the complete parse of the data file.
+        Currently, 'BankTransactionFile' and 'OuterCreditFile' are using this implementation.
+        'Inner credit file is using a different one becuase of the complexity.
+        """
+        counter = 0
+        row = self.initial_row + 1
+        cc_end = File.cell(row, 0, self.sheet)
+
+        # Empty cell is read as None
+        while cc_end is not None:
+            counter += 1
+            row += 1
+            cc_end = File.cell(row, 0, self.sheet)
+
+        self.counter = counter
+
+        # Inset the meta data of the file to db for future reference
+        DataBase().insert_table_meta_data(self.name,
+                                          self.initial_row + 1,
+                                          self.counter)
+
+        COL_COUNT = len(self.headers)
+        table = self.sheet[self.initial_row: self.initial_row + self.counter, 0: COL_COUNT].value
+
+        # Happens if table is empty (No transactions)
+        if table is None:
+            table = []
+        # To stay consistent with the data structure
+        elif counter == 1:
+            table = [table]
+
+        self.data = table
+
 
     def clean(self) -> bool:
         """

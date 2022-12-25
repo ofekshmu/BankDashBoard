@@ -22,34 +22,18 @@ class BankTransactionsFile(File):
         self.data: table1 and table2 data in a 2d array
         self.date: the date specified in the file
         '''
-        counter = 0
-        row = self.initial_row + 1
-        cc_end = File.cell(row, 0, self.sheet)
+        super().parse()
+        # TODO this was commented when the code was moved to FILE
+        # might cuase a problem in future run
+        # self.new_trans_count = counter
+        # self.date = self.sheet[self.date_loc].value
 
-        # Empty cell is read as None
-        while cc_end is not None:
-            counter += 1
-            row += 1
-            cc_end = File.cell(row, 0, self.sheet)
-
-        # Number of transactions
-        self.counter = counter
-        self.new_trans_count = counter
-        log(f'First Loop End stats: cc_end={cc_end}, counter1={counter}, row={row}', 'debug')
-
-        col_count = len(self.headers)
-        # Extract table data
-        table = self.sheet[self.initial_row: self.initial_row + self.counter, 0: col_count].value
-
-        # Happens if table is empty (No transactions)
-        if table is None:
-            table = []
-        # To stay consistent with the data structure
-        elif counter == 1:
-            table = [table]
-
-        self.data = table
-        self.date = self.sheet[self.date_loc].value
+        DataBase().insert_file(self.name,
+                               self.sheet[self.date_loc].value,
+                               "Auto Insertion",
+                               -1,
+                               self.counter,
+                               self.initial_row)
         return True
 
     def clean(self):
@@ -73,13 +57,6 @@ class BankTransactionsFile(File):
                 return datetime.strptime(str, "%d/%m/%Y")
             else:
                 return datetime.strptime(str, "%d-%m-%Y")
-
-        DataBase().insert_file(self.name,
-                               self.date,
-                               "Auto Insertion",
-                               self.new_trans_count,
-                               self.counter,
-                               self.initial_row)
 
         for row in self.data:
             ref = row[3]

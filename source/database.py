@@ -57,6 +57,7 @@ class DataBase:
             amount              INT         NOT NULL    ,
             transaction_type    CHAR                    ,
             charge_date         DATE        NOT NULL    ,
+            charge_amount       INT         NOT NULL    ,
             source_file         CHAR        NOT NULL    ,
             description         TEXT                    ,
             FOREIGN KEY(cardID)         REFERENCES Card(cardID),
@@ -91,6 +92,7 @@ class DataBase:
                            amount: int,
                            transaction_type: str,
                            charge_date: datetime,
+                           charge_amount: int,
                            source_file: str):
         '''
         Insert a new transaction to local DB.
@@ -103,10 +105,10 @@ class DataBase:
 
         self.cursor.execute(f"""
             INSERT INTO Transactions(cardID, transaction_date, business_name,
-                amount, transaction_type, charge_date, source_file, description)
-            VALUES(?, ?, ?, ?, ?, ?, ?, ?)
+                amount, transaction_type, charge_date, charge_amount, source_file, description)
+            VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (cardID, transaction_date, business_name, amount,
-                  transaction_type, charge_date, source_file, '')
+                  transaction_type, charge_date, charge_amount, source_file, '')
             )
         self.connection.commit()
 

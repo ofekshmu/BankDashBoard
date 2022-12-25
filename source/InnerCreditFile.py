@@ -65,71 +65,7 @@ class InnerCreditFile(File):
         return True
 
     def clean(self):
-        from Parser import Parser
-        self.sorted_names = Parser.getInstance().get_names(InnerCreditFile)
-
-        # TODO: This code is duplicated from the File class, need to improve this!
-        def get_last_file_name() -> Union[str, None]:
-            """
-            Function receives the date of the current file specified in its name
-            and returns the name of the most recent file of the same type, in the
-            input folder
-            """
-            idx = self.sorted_names.index(self.name)
-            if idx == 0:
-                return None
-            return self.sorted_names[idx - 1]
-
-        def compare_excel(old_file: dict, new_file: dict):
-            """
-            file_name1 will be the new excel
-            file_name2 will be the old excel
-            """
-
-            old_sheet = read_sheet(old_file["name"])
-            new_sheet = read_sheet(new_file["name"])
-            old_table = old_sheet[old_file["initial_row"]: old_file["initial_row"] + old_file["trans_count"], 0: old_file["col_count"]].value
-            new_table = new_sheet[new_file["initial_row"]: new_file["initial_row"] + new_file["trans_count"], 0: new_file["col_count"]].value
-
-            i = -1
-            index, row = get_row(old_table)
-            if row in new_table:
-                i = new_table.index(row)
-                for j in range(1, len(new_table) - i):
-                    if j >= len(old_table) or i + j >= len(new_table):
-                        break
-                    if old_table[index + j] != new_table[i + j]:
-                        return []
-            if i == -1:
-                return new_table
-            return new_table[:i]
-      
-        old_file_name = get_last_file_name()
-        if old_file_name is None:
-            log(f"{self.name} has not earlier file - Nothing to clean", "system")
-            return True
-
-        old_trans_count = DataBase().total_transactions(old_file_name)
-        if not old_trans_count:
-            log(f"There is a problem retriving transactions for {old_file_name}", "error")
-        
-        old_table_stats = DataBase().get_table_stats(old_file_name)
-        cleaned = []
-        for idx, row_id in enumerate(old_table_stats, start=1):
-            if idx != -1:  # Table exists
-                old_table_i = {"name": old_file_name,
-                            "initial_row": row_id - 1,
-                            "trans_count": old_trans_count,
-                            "col_count": len(self.headers)}
-                new_table_i = {"name": self.name,
-                            "initial_row": self.table_stats[idx] - 1,
-                            "trans_count": self.counter,
-                            "col_count": len(self.headers)}
-                # The current problem is that each table requires its length and i only have the length of the totals transactions
-                cleaned += compare_excel(old_table_i, new_table_i)
-        log(f'Out of {len(self.data)} Transactions, {len(cleaned)} new were found!', 'system')
-        self.new_trans_count = len(cleaned)
-        self.data = cleaned
+        log("Not cleaning inner credit")
         return True
 
     def insert(self):
@@ -168,7 +104,14 @@ class InnerCreditFile(File):
         counter = 0
         for row in total:
             counter += 1
-            DataBase().insert_transaction(row[0], date_conversion(row[1]), row[2], -row[3], row[7], row[-1], self.name)
+            DataBase().insert_transaction(cardID=row[0],
+                                          transaction_date=date_conversion(row[1]),
+                                          business_name=row[2],
+                                          amount=-row[3],
+                                          transaction_type=row[7],
+                                          charge_date=row[-1],
+                                          charge_amount=-row[5],
+                                          source_file=self.name)
         return True
 
     def __str__(self):

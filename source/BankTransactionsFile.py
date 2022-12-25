@@ -32,8 +32,7 @@ class BankTransactionsFile(File):
                                self.sheet[self.date_loc].value,
                                "Auto Insertion",
                                -1,
-                               self.counter,
-                               self.initial_row)
+                               self.counter)
         return True
 
     def clean(self):

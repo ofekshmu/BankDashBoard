@@ -26,10 +26,6 @@ class DataBase:
             Description         CHAR                ,
             New_Transactions    INT                 ,
             Transaction_count   INT         NOT NULL,
-            Header_idx          INT         NOT NULL,
-            idx_2               INT                 ,
-            idx_3               INT                 ,
-            idx_4               INT                 ,
             Last_update         DATE        NOT NULL
             );""")
 
@@ -145,20 +141,15 @@ class DataBase:
                     date: datetime,
                     description: str,
                     new_trans_count: int,
-                    trans_count: int,
-                    header_idx: int,
-                    idx_2: int = -1,
-                    idx_3: int = -1,
-                    idx_4: int = -1):
+                    trans_count: int):
         '''
         Insert a new file to local DB.
         '''
         last_update = datetime.now()
         self.cursor.execute(f"""
-            INSERT INTO File(Name, Date, Description, New_Transactions, Transaction_count, Header_idx,
-                             idx_2, idx_3, idx_4, Last_update)
-            VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (name, date, description, new_trans_count, trans_count, header_idx, idx_2, idx_3, idx_4, last_update)
+            INSERT INTO File(Name, Date, Description, New_Transactions, Transaction_count, Last_update)
+            VALUES(?, ?, ?, ?, ?, ?)
+            """, (name, date, description, new_trans_count, trans_count, last_update)
             )
         self.connection.commit()
 

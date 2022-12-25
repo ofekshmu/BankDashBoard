@@ -188,11 +188,11 @@ class File:
             return True
 
         trans_count = DataBase().total_transactions(old_file_name)
-        header_idx = DataBase().get_header_idx(old_file_name)
+        initial_row = DataBase().get_table_Meta(old_file_name)[0][2]
         if not trans_count:
             log(f"There is a problem retriving transactions for {old_file_name}", "error")
         old_file = {"name": old_file_name,
-                    "initial_row": header_idx,
+                    "initial_row": initial_row - 1, # This was previously the header row, need to change
                     "trans_count": trans_count,
                     "col_count": len(self.headers)}
         new_file = {"name": self.name,

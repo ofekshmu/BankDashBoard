@@ -83,8 +83,7 @@ class InnerCreditFile(File):
                                self.sheet[self.date_loc].value,
                                "Auto Insertion",
                                "Not checked",
-                               total_counter,
-                               self.initial_row)
+                               total_counter)
 
         return True
 

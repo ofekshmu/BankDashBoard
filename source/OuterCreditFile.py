@@ -31,8 +31,7 @@ class OuterCreditFile(File):
                                "None",
                                "Auto Insertion",
                                "Not checked",
-                               self.counter,
-                               self.initial_row)
+                               self.counter)
 
         self.card_num = self.sheet[self.card_cell].value
         return True

@@ -79,7 +79,13 @@ class InnerCreditFile(File):
             curr_pos = next_pos
             next_pos = File.cell(row_index + 1, 0, self.sheet)
 
-        self.date = self.sheet[self.date_loc].value
+        DataBase().insert_file(self.name,
+                               self.sheet[self.date_loc].value,
+                               "Auto Insertion",
+                               "Not checked",
+                               total_counter,
+                               self.initial_row)
+
         return True
 
     def clean(self):
@@ -140,16 +146,17 @@ class InnerCreditFile(File):
             if i == -1:
                 return new_table
             return new_table[:i]
-      
+
         old_file_name = get_last_file_name()
         if old_file_name is None:
+            DataBase().set_new_trans_count(self.name, self.counter)
             log(f"{self.name} has not earlier file - Nothing to clean", "system")
             return True
 
         old_trans_count = DataBase().total_transactions(old_file_name)
         if not old_trans_count:
             log(f"There is a problem retriving transactions for {old_file_name}", "error")
-        
+
         old_table_stats = DataBase().get_table_Meta(old_file_name)
         curr_table_stats = DataBase().get_table_Meta(self.name)
         cleaned = []
@@ -166,7 +173,8 @@ class InnerCreditFile(File):
             cleaned += compare_excel(old_table_i, new_table_i)
         tot = sum([x[-1] for x in curr_table_stats])
         log(f'Out of {tot} Transactions, {len(cleaned)} new were found!', 'system')
-        self.new_trans_count = len(cleaned)
+
+        DataBase().set_new_trans_count(self.name, len(cleaned))
         self.data = cleaned
         return True
 
@@ -189,16 +197,6 @@ class InnerCreditFile(File):
                 return datetime.strptime(str, "%d-%m-%Y")
 
 
-        # total = []
-        # for v in self.data_dict.values():
-        #     total += v
-
-        DataBase().insert_file(self.name,
-                               self.date,
-                               "Auto Insertion",
-                               "EDIT THIS",
-                               "BLANK",
-                               self.initial_row)
 
         counter = 0
         for row in self.data:

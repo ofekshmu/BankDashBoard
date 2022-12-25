@@ -28,9 +28,9 @@ class OuterCreditFile(File):
         super().parse()
 
         DataBase().insert_file(self.name,
-                               'None',
+                               "None",
                                "Auto Insertion",
-                               -1,
+                               "Not checked",
                                self.counter,
                                self.initial_row)
 

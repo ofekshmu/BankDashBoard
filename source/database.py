@@ -162,6 +162,15 @@ class DataBase:
             )
         self.connection.commit()
 
+    def set_new_trans_count(self, file_name: str, count: int) -> bool:
+        self.cursor.execute("""UPDATE File
+                               SET New_Transactions = :count
+                               WHERE Name = :file_name""",
+                            {'count': count,
+                             'file_name': file_name})
+        self.connection.commit()
+        return True
+
     @try_catch
     def is_card_exists(self, cardID: str) -> bool:
         ans = self.cursor.execute("""

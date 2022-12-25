@@ -183,6 +183,7 @@ class File:
 
         old_file_name = get_last_file_name()
         if old_file_name is None:
+            DataBase().set_new_trans_count(self.name, self.counter)
             log(f"{self.name} has not earlier file - Nothing to clean", "system")
             return True
 
@@ -200,7 +201,8 @@ class File:
                     "col_count": len(self.headers)}
         new_table = compare_excel(old_file, new_file)
         log(f'Out of {len(self.data)} Transactions, {len(new_table)} new were found!', 'system')
-        self.new_trans_count = len(new_table)
+        
+        DataBase().set_new_trans_count(self.name, len(new_table))
         self.data = new_table
         return True
 

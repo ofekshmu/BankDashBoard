@@ -86,9 +86,11 @@ class AppManager:
             card = re.sub("[^0-9]", "", ele[1])
             name = ele[3]
             amount = ele[4]
+            charge_amount = ele[7]
+            amount = transaction_value(amount, charge_amount)
             striped = re.sub(r'\d+', '', name[::-1])
             spendings.append((striped, amount, card))
-            
+
         df_2 = pd.DataFrame({'spendings': [-tup[1] for tup in spendings]},
                             index=[f"({tup[1]}) " + tup[0] +" "+ tup[2] for tup in spendings])
         df_2.plot.pie(y='spendings', figsize=(5, 5), legend=False, title=f"Total Spendings:{sum([-tup[1] for tup in spendings])}")
@@ -96,3 +98,9 @@ class AppManager:
         plt.show()
 
         input()
+
+
+def transaction_value(amount: int, charge_amount: int) -> int:
+    if amount != charge_amount:
+        return charge_amount
+    return amount

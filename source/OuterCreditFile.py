@@ -89,7 +89,7 @@ class OuterCreditFile(File):
             amount = -row[5]
             trans_type = row[4]
             charge_date = date_conversion(row[9])
-            charge_amount = row[7]
+            charge_amount = -row[7]
             source_file = self.name
 
             DataBase().insert_transaction(card_id,

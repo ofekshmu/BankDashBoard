@@ -185,7 +185,7 @@ class InnerCreditFile(File):
             import re
             from datetime import datetime
             if isinstance(str, datetime):
-                return str
+                return str.replace(month=str.day, day=str.month)
             pattern = "\d{1,2}/\d{1,2}/\d{2,4}|\d{1,2}-\d{1,2}-\d{4}"
             str = re.search(pattern, str).group()
             if len(str.split('/')[-1]) == 2:
@@ -205,7 +205,7 @@ class InnerCreditFile(File):
                                           business_name=row[2],
                                           amount=-row[3],
                                           transaction_type=row[7],
-                                          charge_date=row[-1],
+                                          charge_date=date_conversion(row[-1]),
                                           charge_amount=-row[5],
                                           source_file=self.name)
         return True

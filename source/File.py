@@ -93,7 +93,40 @@ class File:
 
     @abstractmethod
     def parse(self) -> bool:
-        pass
+        """
+        Function responsibility is the complete parse of the data file.
+        Currently, 'BankTransactionFile' and 'OuterCreditFile' are using this implementation.
+        'Inner credit file is using a different one becuase of the complexity.
+        """
+        counter = 0
+        row = self.initial_row + 1
+        cc_end = File.cell(row, 0, self.sheet)
+
+        # Empty cell is read as None
+        while cc_end is not None:
+            counter += 1
+            row += 1
+            cc_end = File.cell(row, 0, self.sheet)
+
+        self.counter = counter
+
+        # Inset the meta data of the file to db for future reference
+        DataBase().insert_table_meta_data(self.name,
+                                          self.initial_row + 1,
+                                          self.counter)
+
+        COL_COUNT = len(self.headers)
+        table = self.sheet[self.initial_row: self.initial_row + self.counter, 0: COL_COUNT].value
+
+        # Happens if table is empty (No transactions)
+        if table is None:
+            table = []
+        # To stay consistent with the data structure
+        elif counter == 1:
+            table = [table]
+
+        self.data = table
+
 
     def clean(self) -> bool:
         """
@@ -150,15 +183,16 @@ class File:
 
         old_file_name = get_last_file_name()
         if old_file_name is None:
+            DataBase().set_new_trans_count(self.name, self.counter)
             log(f"{self.name} has not earlier file - Nothing to clean", "system")
             return True
 
         trans_count = DataBase().total_transactions(old_file_name)
-        header_idx = DataBase().get_header_idx(old_file_name)
+        initial_row = DataBase().get_table_Meta(old_file_name)[0][2]
         if not trans_count:
             log(f"There is a problem retriving transactions for {old_file_name}", "error")
         old_file = {"name": old_file_name,
-                    "initial_row": header_idx,
+                    "initial_row": initial_row - 1, # This was previously the header row, need to change
                     "trans_count": trans_count,
                     "col_count": len(self.headers)}
         new_file = {"name": self.name,
@@ -167,7 +201,8 @@ class File:
                     "col_count": len(self.headers)}
         new_table = compare_excel(old_file, new_file)
         log(f'Out of {len(self.data)} Transactions, {len(new_table)} new were found!', 'system')
-        self.new_trans_count = len(new_table)
+        
+        DataBase().set_new_trans_count(self.name, len(new_table))
         self.data = new_table
         return True
 

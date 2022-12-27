@@ -1,7 +1,11 @@
 from File import File
-from Constants import log
+from Constants import log, Local
+from os.path import join
+import xlwings as xw
+from xlwings import Sheet
 from database import DataBase
 from typing import Union
+
 
 class InnerCreditFile(File):
 
@@ -15,7 +19,7 @@ class InnerCreditFile(File):
         super().__init__(name, bank_num_loc, initial_row, headers)
         self.date_loc = date_loc
         self.counter = 0
-        self.data = None
+        self.data = []
 
     def parse(self) -> bool:
         '''
@@ -25,47 +29,152 @@ class InnerCreditFile(File):
         self.data: table1 and table2 data in a 2d array
         self.date: the date specified in the file
         '''
-        
-        # This dictionary will hold daata about the different tables in the file
-        # this is created for the cleaning process
-        # The assumption is that there are no more than 4 tables!
-        self.table_stats = {1: -1, 2: -1, 3: -1, 4: -1}
-        dirty_bit = True  # will be True if the next index should be recorded in table
-        last_card = None  # sa  ve last card in order to trigger dirt bid uppon change
-        table_counter = 1  # for counting found tables
-        # ------------------------------------------
+        COL_COUNT = len(self.headers)
+
+        # There might be a way to remove this dict, since data can be read again later
         self.data_dict = {}
-        none_counter = 4
-        col_count = len(self.headers)
-        row_idx = self.initial_row + 1
+        none_counter = 4                    # Number of "None" fields in the file
+        row_index = self.initial_row + 1    # The first data row
+
+        table_row_counter = 0               # Counts the valid rows in each table (A file might have more than one table)
+        total_counter = 0                   # The total valid Transations in the file
+        initial_table_index = row_index     # The first row of data in a table
+
+        curr_pos = File.cell(row_index, 0, self.sheet)
+        next_pos = File.cell(row_index + 1, 0, self.sheet)
+
         while none_counter > 0:
-            cc_end = File.cell(row_idx, 0, self.sheet)
-            if cc_end is None or not cc_end.isdigit():
+            # If the current row is invalid
+            if curr_pos is None or not curr_pos.isdigit():
                 none_counter -= 1
-                dirty_bit = True
+                # If the next row is valid ->
+                # Than set the initial index of the next table
+                if next_pos is not None and \
+                   next_pos.isdigit():
+                    initial_table_index = row_index + 1
+            # If the current row is valid
             else:
+                # Raise the counter for the current and total tables
+                table_row_counter += 1
+                total_counter += 1
 
-                if cc_end != last_card:
-                    dirty_bit = True
+                # Extract data (This might not be needed)
+                row = self.sheet[row_index - 1: row_index, 0: COL_COUNT].value
+                self.data.append(row)
 
-                if dirty_bit:
-                    self.table_stats[table_counter] = row_idx
-                    dirty_bit = not dirty_bit
-                    table_counter += 1
-                row = self.sheet[row_idx - 1: row_idx, 0: col_count].value
-                if cc_end in self.data_dict.keys():
-                    self.data_dict[cc_end] += [row]
-                else:
-                    self.data_dict[cc_end] = [row]
-                self.counter += 1
-            last_card = cc_end
-            row_idx += 1
+                # If the next row is invalid ->
+                # Add the data about the current table to db
+                if next_pos is None or \
+                   not next_pos.isdigit() or \
+                   (next_pos.isdigit() and curr_pos.isdigit() and curr_pos != next_pos):
+                    DataBase().insert_table_meta_data(self.name,
+                                                      initial_table_index,
+                                                      table_row_counter)
+                    # Reset table info
+                    table_row_counter = 0
+                    initial_table_index = row_index + 1
 
-        self.date = self.sheet[self.date_loc].value
+            # iterate over to the next row
+            row_index += 1
+            curr_pos = next_pos
+            next_pos = File.cell(row_index + 1, 0, self.sheet)
+
+        DataBase().insert_file(self.name,
+                               self.sheet[self.date_loc].value,
+                               "Auto Insertion",
+                               "Not checked",
+                               total_counter)
+
         return True
 
     def clean(self):
-        log("Not cleaning inner credit")
+        from Parser import Parser
+        self.sorted_names = Parser.getInstance().get_names(InnerCreditFile)
+
+        # TODO: This code is duplicated from the File class, need to improve this!
+        def get_last_file_name() -> Union[str, None]:
+            """
+            Function receives the date of the current file specified in its name
+            and returns the name of the most recent file of the same type, in the
+            input folder
+            """
+            idx = self.sorted_names.index(self.name)
+            if idx == 0:
+                return None
+            return self.sorted_names[idx - 1]
+
+        def read_sheet(file_name: str) -> Sheet:
+            wb = xw.Book(join(Local.XLSX_PATH, file_name))
+            return wb.sheets[0]
+
+        def onion(lst):
+            if not isinstance(lst[0], list):
+                return [lst]
+            return lst
+
+        def get_row(table):
+            for i, row in enumerate(table):
+                if row[8] == "  * תנועות היום":
+                    pass
+                else:
+                    return i, row
+
+        def compare_excel(old_file: dict, new_file: dict):
+            """
+            file_name1 will be the new excel
+            file_name2 will be the old excel
+            """
+
+            old_sheet = read_sheet(old_file["name"])
+            new_sheet = read_sheet(new_file["name"])
+            old_table = old_sheet[old_file["initial_row"]: old_file["initial_row"] + old_file["trans_count"], 0: old_file["col_count"]].value
+            new_table = new_sheet[new_file["initial_row"]: new_file["initial_row"] + new_file["trans_count"], 0: new_file["col_count"]].value
+
+            old_table = onion(old_table)
+            new_table = onion(new_table)
+
+            i = -1
+            index, row = get_row(old_table)
+            if row in new_table:
+                i = new_table.index(row)
+                for j in range(1, len(new_table) - i):
+                    if j >= len(old_table) or i + j >= len(new_table):
+                        break
+                    if old_table[index + j] != new_table[i + j]:
+                        return []
+            if i == -1:
+                return new_table
+            return new_table[:i]
+
+        old_file_name = get_last_file_name()
+        if old_file_name is None:
+            DataBase().set_new_trans_count(self.name, self.counter)
+            log(f"{self.name} has not earlier file - Nothing to clean", "system")
+            return True
+
+        old_trans_count = DataBase().total_transactions(old_file_name)
+        if not old_trans_count:
+            log(f"There is a problem retriving transactions for {old_file_name}", "error")
+
+        old_table_stats = DataBase().get_table_Meta(old_file_name)
+        curr_table_stats = DataBase().get_table_Meta(self.name)
+        cleaned = []
+        for curr_info, old_info in zip(curr_table_stats, old_table_stats):
+            old_table_i = {"name": old_file_name,
+                           "initial_row": old_info[-2] - 1,  # dict value represent the index of the header row (a row before the actual data)
+                           "trans_count": old_info[-1],      # Number of transations in the current table
+                           "col_count": len(self.headers)}
+            new_table_i = {"name": self.name,
+                           "initial_row": curr_info[-2] - 1,
+                           "trans_count": curr_info[-1],
+                           "col_count": len(self.headers)}
+            # The current problem is that each table requires its length and i only have the length of the totals transactions
+            cleaned += compare_excel(old_table_i, new_table_i)
+        tot = sum([x[-1] for x in curr_table_stats])
+        log(f'Out of {tot} Transactions, {len(cleaned)} new were found!', 'system')
+
+        DataBase().set_new_trans_count(self.name, len(cleaned))
+        self.data = cleaned
         return True
 
     def insert(self):
@@ -87,22 +196,9 @@ class InnerCreditFile(File):
                 return datetime.strptime(str, "%d-%m-%Y")
 
 
-        total = []
-        for v in self.data_dict.values():
-            total += v
-
-        DataBase().insert_file(self.name,
-                               self.date,
-                               "Auto Insertion",
-                               "EDIT THIS",
-                               len(total),
-                               self.initial_row,
-                               self.table_stats[2],
-                               self.table_stats[3],
-                               self.table_stats[4])
 
         counter = 0
-        for row in total:
+        for row in self.data:
             counter += 1
             DataBase().insert_transaction(cardID=row[0],
                                           transaction_date=date_conversion(row[1]),

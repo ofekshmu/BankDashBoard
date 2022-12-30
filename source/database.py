@@ -79,14 +79,14 @@ class DataBase:
                                 desc: str,
                                 source_file: str):
         '''
-        Insert a new transaction to local DB.
+        Insert a new Bank transaction to local DB.
+        BankTransactions are transaction taken from the BankTransaction File.
         '''
         self.cursor.execute(f"""
-            INSERT INTO BankTransactions(Ref, Date, Date_value, Source_Dest, Amount,
-                Balance, Description, source_file, Ex_description)
+            INSERT INTO BankTransactions
+            (Ref, Date, Date_value, Source_Dest, Amount, Balance, Description, source_file, Ex_description)
             VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (ref, date, date_value, source_dest, amount, balance,
-                  desc, source_file, '')
+            """, (ref, date, date_value, source_dest, amount, balance, desc, source_file, '')
             )
         self.connection.commit()
 
@@ -95,7 +95,11 @@ class DataBase:
                                initial_index: int,
                                row_count: int):
         """
-        """ 
+        Insert meta data about a table.
+        A table could be one or more transactions taken from the same file and
+        it is defined by the index of its first row, source file name and number of transactions.
+        Tables are created accoreding to specific parameters in the code.
+        """
         self.cursor.execute("""
             INSERT INTO TableMeta(source_file, Initial_index, Row_count)
             VALUES(?, ?, ?)""", (source_file_name, initial_index, row_count))
@@ -103,13 +107,13 @@ class DataBase:
 
     def get_table_Meta(self, file_name: str):
         """
-        Return a list of the table stats of the @file_name
+        Return a list of table's meta data according to the given file name.
         """
-        return self.cursor.execute("""
-                                    SELECT *
-                                    From TableMeta
-                                    WHERE source_file = ?
-                                    """, (file_name,)).fetchall()
+        query = """ SELECT *
+                    From TableMeta
+                    WHERE source_file = ?
+                """
+        return self.cursor.execute(query, (file_name,)).fetchall()
 
     def insert_transaction(self,
                            cardID: str,
@@ -121,7 +125,10 @@ class DataBase:
                            charge_amount: int,
                            source_file: str):
         '''
-        Insert a new transaction to local DB.
+        Insert a new transaction to the data base.
+        Currently, the transactions are inserted from the Files associated with credit files,
+        into the Transactions data base.
+        The function also checks it the associated credit card is present in the db.
         '''
         if not self.is_card_exists(cardID):
             log(f'New card found: ->{cardID}<-', 'db')
@@ -129,13 +136,14 @@ class DataBase:
                 return False
             log(f'Card ID {cardID} has been added!', 'db')
 
-        self.cursor.execute(f"""
-            INSERT INTO Transactions(cardID, transaction_date, business_name,
-                amount, transaction_type, charge_date, charge_amount, source_file, description)
-            VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (cardID, transaction_date, business_name, amount,
-                  transaction_type, charge_date, charge_amount, source_file, '')
-            )
+        query = """ INSERT INTO Transactions
+                    (cardID, transaction_date, business_name, amount, transaction_type, charge_date, charge_amount,
+                        source_file, description)
+                    VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """
+        self.cursor.execute(query,
+                            (cardID, transaction_date, business_name, amount, transaction_type, charge_date,
+                                charge_amount, source_file, ''))
         self.connection.commit()
 
     def insert_file(self,

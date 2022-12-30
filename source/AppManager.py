@@ -8,10 +8,6 @@ from Constants import name_he
 from database import DataBase
 
 
-def exists(name: str) -> bool:
-    return DataBase().is_file_exists(name)
-
-
 class AppManager:
 
     def __init__(self):
@@ -23,7 +19,7 @@ class AppManager:
         while next(self.parser):
             name, type = self.parser.get_next()
 
-            if exists(name):
+            if DataBase().is_file_exists(name):
                 log(f'Skipping {name_he(name)}...', 'system')
                 continue
 
@@ -75,9 +71,6 @@ class AppManager:
                             index=[tup[0] + f" ({tup[1]})" for tup in earnings])
         df_1.plot.pie(y='earnings', figsize=(5, 5), legend=False, title=f"Total Earnings:{sum([tup[1] for tup in earnings])}")
 
-        # df_2 = pd.DataFrame({'spendings': [-tup[1] for tup in spendings]},
-        #                     index=[f"({tup[1]}) " + tup[0] for tup in spendings])
-        # df_2.plot.pie(y='spendings', figsize=(5, 5), legend=False, title=f"Total Spendings:{sum([-tup[1] for tup in spendings])}")
 
         spendings = []
         lst = DataBase().get_transactions(table="", year=2022, month=11)

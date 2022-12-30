@@ -80,7 +80,7 @@ class AppManager:
         # df_2.plot.pie(y='spendings', figsize=(5, 5), legend=False, title=f"Total Spendings:{sum([-tup[1] for tup in spendings])}")
 
         spendings = []
-        lst = DataBase().get_transactions(table="", year=2022, month=12)
+        lst = DataBase().get_transactions(table="", year=2022, month=11)
         for ele in lst:
             import re
             card = re.sub("[^0-9]", "", ele[1])

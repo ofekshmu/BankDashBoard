@@ -127,8 +127,7 @@ class File:
 
         self.data = table
 
-
-    def clean(self) -> bool:
+    def clean(self, flip: bool = False) -> bool:
         """
         Function will clean the read data.
         Given a table of transactions, it will change the table to contain only new
@@ -150,6 +149,11 @@ class File:
             wb = xw.Book(join(Local.XLSX_PATH, file_name))
             return wb.sheets[0]
 
+        # def check_payment_string(s: str) -> bool:
+        #     import re
+        #     pattern = r"תשלום \d+ מתוך \d+"
+        #     return bool(re.search(pattern, s))
+
         def get_row(table):
             for i, row in enumerate(table):
                 if row[8] == "  * תנועות היום":
@@ -167,6 +171,10 @@ class File:
             new_sheet = read_sheet(new_file["name"])
             old_table = old_sheet[old_file["initial_row"]: old_file["initial_row"] + old_file["trans_count"], 0: old_file["col_count"]].value
             new_table = new_sheet[new_file["initial_row"]: new_file["initial_row"] + new_file["trans_count"], 0: new_file["col_count"]].value
+
+            if flip:
+                old_table = old_table[::-1]
+                new_table = new_table[::-1]
 
             i = -1
             index, row = get_row(old_table)

@@ -39,7 +39,7 @@ class OuterCreditFile(File):
     def clean(self):
         from Parser import Parser
         self.sorted_names = Parser.getInstance().get_names(OuterCreditFile)
-        return super().clean()
+        return super().clean(flip=True)
 
     def insert(self) -> bool:
 

@@ -11,9 +11,13 @@ class Context:
         if file is not None:
             self.file = file
         else:
-            log(f"file is of class {type(file)}.", 'error')
+            log(f"In class Context -> function setFile:\nFile was not inserted.", 'error')
 
     def render(self) -> bool:
+        """
+        The render function intiates the flow of handaling the input files.
+        The flow includes reading, validating, parsing, cleaning and insertion.
+        """
         log(f"{100*'-'} file no' {self.counter}")
         log(f'Reading {name_he(self.file.name)}... {self.file}', 'system')
         if not self.file.load():

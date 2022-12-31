@@ -195,7 +195,7 @@ class DataBase:
 
     def is_file_exists(self, file_name: str) -> bool:
         '''
-        Returns True if a file with the given name exists.
+        Returns True if a record with @file_name exists in the File table,
         False otherwise.
         '''
         ans = self.cursor.execute("""
@@ -211,23 +211,11 @@ class DataBase:
         Returns True if a file with the given date exists.
         False otherwise.
         '''
-        return self.cursor.execute("""
-                    SELECT Transaction_count
+        query = """ SELECT Transaction_count
                     FROM File
                     WHERE Name = ?;
-                """, (file_name,)).fetchone()[0]
-
-    @try_catch
-    def get_header_idx(self, file_name):
-        '''
-        Returns the header_idx value of @file_name,
-        The header_idx represent the index of the header row.
-        '''
-        return self.cursor.execute("""
-                    SELECT Header_idx
-                    FROM File
-                    WHERE Name = ?;
-                """, (file_name,)).fetchone()[0]
+                """
+        return self.cursor.execute(query, (file_name,)).fetchone()[0]
 
     @try_catch
     def close(self):
@@ -236,11 +224,15 @@ class DataBase:
         '''
         self.connection.close()
 
-# ----------------- Extracting Data from Db --------------------
-
     def get_transactions(self, table: str, year: int, month: int):
         """
+        The function will query all the records from the given month from the given
+        table @table. Table = "BankTransactions" for the BankTransaction table and any
+        other string for the Transaction table.
 
+        @param year - the year in format 20XX
+        @param month - the month in format XX
+        @param table - the table to query.
         """
         import calendar
         last_day = calendar.monthrange(year, month)[1]
@@ -251,6 +243,7 @@ class DataBase:
         else:
             return self.cursor.execute("select * from Transactions where transaction_date >= ? and transaction_date <= ?", (day1, day2)).fetchall()
 
+    # TODO: this function is currently not being used anywhere.
     def get_data_by_file_name(self, file_name: str):
         """
         return all transactions parsed from the file.

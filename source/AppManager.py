@@ -49,5 +49,5 @@ class AppManager:
             context.render()
 
     def plot_data(self):
-        Graphics.basic_plots(year=2023,
-                             month=1)
+        Graphics.basic_plots(year=2022,
+                             month=11)

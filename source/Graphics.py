@@ -1,4 +1,6 @@
 from database import DataBase
+import matplotlib.pyplot as plt
+import pandas as pd
 
 
 class Graphics:
@@ -9,31 +11,36 @@ class Graphics:
         This is a temporary functions to draw basic plots of transactions
         """
         lst = DataBase().get_transactions(table="BankTransactions", year=year, month=month)
-        import matplotlib.pyplot as plt
-        import pandas as pd
-        spendings = []
+
         earnings = []
+
         for ele in lst:
             amount = ele[5]
             name = ele[7]
             if name is None:
                 name = ele[4]
-
+            
             import re
             striped = re.sub(r'\d+', '', name)
 
             if amount > 0:
                 earnings.append((striped, amount))
-            else:
-                spendings.append((striped, amount))
 
-        df_1 = pd.DataFrame({'earnings': [tup[1] for tup in earnings]},
-                            index=[gen_name(tup[0], tup[1]) for tup in earnings])
-        df_1.plot.pie(y='earnings', figsize=(5, 5), legend=False, title=f"Total Earnings:{sum([tup[1] for tup in earnings])}")
+        labels = [gen_name(tup[0], tup[1]) for tup in earnings]
+        df_earnings = pd.DataFrame({'Earnings': [tup[1] for tup in earnings]},
+                                   index=labels)
+
+        title = f"Total Earnings:{sum([tup[1] for tup in earnings])}"
+        df_earnings.plot.pie(y='Earnings', figsize=(5, 5), legend=False, title=title)
 
         spendings = []
 
+        # When looking for spendings. transaction will be queried by the date they will be 
+        # effective in the bank account and not by the date they were exectued.
+        # That is why, when given month x, we will search for transactions in month x + 1
         fit_month = month % 12 + 1
+        if fit_month == 1:
+            year += 1
         lst = DataBase().get_transactions(table="", year=year, month=fit_month)
         for ele in lst:
             import re
@@ -45,13 +52,17 @@ class Graphics:
             striped = re.sub(r'\d+', '', name)
             spendings.append((striped, amount, card))
 
-        df_2 = pd.DataFrame({'spendings': [-tup[1] for tup in spendings]},
-                            index=[gen_name(tup[0], tup[1], tup[2]) for tup in spendings])
-        df_2.plot.pie(y='spendings', figsize=(5, 5), legend=False, title=f"Total Spendings:{round(sum([-tup[1] for tup in spendings]),2)}")
+        labels = [gen_name(tup[0], tup[1], tup[2]) for tup in spendings]
+        df_2 = pd.DataFrame({'Spendings': [-tup[1] for tup in spendings]},
+                            index=labels)
+
+        title = f"Total Spendings:{round(sum([-tup[1] for tup in spendings]),2)}"
+        df_2.plot.pie(y='Spendings',
+                      figsize=(5, 5),
+                      legend=False,
+                      title=title)
 
         plt.show()
-
-        input()
 
 
 def transaction_value(amount: int, charge_amount: int, row: list) -> int:

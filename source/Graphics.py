@@ -32,14 +32,16 @@ class Graphics:
         df_1.plot.pie(y='earnings', figsize=(5, 5), legend=False, title=f"Total Earnings:{sum([tup[1] for tup in earnings])}")
 
         spendings = []
-        lst = DataBase().get_transactions(table="", year=year, month=month)
+
+        fit_month = month % 12 + 1
+        lst = DataBase().get_transactions(table="", year=year, month=fit_month)
         for ele in lst:
             import re
             card = re.sub("[^0-9]", "", ele[1])
             name = ele[3]
             amount = ele[4]
             charge_amount = ele[7]
-            amount = transaction_value(amount, charge_amount)
+            amount = transaction_value(amount, charge_amount, ele)
             striped = re.sub(r'\d+', '', name)
             spendings.append((striped, amount, card))
 
@@ -52,7 +54,9 @@ class Graphics:
         input()
 
 
-def transaction_value(amount: int, charge_amount: int) -> int:
+def transaction_value(amount: int, charge_amount: int, row: list) -> int:
+    if row[5] == "תשלומים":
+        return amount
     if amount != charge_amount:
         return charge_amount
     return amount

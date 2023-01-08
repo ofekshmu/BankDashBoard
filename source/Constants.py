@@ -18,7 +18,7 @@ def log(msg: str, category: str = "", e: str = "\n"):
             if Settings.SYSTEM:
                 print(f'-> [SYSTEM]: {msg}', end=e)
         case 'error':
-            print(f"\n\t\tX[ERROR]X\n{25*'-'}\n: {msg}\n", end=e)
+            print(f"\n\t\tX[ERROR]X\n{70*'-'}\n {msg}\n{70*'-'}\n", end=e)
             raise ValueError("\nBreaking code...")
         case 'db':
             print(f'    -> [DataBase]: {msg}', end=e)

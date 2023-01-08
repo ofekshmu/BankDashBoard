@@ -241,7 +241,7 @@ class DataBase:
         if table == "BankTransactions":
             return self.cursor.execute("select * from BankTransactions where date >= ? and date <= ?", (day1, day2)).fetchall()
         else:
-            return self.cursor.execute("select * from Transactions where transaction_date >= ? and transaction_date <= ?", (day1, day2)).fetchall()
+            return self.cursor.execute("select * from Transactions where charge_date >= ? and charge_date <= ?", (day1, day2)).fetchall()
 
     # TODO: this function is currently not being used anywhere.
     def get_data_by_file_name(self, file_name: str):

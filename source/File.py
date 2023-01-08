@@ -36,7 +36,8 @@ class File:
             wb = xw.Book(join(Local.XLSX_PATH, self.name))
             self.sheet = wb.sheets[0]
         except Exception as e:
-            log(str(e), 'error')
+            log(f"Original error: {str(e)}\nFile read Failed!\nFile name: {self.name}\
+                In File -> line 39", 'error')
 
     def load(self) -> bool:
         '''

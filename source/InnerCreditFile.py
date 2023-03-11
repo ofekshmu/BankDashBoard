@@ -181,10 +181,12 @@ class InnerCreditFile(File):
         """
 
         """
-        def date_conversion(str):
-            import re
-            from datetime import datetime
-            if isinstance(str, datetime):
+        from datetime import datetime
+        import re
+
+        def date_conversion(date) -> datetime:
+            if isinstance(date, datetime):
+                return date
                 return str.replace(month=str.day, day=str.month)
             pattern = "\d{1,2}/\d{1,2}/\d{2,4}|\d{1,2}-\d{1,2}-\d{4}"
             str = re.search(pattern, str).group()
@@ -194,8 +196,6 @@ class InnerCreditFile(File):
                 return datetime.strptime(str, "%d/%m/%Y")
             else:
                 return datetime.strptime(str, "%d-%m-%Y")
-
-
 
         counter = 0
         for row in self.data:

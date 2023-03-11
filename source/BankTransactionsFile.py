@@ -47,6 +47,9 @@ class BankTransactionsFile(File):
             import re
             from datetime import datetime
             if isinstance(str, datetime):
+                return str
+                if str.day > 12:
+                    return str
                 return datetime(str.year, str.day, str.month)
             pattern = "\d{1,2}/\d{1,2}/\d{2,4}|\d{1,2}-\d{1,2}-\d{4}"
             str = re.search(pattern, str).group()

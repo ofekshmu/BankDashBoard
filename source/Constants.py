@@ -9,7 +9,7 @@ class Settings:
     LAPTOP = False
 
 
-def log(msg: str, category: str = "", e: str = "\n"):
+def temp(msg: str, category: str = "", e: str = "\n"):
     match category:
         case 'debug':
             if Settings.DEBUG:
@@ -28,6 +28,35 @@ def log(msg: str, category: str = "", e: str = "\n"):
             print(f'X [!WARNING!]: {msg}', end=e)
         case other:
             raise ValueError('Insert either system/debug')
+
+
+def log(msg: str, category: str = "", e: str = "\n"):
+
+    log_st = ""
+    match category:
+        case 'debug':
+            if Settings.DEBUG:
+                log_st += f"[DEBUG]: {msg}"
+        case 'system':
+            if Settings.SYSTEM:
+                log_st += f"[SYSTEM]: {msg}"
+        case 'error':
+            log_st += f"{70*'-'}\n[ERROR]: {msg}{70*'-'}\n"
+        case 'db':
+            log_st += f"[DataBase]: {msg}"
+        case '':
+            log_st += f'{msg}'
+        case 'warning':
+            log_st += f"<[WARNING]>: {msg}"
+        case other:
+            log(msg="Key error in function 'temp'", category='error')
+
+    if category == "error":
+        raise ValueError("\nBreaking code...")
+    f = open("Log_file.txt", 'a', encoding="utf-8")
+    f.write(log_st + "\n")
+    f.close()
+    print(log_st, end=e)
 
 
 def name_he(name: str):

@@ -4,7 +4,7 @@ from datetime import datetime
 
 
 def main():
-    log(msg=f"{30*'#'} " + datetime.now().strftime("%m/%d/%Y, %H:%M:%S") + f" {30*'#'}", category="system")
+    log(msg=f"\n{40*'#'} " + datetime.now().strftime("%m/%d/%Y, %H:%M:%S") + f" {40*'#'}")
     myApp = AppManager()
     myApp.load_data()
     myApp.plot_data()

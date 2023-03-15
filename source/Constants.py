@@ -9,27 +9,6 @@ class Settings:
     LAPTOP = False
 
 
-def temp(msg: str, category: str = "", e: str = "\n"):
-    match category:
-        case 'debug':
-            if Settings.DEBUG:
-                print(f'->>>>>> [DEBUG]: {msg}\n{"-"*30}\n', end=e)
-        case 'system':
-            if Settings.SYSTEM:
-                print(f'-> [SYSTEM]: {msg}', end=e)
-        case 'error':
-            print(f"\n\t\tX[ERROR]X\n{70*'-'}\n {msg}\n{70*'-'}\n", end=e)
-            raise ValueError("\nBreaking code...")
-        case 'db':
-            print(f'    -> [DataBase]: {msg}', end=e)
-        case '':
-            print(f'{msg}', end=e)
-        case 'warning':
-            print(f'X [!WARNING!]: {msg}', end=e)
-        case other:
-            raise ValueError('Insert either system/debug')
-
-
 def log(msg: str, category: str = "", e: str = "\n"):
 
     log_st = ""

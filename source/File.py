@@ -185,9 +185,12 @@ class File:
                     if j >= len(old_table) or i + j >= len(new_table):
                         break
                     if old_table[index + j] != new_table[i + j]:
-                        log(f"Missmatched trasaction while cleaning file {self.name},\
-                             with it's previous {old_file['name']}.\nTry checking index:\
-                             {index + j} in old table vs {i + j} in new table!", "warning")
+                        log(f"""Missmatched trasaction while cleaning the file {self.name},
+             in accordance with it's previous {old_file['name']}.
+             Try checking index: {index + j} in old table vs {i + j} in new table!
+             The rows are:
+             => {old_table[index + j]}
+             => {new_table[i + j]}""", "warning")
                         return []
             if i == -1:
                 return new_table

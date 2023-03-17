@@ -4,6 +4,7 @@ class utils:
     @staticmethod
     def undo_last_change():
         pass
+        print("executing undo_last_change...")
 
     @staticmethod
     def warning_halt():
@@ -19,18 +20,18 @@ class utils:
             return True
 
         print("------ [HALT] ------")
-        st = "There might be a problem, what do yo u want to do?\n1 -> Continue\n2 -> Stop and debug"
+        st = "There might be a problem, what do you want to do?\n1 -> Continue\n2 -> Stop and debug"
         print(st)
         while True:
             x = input()
             if not is_valid(x):
                 print("Bad input, Try again...")
                 continue
-            match x:
+            match int(x):
                 case 1:
                     break  # Continue
                 case 2:
-                    input()
                     utils.undo_last_change()
+                    input("This needs to be changed with an exit()")
                 case _:
                     print("This should not happen"); input("stopped.")

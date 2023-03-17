@@ -15,7 +15,7 @@ class OuterCreditFile(File):
 
     def validate_bank_number(self) -> bool:
         """ Outer credit has no Bank acc number """
-        log("Bank number is not being validated for this file", "warning")
+        log("Bank number is not being validated for this file", "system")
         return True
 
     def parse(self) -> bool:

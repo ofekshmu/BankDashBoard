@@ -171,7 +171,7 @@ class InnerCreditFile(File):
             # The current problem is that each table requires its length and i only have the length of the totals transactions
             cleaned += compare_excel(old_table_i, new_table_i)
         tot = sum([x[-1] for x in curr_table_stats])
-        log(f'Out of {tot} Transactions, {len(cleaned)} new were found!', 'system')
+        log(f'\t     Out of {tot} Transactions, {len(cleaned)} new were found!', '')
 
         DataBase().set_new_trans_count(self.name, len(cleaned))
         self.data = cleaned

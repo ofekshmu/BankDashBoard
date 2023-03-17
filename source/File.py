@@ -215,7 +215,7 @@ class File:
                     "trans_count": self.counter,
                     "col_count": len(self.headers)}
         new_table = compare_excel(old_file, new_file)
-        log(f'Out of {len(self.data)} Transactions, {len(new_table)} new were found!', 'system')
+        log(f'\t     Out of {len(self.data)} Transactions, {len(new_table)} new were found!', '')
         
         DataBase().set_new_trans_count(self.name, len(new_table))
         self.data = new_table

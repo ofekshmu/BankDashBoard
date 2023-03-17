@@ -1,6 +1,6 @@
 import json
 from msilib.schema import Error
-
+from src_utils.utils import utils
 
 class Settings:
     DEBUG = False
@@ -27,6 +27,7 @@ def log(msg: str, category: str = "", e: str = "\n"):
             log_st += f'{msg}'
         case 'warning':
             log_st += f"<[WARNING]>: {msg}"
+            
         case other:
             log(msg="Key error in function 'temp'", category='error')
 

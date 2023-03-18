@@ -30,7 +30,6 @@ class InnerCreditFile(File):
         self.date: the date specified in the file
         '''
         COL_COUNT = len(self.headers)
-
         # There might be a way to remove this dict, since data can be read again later
         self.data_dict = {}
         none_counter = 4                    # Number of "None" fields in the file

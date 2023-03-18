@@ -7,6 +7,7 @@ from Constants import InnerCredit, BankTransactions, OuterCredit, log
 from Constants import name_he
 from database import DataBase
 from Graphics import Graphics
+import copy
 
 
 class AppManager:

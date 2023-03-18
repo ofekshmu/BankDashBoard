@@ -1,5 +1,6 @@
 from Constants import log, name_he
 from File import File
+from database import DataBase
 
 
 class Context:
@@ -50,5 +51,8 @@ class Context:
             return False
         else:
             log('Completed.', 'system')
+
+        DataBase().commit_changes()
+        log('Changes Commited to data base.', 'system')
 
         return True

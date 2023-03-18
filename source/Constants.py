@@ -38,13 +38,14 @@ def log(msg: str, category: str = "", e: str = "\n"):
         case other:
             log(msg="Key error in function 'temp'", category='error')
 
-    if category == "error":
-        raise ValueError("\nBreaking code...")
     if write:
         f = open("Log_file.txt", 'a', encoding="utf-8")
         f.write(log_st + "\n")
         f.close()
         print(log_st, end=e)
+        
+    if category == "error":
+        raise ValueError("\nBreaking code...")
     if category == 'warning':
         utils.warning_halt()
 

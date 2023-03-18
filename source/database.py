@@ -4,70 +4,76 @@ from datetime import datetime
 # local imports
 from decorators import try_catch
 from Constants import log
+from src_utils.stack import Stack
 
 
 class DataBase:
 
-    def __init__(self):
+    __instance = None
+    connection: sqlite3.Connection
+    cursor: sqlite3.Cursor
 
-        self.connection = sqlite3.connect('databse.db')
-        self.cursor = self.connection.cursor()
+    def __new__(cls):
+        if cls.__instance is None:
+            cls.__instance = super().__new__(cls)
+            cls.__instance.connection = sqlite3.connect('databse.db')
+            cls.__instance.cursor = cls.__instance.connection.cursor()
+            cls.__instance.cursor.execute("""
+                CREATE TABLE IF NOT EXISTS Card (
+                cardID          CHAR(4)     PRIMARY KEY,
+                description     TEXT
+                );""")
+            cls.__instance.cursor.execute("""
+                CREATE TABLE IF NOT EXISTS File (
+                Name                CHAR        NOT NULL PRIMARY KEY,
+                Date                DATE        NOT NULL,
+                Description         CHAR                ,
+                New_Transactions    INT                 ,
+                Transaction_count   INT         NOT NULL,
+                Last_update         DATE        NOT NULL
+                );""")
 
-        self.cursor.execute("""
-            CREATE TABLE IF NOT EXISTS Card (
-            cardID          CHAR(4)     PRIMARY KEY,
-            description     TEXT
-            );""")
+            cls.__instance.cursor.execute("""
+                CREATE TABLE IF NOT EXISTS TableMeta (
+                ID                  INTEGER         PRIMARY KEY ,
+                source_file         CHAR            NOT NULL    ,
+                Initial_index       INT             NOT NULL    ,
+                Row_count           INT             NOT NULL    ,
+                FOREIGN KEY(source_file)    REFERENCES File(Name)
+                );""")
 
-        self.cursor.execute("""
-            CREATE TABLE IF NOT EXISTS File (
-            Name                CHAR        NOT NULL PRIMARY KEY,
-            Date                DATE        NOT NULL,
-            Description         CHAR                ,
-            New_Transactions    INT                 ,
-            Transaction_count   INT         NOT NULL,
-            Last_update         DATE        NOT NULL
-            );""")
+            cls.__instance.cursor.execute("""
+                CREATE TABLE IF NOT EXISTS BankTransactions (
+                ID                  INTEGER        PRIMARY KEY ,
+                Ref                 CHAR        NOT NULL    ,
+                Date                DATE        NOT NULL    ,
+                Date_value          DATE        NOT NULL    ,
+                Source_Dest         CHAR        NOL NULL    ,
+                Amount              INT         NOT NULL    ,
+                Balance             INT         NOT NULL    ,
+                Description         DATE                    ,
+                source_file         CHAR        NOT NULL    ,
+                Ex_description      CHAR        NOT NULL,
+                FOREIGN KEY(source_file)    REFERENCES File(Name)
+                );""")
 
-        self.cursor.execute("""
-            CREATE TABLE IF NOT EXISTS TableMeta (
-            ID                  INTEGER         PRIMARY KEY ,
-            source_file         CHAR            NOT NULL    ,
-            Initial_index       INT             NOT NULL    ,
-            Row_count           INT             NOT NULL    ,
-            FOREIGN KEY(source_file)    REFERENCES File(Name)
-            );""")
+            cls.__instance.cursor.execute("""
+                CREATE TABLE IF NOT EXISTS Transactions (
+                ID                  INTEGER     PRIMARY KEY ,
+                cardID              CHAR(4)                 ,
+                transaction_date    DATE        NOT NULL    ,
+                business_name       CHAR                    ,
+                amount              INT         NOT NULL    ,
+                transaction_type    CHAR                    ,
+                charge_date         DATE        NOT NULL    ,
+                charge_amount       INT         NOT NULL    ,
+                source_file         CHAR        NOT NULL    ,
+                description         TEXT                    ,
+                FOREIGN KEY(cardID)         REFERENCES Card(cardID),
+                FOREIGN KEY(source_file)    REFERENCES File(Name)
+                );""")
 
-        self.cursor.execute("""
-            CREATE TABLE IF NOT EXISTS BankTransactions (
-            ID                  INTEGER        PRIMARY KEY ,
-            Ref                 CHAR        NOT NULL    ,
-            Date                DATE        NOT NULL    ,
-            Date_value          DATE        NOT NULL    ,
-            Source_Dest         CHAR        NOL NULL    ,
-            Amount              INT         NOT NULL    ,
-            Balance             INT         NOT NULL    ,
-            Description         DATE                    ,
-            source_file         CHAR        NOT NULL    ,
-            Ex_description      CHAR        NOT NULL,
-            FOREIGN KEY(source_file)    REFERENCES File(Name)
-            );""")
-
-        self.cursor.execute("""
-            CREATE TABLE IF NOT EXISTS Transactions (
-            ID                  INTEGER     PRIMARY KEY ,
-            cardID              CHAR(4)                 ,
-            transaction_date    DATE        NOT NULL    ,
-            business_name       CHAR                    ,
-            amount              INT         NOT NULL    ,
-            transaction_type    CHAR                    ,
-            charge_date         DATE        NOT NULL    ,
-            charge_amount       INT         NOT NULL    ,
-            source_file         CHAR        NOT NULL    ,
-            description         TEXT                    ,
-            FOREIGN KEY(cardID)         REFERENCES Card(cardID),
-            FOREIGN KEY(source_file)    REFERENCES File(Name)
-            );""")
+        return cls.__instance
 
     def insert_bank_transaction(self,
                                 ref: str,
@@ -88,7 +94,6 @@ class DataBase:
             VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (ref, date, date_value, source_dest, amount, balance, desc, source_file, '')
             )
-        self.connection.commit()
 
     def insert_table_meta_data(self,
                                source_file_name: str,
@@ -103,7 +108,6 @@ class DataBase:
         self.cursor.execute("""
             INSERT INTO TableMeta(source_file, Initial_index, Row_count)
             VALUES(?, ?, ?)""", (source_file_name, initial_index, row_count))
-        self.connection.commit()
 
     def get_table_Meta(self, file_name: str):
         """
@@ -144,7 +148,6 @@ class DataBase:
         self.cursor.execute(query,
                             (cardID, transaction_date, business_name, amount, transaction_type, charge_date,
                                 charge_amount, source_file, ''))
-        self.connection.commit()
 
     def insert_file(self,
                     name: str,
@@ -161,7 +164,6 @@ class DataBase:
             VALUES(?, ?, ?, ?, ?, ?)
             """, (name, date, description, new_trans_count, trans_count, last_update)
             )
-        self.connection.commit()
 
     def set_new_trans_count(self, file_name: str, count: int) -> bool:
         self.cursor.execute("""UPDATE File
@@ -169,7 +171,6 @@ class DataBase:
                                WHERE Name = :file_name""",
                             {'count': count,
                              'file_name': file_name})
-        self.connection.commit()
         return True
 
     @try_catch
@@ -191,7 +192,6 @@ class DataBase:
         self.cursor.execute(f"""
             INSERT INTO Card VALUES(?, ?)
             """, (id, description))
-        self.connection.commit()
 
     def is_file_exists(self, file_name: str) -> bool:
         '''
@@ -261,3 +261,6 @@ class DataBase:
                                     From File
                                     WHERE Name = ?
                                     """, (file_name,)).fetchall()[0]
+
+    def commit_changes(self) -> None:
+        self.connection.commit()

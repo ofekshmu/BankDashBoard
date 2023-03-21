@@ -1,6 +1,7 @@
 from database import DataBase
 import matplotlib.pyplot as plt
 import pandas as pd
+import webbrowser
 
 
 class Graphics:
@@ -32,6 +33,7 @@ class Graphics:
 
         title = f"Total Earnings:{sum([tup[1] for tup in earnings])}"
         df_earnings.plot.pie(y='Earnings', figsize=(5, 5), legend=False, title=title)
+        plt.savefig('Earnings.png')
 
         spendings = []
 
@@ -61,8 +63,10 @@ class Graphics:
                       figsize=(5, 5),
                       legend=False,
                       title=title)
+        plt.savefig('Spendings.png')
+        webbrowser.open('source\html\output.html')
 
-        plt.show()
+        # plt.show()
 
 
 def transaction_value(amount: int, charge_amount: int, row: list) -> int:

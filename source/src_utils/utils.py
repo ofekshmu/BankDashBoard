@@ -2,11 +2,6 @@
 class utils:
 
     @staticmethod
-    def undo_last_change():
-        pass
-        print("executing undo_last_change...")
-
-    @staticmethod
     def warning_halt():
 
         def is_valid(x: str) -> bool:
@@ -31,7 +26,6 @@ class utils:
                 case 1:
                     break  # Continue
                 case 2:
-                    utils.undo_last_change()
-                    input("This needs to be changed with an exit()")
+                    exit()
                 case _:
                     print("This should not happen"); input("stopped.")

@@ -43,7 +43,7 @@ def log(msg: str, category: str = "", e: str = "\n"):
         f.write(log_st + "\n")
         f.close()
         print(log_st, end=e)
-        
+
     if category == "error":
         raise ValueError("\nBreaking code...")
     if category == 'warning':

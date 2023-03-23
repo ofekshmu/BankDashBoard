@@ -54,3 +54,5 @@ class AppManager:
         now = datetime.now()
         Graphics.basic_plots(year=now.year,
                              month=now.month)
+
+        Graphics.generate_html()

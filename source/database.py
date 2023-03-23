@@ -262,5 +262,16 @@ class DataBase:
                                     WHERE Name = ?
                                     """, (file_name,)).fetchall()[0]
 
+    def get_latest_bank_transaction(self):
+        """
+
+        """
+        return self.cursor.execute("""SELECT * FROM BankTransactions
+                                      ORDER BY Date
+                                      DESC LIMIT 1
+                                   """).fetchall()[0]
+
     def commit_changes(self) -> None:
         self.connection.commit()
+
+    

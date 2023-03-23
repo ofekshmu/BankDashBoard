@@ -68,6 +68,55 @@ class Graphics:
 
         # plt.show()
 
+    @staticmethod
+    def generate_monthly_balance():
+
+        row = DataBase().get_latest_bank_transaction()
+        balance = row[6]
+        return balance
+
+    @staticmethod
+    def generate_html():
+
+        html_template = """
+<!DOCTYPE html>
+<html>
+<head>
+	<title>My Banking Info</title>
+	<style>
+		body {
+			font-family: Arial, sans-serif;
+		}
+
+		.container {
+			display: flex;
+			justify-content: center;
+			align-items: center;
+		}
+
+		.container img {
+			margin: 10px;
+			max-width: 50%;
+			height: auto;
+		}
+
+		h1 {
+			text-align: center;
+		}
+	</style>
+</head>
+<body>
+	<h1>My Banking Info</h1>
+	<div class="balance">
+		Current balance: """ + Graphics.generate_monthly_balance() + """
+	</div>
+	<div class="container">
+		<img src="C:\Users\ofeks\OneDrive\Work\Projects\Personal\BankProject\Spendings.png">
+		<img src="C:\Users\ofeks\OneDrive\Work\Projects\Personal\BankProject\Earnings.png">
+	</div>
+</body>
+</html>
+"""
 
 def transaction_value(amount: int, charge_amount: int, row: list) -> int:
     if row[5] == "תשלומים":

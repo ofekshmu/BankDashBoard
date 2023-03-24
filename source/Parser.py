@@ -8,7 +8,8 @@ from datetime import datetime
 from File import File
 
 # Local
-from Constants import log, Local
+from Constants import Local
+from src_utils.utils import utils
 
 
 class Parser():
@@ -32,8 +33,8 @@ class Parser():
             self.idx = 0
             self.type_to_name = {}
             self.names = []
-            
-            log(f"Looking for files...", 'system')
+
+            utils.log(f"Looking for files...", 'system')
 
             def to_date(name: str) -> datetime:
                 """
@@ -81,7 +82,7 @@ class Parser():
             for dict in self.type_to_name.values():
                 self.names += list(dict.keys())
 
-            log(f"found {len(self.names)} files in {Local.XLSX_PATH}", 'system')
+            utils.log(f"found {len(self.names)} files in {Local.XLSX_PATH}", 'system')
 
     def __next__(self):
         """
@@ -116,7 +117,7 @@ class Parser():
         elif BankTransactions.SUB_STRING in file_name:
             res = BankTransactionsFile
         else:
-            log(f"The file name: {file_name} does not contain a known string.", 'error')
+            utils.log(f"The file name: {file_name} does not contain a known string.", 'error')
 
         return res
 

@@ -3,8 +3,7 @@ from datetime import datetime
 
 # local imports
 from decorators import try_catch
-from Constants import log
-from src_utils.stack import Stack
+from src_utils.utils import utils
 
 
 class DataBase:
@@ -135,10 +134,10 @@ class DataBase:
         The function also checks it the associated credit card is present in the db.
         '''
         if not self.is_card_exists(cardID):
-            log(f'New card found: ->{cardID}<-', 'db')
+            utils.log(f'New card found: ->{cardID}<-', 'db')
             if not self.insert_card(cardID, "Auto Insertion"):
                 return False
-            log(f'Card ID {cardID} has been added!', 'db')
+            utils.log(f'Card ID {cardID} has been added!', 'db')
 
         query = """ INSERT INTO Transactions
                     (cardID, transaction_date, business_name, amount, transaction_type, charge_date, charge_amount,

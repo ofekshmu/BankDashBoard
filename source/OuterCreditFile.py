@@ -1,5 +1,5 @@
 from File import File
-from Constants import log
+from src_utils.utils import utils
 from database import DataBase
 from datetime import datetime
 
@@ -15,7 +15,7 @@ class OuterCreditFile(File):
 
     def validate_bank_number(self) -> bool:
         """ Outer credit has no Bank acc number """
-        log("Bank number is not being validated for this file", "system")
+        utils.log("Bank number is not being validated for this file", "system")
         return True
 
     def parse(self) -> bool:

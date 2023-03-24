@@ -1,4 +1,4 @@
-from Constants import log, name_he
+from src_utils.utils import utils
 from File import File
 from database import DataBase
 
@@ -20,12 +20,12 @@ class Context:
         The flow includes reading, validating, parsing, cleaning and insertion.
         """
         log(f"{100*'-'} file no' {self.counter}")
-        log(f'Reading {name_he(self.file.name)}... {self.file}', 'system')
+        log(f'Reading {utils.name_he(self.file.name)}... {self.file}', 'system')
         if not self.file.load():
             log(f'Failed reading file: {self.file.name}', category='error')
             return False
         if not self.file.validate_bank_number():
-            log(f'Bank Account number in file: {name_he(self.file.name)} , does not match!', category='error')
+            log(f'Bank Account number in file: {utils.name_he(self.file.name)} , does not match!', category='error')
             return False
         print('-> [SYSTEM]: Validation...\t', end='')
         if not self.file.validate_headers():
@@ -50,9 +50,9 @@ class Context:
             print('FAILED.')
             return False
         else:
-            log('Completed.', 'system')
+            utils.log('Completed.', 'system')
 
         DataBase().commit_changes()
-        log('Changes Commited to data base.', 'system')
+        utils.log('Changes Commited to data base.', 'system')
 
         return True

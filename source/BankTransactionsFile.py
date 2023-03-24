@@ -1,7 +1,5 @@
 from File import File
-from Constants import log
 from database import DataBase
-from datetime import datetime
 
 
 class BankTransactionsFile(File):

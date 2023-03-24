@@ -1,5 +1,6 @@
 from File import File
-from Constants import log, Local
+from Constants import Local
+from src_utils.utils import utils
 from os.path import join
 import xlwings as xw
 from xlwings import Sheet
@@ -148,12 +149,12 @@ class InnerCreditFile(File):
         old_file_name = get_last_file_name()
         if old_file_name is None:
             DataBase().set_new_trans_count(self.name, self.counter)
-            log(f"{self.name} has not earlier file - Nothing to clean", "system")
+            utils.log(f"{self.name} has not earlier file - Nothing to clean", "system")
             return True
 
         old_trans_count = DataBase().total_transactions(old_file_name)
         if not old_trans_count:
-            log(f"There is a problem retriving transactions for {old_file_name}", "error")
+            utils.log(f"There is a problem retriving transactions for {old_file_name}", "error")
 
         old_table_stats = DataBase().get_table_Meta(old_file_name)
         curr_table_stats = DataBase().get_table_Meta(self.name)
@@ -170,7 +171,7 @@ class InnerCreditFile(File):
             # The current problem is that each table requires its length and i only have the length of the totals transactions
             cleaned += compare_excel(old_table_i, new_table_i)
         tot = sum([x[-1] for x in curr_table_stats])
-        log(f'\t     Out of {tot} Transactions, {len(cleaned)} new were found!', '')
+        utils.log(f'\t     Out of {tot} Transactions, {len(cleaned)} new were found!', '')
 
         DataBase().set_new_trans_count(self.name, len(cleaned))
         self.data = cleaned

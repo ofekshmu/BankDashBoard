@@ -3,10 +3,10 @@ from BankTransactionsFile import BankTransactionsFile
 from InnerCreditFile import InnerCreditFile
 from OuterCreditFile import OuterCreditFile
 from Context import Context
-from Constants import InnerCredit, BankTransactions, OuterCredit, log
-from Constants import name_he
+from Constants import InnerCredit, BankTransactions, OuterCredit
+from src_utils.utils import utils
 from database import DataBase
-from Graphics import Graphics
+from front.Graphics import Graphics
 import copy
 
 
@@ -22,7 +22,7 @@ class AppManager:
             name, type = self.parser.get_next()
 
             if DataBase().is_file_exists(name):
-                log(f'Skipping {name_he(name)}...', 'system')
+                utils.log(f'Skipping {utils.name_he(name)}...', 'system')
                 continue
 
             if type == BankTransactionsFile:
@@ -44,7 +44,7 @@ class AppManager:
                                                 OuterCredit.CARD_CELL,
                                                 OuterCredit.INITIAL_ROW))
             else:
-                log("The file type is not supported", 'error')
+                utils.log("The file type is not supported", 'error')
 
             Context.counter += 1
             context.render()
@@ -54,5 +54,3 @@ class AppManager:
         now = datetime.now()
         Graphics.basic_plots(year=now.year,
                              month=now.month)
-
-        Graphics.generate_html()

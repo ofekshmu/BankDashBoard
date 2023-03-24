@@ -1,5 +1,6 @@
 from abc import abstractmethod
-from Constants import log, Local, Personal
+from Constants import Local, Personal
+from src_utils.utils import utils
 import xlwings as xw
 from xlwings import Sheet
 from os.path import join
@@ -36,7 +37,7 @@ class File:
             wb = xw.Book(join(Local.XLSX_PATH, self.name))
             self.sheet = wb.sheets[0]
         except Exception as e:
-            log(f"Original error: {str(e)}\nFile read Failed!\nFile name: {self.name}\
+            utils.log(f"Original error: {str(e)}\nFile read Failed!\nFile name: {self.name}\
                 In File -> line 39", 'error')
 
     def load(self) -> bool:
@@ -54,7 +55,7 @@ class File:
             self.sheet = wb.sheets[0]
             return True
         except Exception as e:
-            log(str(e), category='debug')
+            utils.log(str(e), category='debug')
             return False
 
     @abstractmethod
@@ -79,7 +80,7 @@ class File:
             col = 0
             row = i
             for name in self.headers:
-                log(f'row number = {row}, col = {col}, name = {name[::-1]}', 'debug')
+                utils.log(f'row number = {row}, col = {col}, name = {name[::-1]}', 'debug')
                 value = File.cell(row, col, self.sheet)
                 if not value == name:
                     valid = False
@@ -87,7 +88,7 @@ class File:
                 col += 1
             if valid:
                 if row != self.initial_row:
-                    log(f"\n\tHeaders were found at line {row}, Not in {self.initial_row} as specified.", "warning")
+                    utils.log(f"\n\tHeaders were found at line {row}, Not in {self.initial_row} as specified.", "warning")
                 self.initial_row = row
                 return True
         return False
@@ -185,7 +186,7 @@ class File:
                     if j >= len(old_table) or i + j >= len(new_table):
                         break
                     if old_table[index + j] != new_table[i + j]:
-                        log(f"""Missmatched trasaction while cleaning the file {self.name},
+                        utils.log(f"""Missmatched trasaction while cleaning the file {self.name},
              in accordance with it's previous {old_file['name']}.
              Try checking index: {index + j} in old table vs {i + j} in new table!
              The rows are:
@@ -199,13 +200,13 @@ class File:
         old_file_name = get_last_file_name()
         if old_file_name is None:
             DataBase().set_new_trans_count(self.name, self.counter)
-            log(f"{self.name} has not earlier file - Nothing to clean", "system")
+            utils.log(f"{self.name} has not earlier file - Nothing to clean", "system")
             return True
 
         trans_count = DataBase().total_transactions(old_file_name)
         initial_row = DataBase().get_table_Meta(old_file_name)[0][2]
         if not trans_count:
-            log(f"There is a problem retriving transactions for {old_file_name}", "error")
+            utils.log(f"There is a problem retriving transactions for {old_file_name}", "error")
         old_file = {"name": old_file_name,
                     "initial_row": initial_row - 1, # This was previously the header row, need to change
                     "trans_count": trans_count,
@@ -215,7 +216,7 @@ class File:
                     "trans_count": self.counter,
                     "col_count": len(self.headers)}
         new_table = compare_excel(old_file, new_file)
-        log(f'\t     Out of {len(self.data)} Transactions, {len(new_table)} new were found!', '')
+        utils.log(f'\t     Out of {len(self.data)} Transactions, {len(new_table)} new were found!', '')
         
         DataBase().set_new_trans_count(self.name, len(new_table))
         self.data = new_table
@@ -233,7 +234,7 @@ class File:
         if row >= 0 and col >= 0:
             return sheet[f'{chr(65 + col)}{row}'].value
         else:
-            log(f"Invalid indexes -> ({row}, {col})", "error")
+            utils.log(f"Invalid indexes -> ({row}, {col})", "error")
             return ""
 
     def __str__(self):

@@ -12,20 +12,20 @@ class Context:
         if file is not None:
             self.file = file
         else:
-            log(f"In class Context -> function setFile:\nFile was not inserted.", 'error')
+            utils.log(f"In class Context -> function setFile:\nFile was not inserted.", 'error')
 
     def render(self) -> bool:
         """
         The render function intiates the flow of handaling the input files.
         The flow includes reading, validating, parsing, cleaning and insertion.
         """
-        log(f"{100*'-'} file no' {self.counter}")
-        log(f'Reading {utils.name_he(self.file.name)}... {self.file}', 'system')
+        utils.log(f"{100*'-'} file no' {self.counter}")
+        utils.log(f'Reading {utils.name_he(self.file.name)}... {self.file}', 'system')
         if not self.file.load():
-            log(f'Failed reading file: {self.file.name}', category='error')
+            utils.log(f'Failed reading file: {self.file.name}', category='error')
             return False
         if not self.file.validate_bank_number():
-            log(f'Bank Account number in file: {utils.name_he(self.file.name)} , does not match!', category='error')
+            utils.log(f'Bank Account number in file: {utils.name_he(self.file.name)} , does not match!', category='error')
             return False
         print('-> [SYSTEM]: Validation...\t', end='')
         if not self.file.validate_headers():

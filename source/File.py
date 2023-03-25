@@ -191,8 +191,18 @@ class File:
              Try checking index: {index + j} in old table vs {i + j} in new table!
              The rows are:
              => {old_table[index + j]}
-             => {new_table[i + j]}""", "warning")
-                        return []
+             => {new_table[i + j]}
+
+            What do you want to do?
+            1 -> Difference in rows doesn't matter, continue as equal.
+            2 -> Rows are different, Continue.
+            3 -> Something is wrong, stop an let me debug.
+            """, category="warning")
+                        choise = int(input())
+                        if choise == 2:
+                            return []
+                        elif choise == 3:
+                            exit()
             if i == -1:
                 return new_table
             return new_table[:i]

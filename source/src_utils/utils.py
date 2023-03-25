@@ -40,8 +40,8 @@ class utils:
 
         if category == "error":
             raise ValueError("\nBreaking code...")
-        if category == 'warning':
-            utils.warning_halt()
+        # if category == 'warning':
+        #     utils.warning_halt()
 
     @staticmethod
     def name_he(name: str):
@@ -106,3 +106,7 @@ class utils:
         
         with open("source\html\output.html", "w") as outf:
             outf.write(bs4.BeautifulSoup.prettify(soup))
+
+
+    # @staticmethod
+    # def debug_row_missmatch():

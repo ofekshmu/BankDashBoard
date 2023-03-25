@@ -82,7 +82,8 @@ class utils:
                     print("This should not happen"); input("stopped.")
 
     @staticmethod
-    def generate_html(monthly_balance: int):
+    def generate_html(monthly_balance: int,
+                      end_month_balance: int):
         import bs4
         # load the file
         with open("source\html\Base_template.html") as inf:
@@ -95,7 +96,7 @@ class utils:
         balance_h2.string = f'Balance: {monthly_balance}'
 
         temp_h2 = soup.new_tag('h2')
-        temp_h2.string = 'Temp: x'
+        temp_h2.string = f"Balance at month's end: {end_month_balance}"
 
         sub_titles_div.append(balance_h2)
         sub_titles_div.append(temp_h2)

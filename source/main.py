@@ -10,7 +10,8 @@ def main():
     myApp = AppManager()
     myApp.load_data()
     myApp.plot_data()
-    utils.generate_html(Graphics.generate_monthly_balance())
+    utils.generate_html(Graphics.generate_monthly_balance(),
+                        Graphics.generate_end_monthly_balance())
 
 
 if __name__ == "__main__":

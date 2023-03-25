@@ -42,7 +42,10 @@ class Parser():
                 out of a file str name. Returns a datetime object.
                 """
                 import re
-                date_str = re.search("\w{1,2}_\w{1,2}_\w{4}", name).group()
+                try:
+                    date_str = re.search("\w{1,2}_\w{1,2}_\w{4}", name).group()
+                except Exception as e:
+                    utils.log(f"The file named {utils.name_he(name)} is of unknown format.", "error")
                 date = date_str.split("_")
                 import datetime
                 return datetime.datetime(int(date[2]), int(date[1]), int(date[0]))
@@ -55,6 +58,20 @@ class Parser():
                 num_str = re.search("_\d{1,}", name).group()
                 return num_str[1:]
 
+            def is_exists(name: str, file_type) -> bool:
+                """
+                The function receives the name of the file(name is specified with the file extension) and the
+                file type. True will be returned if a file with the same name was allready parsed and false otherwise.
+                """
+                # strip the extension to get the name only.
+                stipped_name = name[:name.find('.')]
+                if file_type not in self.type_to_name.keys():
+                    return False
+                for k in self.type_to_name[file_type].keys():
+                    if stipped_name in k:
+                        return True
+                return False
+
             for name in listdir(Local.XLSX_PATH):
                 cond1 = isfile(join(Local.XLSX_PATH, name))
                 cond2 = name.endswith(Local.EXTENSION_1)
@@ -62,6 +79,22 @@ class Parser():
                 # Add another extention here if needed.
                 if cond1 and (cond2 or cond3):
                     file_type = self.__identify(name)
+
+                    if is_exists(name, file_type):
+                        utils.log(f"""The file '{utils.name_he(name)}' exists with a different extensions.
+            What do you want to do?
+            1 -> Skip the current copy, I will delete it later.
+            2 -> Stop, I want to debug this.""", 'warning')
+                        choise = int(input())
+                        if choise == 1:
+                            utils.log("Skipping.", category='system')
+                            continue
+                        elif choise == 2:
+                            utils.log("Stopping program.", category='system')
+                            exit()
+                        else:
+                            utils.log('Bad input!', 'error')
+
                     if file_type == OuterCreditFile:
                         value = to_num(name)
                     else:

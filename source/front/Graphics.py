@@ -74,6 +74,10 @@ class Graphics:
         row = DataBase().get_latest_bank_transaction()
         balance = row[6]
         return balance
+    
+    @staticmethod
+    def generate_end_monthly_balance():
+        return -1
 
 
 def transaction_value(amount: int, charge_amount: int, row: list) -> int:

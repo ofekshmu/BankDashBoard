@@ -86,34 +86,3 @@ def transaction_value(amount: int, charge_amount: int, row: list) -> int:
     if amount != charge_amount:
         return charge_amount
     return amount
-
-
-def has_hebrew(string):
-    """
-    returns True if a string has any hebrew characters in it
-    and False otherwise.
-    """
-    import re
-    return bool(re.search(r'[\u0590-\u05FF]', string))
-
-
-def gen_name(name, amount, card=""):
-    """
-    The function returns a readable string for ploting.
-
-    @param name -   a string indicating transaction info
-    @param amount - value of the transaction
-    @param card -   the card asociated with the transaction
-    """
-    if has_hebrew(name):
-        lst = name.split()
-        name = ""
-        for word in lst:
-            if has_hebrew(word):
-                name = f"{word[::-1]} " + name
-            else:
-                name = f"{word} " + name
-
-    if card == "":
-        return f"{name}- {amount}"
-    return f"[{card}] {name}- {-amount}"

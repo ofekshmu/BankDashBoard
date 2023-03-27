@@ -53,6 +53,16 @@ class utils:
             return name
 
     @staticmethod
+    def has_hebrew(string):
+        """
+        returns True if a string has any hebrew characters in it
+        and False otherwise.
+        """
+        import re
+        return bool(re.search(r'[\u0590-\u05FF]', string))
+
+
+    @staticmethod
     def warning_halt():
 
         def is_valid(x: str) -> bool:

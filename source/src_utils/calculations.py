@@ -93,7 +93,7 @@ class SimpleMath:
 
     @staticmethod
     def gas_info() -> list:
-        word_lst = ["דור אלון צריפין", "תחנת דלק בני ברית"]
+        word_lst = ["דור אלון צריפין", "תחנת דלק בני ברית", "דלק BULL אשדוד", "דלק נמל אשדוד"]
         raw_data = DataBase().get_gas_related(word_lst)
         res = []
         for t in raw_data:

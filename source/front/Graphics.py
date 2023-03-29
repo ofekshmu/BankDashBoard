@@ -1,8 +1,8 @@
 from database import DataBase
 import matplotlib.pyplot as plt
 import pandas as pd
-import webbrowser
 from src_utils.calculations import SimpleMath
+from src_utils.utils import utils
 
 
 class Graphics:
@@ -36,13 +36,8 @@ class Graphics:
         labels = ["Date", "Business Name", "Amount"]
         df = pd.DataFrame(data, columns=labels)
         statistics = df['Amount'].describe().loc[["count", "mean", "std", "min", "max"]]
-        #df = df[(df["Date"].dt.month == month) & (df["Date"].dt.year == year)]
-        # plt.hist(df['Amount'], bins=20)
-        # plt.title('Histogram of X')
-        # plt.xlabel('Value')
-        # plt.ylabel('Frequency')
 
-        start_date = pd.Timestamp.today().normalize() - pd.DateOffset(months=1)
+        start_date = pd.Timestamp.today().normalize() - pd.DateOffset(months=1, days=20)
         end_date = pd.Timestamp.today().normalize()
         all_dates = pd.date_range(start=start_date, end=end_date, freq='D')
         df_all_dates = pd.DataFrame({'Date': all_dates})
@@ -57,8 +52,15 @@ class Graphics:
         df_merged.set_index('Date', inplace=True)
 
         # create the bar plot
-        fig, ax = plt.subplots(figsize=(10, 6))
-        ax.bar(df_merged.index.strftime('%d/%m'), df_merged['Amount'])
+        fig, ax = plt.subplots(figsize=(15, 6))
+        bars = ax.bar(df_merged.index.strftime('%d/%m'), df_merged['Amount'])
+
+        for i, bar in enumerate(bars):
+            height = bar.get_height()
+            if height != 0:
+                ax.text(bar.get_x() + bar.get_width()/2., height,
+                        utils.name_he(df_merged['Business Name'][i]),
+                        ha='center', va='bottom')
 
         # rotate x-axis labels by 45 degrees
         ax.set_xticklabels(df_merged.index.strftime('%d/%m'), rotation=45)

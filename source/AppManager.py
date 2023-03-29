@@ -59,6 +59,9 @@ class AppManager:
         end_monthly_balance = monthly_balance - s_amount
         Graphics.plot_earnings(earnings)
         Graphics.plot_spendings(spendings)
+        SimpleMath.gas_info()
+
+
 
         utils.generate_html(monthly_balance,
                             end_monthly_balance)

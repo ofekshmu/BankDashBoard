@@ -89,3 +89,9 @@ class SimpleMath:
 
         total_amount = round(sum([-tup[1] for tup in spendings]), 2)
         return total_amount, spendings
+
+    @staticmethod
+    def gas_info():
+        word_lst = ["דור אלון צריפין", "תחנת דלק בני ברית"]
+        res = DataBase().get_gas_related(word_lst)
+        print(res)

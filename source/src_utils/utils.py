@@ -96,6 +96,7 @@ class utils:
                       end_month_balance: int,
                       gas_stats):
         import bs4
+        import html
         # load the file
         with open("source\html\Base_template.html") as inf:
             txt = inf.read()
@@ -116,11 +117,18 @@ class utils:
 
         soup.body.insert(0, sub_titles_div)
         
+        div = soup.new_tag("div")
+        title = soup.new_tag("h3")
+        title.string = "Gas info"
+        div.append(title)
+
+        lst = gas_stats.__repr__().split("\n")[:-1]
+        for stat in lst:
+            p = soup.new_tag("p")
+            p.string = stat
+            div.append(p)
+
+        soup.body.append(div)
+
         with open("source\html\output.html", "w") as outf:
             outf.write(bs4.BeautifulSoup.prettify(soup))
-
-        print(gas_stats.__repr__())
-
-
-    # @staticmethod
-    # def debug_row_missmatch():

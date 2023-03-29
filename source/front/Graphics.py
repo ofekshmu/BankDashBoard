@@ -35,11 +35,27 @@ class Graphics:
         plt.figure()
         labels = ["Date", "Business Name", "Amount"]
         df = pd.DataFrame(data, columns=labels)
-        statistics = df['Amount'].describe()
+        statistics = df['Amount'].describe().loc[["count", "mean", "std", "min", "max"]]
         df = df[(df["Date"].dt.month == month) & (df["Date"].dt.year == year)]
-        plt.hist(df['Amount'], bins=20)
-        plt.title('Histogram of X')
-        plt.xlabel('Value')
-        plt.ylabel('Frequency')
+        # plt.hist(df['Amount'], bins=20)
+        # plt.title('Histogram of X')
+        # plt.xlabel('Value')
+        # plt.ylabel('Frequency')
+
+        df.set_index('Date', inplace=True)
+
+
+        fig, ax = plt.subplots(figsize=(10, 6))
+        ax.bar(df.index.strftime('%d/%m'), df['Amount'])
+
+        # set the x-axis label
+        ax.set_xlabel('Date (dd/mm)')
+
+        # set the y-axis label
+        ax.set_ylabel('Values')
+
+        # set the title of the plot
+        ax.set_title('Bar Plot')
+    
         plt.savefig('Gas_Stats.png')
         return statistics

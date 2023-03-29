@@ -97,7 +97,7 @@ class SimpleMath:
         raw_data = DataBase().get_gas_related(word_lst)
         res = []
         for t in raw_data:
-            new_tuple = (datetime.strptime(t[0], '%Y-%m-%d %H:%M:%S'), t[1], t[2])
+            new_tuple = (datetime.strptime(t[0], '%Y-%m-%d %H:%M:%S'), t[1], -t[2])
             res.append(new_tuple)
 
         return res

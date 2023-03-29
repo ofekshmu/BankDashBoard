@@ -7,7 +7,8 @@ from Constants import InnerCredit, BankTransactions, OuterCredit
 from src_utils.utils import utils
 from database import DataBase
 from front.Graphics import Graphics
-import copy
+from src_utils.calculations import SimpleMath
+import webbrowser
 
 
 class AppManager:
@@ -49,8 +50,16 @@ class AppManager:
             Context.counter += 1
             context.render()
 
-    def plot_data(self):
+    def analysis(self):
         from datetime import datetime
         now = datetime.now()
-        Graphics.basic_plots(year=now.year,
-                             month=now.month)
+        monthly_balance = SimpleMath.generate_monthly_balance()
+        s_amount, spendings = SimpleMath.get_monthly_spendings(year=now.year, month=now.month)
+        e_amount, earnings = SimpleMath.get_monthly_earnings(year=now.year, month=now.month)
+        end_monthly_balance = monthly_balance - s_amount
+        Graphics.plot_earnings(earnings)
+        Graphics.plot_spendings(spendings)
+
+        utils.generate_html(monthly_balance,
+                            end_monthly_balance)
+        webbrowser.open('source\html\output.html')

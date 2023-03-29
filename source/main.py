@@ -9,9 +9,7 @@ def main():
     utils.log(msg=f"\n{40*'#'} " + datetime.now().strftime("%m/%d/%Y, %H:%M:%S") + f" {40*'#'}")
     myApp = AppManager()
     myApp.load_data()
-    myApp.plot_data()
-    utils.generate_html(Graphics.generate_monthly_balance(),
-                        Graphics.generate_end_monthly_balance())
+    myApp.analysis()
 
 
 if __name__ == "__main__":

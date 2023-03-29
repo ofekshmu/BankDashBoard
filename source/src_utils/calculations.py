@@ -1,5 +1,5 @@
 from database import DataBase
-from utils import utils
+from src_utils.utils import utils
 from typing import Tuple
 
 

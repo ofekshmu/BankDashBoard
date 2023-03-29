@@ -31,26 +31,40 @@ class Graphics:
         plt.savefig('Spendings.png')
 
     @staticmethod
-    def plot_gas(data: list, year: int, month: int) -> pd.Series:
+    def plot_gas(data: list) -> pd.Series:
         plt.figure()
         labels = ["Date", "Business Name", "Amount"]
         df = pd.DataFrame(data, columns=labels)
         statistics = df['Amount'].describe().loc[["count", "mean", "std", "min", "max"]]
-        df = df[(df["Date"].dt.month == month) & (df["Date"].dt.year == year)]
+        #df = df[(df["Date"].dt.month == month) & (df["Date"].dt.year == year)]
         # plt.hist(df['Amount'], bins=20)
         # plt.title('Histogram of X')
         # plt.xlabel('Value')
         # plt.ylabel('Frequency')
 
-        df.set_index('Date', inplace=True)
+        start_date = pd.Timestamp.today().normalize() - pd.DateOffset(months=1)
+        end_date = pd.Timestamp.today().normalize()
+        all_dates = pd.date_range(start=start_date, end=end_date, freq='D')
+        df_all_dates = pd.DataFrame({'Date': all_dates})
 
+        # merge the original DataFrame with the new DataFrame using a left join
+        df_merged = pd.merge(df_all_dates, df, on='Date', how='left')
 
+        # fill the missing values with 0
+        df_merged['Amount'].fillna(0, inplace=True)
+
+        # set the datetime column as the index of the DataFrame
+        df_merged.set_index('Date', inplace=True)
+
+        # create the bar plot
         fig, ax = plt.subplots(figsize=(10, 6))
-        ax.bar(df.index.strftime('%d/%m'), df['Amount'])
+        ax.bar(df_merged.index.strftime('%d/%m'), df_merged['Amount'])
+
+        # rotate x-axis labels by 45 degrees
+        ax.set_xticklabels(df_merged.index.strftime('%d/%m'), rotation=45)
 
         # set the x-axis label
         ax.set_xlabel('Date (dd/mm)')
-
         # set the y-axis label
         ax.set_ylabel('Values')
 

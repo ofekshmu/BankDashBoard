@@ -1,4 +1,4 @@
-from Constants import Settings
+from Constants import Settings, Local
 
 
 class utils:
@@ -128,7 +128,15 @@ class utils:
             p.string = stat
             div.append(p)
 
-        soup.body.append(div)
+        outer_div = soup.new_tag("div")
+        outer_div['class'] = 'container'
+        outer_div.append(div)
+
+        img_tag = soup.new_tag("img")
+        img_tag['src'] = Local.GAS_GRAPH
+        outer_div.append(img_tag)
+
+        soup.body.append(outer_div)
 
         with open("source\html\output.html", "w") as outf:
             outf.write(bs4.BeautifulSoup.prettify(soup))

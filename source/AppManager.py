@@ -60,7 +60,7 @@ class AppManager:
         Graphics.plot_earnings(earnings)
         Graphics.plot_spendings(spendings)
         data = SimpleMath.gas_info()
-        gas_stats = Graphics.plot_gas(data, year=now.year, month=now.month)
+        gas_stats = Graphics.plot_gas(data)
 
         utils.generate_html(monthly_balance,
                             end_monthly_balance,

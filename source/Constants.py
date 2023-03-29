@@ -22,6 +22,8 @@ class Local:
     EXTENSION_1 = '.xls'
     EXTENSION_2 = '.xlsx'
 
+    GAS_GRAPH = "C:/Users/ofeks/OneDrive/Work/Projects/Personal/BankProject/Gas_Stats.png"
+
 
 class Personal:
     '''

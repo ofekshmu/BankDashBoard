@@ -53,6 +53,13 @@ class utils:
             return name
 
     @staticmethod
+    def heb_conversion(name: str) -> str:
+        lst = name.split()
+
+        res = " ".join([x[::-1] if utils.has_hebrew(x) else x for x in lst][::-1])
+        return res
+
+    @staticmethod
     def has_hebrew(string):
         """
         returns True if a string has any hebrew characters in it

@@ -58,8 +58,8 @@ class Graphics:
         for i, bar in enumerate(bars):
             height = bar.get_height()
             if height != 0:
-                ax.text(bar.get_x() + bar.get_width()/2., height,
-                        utils.name_he(df_merged['Business Name'][i]),
+                ax.text(bar.get_x() + bar.get_width()/2., height + 2,
+                        utils.heb_conversion(df_merged['Business Name'][i]),
                         ha='center', va='bottom')
 
         # rotate x-axis labels by 45 degrees

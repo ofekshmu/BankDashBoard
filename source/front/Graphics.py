@@ -29,3 +29,17 @@ class Graphics:
                       legend=False,
                       title=title)
         plt.savefig('Spendings.png')
+
+    @staticmethod
+    def plot_gas(data: list, year: int, month: int) -> pd.Series:
+        plt.figure()
+        labels = ["Date", "Business Name", "Amount"]
+        df = pd.DataFrame(data, columns=labels)
+        statistics = df['Amount'].describe()
+        df = df[(df["Date"].dt.month == month) & (df["Date"].dt.year == year)]
+        plt.hist(df['Amount'], bins=20)
+        plt.title('Histogram of X')
+        plt.xlabel('Value')
+        plt.ylabel('Frequency')
+        plt.savefig('Gas_Stats.png')
+        return statistics

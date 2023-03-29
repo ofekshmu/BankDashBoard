@@ -93,7 +93,8 @@ class utils:
 
     @staticmethod
     def generate_html(monthly_balance: int,
-                      end_month_balance: int):
+                      end_month_balance: int,
+                      gas_stats):
         import bs4
         # load the file
         with open("source\html\Base_template.html") as inf:
@@ -117,6 +118,8 @@ class utils:
         
         with open("source\html\output.html", "w") as outf:
             outf.write(bs4.BeautifulSoup.prettify(soup))
+
+        print(gas_stats.__repr__())
 
 
     # @staticmethod

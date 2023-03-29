@@ -1,6 +1,7 @@
 from database import DataBase
 from src_utils.utils import utils
 from typing import Tuple
+from datetime import datetime
 
 
 class SimpleMath:
@@ -91,7 +92,12 @@ class SimpleMath:
         return total_amount, spendings
 
     @staticmethod
-    def gas_info():
+    def gas_info() -> list:
         word_lst = ["דור אלון צריפין", "תחנת דלק בני ברית"]
-        res = DataBase().get_gas_related(word_lst)
-        print(res)
+        raw_data = DataBase().get_gas_related(word_lst)
+        res = []
+        for t in raw_data:
+            new_tuple = (datetime.strptime(t[0], '%Y-%m-%d %H:%M:%S'), t[1], t[2])
+            res.append(new_tuple)
+
+        return res

@@ -59,10 +59,10 @@ class AppManager:
         end_monthly_balance = monthly_balance - s_amount
         Graphics.plot_earnings(earnings)
         Graphics.plot_spendings(spendings)
-        SimpleMath.gas_info()
-
-
+        data = SimpleMath.gas_info()
+        gas_stats = Graphics.plot_gas(data, year=now.year, month=now.month)
 
         utils.generate_html(monthly_balance,
-                            end_monthly_balance)
+                            end_monthly_balance,
+                            gas_stats)
         webbrowser.open('source\html\output.html')

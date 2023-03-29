@@ -273,10 +273,10 @@ class DataBase:
     def get_gas_related(self, keys: list, year: str = "", month: str = ""):
         rows = []
         for k in keys:
-            rows.append(self.cursor.execute("""
-                                            SELECT transaction_date,business_name,amount FROM Transactions
-                                            WHERE business_name = ?
-                                            """, (k,)).fetchall())
+            rows += self.cursor.execute("""
+                                        SELECT transaction_date,business_name,amount FROM Transactions
+                                        WHERE business_name = ?
+                                        """, (k,)).fetchall()
         return rows
 
     def commit_changes(self) -> None:

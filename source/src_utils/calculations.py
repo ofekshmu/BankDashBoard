@@ -2,6 +2,7 @@ from database import DataBase
 from src_utils.utils import utils
 from typing import Tuple
 from datetime import datetime
+import pandas as pd
 
 
 class SimpleMath:
@@ -101,3 +102,20 @@ class SimpleMath:
             res.append(new_tuple)
 
         return res
+
+    @staticmethod
+    def general_info(earnings, spendings):
+        """
+
+        """
+        new_earnings = [(tup[0], datetime.strptime(tup[1], '%Y-%m-%d %H:%M:%S')) for tup in earnings]
+        earnings_df = pd.DataFrame(new_earnings, columns=["Amount", "Date"])
+        earnings_df = earnings_df.groupby(pd.Grouper(key='Date', freq='M')).sum()
+        
+        new_spendings = [(-tup[0], datetime.strptime(tup[1], '%Y-%m-%d %H:%M:%S')) for tup in spendings]
+        spendings_df = pd.DataFrame(new_spendings, columns=["Amount", "Date"])
+        spendings_df = spendings_df.groupby(pd.Grouper(key='Date', freq='M')).sum()
+
+        df_merged = pd.merge(spendings_df, earnings_df, on='Date', how='left', suffixes=('_spendings', '_earnings'))
+        
+        return df_merged

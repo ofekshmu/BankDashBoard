@@ -145,5 +145,14 @@ class utils:
 
         soup.body.append(outer_div)
 
+        div_tag = soup.new_tag('div')
+        div_tag['class'] = 'container'
+
+        img_tag = soup.new_tag("img")
+        img_tag['src'] = Local.GAS_MONTHLY
+        div_tag.append(img_tag)
+
+        soup.body.append(div_tag)
+
         with open("source\html\output.html", "w") as outf:
             outf.write(bs4.BeautifulSoup.prettify(soup))

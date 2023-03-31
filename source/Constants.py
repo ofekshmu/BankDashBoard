@@ -23,8 +23,9 @@ class Local:
     EXTENSION_2 = '.xlsx'
 
     GAS_GRAPH = "C:/Users/ofeks/OneDrive/Work/Projects/Personal/BankProject/Gas_Stats.png"
-
-
+    GAS_MONTHLY = "C:/Users/ofeks/OneDrive/Work/Projects/Personal/BankProject/Gas_monthly.png"
+    GENERAL_INFO = "C:/Users/ofeks/OneDrive/Work/Projects/Personal/BankProject/General_info.png"
+    
 class Personal:
     '''
     All constants in this class are taken from the personal_config.json

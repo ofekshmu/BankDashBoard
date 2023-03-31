@@ -279,6 +279,33 @@ class DataBase:
                                         """, (k,)).fetchall()
         return rows
 
+    def get_all_transactions(self, shift: int = 5, income: bool = True):
+        """
+
+        """
+        # if income:
+        #     return self.cursor.execute("""
+        #                                SELECT Amount, Date FROM BankTransactions
+        #                                WHERE Amount > 0
+        #                                """).fetchall()
+        # return self.cursor.execute("""
+        #                             SELECT Amount, Date FROM Transactions
+        #                             WHERE Amount > 0
+        #                             """).fetchall()
+    
+        import calendar
+        from dateutil.relativedelta import relativedelta
+
+        today = datetime.now()
+        day1 = (today - relativedelta(months=shift)).replace(day=1).strftime('%Y-%m-%d %H:%M:%S')
+
+        last_day = calendar.monthrange(today.year, today.month)[1]
+        day2 = datetime(today.year, today.month, last_day).strftime('%Y-%m-%d %H:%M:%S')
+        if income:
+            return self.cursor.execute("SELECT Amount, Date from BankTransactions where Amount > 0 AND date >= ? and date <= ?", (day1, day2)).fetchall()
+        else:
+            return self.cursor.execute("SELECT Amount, transaction_date from Transactions where transaction_date >= ? and transaction_date <= ?", (day1, day2)).fetchall()
+
     def commit_changes(self) -> None:
         self.connection.commit()
 

@@ -103,14 +103,10 @@ class Graphics:
 
     @staticmethod
     def plot_general(df: pd.DataFrame) -> None:
-        print(df)
         df.index = df.index.strftime('%B')
-        print(df)
         df = df.reset_index()
-        print(df)
         # Melt the dataframe to "long" format for easier plotting with Seaborn
         df_melt = df.melt(id_vars='Date', value_vars=['Amount_spendings', 'Amount_earnings'], var_name='Type')
-        print(df_melt)
         # Set Seaborn style
         sns.set_style("whitegrid")
         pastel = sns.color_palette("pastel")

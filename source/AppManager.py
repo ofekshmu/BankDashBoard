@@ -67,7 +67,9 @@ class AppManager:
                                              spendings=DataBase().get_all_transactions(shift=7, income=False))
         Graphics.plot_general(df_general)
 
-        utils.generate_html(monthly_balance,
+        utils.generate_html(spendings,
+                            earnings,
+                            monthly_balance,
                             end_monthly_balance,
                             gas_stats)
         webbrowser.open('source\html\output.html')

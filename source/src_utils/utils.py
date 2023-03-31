@@ -99,11 +99,12 @@ class utils:
                     print("This should not happen"); input("stopped.")
 
     @staticmethod
-    def generate_html(monthly_balance: int,
+    def generate_html(spendings,
+                      earning,
+                      monthly_balance: int,
                       end_month_balance: int,
                       gas_stats):
         import bs4
-        import html
         # load the file
         with open("source\html\Base_template.html") as inf:
             txt = inf.read()
@@ -122,8 +123,21 @@ class utils:
 
         sub_titles_div.attrs['style'] = 'text-align: center;'
 
-        soup.body.insert(0, sub_titles_div)
-        
+        soup.body.insert(2, sub_titles_div)
+
+        # ----------
+        table = soup.new_tag("table")
+        soup.body.insert(5, table)
+
+        for item in spendings:
+            row = soup.new_tag("tr")
+            for i in item:
+                cell = soup.new_tag("td")
+                cell.string = str(i)
+                row.append(cell)
+            table.append(row)
+
+        # ----------
         div = soup.new_tag("div")
         title = soup.new_tag("h3")
         title.string = "Gas info"
@@ -154,5 +168,5 @@ class utils:
 
         soup.body.append(div_tag)
 
-        with open("source\html\output.html", "w") as outf:
+        with open("source\html\output.html", "w", encoding='utf-8') as outf:
             outf.write(bs4.BeautifulSoup.prettify(soup))

@@ -120,6 +120,11 @@ class Graphics:
         fig, ax = plt.subplots(figsize=(12, 6))
         sns.barplot(x="Date", y="value", hue="Type", data=df_melt, ax=ax)
 
+        for i in range(len(df)):
+            delta = int(df['Amount_earnings'][i] - df['Amount_spendings'][i])
+            (height, color) = (df['Amount_earnings'][i], 'green') if df['Amount_earnings'][i] > df['Amount_spendings'][i] else (df['Amount_spendings'][i], 'red')
+            plt.text(i-.1, height + 50, str(delta), color=color, fontsize=10)
+
         ax.set_title("Spending and Earnings by Month")
         ax.set_xlabel("Month")
         ax.set_ylabel("Amount")

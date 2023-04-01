@@ -126,11 +126,17 @@ class utils:
         soup.body.insert(2, sub_titles_div)
 
         # ----------
+        div = soup.new_tag('div')
+        div['class'] = 'container'
         table = soup.new_tag("table")
-        soup.body.insert(5, table)
+        table['class'] = 'list'
+        div.append(table)
+
+        soup.body.insert(5, div)
 
         for item in spendings:
             row = soup.new_tag("tr")
+            row['class'] = 'num'
             for i in item:
                 cell = soup.new_tag("td")
                 cell.string = str(i)
@@ -150,7 +156,7 @@ class utils:
             div.append(p)
 
         outer_div = soup.new_tag("div")
-        outer_div['class'] = 'container'
+        outer_div['class'] = 'container_img'
         outer_div.append(div)
 
         img_tag = soup.new_tag("img")
@@ -160,7 +166,7 @@ class utils:
         soup.body.append(outer_div)
 
         div_tag = soup.new_tag('div')
-        div_tag['class'] = 'container'
+        div_tag['class'] = 'container_img'
 
         img_tag = soup.new_tag("img")
         img_tag['src'] = Local.GAS_MONTHLY

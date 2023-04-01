@@ -3,20 +3,19 @@ from src_utils.utils import utils
 from typing import Tuple
 from datetime import datetime
 import pandas as pd
+import re
 
 
 class SimpleMath:
 
     @staticmethod
     def generate_monthly_balance() -> int:
-
+        """
+        Return the current Account balance by identifying the most recent Transaction.
+        """
         row = DataBase().get_latest_bank_transaction()
         balance = row[6]
         return balance
-
-    @staticmethod
-    def generate_end_monthly_balance() -> int:
-        return -1
 
     @staticmethod
     def prettify(name, amount, card="") -> str:
@@ -42,6 +41,12 @@ class SimpleMath:
 
     @staticmethod
     def get_monthly_earnings(year: int, month: int) -> Tuple[int, list]:
+        """
+        @parm year - the specified year
+        @param month - the specifeid month
+        Returns the sum of all the incoming transactions in the specified month, tuppled with
+        a list containing tupples with the name and amount of each transaction.
+        """
         lst = DataBase().get_transactions(table="BankTransactions", year=year, month=month)
         earnings = []
 
@@ -51,7 +56,6 @@ class SimpleMath:
             if name is None:
                 name = ele[4]
 
-            import re
             striped = re.sub(r'\d+', '', name)
 
             if amount > 0:
@@ -62,6 +66,12 @@ class SimpleMath:
 
     @staticmethod
     def get_monthly_spendings(year: int, month: int) -> Tuple[int, list]:
+        """
+        @parm year - the specified year
+        @param month - the specifeid month
+        Returns the sum of all the spending transactions in the specified month, tuppled with
+        a list containing tupples with the name and amount of each transaction.
+        """
         spendings = []
 
         # When looking for spendings. transaction will be queried by the date they will be 
@@ -72,6 +82,11 @@ class SimpleMath:
             year += 1
 
         def transaction_value(amount: int, charge_amount: int, row: list) -> int:
+            """
+            It seems like when applying payments the values are specified in a different column.
+            The function return the value in the corrent column according to the transaction name.
+            """
+            
             if row[5] == "תשלומים":
                 return amount
             if amount != charge_amount:
@@ -94,6 +109,10 @@ class SimpleMath:
 
     @staticmethod
     def gas_info() -> list:
+        """
+        Returns a tupple containing the date, bussines name, amount of all 'Gas' related transactions.
+        The dates are all in Datetime format.
+        """
         word_lst = ["דור אלון צריפין", "תחנת דלק בני ברית", "דלק BULL אשדוד", "דלק נמל אשדוד"]
         raw_data = DataBase().get_gas_related(word_lst)
         res = []
@@ -106,7 +125,9 @@ class SimpleMath:
     @staticmethod
     def general_info(earnings, spendings):
         """
-
+        Receives transactions both spendings and earnings and returns a dataframe with the columns Date, spendings, earnings
+        Where the Date column groups all transaction dates by month, the rest of the columns conclude the sum of transactions
+        amount in each month.
         """
         new_earnings = [(tup[0], datetime.strptime(tup[1], '%Y-%m-%d %H:%M:%S')) for tup in earnings]
         earnings_df = pd.DataFrame(new_earnings, columns=["Amount", "Date"])

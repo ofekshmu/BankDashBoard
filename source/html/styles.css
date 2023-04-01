@@ -4,12 +4,12 @@ html {
 	justify-content: center;
 	min-height: 100vh;
   }
-  html body {
+  /* html body {
 	margin: 0;
 	background: #2980b9;
 	background: linear-gradient(to right, #2980b9, #2c3e50);
 	font-family: 'Montserrat', sans-serif;
-  }
+  } */
   .heading {
 	color: #fff;
 	text-align: center;

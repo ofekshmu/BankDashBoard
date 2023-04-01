@@ -52,10 +52,26 @@ class AppManager:
 
     def analysis(self):
         from datetime import datetime
-        now = datetime.now()
+        
+        # -----
+        print("Pick an option:\n1 -> Current Month\n2 -> Last Month\n3 -> Pick A date")
+        x = int(input())
+        match x:
+            case 1:
+                t = datetime.now()
+            case 2:
+                from dateutil.relativedelta import relativedelta
+                t = datetime.now() - relativedelta(months=1)
+            case _:
+                m = int(input('month: '))
+                y = int(input('year: '))
+                t = datetime.now().replace(month=m, year=y)
+
+        # -----
+
         monthly_balance = SimpleMath.generate_monthly_balance()
-        s_amount, spendings = SimpleMath.get_monthly_spendings(year=now.year, month=now.month)
-        e_amount, earnings = SimpleMath.get_monthly_earnings(year=now.year, month=now.month)
+        s_amount, spendings = SimpleMath.get_monthly_spendings(year=t.year, month=t.month)
+        e_amount, earnings = SimpleMath.get_monthly_earnings(year=t.year, month=t.month)
         end_monthly_balance = monthly_balance - s_amount
         Graphics.plot_earnings(earnings)
         Graphics.plot_spendings(spendings)

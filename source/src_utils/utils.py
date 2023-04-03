@@ -128,17 +128,18 @@ class utils:
         # ----------
         div = soup.new_tag('div')
         div['class'] = 'container'
-        table = soup.new_tag("table")
+        table = soup.new_tag("div")
         table['class'] = 'list'
         div.append(table)
 
         soup.body.insert(5, div)
 
         for item in spendings:
-            row = soup.new_tag("tr")
+            row = soup.new_tag("div")
             row['class'] = 'num'
-            for i in item:
-                cell = soup.new_tag("td")
+            row['data-value'] = item[1]
+            for i in [item[0], item[2]]:
+                cell = soup.new_tag("h3")
                 cell.string = str(i)
                 row.append(cell)
             table.append(row)

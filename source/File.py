@@ -175,6 +175,11 @@ class File:
             new_table = new_sheet[new_file["initial_row"]: new_file["initial_row"] + new_file["trans_count"], 0: new_file["col_count"]].value
 
             if flip:
+                if old_file['trans_count'] == 1:
+                    old_table = [old_table]
+                if new_file['trans_count'] == 1:
+                    new_table = [new_table]
+
                 old_table = old_table[::-1]
                 new_table = new_table[::-1]
 

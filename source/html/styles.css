@@ -28,6 +28,9 @@ html {
 	background-color: #fff;
 	padding: 2rem;
 	box-shadow: 4px 4px 8px rgba(0,0,0,0.1);
+	display: flex;
+
+
   }
   .container .nav {
 	background-color: #fafafa;
@@ -60,19 +63,20 @@ html {
 	right: 0;
 	transform: translateY(-0.45rem) rotate(-135deg) translateX(0.4rem);
   }
-  .container .nav a {
+  /* .container .nav a {
 	display: inline-block;
 	margin: 0 3rem;
 	font-size: 2rem;
 	color: #2980b9;
 	opacity: 0.7;
 	transition: 0.25s;
-  }
+  } */
   .container .nav a:hover {
 	opacity: 1;
   }
   .container .list .num {
 	padding: 0.5rem 2rem;
+	padding-right: 41rem;
 	display: flex;
 	align-items: center;
 	justify-content: flex-start;
@@ -100,10 +104,11 @@ html {
 	cursor: pointer;
   }
   .container .list .num:hover:before {
-	opacity: 0.2;
-  }
-  .container .list .num:hover h3 {
+	opacity: 0.7;
+}
+.container .list .num:hover h3 {
 	left: 3rem;
+	opacity: 0.4;
   }
   .message {
 	color: #fff;

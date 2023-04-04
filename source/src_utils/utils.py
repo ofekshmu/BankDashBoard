@@ -100,11 +100,12 @@ class utils:
 
     @staticmethod
     def generate_html(spendings,
-                      earning,
+                      earnings,
                       monthly_balance: int,
                       end_month_balance: int,
                       gas_stats):
         import bs4
+        from bs4 import NavigableString
         # load the file
         with open("source\html\Base_template.html") as inf:
             txt = inf.read()
@@ -131,18 +132,35 @@ class utils:
         table = soup.new_tag("div")
         table['class'] = 'list'
         div.append(table)
+        table2 = soup.new_tag("div")
+        table2['class'] = 'list'
+        div.append(table2)
 
         soup.body.insert(5, div)
 
         for item in spendings:
             row = soup.new_tag("div")
             row['class'] = 'num'
-            row['data-value'] = item[1]
-            for i in [item[0], item[2]]:
-                cell = soup.new_tag("h3")
-                cell.string = str(i)
-                row.append(cell)
+            row['data-value'] = f"{item[1]}₪"
+
+            st = f"{item[0]}"
+            cell = soup.new_tag("h3")
+            cell.string = st
+            row.append(cell)
             table.append(row)
+
+        # ----------
+        # ----------
+        for item in earnings:
+            row = soup.new_tag("div")
+            row['class'] = 'num'
+            row['data-value'] = f"{item[1]}₪"
+
+            st = f"{item[0]}"
+            cell = soup.new_tag("h3")
+            cell.string = st
+            row.append(cell)
+            table2.append(row)
 
         # ----------
         div = soup.new_tag("div")

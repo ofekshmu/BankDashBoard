@@ -12,10 +12,57 @@ import webbrowser
 from tqdm import tqdm
 from typing import Tuple
 
+
 class AppManager:
 
     def __init__(self):
         self.parser = Parser()
+
+    def menu(self):
+        print("""
+                Hello Ofek!
+                What would you like to do today?
+
+                1. Update files
+                2. Parse files
+                3. Show statistics
+                4. Delete file information
+                5. Exit
+            """)
+        answer = int(input())
+        match answer:
+            case 1:
+                self.load_data()
+            case 2:
+                utils.log("Not implemented yet", 'system')
+            case 3:
+                utils.log("Not implemented yet", 'system')
+            case 4:
+                self.delete_file_info()
+            case 5:
+                exit()
+            case _:
+                print("Please insert a valid number.")
+
+    def delete_file_info(self):
+        lst_names = DataBase().get_file_names()
+        utils.log("Select the file you want to delete:")
+        st = ""
+        for idx, name in enumerate(lst_names):
+            st += f"{idx} -> {utils.heb_conversion(name)}\n"
+        utils.log(st, 'system')
+
+        while True:
+            answer = input()
+            if not answer.isnumeric():
+                continue
+            if not (int(answer) > 0 and int(answer) < len(lst_names)):
+                continue
+            answer = int(answer)
+            break
+
+        selected_file = lst_names[answer]
+        DataBase().drop_file(selected_file)
 
     def load_data(self):
         context = Context()
@@ -112,7 +159,6 @@ class AppManager:
             df = df.drop('Balance', axis=1)
             # df = df.reset_index()
             # df['Date'] = df['Date'].apply(lambda x: x.to_pydatetime())
-            print(df)
             return df
 
         visa_transactions = DataBase().get_visa_transactions()

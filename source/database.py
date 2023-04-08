@@ -6,6 +6,7 @@ from decorators import try_catch
 from src_utils.utils import utils
 from Constants import Local
 
+
 class DataBase:
 
     __instance = None
@@ -307,6 +308,40 @@ class DataBase:
                                         """, (word,)).fetchall()
         return items
 
+    def get_file_names(self):
+        """
+        """
+        res = self.cursor.execute("""
+                                    SELECT Name
+                                    From File
+                                    """).fetchall()
+        return [tup[0] for tup in res]
+
+    def drop_file(self, file_name: str):
+        """
+        """
+        self.cursor.execute("""
+                            DELETE
+                            From File
+                            WHERE Name = ?
+                            """, (file_name,))
+        self.cursor.execute("""
+                            DELETE
+                            From BankTransactions
+                            WHERE source_file = ?
+                            """, (file_name,))
+        self.cursor.execute("""
+                            DELETE
+                            From Transactions
+                            WHERE source_file = ?
+                            """, (file_name,))
+        self.cursor.execute("""
+                            DELETE
+                            From TableMeta
+                            WHERE source_file = ?
+                            """, (file_name,))
+
     def commit_changes(self) -> None:
         self.connection.commit()
+
 

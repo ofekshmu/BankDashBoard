@@ -340,6 +340,7 @@ class DataBase:
                             From TableMeta
                             WHERE source_file = ?
                             """, (file_name,))
+        self.connection.commit()
 
     def commit_changes(self) -> None:
         self.connection.commit()

@@ -3,13 +3,14 @@ from BankTransactionsFile import BankTransactionsFile
 from InnerCreditFile import InnerCreditFile
 from OuterCreditFile import OuterCreditFile
 from Context import Context
-from Constants import InnerCredit, BankTransactions, OuterCredit
+from Constants import InnerCredit, BankTransactions, OuterCredit, Local
 from src_utils.utils import utils
 from database import DataBase
 from front.Graphics import Graphics
 from src_utils.calculations import SimpleMath
 import webbrowser
-
+from tqdm import tqdm
+from typing import Tuple
 
 class AppManager:
 
@@ -89,3 +90,40 @@ class AppManager:
                             end_monthly_balance,
                             gas_stats)
         webbrowser.open('source\html\output.html')
+
+    def validate(self):
+        """
+        The Function will validate the Balance created by the 'load_data' function by comparing the
+        Total amount of credit at the month end with the sum of total transactions parsed for the same period.
+        """
+        from dateutil.relativedelta import relativedelta
+        from datetime import datetime
+        import pandas as pd
+
+        def filter_unique_dates(visa_transactions: list[Tuple[datetime, float]]) -> pd.DataFrame:
+            """
+            The function will receive all visa charges in the db and return
+            the total number of months to valdiate.
+            """
+            df = pd.DataFrame(visa_transactions, columns=['Date', 'Name', 'Amount', 'Balance'])
+            df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
+            df = df[df['Date'].dt.day == Local.CHARGE_DAY]
+            df = df.groupby('Date').sum()
+            df = df.drop('Balance', axis=1)
+            # df = df.reset_index()
+            # df['Date'] = df['Date'].apply(lambda x: x.to_pydatetime())
+            print(df)
+            return df
+
+        visa_transactions = DataBase().get_visa_transactions()
+        df = filter_unique_dates(visa_transactions)
+
+        for row in tqdm(df.iterrows()):
+            ds = (row[0] - relativedelta(months=1))
+            print(type(row[1]))
+            amount = -row[1][0]
+            s_amount, _ = SimpleMath.get_monthly_spendings(year=ds.year, month=ds.month)
+            if round(amount, 2) != round(s_amount, 2):
+                utils.log(f"\tValidation Failed for Charge conducted on {row[0]}.\n\t\tTotal Charge was {amount}, Transaction sum is {s_amount}", "warning")
+                utils.warning_halt()
+

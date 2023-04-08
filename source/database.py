@@ -4,7 +4,7 @@ from datetime import datetime
 # local imports
 from decorators import try_catch
 from src_utils.utils import utils
-
+from Constants import Local
 
 class DataBase:
 
@@ -283,16 +283,6 @@ class DataBase:
         """
 
         """
-        # if income:
-        #     return self.cursor.execute("""
-        #                                SELECT Amount, Date FROM BankTransactions
-        #                                WHERE Amount > 0
-        #                                """).fetchall()
-        # return self.cursor.execute("""
-        #                             SELECT Amount, Date FROM Transactions
-        #                             WHERE Amount > 0
-        #                             """).fetchall()
-    
         import calendar
         from dateutil.relativedelta import relativedelta
 
@@ -305,6 +295,17 @@ class DataBase:
             return self.cursor.execute("SELECT Amount, Date from BankTransactions where Amount > 0 AND date >= ? and date <= ?", (day1, day2)).fetchall()
         else:
             return self.cursor.execute("SELECT Amount, transaction_date from Transactions where transaction_date >= ? and transaction_date <= ?", (day1, day2)).fetchall()
+
+    def get_visa_transactions(self):
+        """
+        """
+        items = []
+        for word in Local.VISA_KEY_WORDS:
+            items += self.cursor.execute("""
+                                        SELECT Date,Source_Dest,Amount,Balance FROM BankTransactions
+                                        WHERE Source_Dest = ?
+                                        """, (word,)).fetchall()
+        return items
 
     def commit_changes(self) -> None:
         self.connection.commit()

@@ -25,7 +25,11 @@ class Local:
     GAS_GRAPH = "C:/Users/ofeks/OneDrive/Work/Projects/Personal/BankProject/Gas_Stats.png"
     GAS_MONTHLY = "C:/Users/ofeks/OneDrive/Work/Projects/Personal/BankProject/Gas_monthly.png"
     GENERAL_INFO = "C:/Users/ofeks/OneDrive/Work/Projects/Personal/BankProject/General_info.png"
-    
+
+    VISA_KEY_WORDS = ["לאומי ויזה", "מקס איט פיננ-י"]
+    CHARGE_DAY = 2
+
+
 class Personal:
     '''
     All constants in this class are taken from the personal_config.json

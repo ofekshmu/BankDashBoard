@@ -86,9 +86,7 @@ class Graphics:
         plt.figure()
         labels = ["Date", "Business Name", "Amount"]
         df = pd.DataFrame(data, columns=labels)
-
         df = df.groupby(pd.Grouper(key='Date', freq='M')).sum()
-
         fig, ax = plt.subplots(figsize=(10, 6))
         ax.bar(df.index.strftime('%b %Y'), df['Amount'])
 

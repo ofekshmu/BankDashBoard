@@ -113,7 +113,7 @@ class SimpleMath:
         Returns a tupple containing the date, bussines name, amount of all 'Gas' related transactions.
         The dates are all in Datetime format.
         """
-        word_lst = ["דור אלון צריפין", "תחנת דלק בני ברית", "דלק BULL אשדוד", "דלק נמל אשדוד"]
+        word_lst = ['דור אלון ממר"צ', "דור אלון צריפין", "תחנת דלק בני ברית", "דלק BULL אשדוד", "דלק נמל אשדוד"]
         raw_data = DataBase().get_gas_related(word_lst)
         res = []
         for t in raw_data:

@@ -9,8 +9,6 @@ def main():
     utils.log(msg=f"\n{40*'#'} " + datetime.now().strftime("%m/%d/%Y, %H:%M:%S") + f" {40*'#'}")
     myApp = AppManager()
     myApp.menu()
-    myApp.validate()
-    myApp.analysis()
 
 
 if __name__ == "__main__":

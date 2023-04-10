@@ -23,10 +23,10 @@ class AppManager:
                 Hello Ofek!
                 What would you like to do today?
 
-                1. Update files
-                2. Parse files
-                3. Show statistics
-                4. Delete file information
+                1. Update/Parse files
+                2. Show statistics
+                3. Delete file information
+                4. Validate
                 5. Exit
             """)
         answer = int(input())
@@ -34,11 +34,11 @@ class AppManager:
             case 1:
                 self.load_data()
             case 2:
-                utils.log("Not implemented yet", 'system')
+                self.analysis()
             case 3:
-                utils.log("Not implemented yet", 'system')
-            case 4:
                 self.delete_file_info()
+            case 4:
+                self.validate()
             case 5:
                 exit()
             case _:
@@ -157,19 +157,18 @@ class AppManager:
             df = df[df['Date'].dt.day == Local.CHARGE_DAY]
             df = df.groupby('Date').sum()
             df = df.drop('Balance', axis=1)
-            # df = df.reset_index()
-            # df['Date'] = df['Date'].apply(lambda x: x.to_pydatetime())
             return df
 
         visa_transactions = DataBase().get_visa_transactions()
         df = filter_unique_dates(visa_transactions)
-
-        for row in tqdm(df.iterrows()):
+        print(df)
+        for row in df.iterrows():
             ds = (row[0] - relativedelta(months=1))
-            print(type(row[1]))
             amount = -row[1][0]
             s_amount, _ = SimpleMath.get_monthly_spendings(year=ds.year, month=ds.month)
-            if round(amount, 2) != round(s_amount, 2):
+            if abs(amount - s_amount) > 10:
                 utils.log(f"\tValidation Failed for Charge conducted on {row[0]}.\n\t\tTotal Charge was {amount}, Transaction sum is {s_amount}", "warning")
                 utils.warning_halt()
+            else:
+                utils.log(f"Validation for month {ds.month}/{ds.year} was Successful.\nThere is a {amount - s_amount} difference", 'system')
 

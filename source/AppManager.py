@@ -76,7 +76,7 @@ class AppManager:
             utils.log(f"There are {len(lst)} untagged Transactions.\nChoose a category or create a new one.", "system")
             for idx, t in enumerate(lst, start=1):
                 utils.log(f"no'{idx}/{len(lst)} {20*'-'}", "system")
-                t_id = ""
+                t_id = -1
                 t_name = ""
                 t_table = ""
                 t_amount = ""
@@ -85,11 +85,13 @@ class AppManager:
                 utils.log(f"id: {t_id}\nName: {t_name}\nAmount: {t_amount}\nDate: {t_date}\nTable: {t_table}", "system")
 
                 res = utils.handle_categories()
-                if res != -1:
-                    DataBase().set_category(table="", id="", category="")
-                    DataBase().commit_changes()
-                else:
+                if res == "Create a new category":
+                    pass
+                elif res == "Skip":
                     utils.log("Skipped...", "system")
+                else:
+                    DataBase().set_category(table="", id=t_id, category=res)
+                    DataBase().commit_changes()
 
     def load_data(self):
         context = Context()

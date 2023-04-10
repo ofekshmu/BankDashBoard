@@ -19,6 +19,8 @@ class Local:
         XLSX_PATH = 'C:/Users/ofeks/OneDrive/Work/Projects/Personal/BankProject/Inputs'
         # XLSX_PATH = 'C:/Users/ofeks/Desktop/excel'
         Personal_PATH = 'C:/Users/ofeks/OneDrive/Work/Projects/Personal/BankProject/personal information/personal_config.json'
+
+    CATE_JSON_PATH = 'personal information/categories.json'
     EXTENSION_1 = '.xls'
     EXTENSION_2 = '.xlsx'
 

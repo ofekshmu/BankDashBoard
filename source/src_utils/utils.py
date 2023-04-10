@@ -1,4 +1,5 @@
 from Constants import Settings, Local
+import json
 
 
 class utils:
@@ -67,7 +68,6 @@ class utils:
         """
         import re
         return bool(re.search(r'[\u0590-\u05FF]', string))
-
 
     @staticmethod
     def warning_halt():
@@ -195,3 +195,33 @@ class utils:
 
         with open("source\html\output.html", "w", encoding='utf-8') as outf:
             outf.write(bs4.BeautifulSoup.prettify(soup))
+
+    @staticmethod
+    def template_menu(options: list[str], msg: str = "Choose one of the following:\n"):
+        """
+        
+        """
+        st = msg
+        for idx, e in enumerate(options, start=1):
+            st += f"{idx} -> {e}\n"
+        utils.log(st, 'system')
+
+        while True:
+            x = input()
+            if not x.isnumeric():
+                continue
+            x = int(x)
+            if x < 1 or x > len(options):
+                continue
+            return x
+
+    @staticmethod
+    def handle_categories() -> str:
+        """
+        
+        """
+        utils.log("Choose one of the existsing categories:")
+        cat_lst = json.load(open(Local.CATE_JSON_PATH, encoding='utf-8'))
+        options = cat_lst + ["Create a new category", "Skip"]
+        res = utils.template_menu(options)
+        return options[res]

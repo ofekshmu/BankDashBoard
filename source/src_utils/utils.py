@@ -224,4 +224,15 @@ class utils:
         cat_lst = json.load(open(Local.CATE_JSON_PATH, encoding='utf-8'))
         options = cat_lst + ["Create a new category", "Skip"]
         res = utils.template_menu(options)
+        if res == "Create a new category":
+            while True:
+                cat = input("Insert a category name: ")
+                utils.log("Are you sure? 1-> Yes\n2-> No")
+                x = input()
+                if x == 1:
+                    json.dump(cat_lst + [cat], open(Local.CATE_JSON_PATH, "w", encoding='utf-8'))
+                    return cat
+                else:
+                    continue
+
         return options[res]

@@ -85,9 +85,7 @@ class AppManager:
                 utils.log(f"id: {t_id}\nName: {t_name}\nAmount: {t_amount}\nDate: {t_date}\nTable: {t_table}", "system")
 
                 res = utils.handle_categories()
-                if res == "Create a new category":
-                    pass
-                elif res == "Skip":
+                if res == "Skip":
                     utils.log("Skipped...", "system")
                 else:
                     DataBase().set_category(table="", id=t_id, category=res)

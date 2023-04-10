@@ -32,6 +32,7 @@ class AppManager:
         answer = int(input())
         match answer:
             case 1:
+                self.tag_data()
                 self.load_data()
             case 2:
                 self.analysis()
@@ -63,6 +64,32 @@ class AppManager:
 
         selected_file = lst_names[answer]
         DataBase().drop_file(selected_file)
+
+    def tag_data(self):
+        """
+        The function will check for untagged data and offer to tag it.
+        """
+        if DataBase().count_untagged() == 0:
+            utils.log("There is Not data to tag, You are all good!", "system")
+        else:
+            lst = DataBase().get_untagged()
+            utils.log(f"There are {len(lst)} untagged Transactions.\nChoose a category or create a new one.", "system")
+            for idx, t in enumerate(lst, start=1):
+                utils.log(f"no'{idx}/{len(lst)} {20*'-'}", "system")
+                t_id = ""
+                t_name = ""
+                t_table = ""
+                t_amount = ""
+                t_date = ""
+                utils.log(f"no'{idx}/{len(lst)} {20*'-'}", "system")
+                utils.log(f"id: {t_id}\nName: {t_name}\nAmount: {t_amount}\nDate: {t_date}\nTable: {t_table}", "system")
+
+                res = utils.handle_categories()
+                if res != -1:
+                    DataBase().set_category(table="", id="", category="")
+                    DataBase().commit_changes()
+                else:
+                    utils.log("Skipped...", "system")
 
     def load_data(self):
         context = Context()

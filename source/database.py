@@ -53,7 +53,8 @@ class DataBase:
                 Balance             INT         NOT NULL    ,
                 Description         DATE                    ,
                 source_file         CHAR        NOT NULL    ,
-                Ex_description      CHAR        NOT NULL,
+                Ex_description      CHAR        NOT NULL    ,
+                Category            CHAR                    ,
                 FOREIGN KEY(source_file)    REFERENCES File(Name)
                 );""")
 
@@ -69,6 +70,7 @@ class DataBase:
                 charge_amount       INT         NOT NULL    ,
                 source_file         CHAR        NOT NULL    ,
                 description         TEXT                    ,
+                Category            CHAR                    ,
                 FOREIGN KEY(cardID)         REFERENCES Card(cardID),
                 FOREIGN KEY(source_file)    REFERENCES File(Name)
                 );""")
@@ -341,6 +343,41 @@ class DataBase:
                             WHERE source_file = ?
                             """, (file_name,))
         self.connection.commit()
+
+    def get_untagged(self) -> list:
+        """
+        Get all untagged items in database.
+        An untagged item is a transaction with no category
+        """
+        res1 = self.cursor.execute("""
+                                    SELECT ID FROM BankTransactions
+                                    WHERE Category = NULL
+                                    """).fetchall()
+        res2 = self.cursor.execute("""
+                                    SELECT ID FROM Transactions
+                                    WHERE Category = NULL
+                                    """).fetchall()
+        return res1 + res2
+
+    def set_category(self, table: str, id: int, category: str):
+        """
+        Set a tag for a transaction with a given id.
+        """
+        match table:
+            case "Transactions":
+                self.cursor.execute("""
+                                    UPDATE Transactions
+                                    SET Category = ?
+                                    WHERE ID = ?
+                                    """, (category, id,))
+            case "BankTransactions":
+                self.cursor.execute("""
+                                    UPDATE BankTransactions
+                                    SET Category = ?
+                                    WHERE ID = ?
+                                    """, (category, id,))
+            case _:
+                utils.log("Bad input in 'set_category' in DataBase class", "error")
 
     def commit_changes(self) -> None:
         self.connection.commit()

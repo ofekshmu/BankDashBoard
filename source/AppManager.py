@@ -69,10 +69,10 @@ class AppManager:
         """
         The function will check for untagged data and offer to tag it.
         """
-        if DataBase().count_untagged() == 0:
+        lst = DataBase().get_untagged()
+        if len(lst) == 0:
             utils.log("There is Not data to tag, You are all good!", "system")
         else:
-            lst = DataBase().get_untagged()
             utils.log(f"There are {len(lst)} untagged Transactions.\nChoose a category or create a new one.", "system")
             for idx, t in enumerate(lst, start=1):
                 utils.log(f"no'{idx}/{len(lst)} {20*'-'}", "system")

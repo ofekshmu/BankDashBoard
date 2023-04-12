@@ -10,13 +10,26 @@ class Graphics:
 
     @staticmethod
     def plot_earnings(data: list) -> None:
-        labels = [SimpleMath.prettify(tup[0], tup[1]) for tup in data]
-        df_earnings = pd.DataFrame({'Earnings': [tup[1] for tup in data]},
-                                   index=labels)
-
-        title = f"Total Earnings:{sum([tup[1] for tup in data])}"
+        df = pd.DataFrame(data, columns=["Name", "Amount", "Category"])
+        df = df.groupby("Category").sum()
         gentle_blue = ['#BFD7EA', '#A5C6DB', '#8BB5CC', '#7194BD', '#577DAE', '#3D5C9F', '#233D90']
-        df_earnings.plot.pie(y='Earnings', figsize=(5, 5), legend=False, title=title, colors=gentle_blue)
+        title = f"Total Earnings:{sum([tup[1] for tup in data])}"
+        #df.plot.pie(y='Amount', figsize=(5, 5), legend=False, title=title, colors=gentle_blue)
+        ax = df.plot.pie(y='Amount', figsize=(5, 5), legend=False, title=title, colors=gentle_blue)
+
+        # Add labels with category names and amounts
+        for i, (cat, value) in enumerate(zip(df.index, df['Amount'])):
+            ax.text(i, -1.5, f"{cat}\n{value:.2f}", ha='center', fontsize=10)
+        #plt.ylim(0, df['Amount'].max() * 1.1)
+
+        # ----------
+
+        # labels = [SimpleMath.prettify(tup[0], tup[1]) for tup in data]
+        # df_earnings = pd.DataFrame({'Earnings': [tup[1] for tup in data]},
+        #                            index=labels)
+
+        # gentle_blue = ['#BFD7EA', '#A5C6DB', '#8BB5CC', '#7194BD', '#577DAE', '#3D5C9F', '#233D90']
+        # df_earnings.plot.pie(y='Earnings', figsize=(5, 5), legend=False, title=title, colors=gentle_blue)
         plt.savefig('Earnings.png')
 
     @staticmethod

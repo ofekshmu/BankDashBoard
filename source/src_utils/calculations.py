@@ -52,6 +52,7 @@ class SimpleMath:
 
         for ele in lst:
             amount = ele[5]
+            category = ele[10]
             name = ele[7]
             if name is None:
                 name = ele[4]
@@ -59,7 +60,7 @@ class SimpleMath:
             striped = re.sub(r'\d+', '', name)
 
             if amount > 0:
-                earnings.append((striped, amount))
+                earnings.append((striped, amount, category))
 
         total_amount = sum([tup[1] for tup in earnings])
         return total_amount, earnings

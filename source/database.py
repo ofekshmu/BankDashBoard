@@ -363,7 +363,10 @@ class DataBase:
                                     WHERE Category IS NULL
                                     ORDER BY ID DESC
                                     """).fetchall()
-        return res1 + res2
+        
+        # Sortion order is made for better handling of tagging
+        sorted_list = sorted(res1 + res2, key=lambda x: x[1], reverse=True)
+        return sorted_list
 
     def set_category(self, table: str, id: int, category: str):
         """

@@ -100,10 +100,11 @@ class SimpleMath:
             card = re.sub("[^0-9]", "", ele[1])
             name = ele[3]
             amount = ele[4]
+            category = ele[10]
             charge_amount = ele[7]
             amount = transaction_value(amount, charge_amount, ele)
             striped = re.sub(r'\d+', '', name)
-            spendings.append((striped, amount, card))
+            spendings.append((striped, amount, card, category))
 
         total_amount = round(sum([-tup[1] for tup in spendings]), 2)
         return total_amount, spendings

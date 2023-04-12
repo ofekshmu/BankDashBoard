@@ -32,8 +32,8 @@ class AppManager:
         answer = int(input())
         match answer:
             case 1:
-                self.tag_data()
                 self.load_data()
+                self.tag_data()
             case 2:
                 self.analysis()
             case 3:
@@ -75,12 +75,11 @@ class AppManager:
         else:
             utils.log(f"There are {len(lst)} untagged Transactions.\nChoose a category or create a new one.", "system")
             for idx, t in enumerate(lst, start=1):
-                utils.log(f"no'{idx}/{len(lst)} {20*'-'}", "system")
-                t_id = -1
-                t_name = ""
-                t_table = ""
-                t_amount = ""
-                t_date = ""
+                t_id = t[1]
+                t_name = utils.heb_conversion(t[3])
+                t_table = t[0]
+                t_amount = t[4]
+                t_date = t[2]
                 utils.log(f"no'{idx}/{len(lst)} {20*'-'}", "system")
                 utils.log(f"id: {t_id}\nName: {t_name}\nAmount: {t_amount}\nDate: {t_date}\nTable: {t_table}", "system")
 
@@ -88,8 +87,9 @@ class AppManager:
                 if res == "Skip":
                     utils.log("Skipped...", "system")
                 else:
-                    DataBase().set_category(table="", id=t_id, category=res)
+                    DataBase().set_category(table=t_table, id=t_id, category=res)
                     DataBase().commit_changes()
+                    utils.log("Tag saved.", "system")
 
     def load_data(self):
         context = Context()

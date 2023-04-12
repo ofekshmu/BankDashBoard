@@ -202,8 +202,8 @@ class utils:
         
         """
         st = msg
-        for idx, e in enumerate(options, start=1):
-            st += f"{idx} -> {e}\n"
+        for idx, e in enumerate(options, start=0):
+            st += f"{idx} -> {utils.heb_conversion(e)}\n"
         utils.log(st, 'system')
 
         while True:
@@ -211,7 +211,7 @@ class utils:
             if not x.isnumeric():
                 continue
             x = int(x)
-            if x < 1 or x > len(options):
+            if x < 0 or x >= len(options):
                 continue
             return x
 
@@ -224,15 +224,16 @@ class utils:
         cat_lst = json.load(open(Local.CATE_JSON_PATH, encoding='utf-8'))
         options = cat_lst + ["Create a new category", "Skip"]
         res = utils.template_menu(options)
-        if res == "Create a new category":
+        if options[res] == "Create a new category":
             while True:
                 cat = input("Insert a category name: ")
-                utils.log("Are you sure? 1-> Yes\n2-> No")
+                utils.log("Are you sure?\n1-> Yes\n2-> No")
                 x = input()
-                if x == 1:
+                if x == "1":
                     json.dump(cat_lst + [cat], open(Local.CATE_JSON_PATH, "w", encoding='utf-8'))
                     return cat
                 else:
+                    utils.log("Bad input, try again...", "system")
                     continue
 
         return options[res]

@@ -95,6 +95,17 @@ class SimpleMath:
             return amount
 
         lst = DataBase().get_transactions(table="", year=year, month=fit_month)
+        lst2 = DataBase().get_transactions(table="BankTransactions", year=year, month=month)
+        
+        def filter_spendings(lst: list) -> list:
+            # -- filter positive transactions
+            negative_trans = [item for item in lst if item[5] < 0]
+            # -- filter visa transactions
+            return [(0, "Bank", 2, item[4], item[5],5,6,item[5],8,9, item[10])
+                    for item in negative_trans if item[10] != "אשראי"]
+
+        lst2 = filter_spendings(lst2)
+        lst += lst2
         for ele in lst:
             import re
             card = re.sub("[^0-9]", "", ele[1])

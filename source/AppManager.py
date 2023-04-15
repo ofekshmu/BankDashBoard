@@ -156,6 +156,7 @@ class AppManager:
         
         df_general = SimpleMath.general_info(earnings=DataBase().get_all_transactions(shift=7),
                                              spendings=DataBase().get_all_transactions(shift=7, income=False))
+        
         Graphics.plot_general(df_general)
 
         utils.generate_html(spendings,

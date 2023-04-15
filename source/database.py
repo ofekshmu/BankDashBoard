@@ -297,7 +297,14 @@ class DataBase:
         if income:
             return self.cursor.execute("SELECT Amount, Date from BankTransactions where Amount > 0 AND date >= ? and date <= ?", (day1, day2)).fetchall()
         else:
-            return self.cursor.execute("SELECT Amount, transaction_date from Transactions where transaction_date >= ? and transaction_date <= ?", (day1, day2)).fetchall()
+            trans = self.cursor.execute("SELECT Amount, transaction_date from Transactions where transaction_date >= ? and transaction_date <= ?", (day1, day2)).fetchall()
+            bank_trans = self.cursor.execute("""SELECT Amount, Date
+                                                FROM BankTransactions
+                                                WHERE Amount < 0
+                                                AND date >= ?
+                                                AND date <= ?
+                                                AND Category != ?""", (day1, day2, "אשראי")).fetchall()
+            return trans + bank_trans
 
     def get_visa_transactions(self):
         """
@@ -365,7 +372,8 @@ class DataBase:
                                     """).fetchall()
         
         # Sortion order is made for better handling of tagging
-        sorted_list = sorted(res1 + res2, key=lambda x: x[1], reverse=True)
+        # x[2] is the location of the Date
+        sorted_list = sorted(res1 + res2, key=lambda x: x[2], reverse=True)
         return sorted_list
 
     def set_category(self, table: str, id: int, category: str):

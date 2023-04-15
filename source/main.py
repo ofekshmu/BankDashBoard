@@ -2,7 +2,6 @@ from AppManager import AppManager
 from src_utils.utils import utils
 from datetime import datetime
 from src_utils.utils import utils
-from front.Graphics import Graphics
 
 
 def main():

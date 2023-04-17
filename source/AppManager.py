@@ -71,7 +71,7 @@ class AppManager:
         """
         lst = DataBase().get_untagged()
         if len(lst) == 0:
-            utils.log("There is Not data to tag, You are all good!", "system")
+            utils.log("There is No data to tag, You are all good!", "system")
         else:
             utils.log(f"There are {len(lst)} untagged Transactions.\nChoose a category or create a new one.", "system")
             for idx, t in enumerate(lst, start=1):
@@ -79,9 +79,10 @@ class AppManager:
                 t_name = utils.heb_conversion(t[3])
                 t_table = t[0]
                 t_amount = t[4]
+                extra_info = "" if t[5] is None else utils.heb_conversion(t[5])
                 t_date = t[2]
                 utils.log(f"no'{idx}/{len(lst)} {20*'-'}", "system")
-                utils.log(f"id: {t_id}\nName: {t_name}\nAmount: {t_amount}\nDate: {t_date}\nTable: {t_table}", "system")
+                utils.log(f"id: {t_id}\nName: {t_name}\nInfo: {extra_info}\nAmount: {t_amount}\nDate: {t_date}\nTable: {t_table}", "system")
 
                 res = utils.handle_categories()
                 if res == "Skip":

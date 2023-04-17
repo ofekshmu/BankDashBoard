@@ -358,14 +358,14 @@ class DataBase:
         """
         res1 = self.cursor.execute("""
                                     SELECT 'BankTransactions' as TableName,
-                                    ID, Date, Source_Dest, Amount
+                                    ID, Date, Source_Dest, Amount, Description
                                     FROM BankTransactions
                                     WHERE Category IS NULL
                                     ORDER BY ID DESC
                                     """).fetchall()
         res2 = self.cursor.execute("""
                                     SELECT 'Transactions' as TableName,
-                                    ID, transaction_date, business_name, amount
+                                    ID, transaction_date, business_name, amount, transaction_type
                                     FROM Transactions
                                     WHERE Category IS NULL
                                     ORDER BY ID DESC

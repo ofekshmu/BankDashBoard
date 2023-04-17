@@ -101,7 +101,7 @@ class SimpleMath:
             # -- filter positive transactions
             negative_trans = [item for item in lst if item[5] < 0]
             # -- filter visa transactions
-            return [(0, "Bank", 2, item[4], item[5],5,6,item[5],8,9, item[10])
+            return [(0, "Bank", item[6], item[4], item[5],5,6,item[5],8,9, item[10])
                     for item in negative_trans if item[10] != "אשראי"]
 
         lst2 = filter_spendings(lst2)
@@ -113,9 +113,10 @@ class SimpleMath:
             amount = ele[4]
             category = ele[10]
             charge_amount = ele[7]
+            date = ele[2]
             amount = transaction_value(amount, charge_amount, ele)
             striped = re.sub(r'\d+', '', name)
-            spendings.append((striped, amount, card, category))
+            spendings.append((striped, amount, card, category, date))
 
         total_amount = round(sum([-tup[1] for tup in spendings]), 2)
         return total_amount, spendings

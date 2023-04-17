@@ -5,6 +5,12 @@ html {
 	min-height: 100vh;
   }
 
+  .date {
+	padding-left: 10rem; /* add 10 pixels of padding */
+	font-size: 2rem;
+  
+}
+
   .heading {
 	color: #fff;
 	text-align: center;

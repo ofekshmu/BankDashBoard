@@ -147,6 +147,12 @@ class utils:
             cell = soup.new_tag("h3")
             cell.string = st
             row.append(cell)
+
+            cell = soup.new_tag("p")
+            cell['class'] = 'date'
+            cell.string = f"{item[-1]}"
+            row.append(cell)
+            
             table.append(row)
 
         # ----------

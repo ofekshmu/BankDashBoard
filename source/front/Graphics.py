@@ -21,7 +21,9 @@ class Graphics:
 
     @staticmethod
     def plot_spendings(data: list) -> None:
-        df = pd.DataFrame(data, columns=["Name", "Amount", "Card", "Category"])
+        # Do not include the date column when ploting data[:-1]
+        filtered_data = [item[:-1] for item in data]
+        df = pd.DataFrame(filtered_data, columns=["Name", "Amount", "Card", "Category"])
         df['Amount'] = df['Amount'].apply(lambda x: -x)
         df = df.groupby("Category").sum()
         df.index = df.index.map(lambda name: name + f"\n{df.loc[name,'Amount']}")

@@ -105,7 +105,7 @@ class utils:
                       end_month_balance: int,
                       gas_stats):
         import bs4
-        from bs4 import NavigableString
+        from datetime import datetime
         # load the file
         with open("source\html\Base_template.html") as inf:
             txt = inf.read()
@@ -138,7 +138,7 @@ class utils:
 
         soup.body.insert(5, div)
 
-        for item in spendings:
+        for item in sorted(spendings, key=lambda x: x[-1]):
             row = soup.new_tag("div")
             row['class'] = 'num'
             row['data-value'] = f"{item[1]}₪"
@@ -150,7 +150,8 @@ class utils:
 
             cell = soup.new_tag("p")
             cell['class'] = 'date'
-            cell.string = f"{item[-1]}"
+            d = datetime.strptime(f"{item[-1]}", "%Y-%m-%d %H:%M:%S").strftime('%A %d')
+            cell.string = f"{d}"
             row.append(cell)
             
             table.append(row)

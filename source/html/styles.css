@@ -4,13 +4,23 @@ html {
 	justify-content: center;
 	min-height: 100vh;
   }
-
+/* 
   .date {
-	padding-left: 10rem; /* add 10 pixels of padding */
-	font-size: 2rem;
-  
+	padding-left: 30rem;
+	font-size: 1rem;  
+} */
+.container .list .num .date {
+    position: absolute; /* make the date element absolute */
+    left: 22rem; /* set the left position to 30rem */
+    padding: 0; /* remove the left padding */
+    font-size: 1rem;
 }
-
+.container .list .num .cat {
+    position: absolute; /* make the date element absolute */
+    left: 35rem; /* set the left position to 30rem */
+    padding: 0; /* remove the left padding */
+    font-size: 1rem;
+}
   .heading {
 	color: #fff;
 	text-align: center;
@@ -81,12 +91,15 @@ html {
 	opacity: 1;
   }
   .container .list .num {
+	display: inline-block;
+    position: relative; /* make the container relative */
 	padding: 0.5rem 2rem;
-	padding-right: 41rem;
+	padding-right: 3rem;
 	display: flex;
 	align-items: center;
 	justify-content: flex-start;
 	transition: 0.25s;
+	
   }
 
   .container .list .num:before {
@@ -121,5 +134,9 @@ html {
 	text-align: center;
 	text-transform: uppercase;
 	margin-top: 2rem;
+  }
+  .list{
+	width: 50%; /* make each list take up 50% of the container */
+
   }
   

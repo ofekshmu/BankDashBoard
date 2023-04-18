@@ -153,6 +153,12 @@ class utils:
             d = datetime.strptime(f"{item[-1]}", "%Y-%m-%d %H:%M:%S").strftime('%A %d')
             cell.string = f"{d}"
             row.append(cell)
+
+            cell = soup.new_tag("p")
+            cell['class'] = 'cat'
+            # d = datetime.strptime(f"{item[-1]}", "%Y-%m-%d %H:%M:%S").strftime('%A %d')
+            cell.string = f"{item[-2]}"
+            row.append(cell)
             
             table.append(row)
 

@@ -10,7 +10,8 @@ class Graphics:
 
     @staticmethod
     def plot_earnings(data: list) -> None:
-        df = pd.DataFrame(data, columns=["Name", "Amount", "Category"])
+        filtered_data = [item[:-1] for item in data]
+        df = pd.DataFrame(filtered_data, columns=["Name", "Amount", "Category"])
         df = df.groupby("Category").sum()
         df.index = df.index.map(lambda name: name + f"\n{df.loc[name,'Amount']}")
         gentle_blue = ['#BFD7EA', '#A5C6DB', '#8BB5CC', '#7194BD', '#577DAE', '#3D5C9F', '#233D90']

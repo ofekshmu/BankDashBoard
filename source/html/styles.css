@@ -11,7 +11,7 @@ html {
 } */
 .container .list .num .date {
     position: absolute; /* make the date element absolute */
-    left: 22rem; /* set the left position to 30rem */
+    left: 27rem; /* set the left position to 30rem */
     padding: 0; /* remove the left padding */
     font-size: 1rem;
 }

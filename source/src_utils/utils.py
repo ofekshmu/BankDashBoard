@@ -55,10 +55,19 @@ class utils:
 
     @staticmethod
     def heb_conversion(name: str) -> str:
-        lst = name.split()
+        """
+        Convert strings containing mixed characters (hebrew and english) to a string
+        suited for printing.
+        """
+        def wrapper_hc(lst) -> str:
+            if lst == []:
+                return ""
+            
+            if utils.has_hebrew(lst[0]):
+                return wrapper_hc(lst[1:]) + lst[0][::-1] + " "
+            return lst[0] + " " + wrapper_hc(lst[1:])
 
-        res = " ".join([x[::-1] if utils.has_hebrew(x) else x for x in lst][::-1])
-        return res
+        return wrapper_hc(name.split())
 
     @staticmethod
     def has_hebrew(string):

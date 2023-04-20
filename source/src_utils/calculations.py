@@ -138,6 +138,60 @@ class SimpleMath:
         return res
 
     @staticmethod
+    def cat_info(data: list[Tuple[str, str, int, str, str, str]]) -> dict:
+        """
+        Input:
+        List of tuples containing: (source_table, business_name, amount, Category, transaction_date, Description)
+        """
+        df = pd.DataFrame(data, columns=["Source table", "Name", "Amount", "Category", "Date", "Description"])
+        series = df['Amount'].describe()
+        
+        # convert Date column to datetime format
+        df['Date'] = pd.to_datetime(df['Date'])
+
+        count = series.loc["count"]
+        sum = df['Amount'].sum()
+        min = series.loc["max"]
+        max = series.loc["min"]
+
+        # ----- Calculate the amount of months in total from intitial date to current time -----
+        # Keep in mind that when using groupby, 'empty month' are not taken into account and
+        # therfore the calculations are incorrect.
+        start = df['Date'].min()
+        end = datetime.now()
+
+        months = (end.year - start.year) * 12 + (end.month - start.month) + 1
+        if end.day < start.day:
+            months -= 1
+        # --------------------------------------------------------------------------------------
+
+        return {"Total Spent:":     f'{abs(round(sum, 2))}₪',
+                "Total Activity":   int(count),
+                "Activity Mean":    f'{abs(round(sum / series.loc["count"], 2))}₪',
+                "Monthly Mean":     f'{round(abs(sum / months), 2)}₪',
+                "Times per month":  round(count / months, 2),
+                "Minimum Amount":   f'{abs(min)}₪',
+                "Maximum Amount":   f'{abs(max)}₪'}
+
+    def get_monthly_shifted(self, shift: int = 5, income: bool = True):
+        """
+        
+        """
+        from dateutil.relativedelta import relativedelta
+        today = datetime.now()
+        spendings_lst = []
+        earnings_lst = []
+
+        for i in range(0, shift - 1):
+            curr_date = (today - relativedelta(months=shift + i)).replace(day=1)
+            y = curr_date.year
+            m = curr_date.month
+            spendings_lst += DataBase().get_monthly_spendings(y, m)
+            earnings_lst += DataBase().get_monthly_spendings(y, m)
+
+        return spendings_lst, earnings_lst
+
+    @staticmethod
     def general_info(earnings, spendings):
         """
         Receives transactions both spendings and earnings and returns a dataframe with the columns Date, spendings, earnings

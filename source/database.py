@@ -5,6 +5,7 @@ from datetime import datetime
 from decorators import try_catch
 from src_utils.utils import utils
 from Constants import Local
+from typing import Tuple
 
 
 class DataBase:
@@ -226,25 +227,6 @@ class DataBase:
         '''
         self.connection.close()
 
-    def get_transactions(self, table: str, year: int, month: int):
-        """
-        The function will query all the records from the given month from the given
-        table @table. Table = "BankTransactions" for the BankTransaction table and any
-        other string for the Transaction table.
-
-        @param year - the year in format 20XX
-        @param month - the month in format XX
-        @param table - the table to query.
-        """
-        import calendar
-        last_day = calendar.monthrange(year, month)[1]
-        day1 = datetime(year, month, 1).strftime('%Y-%m-%d %H:%M:%S')
-        day2 = datetime(year, month, last_day).strftime('%Y-%m-%d %H:%M:%S')
-        if table == "BankTransactions":
-            return self.cursor.execute("select * from BankTransactions where date >= ? and date <= ?", (day1, day2)).fetchall()
-        else:
-            return self.cursor.execute("select * from Transactions where charge_date >= ? and charge_date <= ?", (day1, day2)).fetchall()
-
     # TODO: this function is currently not being used anywhere.
     def get_data_by_file_name(self, file_name: str):
         """
@@ -281,6 +263,94 @@ class DataBase:
                                         WHERE business_name = ?
                                         """, (k,)).fetchall()
         return rows
+
+    def get_by_category(self, cat_name: str):
+        """
+        Get all transactions by category name.
+        """
+        return self.cursor.execute("""
+                                   SELECT 'BankTransactions' as source_table, Source_Dest, Amount, Category, Date, Description
+                                   FROM BankTransactions WHERE Category = ?
+                                   UNION ALL
+                                   SELECT 'Transactions' as source_table, business_name, amount, Category, transaction_date, Description
+                                   FROM Transactions WHERE Category = ? """,
+                                   (cat_name, cat_name)).fetchall()
+
+    def get_transactions(self, table: str, year: int, month: int):
+        """
+        The function will query all the records from the given month from the given
+        table @table. Table = "BankTransactions" for the BankTransaction table and any
+        other string for the Transaction table.
+
+        @param year - the year in format 20XX
+        @param month - the month in format XX
+        @param table - the table to query.
+        """
+        import calendar
+        last_day = calendar.monthrange(year, month)[1]
+        day1 = datetime(year, month, 1).strftime('%Y-%m-%d %H:%M:%S')
+        day2 = datetime(year, month, last_day).strftime('%Y-%m-%d %H:%M:%S')
+        if table == "BankTransactions":
+            return self.cursor.execute("select * from BankTransactions where date >= ? and date <= ?", (day1, day2)).fetchall()
+        else:
+            return self.cursor.execute("select * from Transactions where charge_date >= ? and charge_date <= ?", (day1, day2)).fetchall()
+
+    def get_monthly_earnings(self, year: int, month: int) -> list[Tuple[str, int, str, str]]:
+        """
+        Input:
+        An year and a month.
+        returns all Income transaactions in the same month.
+        Output:
+        a list with tuples containing: (Name, Amount, Category, Date)
+        """
+        import calendar
+        last_day = calendar.monthrange(year, month)[1]
+        day1 = datetime(year, month, 1).strftime('%Y-%m-%d %H:%M:%S')
+        day2 = datetime(year, month, last_day).strftime('%Y-%m-%d %H:%M:%S')
+        return self.cursor.execute("""
+                                    SELECT Source_Dest, Amount, Category, Date
+                                    FROM BankTransactions
+                                    WHERE date >= ?
+                                    AND date <= ?""", (day1, day2)).fetchall()
+    
+    def get_monthly_spendings(self, year: int, month: int) -> list[Tuple[str, int, str, str]]:
+        """
+
+        """
+        import calendar
+        
+        # When looking for spendings. transaction will be queried by the date they will be 
+        # effective in the bank account and not by the date they were exectued.
+        # That is why, when given month x, we will search for transactions in month x + 1
+        fit_month = month % 12 + 1
+        if fit_month == 1:
+            fit_year = year + 1
+        else:
+            fit_year = year
+
+        last_day = calendar.monthrange(year, month)[1]
+        b_init = datetime(year, month, 1).strftime('%Y-%m-%d %H:%M:%S')
+        b_end = datetime(year, month, last_day).strftime('%Y-%m-%d %H:%M:%S')
+        
+        last_day = calendar.monthrange(fit_year, fit_month)[1]
+        bt_init = datetime(fit_year, fit_month, 1).strftime('%Y-%m-%d %H:%M:%S')
+        bt_end = datetime(fit_year, fit_month, last_day).strftime('%Y-%m-%d %H:%M:%S')
+        return self.cursor.execute("""
+                                    SELECT 'BankTransactions' AS source_table, Source_Dest,
+                                    'Bank' AS Card, amount, Category, Date
+                                    FROM BankTransactions
+                                    WHERE date >= ?
+                                    AND date <= ?
+                                    AND amount < 0
+                                    UNION ALL
+                                    SELECT 'Transactions' AS source_table, business_name, cardID,
+                                    Amount, Category, transaction_date
+                                    FROM Transactions
+                                    WHERE charge_date >= ?
+                                    AND charge_date <= ?
+                                    AND""", (b_init, b_end, bt_init, bt_end)).fetchall()
+
+
 
     def get_all_transactions(self, shift: int = 5, income: bool = True):
         """

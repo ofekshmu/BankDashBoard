@@ -35,6 +35,8 @@ class Graphics:
 
         plt.savefig('Spendings.png')
 
+
+
     @staticmethod
     def plot_gas(data: list) -> pd.Series:
         plt.figure()

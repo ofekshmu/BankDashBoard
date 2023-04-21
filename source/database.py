@@ -264,9 +264,10 @@ class DataBase:
                                         """, (k,)).fetchall()
         return rows
 
-    def get_by_category(self, cat_name: str):
+    def get_by_category(self, cat_name: str) -> list[Tuple[str, str, int, str, str, str]]:
         """
         Get all transactions by category name.
+        Transactions format is: (source_table, Source_Dest, Amount, Category, Date, Description)
         """
         return self.cursor.execute("""
                                    SELECT 'BankTransactions' as source_table, Source_Dest, Amount, Category, Date, Description

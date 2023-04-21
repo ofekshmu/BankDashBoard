@@ -35,16 +35,18 @@ class Graphics:
 
         plt.savefig('Spendings.png')
 
-
-
     @staticmethod
     def plot_gas(data: list) -> pd.Series:
+        # filter data:
+        data = [(item[4], item[1], -item[2]) for item in data]
+        # ------------
         plt.figure()
         labels = ["Date", "Business Name", "Amount"]
         df = pd.DataFrame(data, columns=labels)
+        df['Date'] = pd.to_datetime(df['Date'])
         statistics = df['Amount'].describe().loc[["count", "mean", "std", "min", "max"]]
 
-        start_date = pd.Timestamp.today().normalize() - pd.DateOffset(months=1, days=20)
+        start_date = pd.Timestamp.today().normalize() - pd.DateOffset(months=2, days=20)
         end_date = pd.Timestamp.today().normalize()
         all_dates = pd.date_range(start=start_date, end=end_date, freq='D')
         df_all_dates = pd.DataFrame({'Date': all_dates})

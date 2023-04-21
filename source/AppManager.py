@@ -153,11 +153,13 @@ class AppManager:
         Graphics.plot_spendings(spendings)
         # -----
         data = SimpleMath.gas_info()
-        gas_stats = Graphics.plot_gas(data)
+        # gas_stats = Graphics.plot_gas(data)
         Graphics.plot_monthly_gas(data)
         # -----
         cat_data = DataBase().get_by_category("Gas")
+        _ = Graphics.plot_gas(cat_data)
         cat_dict = SimpleMath.cat_info(cat_data)
+        # -----
         
         df_general = SimpleMath.general_info(earnings=DataBase().get_all_transactions(shift=7),
                                              spendings=DataBase().get_all_transactions(shift=7, income=False))

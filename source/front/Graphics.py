@@ -88,8 +88,10 @@ class Graphics:
     @staticmethod
     def plot_monthly_gas(data: list) -> None:
         plt.figure()
+        data = [(item[4], item[1], -item[2]) for item in data]
         labels = ["Date", "Business Name", "Amount"]
         df = pd.DataFrame(data, columns=labels)
+        df['Date'] = pd.to_datetime(df['Date'])
         df = df.groupby(pd.Grouper(key='Date', freq='M')).sum()
         fig, ax = plt.subplots(figsize=(10, 6))
         ax.bar(df.index.strftime('%b %Y'), df['Amount'])

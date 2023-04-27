@@ -10,28 +10,27 @@ class Graphics:
 
     @staticmethod
     def plot_earnings(data: list) -> None:
-        filtered_data = [item[:-1] for item in data]
-        df = pd.DataFrame(filtered_data, columns=["Name", "Amount", "Category"])
+        df = pd.DataFrame(data, columns=["Name", "Amount", "Category", "Date"])
+        df = df.drop("Date", axis=1)
         df = df.groupby("Category").sum()
-        df.index = df.index.map(lambda name: f"{utils.heb_conversion(name)}\n{df.loc[name,'Amount']}")
+        df.index = df.index.map(lambda name: f"{utils.heb_conversion(name)}\n{df.loc[name,'Amount']}₪")
         gentle_blue = ['#BFD7EA', '#A5C6DB', '#8BB5CC', '#7194BD', '#577DAE', '#3D5C9F', '#233D90']
         title = f"Total Earnings: {int(sum([tup[1] for tup in data]))}₪"
-        ax = df.plot.pie(y='Amount', figsize=(5, 5), legend=False, title=title, colors=gentle_blue)
+        ax = df.plot.pie(y='Amount', figsize=(7, 5), legend=False, title=title, colors=gentle_blue)
 
         plt.savefig('Earnings.png')
 
     @staticmethod
     def plot_spendings(data: list) -> None:
-        # Do not include the date column when ploting data[:-1]
-        filtered_data = [item[:-1] for item in data]
-        df = pd.DataFrame(filtered_data, columns=["Name", "Amount", "Card", "Category"])
+
+        df = pd.DataFrame(data, columns=["Table name", "Name", "Card", "Amount", "Category", "Date"])
         df['Amount'] = df['Amount'].apply(lambda x: -x)
         df = df.groupby("Category").sum()
-        df.index = df.index.map(lambda name: f"{utils.heb_conversion(name)}\n{df.loc[name,'Amount']}")
+        df.index = df.index.map(lambda name: f"{utils.heb_conversion(name)}\n{df.loc[name,'Amount']}₪")
         gentle_orange = ['#FFF2CC', '#FFE699', '#FFD966', '#FFC533', '#FFB200', '#FFA000', '#FF8F00', '#FF8000', '#FF6B00']
-        title = f"Total Spendings: {int(sum([-tup[1] for tup in data]))}₪"
+        title = f"Total Spendings: {round(df['Amount'].sum(), 2)}₪"
 
-        ax = df.plot.pie(y='Amount', figsize=(5, 5), legend=False, title=title, colors=gentle_orange)
+        ax = df.plot.pie(y='Amount', figsize=(7, 5), legend=False, title=title, colors=gentle_orange)
 
         plt.savefig('Spendings.png')
 
@@ -107,6 +106,7 @@ class Graphics:
 
     @staticmethod
     def plot_general(df: pd.DataFrame) -> None:
+
         df.index = df.index.strftime('%B')
         df = df.reset_index()
         # Melt the dataframe to "long" format for easier plotting with Seaborn
@@ -131,3 +131,19 @@ class Graphics:
         ax.legend(title="Type", loc="upper left")
 
         plt.savefig('General_info.png')
+
+    @staticmethod
+    def card_distribution(spendings: list):
+        """
+        
+        """
+        df = pd.DataFrame(spendings, columns=["Table name", "Name", "Card", "Amount", "Category", "Date"])
+        df['Amount'] = df['Amount'].apply(lambda x: -x)
+        df = df.groupby("Card").sum()
+        df.index = df.index.map(lambda card: f"{utils.heb_conversion(card)}\n{round(df.loc[card, 'Amount'] * 100 / df['Amount'].sum(), 2)}%")
+        gentle_orange = ['#FFF2CC', '#FFE699', '#FFD966', '#FFC533', '#FFB200', '#FFA000', '#FF8F00', '#FF8000', '#FF6B00']
+        title = "Card Distribution"
+
+        ax = df.plot.pie(y='Amount', figsize=(3, 2), legend=False, title=title, colors=gentle_orange)
+
+        plt.savefig('Card_Distribution.png')

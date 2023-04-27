@@ -39,32 +39,32 @@ class SimpleMath:
             return f"{name}- {amount}"
         return f"[{card}] {name}- {-amount}"
 
-    @staticmethod
-    def get_monthly_earnings(year: int, month: int) -> Tuple[int, list]:
-        """
-        @parm year - the specified year
-        @param month - the specifeid month
-        Returns the sum of all the incoming transactions in the specified month, tuppled with
-        a list containing tupples with the name and amount of each transaction.
-        """
-        lst = DataBase().get_transactions(table="BankTransactions", year=year, month=month)
-        earnings = []
+    # @staticmethod
+    # def get_monthly_earnings(year: int, month: int) -> Tuple[int, list]:
+    #     """
+    #     @parm year - the specified year
+    #     @param month - the specifeid month
+    #     Returns the sum of all the incoming transactions in the specified month, tuppled with
+    #     a list containing tupples with the name and amount of each transaction.
+    #     """
+    #     lst = DataBase().get_transactions(table="BankTransactions", year=year, month=month)
+    #     earnings = []
 
-        for ele in lst:
-            amount = ele[5]
-            category = ele[10]
-            date = ele[2]
-            name = ele[7]
-            if name is None:
-                name = ele[4]
+    #     for ele in lst:
+    #         amount = ele[5]
+    #         category = ele[10]
+    #         date = ele[2]
+    #         name = ele[7]
+    #         if name is None:
+    #             name = ele[4]
 
-            striped = re.sub(r'\d+', '', name)
+    #         striped = re.sub(r'\d+', '', name)
 
-            if amount > 0:
-                earnings.append((striped, amount, category, date))
+    #         if amount > 0:
+    #             earnings.append((striped, amount, category, date))
 
-        total_amount = sum([tup[1] for tup in earnings])
-        return total_amount, earnings
+    #     total_amount = sum([tup[1] for tup in earnings])
+    #     return total_amount, earnings
 
     @staticmethod
     def get_monthly_spendings(year: int, month: int) -> Tuple[int, list]:
@@ -173,39 +173,46 @@ class SimpleMath:
                 "Minimum Amount":   f'{abs(min)}₪',
                 "Maximum Amount":   f'{abs(max)}₪'}
 
-    def get_monthly_shifted(self, shift: int = 5, income: bool = True):
+    @staticmethod
+    def get_monthly_shifted(shift: int = 5):
         """
-        
+        The function receives as input the number of months to calculate from this current
+        one backwards shift. And returns two lists contatining The monthly spendings and earnings of the last @shift
+        months
         """
         from dateutil.relativedelta import relativedelta
         today = datetime.now()
         spendings_lst = []
         earnings_lst = []
 
-        for i in range(0, shift - 1):
-            curr_date = (today - relativedelta(months=shift + i)).replace(day=1)
+        for i in range(0, shift):
+            curr_date = (today - relativedelta(months=i)).replace(day=1)
             y = curr_date.year
             m = curr_date.month
             spendings_lst += DataBase().get_monthly_spendings(y, m)
-            earnings_lst += DataBase().get_monthly_spendings(y, m)
+            earnings_lst += DataBase().get_monthly_earnings(y, m)
 
         return spendings_lst, earnings_lst
 
     @staticmethod
-    def general_info(earnings, spendings):
+    def general_info(data):
         """
         Receives transactions both spendings and earnings and returns a dataframe with the columns Date, spendings, earnings
         Where the Date column groups all transaction dates by month, the rest of the columns conclude the sum of transactions
         amount in each month.
         """
-        new_earnings = [(tup[0], datetime.strptime(tup[1], '%Y-%m-%d %H:%M:%S')) for tup in earnings]
-        earnings_df = pd.DataFrame(new_earnings, columns=["Amount", "Date"])
+        earnings_df = pd.DataFrame(data[1], columns=["Name", "Amount", "Category", "Date"])
+        earnings_df['Date'] = pd.to_datetime(earnings_df['Date'])
+        earnings_df = earnings_df.drop(["Name", "Category"], axis=1)
         earnings_df = earnings_df.groupby(pd.Grouper(key='Date', freq='M')).sum()
-        
-        new_spendings = [(-tup[0], datetime.strptime(tup[1], '%Y-%m-%d %H:%M:%S')) for tup in spendings]
-        spendings_df = pd.DataFrame(new_spendings, columns=["Amount", "Date"])
+
+        spendings_df = pd.DataFrame(data[0], columns=["Table name", "Name", "Card", "Amount", "Category", "Date"])
+        spendings_df['Date'] = pd.to_datetime(spendings_df['Date'])
+        spendings_df['Amount'] = spendings_df['Amount'].apply(lambda x: -x)
+        print(spendings_df.to_string())
+        spendings_df = spendings_df.drop(["Table name", "Name", "Card", "Category"], axis=1)
         spendings_df = spendings_df.groupby(pd.Grouper(key='Date', freq='M')).sum()
 
         df_merged = pd.merge(spendings_df, earnings_df, on='Date', how='left', suffixes=('_spendings', '_earnings'))
-        
+
         return df_merged

@@ -146,9 +146,9 @@ class AppManager:
         # -----
 
         monthly_balance = SimpleMath.generate_monthly_balance()
-        s_amount, spendings = SimpleMath.get_monthly_spendings(year=t.year, month=t.month)
-        e_amount, earnings = SimpleMath.get_monthly_earnings(year=t.year, month=t.month)
-        end_monthly_balance = monthly_balance - s_amount
+        spendings = DataBase().get_monthly_spendings(year=t.year, month=t.month)
+        earnings = DataBase().get_monthly_earnings(year=t.year, month=t.month)
+        end_monthly_balance = -1
         Graphics.plot_earnings(earnings)
         Graphics.plot_spendings(spendings)
 
@@ -157,12 +157,11 @@ class AppManager:
         _ = Graphics.plot_gas(cat_data)
         cat_dict = SimpleMath.cat_info(cat_data)
         Graphics.plot_monthly_gas(cat_data)
-        # -----
-        
-        df_general = SimpleMath.general_info(earnings=DataBase().get_all_transactions(shift=7),
-                                             spendings=DataBase().get_all_transactions(shift=7, income=False))
-        
+        # ----- General
+        df_general = SimpleMath.general_info(SimpleMath.get_monthly_shifted(shift=5))
         Graphics.plot_general(df_general)
+        # ----- Cards
+        Graphics.card_distribution(spendings)
 
         utils.generate_html(spendings,
                             earnings,

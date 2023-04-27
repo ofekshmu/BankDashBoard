@@ -277,24 +277,24 @@ class DataBase:
                                    FROM Transactions WHERE Category = ? """,
                                    (cat_name, cat_name)).fetchall()
 
-    def get_transactions(self, table: str, year: int, month: int):
-        """
-        The function will query all the records from the given month from the given
-        table @table. Table = "BankTransactions" for the BankTransaction table and any
-        other string for the Transaction table.
+    # def get_transactions(self, table: str, year: int, month: int):
+    #     """
+    #     The function will query all the records from the given month from the given
+    #     table @table. Table = "BankTransactions" for the BankTransaction table and any
+    #     other string for the Transaction table.
 
-        @param year - the year in format 20XX
-        @param month - the month in format XX
-        @param table - the table to query.
-        """
-        import calendar
-        last_day = calendar.monthrange(year, month)[1]
-        day1 = datetime(year, month, 1).strftime('%Y-%m-%d %H:%M:%S')
-        day2 = datetime(year, month, last_day).strftime('%Y-%m-%d %H:%M:%S')
-        if table == "BankTransactions":
-            return self.cursor.execute("select * from BankTransactions where date >= ? and date <= ?", (day1, day2)).fetchall()
-        else:
-            return self.cursor.execute("select * from Transactions where charge_date >= ? and charge_date <= ?", (day1, day2)).fetchall()
+    #     @param year - the year in format 20XX
+    #     @param month - the month in format XX
+    #     @param table - the table to query.
+    #     """
+    #     import calendar
+    #     last_day = calendar.monthrange(year, month)[1]
+    #     day1 = datetime(year, month, 1).strftime('%Y-%m-%d %H:%M:%S')
+    #     day2 = datetime(year, month, last_day).strftime('%Y-%m-%d %H:%M:%S')
+    #     if table == "BankTransactions":
+    #         return self.cursor.execute("select * from BankTransactions where date >= ? and date <= ?", (day1, day2)).fetchall()
+    #     else:
+    #         return self.cursor.execute("select * from Transactions where charge_date >= ? and charge_date <= ?", (day1, day2)).fetchall()
 
     def get_monthly_earnings(self, year: int, month: int) -> list[Tuple[str, int, str, str]]:
         """
@@ -312,11 +312,16 @@ class DataBase:
                                     SELECT Source_Dest, Amount, Category, Date
                                     FROM BankTransactions
                                     WHERE date >= ?
-                                    AND date <= ?""", (day1, day2)).fetchall()
+                                    AND date <= ?
+                                    AND Amount > 0""", (day1, day2)).fetchall()
     
     def get_monthly_spendings(self, year: int, month: int) -> list[Tuple[str, int, str, str]]:
         """
+        The function will return a list containing all spendings made in the current month given.
+        Spendings can be given from both BankTranssactions table of Transactions table.
+        Template is: (Table name, Name, Card, Amount, Category, Date)
 
+        For transaction Taken from the BankTransactions; card will appear as 'Bank'
         """
         import calendar
         
@@ -343,15 +348,14 @@ class DataBase:
                                     WHERE date >= ?
                                     AND date <= ?
                                     AND amount < 0
+                                    AND Category != ?
                                     UNION ALL
                                     SELECT 'Transactions' AS source_table, business_name, cardID,
                                     Amount, Category, transaction_date
                                     FROM Transactions
-                                    WHERE charge_date >= ?
-                                    AND charge_date <= ?
-                                    AND""", (b_init, b_end, bt_init, bt_end)).fetchall()
-
-
+                                    WHERE transaction_date >= ?
+                                    AND transaction_date <= ?
+                                    """, (b_init, b_end, "אשראי", b_init, b_end,)).fetchall()
 
     def get_all_transactions(self, shift: int = 5, income: bool = True):
         """

@@ -209,7 +209,6 @@ class SimpleMath:
         spendings_df = pd.DataFrame(data[0], columns=["Table name", "Name", "Card", "Amount", "Category", "Date"])
         spendings_df['Date'] = pd.to_datetime(spendings_df['Date'])
         spendings_df['Amount'] = spendings_df['Amount'].apply(lambda x: -x)
-        print(spendings_df.to_string())
         spendings_df = spendings_df.drop(["Table name", "Name", "Card", "Category"], axis=1)
         spendings_df = spendings_df.groupby(pd.Grouper(key='Date', freq='M')).sum()
 

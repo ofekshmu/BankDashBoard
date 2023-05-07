@@ -137,6 +137,15 @@ class utils:
 
         # ----------
         div = soup.new_tag('div')
+        div['class'] = 'container_img'
+
+        img = soup.new_tag('img')
+        img['src'] = 'C:/Users/ofeks/OneDrive/Work/Projects/Personal/BankProject/Card_Distribution.png'
+
+        div.append(img)
+        soup.body.insert(5, div)
+        # ----------
+        div = soup.new_tag('div')
         div['class'] = 'container'
         table = soup.new_tag("div")
         table['class'] = 'list'
@@ -145,7 +154,7 @@ class utils:
         table2['class'] = 'list'
         div.append(table2)
 
-        soup.body.insert(5, div)
+        soup.body.insert(6, div)
 
         for item in sorted(spendings, key=lambda x: x[-1]):
             row = soup.new_tag("div")

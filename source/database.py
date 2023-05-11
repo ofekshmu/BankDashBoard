@@ -93,9 +93,9 @@ class DataBase:
         '''
         self.cursor.execute(f"""
             INSERT INTO BankTransactions
-            (Ref, Date, Date_value, Source_Dest, Amount, Balance, Description, source_file, Ex_description)
-            VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (ref, date, date_value, source_dest, amount, balance, desc, source_file, '')
+            (Ref, Date, Date_value, Source_Dest, Amount, Balance, Description, source_file, Ex_description, Category)
+            VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (ref, date, date_value, source_dest, amount, balance, desc, source_file, '', 'Uncategorized')
             )
 
     def insert_table_meta_data(self,
@@ -145,12 +145,12 @@ class DataBase:
 
         query = """ INSERT INTO Transactions
                     (cardID, transaction_date, business_name, amount, transaction_type, charge_date, charge_amount,
-                        source_file, description)
-                    VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        source_file, description, Category)
+                    VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """
         self.cursor.execute(query,
                             (cardID, transaction_date, business_name, amount, transaction_type, charge_date,
-                                charge_amount, source_file, ''))
+                                charge_amount, source_file, '', 'Uncategorized'))
 
     def insert_file(self,
                     name: str,
@@ -348,7 +348,7 @@ class DataBase:
                                     WHERE date >= ?
                                     AND date <= ?
                                     AND amount < 0
-                                    AND Category != ?
+                                    AND (Category != ? OR Category IS NULL)
                                     UNION ALL
                                     SELECT 'Transactions' AS source_table, business_name, cardID,
                                     Amount, Category, transaction_date
@@ -435,14 +435,14 @@ class DataBase:
                                     SELECT 'BankTransactions' as TableName,
                                     ID, Date, Source_Dest, Amount, Description
                                     FROM BankTransactions
-                                    WHERE Category IS NULL
+                                    WHERE (Category IS NULL OR Category IS Uncategorized)
                                     ORDER BY ID DESC
                                     """).fetchall()
         res2 = self.cursor.execute("""
                                     SELECT 'Transactions' as TableName,
                                     ID, transaction_date, business_name, amount, transaction_type
                                     FROM Transactions
-                                    WHERE Category IS NULL
+                                    WHERE (Category IS NULL OR Category IS Uncategorized)
                                     ORDER BY ID DESC
                                     """).fetchall()
         

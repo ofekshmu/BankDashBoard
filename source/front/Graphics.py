@@ -17,6 +17,7 @@ class Graphics:
         gentle_blue = ['#BFD7EA', '#A5C6DB', '#8BB5CC', '#7194BD', '#577DAE', '#3D5C9F', '#233D90']
         title = f"Total Earnings: {int(sum([tup[1] for tup in data]))}₪"
         ax = df.plot.pie(y='Amount', figsize=(7, 5), legend=False, title=title, colors=gentle_blue)
+        ax.set_ylabel('')
 
         plt.savefig('Earnings.png')
 
@@ -32,6 +33,7 @@ class Graphics:
             title = f"Total Spendings: {round(df['Amount'].sum(), 2)}₪"
 
             ax = df.plot.pie(y='Amount', figsize=(7, 5), legend=False, title=title, colors=gentle_orange)
+            ax.set_ylabel('')
 
         else:
             _, ax = plt.subplots()
@@ -153,9 +155,12 @@ class Graphics:
             title = "Card Distribution"
 
             ax = df.plot.pie(y='Amount', figsize=(3, 2), legend=False, title=title, colors=gentle_orange)
+            ax.set_ylabel('')
+
         else:
             _, ax = plt.subplots()
             ax.pie([], labels=[])
+            ax.set_ylabel('')
             # set the title of the plot
             ax.set_title('Empty Pie Chart')
             

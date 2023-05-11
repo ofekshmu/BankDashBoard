@@ -246,7 +246,7 @@ class utils:
         """
         st = msg
         for idx, e in enumerate(options, start=0):
-            st += f"{idx} -> {utils.heb_conversion(e)}\n"
+            st += f"\t{idx} -> {utils.heb_conversion(e)}\n"
         utils.log(st, 'system')
 
         while True:
@@ -263,7 +263,7 @@ class utils:
         """
         
         """
-        utils.log("Choose one of the existsing categories:")
+        #utils.log("Choose one of the existsing categories:")
         cat_lst = json.load(open(Local.CATE_JSON_PATH, encoding='utf-8'))
         options = cat_lst + ["Create a new category", "Skip"]
         res = utils.template_menu(options)

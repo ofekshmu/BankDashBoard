@@ -206,16 +206,34 @@ class utils:
             table2.append(row)
 
         # ----------
+
+        
         div = soup.new_tag("div")
+        div["class"] = 'gas-info'
         title = soup.new_tag("h3")
         title.string = "Gas info"
         div.append(title)
 
-        lst = gas_stats.__repr__().split("\n")[:-1]
-        for k, v in gas_stats.items():
-            p = soup.new_tag("p")
-            p.string = f"{k}: {v}"
-            div.append(p)
+        table = soup.new_tag("table")
+
+        for key, value in gas_stats.items():
+            tr = soup.new_tag("tr")
+            td1 = soup.new_tag("td")
+            td1.string = key + ":"
+            td2 = soup.new_tag("td")
+            td2.string = str(value)
+            td2['style'] = 'padding-left: 15px;'
+            tr.append(td1)
+            tr.append(td2)
+            table.append(tr)
+
+        div.append(table)
+
+        # lst = gas_stats.__repr__().split("\n")[:-1]
+        # for k, v in gas_stats.items():
+        #     p = soup.new_tag("p")
+        #     p.string = f"{k}: {v}"
+        #     div.append(p)
 
         outer_div = soup.new_tag("div")
         outer_div['class'] = 'container_img'

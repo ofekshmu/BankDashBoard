@@ -139,4 +139,21 @@ html {
 	width: 50%; /* make each list take up 50% of the container */
 
   }
+  .gas-info {
+	margin-bottom: 20px;
+	border: 1px solid #ccc;
+	padding: 10px;
+  }
+  
+  .gas-info h3 {
+	font-size: 1.5em;
+	color: #333;
+	text-align: center;
+  }
+  
+  .gas-info p {
+	margin: 15px 0;
+	font-size: 1.4em;
+	color: #666;
+  }
   

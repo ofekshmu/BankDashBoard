@@ -54,7 +54,7 @@ class Graphics:
         df['Date'] = pd.to_datetime(df['Date'])
         statistics = df['Amount'].describe().loc[["count", "mean", "std", "min", "max"]]
 
-        start_date = pd.Timestamp.today().normalize() - pd.DateOffset(months=2, days=20)
+        start_date = pd.Timestamp.today().normalize() - pd.DateOffset(months=2, days=0)
         end_date = pd.Timestamp.today().normalize()
         all_dates = pd.date_range(start=start_date, end=end_date, freq='D')
         df_all_dates = pd.DataFrame({'Date': all_dates})
@@ -80,7 +80,7 @@ class Graphics:
                         ha='center', va='bottom')
 
         # rotate x-axis labels by 45 degrees
-        ax.set_xticklabels(df_merged.index.strftime('%d/%m'), rotation=45)
+        ax.set_xticklabels(df_merged.index.strftime('%d/%m'), rotation=55)
 
         # set the x-axis label
         ax.set_xlabel('Date (dd/mm)')

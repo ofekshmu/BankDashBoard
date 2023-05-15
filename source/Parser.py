@@ -72,12 +72,12 @@ class Parser():
                         return True
                 return False
 
-            for name in listdir(Local.XLSX_PATH):
-                cond1 = isfile(join(Local.XLSX_PATH, name))
+            for name in listdir(Local.INPUT_FOLDER):
+                cond1 = isfile(join(Local.INPUT_FOLDER, name))
                 cond2 = name.endswith(Local.EXTENSION_1)
                 cond3 = name.endswith(Local.EXTENSION_2)
-                # Add another extention here if needed.
-                if cond1 and (cond2 or cond3):
+                cond4 = name.endswith(Local.EXTENSION_3)
+                if cond1 and (cond2 or cond3 or cond4):
                     file_type = self.__identify(name)
 
                     if is_exists(name, file_type):
@@ -115,7 +115,7 @@ class Parser():
             for dict in self.type_to_name.values():
                 self.names += list(dict.keys())
 
-            utils.log(f"found {len(self.names)} files in {Local.XLSX_PATH}", 'system')
+            utils.log(f"found {len(self.names)} files in {Local.INPUT_FOLDER}", 'system')
 
     def __next__(self):
         """

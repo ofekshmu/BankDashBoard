@@ -165,7 +165,7 @@ class SimpleMath:
             months -= 1
         # --------------------------------------------------------------------------------------
 
-        return {"Total Spent:":     f'{abs(round(sum, 2))}₪',
+        return {"Total Spent":     f'{abs(round(sum, 2))}₪',
                 "Total Activity":   int(count),
                 "Activity Mean":    f'{abs(round(sum / series.loc["count"], 2))}₪',
                 "Monthly Mean":     f'{round(abs(sum / months), 2)}₪',

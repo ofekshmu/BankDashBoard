@@ -12,3 +12,6 @@ setup.cfg
 *.cmd
 *.png
 *.html
+*csv
+categories.json
+output.html

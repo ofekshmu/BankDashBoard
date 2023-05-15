@@ -1,3 +1,10 @@
+########################################################################
+#                             CONFIG FILE
+#
+#  Mind that on WINDOWS OS, all slashes are as follows: /
+#
+########################################################################
+
 import json
 
 
@@ -12,24 +19,20 @@ class Local:
     '''
     Include all local enviroment related valriables
     '''
-    if Settings.LAPTOP:
-        XLSX_PATH = 'C:/Users/Ofek Shmuel/OneDrive/Work/Projects/Personal/BankProject/Inputs'
-        Personal_PATH = 'C:/Users/Ofek Shmuel/OneDrive/Work/Projects/Personal/BankProject/personal information/personal_config.json'
-    else:
-        XLSX_PATH = 'C:/Users/ofeks/OneDrive/Work/Projects/Personal/BankProject/Inputs'
-        # XLSX_PATH = 'C:/Users/ofeks/Desktop/excel'
-        Personal_PATH = 'C:/Users/ofeks/OneDrive/Work/Projects/Personal/BankProject/personal information/personal_config.json'
 
-    CATE_JSON_PATH = 'personal information/categories.json'
+    INPUT_FOLDER = 'Inputs Yuval'
+    PERSONAL_CONFIG = 'Yuvals personal information/personal_config.json'
+
+    CATE_JSON_PATH = 'Yuvals personal information/categories.json'
     EXTENSION_1 = '.xls'
-    EXTENSION_2 = '.xlsx'
-
-    GAS_GRAPH = "C:/Users/ofeks/OneDrive/Work/Projects/Personal/BankProject/Gas_Stats.png"
-    GAS_MONTHLY = "C:/Users/ofeks/OneDrive/Work/Projects/Personal/BankProject/Gas_monthly.png"
-    GENERAL_INFO = "C:/Users/ofeks/OneDrive/Work/Projects/Personal/BankProject/General_info.png"
+    EXTENSION_2 = '.csv'
+    EXTENSION_3 = ''  # Add another extension option here if needed or leave as an empty string.
+    
+    # GAS_GRAPH = "C:/Users/ofeks/OneDrive/Work/Projects/Personal/BankProject/Gas_Stats.png"
+    # GAS_MONTHLY = "C:/Users/ofeks/OneDrive/Work/Projects/Personal/BankProject/Gas_monthly.png"
+    # GENERAL_INFO = "C:/Users/ofeks/OneDrive/Work/Projects/Personal/BankProject/General_info.png"
 
     # Validation
-    VISA_KEY_WORDS = ["לאומי ויזה", "מקס איט פיננ-י"]
     CHARGE_DAY = 2
 
 
@@ -38,8 +41,8 @@ class Personal:
     All constants in this class are taken from the personal_config.json
     which is only avaliable in the local repository.
     '''
-    BANK_ACC = json.load(open(Local.Personal_PATH, encoding='utf-8'))['bank_account']
-    BANK_ACC_VisaFile = json.load(open(Local.Personal_PATH, encoding='utf-8'))['bank_account_visa_file']
+    BANK_ACC = json.load(open(Local.PERSONAL_CONFIG, encoding='utf-8'))['bank_account']
+    BANK_ACC_VisaFile = json.load(open(Local.PERSONAL_CONFIG, encoding='utf-8'))['bank_account_visa_file']
 
 
 class InnerCredit:

@@ -206,8 +206,6 @@ class utils:
             table2.append(row)
 
         # ----------
-
-        
         div = soup.new_tag("div")
         div["class"] = 'gas-info'
         title = soup.new_tag("h3")
@@ -228,12 +226,6 @@ class utils:
             table.append(tr)
 
         div.append(table)
-
-        # lst = gas_stats.__repr__().split("\n")[:-1]
-        # for k, v in gas_stats.items():
-        #     p = soup.new_tag("p")
-        #     p.string = f"{k}: {v}"
-        #     div.append(p)
 
         outer_div = soup.new_tag("div")
         outer_div['class'] = 'container_img'

@@ -104,7 +104,7 @@ class InnerCreditFile(File):
             return self.sorted_names[idx - 1]
 
         def read_sheet(file_name: str) -> Sheet:
-            wb = xw.Book(join(Local.XLSX_PATH, file_name))
+            wb = xw.Book(join(Local.INPUT_FOLDER, file_name))
             return wb.sheets[0]
 
         def onion(lst):

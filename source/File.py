@@ -34,7 +34,7 @@ class File:
         self.headers = headers
 
         try:
-            wb = xw.Book(join(Local.XLSX_PATH, self.name))
+            wb = xw.Book(join(Local.INPUT_FOLDER, self.name))
             self.sheet = wb.sheets[0]
         except Exception as e:
             utils.log(f"Original error: {str(e)}\nFile read Failed!\nFile name: {self.name}\
@@ -51,7 +51,7 @@ class File:
         file_name: a string indicating the name of the file
         '''
         try:
-            wb = xw.Book(join(Local.XLSX_PATH, self.name))
+            wb = xw.Book(join(Local.INPUT_FOLDER, self.name))
             self.sheet = wb.sheets[0]
             return True
         except Exception as e:
@@ -148,7 +148,7 @@ class File:
             return self.sorted_names[idx - 1]
 
         def read_sheet(file_name: str) -> Sheet:
-            wb = xw.Book(join(Local.XLSX_PATH, file_name))
+            wb = xw.Book(join(Local.INPUT_FOLDER, file_name))
             return wb.sheets[0]
 
         # def check_payment_string(s: str) -> bool:

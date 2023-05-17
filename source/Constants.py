@@ -6,6 +6,7 @@
 ########################################################################
 
 import json
+from enum import Enum
 
 
 class Settings:
@@ -13,6 +14,13 @@ class Settings:
     SYSTEM = True
     WARNING = True
     LAPTOP = False
+
+
+class Method(Enum):
+    FILE_NAME = 1
+    CELL = 2
+    HEADERS = 3
+    NONE = 4
 
 
 class Local:
@@ -34,6 +42,17 @@ class Local:
 
     # Validation
     CHARGE_DAY = 2
+
+    # File Identification
+
+    FORMAT1_METHOD = Method.HEADERS
+    INFO1 = ""
+
+    FORMAT2_METHOD = Method.CELL
+    INFO2 = ("B2", "TEST")
+
+    FORMAT3_METHOD = Method.NONE
+    INFO3 = ""
 
 
 class Personal:

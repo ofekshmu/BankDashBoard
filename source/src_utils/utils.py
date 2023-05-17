@@ -1,5 +1,7 @@
-from Constants import Settings, Local
+from Constants import Settings, Local, Method
 import json
+import xlwings as xw
+from os.path import join
 
 
 class utils:
@@ -290,3 +292,15 @@ class utils:
                     continue
 
         return options[res]
+
+    @staticmethod
+    def id_method(method_type: Method, info: str, file_name: str):
+        match method_type:
+            case Method.FILE_NAME:
+                return info in file_name
+            case Method.HEADERS:
+                pass
+            case Method.CELL:
+                (location, value) = info
+                wb = xw.Book(join(Local.INPUT_FOLDER, file_name))
+                return wb.sheets[0][location].value == value

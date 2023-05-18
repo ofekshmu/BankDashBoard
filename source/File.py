@@ -5,8 +5,6 @@ import xlwings as xw
 from xlwings import Sheet
 from os.path import join
 from typing import Union
-from datetime import datetime
-from Constants import BankTransactions
 from database import DataBase
 
 
@@ -74,6 +72,7 @@ class File:
         The function validates the table headers in the file.
         The values of the headers and the initial row are given in the Constants.py.
         '''
+        # Looks for the headers in a @err area of the given estimated
         err = 2
         for i in range(self.initial_row - err, self.initial_row + err):
             valid = True

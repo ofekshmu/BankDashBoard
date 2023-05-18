@@ -2,6 +2,8 @@ from Constants import Settings, Local, Method
 import json
 import xlwings as xw
 from os.path import join
+from xlwings import Sheet
+from typing import Union
 
 
 class utils:
@@ -294,13 +296,52 @@ class utils:
         return options[res]
 
     @staticmethod
-    def id_method(method_type: Method, info: str, file_name: str):
+    def __is_headers_valid(file_name: str) -> bool:
+        '''
+        The function validates the table headers in the file.
+        The values of the headers and the initial row are given in the Constants.py.
+        '''
+        wb = xw.Book(join(Local.INPUT_FOLDER, file_name))
+        sheet = wb.sheets[0]
+        # Looks for the headers in the first 10 rows of the file
+        for i in range(10):
+            valid = True
+            col = 0
+            row = i
+            for name in self.headers:
+                value = utils.cell(row, col, sheet)
+                if not value == name:
+                    valid = False
+                    break
+                col += 1
+            if valid:
+                if row != self.initial_row:
+                    utils.log(f"\n\tHeaders were found at line {row}, Not in {self.initial_row} as specified.", "warning")
+                self.initial_row = row
+                return True
+        return False        
+
+    @staticmethod
+    def cell(row: int, col: int, sheet: Sheet) -> Union[str, None]:
+        '''
+        Returns the value of the cell with indexes [row, col]
+        '''
+        if row >= 0 and col >= 0:
+            return sheet[f'{chr(65 + col)}{row}'].value
+        else:
+            utils.log(f"Invalid indexes -> ({row}, {col})", "error")
+            return ""
+        
+    @staticmethod
+    def id_method(method_type: Method, info, file_name: str) -> bool:
         match method_type:
             case Method.FILE_NAME:
                 return info in file_name
             case Method.HEADERS:
-                pass
+                return utils.__is_headers_valid(file_name)
             case Method.CELL:
                 (location, value) = info
                 wb = xw.Book(join(Local.INPUT_FOLDER, file_name))
                 return wb.sheets[0][location].value == value
+        utils.log(f"Bad Mehtod type: [{method_type}]", "error")
+        return False

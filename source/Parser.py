@@ -142,12 +142,12 @@ class Parser():
         Grouping is made according to key words found in it's name.
         """
         res = None
-
-        if InnerCredit.SUB_STRING in file_name:
+        from Constants import Method
+        if utils.id_method(Local.FORMAT1_METHOD, Local.INFO1, file_name):
             res = InnerCreditFile
-        elif OuterCredit.SUB_STRING in file_name:
+        elif utils.id_method(Local.FORMAT2_METHOD, Local.INFO2, file_name):
             res = OuterCreditFile
-        elif BankTransactions.SUB_STRING in file_name:
+        elif utils.id_method(Local.FORMAT3_METHOD, Local.INFO3, file_name):
             res = BankTransactionsFile
         else:
             utils.log(f"The file name: {file_name} does not contain a known string.", 'error')

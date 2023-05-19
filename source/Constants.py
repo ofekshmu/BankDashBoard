@@ -28,31 +28,20 @@ class Local:
     Include all local enviroment related valriables
     '''
 
-    INPUT_FOLDER = 'Inputs Yuval'
-    PERSONAL_CONFIG = 'Yuvals personal information/personal_config.json'
+    INPUT_FOLDER = 'Inputs'
+    PERSONAL_CONFIG = 'personal information/personal_config.json'
 
-    CATE_JSON_PATH = 'Yuvals personal information/categories.json'
+    CATE_JSON_PATH = 'personal information/categories.json'
     EXTENSION_1 = '.xls'
-    EXTENSION_2 = '.csv'
+    EXTENSION_2 = '.xlsx'
     EXTENSION_3 = ''  # Add another extension option here if needed or leave as an empty string.
     
-    # GAS_GRAPH = "C:/Users/ofeks/OneDrive/Work/Projects/Personal/BankProject/Gas_Stats.png"
-    # GAS_MONTHLY = "C:/Users/ofeks/OneDrive/Work/Projects/Personal/BankProject/Gas_monthly.png"
-    # GENERAL_INFO = "C:/Users/ofeks/OneDrive/Work/Projects/Personal/BankProject/General_info.png"
+    GAS_GRAPH = "C:/Users/ofeks/OneDrive/Work/Projects/Personal/BankProject/Gas_Stats.png"
+    GAS_MONTHLY = "C:/Users/ofeks/OneDrive/Work/Projects/Personal/BankProject/Gas_monthly.png"
+    GENERAL_INFO = "C:/Users/ofeks/OneDrive/Work/Projects/Personal/BankProject/General_info.png"
 
     # Validation
     CHARGE_DAY = 2
-
-    # File Identification
-
-    FORMAT1_METHOD = Method.HEADERS
-    INFO1 = ""
-
-    FORMAT2_METHOD = Method.CELL
-    INFO2 = ("B2", "TEST")
-
-    FORMAT3_METHOD = Method.NONE
-    INFO3 = ""
 
 
 class Personal:
@@ -64,7 +53,14 @@ class Personal:
     BANK_ACC_VisaFile = json.load(open(Local.PERSONAL_CONFIG, encoding='utf-8'))['bank_account_visa_file']
 
 
-class InnerCredit:
+class File:
+    pass
+
+
+class InnerCredit(File):
+
+    FORMAT_METHOD = Method.FILE_NAME
+    INFO = ""
 
     SUB_STRING = "לאומי-פירוט העסקאות בכרטיסי האשראי"
     DATE_LOC = 'B5'
@@ -84,7 +80,11 @@ class InnerCredit:
     TABLE_SKIP = 3  # Number of rows between trasnactions
 
 
-class OuterCredit:
+class OuterCredit(File):
+
+    FORMAT_METHOD = Method.FILE_NAME
+    INFO = ("B2", "TEST")
+
     SUB_STRING = "transaction-details_export"
     HEADERS = ["תאריך עסקה",
                "שם בית העסק",
@@ -108,7 +108,12 @@ class OuterCredit:
     TABLE_SKIP = 0
 
 
-class BankTransactions:
+class BankTransactions(File):
+
+    FORMAT_METHOD = Method.FILE_NAME
+    INFO = ""
+
+
     SUB_STRING = "תנועות בחשבון"
     DATE = "A3"
     BANK_NUM_LOC = "A2"

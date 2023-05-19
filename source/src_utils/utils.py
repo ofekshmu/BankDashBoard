@@ -24,7 +24,7 @@ class utils:
                     log_st += f"[SYSTEM]: {msg}"
             case 'error':
                 write = True
-                log_st += f"{70*'-'}\n[ERROR]: {msg}{70*'-'}\n"
+                log_st += f"{100*'-'}\n[ERROR]: {msg}\n{100*'-'}\n"
             case 'db':
                 write = True
                 log_st += f"[DataBase]: {msg}"
@@ -44,7 +44,7 @@ class utils:
             print(log_st, end=e)
 
         if category == "error":
-            raise ValueError("\nBreaking code...")
+            exit()
         # if category == 'warning':
         #     utils.warning_halt()
 
@@ -296,7 +296,7 @@ class utils:
         return options[res]
 
     @staticmethod
-    def __is_headers_valid(file_name: str) -> bool:
+    def __is_headers_valid(file_name: str, cls) -> bool:
         '''
         The function validates the table headers in the file.
         The values of the headers and the initial row are given in the Constants.py.
@@ -308,18 +308,18 @@ class utils:
             valid = True
             col = 0
             row = i
-            for name in self.headers:
+            for name in cls.HEADERS:
                 value = utils.cell(row, col, sheet)
                 if not value == name:
                     valid = False
                     break
                 col += 1
             if valid:
-                if row != self.initial_row:
+                if row != cls.INITIAL_ROW:
                     utils.log(f"\n\tHeaders were found at line {row}, Not in {self.initial_row} as specified.", "warning")
-                self.initial_row = row
+                cls.INITIAL_ROW = row
                 return True
-        return False        
+        return False
 
     @staticmethod
     def cell(row: int, col: int, sheet: Sheet) -> Union[str, None]:
@@ -331,17 +331,17 @@ class utils:
         else:
             utils.log(f"Invalid indexes -> ({row}, {col})", "error")
             return ""
-        
+
     @staticmethod
-    def id_method(method_type: Method, info, file_name: str) -> bool:
-        match method_type:
+    def id_method(cls, file_name: str) -> bool:
+        match cls.FORMAT_METHOD:
             case Method.FILE_NAME:
-                return info in file_name
+                return cls.SUB_STRING in file_name
             case Method.HEADERS:
-                return utils.__is_headers_valid(file_name)
+                return utils.__is_headers_valid(file_name, cls)
             case Method.CELL:
-                (location, value) = info
+                (location, value) = cls.INFO
                 wb = xw.Book(join(Local.INPUT_FOLDER, file_name))
                 return wb.sheets[0][location].value == value
-        utils.log(f"Bad Mehtod type: [{method_type}]", "error")
+        utils.log(f"Bad Mehtod type: [{cls.FORMAT_METHOD}]", "error")
         return False

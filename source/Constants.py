@@ -23,10 +23,16 @@ class Method(Enum):
     NONE = 4
 
 
+class Sortion(Enum):
+    BY_NAME_SERIAL = 1
+    BY_NAME_DATE = 2
+
+
 class Local:
     '''
     Include all local enviroment related valriables
     '''
+    DB_NAME = "databse"
 
     INPUT_FOLDER = 'Inputs'
     PERSONAL_CONFIG = 'personal information/personal_config.json'
@@ -62,6 +68,8 @@ class InnerCredit(File):
     FORMAT_METHOD = Method.FILE_NAME
     INFO = ""
 
+    SORTION = Sortion.BY_NAME_DATE
+
     SUB_STRING = "לאומי-פירוט העסקאות בכרטיסי האשראי"
     DATE_LOC = 'B5'
     BANK_NUM_LOC = 'B3'
@@ -84,6 +92,8 @@ class OuterCredit(File):
 
     FORMAT_METHOD = Method.FILE_NAME
     INFO = ("B2", "TEST")
+    
+    SORTION = Sortion.BY_NAME_SERIAL
 
     SUB_STRING = "transaction-details_export"
     HEADERS = ["תאריך עסקה",
@@ -112,7 +122,8 @@ class BankTransactions(File):
 
     FORMAT_METHOD = Method.FILE_NAME
     INFO = ""
-
+    
+    SORTION = Sortion.BY_NAME_DATE
 
     SUB_STRING = "תנועות בחשבון"
     DATE = "A3"

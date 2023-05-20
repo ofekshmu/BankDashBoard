@@ -1,6 +1,6 @@
 from os import listdir
 from os.path import isfile, join
-from Constants import InnerCredit, OuterCredit, BankTransactions
+from Constants import InnerCredit, OuterCredit, BankTransactions, Sortion
 from OuterCreditFile import OuterCreditFile
 from InnerCreditFile import InnerCreditFile
 from BankTransactionsFile import BankTransactionsFile
@@ -80,6 +80,7 @@ class Parser():
                 if cond1 and (cond2 or cond3 or cond4):
                     file_type = self.__identify(name)
 
+                    # Sanity check - Written with blood
                     if is_exists(name, file_type):
                         utils.log(f"""The file '{utils.name_he(name)}' exists with a different extensions.
             What do you want to do?
@@ -95,10 +96,7 @@ class Parser():
                         else:
                             utils.log('Bad input!', 'error')
 
-                    if file_type == OuterCreditFile:
-                        value = to_num(name)
-                    else:
-                        value = to_date(name)
+                    value = self.__extract_sortion_key(file_type, name)
 
                     if file_type in self.type_to_name.keys():
                         self.type_to_name[file_type][name] = value
@@ -159,3 +157,24 @@ class Parser():
         The names are Sorted by recency.
         """
         return [k for k in self.type_to_name[obj_class].keys()]
+
+    def __extract_sortion_key(self, file_type, name: str):
+        """
+        Receives a file name and type And Extracts the specified sorting element
+        suited for the file type.
+        In case of an outercredit file The serial number in the file name will be returned.
+        Otherwise, the date in the file name will be retruned.
+        """
+        import re
+        match file_type.SORTION:
+            case Sortion.BY_NAME_SERIAL:
+                num_str = re.search("_\d{1,}", name).group()
+                return num_str[1:]
+            case Sortion.BY_NAME_DATE:
+                try:
+                    date_str = re.search("\w{1,2}_\w{1,2}_\w{4}", name).group()
+                except Exception as e:
+                    utils.log(f"The file named {utils.name_he(name)} is of unknown format.", "error")
+                date = date_str.split("_")
+                import datetime
+                return datetime.datetime(int(date[2]), int(date[1]), int(date[0]))            

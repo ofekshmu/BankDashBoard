@@ -10,7 +10,7 @@ from enum import Enum
 
 
 class Settings:
-    DEBUG = False
+    DEBUG = True
     SYSTEM = True
     WARNING = True
     LAPTOP = False
@@ -71,8 +71,8 @@ class InnerCredit(File):
     SORTION = Sortion.BY_NAME_SERIAL
 
     SUB_STRING = "לאומי-פירוט העסקאות בכרטיסי האשראי"
-    DATE_LOC = 'B5'
-    BANK_NUM_LOC = 'B3'
+    DATE_LOC = None
+    BANK_NUM_LOC = None
     HEADERS = ["תאריך עסקה",
                "שם  העסק",
                "סכום עסקה",
@@ -121,8 +121,8 @@ class BankTransactions(File):
     SORTION = Sortion.BY_NAME_DATE
 
     SUB_STRING = "תנועות בחשבון"
-    DATE = "A3"
-    BANK_NUM_LOC = "A2"
+    DATE = None
+    BANK_NUM_LOC = None
     HEADERS = ['תאריך',
                'תאריך ערך',
                'תיאור',

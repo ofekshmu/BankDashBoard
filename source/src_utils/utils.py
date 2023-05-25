@@ -33,7 +33,7 @@ class utils:
                 log_st += f'{msg}'
             case 'warning':
                 write = True
-                log_st += f"<[WARNING]>: {msg}"
+                log_st += f"\n<[WARNING]>: {msg}\n"
             case other:
                 utils.log(msg="Key error in function 'temp'", category='error')
 
@@ -319,7 +319,7 @@ class utils:
                 col += 1
             if valid:
                 if row != cls.INITIAL_ROW:
-                    utils.log(f"\n\tHeaders were found at line {row}, Not in {self.initial_row} as specified.", "warning")
+                    utils.log(f"Headers were found at line {row}, Not in {cls.INITIAL_ROW} as specified.", "warning")
                 cls.INITIAL_ROW = row
                 return True
         utils.log("Header Validation Failed", "debug")

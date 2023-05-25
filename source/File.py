@@ -62,6 +62,8 @@ class File:
         The function validates the Bank account specified in the file.
         The cell indicating the number is specified trough the Constants.py
         '''
+        if self.bank_num_loc is None:
+            return True
         value = self.sheet[self.bank_num_loc].value
         if Personal.BANK_ACC in value:
             return True
@@ -74,22 +76,22 @@ class File:
         '''
         # Looks for the headers in a @err area of the given estimated
         err = 2
-        for i in range(self.initial_row - err, self.initial_row + err):
-            valid = True
-            col = 0
-            row = i
-            for name in self.headers:
-                utils.log(f'row number = {row}, col = {col}, name = {name[::-1]}', 'debug')
-                value = File.cell(row, col, self.sheet)
-                if not value == name:
-                    valid = False
-                    break
-                col += 1
-            if valid:
-                if row != self.initial_row:
-                    utils.log(f"\n\tHeaders were found at line {row}, Not in {self.initial_row} as specified.", "warning")
-                self.initial_row = row
-                return True
+        for row in range(self.initial_row - err, self.initial_row + err):
+            for i in range(0, 5):
+                valid = True
+                col = i
+                for name in self.headers:
+                    utils.log(f'(FILE/Validate_headers) row number = {row}, col = {col}, name = {name[::-1]}', 'debug')
+                    value = File.cell(row, col, self.sheet)
+                    if not value == name:
+                        valid = False
+                        break
+                    col += 1
+                if valid:
+                    if row != self.initial_row:
+                        utils.log(f"Headers were found at line {row}, Not in {self.initial_row} as specified.", "warning")
+                    self.initial_row = row
+                    return True
         return False
 
     @abstractmethod

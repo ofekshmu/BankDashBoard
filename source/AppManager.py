@@ -33,7 +33,7 @@ class AppManager:
         match answer:
             case 1:
                 self.load_data()
-                self.tag_data()
+                # self.tag_data()
             case 2:
                 self.analysis()
             case 3:

@@ -44,37 +44,35 @@ class DataBase:
                 );""")
 
             cls.__instance.cursor.execute("""
-                CREATE TABLE IF NOT EXISTS BankTransactions (
-                ID                  INTEGER        PRIMARY KEY ,
-                Ref                 CHAR        NOT NULL    ,
-                Date                DATE        NOT NULL    ,
-                Date_value          DATE        NOT NULL    ,
-                Source_Dest         CHAR        NOL NULL    ,
-                Amount              INT         NOT NULL    ,
-                Balance             INT         NOT NULL    ,
+                CREATE TABLE IF NOT EXISTS CardTransactions (
+                ID                  INTEGER     PRIMARY KEY ,
+                Transaction_date    CHAR        NOT NULL    ,
+                Name                CHAR        NOT NULL    ,
+                Transaction_value   INT         NOT NULL    ,
+                Transaction_charge  INT         NOT NULL    ,
+                Information         CHAR                    ,
                 Description         DATE                    ,
                 source_file         CHAR        NOT NULL    ,
-                Ex_description      CHAR        NOT NULL    ,
                 Category            CHAR                    ,
                 FOREIGN KEY(source_file)    REFERENCES File(Name)
                 );""")
 
-            cls.__instance.cursor.execute("""
-                CREATE TABLE IF NOT EXISTS Transactions (
-                ID                  INTEGER     PRIMARY KEY ,
-                cardID              CHAR(4)                 ,
-                transaction_date    DATE        NOT NULL    ,
-                business_name       CHAR                    ,
-                amount              INT         NOT NULL    ,
-                transaction_type    CHAR                    ,
-                charge_date         DATE        NOT NULL    ,
-                charge_amount       INT         NOT NULL    ,
-                source_file         CHAR        NOT NULL    ,
-                description         TEXT                    ,
-                Category            CHAR                    ,
-                FOREIGN KEY(cardID)         REFERENCES Card(cardID),
-                FOREIGN KEY(source_file)    REFERENCES File(Name)
-                );""")
+            # cls.__instance.cursor.execute("""
+            #     CREATE TABLE IF NOT EXISTS BankTransactions (
+            #     ID                  INTEGER     PRIMARY KEY ,
+            #     cardID              CHAR(4)                 ,
+            #     transaction_date    DATE        NOT NULL    ,
+            #     business_name       CHAR                    ,
+            #     amount              INT         NOT NULL    ,
+            #     transaction_type    CHAR                    ,
+            #     charge_date         DATE        NOT NULL    ,
+            #     charge_amount       INT         NOT NULL    ,
+            #     source_file         CHAR        NOT NULL    ,
+            #     description         TEXT                    ,
+            #     Category            CHAR                    ,
+            #     FOREIGN KEY(cardID)         REFERENCES Card(cardID),
+            #     FOREIGN KEY(source_file)    REFERENCES File(Name)
+            #     );""")
 
         return cls.__instance
 

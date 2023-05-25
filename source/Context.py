@@ -24,15 +24,17 @@ class Context:
         if not self.file.load():
             utils.log(f'Failed reading file: {self.file.name}', category='error')
             return False
+
         if not self.file.validate_bank_number():
             utils.log(f'Bank Account number in file: {utils.name_he(self.file.name)} , does not match!', category='error')
             return False
-        print('-> [SYSTEM]: Validation...\t', end='')
+
         if not self.file.validate_headers():
-            print('FAILED.')
+            utils.log("Validation...\tFAILED.", "warning", "")
             return False
         else:
-            print('Completed.')
+            utils.log("Validation...\tCompleted.", "system", "")
+
         print('-> [SYSTEM]: Parsing...\t\t', end='')
         if not self.file.parse():
             print('FAILED.')

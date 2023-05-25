@@ -143,6 +143,9 @@ class SimpleMath:
         Input:
         List of tuples containing: (source_table, business_name, amount, Category, transaction_date, Description)
         """
+        if data == []:
+            return False
+
         df = pd.DataFrame(data, columns=["Source table", "Name", "Amount", "Category", "Date", "Description"])
         series = df['Amount'].describe()
         

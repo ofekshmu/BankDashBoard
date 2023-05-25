@@ -10,14 +10,20 @@ class Graphics:
 
     @staticmethod
     def plot_earnings(data: list) -> None:
-        df = pd.DataFrame(data, columns=["Name", "Amount", "Category", "Date"])
-        df = df.drop("Date", axis=1)
-        df = df.groupby("Category").sum()
-        df.index = df.index.map(lambda name: f"{utils.heb_conversion(name)}\n{round(df.loc[name,'Amount'], 2)}₪")
-        gentle_blue = ['#BFD7EA', '#A5C6DB', '#8BB5CC', '#7194BD', '#577DAE', '#3D5C9F', '#233D90']
-        title = f"Total Earnings: {int(sum([tup[1] for tup in data]))}₪"
-        ax = df.plot.pie(y='Amount', figsize=(7, 5), legend=False, title=title, colors=gentle_blue)
-        ax.set_ylabel('')
+        if data != []:
+            df = pd.DataFrame(data, columns=["Name", "Amount", "Category", "Date"])
+            df = df.drop("Date", axis=1)
+            df = df.groupby("Category").sum()
+            df.index = df.index.map(lambda name: f"{utils.heb_conversion(name)}\n{round(df.loc[name,'Amount'], 2)}₪")
+            gentle_blue = ['#BFD7EA', '#A5C6DB', '#8BB5CC', '#7194BD', '#577DAE', '#3D5C9F', '#233D90']
+            title = f"Total Earnings: {int(sum([tup[1] for tup in data]))}₪"
+            ax = df.plot.pie(y='Amount', figsize=(7, 5), legend=False, title=title, colors=gentle_blue)
+            ax.set_ylabel('')
+        else:
+            _, ax = plt.subplots()
+            ax.pie([], labels=[])
+            # set the title of the plot
+            ax.set_title('Empty Pie Chart')
 
         plt.savefig('Earnings.png')
 
@@ -45,6 +51,8 @@ class Graphics:
 
     @staticmethod
     def plot_gas(data: list) -> pd.Series:
+        if data == []:
+            return False
         # filter data:
         data = [(item[4], item[1], -item[2]) for item in data]
         # ------------
@@ -95,6 +103,10 @@ class Graphics:
 
     @staticmethod
     def plot_monthly_gas(data: list) -> None:
+
+        if data == []:
+            return False
+
         plt.figure()
         data = [(item[4], item[1], -item[2]) for item in data]
         labels = ["Date", "Business Name", "Amount"]
@@ -116,6 +128,9 @@ class Graphics:
     @staticmethod
     def plot_general(df: pd.DataFrame) -> None:
 
+        if df.empty:
+            return False
+        
         df.index = df.index.strftime('%B')
         df = df.reset_index()
         # Melt the dataframe to "long" format for easier plotting with Seaborn

@@ -46,6 +46,7 @@ class DataBase:
             cls.__instance.cursor.execute("""
                 CREATE TABLE IF NOT EXISTS CardTransactions (
                 ID                  INTEGER     PRIMARY KEY ,
+                cardID              CHAR(4)                 ,
                 Transaction_date    CHAR        NOT NULL    ,
                 Name                CHAR        NOT NULL    ,
                 Transaction_value   INT         NOT NULL    ,
@@ -54,25 +55,25 @@ class DataBase:
                 Description         DATE                    ,
                 source_file         CHAR        NOT NULL    ,
                 Category            CHAR                    ,
+                FOREIGN KEY(cardID)         REFERENCES Card(cardID),
                 FOREIGN KEY(source_file)    REFERENCES File(Name)
                 );""")
 
-            # cls.__instance.cursor.execute("""
-            #     CREATE TABLE IF NOT EXISTS BankTransactions (
-            #     ID                  INTEGER     PRIMARY KEY ,
-            #     cardID              CHAR(4)                 ,
-            #     transaction_date    DATE        NOT NULL    ,
-            #     business_name       CHAR                    ,
-            #     amount              INT         NOT NULL    ,
-            #     transaction_type    CHAR                    ,
-            #     charge_date         DATE        NOT NULL    ,
-            #     charge_amount       INT         NOT NULL    ,
-            #     source_file         CHAR        NOT NULL    ,
-            #     description         TEXT                    ,
-            #     Category            CHAR                    ,
-            #     FOREIGN KEY(cardID)         REFERENCES Card(cardID),
-            #     FOREIGN KEY(source_file)    REFERENCES File(Name)
-            #     );""")
+            cls.__instance.cursor.execute("""
+                CREATE TABLE IF NOT EXISTS BankTransactions (
+                ID                  INTEGER        PRIMARY KEY ,
+                Ref                 CHAR        NOT NULL    ,
+                Date                DATE        NOT NULL    ,
+                Date_value          DATE        NOT NULL    ,
+                Source_Dest         CHAR        NOL NULL    ,
+                Amount              INT         NOT NULL    ,
+                Balance             INT         NOT NULL    ,
+                Description         DATE                    ,
+                source_file         CHAR        NOT NULL    ,
+                Ex_description      CHAR        NOT NULL    ,
+                Category            CHAR                    ,
+                FOREIGN KEY(source_file)    REFERENCES File(Name)
+                );""")
 
         return cls.__instance
 
@@ -271,8 +272,8 @@ class DataBase:
                                    SELECT 'BankTransactions' as source_table, Source_Dest, Amount, Category, Date, Description
                                    FROM BankTransactions WHERE Category = ?
                                    UNION ALL
-                                   SELECT 'Transactions' as source_table, business_name, amount, Category, transaction_date, Description
-                                   FROM Transactions WHERE Category = ? """,
+                                   SELECT 'CardTransactions' as source_table, Name, Transaction_charge, Category, Transaction_date, Description
+                                   FROM CardTransactions WHERE Category = ? """,
                                    (cat_name, cat_name)).fetchall()
 
     # def get_transactions(self, table: str, year: int, month: int):
@@ -348,11 +349,11 @@ class DataBase:
                                     AND amount < 0
                                     AND (Category != ? OR Category IS NULL)
                                     UNION ALL
-                                    SELECT 'Transactions' AS source_table, business_name, cardID,
-                                    Amount, Category, transaction_date
-                                    FROM Transactions
-                                    WHERE transaction_date >= ?
-                                    AND transaction_date <= ?
+                                    SELECT 'Transactions' AS source_table, Name, cardID,
+                                    Transaction_charge, Category, Transaction_date
+                                    FROM CardTransactions
+                                    WHERE Transaction_date >= ?
+                                    AND Transaction_date <= ?
                                     """, (b_init, b_end, "אשראי", b_init, b_end,)).fetchall()
 
     def get_all_transactions(self, shift: int = 5, income: bool = True):

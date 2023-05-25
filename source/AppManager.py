@@ -145,7 +145,10 @@ class AppManager:
 
         # -----
 
-        monthly_balance = SimpleMath.generate_monthly_balance()
+        utils.log("NOT IMPLEMENTED - bank transaction ", "warning")
+        # monthly_balance = SimpleMath.generate_monthly_balance()
+        monthly_balance = -1    # TODO
+
         spendings = DataBase().get_monthly_spendings(year=t.year, month=t.month)
         earnings = DataBase().get_monthly_earnings(year=t.year, month=t.month)
         end_monthly_balance = -1
@@ -159,6 +162,7 @@ class AppManager:
         Graphics.plot_monthly_gas(cat_data)
         # ----- General
         df_general = SimpleMath.general_info(SimpleMath.get_monthly_shifted(shift=5))
+        print(df_general.to_string())
         Graphics.plot_general(df_general)
         # ----- Cards
         Graphics.card_distribution(spendings)

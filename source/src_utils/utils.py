@@ -218,16 +218,16 @@ class utils:
 
         table = soup.new_tag("table")
 
-        for key, value in gas_stats.items():
-            tr = soup.new_tag("tr")
-            td1 = soup.new_tag("td")
-            td1.string = key + ":"
-            td2 = soup.new_tag("td")
-            td2.string = str(value)
-            td2['style'] = 'padding-left: 15px;'
-            tr.append(td1)
-            tr.append(td2)
-            table.append(tr)
+        # for key, value in gas_stats.items():
+        #     tr = soup.new_tag("tr")
+        #     td1 = soup.new_tag("td")
+        #     td1.string = key + ":"
+        #     td2 = soup.new_tag("td")
+        #     td2.string = str(value)
+        #     td2['style'] = 'padding-left: 15px;'
+        #     tr.append(td1)
+        #     tr.append(td2)
+        #     table.append(tr)
 
         div.append(table)
 

@@ -78,7 +78,7 @@ class Parser():
                 cond3 = name.endswith(Local.EXTENSION_2)
                 cond4 = name.endswith(Local.EXTENSION_3)
                 if cond1 and (cond2 or cond3 or cond4):
-                    file_type = self.__identify(name)
+                    file_type, consts = self.__identify(name)
 
                     # Sanity check - Written with blood
                     if is_exists(name, file_type):
@@ -96,7 +96,7 @@ class Parser():
                         else:
                             utils.log('Bad input!', 'error')
 
-                    value = self.__extract_sortion_key(file_type, name)
+                    value = self.__extract_sortion_key(consts, name)
 
                     if file_type in self.type_to_name.keys():
                         self.type_to_name[file_type][name] = value
@@ -133,23 +133,24 @@ class Parser():
         self.idx += 1
         return name, self.__identify(name)
 
-    def __identify(self, file_name: str) -> File:
+    def __identify(self, file_name: str):
         """
         Identify the file Type.
         Received a file name and returns it's type.
         Grouping is made according to key words found in it's name.
         """
         res = None
+        consts = None
         if utils.id_method(InnerCredit, file_name):
-            res = InnerCreditFile
+            file_type, consts = InnerCreditFile, InnerCredit
         elif utils.id_method(OuterCredit, file_name):
-            res = OuterCreditFile
+            file_type, consts = OuterCreditFile, OuterCredit
         elif utils.id_method(BankTransactions, file_name):
-            res = BankTransactionsFile
+            file_type, consts = BankTransactionsFile, BankTransactions
         else:
-            utils.log(f"The file name: {file_name} does not contain a known string.", 'error')
+            utils.log(f"The file name: {file_name} was not identified.", 'error')
 
-        return res
+        return file_type, consts
 
     def get_names(self, obj_class: File):
         """
@@ -158,7 +159,7 @@ class Parser():
         """
         return [k for k in self.type_to_name[obj_class].keys()]
 
-    def __extract_sortion_key(self, file_type, name: str):
+    def __extract_sortion_key(self, consts, name: str):
         """
         Receives a file name and type And Extracts the specified sorting element
         suited for the file type.
@@ -166,10 +167,14 @@ class Parser():
         Otherwise, the date in the file name will be retruned.
         """
         import re
-        match file_type.SORTION:
+        match consts.SORTION:
             case Sortion.BY_NAME_SERIAL:
-                num_str = re.search("_\d{1,}", name).group()
-                return num_str[1:]
+                # Search for a serial number - a number larger than 4 digits
+                # Since we want to ignore an year (4 digits), in case present
+                srch_result = re.search("\d{5,}", name)
+                if srch_result is None:
+                    utils.log(f"There was a problem parsing the Serial from File {name}.", "error")
+                return srch_result.group()[1:]
             case Sortion.BY_NAME_DATE:
                 try:
                     date_str = re.search("\w{1,2}_\w{1,2}_\w{4}", name).group()

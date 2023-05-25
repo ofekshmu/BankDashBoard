@@ -96,7 +96,7 @@ class AppManager:
         context = Context()
         Context.counter = 0
         while next(self.parser):
-            name, type = self.parser.get_next()
+            name, (type, consts) = self.parser.get_next()
 
             if DataBase().is_file_exists(name):
                 utils.log(f'Skipping {utils.name_he(name)}...', 'system')

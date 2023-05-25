@@ -303,14 +303,17 @@ class utils:
         '''
         wb = xw.Book(join(Local.INPUT_FOLDER, file_name))
         sheet = wb.sheets[0]
+
         # Looks for the headers in the first 10 rows of the file
-        for i in range(10):
+        for i in range(1, 10):
             valid = True
-            col = 0
+            col = 1
             row = i
             for name in cls.HEADERS:
                 value = utils.cell(row, col, sheet)
                 if not value == name:
+                    if col > 1:
+                        utils.log(f"Header Validation Failed halfway: {value} != {name}", "warning")
                     valid = False
                     break
                 col += 1
@@ -319,6 +322,7 @@ class utils:
                     utils.log(f"\n\tHeaders were found at line {row}, Not in {self.initial_row} as specified.", "warning")
                 cls.INITIAL_ROW = row
                 return True
+        utils.log("Header Validation Failed", "debug")
         return False
 
     @staticmethod
@@ -326,7 +330,7 @@ class utils:
         '''
         Returns the value of the cell with indexes [row, col]
         '''
-        if row >= 0 and col >= 0:
+        if row > 0 and col >= 0:
             return sheet[f'{chr(65 + col)}{row}'].value
         else:
             utils.log(f"Invalid indexes -> ({row}, {col})", "error")

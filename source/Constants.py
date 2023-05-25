@@ -32,14 +32,14 @@ class Local:
     '''
     Include all local enviroment related valriables
     '''
-    DB_NAME = "databse"
+    DB_NAME = "YUVALs_DataBase"
 
-    INPUT_FOLDER = 'Inputs'
-    PERSONAL_CONFIG = 'personal information/personal_config.json'
+    INPUT_FOLDER = 'Inputs Yuval'
+    PERSONAL_CONFIG = 'Yuvals personal information/personal_config.json'
 
-    CATE_JSON_PATH = 'personal information/categories.json'
+    CATE_JSON_PATH = 'Yuvals personal information/categories.json'
     EXTENSION_1 = '.xls'
-    EXTENSION_2 = '.xlsx'
+    EXTENSION_2 = '.csv'
     EXTENSION_3 = ''  # Add another extension option here if needed or leave as an empty string.
     
     GAS_GRAPH = "C:/Users/ofeks/OneDrive/Work/Projects/Personal/BankProject/Gas_Stats.png"
@@ -65,27 +65,22 @@ class File:
 
 class InnerCredit(File):
 
-    FORMAT_METHOD = Method.FILE_NAME
+    FORMAT_METHOD = Method.HEADERS
     INFO = ""
 
-    SORTION = Sortion.BY_NAME_DATE
+    SORTION = Sortion.BY_NAME_SERIAL
 
     SUB_STRING = "לאומי-פירוט העסקאות בכרטיסי האשראי"
     DATE_LOC = 'B5'
     BANK_NUM_LOC = 'B3'
-    HEADERS = ["מספר הכרטיס",
-               "תאריך העסקה",
-               "שם בית העסק",
-               "סכום העסקה",
-               "מטבע העסקה",
-               "סכום החיוב",
-               "מטבע חיוב העסקה",
-               "סוג העסקה",
-               "פרטים",
-               "תאריך החיוב"]
+    HEADERS = ["תאריך עסקה",
+               "שם  העסק",
+               "סכום עסקה",
+               "סכום חיוב",
+               "פירוט"]
 
-    INITIAL_ROW = 10  # This is the row with the table titles
-    TABLE_SKIP = 3  # Number of rows between trasnactions
+    INITIAL_ROW = 6  # This is the row with the table titles
+    TABLE_SKIP = 1  # Number of rows between trasnactions
 
 
 class OuterCredit(File):

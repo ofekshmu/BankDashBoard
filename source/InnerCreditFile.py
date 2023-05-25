@@ -79,8 +79,13 @@ class InnerCreditFile(File):
             curr_pos = next_pos
             next_pos = File.cell(row_index + 1, 0, self.sheet)
 
+        if self.date_loc is None:
+            date = "Not avaliable"
+        else:
+            date = self.sheet[self.date_loc].value
+        
         DataBase().insert_file(self.name,
-                               self.sheet[self.date_loc].value,
+                               date,
                                "Auto Insertion",
                                "Not checked",
                                total_counter)

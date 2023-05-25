@@ -30,17 +30,17 @@ class Context:
             return False
 
         if not self.file.validate_headers():
-            utils.log("Validation...\tFAILED.", "warning", "")
+            utils.log("Validation...\tFAILED.", "warning")
             return False
         else:
-            utils.log("Validation...\tCompleted.", "system", "")
+            utils.log("Validation...\tCompleted.", "system")
 
-        print('-> [SYSTEM]: Parsing...\t\t', end='')
         if not self.file.parse():
-            print('FAILED.')
+            utils.log('Parsing... \tFAILED', "error")
             return False
         else:
-            print('Completed.')
+            utils.log('Parsing... \tCOMPLETED', "system")
+
         print('-> [SYSTEM]: Cleaning...')
         if not self.file.clean():
             print('\t\t\t\tFAILED.')

@@ -88,7 +88,7 @@ class OuterCredit(File):
 
     FORMAT_METHOD = Method.FILE_NAME
     INFO = ("B2", "TEST")
-    
+
     SORTION = Sortion.BY_NAME_SERIAL
 
     SUB_STRING = "transaction-details_export"

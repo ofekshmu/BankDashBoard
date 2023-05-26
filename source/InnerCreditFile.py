@@ -93,7 +93,7 @@ class InnerCreditFile(File):
                 total_counter += 1
 
                 # Extract data (This might not be needed)
-                row = self.sheet[row_index - 1: row_index, self.initial_col: COL_COUNT].value
+                row = self.sheet[row_index - 1: row_index, self.initial_col: COL_COUNT + self.initial_col].value
                 self.data.append(row)
 
                 # If the next row is invalid ->
@@ -241,14 +241,13 @@ class InnerCreditFile(File):
         counter = 0
         for row in self.data:
             counter += 1
-            DataBase().insert_transaction(cardID=row[0],
-                                          transaction_date=date_conversion(row[1]),
-                                          business_name=row[2],
-                                          amount=-row[3],
-                                          transaction_type=row[7],
-                                          charge_date=date_conversion(row[-1]),
-                                          charge_amount=-row[5],
-                                          source_file=self.name)
+            DataBase().insert_card_transaction(cardID="Not specified",
+                                               Transaction_date=row[0],
+                                               Name=row[1],
+                                               Transaction_value=row[2],
+                                               Transaction_charge=row[3],
+                                               Information=row[4],
+                                               source_file=self.name)
         return True
 
     def __str__(self):

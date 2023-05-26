@@ -163,7 +163,6 @@ class AppManager:
         Graphics.plot_monthly_gas(cat_data)
         # ----- General
         df_general = SimpleMath.general_info(SimpleMath.get_monthly_shifted(shift=5))
-        print(df_general.to_string())
         Graphics.plot_general(df_general)
         # ----- Cards
         Graphics.card_distribution(spendings)

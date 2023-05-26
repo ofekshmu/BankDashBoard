@@ -204,17 +204,24 @@ class SimpleMath:
         Where the Date column groups all transaction dates by month, the rest of the columns conclude the sum of transactions
         amount in each month.
         """
-        earnings_df = pd.DataFrame(data[1], columns=["Name", "Amount", "Category", "Date"])
-        earnings_df['Date'] = pd.to_datetime(earnings_df['Date'])
-        earnings_df = earnings_df.drop(["Name", "Category"], axis=1)
-        earnings_df = earnings_df.groupby(pd.Grouper(key='Date', freq='M')).sum()
+        if data[1]:
+            earnings_df = pd.DataFrame(data[1], columns=["Name", "Amount", "Category", "Date"])
+            earnings_df['Date'] = pd.to_datetime(earnings_df['Date'])
+            earnings_df = earnings_df.drop(["Name", "Category"], axis=1)
+            earnings_df = earnings_df.groupby(pd.Grouper(key='Date', freq='M')).sum()
+        else:
+            earnings_df = pd.DataFrame(columns=["Date", "Amount"])
 
-        spendings_df = pd.DataFrame(data[0], columns=["Table name", "Name", "Card", "Amount", "Category", "Date"])
-        spendings_df['Date'] = pd.to_datetime(spendings_df['Date'])
-        spendings_df['Amount'] = spendings_df['Amount'].apply(lambda x: -x)
-        spendings_df = spendings_df.drop(["Table name", "Name", "Card", "Category"], axis=1)
-        spendings_df = spendings_df.groupby(pd.Grouper(key='Date', freq='M')).sum()
+        if data[0]:
+            spendings_df = pd.DataFrame(data[0], columns=["Table name", "Name", "Card", "Amount", "Category", "Date"])
+            spendings_df['Date'] = pd.to_datetime(spendings_df['Date'])
+            spendings_df['Amount'] = spendings_df['Amount'].apply(lambda x: -x)
+            spendings_df = spendings_df.drop(["Table name", "Name", "Card", "Category"], axis=1)
+            spendings_df = spendings_df.groupby(pd.Grouper(key='Date', freq='M')).sum()
+        else:
+            spendings_df = pd.DataFrame(columns=["Date", "Amount"])
 
         df_merged = pd.merge(spendings_df, earnings_df, on='Date', how='left', suffixes=('_spendings', '_earnings'))
-
+        # Fill NaN values with 0
+        df_merged.fillna(0, inplace=True)
         return df_merged

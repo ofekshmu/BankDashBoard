@@ -155,12 +155,11 @@ class DataBase:
     
     def insert_card_transaction(self,
                                 cardID: str,
-                                transaction_date: datetime,
-                                business_name: str,
-                                amount: int,
-                                transaction_type: str,
-                                charge_date: datetime,
-                                charge_amount: int,
+                                Transaction_date: datetime,
+                                Name: str,
+                                Transaction_value: int,
+                                Transaction_charge: str,
+                                Information: str,
                                 source_file: str):
         '''
         Insert a new transaction to the data base.
@@ -174,14 +173,14 @@ class DataBase:
                 return False
             utils.log(f'Card ID {cardID} has been added!', 'db')
 
-        query = """ INSERT INTO Transactions
-                    (cardID, transaction_date, business_name, amount, transaction_type, charge_date, charge_amount,
-                        source_file, description, Category)
-                    VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        query = """ INSERT INTO CardTransactions
+                    (cardID, Transaction_date, Name, Transaction_value, Transaction_charge, Information, Description,
+                        source_file, Category)
+                    VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """
         self.cursor.execute(query,
-                            (cardID, transaction_date, business_name, amount, transaction_type, charge_date,
-                                charge_amount, source_file, '', 'Uncategorized'))
+                            (cardID, Transaction_date, Name, Transaction_value, Transaction_charge, Information,
+                                '', source_file, 'Uncategorized'))
 
     def insert_file(self,
                     name: str,

@@ -80,7 +80,8 @@ class InnerCredit(File):
                "פירוט"]
 
     INITIAL_ROW = 6  # This is the row with the table titles
-    TABLE_SKIP = 1  # Number of rows between trasnactions
+    INITIAL_COL = 1  # This is the starting col of the table
+    TABLE_SKIP = 0  # Number of empty rows between trasnactions
 
 
 class OuterCredit(File):

@@ -6,7 +6,7 @@ import xlwings as xw
 from xlwings import Sheet
 from database import DataBase
 from typing import Union
-
+from datetime import datetime
 
 class InnerCreditFile(File):
 
@@ -16,10 +16,13 @@ class InnerCreditFile(File):
                  bank_num_loc: str,
                  headers,
                  initial_row: int,
+                 initial_col: int,
                  table_skip: int):
         super().__init__(name, bank_num_loc, initial_row, headers)
         self.date_loc = date_loc
         self.counter = 0
+        self.table_skip = table_skip
+        self.initial_col = initial_col
         self.data = []
 
     def parse(self) -> bool:
@@ -33,19 +36,50 @@ class InnerCreditFile(File):
         COL_COUNT = len(self.headers)
         # There might be a way to remove this dict, since data can be read again later
         self.data_dict = {}
-        none_counter = 4                    # Number of "None" fields in the file
+        none_counter = 1 + self.table_skip  # Number of "None" fields in the file
         row_index = self.initial_row + 1    # The first data row
 
         table_row_counter = 0               # Counts the valid rows in each table (A file might have more than one table)
         total_counter = 0                   # The total valid Transations in the file
         initial_table_index = row_index     # The first row of data in a table
 
-        curr_pos = File.cell(row_index, 0, self.sheet)
-        next_pos = File.cell(row_index + 1, 0, self.sheet)
+        curr_pos = File.cell(row_index, self.initial_col, self.sheet)
+        next_pos = File.cell(row_index + 1, self.initial_col, self.sheet)
+
+        def is_valid(value: Union[datetime, None, int, float, str]) -> bool:
+            """
+            The function returns False if the given values is invalid and True otherwise.
+            valid values are one of the specified at the argument Typing.
+            """
+            if type(value) == datetime:
+                return True
+            if type(value) == int:
+                return True
+            if type(value) == float:
+                return True
+            if value is None:
+                return False
+            if value.isdigit():
+                return True
+            return False
+
+        def check_digit(value: Union[datetime, None, int, str]) -> bool:
+            """
+            The function checks if the given value is a digit.
+            It was made after figuring out the the read value can also be in datetime
+            format which does not support the "isdigit()" function.
+            """
+            if type(value) == int:
+                return True
+            if type(value) == float:
+                return True
+            if type(value) == str:
+                return value.isdigit()
+            return False
 
         while none_counter > 0:
             # If the current row is invalid
-            if curr_pos is None or not curr_pos.isdigit():
+            if not is_valid(curr_pos):
                 none_counter -= 1
                 # If the next row is valid ->
                 # Than set the initial index of the next table
@@ -59,16 +93,18 @@ class InnerCreditFile(File):
                 total_counter += 1
 
                 # Extract data (This might not be needed)
-                row = self.sheet[row_index - 1: row_index, 0: COL_COUNT].value
+                row = self.sheet[row_index - 1: row_index, self.initial_col: COL_COUNT].value
                 self.data.append(row)
 
                 # If the next row is invalid ->
                 # Add the data about the current table to db
-                if next_pos is None or \
-                   not next_pos.isdigit() or \
-                   (next_pos.isdigit() and curr_pos.isdigit() and curr_pos != next_pos):
+                # The second conditioning is for establishing between different cards in the table -
+                # both current and next are number values but the card changes -> create a new table for it.
+                if not is_valid(next_pos) or \
+                   (check_digit(next_pos) and check_digit(curr_pos) and curr_pos != next_pos):
                     DataBase().insert_table_meta_data(self.name,
                                                       initial_table_index,
+                                                      self.initial_col,
                                                       table_row_counter)
                     # Reset table info
                     table_row_counter = 0
@@ -77,7 +113,7 @@ class InnerCreditFile(File):
             # iterate over to the next row
             row_index += 1
             curr_pos = next_pos
-            next_pos = File.cell(row_index + 1, 0, self.sheet)
+            next_pos = File.cell(row_index + 1, self.initial_col, self.sheet)
 
         if self.date_loc is None:
             date = "Not avaliable"

@@ -39,6 +39,7 @@ class DataBase:
                 ID                  INTEGER         PRIMARY KEY ,
                 source_file         CHAR            NOT NULL    ,
                 Initial_index       INT             NOT NULL    ,
+                Initial_col         INT             NOT NULL    ,
                 Row_count           INT             NOT NULL    ,
                 FOREIGN KEY(source_file)    REFERENCES File(Name)
                 );""")
@@ -100,6 +101,7 @@ class DataBase:
     def insert_table_meta_data(self,
                                source_file_name: str,
                                initial_index: int,
+                               initial_col: int,
                                row_count: int):
         """
         Insert meta data about a table.
@@ -108,8 +110,8 @@ class DataBase:
         Tables are created accoreding to specific parameters in the code.
         """
         self.cursor.execute("""
-            INSERT INTO TableMeta(source_file, Initial_index, Row_count)
-            VALUES(?, ?, ?)""", (source_file_name, initial_index, row_count))
+            INSERT INTO TableMeta(source_file, Initial_index, Initial_col, Row_count)
+            VALUES(?, ?, ?, ?)""", (source_file_name, initial_index, initial_col, row_count))
 
     def get_table_Meta(self, file_name: str):
         """
@@ -130,6 +132,36 @@ class DataBase:
                            charge_date: datetime,
                            charge_amount: int,
                            source_file: str):
+        '''
+        Insert a new transaction to the data base.
+        Currently, the transactions are inserted from the Files associated with credit files,
+        into the Transactions data base.
+        The function also checks it the associated credit card is present in the db.
+        '''
+        if not self.is_card_exists(cardID):
+            utils.log(f'New card found: ->{cardID}<-', 'db')
+            if not self.insert_card(cardID, "Auto Insertion"):
+                return False
+            utils.log(f'Card ID {cardID} has been added!', 'db')
+
+        query = """ INSERT INTO Transactions
+                    (cardID, transaction_date, business_name, amount, transaction_type, charge_date, charge_amount,
+                        source_file, description, Category)
+                    VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """
+        self.cursor.execute(query,
+                            (cardID, transaction_date, business_name, amount, transaction_type, charge_date,
+                                charge_amount, source_file, '', 'Uncategorized'))
+    
+    def insert_card_transaction(self,
+                                cardID: str,
+                                transaction_date: datetime,
+                                business_name: str,
+                                amount: int,
+                                transaction_type: str,
+                                charge_date: datetime,
+                                charge_amount: int,
+                                source_file: str):
         '''
         Insert a new transaction to the data base.
         Currently, the transactions are inserted from the Files associated with credit files,

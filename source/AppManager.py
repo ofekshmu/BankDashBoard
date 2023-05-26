@@ -114,6 +114,7 @@ class AppManager:
                                                 InnerCredit.BANK_NUM_LOC,
                                                 InnerCredit.HEADERS,
                                                 InnerCredit.INITIAL_ROW,
+                                                InnerCredit.INITIAL_COL,
                                                 InnerCredit.TABLE_SKIP))
             elif type == OuterCreditFile:
                 context.setFile(OuterCreditFile(name,

@@ -273,28 +273,10 @@ class DataBase:
                                    SELECT 'BankTransactions' as source_table, Source_Dest, Amount, Category, Date, Description
                                    FROM BankTransactions WHERE Category = ?
                                    UNION ALL
-                                   SELECT 'Transactions' as source_table, business_name, amount, Category, transaction_date, Description
+                                   SELECT 'Transactions' as source_table, business_name, charge_amount, Category, transaction_date, Description
                                    FROM Transactions WHERE Category = ? """,
                                    (cat_name, cat_name)).fetchall()
 
-    # def get_transactions(self, table: str, year: int, month: int):
-    #     """
-    #     The function will query all the records from the given month from the given
-    #     table @table. Table = "BankTransactions" for the BankTransaction table and any
-    #     other string for the Transaction table.
-
-    #     @param year - the year in format 20XX
-    #     @param month - the month in format XX
-    #     @param table - the table to query.
-    #     """
-    #     import calendar
-    #     last_day = calendar.monthrange(year, month)[1]
-    #     day1 = datetime(year, month, 1).strftime('%Y-%m-%d %H:%M:%S')
-    #     day2 = datetime(year, month, last_day).strftime('%Y-%m-%d %H:%M:%S')
-    #     if table == "BankTransactions":
-    #         return self.cursor.execute("select * from BankTransactions where date >= ? and date <= ?", (day1, day2)).fetchall()
-    #     else:
-    #         return self.cursor.execute("select * from Transactions where charge_date >= ? and charge_date <= ?", (day1, day2)).fetchall()
 
     def get_monthly_earnings(self, year: int, month: int) -> list[Tuple[str, int, str, str]]:
         """
@@ -353,7 +335,7 @@ class DataBase:
                                     AND (Category != ? OR Category IS NULL)
                                     UNION ALL
                                     SELECT 'Transactions' AS source_table, business_name, cardID,
-                                    Amount, Category, transaction_date
+                                    charge_amount, Category, transaction_date
                                     FROM Transactions
                                     WHERE transaction_date >= ?
                                     AND transaction_date <= ?
@@ -375,7 +357,7 @@ class DataBase:
         if income:
             return self.cursor.execute("SELECT Amount, Date from BankTransactions where Amount > 0 AND date >= ? and date <= ?", (day1, day2)).fetchall()
         else:
-            trans = self.cursor.execute("SELECT Amount, transaction_date from Transactions where transaction_date >= ? and transaction_date <= ?", (day1, day2)).fetchall()
+            trans = self.cursor.execute("SELECT charge_amount, transaction_date from Transactions where transaction_date >= ? and transaction_date <= ?", (day1, day2)).fetchall()
             bank_trans = self.cursor.execute("""SELECT Amount, Date
                                                 FROM BankTransactions
                                                 WHERE Amount < 0
@@ -436,14 +418,14 @@ class DataBase:
         """
         res1 = self.cursor.execute("""
                                     SELECT 'BankTransactions' as TableName,
-                                    ID, Date, Source_Dest, Amount, Description
+                                    ID, Date, Source_Dest, , Description
                                     FROM BankTransactions
                                     WHERE (Category IS NULL OR Category = 'Uncategorized')
                                     ORDER BY ID DESC
                                     """).fetchall()
         res2 = self.cursor.execute("""
                                     SELECT 'Transactions' as TableName,
-                                    ID, transaction_date, business_name, amount, transaction_type
+                                    ID, transaction_date, business_name, charge_amount, transaction_type
                                     FROM Transactions
                                     WHERE (Category IS NULL OR Category = 'Uncategorized')
                                     ORDER BY ID DESC

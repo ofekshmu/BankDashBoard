@@ -308,13 +308,15 @@ class DataBase:
         last_day = calendar.monthrange(year, month)[1]
         day1 = datetime(year, month, 1).strftime('%Y-%m-%d %H:%M:%S')
         day2 = datetime(year, month, last_day).strftime('%Y-%m-%d %H:%M:%S')
+        utils.log("EARNINGS IS NOT CORRECT, CURRENT DB DOESNT query payback returned directly to VISA - fix here.", "warning")
         return self.cursor.execute("""
                                     SELECT Source_Dest, Amount, Category, Date
                                     FROM BankTransactions
                                     WHERE date >= ?
                                     AND date <= ?
-                                    AND Amount > 0""", (day1, day2)).fetchall()
-    
+                                    AND Amount > 0
+                                    """, (day1, day2)).fetchall()
+
     def get_monthly_spendings(self, year: int, month: int) -> list[Tuple[str, int, str, str]]:
         """
         The function will return a list containing all spendings made in the current month given.
@@ -324,7 +326,7 @@ class DataBase:
         For transaction Taken from the BankTransactions; card will appear as 'Bank'
         """
         import calendar
-        
+
         # When looking for spendings. transaction will be queried by the date they will be 
         # effective in the bank account and not by the date they were exectued.
         # That is why, when given month x, we will search for transactions in month x + 1
@@ -355,6 +357,7 @@ class DataBase:
                                     FROM Transactions
                                     WHERE transaction_date >= ?
                                     AND transaction_date <= ?
+                                    AND amount < 0
                                     """, (b_init, b_end, "אשראי", b_init, b_end,)).fetchall()
 
     def get_all_transactions(self, shift: int = 5, income: bool = True):
@@ -435,14 +438,14 @@ class DataBase:
                                     SELECT 'BankTransactions' as TableName,
                                     ID, Date, Source_Dest, Amount, Description
                                     FROM BankTransactions
-                                    WHERE (Category IS NULL OR Category IS Uncategorized)
+                                    WHERE (Category IS NULL OR Category = 'Uncategorized')
                                     ORDER BY ID DESC
                                     """).fetchall()
         res2 = self.cursor.execute("""
                                     SELECT 'Transactions' as TableName,
                                     ID, transaction_date, business_name, amount, transaction_type
                                     FROM Transactions
-                                    WHERE (Category IS NULL OR Category IS Uncategorized)
+                                    WHERE (Category IS NULL OR Category = 'Uncategorized')
                                     ORDER BY ID DESC
                                     """).fetchall()
         

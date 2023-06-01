@@ -277,7 +277,6 @@ class DataBase:
                                    FROM Transactions WHERE Category = ? """,
                                    (cat_name, cat_name)).fetchall()
 
-
     def get_monthly_earnings(self, year: int, month: int) -> list[Tuple[str, int, str, str]]:
         """
         Input:
@@ -297,6 +296,7 @@ class DataBase:
                                     WHERE date >= ?
                                     AND date <= ?
                                     AND Amount > 0
+                                    AND Category != 'IGNORE'
                                     """, (day1, day2)).fetchall()
 
     def get_monthly_spendings(self, year: int, month: int) -> list[Tuple[str, int, str, str]]:
@@ -333,6 +333,7 @@ class DataBase:
                                     AND date <= ?
                                     AND amount < 0
                                     AND (Category != ? OR Category IS NULL)
+                                    AND Category != 'IGNORE'
                                     UNION ALL
                                     SELECT 'Transactions' AS source_table, business_name, cardID,
                                     charge_amount, Category, transaction_date
@@ -340,6 +341,7 @@ class DataBase:
                                     WHERE transaction_date >= ?
                                     AND transaction_date <= ?
                                     AND amount < 0
+                                    AND Category != 'IGNORE'
                                     """, (b_init, b_end, "אשראי", b_init, b_end,)).fetchall()
 
     def get_all_transactions(self, shift: int = 5, income: bool = True):
@@ -418,7 +420,7 @@ class DataBase:
         """
         res1 = self.cursor.execute("""
                                     SELECT 'BankTransactions' as TableName,
-                                    ID, Date, Source_Dest, , Description
+                                    ID, Date, Source_Dest, Amount, Description
                                     FROM BankTransactions
                                     WHERE (Category IS NULL OR Category = 'Uncategorized')
                                     ORDER BY ID DESC

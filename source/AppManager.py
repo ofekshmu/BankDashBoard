@@ -26,8 +26,9 @@ class AppManager:
                 1. Update/Parse files
                 2. Show statistics
                 3. Delete file information
-                4. Validate
-                5. Exit
+                4. Change/Set category
+                5. Validate
+                6. Exit
             """)
         answer = int(input())
         match answer:
@@ -39,11 +40,21 @@ class AppManager:
             case 3:
                 self.delete_file_info()
             case 4:
-                self.validate()
+                self.set_category()
             case 5:
+                self.validate()
+            case 6:
                 exit()
             case _:
                 print("Please insert a valid number.")
+
+    def set_category(self):
+        table_num = int(input("From which Table?\n\t1. BankTransactions\n\t2. Card transactions"))
+        table = "BankTransactions" if table_num == 1 else "Transactions"
+        id = int(input("Please insert the transaction id as specified in the db: "))
+        res = utils.handle_categories()
+        DataBase().set_category(table, id, category=res)
+        DataBase().commit_changes()
 
     def delete_file_info(self):
         lst_names = DataBase().get_file_names()

@@ -261,7 +261,8 @@ class utils:
     @staticmethod
     def template_menu(options: list[str], msg: str = "Choose one of the following:\n"):
         """
-        
+        Creates a menu from with options starting from index 0 to n.
+        where n - 1 is the size of list @options. msg the menus message.
         """
         st = msg
         for idx, e in enumerate(options, start=0):
@@ -276,6 +277,7 @@ class utils:
             if x < 0 or x >= len(options):
                 continue
             return x
+
 
     @staticmethod
     def handle_categories() -> str:

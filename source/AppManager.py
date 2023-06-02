@@ -35,6 +35,8 @@ class AppManager:
             case 1:
                 self.load_data()
                 self.tag_data()
+                # ask user if he/she wants to match paybacks
+                self.match_payback()
             case 2:
                 self.analysis()
             case 3:
@@ -47,6 +49,49 @@ class AppManager:
                 exit()
             case _:
                 print("Please insert a valid number.")
+
+    def match_payback():
+        """
+        """
+        lst = []
+        if len(lst) == 0:
+            utils.log("No Transactions at all, continuing...")
+            exit()
+        # check if there are any untagged paybacks
+        # if res == 0 -> skip, print msg
+        # else:
+        msg = "Which Payback transactions do you want to see?"
+        res = utils.template_menu(options=["Show all.",
+                                           "Show untagged matches only"
+                                           "Show untagged matches from current month"], msg=msg)
+        match res:
+            case 0:
+                lst = []
+            case 1:
+                lst = []
+                # Need to filter transactions to this month only
+                pass
+            case 2:
+                lst = []
+                pass
+
+        if len(lst) > 0:
+            num = utils.template_menu(options=lst, msg="Choose a Payback transaction to pair: ")
+            res = utils.template_menu(options=["Let me choose from this month",
+                                               "I have a transaction id"],
+                                      msg="What Transaction does it cover?")
+            match res:
+                case 0:
+                    # MISSING ID'S
+                    utils.log("MISSING IDS HERE", "warning")
+                    trans1 = DataBase().get_monthly_earnings()
+                    trans2 = DataBase().get_monthly_spendings()
+                    ans = utils.template_menu(options=trans1 + trans2, msg="Choose one of the following:")
+                case 1:
+                    ans = -1
+            utils.log("Should apply changes here using the variable ans.", "Warning")
+        else:
+            utils.log("No transactions found..., exiting...", "system")
 
     def set_category(self):
         table_num = int(input("From which Table?\n\t1. BankTransactions\n\t2. Card transactions"))

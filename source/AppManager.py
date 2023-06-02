@@ -59,6 +59,8 @@ class AppManager:
     def delete_file_info(self):
         lst_names = DataBase().get_file_names()
         utils.log("Select the file you want to delete:")
+
+        # Printing all file names
         st = ""
         for idx, name in enumerate(lst_names):
             st += f"{idx} -> {utils.heb_conversion(name)}\n"
@@ -75,6 +77,7 @@ class AppManager:
 
         selected_file = lst_names[answer]
         DataBase().drop_file(selected_file)
+        utils.delete_file(file_name=selected_file, path=Local.XLSX_PATH)
 
     def tag_data(self):
         """

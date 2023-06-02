@@ -1,5 +1,6 @@
 from Constants import Settings, Local
 import json
+import os
 
 
 class utils:
@@ -281,7 +282,7 @@ class utils:
         """
         
         """
-        #utils.log("Choose one of the existsing categories:")
+        # utils.log("Choose one of the existsing categories:")
         cat_lst = json.load(open(Local.CATE_JSON_PATH, encoding='utf-8'))
         options = cat_lst + ["Create a new category", "Skip"]
         res = utils.template_menu(options)
@@ -298,3 +299,12 @@ class utils:
                     continue
 
         return options[res]
+
+    @staticmethod
+    def delete_file(file_name: str, path: str = "") -> None:
+        try:
+            # Attempt to delete the file
+            os.remove(path + file_name)
+            utils.log("File deleted successfully.", "system")
+        except OSError as e:
+            utils.log(f"Error: {e.filename} - {e.strerror}.", "warning")

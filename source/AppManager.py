@@ -33,10 +33,11 @@ class AppManager:
         answer = int(input())
         match answer:
             case 1:
+                utils.log("TESTING", "warning")
+                self.match_payback()
                 self.load_data()
                 self.tag_data()
                 # ask user if he/she wants to match paybacks
-                self.match_payback()
             case 2:
                 self.analysis()
             case 3:
@@ -50,9 +51,23 @@ class AppManager:
             case _:
                 print("Please insert a valid number.")
 
-    def match_payback():
+    def match_payback(self):
         """
         """
+        def print_prettified_data(data):
+            # Calculate the maximum length of each element in the tuples
+            for tup in data:
+                for ele in tup:
+                    if type(ele) == str:
+                        print(utils.heb_conversion(ele), "\t", end="")
+                    else:
+                        print(ele, "\t", end="")
+
+                print()
+
+
+        print_prettified_data(DataBase().get_open_paybacks())
+        utils.log("TESTING_End", "error")
         lst = []
         if len(lst) == 0:
             utils.log("No Transactions at all, continuing...")

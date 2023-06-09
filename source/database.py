@@ -76,6 +76,18 @@ class DataBase:
                 FOREIGN KEY(source_file)    REFERENCES File(Name)
                 );""")
 
+            # Table for Payback matching
+
+            cls.__instance.cursor.execute("""
+                CREATE TABLE IF NOT EXISTS Payback (
+                ID                      INTEGER     PRIMARY KEY,
+                Bank_table_ID           INTEGER                ,
+                Card_table_ID           INTEGER                ,
+                PayBack_Portion         INTEGER                ,
+                FOREIGN KEY(Bank_table_ID)    REFERENCES BankTransactions(ID),
+                FOREIGN KEY(Card_table_ID)    REFERENCES Transactions(ID)
+                );""")
+
         return cls.__instance
 
     def insert_bank_transaction(self,
@@ -457,6 +469,18 @@ class DataBase:
                                     """, (category, id,))
             case _:
                 utils.log("Bad input in 'set_category' in DataBase class", "error")
+
+    def get_open_paybacks(self):
+        res1 = self.cursor.execute("""
+                                    SELECT Date, Source_Dest, BankTransactions.ID, Amount, Payback.PayBack_Portion, Description
+                                    FROM BankTransactions
+                                    LEFT JOIN Payback
+                                    ON BankTransactions.ID = Payback.Bank_table_ID
+                                    WHERE Payback.Bank_table_ID IS NULL
+                                    AND Category = 'Payback'
+                                    ORDER BY Date DESC
+                                    """).fetchall()
+        return res1
 
     def commit_changes(self) -> None:
         self.connection.commit()

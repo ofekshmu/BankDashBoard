@@ -470,17 +470,31 @@ class DataBase:
             case _:
                 utils.log("Bad input in 'set_category' in DataBase class", "error")
 
-    def get_open_paybacks(self):
+    def get_integrated_paybacks(self):
+        """
+        The query will return 
+        """
         res1 = self.cursor.execute("""
-                                    SELECT Date, Source_Dest, BankTransactions.ID, Amount, Payback.PayBack_Portion, Description
+                                    SELECT BankTransactions.Category, BankTransactions.Description, BankTransactions.ID, BankTransactions.Amount,
+                                    Transactions.Category, Transactions.Description, Transactions.ID, Transactions.Amount, Payback.PayBack_Portion
                                     FROM BankTransactions
                                     LEFT JOIN Payback
                                     ON BankTransactions.ID = Payback.Bank_table_ID
-                                    WHERE Payback.Bank_table_ID IS NULL
-                                    AND Category = 'Payback'
+                                    LEFT JOIN Transactions
+                                    ON Transactions.ID = Payback.Card_table_ID
+                                    WHERE BankTransactions.Category = 'Payback' OR Transactions.Category = 'Payback'
+                                    AND Payback.PayBack_Portion IS NULL
                                     ORDER BY Date DESC
                                     """).fetchall()
         return res1
+
+    def test_insertion_to_payback(self, data):
+        query = "INSERT INTO Payback (Bank_table_ID, Card_table_ID, PayBack_Portion) VALUES (?, ?, ?)"
+        self.cursor.execute(query, data)
+        self.connection.commit()
+
+    def query_payback_table(self):
+        return self.cursor.execute("SELECT * FROM Payback").fetchall()
 
     def commit_changes(self) -> None:
         self.connection.commit()

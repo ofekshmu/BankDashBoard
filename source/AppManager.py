@@ -54,19 +54,16 @@ class AppManager:
     def match_payback(self):
         """
         """
-        def print_prettified_data(data):
-            # Calculate the maximum length of each element in the tuples
-            for tup in data:
-                for ele in tup:
-                    if type(ele) == str:
-                        print(utils.heb_conversion(ele), "\t", end="")
-                    else:
-                        print(ele, "\t", end="")
 
-                print()
-
-
-        print_prettified_data(DataBase().get_open_paybacks())
+        import pandas as pd
+        res = DataBase().get_integrated_paybacks()
+        res = [tuple(utils.heb_conversion(item) if isinstance(item, str) else item for item in tup) for tup in res]
+        df = pd.DataFrame(res, columns=["Category_B", "Name_B", "ID_B", "Amount_B",
+                                        "Category_C", "Name_C", "ID_C", "Amount_C", "Payback portion"])
+        print(df.to_markdown())
+        #res = DataBase().test_insertion_to_payback((243, 4, 10))
+        res = DataBase().query_payback_table()
+        print(pd.DataFrame(res).to_markdown())
         utils.log("TESTING_End", "error")
         lst = []
         if len(lst) == 0:

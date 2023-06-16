@@ -107,7 +107,7 @@ class DataBase:
         Insert meta data about a table.
         A table could be one or more transactions taken from the same file and
         it is defined by the index of its first row, source file name and number of transactions.
-        Tables are created accoreding to specific parameters in the code.
+        Tables are created according to specific parameters in the code.
         """
         self.cursor.execute("""
             INSERT INTO TableMeta(source_file, Initial_index, Initial_col, Row_count)

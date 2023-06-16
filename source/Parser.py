@@ -80,6 +80,9 @@ class Parser():
                 if cond1 and (cond2 or cond3 or cond4):
                     file_type, consts = self.__identify(name)
 
+                    if file_type is None:
+                        continue
+
                     # Sanity check - Written with blood
                     if is_exists(name, file_type):
                         utils.log(f"""The file '{utils.name_he(name)}' exists with a different extensions.
@@ -141,6 +144,7 @@ class Parser():
         """
         res = None
         consts = None
+        file_type = None
         if utils.id_method(InnerCredit, file_name):
             file_type, consts = InnerCreditFile, InnerCredit
         elif utils.id_method(OuterCredit, file_name):
@@ -148,7 +152,7 @@ class Parser():
         elif utils.id_method(BankTransactions, file_name):
             file_type, consts = BankTransactionsFile, BankTransactions
         else:
-            utils.log(f"The file name: {file_name} was not identified.", 'error')
+            utils.log(f"The file name: {file_name} was not identified, Ignoring...", 'warning')
 
         return file_type, consts
 
@@ -177,9 +181,11 @@ class Parser():
                 return srch_result.group()[1:]
             case Sortion.BY_NAME_DATE:
                 try:
-                    date_str = re.search("\w{1,2}_\w{1,2}_\w{4}", name).group()
+                    date_str = re.search("\d{1,2}_\d{1,2}_\d{4}|\d{1}_\d{4}", name).group()
                 except Exception as e:
                     utils.log(f"The file named {utils.name_he(name)} is of unknown format.", "error")
                 date = date_str.split("_")
                 import datetime
+                if len(date) == 2:
+                    date = (1, date[0], date[1])
                 return datetime.datetime(int(date[2]), int(date[1]), int(date[0]))            

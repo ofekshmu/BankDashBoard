@@ -111,12 +111,16 @@ class File:
             row += 1
             cc_end = File.cell(row, 0, self.sheet)
 
-        self.counter = counter
+        self.counter = counter - 1
 
         # Inset the meta data of the file to db for future reference
         DataBase().insert_table_meta_data(self.name,
                                           self.initial_row + 1,
+                                          0,
                                           self.counter)
+
+        utils.log("The parse function for catd 2922 is not generic - (-1) is added to ignore last row", "warning")
+        utils.log("The parse method in the File class persumes the data is found in the first column.", "warning")
 
         COL_COUNT = len(self.headers)
         table = self.sheet[self.initial_row: self.initial_row + self.counter, 0: COL_COUNT].value

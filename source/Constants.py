@@ -87,30 +87,22 @@ class InnerCredit(File):
 class OuterCredit(File):
 
     FORMAT_METHOD = Method.FILE_NAME
+    SUB_STRING = "Export"
     INFO = ("B2", "TEST")
 
-    SORTION = Sortion.BY_NAME_SERIAL
+    SORTION = Sortion.BY_NAME_DATE
 
-    SUB_STRING = "transaction-details_export"
-    HEADERS = ["תאריך עסקה",
-               "שם בית העסק",
-               "קטגוריה",
-               "4 ספרות אחרונות של כרטיס האשראי",
-               "סוג עסקה",
+    HEADERS = ["תאריך רכישה",
+               "שם בית עסק",
+               "סכום עסקה",
+               "מטבע מקור",
                "סכום חיוב",
-               "מטבע חיוב",
-               "סכום עסקה מקורי",
-               "מטבע עסקה מקורי",
-               "תאריך חיוב",
-               "הערות",
-               "תיוגים",
-               "מועדון הנחות",
-               "מפתח דיסקונט",
-               "אופן ביצוע ההעסקה",
-               "שער המרה ממטבע מקור/התחשבנות לש\"ח"]
+               "מטבע לחיוב",
+               "מספר שובר",
+               "פירוט נוסף"]
 
-    CARD_CELL = 'A2'
-    INITIAL_ROW = 4
+    CARD_CELL = 'A4'
+    INITIAL_ROW = 6
     TABLE_SKIP = 0
 
 

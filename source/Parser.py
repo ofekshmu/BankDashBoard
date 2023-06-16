@@ -6,6 +6,7 @@ from InnerCreditFile import InnerCreditFile
 from BankTransactionsFile import BankTransactionsFile
 from datetime import datetime
 from File import File
+from Configurations.Formats import Formats
 
 # Local
 from Constants import Local
@@ -36,27 +37,27 @@ class Parser():
 
             utils.log(f"Looking for files...", 'system')
 
-            def to_date(name: str) -> datetime:
-                """
-                Helper function That extracts the date of format XX_XX_XXXX
-                out of a file str name. Returns a datetime object.
-                """
-                import re
-                try:
-                    date_str = re.search("\w{1,2}_\w{1,2}_\w{4}", name).group()
-                except Exception as e:
-                    utils.log(f"The file named {utils.name_he(name)} is of unknown format.", "error")
-                date = date_str.split("_")
-                import datetime
-                return datetime.datetime(int(date[2]), int(date[1]), int(date[0]))
+            # def to_date(name: str) -> datetime:
+            #     """
+            #     Helper function That extracts the date of format XX_XX_XXXX
+            #     out of a file str name. Returns a datetime object.
+            #     """
+            #     import re
+            #     try:
+            #         date_str = re.search("\w{1,2}_\w{1,2}_\w{4}", name).group()
+            #     except Exception as e:
+            #         utils.log(f"The file named {utils.name_he(name)} is of unknown format.", "error")
+            #     date = date_str.split("_")
+            #     import datetime
+            #     return datetime.datetime(int(date[2]), int(date[1]), int(date[0]))
 
-            def to_num(name: str):
-                """
-                Receives the name of an outer credit file and returns the contained number
-                """
-                import re
-                num_str = re.search("_\d{1,}", name).group()
-                return num_str[1:]
+            # def to_num(name: str):
+            #     """
+            #     Receives the name of an outer credit file and returns the contained number
+            #     """
+            #     import re
+            #     num_str = re.search("_\d{1,}", name).group()
+            #     return num_str[1:]
 
             def is_exists(name: str, file_type) -> bool:
                 """
@@ -71,13 +72,21 @@ class Parser():
                     if stipped_name in k:
                         return True
                 return False
+            
+            def is_valid_extension(name: str) -> bool:
+                """
+                Returns True if the file contains a valid extension and False otherwise.
+                Valid extension should be stated in the Format.py file, Under Formats -> EXTENTIONS.
+                """
+                for ext in Formats.EXTENTIONS:
+                    if name.endswith(ext):
+                        return True
+                utils.log(f"The file ({name}) with invalid extension.", "Error")
+                return False
 
             for name in listdir(Local.INPUT_FOLDER):
-                cond1 = isfile(join(Local.INPUT_FOLDER, name))
-                cond2 = name.endswith(Local.EXTENSION_1)
-                cond3 = name.endswith(Local.EXTENSION_2)
-                cond4 = name.endswith(Local.EXTENSION_3)
-                if cond1 and (cond2 or cond3 or cond4):
+                if isfile(join(Local.INPUT_FOLDER, name)) and \
+                        is_valid_extension(name):
                     file_type, consts = self.__identify(name)
 
                     if file_type is None:

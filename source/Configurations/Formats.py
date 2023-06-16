@@ -6,7 +6,8 @@
 ########################################################################
 from enum import Enum
 
-class Method(Enum):
+
+class Identification_Method(Enum):
     FILE_NAME = 1
     CELL = 2
     HEADERS = 3
@@ -33,4 +34,6 @@ class Formats:
                 "Sortion key": None,
                 "Headers": [],
                 "Header row index": None}
-                ]
+               ]
+
+    EXTENTIONS = [".xls", ".xlsx", ".csv"]

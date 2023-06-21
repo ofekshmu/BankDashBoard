@@ -9,11 +9,7 @@ from database import DataBase
 
 
 class File:
-    def __init__(self,
-                 name: str,
-                 bank_num_loc: str,
-                 initial_row: int,
-                 headers: list):
+    def __init__(self, name: str, format_info: dict):
         '''
         Read a work book and store an active sheet in the self.sheet.
         File is read from local.XLSX_PATH.
@@ -27,9 +23,14 @@ class File:
         headers: a list of string containing table headers
         '''
         self.name = name
-        self.bank_num_loc = bank_num_loc
-        self.initial_row = initial_row
-        self.headers = headers
+        self.format_name = format_info["Format Name"]
+        self.context = format_info["Context"]
+        self.id_method = format_info["Identification method"]
+        self.id_data = format_info["Identification data"]
+        self.sortion_method = format_info["Sortion method"]
+        self.sortion_key = format_info["Sortion key"]
+        self.headers = format_info["Headers"]
+        self.header_row_idx = format_info["Header row index"]
 
         try:
             wb = xw.Book(join(Local.INPUT_FOLDER, self.name))

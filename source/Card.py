@@ -1,17 +1,13 @@
 from File import File
 from src_utils.utils import utils
+from Configurations.Formats import Formats
 from database import DataBase
 from datetime import datetime
 
 
-class OuterCreditFile(File):
-    def __init__(self,
-                 name: str,
-                 headers: list,
-                 card_cell: str,
-                 initial_row: int):
-        super().__init__(name, 'None Exsisting', initial_row, headers)
-        self.card_cell = card_cell
+class Card(File):
+    def __init__(self, name: str, format_info: dict):
+        super().__init__(name, format_info)
 
     def validate_bank_number(self) -> bool:
         """ Outer credit has no Bank acc number """

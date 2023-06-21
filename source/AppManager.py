@@ -108,6 +108,7 @@ class AppManager:
                                                      BankTransactions.BANK_NUM_LOC,
                                                      BankTransactions.HEADERS,
                                                      BankTransactions.INITIAL_ROW))
+
             elif type == InnerCreditFile:
                 context.setFile(InnerCreditFile(name,
                                                 InnerCredit.DATE_LOC,
@@ -116,11 +117,10 @@ class AppManager:
                                                 InnerCredit.INITIAL_ROW,
                                                 InnerCredit.INITIAL_COL,
                                                 InnerCredit.TABLE_SKIP))
-            elif type == OuterCreditFile:
-                context.setFile(OuterCreditFile(name,
-                                                OuterCredit.HEADERS,
-                                                OuterCredit.CARD_CELL,
-                                                OuterCredit.INITIAL_ROW))
+                
+            # Changing this structure
+            elif type == Card:
+                context.setFile(Card(name))
             else:
                 utils.log("The file type is not supported", 'error')
 

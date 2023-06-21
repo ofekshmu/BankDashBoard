@@ -1,7 +1,7 @@
 from os import listdir
 from os.path import isfile, join
 from Constants import InnerCredit, OuterCredit, BankTransactions, Sortion
-from OuterCreditFile import OuterCreditFile
+from Card import Card
 from InnerCreditFile import InnerCreditFile
 from BankTransactionsFile import BankTransactionsFile
 from datetime import datetime
@@ -157,7 +157,7 @@ class Parser():
         if utils.id_method(InnerCredit, file_name):
             file_type, consts = InnerCreditFile, InnerCredit
         elif utils.id_method(OuterCredit, file_name):
-            file_type, consts = OuterCreditFile, OuterCredit
+            file_type, consts = Card, OuterCredit
         elif utils.id_method(BankTransactions, file_name):
             file_type, consts = BankTransactionsFile, BankTransactions
         else:

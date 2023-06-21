@@ -26,14 +26,23 @@ class Context(Enum):
 
 class Formats:
 
-    FORMATS = [{"Format Name": "Leumi-Bank",
-                "Context": Context.Card,
-                "Identification method": None,
-                "Identification data": None,
-                "Sortion method": None,
-                "Sortion key": None,
-                "Headers": [],
-                "Header row index": None}
-               ]
+    FORMATS = {"Leumi-Bank": {"Format Name": "Leumi-Bank",
+                              "Context": Context.Card,
+                              "Identification method": None,
+                              "Identification data": None,
+                              "Sortion method": None,
+                              "Sortion key": None,
+                              "Headers": [],
+                              "Header row index": None},
+     
+               "Leumi-Card": {"Format Name": "Leumi-Card",
+                              "Context": Context.Card,
+                              "Identification method": None,
+                              "Identification data": None,
+                              "Sortion method": None,
+                              "Sortion key": None,
+                              "Headers": [],
+                              "Header row index": None}
+               }
 
     EXTENTIONS = [".xls", ".xlsx", ".csv"]

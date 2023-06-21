@@ -29,12 +29,13 @@ class Card(File):
                                "Not checked",
                                self.counter)
 
-        self.card_num = self.sheet[self.card_cell].value
+        # TODO: Should add some generic field for data inside files
+        # self.card_num = self.sheet[self.card_cell].value
         return True
 
     def clean(self):
         from Parser import Parser
-        self.sorted_names = Parser.getInstance().get_names(OuterCreditFile)
+        self.sorted_names = Parser.getInstance().get_names(self.format_name)
         return super().clean(flip=True)
 
     def insert(self) -> bool:

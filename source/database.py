@@ -190,6 +190,7 @@ class DataBase:
                     trans_count: int):
         '''
         Insert a new file to local DB.
+        @date: date stated in excel file.
         '''
         last_update = datetime.now()
         self.cursor.execute(f"""

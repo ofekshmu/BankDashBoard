@@ -25,15 +25,15 @@ class Context:
             utils.log(f'Failed reading file: {self.file.name}', category='error')
             return False
 
-        if not self.file.validate_bank_number():
-            utils.log(f'Bank Account number in file: {utils.name_he(self.file.name)} , does not match!', category='error')
-            return False
+        # if not self.file.validate_bank_number():
+        #     utils.log(f'Bank Account number in file: {utils.name_he(self.file.name)} , does not match!', category='error')
+        #     return False
 
-        if not self.file.validate_headers():
-            utils.log("Validation...\tFAILED.", "warning")
-            return False
-        else:
-            utils.log("Validation...\tCompleted.", "system")
+        # if not self.file.validate_headers():
+        #     utils.log("Validation...\tFAILED.", "warning")
+        #     return False
+        # else:
+        #     utils.log("Validation...\tCompleted.", "system")
 
         if not self.file.parse():
             utils.log('Parsing... \tFAILED', "error")

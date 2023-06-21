@@ -146,7 +146,8 @@ class File:
             """
             Function receives the date of the current file specified in its name
             and returns the name of the most recent file of the same type, in the
-            input folder
+            input folder.
+            self.sorted_names is defined in the derived class function.
             """
             idx = self.sorted_names.index(self.name)
             if idx == 0:

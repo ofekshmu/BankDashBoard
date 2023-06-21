@@ -1,7 +1,7 @@
 from Parser import Parser
 from BankTransactionsFile import BankTransactionsFile
 from InnerCreditFile import InnerCreditFile
-from OuterCreditFile import OuterCreditFile
+from Card import Card
 from Context import Context
 from Constants import InnerCredit, BankTransactions, OuterCredit, Local
 from src_utils.utils import utils

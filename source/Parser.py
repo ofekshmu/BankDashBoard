@@ -7,6 +7,7 @@ from BankTransactionsFile import BankTransactionsFile
 from datetime import datetime
 from File import File
 from Configurations.Formats import Formats
+from typing import Tuple
 
 # Local
 from Constants import Local
@@ -135,10 +136,10 @@ class Parser():
             return True
         return False
 
-    def get_next(self):
+    def get_next(self) -> Tuple[str, str]:
         """
         Get the next file name.
-        Returns the file name and type.
+        return the file "Format Name"
         Call only after a successful 'next'.
         """
         name = self.names[self.idx]
@@ -154,12 +155,10 @@ class Parser():
         res = None
         consts = None
         file_type = None
-        if utils.id_method(InnerCredit, file_name):
+        if utils.id_method(Card, file_name):
             file_type, consts = InnerCreditFile, InnerCredit
-        elif utils.id_method(OuterCredit, file_name):
+        elif utils.id_method(Bank, file_name):
             file_type, consts = Card, OuterCredit
-        elif utils.id_method(BankTransactions, file_name):
-            file_type, consts = BankTransactionsFile, BankTransactions
         else:
             utils.log(f"The file name: {file_name} was not identified, Ignoring...", 'warning')
 

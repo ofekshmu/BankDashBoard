@@ -9,7 +9,7 @@ from database import DataBase
 from front.Graphics import Graphics
 from src_utils.calculations import SimpleMath
 import webbrowser
-from tqdm import tqdm
+from Configurations.Formats import Formats
 from typing import Tuple
 
 
@@ -96,10 +96,11 @@ class AppManager:
         context = Context()
         Context.counter = 0
         while next(self.parser):
-            name, (type, consts) = self.parser.get_next()
+            file_name, format_name = self.parser.get_next()
+            format_data = Formats.FORMATS[format_name]
 
-            if DataBase().is_file_exists(name):
-                utils.log(f'Skipping {utils.name_he(name)}...', 'system')
+            if DataBase().is_file_exists(file_name):
+                utils.log(f'Skipping {utils.name_he(file_name)}...', 'system')
                 continue
 
             if type == BankTransactionsFile:
@@ -120,7 +121,7 @@ class AppManager:
                 
             # Changing this structure
             elif type == Card:
-                context.setFile(Card(name))
+                context.setFile(Card(file_name, format_data))
             else:
                 utils.log("The file type is not supported", 'error')
 

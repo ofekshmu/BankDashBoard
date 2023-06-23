@@ -1,12 +1,10 @@
 from os import listdir
 from os.path import isfile, join
-from Constants import InnerCredit, OuterCredit, BankTransactions, Sortion
+from Constants import InnerCredit, OuterCredit, Sortion
 from Card import Card
 from InnerCreditFile import InnerCreditFile
-from BankTransactionsFile import BankTransactionsFile
-from datetime import datetime
 from File import File
-from Configurations.Formats import Formats
+from Configurations.Formats import Formats, Identification_Method
 from typing import Tuple
 
 # Local
@@ -152,17 +150,36 @@ class Parser():
         Received a file name and returns it's type.
         Grouping is made according to key words found in it's name.
         """
-        res = None
-        consts = None
-        file_type = None
-        if utils.id_method(Card, file_name):
-            file_type, consts = InnerCreditFile, InnerCredit
-        elif utils.id_method(Bank, file_name):
-            file_type, consts = Card, OuterCredit
-        else:
-            utils.log(f"The file name: {file_name} was not identified, Ignoring...", 'warning')
 
-        return file_type, consts
+        for format, data in Formats.FORMATS.items():
+            id_method = data["Identification method"]
+            match id_method:
+                case Identification_Method.FILE_NAME:
+                    pass
+                case Identification_Method.CELL:
+                    pass
+                case Identification_Method.HEADERS:
+                    pass
+                case Identification_Method.NONE:
+                    pass
+                case _:
+                    pass
+        
+            return format, data
+        
+        utils.log(f"{file_name} was not identified.", "error")
+        
+        # res = None
+        # consts = None
+        # file_type = None
+        # if utils.id_method(Card, file_name):
+        #     file_type, consts = InnerCreditFile, InnerCredit
+        # elif utils.id_method(Bank, file_name):
+        #     file_type, consts = Card, OuterCredit
+        # else:
+        #     utils.log(f"The file name: {file_name} was not identified, Ignoring...", 'warning')
+
+        # return file_type, consts
 
     def get_names(self, obj_class: File):
         """

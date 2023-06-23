@@ -49,6 +49,10 @@ class utils:
         #     utils.warning_halt()
 
     @staticmethod
+    def validate_formats():
+        utils.log(f"Formats are not being validated...", "warning")
+
+    @staticmethod
     def name_he(name: str):
         try:
             i = name[::-1].index(' ')

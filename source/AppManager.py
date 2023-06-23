@@ -17,7 +17,8 @@ class AppManager:
 
     def __init__(self):
         self.parser = Parser()
-
+        utils.validate_formats()
+        
     def menu(self):
         print("""
                 Hello Ofek!

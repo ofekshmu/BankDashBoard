@@ -1,11 +1,11 @@
 from os import listdir
 from os.path import isfile, join
-from Constants import InnerCredit, OuterCredit, Sortion
+from Constants import Sortion
 from Card import Card
-from InnerCreditFile import InnerCreditFile
 from File import File
 from Configurations.Formats import Formats, Identification_Method
 from typing import Tuple
+import xlwings as xw
 
 # Local
 from Constants import Local
@@ -134,7 +134,7 @@ class Parser():
             return True
         return False
 
-    def get_next(self) -> Tuple[str, str]:
+    def get_next(self) -> Tuple[str, str, dict]:
         """
         Get the next file name.
         return the file "Format Name"
@@ -142,9 +142,10 @@ class Parser():
         """
         name = self.names[self.idx]
         self.idx += 1
-        return name, self.__identify(name)
+        format, data = self.__identify(name)
+        return name, format, data
 
-    def __identify(self, file_name: str):
+    def __identify(self, file_name: str) -> Tuple[str, dict]:
         """
         Identify the file Type.
         Received a file name and returns it's type.
@@ -155,20 +156,25 @@ class Parser():
             id_method = data["Identification method"]
             match id_method:
                 case Identification_Method.FILE_NAME:
-                    pass
+                    if data["Identification data"] not in file_name:
+                        continue
                 case Identification_Method.CELL:
-                    pass
+                    (location, value) = data["Identification data"]
+                    wb = xw.Book(join(Local.INPUT_FOLDER, file_name))
+                    if wb.sheets[0][location].value != value:
+                        continue
                 case Identification_Method.HEADERS:
-                    pass
+                    if not utils.is_headers_valid(file_name, data["Headers"], data["Header row index"]):
+                        continue
                 case Identification_Method.NONE:
-                    pass
+                    utils.log(f"Bad identification method...", "error")
                 case _:
-                    pass
-        
+                    utils.log(f"Identification method not recognized...", "error")
+
             return format, data
-        
+
         utils.log(f"{file_name} was not identified.", "error")
-        
+
         # res = None
         # consts = None
         # file_type = None

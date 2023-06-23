@@ -97,7 +97,7 @@ class AppManager:
         context = Context()
         Context.counter = 0
         while next(self.parser):
-            file_name, format_name = self.parser.get_next()
+            file_name, format_name, data = self.parser.get_next()
             format_data = Formats.FORMATS[format_name]
 
             if DataBase().is_file_exists(file_name):
@@ -105,14 +105,14 @@ class AppManager:
                 continue
 
             if type == BankTransactionsFile:
-                context.setFile(BankTransactionsFile(name,
+                context.setFile(BankTransactionsFile(file_name,
                                                      BankTransactions.DATE,
                                                      BankTransactions.BANK_NUM_LOC,
                                                      BankTransactions.HEADERS,
                                                      BankTransactions.INITIAL_ROW))
 
             elif type == InnerCreditFile:
-                context.setFile(InnerCreditFile(name,
+                context.setFile(InnerCreditFile(file_name,
                                                 InnerCredit.DATE_LOC,
                                                 InnerCredit.BANK_NUM_LOC,
                                                 InnerCredit.HEADERS,

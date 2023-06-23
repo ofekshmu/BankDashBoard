@@ -300,7 +300,7 @@ class utils:
         return options[res]
 
     @staticmethod
-    def __is_headers_valid(file_name: str, cls) -> bool:
+    def is_headers_valid(file_name: str, headers: list, initial_row: int) -> bool:
         '''
         The function validates the table headers in the file.
         The values of the headers and the initial row are given in the Constants.py.
@@ -313,7 +313,7 @@ class utils:
             valid = True
             col = 1
             row = i
-            for name in cls.HEADERS:
+            for name in headers:
                 value = utils.cell(row, col, sheet)
                 if not value == name:
                     if col > 1:
@@ -322,9 +322,9 @@ class utils:
                     break
                 col += 1
             if valid:
-                if row != cls.INITIAL_ROW:
-                    utils.log(f"Headers were found at line {row}, Not in {cls.INITIAL_ROW} as specified.", "warning")
-                cls.INITIAL_ROW = row
+                if row != initial_row:
+                    utils.log(f"Headers were found at line {row}, Not in {initial_row} as specified.", "warning")
+                initial_row = row
                 return True
         utils.log("Header Validation Failed", "debug")
         return False
@@ -340,16 +340,16 @@ class utils:
             utils.log(f"Invalid indexes -> ({row}, {col})", "error")
             return ""
 
-    @staticmethod
-    def id_method(cls, file_name: str) -> bool:
-        match cls.FORMAT_METHOD:
-            case Method.FILE_NAME:
-                return cls.SUB_STRING in file_name
-            case Method.HEADERS:
-                return utils.__is_headers_valid(file_name, cls)
-            case Method.CELL:
-                (location, value) = cls.INFO
-                wb = xw.Book(join(Local.INPUT_FOLDER, file_name))
-                return wb.sheets[0][location].value == value
-        utils.log(f"Bad Mehtod type: [{cls.FORMAT_METHOD}]", "error")
-        return False
+    # @staticmethod
+    # def id_method(cls, file_name: str) -> bool:
+    #     match cls.FORMAT_METHOD:
+    #         case Method.FILE_NAME:
+    #             return cls.SUB_STRING in file_name
+    #         case Method.HEADERS:
+    #             return utils.__is_headers_valid(file_name, cls)
+    #         case Method.CELL:
+    #             (location, value) = cls.INFO
+    #             wb = xw.Book(join(Local.INPUT_FOLDER, file_name))
+    #             return wb.sheets[0][location].value == value
+    #     utils.log(f"Bad Mehtod type: [{cls.FORMAT_METHOD}]", "error")
+    #     return False

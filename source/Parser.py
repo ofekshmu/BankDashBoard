@@ -1,9 +1,8 @@
 from os import listdir
 from os.path import isfile, join
-from Constants import Sortion
 from Card import Card
 from File import File
-from Configurations.Formats import Formats, Identification_Method
+from Configurations.Formats import Formats, Identification_Method, Sortion_Method
 from typing import Tuple
 import xlwings as xw
 
@@ -167,7 +166,8 @@ class Parser():
                     if not utils.is_headers_valid(file_name, data["Headers"], data["Header row index"]):
                         continue
                 case Identification_Method.NONE:
-                    utils.log(f"Bad identification method...", "error")
+                    utils.log(f"Bad identification method... Skipping Format...", "warning")
+                    continue
                 case _:
                     utils.log(f"Identification method not recognized...", "error")
 
@@ -202,15 +202,15 @@ class Parser():
         Otherwise, the date in the file name will be retruned.
         """
         import re
-        match consts.SORTION:
-            case Sortion.BY_NAME_SERIAL:
+        match consts["Sortion method"]:
+            case Sortion_Method.BY_NAME_SERIAL:
                 # Search for a serial number - a number larger than 4 digits
                 # Since we want to ignore an year (4 digits), in case present
                 srch_result = re.search("\d{5,}", name)
                 if srch_result is None:
                     utils.log(f"There was a problem parsing the Serial from File {name}.", "error")
                 return srch_result.group()[1:]
-            case Sortion.BY_NAME_DATE:
+            case Sortion_Method.BY_NAME_DATE:
                 try:
                     date_str = re.search("\d{1,2}_\d{1,2}_\d{4}|\d{1}_\d{4}", name).group()
                 except Exception as e:
@@ -219,4 +219,6 @@ class Parser():
                 import datetime
                 if len(date) == 2:
                     date = (1, date[0], date[1])
-                return datetime.datetime(int(date[2]), int(date[1]), int(date[0]))            
+                return datetime.datetime(int(date[2]), int(date[1]), int(date[0]))
+            case _:
+                utils.log(f"Received unknown Sortion method: {consts['Sortion method']}", "error")          

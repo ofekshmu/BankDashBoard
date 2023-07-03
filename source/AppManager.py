@@ -1,15 +1,14 @@
 from Parser import Parser
-from BankTransactionsFile import BankTransactionsFile
-from InnerCreditFile import InnerCreditFile
 from Card import Card
+from Bank import Bank
 from Context import Context
-from Constants import InnerCredit, BankTransactions, OuterCredit, Local
+from Constants import Local
 from src_utils.utils import utils
 from database import DataBase
 from front.Graphics import Graphics
 from src_utils.calculations import SimpleMath
 import webbrowser
-from Configurations.Formats import Formats
+from Configurations.Formats import Formats, Context_class
 from typing import Tuple
 
 
@@ -99,30 +98,17 @@ class AppManager:
         while next(self.parser):
             file_name, format_name, data = self.parser.get_next()
             format_data = Formats.FORMATS[format_name]
-
+            class_type = format_data["Context"]
             if DataBase().is_file_exists(file_name):
                 utils.log(f'Skipping {utils.name_he(file_name)}...', 'system')
                 continue
 
-            if type == BankTransactionsFile:
-                context.setFile(BankTransactionsFile(file_name,
-                                                     BankTransactions.DATE,
-                                                     BankTransactions.BANK_NUM_LOC,
-                                                     BankTransactions.HEADERS,
-                                                     BankTransactions.INITIAL_ROW))
+            if class_type == Context_class.Bank:
+                context.setFile(Bank(file_name, format_data))
 
-            elif type == InnerCreditFile:
-                context.setFile(InnerCreditFile(file_name,
-                                                InnerCredit.DATE_LOC,
-                                                InnerCredit.BANK_NUM_LOC,
-                                                InnerCredit.HEADERS,
-                                                InnerCredit.INITIAL_ROW,
-                                                InnerCredit.INITIAL_COL,
-                                                InnerCredit.TABLE_SKIP))
-                
-            # Changing this structure
-            elif type == Card:
+            elif class_type == Context_class.Card:
                 context.setFile(Card(file_name, format_data))
+                
             else:
                 utils.log("The file type is not supported", 'error')
 
@@ -131,7 +117,7 @@ class AppManager:
 
     def analysis(self):
         from datetime import datetime
-        
+
         # -----
         print("Pick an option:\n1 -> Current Month\n2 -> Last Month\n3 -> Pick A date")
         x = int(input())

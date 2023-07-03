@@ -34,7 +34,7 @@ class Local:
     '''
     DB_NAME = "YUVALs_DataBase"
 
-    INPUT_FOLDER = 'Inputs Yuval'
+    INPUT_FOLDER = 'Inputs Yuval\Isra_ofek_for_testing'
     PERSONAL_CONFIG = 'Yuvals personal information/personal_config.json'
 
     CATE_JSON_PATH = 'Yuvals personal information/categories.json'

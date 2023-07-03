@@ -37,7 +37,7 @@ class File:
             self.sheet = wb.sheets[0]
         except Exception as e:
             utils.log(f"Original error: {str(e)}\nFile read Failed!\nFile name: {self.name}\
-                In File -> line 39", 'error')
+                In File -> line 39\nMake sure the file is not open.", 'error')
 
     def load(self) -> bool:
         '''
@@ -77,7 +77,7 @@ class File:
         '''
         # Looks for the headers in a @err area of the given estimated
         err = 2
-        for row in range(self.initial_row - err, self.initial_row + err):
+        for row in range(self.header_row_idx - err, self.header_row_idx + err):
             for i in range(0, 5):
                 valid = True
                 col = i
@@ -89,9 +89,9 @@ class File:
                         break
                     col += 1
                 if valid:
-                    if row != self.initial_row:
-                        utils.log(f"Headers were found at line {row}, Not in {self.initial_row} as specified.", "warning")
-                    self.initial_row = row
+                    if row != self.header_row_idx:
+                        utils.log(f"Headers were found at line {row}, Not in {self.header_row_idx} as specified.", "warning")
+                    self.header_row_idx = row
                     return True
         return False
 
@@ -103,7 +103,7 @@ class File:
         'Inner credit file is using a different one becuase of the complexity.
         """
         counter = 0
-        row = self.initial_row + 1
+        row = self.header_row_idx + 1
         cc_end = File.cell(row, 0, self.sheet)
 
         # Empty cell is read as None
@@ -116,7 +116,7 @@ class File:
 
         # Inset the meta data of the file to db for future reference
         DataBase().insert_table_meta_data(self.name,
-                                          self.initial_row + 1,
+                                          self.header_row_idx + 1,
                                           0,
                                           self.counter)
 
@@ -124,7 +124,7 @@ class File:
         utils.log("The parse method in the File class persumes the data is found in the first column.", "warning")
 
         COL_COUNT = len(self.headers)
-        table = self.sheet[self.initial_row: self.initial_row + self.counter, 0: COL_COUNT].value
+        table = self.sheet[self.header_row_idx: self.header_row_idx + self.counter, 0: COL_COUNT].value
 
         # Happens if table is empty (No transactions)
         if table is None:
@@ -165,6 +165,9 @@ class File:
 
         def get_row(table):
             for i, row in enumerate(table):
+                if len(row) < 9:
+                    # this is an if stament sutied for a specific case of isra-card
+                    return i, row
                 if row[8] == "  * תנועות היום":
                     pass
                 else:
@@ -234,7 +237,7 @@ class File:
                     "trans_count": trans_count,
                     "col_count": len(self.headers)}
         new_file = {"name": self.name,
-                    "initial_row": self.initial_row,
+                    "initial_row": self.header_row_idx,
                     "trans_count": self.counter,
                     "col_count": len(self.headers)}
         new_table = compare_excel(old_file, new_file)

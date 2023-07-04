@@ -166,7 +166,7 @@ class Parser():
                     if not utils.is_headers_valid(file_name, data["Headers"], data["Header row index"]):
                         continue
                 case Identification_Method.NONE:
-                    utils.log(f"Bad identification method... Skipping Format...", "warning")
+                    utils.log(f"Bad identification method when iterating over {file_name}... Skipping Format...", "warning")
                     continue
                 case _:
                     utils.log(f"Identification method not recognized...", "error")

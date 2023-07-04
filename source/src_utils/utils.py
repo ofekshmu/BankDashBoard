@@ -308,25 +308,23 @@ class utils:
         wb = xw.Book(join(Local.INPUT_FOLDER, file_name))
         sheet = wb.sheets[0]
 
-        # Looks for the headers in the first 10 rows of the file
-        for i in range(1, 10):
-            valid = True
-            col = 1
-            row = i
-            for name in headers:
-                value = utils.cell(row, col, sheet)
-                if not value == name:
-                    if col > 1:
-                        utils.log(f"Header Validation Failed halfway: {value} != {name}", "warning")
-                    valid = False
-                    break
-                col += 1
-            if valid:
-                if row != initial_row:
-                    utils.log(f"Headers were found at line {row}, Not in {initial_row} as specified.", "warning")
-                initial_row = row
-                return True
-        utils.log("Header Validation Failed", "debug")
+        valid = True
+        col = 0
+        row = initial_row
+        for name in headers:
+            value = utils.cell(row, col, sheet)
+            if not value == name:
+                if col > 1:
+                    utils.log(f"Header Validation Failed halfway: {value} != {name}", "warning")
+                valid = False
+                break
+            col += 1
+        if valid:
+            if row != initial_row:
+                utils.log(f"Headers were found at line {row}, Not in {initial_row} as specified.", "warning")
+            initial_row = row
+            return True
+        utils.log(f"Header Validation Failed for {file_name}", "debug")
         return False
 
     @staticmethod

@@ -54,23 +54,43 @@ class Card(File):
             else:
                 return datetime.strptime(str, "%d-%m-%Y")
 
-        for row in self.data:
-            card_id = "NI - 2922"
-            transaction_date = date_conversion(row[0])
-            business_name = row[1]
-            amount = -row[2]
-            trans_type = row[3]
-            charge_date = ""
-            charge_amount = -row[4]
-            source_file = self.name
+        if self.format_name == "Leumi-Max":
+            for row in self.data:
+                card_id = "temp"
+                transaction_date = date_conversion(row[0])
+                business_name = row[1]
+                amount = -row[5]
+                trans_type = row[4]
+                charge_date = date_conversion(row[9])
+                charge_amount = -row[7]
+                source_file = self.name
 
-            DataBase().insert_card_transaction(card_id,
-                                               transaction_date,
-                                               business_name,
-                                               amount,
-                                               charge_amount,
-                                               f"{trans_type} | {charge_date}",
-                                               source_file)
+                DataBase().insert_transaction(card_id,
+                                            transaction_date,
+                                            business_name,
+                                            amount,
+                                            trans_type,
+                                            charge_date,
+                                            charge_amount,
+                                            source_file)
+        else:
+            for row in self.data:
+                card_id = "NI - 2922"
+                transaction_date = date_conversion(row[0])
+                business_name = row[1]
+                amount = -row[2]
+                trans_type = row[3]
+                charge_date = ""
+                charge_amount = -row[4]
+                source_file = self.name
+
+                DataBase().insert_card_transaction(card_id,
+                                                    transaction_date,
+                                                    business_name,
+                                                    amount,
+                                                    charge_amount,
+                                                    f"{trans_type} | {charge_date}",
+                                                    source_file)
         return True
 
     def __str__(self):

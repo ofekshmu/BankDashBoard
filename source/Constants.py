@@ -32,7 +32,7 @@ class Local:
     '''
     Include all local enviroment related valriables
     '''
-    DB_NAME = "YUVALs_DataBase"
+    DB_NAME = "TEST_DataBase"
 
     INPUT_FOLDER = 'Inputs Yuval\Isra_ofek_for_testing'
     PERSONAL_CONFIG = 'Yuvals personal information/personal_config.json'

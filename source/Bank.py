@@ -21,7 +21,7 @@ class Bank(File):
         # self.date = self.sheet[self.date_loc].value
 
         DataBase().insert_file(self.name,
-                               self.sheet[self.date_loc].value,
+                               "temp-date",
                                "Auto Insertion",
                                -1,
                                self.counter)
@@ -29,7 +29,7 @@ class Bank(File):
 
     def clean(self):
         from Parser import Parser
-        self.sorted_names = Parser.getInstance().get_names(BankTransactionsFile)
+        self.sorted_names = Parser.getInstance().get_names(self.format_name)
         return super().clean()
 
     def insert(self):

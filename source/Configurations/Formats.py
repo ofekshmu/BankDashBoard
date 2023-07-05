@@ -29,8 +29,8 @@ class Formats:
 
     FORMATS = {"Leumi-Max":  {"Format Name": "Leumi-Max",
                               "Context": Context_class.Card,
-                              "Identification method": Identification_Method.HEADERS,
-                              "Identification data": None,
+                              "Identification method": Identification_Method.FILE_NAME,
+                              "Identification data": "transaction-details_export",
                               "Sortion method": Sortion_Method.BY_NAME_SERIAL,
                               "Sortion key": None,
                               "Headers": ["תאריך עסקה",
@@ -65,7 +65,24 @@ class Formats:
                                           "מטבע לחיוב",
                                           "מספר שובר",
                                           "פירוט נוסף"],
-                              "Header row index": 6}
+                              "Header row index": 6},
+
+               "Leumi-Bank": {"Format Name": "Leumi-Bank",
+                              "Context": Context_class.Bank,
+                              "Identification method": Identification_Method.FILE_NAME,
+                              "Identification data": "תנועות בחשבון",
+                              "Sortion method": Sortion_Method.BY_NAME_DATE,
+                              "Sortion key": None,
+                              "Headers": ['תאריך',
+                                          'תאריך ערך',
+                                          'תיאור',
+                                          'אסמכתא',
+                                          'בחובה',
+                                          'בזכות',
+                                          'היתרה בש"ח',
+                                          'תאור מורחב',
+                                          '  הערה'],
+                              "Header row index": 12},
                }
 
     EXTENTIONS = [".xls", ".xlsx", ".csv"]

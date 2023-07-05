@@ -56,14 +56,6 @@ class Card(File):
 
         if self.format_name == "Leumi-Max":
             for row in self.data:
-                # card_id = "temp"
-                # transaction_date = date_conversion(row[0])
-                # business_name = row[1]
-                # amount = -row[5]
-                # trans_type = row[4]
-                # charge_date = date_conversion(row[9])
-                # charge_amount = -row[7]
-                # source_file = self.name
 
                 # TODO
                 DataBase().insert_card_transaction(cardID="Max - Temp",
@@ -74,7 +66,7 @@ class Card(File):
                                                    Transaction_charge=row[7],
                                                    Information=row[9],
                                                    source_file=self.name)
-        else:
+        elif self.format_name == "Isra-Card":
             for row in self.data:
                 card_id = "NI - 2922"
                 transaction_date = date_conversion(row[0])
@@ -92,6 +84,8 @@ class Card(File):
                                                    charge_amount,
                                                    f"{trans_type} | {charge_date}",
                                                    source_file)
+        else:
+            utils.log("implent insertion for general leumi cards", "error")
         return True
 
     def __str__(self):

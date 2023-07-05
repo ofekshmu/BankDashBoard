@@ -41,7 +41,7 @@ class Local:
     EXTENSION_1 = '.xls'
     EXTENSION_2 = '.csv'
     EXTENSION_3 = ''  # Add another extension option here if needed or leave as an empty string.
-    
+
     GAS_GRAPH = "C:/Users/ofeks/OneDrive/Work/Projects/Personal/BankProject/Gas_Stats.png"
     GAS_MONTHLY = "C:/Users/ofeks/OneDrive/Work/Projects/Personal/BankProject/Gas_monthly.png"
     GENERAL_INFO = "C:/Users/ofeks/OneDrive/Work/Projects/Personal/BankProject/General_info.png"

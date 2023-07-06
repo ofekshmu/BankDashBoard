@@ -4,6 +4,8 @@ import xlwings as xw
 from os.path import join
 from xlwings import Sheet
 from typing import Union
+from datetime import datetime
+from database import DataBase
 
 
 class utils:
@@ -338,16 +340,100 @@ class utils:
             utils.log(f"Invalid indexes -> ({row}, {col})", "error")
             return ""
 
-    # @staticmethod
-    # def id_method(cls, file_name: str) -> bool:
-    #     match cls.FORMAT_METHOD:
-    #         case Method.FILE_NAME:
-    #             return cls.SUB_STRING in file_name
-    #         case Method.HEADERS:
-    #             return utils.__is_headers_valid(file_name, cls)
-    #         case Method.CELL:
-    #             (location, value) = cls.INFO
-    #             wb = xw.Book(join(Local.INPUT_FOLDER, file_name))
-    #             return wb.sheets[0][location].value == value
-    #     utils.log(f"Bad Mehtod type: [{cls.FORMAT_METHOD}]", "error")
-    #     return False
+    @staticmethod
+    def parse_Leumi_inner_cards(headers_count, table_skip, initial_row, initial_col, sheet, data, name):
+        '''
+        The parse function for InnerCreditFile updates the following fields:
+        self.counter1: number of transactions in the first table
+        self.counter2: number of transaction in the second table
+        self.data: table1 and table2 data in a 2d array
+        self.date: the date specified in the file
+        '''
+        COL_COUNT = len(headers_count)
+
+        none_counter = 1 + table_skip  # Number of "None" fields in the file
+        row_index = initial_row + 1    # The first data row
+
+        table_row_counter = 0               # Counts the valid rows in each table (A file might have more than one table)
+        total_counter = 0                   # The total valid Transations in the file
+        initial_table_index = row_index     # The first row of data in a table
+
+        curr_pos = utils.cell(row_index, initial_col, sheet)
+        next_pos = utils.cell(row_index + 1, initial_col, sheet)
+
+        def is_valid(value: Union[datetime, None, int, float, str]) -> bool:
+            """
+            The function returns False if the given values is invalid and True otherwise.
+            valid values are one of the specified at the argument Typing.
+            """
+            if type(value) == datetime:
+                return True
+            if type(value) == int:
+                return True
+            if type(value) == float:
+                return True
+            if value is None:
+                return False
+            if value.isdigit():
+                return True
+            return False
+
+        def check_digit(value: Union[datetime, None, int, str]) -> bool:
+            """
+            The function checks if the given value is a digit.
+            It was made after figuring out the the read value can also be in datetime
+            format which does not support the "isdigit()" function.
+            """
+            if type(value) == int:
+                return True
+            if type(value) == float:
+                return True
+            if type(value) == str:
+                return value.isdigit()
+            return False
+
+        while none_counter > 0:
+            # If the current row is invalid
+            if not is_valid(curr_pos):
+                none_counter -= 1
+                # If the next row is valid ->
+                # Than set the initial index of the next table
+                if next_pos is not None and \
+                   next_pos.isdigit():
+                    initial_table_index = row_index + 1
+            # If the current row is valid
+            else:
+                # Raise the counter for the current and total tables
+                table_row_counter += 1
+                total_counter += 1
+
+                # Extract data (This might not be needed)
+                row = sheet[row_index - 1: row_index, initial_col: COL_COUNT + initial_col].value
+                data.append(row)
+
+                # If the next row is invalid ->
+                # Add the data about the current table to db
+                # The second conditioning is for establishing between different cards in the table -
+                # both current and next are number values but the card changes -> create a new table for it.
+                if not is_valid(next_pos) or \
+                   (check_digit(next_pos) and check_digit(curr_pos) and curr_pos != next_pos):
+                    DataBase().insert_table_meta_data(name,
+                                                      initial_table_index,
+                                                      initial_col,
+                                                      table_row_counter)
+                    # Reset table info
+                    table_row_counter = 0
+                    initial_table_index = row_index + 1
+
+            # iterate over to the next row
+            row_index += 1
+            curr_pos = next_pos
+            next_pos = utils.cell(row_index + 1, initial_col, sheet)
+
+        DataBase().insert_file(name,
+                               "to implement",
+                               "Auto Insertion",
+                               "Not checked",
+                               total_counter)
+
+        return data

@@ -85,7 +85,14 @@ class Card(File):
                                                    f"{trans_type} | {charge_date}",
                                                    source_file)
         else:
-            utils.log("implent insertion for general leumi cards", "error")
+            for row in self.data:
+                DataBase().insert_card_transaction(cardID=row[0],
+                                                   Transaction_date=row[1],
+                                                   Name=row[2],
+                                                   Transaction_value=row[3],
+                                                   Transaction_charge=row[5],
+                                                   Information=row[7],
+                                                   source_file=self.name)
         return True
 
     def __str__(self):

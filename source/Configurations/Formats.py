@@ -82,25 +82,8 @@ class Formats:
                                           'היתרה בש"ח',
                                           'תאור מורחב',
                                           '  הערה'],
-                              "Header row index": 12},
+                              "Header row index": 12}
 
-               "Leumi-Card": {"Format Name": "Leumi-Card",
-                              "Context": Context_class.Card,
-                              "Identification method": Identification_Method.FILE_NAME,
-                              "Identification data": "לאומי-פירוט העסקאות בכרטיסי האשראי",
-                              "Sortion method": Sortion_Method.BY_NAME_DATE,
-                              "Sortion key": None,
-                              "Headers": ['מספר הכרטיס',
-                                          'תאריך העסקה',
-                                          'שם בית העסק',
-                                          'סכום העסקה',
-                                          'מטבע העסקה',
-                                          'סכום החיוב',
-                                          'מטבע חיוב העסקה',
-                                          'סוג העסקה',
-                                          'פרטים',
-                                          'תאריך החיוב'],
-                              "Header row index": 11}
                }
 
     EXTENTIONS = [".xls", ".xlsx", ".csv"]

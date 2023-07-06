@@ -21,7 +21,7 @@ class DataBase:
             cls.__instance.cursor = cls.__instance.connection.cursor()
             cls.__instance.cursor.execute("""
                 CREATE TABLE IF NOT EXISTS Card (
-                cardID          CHAR(4)     PRIMARY KEY,
+                CardID          CHAR(4)     PRIMARY KEY,
                 description     TEXT
                 );""")
             cls.__instance.cursor.execute("""
@@ -47,16 +47,19 @@ class DataBase:
             cls.__instance.cursor.execute("""
                 CREATE TABLE IF NOT EXISTS CardTransactions (
                 ID                  INTEGER     PRIMARY KEY ,
-                cardID              CHAR(4)                 ,
-                Transaction_date    CHAR        NOT NULL    ,
+                CardID              CHAR        NOT NULL    ,
                 Name                CHAR        NOT NULL    ,
-                Transaction_value   INT         NOT NULL    ,
-                Transaction_charge  INT         NOT NULL    ,
-                Information         CHAR                    ,
-                Description         DATE                    ,
-                source_file         CHAR        NOT NULL    ,
+                Executed_Date       DATE        NOT NULL    ,
+                Charge_Date         DATE                    ,
+                Charge_Value        INT                     ,
+                Charge_Currency     CHAR                    ,
+                Transaction_Value   INT                     ,
+                Value_Currency      DATE                    ,
+                Extra_Info          CHAR                    ,
+                Source_file         CHAR        NOT NULL    ,
                 Category            CHAR                    ,
-                FOREIGN KEY(cardID)         REFERENCES Card(cardID),
+                Reserved            INT                     ,
+                FOREIGN KEY(CardID)         REFERENCES Card(CardID),
                 FOREIGN KEY(source_file)    REFERENCES File(Name)
                 );""")
 
@@ -154,33 +157,57 @@ class DataBase:
                                 charge_amount, source_file, '', 'Uncategorized'))
     
     def insert_card_transaction(self,
-                                cardID: str,
-                                Transaction_date: datetime,
+                                CardID: str,
                                 Name: str,
-                                Transaction_value: int,
-                                Transaction_charge: str,
-                                Information: str,
-                                source_file: str):
+                                Executed_Date: datetime,
+                                Charge_Date: datetime,
+                                Charge_Value: float,
+                                Source_file: str,
+                                Charge_Currency: str = "NotSpecified",
+                                Transaction_Value: float = 0.00,
+                                Value_Currency: str = "NotSpecified",
+                                Extra_Info: str = "None",
+                                Category: str = "NotCategorized"
+                                ):
         '''
         Insert a new transaction to the data base.
         Currently, the transactions are inserted from the Files associated with credit files,
         into the Transactions data base.
         The function also checks it the associated credit card is present in the db.
         '''
-        if not self.is_card_exists(cardID):
-            utils.log(f'New card found: ->{cardID}<-', 'db')
-            if not self.insert_card(cardID, "Auto Insertion"):
+        if not self.is_card_exists(CardID):
+            utils.log(f'New card found: ->{CardID}<-', 'db')
+            if not self.insert_card(CardID, "Auto Insertion"):
                 return False
-            utils.log(f'Card ID {cardID} has been added!', 'db')
+            utils.log(f'Card ID {CardID} has been added!', 'db')
 
-        query = """ INSERT INTO CardTransactions
-                    (cardID, Transaction_date, Name, Transaction_value, Transaction_charge, Information, Description,
-                        source_file, Category)
-                    VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)
+        query = """ INSERT INTO CardTransactions(
+                        CardID,
+                        Name,
+                        Executed_Date,
+                        Charge_Date,
+                        Charge_Value,
+                        Charge_Currency,
+                        Transaction_Value,
+                        Value_Currency,
+                        Extra_Info,
+                        Source_file,
+                        Category)
+                    VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """
-        self.cursor.execute(query,
-                            (cardID, Transaction_date, Name, Transaction_value, Transaction_charge, Information,
-                                '', source_file, 'Uncategorized'))
+        self.cursor.execute(query, (
+                                CardID,
+                                Name,
+                                Executed_Date,
+                                Charge_Date,
+                                Charge_Value,
+                                Extra_Info,
+                                Source_file,
+                                Charge_Currency,
+                                Transaction_Value,
+                                Value_Currency,
+                                Category)
+                            )
 
     def insert_file(self,
                     name: str,

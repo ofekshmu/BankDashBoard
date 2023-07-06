@@ -40,52 +40,47 @@ class Card(File):
 
     def insert(self) -> bool:
 
-        def date_conversion(str):
-            import re
-            from datetime import datetime
-            if isinstance(str, datetime):
-                return str
-            pattern = "\d{1,2}/\d{1,2}/\d{2,4}|\d{1,2}-\d{1,2}-\d{4}"
-            str = re.search(pattern, str).group()
-            if len(str.split('/')[-1]) == 2:
-                str = str[:-2] + "20" + str[-2:]
-            if "/" in str:
-                return datetime.strptime(str, "%d/%m/%Y")
-            else:
-                return datetime.strptime(str, "%d-%m-%Y")
+        # def date_conversion(str):
+        #     import re
+        #     from datetime import datetime
+        #     if isinstance(str, datetime):
+        #         return str
+        #     pattern = "\d{1,2}/\d{1,2}/\d{2,4}|\d{1,2}-\d{1,2}-\d{4}"
+        #     str = re.search(pattern, str).group()
+        #     if len(str.split('/')[-1]) == 2:
+        #         str = str[:-2] + "20" + str[-2:]
+        #     if "/" in str:
+        #         return datetime.strptime(str, "%d/%m/%Y")
+        #     else:
+        #         return datetime.strptime(str, "%d-%m-%Y")
 
-        if self.format_name == "Leumi-Max":
-            for row in self.data:
+        for row in self.data:
+            match self.format_name:
+                case "Leumi-Max":
+                    DataBase().insert_card_transaction(CardID="1121",
+                                                       Name=row[1],
+                                                       Executed_Date=row[0],
+                                                       Charge_Date=row[9],
+                                                       Charge_Value=row[5],
+                                                       Source_file=self.name,
+                                                       Charge_Currency=row[6],
+                                                       Transaction_Value=row[7],
+                                                       Value_Currency=row[8],
+                                                       Extra_Info=f"Trans type: {row[4]} | Method: {row[14]}")
+                case "Isra-Card":
+                    DataBase().insert_card_transaction(CardID="1121",
+                                                       Name=row[1],
+                                                       Executed_Date=row[0],
+                                                       Charge_Date="Should EXTRACT FROM FILE HEADER", #TODO
+                                                       Charge_Value=row[2],
+                                                       Source_file=self.name,
+                                                       Charge_Currency=row[3],
+                                                       Transaction_Value=row[4],
+                                                       Value_Currency=row[5],
+                                                       Extra_Info=f"Serial: {row[6]} | Info: ({row[7]})")
+                case _:
+                    utils.log("Internal error: format name for insertion into card db was not found! (card.py)""error")
 
-                # TODO
-                DataBase().insert_card_transaction(cardID="Max - Temp",
-                                                   Transaction_date=row[0],
-                                                   Name=row[1],
-                                                   Transaction_value=row[5],
-                                                   #Currency="",
-                                                   Transaction_charge=row[7],
-                                                   Information=row[9],
-                                                   source_file=self.name)
-        elif self.format_name == "Isra-Card":
-            for row in self.data:
-                card_id = "NI - 2922"
-                transaction_date = date_conversion(row[0])
-                business_name = row[1]
-                amount = -row[2]
-                trans_type = row[3]
-                charge_date = ""
-                charge_amount = -row[4]
-                source_file = self.name
-
-                DataBase().insert_card_transaction(card_id,
-                                                   transaction_date,
-                                                   business_name,
-                                                   amount,
-                                                   charge_amount,
-                                                   f"{trans_type} | {charge_date}",
-                                                   source_file)
-        else:
-            utils.log("implent insertion for general leumi cards", "error")
         return True
 
     def __str__(self):

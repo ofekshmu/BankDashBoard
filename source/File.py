@@ -32,6 +32,8 @@ class File:
         self.headers = format_info["Headers"]
         self.header_row_idx = format_info["Header row index"]
 
+        self.data = []
+        
         try:
             wb = xw.Book(join(Local.INPUT_FOLDER, self.name))
             self.sheet = wb.sheets[0]

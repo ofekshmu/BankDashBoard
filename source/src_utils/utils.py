@@ -337,17 +337,3 @@ class utils:
         else:
             utils.log(f"Invalid indexes -> ({row}, {col})", "error")
             return ""
-
-    # @staticmethod
-    # def id_method(cls, file_name: str) -> bool:
-    #     match cls.FORMAT_METHOD:
-    #         case Method.FILE_NAME:
-    #             return cls.SUB_STRING in file_name
-    #         case Method.HEADERS:
-    #             return utils.__is_headers_valid(file_name, cls)
-    #         case Method.CELL:
-    #             (location, value) = cls.INFO
-    #             wb = xw.Book(join(Local.INPUT_FOLDER, file_name))
-    #             return wb.sheets[0][location].value == value
-    #     utils.log(f"Bad Mehtod type: [{cls.FORMAT_METHOD}]", "error")
-    #     return False

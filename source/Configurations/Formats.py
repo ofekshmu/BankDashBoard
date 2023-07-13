@@ -75,7 +75,7 @@ class Formats:
                               "Identification data": "תנועות בחשבון",
                               "Sortion method": Sortion_Method.BY_NAME_DATE,
                               "Sortion key": None,
-                              "Adittional data field": (3, 0),
+                              "Adittional data field": (7, 4),
                               "Headers": ['תאריך',
                                           'תאריך ערך',
                                           'תיאור',

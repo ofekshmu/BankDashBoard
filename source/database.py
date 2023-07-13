@@ -45,6 +45,23 @@ class DataBase:
                 );""")
 
             cls.__instance.cursor.execute("""
+                CREATE TABLE IF NOT EXISTS BankTransactions (
+                ID                  INTEGER     PRIMARY KEY ,
+                Date                DATE        NOT NULL    ,
+                Value_Date          DATE                    ,
+                Name                CHAR        NOT NULL    ,
+                Ref                 CHAR                    ,
+                Out                 INT         NOT NULL    ,
+                Income              INT         NOT NULL    ,
+                Balance             INT                     ,
+                Extra_Info          CHAR                    ,
+                Source_file         CHAR        NOT NULL    ,
+                Category            CHAR                    ,
+                Reserved            INT                     ,
+                FOREIGN KEY(source_file)    REFERENCES File(Name)
+                );""")
+
+            cls.__instance.cursor.execute("""
                 CREATE TABLE IF NOT EXISTS CardTransactions (
                 ID                  INTEGER     PRIMARY KEY ,
                 CardID              CHAR        NOT NULL    ,
@@ -63,43 +80,49 @@ class DataBase:
                 FOREIGN KEY(source_file)    REFERENCES File(Name)
                 );""")
 
-            cls.__instance.cursor.execute("""
-                CREATE TABLE IF NOT EXISTS BankTransactions (
-                ID                  INTEGER        PRIMARY KEY ,
-                Ref                 CHAR        NOT NULL    ,
-                Date                DATE        NOT NULL    ,
-                Date_value          DATE        NOT NULL    ,
-                Source_Dest         CHAR        NOL NULL    ,
-                Amount              INT         NOT NULL    ,
-                Balance             INT         NOT NULL    ,
-                Description         DATE                    ,
-                source_file         CHAR        NOT NULL    ,
-                Ex_description      CHAR        NOT NULL    ,
-                Category            CHAR                    ,
-                FOREIGN KEY(source_file)    REFERENCES File(Name)
-                );""")
-
         return cls.__instance
 
     def insert_bank_transaction(self,
-                                ref: str,
-                                date: datetime,
-                                date_value: str,
-                                source_dest: str,
-                                amount: int,
-                                balance: str,
-                                desc: str,
-                                source_file: str):
+                                Date: datetime,
+                                Value_Date: datetime,
+                                Name: str,
+                                Ref: str,
+                                Out: float,
+                                Income: float,
+                                Balance: float,
+                                Source_file: str,
+                                Extra_Info: str = "None",
+                                Category: str = "NotCategorized"):
         '''
         Insert a new Bank transaction to local DB.
         BankTransactions are transaction taken from the BankTransaction File.
         '''
-        self.cursor.execute(f"""
-            INSERT INTO BankTransactions
-            (Ref, Date, Date_value, Source_Dest, Amount, Balance, Description, source_file, Ex_description, Category)
+
+        query = """ INSERT INTO BankTransactions(
+                Date,
+                Value_Date,
+                Name,
+                Ref,
+                Out,
+                Income,
+                Balance,
+                Extra_Info,
+                Source_file,
+                Category)
             VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (ref, date, date_value, source_dest, amount, balance, desc, source_file, '', 'Uncategorized')
-            )
+        """
+        self.cursor.execute(query, (
+                                Date,
+                                Value_Date,
+                                Name,
+                                Ref,
+                                Out,
+                                Income,
+                                Balance,
+                                Extra_Info,
+                                Source_file,
+                                Category)
+                            )
 
     def insert_table_meta_data(self,
                                source_file_name: str,

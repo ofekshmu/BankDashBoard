@@ -23,8 +23,11 @@ class Card(File):
         """
         super().parse()
 
+        (row, col) = self.adittional_data_field
+        value = utils.cell(row, col, self.sheet)
+
         DataBase().insert_file(self.name,
-                               "None",
+                               value,
                                "Auto Insertion",
                                "Not checked",
                                self.counter)
@@ -66,7 +69,7 @@ class Card(File):
                                                        Charge_Currency=row[6],
                                                        Transaction_Value=row[7],
                                                        Value_Currency=row[8],
-                                                       Extra_Info=f"Trans type: {row[4]} | Method: {row[14]}")
+                                                       Extra_Info=f"Trans type: {row[4]} | Method: {row[14]} | Notes: {row[10]}")
                 case "Isra-Card":
                     DataBase().insert_card_transaction(CardID="1121",
                                                        Name=row[1],

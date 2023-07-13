@@ -31,9 +31,10 @@ class File:
         self.sortion_key = format_info["Sortion key"]
         self.headers = format_info["Headers"]
         self.header_row_idx = format_info["Header row index"]
+        self.adittional_data_field = format_info["Adittional data field"]
 
         self.data = []
-        
+
         try:
             wb = xw.Book(join(Local.INPUT_FOLDER, self.name))
             self.sheet = wb.sheets[0]

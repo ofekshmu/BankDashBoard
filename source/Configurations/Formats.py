@@ -33,6 +33,7 @@ class Formats:
                               "Identification data": "transaction-details_export",
                               "Sortion method": Sortion_Method.BY_NAME_SERIAL,
                               "Sortion key": None,
+                              "Adittional data field": (3, 0),
                               "Headers": ["תאריך עסקה",
                                           "שם בית העסק",
                                           "קטגוריה",
@@ -50,13 +51,14 @@ class Formats:
                                           "אופן ביצוע ההעסקה",
                                           'שער המרה ממטבע מקור/התחשבנות לש"ח'],
                               "Header row index": 4},
-     
+
                "Isra-Card":  {"Format Name": "Isra-Card",
                               "Context": Context_class.Card,
                               "Identification method": Identification_Method.FILE_NAME,
                               "Identification data": "Export_",
                               "Sortion method": Sortion_Method.BY_NAME_DATE,
                               "Sortion key": None,
+                              "Adittional data field": (3, 0),
                               "Headers": ["תאריך רכישה",
                                           "שם בית עסק",
                                           "סכום עסקה",
@@ -73,6 +75,7 @@ class Formats:
                               "Identification data": "תנועות בחשבון",
                               "Sortion method": Sortion_Method.BY_NAME_DATE,
                               "Sortion key": None,
+                              "Adittional data field": (3, 0),
                               "Headers": ['תאריך',
                                           'תאריך ערך',
                                           'תיאור',
@@ -81,7 +84,7 @@ class Formats:
                                           'בזכות',
                                           'היתרה בש"ח',
                                           'תאור מורחב',
-                                          '  הערה'],
+                                          '  הערה'],    # Do not delete special character here!
                               "Header row index": 12}
 
                }

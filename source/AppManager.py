@@ -108,7 +108,7 @@ class AppManager:
 
             elif class_type == Context_class.Card:
                 context.setFile(Card(file_name, format_data))
-                
+ 
             else:
                 utils.log("The file type is not supported", 'error')
 

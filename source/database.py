@@ -201,11 +201,11 @@ class DataBase:
                                 Executed_Date,
                                 Charge_Date,
                                 Charge_Value,
-                                Extra_Info,
-                                Source_file,
                                 Charge_Currency,
                                 Transaction_Value,
                                 Value_Currency,
+                                Extra_Info,
+                                Source_file,
                                 Category)
                             )
 

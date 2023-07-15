@@ -10,7 +10,7 @@ from enum import Enum
 
 
 class Settings:
-    DEBUG = True
+    DEBUG = False
     SYSTEM = True
     WARNING = True
     LAPTOP = False

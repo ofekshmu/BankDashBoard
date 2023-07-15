@@ -58,7 +58,7 @@ class Formats:
                               "Identification data": "Export_",
                               "Sortion method": Sortion_Method.BY_NAME_DATE,
                               "Sortion key": None,
-                              "Adittional data field": (3, 0),
+                              "Adittional data field": (4, 2),
                               "Headers": ["תאריך רכישה",
                                           "שם בית עסק",
                                           "סכום עסקה",

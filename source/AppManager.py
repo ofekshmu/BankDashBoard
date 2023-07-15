@@ -56,8 +56,10 @@ class AppManager:
         while True:
             answer = input()
             if not answer.isnumeric():
+                utils.log("Bad input.. try again", "system")
                 continue
-            if not (int(answer) > 0 and int(answer) < len(lst_names)):
+            if not (int(answer) >= 0 and int(answer) < len(lst_names)):
+                utils.log("Bad input.. try again", "system")
                 continue
             answer = int(answer)
             break

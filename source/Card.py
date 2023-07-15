@@ -29,7 +29,7 @@ class Card(File):
         DataBase().insert_file(self.name,
                                value,
                                "Auto Insertion",
-                               "Not checked",
+                               "Error",
                                self.counter)
 
         # TODO: Should add some generic field for data inside files
@@ -71,10 +71,13 @@ class Card(File):
                                                        Value_Currency=row[8],
                                                        Extra_Info=f"Trans type: {row[4]} | Method: {row[14]} | Notes: {row[10]}")
                 case "Isra-Card":
+                    (r, c) = self.adittional_data_field  # TODO: These code line are being reapted, improve
+                    value = utils.cell(r, c, self.sheet)
+
                     DataBase().insert_card_transaction(CardID="1121",
                                                        Name=row[1],
                                                        Executed_Date=row[0],
-                                                       Charge_Date="Should EXTRACT FROM FILE HEADER", #TODO
+                                                       Charge_Date=value, #TODO
                                                        Charge_Value=row[2],
                                                        Source_file=self.name,
                                                        Charge_Currency=row[3],

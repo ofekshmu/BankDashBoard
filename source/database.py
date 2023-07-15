@@ -497,7 +497,7 @@ class DataBase:
                             """, (file_name,))
         self.cursor.execute("""
                             DELETE
-                            From Transactions
+                            From CardTransactions
                             WHERE source_file = ?
                             """, (file_name,))
         self.cursor.execute("""

@@ -81,20 +81,20 @@ class File:
         # Looks for the headers in a @err area of the given estimated
         err = 2
         for row in range(self.header_row_idx - err, self.header_row_idx + err):
-            for i in range(0, 5):
+            for i in range(0, 3):   # error in col selection TODO: improve impl
                 valid = True
                 col = i
                 for name in self.headers:
                     utils.log(f'(FILE/Validate_headers) row number = {row}, col = {col}, name = {name[::-1]}', 'debug')
-                    value = File.cell(row, col, self.sheet)
+                    value = utils.cell(row, col, self.sheet)
                     if not value == name:
                         valid = False
                         break
                     col += 1
                 if valid:
                     if row != self.header_row_idx:
-                        utils.log(f"Headers were found at line {row}, Not in {self.header_row_idx} as specified.", "warning")
-                    self.header_row_idx = row
+                        utils.log(f"Headers were found at line {row}, Not in {self.header_row_idx} as specified\nIndex updated.", "warning")
+                        self.header_row_idx = row
                     return True
         return False
 

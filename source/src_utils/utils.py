@@ -1,9 +1,10 @@
-from Constants import Settings, Local, Method
+from Constants import Settings, Local
 import json
 import xlwings as xw
 from os.path import join
 from xlwings import Sheet
 from typing import Union
+from datetime import datetime
 
 
 class utils:
@@ -337,3 +338,15 @@ class utils:
         else:
             utils.log(f"Invalid indexes -> ({row}, {col})", "error")
             return ""
+
+    @staticmethod
+    def date_ready(date: str):
+        formats = ["%d-%m-%Y", "%d/%m/%Y", "%d/%m/%y"]
+        
+        for fmt in formats:
+            try:
+                return datetime.strptime(date, fmt)
+            except ValueError:
+                pass
+
+        utils.log("Invalid date format. Please use '-' or '/' as separators.", "error")

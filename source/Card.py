@@ -43,27 +43,13 @@ class Card(File):
 
     def insert(self) -> bool:
 
-        # def date_conversion(str):
-        #     import re
-        #     from datetime import datetime
-        #     if isinstance(str, datetime):
-        #         return str
-        #     pattern = "\d{1,2}/\d{1,2}/\d{2,4}|\d{1,2}-\d{1,2}-\d{4}"
-        #     str = re.search(pattern, str).group()
-        #     if len(str.split('/')[-1]) == 2:
-        #         str = str[:-2] + "20" + str[-2:]
-        #     if "/" in str:
-        #         return datetime.strptime(str, "%d/%m/%Y")
-        #     else:
-        #         return datetime.strptime(str, "%d-%m-%Y")
-
         for row in self.data:
             match self.format_name:
                 case "Leumi-Max":
                     DataBase().insert_card_transaction(CardID="1121",
                                                        Name=row[1],
-                                                       Executed_Date=row[0],
-                                                       Charge_Date=row[9],
+                                                       Executed_Date=utils.date_ready(row[0]),
+                                                       Charge_Date=utils.date_ready(row[9]),
                                                        Charge_Value=row[5],
                                                        Source_file=self.name,
                                                        Charge_Currency=row[6],
@@ -76,8 +62,8 @@ class Card(File):
 
                     DataBase().insert_card_transaction(CardID="1121",
                                                        Name=row[1],
-                                                       Executed_Date=row[0],
-                                                       Charge_Date=value, #TODO
+                                                       Executed_Date=utils.date_ready(row[0]),
+                                                       Charge_Date=utils.date_ready(value), #TODO
                                                        Charge_Value=row[2],
                                                        Source_file=self.name,
                                                        Charge_Currency=row[3],

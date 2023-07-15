@@ -37,24 +37,6 @@ class Bank(File):
         return super().clean()
 
     def insert(self):
-        """
-        """
-        # def date_conversion(str):
-        #     import re
-        #     from datetime import datetime
-        #     if isinstance(str, datetime):
-        #         return str
-        #         if str.day > 12:
-        #             return str
-        #         return datetime(str.year, str.day, str.month)
-        #     pattern = "\d{1,2}/\d{1,2}/\d{2,4}|\d{1,2}-\d{1,2}-\d{4}"
-        #     str = re.search(pattern, str).group()
-        #     if len(str.split('/')[-1]) == 2:
-        #         str = str[:-2] + "20" + str[-2:]
-        #     if "/" in str:
-        #         return datetime.strptime(str, "%d/%m/%Y")
-        #     else:
-        #         return datetime.strptime(str, "%d-%m-%Y")
 
         for row in self.data:
             match self.format_name:

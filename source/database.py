@@ -148,36 +148,6 @@ class DataBase:
                     WHERE source_file = ?
                 """
         return self.cursor.execute(query, (file_name,)).fetchall()
-
-    def insert_transaction(self,
-                           cardID: str,
-                           transaction_date: datetime,
-                           business_name: str,
-                           amount: int,
-                           transaction_type: str,
-                           charge_date: datetime,
-                           charge_amount: int,
-                           source_file: str):
-        '''
-        Insert a new transaction to the data base.
-        Currently, the transactions are inserted from the Files associated with credit files,
-        into the Transactions data base.
-        The function also checks it the associated credit card is present in the db.
-        '''
-        if not self.is_card_exists(cardID):
-            utils.log(f'New card found: ->{cardID}<-', 'db')
-            if not self.insert_card(cardID, "Auto Insertion"):
-                return False
-            utils.log(f'Card ID {cardID} has been added!', 'db')
-
-        query = """ INSERT INTO Transactions
-                    (cardID, transaction_date, business_name, amount, transaction_type, charge_date, charge_amount,
-                        source_file, description, Category)
-                    VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """
-        self.cursor.execute(query,
-                            (cardID, transaction_date, business_name, amount, transaction_type, charge_date,
-                                charge_amount, source_file, '', 'Uncategorized'))
     
     def insert_card_transaction(self,
                                 CardID: str,
@@ -423,20 +393,27 @@ class DataBase:
         bt_init = datetime(fit_year, fit_month, 1).strftime('%Y-%m-%d %H:%M:%S')
         bt_end = datetime(fit_year, fit_month, last_day).strftime('%Y-%m-%d %H:%M:%S')
         return self.cursor.execute("""
-                                    SELECT 'BankTransactions' AS source_table, Source_Dest,
-                                    'Bank' AS Card, amount, Category, Date
+                                    SELECT 'BankTransactions' AS source_table,
+                                    'None' AS CardID, Name, Date, Value_Date,
+                                    Out, 'X' AS Charge_Currency, Income, 'X' AS Value_Currency,
+                                    Extra_Info, Category
                                     FROM BankTransactions
-                                    WHERE date >= ?
-                                    AND date <= ?
-                                    AND amount < 0
+                                    WHERE Date >= ?
+                                    AND Date <= ?
+                                    AND Out != 0
                                     AND (Category != ? OR Category IS NULL)
                                     UNION ALL
-                                    SELECT 'Transactions' AS source_table, Name, cardID,
-                                    Transaction_charge, Category, Transaction_date
+                                    SELECT 'CardTransactions' AS source_table,
+                                    CardID, Name, Executed_Date, Charge_Date,
+                                    Charge_Value, Charge_Currency, Transaction_Value,
+                                    Value_Currency, Extra_Info, Category
                                     FROM CardTransactions
-                                    WHERE Transaction_date >= ?
-                                    AND Transaction_date <= ?
+                                    WHERE Executed_Date >= ?
+                                    AND Executed_Date <= ?
+                                    AND Charge_Value > 0
                                     """, (b_init, b_end, "אשראי", b_init, b_end,)).fetchall()
+    # Query NOTE: Executed_Date > 0 (In the CardTransaction table) represents only Negative transaction since Negative transactions
+    # appears with a positive value in the Card table.
 
     def get_all_transactions(self, shift: int = 5, income: bool = True):
         """

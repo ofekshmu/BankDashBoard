@@ -9,15 +9,15 @@ import seaborn as sns
 class Graphics:
 
     @staticmethod
-    def plot_earnings(data: list) -> None:
+    def plot_earnings(data: list, columns: list) -> None:
         if data != []:
-            df = pd.DataFrame(data, columns=["Name", "Amount", "Category", "Date"])
-            df = df.drop("Date", axis=1)
+            df = pd.DataFrame(data, columns=columns)
+            # df = df.drop("Date", axis=1)
             df = df.groupby("Category").sum()
-            df.index = df.index.map(lambda name: f"{utils.heb_conversion(name)}\n{round(df.loc[name,'Amount'], 2)}₪")
+            df.index = df.index.map(lambda name: f"{utils.heb_conversion(name)}\n{round(df.loc[name,'Income'], 2)}₪")
             gentle_blue = ['#BFD7EA', '#A5C6DB', '#8BB5CC', '#7194BD', '#577DAE', '#3D5C9F', '#233D90']
-            title = f"Total Earnings: {int(sum([tup[1] for tup in data]))}₪"
-            ax = df.plot.pie(y='Amount', figsize=(7, 5), legend=False, title=title, colors=gentle_blue)
+            title = f"Total Earnings: {df['Income'].sum()}₪"
+            ax = df.plot.pie(y='Income', figsize=(7, 5), legend=False, title=title, colors=gentle_blue)
             ax.set_ylabel('')
         else:
             _, ax = plt.subplots()

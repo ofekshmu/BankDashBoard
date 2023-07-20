@@ -60,7 +60,7 @@ class Card(File):
                     (r, c) = self.adittional_data_field  # TODO: These code line are being reapted, improve
                     value = utils.cell(r, c, self.sheet)
 
-                    DataBase().insert_card_transaction(CardID="1121",
+                    DataBase().insert_card_transaction(CardID="2922",
                                                        Name=row[1],
                                                        Executed_Date=utils.date_ready(row[0]),
                                                        Charge_Date=utils.date_ready(value), #TODO

@@ -359,12 +359,28 @@ class DataBase:
         last_day = calendar.monthrange(year, month)[1]
         day1 = datetime(year, month, 1).strftime('%Y-%m-%d %H:%M:%S')
         day2 = datetime(year, month, last_day).strftime('%Y-%m-%d %H:%M:%S')
+
         return self.cursor.execute("""
-                                    SELECT Source_Dest, Amount, Category, Date
+                                    SELECT 'BankTransactions' AS source_table,
+                                    'None' AS CardID, Name, Date, Value_Date,
+                                    Out, 'X' AS Charge_Currency, Income, 'X' AS Value_Currency,
+                                    Extra_Info, Category
                                     FROM BankTransactions
-                                    WHERE date >= ?
-                                    AND date <= ?
-                                    AND Amount > 0""", (day1, day2)).fetchall()
+                                    WHERE Date >= ?
+                                    AND Date <= ?
+                                    AND Income != 0
+                                    AND (Category != ? OR Category IS NULL)
+                                    UNION ALL
+                                    SELECT 'CardTransactions' AS source_table,
+                                    CardID, Name, Executed_Date, Charge_Date,
+                                    Charge_Value, Charge_Currency, Transaction_Value,
+                                    Value_Currency, Extra_Info, Category
+                                    FROM CardTransactions
+                                    WHERE Executed_Date >= ?
+                                    AND Executed_Date <= ?
+                                    AND Charge_Value < 0
+                                    """, (day1, day2, "אשראי", day1, day2)).fetchall(), \
+                [d[0] for d in self.cursor.description]
     
     def get_monthly_spendings(self, year: int, month: int) -> list[Tuple[str, int, str, str]]:
         """
@@ -389,9 +405,9 @@ class DataBase:
         b_init = datetime(year, month, 1).strftime('%Y-%m-%d %H:%M:%S')
         b_end = datetime(year, month, last_day).strftime('%Y-%m-%d %H:%M:%S')
         
-        last_day = calendar.monthrange(fit_year, fit_month)[1]
-        bt_init = datetime(fit_year, fit_month, 1).strftime('%Y-%m-%d %H:%M:%S')
-        bt_end = datetime(fit_year, fit_month, last_day).strftime('%Y-%m-%d %H:%M:%S')
+        # last_day = calendar.monthrange(fit_year, fit_month)[1]
+        # bt_init = datetime(fit_year, fit_month, 1).strftime('%Y-%m-%d %H:%M:%S')
+        # bt_end = datetime(fit_year, fit_month, last_day).strftime('%Y-%m-%d %H:%M:%S')
         return self.cursor.execute("""
                                     SELECT 'BankTransactions' AS source_table,
                                     'None' AS CardID, Name, Date, Value_Date,
@@ -411,7 +427,9 @@ class DataBase:
                                     WHERE Executed_Date >= ?
                                     AND Executed_Date <= ?
                                     AND Charge_Value > 0
-                                    """, (b_init, b_end, "אשראי", b_init, b_end,)).fetchall()
+                                    """, (b_init, b_end, "אשראי", b_init, b_end,)).fetchall(), \
+                [d[0] for d in self.cursor.description]
+
     # Query NOTE: Executed_Date > 0 (In the CardTransaction table) represents only Negative transaction since Negative transactions
     # appears with a positive value in the Card table.
 

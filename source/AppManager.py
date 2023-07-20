@@ -136,15 +136,15 @@ class AppManager:
 
         # -----
 
-        utils.log("NOT IMPLEMENTED - bank transaction ", "warning")
+        utils.log("NOT IMPLEMENTED - bank transaction below ", "warning")
         # monthly_balance = SimpleMath.generate_monthly_balance()
         monthly_balance = -1    # TODO
 
-        spendings = DataBase().get_monthly_spendings(year=t.year, month=t.month)
-        earnings = DataBase().get_monthly_earnings(year=t.year, month=t.month)
+        spendings, description = DataBase().get_monthly_spendings(year=t.year, month=t.month)
+        earnings, description = DataBase().get_monthly_earnings(year=t.year, month=t.month)
         end_monthly_balance = -1
-        Graphics.plot_earnings(earnings)
-        Graphics.plot_spendings(spendings)
+        Graphics.plot_earnings(earnings, description)
+        Graphics.plot_spendings(spendings, description)
 
         # ------ GAS
         cat_data = DataBase().get_by_category("Gas")

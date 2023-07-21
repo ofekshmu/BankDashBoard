@@ -513,18 +513,29 @@ class DataBase:
                                         'BankTransactions' as TableName,
                                         ID,
                                         Date,
-                                        Source_Dest,
-                                        Amount,
-                                        Description
+                                        Name,
+                                        Ref,
+                                        Out,
+                                        Income,
+                                        Extra_Info,
+                                        Source_file
                                     FROM BankTransactions
-                                    WHERE (Category IS NULL OR Category IS Uncategorized)
+                                    WHERE Category IS 'NotCategorized'
                                     ORDER BY ID DESC
                                     """).fetchall()
         res2 = self.cursor.execute("""
-                                    SELECT 'Transactions' as TableName,
-                                    ID, transaction_date, business_name, amount, transaction_type
-                                    FROM Transactions
-                                    WHERE (Category IS NULL OR Category IS Uncategorized)
+                                    SELECT
+                                        'CardTransactions' as TableName,
+                                        ID,
+                                        Executed_Date,
+                                        Name,
+                                        CardID,
+                                        Charge_Value,
+                                        Transaction_Value,
+                                        Extra_Info,
+                                        Source_file
+                                    FROM CardTransactions
+                                    WHERE Category IS 'NotCategorized'
                                     ORDER BY ID DESC
                                     """).fetchall()
         

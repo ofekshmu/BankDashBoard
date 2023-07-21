@@ -244,5 +244,7 @@ class SimpleMath:
                     utils.log("Unrecognized case in 'process_prices'...", "error")
                     return ""   # To avoid linter error - unreacheable code.
 
-        df["Final_Value"] = df.apply(my_lambda)
+        if not df.empty:
+            df["Final_Value"] = df.apply(my_lambda, axis=1)
+        
         return df

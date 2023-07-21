@@ -50,9 +50,10 @@ class Graphics:
 
     @staticmethod
     def plot_gas(df: pd.DataFrame) -> pd.Series:
-
-        utils.log("Should check here if df is empty", "warning")
-
+        """
+        The function assumes that df is never empty.
+        Saves a plot image and returns a series of statistics.
+        """
         # ------------
         df['Date'] = pd.to_datetime(df['Date'])
         statistics = df['Final_Value'].describe().loc[["count", "mean", "std", "min", "max"]]

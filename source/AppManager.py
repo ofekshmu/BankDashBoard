@@ -149,9 +149,10 @@ class AppManager:
         # ------ GAS
         cat_data, description = DataBase().get_by_category("Gas")
         df = SimpleMath.process_prices(cat_data, description)
-        _ = Graphics.plot_gas(df)
-        cat_dict = SimpleMath.cat_info(cat_data, description)
-        Graphics.plot_monthly_gas(cat_data)
+        if not df.empty:
+            _ = Graphics.plot_gas(df)
+            cat_dict = SimpleMath.cat_info(cat_data, description)
+            Graphics.plot_monthly_gas(cat_data)
         # ----- General
         df_general = SimpleMath.general_info(SimpleMath.get_monthly_shifted(shift=5))
         Graphics.plot_general(df_general)

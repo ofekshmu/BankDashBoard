@@ -147,7 +147,7 @@ class AppManager:
         Graphics.plot_spendings(spendings, description)
 
         # ------ GAS
-        cat_data = DataBase().get_by_category("Gas")
+        cat_data, description = DataBase().get_by_category("Gas")
         _ = Graphics.plot_gas(cat_data)
         cat_dict = SimpleMath.cat_info(cat_data)
         Graphics.plot_monthly_gas(cat_data)

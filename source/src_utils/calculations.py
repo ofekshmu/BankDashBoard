@@ -138,7 +138,7 @@ class SimpleMath:
         return res
 
     @staticmethod
-    def cat_info(data: list[Tuple[str, str, int, str, str, str]]) -> dict:
+    def cat_info(data: list, columns: list) -> dict:
         """
         Input:
         List of tuples containing: (source_table, business_name, amount, Category, transaction_date, Description)
@@ -146,7 +146,7 @@ class SimpleMath:
         if data == []:
             return False
 
-        df = pd.DataFrame(data, columns=["Source table", "Name", "Amount", "Category", "Date", "Description"])
+        df = pd.DataFrame(data, columns=columns)
         series = df['Amount'].describe()
         
         # convert Date column to datetime format

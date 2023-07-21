@@ -25,20 +25,19 @@ class Graphics:
             # set the title of the plot
             ax.set_title('Empty Pie Chart')
 
-        plt.savefig('Earnings.png')
+        plt.savefig(r'Outputs\Earnings.png')
 
     @staticmethod
-    def plot_spendings(data: list) -> None:
+    def plot_spendings(data: list, columns: list) -> None:
 
         if data != []:
-            df = pd.DataFrame(data, columns=["Table name", "Name", "Card", "Amount", "Category", "Date"])
-            df['Amount'] = df['Amount'].apply(lambda x: abs(x))
+            df = pd.DataFrame(data, columns=columns)
             df = df.groupby("Category").sum()
-            df.index = df.index.map(lambda name: f"{utils.heb_conversion(name)}\n{round(df.loc[name,'Amount'], 2)}₪")
+            df.index = df.index.map(lambda name: f"{utils.heb_conversion(name)}\n{round(df.loc[name,'Income'], 2)}₪")
             gentle_orange = ['#FFF2CC', '#FFE699', '#FFD966', '#FFC533', '#FFB200', '#FFA000', '#FF8F00', '#FF8000', '#FF6B00']
-            title = f"Total Spendings: {round(df['Amount'].sum(), 2)}₪"
+            title = f"Total Spendings: {round(df['Income'].sum(), 2)}₪"
 
-            ax = df.plot.pie(y='Amount', figsize=(7, 5), legend=False, title=title, colors=gentle_orange)
+            ax = df.plot.pie(y='Income', figsize=(7, 5), legend=False, title=title, colors=gentle_orange)
             ax.set_ylabel('')
 
         else:
@@ -47,7 +46,7 @@ class Graphics:
             # set the title of the plot
             ax.set_title('Empty Pie Chart')
 
-        plt.savefig('Spendings.png')
+        plt.savefig(r'Outputs\Spendings.png')
 
     @staticmethod
     def plot_gas(data: list) -> pd.Series:

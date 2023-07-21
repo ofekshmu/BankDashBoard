@@ -71,7 +71,7 @@ class DataBase:
                 Charge_Value        INT                     ,
                 Charge_Currency     CHAR                    ,
                 Transaction_Value   INT                     ,
-                Value_Currency      DATE                    ,
+                Value_Currency      CHAR                    ,
                 Extra_Info          CHAR                    ,
                 Source_file         CHAR        NOT NULL    ,
                 Category            CHAR                    ,
@@ -79,6 +79,8 @@ class DataBase:
                 FOREIGN KEY(CardID)         REFERENCES Card(CardID),
                 FOREIGN KEY(source_file)    REFERENCES File(Name)
                 );""")
+            # Charge value - The initial value/ The total sum of payments of the transaction.
+            # Transaction value - The actual amount credited for
 
         return cls.__instance
 
@@ -315,39 +317,38 @@ class DataBase:
                                         """, (k,)).fetchall()
         return rows
 
-    def get_by_category(self, cat_name: str) -> list[Tuple[str, str, int, str, str, str]]:
+    def get_by_category(self, cat_name: str) -> Tuple[list, list]:
         """
         Get all transactions by category name.
         Transactions format is: (source_table, Source_Dest, Amount, Category, Date, Description)
         """
         return self.cursor.execute("""
-                                   SELECT 'BankTransactions' as source_table, Source_Dest, Amount, Category, Date, Description
-                                   FROM BankTransactions WHERE Category = ?
+                                   SELECT
+                                        'BankTransactions' as source_table,
+                                        Name,
+                                        Out AS 'Out/Transaction_value',
+                                        Income As 'Income/Charge_Value',
+                                        Category,
+                                        Date,
+                                        Extra_Info
+                                   FROM BankTransactions
+                                   WHERE Category = ?
                                    UNION ALL
-                                   SELECT 'CardTransactions' as source_table, Name, Transaction_charge, Category, Transaction_date, Description
-                                   FROM CardTransactions WHERE Category = ? """,
-                                   (cat_name, cat_name)).fetchall()
+                                   SELECT
+                                        'CardTransactions' as source_table,
+                                        Name,
+                                        Transaction_value,
+                                        Charge_Value,
+                                        Category,
+                                        Executed_Date,
+                                        Extra_info
+                                   FROM CardTransactions
+                                   WHERE Category = ?
+                                   """,
+                                   (cat_name, cat_name)).fetchall(), \
+            [d[0] for d in self.cursor.description]
 
-    # def get_transactions(self, table: str, year: int, month: int):
-    #     """
-    #     The function will query all the records from the given month from the given
-    #     table @table. Table = "BankTransactions" for the BankTransaction table and any
-    #     other string for the Transaction table.
-
-    #     @param year - the year in format 20XX
-    #     @param month - the month in format XX
-    #     @param table - the table to query.
-    #     """
-    #     import calendar
-    #     last_day = calendar.monthrange(year, month)[1]
-    #     day1 = datetime(year, month, 1).strftime('%Y-%m-%d %H:%M:%S')
-    #     day2 = datetime(year, month, last_day).strftime('%Y-%m-%d %H:%M:%S')
-    #     if table == "BankTransactions":
-    #         return self.cursor.execute("select * from BankTransactions where date >= ? and date <= ?", (day1, day2)).fetchall()
-    #     else:
-    #         return self.cursor.execute("select * from Transactions where charge_date >= ? and charge_date <= ?", (day1, day2)).fetchall()
-
-    def get_monthly_earnings(self, year: int, month: int) -> list[Tuple[str, int, str, str]]:
+    def get_monthly_earnings(self, year: int, month: int) -> Tuple[list, list]:
         """
         Input:
         An year and a month.
@@ -380,9 +381,9 @@ class DataBase:
                                     AND Executed_Date <= ?
                                     AND Charge_Value < 0
                                     """, (day1, day2, "אשראי", day1, day2)).fetchall(), \
-                [d[0] for d in self.cursor.description]
+            [d[0] for d in self.cursor.description]
     
-    def get_monthly_spendings(self, year: int, month: int) -> list[Tuple[str, int, str, str]]:
+    def get_monthly_spendings(self, year: int, month: int) -> Tuple[list, list]:
         """
         The function will return a list containing all spendings made in the current month given.
         Spendings can be given from both BankTranssactions table of Transactions table.
@@ -428,7 +429,7 @@ class DataBase:
                                     AND Executed_Date <= ?
                                     AND Charge_Value > 0
                                     """, (b_init, b_end, "אשראי", b_init, b_end,)).fetchall(), \
-                [d[0] for d in self.cursor.description]
+            [d[0] for d in self.cursor.description]
 
     # Query NOTE: Executed_Date > 0 (In the CardTransaction table) represents only Negative transaction since Negative transactions
     # appears with a positive value in the Card table.

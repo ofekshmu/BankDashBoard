@@ -33,7 +33,7 @@ class AppManager:
         match answer:
             case 1:
                 self.load_data()
-                # self.tag_data()
+                self.tag_data()
             case 2:
                 self.analysis()
             case 3:
@@ -148,8 +148,9 @@ class AppManager:
 
         # ------ GAS
         cat_data, description = DataBase().get_by_category("Gas")
-        _ = Graphics.plot_gas(cat_data)
-        cat_dict = SimpleMath.cat_info(cat_data)
+        df = SimpleMath.process_prices(cat_data, description)
+        _ = Graphics.plot_gas(df)
+        cat_dict = SimpleMath.cat_info(cat_data, description)
         Graphics.plot_monthly_gas(cat_data)
         # ----- General
         df_general = SimpleMath.general_info(SimpleMath.get_monthly_shifted(shift=5))

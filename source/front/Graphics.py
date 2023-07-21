@@ -49,17 +49,13 @@ class Graphics:
         plt.savefig(r'Outputs\Spendings.png')
 
     @staticmethod
-    def plot_gas(data: list) -> pd.Series:
-        if data == []:
-            return False
-        # filter data:
-        data = [(item[4], item[1], -item[2]) for item in data]
+    def plot_gas(df: pd.DataFrame) -> pd.Series:
+
+        utils.log("Should check here if df is empty", "warning")
+
         # ------------
-        plt.figure()
-        labels = ["Date", "Business Name", "Amount"]
-        df = pd.DataFrame(data, columns=labels)
         df['Date'] = pd.to_datetime(df['Date'])
-        statistics = df['Amount'].describe().loc[["count", "mean", "std", "min", "max"]]
+        statistics = df['Final_Value'].describe().loc[["count", "mean", "std", "min", "max"]]
 
         start_date = pd.Timestamp.today().normalize() - pd.DateOffset(months=2, days=0)
         end_date = pd.Timestamp.today().normalize()
@@ -70,20 +66,21 @@ class Graphics:
         df_merged = pd.merge(df_all_dates, df, on='Date', how='left')
 
         # fill the missing values with 0
-        df_merged['Amount'].fillna(0, inplace=True)
+        df_merged['Final_Value'].fillna(0, inplace=True)
 
         # set the datetime column as the index of the DataFrame
         df_merged.set_index('Date', inplace=True)
 
         # create the bar plot
+        plt.figure()
         fig, ax = plt.subplots(figsize=(15, 6))
-        bars = ax.bar(df_merged.index.strftime('%d/%m'), df_merged['Amount'])
+        bars = ax.bar(df_merged.index.strftime('%d/%m'), df_merged['Final_Value'])
 
         for i, bar in enumerate(bars):
             height = bar.get_height()
             if height != 0:
                 ax.text(bar.get_x() + bar.get_width()/2., height + 2,
-                        utils.heb_conversion(df_merged['Business Name'][i]),
+                        utils.heb_conversion(df_merged['Name'][i]),
                         ha='center', va='bottom')
 
         # rotate x-axis labels by 45 degrees
@@ -96,8 +93,8 @@ class Graphics:
 
         # set the title of the plot
         ax.set_title('Bar Plot')
-    
-        plt.savefig('Gas_Stats.png')
+
+        plt.savefig('Outputs/Gas_Info.png')
         return statistics
 
     @staticmethod

@@ -225,3 +225,24 @@ class SimpleMath:
         # Fill NaN values with 0
         df_merged.fillna(0, inplace=True)
         return df_merged
+
+    @staticmethod
+    def process_prices(data: list, columns: list):
+
+        df = pd.DataFrame(data, columns=columns)
+
+        def my_lambda(row):
+            match row['TableName']:
+                case 'BankTransactions':
+                    # Only one of the following should have a value that is not 0.
+                    # This is the value that should be returned
+                    return max(row['Income/Charge_Value'], row['Out/Transaction_value'])
+                case 'CardTransactions':
+                    # This should indicate the actual payment.
+                    return row['Out/Transaction_value']
+                case _:
+                    utils.log("Unrecognized case in 'process_prices'...", "error")
+                    return ""   # To avoid linter error - unreacheable code.
+
+        df["Final_Value"] = df.apply(my_lambda)
+        return df

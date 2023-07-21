@@ -509,8 +509,13 @@ class DataBase:
         An untagged item is a transaction with no category
         """
         res1 = self.cursor.execute("""
-                                    SELECT 'BankTransactions' as TableName,
-                                    ID, Date, Source_Dest, Amount, Description
+                                    SELECT
+                                        'BankTransactions' as TableName,
+                                        ID,
+                                        Date,
+                                        Source_Dest,
+                                        Amount,
+                                        Description
                                     FROM BankTransactions
                                     WHERE (Category IS NULL OR Category IS Uncategorized)
                                     ORDER BY ID DESC

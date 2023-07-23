@@ -99,9 +99,9 @@ class Graphics:
         return statistics
 
     @staticmethod
-    def plot_monthly_gas(data: list) -> None:
+    def plot_monthly_gas(df: pd.DataFrame) -> None:
 
-        if data == []:
+        if df.empty:
             return False
 
         plt.figure()

@@ -138,22 +138,21 @@ class SimpleMath:
         return res
 
     @staticmethod
-    def cat_info(data: list, columns: list) -> dict:
+    def cat_info(df: pd.DataFrame) -> dict:
         """
         Input:
         List of tuples containing: (source_table, business_name, amount, Category, transaction_date, Description)
         """
-        if data == []:
+        if df.empty:
             return False
 
-        df = pd.DataFrame(data, columns=columns)
-        series = df['Amount'].describe()
+        series = df['Final_Value'].describe()
         
         # convert Date column to datetime format
         df['Date'] = pd.to_datetime(df['Date'])
 
         count = series.loc["count"]
-        sum = df['Amount'].sum()
+        sum = df['Final_Value'].sum()
         min = series.loc["max"]
         max = series.loc["min"]
 

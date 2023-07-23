@@ -10,6 +10,7 @@ from src_utils.calculations import SimpleMath
 import webbrowser
 from Configurations.Formats import Formats, Context_class
 from typing import Tuple
+import pandas as pd
 
 
 class AppManager:
@@ -71,26 +72,22 @@ class AppManager:
         """
         The function will check for untagged data and offer to tag it.
         """
-        lst = DataBase().get_untagged()
-        if len(lst) == 0:
+        lst, desc = DataBase().get_untagged()
+        df = pd.DataFrame(lst, columns=desc)
+        df['Name'] = df['Name'].apply(lambda x: utils.heb_conversion(x))
+        df['Extra_Info'] = df['Extra_Info'].apply(lambda x: utils.heb_conversion(x))
+        df['Source_file'] = df['Source_file'].apply(lambda x: utils.heb_conversion(x))
+        if df.empty:
             utils.log("There is No data to tag, You are all good!", "system")
         else:
             utils.log(f"There are {len(lst)} untagged Transactions.\nChoose a category or create a new one.", "system")
-            for idx, t in enumerate(lst, start=1):
-                t_id = t[1]
-                t_name = utils.heb_conversion(t[3])
-                t_table = t[0]
-                t_amount = t[4]
-                extra_info = "" if t[5] is None else utils.heb_conversion(t[5])
-                t_date = t[2]
-                utils.log(f"no'{idx}/{len(lst)} {20*'-'}", "system")
-                utils.log(f"id: {t_id}\nName: {t_name}\nInfo: {extra_info}\nAmount: {t_amount}\nDate: {t_date}\nTable: {t_table}", "system")
-
+            for _, row in df.iterrows():
+                print(row.to_markdown())
                 res = utils.handle_categories()
                 if res == "Skip":
                     utils.log("Skipped...", "system")
                 else:
-                    DataBase().set_category(table=t_table, id=t_id, category=res)
+                    DataBase().set_category(table=row['TableName'], id=row['ID'], category=res)
                     DataBase().commit_changes()
                     utils.log("Tag saved.", "system")
 

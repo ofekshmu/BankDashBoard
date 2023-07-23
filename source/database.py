@@ -503,7 +503,7 @@ class DataBase:
                             """, (file_name,))
         self.connection.commit()
 
-    def get_untagged(self) -> list:
+    def get_untagged(self) -> Tuple[list, list]:
         """
         Get all untagged items in database.
         An untagged item is a transaction with no category
@@ -529,9 +529,9 @@ class DataBase:
                                         ID,
                                         Executed_Date,
                                         Name,
-                                        CardID,
-                                        Charge_Value,
-                                        Transaction_Value,
+                                        CardID AS 'CardID/Ref',
+                                        Charge_Value AS 'Charge_Value/Out',
+                                        Transaction_Value AS 'Transaction_Value/Income' ,
                                         Extra_Info,
                                         Source_file
                                     FROM CardTransactions
@@ -542,16 +542,16 @@ class DataBase:
         # Sortion order is made for better handling of tagging
         # x[2] is the location of the Date
         sorted_list = sorted(res1 + res2, key=lambda x: x[2], reverse=True)
-        return sorted_list
+        return sorted_list, [d[0] for d in self.cursor.description]
 
     def set_category(self, table: str, id: int, category: str):
         """
         Set a tag for a transaction with a given id.
         """
         match table:
-            case "Transactions":
+            case "CardTransactions":
                 self.cursor.execute("""
-                                    UPDATE Transactions
+                                    UPDATE CardTransactions
                                     SET Category = ?
                                     WHERE ID = ?
                                     """, (category, id,))

@@ -37,7 +37,7 @@ class Local:
     INPUT_FOLDER = 'Inputs_testing'
     PERSONAL_CONFIG = 'Yuvals personal information/personal_config.json'
 
-    CATE_JSON_PATH = 'Yuvals personal information/categories.json'
+    CATE_JSON_PATH = 'personal information\categories.json'
     EXTENSION_1 = '.xls'
     EXTENSION_2 = '.csv'
     EXTENSION_3 = ''  # Add another extension option here if needed or leave as an empty string.

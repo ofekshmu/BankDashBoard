@@ -379,7 +379,7 @@ class DataBase:
                                     FROM CardTransactions
                                     WHERE Executed_Date >= ?
                                     AND Executed_Date <= ?
-                                    AND Charge_Value < 0
+                                    AND Transaction_Value < 0
                                     """, (day1, day2, "אשראי", day1, day2)).fetchall(), \
             [d[0] for d in self.cursor.description]
 
@@ -404,11 +404,11 @@ class DataBase:
                                              AND Date <= ?
                                              AND Category != ?) AS subquery1
                                         JOIN
-                                            (SELECT SUM(Charge_Value) AS 'y'
+                                            (SELECT SUM(Transaction_Value) AS 'y'
                                              FROM CardTransactions
                                              WHERE Executed_Date >= ?
                                              AND Executed_Date <= ?
-                                             AND Charge_Value < 0) AS subquery2;
+                                             AND Transaction_Value < 0) AS subquery2;
                                     """, (day1, day2, "אשראי", day1, day2)).fetchone()[0]
 
     def get_monthly_spendings(self, year: int, month: int) -> Tuple[list, list]:
@@ -455,7 +455,7 @@ class DataBase:
                                     FROM CardTransactions
                                     WHERE Executed_Date >= ?
                                     AND Executed_Date <= ?
-                                    AND Charge_Value > 0
+                                    AND Transaction_Value > 0
                                     """, (b_init, b_end, "אשראי", b_init, b_end,)).fetchall(), \
             [d[0] for d in self.cursor.description]
 
@@ -494,11 +494,11 @@ class DataBase:
                                              AND Date <= ?
                                              AND Category != ?) AS subquery1
                                         JOIN
-                                            (SELECT SUM(Charge_Value) AS 'y'
+                                            (SELECT SUM(Transaction_Value) AS 'y'
                                              FROM CardTransactions
                                              WHERE Executed_Date >= ?
                                              AND Executed_Date <= ?
-                                             AND Charge_Value > 0) AS subquery2;
+                                             AND Transaction_Value > 0) AS subquery2;
                                     """, (b_init, b_end, "אשראי", b_init, b_end)).fetchone()[0]
 
     # Query NOTE: Executed_Date > 0 (In the CardTransaction table) represents only Negative transaction since Negative transactions

@@ -154,7 +154,8 @@ class AppManager:
         spendings_sum, earnings_sum = SimpleMath.get_monthly_shifted(shift=5)
         Graphics.plot_general(spendings_sum, earnings_sum)
         # ----- Cards
-        Graphics.card_distribution(spendings)
+        utils.log("commented function of card distrib here.", "warning")
+        # Graphics.card_distribution(spendings)
 
         utils.generate_html(spendings,
                             earnings,

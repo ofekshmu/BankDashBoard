@@ -94,7 +94,7 @@ class Graphics:
         # set the title of the plot
         ax.set_title('Bar Plot')
 
-        plt.savefig('Outputs/Gas_Info.png')
+        plt.savefig(r'Outputs\Gas_Info.png')
         return statistics
 
     @staticmethod
@@ -120,7 +120,7 @@ class Graphics:
 
         # set the title of the plot
         ax.set_title('Monthly Payment')
-        plt.savefig('Gas_monthly.png')
+        plt.savefig(r'Outputs\Gas_monthly.png')
 
     @staticmethod
     def plot_general(spendings, earnings) -> None:
@@ -132,9 +132,10 @@ class Graphics:
             return [(datetime(2023, (current_month - i) % 12 or 12, 1)).strftime('%B') for i in range(N)]
 
         months = get_last_n_months_names(len(spendings))  # == len(earnings)
-        
+
         # Create a DataFrame
         data = pd.DataFrame({"Months": months, "Spendings": spendings, "Earnings": earnings})
+        print(data.to_markdown())
 
         # Convert DataFrame to long format using pd.melt
         df = pd.melt(data, id_vars=["Months"], var_name="Category", value_name="Amount")
@@ -172,7 +173,6 @@ class Graphics:
         #     (height, color) = (df['Earnings'][i], 'green') if df['Earnings'][i] > df['Spendings'][i] else (df['Earnings'][i], 'red')
         #     plt.text(i-.1, height + 50, str(delta), color=color, fontsize=10)
 
-        plt.show()
         # df['Date'] = df['Date'].apply(lambda x: x.strftime('%B'))
         # #df.index = df.index.strftime('%B')
         # #df = df.reset_index()
@@ -193,7 +193,7 @@ class Graphics:
         # ax.set_ylabel("Amount")
         # ax.legend(title="Type", loc="upper left")
 
-        # plt.savefig('General_info.png')
+        plt.savefig(r'Outputs\General_info.png')
 
     @staticmethod
     def card_distribution(spendings: list):
@@ -218,4 +218,4 @@ class Graphics:
             # set the title of the plot
             ax.set_title('Empty Pie Chart')
             
-        plt.savefig('Card_Distribution.png')
+        plt.savefig(r'Outputs\Card_Distribution.png')

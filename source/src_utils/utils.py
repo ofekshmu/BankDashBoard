@@ -149,7 +149,7 @@ class utils:
         div['class'] = 'container_img'
 
         img = soup.new_tag('img')
-        img['src'] = 'C:/Users/ofeks/OneDrive/Work/Projects/Personal/BankProject/Card_Distribution.png'
+        img['src'] = 'C:/Users/ofeks/OneDrive/Work/Projects/Personal/BankProject/Outputs/Card_Distribution.png'
 
         div.append(img)
         soup.body.insert(5, div)
@@ -177,14 +177,14 @@ class utils:
 
             cell = soup.new_tag("p")
             cell['class'] = 'date'
-            d = datetime.strptime(f"{item[-1]}", "%Y-%m-%d %H:%M:%S").strftime('%A %d')
-            cell.string = f"{d}"
+            #d = datetime.strptime(f"{item[-1]}", "%Y-%m-%d %H:%M:%S").strftime('%A %d')
+            cell.string = f"NOT IMPL"
             row.append(cell)
 
             cell = soup.new_tag("p")
             cell['class'] = 'cat'
             # d = datetime.strptime(f"{item[-1]}", "%Y-%m-%d %H:%M:%S").strftime('%A %d')
-            cell.string = f"{item[4]}" # Category
+            cell.string = f"{item[4]}"  # Category
             row.append(cell)
             
             table.append(row)
@@ -203,8 +203,8 @@ class utils:
 
             cell = soup.new_tag("p")
             cell['class'] = 'date'
-            d = datetime.strptime(f"{item[-1]}", "%Y-%m-%d %H:%M:%S").strftime('%A %d')
-            cell.string = f"{d}"
+            # d = datetime.strptime(f"{item[-1]}", "%Y-%m-%d %H:%M:%S").strftime('%A %d')
+            cell.string = f"NOT IMPL"
             row.append(cell)
 
             cell = soup.new_tag("p")
@@ -241,7 +241,7 @@ class utils:
         outer_div.append(div)
 
         img_tag = soup.new_tag("img")
-        img_tag['src'] = Local.GAS_GRAPH
+        img_tag['src'] = f"{Local.GAS_GRAPH}"
         outer_div.append(img_tag)
 
         soup.body.append(outer_div)
@@ -250,7 +250,7 @@ class utils:
         div_tag['class'] = 'container_img'
 
         img_tag = soup.new_tag("img")
-        img_tag['src'] = Local.GAS_MONTHLY
+        img_tag['src'] = f"{Local.GAS_MONTHLY}"
         div_tag.append(img_tag)
 
         soup.body.append(div_tag)

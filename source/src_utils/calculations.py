@@ -176,7 +176,7 @@ class SimpleMath:
                 "Maximum Amount":   f'{abs(max)}₪'}
 
     @staticmethod
-    def get_monthly_shifted(shift: int = 5):
+    def get_monthly_shifted(shift: int = 5) -> Tuple[list[int], list[int]]:
         """
         The function receives as input the number of months to calculate from this current
         one backwards shift. And returns two lists contatining The monthly spendings and earnings of the last @shift
@@ -191,8 +191,8 @@ class SimpleMath:
             curr_date = (today - relativedelta(months=i)).replace(day=1)
             y = curr_date.year
             m = curr_date.month
-            spendings_lst += DataBase().get_monthly_spendings(y, m)
-            earnings_lst += DataBase().get_monthly_earnings(y, m)
+            spendings_lst.append(DataBase().get_monthly_earnings_sum(y, m))
+            earnings_lst.append(DataBase().get_monthly_spendings_sum(y, m))
 
         return spendings_lst, earnings_lst
 

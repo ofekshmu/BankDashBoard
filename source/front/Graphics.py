@@ -1,4 +1,3 @@
-from database import DataBase
 import matplotlib.pyplot as plt
 import pandas as pd
 from src_utils.calculations import SimpleMath
@@ -105,13 +104,14 @@ class Graphics:
             return False
 
         plt.figure()
-        data = [(item[4], item[1], -item[2]) for item in data]
-        labels = ["Date", "Business Name", "Amount"]
-        df = pd.DataFrame(data, columns=labels)
+        # data = [(item[4], item[1], -item[2]) for item in data]
+        # labels = ["Date", "Business Name", "Amount"]
+        # df = pd.DataFrame(data, columns=labels)
+        
         df['Date'] = pd.to_datetime(df['Date'])
         df = df.groupby(pd.Grouper(key='Date', freq='M')).sum()
         fig, ax = plt.subplots(figsize=(10, 6))
-        ax.bar(df.index.strftime('%b %Y'), df['Amount'])
+        ax.bar(df.index.strftime('%b %Y'), df['Final_Value'])
 
         # set the x-axis label
         ax.set_xlabel('Month')
@@ -123,36 +123,77 @@ class Graphics:
         plt.savefig('Gas_monthly.png')
 
     @staticmethod
-    def plot_general(df: pd.DataFrame) -> None:
-        print(df.to_markdown())
-        if df.empty:
-            return False
+    def plot_general(spendings, earnings) -> None:
+
+        from datetime import datetime, timedelta
+
+        def get_last_n_months_names(N):
+            current_month = datetime.now().month
+            return [(datetime(2023, (current_month - i) % 12 or 12, 1)).strftime('%B') for i in range(N)]
+
+        months = get_last_n_months_names(len(spendings))  # == len(earnings)
         
-        df['Date'] = df['Date'].apply(lambda x: x.strftime('%B'))
-        #df.index = df.index.strftime('%B')
-        #df = df.reset_index()
-        # Melt the dataframe to "long" format for easier plotting with Seaborn
-        df_melt = df.melt(id_vars='Date', value_vars=['Amount_spendings', 'Amount_earnings'], var_name='Type')
-        # Set Seaborn style
-        sns.set_style("whitegrid")
-        pastel = sns.color_palette("pastel")
-        pastel_reverse = list(reversed(pastel[:2]))
-        sns.set_palette(pastel_reverse)
+        # Create a DataFrame
+        data = pd.DataFrame({"Months": months, "Spendings": spendings, "Earnings": earnings})
 
-        fig, ax = plt.subplots(figsize=(12, 6))
-        sns.barplot(x="Date", y="value", hue="Type", data=df_melt, ax=ax)
+        # Convert DataFrame to long format using pd.melt
+        df = pd.melt(data, id_vars=["Months"], var_name="Category", value_name="Amount")
 
-        for i in range(len(df)):
-            delta = int(df['Amount_earnings'][i] - df['Amount_spendings'][i])
-            (height, color) = (df['Amount_earnings'][i], 'green') if df['Amount_earnings'][i] > df['Amount_spendings'][i] else (df['Amount_spendings'][i], 'red')
-            plt.text(i-.1, height + 50, str(delta), color=color, fontsize=10)
+    #     # Sample dictionaries
+    # spendings_dict = {"Jan": 100, "Feb": 150, "Mar": 200, "Apr": 180, "May": 220}
+    # earnings_dict = {"Jan": 50, "Feb": 80, "Mar": 100, "Apr": 120, "May": 110}
 
-        ax.set_title("Spending and Earnings by Month")
-        ax.set_xlabel("Month")
-        ax.set_ylabel("Amount")
-        ax.legend(title="Type", loc="upper left")
+    # # Create DataFrames from the dictionaries
+    # spendings_df = pd.DataFrame(list(spendings_dict.items()), columns=["Months", "Spendings"])
+    # earnings_df = pd.DataFrame(list(earnings_dict.items()), columns=["Months", "Earnings"])
 
-        plt.savefig('General_info.png')
+    # # Merge the DataFrames into a single DataFrame (optional)
+    # data = pd.merge(spendings_df, earnings_df, on="Months", how="outer")
+
+        # Plot the bar plot using seaborn
+        sns.set(style="whitegrid")
+        plt.figure(figsize=(10, 6))
+
+        _, ax = plt.subplots(figsize=(12, 6))
+        sns.barplot(x="Months", y="Amount", hue="Category", data=df, ax=ax)
+
+        # Add labels and title
+        plt.xlabel("Months")
+        plt.ylabel("Amount")
+        plt.title("Monthly Spendings and Earnings")
+        plt.legend()
+
+        # # Show the month names below each bar
+        # for index, row in df.iterrows():
+        #     plt.text(index, row["Spendings"] + 5, row["Months"], ha="center")
+      
+        # for i in range(len(df)):
+        #     delta = int(df['Earnings'][i] - df['Spendings'][i])
+        #     (height, color) = (df['Earnings'][i], 'green') if df['Earnings'][i] > df['Spendings'][i] else (df['Earnings'][i], 'red')
+        #     plt.text(i-.1, height + 50, str(delta), color=color, fontsize=10)
+
+        plt.show()
+        # df['Date'] = df['Date'].apply(lambda x: x.strftime('%B'))
+        # #df.index = df.index.strftime('%B')
+        # #df = df.reset_index()
+        # # Melt the dataframe to "long" format for easier plotting with Seaborn
+        # df_melt = df.melt(id_vars='Date', value_vars=['Amount_spendings', 'Amount_earnings'], var_name='Type')
+        # # Set Seaborn style
+        # sns.set_style("whitegrid")
+        # pastel = sns.color_palette("pastel")
+        # pastel_reverse = list(reversed(pastel[:2]))
+        # sns.set_palette(pastel_reverse)
+
+        # fig, ax = plt.subplots(figsize=(12, 6))
+        # sns.barplot(x="Date", y="value", hue="Type", data=df_melt, ax=ax)
+
+
+        # ax.set_title("Spending and Earnings by Month")
+        # ax.set_xlabel("Month")
+        # ax.set_ylabel("Amount")
+        # ax.legend(title="Type", loc="upper left")
+
+        # plt.savefig('General_info.png')
 
     @staticmethod
     def card_distribution(spendings: list):

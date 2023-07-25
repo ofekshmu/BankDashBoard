@@ -387,8 +387,8 @@ class DataBase:
                                         Name,
                                         Executed_Date,
                                         Charge_Date,
-                                        Charge_Value,
                                         Transaction_Value,
+                                        Charge_Value,
                                         Category,
                                         Extra_Info,
                                         Source_file
@@ -477,8 +477,8 @@ class DataBase:
                                         Name,
                                         Executed_Date,
                                         Charge_Date,
-                                        Charge_Value,
                                         Transaction_Value,
+                                        Charge_Value,
                                         Category,
                                         Extra_Info,
                                         Source_file

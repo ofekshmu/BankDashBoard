@@ -231,7 +231,7 @@ class SimpleMath:
         df = pd.DataFrame(data, columns=columns)
 
         def my_lambda(row):
-            match row['source_table']:
+            match row['TableName']:
                 case 'BankTransactions':
                     # Only one of the following should have a value that is not 0.
                     # This is the value that should be returned

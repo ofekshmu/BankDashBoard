@@ -138,14 +138,16 @@ class AppManager:
         monthly_balance = -1    # TODO
 
         spendings, description = DataBase().get_monthly_spendings(year=t.year, month=t.month)
+        spendings_df = SimpleMath.process_prices(spendings, description)
         earnings, description = DataBase().get_monthly_earnings(year=t.year, month=t.month)
+        earnings_df = SimpleMath.process_prices(earnings, description)
         end_monthly_balance = -1
-        Graphics.plot_earnings(earnings, description)
-        Graphics.plot_spendings(spendings, description)
+        Graphics.plot_spendings(spendings_df)
+        Graphics.plot_earnings(earnings_df)
 
         # ------ GAS
-        cat_data, description = DataBase().get_by_category("Gas")
-        df = SimpleMath.process_prices(cat_data, description)
+        cat_data, description_cat = DataBase().get_by_category("Gas")
+        df = SimpleMath.process_prices(cat_data, description_cat)
         if not df.empty:
             _ = Graphics.plot_gas(df)
             cat_dict = SimpleMath.cat_info(df)
@@ -157,8 +159,8 @@ class AppManager:
         utils.log("commented function of card distrib here.", "warning")
         # Graphics.card_distribution(spendings)
 
-        utils.generate_html(spendings,
-                            earnings,
+        utils.generate_html(spendings_df,
+                            earnings_df,
                             monthly_balance,
                             end_monthly_balance,
                             cat_dict)

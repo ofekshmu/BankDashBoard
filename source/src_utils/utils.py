@@ -117,8 +117,8 @@ class utils:
                     print("This should not happen"); input("stopped.")
 
     @staticmethod
-    def generate_html(spendings,
-                      earnings,
+    def generate_html(spendings_df,
+                      earnings_df,
                       monthly_balance: int,
                       end_month_balance: int,
                       gas_stats):
@@ -149,7 +149,7 @@ class utils:
         div['class'] = 'container_img'
 
         img = soup.new_tag('img')
-        img['src'] = 'C:/Users/ofeks/OneDrive/Work/Projects/Personal/BankProject/Outputs/Card_Distribution.png'
+        img['src'] = Local.CARD_DIST_PIE
 
         div.append(img)
         soup.body.insert(5, div)
@@ -165,51 +165,52 @@ class utils:
 
         soup.body.insert(6, div)
 
-        for item in sorted(spendings, key=lambda x: x[-1]):
+        for _, item in spendings_df.sort_values(by='Date', ascending=True).iterrows():
+
             row = soup.new_tag("div")
             row['class'] = 'num'
-            row['data-value'] = f"{item[3]}₪"   # Amount
+            row['data-value'] = f"{item['Final_Value']}₪"   # Amount
 
-            st = f"{item[1]}"   # Name
+            st = f"{item['Name']}"   # Name
             cell = soup.new_tag("h3")
             cell.string = st
             row.append(cell)
 
             cell = soup.new_tag("p")
             cell['class'] = 'date'
-            #d = datetime.strptime(f"{item[-1]}", "%Y-%m-%d %H:%M:%S").strftime('%A %d')
-            cell.string = f"NOT IMPL"
+            d = datetime.strptime(f"{item['Date']}", "%Y-%m-%d %H:%M:%S").strftime('%A %d')
+            cell.string = f"{d}"
             row.append(cell)
 
             cell = soup.new_tag("p")
             cell['class'] = 'cat'
-            # d = datetime.strptime(f"{item[-1]}", "%Y-%m-%d %H:%M:%S").strftime('%A %d')
-            cell.string = f"{item[4]}"  # Category
+            d = datetime.strptime(f"{item['Date']}", "%Y-%m-%d %H:%M:%S").strftime('%A %d')
+            cell.string = f"{item['Category']}"  # Category
             row.append(cell)
             
             table.append(row)
 
         # ----------
         # ----------
-        for item in sorted(earnings, key=lambda x: x[-1]):
+        for _, item in earnings_df.sort_values(by='Date', ascending=True).iterrows():
             row = soup.new_tag("div")
             row['class'] = 'num'
-            row['data-value'] = f"{item[1]}₪"  # Amount
+            row['data-value'] = f"{item['Final_Value']}₪"  # Amount
 
-            st = f"{item[0]}"
+            st = f"{item['Name']}"
             cell = soup.new_tag("h3")
             cell.string = st
             row.append(cell)
 
             cell = soup.new_tag("p")
             cell['class'] = 'date'
-            # d = datetime.strptime(f"{item[-1]}", "%Y-%m-%d %H:%M:%S").strftime('%A %d')
-            cell.string = f"NOT IMPL"
+            d = datetime.strptime(f"{item['Date']}", "%Y-%m-%d %H:%M:%S").strftime('%A %d')
+            cell.string = f"{d}"
             row.append(cell)
 
             cell = soup.new_tag("p")
             cell['class'] = 'cat'
-            cell.string = f"{item[-2]}"
+            cell.string = f"{item['Category']}"
             row.append(cell)
 
             table2.append(row)

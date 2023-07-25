@@ -324,10 +324,10 @@ class DataBase:
         """
         return self.cursor.execute("""
                                    SELECT
-                                        'BankTransactions' as source_table,
+                                        'BankTransactions' as TableName,
                                         Name,
                                         Out AS 'Out/Transaction_value',
-                                        Income As 'Income/Charge_Value',
+                                        Income AS 'Income/Charge_Value',
                                         Category,
                                         Date,
                                         Extra_Info
@@ -335,7 +335,7 @@ class DataBase:
                                    WHERE Category = ?
                                    UNION ALL
                                    SELECT
-                                        'CardTransactions' as source_table,
+                                        'CardTransactions' as TableName,
                                         Name,
                                         Transaction_value,
                                         Charge_Value,
@@ -362,20 +362,36 @@ class DataBase:
         day2 = datetime(year, month, last_day).strftime('%Y-%m-%d %H:%M:%S')
 
         return self.cursor.execute("""
-                                    SELECT 'BankTransactions' AS source_table,
-                                    'None' AS CardID, Name, Date, Value_Date,
-                                    Out, 'X' AS Charge_Currency, Income, 'X' AS Value_Currency,
-                                    Extra_Info, Category
+                                    SELECT
+                                        ID,
+                                        'BankTransactions' AS TableName,
+                                        Ref,
+                                        Name,
+                                        Date,
+                                        Value_Date AS 'Value_Date/Charge_Date',
+                                        Out AS 'Out/Transaction_value',
+                                        Income AS 'Income/Charge_Value',
+                                        Category,
+                                        Extra_Info,
+                                        Source_file
                                     FROM BankTransactions
                                     WHERE Date >= ?
                                     AND Date <= ?
-                                    AND Income != 0
+                                    AND 'Income/Charge_Value' != 0
                                     AND (Category != ? OR Category IS NULL)
                                     UNION ALL
-                                    SELECT 'CardTransactions' AS source_table,
-                                    CardID, Name, Executed_Date, Charge_Date,
-                                    Charge_Value, Charge_Currency, Transaction_Value,
-                                    Value_Currency, Extra_Info, Category
+                                    SELECT
+                                        ID,
+                                        'CardTransactions' AS TableName,
+                                        CardID,
+                                        Name,
+                                        Executed_Date,
+                                        Charge_Date,
+                                        Charge_Value,
+                                        Transaction_Value,
+                                        Category,
+                                        Extra_Info,
+                                        Source_file
                                     FROM CardTransactions
                                     WHERE Executed_Date >= ?
                                     AND Executed_Date <= ?
@@ -438,20 +454,34 @@ class DataBase:
         # bt_init = datetime(fit_year, fit_month, 1).strftime('%Y-%m-%d %H:%M:%S')
         # bt_end = datetime(fit_year, fit_month, last_day).strftime('%Y-%m-%d %H:%M:%S')
         return self.cursor.execute("""
-                                    SELECT 'BankTransactions' AS source_table,
-                                    'None' AS CardID, Name, Date, Value_Date,
-                                    Out, 'X' AS Charge_Currency, Income, 'X' AS Value_Currency,
-                                    Extra_Info, Category
+                                    SELECT
+                                        'BankTransactions' AS TableName,
+                                        Ref,
+                                        Name,
+                                        Date,
+                                        Value_Date AS 'Value_Date/Charge_Date',
+                                        Out AS 'Out/Transaction_value',
+                                        Income AS 'Income/Charge_Value',
+                                        Category,
+                                        Extra_Info,
+                                        Source_file
                                     FROM BankTransactions
                                     WHERE Date >= ?
                                     AND Date <= ?
                                     AND Out != 0
                                     AND (Category != ? OR Category IS NULL)
                                     UNION ALL
-                                    SELECT 'CardTransactions' AS source_table,
-                                    CardID, Name, Executed_Date, Charge_Date,
-                                    Charge_Value, Charge_Currency, Transaction_Value,
-                                    Value_Currency, Extra_Info, Category
+                                    SELECT
+                                        'CardTransactions' AS TableName,
+                                        CardID,
+                                        Name,
+                                        Executed_Date,
+                                        Charge_Date,
+                                        Charge_Value,
+                                        Transaction_Value,
+                                        Category,
+                                        Extra_Info,
+                                        Source_file
                                     FROM CardTransactions
                                     WHERE Executed_Date >= ?
                                     AND Executed_Date <= ?

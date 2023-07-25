@@ -45,6 +45,7 @@ class Local:
     GAS_GRAPH = "C:/Users/ofeks/OneDrive/Work/Projects/Personal/BankProject/Outputs/Gas_info.png"
     GAS_MONTHLY = "C:/Users/ofeks/OneDrive/Work/Projects/Personal/BankProject/Outputs/Gas_monthly.png"
     GENERAL_INFO = "C:/Users/ofeks/OneDrive/Work/Projects/Personal/BankProject/Outputs/General_info.png"
+    CARD_DIST_PIE = "C:/Users/ofeks/OneDrive/Work/Projects/Personal/BankProject/Outputs/Card_Distribution.png"
 
     # Validation
     CHARGE_DAY = 2

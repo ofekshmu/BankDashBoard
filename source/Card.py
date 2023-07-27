@@ -46,7 +46,7 @@ class Card(File):
         for row in self.data:
             match self.format_name:
                 case "Leumi-Max":
-                    DataBase().insert_card_transaction(CardID="1121",
+                    DataBase().insert_card_transaction(CardID=row[3],
                                                        Name=row[1],
                                                        Executed_Date=utils.date_ready(row[0]),
                                                        Charge_Date=utils.date_ready(row[9]),

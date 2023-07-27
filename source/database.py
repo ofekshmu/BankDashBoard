@@ -324,7 +324,7 @@ class DataBase:
         """
         return self.cursor.execute("""
                                    SELECT
-                                        'BankTransactions' as TableName,
+                                        'BankTransactions' AS TableName,
                                         Name,
                                         Out AS 'Out/Transaction_value',
                                         Income AS 'Income/Charge_Value',
@@ -335,7 +335,7 @@ class DataBase:
                                    WHERE Category = ?
                                    UNION ALL
                                    SELECT
-                                        'CardTransactions' as TableName,
+                                        'CardTransactions' AS TableName,
                                         Name,
                                         Transaction_value,
                                         Charge_Value,
@@ -377,7 +377,7 @@ class DataBase:
                                     FROM BankTransactions
                                     WHERE Date >= ?
                                     AND Date <= ?
-                                    AND 'Income/Charge_Value' != 0
+                                    AND Income != 0
                                     AND (Category != ? OR Category IS NULL)
                                     UNION ALL
                                     SELECT
@@ -625,7 +625,7 @@ class DataBase:
                                     """).fetchall()
         res2 = self.cursor.execute("""
                                     SELECT
-                                        'CardTransactions' as TableName,
+                                        'CardTransactions' AS TableName,
                                         ID,
                                         Executed_Date,
                                         Name,

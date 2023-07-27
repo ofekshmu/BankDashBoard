@@ -139,9 +139,9 @@ class AppManager:
 
         spendings, description = DataBase().get_monthly_spendings(year=t.year, month=t.month)
         spendings_df = SimpleMath.process_prices(spendings, description)
-        print(spendings_df.to_markdown())
         earnings, description = DataBase().get_monthly_earnings(year=t.year, month=t.month)
         earnings_df = SimpleMath.process_prices(earnings, description)
+        print(earnings_df.to_markdown())
         end_monthly_balance = -1
         Graphics.plot_spendings(spendings_df)
         Graphics.plot_earnings(earnings_df)

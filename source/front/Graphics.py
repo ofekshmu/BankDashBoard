@@ -132,7 +132,6 @@ class Graphics:
 
         # Create a DataFrame
         data = pd.DataFrame({"Months": months, "Spendings": spendings, "Earnings": earnings})
-        print(data.to_markdown())
 
         # Convert DataFrame to long format using pd.melt
         df = pd.melt(data, id_vars=["Months"], var_name="Category", value_name="Amount")

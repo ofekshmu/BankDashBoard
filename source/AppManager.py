@@ -98,9 +98,6 @@ class AppManager:
             file_name, format_name, data = self.parser.get_next()
             format_data = Formats.FORMATS[format_name]
             class_type = format_data["Context"]
-            if DataBase().is_file_exists(file_name):
-                utils.log(f'Skipping {utils.name_he(file_name)}...', 'system')
-                continue
 
             if class_type == Context_class.Bank:
                 context.setFile(Bank(file_name, format_data))
@@ -141,7 +138,6 @@ class AppManager:
         spendings_df = SimpleMath.process_prices(spendings, description)
         earnings, description = DataBase().get_monthly_earnings(year=t.year, month=t.month)
         earnings_df = SimpleMath.process_prices(earnings, description)
-        print(earnings_df.to_markdown())
         end_monthly_balance = -1
         Graphics.plot_spendings(spendings_df)
         Graphics.plot_earnings(earnings_df)

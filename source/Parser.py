@@ -1,6 +1,6 @@
 from os import listdir
 from os.path import isfile, join
-from Card import Card
+from database import DataBase
 from File import File
 from Configurations.Formats import Formats, Identification_Method, Sortion_Method
 from typing import Tuple
@@ -35,28 +35,6 @@ class Parser():
 
             utils.log(f"Looking for files...", 'system')
 
-            # def to_date(name: str) -> datetime:
-            #     """
-            #     Helper function That extracts the date of format XX_XX_XXXX
-            #     out of a file str name. Returns a datetime object.
-            #     """
-            #     import re
-            #     try:
-            #         date_str = re.search("\w{1,2}_\w{1,2}_\w{4}", name).group()
-            #     except Exception as e:
-            #         utils.log(f"The file named {utils.name_he(name)} is of unknown format.", "error")
-            #     date = date_str.split("_")
-            #     import datetime
-            #     return datetime.datetime(int(date[2]), int(date[1]), int(date[0]))
-
-            # def to_num(name: str):
-            #     """
-            #     Receives the name of an outer credit file and returns the contained number
-            #     """
-            #     import re
-            #     num_str = re.search("_\d{1,}", name).group()
-            #     return num_str[1:]
-
             def is_exists(name: str, file_type) -> bool:
                 """
                 The function receives the name of the file(name is specified with the file extension) and the
@@ -83,8 +61,14 @@ class Parser():
                 return False
 
             for name in listdir(Local.INPUT_FOLDER):
+
+                if DataBase().is_file_exists(name):
+                    utils.log(f'Skipping {utils.name_he(name)}...', 'system')
+                    continue
+
                 if isfile(join(Local.INPUT_FOLDER, name)) and \
                         is_valid_extension(name):
+                    
                     file_type, consts = self.__identify(name)
 
                     if file_type is None:

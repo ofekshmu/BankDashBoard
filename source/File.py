@@ -117,6 +117,8 @@ class File:
 
         self.counter = counter - 1
 
+        if self.format_name == "American-Express":
+            self.counter += 1
         # Inset the meta data of the file to db for future reference
         DataBase().insert_table_meta_data(self.name,
                                           self.header_row_idx + 1,

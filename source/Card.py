@@ -23,8 +23,12 @@ class Card(File):
         """
         super().parse()
 
-        (row, col) = self.adittional_data_field
-        value = utils.cell(row, col, self.sheet)
+        if self.format_name == "American-Express":
+            value = utils.date_ready(self.data[0][1])
+        else:
+            (row, col) = self.adittional_data_field
+            value = utils.cell(row, col, self.sheet)
+
 
         DataBase().insert_file(self.name,
                                value,
@@ -70,6 +74,19 @@ class Card(File):
                                                        Transaction_Value=row[4],
                                                        Value_Currency=row[5],
                                                        Extra_Info=f"Serial: {row[6]} | Info: ({row[7]})")
+
+                case "American-Express":
+
+                    DataBase().insert_card_transaction(CardID="1565",
+                                                       Name=row[2],
+                                                       Executed_Date=utils.date_ready(row[0]),
+                                                       Charge_Date=utils.date_ready(row[1]),
+                                                       Charge_Value=row[3],
+                                                       Source_file=self.name,
+                                                       Charge_Currency=row[4],
+                                                       Transaction_Value=row[5],
+                                                       Value_Currency=row[6],
+                                                       Extra_Info=f"Note: None")
                 case _:
                     utils.log("Internal error: format name for insertion into card db was not found! (card.py)""error")
 

@@ -365,7 +365,7 @@ class DataBase:
                                     SELECT
                                         ID,
                                         'BankTransactions' AS TableName,
-                                        Ref,
+                                        Ref AS 'Ref/CardID',
                                         Name,
                                         Date,
                                         Value_Date AS 'Value_Date/Charge_Date',
@@ -456,7 +456,7 @@ class DataBase:
         return self.cursor.execute("""
                                     SELECT
                                         'BankTransactions' AS TableName,
-                                        Ref,
+                                        Ref AS 'Ref/CardID',
                                         Name,
                                         Date,
                                         Value_Date AS 'Value_Date/Charge_Date',

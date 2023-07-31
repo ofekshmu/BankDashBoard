@@ -136,6 +136,7 @@ class AppManager:
 
         spendings, description = DataBase().get_monthly_spendings(year=t.year, month=t.month)
         spendings_df = SimpleMath.process_prices(spendings, description)
+        print(spendings_df.to_markdown(), spendings_df.columns)
         earnings, description = DataBase().get_monthly_earnings(year=t.year, month=t.month)
         earnings_df = SimpleMath.process_prices(earnings, description)
         end_monthly_balance = -1
@@ -154,7 +155,7 @@ class AppManager:
         Graphics.plot_general(spendings_sum, earnings_sum)
         # ----- Cards
         utils.log("commented function of card distrib here.", "warning")
-        # Graphics.card_distribution(spendings)
+        Graphics.card_distribution(spendings_df)
 
         utils.generate_html(spendings_df,
                             earnings_df,

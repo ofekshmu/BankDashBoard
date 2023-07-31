@@ -192,19 +192,28 @@ class Graphics:
         plt.savefig(r'Outputs\General_info.png')
 
     @staticmethod
-    def card_distribution(spendings: list):
+    def card_distribution(spendings: pd.DataFrame):
         """
-        
+
         """
-        if spendings != []:
-            df = pd.DataFrame(spendings, columns=["Table name", "Name", "Card", "Amount", "Category", "Date"])
-            df['Amount'] = df['Amount'].apply(lambda x: abs(x))
-            df = df.groupby("Card").sum()
-            df.index = df.index.map(lambda card: f"{utils.heb_conversion(card)}\n{round(df.loc[card, 'Amount'] * 100 / df['Amount'].sum(), 2)}%")
+        if not spendings.empty:
+            # Since BankTransactions are indexed by a Ref Number, These needs to be caregorized by the TableName,
+            # and not by CardNumber, unlike CardTransactions.
+            # Sum Bank Transactions first:
+            new_row = spendings[spendings['TableName'] == 'BankTransactions'].sum()
+            # Set col Name for row identification
+            new_row['Ref/CardID'] = 'Bank'
+            # Filter out individual Bank transactions
+            df = spendings[spendings['TableName'] != 'BankTransactions']
+            # Add the summed transactions to create a new, summed, banktransaction row.
+            df = df.append(new_row, ignore_index=True)
+            df = df.groupby("Ref/CardID").sum()
+
+            df.index = df.index.map(lambda card: f"{utils.heb_conversion(card)}\n{round(df.loc[card, 'Final_Value'] * 100 / df['Final_Value'].sum(), 2)}%")
             gentle_orange = ['#FFF2CC', '#FFE699', '#FFD966', '#FFC533', '#FFB200', '#FFA000', '#FF8F00', '#FF8000', '#FF6B00']
             title = "Card Distribution"
 
-            ax = df.plot.pie(y='Amount', figsize=(3, 2), legend=False, title=title, colors=gentle_orange)
+            ax = df.plot.pie(y='Final_Value', figsize=(3, 2), legend=False, title=title, colors=gentle_orange)
             ax.set_ylabel('')
 
         else:

@@ -262,9 +262,13 @@ class utils:
     @staticmethod
     def template_menu(options: list[str], msg: str = "Choose one of the following:\n"):
         """
-        
+        The function creates a template menu that is printed out for the user.
+        Inputs are @options - a list of strings containing different options.
+                   @msg - str with a menu message
+        return a numbers from 0 to len(options) - 1 representing the chosen option.
+        if input does not match a valid option, the function asks for a valid one.
         """
-        st = msg
+        st = msg + '\n'
         for idx, e in enumerate(options, start=0):
             st += f"\t{idx} -> {utils.heb_conversion(e)}\n"
         utils.log(st, 'system')

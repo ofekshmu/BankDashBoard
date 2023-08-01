@@ -664,6 +664,20 @@ class DataBase:
             case _:
                 utils.log("Bad input in 'set_category' in DataBase class", "error")
 
+    def get_by_name(self, TableName: str, name: str):
+        """
+        WARNING - The function only returns transactions with no category.
+        Get All transactions from the given table that has the same exact name.
+        """
+        query = """
+                    SELECT *
+                    FROM {}
+                    WHERE Name = ?
+                    AND Category IS 'NotCategorized'
+                    """.format(TableName)
+        return self.cursor.execute(query, (name,)).fetchall(), \
+            [d[0] for d in self.cursor.description]
+
     def commit_changes(self) -> None:
         self.connection.commit()
 

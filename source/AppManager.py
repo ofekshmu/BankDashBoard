@@ -74,6 +74,7 @@ class AppManager:
         """
         lst, desc = DataBase().get_untagged()
         df = pd.DataFrame(lst, columns=desc)
+        df['Original_Name'] = df['Name']
         df['Name'] = df['Name'].apply(lambda x: utils.heb_conversion(x))
         df['Extra_Info'] = df['Extra_Info'].apply(lambda x: utils.heb_conversion(x))
         df['Source_file'] = df['Source_file'].apply(lambda x: utils.heb_conversion(x))
@@ -82,14 +83,31 @@ class AppManager:
         else:
             utils.log(f"There are {len(lst)} untagged Transactions.\nChoose a category or create a new one.", "system")
             for _, row in df.iterrows():
-                print(row.to_markdown())
+                print(row.drop('Original_Name').to_markdown())
                 res = utils.handle_categories()
                 if res == "Skip":
                     utils.log("Skipped...", "system")
+                    continue
                 else:
                     DataBase().set_category(table=row['TableName'], id=row['ID'], category=res)
-                    DataBase().commit_changes()
                     utils.log("Tag saved.", "system")
+
+                # Fill in similar rows:
+                similar_trans, desc_x = DataBase().get_by_name(row['TableName'], row['Original_Name'])
+                count = len(similar_trans)
+                if count > 0:
+                    res_x = utils.template_menu(['Yes', 'No'],
+                                                f"There are {count} untagged transaction with the same name. Do you want apply to all?")
+                    if res_x == 0:    # Yes -> 0
+                        res_df = pd.DataFrame(similar_trans, columns=desc_x)
+                        for _, row_x in res_df.iterrows():
+                            DataBase().set_category(table=row['TableName'], id=row_x['ID'], category=res)
+                        utils.log("Updated the following:\n")
+                        res_df['Name'] = res_df['Name'].apply(lambda x: utils.heb_conversion(x))
+                        res_df['Extra_Info'] = res_df['Extra_Info'].apply(lambda x: utils.heb_conversion(x))
+                        res_df['Source_file'] = res_df['Source_file'].apply(lambda x: utils.heb_conversion(x))
+                        print(res_df.to_markdown())
+                DataBase().commit_changes()
 
     def load_data(self):
         context = Context()

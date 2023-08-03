@@ -64,9 +64,8 @@ class Parser():
 
                 if DataBase().is_file_exists(name):
                     utils.log(f'Skipping {utils.name_he(name)}...', 'system')
-                    continue
 
-                if isfile(join(Local.INPUT_FOLDER, name)) and \
+                elif isfile(join(Local.INPUT_FOLDER, name)) and \
                         is_valid_extension(name):
                     
                     file_type, consts = self.__identify(name)
@@ -158,18 +157,6 @@ class Parser():
             return format, data
 
         utils.log(f"{file_name} was not identified.", "error")
-
-        # res = None
-        # consts = None
-        # file_type = None
-        # if utils.id_method(Card, file_name):
-        #     file_type, consts = InnerCreditFile, InnerCredit
-        # elif utils.id_method(Bank, file_name):
-        #     file_type, consts = Card, OuterCredit
-        # else:
-        #     utils.log(f"The file name: {file_name} was not identified, Ignoring...", 'warning')
-
-        # return file_type, consts
 
     def get_names(self, obj_class: File):
         """

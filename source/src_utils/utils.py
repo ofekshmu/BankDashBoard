@@ -5,6 +5,9 @@ from os.path import join
 from xlwings import Sheet
 from typing import Union
 from datetime import datetime
+import shutil
+import os
+import send2trash
 
 
 class utils:
@@ -347,7 +350,7 @@ class utils:
     @staticmethod
     def date_ready(date: str):
         formats = ["%d-%m-%Y", "%d/%m/%Y", "%d/%m/%y"]
-        
+
         for fmt in formats:
             try:
                 return datetime.strptime(date, fmt)
@@ -355,3 +358,31 @@ class utils:
                 pass
 
         utils.log("Invalid date format. Please use '-' or '/' as separators.", "error")
+
+    @staticmethod
+    def move_file_to_directory(file_path, destination_directory):
+        try:
+            # Check if the file exists
+            if not os.path.isfile(file_path):
+                utils.log("The specified file does not exist.", "error")
+
+            # Get the base name of the file (the file name without the directory path)
+            file_name = os.path.basename(file_path)
+
+            # Join the destination directory path with the file name to get the new file path
+            new_file_path = os.path.join(destination_directory, file_name)
+
+            # Move the file to the destination directory
+            shutil.move(file_path, new_file_path)
+
+            utils.log(f"File moved successfully to {new_file_path}", "system")
+        except Exception as e:
+            utils.log(f"Something happend.. -> {e}", "error")
+
+    @staticmethod
+    def move_to_recycle_bin(file_path):
+        try:
+            send2trash.send2trash(file_path)
+            utils.log(f"File '{file_path}' sent to recycle bin.", 'system')
+        except Exception as e:
+            utils.log(f"Failed to send '{file_path}' to recycle bin: {e}", 'system')

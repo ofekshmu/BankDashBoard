@@ -11,6 +11,7 @@ import webbrowser
 from Configurations.Formats import Formats, Context_class
 from typing import Tuple
 import pandas as pd
+from os import listdir
 
 
 class AppManager:
@@ -28,7 +29,8 @@ class AppManager:
                 2. Show statistics
                 3. Delete file information
                 4. Validate
-                5. Exit
+                5. Update existing file
+                6. Exit
             """)
         answer = int(input())
         match answer:
@@ -42,9 +44,42 @@ class AppManager:
             case 4:
                 self.validate()
             case 5:
+                self.update_existing_file()
+            case 6:
                 exit()
             case _:
                 print("Please insert a valid number.")
+
+    def update_existing_file(self) -> bool:
+
+        update_file_lst = listdir(Local.UPDATE_FOLDER)
+        if len(update_file_lst) == 0:
+            utils.log(f"{Local.UPDATE_FOLDER} is Empty. Returning to menu..", "system")
+            return False
+
+        files_df = DataBase().get_file_table()
+        print(files_df.to_markdown())
+        file_id = utils.template_menu(list(files_df["Name"]),
+                                      "Please choose what file do you want to update and delete.")
+
+        new_file_id = utils.template_menu(update_file_lst,
+                                          f"Choose a file to update from.")
+
+        ack = utils.template_menu(["Yes", "No"], "Are you sure?")
+        if ack == 0:
+            file_name = list(files_df["Name"])[file_id]
+            utils.log(f"Removing {file_name}...", 'system')
+            DataBase().drop_file(file_name)
+            utils.log(f"File chose to update from: {update_file_lst[new_file_id]}", 'system')
+            utils.move_file_to_directory(file_path=f"{Local.UPDATE_FOLDER}/{update_file_lst[new_file_id]}",
+                                         destination_directory=Local.INPUT_FOLDER)
+            utils.move_file_to_directory(file_path=f"{Local.INPUT_FOLDER}/{file_name}",
+                                         destination_directory=f"removed")
+            utils.log("Initiating Load Sequence...", 'system')
+            utils.log("Please Rerun 'Load Data' for the changes to take affect.", 'warning')
+            DataBase().commit_changes()
+
+        return True
 
     def delete_file_info(self):
         lst_names = DataBase().get_file_names()
@@ -67,6 +102,7 @@ class AppManager:
 
         selected_file = lst_names[answer]
         DataBase().drop_file(selected_file)
+        DataBase().commit_changes()
 
     def tag_data(self):
         """

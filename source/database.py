@@ -1,5 +1,6 @@
 import sqlite3
 from datetime import datetime
+import pandas as pd
 
 # local imports
 from decorators import try_catch
@@ -601,7 +602,6 @@ class DataBase:
                             From TableMeta
                             WHERE source_file = ?
                             """, (file_name,))
-        self.connection.commit()
 
     def get_untagged(self) -> Tuple[list, list]:
         """
@@ -678,6 +678,14 @@ class DataBase:
         return self.cursor.execute(query, (name,)).fetchall(), \
             [d[0] for d in self.cursor.description]
 
+    def get_file_table(self) -> pd.DataFrame:
+
+        data = self.cursor.execute("""
+                                    SELECT *
+                                    FROM File
+                                    """).fetchall()
+        return pd.DataFrame(data=data, columns=[d[0] for d in self.cursor.description])
+    
     def commit_changes(self) -> None:
         self.connection.commit()
 

@@ -103,6 +103,8 @@ class Formats:
                                           '  הערה'],    # Do not delete special character here!
                               "Header row index": 12}
 
+                    
+
                }
 
     EXTENTIONS = [".xls", ".xlsx", ".csv"]

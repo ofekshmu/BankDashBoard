@@ -3,7 +3,7 @@ from os.path import isfile, join
 from database import DataBase
 from File import File
 from Configurations.Formats import Formats, Identification_Method, Sortion_Method
-from typing import Tuple
+from typing import Tuple, Union
 import xlwings as xw
 
 # Local
@@ -31,6 +31,7 @@ class Parser():
 
             self.idx = 0
             self.type_to_name = {}
+            self.name_to_type = {}
             self.names = []
 
             utils.log(f"Looking for files...", 'system')
@@ -61,22 +62,28 @@ class Parser():
                 return False
 
             for name in listdir(Local.INPUT_FOLDER):
-
+                
+                # If file name is present in database:
+                # Extract sortion key
+                # handle name list for such files.
                 if DataBase().is_file_exists(name):
-                    utils.log(f'Skipping {utils.name_he(name)}...', 'system')
                     # The following 2 line were written to skip re-identification of files.
                     file_type = DataBase().get_file_format(name)
                     consts = Formats.FORMATS[file_type]
 
-                elif isfile(join(Local.INPUT_FOLDER, name)) and \
-                        is_valid_extension(name):
+                else:
+                    
+                    if not is_valid_extension(name):
+                        utils.log(f"File「{name}」has an invalid extension. Please use one of the following: {Formats.EXTENTIONS} ")
+                        continue
 
                     file_type, consts = self.__identify(name)
-
-                    if file_type is None:
+                    
+                    if file_type is None:   # None when file type was not identified.
                         continue
 
                     # Sanity check - Written with blood
+                    # ------------------------------------------------------------------------------------------
                     if is_exists(name, file_type):
                         utils.log(f"""The file '{utils.name_he(name)}' exists with a different extensions.
             What do you want to do?
@@ -91,10 +98,8 @@ class Parser():
                             exit()
                         else:
                             utils.log('Bad input!', 'error')
-
+                    # ------------------------------------------------------------------------------------------
                     utils.log(f"A new file of type「{file_type}」was found!", "system")
-                else:
-                    continue
                 
                 value = self.__extract_sortion_key(consts, name)
 
@@ -103,6 +108,8 @@ class Parser():
                 else:
                     self.type_to_name[file_type] = {name: value}
 
+                self.name_to_type[name] = file_type
+
             # Sort the read file names according to dates/serial number
             for k, v in self.type_to_name.items():
                 self.type_to_name[k] = {name: value for name, value in sorted(v.items(), key=lambda item: item[1])}
@@ -110,10 +117,17 @@ class Parser():
             # This Build is needed - DO NOT CHANGE
             # names list is built in the order of iteration to ensure
             # file names are read by their recency
+            temp = []
             for dict in self.type_to_name.values():
-                self.names += list(dict.keys())
+                temp += list(dict.keys())
 
-            utils.log(f"found {len(self.names)} files in {Local.INPUT_FOLDER}", 'system')
+            # Files which have been parsed, are not required for reparsing, therefor, they are omitted.
+            # Note; All files are required in the 'type_to_name' dict for comparing and cleaning
+            for file_name in temp:
+                if not DataBase().is_file_exists(file_name):
+                    self.names.append(file_name)
+
+            utils.log(f"found {len(self.names)}/{len(temp)} new files in {Local.INPUT_FOLDER}", 'system')
 
     def __next__(self):
         """
@@ -123,7 +137,7 @@ class Parser():
             return True
         return False
 
-    def get_next(self) -> Tuple[str, str, dict]:
+    def get_next(self) -> Tuple[str, str]:
         """
         Get the next file name.
         return the file "Format Name"
@@ -131,10 +145,10 @@ class Parser():
         """
         name = self.names[self.idx]
         self.idx += 1
-        format, data = self.__identify(name)
-        return name, format, data
+        format = self.name_to_type[name]
+        return name, format
 
-    def __identify(self, file_name: str) -> Tuple[str, dict]:
+    def __identify(self, file_name: str) -> Union[Tuple[str, dict], Tuple[None, None]]:
         """
         Identify the file Type.
         Received a file name and returns it's type.
@@ -163,14 +177,15 @@ class Parser():
 
             return format, data
 
-        utils.log(f"{file_name} was not identified.", "error")
+        utils.log(f"{file_name} was not identified.", "warning")
+        return None, None
 
-    def get_names(self, obj_class: File):
+    def get_names(self, format_type: str):
         """
         Return a list of names of file of type File.
         The names are Sorted by recency.
         """
-        return [k for k in self.type_to_name[obj_class].keys()]
+        return [k for k in self.type_to_name[format_type].keys()]
 
     def __extract_sortion_key(self, consts, name: str):
         """

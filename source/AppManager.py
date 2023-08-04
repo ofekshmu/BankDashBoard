@@ -149,10 +149,7 @@ class AppManager:
         context = Context()
         Context.counter = 0
         while next(self.parser):
-            file_name, format_name, data = self.parser.get_next()
-
-            if DataBase().is_file_exists(file_name):
-                continue
+            file_name, format_name = self.parser.get_next()
 
             format_data = Formats.FORMATS[format_name]
             class_type = format_data["Context"]

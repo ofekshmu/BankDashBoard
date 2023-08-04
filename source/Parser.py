@@ -48,7 +48,7 @@ class Parser():
                     if stipped_name in k:
                         return True
                 return False
-            
+
             def is_valid_extension(name: str) -> bool:
                 """
                 Returns True if the file contains a valid extension and False otherwise.
@@ -64,10 +64,13 @@ class Parser():
 
                 if DataBase().is_file_exists(name):
                     utils.log(f'Skipping {utils.name_he(name)}...', 'system')
+                    # The following 2 line were written to skip re-identification of files.
+                    file_type = DataBase().get_file_format(name)
+                    consts = Formats.FORMATS[file_type]
 
                 elif isfile(join(Local.INPUT_FOLDER, name)) and \
                         is_valid_extension(name):
-                    
+
                     file_type, consts = self.__identify(name)
 
                     if file_type is None:
@@ -89,12 +92,16 @@ class Parser():
                         else:
                             utils.log('Bad input!', 'error')
 
-                    value = self.__extract_sortion_key(consts, name)
+                    utils.log(f"A new file of type「{file_type}」was found!", "system")
+                else:
+                    continue
+                
+                value = self.__extract_sortion_key(consts, name)
 
-                    if file_type in self.type_to_name.keys():
-                        self.type_to_name[file_type][name] = value
-                    else:
-                        self.type_to_name[file_type] = {name: value}
+                if file_type in self.type_to_name.keys():
+                    self.type_to_name[file_type][name] = value
+                else:
+                    self.type_to_name[file_type] = {name: value}
 
             # Sort the read file names according to dates/serial number
             for k, v in self.type_to_name.items():
@@ -102,7 +109,7 @@ class Parser():
 
             # This Build is needed - DO NOT CHANGE
             # names list is built in the order of iteration to ensure
-            # file names are read by the recency
+            # file names are read by their recency
             for dict in self.type_to_name.values():
                 self.names += list(dict.keys())
 

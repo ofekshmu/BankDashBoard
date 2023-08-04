@@ -17,3 +17,5 @@ categories.json
 output.html
 Inputs Yuval
 Inputs_testing
+*.db-journal
+ofeks_inputs

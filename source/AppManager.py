@@ -150,6 +150,10 @@ class AppManager:
         Context.counter = 0
         while next(self.parser):
             file_name, format_name, data = self.parser.get_next()
+
+            if DataBase().is_file_exists(file_name):
+                continue
+
             format_data = Formats.FORMATS[format_name]
             class_type = format_data["Context"]
 
@@ -158,7 +162,7 @@ class AppManager:
 
             elif class_type == Context_class.Card:
                 context.setFile(Card(file_name, format_data))
- 
+
             else:
                 utils.log("The file type is not supported", 'error')
 

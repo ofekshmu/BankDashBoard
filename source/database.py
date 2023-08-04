@@ -685,7 +685,14 @@ class DataBase:
                                     FROM File
                                     """).fetchall()
         return pd.DataFrame(data=data, columns=[d[0] for d in self.cursor.description])
-    
+
+    def get_file_format(self, name: str) -> str:
+        return self.cursor.execute("""
+                                   SELECT Description
+                                   FROM file
+                                   WHERE Name = ?
+                                   """, (name,)).fetchone()[0]
+
     def commit_changes(self) -> None:
         self.connection.commit()
 

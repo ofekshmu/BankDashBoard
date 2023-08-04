@@ -32,8 +32,8 @@ class Card(File):
 
         DataBase().insert_file(self.name,
                                value,
-                               "Auto Insertion",
-                               "Error",
+                               self.format_name,
+                               -1,                    # Value is changed after the cleaning process
                                self.counter)
 
         # TODO: Should add some generic field for data inside files
@@ -93,4 +93,4 @@ class Card(File):
         return True
 
     def __str__(self):
-        return f"\t -> OuterCreditFile"
+        return f"{self.format_name} of Type 「Card」"

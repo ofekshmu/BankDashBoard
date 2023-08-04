@@ -32,9 +32,9 @@ class Local:
     '''
     Include all local enviroment related valriables
     '''
-    DB_NAME = "TEST_DataBase"
+    DB_NAME = "Ofeks_data"
 
-    INPUT_FOLDER = 'Inputs_testing'
+    INPUT_FOLDER = 'ofeks_inputs'
     PERSONAL_CONFIG = 'Yuvals personal information/personal_config.json'
 
     CATE_JSON_PATH = 'personal information\categories.json'

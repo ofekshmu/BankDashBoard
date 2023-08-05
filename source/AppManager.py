@@ -129,7 +129,7 @@ class AppManager:
                 else:
                     DataBase().set_category(table=row['TableName'], id=row['ID'], category=res)
                     if len(description) > 1:
-                        DataBase().set_transaction_description(description)
+                        DataBase().set_transaction_description(description, row['TableName'], row['ID'])
                     utils.log("Tag saved.", "system")
 
                 # ---------------- Fill in similar rows ----------------

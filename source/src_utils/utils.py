@@ -300,31 +300,35 @@ class utils:
             st += f"\t{idx} -> {utils.heb_conversion(e)}\n"
         utils.log(st, 'system')
 
+        number = -1
+        description = ""
         while True:
             x = input()
             parts = x.split('-', 1)
 
-            if len(parts) != 2:
+            if not len(parts) in [1, 2]:
+                utils.log("Bad format... try again.", 'system')
                 continue
 
-            number_str, description = parts
+            if len(parts) >= 1:
+                number_str = parts[0]
+                number_str = number_str.strip()
 
-            number_str = number_str.strip()
+                if not number_str.isdigit():
+                    utils.log("first clause is not a number, try again...", "system")
+                    continue
 
-            if not number_str.isdigit():
-                utils.log("Not a number, try again...", "system")
-                continue
+                number = int(number_str)
 
-            number = int(number_str)
+                if number < 0 or number >= len(options):
+                    utils.log("Bad number, try again...", "system")
+                    continue
 
-            if number < 0 or number >= len(options):
-                utils.log("Bad number, try again...", "system")
-                continue
-
-            description = description.strip()
+            if len(parts) == 2:
+                description = parts[1].strip()
             break
 
-        res = number_str
+        res = number
         # ----------------------------------------------------------
         if options[res] == "Create a new category":
             while True:
@@ -339,31 +343,6 @@ class utils:
                     continue
 
         return options[res], description
-
-
-def parse_input_string(input_str):
-    parts = input_str.split('-', 1)
-    
-    # Check if there are two parts (number and description)
-    if len(parts) == 2:
-        number_str, description = parts
-        try:
-            number = int(number_str.strip())
-            return number, description.strip()
-        except ValueError:
-            pass
-    
-    # If the input format is incorrect, ask the user to try again
-    print("Invalid input format. Please try again.")
-    return None, None
-
-# Test the function
-while True:
-    input_str = input("Enter a string of format '*number* - *description*': ")
-    number, description = parse_input_string(input_str)
-    
-    if number is not None and description is not None:
-        break
 
     @staticmethod
     def is_headers_valid(file_name: str, headers: list, initial_row: int) -> bool:

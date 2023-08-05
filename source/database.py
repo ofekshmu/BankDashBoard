@@ -58,6 +58,7 @@ class DataBase:
                 Extra_Info          CHAR                    ,
                 Source_file         CHAR        NOT NULL    ,
                 Category            CHAR                    ,
+                Description         CHAR                    ,            
                 Reserved            INT                     ,
                 FOREIGN KEY(source_file)    REFERENCES File(Name)
                 );""")
@@ -76,6 +77,7 @@ class DataBase:
                 Extra_Info          CHAR                    ,
                 Source_file         CHAR        NOT NULL    ,
                 Category            CHAR                    ,
+                Description         CHAR                    ,
                 Reserved            INT                     ,
                 FOREIGN KEY(CardID)         REFERENCES Card(CardID),
                 FOREIGN KEY(source_file)    REFERENCES File(Name)
@@ -693,7 +695,16 @@ class DataBase:
                                    WHERE Name = ?
                                    """, (name,)).fetchone()[0]
 
+    def set_transaction_description(self, desc: str, TableName: str, id: int) -> None:
+        """
+        The function sets the description field of the trasaction Given its id and table.
+        """
+        query = """
+                    UPDATE {}
+                    SET Description = ?
+                    WHERE ID = ?
+                """.format(TableName)
+        self.cursor.execute(query, (desc, id))
+
     def commit_changes(self) -> None:
         self.connection.commit()
-
-

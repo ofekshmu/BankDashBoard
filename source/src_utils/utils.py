@@ -8,6 +8,7 @@ from datetime import datetime
 import shutil
 import os
 import send2trash
+from typing import Tuple
 
 
 class utils:
@@ -286,14 +287,45 @@ class utils:
             return x
 
     @staticmethod
-    def handle_categories() -> str:
+    def handle_categories() -> Tuple[str, str]:
         """
-        
+
         """
-        #utils.log("Choose one of the existsing categories:")
+        # utils.log("Choose one of the existsing categories:")
         cat_lst = json.load(open(Local.CATE_JSON_PATH, encoding='utf-8'))
         options = cat_lst + ["Create a new category", "Skip"]
-        res = utils.template_menu(options)
+        # ----------- Input category and description -------------
+        st = "Please insert your selection and description in the following format:\n*Number* - *Description*" + '\n'
+        for idx, e in enumerate(options, start=0):
+            st += f"\t{idx} -> {utils.heb_conversion(e)}\n"
+        utils.log(st, 'system')
+
+        while True:
+            x = input()
+            parts = x.split('-', 1)
+
+            if len(parts) != 2:
+                continue
+
+            number_str, description = parts
+
+            number_str = number_str.strip()
+
+            if not number_str.isdigit():
+                utils.log("Not a number, try again...", "system")
+                continue
+
+            number = int(number_str)
+
+            if number < 0 or number >= len(options):
+                utils.log("Bad number, try again...", "system")
+                continue
+
+            description = description.strip()
+            break
+
+        res = number_str
+        # ----------------------------------------------------------
         if options[res] == "Create a new category":
             while True:
                 cat = input("Insert a category name: ")
@@ -301,12 +333,37 @@ class utils:
                 x = input()
                 if x == "1":
                     json.dump(cat_lst + [cat], open(Local.CATE_JSON_PATH, "w", encoding='utf-8'))
-                    return cat
+                    return cat, description
                 else:
-                    utils.log("Bad input, try again...", "system")
+                    utils.log("Please Try again...", "system")
                     continue
 
-        return options[res]
+        return options[res], description
+
+
+def parse_input_string(input_str):
+    parts = input_str.split('-', 1)
+    
+    # Check if there are two parts (number and description)
+    if len(parts) == 2:
+        number_str, description = parts
+        try:
+            number = int(number_str.strip())
+            return number, description.strip()
+        except ValueError:
+            pass
+    
+    # If the input format is incorrect, ask the user to try again
+    print("Invalid input format. Please try again.")
+    return None, None
+
+# Test the function
+while True:
+    input_str = input("Enter a string of format '*number* - *description*': ")
+    number, description = parse_input_string(input_str)
+    
+    if number is not None and description is not None:
+        break
 
     @staticmethod
     def is_headers_valid(file_name: str, headers: list, initial_row: int) -> bool:

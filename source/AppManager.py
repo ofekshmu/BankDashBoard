@@ -111,6 +111,7 @@ class AppManager:
         lst, desc = DataBase().get_untagged()
         df = pd.DataFrame(lst, columns=desc)
         df['Original_Name'] = df['Name']
+        # To enable readible printing of data
         df['Name'] = df['Name'].apply(lambda x: utils.heb_conversion(x))
         df['Extra_Info'] = df['Extra_Info'].apply(lambda x: utils.heb_conversion(x))
         df['Source_file'] = df['Source_file'].apply(lambda x: utils.heb_conversion(x))
@@ -119,16 +120,19 @@ class AppManager:
         else:
             utils.log(f"There are {len(lst)} untagged Transactions.\nChoose a category or create a new one.", "system")
             for _, row in df.iterrows():
+                # Show the current untagged transaction - This is not a debug line!
                 print(row.drop('Original_Name').to_markdown())
-                res = utils.handle_categories()
+                res, description = utils.handle_categories()
                 if res == "Skip":
                     utils.log("Skipped...", "system")
                     continue
                 else:
                     DataBase().set_category(table=row['TableName'], id=row['ID'], category=res)
+                    if len(description) > 1:
+                        DataBase().set_transaction_description(description)
                     utils.log("Tag saved.", "system")
 
-                # Fill in similar rows:
+                # ---------------- Fill in similar rows ----------------
                 similar_trans, desc_x = DataBase().get_by_name(row['TableName'], row['Original_Name'])
                 count = len(similar_trans)
                 if count > 0:
@@ -143,6 +147,7 @@ class AppManager:
                         res_df['Extra_Info'] = res_df['Extra_Info'].apply(lambda x: utils.heb_conversion(x))
                         res_df['Source_file'] = res_df['Source_file'].apply(lambda x: utils.heb_conversion(x))
                         print(res_df.to_markdown())
+                # -------------------------------------------------------
                 DataBase().commit_changes()
 
     def load_data(self):

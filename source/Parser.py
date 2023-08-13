@@ -164,7 +164,8 @@ class Parser():
                 case Identification_Method.CELL:
                     (location, value) = data["Identification data"]
                     wb = xw.Book(join(Local.INPUT_FOLDER, file_name))
-                    if wb.sheets[0][location].value != value:
+                    extracted_value = wb.sheets[0][location].value
+                    if extracted_value != value:
                         continue
                 case Identification_Method.HEADERS:
                     if not utils.is_headers_valid(file_name, data["Headers"], data["Header row index"]):

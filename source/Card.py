@@ -23,12 +23,23 @@ class Card(File):
         """
         super().parse()
 
-        if self.format_name == "American-Express":
-            value = utils.date_ready(self.data[0][1])
-        else:
-            (row, col) = self.adittional_data_field
-            value = utils.cell(row, col, self.sheet)
-
+        match self.format_name:
+            case "American-Express":
+                value = utils.date_ready(self.data[0][1])
+            case "Leumi-Card6744":
+                value = "Empty"
+            case None:
+                utils.log("None is not a valid 'Adittional data field' unless a specific case was mentioned", "error")
+            case _:
+                try:
+                    (row, col) = self.adittional_data_field
+                    value = utils.cell(row, col, self.sheet)
+                except Exception as e:
+                    utils.log(f"""Trouble reading adittional value from file.
+                                    File Name: {self.name}
+                                    Format: {self.format_name}
+                                    Adottional data field: {self.adittional_data_field}
+                            """, "error")
 
         DataBase().insert_file(self.name,
                                value,
@@ -87,8 +98,21 @@ class Card(File):
                                                        Transaction_Value=row[5],
                                                        Value_Currency=row[6],
                                                        Extra_Info=f"Note: None")
+
+                case "Leumi-Card6744":
+
+                    DataBase().insert_card_transaction(CardID="6744",
+                                                       Name=row[1],
+                                                       Executed_Date=row[0],
+                                                       Charge_Date="End of month",
+                                                       Charge_Value=row[2],
+                                                       Source_file=self.name,
+                                                       Charge_Currency="X",
+                                                       Transaction_Value=row[5],
+                                                       Value_Currency="X",
+                                                       Extra_Info=f"Type: {row[3]} | Note: None")
                 case _:
-                    utils.log("Internal error: format name for insertion into card db was not found! (card.py)""error")
+                    utils.log("Internal error: format name for insertion into card db was not found! (card.py)", "error")
 
         return True
 

@@ -385,13 +385,17 @@ class utils:
 
     @staticmethod
     def date_ready(date: str):
+        """
+        Converts a date string into a datetime object. The string has to be in one
+        of the following formats: "%d-%m-%Y", "%d/%m/%Y", "%d/%m/%y"
+        """
         formats = ["%d-%m-%Y", "%d/%m/%Y", "%d/%m/%y"]
 
         for fmt in formats:
             try:
                 return datetime.strptime(date, fmt)
-            except ValueError:
-                pass
+            except TypeError as e:
+                utils.log(f"Got a Type error: date is of type {type(date)}, Sould be str.", "error")
 
         utils.log("Invalid date format. Please use '-' or '/' as separators.", "error")
 

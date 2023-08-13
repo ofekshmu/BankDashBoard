@@ -117,7 +117,8 @@ class File:
 
         self.counter = counter - 1
 
-        if self.format_name == "American-Express":
+        if self.format_name == "American-Express" or \
+                self.format_name == "Leumi-Card6744":
             self.counter += 1
         # Inset the meta data of the file to db for future reference
         DataBase().insert_table_meta_data(self.name,

@@ -101,10 +101,22 @@ class Formats:
                                           'היתרה בש"ח',
                                           'תאור מורחב',
                                           '  הערה'],    # Do not delete special character here!
-                              "Header row index": 12}
+                              "Header row index": 12},
 
-                    
-
+               "Leumi-Card6744": {"Format Name": "Leumi-Card6744",
+                                  "Context": Context_class.Card,
+                                  "Identification method": Identification_Method.CELL,
+                                  "Identification data": ((4, 0), "פרוט עסקאות לכרטיס לאומי ויזה 6744"),
+                                  "Sortion method": Sortion_Method.BY_NAME_DATE,
+                                  "Sortion key": None,
+                                  "Adittional data field": None,
+                                  "Headers": ['תאריך העסקה',
+                                              'שם בית העסק',
+                                              'סכום העסקה',
+                                              'סוג העסקה',
+                                              'פרטים',
+                                              'סכום חיוב'],
+                                  "Header row index": 11}
                }
 
     EXTENTIONS = [".xls", ".xlsx", ".csv"]

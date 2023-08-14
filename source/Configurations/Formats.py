@@ -50,7 +50,8 @@ class Formats:
                                           "מפתח דיסקונט",
                                           "אופן ביצוע ההעסקה",
                                           'שער המרה ממטבע מקור/התחשבנות לש"ח'],
-                              "Header row index": 4},
+                              "Header row index": 4,
+                              "Header col index": 0},
 
                "Isra-Card":  {"Format Name": "Isra-Card",
                               "Context": Context_class.Card,
@@ -67,7 +68,8 @@ class Formats:
                                           "מטבע לחיוב",
                                           "מספר שובר",
                                           "פירוט נוסף"],
-                              "Header row index": 6},
+                              "Header row index": 6,
+                              "Header col index": 0},
 
                "American-Express": {"Format Name": "American-Express",
                                     "Context": Context_class.Card,
@@ -83,7 +85,8 @@ class Formats:
                                                 'מטבע מקור',
                                                 'סכום חיוב',
                                                 'מטבע לחיוב'],
-                                    "Header row index": 6},
+                                    "Header row index": 6,
+                                    "Header col index": 0},
 
                "Leumi-Bank": {"Format Name": "Leumi-Bank",
                               "Context": Context_class.Bank,
@@ -101,7 +104,8 @@ class Formats:
                                           'היתרה בש"ח',
                                           'תאור מורחב',
                                           '  הערה'],    # Do not delete special character here!
-                              "Header row index": 12},
+                              "Header row index": 12,
+                              "Header col index": 0},
 
                "Leumi-Card6744": {"Format Name": "Leumi-Card6744",
                                   "Context": Context_class.Card,
@@ -116,7 +120,8 @@ class Formats:
                                               'סוג העסקה',
                                               'פרטים',
                                               'סכום חיוב'],
-                                  "Header row index": 11}
+                                  "Header row index": 11,   # row starts from 1
+                                  "Header col index": 0}    # col starts from 0
                }
 
     EXTENTIONS = [".xls", ".xlsx", ".csv"]

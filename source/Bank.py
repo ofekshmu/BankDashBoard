@@ -20,7 +20,7 @@ class Bank(File):
         # might cuase a problem in future run
         # self.new_trans_count = counter
         # self.date = self.sheet[self.date_loc].value
-        
+
         (row, col) = self.adittional_data_field
         value = utils.cell(row, col, self.sheet)
 

@@ -31,6 +31,7 @@ class File:
         self.sortion_key = format_info["Sortion key"]
         self.headers = format_info["Headers"]
         self.header_row_idx = format_info["Header row index"]
+        self.header_col_idx = format_info["Header col index"]
         self.adittional_data_field = format_info["Adittional data field"]
 
         self.data = []
@@ -107,13 +108,15 @@ class File:
         """
         counter = 0
         row = self.header_row_idx + 1
-        cc_end = File.cell(row, 0, self.sheet)
+        col = self.header_col_idx
+
+        cc_end = File.cell(row, col, self.sheet)
 
         # Empty cell is read as None
         while cc_end is not None:
             counter += 1
             row += 1
-            cc_end = File.cell(row, 0, self.sheet)
+            cc_end = File.cell(row, col, self.sheet)
 
         self.counter = counter - 1
 
@@ -123,11 +126,10 @@ class File:
         # Inset the meta data of the file to db for future reference
         DataBase().insert_table_meta_data(self.name,
                                           self.header_row_idx + 1,
-                                          0,
+                                          col,
                                           self.counter)
 
         utils.log("The parse function for catd 2922 is not generic - (-1) is added to ignore last row", "warning")
-        utils.log("The parse method in the File class persumes the data is found in the first column.", "warning")
 
         COL_COUNT = len(self.headers)
         table = self.sheet[self.header_row_idx: self.header_row_idx + self.counter, 0: COL_COUNT].value
@@ -187,8 +189,8 @@ class File:
 
             old_sheet = read_sheet(old_file["name"])
             new_sheet = read_sheet(new_file["name"])
-            old_table = old_sheet[old_file["initial_row"]: old_file["initial_row"] + old_file["trans_count"], 0: old_file["col_count"]].value
-            new_table = new_sheet[new_file["initial_row"]: new_file["initial_row"] + new_file["trans_count"], 0: new_file["col_count"]].value
+            old_table = old_sheet[old_file["initial_row"]: old_file["initial_row"] + old_file["trans_count"], old_file["initial_col"]: old_file["col_count"]].value
+            new_table = new_sheet[new_file["initial_row"]: new_file["initial_row"] + new_file["trans_count"], new_file["initial_col"]: new_file["col_count"]].value
 
             if flip:
                 if old_file['trans_count'] == 1:
@@ -228,6 +230,9 @@ class File:
                 return new_table
             return new_table[:i]
 
+        # -----------------------------------------------------------------
+        #                      Function main starts here
+        # -----------------------------------------------------------------
         old_file_name = get_last_file_name()
         if old_file_name is None:
             DataBase().set_new_trans_count(self.name, self.counter)
@@ -235,20 +240,24 @@ class File:
             return True
 
         trans_count = DataBase().total_transactions(old_file_name)
-        initial_row = DataBase().get_table_Meta(old_file_name)[0][2]
+        table_data = DataBase().get_table_Meta(old_file_name)[0][2]
+        initial_row = table_data[0][2]
+        initial_col = table_data[0][3]
         if not trans_count:
             utils.log(f"There is a problem retriving transactions for {old_file_name}", "error")
         old_file = {"name": old_file_name,
                     "initial_row": initial_row - 1, # This was previously the header row, need to change
+                    "initial_col": initial_col,
                     "trans_count": trans_count,
                     "col_count": len(self.headers)}
         new_file = {"name": self.name,
                     "initial_row": self.header_row_idx,
+                    "initial_col": self.header_col_idx,
                     "trans_count": self.counter,
                     "col_count": len(self.headers)}
         new_table = compare_excel(old_file, new_file)
         utils.log(f'\t     Out of {len(self.data)} Transactions, {len(new_table)} new were found!', '')
-        
+
         DataBase().set_new_trans_count(self.name, len(new_table))
         self.data = new_table
         return True

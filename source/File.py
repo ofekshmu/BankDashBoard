@@ -81,7 +81,9 @@ class File:
         '''
         # Looks for the headers in a @err area of the given estimated
         err = 2
-        for row in range(self.header_row_idx - err, self.header_row_idx + err):
+        temp = self.header_row_idx - err
+        lower_bound = 1 if temp < 1 else temp
+        for row in range(lower_bound, self.header_row_idx + err):
             for i in range(0, 3):   # error in col selection TODO: improve impl
                 valid = True
                 col = i
@@ -132,7 +134,7 @@ class File:
         utils.log("The parse function for catd 2922 is not generic - (-1) is added to ignore last row", "warning")
 
         COL_COUNT = len(self.headers)
-        table = self.sheet[self.header_row_idx: self.header_row_idx + self.counter, 0: COL_COUNT].value
+        table = self.sheet[self.header_row_idx: self.header_row_idx + self.counter, col: COL_COUNT + col].value
 
         # Happens if table is empty (No transactions)
         if table is None:

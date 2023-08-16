@@ -21,8 +21,12 @@ class Bank(File):
         # self.new_trans_count = counter
         # self.date = self.sheet[self.date_loc].value
 
-        (row, col) = self.adittional_data_field
-        value = utils.cell(row, col, self.sheet)
+        match self.format_name:
+            case "BeinLeumi-Bank":
+                value = "Not implemanted"
+            case _:
+                (row, col) = self.adittional_data_field
+                value = utils.cell(row, col, self.sheet)
 
         DataBase().insert_file(self.name,
                                value,
@@ -41,15 +45,27 @@ class Bank(File):
         for row in self.data:
             match self.format_name:
                 case "Leumi-Bank":
-                   DataBase().insert_bank_transaction(Date=row[0],
-                                                      Value_Date=row[1],
-                                                      Name=row[2],
-                                                      Ref=row[3],
-                                                      Out=row[4],
-                                                      Income=row[5],
-                                                      Balance=row[6],
-                                                      Source_file=self.name,
-                                                      Extra_Info=f"Info: {row[7]} | Note: {row[8]}")
+                    DataBase().insert_bank_transaction(Date=row[0],
+                                                       Value_Date=row[1],
+                                                       Name=row[2],
+                                                       Ref=row[3],
+                                                       Out=row[4],
+                                                       Income=row[5],
+                                                       Balance=row[6],
+                                                       Source_file=self.name,
+                                                       Extra_Info=f"Info: {row[7]} | Note: {row[8]}")
+                case "BeinLeumi-Bank":
+                    DataBase().insert_bank_transaction(Date=row[0],
+                                                       Value_Date=row[6],
+                                                       Name=row[2],
+                                                       Ref=row[3],
+                                                       Out=row[5],
+                                                       Income=row[4],
+                                                       Balance=row[7],
+                                                       Source_file=self.name,
+                                                       Extra_Info=f"Info: {row[1]}")
+                    
+                
                 case _:
                     utils.log("Format not supported for insertion into db class.Bank -> insert", "error")
 

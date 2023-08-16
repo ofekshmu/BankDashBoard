@@ -209,6 +209,8 @@ class AppManager:
             _ = Graphics.plot_gas(df)
             cat_dict = SimpleMath.cat_info(df)
             Graphics.plot_monthly_gas(df)
+        else:
+            cat_dict = {}
         # ----- General
         spendings_sum, earnings_sum = SimpleMath.get_monthly_shifted(shift=5)
         Graphics.plot_general(spendings_sum, earnings_sum)

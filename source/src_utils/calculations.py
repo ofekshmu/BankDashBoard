@@ -191,8 +191,8 @@ class SimpleMath:
             curr_date = (today - relativedelta(months=i)).replace(day=1)
             y = curr_date.year
             m = curr_date.month
-            spendings_lst.append(DataBase().get_monthly_earnings_sum(y, m))
-            earnings_lst.append(DataBase().get_monthly_spendings_sum(y, m))
+            spendings_lst.append(DataBase().get_monthly_spendings_sum(y, m))
+            earnings_lst.append(DataBase().get_monthly_earnings_sum(y, m))
 
         return spendings_lst, earnings_lst
 

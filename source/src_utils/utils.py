@@ -400,6 +400,12 @@ class utils:
         utils.log("Invalid date format. Please use '-' or '/' as separators.", "error")
 
     @staticmethod
+    def amount_ready(value) -> int:
+        if value == ' ':
+            return 0
+        return value
+
+    @staticmethod
     def move_file_to_directory(file_path, destination_directory):
         try:
             # Check if the file exists

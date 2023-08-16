@@ -59,8 +59,8 @@ class Bank(File):
                                                        Value_Date=row[6],
                                                        Name=row[2],
                                                        Ref=row[3],
-                                                       Out=row[5],
-                                                       Income=row[4],
+                                                       Out=utils.amount_ready(row[5]),
+                                                       Income=utils.amount_ready(row[4]),
                                                        Balance=row[7],
                                                        Source_file=self.name,
                                                        Extra_Info=f"Info: {row[1]}")

@@ -396,6 +396,8 @@ class utils:
                 return datetime.strptime(date, fmt)
             except TypeError as e:
                 utils.log(f"Got a Type error: date is of type {type(date)}, Sould be str.", "error")
+            except Exception as e:
+                continue
 
         utils.log("Invalid date format. Please use '-' or '/' as separators.", "error")
 

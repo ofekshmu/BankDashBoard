@@ -29,6 +29,7 @@ class File:
         self.id_data = format_info["Identification data"]
         self.sortion_method = format_info["Sortion method"]
         self.sortion_key = format_info["Sortion key"]
+#        self.double_table = format_info["Double Tables"]
         self.headers = format_info["Headers"]
         self.header_row_idx = format_info["Header row index"]
         self.header_col_idx = format_info["Header col index"]
@@ -114,8 +115,12 @@ class File:
 
         cc_end = File.cell(row, col, self.sheet)
 
+        # Double table configuration:
+        # if self.double_table and cc_end is not None:
+        #     valid_cell_type = type(cc_end)
+
         # Empty cell is read as None
-        while cc_end is not None:
+        while cc_end is not None and cc_end != "עסקאות בחו˝ל":
             counter += 1
             row += 1
             cc_end = File.cell(row, col, self.sheet)
@@ -242,9 +247,9 @@ class File:
             return True
 
         trans_count = DataBase().total_transactions(old_file_name)
-        table_data = DataBase().get_table_Meta(old_file_name)[0][2]
-        initial_row = table_data[0][2]
-        initial_col = table_data[0][3]
+        table_data = DataBase().get_table_Meta(old_file_name)[0]
+        initial_row = table_data[2]
+        initial_col = table_data[3]
         if not trans_count:
             utils.log(f"There is a problem retriving transactions for {old_file_name}", "error")
         old_file = {"name": old_file_name,

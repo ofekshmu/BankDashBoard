@@ -206,7 +206,8 @@ class Graphics:
             # Filter out individual Bank transactions
             df = spendings[spendings['TableName'] != 'BankTransactions']
             # Add the summed transactions to create a new, summed, banktransaction row.
-            df = df.append(new_row, ignore_index=True)
+            # df = df.append(new_row, ignore_index=True) # Was removed in pandas version 2.0
+            df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
             df = df.groupby("Ref/CardID").sum()
 
             df.index = df.index.map(lambda card: f"{utils.heb_conversion(card)}\n{round(df.loc[card, 'Final_Value'] * 100 / df['Final_Value'].sum(), 2)}%")

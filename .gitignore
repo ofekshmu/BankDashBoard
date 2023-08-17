@@ -19,3 +19,5 @@ Inputs Yuval
 Inputs_testing
 *.db-journal
 ofeks_inputs
+
+venv_pc

@@ -32,20 +32,20 @@ class Local:
     '''
     Include all local enviroment related valriables
     '''
-    DB_NAME = "Yuvi_testing"    # "Ofeks_data"
+    DB_NAME = "Yuviz_Data"    # "Ofeks_data"
 
-    INPUT_FOLDER = "Inputs Yuval"   # 'ofeks_inputs'
-    PERSONAL_CONFIG = 'Yuvals personal information/personal_config.json'
+    INPUT_FOLDER = "Inputs"   # 'ofeks_inputs'
+    PERSONAL_CONFIG = 'Personal Information/personal_config.json'
 
-    CATE_JSON_PATH = 'personal information\categories.json'
+    CATE_JSON_PATH = 'Personal Information/categories.json'
     EXTENSION_1 = '.xls'
     EXTENSION_2 = '.csv'
     EXTENSION_3 = ''  # Add another extension option here if needed or leave as an empty string.
 
     GAS_GRAPH = "C:/Users/ofeks/OneDrive/Work/Projects/Personal/BankProject/Outputs/Gas_info.png"
     GAS_MONTHLY = "C:/Users/ofeks/OneDrive/Work/Projects/Personal/BankProject/Outputs/Gas_monthly.png"
-    GENERAL_INFO = "C:/Users/ofeks/OneDrive/Work/Projects/Personal/BankProject/Outputs/General_info.png"
-    CARD_DIST_PIE = "C:/Users/ofeks/OneDrive/Work/Projects/Personal/BankProject/Outputs/Card_Distribution.png"
+    GENERAL_INFO = "C:/Users/Coffe/Desktop/Ofek/BankDashBoard/Outputs/General_info.png"
+    CARD_DIST_PIE = "C:/Users/Coffe/Desktop/Ofek/BankDashBoard/Outputs/Card_Distribution.png"
 
     UPDATE_FOLDER = "to_update"
 
@@ -58,6 +58,6 @@ class Personal:
     All constants in this class are taken from the personal_config.json
     which is only avaliable in the local repository.
     '''
-    BANK_ACC = json.load(open(Local.PERSONAL_CONFIG, encoding='utf-8'))['bank_account']
-    BANK_ACC_VisaFile = json.load(open(Local.PERSONAL_CONFIG, encoding='utf-8'))['bank_account_visa_file']
+    # BANK_ACC = json.load(open(Local.PERSONAL_CONFIG, encoding='utf-8'))['bank_account']
+    # BANK_ACC_VisaFile = json.load(open(Local.PERSONAL_CONFIG, encoding='utf-8'))['bank_account_visa_file']
 

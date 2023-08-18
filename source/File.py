@@ -29,8 +29,9 @@ class File:
         self.id_data = format_info["Identification data"]
         self.sortion_method = format_info["Sortion method"]
         self.sortion_key = format_info["Sortion key"]
-#        self.double_table = format_info["Double Tables"]
+        self.double_table = format_info["Double Tables"]
         self.headers = format_info["Headers"]
+        # self.second_headers = format_info["Header"]
         self.header_row_idx = format_info["Header row index"]
         self.header_col_idx = format_info["Header col index"]
         self.adittional_data_field = format_info["Adittional data field"]
@@ -100,6 +101,22 @@ class File:
                         utils.log(f"Headers were found at line {row}, Not in {self.header_row_idx} as specified\nIndex updated.", "warning")
                         self.header_row_idx = row
                     return True
+        
+        # if double table is True
+        # check the next 1000 lines for the headers
+        # if doesnt exists
+        #   change the double-table to false
+        
+        if self.double_table:
+            row_idx = self.header_row_idx
+            col_idx = self.header_col_idx
+            utils.log("col idx is not being checked for errors...File header valdiation", "warning")
+            value = utils.cell(row_idx, col_idx, self.sheet)
+            while value
+
+
+
+
         return False
 
     @abstractmethod
@@ -119,6 +136,21 @@ class File:
         # if self.double_table and cc_end is not None:
         #     valid_cell_type = type(cc_end)
 
+        # Read first table value
+        # While the value is valid
+        #   increase counter
+        #   increase row counter
+        #   Read the next table cell
+        # Add the Table to the DB
+        # 
+        # Read variable stating if there is another table in file
+        # Read the index of the first row
+        # while value is not None
+        #   check if bad value
+        #       add indication to string list
+        #   increase row counter
+        #   increase counter
+        # Add the Table to DB
         # Empty cell is read as None
         while cc_end is not None and cc_end != "עסקאות בחו˝ל":
             counter += 1

@@ -29,9 +29,8 @@ class File:
         self.id_data = format_info["Identification data"]
         self.sortion_method = format_info["Sortion method"]
         self.sortion_key = format_info["Sortion key"]
-        self.double_table = format_info["Double Tables"]
         self.headers = format_info["Headers"]
-        # self.second_headers = format_info["Header"]
+        self.second_headers = format_info["Secondary Headers"]
         self.header_row_idx = format_info["Header row index"]
         self.header_col_idx = format_info["Header col index"]
         self.adittional_data_field = format_info["Adittional data field"]
@@ -106,13 +105,25 @@ class File:
         # check the next 1000 lines for the headers
         # if doesnt exists
         #   change the double-table to false
-        
-        if self.double_table:
+        def is_bad_value()
+            pass
+
+        if self.second_headers:
             row_idx = self.header_row_idx
             col_idx = self.header_col_idx
+            row_counter = 0
+            bad_indexes = []
             utils.log("col idx is not being checked for errors...File header valdiation", "warning")
             value = utils.cell(row_idx, col_idx, self.sheet)
-            while value
+            while value is not None:
+                if is_bad_value(value):
+                    bad_indexes.append(row)
+                row_counter += 1
+                row_idx += 1
+
+
+                    
+
 
 
 

@@ -59,7 +59,6 @@ class Formats:
                               "Identification data": None,
                               "Sortion method": Sortion_Method.BY_NAME_DATE,
                               "Sortion key": None,
-                              #"Double Tables": True,
                               "Adittional data field": (4, 2),
                               "Headers": ["תאריך רכישה",
                                           "שם בית עסק",
@@ -69,6 +68,7 @@ class Formats:
                                           "מטבע לחיוב",
                                           "מספר שובר",
                                           "פירוט נוסף"],
+                              "Secondary Headers": [],
                               "Header row index": 6,
                               "Header col index": 0},
 

@@ -68,6 +68,7 @@ class Formats:
                                           "מטבע לחיוב",
                                           "מספר שובר",
                                           "פירוט נוסף"],
+                              "Double tables": True,
                               "Secondary Headers": [],
                               "Header row index": 6,
                               "Header col index": 0},

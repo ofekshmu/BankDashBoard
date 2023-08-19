@@ -30,10 +30,15 @@ class File:
         self.sortion_method = format_info["Sortion method"]
         self.sortion_key = format_info["Sortion key"]
         self.headers = format_info["Headers"]
-        self.second_headers = format_info["Secondary Headers"]
+        self.secondary_headers = format_info["Secondary Headers"]
+        self.double_tables = format_info["Double tables"]
         self.header_row_idx = format_info["Header row index"]
         self.header_col_idx = format_info["Header col index"]
         self.adittional_data_field = format_info["Adittional data field"]
+
+        # This value will determine the index of the secondary headers, if exists
+        # The value is updated in the validate function
+        self.secondary_headers_row_idx = -1
 
         self.data = []
 
@@ -100,34 +105,24 @@ class File:
                         utils.log(f"Headers were found at line {row}, Not in {self.header_row_idx} as specified\nIndex updated.", "warning")
                         self.header_row_idx = row
                     return True
-        
-        # if double table is True
-        # check the next 1000 lines for the headers
-        # if doesnt exists
-        #   change the double-table to false
-        def is_bad_value()
-            pass
 
-        if self.second_headers:
-            row_idx = self.header_row_idx
+        if self.double_tables:
+            row_idx = self.header_row_idx + 1
             col_idx = self.header_col_idx
-            row_counter = 0
-            bad_indexes = []
             utils.log("col idx is not being checked for errors...File header valdiation", "warning")
-            value = utils.cell(row_idx, col_idx, self.sheet)
-            while value is not None:
-                if is_bad_value(value):
-                    bad_indexes.append(row)
-                row_counter += 1
+            extracted_secondary_headers = utils.read_sheet(self.name, row_idx, 1, col_idx, len(self.secondary_headers))
+            tries_left = 1_000
+            while tries_left:
+                if extracted_secondary_headers == self.secondary_headers:
+                    utils.log("Secondary headers match!", "system")
+                    self.secondary_headers_row_idx = row_idx
+                    return True
                 row_idx += 1
+                tries_left -= 1
+                extracted_secondary_headers = utils.read_sheet(self.name, row_idx, 1, col_idx, len(self.secondary_headers))
 
-
-                    
-
-
-
-
-
+        # This variables will determine the tables read in the "parse" function
+        self.double_tables = False
         return False
 
     @abstractmethod
@@ -180,6 +175,43 @@ class File:
                                           self.counter)
 
         utils.log("The parse function for catd 2922 is not generic - (-1) is added to ignore last row", "warning")
+
+        # ------------------------------------------------------------
+        #                  Secondary header parsing
+        # ------------------------------------------------------------
+        def is_bad_value(entire_row) -> bool:
+            """
+            Bad values are predetermined and are not included in the final parsed table.
+            Bad values are used to ignore tables rows that do not represent transactions.
+            These are identified using....
+            """
+            if entire_row[2] == "TOTAL FOR DATE":
+                return True
+            return False
+
+        if self.double_tables:
+            bad_indexes = []
+            row_idx = self.secondary_headers_row_idx
+            col_idx = self.header_col_idx
+            cc_end = File.cell(row_idx, col_idx, self.sheet)
+            entire_row = utils.read_sheet(self.name, row_idx, 1, col_idx, len(self.secondary_headers))
+            cc_end = entire_row[0]
+            while cc_end is not None:
+                if is_bad_value(entire_row):
+                    bad_indexes.append(row_idx)
+                counter += 1
+                row_idx += 1
+                cc_end = File.cell(row, col, self.sheet)
+        
+            bad_indexes = ', '.join([str(i) for i in bad_indexes])
+
+            
+            DataBase().insert_table_meta_data(self.name,
+                                              self.header_row_idx + 1,
+                                              col,
+                                              self.counter)
+
+        # This part might need changing from here on   
 
         COL_COUNT = len(self.headers)
         table = self.sheet[self.header_row_idx: self.header_row_idx + self.counter, col: COL_COUNT + col].value

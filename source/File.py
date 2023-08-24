@@ -35,6 +35,7 @@ class File:
         self.header_row_idx = format_info["Header row index"]
         self.header_col_idx = format_info["Header col index"]
         self.adittional_data_field = format_info["Adittional data field"]
+        self.independent = format_info["Independent"]
 
         # This value will determine the index of the secondary headers, if exists
         # The value is updated in the validate function
@@ -138,26 +139,6 @@ class File:
 
         cc_end = File.cell(row, col, self.sheet)
 
-        # Double table configuration:
-        # if self.double_table and cc_end is not None:
-        #     valid_cell_type = type(cc_end)
-
-        # Read first table value
-        # While the value is valid
-        #   increase counter
-        #   increase row counter
-        #   Read the next table cell
-        # Add the Table to the DB
-        # 
-        # Read variable stating if there is another table in file
-        # Read the index of the first row
-        # while value is not None
-        #   check if bad value
-        #       add indication to string list
-        #   increase row counter
-        #   increase counter
-        # Add the Table to DB
-        # Empty cell is read as None
         while cc_end is not None and cc_end != "עסקאות בחו˝ל":
             counter += 1
             row += 1
@@ -172,7 +153,8 @@ class File:
         DataBase().insert_table_meta_data(self.name,
                                           self.header_row_idx + 1,
                                           col,
-                                          self.counter)
+                                          self.counter,
+                                          "")
 
         utils.log("The parse function for catd 2922 is not generic - (-1) is added to ignore last row", "warning")
 
@@ -202,28 +184,28 @@ class File:
                 counter += 1
                 row_idx += 1
                 cc_end = File.cell(row, col, self.sheet)
-        
+
             bad_indexes = ', '.join([str(i) for i in bad_indexes])
 
-            
             DataBase().insert_table_meta_data(self.name,
                                               self.header_row_idx + 1,
                                               col,
-                                              self.counter)
+                                              self.counter,
+                                              bad_indexes)
 
-        # This part might need changing from here on   
+        # # This part might need changing from here on
 
-        COL_COUNT = len(self.headers)
-        table = self.sheet[self.header_row_idx: self.header_row_idx + self.counter, col: COL_COUNT + col].value
+        # COL_COUNT = len(self.headers)
+        # table = self.sheet[self.header_row_idx: self.header_row_idx + self.counter, col: COL_COUNT + col].value
 
-        # Happens if table is empty (No transactions)
-        if table is None:
-            table = []
-        # To stay consistent with the data structure
-        elif counter == 1:
-            table = [table]
+        # # Happens if table is empty (No transactions)
+        # if table is None:
+        #     table = []
+        # # To stay consistent with the data structure
+        # elif counter == 1:
+        #     table = [table]
 
-        self.data = table
+        # self.data = table
 
     def clean(self, flip: bool = False) -> bool:
         """
@@ -232,26 +214,21 @@ class File:
         ones which did not appear before.
         """
 
-        def get_last_file_name() -> Union[str, None]:
+        def get_last_file_name(sorted_names: list) -> Union[str, None]:
             """
-            Function receives the date of the current file specified in its name
-            and returns the name of the most recent file of the same type, in the
-            input folder.
-            self.sorted_names is defined in the derived class function.
+            The function receives a list containing all the file names of the same format at the current
+            file being cleaned. It returns the name of the file which is hierarchically before the current one.
+            Order is defined by the sortion key stated in the file's format table.
+            In case there is not recent file before the current one, None is returned.
             """
-            idx = self.sorted_names.index(self.name)
+            idx = sorted_names.index(self.name)
             if idx == 0:
                 return None
-            return self.sorted_names[idx - 1]
+            return sorted_names[idx - 1]
 
         def read_sheet(file_name: str) -> Sheet:
             wb = xw.Book(join(Local.INPUT_FOLDER, file_name))
             return wb.sheets[0]
-
-        # def check_payment_string(s: str) -> bool:
-        #     import re
-        #     pattern = r"תשלום \d+ מתוך \d+"
-        #     return bool(re.search(pattern, s))
 
         def get_row(table):
             for i, row in enumerate(table):
@@ -263,40 +240,88 @@ class File:
                 else:
                     return i, row
 
-        def compare_excel(old_file: dict, new_file: dict):
-            """
-            file_name1 will be the new excel
-            file_name2 will be the old excel
-            """
+        # -----------------------------------------------------------------
+        #                      Function main starts here
+        # -----------------------------------------------------------------
+        if self.independent:
+            utils.log(f"File of format {self.format_name} is independent of other files and is not being cleaned.", "system")
+            # TODO: what happens in a case of two tables? is the counter being summed?
+            DataBase().set_new_trans_count(self.name, self.counter)
+            return True
 
-            old_sheet = read_sheet(old_file["name"])
-            new_sheet = read_sheet(new_file["name"])
-            old_table = old_sheet[old_file["initial_row"]: old_file["initial_row"] + old_file["trans_count"], old_file["initial_col"]: old_file["col_count"]].value
-            new_table = new_sheet[new_file["initial_row"]: new_file["initial_row"] + new_file["trans_count"], new_file["initial_col"]: new_file["col_count"]].value
+        from Parser import Parser
+        # TODO: can i get rid of the self in self.sorted_names
+        sorted_names = Parser.getInstance().get_names(self.format_name)    # type: ignore
 
+        recent_file_name = get_last_file_name(sorted_names)
+        if recent_file_name is None:
+            DataBase().set_new_trans_count(self.name, self.counter)
+            utils.log(f"{self.name} has not earlier file - Nothing to clean.", "system")
+            return True
+
+        # trans_count = DataBase().total_transactions(recent_file_name)
+        recent_table_0_meta, recent_table_1_meta = DataBase().get_table_Meta(recent_file_name)
+        curr_table_0_meta, curr_table_1_meta = DataBase().get_table_Meta(self.name)
+
+        # -------------------------------------------------------------------------------------------
+        # I do not think this if ever accured... maybe should delete?
+        # if not trans_count:
+        #    utils.log(f"There is a problem retriving transactions for {recent_file_name}", "error")
+        # ---------------------------------------------------------------------------------------------
+
+        # Improved API:
+        def compare_tables(recent_file_name,
+                           recent_initial_row,
+                           recent_initial_col,
+                           recent_row_count,
+                           curr_file_name,
+                           curr_initial_row,
+                           curr_initial_col,
+                           curr_row_count,
+                           headers_count) -> list:
+            """
+            """
+            # TODO: add a sanity check for headers length...
+
+            recent_sheet = read_sheet(recent_file_name)
+            curr_sheet = read_sheet(curr_file_name)
+            recent_table = recent_sheet[recent_initial_row: recent_initial_row + recent_row_count,
+                                        recent_initial_col: recent_initial_col + headers_count].value
+            curr_table = curr_sheet[curr_initial_row: curr_initial_row + curr_row_count,
+                                    curr_initial_col: curr_initial_col + headers_count].value
+
+            if recent_table is None:
+                utils.log("recent_table is none, Check your code.", "error")
+                return []
+
+            if curr_table is None:
+                utils.log("curr_table is none, Check your code.", "error")
+                return []
+
+            # Some of the files have their transactions marked from bottom to top and some the other way around
             if flip:
-                if old_file['trans_count'] == 1:
-                    old_table = [old_table]
-                if new_file['trans_count'] == 1:
-                    new_table = [new_table]
+                if recent_row_count == 1:
+                    recent_table = [recent_table]
+                if curr_row_count == 1:
+                    curr_table = [curr_table]
 
-                old_table = old_table[::-1]
-                new_table = new_table[::-1]
+                recent_table = recent_table[::-1]
+                curr_table = curr_table[::-1]
 
             i = -1
-            index, row = get_row(old_table)
-            if row in new_table:
-                i = new_table.index(row)
-                for j in range(1, len(new_table) - i):
-                    if j >= len(old_table) or i + j >= len(new_table):
+            index, row = get_row(recent_table)
+            if row in curr_table:
+                i = curr_table.index(row)
+                for j in range(1, len(curr_table) - i):
+                    if j >= len(recent_table) or i + j >= len(curr_table):
                         break
-                    if old_table[index + j] != new_table[i + j]:
+                    if recent_table[index + j] != curr_table[i + j]:
                         utils.log(f"""Missmatched trasaction while cleaning the file {self.name},
-             in accordance with it's previous {old_file['name']}.
+             in accordance with it's previous {recent_file_name}.
              Try checking index: {index + j} in old table vs {i + j} in new table!
              The rows are:
-             => {old_table[index + j]}
-             => {new_table[i + j]}
+             => {recent_table[index + j]}
+             => {curr_table[i + j]}
 
             What do you want to do?
             1 -> Difference in rows doesn't matter, continue as equal.
@@ -309,39 +334,34 @@ class File:
                         elif choise == 3:
                             exit()
             if i == -1:
-                return new_table
-            return new_table[:i]
+                return curr_table
+            return curr_table[:i]
 
-        # -----------------------------------------------------------------
-        #                      Function main starts here
-        # -----------------------------------------------------------------
-        old_file_name = get_last_file_name()
-        if old_file_name is None:
-            DataBase().set_new_trans_count(self.name, self.counter)
-            utils.log(f"{self.name} has not earlier file - Nothing to clean", "system")
-            return True
+        result_0 = compare_tables(recent_file_name,
+                                  recent_table_0_meta[2] - 1,  # This was previously the header row, need to change,
+                                  recent_table_0_meta[3],
+                                  0,
+                                  self.name,
+                                  curr_table_0_meta[2] - 1,
+                                  curr_table_0_meta[3],
+                                  0,
+                                  len(self.headers))
 
-        trans_count = DataBase().total_transactions(old_file_name)
-        table_data = DataBase().get_table_Meta(old_file_name)[0]
-        initial_row = table_data[2]
-        initial_col = table_data[3]
-        if not trans_count:
-            utils.log(f"There is a problem retriving transactions for {old_file_name}", "error")
-        old_file = {"name": old_file_name,
-                    "initial_row": initial_row - 1, # This was previously the header row, need to change
-                    "initial_col": initial_col,
-                    "trans_count": trans_count,
-                    "col_count": len(self.headers)}
-        new_file = {"name": self.name,
-                    "initial_row": self.header_row_idx,
-                    "initial_col": self.header_col_idx,
-                    "trans_count": self.counter,
-                    "col_count": len(self.headers)}
-        new_table = compare_excel(old_file, new_file)
-        utils.log(f'\t     Out of {len(self.data)} Transactions, {len(new_table)} new were found!', '')
+        result_1 = compare_tables(recent_file_name,
+                                  recent_table_1_meta[2] - 1,  # This was previously the header row, need to change,
+                                  recent_table_1_meta[3],
+                                  0,
+                                  self.name,
+                                  curr_table_1_meta[2] - 1,
+                                  curr_table_1_meta[3],
+                                  0,
+                                  len(self.secondary_headers))
 
-        DataBase().set_new_trans_count(self.name, len(new_table))
-        self.data = new_table
+        total = result_0 + result_1
+        utils.log(f'\t     Out of {"X"} Transactions, {len(total)} new were found!', '')
+        DataBase().set_new_trans_count(self.name, len(total))
+        self.data = ""  # TODO
+
         return True
 
     @abstractmethod

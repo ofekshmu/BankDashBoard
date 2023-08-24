@@ -36,8 +36,8 @@ class Bank(File):
         return True
 
     def clean(self):
-        from Parser import Parser
-        self.sorted_names = Parser.getInstance().get_names(self.format_name)
+        """
+        """
         return super().clean()
 
     def insert(self):

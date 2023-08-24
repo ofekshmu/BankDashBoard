@@ -20,7 +20,7 @@ class Parser():
         """ Static access method """
         if Parser.__instance is None:
             Parser()
-        return Parser.__instance
+        return Parser.__instance  
 
     def __init__(self):
         """ Virtually private constructor. """

@@ -51,7 +51,8 @@ class Formats:
                                           "אופן ביצוע ההעסקה",
                                           'שער המרה ממטבע מקור/התחשבנות לש"ח'],
                               "Header row index": 4,
-                              "Header col index": 0},
+                              "Header col index": 0,
+                              "Independent": False},
 
                "Isra-Card":  {"Format Name": "Isra-Card",
                               "Context": Context_class.Card,
@@ -71,7 +72,8 @@ class Formats:
                               "Double tables": True,
                               "Secondary Headers": [],
                               "Header row index": 6,
-                              "Header col index": 0},
+                              "Header col index": 0,
+                              "Independent": True},
 
                "American-Express": {"Format Name": "American-Express",
                                     "Context": Context_class.Card,
@@ -88,7 +90,8 @@ class Formats:
                                                 'סכום חיוב',
                                                 'מטבע לחיוב'],
                                     "Header row index": 6,
-                                    "Header col index": 0},
+                                    "Header col index": 0,
+                                    "Independent": True},
 
                "Leumi-Bank": {"Format Name": "Leumi-Bank",
                               "Context": Context_class.Bank,
@@ -107,7 +110,8 @@ class Formats:
                                           'תאור מורחב',
                                           '  הערה'],    # Do not delete special character here!
                               "Header row index": 12,
-                              "Header col index": 0},
+                              "Header col index": 0,
+                              "Independent": False},
 
                "BeinLeumi-Bank": {"Format Name": "BeinLeumi-Bank",
                                   "Context": Context_class.Bank,
@@ -125,7 +129,8 @@ class Formats:
                                               'תאריך ערך',
                                               'יתרה'],
                                   "Header row index": 1,
-                                  "Header col index": 1},
+                                  "Header col index": 1,
+                                  "Independent": False},
 
                "Leumi-Card6744": {"Format Name": "Leumi-Card6744",
                                   "Context": Context_class.Card,
@@ -141,7 +146,8 @@ class Formats:
                                               'פרטים',
                                               'סכום חיוב'],
                                   "Header row index": 11,   # row starts from 1
-                                  "Header col index": 0}    # col starts from 0
+                                  "Header col index": 0,
+                                  "Independent": False}    # col starts from 0
                }
 
     EXTENTIONS = [".xls", ".xlsx", ".csv"]

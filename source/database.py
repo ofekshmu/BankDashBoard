@@ -42,6 +42,7 @@ class DataBase:
                 Initial_index       INT             NOT NULL    ,
                 Initial_col         INT             NOT NULL    ,
                 Row_count           INT             NOT NULL    ,
+                Bad_rows            CHAR                        ,
                 FOREIGN KEY(source_file)    REFERENCES File(Name)
                 );""")
 
@@ -133,7 +134,8 @@ class DataBase:
                                source_file_name: str,
                                initial_index: int,
                                initial_col: int,
-                               row_count: int):
+                               row_count: int,
+                               bad_rows: str):
         """
         Insert meta data about a table.
         A table could be one or more transactions taken from the same file and
@@ -141,8 +143,8 @@ class DataBase:
         Tables are created according to specific parameters in the code.
         """
         self.cursor.execute("""
-            INSERT INTO TableMeta(source_file, Initial_index, Initial_col, Row_count)
-            VALUES(?, ?, ?, ?)""", (source_file_name, initial_index, initial_col, row_count))
+            INSERT INTO TableMeta(source_file, Initial_index, Initial_col, Row_count, Bad_rows)
+            VALUES(?, ?, ?, ?, ?)""", (source_file_name, initial_index, initial_col, row_count, bad_rows))
 
     def get_table_Meta(self, file_name: str):
         """

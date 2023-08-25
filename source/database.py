@@ -708,5 +708,12 @@ class DataBase:
                 """.format(TableName)
         self.cursor.execute(query, (desc, id))
 
+    def execute_query(self, query: str) -> bool:
+        try:
+            self.cursor.execute(query)
+            return True
+        except Exception as e:
+            return False
+
     def commit_changes(self) -> None:
         self.connection.commit()

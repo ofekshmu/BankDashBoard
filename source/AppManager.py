@@ -30,7 +30,8 @@ class AppManager:
                 3. Delete file information
                 4. Validate
                 5. Update existing file
-                6. Exit
+                6. Execute SQL query on db
+                7. Exit
             """)
         answer = int(input())
         match answer:
@@ -46,9 +47,30 @@ class AppManager:
             case 5:
                 self.update_existing_file()
             case 6:
+                self.execute_sql()
+            case 7:
                 exit()
             case _:
                 print("Please insert a valid number.")
+
+    def execute_sql(self):
+        pw = input("Please confirm password for this action: ")
+        if pw != "ofek":
+            utils.log("Bad password", "system")
+            return False
+        res = False
+        while not res:
+            query = input("Write your query:\n")
+            res = DataBase().execute_query(query)
+            if res:
+                break
+            utils.log("Bad query, Try again...\nPlease Insert you query: ")
+        ans = input("query is valid, Confirm? y/n\n")
+        if ans == 'y':
+            DataBase().commit_changes()
+            return True
+        else:
+            utils.log("Changes not set...")
 
     def update_existing_file(self) -> bool:
 

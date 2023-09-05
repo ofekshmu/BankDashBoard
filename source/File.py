@@ -105,8 +105,13 @@ class File:
                     if row != self.header_row_idx:
                         utils.log(f"Headers were found at line {row}, Not in {self.header_row_idx} as specified\nIndex updated.", "warning")
                         self.header_row_idx = row
-                    return True
-
+                    break
+            if valid:
+                break
+        
+        if not valid:
+            return False
+        
         if self.double_tables:
             row_idx = self.header_row_idx + 1
             col_idx = self.header_col_idx

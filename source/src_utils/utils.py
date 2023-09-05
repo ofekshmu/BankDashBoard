@@ -438,4 +438,4 @@ class utils:
     @staticmethod
     def read_sheet(file_name: str, row_idx: int, row_count: int, col_idx: int, col_count: int) -> Sheet:
         wb = xw.Book(join(Local.INPUT_FOLDER, file_name))
-        return wb.sheets[0][row_idx: row_count, col_idx: col_count]
+        return wb.sheets[0][row_idx: row_idx + row_count, col_idx: col_idx + col_count].value

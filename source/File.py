@@ -271,11 +271,11 @@ class File:
         current_tables = DataBase().get_table_Meta(self.name)
 
         if self.double_tables:
-            recent_table_0_meta, recent_table_1_meta = recent_tables
-            curr_table_0_meta, curr_table_1_meta = current_tables
+            [recent_table_0_meta, recent_table_1_meta] = recent_tables
+            [curr_table_0_meta, curr_table_1_meta] = current_tables
         else:   # Single table in each excel file
-            recent_table_0_meta = recent_tables
-            curr_table_0_meta = current_tables
+            recent_table_0_meta = recent_tables[0]
+            curr_table_0_meta = current_tables[0]
 
         # -------------------------------------------------------------------------------------------
         # I do not think this if ever accured... maybe should delete?

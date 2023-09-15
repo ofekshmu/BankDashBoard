@@ -25,7 +25,7 @@ class Card(File):
 
         match self.format_name:
             case "American-Express":
-                value = utils.date_ready(self.data[0][1])
+                value = "Empty"
             case "Leumi-Card6744":
                 value = "Empty"
             case None:

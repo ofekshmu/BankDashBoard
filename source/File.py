@@ -108,21 +108,29 @@ class File:
                     break
             if valid:
                 break
-        
+
         if not valid:
+            utils.log("Headers Do not match...", "system")
             return False
-        
+
         if self.double_tables:
             row_idx = self.header_row_idx + 1
             col_idx = self.header_col_idx
             utils.log("col idx is not being checked for errors...File header valdiation", "warning")
             extracted_secondary_headers = utils.read_sheet(self.name, row_idx, 1, col_idx, len(self.secondary_headers))
-            tries_left = 1_000
+            tries_left = 100
             while tries_left:
                 if extracted_secondary_headers == self.secondary_headers:
                     utils.log("Secondary headers match!", "system")
                     self.secondary_headers_row_idx = row_idx
                     return True
+                
+                if "אין נתונים להצגה" == extracted_secondary_headers[0]:
+                    utils.log("Secondary table is empty! Moving on..", "system")
+                    self.secondary_headers_row_idx = row_idx
+                    self.double_tables = False
+                    return True
+
                 row_idx += 1
                 tries_left -= 1
                 extracted_secondary_headers = utils.read_sheet(self.name, row_idx, 1, col_idx, len(self.secondary_headers))
@@ -131,6 +139,7 @@ class File:
         # This variables will determine the tables read in the "parse" function
 
         self.double_tables = False
+        utils.log("Second table headers do not match...", "system")
         return False
 
     @abstractmethod

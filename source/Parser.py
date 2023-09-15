@@ -206,7 +206,7 @@ class Parser():
                 return srch_result.group()[1:]
             case Sortion_Method.BY_NAME_DATE:
                 try:
-                    date_str = re.search("\d{1,2}_\d{1,2}_\d{4}|\d{1}_\d{4}", name).group()
+                    date_str = re.search("\d{1,2}_\d{1,2}_\d{4}|\d{1,2}_\d{4}", name).group()
                 except Exception as e:
                     utils.log(f"The file named {utils.name_he(name)} is of unknown format.", "error")
                 date = date_str.split("_")

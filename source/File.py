@@ -273,9 +273,12 @@ class File:
         if self.double_tables:
             [recent_table_0_meta, recent_table_1_meta] = recent_tables
             [curr_table_0_meta, curr_table_1_meta] = current_tables
+            total_transactions = recent_table_0_meta[4] + recent_table_1_meta[4] + \
+                                        curr_table_0_meta[4] + curr_table_1_meta[4]
         else:   # Single table in each excel file
             recent_table_0_meta = recent_tables[0]
             curr_table_0_meta = current_tables[0]
+            total_transactions = recent_table_0_meta[4] + curr_table_0_meta[4]
 
         # -------------------------------------------------------------------------------------------
         # I do not think this if ever accured... maybe should delete?
@@ -351,30 +354,29 @@ class File:
                 return curr_table
             return curr_table[:i]
 
-        result_0 = compare_tables(recent_file_name,
-                                  recent_table_0_meta[2] - 1,  # This was previously the header row, need to change,
-                                  recent_table_0_meta[3],
-                                  0,
-                                  self.name,
-                                  curr_table_0_meta[2] - 1,
-                                  curr_table_0_meta[3],
-                                  0,
-                                  len(self.headers))
+        result_table = compare_tables(recent_file_name,
+                                      recent_table_0_meta[2] - 1,  # This was previously the header row, need to change,
+                                      recent_table_0_meta[3],
+                                      recent_table_0_meta[4],
+                                      self.name,
+                                      curr_table_0_meta[2] - 1,
+                                      curr_table_0_meta[3],
+                                      curr_table_0_meta[4],
+                                      len(self.headers))
 
         if self.double_tables:
-            result_1 = compare_tables(recent_file_name,
-                                      recent_table_1_meta[2] - 1,  # This was previously the header row, need to change,
-                                      recent_table_1_meta[3],
-                                      0,
-                                      self.name,
-                                      curr_table_1_meta[2] - 1,
-                                      curr_table_1_meta[3],
-                                      0,
-                                      len(self.secondary_headers))
+            result_table += compare_tables(recent_file_name,
+                                           recent_table_1_meta[2] - 1,  # This was previously the header row, need to change,
+                                           recent_table_1_meta[3],
+                                           recent_table_1_meta[4],
+                                           self.name,
+                                           curr_table_1_meta[2] - 1,
+                                           curr_table_1_meta[3],
+                                           curr_table_1_meta[4],
+                                           len(self.secondary_headers))
 
-        total = result_0 + result_1
-        utils.log(f'\t     Out of {"X"} Transactions, {len(total)} new were found!', '')
-        DataBase().set_new_trans_count(self.name, len(total))
+        utils.log(f'\t     Out of {total_transactions} Transactions, {len(result_table)} new were found!', '')
+        DataBase().set_new_trans_count(self.name, len(result_table))
         self.data = ""  # TODO
 
         return True

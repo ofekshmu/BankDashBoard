@@ -256,38 +256,65 @@ class File:
                 else:
                     return i, row
 
+        def read_and_merge(meta_data: list[dict]) -> list:
+            if self.double_tables:
+                [meta_0, meta_1] = meta_data
+                table_0 = utils.read_sheet(meta_0['source_file'],
+                                           meta_0['initial_index'],
+                                           meta_0['Row_count'],
+                                           meta_0['initial_col'],
+                                           len(self.headers))
+                table_1 = utils.read_sheet(meta_1['source_file'],
+                                           meta_1['initial_index'],
+                                           meta_1['Row_count'],
+                                           meta_1['initial_col'],
+                                           len(self.secondary_headers))
+                return table_0 + table_1
+            else:
+                return utils.read_sheet(meta_data['source_file'],
+                                        meta_data['initial_index'],
+                                        meta_data['Row_count'],
+                                        meta_data['initial_col'],
+                                        len(self.headers))
         # -----------------------------------------------------------------
         #                      Function main starts here
         # -----------------------------------------------------------------
+        current_tables = DataBase().get_table_Meta(self.name)
+
         if self.independent:
             utils.log(f"File of format {self.format_name} is independent of other files and is not being cleaned.", "system")
-            # TODO: what happens in a case of two tables? is the counter being summed?
             DataBase().set_new_trans_count(self.name, self.counter)
+            self.data = read_and_merge(current_tables)
             return True
 
         from Parser import Parser
-        # TODO: can i get rid of the self in self.sorted_names
         sorted_names = Parser.getInstance().get_names(self.format_name)    # type: ignore
-
         recent_file_name = get_last_file_name(sorted_names)
+        
         if recent_file_name is None:
             DataBase().set_new_trans_count(self.name, self.counter)
             utils.log(f"{self.name} has not earlier file - Nothing to clean.", "system")
+            self.data = read_and_merge(current_tables)
             return True
 
-        # trans_count = DataBase().total_transactions(recent_file_name)
+        # TODO Edited up to here
+        # need to improvve code efficiency tp to here, and continue from this point.
+
+
         recent_tables = DataBase().get_table_Meta(recent_file_name)
-        current_tables = DataBase().get_table_Meta(self.name)
 
         if self.double_tables:
             [recent_table_0_meta, recent_table_1_meta] = recent_tables
             [curr_table_0_meta, curr_table_1_meta] = current_tables
             total_transactions = recent_table_0_meta[4] + recent_table_1_meta[4] + \
-                                        curr_table_0_meta[4] + curr_table_1_meta[4]
+                curr_table_0_meta[4] + curr_table_1_meta[4]
         else:   # Single table in each excel file
             recent_table_0_meta = recent_tables[0]
             curr_table_0_meta = current_tables[0]
             total_transactions = recent_table_0_meta[4] + curr_table_0_meta[4]
+
+
+        # trans_count = DataBase().total_transactions(recent_file_name)
 
         # -------------------------------------------------------------------------------------------
         # I do not think this if ever accured... maybe should delete?
@@ -386,7 +413,7 @@ class File:
 
         utils.log(f'\t     Out of {total_transactions} Transactions, {len(result_table)} new were found!', '')
         DataBase().set_new_trans_count(self.name, len(result_table))
-        self.data = ""  # TODO
+        self.data = result_table
 
         return True
 

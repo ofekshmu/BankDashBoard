@@ -154,8 +154,12 @@ class DataBase:
                     From TableMeta
                     WHERE source_file = ?
                 """
-        return self.cursor.execute(query, (file_name,)).fetchall()
-    
+        res = self.cursor.execute(query, (file_name,)).fetchall()
+        res_dicts = []
+        for item in res:
+            res_dicts.append(dict(zip([d[0] for d in self.cursor.description], item)))
+        return res_dicts
+
     def insert_card_transaction(self,
                                 CardID: str,
                                 Name: str,

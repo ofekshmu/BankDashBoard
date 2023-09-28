@@ -122,12 +122,12 @@ class File:
             while tries_left:
                 if extracted_secondary_headers == self.secondary_headers:
                     utils.log("Secondary headers match!", "system")
-                    self.secondary_headers_row_idx = row_idx
+                    self.secondary_headers_row_idx = row_idx + 1
                     return True
                 
                 if "אין נתונים להצגה" == extracted_secondary_headers[0]:
                     utils.log("Secondary table is empty! Moving on..", "system")
-                    self.secondary_headers_row_idx = row_idx
+                    self.secondary_headers_row_idx = row_idx + 1
                     self.double_tables = False
                     return True
 
@@ -189,25 +189,35 @@ class File:
 
         if self.double_tables:
             bad_indexes = []
+            counter = 0
             row_idx = self.secondary_headers_row_idx
             col_idx = self.header_col_idx
-            cc_end = File.cell(row_idx, col_idx, self.sheet)
             entire_row = utils.read_sheet(self.name, row_idx, 1, col_idx, len(self.secondary_headers))
             cc_end = entire_row[0]
+            if is_bad_value(entire_row):
+                bad_indexes.append(row_idx)
+                cc_end = "Bad value"
             while cc_end is not None:
-                if is_bad_value(entire_row):
-                    bad_indexes.append(row_idx)
                 counter += 1
                 row_idx += 1
-                cc_end = File.cell(row, col, self.sheet)
+                entire_row = utils.read_sheet(self.name, row_idx, 1, col_idx, len(self.secondary_headers))
+                cc_end = entire_row[0]
+                if is_bad_value(entire_row):
+                    bad_indexes.append(row_idx)
+                    cc_end = "Bad value"
 
             bad_indexes = ', '.join([str(i) for i in bad_indexes])
 
             DataBase().insert_table_meta_data(self.name,
-                                              self.header_row_idx + 1,
-                                              col,
-                                              self.counter,
+                                              self.secondary_headers_row_idx + 1,
+                                              self.header_col_idx,
+                                              counter,
                                               bad_indexes)
+
+            utils.log(f"Found {counter - len(bad_indexes.split(','))} transactions in the second table.\n \
+                      Bad indexes are: {bad_indexes}\n", "system")
+
+        return True
 
         # # This part might need changing from here on
 
@@ -283,6 +293,7 @@ class File:
 
         if self.independent:
             utils.log(f"File of format {self.format_name} is independent of other files and is not being cleaned.", "system")
+            # TODO: Counter here does not take into account the second table and the bad rows
             DataBase().set_new_trans_count(self.name, self.counter)
             self.data = read_and_merge(current_tables)
             return True
@@ -306,15 +317,11 @@ class File:
         if self.double_tables:
             [recent_table_0_meta, recent_table_1_meta] = recent_tables
             [curr_table_0_meta, curr_table_1_meta] = current_tables
-            total_transactions = recent_table_0_meta[4] + recent_table_1_meta[4] + \
-                curr_table_0_meta[4] + curr_table_1_meta[4]
+            total_transactions = -1
         else:   # Single table in each excel file
             recent_table_0_meta = recent_tables[0]
             curr_table_0_meta = current_tables[0]
-            total_transactions = recent_table_0_meta[4] + curr_table_0_meta[4]
-
-
-        # trans_count = DataBase().total_transactions(recent_file_name)
+            total_transactions = -1
 
         # -------------------------------------------------------------------------------------------
         # I do not think this if ever accured... maybe should delete?
@@ -391,24 +398,24 @@ class File:
             return curr_table[:i]
 
         result_table = compare_tables(recent_file_name,
-                                      recent_table_0_meta[2] - 1,  # This was previously the header row, need to change,
-                                      recent_table_0_meta[3],
-                                      recent_table_0_meta[4],
+                                      recent_table_0_meta["initial_index"] - 1,  # This was previously the header row, need to change,
+                                      recent_table_0_meta["initial_col"],
+                                      recent_table_0_meta["Row_count"],
                                       self.name,
-                                      curr_table_0_meta[2] - 1,
-                                      curr_table_0_meta[3],
-                                      curr_table_0_meta[4],
+                                      curr_table_0_meta["initial_index"] - 1,
+                                      curr_table_0_meta["initial_col"],
+                                      curr_table_0_meta["Row_count"],
                                       len(self.headers))
 
         if self.double_tables:
             result_table += compare_tables(recent_file_name,
-                                           recent_table_1_meta[2] - 1,  # This was previously the header row, need to change,
-                                           recent_table_1_meta[3],
-                                           recent_table_1_meta[4],
+                                           recent_table_1_meta["initial_index"] - 1,  # This was previously the header row, need to change,
+                                           recent_table_1_meta["initial_col"],
+                                           recent_table_1_meta["Row_count"],
                                            self.name,
-                                           curr_table_1_meta[2] - 1,
-                                           curr_table_1_meta[3],
-                                           curr_table_1_meta[4],
+                                           curr_table_1_meta["initial_index"] - 1,
+                                           curr_table_1_meta["initial_col"],
+                                           curr_table_1_meta["Row_count"],
                                            len(self.secondary_headers))
 
         utils.log(f'\t     Out of {total_transactions} Transactions, {len(result_table)} new were found!', '')

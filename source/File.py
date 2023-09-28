@@ -41,7 +41,8 @@ class File:
         # The value is updated in the validate function
         self.secondary_headers_row_idx = -1
 
-        self.data = []
+        self.table_1 = []
+        self.table_2 = []
 
         try:
             wb = xw.Book(join(Local.INPUT_FOLDER, self.name))
@@ -203,13 +204,13 @@ class File:
                 entire_row = utils.read_sheet(self.name, row_idx, 1, col_idx, len(self.secondary_headers))
                 cc_end = entire_row[0]
                 if is_bad_value(entire_row):
-                    bad_indexes.append(row_idx)
+                    bad_indexes.append(row_idx - self.secondary_headers_row_idx)
                     cc_end = "Bad value"
 
             bad_indexes = ', '.join([str(i) for i in bad_indexes])
 
             DataBase().insert_table_meta_data(self.name,
-                                              self.secondary_headers_row_idx + 1,
+                                              self.secondary_headers_row_idx,
                                               self.header_col_idx,
                                               counter,
                                               bad_indexes)
@@ -218,20 +219,6 @@ class File:
                       Bad indexes are: {bad_indexes}\n", "system")
 
         return True
-
-        # # This part might need changing from here on
-
-        # COL_COUNT = len(self.headers)
-        # table = self.sheet[self.header_row_idx: self.header_row_idx + self.counter, col: COL_COUNT + col].value
-
-        # # Happens if table is empty (No transactions)
-        # if table is None:
-        #     table = []
-        # # To stay consistent with the data structure
-        # elif counter == 1:
-        #     table = [table]
-
-        # self.data = table
 
     def clean(self, flip: bool = False) -> bool:
         """
@@ -266,122 +253,97 @@ class File:
                 else:
                     return i, row
 
-        def read_and_merge(meta_data: list[dict]) -> list:
+        def read_and_merge(meta_data: list[dict]):
             if self.double_tables:
                 [meta_0, meta_1] = meta_data
                 table_0 = utils.read_sheet(meta_0['source_file'],
-                                           meta_0['initial_index'],
+                                           meta_0['Initial_index'],
                                            meta_0['Row_count'],
-                                           meta_0['initial_col'],
+                                           meta_0['Initial_col'],
                                            len(self.headers))
                 table_1 = utils.read_sheet(meta_1['source_file'],
-                                           meta_1['initial_index'],
+                                           meta_1['Initial_index'],
                                            meta_1['Row_count'],
-                                           meta_1['initial_col'],
+                                           meta_1['Initial_col'],
                                            len(self.secondary_headers))
-                return table_0 + table_1
+                # This row removes the bas indexes from the second table according to the meta data
+                # indexes are in accordance to the first row of the table (not the excel numbering)
+                # first table is not being checked for bad indexes.
+                bad_indexes = [int(num) for num in meta_1["Bad_rows"].strip().split(',')]
+                table_1 = [table_1[i] for i in range(len(table_1)) if i not in bad_indexes]
+                return table_0, table_1
             else:
                 return utils.read_sheet(meta_data['source_file'],
-                                        meta_data['initial_index'],
+                                        meta_data['Initial_index'],
                                         meta_data['Row_count'],
-                                        meta_data['initial_col'],
-                                        len(self.headers))
+                                        meta_data['Initial_col'],
+                                        len(self.headers)), []
+
         # -----------------------------------------------------------------
         #                      Function main starts here
         # -----------------------------------------------------------------
         current_tables = DataBase().get_table_Meta(self.name)
 
         if self.independent:
-            utils.log(f"File of format {self.format_name} is independent of other files and is not being cleaned.", "system")
-            # TODO: Counter here does not take into account the second table and the bad rows
+            self.table_1, self.table_2 = read_and_merge(current_tables)
+            self.counter = len(self.table_1) + len(self.table_2)
             DataBase().set_new_trans_count(self.name, self.counter)
-            self.data = read_and_merge(current_tables)
+            utils.log(f"File of format {self.format_name} is independent of other files and is not being cleaned.\n \
+                        Total valid transactions in file are {self.counter}", "system")
             return True
 
         from Parser import Parser
         sorted_names = Parser.getInstance().get_names(self.format_name)    # type: ignore
         recent_file_name = get_last_file_name(sorted_names)
-        
+
         if recent_file_name is None:
+            self.table_1, self.table_2 = read_and_merge(current_tables)
+            self.counter = len(self.table_1) + len(self.table_2)
             DataBase().set_new_trans_count(self.name, self.counter)
-            utils.log(f"{self.name} has not earlier file - Nothing to clean.", "system")
-            self.data = read_and_merge(current_tables)
+            utils.log(f"{self.name} has not earlier file - Nothing to clean.\n \
+                        Total valid transactions in file are {self.counter}", "system")
             return True
 
-        # TODO Edited up to here
-        # need to improvve code efficiency tp to here, and continue from this point.
-
-
         recent_tables = DataBase().get_table_Meta(recent_file_name)
+        recent_table_1, recent_table_2 = read_and_merge(recent_tables)
 
-        if self.double_tables:
-            [recent_table_0_meta, recent_table_1_meta] = recent_tables
-            [curr_table_0_meta, curr_table_1_meta] = current_tables
-            total_transactions = -1
-        else:   # Single table in each excel file
-            recent_table_0_meta = recent_tables[0]
-            curr_table_0_meta = current_tables[0]
-            total_transactions = -1
-
-        # -------------------------------------------------------------------------------------------
-        # I do not think this if ever accured... maybe should delete?
-        # if not trans_count:
-        #    utils.log(f"There is a problem retriving transactions for {recent_file_name}", "error")
-        # ---------------------------------------------------------------------------------------------
-
-        # Improved API:
-        def compare_tables(recent_file_name,
-                           recent_initial_row,
-                           recent_initial_col,
-                           recent_row_count,
-                           curr_file_name,
-                           curr_initial_row,
-                           curr_initial_col,
-                           curr_row_count,
-                           headers_count) -> list:
+        def compare_tables(recent_table, current_table) -> list:
             """
             """
-            # TODO: add a sanity check for headers length...
-
-            recent_sheet = read_sheet(recent_file_name)
-            curr_sheet = read_sheet(curr_file_name)
-            recent_table = recent_sheet[recent_initial_row: recent_initial_row + recent_row_count,
-                                        recent_initial_col: recent_initial_col + headers_count].value
-            curr_table = curr_sheet[curr_initial_row: curr_initial_row + curr_row_count,
-                                    curr_initial_col: curr_initial_col + headers_count].value
 
             if recent_table is None:
                 utils.log("recent_table is none, Check your code.", "error")
                 return []
 
-            if curr_table is None:
+            if current_table is None:
                 utils.log("curr_table is none, Check your code.", "error")
                 return []
 
             # Some of the files have their transactions marked from bottom to top and some the other way around
             if flip:
-                if recent_row_count == 1:
-                    recent_table = [recent_table]
-                if curr_row_count == 1:
-                    curr_table = [curr_table]
+                utils.log("Need to figure out a solution for one transaction tables","error")
+                # if recent_row_count == 1:
+                #     recent_table = [recent_table]
+                # if curr_row_count == 1:
+                #     curr_table = [curr_table]
 
                 recent_table = recent_table[::-1]
-                curr_table = curr_table[::-1]
+                current_table = current_table[::-1]
 
             i = -1
             index, row = get_row(recent_table)
-            if row in curr_table:
-                i = curr_table.index(row)
-                for j in range(1, len(curr_table) - i):
-                    if j >= len(recent_table) or i + j >= len(curr_table):
+            if row in current_table:
+                i = current_table.index(row)
+                for j in range(1, len(current_table) - i):
+                    if j >= len(recent_table) or i + j >= len(current_table):
                         break
-                    if recent_table[index + j] != curr_table[i + j]:
+                    if recent_table[index + j] != current_table[i + j]:
                         utils.log(f"""Missmatched trasaction while cleaning the file {self.name},
              in accordance with it's previous {recent_file_name}.
              Try checking index: {index + j} in old table vs {i + j} in new table!
              The rows are:
              => {recent_table[index + j]}
-             => {curr_table[i + j]}
+             => {current_table[i + j]}
 
             What do you want to do?
             1 -> Difference in rows doesn't matter, continue as equal.
@@ -394,33 +356,17 @@ class File:
                         elif choise == 3:
                             exit()
             if i == -1:
-                return curr_table
-            return curr_table[:i]
+                return current_table
+            return current_table[:i]
 
-        result_table = compare_tables(recent_file_name,
-                                      recent_table_0_meta["initial_index"] - 1,  # This was previously the header row, need to change,
-                                      recent_table_0_meta["initial_col"],
-                                      recent_table_0_meta["Row_count"],
-                                      self.name,
-                                      curr_table_0_meta["initial_index"] - 1,
-                                      curr_table_0_meta["initial_col"],
-                                      curr_table_0_meta["Row_count"],
-                                      len(self.headers))
+        self.table_1 = compare_tables(recent_table_1, self.table_1)
 
         if self.double_tables:
-            result_table += compare_tables(recent_file_name,
-                                           recent_table_1_meta["initial_index"] - 1,  # This was previously the header row, need to change,
-                                           recent_table_1_meta["initial_col"],
-                                           recent_table_1_meta["Row_count"],
-                                           self.name,
-                                           curr_table_1_meta["initial_index"] - 1,
-                                           curr_table_1_meta["initial_col"],
-                                           curr_table_1_meta["Row_count"],
-                                           len(self.secondary_headers))
+            self.table_2 = compare_tables(recent_table_2, self.table_2)
 
-        utils.log(f'\t     Out of {total_transactions} Transactions, {len(result_table)} new were found!', '')
-        DataBase().set_new_trans_count(self.name, len(result_table))
-        self.data = result_table
+        new_transactions_count = len(self.table_1) + len(self.table_2)
+        utils.log(f'Out of {self.counter} Transactions, {new_transactions_count} new were found!', 'System')
+        DataBase().set_new_trans_count(self.name, new_transactions_count)
 
         return True
 

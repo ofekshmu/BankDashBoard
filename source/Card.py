@@ -58,7 +58,7 @@ class Card(File):
 
     def insert(self) -> bool:
 
-        for row in self.data:
+        for row in self.table_1:
             match self.format_name:
                 case "Leumi-Max":
                     DataBase().insert_card_transaction(CardID=row[3],
@@ -113,6 +113,21 @@ class Card(File):
                                                        Extra_Info=f"Type: {row[3]} | Note: None")
                 case _:
                     utils.log("Internal error: format name for insertion into card db was not found! (card.py)", "error")
+
+        for row in self.table_2:
+            match self.format_name:
+                case "Isra-Card":
+
+                    DataBase().insert_card_transaction(CardID="xxxx",   # TODO
+                                                       Name=row[2],
+                                                       Executed_Date=utils.date_ready(row[0]),
+                                                       Charge_Date=utils.date_ready(row[1]),
+                                                       Charge_Value=row[3],
+                                                       Source_file=self.name,
+                                                       Charge_Currency=row[4],
+                                                       Transaction_Value=row[5],
+                                                       Value_Currency=row[6],
+                                                       Extra_Info=f"Transactions Abroad")
 
         return True
 

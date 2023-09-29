@@ -4,6 +4,7 @@ from database import DataBase
 from File import File
 from Configurations.Formats import Formats, Identification_Method, Sortion_Method
 from typing import Tuple, Union
+import os
 import xlwings as xw
 
 # Local
@@ -58,57 +59,61 @@ class Parser():
                 for ext in Formats.EXTENTIONS:
                     if name.endswith(ext):
                         return True
-                utils.log(f"The file ({name}) with invalid extension.", "Error")
+                utils.log(f"The file ({name}) has an invalid extension.", "error")
                 return False
+            
+            # for name in listdir(Local.INPUT_FOLDER):
 
-            for name in listdir(Local.INPUT_FOLDER):
-                
-                # If file name is present in database:
-                # Extract sortion key
-                # handle name list for such files.
-                if DataBase().is_file_exists(name):
-                    # The following 2 line were written to skip re-identification of files.
-                    file_type = DataBase().get_file_format(name)
-                    consts = Formats.FORMATS[file_type]
+            for root, temp, files in os.walk(Local.INPUT_FOLDER):
+                for name in files:
+                    name = root + "\\" + name
+                    name = name[len(Local.INPUT_FOLDER) + 1:]
+                    # If file name is present in database:
+                    # Extract sortion key
+                    # handle name list for such files.
+                    if DataBase().is_file_exists(name):
+                        # The following 2 line were written to skip re-identification of files.
+                        file_type = DataBase().get_file_format(name)
+                        consts = Formats.FORMATS[file_type]
 
-                else:
-                    
-                    if not is_valid_extension(name):
-                        utils.log(f"File「{name}」has an invalid extension. Please use one of the following: {Formats.EXTENTIONS} ")
-                        continue
-
-                    file_type, consts = self.__identify(name)
-                    
-                    if file_type is None:   # None when file type was not identified.
-                        continue
-
-                    # Sanity check - Written with blood
-                    # ------------------------------------------------------------------------------------------
-                    if is_exists(name, file_type):
-                        utils.log(f"""The file '{utils.name_he(name)}' exists with a different extensions.
-            What do you want to do?
-            1 -> Skip the current copy, I will delete it later.
-            2 -> Stop, I want to debug this.""", 'warning')
-                        choise = int(input())
-                        if choise == 1:
-                            utils.log("Skipping.", category='system')
+                    else:
+                        
+                        if not is_valid_extension(name):
+                            utils.log(f"File「{name}」has an invalid extension. Please use one of the following: {Formats.EXTENTIONS} ")
                             continue
-                        elif choise == 2:
-                            utils.log("Stopping program.", category='system')
-                            exit()
-                        else:
-                            utils.log('Bad input!', 'error')
-                    # ------------------------------------------------------------------------------------------
-                    utils.log(f"A new file of type「{file_type}」was found!", "system")
-                
-                value = self.__extract_sortion_key(consts, name)
 
-                if file_type in self.type_to_name.keys():
-                    self.type_to_name[file_type][name] = value
-                else:
-                    self.type_to_name[file_type] = {name: value}
+                        file_type, consts = self.__identify(name)
+                        
+                        if file_type is None:   # None when file type was not identified.
+                            continue
 
-                self.name_to_type[name] = file_type
+                        # Sanity check - Written with blood
+                        # ------------------------------------------------------------------------------------------
+                        if is_exists(name, file_type):
+                            utils.log(f"""The file '{utils.name_he(name)}' exists with a different extensions.
+                What do you want to do?
+                1 -> Skip the current copy, I will delete it later.
+                2 -> Stop, I want to debug this.""", 'warning')
+                            choise = int(input())
+                            if choise == 1:
+                                utils.log("Skipping.", category='system')
+                                continue
+                            elif choise == 2:
+                                utils.log("Stopping program.", category='system')
+                                exit()
+                            else:
+                                utils.log('Bad input!', 'error')
+                        # ------------------------------------------------------------------------------------------
+                        utils.log(f"A new file of type「{file_type}」was found!", "system")
+                    
+                    value = self.__extract_sortion_key(consts, name)
+
+                    if file_type in self.type_to_name.keys():
+                        self.type_to_name[file_type][name] = value
+                    else:
+                        self.type_to_name[file_type] = {name: value}
+
+                    self.name_to_type[name] = file_type
 
             # Sort the read file names according to dates/serial number
             for k, v in self.type_to_name.items():

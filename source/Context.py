@@ -28,31 +28,26 @@ class Context:
         # if not self.file.validate_bank_number():
         #     utils.log(f'Bank Account number in file: {utils.name_he(self.file.name)} , does not match!', category='error')
         #     return False
-
+        
+        utils.log("Validating...", "system")
         if not self.file.validate_headers():
-            utils.log("Validation...\tFAILED.", "warning")
             return False
-        else:
-            utils.log("Validation...\tCompleted.", "system")
+        utils.log("Validation...\tCompleted.", "system")
 
+        utils.log('Parsing...', "system")
         if not self.file.parse():
-            utils.log('Parsing... \tFAILED', "error")
             return False
-        else:
-            utils.log('Parsing... \tCOMPLETED', "system")
+        utils.log("Parsing...\tCompleted.", "system")
 
-        print('-> [SYSTEM]: Cleaning...')
+        utils.log('Cleaning...', "system")
         if not self.file.clean():
-            print('\t\t\t\tFAILED.')
             return False
-        else:
-            print('\t\t\t\tCompleted.')
-        print('-> [SYSTEM]: Inserting...\t')
+        utils.log('Cleaning...\tCompleted', "system")
+
+        utils.log('Inserting...', "system")
         if not self.file.insert():
-            print('FAILED.')
             return False
-        else:
-            utils.log('Completed.', 'system')
+        utils.log('Inserting...\tCompleted', "system")
 
         DataBase().commit_changes()
         utils.log('Changes Commited to data base.', 'system')

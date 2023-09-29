@@ -40,7 +40,7 @@ class utils:
                 write = True
                 log_st += f"\n<[WARNING]>: {msg}\n"
             case other:
-                utils.log(msg="Key error in function 'temp'", category='error')
+                utils.log(msg=f"Key error in log function: got '{category}'", category='error')
 
         if write:
             f = open("Log_file.txt", 'a', encoding="utf-8")
@@ -376,6 +376,7 @@ class utils:
     def cell(row: int, col: int, sheet: Sheet) -> Union[str, None]:
         '''
         Returns the value of the cell with indexes [row, col]
+        Function returns either string answer or None if the cell is empty.
         '''
         if row > 0 and col >= 0:
             return sheet[f'{chr(65 + col)}{row}'].value
@@ -437,5 +438,26 @@ class utils:
 
     @staticmethod
     def read_sheet(file_name: str, row_idx: int, row_count: int, col_idx: int, col_count: int) -> list:
+        """
+        The function read the a table like structure out of an excel file names @file_name
+        The indexes are inclusive, meaning that data will be read from row_idx until row_idx + row_count
+        including the values of the border indexes.
+        """
         wb = xw.Book(join(Local.INPUT_FOLDER, file_name))
-        return wb.sheets[0][row_idx: row_idx + row_count, col_idx: col_idx + col_count].value
+        return wb.sheets[0][row_idx - 1: row_idx - 1 + row_count, col_idx: col_idx + col_count].value
+
+    @staticmethod
+    def reg_extract(rule: str, text: str) -> str:
+        """
+        The function returns the first match from the text according to the given rule.
+        """
+        import re
+
+        matches = re.findall(rule, text)
+
+        if matches:
+            return matches[0]
+        else:
+            utils.log(f"In function re_extract, No match was found for\n \
+                       rule: {rule}     |   string: {text}", "error")
+            return "Code won't reach here"

@@ -111,8 +111,10 @@ class File:
                 break
 
         if not valid:
-            utils.log("Headers Do not match...", "system")
+            utils.log(f"Headers Do not match... Please check the file, format and/or code.", "system")
             return False
+        else:
+            utils.log("Initial headers match!", "system")
 
         if self.double_tables:
             row_idx = self.header_row_idx + 1
@@ -123,12 +125,12 @@ class File:
             while tries_left:
                 if extracted_secondary_headers == self.secondary_headers:
                     utils.log("Secondary headers match!", "system")
-                    self.secondary_headers_row_idx = row_idx + 1
+                    self.secondary_headers_row_idx = row_idx
                     return True
                 
                 if "אין נתונים להצגה" == extracted_secondary_headers[0]:
                     utils.log("Secondary table is empty! Moving on..", "system")
-                    self.secondary_headers_row_idx = row_idx + 1
+                    self.secondary_headers_row_idx = row_idx
                     self.double_tables = False
                     return True
 
@@ -166,13 +168,17 @@ class File:
         if self.format_name == "American-Express" or \
                 self.format_name == "Leumi-Card6744":
             self.counter += 1
-        # Inset the meta data of the file to db for future reference
-        DataBase().insert_table_meta_data(self.name,
-                                          self.header_row_idx + 1,
-                                          col,
-                                          self.counter,
-                                          "")
 
+        initial_index = self.header_row_idx + 1     # This is the index of the first DATA row, not headers.
+        DataBase().insert_table_meta_data(source_file_name=self.name,
+                                          initial_index=initial_index,
+                                          initial_col=col,
+                                          row_count=self.counter,
+                                          bad_rows="")
+        utils.log(f"Meta data saved for initial table:\n\
+                    data row index:\t{initial_index}\n\
+                    initial col index:\t{col}\n\
+                    number of rows:\t{self.counter}", "system")
         utils.log("The parse function for catd 2922 is not generic - (-1) is added to ignore last row", "warning")
 
         # ------------------------------------------------------------
@@ -191,7 +197,7 @@ class File:
         if self.double_tables:
             bad_indexes = []
             counter = 0
-            row_idx = self.secondary_headers_row_idx
+            row_idx = self.secondary_headers_row_idx + 1
             col_idx = self.header_col_idx
             entire_row = utils.read_sheet(self.name, row_idx, 1, col_idx, len(self.secondary_headers))
             cc_end = entire_row[0]
@@ -204,19 +210,24 @@ class File:
                 entire_row = utils.read_sheet(self.name, row_idx, 1, col_idx, len(self.secondary_headers))
                 cc_end = entire_row[0]
                 if is_bad_value(entire_row):
-                    bad_indexes.append(row_idx - self.secondary_headers_row_idx)
+                    bad_indexes.append(row_idx - self.secondary_headers_row_idx - 1)    # Get the index relative to the header row
                     cc_end = "Bad value"
 
             bad_indexes = ', '.join([str(i) for i in bad_indexes])
 
+            initial_index = self.secondary_headers_row_idx + 1
             DataBase().insert_table_meta_data(self.name,
-                                              self.secondary_headers_row_idx,
+                                              self.secondary_headers_row_idx + 1,
                                               self.header_col_idx,
                                               counter,
                                               bad_indexes)
 
-            utils.log(f"Found {counter - len(bad_indexes.split(','))} transactions in the second table.\n \
-                      Bad indexes are: {bad_indexes}\n", "system")
+            utils.log(f'Meta data saved for secondary table:\n\
+                    data row index:\t{initial_index}\n\
+                    initial col index:\t{col}\n\
+                    number of rows:\t{counter}\n\
+                    Bad rows:\t\t{bad_indexes}\n\
+                    valid rows:\t\t{counter - len(bad_indexes.split(","))}', 'system')
 
         return True
 
@@ -280,7 +291,7 @@ class File:
                                         len(self.headers)), []
 
         # -----------------------------------------------------------------
-        #                      Function main starts here
+        #                      Function's main starts here
         # -----------------------------------------------------------------
         current_tables = DataBase().get_table_Meta(self.name)
 
@@ -288,8 +299,9 @@ class File:
             self.table_1, self.table_2 = read_and_merge(current_tables)
             self.counter = len(self.table_1) + len(self.table_2)
             DataBase().set_new_trans_count(self.name, self.counter)
-            utils.log(f"File of format {self.format_name} is independent of other files and is not being cleaned.\n \
-                        Total valid transactions in file are {self.counter}", "system")
+            # ------------------------------- Log ---------------------------------
+            utils.log(f"File {self.format_name} is INDEPENDANT of its previous. Total valid transactions in it are {self.counter}", "system")
+            # ---------------------------------------------------------------------
             return True
 
         from Parser import Parser
@@ -300,8 +312,9 @@ class File:
             self.table_1, self.table_2 = read_and_merge(current_tables)
             self.counter = len(self.table_1) + len(self.table_2)
             DataBase().set_new_trans_count(self.name, self.counter)
-            utils.log(f"{self.name} has not earlier file - Nothing to clean.\n \
-                        Total valid transactions in file are {self.counter}", "system")
+            # ------------------------------- Log ---------------------------------
+            utils.log(f"{self.name} has not earlier file - Nothing to clean. Total valid transactions in it are {self.counter}", "system")
+            # ---------------------------------------------------------------------
             return True
 
         recent_tables = DataBase().get_table_Meta(recent_file_name)
@@ -365,9 +378,10 @@ class File:
             self.table_2 = compare_tables(recent_table_2, self.table_2)
 
         new_transactions_count = len(self.table_1) + len(self.table_2)
-        utils.log(f'Out of {self.counter} Transactions, {new_transactions_count} new were found!', 'System')
+        utils.log(f'File was cleaned:\n\
+        Out of {self.counter} Transactions, {new_transactions_count} new were found!', 'system')
+        utils.log(f"Updating the the transaction count in the file to {new_transactions_count}", 'system')
         DataBase().set_new_trans_count(self.name, new_transactions_count)
-
         return True
 
     @abstractmethod

@@ -166,7 +166,8 @@ class File:
         self.counter = counter - 1
 
         if self.format_name == "American-Express" or \
-                self.format_name == "Leumi-Card6744":
+                self.format_name == "Leumi-Card6744" or \
+                self.format_name == "Leumi-Bank":
             self.counter += 1
 
         initial_index = self.header_row_idx + 1     # This is the index of the first DATA row, not headers.
@@ -250,10 +251,6 @@ class File:
                 return None
             return sorted_names[idx - 1]
 
-        def read_sheet(file_name: str) -> Sheet:
-            wb = xw.Book(join(Local.INPUT_FOLDER, file_name))
-            return wb.sheets[0]
-
         def get_row(table):
             for i, row in enumerate(table):
                 if len(row) < 9:
@@ -295,11 +292,11 @@ class File:
         #                      Function's main starts here
         # -----------------------------------------------------------------
         current_tables = DataBase().get_table_Meta(self.name)
+        self.table_1, self.table_2 = read_and_merge(current_tables)
+        self.counter = len(self.table_1) + len(self.table_2)
+        DataBase().set_new_trans_count(self.name, self.counter)
 
         if self.independent:
-            self.table_1, self.table_2 = read_and_merge(current_tables)
-            self.counter = len(self.table_1) + len(self.table_2)
-            DataBase().set_new_trans_count(self.name, self.counter)
             # ------------------------------- Log ---------------------------------
             utils.log(f"File {self.format_name} is INDEPENDANT of its previous. Total valid transactions in it are {self.counter}", "system")
             # ---------------------------------------------------------------------
@@ -308,11 +305,7 @@ class File:
         from Parser import Parser
         sorted_names = Parser.getInstance().get_names(self.format_name)    # type: ignore
         recent_file_name = get_last_file_name(sorted_names)
-
         if recent_file_name is None:
-            self.table_1, self.table_2 = read_and_merge(current_tables)
-            self.counter = len(self.table_1) + len(self.table_2)
-            DataBase().set_new_trans_count(self.name, self.counter)
             # ------------------------------- Log ---------------------------------
             utils.log(f"{self.name} has not earlier file - Nothing to clean. Total valid transactions in it are {self.counter}", "system")
             # ---------------------------------------------------------------------
@@ -379,8 +372,7 @@ class File:
             self.table_2 = compare_tables(recent_table_2, self.table_2)
 
         new_transactions_count = len(self.table_1) + len(self.table_2)
-        utils.log(f'File was cleaned:\n\
-        Out of {self.counter} Transactions, {new_transactions_count} new were found!', 'system')
+        utils.log(f'File was cleaned: Out of {self.counter} Transactions, {new_transactions_count} new were found!', 'system')
         utils.log(f"Updating the the transaction count in the file to {new_transactions_count}", 'system')
         DataBase().set_new_trans_count(self.name, new_transactions_count)
         return True

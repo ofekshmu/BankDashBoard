@@ -8,6 +8,7 @@ from datetime import datetime
 class Card(File):
     def __init__(self, name: str, format_info: dict):
         super().__init__(name, format_info)
+        self.card_number = ""
 
     def validate_bank_number(self) -> bool:
         """ Outer credit has no Bank acc number """
@@ -28,6 +29,13 @@ class Card(File):
                 value = "Empty"
             case "Leumi-Card6744":
                 value = "Empty"
+            case "Isra-Card":
+                text = utils.cell(4, 0, self.sheet)
+                if text is not None:
+                    self.card_number = utils.reg_extract(r'\d+', text)
+                    value = "Empty"
+                else:
+                    utils.log("Bad cell read, this cell should have the card number.", "error")
             case None:
                 utils.log("None is not a valid 'Adittional data field' unless a specific case was mentioned", "error")
             case _:
@@ -75,7 +83,7 @@ class Card(File):
                     (r, c) = self.adittional_data_field  # TODO: These code line are being reapted, improve
                     value = utils.cell(r, c, self.sheet)
 
-                    DataBase().insert_card_transaction(CardID="2922",
+                    DataBase().insert_card_transaction(CardID=self.card_number,
                                                        Name=row[1],
                                                        Executed_Date=utils.date_ready(row[0]),
                                                        Charge_Date=utils.date_ready(value), #TODO
@@ -118,7 +126,7 @@ class Card(File):
             match self.format_name:
                 case "Isra-Card":
 
-                    DataBase().insert_card_transaction(CardID="xxxx",   # TODO
+                    DataBase().insert_card_transaction(CardID=self.card_number,
                                                        Name=row[2],
                                                        Executed_Date=utils.date_ready(row[0]),
                                                        Charge_Date=utils.date_ready(row[1]),

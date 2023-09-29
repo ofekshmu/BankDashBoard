@@ -284,6 +284,7 @@ class File:
                 table_1 = [table_1[i] for i in range(len(table_1)) if i not in bad_indexes]
                 return table_0, table_1
             else:
+                [meta_data] = meta_data
                 return utils.read_sheet(meta_data['source_file'],
                                         meta_data['Initial_index'],
                                         meta_data['Row_count'],

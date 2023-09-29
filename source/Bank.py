@@ -42,7 +42,7 @@ class Bank(File):
 
     def insert(self):
 
-        for row in self.data:
+        for row in self.table_1:
             match self.format_name:
                 case "Leumi-Bank":
                     DataBase().insert_bank_transaction(Date=row[0],

@@ -29,6 +29,8 @@ class Card(File):
                 value = "Empty"
             case "Leumi-Card6744":
                 value = "Empty"
+            case "Leumi-Cards":
+                value = "Empty"
             case "Isra-Card":
                 text = utils.cell(4, 0, self.sheet)
                 if text is not None:
@@ -119,6 +121,18 @@ class Card(File):
                                                        Transaction_Value=row[5],
                                                        Value_Currency="X",
                                                        Extra_Info=f"Type: {row[3]} | Note: None")
+                case "Leumi-Cards":
+
+                    DataBase().insert_card_transaction(CardID=row[0],
+                                                       Name=row[2],
+                                                       Executed_Date=row[1],
+                                                       Charge_Date=row[9],
+                                                       Charge_Value=row[3],
+                                                       Source_file=self.name,
+                                                       Charge_Currency=row[4],
+                                                       Transaction_Value=row[5],
+                                                       Value_Currency=row[6],
+                                                       Extra_Info=f"Type: {row[7]} | Note: None")
                 case _:
                     utils.log("Internal error: format name for insertion into card db was not found! (card.py)", "error")
 
@@ -136,6 +150,18 @@ class Card(File):
                                                        Transaction_Value=row[5],
                                                        Value_Currency=row[6],
                                                        Extra_Info=f"Transactions Abroad")
+                case "Leumi-Cards":
+                    
+                    DataBase().insert_card_transaction(CardID=row[0],
+                                                       Name=row[2],
+                                                       Executed_Date=row[1],
+                                                       Charge_Date=row[9],
+                                                       Charge_Value=row[3],
+                                                       Source_file=self.name,
+                                                       Charge_Currency=row[4],
+                                                       Transaction_Value=row[5],
+                                                       Value_Currency=row[6],
+                                                       Extra_Info=f"Type: {row[7]} | Note: None")
 
         return True
 

@@ -163,7 +163,39 @@ class Formats:
                                   "Secondary Headers": [],
                                   "Header row index": 11,   # row starts from 1
                                   "Header col index": 0,
-                                  "Independent": False}    # col starts from 0
+                                  "Independent": False},    # col starts from 0
+
+               "Leumi-Cards":    {"Format Name": "Leumi-Cards",
+                                  "Context": Context_class.Card,
+                                  "Identification method": Identification_Method.FILE_NAME,
+                                  "Identification data": "לאומי-פירוט העסקאות בכרטיסי האשראי",
+                                  "Sortion method": Sortion_Method.BY_NAME_DATE,
+                                  "Sortion key": None,
+                                  "Adittional data field": None,
+                                  "Headers": ['מספר הכרטיס',
+                                              'תאריך העסקה',
+                                              'שם בית העסק',
+                                              'סכום העסקה',
+                                              'מטבע העסקה',
+                                              'סכום החיוב',
+                                              'מטבע חיוב העסקה',
+                                              'סוג העסקה',
+                                              'פרטים',
+                                              'תאריך החיוב'],
+                                  "Double tables": True,
+                                  "Secondary Headers": ['מספר הכרטיס',
+                                                        'תאריך העסקה',
+                                                        'שם בית העסק',
+                                                        'סכום העסקה',
+                                                        'מטבע העסקה',
+                                                        'סכום החיוב',
+                                                        'מטבע חיוב העסקה',
+                                                        'סוג העסקה',
+                                                        'פרטים',
+                                                        'תאריך החיוב'],
+                                  "Header row index": 10,   # row starts from 1
+                                  "Header col index": 0,
+                                  "Independent": True}    # col starts from 0
                }
 
     EXTENTIONS = [".xls", ".xlsx", ".csv"]

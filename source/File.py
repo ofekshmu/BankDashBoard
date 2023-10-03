@@ -7,7 +7,6 @@ from os.path import join
 from typing import Union
 from database import DataBase
 
-
 class File:
     def __init__(self, name: str, format_info: dict):
         '''
@@ -167,7 +166,8 @@ class File:
 
         if self.format_name == "American-Express" or \
                 self.format_name == "Leumi-Card6744" or \
-                self.format_name == "Leumi-Bank":
+                self.format_name == "Leumi-Bank" or \
+                self.format_name == "Leumi-Cards":
             self.counter += 1
 
         initial_index = self.header_row_idx + 1     # This is the index of the first DATA row, not headers.
@@ -223,12 +223,13 @@ class File:
                                               counter,
                                               bad_indexes)
 
+            valid_rows = counter - len(bad_indexes.split(",")) if len(bad_indexes) >= 1 else counter
             utils.log(f'Meta data saved for secondary table:\n\
                     data row index:\t{initial_index}\n\
                     initial col index:\t{col}\n\
                     number of rows:\t{counter}\n\
                     Bad rows:\t\t{bad_indexes}\n\
-                    valid rows:\t\t{counter - len(bad_indexes.split(","))}', 'system')
+                    valid rows:\t\t{valid_rows}', 'system')
 
         return True
 
@@ -277,8 +278,9 @@ class File:
                 # This row removes the bas indexes from the second table according to the meta data
                 # indexes are in accordance to the first row of the table (not the excel numbering)
                 # first table is not being checked for bad indexes.
-                bad_indexes = [int(num) for num in meta_1["Bad_rows"].strip().split(',')]
-                table_1 = [table_1[i] for i in range(len(table_1)) if i not in bad_indexes]
+                if meta_1["Bad_rows"] != '':
+                    bad_indexes = [int(num) for num in meta_1["Bad_rows"].strip().split(',')]
+                    table_1 = [table_1[i] for i in range(len(table_1)) if i not in bad_indexes]
                 return table_0, table_1
             else:
                 [meta_data] = meta_data

@@ -461,3 +461,15 @@ class utils:
             utils.log(f"In function re_extract, No match was found for\n \
                        rule: {rule}     |   string: {text}", "error")
             return "Code won't reach here"
+
+    @staticmethod
+    def subtract_month(month: int, year: int):
+        if month == 1:
+            month = 12
+            year -= 1
+        elif 1 < month <= 12:
+            month -= 1
+        else:
+            utils.log("Month must be between 1 and 12, inclusive.", 'error')
+
+        return month, year

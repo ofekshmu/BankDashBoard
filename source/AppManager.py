@@ -210,7 +210,30 @@ class AppManager:
                 y = int(input('year: '))
                 t = datetime.now().replace(month=m, year=y)
 
-        # -----
+        # ---------------------------------------------------------
+        #   The following line will help configure the אשראי　transactions
+        # ---------------------------------------------------------
+        cards_df = DataBase().card_sum(*utils.subtract_month(t.month, t.year))
+        bank_df = DataBase().get_Bank_Transactions(Local.CHARGE_DAY + 1, t.month, t.year)
+        for _, row_cs in cards_df.iterrows():
+            for _, row_bt in bank_df.iterrows():
+                if row_bt['Out'] == row_cs['SUM(Transaction_Value)']:
+                    if row_bt['Category'] == 'אשראי':
+                        cards_df.loc[cards_df['CardID'] == row_cs['CardID'], 'Status'] = 'Verified'
+                        break
+
+                    res = utils.template_menu(['Yes', 'No'], f"App found this transaction to be a credit card:\n\
+                                              {row_bt}\n Do you Agree?")
+                    if res == 0:
+                        DataBase().set_category('BankTransactions', row_bt['ID'], 'אשראי')
+                        DataBase().commit_changes()
+                        break
+                    else:
+                        utils.log('ignored...', 'system')
+        utils.log(bank_df.to_markdown())
+        utils.log(cards_df[['CardID', 'SUM(Transaction_Value)', 'Status']].to_markdown())
+        utils.log(f"Look for Credit transactions in month {3}")
+        # ---------------------------------------------------------
 
         utils.log("NOT IMPLEMENTED - bank transaction below ", "warning")
         # monthly_balance = SimpleMath.generate_monthly_balance()

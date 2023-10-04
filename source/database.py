@@ -712,6 +712,33 @@ class DataBase:
                 """.format(TableName)
         self.cursor.execute(query, (desc, id))
 
+    def card_sum(self, month: int, year: int) -> pd.DataFrame:
+        str_month = f"{month}"
+        if len(str_month) == 1:
+            str_month = '0' + str_month
+        data = self.cursor.execute("""
+                            SELECT CardID, Executed_Date, SUM(Transaction_Value) FROM CardTransactions
+                            WHERE strftime('%m', Executed_Date) = ?
+                            AND strftime('%Y', Executed_Date) = ?
+                            GROUP BY CardID
+                            """, (str_month, str(year), )).fetchall()
+        return pd.DataFrame(data=data, columns=[d[0] for d in self.cursor.description])
+
+    def get_Bank_Transactions(self, day: int, month: int, year: int):
+        str_month = str(month)
+        if len(str_month) == 1:
+            str_month = '0' + str_month
+        str_day = str(day)
+        if len(str_day) == 1:
+            str_day = '0' + str_day
+        data = self.cursor.execute("""
+                            SELECT ID, Name, Date, Ref, Out, Category FROM BankTransactions
+                            WHERE strftime('%m', Date) = ?
+                            AND strftime('%Y', Date) = ?
+                            """, (str_month, str(year), )).fetchall()
+                            # AND strftime('%d', Date) = ?
+        return pd.DataFrame(data=data, columns=[d[0] for d in self.cursor.description])
+
     def execute_query(self, query: str) -> bool:
         try:
             self.cursor.execute(query)

@@ -239,8 +239,7 @@ class AppManager:
         # ---------------------------------------------------------
 
         utils.log("NOT IMPLEMENTED - bank transaction below ", "warning")
-        # monthly_balance = SimpleMath.generate_monthly_balance()
-        monthly_balance = -1    # TODO
+        monthly_balance = DataBase().get_latest_Balance()
 
         spendings, description = DataBase().get_monthly_spendings(year=t.year, month=t.month)
         spendings_df = SimpleMath.process_prices(spendings, description)
@@ -262,13 +261,14 @@ class AppManager:
         else:
             cat_dict = {}
         # ----- General
+        utils.log("General data is incorrect - its not taking into account both payment transactions and the remove of the leumi card.", 'warning')
         spendings_sum, earnings_sum = SimpleMath.get_monthly_shifted(shift=5)
         Graphics.plot_general(spendings_sum, earnings_sum)
         # ----- Cards
-        utils.log("commented function of card distrib here.", "warning")
         Graphics.card_distribution(spendings_df)
 
-        utils.generate_html(spendings_df,
+        utils.generate_html(t.month,
+                            spendings_df,
                             earnings_df,
                             monthly_balance,
                             end_monthly_balance,

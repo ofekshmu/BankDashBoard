@@ -308,14 +308,14 @@ class DataBase:
                                     WHERE Name = ?
                                     """, (file_name,)).fetchall()[0]
 
-    def get_latest_bank_transaction(self):
+    def get_latest_Balance(self) -> int:
         """
 
         """
-        return self.cursor.execute("""SELECT * FROM BankTransactions
+        return self.cursor.execute("""SELECT Balance FROM BankTransactions
                                       ORDER BY Date
                                       DESC LIMIT 1
-                                   """).fetchall()[0]
+                                   """).fetchone()[0]
 
     def get_gas_related(self, keys: list, year: str = "", month: str = ""):
         rows = []

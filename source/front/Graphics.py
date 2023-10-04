@@ -11,9 +11,9 @@ class Graphics:
     def plot_earnings(df: pd.DataFrame) -> None:
         if not df.empty:
             df = df.groupby("Category").sum()
-            df.index = df.index.map(lambda name: f"{utils.heb_conversion(name)}\n{round(df.loc[name,'Final_Value'], 2)}₪")
+            df.index = df.index.map(lambda name: f"{utils.heb_conversion(name)}\n{round(df.loc[name,'Final_Value'], 2):,}₪")
             gentle_blue = ['#BFD7EA', '#A5C6DB', '#8BB5CC', '#7194BD', '#577DAE', '#3D5C9F', '#233D90']
-            title = f"Total Earnings: {df['Final_Value'].sum()}₪"
+            title = f"Total Earnings: {round(df['Final_Value'].sum(), 2):,}₪"
             ax = df.plot.pie(y='Final_Value', figsize=(7, 5), legend=False, title=title, colors=gentle_blue)
             ax.set_ylabel('')
         else:
@@ -29,9 +29,9 @@ class Graphics:
 
         if not df.empty:
             df = df.groupby("Category").sum()
-            df.index = df.index.map(lambda name: f"{utils.heb_conversion(name)}\n{round(df.loc[name,'Final_Value'], 2)}₪")
+            df.index = df.index.map(lambda name: f"{utils.heb_conversion(name)}\n{round(df.loc[name,'Final_Value'], 2):,}₪")
             gentle_orange = ['#FFF2CC', '#FFE699', '#FFD966', '#FFC533', '#FFB200', '#FFA000', '#FF8F00', '#FF8000', '#FF6B00']
-            title = f"Total Spendings: {round(df['Final_Value'].sum(), 2)}₪"
+            title = f"Total Spendings: {round(df['Final_Value'].sum(), 2):,}₪"
 
             ax = df.plot.pie(y='Final_Value', figsize=(7, 5), legend=False, title=title, colors=gentle_orange)
             ax.set_ylabel('')

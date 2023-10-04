@@ -9,15 +9,6 @@ import re
 class SimpleMath:
 
     @staticmethod
-    def generate_monthly_balance() -> int:
-        """
-        Return the current Account balance by identifying the most recent Transaction.
-        """
-        row = DataBase().get_latest_bank_transaction()
-        balance = row[6]
-        return balance
-
-    @staticmethod
     def prettify(name, amount, card="") -> str:
         """
         The function returns a readable string for ploting.

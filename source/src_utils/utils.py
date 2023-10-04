@@ -121,26 +121,32 @@ class utils:
                     print("This should not happen"); input("stopped.")
 
     @staticmethod
-    def generate_html(spendings_df,
+    def generate_html(month_num,
+                      spendings_df,
                       earnings_df,
                       monthly_balance: int,
                       end_month_balance: int,
                       gas_stats):
         import bs4
         from datetime import datetime
+        import calendar
         # load the file
         with open("source\html\Base_template.html") as inf:
             txt = inf.read()
-        soup = bs4.BeautifulSoup(txt)
+        soup = bs4.BeautifulSoup(txt, features="html.parser")
 
         sub_titles_div = soup.new_tag('div')
 
         balance_h2 = soup.new_tag('h2')
-        balance_h2.string = f'Balance: {monthly_balance}'
+        balance_h2.string = f'Balance: {monthly_balance:,}'
 
         temp_h2 = soup.new_tag('h2')
-        temp_h2.string = f"Balance at month's end: {end_month_balance}"
+        temp_h2.string = f"Balance at month's end: {end_month_balance:,}"
 
+        h2_3 = soup.new_tag('h1')
+        h2_3.string = f"{calendar.month_name[month_num]}"
+
+        sub_titles_div.append(h2_3)
         sub_titles_div.append(balance_h2)
         sub_titles_div.append(temp_h2)
 
@@ -173,7 +179,7 @@ class utils:
 
             row = soup.new_tag("div")
             row['class'] = 'num'
-            row['data-value'] = f"{item['Final_Value']}₪"   # Amount
+            row['data-value'] = f"{item['Final_Value']:,}₪"   # Amount
 
             st = f"{item['Name']}"   # Name
             cell = soup.new_tag("h3")
@@ -199,7 +205,7 @@ class utils:
         for _, item in earnings_df.sort_values(by='Date', ascending=True).iterrows():
             row = soup.new_tag("div")
             row['class'] = 'num'
-            row['data-value'] = f"{item['Final_Value']}₪"  # Amount
+            row['data-value'] = f"{item['Final_Value']:,}₪"  # Amount
 
             st = f"{item['Name']}"
             cell = soup.new_tag("h3")

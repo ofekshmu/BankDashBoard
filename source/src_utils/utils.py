@@ -126,6 +126,7 @@ class utils:
                       earnings_df,
                       monthly_balance: int,
                       end_month_balance: int,
+                      cards_df: pd.DataFrame,
                       gas_stats):
         import bs4
         from datetime import datetime
@@ -140,15 +141,11 @@ class utils:
         balance_h2 = soup.new_tag('h2')
         balance_h2.string = f'Balance: {monthly_balance:,}'
 
-        temp_h2 = soup.new_tag('h2')
-        temp_h2.string = f"Balance at month's end: {end_month_balance:,}"
-
         h2_3 = soup.new_tag('h1')
         h2_3.string = f"{calendar.month_name[month_num]}"
 
         sub_titles_div.append(h2_3)
         sub_titles_div.append(balance_h2)
-        sub_titles_div.append(temp_h2)
 
         sub_titles_div.attrs['style'] = 'text-align: center;'
 
@@ -180,6 +177,11 @@ class utils:
             row = soup.new_tag("div")
             row['class'] = 'num'
             row['data-value'] = f"{item['Final_Value']:,}₪"   # Amount
+
+            if item['TableName'] == 'CardTransactions':
+                value = cards_df[cards_df['CardID'] == item['Ref/CardID']]['Color'].values
+                value = "#ffffff" if len(value) == 0 else value[0]
+                row['style'] = f"background-color: {value}"
 
             st = f"{item['Name']}"   # Name
             cell = soup.new_tag("h3")

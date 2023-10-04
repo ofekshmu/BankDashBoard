@@ -9,7 +9,7 @@ import shutil
 import os
 import send2trash
 from typing import Tuple
-
+import pandas as pd
 
 class utils:
 
@@ -473,3 +473,7 @@ class utils:
             utils.log("Month must be between 1 and 12, inclusive.", 'error')
 
         return month, year
+
+    @staticmethod
+    def remove_leumi(df: pd.DataFrame) -> pd.DataFrame:
+        return df[df['Name'] != 'לאומי ויזה']

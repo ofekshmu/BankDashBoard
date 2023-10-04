@@ -237,7 +237,14 @@ class SimpleMath:
                     # This is the value that should be returned
                     return max(row['Income/Charge_Value'], row['Out/Transaction_value'])
                 case 'CardTransactions':
-                    # This should indicate the actual payment.
+                    # When the transaction is part of payments, the fields Charge_Value/Transaction_value will have different
+                    # Values, one with the current payment and the other one with the full.
+                    # This if will make sure that the smaller value is always used
+                    if row['Description/Charge_Currency'] == row['Reserved/Value_Currency'] and \
+                            row['Income/Charge_Value'] != row['Out/Transaction_value']:
+                        return min(row['Income/Charge_Value'], row['Out/Transaction_value'])
+                    
+                    # The actual value of the transaction in ILS is indicated in this field
                     return row['Out/Transaction_value']
                 case _:
                     utils.log("Unrecognized case in 'process_prices'...", "error")

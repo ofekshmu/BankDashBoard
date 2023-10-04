@@ -167,7 +167,8 @@ class File:
         if self.format_name == "American-Express" or \
                 self.format_name == "Leumi-Card6744" or \
                 self.format_name == "Leumi-Bank" or \
-                self.format_name == "Leumi-Cards":
+                self.format_name == "Leumi-Cards" or \
+                self.format_name == "Leumi-Max":
             self.counter += 1
 
         initial_index = self.header_row_idx + 1     # This is the index of the first DATA row, not headers.

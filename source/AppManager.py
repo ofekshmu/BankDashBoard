@@ -217,9 +217,11 @@ class AppManager:
         bank_df = DataBase().get_Bank_Transactions(Local.CHARGE_DAY + 1, t.month, t.year)
         for _, row_cs in cards_df.iterrows():
             for _, row_bt in bank_df.iterrows():
-                if row_bt['Out'] == row_cs['SUM(Transaction_Value)']:
+                x = round(row_bt['Out'], 2)
+                y = round(row_cs['SUM(Transaction_Value)'], 2)
+                if x == y:
+                    cards_df.loc[cards_df['CardID'] == row_cs['CardID'], 'Status'] = 'Verified'
                     if row_bt['Category'] == 'אשראי':
-                        cards_df.loc[cards_df['CardID'] == row_cs['CardID'], 'Status'] = 'Verified'
                         break
 
                     res = utils.template_menu(['Yes', 'No'], f"App found this transaction to be a credit card:\n\

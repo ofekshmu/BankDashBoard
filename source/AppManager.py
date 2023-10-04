@@ -214,6 +214,7 @@ class AppManager:
         #   The following line will help configure the אשראי　transactions
         # ---------------------------------------------------------
         cards_df = DataBase().card_sum(*utils.subtract_month(t.month, t.year))
+        cards_df['Status'] = 'Not Verified'
         bank_df = DataBase().get_Bank_Transactions(Local.CHARGE_DAY + 1, t.month, t.year)
         for _, row_cs in cards_df.iterrows():
             for _, row_bt in bank_df.iterrows():
@@ -243,8 +244,10 @@ class AppManager:
 
         spendings, description = DataBase().get_monthly_spendings(year=t.year, month=t.month)
         spendings_df = SimpleMath.process_prices(spendings, description)
+        spendings_df = utils.remove_leumi(spendings_df)
         earnings, description = DataBase().get_monthly_earnings(year=t.year, month=t.month)
         earnings_df = SimpleMath.process_prices(earnings, description)
+        earnings_df = utils.remove_leumi(earnings_df)
         end_monthly_balance = -1
         Graphics.plot_spendings(spendings_df)
         Graphics.plot_earnings(earnings_df)

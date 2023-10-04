@@ -380,6 +380,8 @@ class DataBase:
                                         Value_Date AS 'Value_Date/Charge_Date',
                                         Out AS 'Out/Transaction_value',
                                         Income AS 'Income/Charge_Value',
+                                        Description AS 'Description/Charge_Currency',
+                                        Reserved AS 'Reserved/Value_Currency',
                                         Category,
                                         Extra_Info,
                                         Source_file
@@ -398,6 +400,8 @@ class DataBase:
                                         Charge_Date,
                                         Transaction_Value,
                                         Charge_Value,
+                                        Charge_Currency,
+                                        Value_Currency,
                                         Category,
                                         Extra_Info,
                                         Source_file
@@ -471,6 +475,8 @@ class DataBase:
                                         Value_Date AS 'Value_Date/Charge_Date',
                                         Out AS 'Out/Transaction_value',
                                         Income AS 'Income/Charge_Value',
+                                        Description AS 'Description/Charge_Currency',
+                                        Reserved AS 'Reserved/Value_Currency',
                                         Category,
                                         Extra_Info,
                                         Source_file
@@ -488,6 +494,8 @@ class DataBase:
                                         Charge_Date,
                                         Transaction_Value,
                                         Charge_Value,
+                                        Charge_Currency,
+                                        Value_Currency,
                                         Category,
                                         Extra_Info,
                                         Source_file

@@ -338,6 +338,8 @@ class DataBase:
                                         Out AS 'Out/Transaction_value',
                                         Income AS 'Income/Charge_Value',
                                         Category,
+                                        Description AS 'Description/Charge_Currency',
+                                        Reserved AS 'Reserved/Value_Currency',
                                         Date,
                                         Extra_Info
                                    FROM BankTransactions
@@ -349,6 +351,8 @@ class DataBase:
                                         Transaction_value,
                                         Charge_Value,
                                         Category,
+                                        Charge_Currency,
+                                        Value_Currency,
                                         Executed_Date,
                                         Extra_info
                                    FROM CardTransactions

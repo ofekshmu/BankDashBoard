@@ -304,9 +304,8 @@ class utils:
         options = cat_lst + ["Create a new category", "Skip"]
         # ----------- Input category and description -------------
         st = "Please insert your selection and description in the following format:\n*Number* - *Description*" + '\n'
-        for idx, e in enumerate(options, start=0):
-            st += f"\t{idx} -> {utils.heb_conversion(e)}\n"
         utils.log(st, 'system')
+        utils.pretty_print([f"{str(i) + ' -> ':6s}{utils.heb_conversion(x)}" for i, x in enumerate(options, start=0)])
 
         number = -1
         description = ""
@@ -494,3 +493,16 @@ class utils:
     @staticmethod
     def remove_leumi(df: pd.DataFrame) -> pd.DataFrame:
         return df[df['Name'] != 'לאומי ויזה']
+
+    @staticmethod
+    def pretty_print(lst: list) -> None:
+        n = len(lst)
+        const = 6
+        m = 1 + n // const
+        for i in range(0, const):
+            for j in range(0, m):
+                index = i + const*j
+                if index >= len(lst):
+                    break
+                print(f"{lst[i + const*j]:27s}", end ="")
+            print()

@@ -471,7 +471,12 @@ class utils:
             return "Code won't reach here"
 
     @staticmethod
-    def subtract_month(month: int, year: int):
+    def subtract_month(month: int, year: int) -> Tuple[str, str]:
+        """
+        Function returns the date, one month before the given one (not including the day)
+        The format is: MM, YYYY
+        """
+
         if month == 1:
             month = 12
             year -= 1
@@ -480,7 +485,11 @@ class utils:
         else:
             utils.log("Month must be between 1 and 12, inclusive.", 'error')
 
-        return month, year
+        str_month = str(month)
+        if len(str_month) == 1:
+            str_month = '0' + str_month
+
+        return str_month, str(year)
 
     @staticmethod
     def remove_leumi(df: pd.DataFrame) -> pd.DataFrame:

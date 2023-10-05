@@ -720,17 +720,35 @@ class DataBase:
                 """.format(TableName)
         self.cursor.execute(query, (desc, id))
 
-    def card_sum(self, month: int, year: int) -> pd.DataFrame:
-        str_month = f"{month}"
-        if len(str_month) == 1:
-            str_month = '0' + str_month
+    def card_sum(self, date: datetime):
+        m_2 = '0' + str(date.month) if len(str(date.month)) == 1 else str(date.month)
+        
+        m_1, y_1 = utils.subtract_month(date.month, date.year)
+        m_0, y_0 = utils.subtract_month(int(m_1), int(y_1))
+
         data = self.cursor.execute("""
-                            SELECT CardID, Executed_Date, SUM(Transaction_Value) FROM CardTransactions
-                            WHERE strftime('%m', Executed_Date) = ?
-                            AND strftime('%Y', Executed_Date) = ?
-                            GROUP BY CardID
-                            """, (str_month, str(year), )).fetchall()
-        return pd.DataFrame(data=data, columns=[d[0] for d in self.cursor.description])
+                            SELECT 'CardTransactions' AS TableName,
+                                   CardID,
+                                   Executed_Date,
+                                   Charge_Date,
+                                   Charge_Value AS 'Income/Charge_Value',
+                                   Charge_Currency AS 'Description/Charge_Currency',
+                                   Charge_Value AS 'Reserved/Value_Currency',
+                                   Transaction_Value AS 'Out/Transaction_value'
+                            FROM CardTransactions
+                            WHERE ((strftime('%m', Executed_Date) = ? AND strftime('%Y', Executed_Date) = ?)
+                            OR (strftime('%m', Executed_Date) = ? AND strftime('%Y', Executed_Date) = ?))
+                            AND (strftime('%m', Charge_Date) = ?)
+                            """, (m_1, y_1, m_0, y_0, m_2, )).fetchall()
+        return data, [d[0] for d in self.cursor.description]
+        # debug_data = self.cursor.execute("""
+        #                     SELECT CardID, Executed_Date, Charge_Date, Transaction_Value FROM CardTransactions
+        #                     WHERE ((strftime('%m', Executed_Date) = ? AND strftime('%Y', Executed_Date) = ?)
+        #                     OR (strftime('%m', Executed_Date) = ? AND strftime('%Y', Executed_Date) = ?))
+        #                     AND (strftime('%m', Charge_Date) = ?)
+        #                     """, (m_1, y_1, m_0, y_0, m_2, )).fetchall()
+        # df = pd.DataFrame(data=debug_data, columns=[d[0] for d in self.cursor.description])
+        # utils.log(f'{df.to_markdown()}', 'debug')
 
     def get_Bank_Transactions(self, day: int, month: int, year: int):
         str_month = str(month)

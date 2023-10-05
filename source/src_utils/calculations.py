@@ -231,10 +231,14 @@ class SimpleMath:
                     # When the transaction is part of payments, the fields Charge_Value/Transaction_value will have different
                     # Values, one with the current payment and the other one with the full.
                     # This if will make sure that the smaller value is always used
-                    if row['Description/Charge_Currency'] == row['Reserved/Value_Currency'] and \
-                            row['Income/Charge_Value'] != row['Out/Transaction_value']:
+                    cond_payments = row['Description/Charge_Currency'] == row['Reserved/Value_Currency'] and \
+                            row['Income/Charge_Value'] != row['Out/Transaction_value']
+                    # If only one of the values is Negative, the transaction is indicating a return made directly to the card.
+                    # in this case the negative value should be considered - the min of the two.
+                    cond_Credit_payback = row['Out/Transaction_value']*row['Income/Charge_Value'] < 0
+                    if cond_payments or cond_Credit_payback:
                         return min(row['Income/Charge_Value'], row['Out/Transaction_value'])
-                    
+
                     # The actual value of the transaction in ILS is indicated in this field
                     return row['Out/Transaction_value']
                 case _:

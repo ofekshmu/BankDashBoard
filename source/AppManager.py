@@ -213,13 +213,14 @@ class AppManager:
         # ---------------------------------------------------------
         #   The following line will help configure the אשראי　transactions
         # ---------------------------------------------------------
-        cards_df = DataBase().card_sum(*utils.subtract_month(t.month, t.year))
+        df, desc = DataBase().card_sum(t)
+        cards_df = SimpleMath.process_prices(df, desc).groupby("CardID").sum().reset_index()
         cards_df['Status'] = 'Not Verified'
         bank_df = DataBase().get_Bank_Transactions(Local.CHARGE_DAY + 1, t.month, t.year)
         for _, row_cs in cards_df.iterrows():
             for _, row_bt in bank_df.iterrows():
                 x = round(row_bt['Out'], 2)
-                y = round(row_cs['SUM(Transaction_Value)'], 2)
+                y = round(row_cs['Final_Value'], 2)
                 if x == y:
                     cards_df.loc[cards_df['CardID'] == row_cs['CardID'], 'Status'] = 'Verified'
                     if row_bt['Category'] == 'אשראי':
@@ -233,9 +234,8 @@ class AppManager:
                         break
                     else:
                         utils.log('ignored...', 'system')
-        utils.log(bank_df.to_markdown())
-        utils.log(cards_df[['CardID', 'SUM(Transaction_Value)', 'Status']].to_markdown())
-        utils.log(f"Look for Credit transactions in month {3}")
+        # utils.log(bank_df.to_markdown())
+        utils.log(cards_df[['CardID', 'Final_Value', 'Status']].to_markdown())
         # ---------------------------------------------------------
 
         utils.log("NOT IMPLEMENTED - bank transaction below ", "warning")

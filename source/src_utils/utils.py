@@ -125,8 +125,7 @@ class utils:
                       spendings_df,
                       earnings_df,
                       monthly_balance: int,
-                      end_month_balance: int,
-                      cards_df: pd.DataFrame,
+                      cards_dict: dict,
                       gas_stats):
         import bs4
         from datetime import datetime
@@ -179,9 +178,10 @@ class utils:
             row['data-value'] = f"{item['Final_Value']:,}₪"   # Amount
 
             if item['TableName'] == 'CardTransactions':
-                value = cards_df[cards_df['CardID'] == item['Ref/CardID']]['Color'].values
-                value = "#ffffff" if len(value) == 0 else value[0]
-                row['style'] = f"background-color: {value}"
+                value = cards_dict[item['Ref/CardID']]
+            else:
+                value = cards_dict['Bank']
+            row['style'] = f"background-color: {value}"
 
             st = f"{item['Name']}"   # Name
             cell = soup.new_tag("h3")

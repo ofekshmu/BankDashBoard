@@ -265,29 +265,18 @@ class AppManager:
         spendings_sum, earnings_sum = SimpleMath.get_monthly_shifted(shift=5)
         Graphics.plot_general(spendings_sum, earnings_sum)
         # ----- Cards
-        Graphics.card_distribution(spendings_df)
 
-        colors = [
-            "#F5E1FF",  # Lavender
-            "#F0FFF0",  # Honeydew
-            "#FAF0E6",  # Linen
-            "#FFF5E1",  # SeaShell
-            "#E0FFFF",  # Light Cyan
-            "#FFE4E1",  # Misty Rose
-            "#F5F5DC",  # Beige
-            "#F0E68C",  # Khaki
-            "#E6E6FA",  # Lavender Mist
-            "#FFE4B5"   # Moccasin
-        ]
+        card_ids = DataBase().get_card_ids() + ['Bank']
+        color_list = Local.Colors[:len(card_ids)]
+        card_color_dict = dict(zip(card_ids, color_list))
 
-        colors = colors[:cards_df.shape[0]]
-        cards_df['Color'] = colors
+        Graphics.card_distribution(spendings_df, card_color_dict)
+        
         utils.generate_html(t.month,
                             spendings_df,
                             earnings_df,
                             monthly_balance,
-                            end_monthly_balance,
-                            cards_df,
+                            card_color_dict,
                             cat_dict)
         webbrowser.open('source\html\output.html')
 

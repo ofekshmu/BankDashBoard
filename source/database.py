@@ -741,14 +741,6 @@ class DataBase:
                             AND (strftime('%m', Charge_Date) = ?)
                             """, (m_1, y_1, m_0, y_0, m_2, )).fetchall()
         return data, [d[0] for d in self.cursor.description]
-        # debug_data = self.cursor.execute("""
-        #                     SELECT CardID, Executed_Date, Charge_Date, Transaction_Value FROM CardTransactions
-        #                     WHERE ((strftime('%m', Executed_Date) = ? AND strftime('%Y', Executed_Date) = ?)
-        #                     OR (strftime('%m', Executed_Date) = ? AND strftime('%Y', Executed_Date) = ?))
-        #                     AND (strftime('%m', Charge_Date) = ?)
-        #                     """, (m_1, y_1, m_0, y_0, m_2, )).fetchall()
-        # df = pd.DataFrame(data=debug_data, columns=[d[0] for d in self.cursor.description])
-        # utils.log(f'{df.to_markdown()}', 'debug')
 
     def get_Bank_Transactions(self, day: int, month: int, year: int):
         str_month = str(month)
@@ -764,6 +756,13 @@ class DataBase:
                             """, (str_month, str(year), )).fetchall()
                             # AND strftime('%d', Date) = ?
         return pd.DataFrame(data=data, columns=[d[0] for d in self.cursor.description])
+
+    def get_card_ids(self) -> list:
+        """
+        Returns all card id's in the data base in a list format.
+        """
+        data = self.cursor.execute(""" SELECT CardID FROM Card""").fetchall()
+        return [x[0] for x in data]
 
     def execute_query(self, query: str) -> bool:
         try:

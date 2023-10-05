@@ -192,7 +192,7 @@ class Graphics:
         plt.savefig(r'Outputs\General_info.png')
 
     @staticmethod
-    def card_distribution(spendings: pd.DataFrame):
+    def card_distribution(spendings: pd.DataFrame, color_dict: dict):
         """
 
         """
@@ -210,11 +210,14 @@ class Graphics:
             df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
             df = df.groupby("Ref/CardID").sum()
 
-            df.index = df.index.map(lambda card: f"{utils.heb_conversion(card)}\n{round(df.loc[card, 'Final_Value'] * 100 / df['Final_Value'].sum(), 2)}%")
-            gentle_orange = ['#FFF2CC', '#FFE699', '#FFD966', '#FFC533', '#FFB200', '#FFA000', '#FF8F00', '#FF8000', '#FF6B00']
+            # gentle_orange = ['#FFF2CC', '#FFE699', '#FFD966', '#FFC533', '#FFB200', '#FFA000', '#FF8F00', '#FF8000', '#FF6B00']
             title = "Card Distribution"
+            print(df.to_markdown())
 
-            ax = df.plot.pie(y='Final_Value', figsize=(3, 2), legend=False, title=title, colors=gentle_orange)
+            color_list = [color_dict[card_id] for card_id in df.index]
+            df.index = df.index.map(lambda card: f"{utils.heb_conversion(card)}\n{round(df.loc[card, 'Final_Value'], 2):,}")
+
+            ax = df.plot.pie(y='Final_Value', figsize=(3, 2), legend=False, title=title, colors=color_list)
             ax.set_ylabel('')
 
         else:

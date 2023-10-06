@@ -737,7 +737,7 @@ class DataBase:
                                    Charge_Date,
                                    Charge_Value AS 'Income/Charge_Value',
                                    Charge_Currency AS 'Description/Charge_Currency',
-                                   Charge_Value AS 'Reserved/Value_Currency',
+                                   Value_Currency AS 'Reserved/Value_Currency',
                                    Transaction_Value AS 'Out/Transaction_value'
                             FROM CardTransactions
                             WHERE ((strftime('%m', Executed_Date) = ? AND strftime('%Y', Executed_Date) = ?)

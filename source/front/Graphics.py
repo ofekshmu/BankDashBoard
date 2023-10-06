@@ -212,7 +212,6 @@ class Graphics:
 
             # gentle_orange = ['#FFF2CC', '#FFE699', '#FFD966', '#FFC533', '#FFB200', '#FFA000', '#FF8F00', '#FF8000', '#FF6B00']
             title = "Card Distribution"
-            print(df.to_markdown())
 
             color_list = [color_dict[card_id] for card_id in df.index]
             df.index = df.index.map(lambda card: f"{utils.heb_conversion(card)}\n{round(df.loc[card, 'Final_Value'], 2):,}")

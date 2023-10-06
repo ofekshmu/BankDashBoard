@@ -226,7 +226,7 @@ class SimpleMath:
                 case 'BankTransactions':
                     # Only one of the following should have a value that is not 0.
                     # This is the value that should be returned
-                    return max(row['Income/Charge_Value'], row['Out/Transaction_value'])
+                    return abs(max(row['Income/Charge_Value'], row['Out/Transaction_value']))
                 case 'CardTransactions':
                     # When the transaction is part of payments, the fields Charge_Value/Transaction_value will have different
                     # Values, one with the current payment and the other one with the full.
@@ -237,10 +237,10 @@ class SimpleMath:
                     # in this case the negative value should be considered - the min of the two.
                     cond_Credit_payback = row['Out/Transaction_value']*row['Income/Charge_Value'] < 0
                     if cond_payments or cond_Credit_payback:
-                        return min(row['Income/Charge_Value'], row['Out/Transaction_value'])
+                        return abs(min(row['Income/Charge_Value'], row['Out/Transaction_value']))
 
                     # The actual value of the transaction in ILS is indicated in this field
-                    return row['Out/Transaction_value']
+                    return abs(row['Out/Transaction_value'])
                 case _:
                     utils.log("Unrecognized case in 'process_prices'...", "error")
                     return ""   # To avoid linter error - unreacheable code.

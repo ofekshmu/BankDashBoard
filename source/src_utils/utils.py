@@ -11,6 +11,7 @@ import send2trash
 from typing import Tuple
 import pandas as pd
 
+
 class utils:
 
     @staticmethod
@@ -75,7 +76,7 @@ class utils:
         def wrapper_hc(lst) -> str:
             if lst == []:
                 return ""
-            
+
             if utils.has_hebrew(lst[0]):
                 return wrapper_hc(lst[1:]) + lst[0][::-1] + " "
             return lst[0] + " " + wrapper_hc(lst[1:])
@@ -118,7 +119,8 @@ class utils:
                 case 2:
                     exit()
                 case _:
-                    print("This should not happen"); input("stopped.")
+                    print("This should not happen")
+                    input("stopped.")
 
     @staticmethod
     def generate_html(month_num,
@@ -131,7 +133,7 @@ class utils:
         from datetime import datetime
         import calendar
         # load the file
-        with open("source\html\Base_template.html") as inf:
+        with open(r"source\html\Base_template.html") as inf:
             txt = inf.read()
         soup = bs4.BeautifulSoup(txt, features="html.parser")
 
@@ -199,7 +201,7 @@ class utils:
             d = datetime.strptime(f"{item['Date']}", "%Y-%m-%d %H:%M:%S").strftime('%A %d')
             cell.string = f"{item['Category']}"  # Category
             row.append(cell)
-            
+
             table.append(row)
 
         # ----------
@@ -268,7 +270,7 @@ class utils:
 
         soup.body.append(div_tag)
 
-        with open("source\html\output.html", "w", encoding='utf-8') as outf:
+        with open(r"source\html\output.html", "w", encoding='utf-8') as outf:
             outf.write(bs4.BeautifulSoup.prettify(soup))
 
     @staticmethod
@@ -392,7 +394,7 @@ class utils:
             return ""
 
     @staticmethod
-    def date_ready(date: str):
+    def date_ready(date: str) -> datetime:
         """
         Converts a date string into a datetime object. The string has to be in one
         of the following formats: "%d-%m-%Y", "%d/%m/%Y", "%d/%m/%y"
@@ -408,6 +410,8 @@ class utils:
                 continue
 
         utils.log("Invalid date format. Please use '-' or '/' as separators.", "error")
+        # following date will never be returned. placed for linter.
+        return datetime(1, 1, 1)
 
     @staticmethod
     def amount_ready(value) -> int:
@@ -504,5 +508,5 @@ class utils:
                 index = i + const*j
                 if index >= len(lst):
                     break
-                print(f"{lst[i + const*j]:27s}", end ="")
+                print(f"{lst[i + const*j]:27s}", end="")
             print()

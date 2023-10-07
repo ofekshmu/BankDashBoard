@@ -19,7 +19,7 @@ class AppManager:
     def __init__(self):
         self.parser = Parser()
         utils.validate_formats()
-        
+
     def menu(self):
         print("""
                 Hello Ofek!
@@ -43,7 +43,7 @@ class AppManager:
             case 3:
                 self.delete_file_info()
             case 4:
-                self.validate()
+                utils.log("Option no avaliable", 'system')
             case 5:
                 self.update_existing_file()
             case 6:
@@ -234,20 +234,20 @@ class AppManager:
                         break
                     else:
                         utils.log('ignored...', 'system')
-        # utils.log(bank_df.to_markdown())
+
         utils.log(cards_df[['CardID', 'Final_Value', 'Status']].to_markdown())
         # ---------------------------------------------------------
 
-        utils.log("NOT IMPLEMENTED - bank transaction below ", "warning")
         monthly_balance = DataBase().get_latest_Balance()
 
         spendings, description = DataBase().get_monthly_spendings(year=t.year, month=t.month)
         spendings_df = SimpleMath.process_prices(spendings, description)
         spendings_df = utils.remove_leumi(spendings_df)
+
         earnings, description = DataBase().get_monthly_earnings(year=t.year, month=t.month)
         earnings_df = SimpleMath.process_prices(earnings, description)
         earnings_df = utils.remove_leumi(earnings_df)
-        end_monthly_balance = -1
+
         Graphics.plot_spendings(spendings_df)
         Graphics.plot_earnings(earnings_df)
 
@@ -261,7 +261,6 @@ class AppManager:
         else:
             cat_dict = {}
         # ----- General
-        utils.log("General data is incorrect - its not taking into account both payment transactions and the remove of the leumi card.", 'warning')
         spendings_sum, earnings_sum = SimpleMath.get_monthly_shifted(shift=5)
         Graphics.plot_general(spendings_sum, earnings_sum)
         # ----- Cards
@@ -271,46 +270,12 @@ class AppManager:
         card_color_dict = dict(zip(card_ids, color_list))
 
         Graphics.card_distribution(spendings_df, card_color_dict)
-        
+
         utils.generate_html(t.month,
                             spendings_df,
                             earnings_df,
                             monthly_balance,
                             card_color_dict,
                             cat_dict)
-        webbrowser.open('source\html\output.html')
-
-    def validate(self):
-        """
-        The Function will validate the Balance created by the 'load_data' function by comparing the
-        Total amount of credit at the month end with the sum of total transactions parsed for the same period.
-        """
-        from dateutil.relativedelta import relativedelta
-        from datetime import datetime
-        import pandas as pd
-
-        def filter_unique_dates(visa_transactions: list[Tuple[datetime, float]]) -> pd.DataFrame:
-            """
-            The function will receive all visa charges in the db and return
-            the total number of months to valdiate.
-            """
-            df = pd.DataFrame(visa_transactions, columns=['Date', 'Name', 'Amount', 'Balance'])
-            df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
-            df = df[df['Date'].dt.day == Local.CHARGE_DAY]
-            df = df.groupby('Date').sum()
-            df = df.drop('Balance', axis=1)
-            return df
-
-        visa_transactions = DataBase().get_visa_transactions()
-        df = filter_unique_dates(visa_transactions)
-        print(df)
-        for row in df.iterrows():
-            ds = (row[0] - relativedelta(months=1))
-            amount = -row[1][0]
-            s_amount, _ = SimpleMath.get_monthly_spendings(year=ds.year, month=ds.month)
-            if abs(amount - s_amount) > 10:
-                utils.log(f"\tValidation Failed for Charge conducted on {row[0]}.\n\t\tTotal Charge was {amount}, Transaction sum is {s_amount}", "warning")
-                utils.warning_halt()
-            else:
-                utils.log(f"Validation for month {ds.month}/{ds.year} was Successful.\nThere is a {amount - s_amount} difference", 'system')
+        webbrowser.open(r'source\html\output.html')
 

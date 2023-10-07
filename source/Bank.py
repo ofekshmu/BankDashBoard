@@ -16,10 +16,6 @@ class Bank(File):
         self.date: the date specified in the file
         '''
         super().parse()
-        # TODO this was commented when the code was moved to FILE
-        # might cuase a problem in future run
-        # self.new_trans_count = counter
-        # self.date = self.sheet[self.date_loc].value
 
         match self.format_name:
             case "BeinLeumi-Bank":

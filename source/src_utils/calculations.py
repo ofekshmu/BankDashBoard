@@ -30,89 +30,6 @@ class SimpleMath:
             return f"{name}- {amount}"
         return f"[{card}] {name}- {-amount}"
 
-    # @staticmethod
-    # def get_monthly_earnings(year: int, month: int) -> Tuple[int, list]:
-    #     """
-    #     @parm year - the specified year
-    #     @param month - the specifeid month
-    #     Returns the sum of all the incoming transactions in the specified month, tuppled with
-    #     a list containing tupples with the name and amount of each transaction.
-    #     """
-    #     lst = DataBase().get_transactions(table="BankTransactions", year=year, month=month)
-    #     earnings = []
-
-    #     for ele in lst:
-    #         amount = ele[5]
-    #         category = ele[10]
-    #         date = ele[2]
-    #         name = ele[7]
-    #         if name is None:
-    #             name = ele[4]
-
-    #         striped = re.sub(r'\d+', '', name)
-
-    #         if amount > 0:
-    #             earnings.append((striped, amount, category, date))
-
-    #     total_amount = sum([tup[1] for tup in earnings])
-    #     return total_amount, earnings
-
-    @staticmethod
-    def get_monthly_spendings(year: int, month: int) -> Tuple[int, list]:
-        """
-        @parm year - the specified year
-        @param month - the specifeid month
-        Returns the sum of all the spending transactions in the specified month, tuppled with
-        a list containing tupples with the name and amount of each transaction.
-        """
-        spendings = []
-
-        # When looking for spendings. transaction will be queried by the date they will be 
-        # effective in the bank account and not by the date they were exectued.
-        # That is why, when given month x, we will search for transactions in month x + 1
-        fit_month = month % 12 + 1
-        if fit_month == 1:
-            year += 1
-
-        def transaction_value(amount: int, charge_amount: int, row: list) -> int:
-            """
-            It seems like when applying payments the values are specified in a different column.
-            The function return the value in the corrent column according to the transaction name.
-            """
-            
-            if row[5] == "תשלומים":
-                return amount
-            if amount != charge_amount:
-                return charge_amount
-            return amount
-
-        lst = DataBase().get_transactions(table="", year=year, month=fit_month)
-        lst2 = DataBase().get_transactions(table="BankTransactions", year=year, month=month)
-        
-        def filter_spendings(lst: list) -> list:
-            # -- filter positive transactions
-            negative_trans = [item for item in lst if item[5] < 0]
-            # -- filter visa transactions
-            return [(0, "Bank", item[2], item[4], item[5], 5, 6, item[5], 8, 9, item[10])
-                    for item in negative_trans if item[10] != "אשראי"]
-
-        lst2 = filter_spendings(lst2)
-        lst += lst2
-        for ele in lst:
-            import re
-            card = re.sub("[^0-9]", "", ele[1])
-            name = ele[3]
-            amount = ele[4]
-            category = ele[10]
-            charge_amount = ele[7]
-            date = ele[2]
-            amount = transaction_value(amount, charge_amount, ele)
-            striped = re.sub(r'\d+', '', name)
-            spendings.append((striped, amount, card, category, date))
-
-        total_amount = round(sum([-tup[1] for tup in spendings]), 2)
-        return total_amount, spendings
-
     @staticmethod
     def gas_info() -> list:
         """
@@ -138,7 +55,7 @@ class SimpleMath:
             return False
 
         series = df['Final_Value'].describe()
-        
+
         # convert Date column to datetime format
         df['Date'] = pd.to_datetime(df['Date'])
 
@@ -192,7 +109,7 @@ class SimpleMath:
             earnings_df = utils.remove_leumi(earnings_df)
             earnings_sum = earnings_df['Final_Value'].sum()
 
-            spendings_lst.append(spendings_sum)
+            spendings_lst.append(DataBase().get_monthly_spendings_sum(y, m))
             earnings_lst.append(earnings_sum)
 
         return spendings_lst, earnings_lst
@@ -200,9 +117,9 @@ class SimpleMath:
     @staticmethod
     def general_info(data):
         """
-        Receives transactions both spendings and earnings and returns a dataframe with the columns Date, spendings, earnings
-        Where the Date column groups all transaction dates by month, the rest of the columns conclude the sum of transactions
-        amount in each month.
+        Receives transactions both spendings and earnings and returns a dataframe with the columns Date, spendings,
+        earnings Where the Date column groups all transaction dates by month, the rest of the columns conclude the
+        sum of transactions amount in each month.
         """
         if data[1]:
             earnings_df = pd.DataFrame(data[1], columns=["Name", "Amount", "Category", "Date"])
@@ -238,13 +155,13 @@ class SimpleMath:
                     # This is the value that should be returned
                     return abs(max(row['Income/Charge_Value'], row['Out/Transaction_value']))
                 case 'CardTransactions':
-                    # When the transaction is part of payments, the fields Charge_Value/Transaction_value will have different
-                    # Values, one with the current payment and the other one with the full.
+                    # When the transaction is part of payments, the fields Charge_Value/Transaction_value will have
+                    # differet Values, one with the current payment and the other one with the full.
                     # This if will make sure that the smaller value is always used
                     cond_payments = row['Description/Charge_Currency'] == row['Reserved/Value_Currency'] and \
                             row['Income/Charge_Value'] != row['Out/Transaction_value']
-                    # If only one of the values is Negative, the transaction is indicating a return made directly to the card.
-                    # in this case the negative value should be considered - the min of the two.
+                    # If only one of the values is Negative, the transaction is indicating a return made directly to
+                    # the card. in this case the negative value should be considered - the min of the two.
                     cond_Credit_payback = row['Out/Transaction_value']*row['Income/Charge_Value'] < 0
                     if cond_payments or cond_Credit_payback:
                         return abs(min(row['Income/Charge_Value'], row['Out/Transaction_value']))
@@ -257,5 +174,5 @@ class SimpleMath:
 
         if not df.empty:
             df["Final_Value"] = df.apply(my_lambda, axis=1)
-        
+
         return df

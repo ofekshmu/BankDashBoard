@@ -54,7 +54,7 @@ class Formats:
                               "Secondary Headers": [],
                               "Header row index": 4,
                               "Header col index": 0,
-                              "Independent": False},
+                              "Independent": True},
 
                "Isra-Card":  {"Format Name": "Isra-Card",
                               "Context": Context_class.Card,

@@ -80,15 +80,20 @@ class Card(File):
                                                        Charge_Currency=row[6],
                                                        Transaction_Value=row[7],
                                                        Value_Currency=row[8],
-                                                       Extra_Info=f"Trans type: {row[4]} | Method: {row[14]} | Notes: {row[10]}")
+                                                       Extra_Info=f"Trans type: {row[4]} | \
+                                                                    Method: {row[14]} | \
+                                                                    Notes: {row[10]}")
                 case "Isra-Card":
                     (r, c) = self.adittional_data_field  # TODO: These code line are being reapted, improve
                     value = utils.cell(r, c, self.sheet)
+                    if value is None:
+                        utils.log('Adittional data field read from the file is None.', 'error')
+                        return False
 
                     DataBase().insert_card_transaction(CardID=self.card_number,
                                                        Name=row[1],
                                                        Executed_Date=utils.date_ready(row[0]),
-                                                       Charge_Date=utils.date_ready(value), #TODO
+                                                       Charge_Date=utils.date_ready(value),
                                                        Charge_Value=row[2],
                                                        Source_file=self.name,
                                                        Charge_Currency=row[3],
@@ -134,7 +139,10 @@ class Card(File):
                                                        Value_Currency=row[6],
                                                        Extra_Info=f"Type: {row[7]} | Note: None")
                 case _:
-                    utils.log("Internal error: format name for insertion into card db was not found! (card.py)", "error")
+                    utils.log(f"Internal error: The specified format {self.format_name} does not have a matching\
+                              case in the match-case scope. Card Class, insert function.\
+                              Check if the 'format_name was typed correctly or the case for the specified format\
+                              does not exist.", "error")
 
         for row in self.table_2:
             match self.format_name:
@@ -151,7 +159,7 @@ class Card(File):
                                                        Value_Currency=row[6],
                                                        Extra_Info=f"Transactions Abroad")
                 case "Leumi-Cards":
-                    
+
                     DataBase().insert_card_transaction(CardID=row[0],
                                                        Name=row[2],
                                                        Executed_Date=row[1],

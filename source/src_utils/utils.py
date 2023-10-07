@@ -510,3 +510,41 @@ class utils:
                     break
                 print(f"{lst[i + const*j]:27s}", end="")
             print()
+
+    @staticmethod
+    def validate_formats():
+        from Configurations.Formats import Formats, Identification_Method, Context_class
+        formats = Formats.FORMATS
+        utils.log(f'Total number of formats: {len(formats)}', 'debug')
+
+        for format_key, format_data in formats.items():
+            if format_key != format_data['Format Name']:
+                return f"Format name missmatch for {format_key}"
+
+            if type(format_data['Context']) != type(Context_class):
+                return f"Context Enum was not used for {format_key}"
+
+            if type(format_data['Identification method']) != type(Identification_Method):
+                return f"Identification_Method Enum was not used for {format_key}"
+
+            if format_data['Identification method'] == Identification_Method.NONE:
+                return f'Identification_Method should not be Identification_Method.NONE'
+
+            data = format_data['Identification data']
+            match format_data['Identification method']:
+                case Identification_Method.FILE_NAME:
+                    if type(data) != str:
+                        return f'Identification data should be a string when using "Identification_Method.FILE_NAME" \
+                                in format {format_key}'
+                case Identification_Method.CELL:
+                    if type(data) != Tuple:
+                        return f'Identification data should be a tuple indicating row, col when using \
+                                "Identification_Method.CELL" in format {format_key}'
+                case Identification_Method.HEADERS:
+                    if type(data) is not None:
+                        return f'Identification data should None when using \
+                                "Identification_Method.Headers" in format {format_key}'
+                    if len(format_data['Headers']) == 0:
+                        return f'Headers were not specified'
+                case _:
+                    return f'Internal ERROR, should not happen.'

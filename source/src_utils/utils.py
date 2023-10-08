@@ -513,7 +513,7 @@ class utils:
 
     @staticmethod
     def validate_formats():
-        from Configurations.Formats import Formats, Identification_Method, Context_class
+        from Configurations.Formats import Formats, Identification_Method, Context_class, Sortion_Method
         formats = Formats.FORMATS
         utils.log(f'Total number of formats: {len(formats)}', 'debug')
 
@@ -548,3 +548,7 @@ class utils:
                         return f'Headers were not specified'
                 case _:
                     return f'Internal ERROR, should not happen.'
+                
+            sortion_key = format_data['Sortion key']
+            match format_data['Sortion method']:
+                case Sortion_Method.BY_NAME_SERIAL

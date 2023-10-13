@@ -25,37 +25,40 @@ class AppManager:
             utils.log(f'Format validation result: {res}', 'system')
 
     def menu(self):
-        print("""
-                Hello Ofek!
-                What would you like to do today?
+        while True:
+            print("""
+                    Hello Ofek!
+                    What would you like to do today?
 
-                1. Update/Parse files
-                2. Show statistics
-                3. Delete file information
-                4. Validate
-                5. Update existing file
-                6. Execute SQL query on db
-                7. Exit
-            """)
-        answer = int(input())
-        match answer:
-            case 1:
-                self.load_data()
-                self.tag_data()
-            case 2:
-                self.analysis()
-            case 3:
-                self.delete_file_info()
-            case 4:
-                utils.log("Option no avaliable", 'system')
-            case 5:
-                self.update_existing_file()
-            case 6:
-                self.execute_sql()
-            case 7:
-                exit()
-            case _:
-                print("Please insert a valid number.")
+                    1. Update/Parse files
+                    2. Show statistics
+                    3. Delete file information
+                    4. Validate
+                    5. Update existing file
+                    6. Execute SQL query on db
+                    7. Exit
+                """)
+            answer = input()
+            answer = -1 if not answer.isdigit() else int(answer)
+
+            match answer:
+                case 1:
+                    self.load_data()
+                    self.tag_data()
+                case 2:
+                    self.analysis()
+                case 3:
+                    self.delete_file_info()
+                case 4:
+                    utils.log("Option no avaliable", 'system')
+                case 5:
+                    self.update_existing_file()
+                case 6:
+                    self.execute_sql()
+                case 7:
+                    break
+                case _:
+                    print("Please insert a valid number.")
 
     def execute_sql(self):
         pw = input("Please confirm password for this action: ")

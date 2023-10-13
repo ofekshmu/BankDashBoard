@@ -283,7 +283,7 @@ class utils:
         if input does not match a valid option, the function asks for a valid one.
         """
         utils.log(msg + '\n', 'system')
-        utils.pretty_print(options)
+        utils.pretty_print([f"{str(i) + ' -> ':6s}{utils.heb_conversion(x)}" for i, x in enumerate(options, start=0)])
 
         while True:
             x = input()

@@ -10,7 +10,7 @@ import os
 import send2trash
 from typing import Tuple
 import pandas as pd
-
+from tqdm import tqdm
 
 class utils:
 
@@ -512,19 +512,24 @@ class utils:
             print()
 
     @staticmethod
-    def validate_formats():
+    def validate_formats() -> Union[str, True]:
+        """
+        The function Checks the validity of the formats filled in by the user
+        According to the rules. (The rules are not yet documented).
+        If an error accures, a string is returned, otherwise, True is returned.
+        """
         from Configurations.Formats import Formats, Identification_Method, Context_class, Sortion_Method
         formats = Formats.FORMATS
         utils.log(f'Total number of formats: {len(formats)}', 'debug')
 
-        for format_key, format_data in formats.items():
+        for format_key, format_data in tqdm(formats.items()):
             if format_key != format_data['Format Name']:
                 return f"Format name missmatch for {format_key}"
 
-            if type(format_data['Context']) != type(Context_class):
+            if not isinstance(format_data['Context'], Context_class):
                 return f"Context Enum was not used for {format_key}"
 
-            if type(format_data['Identification method']) != type(Identification_Method):
+            if not isinstance(format_data['Identification method'], Identification_Method):
                 return f"Identification_Method Enum was not used for {format_key}"
 
             if format_data['Identification method'] == Identification_Method.NONE:
@@ -533,17 +538,14 @@ class utils:
             data = format_data['Identification data']
             match format_data['Identification method']:
                 case Identification_Method.FILE_NAME:
-                    if type(data) != str:
-                        return f'Identification data should be a string when using "Identification_Method.FILE_NAME" \
-                                in format {format_key}'
+                    if not isinstance(data, str):
+                        return f'Identification data should be a string when using "Identification_Method.FILE_NAME" in format {format_key}'
                 case Identification_Method.CELL:
-                    if type(data) != Tuple:
-                        return f'Identification data should be a tuple indicating row, col when using \
-                                "Identification_Method.CELL" in format {format_key}'
+                    if not isinstance(data, tuple):
+                        return f'Identification data should be a tuple indicating row, col when using "Identification_Method.CELL" in format {format_key}'
                 case Identification_Method.HEADERS:
-                    if type(data) is not None:
-                        return f'Identification data should None when using \
-                                "Identification_Method.Headers" in format {format_key}'
+                    if data is not None:
+                        return f'Identification data should be None when using "Identification_Method.Headers" in format {format_key}'
                     if len(format_data['Headers']) == 0:
                         return f'Headers were not specified'
                 case _:
@@ -551,4 +553,43 @@ class utils:
                 
             sortion_key = format_data['Sortion key']
             match format_data['Sortion method']:
-                case Sortion_Method.BY_NAME_SERIAL
+                case Sortion_Method.BY_NAME_SERIAL:
+                    if sortion_key is not None:
+                        return f'Bad sortion key for format {format_key}'
+                case Sortion_Method.BY_NAME_DATE:
+                    if sortion_key is not None:
+                        return f'Bad sortion key for format {format_key}'
+                case _:
+                    return f'Please indicate a sortion method for {format_key}'
+
+            add_data = format_data['Adittional data field']
+
+            if add_data is Tuple:
+                if add_data[0] < 1:
+                    return f'Bad row value {add_data[0]} in format {format_key}, please use values greater than 0.'
+                if add_data[1] < 0:
+                    return f'Bad col value {add_data[1]} in format {format_key}, please use positive values.'
+            if add_data is not None and not isinstance(add_data, tuple):
+                return f"Bad input type {type(add_data)} at 'adittional data field' in format {format_key}."
+            
+            if type(format_data['Headers']) != list:
+                return f'Bad header format {type(format_data["Headers"])} in format {format_key}.'
+            if len(format_data['Headers']) < 1:
+                return f'Headers list is too short for format {format_key}.'
+            
+            if type(format_data['Double tables']) != bool:
+                return f'Bad format for key "Double tables", in {format_key}. Should be of type bool.'
+            
+            if format_data['Double tables']:
+                if type(format_data['Secondary Headers']) != list:
+                    return f'Bad Secondary Headers format {type(format_data["Secondary Headers"])} in format {format_key}.'
+                if len(format_data['Secondary Headers']) < 1:
+                    return f'Secondary Headers list is too short for format {format_key}.'
+            else:
+                if format_data['Secondary Headers'] != []:
+                    return f'"Secondary Headers" should be [] (empty list) for "Double tables" == True in format {format_key}.'
+                
+            if type(format_data['Independent']) != bool:
+                f'Bad format for key "Independent" {format_data["Independent"]}, in format {format_key}.'
+
+        return True

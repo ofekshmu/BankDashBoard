@@ -18,7 +18,11 @@ class AppManager:
 
     def __init__(self):
         self.parser = Parser()
-        utils.validate_formats()
+        res = utils.validate_formats()
+        if type(res) == str:
+            utils.log(res, 'error')
+        else:
+            utils.log(f'Format validation result: {res}', 'system')
 
     def menu(self):
         print("""

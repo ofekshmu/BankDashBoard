@@ -282,10 +282,8 @@ class utils:
         return a numbers from 0 to len(options) - 1 representing the chosen option.
         if input does not match a valid option, the function asks for a valid one.
         """
-        st = msg + '\n'
-        for idx, e in enumerate(options, start=0):
-            st += f"\t{idx} -> {utils.heb_conversion(e)}\n"
-        utils.log(st, 'system')
+        utils.log(msg + '\n', 'system')
+        utils.pretty_print(options)
 
         while True:
             x = input()
@@ -499,9 +497,13 @@ class utils:
         return df[df['Name'] != 'לאומי ויזה']
 
     @staticmethod
-    def pretty_print(lst: list) -> None:
+    def pretty_print(lst: list, const: int = 6) -> None:
+        """
+        The function prints the given list in a rectangle shaped pattern.
+        The elements are indexed from 0 to n - 1.
+        The rectangle is set to have a maximun of @const elements per column.
+        """
         n = len(lst)
-        const = 6
         m = 1 + n // const
         for i in range(0, const):
             for j in range(0, m):

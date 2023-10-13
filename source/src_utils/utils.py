@@ -514,7 +514,7 @@ class utils:
             print()
 
     @staticmethod
-    def validate_formats() -> Union[str, True]:
+    def validate_formats() -> Union[str, bool]:
         """
         The function Checks the validity of the formats filled in by the user
         According to the rules. (The rules are not yet documented).

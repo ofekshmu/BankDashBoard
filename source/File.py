@@ -136,13 +136,17 @@ class File:
                 row_idx += 1
                 tries_left -= 1
                 extracted_secondary_headers = utils.read_sheet(self.name, row_idx, 1, col_idx, len(self.secondary_headers))
-        else:
-            return True
-        # This variables will determine the tables read in the "parse" function
 
-        self.double_tables = False
-        utils.log("Second table headers do not match...", "system")
-        return False
+            res = utils.template_menu(['Yes', 'No'],
+                                      'Secondary Table was not found in file, Continue?')
+            match res:
+                case 0:
+                    self.double_tables = False
+                    return True
+                case 1:
+                    utils.log("Code Has been interrupted by the user", "error")
+
+        return True
 
     @abstractmethod
     def parse(self) -> bool:

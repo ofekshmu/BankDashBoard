@@ -52,7 +52,7 @@ class AppManager:
                 case 4:
                     utils.log("Option no avaliable", 'system')
                 case 5:
-                    self.update_existing_file()
+                    self.update_existing_file_v2()
                 case 6:
                     self.execute_sql()
                 case 7:
@@ -79,6 +79,80 @@ class AppManager:
         else:
             utils.log("Changes not set...")
 
+    def update_existing_file_v2(self):
+        update_file_lst = listdir(Local.UPDATE_FOLDER)
+        if len(update_file_lst) == 0:
+            utils.log(f"{Local.UPDATE_FOLDER} is Empty. Returning to menu..", "system")
+            return False
+
+        new_file_id = utils.template_menu(update_file_lst,
+                                          f"Choose a file to update from.")
+        new_file_name = update_file_lst[new_file_id]
+
+        files_df = DataBase().get_file_table()
+        print(files_df.to_markdown())
+        existing_file_id = utils.template_menu(list(files_df["Name"]),
+                                      "Please choose what file do you want to update and delete.")
+        existing_file_name = list(files_df['Name'])[existing_file_id]
+
+        ack = utils.template_menu(["Yes", "No"], f"The following process wil replace {existing_file_name}\
+                                  with {new_file_name}, Continue?")        
+        if ack == 0:
+            utils.log("Moving new file to inputs folder...", 'system')
+            utils.move_file_to_directory(file_path=f"{Local.UPDATE_FOLDER}/{new_file_name}",
+                                         destination_directory=Local.INPUT_FOLDER)
+            utils.log("Done." 'system')
+
+            utils.log("Moving existing file removed folder...", 'system')
+            utils.move_file_to_directory(file_path=f"{Local.INPUT_FOLDER}/{existing_file_name}",
+                                         destination_directory=f"removed")
+            utils.log("Done." 'system')
+            
+            existing_data = DataBase().get_data_by_file_name(existing_file_name)
+            DataBase().drop_file(existing_file_name)
+
+            self.load_data()
+
+            new_data = DataBase().get_data_by_file_name(new_file_name)
+
+            flag = True
+            for entry_ex in existing_data:
+                for entry_new in new_data:
+                    print(entry_ex)
+                    print(entry_new)
+                    if entry_ex[1:-1] == new_data[1:-1]: # equal
+                        DataBase().set_category(new_data[1], new_data[0], entry_ex[-1])
+                        flag = False
+                        break
+                if flag:
+                    res = utils.template_menu(['Abort update', 'Skip entery, its not important...'],
+                                                f'Did not found a correspinding entery for\n{entry_ex}\nin the new file.\n\
+                                                What would you like to do?')
+                    match res:
+                        case 0:
+                            utils.log("Moving file back to update folder...", 'system')
+                            utils.move_file_to_directory(file_path=Local.INPUT_FOLDER,
+                                                        destination_directory=f"{Local.UPDATE_FOLDER}/{new_file_name}")
+                            utils.log("Done." 'system')
+
+                            utils.log("Moving file back to input folder...", 'system')
+                            utils.move_file_to_directory(file_path=f"removed",
+                                                        destination_directory=f"{Local.INPUT_FOLDER}/{existing_file_name}")
+                            utils.log("Done." 'system')
+
+                            DataBase().drop_file(new_file_name)
+                            self.load_data()
+
+                        case 1:
+                            pass
+                        case _:
+                            utils.log('internal error at file update', 'error')
+                flag = True
+            
+            DataBase().commit_changes()
+            utils.log('Update process completed!', 'system')
+            return True
+
     def update_existing_file(self) -> bool:
 
         update_file_lst = listdir(Local.UPDATE_FOLDER)
@@ -99,6 +173,7 @@ class AppManager:
             file_name = list(files_df["Name"])[file_id]
             utils.log(f"Removing {file_name}...", 'system')
             DataBase().drop_file(file_name)
+
             utils.log(f"File chose to update from: {update_file_lst[new_file_id]}", 'system')
             utils.move_file_to_directory(file_path=f"{Local.UPDATE_FOLDER}/{update_file_lst[new_file_id]}",
                                          destination_directory=Local.INPUT_FOLDER)

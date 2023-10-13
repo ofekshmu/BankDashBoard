@@ -294,8 +294,27 @@ class DataBase:
         """
         return all transactions parsed from the file.
         """
-        lst1 = self.cursor.execute("SELECT * FROM BankTransactions WHERE source_file = ?", (file_name,)).fetchall()
-        lst2 = self.cursor.execute("SELECT * FROM Transactions WHERE source_file = ?", (file_name,)).fetchall()
+        lst1 = self.cursor.execute("""
+                                    SELECT ID,
+                                        'BankTransactions' AS TableName,
+                                        Name,
+                                        Date, Value_Date,
+                                        Red, Out, Income, Balance,
+                                        Category
+                                    FROM BankTransactions
+                                    WHERE source_file = ?"""
+                                   , (file_name,)).fetchall()
+        lst2 = self.cursor.execute("""
+                                    SELECT ID,
+                                        'CardTransactions AS TableName, 
+                                        Name,
+                                        CardID,
+                                        Executed_Data, Charge_Date,
+                                        Charge_Value, Charge_Currency,
+                                        Transaction_Value, Value_Currency, Extra_info,
+                                        Category
+                                    FROM Transactions
+                                    WHERE source_file = ?""", (file_name,)).fetchall()
         return lst1 + lst2
 
     def get_table_stats(self, file_name: str):
@@ -601,6 +620,7 @@ class DataBase:
 
     def drop_file(self, file_name: str):
         """
+        Remove the enteries associated with the file name from the db.
         """
         self.cursor.execute("""
                             DELETE

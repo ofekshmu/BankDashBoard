@@ -155,86 +155,62 @@ class File:
         Currently, 'BankTransactionFile' and 'OuterCreditFile' are using this implementation.
         'Inner credit file is using a different one becuase of the complexity.
         """
-        counter = 0
-        row = self.header_row_idx + 1
-        col = self.header_col_idx
 
-        cc_end = File.cell(row, col, self.sheet)
-
-        while cc_end is not None and cc_end != "עסקאות בחו˝ל":
-            counter += 1
-            row += 1
-            cc_end = File.cell(row, col, self.sheet)
-
-        self.counter = counter - 1
-
-        if self.format_name == "American-Express" or \
-                self.format_name == "Leumi-Card6744" or \
-                self.format_name == "Leumi-Bank" or \
-                self.format_name == "Leumi-Cards" or \
-                self.format_name == "Leumi-Max":
-            self.counter += 1
-
-        initial_index = self.header_row_idx + 1     # This is the index of the first DATA row, not headers.
-        DataBase().insert_table_meta_data(source_file_name=self.name,
-                                          initial_index=initial_index,
-                                          initial_col=col,
-                                          row_count=self.counter,
-                                          bad_rows="")
-        utils.log(f"Meta data saved for initial table:\n\
-                    data row index:\t{initial_index}\n\
-                    initial col index:\t{col}\n\
-                    number of rows:\t{self.counter}", "system")
-        utils.log("The parse function for catd 2922 is not generic - (-1) is added to ignore last row", "warning")
-
-        # ------------------------------------------------------------
-        #                  Secondary header parsing
-        # ------------------------------------------------------------
-        def is_bad_value(entire_row) -> bool:
+        def read_table(header_lst: list, header_row_idx: int, first_col_idx: int) -> None:
             """
-            Bad values are predetermined and are not included in the final parsed table.
-            Bad values are used to ignore tables rows that do not represent transactions.
-            These are identified using....
+            bad_indexes indexes will varie from 0 to (counter - 1) to fit the use of python lists.
             """
-            if entire_row[2] == "TOTAL FOR DATE":
-                return True
-            return False
+            def is_bad_value(entire_row) -> bool:
+                """
+                Bad values are predetermined and are not included in the final parsed table.
+                Bad values are used to ignore tables rows that do not represent transactions.
+                These are identified using....
+                """
+                if entire_row[2] == "TOTAL FOR DATE":
+                    return True
+                return False
 
-        if self.double_tables:
             bad_indexes = []
-            counter = 0
-            row_idx = self.secondary_headers_row_idx + 1
-            col_idx = self.header_col_idx
-            entire_row = utils.read_sheet(self.name, row_idx, 1, col_idx, len(self.secondary_headers))
-            cc_end = entire_row[0]
-            if is_bad_value(entire_row):
-                bad_indexes.append(row_idx)
+            row_counter = 0
+            row_idx = header_row_idx + 1
+            col_idx = first_col_idx
+
+            table_entry = utils.read_sheet(self.name, row_idx, 1, col_idx, len(header_lst))
+            cc_end = table_entry[0]
+
+            if is_bad_value(table_entry):
+                bad_indexes.append(row_idx - header_row_idx - 1)
                 cc_end = "Bad value"
+
             while cc_end is not None:
-                counter += 1
+
+                row_counter += 1
                 row_idx += 1
-                entire_row = utils.read_sheet(self.name, row_idx, 1, col_idx, len(self.secondary_headers))
+                entire_row = utils.read_sheet(self.name, row_idx, 1, col_idx, len(header_lst))
                 cc_end = entire_row[0]
+
                 if is_bad_value(entire_row):
-                    bad_indexes.append(row_idx - self.secondary_headers_row_idx - 1)    # Get the index relative to the header row
+                    bad_indexes.append(row_idx - header_row_idx - 1)    # Get the index relative to the header row
                     cc_end = "Bad value"
 
             bad_indexes = ', '.join([str(i) for i in bad_indexes])
 
-            initial_index = self.secondary_headers_row_idx + 1
             DataBase().insert_table_meta_data(self.name,
-                                              self.secondary_headers_row_idx + 1,
-                                              self.header_col_idx,
-                                              counter,
+                                              header_row_idx + 1,
+                                              col_idx,
+                                              row_counter,
                                               bad_indexes)
 
-            valid_rows = counter - len(bad_indexes.split(",")) if len(bad_indexes) >= 1 else counter
-            utils.log(f'Meta data saved for secondary table:\n\
-                    data row index:\t{initial_index}\n\
-                    initial col index:\t{col}\n\
-                    number of rows:\t{counter}\n\
-                    Bad rows:\t\t{bad_indexes}\n\
-                    valid rows:\t\t{valid_rows}', 'system')
+            valid_rows = row_counter - len(bad_indexes.split(",")) if len(bad_indexes) >= 1 else row_counter
+            utils.log(f'Meta data saved. Table data:\n\
+            {"first data row index:":25s}{header_row_idx + 1}\n\
+            {"initial col index:":25s}{first_col_idx}\n\
+            {"number of rows:":25s}{row_counter}\n\
+            {"Bad rows:":25s}{bad_indexes}\n\
+            {"valid rows:":25s}{valid_rows}', 'system')
+
+        read_table(self.headers, self.header_row_idx, self.header_col_idx)
+        read_table(self.secondary_headers, self.secondary_headers_row_idx, self.header_col_idx)
 
         return True
 

@@ -403,7 +403,7 @@ class utils:
             try:
                 return datetime.strptime(date, fmt)
             except TypeError as e:
-                utils.log(f"Got a Type error: date is of type {type(date)}, Sould be str.", "error")
+                utils.log(f"Got a Type error: date is of type {type(date)}, Should be str.", "error")
             except Exception as e:
                 continue
 

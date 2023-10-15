@@ -210,7 +210,9 @@ class File:
             {"valid rows:":25s}{valid_rows}', 'system')
 
         read_table(self.headers, self.header_row_idx, self.header_col_idx)
-        read_table(self.secondary_headers, self.secondary_headers_row_idx, self.header_col_idx)
+
+        if self.double_tables:
+            read_table(self.secondary_headers, self.secondary_headers_row_idx, self.header_col_idx)
 
         return True
 
@@ -265,11 +267,17 @@ class File:
                 return table_0, table_1
             else:
                 [meta_data] = meta_data
-                return utils.read_sheet(meta_data['source_file'],
-                                        meta_data['Initial_index'],
-                                        meta_data['Row_count'],
-                                        meta_data['Initial_col'],
-                                        len(self.headers)), []
+                table = utils.read_sheet(meta_data['source_file'],
+                                         meta_data['Initial_index'],
+                                         meta_data['Row_count'],
+                                         meta_data['Initial_col'],
+                                         len(self.headers))
+
+                if meta_data["Bad_rows"] != '':
+                    bad_indexes = [int(num) for num in meta_data["Bad_rows"].strip().split(',')]
+                    table = [table[i] for i in range(len(table)) if i not in bad_indexes]
+
+                return table, []
 
         # -----------------------------------------------------------------
         #                      Function's main starts here

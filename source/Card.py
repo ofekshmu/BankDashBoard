@@ -55,7 +55,7 @@ class Card(File):
                                value,
                                self.format_name,
                                -1,                    # Value is changed after the cleaning process
-                               self.counter)
+                               -1)
 
         # TODO: Should add some generic field for data inside files
         # self.card_num = self.sheet[self.card_cell].value

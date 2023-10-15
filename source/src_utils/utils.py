@@ -494,7 +494,7 @@ class utils:
 
     @staticmethod
     def remove_leumi(df: pd.DataFrame) -> pd.DataFrame:
-        return df[df['Name'] != 'לאומי ויזה']
+        return df[(df['Name'] != 'לאומי ויזה') & (df['Category'] != 'IGNORE')]
 
     @staticmethod
     def pretty_print(lst: list, const: int = 6) -> None:

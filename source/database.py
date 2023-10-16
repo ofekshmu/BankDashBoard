@@ -299,21 +299,21 @@ class DataBase:
                                         'BankTransactions' AS TableName,
                                         Name,
                                         Date, Value_Date,
-                                        Red, Out, Income, Balance,
+                                        Ref, Out, Income, Balance,
                                         Category
                                     FROM BankTransactions
                                     WHERE source_file = ?"""
                                    , (file_name,)).fetchall()
         lst2 = self.cursor.execute("""
                                     SELECT ID,
-                                        'CardTransactions AS TableName, 
+                                        'CardTransactions' AS TableName,
                                         Name,
                                         CardID,
-                                        Executed_Data, Charge_Date,
+                                        Executed_Date, Charge_Date,
                                         Charge_Value, Charge_Currency,
                                         Transaction_Value, Value_Currency, Extra_info,
                                         Category
-                                    FROM Transactions
+                                    FROM CardTransactions
                                     WHERE source_file = ?""", (file_name,)).fetchall()
         return lst1 + lst2
 

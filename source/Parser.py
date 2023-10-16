@@ -16,123 +16,123 @@ class Parser():
 
     __instance = None
 
-    @staticmethod
-    def getInstance():
-        """ Static access method """
-        if Parser.__instance is None:
-            Parser()
-        return Parser.__instance  
+    # @staticmethod
+    # def getInstance():
+    #     """ Static access method """
+    #     if Parser.__instance is None:
+    #         Parser()
+    #     return Parser.__instance 
 
     def __init__(self):
-        """ Virtually private constructor. """
-        if Parser.__instance is not None:
-            raise Exception("This class is a singleton!")
-        else:
-            Parser.__instance = self
+        # """ Virtually private constructor. """
+        # if Parser.__instance is not None:
+        #     raise Exception("This class is a singleton!")
+        # else:
+        #     Parser.__instance = self
 
-            self.idx = 0
-            self.type_to_name = {}
-            self.name_to_type = {}
-            self.names = []
+        self.idx = 0
+        self.type_to_name = {}
+        self.name_to_type = {}
+        self.names = []
 
-            utils.log(f"Looking for files...", 'system')
+        utils.log(f"Looking for files...", 'system')
 
-            def is_exists(name: str, file_type) -> bool:
-                """
-                The function receives the name of the file(name is specified with the file extension) and the
-                file type. True will be returned if a file with the same name was allready parsed and false otherwise.
-                """
-                # strip the extension to get the name only.
-                stipped_name = name[:name.find('.')]
-                if file_type not in self.type_to_name.keys():
-                    return False
-                for k in self.type_to_name[file_type].keys():
-                    if stipped_name in k:
-                        return True
+        def is_exists(name: str, file_type) -> bool:
+            """
+            The function receives the name of the file(name is specified with the file extension) and the
+            file type. True will be returned if a file with the same name was allready parsed and false otherwise.
+            """
+            # strip the extension to get the name only.
+            stipped_name = name[:name.find('.')]
+            if file_type not in self.type_to_name.keys():
                 return False
+            for k in self.type_to_name[file_type].keys():
+                if stipped_name in k:
+                    return True
+            return False
 
-            def is_valid_extension(name: str) -> bool:
-                """
-                Returns True if the file contains a valid extension and False otherwise.
-                Valid extension should be stated in the Format.py file, Under Formats -> EXTENTIONS.
-                """
-                for ext in Formats.EXTENTIONS:
-                    if name.endswith(ext):
-                        return True
-                utils.log(f"The file ({name}) has an invalid extension.", "error")
-                return False
-            
-            # for name in listdir(Local.INPUT_FOLDER):
+        def is_valid_extension(name: str) -> bool:
+            """
+            Returns True if the file contains a valid extension and False otherwise.
+            Valid extension should be stated in the Format.py file, Under Formats -> EXTENTIONS.
+            """
+            for ext in Formats.EXTENTIONS:
+                if name.endswith(ext):
+                    return True
+            utils.log(f"The file ({name}) has an invalid extension.", "error")
+            return False
 
-            for root, temp, files in os.walk(Local.INPUT_FOLDER):
-                for name in files:
-                    name = root + "\\" + name
-                    name = name[len(Local.INPUT_FOLDER) + 1:]
-                    # If file name is present in database:
-                    # Extract sortion key
-                    # handle name list for such files.
-                    if DataBase().is_file_exists(name):
-                        # The following 2 line were written to skip re-identification of files.
-                        file_type = DataBase().get_file_format(name)
-                        consts = Formats.FORMATS[file_type]
+        # for name in listdir(Local.INPUT_FOLDER):
 
-                    else:
-                        
-                        if not is_valid_extension(name):
-                            utils.log(f"File「{name}」has an invalid extension. Please use one of the following: {Formats.EXTENTIONS} ")
+        for root, temp, files in os.walk(Local.INPUT_FOLDER):
+            for name in files:
+                name = root + "\\" + name
+                name = name[len(Local.INPUT_FOLDER) + 1:]
+                # If file name is present in database:
+                # Extract sortion key
+                # handle name list for such files.
+                if DataBase().is_file_exists(name):
+                    # The following 2 line were written to skip re-identification of files.
+                    file_type = DataBase().get_file_format(name)
+                    consts = Formats.FORMATS[file_type]
+
+                else:
+
+                    if not is_valid_extension(name):
+                        utils.log(f"File「{name}」has an invalid extension. Please use one of the following: {Formats.EXTENTIONS} ")
+                        continue
+
+                    file_type, consts = self.__identify(name)
+
+                    if file_type is None:   # None when file type was not identified.
+                        continue
+
+                    # Sanity check - Written with blood
+                    # ------------------------------------------------------------------------------------------
+                    if is_exists(name, file_type):
+                        utils.log(f"""The file '{utils.name_he(name)}' exists with a different extensions.
+            What do you want to do?
+            1 -> Skip the current copy, I will delete it later.
+            2 -> Stop, I want to debug this.""", 'warning')
+                        choise = int(input())
+                        if choise == 1:
+                            utils.log("Skipping.", category='system')
                             continue
+                        elif choise == 2:
+                            utils.log("Stopping program.", category='system')
+                            exit()
+                        else:
+                            utils.log('Bad input!', 'error')
+                    # ------------------------------------------------------------------------------------------
+                    utils.log(f"A new file of type「{file_type}」was found!", "system")
 
-                        file_type, consts = self.__identify(name)
-                        
-                        if file_type is None:   # None when file type was not identified.
-                            continue
+                value = self.__extract_sortion_key(consts, name)
 
-                        # Sanity check - Written with blood
-                        # ------------------------------------------------------------------------------------------
-                        if is_exists(name, file_type):
-                            utils.log(f"""The file '{utils.name_he(name)}' exists with a different extensions.
-                What do you want to do?
-                1 -> Skip the current copy, I will delete it later.
-                2 -> Stop, I want to debug this.""", 'warning')
-                            choise = int(input())
-                            if choise == 1:
-                                utils.log("Skipping.", category='system')
-                                continue
-                            elif choise == 2:
-                                utils.log("Stopping program.", category='system')
-                                exit()
-                            else:
-                                utils.log('Bad input!', 'error')
-                        # ------------------------------------------------------------------------------------------
-                        utils.log(f"A new file of type「{file_type}」was found!", "system")
-                    
-                    value = self.__extract_sortion_key(consts, name)
+                if file_type in self.type_to_name.keys():
+                    self.type_to_name[file_type][name] = value
+                else:
+                    self.type_to_name[file_type] = {name: value}
 
-                    if file_type in self.type_to_name.keys():
-                        self.type_to_name[file_type][name] = value
-                    else:
-                        self.type_to_name[file_type] = {name: value}
+                self.name_to_type[name] = file_type
 
-                    self.name_to_type[name] = file_type
+        # Sort the read file names according to dates/serial number
+        for k, v in self.type_to_name.items():
+            self.type_to_name[k] = {name: value for name, value in sorted(v.items(), key=lambda item: item[1])}
 
-            # Sort the read file names according to dates/serial number
-            for k, v in self.type_to_name.items():
-                self.type_to_name[k] = {name: value for name, value in sorted(v.items(), key=lambda item: item[1])}
+        # This Build is needed - DO NOT CHANGE
+        # names list is built in the order of iteration to ensure
+        # file names are read by their recency
+        temp = []
+        for dict in self.type_to_name.values():
+            temp += list(dict.keys())
 
-            # This Build is needed - DO NOT CHANGE
-            # names list is built in the order of iteration to ensure
-            # file names are read by their recency
-            temp = []
-            for dict in self.type_to_name.values():
-                temp += list(dict.keys())
+        # Files which have been parsed, are not required for reparsing, therefor, they are omitted.
+        # Note; All files are required in the 'type_to_name' dict for comparing and cleaning
+        for file_name in temp:
+            if not DataBase().is_file_exists(file_name):
+                self.names.append(file_name)
 
-            # Files which have been parsed, are not required for reparsing, therefor, they are omitted.
-            # Note; All files are required in the 'type_to_name' dict for comparing and cleaning
-            for file_name in temp:
-                if not DataBase().is_file_exists(file_name):
-                    self.names.append(file_name)
-
-            utils.log(f"found {len(self.names)}/{len(temp)} new files in {Local.INPUT_FOLDER}", 'system')
+        utils.log(f"found {len(self.names)}/{len(temp)} new files in {Local.INPUT_FOLDER}", 'system')
 
     def __next__(self):
         """
@@ -170,6 +170,7 @@ class Parser():
                     (location, value) = data["Identification data"]
                     wb = xw.Book(join(Local.INPUT_FOLDER, file_name))
                     extracted_value = wb.sheets[0][location].value
+                    wb.close()
                     if extracted_value != value:
                         continue
                 case Identification_Method.HEADERS:

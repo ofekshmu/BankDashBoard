@@ -92,11 +92,10 @@ class AppManager:
         files_df = DataBase().get_file_table()
         print(files_df.to_markdown())
         existing_file_id = utils.template_menu(list(files_df["Name"]),
-                                      "Please choose what file do you want to update and delete.")
+                                               "Please choose what file do you want to update and delete.")
         existing_file_name = list(files_df['Name'])[existing_file_id]
 
-        ack = utils.template_menu(["Yes", "No"], f"The following process wil replace {existing_file_name}\
-                                  with {new_file_name}, Continue?")        
+        ack = utils.template_menu(["Yes", "No"], f"The following process wil replace {existing_file_name} with {new_file_name}, Continue?")    
         if ack == 0:
             utils.log("Moving new file to inputs folder...", 'system')
             utils.move_file_to_directory(file_path=f"{Local.UPDATE_FOLDER}/{new_file_name}",
@@ -111,6 +110,7 @@ class AppManager:
             existing_data = DataBase().get_data_by_file_name(existing_file_name)
             DataBase().drop_file(existing_file_name)
 
+            self.parser = Parser()
             self.load_data()
 
             new_data = DataBase().get_data_by_file_name(new_file_name)

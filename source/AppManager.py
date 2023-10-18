@@ -107,48 +107,60 @@ class AppManager:
                                          destination_directory=f"removed")
             utils.log("Done." 'system')
             
-            existing_data = DataBase().get_data_by_file_name(existing_file_name)
-            DataBase().drop_file(existing_file_name)
+            try:
+                existing_data = DataBase().get_data_by_file_name(existing_file_name)
+                DataBase().drop_file(existing_file_name)
 
-            self.parser = Parser()
-            self.load_data()
+                self.parser = Parser()
+                self.load_data()
 
-            new_data = DataBase().get_data_by_file_name(new_file_name)
+                new_data = DataBase().get_data_by_file_name(new_file_name)
 
-            flag = True
-            for entry_ex in existing_data:
-                for entry_new in new_data:
-                    print(entry_ex)
-                    print(entry_new)
-                    if entry_ex[1:-1] == new_data[1:-1]: # equal
-                        DataBase().set_category(new_data[1], new_data[0], entry_ex[-1])
-                        flag = False
-                        break
-                if flag:
-                    res = utils.template_menu(['Abort update', 'Skip entery, its not important...'],
-                                                f'Did not found a correspinding entery for\n{entry_ex}\nin the new file.\n\
-                                                What would you like to do?')
-                    match res:
-                        case 0:
-                            utils.log("Moving file back to update folder...", 'system')
-                            utils.move_file_to_directory(file_path=Local.INPUT_FOLDER,
-                                                        destination_directory=f"{Local.UPDATE_FOLDER}/{new_file_name}")
-                            utils.log("Done." 'system')
-
-                            utils.log("Moving file back to input folder...", 'system')
-                            utils.move_file_to_directory(file_path=f"removed",
-                                                        destination_directory=f"{Local.INPUT_FOLDER}/{existing_file_name}")
-                            utils.log("Done." 'system')
-
-                            DataBase().drop_file(new_file_name)
-                            self.load_data()
-
-                        case 1:
-                            pass
-                        case _:
-                            utils.log('internal error at file update', 'error')
                 flag = True
-            
+                for entry_ex in existing_data:
+                    for entry_new in new_data:
+                        print(entry_ex)
+                        print(entry_new)
+                        if entry_ex[1:-1] == new_data[1:-1]:    # equal
+                            DataBase().set_category(new_data[1], new_data[0], entry_ex[-1])
+                            flag = False
+                            break
+                    if flag:
+                        res = utils.template_menu(['Abort update', 'Skip entery, its not important...'],
+                                                  f'Did not found a correspinding entery for\n{entry_ex}\nin the new file.\n\
+                                                  What would you like to do?')
+                        match res:
+                            case 0:
+                                utils.log("Moving file back to update folder...", 'system')
+                                utils.move_file_to_directory(file_path=Local.INPUT_FOLDER,
+                                                             destination_directory=f"{Local.UPDATE_FOLDER}/{new_file_name}")
+                                utils.log("Done." 'system')
+
+                                utils.log("Moving file back to input folder...", 'system')
+                                utils.move_file_to_directory(file_path=f"removed",
+                                                             destination_directory=f"{Local.INPUT_FOLDER}/{existing_file_name}")
+                                utils.log("Done." 'system')
+
+                                DataBase().drop_file(new_file_name)
+                                self.load_data()
+
+                            case 1:
+                                pass
+                            case _:
+                                utils.log('internal error at file update', 'error')
+                    flag = True
+            except Exception as e:
+                utils.log("Procedure failed, Moving files back...", 'system')
+                utils.log("Moving file back to update folder...", 'system')
+                utils.move_file_to_directory(file_path=Local.INPUT_FOLDER,
+                                             destination_directory=f"{Local.UPDATE_FOLDER}/{new_file_name}")
+                utils.log("Done." 'system')
+
+                utils.log("Moving file back to input folder...", 'system')
+                utils.move_file_to_directory(file_path=f"removed",
+                                             destination_directory=f"{Local.INPUT_FOLDER}/{existing_file_name}")
+                utils.log("Done." 'system')
+
             DataBase().commit_changes()
             utils.log('Update process completed!', 'system')
             return True

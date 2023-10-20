@@ -11,6 +11,8 @@ import send2trash
 from typing import Tuple
 import pandas as pd
 from tqdm import tqdm
+from src_utils.ExcelReader import ExcelManager
+
 
 class utils:
 
@@ -357,14 +359,13 @@ class utils:
         The function validates the table headers in the file.
         The values of the headers and the initial row are given in the Constants.py.
         '''
-        wb = xw.Book(join(Local.INPUT_FOLDER, file_name))
-        sheet = wb.sheets[0]
+        em = ExcelManager().set_active_sheet(file_name)
 
         valid = True
         col = 0
         row = initial_row
         for name in headers:
-            value = utils.cell(row, col, sheet)
+            value = em.read_cell(row, col)
             if not value == name:
                 if col > 1:
                     utils.log(f"Header Validation Failed halfway: {value} != {name}", "warning")
@@ -379,17 +380,6 @@ class utils:
         utils.log(f"Header Validation Failed for {file_name}", "debug")
         return False
 
-    @staticmethod
-    def cell(row: int, col: int, sheet: Sheet) -> Union[str, None]:
-        '''
-        Returns the value of the cell with indexes [row, col]
-        Function returns either string answer or None if the cell is empty.
-        '''
-        if row > 0 and col >= 0:
-            return sheet[f'{chr(65 + col)}{row}'].value
-        else:
-            utils.log(f"Invalid indexes -> ({row}, {col})", "error")
-            return ""
 
     @staticmethod
     def date_ready(date: str) -> datetime:
@@ -422,7 +412,7 @@ class utils:
         try:
             # Check if the file exists
             if not os.path.isfile(file_path):
-                utils.log("The specified file does not exist.", "error")
+                utils.log(f"The specified file does not exist -> {file_path}", "error")
 
             # Get the base name of the file (the file name without the directory path)
             file_name = os.path.basename(file_path)
@@ -444,16 +434,6 @@ class utils:
             utils.log(f"File '{file_path}' sent to recycle bin.", 'system')
         except Exception as e:
             utils.log(f"Failed to send '{file_path}' to recycle bin: {e}", 'system')
-
-    @staticmethod
-    def read_sheet(file_name: str, row_idx: int, row_count: int, col_idx: int, col_count: int) -> list:
-        """
-        The function read the a table like structure out of an excel file names @file_name
-        The indexes are inclusive, meaning that data will be read from row_idx until row_idx + row_count
-        including the values of the border indexes.
-        """
-        wb = xw.Book(join(Local.INPUT_FOLDER, file_name))
-        return wb.sheets[0][row_idx - 1: row_idx - 1 + row_count, col_idx: col_idx + col_count].value
 
     @staticmethod
     def reg_extract(rule: str, text: str) -> str:

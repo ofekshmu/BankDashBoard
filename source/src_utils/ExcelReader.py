@@ -1,7 +1,17 @@
 import xlwings as xw
-from queuebykey import SpecialQueue
+from src_utils.queuebykey import SpecialQueue
+from typing import Union
+from Constants import Local
 
 MAX_ACTIVE_SHEETS = 5
+
+
+def add_root(func):
+    def wrapper(self, input_str):
+        modified_input = Local.INPUT_FOLDER + "\\" + input_str
+        result = func(self, modified_input)
+        return result
+    return wrapper
 
 
 class ExcelManager:
@@ -9,7 +19,6 @@ class ExcelManager:
 
     def __new__(cls):
         if cls._instance is None:
-            max_active_sheets = 5
             cls._instance = super(ExcelManager, cls).__new__(cls)
             cls._instance.app = xw.App(visible=False)
             cls._instance.queue = SpecialQueue(MAX_ACTIVE_SHEETS)
@@ -27,8 +36,10 @@ class ExcelManager:
             self.active_sheet = sheet
             return sheet
         except Exception as e:
+            self.close_and_kill_excel()
             raise ValueError(f"Error opening file or sheet: {str(e)}")
 
+    @add_root
     def set_active_sheet(self, file_path):
         """
         The function changes the currently active sheet. An active sheet is a sheet which all actions are conducted
@@ -43,6 +54,8 @@ class ExcelManager:
                 _, removed_sheet = self.queue.pop()
                 removed_sheet.book.close()
             self.queue.push(file_path, self.__open_sheet(file_path))
+
+        return self._instance
 
     def close_and_kill_excel(self):
         """
@@ -60,10 +73,27 @@ class ExcelManager:
         including the values of the border indexes.
         """
         if self.active_sheet is None:
-            print(f"Error setting active sheet to '{file_path}': Sheet not found")
+            print(f"Error setting active sheet to '{self.active_sheet}': Sheet not found")
         if self.active_sheet is not None:
             return self.active_sheet[row_idx - 1: row_idx - 1 + row_count, col_idx: col_idx + col_count].value
 
+    def read_value(self, location: tuple):
+        if self.active_sheet is None:
+            raise ValueError(f"Error setting active sheet to '{self.active_sheet}': Sheet not found")
+
+        return self.active_sheet[location].value
+
+    def read_cell(self, row: int, col: int) -> Union[str, None]:
+        '''
+        Returns the value of the cell with indexes [row, col]
+        Function returns either string answer or None if the cell is empty.
+        '''
+        if row > 0 and col >= 0:
+            return self.active_sheet[f'{chr(65 + col)}{row}'].value
+        else:
+            # TODO should reedit header validation in src_utils in order to enable the import of utils here.
+            print(f"Invalid indexes -> ({row}, {col})", "error")
+            return ""
 
 # if __name__ == "__main__":
 #     excel_manager = ExcelManager()

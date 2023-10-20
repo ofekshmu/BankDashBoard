@@ -7,10 +7,12 @@ from src_utils.utils import utils
 from database import DataBase
 from front.Graphics import Graphics
 from src_utils.calculations import SimpleMath
+from src_utils.ExcelReader import ExcelManager
 import webbrowser
 from Configurations.Formats import Formats, Context_class
 from typing import Tuple
 import pandas as pd
+
 from os import listdir
 
 
@@ -119,8 +121,8 @@ class AppManager:
                 flag = True
                 for entry_ex in existing_data:
                     for entry_new in new_data:
-                        print(entry_ex)
-                        print(entry_new)
+                        print(entry_ex[1:-1])
+                        print(entry_new[1:-1])
                         if entry_ex[1:-1] == new_data[1:-1]:    # equal
                             DataBase().set_category(new_data[1], new_data[0], entry_ex[-1])
                             flag = False
@@ -132,16 +134,17 @@ class AppManager:
                         match res:
                             case 0:
                                 utils.log("Moving file back to update folder...", 'system')
-                                utils.move_file_to_directory(file_path=Local.INPUT_FOLDER,
-                                                             destination_directory=f"{Local.UPDATE_FOLDER}/{new_file_name}")
+                                utils.move_file_to_directory(file_path=f"{Local.INPUT_FOLDER}/{{new_file_name}}",
+                                                             destination_directory=Local.UPDATE_FOLDER)
                                 utils.log("Done." 'system')
 
                                 utils.log("Moving file back to input folder...", 'system')
-                                utils.move_file_to_directory(file_path=f"removed",
-                                                             destination_directory=f"{Local.INPUT_FOLDER}/{existing_file_name}")
+                                utils.move_file_to_directory(file_path=f"removed/{existing_file_name}",
+                                                             destination_directory=Local.INPUT_FOLDER)
                                 utils.log("Done." 'system')
 
                                 DataBase().drop_file(new_file_name)
+                                self.parser = Parser()
                                 self.load_data()
 
                             case 1:
@@ -152,14 +155,15 @@ class AppManager:
             except Exception as e:
                 utils.log("Procedure failed, Moving files back...", 'system')
                 utils.log("Moving file back to update folder...", 'system')
-                utils.move_file_to_directory(file_path=Local.INPUT_FOLDER,
-                                             destination_directory=f"{Local.UPDATE_FOLDER}/{new_file_name}")
+                utils.move_file_to_directory(file_path=f"{Local.INPUT_FOLDER}/{{new_file_name}}",
+                                             destination_directory=Local.UPDATE_FOLDER)
                 utils.log("Done." 'system')
 
                 utils.log("Moving file back to input folder...", 'system')
-                utils.move_file_to_directory(file_path=f"removed",
-                                             destination_directory=f"{Local.INPUT_FOLDER}/{existing_file_name}")
+                utils.move_file_to_directory(file_path=f"removed/{existing_file_name}",
+                                             destination_directory=Local.INPUT_FOLDER)
                 utils.log("Done." 'system')
+                utils.log(f"{e}", 'system')
 
             DataBase().commit_changes()
             utils.log('Update process completed!', 'system')

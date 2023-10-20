@@ -1,11 +1,10 @@
 from os import listdir
 from os.path import isfile, join
 from database import DataBase
-from File import File
 from Configurations.Formats import Formats, Identification_Method, Sortion_Method
 from typing import Tuple, Union
+from src_utils.ExcelReader import ExcelManager
 import os
-import xlwings as xw
 
 # Local
 from Constants import Local
@@ -168,9 +167,8 @@ class Parser():
                         continue
                 case Identification_Method.CELL:
                     (location, value) = data["Identification data"]
-                    wb = xw.Book(join(Local.INPUT_FOLDER, file_name))
-                    extracted_value = wb.sheets[0][location].value
-                    wb.close()
+                    extracted_value = ExcelManager().set_active_sheet(file_name)\
+                                                    .read_value(location)
                     if extracted_value != value:
                         continue
                 case Identification_Method.HEADERS:

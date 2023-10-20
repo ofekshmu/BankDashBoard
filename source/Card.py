@@ -1,8 +1,7 @@
 from File import File
 from src_utils.utils import utils
-from Configurations.Formats import Formats
 from database import DataBase
-from datetime import datetime
+from src_utils.ExcelReader import ExcelManager
 
 
 class Card(File):
@@ -32,7 +31,7 @@ class Card(File):
             case "Leumi-Cards":
                 value = "Empty"
             case "Isra-Card":
-                text = utils.cell(4, 0, self.sheet)
+                text = ExcelManager().read_cell(4, 0)
                 if text is not None:
                     self.card_number = utils.reg_extract(r'\d+', text)
                     value = "Empty"
@@ -43,7 +42,7 @@ class Card(File):
             case _:
                 try:
                     (row, col) = self.adittional_data_field
-                    value = utils.cell(row, col, self.sheet)
+                    value = ExcelManager().read_cell(row, col)
                 except Exception as e:
                     utils.log(f"""Trouble reading adittional value from file.
                                     File Name: {self.name}
@@ -85,7 +84,7 @@ class Card(File):
                                                                     Notes: {row[10]}")
                 case "Isra-Card":
                     (r, c) = self.adittional_data_field  # TODO: These code line are being reapted, improve
-                    value = utils.cell(r, c, self.sheet)
+                    value = ExcelManager().read_cell(r, c)
                     if value is None:
                         utils.log('Adittional data field read from the file is None.', 'error')
                         return False

@@ -1,18 +1,17 @@
 from abc import abstractmethod
 from Constants import Local, Personal
 from src_utils.utils import utils
-import xlwings as xw
 from xlwings import Sheet
 from os.path import join
 from typing import Union
 from database import DataBase
+from src_utils.ExcelReader import ExcelManager
+
 
 class File:
     def __init__(self, name: str, format_info: dict):
         '''
-        Read a work book and store an active sheet in the self.sheet.
         File is read from local.XLSX_PATH.
-        A File object will be rturned upon successful read.
 
         Parameters
         ----------
@@ -43,43 +42,38 @@ class File:
         self.table_1 = []
         self.table_2 = []
 
-        try:
-            wb = xw.Book(join(Local.INPUT_FOLDER, self.name))
-            self.sheet = wb.sheets[0]
-        except Exception as e:
-            utils.log(f"Original error: {str(e)}\nFile read Failed!\nFile name: {self.name}\
-                In File -> line 39\nMake sure the file is not open.", 'error')
+        # try:
+        #     wb = xw.Book(join(Local.INPUT_FOLDER, self.name))
+        #     self.sheet = wb.sheets[0]
+        # except Exception as e:
+        #     utils.log(f"Original error: {str(e)}\nFile read Failed!\nFile name: {self.name}\
+        #         In File -> line 39\nMake sure the file is not open.", 'error')
 
     def load(self) -> bool:
         '''
-        Read a work book and store an active sheet in the self.sheet.
-        File is read from local.XLSX_PATH, and true is returned upon succesful read,
-        False otherwise.
 
         Parameters
         ----------
         file_name: a string indicating the name of the file
         '''
         try:
-            wb = xw.Book(join(Local.INPUT_FOLDER, self.name))
-            self.sheet = wb.sheets[0]
-            return True
+            ExcelManager().set_active_sheet(self.name)
         except Exception as e:
             utils.log(str(e), category='debug')
             return False
 
-    @abstractmethod
-    def validate_bank_number(self) -> bool:
-        '''
-        The function validates the Bank account specified in the file.
-        The cell indicating the number is specified trough the Constants.py
-        '''
-        if self.bank_num_loc is None:
-            return True
-        value = self.sheet[self.bank_num_loc].value
-        if Personal.BANK_ACC in value:
-            return True
-        return False
+    # @abstractmethod
+    # def validate_bank_number(self) -> bool:
+    #     '''
+    #     The function validates the Bank account specified in the file.
+    #     The cell indicating the number is specified trough the Constants.py
+    #     '''
+    #     if self.bank_num_loc is None:
+    #         return True
+    #     value = self.sheet[self.bank_num_loc].value
+    #     if Personal.BANK_ACC in value:
+    #         return True
+    #     return False
 
     def validate_headers(self) -> bool:
         '''
@@ -96,7 +90,7 @@ class File:
                 col = i
                 for name in self.headers:
                     utils.log(f'(FILE/Validate_headers) row number = {row}, col = {col}, name = {name[::-1]}', 'debug')
-                    value = utils.cell(row, col, self.sheet)
+                    value = ExcelManager().read_cell(row, col)
                     if not value == name:
                         valid = False
                         break
@@ -119,7 +113,7 @@ class File:
             row_idx = self.header_row_idx + 1
             col_idx = self.header_col_idx
             utils.log("col idx is not being checked for errors...File header valdiation", "warning")
-            extracted_secondary_headers = utils.read_sheet(self.name, row_idx, 1, col_idx, len(self.secondary_headers))
+            extracted_secondary_headers = ExcelManager().read_sheet(row_idx, 1, col_idx, len(self.secondary_headers))
             tries_left = 100
             while tries_left:
                 if extracted_secondary_headers == self.secondary_headers:
@@ -135,7 +129,7 @@ class File:
 
                 row_idx += 1
                 tries_left -= 1
-                extracted_secondary_headers = utils.read_sheet(self.name, row_idx, 1, col_idx, len(self.secondary_headers))
+                extracted_secondary_headers = ExcelManager().read_sheet(row_idx, 1, col_idx, len(self.secondary_headers))
 
             res = utils.template_menu(['Yes', 'No'],
                                       'Secondary Table was not found in file, Continue?')
@@ -166,7 +160,8 @@ class File:
                 Bad values are used to ignore tables rows that do not represent transactions.
                 These are identified using....
                 """
-                if entire_row[2] == "TOTAL FOR DATE":
+                if entire_row[2] == "TOTAL FOR DATE" or\
+                        entire_row[1] == 'סך חיוב בש"ח:':
                     return True
                 return False
 
@@ -175,7 +170,7 @@ class File:
             row_idx = header_row_idx + 1
             col_idx = first_col_idx
 
-            table_entry = utils.read_sheet(self.name, row_idx, 1, col_idx, len(header_lst))
+            table_entry = ExcelManager().read_sheet(row_idx, 1, col_idx, len(header_lst))
             cc_end = table_entry[0]
 
             if is_bad_value(table_entry):
@@ -186,7 +181,7 @@ class File:
 
                 row_counter += 1
                 row_idx += 1
-                entire_row = utils.read_sheet(self.name, row_idx, 1, col_idx, len(header_lst))
+                entire_row = ExcelManager().read_sheet(row_idx, 1, col_idx, len(header_lst))
                 cc_end = entire_row[0]
 
                 if is_bad_value(entire_row):
@@ -248,16 +243,17 @@ class File:
         def read_and_merge(meta_data: list[dict]):
             if self.double_tables:
                 [meta_0, meta_1] = meta_data
-                table_0 = utils.read_sheet(meta_0['source_file'],
-                                           meta_0['Initial_index'],
-                                           meta_0['Row_count'],
-                                           meta_0['Initial_col'],
-                                           len(self.headers))
-                table_1 = utils.read_sheet(meta_1['source_file'],
-                                           meta_1['Initial_index'],
-                                           meta_1['Row_count'],
-                                           meta_1['Initial_col'],
-                                           len(self.secondary_headers))
+
+                table_0 = ExcelManager().set_active_sheet(meta_0['source_file'])\
+                                        .read_sheet(meta_0['Initial_index'],
+                                                    meta_0['Row_count'],
+                                                    meta_0['Initial_col'],
+                                                    len(self.headers))
+                table_1 = ExcelManager().set_active_sheet(meta_1['source_file'])\
+                                        .read_sheet(meta_1['Initial_index'],
+                                                    meta_1['Row_count'],
+                                                    meta_1['Initial_col'],
+                                                    len(self.secondary_headers))
                 # This row removes the bas indexes from the second table according to the meta data
                 # indexes are in accordance to the first row of the table (not the excel numbering)
                 # first table is not being checked for bad indexes.
@@ -267,11 +263,11 @@ class File:
                 return table_0, table_1
             else:
                 [meta_data] = meta_data
-                table = utils.read_sheet(meta_data['source_file'],
-                                         meta_data['Initial_index'],
-                                         meta_data['Row_count'],
-                                         meta_data['Initial_col'],
-                                         len(self.headers))
+                table = ExcelManager().set_active_sheet(meta_data['source_file'])\
+                                      .read_sheet(meta_data['Initial_index'],
+                                                  meta_data['Row_count'],
+                                                  meta_data['Initial_col'],
+                                                  len(self.headers))
 
                 if meta_data["Bad_rows"] != '':
                     bad_indexes = [int(num) for num in meta_data["Bad_rows"].strip().split(',')]

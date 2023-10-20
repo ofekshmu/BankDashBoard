@@ -1,6 +1,7 @@
 from File import File
 from database import DataBase
 from src_utils.utils import utils
+from src_utils.ExcelReader import ExcelManager
 
 
 class Bank(File):
@@ -22,7 +23,7 @@ class Bank(File):
                 value = "Not implemanted"
             case _:
                 (row, col) = self.adittional_data_field
-                value = utils.cell(row, col, self.sheet)
+                value = ExcelManager().read_cell(row, col)
 
         DataBase().insert_file(self.name,
                                value,

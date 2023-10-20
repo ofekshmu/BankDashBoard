@@ -1,7 +1,6 @@
 from AppManager import AppManager
 from src_utils.utils import utils
 from datetime import datetime
-from src_utils.utils import utils
 
 
 def main():

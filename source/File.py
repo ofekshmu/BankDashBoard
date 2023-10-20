@@ -58,6 +58,7 @@ class File:
         '''
         try:
             ExcelManager().set_active_sheet(self.name)
+            return True
         except Exception as e:
             utils.log(str(e), category='debug')
             return False
@@ -201,7 +202,7 @@ class File:
             {"first data row index:":25s}{header_row_idx + 1}\n\
             {"initial col index:":25s}{first_col_idx}\n\
             {"number of rows:":25s}{row_counter}\n\
-            {"Bad rows:":25s}{bad_indexes}\n\
+            {"Bad rows indexes:":25s}{bad_indexes}\n\
             {"valid rows:":25s}{valid_rows}', 'system')
 
         read_table(self.headers, self.header_row_idx, self.header_col_idx)

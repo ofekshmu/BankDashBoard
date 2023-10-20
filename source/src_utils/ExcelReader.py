@@ -3,7 +3,7 @@ from src_utils.queuebykey import SpecialQueue
 from typing import Union
 from Constants import Local
 
-MAX_ACTIVE_SHEETS = 5
+MAX_ACTIVE_SHEETS = 2
 
 
 def add_root(func):

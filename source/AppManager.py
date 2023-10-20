@@ -10,7 +10,6 @@ from src_utils.calculations import SimpleMath
 from src_utils.ExcelReader import ExcelManager
 import webbrowser
 from Configurations.Formats import Formats, Context_class
-from typing import Tuple
 import pandas as pd
 
 from os import listdir
@@ -58,6 +57,7 @@ class AppManager:
                 case 6:
                     self.execute_sql()
                 case 7:
+                    ExcelManager().close_and_kill_excel()
                     break
                 case _:
                     print("Please insert a valid number.")
@@ -119,12 +119,12 @@ class AppManager:
                 new_data = DataBase().get_data_by_file_name(new_file_name)
 
                 flag = True
+                matched_t = 0
                 for entry_ex in existing_data:
                     for entry_new in new_data:
-                        print(entry_ex[1:-1])
-                        print(entry_new[1:-1])
-                        if entry_ex[1:-1] == new_data[1:-1]:    # equal
-                            DataBase().set_category(new_data[1], new_data[0], entry_ex[-1])
+                        if entry_ex[1:-1] == entry_new[1:-1]:    # equal
+                            DataBase().set_category(entry_new[1], entry_new[0], entry_ex[-1])
+                            matched_t += 1
                             flag = False
                             break
                     if flag:
@@ -133,8 +133,9 @@ class AppManager:
                                                   What would you like to do?')
                         match res:
                             case 0:
+                                ExcelManager().close_and_kill_excel()
                                 utils.log("Moving file back to update folder...", 'system')
-                                utils.move_file_to_directory(file_path=f"{Local.INPUT_FOLDER}/{{new_file_name}}",
+                                utils.move_file_to_directory(file_path=f"{Local.INPUT_FOLDER}/{new_file_name}",
                                                              destination_directory=Local.UPDATE_FOLDER)
                                 utils.log("Done." 'system')
 
@@ -152,6 +153,10 @@ class AppManager:
                             case _:
                                 utils.log('internal error at file update', 'error')
                     flag = True
+
+                utils.log(f'matched_transactions: {matched_t},\n\
+                            transactions in existing file: {len(existing_data)}\n\
+                            transactions in new file: {len(new_data)}', 'system')
             except Exception as e:
                 utils.log("Procedure failed, Moving files back...", 'system')
                 utils.log("Moving file back to update folder...", 'system')

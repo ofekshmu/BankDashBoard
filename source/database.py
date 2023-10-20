@@ -702,7 +702,7 @@ class DataBase:
                                     WHERE ID = ?
                                     """, (category, id,))
             case _:
-                utils.log("Bad input in 'set_category' in DataBase class", "error")
+                utils.log(f"Bad input {table} in 'set_category' in DataBase class", "error")
 
     def get_by_name(self, TableName: str, name: str):
         """

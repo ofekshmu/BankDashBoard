@@ -57,7 +57,6 @@ class AppManager:
                 case 6:
                     self.execute_sql()
                 case 7:
-                    ExcelManager().close_and_kill_excel()
                     break
                 case _:
                     print("Please insert a valid number.")

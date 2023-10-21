@@ -103,13 +103,12 @@ class SimpleMath:
             spendings_df = SimpleMath.process_prices(spendings, description)
             spendings_df = utils.remove_leumi(spendings_df)
             spendings_sum = spendings_df['Final_Value'].sum()
+            spendings_lst.append(spendings_sum)
 
             earnings, description = DataBase().get_monthly_earnings(year=y, month=m)
             earnings_df = SimpleMath.process_prices(earnings, description)
             earnings_df = utils.remove_leumi(earnings_df)
             earnings_sum = earnings_df['Final_Value'].sum()
-
-            spendings_lst.append(DataBase().get_monthly_spendings_sum(y, m))
             earnings_lst.append(earnings_sum)
 
         return spendings_lst, earnings_lst

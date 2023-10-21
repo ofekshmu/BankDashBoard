@@ -36,7 +36,6 @@ class ExcelManager:
             self.active_sheet = sheet
             return sheet
         except Exception as e:
-            self.close_and_kill_excel()
             raise ValueError(f"Error opening file or sheet: {str(e)}")
 
     @add_root

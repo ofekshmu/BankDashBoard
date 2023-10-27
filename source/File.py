@@ -1,8 +1,6 @@
 from abc import abstractmethod
-from Constants import Local, Personal
 from src_utils.utils import utils
 from xlwings import Sheet
-from os.path import join
 from typing import Union
 from database import DataBase
 from src_utils.ExcelReader import ExcelManager
@@ -151,7 +149,7 @@ class File:
         'Inner credit file is using a different one becuase of the complexity.
         """
 
-        def read_table(header_lst: list, header_row_idx: int, first_col_idx: int) -> None:
+        def read_table(header_lst: list, header_row_idx: int, first_col_idx: int) -> int:
             """
             bad_indexes indexes will varie from 0 to (counter - 1) to fit the use of python lists.
             """
@@ -204,13 +202,14 @@ class File:
             {"number of rows:":25s}{row_counter}\n\
             {"Bad rows indexes:":25s}{bad_indexes}\n\
             {"valid rows:":25s}{valid_rows}', 'system')
+            return valid_rows
 
-        read_table(self.headers, self.header_row_idx, self.header_col_idx)
+        valid_rows = read_table(self.headers, self.header_row_idx, self.header_col_idx)
 
         if self.double_tables:
-            read_table(self.secondary_headers, self.secondary_headers_row_idx, self.header_col_idx)
+            valid_rows += read_table(self.secondary_headers, self.secondary_headers_row_idx, self.header_col_idx)
 
-        return True
+        return valid_rows
 
     def clean(self, flip: bool = False) -> bool:
         """
@@ -255,6 +254,14 @@ class File:
                                                     meta_1['Row_count'],
                                                     meta_1['Initial_col'],
                                                     len(self.secondary_headers))
+
+                # When a Table has only 1 row. The elements of the row are returned as a list,
+                # And not as a list of rows as expected, That is why, another [] is added.
+                if meta_0['Row_count'] == 1:
+                    table_0 = [table_0]
+                if meta_1['Row_count'] == 1:
+                    table_1 = [table_1]
+
                 # This row removes the bas indexes from the second table according to the meta data
                 # indexes are in accordance to the first row of the table (not the excel numbering)
                 # first table is not being checked for bad indexes.
@@ -269,6 +276,9 @@ class File:
                                                   meta_data['Row_count'],
                                                   meta_data['Initial_col'],
                                                   len(self.headers))
+                
+                if meta_data['Row_count'] == 1:
+                    table = [table]
 
                 if meta_data["Bad_rows"] != '':
                     bad_indexes = [int(num) for num in meta_data["Bad_rows"].strip().split(',')]

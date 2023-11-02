@@ -359,7 +359,8 @@ class DataBase:
                                         Category,
                                         Description AS 'Description/Charge_Currency',
                                         Reserved AS 'Reserved/Value_Currency',
-                                        Date,
+                                        Date AS 'Date/Executed_Date',
+                                        Value_Date AS 'Value_Date/Charge_Date',
                                         Extra_Info
                                    FROM BankTransactions
                                    WHERE Category = ?
@@ -373,6 +374,7 @@ class DataBase:
                                         Charge_Currency,
                                         Value_Currency,
                                         Executed_Date,
+                                        Charge_Date,
                                         Extra_info
                                    FROM CardTransactions
                                    WHERE Category = ?
@@ -393,13 +395,16 @@ class DataBase:
         day1 = datetime(year, month, 1).strftime('%Y-%m-%d %H:%M:%S')
         day2 = datetime(year, month, last_day).strftime('%Y-%m-%d %H:%M:%S')
 
+        # (Transaction_Value*Charge_Value < 0 
+        # AND Charge_Date >= ? AND Charge_Date <= ?)
+        # This section is ment for retriving refund issued to the credit card.
         return self.cursor.execute("""
                                     SELECT
                                         ID,
                                         'BankTransactions' AS TableName,
                                         Ref AS 'Ref/CardID',
                                         Name,
-                                        Date,
+                                        Date AS 'Date/Executed_Date',
                                         Value_Date AS 'Value_Date/Charge_Date',
                                         Out AS 'Out/Transaction_value',
                                         Income AS 'Income/Charge_Value',
@@ -429,39 +434,41 @@ class DataBase:
                                         Extra_Info,
                                         Source_file
                                     FROM CardTransactions
-                                    WHERE Executed_Date >= ?
+                                    WHERE (Executed_Date >= ?
                                     AND Executed_Date <= ?
-                                    AND Transaction_Value < 0
-                                    """, (day1, day2, "אשראי", day1, day2)).fetchall(), \
+                                    AND Transaction_Value < 0)
+                                    OR (Transaction_Value*Charge_Value < 0 
+                                    AND Charge_Date >= ? AND Charge_Date <= ?)
+                                    """, (day1, day2, "אשראי", day1, day2, day1, day2)).fetchall(), \
             [d[0] for d in self.cursor.description]
 
-    def get_monthly_earnings_sum(self, year: int, month: int) -> int:
-        """
-        Input:
-        An year and a month.
+    # def get_monthly_earnings_sum(self, year: int, month: int) -> int:
+    #     """
+    #     Input:
+    #     An year and a month.
 
-        Returns the total earning sums of the month.
-        """
-        import calendar
-        last_day = calendar.monthrange(year, month)[1]
-        day1 = datetime(year, month, 1).strftime('%Y-%m-%d %H:%M:%S')
-        day2 = datetime(year, month, last_day).strftime('%Y-%m-%d %H:%M:%S')
+    #     Returns the total earning sums of the month.
+    #     """
+    #     import calendar
+    #     last_day = calendar.monthrange(year, month)[1]
+    #     day1 = datetime(year, month, 1).strftime('%Y-%m-%d %H:%M:%S')
+    #     day2 = datetime(year, month, last_day).strftime('%Y-%m-%d %H:%M:%S')
 
-        return self.cursor.execute("""
-                                     SELECT ROUND(COALESCE(subquery1.x, 0) + COALESCE(subquery2.y, 0), 2) AS 'total_sum'
-                                        FROM
-                                            (SELECT SUM(Income) AS 'x'
-                                             FROM BankTransactions
-                                             WHERE Date >= ?
-                                             AND Date <= ?
-                                             AND Category != ?) AS subquery1
-                                        JOIN
-                                            (SELECT SUM(Transaction_Value) AS 'y'
-                                             FROM CardTransactions
-                                             WHERE Executed_Date >= ?
-                                             AND Executed_Date <= ?
-                                             AND Transaction_Value < 0) AS subquery2;
-                                    """, (day1, day2, "אשראי", day1, day2)).fetchone()[0]
+    #     return self.cursor.execute("""
+    #                                  SELECT ROUND(COALESCE(subquery1.x, 0) + COALESCE(subquery2.y, 0), 2) AS 'total_sum'
+    #                                     FROM
+    #                                         (SELECT SUM(Income) AS 'x'
+    #                                          FROM BankTransactions
+    #                                          WHERE Date >= ?
+    #                                          AND Date <= ?
+    #                                          AND Category != ?) AS subquery1
+    #                                     JOIN
+    #                                         (SELECT SUM(Transaction_Value) AS 'y'
+    #                                          FROM CardTransactions
+    #                                          WHERE Executed_Date >= ?
+    #                                          AND Executed_Date <= ?
+    #                                          AND Transaction_Value < 0) AS subquery2;
+    #                                 """, (day1, day2, "אשראי", day1, day2)).fetchone()[0]
 
     def get_monthly_spendings(self, year: int, month: int) -> Tuple[list, list]:
         """
@@ -494,7 +501,7 @@ class DataBase:
                                         'BankTransactions' AS TableName,
                                         Ref AS 'Ref/CardID',
                                         Name,
-                                        Date,
+                                        Date AS 'Date/Executed_Date',
                                         Value_Date AS 'Value_Date/Charge_Date',
                                         Out AS 'Out/Transaction_value',
                                         Income AS 'Income/Charge_Value',
@@ -532,44 +539,44 @@ class DataBase:
     # Query NOTE: Executed_Date > 0 (In the CardTransaction table) represents only Negative transaction since Negative transactions
     # appears with a positive value in the Card table.
 
-    def get_monthly_spendings_sum(self, year: int, month: int) -> int:
-        """
-        The function will return a list containing all spendings made in the current month given.
-        Spendings can be given from both BankTranssactions table of Transactions table.
-        Template is: (Table name, Name, Card, Amount, Category, Date)
+    # def get_monthly_spendings_sum(self, year: int, month: int) -> int:
+    #     """
+    #     The function will return a list containing all spendings made in the current month given.
+    #     Spendings can be given from both BankTranssactions table of Transactions table.
+    #     Template is: (Table name, Name, Card, Amount, Category, Date)
 
-        For transaction Taken from the BankTransactions; card will appear as 'Bank'
-        """
-        import calendar
+    #     For transaction Taken from the BankTransactions; card will appear as 'Bank'
+    #     """
+    #     import calendar
         
-        # When looking for spendings. transaction will be queried by the date they will be 
-        # effective in the bank account and not by the date they were exectued.
-        # That is why, when given month x, we will search for transactions in month x + 1
-        fit_month = month % 12 + 1
-        if fit_month == 1:
-            fit_year = year + 1
-        else:
-            fit_year = year
+    #     # When looking for spendings. transaction will be queried by the date they will be 
+    #     # effective in the bank account and not by the date they were exectued.
+    #     # That is why, when given month x, we will search for transactions in month x + 1
+    #     fit_month = month % 12 + 1
+    #     if fit_month == 1:
+    #         fit_year = year + 1
+    #     else:
+    #         fit_year = year
 
-        last_day = calendar.monthrange(year, month)[1]
-        b_init = datetime(year, month, 1).strftime('%Y-%m-%d %H:%M:%S')
-        b_end = datetime(year, month, last_day).strftime('%Y-%m-%d %H:%M:%S')
+    #     last_day = calendar.monthrange(year, month)[1]
+    #     b_init = datetime(year, month, 1).strftime('%Y-%m-%d %H:%M:%S')
+    #     b_end = datetime(year, month, last_day).strftime('%Y-%m-%d %H:%M:%S')
 
-        return self.cursor.execute("""
-                                     SELECT ROUND(COALESCE(subquery1.x, 0) + COALESCE(subquery2.y, 0)) AS 'total_sum'
-                                        FROM
-                                            (SELECT SUM(Out) AS 'x'
-                                             FROM BankTransactions
-                                             WHERE Date >= ?
-                                             AND Date <= ?
-                                             AND Category != ?) AS subquery1
-                                        JOIN
-                                            (SELECT SUM(Transaction_Value) AS 'y'
-                                             FROM CardTransactions
-                                             WHERE Executed_Date >= ?
-                                             AND Executed_Date <= ?
-                                             AND Transaction_Value > 0) AS subquery2;
-                                    """, (b_init, b_end, "אשראי", b_init, b_end)).fetchone()[0]
+    #     return self.cursor.execute("""
+    #                                  SELECT ROUND(COALESCE(subquery1.x, 0) + COALESCE(subquery2.y, 0)) AS 'total_sum'
+    #                                     FROM
+    #                                         (SELECT SUM(Out) AS 'x'
+    #                                          FROM BankTransactions
+    #                                          WHERE Date >= ?
+    #                                          AND Date <= ?
+    #                                          AND Category != ?) AS subquery1
+    #                                     JOIN
+    #                                         (SELECT SUM(Transaction_Value) AS 'y'
+    #                                          FROM CardTransactions
+    #                                          WHERE Executed_Date >= ?
+    #                                          AND Executed_Date <= ?
+    #                                          AND Transaction_Value > 0) AS subquery2;
+    #                                 """, (b_init, b_end, "אשראי", b_init, b_end)).fetchone()[0]
 
     # Query NOTE: Executed_Date > 0 (In the CardTransaction table) represents only Negative transaction since Negative transactions
     # appears with a positive value in the Card table.
@@ -745,16 +752,22 @@ class DataBase:
         self.cursor.execute(query, (desc, id))
 
     def card_sum(self, date: datetime):
+        """
+        TODO... what does this fucntion do?
+        """
         m_2 = '0' + str(date.month) if len(str(date.month)) == 1 else str(date.month)
         
         m_1, y_1 = utils.subtract_month(date.month, date.year)
         m_0, y_0 = utils.subtract_month(int(m_1), int(y_1))
 
+        # Executed_Date AS 'Date/Executed_Date',
+        # Charge_Date AS 'Value_Date/Charge_Date'
+        # AS key word is added in order to match the 'process_prices' function
         data = self.cursor.execute("""
                             SELECT 'CardTransactions' AS TableName,
                                    CardID,
-                                   Executed_Date,
-                                   Charge_Date,
+                                   Executed_Date AS 'Date/Executed_Date',
+                                   Charge_Date AS 'Value_Date/Charge_Date',
                                    Charge_Value AS 'Income/Charge_Value',
                                    Charge_Currency AS 'Description/Charge_Currency',
                                    Value_Currency AS 'Reserved/Value_Currency',

@@ -175,7 +175,7 @@ class utils:
 
         soup.body.insert(6, div)
 
-        for _, item in spendings_df.sort_values(by='Date', ascending=True).iterrows():
+        for _, item in spendings_df.sort_values(by='Date/Executed_Date', ascending=True).iterrows():
 
             row = soup.new_tag("div")
             row['class'] = 'num'
@@ -194,13 +194,13 @@ class utils:
 
             cell = soup.new_tag("p")
             cell['class'] = 'date'
-            d = datetime.strptime(f"{item['Date']}", "%Y-%m-%d %H:%M:%S").strftime('%A %d')
+            d = datetime.strptime(f"{item['Date/Executed_Date']}", "%Y-%m-%d %H:%M:%S").strftime('%A %d')
             cell.string = f"{d}"
             row.append(cell)
 
             cell = soup.new_tag("p")
             cell['class'] = 'cat'
-            d = datetime.strptime(f"{item['Date']}", "%Y-%m-%d %H:%M:%S").strftime('%A %d')
+            d = datetime.strptime(f"{item['Date/Executed_Date']}", "%Y-%m-%d %H:%M:%S").strftime('%A %d')
             cell.string = f"{item['Category']}"  # Category
             row.append(cell)
 
@@ -208,7 +208,7 @@ class utils:
 
         # ----------
         # ----------
-        for _, item in earnings_df.sort_values(by='Date', ascending=True).iterrows():
+        for _, item in earnings_df.sort_values(by='Date/Executed_Date', ascending=True).iterrows():
             row = soup.new_tag("div")
             row['class'] = 'num'
             row['data-value'] = f"{item['Final_Value']:,}₪"  # Amount
@@ -220,7 +220,7 @@ class utils:
 
             cell = soup.new_tag("p")
             cell['class'] = 'date'
-            d = datetime.strptime(f"{item['Date']}", "%Y-%m-%d %H:%M:%S").strftime('%A %d')
+            d = datetime.strptime(f"{item['Date/Executed_Date']}", "%Y-%m-%d %H:%M:%S").strftime('%A %d')
             cell.string = f"{d}"
             row.append(cell)
 
@@ -380,7 +380,6 @@ class utils:
         utils.log(f"Header Validation Failed for {file_name}", "debug")
         return False
 
-
     @staticmethod
     def date_ready(date: str) -> datetime:
         """
@@ -397,7 +396,7 @@ class utils:
             except Exception as e:
                 continue
 
-        utils.log("Invalid date format. Please use '-' or '/' as separators.", "error")
+        utils.log(f"Invalid date format. Please use '-' or '/' as separators...\n got the value: {date} of type {type(date)}.", "error")
         # following date will never be returned. placed for linter.
         return datetime(1, 1, 1)
 

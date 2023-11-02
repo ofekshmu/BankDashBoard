@@ -69,22 +69,22 @@ class Graphics:
         Saves a plot image and returns a series of statistics.
         """
         # ------------
-        df['Date'] = pd.to_datetime(df['Date'])
+        df['Date/Executed_Date'] = pd.to_datetime(df['Date/Executed_Date'])
         statistics = df['Final_Value'].describe().loc[["count", "mean", "std", "min", "max"]]
 
         start_date = pd.Timestamp.today().normalize() - pd.DateOffset(months=2, days=0)
         end_date = pd.Timestamp.today().normalize()
         all_dates = pd.date_range(start=start_date, end=end_date, freq='D')
-        df_all_dates = pd.DataFrame({'Date': all_dates})
+        df_all_dates = pd.DataFrame({'Date/Executed_Date': all_dates})
 
         # merge the original DataFrame with the new DataFrame using a left join
-        df_merged = pd.merge(df_all_dates, df, on='Date', how='left')
+        df_merged = pd.merge(df_all_dates, df, on='Date/Executed_Date', how='left')
 
         # fill the missing values with 0
         df_merged['Final_Value'].fillna(0, inplace=True)
 
         # set the datetime column as the index of the DataFrame
-        df_merged.set_index('Date', inplace=True)
+        df_merged.set_index('Date/Executed_Date', inplace=True)
 
         # create the bar plot
         plt.figure()
@@ -120,8 +120,8 @@ class Graphics:
 
         plt.figure()
 
-        df['Date'] = pd.to_datetime(df['Date'])
-        df = df.groupby(pd.Grouper(key='Date', freq='M')).sum()
+        df['Date/Executed_Date'] = pd.to_datetime(df['Date/Executed_Date'])
+        df = df.groupby(pd.Grouper(key='Date/Executed_Date', freq='M')).sum()
         fig, ax = plt.subplots(figsize=(10, 6))
         ax.bar(df.index.strftime('%b %Y'), df['Final_Value'])
 

@@ -57,7 +57,7 @@ class SimpleMath:
         series = df['Final_Value'].describe()
 
         # convert Date column to datetime format
-        df['Date'] = pd.to_datetime(df['Date'])
+        df['Date/Executed_Date'] = pd.to_datetime(df['Date/Executed_Date'])
 
         count = series.loc["count"]
         sum = df['Final_Value'].sum()
@@ -67,7 +67,7 @@ class SimpleMath:
         # ----- Calculate the amount of months in total from intitial date to current time -----
         # Keep in mind that when using groupby, 'empty month' are not taken into account and
         # therfore the calculations are incorrect.
-        start = df['Date'].min()
+        start = df['Date/Executed_Date'].min()
         end = datetime.now()
 
         months = (end.year - start.year) * 12 + (end.month - start.month) + 1
@@ -128,22 +128,22 @@ class SimpleMath:
         """
         if data[1]:
             earnings_df = pd.DataFrame(data[1], columns=["Name", "Amount", "Category", "Date"])
-            earnings_df['Date'] = pd.to_datetime(earnings_df['Date'])
+            earnings_df['Date/Executed_Date'] = pd.to_datetime(earnings_df['Date/Executed_Date'])
             earnings_df = earnings_df.drop(["Name", "Category"], axis=1)
-            earnings_df = earnings_df.groupby(pd.Grouper(key='Date', freq='M')).sum()
+            earnings_df = earnings_df.groupby(pd.Grouper(key='Date/Executed_Date', freq='M')).sum()
         else:
             earnings_df = pd.DataFrame(columns=["Date", "Amount"])
 
         if data[0]:
             spendings_df = pd.DataFrame(data[0], columns=["Table name", "Name", "Card", "Amount", "Category", "Date"])
-            spendings_df['Date'] = pd.to_datetime(spendings_df['Date'])
+            spendings_df['Date/Executed_Date'] = pd.to_datetime(spendings_df['Date/Executed_Date'])
             spendings_df['Amount'] = spendings_df['Amount'].apply(lambda x: -x)
             spendings_df = spendings_df.drop(["Table name", "Name", "Card", "Category"], axis=1)
-            spendings_df = spendings_df.groupby(pd.Grouper(key='Date', freq='M')).sum()
+            spendings_df = spendings_df.groupby(pd.Grouper(key='Date/Executed_Date', freq='M')).sum()
         else:
             spendings_df = pd.DataFrame(columns=["Date", "Amount"])
 
-        df_merged = pd.merge(spendings_df, earnings_df, on='Date', how='left', suffixes=('_spendings', '_earnings'))
+        df_merged = pd.merge(spendings_df, earnings_df, on='Date/Executed_Date', how='left', suffixes=('_spendings', '_earnings'))
         # Fill NaN values with 0
         df_merged.fillna(0, inplace=True)
         return df_merged
@@ -191,25 +191,25 @@ class SimpleMath:
                     utils.log("Unrecognized case in 'process_prices'...", "error")
                     return ""   # To avoid linter error - unreacheable code.
 
-        # def refund_wrapper(row):
-        #     """
-        #     """
-        #     match row['TableName']:
-        #         case 'BankTransactions':
-        #             # Function does not handle BankTransactions - leave as it is.
-        #             return row['Out/Transaction_value']
-        #         case 'CardTransactions':
-        #             cond_Credit_payback = row['Out/Transaction_value']*row['Income/Charge_Value'] < 0
-        #             if cond_Credit_payback:
-        #                 return row['Income/Charge_Value']
+        def refund_wrapper(row):
+            """
+            """
+            match row['TableName']:
+                case 'BankTransactions':
+                    # Function does not handle BankTransactions - leave as it is.
+                    return row['Date/Executed_Date']
+                case 'CardTransactions':
+                    cond_Credit_payback = row['Out/Transaction_value']*row['Income/Charge_Value'] < 0
+                    if cond_Credit_payback:
+                        return row['Value_Date/Charge_Date']
 
-        #             return row['Out/Transaction_value']
-        #         case _:
-        #             utils.log("Unrecognized case in 'process_prices' -> 'refund_wrapper'...", "error")
-        #             return ""   # To avoid linter error - unreacheable code.
+                    return row['Date/Executed_Date']
+                case _:
+                    utils.log("Unrecognized case in 'process_prices' -> 'refund_wrapper'...", "error")
+                    return ""   # To avoid linter error - unreacheable code.
 
         if not df.empty:
             df["Final_Value"] = df.apply(my_lambda, axis=1)
-            #df["Out/Transaction_value"] = df.apply(refund_wrapper, axis=1)
+            df["Date/Executed_Date"] = df.apply(refund_wrapper, axis=1)
 
         return df

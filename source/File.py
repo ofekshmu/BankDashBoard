@@ -176,8 +176,8 @@ class File:
                 bad_indexes.append(row_idx - header_row_idx - 1)
                 cc_end = "Bad value"
 
-            while cc_end is not None:
-
+            while cc_end is not None and \
+                    cc_end != "עסקאות בחו˝ל":
                 row_counter += 1
                 row_idx += 1
                 entire_row = ExcelManager().read_sheet(row_idx, 1, col_idx, len(header_lst))
@@ -268,6 +268,11 @@ class File:
                 if meta_1["Bad_rows"] != '':
                     bad_indexes = [int(num) for num in meta_1["Bad_rows"].strip().split(',')]
                     table_1 = [table_1[i] for i in range(len(table_1)) if i not in bad_indexes]
+
+                if meta_0["Bad_rows"] != '':
+                    bad_indexes = [int(num) for num in meta_0["Bad_rows"].strip().split(',')]
+                    table_0 = [table_0[i] for i in range(len(table_1)) if i not in bad_indexes]
+                    
                 return table_0, table_1
             else:
                 [meta_data] = meta_data

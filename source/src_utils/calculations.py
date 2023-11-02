@@ -102,13 +102,19 @@ class SimpleMath:
             spendings, description = DataBase().get_monthly_spendings(year=y, month=m)
             spendings_df = SimpleMath.process_prices(spendings, description)
             spendings_df = utils.remove_leumi(spendings_df)
-            spendings_sum = spendings_df['Final_Value'].sum()
+            if spendings_df.empty:
+                spendings_sum = 0
+            else:
+                spendings_sum = spendings_df['Final_Value'].sum()
             spendings_lst.append(spendings_sum)
 
             earnings, description = DataBase().get_monthly_earnings(year=y, month=m)
             earnings_df = SimpleMath.process_prices(earnings, description)
             earnings_df = utils.remove_leumi(earnings_df)
-            earnings_sum = earnings_df['Final_Value'].sum()
+            if earnings_df.empty:
+                earnings_sum = 0
+            else:
+                earnings_sum = earnings_df['Final_Value'].sum()
             earnings_lst.append(earnings_sum)
 
         return spendings_lst, earnings_lst
@@ -144,10 +150,20 @@ class SimpleMath:
 
     @staticmethod
     def process_prices(data: list, columns: list):
+        """
+        The function usess the lambda function to create the 'Final_Value' column
+        Which describes the correct value to plot for each transaction. It returns
+        a df representing the original input data along with the 'Final_Value column.
+        """
 
         df = pd.DataFrame(data, columns=columns)
 
         def my_lambda(row):
+            """
+            The function returns the Actual value describing the given transactions.
+            The function takes into acoount transactions made in payments, return transactions, income/outcome of
+            BankTransactions.
+            """
             match row['TableName']:
                 case 'BankTransactions':
                     # Only one of the following should have a value that is not 0.
@@ -161,7 +177,11 @@ class SimpleMath:
                             row['Income/Charge_Value'] != row['Out/Transaction_value']
                     # If only one of the values is Negative, the transaction is indicating a return made directly to
                     # the card. in this case the negative value should be considered - the min of the two.
-                    cond_Credit_payback = row['Out/Transaction_value']*row['Income/Charge_Value'] < 0
+                    try:
+                        cond_Credit_payback = row['Out/Transaction_value']*row['Income/Charge_Value'] < 0
+                    except Exception as e:
+                        print(row['Out/Transaction_value'], row['Income/Charge_Value'])
+                        raise ValueError()
                     if cond_payments or cond_Credit_payback:
                         return abs(min(row['Income/Charge_Value'], row['Out/Transaction_value']))
 
@@ -171,7 +191,25 @@ class SimpleMath:
                     utils.log("Unrecognized case in 'process_prices'...", "error")
                     return ""   # To avoid linter error - unreacheable code.
 
+        # def refund_wrapper(row):
+        #     """
+        #     """
+        #     match row['TableName']:
+        #         case 'BankTransactions':
+        #             # Function does not handle BankTransactions - leave as it is.
+        #             return row['Out/Transaction_value']
+        #         case 'CardTransactions':
+        #             cond_Credit_payback = row['Out/Transaction_value']*row['Income/Charge_Value'] < 0
+        #             if cond_Credit_payback:
+        #                 return row['Income/Charge_Value']
+
+        #             return row['Out/Transaction_value']
+        #         case _:
+        #             utils.log("Unrecognized case in 'process_prices' -> 'refund_wrapper'...", "error")
+        #             return ""   # To avoid linter error - unreacheable code.
+
         if not df.empty:
             df["Final_Value"] = df.apply(my_lambda, axis=1)
+            #df["Out/Transaction_value"] = df.apply(refund_wrapper, axis=1)
 
         return df

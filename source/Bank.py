@@ -16,7 +16,7 @@ class Bank(File):
         self.data: table1 and table2 data in a 2d array
         self.date: the date specified in the file
         '''
-        super().parse()
+        valid_rows = super().parse()
 
         match self.format_name:
             case "BeinLeumi-Bank":
@@ -29,7 +29,7 @@ class Bank(File):
                                value,
                                self.format_name,
                                -1,
-                               self.counter)
+                               valid_rows)
         return True
 
     def clean(self):

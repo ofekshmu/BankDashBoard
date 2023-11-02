@@ -21,7 +21,7 @@ class Card(File):
         self.data: table data in a 2d array
         self.card_num: the card_num specified in the file
         """
-        super().parse()
+        valid_rows = super().parse()
 
         match self.format_name:
             case "American-Express":
@@ -54,7 +54,7 @@ class Card(File):
                                value,
                                self.format_name,
                                -1,                    # Value is changed after the cleaning process
-                               -1)
+                               valid_rows)
 
         # TODO: Should add some generic field for data inside files
         # self.card_num = self.sheet[self.card_cell].value

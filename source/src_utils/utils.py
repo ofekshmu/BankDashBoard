@@ -212,7 +212,13 @@ class utils:
             row = soup.new_tag("div")
             row['class'] = 'num'
             row['data-value'] = f"{item['Final_Value']:,}₪"  # Amount
-
+            
+            if item['TableName'] == 'CardTransactions':
+                value = cards_dict[item['Ref/CardID']]
+            else:
+                value = cards_dict['Bank']
+            row['style'] = f"background-color: {value}"
+            
             st = f"{item['Name']}"
             cell = soup.new_tag("h3")
             cell.string = st

@@ -509,6 +509,29 @@ class utils:
         formats = Formats.FORMATS
         utils.log(f'Total number of formats: {len(formats)}', 'debug')
 
+        def find_duplicate_lists(headers_dict) -> list:
+            seen = set()
+            duplicates = []
+
+            for k, sublist in headers_dict.items():
+                if sublist == []:
+                    continue
+
+                tuple_sublist = tuple(sublist)
+
+                if tuple_sublist in seen:
+                    duplicates.append(k)
+                else:
+                    seen.add(tuple_sublist)
+
+            return duplicates
+
+        headers_dict = {format_name: d['Headers']  for format_name, d in formats.items()}
+        header_duplicates = find_duplicate_lists(headers_dict)
+
+        # second_headers_dict = {format_name: d['Secondary Headers']  for format_name, d in formats.items()}
+        # sec_header_duplicates = find_duplicate_lists(second_headers_dict)
+
         for format_key, format_data in tqdm(formats.items()):
             if format_key != format_data['Format Name']:
                 return f"Format name missmatch for {format_key}"
@@ -535,6 +558,8 @@ class utils:
                         return f'Identification data should be None when using "Identification_Method.Headers" in format {format_key}'
                     if len(format_data['Headers']) == 0:
                         return f'Headers were not specified'
+                    if format_key in header_duplicates:
+                        return f'The "Header Identification" field for {format_key} Cannot be set to "HEADERS". Because there is another format with identical headers.'
                 case _:
                     return f'Internal ERROR, should not happen.'
                 
@@ -578,5 +603,5 @@ class utils:
                 
             if type(format_data['Independent']) != bool:
                 f'Bad format for key "Independent" {format_data["Independent"]}, in format {format_key}.'
-
+        
         return True

@@ -112,7 +112,7 @@ class AppManager:
                 existing_data = DataBase().get_data_by_file_name(existing_file_name)
                 DataBase().drop_file(existing_file_name)
 
-                self.parser = Parser()
+                self.parser = Parser.getInstance(newInstance=True)
                 self.load_data()
 
                 new_data = DataBase().get_data_by_file_name(new_file_name)
@@ -144,7 +144,7 @@ class AppManager:
                                 utils.log("Done." 'system')
 
                                 DataBase().drop_file(new_file_name)
-                                self.parser = Parser()
+                                self.parser = Parser.getInstance(newInstance=True)
                                 self.load_data()
 
                             case 1:
@@ -157,15 +157,17 @@ class AppManager:
                             transactions in existing file: {len(existing_data)}\n\
                             transactions in new file: {len(new_data)}', 'system')
             except Exception as e:
-                utils.log("Procedure failed, Moving files back...", 'system')
+                utils.log(f"Procedure failed, Moving files back... The error:\n{e}", 'system')
                 utils.log("Moving file back to update folder...", 'system')
-                utils.move_file_to_directory(file_path=f"{Local.INPUT_FOLDER}/{{new_file_name}}",
+                utils.move_file_to_directory(file_path=f"{Local.INPUT_FOLDER}/{new_file_name}",
                                              destination_directory=Local.UPDATE_FOLDER)
                 utils.log("Done." 'system')
 
                 utils.log("Moving file back to input folder...", 'system')
-                utils.move_file_to_directory(file_path=f"removed/{existing_file_name}",
-                                             destination_directory=Local.INPUT_FOLDER)
+                removed_root = existing_file_name.split("\\")[-1]
+                add_root = existing_file_name.split("\\")[0]
+                utils.move_file_to_directory(file_path=f"removed/{removed_root}",
+                                             destination_directory=f"{add_root}/{Local.INPUT_FOLDER}")
                 utils.log("Done." 'system')
                 utils.log(f"{e}", 'system')
 
@@ -232,22 +234,29 @@ class AppManager:
         """
         The function will check for untagged data and offer to tag it.
         """
+
+        def make_readable(df: pd.DataFrame) -> pd.DataFrame:
+            """Improve tables readability for printing purposes"""
+            df['Name'] = df['Name'].apply(lambda x: utils.heb_conversion(x))
+            df['Extra_Info'] = df['Extra_Info'].apply(lambda x: utils.heb_conversion(x))
+            df['Source_file'] = df['Source_file'].apply(lambda x: utils.heb_conversion(x))
+            return df
+
+        skip_list = []
         lst, desc = DataBase().get_untagged()
         df = pd.DataFrame(lst, columns=desc)
         df['Original_Name'] = df['Name']
-        # To enable readible printing of data
-        df['Name'] = df['Name'].apply(lambda x: utils.heb_conversion(x))
-        df['Extra_Info'] = df['Extra_Info'].apply(lambda x: utils.heb_conversion(x))
-        df['Source_file'] = df['Source_file'].apply(lambda x: utils.heb_conversion(x))
-        if df.empty:
-            utils.log("There is No data to tag, You are all good!", "system")
-        else:
-            utils.log(f"There are {len(lst)} untagged Transactions.\nChoose a category or create a new one.", "system")
+        df = make_readable(df)
+
+        utils.log(f"There are {len(lst)} untagged Transactions.\nChoose a category or create a new one.", "system")
+        while not df.empty:
             for _, row in df.iterrows():
-                # Show the current untagged transaction - This is not a debug line!
+                if row['ID'] in skip_list:
+                    continue
                 print(row.drop('Original_Name').to_markdown())
                 res, description = utils.handle_categories()
                 if res == "Skip":
+                    skip_list.append(row['ID'])
                     utils.log("Skipped...", "system")
                     continue
                 else:
@@ -255,7 +264,7 @@ class AppManager:
                     if len(description) > 1:
                         DataBase().set_transaction_description(description, row['TableName'], row['ID'])
                     utils.log("Tag saved.", "system")
-
+                    DataBase().commit_changes()
                 # ---------------- Fill in similar rows ----------------
                 similar_trans, desc_x = DataBase().get_by_name(row['TableName'], row['Original_Name'])
                 count = len(similar_trans)
@@ -266,13 +275,19 @@ class AppManager:
                         res_df = pd.DataFrame(similar_trans, columns=desc_x)
                         for _, row_x in res_df.iterrows():
                             DataBase().set_category(table=row['TableName'], id=row_x['ID'], category=res)
+                        DataBase().commit_changes()
                         utils.log("Updated the following:\n")
-                        res_df['Name'] = res_df['Name'].apply(lambda x: utils.heb_conversion(x))
-                        res_df['Extra_Info'] = res_df['Extra_Info'].apply(lambda x: utils.heb_conversion(x))
-                        res_df['Source_file'] = res_df['Source_file'].apply(lambda x: utils.heb_conversion(x))
+                        res_df = make_readable(res_df)
                         print(res_df.to_markdown())
+                        break   # In case latter transaction were updated, it is needed to read the table again
+                                # So information wont repeat for the user.
                 # -------------------------------------------------------
-                DataBase().commit_changes()
+            lst, desc = DataBase().get_untagged()
+            df = pd.DataFrame(lst, columns=desc)
+            df['Original_Name'] = df['Name']
+            df = make_readable(df)
+
+        utils.log("There is No data to tag, You are all good!", "system")
 
     def load_data(self):
         context = Context()

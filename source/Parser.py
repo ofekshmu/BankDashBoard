@@ -15,19 +15,19 @@ class Parser():
 
     __instance = None
 
-    # @staticmethod
-    # def getInstance():
-    #     """ Static access method """
-    #     if Parser.__instance is None:
-    #         Parser()
-    #     return Parser.__instance 
+    @staticmethod
+    def getInstance(newInstance=False):
+        """ Static access method """
+        if Parser.__instance is None or newInstance:
+            Parser()
+        return Parser.__instance
 
     def __init__(self):
-        # """ Virtually private constructor. """
-        # if Parser.__instance is not None:
-        #     raise Exception("This class is a singleton!")
-        # else:
-        #     Parser.__instance = self
+        """ Virtually private constructor. """
+        if Parser.__instance is not None:
+            utils.log(f'Parser restarting...', 'system')
+        
+        Parser.__instance = self
 
         self.idx = 0
         self.type_to_name = {}

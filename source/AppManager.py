@@ -18,12 +18,13 @@ from os import listdir
 class AppManager:
 
     def __init__(self):
-        self.parser = Parser()
         res = utils.validate_formats()
         if type(res) == str:
             utils.log(res, 'error')
         else:
             utils.log(f'Format validation result: {res}', 'system')
+            
+        self.parser = Parser()
 
     def menu(self):
         while True:

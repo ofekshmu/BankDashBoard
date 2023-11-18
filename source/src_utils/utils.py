@@ -509,30 +509,7 @@ class utils:
         formats = Formats.FORMATS
         utils.log(f'Total number of formats: {len(formats)}', 'debug')
 
-        def find_duplicate_lists(headers_dict) -> list:
-            seen = set()
-            duplicates = []
-
-            for k, sublist in headers_dict.items():
-                if sublist == []:
-                    continue
-
-                tuple_sublist = tuple(sublist)
-
-                if tuple_sublist in seen:
-                    duplicates.append(k)
-                else:
-                    seen.add(tuple_sublist)
-
-            return duplicates
-
-        headers_dict = {format_name: d['Headers']  for format_name, d in formats.items()}
-        header_duplicates = find_duplicate_lists(headers_dict)
-
-        # second_headers_dict = {format_name: d['Secondary Headers']  for format_name, d in formats.items()}
-        # sec_header_duplicates = find_duplicate_lists(second_headers_dict)
-
-        for format_key, format_data in tqdm(formats.items()):
+        for format_key, format_data in tqdm(formats.items(), desc=f"{'Validating formats: Overall info':42s}", unit="formats"):
             if format_key != format_data['Format Name']:
                 return f"Format name missmatch for {format_key}"
 
@@ -543,7 +520,7 @@ class utils:
                 return f"Identification_Method Enum was not used for {format_key}"
 
             if format_data['Identification method'] == Identification_Method.NONE:
-                return f'Identification_Method should not be Identification_Method.NONE'
+                return 'Identification_Method should not be Identification_Method.NONE'
 
             data = format_data['Identification data']
             match format_data['Identification method']:
@@ -558,8 +535,8 @@ class utils:
                         return f'Identification data should be None when using "Identification_Method.Headers" in format {format_key}'
                     if len(format_data['Headers']) == 0:
                         return f'Headers were not specified'
-                    if format_key in header_duplicates:
-                        return f'The "Header Identification" field for {format_key} Cannot be set to "HEADERS". Because there is another format with identical headers.'
+                    # if format_key in header_duplicates:
+                    #     return f'The "Header Identification" field for {format_key} Cannot be set to "HEADERS". Because there is another format with identical headers.'
                 case _:
                     return f'Internal ERROR, should not happen.'
                 
@@ -584,7 +561,7 @@ class utils:
             if add_data is not None and not isinstance(add_data, tuple):
                 return f"Bad input type {type(add_data)} at 'adittional data field' in format {format_key}."
             
-            if type(format_data['Headers']) != list:
+            if not isinstance(format_data['Headers'], list):
                 return f'Bad header format {type(format_data["Headers"])} in format {format_key}.'
             if len(format_data['Headers']) < 1:
                 return f'Headers list is too short for format {format_key}.'
@@ -604,4 +581,14 @@ class utils:
             if type(format_data['Independent']) != bool:
                 f'Bad format for key "Independent" {format_data["Independent"]}, in format {format_key}.'
         
+        for format_name_i, data_i in tqdm(formats.items(), desc=f"{'Validating formats: identification method':42s}", unit="formats"):
+            for format_name_j, data_j in formats.items():
+                if format_name_i != format_name_j:
+                    if tuple(data_i['Headers']) == tuple(data_j['Headers']) and \
+                        data_i['Identification method'] == data_j['Identification method'] and \
+                        data_i['Identification data'] == data_j['Identification data']:
+                        return f"「{format_name_i}」 and 「{format_name_j}」has identical identification system\n\
+\t  Make sure that the the following keys: 'Identification method', 'Identification data', 'Headers' are unique\
+\t  Between formats."
+
         return True

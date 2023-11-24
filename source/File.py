@@ -33,6 +33,10 @@ class File:
         self.adittional_data_field = format_info["Adittional data field"]
         self.independent = format_info["Independent"]
 
+        self.time_stamp = format_info["TimeStamp"]
+        self.time_stamp_format = format_info["TimeStamp Format"]
+        self.time_stamp_location = format_info["TimeStamp location"]
+
         # This value will determine the index of the secondary headers, if exists
         # The value is updated in the validate function
         self.secondary_headers_row_idx = -1
@@ -211,6 +215,7 @@ class File:
 
         return valid_rows
 
+
     def clean(self, flip: bool = False) -> bool:
         """
         Function will clean the read data.
@@ -386,19 +391,51 @@ class File:
 
     @abstractmethod
     def finilize(self) -> bool:
-        utils.commit_to_present_table(self.format_name)
+        from Configurations.Formats import Location
+        from datetime import datetime
+        match self.time_stamp:
+            case Location.FILE_NAME_DATE:
+                date_str = self.name
+            case Location.INNER_CELL:
+                (r, c) = self.time_stamp_location  # TODO: These code line are being reapted, improve
+                date_str = ExcelManager().read_cell(r, c)
+            case _:
+                date_str = ""
+                utils.log('error', 'error')
+
+        import re
+        if date_str is None:
+            utils.log('date_st Adittional data field read from the file is None.', 'error')
+        pattern = re.compile(self.time_stamp_format)
+
+        if isinstance(date_str, datetime):
+            month_number = int(date_str.strftime("%m")) - 1
+            year_number = int(date_str.strftime("%Y"))
+            month_name = datetime.strptime(str(month_number), "%m").strftime("%B")
+        else:
+            res = re.search(pattern, date_str)
+
+            if res:
+                month_number = int(res.group(1)) - 1
+                year_number = int(res.group(2))
+                month_name = datetime.strptime(str(month_number), "%m").strftime("%B")
+            else:
+                utils.log('error', 'error')
+        
+
+        utils.commit_to_present_table(self.format_name, file_date=f"{month_name}, {year_number}")
         return True
 
-    @staticmethod
-    def cell(row: int, col: int, sheet: Sheet) -> Union[str, None]:
-        '''
-        Returns the value of the cell with indexes [row, col]
-        '''
-        if row >= 0 and col >= 0:
-            return sheet[f'{chr(65 + col)}{row}'].value
-        else:
-            utils.log(f"Invalid indexes -> ({row}, {col})", "error")
-            return ""
+    # @staticmethod
+    # def cell(row: int, col: int, sheet: Sheet) -> Union[str, None]:
+    #     '''
+    #     Returns the value of the cell with indexes [row, col]
+    #     '''
+    #     if row >= 0 and col >= 0:
+    #         return sheet[f'{chr(65 + col)}{row}'].value
+    #     else:
+    #         utils.log(f"Invalid indexes -> ({row}, {col})", "error")
+    #         return ""
 
     def __str__(self):
         return f"\t -> GenericFileClass"

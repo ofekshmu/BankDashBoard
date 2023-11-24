@@ -618,17 +618,17 @@ class utils:
         return df
 
     @staticmethod
-    def commit_to_present_table(format_name: str):
+    def commit_to_present_table(format_name: str, file_date: str):
         today = datetime.today()
-        mm_yy = today.strftime("%B, %Y")
+
         full_date = today.strftime("%d-%m-%Y")
         dict = json.load(open(Local.PRESENT_JSON_PATH, encoding='utf-8'))
         
-        if mm_yy in dict:
-            sub_dict = dict[mm_yy]
+        if file_date in dict:
+            sub_dict = dict[file_date]
             sub_dict[format_name] = full_date
         else:
-            dict[mm_yy] = {format_name: full_date}
+            dict[file_date] = {format_name: full_date}
         
         json.dump(dict, open(Local.PRESENT_JSON_PATH, "w", encoding='utf-8'))
 

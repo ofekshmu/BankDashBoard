@@ -25,7 +25,12 @@ class Card(File):
 
         match self.format_name:
             case "American-Express":
-                value = "Empty"
+                text = ExcelManager().read_cell(4, 0)
+                if text is not None:
+                    self.card_number = utils.reg_extract(r'\d+', text)
+                    value = "Empty"
+                else:
+                    utils.log("Bad cell read, this cell should have the card number.", "error")
             case "Leumi-Card6744":
                 value = "Empty"
             case "Leumi-Cards":
@@ -101,11 +106,16 @@ class Card(File):
                                                        Extra_Info=f"Serial: {row[6]} | Info: ({row[7]})")
 
                 case "American-Express":
+                    (r, c) = self.adittional_data_field  # TODO: These code line are being reapted, improve
+                    value = ExcelManager().read_cell(r, c)
+                    if value is None:
+                        utils.log('Adittional data field read from the file is None.', 'error')
+                        return False
 
                     DataBase().insert_card_transaction(CardID="1565",
                                                        Name=row[2],
                                                        Executed_Date=utils.date_ready(row[0]),
-                                                       Charge_Date=utils.date_ready(row[1]),
+                                                       Charge_Date=utils.date_ready(value),
                                                        Charge_Value=row[3],
                                                        Source_file=self.name,
                                                        Charge_Currency=row[4],
@@ -156,7 +166,7 @@ class Card(File):
                                                        Charge_Currency=row[4],
                                                        Transaction_Value=row[5],
                                                        Value_Currency=row[6],
-                                                       Extra_Info=f"Transactions Abroad")
+                                                       Extra_Info="Transaction Abroad")
                 case "Leumi-Cards":
 
                     DataBase().insert_card_transaction(CardID=row[0],
@@ -169,7 +179,19 @@ class Card(File):
                                                        Transaction_Value=row[5],
                                                        Value_Currency=row[6],
                                                        Extra_Info=f"Type: {row[7]} | Note: None")
+                
+                case "American-Express":
 
+                    DataBase().insert_card_transaction(CardID=self.card_number,
+                                                       Name=row[2],
+                                                       Executed_Date=utils.date_ready(row[0]),
+                                                       Charge_Date=utils.date_ready(row[1]),
+                                                       Charge_Value=row[3],
+                                                       Source_file=self.name,
+                                                       Charge_Currency=row[4],
+                                                       Transaction_Value=row[5],
+                                                       Value_Currency=row[6],
+                                                       Extra_Info="Transaction Abroad")
         return True
 
     def __str__(self):

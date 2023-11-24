@@ -595,7 +595,19 @@ class utils:
         
         from Configurations.Formats import Formats
 
-        dict = json.load(open(Local.PRESENT_JSON_PATH, encoding='utf-8'))
+        # Specify the file path
+        file_path = Local.PRESENT_JSON_PATH
+
+        # Check if the file already exists
+        if not os.path.exists(file_path):
+            # Write the empty dictionary to a JSON file
+            with open(file_path, 'w') as json_file:
+                json.dump({}, json_file)
+            print(f"Empty dictionary has been written to {file_path}")
+
+
+
+        dict = json.load(open(file_path, encoding='utf-8'))
         columns = Formats.FORMATS.keys()
         indexes = dict.keys()
         df = pd.DataFrame(index=indexes, columns=columns)
@@ -614,9 +626,7 @@ class utils:
         
         if mm_yy in dict:
             sub_dict = dict[mm_yy]
-            if format_name in sub_dict:
-                sub_dict[format_name] = full_date
-
+            sub_dict[format_name] = full_date
         else:
             dict[mm_yy] = {format_name: full_date}
         

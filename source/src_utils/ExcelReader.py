@@ -3,7 +3,7 @@ from src_utils.queuebykey import SpecialQueue
 from typing import Union
 from Constants import Local
 
-MAX_ACTIVE_SHEETS = 2
+MAX_ACTIVE_SHEETS = 1
 
 
 def add_root(func):
@@ -20,7 +20,7 @@ class ExcelManager:
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super(ExcelManager, cls).__new__(cls)
-            cls._instance.app = xw.App(visible=False)
+            cls._instance.app = xw.App(visible=True)
             cls._instance.queue = SpecialQueue(MAX_ACTIVE_SHEETS)
             cls._instance.active_sheet = None
 

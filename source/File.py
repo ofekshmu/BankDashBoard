@@ -384,6 +384,11 @@ class File:
     def insert(self) -> bool:
         pass
 
+    @abstractmethod
+    def finilize(self) -> bool:
+        utils.commit_to_present_table(self.format_name)
+        return True
+
     @staticmethod
     def cell(row: int, col: int, sheet: Sheet) -> Union[str, None]:
         '''

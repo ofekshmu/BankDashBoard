@@ -1,8 +1,5 @@
 from Constants import Settings, Local
 import json
-import xlwings as xw
-from os.path import join
-from xlwings import Sheet
 from typing import Union
 from datetime import datetime
 import shutil
@@ -592,3 +589,122 @@ class utils:
 \t  Between formats."
 
         return True
+    
+    @staticmethod
+    def read_present_table() -> pd.DataFrame:
+        
+        from Configurations.Formats import Formats
+
+        dict = json.load(open(Local.PRESENT_JSON_PATH, encoding='utf-8'))
+        columns = Formats.FORMATS.keys()
+        indexes = dict.keys()
+        df = pd.DataFrame(index=indexes, columns=columns)
+        for date, sub_dict in dict.items():
+            for format_name, last_update in sub_dict.items():
+                df.at[date, format_name] = last_update
+        
+        return df
+
+    @staticmethod
+    def commit_to_present_table(format_name: str):
+        today = datetime.today()
+        mm_yy = today.strftime("%B, %Y")
+        full_date = today.strftime("%d-%m-%Y")
+        dict = json.load(open(Local.PRESENT_JSON_PATH, encoding='utf-8'))
+        
+        if mm_yy in dict:
+            sub_dict = dict[mm_yy]
+            if format_name in sub_dict:
+                sub_dict[format_name] = full_date
+
+        else:
+            dict[mm_yy] = {format_name: full_date}
+        
+        json.dump(dict, open(Local.PRESENT_JSON_PATH, "w", encoding='utf-8'))
+
+
+
+    @staticmethod
+    def create_html_with_colored_dates(df, output_file_path='output.html'):
+        # Define a Jinja2 template for the HTML
+
+        from jinja2 import Template
+        html_template = """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                table {
+                    border-collapse: collapse;
+                    width: 100%;
+                    overflow-x: auto; /* Enable horizontal scrolling for small screens */
+                }
+
+                th, td {
+                    border: 1px solid black;
+                    padding: 10px;
+                    text-align: center; /* Adjust text alignment */
+                    font-size: 14px; /* Adjust font size */
+                }
+
+                th {
+                    background-color: #f2f2f2; /* Header background color */
+                    font-weight: bold; /* Bold header text */
+                }
+
+                tr:nth-child(even) {
+                    background-color: #f9f9f9; /* Alternate row background color */
+                }
+
+                .date {
+                    background-color: #c2f0c2; /* Light green for date cells */
+                }
+
+                .plain {
+                    background-color: #ffb3b3; /* Light red for plain cells */
+                }
+            </style>
+        </head>
+        <body>
+            <h1 style="text-align: Center"> File Organizer</h1>
+            <table>
+                <thead>
+                    <tr>
+                        <th></th>
+                        {% for col in columns %}
+                            <th>{{ col }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for index, row in data.iterrows() %}
+                        <tr>
+                            <td>{{ index }}</td>
+                            {% for value in row %}
+                                <td {% if pd.isna(value) %}class="plain" {% else %}class="date"{% endif %}>
+                                    {{ value }}
+                                </td>
+                            {% endfor %}
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </body>
+        </html>
+        """
+        print(pd.isna("fsd"))
+        # Apply the template to create the HTML
+        template = Template(html_template)
+        rendered_html = template.render(data=df, columns=df.columns, pd=pd)
+
+        # Save the HTML to a file
+        with open(output_file_path, 'w') as html_file:
+            html_file.write(rendered_html)
+
+        # Open the HTML file in a web browser
+        import webbrowser
+        webbrowser.open(output_file_path)
+
+    # Example usage:
+    # Assuming df is your DataFrame
+    # create_html_with_colored_dates(df)

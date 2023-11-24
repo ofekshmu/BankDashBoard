@@ -48,6 +48,11 @@ class Context:
         if not self.file.insert():
             return False
         utils.log('Inserting...\tCompleted', "system")
+        
+        utils.log('Finilaizing...', "system")
+        if not self.file.finilize():
+            return False
+        utils.log('Finilizing...\tCompleted', "system")
 
         DataBase().commit_changes()
         utils.log('Changes Commited to data base.', 'system')

@@ -16,17 +16,10 @@ class Bank(File):
         self.data: table1 and table2 data in a 2d array
         self.date: the date specified in the file
         '''
-        valid_rows = super().parse()
-
-        match self.format_name:
-            case "BeinLeumi-Bank":
-                value = "Not implemanted"
-            case _:
-                (row, col) = self.adittional_data_field
-                value = ExcelManager().read_cell(row, col)
+        valid_rows, time_stamp = super().parse()
 
         DataBase().insert_file(self.name,
-                               value,
+                               time_stamp,
                                self.format_name,
                                -1,
                                valid_rows)

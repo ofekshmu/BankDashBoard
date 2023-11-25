@@ -223,7 +223,7 @@ class DataBase:
         Insert a new file to local DB.
         @date: date stated in excel file.
         '''
-        last_update = datetime.now()
+        last_update = datetime.now().strftime("%d-%m-%Y")
         self.cursor.execute(f"""
             INSERT INTO File(Name, Date, Description, New_Transactions, Transaction_count, Last_update)
             VALUES(?, ?, ?, ?, ?, ?)

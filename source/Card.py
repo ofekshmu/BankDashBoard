@@ -21,7 +21,7 @@ class Card(File):
         self.data: table data in a 2d array
         self.card_num: the card_num specified in the file
         """
-        valid_rows = super().parse()
+        valid_rows, time_stamp = super().parse()
 
         match self.format_name:
             case "American-Express":
@@ -56,7 +56,7 @@ class Card(File):
                             """, "error")
 
         DataBase().insert_file(self.name,
-                               value,
+                               time_stamp,
                                self.format_name,
                                -1,                    # Value is changed after the cleaning process
                                valid_rows)

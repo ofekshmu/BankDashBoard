@@ -618,6 +618,26 @@ class utils:
         return df
 
     @staticmethod
+    def read_present_tableV2():
+        
+        from database import DataBase
+
+        file_df = DataBase().get_file_table()
+        print()
+        #file_df["Last_update"] = file_df["Last_update"].apply(lambda x: x.strftime("%d/%m/%Y"))
+        columns = file_df['Description'].unique().tolist()
+        indexes = file_df['Date'].unique().tolist()
+        df = pd.DataFrame(index=indexes, columns=columns)
+        for _, row in file_df.iterrows():
+            print(type(row["Last_update"]))
+            last_update = row["Last_update"]
+            date = row["Date"]
+            format_name = row["Description"]
+            df.at[date, format_name] = last_update
+                
+        return df
+
+    @staticmethod
     def commit_to_present_table(format_name: str, file_date: str):
         today = datetime.today()
 

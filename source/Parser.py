@@ -168,7 +168,7 @@ class Parser():
                 case Identification_Method.CELL:
                     (location, value) = data["Identification data"]
                     extracted_value = ExcelManager().set_active_sheet(file_name)\
-                                                    .read_value(location)
+                                                    .read_cell(*location)
                     if extracted_value != value:
                         continue
                 case Identification_Method.HEADERS:

@@ -591,67 +591,32 @@ class utils:
         return True
     
     @staticmethod
-    def read_present_table() -> pd.DataFrame:
-        
-        from Configurations.Formats import Formats
-
-        # Specify the file path
-        file_path = Local.PRESENT_JSON_PATH
-
-        # Check if the file already exists
-        if not os.path.exists(file_path):
-            # Write the empty dictionary to a JSON file
-            with open(file_path, 'w') as json_file:
-                json.dump({}, json_file)
-            print(f"Empty dictionary has been written to {file_path}")
-
-
-
-        dict = json.load(open(file_path, encoding='utf-8'))
-        columns = Formats.FORMATS.keys()
-        indexes = dict.keys()
-        df = pd.DataFrame(index=indexes, columns=columns)
-        for date, sub_dict in dict.items():
-            for format_name, last_update in sub_dict.items():
-                df.at[date, format_name] = last_update
-        
-        return df
-
-    @staticmethod
-    def read_present_tableV2():
+    def read_present_table():
         
         from database import DataBase
+        from dateutil.relativedelta import relativedelta
 
         file_df = DataBase().get_file_table()
-        print()
-        #file_df["Last_update"] = file_df["Last_update"].apply(lambda x: x.strftime("%d/%m/%Y"))
-        columns = file_df['Description'].unique().tolist()
+
+        # Sort from earliest to latest
+        file_df.sort_values(by='Date', inplace=True)
+
+        # The following line, converts the column, from string value dates, to date object of the following format: example: "November, 2023"
+        # Because the date represent the Charge date of the transactions, one month is taken back to represent the month
+        # the trasnactions were taken in.
+        file_df['Date'] = file_df['Date'].apply(lambda x: (datetime.strptime(x, "%Y-%m-%d %H:%M:%S" )  - relativedelta(months=1)).strftime("%B, %Y"))
+        
         indexes = file_df['Date'].unique().tolist()
+        columns = file_df['Description'].unique().tolist()
+
         df = pd.DataFrame(index=indexes, columns=columns)
         for _, row in file_df.iterrows():
-            print(type(row["Last_update"]))
             last_update = row["Last_update"]
             date = row["Date"]
             format_name = row["Description"]
             df.at[date, format_name] = last_update
                 
         return df
-
-    @staticmethod
-    def commit_to_present_table(format_name: str, file_date: str):
-        today = datetime.today()
-
-        full_date = today.strftime("%d-%m-%Y")
-        dict = json.load(open(Local.PRESENT_JSON_PATH, encoding='utf-8'))
-        
-        if file_date in dict:
-            sub_dict = dict[file_date]
-            sub_dict[format_name] = full_date
-        else:
-            dict[file_date] = {format_name: full_date}
-        
-        json.dump(dict, open(Local.PRESENT_JSON_PATH, "w", encoding='utf-8'))
-
 
 
     @staticmethod

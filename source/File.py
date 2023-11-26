@@ -431,43 +431,6 @@ class File:
     def insert(self) -> bool:
         pass
 
-    @abstractmethod
-    def finilize(self) -> bool:
-        from Configurations.Formats import Location
-        from datetime import datetime
-        match self.time_stamp:
-            case Location.FILE_NAME_DATE:
-                date_str = self.name
-            case Location.INNER_CELL:
-                (r, c) = self.time_stamp_location  # TODO: These code line are being reapted, improve
-                date_str = ExcelManager().read_cell(r, c)
-            case _:
-                date_str = ""
-                utils.log('error', 'error')
-
-        import re
-        if date_str is None:
-            utils.log('date_st Adittional data field read from the file is None.', 'error')
-        pattern = re.compile(self.time_stamp_format)
-
-        if isinstance(date_str, datetime):
-            month_number = int(date_str.strftime("%m")) - 1
-            year_number = int(date_str.strftime("%Y"))
-            month_name = datetime.strptime(str(month_number), "%m").strftime("%B")
-        else:
-            res = re.search(pattern, date_str)
-
-            if res:
-                month_number = int(res.group(1)) - 1
-                year_number = int(res.group(2))
-                month_name = datetime.strptime(str(month_number), "%m").strftime("%B")
-            else:
-                utils.log('error', 'error')
-        
-
-        utils.commit_to_present_table(self.format_name, file_date=f"{month_name}, {year_number}")
-        return True
-
     # @staticmethod
     # def cell(row: int, col: int, sheet: Sheet) -> Union[str, None]:
     #     '''

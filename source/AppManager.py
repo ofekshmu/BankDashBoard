@@ -23,9 +23,8 @@ class AppManager:
             utils.log(res, 'error')
         else:
             utils.log(f'Format validation result: {res}', 'system')
-        df = utils.read_present_tableV2()
-        # print(df.to_markdown())
-        # df = utils.read_present_table()
+        
+        df = utils.read_present_table()
         utils.create_html_with_colored_dates(df)
         self.parser = Parser()
 

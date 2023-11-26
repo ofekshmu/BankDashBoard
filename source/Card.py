@@ -87,7 +87,7 @@ class Card(File):
                                                        Extra_Info=f"Trans type: {row[4]} | \
                                                                     Method: {row[14]} | \
                                                                     Notes: {row[10]}")
-                case "Isra-Card":
+                case "Isra-Card 2922":
                     (r, c) = self.adittional_data_field  # TODO: These code line are being reapted, improve
                     value = ExcelManager().read_cell(r, c)
                     if value is None:
@@ -105,7 +105,7 @@ class Card(File):
                                                        Value_Currency=row[5],
                                                        Extra_Info=f"Serial: {row[6]} | Info: ({row[7]})")
 
-                case "American-Express":
+                case "American-Express 1565":
                     (r, c) = self.adittional_data_field  # TODO: These code line are being reapted, improve
                     value = ExcelManager().read_cell(r, c)
                     if value is None:
@@ -155,7 +155,7 @@ class Card(File):
 
         for row in self.table_2:
             match self.format_name:
-                case "Isra-Card":
+                case "Isra-Card 2922":
 
                     DataBase().insert_card_transaction(CardID=self.card_number,
                                                        Name=row[2],
@@ -180,7 +180,7 @@ class Card(File):
                                                        Value_Currency=row[6],
                                                        Extra_Info=f"Type: {row[7]} | Note: None")
                 
-                case "American-Express":
+                case "American-Express 1565":
 
                     DataBase().insert_card_transaction(CardID=self.card_number,
                                                        Name=row[2],

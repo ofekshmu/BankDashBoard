@@ -66,19 +66,6 @@ class File:
             utils.log(str(e), category='debug')
             return False
 
-    # @abstractmethod
-    # def validate_bank_number(self) -> bool:
-    #     '''
-    #     The function validates the Bank account specified in the file.
-    #     The cell indicating the number is specified trough the Constants.py
-    #     '''
-    #     if self.bank_num_loc is None:
-    #         return True
-    #     value = self.sheet[self.bank_num_loc].value
-    #     if Personal.BANK_ACC in value:
-    #         return True
-    #     return False
-
     def validate_headers(self) -> bool:
         '''
         The function validates the table headers in the file.
@@ -145,6 +132,38 @@ class File:
                     utils.log("Code Has been interrupted by the user", "error")
 
         return True
+    
+        def look_for_headers(header_lst: list, header_row_idx: int, err: int = 2) -> Tuple[bool, int]:
+            
+            # determine lower bound for error radius
+            temp = header_row_idx - err
+            lower_bound = 1 if temp < 1 else temp
+
+            for row in range(lower_bound, header_row_idx + err):
+                for i in range(0, 3):   # error in col selection TODO: improve impl
+                    valid = True
+                    col = i
+                    for name in header_lst:
+                        utils.log(f'(FILE/Validate_headers) row number = {row}, col = {col}, name = {name[::-1]}', 'debug')
+                        if ExcelManager().read_cell(row, col) != name:
+                            valid = False
+                            break
+                        col += 1
+                    if valid:
+                        if row != header_row_idx:
+                            utils.log(f"Headers were found at line {row}, Not in {self.header_row_idx} as specified\nIndex updated.", "warning")
+                            header_row_idx = row
+                        break
+                if valid:
+                    break
+
+            return valid, header_row_idx          
+        # Check first header with as initial
+
+        # if exists
+            # check second header as secondary
+        # else check second header as first
+
 
     @abstractmethod
     def parse(self) -> Tuple[int, datetime]:

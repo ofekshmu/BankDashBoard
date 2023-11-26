@@ -157,12 +157,45 @@ class File:
                 if valid:
                     break
 
-            return valid, header_row_idx          
-        # Check first header with as initial
+            return valid, header_row_idx    
 
-        # if exists
-            # check second header as secondary
-        # else check second header as first
+        headers_are_valid, new_header_row_idx = look_for_headers(self.headers, self.header_row_idx)
+        if headers_are_valid:
+            utils.log(f"Initial Headers are Valid.", "system")
+            if new_header_row_idx != self.header_row_idx:
+                self.header_row_idx = new_header_row_idx
+                utils.log(f"Header row idx was updated to {new_header_row_idx}", "system")
+        else:
+            utils.log(f"Initial table Headers were not found...", "system")
+        
+        if not self.double_tables and headers_are_valid:
+            return True
+
+        if self.double_tables:
+            if headers_are_valid:
+                secondary_headers_are_valid, new_sec_header_row_idx = look_for_headers(self.secondary_headers, self.secondary_headers_row_idx)
+                if secondary_headers_are_valid:
+                    utils.log(f"Secondary Headers are Valid.", "system")
+                    if new_sec_header_row_idx != self.secondary_headers_row_idx:
+                        self.secondary_headers_row_idx = new_sec_header_row_idx
+                        utils.log(f"Secondary Header row idx was updated to {new_sec_header_row_idx}", "system")
+                else:
+                    utils.log(f"Secondary Headers were not found...", "system")
+                return True
+            else:   # Initial headers are not valid, than check the second table as first.
+
+                secondary_headers_are_valid, new_sec_header_row_idx = look_for_headers(self.secondary_headers, self.header_row_idx)
+                if secondary_headers_are_valid:
+                    utils.log(f"Secondary Headers are Valid as initial table.", "system")
+                    if new_sec_header_row_idx != self.secondary_headers_row_idx:
+                        self.secondary_headers_row_idx = new_sec_header_row_idx
+                        utils.log(f"Secondary Header row idx was updated to {new_sec_header_row_idx}", "system")
+                    return True
+                else:
+                    utils.log(f"Secondary Headers are Invalid as Initial Headers.", "system")
+            
+        utils.log(f"Error Validating Headers... for file {self.name} ({self.format_name})", 'system')
+        return False
 
 
     @abstractmethod

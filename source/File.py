@@ -71,25 +71,29 @@ class File:
         The function validates the table headers in the file.
         The values of the headers and the initial row are given in the Constants.py.
         '''
-        # Looks for the headers in a @err area of the given estimated
-        err = 2
-        temp = self.header_row_idx - err
-        lower_bound = 1 if temp < 1 else temp
-        for row in range(lower_bound, self.header_row_idx + err):
-            for i in range(0, 3):   # error in col selection TODO: improve impl
-                valid = True
-                col = i
-                for name in self.headers:
-                    utils.log(f'(FILE/Validate_headers) row number = {row}, col = {col}, name = {name[::-1]}', 'debug')
-                    value = ExcelManager().read_cell(row, col)
-                    if not value == name:
-                        valid = False
+        header_options = [self.headers, self.secondary_headers]
+        for headers in header_options:
+            # Looks for the headers in a @err area of the given estimated
+            err = 2
+            temp = self.header_row_idx - err
+            lower_bound = 1 if temp < 1 else temp
+            for row in range(lower_bound, self.header_row_idx + err):
+                for i in range(0, 3):   # error in col selection TODO: improve impl
+                    valid = True
+                    col = i
+                    for name in headers:
+                        utils.log(f'(FILE/Validate_headers) row number = {row}, col = {col}, name = {name[::-1]}', 'debug')
+                        value = ExcelManager().read_cell(row, col)
+                        if value != name:
+                            valid = False
+                            break
+                        col += 1
+                    if valid:
+                        if row != self.header_row_idx:
+                            utils.log(f"Headers were found at line {row}, Not in {self.header_row_idx} as specified\nIndex updated.", "warning")
+                            self.header_row_idx = row
                         break
-                    col += 1
                 if valid:
-                    if row != self.header_row_idx:
-                        utils.log(f"Headers were found at line {row}, Not in {self.header_row_idx} as specified\nIndex updated.", "warning")
-                        self.header_row_idx = row
                     break
             if valid:
                 break
@@ -133,10 +137,15 @@ class File:
 
         return True
     
-        def look_for_headers(header_lst: list, header_row_idx: int, err: int = 2) -> Tuple[bool, int]:
+        def look_for_headers(header_lst: list, header_row_idx: int = -1, err: int = 2) -> Tuple[bool, int]:
             
+            if header_row_idx < 0:
+                tries_left = 100
+                while tries_left:
+
+
             # determine lower bound for error radius
-            temp = header_row_idx - err
+            temp = header_row_idx + 1 - err
             lower_bound = 1 if temp < 1 else temp
 
             for row in range(lower_bound, header_row_idx + err):

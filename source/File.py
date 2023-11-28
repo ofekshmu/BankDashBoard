@@ -71,6 +71,7 @@ class File:
         The function validates the table headers in the file.
         The values of the headers and the initial row are given in the Constants.py.
         '''
+        valid = False   
         header_options = [self.headers, self.secondary_headers]
         for headers in header_options:
             # Looks for the headers in a @err area of the given estimated
@@ -99,8 +100,17 @@ class File:
                 break
 
         if not valid:
-            utils.log(f"Headers Do not match... Please check the file, format and/or code.", "system")
-            return False
+            res = utils.template_menu(['Its Ok, the file is Empty. Mark it as Empty.', 'Skip File.', 'Break code.'],
+                                      f'No Headers were found at the given initial index (err used = {err}), What do you want to do?')
+            match res:
+                case 0:
+                    utils.log("Option not implemanted, skipping the file...", 'system')    # TODO
+                    return False
+                case 1:
+                    return False
+                case 2:
+                    exit()
+
         else:
             utils.log("Initial headers match!", "system")
 
@@ -126,85 +136,80 @@ class File:
                 tries_left -= 1
                 extracted_secondary_headers = ExcelManager().read_sheet(row_idx, 1, col_idx, len(self.secondary_headers))
 
-            res = utils.template_menu(['Yes', 'No'],
-                                      'Secondary Table was not found in file, Continue?')
-            match res:
-                case 0:
-                    self.double_tables = False
-                    return True
-                case 1:
-                    utils.log("Code Has been interrupted by the user", "error")
+            utils.log("Secondary Table was not found, Continuing...", "error")
+            self.double_tables = False
+
 
         return True
     
-        def look_for_headers(header_lst: list, header_row_idx: int = -1, err: int = 2) -> Tuple[bool, int]:
+        # def look_for_headers(header_lst: list, header_row_idx: int = -1, err: int = 2) -> Tuple[bool, int]:
             
-            if header_row_idx < 0:
-                tries_left = 100
-                while tries_left:
+        #     if header_row_idx < 0:
+        #         tries_left = 100
+        #         while tries_left:
+        #             pass
 
+        #     # determine lower bound for error radius
+        #     temp = header_row_idx + 1 - err
+        #     lower_bound = 1 if temp < 1 else temp
 
-            # determine lower bound for error radius
-            temp = header_row_idx + 1 - err
-            lower_bound = 1 if temp < 1 else temp
+        #     for row in range(lower_bound, header_row_idx + err):
+        #         for i in range(0, 3):   # error in col selection TODO: improve impl
+        #             valid = True
+        #             col = i
+        #             for name in header_lst:
+        #                 utils.log(f'(FILE/Validate_headers) row number = {row}, col = {col}, name = {name[::-1]}', 'debug')
+        #                 if ExcelManager().read_cell(row, col) != name:
+        #                     valid = False
+        #                     break
+        #                 col += 1
+        #             if valid:
+        #                 if row != header_row_idx:
+        #                     utils.log(f"Headers were found at line {row}, Not in {self.header_row_idx} as specified\nIndex updated.", "warning")
+        #                     header_row_idx = row
+        #                 break
+        #         if valid:
+        #             break
 
-            for row in range(lower_bound, header_row_idx + err):
-                for i in range(0, 3):   # error in col selection TODO: improve impl
-                    valid = True
-                    col = i
-                    for name in header_lst:
-                        utils.log(f'(FILE/Validate_headers) row number = {row}, col = {col}, name = {name[::-1]}', 'debug')
-                        if ExcelManager().read_cell(row, col) != name:
-                            valid = False
-                            break
-                        col += 1
-                    if valid:
-                        if row != header_row_idx:
-                            utils.log(f"Headers were found at line {row}, Not in {self.header_row_idx} as specified\nIndex updated.", "warning")
-                            header_row_idx = row
-                        break
-                if valid:
-                    break
+        #     return valid, header_row_idx    
 
-            return valid, header_row_idx    
-
-        headers_are_valid, new_header_row_idx = look_for_headers(self.headers, self.header_row_idx)
-        if headers_are_valid:
-            utils.log(f"Initial Headers are Valid.", "system")
-            if new_header_row_idx != self.header_row_idx:
-                self.header_row_idx = new_header_row_idx
-                utils.log(f"Header row idx was updated to {new_header_row_idx}", "system")
-        else:
-            utils.log(f"Initial table Headers were not found...", "system")
+        # headers_are_valid, new_header_row_idx = look_for_headers(self.headers, self.header_row_idx)
+        # if headers_are_valid:
+        #     utils.log(f"Initial Headers are Valid.", "system")
+        #     if new_header_row_idx != self.header_row_idx:
+        #         self.header_row_idx = new_header_row_idx
+        #         utils.log(f"Header row idx was updated to {new_header_row_idx}", "system")
+        # else:
+        #     utils.log(f"Initial table Headers were not found...", "system")
         
-        if not self.double_tables and headers_are_valid:
-            return True
+        # if not self.double_tables and headers_are_valid:
+        #     return True
 
-        if self.double_tables:
-            if headers_are_valid:
-                secondary_headers_are_valid, new_sec_header_row_idx = look_for_headers(self.secondary_headers, self.secondary_headers_row_idx)
-                if secondary_headers_are_valid:
-                    utils.log(f"Secondary Headers are Valid.", "system")
-                    if new_sec_header_row_idx != self.secondary_headers_row_idx:
-                        self.secondary_headers_row_idx = new_sec_header_row_idx
-                        utils.log(f"Secondary Header row idx was updated to {new_sec_header_row_idx}", "system")
-                else:
-                    utils.log(f"Secondary Headers were not found...", "system")
-                return True
-            else:   # Initial headers are not valid, than check the second table as first.
+        # if self.double_tables:
+        #     if headers_are_valid:
+        #         secondary_headers_are_valid, new_sec_header_row_idx = look_for_headers(self.secondary_headers, self.secondary_headers_row_idx)
+        #         if secondary_headers_are_valid:
+        #             utils.log(f"Secondary Headers are Valid.", "system")
+        #             if new_sec_header_row_idx != self.secondary_headers_row_idx:
+        #                 self.secondary_headers_row_idx = new_sec_header_row_idx
+        #                 utils.log(f"Secondary Header row idx was updated to {new_sec_header_row_idx}", "system")
+        #         else:
+        #             utils.log(f"Secondary Headers were not found...", "system")
+        #         return True
+        #     else:   # Initial headers are not valid, than check the second table as first.
 
-                secondary_headers_are_valid, new_sec_header_row_idx = look_for_headers(self.secondary_headers, self.header_row_idx)
-                if secondary_headers_are_valid:
-                    utils.log(f"Secondary Headers are Valid as initial table.", "system")
-                    if new_sec_header_row_idx != self.secondary_headers_row_idx:
-                        self.secondary_headers_row_idx = new_sec_header_row_idx
-                        utils.log(f"Secondary Header row idx was updated to {new_sec_header_row_idx}", "system")
-                    return True
-                else:
-                    utils.log(f"Secondary Headers are Invalid as Initial Headers.", "system")
+        #         secondary_headers_are_valid, new_sec_header_row_idx = look_for_headers(self.secondary_headers, self.header_row_idx)
+        #         if secondary_headers_are_valid:
+        #             utils.log(f"Secondary Headers are Valid as initial table.", "system")
+        #             if new_sec_header_row_idx != self.secondary_headers_row_idx:
+        #                 self.secondary_headers_row_idx = new_sec_header_row_idx
+        #                 utils.log(f"Secondary Header row idx was updated to {new_sec_header_row_idx}", "system")
+        #             return True
+        #         else:
+        #             utils.log(f"Secondary Headers are Invalid as Initial Headers.", "system")
             
-        utils.log(f"Error Validating Headers... for file {self.name} ({self.format_name})", 'system')
-        return False
+        # utils.log(f"Error Validating Headers... for file {self.name} ({self.format_name})", 'system')
+        # return False
 
 
     @abstractmethod

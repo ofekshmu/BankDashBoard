@@ -157,7 +157,7 @@ class SimpleMath:
         """
 
         df = pd.DataFrame(data, columns=columns)
-
+        # print(df.to_markdown())
         def my_lambda(row):
             """
             The function returns the Actual value describing the given transactions.
@@ -180,8 +180,7 @@ class SimpleMath:
                     try:
                         cond_Credit_payback = row['Out/Transaction_value']*row['Income/Charge_Value'] < 0
                     except Exception as e:
-                        print(row['Out/Transaction_value'], row['Income/Charge_Value'])
-                        raise ValueError()
+                        utils.log(f"Error: {e}\nValue 1: {row['Out/Transaction_value']}\nValue 2: {row['Income/Charge_Value']}", "error")
                     if cond_payments or cond_Credit_payback:
                         return abs(min(row['Income/Charge_Value'], row['Out/Transaction_value']))
 

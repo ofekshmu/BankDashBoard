@@ -44,6 +44,7 @@ class File:
 
         self.table_1 = []
         self.table_2 = []
+        self.flip_table_location = False
 
         # try:
         #     wb = xw.Book(join(Local.INPUT_FOLDER, self.name))
@@ -73,7 +74,7 @@ class File:
         '''
         valid = False   
         header_options = [self.headers, self.secondary_headers]
-        for headers in header_options:
+        for index, headers in enumerate(header_options):
             # Looks for the headers in a @err area of the given estimated
             err = 2
             temp = self.header_row_idx - err
@@ -97,6 +98,8 @@ class File:
                 if valid:
                     break
             if valid:
+                if index == 1:
+                    self.flip_table_location = True
                 break
 
         if not valid:
@@ -136,7 +139,7 @@ class File:
                 tries_left -= 1
                 extracted_secondary_headers = ExcelManager().read_sheet(row_idx, 1, col_idx, len(self.secondary_headers))
 
-            utils.log("Secondary Table was not found, Continuing...", "error")
+            utils.log("Secondary Table was not found, Continuing...", "system")
             self.double_tables = False
 
 
@@ -409,6 +412,8 @@ class File:
         # -----------------------------------------------------------------
         current_tables = DataBase().get_table_Meta(self.name)
         self.table_1, self.table_2 = read_and_merge(current_tables)
+        if self.flip_table_location:
+            self.table_1, self.table_2 = self.table_2, self.table_1
         self.counter = len(self.table_1) + len(self.table_2)
         DataBase().set_new_trans_count(self.name, self.counter)
 

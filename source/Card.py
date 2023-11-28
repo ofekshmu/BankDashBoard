@@ -113,15 +113,15 @@ class Card(File):
                         return False
 
                     DataBase().insert_card_transaction(CardID="1565",
-                                                       Name=row[2],
+                                                       Name=row[1],
                                                        Executed_Date=utils.date_ready(row[0]),
                                                        Charge_Date=utils.date_ready(value),
-                                                       Charge_Value=row[3],
+                                                       Charge_Value=row[2],
                                                        Source_file=self.name,
-                                                       Charge_Currency=row[4],
-                                                       Transaction_Value=row[5],
-                                                       Value_Currency=row[6],
-                                                       Extra_Info=f"Note: None")
+                                                       Charge_Currency=row[3],
+                                                       Transaction_Value=row[4],
+                                                       Value_Currency=row[5],
+                                                       Extra_Info=f"Serial: {row[6]} | Info: ({row[7]})")
 
                 case "Leumi-Card6744":
 

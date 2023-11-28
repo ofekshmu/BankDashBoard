@@ -24,8 +24,6 @@ class AppManager:
         else:
             utils.log(f'Format validation result: {res}', 'system')
         
-        df = utils.read_present_table()
-        utils.create_html_with_colored_dates(df)
         self.parser = Parser()
 
     def menu(self):
@@ -40,7 +38,8 @@ class AppManager:
                     4. Validate
                     5. Update existing file
                     6. Execute SQL query on db
-                    7. Exit
+                    7. Open File Organizer
+                    8. Exit
                 """)
             answer = input()
             answer = -1 if not answer.isdigit() else int(answer)
@@ -60,6 +59,9 @@ class AppManager:
                 case 6:
                     self.execute_sql()
                 case 7:
+                    df = utils.read_present_table()
+                    utils.create_html_with_colored_dates(df)
+                case 8:
                     break
                 case _:
                     print("Please insert a valid number.")

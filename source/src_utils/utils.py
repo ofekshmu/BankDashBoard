@@ -687,7 +687,6 @@ class utils:
         </body>
         </html>
         """
-        print(pd.isna("fsd"))
         # Apply the template to create the HTML
         template = Template(html_template)
         rendered_html = template.render(data=df, columns=df.columns, pd=pd)
@@ -699,7 +698,3 @@ class utils:
         # Open the HTML file in a web browser
         import webbrowser
         webbrowser.open(output_file_path)
-
-    # Example usage:
-    # Assuming df is your DataFrame
-    # create_html_with_colored_dates(df)

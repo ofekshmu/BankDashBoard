@@ -387,7 +387,7 @@ class File:
 
                 if meta_0["Bad_rows"] != '':
                     bad_indexes = [int(num) for num in meta_0["Bad_rows"].strip().split(',')]
-                    table_0 = [table_0[i] for i in range(len(table_1)) if i not in bad_indexes]
+                    table_0 = [table_0[i] for i in range(len(table_0)) if i not in bad_indexes]
                     
                 return table_0, table_1
             else:

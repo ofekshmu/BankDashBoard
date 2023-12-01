@@ -279,7 +279,7 @@ class utils:
             outf.write(bs4.BeautifulSoup.prettify(soup))
 
     @staticmethod
-    def template_menu(options: list[str], msg: str = "Choose one of the following:\n"):
+    def template_menu(options: list[str], msg: str = "Choose one of the following:\n", sort: bool = False):
         """
         The function creates a template menu that is printed out for the user.
         Inputs are @options - a list of strings containing different options.
@@ -287,6 +287,9 @@ class utils:
         return a numbers from 0 to len(options) - 1 representing the chosen option.
         if input does not match a valid option, the function asks for a valid one.
         """
+        if sort:
+            options = sorted(options)
+
         utils.log(msg + '\n', 'system')
         utils.pretty_print([f"{str(i) + ' -> ':6s}{utils.heb_conversion(x)}" for i, x in enumerate(options, start=0)])
 
@@ -306,6 +309,7 @@ class utils:
         """
         # utils.log("Choose one of the existsing categories:")
         cat_lst = json.load(open(Local.CATE_JSON_PATH, encoding='utf-8'))
+        cat_lst = sorted(cat_lst)
         options = cat_lst + ["Create a new category", "Skip"]
         # ----------- Input category and description -------------
         st = "Please insert your selection and description in the following format:\n*Number* - *Description*" + '\n'

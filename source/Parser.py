@@ -65,8 +65,8 @@ class Parser():
 
         for root, temp, files in os.walk(Local.INPUT_FOLDER):
             for name in files:
-                name = root + "\\" + name
-                name = name[len(Local.INPUT_FOLDER) + 1:]
+                # name = root + "\\" + name
+                # name = name[len(Local.INPUT_FOLDER) + 1:]
                 # If file name is present in database:
                 # Extract sortion key
                 # handle name list for such files.
@@ -167,7 +167,7 @@ class Parser():
                         continue
                 case Identification_Method.CELL:
                     (location, value) = data["Identification data"]
-                    extracted_value = ExcelManager().set_active_sheet(file_name)\
+                    extracted_value = ExcelManager().set_active_sheet(Local.INPUT_FOLDER + "\\" + file_name)\
                                                     .read_cell(*location)
                     if extracted_value != value:
                         continue

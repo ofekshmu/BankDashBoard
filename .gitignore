@@ -19,6 +19,7 @@ Inputs Yuval
 Inputs_testing
 *.db-journal
 ofeks_inputs
-
+Backup
+Verified_Inputs
 venv_pc
 inputs01

@@ -366,7 +366,7 @@ class utils:
         The function validates the table headers in the file.
         The values of the headers and the initial row are given in the Constants.py.
         '''
-        em = ExcelManager().set_active_sheet(file_name)
+        em = ExcelManager().set_active_sheet(Local.INPUT_FOLDER + "\\" + file_name)
 
         valid = True
         col = 0
@@ -414,7 +414,7 @@ class utils:
         return value
 
     @staticmethod
-    def move_file_to_directory(file_path, destination_directory):
+    def move_file_to_directory(file_path, destination_directory, create_dst: bool = True):
         try:
             # Check if the file exists
             if not os.path.isfile(file_path):
@@ -423,6 +423,11 @@ class utils:
             # Get the base name of the file (the file name without the directory path)
             file_name = os.path.basename(file_path)
 
+            if create_dst and not os.path.exists(destination_directory):
+                utils.log(f"New directory made: {destination_directory}", "system")
+                os.makedirs(destination_directory)
+
+            ExcelManager().close_and_kill_excel()
             # Join the destination directory path with the file name to get the new file path
             new_file_path = os.path.join(destination_directory, file_name)
 

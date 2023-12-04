@@ -1,6 +1,6 @@
 from abc import abstractmethod
 from src_utils.utils import utils
-from xlwings import Sheet
+from Constants import Local
 from typing import Union
 from database import DataBase
 from src_utils.ExcelReader import ExcelManager
@@ -61,7 +61,7 @@ class File:
         file_name: a string indicating the name of the file
         '''
         try:
-            ExcelManager().set_active_sheet(self.name)
+            ExcelManager().set_active_sheet(Local.INPUT_FOLDER + "\\" + self.name)
             return True
         except Exception as e:
             utils.log(str(e), category='debug')
@@ -356,16 +356,16 @@ class File:
                 else:
                     return i, row
 
-        def read_and_merge(meta_data: list[dict]):
+        def read_and_merge(meta_data: list[dict], root: str):
             if self.double_tables:
                 [meta_0, meta_1] = meta_data
 
-                table_0 = ExcelManager().set_active_sheet(meta_0['source_file'])\
+                table_0 = ExcelManager().set_active_sheet(root + "\\" + meta_0['source_file'])\
                                         .read_sheet(meta_0['Initial_index'],
                                                     meta_0['Row_count'],
                                                     meta_0['Initial_col'],
                                                     len(self.headers))
-                table_1 = ExcelManager().set_active_sheet(meta_1['source_file'])\
+                table_1 = ExcelManager().set_active_sheet(root + "\\" + meta_1['source_file'])\
                                         .read_sheet(meta_1['Initial_index'],
                                                     meta_1['Row_count'],
                                                     meta_1['Initial_col'],
@@ -392,7 +392,7 @@ class File:
                 return table_0, table_1
             else:
                 [meta_data] = meta_data
-                table = ExcelManager().set_active_sheet(meta_data['source_file'])\
+                table = ExcelManager().set_active_sheet(root + "\\" + meta_data['source_file'])\
                                       .read_sheet(meta_data['Initial_index'],
                                                   meta_data['Row_count'],
                                                   meta_data['Initial_col'],
@@ -411,7 +411,7 @@ class File:
         #                      Function's main starts here
         # -----------------------------------------------------------------
         current_tables = DataBase().get_table_Meta(self.name)
-        self.table_1, self.table_2 = read_and_merge(current_tables)
+        self.table_1, self.table_2 = read_and_merge(current_tables, root=Local.INPUT_FOLDER)
         if self.flip_table_location:
             self.table_1, self.table_2 = self.table_2, self.table_1
         self.counter = len(self.table_1) + len(self.table_2)
@@ -433,7 +433,9 @@ class File:
             return True
 
         recent_tables = DataBase().get_table_Meta(recent_file_name)
-        recent_table_1, recent_table_2 = read_and_merge(recent_tables)
+
+        # recent tables are extacted from files which have been verified, therefore, located in a different root folder.
+        recent_table_1, recent_table_2 = read_and_merge(recent_tables, root=Local.VERIFIED_FOLDER + "\\" + self.format_name)
 
         def compare_tables(recent_table, current_table) -> list:
             """
@@ -512,6 +514,9 @@ class File:
     #     else:
     #         utils.log(f"Invalid indexes -> ({row}, {col})", "error")
     #         return ""
+
+    def get_info(self) -> Tuple[str, str]:
+        return self.name, self.format_name
 
     def __str__(self):
         return f"\t -> GenericFileClass"

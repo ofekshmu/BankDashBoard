@@ -6,23 +6,24 @@ from Constants import Local
 MAX_ACTIVE_SHEETS = 1
 
 
-def add_root(func):
-    def wrapper(self, input_str):
-        modified_input = Local.INPUT_FOLDER + "\\" + input_str
-        result = func(self, modified_input)
-        return result
-    return wrapper
+# def add_root(func):
+#     def wrapper(self, input_str):
+#         modified_input = Local.INPUT_FOLDER + "\\" + input_str
+#         result = func(self, modified_input)
+#         return result
+#     return wrapper
 
 
 class ExcelManager:
     _instance = None
 
     def __new__(cls):
-        if cls._instance is None:
+        if cls._instance is None or ExcelManager.dead:
             cls._instance = super(ExcelManager, cls).__new__(cls)
-            cls._instance.app = xw.App(visible=True)
+            cls._instance.app = xw.App(add_book=False, visible=False)
             cls._instance.queue = SpecialQueue(MAX_ACTIVE_SHEETS)
             cls._instance.active_sheet = None
+            cls.dead = False
 
         return cls._instance
 
@@ -38,7 +39,7 @@ class ExcelManager:
         except Exception as e:
             raise ValueError(f"Error opening file or sheet: {str(e)}")
 
-    @add_root
+    #@add_root
     def set_active_sheet(self, file_path):
         """
         The function changes the currently active sheet. An active sheet is a sheet which all actions are conducted
@@ -63,7 +64,10 @@ class ExcelManager:
         if self.active_sheet is not None:
             self.active_sheet.book.close()
             self.app.quit()
+            self.app.kill()
             self.active_sheet = None
+            self._instance = None
+            ExcelManager.dead = True
 
     def read_sheet(self, row_idx: int, row_count: int, col_idx: int, col_count: int) -> list:
         """

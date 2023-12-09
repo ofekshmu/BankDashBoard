@@ -54,10 +54,6 @@ class utils:
         #     utils.warning_halt()
 
     @staticmethod
-    def validate_formats():
-        utils.log(f"Formats are not being validated...", "warning")
-
-    @staticmethod
     def name_he(name: str):
         try:
             i = name[::-1].index(' ')
@@ -515,6 +511,25 @@ class utils:
         formats = Formats.FORMATS
         utils.log(f'Total number of formats: {len(formats)}', 'debug')
 
+        def check_multiple(key: str, secondary_key) -> list:
+            lst = []
+            for format_name_i, format_data_i in formats.items():
+                for format_name_j, format_data_j in formats.items():
+                    if format_name_i == format_name_j:
+                        continue
+                    if format_data_i[key] == format_data_j[key]:
+                        lst.append((format_name_i, format_name_j))
+            
+            res = []
+            for tup in lst:
+                format_1 = tup[0]
+                format_2 = tup[1]
+                if formats[format_1][secondary_key] == Identification_Method.HEADERS or \
+                    formats[format_2][secondary_key] == Identification_Method.HEADERS:
+                    res.append(tup)
+            
+            return res
+
         for format_key, format_data in tqdm(formats.items(), desc=f"{'Validating formats: Overall info':42s}", unit="formats"):
             if format_key != format_data['Format Name']:
                 return f"Format name missmatch for {format_key}"
@@ -596,6 +611,16 @@ class utils:
                         return f"「{format_name_i}」 and 「{format_name_j}」has identical identification system\n\
 \t  Make sure that the the following keys: 'Identification method', 'Identification data', 'Headers' are unique\
 \t  Between formats."
+
+        tuple_lst = check_multiple("Headers", "Identification method")
+        st = ""
+        for tup in tuple_lst:
+            st += f"[LOGIC ERROR]: The following formats: {tup[0]} and {tup[1]} Have the same 'Headers',\n\
+Therefore, they cannot be identified by them. \
+Please Make sure that none of the following formats have their 'Identifications Method' set to 'IdentificationsMethod.Header'.\n"
+        
+        if tuple_lst != []:
+            return st
 
         return True
     

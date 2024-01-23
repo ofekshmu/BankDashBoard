@@ -50,7 +50,7 @@ class Context:
         utils.log('Inserting...\tCompleted', "system")
 
         file_name, format_name = self.file.get_info()
-        utils.move_file_to_directory(file_path=f"Inputs01/{file_name}",
+        utils.move_file_to_directory(file_path=f"{Local.INPUT_FOLDER}/{file_name}",
                                     destination_directory=f"{Local.VERIFIED_FOLDER}//{format_name}")
     
         DataBase().commit_changes()

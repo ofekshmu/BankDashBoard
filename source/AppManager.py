@@ -357,7 +357,7 @@ class AppManager:
                     else:
                         utils.log('ignored...', 'system')
 
-        utils.log(cards_df[['CardID', 'Final_Value', 'Status']].to_markdown())
+        # utils.log(cards_df[['CardID', 'Final_Value', 'Status']].to_markdown())
         # ---------------------------------------------------------
 
         monthly_balance = DataBase().get_latest_Balance()

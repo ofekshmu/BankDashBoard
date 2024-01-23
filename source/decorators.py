@@ -1,6 +1,24 @@
 from enum import Enum
 
 
+def error_handler(default_return=None):
+    """
+    A Python decorator that improves the reliability of functions by handling errors gracefully.
+    It provides a controlled way to manage exceptions during execution,
+    preventing abrupt program termination and promoting more predictable behavior.
+    """
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            try:
+                result = func(*args, **kwargs)
+                return result
+            except Exception as e:
+                print(f"An error occurred: {e}")
+                return default_return
+
+        return wrapper
+    return decorator
+
 def try_catch(function):
     '''
     This decorator add a try-except wrapper to the appointed function.

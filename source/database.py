@@ -3,11 +3,10 @@ from datetime import datetime
 import pandas as pd
 
 # local imports
-from decorators import try_catch
+from decorators import try_catch, error_handler
 from src_utils.utils import utils
 from Constants import Local
 from typing import Tuple
-
 
 class DataBase:
 
@@ -316,7 +315,7 @@ class DataBase:
                                     FROM CardTransactions
                                     WHERE source_file = ?""", (file_name,)).fetchall()
         return lst1 + lst2
-
+    
     def get_table_stats(self, file_name: str):
         """
         Return a list of the table stats of the @file_name
@@ -326,7 +325,8 @@ class DataBase:
                                     From File
                                     WHERE Name = ?
                                     """, (file_name,)).fetchall()[0]
-
+    
+    @error_handler(default_return=-99999)
     def get_latest_Balance(self) -> int:
         """
 

@@ -23,20 +23,20 @@ class Card(File):
         """
         valid_rows, time_stamp = super().parse()
         
-        def is_updated_file():
-            """
-            Upon reading a new file, the function will check if a different file,
-            for the same format and the same month has allready been parsed, if so,
-            the function will propose to update the old file with the current one.
-            This feature is only relevant for card files.
-            """
-            file_df = DataBase().get_file_table()
-            condition_mask = (file_df['Date'].dt.month == time_stamp.month) & (file_df['Description'] == self.format_name)
-            return any(condition_mask)
+        # def is_updated_file():
+        #     """
+        #     Upon reading a new file, the function will check if a different file,
+        #     for the same format and the same month has allready been parsed, if so,
+        #     the function will propose to update the old file with the current one.
+        #     This feature is only relevant for card files.
+        #     """
+        #     file_df = DataBase().get_file_table()
+        #     condition_mask = (file_df['Date'].dt.month == time_stamp.month) & (file_df['Description'] == self.format_name)
+        #     return any(condition_mask)
 
-        if is_updated_file():
-            utils.log(f"File name {self.name} should be updated, not newly parsed.The format {self.format_name} is already updated for the relevant month.")
-            return False
+        # if is_updated_file():
+        #     utils.log(f"File name {self.name} should be updated, not newly parsed.The format {self.format_name} is already updated for the relevant month.")
+        #     return False
         
         match self.format_name:
             case "American-Express":

@@ -34,10 +34,6 @@ class File:
         self.adittional_data_field = format_info["Adittional data field"]
         self.independent = format_info["Independent"]
 
-        self.time_stamp = format_info["TimeStamp"]
-        self.time_stamp_format = format_info["TimeStamp Format"]
-        self.time_stamp_location = format_info["TimeStamp location"]
-
         # This value will determine the index of the secondary headers, if exists
         # The value is updated in the validate function
         self.secondary_headers_row_idx = -1
@@ -216,14 +212,12 @@ class File:
 
 
     @abstractmethod
-    def parse(self) -> Tuple[int, datetime]:
+    def parse(self) -> int:
         """
         Function responsibility is the complete parse of the data file.
         Currently, 'BankTransactionFile' and 'OuterCreditFile' are using this implementation.
         'Inner credit file is using a different one becuase of the complexity.
         """
-
-        from datetime import datetime
 
         def read_table(header_lst: list, header_row_idx: int, first_col_idx: int) -> int:
             """
@@ -279,52 +273,13 @@ class File:
             {"Bad rows indexes:":25s}{bad_indexes}\n\
             {"valid rows:":25s}{valid_rows}', 'system')
             return valid_rows
-
-        def read_file_date() -> datetime:
-            time_stamp = ""
-            date_str = ""
-            from Configurations.Formats import Location
-            from datetime import datetime
-            import re
-
-            match self.time_stamp:
-                case Location.FILE_NAME_DATE:
-                    date_str = self.name
-                case Location.INNER_CELL:
-                    (r, c) = self.time_stamp_location  # TODO: These code line are being reapted, improve
-                    date_str = ExcelManager().read_cell(r, c)
-                case _:
-                    utils.log('error', 'error')
-
-            if date_str is None:
-                utils.log('date_st Adittional data field read from the file is None.', 'error')
-            pattern = re.compile(self.time_stamp_format)
-
-            if isinstance(date_str, datetime):
-                time_stamp = date_str
-            elif isinstance(date_str, str):
-                res = re.search(pattern, date_str)
-
-                if res:
-                    month_number = int(res.group(1))
-                    year_number = int(res.group(2))
-                    time_stamp = datetime(year_number, month_number, 1)
-                else:
-                    utils.log(f"The given time_stamp_format {self.time_stamp_format} for format {self.format_name} did not yield any result\n\
-                              You can also check the cell read: {date_str}", 'error')
-            else:
-                utils.log(f"Error type for variable date_str, expected str/datetime. got ({date_str}) of type {type(date_str)}")
-
-            return time_stamp
         
         valid_rows = read_table(self.headers, self.header_row_idx, self.header_col_idx)
 
         if self.double_tables:
             valid_rows += read_table(self.secondary_headers, self.secondary_headers_row_idx, self.header_col_idx)
 
-        time_stamp = read_file_date()
-
-        return valid_rows, time_stamp
+        return valid_rows
 
 
     def clean(self, flip: bool = False) -> bool:

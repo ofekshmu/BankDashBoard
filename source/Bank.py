@@ -1,8 +1,7 @@
 from File import File
 from database import DataBase
 from src_utils.utils import utils
-from src_utils.ExcelReader import ExcelManager
-
+from datetime import datetime
 
 class Bank(File):
     def __init__(self, name: str, format_info: dict):
@@ -16,10 +15,14 @@ class Bank(File):
         self.data: table1 and table2 data in a 2d array
         self.date: the date specified in the file
         '''
-        valid_rows, time_stamp = super().parse()
+        valid_rows = super().parse()
 
         DataBase().insert_file(self.name,
-                               time_stamp,
+                               # The following line removes the miliseconds (data after the decimal point) to avoid
+                               # complicity in futute analysis
+                               # TODO: The used date should be a date defining the month associated with the file, but
+                               # the Bank files are not associated with a specific month.. should find a solution for this..
+                               datetime.strptime(datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "%Y-%m-%d %H:%M:%S"),
                                self.format_name,
                                -1,
                                valid_rows)

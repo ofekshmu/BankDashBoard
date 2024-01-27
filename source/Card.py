@@ -9,6 +9,10 @@ class Card(File):
         super().__init__(name, format_info)
         self.card_number = ""
 
+        self.time_stamp = format_info["TimeStamp"]
+        self.time_stamp_format = format_info["TimeStamp Format"]
+        self.time_stamp_location = format_info["TimeStamp location"]
+
     def validate_bank_number(self) -> bool:
         """ Outer credit has no Bank acc number """
         utils.log("Bank number is not being validated for this file", "system")
@@ -21,7 +25,7 @@ class Card(File):
         self.data: table data in a 2d array
         self.card_num: the card_num specified in the file
         """
-        valid_rows, time_stamp = super().parse()
+        valid_rows = super().parse()
         
         # def is_updated_file():
         #     """
@@ -37,12 +41,51 @@ class Card(File):
         # if is_updated_file():
         #     utils.log(f"File name {self.name} should be updated, not newly parsed.The format {self.format_name} is already updated for the relevant month.")
         #     return False
+
+        from datetime import datetime
+
+        def read_file_date() -> datetime:
+            time_stamp = ""
+            date_str = ""
+            from Configurations.Formats import Location
+            from datetime import datetime
+            import re
+
+            match self.time_stamp:
+                case Location.FILE_NAME_DATE:
+                    date_str = self.name
+                case Location.INNER_CELL:
+                    (r, c) = self.time_stamp_location  # TODO: These code line are being reapted, improve
+                    date_str = ExcelManager().read_cell(r, c)
+                case _:
+                    utils.log('error', 'error')
+
+            if date_str is None:
+                utils.log('date_st Adittional data field read from the file is None.', 'error')
+            pattern = re.compile(self.time_stamp_format)
+
+            if isinstance(date_str, datetime):
+                time_stamp = date_str
+            elif isinstance(date_str, str):
+                res = re.search(pattern, date_str)
+
+                if res:
+                    month_number = int(res.group(1))
+                    year_number = int(res.group(2))
+                    time_stamp = datetime(year_number, month_number, 1)
+                else:
+                    utils.log(f"The given time_stamp_format {self.time_stamp_format} for format {self.format_name} did not yield any result\n\
+                              You can also check the cell read: {date_str}", 'error')
+            else:
+                utils.log(f"Error type for variable date_str, expected str/datetime. got ({date_str}) of type {type(date_str)}")
+
+            return time_stamp
         
         match self.format_name:
             case "American-Express":
                 text = ExcelManager().read_cell(4, 0)
                 if text is not None:
-                    self.card_number = utils.reg_extract(r'\d+', text)
+                    self.card_number = utils.reg_extract(r'\d{4}', text)
                     value = "Empty"
                 else:
                     utils.log("Bad cell read, this cell should have the card number.", "error")
@@ -71,7 +114,7 @@ class Card(File):
                             """, "error")
 
         DataBase().insert_file(self.name,
-                               time_stamp,
+                               read_file_date(),
                                self.format_name,
                                -1,                    # Value is changed after the cleaning process
                                valid_rows)
@@ -197,7 +240,7 @@ class Card(File):
                 
                 case "American-Express 1565":
 
-                    DataBase().insert_card_transaction(CardID=self.card_number,
+                    DataBase().insert_card_transaction(CardID="1565",
                                                        Name=row[2],
                                                        Executed_Date=utils.date_ready(row[0]),
                                                        Charge_Date=utils.date_ready(row[1]),

@@ -179,7 +179,14 @@ class utils:
                 value = cards_dict[item['Ref/CardID']]
             else:
                 value = cards_dict['Bank']
-            row['style'] = f"background-color: {value}"
+            
+            # row['style'] = f"background-color: {value}"
+
+            colored_box_div = soup.new_tag("div")
+            colored_box_div['class'] = "color-box"
+            colored_box_div['style'] = f"background-color: {value}"
+            row.append(colored_box_div)
+
 
             st = f"{item['Name']}"   # Name
             cell = soup.new_tag("h3")
@@ -211,8 +218,13 @@ class utils:
                 value = cards_dict[item['Ref/CardID']]
             else:
                 value = cards_dict['Bank']
-            row['style'] = f"background-color: {value}"
+            # row['style'] = f"background-color: {value}"
             
+            colored_box_div = soup.new_tag("div")
+            colored_box_div['class'] = "color-box"
+            colored_box_div['style'] = f"background-color: {value}"
+            row.append(colored_box_div)
+
             st = f"{item['Name']}"
             cell = soup.new_tag("h3")
             cell.string = st

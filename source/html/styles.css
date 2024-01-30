@@ -157,3 +157,11 @@ html {
 	color: #666;
   }
   
+  .color-box {
+    position: absolute;
+    left: 0;
+    top: 15%;
+    height: 70%;
+    width: 10px; /* Adjust the width as needed */
+	/*background-color: #FF0000; /* Set your desired background color */
+  }

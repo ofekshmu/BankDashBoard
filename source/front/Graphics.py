@@ -11,8 +11,7 @@ class Graphics:
     def plot_earnings(df: pd.DataFrame) -> None:
         if not df.empty:
             df = df.groupby("Category").sum()
-            df.index = df.index.map(lambda name: f"{utils.heb_conversion(name)}\n\
-                                                   {df.loc[name,'Final_Value']:,.2f}₪")
+            df.index = df.index.map(lambda name: f"{utils.heb_conversion(name)}\n{df.loc[name,'Final_Value']:,.2f}₪")
             gentle_blue = ['#BFD7EA',
                            '#A5C6DB',
                            '#8BB5CC',
@@ -37,8 +36,7 @@ class Graphics:
 
         if not df.empty:
             df = df.groupby("Category").sum()
-            df.index = df.index.map(lambda name: f"{utils.heb_conversion(name)}\n\
-                                                   {df.loc[name,'Final_Value']:,.2f}₪")
+            df.index = df.index.map(lambda name: f"{utils.heb_conversion(name)}\n{df.loc[name,'Final_Value']:,.2f}₪")
             gentle_orange = ['#FFF2CC',
                              '#FFE699',
                              '#FFD966',

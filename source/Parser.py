@@ -70,7 +70,7 @@ class Parser():
                 # If file name is present in database:
                 # Extract sortion key
                 # handle name list for such files.
-                if DataBase().is_file_exists(name):
+                if DataBase().is_file_exists(name) and False:
                     # The following 2 line were written to skip re-identification of files.
                     file_type = DataBase().get_file_format(name)
                     consts = Formats.FORMATS[file_type]
@@ -128,7 +128,7 @@ class Parser():
         # Files which have been parsed, are not required for reparsing, therefor, they are omitted.
         # Note; All files are required in the 'type_to_name' dict for comparing and cleaning
         for file_name in temp:
-            if not DataBase().is_file_exists(file_name):
+            if not DataBase().is_file_exists(file_name, self.name_to_type[file_name]):
                 self.names.append(file_name)
 
         utils.log(f"found {len(self.names)}/{len(temp)} new files in {Local.INPUT_FOLDER}", 'system')
@@ -169,7 +169,9 @@ class Parser():
                     (location, value) = data["Identification data"]
                     extracted_value = ExcelManager().set_active_sheet(Local.INPUT_FOLDER + "\\" + file_name)\
                                                     .read_cell(*location)
-                    if extracted_value != value:
+                    if extracted_value is None: # When no value was read
+                        continue
+                    if value not in extracted_value:
                         continue
                 case Identification_Method.HEADERS:
                     if not utils.is_headers_valid(file_name, data["Headers"], data["Header row index"]):

@@ -444,7 +444,7 @@ class utils:
 
             utils.log(f"File moved successfully to {new_file_path}", "system")
         except Exception as e:
-            utils.log(f"Something happend.. -> {e}", "error")
+            utils.log(f"Something happend.. Could not move the file -> {e}", "warning")
 
     @staticmethod
     def move_to_recycle_bin(file_path):
@@ -466,7 +466,7 @@ class utils:
         if matches:
             return matches[0]
         else:
-            utils.log(f"In function re_extract, No match was found for\n \
+            utils.log(f"In function reg_extract, No match was found for\n \
                        rule: {rule}     |   string: {text}", "error")
             return "Code won't reach here"
 

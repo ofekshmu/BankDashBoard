@@ -72,6 +72,7 @@ class Parser():
                 # handle name list for such files.
                 if DataBase().is_file_exists(name) and False:
                     # The following 2 line were written to skip re-identification of files.
+                    raise ValueError("The following data base function should be changed... bad")
                     file_type = DataBase().get_file_format(name)
                     consts = Formats.FORMATS[file_type]
 

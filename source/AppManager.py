@@ -114,6 +114,7 @@ class AppManager:
             utils.log("Done." 'system')
             
             try:
+                utils.log("Should change the get data by file name....","error")
                 existing_data = DataBase().get_data_by_file_name(existing_file_name)
                 DataBase().drop_file(existing_file_name)
 

@@ -2,10 +2,13 @@ from File import File
 from database import DataBase
 from src_utils.utils import utils
 from datetime import datetime
+from Constants import BANK_CARD_NUMBER
 
 class Bank(File):
     def __init__(self, name: str, format_info: dict):
         super().__init__(name, format_info)
+
+        self.card_number = BANK_CARD_NUMBER
 
     def parse(self):
         '''
@@ -18,12 +21,13 @@ class Bank(File):
         valid_rows = super().parse()
 
         DataBase().insert_file(self.name,
+                               self.format_name,
+                               self.card_number,
                                # The following line removes the miliseconds (data after the decimal point) to avoid
                                # complicity in futute analysis
                                # TODO: The used date should be a date defining the month associated with the file, but
                                # the Bank files are not associated with a specific month.. should find a solution for this..
                                datetime.strptime(datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "%Y-%m-%d %H:%M:%S"),
-                               self.format_name,
                                -1,
                                valid_rows)
         return True

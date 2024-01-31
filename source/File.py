@@ -1,6 +1,6 @@
 from abc import abstractmethod
 from src_utils.utils import utils
-from Constants import Local
+from Constants import Local, BANK_CARD_NUMBER
 from typing import Union
 from database import DataBase
 from src_utils.ExcelReader import ExcelManager
@@ -260,6 +260,8 @@ class File:
             bad_indexes = ', '.join([str(i) for i in bad_indexes])
 
             DataBase().insert_table_meta_data(self.name,
+                                              self.format_name,
+                                              self.card_number,
                                               header_row_idx + 1,
                                               col_idx,
                                               row_counter,
@@ -315,12 +317,12 @@ class File:
             if self.double_tables:
                 [meta_0, meta_1] = meta_data
 
-                table_0 = ExcelManager().set_active_sheet(root + "\\" + meta_0['source_file'])\
+                table_0 = ExcelManager().set_active_sheet(root + "\\" + meta_0['File_Name'])\
                                         .read_sheet(meta_0['Initial_index'],
                                                     meta_0['Row_count'],
                                                     meta_0['Initial_col'],
                                                     len(self.headers))
-                table_1 = ExcelManager().set_active_sheet(root + "\\" + meta_1['source_file'])\
+                table_1 = ExcelManager().set_active_sheet(root + "\\" + meta_1['File_Name'])\
                                         .read_sheet(meta_1['Initial_index'],
                                                     meta_1['Row_count'],
                                                     meta_1['Initial_col'],
@@ -347,7 +349,7 @@ class File:
                 return table_0, table_1
             else:
                 [meta_data] = meta_data
-                table = ExcelManager().set_active_sheet(root + "\\" + meta_data['source_file'])\
+                table = ExcelManager().set_active_sheet(root + "\\" + meta_data['File_Name'])\
                                       .read_sheet(meta_data['Initial_index'],
                                                   meta_data['Row_count'],
                                                   meta_data['Initial_col'],
@@ -365,7 +367,7 @@ class File:
         # -----------------------------------------------------------------
         #                      Function's main starts here
         # -----------------------------------------------------------------
-        current_tables = DataBase().get_table_Meta(self.name)
+        current_tables = DataBase().get_table_Meta(self.name, self.format_name, self.card_number)
         self.table_1, self.table_2 = read_and_merge(current_tables, root=Local.INPUT_FOLDER)
         if self.flip_table_location:
             self.table_1, self.table_2 = self.table_2, self.table_1

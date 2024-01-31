@@ -26,23 +26,28 @@ class DataBase:
                 );""")
             cls.__instance.cursor.execute("""
                 CREATE TABLE IF NOT EXISTS File (
-                Name                CHAR        NOT NULL PRIMARY KEY,
+                File_Name           CHAR        NOT NULL,
+                Format              CHAR        NOT NULL,
+                Card_Number         CHAR        NOT NULL,
                 Date                DATE        NOT NULL,
-                Description         CHAR                ,
                 New_Transactions    INT                 ,
                 Transaction_count   INT         NOT NULL,
-                Last_update         DATE        NOT NULL
-                );""")
+                Last_update         DATE        NOT NULL,
+                PRIMARY KEY(File_Name, Format, Card_Number)
+                );""") # Should also add card as primary key for 2 holders of the same format, trying to upload
+                # a file for the same month for 2 different cards
 
             cls.__instance.cursor.execute("""
                 CREATE TABLE IF NOT EXISTS TableMeta (
                 ID                  INTEGER         PRIMARY KEY ,
-                source_file         CHAR            NOT NULL    ,
+                File_Name           CHAR            NOT NULL    ,
+                Format              CHAR            NOT NULL    ,
+                Card_Number         CHAR            NOT NULL    ,
                 Initial_index       INT             NOT NULL    ,
                 Initial_col         INT             NOT NULL    ,
                 Row_count           INT             NOT NULL    ,
                 Bad_rows            CHAR                        ,
-                FOREIGN KEY(source_file)    REFERENCES File(Name)
+                FOREIGN KEY(File_Name, Format, Card_Number)    REFERENCES File(File_Name, Format, Card_Number)
                 );""")
 
             cls.__instance.cursor.execute("""
@@ -130,8 +135,10 @@ class DataBase:
                             )
 
     def insert_table_meta_data(self,
-                               source_file_name: str,
-                               initial_index: int,
+                               file_name: str,
+                               file_format: str,
+                               card_number: str,
+                               initial_index: str,
                                initial_col: int,
                                row_count: int,
                                bad_rows: str):
@@ -142,18 +149,20 @@ class DataBase:
         Tables are created according to specific parameters in the code.
         """
         self.cursor.execute("""
-            INSERT INTO TableMeta(source_file, Initial_index, Initial_col, Row_count, Bad_rows)
-            VALUES(?, ?, ?, ?, ?)""", (source_file_name, initial_index, initial_col, row_count, bad_rows))
+            INSERT INTO TableMeta(File_Name, Format, Card_Number, Initial_index, Initial_col, Row_count, Bad_rows)
+            VALUES(?, ?, ?, ?, ?, ?, ?)""", (file_name, file_format, card_number, initial_index, initial_col, row_count, bad_rows))
 
-    def get_table_Meta(self, file_name: str):
+    def get_table_Meta(self, file_name: str, format_name: str, card_number: str ):
         """
         Return a list of table's meta data according to the given file name.
         """
         query = """ SELECT *
                     From TableMeta
-                    WHERE source_file = ?
+                    WHERE File_name = ?
+                    AND Format = ?
+                    AND Card_number = ?
                 """
-        res = self.cursor.execute(query, (file_name,)).fetchall()
+        res = self.cursor.execute(query, (file_name, format_name, card_number, )).fetchall()
         res_dicts = []
         for item in res:
             res_dicts.append(dict(zip([d[0] for d in self.cursor.description], item)))
@@ -214,8 +223,9 @@ class DataBase:
 
     def insert_file(self,
                     name: str,
+                    format_name: str,
+                    card_number: str,
                     date: datetime,
-                    description: str,
                     new_trans_count: int,
                     trans_count: int):
         '''
@@ -224,15 +234,15 @@ class DataBase:
         '''
         last_update = datetime.now().strftime("%d-%m-%Y")
         self.cursor.execute(f"""
-            INSERT INTO File(Name, Date, Description, New_Transactions, Transaction_count, Last_update)
-            VALUES(?, ?, ?, ?, ?, ?)
-            """, (name, date, description, new_trans_count, trans_count, last_update)
+            INSERT INTO File(File_Name, Format, Card_Number, Date, New_Transactions, Transaction_count, Last_update)
+            VALUES(?, ?, ?, ?, ?, ?, ?)
+            """, (name, format_name, card_number, date, new_trans_count, trans_count, last_update)
             )
 
     def set_new_trans_count(self, file_name: str, count: int) -> bool:
         self.cursor.execute("""UPDATE File
                                SET New_Transactions = :count
-                               WHERE Name = :file_name""",
+                               WHERE File_Name = :file_name""",
                             {'count': count,
                              'file_name': file_name})
         return True
@@ -257,16 +267,27 @@ class DataBase:
             INSERT INTO Card VALUES(?, ?)
             """, (id, description))
 
-    def is_file_exists(self, file_name: str) -> bool:
+    def is_file_exists(self, file_name: str, file_format: str = None) -> bool:
         '''
         Returns True if a record with @file_name exists in the File table,
         False otherwise.
+
+        In case file format is inserted, file existion will be checked according to both name and format.
         '''
-        ans = self.cursor.execute("""
-                    SELECT 1
-                    FROM File
-                    WHERE Name = ?;
-                """, (file_name,)).fetchone()
+        if file_format is None:
+            ans = self.cursor.execute("""
+                        SELECT 1
+                        FROM File
+                        WHERE File_Name = ?;
+                    """, (file_name,)).fetchone()
+        else:
+            ans = self.cursor.execute("""
+                        SELECT 1
+                        FROM File
+                        WHERE File_Name = ?
+                        AND Format = ?;
+                    """, (file_name, file_format,)).fetchone()
+
         return False if ans is None else True
 
     @try_catch
@@ -315,16 +336,6 @@ class DataBase:
                                     FROM CardTransactions
                                     WHERE source_file = ?""", (file_name,)).fetchall()
         return lst1 + lst2
-    
-    def get_table_stats(self, file_name: str):
-        """
-        Return a list of the table stats of the @file_name
-        """
-        return self.cursor.execute("""
-                                    SELECT header_idx, idx_2, idx_3, idx_4
-                                    From File
-                                    WHERE Name = ?
-                                    """, (file_name,)).fetchall()[0]
     
     @error_handler(default_return=-99999)
     def get_latest_Balance(self) -> int:
@@ -629,6 +640,7 @@ class DataBase:
         """
         Remove the enteries associated with the file name from the db.
         """
+        raise ValueError("Should change this function to work according to format and card number.")
         self.cursor.execute("""
                             DELETE
                             From File

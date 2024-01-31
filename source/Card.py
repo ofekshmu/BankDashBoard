@@ -7,11 +7,14 @@ from src_utils.ExcelReader import ExcelManager
 class Card(File):
     def __init__(self, name: str, format_info: dict):
         super().__init__(name, format_info)
-        self.card_number = ""
+        self.card_number = "Not Set"
+        self.card_number_cell = format_info["Card number cell"]
+        self.card_string_format = format_info["Card string format"]
 
         self.time_stamp = format_info["TimeStamp"]
         self.time_stamp_format = format_info["TimeStamp Format"]
         self.time_stamp_location = format_info["TimeStamp location"]
+
 
     def validate_bank_number(self) -> bool:
         """ Outer credit has no Bank acc number """
@@ -25,6 +28,21 @@ class Card(File):
         self.data: table data in a 2d array
         self.card_num: the card_num specified in the file
         """
+        def read_card_number() -> str:
+            text = ExcelManager().read_cell(*self.card_number_cell)
+            if self.card_string_format is None:
+                self.card_string_format = r'\d{4}'
+
+            parsed_text = utils.reg_extract(self.card_string_format, text)
+            if len(parsed_text) != 4:
+                utils.log(f"The card number read does not meat the requirments:\n\
+length is {len(parsed_text)} but should be 4\n\
+The value parsed is {parsed_text}", "error")
+
+            return parsed_text
+            
+        self.card_number = read_card_number()
+
         valid_rows = super().parse()
         
         # def is_updated_file():
@@ -81,41 +99,43 @@ class Card(File):
 
             return time_stamp
         
-        match self.format_name:
-            case "American-Express":
-                text = ExcelManager().read_cell(4, 0)
-                if text is not None:
-                    self.card_number = utils.reg_extract(r'\d{4}', text)
-                    value = "Empty"
-                else:
-                    utils.log("Bad cell read, this cell should have the card number.", "error")
-            case "Leumi-Card6744":
-                value = "Empty"
-            case "Leumi-Cards":
-                value = "Empty"
-            case "Isra-Card":
-                text = ExcelManager().read_cell(4, 0)
-                if text is not None:
-                    self.card_number = utils.reg_extract(r'\d+', text)
-                    value = "Empty"
-                else:
-                    utils.log("Bad cell read, this cell should have the card number.", "error")
-            case None:
-                utils.log("None is not a valid 'Adittional data field' unless a specific case was mentioned", "error")
-            case _:
-                try:
-                    (row, col) = self.adittional_data_field
-                    value = ExcelManager().read_cell(row, col)
-                except Exception as e:
-                    utils.log(f"""Trouble reading adittional value from file.
-                                    File Name: {self.name}
-                                    Format: {self.format_name}
-                                    Adottional data field: {self.adittional_data_field}
-                            """, "error")
+
+        # match self.format_name:
+        #     case "American-Express":
+        #         text = ExcelManager().read_cell(4, 0)
+        #         if text is not None:
+        #             self.card_number = utils.reg_extract(r'\d{4}', text)
+        #             value = "Empty"
+        #         else:
+        #             utils.log("Bad cell read, this cell should have the card number.", "error")
+        #     case "Leumi-Card6744":
+        #         value = "Empty"
+        #     case "Leumi-Cards":
+        #         value = "Empty"
+        #     case "Isra-Card":
+        #         text = ExcelManager().read_cell(4, 0)
+        #         if text is not None:
+        #             self.card_number = utils.reg_extract(r'\d+', text)
+        #             value = "Empty"
+        #         else:
+        #             utils.log("Bad cell read, this cell should have the card number.", "error")
+        #     case None:
+        #         utils.log("None is not a valid 'Adittional data field' unless a specific case was mentioned", "error")
+        #     case _:
+        #         try:
+        #             (row, col) = self.adittional_data_field
+        #             value = ExcelManager().read_cell(row, col)
+        #         except Exception as e:
+        #             utils.log(f"""Trouble reading adittional value from file.
+        #                             File Name: {self.name}
+        #                             Format: {self.format_name}
+        #                             Adottional data field: {self.adittional_data_field}
+        #                     """, "error")
 
         DataBase().insert_file(self.name,
-                               read_file_date(),
                                self.format_name,
+                               self.card_number,
+                               read_file_date(),
                                -1,                    # Value is changed after the cleaning process
                                valid_rows)
 
@@ -145,7 +165,7 @@ class Card(File):
                                                        Extra_Info=f"Trans type: {row[4]} | \
                                                                     Method: {row[14]} | \
                                                                     Notes: {row[10]}")
-                case "Isra-Card 2922":
+                case "Isra-Card":
                     (r, c) = self.adittional_data_field  # TODO: These code line are being reapted, improve
                     value = ExcelManager().read_cell(r, c)
                     if value is None:
@@ -163,14 +183,14 @@ class Card(File):
                                                        Value_Currency=row[5],
                                                        Extra_Info=f"Serial: {row[6]} | Info: ({row[7]})")
 
-                case "American-Express 1565":
+                case "American-Express":
                     (r, c) = self.adittional_data_field  # TODO: These code line are being reapted, improve
                     value = ExcelManager().read_cell(r, c)
                     if value is None:
                         utils.log('Adittional data field read from the file is None.', 'error')
                         return False
 
-                    DataBase().insert_card_transaction(CardID="1565",
+                    DataBase().insert_card_transaction(CardID=self.card_number,
                                                        Name=row[1],
                                                        Executed_Date=utils.date_ready(row[0]),
                                                        Charge_Date=utils.date_ready(value),
@@ -213,7 +233,7 @@ class Card(File):
 
         for row in self.table_2:
             match self.format_name:
-                case "Isra-Card 2922":
+                case "Isra-Card":
 
                     DataBase().insert_card_transaction(CardID=self.card_number,
                                                        Name=row[2],
@@ -238,9 +258,9 @@ class Card(File):
                                                        Value_Currency=row[6],
                                                        Extra_Info=f"Type: {row[7]} | Note: None")
                 
-                case "American-Express 1565":
+                case "American-Express":
 
-                    DataBase().insert_card_transaction(CardID="1565",
+                    DataBase().insert_card_transaction(CardID=self.card_number,
                                                        Name=row[2],
                                                        Executed_Date=utils.date_ready(row[0]),
                                                        Charge_Date=utils.date_ready(row[1]),

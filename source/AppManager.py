@@ -97,31 +97,34 @@ class AppManager:
 
         files_df = DataBase().get_file_table()
         print(files_df.to_markdown())
-        existing_file_id = utils.template_menu(list(files_df["Name"]),
+        existing_file_id = utils.template_menu(list(files_df["File_Name"]),
                                                "Please choose what file do you want to update and delete.")
-        existing_file_name = list(files_df['Name'])[existing_file_id]
+        existing_file_name = list(files_df['File_Name'])[existing_file_id]
+        existing_file_format = list(files_df['Format'])[existing_file_id]
+        existing_file_card = list(files_df['Card_Number'])[existing_file_id]
 
         ack = utils.template_menu(["Yes", "No"], f"The following process wil replace {existing_file_name} with {new_file_name}, Continue?")    
         if ack == 0:
-            utils.log("Moving new file to inputs folder...", 'system')
+            utils.log(f"Moving the new file: {new_file_name}, from the 'to_update' folder to the inputs folder...", 'system')
             utils.move_file_to_directory(file_path=f"{Local.UPDATE_FOLDER}/{new_file_name}",
                                          destination_directory=Local.INPUT_FOLDER)
             utils.log("Done." 'system')
 
-            utils.log("Moving existing file removed folder...", 'system')
-            utils.move_file_to_directory(file_path=f"{Local.INPUT_FOLDER}/{existing_file_name}",
+            utils.log(f"Moving existing (old file) {existing_file_name}  file to 'removed' folder...", 'system')
+            utils.move_file_to_directory(file_path=f"{Local.VERIFIED_FOLDER}/{existing_file_format}/{existing_file_name}",
                                          destination_directory=f"removed")
             utils.log("Done." 'system')
             
             try:
-                utils.log("Should change the get data by file name....","error")
-                existing_data = DataBase().get_data_by_file_name(existing_file_name)
-                DataBase().drop_file(existing_file_name)
+                existing_data = DataBase().get_data_by_file_name(existing_file_name, existing_file_card)
+                DataBase().drop_file(existing_file_name, existing_file_format, existing_file_card)
 
                 self.parser = Parser.getInstance(newInstance=True)
                 self.load_data()
 
-                new_data = DataBase().get_data_by_file_name(new_file_name)
+                # becuase the file that is being updaed has to be pf the same defenition (format, card_id)
+                # we can use the existing file card number here ->
+                new_data = DataBase().get_data_by_file_name(new_file_name, existing_file_card)
 
                 flag = True
                 matched_t = 0
@@ -216,9 +219,9 @@ class AppManager:
     def delete_file_info(self):
         lst_names = DataBase().get_file_names()
         utils.log("Select the file you want to delete:")
-        st = f"\n     {'File Name':30s}{'Format':20s}Card Number\n"
+        st = f"\n     {'File Name':30s}{'Format':22s}{'Card Number':17s}{'Last updated'}\n"
         for idx, name in enumerate(lst_names):
-            st += f"{idx} -> {utils.heb_conversion(name[0]):30s}{name[1]:20s}{name[2]}\n"
+            st += f"{idx} -> {utils.heb_conversion(name[0]):30s}{name[1]:22s}{name[2]:17s}{name[3]}\n"
         utils.log(st, 'system')
 
         while True:
@@ -233,7 +236,7 @@ class AppManager:
             break
 
         selected_file = lst_names[answer]
-        DataBase().drop_file(selected_file)
+        DataBase().drop_file(selected_file[0], selected_file[1], selected_file[2])
         DataBase().commit_changes()
 
     def tag_data(self):

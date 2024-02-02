@@ -310,7 +310,7 @@ class DataBase:
         self.connection.close()
 
     # TODO: this function is currently not being used anywhere.
-    def get_data_by_file_name(self, file_name: str):
+    def get_data_by_file_name(self, file_name: str, card_number: str):
         """
         return all transactions parsed from the file.
         """
@@ -334,7 +334,8 @@ class DataBase:
                                         Transaction_Value, Value_Currency, Extra_info,
                                         Category
                                     FROM CardTransactions
-                                    WHERE source_file = ?""", (file_name,)).fetchall()
+                                    WHERE source_file = ?
+                                    AND CardID = ?""", (file_name, card_number, )).fetchall()
         return lst1 + lst2
     
     @error_handler(default_return=-99999)
@@ -631,21 +632,22 @@ class DataBase:
         """
         """
         res = self.cursor.execute("""
-                                    SELECT File_Name, Format, Card_Number
+                                    SELECT File_Name, Format, Card_Number, Last_update
                                     From File
                                     """).fetchall()
-        return [tup[0:3] for tup in res]
+        return [tup[0:4] for tup in res]
 
-    def drop_file(self, file_name: str):
+    def drop_file(self, file_name: str, format_name: str, card_number: str):
         """
         Remove the enteries associated with the file name from the db.
         """
-        raise ValueError("Should change this function to work according to format and card number.")
         self.cursor.execute("""
                             DELETE
                             From File
-                            WHERE Name = ?
-                            """, (file_name,))
+                            WHERE File_Name = ?
+                            AND Format = ?
+                            AND Card_Number = ?
+                            """, (file_name, format_name, card_number,))
         self.cursor.execute("""
                             DELETE
                             From BankTransactions
@@ -655,12 +657,15 @@ class DataBase:
                             DELETE
                             From CardTransactions
                             WHERE source_file = ?
-                            """, (file_name,))
+                            AND CardID = ?
+                            """, (file_name, card_number,))
         self.cursor.execute("""
                             DELETE
                             From TableMeta
-                            WHERE source_file = ?
-                            """, (file_name,))
+                            WHERE File_Name = ?
+                            AND Format = ?
+                            AND Card_Number = ?                            
+                            """, (file_name, format_name, card_number, ))
 
     def get_untagged(self) -> Tuple[list, list]:
         """

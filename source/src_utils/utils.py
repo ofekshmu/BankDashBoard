@@ -653,14 +653,17 @@ Please Make sure that none of the following formats have their 'Identifications 
         file_df['Date'] = file_df['Date'].apply(lambda x: (datetime.strptime(x, "%Y-%m-%d %H:%M:%S" )  - relativedelta(months=1)).strftime("%B, %Y"))
         
         indexes = file_df['Date'].unique().tolist()
-        columns = file_df['Description'].unique().tolist()
+        # columns = file_df['Format'].unique().tolist()
+        columns = (file_df['Format'].astype(str) + " | " + file_df['Card_Number']).unique().tolist()
 
         df = pd.DataFrame(index=indexes, columns=columns)
         for _, row in file_df.iterrows():
             last_update = row["Last_update"]
             date = row["Date"]
-            format_name = row["Description"]
-            df.at[date, format_name] = last_update
+            format_name = row["Format"]
+            card_number = row["Card_Number"]
+            col_name =  format_name + " | " + card_number
+            df.at[date, col_name] = last_update
                 
         return df
 

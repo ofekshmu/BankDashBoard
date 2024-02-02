@@ -631,10 +631,10 @@ class DataBase:
         """
         """
         res = self.cursor.execute("""
-                                    SELECT Name
+                                    SELECT File_Name, Format, Card_Number
                                     From File
                                     """).fetchall()
-        return [tup[0] for tup in res]
+        return [tup[0:3] for tup in res]
 
     def drop_file(self, file_name: str):
         """

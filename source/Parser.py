@@ -132,7 +132,7 @@ class Parser():
             if not DataBase().is_file_exists(file_name, self.name_to_type[file_name]):
                 self.names.append(file_name)
 
-        utils.log(f"found {len(self.names)}/{len(temp)} new files in {Local.INPUT_FOLDER}", 'system')
+        utils.log(f"found {len(temp)} files in {Local.INPUT_FOLDER}\n\t  {len(self.names)} of them are new.", 'system')
 
     def __next__(self):
         """

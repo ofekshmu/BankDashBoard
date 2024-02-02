@@ -216,9 +216,9 @@ class AppManager:
     def delete_file_info(self):
         lst_names = DataBase().get_file_names()
         utils.log("Select the file you want to delete:")
-        st = ""
+        st = f"\n     {'File Name':30s}{'Format':20s}Card Number\n"
         for idx, name in enumerate(lst_names):
-            st += f"{idx} -> {utils.heb_conversion(name)}\n"
+            st += f"{idx} -> {utils.heb_conversion(name[0]):30s}{name[1]:20s}{name[2]}\n"
         utils.log(st, 'system')
 
         while True:

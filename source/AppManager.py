@@ -264,10 +264,13 @@ class AppManager:
                     continue
                 print(row.drop('Original_Name').to_markdown())
                 res, description = utils.handle_categories()
-                if res == "Skip":
+                if res == "「Skip」":
                     skip_list.append(row['ID'])
                     utils.log("Skipped...", "system")
                     continue
+                elif res == "「Back to menu」":
+                    utils.log("Returning to menu...", "system")
+                    return
                 else:
                     DataBase().set_category(table=row['TableName'], id=row['ID'], category=res)
                     if len(description) > 1:

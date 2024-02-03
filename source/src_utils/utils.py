@@ -318,7 +318,7 @@ class utils:
         # utils.log("Choose one of the existsing categories:")
         cat_lst = json.load(open(Local.CATE_JSON_PATH, encoding='utf-8'))
         cat_lst = sorted(cat_lst)
-        options = cat_lst + ["Create a new category", "Skip"]
+        options = cat_lst + ["「Create a new category」", "「Skip」", "「Back to menu」"]
         # ----------- Input category and description -------------
         st = "Please insert your selection and description in the following format:\n*Number* - *Description*" + '\n'
         utils.log(st, 'system')
@@ -354,7 +354,7 @@ class utils:
 
         res = number
         # ----------------------------------------------------------
-        if options[res] == "Create a new category":
+        if options[res] == "「Create a new category」":
             while True:
                 cat = input("Insert a category name: ")
                 utils.log("Are you sure?\n1-> Yes\n2-> No")

@@ -287,7 +287,7 @@ class utils:
             outf.write(bs4.BeautifulSoup.prettify(soup))
 
     @staticmethod
-    def template_menu(options: list[str], msg: str = "Choose one of the following:\n", sort: bool = False):
+    def template_menu(options: list[str], msg: str = "Choose one of the following:\n", sort: bool = False) -> int:
         """
         The function creates a template menu that is printed out for the user.
         Inputs are @options - a list of strings containing different options.
@@ -313,7 +313,8 @@ class utils:
     @staticmethod
     def handle_categories() -> Tuple[str, str]:
         """
-
+        The function returns a category name and its description as entered by the user.
+        The categories are read from a json file and displayed with 3 adittional options.
         """
         # utils.log("Choose one of the existsing categories:")
         cat_lst = json.load(open(Local.CATE_JSON_PATH, encoding='utf-8'))

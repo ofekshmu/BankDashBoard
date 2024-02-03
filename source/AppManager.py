@@ -71,19 +71,32 @@ class AppManager:
         if pw != "ofek":
             utils.log("Bad password", "system")
             return False
-        res = False
-        while not res:
-            query = input("Write your query:\n")
-            res = DataBase().execute_query(query)
-            if res:
-                break
-            utils.log("Bad query, Try again...\nPlease Insert you query: ")
-        ans = input("query is valid, Confirm? y/n\n")
-        if ans == 'y':
-            DataBase().commit_changes()
-            return True
-        else:
-            utils.log("Changes not set...")
+
+        def original_command():
+            res = False
+            while not res:
+                query = input("Write your query:\n")
+                res = DataBase().execute_query(query)
+                if res:
+                    break
+                utils.log("Bad query, Try again...\nPlease Insert you query: ")
+            ans = input("query is valid, Confirm? y/n\n")
+            if ans == 'y':
+                DataBase().commit_changes()
+                return True
+            else:
+                utils.log("Changes not set...")
+
+        res = utils.template_menu(['Write an original SQL command',
+                                   'Change transaction category by ID'], 'Pick one of the follwing:')
+        match res:
+            case 0:
+                original_command()
+            case 1:
+                DataBase().change_category_by_id()
+                DataBase().commit_changes()
+            case _:
+                utils.log('Something went wrong in "execute_sql', 'error')
 
     def update_existing_file_v2(self):
         update_file_lst = listdir(Local.UPDATE_FOLDER)

@@ -63,7 +63,7 @@ class ExcelManager:
         """
         if self.active_sheet is not None:
             self.active_sheet.book.close()
-            self.app.quit()
+            # self.app.quit()
             self.app.kill()
             self.active_sheet = None
             self._instance = None

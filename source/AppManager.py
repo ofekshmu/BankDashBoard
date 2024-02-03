@@ -251,6 +251,40 @@ class AppManager:
             df['Source_file'] = df['Source_file'].apply(lambda x: utils.heb_conversion(x))
             return df
 
+        def pretty_print_series(my_series: pd.Series) -> None:
+            """
+            Takes the original df created from the transactions and changes it for better
+            readability. The function prints the result.
+            """
+            my_series['Charge_Value/Out'] = str(my_series['Charge_Value/Out']) + ' ₪'
+            my_series['Transaction_Value/Income'] = str(my_series['Transaction_Value/Income']) + ' ₪'
+            my_series['Executed_Date'] = my_series['Executed_Date'][:-9]
+            print(f"\n{'-'*15} Tag the following {'-'*15}")
+            if my_series['TableName'] == 'CardTransactions':
+                my_series.index = ['Table Name',
+                                    'Transaction ID',
+                                    'Executed Date',
+                                    'Name',
+                                    'Card ID',
+                                    'Charge Value',
+                                    'Transaction Value',
+                                    'More Info',
+                                    'Source file name']
+            else:
+                my_series.index = ['Table Name',
+                                    'Transaction ID',
+                                    'Executed Date',
+                                    'Name',
+                                    'Reference ID',
+                                    'Outgoing',
+                                    'Incoming',
+                                    'More Info',
+                                    'Source file name']
+
+            for index, value in my_series.items():
+                print(f"{index:28s}{value}")
+            print("\n")
+
         skip_list = []
         lst, desc = DataBase().get_untagged()
         df = pd.DataFrame(lst, columns=desc)
@@ -262,7 +296,7 @@ class AppManager:
             for _, row in df.iterrows():
                 if row['ID'] in skip_list:
                     continue
-                print(row.drop('Original_Name').to_markdown())
+                pretty_print_series(row.drop('Original_Name'))
                 res, description = utils.handle_categories()
                 if res == "「Skip」":
                     skip_list.append(row['ID'])

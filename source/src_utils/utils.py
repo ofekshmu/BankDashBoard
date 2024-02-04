@@ -195,7 +195,22 @@ class utils:
 
             cell = soup.new_tag("p")
             cell['class'] = 'date'
-            cell.string = f"{item['Final_Value']:,}₪"
+            
+            if item['Description/Charge_Currency'] == item['Reserved/Value_Currency']:
+                price_lable_1 = f"{item['Final_Value']:,}₪"
+                price_lable_2 = ""
+            else:
+                price_lable_1 = f"{item['Final_Value']:,}₪"
+                price_lable_2 = f"({item['Income/Charge_Value']:,}{item['Description/Charge_Currency']})"
+            
+            # Create a <br> tag
+            new_line = soup.new_tag('br')
+
+            # Add text and <br> tag to the <p> tag
+            cell.append(price_lable_1)
+            cell.append(new_line)
+            cell.append(price_lable_2)
+
             row.append(cell)
 
             cell = soup.new_tag("p")
@@ -232,7 +247,24 @@ class utils:
 
             cell = soup.new_tag("p")
             cell['class'] = 'date'
-            cell.string = f"{item['Final_Value']:,}₪"
+
+            if item['Description/Charge_Currency'] == item['Reserved/Value_Currency']:
+                price_lable_1 = f"{item['Final_Value']:,}₪"
+                price_lable_2 = ""
+            else:
+                price_lable_1 = f"{item['Final_Value']:,}₪"
+                price_lable_2 = f"({item['Income/Charge_Value']:,}{item['Description/Charge_Currency']})"
+
+
+            # Create a <br> tag
+            new_line = soup.new_tag('br')
+
+            # Add text and <br> tag to the <p> tag
+            cell.append(price_lable_1)
+            cell.append(new_line)
+            cell.append(price_lable_2)
+
+            #cell.string = price_lable
             row.append(cell)
 
             cell = soup.new_tag("p")

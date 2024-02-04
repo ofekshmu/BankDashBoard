@@ -524,6 +524,49 @@ class utils:
         formats = Formats.FORMATS
         utils.log(f'Total number of formats: {len(formats)}', 'debug')
 
+        # Check that all keys are present in present formats
+        card_keys = ['Format Name',
+                    'Context',
+                    'Identification method',
+                    'Identification data',
+                    'Sortion method',
+                    'Sortion key',
+                    'Card number cell',
+                    'Card string format',
+                    'Adittional data field',
+                    'TimeStamp',
+                    'TimeStamp Format', 
+                    'TimeStamp location',
+                    'Headers',
+                    'Double tables',
+                    'Secondary Headers',
+                    'Header row index',
+                    'Header col index',
+                    'Independent']
+        bank_keys = ['Format Name',
+                    'Context',
+                    'Identification method',
+                    'Identification data',
+                    'Sortion method',
+                    'Sortion key',
+                    'Adittional data field',
+                    'Headers',
+                    'Double tables',
+                    'Secondary Headers',
+                    'Header row index',
+                    'Header col index',
+                    'Independent']
+        
+        for format_name, format_data in tqdm(formats.items(), desc=f"{'Validating formats: Overall info':42s}", unit="formats"):
+            dict_i_keys = list(format_data.keys())
+            if format_data['Context'] == Context_class.Card:
+                keys_to_test = card_keys
+            else:
+                keys_to_test = bank_keys
+            for key in keys_to_test:
+                if key not in dict_i_keys:
+                    return f"The key ({key}) is missing from format ({format_name})"
+
         def check_multiple(key: str, secondary_key) -> list:
             lst = []
             for format_name_i, format_data_i in formats.items():

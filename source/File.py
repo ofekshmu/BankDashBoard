@@ -381,15 +381,15 @@ class File:
             return True
 
         from Parser import Parser
-        sorted_names = Parser.getInstance().get_names(self.format_name)    # type: ignore
+        sorted_names = Parser.getInstance().get_names(self.format_name, self.card_number)    # type: ignore
         recent_file_name = get_last_file_name(sorted_names)
         if recent_file_name is None:
             # ------------------------------- Log ---------------------------------
             utils.log(f"{self.name} has not earlier file - Nothing to clean. Total valid transactions in it are {self.counter}", "system")
-            # ---------------------------------------------------------------------
+            # --------------------------------------------------------------------- 
             return True
 
-        recent_tables = DataBase().get_table_Meta(recent_file_name)
+        recent_tables = DataBase().get_table_Meta(recent_file_name, self.format_name, self.card_number)
 
         # recent tables are extacted from files which have been verified, therefore, located in a different root folder.
         recent_table_1, recent_table_2 = read_and_merge(recent_tables, root=Local.VERIFIED_FOLDER + "\\" + self.format_name)

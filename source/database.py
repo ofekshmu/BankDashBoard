@@ -635,7 +635,21 @@ class DataBase:
                                     SELECT File_Name, Format, Card_Number, Last_update
                                     From File
                                     """).fetchall()
-        return [tup[0:4] for tup in res]
+        return [tup[0:4] for tup in res] # to get result as list
+
+    def get_file_names_by(self, format_name: str, card_number: str):
+        """
+        get file names by format name and card,
+        can return more than one file.
+        """
+        res = self.cursor.execute("""
+                                    SELECT File_Name
+                                    FROM File
+                                    WHERE Format = ?
+                                    AND Card_Number = ?
+                                    """, (format_name, card_number,)).fetchall()
+        
+        return [tup[0] for tup in res] # to get result as list
 
     def drop_file(self, file_name: str, format_name: str, card_number: str):
         """

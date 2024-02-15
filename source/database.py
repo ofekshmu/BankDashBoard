@@ -811,6 +811,10 @@ class DataBase:
         return data, [d[0] for d in self.cursor.description]
 
     def get_Bank_Transactions(self, day: int, month: int, year: int):
+        """
+        Get all bank transactions of month @month and year @year,
+        day is not relevant.
+        """
         str_month = str(month)
         if len(str_month) == 1:
             str_month = '0' + str_month

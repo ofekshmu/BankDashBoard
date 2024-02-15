@@ -389,10 +389,12 @@ class AppManager:
         # ---------------------------------------------------------
         #   The following line will help configure the אשראי　transactions
         # ---------------------------------------------------------
-        df, desc = DataBase().card_sum(t)
+        df, desc = DataBase().card_sum(utils.next_month(t))
         cards_df = SimpleMath.process_prices(df, desc).groupby("CardID").sum().reset_index()
         cards_df['Status'] = 'Not Verified'
-        bank_df = DataBase().get_Bank_Transactions(Local.CHARGE_DAY + 1, t.month, t.year)
+        bank_df = DataBase().get_Bank_Transactions(Local.CHARGE_DAY + 1, 
+                                                   utils.next_month(t).month,
+                                                   utils.next_month(t).year)
         for _, row_cs in cards_df.iterrows():
             for _, row_bt in bank_df.iterrows():
                 x = round(row_bt['Out'], 2)
@@ -412,6 +414,7 @@ class AppManager:
                         utils.log('ignored...', 'system')
 
         # utils.log(cards_df[['CardID', 'Final_Value', 'Status']].to_markdown())
+        cards_df = cards_df[['CardID', 'Final_Value', 'Status']]
         # ---------------------------------------------------------
 
         monthly_balance = DataBase().get_latest_Balance()
@@ -452,6 +455,7 @@ class AppManager:
                             earnings_df,
                             monthly_balance,
                             card_color_dict,
-                            cat_dict)
+                            cat_dict,
+                            cards_df)
         webbrowser.open(r'source\html\output.html')
 

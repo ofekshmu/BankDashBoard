@@ -123,7 +123,8 @@ class utils:
                       earnings_df,
                       monthly_balance: int,
                       cards_dict: dict,
-                      gas_stats):
+                      gas_stats,
+                      cards_df):
         import bs4
         from datetime import datetime
         import calendar
@@ -167,6 +168,10 @@ class utils:
         div.append(table2)
 
         soup.body.insert(6, div)
+
+        div = soup.new_tag(cards_df.to_html(index=False))
+        # div.append(cards_df.to_html(index=False))
+        soup.body.insert(7, div)
 
         for _, item in spendings_df.sort_values(by='Date/Executed_Date', ascending=True).iterrows():
 
@@ -504,6 +509,18 @@ class utils:
             return "Code won't reach here"
 
     @staticmethod
+    def next_month(date: datetime) -> datetime:
+        """
+        receives a month - a number between 1 - 12 describing 
+        returns the next month/year 
+        """
+        from dateutil.relativedelta import relativedelta
+
+        # Get the next month by adding a relativedelta of 1 month
+        return date + relativedelta(months=1)
+
+
+    @staticmethod
     def subtract_month(month: int, year: int) -> Tuple[str, str]:
         """
         Function returns the date, one month before the given one (not including the day)
@@ -523,6 +540,17 @@ class utils:
             str_month = '0' + str_month
 
         return str_month, str(year)
+
+    @staticmethod
+    def next_day(date: datetime) -> datetime:
+        from datetime import datetime, timedelta
+
+        # Assuming your datetime object is stored in the variable `current_datetime`
+        current_datetime = datetime.now()  # Replace this with your datetime object
+
+        # Get the next day by adding a timedelta of 1 day
+        return current_datetime + timedelta(days=1)
+
 
     @staticmethod
     def remove_leumi(df: pd.DataFrame) -> pd.DataFrame:

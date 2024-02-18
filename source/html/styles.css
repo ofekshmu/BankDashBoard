@@ -165,3 +165,54 @@ html {
     width: 10px; /* Adjust the width as needed */
 	/*background-color: #FF0000; /* Set your desired background color */
   }
+
+  /* Apply styles to the table */
+table {
+	border-collapse: collapse;
+	width: 100%;
+	margin-bottom: 20px; /* Add some margin to separate the table from other content */
+	font-family: Arial, sans-serif; /* Use a common font for readability */
+  }
+  
+  /* Style table header */
+  th {
+	background-color: #f2f2f2; /* Light gray background */
+	color: #333; /* Dark text color */
+	border: 1px solid #ddd; /* Gray border */
+	padding: 8px; /* Add some padding to make it look nicer */
+	text-align: left; /* Align text to the left */
+  }
+  
+  /* Style table rows */
+  tr {
+	border-bottom: 1px solid #ddd; /* Add bottom border to separate rows */
+  }
+  
+  /* Style alternate rows differently for better readability */
+  tr:nth-child(even) {
+	background-color: #f9f9f9; /* Light gray background for even rows */
+  }
+  
+  /* Style table data cells */
+  td {
+	padding: 8px; /* Add padding */
+	border: 1px solid #ddd; /* Gray border */
+  }
+  
+  /* Apply green background color to cells with value "verified" */
+  td.Verified {
+	background-color:#C8E6C9;
+  }
+	
+	/* Apply red background color to cells with value "Not verified" */
+	td.Not.verified {
+		background-color: #FFCDD2;
+	  }
+
+	td.standby {
+		background-color: #FFF9C4;
+	  }
+  /* Hover effect for table rows */
+  tr:hover {
+	background-color: #f2f2f2; /* Light gray background on hover */
+  }

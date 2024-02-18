@@ -413,8 +413,9 @@ class AppManager:
                     else:
                         utils.log('ignored...', 'system')
 
-        # utils.log(cards_df[['CardID', 'Final_Value', 'Status']].to_markdown())
-        cards_df = cards_df[['CardID', 'Final_Value', 'Status']]
+        if not cards_df.empty:
+            cards_df = cards_df[['CardID', 'Final_Value', 'Status']]
+
         # ---------------------------------------------------------
 
         monthly_balance = DataBase().get_latest_Balance()

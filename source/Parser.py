@@ -70,7 +70,8 @@ class Parser():
                 # If file name is present in database:
                 # Extract sortion key
                 # handle name list for such files.
-                if DataBase().is_file_exists(name) and False:
+                # used to be DataBase().is_file_exists(name) and
+                if False:
                     # The following 2 line were written to skip re-identification of files.
                     raise ValueError("The following data base function should be changed... bad")
                     file_type = DataBase().get_file_format(name)
@@ -89,7 +90,7 @@ class Parser():
 
                     # Sanity check - Written with blood
                     # ------------------------------------------------------------------------------------------
-                    if is_exists(name, file_type):
+                    if is_exists(name, file_type): # TODO identify by card number and format
                         utils.log(f"""The file '{utils.name_he(name)}' exists with a different extensions.
             What do you want to do?
             1 -> Skip the current copy, I will delete it later.
@@ -129,7 +130,8 @@ class Parser():
         # Files which have been parsed, are not required for reparsing, therefor, they are omitted.
         # Note; All files are required in the 'type_to_name' dict for comparing and cleaning
         for file_name in temp:
-            if not DataBase().is_file_exists(file_name, self.name_to_type[file_name]):
+            card_number = ""    # TODO, need to parse file number for recognition
+            if not DataBase().is_file_exists(file_name, self.name_to_type[file_name], card_number):
                 self.names.append(file_name)
 
         utils.log(f"found {len(temp)} files in {Local.INPUT_FOLDER}\n\t  {len(self.names)} of them are new.", 'system')

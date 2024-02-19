@@ -267,19 +267,21 @@ class DataBase:
             INSERT INTO Card VALUES(?, ?)
             """, (id, description))
 
-    def is_file_exists(self, file_name: str, file_format: str = None) -> bool:
+    def is_file_exists(self, file_name: str, file_format: str = None, card_number: str = '') -> bool:
         '''
         Returns True if a record with @file_name exists in the File table,
         False otherwise.
 
         In case file format is inserted, file existion will be checked according to both name and format.
         '''
+        utils.log("warning.... card number is not being used..", 'warning')
         if file_format is None:
             ans = self.cursor.execute("""
                         SELECT 1
                         FROM File
                         WHERE File_Name = ?;
                     """, (file_name,)).fetchone()
+            
         else:
             ans = self.cursor.execute("""
                         SELECT 1
@@ -495,19 +497,22 @@ class DataBase:
         # When looking for spendings. transaction will be queried by the date they will be 
         # effective in the bank account and not by the date they were exectued.
         # That is why, when given month x, we will search for transactions in month x + 1
-        fit_month = month % 12 + 1
-        if fit_month == 1:
-            fit_year = year + 1
-        else:
-            fit_year = year
+
 
         last_day = calendar.monthrange(year, month)[1]
         b_init = datetime(year, month, 1).strftime('%Y-%m-%d %H:%M:%S')
         b_end = datetime(year, month, last_day).strftime('%Y-%m-%d %H:%M:%S')
+        next_month =  utils.next_month(datetime(year, month, 1)).month
+        relevant_year = utils.next_month(datetime(year, month, 1)).year
+        next_month = '0' + str(next_month) if len(str(next_month)) == 1 else str(next_month)
         
         # last_day = calendar.monthrange(fit_year, fit_month)[1]
         # bt_init = datetime(fit_year, fit_month, 1).strftime('%Y-%m-%d %H:%M:%S')
         # bt_end = datetime(fit_year, fit_month, last_day).strftime('%Y-%m-%d %H:%M:%S')
+        # Notes about the sql command:
+        # in the cardtransaction table:
+        #   1. The following condition might not be relevant: (Executed_Date >= ? AND Executed_Date <= ?)
+        #   2. Card transaction which represent spendings will always be positive.
         return self.cursor.execute("""
                                     SELECT
                                         'BankTransactions' AS TableName,
@@ -542,10 +547,12 @@ class DataBase:
                                         Extra_Info,
                                         Source_file
                                     FROM CardTransactions
-                                    WHERE Executed_Date >= ?
-                                    AND Executed_Date <= ?
-                                    AND Transaction_Value > 0
-                                    """, (b_init, b_end, "אשראי", b_init, b_end,)).fetchall(), \
+                                    WHERE Transaction_Value > 0 AND (
+                                        (Executed_Date >= ? AND Executed_Date <= ?)
+                                        OR 
+                                        (strftime('%m', Charge_Date) = ?)
+                                    )
+                                    """, (b_init, b_end, "אשראי", b_init, b_end, next_month, )).fetchall(), \
             [d[0] for d in self.cursor.description]
 
     # Query NOTE: Executed_Date > 0 (In the CardTransaction table) represents only Negative transaction since Negative transactions
@@ -790,7 +797,9 @@ class DataBase:
         
         m_1, y_1 = utils.subtract_month(date.month, date.year)
         m_0, y_0 = utils.subtract_month(int(m_1), int(y_1))
-
+        nxt_month, rlvnt_year = utils.next_month(date).month, utils.next_month(date).year
+        nxt_month = '0' + str(nxt_month) if len(str(nxt_month)) == 1 else str(nxt_month)
+        rlvnt_year = str(rlvnt_year)
         # Executed_Date AS 'Date/Executed_Date',
         # Charge_Date AS 'Value_Date/Charge_Date'
         # AS key word is added in order to match the 'process_prices' function
@@ -804,10 +813,8 @@ class DataBase:
                                    Value_Currency AS 'Reserved/Value_Currency',
                                    Transaction_Value AS 'Out/Transaction_value'
                             FROM CardTransactions
-                            WHERE ((strftime('%m', Executed_Date) = ? AND strftime('%Y', Executed_Date) = ?)
-                            OR (strftime('%m', Executed_Date) = ? AND strftime('%Y', Executed_Date) = ?))
-                            AND (strftime('%m', Charge_Date) = ?)
-                            """, (m_1, y_1, m_0, y_0, m_2, )).fetchall()
+                            WHERE (strftime('%m', Charge_Date) = ? AND strftime('%Y', Charge_Date) = ?)
+                            """, (nxt_month, rlvnt_year, )).fetchall() # TODO can this be simplified for just the transactions at the set charge date?
         return data, [d[0] for d in self.cursor.description]
 
     def get_Bank_Transactions(self, day: int, month: int, year: int):

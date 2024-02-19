@@ -165,7 +165,7 @@ class AppManager:
                                                              destination_directory=Local.INPUT_FOLDER)
                                 utils.log("Done." 'system')
 
-                                DataBase().drop_file(new_file_name)
+                                DataBase().drop_file(new_file_name, existing_file_format, existing_file_card)
                                 self.parser = Parser.getInstance(newInstance=True)
                                 self.load_data()
 
@@ -197,37 +197,37 @@ class AppManager:
             utils.log('Update process completed!', 'system')
             return True
 
-    def update_existing_file(self) -> bool:
+    # def update_existing_file(self) -> bool:
 
-        update_file_lst = listdir(Local.UPDATE_FOLDER)
-        if len(update_file_lst) == 0:
-            utils.log(f"{Local.UPDATE_FOLDER} is Empty. Returning to menu..", "system")
-            return False
+    #     update_file_lst = listdir(Local.UPDATE_FOLDER)
+    #     if len(update_file_lst) == 0:
+    #         utils.log(f"{Local.UPDATE_FOLDER} is Empty. Returning to menu..", "system")
+    #         return False
 
-        files_df = DataBase().get_file_table()
-        print(files_df.to_markdown())
-        file_id = utils.template_menu(list(files_df["Name"]),
-                                      "Please choose what file do you want to update and delete.")
+    #     files_df = DataBase().get_file_table()
+    #     print(files_df.to_markdown())
+    #     file_id = utils.template_menu(list(files_df["Name"]),
+    #                                   "Please choose what file do you want to update and delete.")
 
-        new_file_id = utils.template_menu(update_file_lst,
-                                          f"Choose a file to update from.")
+    #     new_file_id = utils.template_menu(update_file_lst,
+    #                                       f"Choose a file to update from.")
 
-        ack = utils.template_menu(["Yes", "No"], "Are you sure?")
-        if ack == 0:
-            file_name = list(files_df["Name"])[file_id]
-            utils.log(f"Removing {file_name}...", 'system')
-            DataBase().drop_file(file_name)
+    #     ack = utils.template_menu(["Yes", "No"], "Are you sure?")
+    #     if ack == 0:
+    #         file_name = list(files_df["Name"])[file_id]
+    #         utils.log(f"Removing {file_name}...", 'system')
+    #         DataBase().drop_file(file_name)
 
-            utils.log(f"File chose to update from: {update_file_lst[new_file_id]}", 'system')
-            utils.move_file_to_directory(file_path=f"{Local.UPDATE_FOLDER}/{update_file_lst[new_file_id]}",
-                                         destination_directory=Local.INPUT_FOLDER)
-            utils.move_file_to_directory(file_path=f"{Local.INPUT_FOLDER}/{file_name}",
-                                         destination_directory=f"removed")
-            utils.log("Initiating Load Sequence...", 'system')
-            utils.log("Please Rerun 'Load Data' for the changes to take affect.", 'warning')
-            DataBase().commit_changes()
+    #         utils.log(f"File chose to update from: {update_file_lst[new_file_id]}", 'system')
+    #         utils.move_file_to_directory(file_path=f"{Local.UPDATE_FOLDER}/{update_file_lst[new_file_id]}",
+    #                                      destination_directory=Local.INPUT_FOLDER)
+    #         utils.move_file_to_directory(file_path=f"{Local.INPUT_FOLDER}/{file_name}",
+    #                                      destination_directory=f"removed")
+    #         utils.log("Initiating Load Sequence...", 'system')
+    #         utils.log("Please Rerun 'Load Data' for the changes to take affect.", 'warning')
+    #         DataBase().commit_changes()
 
-        return True
+    #     return True
 
     def delete_file_info(self):
         lst_names = DataBase().get_file_names()
@@ -389,8 +389,14 @@ class AppManager:
         # ---------------------------------------------------------
         #   The following line will help configure the אשראי　transactions
         # ---------------------------------------------------------
-        df, desc = DataBase().card_sum(utils.next_month(t))
-        cards_df = SimpleMath.process_prices(df, desc).groupby("CardID").sum().reset_index()
+        df, desc = DataBase().card_sum(t)
+        # ------------------------------ DEBUG ---------------------------------
+        # test = SimpleMath.process_prices(df, desc)
+        # print(pd.DataFrame(df, columns=desc).to_markdown())
+        # utils.log(test.to_markdown(), 'debug')
+        # utils.log(test[test['CardID'] == '4046']['Final_Value'].sum(), 'debug')
+        # ----------------------------------------------------------------------
+        cards_df = pd.DataFrame(df, columns=desc).groupby("CardID").sum().reset_index()
         cards_df['Status'] = 'Not Verified'
         bank_df = DataBase().get_Bank_Transactions(Local.CHARGE_DAY + 1, 
                                                    utils.next_month(t).month,
@@ -398,7 +404,7 @@ class AppManager:
         for _, row_cs in cards_df.iterrows():
             for _, row_bt in bank_df.iterrows():
                 x = round(row_bt['Out'], 2)
-                y = round(row_cs['Final_Value'], 2)
+                y = round(row_cs['Out/Transaction_value'], 2)
                 if x == y:
                     cards_df.loc[cards_df['CardID'] == row_cs['CardID'], 'Status'] = 'Verified'
                     if row_bt['Category'] == 'אשראי':
@@ -414,7 +420,7 @@ class AppManager:
                         utils.log('ignored...', 'system')
 
         if not cards_df.empty:
-            cards_df = cards_df[['CardID', 'Final_Value', 'Status']]
+            cards_df = cards_df[['CardID', 'Status']]
 
         # ---------------------------------------------------------
 
@@ -423,6 +429,8 @@ class AppManager:
         spendings, description = DataBase().get_monthly_spendings(year=t.year, month=t.month)
         spendings_df = SimpleMath.process_prices(spendings, description)
         spendings_df = utils.remove_leumi(spendings_df)
+        print(spendings_df[spendings_df['Ref/CardID'] == "4046"].to_markdown())
+        print(spendings_df[spendings_df['Ref/CardID'] == "4046"]['Final_Value'].sum())
 
         earnings, description = DataBase().get_monthly_earnings(year=t.year, month=t.month)
         earnings_df = SimpleMath.process_prices(earnings, description)

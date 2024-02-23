@@ -865,3 +865,29 @@ Please Make sure that none of the following formats have their 'Identifications 
         # Open the HTML file in a web browser
         import webbrowser
         webbrowser.open(output_file_path)
+
+    @staticmethod
+    def seperate_high_std(df: pd.DataFrame, numerical_col_name: str) -> Tuple[pd.DataFrame, list]:
+        """
+        The function receives 
+        1. A data frame (pd.DataFrame)
+        2. A name (str) representing the column name of the relevant numerical value (probably price values)
+        The function will return a sub section of the data frame, along with a list.
+        The data frame will include only transactions that have lower prices than the total std of the transactions.
+        The transactions that were removed, will be appended to the returned list in the following format:
+        X
+        x
+        x
+        x
+        """
+        lower_treshold = df[numerical_col_name].mean() - df[numerical_col_name].std()
+        high_treshold = df[numerical_col_name].mean() + df[numerical_col_name].std()
+        #print(df[numerical_col_name].to_markdown())
+        #print(df.info())
+        conditions = (df[numerical_col_name] < high_treshold) & (df[numerical_col_name] > lower_treshold)
+        sub_df = df[conditions]
+        #print(sub_df[numerical_col_name].to_markdown(), sub_df.shape)
+        counter_sub_df = df[~conditions]
+        counter_list = [[row['Name'], row[numerical_col_name]] for _, row in counter_sub_df.iterrows()]
+        # create a list -> trans_name, numerical_col_name
+        return sub_df, counter_list

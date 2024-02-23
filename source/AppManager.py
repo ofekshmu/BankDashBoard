@@ -429,15 +429,13 @@ class AppManager:
         spendings, description = DataBase().get_monthly_spendings(year=t.year, month=t.month)
         spendings_df = SimpleMath.process_prices(spendings, description)
         spendings_df = utils.remove_leumi(spendings_df)
-        print(spendings_df[spendings_df['Ref/CardID'] == "4046"].to_markdown())
-        print(spendings_df[spendings_df['Ref/CardID'] == "4046"]['Final_Value'].sum())
 
         earnings, description = DataBase().get_monthly_earnings(year=t.year, month=t.month)
         earnings_df = SimpleMath.process_prices(earnings, description)
         earnings_df = utils.remove_leumi(earnings_df)
 
-        Graphics.plot_spendings(spendings_df)
-        Graphics.plot_earnings(earnings_df)
+        high_std_spendings = Graphics.plot_transactions_pie_chart(spendings_df, "Spendings", Local.gentle_orange)
+        high_std_earnings = Graphics.plot_transactions_pie_chart(earnings_df, "Earnings", Local.gentle_blue)
 
         # ------ GAS
         cat_data, description_cat = DataBase().get_by_category("Gas")

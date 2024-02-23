@@ -7,58 +7,49 @@ import seaborn as sns
 
 class Graphics:
 
+
     @staticmethod
-    def plot_earnings(df: pd.DataFrame) -> None:
-        if not df.empty:
-            df = df.groupby("Category").sum()
-            df.index = df.index.map(lambda name: f"{utils.heb_conversion(name)}\n{df.loc[name,'Final_Value']:,.2f}₪")
-            gentle_blue = ['#BFD7EA',
-                           '#A5C6DB',
-                           '#8BB5CC',
-                           '#7194BD',
-                           '#577DAE',
-                           '#3D5C9F',
-                           '#233D90'
-                           ]
-            title = f"Total Earnings: {df['Final_Value'].sum():,.2f}₪"
-            ax = df.plot.pie(y='Final_Value', figsize=(7, 5), legend=False, title=title, colors=gentle_blue)
-            ax.set_ylabel('')
-        else:
+    def plot_transactions_pie_chart(df: pd.DataFrame, pie_name: str, color_set: list) -> list:
+        """
+        The function Receives:
+        1. A transactions data frame 
+        2. the name of the data frame (choose any name that represents your data)
+        3. a color set - a list of colors represented in hex form
+        the function will sort transactions by category and plot 2 pie charts, one with the category names and one with
+        the total category prices. piw charts will be saved to the output folder.
+        the function will return a list with high/low std transactions, see the function 'seperate_high_std'
+        """
+        outlier_list = []
+
+        if df.empty:
             _, ax = plt.subplots()
             ax.pie([], labels=[])
             # set the title of the plot
             ax.set_title('Empty Pie Chart')
-
-        plt.savefig(r'Outputs\Earnings.png')
-
-    @staticmethod
-    def plot_spendings(df: pd.DataFrame) -> None:
-
-        if not df.empty:
-            df = df.groupby("Category").sum()
-            df.index = df.index.map(lambda name: f"{utils.heb_conversion(name)}\n{df.loc[name,'Final_Value']:,.2f}₪")
-            gentle_orange = ['#FFF2CC',
-                             '#FFE699',
-                             '#FFD966',
-                             '#FFC533',
-                             '#FFB200',
-                             '#FFA000',
-                             '#FF8F00',
-                             '#FF8000',
-                             '#FF6B00'
-                             ]
-            title = f"Total Spendings: {df['Final_Value'].sum():,.2f}₪"
-
-            ax = df.plot.pie(y='Final_Value', figsize=(7, 5), legend=False, title=title, colors=gentle_orange)
-            ax.set_ylabel('')
-
+            plt.savefig(rf'Outputs\{pie_name}_category.png')
+            plt.savefig(rf'Outputs\{pie_name}_prices.png')        
         else:
-            _, ax = plt.subplots()
-            ax.pie([], labels=[])
-            # set the title of the plot
-            ax.set_title('Empty Pie Chart')
+            df = df.groupby("Category").sum()
+            title = f"Total {pie_name}: {df['Final_Value'].sum():,.2f}₪"
+            
+            # -------------- Create a pie chart with category names --------------
+            df_category = df.copy()
+            df_category.index = df_category.index.map(lambda name: f"{utils.heb_conversion(name)}")   
+            reduced_category_df, outliers_list = utils.seperate_high_std(df_category, 'Final_Value')
+            ax = reduced_category_df.plot.pie(y='Final_Value', figsize=(7, 5), legend=False, title=title, colors=color_set)
+            ax.set_ylabel('')
+            plt.savefig(rf'Outputs\{pie_name}_category.png')
 
-        plt.savefig(r'Outputs\Spendings.png')
+            # ------------------ Create a pie chart with prices ------------------
+            df_prices = df.copy()
+            df_prices.index = df.index.map(lambda name: f"{df_prices.loc[name,'Final_Value']:,.2f}₪")   
+            reduced_prices_df, _ = utils.seperate_high_std(df_prices, 'Final_Value')
+            ax = reduced_prices_df.plot.pie(y='Final_Value', figsize=(7, 5), legend=False, title=title, colors=color_set)
+            ax.set_ylabel('')
+            plt.savefig(rf'Outputs\{pie_name}_prices.png')
+
+        return outlier_list
+
 
     @staticmethod
     def plot_gas(df: pd.DataFrame) -> pd.Series:

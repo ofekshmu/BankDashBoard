@@ -10,7 +10,7 @@ from enum import Enum
 BANK_CARD_NUMBER = "Not_Relevant"
 
 class Settings:
-    DEBUG = False
+    DEBUG = True
     SYSTEM = True
     WARNING = True
     LAPTOP = False
@@ -45,8 +45,8 @@ class Local:
 
     GAS_GRAPH = "C:/Users/ofeks/OneDrive/Work/Projects/Personal/BankProject/Outputs/Gas_info.png"
     GAS_MONTHLY = "C:/Users/ofeks/OneDrive/Work/Projects/Personal/BankProject/Outputs/Gas_monthly.png"
-    GENERAL_INFO = "C:/Users/ofeks/OneDrive/Work/Projects/Personal/BankProject/Outputs/General_info.png"
-    CARD_DIST_PIE = "C:/Users/ofeks/OneDrive/Work/Projects/Personal/BankProject/Outputs/Card_Distribution.png"
+    GENERAL_INFO = "C:/Users/ofeks/Desktop/BankProject/Outputs/General_info.png"
+    CARD_DIST_PIE = "C:/Users/ofeks/OneDrive/BankProject/Outputs/Card_Distribution.png"
 
     UPDATE_FOLDER = "to_update"
     VERIFIED_FOLDER = f"Verified_{INPUT_FOLDER}"
@@ -67,6 +67,25 @@ class Local:
             "#FFE4B5"   # Moccasin
         ]
 
+    gentle_blue = ['#BFD7EA',
+                    '#A5C6DB',
+                    '#8BB5CC',
+                    '#7194BD',
+                    '#577DAE',
+                    '#3D5C9F',
+                    '#233D90'
+                    ]
+
+    gentle_orange = ['#FFF2CC',
+                    '#FFE699',
+                    '#FFD966',
+                    '#FFC533',
+                    '#FFB200',
+                    '#FFA000',
+                    '#FF8F00',
+                    '#FF8000',
+                    '#FF6B00'
+                        ]
 
 class Personal:
     '''

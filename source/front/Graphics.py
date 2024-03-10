@@ -48,7 +48,7 @@ class Graphics:
             ax.set_ylabel('')
             plt.savefig(rf'Outputs\{pie_name}_prices.png')
 
-        return outlier_list
+        return outliers_list
 
 
     @staticmethod

@@ -459,7 +459,9 @@ class AppManager:
 
         utils.generate_html(t.month,
                             spendings_df,
+                            high_std_spendings,
                             earnings_df,
+                            high_std_earnings,
                             monthly_balance,
                             card_color_dict,
                             cat_dict,

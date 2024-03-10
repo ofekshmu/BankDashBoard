@@ -74,7 +74,7 @@ class utils:
 
             if utils.has_hebrew(lst[0]):
                 return wrapper_hc(lst[1:]) + lst[0][::-1] + " "
-            return lst[0] + " " + wrapper_hc(lst[1:])
+            return wrapper_hc(lst[1:]) + " " +lst[0]
 
         return wrapper_hc(name.split())
 
@@ -120,7 +120,9 @@ class utils:
     @staticmethod
     def generate_html(month_num,
                       spendings_df,
+                      high_std_spendings,
                       earnings_df,
+                      high_std_earnings,
                       monthly_balance: int,
                       cards_dict: dict,
                       gas_stats,
@@ -331,6 +333,34 @@ class utils:
         img_tag = soup.new_tag("img")
         img_tag['src'] = f"{Local.GAS_MONTHLY}"
         div_tag.append(img_tag)
+
+        # ------------- Insertion of outliers under pie charts -------------
+        container_div = soup.find('div', class_='container_img')
+
+        # Create a new list element (ul) to hold the items
+        list_element = soup.new_tag('ul')
+
+        # Append each item as list elements (li) inside the ul
+        for item in high_std_spendings:
+            li = soup.new_tag('li')
+            li.string = f"{item[0]} - {item[1]}"
+            list_element.append(li)
+            
+        soup.body.insert(5, list_element)
+
+        container_div = soup.find('div', class_='container_img')
+
+        # Create a new list element (ul) to hold the items
+        list_element = soup.new_tag('ul')
+
+        # Append each item as list elements (li) inside the ul
+        for item in high_std_earnings:
+            li = soup.new_tag('li')
+            li.string = f"{item[0]} - {item[1]}"
+            list_element.append(li)
+            
+        soup.body.insert(5, list_element)
+        # ------------------------------------------------------------------
 
         soup.body.append(div_tag)
 
@@ -888,6 +918,6 @@ Please Make sure that none of the following formats have their 'Identifications 
         sub_df = df[conditions]
         #print(sub_df[numerical_col_name].to_markdown(), sub_df.shape)
         counter_sub_df = df[~conditions]
-        counter_list = [[row['Name'], row[numerical_col_name]] for _, row in counter_sub_df.iterrows()]
+        counter_list = [(row['Name'], row[numerical_col_name]) for _, row in counter_sub_df.iterrows()]
         # create a list -> trans_name, numerical_col_name
         return sub_df, counter_list

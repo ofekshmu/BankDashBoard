@@ -918,6 +918,9 @@ Please Make sure that none of the following formats have their 'Identifications 
         sub_df = df[conditions]
         #print(sub_df[numerical_col_name].to_markdown(), sub_df.shape)
         counter_sub_df = df[~conditions]
-        counter_list = [(row['Name'], row[numerical_col_name]) for _, row in counter_sub_df.iterrows()]
+        print(counter_sub_df.columns)
+        print(counter_sub_df.to_markdown())
+        print(counter_sub_df['TableName'])
+        counter_list = [(utils.heb_conversion(category), row[numerical_col_name]) for category, row in counter_sub_df.iterrows()]
         # create a list -> trans_name, numerical_col_name
         return sub_df, counter_list

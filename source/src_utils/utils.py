@@ -76,6 +76,9 @@ class utils:
                 return wrapper_hc(lst[1:]) + lst[0][::-1] + " "
             return wrapper_hc(lst[1:]) + " " +lst[0]
 
+        def fix_order(sentance: str):
+            pass
+
         return wrapper_hc(name.split())
 
     @staticmethod
@@ -135,16 +138,28 @@ class utils:
             txt = inf.read()
         soup = bs4.BeautifulSoup(txt, features="html.parser")
 
+        # Create the new div element
+        new_div = soup.new_tag("div")
+        new_div['class'] = "two alt-two"
+        h1_tag = soup.new_tag("h1")
+        h1_tag.string = "DashBoard"
+        span_tag = soup.new_tag("span")
+        span_tag.string = f"{calendar.month_name[month_num]}"
+        h1_tag.append(span_tag)
+        new_div.append(h1_tag)
+
+        # Find the head tag and append the new div under it
+        head_tag = soup.head
+        head_tag.insert(0, new_div)
+
+
         sub_titles_div = soup.new_tag('div')
 
-        balance_h2 = soup.new_tag('h2')
-        balance_h2.string = f'Balance: {monthly_balance:,}'
+        balance_h2 = soup.new_tag('h1')
+        balance_h2['class'] = "two alt-balance"
+        balance_h2.string = f'Balance {monthly_balance:,}₪'
 
-        h2_3 = soup.new_tag('h1')
-        h2_3.string = f"{calendar.month_name[month_num]}"
-
-        sub_titles_div.append(h2_3)
-        sub_titles_div.append(balance_h2)
+        head_tag.append(balance_h2)
 
         sub_titles_div.attrs['style'] = 'text-align: center;'
 
@@ -335,31 +350,34 @@ class utils:
         div_tag.append(img_tag)
 
         # ------------- Insertion of outliers under pie charts -------------
-        container_div = soup.find('div', class_='container_img')
-
-        # Create a new list element (ul) to hold the items
-        list_element = soup.new_tag('ul')
-
+        
+        transaction_outlier_div = soup.new_tag('div')
+        transaction_outlier_div['class'] = 'outer-div'
+        
+        spendings_outliers = soup.new_tag('div')
+        spendings_outliers['class'] = 'inner-div'
+        
         # Append each item as list elements (li) inside the ul
         for item in high_std_spendings:
             li = soup.new_tag('li')
-            li.string = f"{item[0]} - {item[1]}"
-            list_element.append(li)
+            li.string = f"{item[0]} - {item[1]}₪"
+            spendings_outliers.append(li)
             
-        soup.body.insert(5, list_element)
+        transaction_outlier_div.append(spendings_outliers)
 
-        container_div = soup.find('div', class_='container_img')
-
-        # Create a new list element (ul) to hold the items
-        list_element = soup.new_tag('ul')
+        earnings_outliers = soup.new_tag('div')
+        earnings_outliers['class'] = 'inner-div'
 
         # Append each item as list elements (li) inside the ul
         for item in high_std_earnings:
             li = soup.new_tag('li')
-            li.string = f"{item[0]} - {item[1]}"
-            list_element.append(li)
+            li.string = f"{item[0]} - {item[1]}₪"
+            earnings_outliers.append(li)
             
-        soup.body.insert(5, list_element)
+        transaction_outlier_div.append(earnings_outliers)
+        
+        soup.body.insert(5, transaction_outlier_div)
+        soup.body.insert(6, soup.new_tag('br'))
         # ------------------------------------------------------------------
 
         soup.body.append(div_tag)
@@ -918,9 +936,7 @@ Please Make sure that none of the following formats have their 'Identifications 
         sub_df = df[conditions]
         #print(sub_df[numerical_col_name].to_markdown(), sub_df.shape)
         counter_sub_df = df[~conditions]
-        print(counter_sub_df.columns)
-        print(counter_sub_df.to_markdown())
-        print(counter_sub_df['TableName'])
+
         counter_list = [(utils.heb_conversion(category), row[numerical_col_name]) for category, row in counter_sub_df.iterrows()]
         # create a list -> trans_name, numerical_col_name
         return sub_df, counter_list

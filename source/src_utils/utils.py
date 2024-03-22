@@ -129,7 +129,8 @@ class utils:
                       monthly_balance: int,
                       cards_dict: dict,
                       gas_stats,
-                      cards_df):
+                      cards_df,
+                      data: dict):
         import bs4
         from datetime import datetime
         import calendar
@@ -157,9 +158,25 @@ class utils:
 
         balance_h2 = soup.new_tag('h1')
         balance_h2['class'] = "two alt-balance"
-        balance_h2.string = f'Balance {monthly_balance:,}₪'
+        balance_h2.string = f'Balance {monthly_balance:,.2f}₪'
+        
+        net_income = soup.new_tag('h1')
+        net_income['class'] = "two alt-balance"
+        net_income.string = f'Net Income: {data["net income"]:,.2f}₪'
+        
+        overall_net_income = soup.new_tag('h1')
+        overall_net_income['class'] = "two alt-balance"
+        overall_net_income.string = f'Overall Net Income: {data["overall net income"]:,.2f}₪'
+        
+        if data["net income"] >= 0:
+            net_income['style'] = "color: #588157"
+            overall_net_income['style'] = "color: #588157"
+        else:
+            overall_net_income['style'] = "color: #c1121f"
 
         head_tag.append(balance_h2)
+        head_tag.append(net_income)
+        head_tag.append(overall_net_income)
 
         sub_titles_div.attrs['style'] = 'text-align: center;'
 
@@ -379,6 +396,35 @@ class utils:
         soup.body.insert(5, transaction_outlier_div)
         soup.body.insert(6, soup.new_tag('br'))
         # ------------------------------------------------------------------
+        # this was trying to improve the list gui
+        # outer_list_div = soup.new_tag('div')
+        # outer_list_div['class'] = 'container'
+        
+        # list_div = soup.new_tag('div')
+        # list_div['class'] = 'list'
+        
+        # inner_list_div = soup.new_tag('div')
+        # inner_list_div['class'] = 'num'
+
+
+        # for item in ['A', 'B', 'C']:
+        #     li = soup.new_tag('div')
+        #     li['class'] = "color-box"
+        #     li['style'] = "background-color: #E0FFFF"
+            
+        #     item_div = soup.new_tag('div')
+            
+        #     text_h3 = soup.new_tag('h3')
+        #     text_h3.string = f"{item}"
+            
+        #     li.append(item_div)
+        #     item_div.append(text_h3)
+        #     inner_list_div.append(item_div)
+
+        # list_div.append(inner_list_div)
+        # outer_list_div.append(list_div)
+        
+        # soup.body.insert(6, outer_list_div)
 
         soup.body.append(div_tag)
 

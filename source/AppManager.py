@@ -386,6 +386,7 @@ class AppManager:
                 y = int(input('year: '))
                 t = datetime.now().replace(month=m, year=y)
 
+        data = {}
         # ---------------------------------------------------------
         #   The following line will help configure the אשראי　transactions
         # ---------------------------------------------------------
@@ -457,6 +458,13 @@ class AppManager:
 
         Graphics.card_distribution(spendings_df, card_color_dict)
 
+
+        data['net income'] = (earnings_df['Final_Value'].sum() - spendings_df['Final_Value'].sum())
+        #savings = spendings_df.groupby("Category").sum()['השקעה/חסכון']
+        print(spendings_df.to_markdown())
+        data['overall net income'] = (earnings_df['Final_Value'].sum() - \
+                                      spendings_df[spendings_df['Category'] != 'השקעה/חיסכון']['Final_Value'].sum())
+        
         utils.generate_html(t.month,
                             spendings_df,
                             high_std_spendings,
@@ -465,6 +473,7 @@ class AppManager:
                             monthly_balance,
                             card_color_dict,
                             cat_dict,
-                            cards_df)
+                            cards_df,
+                            data)
         webbrowser.open(r'source\html\output.html')
 

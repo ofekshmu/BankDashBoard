@@ -370,8 +370,30 @@ class AppManager:
             context.render()
 
     def analysis(self):
-        from datetime import datetime
+        match utils.template_menu(["General Statistics", "Pick a category/Bussines name"], "Pick an option:"):
+            case 0:
+                self.general_analysis()
+            case 1:
+                self.category_analysis()
+            case _:
+                utils.log("Unreachable point reached...", "error")
 
+    def category_analysis(self):
+        
+        names = DataBase().get_all_bussiness_names()
+        categories = DataBase().get_all_category_names()
+        options = names + categories
+        
+        result = utils.template_menu(options=options, msg="Pick an option:")
+        name_for_analysis = options[result]
+
+        # Run analysis
+
+        # Create HTML file
+
+
+    def general_analysis(self):
+        from datetime import datetime
         # -----
         print("Pick an option:\n1 -> Current Month\n2 -> Last Month\n3 -> Pick A date")
         x = int(input())
@@ -467,4 +489,8 @@ class AppManager:
                             cat_dict,
                             cards_df)
         webbrowser.open(r'source\html\output.html')
+
+
+
+        
 

@@ -456,34 +456,6 @@ class DataBase:
                                     """, (day1, day2, "אשראי", day1, day2, day1, day2)).fetchall(), \
             [d[0] for d in self.cursor.description]
 
-    # def get_monthly_earnings_sum(self, year: int, month: int) -> int:
-    #     """
-    #     Input:
-    #     An year and a month.
-
-    #     Returns the total earning sums of the month.
-    #     """
-    #     import calendar
-    #     last_day = calendar.monthrange(year, month)[1]
-    #     day1 = datetime(year, month, 1).strftime('%Y-%m-%d %H:%M:%S')
-    #     day2 = datetime(year, month, last_day).strftime('%Y-%m-%d %H:%M:%S')
-
-    #     return self.cursor.execute("""
-    #                                  SELECT ROUND(COALESCE(subquery1.x, 0) + COALESCE(subquery2.y, 0), 2) AS 'total_sum'
-    #                                     FROM
-    #                                         (SELECT SUM(Income) AS 'x'
-    #                                          FROM BankTransactions
-    #                                          WHERE Date >= ?
-    #                                          AND Date <= ?
-    #                                          AND Category != ?) AS subquery1
-    #                                     JOIN
-    #                                         (SELECT SUM(Transaction_Value) AS 'y'
-    #                                          FROM CardTransactions
-    #                                          WHERE Executed_Date >= ?
-    #                                          AND Executed_Date <= ?
-    #                                          AND Transaction_Value < 0) AS subquery2;
-    #                                 """, (day1, day2, "אשראי", day1, day2)).fetchone()[0]
-
     def get_monthly_spendings(self, year: int, month: int) -> Tuple[list, list]:
         """
         The function will return a list containing all spendings made in the current month given.
@@ -555,47 +527,7 @@ class DataBase:
                                     """, (b_init, b_end, "אשראי", b_init, b_end, next_month, )).fetchall(), \
             [d[0] for d in self.cursor.description]
 
-    # Query NOTE: Executed_Date > 0 (In the CardTransaction table) represents only Negative transaction since Negative transactions
-    # appears with a positive value in the Card table.
 
-    # def get_monthly_spendings_sum(self, year: int, month: int) -> int:
-    #     """
-    #     The function will return a list containing all spendings made in the current month given.
-    #     Spendings can be given from both BankTranssactions table of Transactions table.
-    #     Template is: (Table name, Name, Card, Amount, Category, Date)
-
-    #     For transaction Taken from the BankTransactions; card will appear as 'Bank'
-    #     """
-    #     import calendar
-        
-    #     # When looking for spendings. transaction will be queried by the date they will be 
-    #     # effective in the bank account and not by the date they were exectued.
-    #     # That is why, when given month x, we will search for transactions in month x + 1
-    #     fit_month = month % 12 + 1
-    #     if fit_month == 1:
-    #         fit_year = year + 1
-    #     else:
-    #         fit_year = year
-
-    #     last_day = calendar.monthrange(year, month)[1]
-    #     b_init = datetime(year, month, 1).strftime('%Y-%m-%d %H:%M:%S')
-    #     b_end = datetime(year, month, last_day).strftime('%Y-%m-%d %H:%M:%S')
-
-    #     return self.cursor.execute("""
-    #                                  SELECT ROUND(COALESCE(subquery1.x, 0) + COALESCE(subquery2.y, 0)) AS 'total_sum'
-    #                                     FROM
-    #                                         (SELECT SUM(Out) AS 'x'
-    #                                          FROM BankTransactions
-    #                                          WHERE Date >= ?
-    #                                          AND Date <= ?
-    #                                          AND Category != ?) AS subquery1
-    #                                     JOIN
-    #                                         (SELECT SUM(Transaction_Value) AS 'y'
-    #                                          FROM CardTransactions
-    #                                          WHERE Executed_Date >= ?
-    #                                          AND Executed_Date <= ?
-    #                                          AND Transaction_Value > 0) AS subquery2;
-    #                                 """, (b_init, b_end, "אשראי", b_init, b_end)).fetchone()[0]
 
     # Query NOTE: Executed_Date > 0 (In the CardTransaction table) represents only Negative transaction since Negative transactions
     # appears with a positive value in the Card table.
@@ -849,6 +781,18 @@ class DataBase:
             return True
         except Exception as e:
             return False
+        
+    def get_all_bussiness_names(self) -> list:
+        """
+        TODO: implement
+        """
+        return []
+
+    def get_all_category_names(self) -> list:
+        """
+        TODO: implement
+        """
+        return []
 
 # ----------------------------------------------------------------------
 #                            User SQL commands

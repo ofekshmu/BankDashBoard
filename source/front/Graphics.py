@@ -19,7 +19,7 @@ class Graphics:
         the total category prices. piw charts will be saved to the output folder.
         the function will return a list with high/low std transactions, see the function 'seperate_high_std'
         """
-        outlier_list = []
+        outliers_list = []
 
         if df.empty:
             _, ax = plt.subplots()

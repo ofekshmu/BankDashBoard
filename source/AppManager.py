@@ -385,7 +385,7 @@ class AppManager:
                 options = DataBase().get_all_category_names()
                 result = utils.template_menu(options=options, msg="Pick a Category:")
             case 1:
-                options = DataBase().get_all_bussiness_names()
+                options = DataBase().get_all_business_names()
                 result = utils.template_menu(options=options, msg="Pick a Bussines:")
             case _:
                 utils.log("Unreachable point reached...", "error") 

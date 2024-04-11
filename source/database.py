@@ -782,17 +782,41 @@ class DataBase:
         except Exception as e:
             return False
         
-    def get_all_bussiness_names(self) -> list:
+    def get_all_business_names(self) -> list:
         """
-        TODO: implement
+        Returns all business names in the data base in a list format.
         """
-        return []
-
+        card_business = self.cursor.execute("""
+                                   SELECT DISTINCT Name
+                                   FROM CardTransactions 
+                                   """).fetchall()
+        
+        bank_business = self.cursor.execute("""
+                                   SELECT DISTINCT Name
+                                   FROM BankTransactions 
+                                   """).fetchall()
+        card_business_list = [x[0] for x in card_business]
+        bank_business_list = [y[0] for y in bank_business]
+        all_businesses = card_business_list + bank_business_list
+        return all_businesses
+         
     def get_all_category_names(self) -> list:
         """
-        TODO: implement
+        Returns all categories names in the data base in a list format.
         """
-        return []
+        card_categories = self.cursor.execute("""
+                                    SELECT DISTINCT Category
+                                    FROM CardTransactions
+                                    """).fetchall()
+        
+        bank_categories = self.cursor.execute("""
+                                    SELECT DISTINCT Category
+                                    FROM BankTransactions
+                                    """).fetchall()
+        card_categories_list = [x[0] for x in card_categories]
+        bank_categories_list = [y[0] for y in bank_categories]
+        all_categories =  card_categories_list + bank_categories_list
+        return all_categories
 
 # ----------------------------------------------------------------------
 #                            User SQL commands

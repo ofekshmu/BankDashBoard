@@ -940,3 +940,22 @@ Please Make sure that none of the following formats have their 'Identifications 
         counter_list = [(utils.heb_conversion(category), row[numerical_col_name]) for category, row in counter_sub_df.iterrows()]
         # create a list -> trans_name, numerical_col_name
         return sub_df, counter_list
+    
+    @staticmethod
+    def create_html_name_analysis(data: dict) -> None:
+        import bs4
+
+        # load the file
+        with open(r"source/html/Category_template.html") as inf:
+            txt = inf.read()
+        soup = bs4.BeautifulSoup(txt, features="html.parser")
+
+        # Find the h2 tag with class 'subtitle'
+        subtitle_tag = soup.find('h2', class_='subtitle')
+        subtitle_tag.string = data['subtitle']
+
+        subtitle_tag = soup.find('h2', class_='category-title')
+        subtitle_tag.string = data['Category/business name']
+
+        with open(r"source\html\Category_output.html", "w", encoding='utf-8') as outf:
+            outf.write(bs4.BeautifulSoup.prettify(soup))

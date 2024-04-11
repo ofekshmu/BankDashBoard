@@ -394,7 +394,19 @@ class AppManager:
 
         # Run analysis
 
-        # Create HTML file
+        utils.create_html_name_analysis({"subtitle": "Specific Analysis",
+                                         "Category/business name": name_for_analysis,
+                                         "Monthly Average": "",
+                                         "Monthly Standard Deviation": "",
+                                         "Yearly Average": "",
+                                         "Total Spendings": "",
+                                         "Total Income": "",
+                                         "Yearly use plot path": "",
+                                         "Highest Transaction value" : "",
+                                         "Highest Transaction date": "insert date",
+                                         "Association list": [],
+                                         "count pie plot path" : "",
+                                         "transactions": "data frame"})
 
 
     def general_analysis(self):

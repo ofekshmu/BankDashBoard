@@ -380,11 +380,16 @@ class AppManager:
 
     def category_analysis(self):
         
-        names = DataBase().get_all_bussiness_names()
-        categories = DataBase().get_all_category_names()
-        options = names + categories
-        
-        result = utils.template_menu(options=options, msg="Pick an option:")
+        match utils.template_menu(["Analyize a category", "Analayze a Bussines"], "Pick an option:"):
+            case 0:
+                options = DataBase().get_all_category_names()
+                result = utils.template_menu(options=options, msg="Pick a Category:")
+            case 1:
+                options = DataBase().get_all_bussiness_names()
+                result = utils.template_menu(options=options, msg="Pick a Bussines:")
+            case _:
+                utils.log("Unreachable point reached...", "error") 
+
         name_for_analysis = options[result]
 
         # Run analysis

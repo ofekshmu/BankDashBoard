@@ -407,6 +407,7 @@ class AppManager:
                                          "Association list": [],
                                          "count pie plot path" : "",
                                          "transactions": "data frame"})
+        webbrowser.open(r'source\html\Category_output.html')
 
 
     def general_analysis(self):

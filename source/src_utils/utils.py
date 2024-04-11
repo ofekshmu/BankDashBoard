@@ -954,7 +954,7 @@ Please Make sure that none of the following formats have their 'Identifications 
         subtitle_tag = soup.find('h2', class_='subtitle')
         subtitle_tag.string = data['subtitle']
 
-        subtitle_tag = soup.find('h2', class_='category-title')
+        subtitle_tag = soup.find('h3', class_='category-title')
         subtitle_tag.string = data['Category/business name']
 
         with open(r"source\html\Category_output.html", "w", encoding='utf-8') as outf:

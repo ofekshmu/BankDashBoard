@@ -957,5 +957,23 @@ Please Make sure that none of the following formats have their 'Identifications 
         subtitle_tag = soup.find('h3', class_='category-title')
         subtitle_tag.string = data['Category/business name']
 
+        tag = soup.find('td', class_='Monthly Average')
+        tag.string = data['Monthly Average']
+
+        tag = soup.find('td', class_="Monthly Standard Deviation")
+        tag.string = data['Monthly Standard Deviation']
+
+        tag = soup.find('td', class_="Yearly Average")
+        tag.string = data['Yearly Average']
+
+        tag = soup.find('td', class_="Total Spendings")
+        tag.string = data['Total Spendings']
+
+        tag = soup.find('td', class_="Total Income")
+        tag.string = data['Total Income']
+
+        tag = soup.find('img', alt="Yearly Use")
+        tag['src'] = data["Yearly use plot path"]
+
         with open(r"source\html\Category_output.html", "w", encoding='utf-8') as outf:
             outf.write(bs4.BeautifulSoup.prettify(soup))

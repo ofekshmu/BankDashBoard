@@ -402,11 +402,11 @@ class AppManager:
                                          "Total Spendings": "X",
                                          "Total Income": "X",
                                          "Yearly use plot path": r"C:\Users\ofeks\OneDrive\BankProject\Outputs\Spendings_category.png",
-                                         "Highest Transaction value" : "",
-                                         "Highest Transaction date": "insert date",
-                                         "Association list": [],
-                                         "count pie plot path" : "",
-                                         "transactions": "data frame"})
+                                         "Highest Transaction value" : "X",
+                                         "Highest Transaction date": "X",
+                                         "Association list": [("Name1",2), ("Name2",4), ("Name3",6)],
+                                         "count pie plot path" : "Insert path here",
+                                         "transactions": pd.DataFrame([1,2,4])})
         webbrowser.open(r'source\html\Category_output.html')
 
 

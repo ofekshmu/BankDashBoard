@@ -975,5 +975,26 @@ Please Make sure that none of the following formats have their 'Identifications 
         tag = soup.find('img', alt="Yearly Use")
         tag['src'] = data["Yearly use plot path"]
 
+
+        tag = soup.find('p', class_="Highest Transaction: Value & Date")
+        tag.string = "The highest transaction value was: " + data["Highest Transaction value"] + " , Executed on " + data["Highest Transaction date"]
+
+        # Add associated cate/business:
+        tag = soup.find('p', class_="Associated")
+        
+        for tuple in data["Association list"]:
+            sub_tag = soup.new_tag('li')
+            sub_tag.string = f"{tuple[0]}\t{tuple[1]}"
+            tag.append(sub_tag)
+
+
+        # Add transactions data to html list:
+        tag = soup.find('div', class_="transaction-list")
+
+        for _, row in data["transactions"].iterrows():
+            sub_tag = soup.new_tag('li')
+            sub_tag.string = f"{row}"
+            tag.append(sub_tag)
+
         with open(r"source\html\Category_output.html", "w", encoding='utf-8') as outf:
             outf.write(bs4.BeautifulSoup.prettify(soup))

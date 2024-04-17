@@ -817,6 +817,23 @@ class DataBase:
         bank_categories_list = [y[0] for y in bank_categories]
         all_categories =  card_categories_list + bank_categories_list
         return all_categories
+    
+    def get_monthly_average(self, name_for_analysis):
+            """
+            Returns category \ business monthly average of all incomes and sepndings 
+            """
+            months_total = self.cursor.execute("""
+                                   SELECT DISTINCT Charge_Date
+                                   FROM CardTransactions 
+                                   """).fetchall()
+            query = """
+                    SELECT SUM(Transaction_Value)
+                    FROM CardTransactions
+                    WHERE Name = ?
+                    """
+            months_sum = self.cursor.execute(query, name_for_analysis).fetchall()
+            monthly_average_value = months_sum / months_total
+            return monthly_average_value
 
 # ----------------------------------------------------------------------
 #                            User SQL commands

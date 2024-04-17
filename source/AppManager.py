@@ -380,7 +380,7 @@ class AppManager:
 
     def category_analysis(self):
         
-        match utils.template_menu(["Analyize a category", "Analayze a Bussines"], "Pick an option:"):
+        match utils.template_menu(["Analyze a category", "Analayze a Bussines"], "Pick an option:"):
             case 0:
                 options = DataBase().get_all_category_names()
                 idx, sub_options = utils.typer_template_menu(options, "Pick a Category:")
@@ -392,11 +392,10 @@ class AppManager:
 
         name_for_analysis = sub_options[idx]
 
-        # Run analysis
-
+        # Run analysis     
         utils.create_html_name_analysis({"subtitle": "Specific Analysis",
                                          "Category/business name": name_for_analysis,
-                                         "Monthly Average": "X",
+                                         "Monthly Average": DataBase().get_monthly_average(name_for_analysis),
                                          "Monthly Standard Deviation": "X",
                                          "Yearly Average": "X",
                                          "Total Spendings": "X",

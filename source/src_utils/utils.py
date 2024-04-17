@@ -76,8 +76,9 @@ class utils:
                 return wrapper_hc(lst[1:]) + lst[0][::-1] + " "
             return wrapper_hc(lst[1:]) + " " +lst[0]
 
-        def fix_order(sentance: str):
-            pass
+
+        if not utils.has_hebrew(name):
+            return name
 
         return wrapper_hc(name.split())
 
@@ -408,6 +409,50 @@ class utils:
             if x < 0 or x >= len(options):
                 continue
             return x
+        
+    @staticmethod
+    def typer_template_menu(options: list[str], msg: str = "Choose one of the following:\n", sort: bool = False) -> Tuple[int, list[str]]:
+        """
+        The function creates a template menu that is printed out for the user.
+        Inputs are @options - a list of strings containing different options.
+                   @msg - str with a menu message
+        return a numbers from 0 to len(options) - 1 representing the chosen option.
+        if input does not match a valid option, the function asks for a valid one.
+        """
+        def get_substrings(lst: list[str], substring: str) -> list:
+            substrings_lst = []
+
+            for st in lst:
+                if substring in st:
+                    substrings_lst.append(st)
+            
+            return substrings_lst
+
+        if sort:
+            options = sorted(options)
+
+        utils.log(msg + '\n', 'system')
+
+        while True:
+            utils.pretty_print([f"{str(i) + ' -> ':6s}{utils.heb_conversion(x)}" for i, x in enumerate(options, start=0)])
+            x = input()
+            if x.isnumeric(): 
+                x = int(x)
+                if x < 0 or x >= len(options):
+                    continue
+                return x, options
+            else:   # x is text
+                sub_options = get_substrings(options, x)
+                if len(sub_options) == 0:
+                    continue
+                utils.pretty_print([f"{str(i) + ' -> ':6s}{utils.heb_conversion(x)}" for i, x in enumerate(sub_options, start=0)])
+                x = input()
+                if not x.isnumeric():
+                    continue
+                x = int(x)
+                if x < 0 or x >= len(sub_options):
+                    continue
+                return x, sub_options
 
     @staticmethod
     def handle_categories() -> Tuple[str, str]:

@@ -383,14 +383,14 @@ class AppManager:
         match utils.template_menu(["Analyize a category", "Analayze a Bussines"], "Pick an option:"):
             case 0:
                 options = DataBase().get_all_category_names()
-                result = utils.template_menu(options=options, msg="Pick a Category:")
+                idx, sub_options = utils.typer_template_menu(options, "Pick a Category:")
             case 1:
                 options = DataBase().get_all_business_names()
-                result = utils.template_menu(options=options, msg="Pick a Bussines:")
+                idx, sub_options = utils.typer_template_menu(options, "Pick a Bussines:")
             case _:
                 utils.log("Unreachable point reached...", "error") 
 
-        name_for_analysis = options[result]
+        name_for_analysis = sub_options[idx]
 
         # Run analysis
 

@@ -1003,26 +1003,26 @@ Please Make sure that none of the following formats have their 'Identifications 
         subtitle_tag.string = data['Category/business name']
 
         tag = soup.find('td', class_='Monthly Average')
-        tag.string = f"{data['Monthly Average']}"
+        tag.string = f"{data['Monthly Average']} ₪"
 
         tag = soup.find('td', class_="Monthly Standard Deviation")
-        tag.string = data['Monthly Standard Deviation']
+        tag.string = f"{data['Monthly Standard Deviation']} ₪"
 
         tag = soup.find('td', class_="Yearly Average")
-        tag.string = data['Yearly Average']
+        tag.string = f"{data['Yearly Average']} ₪"
 
         tag = soup.find('td', class_="Total Spendings")
-        tag.string = data['Total Spendings']
+        tag.string = f"{data['Total Spendings']} ₪"
 
         tag = soup.find('td', class_="Total Income")
-        tag.string = data['Total Income']
+        tag.string = f"{data['Total Income']} ₪"
 
         tag = soup.find('img', alt="Yearly Use")
-        tag['src'] = data["Yearly use plot path"]
+        tag['src'] = f"{data['Yearly use plot path']} ₪"
 
 
         tag = soup.find('p', class_="Highest Transaction: Value & Date")
-        tag.string = "The highest transaction value was: " + data["Highest Transaction value"] + " , Executed on " + data["Highest Transaction date"]
+        tag.string = "The highest transaction value was: " + data["Highest Transaction value"] + "₪ , Executed on " + data["Highest Transaction date"] +" ₪"
 
         # Add associated cate/business:
         tag = soup.find('p', class_="Associated")

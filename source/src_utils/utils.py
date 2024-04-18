@@ -1003,7 +1003,7 @@ Please Make sure that none of the following formats have their 'Identifications 
         subtitle_tag.string = data['Category/business name']
 
         tag = soup.find('td', class_='Monthly Average')
-        tag.string = data['Monthly Average']
+        tag.string = f"{data['Monthly Average']}"
 
         tag = soup.find('td', class_="Monthly Standard Deviation")
         tag.string = data['Monthly Standard Deviation']

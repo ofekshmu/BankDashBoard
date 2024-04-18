@@ -818,21 +818,34 @@ class DataBase:
         all_categories =  card_categories_list + bank_categories_list
         return all_categories
     
-    def get_monthly_average(self, name_for_analysis):
+    def get_monthly_average(self, name_for_analysis, case):
             """
             Returns category \ business monthly average of all incomes and sepndings 
             """
             months_total = self.cursor.execute("""
-                                   SELECT DISTINCT Charge_Date
+                                   SELECT
+                                        ROUND((julianday(MAX(Charge_Date)) - julianday(MIN(Charge_Date))) / 30)  + 1
                                    FROM CardTransactions 
                                    """).fetchall()
-            query = """
+            months_total_list = [x[0] for x in months_total]
+            print(months_total_list[0])
+            if case == 0:
+                query = """
+                    SELECT SUM(Transaction_Value)
+                    FROM CardTransactions
+                    WHERE Category = ?
+                    """
+                months_sum = self.cursor.execute(query, (name_for_analysis,)).fetchall()
+            else:
+                query = """
                     SELECT SUM(Transaction_Value)
                     FROM CardTransactions
                     WHERE Name = ?
                     """
-            months_sum = self.cursor.execute(query, name_for_analysis).fetchall()
-            monthly_average_value = months_sum / months_total
+                months_sum = self.cursor.execute(query, (name_for_analysis,)).fetchall()
+            months_sum_list = [y[0] for y in months_sum]
+            print(months_sum_list[0])
+            monthly_average_value = round(months_sum_list[0] / months_total_list[0], 2)
             return monthly_average_value
 
 # ----------------------------------------------------------------------

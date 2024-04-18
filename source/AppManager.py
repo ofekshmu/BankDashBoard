@@ -379,12 +379,15 @@ class AppManager:
                 utils.log("Unreachable point reached...", "error")
 
     def category_analysis(self):
-        
-        match utils.template_menu(["Analyze a category", "Analayze a Bussines"], "Pick an option:"):
+
+        case = 0
+
+        match utils.template_menu(["Analyze a category", "Analayze a Business"], "Pick an option:"):
             case 0:
                 options = DataBase().get_all_category_names()
                 idx, sub_options = utils.typer_template_menu(options, "Pick a Category:")
             case 1:
+                case = 1
                 options = DataBase().get_all_business_names()
                 idx, sub_options = utils.typer_template_menu(options, "Pick a Bussines:")
             case _:
@@ -395,7 +398,7 @@ class AppManager:
         # Run analysis     
         utils.create_html_name_analysis({"subtitle": "Specific Analysis",
                                          "Category/business name": name_for_analysis,
-                                         "Monthly Average": DataBase().get_monthly_average(name_for_analysis),
+                                         "Monthly Average": DataBase().get_monthly_average(name_for_analysis, case),
                                          "Monthly Standard Deviation": "X",
                                          "Yearly Average": "X",
                                          "Total Spendings": "X",

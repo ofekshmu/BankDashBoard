@@ -328,43 +328,8 @@ class utils:
             table2.append(row)
 
         # ----------
-        div = soup.new_tag("div")
-        div["class"] = 'gas-info'
-        title = soup.new_tag("h3")
-        title.string = "Gas info"
-        div.append(title)
-
-        table = soup.new_tag("table")
-
-        for key, value in gas_stats.items():
-            tr = soup.new_tag("tr")
-            td1 = soup.new_tag("td")
-            td1.string = key + ":"
-            td2 = soup.new_tag("td")
-            td2.string = str(value)
-            td2['style'] = 'padding-left: 15px;'
-            tr.append(td1)
-            tr.append(td2)
-            table.append(tr)
-
-        div.append(table)
-
-        outer_div = soup.new_tag("div")
-        outer_div['class'] = 'container_img'
-        outer_div.append(div)
-
-        img_tag = soup.new_tag("img")
-        img_tag['src'] = f"{Local.GAS_GRAPH}"
-        outer_div.append(img_tag)
-
-        soup.body.append(outer_div)
 
         div_tag = soup.new_tag('div')
-        div_tag['class'] = 'container_img'
-
-        img_tag = soup.new_tag("img")
-        img_tag['src'] = f"{Local.GAS_MONTHLY}"
-        div_tag.append(img_tag)
 
         # ------------- Insertion of outliers under pie charts -------------
         
@@ -396,35 +361,6 @@ class utils:
         soup.body.insert(5, transaction_outlier_div)
         soup.body.insert(6, soup.new_tag('br'))
         # ------------------------------------------------------------------
-        # this was trying to improve the list gui
-        # outer_list_div = soup.new_tag('div')
-        # outer_list_div['class'] = 'container'
-        
-        # list_div = soup.new_tag('div')
-        # list_div['class'] = 'list'
-        
-        # inner_list_div = soup.new_tag('div')
-        # inner_list_div['class'] = 'num'
-
-
-        # for item in ['A', 'B', 'C']:
-        #     li = soup.new_tag('div')
-        #     li['class'] = "color-box"
-        #     li['style'] = "background-color: #E0FFFF"
-            
-        #     item_div = soup.new_tag('div')
-            
-        #     text_h3 = soup.new_tag('h3')
-        #     text_h3.string = f"{item}"
-            
-        #     li.append(item_div)
-        #     item_div.append(text_h3)
-        #     inner_list_div.append(item_div)
-
-        # list_div.append(inner_list_div)
-        # outer_list_div.append(list_div)
-        
-        # soup.body.insert(6, outer_list_div)
 
         soup.body.append(div_tag)
 

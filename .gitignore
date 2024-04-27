@@ -24,3 +24,7 @@ venv_pc
 inputs01
 laptop_venv
 Category_output.html
+Formats.py
+*.xlsx
+output.html
+source/Configurations/Formats.py

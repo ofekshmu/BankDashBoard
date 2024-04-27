@@ -969,18 +969,18 @@ Please Make sure that none of the following formats have their 'Identifications 
         The function will return a sub section of the data frame, along with a list.
         The data frame will include only transactions that have lower prices than the total std of the transactions.
         The transactions that were removed, will be appended to the returned list in the following format:
-        X
-        x
-        x
-        x
+        [(category_0, total_sum_0), (category_1, total_sum_1), ... , (category_n, total_sum_n)]
         """
-        lower_treshold = df[numerical_col_name].mean() - df[numerical_col_name].std()
-        high_treshold = df[numerical_col_name].mean() + df[numerical_col_name].std()
-        #print(df[numerical_col_name].to_markdown())
-        #print(df.info())
+        std = df[numerical_col_name].std()
+        mean = df[numerical_col_name].mean()
+
+        lower_treshold = mean - std
+        lower_treshold = lower_treshold if lower_treshold > 0 else 0.05*mean 
+
+        high_treshold = df[numerical_col_name].mean() + std
+
         conditions = (df[numerical_col_name] < high_treshold) & (df[numerical_col_name] > lower_treshold)
         sub_df = df[conditions]
-        #print(sub_df[numerical_col_name].to_markdown(), sub_df.shape)
         counter_sub_df = df[~conditions]
 
         counter_list = [(utils.heb_conversion(category), row[numerical_col_name]) for category, row in counter_sub_df.iterrows()]

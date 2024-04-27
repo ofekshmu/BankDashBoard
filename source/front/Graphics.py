@@ -124,7 +124,7 @@ class Graphics:
         plt.savefig(r'Outputs\Gas_monthly.png')
 
     @staticmethod
-    def plot_general(spendings, earnings) -> None:
+    def plot_general(spendings : list, earnings: list) -> None:
 
         from datetime import datetime, timedelta
 
@@ -136,6 +136,12 @@ class Graphics:
 
         # Create a DataFrame
         data = pd.DataFrame({"Months": months, "Spendings": spendings, "Earnings": earnings})
+        net_data = pd.DataFrame({"Months": months, "Net Income": [x - y for x, y in zip(earnings, spendings)]})
+        # overall_data = pd.DataFrame({"Months": months, "Overall Income": [x - y for x, y in zip(earnings, spendings)]})
+        
+        # data['overall net income'] = (earnings_df['Final_Value'].sum() - \
+        #                               spendings_df[spendings_df['Category'] != 'השקעה/חיסכון']['Final_Value'].sum())
+
 
         # Convert DataFrame to long format using pd.melt
         df = pd.melt(data, id_vars=["Months"], var_name="Category", value_name="Amount")
@@ -145,7 +151,11 @@ class Graphics:
         plt.figure(figsize=(10, 6))
 
         _, ax = plt.subplots(figsize=(12, 6))
-        sns.barplot(x="Months", y="Amount", hue="Category", data=df, ax=ax)
+        # Data is flipped to flip the order of the x axis
+        sns.barplot(x="Months", y="Amount", hue="Category", data=df[::-1], ax=ax, palette=["#3d5c9f", "#ff8000"])
+        sns.lineplot(x="Months", y="Net Income", color='red', marker='o', data = net_data)
+        for i, j in zip(net_data['Months'], net_data['Net Income']):
+            plt.text(i, j, f'{j:,.0f}', ha='right', va='bottom', fontweight='bold')
 
         # Add labels and title
         plt.xlabel("Months")

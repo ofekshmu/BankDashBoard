@@ -435,8 +435,11 @@ class AppManager:
         earnings_df = SimpleMath.process_prices(earnings, description)
         earnings_df = utils.remove_leumi(earnings_df)
 
-        high_std_spendings = Graphics.plot_transactions_pie_chart(spendings_df, "Spendings", Local.gentle_orange)
-        high_std_earnings = Graphics.plot_transactions_pie_chart(earnings_df, "Earnings", Local.gentle_blue)
+        import seaborn as sns
+        color_pallete = sns.light_palette("#f66b85", n_colors=10)
+        high_std_spendings = Graphics.plot_transactions_pie_chart(spendings_df, "Spendings", color_pallete)
+        color_pallete = sns.light_palette("#4fba89", n_colors=10)
+        high_std_earnings = Graphics.plot_transactions_pie_chart(earnings_df, "Earnings", color_pallete)
 
         # ------ GAS
         cat_data, description_cat = DataBase().get_by_category("Gas")
@@ -448,8 +451,8 @@ class AppManager:
         else:
             cat_dict = {}
         # ----- General
-        spendings_sum, earnings_sum = SimpleMath.get_monthly_shifted(shift=5)
-        Graphics.plot_general(spendings_sum, earnings_sum)
+        spendings_sum, spendings_sum_overall_inc, earnings_sum = SimpleMath.get_monthly_shifted(shift=5)
+        Graphics.plot_general(spendings_sum, spendings_sum_overall_inc, earnings_sum)
         # ----- Cards
 
         card_ids = DataBase().get_card_ids() + ['Bank']

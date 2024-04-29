@@ -922,3 +922,70 @@ Please Make sure that none of the following formats have their 'Identifications 
         counter_list = [(utils.heb_conversion(category), row[numerical_col_name]) for category, row in counter_sub_df.iterrows()]
         # create a list -> trans_name, numerical_col_name
         return sub_df, counter_list
+
+    @staticmethod
+    def auto_tagger(name: str, category: str = None) -> str:
+
+        if os.path.exists(Local.AUTO_TAGGER_PATH):
+            with open(Local.AUTO_TAGGER_PATH, 'w', encoding='utf-8') as f:
+                at_dict = json.load(f)
+
+        else:
+            at_dict = {}
+
+        at_dict = json.load(auto_tagger_path)
+
+        if category is None:
+            if name not in at_dict:
+                at_dict[name] = None
+        else:
+            if name in at_dict:
+                match at_dict[name]:
+                    case None:
+                        at_dict[name] = category
+                    case "No Match":
+                        msg =f"The name {name} is already matched with a 'No Match' string. \
+                            but you are trying to change it to {category}, do you aprrove?"
+                        if utils.template_menu(['no', 'yes'], msg):
+                            at_dict[name] = category
+                    case _:
+                        msg =f"The name {name} is already matched with the category \
+                            {utils.heb_conversion(dict_at[name])} but you are trying \
+                            to change it to {category}, do you aprrove?"
+                        if utils.template_menu(['no', 'yes'], msg):
+                            at_dict[name] = category
+            else:
+                at_dict[name] = category
+
+        with open(Local.AUTO_TAGGER_PATH, 'w') as f:
+            json.dump(at_dict, f)
+        utils.log(f"The following key:value pair has been updated in auto_tagger.json to {name}:{category}",'system')
+
+        return at_dict[name]
+
+    @staticmethod
+    def tagger_refresh() -> None:
+        if os.path.exists(Local.AUTO_TAGGER_PATH):
+            with open(Local.AUTO_TAGGER_PATH, 'w', encoding='utf-8') as f:
+                at_dict = json.load(f)
+
+        else:
+            at_dict = {}
+
+        dirty_bit = False
+        logs = "\nThe following transactions have been tagged:\n"
+        lst, desc = DataBase().get_untagged()
+        untagged_transactions_df = pd.DataFrame(lst, columns=desc)
+        for _, row in untagged_transactions_df.iterrows():
+            res = utils.auto_tagger(row['Name'])
+            if res == 'No Match':
+                continue
+            if res is not None:
+                dirty_bit = True
+                DataBase().set_category(table=row['TableName'], id=row['ID'], category=res)
+                logs += f"transaction {row['Name']} ({row['TableName']}) ({row['ID']}) was tagged to {res}\n"
+
+        if dirty_bit:
+            utils.log(logs, 'system')
+        else:
+            utils.logs('No transactions were Auto tagged...', 'system')

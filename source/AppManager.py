@@ -47,6 +47,7 @@ class AppManager:
             match answer:
                 case 1:
                     self.load_data()
+                    utils.tagger_refresh()
                     self.tag_data()
                 case 2:
                     self.analysis()
@@ -319,6 +320,13 @@ class AppManager:
                     utils.log("Returning to menu...", "system")
                     return
                 else:
+                    # --------------- Auto Tagger function ---------------
+                    if utils.auto_tagger(row['Name']) != 'No Match':
+                        if utils.template_menu(['no', 'yes'], f"Does all transactions with the name {row['Name']} belong to category {res}?"):
+                            tag_status_res = utils.auto_tagger(row['Name'], res)
+                        else:
+                            tag_status_res = utils.auto_tagger(row['Name'], 'No Match')
+                    # -----------------------------------------------------
                     DataBase().set_category(table=row['TableName'], id=row['ID'], category=res)
                     if len(description) > 1:
                         DataBase().set_transaction_description(description, row['TableName'], row['ID'])

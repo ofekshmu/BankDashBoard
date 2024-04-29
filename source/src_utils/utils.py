@@ -927,13 +927,11 @@ Please Make sure that none of the following formats have their 'Identifications 
     def auto_tagger(name: str, category: str = None) -> str:
 
         if os.path.exists(Local.AUTO_TAGGER_PATH):
-            with open(Local.AUTO_TAGGER_PATH, 'w', encoding='utf-8') as f:
+            with open(Local.AUTO_TAGGER_PATH, 'r', encoding='utf-8') as f:
                 at_dict = json.load(f)
 
         else:
             at_dict = {}
-
-        at_dict = json.load(auto_tagger_path)
 
         if category is None:
             if name not in at_dict:
@@ -957,20 +955,23 @@ Please Make sure that none of the following formats have their 'Identifications 
             else:
                 at_dict[name] = category
 
-        with open(Local.AUTO_TAGGER_PATH, 'w') as f:
-            json.dump(at_dict, f)
-        utils.log(f"The following key:value pair has been updated in auto_tagger.json to {name}:{category}",'system')
+
+        with open(Local.AUTO_TAGGER_PATH, 'w', encoding='utf-8') as f:
+            json.dump(at_dict, f, ensure_ascii=False)
+        utils.log(f"The following key:value pair has been updated in auto_tagger.json to -> {utils.heb_conversion(name)} : {category}",'system')
 
         return at_dict[name]
 
     @staticmethod
     def tagger_refresh() -> None:
         if os.path.exists(Local.AUTO_TAGGER_PATH):
-            with open(Local.AUTO_TAGGER_PATH, 'w', encoding='utf-8') as f:
+            with open(Local.AUTO_TAGGER_PATH, 'r', encoding='utf-8') as f:
                 at_dict = json.load(f)
 
         else:
             at_dict = {}
+
+        from database import DataBase
 
         dirty_bit = False
         logs = "\nThe following transactions have been tagged:\n"
@@ -988,4 +989,4 @@ Please Make sure that none of the following formats have their 'Identifications 
         if dirty_bit:
             utils.log(logs, 'system')
         else:
-            utils.logs('No transactions were Auto tagged...', 'system')
+            utils.log('No transactions were Auto tagged...', 'system')

@@ -89,11 +89,15 @@ class AppManager:
                 utils.log("Changes not set...")
 
         res = utils.template_menu(['Write an original SQL command',
+                                   'Reset a transaction category to "NotCategorized"',
                                    'Change transaction category by ID'], 'Pick one of the follwing:')
         match res:
             case 0:
                 original_command()
             case 1:
+                DataBase().reset_category_by_id()
+                DataBase().commit_changes()
+            case 2:
                 DataBase().change_category_by_id()
                 DataBase().commit_changes()
             case _:

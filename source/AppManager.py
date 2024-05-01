@@ -321,11 +321,11 @@ class AppManager:
                     return
                 else:
                     # --------------- Auto Tagger function ---------------
-                    if utils.auto_tagger(row['Name']) != 'No Match':
-                        if utils.template_menu(['no', 'yes'], f"Does all transactions with the name {row['Name']} belong to category {res}?"):
-                            tag_status_res = utils.auto_tagger(row['Name'], res)
+                    if utils.auto_tagger(row['Original_Name']) != 'No Match':
+                        if utils.template_menu(['no', 'yes'], f"Does all transactions with the name {row['Name']} belong to category {utils.heb_conversion(res)}?"):
+                            tag_status_res = utils.auto_tagger(row['Original_Name'], res)
                         else:
-                            tag_status_res = utils.auto_tagger(row['Name'], 'No Match')
+                            tag_status_res = utils.auto_tagger(row['Original_Name'], 'No Match')
                     # -----------------------------------------------------
                     DataBase().set_category(table=row['TableName'], id=row['ID'], category=res)
                     if len(description) > 1:
@@ -333,21 +333,25 @@ class AppManager:
                     utils.log("Tag saved.", "system")
                     DataBase().commit_changes()
                 # ---------------- Fill in similar rows ----------------
-                similar_trans, desc_x = DataBase().get_by_name(row['TableName'], row['Original_Name'])
-                count = len(similar_trans)
-                if count > 0:
-                    res_x = utils.template_menu(['Yes', 'No'],
-                                                f"There are {count} untagged transaction with the same name. Do you want apply to all?")
-                    if res_x == 0:    # Yes -> 0
-                        res_df = pd.DataFrame(similar_trans, columns=desc_x)
-                        for _, row_x in res_df.iterrows():
-                            DataBase().set_category(table=row['TableName'], id=row_x['ID'], category=res)
-                        DataBase().commit_changes()
-                        utils.log("Updated the following:\n")
-                        res_df = make_readable(res_df)
-                        print(res_df.to_markdown())
-                        break   # In case latter transaction were updated, it is needed to read the table again
-                                # So information wont repeat for the user.
+                if tag_status_res != 'No Match':
+                    similar_trans, desc_x = DataBase().get_by_name(row['TableName'], row['Original_Name'])
+                    count = len(similar_trans)
+                    if count > 0:
+                        if tag_status_res is None:
+                            res_x = utils.template_menu(['Yes', 'No'],
+                                                        f"There are {count} untagged transaction with the same name. Do you want apply to all?")
+                        else:
+                            res_x = 0
+                        if res_x == 0:    # Yes -> 0
+                            res_df = pd.DataFrame(similar_trans, columns=desc_x)
+                            for _, row_x in res_df.iterrows():
+                                DataBase().set_category(table=row['TableName'], id=row_x['ID'], category=res)
+                            DataBase().commit_changes()
+                            utils.log("Updated the following:\n")
+                            res_df = make_readable(res_df)
+                            print(res_df.to_markdown())
+                            break   # In case latter transaction were updated, it is needed to read the table again
+                                    # So information wont repeat for the user.
                 # -------------------------------------------------------
             lst, desc = DataBase().get_untagged()
             df = pd.DataFrame(lst, columns=desc)
@@ -459,7 +463,7 @@ class AppManager:
         else:
             cat_dict = {}
         # ----- General
-        spendings_sum, spendings_sum_overall_inc, earnings_sum = SimpleMath.get_monthly_shifted(shift=5)
+        spendings_sum, spendings_sum_overall_inc, earnings_sum = SimpleMath.get_monthly_shifted(shift=6)
         Graphics.plot_general(spendings_sum, spendings_sum_overall_inc, earnings_sum)
         # ----- Cards
 

@@ -909,11 +909,12 @@ Please Make sure that none of the following formats have their 'Identifications 
         """
         std = df[numerical_col_name].std()
         mean = df[numerical_col_name].mean()
+        total = df[numerical_col_name].sum()
 
-        lower_treshold = mean - std
-        lower_treshold = lower_treshold if lower_treshold > 0 else 0.05*mean 
+        lower_treshold = total*0.02
+        #lower_treshold = lower_treshold if lower_treshold > 0 else 0.05*mean 
 
-        high_treshold = df[numerical_col_name].mean() + std
+        high_treshold = df[numerical_col_name].max()  + 10
 
         conditions = (df[numerical_col_name] < high_treshold) & (df[numerical_col_name] > lower_treshold)
         sub_df = df[conditions]
@@ -958,7 +959,7 @@ Please Make sure that none of the following formats have their 'Identifications 
 
         with open(Local.AUTO_TAGGER_PATH, 'w', encoding='utf-8') as f:
             json.dump(at_dict, f, ensure_ascii=False)
-        utils.log(f"The following key:value pair has been updated in auto_tagger.json to -> {utils.heb_conversion(name)} : {category}",'system')
+        #utils.log(f"The following key:value pair has been updated in auto_tagger.json to -> {utils.heb_conversion(name)} : {category}",'system')
 
         return at_dict[name]
 

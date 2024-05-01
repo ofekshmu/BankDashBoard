@@ -326,6 +326,8 @@ class AppManager:
                             tag_status_res = utils.auto_tagger(row['Original_Name'], res)
                         else:
                             tag_status_res = utils.auto_tagger(row['Original_Name'], 'No Match')
+                    else:
+                        tag_status_res = 'No Match'
                     # -----------------------------------------------------
                     DataBase().set_category(table=row['TableName'], id=row['ID'], category=res)
                     if len(description) > 1:

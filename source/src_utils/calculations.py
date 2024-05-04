@@ -165,7 +165,7 @@ class SimpleMath:
         """
 
         df = pd.DataFrame(data, columns=columns)
-        # print(df.to_markdown())
+
         def my_lambda(row):
             """
             The function returns the Actual value describing the given transactions.

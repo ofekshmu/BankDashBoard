@@ -202,37 +202,6 @@ class AppManager:
             utils.log('Update process completed!', 'system')
             return True
 
-    # def update_existing_file(self) -> bool:
-
-    #     update_file_lst = listdir(Local.UPDATE_FOLDER)
-    #     if len(update_file_lst) == 0:
-    #         utils.log(f"{Local.UPDATE_FOLDER} is Empty. Returning to menu..", "system")
-    #         return False
-
-    #     files_df = DataBase().get_file_table()
-    #     print(files_df.to_markdown())
-    #     file_id = utils.template_menu(list(files_df["Name"]),
-    #                                   "Please choose what file do you want to update and delete.")
-
-    #     new_file_id = utils.template_menu(update_file_lst,
-    #                                       f"Choose a file to update from.")
-
-    #     ack = utils.template_menu(["Yes", "No"], "Are you sure?")
-    #     if ack == 0:
-    #         file_name = list(files_df["Name"])[file_id]
-    #         utils.log(f"Removing {file_name}...", 'system')
-    #         DataBase().drop_file(file_name)
-
-    #         utils.log(f"File chose to update from: {update_file_lst[new_file_id]}", 'system')
-    #         utils.move_file_to_directory(file_path=f"{Local.UPDATE_FOLDER}/{update_file_lst[new_file_id]}",
-    #                                      destination_directory=Local.INPUT_FOLDER)
-    #         utils.move_file_to_directory(file_path=f"{Local.INPUT_FOLDER}/{file_name}",
-    #                                      destination_directory=f"removed")
-    #         utils.log("Initiating Load Sequence...", 'system')
-    #         utils.log("Please Rerun 'Load Data' for the changes to take affect.", 'warning')
-    #         DataBase().commit_changes()
-
-    #     return True
 
     def delete_file_info(self):
         lst_names = DataBase().get_file_names()
@@ -409,12 +378,7 @@ class AppManager:
         #   The following line will help configure the אשראי　transactions
         # ---------------------------------------------------------
         df, desc = DataBase().card_sum(t)
-        # ------------------------------ DEBUG ---------------------------------
-        # test = SimpleMath.process_prices(df, desc)
-        # print(pd.DataFrame(df, columns=desc).to_markdown())
-        # utils.log(test.to_markdown(), 'debug')
-        # utils.log(test[test['CardID'] == '4046']['Final_Value'].sum(), 'debug')
-        # ----------------------------------------------------------------------
+
         cards_df = pd.DataFrame(df, columns=desc).groupby("CardID").sum().reset_index()
         cards_df['Status'] = 'Not Verified'
         bank_df = DataBase().get_Bank_Transactions(Local.CHARGE_DAY + 1, 
@@ -459,15 +423,6 @@ class AppManager:
         color_pallete = sns.light_palette("#4fba89", n_colors=10)
         high_std_earnings = Graphics.plot_transactions_pie_chart(earnings_df, "Earnings", color_pallete)
 
-        # ------ GAS
-        cat_data, description_cat = DataBase().get_by_category("Gas")
-        df = SimpleMath.process_prices(cat_data, description_cat)
-        if not df.empty:
-            _ = Graphics.plot_gas(df)
-            cat_dict = SimpleMath.cat_info(df)
-            Graphics.plot_monthly_gas(df)
-        else:
-            cat_dict = {}
         # ----- General
         spendings_sum, spendings_sum_overall_inc, earnings_sum = SimpleMath.get_monthly_shifted(shift=6)
         Graphics.plot_general(spendings_sum, spendings_sum_overall_inc, earnings_sum)
@@ -479,10 +434,7 @@ class AppManager:
 
         Graphics.card_distribution(spendings_df, card_color_dict)
 
-
         data['net income'] = (earnings_df['Final_Value'].sum() - spendings_df['Final_Value'].sum())
-        #savings = spendings_df.groupby("Category").sum()['השקעה/חסכון']
-        print(spendings_df.to_markdown())
         data['overall net income'] = (earnings_df['Final_Value'].sum() - \
                                       spendings_df[spendings_df['Category'] != 'השקעה/חיסכון']['Final_Value'].sum())
         
@@ -493,7 +445,6 @@ class AppManager:
                             high_std_earnings,
                             monthly_balance,
                             card_color_dict,
-                            cat_dict,
                             cards_df,
                             data)
         webbrowser.open(r'source\html\output.html')

@@ -128,7 +128,6 @@ class utils:
                       high_std_earnings,
                       monthly_balance: int,
                       cards_dict: dict,
-                      gas_stats,
                       cards_df,
                       data: dict):
         import bs4
@@ -254,7 +253,6 @@ class utils:
             cell = soup.new_tag("p")
             cell['class'] = 'date'
             
-            print(item.to_markdown())
             if item['Description/Charge_Currency'] == item['Reserved/Value_Currency'] or item['TableName'] == 'BankTransactions':
                 price_lable_1 = f"{item['Final_Value']:,}₪"
                 price_lable_2 = ""

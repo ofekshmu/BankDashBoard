@@ -241,7 +241,12 @@ class utils:
             row.append(colored_box_div)
 
 
-            st = f"{item['Name']}"   # Name
+            # ---- replacing the name of the transaction with the description ----
+            if item['TableName'] == 'BankTransactions' and item['Description/Charge_Currency'] is not None:
+                st = f"{item['Description/Charge_Currency']}"
+            else:
+                st = f"{item['Name']}"
+            # --------------------------------------------------------------------
             cell = soup.new_tag("h3")
             cell.string = st
             row.append(cell)
@@ -249,7 +254,8 @@ class utils:
             cell = soup.new_tag("p")
             cell['class'] = 'date'
             
-            if item['Description/Charge_Currency'] == item['Reserved/Value_Currency']:
+            print(item.to_markdown())
+            if item['Description/Charge_Currency'] == item['Reserved/Value_Currency'] or item['TableName'] == 'BankTransactions':
                 price_lable_1 = f"{item['Final_Value']:,}₪"
                 price_lable_2 = ""
             else:
@@ -292,8 +298,13 @@ class utils:
             colored_box_div['class'] = "color-box"
             colored_box_div['style'] = f"background-color: {value}"
             row.append(colored_box_div)
-
-            st = f"{item['Name']}"
+            
+            # ---- replacing the name of the transaction with the description ----
+            if item['TableName'] == 'BankTransactions' and item['Description/Charge_Currency'] is not None:
+                st = f"{item['Description/Charge_Currency']}"
+            else:
+                st = f"{item['Name']}"
+            # --------------------------------------------------------------------
             cell = soup.new_tag("h3")
             cell.string = st
             row.append(cell)
@@ -301,7 +312,7 @@ class utils:
             cell = soup.new_tag("p")
             cell['class'] = 'date'
 
-            if item['Description/Charge_Currency'] == item['Reserved/Value_Currency']:
+            if item['Description/Charge_Currency'] == item['Reserved/Value_Currency'] or item['TableName'] == 'BankTransactions':
                 price_lable_1 = f"{item['Final_Value']:,}₪"
                 price_lable_2 = ""
             else:

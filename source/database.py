@@ -878,6 +878,33 @@ class DataBase:
             after = self.cursor.execute(query, (param2,)).fetchall()
 
         utils.log(f"Before: {prev}")
+        utils.log(f"After: {after}")
+
+
+    def reset_category_by_id(self) -> None:
+        param1 = utils.template_menu(['Bank', 'Card'], msg='Choose the relevant table:')
+        param2 = input('Insert transaction ID:')
+        param3 = "NotCategorized"
+        if param1 == 0:
+            query = """SELECT * FROM BankTransactions WHERE id = ?"""
+            prev = self.cursor.execute(query, (param2,)).fetchall()
+            
+            query = """UPDATE BankTransactions SET category = ? WHERE id = ?"""            
+            self.cursor.execute(query, (param3, param2,)).fetchall()
+            
+            query = """SELECT * FROM BankTransactions WHERE id = ?"""
+            after = self.cursor.execute(query, (param2,)).fetchall()
+        else:   # 1
+            query = """SELECT * FROM CardTransactions WHERE id = ?"""
+            prev = self.cursor.execute(query, (param2,)).fetchall()
+            
+            query = """UPDATE CardTransactions SET category = ? WHERE id = ?"""            
+            self.cursor.execute(query, (param3, param2,)).fetchall()
+            
+            query = """SELECT * FROM CardTransactions WHERE id = ?"""
+            after = self.cursor.execute(query, (param2,)).fetchall()
+
+        utils.log(f"Before: {prev}")
         utils.log(f"After: {after}")        
 
 

@@ -163,14 +163,14 @@ class Graphics:
             # Since BankTransactions are indexed by a Ref Number, These needs to be caregorized by the TableName,
             # and not by CardNumber, unlike CardTransactions.
             # Sum Bank Transactions first:
-            new_row = spendings[spendings['TableName'] == 'BankTransactions'].sum()
+            new_row = spendings[spendings['TableName'] == 'BankTransactions']
             # Set col Name for row identification
             new_row['Ref/CardID'] = 'Bank'
             # Filter out individual Bank transactions
             df = spendings[spendings['TableName'] != 'BankTransactions']
             # Add the summed transactions to create a new, summed, banktransaction row.
             # df = df.append(new_row, ignore_index=True) # Was removed in pandas version 2.0
-            df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
+            df = pd.concat([df, new_row], ignore_index=True)
             df = df.groupby("Ref/CardID").sum()
 
             title = "Card Distribution"

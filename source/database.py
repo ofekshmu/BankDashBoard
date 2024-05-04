@@ -704,7 +704,8 @@ class DataBase:
                                         Out,
                                         Income,
                                         Extra_Info,
-                                        Source_file
+                                        Source_file,
+                                        Null
                                     FROM BankTransactions
                                     WHERE Category IS 'NotCategorized'
                                     ORDER BY ID DESC
@@ -719,7 +720,8 @@ class DataBase:
                                         Charge_Value AS 'Charge_Value/Out',
                                         Transaction_Value AS 'Transaction_Value/Income' ,
                                         Extra_Info,
-                                        Source_file
+                                        Source_file,
+                                        Charge_Currency
                                     FROM CardTransactions
                                     WHERE Category IS 'NotCategorized'
                                     ORDER BY ID DESC

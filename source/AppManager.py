@@ -243,7 +243,13 @@ class AppManager:
             Takes the original df created from the transactions and changes it for better
             readability. The function prints the result.
             """
-            my_series['Charge_Value/Out'] = str(my_series['Charge_Value/Out']) + ' ₪'
+            if my_series['Charge_Currency'] is not None:
+                currency = my_series['Charge_Currency']
+            else:
+                currency = '₪'
+            my_series = my_series.drop('Charge_Currency')
+            
+            my_series['Charge_Value/Out'] = str(my_series['Charge_Value/Out']) + f" {currency}"
             my_series['Transaction_Value/Income'] = str(my_series['Transaction_Value/Income']) + ' ₪'
             my_series['Executed_Date'] = my_series['Executed_Date'][:-9]
             print(f"\n{'-'*15} Tag the following {'-'*15}")
@@ -256,7 +262,7 @@ class AppManager:
                                     'Charge Value',
                                     'Transaction Value',
                                     'More Info',
-                                    'Source file name']
+                                    'Source file name'] # type: ignore
             else:
                 my_series.index = ['Table Name',
                                     'Transaction ID',
@@ -266,7 +272,7 @@ class AppManager:
                                     'Outgoing',
                                     'Incoming',
                                     'More Info',
-                                    'Source file name']
+                                    'Source file name'] # type: ignore
 
             for index, value in my_series.items():
                 print(f"{index:28s}{value}")

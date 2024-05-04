@@ -850,21 +850,48 @@ class DataBase:
         return months_sum
 
 
-    def unique_transactions_list(self, name_for_analysis) -> list:
+    def bank_transactions_sum_list(self, name_for_analysis, case) -> pd.DataFrame:
         """
         The function receives category/business name
         and returns a list of sums
         where sum_i is the sum of all the transactions in year_i, month_i for the given category/business name
         """
-        query = """
-            SELECT SUM(Income + Out) AS sum_i, strftime('%Y', Date) AS year, strftime('%m', Date) AS month
-            FROM BankTransactions
-            WHERE Category = ?
-            GROUP BY year, month
-            ORDER BY year, month
-            """
-        category_list = self.cursor.execute(query, (name_for_analysis,)).fetchall()
-        return pd.DataFrame(data=category_list, columns=[d[0] for d in self.cursor.description])
+        if case == 0:
+            query = """
+                SELECT SUM(sum_i), year, month
+                FROM (
+                    SELECT Income + Out AS sum_i, strftime('%Y', Date) AS year, strftime('%m', Date) AS month
+                    FROM BankTransactions
+                    WHERE Category = ?
+                UNION ALL
+                    SELECT Transaction_Value AS sum_i, strftime('%Y', Executed_Date) AS year, strftime('%m', Executed_Date) AS month
+                    FROM CardTransactions
+                    WHERE Category = ?
+                    ) AS merged_table
+                GROUP BY year, month
+                ORDER BY year, month
+                """
+            category_list = self.cursor.execute(query, (name_for_analysis, name_for_analysis,)).fetchall()
+            data_frame = category_list
+        else:
+            query = """
+                SELECT  SUM(sum_i), year, month
+                FROM (
+                    SELECT Income + Out AS sum_i, strftime('%Y', Date) AS year, strftime('%m', Date) AS month
+                    FROM BankTransactions
+                    WHERE Name = ?
+                UNION ALL
+                    SELECT Transaction_Value AS sum_i, strftime('%Y', Executed_Date) AS year, strftime('%m', Executed_Date) AS month
+                    FROM CardTransactions
+                    WHERE Name = ?
+                    ) AS merged_table
+                GROUP BY year, month
+                ORDER BY year, month
+                """
+            business_list = self.cursor.execute(query, (name_for_analysis, name_for_analysis, )).fetchall()
+            data_frame = business_list
+        df = data_frame
+        return pd.DataFrame(data=df, columns=[d[0] for d in self.cursor.description])
         
 # ----------------------------------------------------------------------
 #                            User SQL commands

@@ -411,7 +411,7 @@ class AppManager:
         #     total_sum = DataBase().total_sum_transactions(name_for_analysis, case)
         #     total_months = DataBase().months_total_calculator()
 
-        ofek = DataBase().unique_transactions_list(name_for_analysis)
+        ofek = DataBase().bank_transactions_sum_list(name_for_analysis, case)
 
         # Run analysis     
         utils.create_html_name_analysis({"subtitle": "Specific Analysis",

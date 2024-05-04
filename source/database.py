@@ -817,37 +817,55 @@ class DataBase:
         bank_categories_list = [y[0] for y in bank_categories]
         all_categories =  card_categories_list + bank_categories_list
         return all_categories
+        
+  
+    def months_total_calculator(self) -> int:
+        """
+        Returns the amount of months when transacations had taken
+        """
+        return int(self.cursor.execute("""
+                            SELECT
+                            ROUND((julianday(MAX(Charge_Date)) - julianday(MIN(Charge_Date))) / 30, 0)  + 1
+                            FROM CardTransactions 
+                            """).fetchone()[0])
     
-    def get_monthly_average(self, name_for_analysis, case):
-            """
-            Returns category \ business monthly average of all incomes and sepndings 
-            """
-            months_total = self.cursor.execute("""
-                                   SELECT
-                                        ROUND((julianday(MAX(Charge_Date)) - julianday(MIN(Charge_Date))) / 30)  + 1
-                                   FROM CardTransactions 
-                                   """).fetchall()
-            months_total_list = [x[0] for x in months_total]
-            print(months_total_list[0])
-            if case == 0:
-                query = """
-                    SELECT SUM(Transaction_Value)
-                    FROM CardTransactions
-                    WHERE Category = ?
-                    """
-                months_sum = self.cursor.execute(query, (name_for_analysis,)).fetchall()
-            else:
-                query = """
-                    SELECT SUM(Transaction_Value)
-                    FROM CardTransactions
-                    WHERE Name = ?
-                    """
-                months_sum = self.cursor.execute(query, (name_for_analysis,)).fetchall()
-            months_sum_list = [y[0] for y in months_sum]
-            print(months_sum_list[0])
-            monthly_average_value = round(months_sum_list[0] / months_total_list[0], 2)
-            return monthly_average_value
+    def total_sum_transactions(self, name_for_analysis, case):
+        """
+        Returns the total sum of all chosen catrgory \ business transactions
+        """
+        if case == 0:
+            query = """
+                SELECT SUM(Transaction_Value)
+                FROM CardTransactions
+                WHERE Category = ?
+                """
+            months_sum = self.cursor.execute(query, (name_for_analysis,)).fetchone()[0]
+        else:
+            query = """
+                SELECT SUM(Transaction_Value)
+                FROM CardTransactions
+                WHERE Name = ?
+                """
+            months_sum = self.cursor.execute(query, (name_for_analysis,)).fetchone()[0]
+        return months_sum
 
+
+    def unique_transactions_list(self, name_for_analysis) -> list:
+        """
+        The function receives category/business name
+        and returns a list of sums
+        where sum_i is the sum of all the transactions in year_i, month_i for the given category/business name
+        """
+        query = """
+            SELECT SUM(Income + Out) AS sum_i, strftime('%Y', Date) AS year, strftime('%m', Date) AS month
+            FROM BankTransactions
+            WHERE Category = ?
+            GROUP BY year, month
+            ORDER BY year, month
+            """
+        category_list = self.cursor.execute(query, (name_for_analysis,)).fetchall()
+        return pd.DataFrame(data=category_list, columns=[d[0] for d in self.cursor.description])
+        
 # ----------------------------------------------------------------------
 #                            User SQL commands
 # ----------------------------------------------------------------------

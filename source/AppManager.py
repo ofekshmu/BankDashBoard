@@ -395,10 +395,28 @@ class AppManager:
 
         name_for_analysis = sub_options[idx]
 
+        def get_monthly_average(name_for_analysis, case):
+            """
+            Returns category \ business monthly average of all incomes and sepndings 
+            """
+            total_sum = DataBase().total_sum_transactions(name_for_analysis, case)
+            total_months = DataBase().months_total_calculator()
+            monthly_average_value = round(total_sum / total_months, 2)
+            return monthly_average_value
+
+        # def get_monthly_sd(name_for_analysis, case):
+        #     """
+        #     Returns category \ business standard deviation of all incomes and spendings
+        #     """
+        #     total_sum = DataBase().total_sum_transactions(name_for_analysis, case)
+        #     total_months = DataBase().months_total_calculator()
+
+        ofek = DataBase().unique_transactions_list(name_for_analysis)
+
         # Run analysis     
         utils.create_html_name_analysis({"subtitle": "Specific Analysis",
                                          "Category/business name": name_for_analysis,
-                                         "Monthly Average": DataBase().get_monthly_average(name_for_analysis, case),
+                                         "Monthly Average": get_monthly_average(name_for_analysis, case),
                                          "Monthly Standard Deviation": "X",
                                          "Yearly Average": "X",
                                          "Total Spendings": "X",

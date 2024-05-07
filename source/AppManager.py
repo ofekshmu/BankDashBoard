@@ -11,6 +11,7 @@ from src_utils.ExcelReader import ExcelManager
 import webbrowser
 from Configurations.Formats import Formats, Context_class
 import pandas as pd
+import json
 
 from os import listdir
 
@@ -197,38 +198,6 @@ class AppManager:
             utils.log('Update process completed!', 'system')
             return True
 
-    # def update_existing_file(self) -> bool:
-
-    #     update_file_lst = listdir(Local.UPDATE_FOLDER)
-    #     if len(update_file_lst) == 0:
-    #         utils.log(f"{Local.UPDATE_FOLDER} is Empty. Returning to menu..", "system")
-    #         return False
-
-    #     files_df = DataBase().get_file_table()
-    #     print(files_df.to_markdown())
-    #     file_id = utils.template_menu(list(files_df["Name"]),
-    #                                   "Please choose what file do you want to update and delete.")
-
-    #     new_file_id = utils.template_menu(update_file_lst,
-    #                                       f"Choose a file to update from.")
-
-    #     ack = utils.template_menu(["Yes", "No"], "Are you sure?")
-    #     if ack == 0:
-    #         file_name = list(files_df["Name"])[file_id]
-    #         utils.log(f"Removing {file_name}...", 'system')
-    #         DataBase().drop_file(file_name)
-
-    #         utils.log(f"File chose to update from: {update_file_lst[new_file_id]}", 'system')
-    #         utils.move_file_to_directory(file_path=f"{Local.UPDATE_FOLDER}/{update_file_lst[new_file_id]}",
-    #                                      destination_directory=Local.INPUT_FOLDER)
-    #         utils.move_file_to_directory(file_path=f"{Local.INPUT_FOLDER}/{file_name}",
-    #                                      destination_directory=f"removed")
-    #         utils.log("Initiating Load Sequence...", 'system')
-    #         utils.log("Please Rerun 'Load Data' for the changes to take affect.", 'warning')
-    #         DataBase().commit_changes()
-
-    #     return True
-
     def delete_file_info(self):
         lst_names = DataBase().get_file_names()
         utils.log("Select the file you want to delete:")
@@ -384,7 +353,7 @@ class AppManager:
 
         match utils.template_menu(["Analyze a category", "Analayze a Business"], "Pick an option:"):
             case 0:
-                options = DataBase().get_all_category_names()
+                options = json.load(open(Local.CATE_JSON_PATH, encoding='utf-8'))
                 idx, sub_options = utils.typer_template_menu(options, "Pick a Category:")
             case 1:
                 case = 1

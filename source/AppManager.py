@@ -371,22 +371,27 @@ class AppManager:
             total_sum = DataBase().total_sum_transactions(name_for_analysis, case)
             total_months = DataBase().months_total_calculator()
             monthly_average_value = round(total_sum / total_months, 2)
+            print(type(monthly_average_value))
             return monthly_average_value
 
-        # def get_monthly_sd(name_for_analysis, case):
-        #     """
-        #     Returns category \ business standard deviation of all incomes and spendings
-        #     """
-        #     total_sum = DataBase().total_sum_transactions(name_for_analysis, case)
-        #     total_months = DataBase().months_total_calculator()
+        def get_monthly_sd(name_for_analysis, case):
+            """
+            Returns category \ business standard deviation of all incomes and spendings
+            """
+            month_sum_df = DataBase().bank_transactions_sum_list(name_for_analysis, case)
+            print(month_sum_df.to_markdown())
+            month_sum_first_column = month_sum_df.iloc[:,0]
+            sd_numerator = (month_sum_first_column - month_sum_first_column.mean()) ** 2
+            total_sum = sd_numerator.sum()
+            return round((total_sum / len(month_sum_df)) ** 0.5, 2)
 
-        ofek = DataBase().bank_transactions_sum_list(name_for_analysis, case)
+        #ofek = DataBase().bank_transactions_sum_list(name_for_analysis, case)
 
         # Run analysis     
         utils.create_html_name_analysis({"subtitle": "Specific Analysis",
                                          "Category/business name": name_for_analysis,
                                          "Monthly Average": get_monthly_average(name_for_analysis, case),
-                                         "Monthly Standard Deviation": "X",
+                                         "Monthly Standard Deviation": get_monthly_sd(name_for_analysis, case),
                                          "Yearly Average": "X",
                                          "Total Spendings": "X",
                                          "Total Income": "X",

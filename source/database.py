@@ -804,19 +804,30 @@ class DataBase:
         """
         Returns all categories names in the data base in a list format.
         """
-        card_categories = self.cursor.execute("""
+        combined_categories_query = """
                                     SELECT DISTINCT Category
-                                    FROM CardTransactions
-                                    """).fetchall()
+                                    FROM (
+                                        SELECT Category FROM CardTransactions
+                                        UNION
+                                        SELECT Category FROM BankTransactions
+                                    ) AS CombinedCategories
+                                    """
+        self.cursor.execute(combined_categories_query)
+        unique_categories = self.cursor.fetchall()
+        #card_categories = self.cursor.execute("""
+             #                       SELECT DISTINCT Category
+            #                        FROM CardTransactions
+             #                       """).fetchall()
         
-        bank_categories = self.cursor.execute("""
-                                    SELECT DISTINCT Category
-                                    FROM BankTransactions
-                                    """).fetchall()
-        card_categories_list = [x[0] for x in card_categories]
-        bank_categories_list = [y[0] for y in bank_categories]
-        all_categories =  card_categories_list + bank_categories_list
-        return all_categories
+        #bank_categories = self.cursor.execute("""
+         #                           SELECT DISTINCT Category
+          #                          FROM BankTransactions
+           #                         """).fetchall()
+        #card_categories_list = [x[0] for x in card_categories]
+        #bank_categories_list = [y[0] for y in bank_categories]
+        #all_categories =  list(set(card_categories_list + bank_categories_list))
+        unique_categories_list = [x[0] for x in unique_categories]
+        return unique_categories_list
         
   
     def months_total_calculator(self) -> int:
@@ -873,6 +884,7 @@ class DataBase:
                 """
             category_list = self.cursor.execute(query, (name_for_analysis, name_for_analysis,)).fetchall()
             data_frame = category_list
+            print(data_frame)
         else:
             query = """
                 SELECT  SUM(sum_i), year, month

@@ -840,25 +840,40 @@ class DataBase:
                             FROM CardTransactions 
                             """).fetchone()[0])
     
-    def total_sum_transactions(self, name_for_analysis, case):
+    def total_sum_transactions(self, name_for_analysis, case) -> pd.DataFrame:
         """
         Returns the total sum of all chosen catrgory \ business transactions
         """
         if case == 0:
             query = """
-                SELECT SUM(Transaction_Value)
-                FROM CardTransactions
-                WHERE Category = ?
+                SELECT SUM(sum_i)
+                FROM (
+                    SELECT Income + Out AS sum_i
+                    FROM BankTransactions
+                    WHERE Category = ?
+                UNION ALL
+                    SELECT Transaction_Value AS sum_i
+                    FROM CardTransactions
+                    WHERE Category = ?
+                    ) AS merged_table
                 """
-            months_sum = self.cursor.execute(query, (name_for_analysis,)).fetchone()[0]
+            total_sum = self.cursor.execute(query, (name_for_analysis, name_for_analysis,)).fetchone()[0]
+            print(total_sum)
         else:
             query = """
-                SELECT SUM(Transaction_Value)
-                FROM CardTransactions
-                WHERE Name = ?
+                SELECT  SUM(sum_i)
+                FROM (
+                    SELECT Income + Out AS sum_i
+                    FROM BankTransactions
+                    WHERE Name = ?
+                UNION ALL
+                    SELECT Transaction_Value AS sum_i
+                    FROM CardTransactions
+                    WHERE Name = ?
+                    ) AS merged_table
                 """
-            months_sum = self.cursor.execute(query, (name_for_analysis,)).fetchone()[0]
-        return months_sum
+            total_sum = self.cursor.execute(query, (name_for_analysis, name_for_analysis,)).fetchone()[0]
+        return total_sum
 
 
     def bank_transactions_sum_list(self, name_for_analysis, case) -> pd.DataFrame:

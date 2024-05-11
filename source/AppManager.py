@@ -371,7 +371,6 @@ class AppManager:
             total_sum = DataBase().total_sum_transactions(name_for_analysis, case)
             total_months = DataBase().months_total_calculator()
             monthly_average_value = round(total_sum / total_months, 2)
-            print(type(monthly_average_value))
             return monthly_average_value
 
         def get_monthly_sd(name_for_analysis, case):

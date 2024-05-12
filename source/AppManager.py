@@ -431,7 +431,7 @@ class AppManager:
 
         # ----- General
         spendings_sum, spendings_sum_overall_inc, earnings_sum = SimpleMath.get_monthly_shifted(shift=6)
-        Graphics.plot_general(spendings_sum, spendings_sum_overall_inc, earnings_sum)
+        overall_net_income_df = Graphics.plot_general(spendings_sum, spendings_sum_overall_inc, earnings_sum)
         # ----- Cards
 
         card_ids = DataBase().get_card_ids() + ['Bank']
@@ -443,6 +443,8 @@ class AppManager:
         data['net income'] = (earnings_df['Final_Value'].sum() - spendings_df['Final_Value'].sum())
         data['overall net income'] = (earnings_df['Final_Value'].sum() - \
                                       spendings_df[spendings_df['Category'] != 'השקעה/חיסכון']['Final_Value'].sum())
+        print(overall_net_income_df.to_markdown())
+        data['overall_net_mean'] = overall_net_income_df['Overall Income'].mean()
         
         utils.generate_html(t.month,
                             spendings_df,

@@ -124,13 +124,14 @@ class Graphics:
         plt.savefig(r'Outputs\Gas_monthly.png')
 
     @staticmethod
-    def plot_general(spendings : list, spendings_overall : list, earnings: list) -> None:
+    def plot_general(spendings : list, spendings_overall : list, earnings: list) -> pd.DataFrame:
         """
         @spendings : list - A list of length n containing the total spending values of the last n months.
         @earnings  : list - A list of length n containing the total earning values of the last n months.
         @spendings_overall  : list - A list of length n containing the total net icome across all accounts in the last n months.
 
         The function Will plot a graph describing general statistics and info and save it to 'Outputs\General_info.png'
+        The function returns a df describing the overall net income for the previous months.
         """
         from datetime import datetime
 
@@ -198,6 +199,8 @@ class Graphics:
         plt.title("Monthly Spendings and Earnings", fontsize=18)
         plt.legend(handles=legend_handles)
         plt.savefig(r'Outputs\General_info.png')
+
+        return overall_data
 
     @staticmethod
     def card_distribution(spendings: pd.DataFrame, color_dict: dict):

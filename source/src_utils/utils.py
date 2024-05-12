@@ -370,6 +370,10 @@ class utils:
         soup.body.insert(5, transaction_outlier_div)
         soup.body.insert(6, soup.new_tag('br'))
         # ------------------------------------------------------------------
+        overall_net_income_mean = soup.new_tag('h1')
+        overall_net_income_mean['class'] = "two alt-balance"
+        overall_net_income_mean.string = f'Overall Net Income Monthly Mean: {data["overall_net_mean"]:,.2f}₪'
+        soup.body.insert(12, overall_net_income_mean)
 
         soup.body.append(div_tag)
 

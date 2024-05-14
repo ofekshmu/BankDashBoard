@@ -403,7 +403,7 @@ class DataBase:
         An year and a month.
         returns all Income transaactions in the same month.
         Output:
-        a list with tuples containing: (Name, Amount, Category, Date)
+        a tuple containing data and column names for creating a data frame
         """
         import calendar
         last_day = calendar.monthrange(year, month)[1]

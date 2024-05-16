@@ -489,7 +489,7 @@ class DataBase:
         """
         The function will return a list containing all spendings made in the current month given.
         Spendings can be given from both BankTranssactions table of Transactions table.
-        Template is: (Table name, Name, Card, Amount, Category, Date)
+        the functions returns a tuple with data and column names for creating a dataframe.
 
         For transaction Taken from the BankTransactions; card will appear as 'Bank'
         """

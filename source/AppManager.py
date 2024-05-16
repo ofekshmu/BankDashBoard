@@ -39,7 +39,8 @@ class AppManager:
                     5. Update existing file
                     6. Execute SQL query on db
                     7. Open File Organizer
-                    8. Exit
+                    8. Export Monthly Excel Data
+                    9. Exit
                 """)
             answer = input()
             answer = -1 if not answer.isdigit() else int(answer)
@@ -63,6 +64,8 @@ class AppManager:
                     df = utils.read_present_table()
                     utils.create_html_with_colored_dates(df)
                 case 8:
+                    self.Export_data()
+                case 9:
                     break
                 case _:
                     print("Please insert a valid number.")
@@ -443,7 +446,7 @@ class AppManager:
         data['net income'] = (earnings_df['Final_Value'].sum() - spendings_df['Final_Value'].sum())
         data['overall net income'] = (earnings_df['Final_Value'].sum() - \
                                       spendings_df[spendings_df['Category'] != 'השקעה/חיסכון']['Final_Value'].sum())
-        print(overall_net_income_df.to_markdown())
+
         data['overall_net_mean'] = overall_net_income_df['Overall Income'].mean()
         
         utils.generate_html(t.month,
@@ -457,3 +460,14 @@ class AppManager:
                             data)
         webbrowser.open(r'source\html\output.html')
 
+    def Export_data(self):
+        """
+        TODO
+        """
+        from ExcelExporter import ExcelExporter
+        from datetime import datetime
+
+        m = int(input('month: '))
+        y = int(input('year: '))
+        chosen_date = datetime.now().replace(month=m, year=y)
+        ExcelExporter.export_monthly_data(chosen_date)

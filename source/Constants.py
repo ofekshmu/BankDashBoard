@@ -35,6 +35,7 @@ class Local:
     DB_NAME = "ShmuelFamiliy"    # "Yuviz_Data"
 
     INPUT_FOLDER = 'ShmuelFamiliy_Inputs'   # "Inputs"
+    PERSONAL_INFO_FOLDER = 'Personal Information'
     PERSONAL_CONFIG = 'Personal Information/personal_config.json'
 
     CATE_JSON_PATH = 'Personal Information/categories.json'
@@ -45,6 +46,9 @@ class Local:
     EXTENSION_2 = '.csv'
     EXTENSION_3 = ''  # Add another extension option here if needed or leave as an empty string.
 
+    OUTPUTS_FOLDER = 'Outputs'
+    EXPORTED_DATA_FOLDER = f"{OUTPUTS_FOLDER}/Exported_Data"
+    
     GAS_GRAPH = "C:/Users/ofeks/OneDrive/Work/Projects/Personal/BankProject/Outputs/Gas_info.png"
     GAS_MONTHLY = "C:/Users/ofeks/OneDrive/Work/Projects/Personal/BankProject/Outputs/Gas_monthly.png"
     GENERAL_INFO = "C:/Users/ofeks/Desktop/BankProject/Outputs/General_info.png"

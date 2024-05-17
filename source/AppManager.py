@@ -18,6 +18,7 @@ from os import listdir
 class AppManager:
 
     def __init__(self):
+        self.directory_verification()
         res = utils.validate_formats()
         if type(res) == str:
             utils.log(res, 'error')
@@ -471,3 +472,29 @@ class AppManager:
         y = int(input('year: '))
         chosen_date = datetime.now().replace(month=m, year=y)
         ExcelExporter.export_monthly_data(chosen_date)
+
+    def directory_verification(self) -> bool:
+        """
+        The function iterates over all relevant project directories to check if
+        all are present. Those who do not exist will be created but some will cause the program to stop and close,
+        those require manuall attention.
+        the function will return true if all is valid and false other wise
+        """
+
+        import os
+        from tqdm import tqdm
+
+        path_lst = [Local.INPUT_FOLDER,
+                    Local.PERSONAL_INFO_FOLDER,
+                    Local.OUTPUTS_FOLDER,
+                    Local.UPDATE_FOLDER,
+                    Local.VERIFIED_FOLDER,
+                    Local.EXPORTED_DATA_FOLDER
+                    ]
+        
+        for dir in tqdm(path_lst, desc=f"Verifing project folders..."):
+            if not os.path.exists(dir):
+                os.makedirs(dir)
+                utils.log(f"directory {dir} was created!")
+            
+        return True

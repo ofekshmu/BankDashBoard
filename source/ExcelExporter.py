@@ -4,13 +4,15 @@ from database import DataBase
 import pandas as pd
 from src_utils.calculations import SimpleMath
 import os
+from Constants import Local
 
 class ExcelExporter:
     
     @staticmethod
     def export_monthly_data(date: datetime) -> None:
         file_name = f"{date.year}_{date.month}_exported_Data.xlsx"
-        relative_path = rf"Outputs/Exported_data/{file_name}.xlsx"
+        relative_path = rf"{Local.EXPORTED_DATA_FOLDER}/{file_name}"
+        
         if os.path.exists(relative_path):
             msg = f"You Asked to export the data of {date.year}_{date.month},"
             msg += "but the data of this date was allready exported,\n"

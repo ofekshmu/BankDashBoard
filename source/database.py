@@ -840,6 +840,7 @@ class DataBase:
                             FROM CardTransactions 
                             """).fetchone()[0])
     
+    
     def total_sum_transactions(self, name_for_analysis, case) -> pd.DataFrame:
         """
         Returns the total sum of all chosen catrgory \ business transactions
@@ -900,6 +901,7 @@ class DataBase:
             category_list = self.cursor.execute(query, (name_for_analysis, name_for_analysis,)).fetchall()
             data_frame = category_list
             print(data_frame)
+            print(len(data_frame))
         else:
             query = """
                 SELECT  SUM(sum_i), year, month

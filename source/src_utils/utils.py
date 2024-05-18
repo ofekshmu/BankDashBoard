@@ -1003,19 +1003,22 @@ Please Make sure that none of the following formats have their 'Identifications 
         subtitle_tag.string = data['Category/business name']
 
         tag = soup.find('td', class_='Monthly Average')
-        tag.string = f"{data['Monthly Average']} ₪"
+        tag.string = f"{data['Monthly Average']:,.2f} ₪"
+
+        tag = soup.find('td', class_='Monthly Active Average')
+        tag.string = f"{data['Monthly Active Average']:,.2f} ₪"
 
         tag = soup.find('td', class_="Monthly Standard Deviation")
-        tag.string = f"{data['Monthly Standard Deviation']} ₪"
+        tag.string = f"{data['Monthly Standard Deviation']:,.2f} ₪"
 
         tag = soup.find('td', class_="Yearly Average")
-        tag.string = f"{data['Yearly Average']} ₪"
+        tag.string = f"{data['Yearly Average']:,.2f} ₪"
 
         tag = soup.find('td', class_="Total Spendings")
-        tag.string = f"{data['Total Spendings']} ₪"
+        tag.string = f"{data['Total Spendings']:,.2f} ₪"
 
         tag = soup.find('td', class_="Total Income")
-        tag.string = f"{data['Total Income']} ₪"
+        tag.string = f"{data['Total Income']:,.2f} ₪"
 
         tag = soup.find('img', alt="Yearly Use")
         tag['src'] = f"{data['Yearly use plot path']} ₪"

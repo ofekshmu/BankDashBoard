@@ -370,6 +370,18 @@ class AppManager:
             """
             total_sum = DataBase().total_sum_transactions(name_for_analysis, case)
             total_months = DataBase().months_total_calculator()
+            print(total_months)
+            monthly_average_value = round(total_sum / total_months, 2)
+            return monthly_average_value
+        
+        def get_active_monthly_average(name_for_analysis, case):
+            """
+            Returns category \ business monthly average of active months, i.e - months that include
+            any transaction of the chosen category \ business
+            """
+            total_sum = DataBase().total_sum_transactions(name_for_analysis, case)
+            total_months = len(DataBase().bank_transactions_sum_list(name_for_analysis, case))
+            print(total_months)
             monthly_average_value = round(total_sum / total_months, 2)
             return monthly_average_value
 
@@ -390,10 +402,11 @@ class AppManager:
         utils.create_html_name_analysis({"subtitle": "Specific Analysis",
                                          "Category/business name": name_for_analysis,
                                          "Monthly Average": get_monthly_average(name_for_analysis, case),
+                                         "Monthly Active Average": get_active_monthly_average(name_for_analysis, case),
                                          "Monthly Standard Deviation": get_monthly_sd(name_for_analysis, case),
-                                         "Yearly Average": "X",
-                                         "Total Spendings": "X",
-                                         "Total Income": "X",
+                                         "Yearly Average": 0,
+                                         "Total Spendings": 0,
+                                         "Total Income": 0,
                                          "Yearly use plot path": r"C:\Users\ofeks\OneDrive\BankProject\Outputs\Spendings_category.png",
                                          "Highest Transaction value" : "X",
                                          "Highest Transaction date": "X",

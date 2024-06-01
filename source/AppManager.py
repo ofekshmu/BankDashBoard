@@ -385,25 +385,33 @@ class AppManager:
             monthly_average_value = round(total_sum / total_months, 2)
             return monthly_average_value
 
-        def get_monthly_sd(name_for_analysis, case):
+        def get_active_monthly_sd(name_for_analysis, case):
             """
             Returns category \ business standard deviation of all incomes and spendings
             """
             month_sum_df = DataBase().bank_transactions_sum_list(name_for_analysis, case)
             print(month_sum_df.to_markdown())
             month_sum_first_column = month_sum_df.iloc[:,0]
+            print(month_sum_first_column)
             sd_numerator = (month_sum_first_column - month_sum_first_column.mean()) ** 2
             total_sum = sd_numerator.sum()
             return round((total_sum / len(month_sum_df)) ** 0.5, 2)
-
-        #ofek = DataBase().bank_transactions_sum_list(name_for_analysis, case)
+        
+        # def total_spendings(name_for_analysis, case):
+        #     """
+        #     Returns category \ business total spendings
+        #     """
+        #     total_spendings = 0
+        #     month_sum_df = DataBase().bank_transactions_sum_list(name_for_analysis, case)
+        #     for value in month_sum_df.iloc[:, 0]:
+        #         if value > 0:
 
         # Run analysis     
         utils.create_html_name_analysis({"subtitle": "Specific Analysis",
                                          "Category/business name": name_for_analysis,
                                          "Monthly Average": get_monthly_average(name_for_analysis, case),
                                          "Monthly Active Average": get_active_monthly_average(name_for_analysis, case),
-                                         "Monthly Standard Deviation": get_monthly_sd(name_for_analysis, case),
+                                         "Monthly Active Standard Deviation": get_active_monthly_sd(name_for_analysis, case),
                                          "Yearly Average": 0,
                                          "Total Spendings": 0,
                                          "Total Income": 0,

@@ -1008,8 +1008,8 @@ Please Make sure that none of the following formats have their 'Identifications 
         tag = soup.find('td', class_='Monthly Active Average')
         tag.string = f"{data['Monthly Active Average']:,.2f} ₪"
 
-        tag = soup.find('td', class_="Monthly Standard Deviation")
-        tag.string = f"{data['Monthly Standard Deviation']:,.2f} ₪"
+        tag = soup.find('td', class_="Monthly Active Standard Deviation")
+        tag.string = f"{data['Monthly Active Standard Deviation']:,.2f} ₪"
 
         tag = soup.find('td', class_="Yearly Average")
         tag.string = f"{data['Yearly Average']:,.2f} ₪"

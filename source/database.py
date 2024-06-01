@@ -840,6 +840,41 @@ class DataBase:
                             FROM CardTransactions 
                             """).fetchone()[0])
     
+    def total_spendings(self, name_for_analysis, case) -> pd.DataFrame:
+        """
+        Returns the total sum of all spendings of a chosen category \ business transactions
+        """
+        if case == 0:
+            query = """
+                SELECT SUM(sum_i)
+                FROM (
+                    SELECT Out AS sum_i
+                    FROM BankTransactions
+                    WHERE Category = ?
+                UNION ALL
+                    SELECT Transaction_Value AS sum_i
+                    FROM CardTransactions
+                    WHERE Category = ? AND Transaction_Value > 0
+                    ) AS merged_table 
+                    """
+            total_sum = self.cursor.execute(query, (name_for_analysis, name_for_analysis,)).fetchone()[0]
+            print(total_sum)
+        else:
+            query = """
+                SELECT SUM(ABS(sum_i))
+                FROM (
+                    SELECT Out AS sum_i
+                    FROM BankTransactions
+                    WHERE Name = ?
+                UNION ALL
+                    SELECT Transaction_Value AS sum_i
+                    FROM CardTransactions
+                    WHERE Name = ? AND Transaction_Value > 0
+                    ) AS merged_table 
+                    """
+            total_sum = self.cursor.execute(query, (name_for_analysis, name_for_analysis,)).fetchone()[0]
+        return total_sum 
+    
     
     def total_sum_transactions(self, name_for_analysis, case) -> pd.DataFrame:
         """
@@ -859,7 +894,6 @@ class DataBase:
                     ) AS merged_table
                 """
             total_sum = self.cursor.execute(query, (name_for_analysis, name_for_analysis,)).fetchone()[0]
-            print(total_sum)
         else:
             query = """
                 SELECT  SUM(sum_i)
@@ -900,8 +934,6 @@ class DataBase:
                 """
             category_list = self.cursor.execute(query, (name_for_analysis, name_for_analysis,)).fetchall()
             data_frame = category_list
-            print(data_frame)
-            print(len(data_frame))
         else:
             query = """
                 SELECT  SUM(sum_i), year, month

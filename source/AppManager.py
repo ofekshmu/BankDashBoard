@@ -312,6 +312,9 @@ class AppManager:
         utils.log(f"There are {len(lst)} untagged Transactions.\nChoose a category or create a new one.", "system")
         while not df.empty:
             for _, row in df.iterrows():
+
+                # taggable items that are marked as "Skip", are added to the 'skip_list',
+                # these items will be ignored until the next run
                 if row['ID'] in skip_list:
                     continue
                 pretty_print_series(row.drop('Original_Name'))

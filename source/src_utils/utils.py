@@ -926,7 +926,16 @@ Please Make sure that none of the following formats have their 'Identifications 
 
     @staticmethod
     def auto_tagger(name: str, category: str = None) -> str:
+        """
+        The function is responsible for editing the json config file depending on the inputs.
+        The function receives:
+        a Bussines name, and a category name.
+        In case category was not inserted, or specified as None, json file will be updated with
+        name: None
+        In case both were given, and not None, the pair will be appended or changed depending on
+        the current status of the keys on the dictionary.
 
+        """
         if os.path.exists(Local.AUTO_TAGGER_PATH):
             with open(Local.AUTO_TAGGER_PATH, 'r', encoding='utf-8') as f:
                 at_dict = json.load(f)
@@ -965,13 +974,10 @@ Please Make sure that none of the following formats have their 'Identifications 
 
     @staticmethod
     def tagger_refresh() -> None:
-        if os.path.exists(Local.AUTO_TAGGER_PATH):
-            with open(Local.AUTO_TAGGER_PATH, 'r', encoding='utf-8') as f:
-                at_dict = json.load(f)
-
-        else:
-            at_dict = {}
-
+        """
+        The function uses the json config file, in order to try and auto tag transactions
+        with no category tagging.
+        """
         from database import DataBase
 
         dirty_bit = False
@@ -989,5 +995,6 @@ Please Make sure that none of the following formats have their 'Identifications 
 
         if dirty_bit:
             utils.log(logs, 'system')
+            DataBase().commit_changes()
         else:
             utils.log('No transactions were Auto tagged...', 'system')

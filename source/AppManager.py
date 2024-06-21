@@ -390,8 +390,8 @@ class AppManager:
             cards_df = df.groupby("CardID").sum().reset_index()
             cards_df['Status'] = 'Not Verified'
             bank_df = DataBase().get_Bank_Transactions(Local.CHARGE_DAY + 1, 
-                                                    utils.next_month(t).month,
-                                                    utils.next_month(t).year)
+                                                    utils.next_month(date).month,
+                                                    utils.next_month(date).year)
             for _, row_cs in cards_df.iterrows():
                 for _, row_bt in bank_df.iterrows():
                     x = round(row_bt['Out'], 2)
@@ -414,6 +414,20 @@ class AppManager:
                 
             return cards_df
 
+        def print_unverified_cards(date: datetime):
+            """
+            The function will iterate past data and print the card id and mnths which were not verified.
+            """
+            df = card_charge_validation(date)
+            while not df.empty:
+                for _, row in df.iterrows():
+                    if row['Status'] == 'Not Verified':
+                        utils.log(f"Card {row['CardID']} was not verified for {date.month}/{date.year}", 'warning')
+                m, y = utils.subtract_month(date.month, date.year)
+                date = datetime(int(y),int(m),1)
+                df = card_charge_validation(date)
+            
+        print_unverified_cards(t)
         card_validation_df = card_charge_validation(t)
         
         monthly_balance = DataBase().get_latest_Balance()

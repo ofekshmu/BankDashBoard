@@ -2,7 +2,7 @@ from Parser import Parser
 from Card import Card
 from Bank import Bank
 from Context import Context
-from Constants import Local
+from Constants import Local, CC_CHARGE_CATEGORY_NAME
 from src_utils.utils import utils
 from database import DataBase
 from front.Graphics import Graphics
@@ -11,9 +11,7 @@ from src_utils.ExcelReader import ExcelManager
 import webbrowser
 from Configurations.Formats import Formats, Context_class
 import pandas as pd
-
 from os import listdir
-
 
 class AppManager:
 
@@ -380,39 +378,44 @@ class AppManager:
                 t = datetime.now().replace(month=m, year=y)
 
         data = {}
-        # ---------------------------------------------------------
-        #   The following line will help configure the אשראי　transactions
-        # ---------------------------------------------------------
-        df, desc = DataBase().card_sum(t)
 
-        cards_df = pd.DataFrame(df, columns=desc).groupby("CardID").sum().reset_index()
-        cards_df['Status'] = 'Not Verified'
-        bank_df = DataBase().get_Bank_Transactions(Local.CHARGE_DAY + 1, 
-                                                   utils.next_month(t).month,
-                                                   utils.next_month(t).year)
-        for _, row_cs in cards_df.iterrows():
-            for _, row_bt in bank_df.iterrows():
-                x = round(row_bt['Out'], 2)
-                y = round(row_cs['Out/Transaction_value'], 2)
-                if x == y:
-                    cards_df.loc[cards_df['CardID'] == row_cs['CardID'], 'Status'] = 'Verified'
-                    if row_bt['Category'] == 'אשראי':
-                        break
+        def card_charge_validation(date: datetime) -> pd.DataFrame:
+            """
+            """
+            # ---------------------------------------------------------
+            #   The following line will help configure the אשראי　transactions
+            # ---------------------------------------------------------
+            df = DataBase().card_sum(date)
+            # The following will result in a data base describing the total amount of spendings per card in the given month.
+            cards_df = df.groupby("CardID").sum().reset_index()
+            cards_df['Status'] = 'Not Verified'
+            bank_df = DataBase().get_Bank_Transactions(Local.CHARGE_DAY + 1, 
+                                                    utils.next_month(t).month,
+                                                    utils.next_month(t).year)
+            for _, row_cs in cards_df.iterrows():
+                for _, row_bt in bank_df.iterrows():
+                    x = round(row_bt['Out'], 2)
+                    y = round(row_cs['Out/Transaction_value'], 2)
+                    if x == y:
+                        cards_df.loc[cards_df['CardID'] == row_cs['CardID'], 'Status'] = 'Verified'
+                        if row_bt['Category'] == 'אשראי':
+                            break
 
-                    res = utils.template_menu(['Yes', 'No'], f"App found this transaction to be a credit card:\n\
-                                              {row_bt}\n Do you Agree?")
-                    if res == 0:
-                        DataBase().set_category('BankTransactions', row_bt['ID'], 'אשראי')
-                        DataBase().commit_changes()
-                        break
-                    else:
-                        utils.log('ignored...', 'system')
+                        if utils.template_menu(['No', 'Yes'], f"App found this transaction to be a credit card:\n\
+                                            {row_bt}\n Do you Agree?"):
+                            DataBase().set_category('BankTransactions', row_bt['ID'], CC_CHARGE_CATEGORY_NAME)
+                            DataBase().commit_changes()
+                            break
+                        else:
+                            utils.log('ignored...', 'system')
 
-        if not cards_df.empty:
-            cards_df = cards_df[['CardID', 'Status']]
+            if not cards_df.empty:
+                cards_df = cards_df[['CardID', 'Status']]
+                
+            return cards_df
 
-        # ---------------------------------------------------------
-
+        card_validation_df = card_charge_validation(t)
+        
         monthly_balance = DataBase().get_latest_Balance()
 
         spendings, description = DataBase().get_monthly_spendings(year=t.year, month=t.month)
@@ -453,7 +456,7 @@ class AppManager:
                             high_std_earnings,
                             monthly_balance,
                             card_color_dict,
-                            cards_df,
+                            card_validation_df,
                             data)
         webbrowser.open(r'source\html\output.html')
 

@@ -8,9 +8,10 @@
 from enum import Enum
 
 BANK_CARD_NUMBER = "Not_Relevant"
+CC_CHARGE_CATEGORY_NAME = "אשראי"
 
 class Settings:
-    DEBUG = True
+    DEBUG = False
     SYSTEM = True
     WARNING = True
     LAPTOP = False

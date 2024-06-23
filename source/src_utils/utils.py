@@ -1004,13 +1004,13 @@ Please Make sure that none of the following formats have their 'Identifications 
 
         tag = soup.find('td', class_='Monthly Average')
         if data['Monthly Average'] < 0 :
-            tag.string = f"({data['Monthly Average']:,.2f}) ₪"
+            tag.string = f"({abs(data['Monthly Average']):,.2f}) ₪"
         else:
             tag.string = f"{data['Monthly Average']:,.2f} ₪"
 
         tag = soup.find('td', class_='Monthly Active Average')
         if data['Monthly Active Average'] < 0:
-            tag.string = f"({data['Monthly Active Average']:,.2f}) ₪"
+            tag.string = f"({abs(data['Monthly Active Average']):,.2f}) ₪"
         else:
             tag.string = f"{data['Monthly Active Average']:,.2f} ₪"
 

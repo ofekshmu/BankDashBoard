@@ -397,13 +397,6 @@ class AppManager:
             total_sum = sd_numerator.sum()
             return round((total_sum / len(month_sum_df)) ** 0.5, 2)
         
-        def total_spendings(name_for_analysis, case):
-            """
-            Returns category \ business total spendings
-            """
-            total_spendings = DataBase().total_spendings(name_for_analysis, case)
-            return total_spendings
-
         # Run analysis     
         utils.create_html_name_analysis({"subtitle": "Specific Analysis",
                                          "Category/business name": name_for_analysis,
@@ -411,7 +404,7 @@ class AppManager:
                                          "Monthly Active Average": get_active_monthly_average(name_for_analysis, case),
                                          "Monthly Active Standard Deviation": get_active_monthly_sd(name_for_analysis, case),
                                          "Yearly Average": 0,
-                                         "Total Spendings": total_spendings(name_for_analysis, case),
+                                         "Total Spendings": DataBase().total_spendings(name_for_analysis, case),
                                          "Total Income": 0,
                                          "Yearly use plot path": r"C:\Users\ofeks\OneDrive\BankProject\Outputs\Spendings_category.png",
                                          "Highest Transaction value" : "X",

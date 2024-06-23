@@ -1015,7 +1015,7 @@ Please Make sure that none of the following formats have their 'Identifications 
         tag.string = f"{data['Yearly Average']:,.2f} ₪"
 
         tag = soup.find('td', class_="Total Spendings")
-        tag.string = f"{data['Total Spendings']:,.2f} ₪"
+        tag.string = f"({data['Total Spendings']:,.2f}) ₪"
 
         tag = soup.find('td', class_="Total Income")
         tag.string = f"{data['Total Income']:,.2f} ₪"

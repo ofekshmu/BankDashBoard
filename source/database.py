@@ -840,9 +840,10 @@ class DataBase:
                             FROM CardTransactions 
                             """).fetchone()[0])
     
-    def total_spendings(self, name_for_analysis, case) -> pd.DataFrame:
+    def total_spendings(self, name_for_analysis, case) -> float:
         """
-        Returns the total sum of all spendings of a chosen category \ business transactions
+        Returns the total amount of spendings from both card and bank data tables.
+        The value is returned as a positive value.
         """
         if case == 0:
             query = """
@@ -858,7 +859,6 @@ class DataBase:
                     ) AS merged_table 
                     """
             total_sum = self.cursor.execute(query, (name_for_analysis, name_for_analysis,)).fetchone()[0]
-            print(total_sum)
         else:
             query = """
                 SELECT SUM(ABS(sum_i))

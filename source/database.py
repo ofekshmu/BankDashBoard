@@ -396,7 +396,7 @@ class DataBase:
                                    (cat_name, cat_name)).fetchall(), \
             [d[0] for d in self.cursor.description]
 
-    def get_monthly_earnings(self, year: int, month: int) -> Tuple[list, list]:
+    def get_monthly_earnings(self, year: int, month: int, category=None) -> Tuple[list, list]:
         """
         Input:
         An year and a month.
@@ -412,51 +412,59 @@ class DataBase:
         # (Transaction_Value*Charge_Value < 0 
         # AND Charge_Date >= ? AND Charge_Date <= ?)
         # This section is ment for retriving refund issued to the credit card.
-        return self.cursor.execute("""
-                                    SELECT
-                                        ID,
-                                        'BankTransactions' AS TableName,
-                                        Ref AS 'Ref/CardID',
-                                        Name,
-                                        Date AS 'Date/Executed_Date',
-                                        Value_Date AS 'Value_Date/Charge_Date',
-                                        Out AS 'Out/Transaction_value',
-                                        Income AS 'Income/Charge_Value',
-                                        Description AS 'Description/Charge_Currency',
-                                        Reserved AS 'Reserved/Value_Currency',
-                                        Category,
-                                        Extra_Info,
-                                        Source_file
-                                    FROM BankTransactions
-                                    WHERE Date >= ?
-                                    AND Date <= ?
-                                    AND Income != 0
-                                    AND (Category != ? OR Category IS NULL)
-                                    UNION ALL
-                                    SELECT
-                                        ID,
-                                        'CardTransactions' AS TableName,
-                                        CardID,
-                                        Name,
-                                        Executed_Date,
-                                        Charge_Date,
-                                        Transaction_Value,
-                                        Charge_Value,
-                                        Charge_Currency,
-                                        Value_Currency,
-                                        Category,
-                                        Extra_Info,
-                                        Source_file
-                                    FROM CardTransactions
-                                    WHERE (Executed_Date >= ?
-                                    AND Executed_Date <= ?
-                                    AND Transaction_Value < 0)
-                                    OR (Transaction_Value*Charge_Value < 0 
-                                    AND Charge_Date >= ? AND Charge_Date <= ?)
-                                    """, (day1, day2, "אשראי", day1, day2, day1, day2)).fetchall(), \
+        query_part1 = """ 
+                        SELECT
+                            ID,
+                            'BankTransactions' AS TableName,
+                            Ref AS 'Ref/CardID',
+                            Name,
+                            Date AS 'Date/Executed_Date',
+                            Value_Date AS 'Value_Date/Charge_Date',
+                            Out AS 'Out/Transaction_value',
+                            Income AS 'Income/Charge_Value',
+                            Description AS 'Description/Charge_Currency',
+                            Reserved AS 'Reserved/Value_Currency',
+                            Category,
+                            Extra_Info,
+                            Source_file
+                        FROM BankTransactions
+                        WHERE Date >= ?
+                        AND Date <= ?
+                        AND Income != 0
+                        AND (Category != ? OR Category IS NULL)
+                    """
+        query_part2 = """
+                    UNION ALL
+                    SELECT
+                        ID,
+                        'CardTransactions' AS TableName,
+                        CardID,
+                        Name,
+                        Executed_Date,
+                        Charge_Date,
+                        Transaction_Value,
+                        Charge_Value,
+                        Charge_Currency,
+                        Value_Currency,
+                        Category,
+                        Extra_Info,
+                        Source_file
+                    FROM CardTransactions
+                    WHERE (Executed_Date >= ?
+                    AND Executed_Date <= ?
+                    AND Transaction_Value < 0)
+                    OR (Transaction_Value*Charge_Value < 0 
+                    AND Charge_Date >= ? AND Charge_Date <= ?)
+                    """
+        
+        if category is not None:
+            query_part1 += f"AND Category = '{category}'"
+            query_part2 += f"AND Category = '{category}'"
+
+        return self.cursor.execute(query_part1 + query_part2, (day1, day2, "אשראי", day1, day2, day1, day2)).fetchall(), \
             [d[0] for d in self.cursor.description]
 
-    def get_monthly_spendings(self, year: int, month: int) -> Tuple[list, list]:
+    def get_monthly_spendings(self, year: int, month: int, category = None) -> Tuple[list, list]:
         """
         The function will return a list containing all spendings made in the current month given.
         Spendings can be given from both BankTranssactions table of Transactions table.
@@ -475,7 +483,6 @@ class DataBase:
         b_init = datetime(year, month, 1).strftime('%Y-%m-%d %H:%M:%S')
         b_end = datetime(year, month, last_day).strftime('%Y-%m-%d %H:%M:%S')
         next_month =  utils.next_month(datetime(year, month, 1)).month
-        relevant_year = utils.next_month(datetime(year, month, 1)).year
         next_month = '0' + str(next_month) if len(str(next_month)) == 1 else str(next_month)
         
         # last_day = calendar.monthrange(fit_year, fit_month)[1]
@@ -485,46 +492,54 @@ class DataBase:
         # in the cardtransaction table:
         #   1. The following condition might not be relevant: (Executed_Date >= ? AND Executed_Date <= ?)
         #   2. Card transaction which represent spendings will always be positive.
-        return self.cursor.execute("""
-                                    SELECT
-                                        'BankTransactions' AS TableName,
-                                        Ref AS 'Ref/CardID',
-                                        Name,
-                                        Date AS 'Date/Executed_Date',
-                                        Value_Date AS 'Value_Date/Charge_Date',
-                                        Out AS 'Out/Transaction_value',
-                                        Income AS 'Income/Charge_Value',
-                                        Description AS 'Description/Charge_Currency',
-                                        Reserved AS 'Reserved/Value_Currency',
-                                        Category,
-                                        Extra_Info,
-                                        Source_file
-                                    FROM BankTransactions
-                                    WHERE Date >= ?
-                                    AND Date <= ?
-                                    AND Out != 0
-                                    AND (Category != ? OR Category IS NULL)
-                                    UNION ALL
-                                    SELECT
-                                        'CardTransactions' AS TableName,
-                                        CardID,
-                                        Name,
-                                        Executed_Date,
-                                        Charge_Date,
-                                        Transaction_Value,
-                                        Charge_Value,
-                                        Charge_Currency,
-                                        Value_Currency,
-                                        Category,
-                                        Extra_Info,
-                                        Source_file
-                                    FROM CardTransactions
-                                    WHERE Transaction_Value > 0 AND (
-                                        (Executed_Date >= ? AND Executed_Date <= ?)
-                                        OR 
-                                        (strftime('%m', Charge_Date) = ?)
-                                    )
-                                    """, (b_init, b_end, "אשראי", b_init, b_end, next_month, )).fetchall(), \
+        query_part1 = """
+                        SELECT
+                            'BankTransactions' AS TableName,
+                            Ref AS 'Ref/CardID',
+                            Name,
+                            Date AS 'Date/Executed_Date',
+                            Value_Date AS 'Value_Date/Charge_Date',
+                            Out AS 'Out/Transaction_value',
+                            Income AS 'Income/Charge_Value',
+                            Description AS 'Description/Charge_Currency',
+                            Reserved AS 'Reserved/Value_Currency',
+                            Category,
+                            Extra_Info,
+                            Source_file
+                        FROM BankTransactions
+                        WHERE Date >= ?
+                        AND Date <= ?
+                        AND Out != 0
+                        AND (Category != ? OR Category IS NULL)
+                    """
+        query_part2 = """
+                        UNION ALL
+                        SELECT
+                            'CardTransactions' AS TableName,
+                            CardID,
+                            Name,
+                            Executed_Date,
+                            Charge_Date,
+                            Transaction_Value,
+                            Charge_Value,
+                            Charge_Currency,
+                            Value_Currency,
+                            Category,
+                            Extra_Info,
+                            Source_file
+                        FROM CardTransactions
+                        WHERE Transaction_Value > 0 AND (
+                            (Executed_Date >= ? AND Executed_Date <= ?)
+                            OR 
+                            (strftime('%m', Charge_Date) = ?)
+                        )
+                        """
+        
+        if category is not None:
+            query_part1 += f"AND Category = '{category}'"
+            query_part2 += f"AND Category = '{category}'"
+
+        return self.cursor.execute(query_part1 + query_part2, (b_init, b_end, "אשראי", b_init, b_end, next_month, )).fetchall(), \
             [d[0] for d in self.cursor.description]
 
 

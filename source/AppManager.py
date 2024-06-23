@@ -404,6 +404,9 @@ class AppManager:
             total_spendings = DataBase().total_spendings(name_for_analysis, case)
             return total_spendings
 
+        spendings_sum, spendings_sum_overall_inc, earnings_sum = SimpleMath.get_monthly_shifted(shift=6, category=name_for_analysis)
+        overall_net_income_df = Graphics.plot_general(spendings_sum, spendings_sum_overall_inc, earnings_sum, title_ext='Category_analysis', fig_size=(8, 5))
+        
         # Run analysis     
         utils.create_html_name_analysis({"subtitle": "Specific Analysis",
                                          "Category/business name": name_for_analysis,
@@ -413,7 +416,7 @@ class AppManager:
                                          "Yearly Average": 0,
                                          "Total Spendings": total_spendings(name_for_analysis, case),
                                          "Total Income": 0,
-                                         "Yearly use plot path": r"C:\Users\ofeks\OneDrive\BankProject\Outputs\Spendings_category.png",
+                                         "Yearly use plot path": r"C:\Users\ofeks\OneDrive\BankProject\Outputs\General_info_Category_analysis.png",
                                          "Highest Transaction value" : "X",
                                          "Highest Transaction date": "X",
                                          "Association list": [("Name1",2), ("Name2",4), ("Name3",6)],

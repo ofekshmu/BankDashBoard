@@ -84,31 +84,40 @@ class SimpleMath:
                 "Maximum Amount":   f'{abs(max)}₪'}
 
     @staticmethod
-    def get_monthly_shifted(shift: int = 5) -> Tuple[list[int], list[int]]:
+    def get_monthly_shifted(shift: int = 5, category=None) -> Tuple[list[int], list[int], list[int]]:
         """
         The function receives as input the number of months to calculate from this current
         one backwards shift. And returns two lists contatining The monthly spendings and earnings of the last @shift
         months
+
+        The middle list represents the sum spending, suntructed by spending to another account (savings)
         """
         from dateutil.relativedelta import relativedelta
         today = datetime.now()
+
         spendings_lst = []
+        spendings_lst_for_overall_inc = []
         earnings_lst = []
 
         for i in range(0, shift):
             curr_date = (today - relativedelta(months=i)).replace(day=1)
             y = curr_date.year
             m = curr_date.month
-            spendings, description = DataBase().get_monthly_spendings(year=y, month=m)
+            spendings, description = DataBase().get_monthly_spendings(y, m, category)
+            #print(pd.DataFrame(spendings,columns=description).to_markdown())
             spendings_df = SimpleMath.process_prices(spendings, description)
             spendings_df = utils.remove_leumi(spendings_df)
             if spendings_df.empty:
                 spendings_sum = 0
+                spendings_lst_inc_sum = 0
             else:
                 spendings_sum = spendings_df['Final_Value'].sum()
-            spendings_lst.append(spendings_sum)
+                spendings_lst_inc_sum = spendings_df[spendings_df['Category'] != 'השקעה/חיסכון']['Final_Value'].sum()
 
-            earnings, description = DataBase().get_monthly_earnings(year=y, month=m)
+            spendings_lst.append(spendings_sum)
+            spendings_lst_for_overall_inc.append(spendings_lst_inc_sum)
+
+            earnings, description = DataBase().get_monthly_earnings(y, m, category)
             earnings_df = SimpleMath.process_prices(earnings, description)
             earnings_df = utils.remove_leumi(earnings_df)
             if earnings_df.empty:
@@ -117,7 +126,7 @@ class SimpleMath:
                 earnings_sum = earnings_df['Final_Value'].sum()
             earnings_lst.append(earnings_sum)
 
-        return spendings_lst, earnings_lst
+        return spendings_lst, spendings_lst_for_overall_inc, earnings_lst
 
     @staticmethod
     def general_info(data):

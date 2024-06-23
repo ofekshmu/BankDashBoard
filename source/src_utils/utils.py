@@ -1021,11 +1021,13 @@ Please Make sure that none of the following formats have their 'Identifications 
         tag.string = f"{data['Total Income']:,.2f} ₪"
 
         tag = soup.find('img', alt="Yearly Use")
-        tag['src'] = f"{data['Yearly use plot path']} ₪"
+        tag['src'] = f"{data['Yearly use plot path']}"
 
 
         tag = soup.find('p', class_="Highest Transaction: Value & Date")
         tag.string = "The highest transaction value was: " + data["Highest Transaction value"] + "₪ , Executed on " + data["Highest Transaction date"] +" ₪"
+
+
 
         # Add associated cate/business:
         tag = soup.find('p', class_="Associated")

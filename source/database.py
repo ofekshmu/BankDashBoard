@@ -1,6 +1,8 @@
 import sqlite3
 from datetime import datetime
 import pandas as pd
+from typing import Literal
+
 
 # local imports
 from decorators import try_catch, error_handler
@@ -840,119 +842,85 @@ class DataBase:
                             FROM CardTransactions 
                             """).fetchone()[0])
     
-    def total_spendings(self, name_for_analysis, case) -> float:
+    def total_spendings(self, name_for_analysis: str, case: Literal[0, 1]) -> float:
         """
         Returns the total amount of spendings from both card and bank data tables.
         The value is returned as a positive value.
         """
-        if case == 0:
-            query = """
-                SELECT SUM(sum_i)
-                FROM (
-                    SELECT Out AS sum_i
-                    FROM BankTransactions
-                    WHERE Category = ?
-                UNION ALL
-                    SELECT Transaction_Value AS sum_i
-                    FROM CardTransactions
-                    WHERE Category = ? AND Transaction_Value > 0
-                    ) AS merged_table 
-                    """
-            total_sum = self.cursor.execute(query, (name_for_analysis, name_for_analysis,)).fetchone()[0]
-        else:
-            query = """
-                SELECT SUM(ABS(sum_i))
-                FROM (
-                    SELECT Out AS sum_i
-                    FROM BankTransactions
-                    WHERE Name = ?
-                UNION ALL
-                    SELECT Transaction_Value AS sum_i
-                    FROM CardTransactions
-                    WHERE Name = ? AND Transaction_Value > 0
-                    ) AS merged_table 
-                    """
-            total_sum = self.cursor.execute(query, (name_for_analysis, name_for_analysis,)).fetchone()[0]
-        return total_sum 
+        if case not in [0, 1]:
+            utils.log("Bad Argument in function 'total_spendings', case should be 0 or 1", 'error')
+
+        condition = "Name" if case else "Category"
+
+        query = f"""
+            SELECT SUM(sum_i)
+            FROM (
+                SELECT Out AS sum_i
+                FROM BankTransactions
+                WHERE {condition} = ?
+            UNION ALL
+                SELECT Transaction_Value AS sum_i
+                FROM CardTransactions
+                WHERE {condition} = ? AND Transaction_Value > 0
+                ) AS merged_table 
+                """
+        return self.cursor.execute(query, (name_for_analysis, name_for_analysis,)).fetchone()[0]
     
     
-    def total_sum_transactions(self, name_for_analysis, case) -> pd.DataFrame:
+    def total_sum_transactions(self, name_for_analysis: str, case: Literal[0, 1]) -> float:
         """
-        Returns the total sum of all chosen catrgory \ business transactions
+        The function calculate the total sum of transactions taken from both card and bank tables.
+        All transactions taken from the card data base are calculated as negative variables.
+        @name_for_analysis will query only transactions with the given category set.
+        @case - 0 is for querying the category column, 1 is for querying the name column.
         """
-        if case == 0:
-            query = """
-                SELECT SUM(sum_i)
-                FROM (
-                    SELECT Income + Out AS sum_i
-                    FROM BankTransactions
-                    WHERE Category = ?
-                UNION ALL
-                    SELECT Transaction_Value AS sum_i
-                    FROM CardTransactions
-                    WHERE Category = ?
-                    ) AS merged_table
-                """
-            total_sum = self.cursor.execute(query, (name_for_analysis, name_for_analysis,)).fetchone()[0]
-        else:
-            query = """
-                SELECT  SUM(sum_i)
-                FROM (
-                    SELECT Income + Out AS sum_i
-                    FROM BankTransactions
-                    WHERE Name = ?
-                UNION ALL
-                    SELECT Transaction_Value AS sum_i
-                    FROM CardTransactions
-                    WHERE Name = ?
-                    ) AS merged_table
-                """
-            total_sum = self.cursor.execute(query, (name_for_analysis, name_for_analysis,)).fetchone()[0]
-        return total_sum
+        if case not in [0, 1]:
+            utils.log("Bad Argument in function 'total_sum_transactions', case should be 0 or 1", 'error')
+
+        condition = "Name" if case else "Category"
+
+        query = f"""
+            SELECT SUM(sum_i)
+            FROM (
+                SELECT Income + Out AS sum_i
+                FROM BankTransactions
+                WHERE {condition} = ?
+            UNION ALL
+                SELECT -Transaction_Value AS sum_i
+                FROM CardTransactions
+                WHERE {condition} = ?
+                ) AS merged_table
+            """
+        return self.cursor.execute(query, (name_for_analysis, name_for_analysis,)).fetchone()[0]
 
 
-    def bank_transactions_sum_list(self, name_for_analysis, case) -> pd.DataFrame:
+    def bank_transactions_sum_list(self, name_for_analysis: str, case: Literal[0, 1]) -> pd.DataFrame:
         """
         The function receives category/business name
         and returns a list of sums
         where sum_i is the sum of all the transactions in year_i, month_i for the given category/business name
         """
-        if case == 0:
-            query = """
-                SELECT SUM(sum_i), year, month
-                FROM (
-                    SELECT Income + Out AS sum_i, strftime('%Y', Date) AS year, strftime('%m', Date) AS month
-                    FROM BankTransactions
-                    WHERE Category = ?
-                UNION ALL
-                    SELECT Transaction_Value AS sum_i, strftime('%Y', Executed_Date) AS year, strftime('%m', Executed_Date) AS month
-                    FROM CardTransactions
-                    WHERE Category = ?
-                    ) AS merged_table
-                GROUP BY year, month
-                ORDER BY year, month
-                """
-            category_list = self.cursor.execute(query, (name_for_analysis, name_for_analysis,)).fetchall()
-            data_frame = category_list
-        else:
-            query = """
-                SELECT  SUM(sum_i), year, month
-                FROM (
-                    SELECT Income + Out AS sum_i, strftime('%Y', Date) AS year, strftime('%m', Date) AS month
-                    FROM BankTransactions
-                    WHERE Name = ?
-                UNION ALL
-                    SELECT Transaction_Value AS sum_i, strftime('%Y', Executed_Date) AS year, strftime('%m', Executed_Date) AS month
-                    FROM CardTransactions
-                    WHERE Name = ?
-                    ) AS merged_table
-                GROUP BY year, month
-                ORDER BY year, month
-                """
-            business_list = self.cursor.execute(query, (name_for_analysis, name_for_analysis, )).fetchall()
-            data_frame = business_list
-        df = data_frame
-        return pd.DataFrame(data=df, columns=[d[0] for d in self.cursor.description])
+        if case not in [0, 1]:
+            utils.log("Bad Argument in function 'total_sum_transactions', case should be 0 or 1", 'error')
+
+        condition = "Name" if case else "Category"
+
+        query = f"""
+            SELECT SUM(sum_i), year, month
+            FROM (
+                SELECT Income + Out AS sum_i, strftime('%Y', Date) AS year, strftime('%m', Date) AS month
+                FROM BankTransactions
+                WHERE {condition} = ?
+            UNION ALL
+                SELECT Transaction_Value AS sum_i, strftime('%Y', Executed_Date) AS year, strftime('%m', Executed_Date) AS month
+                FROM CardTransactions
+                WHERE {condition} = ?
+                ) AS merged_table
+            GROUP BY year, month
+            ORDER BY year, month
+            """
+        data = self.cursor.execute(query, (name_for_analysis, name_for_analysis,)).fetchall()
+        return pd.DataFrame(data=data, columns=[d[0] for d in self.cursor.description])
         
 # ----------------------------------------------------------------------
 #                            User SQL commands

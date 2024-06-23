@@ -1003,10 +1003,16 @@ Please Make sure that none of the following formats have their 'Identifications 
         subtitle_tag.string = data['Category/business name']
 
         tag = soup.find('td', class_='Monthly Average')
-        tag.string = f"{data['Monthly Average']:,.2f} ₪"
+        if data['Monthly Average'] < 0 :
+            tag.string = f"({data['Monthly Average']:,.2f}) ₪"
+        else:
+            tag.string = f"{data['Monthly Average']:,.2f} ₪"
 
         tag = soup.find('td', class_='Monthly Active Average')
-        tag.string = f"{data['Monthly Active Average']:,.2f} ₪"
+        if data['Monthly Active Average'] < 0:
+            tag.string = f"({data['Monthly Active Average']:,.2f}) ₪"
+        else:
+            tag.string = f"{data['Monthly Active Average']:,.2f} ₪"
 
         tag = soup.find('td', class_="Monthly Active Standard Deviation")
         tag.string = f"{data['Monthly Active Standard Deviation']:,.2f} ₪"

@@ -380,6 +380,7 @@ class AppManager:
             """
             total_sum = DataBase().total_sum_transactions(name_for_analysis, case)
             total_months = len(DataBase().bank_transactions_sum_list(name_for_analysis, case))
+            #total_months = DataBase().months_total_calculator()
             monthly_average_value = round(total_sum / total_months, 2)
             return monthly_average_value
 
@@ -393,6 +394,22 @@ class AppManager:
             total_sum = sd_numerator.sum()
             return round((total_sum / len(month_sum_df)) ** 0.5, 2)
         
+        def total_spendings(name_for_analysis, case):
+            """
+            Returns category \ business total spendings
+            """
+            if DataBase().total_spendings(name_for_analysis, case) == None:
+                return 0
+            return DataBase().total_spendings(name_for_analysis, case)
+
+        def total_income(name_for_analysis, case):
+            """
+            Returns category \ business total income
+            """
+            if DataBase().total_income(name_for_analysis, case) == None:
+                return 0
+            return DataBase().total_income(name_for_analysis, case)
+        
         # Run analysis     
         utils.create_html_name_analysis({"subtitle": "Specific Analysis",
                                          "Category/business name": name_for_analysis,
@@ -400,8 +417,8 @@ class AppManager:
                                          "Monthly Active Average": get_active_monthly_average(name_for_analysis, case),
                                          "Monthly Active Standard Deviation": get_active_monthly_sd(name_for_analysis, case),
                                          "Yearly Average": 0,
-                                         "Total Spendings": DataBase().total_spendings(name_for_analysis, case),
-                                         "Total Income": 0,
+                                         "Total Spendings": total_spendings(name_for_analysis, case),
+                                         "Total Income": total_income(name_for_analysis, case),
                                          "Yearly use plot path": r"C:\Users\ofeks\OneDrive\BankProject\Outputs\Spendings_category.png",
                                          "Highest Transaction value" : "X",
                                          "Highest Transaction date": "X",

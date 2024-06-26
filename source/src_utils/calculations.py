@@ -103,9 +103,9 @@ class SimpleMath:
             curr_date = (today - relativedelta(months=i)).replace(day=1)
             y = curr_date.year
             m = curr_date.month
-            spendings, description = DataBase().get_monthly_spendings(y, m, category)
-            #print(pd.DataFrame(spendings,columns=description).to_markdown())
-            spendings_df = SimpleMath.process_prices(spendings, description)
+            df = DataBase().get_monthly_spendings(y, m, category)
+            print(df.to_markdown())
+            spendings_df = SimpleMath.process_prices(df)
             spendings_df = utils.remove_leumi(spendings_df)
             if spendings_df.empty:
                 spendings_sum = 0
@@ -117,8 +117,9 @@ class SimpleMath:
             spendings_lst.append(spendings_sum)
             spendings_lst_for_overall_inc.append(spendings_lst_inc_sum)
 
-            earnings, description = DataBase().get_monthly_earnings(y, m, category)
-            earnings_df = SimpleMath.process_prices(earnings, description)
+            df = DataBase().get_monthly_earnings(y, m, category)
+            print(df.to_markdown())
+            earnings_df = SimpleMath.process_prices(df)
             earnings_df = utils.remove_leumi(earnings_df)
             if earnings_df.empty:
                 earnings_sum = 0
@@ -158,14 +159,13 @@ class SimpleMath:
         return df_merged
 
     @staticmethod
-    def process_prices(data: list, columns: list):
+    def process_prices(df: pd.DataFrame):
         """
         The function usess the lambda function to create the 'Final_Value' column
         Which describes the correct value to plot for each transaction. It returns
         a df representing the original input data along with the 'Final_Value column.
         """
 
-        df = pd.DataFrame(data, columns=columns)
         # print(df.to_markdown())
         def my_lambda(row):
             """

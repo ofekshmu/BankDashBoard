@@ -396,13 +396,12 @@ class DataBase:
                                    (cat_name, cat_name)).fetchall(), \
             [d[0] for d in self.cursor.description]
 
-    def get_monthly_earnings(self, year: int, month: int, category=None) -> Tuple[list, list]:
+    def get_monthly_earnings(self, year: int, month: int, category=None) -> pd.DataFrame:
         """
-        Input:
-        An year and a month.
-        returns all Income transaactions in the same month.
-        Output:
-        a list with tuples containing: (Name, Amount, Category, Date)
+        The function receives a year, a month and a category name
+        and returns all the Spending transactions associated with the given categories in the given date
+        in the same month only. 
+        If category is None, transaction will not be filtered by category.
         """
         import calendar
         last_day = calendar.monthrange(year, month)[1]
@@ -412,65 +411,60 @@ class DataBase:
         # (Transaction_Value*Charge_Value < 0 
         # AND Charge_Date >= ? AND Charge_Date <= ?)
         # This section is ment for retriving refund issued to the credit card.
-        query_part1 = """ 
-                        SELECT
-                            ID,
-                            'BankTransactions' AS TableName,
-                            Ref AS 'Ref/CardID',
-                            Name,
-                            Date AS 'Date/Executed_Date',
-                            Value_Date AS 'Value_Date/Charge_Date',
-                            Out AS 'Out/Transaction_value',
-                            Income AS 'Income/Charge_Value',
-                            Description AS 'Description/Charge_Currency',
-                            Reserved AS 'Reserved/Value_Currency',
-                            Category,
-                            Extra_Info,
-                            Source_file
-                        FROM BankTransactions
-                        WHERE Date >= ?
-                        AND Date <= ?
-                        AND Income != 0
-                        AND (Category != ? OR Category IS NULL)
-                    """
-        query_part2 = """
-                    UNION ALL
-                    SELECT
-                        ID,
-                        'CardTransactions' AS TableName,
-                        CardID,
-                        Name,
-                        Executed_Date,
-                        Charge_Date,
-                        Transaction_Value,
-                        Charge_Value,
-                        Charge_Currency,
-                        Value_Currency,
-                        Category,
-                        Extra_Info,
-                        Source_file
-                    FROM CardTransactions
-                    WHERE (Executed_Date >= ?
-                    AND Executed_Date <= ?
-                    AND Transaction_Value < 0)
-                    OR (Transaction_Value*Charge_Value < 0 
-                    AND Charge_Date >= ? AND Charge_Date <= ?)
-                    """
+        data = self.cursor.execute("""
+                                    SELECT
+                                        ID,
+                                        'BankTransactions' AS TableName,
+                                        Ref AS 'Ref/CardID',
+                                        Name,
+                                        Date AS 'Date/Executed_Date',
+                                        Value_Date AS 'Value_Date/Charge_Date',
+                                        Out AS 'Out/Transaction_value',
+                                        Income AS 'Income/Charge_Value',
+                                        Description AS 'Description/Charge_Currency',
+                                        Reserved AS 'Reserved/Value_Currency',
+                                        Category,
+                                        Extra_Info,
+                                        Source_file
+                                    FROM BankTransactions
+                                    WHERE Date >= ?
+                                    AND Date <= ?
+                                    AND Income != 0
+                                    AND (Category != ? OR Category IS NULL)
+                                    UNION ALL
+                                    SELECT
+                                        ID,
+                                        'CardTransactions' AS TableName,
+                                        CardID,
+                                        Name,
+                                        Executed_Date,
+                                        Charge_Date,
+                                        Transaction_Value,
+                                        Charge_Value,
+                                        Charge_Currency,
+                                        Value_Currency,
+                                        Category,
+                                        Extra_Info,
+                                        Source_file
+                                    FROM CardTransactions
+                                    WHERE (Executed_Date >= ?
+                                    AND Executed_Date <= ?
+                                    AND Transaction_Value < 0)
+                                    OR (Transaction_Value*Charge_Value < 0 
+                                    AND Charge_Date >= ? AND Charge_Date <= ?)
+                                    """, (day1, day2, "אשראי", day1, day2, day1, day2)).fetchall()
         
+        df = pd.DataFrame(data, columns=[d[0] for d in self.cursor.description])
         if category is not None:
-            query_part1 += f"AND Category = '{category}'"
-            query_part2 += f"AND Category = '{category}'"
+            df = df[df['Category'] == category]
+        return df
 
-        return self.cursor.execute(query_part1 + query_part2, (day1, day2, "אשראי", day1, day2, day1, day2)).fetchall(), \
-            [d[0] for d in self.cursor.description]
-
-    def get_monthly_spendings(self, year: int, month: int, category = None) -> Tuple[list, list]:
+    def get_monthly_spendings(self, year: int, month: int, category=None) -> pd.DataFrame:
         """
-        The function will return a list containing all spendings made in the current month given.
-        Spendings can be given from both BankTranssactions table of Transactions table.
-        Template is: (Table name, Name, Card, Amount, Category, Date)
-
-        For transaction Taken from the BankTransactions; card will appear as 'Bank'
+        The function receives a year, a month and a category name
+        and returns all the Earnings transactions associated with the given categories in the given date
+        in the same month only. 
+        If category is None, transaction will not be filtered by category.
         """
         import calendar
         
@@ -492,55 +486,51 @@ class DataBase:
         # in the cardtransaction table:
         #   1. The following condition might not be relevant: (Executed_Date >= ? AND Executed_Date <= ?)
         #   2. Card transaction which represent spendings will always be positive.
-        query_part1 = """
-                        SELECT
-                            'BankTransactions' AS TableName,
-                            Ref AS 'Ref/CardID',
-                            Name,
-                            Date AS 'Date/Executed_Date',
-                            Value_Date AS 'Value_Date/Charge_Date',
-                            Out AS 'Out/Transaction_value',
-                            Income AS 'Income/Charge_Value',
-                            Description AS 'Description/Charge_Currency',
-                            Reserved AS 'Reserved/Value_Currency',
-                            Category,
-                            Extra_Info,
-                            Source_file
-                        FROM BankTransactions
-                        WHERE Date >= ?
-                        AND Date <= ?
-                        AND Out != 0
-                        AND (Category != ? OR Category IS NULL)
-                    """
-        query_part2 = """
-                        UNION ALL
-                        SELECT
-                            'CardTransactions' AS TableName,
-                            CardID,
-                            Name,
-                            Executed_Date,
-                            Charge_Date,
-                            Transaction_Value,
-                            Charge_Value,
-                            Charge_Currency,
-                            Value_Currency,
-                            Category,
-                            Extra_Info,
-                            Source_file
-                        FROM CardTransactions
-                        WHERE Transaction_Value > 0 AND (
-                            (Executed_Date >= ? AND Executed_Date <= ?)
-                            OR 
-                            (strftime('%m', Charge_Date) = ?)
-                        )
-                        """
-        
+        data = self.cursor.execute("""
+                                    SELECT
+                                        'BankTransactions' AS TableName,
+                                        Ref AS 'Ref/CardID',
+                                        Name,
+                                        Date AS 'Date/Executed_Date',
+                                        Value_Date AS 'Value_Date/Charge_Date',
+                                        Out AS 'Out/Transaction_value',
+                                        Income AS 'Income/Charge_Value',
+                                        Description AS 'Description/Charge_Currency',
+                                        Reserved AS 'Reserved/Value_Currency',
+                                        Category,
+                                        Extra_Info,
+                                        Source_file
+                                    FROM BankTransactions
+                                    WHERE Date >= ?
+                                    AND Date <= ?
+                                    AND Out != 0
+                                    AND (Category != ? OR Category IS NULL)
+                                    UNION ALL
+                                    SELECT
+                                        'CardTransactions' AS TableName,
+                                        CardID,
+                                        Name,
+                                        Executed_Date,
+                                        Charge_Date,
+                                        Transaction_Value,
+                                        Charge_Value,
+                                        Charge_Currency,
+                                        Value_Currency,
+                                        Category,
+                                        Extra_Info,
+                                        Source_file
+                                    FROM CardTransactions
+                                    WHERE Transaction_Value > 0 AND (
+                                        (Executed_Date >= ? AND Executed_Date <= ?)
+                                        OR 
+                                        (strftime('%m', Charge_Date) = ?)
+                                    )
+                                    """, (b_init, b_end, "אשראי", b_init, b_end, next_month, )).fetchall()
+        df = pd.DataFrame(data, columns=[d[0] for d in self.cursor.description])
         if category is not None:
-            query_part1 += f"AND Category = '{category}'"
-            query_part2 += f"AND Category = '{category}'"
+            df = df[df['Category'] == category]
+        return df
 
-        return self.cursor.execute(query_part1 + query_part2, (b_init, b_end, "אשראי", b_init, b_end, next_month, )).fetchall(), \
-            [d[0] for d in self.cursor.description]
 
 
 

@@ -481,12 +481,14 @@ class AppManager:
 
         monthly_balance = DataBase().get_latest_Balance()
 
-        spendings, description = DataBase().get_monthly_spendings(year=t.year, month=t.month)
-        spendings_df = SimpleMath.process_prices(spendings, description)
+        spendings_df = SimpleMath.process_prices(
+                            DataBase().get_monthly_spendings(year=t.year, month=t.month)
+                            )
         spendings_df = utils.remove_leumi(spendings_df)
 
-        earnings, description = DataBase().get_monthly_earnings(year=t.year, month=t.month)
-        earnings_df = SimpleMath.process_prices(earnings, description)
+        earnings_df = SimpleMath.process_prices(
+                            DataBase().get_monthly_earnings(year=t.year, month=t.month)
+                            )
         earnings_df = utils.remove_leumi(earnings_df)
 
         high_std_spendings = Graphics.plot_transactions_pie_chart(spendings_df, "Spendings", Local.gentle_orange)
@@ -494,7 +496,7 @@ class AppManager:
 
         # ------ GAS
         cat_data, description_cat = DataBase().get_by_category("Gas")
-        df = SimpleMath.process_prices(cat_data, description_cat)
+        df = SimpleMath.process_prices(pd.DataFrame(cat_data, columns=description_cat))
         if not df.empty:
             _ = Graphics.plot_gas(df)
             cat_dict = SimpleMath.cat_info(df)
@@ -502,8 +504,7 @@ class AppManager:
         else:
             cat_dict = {}
         # ----- General
-        spendings_sum, earnings_sum = SimpleMath.get_monthly_shifted(shift=5)
-        Graphics.plot_general(spendings_sum, earnings_sum)
+        
         # ----- Cards
 
         card_ids = DataBase().get_card_ids() + ['Bank']

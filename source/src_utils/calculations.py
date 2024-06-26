@@ -183,7 +183,7 @@ class SimpleMath:
                     # differet Values, one with the current payment and the other one with the full.
                     # This if will make sure that the smaller value is always used
                     cond_payments = row['Description/Charge_Currency'] == row['Reserved/Value_Currency'] and \
-                            row['Income/Charge_Value'] != row['Out/Transaction_value']
+                            row['Income/Charge_Value'] != row['Out/Transaction_value'] # This can also be smaller than >
                     # If only one of the values is Negative, the transaction is indicating a return made directly to
                     # the card. in this case the negative value should be considered - the min of the two.
                     try:
@@ -208,7 +208,8 @@ class SimpleMath:
                     return row['Date/Executed_Date']
                 case 'CardTransactions':
                     cond_Credit_payback = row['Out/Transaction_value']*row['Income/Charge_Value'] < 0
-                    if cond_Credit_payback:
+                    cond_payments = 'תשלום' in row['Extra_Info'] and 'מתוך' in row['Extra_Info']
+                    if cond_Credit_payback or cond_payments:
                         return row['Value_Date/Charge_Date']
 
                     return row['Date/Executed_Date']

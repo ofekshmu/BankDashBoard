@@ -155,7 +155,7 @@ class Graphics:
     #     plt.savefig(r'Outputs\General_info.png')
 
     @staticmethod
-    def plot_general(spendings : list, spendings_overall : list, earnings: list, title_ext: str = "", fig_size=(14, 8)) -> None:
+    def plot_general(spendings : list, spendings_overall : list, earnings: list, title_ext: str = "", fig_size=(14, 8), secondary_line: bool = True) -> None:
         """
         @spendings : list - A list of length n containing the total spending values of the last n months.
         @earnings  : list - A list of length n containing the total earning values of the last n months.
@@ -197,21 +197,24 @@ class Graphics:
         sns.barplot(x="Months", y="Amount", hue="Category", data=df[::-1], ax=ax, palette=[earnings_bar_color, spendings_bar_color])
         # No need to flipp data in the following
         sns.lineplot(x="Months", y="Net Income", color=net_income_line_color, marker='o', data = net_data)
-        sns.lineplot(x="Months", y="Overall Income", color=overall_income_line_color, marker='o', data = overall_data, linestyle='--')
+        if secondary_line:
+            sns.lineplot(x="Months", y="Overall Income", color=overall_income_line_color, marker='o', data = overall_data, linestyle='--')
 
         # ----------- Plotting information next to line plot points -----------
         offset = 1000   # For better visual 
         for x, y_net, y_overall in zip(net_data['Months'], net_data['Net Income'], overall_data['Overall Income']):
             plt.text(x, y_net + offset, f'{y_net:,.0f}₪', ha='right', va='bottom', color=net_income_line_color,fontweight='bold')
-            if y_net == y_overall:
-                continue
-            if abs(y_net - y_overall) < 5000:
-                if y_net > y_overall:
-                    plt.text(x, y_overall + offset - 2000, f'{y_overall:,.0f}₪', ha='right', va='bottom', color=overall_income_line_color, fontweight='bold')
+            if secondary_line:
+                if y_net == y_overall:
+                    continue
+
+                if abs(y_net - y_overall) < 5000:
+                    if y_net > y_overall:
+                        plt.text(x, y_overall + offset - 2000, f'{y_overall:,.0f}₪', ha='right', va='bottom', color=overall_income_line_color, fontweight='bold')
+                    else:
+                        plt.text(x, y_overall + offset + 2000, f'{y_overall:,.0f}₪', ha='right', va='bottom', color=overall_income_line_color, fontweight='bold')
                 else:
-                    plt.text(x, y_overall + offset + 2000, f'{y_overall:,.0f}₪', ha='right', va='bottom', color=overall_income_line_color, fontweight='bold')
-            else:
-                plt.text(x, y_overall + offset, f'{y_overall:,.0f}₪', ha='right', va='bottom', color=overall_income_line_color, fontweight='bold')
+                    plt.text(x, y_overall + offset, f'{y_overall:,.0f}₪', ha='right', va='bottom', color=overall_income_line_color, fontweight='bold')
 
         
         import matplotlib.patches as mpatches
@@ -219,9 +222,11 @@ class Graphics:
         legend_handles = [
             mpatches.Patch(color=spendings_bar_color, label='Spendings', linestyle='-'),  
             mpatches.Patch(color=earnings_bar_color, label='Earnings', linestyle='-'),  
-            mpatches.Patch(color=net_income_line_color, label='Net Income', linestyle='-'),
-            mpatches.Patch(color=overall_income_line_color, label='Overall Net Income', linestyle='--')  
+            mpatches.Patch(color=net_income_line_color, label='Net Income', linestyle='-')
             ]
+        
+        if secondary_line:
+            legend_handles.append(mpatches.Patch(color=overall_income_line_color, label='Overall Net Income', linestyle='--'))
 
         # Add labels and title
         plt.xlabel("Months", fontsize=16)

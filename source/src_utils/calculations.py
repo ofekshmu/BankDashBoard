@@ -91,6 +91,7 @@ class SimpleMath:
         months
 
         The middle list represents the sum spending, suntructed by spending to another account (savings)
+        all prices queried are being proccesed.
         """
         from dateutil.relativedelta import relativedelta
         today = datetime.now()

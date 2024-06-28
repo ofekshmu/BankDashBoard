@@ -84,7 +84,7 @@ class SimpleMath:
                 "Maximum Amount":   f'{abs(max)}₪'}
 
     @staticmethod
-    def get_monthly_shifted(shift: int = 5, category=None) -> Tuple[list[int], list[int], list[int]]:
+    def get_monthly_shifted(shift: int = 5, category=None, business=None) -> Tuple[list[int], list[int], list[int]]:
         """
         The function receives as input the number of months to calculate from this current
         one backwards shift. And returns two lists contatining The monthly spendings and earnings of the last @shift
@@ -94,18 +94,97 @@ class SimpleMath:
         all prices queried are being proccesed.
         """
         from dateutil.relativedelta import relativedelta
+
+        def generate_date_range(n):
+            # Get the current date
+            current_date = datetime.now() - pd.DateOffset(months=1)
+            
+            # Calculate the start date (n months back from the current month)
+            start_date = (current_date.replace(day=1) - pd.DateOffset(months=n-1)).replace(day=1)
+            
+            # Generate a range of dates from the start date to the current month
+            date_range = pd.date_range(start=start_date, end=current_date, freq='MS')
+            
+            # Convert the date range to the format '%Y-%m'
+            date_range_str = date_range.strftime('%Y-%m').tolist()
+            
+            return date_range_str
+
+        print(generate_date_range(shift))
+
+        earnings_df = SimpleMath.process_prices(DataBase().get_earnings())
+        spendings_df = SimpleMath.process_prices(DataBase().get_spendings())
+
+        if category is not None:
+            earnings_df = earnings_df[earnings_df['Category'] == category]
+            spendings_df = spendings_df[spendings_df['Category'] == category]
+        if business is not None:
+            earnings_df = earnings_df[earnings_df['Name'] == business]
+            spendings_df = spendings_df[spendings_df['Name'] == business]
+
+        earnings_df['Date/Executed_Date'] = pd.to_datetime(earnings_df['Date/Executed_Date'], format="%Y-%m-%d %H:%M:%S").apply(lambda x: x.strftime('%Y-%m'))
+        #print(earnings_df.to_markdown())
+        #full_date_range = pd.date_range(start=earnings_df['Date/Executed_Date'].min(), end=earnings_df['Date/Executed_Date'].max(), freq='MS')
+        # print(full_date_range)
+        # Create a DataFrame with the full date range
+        full_date_df = pd.DataFrame(generate_date_range(shift), columns=['Date/Executed_Date'])
+        #print(full_date_df.to_markdown())
+
+        full_date_df['Date/Executed_Date'] = pd.to_datetime(full_date_df['Date/Executed_Date'])
+        earnings_df['Date/Executed_Date'] = pd.to_datetime(earnings_df['Date/Executed_Date'])
+
+        # print(spendings_df['Date/Executed_Date'].dtype)
+        # print(full_date_df['Date/Executed_Date'].dtype)
+        # Ensure both DataFrames have the same dtype for 'Date/Executed_Date'
+        # assert spendings_df['Date/Executed_Date'].dtype == full_date_df['Date/Executed_Date'].dtype
+
+        # Merge the full date range DataFrame with the original DataFrame
+        earnings_df = pd.merge(full_date_df, earnings_df, on='Date/Executed_Date', how='left')
+        print(earnings_df.to_markdown())
+        
+        earnings_df = earnings_df.groupby('Date/Executed_Date').sum()
+        print(earnings_df.to_markdown())
+
+
+        spendings_df['Date/Executed_Date'] = pd.to_datetime(spendings_df['Date/Executed_Date'], format="%Y-%m-%d %H:%M:%S").apply(lambda x: x.strftime('%Y-%m'))
+        print(spendings_df.to_markdown())
+        #full_date_range = pd.date_range(start=spendings_df['Date/Executed_Date'].min(), end=spendings_df['Date/Executed_Date'].max(), freq='MS')
+        # print(full_date_range)
+        # Create a DataFrame with the full date range
+        full_date_df = pd.DataFrame(generate_date_range(shift), columns=['Date/Executed_Date'])
+        # print(full_date_df.to_markdown())
+
+        full_date_df['Date/Executed_Date'] = pd.to_datetime(full_date_df['Date/Executed_Date'])
+        spendings_df['Date/Executed_Date'] = pd.to_datetime(spendings_df['Date/Executed_Date'])
+
+        # print(spendings_df['Date/Executed_Date'].dtype)
+        # print(full_date_df['Date/Executed_Date'].dtype)
+        # Ensure both DataFrames have the same dtype for 'Date/Executed_Date'
+        # assert spendings_df['Date/Executed_Date'].dtype == full_date_df['Date/Executed_Date'].dtype
+
+        # Merge the full date range DataFrame with the original DataFrame
+        spendings_df = pd.merge(full_date_df, spendings_df, on='Date/Executed_Date', how='left')
+        print(spendings_df.to_markdown())
+        
+        spendings_net_df = spendings_df[spendings_df['Category'] != 'השקעה/חיסכון']
+
+        spendings_df = spendings_df.groupby('Date/Executed_Date').sum()
+        spendings_net_df = spendings_net_df.groupby('Date/Executed_Date').sum()
+        print(spendings_df.to_markdown())
+
+        return list(spendings_df['Final_Value'])[::-1], list(spendings_net_df['Final_Value'])[::-1], list(earnings_df['Final_Value'])[::-1]
         today = datetime.now()
 
         spendings_lst = []
         spendings_lst_for_overall_inc = []
         earnings_lst = []
 
+
         for i in range(0, shift):
             curr_date = (today - relativedelta(months=i)).replace(day=1)
             y = curr_date.year
             m = curr_date.month
-            df = DataBase().get_monthly_spendings(y, m, category)
-            print(df.to_markdown())
+            df = DataBase().get_monthly_spendings(y, m, category, business)
             spendings_df = SimpleMath.process_prices(df)
             spendings_df = utils.remove_leumi(spendings_df)
             if spendings_df.empty:
@@ -118,7 +197,7 @@ class SimpleMath:
             spendings_lst.append(spendings_sum)
             spendings_lst_for_overall_inc.append(spendings_lst_inc_sum)
 
-            df = DataBase().get_monthly_earnings(y, m, category)
+            df = DataBase().get_monthly_earnings(y, m, category, business)
             print(df.to_markdown())
             earnings_df = SimpleMath.process_prices(df)
             earnings_df = utils.remove_leumi(earnings_df)

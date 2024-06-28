@@ -400,7 +400,11 @@ class AppManager:
             total_spendings = DataBase().total_spendings(name_for_analysis, case)
             return total_spendings
 
-        spendings_sum, spendings_sum_overall_inc, earnings_sum = SimpleMath.get_monthly_shifted(shift=6, category=name_for_analysis)
+        if case:
+            spendings_sum, spendings_sum_overall_inc, earnings_sum = SimpleMath.get_monthly_shifted(shift=6, category=None, business=name_for_analysis)
+        else:
+            spendings_sum, spendings_sum_overall_inc, earnings_sum = SimpleMath.get_monthly_shifted(shift=6, category=name_for_analysis, business=None)
+
         _ = Graphics.plot_general(spendings_sum, spendings_sum_overall_inc, earnings_sum, title_ext='Category_analysis', fig_size=(8, 5), secondary_line=False)
         
         # Run analysis     

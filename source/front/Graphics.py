@@ -166,7 +166,7 @@ class Graphics:
         from datetime import datetime
 
         def get_last_n_months_names(N):
-            current_month = datetime.now().month
+            current_month = (datetime.now() - pd.DateOffset(months=1)).month 
             return [(datetime(2023, (current_month - i) % 12 or 12, 1)).strftime('%B') for i in range(N)]
 
         months = get_last_n_months_names(len(spendings))  # == len(earnings)

@@ -378,7 +378,7 @@ class AppManager:
             Returns category \ business monthly average of active months, i.e - months that include
             any transaction of the chosen category \ business
             """
-            total_sum = DataBase().total_sum_transactions(name_for_analysis, case)
+            #total_sum = DataBase().total_sum_transactions(name_for_analysis, case)
             if case:
                 df = DataBase().get_transactions(category=None, business=name_for_analysis)
             else:
@@ -388,6 +388,7 @@ class AppManager:
             df['Date/Executed_Date'] = pd.to_datetime(df['Date/Executed_Date'], format="%Y-%m-%d %H:%M:%S").apply(lambda x: x.strftime('%Y-%m'))
             df = df.groupby('Date/Executed_Date').sum()
             total_active_month = len(df)
+            total_sum = df['Final_Value'].sum()
             monthly_average_value = round(total_sum / total_active_month, 2)
             return monthly_average_value
 

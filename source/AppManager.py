@@ -380,7 +380,6 @@ class AppManager:
             """
             total_sum = DataBase().total_sum_transactions(name_for_analysis, case)
             total_months = len(DataBase().bank_transactions_sum_list(name_for_analysis, case))
-            #total_months = DataBase().months_total_calculator()
             monthly_average_value = round(total_sum / total_months, 2)
             return monthly_average_value
 
@@ -409,6 +408,9 @@ class AppManager:
             if DataBase().total_income(name_for_analysis, case) == None:
                 return 0
             return DataBase().total_income(name_for_analysis, case)
+
+        spendings_sum, spendings_sum_overall_inc, earnings_sum = SimpleMath.get_monthly_shifted(shift=6, category=name_for_analysis)
+        _ = Graphics.plot_general(spendings_sum, spendings_sum_overall_inc, earnings_sum, title_ext='Category_analysis', fig_size=(8, 5), secondary_line=False)
         
         # Run analysis     
         utils.create_html_name_analysis({"subtitle": "Specific Analysis",
@@ -419,7 +421,7 @@ class AppManager:
                                          "Yearly Average": 0,
                                          "Total Spendings": total_spendings(name_for_analysis, case),
                                          "Total Income": total_income(name_for_analysis, case),
-                                         "Yearly use plot path": r"C:\Users\ofeks\OneDrive\BankProject\Outputs\Spendings_category.png",
+                                         "Yearly use plot path": r"C:\Users\ofeks\OneDrive\BankProject\Outputs\General_info_Category_analysis.png",
                                          "Highest Transaction value" : "X",
                                          "Highest Transaction date": "X",
                                          "Association list": [("Name1",2), ("Name2",4), ("Name3",6)],
@@ -484,12 +486,14 @@ class AppManager:
 
         monthly_balance = DataBase().get_latest_Balance()
 
-        spendings, description = DataBase().get_monthly_spendings(year=t.year, month=t.month)
-        spendings_df = SimpleMath.process_prices(spendings, description)
+        spendings_df = SimpleMath.process_prices(
+                            DataBase().get_monthly_spendings(year=t.year, month=t.month)
+                            )
         spendings_df = utils.remove_leumi(spendings_df)
 
-        earnings, description = DataBase().get_monthly_earnings(year=t.year, month=t.month)
-        earnings_df = SimpleMath.process_prices(earnings, description)
+        earnings_df = SimpleMath.process_prices(
+                            DataBase().get_monthly_earnings(year=t.year, month=t.month)
+                            )
         earnings_df = utils.remove_leumi(earnings_df)
 
         high_std_spendings = Graphics.plot_transactions_pie_chart(spendings_df, "Spendings", Local.gentle_orange)
@@ -497,7 +501,7 @@ class AppManager:
 
         # ------ GAS
         cat_data, description_cat = DataBase().get_by_category("Gas")
-        df = SimpleMath.process_prices(cat_data, description_cat)
+        df = SimpleMath.process_prices(pd.DataFrame(cat_data, columns=description_cat))
         if not df.empty:
             _ = Graphics.plot_gas(df)
             cat_dict = SimpleMath.cat_info(df)
@@ -505,8 +509,7 @@ class AppManager:
         else:
             cat_dict = {}
         # ----- General
-        spendings_sum, earnings_sum = SimpleMath.get_monthly_shifted(shift=5)
-        Graphics.plot_general(spendings_sum, earnings_sum)
+        
         # ----- Cards
 
         card_ids = DataBase().get_card_ids() + ['Bank']

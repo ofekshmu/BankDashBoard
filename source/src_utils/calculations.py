@@ -84,32 +84,43 @@ class SimpleMath:
                 "Maximum Amount":   f'{abs(max)}₪'}
 
     @staticmethod
-    def get_monthly_shifted(shift: int = 5) -> Tuple[list[int], list[int]]:
+    def get_monthly_shifted(shift: int = 5, category=None) -> Tuple[list[int], list[int], list[int]]:
         """
         The function receives as input the number of months to calculate from this current
         one backwards shift. And returns two lists contatining The monthly spendings and earnings of the last @shift
         months
+
+        The middle list represents the sum spending, suntructed by spending to another account (savings)
+        all prices queried are being proccesed.
         """
         from dateutil.relativedelta import relativedelta
         today = datetime.now()
+
         spendings_lst = []
+        spendings_lst_for_overall_inc = []
         earnings_lst = []
 
         for i in range(0, shift):
             curr_date = (today - relativedelta(months=i)).replace(day=1)
             y = curr_date.year
             m = curr_date.month
-            spendings, description = DataBase().get_monthly_spendings(year=y, month=m)
-            spendings_df = SimpleMath.process_prices(spendings, description)
+            df = DataBase().get_monthly_spendings(y, m, category)
+            print(df.to_markdown())
+            spendings_df = SimpleMath.process_prices(df)
             spendings_df = utils.remove_leumi(spendings_df)
             if spendings_df.empty:
                 spendings_sum = 0
+                spendings_lst_inc_sum = 0
             else:
                 spendings_sum = spendings_df['Final_Value'].sum()
-            spendings_lst.append(spendings_sum)
+                spendings_lst_inc_sum = spendings_df[spendings_df['Category'] != 'השקעה/חיסכון']['Final_Value'].sum()
 
-            earnings, description = DataBase().get_monthly_earnings(year=y, month=m)
-            earnings_df = SimpleMath.process_prices(earnings, description)
+            spendings_lst.append(spendings_sum)
+            spendings_lst_for_overall_inc.append(spendings_lst_inc_sum)
+
+            df = DataBase().get_monthly_earnings(y, m, category)
+            print(df.to_markdown())
+            earnings_df = SimpleMath.process_prices(df)
             earnings_df = utils.remove_leumi(earnings_df)
             if earnings_df.empty:
                 earnings_sum = 0
@@ -117,7 +128,7 @@ class SimpleMath:
                 earnings_sum = earnings_df['Final_Value'].sum()
             earnings_lst.append(earnings_sum)
 
-        return spendings_lst, earnings_lst
+        return spendings_lst, spendings_lst_for_overall_inc, earnings_lst
 
     @staticmethod
     def general_info(data):
@@ -149,14 +160,13 @@ class SimpleMath:
         return df_merged
 
     @staticmethod
-    def process_prices(data: list, columns: list):
+    def process_prices(df: pd.DataFrame):
         """
         The function usess the lambda function to create the 'Final_Value' column
         Which describes the correct value to plot for each transaction. It returns
         a df representing the original input data along with the 'Final_Value column.
         """
 
-        df = pd.DataFrame(data, columns=columns)
         # print(df.to_markdown())
         def my_lambda(row):
             """
@@ -174,7 +184,7 @@ class SimpleMath:
                     # differet Values, one with the current payment and the other one with the full.
                     # This if will make sure that the smaller value is always used
                     cond_payments = row['Description/Charge_Currency'] == row['Reserved/Value_Currency'] and \
-                            row['Income/Charge_Value'] != row['Out/Transaction_value']
+                            row['Income/Charge_Value'] != row['Out/Transaction_value'] # This can also be smaller than >
                     # If only one of the values is Negative, the transaction is indicating a return made directly to
                     # the card. in this case the negative value should be considered - the min of the two.
                     try:
@@ -199,7 +209,8 @@ class SimpleMath:
                     return row['Date/Executed_Date']
                 case 'CardTransactions':
                     cond_Credit_payback = row['Out/Transaction_value']*row['Income/Charge_Value'] < 0
-                    if cond_Credit_payback:
+                    cond_payments = 'תשלום' in row['Extra_Info'] and 'מתוך' in row['Extra_Info']
+                    if cond_Credit_payback or cond_payments:
                         return row['Value_Date/Charge_Date']
 
                     return row['Date/Executed_Date']

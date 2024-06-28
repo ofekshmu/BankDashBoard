@@ -533,8 +533,55 @@ class DataBase:
             df = df[df['Category'] == category]
         return df
 
+    def get_spendings(self, category=None) -> pd.DataFrame:
+        """
+        The function receives a category and returns all spending transactions that are associated with this category.
+        If category argument is None - all spending trasnactions will be returned.
+        the dataframed format fits the process_prices function.
+        """
+        if not (isinstance(category, str) or category is None):
+            utils.log("Argument input error in 'get_spendings'", "error")
 
-
+        data = self.cursor.execute("""
+                                    SELECT
+                                        'BankTransactions' AS TableName,
+                                        Ref AS 'Ref/CardID',
+                                        Name,
+                                        Date AS 'Date/Executed_Date',
+                                        Value_Date AS 'Value_Date/Charge_Date',
+                                        Out AS 'Out/Transaction_value',
+                                        Income AS 'Income/Charge_Value',
+                                        Description AS 'Description/Charge_Currency',
+                                        Reserved AS 'Reserved/Value_Currency',
+                                        Category,
+                                        Extra_Info,
+                                        Source_file
+                                    FROM BankTransactions
+                                    WHERE 
+                                        Out != 0
+                                        AND (Category != ? OR Category IS NULL)
+                                    UNION ALL
+                                    SELECT
+                                        'CardTransactions' AS TableName,
+                                        CardID,
+                                        Name,
+                                        Executed_Date,
+                                        Charge_Date,
+                                        Transaction_Value,
+                                        Charge_Value,
+                                        Charge_Currency,
+                                        Value_Currency,
+                                        Category,
+                                        Extra_Info,
+                                        Source_file
+                                    FROM CardTransactions
+                                    WHERE 
+                                        Transaction_Value > 0 
+                                        """, ("אשראי", )).fetchall()      
+        df = pd.DataFrame(data, columns=[d[0] for d in self.cursor.description])
+        if category is not None:
+            df = df[df['Category'] == category]
+        return df  
 
     # Query NOTE: Executed_Date > 0 (In the CardTransaction table) represents only Negative transaction since Negative transactions
     # appears with a positive value in the Card table.

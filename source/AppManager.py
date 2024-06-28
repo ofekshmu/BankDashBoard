@@ -379,8 +379,16 @@ class AppManager:
             any transaction of the chosen category \ business
             """
             total_sum = DataBase().total_sum_transactions(name_for_analysis, case)
-            total_months = len(DataBase().bank_transactions_sum_list(name_for_analysis, case))
-            monthly_average_value = round(total_sum / total_months, 2)
+            if case:
+                df = DataBase().get_transactions(category=None, business=name_for_analysis)
+            else:
+                df = DataBase().get_transactions(category=name_for_analysis, business=None)
+
+            df = SimpleMath.process_prices(df)
+            df['Date/Executed_Date'] = pd.to_datetime(df['Date/Executed_Date'], format="%Y-%m-%d %H:%M:%S").apply(lambda x: x.strftime('%Y-%m'))
+            df = df.groupby('Date/Executed_Date').sum()
+            total_active_month = len(df)
+            monthly_average_value = round(total_sum / total_active_month, 2)
             return monthly_average_value
 
         def get_active_monthly_sd(name_for_analysis, case):

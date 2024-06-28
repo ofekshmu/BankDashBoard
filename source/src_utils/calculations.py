@@ -105,7 +105,6 @@ class SimpleMath:
             y = curr_date.year
             m = curr_date.month
             df = DataBase().get_monthly_spendings(y, m, category)
-            print(df.to_markdown())
             spendings_df = SimpleMath.process_prices(df)
             spendings_df = utils.remove_leumi(spendings_df)
             if spendings_df.empty:
@@ -119,7 +118,6 @@ class SimpleMath:
             spendings_lst_for_overall_inc.append(spendings_lst_inc_sum)
 
             df = DataBase().get_monthly_earnings(y, m, category)
-            print(df.to_markdown())
             earnings_df = SimpleMath.process_prices(df)
             earnings_df = utils.remove_leumi(earnings_df)
             if earnings_df.empty:

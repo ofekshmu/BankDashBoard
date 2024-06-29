@@ -87,34 +87,35 @@ class SimpleMath:
     def get_monthly_shifted(shift: int = 5, category=None, business=None) -> Tuple[list[int], list[int], list[int]]:
         """
         The function receives as input the number of months to calculate from this current
-        one backwards shift. And returns two lists contatining The monthly spendings and earnings of the last @shift
+        one backwards shift. And returns three lists contatining The monthly spendings and earnings of the last @shift
         months
 
-        The middle list represents the sum spending, suntructed by spending to another account (savings)
+        The middle list represents the sum spending, subtructed by spending to another account (savings)
         all prices queried are being proccesed.
         """
-        from dateutil.relativedelta import relativedelta
 
-        def generate_date_range(n):
+        def generate_date_range(n) -> list[str]:
+            """
+            The function a range of dates, from the last month, n months back.
+            the dates will be in '%Y-%m' format.
+            for the current date 29/6/24 and n = 6, the following will be returned:
+            ['2023-12', '2024-01', '2024-02', '2024-03', '2024-04', '2024-05']
+            """
             # Get the current date
             current_date = datetime.now() - pd.DateOffset(months=1)
-            
             # Calculate the start date (n months back from the current month)
             start_date = (current_date.replace(day=1) - pd.DateOffset(months=n-1)).replace(day=1)
-            
             # Generate a range of dates from the start date to the current month
             date_range = pd.date_range(start=start_date, end=current_date, freq='MS')
-            
             # Convert the date range to the format '%Y-%m'
             date_range_str = date_range.strftime('%Y-%m').tolist()
-            
             return date_range_str
 
-        print(generate_date_range(shift))
-
+        # Data is queried and proccessed
         earnings_df = SimpleMath.process_prices(DataBase().get_earnings())
         spendings_df = SimpleMath.process_prices(DataBase().get_spendings())
 
+        # filter the data according to the given arguments
         if category is not None:
             earnings_df = earnings_df[earnings_df['Category'] == category]
             spendings_df = spendings_df[spendings_df['Category'] == category]
@@ -122,92 +123,34 @@ class SimpleMath:
             earnings_df = earnings_df[earnings_df['Name'] == business]
             spendings_df = spendings_df[spendings_df['Name'] == business]
 
+        # Date format is converted to month resolution in order to enable proper 'Group-by'
         earnings_df['Date/Executed_Date'] = pd.to_datetime(earnings_df['Date/Executed_Date'], format="%Y-%m-%d %H:%M:%S").apply(lambda x: x.strftime('%Y-%m'))
-        #print(earnings_df.to_markdown())
-        #full_date_range = pd.date_range(start=earnings_df['Date/Executed_Date'].min(), end=earnings_df['Date/Executed_Date'].max(), freq='MS')
-        # print(full_date_range)
-        # Create a DataFrame with the full date range
-        full_date_df = pd.DataFrame(generate_date_range(shift), columns=['Date/Executed_Date'])
-        #print(full_date_df.to_markdown())
+        spendings_df['Date/Executed_Date'] = pd.to_datetime(spendings_df['Date/Executed_Date'], format="%Y-%m-%d %H:%M:%S").apply(lambda x: x.strftime('%Y-%m'))
 
+        # date range is generated
+        full_date_df = pd.DataFrame(generate_date_range(shift), columns=['Date/Executed_Date'])
+        
+        # conversion of all relevant data columns into datetime format
         full_date_df['Date/Executed_Date'] = pd.to_datetime(full_date_df['Date/Executed_Date'])
         earnings_df['Date/Executed_Date'] = pd.to_datetime(earnings_df['Date/Executed_Date'])
-
-        # print(spendings_df['Date/Executed_Date'].dtype)
-        # print(full_date_df['Date/Executed_Date'].dtype)
-        # Ensure both DataFrames have the same dtype for 'Date/Executed_Date'
-        # assert spendings_df['Date/Executed_Date'].dtype == full_date_df['Date/Executed_Date'].dtype
+        spendings_df['Date/Executed_Date'] = pd.to_datetime(spendings_df['Date/Executed_Date'])
 
         # Merge the full date range DataFrame with the original DataFrame
         earnings_df = pd.merge(full_date_df, earnings_df, on='Date/Executed_Date', how='left')
-        print(earnings_df.to_markdown())
+        spendings_df = pd.merge(full_date_df, spendings_df, on='Date/Executed_Date', how='left')
         
         earnings_df = earnings_df.groupby('Date/Executed_Date').sum()
-        print(earnings_df.to_markdown())
-
-
-        spendings_df['Date/Executed_Date'] = pd.to_datetime(spendings_df['Date/Executed_Date'], format="%Y-%m-%d %H:%M:%S").apply(lambda x: x.strftime('%Y-%m'))
-        print(spendings_df.to_markdown())
-        #full_date_range = pd.date_range(start=spendings_df['Date/Executed_Date'].min(), end=spendings_df['Date/Executed_Date'].max(), freq='MS')
-        # print(full_date_range)
-        # Create a DataFrame with the full date range
-        full_date_df = pd.DataFrame(generate_date_range(shift), columns=['Date/Executed_Date'])
-        # print(full_date_df.to_markdown())
-
-        full_date_df['Date/Executed_Date'] = pd.to_datetime(full_date_df['Date/Executed_Date'])
-        spendings_df['Date/Executed_Date'] = pd.to_datetime(spendings_df['Date/Executed_Date'])
-
-        # print(spendings_df['Date/Executed_Date'].dtype)
-        # print(full_date_df['Date/Executed_Date'].dtype)
-        # Ensure both DataFrames have the same dtype for 'Date/Executed_Date'
-        # assert spendings_df['Date/Executed_Date'].dtype == full_date_df['Date/Executed_Date'].dtype
-
-        # Merge the full date range DataFrame with the original DataFrame
-        spendings_df = pd.merge(full_date_df, spendings_df, on='Date/Executed_Date', how='left')
-        print(spendings_df.to_markdown())
-        
-        spendings_net_df = spendings_df[spendings_df['Category'] != 'השקעה/חיסכון']
-
         spendings_df = spendings_df.groupby('Date/Executed_Date').sum()
+        
+        # calculation of net income
+        # This section is not relevant when calculating the monthly shifted data per category but for all transactions
+        spendings_net_df = spendings_df[spendings_df['Category'] != 'השקעה/חיסכון']
         spendings_net_df = spendings_net_df.groupby('Date/Executed_Date').sum()
-        print(spendings_df.to_markdown())
 
-        return list(spendings_df['Final_Value'])[::-1], list(spendings_net_df['Final_Value'])[::-1], list(earnings_df['Final_Value'])[::-1]
-        today = datetime.now()
-
-        spendings_lst = []
-        spendings_lst_for_overall_inc = []
-        earnings_lst = []
-
-
-        for i in range(0, shift):
-            curr_date = (today - relativedelta(months=i)).replace(day=1)
-            y = curr_date.year
-            m = curr_date.month
-            df = DataBase().get_monthly_spendings(y, m, category, business)
-            spendings_df = SimpleMath.process_prices(df)
-            spendings_df = utils.remove_leumi(spendings_df)
-            if spendings_df.empty:
-                spendings_sum = 0
-                spendings_lst_inc_sum = 0
-            else:
-                spendings_sum = spendings_df['Final_Value'].sum()
-                spendings_lst_inc_sum = spendings_df[spendings_df['Category'] != 'השקעה/חיסכון']['Final_Value'].sum()
-
-            spendings_lst.append(spendings_sum)
-            spendings_lst_for_overall_inc.append(spendings_lst_inc_sum)
-
-            df = DataBase().get_monthly_earnings(y, m, category, business)
-            print(df.to_markdown())
-            earnings_df = SimpleMath.process_prices(df)
-            earnings_df = utils.remove_leumi(earnings_df)
-            if earnings_df.empty:
-                earnings_sum = 0
-            else:
-                earnings_sum = earnings_df['Final_Value'].sum()
-            earnings_lst.append(earnings_sum)
-
-        return spendings_lst, spendings_lst_for_overall_inc, earnings_lst
+        # data is returned backwards to fit the plot_general function.
+        return list(spendings_df['Final_Value'])[::-1], \
+                list(spendings_net_df['Final_Value'])[::-1], \
+                list(earnings_df['Final_Value'])[::-1]
 
     @staticmethod
     def general_info(data):

@@ -214,10 +214,10 @@ class SimpleMath:
                     except Exception as e:
                         utils.log(f"Error: {e}\nValue 1: {row['Out/Transaction_value']}\nValue 2: {row['Income/Charge_Value']}", "error")
                     if cond_payments or cond_Credit_payback:
-                        return abs(min(row['Income/Charge_Value'], row['Out/Transaction_value']))
+                        return -min(row['Income/Charge_Value'], row['Out/Transaction_value'])
 
                     # The actual value of the transaction in ILS is indicated in this field
-                    return abs(row['Out/Transaction_value'])
+                    return -row['Out/Transaction_value']
                 case _:
                     utils.log("Unrecognized case in 'process_prices'...", "error")
                     return ""   # To avoid linter error - unreacheable code.

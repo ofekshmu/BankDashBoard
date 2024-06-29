@@ -1068,8 +1068,11 @@ Please Make sure that none of the following formats have their 'Identifications 
             main_tag.append(name_tag)     
 
             value_tag = soup.new_tag('span')
-            value_tag['class'] = 'leaderboard__value'
-            value_tag.string = f"{value} ₪"
+            if value < 0:
+                value_tag['class'] = 'leaderboard__value_neg'
+            else:
+                value_tag['class'] = 'leaderboard__value'
+            value_tag.string = f"{abs(value)} ₪"
             main_tag.append(value_tag)
 
             return main_tag

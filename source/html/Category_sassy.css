@@ -92,4 +92,16 @@
   font-weight: 600;
   font-size: 13px;
   margin-left: 3px;
+}
+.leaderboard__value_neg {
+  color: #d83535;
+  font-weight: 700;
+  font-size: 34px;
+  text-align: right;
+}
+.leaderboard__value_neg > span {
+  opacity: 0.8;
+  font-weight: 600;
+  font-size: 13px;
+  margin-left: 3px;
 }/*# sourceMappingURL=Category_sassy.css.map */

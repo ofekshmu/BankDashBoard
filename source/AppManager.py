@@ -422,7 +422,6 @@ class AppManager:
         else:
             df_transactions = remove_by(df_transactions,category=name_for_analysis)
 
-
         # Run analysis     
         utils.create_html_name_analysis({"subtitle": "Specific Analysis",
                                          "Category/business name": name_for_analysis,

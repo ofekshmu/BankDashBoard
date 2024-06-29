@@ -407,6 +407,22 @@ class AppManager:
 
         _ = Graphics.plot_general(spendings_sum, spendings_sum_overall_inc, earnings_sum, title_ext='Category_analysis', fig_size=(8, 5), secondary_line=False)
         
+        def remove_by(df: pd.DataFrame, category=None, business_name=None) -> pd.DataFrame:
+            if category is not None:
+                df = df[df['Category'] == category]
+
+            if business_name is not None:
+                df = df[df['Name'] == business_name]
+
+            return df
+        
+        df_transactions = SimpleMath.process_prices(DataBase().get_transactions())
+        if case:
+            df_transactions = remove_by(df_transactions,business_name=name_for_analysis)
+        else:
+            df_transactions = remove_by(df_transactions,category=name_for_analysis)
+
+
         # Run analysis     
         utils.create_html_name_analysis({"subtitle": "Specific Analysis",
                                          "Category/business name": name_for_analysis,
@@ -421,7 +437,7 @@ class AppManager:
                                          "Highest Transaction date": "X",
                                          "Association list": [("Name1",2), ("Name2",4), ("Name3",6)],
                                          "count pie plot path" : "Insert path here",
-                                         "transactions": pd.DataFrame([1,2,4])})
+                                         "transactions": df_transactions})
         webbrowser.open(r'source\html\Category_output.html')
 
 

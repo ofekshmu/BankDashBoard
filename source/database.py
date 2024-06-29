@@ -652,29 +652,59 @@ class DataBase:
             df = df[df['Category'] == category]
         return df  
 
-    def get_all_transactions(self, shift: int = 5, income: bool = True):
+    def get_transactions(self, category=None, business=None):
         """
-
+        TODO
         """
-        import calendar
-        from dateutil.relativedelta import relativedelta
+        if not (isinstance(category, str) or category is None):
+            utils.log("Argument input 'category' error in 'get_transactions'", "error")
+        
+        if not (isinstance(business, str) or business is None):
+            utils.log("Argument input 'business' error in 'get_transactions'", "error")
 
-        today = datetime.now()
-        day1 = (today - relativedelta(months=shift)).replace(day=1).strftime('%Y-%m-%d %H:%M:%S')
+        data = self.cursor.execute("""
+                                    SELECT
+                                        'BankTransactions' AS TableName,
+                                        Ref AS 'Ref/CardID',
+                                        Name,
+                                        Date AS 'Date/Executed_Date',
+                                        Value_Date AS 'Value_Date/Charge_Date',
+                                        Out AS 'Out/Transaction_value',
+                                        Income AS 'Income/Charge_Value',
+                                        Description AS 'Description/Charge_Currency',
+                                        Reserved AS 'Reserved/Value_Currency',
+                                        Category,
+                                        Extra_Info,
+                                        Source_file
+                                    FROM BankTransactions
+                                    WHERE Category != ?
+                                    UNION ALL
+                                    SELECT
+                                        'CardTransactions' AS TableName,
+                                        CardID,
+                                        Name,
+                                        Executed_Date,
+                                        Charge_Date,
+                                        Transaction_Value,
+                                        Charge_Value,
+                                        Charge_Currency,
+                                        Value_Currency,
+                                        Category,
+                                        Extra_Info,
+                                        Source_file
+                                    FROM CardTransactions
+                                    WHERE 
+                                        Transaction_Value > 0 
+                                        """, ("אשראי", )).fetchall()  
+        df = pd.DataFrame(data, columns=[d[0] for d in self.cursor.description])
+        
+        if category is not None:
+            df = df[df['Category'] == category]
+        
+        if business is not None:
+            df = df[df['Name'] == business]
 
-        last_day = calendar.monthrange(today.year, today.month)[1]
-        day2 = datetime(today.year, today.month, last_day).strftime('%Y-%m-%d %H:%M:%S')
-        if income:
-            return self.cursor.execute("SELECT Amount, Date from BankTransactions where Amount > 0 AND date >= ? and date <= ?", (day1, day2)).fetchall()
-        else:
-            trans = self.cursor.execute("SELECT Amount, transaction_date from Transactions where transaction_date >= ? and transaction_date <= ?", (day1, day2)).fetchall()
-            bank_trans = self.cursor.execute("""SELECT Amount, Date
-                                                FROM BankTransactions
-                                                WHERE Amount < 0
-                                                AND date >= ?
-                                                AND date <= ?
-                                                AND Category != ?""", (day1, day2, "אשראי")).fetchall()
-            return trans + bank_trans
+        return df
 
     def get_visa_transactions(self):
         """

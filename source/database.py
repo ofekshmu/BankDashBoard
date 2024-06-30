@@ -591,7 +591,7 @@ class DataBase:
                                         Source_file
                                     FROM CardTransactions
                                     WHERE 
-                                        Transaction_Value < 0
+                                        Charge_Value < 0
                                     """, ("אשראי", )).fetchall()
         
         df = pd.DataFrame(data, columns=[d[0] for d in self.cursor.description])
@@ -694,8 +694,6 @@ class DataBase:
                                         Extra_Info,
                                         Source_file
                                     FROM CardTransactions
-                                    WHERE 
-                                        Transaction_Value > 0 
                                         """, ("אשראי", )).fetchall()  
         df = pd.DataFrame(data, columns=[d[0] for d in self.cursor.description])
         

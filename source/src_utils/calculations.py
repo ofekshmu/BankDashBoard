@@ -114,9 +114,8 @@ class SimpleMath:
         # Data is queried and proccessed
         earnings_df = SimpleMath.process_prices(DataBase().get_earnings())
         spendings_df = SimpleMath.process_prices(DataBase().get_spendings())
-        print(spendings_df[spendings_df['Category'] == 'החזר'].sort_values(by='Date/Executed_Date').to_markdown())
-        x = DataBase().get_spendings()
-        print(x[x['Category'] == 'החזר'].sort_values(by='Date/Executed_Date').to_markdown())
+        print(earnings_df[earnings_df['Category'] == 'החזר'].sort_values(by='Date/Executed_Date').to_markdown())
+
         # filter the data according to the given arguments
         if category is not None:
             earnings_df = earnings_df[earnings_df['Category'] == category]

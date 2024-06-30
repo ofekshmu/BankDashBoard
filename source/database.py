@@ -597,7 +597,7 @@ class DataBase:
         df = pd.DataFrame(data, columns=[d[0] for d in self.cursor.description])
         if category is not None:
             df = df[df['Category'] == category]
-
+        
         return df
 
 
@@ -645,11 +645,12 @@ class DataBase:
                                         Source_file
                                     FROM CardTransactions
                                     WHERE 
-                                        Transaction_Value > 0 
+                                        Charge_Value > 0 
                                         """, ("אשראי", )).fetchall()      
         df = pd.DataFrame(data, columns=[d[0] for d in self.cursor.description])
         if category is not None:
             df = df[df['Category'] == category]
+
         return df  
 
     def get_transactions(self, category=None, business=None):

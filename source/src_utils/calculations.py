@@ -114,7 +114,9 @@ class SimpleMath:
         # Data is queried and proccessed
         earnings_df = SimpleMath.process_prices(DataBase().get_earnings())
         spendings_df = SimpleMath.process_prices(DataBase().get_spendings())
-
+        print(spendings_df[spendings_df['Category'] == 'החזר'].sort_values(by='Date/Executed_Date').to_markdown())
+        x = DataBase().get_spendings()
+        print(x[x['Category'] == 'החזר'].sort_values(by='Date/Executed_Date').to_markdown())
         # filter the data according to the given arguments
         if category is not None:
             earnings_df = earnings_df[earnings_df['Category'] == category]
@@ -147,6 +149,7 @@ class SimpleMath:
         spendings_net_df = spendings_df[spendings_df['Category'] != 'השקעה/חיסכון']
         spendings_net_df = spendings_net_df.groupby('Date/Executed_Date').sum()
 
+        print(list(spendings_df['Final_Value'])[::-1])
         # data is returned backwards to fit the plot_general function.
         return list(spendings_df['Final_Value'])[::-1], \
                 list(spendings_net_df['Final_Value'])[::-1], \
@@ -200,7 +203,11 @@ class SimpleMath:
                 case 'BankTransactions':
                     # Only one of the following should have a value that is not 0.
                     # This is the value that should be returned
-                    return abs(max(row['Income/Charge_Value'], row['Out/Transaction_value']))
+                    if row['Income/Charge_Value'] > row['Out/Transaction_value']:
+                        return row['Income/Charge_Value']
+                    else:
+                        return - row['Out/Transaction_value']
+
                 case 'CardTransactions':
                     # When the transaction is part of payments, the fields Charge_Value/Transaction_value will have
                     # differet Values, one with the current payment and the other one with the full.
@@ -210,11 +217,15 @@ class SimpleMath:
                     # If only one of the values is Negative, the transaction is indicating a return made directly to
                     # the card. in this case the negative value should be considered - the min of the two.
                     try:
-                        cond_Credit_payback = row['Out/Transaction_value']*row['Income/Charge_Value'] < 0
+                        cond_Credit_payback = row['Out/Transaction_value']*row['Income/Charge_Value'] < 0 or \
+                                                (row['Out/Transaction_value'] < 0 and row['Income/Charge_Value'] < 0)
+
                     except Exception as e:
                         utils.log(f"Error: {e}\nValue 1: {row['Out/Transaction_value']}\nValue 2: {row['Income/Charge_Value']}", "error")
-                    if cond_payments or cond_Credit_payback:
+                    if cond_payments:
                         return -min(row['Income/Charge_Value'], row['Out/Transaction_value'])
+                    if cond_Credit_payback:
+                        return abs(row['Out/Transaction_value'])
 
                     # The actual value of the transaction in ILS is indicated in this field
                     return -row['Out/Transaction_value']

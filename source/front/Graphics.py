@@ -19,6 +19,9 @@ class Graphics:
         the total category prices. piw charts will be saved to the output folder.
         the function will return a list with high/low std transactions, see the function 'seperate_high_std'
         """
+        # card transactions are processed to negative value, such values are prohibited in pie plots.
+        # since each card is shown separately, negative and positive values are not mixed, and 'abs' can be used.
+
         outliers_list = []
 
         if df.empty:
@@ -29,6 +32,7 @@ class Graphics:
             plt.savefig(rf'Outputs\{pie_name}_category.png')
             plt.savefig(rf'Outputs\{pie_name}_prices.png')        
         else:
+            df['Final_Value'] = df['Final_Value'].abs()
             df = df.groupby("Category").sum()
             title = f"Total {pie_name}: {df['Final_Value'].sum():,.2f}₪"
             
@@ -166,7 +170,7 @@ class Graphics:
         from datetime import datetime
 
         def get_last_n_months_names(N):
-            current_month = datetime.now().month
+            current_month = (datetime.now() - pd.DateOffset(months=1)).month 
             return [(datetime(2023, (current_month - i) % 12 or 12, 1)).strftime('%B') for i in range(N)]
 
         months = get_last_n_months_names(len(spendings))  # == len(earnings)
@@ -177,10 +181,10 @@ class Graphics:
         df = pd.melt(data, id_vars=["Months"], var_name="Category", value_name="Amount")
         
         # ----------- Create a DataFrame for net income line plot -----------
-        net_data = pd.DataFrame({"Months": months, "Net Income": [x - y for x, y in zip(earnings, spendings)]})
+        net_data = pd.DataFrame({"Months": months, "Net Income": [x + y for x, y in zip(earnings, spendings)]})
         
         # ----------- Create a DataFrame for overall income line plot -----------
-        overall_data = pd.DataFrame({"Months": months, "Overall Income": [x - y for x, y in zip(earnings, spendings_overall)]})
+        overall_data = pd.DataFrame({"Months": months, "Overall Income": [x + y for x, y in zip(earnings, spendings_overall)]})
         
         # Color constants for Graph
         spendings_bar_color = "#f66b85"

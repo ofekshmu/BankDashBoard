@@ -1043,12 +1043,45 @@ Please Make sure that none of the following formats have their 'Identifications 
 
 
         # Add transactions data to html list:
-        tag = soup.find('div', class_="transaction-list")
+        list_tag = soup.find('main', class_="leaderboard__profiles")
 
-        for _, row in data["transactions"].iterrows():
-            sub_tag = soup.new_tag('li')
-            sub_tag.string = f"{row}"
-            tag.append(sub_tag)
+        from datetime import datetime
+
+        def create_list_tag(name: str, date, value):
+            main_tag = soup.new_tag('article')
+            main_tag['class'] = 'leaderboard__profile'
+            
+            # img_tag = soup.new_tag('img')
+            # img_tag['src'] = ""
+            # img_tag['alt'] = "-name here-"
+            # img_tag['class'] = 'leaderboard__picture'
+            # main_tag.append(img_tag)
+            
+            name_tag = soup.new_tag('span')
+            name_tag['class'] = 'leaderboard__name'
+            name_tag.string = datetime.strptime(date, "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d")
+            main_tag.append(name_tag)
+
+            name_tag = soup.new_tag('span')
+            name_tag['class'] = 'leaderboard__name'
+            name_tag.string = f"{name}"
+            main_tag.append(name_tag)     
+
+            value_tag = soup.new_tag('span')
+            if value < 0:
+                value_tag['class'] = 'leaderboard__value_neg'
+            else:
+                value_tag['class'] = 'leaderboard__value'
+            value_tag.string = f"{abs(value)} ₪"
+            main_tag.append(value_tag)
+
+            return main_tag
+
+        for _, row in data["transactions"].sort_values(by='Date/Executed_Date').iterrows():
+            #date = datetime.strptime(row['Date/Executed_Date'], "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d")
+            #sub_tag.string = f"{row['Name']}\n{row['Final_Value']}\n{date}\n{row['Extra_Info']}"
+            lst_element = create_list_tag(row['Name'], row['Date/Executed_Date'], row['Final_Value'])
+            list_tag.append(lst_element)
 
         with open(r"source\html\Category_output.html", "w", encoding='utf-8') as outf:
             outf.write(bs4.BeautifulSoup.prettify(soup))

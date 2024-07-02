@@ -396,11 +396,37 @@ class AppManager:
             """
             Returns category \ business standard deviation of all incomes and spendings
             """
-            month_sum_df = DataBase().bank_transactions_sum_list(name_for_analysis, case)
-            month_sum_first_column = month_sum_df.iloc[:,0]
-            sd_numerator = (month_sum_first_column - month_sum_first_column.mean()) ** 2
-            total_sum = sd_numerator.sum()
-            return round((total_sum / len(month_sum_df)) ** 0.5, 2)
+            if case:
+                df = DataBase().get_transactions(category=None, business=name_for_analysis)
+            else:
+                df = DataBase().get_transactions(category=name_for_analysis, business=None)
+
+            df = SimpleMath.process_prices(df)
+            df['Date/Executed_Date'] = pd.to_datetime(df['Date/Executed_Date'], format="%Y-%m-%d %H:%M:%S").apply(lambda x: x.strftime('%Y-%m'))
+            df = df.groupby('Date/Executed_Date').sum()
+            total_active_month = len(df)
+            total_sum = df['Final_Value'].sum()
+            active_monthly_average = get_active_monthly_average(name_for_analysis, case)
+            monthly_average_value = round(((total_sum -  active_monthly_average) / total_active_month) ** 0.5, 2)
+            return monthly_average_value
+        
+        def yearly_average(name_for_analysis, case):
+            """
+            Returns category \ business yearly average of all incomes and spenedings 
+            """
+            if case:
+                df = DataBase().get_transactions(category=None, business=name_for_analysis)
+            else:
+                df = DataBase().get_transactions(category=name_for_analysis, business=None)
+
+            df = SimpleMath.process_prices(df)
+            df['Date/Executed_Date'] = pd.to_datetime(df['Date/Executed_Date'], format="%Y-%m-%d %H:%M:%S").apply(lambda x: x.strftime('%Y'))
+            df = df.groupby('Date/Executed_Date').sum()
+            df_len = len(df)
+            total_active_month = DataBase().months_total_calculator()
+            total_sum = df['Final_Value'].sum()
+            monthly_average_value = round(total_sum * 12 / total_active_month, 2)
+            return monthly_average_value
         
         def total_spendings(name_for_analysis, case):
             """
@@ -446,10 +472,10 @@ class AppManager:
                                          "Monthly Average": get_monthly_average(name_for_analysis, case),
                                          "Monthly Active Average": get_active_monthly_average(name_for_analysis, case),
                                          "Monthly Active Standard Deviation": get_active_monthly_sd(name_for_analysis, case),
-                                         "Yearly Average": 0,
+                                         "Yearly Average": yearly_average(name_for_analysis, case),
                                          "Total Spendings": total_spendings(name_for_analysis, case),
                                          "Total Income": total_income(name_for_analysis, case),
-                                         "Yearly use plot path": r"C:\Users\ofeks\OneDrive\BankProject\Outputs\General_info_Category_analysis.png",
+                                         "Yearly use plot path": r"C:\Users\Coffe\Desktop\BankManager\BankDashBoard\Outputs\General_info_Category_analysis.png",
                                          "Highest Transaction value" : "X",
                                          "Highest Transaction date": "X",
                                          "Association list": [("Name1",2), ("Name2",4), ("Name3",6)],

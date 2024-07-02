@@ -981,7 +981,7 @@ Please Make sure that none of the following formats have their 'Identifications 
         from database import DataBase
 
         dirty_bit = False
-        logs = "\nThe following transactions have been tagged:\n"
+        logs = "\n\n ----- The following transactions have been tagged: -----\n\n"
         lst, desc = DataBase().get_untagged()
         untagged_transactions_df = pd.DataFrame(lst, columns=desc)
         for _, row in untagged_transactions_df.iterrows():
@@ -991,7 +991,7 @@ Please Make sure that none of the following formats have their 'Identifications 
             if res is not None:
                 dirty_bit = True
                 DataBase().set_category(table=row['TableName'], id=row['ID'], category=res)
-                logs += f"transaction {row['Name']} ({row['TableName']}) ({row['ID']}) was tagged to {res}\n"
+                logs += f"transaction {utils.heb_conversion(row['Name'])} ({row['TableName']}) ({row['ID']}) was tagged to {res}\n"
 
         if dirty_bit:
             utils.log(logs, 'system')

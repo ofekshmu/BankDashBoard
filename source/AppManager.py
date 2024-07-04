@@ -11,6 +11,7 @@ from src_utils.ExcelReader import ExcelManager
 import webbrowser
 from Configurations.Formats import Formats, Context_class
 import pandas as pd
+import json
 from os import listdir
 
 class AppManager:
@@ -500,7 +501,7 @@ class AppManager:
                                          "Yearly Average": yearly_average(name_for_analysis, case),
                                          "Total Spendings": total_spendings(name_for_analysis, case),
                                          "Total Income": total_income(name_for_analysis, case),
-                                         "Yearly use plot path": r"C:\Users\Coffe\Desktop\BankManager\BankDashBoard\Outputs\General_info_Category_analysis.png",
+                                         "Yearly use plot path": r"C:\Users\ofeks\OneDrive\BankProject\Outputs\General_info_Category_analysis.png",
                                          "Highest Transaction value" : "X",
                                          "Highest Transaction date": "X",
                                          "Association list": [("Name1",2), ("Name2",4), ("Name3",6)],
@@ -610,7 +611,7 @@ class AppManager:
         data['net income'] = (earnings_df['Final_Value'].sum() - spendings_df['Final_Value'].sum())
         data['overall net income'] = (earnings_df['Final_Value'].sum() - \
                                       spendings_df[spendings_df['Category'] != 'השקעה/חיסכון']['Final_Value'].sum())
-        print(overall_net_income_df.to_markdown())
+
         data['overall_net_mean'] = overall_net_income_df['Overall Income'].mean()
         
         utils.generate_html(t.month,

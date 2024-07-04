@@ -114,7 +114,6 @@ class SimpleMath:
         # Data is queried and proccessed
         earnings_df = SimpleMath.process_prices(DataBase().get_earnings())
         spendings_df = SimpleMath.process_prices(DataBase().get_spendings())
-        print(earnings_df[earnings_df['Category'] == 'החזר'].sort_values(by='Date/Executed_Date').to_markdown())
 
         # filter the data according to the given arguments
         if category is not None:
@@ -140,15 +139,14 @@ class SimpleMath:
         earnings_df = pd.merge(full_date_df, earnings_df, on='Date/Executed_Date', how='left')
         spendings_df = pd.merge(full_date_df, spendings_df, on='Date/Executed_Date', how='left')
         
-        earnings_df = earnings_df.groupby('Date/Executed_Date').sum()
-        spendings_df = spendings_df.groupby('Date/Executed_Date').sum()
-        
         # calculation of net income
         # This section is not relevant when calculating the monthly shifted data per category but for all transactions
         spendings_net_df = spendings_df[spendings_df['Category'] != 'השקעה/חיסכון']
+        
+        earnings_df = earnings_df.groupby('Date/Executed_Date').sum()
+        spendings_df = spendings_df.groupby('Date/Executed_Date').sum()
         spendings_net_df = spendings_net_df.groupby('Date/Executed_Date').sum()
 
-        print(list(spendings_df['Final_Value'])[::-1])
         # data is returned backwards to fit the plot_general function.
         return list(spendings_df['Final_Value'])[::-1], \
                 list(spendings_net_df['Final_Value'])[::-1], \
@@ -191,7 +189,6 @@ class SimpleMath:
         a df representing the original input data along with the 'Final_Value column.
         """
 
-        # print(df.to_markdown())
         def my_lambda(row):
             """
             The function returns the Actual value describing the given transactions.

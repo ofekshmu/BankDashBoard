@@ -39,6 +39,8 @@ class Local:
 
     CATE_JSON_PATH = 'Personal Information/categories.json'
 
+    AUTO_TAGGER_PATH = 'personal information/auto_tagger.json'
+
     EXTENSION_1 = '.xls'
     EXTENSION_2 = '.csv'
     EXTENSION_3 = ''  # Add another extension option here if needed or leave as an empty string.

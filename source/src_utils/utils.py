@@ -130,7 +130,8 @@ class utils:
                       monthly_balance: int,
                       cards_dict: dict,
                       gas_stats,
-                      cards_df):
+                      cards_df,
+                      data: dict):
         import bs4
         from datetime import datetime
         import calendar
@@ -158,9 +159,25 @@ class utils:
 
         balance_h2 = soup.new_tag('h1')
         balance_h2['class'] = "two alt-balance"
-        balance_h2.string = f'Balance {monthly_balance:,}₪'
+        balance_h2.string = f'Balance {monthly_balance:,.2f}₪'
+        
+        net_income = soup.new_tag('h1')
+        net_income['class'] = "two alt-balance"
+        net_income.string = f'Net Income: {data["net income"]:,.2f}₪'
+        
+        overall_net_income = soup.new_tag('h1')
+        overall_net_income['class'] = "two alt-balance"
+        overall_net_income.string = f'Overall Net Income: {data["overall net income"]:,.2f}₪'
+        
+        if data["net income"] >= 0:
+            net_income['style'] = "color: #588157"
+            overall_net_income['style'] = "color: #588157"
+        else:
+            overall_net_income['style'] = "color: #c1121f"
 
         head_tag.append(balance_h2)
+        head_tag.append(net_income)
+        head_tag.append(overall_net_income)
 
         sub_titles_div.attrs['style'] = 'text-align: center;'
 
@@ -312,43 +329,8 @@ class utils:
             table2.append(row)
 
         # ----------
-        div = soup.new_tag("div")
-        div["class"] = 'gas-info'
-        title = soup.new_tag("h3")
-        title.string = "Gas info"
-        div.append(title)
-
-        table = soup.new_tag("table")
-
-        for key, value in gas_stats.items():
-            tr = soup.new_tag("tr")
-            td1 = soup.new_tag("td")
-            td1.string = key + ":"
-            td2 = soup.new_tag("td")
-            td2.string = str(value)
-            td2['style'] = 'padding-left: 15px;'
-            tr.append(td1)
-            tr.append(td2)
-            table.append(tr)
-
-        div.append(table)
-
-        outer_div = soup.new_tag("div")
-        outer_div['class'] = 'container_img'
-        outer_div.append(div)
-
-        img_tag = soup.new_tag("img")
-        img_tag['src'] = f"{Local.GAS_GRAPH}"
-        outer_div.append(img_tag)
-
-        soup.body.append(outer_div)
 
         div_tag = soup.new_tag('div')
-        div_tag['class'] = 'container_img'
-
-        img_tag = soup.new_tag("img")
-        img_tag['src'] = f"{Local.GAS_MONTHLY}"
-        div_tag.append(img_tag)
 
         # ------------- Insertion of outliers under pie charts -------------
         
@@ -968,18 +950,19 @@ Please Make sure that none of the following formats have their 'Identifications 
         The function will return a sub section of the data frame, along with a list.
         The data frame will include only transactions that have lower prices than the total std of the transactions.
         The transactions that were removed, will be appended to the returned list in the following format:
-        X
-        x
-        x
-        x
+        [(category_0, total_sum_0), (category_1, total_sum_1), ... , (category_n, total_sum_n)]
         """
-        lower_treshold = df[numerical_col_name].mean() - df[numerical_col_name].std()
-        high_treshold = df[numerical_col_name].mean() + df[numerical_col_name].std()
-        #print(df[numerical_col_name].to_markdown())
-        #print(df.info())
+        std = df[numerical_col_name].std()
+        mean = df[numerical_col_name].mean()
+        total = df[numerical_col_name].sum()
+
+        lower_treshold = total*0.02
+        #lower_treshold = lower_treshold if lower_treshold > 0 else 0.05*mean 
+
+        high_treshold = df[numerical_col_name].max()  + 10
+
         conditions = (df[numerical_col_name] < high_treshold) & (df[numerical_col_name] > lower_treshold)
         sub_df = df[conditions]
-        #print(sub_df[numerical_col_name].to_markdown(), sub_df.shape)
         counter_sub_df = df[~conditions]
 
         counter_list = [(utils.heb_conversion(category), row[numerical_col_name]) for category, row in counter_sub_df.iterrows()]
@@ -1085,3 +1068,78 @@ Please Make sure that none of the following formats have their 'Identifications 
 
         with open(r"source\html\Category_output.html", "w", encoding='utf-8') as outf:
             outf.write(bs4.BeautifulSoup.prettify(soup))
+
+    @staticmethod
+    def auto_tagger(name: str, category: str = None) -> str:
+        """
+        The function is responsible for editing the json config file depending on the inputs.
+        The function receives:
+        a Bussines name, and a category name.
+        In case category was not inserted, or specified as None, json file will be updated with
+        name: None
+        In case both were given, and not None, the pair will be appended or changed depending on
+        the current status of the keys on the dictionary.
+
+        """
+        if os.path.exists(Local.AUTO_TAGGER_PATH):
+            with open(Local.AUTO_TAGGER_PATH, 'r', encoding='utf-8') as f:
+                at_dict = json.load(f)
+
+        else:
+            at_dict = {}
+
+        if category is None:
+            if name not in at_dict:
+                at_dict[name] = None
+        else:
+            if name in at_dict:
+                match at_dict[name]:
+                    case None:
+                        at_dict[name] = category
+                    case "No Match":
+                        msg =f"The name {name} is already matched with a 'No Match' string. \
+                            but you are trying to change it to {category}, do you aprrove?"
+                        if utils.template_menu(['no', 'yes'], msg):
+                            at_dict[name] = category
+                    case _:
+                        msg =f"The name {name} is already matched with the category \
+                            {utils.heb_conversion(dict_at[name])} but you are trying \
+                            to change it to {category}, do you aprrove?"
+                        if utils.template_menu(['no', 'yes'], msg):
+                            at_dict[name] = category
+            else:
+                at_dict[name] = category
+
+
+        with open(Local.AUTO_TAGGER_PATH, 'w', encoding='utf-8') as f:
+            json.dump(at_dict, f, ensure_ascii=False)
+        #utils.log(f"The following key:value pair has been updated in auto_tagger.json to -> {utils.heb_conversion(name)} : {category}",'system')
+
+        return at_dict[name]
+
+    @staticmethod
+    def tagger_refresh() -> None:
+        """
+        The function uses the json config file, in order to try and auto tag transactions
+        with no category tagging.
+        """
+        from database import DataBase
+
+        dirty_bit = False
+        logs = "\n\n ----- The following transactions have been tagged: -----\n\n"
+        lst, desc = DataBase().get_untagged()
+        untagged_transactions_df = pd.DataFrame(lst, columns=desc)
+        for _, row in untagged_transactions_df.iterrows():
+            res = utils.auto_tagger(row['Name'])
+            if res == 'No Match':
+                continue
+            if res is not None:
+                dirty_bit = True
+                DataBase().set_category(table=row['TableName'], id=row['ID'], category=res)
+                logs += f"transaction {utils.heb_conversion(row['Name'])} ({row['TableName']}) ({row['ID']}) was tagged to {res}\n"
+
+        if dirty_bit:
+            utils.log(logs, 'system')
+            DataBase().commit_changes()
+        else:
+            utils.log('No transactions were Auto tagged...', 'system')

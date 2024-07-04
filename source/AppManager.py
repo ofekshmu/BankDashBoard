@@ -48,6 +48,7 @@ class AppManager:
             match answer:
                 case 1:
                     self.load_data()
+                    utils.tagger_refresh()
                     self.tag_data()
                 case 2:
                     self.analysis()
@@ -89,11 +90,15 @@ class AppManager:
                 utils.log("Changes not set...")
 
         res = utils.template_menu(['Write an original SQL command',
+                                   'Reset a transaction category to "NotCategorized"',
                                    'Change transaction category by ID'], 'Pick one of the follwing:')
         match res:
             case 0:
                 original_command()
             case 1:
+                DataBase().reset_category_by_id()
+                DataBase().commit_changes()
+            case 2:
                 DataBase().change_category_by_id()
                 DataBase().commit_changes()
             case _:
@@ -276,6 +281,9 @@ class AppManager:
         utils.log(f"There are {len(lst)} untagged Transactions.\nChoose a category or create a new one.", "system")
         while not df.empty:
             for _, row in df.iterrows():
+
+                # taggable items that are marked as "Skip", are added to the 'skip_list',
+                # these items will be ignored until the next run
                 if row['ID'] in skip_list:
                     continue
                 pretty_print_series(row.drop('Original_Name'))
@@ -288,27 +296,40 @@ class AppManager:
                     utils.log("Returning to menu...", "system")
                     return
                 else:
+                    # --------------- Auto Tagger function ---------------
+                    if utils.auto_tagger(row['Original_Name']) != 'No Match':
+                        if utils.template_menu(['no', 'yes'], f"Does all transactions with the name {row['Name']} belong to category {utils.heb_conversion(res)}?"):
+                            tag_status_res = utils.auto_tagger(row['Original_Name'], res)
+                        else:
+                            tag_status_res = utils.auto_tagger(row['Original_Name'], 'No Match')
+                    else:
+                        tag_status_res = 'No Match'
+                    # -----------------------------------------------------
                     DataBase().set_category(table=row['TableName'], id=row['ID'], category=res)
                     if len(description) > 1:
                         DataBase().set_transaction_description(description, row['TableName'], row['ID'])
                     utils.log("Tag saved.", "system")
                     DataBase().commit_changes()
                 # ---------------- Fill in similar rows ----------------
-                similar_trans, desc_x = DataBase().get_by_name(row['TableName'], row['Original_Name'])
-                count = len(similar_trans)
-                if count > 0:
-                    res_x = utils.template_menu(['Yes', 'No'],
-                                                f"There are {count} untagged transaction with the same name. Do you want apply to all?")
-                    if res_x == 0:    # Yes -> 0
-                        res_df = pd.DataFrame(similar_trans, columns=desc_x)
-                        for _, row_x in res_df.iterrows():
-                            DataBase().set_category(table=row['TableName'], id=row_x['ID'], category=res)
-                        DataBase().commit_changes()
-                        utils.log("Updated the following:\n")
-                        res_df = make_readable(res_df)
-                        print(res_df.to_markdown())
-                        break   # In case latter transaction were updated, it is needed to read the table again
-                                # So information wont repeat for the user.
+                if tag_status_res != 'No Match':
+                    similar_trans, desc_x = DataBase().get_by_name(row['TableName'], row['Original_Name'])
+                    count = len(similar_trans)
+                    if count > 0:
+                        if tag_status_res is None:
+                            res_x = utils.template_menu(['Yes', 'No'],
+                                                        f"There are {count} untagged transaction with the same name. Do you want apply to all?")
+                        else:
+                            res_x = 0
+                        if res_x == 0:    # Yes -> 0
+                            res_df = pd.DataFrame(similar_trans, columns=desc_x)
+                            for _, row_x in res_df.iterrows():
+                                DataBase().set_category(table=row['TableName'], id=row_x['ID'], category=res)
+                            DataBase().commit_changes()
+                            utils.log("Updated the following:\n")
+                            res_df = make_readable(res_df)
+                            print(res_df.to_markdown())
+                            break   # In case latter transaction were updated, it is needed to read the table again
+                                    # So information wont repeat for the user.
                 # -------------------------------------------------------
             lst, desc = DataBase().get_untagged()
             df = pd.DataFrame(lst, columns=desc)
@@ -500,6 +521,7 @@ class AppManager:
                 y = int(input('year: '))
                 t = datetime.now().replace(month=m, year=y)
 
+        data = {}
         # ---------------------------------------------------------
         #   The following line will help configure the אשראי　transactions
         # ---------------------------------------------------------
@@ -550,8 +572,11 @@ class AppManager:
                             )
         earnings_df = utils.remove_leumi(earnings_df)
 
-        high_std_spendings = Graphics.plot_transactions_pie_chart(spendings_df, "Spendings", Local.gentle_orange)
-        high_std_earnings = Graphics.plot_transactions_pie_chart(earnings_df, "Earnings", Local.gentle_blue)
+        import seaborn as sns
+        color_pallete = sns.light_palette("#f66b85", n_colors=10)
+        high_std_spendings = Graphics.plot_transactions_pie_chart(spendings_df, "Spendings", color_pallete)
+        color_pallete = sns.light_palette("#4fba89", n_colors=10)
+        high_std_earnings = Graphics.plot_transactions_pie_chart(earnings_df, "Earnings", color_pallete)
 
         # ------ GAS
         cat_data, description_cat = DataBase().get_by_category("Gas")
@@ -563,7 +588,8 @@ class AppManager:
         else:
             cat_dict = {}
         # ----- General
-        
+        spendings_sum, spendings_sum_overall_inc, earnings_sum = SimpleMath.get_monthly_shifted(shift=6)
+        Graphics.plot_general(spendings_sum, spendings_sum_overall_inc, earnings_sum)
         # ----- Cards
 
         card_ids = DataBase().get_card_ids() + ['Bank']
@@ -572,6 +598,13 @@ class AppManager:
 
         Graphics.card_distribution(spendings_df, card_color_dict)
 
+
+        data['net income'] = (earnings_df['Final_Value'].sum() - spendings_df['Final_Value'].sum())
+        #savings = spendings_df.groupby("Category").sum()['השקעה/חסכון']
+        print(spendings_df.to_markdown())
+        data['overall net income'] = (earnings_df['Final_Value'].sum() - \
+                                      spendings_df[spendings_df['Category'] != 'השקעה/חיסכון']['Final_Value'].sum())
+        
         utils.generate_html(t.month,
                             spendings_df,
                             high_std_spendings,
@@ -580,7 +613,8 @@ class AppManager:
                             monthly_balance,
                             card_color_dict,
                             cat_dict,
-                            cards_df)
+                            cards_df,
+                            data)
         webbrowser.open(r'source\html\output.html')
 
 

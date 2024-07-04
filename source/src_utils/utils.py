@@ -129,7 +129,6 @@ class utils:
                       high_std_earnings,
                       monthly_balance: int,
                       cards_dict: dict,
-                      gas_stats,
                       cards_df,
                       data: dict):
         import bs4
@@ -242,7 +241,12 @@ class utils:
             row.append(colored_box_div)
 
 
-            st = f"{item['Name']}"   # Name
+            # ---- replacing the name of the transaction with the description ----
+            if item['TableName'] == 'BankTransactions' and item['Description/Charge_Currency'] is not None:
+                st = f"{item['Description/Charge_Currency']}"
+            else:
+                st = f"{item['Name']}"
+            # --------------------------------------------------------------------
             cell = soup.new_tag("h3")
             cell.string = st
             row.append(cell)
@@ -250,7 +254,7 @@ class utils:
             cell = soup.new_tag("p")
             cell['class'] = 'date'
             
-            if item['Description/Charge_Currency'] == item['Reserved/Value_Currency']:
+            if item['Description/Charge_Currency'] == item['Reserved/Value_Currency'] or item['TableName'] == 'BankTransactions':
                 price_lable_1 = f"{item['Final_Value']:,}₪"
                 price_lable_2 = ""
             else:
@@ -293,8 +297,13 @@ class utils:
             colored_box_div['class'] = "color-box"
             colored_box_div['style'] = f"background-color: {value}"
             row.append(colored_box_div)
-
-            st = f"{item['Name']}"
+            
+            # ---- replacing the name of the transaction with the description ----
+            if item['TableName'] == 'BankTransactions' and item['Description/Charge_Currency'] is not None:
+                st = f"{item['Description/Charge_Currency']}"
+            else:
+                st = f"{item['Name']}"
+            # --------------------------------------------------------------------
             cell = soup.new_tag("h3")
             cell.string = st
             row.append(cell)
@@ -302,7 +311,7 @@ class utils:
             cell = soup.new_tag("p")
             cell['class'] = 'date'
 
-            if item['Description/Charge_Currency'] == item['Reserved/Value_Currency']:
+            if item['Description/Charge_Currency'] == item['Reserved/Value_Currency'] or item['TableName'] == 'BankTransactions':
                 price_lable_1 = f"{item['Final_Value']:,}₪"
                 price_lable_2 = ""
             else:
@@ -362,6 +371,10 @@ class utils:
         soup.body.insert(5, transaction_outlier_div)
         soup.body.insert(6, soup.new_tag('br'))
         # ------------------------------------------------------------------
+        overall_net_income_mean = soup.new_tag('h1')
+        overall_net_income_mean['class'] = "two alt-balance"
+        overall_net_income_mean.string = f'Overall Net Income Monthly Mean: {data["overall_net_mean"]:,.2f}₪'
+        soup.body.insert(12, overall_net_income_mean)
 
         soup.body.append(div_tag)
 

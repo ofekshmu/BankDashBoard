@@ -782,7 +782,8 @@ class DataBase:
                                         Out,
                                         Income,
                                         Extra_Info,
-                                        Source_file
+                                        Source_file,
+                                        Null
                                     FROM BankTransactions
                                     WHERE Category IS 'NotCategorized'
                                     ORDER BY ID DESC
@@ -797,7 +798,8 @@ class DataBase:
                                         Charge_Value AS 'Charge_Value/Out',
                                         Transaction_Value AS 'Transaction_Value/Income' ,
                                         Extra_Info,
-                                        Source_file
+                                        Source_file,
+                                        Charge_Currency
                                     FROM CardTransactions
                                     WHERE Category IS 'NotCategorized'
                                     ORDER BY ID DESC
@@ -868,9 +870,12 @@ class DataBase:
                 """.format(TableName)
         self.cursor.execute(query, (desc, id))
 
-    def card_sum(self, date: datetime):
+    def card_sum(self, date: datetime) -> pd.DataFrame:
         """
-        TODO... what does this fucntion do?
+        The function Receives a datetime object and returns a dataframe object.
+        The data frame will include card types transactions from all cards in the database
+        which were exectued in the month of the given date.
+        The function was written particularly for the card verification feature.
         """
         m_2 = '0' + str(date.month) if len(str(date.month)) == 1 else str(date.month)
         
@@ -894,7 +899,8 @@ class DataBase:
                             FROM CardTransactions
                             WHERE (strftime('%m', Charge_Date) = ? AND strftime('%Y', Charge_Date) = ?)
                             """, (nxt_month, rlvnt_year, )).fetchall() # TODO can this be simplified for just the transactions at the set charge date?
-        return data, [d[0] for d in self.cursor.description]
+        
+        return pd.DataFrame(data, columns=[d[0] for d in self.cursor.description])
 
     def get_Bank_Transactions(self, day: int, month: int, year: int):
         """

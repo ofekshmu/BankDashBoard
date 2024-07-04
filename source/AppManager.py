@@ -2,7 +2,7 @@ from Parser import Parser
 from Card import Card
 from Bank import Bank
 from Context import Context
-from Constants import Local
+from Constants import Local, CC_CHARGE_CATEGORY_NAME
 from src_utils.utils import utils
 from database import DataBase
 from front.Graphics import Graphics
@@ -11,10 +11,7 @@ from src_utils.ExcelReader import ExcelManager
 import webbrowser
 from Configurations.Formats import Formats, Context_class
 import pandas as pd
-import json
-
 from os import listdir
-
 
 class AppManager:
 
@@ -203,6 +200,7 @@ class AppManager:
             utils.log('Update process completed!', 'system')
             return True
 
+
     def delete_file_info(self):
         lst_names = DataBase().get_file_names()
         utils.log("Select the file you want to delete:")
@@ -243,7 +241,13 @@ class AppManager:
             Takes the original df created from the transactions and changes it for better
             readability. The function prints the result.
             """
-            my_series['Charge_Value/Out'] = str(my_series['Charge_Value/Out']) + ' ₪'
+            if my_series['Charge_Currency'] is not None:
+                currency = my_series['Charge_Currency']
+            else:
+                currency = '₪'
+            my_series = my_series.drop('Charge_Currency')
+            
+            my_series['Charge_Value/Out'] = str(my_series['Charge_Value/Out']) + f" {currency}"
             my_series['Transaction_Value/Income'] = str(my_series['Transaction_Value/Income']) + ' ₪'
             my_series['Executed_Date'] = my_series['Executed_Date'][:-9]
             print(f"\n{'-'*15} Tag the following {'-'*15}")
@@ -256,7 +260,7 @@ class AppManager:
                                     'Charge Value',
                                     'Transaction Value',
                                     'More Info',
-                                    'Source file name']
+                                    'Source file name'] # type: ignore
             else:
                 my_series.index = ['Table Name',
                                     'Transaction ID',
@@ -266,7 +270,7 @@ class AppManager:
                                     'Outgoing',
                                     'Incoming',
                                     'More Info',
-                                    'Source file name']
+                                    'Source file name'] # type: ignore
 
             for index, value in my_series.items():
                 print(f"{index:28s}{value}")
@@ -522,44 +526,58 @@ class AppManager:
                 t = datetime.now().replace(month=m, year=y)
 
         data = {}
-        # ---------------------------------------------------------
-        #   The following line will help configure the אשראי　transactions
-        # ---------------------------------------------------------
-        df, desc = DataBase().card_sum(t)
-        # ------------------------------ DEBUG ---------------------------------
-        # test = SimpleMath.process_prices(df, desc)
-        # print(pd.DataFrame(df, columns=desc).to_markdown())
-        # utils.log(test.to_markdown(), 'debug')
-        # utils.log(test[test['CardID'] == '4046']['Final_Value'].sum(), 'debug')
-        # ----------------------------------------------------------------------
-        cards_df = pd.DataFrame(df, columns=desc).groupby("CardID").sum().reset_index()
-        cards_df['Status'] = 'Not Verified'
-        bank_df = DataBase().get_Bank_Transactions(Local.CHARGE_DAY + 1, 
-                                                   utils.next_month(t).month,
-                                                   utils.next_month(t).year)
-        for _, row_cs in cards_df.iterrows():
-            for _, row_bt in bank_df.iterrows():
-                x = round(row_bt['Out'], 2)
-                y = round(row_cs['Out/Transaction_value'], 2)
-                if x == y:
-                    cards_df.loc[cards_df['CardID'] == row_cs['CardID'], 'Status'] = 'Verified'
-                    if row_bt['Category'] == 'אשראי':
-                        break
 
-                    res = utils.template_menu(['Yes', 'No'], f"App found this transaction to be a credit card:\n\
-                                              {row_bt}\n Do you Agree?")
-                    if res == 0:
-                        DataBase().set_category('BankTransactions', row_bt['ID'], 'אשראי')
-                        DataBase().commit_changes()
-                        break
-                    else:
-                        utils.log('ignored...', 'system')
+        def card_charge_validation(date: datetime) -> pd.DataFrame:
+            """
+            """
+            # ---------------------------------------------------------
+            #   The following line will help configure the אשראי　transactions
+            # ---------------------------------------------------------
+            df = DataBase().card_sum(date)
+            # The following will result in a data base describing the total amount of spendings per card in the given month.
+            cards_df = df.groupby("CardID").sum().reset_index()
+            cards_df['Status'] = 'Not Verified'
+            bank_df = DataBase().get_Bank_Transactions(Local.CHARGE_DAY + 1, 
+                                                    utils.next_month(date).month,
+                                                    utils.next_month(date).year)
+            for _, row_cs in cards_df.iterrows():
+                for _, row_bt in bank_df.iterrows():
+                    x = round(row_bt['Out'], 2)
+                    y = round(row_cs['Out/Transaction_value'], 2)
+                    if x == y:
+                        cards_df.loc[cards_df['CardID'] == row_cs['CardID'], 'Status'] = 'Verified'
+                        if row_bt['Category'] == 'אשראי':
+                            break
 
-        if not cards_df.empty:
-            cards_df = cards_df[['CardID', 'Status']]
+                        if utils.template_menu(['No', 'Yes'], f"App found this transaction to be a credit card:\n\
+                                            {row_bt}\n Do you Agree?"):
+                            DataBase().set_category('BankTransactions', row_bt['ID'], CC_CHARGE_CATEGORY_NAME)
+                            DataBase().commit_changes()
+                            break
+                        else:
+                            utils.log('ignored...', 'system')
 
-        # ---------------------------------------------------------
+            if not cards_df.empty:
+                cards_df = cards_df[['CardID', 'Status']]
+                
+            return cards_df
 
+        def print_unverified_cards(date: datetime):
+            """
+            The function will iterate past data and print the card id and mnths which were not verified.
+            """
+            df = card_charge_validation(date)
+            while not df.empty:
+                for _, row in df.iterrows():
+                    if row['Status'] == 'Not Verified':
+                        utils.log(f"Card {row['CardID']} was not verified for {date.month}/{date.year}", 'warning')
+                m, y = utils.subtract_month(date.month, date.year)
+                date = datetime(int(y),int(m),1)
+                df = card_charge_validation(date)
+            
+        print_unverified_cards(t)
+        card_validation_df = card_charge_validation(t)
+        
         monthly_balance = DataBase().get_latest_Balance()
 
         spendings_df = SimpleMath.process_prices(
@@ -578,18 +596,9 @@ class AppManager:
         color_pallete = sns.light_palette("#4fba89", n_colors=10)
         high_std_earnings = Graphics.plot_transactions_pie_chart(earnings_df, "Earnings", color_pallete)
 
-        # ------ GAS
-        cat_data, description_cat = DataBase().get_by_category("Gas")
-        df = SimpleMath.process_prices(pd.DataFrame(cat_data, columns=description_cat))
-        if not df.empty:
-            _ = Graphics.plot_gas(df)
-            cat_dict = SimpleMath.cat_info(df)
-            Graphics.plot_monthly_gas(df)
-        else:
-            cat_dict = {}
         # ----- General
         spendings_sum, spendings_sum_overall_inc, earnings_sum = SimpleMath.get_monthly_shifted(shift=6)
-        Graphics.plot_general(spendings_sum, spendings_sum_overall_inc, earnings_sum)
+        overall_net_income_df = Graphics.plot_general(spendings_sum, spendings_sum_overall_inc, earnings_sum)
         # ----- Cards
 
         card_ids = DataBase().get_card_ids() + ['Bank']
@@ -598,12 +607,11 @@ class AppManager:
 
         Graphics.card_distribution(spendings_df, card_color_dict)
 
-
         data['net income'] = (earnings_df['Final_Value'].sum() - spendings_df['Final_Value'].sum())
-        #savings = spendings_df.groupby("Category").sum()['השקעה/חסכון']
-        print(spendings_df.to_markdown())
         data['overall net income'] = (earnings_df['Final_Value'].sum() - \
                                       spendings_df[spendings_df['Category'] != 'השקעה/חיסכון']['Final_Value'].sum())
+        print(overall_net_income_df.to_markdown())
+        data['overall_net_mean'] = overall_net_income_df['Overall Income'].mean()
         
         utils.generate_html(t.month,
                             spendings_df,
@@ -612,8 +620,7 @@ class AppManager:
                             high_std_earnings,
                             monthly_balance,
                             card_color_dict,
-                            cat_dict,
-                            cards_df,
+                            card_validation_df,
                             data)
         webbrowser.open(r'source\html\output.html')
 

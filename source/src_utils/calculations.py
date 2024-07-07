@@ -247,8 +247,25 @@ class SimpleMath:
                     utils.log("Unrecognized case in 'process_prices' -> 'refund_wrapper'...", "error")
                     return ""   # To avoid linter error - unreacheable code.
 
+        def month_diff(row):
+            """
+            The function is used to calculate the delta between 2 months of given dates in two different columns.
+            The result is given in a month resolution, meaning the difference in date does not matter -
+            for example: the difference between 01/05/24 to 02/07/24 is the same as 28/05/24 to 01/06/26 , a single month.
+            subtraction of dates can only be done in datetime format, the given format is 'object' and therfore, converted.
+            the function was created to identify 'Flowing transactions'.
+            """
+            return pd.to_datetime(row['Value_Date/Charge_Date']).month - pd.to_datetime(row['Date/Executed_Date']).month
+        
+        def is_not_payment_transaction(row):
+            return not ('תשלום' in row['Extra_Info'] and 'מתוך' in row['Extra_Info'])
+
         if not df.empty:
             df["Final_Value"] = df.apply(my_lambda, axis=1)
             df["Date/Executed_Date"] = df.apply(refund_wrapper, axis=1)
-
+            
+            # Handaling flowing transactions
+            # see spec sheet for the definition of 'flowing transactions'
+            df = df[~((df.apply(month_diff, axis=1) == 2) & (df.apply(is_not_payment_transaction, axis=1)))]
         return df
+    

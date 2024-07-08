@@ -1156,3 +1156,33 @@ Please Make sure that none of the following formats have their 'Identifications 
             DataBase().commit_changes()
         else:
             utils.log('No transactions were Auto tagged...', 'system')
+
+    @staticmethod
+    def validate_BankTransactions() -> bool:
+        """
+        
+        """
+        from datetime import datetime
+        from database import DataBase
+
+        def is_valid_balance(value):
+            return isinstance(value, (int, float))
+
+        last_valid_date = datetime(2024, 3, 1)
+        df = DataBase().query_Bank_Transactions_for_validation(last_valid_date)
+        df = df.sort_values(by=['Date', 'ID'], ascending=[True, False])
+        print(df.to_markdown())
+        balance = "Initial Value"
+        for _, row in df.iterrows():
+            if balance == "Initial Value":
+                x = row['Balance']
+                if is_valid_balance(row['Balance']):
+                    balance = row['Balance']
+            else:
+                y = row['Income'] - row['Out']
+                balance += row['Income'] - row['Out']
+                if is_valid_balance(row['Balance']):
+                    if balance != row['Balance']:
+                        utils.log(f"Validation failed on transaction with ID ({row['ID']}) ", "error")
+
+        return True

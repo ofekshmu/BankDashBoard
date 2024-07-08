@@ -18,6 +18,7 @@ class AppManager:
 
     def __init__(self):
         res = utils.validate_formats()
+        utils.validate_BankTransactions()
         if type(res) == str:
             utils.log(res, 'error')
         else:

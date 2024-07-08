@@ -1099,7 +1099,21 @@ class DataBase:
         data = self.cursor.execute(query, (name_for_analysis, name_for_analysis,)).fetchall()
         print(data)
         return pd.DataFrame(data=data, columns=[d[0] for d in self.cursor.description])
-        
+
+    def query_Bank_Transactions_for_validation(self, last_valid_date: datetime) -> pd.DataFrame:
+        """
+        TODO
+        """
+        last_valid_date_str = last_valid_date.strftime('%Y-%m-%d %H:%M:%S')
+    
+        query = """
+                    SELECT ID, Date, Out, Income, Balance
+                    FROM BankTransactions
+                    WHERE (Date >= ?)
+                """
+        data = self.cursor.execute(query, (last_valid_date_str,)).fetchall()
+        return pd.DataFrame(data=data, columns=[d[0] for d in self.cursor.description])
+
 # ----------------------------------------------------------------------
 #                            User SQL commands
 # ----------------------------------------------------------------------

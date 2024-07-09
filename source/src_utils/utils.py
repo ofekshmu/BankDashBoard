@@ -1168,21 +1168,23 @@ Please Make sure that none of the following formats have their 'Identifications 
         def is_valid_balance(value):
             return isinstance(value, (int, float))
 
-        last_valid_date = datetime(2024, 3, 1)
+        last_valid_date = datetime(2024, 1, 1)
         df = DataBase().query_Bank_Transactions_for_validation(last_valid_date)
         df = df.sort_values(by=['Date', 'ID'], ascending=[True, False])
-        print(df.to_markdown())
+        #print(df.to_markdown())
         balance = "Initial Value"
         for _, row in df.iterrows():
             if balance == "Initial Value":
-                x = row['Balance']
                 if is_valid_balance(row['Balance']):
                     balance = row['Balance']
             else:
-                y = row['Income'] - row['Out']
                 balance += row['Income'] - row['Out']
                 if is_valid_balance(row['Balance']):
-                    if balance != row['Balance']:
-                        utils.log(f"Validation failed on transaction with ID ({row['ID']}) ", "error")
+                    if abs(balance - row['Balance']) > 0.001:
+                        utils.log(f"Bank Transaction Validation FAILED!\nDetails:\n\
+                                    tried comparing a calculated balance of {balance}\n\
+                                    with the given balance of {row['Balance']}\n\
+                                    given transaction is associated with ID: {row['ID']}\n\
+                                    Transaction date is {row['Date']}", "error")
 
         return True

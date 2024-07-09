@@ -18,11 +18,14 @@ class AppManager:
 
     def __init__(self):
         res = utils.validate_formats()
-        utils.validate_BankTransactions()
+
         if type(res) == str:
             utils.log(res, 'error')
         else:
             utils.log(f'Format validation result: {res}', 'system')
+            
+        if utils.validate_BankTransactions():
+            utils.log("Bank Transactions validation passed!")
         
         self.parser = Parser()
 

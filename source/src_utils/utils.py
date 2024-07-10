@@ -1168,7 +1168,9 @@ Please Make sure that none of the following formats have their 'Identifications 
         def is_valid_balance(value):
             return isinstance(value, (int, float))
 
-        last_valid_date = datetime(2024, 1, 1)
+        personal_conf_dict = json.load(open(Local.PERSONAL_CONFIG, encoding='utf-8'))
+        date_str = personal_conf_dict['bank_transactions_last_valid_date']
+        last_valid_date = datetime.strptime(date_str, "%Y-%m-%d")
         df = DataBase().query_Bank_Transactions_for_validation(last_valid_date)
         df = df.sort_values(by=['Date', 'ID'], ascending=[True, False])
         #print(df.to_markdown())
@@ -1186,5 +1188,22 @@ Please Make sure that none of the following formats have their 'Identifications 
                                     with the given balance of {row['Balance']}\n\
                                     given transaction is associated with ID: {row['ID']}\n\
                                     Transaction date is {row['Date']}", "error")
+                    else:
+                        last_valid_date = row['Date']
+                        print(type(last_valid_date))
 
+        if isinstance(last_valid_date, datetime):
+            last_valid_date = last_valid_date.strftime("%Y-%m-%d")
+        else:
+            # Convert the string to a datetime object
+            date_object = datetime.strptime(last_valid_date, "%Y-%m-%d %H:%M:%S")
+
+            # Define the format for the string without the timestamp
+            date_format_without_timestamp = "%Y-%m-%d"
+
+            # Convert the datetime object back to a string without the timestamp
+            last_valid_date = date_object.strftime(date_format_without_timestamp)
+            
+        personal_conf_dict['bank_transactions_last_valid_date'] = last_valid_date
+        json.dump(personal_conf_dict, open(Local.PERSONAL_CONFIG, "w", encoding='utf-8'))
         return True

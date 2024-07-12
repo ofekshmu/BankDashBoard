@@ -3,6 +3,7 @@ import pandas as pd
 from src_utils.calculations import SimpleMath
 from src_utils.utils import utils
 import seaborn as sns
+from Constants import GENERAL_PLOT
 
 
 class Graphics:
@@ -137,9 +138,9 @@ class Graphics:
         The function Will plot a graph describing general statistics and info and save it to 'Outputs\General_info.png'
         """
         from datetime import datetime
-        print(f"inputs are {spendings},\n{spendings_overall},\n{earnings}")
         def get_last_n_months_names(N):
-            current_month = (datetime.now() - pd.DateOffset(months=1)).month 
+            delta = 0 if GENERAL_PLOT.SHOW_CURRENT_MONTH else 1
+            current_month = (datetime.now() - pd.DateOffset(months=delta)).month 
             return [(datetime(2023, (current_month - i) % 12 or 12, 1)).strftime('%B') for i in range(N)]
 
         months = get_last_n_months_names(len(spendings))  # == len(earnings)

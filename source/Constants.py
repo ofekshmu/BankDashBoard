@@ -98,3 +98,7 @@ class Personal:
     # BANK_ACC = json.load(open(Local.PERSONAL_CONFIG, encoding='utf-8'))['bank_account']
     # BANK_ACC_VisaFile = json.load(open(Local.PERSONAL_CONFIG, encoding='utf-8'))['bank_account_visa_file']
 
+
+class GENERAL_PLOT:
+    
+    SHOW_CURRENT_MONTH = True

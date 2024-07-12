@@ -4,6 +4,7 @@ from typing import Tuple
 from datetime import datetime
 import pandas as pd
 import re
+from Constants import GENERAL_PLOT
 
 
 class SimpleMath:
@@ -101,8 +102,9 @@ class SimpleMath:
             for the current date 29/6/24 and n = 6, the following will be returned:
             ['2023-12', '2024-01', '2024-02', '2024-03', '2024-04', '2024-05']
             """
+            delta = 0 if GENERAL_PLOT.SHOW_CURRENT_MONTH else 1
             # Get the current date
-            current_date = datetime.now() - pd.DateOffset(months=1)
+            current_date = datetime.now() - pd.DateOffset(months=delta)
             # Calculate the start date (n months back from the current month)
             start_date = (current_date.replace(day=1) - pd.DateOffset(months=n-1)).replace(day=1)
             # Generate a range of dates from the start date to the current month

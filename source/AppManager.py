@@ -602,7 +602,7 @@ class AppManager:
         high_std_earnings = Graphics.plot_transactions_pie_chart(earnings_df, "Earnings", color_pallete)
 
         # ----- General
-        spendings_sum, spendings_sum_overall_inc, earnings_sum = SimpleMath.get_monthly_shifted(shift=6)
+        spendings_sum, spendings_sum_overall_inc, earnings_sum = SimpleMath.get_monthly_shifted(shift=7)
         overall_net_income_df = Graphics.plot_general(spendings_sum, spendings_sum_overall_inc, earnings_sum)
         # ----- Cards
 

@@ -103,6 +103,8 @@ class AppManager:
             case 2:
                 DataBase().change_category_by_id()
                 DataBase().commit_changes()
+            case 3:
+                utils.change_an_existing_category_name()
             case _:
                 utils.log('Something went wrong in "execute_sql', 'error')
 
@@ -383,7 +385,7 @@ class AppManager:
 
         match utils.template_menu(["Analyze a category", "Analayze a Business"], "Pick an option:"):
             case 0:
-                options = json.load(open(Local.CATE_JSON_PATH, encoding='utf-8'))
+                options = utils.get_saved_categories()
                 idx, sub_options = utils.typer_template_menu(options, "Pick a Category:")
             case 1:
                 case = 1

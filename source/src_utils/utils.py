@@ -450,15 +450,27 @@ class utils:
                 return x, sub_options
 
     @staticmethod
+    def get_saved_categories(add_options: bool = False) -> list[str]:
+        """
+        returns the categories stored on the local config json
+        in the path specified in CATE_JSON_PATH.
+        The following options: ["「Create a new category」", "「Skip」", "「Back to menu」"]
+        can be added to the list using the function argument @add_options.
+        """
+        cat_lst = json.load(open(Local.CATE_JSON_PATH, encoding='utf-8'))
+        cat_lst = sorted(cat_lst)
+        if add_options:
+            cat_lst += ["「Create a new category」", "「Skip」", "「Back to menu」"]
+        return cat_lst
+
+    @staticmethod
     def handle_categories() -> Tuple[str, str]:
         """
         The function returns a category name and its description as entered by the user.
         The categories are read from a json file and displayed with 3 adittional options.
         """
         # utils.log("Choose one of the existsing categories:")
-        cat_lst = json.load(open(Local.CATE_JSON_PATH, encoding='utf-8'))
-        cat_lst = sorted(cat_lst)
-        options = cat_lst + ["「Create a new category」", "「Skip」", "「Back to menu」"]
+        options = utils.get_saved_categories()
         # ----------- Input category and description -------------
         st = "Please insert your selection and description in the following format:\n*Number* - *Description*" + '\n'
         utils.log(st, 'system')
@@ -500,7 +512,7 @@ class utils:
                 utils.log("Are you sure?\n1-> Yes\n2-> No")
                 x = input()
                 if x == "1":
-                    json.dump(cat_lst + [cat], open(Local.CATE_JSON_PATH, "w", encoding='utf-8'))
+                    json.dump(utils.get_saved_categories() + [cat], open(Local.CATE_JSON_PATH, "w", encoding='utf-8'))
                     return cat, description
                 else:
                     utils.log("Please Try again...", "system")
@@ -1207,3 +1219,17 @@ Please Make sure that none of the following formats have their 'Identifications 
         personal_conf_dict['bank_transactions_last_valid_date'] = last_valid_date
         json.dump(personal_conf_dict, open(Local.PERSONAL_CONFIG, "w", encoding='utf-8'))
         return True
+
+    def change_an_existing_category_name():
+        utils.log("What category name do you want to change?")
+        param1, _ = utils.handle_categories()
+        
+        while True:
+            param2, _ = utils.handle_categories()
+            if param2 == param1:
+                continue
+            if param2 in ["「Skip」", "「Back to menu」"]:
+                continue
+            break
+
+        

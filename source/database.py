@@ -1170,6 +1170,23 @@ class DataBase:
         utils.log(f"Before: {prev}")
         utils.log(f"After: {after}")        
 
+    def replace_category(self, frm: str, to: str):
+        """
+        The function receives 2 categories, an existing category to change
+        and another category (could be a new category or an existing one) to change to.
+        the number of affacted rows in each table is printed.
+        """
+        for table_name in ['BankTransactions', 'CardTransactions']:
+            
+            self.cursor.execute(f"""
+                    UPDATE {table_name}
+                    SET category = ?
+                    WHERE category = ?
+                """, (frm, to))
+            
+            rows_affected = self.cursor.rowcount
+            utils.log(f"Rows updated in {table_name}: {rows_affected}", 'system')
+    
 
 # ----------------------------------------------------------------------
 # ----------------------------------------------------------------------

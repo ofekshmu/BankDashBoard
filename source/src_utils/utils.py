@@ -470,7 +470,7 @@ class utils:
         The categories are read from a json file and displayed with 3 adittional options.
         """
         # utils.log("Choose one of the existsing categories:")
-        options = utils.get_saved_categories()
+        options = utils.get_saved_categories(add_options=True)
         # ----------- Input category and description -------------
         st = "Please insert your selection and description in the following format:\n*Number* - *Description*" + '\n'
         utils.log(st, 'system')
@@ -1220,16 +1220,25 @@ Please Make sure that none of the following formats have their 'Identifications 
         json.dump(personal_conf_dict, open(Local.PERSONAL_CONFIG, "w", encoding='utf-8'))
         return True
 
+    @staticmethod
     def change_an_existing_category_name():
-        utils.log("What category name do you want to change?")
-        param1, _ = utils.handle_categories()
+        """
+        """
+        cat_lst = utils.get_saved_categories()
+        index, cat_lst = utils.typer_template_menu(cat_lst, msg = "Please choose a category name to replace:", sort = True)
+        chosen_cat_to_replace = cat_lst[index]
+        utils.log(f"You chose {chosen_cat_to_replace}...")
         
         while True:
-            param2, _ = utils.handle_categories()
-            if param2 == param1:
+            new_chosen_cat, _ = utils.handle_categories()
+            if chosen_cat_to_replace == new_chosen_cat:
                 continue
-            if param2 in ["「Skip」", "「Back to menu」"]:
+            if new_chosen_cat in ["「Skip」", "「Back to menu」"]:
                 continue
             break
+        
+        from database import DataBase
+        DataBase().replace_category(frm=chosen_cat_to_replace, to=new_chosen_cat)
+        DataBase().commit_changes()
 
         

@@ -1182,7 +1182,7 @@ class DataBase:
                     UPDATE {table_name}
                     SET category = ?
                     WHERE category = ?
-                """, (frm, to))
+                """, (to, frm,))
             
             rows_affected = self.cursor.rowcount
             utils.log(f"Rows updated in {table_name}: {rows_affected}", 'system')

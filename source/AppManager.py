@@ -93,7 +93,8 @@ class AppManager:
 
         res = utils.template_menu(['Write an original SQL command',
                                    'Reset a transaction category to "NotCategorized"',
-                                   'Change transaction category by ID'], 'Pick one of the follwing:')
+                                   'Change transaction category by ID',
+                                   'Change an existing category'], 'Pick one of the follwing:')
         match res:
             case 0:
                 original_command()

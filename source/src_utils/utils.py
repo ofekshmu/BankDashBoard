@@ -450,7 +450,7 @@ class utils:
                 return x, sub_options
 
     @staticmethod
-    def get_saved_categories(add_options: bool = False) -> list[str]:
+    def get_saved_categories(add_options: bool = False, sort: bool = True) -> list[str]:
         """
         returns the categories stored on the local config json
         in the path specified in CATE_JSON_PATH.
@@ -458,10 +458,22 @@ class utils:
         can be added to the list using the function argument @add_options.
         """
         cat_lst = json.load(open(Local.CATE_JSON_PATH, encoding='utf-8'))
-        cat_lst = sorted(cat_lst)
+        if sort:
+            cat_lst = sorted(cat_lst)
         if add_options:
             cat_lst += ["「Create a new category」", "「Skip」", "「Back to menu」"]
         return cat_lst
+
+    @staticmethod
+    def update_categories_file(data: list, append: bool = True) -> None:
+        """
+        The function will write/append new category data to the category json file.
+        """
+        if append:
+            old_data = utils.get_saved_categories(sort=False)
+            json.dump(old_data + data, open(Local.CATE_JSON_PATH, "w", encoding='utf-8'))
+        else:
+            json.dump(data, open(Local.CATE_JSON_PATH, "w", encoding='utf-8'))
 
     @staticmethod
     def handle_categories() -> Tuple[str, str]:
@@ -1243,5 +1255,9 @@ Please Make sure that none of the following formats have their 'Identifications 
         from database import DataBase
         DataBase().replace_category(frm=chosen_cat_to_replace, to=new_chosen_cat)
         DataBase().commit_changes()
+        new_category_lst = utils.get_saved_categories()
+        new_category_lst.remove(chosen_cat_to_replace)
+        utils.update_categories_file(new_category_lst, append=False)
+        utils.log(f"({chosen_cat_to_replace}) has been removed from the category list")
 
         

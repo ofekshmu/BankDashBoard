@@ -509,6 +509,9 @@ class utils:
         if options[res] == "「Create a new category」":
             while True:
                 cat = input("Insert a category name: ")
+                if cat in utils.get_saved_categories():
+                    utils.log("This category name already exists...", "system")
+                    continue
                 utils.log("Are you sure?\n1-> Yes\n2-> No")
                 x = input()
                 if x == "1":

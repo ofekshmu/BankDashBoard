@@ -4,6 +4,7 @@ from src_utils.calculations import SimpleMath
 from src_utils.utils import utils
 import seaborn as sns
 from Constants import GENERAL_PLOT
+from typing import Tuple
 
 
 class Graphics:
@@ -252,12 +253,12 @@ class Graphics:
         plt.savefig(r'Outputs\Card_Distribution.png')
 
     @staticmethod
-    def plot_pie_distribution(df: pd.DataFrame) -> None:
+    def plot_pie_distribution(df: pd.DataFrame) -> list:
         """
         
         """
 
-        def cover_outliers(df) -> pd.DataFrame:
+        def cover_outliers(df) -> Tuple[pd.DataFrame, pd.DataFrame]:
             numerical_col_name = 'Final_Value'
 
             total = df[numerical_col_name].sum()
@@ -266,12 +267,9 @@ class Graphics:
             #lower_treshold = lower_treshold if lower_treshold > 0 else 0.05*mean 
 
             high_treshold = df[numerical_col_name].max()  + 10
-
-            conditions = (df[numerical_col_name] < high_treshold) & (df[numerical_col_name] > lower_treshold)
             
-            print(df.to_markdown())
+            outliers_df = df[(df[numerical_col_name] > high_treshold) | (df[numerical_col_name] < lower_treshold)]
             df.index = df.index.map(lambda x: "אחר" if df.loc[x, numerical_col_name] > high_treshold or df.loc[x, numerical_col_name] < lower_treshold else x)
-
 
             # Step 1: Filter out the rows where the index is "אחר"
             removed_rows = df.loc[df.index == "אחר"]
@@ -281,18 +279,19 @@ class Graphics:
 
             # Step 3: Remove the rows from the original DataFrame
             df = df.drop(index="אחר")
-            print(df.to_markdown())
 
             # Step 4: Add a new row with the sum
             df.loc['אחר'] = sum_removed
-            print(df.to_markdown())
 
 
-            return df
+            return df, outliers_df
     
+        outliers_lst = []
+
         if not df.empty:
             df['Final_Value'] = df.apply(lambda row: abs(row['Final_Value']), axis=1)
-            df = cover_outliers(df)
+            df, outliers_df = cover_outliers(df)
+            outliers_lst = outliers_df.index.tolist()
             df['Percent'] = df.apply(lambda row: abs(row['Final_Value'])*100/df['Final_Value'].sum(), axis=1)
             df.index = df.index.map(lambda x: f"{utils.heb_conversion(x)}\n{df.loc[x, 'Percent']:,.2f}%")
             from Constants import Local
@@ -307,3 +306,4 @@ class Graphics:
             ax.set_title('Empty Pie Chart')
 
         plt.savefig(r'Outputs\Category_Distribution.png')
+        return outliers_lst

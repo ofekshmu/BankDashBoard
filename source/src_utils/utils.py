@@ -1062,9 +1062,9 @@ Please Make sure that none of the following formats have their 'Identifications 
         # Add associated cate/business:
         tag = soup.find('p', class_="Associated")
         
-        for tuple in data["Association list"]:
+        for ele in data["Association list"]:
             sub_tag = soup.new_tag('li')
-            sub_tag.string = f"{tuple[0]}\t{tuple[1]}"
+            sub_tag.string = f"{ele}"
             tag.append(sub_tag)
 
         tag = soup.find('img', alt="Additional Image")

@@ -501,12 +501,12 @@ class AppManager:
                 df = DataBase().get_transactions(category=None, business=name_for_analysis)
                 df = SimpleMath.process_prices(df)
                 df = df[['Name','Final_Value','Category']].groupby('Category').sum()
-                Graphics.plot_pie_distribution(df)
             else:
                 df = DataBase().get_transactions(category=name_for_analysis, business=None)
                 df = SimpleMath.process_prices(df)
                 df = df[['Name','Final_Value','Category']].groupby('Name').sum()
-                Graphics.plot_pie_distribution(df)
+            
+            return Graphics.plot_pie_distribution(df)
 
 
 
@@ -516,7 +516,7 @@ class AppManager:
         else:
             df_transactions = remove_by(df_transactions,category=name_for_analysis)
 
-        get_associated(name_for_analysis, case)
+        outliers_lst = get_associated(name_for_analysis, case)
 
         # Run analysis     
         utils.create_html_name_analysis({"subtitle": "Specific Analysis",
@@ -530,7 +530,7 @@ class AppManager:
                                          "Yearly use plot path": r"C:\Users\ofeks\OneDrive\BankProject\Outputs\General_info_Category_analysis.png",
                                          "Highest Transaction value" : "X",
                                          "Highest Transaction date": "X",
-                                         "Association list": [("Name1",2), ("Name2",4), ("Name3",6)],
+                                         "Association list": outliers_lst,
                                          "count pie plot path" : r"C:\Users\ofeks\OneDrive\BankProject\Outputs\Category_Distribution.png",
                                          "transactions": df_transactions})
         webbrowser.open(r'source\html\Category_output.html')

@@ -256,14 +256,43 @@ class Graphics:
         """
         
         """
+
+        def cover_outliers(df) -> pd.DataFrame:
+            numerical_col_name = 'Final_Value'
+
+            total = df[numerical_col_name].sum()
+
+            lower_treshold = total*0.02
+            #lower_treshold = lower_treshold if lower_treshold > 0 else 0.05*mean 
+
+            high_treshold = df[numerical_col_name].max()  + 10
+
+            conditions = (df[numerical_col_name] < high_treshold) & (df[numerical_col_name] > lower_treshold)
+            
+            print(df.to_markdown())
+            df.index = df.index.map(lambda x: "אחר" if df.loc[x, numerical_col_name] > high_treshold or df.loc[x, numerical_col_name] < lower_treshold else x)
+
+
+            # Step 1: Filter out the rows where the index is "אחר"
+            removed_rows = df.loc[df.index == "אחר"]
+
+            # Step 2: Calculate the sum of the 'Final_Value' column for the removed rows
+            sum_removed = removed_rows['Final_Value'].sum()
+
+            # Step 3: Remove the rows from the original DataFrame
+            df = df.drop(index="אחר")
+            print(df.to_markdown())
+
+            # Step 4: Add a new row with the sum
+            df.loc['אחר'] = sum_removed
+            print(df.to_markdown())
+
+
+            return df
+    
         if not df.empty:
-            #df['Category'] = df.apply(lambda row: utils.heb_conversion(row['Category']), axis=1)
-            #df['Name'] = df.apply(lambda row: utils.heb_conversion(row['Name']), axis=1)
-            #df.set_index('Category')
-            # print(df.to_markdown())
             df['Final_Value'] = df.apply(lambda row: abs(row['Final_Value']), axis=1)
-            # total = df['Final_Value'].sum()
-            # print(df.to_markdown())
+            df = cover_outliers(df)
             df['Percent'] = df.apply(lambda row: abs(row['Final_Value'])*100/df['Final_Value'].sum(), axis=1)
             df.index = df.index.map(lambda x: f"{utils.heb_conversion(x)}\n{df.loc[x, 'Percent']:,.2f}%")
             from Constants import Local

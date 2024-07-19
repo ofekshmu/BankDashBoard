@@ -1041,7 +1041,10 @@ Please Make sure that none of the following formats have their 'Identifications 
         tag.string = f"{data['Monthly Active Standard Deviation']:,.2f} ₪"
 
         tag = soup.find('td', class_="Yearly Average")
-        tag.string = f"{data['Yearly Average']:,.2f} ₪"
+        if data['Yearly Average'] < 0:
+            tag.string = f"({abs(data['Yearly Average']):,.2f}) ₪"
+        else:
+            tag.string = f"{data['Yearly Average']:,.2f} ₪"
 
         tag = soup.find('td', class_="Total Spendings")
         tag.string = f"({data['Total Spendings']:,.2f}) ₪"

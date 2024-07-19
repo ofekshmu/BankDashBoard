@@ -277,19 +277,21 @@ class Graphics:
             high_treshold = df[numerical_col_name].max()  + 10
             
             outliers_df = df[(df[numerical_col_name] > high_treshold) | (df[numerical_col_name] < lower_treshold)]
-            df.index = df.index.map(lambda x: "אחר" if df.loc[x, numerical_col_name] > high_treshold or df.loc[x, numerical_col_name] < lower_treshold else x)
+            
+            if not outliers_df.empty:
+                df.index = df.index.map(lambda x: "אחר" if df.loc[x, numerical_col_name] > high_treshold or df.loc[x, numerical_col_name] < lower_treshold else x)
 
-            # Step 1: Filter out the rows where the index is "אחר"
-            removed_rows = df.loc[df.index == "אחר"]
+                # Step 1: Filter out the rows where the index is "אחר"
+                removed_rows = df.loc[df.index == "אחר"]
 
-            # Step 2: Calculate the sum of the 'Final_Value' column for the removed rows
-            sum_removed = removed_rows['Final_Value'].sum()
+                # Step 2: Calculate the sum of the 'Final_Value' column for the removed rows
+                sum_removed = removed_rows['Final_Value'].sum()
 
-            # Step 3: Remove the rows from the original DataFrame
-            df = df.drop(index="אחר")
+                # Step 3: Remove the rows from the original DataFrame
+                df = df.drop(index="אחר")
 
-            # Step 4: Add a new row with the sum
-            df.loc['אחר'] = sum_removed
+                # Step 4: Add a new row with the sum
+                df.loc['אחר'] = sum_removed
 
 
             return df, outliers_df

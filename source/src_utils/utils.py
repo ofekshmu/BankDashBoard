@@ -1067,6 +1067,8 @@ Please Make sure that none of the following formats have their 'Identifications 
             sub_tag.string = f"{tuple[0]}\t{tuple[1]}"
             tag.append(sub_tag)
 
+        tag = soup.find('img', alt="Additional Image")
+        tag['src'] = f"{data['count pie plot path']}"
 
         # Add transactions data to html list:
         list_tag = soup.find('main', class_="leaderboard__profiles")

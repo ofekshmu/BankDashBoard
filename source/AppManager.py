@@ -492,12 +492,31 @@ class AppManager:
                 df = df[df['Name'] == business_name]
 
             return df
-        
+
+        def get_associated(name_for_analysis, case) -> list[str]:
+            """
+            TODO
+            """
+            if case:
+                df = DataBase().get_transactions(category=None, business=name_for_analysis)
+                df = SimpleMath.process_prices(df)
+                df = df[['Name','Final_Value','Category']].groupby('Category').sum()
+                Graphics.plot_pie_distribution(df)
+            else:
+                df = DataBase().get_transactions(category=name_for_analysis, business=None)
+                df = SimpleMath.process_prices(df)
+                df = df[['Name','Final_Value','Category']].groupby('Name').sum()
+                Graphics.plot_pie_distribution(df)
+
+
+
         df_transactions = SimpleMath.process_prices(DataBase().get_transactions())
         if case:
             df_transactions = remove_by(df_transactions,business_name=name_for_analysis)
         else:
             df_transactions = remove_by(df_transactions,category=name_for_analysis)
+
+        get_associated(name_for_analysis, case)
 
         # Run analysis     
         utils.create_html_name_analysis({"subtitle": "Specific Analysis",
@@ -512,7 +531,7 @@ class AppManager:
                                          "Highest Transaction value" : "X",
                                          "Highest Transaction date": "X",
                                          "Association list": [("Name1",2), ("Name2",4), ("Name3",6)],
-                                         "count pie plot path" : "Insert path here",
+                                         "count pie plot path" : r"C:\Users\ofeks\OneDrive\BankProject\Outputs\Category_Distribution.png",
                                          "transactions": df_transactions})
         webbrowser.open(r'source\html\Category_output.html')
 

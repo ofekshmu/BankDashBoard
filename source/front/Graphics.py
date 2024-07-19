@@ -250,3 +250,31 @@ class Graphics:
             ax.set_title('Empty Pie Chart')
 
         plt.savefig(r'Outputs\Card_Distribution.png')
+
+    @staticmethod
+    def plot_pie_distribution(df: pd.DataFrame) -> None:
+        """
+        
+        """
+        if not df.empty:
+            #df['Category'] = df.apply(lambda row: utils.heb_conversion(row['Category']), axis=1)
+            #df['Name'] = df.apply(lambda row: utils.heb_conversion(row['Name']), axis=1)
+            #df.set_index('Category')
+            # print(df.to_markdown())
+            df['Final_Value'] = df.apply(lambda row: abs(row['Final_Value']), axis=1)
+            # total = df['Final_Value'].sum()
+            # print(df.to_markdown())
+            df['Percent'] = df.apply(lambda row: abs(row['Final_Value'])*100/df['Final_Value'].sum(), axis=1)
+            df.index = df.index.map(lambda x: f"{utils.heb_conversion(x)}\n{df.loc[x, 'Percent']:,.2f}%")
+            from Constants import Local
+            ax = df.plot.pie(y='Final_Value', figsize=(5, 3), legend=False, title="Distribution", colors=Local.Colors)
+            ax.set_ylabel('')
+
+        else:
+            _, ax = plt.subplots()
+            ax.pie([], labels=[])
+            ax.set_ylabel('')
+            # set the title of the plot
+            ax.set_title('Empty Pie Chart')
+
+        plt.savefig(r'Outputs\Category_Distribution.png')

@@ -653,7 +653,8 @@ class DataBase:
 
     def get_transactions(self, category=None, business=None):
         """
-        TODO
+        get all transactions that fit the given filters.
+        function is process_proces ready.
         """
         if not (isinstance(category, str) or category is None):
             utils.log("Argument input 'category' error in 'get_transactions'", "error")

@@ -740,7 +740,7 @@ class DataBase:
 
     def drop_file(self, file_name: str, format_name: str, card_number: str):
         """
-        Remove the enteries associated with the file name from the db.
+        Remove the entries associated with the file name from the db.
         """
         self.cursor.execute("""
                             DELETE

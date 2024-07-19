@@ -160,8 +160,8 @@ class AppManager:
                             flag = False
                             break
                     if flag:
-                        res = utils.template_menu(['Abort update', 'Skip entery, its not important...'],
-                                                  f'Did not found a correspinding entery for\n{entry_ex}\nin the new file.\n\
+                        res = utils.template_menu(['Abort update', 'Skip entry, its not important...'],
+                                                  f'Did not found a correspinding entry for\n{entry_ex}\nin the new file.\n\
                                                   What would you like to do?')
                         match res:
                             case 0:

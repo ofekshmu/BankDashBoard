@@ -255,10 +255,18 @@ class Graphics:
     @staticmethod
     def plot_pie_distribution(df: pd.DataFrame) -> list:
         """
-        
+        The function receives a 'process_prices_ready' data frame and creates a distribution pie chart
+        according to its index values. The pie chart is displayed with percentage values and index names.
+        The chart will show entries below a certain treshold as 'other' and the following will be returned as
+        a list. the outliers are marked according to the 'cover_outliers' function.
         """
 
         def cover_outliers(df) -> Tuple[pd.DataFrame, pd.DataFrame]:
+            """
+            The 'cover_outliers' replaces entries in the given input @df, that do not pass the threshold value,
+            with a single entry that sums all of them. the index of the new intery will be named 'other'.
+            The function will return the newly created df and another df that represents the removed entries.
+            """
             numerical_col_name = 'Final_Value'
 
             total = df[numerical_col_name].sum()

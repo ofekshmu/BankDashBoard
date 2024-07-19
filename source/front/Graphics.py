@@ -175,7 +175,7 @@ class Graphics:
             sns.lineplot(x="Months", y="Overall Income", color=overall_income_line_color, marker='o', data = overall_data, linestyle='--')
 
         # ----------- Plotting information next to line plot points -----------
-        offset = 1000   # For better visual 
+        offset = 40   # For better visual 
         for x, y_net, y_overall in zip(net_data['Months'], net_data['Net Income'], overall_data['Overall Income']):
             plt.text(x, y_net + offset, f'{y_net:,.0f}₪', ha='right', va='bottom', color=net_income_line_color,fontweight='bold')
             if secondary_line:
@@ -209,7 +209,7 @@ class Graphics:
         plt.legend(handles=legend_handles)
 
         if not title_ext == "":
-            title_ext += "_" + title_ext
+            title_ext = "_" + title_ext
         plt.savefig(r'Outputs\General_info' + title_ext + r'.png')
 
         return overall_data

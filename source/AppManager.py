@@ -647,7 +647,6 @@ class AppManager:
                             high_std_earnings,
                             monthly_balance,
                             card_color_dict,
-                            card_validation_df,
                             data)
         webbrowser.open(r'source\html\output.html')
 

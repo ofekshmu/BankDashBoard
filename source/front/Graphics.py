@@ -57,77 +57,77 @@ class Graphics:
         return outliers_list
 
 
-    @staticmethod
-    def plot_gas(df: pd.DataFrame) -> pd.Series:
-        """
-        The function assumes that df is never empty.
-        Saves a plot image and returns a series of statistics.
-        """
-        # ------------
-        df['Date/Executed_Date'] = pd.to_datetime(df['Date/Executed_Date'])
-        statistics = df['Final_Value'].describe().loc[["count", "mean", "std", "min", "max"]]
+    # @staticmethod
+    # def plot_gas(df: pd.DataFrame) -> pd.Series:
+    #     """
+    #     The function assumes that df is never empty.
+    #     Saves a plot image and returns a series of statistics.
+    #     """
+    #     # ------------
+    #     df['Date/Executed_Date'] = pd.to_datetime(df['Date/Executed_Date'])
+    #     statistics = df['Final_Value'].describe().loc[["count", "mean", "std", "min", "max"]]
 
-        start_date = pd.Timestamp.today().normalize() - pd.DateOffset(months=2, days=0)
-        end_date = pd.Timestamp.today().normalize()
-        all_dates = pd.date_range(start=start_date, end=end_date, freq='D')
-        df_all_dates = pd.DataFrame({'Date/Executed_Date': all_dates})
+    #     start_date = pd.Timestamp.today().normalize() - pd.DateOffset(months=2, days=0)
+    #     end_date = pd.Timestamp.today().normalize()
+    #     all_dates = pd.date_range(start=start_date, end=end_date, freq='D')
+    #     df_all_dates = pd.DataFrame({'Date/Executed_Date': all_dates})
 
-        # merge the original DataFrame with the new DataFrame using a left join
-        df_merged = pd.merge(df_all_dates, df, on='Date/Executed_Date', how='left')
+    #     # merge the original DataFrame with the new DataFrame using a left join
+    #     df_merged = pd.merge(df_all_dates, df, on='Date/Executed_Date', how='left')
 
-        # fill the missing values with 0
-        df_merged['Final_Value'].fillna(0, inplace=True)
+    #     # fill the missing values with 0
+    #     df_merged['Final_Value'].fillna(0, inplace=True)
 
-        # set the datetime column as the index of the DataFrame
-        df_merged.set_index('Date/Executed_Date', inplace=True)
+    #     # set the datetime column as the index of the DataFrame
+    #     df_merged.set_index('Date/Executed_Date', inplace=True)
 
-        # create the bar plot
-        plt.figure()
-        fig, ax = plt.subplots(figsize=(15, 6))
-        bars = ax.bar(df_merged.index.strftime('%d/%m'), df_merged['Final_Value'])
+    #     # create the bar plot
+    #     plt.figure()
+    #     fig, ax = plt.subplots(figsize=(15, 6))
+    #     bars = ax.bar(df_merged.index.strftime('%d/%m'), df_merged['Final_Value'])
 
-        for i, bar in enumerate(bars):
-            height = bar.get_height()
-            if height != 0:
-                ax.text(bar.get_x() + bar.get_width()/2., height + 2,
-                        utils.heb_conversion(df_merged['Name'][i]),
-                        ha='center', va='bottom')
+    #     for i, bar in enumerate(bars):
+    #         height = bar.get_height()
+    #         if height != 0:
+    #             ax.text(bar.get_x() + bar.get_width()/2., height + 2,
+    #                     utils.heb_conversion(df_merged['Name'][i]),
+    #                     ha='center', va='bottom')
 
-        # rotate x-axis labels by 45 degrees
-        ax.set_xticklabels(df_merged.index.strftime('%d/%m'), rotation=55)
+    #     # rotate x-axis labels by 45 degrees
+    #     ax.set_xticklabels(df_merged.index.strftime('%d/%m'), rotation=55)
 
-        # set the x-axis label
-        ax.set_xlabel('Date (dd/mm)')
-        # set the y-axis label
-        ax.set_ylabel('Values')
+    #     # set the x-axis label
+    #     ax.set_xlabel('Date (dd/mm)')
+    #     # set the y-axis label
+    #     ax.set_ylabel('Values')
 
-        # set the title of the plot
-        ax.set_title('Bar Plot')
+    #     # set the title of the plot
+    #     ax.set_title('Bar Plot')
 
-        plt.savefig(r'Outputs\Gas_Info.png')
-        return statistics
+    #     plt.savefig(r'Outputs\Gas_Info.png')
+    #     return statistics
 
-    @staticmethod
-    def plot_monthly_gas(df: pd.DataFrame) -> None:
+    # @staticmethod
+    # def plot_monthly_gas(df: pd.DataFrame) -> None:
 
-        if df.empty:
-            return False
+    #     if df.empty:
+    #         return False
 
-        plt.figure()
+    #     plt.figure()
 
-        df['Date/Executed_Date'] = pd.to_datetime(df['Date/Executed_Date'])
-        df = df.groupby(pd.Grouper(key='Date/Executed_Date', freq='M')).sum()
-        fig, ax = plt.subplots(figsize=(10, 6))
-        ax.bar(df.index.strftime('%b %Y'), df['Final_Value'])
+    #     df['Date/Executed_Date'] = pd.to_datetime(df['Date/Executed_Date'])
+    #     df = df.groupby(pd.Grouper(key='Date/Executed_Date', freq='M')).sum()
+    #     fig, ax = plt.subplots(figsize=(10, 6))
+    #     ax.bar(df.index.strftime('%b %Y'), df['Final_Value'])
 
-        # set the x-axis label
-        ax.set_xlabel('Month')
-        # set the y-axis label
-        ax.set_ylabel('Amount')
+    #     # set the x-axis label
+    #     ax.set_xlabel('Month')
+    #     # set the y-axis label
+    #     ax.set_ylabel('Amount')
 
-        # set the title of the plot
-        ax.set_title('Monthly Payment')
-        plt.savefig(r'Outputs\Gas_monthly.png')
+    #     # set the title of the plot
+    #     ax.set_title('Monthly Payment')
+    #     plt.savefig(r'Outputs\Gas_monthly.png')
 
     @staticmethod
     def plot_general(spendings : list, spendings_overall : list, earnings: list, title_ext: str = "", fig_size=(14, 8), secondary_line: bool = True):
@@ -219,36 +219,54 @@ class Graphics:
     @staticmethod
     def card_distribution(spendings: pd.DataFrame, color_dict: dict):
         """
-
+        Revceives the spending df of the current month,
         """
-        if not spendings.empty:
+        df = spendings.copy()
+
+        if not df.empty:
+            
             # Since BankTransactions are indexed by a Ref Number, These needs to be caregorized by the TableName,
-            # and not by CardNumber, unlike CardTransactions.
-            # Sum Bank Transactions first:
-            new_row = spendings[spendings['TableName'] == 'BankTransactions']
-            # Set col Name for row identification
-            new_row['Ref/CardID'] = 'Bank'
-            # Filter out individual Bank transactions
-            df = spendings[spendings['TableName'] != 'BankTransactions']
-            # Add the summed transactions to create a new, summed, banktransaction row.
-            # df = df.append(new_row, ignore_index=True) # Was removed in pandas version 2.0
-            df = pd.concat([df, new_row], ignore_index=True)
+            # and not by CardNumber, unlike CardTransactions, Therefor, we will change the ref number for all
+            # BankTransactions
+            
+            df['Ref/CardID'] = df.apply(lambda row: 'Bank' if row['TableName'] == 'BankTransactions' else row['Ref/CardID'], axis=1)
             df = df.groupby("Ref/CardID").sum()
 
-            title = "Card Distribution"
-
             color_list = [color_dict[card_id] for card_id in df.index]
-            df.index = df.index.map(lambda card: f"{utils.heb_conversion(card)}\n{df.loc[card, 'Final_Value']:,.2f}")
 
-            ax = df.plot.pie(y='Final_Value', figsize=(3, 2), legend=False, title=title, colors=color_list)
-            ax.set_ylabel('')
+            # Plot the bar plot using seaborn
+            sns.set(style="whitegrid")
+            plt.figure(figsize=(6, 3))
 
+            # Adding the values on top of the bar plots:
+            ax = sns.barplot(x="Ref/CardID", y="Final_Value", data=df, palette=color_list)
+            for p in ax.patches:
+                height = p.get_height()
+                ax.annotate(f'{height:,.0f}₪',
+                            xy=(p.get_x() + p.get_width() / 2, height),
+                            xytext=(0, 3),  # 3 points vertical offset
+                            textcoords="offset points",
+                            ha='center', va='bottom', fontweight='bold')
+
+            # The following section is responsible for changing the y label values
+            # for better visual - Custom formatter for y-axis
+            # -----------------------------------------------------------------------
+            import matplotlib.ticker as ticker
+            def format_ils(value, tick_number):
+                return f'{value:,.0f}₪'
+
+            # Apply custom formatter to y-axis
+            ax.yaxis.set_major_formatter(ticker.FuncFormatter(format_ils))
+            # -----------------------------------------------------------------------
+            # ax.set_xlabel("Card no'/Bank")
+            # ax.set_ylabel("Amount")
+            ax.set_title("Source Distribution")
         else:
             _, ax = plt.subplots()
             ax.pie([], labels=[])
             ax.set_ylabel('')
             # set the title of the plot
-            ax.set_title('Empty Pie Chart')
+            ax.set_title('Empty Chart')
 
         plt.savefig(r'Outputs\Card_Distribution.png')
 

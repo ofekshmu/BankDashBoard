@@ -217,36 +217,58 @@ class Graphics:
 
 
     @staticmethod
-    def card_distribution(spendings: pd.DataFrame, color_dict: dict):
+    def card_distribution(spendings: pd.DataFrame, color_dict: dict, df_card_status: pd.DataFrame):
         """
         Revceives the spending df of the current month,
         """
         df = spendings.copy()
 
         if not df.empty:
-            
             # Since BankTransactions are indexed by a Ref Number, These needs to be caregorized by the TableName,
             # and not by CardNumber, unlike CardTransactions, Therefor, we will change the ref number for all
             # BankTransactions
             
             df['Ref/CardID'] = df.apply(lambda row: 'Bank' if row['TableName'] == 'BankTransactions' else row['Ref/CardID'], axis=1)
             df = df.groupby("Ref/CardID").sum()
-
-            color_list = [color_dict[card_id] for card_id in df.index]
-
+            
+            # The status df is merged with the data df in order to annotate the status (see lower part)
+            df = pd.merge(df, df_card_status, left_on='Ref/CardID', right_on='CardID', how='outer')
+            # filling the NA in the df is crucial for displaying all the data (Bank transactions)
+            df = df.fillna("Bank")
+ 
+            #color_list = [color_dict[card_id] for card_id in df['Ref/CardID']]
+            color_list = list(color_dict.values())
+            
             # Plot the bar plot using seaborn
             sns.set(style="whitegrid")
             plt.figure(figsize=(6, 3))
 
             # Adding the values on top of the bar plots:
-            ax = sns.barplot(x="Ref/CardID", y="Final_Value", data=df, palette=color_list)
-            for p in ax.patches:
+            ax = sns.barplot(x="CardID", y="Final_Value", data=df, palette=color_list)
+            for index ,p in enumerate(ax.patches):
                 height = p.get_height()
+                status = df['Status'].iloc[index]
+                # ------------ annotate the value of the bar on top of it ------------
                 ax.annotate(f'{height:,.0f}₪',
                             xy=(p.get_x() + p.get_width() / 2, height),
                             xytext=(0, 3),  # 3 points vertical offset
                             textcoords="offset points",
                             ha='center', va='bottom', fontweight='bold')
+                # --------------------------------------------------------------------
+                if status == "Verified":
+                    ax.annotate(f'{status}',
+                                xy=(p.get_x() + p.get_width() / 2, height),
+                                xytext=(0, 17),  # 3 points vertical offset
+                                textcoords="offset points",
+                                ha='center', va='bottom', fontweight='bold', color = 'green')
+                # --------------------------------------------------------------------
+                if status == "Not Verified":
+                    ax.annotate(f'{status}',
+                                xy=(p.get_x() + p.get_width() / 2, height),
+                                xytext=(0, 17),  # 3 points vertical offset
+                                textcoords="offset points",
+                                ha='center', va='bottom', fontweight='bold', color = 'red')
+                    
 
             # The following section is responsible for changing the y label values
             # for better visual - Custom formatter for y-axis

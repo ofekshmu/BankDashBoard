@@ -632,7 +632,7 @@ class AppManager:
         color_list = Local.Colors[:len(card_ids)]
         card_color_dict = dict(zip(card_ids, color_list))
 
-        Graphics.card_distribution(spendings_df, card_color_dict)
+        Graphics.card_distribution(spendings_df, card_color_dict, card_validation_df)
 
         data['net income'] = (earnings_df['Final_Value'].sum() - spendings_df['Final_Value'].sum())
         data['overall net income'] = (earnings_df['Final_Value'].sum() - \

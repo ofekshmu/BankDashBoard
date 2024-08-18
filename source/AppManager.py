@@ -94,7 +94,8 @@ class AppManager:
         res = utils.template_menu(['Write an original SQL command',
                                    'Reset a transaction category to "NotCategorized"',
                                    'Change transaction category by ID',
-                                   'Change an existing category'], 'Pick one of the follwing:')
+                                   'Change an existing category',
+                                   'Delete a transaction'], 'Pick one of the follwing:')
         match res:
             case 0:
                 original_command()
@@ -106,6 +107,8 @@ class AppManager:
                 DataBase().commit_changes()
             case 3:
                 utils.change_an_existing_category_name()
+            case 4:
+                utils.delete_a_transaction()
             case _:
                 utils.log('Something went wrong in "execute_sql', 'error')
 

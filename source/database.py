@@ -1188,7 +1188,37 @@ class DataBase:
             rows_affected = self.cursor.rowcount
             utils.log(f"Rows updated in {table_name}: {rows_affected}", 'system')
     
+    def delete_transactions(self, ids: Tuple[list[str], str]):
+        """
+        The function will receive a single id or a list of id's of transaction from the
+        Card transaction table.
+        the function will delete the transaction and update the relevant file 'update time'.
+        please note that currently there is no method to log deleted transactions except for the
+        logger txt file.
+        """
+        ids = [ids] if not isinstance(ids, list) else ids   # In case more than 1 id was inserted
+        last_update = datetime.now().strftime("%d-%m-%Y")
+        for id in ids:
+            query_info = """From CardTransactions
+                            SELECT Souce_file, CardID
+                            WHERE ID = ?
+                            """
+            (file_name, card_id) = self.cursor.execute(query_info, (id,)).fetchone()
+            
+            query_del = """ DELETE 
+                            FROM CardTransactions
+                            WHERE Id = ?
+                        """
 
+            query_upd = """ UPDATE File
+                            SET Last_update = ?
+                            WHERE File_Name = ? AND Card_Number = ?
+                        """
+                            # SET Bad_rows = Bad_rows || ?
+                            # WHERE some_condition;  # Modify this as per your condition
+            self.cursor.execute(query_del, (id,))
+            self.cursor.execute(query_upd, (last_update, file_name, card_id))
+            utils.log(f"Transaction of ID ({id}) from file ({file_name}) [{card_id}] was deleted, Please commit the changes...")
 # ----------------------------------------------------------------------
 # ----------------------------------------------------------------------
 

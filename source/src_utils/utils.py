@@ -1264,4 +1264,38 @@ Please Make sure that none of the following formats have their 'Identifications 
         utils.update_categories_file(new_category_lst, append=False)
         utils.log(f"({chosen_cat_to_replace}) has been removed from the category list")
 
-        
+    @staticmethod
+    def delete_a_transaction() -> None:
+        """
+        The function asks the user for card transactions ids to delete from the data base.
+        The user can pick multiple ids to delete. Note that after the function is executed,
+        there will be no documentation of the deleted transaction.
+        """
+        utils.log("Please insert the id's of the transactions you want to delete, and -1 to stop", 'system')
+        id_lst = []
+        while True:
+            x = input()
+            if not x.isdigit():
+                utils.log("Please insert a number...", 'system')
+                continue
+            x = int(x)
+            if x < -1 or x == 0:
+                utils.log("Invalid id number", 'system')
+                continue
+            if x == -1:
+                break
+            id_lst.append(x)
+
+        DataBase().delete_transactions(id_lst)
+        DataBase().commit_changes()
+            
+            
+        DataBase().delete_transactions()
+        # if utils.template_menu(["Delete from Bank Transactions", \
+        #                         "Delete from Card Transactions"], \
+        #                        "Where do you want to delete the trasnaction from?")
+    
+        #     DataBase().delete_transactions()
+        # else:
+        #     DataBase().delete_transactions()
+        # DataBase().commit_changes()

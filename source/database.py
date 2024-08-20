@@ -1199,8 +1199,8 @@ class DataBase:
         ids = [ids] if not isinstance(ids, list) else ids   # In case more than 1 id was inserted
         last_update = datetime.now().strftime("%d-%m-%Y")
         for id in ids:
-            query_info = """From CardTransactions
-                            SELECT Souce_file, CardID
+            query_info = """SELECT Source_file, CardID
+                            From CardTransactions
                             WHERE ID = ?
                             """
             (file_name, card_id) = self.cursor.execute(query_info, (id,)).fetchone()

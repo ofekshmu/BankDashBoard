@@ -1275,22 +1275,18 @@ Please Make sure that none of the following formats have their 'Identifications 
         id_lst = []
         while True:
             x = input()
-            if not x.isdigit():
-                utils.log("Please insert a number...", 'system')
-                continue
-            x = int(x)
-            if x < -1 or x == 0:
-                utils.log("Invalid id number", 'system')
-                continue
-            if x == -1:
+            if x == '-1':
                 break
+            if not x.isdigit() or int(x) < -1 or int(x) == 0:
+                utils.log("Please insert a valid input number...", 'system')
+                continue
+
             id_lst.append(x)
 
+        from database import DataBase
         DataBase().delete_transactions(id_lst)
         DataBase().commit_changes()
-            
-            
-        DataBase().delete_transactions()
+
         # if utils.template_menu(["Delete from Bank Transactions", \
         #                         "Delete from Card Transactions"], \
         #                        "Where do you want to delete the trasnaction from?")

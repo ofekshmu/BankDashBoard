@@ -33,6 +33,8 @@ class File:
         self.header_col_idx = format_info["Header col index"]
         self.adittional_data_field = format_info["Adittional data field"]
         self.independent = format_info["Independent"]
+        self.flip = format_info["flip"]
+        self.associated = format_info["associated"]
 
         # This value will determine the index of the secondary headers, if exists
         # The value is updated in the validate function
@@ -381,7 +383,7 @@ class File:
             return True
 
         from Parser import Parser
-        sorted_names = Parser.getInstance().get_names(self.format_name, self.card_number)    # type: ignore
+        sorted_names = Parser.getInstance().get_names(self.format_name, self.associated, self.card_number)    # type: ignore
         recent_file_name = get_last_file_name(sorted_names)
         if recent_file_name is None:
             # ------------------------------- Log ---------------------------------

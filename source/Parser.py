@@ -190,29 +190,43 @@ class Parser():
         utils.log(f"{file_name} was not identified.", "warning")
         return None, None
 
-    def get_names(self, format_type: str, card_number):
+    def get_names(self, format_type: str, associated_formats: list,  card_number):
         """
         Return a list of names of file of type File.
         The names are Sorted by recency.
         """
+        file_names_list = []
+        sortion_dict = {}
+        associated_formats.append(format_type)
         
-        file_names_list = DataBase().get_file_names_by(format_type, card_number)
+        for f in associated_formats:
+            file_names_list.append(DataBase().get_file_names_by(f, card_number))
+        
         for file_name in file_names_list:
             
             value = self.__extract_sortion_key(Formats.FORMATS[format_type], file_name)
 
-            if format_type in self.type_to_name.keys():
-                self.type_to_name[format_type][file_name] = value
-            else:
-                self.type_to_name[format_type] = {file_name: value}
 
-            self.name_to_type[file_name] = format_type
+            # TODO not sure what the below code does....
+            # or why it is needed.. need to test..
+
+            # if format_type in self.type_to_name.keys():
+            #     self.type_to_name[format_type][file_name] = value
+            # else:
+            #     self.type_to_name[format_type] = {file_name: value}
+
+            # self.name_to_type[file_name] = format_type
+
+            sortion_dict[file_name] = value
 
         # Sort the read file names according to dates/serial number
-        for k, v in self.type_to_name.items():
-            self.type_to_name[k] = {name: value for name, value in sorted(v.items(), key=lambda item: item[1])}
+        # the following codes fits the commented code above
+        # for k, v in sortion_dict.items():
+        #     self.type_to_name[k] = {name: value for name, value in sorted(v.items(), key=lambda item: item[1])}
 
-        return [k for k in self.type_to_name[format_type].keys()]
+        sorted_dict = dict(sorted(sortion_dict.items(), key=lambda item: item[1]))
+
+        return [k for k in sorted_dict.keys()]
 
     def __extract_sortion_key(self, consts, name: str):
         """

@@ -115,7 +115,7 @@ class Formats:
                                               'תאריך'],     #7
                                   "Double tables": False,
                                   "Secondary Headers": [],
-                                  "Header row index": 5,
+                                  "Header row index": 6,
                                   "Header col index": 1,
                                   "Independent": False,
                                   "flip": True,

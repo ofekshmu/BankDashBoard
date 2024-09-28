@@ -535,7 +535,7 @@ class utils:
         return options[res], description
 
     @staticmethod
-    def is_headers_valid(file_name: str, headers: list, initial_row: int) -> bool:
+    def is_headers_valid(file_name: str, headers: list, initial_row: int, header_col_index: int) -> bool:
         '''
         The function validates the table headers in the file.
         The values of the headers and the initial row are given in the Constants.py.
@@ -543,7 +543,7 @@ class utils:
         em = ExcelManager().set_active_sheet(Local.INPUT_FOLDER + "\\" + file_name)
 
         valid = True
-        col = 0
+        col = header_col_index
         row = initial_row
         for name in headers:
             value = em.read_cell(row, col)
@@ -1187,6 +1187,36 @@ Please Make sure that none of the following formats have their 'Identifications 
             DataBase().commit_changes()
         else:
             utils.log('No transactions were Auto tagged...', 'system')
+
+    @staticmethod
+    def match_BeinLeumi_headers(table: list[list], format_name: str) -> list[list]:
+        """
+
+        """
+        from Configurations.Formats import Formats
+        if not Formats.FORMATS["BeinLeumi-Bank"]["Headers"] == \
+                ['תאריך',
+                'סוג פעולה',
+                'תיאור',
+                'אסמכתא',
+                'זכות',
+                'חובה',
+                'תאריך ערך',
+                'יתרה']:
+            raise ValueError("Headers Changed!")
+        if not Formats.FORMATS["BeinLeumi-Bank-Date-Range"]["Headers"] == \
+                ['יתרה',
+                'תאריך ערך',  #1
+                'זכות',       #2
+                'חובה',       #3
+                'תאור',       #4
+                'אסמכתא',     #5
+                'סוג פעולה',  #6
+                'תאריך']:
+            raise ValueError("Headers Changed!")
+        new_column_order = [7, 6, 4, 5, 2, 3, 1, 0]
+        reordered_data = [[row[i] for i in new_column_order] for row in table]
+        return reordered_data
 
     @staticmethod
     def validate_BankTransactions() -> bool:

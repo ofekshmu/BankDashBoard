@@ -52,29 +52,27 @@ class Bank(File):
                                                        Source_file=self.name,
                                                        Extra_Info=f"Info: {row[7]} | Note: {row[8]}")
                 case "BeinLeumi-Bank":
-                    if self.flip: # True value, indicates that the current file is of BeinLeumi-Date-Range
-                                  # The value was initialized for data flipping indication but is also used here 
-                        DataBase().insert_bank_transaction(Date=row[7],
-                                                            Value_Date=row[1],
-                                                            Name=row[4],
-                                                            Ref=row[5],
-                                                            Out=utils.amount_ready(row[3]),
-                                                            Income=utils.amount_ready(row[2]),
-                                                            Balance=row[0],
-                                                            Source_file=self.name,
-                                                            Extra_Info=f"Info: {row[6]}")                        
-                    else:
-                        DataBase().insert_bank_transaction(Date=row[0],
-                                                            Value_Date=row[6],
-                                                            Name=row[2],
-                                                            Ref=row[3],
-                                                            Out=utils.amount_ready(row[5]),
-                                                            Income=utils.amount_ready(row[4]),
-                                                            Balance=row[7],
-                                                            Source_file=self.name,
-                                                            Extra_Info=f"Info: {row[1]}")
+                    DataBase().insert_bank_transaction(Date=row[0],
+                                                        Value_Date=row[6],
+                                                        Name=row[2],
+                                                        Ref=row[3],
+                                                        Out=utils.amount_ready(row[5]),
+                                                        Income=utils.amount_ready(row[4]),
+                                                        Balance=row[7],
+                                                        Source_file=self.name,
+                                                        Extra_Info=f"Info: {row[1]}")
                     
-                
+                case "BeinLeumi-Bank-Date-Range":
+                    DataBase().insert_bank_transaction(Date=row[7],
+                                                        Value_Date=row[1],
+                                                        Name=row[4],
+                                                        Ref=row[5],
+                                                        Out=utils.amount_ready(row[3]),
+                                                        Income=utils.amount_ready(row[2]),
+                                                        Balance=row[0],
+                                                        Source_file=self.name,
+                                                        Extra_Info=f"Info: {row[6]}") 
+
                 case _:
                     utils.log("Format not supported for insertion into db class.Bank -> insert", "error")
 

@@ -1189,7 +1189,7 @@ Please Make sure that none of the following formats have their 'Identifications 
             utils.log('No transactions were Auto tagged...', 'system')
 
     @staticmethod
-    def match_BeinLeumi_headers(table: list[list], format_name: str) -> list[list]:
+    def match_BeinLeumi_headers(table: list[list]) -> list[list]:
         """
 
         """

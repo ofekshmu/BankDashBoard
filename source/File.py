@@ -5,7 +5,7 @@ from typing import Union
 from database import DataBase
 from src_utils.ExcelReader import ExcelManager
 from typing import Tuple
-from datetime import datetime
+from Configurations.Formats import Formats
 
 class File:
     def __init__(self, name: str, format_info: dict):
@@ -232,7 +232,8 @@ class File:
                 These are identified using....
                 """
                 if entire_row[2] == "TOTAL FOR DATE" or\
-                        entire_row[1] == 'סך חיוב בש"ח:':
+                        entire_row[1] == 'סך חיוב בש"ח:' or\
+                            entire_row[4] == 'יתרת פתיחה':
                     return True
                 return False
 
@@ -293,6 +294,17 @@ class File:
         ones which did not appear before.
         """
 
+        def get_recent_file_info(sorted_dict: dict):
+            keys = list(sorted_dict.keys())     # Convert keys to a list
+            index = keys.index(self.name)       # Get the index of the target key
+            
+            if index > 0:                               # Check if there is a previous key
+                prev_key = keys[index - 1]              # the file parsed before the current one (recent file)
+                return prev_key, sorted_dict[prev_key]  # file name : file format
+            else:
+                raise ValueError("Not previous file...")
+                return None                             # No previous key if the target is the first key
+            
         def get_last_file_name(sorted_names: list) -> Union[str, None]:
             """
             The function receives a list containing all the file names of the same format at the current
@@ -303,7 +315,7 @@ class File:
             idx = sorted_names.index(self.name)
             if idx == 0:
                 return None
-            return sorted_names[idx - 1]
+            return sorted_names[idx - 1],
 
         def get_row(table):
             for i, row in enumerate(table):
@@ -383,21 +395,24 @@ class File:
             return True
 
         from Parser import Parser
-        sorted_names = Parser.getInstance().get_names(self.format_name, self.associated, self.card_number)    # type: ignore
-        recent_file_name = get_last_file_name(sorted_names)
+        sorted_name_format_dict = Parser.getInstance().get_names(self.format_name, self.associated, self.card_number)    # type: ignore
+        recent_file_name, recent_file_format = get_recent_file_info(sorted_name_format_dict)
+        # recent_file_name = get_last_file_name(list(name_format_dict.keys()))
+        # recent_file_format = name_format_dict[recent_file_name]
         if recent_file_name is None:
             # ------------------------------- Log ---------------------------------
             utils.log(f"{self.name} has not earlier file - Nothing to clean. Total valid transactions in it are {self.counter}", "system")
             # --------------------------------------------------------------------- 
             return True
 
-        recent_tables = DataBase().get_table_Meta(recent_file_name, self.format_name, self.card_number)
+        recent_tables = DataBase().get_table_Meta(recent_file_name, recent_file_format, self.card_number)
 
         # recent tables are extacted from files which have been verified, therefore, located in a different root folder.
-        recent_table_1, recent_table_2 = read_and_merge(recent_tables, root=Local.VERIFIED_FOLDER + "\\" + self.format_name)
+        recent_table_1, recent_table_2 = read_and_merge(recent_tables, root=Local.VERIFIED_FOLDER + "\\" + recent_file_format)
 
         def compare_tables(recent_table, current_table) -> list:
             """
+            TODO
             """
 
             if recent_table is None:
@@ -407,18 +422,18 @@ class File:
             if current_table is None:
                 utils.log("curr_table is none, Check your code.", "error")
                 return []
+            
+            if (self.format_name, recent_file_format) == ("BeinLeumi-Bank-Date-Range", "BeinLeumi-Bank") or\
+                (recent_file_format, self.format_name) == ("BeinLeumi-Bank-Date-Range", "BeinLeumi-Bank"):
+                recent_table = utils.match_BeinLeumi_headers(recent_table)
 
             # Some of the files have their transactions marked from bottom to top and some the other way around
-            if flip:
-                utils.log("Need to figure out a solution for one transaction tables","error")
-                # if recent_row_count == 1:
-                #     recent_table = [recent_table]
-                # if curr_row_count == 1:
-                #     curr_table = [curr_table]
-
-                recent_table = recent_table[::-1]
+            if self.flip:   # indication for the current table
                 current_table = current_table[::-1]
-
+            
+            if Formats.FORMATS[recent_file_format]['flip']:
+                recent_table = recent_table[::-1]
+            
             i = -1
             index, row = get_row(recent_table)
             if row in current_table:

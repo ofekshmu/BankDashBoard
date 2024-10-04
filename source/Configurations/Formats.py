@@ -63,7 +63,8 @@ class Formats:
                                     "Header row index": 6,
                                     "Header col index": 0,
                                     "Independent": True,
-                                    "flip": False},
+                                    "flip": False,
+                                    "associated": []},
 
                "American-Express": {"Format Name": "American-Express",
                                     "Context": Context_class.Card,
@@ -96,7 +97,8 @@ class Formats:
                                     "Header row index": 6,
                                     "Header col index": 0,
                                     "Independent": True,
-                                    "flip": False},
+                                    "flip": False,
+                                    "associated": []},
 
                "BeinLeumi-Bank-Date-Range": {"Format Name": "BeinLeumi-Bank-Date-Range",
                                   "Context": Context_class.Bank,
@@ -177,7 +179,8 @@ class Formats:
                               "Header row index": 4,
                               "Header col index": 0,
                               "Independent": True,
-                              "flip": False},
+                              "flip": False,
+                              "associated": []},
 
                }
 

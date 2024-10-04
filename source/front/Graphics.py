@@ -221,7 +221,7 @@ class Graphics:
         """
         Revceives the spending df of the current month,
         """
-        df = spendings.copy()
+        df = spendings.copy()[['Ref/CardID', 'Final_Value', 'TableName']]
 
         if not df.empty:
             # Since BankTransactions are indexed by a Ref Number, These needs to be caregorized by the TableName,
@@ -229,14 +229,14 @@ class Graphics:
             # BankTransactions
             
             df['Ref/CardID'] = df.apply(lambda row: 'Bank' if row['TableName'] == 'BankTransactions' else row['Ref/CardID'], axis=1)
-            df = df.groupby("Ref/CardID").sum()
-            
+            df = df.groupby("Ref/CardID").sum(numeric_only=True)
             # The status df is merged with the data df in order to annotate the status (see lower part)
             df = pd.merge(df, df_card_status, left_on='Ref/CardID', right_on='CardID', how='outer')
             # filling the NA in the df is crucial for displaying all the data (Bank transactions)
-            df = df.fillna("Bank")
- 
-            #color_list = [color_dict[card_id] for card_id in df['Ref/CardID']]
+            df['CardID'].fillna("Bank", inplace=True)
+            df['Out/Transaction_value'].fillna(df['Final_Value'][df['CardID'] == 'Bank'], inplace=True)
+            utils.log(f'Card Status, merged data frame::\n{df.to_markdown()}','debug')
+
             color_list = list(color_dict.values())
             
             # Plot the bar plot using seaborn
@@ -244,7 +244,7 @@ class Graphics:
             plt.figure(figsize=(6, 3))
 
             # Adding the values on top of the bar plots:
-            ax = sns.barplot(x="CardID", y="Final_Value", data=df, palette=color_list)
+            ax = sns.barplot(x="CardID", y="Out/Transaction_value", data=df, palette=color_list)
             for index ,p in enumerate(ax.patches):
                 height = p.get_height()
                 status = df['Status'].iloc[index]

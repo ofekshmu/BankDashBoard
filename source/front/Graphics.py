@@ -237,14 +237,12 @@ class Graphics:
             df['Out/Transaction_value'].fillna(df['Final_Value'][df['CardID'] == 'Bank'], inplace=True)
             utils.log(f'Card Status, merged data frame::\n{df.to_markdown()}','debug')
 
-            color_list = list(color_dict.values())
-            
             # Plot the bar plot using seaborn
             sns.set(style="whitegrid")
             plt.figure(figsize=(6, 3))
 
             # Adding the values on top of the bar plots:
-            ax = sns.barplot(x="CardID", y="Out/Transaction_value", data=df, palette=color_list)
+            ax = sns.barplot(x="CardID", y="Out/Transaction_value", data=df, palette=color_dict)
             for index ,p in enumerate(ax.patches):
                 height = p.get_height()
                 status = df['Status'].iloc[index]

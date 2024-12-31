@@ -233,8 +233,8 @@ class Graphics:
             # The status df is merged with the data df in order to annotate the status (see lower part)
             df = pd.merge(df, df_card_status, left_on='Ref/CardID', right_on='CardID', how='outer')
             # filling the NA in the df is crucial for displaying all the data (Bank transactions)
-            df['CardID'].fillna("Bank", inplace=True)
-            df['Out/Transaction_value'].fillna(df['Final_Value'][df['CardID'] == 'Bank'], inplace=True)
+            df['CardID'] = df['CardID'].fillna("Bank")
+            df['Out/Transaction_value'] = df['Out/Transaction_value'].fillna(df['Final_Value'][df['CardID'] == 'Bank'])
             utils.log(f'Card Status, merged data frame::\n{df.to_markdown()}','debug')
 
             # Plot the bar plot using seaborn
@@ -242,7 +242,7 @@ class Graphics:
             plt.figure(figsize=(6, 3))
 
             # Adding the values on top of the bar plots:
-            ax = sns.barplot(x="CardID", y="Out/Transaction_value", data=df, palette=color_dict)
+            ax = sns.barplot(hue="CardID", y="Out/Transaction_value", data=df, palette=color_dict, legend=False)
             for index ,p in enumerate(ax.patches):
                 height = p.get_height()
                 status = df['Status'].iloc[index]

@@ -133,9 +133,9 @@ class SimpleMath:
         full_date_df = pd.DataFrame(generate_date_range(shift), columns=['Date/Executed_Date'])
         
         # conversion of all relevant data columns into datetime format
-        full_date_df['Date/Executed_Date'] = pd.to_datetime(full_date_df['Date/Executed_Date'])
-        earnings_df['Date/Executed_Date'] = pd.to_datetime(earnings_df['Date/Executed_Date'])
-        spendings_df['Date/Executed_Date'] = pd.to_datetime(spendings_df['Date/Executed_Date'])
+        full_date_df['Date/Executed_Date'] = pd.to_datetime(full_date_df['Date/Executed_Date'], format='%Y-%m')
+        earnings_df['Date/Executed_Date'] = pd.to_datetime(earnings_df['Date/Executed_Date'], format='%Y-%m')
+        spendings_df['Date/Executed_Date'] = pd.to_datetime(spendings_df['Date/Executed_Date'], format='%Y-%m')
 
         # Merge the full date range DataFrame with the original DataFrame
         earnings_df = pd.merge(full_date_df, earnings_df, on='Date/Executed_Date', how='left')

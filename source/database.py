@@ -486,6 +486,7 @@ class DataBase:
         b_end = datetime(year, month, last_day).strftime('%Y-%m-%d %H:%M:%S')
         next_month =  utils.next_month(datetime(year, month, 1)).month
         next_month = '0' + str(next_month) if len(str(next_month)) == 1 else str(next_month)
+        next_year = utils.next_month(datetime(year, month, 1)).year
         
         # last_day = calendar.monthrange(fit_year, fit_month)[1]
         # bt_init = datetime(fit_year, fit_month, 1).strftime('%Y-%m-%d %H:%M:%S')
@@ -531,9 +532,9 @@ class DataBase:
                                     WHERE Transaction_Value > 0 AND (
                                         (Executed_Date >= ? AND Executed_Date <= ?)
                                         OR 
-                                        (strftime('%m', Charge_Date) = ?)
+                                        (strftime('%m', Charge_Date) = ? and strftime('%y', Charge_Date) = ?)
                                     )
-                                    """, (b_init, b_end, "אשראי", b_init, b_end, next_month, )).fetchall()
+                                    """, (b_init, b_end, "אשראי", b_init, b_end, next_month, next_year, )).fetchall()
         df = pd.DataFrame(data, columns=[d[0] for d in self.cursor.description])
         if category is not None:
             df = df[df['Category'] == category]
@@ -878,13 +879,12 @@ class DataBase:
         which were exectued in the month of the given date.
         The function was written particularly for the card verification feature.
         """
-        m_2 = '0' + str(date.month) if len(str(date.month)) == 1 else str(date.month)
-        
-        m_1, y_1 = utils.subtract_month(date.month, date.year)
-        m_0, y_0 = utils.subtract_month(int(m_1), int(y_1))
-        nxt_month, rlvnt_year = utils.next_month(date).month, utils.next_month(date).year
-        nxt_month = '0' + str(nxt_month) if len(str(nxt_month)) == 1 else str(nxt_month)
-        rlvnt_year = str(rlvnt_year)
+        m_i = '0' + str(date.month) if len(str(date.month)) == 1 else str(date.month)
+        y_i = str(date.year)
+        m_ip1, y_ip1 = utils.next_month(date).month, str(utils.next_month(date).year)
+        # y_i might be equal to y_ip1
+        m_ip1 = '0' + str(m_ip1) if len(str(m_ip1)) == 1 else str(m_ip1)
+
         # Executed_Date AS 'Date/Executed_Date',
         # Charge_Date AS 'Value_Date/Charge_Date'
         # AS key word is added in order to match the 'process_prices' function
@@ -898,8 +898,15 @@ class DataBase:
                                    Value_Currency AS 'Reserved/Value_Currency',
                                    Transaction_Value AS 'Out/Transaction_value'
                             FROM CardTransactions
-                            WHERE (strftime('%m', Charge_Date) = ? AND strftime('%Y', Charge_Date) = ?)
-                            """, (nxt_month, rlvnt_year, )).fetchall() # TODO can this be simplified for just the transactions at the set charge date?
+                            WHERE ( 
+                                    (strftime('%m', Executed_Date) = ? AND strftime('%m', Charge_Date) = ?) 
+                                    OR 
+                                    (strftime('%m', Executed_Date) = ? AND strftime('%m', Charge_Date) = ? AND Transaction_Value > 0)
+                                   ) 
+                                   AND 
+                                   strftime('%Y', Charge_Date) = ?
+
+                            """, (m_i, m_ip1, m_ip1, m_ip1, y_ip1, )).fetchall() # TODO can this be simplified for just the transactions at the set charge date?
         
         return pd.DataFrame(data, columns=[d[0] for d in self.cursor.description])
 

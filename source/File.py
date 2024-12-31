@@ -237,6 +237,18 @@ class File:
                     return True
                 return False
 
+            def Cash_advancment_fee(row):
+                """
+                'Cash Advance fee' row appears when using the ATM abroad. it has no dates and only shows the commission fee.
+                In order to handle this case in the best way possible, uppon Discovery, an error will trigger, asking the user to merge the transactions
+                by hand (change the input excel file and than try again)
+                """
+                if row[2] == "CASH ADVANCE FEE" and \
+                    row[0] is None and \
+                        row[1] is None:
+                    return True
+                return False
+            
             bad_indexes = []
             row_counter = 0
             row_idx = header_row_idx + 1
@@ -249,14 +261,17 @@ class File:
                 bad_indexes.append(row_idx - header_row_idx - 1)
                 cc_end = "Bad value"
 
-            while cc_end is not None and \
-                    cc_end != "עסקאות בחו˝ל":
+            while (cc_end is not None and \
+                    cc_end != "עסקאות בחו˝ל"):
                 row_counter += 1
                 row_idx += 1
-                entire_row = ExcelManager().read_sheet(row_idx, 1, col_idx, len(header_lst))
-                cc_end = entire_row[0]
+                table_entry = ExcelManager().read_sheet(row_idx, 1, col_idx, len(header_lst))
+                cc_end = table_entry[0]
 
-                if is_bad_value(entire_row):
+                if Cash_advancment_fee(table_entry):
+                    utils.log("Cash Advancment row found, Please edit the excel file accordingly and try again. Check spec file for more info...", "error")
+
+                if is_bad_value(table_entry):
                     bad_indexes.append(row_idx - header_row_idx - 1)    # Get the index relative to the header row
                     cc_end = "Bad value"
 

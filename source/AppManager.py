@@ -26,6 +26,8 @@ class AppManager:
             
         if utils.validate_BankTransactions():
             utils.log("Bank Transactions validation passed!")
+        else:
+            utils.log("Bank Format Vlidation Failed!", 'warning')
         
         self.parser = Parser()
 
@@ -565,7 +567,7 @@ class AppManager:
             # ---------------------------------------------------------
             df = DataBase().card_sum(date)
             # The following will result in a data base describing the total amount of spendings per card in the given month.
-
+            debbug_df = df.copy()
             cards_df = df.groupby("CardID").sum().reset_index()
             utils.log(cards_df[["Out/Transaction_value"]].to_markdown(), "debug")
             cards_df['Status'] = 'Not Verified'
@@ -593,6 +595,10 @@ class AppManager:
                 cards_df = cards_df[['CardID', 'Status', 'Out/Transaction_value']]
             
             utils.log(f"Cards status data frame:\n{cards_df.to_markdown}", 'debug')
+            for index, row in cards_df.iterrows():
+                if row['Status'] == 'Not Verified':
+                    # Perform your action here
+                    utils.log(f"information for card at index: {index},\n {debbug_df[debbug_df['CardID'] == row['CardID']].to_markdown()}", 'debug')
             return cards_df
 
         def print_unverified_cards(date: datetime):

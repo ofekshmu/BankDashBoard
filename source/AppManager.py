@@ -555,7 +555,7 @@ class AppManager:
             case _:
                 m = int(input('month: '))
                 y = int(input('year: '))
-                t = datetime.now().replace(month=m, year=y)
+                t = datetime.now().replace(day = 1, month=m, year=y)
 
         data = {}
 

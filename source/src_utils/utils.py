@@ -646,6 +646,17 @@ class utils:
 
         # Get the next month by adding a relativedelta of 1 month
         return date + relativedelta(months=1)
+    
+    @staticmethod
+    def previous_month(date: datetime) -> datetime:
+        """
+        receives a month - a number between 1 - 12 describing 
+        returns the next month/year 
+        """
+        from dateutil.relativedelta import relativedelta
+
+        # Get the next month by adding a relativedelta of 1 month
+        return date - relativedelta(months=1)
 
 
     @staticmethod

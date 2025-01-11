@@ -569,7 +569,7 @@ class AppManager:
             # The following will result in a data base describing the total amount of spendings per card in the given month.
             debbug_df = df.copy()
             cards_df = df.groupby("CardID").sum().reset_index()
-            utils.log(cards_df[["Out/Transaction_value"]].to_markdown(), "debug")
+            #utils.log(cards_df[["Out/Transaction_value"]].to_markdown(), "debug")
             cards_df['Status'] = 'Not Verified'
             bank_df = DataBase().get_Bank_Transactions(Local.CHARGE_DAY + 1,
                                                     utils.next_month(date).month,
@@ -594,7 +594,7 @@ class AppManager:
             if not cards_df.empty:
                 cards_df = cards_df[['CardID', 'Status', 'Out/Transaction_value']]
             
-            utils.log(f"Cards status data frame:\n{cards_df.to_markdown}", 'debug')
+            #utils.log(f"Cards status data frame:\n{cards_df.to_markdown}", 'debug')
             for index, row in cards_df.iterrows():
                 if row['Status'] == 'Not Verified':
                     # Perform your action here

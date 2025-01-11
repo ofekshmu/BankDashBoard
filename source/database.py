@@ -882,8 +882,10 @@ class DataBase:
         m_i = '0' + str(date.month) if len(str(date.month)) == 1 else str(date.month)
         y_i = str(date.year)
         m_ip1, y_ip1 = utils.next_month(date).month, str(utils.next_month(date).year)
+        m_im1, y_im1 = utils.previous_month(date).month, str(utils.previous_month(date).year)
         # y_i might be equal to y_ip1
         m_ip1 = '0' + str(m_ip1) if len(str(m_ip1)) == 1 else str(m_ip1)
+        m_im1 = '0' + str(m_im1) if len(str(m_im1)) == 1 else str(m_im1)
 
         # Executed_Date AS 'Date/Executed_Date',
         # Charge_Date AS 'Value_Date/Charge_Date'
@@ -902,11 +904,13 @@ class DataBase:
                                     (strftime('%m', Executed_Date) = ? AND strftime('%m', Charge_Date) = ?) 
                                     OR 
                                     (strftime('%m', Executed_Date) = ? AND strftime('%m', Charge_Date) = ? AND Transaction_Value > 0)
+                                    OR
+                                   (strftime('%m', Executed_Date) = ? AND strftime('%m', Charge_Date) = ?)
                                    ) 
                                    AND 
                                    strftime('%Y', Charge_Date) = ?
 
-                            """, (m_i, m_ip1, m_ip1, m_ip1, y_ip1, )).fetchall() # TODO can this be simplified for just the transactions at the set charge date?
+                            """, (m_i, m_ip1, m_ip1, m_ip1, m_im1, m_ip1, y_ip1, )).fetchall() # TODO can this be simplified for just the transactions at the set charge date?
         
         return pd.DataFrame(data, columns=[d[0] for d in self.cursor.description])
 

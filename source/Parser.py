@@ -177,7 +177,7 @@ class Parser():
                     if value not in extracted_value:
                         continue
                 case Identification_Method.HEADERS:
-                    if not utils.is_headers_valid(file_name, data["Headers"], data["Header row index"], data["Header col index"]):
+                    if not utils.is_headers_valid(format, file_name, data["Headers"], data["Header row index"], data["Header col index"]):
                         continue
                 case Identification_Method.NONE:
                     utils.log(f"Bad identification method when iterating over {file_name}... Skipping Format...", "warning")
@@ -227,10 +227,10 @@ class Parser():
                 return srch_result.group()[1:]
             case Sortion_Method.BY_NAME_DATE:
                 try:
-                    date_str = re.search("\d{1,2}_\d{1,2}_\d{4}|\d{1,2}_\d{4}", name).group()
+                    date_str = re.search("\d{1,2}_\d{1,2}_\d{4}|\d{1,2}_\d{4}|\d{2}.\d{2}.\d{2}", name).group()
                 except Exception as e:
-                    utils.log(f"The file named {utils.name_he(name)} is of unknown format.", "error")
-                date = date_str.split("_")
+                    utils.log(f"The file named {utils.name_he(name)} is of unknown date format.", "error")
+                date = re.split(r'[_\.]', date_str)
                 import datetime
                 if len(date) == 2:
                     date = (1, date[0], date[1])

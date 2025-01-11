@@ -535,7 +535,7 @@ class utils:
         return options[res], description
 
     @staticmethod
-    def is_headers_valid(file_name: str, headers: list, initial_row: int, header_col_index: int) -> bool:
+    def is_headers_valid(format: str, file_name: str, headers: list, initial_row: int, header_col_index: int) -> bool:
         '''
         The function validates the table headers in the file.
         The values of the headers and the initial row are given in the Constants.py.
@@ -545,8 +545,14 @@ class utils:
         valid = True
         col = header_col_index
         row = initial_row
+
+        debug_list = [] # debug feature
+
         for name in headers:
             value = em.read_cell(row, col)
+            
+            debug_list.append(value) # debug feature
+
             if not value == name:
                 if col > 1:
                     utils.log(f"Header Validation Failed halfway: {value} != {name}", "warning")
@@ -558,7 +564,7 @@ class utils:
                 utils.log(f"Headers were found at line {row}, Not in {initial_row} as specified.", "warning")
             initial_row = row
             return True
-        utils.log(f"Header Validation Failed for {file_name}", "debug")
+        utils.log(f"Header Validation Failed for {file_name} with format {debug_list}\n extracted headers: ", "debug")
         return False
 
     @staticmethod

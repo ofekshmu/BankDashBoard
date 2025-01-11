@@ -242,7 +242,7 @@ class Graphics:
             plt.figure(figsize=(6, 3))
 
             # Adding the values on top of the bar plots:
-            ax = sns.barplot(hue="CardID", y="Out/Transaction_value", data=df, palette=color_dict, legend=False)
+            ax = sns.barplot(x="CardID", hue="CardID", y="Out/Transaction_value", data=df, palette=color_dict, legend=False)
             for index ,p in enumerate(ax.patches):
                 height = p.get_height()
                 status = df['Status'].iloc[index]
@@ -281,6 +281,7 @@ class Graphics:
             # ax.set_xlabel("Card no'/Bank")
             # ax.set_ylabel("Amount")
             ax.set_title("Source Distribution")
+            
         else:
             _, ax = plt.subplots()
             ax.pie([], labels=[])

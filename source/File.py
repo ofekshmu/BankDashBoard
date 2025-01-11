@@ -32,6 +32,7 @@ class File:
         self.header_row_idx = format_info["Header row index"]
         self.header_col_idx = format_info["Header col index"]
         self.adittional_data_field = format_info["Adittional data field"]
+        self.adittional_data_field_value = None
         self.independent = format_info["Independent"]
         self.flip = format_info["flip"]
         self.associated = format_info["associated"]
@@ -294,6 +295,20 @@ class File:
             {"valid rows:":25s}{valid_rows}', 'system')
             return valid_rows
         
+        def read_adittional_data_field() -> str:
+            """
+            Adittional data field location is configiured via format json.
+            further analisys of the value is made in the insertion functions.
+            """
+            (r, c) = self.adittional_data_field 
+            value = ExcelManager().read_cell(r, c)
+            if value is None:
+                utils.log('Adittional data field read from the file is None.', 'error')
+                return "False"
+            return value
+        
+        read_adittional_data_field()
+
         valid_rows = read_table(self.headers, self.header_row_idx, self.header_col_idx)
 
         if self.double_tables:

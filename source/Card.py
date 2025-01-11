@@ -116,16 +116,11 @@ The value parsed is {parsed_text}", "error")
                                                                     Method: {row[14]} | \
                                                                     Notes: {row[10]}")
                 case "Isra-Card":
-                    (r, c) = self.adittional_data_field  # TODO: These code line are being reapted, improve
-                    value = ExcelManager().read_cell(r, c)
-                    if value is None:
-                        utils.log('Adittional data field read from the file is None.', 'error')
-                        return False
 
                     DataBase().insert_card_transaction(CardID=self.card_number,
                                                        Name=row[1],
                                                        Executed_Date=utils.date_ready(row[0]),
-                                                       Charge_Date=utils.date_ready(value),
+                                                       Charge_Date=utils.date_ready(self.adittional_data_field_value),
                                                        Charge_Value=row[2],
                                                        Source_file=self.name,
                                                        Charge_Currency=row[3],
@@ -134,16 +129,11 @@ The value parsed is {parsed_text}", "error")
                                                        Extra_Info=f"Serial: {row[6]} | Info: ({row[7]})")
 
                 case "American-Express":
-                    (r, c) = self.adittional_data_field  # TODO: These code line are being reapted, improve
-                    value = ExcelManager().read_cell(r, c)
-                    if value is None:
-                        utils.log('Adittional data field read from the file is None.', 'error')
-                        return False
 
                     DataBase().insert_card_transaction(CardID=self.card_number,
                                                        Name=row[1],
                                                        Executed_Date=utils.date_ready(row[0]),
-                                                       Charge_Date=utils.date_ready(value),
+                                                       Charge_Date=utils.date_ready(self.adittional_data_field_value),
                                                        Charge_Value=row[2],
                                                        Source_file=self.name,
                                                        Charge_Currency=row[3],
@@ -180,12 +170,7 @@ The value parsed is {parsed_text}", "error")
                     if row[3] != row[2]:
                         utils.log("Cal_Sufersal Format cannot handel different currencies - a transaction with different currencies was found", "error")
                     
-                    (r, c) = self.adittional_data_field  # TODO: These code line are being reapted, improve
-                    value = ExcelManager().read_cell(r, c)
-                    if value is None:
-                        utils.log('Adittional data field read from the file is None.', 'error')
-                        return False
-                    str_charge_date = utils.reg_extract(r'(\d{2}/\d{2}/\d{4})', value)
+                    str_charge_date = utils.reg_extract(r'(\d{2}/\d{2}/\d{4})', self.adittional_data_field_value)
                     charge_date = datetime.strptime(str_charge_date, "%d/%m/%Y")
                     
                     DataBase().insert_card_transaction(CardID=self.card_number,

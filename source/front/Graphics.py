@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import matplotlib.font_manager as fm
 import pandas as pd
 from src_utils.calculations import SimpleMath
 from src_utils.utils import utils
@@ -36,21 +37,57 @@ class Graphics:
         else:
             df['Final_Value'] = df['Final_Value'].abs()
             df = df.groupby("Category").sum()
-            title = f"Total {pie_name}: {df['Final_Value'].sum():,.2f}₪"
+            title = f"{pie_name}"
             
             # -------------- Create a pie chart with category names --------------
             df_category = df.copy()
             df_category.index = df_category.index.map(lambda name: f"{utils.heb_conversion(name)}")   
             reduced_category_df, outliers_list = utils.seperate_high_std(df_category, 'Final_Value')
             ax = reduced_category_df.plot.pie(y='Final_Value', figsize=(7, 5), legend=False, title=title, colors=color_set)
+            ax.set_title(title, fontsize = 20)
             ax.set_ylabel('')
+            #converting plot into donut chart
+            my_circle = plt.Circle((0, 0), 0.70, fc='white')
+            fig = plt.gcf()
+            fig.gca().add_artist(my_circle)
+            # Adding text to the centre of the chart
+            #centre_text_line_2 = f'Total {pie_name}: '
+            # Set path to the BAYSIDE font
+            #font_path = 'C:\\Users\\Coffe\\Downloads\\bayside\\Bayside.ttf'  # Update with the correct path to the font file
+            #prop = fm.FontProperties(fname=font_path)
+            centre_text = f"{df['Final_Value'].sum():,} ₪"
+            ax.text(0, 0, centre_text, horizontalalignment='center', 
+            verticalalignment='center', 
+            fontsize=16, fontweight='bold',
+            color='black', fontname='Arial')
+            #ax.text(0,-0.1, centre_text_line_2, horizontalalignment='center', 
+            #verticalalignment='center', 
+            #fontsize=14, fontweight='bold',
+            #color='black')
             plt.savefig(rf'Outputs\{pie_name}_category.png')
+
 
             # ------------------ Create a pie chart with prices ------------------
             df_prices = df.copy()
             df_prices.index = df.index.map(lambda name: f"{df_prices.loc[name,'Final_Value']:,.2f}₪")   
             reduced_prices_df, _ = utils.seperate_high_std(df_prices, 'Final_Value')
             ax = reduced_prices_df.plot.pie(y='Final_Value', figsize=(7, 5), legend=False, title=title, colors=color_set)
+            ax.set_title(title, fontsize = 20)
+            ax.set_ylabel('')
+            #converting plot into donut chart
+            my_circle = plt.Circle((0, 0), 0.70, fc='white')
+            fig = plt.gcf()
+            fig.gca().add_artist(my_circle)
+            # Adding text to the centre of the chart
+            #centre_text_line_2 = f'Total {pie_name}: '6
+            # Set path to the BAYSIDE font
+            #font_path = 'C:\\Users\\Coffe\\Downloads\\bayside\\Bayside.ttf'  # Update with the correct path to the font file
+            #prop = fm.FontProperties(fname=font_path)
+            centre_text = f"{df['Final_Value'].sum():,} ₪"
+            ax.text(0, 0, centre_text, horizontalalignment='center', 
+            verticalalignment='center', 
+            fontsize=16, fontweight='bold',
+            color='black', fontname='Arial')
             ax.set_ylabel('')
             plt.savefig(rf'Outputs\{pie_name}_prices.png')
 

@@ -134,9 +134,12 @@ class Graphics:
         """
         @spendings : list - A list of length n containing the total spending values of the last n months.
         @earnings  : list - A list of length n containing the total earning values of the last n months.
-        @spendings_overall  : list - A list of length n containing the total net icome across all accounts in the last n months.
+        @spendings_overall  : list - A list of length n containing the total net income across all accounts in the last n months.
 
         The function Will plot a graph describing general statistics and info and save it to 'Outputs\General_info.png'
+
+        The secondary line acts as a constant config for category analisys - in this case, the second graph line (compared to the general analysis is not drawn)
+        Also, when analizing the investment segment, the 'overall_income' variable is zero of length and therfore should be ignored.
         """
         from datetime import datetime
         def get_last_n_months_names(N):
@@ -155,7 +158,8 @@ class Graphics:
         net_data = pd.DataFrame({"Months": months, "Net Income": [x + y for x, y in zip(earnings, spendings)]})
         
         # ----------- Create a DataFrame for overall income line plot -----------
-        overall_data = pd.DataFrame({"Months": months, "Overall Income": [x + y for x, y in zip(earnings, spendings_overall)]})
+        if secondary_line:
+            overall_data = pd.DataFrame({"Months": months, "Overall Income": [x + y for x, y in zip(earnings, spendings_overall)]})
         
         # Color constants for Graph
         spendings_bar_color = "#f66b85"
@@ -176,10 +180,10 @@ class Graphics:
             sns.lineplot(x="Months", y="Overall Income", color=overall_income_line_color, marker='o', data = overall_data, linestyle='--')
 
         # ----------- Plotting information next to line plot points -----------
-        offset = 40   # For better visual 
-        for x, y_net, y_overall in zip(net_data['Months'], net_data['Net Income'], overall_data['Overall Income']):
-            plt.text(x, y_net + offset, f'{y_net:,.0f}₪', ha='right', va='bottom', color=net_income_line_color,fontweight='bold')
-            if secondary_line:
+        if secondary_line:
+            offset = 40   # For better visual 
+            for x, y_net, y_overall in zip(net_data['Months'], net_data['Net Income'], overall_data['Overall Income']):
+                plt.text(x, y_net + offset, f'{y_net:,.0f}₪', ha='right', va='bottom', color=net_income_line_color,fontweight='bold')
                 if y_net == y_overall:
                     continue
 
@@ -213,7 +217,9 @@ class Graphics:
             title_ext = "_" + title_ext
         plt.savefig(r'Outputs\General_info' + title_ext + r'.png')
 
-        return overall_data
+        if secondary_line:
+            return overall_data
+        return None
 
 
     @staticmethod

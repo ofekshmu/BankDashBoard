@@ -50,20 +50,13 @@ class Graphics:
             my_circle = plt.Circle((0, 0), 0.70, fc='white')
             fig = plt.gcf()
             fig.gca().add_artist(my_circle)
-            # Adding text to the centre of the chart
-            #centre_text_line_2 = f'Total {pie_name}: '
-            # Set path to the BAYSIDE font
-            #font_path = 'C:\\Users\\Coffe\\Downloads\\bayside\\Bayside.ttf'  # Update with the correct path to the font file
-            #prop = fm.FontProperties(fname=font_path)
-            centre_text = f"{df['Final_Value'].sum():,} ₪"
+
+            centre_text = f"{df['Final_Value'].sum():,.2f} ₪"
             ax.text(0, 0, centre_text, horizontalalignment='center', 
-            verticalalignment='center', 
-            fontsize=16, fontweight='bold',
-            color='black', fontname='Arial')
-            #ax.text(0,-0.1, centre_text_line_2, horizontalalignment='center', 
-            #verticalalignment='center', 
-            #fontsize=14, fontweight='bold',
-            #color='black')
+                    verticalalignment='center', 
+                    fontsize=22, fontweight='bold',
+                    color='black', fontname='Arial')
+
             plt.savefig(rf'Outputs\{pie_name}_category.png')
 
 
@@ -78,93 +71,17 @@ class Graphics:
             my_circle = plt.Circle((0, 0), 0.70, fc='white')
             fig = plt.gcf()
             fig.gca().add_artist(my_circle)
-            # Adding text to the centre of the chart
-            #centre_text_line_2 = f'Total {pie_name}: '6
-            # Set path to the BAYSIDE font
-            #font_path = 'C:\\Users\\Coffe\\Downloads\\bayside\\Bayside.ttf'  # Update with the correct path to the font file
-            #prop = fm.FontProperties(fname=font_path)
-            centre_text = f"{df['Final_Value'].sum():,} ₪"
+
+            centre_text = f"{df['Final_Value'].sum():,.2f} ₪"
             ax.text(0, 0, centre_text, horizontalalignment='center', 
-            verticalalignment='center', 
-            fontsize=16, fontweight='bold',
-            color='black', fontname='Arial')
-            ax.set_ylabel('')
+                    verticalalignment='center', 
+                    fontsize=22, fontweight='bold',
+                    color='black', fontname='Arial')
+
             plt.savefig(rf'Outputs\{pie_name}_prices.png')
 
         return outliers_list
 
-
-    # @staticmethod
-    # def plot_gas(df: pd.DataFrame) -> pd.Series:
-    #     """
-    #     The function assumes that df is never empty.
-    #     Saves a plot image and returns a series of statistics.
-    #     """
-    #     # ------------
-    #     df['Date/Executed_Date'] = pd.to_datetime(df['Date/Executed_Date'])
-    #     statistics = df['Final_Value'].describe().loc[["count", "mean", "std", "min", "max"]]
-
-    #     start_date = pd.Timestamp.today().normalize() - pd.DateOffset(months=2, days=0)
-    #     end_date = pd.Timestamp.today().normalize()
-    #     all_dates = pd.date_range(start=start_date, end=end_date, freq='D')
-    #     df_all_dates = pd.DataFrame({'Date/Executed_Date': all_dates})
-
-    #     # merge the original DataFrame with the new DataFrame using a left join
-    #     df_merged = pd.merge(df_all_dates, df, on='Date/Executed_Date', how='left')
-
-    #     # fill the missing values with 0
-    #     df_merged['Final_Value'].fillna(0, inplace=True)
-
-    #     # set the datetime column as the index of the DataFrame
-    #     df_merged.set_index('Date/Executed_Date', inplace=True)
-
-    #     # create the bar plot
-    #     plt.figure()
-    #     fig, ax = plt.subplots(figsize=(15, 6))
-    #     bars = ax.bar(df_merged.index.strftime('%d/%m'), df_merged['Final_Value'])
-
-    #     for i, bar in enumerate(bars):
-    #         height = bar.get_height()
-    #         if height != 0:
-    #             ax.text(bar.get_x() + bar.get_width()/2., height + 2,
-    #                     utils.heb_conversion(df_merged['Name'][i]),
-    #                     ha='center', va='bottom')
-
-    #     # rotate x-axis labels by 45 degrees
-    #     ax.set_xticklabels(df_merged.index.strftime('%d/%m'), rotation=55)
-
-    #     # set the x-axis label
-    #     ax.set_xlabel('Date (dd/mm)')
-    #     # set the y-axis label
-    #     ax.set_ylabel('Values')
-
-    #     # set the title of the plot
-    #     ax.set_title('Bar Plot')
-
-    #     plt.savefig(r'Outputs\Gas_Info.png')
-    #     return statistics
-
-    # @staticmethod
-    # def plot_monthly_gas(df: pd.DataFrame) -> None:
-
-    #     if df.empty:
-    #         return False
-
-    #     plt.figure()
-
-    #     df['Date/Executed_Date'] = pd.to_datetime(df['Date/Executed_Date'])
-    #     df = df.groupby(pd.Grouper(key='Date/Executed_Date', freq='M')).sum()
-    #     fig, ax = plt.subplots(figsize=(10, 6))
-    #     ax.bar(df.index.strftime('%b %Y'), df['Final_Value'])
-
-    #     # set the x-axis label
-    #     ax.set_xlabel('Month')
-    #     # set the y-axis label
-    #     ax.set_ylabel('Amount')
-
-    #     # set the title of the plot
-    #     ax.set_title('Monthly Payment')
-    #     plt.savefig(r'Outputs\Gas_monthly.png')
 
     @staticmethod
     def plot_general(spendings : list, spendings_overall : list, earnings: list, title_ext: str = "", fig_size=(14, 8), secondary_line: bool = True):

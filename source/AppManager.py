@@ -672,6 +672,7 @@ class AppManager:
         data['overall_net_mean'] = overall_net_income_df['Overall Income'].mean()
         
         utils.generate_html(t.month,
+                            t.year,
                             spendings_df,
                             high_std_spendings,
                             earnings_df,

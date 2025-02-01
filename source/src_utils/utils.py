@@ -123,6 +123,7 @@ class utils:
 
     @staticmethod
     def generate_html(month_num,
+                      year,
                       spendings_df,
                       high_std_spendings,
                       earnings_df,
@@ -144,7 +145,7 @@ class utils:
         h1_tag = soup.new_tag("h1")
         h1_tag.string = "DashBoard"
         span_tag = soup.new_tag("span")
-        span_tag.string = f"{calendar.month_name[month_num]}"
+        span_tag.string = f"{calendar.month_name[month_num]} {year}"
         h1_tag.append(span_tag)
         new_div.append(h1_tag)
 
@@ -169,6 +170,10 @@ class utils:
         
         if data["net income"] >= 0:
             net_income['style'] = "color: #588157"
+        else:
+            net_income['style'] = "color: #c1121f"
+        
+        if data["overall net income"] >= 0:
             overall_net_income['style'] = "color: #588157"
         else:
             overall_net_income['style'] = "color: #c1121f"

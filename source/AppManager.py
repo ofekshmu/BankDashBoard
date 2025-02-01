@@ -11,8 +11,8 @@ from src_utils.ExcelReader import ExcelManager
 import webbrowser
 from Configurations.Formats import Formats, Context_class
 import pandas as pd
-import json
 from os import listdir
+from Exporter import Exporter
 
 class AppManager:
 
@@ -44,7 +44,8 @@ class AppManager:
                     5. Update existing file
                     6. Execute SQL query on db
                     7. Open File Organizer
-                    8. Exit
+                    8. Export Excel
+                    9. Exit
                 """)
             answer = input()
             answer = -1 if not answer.isdigit() else int(answer)
@@ -68,9 +69,31 @@ class AppManager:
                     df = utils.read_present_table()
                     utils.create_html_with_colored_dates(df)
                 case 8:
+                    self.exporter_function()
+                case 9:
                     break
                 case _:
                     print("Please insert a valid number.")
+
+    def exporter_function(self) -> None:
+
+        from datetime import datetime
+        from dateutil.relativedelta import relativedelta
+
+        # Get the first day of the current month
+        first_day_current_month = datetime.today().replace(day=1)
+
+        # Get the first day of the last month
+        first_day_last_month = first_day_current_month - relativedelta(months=1)
+
+        # Get the first day of the current year
+        first_day_current_year = datetime.today().replace(month=1, day=1)
+        
+        df1 = Exporter().export_bank_transactions(since_d=first_day_current_month)
+        df2 = Exporter().export_bank_transactions(since_d=first_day_last_month)
+        df3 = Exporter().export_bank_transactions(since_d=first_day_current_year)
+
+        Exporter().generate_excel_file([df1, df2, df3], ['current month', 'last month', 'current year'], )
 
     def execute_sql(self):
         pw = input("Please confirm password for this action: ")

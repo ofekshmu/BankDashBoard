@@ -1,6 +1,6 @@
 
 import sqlite3
-from datetime import datetime
+from datetime import datetime, date
 import pandas as pd
 from typing import Literal
 
@@ -1126,6 +1126,50 @@ class DataBase:
         data = self.cursor.execute(query, (last_valid_date_str,)).fetchall()
         return pd.DataFrame(data=data, columns=[d[0] for d in self.cursor.description])
 
+    def query_by_substring(self, input_str: str) -> pd.DataFrame:
+        """
+        
+        """
+        query = """
+        SELECT *
+        FROM CardTransactions 
+        WHERE Name LIKE ? or Description Like ?
+
+        """
+
+        x = '%' + input_str + '%'
+        data = self.cursor.execute(query, (x,x,)).fetchall()
+        return pd.DataFrame(data=data, columns=[d[0] for d in self.cursor.description])
+    
+    def get_all_transactions_since(self, date: datetime) -> pd.DataFrame:
+        """
+        The function receives a date
+        and returns all the transactions (spendings and incomes) from the given date.
+        """
+        date_str = date.strftime('%Y-%m-%d')
+
+        data_1 = self.cursor.execute("""
+                            SELECT *, 'BankTransactions' AS TableName                                
+                            FROM BankTransactions
+                            WHERE Date >= ?           
+                            """, (date_str,)).fetchall()
+        
+        df_1 = pd.DataFrame(data=data_1, columns=[d[0] for d in self.cursor.description])
+        
+        data_2 = self.cursor.execute("""
+                            SELECT *, 'CardTransactions' AS TableName                               
+                            FROM CardTransactions
+                            WHERE Executed_Date >= ?
+                            """, (date_str,)).fetchall()
+    
+        df_2 = pd.DataFrame(data=data_2, columns=[d[0] for d in self.cursor.description])
+
+        # Rename columns if necessary to make them consistent (for example, Date and Executed_Date)
+        df_2.rename(columns={'Executed_Date': 'Date'}, inplace=True)  # Make column names consistent
+
+        concatenated_df = pd.concat([df_1, df_2])
+
+        return concatenated_df
 # ----------------------------------------------------------------------
 #                            User SQL commands
 # ----------------------------------------------------------------------

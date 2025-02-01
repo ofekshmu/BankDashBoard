@@ -1122,6 +1122,20 @@ class DataBase:
         data = self.cursor.execute(query, (last_valid_date_str,)).fetchall()
         return pd.DataFrame(data=data, columns=[d[0] for d in self.cursor.description])
 
+    def query_by_substring(self, input_str: str) -> pd.DataFrame:
+        """
+        
+        """
+        query = """
+        SELECT *
+        FROM CardTransactions 
+        WHERE Name LIKE ? or Description Like ?
+
+        """
+
+        x = '%' + input_str + '%'
+        data = self.cursor.execute(query, (x,x,)).fetchall()
+        return pd.DataFrame(data=data, columns=[d[0] for d in self.cursor.description])
 # ----------------------------------------------------------------------
 #                            User SQL commands
 # ----------------------------------------------------------------------

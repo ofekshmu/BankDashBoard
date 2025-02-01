@@ -408,10 +408,11 @@ class utils:
     def typer_template_menu(options: list[str], msg: str = "Choose one of the following:\n", sort: bool = False) -> Tuple[int, list[str]]:
         """
         The function creates a template menu that is printed out for the user.
+        The user is requested to insert a substring or a valid option number.
+        If the substring existis in one of the printed options, the list of options will reduce to fit the substring.
         Inputs are @options - a list of strings containing different options.
                    @msg - str with a menu message
         return a numbers from 0 to len(options) - 1 representing the chosen option.
-        if input does not match a valid option, the function asks for a valid one.
         """
         def get_substrings(lst: list[str], substring: str) -> list:
             substrings_lst = []

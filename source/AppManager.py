@@ -40,7 +40,7 @@ class AppManager:
                     1. Update/Parse files
                     2. Show statistics
                     3. Delete file information
-                    4. Validate
+                    4. Search transactions 
                     5. Update existing file
                     6. Execute SQL query on db
                     7. Open File Organizer
@@ -59,7 +59,7 @@ class AppManager:
                 case 3:
                     self.delete_file_info()
                 case 4:
-                    utils.log("Option no avaliable", 'system')
+                    self.search_transaction()
                 case 5:
                     self.update_existing_file_v2()
                 case 6:
@@ -71,6 +71,25 @@ class AppManager:
                     break
                 case _:
                     print("Please insert a valid number.")
+
+    def search_transaction(self) -> None:
+        """
+        The function will ask the user for a substring and search for a transaction containing the substring.
+        all transaction fitting will be printed
+        """
+
+        utils.log("Please insert a substring to search a transaction by, ENTER to go back.")
+        
+        input_str = " "
+        
+        while(True):
+            input_str = input()
+            if len(input_str) == 0:
+                break
+            df = DataBase().query_by_substring(input_str)
+            utils.log(df.to_markdown())
+        
+
 
     def execute_sql(self):
         pw = input("Please confirm password for this action: ")
@@ -637,7 +656,7 @@ class AppManager:
 
         # ----- General
         spendings_sum, spendings_sum_overall_inc, earnings_sum = SimpleMath.get_monthly_shifted(shift=7)
-        overall_net_income_df = Graphics.plot_general(spendings_sum, spendings_sum_overall_inc, earnings_sum)
+        overall_net_income_df = Graphics.plot_general(spendings_sum, spendings_sum_overall_inc, earnings_sum, )
         # ----- Cards
 
         card_ids = DataBase().get_card_ids() + ['Bank']

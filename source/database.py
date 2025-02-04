@@ -1167,9 +1167,7 @@ class DataBase:
         # Rename columns if necessary to make them consistent (for example, Date and Executed_Date)
         df_2.rename(columns={'Executed_Date': 'Date'}, inplace=True)  # Make column names consistent
 
-        concatenated_df = pd.concat([df_1, df_2])
-
-        return concatenated_df
+        return df_1, df_2
 # ----------------------------------------------------------------------
 #                            User SQL commands
 # ----------------------------------------------------------------------

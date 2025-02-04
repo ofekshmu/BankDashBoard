@@ -89,11 +89,13 @@ class AppManager:
         # Get the first day of the current year
         first_day_current_year = datetime.today().replace(month=1, day=1)
         
-        df1 = Exporter().export_bank_transactions(since_d=first_day_current_month)
-        df2 = Exporter().export_bank_transactions(since_d=first_day_last_month)
-        df3 = Exporter().export_bank_transactions(since_d=first_day_current_year)
+        bank_df1, card_df1 = Exporter().export_bank_transactions(since_d=first_day_current_month)
+        bank_df2, card_df2 = Exporter().export_bank_transactions(since_d=first_day_last_month)
+        bank_df3, card_df3 = Exporter().export_bank_transactions(since_d=first_day_current_year)
 
-        Exporter().generate_excel_file([df1, df2, df3], ['current month', 'last month', 'current year'], )
+        Exporter().add_sheet(sheet_name='current month', bank_df=bank_df1, card_df=card_df1)
+        Exporter().add_sheet(sheet_name='current month', bank_df=bank_df2, card_df=card_df2)
+        Exporter().add_sheet(sheet_name='current month', bank_df=bank_df3, card_df=card_df3)
 
     def execute_sql(self):
         pw = input("Please confirm password for this action: ")

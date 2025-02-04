@@ -88,7 +88,7 @@ class Graphics:
         """
         @spendings : list - A list of length n containing the total spending values of the last n months.
         @earnings  : list - A list of length n containing the total earning values of the last n months.
-        @spendings_overall  : list - A list of length n containing the total net icome across all accounts in the last n months.
+        @spendings_overall  : list - A list of length n containing the total net income across all accounts in the last n months.
 
         The function Will plot a graph describing general statistics and info and save it to 'Outputs\General_info.png'
         """
@@ -100,11 +100,17 @@ class Graphics:
 
         months = get_last_n_months_names(len(spendings))  # == len(earnings)
 
-        # ----------- Create a DataFrame for barplot data -----------
+        # --------------- Create a DataFrame for barplot data ----------------
         data = pd.DataFrame({"Months": months, "Spendings": spendings, "Earnings": earnings})
         # Convert DataFrame to long format using pd.melt
         df = pd.melt(data, id_vars=["Months"], var_name="Category", value_name="Amount")
-        
+
+        # ------------ Overlay bar plot to represent investments -------------
+        import numpy as np
+        top_bar_values = np.array(spendings) - np.array(spendings_overall)
+        data2 = pd.DataFrame({"Months": months, "Spendings": top_bar_values, "Earnings": earnings})
+        df2 = pd.melt(data2, id_vars=["Months"], var_name="Category", value_name="Amount")
+
         # ----------- Create a DataFrame for net income line plot -----------
         net_data = pd.DataFrame({"Months": months, "Net Income": [x + y for x, y in zip(earnings, spendings)]})
         
@@ -113,6 +119,7 @@ class Graphics:
         
         # Color constants for Graph
         spendings_bar_color = "#f66b85"
+        invest_bar_color = "#DAA520"
         earnings_bar_color = "#4fba89"
         net_income_line_color = "#58063f"
         overall_income_line_color = net_income_line_color
@@ -124,28 +131,26 @@ class Graphics:
         _, ax = plt.subplots(figsize=fig_size)
         # Data is flipped to flip the order of the x axis
         sns.barplot(x="Months", y="Amount", hue="Category", data=df[::-1], ax=ax, palette=[earnings_bar_color, spendings_bar_color])
+        # Data is flipped to flip the order of the x axis
+        sns.barplot(x="Months", y="Amount", hue="Category", data=df2[::-1], ax=ax, palette=[earnings_bar_color, invest_bar_color])
         # No need to flipp data in the following
-        sns.lineplot(x="Months", y="Net Income", color=net_income_line_color, marker='o', data = net_data)
+        #sns.lineplot(x="Months", y="Net Income", color=net_income_line_color, marker='o', data = net_data)
         if secondary_line:
             sns.lineplot(x="Months", y="Overall Income", color=overall_income_line_color, marker='o', data = overall_data, linestyle='--')
 
         # ----------- Plotting information next to line plot points -----------
-        offset = 40   # For better visual 
+        offset = 0.04   # For better visual
+        max_value = max(spendings + earnings)
+        prev = 0
         for x, y_net, y_overall in zip(net_data['Months'], net_data['Net Income'], overall_data['Overall Income']):
-            plt.text(x, y_net + offset, f'{y_net:,.0f}₪', ha='right', va='bottom', color=net_income_line_color,fontweight='bold')
+            #plt.text(x, y_net + offset, f'{y_net:,.0f}₪', ha='right', va='bottom', color=net_income_line_color,fontweight='bold')
             if secondary_line:
-                if y_net == y_overall:
-                    continue
-
-                if abs(y_net - y_overall) < 5000:
-                    if y_net > y_overall:
-                        plt.text(x, y_overall + offset - 2000, f'{y_overall:,.0f}₪', ha='right', va='bottom', color=overall_income_line_color, fontweight='bold')
-                    else:
-                        plt.text(x, y_overall + offset + 2000, f'{y_overall:,.0f}₪', ha='right', va='bottom', color=overall_income_line_color, fontweight='bold')
+                if y_overall > prev:
+                    plt.text(x, y_overall + max_value*offset , f'{y_overall:,.0f}₪', ha='left', va='bottom', color=overall_income_line_color, fontweight='bold')
                 else:
-                    plt.text(x, y_overall + offset, f'{y_overall:,.0f}₪', ha='right', va='bottom', color=overall_income_line_color, fontweight='bold')
+                    plt.text(x, y_overall - 2*max_value*offset, f'{y_overall:,.0f}₪', ha='left', va='bottom', color=overall_income_line_color, fontweight='bold')
 
-        
+            prev = y_overall
         import matplotlib.patches as mpatches
 
         legend_handles = [

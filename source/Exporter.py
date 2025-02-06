@@ -2,6 +2,8 @@ from datetime import datetime, date
 from database import DataBase
 from typing import Tuple
 import pandas as pd
+import os
+
 
 class Exporter:
 
@@ -17,25 +19,29 @@ class Exporter:
         
         """
         
-        full_path = excel_path + '\\' + excel_name + '\\' + self.time_stamp
+        full_path = excel_path + '\\' + excel_name + '_' + self.time_stamp + '.xlsx'
+
+        # Determine the mode based on whether the file exists
+        mode = 'a' if os.path.exists(full_path) else 'w'
 
         # Create an Excel writer object and write DataFrames to different sheets
-        with pd.ExcelWriter(full_path, engine='xlsxwriter') as writer:
+        with pd.ExcelWriter(full_path, engine='openpyxl', mode=mode) as writer:
             card_df.to_excel(writer, sheet_name=sheet_name, index=False, startrow=0)
+        with pd.ExcelWriter(full_path, engine='openpyxl', mode='a', if_sheet_exists='overlay') as writer:
             bank_df.to_excel(writer, sheet_name=sheet_name, index=False, startrow=len(card_df) + 2)
 
 
-    def generate_excel_file(self, df_lst: list, name_lst: list) -> None:
-        """
+    # def generate_excel_file(self, df_lst: list, name_lst: list) -> None:
+    #     """
         
-        """
-        # Define the Excel file name
-        excel_filename = "Transactions_" + generate_timestamp()
+    #     """
+    #     # Define the Excel file name
+    #     excel_filename = "Transactions_" + generate_timestamp()
 
-        # Create an Excel writer object and write DataFrames to different sheets
-        with pd.ExcelWriter(excel_filename, engine='xlsxwriter') as writer:
-            for df, name in zip(df_lst, name_lst):
-                df.to_excel(writer, sheet_name=name, index=False)
+    #     # Create an Excel writer object and write DataFrames to different sheets
+    #     with pd.ExcelWriter(excel_filename, engine='xlsxwriter') as writer:
+    #         for df, name in zip(df_lst, name_lst):
+    #             df.to_excel(writer, sheet_name=name, index=False)
     
 
 def generate_timestamp() -> str:

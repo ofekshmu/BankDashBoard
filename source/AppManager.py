@@ -89,13 +89,18 @@ class AppManager:
         # Get the first day of the current year
         first_day_current_year = datetime.today().replace(month=1, day=1)
         
-        bank_df1, card_df1 = Exporter().export_bank_transactions(since_d=first_day_current_month)
-        bank_df2, card_df2 = Exporter().export_bank_transactions(since_d=first_day_last_month)
-        bank_df3, card_df3 = Exporter().export_bank_transactions(since_d=first_day_current_year)
+        first_day_last_year = first_day_current_year - relativedelta(years=1)
 
-        Exporter().add_sheet(sheet_name='current month', bank_df=bank_df1, card_df=card_df1)
-        Exporter().add_sheet(sheet_name='current month', bank_df=bank_df2, card_df=card_df2)
-        Exporter().add_sheet(sheet_name='current month', bank_df=bank_df3, card_df=card_df3)
+        exporter = Exporter()
+        bank_df1, card_df1 = exporter.export_bank_transactions(since_d=first_day_current_month)
+        bank_df2, card_df2 = exporter.export_bank_transactions(since_d=first_day_last_month)
+        bank_df3, card_df3 = exporter.export_bank_transactions(since_d=first_day_current_year)
+        bank_df4, card_df4 = exporter.export_bank_transactions(since_d=first_day_last_year)
+
+        exporter.add_sheet(sheet_name='current month ' + first_day_current_month.strftime("%Y-%m-%d"), bank_df=bank_df1, card_df=card_df1)
+        exporter.add_sheet(sheet_name='last month ' + first_day_last_month.strftime("%Y-%m-%d"), bank_df=bank_df2, card_df=card_df2)
+        exporter.add_sheet(sheet_name='current year ' + first_day_current_year.strftime("%Y-%m-%d"), bank_df=bank_df3, card_df=card_df3)
+        exporter.add_sheet(sheet_name='last year ' + first_day_last_year.strftime("%Y-%m-%d"), bank_df=bank_df4, card_df=card_df4)
 
     def execute_sql(self):
         pw = input("Please confirm password for this action: ")

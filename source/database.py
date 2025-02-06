@@ -1141,7 +1141,7 @@ class DataBase:
         data = self.cursor.execute(query, (x,x,)).fetchall()
         return pd.DataFrame(data=data, columns=[d[0] for d in self.cursor.description])
     
-    def get_all_transactions_since(self, date: datetime) -> pd.DataFrame:
+    def get_all_transactions_since(self, date: datetime) -> Tuple[pd.DataFrame, pd.DataFrame]:
         """
         The function receives a date
         and returns all the transactions (spendings and incomes) from the given date.

@@ -307,7 +307,8 @@ class File:
                 return "False"
             return value
         
-        read_adittional_data_field()
+        if self.adittional_data_field is not None:
+            self.adittional_data_field_value = read_adittional_data_field()
 
         valid_rows = read_table(self.headers, self.header_row_idx, self.header_col_idx)
 

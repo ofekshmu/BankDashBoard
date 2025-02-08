@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import matplotlib.font_manager as fm
 import pandas as pd
 from src_utils.calculations import SimpleMath
 from src_utils.utils import utils
@@ -36,98 +37,51 @@ class Graphics:
         else:
             df['Final_Value'] = df['Final_Value'].abs()
             df = df.groupby("Category").sum()
-            title = f"Total {pie_name}: {df['Final_Value'].sum():,.2f}₪"
+            title = f"{pie_name}"
             
             # -------------- Create a pie chart with category names --------------
             df_category = df.copy()
             df_category.index = df_category.index.map(lambda name: f"{utils.heb_conversion(name)}")   
             reduced_category_df, outliers_list = utils.seperate_high_std(df_category, 'Final_Value')
             ax = reduced_category_df.plot.pie(y='Final_Value', figsize=(7, 5), legend=False, title=title, colors=color_set)
+            ax.set_title(title, fontsize = 20)
             ax.set_ylabel('')
+            #converting plot into donut chart
+            my_circle = plt.Circle((0, 0), 0.70, fc='white')
+            fig = plt.gcf()
+            fig.gca().add_artist(my_circle)
+
+            centre_text = f"{df['Final_Value'].sum():,.2f} ₪"
+            ax.text(0, 0, centre_text, horizontalalignment='center', 
+                    verticalalignment='center', 
+                    fontsize=22, fontweight='bold',
+                    color='black', fontname='Arial')
+
             plt.savefig(rf'Outputs\{pie_name}_category.png')
+
 
             # ------------------ Create a pie chart with prices ------------------
             df_prices = df.copy()
             df_prices.index = df.index.map(lambda name: f"{df_prices.loc[name,'Final_Value']:,.2f}₪")   
             reduced_prices_df, _ = utils.seperate_high_std(df_prices, 'Final_Value')
             ax = reduced_prices_df.plot.pie(y='Final_Value', figsize=(7, 5), legend=False, title=title, colors=color_set)
+            ax.set_title(title, fontsize = 20)
             ax.set_ylabel('')
+            #converting plot into donut chart
+            my_circle = plt.Circle((0, 0), 0.70, fc='white')
+            fig = plt.gcf()
+            fig.gca().add_artist(my_circle)
+
+            centre_text = f"{df['Final_Value'].sum():,.2f} ₪"
+            ax.text(0, 0, centre_text, horizontalalignment='center', 
+                    verticalalignment='center', 
+                    fontsize=22, fontweight='bold',
+                    color='black', fontname='Arial')
+
             plt.savefig(rf'Outputs\{pie_name}_prices.png')
 
         return outliers_list
 
-
-    # @staticmethod
-    # def plot_gas(df: pd.DataFrame) -> pd.Series:
-    #     """
-    #     The function assumes that df is never empty.
-    #     Saves a plot image and returns a series of statistics.
-    #     """
-    #     # ------------
-    #     df['Date/Executed_Date'] = pd.to_datetime(df['Date/Executed_Date'])
-    #     statistics = df['Final_Value'].describe().loc[["count", "mean", "std", "min", "max"]]
-
-    #     start_date = pd.Timestamp.today().normalize() - pd.DateOffset(months=2, days=0)
-    #     end_date = pd.Timestamp.today().normalize()
-    #     all_dates = pd.date_range(start=start_date, end=end_date, freq='D')
-    #     df_all_dates = pd.DataFrame({'Date/Executed_Date': all_dates})
-
-    #     # merge the original DataFrame with the new DataFrame using a left join
-    #     df_merged = pd.merge(df_all_dates, df, on='Date/Executed_Date', how='left')
-
-    #     # fill the missing values with 0
-    #     df_merged['Final_Value'].fillna(0, inplace=True)
-
-    #     # set the datetime column as the index of the DataFrame
-    #     df_merged.set_index('Date/Executed_Date', inplace=True)
-
-    #     # create the bar plot
-    #     plt.figure()
-    #     fig, ax = plt.subplots(figsize=(15, 6))
-    #     bars = ax.bar(df_merged.index.strftime('%d/%m'), df_merged['Final_Value'])
-
-    #     for i, bar in enumerate(bars):
-    #         height = bar.get_height()
-    #         if height != 0:
-    #             ax.text(bar.get_x() + bar.get_width()/2., height + 2,
-    #                     utils.heb_conversion(df_merged['Name'][i]),
-    #                     ha='center', va='bottom')
-
-    #     # rotate x-axis labels by 45 degrees
-    #     ax.set_xticklabels(df_merged.index.strftime('%d/%m'), rotation=55)
-
-    #     # set the x-axis label
-    #     ax.set_xlabel('Date (dd/mm)')
-    #     # set the y-axis label
-    #     ax.set_ylabel('Values')
-
-    #     # set the title of the plot
-    #     ax.set_title('Bar Plot')
-
-    #     plt.savefig(r'Outputs\Gas_Info.png')
-    #     return statistics
-
-    # @staticmethod
-    # def plot_monthly_gas(df: pd.DataFrame) -> None:
-
-    #     if df.empty:
-    #         return False
-
-    #     plt.figure()
-
-    #     df['Date/Executed_Date'] = pd.to_datetime(df['Date/Executed_Date'])
-    #     df = df.groupby(pd.Grouper(key='Date/Executed_Date', freq='M')).sum()
-    #     fig, ax = plt.subplots(figsize=(10, 6))
-    #     ax.bar(df.index.strftime('%b %Y'), df['Final_Value'])
-
-    #     # set the x-axis label
-    #     ax.set_xlabel('Month')
-    #     # set the y-axis label
-    #     ax.set_ylabel('Amount')
-
-    #     # set the title of the plot
-    #     ax.set_title('Monthly Payment')
-    #     plt.savefig(r'Outputs\Gas_monthly.png')
 
     @staticmethod
     def plot_general(spendings : list, spendings_overall : list, earnings: list, title_ext: str = "", fig_size=(14, 8), secondary_line: bool = True):
@@ -149,11 +103,17 @@ class Graphics:
 
         months = get_last_n_months_names(len(spendings))  # == len(earnings)
 
-        # ----------- Create a DataFrame for barplot data -----------
+        # --------------- Create a DataFrame for barplot data ----------------
         data = pd.DataFrame({"Months": months, "Spendings": spendings, "Earnings": earnings})
         # Convert DataFrame to long format using pd.melt
         df = pd.melt(data, id_vars=["Months"], var_name="Category", value_name="Amount")
-        
+
+        # ------------ Overlay bar plot to represent investments -------------
+        import numpy as np
+        top_bar_values = np.array(spendings) - np.array(spendings_overall)
+        data2 = pd.DataFrame({"Months": months, "Spendings": top_bar_values, "Earnings": earnings})
+        df2 = pd.melt(data2, id_vars=["Months"], var_name="Category", value_name="Amount")
+
         # ----------- Create a DataFrame for net income line plot -----------
         net_data = pd.DataFrame({"Months": months, "Net Income": [x + y for x, y in zip(earnings, spendings)]})
         
@@ -163,6 +123,7 @@ class Graphics:
         
         # Color constants for Graph
         spendings_bar_color = "#f66b85"
+        invest_bar_color = "#DAA520"
         earnings_bar_color = "#4fba89"
         net_income_line_color = "#58063f"
         overall_income_line_color = net_income_line_color
@@ -174,28 +135,26 @@ class Graphics:
         _, ax = plt.subplots(figsize=fig_size)
         # Data is flipped to flip the order of the x axis
         sns.barplot(x="Months", y="Amount", hue="Category", data=df[::-1], ax=ax, palette=[earnings_bar_color, spendings_bar_color])
+        # Data is flipped to flip the order of the x axis
+        sns.barplot(x="Months", y="Amount", hue="Category", data=df2[::-1], ax=ax, palette=[earnings_bar_color, invest_bar_color])
         # No need to flipp data in the following
-        sns.lineplot(x="Months", y="Net Income", color=net_income_line_color, marker='o', data = net_data)
+        #sns.lineplot(x="Months", y="Net Income", color=net_income_line_color, marker='o', data = net_data)
         if secondary_line:
             sns.lineplot(x="Months", y="Overall Income", color=overall_income_line_color, marker='o', data = overall_data, linestyle='--')
 
         # ----------- Plotting information next to line plot points -----------
-        if secondary_line:
-            offset = 40   # For better visual 
-            for x, y_net, y_overall in zip(net_data['Months'], net_data['Net Income'], overall_data['Overall Income']):
-                plt.text(x, y_net + offset, f'{y_net:,.0f}₪', ha='right', va='bottom', color=net_income_line_color,fontweight='bold')
-                if y_net == y_overall:
-                    continue
-
-                if abs(y_net - y_overall) < 5000:
-                    if y_net > y_overall:
-                        plt.text(x, y_overall + offset - 2000, f'{y_overall:,.0f}₪', ha='right', va='bottom', color=overall_income_line_color, fontweight='bold')
-                    else:
-                        plt.text(x, y_overall + offset + 2000, f'{y_overall:,.0f}₪', ha='right', va='bottom', color=overall_income_line_color, fontweight='bold')
+        offset = 0.04   # For better visual
+        max_value = max(spendings + earnings)
+        prev = 0
+        for x, y_net, y_overall in zip(net_data['Months'], net_data['Net Income'], overall_data['Overall Income']):
+            #plt.text(x, y_net + offset, f'{y_net:,.0f}₪', ha='right', va='bottom', color=net_income_line_color,fontweight='bold')
+            if secondary_line:
+                if y_overall > prev:
+                    plt.text(x, y_overall + max_value*offset , f'{y_overall:,.0f}₪', ha='left', va='bottom', color=overall_income_line_color, fontweight='bold')
                 else:
-                    plt.text(x, y_overall + offset, f'{y_overall:,.0f}₪', ha='right', va='bottom', color=overall_income_line_color, fontweight='bold')
+                    plt.text(x, y_overall - 2*max_value*offset, f'{y_overall:,.0f}₪', ha='left', va='bottom', color=overall_income_line_color, fontweight='bold')
 
-        
+            prev = y_overall
         import matplotlib.patches as mpatches
 
         legend_handles = [

@@ -40,7 +40,7 @@ class AppManager:
                     1. Update/Parse files
                     2. Show statistics
                     3. Delete file information
-                    4. Validate
+                    4. Search transactions 
                     5. Update existing file
                     6. Execute SQL query on db
                     7. Open File Organizer
@@ -60,7 +60,7 @@ class AppManager:
                 case 3:
                     self.delete_file_info()
                 case 4:
-                    utils.log("Option no avaliable", 'system')
+                    self.search_transaction()
                 case 5:
                     self.update_existing_file_v2()
                 case 6:
@@ -101,6 +101,24 @@ class AppManager:
         exporter.add_sheet(sheet_name='last month ' + first_day_last_month.strftime("%Y-%m-%d"), bank_df=bank_df2, card_df=card_df2)
         exporter.add_sheet(sheet_name='current year ' + first_day_current_year.strftime("%Y-%m-%d"), bank_df=bank_df3, card_df=card_df3)
         exporter.add_sheet(sheet_name='last year ' + first_day_last_year.strftime("%Y-%m-%d"), bank_df=bank_df4, card_df=card_df4)
+    def search_transaction(self) -> None:
+        """
+        The function will ask the user for a substring and search for a transaction containing the substring.
+        all transaction fitting will be printed
+        """
+
+        utils.log("Please insert a substring to search a transaction by, ENTER to go back.")
+        
+        input_str = " "
+        
+        while(True):
+            input_str = input()
+            if len(input_str) == 0:
+                break
+            df = DataBase().query_by_substring(input_str)
+            utils.log(df.to_markdown())
+        
+
 
     def execute_sql(self):
         pw = input("Please confirm password for this action: ")
@@ -667,7 +685,7 @@ class AppManager:
 
         # ----- General
         spendings_sum, spendings_sum_overall_inc, earnings_sum = SimpleMath.get_monthly_shifted(shift=7)
-        overall_net_income_df = Graphics.plot_general(spendings_sum, spendings_sum_overall_inc, earnings_sum)
+        overall_net_income_df = Graphics.plot_general(spendings_sum, spendings_sum_overall_inc, earnings_sum, )
         # ----- Cards
 
         card_ids = DataBase().get_card_ids() + ['Bank']
@@ -683,6 +701,7 @@ class AppManager:
         data['overall_net_mean'] = overall_net_income_df['Overall Income'].mean()
         
         utils.generate_html(t.month,
+                            t.year,
                             spendings_df,
                             high_std_spendings,
                             earnings_df,

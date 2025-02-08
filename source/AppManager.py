@@ -535,7 +535,7 @@ class AppManager:
         else:
             spendings_sum, spendings_sum_overall_inc, earnings_sum = SimpleMath.get_monthly_shifted(shift=6, category=name_for_analysis, business=None)
 
-        _ = Graphics.plot_general(spendings_sum, spendings_sum_overall_inc, earnings_sum, title_ext='Category_analysis', fig_size=(8, 5), secondary_line=False)
+        _ = Graphics.plot_general(spendings_sum, spendings_sum_overall_inc, earnings_sum, title_ext='Category_analysis', fig_size=(8, 5))
         
         def remove_by(df: pd.DataFrame, category=None, business_name=None) -> pd.DataFrame:
             if category is not None:
@@ -685,7 +685,7 @@ class AppManager:
 
         # ----- General
         spendings_sum, spendings_sum_overall_inc, earnings_sum = SimpleMath.get_monthly_shifted(shift=7)
-        overall_net_income_df = Graphics.plot_general(spendings_sum, spendings_sum_overall_inc, earnings_sum, )
+        overall_net_income_df = Graphics.plot_general(spendings_sum, spendings_sum_overall_inc, earnings_sum)
         # ----- Cards
 
         card_ids = DataBase().get_card_ids() + ['Bank']

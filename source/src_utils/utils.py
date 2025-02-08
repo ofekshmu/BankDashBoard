@@ -207,24 +207,6 @@ class utils:
 
         soup.body.insert(6, div)
 
-        # if not cards_df.empty:
-        #     div_element = soup.new_tag('div')
-        #     card_status_table = bs4.BeautifulSoup(cards_df.to_html(index=False), 'html.parser')
-
-        #     # Find all table cells in the DataFrame HTML
-        #     cells = card_status_table.find_all('td')
-
-        #     # Add conditional classes to cells based on their values
-        #     for cell in cells:
-        #         if cell.text.strip() == 'Verified':
-        #             cell['class'] = 'Verified'
-        #         elif cell.text.strip() == 'Not Verified':
-        #             cell['class'] = 'Not verified'
-
-        #     div_element.append(card_status_table)
-
-        #     soup.body.insert(6, div_element)
-
         for _, item in spendings_df.sort_values(by='Date/Executed_Date', ascending=True).iterrows():
 
             row = soup.new_tag("div")
@@ -379,6 +361,11 @@ class utils:
         overall_net_income_mean['class'] = "two alt-balance"
         overall_net_income_mean.string = f'Overall Net Income Monthly Mean: {data["overall_net_mean"]:,.2f}₪'
         soup.body.insert(12, overall_net_income_mean)
+
+        span_tag = soup.new_tag("span")
+        span_tag.string = f"Mean calculated with the last visible months in the above Graph"
+        span_tag['style'] = 'text-align: center; color: #a3a3a3;'
+        soup.body.insert(13, span_tag)
 
         soup.body.append(div_tag)
 

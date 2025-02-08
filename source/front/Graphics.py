@@ -150,6 +150,7 @@ class Graphics:
         legend_handles = [
             mpatches.Patch(color=spendings_bar_color, label='Spendings', linestyle='-'),  
             mpatches.Patch(color=earnings_bar_color, label='Earnings', linestyle='-'),
+            mpatches.Patch(color=invest_bar_color, label='Spendings (Investments)', linestyle='-'),
             mpatches.Patch(color=overall_income_line_color, label='Overall Net Income', linestyle='--')  
             ]
 
@@ -162,10 +163,6 @@ class Graphics:
         if not title_ext == "":
             title_ext = "_" + title_ext
         plt.savefig(r'Outputs\General_info' + title_ext + r'.png')
-
-        if secondary_line:
-            return overall_data
-        return None
 
 
     @staticmethod

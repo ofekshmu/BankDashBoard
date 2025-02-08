@@ -564,7 +564,7 @@ class utils:
                 utils.log(f"Headers were found at line {row}, Not in {initial_row} as specified.", "warning")
             initial_row = row
             return True
-        utils.log(f"Header Validation Failed for {file_name} with format {debug_list}\n extracted headers: ", "debug")
+        utils.log(f"Header Validation Failed for {file_name} with format {format}\n extracted headers: {debug_list} ", "debug")
         return False
 
     @staticmethod

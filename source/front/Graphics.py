@@ -25,6 +25,9 @@ class Graphics:
         # card transactions are processed to negative value, such values are prohibited in pie plots.
         # since each card is shown separately, negative and positive values are not mixed, and 'abs' can be used.
 
+        if pie_name not in ["Investments", "Spendings", "Earnings"]:
+            utils.log("Bad input in function 'plot_transactions_pie_chart'", 'error')
+
         outliers_list = []
 
         if df.empty:
@@ -36,14 +39,25 @@ class Graphics:
             plt.savefig(rf'Outputs\{pie_name}_prices.png')        
         else:
             df['Final_Value'] = df['Final_Value'].abs()
-            df = df.groupby("Category").sum()
             title = f"{pie_name}"
+            
+            if pie_name == "Investments":
+                df = df[df["Category"] == "השקעה/חיסכון"]
+            else:
+                df = df.groupby("Category").sum()
             
             # -------------- Create a pie chart with category names --------------
             df_category = df.copy()
-            df_category.index = df_category.index.map(lambda name: f"{utils.heb_conversion(name)}")   
-            reduced_category_df, outliers_list = utils.seperate_high_std(df_category, 'Final_Value')
-            ax = reduced_category_df.plot.pie(y='Final_Value', figsize=(7, 5), legend=False, title=title, colors=color_set)
+            if pie_name != "Investments":
+                df_category.index = df_category.index.map(lambda name: f"{utils.heb_conversion(name)}")
+                reduced_category_df, outliers_list = utils.seperate_high_std(df_category, 'Final_Value')
+                ax = reduced_category_df.plot.pie(y='Final_Value', figsize=(7, 5), legend=False, title=title, colors=color_set)
+            else:
+                print(df_category.columns)
+                df_category.index = df_category.apply(lambda row: utils.heb_conversion(f"{row['Name']}") if row['Description/Charge_Currency'] is None else utils.heb_conversion(f"{row['Description/Charge_Currency']}"), axis=1)
+                print(df_category.to_markdown())
+                ax = df_category.plot.pie(y='Final_Value', figsize=(7, 5), legend=False, title=title, colors=color_set)
+                
             ax.set_title(title, fontsize = 20)
             ax.set_ylabel('')
             #converting plot into donut chart

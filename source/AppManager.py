@@ -682,7 +682,9 @@ class AppManager:
         high_std_spendings = Graphics.plot_transactions_pie_chart(spendings_df, "Spendings", color_pallete)
         color_pallete = sns.light_palette("#4fba89", n_colors=10)
         high_std_earnings = Graphics.plot_transactions_pie_chart(earnings_df, "Earnings", color_pallete)
-
+        color_pallete = sns.light_palette("#ffd700", n_colors=10)
+        high_std_Investments = Graphics.plot_transactions_pie_chart(spendings_df, "Investments", color_pallete)
+        
         # ----- General
         spendings_sum, spendings_sum_overall_inc, earnings_sum = SimpleMath.get_monthly_shifted(shift=7)
         Graphics.plot_general(spendings_sum, spendings_sum_overall_inc, earnings_sum)

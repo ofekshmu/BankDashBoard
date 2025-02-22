@@ -156,32 +156,6 @@ class utils:
 
         sub_titles_div = soup.new_tag('div')
 
-        balance_h2 = soup.new_tag('h1')
-        balance_h2['class'] = "two alt-balance"
-        balance_h2.string = f'Balance {monthly_balance:,.2f}₪'
-        
-        net_income = soup.new_tag('h1')
-        net_income['class'] = "two alt-balance"
-        net_income.string = f'Net Income: {data["net income"]:,.2f}₪'
-        
-        overall_net_income = soup.new_tag('h1')
-        overall_net_income['class'] = "two alt-balance"
-        overall_net_income.string = f'Overall Net Income: {data["overall net income"]:,.2f}₪'
-        
-        if data["net income"] >= 0:
-            net_income['style'] = "color: #588157"
-        else:
-            net_income['style'] = "color: #c1121f"
-        
-        if data["overall net income"] >= 0:
-            overall_net_income['style'] = "color: #588157"
-        else:
-            overall_net_income['style'] = "color: #c1121f"
-
-        head_tag.append(balance_h2)
-        head_tag.append(net_income)
-        head_tag.append(overall_net_income)
-
         sub_titles_div.attrs['style'] = 'text-align: center;'
 
         soup.body.insert(2, sub_titles_div)
@@ -368,6 +342,76 @@ class utils:
         soup.body.insert(13, span_tag)
 
         soup.body.append(div_tag)
+
+        # Create financial metrics containers
+        def create_financial_metric(soup, label, value, is_positive):
+            """Helper function to create styled financial metrics"""
+            container = soup.new_tag('div')
+            container['class'] = 'metric-container'
+            
+            display = soup.new_tag('h1')
+            display['class'] = "metric-display"
+            
+            label_span = soup.new_tag('span', attrs={'class': 'metric-label'})
+            label_span.string = f'{label} '
+            
+            amount_span = soup.new_tag('span', attrs={'class': 'metric-amount'})
+            amount_span['class'] = "metric-amount positive" if is_positive else "metric-amount negative"
+            # Add minus sign for negative values
+            amount_span.string = f'{value:,.2f}₪' if value >= 0 else f'-{abs(value):,.2f}₪'
+            
+            display.append(label_span)
+            display.append(amount_span)
+            container.append(display)
+            return container
+
+        # Create containers for each metric
+        balance_container = create_financial_metric(soup, 'Balance', monthly_balance, monthly_balance >= 0)
+        net_income_container = create_financial_metric(soup, 'Net Income', data["net income"], data["net income"] >= 0)
+        overall_container = create_financial_metric(soup, 'Overall Net Income', data["overall net income"], data["overall net income"] >= 0)
+
+        # Add CSS styles to the head
+        style = soup.new_tag('style')
+        style.string = """
+            .metric-container {
+                text-align: center;
+                margin: 20px 0;
+                padding: 15px;
+                background: linear-gradient(145deg, #f6f6f6, #ffffff);
+                border-radius: 10px;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+                transition: transform 0.2s;
+            }
+            .metric-container:hover {
+                transform: translateY(-2px);
+            }
+            .metric-display {
+                margin: 0;
+                font-family: Arial, sans-serif;
+            }
+            .metric-label {
+                color: #666;
+                font-size: 0.7em;
+                font-weight: normal;
+            }
+            .metric-amount {
+                font-size: 0.9em;
+                font-weight: bold;
+                margin-left: 10px;
+            }
+            .metric-amount.positive {
+                color: #4fba89;
+            }
+            .metric-amount.negative {
+                color: #f66b85;
+            }
+        """
+        soup.head.append(style)
+
+        # Replace old displays with new ones
+        head_tag.append(balance_container)
+        head_tag.append(net_income_container)
+        head_tag.append(overall_container)
 
         with open(r"source\html\output.html", "w", encoding='utf-8') as outf:
             outf.write(bs4.BeautifulSoup.prettify(soup))

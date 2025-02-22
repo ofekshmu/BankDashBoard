@@ -9,9 +9,11 @@ from enum import Enum
 
 BANK_CARD_NUMBER = "Not_Relevant"
 CC_CHARGE_CATEGORY_NAME = "אשראי"
+INVESTMENT_CATEGORY = "השקעה/חיסכון"
+GOLDEN_COLOR_PALLETE = ["#FFF6E1", "#FFEBBC", "#FFDD8D", "#FFCB50", "#FFC02D"]
 
 class Settings:
-    DEBUG = False
+    DEBUG = True
     SYSTEM = True
     WARNING = True
     LAPTOP = False
@@ -102,3 +104,4 @@ class Personal:
 class GENERAL_PLOT:
     
     SHOW_CURRENT_MONTH = True
+    

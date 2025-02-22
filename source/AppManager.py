@@ -2,7 +2,7 @@ from Parser import Parser
 from Card import Card
 from Bank import Bank
 from Context import Context
-from Constants import Local, CC_CHARGE_CATEGORY_NAME
+from Constants import Local, CC_CHARGE_CATEGORY_NAME, INVESTMENT_CATEGORY, GOLDEN_COLOR_PALLETE
 from src_utils.utils import utils
 from database import DataBase
 from front.Graphics import Graphics
@@ -678,12 +678,23 @@ class AppManager:
         earnings_df = utils.remove_leumi(earnings_df)
 
         import seaborn as sns
-        color_pallete = sns.light_palette("#f66b85", n_colors=10)
-        high_std_spendings = Graphics.plot_transactions_pie_chart(spendings_df, "Spendings", color_pallete)
-        color_pallete = sns.light_palette("#4fba89", n_colors=10)
-        high_std_earnings = Graphics.plot_transactions_pie_chart(earnings_df, "Earnings", color_pallete)
-        color_pallete = sns.light_palette("#ffd700", n_colors=10)
-        high_std_Investments = Graphics.plot_transactions_pie_chart(spendings_df, "Investments", color_pallete)
+        # ---------------- Spendings Pie plot ----------------
+        color_pallete = sns.light_palette("#f66b85", n_colors=10, reverse=True)
+        spendings_With_no_investments_df = spendings_df[spendings_df["Category"] != INVESTMENT_CATEGORY]
+        high_std_spendings = Graphics.plot_transactions_pie_chart(spendings_With_no_investments_df.groupby("Category").sum(), 
+                                                                  "Spendings", 
+                                                                  color_pallete)
+        # -------------=--- Earnings Pie plot -----------------
+        color_pallete = sns.light_palette("#4fba89", n_colors=10, reverse=True)
+        high_std_earnings = Graphics.plot_transactions_pie_chart(earnings_df.groupby("Category").sum(),
+                                                                 "Earnings",
+                                                                 color_pallete)
+        # ---------------- Investments Pie plot ----------------
+        color_pallete = GOLDEN_COLOR_PALLETE
+        investments_df = spendings_df[spendings_df["Category"] == INVESTMENT_CATEGORY]
+        high_std_Investments = Graphics.plot_transactions_pie_chart(investments_df,
+                                                                    "Investments",
+                                                                    color_pallete)
         
         # ----- General
         spendings_sum, spendings_sum_overall_inc, earnings_sum = SimpleMath.get_monthly_shifted(shift=7)
@@ -696,6 +707,11 @@ class AppManager:
 
         Graphics.card_distribution(spendings_df, card_color_dict, card_validation_df)
 
+        print(earnings_df.to_markdown())
+        print(spendings_df.to_markdown())
+        print(earnings_df['Final_Value'].sum())
+        print(spendings_df['Final_Value'].sum())
+
         data['net income'] = (earnings_df['Final_Value'].sum() - spendings_df['Final_Value'].sum())
         data['overall net income'] = (earnings_df['Final_Value'].sum() - \
                                       spendings_df[spendings_df['Category'] != 'השקעה/חיסכון']['Final_Value'].sum())
@@ -703,6 +719,7 @@ class AppManager:
         import numpy as np
         data['overall_net_mean'] = (np.array(earnings_sum) + np.array(spendings_sum_overall_inc)).mean()
         
+        print(spendings_df.to_markdown())
         utils.generate_html(t.month,
                             t.year,
                             spendings_df,

@@ -12,90 +12,110 @@ class Graphics:
 
 
     @staticmethod
+    def _create_empty_chart(pie_name: str):
+        """Helper method to create an empty chart when no data is present"""
+        _, ax = plt.subplots()
+        ax.pie([], labels=[])
+        ax.set_title('Empty Pie Chart')
+        plt.savefig(f'Outputs\\{pie_name}_category.png')
+        plt.savefig(f'Outputs\\{pie_name}_prices.png')
+
+    @staticmethod
     def plot_transactions_pie_chart(df: pd.DataFrame, pie_name: str, color_set: list) -> list:
         """
-        The function Receives:
-        1. A transactions data frame 
-        2. the name of the data frame (choose any name that represents your data)
-        3. a color set - a list of colors represented in hex form
-        the function will sort transactions by category and plot 2 pie charts, one with the category names and one with
-        the total category prices. piw charts will be saved to the output folder.
-        the function will return a list with high/low std transactions, see the function 'seperate_high_std'
+        Create and save two pie charts for transaction data analysis.
+        
+        Args:
+            df (pd.DataFrame): Transaction data with columns ['Final_Value', 'Category', 'Name', 'Description/Charge_Currency']
+            pie_name (str): Name of the chart (must be one of: "Investments", "Spendings", "Earnings")
+            color_set (list): List of hex color codes for the chart
+            
+        Returns:
+            list: List of transactions identified as outliers
+            
+        Saves two files:
+            - {pie_name}_category.png: Pie chart showing category distribution
+            - {pie_name}_prices.png: Pie chart showing price distribution
         """
-        # card transactions are processed to negative value, such values are prohibited in pie plots.
-        # since each card is shown separately, negative and positive values are not mixed, and 'abs' can be used.
+        VALID_CHART_TYPES = ["Investments", "Spendings", "Earnings"]
+        DONUT_HOLE_SIZE = 0.70
+        FIG_SIZE = (7, 5)
 
-        if pie_name not in ["Investments", "Spendings", "Earnings"]:
-            utils.log("Bad input in function 'plot_transactions_pie_chart'", 'error')
+        def create_donut_chart(ax, df, title, total_value):
+            """Helper function to create a donut chart with consistent styling"""
+            my_circle = plt.Circle((0, 0), DONUT_HOLE_SIZE, fc='white')
+            fig = plt.gcf()
+            fig.gca().add_artist(my_circle)
+            
+            # Add center text
+            centre_text = f"{total_value:,.2f} ₪"
+            ax.text(0, 0, centre_text,
+                    horizontalalignment='center',
+                    verticalalignment='center',
+                    fontsize=22,
+                    fontweight='bold',
+                    color='black',
+                    fontname='Arial')
+            
+            ax.set_title(title, fontsize = 20)
+            ax.set_ylabel('')
+
+        if pie_name not in VALID_CHART_TYPES:
+            utils.log(f"pie_name must be one of {VALID_CHART_TYPES}", 'error')
 
         outliers_list = []
 
         if df.empty:
-            _, ax = plt.subplots()
-            ax.pie([], labels=[])
-            # set the title of the plot
-            ax.set_title('Empty Pie Chart')
-            plt.savefig(rf'Outputs\{pie_name}_category.png')
-            plt.savefig(rf'Outputs\{pie_name}_prices.png')        
-        else:
-            df['Final_Value'] = df['Final_Value'].abs()
-            title = f"{pie_name}"
-            
-            if pie_name == "Investments":
-                df = df[df["Category"] == "השקעה/חיסכון"]
-            else:
-                df = df.groupby("Category").sum()
-            
-            # -------------- Create a pie chart with category names --------------
-            df_category = df.copy()
-            if pie_name != "Investments":
-                df_category.index = df_category.index.map(lambda name: f"{utils.heb_conversion(name)}")
-                reduced_category_df, outliers_list = utils.seperate_high_std(df_category, 'Final_Value')
-                ax = reduced_category_df.plot.pie(y='Final_Value', figsize=(7, 5), legend=False, title=title, colors=color_set)
-            else:
-                print(df_category.columns)
-                df_category.index = df_category.apply(lambda row: utils.heb_conversion(f"{row['Name']}") if row['Description/Charge_Currency'] is None else utils.heb_conversion(f"{row['Description/Charge_Currency']}"), axis=1)
-                print(df_category.to_markdown())
-                ax = df_category.plot.pie(y='Final_Value', figsize=(7, 5), legend=False, title=title, colors=color_set)
+            Graphics._create_empty_chart(pie_name)  # Create an empty chart
+            return []     
+
+        # Preprocessing    
+        df = df.copy()
+        df['Final_Value'] = df['Final_Value'].abs()
+        total_value = df['Final_Value'].sum()
+        
+        # -------------- Create a pie chart with category names --------------
+        df_names = df.copy()
+
+        if pie_name in ["Spendings", "Earnings"]:
+            df_names.index = df_names.index.map(lambda name: f"{utils.heb_conversion(name)}")
+            df_names, outliers_list = utils.seperate_high_std(df_names, 'Final_Value')
+        elif pie_name == "Investments":
+            def get_display_name(row) -> str:
+                """Helper function to determine the display name for pie chart labels"""
+                if row['Description/Charge_Currency'] is None:
+                    base_text = row['Name']
+                else:
+                    base_text = row['Description/Charge_Currency']
                 
-            ax.set_title(title, fontsize = 20)
-            ax.set_ylabel('')
-            #converting plot into donut chart
-            my_circle = plt.Circle((0, 0), 0.70, fc='white')
-            fig = plt.gcf()
-            fig.gca().add_artist(my_circle)
+                return utils.heb_conversion(str(base_text))
+            df_names = df_names.set_index(df_names.apply(get_display_name, axis=1))
 
-            centre_text = f"{df['Final_Value'].sum():,.2f} ₪"
-            ax.text(0, 0, centre_text, horizontalalignment='center', 
-                    verticalalignment='center', 
-                    fontsize=22, fontweight='bold',
-                    color='black', fontname='Arial')
+        # Create category pie chart
+        ax = df_names.plot.pie(y='Final_Value',
+                            figsize=FIG_SIZE,
+                            legend=False,
+                            title=pie_name,
+                            colors=color_set)
+        create_donut_chart(ax, df_names, pie_name, total_value)
+        plt.savefig(f'Outputs\\{pie_name}_category.png')
+        
+        # Create prices pie chart
+        prices_df = df.copy()
+        prices_df.index = df.index.map(lambda name: f"{prices_df.loc[name,'Final_Value']:,.2f}₪")
 
-            plt.savefig(rf'Outputs\{pie_name}_category.png')
-
-
-            # ------------------ Create a pie chart with prices ------------------
-            df_prices = df.copy()
-            df_prices.index = df.index.map(lambda name: f"{df_prices.loc[name,'Final_Value']:,.2f}₪")   
-            reduced_prices_df, _ = utils.seperate_high_std(df_prices, 'Final_Value')
-            ax = reduced_prices_df.plot.pie(y='Final_Value', figsize=(7, 5), legend=False, title=title, colors=color_set)
-            ax.set_title(title, fontsize = 20)
-            ax.set_ylabel('')
-            #converting plot into donut chart
-            my_circle = plt.Circle((0, 0), 0.70, fc='white')
-            fig = plt.gcf()
-            fig.gca().add_artist(my_circle)
-
-            centre_text = f"{df['Final_Value'].sum():,.2f} ₪"
-            ax.text(0, 0, centre_text, horizontalalignment='center', 
-                    verticalalignment='center', 
-                    fontsize=22, fontweight='bold',
-                    color='black', fontname='Arial')
-
-            plt.savefig(rf'Outputs\{pie_name}_prices.png')
-
+        if pie_name in ["Spendings", "Earnings"]:
+            prices_df, _ = utils.seperate_high_std(prices_df, 'Final_Value')
+        
+        ax = prices_df.plot.pie(y='Final_Value',
+                                    figsize=FIG_SIZE,
+                                    legend=False,
+                                    title=pie_name,
+                                    colors=color_set)
+        create_donut_chart(ax, prices_df, pie_name, total_value)
+        plt.savefig(f'Outputs\\{pie_name}_prices.png')
+        
         return outliers_list
-
 
     @staticmethod
     def plot_general(spendings : list, spendings_overall : list, earnings: list, title_ext: str = "", fig_size=(14, 8)):

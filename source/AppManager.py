@@ -13,6 +13,7 @@ from Configurations.Formats import Formats, Context_class
 import pandas as pd
 from os import listdir
 import numpy as np
+import seaborn as sns
 from Exporter import Exporter
 
 class AppManager:
@@ -679,8 +680,6 @@ class AppManager:
                             )
         earnings_df = utils.remove_leumi(earnings_df)
 
-        import seaborn as sns
-        utils.log(f"{spendings_df['Final_Value']}",'debug')
         # ---------------- Spendings Pie plot ----------------
         color_pallete = sns.light_palette("#f66b85", n_colors=10, reverse=True)
         spendings_With_no_investments_df = spendings_df[spendings_df["Category"] != INVESTMENT_CATEGORY]
@@ -693,7 +692,6 @@ class AppManager:
                                                                  "Earnings",
                                                                  color_pallete)
         # ---------------- Investments Pie plot ----------------
-        utils.log(f"{spendings_df['Final_Value']}",'debug')
         color_pallete = GOLDEN_COLOR_PALLETE
         investments_df = spendings_df[spendings_df["Category"] == INVESTMENT_CATEGORY]
         _ = Graphics.plot_transactions_pie_chart(investments_df,
@@ -701,7 +699,7 @@ class AppManager:
                                                 color_pallete)
 
         # ----- General
-        spendings_sum, spendings_sum_overall_inc, earnings_sum = SimpleMath.get_monthly_shifted(shift=7)
+        spendings_sum, spendings_sum_overall_inc, earnings_sum = SimpleMath.get_monthly_shifted(shift=10)
         Graphics.plot_general(spendings_sum, spendings_sum_overall_inc, earnings_sum)
         # ----- Cards
 

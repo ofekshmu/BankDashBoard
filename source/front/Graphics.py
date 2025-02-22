@@ -6,6 +6,9 @@ from src_utils.utils import utils
 import seaborn as sns
 from Constants import GENERAL_PLOT
 from typing import Tuple
+import matplotlib.patches as mpatches
+import numpy as np
+from datetime import datetime
 
 
 class Graphics:
@@ -118,86 +121,124 @@ class Graphics:
         return outliers_list
 
     @staticmethod
-    def plot_general(spendings : list, spendings_overall : list, earnings: list, title_ext: str = "", fig_size=(14, 8)):
+    def plot_general(spendings: list, spendings_overall: list, earnings: list, title_ext: str = "", fig_size=(14, 8)):
         """
-        @spendings : list - A list of length n containing the total spending values of the last n months.
-        @earnings  : list - A list of length n containing the total earning values of the last n months.
-        @spendings_overall  : list - A list of length n containing the total net income across all accounts in the last n months.
+        Plot general financial statistics showing spendings, earnings and overall income.
+        
+        Args:
+            spendings (list): Monthly spending values
+            spendings_overall (list): Monthly net income values across all accounts
+            earnings (list): Monthly earning values
+            title_ext (str, optional): Extension for output filename. Defaults to "".
+            fig_size (tuple, optional): Figure dimensions. Defaults to (14, 8).
+        
+        Saves:
+            PNG file at 'Outputs/General_info{title_ext}.png'
+        """
+        # Constants
+        COLORS = {
+            'spendings': "#f66b85",
+            'investments': "#DAA520", 
+            'earnings': "#4fba89",
+            'net_income': "#58063f"
+        }
+        FONT_SIZES = {
+            'title': 18,
+            'labels': 16,
+            'annotations': 10
+        }
+        OFFSET_FACTOR = 0.035
 
-        The function Will plot a graph describing general statistics and info and save it to 'Outputs\General_info.png'
-        """
-        from datetime import datetime
-        def get_last_n_months_names(N):
+        def get_last_n_months_names(n_months: int) -> list:
+            """Get list of last n month names."""
             delta = 0 if GENERAL_PLOT.SHOW_CURRENT_MONTH else 1
-            current_month = (datetime.now() - pd.DateOffset(months=delta)).month 
-            return [(datetime(2023, (current_month - i) % 12 or 12, 1)).strftime('%B') for i in range(N)]
+            current_month = (datetime.now() - pd.DateOffset(months=delta)).month
+            return [(datetime(2023, (current_month - i) % 12 or 12, 1)).strftime('%B') 
+                    for i in range(n_months)]
 
-        months = get_last_n_months_names(len(spendings))  # == len(earnings)
+        def prepare_plot_data(months: list) -> tuple:
+            """Prepare DataFrames for plotting."""
+            # Base data
+            base_df = pd.DataFrame({
+                "Months": months, 
+                "Spendings": spendings, 
+                "Earnings": earnings
+            })
+            
+            # Investment data
+            investment_values = np.array(spendings) - np.array(spendings_overall)
+            invest_df = pd.DataFrame({
+                "Months": months, 
+                "Spendings": investment_values, 
+                "Earnings": earnings
+            })
+            
+            # Overall income data
+            overall_df = pd.DataFrame({
+                "Months": months, 
+                "Overall Income": [x + y for x, y in zip(earnings, spendings_overall)]
+            })
+            
+            return (pd.melt(base_df, id_vars=["Months"], var_name="Category", value_name="Amount"),
+                    pd.melt(invest_df, id_vars=["Months"], var_name="Category", value_name="Amount"),
+                    overall_df)
 
-        # --------------- Create a DataFrame for barplot data ----------------
-        data = pd.DataFrame({"Months": months, "Spendings": spendings, "Earnings": earnings})
-        # Convert DataFrame to long format using pd.melt
-        df = pd.melt(data, id_vars=["Months"], var_name="Category", value_name="Amount")
-
-        # ------------ Overlay bar plot to represent investments -------------
-        import numpy as np
-        top_bar_values = np.array(spendings) - np.array(spendings_overall)
-        data2 = pd.DataFrame({"Months": months, "Spendings": top_bar_values, "Earnings": earnings})
-        df2 = pd.melt(data2, id_vars=["Months"], var_name="Category", value_name="Amount")
-        
-        # ----------- Create a DataFrame for overall income line plot -----------
-        overall_data = pd.DataFrame({"Months": months, "Overall Income": [x + y for x, y in zip(earnings, spendings_overall)]})
-        
-        # Color constants for Graph
-        spendings_bar_color = "#f66b85"
-        invest_bar_color = "#DAA520"
-        earnings_bar_color = "#4fba89"
-        net_income_line_color = "#58063f"
-        overall_income_line_color = net_income_line_color
-        
-        # Plot the bar plot using seaborn
-        sns.set(style="whitegrid")
-        plt.figure(figsize=(10, 6))
-
-        _, ax = plt.subplots(figsize=fig_size)
-        # Data is flipped to flip the order of the x axis
-        sns.barplot(x="Months", y="Amount", hue="Category", data=df[::-1], ax=ax, palette=[earnings_bar_color, spendings_bar_color])
-        # Data is flipped to flip the order of the x axis
-        sns.barplot(x="Months", y="Amount", hue="Category", data=df2[::-1], ax=ax, palette=[earnings_bar_color, invest_bar_color])
-        # No need to flipp data in the following
-        sns.lineplot(x="Months", y="Overall Income", color=overall_income_line_color, marker='o', data = overall_data, linestyle='--')
-
-        # ----------- Plotting information next to line plot points -----------
-        offset = 0.035   # For better visual
-        max_value = overall_data['Overall Income'].abs().max()
-        prev = 0
-        for x, y_overall in zip(overall_data['Months'], overall_data['Overall Income']):
-
-            if y_overall > prev:
-                plt.text(x, y_overall + max_value*offset , f'{y_overall:,.0f}₪', ha='left', va='bottom', color=overall_income_line_color, fontweight='bold')
-            else:
-                plt.text(x, y_overall - 2*max_value*offset, f'{y_overall:,.0f}₪', ha='left', va='bottom', color=overall_income_line_color, fontweight='bold')
-
-            prev = y_overall
-        import matplotlib.patches as mpatches
-
-        legend_handles = [
-            mpatches.Patch(color=spendings_bar_color, label='Spendings', linestyle='-'),  
-            mpatches.Patch(color=earnings_bar_color, label='Earnings', linestyle='-'),
-            mpatches.Patch(color=invest_bar_color, label='Spendings (Investments)', linestyle='-'),
-            mpatches.Patch(color=overall_income_line_color, label='Overall Net Income', linestyle='--')  
+        def create_legend_handles() -> list:
+            """Create legend handles for the plot."""
+            return [
+                mpatches.Patch(color=COLORS['spendings'], label='Spendings'),
+                mpatches.Patch(color=COLORS['earnings'], label='Earnings'),
+                mpatches.Patch(color=COLORS['investments'], label='Spendings (Investments)'),
+                mpatches.Patch(color=COLORS['net_income'], label='Overall Net Income', linestyle='--')
             ]
 
-        # Add labels and title
-        plt.xlabel("Months", fontsize=16)
-        plt.ylabel("Amount (₪)", fontsize=16)
-        plt.title("Monthly Spendings and Earnings", fontsize=18)
-        plt.legend(handles=legend_handles)
+        def add_value_annotations(ax, data_df: pd.DataFrame) -> None:
+            """Add value annotations to the line plot."""
+            # Filter out rows with NaN values in 'Overall Income'
+            for x, y in zip(data_df['Months'], data_df['Overall Income']):
+                ax.annotate(f'{y:,.0f}₪',
+                        xy=(x, y),
+                        xytext=(0, 10),  # 10 points vertical offset
+                        textcoords="offset points",
+                        ha='center',
+                        va='bottom',
+                        color=COLORS['net_income'],
+                        fontweight='bold')
 
-        if not title_ext == "":
-            title_ext = "_" + title_ext
-        plt.savefig(r'Outputs\General_info' + title_ext + r'.png')
+        # Main plotting logic
+        months = get_last_n_months_names(len(spendings))
+        df_base, df_investments, df_overall = prepare_plot_data(months)
+        
+        # Create plot
+        sns.set(style="whitegrid")
+        _, ax = plt.subplots(figsize=fig_size)
+        
+        # Plot layers
+        sns.barplot(x="Months", y="Amount", hue="Category", 
+                    data=df_base[::-1], ax=ax, 
+                    palette=[COLORS['earnings'], COLORS['spendings']])
+        
+        sns.barplot(x="Months", y="Amount", hue="Category", 
+                    data=df_investments[::-1], ax=ax,
+                    palette=[COLORS['earnings'], COLORS['investments']])
+        
+        sns.lineplot(x="Months", y="Overall Income", 
+                    data=df_overall, ax=ax,
+                    color=COLORS['net_income'],
+                    marker='o', linestyle='--')
 
+        # Styling
+        add_value_annotations(ax, df_overall)
+        ax.legend(handles=create_legend_handles())
+        ax.set_xlabel("Months", fontsize=FONT_SIZES['labels'])
+        ax.set_ylabel("Amount (₪)", fontsize=FONT_SIZES['labels'])
+        ax.set_title("Monthly Spendings and Earnings", fontsize=FONT_SIZES['title'])
+        ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda value, tick_number: f'{value:,.0f}₪' ))
+
+        # Save plot
+        output_path = f'Outputs\\General_info{"_" + title_ext if title_ext else ""}.png'
+        plt.savefig(output_path, bbox_inches='tight')
+        plt.close()
 
     @staticmethod
     def card_distribution(spendings: pd.DataFrame, color_dict: dict, df_card_status: pd.DataFrame):

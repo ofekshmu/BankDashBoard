@@ -12,6 +12,7 @@ import webbrowser
 from Configurations.Formats import Formats, Context_class
 import pandas as pd
 from os import listdir
+import numpy as np
 from Exporter import Exporter
 
 class AppManager:
@@ -670,6 +671,7 @@ class AppManager:
         spendings_df = SimpleMath.process_prices(
                             DataBase().get_monthly_spendings(year=t.year, month=t.month)
                             )
+        utils.log(f"{spendings_df['Final_Value']}",'debug')
         spendings_df = utils.remove_leumi(spendings_df)
 
         earnings_df = SimpleMath.process_prices(
@@ -678,6 +680,7 @@ class AppManager:
         earnings_df = utils.remove_leumi(earnings_df)
 
         import seaborn as sns
+        utils.log(f"{spendings_df['Final_Value']}",'debug')
         # ---------------- Spendings Pie plot ----------------
         color_pallete = sns.light_palette("#f66b85", n_colors=10, reverse=True)
         spendings_With_no_investments_df = spendings_df[spendings_df["Category"] != INVESTMENT_CATEGORY]
@@ -690,12 +693,13 @@ class AppManager:
                                                                  "Earnings",
                                                                  color_pallete)
         # ---------------- Investments Pie plot ----------------
+        utils.log(f"{spendings_df['Final_Value']}",'debug')
         color_pallete = GOLDEN_COLOR_PALLETE
         investments_df = spendings_df[spendings_df["Category"] == INVESTMENT_CATEGORY]
-        high_std_Investments = Graphics.plot_transactions_pie_chart(investments_df,
-                                                                    "Investments",
-                                                                    color_pallete)
-        
+        _ = Graphics.plot_transactions_pie_chart(investments_df,
+                                                "Investments",
+                                                color_pallete)
+
         # ----- General
         spendings_sum, spendings_sum_overall_inc, earnings_sum = SimpleMath.get_monthly_shifted(shift=7)
         Graphics.plot_general(spendings_sum, spendings_sum_overall_inc, earnings_sum)
@@ -705,18 +709,11 @@ class AppManager:
         color_list = Local.Colors[:len(card_ids)]
         card_color_dict = dict(zip(card_ids, color_list))
 
-        Graphics.card_distribution(spendings_df, card_color_dict, card_validation_df)
+        Graphics.card_distribution(spendings_With_no_investments_df, card_color_dict, card_validation_df)
 
-        print(earnings_df.to_markdown())
-        print(spendings_df.to_markdown())
-        print(earnings_df['Final_Value'].sum())
-        print(spendings_df['Final_Value'].sum())
-
-        data['net income'] = (earnings_df['Final_Value'].sum() - spendings_df['Final_Value'].sum())
+        data['net income'] = (earnings_df['Final_Value'].sum() - spendings_df['Final_Value'].abs().sum())
         data['overall net income'] = (earnings_df['Final_Value'].sum() - \
-                                      spendings_df[spendings_df['Category'] != 'השקעה/חיסכון']['Final_Value'].sum())
-
-        import numpy as np
+                                      spendings_With_no_investments_df['Final_Value'].abs().sum())
         data['overall_net_mean'] = (np.array(earnings_sum) + np.array(spendings_sum_overall_inc)).mean()
         
         print(spendings_df.to_markdown())

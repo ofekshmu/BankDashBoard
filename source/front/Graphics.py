@@ -207,6 +207,7 @@ class Graphics:
         df = spendings.copy()[['Ref/CardID', 'Final_Value', 'TableName']]
 
         if not df.empty:
+            df['Final_Value'] = df['Final_Value'].abs()
             # Since BankTransactions are indexed by a Ref Number, These needs to be caregorized by the TableName,
             # and not by CardNumber, unlike CardTransactions, Therefor, we will change the ref number for all
             # BankTransactions

@@ -215,10 +215,10 @@ class utils:
             cell['class'] = 'date'
             
             if item['Description/Charge_Currency'] == item['Reserved/Value_Currency'] or item['TableName'] == 'BankTransactions':
-                price_lable_1 = f"{item['Final_Value']:,}₪"
+                price_lable_1 = f"{item['Final_Value']:,.2f}₪"
                 price_lable_2 = ""
             else:
-                price_lable_1 = f"{item['Final_Value']:,}₪"
+                price_lable_1 = f"{item['Final_Value']:,.2f}₪"
                 price_lable_2 = f"({item['Income/Charge_Value']:,}{item['Description/Charge_Currency']})"
             
             # Create a <br> tag
@@ -272,10 +272,10 @@ class utils:
             cell['class'] = 'date'
 
             if item['Description/Charge_Currency'] == item['Reserved/Value_Currency'] or item['TableName'] == 'BankTransactions':
-                price_lable_1 = f"{item['Final_Value']:,}₪"
+                price_lable_1 = f"{item['Final_Value']:,.2f}₪"
                 price_lable_2 = ""
             else:
-                price_lable_1 = f"{item['Final_Value']:,}₪"
+                price_lable_1 = f"{item['Final_Value']:,.2f}₪"
                 price_lable_2 = f"({item['Income/Charge_Value']:,}{item['Description/Charge_Currency']})"
 
 
@@ -302,46 +302,123 @@ class utils:
         div_tag = soup.new_tag('div')
 
         # ------------- Insertion of outliers under pie charts -------------
+        # Add CSS styles for outliers with width matching pie chart
+        style = soup.find('style')
+        style.string += """
+            .outliers-container {
+                display: flex;
+                justify-content: space-around;
+                margin: 20px auto;
+                width: 800px;  /* Match pie chart width */
+                gap: 20px;
+                padding: 0 20px;
+            }
+            .outlier-box {
+                flex: 1;
+                background: white;
+                padding: 20px;
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            }
+            .outlier-box h3 {
+                color: #333;
+                margin-bottom: 15px;
+                font-size: 1.2em;
+                text-align: center;
+                border-bottom: 2px solid #eee;
+                padding-bottom: 10px;
+            }
+            .outlier-list {
+                list-style: none;
+                padding: 0;
+                margin: 0;
+            }
+            .outlier-item {
+                display: flex;
+                justify-content: space-between;
+                padding: 8px 0;
+                border-bottom: 1px solid #eee;
+                transition: background-color 0.2s;
+            }
+            .outlier-item:hover {
+                background-color: #f5f5f5;
+            }
+            .outlier-name {
+                color: #555;
+            }
+            .outlier-value {
+                color: #e74c3c;
+                font-weight: bold;
+            }
+        """
+
+        # Create outliers container
+        outliers_container = soup.new_tag('div')
+        outliers_container['class'] = 'outliers-container'
+
+        # Spendings outliers box
+        spendings_box = soup.new_tag('div')
+        spendings_box['class'] = 'outlier-box'
         
-        transaction_outlier_div = soup.new_tag('div')
-        transaction_outlier_div['class'] = 'outer-div'
+        spendings_title = soup.new_tag('h3')
+        spendings_title.string = 'Other Spending Categories'  # Changed title
+        spendings_box.append(spendings_title)
+
+        spendings_list = soup.new_tag('ul')
+        spendings_list['class'] = 'outlier-list'
         
-        spendings_outliers = soup.new_tag('div')
-        spendings_outliers['class'] = 'inner-div'
-        
-        # Append each item as list elements (li) inside the ul
         for item in high_std_spendings:
             li = soup.new_tag('li')
-            li.string = f"{item[0]} - {item[1]}₪"
-            spendings_outliers.append(li)
+            li['class'] = 'outlier-item'
             
-        transaction_outlier_div.append(spendings_outliers)
+            name_span = soup.new_tag('span')
+            name_span['class'] = 'outlier-name'
+            name_span.string = item[0]
+            
+            value_span = soup.new_tag('span')
+            value_span['class'] = 'outlier-value'
+            value_span.string = f"{item[1]:,.2f}₪"
+            
+            li.append(name_span)
+            li.append(value_span)
+            spendings_list.append(li)
+        
+        spendings_box.append(spendings_list)
+        outliers_container.append(spendings_box)
 
-        earnings_outliers = soup.new_tag('div')
-        earnings_outliers['class'] = 'inner-div'
+        # Earnings outliers box
+        earnings_box = soup.new_tag('div')
+        earnings_box['class'] = 'outlier-box'
+        
+        earnings_title = soup.new_tag('h3')
+        earnings_title.string = 'Other Earning Categories'  # Changed title
+        earnings_box.append(earnings_title)
 
-        # Append each item as list elements (li) inside the ul
+        earnings_list = soup.new_tag('ul')
+        earnings_list['class'] = 'outlier-list'
+        
         for item in high_std_earnings:
             li = soup.new_tag('li')
-            li.string = f"{item[0]} - {item[1]}₪"
-            earnings_outliers.append(li)
+            li['class'] = 'outlier-item'
             
-        transaction_outlier_div.append(earnings_outliers)
+            name_span = soup.new_tag('span')
+            name_span['class'] = 'outlier-name'
+            name_span.string = item[0]
+            
+            value_span = soup.new_tag('span')
+            value_span['class'] = 'outlier-value'
+            value_span.string = f"{item[1]:,.2f}₪"
+            
+            li.append(name_span)
+            li.append(value_span)
+            earnings_list.append(li)
         
-        soup.body.insert(5, transaction_outlier_div)
-        soup.body.insert(6, soup.new_tag('br'))
+        earnings_box.append(earnings_list)
+        outliers_container.append(earnings_box)
+
+        # Insert the outliers container
+        soup.body.insert(4, outliers_container)
+        soup.body.insert(5, soup.new_tag('br'))
         # ------------------------------------------------------------------
-        overall_net_income_mean = soup.new_tag('h1')
-        overall_net_income_mean['class'] = "two alt-balance"
-        overall_net_income_mean.string = f'Overall Net Income Monthly Mean: {data["overall_net_mean"]:,.2f}₪'
-        soup.body.insert(12, overall_net_income_mean)
-
-        span_tag = soup.new_tag("span")
-        span_tag.string = f"Mean calculated with the last visible months in the above Graph"
-        span_tag['style'] = 'text-align: center; color: #a3a3a3;'
-        soup.body.insert(13, span_tag)
-
-        soup.body.append(div_tag)
 
         # Create financial metrics containers
         def create_financial_metric(soup, label, value, is_positive):
@@ -369,6 +446,18 @@ class utils:
         balance_container = create_financial_metric(soup, 'Balance', monthly_balance, monthly_balance >= 0)
         net_income_container = create_financial_metric(soup, 'Net Income', data["net income"], data["net income"] >= 0)
         overall_container = create_financial_metric(soup, 'Overall Net Income', data["overall net income"], data["overall net income"] >= 0)
+        monthly_mean_container = create_financial_metric(soup, 'Monthly Mean', data["overall_net_mean"], data["overall_net_mean"] >= 0)
+
+        # Add metrics at the right position (after pie charts)
+        metrics_div = soup.new_tag('div')
+        metrics_div['class'] = 'metrics-container'
+        metrics_div.append(balance_container)
+        metrics_div.append(net_income_container)
+        metrics_div.append(overall_container)
+        metrics_div.append(monthly_mean_container)
+
+        # Insert after the pie charts but before the transactions lists
+        soup.body.insert(7, metrics_div)
 
         # Add CSS styles to the head
         style = soup.new_tag('style')
@@ -404,6 +493,14 @@ class utils:
             }
             .metric-amount.negative {
                 color: #f66b85;
+            }
+            .metrics-container {
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+                align-items: center;
+                margin: 20px auto;
+                width: 800px;
             }
         """
         soup.head.append(style)

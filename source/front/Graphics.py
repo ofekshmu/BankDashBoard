@@ -209,9 +209,12 @@ class Graphics:
         months = get_last_n_months_names(len(spendings))
         df_base, df_investments, df_overall = prepare_plot_data(months)
         
-        # Create plot
+        # Create plot with adjusted layout
         sns.set(style="whitegrid")
-        _, ax = plt.subplots(figsize=fig_size)
+        fig, ax = plt.subplots(figsize=fig_size)
+        
+        # Adjust the layout to make room for title and x-axis label
+        plt.subplots_adjust(top=0.88, bottom=0.15)  # Increase space at top and bottom
         
         # Plot layers
         sns.barplot(x="Months", y="Amount", hue="Category", 
@@ -227,12 +230,14 @@ class Graphics:
                     color=COLORS['net_income'],
                     marker='o', linestyle='--')
 
-        # Styling
+        # Styling with adjusted title and x-axis label
         add_value_annotations(ax, df_overall)
         ax.legend(handles=create_legend_handles())
-        ax.set_xlabel("Months", fontsize=FONT_SIZES['labels'])
+        ax.set_xlabel("Months", fontsize=FONT_SIZES['labels'], labelpad=15)  # Add padding to x-axis label
         ax.set_ylabel("Amount (₪)", fontsize=FONT_SIZES['labels'])
-        ax.set_title("Monthly Spendings and Earnings", fontsize=FONT_SIZES['title'])
+        fig.suptitle("Monthly Spendings and Earnings", 
+                    fontsize=FONT_SIZES['title'],
+                    y=0.95)  # Move title up
         ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda value, tick_number: f'{value:,.0f}₪' ))
 
         # Save plot

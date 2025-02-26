@@ -1,4 +1,3 @@
-
 import sqlite3
 from datetime import datetime, date
 import pandas as pd
@@ -1168,6 +1167,30 @@ class DataBase:
         df_2.rename(columns={'Executed_Date': 'Date'}, inplace=True)  # Make column names consistent
 
         return df_1, df_2
+    
+    def create_other_account_table(self):
+        """Creates or updates the other accounts status table"""
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS OtherAccountStatus (
+                ID              INTEGER     PRIMARY KEY AUTOINCREMENT,
+                AccountName     TEXT        NOT NULL,
+                StatusDate      DATE        NOT NULL,
+                Value          REAL        NOT NULL,
+                TransactionID  INTEGER,
+                FOREIGN KEY(TransactionID) REFERENCES BankTransactions(ID)
+            );
+        """)
+        self.connection.commit()
+
+    def insert_other_account_status(self, account_name: str, status_date: str, value: float, transaction_id: int = None):
+        """Insert a new status record for another account"""
+        query = """
+            INSERT INTO OtherAccountStatus (AccountName, StatusDate, Value, TransactionID)
+            VALUES (?, ?, ?, ?)
+        """
+        self.cursor.execute(query, (account_name, status_date, value, transaction_id))
+        self.connection.commit()
+
 # ----------------------------------------------------------------------
 #                            User SQL commands
 # ----------------------------------------------------------------------
@@ -1277,3 +1300,4 @@ class DataBase:
 
     def commit_changes(self) -> None:
         self.connection.commit()
+

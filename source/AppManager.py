@@ -47,7 +47,8 @@ class AppManager:
                     6. Execute SQL query on db
                     7. Open File Organizer
                     8. Export Excel
-                    9. Exit
+                    9. Insert other account status                  
+                    10. Exit
                 """)
             answer = input()
             answer = -1 if not answer.isdigit() else int(answer)
@@ -73,9 +74,60 @@ class AppManager:
                 case 8:
                     self.exporter_function()
                 case 9:
+                    self.Insert_other_account_status()
+                case 10:
                     break
                 case _:
                     print("Please insert a valid number.")
+
+    def Insert_other_account_status(self) -> None:
+
+        DataBase().create_other_account_table()
+
+        while(True):
+
+            res = utils.template_menu(["Insert new account name",
+                                       "Insert new information for an existing account",
+                                       "Delete account status",
+                                       "Exit"],
+                                       "What would you like to do?")
+            
+            match res:
+                case 0:
+                    account_name = input("Please insert the account name: ")
+                    DataBase().insert_new_account(account_name)
+                    DataBase().commit_changes()
+                case 1:
+                    utils.log("Please pick an account name:")
+                    account_names = DataBase().get_all_account_names()
+                    res = utils.template_menu(account_names, "Pick an account name:")
+                    account_name = account_names[res]
+                    
+                    utils.log("Do you want to use todays date or a different date?")
+                    res = utils.template_menu(["Today", "Different date"], "Pick an option:")
+                    from datetime import datetime
+                    if res == 0:
+                        date = datetime.today().strftime("%Y-%m-%d")
+                    else:
+                        date = input("Please insert the date in the following format: YYYY-MM-DD: ")
+                        while True:
+                            try:
+                                datetime.strptime(date, '%Y-%m-%d')
+                                break
+                            except ValueError:
+                                date = input("Invalid date format. Please insert the date in YYYY-MM-DD format: ")
+                    utils.log("Please insert the current account Balance:")
+                    value = int(input())
+                    DataBase().insert_other_account_status(account_name, date, value, None)
+                    DataBase().commit_changes() 
+                case 2:
+                    account_name = input("Please insert the account name: ")
+                    DataBase().delete_account(account_name)
+                    DataBase().commit_changes()
+                case 3:
+                    break
+                case _:
+                    utils.log("Something went wrong in 'Insert_other_account_status'", "error")
 
     def exporter_function(self) -> None:
 

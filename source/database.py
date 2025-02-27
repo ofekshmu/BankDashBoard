@@ -1172,7 +1172,7 @@ class DataBase:
         """Creates or updates the other accounts status table"""
         self.cursor.execute("""
             CREATE TABLE IF NOT EXISTS OtherAccountStatus (
-                ID              INTEGER     PRIMARY KEY AUTOINCREMENT,
+                ID              INTEGER     PRIMARY KEY,
                 AccountName     TEXT        NOT NULL,
                 StatusDate      DATE        NOT NULL,
                 Value          REAL        NOT NULL,
@@ -1190,6 +1190,67 @@ class DataBase:
         """
         self.cursor.execute(query, (account_name, status_date, value, transaction_id))
         self.connection.commit()
+
+
+    def get_all_account_names(self) -> list[str]:
+        """Get list of all account names"""
+        query = "SELECT AccountName FROM OtherAccountStatus"
+        result = self.cursor.execute(query).fetchall()
+        return [row[0] for row in result]
+
+    def delete_account(self, account_name: str) -> bool:
+        """Delete an account and its associated records"""
+        try:
+            # First delete associated records in OtherAccountStatus
+            self.cursor.execute(
+                "DELETE FROM OtherAccountStatus WHERE AccountName = ?", 
+                (account_name,)
+            )
+
+            self.connection.commit()
+            return True
+        except Exception as e:
+            utils.log(f"Error deleting account: {str(e)}", "error")
+            return False
+
+    def delete_other_account_table(self) -> bool:
+        """Delete the OtherAccountStatus table completely"""
+        try:
+            # First ensure no pending transactions
+            self.connection.commit()
+
+            # Drop the OtherAccountStatus table if it exists
+            self.cursor.execute("DROP TABLE IF EXISTS OtherAccountStatus")
+            utils.log("Deleted OtherAccountStatus table", "system")
+
+            # Make sure to commit the drop
+            self.connection.commit()
+            return True
+        except Exception as e:
+            utils.log(f"Error deleting OtherAccountStatus table: {str(e)}", "error")
+            return False
+
+    def get_account_entries(self) -> list:
+        """Get all entries for an account with their IDs"""
+        query = """
+            SELECT ID, StatusDate, Value 
+            FROM OtherAccountStatus 
+            ORDER BY StatusDate DESC
+        """
+        return self.cursor.execute(query).fetchall()
+
+    def delete_account_entry(self, entry_id: int) -> bool:
+        """Delete a single entry by its ID"""
+        try:
+            self.cursor.execute(
+                "DELETE FROM OtherAccountStatus WHERE ID = ?", 
+                (entry_id,)
+            )
+            self.connection.commit()
+            return True
+        except Exception as e:
+            utils.log(f"Error deleting entry: {str(e)}", "error")
+            return False
 
 # ----------------------------------------------------------------------
 #                            User SQL commands

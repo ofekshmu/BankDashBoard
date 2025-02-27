@@ -81,30 +81,34 @@ class AppManager:
                     print("Please insert a valid number.")
 
     def Insert_other_account_status(self) -> None:
-
         DataBase().create_other_account_table()
 
         while(True):
-
-            res = utils.template_menu(["Insert new account name",
-                                       "Insert new information for an existing account",
-                                       "Delete account status",
+            res = utils.template_menu(["Insert new account status",
+                                       "Delete account related entries",
+                                       "Delete an account entry by id",
                                        "Exit"],
                                        "What would you like to do?")
             
             match res:
                 case 0:
-                    account_name = input("Please insert the account name: ")
-                    DataBase().insert_new_account(account_name)
-                    DataBase().commit_changes()
-                case 1:
-                    utils.log("Please pick an account name:")
+                    # Get account name
+                    # Get account names from database
                     account_names = DataBase().get_all_account_names()
-                    res = utils.template_menu(account_names, "Pick an account name:")
-                    account_name = account_names[res]
+                    account_names.append("Add a new account")
                     
-                    utils.log("Do you want to use todays date or a different date?")
-                    res = utils.template_menu(["Today", "Different date"], "Pick an option:")
+                    # Let user choose from list or add new
+                    idx = utils.template_menu(account_names, "Choose an account Or add a new one:")
+                    
+                    if idx == len(account_names) - 1:
+                        # User chose to add new account
+                        account_name = input("Please insert the new account name: ")
+                    else:
+                        account_name = account_names[idx]
+                    
+                    # Get date
+                    res = utils.template_menu(["Today", "Different date"],
+                                              "Do you want to use today's date or a different date?\nPick an option:")
                     from datetime import datetime
                     if res == 0:
                         date = datetime.today().strftime("%Y-%m-%d")
@@ -116,14 +120,42 @@ class AppManager:
                                 break
                             except ValueError:
                                 date = input("Invalid date format. Please insert the date in YYYY-MM-DD format: ")
+                    
+                    # Get balance
                     utils.log("Please insert the current account Balance:")
                     value = int(input())
+                    
+                    # Insert new status (will create account if doesn't exist)
                     DataBase().insert_other_account_status(account_name, date, value, None)
-                    DataBase().commit_changes() 
-                case 2:
-                    account_name = input("Please insert the account name: ")
+                    DataBase().commit_changes()
+                    utils.log(f"Account status added for {account_name}")
+                    
+                case 1:
+                    # Get account names from database
+                    account_names = DataBase().get_all_account_names()
+                    
+                    # Let user choose from list
+                    idx = utils.template_menu(account_names, "Choose an account to delete:")
+                    account_name = account_names[idx]
+                    
                     DataBase().delete_account(account_name)
                     DataBase().commit_changes()
+                case 2:
+                    # Get all entries
+                    utils.log("Current entries:\n")
+                    entries = DataBase().get_account_entries()
+                    for entry in entries:
+                        utils.log(f"ID: {entry[0]}, Date: {entry[1]}, Value: {entry[2]}")
+                    
+                    entry_id = input("\nEnter the ID of the entry to delete: ")
+                    try:
+                        entry_id = int(entry_id)
+                        if DataBase().delete_account_entry(entry_id):
+                            utils.log(f"Successfully deleted entry {entry_id}")
+                        else:
+                            utils.log("Failed to delete entry")
+                    except ValueError:
+                        utils.log("Invalid ID entered")
                 case 3:
                     break
                 case _:
@@ -780,5 +812,5 @@ class AppManager:
 
 
 
-        
+
 

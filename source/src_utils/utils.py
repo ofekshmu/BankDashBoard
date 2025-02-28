@@ -510,6 +510,16 @@ class utils:
         head_tag.append(net_income_container)
         head_tag.append(overall_container)
 
+        # Add section for accounts balance plot at the end of the HTML content with margin
+        accounts_balance_div = soup.new_tag('div')
+        accounts_balance_div['class'] = 'container_img'
+        accounts_balance_div['style'] = 'margin-top: 50px;'
+        img_tag = soup.new_tag('img')
+        img_tag['src'] = "../../Outputs/accounts_liner_plots.png"
+        img_tag['class'] = "img-fluid"
+        accounts_balance_div.append(img_tag)
+        soup.body.append(accounts_balance_div)
+
         with open(r"source\html\output.html", "w", encoding='utf-8') as outf:
             outf.write(bs4.BeautifulSoup.prettify(soup))
 

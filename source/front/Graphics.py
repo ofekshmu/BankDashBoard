@@ -384,20 +384,11 @@ class Graphics:
     
     @staticmethod
     def plot_linear_plots_graph(data_dict: dict) -> None:
-        """
-        Plot line graphs for account balances over time with value annotations.
-        
-        Args:
-            data_dict (dict): Dictionary where:
-                            key: account name
-                            value: list of (date, value) tuples
-        Saves:
-            PNG file at 'Outputs/accounts_liner_plots.png'
-        """
+        """Plot line graphs for account balances over time with value annotations."""
         sns.set(style="whitegrid")
-        plt.figure(figsize=(12, 8))
+        plt.figure(figsize=(18, 8))  # Increased width from 12 to 15
         
-        # Plot each account's data
+        # Plot each account's data 
         for key, value in data_dict.items():
             x, y = zip(*value)
             line = plt.plot(x, y, label=key, marker='o')[0]
@@ -406,7 +397,7 @@ class Graphics:
             for i, (xi, yi) in enumerate(zip(x, y)):
                 plt.annotate(f'{yi:,.0f}₪', 
                            (xi, yi),
-                           xytext=(0, 10),  # 10 points vertical offset
+                           xytext=(0, 10),
                            textcoords='offset points',
                            ha='center',
                            va='bottom',
@@ -415,14 +406,19 @@ class Graphics:
 
         plt.legend()
         plt.xticks(rotation=45)
-        plt.title("Account Balances Over Time")
+        
+        # Increase title font size and add padding
+        plt.title("Account Balances Over Time", 
+                 fontsize=20,        # Increased from default
+                 pad=20)            # Added padding between title and plot
+        
         plt.xlabel("Date")
         plt.ylabel("Balance (₪)")
         
-        # Format y-axis values with commas and shekel symbol
+        # Format y-axis values
         plt.gca().yaxis.set_major_formatter(plt.FuncFormatter(lambda value, tick_number: f'{value:,.0f}₪'))
         
-        # Adjust layout to prevent label cutoff
+        # Adjust layout with more bottom margin for rotated labels
         plt.tight_layout()
         
         plt.savefig(r'Outputs\accounts_liner_plots.png')

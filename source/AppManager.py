@@ -766,6 +766,20 @@ class AppManager:
                 account_df = other_accounts_df[other_accounts_df['AccountName'] == account]
                 accounts_data[account] = list(zip(account_df['Date'], account_df['Value']))
 
+            # Calculate total sum across all accounts
+            all_dates = sorted(set(date for data in accounts_data.values() for date, _ in data))
+            total_sums = []
+            for date in all_dates:
+                total = 0
+                for data in accounts_data.values():
+                    # Find the closest previous date's value
+                    valid_entries = [(d, v) for d, v in data if d <= date]
+                    if valid_entries:
+                        total += max(valid_entries, key=lambda x: x[0])[1]
+                total_sums.append((date, total))
+            
+            accounts_data['Total'] = total_sums
+
             return accounts_data
 
         # Get accounts data and create linear plot
@@ -819,7 +833,6 @@ class AppManager:
                                       spendings_With_no_investments_df['Final_Value'].abs().sum())
         data['overall_net_mean'] = (np.array(earnings_sum) + np.array(spendings_sum_overall_inc)).mean()
         
-        print(spendings_df.to_markdown())
         utils.generate_html(t.month,
                             t.year,
                             spendings_df,

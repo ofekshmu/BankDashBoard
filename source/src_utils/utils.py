@@ -130,7 +130,8 @@ class utils:
                       high_std_earnings,
                       monthly_balance: int,
                       cards_dict: dict,
-                      data: dict):
+                      data: dict,
+                      accounts_data: dict) -> None:
         import bs4
         from datetime import datetime
         import calendar
@@ -519,6 +520,95 @@ class utils:
         img_tag['class'] = "img-fluid"
         accounts_balance_div.append(img_tag)
         soup.body.append(accounts_balance_div)
+
+        # Get most recent values for each account
+        recent_accounts_data = {}
+        total_balance = 0
+        for account, values in accounts_data.items():
+            if account != 'Total':  # Skip the total as we'll calculate it ourselves
+                latest_date = max(date for date, _ in values)
+                latest_value = next(value for date, value in values if date == latest_date)
+                recent_accounts_data[account] = {
+                    'date': latest_date,
+                    'value': latest_value
+                }
+                total_balance += latest_value
+
+        # Create accounts summary section
+        accounts_summary_div = soup.new_tag('div')
+        accounts_summary_div['class'] = 'accounts-summary'
+        accounts_summary_div['style'] = 'margin-top: 50px; text-align: center;'
+
+        # Create summary table
+        table = soup.new_tag('table')
+        table['style'] = '''
+            margin: 0 auto;
+            border-collapse: collapse;
+            width: 80%;
+            max-width: 800px;
+            background: white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+        '''
+
+        # Add headers
+        header = soup.new_tag('tr')
+        for col in ['Account', 'Last Updated', 'Balance']:
+            th = soup.new_tag('th')
+            th.string = col
+            th['style'] = 'padding: 12px; border-bottom: 2px solid #ddd; text-align: left;'
+            header.append(th)
+        table.append(header)
+
+        # Add account rows
+        for account, data in recent_accounts_data.items():
+            row = soup.new_tag('tr')
+            
+            # Account name cell
+            name_cell = soup.new_tag('td')
+            name_cell.string = account
+            name_cell['style'] = 'padding: 12px; border-bottom: 1px solid #eee;'
+            row.append(name_cell)
+            
+            # Date cell
+            date_cell = soup.new_tag('td')
+            date_cell.string = data['date'].strftime('%Y-%m-%d')
+            date_cell['style'] = 'padding: 12px; border-bottom: 1px solid #eee;'
+            row.append(date_cell)
+            
+            # Balance cell
+            balance_cell = soup.new_tag('td')
+            balance_cell.string = f"{data['value']:,.2f}₪"
+            balance_cell['style'] = 'padding: 12px; border-bottom: 1px solid #eee; text-align: right;'
+            row.append(balance_cell)
+            
+            table.append(row)
+
+        # Add total row
+        total_row = soup.new_tag('tr')
+        total_row['style'] = 'font-weight: bold; background-color: #f8f9fa;'
+        
+        total_label = soup.new_tag('td')
+        total_label.string = 'Total'
+        total_label['style'] = 'padding: 12px; border-top: 2px solid #ddd;'
+        total_row.append(total_label)
+        
+        total_date = soup.new_tag('td')
+        total_date.string = datetime.now().strftime('%Y-%m-%d')
+        total_date['style'] = 'padding: 12px; border-top: 2px solid #ddd;'
+        total_row.append(total_date)
+        
+        total_value = soup.new_tag('td')
+        total_value.string = f"{total_balance:,.2f}₪"
+        total_value['style'] = 'padding: 12px; border-top: 2px solid #ddd; text-align: right;'
+        total_row.append(total_value)
+        
+        table.append(total_row)
+        accounts_summary_div.append(table)
+
+        # Add accounts summary section above the accounts plot
+        accounts_plot_div = soup.find('div', class_='container_img', style='margin-top: 50px;')
+        soup.body.insert(soup.body.contents.index(accounts_plot_div) + 1, accounts_summary_div)
 
         with open(r"source\html\output.html", "w", encoding='utf-8') as outf:
             outf.write(bs4.BeautifulSoup.prettify(soup))
@@ -1477,12 +1567,3 @@ Please Make sure that none of the following formats have their 'Identifications 
         from database import DataBase
         DataBase().delete_transactions(id_lst)
         DataBase().commit_changes()
-
-        # if utils.template_menu(["Delete from Bank Transactions", \
-        #                         "Delete from Card Transactions"], \
-        #                        "Where do you want to delete the trasnaction from?")
-    
-        #     DataBase().delete_transactions()
-        # else:
-        #     DataBase().delete_transactions()
-        # DataBase().commit_changes()

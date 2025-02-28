@@ -1172,7 +1172,7 @@ class DataBase:
         """Creates or updates the other accounts status table"""
         self.cursor.execute("""
             CREATE TABLE IF NOT EXISTS OtherAccountStatus (
-                ID              INTEGER     PRIMARY KEY,
+                ID              INTEGER     PRIMARY KEY AUTOINCREMENT,
                 AccountName     TEXT        NOT NULL,
                 StatusDate      DATE        NOT NULL,
                 Value          REAL        NOT NULL,
@@ -1191,47 +1191,89 @@ class DataBase:
         self.cursor.execute(query, (account_name, status_date, value, transaction_id))
         self.connection.commit()
 
+    def get_account_entries_with_dates(self, account_name: str = None, from_date: datetime = None) -> pd.DataFrame:
+        """
+        Get historical values for one or all other accounts after a given date.
+        
+        Args:
+            account_name (str, optional): If provided, get data only for this account.
+                                        If None, get data for all accounts.
+            from_date (datetime, optional): Only get entries after this date.
+                                          If None, defaults to 1 year ago.
+        Returns:
+            pd.DataFrame: DataFrame with columns ['Date', 'Value', 'AccountName'] 
+                         containing the account history
+        """
+        # Default to 1 year ago if no date provided
+        if from_date is None:
+            from_date = datetime.now() - pd.DateOffset(years=1)
+        
+        # Convert date to string format SQLite understands
+        from_date_str = from_date.strftime('%Y-%m-%d')
+
+        # Base query with date filter
+        query = """
+            SELECT 
+                StatusDate as Date,
+                Value,
+                AccountName
+            FROM OtherAccountStatus
+            WHERE StatusDate >= ?
+            {}
+            ORDER BY StatusDate ASC
+        """
+        
+        if account_name:
+            where_clause = "AND AccountName = ?"
+            data = self.cursor.execute(query.format(where_clause), 
+                                     (from_date_str, account_name)).fetchall()
+        else:
+            data = self.cursor.execute(query.format(""), 
+                                     (from_date_str,)).fetchall()
+
+        df = pd.DataFrame(data, columns=['Date', 'Value', 'AccountName'])
+        df['Date'] = pd.to_datetime(df['Date'])
+        return df
 
     def get_all_account_names(self) -> list[str]:
-        """Get list of all account names"""
-        query = "SELECT AccountName FROM OtherAccountStatus"
+        """
+        Get list of all accounts from OtherAccountStatus table
+        
+        Returns:
+            list[str]: List of unique account names
+        """
+        query = "SELECT DISTINCT AccountName FROM OtherAccountStatus"
         result = self.cursor.execute(query).fetchall()
         return [row[0] for row in result]
 
     def delete_account(self, account_name: str) -> bool:
-        """Delete an account and its associated records"""
+        """
+        Delete all records for a given account
+        
+        Args:
+            account_name (str): Name of account to delete
+            
+        Returns:
+            bool: True if successful, False if error occurred
+        """
         try:
-            # First delete associated records in OtherAccountStatus
             self.cursor.execute(
                 "DELETE FROM OtherAccountStatus WHERE AccountName = ?", 
                 (account_name,)
             )
-
             self.connection.commit()
             return True
         except Exception as e:
             utils.log(f"Error deleting account: {str(e)}", "error")
             return False
 
-    def delete_other_account_table(self) -> bool:
-        """Delete the OtherAccountStatus table completely"""
-        try:
-            # First ensure no pending transactions
-            self.connection.commit()
-
-            # Drop the OtherAccountStatus table if it exists
-            self.cursor.execute("DROP TABLE IF EXISTS OtherAccountStatus")
-            utils.log("Deleted OtherAccountStatus table", "system")
-
-            # Make sure to commit the drop
-            self.connection.commit()
-            return True
-        except Exception as e:
-            utils.log(f"Error deleting OtherAccountStatus table: {str(e)}", "error")
-            return False
-
     def get_account_entries(self) -> list:
-        """Get all entries for an account with their IDs"""
+        """
+        Get all entries from OtherAccountStatus with their IDs
+        
+        Returns:
+            list: List of tuples containing (ID, StatusDate, Value)
+        """
         query = """
             SELECT ID, StatusDate, Value 
             FROM OtherAccountStatus 
@@ -1240,7 +1282,15 @@ class DataBase:
         return self.cursor.execute(query).fetchall()
 
     def delete_account_entry(self, entry_id: int) -> bool:
-        """Delete a single entry by its ID"""
+        """
+        Delete a single entry from OtherAccountStatus by ID
+        
+        Args:
+            entry_id (int): ID of entry to delete
+            
+        Returns:
+            bool: True if successful, False if error occurred
+        """
         try:
             self.cursor.execute(
                 "DELETE FROM OtherAccountStatus WHERE ID = ?", 
@@ -1251,6 +1301,7 @@ class DataBase:
         except Exception as e:
             utils.log(f"Error deleting entry: {str(e)}", "error")
             return False
+
 
 # ----------------------------------------------------------------------
 #                            User SQL commands
@@ -1361,4 +1412,106 @@ class DataBase:
 
     def commit_changes(self) -> None:
         self.connection.commit()
+
+    def get_monthly_bank_balances(self, from_date: datetime = None) -> pd.DataFrame:
+        """
+        Get end-of-month balances from BankTransactions after a given date.
+        Filters out rows where Balance is NULL, empty string, or only whitespace.
+        
+        Args:
+            from_date (datetime, optional): Only get entries after this date.
+                                          If None, defaults to 1 year ago.
+        Returns:
+            pd.DataFrame: DataFrame with columns ['Date', 'Balance'] containing 
+                         valid end-of-month balances
+        """
+        if from_date is None:
+            from_date = datetime.now() - pd.DateOffset(years=1)
+        
+        from_date_str = from_date.strftime('%Y-%m-%d')
+
+        query = """
+            WITH MonthlyBalances AS (
+                SELECT 
+                    Date,
+                    Balance,
+                    strftime('%Y-%m', Date) as YearMonth,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY strftime('%Y-%m', Date)
+                        ORDER BY Date DESC, ID DESC
+                    ) as rn
+                FROM BankTransactions
+                WHERE Date >= ?
+                AND Balance IS NOT NULL 
+                AND trim(Balance) != ''
+                AND Balance != ' '
+            )
+            SELECT 
+                Date,
+                Balance
+            FROM MonthlyBalances
+            WHERE rn = 1
+            ORDER BY Date ASC
+        """
+        
+        data = self.cursor.execute(query, (from_date_str,)).fetchall()
+        df = pd.DataFrame(data, columns=['Date', 'Balance'])
+        df['Date'] = pd.to_datetime(df['Date'])
+        df = df.dropna(subset=['Balance'])
+        # Convert Balance to numeric, removing any non-numeric entries
+        df['Balance'] = pd.to_numeric(df['Balance'], errors='coerce')
+        df = df.dropna(subset=['Balance'])
+        return df
+
+    def get_monthly_bank_balances(self, from_date: datetime = None) -> pd.DataFrame:
+        """
+        Get end-of-month balances from BankTransactions after a given date.
+        Filters out rows where Balance is NULL, empty string, or only whitespace.
+        
+        Args:
+            from_date (datetime, optional): Only get entries after this date.
+                                          If None, defaults to 1 year ago.
+        Returns:
+            pd.DataFrame: DataFrame with columns ['Date', 'Balance'] containing 
+                         valid end-of-month balances
+        """
+        # Default to 1 year ago if no date provided 
+        if from_date is None:
+            from_date = datetime.now() - pd.DateOffset(years=1)
+        
+        # Convert date to string format SQLite understands
+        from_date_str = from_date.strftime('%Y-%m-%d')
+
+        query = """
+            WITH MonthlyBalances AS (
+                SELECT 
+                    Date,
+                    Balance,
+                    strftime('%Y-%m', Date) as YearMonth,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY strftime('%Y-%m', Date)
+                        ORDER BY Date DESC, ID DESC
+                    ) as rn
+                FROM BankTransactions
+                WHERE Date >= ?
+                AND Balance IS NOT NULL 
+                AND trim(Balance) != ''
+                AND Balance != ' '
+            )
+            SELECT 
+                Date,
+                Balance
+            FROM MonthlyBalances
+            WHERE rn = 1
+            ORDER BY Date ASC
+        """
+        
+        data = self.cursor.execute(query, (from_date_str,)).fetchall()
+        df = pd.DataFrame(data, columns=['Date', 'Balance'])
+        df['Date'] = pd.to_datetime(df['Date'])
+        df = df.dropna(subset=['Balance'])
+        # Convert Balance to numeric, removing any non-numeric entries
+        df['Balance'] = pd.to_numeric(df['Balance'], errors='coerce') 
+        df = df.dropna(subset=['Balance'])
+        return df
 

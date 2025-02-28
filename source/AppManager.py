@@ -751,6 +751,27 @@ class AppManager:
         print_unverified_cards(t)
         card_validation_df = card_charge_validation(t)
         
+        # Add linear plots data
+        def get_accounts_data() -> dict:
+            """Get historical balance data for all accounts including main bank account"""
+            accounts_data = {}
+            
+            # Get main bank account data
+            bank_df = DataBase().get_monthly_bank_balances()
+            accounts_data['Main Bank'] = list(zip(bank_df['Date'], bank_df['Balance']))
+
+            # Get other accounts data 
+            other_accounts_df = DataBase().get_account_entries_with_dates()
+            for account in other_accounts_df['AccountName'].unique():
+                account_df = other_accounts_df[other_accounts_df['AccountName'] == account]
+                accounts_data[account] = list(zip(account_df['Date'], account_df['Value']))
+
+            return accounts_data
+
+        # Get accounts data and create linear plot
+        accounts_data = get_accounts_data()
+        Graphics.plot_linear_plots_graph(accounts_data)
+        
         monthly_balance = DataBase().get_latest_Balance()
 
         spendings_df = SimpleMath.process_prices(

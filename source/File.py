@@ -317,6 +317,14 @@ class File:
 
         return valid_rows
 
+    @abstractmethod
+    def check_duplicates(self) -> bool:
+        """
+        The function will check if the currently parsed file was allready inserted to the data base,
+        based on the card number, format name and date specified in the File database.
+        If the file was already inserted, the function will return False else True.
+        """
+        
 
     def clean(self, flip: bool = False) -> bool:
         """

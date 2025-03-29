@@ -1,5 +1,5 @@
 import sqlite3
-from datetime import datetime, date
+from datetime import datetime
 import pandas as pd
 from typing import Literal
 
@@ -265,7 +265,7 @@ class DataBase:
         '''
         Insert a new card to local DB.
         '''
-        self.cursor.execute(f"""
+        self.cursor.execute("""
             INSERT INTO Card VALUES(?, ?)
             """, (id, description))
 
@@ -291,6 +291,21 @@ class DataBase:
                         WHERE File_Name = ?
                         AND Format = ?;
                     """, (file_name, file_format,)).fetchone()
+
+        return False if ans is None else True
+   
+    def is_file_exists_v2(self, file_format: str, card_number: str, date: datetime) -> bool:
+        '''
+        Returns True if a record with the input parameters exists in the File table,
+        False otherwise.
+        '''
+        ans = self.cursor.execute("""
+                    SELECT 1
+                    FROM File
+                    WHERE Format = ?
+                    AND Card_Number = ?
+                    AND Date = ?;
+                """, (file_format, card_number, date,)).fetchone()
 
         return False if ans is None else True
 
@@ -1202,7 +1217,7 @@ class DataBase:
                                           If None, defaults to 1 year ago.
         Returns:
             pd.DataFrame: DataFrame with columns ['Date', 'Value', 'AccountName'] 
-                         containing the account history
+                         containing the account history from the given date.
         """
         # Default to 1 year ago if no date provided
         if from_date is None:

@@ -79,9 +79,21 @@ The value parsed is {parsed_text}", "error")
             return time_stamp
         
         self.card_number = read_card_number()
+  
+        # Before adding file to database, A check to see if the file was already inserted to the database is made:
+        def check_duplicate() -> bool:
+            """
+            The function will check if the currently parsed file was allready inserted to the data base,
+            based on the card number, format name and date specified in the File database.
+            If the file was already inserted, the function will return False else True.
+            """
+            return DataBase().is_file_exists_v2(self.format_name, self.card_number, read_file_date())
+
+        if check_duplicate():
+            utils.log(f"File {self.name} was already inserted to the database.", "error")
 
         valid_rows = super().parse()
-        
+
         DataBase().insert_file(self.name,
                                self.format_name,
                                self.card_number,
@@ -89,9 +101,8 @@ The value parsed is {parsed_text}", "error")
                                -1,                    # Value is changed after the cleaning process
                                valid_rows)
 
-        # TODO: Should add some generic field for data inside files
-        # self.card_num = self.sheet[self.card_cell].value
-        return True
+        return True    
+    
 
     def clean(self):
         """

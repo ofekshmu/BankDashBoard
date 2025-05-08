@@ -773,32 +773,49 @@ class utils:
         '''
         The function validates the table headers in the file.
         The values of the headers and the initial row are given in the Constants.py.
+
+        The function will check nearby cells recursively until it finds the headers.
+        Recursion will stop when the header is found or when the the offset is 5 cells away from the initial row/column.
         '''
         em = ExcelManager().set_active_sheet(Local.INPUT_FOLDER + "\\" + file_name)
+        
+        col_max_offset = 2
+        row_max_offset = 6
+        
+        col_range = \
+            [i for i in range(header_col_index, header_col_index - col_max_offset, -1) if i >= 0] + \
+            [i for i in range(header_col_index + 1, header_col_index + col_max_offset)] #range(max(0, header_col_index - col_max_offset), header_col_index + col_max_offset)  
+        row_range = \
+            [i for i in range(initial_row, initial_row - row_max_offset, -1) if i > 0] + \
+            [i for i in range(initial_row + 1, initial_row + row_max_offset)]
 
-        valid = True
-        col = header_col_index
-        row = initial_row
+        for i in row_range:
+            for j in col_range:
 
-        debug_list = [] # debug feature
+                valid = True
+                col = j
+                row = i
 
-        for name in headers:
-            value = em.read_cell(row, col)
-            
-            debug_list.append(value) # debug feature
+                debug_list = [] # debug feature
 
-            if not value == name:
-                if col > 1:
-                    utils.log(f"Header Validation Failed halfway: {value} != {name}", "warning")
-                valid = False
-                break
-            col += 1
-        if valid:
-            if row != initial_row:
-                utils.log(f"Headers were found at line {row}, Not in {initial_row} as specified.", "warning")
-            initial_row = row
-            return True
-        utils.log(f"Header Validation Failed for {file_name} with format {format}\n extracted headers: {debug_list} ", "debug")
+                for name in headers:
+                    value = em.read_cell(row, col)
+                    
+                    debug_list.append(value) # debug feature
+
+                    if not value == name:
+                        if col > j:
+                            utils.log(f"Header Validation Failed halfway: {value} != {name}", "warning")
+                        valid = False
+                        break
+                    col += 1
+                if valid:
+                    if row != initial_row:
+                        utils.log(f"Headers were found at line {row}, Not in {initial_row} as specified.", "warning")
+                    initial_row = row
+                    return True
+                utils.log(f"Header Validation Failed for {file_name} with format {format}\n extracted headers: {debug_list} ", "debug")
+                continue
         return False
 
     @staticmethod

@@ -173,10 +173,13 @@ class Graphics:
                 "Earnings": earnings
             })
             
+            # Used for when category analysis for "Investments" is selected
+            spendings_overall_option = [0] * len(earnings) if title_ext == "Category_analysis" else spendings_overall
+
             # Overall income data
             overall_df = pd.DataFrame({
                 "Months": months, 
-                "Overall Income": [x + y for x, y in zip(earnings, spendings_overall)]
+                "Overall Income": [x + y for x, y in zip(earnings, spendings_overall_option)]
             })
             
             return (pd.melt(base_df, id_vars=["Months"], var_name="Category", value_name="Amount"),

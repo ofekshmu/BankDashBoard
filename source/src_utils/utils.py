@@ -1540,6 +1540,9 @@ Please Make sure that none of the following formats have their 'Identifications 
     @staticmethod
     def change_an_existing_category_name():
         """
+        The function allows the user to change an existing category name.
+        The function will ask the user to choose a category name to replace, and then 
+        to choose a new name for it
         """
         cat_lst = utils.get_saved_categories()
         index, cat_lst = utils.typer_template_menu(cat_lst, msg = "Please choose a category name to replace:", sort = True)

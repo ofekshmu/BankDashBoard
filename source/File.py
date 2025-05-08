@@ -71,11 +71,14 @@ class File:
         The function validates the table headers in the file.
         The values of the headers and the initial row are given in the Constants.py.
         '''
-        valid = False   
-        header_options = [self.headers, self.secondary_headers]
+        valid = False  
+        if self.double_tables: 
+            header_options = [self.headers, self.secondary_headers]
+        else:
+            header_options = [self.headers]
         for index, headers in enumerate(header_options):
             # Looks for the headers in a @err area of the given estimated
-            err = 2
+            err = 5
             temp = self.header_row_idx - err
             lower_bound = 1 if temp < 1 else temp
             for row in range(lower_bound, self.header_row_idx + err):
@@ -91,7 +94,7 @@ class File:
                         col += 1
                     if valid:
                         if row != self.header_row_idx:
-                            utils.log(f"Headers were found at line {row}, Not in {self.header_row_idx} as specified\nIndex updated.", "warning")
+                            utils.log(f"Headers for file {self.name} were found at line {row}, Not in {self.header_row_idx} as specified\nIndex updated.", "warning")
                             self.header_row_idx = row
                         break
                 if valid:

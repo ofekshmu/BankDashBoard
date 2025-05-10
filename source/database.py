@@ -993,18 +993,6 @@ class DataBase:
                                     """
         self.cursor.execute(combined_categories_query)
         unique_categories = self.cursor.fetchall()
-        #card_categories = self.cursor.execute("""
-             #                       SELECT DISTINCT Category
-            #                        FROM CardTransactions
-             #                       """).fetchall()
-        
-        #bank_categories = self.cursor.execute("""
-         #                           SELECT DISTINCT Category
-          #                          FROM BankTransactions
-           #                         """).fetchall()
-        #card_categories_list = [x[0] for x in card_categories]
-        #bank_categories_list = [y[0] for y in bank_categories]
-        #all_categories =  list(set(card_categories_list + bank_categories_list))
         unique_categories_list = [x[0] for x in unique_categories]
         return unique_categories_list
         
@@ -1528,5 +1516,86 @@ class DataBase:
         # Convert Balance to numeric, removing any non-numeric entries
         df['Balance'] = pd.to_numeric(df['Balance'], errors='coerce') 
         df = df.dropna(subset=['Balance'])
+        return df
+
+    def search_transactions(self, params: dict) -> pd.DataFrame:
+        """
+        Search transactions with multiple filters
+        params can include:
+        - date_range: tuple(start_date, end_date)
+        - name: str
+        - value_range: tuple(min_val, max_val)
+        - table: str ("BankTransactions" or "CardTransactions")
+        - category: str
+        """
+        query_parts = []
+        query_values = []
+        
+        # Base query
+        query = """
+            SELECT * FROM (
+            SELECT 
+                'BankTransactions' as TableName,
+                ID,
+                Date as 'Date_Executed_Date',
+                Name,
+                Category,
+                Out as 'Out_Transaction_Value',
+                Income as 'Income_Charge_Value',
+                Extra_Info,
+                Description
+            FROM BankTransactions
+            UNION ALL
+            SELECT
+                'CardTransactions' as TableName,
+                ID,
+                Executed_Date as 'Date_Executed_Date',
+                Name,
+                Category,
+                Transaction_Value as 'Out_Transaction_Value',
+                Charge_value as 'Income_Charge_Value',
+                Extra_Info,
+                Description
+            FROM CardTransactions) AS combined
+        """
+
+        # Add WHERE clause if we have any filters
+        if params:
+            query += " WHERE "
+            
+            if 'date_range' in params:
+                start, end = params['date_range']
+                if start:
+                    query_parts.append("Date_Executed_Date >= ?")
+                    query_values.append(start)
+                if end:
+                    query_parts.append("Date_Executed_Date <= ?")
+                    query_values.append(end)
+
+            if 'name' in params:
+                query_parts.append("(Name LIKE ? OR Extra_Info LIKE ?)")
+                query_values.extend([f"%{params['name']}%", f"%{params['name']}%"])
+
+            if 'value_range' in params:
+                min_val, max_val = params['value_range']
+                if min_val is not None and max_val is not None:
+                    query_parts.append("((Out_Transaction_Value >= ? AND Out_Transaction_Value <= ?) OR (Income_Charge_Value >= ? AND Income_Charge_Value <= ?))")
+                    query_values.extend([min_val, max_val, min_val, max_val])
+
+            if 'table' in params:
+                query_parts.append("TableName = ?")
+                query_values.append(params['table'])
+
+            if 'category' in params:
+                query_parts.append("Category = ?")
+                query_values.append(params['category'])
+
+            query += " AND ".join(query_parts)
+
+        # Execute query
+        results = self.cursor.execute(query, query_values).fetchall()
+        
+        # Convert to DataFrame
+        df = pd.DataFrame(results, columns=[d[0] for d in self.cursor.description])
         return df
 

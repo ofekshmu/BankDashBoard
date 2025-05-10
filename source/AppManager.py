@@ -47,8 +47,9 @@ class AppManager:
                     6. Execute SQL query on db
                     7. Open File Organizer
                     8. Export Excel
-                    9. Insert other account status                  
-                    10. Exit
+                    9. Insert other account status
+                    10. Advanced Search                  
+                    11. Exit
                 """)
             answer = input()
             answer = -1 if not answer.isdigit() else int(answer)
@@ -76,6 +77,8 @@ class AppManager:
                 case 9:
                     self.Insert_other_account_status()
                 case 10:
+                    self.advanced_search()
+                case 11:
                     break
                 case _:
                     print("Please insert a valid number.")
@@ -205,6 +208,122 @@ class AppManager:
             utils.log(df.to_markdown())
         
 
+    def advanced_search(self) -> None:
+        """Interactive transaction search with multiple filters"""
+        query_params = {}
+        df = None
+
+        while True:
+            # If we have results, show them
+            if df is not None:
+                utils.log(f"\nFound {len(df)} transactions:")
+                print(utils.df_to_markdown(df))
+                
+                if len(df) == 0:
+                    # Reset search if no results found
+                    query_params = {}
+                    df = None
+                    continue
+
+            # Show search options
+            options = [
+                "Add date range filter",
+                "Add name/description filter",
+                "Add value range filter", 
+                "Add table filter (Bank/Card)",
+                "Add category filter",
+                "Clear all filters",
+                "Exit search"
+            ]
+            
+            # Remove options that are already applied
+            if 'date_range' in query_params:
+                options.remove("Add date range filter")
+            if 'name' in query_params:
+                options.remove("Add name/description filter")
+            if 'value_range' in query_params:
+                options.remove("Add value range filter")
+            if 'table' in query_params:
+                options.remove("Add table filter (Bank/Card)")
+            if 'category' in query_params:
+                options.remove("Add category filter")
+
+            choice = utils.template_menu(options, "\nSelect search filter to add:")
+
+            match options[choice]:
+                case "Add date range filter":
+                    date_type = utils.template_menu(
+                        ["Search by month", "Search by year"],
+                        "Select date filter type:"
+                    )
+                    
+                    if date_type == 0:  # Month
+                        year = input("Enter year (YYYY): ")
+                        month = input("Enter month (1-12): ")
+                        try:
+                            year = int(year)
+                            month = int(month)
+                            if 1 <= month <= 12:
+                                from datetime import datetime, timedelta
+                                start_date = datetime(year, month, 1).strftime('%Y-%m-%d')
+                                end_date = (datetime(year, month + 1, 1) - timedelta(days=1)).strftime('%Y-%m-%d') \
+                                    if month < 12 else datetime(year, 12, 31).strftime('%Y-%m-%d')
+                                query_params['date_range'] = (start_date, end_date)
+                            else:
+                                utils.log("Invalid month", "warning")
+                        except ValueError:
+                            utils.log("Invalid date format", "warning")
+                    
+                    else:  # Year
+                        year = input("Enter year (YYYY): ")
+                        try:
+                            year = int(year)
+                            start_date = f"{year}-01-01"
+                            end_date = f"{year}-12-31"
+                            query_params['date_range'] = (start_date, end_date)
+                        except ValueError:
+                            utils.log("Invalid year format", "warning")
+
+                case "Add name/description filter":
+                    text = input("Enter text to search in name/description: ")
+                    if text:
+                        query_params['name'] = text
+
+                case "Add value range filter":
+                    try:
+                        min_val = input("Enter minimum value (or press Enter to skip): ")
+                        max_val = input("Enter maximum value (or press Enter to skip): ")
+                        if min_val or max_val:
+                            query_params['value_range'] = (
+                                float(min_val) if min_val else None,
+                                float(max_val) if max_val else None
+                            )
+                    except ValueError:
+                        utils.log("Invalid number format", "warning")
+                        continue
+
+                case "Add table filter (Bank/Card)":
+                    table_choice = utils.template_menu(
+                        ["Bank Transactions", "Card Transactions"], 
+                        "Select transaction type:"
+                    )
+                    query_params['table'] = "BankTransactions" if table_choice == 0 else "CardTransactions"
+
+                case "Add category filter":
+                    categories = DataBase().get_all_category_names()
+                    cat_idx = utils.template_menu(categories, "Select category:")
+                    query_params['category'] = categories[cat_idx]
+
+                case "Clear all filters":
+                    query_params = {}
+                    df = None
+                    continue
+
+                case "Exit search":
+                    return
+
+            # Execute search with current parameters
+            df = DataBase().search_transactions(query_params)
 
     def execute_sql(self):
         pw = input("Please confirm password for this action: ")

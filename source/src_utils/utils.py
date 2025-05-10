@@ -1587,3 +1587,21 @@ Please Make sure that none of the following formats have their 'Identifications 
         from database import DataBase
         DataBase().delete_transactions(id_lst)
         DataBase().commit_changes()
+
+    @staticmethod
+    def df_to_markdown(df: pd.DataFrame) -> str:
+        """
+        Converts a DataFrame to markdown format while properly handling Hebrew text.
+        Applies heb_conversion to all string values to ensure correct RTL display.
+        """
+        # Create a copy to avoid modifying the original DataFrame
+        df_display = df.copy()
+        
+        # Convert all object/string columns that may contain Hebrew
+        for col in df_display.select_dtypes(include=['object']):
+            df_display[col] = df_display[col].apply(lambda x: utils.heb_conversion(str(x)) if pd.notna(x) else x)
+            
+        # Convert column names that may contain Hebrew
+        df_display.columns = [utils.heb_conversion(str(col)) for col in df_display.columns]
+        
+        return df_display.to_markdown()

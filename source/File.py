@@ -45,13 +45,6 @@ class File:
         self.table_2 = []
         self.flip_table_location = False
 
-        # try:
-        #     wb = xw.Book(join(Local.INPUT_FOLDER, self.name))
-        #     self.sheet = wb.sheets[0]
-        # except Exception as e:
-        #     utils.log(f"Original error: {str(e)}\nFile read Failed!\nFile name: {self.name}\
-        #         In File -> line 39\nMake sure the file is not open.", 'error')
-
     def load(self) -> bool:
         '''
 

@@ -350,7 +350,8 @@ class AppManager:
                                    'Reset a transaction category to "NotCategorized"',
                                    'Change transaction category by ID',
                                    'Change an existing category',
-                                   'Delete a transaction'], 'Pick one of the follwing:')
+                                   'Delete a transaction',
+                                   'Edit transaction description'], 'Pick one of the following:')
         match res:
             case 0:
                 original_command()
@@ -364,8 +365,11 @@ class AppManager:
                 utils.change_an_existing_category_name()
             case 4:
                 utils.delete_a_transaction()
+            case 5:
+                DataBase().change_description_by_id()
+                DataBase().commit_changes()
             case _:
-                utils.log('Something went wrong in "execute_sql', 'error')
+                utils.log('Something went wrong in "execute_sql"', 'error')
 
     def update_existing_file_v2(self):
         update_file_lst = listdir(Local.UPDATE_FOLDER)
@@ -740,7 +744,7 @@ class AppManager:
         else:
             spendings_sum, spendings_sum_overall_inc, earnings_sum = SimpleMath.get_monthly_shifted(shift=6, category=name_for_analysis, business=None)
 
-        Graphics.plot_general(spendings_sum, spendings_sum_overall_inc, earnings_sum, title_ext='Category_analysis', fig_size=(8, 5))
+        Graphics.plot_general(spendings_sum, spendings_sum_overall_inc, earnings_sum, title_ext='Category_analysis', topic = name_for_analysis, fig_size=(8, 5))
         
         def remove_by(df: pd.DataFrame, category=None, business_name=None) -> pd.DataFrame:
             if category is not None:

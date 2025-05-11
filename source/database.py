@@ -1599,3 +1599,26 @@ class DataBase:
         df = pd.DataFrame(results, columns=[d[0] for d in self.cursor.description])
         return df
 
+    def change_description_by_id(self) -> None:
+        """Edit transaction description by ID and table"""
+        param1 = utils.template_menu(['Bank', 'Card'], msg='Choose the relevant table:')
+        param2 = input('Insert transaction ID: ')
+        param3 = input('Insert new description: ')
+
+        if param1 == 0:
+            table = "BankTransactions"
+        else:
+            table = "CardTransactions"
+
+        query = f"""SELECT * FROM {table} WHERE id = ?"""
+        prev = self.cursor.execute(query, (param2,)).fetchall()
+            
+        query = f"""UPDATE {table} SET Description = ? WHERE id = ?"""            
+        self.cursor.execute(query, (param3, param2,))
+            
+        query = f"""SELECT * FROM {table} WHERE id = ?"""
+        after = self.cursor.execute(query, (param2,)).fetchall()
+
+        utils.log(f"Before: {prev}")
+        utils.log(f"After: {after}")
+

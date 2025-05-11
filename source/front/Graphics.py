@@ -121,7 +121,7 @@ class Graphics:
         return outliers_list
 
     @staticmethod
-    def plot_general(spendings: list, spendings_overall: list, earnings: list, title_ext: str = "", fig_size=(14, 8)):
+    def plot_general(spendings: list, spendings_overall: list, earnings: list, topic: str = "", title_ext: str = "", fig_size=(14, 8)):
         """
         Plot general financial statistics showing spendings, earnings and overall income.
         
@@ -173,8 +173,9 @@ class Graphics:
                 "Earnings": earnings
             })
             
+            from Constants import INVESTMENT_CATEGORY
             # Used for when category analysis for "Investments" is selected
-            spendings_overall_option = [0] * len(earnings) if title_ext == "Category_analysis" else spendings_overall
+            spendings_overall_option = [0] * len(earnings) if topic == INVESTMENT_CATEGORY else spendings_overall
 
             # Overall income data
             overall_df = pd.DataFrame({

@@ -69,6 +69,8 @@ The value parsed is {parsed_text}", "error")
                 if res:
                     month_number = int(res.group(1))
                     year_number = int(res.group(2))
+                    if year_number < 100:
+                        year_number += 2000
                     time_stamp = datetime(year_number, month_number, 1)
                 else:
                     utils.log(f"The given time_stamp_format {self.time_stamp_format} for format {self.format_name} did not yield any result\n\

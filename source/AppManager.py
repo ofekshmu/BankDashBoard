@@ -2,7 +2,7 @@ from Parser import Parser
 from Card import Card
 from Bank import Bank
 from Context import Context
-from Constants import Local, CC_CHARGE_CATEGORY_NAME, INVESTMENT_CATEGORY, GOLDEN_COLOR_PALLETE
+from Constants import Local, CC_CHARGE_CATEGORY_NAME, INVESTMENT_CATEGORY, GOLDEN_COLOR_PALLETE, GeneralPlot
 from src_utils.utils import utils
 from database import DataBase
 from front.Graphics import Graphics
@@ -940,7 +940,13 @@ class AppManager:
 
         # ----- General
         spendings_sum, spendings_sum_overall_inc, earnings_sum = SimpleMath.get_monthly_shifted(shift=10)
-        Graphics.plot_general(spendings_sum, spendings_sum_overall_inc, earnings_sum)
+
+        user_spendings_sum, _, user_earnings_sum = SimpleMath.get_monthly_shifted(shift=10, category= GeneralPlot.USER_DEFINED_CATEGORIES)
+        Graphics.plot_general(spendings_sum, 
+                              spendings_sum_overall_inc,
+                              earnings_sum,
+                              user_spendings_sum = user_spendings_sum,
+                              user_earnings_sum = user_earnings_sum)
         # ----- Cards
 
         card_ids = DataBase().get_card_ids() + ['Bank']

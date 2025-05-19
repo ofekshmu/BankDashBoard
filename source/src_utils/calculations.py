@@ -91,6 +91,8 @@ class SimpleMath:
         one backwards shift. And returns three lists contatining The monthly spendings and earnings of the last @shift
         months
 
+        The function will handle receiving multiple categories or businesses to filter data by - used by category analysis and user defined plot.
+
         The middle list represents the sum spending, subtructed by spending to another account (savings)
         all prices queried are being proccesed.
         """
@@ -119,11 +121,17 @@ class SimpleMath:
 
         # filter the data according to the given arguments
         if category is not None:
-            earnings_df = earnings_df[earnings_df['Category'] == category]
-            spendings_df = spendings_df[spendings_df['Category'] == category]
+            # Handle both single category (string) and multiple categories (list)
+            if isinstance(category, str):
+                category = [category]
+            earnings_df = earnings_df[earnings_df['Category'].isin(category)]
+            spendings_df = spendings_df[spendings_df['Category'].isin(category)]
         if business is not None:
-            earnings_df = earnings_df[earnings_df['Name'] == business]
-            spendings_df = spendings_df[spendings_df['Name'] == business]
+            # Handle both single business (string) and multiple businesses (list)
+            if isinstance(business, str):
+                business = [business]
+            earnings_df = earnings_df[earnings_df['Name'].isin(business)]
+            spendings_df = spendings_df[spendings_df['Name'].isin(business)]
 
         # Date format is converted to month resolution in order to enable proper 'Group-by'
         earnings_df['Date/Executed_Date'] = pd.to_datetime(earnings_df['Date/Executed_Date'], format="%Y-%m-%d %H:%M:%S").apply(lambda x: x.strftime('%Y-%m'))

@@ -13,7 +13,7 @@ INVESTMENT_CATEGORY = "השקעה/חיסכון"
 GOLDEN_COLOR_PALLETE = ["#FFF6E1", "#FFEBBC", "#FFDD8D", "#FFCB50", "#FFC02D"]
 
 class Settings:
-    DEBUG = True
+    DEBUG = False
     SYSTEM = True
     WARNING = True
     LAPTOP = False
@@ -91,6 +91,15 @@ class Local:
                     '#FF8000',
                     '#FF6B00'
                         ]
+    
+    
+class GeneralPlot:
+
+    
+    USER_PLOT = True
+    USER_DEFINED_CATEGORIES = ["משכורת", "רכב", "מצרכים", "אוכל בחוץ", "שכירות", "תחבורה ציבורית", "הלוואה", "בילויים", "בריאות וכושר", "חשבונות", "חתונות", "מתנות", "מצרכים"]
+
+
 
 class Personal:
     '''

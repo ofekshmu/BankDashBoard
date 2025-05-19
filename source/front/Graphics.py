@@ -121,7 +121,14 @@ class Graphics:
         return outliers_list
 
     @staticmethod
-    def plot_general(spendings: list, spendings_overall: list, earnings: list, topic: str = "", title_ext: str = "", fig_size=(14, 8)):
+    def plot_general(spendings: list, 
+                     spendings_overall: list,
+                     earnings: list,
+                     topic: str = "",
+                     title_ext: str = "",
+                     user_spendings_sum: list = [],
+                     user_earnings_sum: list = [],
+                     fig_size=(14, 8)):
         """
         Plot general financial statistics showing spendings, earnings and overall income.
         
@@ -140,7 +147,8 @@ class Graphics:
             'spendings': "#f66b85",
             'investments': "#DAA520", 
             'earnings': "#4fba89",
-            'net_income': "#58063f"
+            'net_income': "#58063f",
+            'user_defined': "#99303f"
         }
         FONT_SIZES = {
             'title': 18,
@@ -182,10 +190,17 @@ class Graphics:
                 "Months": months, 
                 "Overall Income": [x + y for x, y in zip(earnings, spendings_overall_option)]
             })
+
+            # user defined plot
+            user_defined_df = pd.DataFrame({
+                "Months": months, 
+                "Overall Income": [x + y for x, y in zip(user_earnings_sum, user_spendings_sum)]
+            })
             
             return (pd.melt(base_df, id_vars=["Months"], var_name="Category", value_name="Amount"),
                     pd.melt(invest_df, id_vars=["Months"], var_name="Category", value_name="Amount"),
-                    overall_df)
+                    overall_df,
+                    user_defined_df)
 
         def create_legend_handles() -> list:
             """Create legend handles for the plot."""
@@ -196,7 +211,7 @@ class Graphics:
                 mpatches.Patch(color=COLORS['net_income'], label='Overall Net Income', linestyle='--')
             ]
 
-        def add_value_annotations(ax, data_df: pd.DataFrame) -> None:
+        def add_value_annotations(ax, data_df: pd.DataFrame, color: str) -> None:
             """Add value annotations to the line plot."""
             # Filter out rows with NaN values in 'Overall Income'
             for x, y in zip(data_df['Months'], data_df['Overall Income']):
@@ -206,12 +221,12 @@ class Graphics:
                         textcoords="offset points",
                         ha='center',
                         va='bottom',
-                        color=COLORS['net_income'],
+                        color=color,
                         fontweight='bold')
 
         # Main plotting logic
         months = get_last_n_months_names(len(spendings))
-        df_base, df_investments, df_overall = prepare_plot_data(months)
+        df_base, df_investments, df_overall, df_user_defined = prepare_plot_data(months)
         
         # Create plot
         sns.set(style="whitegrid")
@@ -230,9 +245,15 @@ class Graphics:
                     data=df_overall, ax=ax,
                     color=COLORS['net_income'],
                     marker='o', linestyle='--')
+        
+        sns.lineplot(x="Months", y="Overall Income", 
+                    data=df_user_defined, ax=ax,
+                    color=COLORS['user_defined'],
+                    marker='o', linestyle='--')
 
         # Styling
-        add_value_annotations(ax, df_overall)
+        add_value_annotations(ax, df_overall, COLORS['net_income'])
+        add_value_annotations(ax, df_user_defined, COLORS['user_defined'])
         ax.legend(handles=create_legend_handles())
         ax.set_xlabel("Months", fontsize=FONT_SIZES['labels'])
         ax.set_ylabel("Amount (₪)", fontsize=FONT_SIZES['labels'])

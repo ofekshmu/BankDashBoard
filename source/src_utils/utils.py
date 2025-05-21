@@ -969,6 +969,25 @@ class utils:
                 print(f"{lst[i + const*j]:27s}", end="")
             print()
 
+
+    @staticmethod
+    def validate_constants() -> Union[str, bool]:
+        """
+        check if all the category values under USER_DEFINED_CATEGORIES exist in the categories.json file.
+        """
+        from Constants import GeneralPlot
+
+        # Read the categories from the JSON file
+        with open(Local.CATE_JSON_PATH, encoding='utf-8') as file:
+            categories = json.load(file)
+        # Check if all user-defined categories exist in the JSON file
+        for category in GeneralPlot.USER_DEFINED_CATEGORIES:
+            if category not in categories:
+                return f"Category '{category}' not found in categories.json - Check (USER_DEFINED_CATEGORIES) in Constants.py"
+
+
+        return True
+
     @staticmethod
     def validate_formats() -> Union[str, bool]:
         """

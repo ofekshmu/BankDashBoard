@@ -20,6 +20,12 @@ class AppManager:
 
     def __init__(self):
         res = utils.validate_formats()
+        res2 = utils.validate_constants()
+
+        if type(res2) == str:
+            utils.log(res2, 'error')
+        else:
+            utils.log(f'Constants validation result: {res2}', 'system')
 
         if type(res) == str:
             utils.log(res, 'error')

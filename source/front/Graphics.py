@@ -126,6 +126,8 @@ class Graphics:
                      earnings: list,
                      topic: str = "",
                      title_ext: str = "",
+                     lp_Overall_income: bool = True,
+                     lp_user_defined: bool = False,
                      user_spendings_sum: list = [],
                      user_earnings_sum: list = [],
                      fig_size=(14, 8)):
@@ -164,8 +166,10 @@ class Graphics:
             return [(datetime(2023, (current_month - i) % 12 or 12, 1)).strftime('%B') 
                     for i in range(n_months)]
 
-        def prepare_plot_data(months: list) -> tuple:
+        def prepare_plot_data(months: list) -> dict:
             """Prepare DataFrames for plotting."""
+            data = {}
+            
             # Base data
             base_df = pd.DataFrame({
                 "Months": months, 
@@ -186,21 +190,24 @@ class Graphics:
             spendings_overall_option = [0] * len(earnings) if topic == INVESTMENT_CATEGORY else spendings_overall
 
             # Overall income data
-            overall_df = pd.DataFrame({
-                "Months": months, 
-                "Overall Income": [x + y for x, y in zip(earnings, spendings_overall_option)]
-            })
+            if lp_Overall_income:
+                data["overall_df"] = pd.DataFrame({
+                                        "Months": months, 
+                                        "Overall Income": [x + y for x, y in zip(earnings, spendings_overall_option)]
+                                    })
 
             # user defined plot
-            user_defined_df = pd.DataFrame({
-                "Months": months, 
-                "Overall Income": [x + y for x, y in zip(user_earnings_sum, user_spendings_sum)]
-            })
+            if lp_user_defined:
+                data["user_defined_df"] = pd.DataFrame({
+                                            "Months": months, 
+                                            "Overall Income": [x + y for x, y in zip(user_earnings_sum, user_spendings_sum)]
+                                        })
             
-            return (pd.melt(base_df, id_vars=["Months"], var_name="Category", value_name="Amount"),
-                    pd.melt(invest_df, id_vars=["Months"], var_name="Category", value_name="Amount"),
-                    overall_df,
-                    user_defined_df)
+
+            data["base_df"] = pd.melt(base_df, id_vars=["Months"], var_name="Category", value_name="Amount")
+            data["invest_df"] = pd.melt(invest_df, id_vars=["Months"], var_name="Category", value_name="Amount")
+            
+            return data
 
         def create_legend_handles() -> list:
             """Create legend handles for the plot."""
@@ -226,7 +233,7 @@ class Graphics:
 
         # Main plotting logic
         months = get_last_n_months_names(len(spendings))
-        df_base, df_investments, df_overall, df_user_defined = prepare_plot_data(months)
+        data = prepare_plot_data(months)
         
         # Create plot
         sns.set(style="whitegrid")
@@ -234,30 +241,34 @@ class Graphics:
                 
         # Plot layers
         sns.barplot(x="Months", y="Amount", hue="Category", 
-                    data=df_base[::-1], ax=ax, 
+                    data=data["base_df"][::-1], ax=ax, 
                     palette=[COLORS['earnings'], COLORS['spendings']])
         
-        sns.barplot(x="Months", y="Amount", hue="Category", 
-                    data=df_investments[::-1], ax=ax,
-                    palette=[COLORS['earnings'], COLORS['investments']])
+        if not lp_user_defined:
+            sns.barplot(x="Months", y="Amount", hue="Category", 
+                        data=data["invest_df"][::-1], ax=ax,
+                        palette=[COLORS['earnings'], COLORS['investments']])
+            
+        if lp_Overall_income:
+            sns.lineplot(x="Months", y="Overall Income", 
+                        data=data["overall_df"], ax=ax,
+                        color=COLORS['net_income'],
+                        marker='o', linestyle='--')
+            add_value_annotations(ax, data["overall_df"], COLORS['net_income'])
         
-        sns.lineplot(x="Months", y="Overall Income", 
-                    data=df_overall, ax=ax,
-                    color=COLORS['net_income'],
-                    marker='o', linestyle='--')
-        
-        sns.lineplot(x="Months", y="Overall Income", 
-                    data=df_user_defined, ax=ax,
-                    color=COLORS['user_defined'],
-                    marker='o', linestyle='--')
+        if lp_user_defined:
+            sns.lineplot(x="Months", y="Overall Income", 
+                        data=data["user_defined_df"], ax=ax,
+                        color=COLORS['user_defined'],
+                        marker='o', linestyle='--')
+
+            add_value_annotations(ax, data["user_defined_df"], COLORS['user_defined'])
 
         # Styling
-        add_value_annotations(ax, df_overall, COLORS['net_income'])
-        add_value_annotations(ax, df_user_defined, COLORS['user_defined'])
         ax.legend(handles=create_legend_handles())
         ax.set_xlabel("Months", fontsize=FONT_SIZES['labels'])
         ax.set_ylabel("Amount (₪)", fontsize=FONT_SIZES['labels'])
-        ax.set_title("Monthly Spendings and Earnings", fontsize=FONT_SIZES['title'])
+        ax.set_title(f"Monthly Spendings and Earnings {title_ext}", fontsize=FONT_SIZES['title'])
         ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda value, tick_number: f'{value:,.0f}₪' ))
 
         # Save plot

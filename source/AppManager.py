@@ -941,10 +941,21 @@ class AppManager:
         # ----- General
         spendings_sum, spendings_sum_overall_inc, earnings_sum = SimpleMath.get_monthly_shifted(shift=10)
 
-        user_spendings_sum, _, user_earnings_sum = SimpleMath.get_monthly_shifted(shift=10, category= GeneralPlot.USER_DEFINED_CATEGORIES)
         Graphics.plot_general(spendings_sum, 
                               spendings_sum_overall_inc,
                               earnings_sum,
+                              lp_Overall_income=True,
+                              lp_user_defined=False)
+        
+        # ----- User defined
+        user_spendings_sum, _, user_earnings_sum = SimpleMath.get_monthly_shifted(shift=10, category= GeneralPlot.USER_DEFINED_CATEGORIES)
+        
+        Graphics.plot_general(user_spendings_sum, 
+                              spendings_sum_overall_inc,
+                              user_earnings_sum,
+                              lp_Overall_income=False,
+                              lp_user_defined=True,
+                              title_ext='User_defined',
                               user_spendings_sum = user_spendings_sum,
                               user_earnings_sum = user_earnings_sum)
         # ----- Cards

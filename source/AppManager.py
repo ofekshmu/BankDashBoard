@@ -679,6 +679,35 @@ class AppManager:
             monthly_average_value = round(total_sum / total_months, 2)
             return monthly_average_value
         
+        def get_rolling_monthly_average(name_for_analysis, case, rolling_window=5):
+            """
+            Returns category/business monthly average over the last 5 months
+            (excluding current month)
+            """
+            from dateutil.relativedelta import relativedelta
+            
+            if case:
+                df = DataBase().get_transactions(category=None, business=name_for_analysis)
+            else:
+                df = DataBase().get_transactions(category=name_for_analysis, business=None)
+
+            df = SimpleMath.process_prices(df)
+            
+            from datetime import datetime
+            # Convert dates and filter last 5 months
+            current_date = datetime.now().replace(day=1) # First day of current month
+            x_months_ago = current_date - relativedelta(months=rolling_window)
+            
+            df['Date/Executed_Date'] = pd.to_datetime(df['Date/Executed_Date'])
+            mask = (df['Date/Executed_Date'] >= x_months_ago) & (df['Date/Executed_Date'] < current_date)
+            df = df[mask]
+            
+            # Group by month and calculate average
+            df['month_year'] = df['Date/Executed_Date'].dt.strftime('%Y-%m')
+            monthly_sums = df.groupby('month_year')['Final_Value'].sum()
+            
+            return round(monthly_sums.sum() / rolling_window, 2)
+
         def get_active_monthly_average(name_for_analysis, case):
             """
             Returns category \ business monthly average of active months, i.e - months that include
@@ -795,6 +824,7 @@ class AppManager:
         utils.create_html_name_analysis({"subtitle": "Specific Analysis",
                                          "Category/business name": name_for_analysis,
                                          "Monthly Average": get_monthly_average(name_for_analysis, case),
+                                         "Recent Monthly Average": get_rolling_monthly_average(name_for_analysis, case),
                                          "Monthly Active Average": get_active_monthly_average(name_for_analysis, case),
                                          "Monthly Active Standard Deviation": get_active_monthly_sd(name_for_analysis, case),
                                          "Yearly Average": yearly_average(name_for_analysis, case),

@@ -1317,6 +1317,12 @@ Please Make sure that none of the following formats have their 'Identifications 
         else:
             tag.string = f"{data['Monthly Average']:,.2f} ₪"
 
+        tag = soup.find('td', class_='Recent Monthly Average')
+        if data['Recent Monthly Average'] < 0:
+            tag.string = f"({abs(data['Recent Monthly Average']):,.2f}) ₪"
+        else:
+            tag.string = f"{data['Recent Monthly Average']:,.2f} ₪"
+
         tag = soup.find('td', class_='Monthly Active Average')
         if data['Monthly Active Average'] < 0:
             tag.string = f"({abs(data['Monthly Active Average']):,.2f}) ₪"
@@ -1624,3 +1630,33 @@ Please Make sure that none of the following formats have their 'Identifications 
         df_display.columns = [utils.heb_conversion(str(col)) for col in df_display.columns]
         
         return df_display.to_markdown()
+
+    @staticmethod
+    def generate_date(date_str: str, date_format: str) -> datetime:
+        """
+        Convert string date to datetime with validation for dates after 2020.
+        
+        Args:
+            date_str: Date string to convert
+            date_format: Expected format of date_str (e.g. "%d/%m/%Y")
+            
+        Returns:
+            datetime object if valid
+            
+        Raises:
+            Logs error and exits if date is invalid or before 2020
+        """
+        try:
+            # Convert to datetime
+            date = datetime.strptime(date_str, date_format)
+            
+            # Validate year
+            if date.year < 2020:
+                utils.log(f"Date {date_str} is before 2020. Only dates from 2020 onwards are allowed.", "error")
+            
+            return date
+            
+        except ValueError as e:
+            utils.log(f"Invalid date format: {date_str}\nExpected format: {date_format}\nError: {str(e)}", "error")
+        except Exception as e:
+            utils.log(f"Error processing date: {date_str}\nError: {str(e)}", "error")

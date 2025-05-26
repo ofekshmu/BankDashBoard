@@ -357,7 +357,8 @@ class AppManager:
                                    'Change transaction category by ID',
                                    'Change an existing category',
                                    'Delete a transaction',
-                                   'Edit transaction description'], 'Pick one of the following:')
+                                   'Edit transaction description',
+                                   'Fix Date Bug for cal'], 'Pick one of the following:')
         match res:
             case 0:
                 original_command()
@@ -373,6 +374,10 @@ class AppManager:
                 utils.delete_a_transaction()
             case 5:
                 DataBase().change_description_by_id()
+                DataBase().commit_changes()
+            case 6:
+                DataBase().fix_cal_date_bug()
+                input("Continue?")
                 DataBase().commit_changes()
             case _:
                 utils.log('Something went wrong in "execute_sql"', 'error')

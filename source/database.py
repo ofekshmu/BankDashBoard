@@ -1518,6 +1518,31 @@ class DataBase:
         df = df.dropna(subset=['Balance'])
         return df
 
+    def fix_cal_date_bug(self) -> None:
+        """
+        The function will find all the dates in the in the Date column, in File table,
+        which have have the first 4 chars equal to '0025' and will change them to '2025'.
+        the function will only change the first 4 chars of the specific date string.
+        print the queried rows before and after the change and only then commit the changes.
+        """
+        query = """
+            SELECT Date
+            FROM File
+            WHERE Date LIKE '0025%'
+        """
+        rows = self.cursor.execute(query).fetchall()
+        utils.log(f"Rows before fix: {rows}", 'system')
+        if not rows:
+            utils.log("No rows to fix.", 'system')
+            return
+        # Update the dates
+        self.cursor.execute("""
+            UPDATE File
+            SET Date = '2025' || substr(Date, 5)
+            WHERE Date LIKE '0025%'
+        """)
+        
+
     def search_transactions(self, params: dict) -> pd.DataFrame:
         """
         Search transactions with multiple filters

@@ -857,61 +857,22 @@ class AppManager:
 
         data = {}
 
-        def card_charge_validation(date: datetime) -> pd.DataFrame:
-            """
-            """
-            # ---------------------------------------------------------
-            #   The following line will help configure the אשראי　transactions
-            # ---------------------------------------------------------
-            df = DataBase().card_sum(date)
-            # The following will result in a data base describing the total amount of spendings per card in the given month.
-            debbug_df = df.copy()
-            cards_df = df.groupby("CardID").sum().reset_index()
-            cards_df['Status'] = 'Not Verified'
-            bank_df = DataBase().get_Bank_Transactions(Local.CHARGE_DAY + 1,
-                                                    utils.next_month(date).month,
-                                                    utils.next_month(date).year)
-            for _, row_cs in cards_df.iterrows():
-                for _, row_bt in bank_df.iterrows():
-                    x = round(row_bt['Out'], 2)
-                    y = round(row_cs['Out/Transaction_value'], 2)
-                    if x == y:
-                        cards_df.loc[cards_df['CardID'] == row_cs['CardID'], 'Status'] = 'Verified'
-                        if row_bt['Category'] == 'אשראי':
-                            break
-
-                        if utils.template_menu(['No', 'Yes'], f"App found this transaction to be a credit card:\n\
-                                            {row_bt}\n Do you Agree?"):
-                            DataBase().set_category('BankTransactions', row_bt['ID'], CC_CHARGE_CATEGORY_NAME)
-                            DataBase().commit_changes()
-                            break
-                        else:
-                            utils.log('ignored...', 'system')
-
-            if not cards_df.empty:
-                cards_df = cards_df[['CardID', 'Status', 'Out/Transaction_value']]
-            
-            for index, row in cards_df.iterrows():
-                if row['Status'] == 'Not Verified':
-                    # Perform your action here
-                    utils.log(f"information for card at index: {index},\n {debbug_df[debbug_df['CardID'] == row['CardID']].to_markdown()}", 'debug')
-            return cards_df
 
         def print_unverified_cards(date: datetime):
             """
             The function will iterate past data and print the card id and mnths which were not verified.
             """
-            df = card_charge_validation(date)
+            df = utils.card_charge_validation(date)
             while not df.empty:
                 for _, row in df.iterrows():
                     if row['Status'] == 'Not Verified':
                         utils.log(f"Card {row['CardID']} was not verified for {date.month}/{date.year}", 'warning')
                 m, y = utils.subtract_month(date.month, date.year)
                 date = datetime(int(y),int(m),1)
-                df = card_charge_validation(date)
+                df = utils.card_charge_validation(date)
             
         print_unverified_cards(t)
-        card_validation_df = card_charge_validation(t)
+        card_validation_df = utils.card_charge_validation(t)
         
         # Add linear plots data
         def get_accounts_data() -> dict:

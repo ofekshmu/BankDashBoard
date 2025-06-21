@@ -1,4 +1,4 @@
-from Constants import Settings, Local
+from Constants import Settings, Local, CC_CHARGE_CATEGORY_NAME
 import json
 from typing import Union
 from datetime import datetime
@@ -1169,6 +1169,7 @@ Please Make sure that none of the following formats have their 'Identifications 
         # The following line, converts the column, from string value dates, to date object of the following format: example: "November, 2023"
         # Because the date represent the Charge date of the transactions, one month is taken back to represent the month
         # the trasnactions were taken in.
+        file_df['Original_Date'] = file_df['Date']
         file_df['Date'] = file_df['Date'].apply(lambda x: (datetime.strptime(x, "%Y-%m-%d %H:%M:%S" )  - relativedelta(months=1)).strftime("%B, %Y"))
         
         indexes = file_df['Date'].unique().tolist()
@@ -1176,6 +1177,7 @@ Please Make sure that none of the following formats have their 'Identifications 
         columns = (file_df['Format'].astype(str) + " | " + file_df['Card_Number']).unique().tolist()
 
         df = pd.DataFrame(index=indexes, columns=columns)
+        color_coded_df = pd.DataFrame(index=indexes, columns=columns)
         for _, row in file_df.iterrows():
             last_update = row["Last_update"]
             date = row["Date"]
@@ -1183,7 +1185,16 @@ Please Make sure that none of the following formats have their 'Identifications 
             card_number = row["Card_Number"]
             col_name =  format_name + " | " + card_number
             df.at[date, col_name] = last_update
-                
+            
+            test_df = utils.card_charge_validation(datetime.strptime(row["Original_Date"],"%Y-%m-%d %H:%M:%S" ))
+            status_series =test_df.loc[test_df['CardID'] == card_number, 'Status']
+            if not status_series.empty:
+                result = status_series.values[0]
+            else:
+                result = None  # or handle as needed
+            
+            color_coded_df.at[date, col_name] = result
+        #utils.df_to_markdown(color_coded_df)
         return df
 
 
@@ -1660,3 +1671,47 @@ Please Make sure that none of the following formats have their 'Identifications 
             utils.log(f"Invalid date format: {date_str}\nExpected format: {date_format}\nError: {str(e)}", "error")
         except Exception as e:
             utils.log(f"Error processing date: {date_str}\nError: {str(e)}", "error")
+
+
+    @staticmethod
+    def card_charge_validation(date: datetime) -> pd.DataFrame:
+        """
+        ---------------------------------------------------------
+        The following line will help configure the אשראי transactions
+        ---------------------------------------------------------
+        """
+        from database import DataBase
+        # The following will result in a data base describing the total amount of spendings per card in the given month.
+        df = DataBase().card_sum(date)
+
+        debbug_df = df.copy()
+        cards_df = df.groupby("CardID").sum().reset_index()
+        cards_df['Status'] = 'Not Verified'
+        bank_df = DataBase().get_Bank_Transactions(utils.next_month(date).month,
+                                                    utils.next_month(date).year)
+        
+        for _, row_cs in cards_df.iterrows():       #cs - card sum
+            for _, row_bt in bank_df.iterrows():    #bt - card transactions
+                x = round(row_bt['Out'], 2)
+                y = round(row_cs['Out/Transaction_value'], 2)
+                if x == y:
+                    cards_df.loc[cards_df['CardID'] == row_cs['CardID'], 'Status'] = 'Verified'
+                    if row_bt['Category'] == 'אשראי':
+                        break
+
+                    if utils.template_menu(['No', 'Yes'], f"App found this transaction to be a credit card:\n\
+                                        {row_bt}\n Do you Agree?"):
+                        DataBase().set_category('BankTransactions', row_bt['ID'], CC_CHARGE_CATEGORY_NAME)
+                        DataBase().commit_changes()
+                        break
+                    else:
+                        utils.log('ignored...', 'system')
+
+        if not cards_df.empty:
+            cards_df = cards_df[['CardID', 'Status', 'Out/Transaction_value']]
+        
+        for index, row in cards_df.iterrows():
+            if row['Status'] == 'Not Verified':
+                # Perform your action here
+                utils.log(f"information for card at index: {index},\n {debbug_df[debbug_df['CardID'] == row['CardID']].to_markdown()}", 'debug')
+        return cards_df

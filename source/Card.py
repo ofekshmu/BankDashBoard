@@ -179,7 +179,7 @@ The value parsed is {parsed_text}", "error")
                                                        Value_Currency=row[6],
                                                        Extra_Info=f"Type: {row[7]} | Note: None")
                 
-                case "Cal-Shufersal":
+                case "Cal":
                     if row[3] != row[2]:
                         utils.log("Cal_Sufersal Format cannot handel different currencies - a transaction with different currencies was found", "error")
                     
@@ -198,7 +198,7 @@ The value parsed is {parsed_text}", "error")
                                                        Extra_Info=f"Type: {row[4]} - {row[5]} | Note: {row[6]}"
                                                        )
                 case _:
-                    utils.log(f"Internal error: The specified format {self.format_name} does not have a matching\
+                    utils.log(f"Internal error: The specified format {self.format_name} does not have a matching \
 case in the match-case scope. Card Class, insert function.\
 Check if the 'format_name was typed correctly or the case for the specified format\
 does not exist.", "error")

@@ -928,7 +928,7 @@ class DataBase:
         
         return pd.DataFrame(data, columns=[d[0] for d in self.cursor.description])
 
-    def get_Bank_Transactions(self, day: int, month: int, year: int):
+    def get_Bank_Transactions(self, month: int, year: int):
         """
         Get all bank transactions of month @month and year @year,
         day is not relevant.
@@ -936,9 +936,7 @@ class DataBase:
         str_month = str(month)
         if len(str_month) == 1:
             str_month = '0' + str_month
-        str_day = str(day)
-        if len(str_day) == 1:
-            str_day = '0' + str_day
+
         data = self.cursor.execute("""
                             SELECT ID, Name, Date, Ref, Out, Category FROM BankTransactions
                             WHERE strftime('%m', Date) = ?

@@ -1169,9 +1169,8 @@ Please Make sure that none of the following formats have their 'Identifications 
         # The following line, converts the column, from string value dates, to date object of the following format: example: "November, 2023"
         # Because the date represent the Charge date of the transactions, one month is taken back to represent the month
         # the trasnactions were taken in.
-        file_df['Original_Date'] = file_df['Date']
         file_df['Date'] = file_df['Date'].apply(lambda x: (datetime.strptime(x, "%Y-%m-%d %H:%M:%S" )  - relativedelta(months=1)).strftime("%B, %Y"))
-        
+
         indexes = file_df['Date'].unique().tolist()
         # columns = file_df['Format'].unique().tolist()
         columns = (file_df['Format'].astype(str) + " | " + file_df['Card_Number']).unique().tolist()
@@ -1186,22 +1185,21 @@ Please Make sure that none of the following formats have their 'Identifications 
             col_name =  format_name + " | " + card_number
             df.at[date, col_name] = last_update
             
-            test_df = utils.card_charge_validation(datetime.strptime(row["Original_Date"],"%Y-%m-%d %H:%M:%S" ))
-            status_series =test_df.loc[test_df['CardID'] == card_number, 'Status']
+            test_df = utils.card_charge_validation(datetime.strptime(row["Date"], "%B, %Y"))
+            status_series = test_df.loc[test_df['CardID'] == card_number, 'Status']
+
             if not status_series.empty:
                 result = status_series.values[0]
             else:
                 result = None  # or handle as needed
             
             color_coded_df.at[date, col_name] = result
-        #utils.df_to_markdown(color_coded_df)
-        return df
+        return df, color_coded_df
 
 
     @staticmethod
-    def create_html_with_colored_dates(df, output_file_path='output.html'):
+    def create_html_with_colored_dates(df, color_coded_df, output_file_path='output.html'):
         # Define a Jinja2 template for the HTML
-
         from jinja2 import Template
         html_template = """
         <!DOCTYPE html>
@@ -1211,31 +1209,29 @@ Please Make sure that none of the following formats have their 'Identifications 
                 table {
                     border-collapse: collapse;
                     width: 100%;
-                    overflow-x: auto; /* Enable horizontal scrolling for small screens */
+                    overflow-x: auto;
                 }
-
                 th, td {
                     border: 1px solid black;
                     padding: 10px;
-                    text-align: center; /* Adjust text alignment */
-                    font-size: 14px; /* Adjust font size */
+                    text-align: center;
+                    font-size: 14px;
                 }
-
                 th {
-                    background-color: #f2f2f2; /* Header background color */
-                    font-weight: bold; /* Bold header text */
+                    background-color: #f2f2f2;
+                    font-weight: bold;
                 }
-
                 tr:nth-child(even) {
-                    background-color: #f9f9f9; /* Alternate row background color */
+                    background-color: #f9f9f9;
                 }
-
-                .date {
-                    background-color: #c2f0c2; /* Light green for date cells */
+                .verified {
+                    background-color: #c2f0c2 !important; /* Green */
                 }
-
-                .plain {
-                    background-color: #ffb3b3; /* Light red for plain cells */
+                .not-verified {
+                    background-color: #fff7b2 !important; /* Yellow */
+                }
+                .other-status {
+                    background-color: #ffb3b3 !important; /* Red */
                 }
             </style>
         </head>
@@ -1254,8 +1250,18 @@ Please Make sure that none of the following formats have their 'Identifications 
                     {% for index, row in data.iterrows() %}
                         <tr>
                             <td>{{ index }}</td>
-                            {% for value in row %}
-                                <td {% if pd.isna(value) %}class="plain" {% else %}class="date"{% endif %}>
+                            {% for col in columns %}
+                                {% set value = row[col] %}
+                                {% set status = color_coded_df.at[index, col] %}
+                                {% set is_date = false %}
+                                {% if value is string and value|length == 10 and '-' in value %}
+                                    {% set is_date = true %}
+                                {% endif %}
+                                <td class="{{
+                                    'verified' if status == 'Verified' else
+                                    'not-verified' if status == 'Not Verified' or is_date else
+                                    'other-status'
+                                }}">
                                     {{ value }}
                                 </td>
                             {% endfor %}
@@ -1268,10 +1274,10 @@ Please Make sure that none of the following formats have their 'Identifications 
         """
         # Apply the template to create the HTML
         template = Template(html_template)
-        rendered_html = template.render(data=df, columns=df.columns, pd=pd)
+        rendered_html = template.render(data=df, columns=df.columns, pd=pd, color_coded_df=color_coded_df)
 
         # Save the HTML to a file
-        with open(output_file_path, 'w') as html_file:
+        with open(output_file_path, 'w', encoding='utf-8') as html_file:
             html_file.write(rendered_html)
 
         # Open the HTML file in a web browser

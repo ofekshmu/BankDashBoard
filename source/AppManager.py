@@ -76,8 +76,8 @@ class AppManager:
                 case 6:
                     self.execute_sql()
                 case 7:
-                    df = utils.read_present_table()
-                    utils.create_html_with_colored_dates(df)
+                    df, color_coded_df = utils.read_present_table()
+                    utils.create_html_with_colored_dates(df, color_coded_df)
                 case 8:
                     self.exporter_function()
                 case 9:

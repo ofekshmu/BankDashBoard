@@ -1196,7 +1196,6 @@ Please Make sure that none of the following formats have their 'Identifications 
             color_coded_df.at[date, col_name] = result
         return df, color_coded_df
 
-
     @staticmethod
     def create_html_with_colored_dates(df: pd.DataFrame, 
                                        color_coded_df: pd.DataFrame,
@@ -1207,14 +1206,11 @@ Please Make sure that none of the following formats have their 'Identifications 
 
         # 1. Get all untagged transaction names from the DB
         untagged_transactions, desc = DataBase().get_untagged(table="BankTransactions")
-        untagged_names = set(row[desc.index('Name')] for row in untagged_transactions)
 
-        # 2. Build a lookup for untagged-match cells (only if cell is empty)
-        # Only mark if BOTH: (1) cell is empty, (2) a matching untagged transaction exists for this card/format/date (month)
-        # Store the date and value of the matching transaction
+        # 2. Build a lookup for untagged-match cells (for both empty and not-verified date cells)
         from datetime import datetime
 
-        untagged_match_cells = dict()  # (row_idx, col) -> (date, value)
+        untagged_match_cells = dict()  # (row_idx, col) -> (date, value, cell_type)
         for col in df.columns:
             if " | " in col:
                 format_name, card_number = col.split(" | ")
@@ -1223,26 +1219,37 @@ Please Make sure that none of the following formats have their 'Identifications 
                 if card_number in card_names_dict:
                     possible_names = set(card_names_dict[card_number])
                     for idx in df.index:
-                        # Only mark if the cell is empty (no file was read)
-                        if pd.isna(df.at[idx, col]) or df.at[idx, col] == "" or df.at[idx, col] is None:
-                            # Parse the month and year from the table row index (e.g. "November, 2023")
-                            try:
-                                row_month_year = datetime.strptime(str(idx), "%B, %Y")
-                            except Exception:
-                                continue
-                            # Find a matching untagged transaction for this card/format/date
-                            for row in untagged_transactions:
-                                name = row[desc.index('Name')]
-                                date_str = row[desc.index('Date')] if 'Date' in desc else None
-                                value = row[desc.index('Out')] if 'Out' in desc else None
-                                if name in possible_names and date_str:
-                                    try:
-                                        trans_date = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S").date()
-                                    except Exception:
-                                        continue
-                                    # Match month and year
-                                    if trans_date.month - 1 == row_month_year.month and trans_date.year == row_month_year.year:
-                                        untagged_match_cells[(idx, col)] = (trans_date, value)
+                        value = df.at[idx, col]
+                        status = color_coded_df.at[idx, col] if idx in color_coded_df.index and col in color_coded_df.columns else None
+                        # Parse the month and year from the table row index (e.g. "November, 2023")
+                        try:
+                            row_month_year = datetime.strptime(str(idx), "%B, %Y")
+                        except Exception:
+                            continue
+                        # Find a matching untagged transaction for this card/format/date
+                        for row in untagged_transactions:
+                            name = row[desc.index('Name')]
+                            date_str = row[desc.index('Date')] if 'Date' in desc else None
+                            val = row[desc.index('Out')] if 'Out' in desc else None
+                            if name in possible_names and date_str:
+                                try:
+                                    trans_date = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S").date()
+                                except Exception:
+                                    continue
+                                # Match month and year
+                                if trans_date.month - 1 == row_month_year.month and trans_date.year == row_month_year.year:
+                                    # If cell is empty (missing file)
+                                    if pd.isna(value) or value == "" or value is None:
+                                        untagged_match_cells[(idx, col)] = (trans_date, val, name, "missing")
+                                        break
+                                    # If cell has a date and is Not Verified
+                                    elif (
+                                        isinstance(value, str)
+                                        and len(value) == 10
+                                        and '-' in value
+                                        and (status == 'Not Verified')
+                                    ):
+                                        untagged_match_cells[(idx, col)] = (trans_date, val, name, "not_verified")
                                         break
 
         # 3. Legend text
@@ -1250,10 +1257,11 @@ Please Make sure that none of the following formats have their 'Identifications 
             "green": "Green - file for the card and date was parsed and verified.",
             "yellow": "Yellow - file for the card was parsed but not verified or not applicable for verification.",
             "red": "Red - non-existent file for the relevant card and date.",
-            "blue": "Blue - untagged transaction(s) found for this card and date (shows date and value)."
+            "blue-missing": "Blue - untagged transaction(s) found for this card and date (missing file, shows date and value).",
+            "blue-not-verified": "Light Blue - untagged transaction(s) found for this card and date (file not verified, shows date and value)."
         }
 
-        # 4. HTML template (add .untagged-match and legend)
+        # 4. HTML template (add .untagged-match-missing and .untagged-match-not-verified and legend)
         html_template = """
         <!DOCTYPE html>
         <html>
@@ -1286,8 +1294,12 @@ Please Make sure that none of the following formats have their 'Identifications 
                 .other-status {
                     background-color: #ffb3b3 !important; /* Red */
                 }
-                .untagged-match {
+                .untagged-match-missing {
                     background-color: #b3d1ff !important; /* Blue */
+                    font-size: 12px;
+                }
+                .untagged-match-not-verified {
+                    background-color: #d1eaff !important; /* Light Blue */
                     font-size: 12px;
                 }
                 .legend-container {
@@ -1319,7 +1331,8 @@ Please Make sure that none of the following formats have their 'Identifications 
                 .legend-green { background: #c2f0c2; }
                 .legend-yellow { background: #fff7b2; }
                 .legend-red { background: #ffb3b3; }
-                .legend-blue { background: #b3d1ff; }
+                .legend-blue-missing { background: #b3d1ff; }
+                .legend-blue-not-verified { background: #d1eaff; }
             </style>
         </head>
         <body>
@@ -1329,7 +1342,8 @@ Please Make sure that none of the following formats have their 'Identifications 
                 <div class="legend-item"><span class="legend-color legend-green"></span>{{ legend.green }}</div>
                 <div class="legend-item"><span class="legend-color legend-yellow"></span>{{ legend.yellow }}</div>
                 <div class="legend-item"><span class="legend-color legend-red"></span>{{ legend.red }}</div>
-                <div class="legend-item"><span class="legend-color legend-blue"></span>{{ legend.blue }}</div>
+                <div class="legend-item"><span class="legend-color legend-blue-missing"></span>{{ legend['blue-missing'] }}</div>
+                <div class="legend-item"><span class="legend-color legend-blue-not-verified"></span>{{ legend['blue-not-verified'] }}</div>
             </div>
             <table>
                 <thead>
@@ -1353,16 +1367,30 @@ Please Make sure that none of the following formats have their 'Identifications 
                                 {% endif %}
                                 {% set cell_key = (index, col) %}
                                 {% if cell_key in untagged_match_cells %}
-                                    <td class="untagged-match">
-                                        <div>
-                                            <b>Missing file</b><br>
-                                            <span style="color:#333;">
-                                                {% set match = untagged_match_cells[cell_key] %}
-                                                Date: {{ match[0] if match[0] else "?" }}<br>
-                                                Value: {{ match[1] if match[1] else "?" }}
-                                            </span>
-                                        </div>
-                                    </td>
+                                    {% set match = untagged_match_cells[cell_key] %}
+                                    {% if match[3] == "missing" %}
+                                        <td class="untagged-match-missing">
+                                            <div>
+                                                <b>Missing file</b><br>
+                                                <span style="color:#333;">
+                                                    Name: {{ match[2] if match[2] else "?" }}<br>
+                                                    Date: {{ match[0] if match[0] else "?" }}<br>
+                                                    Value: {{ match[1] if match[1] else "?" }}
+                                                </span>
+                                            </div>
+                                        </td>
+                                    {% elif match[3] == "not_verified" %}
+                                        <td class="untagged-match-not-verified">
+                                            <div>
+                                                <b>Not Verified</b><br>
+                                                <span style="color:#333;">
+                                                    Name: {{ match[2] if match[2] else "?" }}<br>
+                                                    Date: {{ value if value else (match[0] if match[0] else "?") }}<br>
+                                                    Value: {{ match[1] if match[1] else "?" }}
+                                                </span>
+                                            </div>
+                                        </td>
+                                    {% endif %}
                                 {% else %}
                                     <td class="{% if status == 'Verified' %}verified{% 
                                         elif status == 'Not Verified' or is_date %}not-verified{% 
@@ -1395,7 +1423,6 @@ Please Make sure that none of the following formats have their 'Identifications 
 
         import webbrowser
         webbrowser.open(output_file_path)
-
     @staticmethod
     def seperate_high_std(df: pd.DataFrame, numerical_col_name: str) -> Tuple[pd.DataFrame, list]:
         """

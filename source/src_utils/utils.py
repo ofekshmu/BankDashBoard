@@ -1198,9 +1198,62 @@ Please Make sure that none of the following formats have their 'Identifications 
 
 
     @staticmethod
-    def create_html_with_colored_dates(df, color_coded_df, output_file_path='output.html'):
-        # Define a Jinja2 template for the HTML
+    def create_html_with_colored_dates(df: pd.DataFrame, 
+                                       color_coded_df: pd.DataFrame,
+                                       output_file_path: str='output.html'):
         from jinja2 import Template
+        from Configurations.Formats import Formats
+        from database import DataBase
+
+        # 1. Get all untagged transaction names from the DB
+        untagged_transactions, desc = DataBase().get_untagged(table="BankTransactions")
+        untagged_names = set(row[desc.index('Name')] for row in untagged_transactions)
+
+        # 2. Build a lookup for untagged-match cells (only if cell is empty)
+        # Only mark if BOTH: (1) cell is empty, (2) a matching untagged transaction exists for this card/format/date (month)
+        # Store the date and value of the matching transaction
+        from datetime import datetime
+
+        untagged_match_cells = dict()  # (row_idx, col) -> (date, value)
+        for col in df.columns:
+            if " | " in col:
+                format_name, card_number = col.split(" | ")
+                format_dict = Formats.FORMATS.get(format_name, {})
+                card_names_dict = format_dict.get("Transaction Names:", {})
+                if card_number in card_names_dict:
+                    possible_names = set(card_names_dict[card_number])
+                    for idx in df.index:
+                        # Only mark if the cell is empty (no file was read)
+                        if pd.isna(df.at[idx, col]) or df.at[idx, col] == "" or df.at[idx, col] is None:
+                            # Parse the month and year from the table row index (e.g. "November, 2023")
+                            try:
+                                row_month_year = datetime.strptime(str(idx), "%B, %Y")
+                            except Exception:
+                                continue
+                            # Find a matching untagged transaction for this card/format/date
+                            for row in untagged_transactions:
+                                name = row[desc.index('Name')]
+                                date_str = row[desc.index('Date')] if 'Date' in desc else None
+                                value = row[desc.index('Out')] if 'Out' in desc else None
+                                if name in possible_names and date_str:
+                                    try:
+                                        trans_date = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S").date()
+                                    except Exception:
+                                        continue
+                                    # Match month and year
+                                    if trans_date.month - 1 == row_month_year.month and trans_date.year == row_month_year.year:
+                                        untagged_match_cells[(idx, col)] = (trans_date, value)
+                                        break
+
+        # 3. Legend text
+        legend_text = {
+            "green": "Green - file for the card and date was parsed and verified.",
+            "yellow": "Yellow - file for the card was parsed but not verified or not applicable for verification.",
+            "red": "Red - non-existent file for the relevant card and date.",
+            "blue": "Blue - untagged transaction(s) found for this card and date (shows date and value)."
+        }
+
+        # 4. HTML template (add .untagged-match and legend)
         html_template = """
         <!DOCTYPE html>
         <html>
@@ -1233,10 +1286,51 @@ Please Make sure that none of the following formats have their 'Identifications 
                 .other-status {
                     background-color: #ffb3b3 !important; /* Red */
                 }
+                .untagged-match {
+                    background-color: #b3d1ff !important; /* Blue */
+                    font-size: 12px;
+                }
+                .legend-container {
+                    margin: 20px 0 30px 0;
+                    padding: 10px 20px;
+                    background: #f8f8f8;
+                    border-radius: 8px;
+                    width: fit-content;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+                }
+                .legend-title {
+                    font-weight: bold;
+                    margin-bottom: 8px;
+                }
+                .legend-item {
+                    display: flex;
+                    align-items: center;
+                    margin-bottom: 4px;
+                    font-size: 14px;
+                }
+                .legend-color {
+                    width: 18px;
+                    height: 18px;
+                    display: inline-block;
+                    margin-right: 10px;
+                    border: 1px solid #aaa;
+                    border-radius: 3px;
+                }
+                .legend-green { background: #c2f0c2; }
+                .legend-yellow { background: #fff7b2; }
+                .legend-red { background: #ffb3b3; }
+                .legend-blue { background: #b3d1ff; }
             </style>
         </head>
         <body>
             <h1 style="text-align: Center"> File Organizer</h1>
+            <div class="legend-container">
+                <div class="legend-title">Legend:</div>
+                <div class="legend-item"><span class="legend-color legend-green"></span>{{ legend.green }}</div>
+                <div class="legend-item"><span class="legend-color legend-yellow"></span>{{ legend.yellow }}</div>
+                <div class="legend-item"><span class="legend-color legend-red"></span>{{ legend.red }}</div>
+                <div class="legend-item"><span class="legend-color legend-blue"></span>{{ legend.blue }}</div>
+            </div>
             <table>
                 <thead>
                     <tr>
@@ -1257,13 +1351,25 @@ Please Make sure that none of the following formats have their 'Identifications 
                                 {% if value is string and value|length == 10 and '-' in value %}
                                     {% set is_date = true %}
                                 {% endif %}
-                                <td class="{{
-                                    'verified' if status == 'Verified' else
-                                    'not-verified' if status == 'Not Verified' or is_date else
-                                    'other-status'
-                                }}">
-                                    {{ value }}
-                                </td>
+                                {% set cell_key = (index, col) %}
+                                {% if cell_key in untagged_match_cells %}
+                                    <td class="untagged-match">
+                                        <div>
+                                            <b>Missing file</b><br>
+                                            <span style="color:#333;">
+                                                {% set match = untagged_match_cells[cell_key] %}
+                                                Date: {{ match[0] if match[0] else "?" }}<br>
+                                                Value: {{ match[1] if match[1] else "?" }}
+                                            </span>
+                                        </div>
+                                    </td>
+                                {% else %}
+                                    <td class="{% if status == 'Verified' %}verified{% 
+                                        elif status == 'Not Verified' or is_date %}not-verified{% 
+                                        else %}other-status{% endif %}">
+                                        {{ value }}
+                                    </td>
+                                {% endif %}
                             {% endfor %}
                         </tr>
                     {% endfor %}
@@ -1272,15 +1378,21 @@ Please Make sure that none of the following formats have their 'Identifications 
         </body>
         </html>
         """
-        # Apply the template to create the HTML
-        template = Template(html_template)
-        rendered_html = template.render(data=df, columns=df.columns, pd=pd, color_coded_df=color_coded_df)
 
-        # Save the HTML to a file
+        # 5. Render template
+        template = Template(html_template)
+        rendered_html = template.render(
+            data=df,
+            columns=df.columns,
+            pd=pd,
+            color_coded_df=color_coded_df,
+            legend=legend_text,
+            untagged_match_cells=untagged_match_cells
+        )
+
         with open(output_file_path, 'w', encoding='utf-8') as html_file:
             html_file.write(rendered_html)
 
-        # Open the HTML file in a web browser
         import webbrowser
         webbrowser.open(output_file_path)
 

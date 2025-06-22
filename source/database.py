@@ -783,12 +783,20 @@ class DataBase:
                             AND Card_Number = ?                            
                             """, (file_name, format_name, card_number, ))
 
-    def get_untagged(self) -> Tuple[list, list]:
+    def get_untagged(self, table: str = None) -> Tuple[list, list]:
         """
         Get all untagged items in database.
-        An untagged item is a transaction with no category
+        An untagged item is a transaction with no category.
+        If table is specified as 'BankTransactions' or 'CardTransactions', only return untagged entries from that table.
+        Otherwise, return both as before.
         """
-        res1 = self.cursor.execute("""
+        valid_tables = [None, "BankTransactions", "CardTransactions"]
+        if table not in valid_tables:
+            from src_utils.utils import utils
+            utils.log(f"Invalid table argument '{table}' in get_untagged. Must be one of {valid_tables}.", "error")
+
+        if table == "BankTransactions":
+            res = self.cursor.execute("""
                                     SELECT
                                         'BankTransactions' as TableName,
                                         ID,
@@ -803,8 +811,10 @@ class DataBase:
                                     FROM BankTransactions
                                     WHERE Category IS 'NotCategorized'
                                     ORDER BY ID DESC
-                                    """).fetchall()
-        res2 = self.cursor.execute("""
+                                """).fetchall()
+            return res, [d[0] for d in self.cursor.description]
+        elif table == "CardTransactions":
+            res = self.cursor.execute("""
                                     SELECT
                                         'CardTransactions' AS TableName,
                                         ID,
@@ -819,12 +829,45 @@ class DataBase:
                                     FROM CardTransactions
                                     WHERE Category IS 'NotCategorized'
                                     ORDER BY ID DESC
-                                    """).fetchall()
-        
-        # Sortion order is made for better handling of tagging
-        # x[2] is the location of the Date
-        sorted_list = sorted(res1 + res2, key=lambda x: x[2], reverse=True)
-        return sorted_list, [d[0] for d in self.cursor.description]
+                                """).fetchall()
+            return res, [d[0] for d in self.cursor.description]
+        else:
+            res1 = self.cursor.execute("""
+                                    SELECT
+                                        'BankTransactions' as TableName,
+                                        ID,
+                                        Date,
+                                        Name,
+                                        Ref,
+                                        Out,
+                                        Income,
+                                        Extra_Info,
+                                        Source_file,
+                                        Null
+                                    FROM BankTransactions
+                                    WHERE Category IS 'NotCategorized'
+                                    ORDER BY ID DESC
+                                """).fetchall()
+            res2 = self.cursor.execute("""
+                                    SELECT
+                                        'CardTransactions' AS TableName,
+                                        ID,
+                                        Executed_Date,
+                                        Name,
+                                        CardID AS 'CardID/Ref',
+                                        Charge_Value AS 'Charge_Value/Out',
+                                        Transaction_Value AS 'Transaction_Value/Income' ,
+                                        Extra_Info,
+                                        Source_file,
+                                        Charge_Currency
+                                    FROM CardTransactions
+                                    WHERE Category IS 'NotCategorized'
+                                    ORDER BY ID DESC
+                                """).fetchall()
+            # Sortion order is made for better handling of tagging
+            # x[2] is the location of the Date
+            sorted_list = sorted(res1 + res2, key=lambda x: x[2], reverse=True)
+            return sorted_list, [d[0] for d in self.cursor.description]
 
     def set_category(self, table: str, id: int, category: str):
         """

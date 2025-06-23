@@ -1374,8 +1374,8 @@ Please Make sure that none of the following formats have their 'Identifications 
                                                 <b>Missing file</b><br>
                                                 <span style="color:#333;">
                                                     Name: {{ match[2] if match[2] else "?" }}<br>
-                                                    Date: {{ match[0] if match[0] else "?" }}<br>
-                                                    Value: {{ match[1] if match[1] else "?" }}
+                                                    Value: {{ match[1] if match[1] else "?" }}<br>
+                                                    Transactions Date: {{ match[0] if match[0] else "?" }}<br>
                                                 </span>
                                             </div>
                                         </td>
@@ -1385,8 +1385,9 @@ Please Make sure that none of the following formats have their 'Identifications 
                                                 <b>Not Verified</b><br>
                                                 <span style="color:#333;">
                                                     Name: {{ match[2] if match[2] else "?" }}<br>
-                                                    Date: {{ value if value else (match[0] if match[0] else "?") }}<br>
-                                                    Value: {{ match[1] if match[1] else "?" }}
+                                                    Value: {{ match[1] if match[1] else "?" }}<br>
+                                                    Transactions Date: {{ match[0] if match[0] else "?" }}<br>
+                                                    File Update Date: {{ value if value else "?" }}<br>
                                                 </span>
                                             </div>
                                         </td>

@@ -1200,6 +1200,12 @@ Please Make sure that none of the following formats have their 'Identifications 
     def create_html_with_colored_dates(df: pd.DataFrame, 
                                        color_coded_df: pd.DataFrame,
                                        output_file_path: str='output.html'):
+        """
+        
+        @param df: DataFrame with dates and values (columns are card names and rows are dates as seen in the html).
+        @param color_coded_df: DataFrame with the same index and columns as df, but with color-coded status values.
+        @param output_file_path: Path to save the generated HTML file.
+        """
         from jinja2 import Template
         from Configurations.Formats import Formats
         from database import DataBase
@@ -1211,7 +1217,7 @@ Please Make sure that none of the following formats have their 'Identifications 
         from datetime import datetime
 
         untagged_match_cells = dict()  # (row_idx, col) -> (date, value, cell_type)
-        for col in df.columns:
+        for col in df.columns:  #columns are string combined of "Format Name | Card Number"
             if " | " in col:
                 format_name, card_number = col.split(" | ")
                 format_dict = Formats.FORMATS.get(format_name, {})
@@ -1241,6 +1247,9 @@ Please Make sure that none of the following formats have their 'Identifications 
                                     # If cell is empty (missing file)
                                     if pd.isna(value) or value == "" or value is None:
                                         untagged_match_cells[(idx, col)] = (trans_date, val, name, "missing")
+                                        # In case two of more cards fit the same transaction name, we want to show one for each avaliable card
+                                        # So we remove the first match to allow another match with another fitting transaction name
+                                        untagged_transactions.remove(row)
                                         break
                                     # If cell has a date and is Not Verified
                                     elif (
@@ -1251,6 +1260,34 @@ Please Make sure that none of the following formats have their 'Identifications 
                                     ):
                                         untagged_match_cells[(idx, col)] = (trans_date, val, name, "not_verified")
                                         break
+
+                            name = row[desc.index('Name')]
+                            date_str = row[desc.index('Date')] if 'Date' in desc else None
+                            val = row[desc.index('Out')] if 'Out' in desc else None
+                            if name in possible_names and date_str:
+                                try:
+                                    trans_date = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S").date()
+                                except Exception:
+                                    continue
+                                # Match month and year
+                                if trans_date.month - 1 == row_month_year.month and trans_date.year == row_month_year.year:
+                                    # If cell is empty (missing file)
+                                    if pd.isna(value) or value == "" or value is None:
+                                        untagged_match_cells[(idx, col)] = (trans_date, val, name, "missing")
+                                        break
+                                    # If cell has a date and is Not Verified
+                                    elif (
+                                        isinstance(value, str)
+                                        and len(value) == 10
+                                        and '-' in value
+                                        and (status == 'Not Verified')
+                                    ):
+                                        untagged_match_cells[(idx, col)] = (trans_date, val, name, "not_verified")
+                                        break
+                else:
+                    utils.log(f"Column '{col}' does not have a valid card number in the format dictionary, skipping...", "warning")
+            else:
+                utils.log(f"Column '{col}' does not contain ' | ' separator, skipping...", "warning")
 
         # 3. Legend text
         legend_text = {

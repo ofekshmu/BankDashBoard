@@ -358,7 +358,8 @@ class AppManager:
                                    'Change an existing category',
                                    'Delete a transaction',
                                    'Edit transaction description',
-                                   'Fix Date Bug for cal'], 'Pick one of the following:')
+                                   'Fix Date Bug for cal',
+                                   'Update all "Cal-Shufersal" formats to "Cal" in File table'], 'Pick one of the following:')
         match res:
             case 0:
                 original_command()
@@ -379,6 +380,12 @@ class AppManager:
                 DataBase().fix_cal_date_bug()
                 input("Continue?")
                 DataBase().commit_changes()
+            case 7:
+                # New feature: Update all "Cal-Shufersal" formats to "Cal" in File table
+                sql = "UPDATE File SET Format = 'Cal' WHERE Format = 'Cal-Shufersal';"
+                DataBase().execute_query(sql)
+                DataBase().commit_changes()
+                utils.log('All "Cal-Shufersal" formats updated to "Cal" in File table.', 'system')
             case _:
                 utils.log('Something went wrong in "execute_sql"', 'error')
 

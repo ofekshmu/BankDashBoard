@@ -7,7 +7,7 @@ from src_utils.ExcelReader import ExcelManager
 import os
 
 # Local
-from Constants import Local
+from Constants import Local, Paths
 from src_utils.utils import utils
 
 
@@ -61,12 +61,10 @@ class Parser():
             utils.log(f"The file ({name}) has an invalid extension.", "error")
             return False
 
-        # for name in listdir(Local.INPUT_FOLDER):
-
-        for root, temp, files in os.walk(Local.INPUT_FOLDER):
+        for root, temp, files in os.walk(Paths.INPUT_FOLDER):
             for name in files:
                 # name = root + "\\" + name
-                # name = name[len(Local.INPUT_FOLDER) + 1:]
+                # name = name[len(Paths.INPUT_FOLDER) + 1:]
                 # If file name is present in database:
                 # Extract sortion key
                 # handle name list for such files.
@@ -134,7 +132,7 @@ class Parser():
             if not DataBase().is_file_exists(file_name, self.name_to_type[file_name], card_number):
                 self.names.append(file_name)
 
-        utils.log(f"found {len(temp)} files in {Local.INPUT_FOLDER}\n\t  {len(self.names)} of them are new.", 'system')
+        utils.log(f"found {len(temp)} files in {Paths.INPUT_FOLDER}\n\t  {len(self.names)} of them are new.", 'system')
 
     def __next__(self):
         """
@@ -170,7 +168,7 @@ class Parser():
                         continue
                 case Identification_Method.CELL:
                     (location, value) = data["Identification data"]
-                    extracted_value = ExcelManager().set_active_sheet(Local.INPUT_FOLDER + "\\" + file_name)\
+                    extracted_value = ExcelManager().set_active_sheet(Paths.INPUT_FOLDER + "\\" + file_name)\
                                                     .read_cell(*location)
                     if extracted_value is None: # When no value was read
                         continue

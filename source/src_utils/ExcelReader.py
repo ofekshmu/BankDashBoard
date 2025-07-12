@@ -1,18 +1,8 @@
 import xlwings as xw
 from src_utils.queuebykey import SpecialQueue
 from typing import Union
-from Constants import Local
 
 MAX_ACTIVE_SHEETS = 1
-
-
-# def add_root(func):
-#     def wrapper(self, input_str):
-#         modified_input = Local.INPUT_FOLDER + "\\" + input_str
-#         result = func(self, modified_input)
-#         return result
-#     return wrapper
-
 
 class ExcelManager:
     _instance = None
@@ -69,16 +59,22 @@ class ExcelManager:
             self._instance = None
             ExcelManager.dead = True
 
-    def read_sheet(self, row_idx: int, row_count: int, col_idx: int, col_count: int) -> list:
+    def read_sheet(self, row_idx: int, row_count: int, col_idx: int, col_count: int, type: str = "value") -> list:
         """
         The function read the a table like structure out of an excel file names @file_name
         The indexes are inclusive, meaning that data will be read from row_idx until row_idx + row_count
         including the values of the border indexes.
         """
+        if type not in ["value", "format"]:
+            raise ValueError("Type must be either 'value' or 'format'")
         if self.active_sheet is None:
             print(f"Error setting active sheet to '{self.active_sheet}': Sheet not found")
-        if self.active_sheet is not None:
+        if self.active_sheet is not None and type == "value":
             return self.active_sheet[row_idx - 1: row_idx - 1 + row_count, col_idx: col_idx + col_count].value
+        else:
+            range_obj = self.active_sheet[row_idx - 1: row_idx - 1 + row_count, col_idx: col_idx + col_count]
+            formats = [[cell.number_format for cell in row] for row in range_obj]
+            return formats
 
     def read_value(self, location: tuple):
         if self.active_sheet is None:

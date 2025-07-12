@@ -5,6 +5,7 @@ from src_utils.calculations import SimpleMath
 from src_utils.utils import utils
 import seaborn as sns
 from Constants import GENERAL_PLOT
+from Constants import Local, Paths
 from typing import Tuple
 import matplotlib.patches as mpatches
 import numpy as np
@@ -404,7 +405,7 @@ class Graphics:
             outliers_lst = outliers_df.index.tolist()
             df['Percent'] = df.apply(lambda row: abs(row['Final_Value'])*100/df['Final_Value'].sum(), axis=1)
             df.index = df.index.map(lambda x: f"{utils.heb_conversion(x)}\n{df.loc[x, 'Percent']:,.2f}%")
-            from Constants import Local
+
             ax = df.plot.pie(y='Final_Value', figsize=(5, 3), legend=False, title="Distribution", colors=Local.Colors)
             ax.set_ylabel('')
 

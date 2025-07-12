@@ -2,7 +2,8 @@ from Parser import Parser
 from Card import Card
 from Bank import Bank
 from Context import Context
-from Constants import Local, CC_CHARGE_CATEGORY_NAME, INVESTMENT_CATEGORY, GOLDEN_COLOR_PALLETE, GeneralPlot
+from Constants import Local, Paths
+from Constants import CC_CHARGE_CATEGORY_NAME, INVESTMENT_CATEGORY, GOLDEN_COLOR_PALLETE, GeneralPlot
 from src_utils.utils import utils
 from database import DataBase
 from front.Graphics import Graphics
@@ -390,9 +391,9 @@ class AppManager:
                 utils.log('Something went wrong in "execute_sql"', 'error')
 
     def update_existing_file_v2(self):
-        update_file_lst = listdir(Local.UPDATE_FOLDER)
+        update_file_lst = listdir(Paths.UPDATE_FOLDER)
         if len(update_file_lst) == 0:
-            utils.log(f"{Local.UPDATE_FOLDER} is Empty. Returning to menu..", "system")
+            utils.log(f"{Paths.UPDATE_FOLDER} is Empty. Returning to menu..", "system")
             return False
 
         new_file_id = utils.template_menu(update_file_lst,
@@ -410,12 +411,12 @@ class AppManager:
         ack = utils.template_menu(["Yes", "No"], f"The following process wil replace {existing_file_name} with {new_file_name}, Continue?")    
         if ack == 0:
             utils.log(f"Moving the new file: {new_file_name}, from the 'to_update' folder to the inputs folder...", 'system')
-            utils.move_file_to_directory(file_path=f"{Local.UPDATE_FOLDER}/{new_file_name}",
-                                         destination_directory=Local.INPUT_FOLDER)
+            utils.move_file_to_directory(file_path=f"{Paths.UPDATE_FOLDER}/{new_file_name}",
+                                         destination_directory=Paths.INPUT_FOLDER)
             utils.log("Done." 'system')
 
             utils.log(f"Moving existing (old file) {existing_file_name}  file to 'removed' folder...", 'system')
-            utils.move_file_to_directory(file_path=f"{Local.VERIFIED_FOLDER}/{existing_file_format}/{existing_file_name}",
+            utils.move_file_to_directory(file_path=f"{Paths.INPUT_FOLDER}/{existing_file_format}/{existing_file_name}",
                                          destination_directory=f"removed")
             utils.log("Done." 'system')
             
@@ -447,13 +448,13 @@ class AppManager:
                             case 0:
                                 ExcelManager().close_and_kill_excel()
                                 utils.log("Moving file back to update folder...", 'system')
-                                utils.move_file_to_directory(file_path=f"{Local.INPUT_FOLDER}/{new_file_name}",
-                                                             destination_directory=Local.UPDATE_FOLDER)
+                                utils.move_file_to_directory(file_path=f"{Paths.INPUT_FOLDER}/{new_file_name}",
+                                                             destination_directory=Paths.UPDATE_FOLDER)
                                 utils.log("Done." 'system')
 
                                 utils.log("Moving file back to input folder...", 'system')
                                 utils.move_file_to_directory(file_path=f"removed/{existing_file_name}",
-                                                             destination_directory=Local.INPUT_FOLDER)
+                                                             destination_directory=Paths.INPUT_FOLDER)
                                 utils.log("Done." 'system')
 
                                 DataBase().drop_file(new_file_name, existing_file_format, existing_file_card)
@@ -472,15 +473,15 @@ class AppManager:
             except Exception as e:
                 utils.log(f"Procedure failed, Moving files back... The error:\n{e}", 'system')
                 utils.log("Moving file back to update folder...", 'system')
-                utils.move_file_to_directory(file_path=f"{Local.INPUT_FOLDER}/{new_file_name}",
-                                             destination_directory=Local.UPDATE_FOLDER)
+                utils.move_file_to_directory(file_path=f"{Paths.INPUT_FOLDER}/{new_file_name}",
+                                             destination_directory=Paths.UPDATE_FOLDER)
                 utils.log("Done." 'system')
 
                 utils.log("Moving file back to input folder...", 'system')
                 removed_root = existing_file_name.split("\\")[-1]
                 add_root = existing_file_name.split("\\")[0]
                 utils.move_file_to_directory(file_path=f"removed/{removed_root}",
-                                             destination_directory=f"{add_root}/{Local.INPUT_FOLDER}")
+                                             destination_directory=f"{add_root}/{Paths.INPUT_FOLDER}")
                 utils.log("Done." 'system')
                 utils.log(f"{e}", 'system')
 

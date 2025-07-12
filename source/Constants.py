@@ -31,30 +31,31 @@ class Sortion(Enum):
     BY_NAME_DATE = 2
 
 
-class Local:
+class Paths:
     '''
     Include all local enviroment related valriables
     '''
-    DB_NAME = "ShmuelFamiliy"    # "Yuviz_Data"
+    DB_NAME =           "ShmuelFamiliy"                                 # Different Data base name: "Yuviz_Data"
 
-    INPUT_FOLDER = 'ShmuelFamiliy_Inputs'   # "Inputs"
-    PERSONAL_CONFIG = 'Personal Information/personal_config.json'
+    INPUT_FOLDER =      'ShmuelFamiliy_Inputs'                          # Used For inserting new files for parsing
+    VERIFIED_FOLDER =   f"Verified_{INPUT_FOLDER}"
+    UPDATE_FOLDER =     "to_update"                                     # Used for the update process
+    
+    PERSONAL_CONFIG =   'Personal Information/personal_config.json'     # Personal configuration file
+    CATEGORY_JSON =     'Personal Information/categories.json'          # Categories JSON file (holds all different categories)
+    AUTO_TAGGER_JSON =  'personal information/auto_tagger.json'         # Holds setting fro auto tagging different transactions
 
-    CATE_JSON_PATH = 'Personal Information/categories.json'
+    #EXTENSION_1 = '.xls'    # Excel file extension                      # Extension type 1 for parsing
+    #EXTENSION_2 = '.csv'    # CSV file extension                        # Extension type 2 for parsing      
+    #EXTENSION_3 = ''                                                    # Add another extension option here if needed or leave as an empty string.
 
-    AUTO_TAGGER_PATH = 'personal information/auto_tagger.json'
+    #GENERAL_INFO_GRAPH =                "C:/Users/ofeks/Desktop/BankProject/Outputs/General_info.png"
+    #GENERAL_INFO_USER_DEFINED_GRAPH =   "C:/Users/ofeks/Desktop/BankProject/Outputs/General_info_user_defined.png"
+    CARD_DIST_PIE_GRAPH =               "C:/Users/ofeks/OneDrive/BankProject/Outputs/Card_Distribution.png"
 
-    EXTENSION_1 = '.xls'
-    EXTENSION_2 = '.csv'
-    EXTENSION_3 = ''  # Add another extension option here if needed or leave as an empty string.
 
-    GAS_GRAPH = "C:/Users/ofeks/OneDrive/Work/Projects/Personal/BankProject/Outputs/Gas_info.png"
-    GAS_MONTHLY = "C:/Users/ofeks/OneDrive/Work/Projects/Personal/BankProject/Outputs/Gas_monthly.png"
-    GENERAL_INFO = "C:/Users/ofeks/Desktop/BankProject/Outputs/General_info.png"
-    CARD_DIST_PIE = "C:/Users/ofeks/OneDrive/BankProject/Outputs/Card_Distribution.png"
 
-    UPDATE_FOLDER = "to_update"
-    VERIFIED_FOLDER = f"Verified_{INPUT_FOLDER}"
+class Local:
 
     # Validation
     CHARGE_DAY = 2
@@ -97,7 +98,20 @@ class GeneralPlot:
 
     
     USER_PLOT = True
-    USER_DEFINED_CATEGORIES = ["משכורת", "רכב", "מצרכים", "אוכל בחוץ", "שכירות", "תחבורה ציבורית", "הלוואה", "בילויים", "בריאות וכושר", "חשבונות", "חתונות", "מתנות", "מצרכים"]
+    USER_DEFINED_CATEGORIES = ["משכורת",
+                               "רכב",
+                               "מצרכים",
+                               "אוכל בחוץ",
+                               "שכירות",
+                               "תחבורה ציבורית",
+                               "הלוואה",
+                               "בילויים",
+                               "בריאות וכושר",
+                               "חשבונות",
+                               "חתונות",
+                               "מתנות",
+                               "מצרכים",
+                               "השכלה ולימודים"]
 
 
 
@@ -106,8 +120,8 @@ class Personal:
     All constants in this class are taken from the personal_config.json
     which is only avaliable in the local repository.
     '''
-    # BANK_ACC = json.load(open(Local.PERSONAL_CONFIG, encoding='utf-8'))['bank_account']
-    # BANK_ACC_VisaFile = json.load(open(Local.PERSONAL_CONFIG, encoding='utf-8'))['bank_account_visa_file']
+    # BANK_ACC = json.load(open(Paths.PERSONAL_CONFIG, encoding='utf-8'))['bank_account']
+    # BANK_ACC_VisaFile = json.load(open(Paths.PERSONAL_CONFIG, encoding='utf-8'))['bank_account_visa_file']
 
 
 class GENERAL_PLOT:

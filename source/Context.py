@@ -1,7 +1,7 @@
 from src_utils.utils import utils
 from File import File
 from database import DataBase
-from Constants import Local
+from Constants import Local, Paths
 
 class Context:
 
@@ -50,8 +50,8 @@ class Context:
         utils.log('Inserting...\tCompleted', "system")
 
         file_name, format_name = self.file.get_info()
-        utils.move_file_to_directory(file_path=f"{Local.INPUT_FOLDER}/{file_name}",
-                                    destination_directory=f"{Local.VERIFIED_FOLDER}//{format_name}")
+        utils.move_file_to_directory(file_path=f"{Paths.INPUT_FOLDER}/{file_name}",
+                                    destination_directory=f"{Paths.INPUT_FOLDER}//{format_name}")
     
         DataBase().commit_changes()
         utils.log('Changes Commited to data base.', 'system')

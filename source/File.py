@@ -1,6 +1,6 @@
 from abc import abstractmethod
 from src_utils.utils import utils
-from Constants import Local, BANK_CARD_NUMBER
+from Constants import Local, Paths, BANK_CARD_NUMBER
 from typing import Union
 from database import DataBase
 from src_utils.ExcelReader import ExcelManager
@@ -53,7 +53,7 @@ class File:
         file_name: a string indicating the name of the file
         '''
         try:
-            ExcelManager().set_active_sheet(Local.INPUT_FOLDER + "\\" + self.name)
+            ExcelManager().set_active_sheet(Paths.INPUT_FOLDER + "\\" + self.name)
             return True
         except Exception as e:
             utils.log(str(e), category='debug')
@@ -252,6 +252,8 @@ class File:
             col_idx = first_col_idx
 
             table_entry = ExcelManager().read_sheet(row_idx, 1, col_idx, len(header_lst))
+            test_table_format = ExcelManager().read_sheet(row_idx, 1, col_idx, len(header_lst), type="format")
+            utils.log(f"Table format: {test_table_format}")
             cc_end = table_entry[0]
 
             if is_bad_value(table_entry):
@@ -417,7 +419,7 @@ class File:
         #                      Function's main starts here
         # -----------------------------------------------------------------
         current_tables = DataBase().get_table_Meta(self.name, self.format_name, self.card_number)
-        self.table_1, self.table_2 = read_and_merge(current_tables, root=Local.INPUT_FOLDER)
+        self.table_1, self.table_2 = read_and_merge(current_tables, root=Paths.INPUT_FOLDER)
         if self.flip_table_location:
             self.table_1, self.table_2 = self.table_2, self.table_1
         self.counter = len(self.table_1) + len(self.table_2)
@@ -443,7 +445,7 @@ class File:
         recent_tables = DataBase().get_table_Meta(recent_file_name, recent_file_format, self.card_number)
 
         # recent tables are extacted from files which have been verified, therefore, located in a different root folder.
-        recent_table_1, recent_table_2 = read_and_merge(recent_tables, root=Local.VERIFIED_FOLDER + "\\" + recent_file_format)
+        recent_table_1, recent_table_2 = read_and_merge(recent_tables, root=Paths.INPUT_FOLDER + "\\" + recent_file_format)
 
         def compare_tables(recent_table, current_table) -> list:
             """

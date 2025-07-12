@@ -1,4 +1,4 @@
-from Constants import Settings, Local, CC_CHARGE_CATEGORY_NAME
+from Constants import Settings, Local, Paths, CC_CHARGE_CATEGORY_NAME
 import json
 from typing import Union
 from datetime import datetime
@@ -166,7 +166,7 @@ class utils:
         div['class'] = 'container_img'
 
         img = soup.new_tag('img')
-        img['src'] = Local.CARD_DIST_PIE
+        img['src'] = Paths.CARD_DIST_PIE_GRAPH
 
         div.append(img)
         soup.body.insert(5, div)
@@ -690,7 +690,7 @@ class utils:
         The following options: ["「Create a new category」", "「Skip」", "「Back to menu」"]
         can be added to the list using the function argument @add_options.
         """
-        cat_lst = json.load(open(Local.CATE_JSON_PATH, encoding='utf-8'))
+        cat_lst = json.load(open(Paths.CATEGORY_JSON, encoding='utf-8'))
         if sort:
             cat_lst = sorted(cat_lst)
         if add_options:
@@ -704,9 +704,9 @@ class utils:
         """
         if append:
             old_data = utils.get_saved_categories(sort=False)
-            json.dump(old_data + data, open(Local.CATE_JSON_PATH, "w", encoding='utf-8'))
+            json.dump(old_data + data, open(Paths.CATEGORY_JSON, "w", encoding='utf-8'))
         else:
-            json.dump(data, open(Local.CATE_JSON_PATH, "w", encoding='utf-8'))
+            json.dump(data, open(Paths.CATEGORY_JSON, "w", encoding='utf-8'))
 
     @staticmethod
     def handle_categories() -> Tuple[str, str]:
@@ -760,7 +760,7 @@ class utils:
                 utils.log("Are you sure?\n1-> Yes\n2-> No")
                 x = input()
                 if x == "1":
-                    json.dump(utils.get_saved_categories() + [cat], open(Local.CATE_JSON_PATH, "w", encoding='utf-8'))
+                    json.dump(utils.get_saved_categories() + [cat], open(Paths.CATEGORY_JSON, "w", encoding='utf-8'))
                     return cat, description
                 else:
                     utils.log("Please Try again...", "system")
@@ -777,7 +777,7 @@ class utils:
         The function will check nearby cells recursively until it finds the headers.
         Recursion will stop when the header is found or when the the offset is 5 cells away from the initial row/column.
         '''
-        em = ExcelManager().set_active_sheet(Local.INPUT_FOLDER + "\\" + file_name)
+        em = ExcelManager().set_active_sheet(Paths.INPUT_FOLDER + "\\" + file_name)
         
         col_max_offset = 2
         row_max_offset = 6
@@ -978,7 +978,7 @@ class utils:
         from Constants import GeneralPlot
 
         # Read the categories from the JSON file
-        with open(Local.CATE_JSON_PATH, encoding='utf-8') as file:
+        with open(Paths.CATEGORY_JSON, encoding='utf-8') as file:
             categories = json.load(file)
         # Check if all user-defined categories exist in the JSON file
         for category in GeneralPlot.USER_DEFINED_CATEGORIES:
@@ -1612,8 +1612,8 @@ Please Make sure that none of the following formats have their 'Identifications 
         the current status of the keys on the dictionary.
 
         """
-        if os.path.exists(Local.AUTO_TAGGER_PATH):
-            with open(Local.AUTO_TAGGER_PATH, 'r', encoding='utf-8') as f:
+        if os.path.exists(Paths.AUTO_TAGGER_JSON):
+            with open(Paths.AUTO_TAGGER_JSON, 'r', encoding='utf-8') as f:
                 at_dict = json.load(f)
 
         else:
@@ -1642,7 +1642,7 @@ Please Make sure that none of the following formats have their 'Identifications 
                 at_dict[name] = category
 
 
-        with open(Local.AUTO_TAGGER_PATH, 'w', encoding='utf-8') as f:
+        with open(Paths.AUTO_TAGGER_JSON, 'w', encoding='utf-8') as f:
             json.dump(at_dict, f, ensure_ascii=False)
         #utils.log(f"The following key:value pair has been updated in auto_tagger.json to -> {utils.heb_conversion(name)} : {category}",'system')
 
@@ -1716,7 +1716,7 @@ Please Make sure that none of the following formats have their 'Identifications 
         def is_valid_balance(value):
             return isinstance(value, (int, float))
 
-        personal_conf_dict = json.load(open(Local.PERSONAL_CONFIG, encoding='utf-8'))
+        personal_conf_dict = json.load(open(Paths.PERSONAL_CONFIG, encoding='utf-8'))
         date_str = personal_conf_dict['bank_transactions_last_valid_date']
         last_valid_date = datetime.strptime(date_str, "%Y-%m-%d")
         df = DataBase().query_Bank_Transactions_for_validation(last_valid_date)
@@ -1753,7 +1753,7 @@ Please Make sure that none of the following formats have their 'Identifications 
             last_valid_date = date_object.strftime(date_format_without_timestamp)
             
         personal_conf_dict['bank_transactions_last_valid_date'] = last_valid_date
-        json.dump(personal_conf_dict, open(Local.PERSONAL_CONFIG, "w", encoding='utf-8'))
+        json.dump(personal_conf_dict, open(Paths.PERSONAL_CONFIG, "w", encoding='utf-8'))
         return True
 
     @staticmethod
@@ -1862,16 +1862,27 @@ Please Make sure that none of the following formats have their 'Identifications 
         ---------------------------------------------------------
         The following line will help configure the אשראי transactions
         ---------------------------------------------------------
+        The function compares the sum of transactions made in a given month @param date, for each card, to transactions executed
+        in the following month in the bank transactions in order to find a match and by that, validate that all transactions were recorded correctly.
+        The comparison is made between transactions recorded in the card transaction table and sumed by the "card_sum" function, to transactions in the bank transactions table.
+        The function will return a data frame with the following columns:
+        - CardID: The ID of the card.
+        - Status: The status of the card, either "Verified" or "Not Verified".
+        - Out/Transaction_value: The total amount of spendings per card in the given month
+        ---------------------------------------------------------
+        :param date: The date for which the card charge validation is performed.     
         """
         from database import DataBase
         # The following will result in a data base describing the total amount of spendings per card in the given month.
         df = DataBase().card_sum(date)
 
         debbug_df = df.copy()
-        cards_df = df.groupby("CardID").sum().reset_index()
+        cards_df = df[["Out/Transaction_value","CardID"]].groupby("CardID").sum().reset_index()
         cards_df['Status'] = 'Not Verified'
         bank_df = DataBase().get_Bank_Transactions(utils.next_month(date).month,
                                                     utils.next_month(date).year)
+        utils.log(f"debug: {utils.df_to_markdown(debbug_df)}")
+        utils.log(f"debug: {utils.df_to_markdown(cards_df)}")
         
         for _, row_cs in cards_df.iterrows():       #cs - card sum
             for _, row_bt in bank_df.iterrows():    #bt - card transactions

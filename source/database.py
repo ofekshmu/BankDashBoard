@@ -10,6 +10,17 @@ from src_utils.utils import utils
 from Constants import Local, Paths
 from typing import Tuple
 
+
+# ----------------------------------------------------------------------
+def validate_table_name(func):
+    def wrapper(self, table_name, *args, **kwargs):
+        if table_name not in ["CardTransactions", "BankTransactions"]:
+            utils.log(f"TableName must be either 'CardTransactions' or 'BankTransactions', got '{TableName}'", "error")
+            return None  # or return an empty DataFrame, or raise Exception as needed
+        return func(self, table_name, *args, **kwargs)
+    return wrapper
+# ----------------------------------------------------------------------
+
 class DataBase:
 
     __instance = None
@@ -869,11 +880,12 @@ class DataBase:
             sorted_list = sorted(res1 + res2, key=lambda x: x[2], reverse=True)
             return sorted_list, [d[0] for d in self.cursor.description]
 
-    def set_category(self, table: str, id: int, category: str):
+    @validate_table_name
+    def set_category(self, table_name: str, id: int, category: str):
         """
         Set a tag for a transaction with a given id.
         """
-        match table:
+        match table_name:
             case "CardTransactions":
                 self.cursor.execute("""
                                     UPDATE CardTransactions
@@ -887,9 +899,34 @@ class DataBase:
                                     WHERE ID = ?
                                     """, (category, id,))
             case _:
-                utils.log(f"Bad input {table} in 'set_category' in DataBase class", "error")
+                utils.log(f"Bad input {table_name} in 'set_category' in DataBase class", "error")
 
-    def get_by_name(self, TableName: str, name: str):
+    @validate_table_name
+    def set_description(self, table_name: str, id: int, description: str):
+        """
+        Set a description for a transaction with a given id.
+        """
+        query = """
+                    UPDATE {}
+                    SET Description = ?
+                    WHERE ID = ?
+                """.format(table_name)
+        
+        self.cursor.execute(query, (description, id))
+
+    def get_transactions_by_name(self, table_name: str, name: str) -> pd.DataFrame:
+        """
+        Get All transactions from the given table that has the same exact name.
+        """
+        query = """
+                    SELECT *
+                    FROM {}
+                    WHERE Name = ?
+                """.format(table_name)
+        return pd.DataFrame(self.cursor.execute(query, (name,)).fetchall(), columns=[d[0] for d in self.cursor.description])
+
+    @validate_table_name
+    def get_by_name_uncategorized(self, table_name: str, name: str) -> pd.DataFrame:
         """
         WARNING - The function only returns transactions with no category.
         Get All transactions from the given table that has the same exact name.
@@ -899,9 +936,8 @@ class DataBase:
                     FROM {}
                     WHERE Name = ?
                     AND Category IS 'NotCategorized'
-                    """.format(TableName)
-        return self.cursor.execute(query, (name,)).fetchall(), \
-            [d[0] for d in self.cursor.description]
+                    """.format(table_name)
+        return pd.DataFrame(self.cursor.execute(query, (name,)).fetchall(), columns=[d[0] for d in self.cursor.description])
 
     def get_file_table(self) -> pd.DataFrame:
 
@@ -955,7 +991,8 @@ class DataBase:
                                    Charge_Value AS 'Income/Charge_Value',
                                    Charge_Currency AS 'Description/Charge_Currency',
                                    Value_Currency AS 'Reserved/Value_Currency',
-                                   Transaction_Value AS 'Out/Transaction_value'
+                                   Transaction_Value AS 'Out/Transaction_value',
+                                   Category
                             FROM CardTransactions
                             WHERE ( 
                                     (strftime('%m', Executed_Date) = ? AND strftime('%m', Charge_Date) = ?) 
@@ -1687,4 +1724,5 @@ class DataBase:
 
         utils.log(f"Before: {prev}")
         utils.log(f"After: {after}")
+
 

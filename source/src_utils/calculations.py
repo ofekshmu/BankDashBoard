@@ -3,8 +3,7 @@ from src_utils.utils import utils
 from typing import Tuple
 from datetime import datetime
 import pandas as pd
-import re
-from Constants import GENERAL_PLOT
+from Constants import GENERAL_PLOT, ReservedNames
 
 
 class SimpleMath:
@@ -270,6 +269,12 @@ class SimpleMath:
         def is_not_payment_transaction(row):
             return not ('תשלום' in row['Extra_Info'] and 'מתוך' in row['Extra_Info'])
 
+        def is_not_withdrawals(row):
+            """
+            remove withdrawals from the dataframe.
+            """
+            return ReservedNames.WHITDRAWAL_CATEGORY not in row['Category']
+
         if not df.empty:
             df["Final_Value"] = df.apply(my_lambda, axis=1)
             df["Date/Executed_Date"] = df.apply(refund_wrapper, axis=1)
@@ -277,5 +282,6 @@ class SimpleMath:
             # Handaling flowing transactions
             # see spec sheet for the definition of 'flowing transactions'
             df = df[~((df.apply(month_diff, axis=1) == 2) & (df.apply(is_not_payment_transaction, axis=1)))]
+            df = df[(df.apply(is_not_withdrawals, axis=1))]
         return df
     

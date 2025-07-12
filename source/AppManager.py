@@ -22,6 +22,15 @@ class AppManager:
     def __init__(self):
         res = utils.validate_formats()
         res2 = utils.validate_constants()
+        
+        result, log, df = utils.handle_withdrawals()
+        if result:
+            utils.log(f"{log}", 'system')
+            if not df.empty:
+                utils.log(f"Matched Withdrawals:\n{utils.df_to_markdown(df)}")
+        else:
+            utils.log(f"Withdrawals handling failed: {log}", 'error')
+        
 
         if type(res2) == str:
             utils.log(res2, 'error')
@@ -598,23 +607,21 @@ class AppManager:
                     else:
                         tag_status_res = 'No Match'
                     # -----------------------------------------------------
-                    DataBase().set_category(table=row['TableName'], id=row['ID'], category=res)
+                    DataBase().set_category(table_name=row['TableName'], id=row['ID'], category=res)
                     if len(description) > 1:
                         DataBase().set_transaction_description(description, row['TableName'], row['ID'])
                     utils.log("Tag saved.", "system")
                     DataBase().commit_changes()
                 # ---------------- Fill in similar rows ----------------
                 if tag_status_res != 'No Match':
-                    similar_trans, desc_x = DataBase().get_by_name(row['TableName'], row['Original_Name'])
-                    count = len(similar_trans)
-                    if count > 0:
+                    res_df = DataBase().get_by_name_uncategorized(row['TableName'], row['Original_Name'])
+                    if not res_df.empty:
                         if tag_status_res is None:
                             res_x = utils.template_menu(['Yes', 'No'],
-                                                        f"There are {count} untagged transaction with the same name. Do you want apply to all?")
+                                                        "There are untagged transaction with the same name. Do you want apply to all?")
                         else:
                             res_x = 0
                         if res_x == 0:    # Yes -> 0
-                            res_df = pd.DataFrame(similar_trans, columns=desc_x)
                             for _, row_x in res_df.iterrows():
                                 DataBase().set_category(table=row['TableName'], id=row_x['ID'], category=res)
                             DataBase().commit_changes()
@@ -879,7 +886,7 @@ class AppManager:
                 date = datetime(int(y),int(m),1)
                 df = utils.card_charge_validation(date)
             
-        print_unverified_cards(t)
+        #print_unverified_cards(t)
         card_validation_df = utils.card_charge_validation(t)
         
         # Add linear plots data
@@ -922,7 +929,7 @@ class AppManager:
         spendings_df = SimpleMath.process_prices(
                             DataBase().get_monthly_spendings(year=t.year, month=t.month)
                             )
-
+        utils.log(f"{utils.df_to_markdown(spendings_df)}", "system")
         spendings_df = utils.remove_leumi(spendings_df)
 
         earnings_df = SimpleMath.process_prices(

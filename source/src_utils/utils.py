@@ -1,4 +1,4 @@
-from Constants import Settings, Local, Paths, CC_CHARGE_CATEGORY_NAME
+from Constants import Settings, ReservedNames, Paths, CC_CHARGE_CATEGORY_NAME
 import json
 from typing import Union
 from datetime import datetime
@@ -1876,13 +1876,18 @@ Please Make sure that none of the following formats have their 'Identifications 
         # The following will result in a data base describing the total amount of spendings per card in the given month.
         df = DataBase().card_sum(date)
 
+        #utils.log(f"{utils.df_to_markdown(df)}")
+        # remove all transactions with category withdrawal
+        df = df[df['Category'] != ReservedNames.WHITDRAWAL_CATEGORY]
+        #utils.log(f"{utils.df_to_markdown(df)}")
+
         debbug_df = df.copy()
         cards_df = df[["Out/Transaction_value","CardID"]].groupby("CardID").sum().reset_index()
         cards_df['Status'] = 'Not Verified'
         bank_df = DataBase().get_Bank_Transactions(utils.next_month(date).month,
                                                     utils.next_month(date).year)
-        utils.log(f"debug: {utils.df_to_markdown(debbug_df)}")
-        utils.log(f"debug: {utils.df_to_markdown(cards_df)}")
+        # utils.log(f"debug: {utils.df_to_markdown(debbug_df)}")
+        # utils.log(f"debug: {utils.df_to_markdown(cards_df)}")
         
         for _, row_cs in cards_df.iterrows():       #cs - card sum
             for _, row_bt in bank_df.iterrows():    #bt - card transactions
@@ -1909,3 +1914,86 @@ Please Make sure that none of the following formats have their 'Identifications 
                 # Perform your action here
                 utils.log(f"information for card at index: {index},\n {debbug_df[debbug_df['CardID'] == row['CardID']].to_markdown()}", 'debug')
         return cards_df
+    
+
+    @staticmethod
+    def handle_withdrawals() -> Tuple[bool, str, pd.DataFrame]:
+        """
+        The function is responsible for handling withdrawals transactions present in both
+        Bank Transactions and Card Transactions.
+        The function will match transactions from both tables.
+        Withdrawals transactions in Card Transactions are identified by a ReservedName "משיכת מזומנים"
+        and the corresponding transaction in Bank Transactions is identified by the Card charge name, the same price, and charge month
+        and will be tagged with the category "withdrawal".
+        withdrawals are not calculated in the Analysis phase.
+        
+        The function will return a tuple with the following values:
+        - bool: True is returned if no unpaired witdrawals were found, and False if withdrawals with no match were found.
+        - str: A message indicating the result of the operation.
+        - pd.DataFrame: 
+        """
+        from database import DataBase
+        from Constants import ReservedNames
+        from Configurations.Formats import Formats
+
+        # Get all card transactions with the reserved name "משיכת מזומנים"
+        card_withdrawals_df = DataBase().get_transactions_by_name(table_name="CardTransactions", name=ReservedNames.WITHDRAWAL)
+        if card_withdrawals_df.empty:
+            return True, "No Withdrawal transactions found", pd.DataFrame()
+        
+        #utils.log(f"{utils.df_to_markdown(card_withdrawals_df)}")
+
+        # Remove transactions that have already been tagged as withdrawals
+        card_withdrawals_df = card_withdrawals_df[card_withdrawals_df['Category'] != ReservedNames.WHITDRAWAL_CATEGORY]
+        
+        # Remove unnecessary columns
+        card_withdrawals_df = card_withdrawals_df[['ID', 'CardID', 'Executed_Date', 'Transaction_Value']]
+
+        total_matched_transactions_df = pd.DataFrame()
+
+        for _, row in card_withdrawals_df.iterrows():
+            # extract all the keys represting card numbers in the Transaction Names dictionary for each format dictionary
+            possible_bank_transaction_names = [name for format_config in Formats.FORMATS.values() for card_id, names in format_config["Transaction Names"].items() for name in names if card_id == row['CardID']]
+        
+            # Get all bank transactions for the month of the first withdrawal
+            transaction_date = datetime.strptime(row['Executed_Date'], "%Y-%m-%d %H:%M:%S")
+            bank_transactions_df = DataBase().get_Bank_Transactions(transaction_date.month, transaction_date.year)
+
+            #check if transaction matches in the bank_transactions_df
+            matched_transactions_df = bank_transactions_df[
+                (bank_transactions_df['Out'] == row['Transaction_Value']) &
+                (bank_transactions_df['Name'].isin(possible_bank_transaction_names))
+            ]
+            
+            #utils.log(f"{utils.df_to_markdown(matched_transactions_df)}")
+
+            if matched_transactions_df.empty:
+                return False, f"No matching transactions found for withdrawal ID: {row['ID']}, CardID: {row['CardID']}, Executed Date: {row['Executed_Date']}", pd.DataFrame()
+
+            # if the size of the df is larger than 1, it means that there are multiple transactions that match the withdrawal.
+            # Only the first one will be matched, and the rest will be ignored.
+            # This case will happen when there were more than one withdrawal of the same amount in the same month.
+            # The ignored transaction will be matched in the next iteration.
+            if matched_transactions_df.shape[0] > 1:
+                utils.log(f"Multiple matching transactions found for withdrawal ID: {row['ID']}, CardID: {row['CardID']}, Executed Date: {row['Executed_Date']}. This will trigger incorrect tagging for a case where there are more than one withdrawal per month.", 'warning')
+                matched_transactions_df = matched_transactions_df.head(1)
+
+            if matched_transactions_df.empty:
+                continue  # matching transactions were already matched before, skip to the next withdrawal
+
+            # The set category function receives a ID of type int to set\
+            else:
+                # x is an integer holding the id of the first row in the df
+                DataBase().set_category('CardTransactions', int(row['ID']), ReservedNames.WHITDRAWAL_CATEGORY)
+                DataBase().set_description('CardTransactions', int(row['ID']),f"Matched with Bank Transaction ID: {matched_transactions_df['ID'].iloc[0]}")
+                DataBase().set_description('BankTransactions', int(matched_transactions_df['ID'].iloc[0]), ReservedNames.WITHDRAWAL)
+                DataBase().commit_changes()
+                matched_transactions_df = pd.concat([total_matched_transactions_df, matched_transactions_df], ignore_index=True)
+
+
+        if total_matched_transactions_df.empty:
+            return True, "Witdrawals Ok", total_matched_transactions_df
+        else:
+            return True, "All withdrawals matched successfully", total_matched_transactions_df
+        
+

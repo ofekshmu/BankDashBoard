@@ -51,9 +51,16 @@ class Paths:
 
     #GENERAL_INFO_GRAPH =                "C:/Users/ofeks/Desktop/BankProject/Outputs/General_info.png"
     #GENERAL_INFO_USER_DEFINED_GRAPH =   "C:/Users/ofeks/Desktop/BankProject/Outputs/General_info_user_defined.png"
-    CARD_DIST_PIE_GRAPH =               "C:/Users/ofeks/OneDrive/BankProject/Outputs/Card_Distribution.png"
+    CARD_DIST_PIE_GRAPH =               "C:/Users/ofeks/OneDrive/Ofek/BankProject/Outputs/Card_Distribution.png"
 
-
+class ReservedNames:
+    """
+    Reserved names are used to identify specific files or categories that should not be processed or are reserved for special purposes.
+    """
+    WITHDRAWAL = "משיכת מזומנים"
+    WHITDRAWAL_CATEGORY = "withdrawal"
+    
+    
 
 class Local:
 

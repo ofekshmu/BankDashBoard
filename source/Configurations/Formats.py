@@ -65,7 +65,7 @@ class Formats:
                                     "Independent": True,
                                     "flip": False,
                                     "associated": [],
-                                    "Transaction Names:": {"4046" : ["4046 - ישראכרט"],
+                                    "Transaction Names": {"4046" : ["4046 - ישראכרט"],
                                                            "2922" : ['ישראכרט בע"מ']}},
 
                "American-Express": {"Format Name": "American-Express",
@@ -101,7 +101,7 @@ class Formats:
                                     "Independent": True,
                                     "flip": False,
                                     "associated": [],
-                                    "Transaction Names:": {"1565" : ["פרימיום אקספרס"]}},
+                                    "Transaction Names": {"1565" : ["פרימיום אקספרס"]}},
 
                 "Cal":          {"Format Name": "Cal",
                                 "Context": Context_class.Card,
@@ -129,7 +129,7 @@ class Formats:
                                 "Independent": True,
                                 "flip": False,
                                 "associated": [],
-                                "Transaction Names:": {"3843" : ['עפ"י הרשאה כאל'],
+                                "Transaction Names": {"3843" : ['עפ"י הרשאה כאל'],
                                                        "4437" : ['עפ"י הרשאה כאל']}},
 
                "BeinLeumi-Bank-Date-Range": {"Format Name": "BeinLeumi-Bank-Date-Range",
@@ -153,7 +153,8 @@ class Formats:
                                   "Header col index": 1,
                                   "Independent": False,
                                   "flip": True,
-                                  "associated": ["BeinLeumi-Bank"]},
+                                  "associated": ["BeinLeumi-Bank"],
+                                  "Transaction Names": {}},
 
                "BeinLeumi-Bank": {"Format Name": "BeinLeumi-Bank",
                                   "Context": Context_class.Bank,
@@ -176,7 +177,8 @@ class Formats:
                                   "Header col index": 1,
                                   "Independent": False,
                                   "flip": False,
-                                  "associated": ["BeinLeumi-Bank-Date-Range"]},
+                                  "associated": ["BeinLeumi-Bank-Date-Range"],
+                                  "Transaction Names": {}},
 
                "Leumi-Max":  {"Format Name": "Leumi-Max",
                               "Context": Context_class.Card,
@@ -213,7 +215,7 @@ class Formats:
                               "Independent": True,
                               "flip": False,
                               "associated": [],
-                              "Transaction Names:": {}},
+                              "Transaction Names": {}},
 
                }
 

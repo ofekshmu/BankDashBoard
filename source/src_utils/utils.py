@@ -719,7 +719,7 @@ class utils:
         # ----------- Input category and description -------------
         st = "Please insert your selection and description in the following format:\n*Number* - *Description*" + '\n'
         utils.log(st, 'system')
-        utils.pretty_print([f"{str(i) + ' -> ':6s}{utils.heb_conversion(x)}" for i, x in enumerate(options, start=0)])
+        utils.pretty_print([f"{str(i) + ' -> ':6s}{utils.heb_conversion(x)}" for i, x in enumerate(options, start=0)], const=8)
 
         number = -1
         description = ""
@@ -1221,7 +1221,7 @@ Please Make sure that none of the following formats have their 'Identifications 
             if " | " in col:
                 format_name, card_number = col.split(" | ")
                 format_dict = Formats.FORMATS.get(format_name, {})
-                card_names_dict = format_dict.get("Transaction Names:", {})
+                card_names_dict = format_dict.get("Transaction Names", {})
                 if card_number in card_names_dict:
                     possible_names = set(card_names_dict[card_number])
                     for idx in df.index:
@@ -1879,6 +1879,7 @@ Please Make sure that none of the following formats have their 'Identifications 
         #utils.log(f"{utils.df_to_markdown(df)}")
         # remove all transactions with category withdrawal
         df = df[df['Category'] != ReservedNames.WHITDRAWAL_CATEGORY]
+        df = df[df['Category'] != ReservedNames.EXCLUDED_CATEGORY]
         #utils.log(f"{utils.df_to_markdown(df)}")
 
         debbug_df = df.copy()
@@ -1978,6 +1979,7 @@ Please Make sure that none of the following formats have their 'Identifications 
                 utils.log(f"Multiple matching transactions found for withdrawal ID: {row['ID']}, CardID: {row['CardID']}, Executed Date: {row['Executed_Date']}. This will trigger incorrect tagging for a case where there are more than one withdrawal per month.", 'warning')
                 matched_transactions_df = matched_transactions_df.head(1)
 
+            # this can probably be romoved
             if matched_transactions_df.empty:
                 continue  # matching transactions were already matched before, skip to the next withdrawal
 
@@ -1997,3 +1999,24 @@ Please Make sure that none of the following formats have their 'Identifications 
             return True, "All withdrawals matched successfully", total_matched_transactions_df
         
 
+    @staticmethod
+    def exclude_transaction() -> None:
+        """
+        Lets the user choose a table and transaction ID to exclude.
+        Sets category and description to 'EXCLUDE'.
+        """
+        tables = ['BankTransactions', 'CardTransactions']
+        result_table = utils.template_menu(tables, 'Please choose a table to exclude a transaction from:')
+        # choose a valid id and if not valid try again until user inserts -1
+        result_id = input(f"Please insert the ID of the transaction you want to exclude from {tables[result_table]}: ")
+        while not result_id.isdigit() or int(result_id) < 0:
+            if result_id == '-1':
+                return
+            result_id = input("Invalid ID. Please insert a valid ID or -1 to exit: ")
+        
+        from database import DataBase
+        from Constants import ReservedNames
+
+        DataBase().set_category(tables[result_table], int(result_id), ReservedNames.EXCLUDED_CATEGORY)
+        DataBase().commit_changes()
+        utils.log(f"Transaction {result_id} from table {tables[result_table]} has been excluded.", 'system')

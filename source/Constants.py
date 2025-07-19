@@ -59,6 +59,8 @@ class ReservedNames:
     """
     WITHDRAWAL = "משיכת מזומנים"
     WHITDRAWAL_CATEGORY = "withdrawal"
+
+    EXCLUDED_CATEGORY = "Excluded"
     
     
 

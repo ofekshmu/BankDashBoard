@@ -283,5 +283,6 @@ class SimpleMath:
             # see spec sheet for the definition of 'flowing transactions'
             df = df[~((df.apply(month_diff, axis=1) == 2) & (df.apply(is_not_payment_transaction, axis=1)))]
             df = df[(df.apply(is_not_withdrawals, axis=1))]
+            df = df[(df['Category'] != ReservedNames.EXCLUDED_CATEGORY)]
         return df
     

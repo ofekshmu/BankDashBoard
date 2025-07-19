@@ -369,7 +369,8 @@ class AppManager:
                                    'Delete a transaction',
                                    'Edit transaction description',
                                    'Fix Date Bug for cal',
-                                   'Update all "Cal-Shufersal" formats to "Cal" in File table'], 'Pick one of the following:')
+                                   'Update all "Cal-Shufersal" formats to "Cal" in File table',
+                                   'Exclude Transaction'], 'Pick one of the following:')
         match res:
             case 0:
                 original_command()
@@ -396,6 +397,8 @@ class AppManager:
                 DataBase().execute_query(sql)
                 DataBase().commit_changes()
                 utils.log('All "Cal-Shufersal" formats updated to "Cal" in File table.', 'system')
+            case 8:
+                utils.exclude_transaction()
             case _:
                 utils.log('Something went wrong in "execute_sql"', 'error')
 

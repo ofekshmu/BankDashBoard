@@ -523,6 +523,7 @@ class DataBase:
         data = self.cursor.execute("""
                                     SELECT
                                         'BankTransactions' AS TableName,
+                                        ID,
                                         Ref AS 'Ref/CardID',
                                         Name,
                                         Date AS 'Date/Executed_Date',
@@ -542,6 +543,7 @@ class DataBase:
                                     UNION ALL
                                     SELECT
                                         'CardTransactions' AS TableName,
+                                        ID,
                                         CardID,
                                         Name,
                                         Executed_Date,

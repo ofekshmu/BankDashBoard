@@ -187,7 +187,7 @@ class utils:
             row = soup.new_tag("div")
             row['class'] = 'num'
             d = datetime.strptime(f"{item['Date/Executed_Date']}", "%Y-%m-%d %H:%M:%S").strftime('%A_%d')
-            row['data-value'] = f"{d}"   # Amount
+            row['data-value'] = f"{item['ID']}"   # Amount
 
             if item['TableName'] == 'CardTransactions':
                 value = cards_dict[item['Ref/CardID']]
@@ -238,6 +238,11 @@ class utils:
             cell.string = f"{item['Category']}"  # Category
             row.append(cell)
 
+            cell = soup.new_tag("p")
+            cell['class'] = 'element4'
+            cell.string = f"{d}"
+            row.append(cell)
+
             table.append(row)
 
         # ----------
@@ -245,8 +250,8 @@ class utils:
         for _, item in earnings_df.sort_values(by='Date/Executed_Date', ascending=True).iterrows():
             row = soup.new_tag("div")
             row['class'] = 'num'
-            d = datetime.strptime(f"{item['Date/Executed_Date']}", "%Y-%m-%d %H:%M:%S").strftime('%A_%d')
-            row['data-value'] = f"{d}"  # Amount
+            d = datetime.strptime(f"{item['Date/Executed_Date']}", "%Y-%m-%d %H:%M:%S").strftime('%A %d')
+            row['data-value'] = f"{item['ID']}"  # Amount
             
             if item['TableName'] == 'CardTransactions':
                 value = cards_dict[item['Ref/CardID']]
@@ -294,6 +299,11 @@ class utils:
             cell = soup.new_tag("p")
             cell['class'] = 'cat'
             cell.string = f"{item['Category']}"
+            row.append(cell)
+            
+            cell = soup.new_tag("p")
+            cell['class'] = 'element4'
+            cell.string = f"{d}"
             row.append(cell)
 
             table2.append(row)

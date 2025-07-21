@@ -1676,8 +1676,8 @@ class DataBase:
                     query_values.append(end)
 
             if 'name' in params:
-                query_parts.append("(Name LIKE ? OR Extra_Info LIKE ?)")
-                query_values.extend([f"%{params['name']}%", f"%{params['name']}%"])
+                query_parts.append("(Name LIKE ? OR Extra_Info LIKE ? OR Description LIKE ?)")
+                query_values.extend([f"%{params['name']}%", f"%{params['name']}%", f"%{params['name']}%"])
 
             if 'value_range' in params:
                 min_val, max_val = params['value_range']

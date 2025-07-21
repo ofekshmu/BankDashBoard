@@ -932,7 +932,6 @@ class AppManager:
         spendings_df = SimpleMath.process_prices(
                             DataBase().get_monthly_spendings(year=t.year, month=t.month)
                             )
-        utils.log(f"{utils.df_to_markdown(spendings_df)}", "system")
         spendings_df = utils.remove_leumi(spendings_df)
 
         earnings_df = SimpleMath.process_prices(

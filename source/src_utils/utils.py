@@ -1209,6 +1209,7 @@ Please Make sure that none of the following formats have their 'Identifications 
         from jinja2 import Template
         from Configurations.Formats import Formats
         from database import DataBase
+        from Constants import BANK_CARD_NUMBER
 
         # 1. Get all untagged transaction names from the DB
         untagged_transactions, desc = DataBase().get_untagged(table="BankTransactions")
@@ -1284,7 +1285,8 @@ Please Make sure that none of the following formats have their 'Identifications 
                                     ):
                                         untagged_match_cells[(idx, col)] = (trans_date, val, name, "not_verified")
                                         break
-                else:
+        
+                elif BANK_CARD_NUMBER != card_number:   # Bank formats will not trigger the following warning
                     utils.log(f"Column '{col}' does not have a valid card number in the format dictionary, skipping...", "warning")
             else:
                 utils.log(f"Column '{col}' does not contain ' | ' separator, skipping...", "warning")

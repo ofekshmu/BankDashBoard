@@ -1678,7 +1678,7 @@ Please Make sure that none of the following formats have their 'Identifications 
                 continue
             if res is not None:
                 dirty_bit = True
-                DataBase().set_category(table=row['TableName'], id=row['ID'], category=res)
+                DataBase().set_category(table_name=row['TableName'], id=row['ID'], category=res)
                 logs += f"transaction {utils.heb_conversion(row['Name'])} ({row['TableName']}) ({row['ID']}) was tagged to {res}\n"
 
         if dirty_bit:

@@ -51,7 +51,7 @@ class Context:
 
         file_name, format_name = self.file.get_info()
         utils.move_file_to_directory(file_path=f"{Paths.INPUT_FOLDER}/{file_name}",
-                                    destination_directory=f"{Paths.INPUT_FOLDER}//{format_name}")
+                                    destination_directory=f"{Paths.VERIFIED_FOLDER}//{format_name}")
     
         DataBase().commit_changes()
         utils.log('Changes Commited to data base.', 'system')

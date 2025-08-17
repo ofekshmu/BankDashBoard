@@ -428,7 +428,7 @@ class AppManager:
             utils.log("Done." 'system')
 
             utils.log(f"Moving existing (old file) {existing_file_name}  file to 'removed' folder...", 'system')
-            utils.move_file_to_directory(file_path=f"{Paths.INPUT_FOLDER}/{existing_file_format}/{existing_file_name}",
+            utils.move_file_to_directory(file_path=f"{Paths.VERIFIED_FOLDER}/{existing_file_format}/{existing_file_name}",
                                          destination_directory=f"removed")
             utils.log("Done." 'system')
             

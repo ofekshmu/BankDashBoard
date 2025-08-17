@@ -445,7 +445,7 @@ class File:
         recent_tables = DataBase().get_table_Meta(recent_file_name, recent_file_format, self.card_number)
 
         # recent tables are extacted from files which have been verified, therefore, located in a different root folder.
-        recent_table_1, recent_table_2 = read_and_merge(recent_tables, root=Paths.INPUT_FOLDER + "\\" + recent_file_format)
+        recent_table_1, recent_table_2 = read_and_merge(recent_tables, root=Paths.VERIFIED_FOLDER + "\\" + recent_file_format)
 
         def compare_tables(recent_table, current_table) -> list:
             """

@@ -988,7 +988,8 @@ class AppManager:
         # ----- Payment PIE Graphs
 
         monthly_payments_dict = {"test1": (1,3), "test2": (2,4), "test3": (3,5)}
-        Graphics.generate_payment_pie_graphs(monthly_payments_dict)
+        payments_df = utils.extract_payments_data(spendings_df)
+        Graphics.generate_payment_pie_graphs(payments_df)
 
         data['net income'] = (earnings_df['Final_Value'].sum() - spendings_df['Final_Value'].abs().sum())
         data['overall net income'] = (earnings_df['Final_Value'].sum() - \

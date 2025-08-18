@@ -463,46 +463,49 @@ class Graphics:
 
 
     @staticmethod
-    def generate_payment_pie_graphs(monthly_payments_dict):
+    def generate_payment_pie_graphs(monthly_payments_df: pd.DataFrame) -> None:
 
-        import matplotlib.cm as cm
         import matplotlib.pyplot as plt
-        import numpy as np
 
-        n = len(monthly_payments_dict)
-        fig, axes = plt.subplots(1, n, figsize=(5*n, 5))
+        if monthly_payments_df.empty:
+            return None
+
+        n = len(monthly_payments_df)
+        fig, axes = plt.subplots(1, n, figsize=(4*n, 4))
         
         if n == 1:
             axes = [axes]
 
-        # Pastel palettes to rotate through
-        palettes = ["Pastel1", "Pastel2", "Set3"]
+        for i, (ax, (_, row)) in  enumerate(zip(axes, monthly_payments_df.iterrows())):
+            
+            total_pieces = int(row['Number of Payments'])
+            colored = int(row['Current Payment Number'])
+            grayed_out = total_pieces - colored
+            
+            
+            iteration_color = Local.Colors[i % len(Local.Colors)]
 
-        
-        for i, (ax, (key, (gray_count, total))) in enumerate(zip(axes, monthly_payments_dict.items())):
-            sizes = [1] * total
+            colors = ["lightgray"] * grayed_out + [iteration_color] * colored 
             
-            # Pick a pastel palette for this chart
-            cmap = cm.get_cmap(palettes[i % len(palettes)], total)
-            
-            # Generate pastel colors for the non-gray slices
-            pastel_colors = [cmap(j) for j in range(total)]
-            
-            # Colors: first 'gray_count' slices gray, rest pastel
-            colors = ["lightgray"] * gray_count + pastel_colors[gray_count:total]
-            
+            piece_count = [1] * row['Number of Payments']            
+
             ax.pie(
-                sizes,
+                piece_count,
                 colors=colors,
                 startangle=90,
                 counterclock=False,
                 wedgeprops={"linewidth": 6, "edgecolor": "white"}  # thick white lines
             )
-            ax.set_title(f"{key}", fontsize=12)
+            ax.set_title(f"{utils.heb_conversion(row['Transaction Name'])}\n", fontsize=12)
         
-        plt.tight_layout()
-        plt.show()
+                # Text *under* the pie chart
+            ax.text(
+            0.5, -0.05,   # X center, Y a bit below axes
+            f"Payment {row['Current Payment']* row['Current Payment Number']:,.2f} / {row['Total Amount']:,.2f} ₪",
+            ha="center", va="top", fontsize=10, transform=ax.transAxes
+            )
 
-        
         plt.tight_layout()
-        plt.show()
+        plt.savefig(r'Outputs\payments_pie_graphs.png')
+        plt.close()
+

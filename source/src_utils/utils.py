@@ -2032,3 +2032,47 @@ Please Make sure that none of the following formats have their 'Identifications 
         DataBase().set_category(tables[result_table], int(result_id), ReservedNames.EXCLUDED_CATEGORY)
         DataBase().commit_changes()
         utils.log(f"Transaction {result_id} from table {tables[result_table]} has been excluded.", 'system')
+
+
+    @staticmethod
+    def extract_payments_data(df: pd.DataFrame) -> pd.DataFrame:
+        """
+        extract the following data from the spending df recived:
+        1. Transaction Name
+        2. Current Payment
+        3. Total transaction amount
+        4. number of payments
+        5. current payment number
+
+        payments are identified by the data in the 'Extra_Info' column, which should contain the following string:
+        'תשלום b  מתוך a'
+        where a is the total number of payments and b is the current payment number.
+        """
+        import re
+
+        records = []
+
+        # Iterate through each row in the DataFrame
+        for _, row in df.iterrows():
+            extra_info = row['Extra_Info']
+            if pd.isna(extra_info):
+                continue
+            # Use regex to find the payment information
+            match = re.search(r'תשלום\s+(\d+)\s+מתוך\s+(\d+)', extra_info)
+            if match:
+                current_payment = int(match.group(1))
+                total_payments = int(match.group(2))
+                
+                # Append the extracted data to the new DataFrame
+                records.append({
+                    'Transaction Name': row['Name'],
+                    'Current Payment': row['Out/Transaction_value'],
+                    'Total Amount': row['Income/Charge_Value'],
+                    'Number of Payments': total_payments,
+                    'Current Payment Number': current_payment})
+            else:
+                continue
+        
+        return pd.DataFrame(records)
+
+

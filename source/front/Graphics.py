@@ -460,3 +460,49 @@ class Graphics:
         
         plt.savefig(r'Outputs\accounts_liner_plots.png')
         plt.close()
+
+
+    @staticmethod
+    def generate_payment_pie_graphs(monthly_payments_dict):
+
+        import matplotlib.cm as cm
+        import matplotlib.pyplot as plt
+        import numpy as np
+
+        n = len(monthly_payments_dict)
+        fig, axes = plt.subplots(1, n, figsize=(5*n, 5))
+        
+        if n == 1:
+            axes = [axes]
+
+        # Pastel palettes to rotate through
+        palettes = ["Pastel1", "Pastel2", "Set3"]
+
+        
+        for i, (ax, (key, (gray_count, total))) in enumerate(zip(axes, monthly_payments_dict.items())):
+            sizes = [1] * total
+            
+            # Pick a pastel palette for this chart
+            cmap = cm.get_cmap(palettes[i % len(palettes)], total)
+            
+            # Generate pastel colors for the non-gray slices
+            pastel_colors = [cmap(j) for j in range(total)]
+            
+            # Colors: first 'gray_count' slices gray, rest pastel
+            colors = ["lightgray"] * gray_count + pastel_colors[gray_count:total]
+            
+            ax.pie(
+                sizes,
+                colors=colors,
+                startangle=90,
+                counterclock=False,
+                wedgeprops={"linewidth": 6, "edgecolor": "white"}  # thick white lines
+            )
+            ax.set_title(f"{key}", fontsize=12)
+        
+        plt.tight_layout()
+        plt.show()
+
+        
+        plt.tight_layout()
+        plt.show()

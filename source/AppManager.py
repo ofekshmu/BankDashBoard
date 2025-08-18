@@ -626,7 +626,7 @@ class AppManager:
                             res_x = 0
                         if res_x == 0:    # Yes -> 0
                             for _, row_x in res_df.iterrows():
-                                DataBase().set_category(table=row['TableName'], id=row_x['ID'], category=res)
+                                DataBase().set_category(table_name=row['TableName'], id=row_x['ID'], category=res)
                             DataBase().commit_changes()
                             utils.log("Updated the following:\n")
                             res_df = make_readable(res_df)
@@ -984,6 +984,11 @@ class AppManager:
         card_color_dict = dict(zip(card_ids, color_list))
 
         Graphics.card_distribution(spendings_With_no_investments_df, card_color_dict, card_validation_df)
+
+        # ----- Payment PIE Graphs
+
+        monthly_payments_dict = {"test1": (1,3), "test2": (2,4), "test3": (3,5)}
+        Graphics.generate_payment_pie_graphs(monthly_payments_dict)
 
         data['net income'] = (earnings_df['Final_Value'].sum() - spendings_df['Final_Value'].abs().sum())
         data['overall net income'] = (earnings_df['Final_Value'].sum() - \

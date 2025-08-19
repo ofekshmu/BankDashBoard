@@ -191,7 +191,7 @@ class SimpleMath:
         return df_merged
 
     @staticmethod
-    def process_prices(df: pd.DataFrame):
+    def process_prices(df: pd.DataFrame, month: int = -1, year: int = -1):
         """
         The function usess the lambda function to create the 'Final_Value' column
         Which describes the correct value to plot for each transaction. It returns
@@ -275,10 +275,37 @@ class SimpleMath:
             """
             return ReservedNames.WHITDRAWAL_CATEGORY not in row['Category']
 
+        def remove_irelevant_payments(row):
+            """
+            The function is used to remove payments that are not relevant for the current month.
+            It checks if the transaction is a payment and if it is not in the current month.
+            """
+            cond_payments1 = row['Description/Charge_Currency'] == row['Reserved/Value_Currency'] and \
+                             row['Income/Charge_Value'] != row['Out/Transaction_value']
+
+            cond_payments2 =  'תשלום' in row['Extra_Info'] and 'מתוך' in row['Extra_Info']
+
+            if cond_payments1 and cond_payments2:
+                print(row.to_markdown())
+                next_date = utils.next_month(datetime(year, month, 1))  # Ensure year and month are defined
+                #print(next_date)
+                return  (pd.to_datetime(row['Value_Date/Charge_Date']).month == next_date.month and \
+                            pd.to_datetime(row['Value_Date/Charge_Date']).year == next_date.year)
+                
+            
+            return True  # Not a payment transaction 
+
+
         if not df.empty:
             df["Final_Value"] = df.apply(my_lambda, axis=1)
-            df["Date/Executed_Date"] = df.apply(refund_wrapper, axis=1)
             
+            # remove unwanted payments transactions from the current month
+            
+            if month != -1 or year != -1:
+                df = df[df.apply(remove_irelevant_payments, axis=1)]
+
+            df["Date/Executed_Date"] = df.apply(refund_wrapper, axis=1)
+
             # Handaling flowing transactions
             # see spec sheet for the definition of 'flowing transactions'
             df = df[~((df.apply(month_diff, axis=1) == 2) & (df.apply(is_not_payment_transaction, axis=1)))]

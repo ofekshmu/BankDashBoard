@@ -930,13 +930,15 @@ class AppManager:
         monthly_balance = DataBase().get_latest_Balance()
 
         spendings_df = SimpleMath.process_prices(
-                            DataBase().get_monthly_spendings(year=t.year, month=t.month)
+                            DataBase().get_monthly_spendings(year=t.year, month=t.month), \
+                            t.month, t.year
                             )
+        #utils.log(f"Monthly spendings: {utils.df_to_markdown(spendings_df)}", "system")
         spendings_df = utils.remove_leumi(spendings_df)
 
         earnings_df = SimpleMath.process_prices(
-                            DataBase().get_monthly_earnings(year=t.year, month=t.month)
-                            )
+                            DataBase().get_monthly_earnings(year=t.year, month=t.month), \
+                            t.month, t.year)
         earnings_df = utils.remove_leumi(earnings_df)
 
         # ---------------- Spendings Pie plot ----------------
@@ -987,7 +989,6 @@ class AppManager:
 
         # ----- Payment PIE Graphs
 
-        monthly_payments_dict = {"test1": (1,3), "test2": (2,4), "test3": (3,5)}
         payments_df = utils.extract_payments_data(spendings_df)
         Graphics.generate_payment_pie_graphs(payments_df)
 

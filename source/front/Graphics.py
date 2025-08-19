@@ -468,6 +468,10 @@ class Graphics:
         import matplotlib.pyplot as plt
 
         if monthly_payments_df.empty:
+            _, ax = plt.subplots()
+            ax.pie([], labels=[])
+            ax.set_title('No Payments Data for this month')
+            plt.savefig(r'Outputs\payments_pie_graphs.png')
             return None
 
         n = len(monthly_payments_df)

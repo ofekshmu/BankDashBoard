@@ -511,7 +511,8 @@ class DataBase:
         b_end = datetime(year, month, last_day).strftime('%Y-%m-%d %H:%M:%S')
         next_month =  utils.next_month(datetime(year, month, 1)).month
         next_month = '0' + str(next_month) if len(str(next_month)) == 1 else str(next_month)
-        next_year = utils.next_month(datetime(year, month, 1)).year
+        current_month = '0' + str(month) if len(str(month)) == 1 else str(month)
+        next_year = f"{utils.next_month(datetime(year, month, 1)).year}"
         
         # last_day = calendar.monthrange(fit_year, fit_month)[1]
         # bt_init = datetime(fit_year, fit_month, 1).strftime('%Y-%m-%d %H:%M:%S')
@@ -559,10 +560,13 @@ class DataBase:
                                     WHERE Transaction_Value > 0 AND (
                                         (Executed_Date >= ? AND Executed_Date <= ?)
                                         OR 
-                                        (strftime('%m', Charge_Date) = ? and strftime('%y', Charge_Date) = ?)
+                                        (strftime('%m', Charge_Date) = ? and strftime('%Y', Charge_Date) = ?)
+                                        OR
+                                        (strftime('%m', Charge_Date) = ? and strftime('%Y', Charge_Date) = ?)
                                     )
-                                    """, (b_init, b_end, "אשראי", b_init, b_end, next_month, next_year, )).fetchall()
+                                    """, (b_init, b_end, "אשראי", b_init, b_end, next_month, next_year, current_month, year,)).fetchall()
         df = pd.DataFrame(data, columns=[d[0] for d in self.cursor.description])
+        print(df.to_markdown(index=False))
         if category is not None:
             df = df[df['Category'] == category]
         

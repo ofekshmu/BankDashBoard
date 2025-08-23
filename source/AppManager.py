@@ -848,11 +848,11 @@ class AppManager:
                                          "Yearly Average": yearly_average(name_for_analysis, case),
                                          "Total Spendings": total_spendings(name_for_analysis, case),
                                          "Total Income": total_income(name_for_analysis, case),
-                                         "Yearly use plot path": r"C:\Users\ofeks\OneDrive\BankProject\Outputs\General_info_Category_analysis.png",
+                                         "Yearly use plot path": r"C:\Users\ofeks\OneDrive\Ofek\BankProject\Outputs\General_info_Category_analysis.png",
                                          "Highest Transaction value" : "X",
                                          "Highest Transaction date": "X",
                                          "Association list": outliers_lst,
-                                         "count pie plot path" : r"C:\Users\ofeks\OneDrive\BankProject\Outputs\Category_Distribution.png",
+                                         "count pie plot path" : r"C:\Users\ofeks\OneDrive\Ofek\BankProject\Outputs\Category_Distribution.png",
                                          "transactions": df_transactions})
         webbrowser.open(r'source\html\Category_output.html')
 

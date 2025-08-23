@@ -1603,10 +1603,16 @@ Please Make sure that none of the following formats have their 'Identifications 
 
             return main_tag
 
-        for _, row in data["transactions"].sort_values(by='Date/Executed_Date').iterrows():
+        for _, row in data["transactions"].sort_values(by='Date/Executed_Date', ascending=False).iterrows():
             #date = datetime.strptime(row['Date/Executed_Date'], "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d")
             #sub_tag.string = f"{row['Name']}\n{row['Final_Value']}\n{date}\n{row['Extra_Info']}"
-            lst_element = create_list_tag(row['Name'], row['Date/Executed_Date'], row['Final_Value'])
+            transaction_text = ""
+            if row['Description'] is not None and row['Description'] != "":
+                transaction_text += f"{row['Description']}"
+            else:
+                transaction_text += f"{row['Name']}"   
+                 
+            lst_element = create_list_tag(transaction_text, row['Date/Executed_Date'], row['Final_Value'])
             list_tag.append(lst_element)
 
         with open(r"source\html\Category_output.html", "w", encoding='utf-8') as outf:

@@ -707,7 +707,8 @@ class DataBase:
                                         Reserved AS 'Reserved/Value_Currency',
                                         Category,
                                         Extra_Info,
-                                        Source_file
+                                        Source_file,
+                                        Description
                                     FROM BankTransactions
                                     WHERE Category != ?
                                     UNION ALL
@@ -723,7 +724,8 @@ class DataBase:
                                         Value_Currency,
                                         Category,
                                         Extra_Info,
-                                        Source_file
+                                        Source_file,
+                                        Description
                                     FROM CardTransactions
                                         """, ("אשראי", )).fetchall()  
         df = pd.DataFrame(data, columns=[d[0] for d in self.cursor.description])

@@ -51,6 +51,32 @@ class DataBase:
                 # a file for the same month for 2 different cards
 
             cls.__instance.cursor.execute("""
+                CREATE TABLE IF NOT EXISTS CashTransactions (
+                ID                  INTEGER         PRIMARY KEY ,
+                Name                CHAR            NOT NULL    ,
+                Execution_Date      DATE            NOT NULL    ,
+                Amount              INT             NOT NULL    ,
+                Currency            CHAR            NOT NULL    ,
+                Description         CHAR                        ,
+                Category            CHAR            NOT NULL                                                 
+                );""")
+            
+            cls.__instance.cursor.execute("""
+                CREATE TABLE IF NOT EXISTS DevisionTransactions (
+                ID                  INTEGER         PRIMARY KEY ,
+                DevisionOfBank      INT             NOT NULL    ,
+                DevisionOfCard      INT             NOT NULL    ,
+                Name                CHAR            NOT NULL    ,
+                Execution_Date      DATE            NOT NULL    ,
+                Amount              INT             NOT NULL    ,
+                Currency            CHAR            NOT NULL    ,
+                Description         CHAR                        ,
+                Category            CHAR            NOT NULL    ,
+                FOREIGN KEY(DevisionOfBank)    REFERENCES BankTransactions(ID),
+                FOREIGN KEY(DevisionOfCard)    REFERENCES CardTransactions(ID)                                   
+                );""")
+
+            cls.__instance.cursor.execute("""
                 CREATE TABLE IF NOT EXISTS TableMeta (
                 ID                  INTEGER         PRIMARY KEY ,
                 File_Name           CHAR            NOT NULL    ,

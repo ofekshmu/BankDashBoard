@@ -413,12 +413,12 @@ class DataBase:
                                         """, (k,)).fetchall()
         return rows
 
-    def get_by_category(self, cat_name: str) -> Tuple[list, list]:
+    def get_transactions_by_category(self, cat_name: str) -> pd.DataFrame:
         """
-        Get all transactions by category name.
-        Transactions format is: (source_table, Source_Dest, Amount, Category, Date, Description)
+        Get all transactions by category name from both CardTrasactions and BankTransactions tables.
+        Transactions format is:
         """
-        return self.cursor.execute("""
+        data = self.cursor.execute("""
                                    SELECT
                                         'BankTransactions' AS TableName,
                                         Name,
@@ -447,8 +447,9 @@ class DataBase:
                                    FROM CardTransactions
                                    WHERE Category = ?
                                    """,
-                                   (cat_name, cat_name)).fetchall(), \
-            [d[0] for d in self.cursor.description]
+                                   (cat_name, cat_name)).fetchall()
+    
+        return pd.DataFrame(data, columns=[d[0] for d in self.cursor.description])
 
     def get_monthly_earnings(self, year: int, month: int, category=None, name=None) -> pd.DataFrame:
         """
@@ -592,7 +593,6 @@ class DataBase:
                                     )
                                     """, (b_init, b_end, "אשראי", b_init, b_end, next_month, next_year, current_month, year,)).fetchall()
         df = pd.DataFrame(data, columns=[d[0] for d in self.cursor.description])
-        print(df.to_markdown(index=False))
         if category is not None:
             df = df[df['Category'] == category]
         
@@ -1223,7 +1223,6 @@ class DataBase:
             ORDER BY year, month
             """
         data = self.cursor.execute(query, (name_for_analysis, name_for_analysis,)).fetchall()
-        print(data)
         return pd.DataFrame(data=data, columns=[d[0] for d in self.cursor.description])
 
     def query_Bank_Transactions_for_validation(self, last_valid_date: datetime) -> pd.DataFrame:
@@ -1522,6 +1521,24 @@ class DataBase:
             self.cursor.execute(query_del, (id,))
             self.cursor.execute(query_upd, (last_update, file_name, card_id))
             utils.log(f"Transaction of ID ({id}) from file ({file_name}) [{card_id}] was deleted, Please commit the changes...")
+
+
+    def insert_Cash_Transaction(self,
+                                name: str, 
+                                executed_date: datetime,
+                                amount: float,
+                                currency: str,
+                                category: str = "NotCategorized") -> bool:
+        """
+        The function will insert a cash transaction to the bank transactions table.
+        """
+        self.cursor.execute("""
+                INSERT INTO CashTransactions (Name, Execution_Date, Amount, Currency, Category)
+                VALUES (?, ?, ?, ?, ?)
+        """, (name, executed_date, amount, currency, category))
+
+        return True
+
 # ----------------------------------------------------------------------
 # ----------------------------------------------------------------------
 
@@ -1735,6 +1752,28 @@ class DataBase:
         # Convert to DataFrame
         df = pd.DataFrame(results, columns=[d[0] for d in self.cursor.description])
         return df
+
+    def get_Cash_Transactions(self, datetime: datetime | None = None) -> pd.DataFrame:
+        """
+        The function will return all the transactions in the CashTransactions table.
+        given a date that is not None, the function will return only transactions
+        that were executed in the same month of the given date.
+        """
+        if datetime is None:
+            data = self.cursor.execute("""
+                                SELECT * FROM CashTransactions
+                                """).fetchall()
+        else:
+            month_str = str(datetime.month).zfill(2)
+            year_str = str(datetime.year)
+            data = self.cursor.execute("""
+                                SELECT * FROM CashTransactions
+                                WHERE strftime('%m', Execution_Date) = ?
+                                AND strftime('%Y', Execution_Date) = ?
+                                """, (month_str, year_str,)).fetchall()
+        
+        return pd.DataFrame(data=data, columns=[d[0] for d in self.cursor.description])
+
 
     def change_description_by_id(self) -> None:
         """Edit transaction description by ID and table"""

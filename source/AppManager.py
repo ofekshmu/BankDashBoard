@@ -62,10 +62,11 @@ class AppManager:
                     5. Update existing file
                     6. Execute SQL query on db
                     7. Open File Organizer
-                    8. Export Excel
-                    9. Insert other account status
-                    10. Advanced Search                  
-                    11. Exit
+                    8. add cash transaction
+                    9. Export Excel
+                    10. Insert other account status
+                    11. Advanced Search                  
+                    12. Exit
                 """)
             answer = input()
             answer = -1 if not answer.isdigit() else int(answer)
@@ -89,15 +90,90 @@ class AppManager:
                     df, color_coded_df = utils.read_present_table()
                     utils.create_html_with_colored_dates(df, color_coded_df)
                 case 8:
-                    self.exporter_function()
+                    self.add_cash_transaction()
                 case 9:
-                    self.Insert_other_account_status()
+                    self.exporter_function()
                 case 10:
-                    self.advanced_search()
+                    self.Insert_other_account_status()
                 case 11:
+                    self.advanced_search()
+                case 12:
                     break
                 case _:
                     print("Please insert a valid number.")
+
+    def add_cash_transaction(self):
+        from Constants import ReservedNames, Paths
+        import json
+        import os
+
+        # 1. category and name
+        category, name = utils.handle_categories()
+
+        while category == "" or category == "「Back to menu」" or category == "「Skip」" or name == "":
+            utils.log("Insert a valid input.", "system")
+            category, name = utils.handle_categories()
+
+        # 2. Amount
+        while True:
+            amount_str = input("Enter the amount (positive number): ")
+            try:
+                amount = float(amount_str)
+                break
+            except ValueError:
+                utils.log("Invalid number format.", "warning")
+
+        # 3. Currency
+        currency_json_path = os.path.join(Paths.Currency_JSON, "currencies.json")
+        if os.path.exists(currency_json_path):
+            with open(currency_json_path, "r", encoding="utf-8") as f:
+                currency_list = json.load(f)
+        else:
+            currency_list = [
+                "JPY (¥)",
+                "ILS (₪)",
+                "Euro (€)"
+            ]
+
+        currency_options = currency_list + ["Add new currency"]
+        currency_idx = utils.template_menu(currency_options, "Choose the currency:")
+        if currency_idx == len(currency_options) - 1:
+            new_currency = input("Enter new currency name: ")
+            if new_currency and new_currency not in currency_list:
+                currency_list.append(new_currency)
+                with open(currency_json_path, "w", encoding="utf-8") as f:
+                    json.dump(currency_list, f, ensure_ascii=False)
+            currency = new_currency
+        else:
+            currency = currency_options[currency_idx]
+
+        # 4. Date
+        executed_date = utils.parse_date_from_user(return_type="datetime")
+
+        review = f"""
+            Name: {name}
+            Amount: {amount} {currency}
+            Category: {category}
+            Date: {executed_date}"""
+                    
+        result = utils.template_menu(["Yes", "No"], f"This is a review of the information you entered:\n{review}\n, Insert?")
+        if result == 1:
+            utils.log("Insertion cancelled by user.", "system")
+            return False
+            
+        # Save to DB
+        from database import DataBase
+        DataBase().insert_Cash_Transaction(name, 
+                                           executed_date,
+                                           amount,
+                                           currency,
+                                           category)
+
+        DataBase().commit_changes()
+        utils.log(f"Cash transaction added!", "system")
+        return True
+
+
 
     def Insert_other_account_status(self) -> None:
         DataBase().create_other_account_table()
@@ -997,6 +1073,12 @@ class AppManager:
                                       spendings_With_no_investments_df['Final_Value'].abs().sum())
         data['overall_net_mean'] = (np.array(earnings_sum) + np.array(spendings_sum_overall_inc)).mean()
         
+        df = utils.get_cash_transactions(t)
+        print(utils.df_to_markdown(df))
+        cash_balance = utils.accumulate_cash_Balance()
+        print(cash_balance)
+
+
         utils.generate_html(t.month,
                             t.year,
                             spendings_df,

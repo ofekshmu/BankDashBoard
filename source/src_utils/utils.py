@@ -1826,6 +1826,73 @@ Please Make sure that none of the following formats have their 'Identifications 
         DataBase().commit_changes()
 
     @staticmethod
+    def accumulate_cash_Balance() -> int:
+        """
+        The function will sum all Cash transaction:
+        1. transactions created by the user, queried in the Cash Transsaction table
+        2. Withdrawlls specified in the Bank Transactions table
+            (can be reognized by the Category name "withdrawal" in the Bank Transactions table)
+        The function will return the total cash balance.
+        """
+        from database import DataBase
+        from Constants import ReservedNames
+        from src_utils.calculations import SimpleMath
+
+        bank_withdrawals_df = DataBase().get_transactions_by_category(ReservedNames.WHITDRAWAL_CATEGORY)
+        bank_withdrawals_df = SimpleMath.process_prices(bank_withdrawals_df)
+
+        total_cash = 0
+
+        if not bank_withdrawals_df.empty:
+            # Transactions are queried from the card table as withdrawlls (out) and therefore have a negative value in the Final_Value column
+            # They will have a positive value in the Cash Balance
+            total_cash -= bank_withdrawals_df['Final_Value'].sum()
+    
+        cash_df = DataBase().get_Cash_Transactions()
+      
+        if not cash_df.empty:
+            utils.log(f"Cash Transactions found:\n{utils.df_to_markdown(cash_df)}", 'system')
+            total_cash += cash_df['Amount'].sum()
+            
+
+        return total_cash
+    
+    @staticmethod
+    def get_cash_transactions(datetime: datetime | None = None) -> pd.DataFrame:
+        """
+        The function will return all Cash transaction:
+        1. transactions created by the user, queried in the Cash Transsaction table
+        2. Withdrawlls specified in the Bank Transactions table
+            (can be reognized by the Category name "withdrawal" in the Bank Transactions table)
+        Given a datetime object which is not None, the function will filter the transactions to only include those from the specified month and year.
+        The function will return a data frame with all queried columns
+        """
+        from database import DataBase
+        from Constants import ReservedNames
+        from src_utils.calculations import SimpleMath
+
+        bank_withdrawals_df = DataBase().get_transactions_by_category(ReservedNames.WHITDRAWAL_CATEGORY)
+        bank_withdrawals_df = SimpleMath.process_prices(bank_withdrawals_df)
+        # Convert 'Date/Executed_Date' to datetime before filtering
+        bank_withdrawals_df['Date/Executed_Date'] = pd.to_datetime(bank_withdrawals_df['Date/Executed_Date'], errors='coerce')
+        bank_withdrawals_df = bank_withdrawals_df[
+            (bank_withdrawals_df['Date/Executed_Date'].dt.month == datetime.month) &
+            (bank_withdrawals_df['Date/Executed_Date'].dt.year == datetime.year)
+        ]
+        bank_withdrawals_df = bank_withdrawals_df[['Date/Executed_Date', 'Final_Value', 'Name', 'Category']]
+        bank_withdrawals_df = bank_withdrawals_df.rename(columns={'Date/Executed_Date': 'Execution_Date',
+                                                                  'Final_Value': 'Amount',})
+        bank_withdrawals_df['Amount'] = -bank_withdrawals_df['Amount']  # Make amounts positive for cash balance
+
+        cash_df = DataBase().get_Cash_Transactions(datetime)
+        cash_df = cash_df[['Execution_Date', 'Amount', 'Name', 'Category']]
+
+        combined_cash_df = pd.concat([cash_df, bank_withdrawals_df], ignore_index=True)
+        combined_cash_df = combined_cash_df.sort_values(by='Execution_Date', ascending=False).reset_index(drop=True)
+
+        return combined_cash_df
+
+    @staticmethod
     def df_to_markdown(df: pd.DataFrame) -> str:
         """
         Converts a DataFrame to markdown format while properly handling Hebrew text.
@@ -2082,3 +2149,26 @@ Please Make sure that none of the following formats have their 'Identifications 
         return pd.DataFrame(records)
 
 
+    @staticmethod
+    def parse_date_from_user(return_type: str = "str") -> str | datetime:
+        """
+        Asks the user for a date and returns it as a string or datetime object.
+        The date is returned in "%Y-%m-%d" format (string) or as a datetime object.
+        Args:
+            return_type (str): "str" for string output, "datetime" for datetime object.
+        Returns:
+            str or datetime: The date in the requested format.
+        """
+        while True:
+            date_input = input("Please enter the date (YYYY-MM-DD): ")
+            try:
+                date_obj = datetime.strptime(date_input, "%Y-%m-%d")
+                if return_type == "str":
+                    return date_obj.strftime("%Y-%m-%d")
+                elif return_type == "datetime":
+                    return date_obj
+                else:
+                    print("Invalid return_type. Use 'str' or 'datetime'.")
+                    return None
+            except ValueError:
+                print("Invalid date format. Please use YYYY-MM-DD.")

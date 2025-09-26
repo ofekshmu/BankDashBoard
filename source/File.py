@@ -253,7 +253,7 @@ class File:
 
             table_entry = ExcelManager().read_sheet(row_idx, 1, col_idx, len(header_lst))
             test_table_format = ExcelManager().read_sheet(row_idx, 1, col_idx, len(header_lst), type="format")
-            utils.log(f"Table format: {test_table_format}")
+            #utils.log(f"Table format: {test_table_format}")
             cc_end = table_entry[0]
 
             if is_bad_value(table_entry):

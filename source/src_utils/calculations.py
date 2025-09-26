@@ -196,6 +196,13 @@ class SimpleMath:
         The function usess the lambda function to create the 'Final_Value' column
         Which describes the correct value to plot for each transaction. It returns
         a df representing the original input data along with the 'Final_Value column.
+
+        inputs:
+        @param df - a dataframe containing transactions from both CardTransactions and BankTransactions
+        @param month - when given, the function will remove payments that are not relevant to the given month
+        @param year - when given, the function will remove payments that are not relevant to the
+        
+        default values will not be used and relevant method will not be used
         """
 
         def my_lambda(row):
@@ -286,9 +293,7 @@ class SimpleMath:
             cond_payments2 =  'תשלום' in row['Extra_Info'] and 'מתוך' in row['Extra_Info']
 
             if cond_payments1 and cond_payments2:
-                print(row.to_markdown())
                 next_date = utils.next_month(datetime(year, month, 1))  # Ensure year and month are defined
-                #print(next_date)
                 return  (pd.to_datetime(row['Value_Date/Charge_Date']).month == next_date.month and \
                             pd.to_datetime(row['Value_Date/Charge_Date']).year == next_date.year)
                 

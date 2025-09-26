@@ -44,6 +44,7 @@ class Paths:
     PERSONAL_CONFIG =   'Personal Information/personal_config.json'     # Personal configuration file
     CATEGORY_JSON =     'Personal Information/categories.json'          # Categories JSON file (holds all different categories)
     AUTO_TAGGER_JSON =  'personal information/auto_tagger.json'         # Holds setting fro auto tagging different transactions
+    Currency_JSON =     'Personal Information/currency.json'            # Holds used currencies in the cash table
 
     #EXTENSION_1 = '.xls'    # Excel file extension                      # Extension type 1 for parsing
     #EXTENSION_2 = '.csv'    # CSV file extension                        # Extension type 2 for parsing      
@@ -61,7 +62,8 @@ class ReservedNames:
     WHITDRAWAL_CATEGORY = "withdrawal"
 
     EXCLUDED_CATEGORY = "Excluded"
-    
+    FILLER_CATEGORY = "Filler"
+
     
 
 class Local:

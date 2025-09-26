@@ -1000,11 +1000,12 @@ class AppManager:
             return accounts_data
 
         # Get accounts data and create linear plot
+        utils.log("Generating linear plots for all accounts...", "system")
         accounts_data = get_accounts_data()
         Graphics.plot_linear_plots_graph(accounts_data)
         
         monthly_balance = DataBase().get_latest_Balance()
-
+        utils.log("Processing spending data...", "system")        
         spendings_df = SimpleMath.process_prices(
                             DataBase().get_monthly_spendings(year=t.year, month=t.month), \
                             t.month, t.year
@@ -1012,23 +1013,27 @@ class AppManager:
         #utils.log(f"Monthly spendings: {utils.df_to_markdown(spendings_df)}", "system")
         spendings_df = utils.remove_leumi(spendings_df)
 
+        utils.log("Processing earnings data...", "system")
         earnings_df = SimpleMath.process_prices(
                             DataBase().get_monthly_earnings(year=t.year, month=t.month), \
                             t.month, t.year)
         earnings_df = utils.remove_leumi(earnings_df)
 
         # ---------------- Spendings Pie plot ----------------
+        utils.log("Generating spending pie charts...", "system")
         color_pallete = sns.light_palette("#f66b85", n_colors=10, reverse=True)
         spendings_With_no_investments_df = spendings_df[spendings_df["Category"] != INVESTMENT_CATEGORY]
         high_std_spendings = Graphics.plot_transactions_pie_chart(spendings_With_no_investments_df.groupby("Category").sum(), 
                                                                   "Spendings", 
                                                                   color_pallete)
         # -------------=--- Earnings Pie plot -----------------
+        utils.log("Generating earnings pie charts...", "system")
         color_pallete = sns.light_palette("#4fba89", n_colors=10, reverse=True)
         high_std_earnings = Graphics.plot_transactions_pie_chart(earnings_df.groupby("Category").sum(),
                                                                  "Earnings",
                                                                  color_pallete)
         # ---------------- Investments Pie plot ----------------
+        utils.log("Generating investments pie charts...", "system")
         color_pallete = GOLDEN_COLOR_PALLETE
         investments_df = spendings_df[spendings_df["Category"] == INVESTMENT_CATEGORY]
         _ = Graphics.plot_transactions_pie_chart(investments_df,
@@ -1036,6 +1041,7 @@ class AppManager:
                                                 color_pallete)
 
         # ----- General
+        utils.log("Generating general bar plot...", "system")
         spendings_sum, spendings_sum_overall_inc, earnings_sum = SimpleMath.get_monthly_shifted(shift=10)
 
         Graphics.plot_general(spendings_sum, 
@@ -1045,6 +1051,7 @@ class AppManager:
                               lp_user_defined=False)
         
         # ----- User defined
+        utils.log("Generating user defined bar plot...", "system")
         user_spendings_sum, _, user_earnings_sum = SimpleMath.get_monthly_shifted(shift=10, category= GeneralPlot.USER_DEFINED_CATEGORIES)
         
         Graphics.plot_general(user_spendings_sum, 
@@ -1056,7 +1063,7 @@ class AppManager:
                               user_spendings_sum = user_spendings_sum,
                               user_earnings_sum = user_earnings_sum)
         # ----- Cards
-
+        utils.log("Generating card distribution plot...", "system")
         card_ids = DataBase().get_card_ids() + ['Bank']
         color_list = Local.Colors[:len(card_ids)]
         card_color_dict = dict(zip(card_ids, color_list))
@@ -1064,7 +1071,7 @@ class AppManager:
         Graphics.card_distribution(spendings_With_no_investments_df, card_color_dict, card_validation_df)
 
         # ----- Payment PIE Graphs
-
+        utils.log("Generating Balance data...", "system")
         payments_df = utils.extract_payments_data(spendings_df)
         Graphics.generate_payment_pie_graphs(payments_df)
 
@@ -1073,12 +1080,13 @@ class AppManager:
                                       spendings_With_no_investments_df['Final_Value'].abs().sum())
         data['overall_net_mean'] = (np.array(earnings_sum) + np.array(spendings_sum_overall_inc)).mean()
         
+        utils.log("generating cash flow data...", "system")
         df = utils.get_cash_transactions(t)
         print(utils.df_to_markdown(df))
         cash_balance = utils.accumulate_cash_Balance()
         print(cash_balance)
 
-
+        utils.log("Generating HTML report...", "system")
         utils.generate_html(t.month,
                             t.year,
                             spendings_df,

@@ -131,7 +131,8 @@ class utils:
                       monthly_balance: int,
                       cards_dict: dict,
                       data: dict,
-                      accounts_data: dict) -> None:
+                      accounts_data: dict,
+                      cash_information_data: dict) -> None:
         import bs4
         from datetime import datetime
         import calendar
@@ -452,6 +453,17 @@ class utils:
             display.append(amount_span)
             container.append(display)
             return container
+
+        # cash info maetrics
+        cash_spent = create_financial_metric(soup, 'Deposit/Spent Cash', cash_information_data['Monthly Spent Cash'], False)
+        cash_earned = create_financial_metric(soup, 'Withdrawed/Earned Cash', cash_information_data['Monthly Earned Cash'], True)
+        
+        cmetrics_div = soup.new_tag('div')
+        cmetrics_div['class'] = 'metrics-container'
+        cmetrics_div.append(cash_spent)
+        cmetrics_div.append(cash_earned)
+
+        soup.body.append(cmetrics_div)
 
         # Create containers for each metric
         balance_container = create_financial_metric(soup, 'Balance', monthly_balance, monthly_balance >= 0)

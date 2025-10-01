@@ -1081,12 +1081,18 @@ class AppManager:
         data['overall_net_mean'] = (np.array(earnings_sum) + np.array(spendings_sum_overall_inc)).mean()
         
         utils.log("generating cash flow data...", "system")
-        df = utils.get_cash_transactions(t)
-        print(utils.df_to_markdown(df))
-        cash_balance = utils.accumulate_cash_Balance()
-        print(cash_balance)
-        Graphics.plot_monthly_cash_distribution(df)
-        
+        # Monthly cash transactions df
+        mct_df = utils.get_cash_transactions(t)
+        Graphics.plot_monthly_cash_distribution(mct_df)
+
+        cash_information_data = {
+            "Monthly Earned Cash": 0.0 if mct_df.empty else mct_df[mct_df['Amount'] > 0]['Amount'].sum(),
+            "Monthly Spent Cash": 0.0 if mct_df.empty else mct_df[mct_df['Amount'] < 0]['Amount'].sum(),
+            "Monthly Cash Transactions": 0.0 if mct_df.empty else mct_df['Amount'].sum(),
+            "Accumulative Cash Balance": utils.accumulate_cash_Balance()
+            
+        }
+
 
         utils.log("Generating HTML report...", "system")
         utils.generate_html(t.month,
@@ -1098,7 +1104,8 @@ class AppManager:
                             monthly_balance,
                             card_color_dict,
                             data,
-                            accounts_data)
+                            accounts_data,
+                            cash_information_data)
         webbrowser.open(r'source\html\output.html')
 
 

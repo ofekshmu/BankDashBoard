@@ -1085,6 +1085,8 @@ class AppManager:
         print(utils.df_to_markdown(df))
         cash_balance = utils.accumulate_cash_Balance()
         print(cash_balance)
+        Graphics.plot_monthly_cash_distribution(df)
+        
 
         utils.log("Generating HTML report...", "system")
         utils.generate_html(t.month,

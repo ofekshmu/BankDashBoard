@@ -1839,14 +1839,13 @@ Please Make sure that none of the following formats have their 'Identifications 
         from src_utils.calculations import SimpleMath
 
         bank_withdrawals_df = DataBase().get_transactions_by_category(ReservedNames.WHITDRAWAL_CATEGORY)
-        bank_withdrawals_df = SimpleMath.process_prices(bank_withdrawals_df)
 
         total_cash = 0
 
         if not bank_withdrawals_df.empty:
             # Transactions are queried from the card table as withdrawlls (out) and therefore have a negative value in the Final_Value column
             # They will have a positive value in the Cash Balance
-            total_cash -= bank_withdrawals_df['Final_Value'].sum()
+            total_cash -= bank_withdrawals_df['Out/Transaction_value'].sum()
     
         cash_df = DataBase().get_Cash_Transactions()
       
@@ -1872,19 +1871,25 @@ Please Make sure that none of the following formats have their 'Identifications 
         from src_utils.calculations import SimpleMath
 
         bank_withdrawals_df = DataBase().get_transactions_by_category(ReservedNames.WHITDRAWAL_CATEGORY)
-        bank_withdrawals_df = SimpleMath.process_prices(bank_withdrawals_df)
+        # Note: Only withdrawls are queried here, therefore, process_prices function is not needed.
         # Convert 'Date/Executed_Date' to datetime before filtering
+        #utils.log(utils.df_to_markdown(bank_withdrawals_df), 'system')
         bank_withdrawals_df['Date/Executed_Date'] = pd.to_datetime(bank_withdrawals_df['Date/Executed_Date'], errors='coerce')
         bank_withdrawals_df = bank_withdrawals_df[
             (bank_withdrawals_df['Date/Executed_Date'].dt.month == datetime.month) &
             (bank_withdrawals_df['Date/Executed_Date'].dt.year == datetime.year)
         ]
-        bank_withdrawals_df = bank_withdrawals_df[['Date/Executed_Date', 'Final_Value', 'Name', 'Category']]
+        #utils.log(datetime.strftime("Filtering cash transactions for: %B, %Y"), 'system')
+        utils.log(utils.df_to_markdown(bank_withdrawals_df), 'system')
+        bank_withdrawals_df = bank_withdrawals_df[['Date/Executed_Date', 'Out/Transaction_value', 'Name', 'Category']]
         bank_withdrawals_df = bank_withdrawals_df.rename(columns={'Date/Executed_Date': 'Execution_Date',
-                                                                  'Final_Value': 'Amount',})
+                                                                  'Out/Transaction_value': 'Amount',})
         bank_withdrawals_df['Amount'] = -bank_withdrawals_df['Amount']  # Make amounts positive for cash balance
 
         cash_df = DataBase().get_Cash_Transactions(datetime)
+        #convet date column to datetime
+        cash_df['Execution_Date'] = pd.to_datetime(cash_df['Execution_Date'], errors='coerce')
+
         cash_df = cash_df[['Execution_Date', 'Amount', 'Name', 'Category']]
 
         combined_cash_df = pd.concat([cash_df, bank_withdrawals_df], ignore_index=True)

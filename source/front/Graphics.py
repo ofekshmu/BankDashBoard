@@ -520,20 +520,20 @@ class Graphics:
 
         In the center, the value of the accumulative cash value of the month will be displayed.
         The pie chart is divided into two main sections: earnings in cash and spendings in cash of the given month,
-        the transactions are provided by the df_monthly_cash_transactions data frame and are already filltered to include a single month.
-        The pie chart will be displayed in the same ui as the other pie charts (spendings/earnings/investments).
+        the transactions are provided by the df_monthly_cash_transactions data frame and are already filtered to include a single month.
+        The pie chart will be displayed in the same UI as the other pie charts (spendings/earnings/investments).
         The pie chart will include spending transactions in red color and earnings transactions in green color.
         2 charts will be generated and saved to the output folder:
             1. A chart grouped by spending/earning and category, displaying the summed value.
-            2. A chart grouped by spending/earning and category, displaying the the category name.
+            2. A chart grouped by spending/earning and category, displaying the category name.
 
-        amount spend in cash and the amount earned in cash in the given month will returned
+        Amount spent in cash and the amount earned in cash in the given month will be returned.
         """
         chart_name = "Cash_Distribution"
         chart_title = chart_name.replace('_', ' ')
 
         if df_monthly_cash_transactions.empty:
-            Graphics._create_empty_chart(chart_title)  # Create an empty chart
+            Graphics._create_empty_chart(chart_title)
             return 0.0, 0.0
 
         df = df_monthly_cash_transactions.copy()
@@ -546,57 +546,65 @@ class Graphics:
         total_spendings = spendings_df['Amount'].sum() if not spendings_df.empty else 0.0
         total_earnings = earnings_df['Amount'].sum() if not earnings_df.empty else 0.0
 
-        # add a column to identify if the transaction is a spending or an earning
+        # Add a column to identify if the transaction is a spending or an earning
         df['Type'] = df['Amount'].apply(lambda x: 'Spendings' if x < 0 else 'Earnings')
-        df = df.groupby(['Type', 'Category'], as_index=False).sum(numeric_only=True)        
-        df['Amount'] = df['Amount'].abs()       
+        df = df.groupby(['Type', 'Category'], as_index=False).sum(numeric_only=True)
+        df['Amount'] = df['Amount'].abs()
         utils.log(f"Cash transactions for the month:\n{utils.df_to_markdown(df)}", 'system')
-        # create a dounought pie plot with the created df
+
         DONUT_HOLE_SIZE = 0.70
         FIG_SIZE = (7, 5)
         COLORS = {
             'Spendings': "#f66b85",
             'Earnings': "#4fba89"
         }
-        def create_donut_chart(ax, total_value):
-            """Helper function to create a donut chart with consistent styling"""
+
+        def plot_pie_chart(data: pd.DataFrame, data_index, output_path: str):
+            """
+            Arg data:
+                column Type: 'Spendings' or 'Earnings' to decide on the color
+                column Category: category name for indexing the values shown
+                column Amount: the value to be shown in the pie chart
+            Arg data_index:
+                lambda receiving a dataframe row and returning the index value for the pie chart
+            Arg output_path:
+                path to save the pie chart to
+
+            The function saves a single donut plot to the given output path.
+            """
+            plot_df = data.copy()
+            plot_df = plot_df.set_index(plot_df.apply(data_index, axis=1))
+            ax = plot_df.plot.pie(
+                y='Amount',
+                figsize=FIG_SIZE,
+                legend=False,
+                title=chart_title,
+                colors=[COLORS[t] for t in plot_df['Type']]
+            )
+            # Donut hole
             my_circle = plt.Circle((0, 0), DONUT_HOLE_SIZE, fc='white')
-            fig = plt.gcf()
-            fig.gca().add_artist(my_circle)
-            
-            # Add center text
-            centre_text = f"{total_value:,.2f} ₪"
-            ax.text(0, 0, centre_text,
+            plt.gcf().gca().add_artist(my_circle)
+            # Center text
+            ax.text(0, 0, f"{monthly_accumulative:,.2f} ₪",
                     horizontalalignment='center',
                     verticalalignment='center',
                     fontsize=22,
                     fontweight='bold',
                     color='black',
                     fontname='Arial')
-            
-            ax.set_title(chart_name, fontsize = 20)
+            ax.set_title(chart_title, fontsize=20)
             ax.set_ylabel('')
-        # -------------- Create a pie chart with category names --------------
-        df_names = df.copy()
-        df_names = df_names.set_index(df_names.apply(lambda row: utils.heb_conversion(row['Category']), axis=1))
-        ax = df_names.plot.pie(y='Amount',
-                            figsize=FIG_SIZE,
-                            legend=False,
-                            title=chart_title,
-                            colors=[COLORS[type] for type in df_names['Type']])
-        create_donut_chart(ax, monthly_accumulative)
-        plt.savefig(f'Outputs\\{chart_name}_category.png')
-        plt.close()
-        # -------------- Create a pie chart with prices --------------
-        prices_df = df.copy()
-        prices_df = prices_df.set_index(prices_df.apply(lambda row: f"{row['Amount']:,.2f}₪", axis=1))
+            plt.savefig(output_path)
+            plt.close()
 
-        ax = prices_df.plot.pie(y='Amount',
-                                    figsize=FIG_SIZE,
-                                    legend=False,
-                                    title=chart_title,
-                                    colors=[COLORS[type] for type in prices_df['Type']])
-        create_donut_chart(ax, monthly_accumulative)
-        plt.savefig(f'Outputs\\{chart_name}_prices.png')
-        plt.close()
+        # Chart 1: Grouped by category name
+        plot_pie_chart(data=df,
+                       data_index=lambda row: utils.heb_conversion(row['Category']),
+                       output_path=f'Outputs\\{chart_name}_category.png')
+        
+        # Chart 2: Grouped by price
+        plot_pie_chart(data=df, 
+                       data_index=lambda row: f"{row['Amount']:,.2f}₪",
+                       output_path=f'Outputs\\{chart_name}_prices.png')
+
         return abs(total_spendings), total_earnings

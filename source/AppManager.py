@@ -103,7 +103,7 @@ class AppManager:
                     print("Please insert a valid number.")
 
     def add_cash_transaction(self):
-        from Constants import ReservedNames, Paths
+        from Constants import Paths
         import json
         import os
 
@@ -446,7 +446,8 @@ class AppManager:
                                    'Edit transaction description',
                                    'Fix Date Bug for cal',
                                    'Update all "Cal-Shufersal" formats to "Cal" in File table',
-                                   'Exclude Transaction'], 'Pick one of the following:')
+                                   'Exclude Transaction',
+                                   'Delete a cash transaction entery by ID'], 'Pick one of the following:', col_space=60)
         match res:
             case 0:
                 original_command()
@@ -475,6 +476,8 @@ class AppManager:
                 utils.log('All "Cal-Shufersal" formats updated to "Cal" in File table.', 'system')
             case 8:
                 utils.exclude_transaction()
+            case 9:
+                utils.delete_cash_transaction_by_id()
             case _:
                 utils.log('Something went wrong in "execute_sql"', 'error')
 
@@ -1088,11 +1091,12 @@ class AppManager:
         cash_information_data = {
             "Monthly Earned Cash": 0.0 if mct_df.empty else mct_df[mct_df['Amount'] > 0]['Amount'].sum(),
             "Monthly Spent Cash": 0.0 if mct_df.empty else mct_df[mct_df['Amount'] < 0]['Amount'].sum(),
-            "Monthly Cash Transactions": 0.0 if mct_df.empty else mct_df['Amount'].sum(),
+            "Monthly Cash Transactions": mct_df,
             "Accumulative Cash Balance": utils.accumulate_cash_Balance()
-            
         }
 
+        accounts_data['Cash'] = [(datetime.now(), 
+                                                 cash_information_data["Accumulative Cash Balance"])]
 
         utils.log("Generating HTML report...", "system")
         utils.generate_html(t.month,

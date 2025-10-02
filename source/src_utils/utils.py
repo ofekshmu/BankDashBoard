@@ -454,7 +454,7 @@ class utils:
             container.append(display)
             return container
 
-        # cash info maetrics
+        # cash info metrics
         cash_spent = create_financial_metric(soup, 'Deposit/Spent Cash', cash_information_data['Monthly Spent Cash'], False)
         cash_earned = create_financial_metric(soup, 'Withdrawed/Earned Cash', cash_information_data['Monthly Earned Cash'], True)
         
@@ -636,7 +636,7 @@ class utils:
             outf.write(bs4.BeautifulSoup.prettify(soup))
 
     @staticmethod
-    def template_menu(options: list[str], msg: str = "Choose one of the following:\n", sort: bool = False) -> int:
+    def template_menu(options: list[str], msg: str = "Choose one of the following:\n", sort: bool = False, col_space: int = 27, row_count: int = 6 ) -> int:
         """
         The function creates a template menu that is printed out for the user.
         Inputs are @options - a list of strings containing different options.
@@ -648,7 +648,7 @@ class utils:
             options = sorted(options)
 
         utils.log(msg + '\n', 'system')
-        utils.pretty_print([f"{str(i) + ' -> ':6s}{utils.heb_conversion(x)}" for i, x in enumerate(options, start=0)])
+        utils.pretty_print([f"{str(i) + ' -> ':6s}{utils.heb_conversion(x)}" for i, x in enumerate(options, start=0)], const=row_count, col_space=col_space)
 
         while True:
             x = input()
@@ -975,11 +975,12 @@ class utils:
         return df[(df['Name'] != 'לאומי ויזה') & (df['Category'] != 'IGNORE')]
 
     @staticmethod
-    def pretty_print(lst: list, const: int = 6) -> None:
+    def pretty_print(lst: list, const: int = 6, col_space: int = 27) -> None:
         """
         The function prints the given list in a rectangle shaped pattern.
         The elements are indexed from 0 to n - 1.
         The rectangle is set to have a maximun of @const elements per column.
+        The col_space argument indicates the the space between each column.
         """
         n = len(lst)
         m = 1 + n // const
@@ -988,7 +989,7 @@ class utils:
                 index = i + const*j
                 if index >= len(lst):
                     break
-                print(f"{lst[i + const*j]:27s}", end="")
+                print(f"{lst[index]:{col_space}s}", end="")
             print()
 
 
@@ -1848,16 +1849,13 @@ Please Make sure that none of the following formats have their 'Identifications 
         """
         from database import DataBase
         from Constants import ReservedNames
-        from src_utils.calculations import SimpleMath
 
         bank_withdrawals_df = DataBase().get_transactions_by_category(ReservedNames.WHITDRAWAL_CATEGORY)
 
         total_cash = 0
 
         if not bank_withdrawals_df.empty:
-            # Transactions are queried from the card table as withdrawlls (out) and therefore have a negative value in the Final_Value column
-            # They will have a positive value in the Cash Balance
-            total_cash -= bank_withdrawals_df['Out/Transaction_value'].sum()
+            total_cash += bank_withdrawals_df['Out/Transaction_value'].sum()
     
         cash_df = DataBase().get_Cash_Transactions()
       
@@ -2189,3 +2187,38 @@ Please Make sure that none of the following formats have their 'Identifications 
                     return None
             except ValueError:
                 print("Invalid date format. Please use YYYY-MM-DD.")
+
+    @staticmethod
+    def delete_cash_transaction_by_id() -> bool:
+        """
+        The function will ask the user for an integer, representing a valid ID from
+        the Cash Transactions table, and will delete the transaction with the given ID.
+        The input will be asked until a valid input was received.
+        the function will return True if the transaction was deleted successfully, and False otherwise.
+        """
+        from database import DataBase
+
+        while True:
+            user_input = input("Please enter the ID of the Cash Transaction to delete (or -1 to exit): ")
+            if user_input == '-1':
+                return False
+            if not user_input.isdigit() or int(user_input) <= 0:
+                utils.log("Invalid input. Please enter a positive integer ID or -1 to exit.",'system')
+                continue
+            
+            transaction_id = int(user_input)
+            if not DataBase().is_cash_transaction_exists(transaction_id):
+                print(f"No Cash Transaction found with ID: {transaction_id}. Please try again.")
+                continue
+            
+            # Confirm deletion
+            confirm = utils.template_menu(['no', 'yes'], "Are you sure you want to delete the Cash Transaction with ID {transaction_id}? This action cannot be undone. (yes/no): ")
+
+            if confirm == 1:  # User confirmed deletion
+                DataBase().delete_cash_transaction(transaction_id)
+                DataBase().commit_changes()
+                utils.log(f"Cash Transaction with ID {transaction_id} has been deleted.", 'system')
+                return True
+            else:
+                utils.log("Deletion cancelled. No changes made.", 'system')
+                return False

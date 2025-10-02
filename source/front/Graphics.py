@@ -530,9 +530,10 @@ class Graphics:
         amount spend in cash and the amount earned in cash in the given month will returned
         """
         chart_name = "Cash_Distribution"
+        chart_title = chart_name.replace('_', ' ')
 
         if df_monthly_cash_transactions.empty:
-            Graphics._create_empty_chart(chart_name)  # Create an empty chart
+            Graphics._create_empty_chart(chart_title)  # Create an empty chart
             return 0.0, 0.0
 
         df = df_monthly_cash_transactions.copy()
@@ -581,19 +582,19 @@ class Graphics:
         ax = df_names.plot.pie(y='Amount',
                             figsize=FIG_SIZE,
                             legend=False,
-                            title=chart_name,
+                            title=chart_title,
                             colors=[COLORS[type] for type in df_names['Type']])
         create_donut_chart(ax, monthly_accumulative)
         plt.savefig(f'Outputs\\{chart_name}_category.png')
         plt.close()
         # -------------- Create a pie chart with prices --------------
         prices_df = df.copy()
-        prices_df = prices_df.set_index(prices_df.apply(lambda row: row['Amount'], axis=1))
+        prices_df = prices_df.set_index(prices_df.apply(lambda row: f"{row['Amount']:,.2f}₪", axis=1))
 
         ax = prices_df.plot.pie(y='Amount',
                                     figsize=FIG_SIZE,
                                     legend=False,
-                                    title=chart_name,
+                                    title=chart_title,
                                     colors=[COLORS[type] for type in prices_df['Type']])
         create_donut_chart(ax, monthly_accumulative)
         plt.savefig(f'Outputs\\{chart_name}_prices.png')

@@ -57,8 +57,9 @@ class DataBase:
                 Execution_Date      DATE            NOT NULL    ,
                 Amount              INT             NOT NULL    ,
                 Currency            CHAR            NOT NULL    ,
-                Description         CHAR                        ,
-                Category            CHAR            NOT NULL                                                 
+                Category            CHAR            NOT NULL    ,
+                Insertion_Date      DATE            NOT NULL    ,
+                Description         CHAR                                                                       
                 );""")
             
             cls.__instance.cursor.execute("""
@@ -1528,14 +1529,16 @@ class DataBase:
                                 executed_date: datetime,
                                 amount: float,
                                 currency: str,
-                                category: str = "NotCategorized") -> bool:
+                                category: str = "NotCategorized",
+                                description: str = "") -> bool:
         """
         The function will insert a cash transaction to the bank transactions table.
         """
+        insertion_date = datetime.now()
         self.cursor.execute("""
-                INSERT INTO CashTransactions (Name, Execution_Date, Amount, Currency, Category)
-                VALUES (?, ?, ?, ?, ?)
-        """, (name, executed_date, amount, currency, category))
+                INSERT INTO CashTransactions (Name, Execution_Date, Amount, Currency, Category, insertion_date, Description)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (name, executed_date, amount, currency, category, insertion_date, description))
 
         return True
 
@@ -1799,3 +1802,34 @@ class DataBase:
         utils.log(f"After: {after}")
 
 
+    def is_cash_transaction_exists(self, transaction_id: int) -> bool:
+        """
+        Check if a cash transaction with the given ID exists.
+        
+        Args:
+            transaction_id (int): ID of the cash transaction to check.
+        Returns:
+            bool: True if the transaction exists, False otherwise.
+        """
+        query = "SELECT 1 FROM CashTransactions WHERE ID = ?"
+        result = self.cursor.execute(query, (transaction_id,)).fetchone()
+        return result is not None
+    
+    def delete_cash_transaction(self, transaction_id: int) -> bool:
+        """
+        Delete a cash transaction by ID.
+        use is_cash_transaction_exists to make sure transaction exists before using
+        
+        Args:
+            transaction_id (int): ID of the cash transaction to delete.
+        Returns:
+            bool: True if deletion was successful, False otherwise.
+        """
+        try:
+            self.cursor.execute("DELETE FROM CashTransactions WHERE ID = ?", (transaction_id,))
+            self.connection.commit()
+            utils.log(f"Cash transaction with ID {transaction_id} deleted successfully.", "system")
+            return True
+        except Exception as e:
+            utils.log(f"Error deleting cash transaction: {str(e)}", "error")
+            return False

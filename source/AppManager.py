@@ -1022,17 +1022,41 @@ class AppManager:
                             t.month, t.year)
         earnings_df = utils.remove_leumi(earnings_df)
 
+        # --------------------------- Cash Flow ---------------------------
+        utils.log("generating cash flow data...", "system")
+        # Monthly cash transactions df
+        mct_df = utils.get_cash_transactions(t)
+        Graphics.plot_monthly_cash_distribution(mct_df)
+
+        cash_information_data = {
+            "Monthly Earned Cash": 0.0 if mct_df.empty else mct_df[mct_df['Amount'] > 0]['Amount'].sum(),
+            "Monthly Spent Cash": 0.0 if mct_df.empty else mct_df[mct_df['Amount'] < 0]['Amount'].sum(),
+            "Monthly Cash Transactions": mct_df,
+            "Accumulative Cash Balance": utils.accumulate_cash_Balance()
+        }
+
+        accounts_data['Cash'] = [(datetime.now(), 
+                                                 cash_information_data["Accumulative Cash Balance"])]
+
         # ---------------- Spendings Pie plot ----------------
         utils.log("Generating spending pie charts...", "system")
         color_pallete = sns.light_palette("#f66b85", n_colors=10, reverse=True)
         spendings_With_no_investments_df = spendings_df[spendings_df["Category"] != INVESTMENT_CATEGORY]
-        high_std_spendings = Graphics.plot_transactions_pie_chart(spendings_With_no_investments_df.groupby("Category").sum(), 
+
+        cash_flow_row = {"Name": "מזומן", "Category": "מזומן", "Description/Charge_Currency": None , "Final_Value": cash_information_data['Monthly Spent Cash']}
+        spendings_With_no_investments_with_cash_df = pd.concat([spendings_With_no_investments_df, pd.DataFrame([cash_flow_row])], ignore_index=True)
+
+        high_std_spendings = Graphics.plot_transactions_pie_chart(spendings_With_no_investments_with_cash_df.groupby("Category").sum(), 
                                                                   "Spendings", 
                                                                   color_pallete)
         # -------------=--- Earnings Pie plot -----------------
         utils.log("Generating earnings pie charts...", "system")
         color_pallete = sns.light_palette("#4fba89", n_colors=10, reverse=True)
-        high_std_earnings = Graphics.plot_transactions_pie_chart(earnings_df.groupby("Category").sum(),
+
+        cash_flow_row = {"Name": "מזומן", "Category": "מזומן", "Description/Charge_Currency": None , "Final_Value": cash_information_data['Monthly Earned Cash']}
+        earnings_with_cash_df = pd.concat([earnings_df, pd.DataFrame([cash_flow_row])], ignore_index=True)
+
+        high_std_earnings = Graphics.plot_transactions_pie_chart(earnings_with_cash_df.groupby("Category").sum(),
                                                                  "Earnings",
                                                                  color_pallete)
         # ---------------- Investments Pie plot ----------------
@@ -1070,6 +1094,8 @@ class AppManager:
         card_ids = DataBase().get_card_ids() + ['Bank']
         color_list = Local.Colors[:len(card_ids)]
         card_color_dict = dict(zip(card_ids, color_list))
+        #for cash transactions color
+        card_color_dict['Cash'] = "#ECCD1F" 
 
         Graphics.card_distribution(spendings_With_no_investments_df, card_color_dict, card_validation_df)
 
@@ -1078,26 +1104,17 @@ class AppManager:
         payments_df = utils.extract_payments_data(spendings_df)
         Graphics.generate_payment_pie_graphs(payments_df)
 
-        data['net income'] = (earnings_df['Final_Value'].sum() - spendings_df['Final_Value'].abs().sum())
+
+        # ---------------- General calculations ----------------
+        # monthly_cash_balance = cash_information_data['Monthly Earned Cash'] + \
+        #                         cash_information_data['Monthly Spent Cash']
+        
+        data['net income'] = (earnings_df['Final_Value'].sum() - spendings_df['Final_Value'].abs().sum()) 
+
         data['overall net income'] = (earnings_df['Final_Value'].sum() - \
                                       spendings_With_no_investments_df['Final_Value'].abs().sum())
         data['overall_net_mean'] = (np.array(earnings_sum) + np.array(spendings_sum_overall_inc)).mean()
         
-        utils.log("generating cash flow data...", "system")
-        # Monthly cash transactions df
-        mct_df = utils.get_cash_transactions(t)
-        Graphics.plot_monthly_cash_distribution(mct_df)
-
-        cash_information_data = {
-            "Monthly Earned Cash": 0.0 if mct_df.empty else mct_df[mct_df['Amount'] > 0]['Amount'].sum(),
-            "Monthly Spent Cash": 0.0 if mct_df.empty else mct_df[mct_df['Amount'] < 0]['Amount'].sum(),
-            "Monthly Cash Transactions": mct_df,
-            "Accumulative Cash Balance": utils.accumulate_cash_Balance()
-        }
-
-        accounts_data['Cash'] = [(datetime.now(), 
-                                                 cash_information_data["Accumulative Cash Balance"])]
-        card_color_dict['Cash'] = "#ECCD1F" 
 
         utils.log("Generating HTML report...", "system")
         utils.generate_html(t.month,

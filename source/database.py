@@ -422,6 +422,7 @@ class DataBase:
         data = self.cursor.execute("""
                                    SELECT
                                         'BankTransactions' AS TableName,
+                                        ID,
                                         Name,
                                         Out AS 'Out/Transaction_value',
                                         Income AS 'Income/Charge_Value',
@@ -436,6 +437,7 @@ class DataBase:
                                    UNION ALL
                                    SELECT
                                         'CardTransactions' AS TableName,
+                                        ID,
                                         Name,
                                         Transaction_value,
                                         Charge_Value,

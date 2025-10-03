@@ -1097,6 +1097,7 @@ class AppManager:
 
         accounts_data['Cash'] = [(datetime.now(), 
                                                  cash_information_data["Accumulative Cash Balance"])]
+        card_color_dict['Cash'] = "#ECCD1F" 
 
         utils.log("Generating HTML report...", "system")
         utils.generate_html(t.month,

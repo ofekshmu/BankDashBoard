@@ -183,17 +183,29 @@ class utils:
 
         soup.body.insert(6, div)
 
+        #concat cash spendings with spendings_df after filtering negative values
+        
+        df = cash_information_data['Monthly Cash Transactions']
+        df = df[df['Amount'] < 0]
+        spendings_df = pd.concat([spendings_df, df], ignore_index=True)
+
+
         for _, item in spendings_df.sort_values(by='Date/Executed_Date', ascending=True).iterrows():
 
             row = soup.new_tag("div")
             row['class'] = 'num'
-            d = datetime.strptime(f"{item['Date/Executed_Date']}", "%Y-%m-%d %H:%M:%S").strftime('%A_%d')
+
+            executed_date = item['Execution_Date'] if not pd.isna(item['Execution_Date']) else item['Date/Executed_Date']
+
+            d = datetime.strptime(f"{executed_date}", "%Y-%m-%d %H:%M:%S").strftime('%A_%d')
             row['data-value'] = f"{item['ID']}"   # Amount
 
             if item['TableName'] == 'CardTransactions':
                 value = cards_dict[item['Ref/CardID']]
-            else:
+            elif item['TableName'] == 'BankTransactions':
                 value = cards_dict['Bank']
+            else:
+                value = cards_dict['Cash']
             
             # row['style'] = f"background-color: {value}"
 
@@ -216,7 +228,10 @@ class utils:
             cell = soup.new_tag("p")
             cell['class'] = 'date'
             
-            if item['Description/Charge_Currency'] == item['Reserved/Value_Currency'] or item['TableName'] == 'BankTransactions':
+            if not pd.isnull(item['Amount']):
+                price_lable_1 = f"{item['Amount']:,.2f}₪"
+                price_lable_2 = ""
+            elif item['Description/Charge_Currency'] == item['Reserved/Value_Currency'] or item['TableName'] == 'BankTransactions':
                 price_lable_1 = f"{item['Final_Value']:,.2f}₪"
                 price_lable_2 = ""
             else:
@@ -235,7 +250,7 @@ class utils:
 
             cell = soup.new_tag("p")
             cell['class'] = 'cat'
-            d = datetime.strptime(f"{item['Date/Executed_Date']}", "%Y-%m-%d %H:%M:%S").strftime('%A %d')
+            d = datetime.strptime(f"{executed_date}", "%Y-%m-%d %H:%M:%S").strftime('%A %d')
             cell.string = f"{item['Category']}"  # Category
             row.append(cell)
 
@@ -248,17 +263,26 @@ class utils:
 
         # ----------
         # ----------
+
+        df = cash_information_data['Monthly Cash Transactions']
+        df = df[df['Amount'] > 0]
+        earnings_df = pd.concat([earnings_df, df], ignore_index=True)
+
         for _, item in earnings_df.sort_values(by='Date/Executed_Date', ascending=True).iterrows():
             row = soup.new_tag("div")
             row['class'] = 'num'
-            d = datetime.strptime(f"{item['Date/Executed_Date']}", "%Y-%m-%d %H:%M:%S").strftime('%A %d')
+            
+            executed_date = item['Execution_Date'] if not pd.isna(item['Execution_Date']) else item['Date/Executed_Date']
+            d = datetime.strptime(f"{executed_date}", "%Y-%m-%d %H:%M:%S").strftime('%A_%d')
+
             row['data-value'] = f"{item['ID']}"  # Amount
             
             if item['TableName'] == 'CardTransactions':
                 value = cards_dict[item['Ref/CardID']]
-            else:
+            elif item['TableName'] == 'BankTransactions':
                 value = cards_dict['Bank']
-            # row['style'] = f"background-color: {value}"
+            else:
+                value = cards_dict['Cash']
             
             colored_box_div = soup.new_tag("div")
             colored_box_div['class'] = "color-box"
@@ -278,7 +302,11 @@ class utils:
             cell = soup.new_tag("p")
             cell['class'] = 'date'
 
-            if item['Description/Charge_Currency'] == item['Reserved/Value_Currency'] or item['TableName'] == 'BankTransactions':
+
+            if not pd.isnull(item['Amount']):
+                price_lable_1 = f"{item['Amount']:,.2f}₪"
+                price_lable_2 = ""
+            elif item['Description/Charge_Currency'] == item['Reserved/Value_Currency'] or item['TableName'] == 'BankTransactions':
                 price_lable_1 = f"{item['Final_Value']:,.2f}₪"
                 price_lable_2 = ""
             else:
@@ -1890,8 +1918,7 @@ Please Make sure that none of the following formats have their 'Identifications 
             (bank_withdrawals_df['Date/Executed_Date'].dt.year == datetime.year)
         ]
         #utils.log(datetime.strftime("Filtering cash transactions for: %B, %Y"), 'system')
-        utils.log(utils.df_to_markdown(bank_withdrawals_df), 'system')
-        bank_withdrawals_df = bank_withdrawals_df[['Date/Executed_Date', 'Out/Transaction_value', 'Name', 'Category']]
+        bank_withdrawals_df = bank_withdrawals_df[['ID','Date/Executed_Date', 'Out/Transaction_value', 'Name', 'Category']]
         bank_withdrawals_df = bank_withdrawals_df.rename(columns={'Date/Executed_Date': 'Execution_Date',
                                                                   'Out/Transaction_value': 'Amount',})
         bank_withdrawals_df['Amount'] = -bank_withdrawals_df['Amount']  # Make amounts positive for cash balance
@@ -1900,7 +1927,7 @@ Please Make sure that none of the following formats have their 'Identifications 
         #convet date column to datetime
         cash_df['Execution_Date'] = pd.to_datetime(cash_df['Execution_Date'], errors='coerce')
 
-        cash_df = cash_df[['Execution_Date', 'Amount', 'Name', 'Category']]
+        cash_df = cash_df[['ID', 'Execution_Date', 'Amount', 'Name', 'Category']]
 
         combined_cash_df = pd.concat([cash_df, bank_withdrawals_df], ignore_index=True)
         combined_cash_df = combined_cash_df.sort_values(by='Execution_Date', ascending=False).reset_index(drop=True)

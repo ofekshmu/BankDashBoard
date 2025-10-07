@@ -939,34 +939,21 @@ class AppManager:
     def general_analysis(self):
         from datetime import datetime
         # -----
-        print("Pick an option:\n1 -> Current Month\n2 -> Last Month\n3 -> Pick A date")
-        x = int(input())
+        x = utils.template_menu(["Current Month", 
+                                "Last Month",
+                                "Pick A date"], 
+                                "General Analisys: Choose one of the following options:")
+
         match x:
-            case 1:
+            case 0:
                 t = datetime.now()
-            case 2:
+            case 1:
                 from dateutil.relativedelta import relativedelta
                 t = datetime.now() - relativedelta(months=1)
             case _:
-                m = int(input('month: '))
-                y = int(input('year: '))
-                t = datetime.now().replace(day = 1, month=m, year=y)
+                t = utils.parse_date_from_user(day=False, return_type="datetime")
 
         data = {}
-
-
-        def print_unverified_cards(date: datetime):
-            """
-            The function will iterate past data and print the card id and mnths which were not verified.
-            """
-            df = utils.card_charge_validation(date)
-            while not df.empty:
-                for _, row in df.iterrows():
-                    if row['Status'] == 'Not Verified':
-                        utils.log(f"Card {row['CardID']} was not verified for {date.month}/{date.year}", 'warning')
-                m, y = utils.subtract_month(date.month, date.year)
-                date = datetime(int(y),int(m),1)
-                df = utils.card_charge_validation(date)
             
         #print_unverified_cards(t)
         card_validation_df = utils.card_charge_validation(t)

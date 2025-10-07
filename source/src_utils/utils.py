@@ -684,6 +684,7 @@ class utils:
                 continue
             x = int(x)
             if x < 0 or x >= len(options):
+                utils.log('Insert a valid index number!', 'system')
                 continue
             return x
         
@@ -2192,28 +2193,34 @@ Please Make sure that none of the following formats have their 'Identifications 
 
 
     @staticmethod
-    def parse_date_from_user(return_type: str = "str") -> str | datetime:
+    def parse_date_from_user(return_type: str = "str", day: bool = True) -> str | datetime:
         """
         Asks the user for a date and returns it as a string or datetime object.
         The date is returned in "%Y-%m-%d" format (string) or as a datetime object.
         Args:
             return_type (str): "str" for string output, "datetime" for datetime object.
+            day (bool): If True, day is also parsed. If False, only month and year are parsed.
+                day will be set as 1 for Arg day=False.
         Returns:
             str or datetime: The date in the requested format.
         """
         while True:
-            date_input = input("Please enter the date (YYYY-MM-DD): ")
             try:
-                date_obj = datetime.strptime(date_input, "%Y-%m-%d")
+                if day:
+                    date_input = input("Please enter a date (YYYY-MM-DD): ")
+                    date_obj = datetime.strptime(date_input, "%Y-%m-%d")
+                else:
+                    date_input = input("Please enter a date (YYYY-MM): ")
+                    date_obj = datetime.strptime(date_input, "%Y-%m")
+                
                 if return_type == "str":
-                    return date_obj.strftime("%Y-%m-%d")
+                    return date_obj.strftime("%Y-%m-%d") if day else date_obj.strftime("%Y-%m")
                 elif return_type == "datetime":
                     return date_obj
                 else:
-                    print("Invalid return_type. Use 'str' or 'datetime'.")
-                    return None
+                    utils.log("Invalid return_type specified. Use 'str' or 'datetime'.", "error")
             except ValueError:
-                print("Invalid date format. Please use YYYY-MM-DD.")
+                utils.log("Invalid date format. Please try again.", "system")
 
     @staticmethod
     def delete_cash_transaction_by_id() -> bool:

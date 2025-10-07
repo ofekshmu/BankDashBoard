@@ -1049,7 +1049,7 @@ class AppManager:
         high_std_spendings = Graphics.plot_transactions_pie_chart(spendings_With_no_investments_with_cash_df.groupby("Category").sum(), 
                                                                   "Spendings", 
                                                                   color_pallete)
-        # -------------=--- Earnings Pie plot -----------------
+        # ----------------- Earnings Pie plot -----------------
         utils.log("Generating earnings pie charts...", "system")
         color_pallete = sns.light_palette("#4fba89", n_colors=10, reverse=True)
 

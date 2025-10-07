@@ -1888,7 +1888,7 @@ Please Make sure that none of the following formats have their 'Identifications 
         cash_df = DataBase().get_Cash_Transactions()
       
         if not cash_df.empty:
-            utils.log(f"Cash Transactions found:\n{utils.df_to_markdown(cash_df)}", 'system')
+            # utils.log(f"Cash Transactions found:\n{utils.df_to_markdown(cash_df)}", 'system')
             total_cash += cash_df['Amount'].sum()
             
 
@@ -1921,7 +1921,6 @@ Please Make sure that none of the following formats have their 'Identifications 
         bank_withdrawals_df = bank_withdrawals_df[['ID','Date/Executed_Date', 'Out/Transaction_value', 'Name', 'Category']]
         bank_withdrawals_df = bank_withdrawals_df.rename(columns={'Date/Executed_Date': 'Execution_Date',
                                                                   'Out/Transaction_value': 'Amount',})
-        bank_withdrawals_df['Amount'] = -bank_withdrawals_df['Amount']  # Make amounts positive for cash balance
 
         cash_df = DataBase().get_Cash_Transactions(datetime)
         #convet date column to datetime
@@ -2114,14 +2113,15 @@ Please Make sure that none of the following formats have their 'Identifications 
             else:
                 # x is an integer holding the id of the first row in the df
                 DataBase().set_category('CardTransactions', int(row['ID']), ReservedNames.WHITDRAWAL_CATEGORY)
+                DataBase().set_category('BankTransactions', int(matched_transactions_df['ID'].iloc[0]), ReservedNames.WHITDRAWAL_CATEGORY)
                 DataBase().set_description('CardTransactions', int(row['ID']),f"Matched with Bank Transaction ID: {matched_transactions_df['ID'].iloc[0]}")
-                DataBase().set_description('BankTransactions', int(matched_transactions_df['ID'].iloc[0]), ReservedNames.WITHDRAWAL)
+                DataBase().set_description('BankTransactions', int(matched_transactions_df['ID'].iloc[0]), f"Matched with Card Transaction ID: {int(row['ID'])}")
                 DataBase().commit_changes()
-                matched_transactions_df = pd.concat([total_matched_transactions_df, matched_transactions_df], ignore_index=True)
+                total_matched_transactions_df = pd.concat([total_matched_transactions_df, matched_transactions_df], ignore_index=True)
 
 
         if total_matched_transactions_df.empty:
-            return True, "Witdrawals Ok", total_matched_transactions_df
+            return True, "Witdrawals Check Executed, None found", total_matched_transactions_df
         else:
             return True, "All withdrawals matched successfully", total_matched_transactions_df
         

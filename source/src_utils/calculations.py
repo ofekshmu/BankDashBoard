@@ -276,11 +276,14 @@ class SimpleMath:
         def is_not_payment_transaction(row):
             return not ('תשלום' in row['Extra_Info'] and 'מתוך' in row['Extra_Info'])
 
-        def is_not_withdrawals(row):
+        def exclude_card_table_withdrawls(row):
             """
-            remove withdrawals from the dataframe.
+            returns False for rows categorized as 'withdrawals' in the CardTransactions table.
+            These rows are reflected by 
             """
-            return ReservedNames.WHITDRAWAL_CATEGORY not in row['Category']
+        
+            return not (row['TableName'] == 'CardTransactions' and row['Category'] == ReservedNames.WHITDRAWAL_CATEGORY)
+            
 
         def remove_irelevant_payments(row):
             """
@@ -314,7 +317,7 @@ class SimpleMath:
             # Handaling flowing transactions
             # see spec sheet for the definition of 'flowing transactions'
             df = df[~((df.apply(month_diff, axis=1) == 2) & (df.apply(is_not_payment_transaction, axis=1)))]
-            df = df[(df.apply(is_not_withdrawals, axis=1))]
+            df = df[(df.apply(exclude_card_table_withdrawls, axis=1))]
             df = df[(df['Category'] != ReservedNames.EXCLUDED_CATEGORY)]
         return df
     

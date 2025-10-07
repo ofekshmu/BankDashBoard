@@ -550,7 +550,7 @@ class Graphics:
         df['Type'] = df['Amount'].apply(lambda x: 'Spendings' if x < 0 else 'Earnings')
         df = df.groupby(['Type', 'Category'], as_index=False).sum(numeric_only=True)
         df['Amount'] = df['Amount'].abs()
-        utils.log(f"Cash transactions for the month:\n{utils.df_to_markdown(df)}", 'system')
+        # utils.log(f"Cash transactions for the month:\n{utils.df_to_markdown(df)}", 'system')
 
         DONUT_HOLE_SIZE = 0.70
         FIG_SIZE = (7, 5)

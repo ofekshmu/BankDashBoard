@@ -191,7 +191,7 @@ class SimpleMath:
         return df_merged
 
     @staticmethod
-    def process_prices(df: pd.DataFrame, month: int = -1, year: int = -1):
+    def process_prices(df: pd.DataFrame, date: datetime, month: int = -1, year: int = -1):
         """
         The function usess the lambda function to create the 'Final_Value' column
         Which describes the correct value to plot for each transaction. It returns
@@ -205,76 +205,118 @@ class SimpleMath:
         default values will not be used and relevant method will not be used
         """
 
-        def my_lambda(row):
-            """
-            The function returns the Actual value describing the given transactions.
-            The function takes into acoount transactions made in payments, return transactions, income/outcome of
-            BankTransactions.
-            """
-            match row['TableName']:
-                case 'BankTransactions':
-                    # Only one of the following should have a value that is not 0.
-                    # This is the value that should be returned
-                    if row['Income/Charge_Value'] > row['Out/Transaction_value']:
-                        return row['Income/Charge_Value']
-                    else:
-                        return - row['Out/Transaction_value']
+## --- refactored code below ---
 
-                case 'CardTransactions':
-                    # When the transaction is part of payments, the fields Charge_Value/Transaction_value will have
-                    # differet Values, one with the current payment and the other one with the full.
-                    # This if will make sure that the smaller value is always used
-                    cond_payments = row['Description/Charge_Currency'] == row['Reserved/Value_Currency'] and \
-                            row['Income/Charge_Value'] != row['Out/Transaction_value'] # This can also be smaller than >
-                    # If only one of the values is Negative, the transaction is indicating a return made directly to
-                    # the card. in this case the negative value should be considered - the min of the two.
-                    try:
-                        cond_Credit_payback = row['Out/Transaction_value']*row['Income/Charge_Value'] < 0 or \
-                                                (row['Out/Transaction_value'] < 0 and row['Income/Charge_Value'] < 0)
 
-                    except Exception as e:
-                        utils.log(f"Error: {e}\nValue 1: {row['Out/Transaction_value']}\nValue 2: {row['Income/Charge_Value']}", "error")
-                    if cond_payments:
-                        return -min(row['Income/Charge_Value'], row['Out/Transaction_value'])
-                    if cond_Credit_payback:
-                        return abs(row['Out/Transaction_value'])
+        from enum import Enum
 
-                    # The actual value of the transaction in ILS is indicated in this field
-                    return -row['Out/Transaction_value']
-                case _:
-                    utils.log("Unrecognized case in 'process_prices'...", "error")
-                    return ""   # To avoid linter error - unreacheable code.
+        class Trans_Type(Enum):
+            payment = "payments"
+            flowing = "flowing"
+            payback = "payback"
+            bank = "bank"
 
-        def refund_wrapper(row):
+
+        def is_payment_transaction(row):
+            """
+            Function will recognize payment transactions according to the extra info field
+            where a transaction will be recognized as a payment transaction by the structure:
+            "תשלום ... מתוך ..."
+
+            return arguments:
+                @return True if the transaction is a payment, False otherwise
+            """
+
+            cond_different_values = row['Charge_Value'] != row['Transaction_value']
+            cond_string_pattern = 'תשלום' in row['Extra_Info'] and 'מתוך' in row['Extra_Info']
+            cond_different_dates = row['Charge_Date'] != row['Executed_Date']
+            cond_smaller_charge_value = row['Charge_Value'] < row['Transaction_value']
+
+            # Safeguard - in case the transaction is not a payment but still fits the pattern
+            # if this if triggers, conditions should be changed accordingly
+            if cond_string_pattern and not (cond_different_values and cond_different_dates and cond_smaller_charge_value):
+                utils.log(f"Warning: The following transaction might be wrongfully recognized:\n{row}", "error")
+
+            return cond_different_values & cond_string_pattern & cond_different_dates & cond_smaller_charge_value
+
+        def handle_payments(row, date: datetime):
+            """
+            Function should receive only rows that has been recognized as payment transactions by the
+            is_payment_transaction function."
+
+            return arguments:
+                @return date: datetime - charge date if the transaction is a payment, executed date otherwise
+                @return amount: int - charge value if the transaction is a payment, transaction value otherwise
+                @return is_relevant: bool - True if the payment is relevant to the given month and year, False otherwise
+
+            amount will be returned to the Final_Value column
+            date will be returned to the executed date column
+
+            see spec file for more information on payment transactions
+            """
+
+            next_date = utils.next_month(datetime(year, month, 1))
+            is_relevant = (pd.to_datetime(row['Charge_Date']).month == next_date.month and
+                            pd.to_datetime(row['Charge_Date']).year == next_date.year)
+
+                # Minus value is added to indicate a negative transaction
+            return row['Charge_Date'], -row['Charge_Value'],  (Trans_Type.payment, is_relevant)
+
+        def is_flowing_transaction(row) -> bool:
+            """
+            The function is used to identify flowing transaction. (see spec file for more info)
+            The follwing function checks only condition (1) - a difference of 2 months between the charged date and the value date.
+            difference between dates calculates only the values of the months. different year/day will result in the same result.
+            """
+            return pd.to_datetime(row['Value_Date/Charge_Date']).month - pd.to_datetime(row['Date/Executed_Date']).month == 2
+
+        def handle_flowing(row, date: datetime) -> Tuple[Trans_Type ,bool]:
+            """
+            Given a flowing transaction, the function will make sure it matches with the current date being analized.
+            
+            return Arguments:
+                @return (Trans_Type(Enum) = "flowing", bool) - true if the executed month matches the given date month else, false.
+            """
+            return (Trans_Type.flowing, date.month == pd.to_datetime(row['Executed_Date']).month)
+
+        def handle_bank_transactions(row):
             """
             """
-            match row['TableName']:
-                case 'BankTransactions':
-                    # Function does not handle BankTransactions - leave as it is.
-                    return row['Date/Executed_Date']
-                case 'CardTransactions':
-                    cond_Credit_payback = row['Out/Transaction_value']*row['Income/Charge_Value'] < 0
-                    cond_payments = 'תשלום' in row['Extra_Info'] and 'מתוך' in row['Extra_Info']
-                    if cond_Credit_payback or cond_payments:
-                        return row['Value_Date/Charge_Date']
+            return row['Income'] if row['Income'] > row['Out'] else (-row['Out']), (Trans_Type.bank, True)
 
-                    return row['Date/Executed_Date']
-                case _:
-                    utils.log("Unrecognized case in 'process_prices' -> 'refund_wrapper'...", "error")
-                    return ""   # To avoid linter error - unreacheable code.
+        def is_payback_transaction(row):
+            """
+            """
+            return row['Transaction_value']*row['Charge_Value'] < 0 or \
+                    (row['Transaction_value'] < 0 and row['Charge_Value'] < 0)
 
-        def month_diff(row):
-            """
-            The function is used to calculate the delta between 2 months of given dates in two different columns.
-            The result is given in a month resolution, meaning the difference in date does not matter -
-            for example: the difference between 01/05/24 to 02/07/24 is the same as 28/05/24 to 01/06/26 , a single month.
-            subtraction of dates can only be done in datetime format, the given format is 'object' and therfore, converted.
-            the function was created to identify 'Flowing transactions'.
-            """
-            return pd.to_datetime(row['Value_Date/Charge_Date']).month - pd.to_datetime(row['Date/Executed_Date']).month
+        # the code will iterate over all rows in the dataframe and check the type of transaction,
+        # then apply the proper handling. the code will be generic and easy to add more handling
+        # the following will handle the identification of payments and handling
+        if not df.empty:
+            for index, row in df.iterrows():
+                if is_payment_transaction(row):
+                    row['Date/Executed_Date'], row['Final_Value'], df['transaction_type'] = handle_payments(row, date)
+                #elif
+                elif is_flowing_transaction(row):
+                    df['transaction_type'] = handle_flowing(row, date)
+                
+                elif row['TableName'] == "BankTransactions":
+                    row['Final_Value'], df['transaction_type'] = handle_bank_transactions(row)
+                
+                elif is_payback_transaction(row):
+                    row['Final_Value'], row['Executed_Date'], df['transaction_type'] = abs(row['Transaction_Value']), row['Charge_Date'], (Trans_Type.payback, True)
         
-        def is_not_payment_transaction(row):
-            return not ('תשלום' in row['Extra_Info'] and 'מתוך' in row['Extra_Info'])
+        utils.log(f"Processed transactions for given date {date} are:\n{utils.df_to_markdown(df)}","debug")
+        
+        # Drop all rows that have a false flag in their enum
+        # df = df[df['transaction_type'].value[1]]   
+        return df   
+
+## --- refactored code above ---
+
+
+        
 
         def exclude_card_table_withdrawls(row):
             """
@@ -283,26 +325,7 @@ class SimpleMath:
             """
         
             return not (row['TableName'] == 'CardTransactions' and row['Category'] == ReservedNames.WHITDRAWAL_CATEGORY)
-            
-
-        def remove_irelevant_payments(row):
-            """
-            The function is used to remove payments that are not relevant for the current month.
-            It checks if the transaction is a payment and if it is not in the current month.
-            """
-            cond_payments1 = row['Description/Charge_Currency'] == row['Reserved/Value_Currency'] and \
-                             row['Income/Charge_Value'] != row['Out/Transaction_value']
-
-            cond_payments2 =  'תשלום' in row['Extra_Info'] and 'מתוך' in row['Extra_Info']
-
-            if cond_payments1 and cond_payments2:
-                next_date = utils.next_month(datetime(year, month, 1))  # Ensure year and month are defined
-                return  (pd.to_datetime(row['Value_Date/Charge_Date']).month == next_date.month and \
-                            pd.to_datetime(row['Value_Date/Charge_Date']).year == next_date.year)
                 
-            
-            return True  # Not a payment transaction 
-
 
         if not df.empty:
             df["Final_Value"] = df.apply(my_lambda, axis=1)

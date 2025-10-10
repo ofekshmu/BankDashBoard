@@ -994,20 +994,23 @@ class AppManager:
         accounts_data = get_accounts_data()
         Graphics.plot_linear_plots_graph(accounts_data)
         
+        monthly_card_transactions_df = DataBase().query_monthly_transactions(date=t, tables=["CardTransactions"])
+        proceessed_card_transactions_df = SimpleMath.process_prices(monthly_card_transactions_df, t.month, t.year)
+
+        monthly_bank_transactions_df = DataBase().query_monthly_transactions(date=t, tables=["BankTransactions"])
+        proceessed_bank_transactions_df = SimpleMath.process_prices(monthly_bank_transactions_df, t.month, t.year)
+
         monthly_balance = DataBase().get_latest_Balance()
         utils.log("Processing spending data...", "system")        
         spendings_df = SimpleMath.process_prices(
                             DataBase().get_monthly_spendings(year=t.year, month=t.month), \
                             t.month, t.year
                             )
-        #utils.log(f"Monthly spendings: {utils.df_to_markdown(spendings_df)}", "system")
-        spendings_df = utils.remove_leumi(spendings_df)
 
         utils.log("Processing earnings data...", "system")
         earnings_df = SimpleMath.process_prices(
                             DataBase().get_monthly_earnings(year=t.year, month=t.month), \
                             t.month, t.year)
-        earnings_df = utils.remove_leumi(earnings_df)
 
         # --------------------------- Cash Flow ---------------------------
         utils.log("generating cash flow data...", "system")

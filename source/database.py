@@ -1835,3 +1835,46 @@ class DataBase:
         except Exception as e:
             utils.log(f"Error deleting cash transaction: {str(e)}", "error")
             return False
+        
+
+    def query_monthly_transactions(self, date: datetime, tables: list[str]) -> pd.DataFrame:
+        """
+        The function receives a date and a list of table names (BankTransactions and/or CardTransactions).
+        The function will return all the transactions from the given month in a single dataframe.
+        """
+        month_str = str(date.month).zfill(2)
+        year_str = str(date.year)
+        all_data = []
+
+        # the following month and year
+        next_month_str = str((date.month % 12) + 1).zfill(2)
+        next_year_str = str(date.year + (1 if date.month == 12 else 0))
+        
+
+        if "BankTransactions" in tables:
+            bank_data = self.cursor.execute("""
+                                SELECT *, 'BankTransactions' AS TableName
+                                FROM BankTransactions
+                                WHERE 
+                                    (strftime('%m', Date) = ? AND strftime('%Y', Date) = ?)
+                                """, (month_str, year_str, )).fetchall()
+            bank_df = pd.DataFrame(data=bank_data, columns=[d[0] for d in self.cursor.description])
+            all_data.append(bank_df)
+
+        if "CardTransactions" in tables:
+            card_data = self.cursor.execute("""
+                                SELECT *, 'CardTransactions' AS TableName
+                                FROM CardTransactions
+                                WHERE 
+                                    (strftime('%m', Executed_Date) = ? AND strftime('%Y', Executed_Date) = ?)
+                                    or
+                                    (strftime('%m', Charge_Date) = ? AND strftime('%Y', Charge_Date) = ?)
+                                """, (month_str, year_str, next_month_str, next_year_str,)).fetchall()
+            card_df = pd.DataFrame(data=card_data, columns=[d[0] for d in self.cursor.description])
+            all_data.append(card_df)
+
+        if all_data:
+            combined_df = pd.concat(all_data, ignore_index=True)
+            return combined_df
+        else:
+            return pd.DataFrame()  # Return empty DataFrame if no valid tables provided

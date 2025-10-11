@@ -214,6 +214,9 @@ class SimpleMath:
             payment = "payments"
             flowing = "flowing"
             payback = "payback"
+            withdrawl = "withdrawl"
+            excluded = "excluded"
+            default = "default"
             bank = "bank"
 
 
@@ -227,10 +230,10 @@ class SimpleMath:
                 @return True if the transaction is a payment, False otherwise
             """
 
-            cond_different_values = row['Charge_Value'] != row['Transaction_value']
+            cond_different_values = row['Charge_Value'] != row['Transaction_Value']
             cond_string_pattern = 'תשלום' in row['Extra_Info'] and 'מתוך' in row['Extra_Info']
             cond_different_dates = row['Charge_Date'] != row['Executed_Date']
-            cond_smaller_charge_value = row['Charge_Value'] < row['Transaction_value']
+            cond_smaller_charge_value = row['Charge_Value'] > row['Transaction_Value']
 
             # Safeguard - in case the transaction is not a payment but still fits the pattern
             # if this if triggers, conditions should be changed accordingly
@@ -260,7 +263,7 @@ class SimpleMath:
                             pd.to_datetime(row['Charge_Date']).year == next_date.year)
 
                 # Minus value is added to indicate a negative transaction
-            return row['Charge_Date'], -row['Charge_Value'],  (Trans_Type.payment, is_relevant)
+            return row['Charge_Date'], -row['Transaction_Value'],  (Trans_Type.payment, is_relevant)
 
         def is_flowing_transaction(row) -> bool:
             """
@@ -268,79 +271,72 @@ class SimpleMath:
             The follwing function checks only condition (1) - a difference of 2 months between the charged date and the value date.
             difference between dates calculates only the values of the months. different year/day will result in the same result.
             """
-            return pd.to_datetime(row['Value_Date/Charge_Date']).month - pd.to_datetime(row['Date/Executed_Date']).month == 2
+            return pd.to_datetime(row['Charge_Date']).month - pd.to_datetime(row['Executed_Date']).month == 2
 
-        def handle_flowing(row, date: datetime) -> Tuple[Trans_Type ,bool]:
+        def handle_flowing(row, date: datetime) -> Tuple[Tuple[Trans_Type ,bool], int]:
             """
             Given a flowing transaction, the function will make sure it matches with the current date being analized.
             
             return Arguments:
                 @return (Trans_Type(Enum) = "flowing", bool) - true if the executed month matches the given date month else, false.
             """
-            return (Trans_Type.flowing, date.month == pd.to_datetime(row['Executed_Date']).month)
+            return (Trans_Type.flowing, date.month == pd.to_datetime(row['Executed_Date']).month),\
+                    -row['transaction_value']
 
         def handle_bank_transactions(row):
             """
+            for each bank Transaction, outgoing transaction will receive a negative sign, Incoming will
+            be left as they are (positive) 
             """
             return row['Income'] if row['Income'] > row['Out'] else (-row['Out']), (Trans_Type.bank, True)
 
         def is_payback_transaction(row):
             """
+            identify payback transactions
             """
-            return row['Transaction_value']*row['Charge_Value'] < 0 or \
-                    (row['Transaction_value'] < 0 and row['Charge_Value'] < 0)
+            return row['Transaction_Value']*row['Charge_Value'] < 0 or \
+                    (row['Transaction_Value'] < 0 and row['Charge_Value'] < 0)
+        
+        def is_withdrawls_transaction(row):
+            """
+            identify withdrawl transaction by the category
+            """
+            return row['TableName'] == 'CardTransactions' and row['Category'] == ReservedNames.WHITDRAWAL_CATEGORY
+        
+
 
         # the code will iterate over all rows in the dataframe and check the type of transaction,
         # then apply the proper handling. the code will be generic and easy to add more handling
         # the following will handle the identification of payments and handling
         if not df.empty:
-            for index, row in df.iterrows():
+            for _, row in df.iterrows():
                 if is_payment_transaction(row):
-                    row['Date/Executed_Date'], row['Final_Value'], df['transaction_type'] = handle_payments(row, date)
+                    row['Date/Executed_Date'], row['Final_Value'], row['transaction_type'] = handle_payments(row, date)
                 #elif
                 elif is_flowing_transaction(row):
-                    df['transaction_type'] = handle_flowing(row, date)
+                    row['transaction_type'], row['Final_Value'], = handle_flowing(row, date)
                 
                 elif row['TableName'] == "BankTransactions":
-                    row['Final_Value'], df['transaction_type'] = handle_bank_transactions(row)
+                    row['Final_Value'], row['transaction_type'] = handle_bank_transactions(row)
                 
                 elif is_payback_transaction(row):
-                    row['Final_Value'], row['Executed_Date'], df['transaction_type'] = abs(row['Transaction_Value']), row['Charge_Date'], (Trans_Type.payback, True)
+                    row['Final_Value'], row['Executed_Date'], row['transaction_type'] = abs(row['Transaction_Value']), row['Charge_Date'], (Trans_Type.payback, True)
+
+                elif is_withdrawls_transaction(row):
+                    row['transaction_type'], row['Final_Value'], = (Trans_Type.withdrawl, False), -row['Transaction_Value']
+                
+                # Excluded transactios are manualy excluded by the user
+                elif row['Category'] == ReservedNames.EXCLUDED_CATEGORY:
+                    row['transaction_type'], row['Final_Value'], = (Trans_Type.excluded, False), -row['Transaction_Value']
+                
+                else:
+                    row['transaction_type'], row['Final_Value'], = (Trans_Type.default, True), -row['Transaction_Value']
         
         utils.log(f"Processed transactions for given date {date} are:\n{utils.df_to_markdown(df)}","debug")
         
         # Drop all rows that have a false flag in their enum
-        # df = df[df['transaction_type'].value[1]]   
+        df = df[df['transaction_type'].value[1]]   
         return df   
 
 ## --- refactored code above ---
 
-
-        
-
-        def exclude_card_table_withdrawls(row):
-            """
-            returns False for rows categorized as 'withdrawals' in the CardTransactions table.
-            These rows are reflected by 
-            """
-        
-            return not (row['TableName'] == 'CardTransactions' and row['Category'] == ReservedNames.WHITDRAWAL_CATEGORY)
-                
-
-        if not df.empty:
-            df["Final_Value"] = df.apply(my_lambda, axis=1)
-            
-            # remove unwanted payments transactions from the current month
-            
-            if month != -1 or year != -1:
-                df = df[df.apply(remove_irelevant_payments, axis=1)]
-
-            df["Date/Executed_Date"] = df.apply(refund_wrapper, axis=1)
-
-            # Handaling flowing transactions
-            # see spec sheet for the definition of 'flowing transactions'
-            df = df[~((df.apply(month_diff, axis=1) == 2) & (df.apply(is_not_payment_transaction, axis=1)))]
-            df = df[(df.apply(exclude_card_table_withdrawls, axis=1))]
-            df = df[(df['Category'] != ReservedNames.EXCLUDED_CATEGORY)]
-        return df
-    

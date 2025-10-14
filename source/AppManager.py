@@ -995,10 +995,10 @@ class AppManager:
         Graphics.plot_linear_plots_graph(accounts_data)
         
         monthly_card_transactions_df = DataBase().query_monthly_transactions(date=t, tables=["CardTransactions"])
-        proceessed_card_transactions_df = SimpleMath.process_prices(monthly_card_transactions_df, t.month, t.year)
+        proceessed_card_transactions_df = SimpleMath.process_prices(monthly_card_transactions_df, date=t)
 
         monthly_bank_transactions_df = DataBase().query_monthly_transactions(date=t, tables=["BankTransactions"])
-        proceessed_bank_transactions_df = SimpleMath.process_prices(monthly_bank_transactions_df, t.month, t.year)
+        proceessed_bank_transactions_df = SimpleMath.process_prices(monthly_bank_transactions_df, date=t)
 
         monthly_balance = DataBase().get_latest_Balance()
         utils.log("Processing spending data...", "system")        

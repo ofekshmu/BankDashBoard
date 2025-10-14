@@ -191,7 +191,7 @@ class SimpleMath:
         return df_merged
 
     @staticmethod
-    def process_prices(df: pd.DataFrame, date: datetime, month: int = -1, year: int = -1):
+    def process_prices(df: pd.DataFrame, date: datetime):
         """
         The function usess the lambda function to create the 'Final_Value' column
         Which describes the correct value to plot for each transaction. It returns
@@ -205,9 +205,6 @@ class SimpleMath:
         default values will not be used and relevant method will not be used
         """
 
-## --- refactored code below ---
-
-
         from enum import Enum
 
         class Trans_Type(Enum):
@@ -218,7 +215,6 @@ class SimpleMath:
             excluded = "excluded"
             default = "default"
             bank = "bank"
-
 
         def is_payment_transaction(row):
             """
@@ -242,7 +238,7 @@ class SimpleMath:
 
             return cond_different_values & cond_string_pattern & cond_different_dates & cond_smaller_charge_value
 
-        def handle_payments(row, date: datetime):
+        def handle_payments(row, date: datetime) -> pd.Series:
             """
             Function should receive only rows that has been recognized as payment transactions by the
             is_payment_transaction function."
@@ -258,12 +254,12 @@ class SimpleMath:
             see spec file for more information on payment transactions
             """
 
-            next_date = utils.next_month(datetime(year, month, 1))
+            next_date = utils.next_month(date)
             is_relevant = (pd.to_datetime(row['Charge_Date']).month == next_date.month and
                             pd.to_datetime(row['Charge_Date']).year == next_date.year)
 
                 # Minus value is added to indicate a negative transaction
-            return row['Charge_Date'], -row['Transaction_Value'],  (Trans_Type.payment, is_relevant)
+            return pd.Series([row['Charge_Date'], -row['Transaction_Value'],  Trans_Type.payment, is_relevant])
 
         def is_flowing_transaction(row) -> bool:
             """
@@ -273,22 +269,27 @@ class SimpleMath:
             """
             return pd.to_datetime(row['Charge_Date']).month - pd.to_datetime(row['Executed_Date']).month == 2
 
-        def handle_flowing(row, date: datetime) -> Tuple[Tuple[Trans_Type ,bool], int]:
+        def handle_flowing(row, date: datetime) -> pd.Series:
             """
             Given a flowing transaction, the function will make sure it matches with the current date being analized.
             
             return Arguments:
                 @return (Trans_Type(Enum) = "flowing", bool) - true if the executed month matches the given date month else, false.
             """
-            return (Trans_Type.flowing, date.month == pd.to_datetime(row['Executed_Date']).month),\
-                    -row['transaction_value']
-
-        def handle_bank_transactions(row):
+            return row['Executed_Date'],\
+                    (-row['transaction_value']),\
+                    Trans_Type.flowing,\
+                     date.month == pd.to_datetime(row['Executed_Date']).month
+    
+        def handle_bank_transactions(row) -> pd.Series:
             """
             for each bank Transaction, outgoing transaction will receive a negative sign, Incoming will
             be left as they are (positive) 
             """
-            return row['Income'] if row['Income'] > row['Out'] else (-row['Out']), (Trans_Type.bank, True)
+            return pd.Series([row['Date'],\
+                row['Income'] if row['Income'] > row['Out'] else (-row['Out']),\
+                Trans_Type.bank,\
+                True])
 
         def is_payback_transaction(row):
             """
@@ -303,40 +304,41 @@ class SimpleMath:
             """
             return row['TableName'] == 'CardTransactions' and row['Category'] == ReservedNames.WHITDRAWAL_CATEGORY
         
+        def classify_and_handle(row) -> pd.Series:
 
+            if row['TableName'] == "BankTransactions":
+                return handle_bank_transactions(row)
+        
+            elif is_payment_transaction(row):
+                return handle_payments(row, date)
 
-        # the code will iterate over all rows in the dataframe and check the type of transaction,
-        # then apply the proper handling. the code will be generic and easy to add more handling
-        # the following will handle the identification of payments and handling
-        if not df.empty:
-            for _, row in df.iterrows():
-                if is_payment_transaction(row):
-                    row['Date/Executed_Date'], row['Final_Value'], row['transaction_type'] = handle_payments(row, date)
-                #elif
-                elif is_flowing_transaction(row):
-                    row['transaction_type'], row['Final_Value'], = handle_flowing(row, date)
-                
-                elif row['TableName'] == "BankTransactions":
-                    row['Final_Value'], row['transaction_type'] = handle_bank_transactions(row)
-                
-                elif is_payback_transaction(row):
-                    row['Final_Value'], row['Executed_Date'], row['transaction_type'] = abs(row['Transaction_Value']), row['Charge_Date'], (Trans_Type.payback, True)
+            elif is_flowing_transaction(row):
+                return handle_flowing(row, date)
+            
+            elif is_payback_transaction(row):
+                return pd.Series([row['Charge_Date'], abs(row['Transaction_Value']), Trans_Type.payback, True])
 
-                elif is_withdrawls_transaction(row):
-                    row['transaction_type'], row['Final_Value'], = (Trans_Type.withdrawl, False), -row['Transaction_Value']
-                
-                # Excluded transactios are manualy excluded by the user
-                elif row['Category'] == ReservedNames.EXCLUDED_CATEGORY:
-                    row['transaction_type'], row['Final_Value'], = (Trans_Type.excluded, False), -row['Transaction_Value']
-                
-                else:
-                    row['transaction_type'], row['Final_Value'], = (Trans_Type.default, True), -row['Transaction_Value']
+            elif is_withdrawls_transaction(row):
+                return pd.Series([row['Executed_Date'] , -row['Transaction_Value'], Trans_Type.withdrawl, False])
+            
+            # Excluded transactions are manualy excluded by the user
+            elif row['Category'] == ReservedNames.EXCLUDED_CATEGORY:
+                return pd.Series([row['Executed_Date'], -row['Transaction_Value'], Trans_Type.excluded, False])
+            
+            else:
+                return pd.Series([row['Executed_Date'], -row['Transaction_Value'], Trans_Type.default, True])
+
+        if df.empty:
+            return df
+        
+        df[['Executed_Date', 'Final_Value', 'Transaction_Type', 'Relevance']]  = df.apply(classify_and_handle, axis=1)
         
         utils.log(f"Processed transactions for given date {date} are:\n{utils.df_to_markdown(df)}","debug")
         
-        # Drop all rows that have a false flag in their enum
-        df = df[df['transaction_type'].value[1]]   
-        return df   
+        # Keep only relevant transactions
+        df = df[df['Relevance']]
+        # Optionally drop the helper column
+        df = df.drop(columns=['Transaction_Type', 'Relevance'])
 
-## --- refactored code above ---
+        return df   
 

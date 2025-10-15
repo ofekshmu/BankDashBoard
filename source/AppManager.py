@@ -994,26 +994,26 @@ class AppManager:
         accounts_data = get_accounts_data()
         Graphics.plot_linear_plots_graph(accounts_data)
         
+        utils.log("Processing card data...", "system")        
         monthly_card_transactions_df = DataBase().query_monthly_transactions(date=t, tables=["CardTransactions"])
         proceessed_card_transactions_df = SimpleMath.process_prices(monthly_card_transactions_df, date=t)
 
+        utils.log("Processing bank data...", "system")
         monthly_bank_transactions_df = DataBase().query_monthly_transactions(date=t, tables=["BankTransactions"])
         proceessed_bank_transactions_df = SimpleMath.process_prices(monthly_bank_transactions_df, date=t)
 
-        monthly_balance = DataBase().get_latest_Balance()
-        utils.log("Processing spending data...", "system")        
-        spendings_df = SimpleMath.process_prices(
-                            DataBase().get_monthly_spendings(year=t.year, month=t.month), \
-                            t.month, t.year
-                            )
-
-        utils.log("Processing earnings data...", "system")
-        earnings_df = SimpleMath.process_prices(
-                            DataBase().get_monthly_earnings(year=t.year, month=t.month), \
-                            t.month, t.year)
+        # -------------------------- Colision of both df --------------------------
+        proceessed_card_transactions_df=proceessed_card_transactions_df[['TableName', 'Name', 'Executed_Date', 'Charge_Date', 'Final_Value', 'Category', 'Extra_Info','Transaction_Type']]
+        
+        proceessed_bank_transactions_df=proceessed_bank_transactions_df[['TableName', 'Name', 'Date',                         'Final_Value', 'Category', 'Extra_Info','Transaction_Type']]
+        proceessed_bank_transactions_df = proceessed_bank_transactions_df.rename(columns={'Date': 'Executed_Date'})
+        
+        transactions_df = pd.concat([proceessed_bank_transactions_df, proceessed_card_transactions_df], ignore_index=True)
 
         # --------------------------- Cash Flow ---------------------------
         utils.log("generating cash flow data...", "system")
+
+
         # Monthly cash transactions df
         mct_df = utils.get_cash_transactions(t)
         Graphics.plot_monthly_cash_distribution(mct_df)
@@ -1028,34 +1028,42 @@ class AppManager:
         accounts_data['Cash'] = [(datetime.now(), 
                                                  cash_information_data["Accumulative Cash Balance"])]
 
-        # ---------------- Spendings Pie plot ----------------
+        
+        def handle_spendings_pie_plot():
+            color_pallete = sns.light_palette("#f66b85", n_colors=10, reverse=True)
+            cash_flow_row = {"Name": "מזומן", "Category": "מזומן", "Description/Charge_Currency": None , "Final_Value": cash_information_data['Monthly Spent Cash']}
+            temp_df = transactions_df[(transactions_df['Final_Value'] < 0)]
+            temp_df = pd.concat([temp_df, pd.DataFrame([cash_flow_row])], ignore_index=True)
+            return Graphics.plot_transactions_pie_chart(temp_df.groupby("Category").sum(), 
+                                                                    "Spendings", 
+                                                                    color_pallete)
+
         utils.log("Generating spending pie charts...", "system")
-        color_pallete = sns.light_palette("#f66b85", n_colors=10, reverse=True)
-        spendings_With_no_investments_df = spendings_df[spendings_df["Category"] != INVESTMENT_CATEGORY]
+        high_std_spendings = handle_spendings_pie_plot()
+        
+        def handle_earnings_pie_plot():
+            color_pallete = sns.light_palette("#4fba89", n_colors=10, reverse=True)
 
-        cash_flow_row = {"Name": "מזומן", "Category": "מזומן", "Description/Charge_Currency": None , "Final_Value": cash_information_data['Monthly Spent Cash']}
-        spendings_With_no_investments_with_cash_df = pd.concat([spendings_With_no_investments_df, pd.DataFrame([cash_flow_row])], ignore_index=True)
+            cash_flow_row = {"Name": "מזומן", "Category": "מזומן", "Final_Value": cash_information_data['Monthly Earned Cash']}
+            temp_df = transactions_df[(transactions_df['Final_Value'] > 0)]
+            temp_df = pd.concat([temp_df, pd.DataFrame([cash_flow_row])], ignore_index=True)
 
-        high_std_spendings = Graphics.plot_transactions_pie_chart(spendings_With_no_investments_with_cash_df.groupby("Category").sum(), 
-                                                                  "Spendings", 
-                                                                  color_pallete)
-        # ----------------- Earnings Pie plot -----------------
+            return Graphics.plot_transactions_pie_chart(temp_df.groupby("Category").sum(),
+                                                        "Earnings",
+                                                        color_pallete)
+            
         utils.log("Generating earnings pie charts...", "system")
-        color_pallete = sns.light_palette("#4fba89", n_colors=10, reverse=True)
-
-        cash_flow_row = {"Name": "מזומן", "Category": "מזומן", "Description/Charge_Currency": None , "Final_Value": cash_information_data['Monthly Earned Cash']}
-        earnings_with_cash_df = pd.concat([earnings_df, pd.DataFrame([cash_flow_row])], ignore_index=True)
-
-        high_std_earnings = Graphics.plot_transactions_pie_chart(earnings_with_cash_df.groupby("Category").sum(),
-                                                                 "Earnings",
-                                                                 color_pallete)
-        # ---------------- Investments Pie plot ----------------
-        utils.log("Generating investments pie charts...", "system")
-        color_pallete = GOLDEN_COLOR_PALLETE
-        investments_df = spendings_df[spendings_df["Category"] == INVESTMENT_CATEGORY]
-        _ = Graphics.plot_transactions_pie_chart(investments_df,
+        high_std_earnings = handle_earnings_pie_plot()
+        
+        def handle_investments_pie_plot():           
+            color_pallete = GOLDEN_COLOR_PALLETE
+            temp_df = transactions_df[(transactions_df["Category"] == INVESTMENT_CATEGORY)]
+            Graphics.plot_transactions_pie_chart(temp_df,
                                                 "Investments",
                                                 color_pallete)
+            
+        utils.log("Generating investments pie charts...", "system")
+        handle_investments_pie_plot()
 
         # ----- General
         utils.log("Generating general bar plot...", "system")

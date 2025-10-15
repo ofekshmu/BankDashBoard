@@ -338,7 +338,7 @@ class SimpleMath:
         # Keep only relevant transactions
         df = df[df['Relevance']]
         # Optionally drop the helper column
-        df = df.drop(columns=['Transaction_Type', 'Relevance'])
+        df = df.drop(columns=['Relevance'])
 
         return df   
 

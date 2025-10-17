@@ -1003,9 +1003,9 @@ class AppManager:
         proceessed_bank_transactions_df = SimpleMath.process_prices(monthly_bank_transactions_df, date=t)
 
         # -------------------------- Colision of both df --------------------------
-        proceessed_card_transactions_df=proceessed_card_transactions_df[['TableName', 'Name', 'Executed_Date', 'Charge_Date', 'Final_Value', 'Category', 'Extra_Info','Transaction_Type']]
+        proceessed_card_transactions_df=proceessed_card_transactions_df[['TableName', 'Name', 'Executed_Date', 'Charge_Date', 'Final_Value', 'Category', 'Extra_Info','Description', 'Transaction_Type']]
         
-        proceessed_bank_transactions_df=proceessed_bank_transactions_df[['TableName', 'Name', 'Date',                         'Final_Value', 'Category', 'Extra_Info','Transaction_Type']]
+        proceessed_bank_transactions_df=proceessed_bank_transactions_df[['TableName', 'Name', 'Date',                         'Final_Value', 'Category', 'Extra_Info','Description', 'Transaction_Type']]
         proceessed_bank_transactions_df = proceessed_bank_transactions_df.rename(columns={'Date': 'Executed_Date'})
         
         transactions_df = pd.concat([proceessed_bank_transactions_df, proceessed_card_transactions_df], ignore_index=True)
@@ -1034,7 +1034,8 @@ class AppManager:
             cash_flow_row = {"Name": "מזומן", "Category": "מזומן", "Description/Charge_Currency": None , "Final_Value": cash_information_data['Monthly Spent Cash']}
             temp_df = transactions_df[(transactions_df['Final_Value'] < 0)]
             temp_df = pd.concat([temp_df, pd.DataFrame([cash_flow_row])], ignore_index=True)
-            return Graphics.plot_transactions_pie_chart(temp_df.groupby("Category").sum(), 
+
+            return Graphics.plot_transactions_pie_chart(temp_df.groupby("Category").sum(numeric_only=True), 
                                                                     "Spendings", 
                                                                     color_pallete)
 
@@ -1048,7 +1049,7 @@ class AppManager:
             temp_df = transactions_df[(transactions_df['Final_Value'] > 0)]
             temp_df = pd.concat([temp_df, pd.DataFrame([cash_flow_row])], ignore_index=True)
 
-            return Graphics.plot_transactions_pie_chart(temp_df.groupby("Category").sum(),
+            return Graphics.plot_transactions_pie_chart(temp_df.groupby("Category").sum(numeric_only=True),
                                                         "Earnings",
                                                         color_pallete)
             

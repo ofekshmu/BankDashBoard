@@ -87,10 +87,10 @@ class Graphics:
         elif pie_name == "Investments":
             def get_display_name(row) -> str:
                 """Helper function to determine the display name for pie chart labels"""
-                if row['Description/Charge_Currency'] is None:
+                if row['Description'] is None:
                     base_text = row['Name']
                 else:
-                    base_text = row['Description/Charge_Currency']
+                    base_text = row['Description']
                 
                 return utils.heb_conversion(str(base_text))
             df_names = df_names.set_index(df_names.apply(get_display_name, axis=1))

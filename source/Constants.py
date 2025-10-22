@@ -25,6 +25,14 @@ class Method(Enum):
     HEADERS = 3
     NONE = 4
 
+class Trans_Type(Enum):
+    payment = "payments"
+    flowing = "flowing"
+    payback = "payback"
+    withdrawl = "withdrawl"
+    excluded = "excluded"
+    default = "default"
+    bank = "bank"
 
 class Sortion(Enum):
     BY_NAME_SERIAL = 1

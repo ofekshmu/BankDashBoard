@@ -742,10 +742,12 @@ class AppManager:
             context.render()
 
     def analysis(self):
-        match utils.template_menu(["General Statistics", "Pick a category/Bussines name"], "Pick an option:"):
+        match utils.template_menu(["General Statistics", "Pick a category/Bussines name"], "Pick an option:", exit=True):
             case 0:
-                self.general_analysis()
+                return
             case 1:
+                self.general_analysis()
+            case 2:
                 self.category_analysis()
             case _:
                 utils.log("Unreachable point reached...", "error")
@@ -754,11 +756,13 @@ class AppManager:
 
         case = 0
 
-        match utils.template_menu(["Analyze a category", "Analayze a Business"], "Pick an option:"):
+        match utils.template_menu(["Analyze a category", "Analayze a Business"], "Pick an option:", exit=True):
             case 0:
+                return
+            case 1:
                 options = utils.get_saved_categories()
                 idx, sub_options = utils.typer_template_menu(options, "Pick a Category:")
-            case 1:
+            case 2:
                 case = 1
                 options = DataBase().get_all_business_names()
                 idx, sub_options = utils.typer_template_menu(options, "Pick a Bussines:")
@@ -939,19 +943,23 @@ class AppManager:
     def general_analysis(self):
         from datetime import datetime
         # -----
-        x = utils.template_menu(["Current Month", 
+        match utils.template_menu(["Current Month", 
                                 "Last Month",
                                 "Pick A date"], 
-                                "General Analisys: Choose one of the following options:")
+                                "General Analisys: Choose one of the following options:",
+                                exit=True):
 
-        match x:
             case 0:
-                t = datetime.now()
+                return
             case 1:
+                t = datetime.now()
+            case 2:
                 from dateutil.relativedelta import relativedelta
                 t = datetime.now() - relativedelta(months=1)
-            case _:
+            case 3:
                 t = utils.parse_date_from_user(day=False, return_type="datetime")
+            case _:
+                utils.log("Unreachable point reached...", "error")
 
         data = {}
             
@@ -1003,9 +1011,9 @@ class AppManager:
         proceessed_bank_transactions_df = SimpleMath.process_prices(monthly_bank_transactions_df, date=t)
 
         # -------------------------- Colision of both df --------------------------
-        proceessed_card_transactions_df=proceessed_card_transactions_df[['TableName', 'Name', 'Executed_Date', 'Charge_Date', 'Final_Value', 'Category', 'Extra_Info','Description', 'Transaction_Type']]
+        proceessed_card_transactions_df=proceessed_card_transactions_df[['TableName', 'CardID', 'Name', 'Executed_Date', 'Charge_Date', 'Charge_Value', 'Final_Value', 'Category', 'Extra_Info','Description', 'Transaction_Type']]
         
-        proceessed_bank_transactions_df=proceessed_bank_transactions_df[['TableName', 'Name', 'Date',                         'Final_Value', 'Category', 'Extra_Info','Description', 'Transaction_Type']]
+        proceessed_bank_transactions_df=proceessed_bank_transactions_df[['TableName', 'Name', 'Date',                                                        'Final_Value', 'Category', 'Extra_Info','Description', 'Transaction_Type']]
         proceessed_bank_transactions_df = proceessed_bank_transactions_df.rename(columns={'Date': 'Executed_Date'})
         
         transactions_df = pd.concat([proceessed_bank_transactions_df, proceessed_card_transactions_df], ignore_index=True)
@@ -1096,11 +1104,13 @@ class AppManager:
         #for cash transactions color
         card_color_dict['Cash'] = "#ECCD1F" 
 
-        Graphics.card_distribution(spendings_With_no_investments_df, card_color_dict, card_validation_df)
+        Graphics.card_distribution(transactions_df, card_color_dict, card_validation_df)
 
         # ----- Payment PIE Graphs
-        utils.log("Generating Balance data...", "system")
-        payments_df = utils.extract_payments_data(spendings_df)
+        from Constants import Trans_Type
+        utils.log("Generating Payments data...", "system")
+        payment_filtered_df = transactions_df[transactions_df['Transaction_Type'] == Trans_Type.payment]
+        payments_df = utils.extract_payments_data(payment_filtered_df)
         Graphics.generate_payment_pie_graphs(payments_df)
 
 

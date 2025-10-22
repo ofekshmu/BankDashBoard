@@ -178,16 +178,7 @@ class SimpleMath:
         default values will not be used and relevant method will not be used
         """
 
-        from enum import Enum
-
-        class Trans_Type(Enum):
-            payment = "payments"
-            flowing = "flowing"
-            payback = "payback"
-            withdrawl = "withdrawl"
-            excluded = "excluded"
-            default = "default"
-            bank = "bank"
+        from Constants import Trans_Type
 
         def is_payment_transaction(row):
             """

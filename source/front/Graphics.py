@@ -278,36 +278,31 @@ class Graphics:
         plt.close()
 
     @staticmethod
-    def card_distribution(spendings: pd.DataFrame, color_dict: dict, df_card_status: pd.DataFrame):
+    def card_distribution(transactions: pd.DataFrame, color_dict: dict, df_card_status: pd.DataFrame):
         """
         Revceives the spending df of the current month,
         """
-        df = spendings.copy()[['Ref/CardID', 'Final_Value', 'TableName']]
+        temp_df = transactions[['TableName', 'CardID', 'Final_Value']]
 
-        if not df.empty:
-            df['Final_Value'] = df['Final_Value'].abs()
-            # Since BankTransactions are indexed by a Ref Number, These needs to be caregorized by the TableName,
-            # and not by CardNumber, unlike CardTransactions, Therefor, we will change the ref number for all
-            # BankTransactions
+        if not temp_df.empty:
             
-            df['Ref/CardID'] = df.apply(lambda row: 'Bank' if row['TableName'] == 'BankTransactions' else row['Ref/CardID'], axis=1)
-            df = df.groupby("Ref/CardID").sum(numeric_only=True)
+            temp_df['CardID'] = temp_df.apply(lambda row: 'Bank' if row['TableName'] == 'BankTransactions' else row['CardID'], axis=1)
+            
+            temp_df = temp_df.groupby("CardID").sum(numeric_only=True)
             # The status df is merged with the data df in order to annotate the status (see lower part)
-            df = pd.merge(df, df_card_status, left_on='Ref/CardID', right_on='CardID', how='outer')
-            # filling the NA in the df is crucial for displaying all the data (Bank transactions)
-            df['CardID'] = df['CardID'].fillna("Bank")
-            df['Out/Transaction_value'] = df['Out/Transaction_value'].fillna(df['Final_Value'][df['CardID'] == 'Bank'])
-            utils.log(f'Card Status, merged data frame::\n{df.to_markdown()}','debug')
+            temp_df = pd.merge(temp_df, df_card_status, left_on='CardID', right_on='CardID', how='outer')
+
+            utils.log(f'Card Status, merged data frame::\n{temp_df.to_markdown()}','debug')
 
             # Plot the bar plot using seaborn
             sns.set(style="whitegrid")
             plt.figure(figsize=(6, 3))
 
             # Adding the values on top of the bar plots:
-            ax = sns.barplot(x="CardID", hue="CardID", y="Out/Transaction_value", data=df, palette=color_dict, legend=False)
+            ax = sns.barplot(x="CardID", hue="CardID", y="Final_Value", data=temp_df, palette=color_dict, legend=False)
             for index ,p in enumerate(ax.patches):
                 height = p.get_height()
-                status = df['Status'].iloc[index]
+                status = temp_df['Status'].iloc[index]
                 # ------------ annotate the value of the bar on top of it ------------
                 ax.annotate(f'{height:,.0f}₪',
                             xy=(p.get_x() + p.get_width() / 2, height),

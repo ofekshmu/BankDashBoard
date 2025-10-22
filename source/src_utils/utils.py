@@ -664,16 +664,22 @@ class utils:
             outf.write(bs4.BeautifulSoup.prettify(soup))
 
     @staticmethod
-    def template_menu(options: list[str], msg: str = "Choose one of the following:\n", sort: bool = False, col_space: int = 27, row_count: int = 6 ) -> int:
+    def template_menu(options: list[str], msg: str = "Choose one of the following:\n", exit: bool = False, sort: bool = False, col_space: int = 27, row_count: int = 6 ) -> int:
         """
         The function creates a template menu that is printed out for the user.
         Inputs are @options - a list of strings containing different options.
                    @msg - str with a menu message
+                   @sort - for sorting the options alphabetically
+                   @exit - for adding a "Return" option at the top of the list (output of value 0)
         return a numbers from 0 to len(options) - 1 representing the chosen option.
         if input does not match a valid option, the function asks for a valid one.
         """
         if sort:
             options = sorted(options)
+        
+        if exit:
+            # append to the head of the list for comfort reason
+            options.insert(0, "「Return」")
 
         utils.log(msg + '\n', 'system')
         utils.pretty_print([f"{str(i) + ' -> ':6s}{utils.heb_conversion(x)}" for i, x in enumerate(options, start=0)], const=row_count, col_space=col_space)
@@ -2182,8 +2188,8 @@ Please Make sure that none of the following formats have their 'Identifications 
                 # Append the extracted data to the new DataFrame
                 records.append({
                     'Transaction Name': row['Name'],
-                    'Current Payment': row['Out/Transaction_value'],
-                    'Total Amount': row['Income/Charge_Value'],
+                    'Current Payment': abs(row['Final_Value']),
+                    'Total Amount': row['Charge_Value'],
                     'Number of Payments': total_payments,
                     'Current Payment Number': current_payment})
             else:

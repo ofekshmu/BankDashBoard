@@ -190,18 +190,18 @@ class utils:
         spendings_df = pd.concat([spendings_df, df], ignore_index=True)
 
 
-        for _, item in spendings_df.sort_values(by='Date/Executed_Date', ascending=True).iterrows():
+        for _, item in spendings_df.sort_values(by='Executed_Date', ascending=True).iterrows():
 
             row = soup.new_tag("div")
             row['class'] = 'num'
 
-            executed_date = item['Execution_Date'] if not pd.isna(item['Execution_Date']) else item['Date/Executed_Date']
+            executed_date = item['Execution_Date'] if not pd.isna(item['Execution_Date']) else item['Executed_Date']
 
             d = datetime.strptime(f"{executed_date}", "%Y-%m-%d %H:%M:%S").strftime('%A_%d')
             row['data-value'] = f"{item['ID']}"   # Amount
 
             if item['TableName'] == 'CardTransactions':
-                value = cards_dict[item['Ref/CardID']]
+                value = cards_dict[item['CardID']]
             elif item['TableName'] == 'BankTransactions':
                 value = cards_dict['Bank']
             else:
@@ -216,8 +216,8 @@ class utils:
 
 
             # ---- replacing the name of the transaction with the description ----
-            if item['TableName'] == 'BankTransactions' and item['Description/Charge_Currency'] is not None:
-                st = f"{item['Description/Charge_Currency']}"
+            if item['TableName'] == 'BankTransactions' and item['Description'] is not None:
+                st = f"{item['Description']}"
             else:
                 st = f"{item['Name']}"
             # --------------------------------------------------------------------
@@ -231,12 +231,12 @@ class utils:
             if not pd.isnull(item['Amount']):
                 price_lable_1 = f"{item['Amount']:,.2f}₪"
                 price_lable_2 = ""
-            elif item['Description/Charge_Currency'] == item['Reserved/Value_Currency'] or item['TableName'] == 'BankTransactions':
+            elif item['Charge_Currency'] == item['Value_Currency'] or item['TableName'] == 'BankTransactions':
                 price_lable_1 = f"{item['Final_Value']:,.2f}₪"
                 price_lable_2 = ""
             else:
                 price_lable_1 = f"{item['Final_Value']:,.2f}₪"
-                price_lable_2 = f"({item['Income/Charge_Value']:,}{item['Description/Charge_Currency']})"
+                price_lable_2 = f"({item['Charge_Value']:,}{item['Charge_Currency']})"
             
             # Create a <br> tag
             new_line = soup.new_tag('br')
@@ -268,17 +268,17 @@ class utils:
         df = df[df['Amount'] > 0]
         earnings_df = pd.concat([earnings_df, df], ignore_index=True)
 
-        for _, item in earnings_df.sort_values(by='Date/Executed_Date', ascending=True).iterrows():
+        for _, item in earnings_df.sort_values(by='Executed_Date', ascending=True).iterrows():
             row = soup.new_tag("div")
             row['class'] = 'num'
             
-            executed_date = item['Execution_Date'] if not pd.isna(item['Execution_Date']) else item['Date/Executed_Date']
+            executed_date = item['Execution_Date'] if not pd.isna(item['Execution_Date']) else item['Executed_Date']
             d = datetime.strptime(f"{executed_date}", "%Y-%m-%d %H:%M:%S").strftime('%A_%d')
 
             row['data-value'] = f"{item['ID']}"  # Amount
             
             if item['TableName'] == 'CardTransactions':
-                value = cards_dict[item['Ref/CardID']]
+                value = cards_dict[item['CardID']]
             elif item['TableName'] == 'BankTransactions':
                 value = cards_dict['Bank']
             else:
@@ -290,8 +290,8 @@ class utils:
             row.append(colored_box_div)
             
             # ---- replacing the name of the transaction with the description ----
-            if item['TableName'] == 'BankTransactions' and item['Description/Charge_Currency'] is not None:
-                st = f"{item['Description/Charge_Currency']}"
+            if item['TableName'] == 'BankTransactions' and item['Description'] is not None:
+                st = f"{item['Description']}"
             else:
                 st = f"{item['Name']}"
             # --------------------------------------------------------------------
@@ -306,12 +306,12 @@ class utils:
             if not pd.isnull(item['Amount']):
                 price_lable_1 = f"{item['Amount']:,.2f}₪"
                 price_lable_2 = ""
-            elif item['Description/Charge_Currency'] == item['Reserved/Value_Currency'] or item['TableName'] == 'BankTransactions':
+            elif item['Charge_Currency'] == item['Value_Currency'] or item['TableName'] == 'BankTransactions':
                 price_lable_1 = f"{item['Final_Value']:,.2f}₪"
                 price_lable_2 = ""
             else:
                 price_lable_1 = f"{item['Final_Value']:,.2f}₪"
-                price_lable_2 = f"({item['Income/Charge_Value']:,}{item['Description/Charge_Currency']})"
+                price_lable_2 = f"({item['Charge_Value']:,}{item['Charge_Currency']})"
 
 
             # Create a <br> tag

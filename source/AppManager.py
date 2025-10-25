@@ -1011,7 +1011,7 @@ class AppManager:
         proceessed_bank_transactions_df = SimpleMath.process_prices(monthly_bank_transactions_df, date=t)
 
         # -------------------------- Colision of both df --------------------------
-        proceessed_card_transactions_df=proceessed_card_transactions_df[['TableName', 'CardID', 'Name', 'Executed_Date', 'Charge_Date', 'Charge_Value', 'Final_Value', 'Category', 'Extra_Info','Description', 'Transaction_Type']]
+        proceessed_card_transactions_df=proceessed_card_transactions_df[['TableName', 'CardID', 'Name', 'Executed_Date', 'Charge_Date', 'Charge_Value', 'Charge_Currency', 'Value_Currency', 'Final_Value', 'Category', 'Extra_Info','Description', 'Transaction_Type']]
         
         proceessed_bank_transactions_df=proceessed_bank_transactions_df[['TableName', 'Name', 'Date',                                                        'Final_Value', 'Category', 'Extra_Info','Description', 'Transaction_Type']]
         proceessed_bank_transactions_df = proceessed_bank_transactions_df.rename(columns={'Date': 'Executed_Date'})
@@ -1118,12 +1118,21 @@ class AppManager:
         # monthly_cash_balance = cash_information_data['Monthly Earned Cash'] + \
         #                         cash_information_data['Monthly Spent Cash']
         
-        data['net income'] = (earnings_df['Final_Value'].sum() - spendings_df['Final_Value'].abs().sum()) 
+        total_monthly_income = transactions_df[(transactions_df['Final_Value'] > 0)]['Final_Value'].sum()
+        total_monthly_outcome = transactions_df[(transactions_df['Final_Value'] < 0)]['Final_Value'].sum()
+        total_monthly_outcome_no_invest = transactions_df[(transactions_df['Final_Value'] < 0) & 
+                                                          ((transactions_df["Category"] != INVESTMENT_CATEGORY))]['Final_Value'].sum()
+        data['net income'] = (total_monthly_income + total_monthly_outcome) 
 
-        data['overall net income'] = (earnings_df['Final_Value'].sum() - \
-                                      spendings_With_no_investments_df['Final_Value'].abs().sum())
+        data['overall net income'] = (total_monthly_income + \
+                                      total_monthly_outcome_no_invest)
         data['overall_net_mean'] = (np.array(earnings_sum) + np.array(spendings_sum_overall_inc)).mean()
         
+        spendings_df = transactions_df[transactions_df['Final_Value'] < 0]
+        spendings_df['Final_Value'] = spendings_df['Final_Value'].apply(lambda x: abs(x))
+        
+        earnings_df = transactions_df[transactions_df['Final_Value'] > 0]   
+        monthly_balance = DataBase().get_latest_Balance()
 
         utils.log("Generating HTML report...", "system")
         utils.generate_html(t.month,

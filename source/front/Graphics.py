@@ -278,31 +278,22 @@ class Graphics:
         plt.close()
 
     @staticmethod
-    def card_distribution(transactions: pd.DataFrame, color_dict: dict, df_card_status: pd.DataFrame):
+    def card_distribution(color_dict: dict, df_card_status: pd.DataFrame):
         """
         Revceives the spending df of the current month,
         """
-        temp_df = transactions[['TableName', 'CardID', 'Final_Value']]
-
-        if not temp_df.empty:
-            
-            temp_df['CardID'] = temp_df.apply(lambda row: 'Bank' if row['TableName'] == 'BankTransactions' else row['CardID'], axis=1)
-            
-            temp_df = temp_df.groupby("CardID").sum(numeric_only=True)
-            # The status df is merged with the data df in order to annotate the status (see lower part)
-            temp_df = pd.merge(temp_df, df_card_status, left_on='CardID', right_on='CardID', how='outer')
-
-            utils.log(f'Card Status, merged data frame::\n{temp_df.to_markdown()}','debug')
+        if not df_card_status.empty:
+            df_card_status['Final_Value'] = df_card_status.apply(lambda row: abs(row['Final_Value']), axis=1)
 
             # Plot the bar plot using seaborn
             sns.set(style="whitegrid")
             plt.figure(figsize=(6, 3))
 
             # Adding the values on top of the bar plots:
-            ax = sns.barplot(x="CardID", hue="CardID", y="Final_Value", data=temp_df, palette=color_dict, legend=False)
+            ax = sns.barplot(x="CardID", hue="CardID", y="Final_Value", data=df_card_status, palette=color_dict, legend=False)
             for index ,p in enumerate(ax.patches):
                 height = p.get_height()
-                status = temp_df['Status'].iloc[index]
+                status = df_card_status['Status'].iloc[index]
                 # ------------ annotate the value of the bar on top of it ------------
                 ax.annotate(f'{height:,.0f}₪',
                             xy=(p.get_x() + p.get_width() / 2, height),
@@ -310,15 +301,15 @@ class Graphics:
                             textcoords="offset points",
                             ha='center', va='bottom', fontweight='bold')
                 # --------------------------------------------------------------------
-                if status == "Verified":
-                    ax.annotate(f'{status}',
+                if status == True:
+                    ax.annotate('Verified',
                                 xy=(p.get_x() + p.get_width() / 2, height),
                                 xytext=(0, 17),  # 3 points vertical offset
                                 textcoords="offset points",
                                 ha='center', va='bottom', fontweight='bold', color = 'green')
                 # --------------------------------------------------------------------
-                if status == "Not Verified":
-                    ax.annotate(f'{status}',
+                if status == False:
+                    ax.annotate('Not Verified',
                                 xy=(p.get_x() + p.get_width() / 2, height),
                                 xytext=(0, 17),  # 3 points vertical offset
                                 textcoords="offset points",

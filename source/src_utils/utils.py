@@ -1990,65 +1990,69 @@ Please Make sure that none of the following formats have their 'Identifications 
 
 
     @staticmethod
-    def card_charge_validation(date: datetime) -> pd.DataFrame:
+    def card_charge_validation(processed_df: pd.DataFrame, date: datetime) -> pd.DataFrame:
         """
-        ---------------------------------------------------------
-        The following line will help configure the אשראי transactions
-        ---------------------------------------------------------
-        The function compares the sum of transactions made in a given month @param date, for each card, to transactions executed
-        in the following month in the bank transactions in order to find a match and by that, validate that all transactions were recorded correctly.
-        The comparison is made between transactions recorded in the card transaction table and sumed by the "card_sum" function, to transactions in the bank transactions table.
+        @prama processed_df: The function will receive the processed monthly transactions data frame.  
+        @param date: monthly date inserted by the user, the date will be used to query the bank transactions in the following month.
+
+        The function will try and validate all credit card charges present in the given month by comparing
+        the total sum of all transaction executed withing a specific card with a bank transaction in the following month.
+        match will be found when the price of the summed  transaction will be equal to a bank transaction in the following month
+        and also the bank transaction main name will match the possible names specified by the user.
+
         The function will return a data frame with the following columns:
-        - CardID: The ID of the card.
-        - Status: The status of the card, either "Verified" or "Not Verified".
-        - Out/Transaction_value: The total amount of spendings per card in the given month
-        ---------------------------------------------------------
-        :param date: The date for which the card charge validation is performed.     
+        - CardID: The card identifier
+        - Status: Verified / Not Verified
+        - Out/Transaction_value: The total sum of all transactions executed with the given card in the given month
+
         """
+        # ----- New Code Here -------------------------------------
         from database import DataBase
-        # The following will result in a data base describing the total amount of spendings per card in the given month.
-        df = DataBase().card_sum(date)
+        from Constants import Settings
 
-        #utils.log(f"{utils.df_to_markdown(df)}")
-        # remove all transactions with category withdrawal
-        df = df[df['Category'] != ReservedNames.WHITDRAWAL_CATEGORY]
-        df = df[df['Category'] != ReservedNames.EXCLUDED_CATEGORY]
-        #utils.log(f"{utils.df_to_markdown(df)}")
+        wip_df = processed_df.copy()
+        # Define the nan values for all bank transaction to a valid value: "Bank" for easier use
+        wip_df['CardID'] = wip_df.apply(lambda row: 'Bank' if row['TableName'] == 'BankTransactions' else row['CardID'], axis=1)
+        # Group by and drop irellevant columns
+        wip_df = wip_df[['CardID', 'Final_Value']].groupby('CardID').sum().reset_index()
+        wip_df['Status'] = False
 
-        debbug_df = df.copy()
-        cards_df = df[["Out/Transaction_value","CardID"]].groupby("CardID").sum().reset_index()
-        cards_df['Status'] = 'Not Verified'
         bank_df = DataBase().get_Bank_Transactions(utils.next_month(date).month,
                                                     utils.next_month(date).year)
-        # utils.log(f"debug: {utils.df_to_markdown(debbug_df)}")
-        # utils.log(f"debug: {utils.df_to_markdown(cards_df)}")
-        
-        for _, row_cs in cards_df.iterrows():       #cs - card sum
-            for _, row_bt in bank_df.iterrows():    #bt - card transactions
-                x = round(row_bt['Out'], 2)
-                y = round(row_cs['Out/Transaction_value'], 2)
-                if x == y:
-                    cards_df.loc[cards_df['CardID'] == row_cs['CardID'], 'Status'] = 'Verified'
-                    if row_bt['Category'] == 'אשראי':
+
+        for _, row_card in wip_df.iterrows():
+            # Skip the row that summes all bank transactions because validation is not required for it
+            if row_card['CardID'] == 'Bank':
+                continue
+            for _, row_bank in bank_df.iterrows():
+                card_charge_sum = abs(round(row_card['Final_Value'], 2))
+                card_id = row_card['CardID']
+                possible_bank_transaction_match =  round(row_bank['Out'], 2)
+                if card_charge_sum == possible_bank_transaction_match:
+                    wip_df.loc[wip_df['CardID'] == card_id, 'Status'] = True
+                    if row_bank['Category'] == CC_CHARGE_CATEGORY_NAME:
                         break
 
                     if utils.template_menu(['No', 'Yes'], f"App found this transaction to be a credit card:\n\
-                                        {row_bt}\n Do you Agree?"):
-                        DataBase().set_category('BankTransactions', row_bt['ID'], CC_CHARGE_CATEGORY_NAME)
+                                        {row_bank}\n Do you Agree?"):
+                        DataBase().set_category('BankTransactions', row_bank['ID'], CC_CHARGE_CATEGORY_NAME)
                         DataBase().commit_changes()
                         break
                     else:
                         utils.log('ignored...', 'system')
-
-        if not cards_df.empty:
-            cards_df = cards_df[['CardID', 'Status', 'Out/Transaction_value']]
         
-        for index, row in cards_df.iterrows():
-            if row['Status'] == 'Not Verified':
-                # Perform your action here
-                utils.log(f"information for card at index: {index},\n {debbug_df[debbug_df['CardID'] == row['CardID']].to_markdown()}", 'debug')
-        return cards_df
-    
+        if Settings.DEBUG:
+            for index, row in wip_df.iterrows():
+                if row['Status'] == 'Not Verified':
+                    # Perform your action here
+                    utils.log(f"information for card at index: {index},\n {wip_df[wip_df['CardID'] == row['CardID']].to_markdown()}", 'debug')
+        
+        return wip_df
+
+        # format_name, card_number = col.split(" | ")
+        # format_dict = Formats.FORMATS.get(format_name, {})
+        # card_names_dict = format_dict.get("Transaction Names", {})
+   
 
     @staticmethod
     def handle_withdrawals() -> Tuple[bool, str, pd.DataFrame]:

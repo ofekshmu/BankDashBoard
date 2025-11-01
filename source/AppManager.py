@@ -51,27 +51,23 @@ class AppManager:
 
     def menu(self):
         while True:
-            print("""
-                    Hello Ofek!
-                    What would you like to do today?
-
-                    1. Update/Parse files
-                    2. Show statistics
-                    3. Delete file information
-                    4. Search transactions 
-                    5. Update existing file
-                    6. Execute SQL query on db
-                    7. Open File Organizer
-                    8. add cash transaction
-                    9. Export Excel
-                    10. Insert other account status
-                    11. Advanced Search                  
-                    12. Exit
-                """)
-            answer = input()
-            answer = -1 if not answer.isdigit() else int(answer)
-
-            match answer:
+            match utils.template_menu(options=['Update/Parse files',
+                                             'Show statistics',
+                                             'Delete file information',
+                                             'Search transactions ',
+                                             'Update existing file',
+                                             'Execute SQL query on db',
+                                             'Open File Organizer',
+                                             'add cash transaction',
+                                             'Export Excel',
+                                             'Insert other account status',
+                                             'Advanced Search'],
+                                             msg='Hello Ofek! What would you like to do today?',
+                                             exit=True,
+                                             col_space=33):
+            
+                case 0:
+                    return
                 case 1:
                     self.load_data()
                     utils.tagger_refresh()
@@ -97,10 +93,8 @@ class AppManager:
                     self.Insert_other_account_status()
                 case 11:
                     self.advanced_search()
-                case 12:
-                    break
                 case _:
-                    print("Please insert a valid number.")
+                    utils.log("Please insert a valid number.",'system')
 
     def add_cash_transaction(self):
         from Constants import Paths
@@ -172,7 +166,6 @@ class AppManager:
         DataBase().commit_changes()
         utils.log(f"Cash transaction added!", "system")
         return True
-
 
 
     def Insert_other_account_status(self) -> None:
@@ -340,7 +333,7 @@ class AppManager:
             if 'category' in query_params:
                 options.remove("Add category filter")
 
-            choice = utils.template_menu(options, "\nSelect search filter to add:")
+            choice = utils.template_menu(options, "\nSelect search filter to add:", col_space=40)
 
             match options[choice]:
                 case "Add date range filter":
@@ -962,9 +955,6 @@ class AppManager:
                 utils.log("Unreachable point reached...", "error")
 
         data = {}
-            
-        #print_unverified_cards(t)
-        card_validation_df = utils.card_charge_validation(t)
         
         # Add linear plots data
         def get_accounts_data() -> dict:
@@ -1010,13 +1000,35 @@ class AppManager:
         monthly_bank_transactions_df = DataBase().query_monthly_transactions(date=t, tables=["BankTransactions"])
         proceessed_bank_transactions_df = SimpleMath.process_prices(monthly_bank_transactions_df, date=t)
 
+
         # -------------------------- Colision of both df --------------------------
-        proceessed_card_transactions_df=proceessed_card_transactions_df[['TableName', 'CardID', 'Name', 'Executed_Date', 'Charge_Date', 'Charge_Value', 'Charge_Currency', 'Value_Currency', 'Final_Value', 'Category', 'Extra_Info','Description', 'Transaction_Type']]
+        proceessed_card_transactions_df=proceessed_card_transactions_df[['TableName', 
+                                                                         'CardID',
+                                                                         'Name',
+                                                                         'Executed_Date',
+                                                                         'Charge_Date',
+                                                                         'Charge_Value',
+                                                                         'Charge_Currency',
+                                                                         'Value_Currency',
+                                                                         'Final_Value',
+                                                                         'Category',
+                                                                         'Extra_Info',
+                                                                         'Description',
+                                                                         'Transaction_Type']]
         
-        proceessed_bank_transactions_df=proceessed_bank_transactions_df[['TableName', 'Name', 'Date',                                                        'Final_Value', 'Category', 'Extra_Info','Description', 'Transaction_Type']]
+        proceessed_bank_transactions_df=proceessed_bank_transactions_df[['TableName', 'Name', 'Date', 
+                                                                         'Final_Value', 'Category', 'Extra_Info',
+                                                                         'Description', 'Transaction_Type']]
+        
         proceessed_bank_transactions_df = proceessed_bank_transactions_df.rename(columns={'Date': 'Executed_Date'})
         
         transactions_df = pd.concat([proceessed_bank_transactions_df, proceessed_card_transactions_df], ignore_index=True)
+
+        # ---- Card validation data ----
+        
+        card_validation_df = utils.card_charge_validation(transactions_df, t)
+        print(utils.df_to_markdown(card_validation_df))
+        # ------------------------------
 
         # --------------------------- Cash Flow ---------------------------
         utils.log("generating cash flow data...", "system")
@@ -1104,7 +1116,7 @@ class AppManager:
         #for cash transactions color
         card_color_dict['Cash'] = "#ECCD1F" 
 
-        Graphics.card_distribution(transactions_df, card_color_dict, card_validation_df)
+        Graphics.card_distribution(card_color_dict, card_validation_df)
 
         # ----- Payment PIE Graphs
         from Constants import Trans_Type

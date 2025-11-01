@@ -283,6 +283,7 @@ class Graphics:
         Revceives the spending df of the current month,
         """
         if not df_card_status.empty:
+            # i want to show the absolute values of the spending in the graph
             df_card_status['Final_Value'] = df_card_status.apply(lambda row: abs(row['Final_Value']), axis=1)
 
             # Plot the bar plot using seaborn
@@ -294,21 +295,25 @@ class Graphics:
             for index ,p in enumerate(ax.patches):
                 height = p.get_height()
                 status = df_card_status['Status'].iloc[index]
+                card_id = df_card_status['CardID'].iloc[index]
                 # ------------ annotate the value of the bar on top of it ------------
                 ax.annotate(f'{height:,.0f}₪',
                             xy=(p.get_x() + p.get_width() / 2, height),
                             xytext=(0, 3),  # 3 points vertical offset
                             textcoords="offset points",
                             ha='center', va='bottom', fontweight='bold')
-                # --------------------------------------------------------------------
-                if status == True:
+                # ------------ ignore annotation for bank row ------------------------
+                if card_id == "Bank":
+                    continue
+                # ------------ annotate "Verified" Text ------------------------------
+                if status:
                     ax.annotate('Verified',
                                 xy=(p.get_x() + p.get_width() / 2, height),
                                 xytext=(0, 17),  # 3 points vertical offset
                                 textcoords="offset points",
                                 ha='center', va='bottom', fontweight='bold', color = 'green')
                 # --------------------------------------------------------------------
-                if status == False:
+                if not status:
                     ax.annotate('Not Verified',
                                 xy=(p.get_x() + p.get_width() / 2, height),
                                 xytext=(0, 17),  # 3 points vertical offset

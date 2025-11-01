@@ -995,31 +995,42 @@ class AppManager:
         utils.log("Processing card data...", "system")        
         monthly_card_transactions_df = DataBase().query_monthly_transactions(date=t, tables=["CardTransactions"])
         proceessed_card_transactions_df = SimpleMath.process_prices(monthly_card_transactions_df, date=t)
-
+        
         utils.log("Processing bank data...", "system")
         monthly_bank_transactions_df = DataBase().query_monthly_transactions(date=t, tables=["BankTransactions"])
         proceessed_bank_transactions_df = SimpleMath.process_prices(monthly_bank_transactions_df, date=t)
 
-
-        # -------------------------- Colision of both df --------------------------
-        proceessed_card_transactions_df=proceessed_card_transactions_df[['TableName', 
-                                                                         'CardID',
-                                                                         'Name',
-                                                                         'Executed_Date',
-                                                                         'Charge_Date',
-                                                                         'Charge_Value',
-                                                                         'Charge_Currency',
-                                                                         'Value_Currency',
-                                                                         'Final_Value',
-                                                                         'Category',
-                                                                         'Extra_Info',
-                                                                         'Description',
-                                                                         'Transaction_Type']]
-        
-        proceessed_bank_transactions_df=proceessed_bank_transactions_df[['TableName', 'Name', 'Date', 
-                                                                         'Final_Value', 'Category', 'Extra_Info',
-                                                                         'Description', 'Transaction_Type']]
-        
+        # -------------------------- Collision of both df --------------------------
+        if monthly_card_transactions_df.empty:
+            utils.log("No card transactions found for the selected month.", "warning")
+        else:
+            proceessed_card_transactions_df=proceessed_card_transactions_df[['ID',
+                                                                            'TableName', 
+                                                                            'CardID',
+                                                                            'Name',
+                                                                            'Executed_Date',
+                                                                            'Charge_Date',
+                                                                            'Charge_Value',
+                                                                            'Charge_Currency',
+                                                                            'Value_Currency',
+                                                                            'Final_Value',
+                                                                            'Category',
+                                                                            'Extra_Info',
+                                                                            'Description',
+                                                                            'Transaction_Type']]
+        if monthly_bank_transactions_df.empty:
+            utils.log("No bank transactions found for the selected month.", "warning")
+        else:
+            proceessed_bank_transactions_df=proceessed_bank_transactions_df[['ID',
+                                                                             'TableName', 
+                                                                             'Name',
+                                                                             'Date', 
+                                                                             'Final_Value',
+                                                                             'Category',
+                                                                             'Extra_Info',
+                                                                             'Description',
+                                                                             'Transaction_Type']]
+            
         proceessed_bank_transactions_df = proceessed_bank_transactions_df.rename(columns={'Date': 'Executed_Date'})
         
         transactions_df = pd.concat([proceessed_bank_transactions_df, proceessed_card_transactions_df], ignore_index=True)
@@ -1027,7 +1038,6 @@ class AppManager:
         # ---- Card validation data ----
         
         card_validation_df = utils.card_charge_validation(transactions_df, t)
-        print(utils.df_to_markdown(card_validation_df))
         # ------------------------------
 
         # --------------------------- Cash Flow ---------------------------

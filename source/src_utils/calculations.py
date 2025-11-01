@@ -258,10 +258,33 @@ class SimpleMath:
         def is_payback_transaction(row):
             """
             identify payback transactions
+            1. Transaction and Charge values have different signs
+            2. Both values are negative
             """
             return row['Transaction_Value']*row['Charge_Value'] < 0 or \
                     (row['Transaction_Value'] < 0 and row['Charge_Value'] < 0)
-        
+
+        def handle_paybacks(row) -> pd.Series:
+            """
+            The function returns the Transactions value as a negative value for the amount:
+            - Some cases feature the Transaction value as positive, while at some it is negative.
+            - Transaction value shows the value in ILS for abroad transactions, when charge shows the value in foreign currency
+            The executed Date is returned as the date to indicated the date in witch the payback was given
+            this goes the opposit of other type of card transactions where they take affect on the charge date.
+            """
+            payback_value = row['Transaction_Value'] if row['Transaction_Value'] > 0 else -row['Transaction_Value']
+
+            if row['Charge_Currency'] != row['Value_Currency']:
+                relevance = True
+            else:
+                relevance = False
+
+            return pd.Series([row['Executed_Date'],
+                             payback_value,
+                             Trans_Type.payback,
+                             relevance
+        ])
+
         def is_withdrawls_transaction(row):
             """
             identify withdrawl transaction by the category
@@ -280,7 +303,7 @@ class SimpleMath:
                 return handle_flowing(row, date)
             
             elif is_payback_transaction(row):
-                return pd.Series([row['Charge_Date'], abs(row['Transaction_Value']), Trans_Type.payback, True])
+                return handle_paybacks(row)
 
             elif is_withdrawls_transaction(row):
                 return pd.Series([row['Executed_Date'] , -row['Transaction_Value'], Trans_Type.withdrawl, False])
@@ -301,9 +324,9 @@ class SimpleMath:
         utils.log(f"Processed transactions for given date {date} are:\n{utils.df_to_markdown(df)}","debug")
         
         # Keep only relevant transactions
-        df = df[df['Relevance']]
+        #df = df[df['Relevance']]
         # Optionally drop the helper column
-        df = df.drop(columns=['Relevance'])
+        #df = df.drop(columns=['Relevance'])
 
         return df   
 

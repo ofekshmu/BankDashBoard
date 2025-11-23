@@ -250,10 +250,13 @@ class SimpleMath:
             for each bank Transaction, outgoing transaction will receive a negative sign, Incoming will
             be left as they are (positive) 
             """
+            relevance = False if row['Category'] == ReservedNames.EXCLUDED_CATEGORY or \
+                                row['Category'] == ReservedNames.CC_CHARGE_CATEGORY_NAME else True
+
             return pd.Series([row['Date'],\
                 row['Income'] if row['Income'] > row['Out'] else (-row['Out']),\
                 Trans_Type.bank,\
-                True])
+                relevance])
 
         def is_payback_transaction(row):
             """
@@ -295,6 +298,10 @@ class SimpleMath:
 
             if row['TableName'] == "BankTransactions":
                 return handle_bank_transactions(row)
+            
+            # Excluded transactions are manualy excluded by the user or credit card charge transactions
+            elif row['Category'] == ReservedNames.EXCLUDED_CATEGORY or row['Category'] == ReservedNames.CC_CHARGE_CATEGORY_NAME:
+                return pd.Series([row['Executed_Date'], -row['Transaction_Value'], Trans_Type.excluded, False])
         
             elif is_payment_transaction(row):
                 return handle_payments(row, date)
@@ -308,10 +315,6 @@ class SimpleMath:
             elif is_withdrawls_transaction(row):
                 return pd.Series([row['Executed_Date'] , -row['Transaction_Value'], Trans_Type.withdrawl, False])
             
-            # Excluded transactions are manualy excluded by the user
-            elif row['Category'] == ReservedNames.EXCLUDED_CATEGORY:
-                return pd.Series([row['Executed_Date'], -row['Transaction_Value'], Trans_Type.excluded, False])
-            
             else:
                 return pd.Series([row['Executed_Date'], -row['Transaction_Value'], Trans_Type.default, True])
 
@@ -322,11 +325,14 @@ class SimpleMath:
         df[['Executed_Date', 'Final_Value', 'Transaction_Type', 'Relevance']]  = df.apply(classify_and_handle, axis=1)
         
         utils.log(f"Processed transactions for given date {date} are:\n{utils.df_to_markdown(df)}","debug")
-        
-        # Keep only relevant transactions
-        #df = df[df['Relevance']]
+        #from pandasgui import show
+        #show(df)       
+
+        # Keep only relevant transactions - do not delete
+        df = df[df['Relevance']]
+
         # Optionally drop the helper column
-        #df = df.drop(columns=['Relevance'])
+        # df = df.drop(columns=['Relevance'])
 
         return df   
 

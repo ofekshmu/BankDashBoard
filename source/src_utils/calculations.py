@@ -98,14 +98,14 @@ class SimpleMath:
 
         from Constants import INVESTMENT_CATEGORY
 
-        calculated_date = datetime.now()
+        current_date = datetime.now()
         initial_delta = 0 if GENERAL_PLOT.SHOW_CURRENT_MONTH else 1
         spendings_lst = []
         spendings_net_lst = []
         earnings_lst = []
 
-        for _ in range(initial_delta, shift):
-            calculated_date = calculated_date - pd.DateOffset(months=1)
+        for i in range(initial_delta, shift):
+            calculated_date = current_date - pd.DateOffset(months=i)
             df_i = SimpleMath.process_prices(
                         DataBase().query_monthly_transactions(date=calculated_date,
                                                               tables=['BankTransactions','CardTransactions']),
@@ -130,9 +130,9 @@ class SimpleMath:
             earnings_lst.append(df_i['Final_Value'][(df_i['Final_Value'] > 0)].sum())
             
         # data is returned backwards to fit the plot_general function.
-        return spendings_lst[::-1], \
-                spendings_net_lst[::-1], \
-                earnings_lst[::-1]
+        return spendings_lst, \
+                spendings_net_lst, \
+                earnings_lst
 
     @staticmethod
     def general_info(data):

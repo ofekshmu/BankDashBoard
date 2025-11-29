@@ -520,9 +520,10 @@ class Graphics:
 
         Amount spent in cash and the amount earned in cash in the given month will be returned.
         """
+        from pandasgui import show
         chart_name = "Cash_Distribution"
         chart_title = chart_name.replace('_', ' ')
-
+        
         if df_monthly_cash_transactions.empty:
             Graphics._create_empty_chart(chart_title)
             return 0.0, 0.0
@@ -539,8 +540,8 @@ class Graphics:
 
         # Add a column to identify if the transaction is a spending or an earning
         df['Type'] = df['Amount'].apply(lambda x: 'Spendings' if x < 0 else 'Earnings')
-        df = df.groupby(['Type', 'Category'], as_index=False).sum(numeric_only=True)
         df['Amount'] = df['Amount'].abs()
+        df = df.groupby(['Type', 'Category'], as_index=False).sum(numeric_only=True)
         # utils.log(f"Cash transactions for the month:\n{utils.df_to_markdown(df)}", 'system')
 
         DONUT_HOLE_SIZE = 0.70

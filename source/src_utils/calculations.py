@@ -164,7 +164,7 @@ class SimpleMath:
         return df_merged
 
     @staticmethod
-    def process_prices(df: pd.DataFrame, date: datetime):
+    def process_prices(df: pd.DataFrame, date: datetime, debug = False):
         """
         The function usess the lambda function to create the 'Final_Value' column
         Which describes the correct value to plot for each transaction. It returns
@@ -240,10 +240,12 @@ class SimpleMath:
             return Arguments:
                 @return (Trans_Type(Enum) = "flowing", bool) - true if the executed month matches the given date month else, false.
             """
+            # Assumption: flowing transactions are always relevant when the charge month is the next month of the given date
+
             return row['Executed_Date'],\
                     (-row['Transaction_Value']),\
                     Trans_Type.flowing,\
-                     date.month == pd.to_datetime(row['Executed_Date']).month
+                     date.month + 1 == pd.to_datetime(row['Charge_Date']).month
     
         def handle_bank_transactions(row) -> pd.Series:
             """
@@ -277,10 +279,9 @@ class SimpleMath:
             """
             payback_value = row['Transaction_Value'] if row['Transaction_Value'] > 0 else -row['Transaction_Value']
 
-            if row['Charge_Currency'] != row['Value_Currency']:
-                relevance = True
-            else:
-                relevance = False
+            # Assumption: if charge month is equal to the executed month, given the transaction is a payback, it is not relevant
+            # Fact - paybacks abroad/local can both be relevant and non relevant
+            relevance = not (pd.to_datetime(row['Executed_Date']).month == pd.to_datetime(row['Charge_Date']).month)
 
             return pd.Series([row['Executed_Date'],
                              payback_value,
@@ -300,7 +301,9 @@ class SimpleMath:
                 return handle_bank_transactions(row)
             
             # Excluded transactions are manualy excluded by the user or credit card charge transactions
-            elif row['Category'] == ReservedNames.EXCLUDED_CATEGORY or row['Category'] == ReservedNames.CC_CHARGE_CATEGORY_NAME:
+            elif row['Category'] == ReservedNames.EXCLUDED_CATEGORY or \
+                  row['Category'] == ReservedNames.CC_CHARGE_CATEGORY_NAME or \
+                    pd.to_datetime(row['Charge_Date']).month == date.month: # Charge date is in the curren month and not the next
                 return pd.Series([row['Executed_Date'], -row['Transaction_Value'], Trans_Type.excluded, False])
         
             elif is_payment_transaction(row):
@@ -329,6 +332,9 @@ class SimpleMath:
         #show(df)       
 
         # Keep only relevant transactions - do not delete
+        from pandasgui import show
+        if debug:
+            show(df)
         df = df[df['Relevance']]
 
         # Optionally drop the helper column

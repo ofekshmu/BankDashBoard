@@ -3,7 +3,7 @@ from Card import Card
 from Bank import Bank
 from Context import Context
 from Constants import Local, Paths
-from Constants import CC_CHARGE_CATEGORY_NAME, INVESTMENT_CATEGORY, GOLDEN_COLOR_PALLETE, GeneralPlot
+from Constants import CC_CHARGE_CATEGORY_NAME, INVESTMENT_CATEGORY, GOLDEN_COLOR_PALLETE, GeneralPlot, Settings, Trans_Type
 from src_utils.utils import utils
 from database import DataBase
 from front.Graphics import Graphics
@@ -994,12 +994,12 @@ class AppManager:
         
         utils.log("Processing card data...", "system")        
         monthly_card_transactions_df = DataBase().query_monthly_transactions(date=t, tables=["CardTransactions"])
-        proceessed_card_transactions_df = SimpleMath.process_prices(monthly_card_transactions_df, date=t)
-        
+        proceessed_card_transactions_df = SimpleMath.process_prices(monthly_card_transactions_df, date=t, debug=True)
+
         utils.log("Processing bank data...", "system")
         monthly_bank_transactions_df = DataBase().query_monthly_transactions(date=t, tables=["BankTransactions"])
         proceessed_bank_transactions_df = SimpleMath.process_prices(monthly_bank_transactions_df, date=t)
-
+        
         # -------------------------- Collision of both df --------------------------
         if monthly_card_transactions_df.empty:
             utils.log("No card transactions found for the selected month.", "warning")
@@ -1038,6 +1038,7 @@ class AppManager:
         # ---- Card validation data ----
         
         card_validation_df = utils.card_charge_validation(transactions_df, t)
+        print(card_validation_df.to_markdown())
         # ------------------------------
 
         # --------------------------- Cash Flow ---------------------------

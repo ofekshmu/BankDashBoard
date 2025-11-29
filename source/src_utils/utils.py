@@ -2012,11 +2012,8 @@ Please Make sure that none of the following formats have their 'Identifications 
         # ----- New Code Here -------------------------------------
         from database import DataBase
         from Constants import Settings, Trans_Type
-        
 
         wip_df = processed_df.copy()
-        # remove flow transactions
-        #wip_df = wip_df[wip_df['Transaction_Type'] != Trans_Type.flowing]
 
         # Define the nan values for all bank transaction to a valid value: "Bank" for easier use
         wip_df['CardID'] = wip_df.apply(lambda row: 'Bank' if row['TableName'] == 'BankTransactions' else row['CardID'], axis=1)

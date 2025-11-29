@@ -1938,6 +1938,9 @@ Please Make sure that none of the following formats have their 'Identifications 
         combined_cash_df = pd.concat([cash_df, bank_withdrawals_df], ignore_index=True)
         combined_cash_df = combined_cash_df.sort_values(by='Execution_Date', ascending=False).reset_index(drop=True)
 
+        # Convert 'Amount' column to numeric
+        combined_cash_df['Amount'] = pd.to_numeric(combined_cash_df['Amount'], errors='coerce')
+
         return combined_cash_df
 
     @staticmethod
@@ -2008,9 +2011,13 @@ Please Make sure that none of the following formats have their 'Identifications 
         """
         # ----- New Code Here -------------------------------------
         from database import DataBase
-        from Constants import Settings
+        from Constants import Settings, Trans_Type
+        
 
         wip_df = processed_df.copy()
+        # remove flow transactions
+        #wip_df = wip_df[wip_df['Transaction_Type'] != Trans_Type.flowing]
+
         # Define the nan values for all bank transaction to a valid value: "Bank" for easier use
         wip_df['CardID'] = wip_df.apply(lambda row: 'Bank' if row['TableName'] == 'BankTransactions' else row['CardID'], axis=1)
         # Group by and drop irellevant columns

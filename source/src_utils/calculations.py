@@ -323,6 +323,9 @@ class SimpleMath:
 
         if df.empty:
             utils.log("df is empty", "debug")
+            # add Final_Value and Transaction_Type columns to empty df
+            df['Final_Value'] = pd.Series(dtype='float')
+            df['Transaction_Type'] = pd.Series(dtype='object')
             return df
         
         df[['Executed_Date', 'Final_Value', 'Transaction_Type', 'Relevance']]  = df.apply(classify_and_handle, axis=1)

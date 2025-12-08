@@ -65,7 +65,7 @@ class Formats:
                                     "Independent": True,
                                     "flip": False,
                                     "associated": [],
-                                    "Transaction Names": {"4046" : ["4046 - ישראכרט"],
+                                    "Transaction Names": {"4046" : ["4046 - ישראכרט", '4046 - ישראכרט בע"מ'],
                                                            "2922" : ['ישראכרט בע"מ']}},
 
                "American-Express": {"Format Name": "American-Express",

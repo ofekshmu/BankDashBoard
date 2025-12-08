@@ -994,7 +994,7 @@ class AppManager:
         
         utils.log("Processing card data...", "system")        
         monthly_card_transactions_df = DataBase().query_monthly_transactions(date=t, tables=["CardTransactions"])
-        proceessed_card_transactions_df = SimpleMath.process_prices(monthly_card_transactions_df, date=t, debug=True)
+        proceessed_card_transactions_df = SimpleMath.process_prices(monthly_card_transactions_df, date=t, debug=Settings.DEBUG)
 
         utils.log("Processing bank data...", "system")
         monthly_bank_transactions_df = DataBase().query_monthly_transactions(date=t, tables=["BankTransactions"])

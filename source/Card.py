@@ -81,6 +81,7 @@ The value parsed is {parsed_text}", "error")
             return time_stamp
         
         self.card_number = read_card_number()
+        parsed_date = read_file_date()
   
         # Before adding file to database, A check to see if the file was already inserted to the database is made:
         def check_duplicate() -> bool:
@@ -89,17 +90,18 @@ The value parsed is {parsed_text}", "error")
             based on the card number, format name and date specified in the File database.
             If the file was already inserted, the function will return False else True.
             """
-            return DataBase().is_file_exists_v2(self.format_name, self.card_number, read_file_date())
+            return DataBase().is_file_exists_v2(self.format_name, self.card_number, parsed_date)
 
         if check_duplicate():
             utils.log(f"File {self.name} was already inserted to the database.", "error")
 
         valid_rows = super().parse()
 
+
         DataBase().insert_file(self.name,
                                self.format_name,
                                self.card_number,
-                               read_file_date(),
+                               parsed_date,
                                -1,                    # Value is changed after the cleaning process
                                valid_rows)
 

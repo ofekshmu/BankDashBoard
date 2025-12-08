@@ -1733,7 +1733,7 @@ Please Make sure that none of the following formats have their 'Identifications 
             if res is not None:
                 dirty_bit = True
                 DataBase().set_category(table_name=row['TableName'], id=row['ID'], category=res)
-                logs += f"transaction {utils.heb_conversion(row['Name'])} ({row['TableName']}) ({row['ID']}) was tagged to {res}\n"
+                logs += f"transaction {utils.heb_conversion(row['Name'])} ({row['TableName']}) ({row['ID']}) was tagged to {utils.heb_conversion(res)}\n"
 
         if dirty_bit:
             utils.log(logs, 'system')

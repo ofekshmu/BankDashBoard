@@ -1036,14 +1036,12 @@ class AppManager:
         transactions_df = pd.concat([proceessed_bank_transactions_df, proceessed_card_transactions_df], ignore_index=True)
 
         # ---- Card validation data ----
-        
+    
         card_validation_df = utils.card_charge_validation(transactions_df, t)
-        print(card_validation_df.to_markdown())
-        # ------------------------------
+        utils.log(card_validation_df.to_markdown(), "debug")
 
         # --------------------------- Cash Flow ---------------------------
         utils.log("generating cash flow data...", "system")
-
 
         # Monthly cash transactions df
         mct_df = utils.get_cash_transactions(t)

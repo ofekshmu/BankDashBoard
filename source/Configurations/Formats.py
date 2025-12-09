@@ -40,7 +40,7 @@ class Formats:
                                     "Sortion key": None,
                                     "Card number cell": (4, 0),
                                     "Card string format" : None,
-                                    "Adittional data field": (4, 2),
+                                    "Adittional data field": None,
                                     "TimeStamp": Location.FILE_NAME_DATE,
                                     "TimeStamp Format": r'(\d{1,2})_(\d{4})' ,
                                     "TimeStamp location": None,

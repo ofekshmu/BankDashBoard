@@ -114,7 +114,9 @@ The value parsed is {parsed_text}", "error")
         return super().clean(flip=True)
 
     def insert(self) -> bool:
-
+        
+        if len(self.table_1) > 0:
+            utils.log("Table 1... ", "system", e = "")
         for row in self.table_1:
             match self.format_name:
                 case "Leumi-Max":
@@ -135,27 +137,25 @@ The value parsed is {parsed_text}", "error")
                     DataBase().insert_card_transaction(CardID=self.card_number,
                                                        Name=row[1],
                                                        Executed_Date=utils.date_ready(row[0]),
-                                                       Charge_Date=utils.date_ready(row[1]),
+                                                       Charge_Date=utils.date_ready(self.adittional_data_field_value), # self.adittional_data_field_value/ row[1]
                                                        Charge_Value=row[2],
                                                        Source_file=self.name,
                                                        Charge_Currency=row[3],
                                                        Transaction_Value=row[4],
                                                        Value_Currency=row[5],
                                                        Extra_Info=f"Serial: {row[6]} | Info: ({row[7]})")
-
                 case "American-Express":
 
                     DataBase().insert_card_transaction(CardID=self.card_number,
                                                        Name=row[1],
                                                        Executed_Date=utils.date_ready(row[0]),
-                                                       Charge_Date=utils.date_ready(row[1]),
+                                                       Charge_Date=utils.date_ready(self.adittional_data_field_value),
                                                        Charge_Value=row[2],
                                                        Source_file=self.name,
                                                        Charge_Currency=row[3],
                                                        Transaction_Value=row[4],
                                                        Value_Currency=row[5],
                                                        Extra_Info=f"Serial: {row[6]} | Info: ({row[7]})")
-
                 case "Leumi-Card6744":
 
                     DataBase().insert_card_transaction(CardID="6744",
@@ -179,8 +179,7 @@ The value parsed is {parsed_text}", "error")
                                                        Charge_Currency=row[4],
                                                        Transaction_Value=row[5],
                                                        Value_Currency=row[6],
-                                                       Extra_Info=f"Type: {row[7]} | Note: None")
-                
+                                                       Extra_Info=f"Type: {row[7]} | Note: None")          
                 case "Cal":
                     if row[3] != row[2]:
                         utils.log("Cal_Sufersal Format cannot handel different currencies - a transaction with different currencies was found", "error")
@@ -205,6 +204,10 @@ case in the match-case scope. Card Class, insert function.\
 Check if the 'format_name was typed correctly or the case for the specified format\
 does not exist.", "error")
 
+        utils.log("Completed ", "system")
+        
+        if len(self.table_2) > 0:
+            utils.log("Table 2... ", "system", e = "")
         for row in self.table_2:
             match self.format_name:
                 case "Isra-Card":
@@ -230,8 +233,7 @@ does not exist.", "error")
                                                        Charge_Currency=row[4],
                                                        Transaction_Value=row[5],
                                                        Value_Currency=row[6],
-                                                       Extra_Info=f"Type: {row[7]} | Note: None")
-                
+                                                       Extra_Info=f"Type: {row[7]} | Note: None")                
                 case "American-Express":
 
                     DataBase().insert_card_transaction(CardID=self.card_number,
@@ -244,6 +246,8 @@ does not exist.", "error")
                                                        Transaction_Value=row[5],
                                                        Value_Currency=row[6],
                                                        Extra_Info="Transaction Abroad")
+        
+        utils.log("Completed ", "system")
         return True
 
     def __str__(self):

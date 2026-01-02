@@ -29,7 +29,7 @@ class utils:
                     log_st += f"[SYSTEM]: {msg}"
             case 'error':
                 write = True
-                log_st += f"{100*'-'}\n[ERROR]: {msg}\n{100*'-'}\n"
+                log_st += f"\n{100*'-'}\n[ERROR]: {msg}\n{100*'-'}\n"
             case 'db':
                 write = True
                 log_st += f"[DataBase]: {msg}"
@@ -891,7 +891,7 @@ class utils:
             except Exception as e:
                 continue
 
-        utils.log(f"Invalid date format. Please use '-' or '/' as separators...\n got the value: {date} of type {type(date)}.", "error")
+        utils.log(f"func date_ready: Invalid date format. Please use '-' or '/' as separators...\n got the value: {date} of type {type(date)}.", "error")
         # following date will never be returned. placed for linter.
         return datetime(1, 1, 1)
 
@@ -1829,26 +1829,37 @@ Please Make sure that none of the following formats have their 'Identifications 
         The function will ask the user to choose a category name to replace, and then 
         to choose a new name for it
         """
-        cat_lst = utils.get_saved_categories()
-        index, cat_lst = utils.typer_template_menu(cat_lst, msg = "Please choose a category name to replace:", sort = True)
-        chosen_cat_to_replace = cat_lst[index]
-        utils.log(f"You chose {chosen_cat_to_replace}...")
+        current_category_list = utils.get_saved_categories()
+        index, sub_category_list = utils.typer_template_menu(current_category_list, msg = "Please choose a category name to replace:", sort = True)
+        chosen_category_to_replace = sub_category_list[index]
         
         while True:
-            new_chosen_cat, _ = utils.handle_categories()
-            if chosen_cat_to_replace == new_chosen_cat:
+            index, sub_category_list = utils.typer_template_menu(options=current_category_list + ["「Choose a new category name」"], 
+                                                        msg= "Pick a category from the existing list or choose to create a new one:",
+                                                        sort=True,
+                                                        )
+            new_chosen_category = sub_category_list[index]
+            if new_chosen_category == "「Choose a new category name」":
+                new_chosen_category = utils.parse_str_from_user(message=f"Please insert a new name for category {(chosen_category_to_replace)}",)
+            
+            if chosen_category_to_replace == new_chosen_category:
+                utils.log("You have chosen the same category name to replace, please choose a different one", 'system')
                 continue
-            if new_chosen_cat in ["「Skip」", "「Back to menu」"]:
+            
+            if new_chosen_category in ["「Skip」", "「Back to menu」"]:
+                utils.log("Choose a valid catregory name...", 'system')
                 continue
+            
             break
         
         from database import DataBase
-        DataBase().replace_category(frm=chosen_cat_to_replace, to=new_chosen_cat)
+        DataBase().replace_category(frm=chosen_category_to_replace, to=new_chosen_category)
         DataBase().commit_changes()
-        new_category_lst = utils.get_saved_categories()
-        new_category_lst.remove(chosen_cat_to_replace)
+        new_category_lst = current_category_list.copy() 
+        new_category_lst.remove(chosen_category_to_replace)
+        new_category_lst.append(new_chosen_category)
         utils.update_categories_file(new_category_lst, append=False)
-        utils.log(f"({chosen_cat_to_replace}) has been removed from the category list")
+        utils.log(f"({chosen_category_to_replace}) has been replaced by ({new_chosen_category})")
 
     @staticmethod
     def delete_a_transaction() -> None:
@@ -2270,3 +2281,16 @@ Please Make sure that none of the following formats have their 'Identifications 
             else:
                 utils.log("Deletion cancelled. No changes made.", 'system')
                 return False
+
+    @staticmethod       
+    def parse_str_from_user(message: str = "Please enter a non-empty string: ") -> str:
+        """
+        Asks the user for a non-empty string input.
+        Returns the input string.
+        """
+        while True:
+            user_input = input(message).strip()
+            if user_input:
+                return user_input
+            else:
+                utils.log("Input cannot be empty. Please try again.", "system")

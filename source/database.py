@@ -1480,7 +1480,7 @@ class DataBase:
         """
         The function receives 2 categories, an existing category to change
         and another category (could be a new category or an existing one) to change to.
-        the number of affacted rows in each table is printed.
+        the number of affected rows in each table is printed.
         """
         for table_name in ['BankTransactions', 'CardTransactions']:
             

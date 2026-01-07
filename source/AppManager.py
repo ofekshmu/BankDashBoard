@@ -440,7 +440,8 @@ class AppManager:
                                    'Fix Date Bug for cal',
                                    'Update all "Cal-Shufersal" formats to "Cal" in File table',
                                    'Exclude Transaction',
-                                   'Delete a cash transaction entery by ID'], 'Pick one of the following:', col_space=60)
+                                   'Delete a cash transaction entery by ID'
+                                   'DateBase date fix'], 'Pick one of the following:', col_space=60)
         match res:
             case 0:
                 original_command()
@@ -471,6 +472,8 @@ class AppManager:
                 utils.exclude_transaction()
             case 9:
                 utils.delete_cash_transaction_by_id()
+            case 10:
+                utils.fix_database_dates()
             case _:
                 utils.log('Something went wrong in "execute_sql"', 'error')
 
@@ -785,7 +788,7 @@ class AppManager:
             else:
                 df = DataBase().get_transactions(category=name_for_analysis, business=None)
 
-            df = SimpleMath.process_prices(df)
+            df = SimpleMath.process_prices(df, general_analysis=False)
             
             from datetime import datetime
             # Convert dates and filter last 5 months
@@ -813,7 +816,7 @@ class AppManager:
             else:
                 df = DataBase().get_transactions(category=name_for_analysis, business=None)
 
-            df = SimpleMath.process_prices(df)
+            df = SimpleMath.process_prices(df, general_analysis=False)
             df['Date/Executed_Date'] = pd.to_datetime(df['Date/Executed_Date'], format="%Y-%m-%d %H:%M:%S").apply(lambda x: x.strftime('%Y-%m'))
             df = df.groupby('Date/Executed_Date').sum()
             total_active_month = len(df)
@@ -830,7 +833,7 @@ class AppManager:
             else:
                 df = DataBase().get_transactions(category=name_for_analysis, business=None)
 
-            df = SimpleMath.process_prices(df)
+            df = SimpleMath.process_prices(df, general_analysis=False)
             df['Date/Executed_Date'] = pd.to_datetime(df['Date/Executed_Date'], format="%Y-%m-%d %H:%M:%S").apply(lambda x: x.strftime('%Y-%m'))
             df = df.groupby('Date/Executed_Date').sum()
             total_active_month = len(df)
@@ -848,7 +851,7 @@ class AppManager:
             else:
                 df = DataBase().get_transactions(category=name_for_analysis, business=None)
 
-            df = SimpleMath.process_prices(df)
+            df = SimpleMath.process_prices(df, general_analysis=False)
             df['Date/Executed_Date'] = pd.to_datetime(df['Date/Executed_Date'], format="%Y-%m-%d %H:%M:%S").apply(lambda x: x.strftime('%Y'))
             df = df.groupby('Date/Executed_Date').sum()
             df_len = len(df)
@@ -895,18 +898,18 @@ class AppManager:
             """
             if case:
                 df = DataBase().get_transactions(category=None, business=name_for_analysis)
-                df = SimpleMath.process_prices(df)
+                df = SimpleMath.process_prices(df, general_analysis=False)
                 df = df[['Name','Final_Value','Category']].groupby('Category').sum()
             else:
                 df = DataBase().get_transactions(category=name_for_analysis, business=None)
-                df = SimpleMath.process_prices(df)
+                df = SimpleMath.process_prices(df, general_analysis=False)
                 df = df[['Name','Final_Value','Category']].groupby('Name').sum()
             
             return Graphics.plot_pie_distribution(df)
 
 
 
-        df_transactions = SimpleMath.process_prices(DataBase().get_transactions())
+        df_transactions = SimpleMath.process_prices(DataBase().get_transactions(), general_analysis=False)
         if case:
             df_transactions = remove_by(df_transactions,business_name=name_for_analysis)
         else:
@@ -994,7 +997,7 @@ class AppManager:
         
         utils.log("Processing card data...", "system")        
         monthly_card_transactions_df = DataBase().query_monthly_transactions(date=t, tables=["CardTransactions"])
-        proceessed_card_transactions_df = SimpleMath.process_prices(monthly_card_transactions_df, date=t, debug=Settings.DEBUG)
+        proceessed_card_transactions_df = SimpleMath.process_prices(monthly_card_transactions_df, date=t)
 
         utils.log("Processing bank data...", "system")
         monthly_bank_transactions_df = DataBase().query_monthly_transactions(date=t, tables=["BankTransactions"])

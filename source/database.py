@@ -272,7 +272,7 @@ class DataBase:
         Insert a new file to local DB.
         @date: date stated in excel file.
         '''
-        last_update = datetime.now().strftime("%d-%m-%Y")
+        last_update = utils.date_ready(datetime.now().strftime("%d-%m-%Y"))
         self.cursor.execute(f"""
             INSERT INTO File(File_Name, Format, Card_Number, Date, New_Transactions, Transaction_count, Last_update)
             VALUES(?, ?, ?, ?, ?, ?, ?)
@@ -1878,3 +1878,35 @@ class DataBase:
             return combined_df
         else:
             return pd.DataFrame()  # Return empty DataFrame if no valid tables provided
+        
+    def fix_column_date_format(self, table_name: str, column_name: str) -> pd.DataFrame:
+        """
+        The function will fix the date format in the specified column of the specified table using the date_ready function.
+        a df will be returned, indicating if the entery was fixed, failed to be fixed or was already correct.
+        """
+        query = f"""
+            SELECT ID, {column_name}
+            FROM {table_name}
+        """
+        rows = self.cursor.execute(query).fetchall()
+        results = []
+
+        for row in rows:
+            entry_id, date_str = row
+            try:
+                fixed_date = utils.date_ready(date_str)
+                # Update the database with the fixed date
+                update_query = f"""
+                    UPDATE {table_name}
+                    SET {column_name} = ?
+                    WHERE ID = ?
+                """
+                self.cursor.execute(update_query, (fixed_date, entry_id))
+                results.append((entry_id, fixed_date, 'Fixed'))
+            
+            except Exception:
+                results.append((entry_id, date_str, 'Failed to fix'))
+            
+        self.connection.commit()
+        return pd.DataFrame(results, columns=['ID', column_name, 'Status'])
+        

@@ -1,6 +1,6 @@
 from database import DataBase
 from src_utils.utils import utils
-from typing import Tuple
+from typing import Tuple, Optional
 from datetime import datetime
 import pandas as pd
 from Constants import GENERAL_PLOT, ReservedNames
@@ -121,8 +121,8 @@ class SimpleMath:
                     business = [business]
                 df_i = df_i[df_i['Name'].isin(business)]
 
-            if df_i.empty:
-                utils.log("test", 'system')
+            # if df_i.empty:
+            #     utils.log("test", 'system')
 
 
             spendings_lst.append(df_i['Final_Value'][(df_i['Final_Value'] < 0)].sum())
@@ -164,18 +164,31 @@ class SimpleMath:
         return df_merged
 
     @staticmethod
-    def process_prices(df: pd.DataFrame, date: datetime, debug = False):
+    def process_prices(df: pd.DataFrame, date: datetime = datetime(2000, 1, 1), general_analysis: bool = True) -> pd.DataFrame:
         """
-        The function usess the lambda function to create the 'Final_Value' column
-        Which describes the correct value to plot for each transaction. It returns
-        a df representing the original input data along with the 'Final_Value column.
+        The function process the prices of the given dataframe according to the type of transaction.
+        return arguments:
+            @return df: pd.DataFrame - the processed dataframe with the following added columns:
+                - Final_Value: int - the final value of the transaction after processing
+                - Transaction_Type: Enum - the type of transaction according to the Constants.Trans_Type enum
+                - Relevance: bool - True if the transaction is relevant to the given month and year, False otherwise
+        The function will classify each transaction according to the following types:
+            - Payment transactions: transactions that are payments for previous transactions
+            - Flowing transactions: transactions that are charged 2 months after the executed date
+            - Payback transactions: transactions that are paybacks for previous transactions
+            - Withdrawl transactions: transactions that are withdrawls from an ATM
+            - Bank transactions: transactions that are from the bank account
+            - Default transactions: all other transactions
+            - excluded transactions: transactions that are manually excluded by the user or credit card charge transactions
+        see spec file for more information on each type of transaction
 
         inputs:
-        @param df - a dataframe containing transactions from both CardTransactions and BankTransactions
-        @param month - when given, the function will remove payments that are not relevant to the given month
-        @param year - when given, the function will remove payments that are not relevant to the
-        
-        default values will not be used and relevant method will not be used
+            @param df: pd.DataFrame - the dataframe to process
+            @param date: datetime - process the transcations according to this month and year. 
+             Default value - datetime(2000, 1, 1) is irelevant and used only when general_analysis is False,
+             otherwise the function will return an error when the user does not specify a date for general analysis.
+            @param general_analysis: bool - True if the function is used for general analysis, False otherwise
+
         """
 
         from Constants import Trans_Type
@@ -321,8 +334,12 @@ class SimpleMath:
             else:
                 return pd.Series([row['Executed_Date'], -row['Transaction_Value'], Trans_Type.default, True])
 
+        # Validate inputs:
+        if general_analysis and date == datetime(2000, 1, 1): # default date value used
+            utils.log("Invalid input combination calling process_prices:\nPlease specify date when using for General analysis", "error")
+
         if df.empty:
-            utils.log("df is empty", "debug")
+            utils.log("process_prices: df is empty", "debug")
             # add Final_Value and Transaction_Type columns to empty df
             df['Final_Value'] = pd.Series(dtype='float')
             df['Transaction_Type'] = pd.Series(dtype='object')
@@ -330,18 +347,13 @@ class SimpleMath:
         
         df[['Executed_Date', 'Final_Value', 'Transaction_Type', 'Relevance']]  = df.apply(classify_and_handle, axis=1)
         
-        utils.log(f"Processed transactions for given date {date} are:\n{utils.df_to_markdown(df)}","debug")
-        #from pandasgui import show
-        #show(df)       
-
-        # Keep only relevant transactions - do not delete
-        from pandasgui import show
-        if debug:
-            show(df)
-        df = df[df['Relevance']]
-
-        # Optionally drop the helper column
-        # df = df.drop(columns=['Relevance'])
+        utils.log(f"Processed transactions for given date {date} are:\n{utils.df_to_markdown(df)}","debug")      
+        
+        if general_analysis:
+            df = df[df['Relevance']]
+        else:
+            # Drop excluded transactions
+            df = df[df['Transaction_Type'] != Trans_Type.excluded]
 
         return df   
 

@@ -1,7 +1,7 @@
 import sqlite3
 from datetime import datetime
 import pandas as pd
-from typing import Literal
+from typing import Literal, Optional
 
 
 # local imports
@@ -712,6 +712,46 @@ class DataBase:
 
         return df  
 
+    def get_transactions(self, table: Literal['BankTransactions', 'CardTransactions'],
+                                        category_filter: Optional[str],
+                                        name_filter: Optional[str]) -> pd.DataFrame:
+        """
+        get all transactions from the given table that fit the given filters.
+        function is process_proces ready.
+
+        Args:
+            table (Literal['BankTransactions', 'CardTransactions']): the table to query from.
+            category_filter (Optional[str]): if not None, filter by this category.
+            name_filter (Optional[str]): if not None, filter by this business name.
+        Returns:
+            pd.DataFrame: dataframe of the queried transactions.
+        """
+
+        if table not in ['BankTransactions', 'CardTransactions']:
+            utils.log(f"Bad input {table} in 'get_all_bank_transactions' in DataBase class", "error")
+
+        query = f"""
+                SELECT *, 'BankTransactions' AS TableName
+                FROM {table}
+                """ 
+        query_values = [] 
+        query_parts = []
+
+        if not (category_filter is None and name_filter is None):
+            query += "WHERE "
+
+        if category_filter is not None:
+            query_parts.append("category = ?")
+            query_values.append(category_filter)
+
+        if name_filter is not None:
+            query_parts.append("name = ?")
+            query_values.append(name_filter)
+
+        query += " AND ".join(query_parts)
+        return pd.DataFrame(self.cursor.execute(query, query_values).fetchall(),
+                            columns=[d[0] for d in self.cursor.description])
+        
     def get_transactions(self, category=None, business=None):
         """
         get all transactions that fit the given filters.

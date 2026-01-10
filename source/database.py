@@ -20,6 +20,28 @@ def validate_table_name(func):
         return func(self, table_name, *args, **kwargs)
     return wrapper
 # ----------------------------------------------------------------------
+def check_for_empty_df(func):
+    """Decorator for database functions.
+
+    - If the wrapped function returns a pandas.DataFrame and it's empty, log a warning.
+    - If the wrapped function returns a Warning instance or a string containing 'warning', log it.
+    """
+    def wrapper(*args, **kwargs):
+        res = func(*args, **kwargs)
+        try:
+            # pandas DataFrame empty check
+            if isinstance(res, pd.DataFrame):
+                if res.empty:
+                    utils.log(f"Query returned an empty DataFrame for function '{func.__name__}'", "warning")
+
+        except Exception as e:
+            utils.log(f"operator decorator processing error: {e}", "error")
+
+        return res
+
+    return wrapper
+# ----------------------------------------------------------------------
+# ----------------------------------------------------------------------
 
 class DataBase:
 
@@ -712,6 +734,7 @@ class DataBase:
 
         return df  
 
+    @check_for_empty_df
     def get_transactions(self, table: Literal['BankTransactions', 'CardTransactions'],
                                         category_filter: Optional[str],
                                         name_filter: Optional[str]) -> pd.DataFrame:
@@ -737,14 +760,15 @@ class DataBase:
         query_values = [] 
         query_parts = []
 
-        if not (category_filter is None and name_filter is None):
+        if not ((category_filter is None or category_filter == "") and 
+                (name_filter is None or name_filter == "")):
             query += "WHERE "
 
-        if category_filter is not None:
+        if category_filter is not None and category_filter != "":
             query_parts.append("category = ?")
             query_values.append(category_filter)
 
-        if name_filter is not None:
+        if name_filter is not None and name_filter != "":
             query_parts.append("name = ?")
             query_values.append(name_filter)
 
@@ -752,60 +776,60 @@ class DataBase:
         return pd.DataFrame(self.cursor.execute(query, query_values).fetchall(),
                             columns=[d[0] for d in self.cursor.description])
         
-    def get_transactions(self, category=None, business=None):
-        """
-        get all transactions that fit the given filters.
-        function is process_proces ready.
-        """
-        if not (isinstance(category, str) or category is None):
-            utils.log("Argument input 'category' error in 'get_transactions'", "error")
+    # def get_transactions(self, category=None, business=None):
+    #     """
+    #     get all transactions that fit the given filters.
+    #     function is process_proces ready.
+    #     """
+    #     if not (isinstance(category, str) or category is None):
+    #         utils.log("Argument input 'category' error in 'get_transactions'", "error")
         
-        if not (isinstance(business, str) or business is None):
-            utils.log("Argument input 'business' error in 'get_transactions'", "error")
+    #     if not (isinstance(business, str) or business is None):
+    #         utils.log("Argument input 'business' error in 'get_transactions'", "error")
 
-        data = self.cursor.execute("""
-                                    SELECT
-                                        'BankTransactions' AS TableName,
-                                        Ref AS 'Ref/CardID',
-                                        Name,
-                                        Date AS 'Date/Executed_Date',
-                                        Value_Date AS 'Value_Date/Charge_Date',
-                                        Out AS 'Out/Transaction_value',
-                                        Income AS 'Income/Charge_Value',
-                                        Description AS 'Description/Charge_Currency',
-                                        Reserved AS 'Reserved/Value_Currency',
-                                        Category,
-                                        Extra_Info,
-                                        Source_file,
-                                        Description
-                                    FROM BankTransactions
-                                    WHERE Category != ?
-                                    UNION ALL
-                                    SELECT
-                                        'CardTransactions' AS TableName,
-                                        CardID,
-                                        Name,
-                                        Executed_Date,
-                                        Charge_Date,
-                                        Transaction_Value,
-                                        Charge_Value,
-                                        Charge_Currency,
-                                        Value_Currency,
-                                        Category,
-                                        Extra_Info,
-                                        Source_file,
-                                        Description
-                                    FROM CardTransactions
-                                        """, ("אשראי", )).fetchall()  
-        df = pd.DataFrame(data, columns=[d[0] for d in self.cursor.description])
+    #     data = self.cursor.execute("""
+    #                                 SELECT
+    #                                     'BankTransactions' AS TableName,
+    #                                     Ref AS 'Ref/CardID',
+    #                                     Name,
+    #                                     Date AS 'Date/Executed_Date',
+    #                                     Value_Date AS 'Value_Date/Charge_Date',
+    #                                     Out AS 'Out/Transaction_value',
+    #                                     Income AS 'Income/Charge_Value',
+    #                                     Description AS 'Description/Charge_Currency',
+    #                                     Reserved AS 'Reserved/Value_Currency',
+    #                                     Category,
+    #                                     Extra_Info,
+    #                                     Source_file,
+    #                                     Description
+    #                                 FROM BankTransactions
+    #                                 WHERE Category != ?
+    #                                 UNION ALL
+    #                                 SELECT
+    #                                     'CardTransactions' AS TableName,
+    #                                     CardID,
+    #                                     Name,
+    #                                     Executed_Date,
+    #                                     Charge_Date,
+    #                                     Transaction_Value,
+    #                                     Charge_Value,
+    #                                     Charge_Currency,
+    #                                     Value_Currency,
+    #                                     Category,
+    #                                     Extra_Info,
+    #                                     Source_file,
+    #                                     Description
+    #                                 FROM CardTransactions
+    #                                     """, ("אשראי", )).fetchall()  
+    #     df = pd.DataFrame(data, columns=[d[0] for d in self.cursor.description])
         
-        if category is not None:
-            df = df[df['Category'] == category]
+    #     if category is not None:
+    #         df = df[df['Category'] == category]
         
-        if business is not None:
-            df = df[df['Name'] == business]
+    #     if business is not None:
+    #         df = df[df['Name'] == business]
 
-        return df
+    #     return df
 
     def get_visa_transactions(self):
         """

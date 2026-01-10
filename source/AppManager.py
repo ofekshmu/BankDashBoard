@@ -13,6 +13,7 @@ import webbrowser
 from Configurations.Formats import Formats, Context_class
 import pandas as pd
 from os import listdir
+from typing import Literal, Optional
 import numpy as np
 import seaborn as sns
 from Exporter import Exporter
@@ -750,31 +751,44 @@ class AppManager:
 
     def category_analysis(self):
 
-        case = 0
+        name_for_analysis = ""
+        category_for_analysis = ""
+        case = utils.template_menu(["Analyze a category", "Analayze a Business"], "Pick an option:", exit=True)
 
-        match utils.template_menu(["Analyze a category", "Analayze a Business"], "Pick an option:", exit=True):
+        match case:
             case 0:
                 return
             case 1:
                 options = utils.get_saved_categories()
                 idx, sub_options = utils.typer_template_menu(options, "Pick a Category:")
+                category_for_analysis = sub_options[idx]
             case 2:
                 case = 1
                 options = DataBase().get_all_business_names()
                 idx, sub_options = utils.typer_template_menu(options, "Pick a Bussines:")
+                name_for_analysis = sub_options[idx]
             case _:
                 utils.log("Unreachable point reached...", "error") 
 
-        name_for_analysis = sub_options[idx]
 
-        def get_monthly_average(name_for_analysis, case):
+        def get_monthly_average(data: pd.DataFrame) -> float:
             """
-            Returns category \ business monthly average of all incomes and sepndings 
+            Returns category/business monthly average over all months
+            all months is defined as the amount of months between the earliest month in the df to the current month
+            Calculates the average using the 'Final_Value' column in the dataframe
+            
+            arguments: 
+            data: pd.DataFrame - the dataframe containing the transactions
+            returns:
+            float - the monthly average
             """
-            total_sum = DataBase().total_sum_transactions(name_for_analysis, case)
-            total_months = DataBase().months_total_calculator()
-            monthly_average_value = round(total_sum / total_months, 2)
-            return monthly_average_value
+
+            from datetime import datetime
+            sum = data['Final_Value'].sum()
+            # calculate the amount of months between the earliest month in the df to the current month
+            month_count = datetime.now().month -  data['Date'].min().month + 1
+
+            return round(sum / month_count, 2)
         
         def get_rolling_monthly_average(name_for_analysis, case, rolling_window=5):
             """
@@ -876,22 +890,6 @@ class AppManager:
                 return 0
             return DataBase().total_income(name_for_analysis, case)
 
-        if case:
-            spendings_sum, spendings_sum_overall_inc, earnings_sum = SimpleMath.get_monthly_shifted(shift=6, category=None, business=name_for_analysis)
-        else:
-            spendings_sum, spendings_sum_overall_inc, earnings_sum = SimpleMath.get_monthly_shifted(shift=6, category=name_for_analysis, business=None)
-
-        Graphics.plot_general(spendings_sum, spendings_sum_overall_inc, earnings_sum, title_ext='Category_analysis', topic = name_for_analysis, fig_size=(8, 5))
-        
-        def remove_by(df: pd.DataFrame, category=None, business_name=None) -> pd.DataFrame:
-            if category is not None:
-                df = df[df['Category'] == category]
-
-            if business_name is not None:
-                df = df[df['Name'] == business_name]
-
-            return df
-
         def get_associated(name_for_analysis, case) -> list[str]:
             """
             TODO
@@ -907,20 +905,64 @@ class AppManager:
             
             return Graphics.plot_pie_distribution(df)
 
-
-
-        df_transactions = SimpleMath.process_prices(DataBase().get_transactions(), general_analysis=False)
+        # -------------------------- Plot general graph --------------------------
         if case:
-            df_transactions = remove_by(df_transactions,business_name=name_for_analysis)
+            spendings_sum, spendings_sum_overall_inc, earnings_sum = SimpleMath.get_monthly_shifted(shift=6, category=None, business=name_for_analysis)
         else:
-            df_transactions = remove_by(df_transactions,category=name_for_analysis)
+            spendings_sum, spendings_sum_overall_inc, earnings_sum = SimpleMath.get_monthly_shifted(shift=6, category=category_for_analysis, business=None)
 
-        outliers_lst = get_associated(name_for_analysis, case)
+        Graphics.plot_general(spendings_sum, spendings_sum_overall_inc, earnings_sum, title_ext='Category_analysis', topic = name_for_analysis, fig_size=(8, 5))
+        # -------------------------- 
+
+        df_bank_transactions = SimpleMath.process_prices(DataBase().get_transactions('BankTransactions',
+                                                                                     category_filter=category_for_analysis,
+                                                                                     name_filter=name_for_analysis), 
+                                                        general_analysis=False)
+        
+        df_card_transactions = SimpleMath.process_prices(DataBase().get_transactions('CardTransactions',
+                                                                                     category_filter=category_for_analysis,
+                                                                                     name_filter=name_for_analysis), 
+                                                        general_analysis=False)
+        
+
+        if df_card_transactions.empty:
+            utils.log("No card transactions found for the selected month.", "warning")
+        else:
+            df_card_transactions=df_card_transactions[['ID',
+                                                        'TableName', 
+                                                        'CardID',
+                                                        'Name',
+                                                        'Executed_Date',
+                                                        'Charge_Date',
+                                                        'Charge_Value',
+                                                        'Charge_Currency',
+                                                        'Value_Currency',
+                                                        'Final_Value',
+                                                        'Category',
+                                                        'Extra_Info',
+                                                        'Description',
+                                                        'Transaction_Type']]
+        if df_bank_transactions.empty:
+            utils.log("No bank transactions found for the selected month.", "warning")
+        else:
+            df_bank_transactions=df_bank_transactions[['ID',
+                                                        'TableName', 
+                                                        'Name',
+                                                        'Date', 
+                                                        'Final_Value',
+                                                        'Category',
+                                                        'Extra_Info',
+                                                        'Description',
+                                                        'Transaction_Type']]
+
+        proceessed_bank_transactions_df = df_bank_transactions.rename(columns={'Date': 'Executed_Date'})
+        
+        data = pd.concat([proceessed_bank_transactions_df, df_card_transactions], ignore_index=True)
 
         # Run analysis     
         utils.create_html_name_analysis({"subtitle": "Specific Analysis",
-                                         "Category/business name": name_for_analysis,
-                                         "Monthly Average": get_monthly_average(name_for_analysis, case),
+                                         "Category/business name": category_for_analysis if case else name_for_analysis,
+                                         "Monthly Average": get_monthly_average(data),
                                          "Recent Monthly Average": get_rolling_monthly_average(name_for_analysis, case),
                                          "Monthly Active Average": get_active_monthly_average(name_for_analysis, case),
                                          "Monthly Active Standard Deviation": get_active_monthly_sd(name_for_analysis, case),
@@ -930,7 +972,7 @@ class AppManager:
                                          "Yearly use plot path": r"C:\Users\ofeks\OneDrive\Ofek\BankProject\Outputs\General_info_Category_analysis.png",
                                          "Highest Transaction value" : "X",
                                          "Highest Transaction date": "X",
-                                         "Association list": outliers_lst,
+                                         "Association list": get_associated(name_for_analysis, case),
                                          "count pie plot path" : r"C:\Users\ofeks\OneDrive\Ofek\BankProject\Outputs\Category_Distribution.png",
                                          "transactions": df_transactions})
         webbrowser.open(r'source\html\Category_output.html')

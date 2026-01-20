@@ -774,7 +774,7 @@ class AppManager:
         def get_monthly_average(data: pd.DataFrame) -> float:
             """
             Returns category/business monthly average over all months
-            all months is defined as the amount of months between the earliest month in the df to the current month
+            all months is defined as the amount of months between the earliest month in the df to the current month.
             Calculates the average using the 'Final_Value' column in the dataframe
             
             arguments: 
@@ -790,53 +790,47 @@ class AppManager:
 
             return round(sum / month_count, 2)
         
-        def get_rolling_monthly_average(name_for_analysis, case, rolling_window=5):
+        def get_recent_monthly_average(data: pd.DataFrame, window_size: int=5):
             """
-            Returns category/business monthly average over the last 5 months
-            (excluding current month)
+            Returns category/business monthly average over the last @window_size months
+            Calculates the average using the 'Final_Value' column in the dataframe
+            
+            arguments:
+                data: pd.DataFrame - the dataframe containing the transactions
+                window_size: int - the number of months to consider for the average
+            returns:
+                float - the recent monthly average
+
             """
             from dateutil.relativedelta import relativedelta
-            
-            if case:
-                df = DataBase().get_transactions(category=None, business=name_for_analysis)
-            else:
-                df = DataBase().get_transactions(category=name_for_analysis, business=None)
-
-            df = SimpleMath.process_prices(df, general_analysis=False)
-            
             from datetime import datetime
+
             # Convert dates and filter last 5 months
-            current_date = datetime.now().replace(day=1) # First day of current month
-            x_months_ago = current_date - relativedelta(months=rolling_window)
+            current_date = datetime.now().replace(day=1)
+            x_months_ago = current_date - relativedelta(months=window_size)
             
-            df['Date/Executed_Date'] = pd.to_datetime(df['Date/Executed_Date'])
-            mask = (df['Date/Executed_Date'] >= x_months_ago) & (df['Date/Executed_Date'] < current_date)
-            df = df[mask]
+            data['Date'] = pd.to_datetime(data['Date'])
+            mask = (data['Date'] >= x_months_ago) & (data['Date'] < current_date)
+            data = data[mask]
             
-            # Group by month and calculate average
-            df['month_year'] = df['Date/Executed_Date'].dt.strftime('%Y-%m')
-            monthly_sums = df.groupby('month_year')['Final_Value'].sum()
-            
-            return round(monthly_sums.sum() / rolling_window, 2)
+            return round(data['Final_Value'].sum() / window_size, 2)
 
-        def get_active_monthly_average(name_for_analysis, case):
+        def get_active_monthly_average(data: pd.DataFrame) -> float:
             """
-            Returns category \ business monthly average of active months, i.e - months that include
-            any transaction of the chosen category \ business
+            return the active monthly average of the given data frame.
+            Active monthly average is defined as the average of all months that had at least one transaction
+            arguments:
+                data: pd.DataFrame - the dataframe containing the transactions
+            returns:
+                float - the active monthly average
             """
-            #total_sum = DataBase().total_sum_transactions(name_for_analysis, case)
-            if case:
-                df = DataBase().get_transactions(category=None, business=name_for_analysis)
-            else:
-                df = DataBase().get_transactions(category=name_for_analysis, business=None)
-
-            df = SimpleMath.process_prices(df, general_analysis=False)
-            df['Date/Executed_Date'] = pd.to_datetime(df['Date/Executed_Date'], format="%Y-%m-%d %H:%M:%S").apply(lambda x: x.strftime('%Y-%m'))
-            df = df.groupby('Date/Executed_Date').sum()
-            total_active_month = len(df)
-            total_sum = df['Final_Value'].sum()
+            data['Date'] = pd.to_datetime(data['Date'], format="%Y-%m-%d %H:%M:%S").apply(lambda x: x.strftime('%Y-%m'))
+            data = data.groupby('Date').sum()
+            total_active_month = len(data)
+            total_sum = data['Final_Value'].sum()
             monthly_average_value = round(total_sum / total_active_month, 2)
-            return monthly_average_value
+            return monthly_average_value            
+
 
         def get_active_monthly_sd(name_for_analysis, case):
             """
@@ -963,8 +957,8 @@ class AppManager:
         utils.create_html_name_analysis({"subtitle": "Specific Analysis",
                                          "Category/business name": category_for_analysis if case else name_for_analysis,
                                          "Monthly Average": get_monthly_average(data),
-                                         "Recent Monthly Average": get_rolling_monthly_average(name_for_analysis, case),
-                                         "Monthly Active Average": get_active_monthly_average(name_for_analysis, case),
+                                         "Recent Monthly Average": get_recent_monthly_average(data, window_size=5),
+                                         "Monthly Active Average": get_active_monthly_average(data),
                                          "Monthly Active Standard Deviation": get_active_monthly_sd(name_for_analysis, case),
                                          "Yearly Average": yearly_average(name_for_analysis, case),
                                          "Total Spendings": total_spendings(name_for_analysis, case),

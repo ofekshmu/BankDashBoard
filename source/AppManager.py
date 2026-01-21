@@ -815,40 +815,24 @@ class AppManager:
             
             return round(data['Final_Value'].sum() / window_size, 2)
 
-        def get_active_monthly_average(data: pd.DataFrame) -> float:
+        def get_monthly_active_stats(data: pd.DataFrame) -> tuple[float, float]:
             """
-            return the active monthly average of the given data frame.
+            return the active monthly average and standard deviation of the given data frame.
             Active monthly average is defined as the average of all months that had at least one transaction
             arguments:
                 data: pd.DataFrame - the dataframe containing the transactions
             returns:
                 float - the active monthly average
+                float - the active monthly standard deviation
             """
             data['Date'] = pd.to_datetime(data['Date'], format="%Y-%m-%d %H:%M:%S").apply(lambda x: x.strftime('%Y-%m'))
             data = data.groupby('Date').sum()
             total_active_month = len(data)
             total_sum = data['Final_Value'].sum()
             monthly_average_value = round(total_sum / total_active_month, 2)
-            return monthly_average_value            
+            active_sd_value = round((total_sum  -  total_active_month) ** 0.5, 2)
+            return monthly_average_value, active_sd_value         
 
-
-        def get_active_monthly_sd(name_for_analysis, case):
-            """
-            Returns category \ business standard deviation of all incomes and spendings
-            """
-            if case:
-                df = DataBase().get_transactions(category=None, business=name_for_analysis)
-            else:
-                df = DataBase().get_transactions(category=name_for_analysis, business=None)
-
-            df = SimpleMath.process_prices(df, general_analysis=False)
-            df['Date/Executed_Date'] = pd.to_datetime(df['Date/Executed_Date'], format="%Y-%m-%d %H:%M:%S").apply(lambda x: x.strftime('%Y-%m'))
-            df = df.groupby('Date/Executed_Date').sum()
-            total_active_month = len(df)
-            total_sum = df['Final_Value'].sum()
-            active_monthly_average = get_active_monthly_average(name_for_analysis, case)
-            monthly_average_value = round(((total_sum -  active_monthly_average) / total_active_month) ** 0.5, 2)
-            return monthly_average_value
         
         def yearly_average(name_for_analysis, case):
             """
@@ -953,13 +937,14 @@ class AppManager:
         
         data = pd.concat([proceessed_bank_transactions_df, df_card_transactions], ignore_index=True)
 
-        # Run analysis     
+        active_average, active_sd = get_monthly_active_stats(data)
+
         utils.create_html_name_analysis({"subtitle": "Specific Analysis",
                                          "Category/business name": category_for_analysis if case else name_for_analysis,
                                          "Monthly Average": get_monthly_average(data),
                                          "Recent Monthly Average": get_recent_monthly_average(data, window_size=5),
-                                         "Monthly Active Average": get_active_monthly_average(data),
-                                         "Monthly Active Standard Deviation": get_active_monthly_sd(name_for_analysis, case),
+                                         "Monthly Active Average": active_average,
+                                         "Monthly Active Standard Deviation": active_sd,
                                          "Yearly Average": yearly_average(name_for_analysis, case),
                                          "Total Spendings": total_spendings(name_for_analysis, case),
                                          "Total Income": total_income(name_for_analysis, case),

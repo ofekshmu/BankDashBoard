@@ -763,7 +763,6 @@ class AppManager:
                 idx, sub_options = utils.typer_template_menu(options, "Pick a Category:")
                 category_for_analysis = sub_options[idx]
             case 2:
-                case = 1
                 options = DataBase().get_all_business_names()
                 idx, sub_options = utils.typer_template_menu(options, "Pick a Bussines:")
                 name_for_analysis = sub_options[idx]
@@ -827,67 +826,60 @@ class AppManager:
             """
             data['Date'] = pd.to_datetime(data['Date'], format="%Y-%m-%d %H:%M:%S").apply(lambda x: x.strftime('%Y-%m'))
             data = data.groupby('Date').sum()
-            total_active_month = len(data)
-            total_sum = data['Final_Value'].sum()
-            monthly_average_value = round(total_sum / total_active_month, 2)
-            active_sd_value = round((total_sum  -  total_active_month) ** 0.5, 2)
-            return monthly_average_value, active_sd_value         
-
+            return data['Final_Value'].mean() , data['Final_Value'].std()        
+       
+        def yearly_average(data: pd.DataFrame) -> tuple[float, float]:
+            """
+            return the active yearly average and standard deviation of the given data frame.
+            Active yearly average is defined as the average of all years that had at least one transaction
+            arguments:
+                data: pd.DataFrame - the dataframe containing the transactions
+            returns:
+                float - the active yearly average
+                float - the active yearly standard deviation
+            """
+            data['Date'] = pd.to_datetime(data['Date'], format="%Y-%m-%d %H:%M:%S").apply(lambda x: x.strftime('%Y'))
+            data = data.groupby('Date').sum()
+            return data['Final_Value'].mean() , data['Final_Value'].std()                
         
-        def yearly_average(name_for_analysis, case):
+        def total_spendings(data: pd.DataFrame) -> float:
             """
-            Returns category \ business yearly average of all incomes and spenedings 
+            Returns  total spendings
             """
-            if case:
-                df = DataBase().get_transactions(category=None, business=name_for_analysis)
+            return data['Final_Value'][data['Final_Value'] < 0].sum()
+
+        def total_income(data: pd.DataFrame) -> float:
+            """
+            Returns total income
+            """
+            return data['Final_Value'][data['Final_Value'] > 0].sum()
+
+        def get_associated(data: pd.DataFrame, case: int) -> list[str]:
+            """
+            return all associated business/category names with the given category/business of @data df
+            arguments:
+                data: pd.DataFrame - the dataframe containing the transactions
+                case: int - 1 for category analysis, 2 for business analysis
+            returns:
+                list[str] - list of associated names
+            """
+
+            if case == 1:
+                data = data[['Name','Final_Value','Category']].groupby('Name').sum()
+            elif case == 2:
+                data = data[['Name','Final_Value','Category']].groupby('Category').sum()
             else:
-                df = DataBase().get_transactions(category=name_for_analysis, business=None)
-
-            df = SimpleMath.process_prices(df, general_analysis=False)
-            df['Date/Executed_Date'] = pd.to_datetime(df['Date/Executed_Date'], format="%Y-%m-%d %H:%M:%S").apply(lambda x: x.strftime('%Y'))
-            df = df.groupby('Date/Executed_Date').sum()
-            df_len = len(df)
-            total_active_month = DataBase().months_total_calculator()
-            total_sum = df['Final_Value'].sum()
-            monthly_average_value = round(total_sum * 12 / total_active_month, 2)
-            return monthly_average_value
-        
-        def total_spendings(name_for_analysis, case):
-            """
-            Returns category \ business total spendings
-            """
-            if DataBase().total_spendings(name_for_analysis, case) == None:
-                return 0
-            return DataBase().total_spendings(name_for_analysis, case)
-
-        def total_income(name_for_analysis, case):
-            """
-            Returns category \ business total income
-            """
-            if DataBase().total_income(name_for_analysis, case) == None:
-                return 0
-            return DataBase().total_income(name_for_analysis, case)
-
-        def get_associated(name_for_analysis, case) -> list[str]:
-            """
-            TODO
-            """
-            if case:
-                df = DataBase().get_transactions(category=None, business=name_for_analysis)
-                df = SimpleMath.process_prices(df, general_analysis=False)
-                df = df[['Name','Final_Value','Category']].groupby('Category').sum()
-            else:
-                df = DataBase().get_transactions(category=name_for_analysis, business=None)
-                df = SimpleMath.process_prices(df, general_analysis=False)
-                df = df[['Name','Final_Value','Category']].groupby('Name').sum()
+                utils.log("Unreachable point reached...", "error")
             
-            return Graphics.plot_pie_distribution(df)
-
+            return Graphics.plot_pie_distribution(data)
+        
         # -------------------------- Plot general graph --------------------------
-        if case:
+        if case == 2:
             spendings_sum, spendings_sum_overall_inc, earnings_sum = SimpleMath.get_monthly_shifted(shift=6, category=None, business=name_for_analysis)
-        else:
+        elif case == 1:
             spendings_sum, spendings_sum_overall_inc, earnings_sum = SimpleMath.get_monthly_shifted(shift=6, category=category_for_analysis, business=None)
+        else:
+            utils.log("Unreachable point reached...", "error")
 
         Graphics.plot_general(spendings_sum, spendings_sum_overall_inc, earnings_sum, title_ext='Category_analysis', topic = name_for_analysis, fig_size=(8, 5))
         # -------------------------- 
@@ -940,20 +932,20 @@ class AppManager:
         active_average, active_sd = get_monthly_active_stats(data)
 
         utils.create_html_name_analysis({"subtitle": "Specific Analysis",
-                                         "Category/business name": category_for_analysis if case else name_for_analysis,
+                                         "Category/business name": category_for_analysis if case == 1 else name_for_analysis,
                                          "Monthly Average": get_monthly_average(data),
                                          "Recent Monthly Average": get_recent_monthly_average(data, window_size=5),
                                          "Monthly Active Average": active_average,
                                          "Monthly Active Standard Deviation": active_sd,
-                                         "Yearly Average": yearly_average(name_for_analysis, case),
-                                         "Total Spendings": total_spendings(name_for_analysis, case),
-                                         "Total Income": total_income(name_for_analysis, case),
+                                         "Yearly Average": yearly_average(data),
+                                         "Total Spendings": total_spendings(data),
+                                         "Total Income": total_income(data),
                                          "Yearly use plot path": r"C:\Users\ofeks\OneDrive\Ofek\BankProject\Outputs\General_info_Category_analysis.png",
                                          "Highest Transaction value" : "X",
                                          "Highest Transaction date": "X",
-                                         "Association list": get_associated(name_for_analysis, case),
+                                         "Association list": get_associated(data, case),
                                          "count pie plot path" : r"C:\Users\ofeks\OneDrive\Ofek\BankProject\Outputs\Category_Distribution.png",
-                                         "transactions": df_transactions})
+                                         "transactions": data})
         webbrowser.open(r'source\html\Category_output.html')
 
 

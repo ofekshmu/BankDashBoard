@@ -783,10 +783,11 @@ class AppManager:
             """
 
             from datetime import datetime
-            sum = data['Final_Value'].sum()
+            #convert date string column to datetime
+            data['Date'] = pd.to_datetime(data['Date'])
+            sum = data['Final_Value'].sum(numeric_only=True)
             # calculate the amount of months between the earliest month in the df to the current month
-            month_count = datetime.now().month -  data['Date'].min().month + 1
-
+            month_count = (datetime.now().year - data['Date'].min().year) * 12 + (datetime.now().month - data['Date'].min().month) + 1
             return round(sum / month_count, 2)
         
         def get_recent_monthly_average(data: pd.DataFrame, window_size: int=5):
@@ -825,7 +826,7 @@ class AppManager:
                 float - the active monthly standard deviation
             """
             data['Date'] = pd.to_datetime(data['Date'], format="%Y-%m-%d %H:%M:%S").apply(lambda x: x.strftime('%Y-%m'))
-            data = data.groupby('Date').sum()
+            data = data.groupby('Date').sum(numeric_only=True)
             return data['Final_Value'].mean() , data['Final_Value'].std()        
        
         def yearly_average(data: pd.DataFrame) -> tuple[float, float]:
@@ -839,7 +840,7 @@ class AppManager:
                 float - the active yearly standard deviation
             """
             data['Date'] = pd.to_datetime(data['Date'], format="%Y-%m-%d %H:%M:%S").apply(lambda x: x.strftime('%Y'))
-            data = data.groupby('Date').sum()
+            data = data.groupby('Date').sum(numeric_only=True)
             return data['Final_Value'].mean() , data['Final_Value'].std()                
         
         def total_spendings(data: pd.DataFrame) -> float:
@@ -912,6 +913,9 @@ class AppManager:
                                                         'Extra_Info',
                                                         'Description',
                                                         'Transaction_Type']]
+            
+        proceessed_card_transactions_df = df_card_transactions.rename(columns={'Executed_Date': 'Date'})
+
         if df_bank_transactions.empty:
             utils.log("No bank transactions found for the selected month.", "warning")
         else:
@@ -924,26 +928,25 @@ class AppManager:
                                                         'Extra_Info',
                                                         'Description',
                                                         'Transaction_Type']]
-
-        proceessed_bank_transactions_df = df_bank_transactions.rename(columns={'Date': 'Executed_Date'})
         
-        data = pd.concat([proceessed_bank_transactions_df, df_card_transactions], ignore_index=True)
+        data = pd.concat([df_bank_transactions, proceessed_card_transactions_df], ignore_index=True)
 
-        active_average, active_sd = get_monthly_active_stats(data)
+        analisys_data = data.copy()
+        active_average, active_sd = get_monthly_active_stats(analisys_data.copy())
 
         utils.create_html_name_analysis({"subtitle": "Specific Analysis",
                                          "Category/business name": category_for_analysis if case == 1 else name_for_analysis,
-                                         "Monthly Average": get_monthly_average(data),
-                                         "Recent Monthly Average": get_recent_monthly_average(data, window_size=5),
+                                         "Monthly Average": get_monthly_average(analisys_data.copy()),
+                                         "Recent Monthly Average": get_recent_monthly_average(analisys_data.copy(), window_size=5),
                                          "Monthly Active Average": active_average,
                                          "Monthly Active Standard Deviation": active_sd,
-                                         "Yearly Average": yearly_average(data),
-                                         "Total Spendings": total_spendings(data),
-                                         "Total Income": total_income(data),
+                                         "Yearly Average": yearly_average(analisys_data.copy())[0],
+                                         "Total Spendings": total_spendings(analisys_data.copy()),
+                                         "Total Income": total_income(analisys_data.copy()),
                                          "Yearly use plot path": r"C:\Users\ofeks\OneDrive\Ofek\BankProject\Outputs\General_info_Category_analysis.png",
                                          "Highest Transaction value" : "X",
                                          "Highest Transaction date": "X",
-                                         "Association list": get_associated(data, case),
+                                         "Association list": get_associated(analisys_data.copy(), case),
                                          "count pie plot path" : r"C:\Users\ofeks\OneDrive\Ofek\BankProject\Outputs\Category_Distribution.png",
                                          "transactions": data})
         webbrowser.open(r'source\html\Category_output.html')

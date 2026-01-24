@@ -754,7 +754,7 @@ class DataBase:
             utils.log(f"Bad input {table} in 'get_all_bank_transactions' in DataBase class", "error")
 
         query = f"""
-                SELECT *, 'BankTransactions' AS TableName
+                SELECT *, '{table}' AS TableName
                 FROM {table}
                 """ 
         query_values = [] 

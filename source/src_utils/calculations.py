@@ -316,7 +316,7 @@ class SimpleMath:
             # Excluded transactions are manualy excluded by the user or credit card charge transactions
             elif row['Category'] == ReservedNames.EXCLUDED_CATEGORY or \
                   row['Category'] == ReservedNames.CC_CHARGE_CATEGORY_NAME or \
-                    pd.to_datetime(row['Charge_Date']).month == date.month: # Charge date is in the curren month and not the next
+                    (pd.to_datetime(row['Charge_Date']).month == date.month and general_analysis): # Charge date is in the curren month and not the next
                 return pd.Series([row['Executed_Date'], -row['Transaction_Value'], Trans_Type.excluded, False])
         
             elif is_payment_transaction(row):

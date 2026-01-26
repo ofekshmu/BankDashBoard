@@ -948,7 +948,7 @@ class AppManager:
                                          "Highest Transaction date": "X",
                                          "Association list": get_associated(analisys_data.copy(), case),
                                          "count pie plot path" : r"C:\Users\ofeks\OneDrive\Ofek\BankProject\Outputs\Category_Distribution.png",
-                                         "transactions": data})
+                                         "transactions": analisys_data})
         webbrowser.open(r'source\html\Category_output.html')
 
 

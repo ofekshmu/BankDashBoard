@@ -31,7 +31,6 @@ class Context_class(Enum):
 class Formats:
 
     FORMATS = {
-
                "Isra-Card":  {"Format Name": "Isra-Card",
                                     "Context": Context_class.Card,
                                     "Identification method": Identification_Method.CELL,
@@ -40,7 +39,7 @@ class Formats:
                                     "Sortion key": None,
                                     "Card number cell": (4, 0),
                                     "Card string format" : None,
-                                    "Adittional data field": None,
+                                    "Adittional data field": (4, 2),
                                     "TimeStamp": Location.FILE_NAME_DATE,
                                     "TimeStamp Format": r'(\d{1,2})_(\d{4})' ,
                                     "TimeStamp location": None,
@@ -66,7 +65,39 @@ class Formats:
                                     "flip": False,
                                     "associated": [],
                                     "Transaction Names": {"4046" : ["4046 - ישראכרט", '4046 - ישראכרט בע"מ'],
-                                                           "2922" : ['ישראכרט בע"מ']}},
+                                                           "2922" : ['ישראכרט בע"מ']}
+                            },
+
+               "Isra-Card-2026":  {"Format Name": "Isra-Card-2026",
+                                    "Context": Context_class.Card,
+                                    "Identification method": Identification_Method.HEADERS,
+                                    "Identification data": None,
+                                    "Sortion method": Sortion_Method.BY_NAME_DATE,
+                                    "Sortion key": None,
+                                    "Card number cell": (5, 0),
+                                    "Card string format" : r"\d{4}$",
+                                    "Adittional data field": None,
+                                    "TimeStamp": Location.FILE_NAME_DATE,
+                                    "TimeStamp Format": r'\d{4}_(\d{2})_(\d{4})' ,
+                                    "TimeStamp location": None,
+                                    "Headers": ["תאריך רכישה",
+                                                "שם בית עסק",
+                                                "סכום עסקה",
+                                                "מטבע עסקה",
+                                                "סכום חיוב",
+                                                "מטבע חיוב",
+                                                "מס' שובר",
+                                                "פירוט נוסף"],
+                                    "Double tables": False,
+                                    "Secondary Headers": [],
+                                    "Header row index": 10,
+                                    "Header col index": 0,
+                                    "Independent": True,
+                                    "flip": False,
+                                    "associated": [],
+                                    "Transaction Names": {"4046" : ["4046 - ישראכרט", '4046 - ישראכרט בע"מ'],
+                                                           "2922" : ['ישראכרט בע"מ']}
+                            },
 
                "American-Express": {"Format Name": "American-Express",
                                     "Context": Context_class.Card,
@@ -101,7 +132,8 @@ class Formats:
                                     "Independent": True,
                                     "flip": False,
                                     "associated": [],
-                                    "Transaction Names": {"1565" : ["פרימיום אקספרס"]}},
+                                    "Transaction Names": {"1565" : ["פרימיום אקספרס"]}
+                                },
 
                 "Cal":          {"Format Name": "Cal",
                                 "Context": Context_class.Card,

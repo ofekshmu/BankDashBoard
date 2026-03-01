@@ -225,9 +225,17 @@ class Parser():
                 return srch_result.group()[1:]
             case Sortion_Method.BY_NAME_DATE:
                 try:
-                    date_str = re.search("\d{1,2}_\d{1,2}_\d{4}|\d{1,2}_\d{4}|\d{2}.\d{2}.\d{2}", name).group()
+                    isra_Card_2026 = "\d{4}_(\d{2}_\d{4})"
+                    result_lst = re.findall(isra_Card_2026 + r"|" + r"(\d{1,2}_\d{1,2}_\d{4})|(\d{1,2}_\d{4})|(\d{2}\.\d{2}\.\d{2})", name)
                 except Exception as e:
                     utils.log(f"The file named {utils.name_he(name)} is of unknown date format.", "error")
+                if len(result_lst) != 1:
+                    utils.log(f"param name: {utils.name_he(name)}\nparam result_lst: {result_lst}, no match or too many matches...", "error")
+                    return None
+                else:
+                    tuple = result_lst[0]
+                    date_str = next((d for d in tuple if d), None)
+                    
                 date = re.split(r'[_\.]', date_str)
                 import datetime
                 if len(date) == 2:

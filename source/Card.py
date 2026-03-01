@@ -67,8 +67,15 @@ The value parsed is {parsed_text}", "error")
                 res = re.search(pattern, date_str)
 
                 if res:
-                    month_number = int(res.group(1))
-                    year_number = int(res.group(2))
+                    a = int(res.group(1))
+                    b = int(res.group(2))
+                    if a <= 12 and a > 0:
+                        month_number, year_number = a, b
+                    elif b <= 12 and b > 0:
+                        month_number, year_number = b, a
+                    else:
+                        utils.log(f"Problem extrcting month, values received are a={a}, b={b}", 'error')
+                    
                     if year_number < 100:
                         year_number += 2000
                     time_stamp = datetime(year_number, month_number, 1)
@@ -134,6 +141,17 @@ The value parsed is {parsed_text}", "error")
                                                                     Notes: {row[10]}")
                 case "Isra-Card":
 
+                    DataBase().insert_card_transaction(CardID=self.card_number,
+                                                       Name=row[1],
+                                                       Executed_Date=utils.date_ready(row[0]),
+                                                       Charge_Date=utils.date_ready(self.adittional_data_field_value), # self.adittional_data_field_value/ row[1]
+                                                       Charge_Value=row[2],
+                                                       Source_file=self.name,
+                                                       Charge_Currency=row[3],
+                                                       Transaction_Value=row[4],
+                                                       Value_Currency=row[5],
+                                                       Extra_Info=f"Serial: {row[6]} | Info: ({row[7]})")
+                case "Isra-Card-2026":
                     DataBase().insert_card_transaction(CardID=self.card_number,
                                                        Name=row[1],
                                                        Executed_Date=utils.date_ready(row[0]),

@@ -1,7 +1,7 @@
 from abc import abstractmethod
 from src_utils.utils import utils
 from Constants import Local, Paths, BANK_CARD_NUMBER
-from typing import Union
+from typing import List, Union
 from database import DataBase
 from src_utils.ExcelReader import ExcelManager
 from typing import Tuple
@@ -293,17 +293,74 @@ class File:
             {"valid rows:":25s}{valid_rows}', 'system')
             return valid_rows
         
-        def read_adittional_data_field() -> str:
+        def read_adittional_data_field() -> Union[List[str], str]:
             """
-            Adittional data field location is configiured via format json.
-            further analisys of the value is made in the insertion functions.
+            Reads one or multiple values from the excel file based on adittional_data_field configuration.
+            
+            The adittional_data_field can be:
+            - A tuple (row, col) for a single cell
+            - A list of tuples for multiple cells
+            
+            Returns:
+                - A list of strings if multiple cells are specified
+                - A single string if one cell is specified
+                - An empty list on error or if value is None
+
+            2/3/2026 - added support for list of multiple tuples as an input
             """
-            (r, c) = self.adittional_data_field 
-            value = ExcelManager().read_cell(r, c)
-            if value is None:
-                utils.log('Adittional data field read from the file is None.', 'error')
-                return "False"
-            return value
+            def is_valid_cell(cell) -> bool:
+                """Validates that cell is a proper tuple with valid row and column indices."""
+                return (isinstance(cell, tuple) and 
+                        len(cell) == 2 and 
+                        isinstance(cell[0], int) and cell[0] >= 1 and 
+                        isinstance(cell[1], int) and cell[1] >= 0)
+            
+            def read_cell_value(cell: tuple) -> Union[str, None]:
+                """Reads a single cell value and converts it to string."""
+                row, col = cell
+                value = ExcelManager().read_cell(row, col)
+                return str(value) if value is not None else None
+            
+            if self.adittional_data_field is None:
+                return []
+            
+            # Handle list of cells
+            if isinstance(self.adittional_data_field, list):
+                if not self.adittional_data_field:
+                    return []
+                
+                parsed_values = []
+                for cell in self.adittional_data_field:
+                    if not is_valid_cell(cell):
+                        utils.log(f"Invalid cell format in adittional data field: {cell}. Check your format json!", 'error')
+                        return []
+                    
+                    value = read_cell_value(cell)
+                    if value is None:
+                        utils.log(f'Adittional data field at {cell} is None.', 'error')
+                        return []
+                    
+                    parsed_values.append(value)
+                
+                return parsed_values
+            
+            # Handle single cell tuple
+            elif isinstance(self.adittional_data_field, tuple):
+                if not is_valid_cell(self.adittional_data_field):
+                    utils.log(f"Invalid cell properties for adittional data field: {self.adittional_data_field}. Check your format json!", 'error')
+                    return []
+                
+                value = read_cell_value(self.adittional_data_field)
+                if value is None:
+                    utils.log(f'Adittional data field at {self.adittional_data_field} is None.', 'error')
+                    return []
+                
+                return value
+            
+            else:
+                utils.log(f"adittional_data_field must be a tuple or list of tuples, got {type(self.adittional_data_field)}", 'error')
+                return []
+
         
         if self.adittional_data_field is not None:
             self.adittional_data_field_value = read_adittional_data_field()

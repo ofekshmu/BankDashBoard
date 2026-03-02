@@ -152,10 +152,23 @@ The value parsed is {parsed_text}", "error")
                                                        Value_Currency=row[5],
                                                        Extra_Info=f"Serial: {row[6]} | Info: ({row[7]})")
                 case "Isra-Card-2026":
+
+                    # According to the format json for isra-card-2026,
+                    # the first value should hold the year and second should hold the month and the day of the charge
+                    # expected format for first value is *Month name in hebrew* *Year(4digits) example: ינואר 2026
+                    # expected format for second value is *day(2 digits).month(2 digits)* *לחיוב ב-* exmaple: 02.01 לחיוב ב- 
+                    if len(self.adittional_data_field_value) != 2:
+                        utils.log(f"Error: For isra-card-2026 format, the adittional data field should contain 2 values, but {len(self.adittional_data_field_value)} were found. Check your format json and the file being parsed.", "error")
+                    
+                    year = utils.reg_extract(r'\d{4}', self.adittional_data_field_value[0])
+                    month_day = utils.reg_extract(r'\d{2}\.\d{2}', self.adittional_data_field_value[1])
+                    
+                    charge_data = utils.date_ready(f"{month_day}.{year}")
+
                     DataBase().insert_card_transaction(CardID=self.card_number,
                                                        Name=row[1],
                                                        Executed_Date=utils.date_ready(row[0]),
-                                                       Charge_Date=utils.date_ready(self.adittional_data_field_value), # self.adittional_data_field_value/ row[1]
+                                                       Charge_Date=charge_data,
                                                        Charge_Value=row[2],
                                                        Source_file=self.name,
                                                        Charge_Currency=row[3],

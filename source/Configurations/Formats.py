@@ -76,7 +76,7 @@ class Formats:
                                     "Sortion key": None,
                                     "Card number cell": (5, 0),
                                     "Card string format" : r"\d{4}$",
-                                    "Adittional data field": None,
+                                    "Adittional data field": [(2, 2), (6, 7)],
                                     "TimeStamp": Location.FILE_NAME_DATE,
                                     "TimeStamp Format": r'\d{4}_(\d{2})_(\d{4})' ,
                                     "TimeStamp location": None,

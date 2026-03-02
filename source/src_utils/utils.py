@@ -881,7 +881,7 @@ class utils:
         Converts a date string into a datetime object. The string has to be in one
         of the following formats: "%d-%m-%Y", "%d/%m/%Y", "%d/%m/%y"
         """
-        formats = ["%d-%m-%Y", "%d/%m/%Y", "%d/%m/%y"]
+        formats = ["%d-%m-%Y", "%d/%m/%Y", "%d/%m/%y", "%d.%m.%y", "%d.%m.%Y"] # forth & fifth field added for Isra-Card-2026
 
         for fmt in formats:
             try:
@@ -1168,7 +1168,7 @@ class utils:
                     return f'Bad row value {add_data[0]} in format {format_key}, please use values greater than 0.'
                 if add_data[1] < 0:
                     return f'Bad col value {add_data[1]} in format {format_key}, please use positive values.'
-            if add_data is not None and not isinstance(add_data, tuple):
+            if add_data is not None and (not isinstance(add_data, tuple) and not isinstance(add_data, list)):
                 return f"Bad input type {type(add_data)} at 'adittional data field' in format {format_key}."
             
             if not isinstance(format_data['Headers'], list):

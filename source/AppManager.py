@@ -9,6 +9,7 @@ from database import DataBase
 from front.Graphics import Graphics
 from src_utils.calculations import SimpleMath
 from src_utils.ExcelReader import ExcelManager
+from src_utils.AppManagerUtils import AppManagerUtils
 import webbrowser
 from Configurations.Formats import Formats, Context_class
 import pandas as pd
@@ -32,7 +33,6 @@ class AppManager:
         else:
             utils.log(f"Withdrawals handling failed: {log}", 'error')
         
-
         if type(res2) == str:
             utils.log(res2, 'error')
         else:
@@ -168,7 +168,6 @@ class AppManager:
         utils.log(f"Cash transaction added!", "system")
         return True
 
-
     def Insert_other_account_status(self) -> None:
         DataBase().create_other_account_table()
 
@@ -276,6 +275,7 @@ class AppManager:
         exporter.add_sheet(sheet_name='last month ' + first_day_last_month.strftime("%Y-%m-%d"), bank_df=bank_df2, card_df=card_df2)
         exporter.add_sheet(sheet_name='current year ' + first_day_current_year.strftime("%Y-%m-%d"), bank_df=bank_df3, card_df=card_df3)
         exporter.add_sheet(sheet_name='last year ' + first_day_last_year.strftime("%Y-%m-%d"), bank_df=bank_df4, card_df=card_df4)
+
     def search_transaction(self) -> None:
         """
         The function will ask the user for a substring and search for a transaction containing the substring.
@@ -293,7 +293,6 @@ class AppManager:
             df = DataBase().query_by_substring(input_str)
             utils.log(df.to_markdown())
         
-
     def advanced_search(self) -> None:
         """Interactive transaction search with multiple filters"""
         query_params = {}
@@ -577,7 +576,6 @@ class AppManager:
             utils.log('Update process completed!', 'system')
             return True
 
-
     def delete_file_info(self):
         lst_names = DataBase().get_file_names()
         utils.log("Select the file you want to delete:")
@@ -769,7 +767,6 @@ class AppManager:
             case _:
                 utils.log("Unreachable point reached...", "error") 
 
-
         def get_monthly_average(data: pd.DataFrame) -> float:
             """
             Returns category/business monthly average over all months
@@ -951,7 +948,6 @@ class AppManager:
                                          "transactions": analisys_data})
         webbrowser.open(r'source\html\Category_output.html')
 
-
     def general_analysis(self):
         from datetime import datetime
         # -----
@@ -1011,48 +1007,7 @@ class AppManager:
         accounts_data = get_accounts_data()
         Graphics.plot_linear_plots_graph(accounts_data)
         
-        utils.log("Processing card data...", "system")        
-        monthly_card_transactions_df = DataBase().query_monthly_transactions(date=t, tables=["CardTransactions"])
-        proceessed_card_transactions_df = SimpleMath.process_prices(monthly_card_transactions_df, date=t)
-
-        utils.log("Processing bank data...", "system")
-        monthly_bank_transactions_df = DataBase().query_monthly_transactions(date=t, tables=["BankTransactions"])
-        proceessed_bank_transactions_df = SimpleMath.process_prices(monthly_bank_transactions_df, date=t)
-        
-        # -------------------------- Collision of both df --------------------------
-        if monthly_card_transactions_df.empty:
-            utils.log("No card transactions found for the selected month.", "warning")
-        else:
-            proceessed_card_transactions_df=proceessed_card_transactions_df[['ID',
-                                                                            'TableName', 
-                                                                            'CardID',
-                                                                            'Name',
-                                                                            'Executed_Date',
-                                                                            'Charge_Date',
-                                                                            'Charge_Value',
-                                                                            'Charge_Currency',
-                                                                            'Value_Currency',
-                                                                            'Final_Value',
-                                                                            'Category',
-                                                                            'Extra_Info',
-                                                                            'Description',
-                                                                            'Transaction_Type']]
-        if monthly_bank_transactions_df.empty:
-            utils.log("No bank transactions found for the selected month.", "warning")
-        else:
-            proceessed_bank_transactions_df=proceessed_bank_transactions_df[['ID',
-                                                                             'TableName', 
-                                                                             'Name',
-                                                                             'Date', 
-                                                                             'Final_Value',
-                                                                             'Category',
-                                                                             'Extra_Info',
-                                                                             'Description',
-                                                                             'Transaction_Type']]
-            
-        proceessed_bank_transactions_df = proceessed_bank_transactions_df.rename(columns={'Date': 'Executed_Date'})
-        
-        transactions_df = pd.concat([proceessed_bank_transactions_df, proceessed_card_transactions_df], ignore_index=True)
+        transactions_df = AppManagerUtils.retrieve_and_initialize_data(t)
 
         # ---- Card validation data ----
     

@@ -1235,7 +1235,10 @@ Please Make sure that none of the following formats have their 'Identifications 
 
         df = pd.DataFrame(index=indexes, columns=columns)
         color_coded_df = pd.DataFrame(index=indexes, columns=columns)
-        for _, row in file_df.iterrows():
+
+        from src_utils.AppManagerUtils import AppManagerUtils
+        # iterate with progress bar to track processing of each file entry
+        for _, row in tqdm(file_df.iterrows(), total=file_df.shape[0], desc="Processing files"):
             last_update = row["Last_update"]
             date = row["Date"]
             format_name = row["Format"]
@@ -1243,7 +1246,8 @@ Please Make sure that none of the following formats have their 'Identifications 
             col_name =  format_name + " | " + card_number
             df.at[date, col_name] = last_update
             
-            test_df = utils.card_charge_validation(datetime.strptime(row["Date"], "%B, %Y"))
+            processed_df = AppManagerUtils.retrieve_and_initialize_data(datetime.strptime(row["Date"], "%B, %Y"), std_out=False)
+            test_df = utils.card_charge_validation(processed_df, datetime.strptime(row["Date"], "%B, %Y"))
             status_series = test_df.loc[test_df['CardID'] == card_number, 'Status']
 
             if not status_series.empty:

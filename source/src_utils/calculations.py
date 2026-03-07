@@ -209,9 +209,9 @@ class SimpleMath:
             cond_smaller_charge_value = row['Charge_Value'] > row['Transaction_Value']
 
             # Safeguard - in case the transaction is not a payment but still fits the pattern
-            # if this if triggers, conditions should be changed accordingly
+            # if this triggers, conditions should be changed accordingly
             if cond_string_pattern and not (cond_different_values and cond_different_dates and cond_smaller_charge_value):
-                utils.log(f"Warning: The following transaction might be wrongfully recognized:\n{row}", "error")
+                utils.log(f"Warning: The following transaction might be wrongfully recognized:\n{row}", "warning")
 
             return cond_different_values & cond_string_pattern & cond_different_dates & cond_smaller_charge_value
 

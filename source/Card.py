@@ -78,7 +78,8 @@ The value parsed is {parsed_text}", "error")
                     
                     if year_number < 100:
                         year_number += 2000
-                    time_stamp = datetime(year_number, month_number, 1)
+                    # produce a pure date (no time component)
+                    time_stamp = datetime(year_number, month_number, 1).date()
                 else:
                     utils.log(f"The given time_stamp_format {self.time_stamp_format} for format {self.format_name} did not yield any result\n\
                               You can also check the cell read: {date_str}", 'error')

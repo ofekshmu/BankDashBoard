@@ -294,8 +294,8 @@ class DataBase:
         Insert a new file to local DB.
         @date: date stated in excel file.
         '''
-        last_update = utils.date_ready(datetime.now().strftime("%d-%m-%Y"))
-        self.cursor.execute(f"""
+        last_update = utils.date_ready(datetime.now().strftime("%d-%m-%Y")).date()
+        self.cursor.execute("""
             INSERT INTO File(File_Name, Format, Card_Number, Date, New_Transactions, Transaction_count, Last_update)
             VALUES(?, ?, ?, ?, ?, ?, ?)
             """, (name, format_name, card_number, date, new_trans_count, trans_count, last_update)

@@ -3,7 +3,7 @@ from Card import Card
 from Bank import Bank
 from Context import Context
 from Constants import Local, Paths
-from Constants import CC_CHARGE_CATEGORY_NAME, INVESTMENT_CATEGORY, GOLDEN_COLOR_PALLETE, GeneralPlot, Settings, Trans_Type
+from Constants import INVESTMENT_CATEGORY, GOLDEN_COLOR_PALLETE, GeneralPlot, Trans_Type
 from src_utils.utils import utils
 from database import DataBase
 from front.Graphics import Graphics
@@ -14,7 +14,6 @@ import webbrowser
 from Configurations.Formats import Formats, Context_class
 import pandas as pd
 from os import listdir
-from typing import Literal, Optional
 import numpy as np
 import seaborn as sns
 from Exporter import Exporter
@@ -85,7 +84,7 @@ class AppManager:
                     self.execute_sql()
                 case 7:
                     df, color_coded_df = utils.read_present_table()
-                    utils.create_html_with_colored_dates(df, color_coded_df)
+                    utils.create_html_with_colored_dates(df, color_coded_df, output_file_path=Paths.ORGANIZER_TABLE_NAME)
                 case 8:
                     self.add_cash_transaction()
                 case 9:
@@ -1102,7 +1101,6 @@ class AppManager:
         Graphics.card_distribution(card_color_dict, card_validation_df)
 
         # ----- Payment PIE Graphs
-        from Constants import Trans_Type
         utils.log("Generating Payments data...", "system")
         payment_filtered_df = transactions_df[transactions_df['Transaction_Type'] == Trans_Type.payment]
         payments_df = utils.extract_payments_data(payment_filtered_df)

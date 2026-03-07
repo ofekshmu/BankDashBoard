@@ -1273,7 +1273,6 @@ Please Make sure that none of the following formats have their 'Identifications 
                                        color_coded_df: pd.DataFrame,
                                        output_file_path: str='output.html'):
         """
-        
         @param df: DataFrame with dates and values (columns are card names and rows are dates as seen in the html).
         @param color_coded_df: DataFrame with the same index and columns as df, but with color-coded status values.
         @param output_file_path: Path to save the generated HTML file.
@@ -1368,11 +1367,11 @@ Please Make sure that none of the following formats have their 'Identifications 
 
         # 3. Legend text
         legend_text = {
-            "green": "Green - file for the card and date was parsed and verified.",
-            "yellow": "Yellow - file for the card was parsed but not verified or not applicable for verification.",
-            "red": "Red - non-existent file for the relevant card and date.",
-            "blue-missing": "Blue - untagged transaction(s) found for this card and date (missing file, shows date and value).",
-            "blue-not-verified": "Light Blue - untagged transaction(s) found for this card and date (file not verified, shows date and value)."
+            "green": "Verified - an excel file for the given format, card and charge date was Verified.",
+            "yellow": "Not Verified - file for the card was parsed but not verified or not applicable for verification (Bank File).",
+            "red": "No File - non-existent file for the given format, card and charge date.",
+            "blue-missing": "Missing File - an untagged transaction(s) matching the format's charge transaction name was found this card and charge date.",
+            "blue-not-verified": "Missmatch - untagged transaction(s) with a Different charge VALUE, matching the format's charge transaction name was found this card and charge date."
         }
 
         # 4. HTML template (add .untagged-match-missing and .untagged-match-not-verified and legend)

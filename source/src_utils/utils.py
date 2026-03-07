@@ -1215,7 +1215,17 @@ Please Make sure that none of the following formats have their 'Identifications 
     
     @staticmethod
     def read_present_table():
-        
+        """
+        The function reads the file table from the database and creates two dataframes:
+        1. df - with the same index and columns as the file table, but with the "Last update" value in the cells.
+        2. color_coded_df - with the same index and columns as the file table, but with the "Status" value in the cells.
+
+        Status values are color coded in the html file, according to the following rules:
+        - "Verified" -> Green
+        - "Not verified" -> Red
+        - "Missing file" -> Gray
+
+        """
         from database import DataBase
         from dateutil.relativedelta import relativedelta
 
@@ -1238,7 +1248,7 @@ Please Make sure that none of the following formats have their 'Identifications 
 
         from src_utils.AppManagerUtils import AppManagerUtils
         # iterate with progress bar to track processing of each file entry
-        for _, row in tqdm(file_df.iterrows(), total=file_df.shape[0], desc="Processing files"):
+        for _, row in tqdm(file_df.iterrows(), total=file_df.shape[0], desc="Processing data"):
             last_update = row["Last_update"]
             date = row["Date"]
             format_name = row["Format"]
@@ -1272,6 +1282,9 @@ Please Make sure that none of the following formats have their 'Identifications 
         from Configurations.Formats import Formats
         from database import DataBase
         from Constants import BANK_CARD_NUMBER
+
+        # Change all 1 in df to "Verified", all 0 to "Not Verified"
+        color_coded_df = color_coded_df.replace({1: 'Verified', 0: 'Not Verified'})
 
         # 1. Get all untagged transaction names from the DB
         untagged_transactions, desc = DataBase().get_untagged(table="BankTransactions")
@@ -2020,7 +2033,7 @@ Please Make sure that none of the following formats have their 'Identifications 
 
         The function will return a data frame with the following columns:
         - CardID: The card identifier
-        - Status: Verified / Not Verified
+        - Status: Verified (1) / Not Verified (0)
         - Out/Transaction_value: The total sum of all transactions executed with the given card in the given month
 
         """

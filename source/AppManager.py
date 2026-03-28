@@ -71,6 +71,7 @@ class AppManager:
                 case 1:
                     self.load_data()
                     utils.tagger_refresh()
+                    utils.detect_continuous_payments()
                     self.tag_data()
                 case 2:
                     self.analysis()

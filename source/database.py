@@ -981,6 +981,26 @@ class DataBase:
             sorted_list = sorted(res1 + res2, key=lambda x: x[2], reverse=True)
             return sorted_list, [d[0] for d in self.cursor.description]
 
+    def get_untagged_card_payments(self) -> Tuple[list, list]:
+        """
+        Get all untagged CardTransactions with all necessary columns.
+        Returns: (list of tuples, list of column names)
+        """
+        res = self.cursor.execute("""
+            SELECT
+                ID,
+                Name,
+                Charge_Date,
+                Charge_Value,
+                Extra_Info,
+                Category,
+                Description
+            FROM CardTransactions
+            WHERE Category IS 'NotCategorized'
+            ORDER BY Charge_Date ASC
+        """).fetchall()
+        return res, [d[0] for d in self.cursor.description]
+
     @validate_table_name
     def set_category(self, table_name: str, id: int, category: str):
         """

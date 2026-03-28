@@ -1293,77 +1293,80 @@ Please Make sure that none of the following formats have their 'Identifications 
 
         untagged_match_cells = dict()  # (row_idx, col) -> (date, value, cell_type)
         for col in df.columns:  #columns are string combined of "Format Name | Card Number"
-            if " | " in col:
+            
+            try:
                 format_name, card_number = col.split(" | ")
-                format_dict = Formats.FORMATS.get(format_name, {})
-                card_names_dict = format_dict.get("Transaction Names", {})
-                if card_number in card_names_dict:
-                    possible_names = set(card_names_dict[card_number])
-                    for idx in df.index:
-                        value = df.at[idx, col]
-                        status = color_coded_df.at[idx, col] if idx in color_coded_df.index and col in color_coded_df.columns else None
-                        # Parse the month and year from the table row index (e.g. "November, 2023")
-                        try:
-                            row_month_year = datetime.strptime(str(idx), "%B, %Y")
-                        except Exception:
-                            continue
-                        # Find a matching untagged transaction for this card/format/date
-                        for row in untagged_transactions:
-                            name = row[desc.index('Name')]
-                            date_str = row[desc.index('Date')] if 'Date' in desc else None
-                            val = row[desc.index('Out')] if 'Out' in desc else None
-                            if name in possible_names and date_str:
-                                try:
-                                    trans_date = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S").date()
-                                except Exception:
-                                    continue
-                                # Match month and year
-                                if trans_date.month - 1 == row_month_year.month and trans_date.year == row_month_year.year:
-                                    # If cell is empty (missing file)
-                                    if pd.isna(value) or value == "" or value is None:
-                                        untagged_match_cells[(idx, col)] = (trans_date, val, name, "missing")
-                                        # In case two of more cards fit the same transaction name, we want to show one for each avaliable card
-                                        # So we remove the first match to allow another match with another fitting transaction name
-                                        untagged_transactions.remove(row)
-                                        break
-                                    # If cell has a date and is Not Verified
-                                    elif (
-                                        isinstance(value, str)
-                                        and len(value) == 10
-                                        and '-' in value
-                                        and (status == 'Not Verified')
-                                    ):
-                                        untagged_match_cells[(idx, col)] = (trans_date, val, name, "not_verified")
-                                        break
+            except Exception as e:
+                utils.log(f"Error in organizer process when splitting '{col}': {e}", "error")
 
-                            name = row[desc.index('Name')]
-                            date_str = row[desc.index('Date')] if 'Date' in desc else None
-                            val = row[desc.index('Out')] if 'Out' in desc else None
-                            if name in possible_names and date_str:
-                                try:
-                                    trans_date = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S").date()
-                                except Exception:
-                                    continue
-                                # Match month and year
-                                if trans_date.month - 1 == row_month_year.month and trans_date.year == row_month_year.year:
-                                    # If cell is empty (missing file)
-                                    if pd.isna(value) or value == "" or value is None:
-                                        untagged_match_cells[(idx, col)] = (trans_date, val, name, "missing")
-                                        break
-                                    # If cell has a date and is Not Verified
-                                    elif (
-                                        isinstance(value, str)
-                                        and len(value) == 10
-                                        and '-' in value
-                                        and (status == 'Not Verified')
-                                    ):
-                                        untagged_match_cells[(idx, col)] = (trans_date, val, name, "not_verified")
-                                        break
-        
-                elif BANK_CARD_NUMBER != card_number:   # Bank formats will not trigger the following warning
-                    utils.log(f"Column '{col}' does not have a valid card number in the format dictionary, skipping...", "warning")
-            else:
-                utils.log(f"Column '{col}' does not contain ' | ' separator, skipping...", "warning")
+            format_dict = Formats.FORMATS.get(format_name, {})
+            card_names_dict = format_dict.get("Transaction Names", {})
+            
+            if card_number in card_names_dict:
+                possible_names = set(card_names_dict[card_number])
+                for idx in df.index:
+                    value = df.at[idx, col]
+                    status = color_coded_df.at[idx, col] if idx in color_coded_df.index and col in color_coded_df.columns else None
+                    # Parse the month and year from the table row index (e.g. "November, 2023")
+                    try:
+                        row_month_year = datetime.strptime(str(idx), "%B, %Y")
+                    except Exception:
+                        continue
+                    # Find a matching untagged transaction for this card/format/date
+                    for row in untagged_transactions:
+                        name = row[desc.index('Name')]
+                        date_str = row[desc.index('Date')] if 'Date' in desc else None
+                        val = row[desc.index('Out')] if 'Out' in desc else None
+                        if name in possible_names and date_str:
+                            try:
+                                trans_date = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S").date()
+                            except Exception:
+                                continue
+                            # Match month and year
+                            if trans_date.month - 1 == row_month_year.month and trans_date.year == row_month_year.year:
+                                # If cell is empty (missing file)
+                                if pd.isna(value) or value == "" or value is None:
+                                    untagged_match_cells[(idx, col)] = (trans_date, val, name, "missing")
+                                    # In case two of more cards fit the same transaction name, we want to show one for each avaliable card
+                                    # So we remove the first match to allow another match with another fitting transaction name
+                                    untagged_transactions.remove(row)
+                                    break
+                                # If cell has a date and is Not Verified
+                                elif (
+                                    isinstance(value, str)
+                                    and len(value) == 10
+                                    and '-' in value
+                                    and (status == 'Not Verified')
+                                ):
+                                    untagged_match_cells[(idx, col)] = (trans_date, val, name, "not_verified")
+                                    break
+
+                        name = row[desc.index('Name')]
+                        date_str = row[desc.index('Date')] if 'Date' in desc else None
+                        val = row[desc.index('Out')] if 'Out' in desc else None
+                        if name in possible_names and date_str:
+                            try:
+                                trans_date = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S").date()
+                            except Exception:
+                                continue
+                            # Match month and year
+                            if trans_date.month - 1 == row_month_year.month and trans_date.year == row_month_year.year:
+                                # If cell is empty (missing file)
+                                if pd.isna(value) or value == "" or value is None:
+                                    untagged_match_cells[(idx, col)] = (trans_date, val, name, "missing")
+                                    break
+                                # If cell has a date and is Not Verified
+                                elif (
+                                    isinstance(value, str)
+                                    and len(value) == 10
+                                    and '-' in value
+                                    and (status == 'Not Verified')
+                                ):
+                                    untagged_match_cells[(idx, col)] = (trans_date, val, name, "not_verified")
+                                    break
+    
+            elif BANK_CARD_NUMBER != card_number:   # Bank formats will not trigger the following warning
+                utils.log(f"Column '{col}' does not have a valid card number in the format dictionary, skipping...", "warning")
 
         # 3. Legend text
         legend_text = {
@@ -1692,6 +1695,8 @@ Please Make sure that none of the following formats have their 'Identifications 
         name: None
         In case both were given, and not None, the pair will be appended or changed depending on
         the current status of the keys on the dictionary.
+
+        The function returns the category that is currently associated with the given name, after the update.
 
         """
         if os.path.exists(Paths.AUTO_TAGGER_JSON):
@@ -2232,6 +2237,176 @@ Please Make sure that none of the following formats have their 'Identifications 
         
         return pd.DataFrame(records)
 
+    @staticmethod
+    def detect_continuous_payments() -> None:
+        """
+        Detects untagged payment transactions that are sequential installments of a prior payment.
+        
+        A continuous payment is identified when:
+        1. Current transaction is an untagged payment (Extra_Info matches 'תשלום X מתוך Y')
+        2. There exists a prior payment with:
+           - Same transaction name
+           - Same total payments count (Y)
+           - Same charge_value (important: charge_value not transaction_value, as they may differ)
+           - Earlier charge_date (ensuring it was already executed)
+           - Lower payment number (X_prior < X_current)
+           - Is categorized (NotCategorized != Category)
+        
+        For matched continuous payments, the function applies the prior payment's category and description.
+        """
+        import re
+        from database import DataBase
+        
+        try:
+            utils.log("Scanning untagged transactions for continuous payment sequences...", "system")
+            
+            db = DataBase()
+            
+            # Get untagged card payment transactions
+            untagged_list, desc = db.get_untagged_card_payments()
+            if not untagged_list:
+                utils.log("No untagged CardTransactions found for continuous payment detection.", "debug")
+                return
+            
+            untagged_df = pd.DataFrame(untagged_list, columns=desc)
+            
+            if untagged_df.empty:
+                utils.log("No untagged transactions with payment info found.", "debug")
+                return
+            
+            # Extract payment transaction data from untagged transactions
+            untagged_payments = []
+            for idx, row in untagged_df.iterrows():
+                try:
+                    extra_info = row['Extra_Info']
+                    # Filter for payment transactions only
+                    if not extra_info or extra_info == '':
+                        continue
+                    
+                    match = re.search(r'תשלום\s+(\d+)\s+מתוך\s+(\d+)', extra_info)
+                    if match:
+                        current_payment = int(match.group(1))
+                        total_payments = int(match.group(2))
+                        
+                        untagged_payments.append({
+                            'ID': row['ID'],
+                            'Name': row['Name'],
+                            'Current_Payment': current_payment,
+                            'Total_Payments': total_payments,
+                            'Charge_Value': row['Charge_Value'],
+                            'Charge_Date': row['Charge_Date'],
+                            'Extra_Info': extra_info
+                        })
+                except (KeyError, ValueError, AttributeError) as e:
+                    utils.log(f"Error parsing payment info from transaction ID {row.get('ID', 'unknown')}: {str(e)}", "warning")
+                    continue
+            
+            if not untagged_payments:
+                utils.log("No untagged payment transactions found.", "debug")
+                return
+            
+            continuous_payments_matched = []
+            
+            # For each untagged payment, search the DB for a matching prior payment
+            for candidate in untagged_payments:
+                try:
+                    current_id = candidate['ID']
+                    current_name = candidate['Name']
+                    current_payment_num = candidate['Current_Payment']
+                    total_payments = candidate['Total_Payments']
+                    charge_value = candidate['Charge_Value']
+                    charge_date = candidate['Charge_Date']
+                    prior_payment_num = current_payment_num - 1
+                    
+                    # Look for prior payment in the database
+                    # Query all transactions with same name and filter for matching criteria
+                    all_same_name = db.get_transactions_by_name('CardTransactions', current_name)
+                    
+                    if all_same_name.empty:
+                        continue
+                    
+                    # Filter for prior payment with specific criteria:
+                    # 1. Is a payment transaction (has Extra_Info with payment pattern)
+                    # 2. Same total payments count
+                    # 3. Same charge_value
+                    # 4. Earlier charge_date (already executed)
+                    # 5. Is categorized
+                    prior_candidates = all_same_name[
+                        (all_same_name['Extra_Info'].notna()) &
+                        (all_same_name['Extra_Info'] != '') &
+                        (all_same_name['Category'] != 'NotCategorized') &
+                        (all_same_name['Category'].notna()) &
+                        (all_same_name['Charge_Date'] < charge_date) &
+                        (all_same_name['Charge_Value'] == charge_value)
+                    ]
+                    
+                    if prior_candidates.empty:
+                        continue
+                    
+                    # Extract payment number from Extra_Info to find matching prior payment
+                    for _, prior_row in prior_candidates.iterrows():
+                        try:
+                            prior_extra_info = prior_row['Extra_Info']
+                            prior_match = re.search(r'תשלום\s+(\d+)\s+מתוך\s+(\d+)', prior_extra_info)
+                            if prior_match:
+                                prior_payment = int(prior_match.group(1))
+                                prior_total = int(prior_match.group(2))
+                                
+                                # Check if same payment series and prior payment is from earlier in the sequence
+                                if prior_total == total_payments and prior_payment < current_payment_num:
+                                    prior_category = prior_row['Category']
+                                    prior_description = prior_row['Description']
+                                    
+                                    continuous_payments_matched.append({
+                                        'current_id': current_id,
+                                        'current_payment_num': current_payment_num,
+                                        'prior_id': prior_row['ID'],
+                                        'prior_payment_num': prior_payment,
+                                        'name': current_name,
+                                        'total_payments': total_payments,
+                                        'category': prior_category,
+                                        'description': prior_description
+                                    })
+                                    break
+                        except (ValueError, AttributeError):
+                            continue
+                    
+                except Exception as candidate_error:
+                    utils.log(f"Error processing candidate payment ID {candidate.get('ID', 'unknown')}: {str(candidate_error)}", "debug")
+                    continue
+            
+            # Apply categorization to matched continuous payments
+            if continuous_payments_matched:
+                successful_updates = 0
+                for match in continuous_payments_matched:
+                    try:
+                        db.set_category('CardTransactions', match['current_id'], match['category'])
+                        if match['description'] is not None and match['description'] != '':
+                            db.set_transaction_description(match['description'], 'CardTransactions', match['current_id'])
+                        
+                        log_msg = f"Continuous payment auto-tagged: ID {match['current_id']} (payment {match['current_payment_num']}/{match['total_payments']}) " \
+                                  f"'{utils.heb_conversion(match['name'])}' → {utils.heb_conversion(str(match['category']))}"
+                        utils.log(log_msg, "system")
+                        successful_updates += 1
+                    except Exception as update_error:
+                        utils.log(f"Error categorizing transaction ID {match['current_id']}: {str(update_error)}", "warning")
+                        continue
+                
+                if successful_updates > 0:
+                    try:
+                        db.commit_changes()
+                        utils.log(f"Continuous payment detection complete: {successful_updates} transactions auto-tagged", "system")
+                    except Exception as commit_error:
+                        utils.log(f"Error committing continuous payment updates: {str(commit_error)}", "error")
+                else:
+                    utils.log("No continuous payments were successfully updated.", "debug")
+            else:
+                utils.log("No continuous payment sequences were detected in untagged transactions.", "system")
+        
+        except Exception as main_error:
+            utils.log(f"Critical error in detect_continuous_payments(): {str(main_error)}", "error")
+            import traceback
+            utils.log(traceback.format_exc(), "error")
 
     @staticmethod
     def parse_date_from_user(return_type: str = "str", day: bool = True) -> str | datetime:

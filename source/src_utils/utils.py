@@ -1395,164 +1395,283 @@ Please Make sure that none of the following formats have their 'Identifications 
         <!DOCTYPE html>
         <html>
         <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>File Organizer</title>
             <style>
-                table {
-                    border-collapse: collapse;
-                    width: 100%;
-                    overflow-x: auto;
+                * {
+                    margin: 0;
+                    padding: 0;
+                    box-sizing: border-box;
                 }
-                th, td {
-                    border: 1px solid black;
-                    padding: 10px;
+                
+                body {
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+                    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+                    min-height: 100vh;
+                    padding: 40px 20px;
+                    color: #333;
+                }
+                
+                h1 {
                     text-align: center;
-                    font-size: 14px;
+                    color: #2c3e50;
+                    margin-bottom: 10px;
+                    font-size: 2.5em;
+                    font-weight: 600;
+                    letter-spacing: -0.5px;
                 }
-                th {
-                    background-color: #f2f2f2;
-                    font-weight: bold;
+                
+                .subtitle {
+                    text-align: center;
+                    color: #7f8c8d;
+                    font-size: 0.95em;
+                    margin-bottom: 30px;
                 }
-                tr:nth-child(even) {
-                    background-color: #f9f9f9;
-                }
-                .verified {
-                    background-color: #c2f0c2 !important; /* Green */
-                }
-                .not-verified {
-                    background-color: #fff7b2 !important; /* Yellow */
-                }
-                .other-status {
-                    background-color: #ffb3b3 !important; /* Red */
-                }
-                .untagged-match-missing {
-                    background-color: #b3d1ff !important; /* Blue */
-                    font-size: 12px;
-                }
-                .untagged-match-not-verified {
-                    background-color: #d1eaff !important; /* Light Blue */
-                    font-size: 12px;
-                }
+                
                 .legend-container {
-                    margin: 20px 0 30px 0;
-                    padding: 10px 20px;
-                    background: #f8f8f8;
-                    border-radius: 8px;
-                    width: fit-content;
-                    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+                    max-width: 95%;
+                    margin: 0 auto 40px;
+                    padding: 25px;
+                    background: white;
+                    border-radius: 12px;
+                    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
                 }
+                
                 .legend-title {
-                    font-weight: bold;
-                    margin-bottom: 8px;
+                    font-weight: 600;
+                    margin-bottom: 15px;
+                    color: #2c3e50;
+                    font-size: 1.2em;
                 }
+                
+                .legend-grid {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+                    gap: 12px;
+                }
+                
                 .legend-item {
                     display: flex;
                     align-items: center;
-                    margin-bottom: 4px;
-                    font-size: 14px;
+                    gap: 12px;
+                    font-size: 0.9em;
+                    color: #555;
                 }
+                
                 .legend-color {
-                    width: 18px;
-                    height: 18px;
-                    display: inline-block;
-                    margin-right: 10px;
-                    border: 1px solid #aaa;
-                    border-radius: 3px;
+                    width: 20px;
+                    height: 20px;
+                    border-radius: 4px;
+                    flex-shrink: 0;
+                    border: 1px solid rgba(0, 0, 0, 0.1);
                 }
+                
                 .legend-green { background: #c2f0c2; }
                 .legend-yellow { background: #fff7b2; }
                 .legend-red { background: #ffb3b3; }
                 .legend-blue-missing { background: #b3d1ff; }
                 .legend-blue-not-verified { background: #d1eaff; }
+                .legend-gray { background: #e0e0e0; }
+                
+                .table-wrapper {
+                    max-width: 98%;
+                    margin: 0 auto;
+                    background: white;
+                    border-radius: 12px;
+                    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+                    overflow: hidden;
+                }
+                
+                table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    table-layout: fixed;
+                }
+                
+                th {
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                    padding: 16px 12px;
+                    text-align: center;
+                    font-weight: 600;
+                    font-size: 0.95em;
+                    border: none;
+                    position: sticky;
+                    top: 0;
+                }
+                
+                td {
+                    border: 1px solid #e8eef5;
+                    padding: 14px 12px;
+                    text-align: center;
+                    font-size: 0.9em;
+                }
+                
+                tbody tr {
+                    transition: background-color 0.2s ease;
+                }
+                
+                tbody tr:hover {
+                    background-color: #f9fafb;
+                }
+                
+                tbody tr:nth-child(even) {
+                    background-color: #f9fafb;
+                }
+                
+                .verified {
+                    background-color: #c2f0c2 !important;
+                    font-weight: 500;
+                    color: #2d5016;
+                }
+                
+                .not-verified {
+                    background-color: #fff7b2 !important;
+                    font-weight: 500;
+                    color: #7f6b00;
+                }
+                
+                .other-status {
+                    background-color: #ffb3b3 !important;
+                    font-weight: 500;
+                    color: #7f0000;
+                }
+                
+                .untagged-match-missing {
+                    background-color: #b3d1ff !important;
+                    color: #003d99;
+                    font-size: 0.85em;
+                    padding: 10px !important;
+                }
+                
+                .untagged-match-missing div {
+                    text-align: left;
+                    line-height: 1.5;
+                }
+                
+                .untagged-match-missing b {
+                    color: #002966;
+                }
+                
+                .untagged-match-not-verified {
+                    background-color: #d1eaff !important;
+                    color: #003d99;
+                    font-size: 0.85em;
+                    padding: 10px !important;
+                }
+                
+                .untagged-match-not-verified div {
+                    text-align: left;
+                    line-height: 1.5;
+                }
+                
+                .untagged-match-not-verified b {
+                    color: #002966;
+                }
+                
                 .invalid-format-date {
-                    background-color: #e0e0e0 !important; /* Gray for invalid format dates */
-                    color: #666 !important;
+                    background-color: #e0e0e0 !important;
+                    color: #555 !important;
                     font-weight: 500;
                     font-style: italic;
-                    text-align: center;
                 }
             </style>
         </head>
         <body>
-            <h1 style="text-align: Center"> File Organizer</h1>
+            <h1>📊 File Organizer</h1>
+            <p class="subtitle">Transaction file verification and status tracking</p>
+            
             <div class="legend-container">
-                <div class="legend-title">Legend:</div>
-                <div class="legend-item"><span class="legend-color legend-green"></span>{{ legend.green }}</div>
-                <div class="legend-item"><span class="legend-color legend-yellow"></span>{{ legend.yellow }}</div>
-                <div class="legend-item"><span class="legend-color legend-red"></span>{{ legend.red }}</div>
-                <div class="legend-item"><span class="legend-color legend-blue-missing"></span>{{ legend['blue-missing'] }}</div>
-                <div class="legend-item"><span class="legend-color legend-blue-not-verified"></span>{{ legend['blue-not-verified'] }}</div>
-                <div class="legend-item"><span class="legend-color" style="background: #e0e0e0;"></span>{{ legend.gray }}</div>
+                <div class="legend-title">Status Legend</div>
+                <div class="legend-grid">
+                    <div class="legend-item"><span class="legend-color legend-green"></span>{{ legend.green }}</div>
+                    <div class="legend-item"><span class="legend-color legend-yellow"></span>{{ legend.yellow }}</div>
+                    <div class="legend-item"><span class="legend-color legend-red"></span>{{ legend.red }}</div>
+                    <div class="legend-item"><span class="legend-color legend-blue-missing"></span>{{ legend['blue-missing'] }}</div>
+                    <div class="legend-item"><span class="legend-color legend-blue-not-verified"></span>{{ legend['blue-not-verified'] }}</div>
+                    <div class="legend-item"><span class="legend-color legend-gray"></span>{{ legend.gray }}</div>
+                </div>
             </div>
-            <table>
-                <thead>
-                    <tr>
-                        <th></th>
-                        {% for col in columns %}
-                            <th>{{ col }}</th>
-                        {% endfor %}
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for index, row in data.iterrows() %}
+            
+            <div class="table-wrapper">
+                <table>
+                    <thead>
                         <tr>
-                            <td>{{ index }}</td>
+                            <th>Date</th>
                             {% for col in columns %}
-                                {% set value = row[col] %}
-                                {% set status = color_coded_df.at[index, col] %}
-                                {% set is_date = false %}
-                                {% if value is string and ('-' in value or '/' in value) %}
-                                    {% set is_date = true %}
-                                {% endif %}
-                                {% set cell_key = (index, col) %}
-                                {# Check if this is Isra-Card-2026 with date before 2026 #}
-                                {% set is_invalid_date = false %}
-                                {% if 'Isra-Card-2026' in col %}
-                                    {% set year_str = index.split(', ')[-1] %}
-                                    {% if year_str.isdigit() and year_str|int < 2026 %}
-                                        {% set is_invalid_date = true %}
-                                    {% endif %}
-                                {% endif %}
-                                
-                                {# Invalid dates always show "Not available" regardless of other matches #}
-                                {% if is_invalid_date %}
-                                    <td class="invalid-format-date">Not available</td>
-                                {% elif cell_key in untagged_match_cells %}
-                                    {% set match = untagged_match_cells[cell_key] %}
-                                    {% if match[3] == "missing" %}
-                                        <td class="untagged-match-missing">
-                                            <div>
-                                                <b>Missing file</b><br>
-                                                <span style="color:#333;">
-                                                    Name: {{ match[2] if match[2] else "?" }}<br>
-                                                    Value: {{ match[1] if match[1] else "?" }}<br>
-                                                    Transactions Date: {{ match[0] if match[0] else "?" }}<br>
-                                                </span>
-                                            </div>
-                                        </td>
-                                    {% elif match[3] == "not_verified" %}
-                                        <td class="untagged-match-not-verified">
-                                            <div>
-                                                <b>Not Verified</b><br>
-                                                <span style="color:#333;">
-                                                    Name: {{ match[2] if match[2] else "?" }}<br>
-                                                    Value: {{ match[1] if match[1] else "?" }}<br>
-                                                    Transactions Date: {{ match[0] if match[0] else "?" }}<br>
-                                                    File Update Date: {{ value if value else "?" }}<br>
-                                                </span>
-                                            </div>
-                                        </td>
-                                    {% endif %}
-                                {% else %}
-                                    <td class="{% if status == 'Verified' %}verified{% 
-                                        elif status == 'Not Verified' or is_date %}not-verified{% 
-                                        else %}other-status{% endif %}">
-                                        {% if is_date and value is string %}{{ value[:10] }}{% else %}{{ value }}{% endif %}
-                                    </td>
-                                {% endif %}
+                                <th>{{ col }}</th>
                             {% endfor %}
                         </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        {% for index, row in data.iterrows() %}
+                            <tr>
+                                <td style="font-weight: 500; color: #667eea;">{{ index }}</td>
+                                {% for col in columns %}
+                                    {% set value = row[col] %}
+                                    {% set status = color_coded_df.at[index, col] %}
+                                    {% set is_date = false %}
+                                    {% if value is string and ('-' in value or '/' in value) %}
+                                        {% set is_date = true %}
+                                    {% endif %}
+                                    {% set cell_key = (index, col) %}
+                                    {# Check if this is Isra-Card-2026 with date before 2026 #}
+                                    {% set is_invalid_date = false %}
+                                    {% if 'Isra-Card-2026' in col %}
+                                        {% set year_str = index.split(', ')[-1] %}
+                                        {% if year_str.isdigit() and year_str|int < 2026 %}
+                                            {% set is_invalid_date = true %}
+                                        {% endif %}
+                                    {% endif %}
+                                    
+                                    {# Invalid dates always show "Not available" regardless of other matches #}
+                                    {% if is_invalid_date %}
+                                        <td class="invalid-format-date">Not available</td>
+                                    {% elif cell_key in untagged_match_cells %}
+                                        {% set match = untagged_match_cells[cell_key] %}
+                                        {% if match[3] == "missing" %}
+                                            <td class="untagged-match-missing">
+                                                <div>
+                                                    <b>⚠ Missing file</b><br>
+                                                    <span style="color:#003d99;">
+                                                        Name: {{ match[2] if match[2] else "?" }}<br>
+                                                        Value: {{ match[1] if match[1] else "?" }}<br>
+                                                        Date: {{ match[0] if match[0] else "?" }}<br>
+                                                    </span>
+                                                </div>
+                                            </td>
+                                        {% elif match[3] == "not_verified" %}
+                                            <td class="untagged-match-not-verified">
+                                                <div>
+                                                    <b>⚠ Value Mismatch</b><br>
+                                                    <span style="color:#003d99;">
+                                                        Name: {{ match[2] if match[2] else "?" }}<br>
+                                                        Value: {{ match[1] if match[1] else "?" }}<br>
+                                                        Date: {{ match[0] if match[0] else "?" }}<br>
+                                                        File Date: {{ value if value else "?" }}<br>
+                                                    </span>
+                                                </div>
+                                            </td>
+                                        {% endif %}
+                                    {% else %}
+                                        {% set card_num = col.split(' | ')[-1] %}
+                                        <td class="{% if status == 'Verified' %}verified{% 
+                                            elif status == 'Not Verified' or is_date %}not-verified{% 
+                                            else %}other-status{% endif %}">
+                                            {% if status == 'Not Verified' and card_num != BANK_CARD_NUMBER %}
+                                                <b>⚠ Unverified File</b><br><span style="font-size: 0.85em;">{% if is_date and value is string %}{{ value[:10] }}{% else %}{{ value }}{% endif %}</span>
+                                            {% else %}
+                                                {% if is_date and value is string %}{{ value[:10] }}{% else %}{{ value }}{% endif %}
+                                            {% endif %}
+                                        </td>
+                                    {% endif %}
+                                {% endfor %}
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </body>
         </html>
         """
@@ -1565,7 +1684,8 @@ Please Make sure that none of the following formats have their 'Identifications 
             pd=pd,
             color_coded_df=color_coded_df,
             legend=legend_text,
-            untagged_match_cells=untagged_match_cells
+            untagged_match_cells=untagged_match_cells,
+            BANK_CARD_NUMBER=BANK_CARD_NUMBER
         )
 
         with open(output_file_path, 'w', encoding='utf-8') as html_file:

@@ -64,6 +64,8 @@ class Formats:
                                     "Independent": True,
                                     "flip": False,
                                     "associated": [],
+                                    "Cell currency": False,
+                                    "Cell currency headers": [],
                                     "Transaction Names": {"4046" : ["4046 - ישראכרט", '4046 - ישראכרט בע"מ'],
                                                            "2922" : ['ישראכרט בע"מ']}
                             },
@@ -95,6 +97,8 @@ class Formats:
                                     "Independent": True,
                                     "flip": False,
                                     "associated": [],
+                                    "Cell currency": False,
+                                    "Cell currency headers": [],
                                     "Transaction Names": {"4046" : ["4046 - ישראכרט", '4046 - ישראכרט בע"מ'],
                                                            "2922" : ['ישראכרט בע"מ']}
                             },
@@ -132,6 +136,8 @@ class Formats:
                                     "Independent": True,
                                     "flip": False,
                                     "associated": [],
+                                    "Cell currency": False,
+                                    "Cell currency headers": [],
                                     "Transaction Names": {"1565" : ["פרימיום אקספרס"]}
                                 },
 
@@ -144,8 +150,8 @@ class Formats:
                                 "Card number cell": (1, 0),
                                 "Card string format" : r"\d{4}$",
                                 "Adittional data field": (3, 0),
-                                "TimeStamp": Location.FILE_NAME_DATE,
-                                "TimeStamp Format": r"\d{2}\.(\d{2})\.(\d{2})" ,
+                                "TimeStamp": Location.INNER_CELL,
+                                "TimeStamp Format": r"\d{2}/(\d{2})/(\d{4})" ,
                                 "TimeStamp location": (3, 0),
                                 "Headers": ["תאריך\nעסקה",
                                             "שם בית עסק",
@@ -161,6 +167,8 @@ class Formats:
                                 "Independent": True,
                                 "flip": False,
                                 "associated": [],
+                                "Cell currency": True,
+                                "Cell currency headers": ["סכום\nעסקה", "סכום\nחיוב"],
                                 "Transaction Names": {"3843" : ['עפ"י הרשאה כאל'],
                                                        "4437" : ['עפ"י הרשאה כאל']}},
 
@@ -186,6 +194,8 @@ class Formats:
                                   "Independent": False,
                                   "flip": True,
                                   "associated": ["BeinLeumi-Bank"],
+                                  "Cell currency": False,
+                                  "Cell currency headers": [],
                                   "Transaction Names": {}},
 
                "BeinLeumi-Bank": {"Format Name": "BeinLeumi-Bank",
@@ -210,6 +220,8 @@ class Formats:
                                   "Independent": False,
                                   "flip": False,
                                   "associated": ["BeinLeumi-Bank-Date-Range"],
+                                  "Cell currency": False,
+                                  "Cell currency headers": [],
                                   "Transaction Names": {}},
 
                "Leumi-Max":  {"Format Name": "Leumi-Max",
@@ -247,6 +259,8 @@ class Formats:
                               "Independent": True,
                               "flip": False,
                               "associated": [],
+                              "Cell currency": False,
+                              "Cell currency headers": [],
                               "Transaction Names": {}},
 
                }

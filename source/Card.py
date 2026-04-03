@@ -213,21 +213,21 @@ The value parsed is {parsed_text}", "error")
                                                        Value_Currency=row[6],
                                                        Extra_Info=f"Type: {row[7]} | Note: None")          
                 case "Cal":
-                    if row[3] != row[2]:
-                        utils.log("Cal_Sufersal Format cannot handel different currencies - a transaction with different currencies was found", "error")
-                    
                     str_charge_date = utils.reg_extract(r'(\d{2}/\d{2}/\d{4})', self.adittional_data_field_value)
                     charge_date = datetime.strptime(str_charge_date, "%d/%m/%Y")
-                    
+
+                    charge_value, charge_currency = row[2]
+                    transaction_value, value_currency = row[3]
+
                     DataBase().insert_card_transaction(CardID=self.card_number,
                                                        Name=row[1],
                                                        Executed_Date=row[0],
                                                        Charge_Date=charge_date,
-                                                       Charge_Value=row[3],
+                                                       Charge_Value=charge_value,
                                                        Source_file=self.name,
-                                                       Charge_Currency="₪",
-                                                       Transaction_Value=row[2],
-                                                       Value_Currency="₪",
+                                                       Charge_Currency=charge_currency,
+                                                       Transaction_Value=transaction_value,
+                                                       Value_Currency=value_currency,
                                                        Extra_Info=f"Type: {row[4]} - {row[5]} | Note: {row[6]}"
                                                        )
                 case _:

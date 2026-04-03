@@ -73,7 +73,7 @@ class ExcelManager:
             return self.active_sheet[row_idx - 1: row_idx - 1 + row_count, col_idx: col_idx + col_count].value
         else:
             range_obj = self.active_sheet[row_idx - 1: row_idx - 1 + row_count, col_idx: col_idx + col_count]
-            formats = [[cell.number_format for cell in row] for row in range_obj]
+            formats = [[cell.number_format for cell in row] for row in range_obj.rows]
             return formats
 
     def read_value(self, location: tuple):
@@ -81,6 +81,17 @@ class ExcelManager:
             raise ValueError(f"Error setting active sheet to '{self.active_sheet}': Sheet not found")
 
         return self.active_sheet[location].value
+
+    @staticmethod
+    def extract_currency_from_number_format(number_format: str, default: str = "₪") -> str:
+        """
+        Extracts the currency symbol from an Excel number format string.
+        For example: '[$€] #,##0.00' -> '€', '[$₪] #,##0.00' -> '₪'.
+        Returns default if no currency symbol is found.
+        """
+        import re
+        match = re.search(r'\[\$(.+?)\]', number_format)
+        return match.group(1) if match else default
 
     def read_cell(self, row: int, col: int) -> Union[str, None]:
         '''

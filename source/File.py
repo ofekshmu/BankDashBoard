@@ -41,6 +41,9 @@ class File:
         # The value is updated in the validate function
         self.secondary_headers_row_idx = -1
 
+        self.cell_currency = format_info["Cell currency"]
+        self.cell_currency_headers = format_info["Cell currency headers"]
+
         self.table_1 = []
         self.table_2 = []
         self.flip_table_location = False
@@ -457,18 +460,30 @@ class File:
                 return table_0, table_1
             else:
                 [meta_data] = meta_data
-                table = ExcelManager().set_active_sheet(root + "\\" + meta_data['File_Name'])\
-                                      .read_sheet(meta_data['Initial_index'],
-                                                  meta_data['Row_count'],
-                                                  meta_data['Initial_col'],
-                                                  len(self.headers))
-                
+
+                def filter_bad_rows(raw):
+                    if meta_data["Bad_rows"] != '':
+                        bad_indexes = [int(num) for num in meta_data["Bad_rows"].strip().split(',')]
+                        raw = [raw[i] for i in range(len(raw)) if i not in bad_indexes]
+                    return raw
+
+                sheet_args = (meta_data['Initial_index'], meta_data['Row_count'],
+                              meta_data['Initial_col'], len(self.headers))
+
+                ExcelManager().set_active_sheet(root + "\\" + meta_data['File_Name'])
+                table = ExcelManager().read_sheet(*sheet_args)
+
                 if meta_data['Row_count'] == 1:
                     table = [table]
+                table = filter_bad_rows(table)
 
-                if meta_data["Bad_rows"] != '':
-                    bad_indexes = [int(num) for num in meta_data["Bad_rows"].strip().split(',')]
-                    table = [table[i] for i in range(len(table)) if i not in bad_indexes]
+                if self.cell_currency:
+                    formats = filter_bad_rows(ExcelManager().read_sheet(*sheet_args, type="format"))
+                    col_indexes = [self.headers.index(h) for h in self.cell_currency_headers]
+                    for row, fmt_row in zip(table, formats):
+                        for col_idx in col_indexes:
+                            currency = ExcelManager.extract_currency_from_number_format(fmt_row[col_idx] or "")
+                            row[col_idx] = (row[col_idx], currency)
 
                 return table, []
 

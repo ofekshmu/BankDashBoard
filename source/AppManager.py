@@ -61,7 +61,8 @@ class AppManager:
                                              'add cash transaction',
                                              'Export Excel',
                                              'Insert other account status',
-                                             'Advanced Search'],
+                                             'Advanced Search',
+                                             'Debug value mismatch'],
                                              msg='Hello Ofek! What would you like to do today?',
                                              exit=True,
                                              col_space=33):
@@ -94,6 +95,8 @@ class AppManager:
                     self.Insert_other_account_status()
                 case 11:
                     self.advanced_search()
+                case 12:
+                    self.debug_value_mismatch()
                 case _:
                     utils.log("Please insert a valid number.",'system')
 
@@ -1142,7 +1145,82 @@ class AppManager:
                             cash_information_data)
         webbrowser.open(r'source\html\output.html')
 
+    def debug_value_mismatch(self) -> None:
+        from datetime import datetime
+        from Constants import BANK_CARD_NUMBER
 
+        utils.log("Loading organizer table...", 'system')
+        _, color_coded_df = utils.read_present_table()
+
+        # Collect all (month_str, col) cells where validation ran and failed
+        mismatches = [
+            (idx, col)
+            for col in color_coded_df.columns
+            if col.split(' | ')[-1] != BANK_CARD_NUMBER
+            for idx in color_coded_df.index
+            if color_coded_df.at[idx, col] == False  # noqa: E712 — must use == for pandas
+        ]
+
+        if not mismatches:
+            utils.log("No mismatches found.", 'system')
+            return
+
+        utils.log(f"Found {len(mismatches)} mismatch(es).\n", 'system')
+
+        while True:
+            display = [f"{col} — {month_str}" for month_str, col in mismatches]
+            choice = utils.template_menu(display, "Select a mismatch to debug:", exit=True, col_space=50)
+            if choice == 0:
+                return
+            month_str, col = mismatches[choice - 1]
+            format_name, card_number = col.split(' | ')
+            date = datetime.strptime(month_str, "%B, %Y")
+            possible_names = Formats.FORMATS.get(format_name, {}).get("Transaction Names", {}).get(card_number, [])
+
+            utils.log(f"\n{'='*60}", 'system')
+            utils.log(f"  {format_name} | {card_number} — {month_str}", 'system')
+            utils.log(f"{'='*60}", 'system')
+
+            # Card transactions for this month
+            processed_df = AppManagerUtils.retrieve_and_initialize_data(date, std_out=False)
+            card_df = processed_df[
+                (processed_df['TableName'] == 'CardTransactions') &
+                (processed_df['CardID'] == card_number)
+            ].copy()
+
+            if card_df.empty:
+                utils.log("  No card transactions found.", 'system')
+                continue
+
+            display_cols = ['Name', 'Executed_Date', 'Charge_Value', 'Charge_Currency', 'Final_Value']
+            utils.log("\n" + utils.df_to_markdown(card_df[display_cols]), 'system')
+            expected_sum = abs(round(card_df['Final_Value'].sum(), 2))
+            utils.log(f"  Expected charge sum: {expected_sum}", 'system')
+
+            # Bank candidates from next month
+            next_m = utils.next_month(date)
+            if not possible_names:
+                utils.log("  No charge names configured for this card — cannot compare bank transactions.", 'system')
+                continue
+
+            bank_df = DataBase().get_Bank_Transactions(next_m.month, next_m.year)
+            candidates = bank_df[bank_df['Name'].isin(possible_names)].copy()
+
+            if candidates.empty:
+                utils.log(f"  No bank transactions in {next_m.strftime('%B %Y')} matching names: {possible_names}", 'system')
+                continue
+
+            utils.log(f"\n  Bank candidates in {next_m.strftime('%B %Y')}:", 'system')
+            for _, row in candidates.iterrows():
+                bank_out = round(row['Out'], 2)
+                diff = round(bank_out - expected_sum, 2)
+                utils.log(f"    {utils.heb_conversion(str(row['Name']))} | {row['Date']} | Out={bank_out:.2f} | Diff={diff:+.2f}", 'system')
+
+            exact_matches = candidates[candidates['Out'].apply(lambda x: round(x, 2)) == expected_sum]
+            if not exact_matches.empty:
+                utils.log("  MATCH EXISTS — mismatch may have since resolved.", 'system')
+            else:
+                utils.log(f"  NO MATCH — mismatch confirmed. Expected {expected_sum}.", 'system')
 
 
 

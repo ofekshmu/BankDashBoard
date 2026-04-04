@@ -679,7 +679,7 @@ class utils:
         
         if exit:
             # append to the head of the list for comfort reason
-            options.insert(0, "「Return」")
+            options.insert(0, "[Return]")
 
         utils.log(msg + '\n', 'system')
         utils.pretty_print([f"{str(i) + ' -> ':6s}{utils.heb_conversion(x)}" for i, x in enumerate(options, start=0)], const=row_count, col_space=col_space)

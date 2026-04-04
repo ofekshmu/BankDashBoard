@@ -477,12 +477,10 @@ class File:
                     # relevant columns (cell_currency_headers) and bundle it with the cell value as a
                     # (value, currency) tuple, replacing the raw value in-place.
                     sheet_args = (meta['Initial_index'], meta['Row_count'], meta['Initial_col'], len(self.headers))
+                    # Note: read_sheet(type="format") always returns a 2D list, so normalize is not needed.
                     formats = filter_bad_rows(
-                        normalize(
-                            ExcelManager().set_active_sheet(root + "\\" + meta['File_Name'])\
-                                          .read_sheet(*sheet_args, type="format"),
-                            meta['Row_count']
-                        ),
+                        ExcelManager().set_active_sheet(root + "\\" + meta['File_Name'])\
+                                      .read_sheet(*sheet_args, type="format"),
                         meta['Bad_rows']
                     )
                     col_indexes = [self.headers.index(h) for h in self.cell_currency_headers]

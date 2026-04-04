@@ -1382,11 +1382,13 @@ Please Make sure that none of the following formats have their 'Identifications 
 
         # 5. Legend text
         legend_text = {
-            "green": "Verified - an excel file for the given format, card and charge date was Verified.",
-            "yellow": "Not Verified - file for the card was parsed but not verified or not applicable for verification (Bank File).",
-            "red": "No File - non-existent file for the given format, card and charge date.",
-            "blue-missing": "Missing File - an untagged transaction(s) matching the format's charge transaction name was found this card and charge date.",
-            "blue-not-verified": "Missmatch - untagged transaction(s) with a Different charge VALUE, matching the format's charge transaction name was found this card and charge date.",
+            "green": "✓ Verified - file was parsed and the card's transaction sum matched a bank charge in the following month.",
+            "green-bank": "Bank - bank statement file recorded. Verification is not applicable for bank columns.",
+            "yellow-unverified": "⚠ Unverified File - file was parsed and card had transactions, but no matching bank charge was found (verification failed).",
+            "yellow-no-transactions": "⚠ No Transactions - file was recorded but no card transactions existed for that month, so verification could not run.",
+            "red": "No File - no file was found for the given format, card and charge date.",
+            "blue-missing": "Missing File - an untagged transaction matching the format's charge transaction name was found for this card and charge date, but no file was uploaded.",
+            "blue-not-verified": "Value Mismatch - an untagged transaction matching the charge name was found, but its value differs from the expected charge.",
             "gray": "Invalid Format Date - Isra-Card-2026 format is only valid for dates in 2026 and onwards."
         }
 
@@ -1586,7 +1588,9 @@ Please Make sure that none of the following formats have their 'Identifications 
                 <div class="legend-title">Status Legend</div>
                 <div class="legend-grid">
                     <div class="legend-item"><span class="legend-color legend-green"></span>{{ legend.green }}</div>
-                    <div class="legend-item"><span class="legend-color legend-yellow"></span>{{ legend.yellow }}</div>
+                    <div class="legend-item"><span class="legend-color legend-green"></span>{{ legend['green-bank'] }}</div>
+                    <div class="legend-item"><span class="legend-color legend-yellow"></span>{{ legend['yellow-unverified'] }}</div>
+                    <div class="legend-item"><span class="legend-color legend-yellow"></span>{{ legend['yellow-no-transactions'] }}</div>
                     <div class="legend-item"><span class="legend-color legend-red"></span>{{ legend.red }}</div>
                     <div class="legend-item"><span class="legend-color legend-blue-missing"></span>{{ legend['blue-missing'] }}</div>
                     <div class="legend-item"><span class="legend-color legend-blue-not-verified"></span>{{ legend['blue-not-verified'] }}</div>
@@ -1656,11 +1660,18 @@ Please Make sure that none of the following formats have their 'Identifications 
                                         {% endif %}
                                     {% else %}
                                         {% set card_num = col.split(' | ')[-1] %}
-                                        <td class="{% if status == 'Verified' %}verified{% 
-                                            elif status == 'Not Verified' or is_date %}not-verified{% 
+                                        <td class="{% if card_num == BANK_CARD_NUMBER and is_date %}verified{%
+                                            elif status == 'Verified' %}verified{%
+                                            elif status == 'Not Verified' or is_date %}not-verified{%
                                             else %}other-status{% endif %}">
-                                            {% if status == 'Not Verified' and card_num != BANK_CARD_NUMBER %}
+                                            {% if card_num == BANK_CARD_NUMBER and is_date %}
+                                                <b>Bank</b><br><span style="font-size: 0.85em;">{% if value is string %}{{ value[:10] }}{% else %}{{ value }}{% endif %}</span>
+                                            {% elif status == 'Verified' %}
+                                                <b>&#10003; Verified</b><br><span style="font-size: 0.85em;">{% if is_date and value is string %}{{ value[:10] }}{% else %}{{ value }}{% endif %}</span>
+                                            {% elif status == 'Not Verified' and card_num != BANK_CARD_NUMBER %}
                                                 <b>⚠ Unverified File</b><br><span style="font-size: 0.85em;">{% if is_date and value is string %}{{ value[:10] }}{% else %}{{ value }}{% endif %}</span>
+                                            {% elif is_date and status != 'Not Verified' %}
+                                                <b>⚠ No Transactions</b><br><span style="font-size: 0.85em;">{% if value is string %}{{ value[:10] }}{% else %}{{ value }}{% endif %}</span>
                                             {% else %}
                                                 {% if is_date and value is string %}{{ value[:10] }}{% else %}{{ value }}{% endif %}
                                             {% endif %}

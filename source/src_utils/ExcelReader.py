@@ -30,7 +30,7 @@ class ExcelManager:
             raise ValueError(f"Error opening file or sheet: {str(e)}")
 
     #@add_root
-    def set_active_sheet(self, file_path):
+    def set_active_sheet(self, file_path) -> 'ExcelManager':
         """
         The function changes the currently active sheet. An active sheet is a sheet which all actions are conducted
         on at a given time. While there is only 1 active sheet at a time. The app permits running MAX_ACTIVE_SHEETS in parralell.

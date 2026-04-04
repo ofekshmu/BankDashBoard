@@ -8,14 +8,16 @@ from datetime import datetime
 class AppManagerUtils:
 
     @staticmethod
-    def retrieve_and_initialize_data(t: datetime, std_out: bool = True) -> pd.DataFrame:
+    def retrieve_and_initialize_data(t: datetime, std_out: bool = True, general_analysis: bool = True) -> pd.DataFrame:
         """
         Retrieves and processes card and bank transaction data for a given month, then combines them into a single DataFrame.
         Args:
-            t (datetime): The date for which to retrieve and process transactions. 
+            t (datetime): The date for which to retrieve and process transactions.
                           The month and year of this date will be used to filter transactions of that specific month and year
             std_out (bool): If True, logs will be printed to standard output. If False, logs will be suppressed.
-        
+            general_analysis (bool): Passed to process_prices. If False, relevance-filtered rows are kept so
+                                     Relevance and Transaction_Type reflect their true values for all transactions.
+
         Returns:
             pd.DataFrame: A combined DataFrame containing processed card and bank transactions for the specified month.
         Note:
@@ -23,20 +25,20 @@ class AppManagerUtils:
             - It processes the transaction data using the SimpleMath class to calculate final values.
             - The processed data is then combined into a single DataFrame, which is returned for use in the application.
         """
-        if std_out: utils.log("Processing card data...", "system")        
+        if std_out: utils.log("Processing card data...", "system")
         monthly_card_transactions_df = DataBase().query_monthly_transactions(date=t, tables=["CardTransactions"])
-        proceessed_card_transactions_df = SimpleMath.process_prices(monthly_card_transactions_df, date=t)
+        proceessed_card_transactions_df = SimpleMath.process_prices(monthly_card_transactions_df, date=t, general_analysis=general_analysis)
 
         if std_out: utils.log("Processing bank data...", "system")
         monthly_bank_transactions_df = DataBase().query_monthly_transactions(date=t, tables=["BankTransactions"])
-        proceessed_bank_transactions_df = SimpleMath.process_prices(monthly_bank_transactions_df, date=t)
+        proceessed_bank_transactions_df = SimpleMath.process_prices(monthly_bank_transactions_df, date=t, general_analysis=general_analysis)
         
         # -------------------------- Collision of both df --------------------------
         if monthly_card_transactions_df.empty:
             utils.log("No card transactions found for the selected month.", "warning")
         else:
             proceessed_card_transactions_df=proceessed_card_transactions_df[['ID',
-                                                                            'TableName', 
+                                                                            'TableName',
                                                                             'CardID',
                                                                             'Name',
                                                                             'Executed_Date',
@@ -46,6 +48,8 @@ class AppManagerUtils:
                                                                             'Value_Currency',
                                                                             'Final_Value',
                                                                             'Category',
+                                                                            'Relevance',
+                                                                            'Source_file',
                                                                             'Extra_Info',
                                                                             'Description',
                                                                             'Transaction_Type']]

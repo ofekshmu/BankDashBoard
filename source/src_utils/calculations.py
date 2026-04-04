@@ -352,7 +352,7 @@ class SimpleMath:
         if general_analysis:
             df = df[df['Relevance']]
         else:
-            # Drop excluded transactions
+            # Drop excluded transactions only
             df = df[df['Transaction_Type'] != Trans_Type.excluded]
 
         return df   

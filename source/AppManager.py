@@ -1177,28 +1177,48 @@ class AppManager:
             date = datetime.strptime(month_str, "%B, %Y")
             possible_names = Formats.FORMATS.get(format_name, {}).get("Transaction Names", {}).get(card_number, [])
 
+            charge_month = utils.next_month(date)
+            file_df = DataBase().get_file_table()
+            file_row = file_df[
+                (file_df['Format'] == format_name) &
+                (file_df['Card_Number'] == card_number) &
+                (pd.to_datetime(file_df['Date']).dt.month == charge_month.month) &
+                (pd.to_datetime(file_df['Date']).dt.year == charge_month.year)
+            ]
+            file_name = file_row['File_Name'].values[0] if not file_row.empty else "Not found"
+
             utils.log(f"\n{'='*60}", 'system')
             utils.log(f"  {format_name} | {card_number} — {month_str}", 'system')
+            utils.log(f"  File: {file_name}", 'system')
             utils.log(f"{'='*60}", 'system')
 
-            # Card transactions for this month
-            processed_df = AppManagerUtils.retrieve_and_initialize_data(date, std_out=False)
-            card_df = processed_df[
-                (processed_df['TableName'] == 'CardTransactions') &
-                (processed_df['CardID'] == card_number)
+            # Card transactions for this month — two passes:
+            # general_analysis=True  → matches validation exactly (correct sum)
+            # general_analysis=False → keeps all rows so Relevance is meaningful for display
+            processed_df_analysis = AppManagerUtils.retrieve_and_initialize_data(date, std_out=False, general_analysis=True)
+            card_df_analysis = processed_df_analysis[
+                (processed_df_analysis['TableName'] == 'CardTransactions') &
+                (processed_df_analysis['CardID'] == card_number)
             ].copy()
 
-            if card_df.empty:
+            processed_df_debug = AppManagerUtils.retrieve_and_initialize_data(date, std_out=False, general_analysis=False)
+            card_df = processed_df_debug[
+                (processed_df_debug['TableName'] == 'CardTransactions') &
+                (processed_df_debug['CardID'] == card_number)
+            ].copy()
+
+            if card_df_analysis.empty:
                 utils.log("  No card transactions found.", 'system')
                 continue
 
-            display_cols = ['Name', 'Executed_Date', 'Charge_Value', 'Charge_Currency', 'Final_Value']
+            display_cols = ['ID', 'TableName', 'Source_file', 'Name', 'Executed_Date', 'Charge_Value', 'Charge_Currency', 'Final_Value', 'Category', 'Relevance']
+            card_df = card_df.reset_index(drop=True)
             utils.log("\n" + utils.df_to_markdown(card_df[display_cols]), 'system')
-            expected_sum = abs(round(card_df['Final_Value'].sum(), 2))
+            expected_sum = abs(round(card_df_analysis['Final_Value'].sum(), 2))
             utils.log(f"  Expected charge sum: {expected_sum}", 'system')
 
-            # Bank candidates from next month
-            next_m = utils.next_month(date)
+            # Bank candidates from next month (charge_month already computed above)
+            next_m = charge_month
             if not possible_names:
                 utils.log("  No charge names configured for this card — cannot compare bank transactions.", 'system')
                 continue
@@ -1210,17 +1230,44 @@ class AppManager:
                 utils.log(f"  No bank transactions in {next_m.strftime('%B %Y')} matching names: {possible_names}", 'system')
                 continue
 
+            card_df_analysis = card_df_analysis.reset_index(drop=True)
+            abs_values = card_df_analysis['Final_Value'].abs().round(2).tolist()
+
             utils.log(f"\n  Bank candidates in {next_m.strftime('%B %Y')}:", 'system')
             for _, row in candidates.iterrows():
                 bank_out = round(row['Out'], 2)
                 diff = round(bank_out - expected_sum, 2)
                 utils.log(f"    {utils.heb_conversion(str(row['Name']))} | {row['Date']} | Out={bank_out:.2f} | Diff={diff:+.2f}", 'system')
 
+                if diff == 0:
+                    utils.log("    -> MATCH — no missing transactions.", 'system')
+                    continue
+
+                # Find a subset of transactions whose abs(Final_Value) sum equals abs(diff)
+                target = round(abs(diff), 2)
+                combo = self._find_subset_sum(abs_values, target)
+                if combo is not None:
+                    matched = card_df_analysis.iloc[list(combo)][['Name', 'Final_Value', 'Category']]
+                    utils.log(f"    -> Combination accounting for the diff ({diff:+.2f}):", 'system')
+                    utils.log("\n" + utils.df_to_markdown(matched), 'system')
+                else:
+                    utils.log(f"    -> No single combination of transactions accounts for the diff ({diff:+.2f}).", 'system')
+
             exact_matches = candidates[candidates['Out'].apply(lambda x: round(x, 2)) == expected_sum]
             if not exact_matches.empty:
                 utils.log("  MATCH EXISTS — mismatch may have since resolved.", 'system')
             else:
                 utils.log(f"  NO MATCH — mismatch confirmed. Expected {expected_sum}.", 'system')
+
+    @staticmethod
+    def _find_subset_sum(values: list, target: float) -> list | None:
+        """Return indices of the smallest subset of values that sums to target (±0.01), or None."""
+        from itertools import combinations
+        for r in range(1, len(values) + 1):
+            for combo in combinations(range(len(values)), r):
+                if abs(round(sum(values[i] for i in combo), 2) - target) <= 0.01:
+                    return list(combo)
+        return None
 
 
 

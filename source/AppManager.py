@@ -62,11 +62,13 @@ class AppManager:
                                              'Export Excel',
                                              'Insert other account status',
                                              'Advanced Search',
-                                             'Debug value mismatch'],
+                                             'Debug value mismatch',
+                                             'Download bank files',
+                                             'Manage download sites'],
                                              msg='Hello Ofek! What would you like to do today?',
                                              exit=True,
                                              col_space=33):
-            
+
                 case 0:
                     return
                 case 1:
@@ -97,6 +99,10 @@ class AppManager:
                     self.advanced_search()
                 case 12:
                     self.debug_value_mismatch()
+                case 13:
+                    self.download_bank_files()
+                case 14:
+                    self.manage_download_sites()
                 case _:
                     utils.log("Please insert a valid number.",'system')
 
@@ -1268,6 +1274,45 @@ class AppManager:
                 if abs(round(sum(values[i] for i in combo), 2) - target) <= 0.01:
                     return list(combo)
         return None
+
+    # -----------------------------------------------------------------------
+    # Download automation
+    # -----------------------------------------------------------------------
+
+    def download_bank_files(self) -> None:
+        """
+        Trigger the automated bank-file download pipeline.
+
+        Detects which billing months are missing in the database for each
+        enabled site, optionally prompts the user before each site's download
+        (controlled by the 'ask_before_download' setting), launches a headed
+        Playwright browser session per site, and saves the downloaded Excel
+        files to the input folder.
+
+        After this method returns, the user can run 'Update/Parse files' (option 1)
+        to process the newly downloaded files.
+
+        See also:
+            Downloader.DownloadManager.run()  — full implementation details.
+        """
+        from Downloader.DownloadManager import DownloadManager
+        DownloadManager.run()
+
+    def manage_download_sites(self) -> None:
+        """
+        Open the download-site management sub-menu.
+
+        Allows the user to:
+          - Enable / disable individual banking sites
+          - Update login credentials stored in Windows Credential Manager
+          - View last-download dates and overdue status per site
+          - Toggle the global 'ask before download' confirmation prompt
+
+        See also:
+            Downloader.DownloadManager.manage_sites()  — full implementation.
+        """
+        from Downloader.DownloadManager import DownloadManager
+        DownloadManager.manage_sites()
 
 
 

@@ -28,3 +28,4 @@ Formats.py
 *.xlsx
 output.html
 source/Configurations/Formats.py
+Outputs/download_log.log

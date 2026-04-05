@@ -202,9 +202,10 @@ class DownloadManager:
                     print(f"  Skipped {site_name}.")
                     continue
 
-            # Ensure credentials are available
+            # Ensure credentials are available, using site-appropriate prompts
+            cred_type = DOWNLOAD_SITES[site_name].get("credential_type", "bank")
             if not CredentialManager.has(site_name):
-                CredentialManager.prompt_and_store(site_name)
+                CredentialManager.prompt_and_store(site_name, cred_type)
 
             credentials = CredentialManager.get(site_name)
 
@@ -226,12 +227,14 @@ class DownloadManager:
                     context = browser.new_context(accept_downloads=True)
                     page = context.new_page()
 
+                    uses_otp = DOWNLOAD_SITES[site_name].get("uses_otp", True)
                     downloader: BaseSiteDownloader = downloader_cls(
                         site_name=site_name,
                         download_dir=cls._get_input_folder(),
                         credentials=credentials,
                         page=page,
                         skip_callback=skip_event.is_set,
+                        uses_otp=uses_otp,
                     )
 
                     downloaded_paths = downloader.download(targets)
@@ -652,7 +655,9 @@ class DownloadManager:
             print("  Invalid choice.")
             return
 
-        CredentialManager.update(site_list[idx])
+        site_name = site_list[idx]
+        cred_type = DOWNLOAD_SITES[site_name].get("credential_type", "bank")
+        CredentialManager.update(site_name, cred_type)
 
     @staticmethod
     def _show_last_download_dates(settings: dict) -> None:

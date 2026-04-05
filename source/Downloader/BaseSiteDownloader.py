@@ -163,12 +163,16 @@ class BaseSiteDownloader(ABC):
         credentials: tuple[str, str],
         page: Page,
         skip_callback: Callable[[], bool],
+        uses_otp: bool = True,
     ) -> None:
         self.site_name = site_name
         self.download_dir = download_dir
         self._username, self._password = credentials
         self._page = page
         self._skip = skip_callback
+        # Whether this site requires an SMS/OTP step after credential submission.
+        # Card sites: True.  Bank sites: False.
+        self._uses_otp = uses_otp
 
     # -----------------------------------------------------------------------
     # Abstract methods — implement in each subclass
@@ -269,8 +273,8 @@ class BaseSiteDownloader(ABC):
             # Some sites navigate away before reaching networkidle — that is fine
             pass
 
-        # --- 2FA / OTP handling ---
-        if self._is_on_2fa_page():
+        # --- 2FA / OTP handling (card sites only) ---
+        if self._uses_otp and self._is_on_2fa_page():
             logger.info(f"[{self.site_name}] 2FA / OTP page detected")
             print(
                 f"\n[{self.site_name}] OTP prompt detected.\n"

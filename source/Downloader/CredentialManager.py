@@ -160,28 +160,34 @@ class CredentialManager:
         logger.info(f"[CredentialManager] Deleted credentials for '{site_name}'")
 
     @staticmethod
-    def prompt_and_store(site_name: str) -> None:
+    def prompt_and_store(site_name: str, credential_type: str = "bank") -> None:
         """
         Interactively prompt the user for credentials and persist them.
 
-        The username is read with a standard input() prompt.
-        The password is read with getpass.getpass() — it is NOT echoed.
+        The prompts differ based on *credential_type*:
+          - "card" → national ID number  +  card last 4 digits  (neither echoed for last-4)
+          - "bank" → username            +  password             (password not echoed)
 
         Args:
-            site_name: The site identifier (e.g. "IsraCard").
+            site_name:       The site identifier (e.g. "IsraCard").
+            credential_type: "card" for credit-card portals, "bank" for bank portals.
 
         Side effects:
             Credentials are stored via store().
         """
         print(f"\n[{site_name}] Credentials not found.  Please enter login details:")
-        username = input(f"  Username / ID for {site_name}: ").strip()
-        password = getpass.getpass(f"  Password for {site_name} (hidden): ")
+        if credential_type == "card":
+            username = input(f"  National ID number for {site_name}: ").strip()
+            password = getpass.getpass(f"  Card last 4 digits for {site_name} (hidden): ")
+        else:
+            username = input(f"  Username for {site_name}: ").strip()
+            password = getpass.getpass(f"  Password for {site_name} (hidden): ")
 
         CredentialManager.store(site_name, username, password)
         print(f"  Credentials for '{site_name}' saved to Windows Credential Manager.\n")
 
     @staticmethod
-    def update(site_name: str) -> None:
+    def update(site_name: str, credential_type: str = "bank") -> None:
         """
         Prompt the user to overwrite existing credentials for *site_name*.
 
@@ -189,11 +195,16 @@ class CredentialManager:
         to make it clear that existing credentials will be replaced.
 
         Args:
-            site_name: The site identifier (e.g. "IsraCard").
+            site_name:       The site identifier (e.g. "IsraCard").
+            credential_type: "card" or "bank" — controls field label wording.
         """
         print(f"\n[{site_name}] Updating stored credentials:")
-        username = input(f"  New username / ID for {site_name}: ").strip()
-        password = getpass.getpass(f"  New password for {site_name} (hidden): ")
+        if credential_type == "card":
+            username = input(f"  New national ID for {site_name}: ").strip()
+            password = getpass.getpass(f"  New card last 4 digits for {site_name} (hidden): ")
+        else:
+            username = input(f"  New username for {site_name}: ").strip()
+            password = getpass.getpass(f"  New password for {site_name} (hidden): ")
 
         CredentialManager.store(site_name, username, password)
         print(f"  Credentials for '{site_name}' updated.\n")

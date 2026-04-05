@@ -45,6 +45,13 @@ DOWNLOAD_SITES: dict[str, dict] = {
 
         # Expected gap between downloads (months). Used only for overdue warnings.
         "download_interval_months": 1,
+
+        # "card"  → prompts for national ID + card last 4 digits
+        # "bank"  → prompts for username + password
+        "credential_type": "card",
+
+        # Whether SMS/OTP is required after submitting credentials
+        "uses_otp": True,
     },
 
     "AmericanExpress": {
@@ -52,6 +59,8 @@ DOWNLOAD_SITES: dict[str, dict] = {
         "downloader_class": "AmexDownloader",
         "enabled": True,
         "download_interval_months": 1,
+        "credential_type": "card",
+        "uses_otp": True,
     },
 
     "Cal": {
@@ -59,6 +68,8 @@ DOWNLOAD_SITES: dict[str, dict] = {
         "downloader_class": "CalDownloader",
         "enabled": True,
         "download_interval_months": 1,
+        "credential_type": "card",
+        "uses_otp": True,
     },
 
     "LeumiMax": {
@@ -66,6 +77,8 @@ DOWNLOAD_SITES: dict[str, dict] = {
         "downloader_class": "LeumiMaxDownloader",
         "enabled": True,
         "download_interval_months": 1,
+        "credential_type": "card",
+        "uses_otp": True,
     },
 
     "BeinLeumi": {
@@ -74,6 +87,8 @@ DOWNLOAD_SITES: dict[str, dict] = {
         "downloader_class": "BeinLeumiDownloader",
         "enabled": True,
         "download_interval_months": 1,
+        "credential_type": "bank",
+        "uses_otp": False,
     },
 }
 

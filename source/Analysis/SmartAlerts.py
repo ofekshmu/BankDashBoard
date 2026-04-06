@@ -202,29 +202,16 @@ class AlertDetector:
         max_cv        = self._cfg.get("price_change_max_cv", 0.30)
 
         # Build {merchant_name: [monthly_total, ...]} from history.
-        # Every history month contributes an entry for every merchant —
-        # 0.0 for months where the merchant did not appear.
-        # This ensures the mean reflects true average monthly spend,
-        # not just the average of "active" months (which skews high
-        # when a merchant had a few unusually expensive months).
-        all_names: set[str] = set()
+        # Only months where the merchant appeared are included.
+        merchant_history: dict[str, list[float]] = {}
         for hist_df in self._history_spend:
-            all_names.update(str(n) for n in hist_df["Name"].unique())
-
-        merchant_history: dict[str, list[float]] = {name: [] for name in all_names}
-        for hist_df in self._history_spend:
-            month_totals: dict[str, float] = {
-                str(name): abs(float(group["Final_Value"].sum()))
-                for name, group in hist_df.groupby("Name")
-            }
-            for name in all_names:
-                merchant_history[name].append(month_totals.get(name, 0.0))
+            for name, group in hist_df.groupby("Name"):
+                merchant_history.setdefault(str(name), []).append(
+                    abs(float(group["Final_Value"].sum()))
+                )
 
         # Keep only merchants that appear in ≥ 2 history months
-        merchant_history = {
-            k: v for k, v in merchant_history.items()
-            if sum(1 for x in v if x > 0) >= 2
-        }
+        merchant_history = {k: v for k, v in merchant_history.items() if len(v) >= 2}
 
         # Current month charge totals per merchant
         current_charges: dict[str, float] = {

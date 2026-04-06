@@ -1131,6 +1131,36 @@ class AppManager:
         earnings_df = transactions_df[transactions_df['Final_Value'] > 0]   
         monthly_balance = DataBase().get_latest_Balance()
 
+        # ---- Smart Alerts ----
+        # Collect the last 6 months of processed transaction DataFrames to
+        # give the alert detector enough history for comparison.
+        # We reuse the same query+process pipeline as get_monthly_shifted().
+        utils.log("Running smart alert detection...", "system")
+        try:
+            from Analysis.SmartAlerts import AlertDetector
+            from Configurations.AlertsConfig import ALERTS_CONFIG
+
+            history_dfs = []
+            for i in range(1, 7):   # 1 month ago → 6 months ago
+                hist_date = t - pd.DateOffset(months=i)
+                hist_raw  = DataBase().query_monthly_transactions(
+                    date=hist_date, tables=["BankTransactions", "CardTransactions"]
+                )
+                history_dfs.append(SimpleMath.process_prices(hist_raw, date=hist_date))
+
+            alerts = AlertDetector(
+                current_df  = transactions_df,
+                history_dfs = history_dfs,
+                config      = ALERTS_CONFIG,
+            ).detect_all()
+
+            utils.log(f"Smart alerts: {len(alerts)} alert(s) generated", "system")
+
+        except Exception as exc:
+            # Alert detection must never crash the main analysis flow
+            utils.log(f"Smart alert detection failed (non-critical): {exc}", "warning")
+            alerts = []
+
         utils.log("Generating HTML report...", "system")
         utils.generate_html(t.month,
                             t.year,
@@ -1142,7 +1172,8 @@ class AppManager:
                             card_color_dict,
                             data,
                             accounts_data,
-                            cash_information_data)
+                            cash_information_data,
+                            alerts=alerts)
         webbrowser.open(r'source\html\output.html')
 
     def debug_value_mismatch(self) -> None:

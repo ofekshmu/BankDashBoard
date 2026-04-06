@@ -132,7 +132,8 @@ class utils:
                       cards_dict: dict,
                       data: dict,
                       accounts_data: dict,
-                      cash_information_data: dict) -> None:
+                      cash_information_data: dict,
+                      alerts: list = None) -> None:
         import bs4
         from datetime import datetime
         import calendar
@@ -155,6 +156,112 @@ class utils:
         head_tag = soup.head
         head_tag.insert(0, new_div)
 
+        # ------------------------------------------------------------------
+        # Smart Alerts section
+        # Inject alert CSS into <head> and build the alerts container at the
+        # very top of <body> (before charts and transaction lists).
+        # ------------------------------------------------------------------
+        if alerts:
+            # Inject alert styles into <head>
+            style_tag = soup.new_tag("style")
+            style_tag.string = """
+                .alerts-container {
+                    max-width: 960px;
+                    margin: 24px auto 16px auto;
+                    padding: 0 24px;
+                    font-family: Arial, sans-serif;
+                    direction: rtl;
+                }
+                .alerts-container h2 {
+                    text-align: center;
+                    color: #2c3e50;
+                    font-size: 1.4em;
+                    margin-bottom: 14px;
+                    border-bottom: 2px solid #ddd;
+                    padding-bottom: 8px;
+                }
+                .alert-item {
+                    display: flex;
+                    align-items: flex-start;
+                    padding: 11px 16px;
+                    margin-bottom: 9px;
+                    border-radius: 6px;
+                    border-right: 5px solid;
+                    background-color: #fafafa;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+                }
+                .alert-item.critical { border-color: #e74c3c; background-color: #fff5f5; }
+                .alert-item.warning  { border-color: #f39c12; background-color: #fffbf0; }
+                .alert-item.info     { border-color: #3498db; background-color: #f0f8ff; }
+                .alert-icon {
+                    font-size: 1.25em;
+                    margin-left: 12px;
+                    flex-shrink: 0;
+                    margin-top: 1px;
+                }
+                .alert-body strong {
+                    display: block;
+                    font-size: 0.95em;
+                    color: #2c3e50;
+                    margin-bottom: 3px;
+                }
+                .alert-body p {
+                    margin: 0;
+                    font-size: 0.87em;
+                    color: #555;
+                }
+                .no-alerts {
+                    text-align: center;
+                    color: #27ae60;
+                    font-size: 0.95em;
+                    padding: 10px 0;
+                }
+            """
+            soup.head.append(style_tag)
+
+            # Icon and CSS class per severity level
+            _severity_meta = {
+                "critical": ("❗", "critical"),
+                "warning":  ("⚡", "warning"),
+                "info":     ("ℹ",  "info"),
+            }
+
+            alerts_container = soup.new_tag("div")
+            alerts_container["class"] = "alerts-container"
+
+            heading = soup.new_tag("h2")
+            heading.string = "⚠ התראות חכמות"
+            alerts_container.append(heading)
+
+            for alert in alerts:
+                icon, css_class = _severity_meta.get(
+                    alert.severity, ("•", "info")
+                )
+
+                alert_div = soup.new_tag("div")
+                alert_div["class"] = f"alert-item {css_class}"
+
+                icon_span = soup.new_tag("span")
+                icon_span["class"] = "alert-icon"
+                icon_span.string = icon
+
+                body_div = soup.new_tag("div")
+                body_div["class"] = "alert-body"
+
+                title_tag = soup.new_tag("strong")
+                title_tag.string = alert.title
+
+                desc_tag = soup.new_tag("p")
+                desc_tag.string = alert.description
+
+                body_div.append(title_tag)
+                body_div.append(desc_tag)
+                alert_div.append(icon_span)
+                alert_div.append(body_div)
+                alerts_container.append(alert_div)
+
+            # Insert as the very first element in <body>
+            soup.body.insert(0, alerts_container)
 
         sub_titles_div = soup.new_tag('div')
 

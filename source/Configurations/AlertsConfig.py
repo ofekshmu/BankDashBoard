@@ -24,6 +24,11 @@ ALERTS_CONFIG: dict = {
     "price_change_threshold_pct": 20,   # % deviation from historical mean
     "price_change_min_abs":        30,  # Minimum absolute ₪ change to care about
                                         # (avoids noise on very small charges)
+    "price_change_max_cv":       0.30,  # Maximum coefficient of variation (std/mean)
+                                        # allowed for a merchant to qualify.
+                                        # Merchants like Wolt/food delivery have high CV
+                                        # because order amounts vary naturally — skip them.
+                                        # Subscriptions/bills have CV ≈ 0 — flag them.
 
     # ------------------------------------------------------------------
     # Missing recurring charge

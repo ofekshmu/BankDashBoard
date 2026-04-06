@@ -199,6 +199,7 @@ class AlertDetector:
 
         threshold_pct = self._cfg.get("price_change_threshold_pct", 20) / 100
         min_abs       = self._cfg.get("price_change_min_abs", 30)
+        max_cv        = self._cfg.get("price_change_max_cv", 0.30)
 
         # Build {merchant_name: [monthly_total, ...]} from history
         merchant_history: dict[str, list[float]] = {}
@@ -222,8 +223,24 @@ class AlertDetector:
             if name not in merchant_history:
                 continue
 
-            hist_mean   = float(np.mean(merchant_history[name]))
+            hist_vals   = merchant_history[name]
+            hist_mean   = float(np.mean(hist_vals))
+            hist_std    = float(np.std(hist_vals))
+
             if hist_mean == 0:
+                continue
+
+            # Skip naturally-variable merchants (food delivery, supermarkets, etc.)
+            # whose charge amounts differ every month by design.
+            # Coefficient of variation = std / mean:
+            #   low CV (≈0) → consistent charger (subscription, phone bill) → alert
+            #   high CV     → variable charger (Wolt, restaurants)          → skip
+            cv = hist_std / hist_mean
+            if cv > max_cv:
+                logger.debug(
+                    f"[SmartAlerts] price_change skipped '{name}': "
+                    f"CV={cv:.2f} exceeds max_cv={max_cv}"
+                )
                 continue
 
             change_pct  = (current_total - hist_mean) / hist_mean
@@ -236,7 +253,7 @@ class AlertDetector:
                     severity    = "critical",
                     title       = f"שינוי חיוב: {name}",
                     description = (
-                        f"חויב {current_total:.0f}₪ לעומת ממוצע היסטורי של {hist_mean:.0f}₪ "
+                        f"חויב {current_total:.0f}₪ לעומת {hist_mean:.0f}₪ בד״כ "
                         f"({sign}{change_pct * 100:.0f}%)"
                     ),
                     merchant = name,

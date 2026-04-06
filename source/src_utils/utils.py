@@ -166,7 +166,7 @@ class utils:
             style_tag = soup.new_tag("style")
             style_tag.string = """
                 .alerts-container {
-                    max-width: 960px;
+                    max-width: 1100px;
                     margin: 24px auto 16px auto;
                     padding: 0 24px;
                     font-family: Arial, sans-serif;
@@ -175,18 +175,22 @@ class utils:
                 .alerts-container h2 {
                     text-align: center;
                     color: #2c3e50;
-                    font-size: 1.4em;
+                    font-size: 1.3em;
                     margin-bottom: 14px;
                     border-bottom: 2px solid #ddd;
                     padding-bottom: 8px;
                 }
+                .alerts-grid {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+                    gap: 10px;
+                }
                 .alert-item {
                     display: flex;
                     align-items: flex-start;
-                    padding: 11px 16px;
-                    margin-bottom: 9px;
+                    padding: 10px 14px;
                     border-radius: 6px;
-                    border-right: 5px solid;
+                    border-right: 4px solid;
                     background-color: #fafafa;
                     box-shadow: 0 1px 3px rgba(0,0,0,0.08);
                 }
@@ -194,27 +198,22 @@ class utils:
                 .alert-item.warning  { border-color: #f39c12; background-color: #fffbf0; }
                 .alert-item.info     { border-color: #3498db; background-color: #f0f8ff; }
                 .alert-icon {
-                    font-size: 1.25em;
-                    margin-left: 12px;
+                    font-size: 1.1em;
+                    margin-left: 10px;
                     flex-shrink: 0;
-                    margin-top: 1px;
+                    margin-top: 2px;
                 }
                 .alert-body strong {
                     display: block;
-                    font-size: 0.95em;
+                    font-size: 0.88em;
                     color: #2c3e50;
                     margin-bottom: 3px;
                 }
                 .alert-body p {
                     margin: 0;
-                    font-size: 0.87em;
+                    font-size: 0.80em;
                     color: #555;
-                }
-                .no-alerts {
-                    text-align: center;
-                    color: #27ae60;
-                    font-size: 0.95em;
-                    padding: 10px 0;
+                    line-height: 1.4;
                 }
             """
             soup.head.append(style_tag)
@@ -232,6 +231,10 @@ class utils:
             heading = soup.new_tag("h2")
             heading.string = "⚠ התראות חכמות"
             alerts_container.append(heading)
+
+            # Grid wrapper — alert cards sit inside this
+            grid_div = soup.new_tag("div")
+            grid_div["class"] = "alerts-grid"
 
             for alert in alerts:
                 icon, css_class = _severity_meta.get(
@@ -258,7 +261,9 @@ class utils:
                 body_div.append(desc_tag)
                 alert_div.append(icon_span)
                 alert_div.append(body_div)
-                alerts_container.append(alert_div)
+                grid_div.append(alert_div)
+
+            alerts_container.append(grid_div)
 
             # Insert as the very first element in <body>
             soup.body.insert(0, alerts_container)

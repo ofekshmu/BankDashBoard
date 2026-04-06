@@ -194,9 +194,6 @@ class utils:
                     background-color: #fafafa;
                     box-shadow: 0 1px 3px rgba(0,0,0,0.08);
                 }
-                .alert-item.critical { border-color: #e74c3c; background-color: #fff5f5; }
-                .alert-item.warning  { border-color: #f39c12; background-color: #fffbf0; }
-                .alert-item.info     { border-color: #3498db; background-color: #f0f8ff; }
                 .alert-icon {
                     font-size: 1.1em;
                     margin-left: 10px;
@@ -218,13 +215,6 @@ class utils:
             """
             soup.head.append(style_tag)
 
-            # Icon and CSS class per severity level
-            _severity_meta = {
-                "critical": ("❗", "critical"),
-                "warning":  ("⚡", "warning"),
-                "info":     ("ℹ",  "info"),
-            }
-
             alerts_container = soup.new_tag("div")
             alerts_container["class"] = "alerts-container"
 
@@ -237,16 +227,25 @@ class utils:
             grid_div["class"] = "alerts-grid"
 
             for alert in alerts:
-                icon, css_class = _severity_meta.get(
-                    alert.severity, ("•", "info")
-                )
+                # Derive a light background from the border color
+                _bg_map = {
+                    "#e74c3c": "#fff5f5",   # red   → light red
+                    "#2ecc71": "#f0fff4",   # green → light green
+                    "#f0b429": "#fffbeb",   # amber → light yellow
+                }
+                border_color = alert.color or "#f0b429"
+                bg_color     = _bg_map.get(border_color, "#fafafa")
 
                 alert_div = soup.new_tag("div")
-                alert_div["class"] = f"alert-item {css_class}"
+                alert_div["class"] = "alert-item"
+                alert_div["style"] = (
+                    f"border-color:{border_color};"
+                    f"background-color:{bg_color};"
+                )
 
                 icon_span = soup.new_tag("span")
                 icon_span["class"] = "alert-icon"
-                icon_span.string = icon
+                icon_span.string = alert.icon or "•"
 
                 body_div = soup.new_tag("div")
                 body_div["class"] = "alert-body"

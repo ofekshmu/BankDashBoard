@@ -71,6 +71,8 @@ class Alert:
         description: Full Hebrew description including ₪ amounts and percentages.
         merchant:    Related merchant/business name (empty string if N/A).
         category:    Related spending category (empty string if N/A).
+        icon:        Emoji displayed on the alert card (set per alert type).
+        color:       CSS hex color for the card border and background tint.
     """
     alert_type:  str
     severity:    str   # "critical" | "warning" | "info"
@@ -78,6 +80,8 @@ class Alert:
     description: str
     merchant:    str = field(default="")
     category:    str = field(default="")
+    icon:        str = field(default="•")
+    color:       str = field(default="#f0b429")  # amber/yellow — general default
 
 
 # ---------------------------------------------------------------------------
@@ -248,16 +252,19 @@ class AlertDetector:
             abs_change  = abs(current_total - hist_mean)
 
             if abs(change_pct) >= threshold_pct and abs_change >= min_abs:
-                sign = "+" if change_pct > 0 else ""
+                sign     = "+" if change_pct > 0 else ""
+                went_up  = change_pct > 0
                 alerts.append(Alert(
                     alert_type  = "price_change",
                     severity    = "critical",
-                    title       = f"שינוי חיוב: {name}",
+                    title       = f"{'עלייה' if went_up else 'ירידה'} בחיוב: {name}",
                     description = (
                         f"חויב {current_total:.0f}₪ לעומת {hist_mean:.0f}₪ בד״כ "
                         f"({sign}{change_pct * 100:.0f}%)"
                     ),
                     merchant = name,
+                    icon     = "⬆" if went_up else "⬇",
+                    color    = "#e74c3c" if went_up else "#2ecc71",
                 ))
 
         return alerts
@@ -300,6 +307,8 @@ class AlertDetector:
                     f"(ממוצע {avg_amt:.0f}₪) ולא נמצא החודש"
                 ),
                 merchant = name,
+                icon     = "❓",
+                color    = "#f0b429",
             ))
 
         return alerts
@@ -307,7 +316,8 @@ class AlertDetector:
     def _new_subscription(self) -> List[Alert]:
         """
         Detect first-time merchant charges that look like a new subscription
-        (small or round amount not seen in any of the last N history months).
+        (small AND round amount not seen in any of the last N history months).
+        Both conditions must hold to reduce false positives from one-time purchases.
 
         Returns:
             List of warning Alerts, one per suspected new subscription.
@@ -330,9 +340,12 @@ class AlertDetector:
 
             total     = abs(float(group["Final_Value"].sum()))
             is_small  = total <= max_amount
-            is_round  = (total % 5 == 0)   # subscription prices are usually round
+            is_round  = (total % 5 == 0)   # subscription prices are usually round numbers
 
-            if is_small or is_round:
+            # Require BOTH conditions — reduces false positives from one-time
+            # purchases that happen to be small or happen to be a round number.
+            # A true subscription is typically a small AND round price (e.g. ₪25, ₪55).
+            if is_small and is_round:
                 alerts.append(Alert(
                     alert_type  = "new_subscription",
                     severity    = "warning",
@@ -342,6 +355,8 @@ class AlertDetector:
                         f"החודשים האחרונים. ייתכן שמדובר במנוי חדש"
                     ),
                     merchant = name,
+                    icon     = "🆕",
+                    color    = "#f0b429",
                 ))
 
         return alerts
@@ -373,6 +388,8 @@ class AlertDetector:
                             f"({amounts[i]:.0f}₪ ו-{amounts[i + 1]:.0f}₪) באותו חודש"
                         ),
                         merchant = str(name),
+                        icon     = "⚡",
+                        color    = "#f0b429",
                     ))
                     break  # one alert per merchant is enough
 
@@ -428,6 +445,8 @@ class AlertDetector:
                         f"לעומת ממוצע של {hist_mean:.0f}₪ (+{change_pct:.0f}%)"
                     ),
                     category = cat,
+                    icon     = "📊",
+                    color    = "#f0b429",
                 ))
 
         return alerts
@@ -480,6 +499,8 @@ class AlertDetector:
                             f"{hist_mean:.0f}₪ (±{hist_std:.0f}₪)"
                         ),
                         merchant = name,
+                        icon     = "💰",
+                        color    = "#f0b429",
                     ))
                     break  # one alert per merchant
 
@@ -515,6 +536,8 @@ class AlertDetector:
                     f"הוצאות החודש: {current_total:.0f}₪ "
                     f"לעומת ממוצע של {hist_mean:.0f}₪ (+{change_pct * 100:.0f}%)"
                 ),
+                icon  = "📅",
+                color = "#f0b429",
             )]
 
         return []
@@ -551,6 +574,8 @@ class AlertDetector:
                 severity    = "info",
                 title       = f"מגמת עלייה בהוצאות ({trend_months} חודשים)",
                 description = f"ההוצאות עולות ברציפות: {values_str}",
+                icon  = "📈",
+                color = "#f0b429",
             )]
 
         return []

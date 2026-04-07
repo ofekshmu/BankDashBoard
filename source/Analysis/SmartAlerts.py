@@ -257,9 +257,10 @@ class AlertDetector:
                 alerts.append(Alert(
                     alert_type  = "price_change",
                     severity    = "critical",
-                    title       = f"{'עלייה' if went_up else 'ירידה'} בחיוב: {name}",
+                    title       = f"{'עלייה' if went_up else 'ירידה'} בתשלום חודשי: {name}",
                     description = (
-                        f"חויב {current_total:.0f}₪ לעומת {hist_mean:.0f}₪ בד״כ "
+                        f"סה״כ חודשי: {current_total:.0f}₪ — "
+                        f"ממוצע חודשים קודמים: {hist_mean:.0f}₪ "
                         f"({sign}{change_pct * 100:.0f}%)"
                     ),
                     merchant = name,
@@ -493,14 +494,14 @@ class AlertDetector:
                     alerts.append(Alert(
                         alert_type  = "large_transaction",
                         severity    = "warning",
-                        title       = f"חיוב גבוה מהרגיל: {name}",
+                        title       = f"עסקה חריגה: {name}",
                         description = (
-                            f"חויב {tx_amount:.0f}₪ לעומת ממוצע של "
-                            f"{hist_mean:.0f}₪ (±{hist_std:.0f}₪)"
+                            f"עסקה בודדת של {tx_amount:.0f}₪ — "
+                            f"ממוצע עסקה רגילה: {hist_mean:.0f}₪ (±{hist_std:.0f}₪)"
                         ),
                         merchant = name,
                         icon     = "💰",
-                        color    = "#f0b429",
+                        color    = "#e74c3c",
                     ))
                     break  # one alert per merchant
 

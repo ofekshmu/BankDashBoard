@@ -440,14 +440,14 @@ class AlertDetector:
                 alerts.append(Alert(
                     alert_type  = "category_spike",
                     severity    = "warning",
-                    title       = f"גידול בקטגוריה: {cat}",
+                    title       = f"קטגוריה בעלייה: {cat}",
                     description = (
-                        f"הוצאות החודש: {current_total:.0f}₪ "
-                        f"לעומת ממוצע של {hist_mean:.0f}₪ (+{change_pct:.0f}%)"
+                        f"סה״כ החודש: {current_total:.0f}₪ — "
+                        f"ממוצע חודשי רגיל: {hist_mean:.0f}₪ (+{change_pct:.0f}%)"
                     ),
                     category = cat,
                     icon     = "📊",
-                    color    = "#f0b429",
+                    color    = "#e74c3c",
                 ))
 
         return alerts

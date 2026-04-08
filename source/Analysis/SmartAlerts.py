@@ -454,56 +454,92 @@ class AlertDetector:
 
     def _large_transaction(self) -> List[Alert]:
         """
-        Detect individual transactions that are much larger than the
-        merchant's historical per-transaction average.
+        Detect individual transactions that are unusually large compared to
+        the user's own historical spending patterns.
+
+        Method: for each transaction, compute the Nth percentile threshold using
+        the most specific available history pool:
+          1. Same merchant name — if at least `large_tx_min_samples` data points exist.
+          2. Same category      — if the merchant pool is too small.
+          3. Skip               — if neither pool has enough data.
 
         Returns:
-            List of warning Alerts, one per affected merchant.
+            List of warning Alerts, one per offending transaction.
         """
-        if len(self._history_spend) < 2:
+        if not self._history_spend:
             return []
 
-        std_mult = self._cfg.get("large_tx_std_mult", 2.0)
-        min_abs  = self._cfg.get("large_tx_min_abs", 100)
+        percentile  = self._cfg.get("large_tx_percentile",   95)
+        min_samples = self._cfg.get("large_tx_min_samples",   5)
 
-        # Gather all individual historical transaction amounts per merchant
-        merchant_hist: dict[str, list[float]] = {}
+        # Build lookup tables: name → [amounts], category → [amounts]
+        hist_by_name: dict[str, list[float]] = {}
+        hist_by_cat:  dict[str, list[float]] = {}
         for hist_df in self._history_spend:
-            for name, group in hist_df.groupby("Name"):
-                merchant_hist.setdefault(str(name), []).extend(
-                    abs(group["Final_Value"]).tolist()
-                )
+            for _, row in hist_df.iterrows():
+                amount = abs(float(row["Final_Value"]))
+                hist_by_name.setdefault(str(row["Name"]), []).append(amount)
+                if "Category" in hist_df.columns:
+                    hist_by_cat.setdefault(str(row["Category"]), []).append(amount)
 
-        # Keep only merchants with at least 2 historical data points
-        merchant_hist = {k: v for k, v in merchant_hist.items() if len(v) >= 2}
+        std_mult = self._cfg.get("large_tx_std_mult", 2.0)
 
         alerts: List[Alert] = []
-        for name, group in self._current_spend.groupby("Name"):
-            name = str(name)
-            if name not in merchant_hist:
-                continue
+        for _, row in self._current_spend.iterrows():
+            tx_amount = abs(float(row["Final_Value"]))
+            name      = str(row["Name"])
+            category  = str(row.get("Category", ""))
 
-            hist_vals = merchant_hist[name]
-            hist_mean = float(np.mean(hist_vals))
-            hist_std  = float(np.std(hist_vals))
-            threshold = hist_mean + std_mult * hist_std
+            # Determine the best available pool
+            name_pool = hist_by_name.get(name, [])
+            cat_pool  = hist_by_cat.get(category, [])
 
-            for _, row in group.iterrows():
-                tx_amount = abs(float(row["Final_Value"]))
-                if tx_amount > threshold and (tx_amount - hist_mean) >= min_abs:
-                    alerts.append(Alert(
-                        alert_type  = "large_transaction",
-                        severity    = "warning",
-                        title       = f"עסקה חריגה: {name}",
-                        description = (
-                            f"עסקה בודדת של {tx_amount:.0f}₪ — "
-                            f"ממוצע עסקה רגילה: {hist_mean:.0f}₪ (±{hist_std:.0f}₪)"
-                        ),
-                        merchant = name,
-                        icon     = "💰",
-                        color    = "#e74c3c",
-                    ))
-                    break  # one alert per merchant
+            if len(name_pool) >= min_samples:
+                pool  = name_pool
+                basis = f"עסקאות קודמות של {name}"
+            elif len(cat_pool) >= min_samples:
+                pool  = cat_pool
+                basis = f"עסקאות בקטגוריה {category}"
+            else:
+                continue  # not enough history to decide
+
+            pct_threshold = float(np.percentile(pool, percentile))
+            mean          = float(np.mean(pool))
+            std           = float(np.std(pool))
+            std_threshold = mean + std_mult * std
+
+            above_percentile = tx_amount > pct_threshold
+            above_std        = tx_amount > std_threshold
+
+            if above_percentile or above_std:
+                if above_percentile and above_std:
+                    reason = (
+                        f"עסקה של {tx_amount:.0f}₪ — "
+                        f"גבוהה מ-{percentile}% מתוך {basis} (סף אחוזון: {pct_threshold:.0f}₪) "
+                        f"וגם מעל ממוצע+2σ ({std_threshold:.0f}₪)"
+                    )
+                elif above_percentile:
+                    reason = (
+                        f"עסקה של {tx_amount:.0f}₪ — "
+                        f"גבוהה מ-{percentile}% מתוך {basis} (סף: {pct_threshold:.0f}₪)"
+                    )
+                else:
+                    reason = (
+                        f"עסקה של {tx_amount:.0f}₪ — "
+                        f"מעל ממוצע+2σ מתוך {basis} "
+                        f"(ממוצע: {mean:.0f}₪, סף: {std_threshold:.0f}₪)"
+                    )
+
+                alerts.append(Alert(
+                    alert_type  = "large_transaction",
+                    severity    = "warning",
+                    title       = f"עסקה חריגה: {name}",
+                    description = reason,
+                    merchant    = name,
+                    category    = category,
+                    icon        = "💰",
+                    color       = "#e74c3c",
+                ))
 
         return alerts
 

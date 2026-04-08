@@ -212,6 +212,49 @@ class utils:
                     color: #555;
                     line-height: 1.4;
                 }
+                .alerts-legend {
+                    margin-top: 18px;
+                    border: 1px solid #e0e0e0;
+                    border-radius: 6px;
+                    overflow: hidden;
+                    font-size: 0.82em;
+                    color: #444;
+                }
+                .alerts-legend summary {
+                    cursor: pointer;
+                    padding: 8px 14px;
+                    background: #f5f5f5;
+                    font-weight: bold;
+                    color: #2c3e50;
+                    list-style: none;
+                    user-select: none;
+                }
+                .alerts-legend summary::-webkit-details-marker { display: none; }
+                .alerts-legend summary::before {
+                    content: "▶ ";
+                    font-size: 0.75em;
+                }
+                .alerts-legend[open] summary::before { content: "▼ "; }
+                .legend-grid {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+                    gap: 0;
+                }
+                .legend-row {
+                    display: flex;
+                    align-items: flex-start;
+                    padding: 8px 14px;
+                    border-top: 1px solid #efefef;
+                    gap: 10px;
+                }
+                .legend-row:nth-child(odd) { background: #fafafa; }
+                .legend-icon { font-size: 1.1em; flex-shrink: 0; padding-top: 1px; }
+                .legend-text strong {
+                    display: block;
+                    color: #2c3e50;
+                    margin-bottom: 2px;
+                }
+                .legend-text span { color: #666; line-height: 1.4; display: block; }
             """
             soup.head.append(style_tag)
 
@@ -263,6 +306,69 @@ class utils:
                 grid_div.append(alert_div)
 
             alerts_container.append(grid_div)
+
+            # ------------------------------------------------------------------
+            # Legend — collapsible section explaining each alert type
+            # ------------------------------------------------------------------
+            _legend_entries = [
+                ("🔄", "שינוי מחיר",
+                 "מוכר חוזר שסכום החיוב שלו השתנה ביחס לממוצע ההיסטורי. "
+                 "מופעל כשהשינוי עולה על 20% או ₪30."),
+                ("🔍", "חיוב חוזר חסר",
+                 "מוכר שהופיע בכל אחד מ-3 החודשים האחרונים ולא הופיע החודש."),
+                ("🆕", "מנוי חדש אפשרי",
+                 "חיוב ראשון ממוכר חדש בסכום קטן או עגול (עד ₪300) — "
+                 "עשוי להיות מנוי שנרשמת אליו."),
+                ("🔁", "חיוב כפול",
+                 "אותו מוכר חויב פעמיים באותו חודש בסכומים דומים (הפרש עד ₪5)."),
+                ("📊", "קפיצה בקטגוריה",
+                 "סך ההוצאה בקטגוריה עלה פי 1.5 מהממוצע ההיסטורי שלה, "
+                 "ובלפחות ₪200 מעל הממוצע."),
+                ("💰", "עסקה חריגה",
+                 "עסקה בודדת שחורגת מ-95% מהעסקאות ההיסטוריות באותו מוכר. "
+                 "אם אין מספיק היסטוריה למוכר — נעשה השוואה לאותה קטגוריה."),
+                ("📅", "חודש הוצאות גבוה",
+                 "סך ההוצאות החודש גבוה ב-25% ומעלה מהממוצע ההיסטורי החודשי."),
+                ("📈", "מגמת עלייה בהוצאות",
+                 "ההוצאות עלו ברציפות במשך 3 חודשים לפחות — "
+                 "כל חודש גבוה מהחודש שלפניו."),
+            ]
+
+            legend_details = soup.new_tag("details")
+            legend_details["class"] = "alerts-legend"
+
+            legend_summary = soup.new_tag("summary")
+            legend_summary.string = "מקרא — הסבר על סוגי ההתראות"
+            legend_details.append(legend_summary)
+
+            legend_grid = soup.new_tag("div")
+            legend_grid["class"] = "legend-grid"
+
+            for icon, name, explanation in _legend_entries:
+                row = soup.new_tag("div")
+                row["class"] = "legend-row"
+
+                icon_span = soup.new_tag("span")
+                icon_span["class"] = "legend-icon"
+                icon_span.string = icon
+
+                text_div = soup.new_tag("div")
+                text_div["class"] = "legend-text"
+
+                name_tag = soup.new_tag("strong")
+                name_tag.string = name
+
+                exp_tag = soup.new_tag("span")
+                exp_tag.string = explanation
+
+                text_div.append(name_tag)
+                text_div.append(exp_tag)
+                row.append(icon_span)
+                row.append(text_div)
+                legend_grid.append(row)
+
+            legend_details.append(legend_grid)
+            alerts_container.append(legend_details)
 
             # Insert as the very first element in <body>
             soup.body.insert(0, alerts_container)

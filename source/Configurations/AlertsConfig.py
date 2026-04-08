@@ -61,11 +61,14 @@ ALERTS_CONFIG: dict = {
 
     # ------------------------------------------------------------------
     # Unusually large single transaction
-    # Fires when a single charge is much larger than that merchant's
-    # historical per-transaction average.
+    # Fires when a single charge exceeds the Nth percentile of all
+    # historical transaction amounts (across all merchants and months).
+    # Works for both known and unknown merchants.
     # ------------------------------------------------------------------
-    "large_tx_std_mult": 2.0,           # Standard deviations above mean
-    "large_tx_min_abs":  100,           # Minimum ₪ excess over mean
+    # Alert fires if EITHER condition is met
+    "large_tx_percentile":  95,   # Condition 1: above Nth percentile of pool
+    "large_tx_std_mult":   2.0,   # Condition 2: above mean + N×std of pool
+    "large_tx_min_samples":  5,   # Min data points required to compute threshold
 
     # ------------------------------------------------------------------
     # High spending month (overall)

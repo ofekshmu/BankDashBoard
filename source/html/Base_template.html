@@ -1,56 +1,527 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="he" dir="rtl">
 <head>
-	<link rel="stylesheet" href="styles.css">
-	<style>
-		body {
-			font-family: Arial, sans-serif;
-		}
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title id="page-title">Dashboard</title>
+<style>
+/* ── Reset ──────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-		.container_img {
-			display: flex;
-			justify-content: center;
-			align-items: center;
-		}
+/* ── Tokens ─────────────────────────────────────────────── */
+:root {
+  --teal:       #1e9d8b;
+  --teal-light: #e8f7f5;
+  --teal-glow:  rgba(30,157,139,0.30);
+  --navy:       #1e2a4a;
+  --bg:         #f4f6f9;
+  --white:      #ffffff;
+  --border:     #eef0f6;
+  --text-muted: #888;
+  --text-sub:   #555;
+  --red:        #e74c3c;
+  --amber:      #f0b429;
+  --green:      #2ecc71;
+  --shadow-sm:  0 2px 10px rgba(0,0,0,0.06);
+  --shadow-md:  0 6px 20px rgba(0,0,0,0.10);
+  --radius:     14px;
+  --radius-sm:  8px;
+}
 
-		h1 {
-			text-align: center;
-		}
-	</style>
+/* ── Base ────────────────────────────────────────────────── */
+body {
+  font-family: 'Segoe UI', Arial, sans-serif;
+  background: var(--bg);
+  display: flex;
+  min-height: 100vh;
+  direction: rtl;
+  color: var(--navy);
+  font-size: 14px;
+}
+
+/* ── Sidebar ─────────────────────────────────────────────── */
+.sidebar {
+  width: 72px;
+  background: var(--white);
+  border-left: 1px solid var(--border);
+  position: fixed;
+  top: 0; right: 0;
+  height: 100vh;
+  display: flex; flex-direction: column; align-items: center;
+  padding: 18px 0 16px;
+  gap: 2px;
+  z-index: 200;
+  box-shadow: -2px 0 12px rgba(0,0,0,0.05);
+}
+.sidebar-logo {
+  font-size: 1.65em; font-weight: 800;
+  color: var(--teal);
+  margin-bottom: 20px;
+  letter-spacing: -1px;
+  user-select: none;
+}
+.nav-btn {
+  width: 50px; height: 54px;
+  border-radius: 12px;
+  border: none;
+  background: transparent;
+  color: #9aa3bb;
+  cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 3px;
+  font-size: 1.3em;
+  transition: background 0.18s, color 0.18s, box-shadow 0.18s;
+  position: relative;
+  text-decoration: none;
+}
+.nav-btn:hover  { background: #f0f4ff; color: var(--navy); }
+.nav-btn.active { background: var(--teal); color: #fff; box-shadow: 0 4px 14px var(--teal-glow); }
+.nav-btn .lbl   { font-size: 0.34em; font-weight: 600; letter-spacing: 0.4px; line-height: 1; }
+.nav-badge {
+  position: absolute; top: 7px; left: 6px;
+  background: var(--red); color: #fff;
+  border-radius: 8px; font-size: 0.28em;
+  padding: 1px 5px; font-weight: 700; line-height: 1.5;
+  display: none;
+}
+
+/* ── Main container ──────────────────────────────────────── */
+.main {
+  margin-right: 72px;
+  flex: 1;
+  padding: 26px 28px 50px;
+  min-width: 0;
+}
+
+/* ── Page header ─────────────────────────────────────────── */
+.page-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 20px;
+}
+.page-header h1 { font-size: 1.85em; font-weight: 700; color: var(--navy); }
+.month-badge {
+  background: var(--teal); color: #fff;
+  padding: 6px 18px; border-radius: 20px;
+  font-size: 0.87em; font-weight: 600;
+}
+
+/* ── KPI row ─────────────────────────────────────────────── */
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+  gap: 14px;
+  margin-bottom: 22px;
+}
+.kpi-card {
+  background: var(--white); border-radius: var(--radius);
+  padding: 18px 20px 16px;
+  box-shadow: var(--shadow-sm);
+  display: flex; flex-direction: column; gap: 7px;
+  transition: transform 0.18s, box-shadow 0.18s;
+}
+.kpi-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
+.kpi-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  display: inline-block; margin-left: 7px; flex-shrink: 0;
+}
+.kpi-label { font-size: 0.76em; color: var(--text-muted); display: flex; align-items: center; font-weight: 500; }
+.kpi-value { font-size: 1.55em; font-weight: 700; color: var(--navy); line-height: 1.1; }
+.kpi-value.pos { color: var(--teal); }
+.kpi-value.neg { color: var(--red); }
+
+/* ── Panels ──────────────────────────────────────────────── */
+.panel { display: none; animation: fadein 0.22s ease; }
+.panel.active { display: block; }
+@keyframes fadein { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:none; } }
+
+/* ── Card ────────────────────────────────────────────────── */
+.card {
+  background: var(--white); border-radius: var(--radius);
+  padding: 20px 22px;
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 16px;
+}
+.card-title {
+  font-size: 0.91em; font-weight: 700; color: var(--navy);
+  margin-bottom: 16px; padding-bottom: 10px;
+  border-bottom: 1.5px solid var(--border);
+  display: flex; align-items: center; gap: 8px;
+}
+.card-title::before {
+  content: ""; display: inline-block;
+  width: 4px; height: 16px;
+  background: var(--teal); border-radius: 2px; flex-shrink: 0;
+}
+
+/* ── Chart grid ──────────────────────────────────────────── */
+.charts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.chart-card {
+  background: var(--white); border-radius: var(--radius);
+  padding: 16px 18px;
+  box-shadow: var(--shadow-sm);
+}
+.chart-card-title {
+  font-size: 0.82em; font-weight: 700; color: var(--navy);
+  margin-bottom: 12px;
+  display: flex; align-items: center; gap: 6px;
+}
+.chart-card-title::before {
+  content: ""; display: inline-block;
+  width: 3px; height: 13px;
+  background: var(--teal); border-radius: 2px; flex-shrink: 0;
+}
+.chart-card img { width: 100%; height: auto; border-radius: var(--radius-sm); display: block; }
+
+/* hover-swap charts */
+.hover-image-container { position: relative; display: block; width: 100%; }
+.hover-image-container img.original  { width: 100%; display: block; border-radius: var(--radius-sm); transition: opacity 0.3s; }
+.hover-image-container img.hover-img {
+  position: absolute; top: 0; left: 0;
+  width: 100%; border-radius: var(--radius-sm);
+  opacity: 0; transition: opacity 0.3s;
+}
+.hover-image-container:hover img.original  { opacity: 0; }
+.hover-image-container:hover img.hover-img { opacity: 1; }
+.hover-hint {
+  font-size: 0.68em; color: var(--text-muted);
+  text-align: center; margin-top: 5px;
+  opacity: 0.7;
+}
+
+/* ── Outliers ────────────────────────────────────────────── */
+.outliers-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+.outlier-box {
+  background: var(--white); border-radius: var(--radius);
+  padding: 18px 20px;
+  box-shadow: var(--shadow-sm);
+}
+.outlier-box h3 {
+  font-size: 0.87em; font-weight: 700; color: var(--navy);
+  margin-bottom: 12px; padding-bottom: 8px;
+  border-bottom: 1.5px solid var(--border);
+}
+.outlier-list { list-style: none; }
+.outlier-item {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 7px 0; border-bottom: 1px solid #f5f6fa;
+  font-size: 0.84em;
+}
+.outlier-item:last-child { border-bottom: none; }
+.outlier-name { color: var(--text-sub); }
+.outlier-value { color: var(--red); font-weight: 700; }
+
+/* ── Transaction panels ──────────────────────────────────── */
+.tx-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 900px) { .tx-grid { grid-template-columns: 1fr; } }
+
+.tx-toolbar {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 12px; flex-wrap: wrap;
+}
+.tx-search {
+  flex: 1; min-width: 140px;
+  padding: 7px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: 20px;
+  font-size: 0.82em; color: var(--navy);
+  outline: none; background: var(--bg);
+  transition: border-color 0.18s;
+  direction: rtl;
+}
+.tx-search:focus { border-color: var(--teal); background: var(--white); }
+.tx-search::placeholder { color: #bbb; }
+
+.tx-sort-btn {
+  padding: 6px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: 20px;
+  font-size: 0.78em; color: var(--text-muted);
+  background: var(--bg); cursor: pointer;
+  transition: all 0.15s; white-space: nowrap;
+}
+.tx-sort-btn:hover, .tx-sort-btn.active { border-color: var(--teal); color: var(--teal); background: var(--teal-light); }
+
+.cat-pills { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; }
+.cat-pill {
+  padding: 3px 10px; border-radius: 12px;
+  font-size: 0.72em; font-weight: 500;
+  border: 1.5px solid var(--border);
+  background: var(--white); color: var(--text-muted);
+  cursor: pointer; transition: all 0.15s; white-space: nowrap;
+}
+.cat-pill:hover { border-color: var(--teal); color: var(--teal); }
+.cat-pill.active { background: var(--teal); border-color: var(--teal); color: #fff; }
+
+.tx-total {
+  font-size: 0.78em; color: var(--text-muted);
+  padding: 6px 0 0;
+  border-top: 1px solid var(--border);
+  margin-top: 4px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.tx-total strong { color: var(--navy); }
+.tx-count { font-size: 0.75em; color: var(--text-muted); }
+
+.tx-scroll { max-height: 62vh; overflow-y: auto; padding-left: 2px; }
+.tx-scroll::-webkit-scrollbar { width: 4px; }
+.tx-scroll::-webkit-scrollbar-thumb { background: #dde1eb; border-radius: 4px; }
+
+/* transaction row (from existing .num class) */
+.num {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 4px; border-bottom: 1px solid #f5f6fa;
+  transition: background 0.12s;
+}
+.num:hover { background: #f8fafc; border-radius: var(--radius-sm); }
+.num.hidden { display: none; }
+.color-box { width: 6px; min-height: 32px; border-radius: 4px; flex-shrink: 0; }
+.num h3 { flex: 1; font-size: 0.84em; font-weight: 500; color: #2c3e50; margin: 0; }
+.num .date {
+  font-size: 0.78em; color: var(--red); font-weight: 600;
+  text-align: left; white-space: nowrap; min-width: 60px;
+}
+.num .cat {
+  font-size: 0.69em; color: #9aa3bb;
+  background: #f0f2f8; border-radius: 10px;
+  padding: 2px 7px; white-space: nowrap;
+}
+.num .element4 { font-size: 0.69em; color: #b0b8cc; min-width: 68px; text-align: left; }
+
+/* ── Alerts override ─────────────────────────────────────── */
+.alerts-container { max-width: 100% !important; margin: 0 !important; padding: 0 !important; }
+.alerts-container h2 {
+  text-align: right; color: var(--navy);
+  font-size: 0.91em; font-weight: 700;
+  margin-bottom: 16px; padding-bottom: 10px;
+  border-bottom: 1.5px solid var(--border);
+  display: flex; align-items: center; gap: 8px;
+}
+.alerts-container h2::before {
+  content: ""; display: inline-block;
+  width: 4px; height: 16px;
+  background: var(--teal); border-radius: 2px; flex-shrink: 0;
+}
+.alerts-grid    { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)) !important; gap: 12px !important; }
+.alert-item     { border-radius: 10px !important; }
+.alerts-legend  { border-radius: 10px !important; }
+
+/* ── Accounts table ──────────────────────────────────────── */
+.acct-wrap table { width: 100%; border-collapse: collapse; font-size: 0.87em; }
+.acct-wrap th {
+  background: #f8fafc; padding: 10px 14px;
+  text-align: right; font-weight: 600; color: #666;
+  border-bottom: 2px solid var(--border);
+}
+.acct-wrap td { padding: 10px 14px; border-bottom: 1px solid #f5f6fa; color: var(--navy); }
+.acct-wrap tr:last-child td {
+  font-weight: 700; background: #f8fafc;
+  border-top: 2px solid var(--border); border-bottom: none;
+}
+.acct-wrap tr:hover td { background: #f0f7ff; }
+
+/* ── Empty state ─────────────────────────────────────────── */
+.empty-state {
+  text-align: center; color: #bbb;
+  padding: 40px 20px; font-size: 0.88em;
+}
+.empty-state .es-icon { font-size: 2.2em; margin-bottom: 8px; display: block; opacity: 0.5; }
+</style>
 </head>
-
 <body>
-	<div class="container_img">
-		<div class="hover-image-container">
-			<img src="C:\Users\ofeks\OneDrive\Ofek\BankProject\Outputs\Spendings_category.png" class="original"/>
-			<img src="C:\Users\ofeks\OneDrive\Ofek\BankProject\Outputs\Spendings_prices.png" class="hover-img"/>
-		</div>
-		<div class="hover-image-container">	
-			<img src="C:\Users\ofeks\OneDrive\Ofek\BankProject\Outputs\Earnings_category.png" class="original"/>
-			<img src="C:\Users\ofeks\OneDrive\Ofek\BankProject\Outputs\Earnings_prices.png" class="hover-img"/>
-		</div>
-		<div class="hover-image-container">
-			<img src="C:\Users\ofeks\OneDrive\Ofek\BankProject\Outputs\Investments_category.png" class="original"/>
-			<img src="C:\Users\ofeks\OneDrive\Ofek\BankProject\Outputs\Investments_prices.png" class="hover-img"/>
-		</div>
-	</div>
-	<div class="container_img">
-		<img src="C:\Users\ofeks\OneDrive\Ofek\BankProject\Outputs\General_info.png" />
-	</div>
-	<div class="container_img">
-		<img src="C:\Users\ofeks\OneDrive\Ofek\BankProject\Outputs\payments_pie_graphs.png" />
-	</div>
-	<div class="container_img">
-		<img src="C:\Users\ofeks\OneDrive\Ofek\BankProject\Outputs\General_info_User_defined.png" />
-	</div>
 
-	<div class="container_img">
-		<div class="hover-image-container">
-			<img src="C:\Users\ofeks\OneDrive\Ofek\BankProject\Outputs\Cash_Distribution_category.png" class="original"/>
-			<img src="C:\Users\ofeks\OneDrive\Ofek\BankProject\Outputs\Cash_Distribution_prices.png" class="hover-img"/>
-		</div>
-	</div>
+<!-- ── Sidebar ───────────────────────────────────────────── -->
+<nav class="sidebar">
+  <div class="sidebar-logo">₪</div>
+
+  <button class="nav-btn active" onclick="showPanel('overview',this)" title="סקירה כללית">
+    <span>⊞</span><span class="lbl">סקירה</span>
+  </button>
+  <button class="nav-btn" onclick="showPanel('transactions',this)" title="עסקאות">
+    <span>☰</span><span class="lbl">עסקאות</span>
+  </button>
+  <button class="nav-btn" onclick="showPanel('alerts',this)" title="התראות">
+    <span>⚠</span>
+    <span class="nav-badge" id="alert-badge">0</span>
+    <span class="lbl">התראות</span>
+  </button>
+  <button class="nav-btn" onclick="showPanel('accounts',this)" title="חשבונות">
+    <span>🏦</span><span class="lbl">חשבונות</span>
+  </button>
+</nav>
+
+<!-- ── Main ──────────────────────────────────────────────── -->
+<div class="main">
+
+  <!-- Page header (title + month badge injected by Python) -->
+  <div class="page-header">
+    <h1>Dashboard</h1>
+    <span class="month-badge" id="month-label"></span>
+  </div>
+
+  <!-- KPI row (injected by Python) -->
+  <div class="kpi-row" id="kpi-row"></div>
+
+  <!-- ── Panel: Overview ──────────────────────────────────── -->
+  <div id="panel-overview" class="panel active">
+    <div class="charts-grid" id="overview-charts"></div>
+    <div class="outliers-row" id="overview-outliers"></div>
+  </div>
+
+  <!-- ── Panel: Transactions ──────────────────────────────── -->
+  <div id="panel-transactions" class="panel">
+    <div class="tx-grid">
+
+      <!-- Spendings -->
+      <div class="card">
+        <div class="card-title">הוצאות</div>
+        <div class="tx-toolbar">
+          <input class="tx-search" type="text" placeholder="חיפוש..." oninput="filterTx('spendings-list', this.value, activeCat['spendings-list'])"/>
+          <button class="tx-sort-btn" onclick="toggleSort('spendings-list', this)" data-asc="true">תאריך ↕</button>
+        </div>
+        <div class="cat-pills" id="spendings-cats"></div>
+        <div class="tx-scroll" id="spendings-list"></div>
+        <div class="tx-total" id="spendings-total">
+          <span><span class="tx-count" id="spendings-count"></span></span>
+          <span>סה"כ: <strong id="spendings-sum"></strong></span>
+        </div>
+      </div>
+
+      <!-- Earnings -->
+      <div class="card">
+        <div class="card-title">הכנסות</div>
+        <div class="tx-toolbar">
+          <input class="tx-search" type="text" placeholder="חיפוש..." oninput="filterTx('earnings-list', this.value, activeCat['earnings-list'])"/>
+          <button class="tx-sort-btn" onclick="toggleSort('earnings-list', this)" data-asc="true">תאריך ↕</button>
+        </div>
+        <div class="cat-pills" id="earnings-cats"></div>
+        <div class="tx-scroll" id="earnings-list"></div>
+        <div class="tx-total" id="earnings-total">
+          <span><span class="tx-count" id="earnings-count"></span></span>
+          <span>סה"כ: <strong id="earnings-sum"></strong></span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── Panel: Alerts ────────────────────────────────────── -->
+  <div id="panel-alerts" class="panel">
+    <div class="card" id="alerts-card"></div>
+  </div>
+
+  <!-- ── Panel: Accounts ──────────────────────────────────── -->
+  <div id="panel-accounts" class="panel">
+    <div class="card" id="accounts-table-card">
+      <div class="card-title">יתרות חשבונות</div>
+      <div class="acct-wrap" id="accounts-table"></div>
+    </div>
+    <div class="card" id="accounts-chart-card">
+      <div class="card-title">מגמת יתרות</div>
+      <div id="accounts-chart"></div>
+    </div>
+  </div>
+
+</div><!-- /.main -->
+
+<!-- ── Scripts ───────────────────────────────────────────── -->
+<script>
+// ── Panel navigation ──────────────────────────────────────
+function showPanel(name, btn) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ── Alert badge ───────────────────────────────────────────
+(function initBadge() {
+  var n = parseInt(document.getElementById('alert-badge').textContent);
+  if (n > 0) document.getElementById('alert-badge').style.display = 'block';
+})();
+
+// ── Transaction filter state ──────────────────────────────
+var activeCat = { 'spendings-list': null, 'earnings-list': null };
+
+function filterTx(listId, query, cat) {
+  var rows = document.querySelectorAll('#' + listId + ' .num');
+  var q = query.trim().toLowerCase();
+  var visible = 0;
+  rows.forEach(function(row) {
+    var name = (row.querySelector('h3') || {}).textContent || '';
+    var rowCat = (row.querySelector('.cat') || {}).textContent || '';
+    var matchQ = !q || name.toLowerCase().includes(q);
+    var matchC = !cat || rowCat.trim() === cat;
+    row.classList.toggle('hidden', !(matchQ && matchC));
+    if (matchQ && matchC) visible++;
+  });
+  var countEl = document.getElementById(listId.replace('-list', '-count'));
+  if (countEl) countEl.textContent = visible + ' עסקאות';
+}
+
+// ── Category pill filter ──────────────────────────────────
+function filterByCat(listId, cat, pillEl) {
+  var pills = document.querySelectorAll('#' + listId.replace('-list', '-cats') + ' .cat-pill');
+  pills.forEach(function(p) { p.classList.remove('active'); });
+  if (activeCat[listId] === cat) {
+    activeCat[listId] = null;   // toggle off
+  } else {
+    activeCat[listId] = cat;
+    pillEl.classList.add('active');
+  }
+  var searchInput = pillEl.closest('.card').querySelector('.tx-search');
+  filterTx(listId, searchInput ? searchInput.value : '', activeCat[listId]);
+}
+
+// ── Sort toggle ───────────────────────────────────────────
+function toggleSort(listId, btn) {
+  var asc = btn.dataset.asc === 'true';
+  btn.dataset.asc = !asc;
+  btn.textContent = 'תאריך ' + (!asc ? '↑' : '↓');
+  btn.classList.toggle('active', true);
+  var list = document.getElementById(listId);
+  var rows = Array.from(list.querySelectorAll('.num'));
+  rows.sort(function(a, b) {
+    var da = (a.querySelector('.element4') || {}).textContent || '';
+    var db = (b.querySelector('.element4') || {}).textContent || '';
+    return asc ? da.localeCompare(db) : db.localeCompare(da);
+  });
+  rows.forEach(function(r) { list.appendChild(r); });
+}
+
+// ── Build category pills after DOM is ready ───────────────
+(function buildPills() {
+  ['spendings-list', 'earnings-list'].forEach(function(listId) {
+    var cats = {};
+    document.querySelectorAll('#' + listId + ' .cat').forEach(function(el) {
+      var c = el.textContent.trim();
+      if (c) cats[c] = (cats[c] || 0) + 1;
+    });
+    var pillsContainer = document.getElementById(listId.replace('-list', '-cats'));
+    if (!pillsContainer) return;
+    Object.keys(cats).sort(function(a,b){ return cats[b]-cats[a]; }).forEach(function(cat) {
+      var pill = document.createElement('button');
+      pill.className = 'cat-pill';
+      pill.textContent = cat + ' (' + cats[cat] + ')';
+      pill.onclick = function() { filterByCat(listId, cat, pill); };
+      pillsContainer.appendChild(pill);
+    });
+    // set initial count
+    var countEl = document.getElementById(listId.replace('-list', '-count'));
+    if (countEl) {
+      var total = document.querySelectorAll('#' + listId + ' .num').length;
+      countEl.textContent = total + ' עסקאות';
+    }
+  });
+})();
+</script>
 </body>
-
 </html>

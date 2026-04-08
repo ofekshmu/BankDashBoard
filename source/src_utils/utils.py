@@ -121,6 +121,31 @@ class utils:
                     print("This should not happen")
                     input("stopped.")
 
+    # ------------------------------------------------------------------
+    # KPI colour / dot configuration
+    # Maps metric label → (dot hex colour, is_positive_default)
+    # ------------------------------------------------------------------
+    _KPI_CONFIG: dict = {
+        "Balance":                  ("#1e9d8b", True),
+        "Net Income":               ("#1e9d8b", True),
+        "Overall Net Income":       ("#f0b429", True),
+        "Monthly Mean":             ("#f0b429", True),
+        "Deposit/Spent Cash":       ("#e74c3c", False),
+        "Withdrawed/Earned Cash":   ("#1e9d8b", True),
+    }
+
+    # Overview chart cards: (title, src_attr_name | None for hover-pairs)
+    _CHART_CARDS: list = [
+        # (title, src key in Paths or None if hover-pair)
+        ("הוצאות לפי קטגוריה",    None),   # hover-pair: Spendings
+        ("הכנסות לפי קטגוריה",    None),   # hover-pair: Earnings
+        ("השקעות / חיסכון",        None),   # hover-pair: Investments
+        ("התפלגות כרטיסי אשראי",  "CARD_DIST_PIE_GRAPH"),
+        ("מידע כללי",              "GENERAL_INFO_GRAPH"),
+        ("הוצאות דלק",             "GAS_INFO_GRAPH"),
+        ("מגמת דלק",               "GAS_MONTHLY_GRAPH"),
+    ]
+
     @staticmethod
     def generate_html(month_num,
                       year,
@@ -137,748 +162,354 @@ class utils:
         import bs4
         from datetime import datetime
         import calendar
-        # load the file
-        with open(r"source\html\Base_template.html") as inf:
-            txt = inf.read()
-        soup = bs4.BeautifulSoup(txt, features="html.parser")
 
-        # Create the new div element
-        new_div = soup.new_tag("div")
-        new_div['class'] = "two alt-two"
-        h1_tag = soup.new_tag("h1")
-        h1_tag.string = "DashBoard"
-        span_tag = soup.new_tag("span")
-        span_tag.string = f"{calendar.month_name[month_num]} {year}"
-        h1_tag.append(span_tag)
-        new_div.append(h1_tag)
+        with open(r"source\html\Base_template.html", encoding="utf-8") as inf:
+            soup = bs4.BeautifulSoup(inf.read(), "html.parser")
 
-        # Find the head tag and append the new div under it
-        head_tag = soup.head
-        head_tag.insert(0, new_div)
+        month_label = f"{calendar.month_name[month_num]} {year}"
 
-        # ------------------------------------------------------------------
-        # Smart Alerts section
-        # Inject alert CSS into <head> and build the alerts container at the
-        # very top of <body> (before charts and transaction lists).
-        # ------------------------------------------------------------------
-        if alerts:
-            # Inject alert styles into <head>
-            style_tag = soup.new_tag("style")
-            style_tag.string = """
-                .alerts-container {
-                    max-width: 1100px;
-                    margin: 24px auto 16px auto;
-                    padding: 0 24px;
-                    font-family: Arial, sans-serif;
-                    direction: rtl;
-                }
-                .alerts-container h2 {
-                    text-align: center;
-                    color: #2c3e50;
-                    font-size: 1.3em;
-                    margin-bottom: 14px;
-                    border-bottom: 2px solid #ddd;
-                    padding-bottom: 8px;
-                }
-                .alerts-grid {
-                    display: grid;
-                    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-                    gap: 10px;
-                }
-                .alert-item {
-                    display: flex;
-                    align-items: flex-start;
-                    padding: 10px 14px;
-                    border-radius: 6px;
-                    border-right: 4px solid;
-                    background-color: #fafafa;
-                    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-                }
-                .alert-icon {
-                    font-size: 1.1em;
-                    margin-left: 10px;
-                    flex-shrink: 0;
-                    margin-top: 2px;
-                }
-                .alert-body strong {
-                    display: block;
-                    font-size: 0.88em;
-                    color: #2c3e50;
-                    margin-bottom: 3px;
-                }
-                .alert-body p {
-                    margin: 0;
-                    font-size: 0.80em;
-                    color: #555;
-                    line-height: 1.4;
-                }
-                .alerts-legend {
-                    margin-top: 18px;
-                    border: 1px solid #e0e0e0;
-                    border-radius: 6px;
-                    overflow: hidden;
-                    font-size: 0.82em;
-                    color: #444;
-                }
-                .alerts-legend summary {
-                    cursor: pointer;
-                    padding: 8px 14px;
-                    background: #f5f5f5;
-                    font-weight: bold;
-                    color: #2c3e50;
-                    list-style: none;
-                    user-select: none;
-                }
-                .alerts-legend summary::-webkit-details-marker { display: none; }
-                .alerts-legend summary::before {
-                    content: "▶ ";
-                    font-size: 0.75em;
-                }
-                .alerts-legend[open] summary::before { content: "▼ "; }
-                .legend-grid {
-                    display: grid;
-                    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-                    gap: 0;
-                }
-                .legend-row {
-                    display: flex;
-                    align-items: flex-start;
-                    padding: 8px 14px;
-                    border-top: 1px solid #efefef;
-                    gap: 10px;
-                }
-                .legend-row:nth-child(odd) { background: #fafafa; }
-                .legend-icon { font-size: 1.1em; flex-shrink: 0; padding-top: 1px; }
-                .legend-text strong {
-                    display: block;
-                    color: #2c3e50;
-                    margin-bottom: 2px;
-                }
-                .legend-text span { color: #666; line-height: 1.4; display: block; }
-            """
-            soup.head.append(style_tag)
+        # ── Page title & month badge ───────────────────────────────────
+        title_tag = soup.find("title")
+        if title_tag:
+            title_tag.string = f"Dashboard — {month_label}"
+        month_el = soup.find(id="month-label")
+        if month_el:
+            month_el.string = month_label
 
-            alerts_container = soup.new_tag("div")
-            alerts_container["class"] = "alerts-container"
+        # ── Alert badge count ──────────────────────────────────────────
+        badge_el = soup.find(id="alert-badge")
+        if badge_el:
+            badge_el.string = str(len(alerts) if alerts else 0)
 
-            heading = soup.new_tag("h2")
-            heading.string = "⚠ התראות חכמות"
-            alerts_container.append(heading)
+        # ── Helper: new tag shorthand ──────────────────────────────────
+        def tag(name, **attrs):
+            t = soup.new_tag(name)
+            for k, v in attrs.items():
+                t[k.rstrip("_")] = v
+            return t
 
-            # Grid wrapper — alert cards sit inside this
-            grid_div = soup.new_tag("div")
-            grid_div["class"] = "alerts-grid"
+        # ── KPI cards ──────────────────────────────────────────────────
+        kpi_metrics = [
+            ("Balance",               monthly_balance,                            monthly_balance >= 0),
+            ("Net Income",            data["net income"],                          data["net income"] >= 0),
+            ("Overall Net Income",    data["overall net income"],                  data["overall net income"] >= 0),
+            ("Monthly Mean",          data["overall_net_mean"],                    data["overall_net_mean"] >= 0),
+            ("Deposit/Spent Cash",    cash_information_data['Monthly Spent Cash'], False),
+            ("Withdrawed/Earned Cash",cash_information_data['Monthly Earned Cash'],True),
+        ]
+        kpi_row = soup.find(id="kpi-row")
+        for label, value, is_positive in kpi_metrics:
+            dot_color, _ = utils._KPI_CONFIG.get(label, ("#9aa3bb", True))
+            val_cls = "pos" if is_positive else "neg"
+            amount_str = f"{value:,.2f}\u20aa" if value >= 0 else f"-{abs(value):,.2f}\u20aa"
 
-            for alert in alerts:
-                # Derive a light background from the border color
-                _bg_map = {
-                    "#e74c3c": "#fff5f5",   # red   → light red
-                    "#2ecc71": "#f0fff4",   # green → light green
-                    "#f0b429": "#fffbeb",   # amber → light yellow
-                }
-                border_color = alert.color or "#f0b429"
-                bg_color     = _bg_map.get(border_color, "#fafafa")
+            card = tag("div", class_="kpi-card")
+            lbl  = tag("div", class_="kpi-label")
+            dot  = tag("span", class_="kpi-dot")
+            dot["style"] = f"background:{dot_color}"
+            lbl.append(dot)
+            lbl.append(label)
+            val = tag("div", class_=f"kpi-value {val_cls}")
+            val.string = amount_str
+            card.append(lbl)
+            card.append(val)
+            kpi_row.append(card)
 
-                alert_div = soup.new_tag("div")
-                alert_div["class"] = "alert-item"
-                alert_div["style"] = (
-                    f"border-color:{border_color};"
-                    f"background-color:{bg_color};"
-                )
+        # ── Overview charts ────────────────────────────────────────────
+        # Hover-pair charts (Spendings, Earnings, Investments)
+        _hover_pairs = [
+            ("הוצאות לפי קטגוריה",
+             r"C:\Users\ofeks\OneDrive\Ofek\BankProject\Outputs\Spendings_category.png",
+             r"C:\Users\ofeks\OneDrive\Ofek\BankProject\Outputs\Spendings_prices.png"),
+            ("הכנסות לפי קטגוריה",
+             r"C:\Users\ofeks\OneDrive\Ofek\BankProject\Outputs\Earnings_category.png",
+             r"C:\Users\ofeks\OneDrive\Ofek\BankProject\Outputs\Earnings_prices.png"),
+            ("השקעות / חיסכון",
+             r"C:\Users\ofeks\OneDrive\Ofek\BankProject\Outputs\Investments_category.png",
+             r"C:\Users\ofeks\OneDrive\Ofek\BankProject\Outputs\Investments_prices.png"),
+        ]
+        # Single-image charts
+        _single_charts = [
+            ("התפלגות כרטיסי אשראי", Paths.CARD_DIST_PIE_GRAPH),
+            ("מידע כללי",             r"C:\Users\ofeks\OneDrive\Ofek\BankProject\Outputs\General_info.png"),
+            ("הוצאות דלק",            r"C:\Users\ofeks\OneDrive\Ofek\BankProject\Outputs\Gas_info.png"),
+            ("מגמת דלק",              r"C:\Users\ofeks\OneDrive\Ofek\BankProject\Outputs\Gas_monthly.png"),
+        ]
 
-                icon_span = soup.new_tag("span")
-                icon_span["class"] = "alert-icon"
-                icon_span.string = alert.icon or "•"
+        charts_grid = soup.find(id="overview-charts")
 
-                body_div = soup.new_tag("div")
-                body_div["class"] = "alert-body"
+        for title, src_cat, src_price in _hover_pairs:
+            card = tag("div", class_="chart-card")
+            ttl  = tag("div", class_="chart-card-title")
+            ttl.string = title
+            card.append(ttl)
 
-                title_tag = soup.new_tag("strong")
-                title_tag.string = alert.title
+            hic = tag("div", class_="hover-image-container")
+            img_orig  = tag("img", class_="original",  src=src_cat)
+            img_hover = tag("img", class_="hover-img", src=src_price)
+            hic.append(img_orig)
+            hic.append(img_hover)
+            card.append(hic)
 
-                desc_tag = soup.new_tag("p")
-                desc_tag.string = alert.description
+            hint = tag("div", class_="hover-hint")
+            hint.string = "עבור עם העכבר לצפייה בפירוט"
+            card.append(hint)
+            charts_grid.append(card)
 
-                body_div.append(title_tag)
-                body_div.append(desc_tag)
-                alert_div.append(icon_span)
-                alert_div.append(body_div)
-                grid_div.append(alert_div)
+        for title, src in _single_charts:
+            card = tag("div", class_="chart-card")
+            ttl  = tag("div", class_="chart-card-title")
+            ttl.string = title
+            card.append(ttl)
+            img = tag("img", src=src)
+            card.append(img)
+            charts_grid.append(card)
 
-            alerts_container.append(grid_div)
+        # ── Outliers ───────────────────────────────────────────────────
+        outliers_row = soup.find(id="overview-outliers")
 
-            # ------------------------------------------------------------------
-            # Legend — collapsible section explaining each alert type
-            # ------------------------------------------------------------------
-            _legend_entries = [
-                ("🔄", "שינוי מחיר",
-                 "מוכר חוזר שסכום החיוב שלו השתנה ביחס לממוצע ההיסטורי. "
-                 "מופעל כשהשינוי עולה על 20% או ₪30."),
-                ("🔍", "חיוב חוזר חסר",
-                 "מוכר שהופיע בכל אחד מ-3 החודשים האחרונים ולא הופיע החודש."),
-                ("🆕", "מנוי חדש אפשרי",
-                 "חיוב ראשון ממוכר חדש בסכום קטן או עגול (עד ₪300) — "
-                 "עשוי להיות מנוי שנרשמת אליו."),
-                ("🔁", "חיוב כפול",
-                 "אותו מוכר חויב פעמיים באותו חודש בסכומים דומים (הפרש עד ₪5)."),
-                ("📊", "קפיצה בקטגוריה",
-                 "סך ההוצאה בקטגוריה עלה פי 1.5 מהממוצע ההיסטורי שלה, "
-                 "ובלפחות ₪200 מעל הממוצע."),
-                ("💰", "עסקה חריגה",
-                 "עסקה בודדת שחורגת מ-95% מהעסקאות ההיסטוריות באותו מוכר. "
-                 "אם אין מספיק היסטוריה למוכר — נעשה השוואה לאותה קטגוריה."),
-                ("📅", "חודש הוצאות גבוה",
-                 "סך ההוצאות החודש גבוה ב-25% ומעלה מהממוצע ההיסטורי החודשי."),
-                ("📈", "מגמת עלייה בהוצאות",
-                 "ההוצאות עלו ברציפות במשך 3 חודשים לפחות — "
-                 "כל חודש גבוה מהחודש שלפניו."),
-            ]
+        def _outlier_box(title, items):
+            box   = tag("div", class_="outlier-box")
+            h3    = tag("h3")
+            h3.string = title
+            box.append(h3)
+            ul = tag("ul", class_="outlier-list")
+            for name, value in items:
+                li    = tag("li", class_="outlier-item")
+                n_sp  = tag("span", class_="outlier-name")
+                n_sp.string = name
+                v_sp  = tag("span", class_="outlier-value")
+                v_sp.string = f"{value:,.2f}\u20aa"
+                li.append(n_sp)
+                li.append(v_sp)
+                ul.append(li)
+            box.append(ul)
+            return box
 
-            legend_details = soup.new_tag("details")
-            legend_details["class"] = "alerts-legend"
+        outliers_row.append(_outlier_box("קטגוריות הוצאה נוספות", high_std_spendings))
+        outliers_row.append(_outlier_box("קטגוריות הכנסה נוספות", high_std_earnings))
 
-            legend_summary = soup.new_tag("summary")
-            legend_summary.string = "מקרא — הסבר על סוגי ההתראות"
-            legend_details.append(legend_summary)
+        # ── Transaction rows ───────────────────────────────────────────
+        def _build_tx_row(item):
+            executed_date = (item['Execution_Date']
+                             if not pd.isna(item['Execution_Date'])
+                             else item['Executed_Date'])
+            d = datetime.strptime(str(executed_date), "%Y-%m-%d %H:%M:%S").strftime('%A %d')
 
-            legend_grid = soup.new_tag("div")
-            legend_grid["class"] = "legend-grid"
+            row = tag("div", class_="num")
+            row["data-value"] = str(item['ID'])
 
-            for icon, name, explanation in _legend_entries:
-                row = soup.new_tag("div")
-                row["class"] = "legend-row"
+            if item['TableName'] == 'CardTransactions':
+                color = cards_dict[item['CardID']]
+            elif item['TableName'] == 'BankTransactions':
+                color = cards_dict['Bank']
+            else:
+                color = cards_dict['Cash']
 
-                icon_span = soup.new_tag("span")
-                icon_span["class"] = "legend-icon"
-                icon_span.string = icon
+            box = tag("div", class_="color-box")
+            box["style"] = f"background-color:{color}"
+            row.append(box)
 
-                text_div = soup.new_tag("div")
-                text_div["class"] = "legend-text"
+            name_str = (str(item['Description'])
+                        if item['TableName'] == 'BankTransactions' and item['Description'] is not None
+                        else str(item['Name']))
+            h3 = tag("h3")
+            h3.string = name_str
+            row.append(h3)
 
-                name_tag = soup.new_tag("strong")
-                name_tag.string = name
+            if not pd.isnull(item['Amount']):
+                price1, price2 = f"{item['Amount']:,.2f}\u20aa", ""
+            elif item['Charge_Currency'] == item['Value_Currency'] or item['TableName'] == 'BankTransactions':
+                price1, price2 = f"{item['Final_Value']:,.2f}\u20aa", ""
+            else:
+                price1 = f"{item['Final_Value']:,.2f}\u20aa"
+                price2 = f"({item['Charge_Value']:,}{item['Charge_Currency']})"
 
-                exp_tag = soup.new_tag("span")
-                exp_tag.string = explanation
+            p_price = tag("p", class_="date")
+            p_price.append(price1)
+            if price2:
+                p_price.append(tag("br"))
+                p_price.append(price2)
+            row.append(p_price)
 
-                text_div.append(name_tag)
-                text_div.append(exp_tag)
-                row.append(icon_span)
-                row.append(text_div)
-                legend_grid.append(row)
+            p_cat = tag("p", class_="cat")
+            p_cat.string = str(item['Category'])
+            row.append(p_cat)
 
-            legend_details.append(legend_grid)
-            alerts_container.append(legend_details)
+            p_date = tag("p", class_="element4")
+            p_date.string = d
+            row.append(p_date)
 
-            # Insert as the very first element in <body>
-            soup.body.insert(0, alerts_container)
+            return row
 
-        sub_titles_div = soup.new_tag('div')
+        # Spendings
+        df_cash_sp = cash_information_data['Monthly Cash Transactions']
+        df_cash_sp = df_cash_sp[df_cash_sp['Amount'] < 0]
+        spendings_df = pd.concat([spendings_df, df_cash_sp], ignore_index=True)
 
-        sub_titles_div.attrs['style'] = 'text-align: center;'
-
-        soup.body.insert(2, sub_titles_div)
-
-        # ----------
-        div = soup.new_tag('div')
-        div['class'] = 'container_img'
-
-        img = soup.new_tag('img')
-        img['src'] = Paths.CARD_DIST_PIE_GRAPH
-
-        div.append(img)
-        soup.body.insert(5, div)
-        # ----------
-        div = soup.new_tag('div')
-        div['class'] = 'container'
-        table = soup.new_tag("div")
-        table['class'] = 'list'
-        div.append(table)
-        table2 = soup.new_tag("div")
-        table2['class'] = 'list'
-        div.append(table2)
-
-        soup.body.insert(6, div)
-
-        #concat cash spendings with spendings_df after filtering negative values
-        
-        df = cash_information_data['Monthly Cash Transactions']
-        df = df[df['Amount'] < 0]
-        spendings_df = pd.concat([spendings_df, df], ignore_index=True)
-
-
+        sp_list  = soup.find(id="spendings-list")
+        sp_total = 0.0
         for _, item in spendings_df.sort_values(by='Executed_Date', ascending=True).iterrows():
+            sp_list.append(_build_tx_row(item))
+            val = item['Amount'] if not pd.isnull(item['Amount']) else item['Final_Value']
+            sp_total += abs(float(val))
 
-            row = soup.new_tag("div")
-            row['class'] = 'num'
+        sp_sum = soup.find(id="spendings-sum")
+        if sp_sum:
+            sp_sum.string = f"{sp_total:,.2f}\u20aa"
 
-            executed_date = item['Execution_Date'] if not pd.isna(item['Execution_Date']) else item['Executed_Date']
+        # Earnings
+        df_cash_ea = cash_information_data['Monthly Cash Transactions']
+        df_cash_ea = df_cash_ea[df_cash_ea['Amount'] > 0]
+        earnings_df = pd.concat([earnings_df, df_cash_ea], ignore_index=True)
 
-            d = datetime.strptime(f"{executed_date}", "%Y-%m-%d %H:%M:%S").strftime('%A_%d')
-            row['data-value'] = f"{item['ID']}"   # Amount
-
-            if item['TableName'] == 'CardTransactions':
-                value = cards_dict[item['CardID']]
-            elif item['TableName'] == 'BankTransactions':
-                value = cards_dict['Bank']
-            else:
-                value = cards_dict['Cash']
-            
-            # row['style'] = f"background-color: {value}"
-
-            colored_box_div = soup.new_tag("div")
-            colored_box_div['class'] = "color-box"
-            colored_box_div['style'] = f"background-color: {value}"
-            row.append(colored_box_div)
-
-
-            # ---- replacing the name of the transaction with the description ----
-            if item['TableName'] == 'BankTransactions' and item['Description'] is not None:
-                st = f"{item['Description']}"
-            else:
-                st = f"{item['Name']}"
-            # --------------------------------------------------------------------
-            cell = soup.new_tag("h3")
-            cell.string = st
-            row.append(cell)
-
-            cell = soup.new_tag("p")
-            cell['class'] = 'date'
-            
-            if not pd.isnull(item['Amount']):
-                price_lable_1 = f"{item['Amount']:,.2f}₪"
-                price_lable_2 = ""
-            elif item['Charge_Currency'] == item['Value_Currency'] or item['TableName'] == 'BankTransactions':
-                price_lable_1 = f"{item['Final_Value']:,.2f}₪"
-                price_lable_2 = ""
-            else:
-                price_lable_1 = f"{item['Final_Value']:,.2f}₪"
-                price_lable_2 = f"({item['Charge_Value']:,}{item['Charge_Currency']})"
-            
-            # Create a <br> tag
-            new_line = soup.new_tag('br')
-
-            # Add text and <br> tag to the <p> tag
-            cell.append(price_lable_1)
-            cell.append(new_line)
-            cell.append(price_lable_2)
-
-            row.append(cell)
-
-            cell = soup.new_tag("p")
-            cell['class'] = 'cat'
-            d = datetime.strptime(f"{executed_date}", "%Y-%m-%d %H:%M:%S").strftime('%A %d')
-            cell.string = f"{item['Category']}"  # Category
-            row.append(cell)
-
-            cell = soup.new_tag("p")
-            cell['class'] = 'element4'
-            cell.string = f"{d}"
-            row.append(cell)
-
-            table.append(row)
-
-        # ----------
-        # ----------
-
-        df = cash_information_data['Monthly Cash Transactions']
-        df = df[df['Amount'] > 0]
-        earnings_df = pd.concat([earnings_df, df], ignore_index=True)
-
+        ea_list  = soup.find(id="earnings-list")
+        ea_total = 0.0
         for _, item in earnings_df.sort_values(by='Executed_Date', ascending=True).iterrows():
-            row = soup.new_tag("div")
-            row['class'] = 'num'
-            
-            executed_date = item['Execution_Date'] if not pd.isna(item['Execution_Date']) else item['Executed_Date']
-            d = datetime.strptime(f"{executed_date}", "%Y-%m-%d %H:%M:%S").strftime('%A_%d')
+            ea_list.append(_build_tx_row(item))
+            val = item['Amount'] if not pd.isnull(item['Amount']) else item['Final_Value']
+            ea_total += abs(float(val))
 
-            row['data-value'] = f"{item['ID']}"  # Amount
-            
-            if item['TableName'] == 'CardTransactions':
-                value = cards_dict[item['CardID']]
-            elif item['TableName'] == 'BankTransactions':
-                value = cards_dict['Bank']
-            else:
-                value = cards_dict['Cash']
-            
-            colored_box_div = soup.new_tag("div")
-            colored_box_div['class'] = "color-box"
-            colored_box_div['style'] = f"background-color: {value}"
-            row.append(colored_box_div)
-            
-            # ---- replacing the name of the transaction with the description ----
-            if item['TableName'] == 'BankTransactions' and item['Description'] is not None:
-                st = f"{item['Description']}"
-            else:
-                st = f"{item['Name']}"
-            # --------------------------------------------------------------------
-            cell = soup.new_tag("h3")
-            cell.string = st
-            row.append(cell)
+        ea_sum = soup.find(id="earnings-sum")
+        if ea_sum:
+            ea_sum.string = f"{ea_total:,.2f}\u20aa"
 
-            cell = soup.new_tag("p")
-            cell['class'] = 'date'
+        # ── Smart Alerts ───────────────────────────────────────────────
+        _BG_MAP = {
+            "#e74c3c": "#fff5f5",
+            "#2ecc71": "#f0fff4",
+            "#f0b429": "#fffbeb",
+        }
+        _LEGEND_ENTRIES = [
+            ("🔄", "שינוי מחיר",
+             "מוכר חוזר שסכום החיוב שלו השתנה ביחס לממוצע ההיסטורי. "
+             "מופעל כשהשינוי עולה על 20% או ₪30."),
+            ("🔍", "חיוב חוזר חסר",
+             "מוכר שהופיע בכל אחד מ-3 החודשים האחרונים ולא הופיע החודש."),
+            ("🆕", "מנוי חדש אפשרי",
+             "חיוב ראשון ממוכר חדש בסכום קטן או עגול (עד ₪300)."),
+            ("🔁", "חיוב כפול",
+             "אותו מוכר חויב פעמיים באותו חודש בסכומים דומים (הפרש עד ₪5)."),
+            ("📊", "קפיצה בקטגוריה",
+             "סך ההוצאה בקטגוריה עלה פי 1.5 מהממוצע ההיסטורי שלה, ובלפחות ₪200."),
+            ("💰", "עסקה חריגה",
+             "עסקה בודדת שחורגת מ-95% מהעסקאות ההיסטוריות באותו מוכר או קטגוריה."),
+            ("📅", "חודש הוצאות גבוה",
+             "סך ההוצאות החודש גבוה ב-25% ומעלה מהממוצע ההיסטורי החודשי."),
+            ("📈", "מגמת עלייה בהוצאות",
+             "ההוצאות עלו ברציפות במשך 3 חודשים לפחות."),
+        ]
 
+        alerts_card = soup.find(id="alerts-card")
+        if alerts:
+            container = tag("div", class_="alerts-container")
 
-            if not pd.isnull(item['Amount']):
-                price_lable_1 = f"{item['Amount']:,.2f}₪"
-                price_lable_2 = ""
-            elif item['Charge_Currency'] == item['Value_Currency'] or item['TableName'] == 'BankTransactions':
-                price_lable_1 = f"{item['Final_Value']:,.2f}₪"
-                price_lable_2 = ""
-            else:
-                price_lable_1 = f"{item['Final_Value']:,.2f}₪"
-                price_lable_2 = f"({item['Charge_Value']:,}{item['Charge_Currency']})"
+            heading = tag("h2")
+            heading.string = "\u26a0 התראות חכמות"
+            container.append(heading)
 
+            grid = tag("div", class_="alerts-grid")
+            for alert in alerts:
+                border_color = alert.color or "#f0b429"
+                bg_color     = _BG_MAP.get(border_color, "#fafafa")
 
-            # Create a <br> tag
-            new_line = soup.new_tag('br')
+                a_div = tag("div", class_="alert-item")
+                a_div["style"] = f"border-color:{border_color};background-color:{bg_color};"
 
-            # Add text and <br> tag to the <p> tag
-            cell.append(price_lable_1)
-            cell.append(new_line)
-            cell.append(price_lable_2)
+                icon_sp = tag("span", class_="alert-icon")
+                icon_sp.string = alert.icon or "\u2022"
 
-            #cell.string = price_lable
-            row.append(cell)
+                body = tag("div", class_="alert-body")
+                ttl  = tag("strong")
+                ttl.string = alert.title
+                desc = tag("p")
+                desc.string = alert.description
+                body.append(ttl)
+                body.append(desc)
 
-            cell = soup.new_tag("p")
-            cell['class'] = 'cat'
-            cell.string = f"{item['Category']}"
-            row.append(cell)
-            
-            cell = soup.new_tag("p")
-            cell['class'] = 'element4'
-            cell.string = f"{d}"
-            row.append(cell)
+                a_div.append(icon_sp)
+                a_div.append(body)
+                grid.append(a_div)
 
-            table2.append(row)
+            container.append(grid)
 
-        # ----------
+            # Collapsible legend
+            details = tag("details", class_="alerts-legend")
+            summary = tag("summary")
+            summary.string = "מקרא — הסבר על סוגי ההתראות"
+            details.append(summary)
+            legend_grid = tag("div", class_="legend-grid")
+            for icon, name, explanation in _LEGEND_ENTRIES:
+                row = tag("div", class_="legend-row")
+                ic  = tag("span", class_="legend-icon")
+                ic.string = icon
+                txt = tag("div", class_="legend-text")
+                nm  = tag("strong")
+                nm.string = name
+                ex  = tag("span")
+                ex.string = explanation
+                txt.append(nm)
+                txt.append(ex)
+                row.append(ic)
+                row.append(txt)
+                legend_grid.append(row)
+            details.append(legend_grid)
+            container.append(details)
+            alerts_card.append(container)
+        else:
+            empty = tag("div", class_="empty-state")
+            es_icon = tag("span", class_="es-icon")
+            es_icon.string = "\u2705"
+            empty.append(es_icon)
+            empty.append("אין התראות לחודש זה")
+            alerts_card.append(empty)
 
-        div_tag = soup.new_tag('div')
-
-        # ------------- Insertion of outliers under pie charts -------------
-        # Add CSS styles for outliers with width matching pie chart
-        style = soup.find('style')
-        style.string += """
-            .outliers-container {
-                display: flex;
-                justify-content: space-around;
-                margin: 20px auto;
-                width: 800px;  /* Match pie chart width */
-                gap: 20px;
-                padding: 0 20px;
-            }
-            .outlier-box {
-                flex: 1;
-                background: white;
-                padding: 20px;
-                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            }
-            .outlier-box h3 {
-                color: #333;
-                margin-bottom: 15px;
-                font-size: 1.2em;
-                text-align: center;
-                border-bottom: 2px solid #eee;
-                padding-bottom: 10px;
-            }
-            .outlier-list {
-                list-style: none;
-                padding: 0;
-                margin: 0;
-            }
-            .outlier-item {
-                display: flex;
-                justify-content: space-between;
-                padding: 8px 0;
-                border-bottom: 1px solid #eee;
-                transition: background-color 0.2s;
-            }
-            .outlier-item:hover {
-                background-color: #f5f5f5;
-            }
-            .outlier-name {
-                color: #555;
-            }
-            .outlier-value {
-                color: #e74c3c;
-                font-weight: bold;
-            }
-        """
-
-        # Create outliers container
-        outliers_container = soup.new_tag('div')
-        outliers_container['class'] = 'outliers-container'
-
-        # Spendings outliers box
-        spendings_box = soup.new_tag('div')
-        spendings_box['class'] = 'outlier-box'
-        
-        spendings_title = soup.new_tag('h3')
-        spendings_title.string = 'Other Spending Categories'  # Changed title
-        spendings_box.append(spendings_title)
-
-        spendings_list = soup.new_tag('ul')
-        spendings_list['class'] = 'outlier-list'
-        
-        for item in high_std_spendings:
-            li = soup.new_tag('li')
-            li['class'] = 'outlier-item'
-            
-            name_span = soup.new_tag('span')
-            name_span['class'] = 'outlier-name'
-            name_span.string = item[0]
-            
-            value_span = soup.new_tag('span')
-            value_span['class'] = 'outlier-value'
-            value_span.string = f"{item[1]:,.2f}₪"
-            
-            li.append(name_span)
-            li.append(value_span)
-            spendings_list.append(li)
-        
-        spendings_box.append(spendings_list)
-        outliers_container.append(spendings_box)
-
-        # Earnings outliers box
-        earnings_box = soup.new_tag('div')
-        earnings_box['class'] = 'outlier-box'
-        
-        earnings_title = soup.new_tag('h3')
-        earnings_title.string = 'Other Earning Categories'  # Changed title
-        earnings_box.append(earnings_title)
-
-        earnings_list = soup.new_tag('ul')
-        earnings_list['class'] = 'outlier-list'
-        
-        for item in high_std_earnings:
-            li = soup.new_tag('li')
-            li['class'] = 'outlier-item'
-            
-            name_span = soup.new_tag('span')
-            name_span['class'] = 'outlier-name'
-            name_span.string = item[0]
-            
-            value_span = soup.new_tag('span')
-            value_span['class'] = 'outlier-value'
-            value_span.string = f"{item[1]:,.2f}₪"
-            
-            li.append(name_span)
-            li.append(value_span)
-            earnings_list.append(li)
-        
-        earnings_box.append(earnings_list)
-        outliers_container.append(earnings_box)
-
-        # Insert the outliers container
-        soup.body.insert(4, outliers_container)
-        soup.body.insert(5, soup.new_tag('br'))
-        # ------------------------------------------------------------------
-
-        # Create financial metrics containers
-        def create_financial_metric(soup, label, value, is_positive):
-            """Helper function to create styled financial metrics"""
-            container = soup.new_tag('div')
-            container['class'] = 'metric-container'
-            
-            display = soup.new_tag('h1')
-            display['class'] = "metric-display"
-            
-            label_span = soup.new_tag('span', attrs={'class': 'metric-label'})
-            label_span.string = f'{label} '
-            
-            amount_span = soup.new_tag('span', attrs={'class': 'metric-amount'})
-            amount_span['class'] = "metric-amount positive" if is_positive else "metric-amount negative"
-            # Add minus sign for negative values
-            amount_span.string = f'{value:,.2f}₪' if value >= 0 else f'-{abs(value):,.2f}₪'
-            
-            display.append(label_span)
-            display.append(amount_span)
-            container.append(display)
-            return container
-
-        # cash info metrics
-        cash_spent = create_financial_metric(soup, 'Deposit/Spent Cash', cash_information_data['Monthly Spent Cash'], False)
-        cash_earned = create_financial_metric(soup, 'Withdrawed/Earned Cash', cash_information_data['Monthly Earned Cash'], True)
-        
-        cmetrics_div = soup.new_tag('div')
-        cmetrics_div['class'] = 'metrics-container'
-        cmetrics_div.append(cash_spent)
-        cmetrics_div.append(cash_earned)
-
-        soup.body.append(cmetrics_div)
-
-        # Create containers for each metric
-        balance_container = create_financial_metric(soup, 'Balance', monthly_balance, monthly_balance >= 0)
-        net_income_container = create_financial_metric(soup, 'Net Income', data["net income"], data["net income"] >= 0)
-        overall_container = create_financial_metric(soup, 'Overall Net Income', data["overall net income"], data["overall net income"] >= 0)
-        monthly_mean_container = create_financial_metric(soup, 'Monthly Mean', data["overall_net_mean"], data["overall_net_mean"] >= 0)
-
-        # Add metrics at the right position (after pie charts)
-        metrics_div = soup.new_tag('div')
-        metrics_div['class'] = 'metrics-container'
-        metrics_div.append(balance_container)
-        metrics_div.append(net_income_container)
-        metrics_div.append(overall_container)
-        metrics_div.append(monthly_mean_container)
-
-        # Insert after the pie charts but before the transactions lists
-        soup.body.insert(7, metrics_div)
-
-        # Add CSS styles to the head
-        style = soup.new_tag('style')
-        style.string = """
-            .metric-container {
-                text-align: center;
-                margin: 20px 0;
-                padding: 15px;
-                background: linear-gradient(145deg, #f6f6f6, #ffffff);
-                border-radius: 10px;
-                box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-                transition: transform 0.2s;
-            }
-            .metric-container:hover {
-                transform: translateY(-2px);
-            }
-            .metric-display {
-                margin: 0;
-                font-family: Arial, sans-serif;
-            }
-            .metric-label {
-                color: #666;
-                font-size: 0.7em;
-                font-weight: normal;
-            }
-            .metric-amount {
-                font-size: 0.9em;
-                font-weight: bold;
-                margin-left: 10px;
-            }
-            .metric-amount.positive {
-                color: #4fba89;
-            }
-            .metric-amount.negative {
-                color: #f66b85;
-            }
-            .metrics-container {
-                display: flex;
-                flex-direction: column;
-                gap: 10px;
-                align-items: center;
-                margin: 20px auto;
-                width: 800px;
-            }
-        """
-        soup.head.append(style)
-
-        # Replace old displays with new ones
-        head_tag.append(balance_container)
-        head_tag.append(net_income_container)
-        head_tag.append(overall_container)
-
-        # Add section for accounts balance plot at the end of the HTML content with margin
-        accounts_balance_div = soup.new_tag('div')
-        accounts_balance_div['class'] = 'container_img'
-        accounts_balance_div['style'] = 'margin-top: 50px;'
-        img_tag = soup.new_tag('img')
-        img_tag['src'] = "../../Outputs/accounts_liner_plots.png"
-        img_tag['class'] = "img-fluid"
-        accounts_balance_div.append(img_tag)
-        soup.body.append(accounts_balance_div)
-
-        # Get most recent values for each account
+        # ── Accounts ───────────────────────────────────────────────────
         recent_accounts_data = {}
         total_balance = 0
         for account, values in accounts_data.items():
-            if account != 'Total':  # Skip the total as we'll calculate it ourselves
-                latest_date = max(date for date, _ in values)
-                latest_value = next(value for date, value in values if date == latest_date)
-                recent_accounts_data[account] = {
-                    'date': latest_date,
-                    'value': latest_value
-                }
+            if account != 'Total':
+                latest_date  = max(d for d, _ in values)
+                latest_value = next(v for d, v in values if d == latest_date)
+                recent_accounts_data[account] = {'date': latest_date, 'value': latest_value}
                 total_balance += latest_value
 
-        # Create accounts summary section
-        accounts_summary_div = soup.new_tag('div')
-        accounts_summary_div['class'] = 'accounts-summary'
-        accounts_summary_div['style'] = 'margin-top: 50px; text-align: center;'
-
-        # Create summary table
-        table = soup.new_tag('table')
-        table['style'] = '''
-            margin: 0 auto;
-            border-collapse: collapse;
-            width: 80%;
-            max-width: 800px;
-            background: white;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-            margin-bottom: 30px;
-        '''
-
-        # Add headers
-        header = soup.new_tag('tr')
-        for col in ['Account', 'Last Updated', 'Balance']:
-            th = soup.new_tag('th')
+        acct_wrap = soup.find(id="accounts-table")
+        tbl = tag("table")
+        # Header row
+        hdr = tag("tr")
+        for col in ["חשבון", "עדכון אחרון", "יתרה"]:
+            th = tag("th")
             th.string = col
-            th['style'] = 'padding: 12px; border-bottom: 2px solid #ddd; text-align: left;'
-            header.append(th)
-        table.append(header)
+            hdr.append(th)
+        tbl.append(hdr)
+        # Data rows
+        for account, info in recent_accounts_data.items():
+            row = tag("tr")
+            for txt in [account, info['date'].strftime('%Y-%m-%d'), f"{info['value']:,.2f}\u20aa"]:
+                td = tag("td")
+                td.string = txt
+                row.append(td)
+            tbl.append(row)
+        # Total row
+        tot_row = tag("tr")
+        for txt in ["סה\"כ", datetime.now().strftime('%Y-%m-%d'), f"{total_balance:,.2f}\u20aa"]:
+            td = tag("td")
+            td.string = txt
+            tot_row.append(td)
+        tbl.append(tot_row)
+        acct_wrap.append(tbl)
 
-        # Add account rows
-        for account, data in recent_accounts_data.items():
-            row = soup.new_tag('tr')
-            
-            # Account name cell
-            name_cell = soup.new_tag('td')
-            name_cell.string = account
-            name_cell['style'] = 'padding: 12px; border-bottom: 1px solid #eee;'
-            row.append(name_cell)
-            
-            # Date cell
-            date_cell = soup.new_tag('td')
-            date_cell.string = data['date'].strftime('%Y-%m-%d')
-            date_cell['style'] = 'padding: 12px; border-bottom: 1px solid #eee;'
-            row.append(date_cell)
-            
-            # Balance cell
-            balance_cell = soup.new_tag('td')
-            balance_cell.string = f"{data['value']:,.2f}₪"
-            balance_cell['style'] = 'padding: 12px; border-bottom: 1px solid #eee; text-align: right;'
-            row.append(balance_cell)
-            
-            table.append(row)
+        # Accounts chart
+        acct_chart = soup.find(id="accounts-chart")
+        img_acct = tag("img")
+        img_acct["src"]   = r"C:\Users\ofeks\OneDrive\Ofek\BankProject\Outputs\accounts_liner_plots.png"
+        img_acct["style"] = "width:100%;height:auto;border-radius:8px;margin-top:8px;"
+        acct_chart.append(img_acct)
 
-        # Add total row
-        total_row = soup.new_tag('tr')
-        total_row['style'] = 'font-weight: bold; background-color: #f8f9fa;'
-        
-        total_label = soup.new_tag('td')
-        total_label.string = 'Total'
-        total_label['style'] = 'padding: 12px; border-top: 2px solid #ddd;'
-        total_row.append(total_label)
-        
-        total_date = soup.new_tag('td')
-        total_date.string = datetime.now().strftime('%Y-%m-%d')
-        total_date['style'] = 'padding: 12px; border-top: 2px solid #ddd;'
-        total_row.append(total_date)
-        
-        total_value = soup.new_tag('td')
-        total_value.string = f"{total_balance:,.2f}₪"
-        total_value['style'] = 'padding: 12px; border-top: 2px solid #ddd; text-align: right;'
-        total_row.append(total_value)
-        
-        table.append(total_row)
-        accounts_summary_div.append(table)
-
-        # Add accounts summary section above the accounts plot
-        accounts_plot_div = soup.find('div', class_='container_img', style='margin-top: 50px;')
-        soup.body.insert(soup.body.contents.index(accounts_plot_div) + 1, accounts_summary_div)
-
-        with open(r"source\html\output.html", "w", encoding='utf-8') as outf:
-            outf.write(bs4.BeautifulSoup.prettify(soup))
+        # ── Write output ───────────────────────────────────────────────
+        with open(r"source\html\output.html", "w", encoding="utf-8") as outf:
+            outf.write(soup.prettify())
 
     @staticmethod
     def template_menu(options: list[str], msg: str = "Choose one of the following:\n", exit: bool = False, sort: bool = False, col_space: int = 27, row_count: int = 6 ) -> int:

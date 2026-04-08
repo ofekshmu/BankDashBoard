@@ -189,21 +189,23 @@ class utils:
             return t
 
         # ── KPI cards ──────────────────────────────────────────────────
-        kpi_metrics = [
-            ("Balance",               monthly_balance,                            monthly_balance >= 0),
-            ("Net Income",            data["net income"],                          data["net income"] >= 0),
-            ("Overall Net Income",    data["overall net income"],                  data["overall net income"] >= 0),
-            ("Monthly Mean",          data["overall_net_mean"],                    data["overall_net_mean"] >= 0),
-            ("Deposit/Spent Cash",    cash_information_data['Monthly Spent Cash'], False),
-            ("Withdrawed/Earned Cash",cash_information_data['Monthly Earned Cash'],True),
+        kpi_metrics_main = [
+            ("Balance",            monthly_balance,            monthly_balance >= 0,           True),
+            ("Net Income",         data["net income"],          data["net income"] >= 0,         False),
+            ("Overall Net Income", data["overall net income"],  data["overall net income"] >= 0, False),
+            ("Monthly Mean",       data["overall_net_mean"],    data["overall_net_mean"] >= 0,   False),
         ]
-        kpi_row = soup.find(id="kpi-row")
-        for label, value, is_positive in kpi_metrics:
-            dot_color, _ = utils._KPI_CONFIG.get(label, ("#9aa3bb", True))
-            val_cls = "pos" if is_positive else "neg"
-            amount_str = f"{value:,.2f}\u20aa" if value >= 0 else f"-{abs(value):,.2f}\u20aa"
+        kpi_metrics_cash = [
+            ("Deposit/Spent Cash",     cash_information_data['Monthly Spent Cash'],  False, False),
+            ("Withdrawed/Earned Cash", cash_information_data['Monthly Earned Cash'], True,  False),
+        ]
 
-            card = tag("div", class_="kpi-card")
+        def _make_kpi_card(label, value, is_positive, is_hero):
+            dot_color, _ = utils._KPI_CONFIG.get(label, ("#9aa3bb", True))
+            val_cls    = "pos" if is_positive else "neg"
+            amount_str = f"{value:,.2f}\u20aa" if value >= 0 else f"-{abs(value):,.2f}\u20aa"
+            card_cls   = "kpi-card hero" if is_hero else "kpi-card"
+            card = tag("div", class_=card_cls)
             lbl  = tag("div", class_="kpi-label")
             dot  = tag("span", class_="kpi-dot")
             dot["style"] = f"background:{dot_color}"
@@ -213,7 +215,15 @@ class utils:
             val.string = amount_str
             card.append(lbl)
             card.append(val)
-            kpi_row.append(card)
+            return card
+
+        kpi_row = soup.find(id="kpi-row")
+        for label, value, is_positive, is_hero in kpi_metrics_main:
+            kpi_row.append(_make_kpi_card(label, value, is_positive, is_hero))
+
+        kpi_row_2 = soup.find(id="kpi-row-2")
+        for label, value, is_positive, is_hero in kpi_metrics_cash:
+            kpi_row_2.append(_make_kpi_card(label, value, is_positive, is_hero))
 
         # ── Overview charts ────────────────────────────────────────────
         # Hover-pair charts (Spendings, Earnings, Investments)
@@ -257,7 +267,8 @@ class utils:
             charts_grid.append(card)
 
         for title, src in _single_charts:
-            card = tag("div", class_="chart-card")
+            card_cls = "chart-card full-width" if title == "\u05de\u05d9\u05d3\u05e2 \u05db\u05dc\u05dc\u05d9" else "chart-card"
+            card = tag("div", class_=card_cls)
             ttl  = tag("div", class_="chart-card-title")
             ttl.string = title
             card.append(ttl)
@@ -402,13 +413,18 @@ class utils:
 
         alerts_card = soup.find(id="alerts-card")
         if alerts:
-            container = tag("div", class_="alerts-container")
+            # Header row: title + count badge
+            header = tag("div", class_="alerts-header")
+            h2 = tag("h2")
+            h2.string = "\u26a0 התראות חכמות"
+            badge = tag("span", class_="alerts-count-badge")
+            badge.string = f"{len(alerts)} התראות"
+            header.append(h2)
+            header.append(badge)
+            alerts_card.append(header)
 
-            heading = tag("h2")
-            heading.string = "\u26a0 התראות חכמות"
-            container.append(heading)
-
-            grid = tag("div", class_="alerts-grid")
+            # Alert matrix grid
+            matrix = tag("div", class_="alerts-matrix")
             for alert in alerts:
                 border_color = alert.color or "#f0b429"
                 bg_color     = _BG_MAP.get(border_color, "#fafafa")
@@ -429,15 +445,15 @@ class utils:
 
                 a_div.append(icon_sp)
                 a_div.append(body)
-                grid.append(a_div)
+                matrix.append(a_div)
 
-            container.append(grid)
+            alerts_card.append(matrix)
 
-            # Collapsible legend
-            details = tag("details", class_="alerts-legend")
-            summary = tag("summary")
-            summary.string = "מקרא — הסבר על סוגי ההתראות"
-            details.append(summary)
+            # Separated legend section
+            legend_section = tag("div", class_="alerts-legend-section")
+            legend_title = tag("div", class_="alerts-legend-title")
+            legend_title.string = "מקרא — הסבר על סוגי ההתראות"
+            legend_section.append(legend_title)
             legend_grid = tag("div", class_="legend-grid")
             for icon, name, explanation in _LEGEND_ENTRIES:
                 row = tag("div", class_="legend-row")
@@ -453,9 +469,8 @@ class utils:
                 row.append(ic)
                 row.append(txt)
                 legend_grid.append(row)
-            details.append(legend_grid)
-            container.append(details)
-            alerts_card.append(container)
+            legend_section.append(legend_grid)
+            alerts_card.append(legend_section)
         else:
             empty = tag("div", class_="empty-state")
             es_icon = tag("span", class_="es-icon")

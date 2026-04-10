@@ -244,65 +244,293 @@ class utils:
         kpi_row_2 = soup.find(id="kpi-row-2")
         kpi_row_2.append(_make_split_cash_card(kpi_metrics_cash))
 
-        # ── Overview charts ────────────────────────────────────────────
-        # Hover-pair charts (Spendings, Earnings, Investments)
-        _hover_pairs = [
-            ("הוצאות לפי קטגוריה",
-             r"C:\Users\ofeks\OneDrive\Ofek\BankProject\Outputs\Spendings_category.png",
-             r"C:\Users\ofeks\OneDrive\Ofek\BankProject\Outputs\Spendings_prices.png"),
-            ("הכנסות לפי קטגוריה",
-             r"C:\Users\ofeks\OneDrive\Ofek\BankProject\Outputs\Earnings_category.png",
-             r"C:\Users\ofeks\OneDrive\Ofek\BankProject\Outputs\Earnings_prices.png"),
-            ("השקעות / חיסכון",
-             r"C:\Users\ofeks\OneDrive\Ofek\BankProject\Outputs\Investments_category.png",
-             r"C:\Users\ofeks\OneDrive\Ofek\BankProject\Outputs\Investments_prices.png"),
-            ("מזומן",
-             r"C:\Users\ofeks\OneDrive\Ofek\BankProject\Outputs\Cash_Distribution_category.png",
-             r"C:\Users\ofeks\OneDrive\Ofek\BankProject\Outputs\Cash_Distribution_prices.png"),
-        ]
-        # Single-image charts
-        _single_charts = [
-            ("מידע כללי",             r"C:\Users\ofeks\OneDrive\Ofek\BankProject\Outputs\General_info.png"),
-        ]
+        # ── Overview charts (interactive Chart.js) ─────────────────────
+        import json as _json
+
+        # Shared donut center-text plugin (renders total in center of doughnut)
+        _DONUT_PLUGIN_JS = """
+  {
+    id: 'centerText',
+    beforeDraw(chart) {
+      if (chart.config.type !== 'doughnut') return;
+      const {ctx, data, chartArea: {top, bottom, left, right}} = chart;
+      const cx = (left + right) / 2, cy = (top + bottom) / 2;
+      const total = data.datasets[0].data.reduce((a, b) => a + b, 0);
+      ctx.save();
+      ctx.font = 'bold 15px Segoe UI,Arial,sans-serif';
+      ctx.fillStyle = '#1e2a4a';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('\u20aa' + Math.round(total).toLocaleString('he-IL'), cx, cy);
+      ctx.restore();
+    }
+  }"""
+
+        def _make_donut_card(canvas_id, title, cat_data, palette, full_width=False):
+            """Return a chart-card div containing a Chart.js doughnut + inline script."""
+            _labels = list(cat_data.keys())
+            _values = list(cat_data.values())
+            # Cycle palette to cover all slices
+            _colors = [palette[i % len(palette)] for i in range(len(_labels))]
+            _chart_data = _json.dumps({
+                "labels":   _labels,
+                "datasets": [{"data": _values, "backgroundColor": _colors,
+                              "borderWidth": 1, "borderColor": "#fff",
+                              "hoverOffset": 8}]
+            }, ensure_ascii=False)
+
+            card_cls = "chart-card full-width" if full_width else "chart-card"
+            card = tag("div", class_=card_cls)
+            ttl = tag("div", class_="chart-card-title"); ttl.string = title
+            card.append(ttl)
+            wrap = tag("div"); wrap["style"] = "position:relative;height:300px;"
+            canvas = tag("canvas"); canvas["id"] = canvas_id
+            canvas["style"] = "width:100%;height:100%;"
+            wrap.append(canvas)
+            card.append(wrap)
+            sc = tag("script")
+            sc.string = f"""
+(function(){{
+  new Chart(document.getElementById('{canvas_id}'), {{
+    type: 'doughnut',
+    data: {_chart_data},
+    options: {{
+      responsive: true, maintainAspectRatio: false,
+      cutout: '68%',
+      plugins: {{
+        legend: {{ position: 'right', labels: {{ font: {{ size: 11 }}, padding: 10, boxWidth: 12 }} }},
+        tooltip: {{
+          rtl: true,
+          callbacks: {{
+            label: function(ctx) {{
+              const v = ctx.parsed;
+              const total = ctx.dataset.data.reduce((a,b)=>a+b,0);
+              const pct = total ? (v/total*100).toFixed(1) : 0;
+              return ctx.label + ': \u20aa' + Math.round(v).toLocaleString('he-IL') + ' (' + pct + '%)';
+            }}
+          }}
+        }}
+      }}
+    }},
+    plugins: [{_DONUT_PLUGIN_JS}]
+  }});
+}})();
+"""
+            card.append(sc)
+            return card
+
+        # Color palettes per chart type
+        _PAL_SPEND  = ["#ef9a9a","#f48fb1","#ffab91","#ffcc80","#fff176",
+                       "#e6ee9c","#80deea","#90caf9","#ce93d8","#b0bec5"]
+        _PAL_EARN   = ["#a5d6a7","#80cbc4","#80deea","#b3e5fc","#c5e1a5",
+                       "#e6ee9c","#fff9c4","#ffe0b2","#d1c4e9","#b0bec5"]
+        _PAL_INVEST = ["#ffcc80","#ffb74d","#ffe082","#ffab91","#a5d6a7",
+                       "#80deea","#e6ee9c","#ce93d8","#90caf9","#b0bec5"]
 
         charts_grid = soup.find(id="overview-charts")
 
-        for title, src_cat, src_price in _hover_pairs:
-            card = tag("div", class_="chart-card")
-            ttl  = tag("div", class_="chart-card-title")
-            ttl.string = title
-            card.append(ttl)
+        # Spendings donut
+        if data.get('spendings_by_cat'):
+            charts_grid.append(_make_donut_card(
+                "chart-spendings-donut", "הוצאות לפי קטגוריה",
+                data['spendings_by_cat'], _PAL_SPEND))
 
-            hic = tag("div", class_="hover-image-container")
-            img_orig  = tag("img", class_="original",  src=src_cat)
-            img_hover = tag("img", class_="hover-img", src=src_price)
-            hic.append(img_orig)
-            hic.append(img_hover)
-            card.append(hic)
+        # Earnings donut
+        if data.get('earnings_by_cat'):
+            charts_grid.append(_make_donut_card(
+                "chart-earnings-donut", "הכנסות לפי קטגוריה",
+                data['earnings_by_cat'], _PAL_EARN))
 
-            hint = tag("div", class_="hover-hint")
-            hint.string = "עבור עם העכבר לצפייה בפירוט"
-            card.append(hint)
-            charts_grid.append(card)
+        # Investments donut
+        if data.get('investments_by_name'):
+            charts_grid.append(_make_donut_card(
+                "chart-investments-donut", "השקעות / חיסכון",
+                data['investments_by_name'], _PAL_INVEST))
+        else:
+            # Empty state card
+            _inv_card = tag("div", class_="chart-card")
+            _inv_ttl  = tag("div", class_="chart-card-title"); _inv_ttl.string = "השקעות / חיסכון"
+            _inv_empty = tag("div", class_="empty-state")
+            _inv_empty.string = "אין נתוני השקעות לחודש זה"
+            _inv_card.append(_inv_ttl); _inv_card.append(_inv_empty)
+            charts_grid.append(_inv_card)
 
-        for title, src in _single_charts:
-            card_cls = "chart-card full-width" if title == "\u05de\u05d9\u05d3\u05e2 \u05db\u05dc\u05dc\u05d9" else "chart-card"
-            card = tag("div", class_=card_cls)
-            ttl  = tag("div", class_="chart-card-title")
-            ttl.string = title
-            card.append(ttl)
-            img = tag("img", src=src)
-            card.append(img)
-            charts_grid.append(card)
+        # Cash donut (income vs expense)
+        _cash_earned = abs(float(cash_information_data.get('Monthly Earned Cash', 0)))
+        _cash_spent  = abs(float(cash_information_data.get('Monthly Spent Cash',  0)))
+        if _cash_earned + _cash_spent > 0:
+            charts_grid.append(_make_donut_card(
+                "chart-cash-donut", "מזומן",
+                {"הכנסה": _cash_earned, "הוצאה": _cash_spent},
+                ["#a5d6a7", "#ef9a9a"]))
+        else:
+            _cash_card = tag("div", class_="chart-card")
+            _cash_ttl  = tag("div", class_="chart-card-title"); _cash_ttl.string = "מזומן"
+            _cash_empty = tag("div", class_="empty-state"); _cash_empty.string = "אין נתוני מזומן לחודש זה"
+            _cash_card.append(_cash_ttl); _cash_card.append(_cash_empty)
+            charts_grid.append(_cash_card)
+
+        # ── General bar+line chart (full-width) ─────────────────────────
+        if data.get('general_months'):
+            # Reverse so oldest is on left, most recent on right
+            _gen_months = list(reversed(data['general_months']))
+            _gen_sp     = list(reversed(data['general_spendings']))
+            _gen_ea     = list(reversed(data['general_earnings']))
+            _gen_net    = list(reversed(data['general_net']))
+
+            _gen_chart_data = _json.dumps({
+                "labels": _gen_months,
+                "datasets": [
+                    {"type": "bar",  "label": "הוצאות",         "data": _gen_sp,
+                     "backgroundColor": "rgba(239,154,154,0.75)", "borderColor": "#ef5350",
+                     "borderWidth": 1, "order": 2},
+                    {"type": "bar",  "label": "הכנסות",         "data": _gen_ea,
+                     "backgroundColor": "rgba(165,214,167,0.75)", "borderColor": "#43a047",
+                     "borderWidth": 1, "order": 2},
+                    {"type": "line", "label": "נטו (ללא השקעות)", "data": _gen_net,
+                     "borderColor": "#1e9d8b", "backgroundColor": "rgba(30,157,139,0.08)",
+                     "pointRadius": 5, "pointHoverRadius": 8, "tension": 0.35,
+                     "fill": True, "borderWidth": 2, "order": 1},
+                ]
+            }, ensure_ascii=False)
+
+            _gen_card = tag("div", class_="chart-card full-width")
+            _gen_ttl  = tag("div", class_="chart-card-title"); _gen_ttl.string = "מידע כללי"
+            _gen_card.append(_gen_ttl)
+            _gen_wrap = tag("div"); _gen_wrap["style"] = "position:relative;height:340px;"
+            _gen_canvas = tag("canvas"); _gen_canvas["id"] = "chart-general-bar"
+            _gen_canvas["style"] = "width:100%;height:100%;"
+            _gen_wrap.append(_gen_canvas)
+            _gen_card.append(_gen_wrap)
+            _gen_sc = tag("script")
+            _gen_sc.string = f"""
+(function(){{
+  new Chart(document.getElementById('chart-general-bar'), {{
+    type: 'bar',
+    data: {_gen_chart_data},
+    options: {{
+      responsive: true, maintainAspectRatio: false,
+      interaction: {{ mode: 'index', intersect: false }},
+      plugins: {{
+        legend: {{ position: 'top', labels: {{ font: {{ size: 12 }}, padding: 16 }} }},
+        tooltip: {{
+          rtl: true,
+          callbacks: {{
+            label: function(ctx) {{
+              const v = ctx.parsed.y;
+              if (v == null) return null;
+              const sign = v >= 0 ? '' : '-';
+              return ctx.dataset.label + ': ' + sign + '\u20aa' + Math.abs(Math.round(v)).toLocaleString('he-IL');
+            }}
+          }}
+        }}
+      }},
+      scales: {{
+        x: {{ ticks: {{ font: {{ size: 11 }}, maxRotation: 30 }} }},
+        y: {{
+          ticks: {{
+            callback: function(v) {{ return '\u20aa' + Math.round(v).toLocaleString('he-IL'); }},
+            font: {{ size: 11 }}
+          }}
+        }}
+      }}
+    }}
+  }});
+}})();
+"""
+            _gen_card.append(_gen_sc)
+            charts_grid.append(_gen_card)
 
         # ── Card distribution chart in Transactions panel ─────────────
         tx_panel = soup.find(id="panel-transactions")
+        _card_dist = data.get('card_dist', {})
         card_dist_card = tag("div", class_="chart-card full-width")
         card_dist_ttl  = tag("div", class_="chart-card-title")
         card_dist_ttl.string = "התפלגות כרטיסי אשראי"
         card_dist_card.append(card_dist_ttl)
-        card_dist_img  = tag("img", src=Paths.CARD_DIST_PIE_GRAPH)
-        card_dist_card.append(card_dist_img)
+
+        if _card_dist:
+            _cd_labels  = list(_card_dist.keys())
+            _cd_amounts = [v['amount'] for v in _card_dist.values()]
+            _cd_colors  = [v['color']  for v in _card_dist.values()]
+            _cd_status  = [v['status'] for v in _card_dist.values()]
+            _cd_chart_data = _json.dumps({
+                "labels": _cd_labels,
+                "datasets": [{
+                    "label": "חיוב חודשי",
+                    "data":  _cd_amounts,
+                    "backgroundColor": _cd_colors,
+                    "borderColor": _cd_colors,
+                    "borderWidth": 1,
+                }]
+            }, ensure_ascii=False)
+            _cd_status_json = _json.dumps(_cd_status)
+
+            _cd_wrap = tag("div"); _cd_wrap["style"] = "position:relative;height:240px;"
+            _cd_canvas = tag("canvas"); _cd_canvas["id"] = "chart-card-dist"
+            _cd_canvas["style"] = "width:100%;height:100%;"
+            _cd_wrap.append(_cd_canvas)
+            card_dist_card.append(_cd_wrap)
+            _cd_sc = tag("script")
+            _cd_sc.string = f"""
+(function(){{
+  const statusArr = {_cd_status_json};
+  new Chart(document.getElementById('chart-card-dist'), {{
+    type: 'bar',
+    data: {_cd_chart_data},
+    options: {{
+      responsive: true, maintainAspectRatio: false,
+      plugins: {{
+        legend: {{ display: false }},
+        tooltip: {{
+          rtl: true,
+          callbacks: {{
+            label: function(ctx) {{
+              const v = ctx.parsed.y;
+              const st = statusArr[ctx.dataIndex];
+              return '\u20aa' + Math.round(v).toLocaleString('he-IL') + (st ? ' \u2705 מאומת' : ' \u26a0 לא מאומת');
+            }}
+          }}
+        }}
+      }},
+      scales: {{
+        x: {{ ticks: {{ font: {{ size: 12 }} }} }},
+        y: {{
+          ticks: {{
+            callback: function(v) {{ return '\u20aa' + Math.round(v).toLocaleString('he-IL'); }},
+            font: {{ size: 11 }}
+          }}
+        }}
+      }}
+    }},
+    plugins: [{{
+      id: 'statusLabel',
+      afterDatasetsDraw(chart) {{
+        const {{ctx, data}} = chart;
+        chart.getDatasetMeta(0).data.forEach((bar, i) => {{
+          const v = data.datasets[0].data[i];
+          const st = statusArr[i];
+          ctx.save();
+          ctx.font = 'bold 11px Segoe UI,Arial';
+          ctx.fillStyle = '#fff';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'bottom';
+          ctx.fillText('\u20aa' + Math.round(v).toLocaleString('he-IL'), bar.x, bar.y - 2);
+          ctx.font = '10px Segoe UI,Arial';
+          ctx.fillStyle = st ? '#43a047' : '#e53935';
+          ctx.fillText(st ? 'מאומת' : 'לא מאומת', bar.x, bar.y - 16);
+          ctx.restore();
+        }});
+      }}
+    }}]
+  }});
+}})();
+"""
+            card_dist_card.append(_cd_sc)
+        else:
+            _cd_empty = tag("div", class_="empty-state")
+            _cd_empty.string = "אין נתוני כרטיסים"
+            card_dist_card.append(_cd_empty)
         tx_panel.append(card_dist_card)
 
         # ── Outliers ───────────────────────────────────────────────────

@@ -1048,7 +1048,14 @@ class AppManager:
 
         utils.log("Generating spending pie charts...", "system")
         high_std_spendings = handle_spendings_pie_plot()
-        
+
+        # Capture spendings data for interactive chart
+        _sp_df = transactions_df[transactions_df['Final_Value'] < 0].copy()
+        _sp_cash = {"Name": "מזומן", "Category": "מזומן", "Final_Value": cash_information_data['Monthly Spent Cash']}
+        _sp_df = pd.concat([_sp_df, pd.DataFrame([_sp_cash])], ignore_index=True)
+        _sp_grouped = _sp_df.groupby("Category")['Final_Value'].sum().abs()
+        data['spendings_by_cat'] = {str(k): round(float(v), 2) for k, v in _sp_grouped.items() if v > 0}
+
         def handle_earnings_pie_plot():
             color_pallete = sns.light_palette("#4fba89", n_colors=10, reverse=True)
 
@@ -1059,35 +1066,65 @@ class AppManager:
             return Graphics.plot_transactions_pie_chart(temp_df.groupby("Category").sum(numeric_only=True),
                                                         "Earnings",
                                                         color_pallete)
-            
+
         utils.log("Generating earnings pie charts...", "system")
         high_std_earnings = handle_earnings_pie_plot()
-        
-        def handle_investments_pie_plot():           
+
+        # Capture earnings data for interactive chart
+        _ea_df = transactions_df[transactions_df['Final_Value'] > 0].copy()
+        _ea_cash = {"Name": "מזומן", "Category": "מזומן", "Final_Value": cash_information_data['Monthly Earned Cash']}
+        _ea_df = pd.concat([_ea_df, pd.DataFrame([_ea_cash])], ignore_index=True)
+        _ea_grouped = _ea_df.groupby("Category")['Final_Value'].sum()
+        data['earnings_by_cat'] = {str(k): round(float(v), 2) for k, v in _ea_grouped.items() if v > 0}
+
+        def handle_investments_pie_plot():
             color_pallete = GOLDEN_COLOR_PALLETE
             temp_df = transactions_df[(transactions_df["Category"] == INVESTMENT_CATEGORY)]
             Graphics.plot_transactions_pie_chart(temp_df,
                                                 "Investments",
                                                 color_pallete)
-            
+
         utils.log("Generating investments pie charts...", "system")
         handle_investments_pie_plot()
+
+        # Capture investments data for interactive chart
+        _inv_df = transactions_df[transactions_df["Category"] == INVESTMENT_CATEGORY].copy()
+        if not _inv_df.empty:
+            _inv_df['_label'] = _inv_df.apply(
+                lambda r: str(r['Description/Charge_Currency'] if pd.notna(r.get('Description/Charge_Currency')) else r['Name']),
+                axis=1
+            )
+            _inv_grouped = _inv_df.groupby('_label')['Final_Value'].sum().abs()
+            data['investments_by_name'] = {str(k): round(float(v), 2) for k, v in _inv_grouped.items() if v > 0}
+        else:
+            data['investments_by_name'] = {}
 
         # ----- General
         utils.log("Generating general bar plot...", "system")
         spendings_sum, spendings_sum_overall_inc, earnings_sum = SimpleMath.get_monthly_shifted(shift=10)
 
-        Graphics.plot_general(spendings_sum, 
+        Graphics.plot_general(spendings_sum,
                               spendings_sum_overall_inc,
                               earnings_sum,
                               lp_Overall_income=True,
                               lp_user_defined=False)
-        
+
+        # Capture general chart data for interactive chart
+        from Constants import GENERAL_PLOT as _GP
+        _gen_delta = 0 if _GP.SHOW_CURRENT_MONTH else 1
+        data['general_months'] = [
+            (datetime.now() - pd.DateOffset(months=i + _gen_delta)).strftime('%b %Y')
+            for i in range(10)
+        ]
+        data['general_spendings'] = [round(float(abs(v)), 2) for v in spendings_sum]
+        data['general_earnings']  = [round(float(v), 2)      for v in earnings_sum]
+        data['general_net']       = [round(float(e + s), 2)  for e, s in zip(earnings_sum, spendings_sum_overall_inc)]
+
         # ----- User defined
         utils.log("Generating user defined bar plot...", "system")
         user_spendings_sum, _, user_earnings_sum = SimpleMath.get_monthly_shifted(shift=10, category= GeneralPlot.USER_DEFINED_CATEGORIES)
-        
-        Graphics.plot_general(user_spendings_sum, 
+
+        Graphics.plot_general(user_spendings_sum,
                               spendings_sum_overall_inc,
                               user_earnings_sum,
                               lp_Overall_income=False,
@@ -1101,9 +1138,22 @@ class AppManager:
         color_list = Local.Colors[:len(card_ids)]
         card_color_dict = dict(zip(card_ids, color_list))
         #for cash transactions color
-        card_color_dict['Cash'] = "#ECCD1F" 
+        card_color_dict['Cash'] = "#ECCD1F"
 
         Graphics.card_distribution(card_color_dict, card_validation_df)
+
+        # Capture card distribution data for interactive chart
+        if not card_validation_df.empty:
+            data['card_dist'] = {
+                str(row['CardID']): {
+                    'amount':  round(float(abs(row['Final_Value'])), 2),
+                    'status':  bool(row['Status']),
+                    'color':   card_color_dict.get(str(row['CardID']), '#b0bec5'),
+                }
+                for _, row in card_validation_df.iterrows()
+            }
+        else:
+            data['card_dist'] = {}
 
         # ----- Payment PIE Graphs
         utils.log("Generating Payments data...", "system")

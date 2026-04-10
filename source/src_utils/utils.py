@@ -192,7 +192,6 @@ class utils:
             ("Balance",            monthly_balance,            monthly_balance >= 0,           True),
             ("Net Income",         data["net income"],          data["net income"] >= 0,         False),
             ("Overall Net Income", data["overall net income"],  data["overall net income"] >= 0, False),
-            ("Monthly Mean",       data["overall_net_mean"],    data["overall_net_mean"] >= 0,   False),
         ]
         kpi_metrics_cash = [
             ("Deposit/Spent Cash",     cash_information_data['Monthly Spent Cash'],  False, False),
@@ -241,8 +240,7 @@ class utils:
                 first = False
             return card
 
-        kpi_row_2 = soup.find(id="kpi-row-2")
-        kpi_row_2.append(_make_split_cash_card(kpi_metrics_cash))
+        # Cash KPI data is shown inside the מזומן donut chart instead
 
         # ── Overview charts (interactive Chart.js) ─────────────────────
         import json as _json
@@ -283,7 +281,7 @@ class utils:
             card = tag("div", class_=card_cls)
             ttl = tag("div", class_="chart-card-title"); ttl.string = title
             card.append(ttl)
-            wrap = tag("div"); wrap["style"] = "position:relative;height:300px;"
+            wrap = tag("div"); wrap["style"] = "position:relative;height:320px;"
             canvas = tag("canvas"); canvas["id"] = canvas_id
             canvas["style"] = "width:100%;height:100%;"
             wrap.append(canvas)
@@ -298,7 +296,7 @@ class utils:
       responsive: true, maintainAspectRatio: false,
       cutout: '68%',
       plugins: {{
-        legend: {{ position: 'right', labels: {{ font: {{ size: 11 }}, padding: 10, boxWidth: 12 }} }},
+        legend: {{ position: 'bottom', labels: {{ font: {{ size: 11 }}, padding: 10, boxWidth: 12 }} }},
         tooltip: {{
           rtl: true,
           callbacks: {{
@@ -320,10 +318,10 @@ class utils:
             return card
 
         # Color palettes per chart type
-        _PAL_SPEND  = ["#ef9a9a","#f48fb1","#ffab91","#ffcc80","#fff176",
-                       "#e6ee9c","#80deea","#90caf9","#ce93d8","#b0bec5"]
-        _PAL_EARN   = ["#a5d6a7","#80cbc4","#80deea","#b3e5fc","#c5e1a5",
-                       "#e6ee9c","#fff9c4","#ffe0b2","#d1c4e9","#b0bec5"]
+        _PAL_SPEND  = ["#ef9a9a","#ffab91","#ffcc80","#ffe082","#f48fb1",
+                       "#ff8a65","#ffd54f","#f06292","#ffb74d","#e57373"]
+        _PAL_EARN   = ["#a5d6a7","#80cbc4","#90caf9","#80deea","#c5e1a5",
+                       "#b3e5fc","#b2dfdb","#a5f3d0","#81d4fa","#aed581"]
         _PAL_INVEST = ["#ffcc80","#ffb74d","#ffe082","#ffab91","#a5d6a7",
                        "#80deea","#e6ee9c","#ce93d8","#90caf9","#b0bec5"]
 
@@ -361,7 +359,8 @@ class utils:
         if _cash_earned + _cash_spent > 0:
             charts_grid.append(_make_donut_card(
                 "chart-cash-donut", "מזומן",
-                {"הכנסה": _cash_earned, "הוצאה": _cash_spent},
+                {f"הכנסה  \u20aa{_cash_earned:,.0f}": _cash_earned,
+                 f"הוצאה  \u20aa{_cash_spent:,.0f}":  _cash_spent},
                 ["#a5d6a7", "#ef9a9a"]))
         else:
             _cash_card = tag("div", class_="chart-card")
@@ -395,6 +394,27 @@ class utils:
             }, ensure_ascii=False)
 
             _gen_card = tag("div", class_="chart-card full-width")
+
+            # Monthly mean banner
+            _mean_val = data.get("overall_net_mean", 0)
+            _mean_pos = _mean_val >= 0
+            _mean_str = f"{_mean_val:,.0f}\u20aa" if _mean_pos else f"-{abs(_mean_val):,.0f}\u20aa"
+            _mean_color = "#1e9d8b" if _mean_pos else "#e74c3c"
+            _mean_banner = tag("div")
+            _mean_banner["style"] = (
+                "display:flex;align-items:center;justify-content:space-between;"
+                "padding:8px 4px 14px;border-bottom:1.5px solid #eef0f6;margin-bottom:12px;"
+            )
+            _mean_lbl = tag("span")
+            _mean_lbl["style"] = "font-size:0.78em;font-weight:600;color:#888;"
+            _mean_lbl.string = "ממוצע חודשי נטו (10 חודשים אחרונים)"
+            _mean_num = tag("span")
+            _mean_num["style"] = f"font-size:1.4em;font-weight:800;color:{_mean_color};"
+            _mean_num.string = _mean_str
+            _mean_banner.append(_mean_lbl)
+            _mean_banner.append(_mean_num)
+            _gen_card.append(_mean_banner)
+
             _gen_ttl  = tag("div", class_="chart-card-title"); _gen_ttl.string = "מידע כללי"
             _gen_card.append(_gen_ttl)
             _gen_wrap = tag("div"); _gen_wrap["style"] = "position:relative;height:340px;"
@@ -480,6 +500,7 @@ class utils:
     data: {_cd_chart_data},
     options: {{
       responsive: true, maintainAspectRatio: false,
+      layout: {{ padding: {{ top: 8 }} }},
       plugins: {{
         legend: {{ display: false }},
         tooltip: {{
@@ -503,26 +524,7 @@ class utils:
         }}
       }}
     }},
-    plugins: [{{
-      id: 'statusLabel',
-      afterDatasetsDraw(chart) {{
-        const {{ctx, data}} = chart;
-        chart.getDatasetMeta(0).data.forEach((bar, i) => {{
-          const v = data.datasets[0].data[i];
-          const st = statusArr[i];
-          ctx.save();
-          ctx.font = 'bold 11px Segoe UI,Arial';
-          ctx.fillStyle = '#fff';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'bottom';
-          ctx.fillText('\u20aa' + Math.round(v).toLocaleString('he-IL'), bar.x, bar.y - 2);
-          ctx.font = '10px Segoe UI,Arial';
-          ctx.fillStyle = st ? '#43a047' : '#e53935';
-          ctx.fillText(st ? 'מאומת' : 'לא מאומת', bar.x, bar.y - 16);
-          ctx.restore();
-        }});
-      }}
-    }}]
+    plugins: []
   }});
 }})();
 """

@@ -109,14 +109,14 @@ body {
 /* ── KPI row ─────────────────────────────────────────────── */
 .kpi-row {
   display: grid;
-  grid-template-columns: 2fr 1fr 1fr 1fr;
+  grid-template-columns: 2fr 1fr;
   gap: 14px;
   margin-bottom: 22px;
 }
 /* Responsive: collapse to 2 cols on narrow screens */
-@media (max-width: 1000px) {
-  .kpi-row { grid-template-columns: 1fr 1fr; }
-  .kpi-card.hero { grid-column: span 2; }
+@media (max-width: 700px) {
+  .kpi-row { grid-template-columns: 1fr; }
+  .kpi-card.hero { grid-row: span 1; }
 }
 
 .kpi-card {
@@ -362,6 +362,8 @@ body {
   background: var(--white); border-radius: var(--radius);
   padding: 16px 18px;
   box-shadow: var(--shadow-sm);
+  min-width: 0;       /* prevent grid blowout */
+  overflow: hidden;   /* contain Chart.js canvas */
 }
 /* Full-width chart (e.g. מידע כללי) */
 .chart-card.full-width {
@@ -378,6 +380,7 @@ body {
   background: var(--teal); border-radius: 2px; flex-shrink: 0;
 }
 .chart-card img { width: 100%; height: auto; border-radius: var(--radius-sm); display: block; }
+.chart-card canvas { max-width: 100%; display: block; }
 .chart-card.full-width img { max-height: 420px; object-fit: contain; }
 
 /* hover-swap charts */
@@ -778,37 +781,8 @@ body {
       20,749.65₪
      </div>
     </div>
-    <div class="kpi-card">
-     <div class="kpi-label">
-      <span class="kpi-dot" style="background:#f0b429">
-      </span>
-      Monthly Mean
-     </div>
-     <div class="kpi-value pos">
-      4,807.06₪
-     </div>
-    </div>
    </div>
    <div class="kpi-row-2" id="kpi-row-2">
-    <div class="kpi-card">
-     <div class="kpi-label">
-      <span class="kpi-dot" style="background:#e74c3c">
-      </span>
-      Deposit/Spent Cash
-     </div>
-     <div class="kpi-value neg">
-      0.00₪
-     </div>
-     <hr class="kpi-sep"/>
-     <div class="kpi-label">
-      <span class="kpi-dot" style="background:#1e9d8b">
-      </span>
-      Withdrawed/Earned Cash
-     </div>
-     <div class="kpi-value pos">
-      200.00₪
-     </div>
-    </div>
    </div>
    <!-- ── Panel: Overview ──────────────────────────────────── -->
    <div class="panel active" id="panel-overview">
@@ -817,7 +791,7 @@ body {
       <div class="chart-card-title">
        הוצאות לפי קטגוריה
       </div>
-      <div style="position:relative;height:300px;">
+      <div style="position:relative;height:320px;">
        <canvas id="chart-spendings-donut" style="width:100%;height:100%;">
        </canvas>
       </div>
@@ -825,12 +799,12 @@ body {
        (function(){
   new Chart(document.getElementById('chart-spendings-donut'), {
     type: 'doughnut',
-    data: {"labels": ["אוכל בחוץ", "ביטוח בריאות", "ביטוחים", "הלוואה", "השכלה ולימודים", "השקעה/חיסכון", "חשבון אינטרנט", "חשבונות", "טיפוח ורפואה", "מנויים", "מצרכים", "מתנות", "עמלות", "רהיטים ובית", "רכב", "שכירות", "שלום שבאזי 7", "תחבורה ציבורית", "תחביבים ופנאי"], "datasets": [{"data": [775.17, 29.36, 112.0, 1000.0, 1378.25, 1000.0, 99.83, 712.24, 86.34, 121.83, 3397.74, 279.49, 12.9, 257.4, 4657.28, 6814.5, 3756.12, 56.0, 43.9], "backgroundColor": ["#ef9a9a", "#f48fb1", "#ffab91", "#ffcc80", "#fff176", "#e6ee9c", "#80deea", "#90caf9", "#ce93d8", "#b0bec5", "#ef9a9a", "#f48fb1", "#ffab91", "#ffcc80", "#fff176", "#e6ee9c", "#80deea", "#90caf9", "#ce93d8"], "borderWidth": 1, "borderColor": "#fff", "hoverOffset": 8}]},
+    data: {"labels": ["אוכל בחוץ", "ביטוח בריאות", "ביטוחים", "הלוואה", "השכלה ולימודים", "השקעה/חיסכון", "חשבון אינטרנט", "חשבונות", "טיפוח ורפואה", "מנויים", "מצרכים", "מתנות", "עמלות", "רהיטים ובית", "רכב", "שכירות", "שלום שבאזי 7", "תחבורה ציבורית", "תחביבים ופנאי"], "datasets": [{"data": [775.17, 29.36, 112.0, 1000.0, 1378.25, 1000.0, 99.83, 712.24, 86.34, 121.83, 3397.74, 279.49, 12.9, 257.4, 4657.28, 6814.5, 3756.12, 56.0, 43.9], "backgroundColor": ["#ef9a9a", "#ffab91", "#ffcc80", "#ffe082", "#f48fb1", "#ff8a65", "#ffd54f", "#f06292", "#ffb74d", "#e57373", "#ef9a9a", "#ffab91", "#ffcc80", "#ffe082", "#f48fb1", "#ff8a65", "#ffd54f", "#f06292", "#ffb74d"], "borderWidth": 1, "borderColor": "#fff", "hoverOffset": 8}]},
     options: {
       responsive: true, maintainAspectRatio: false,
       cutout: '68%',
       plugins: {
-        legend: { position: 'right', labels: { font: { size: 11 }, padding: 10, boxWidth: 12 } },
+        legend: { position: 'bottom', labels: { font: { size: 11 }, padding: 10, boxWidth: 12 } },
         tooltip: {
           rtl: true,
           callbacks: {
@@ -869,7 +843,7 @@ body {
       <div class="chart-card-title">
        הכנסות לפי קטגוריה
       </div>
-      <div style="position:relative;height:300px;">
+      <div style="position:relative;height:320px;">
        <canvas id="chart-earnings-donut" style="width:100%;height:100%;">
        </canvas>
       </div>
@@ -877,12 +851,12 @@ body {
        (function(){
   new Chart(document.getElementById('chart-earnings-donut'), {
     type: 'doughnut',
-    data: {"labels": ["בילויים", "מזומן", "מנויים", "משכורת", "שלום שבאזי 7"], "datasets": [{"data": [498.0, 200.0, 157.85, 40734.15, 2950.0], "backgroundColor": ["#a5d6a7", "#80cbc4", "#80deea", "#b3e5fc", "#c5e1a5"], "borderWidth": 1, "borderColor": "#fff", "hoverOffset": 8}]},
+    data: {"labels": ["בילויים", "מזומן", "מנויים", "משכורת", "שלום שבאזי 7"], "datasets": [{"data": [498.0, 200.0, 157.85, 40734.15, 2950.0], "backgroundColor": ["#a5d6a7", "#80cbc4", "#90caf9", "#80deea", "#c5e1a5"], "borderWidth": 1, "borderColor": "#fff", "hoverOffset": 8}]},
     options: {
       responsive: true, maintainAspectRatio: false,
       cutout: '68%',
       plugins: {
-        legend: { position: 'right', labels: { font: { size: 11 }, padding: 10, boxWidth: 12 } },
+        legend: { position: 'bottom', labels: { font: { size: 11 }, padding: 10, boxWidth: 12 } },
         tooltip: {
           rtl: true,
           callbacks: {
@@ -921,7 +895,7 @@ body {
       <div class="chart-card-title">
        השקעות / חיסכון
       </div>
-      <div style="position:relative;height:300px;">
+      <div style="position:relative;height:320px;">
        <canvas id="chart-investments-donut" style="width:100%;height:100%;">
        </canvas>
       </div>
@@ -934,7 +908,7 @@ body {
       responsive: true, maintainAspectRatio: false,
       cutout: '68%',
       plugins: {
-        legend: { position: 'right', labels: { font: { size: 11 }, padding: 10, boxWidth: 12 } },
+        legend: { position: 'bottom', labels: { font: { size: 11 }, padding: 10, boxWidth: 12 } },
         tooltip: {
           rtl: true,
           callbacks: {
@@ -973,7 +947,7 @@ body {
       <div class="chart-card-title">
        מזומן
       </div>
-      <div style="position:relative;height:300px;">
+      <div style="position:relative;height:320px;">
        <canvas id="chart-cash-donut" style="width:100%;height:100%;">
        </canvas>
       </div>
@@ -981,12 +955,12 @@ body {
        (function(){
   new Chart(document.getElementById('chart-cash-donut'), {
     type: 'doughnut',
-    data: {"labels": ["הכנסה", "הוצאה"], "datasets": [{"data": [200.0, 0.0], "backgroundColor": ["#a5d6a7", "#ef9a9a"], "borderWidth": 1, "borderColor": "#fff", "hoverOffset": 8}]},
+    data: {"labels": ["הכנסה  ₪200", "הוצאה  ₪0"], "datasets": [{"data": [200.0, 0.0], "backgroundColor": ["#a5d6a7", "#ef9a9a"], "borderWidth": 1, "borderColor": "#fff", "hoverOffset": 8}]},
     options: {
       responsive: true, maintainAspectRatio: false,
       cutout: '68%',
       plugins: {
-        legend: { position: 'right', labels: { font: { size: 11 }, padding: 10, boxWidth: 12 } },
+        legend: { position: 'bottom', labels: { font: { size: 11 }, padding: 10, boxWidth: 12 } },
         tooltip: {
           rtl: true,
           callbacks: {
@@ -1022,6 +996,14 @@ body {
       </script>
      </div>
      <div class="chart-card full-width">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 4px 14px;border-bottom:1.5px solid #eef0f6;margin-bottom:12px;">
+       <span style="font-size:0.78em;font-weight:600;color:#888;">
+        ממוצע חודשי נטו (10 חודשים אחרונים)
+       </span>
+       <span style="font-size:1.4em;font-weight:800;color:#1e9d8b;">
+        4,807₪
+       </span>
+      </div>
       <div class="chart-card-title">
        מידע כללי
       </div>
@@ -2505,6 +2487,7 @@ body {
     data: {"labels": ["1565", "2922", "3843", "4046", "Bank"], "datasets": [{"label": "חיוב חודשי", "data": [6449.04, 562.9, 488.49, 909.19, 28159.27], "backgroundColor": ["#D0FFD0", "#FFD7BA", "#FFEDCC", "#C8F7FF", "#F0E68C"], "borderColor": ["#D0FFD0", "#FFD7BA", "#FFEDCC", "#C8F7FF", "#F0E68C"], "borderWidth": 1}]},
     options: {
       responsive: true, maintainAspectRatio: false,
+      layout: { padding: { top: 8 } },
       plugins: {
         legend: { display: false },
         tooltip: {
@@ -2528,26 +2511,7 @@ body {
         }
       }
     },
-    plugins: [{
-      id: 'statusLabel',
-      afterDatasetsDraw(chart) {
-        const {ctx, data} = chart;
-        chart.getDatasetMeta(0).data.forEach((bar, i) => {
-          const v = data.datasets[0].data[i];
-          const st = statusArr[i];
-          ctx.save();
-          ctx.font = 'bold 11px Segoe UI,Arial';
-          ctx.fillStyle = '#fff';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'bottom';
-          ctx.fillText('₪' + Math.round(v).toLocaleString('he-IL'), bar.x, bar.y - 2);
-          ctx.font = '10px Segoe UI,Arial';
-          ctx.fillStyle = st ? '#43a047' : '#e53935';
-          ctx.fillText(st ? 'מאומת' : 'לא מאומת', bar.x, bar.y - 16);
-          ctx.restore();
-        });
-      }
-    }]
+    plugins: []
   });
 })();
      </script>

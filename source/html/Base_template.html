@@ -107,14 +107,14 @@ body {
 /* ── KPI row ─────────────────────────────────────────────── */
 .kpi-row {
   display: grid;
-  grid-template-columns: 2fr 1fr 1fr 1fr;
+  grid-template-columns: 2fr 1fr;
   gap: 14px;
   margin-bottom: 22px;
 }
 /* Responsive: collapse to 2 cols on narrow screens */
-@media (max-width: 1000px) {
-  .kpi-row { grid-template-columns: 1fr 1fr; }
-  .kpi-card.hero { grid-column: span 2; }
+@media (max-width: 700px) {
+  .kpi-row { grid-template-columns: 1fr; }
+  .kpi-card.hero { grid-row: span 1; }
 }
 
 .kpi-card {
@@ -360,6 +360,8 @@ body {
   background: var(--white); border-radius: var(--radius);
   padding: 16px 18px;
   box-shadow: var(--shadow-sm);
+  min-width: 0;       /* prevent grid blowout */
+  overflow: hidden;   /* contain Chart.js canvas */
 }
 /* Full-width chart (e.g. מידע כללי) */
 .chart-card.full-width {
@@ -376,6 +378,7 @@ body {
   background: var(--teal); border-radius: 2px; flex-shrink: 0;
 }
 .chart-card img { width: 100%; height: auto; border-radius: var(--radius-sm); display: block; }
+.chart-card canvas { max-width: 100%; display: block; }
 .chart-card.full-width img { max-height: 420px; object-fit: contain; }
 
 /* hover-swap charts */

@@ -1217,6 +1217,29 @@ class AppManager:
             _eq_history = [(_today_date, _equity_now)]
         accounts_data[_EQUITY_ACCOUNT] = _eq_history
 
+        # Recompute Total now that נכס שלום שבזי is included
+        def _recompute_total(data: dict) -> list:
+            def _to_date(d):
+                return d.date() if hasattr(d, 'date') and callable(d.date) else d
+
+            _dates = sorted(set(
+                _to_date(d) for k, v in data.items() if k != 'Total' for d, _ in v
+            ))
+            _sums = []
+            for _d in _dates:
+                _t = sum(
+                    max(
+                        ((_to_date(dt), val) for dt, val in v if _to_date(dt) <= _d),
+                        key=lambda x: x[0],
+                        default=(None, 0)
+                    )[1]
+                    for k, v in data.items() if k != 'Total' and v
+                )
+                _sums.append((_d, _t))
+            return _sums
+
+        accounts_data['Total'] = _recompute_total(accounts_data)
+
         # Sale return: net_invested = everything spent; profit includes rent received
         _net_invested        = _alltime["alltime_out"]
         _sale_profit         = _equity_appreciated + _alltime["alltime_income"] - _net_invested
@@ -1255,10 +1278,10 @@ class AppManager:
             "milestones":            milestone_schedule(_mort_totals),
             "mortgage_category":     MORTGAGE_CATEGORY,
             "housing_transactions":  _housing_txns,
+            "first_payment_date":    FIRST_PAYMENT.strftime('%Y-%m-%d'),
         }
 
-        # Generate accounts linear plot — הון עצמי historical only (no future projection, keeps y-axis sane)
-        Graphics.plot_linear_plots_graph(accounts_data)
+        # Accounts chart is now rendered as interactive Chart.js in the HTML — no PNG needed
 
         utils.log("Generating HTML report...", "system")
         utils.generate_html(t.month,

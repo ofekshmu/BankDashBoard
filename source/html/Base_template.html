@@ -612,7 +612,60 @@ body {
   padding: 40px 20px; font-size: 0.88em;
 }
 .empty-state .es-icon { font-size: 2.2em; margin-bottom: 8px; display: block; opacity: 0.5; }
+
+/* ── Accounts enhancements ───────────────────────────────── */
+/* Group header row */
+.acct-wrap tr.acct-group-header td {
+  background: #eef4fb;
+  font-weight: 700;
+  font-size: 0.78em;
+  color: #4a6085;
+  padding: 6px 14px;
+  border-top: 1.5px solid var(--border);
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+/* Subtotal row */
+.acct-wrap tr.acct-subtotal td {
+  font-weight: 600;
+  font-size: 0.84em;
+  background: #f4f7fc;
+  color: var(--navy);
+  border-top: 1px solid var(--border);
+}
+/* Change column — positive/negative */
+.acct-change-pos { color: #43a047; font-weight: 600; font-size: 0.82em; white-space: nowrap; }
+.acct-change-neg { color: #e53935; font-weight: 600; font-size: 0.82em; white-space: nowrap; }
+.acct-change-neu { color: #888;    font-weight: 500; font-size: 0.82em; white-space: nowrap; }
+/* Stale row (data > 30 days old) */
+.acct-wrap tr.acct-stale td { background: #fffde7; }
+.acct-wrap tr.acct-stale td:first-child::before {
+  content: "⚠ "; color: #f0b429; font-size: 0.85em;
+}
+/* Sparkline SVG */
+.acct-spark { display: block; overflow: visible; }
+/* Toggle button */
+.acct-chart-toolbar {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 12px; flex-wrap: wrap;
+}
+.acct-toggle-btn {
+  padding: 5px 14px;
+  border: 1.5px solid var(--teal);
+  border-radius: 16px;
+  background: var(--white);
+  color: var(--teal);
+  font-size: 0.78em; font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.acct-toggle-btn.active { background: var(--teal); color: #fff; }
+.acct-toggle-label {
+  font-size: 0.78em; color: var(--text-muted);
+}
 </style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
 </head>
 <body>
 
@@ -734,7 +787,8 @@ body {
     </div>
     <div class="card" id="accounts-chart-card">
       <div class="card-title">מגמת יתרות</div>
-      <div id="accounts-chart"></div>
+      <div class="acct-chart-toolbar" id="acct-chart-toolbar"></div>
+      <div id="accounts-chart" style="position:relative;height:420px;"></div>
     </div>
   </div>
 

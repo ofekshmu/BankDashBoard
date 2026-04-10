@@ -509,69 +509,321 @@ class utils:
             alerts_card.append(empty)
 
         # ── Accounts ───────────────────────────────────────────────────
-        VIRTUAL_ACCOUNTS = {"נכס שלום שבזי"}   # read-only, computed accounts
+        import json as _json
+        from datetime import date as _date
 
+        VIRTUAL_ACCOUNTS = {"נכס שלום שבזי"}
+
+        # Group classification by account name keywords
+        def _acct_group(name):
+            _n = name
+            if name in VIRTUAL_ACCOUNTS or "נכס" in _n:
+                return "נדל\"ן"
+            for kw in ["אלטשולר", "אנליסט", "Analyst", "btb", "BTB", "השקעות", "קופ", "גמל", "פנסי", "ביטוח"]:
+                if kw in _n:
+                    return "השקעות"
+            return "כללי"
+
+        _GROUP_ORDER = ["כללי", "השקעות", "נדל\"ן"]
+
+        def _to_date_safe(d):
+            if hasattr(d, 'date') and callable(d.date):
+                return d.date()
+            return d
+
+        _today_d = datetime.now().date()
+        _stale_threshold = 30  # days
+
+        # Build rich account info dict
         recent_accounts_data = {}
         total_balance = 0
         for account, values in accounts_data.items():
-            if account != 'Total' and values:
-                latest_date  = max(d for d, _ in values)
-                latest_value = next(v for d, v in values if d == latest_date)
-                if latest_value == 0:
-                    continue
-                recent_accounts_data[account] = {'date': latest_date, 'value': latest_value}
-                total_balance += latest_value
+            if account == 'Total' or not values:
+                continue
+            sorted_vals = sorted(values, key=lambda x: _to_date_safe(x[0]))
+            latest_date  = _to_date_safe(sorted_vals[-1][0])
+            latest_value = sorted_vals[-1][1]
+            if latest_value == 0:
+                continue
+            prev_value = sorted_vals[-2][1] if len(sorted_vals) >= 2 else None
+            history = [(_to_date_safe(d), float(v)) for d, v in sorted_vals]
+            recent_accounts_data[account] = {
+                'date':    latest_date,
+                'value':   float(latest_value),
+                'prev':    float(prev_value) if prev_value is not None else None,
+                'history': history,
+                'group':   _acct_group(account),
+                'stale':   (_today_d - latest_date).days > _stale_threshold,
+            }
+            total_balance += float(latest_value)
+
+        # Helper: build SVG sparkline from history (last N points)
+        def _sparkline(history, n=12, w=64, h=22):
+            pts = history[-n:] if len(history) >= n else history
+            if len(pts) < 2:
+                return ""
+            vals = [v for _, v in pts]
+            mn, mx = min(vals), max(vals)
+            rng = mx - mn or 1
+            xs = [round(i * (w - 2) / (len(pts) - 1) + 1, 1) for i in range(len(pts))]
+            ys = [round((1 - (v - mn) / rng) * (h - 4) + 2, 1) for v in vals]
+            pts_str = " ".join(f"{x},{y}" for x, y in zip(xs, ys))
+            trend_col = "#43a047" if vals[-1] >= vals[0] else "#e53935"
+            return (
+                f'<svg class="acct-spark" width="{w}" height="{h}" '
+                f'viewBox="0 0 {w} {h}" xmlns="http://www.w3.org/2000/svg">'
+                f'<polyline points="{pts_str}" fill="none" stroke="{trend_col}" '
+                f'stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>'
+                f'</svg>'
+            )
+
+        # Helper: format change cell
+        def _change_cell(current, prev):
+            if prev is None or prev == 0:
+                return "—", "acct-change-neu"
+            delta = current - prev
+            pct   = delta / abs(prev) * 100
+            sign  = "+" if delta >= 0 else ""
+            text  = f"{sign}{delta:,.0f}₪ ({sign}{pct:.1f}%)"
+            cls   = "acct-change-pos" if delta >= 0 else "acct-change-neg"
+            return text, cls
 
         acct_wrap = soup.find(id="accounts-table")
         tbl = tag("table")
-        # Header row
+        # Header
         hdr = tag("tr")
-        for col in ["חשבון", "עדכון אחרון", "יתרה", "פרטים"]:
-            th = tag("th"); th.string = col; hdr.append(th)
+        for col in ["חשבון", "יתרה", "שינוי", "עדכון אחרון", "מגמה"]:
+            th = tag("th")
+            if col == "שינוי":
+                th.append(bs4.NavigableString("שינוי "))
+                # Info icon + tooltip
+                wrap = tag("span", class_="kpi-info-wrap")
+                icon = tag("span", class_="kpi-info-icon"); icon.string = "i"
+                tip  = tag("span", class_="kpi-tooltip")
+                tip.string = (
+                    "הפרש בין היתרה הנוכחית ליתרה הקודמת\n"
+                    "שנרשמה עבור חשבון זה.\n"
+                    "ₓ — אם אין רשומה קודמת."
+                )
+                wrap.append(icon); wrap.append(tip)
+                th.append(wrap)
+            else:
+                th.string = col
+            hdr.append(th)
         tbl.append(hdr)
 
-        # Data rows
-        for account, info in recent_accounts_data.items():
-            row = tag("tr")
-            if account in VIRTUAL_ACCOUNTS:
-                row["class"] = "acct-virtual"
+        # Group rows by type, with subtotals
+        _groups_used = []
+        for _grp in _GROUP_ORDER:
+            _grp_accounts = {k: v for k, v in recent_accounts_data.items() if v['group'] == _grp}
+            if not _grp_accounts:
+                continue
+            _groups_used.append(_grp)
 
-            for txt in [account, info['date'].strftime('%Y-%m-%d'), f"{info['value']:,.2f}\u20aa"]:
-                td = tag("td"); td.string = txt; row.append(td)
+            # Group header row
+            gh_row = tag("tr"); gh_row["class"] = "acct-group-header"
+            gh_td  = tag("td"); gh_td["colspan"] = "5"; gh_td.string = _grp; gh_row.append(gh_td)
+            tbl.append(gh_row)
 
-            # Details cell
-            detail_td = tag("td")
-            if account == "נכס שלום שבזי" and mortgage_data:
-                md = mortgage_data
-                appr  = md.get('apartment_appreciated', 0)
-                bal   = md.get('current_balance', 0)
-                rate  = md.get('default_rate', 5.0)
-                inc   = md.get('alltime_income', 0)
-                detail_td["class"] = "acct-detail-cell"
-                detail_td.string = (
-                    f"שווי שוק: ₪{appr:,.0f} | "
-                    f"יתרת משכנתא: ₪{bal:,.0f} | "
-                    f"הכנסות: ₪{inc:,.0f} | "
-                    f"תחזית: {rate:.0f}%/שנה"
-                )
-            else:
-                detail_td.string = "—"
-            row.append(detail_td)
-            tbl.append(row)
+            _grp_total = 0.0
+            for account, info in _grp_accounts.items():
+                row = tag("tr")
+                _classes = []
+                if account in VIRTUAL_ACCOUNTS:
+                    _classes.append("acct-virtual")
+                if info['stale']:
+                    _classes.append("acct-stale")
+                    _days_old = (_today_d - info['date']).days
+                    row["title"] = (
+                        f"עדכון אחרון: {info['date'].strftime('%Y-%m-%d')} "
+                        f"({_days_old} ימים ללא עדכון) — "
+                        f"מומלץ לעדכן את היתרה"
+                    )
+                if _classes:
+                    row["class"] = " ".join(_classes)
 
-        # Total row
+                # Account name cell
+                td_name = tag("td"); td_name.string = account; row.append(td_name)
+
+                # Balance cell
+                td_val = tag("td"); td_val.string = f"{info['value']:,.2f}\u20aa"; row.append(td_val)
+
+                # Change cell
+                chg_text, chg_cls = _change_cell(info['value'], info['prev'])
+                td_chg = tag("td"); td_chg["class"] = chg_cls; td_chg.string = chg_text
+                row.append(td_chg)
+
+                # Date cell — with detail tooltip for virtual accounts
+                td_date = tag("td")
+                if account == "נכס שלום שבזי" and mortgage_data:
+                    md = mortgage_data
+                    appr = md.get('apartment_appreciated', 0)
+                    bal  = md.get('current_balance', 0)
+                    rate = md.get('default_rate', 5.0)
+                    inc  = md.get('alltime_income', 0)
+                    td_date["class"] = "acct-detail-cell"
+                    td_date.string = (
+                        f"{info['date'].strftime('%Y-%m-%d')} | "
+                        f"שוק: ₪{appr:,.0f} | "
+                        f"משכנתא: ₪{bal:,.0f} | "
+                        f"הכנסות: ₪{inc:,.0f} | "
+                        f"{rate:.0f}%/שנה"
+                    )
+                else:
+                    td_date.string = info['date'].strftime('%Y-%m-%d')
+                row.append(td_date)
+
+                # Sparkline cell
+                td_spark = tag("td")
+                td_spark["class"] = "acct-detail-cell"
+                spark_svg = _sparkline(info['history'])
+                if spark_svg:
+                    td_spark.append(bs4.BeautifulSoup(spark_svg, 'html.parser'))
+                else:
+                    td_spark.string = "—"
+                row.append(td_spark)
+
+                tbl.append(row)
+                _grp_total += info['value']
+
+            # Subtotal row
+            sub_row = tag("tr"); sub_row["class"] = "acct-subtotal"
+            td_sub_name = tag("td"); td_sub_name.string = f"סה\"כ {_grp}"; sub_row.append(td_sub_name)
+            td_sub_val  = tag("td"); td_sub_val.string = f"{_grp_total:,.2f}\u20aa"; sub_row.append(td_sub_val)
+            for _ in range(3):
+                sub_row.append(tag("td"))
+            tbl.append(sub_row)
+
+        # Grand total row
         tot_row = tag("tr"); tot_row["class"] = "acct-total"
-        for txt in ["סה\"כ", datetime.now().strftime('%Y-%m-%d'), f"{total_balance:,.2f}\u20aa", ""]:
-            td = tag("td"); td.string = txt; tot_row.append(td)
+        td_tot_name = tag("td"); td_tot_name.string = "סה\"כ כל החשבונות"; tot_row.append(td_tot_name)
+        td_tot_val  = tag("td"); td_tot_val.string  = f"{total_balance:,.2f}\u20aa"; tot_row.append(td_tot_val)
+        for _ in range(3):
+            tot_row.append(tag("td"))
         tbl.append(tot_row)
         acct_wrap.append(tbl)
 
-        # Accounts chart
+        # ── Interactive accounts chart (Chart.js) with % toggle + annotation ──
+        _all_dates = sorted(set(
+            (d.strftime('%Y-%m-%d') if hasattr(d, 'strftime') else str(d)[:10])
+            for vals in accounts_data.values() for d, _ in vals
+        ))
+
+        _PALETTE = [
+            "#90caf9",  # gentle blue
+            "#ffcc80",  # gentle amber
+            "#a5d6a7",  # gentle green
+            "#ef9a9a",  # gentle red
+            "#ce93d8",  # gentle purple
+            "#b0bec5",  # gentle blue-grey
+            "#f48fb1",  # gentle pink
+            "#80deea",  # gentle cyan
+            "#e6ee9c",  # gentle lime
+            "#ffab91",  # gentle deep-orange
+            "#80cbc4",  # gentle teal
+            "#c5e1a5",  # gentle light-green
+            "#bcaaa4",  # gentle brown
+        ]
+
+        _datasets = []
+        for _i, (_aname, _vals) in enumerate(accounts_data.items()):
+            _val_map = {
+                (d.strftime('%Y-%m-%d') if hasattr(d, 'strftime') else str(d)[:10]): round(float(v), 2)
+                for d, v in _vals
+            }
+            _col = _PALETTE[_i % len(_PALETTE)]
+            _datasets.append({
+                "label":           _aname,
+                "data":            [_val_map.get(d) for d in _all_dates],
+                "borderColor":     _col,
+                "backgroundColor": _col,
+                "pointRadius":     4,
+                "pointHoverRadius":8,
+                "tension":         0.35,
+                "spanGaps":        True,
+            })
+
+        _chart_json = _json.dumps({"labels": _all_dates, "datasets": _datasets}, ensure_ascii=False)
+
+        # Mortgage start annotation
+        _annot_date = (mortgage_data or {}).get('first_payment_date', '')
+        _annot_js = ""
+        if _annot_date:
+            _annot_js = f"""
+        annotation: {{
+          annotations: {{
+            mortgageStart: {{
+              type: 'line',
+              xMin: '{_annot_date}',
+              xMax: '{_annot_date}',
+              borderColor: '#ef9a9a',
+              borderWidth: 2,
+              borderDash: [6, 3],
+              label: {{
+                display: true,
+                content: 'תחילת משכנתא',
+                position: 'start',
+                yAdjust: -14,
+                backgroundColor: 'rgba(239,154,154,0.85)',
+                color: '#fff',
+                font: {{ size: 11 }},
+                padding: {{ x: 6, y: 3 }},
+              }}
+            }}
+          }}
+        }},"""
+
+        _canvas = tag("canvas"); _canvas["id"] = "acct-chart-canvas"
+        _canvas["style"] = "width:100%;height:100%;"
+
+        _script = tag("script")
+        _script.string = f"""
+(function(){{
+  const ctx = document.getElementById('acct-chart-canvas').getContext('2d');
+  new Chart(ctx, {{
+    type: 'line',
+    data: {_chart_json},
+    options: {{
+      responsive: true,
+      maintainAspectRatio: false,
+      layout: {{ padding: {{ top: 28 }} }},
+      interaction: {{ mode: 'index', intersect: false }},
+      plugins: {{
+        legend: {{
+          position: 'top',
+          labels: {{ font: {{ size: 12 }}, padding: 16 }}
+        }},
+        tooltip: {{
+          rtl: true,
+          callbacks: {{
+            label: function(ctx) {{
+              const v = ctx.parsed.y;
+              if (v == null) return null;
+              return ctx.dataset.label + ': \u20aa' + Math.round(v).toLocaleString('he-IL');
+            }},
+            title: function(items) {{ return items[0]?.label ?? ''; }}
+          }}
+        }},{_annot_js}
+      }},
+      scales: {{
+        x: {{
+          ticks: {{ maxRotation: 45, autoSkip: true, maxTicksLimit: 18, font: {{ size: 11 }} }}
+        }},
+        y: {{
+          ticks: {{
+            callback: function(v) {{ return '\u20aa' + Math.round(v).toLocaleString('he-IL'); }},
+            font: {{ size: 11 }}
+          }}
+        }}
+      }}
+    }}
+  }});
+}})();
+"""
+
         acct_chart = soup.find(id="accounts-chart")
-        img_acct = tag("img")
-        img_acct["src"]   = r"C:\Users\ofeks\OneDrive\Ofek\BankProject\Outputs\accounts_liner_plots.png"
-        img_acct["style"] = "width:100%;height:auto;border-radius:8px;margin-top:8px;"
-        acct_chart.append(img_acct)
+        acct_chart.append(_canvas)
+        acct_chart.append(_script)
 
         # ── Housing / Mortgage panel ───────────────────────────────────
         if mortgage_data:

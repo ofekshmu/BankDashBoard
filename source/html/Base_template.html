@@ -152,8 +152,178 @@ body {
 }
 .kpi-label { font-size: 0.76em; color: var(--text-muted); display: flex; align-items: center; font-weight: 500; }
 .kpi-value { font-size: 1.55em; font-weight: 700; color: var(--navy); line-height: 1.1; }
+.kpi-sublabel { font-size: 0.68em; color: var(--text-muted); margin-top: 4px; }
+
+/* ── KPI info icon + tooltip ─────────────────────────────── */
+.kpi-info-wrap {
+  position: relative;
+  display: inline-flex;
+  margin-right: 6px;
+  flex-shrink: 0;
+}
+.kpi-info-icon {
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: #c5cad8;
+  color: #fff;
+  font-size: 9px;
+  font-style: italic;
+  font-weight: 800;
+  cursor: help;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  user-select: none;
+}
+.kpi-info-icon:hover { background: var(--navy); }
+.kpi-tooltip {
+  visibility: hidden;
+  opacity: 0;
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  background: var(--navy);
+  color: #fff;
+  padding: 9px 13px;
+  border-radius: 9px;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.6;
+  white-space: pre-line;
+  min-width: 220px;
+  max-width: 300px;
+  direction: rtl;
+  text-align: right;
+  z-index: 500;
+  transition: opacity 0.18s;
+  pointer-events: none;
+  box-shadow: var(--shadow-md);
+}
+.kpi-info-wrap:hover .kpi-tooltip { visibility: visible; opacity: 1; }
 .kpi-value.pos { color: var(--teal); }
 .kpi-value.neg { color: var(--red); }
+
+/* Stacked cash card separator */
+.kpi-sep { border: none; border-top: 1px solid var(--border); margin: 10px 0; }
+
+/* ── Housing panel ───────────────────────────────────────── */
+.housing-kpi { margin-bottom: 18px; }
+.housing-milestones, .housing-tracks { margin-top: 18px; }
+
+/* Universal 2-col housing row */
+.housing-2col-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.housing-3col-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+/* Balance row — larger cards */
+.housing-balance-row .kpi-card {
+  padding: 24px 28px;
+}
+.housing-balance-row .kpi-card .kpi-value {
+  font-size: 2.1em;
+}
+.housing-section-title {
+  font-size: 0.72em;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 8px;
+  padding-right: 4px;
+}
+
+/* Equity breakdown bar */
+.equity-bar-wrap { margin-top: 14px; }
+.equity-bar {
+  display: flex;
+  height: 10px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #eee;
+  gap: 2px;
+}
+.equity-bar-eq  { background: #1e9d8b; transition: width 0.35s ease; border-radius: 6px 0 0 6px; }
+.equity-bar-mtg { background: #e74c3c; transition: width 0.35s ease; border-radius: 0 6px 6px 0; flex: 1; }
+.equity-bar-seg { height: 100%; transition: width 0.35s ease; min-width: 0; }
+.equity-bar-seg:first-child { border-radius: 6px 0 0 6px; }
+.equity-bar-seg:last-child  { border-radius: 0 6px 6px 0; }
+.equity-bar-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 5px;
+  font-size: 0.67em;
+  font-weight: 600;
+}
+.equity-bar-labels-4 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px 12px;
+  margin-top: 6px;
+  font-size: 0.67em;
+  font-weight: 600;
+}
+/* Full-width single-card row */
+.housing-full-row { margin-bottom: 16px; }
+.housing-full-row .kpi-card { box-sizing: border-box; }
+
+/* Rate slider control */
+.housing-rate-control {
+  margin-bottom: 20px;
+  padding: 16px 20px 14px;
+}
+.rate-control-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.rate-label { font-size: 0.85em; font-weight: 600; color: var(--navy); }
+.rate-value-display {
+  font-size: 1.4em;
+  font-weight: 800;
+  color: var(--teal);
+  min-width: 52px;
+  text-align: left;
+}
+.rate-slider {
+  width: 100%;
+  accent-color: var(--teal);
+  height: 6px;
+  cursor: pointer;
+}
+.rate-hint { font-size: 0.68em; color: var(--text-muted); margin-top: 6px; text-align: center; }
+
+/* Transactions table */
+.housing-txn-table { margin-top: 18px; }
+.housing-txn tbody tr:nth-child(even) { background: #f8fafc; }
+.housing-txn td, .housing-txn th { font-size: 0.82em; padding: 7px 12px; }
+
+.housing-alert-banner {
+  background: #fff5f5; border: 1.5px solid #e74c3c; border-radius: var(--radius);
+  color: #c0392b; font-weight: 600; font-size: 0.9em;
+  padding: 12px 18px; margin-bottom: 16px; direction: rtl;
+}
+.milestone-table {
+  width: 100%; border-collapse: collapse; font-size: 0.85em;
+  direction: rtl; text-align: right;
+}
+.milestone-table th {
+  background: var(--bg); color: var(--navy); font-weight: 700;
+  padding: 8px 12px; border-bottom: 2px solid var(--border);
+}
+.milestone-table td { padding: 7px 12px; border-bottom: 1px solid var(--border); color: var(--text-sub); }
+.milestone-table tr.track-total td { font-weight: 700; background: var(--bg); border-top: 2px solid var(--border); }
+.milestone-table tr:hover td { background: #f0f7ff; }
 
 /* ── Panels ──────────────────────────────────────────────── */
 .panel { display: none; animation: fadein 0.22s ease; }
@@ -182,7 +352,7 @@ body {
 /* ── Chart grid ──────────────────────────────────────────── */
 .charts-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 16px;
   margin-bottom: 16px;
 }
@@ -431,6 +601,10 @@ body {
   border-top: 2px solid var(--border); border-bottom: none;
 }
 .acct-wrap tr:hover td { background: #f0f7ff; }
+.acct-wrap tr.acct-virtual td { background: #f0faf7; color: #1e9d8b; font-style: italic; }
+.acct-wrap tr.acct-virtual td:first-child::after { content: " ✦"; font-style: normal; font-size: 0.75em; opacity: 0.6; }
+.acct-wrap tr.acct-total td { font-weight: 700; background: #f8fafc; border-top: 2px solid var(--border); border-bottom: none; }
+.acct-detail-cell { font-size: 0.78em !important; color: #888 !important; white-space: nowrap; }
 
 /* ── Empty state ─────────────────────────────────────────── */
 .empty-state {
@@ -470,6 +644,9 @@ body {
   </button>
   <button class="nav-btn" onclick="showPanel('accounts',this)" title="חשבונות">
     <span>🏦</span><span class="lbl">חשבונות</span>
+  </button>
+  <button class="nav-btn" onclick="showPanel('housing',this)" title="דיור ומשכנתא">
+    <span>🏠</span><span class="lbl">דיור</span>
   </button>
 </nav>
 
@@ -560,6 +737,9 @@ body {
       <div id="accounts-chart"></div>
     </div>
   </div>
+
+  <!-- ── Panel: Housing / Mortgage ─────────────────────────── -->
+  <div id="panel-housing" class="panel"></div>
 
 </div><!-- /.main -->
 

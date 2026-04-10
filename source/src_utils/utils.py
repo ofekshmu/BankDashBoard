@@ -140,10 +140,8 @@ class utils:
         ("הוצאות לפי קטגוריה",    None),   # hover-pair: Spendings
         ("הכנסות לפי קטגוריה",    None),   # hover-pair: Earnings
         ("השקעות / חיסכון",        None),   # hover-pair: Investments
-        ("התפלגות כרטיסי אשראי",  "CARD_DIST_PIE_GRAPH"),
         ("מידע כללי",              "GENERAL_INFO_GRAPH"),
-        ("הוצאות דלק",             "GAS_INFO_GRAPH"),
-        ("מגמת דלק",               "GAS_MONTHLY_GRAPH"),
+        ("מזומן",                  None),   # hover-pair: Cash Distribution
     ]
 
     @staticmethod
@@ -158,7 +156,8 @@ class utils:
                       data: dict,
                       accounts_data: dict,
                       cash_information_data: dict,
-                      alerts: list = None) -> None:
+                      alerts: list = None,
+                      mortgage_data: dict = None) -> None:
         import bs4
         from datetime import datetime
         import calendar
@@ -221,9 +220,29 @@ class utils:
         for label, value, is_positive, is_hero in kpi_metrics_main:
             kpi_row.append(_make_kpi_card(label, value, is_positive, is_hero))
 
+        def _make_split_cash_card(metrics):
+            card = tag("div", class_="kpi-card")
+            first = True
+            for label, value, is_positive, _ in metrics:
+                dot_color, _ = utils._KPI_CONFIG.get(label, ("#9aa3bb", True))
+                val_cls = "pos" if is_positive else "neg"
+                amount_str = f"{value:,.2f}\u20aa" if value >= 0 else f"-{abs(value):,.2f}\u20aa"
+                if not first:
+                    card.append(tag("hr", class_="kpi-sep"))
+                lbl = tag("div", class_="kpi-label")
+                dot = tag("span", class_="kpi-dot")
+                dot["style"] = f"background:{dot_color}"
+                lbl.append(dot)
+                lbl.append(label)
+                val = tag("div", class_=f"kpi-value {val_cls}")
+                val.string = amount_str
+                card.append(lbl)
+                card.append(val)
+                first = False
+            return card
+
         kpi_row_2 = soup.find(id="kpi-row-2")
-        for label, value, is_positive, is_hero in kpi_metrics_cash:
-            kpi_row_2.append(_make_kpi_card(label, value, is_positive, is_hero))
+        kpi_row_2.append(_make_split_cash_card(kpi_metrics_cash))
 
         # ── Overview charts ────────────────────────────────────────────
         # Hover-pair charts (Spendings, Earnings, Investments)
@@ -237,13 +256,13 @@ class utils:
             ("השקעות / חיסכון",
              r"C:\Users\ofeks\OneDrive\Ofek\BankProject\Outputs\Investments_category.png",
              r"C:\Users\ofeks\OneDrive\Ofek\BankProject\Outputs\Investments_prices.png"),
+            ("מזומן",
+             r"C:\Users\ofeks\OneDrive\Ofek\BankProject\Outputs\Cash_Distribution_category.png",
+             r"C:\Users\ofeks\OneDrive\Ofek\BankProject\Outputs\Cash_Distribution_prices.png"),
         ]
         # Single-image charts
         _single_charts = [
-            ("התפלגות כרטיסי אשראי", Paths.CARD_DIST_PIE_GRAPH),
             ("מידע כללי",             r"C:\Users\ofeks\OneDrive\Ofek\BankProject\Outputs\General_info.png"),
-            ("הוצאות דלק",            r"C:\Users\ofeks\OneDrive\Ofek\BankProject\Outputs\Gas_info.png"),
-            ("מגמת דלק",              r"C:\Users\ofeks\OneDrive\Ofek\BankProject\Outputs\Gas_monthly.png"),
         ]
 
         charts_grid = soup.find(id="overview-charts")
@@ -275,6 +294,16 @@ class utils:
             img = tag("img", src=src)
             card.append(img)
             charts_grid.append(card)
+
+        # ── Card distribution chart in Transactions panel ─────────────
+        tx_panel = soup.find(id="panel-transactions")
+        card_dist_card = tag("div", class_="chart-card full-width")
+        card_dist_ttl  = tag("div", class_="chart-card-title")
+        card_dist_ttl.string = "התפלגות כרטיסי אשראי"
+        card_dist_card.append(card_dist_ttl)
+        card_dist_img  = tag("img", src=Paths.CARD_DIST_PIE_GRAPH)
+        card_dist_card.append(card_dist_img)
+        tx_panel.append(card_dist_card)
 
         # ── Outliers ───────────────────────────────────────────────────
         outliers_row = soup.find(id="overview-outliers")
@@ -480,12 +509,16 @@ class utils:
             alerts_card.append(empty)
 
         # ── Accounts ───────────────────────────────────────────────────
+        VIRTUAL_ACCOUNTS = {"נכס שלום שבזי"}   # read-only, computed accounts
+
         recent_accounts_data = {}
         total_balance = 0
         for account, values in accounts_data.items():
-            if account != 'Total':
+            if account != 'Total' and values:
                 latest_date  = max(d for d, _ in values)
                 latest_value = next(v for d, v in values if d == latest_date)
+                if latest_value == 0:
+                    continue
                 recent_accounts_data[account] = {'date': latest_date, 'value': latest_value}
                 total_balance += latest_value
 
@@ -493,25 +526,43 @@ class utils:
         tbl = tag("table")
         # Header row
         hdr = tag("tr")
-        for col in ["חשבון", "עדכון אחרון", "יתרה"]:
-            th = tag("th")
-            th.string = col
-            hdr.append(th)
+        for col in ["חשבון", "עדכון אחרון", "יתרה", "פרטים"]:
+            th = tag("th"); th.string = col; hdr.append(th)
         tbl.append(hdr)
+
         # Data rows
         for account, info in recent_accounts_data.items():
             row = tag("tr")
+            if account in VIRTUAL_ACCOUNTS:
+                row["class"] = "acct-virtual"
+
             for txt in [account, info['date'].strftime('%Y-%m-%d'), f"{info['value']:,.2f}\u20aa"]:
-                td = tag("td")
-                td.string = txt
-                row.append(td)
+                td = tag("td"); td.string = txt; row.append(td)
+
+            # Details cell
+            detail_td = tag("td")
+            if account == "נכס שלום שבזי" and mortgage_data:
+                md = mortgage_data
+                appr  = md.get('apartment_appreciated', 0)
+                bal   = md.get('current_balance', 0)
+                rate  = md.get('default_rate', 5.0)
+                inc   = md.get('alltime_income', 0)
+                detail_td["class"] = "acct-detail-cell"
+                detail_td.string = (
+                    f"שווי שוק: ₪{appr:,.0f} | "
+                    f"יתרת משכנתא: ₪{bal:,.0f} | "
+                    f"הכנסות: ₪{inc:,.0f} | "
+                    f"תחזית: {rate:.0f}%/שנה"
+                )
+            else:
+                detail_td.string = "—"
+            row.append(detail_td)
             tbl.append(row)
+
         # Total row
-        tot_row = tag("tr")
-        for txt in ["סה\"כ", datetime.now().strftime('%Y-%m-%d'), f"{total_balance:,.2f}\u20aa"]:
-            td = tag("td")
-            td.string = txt
-            tot_row.append(td)
+        tot_row = tag("tr"); tot_row["class"] = "acct-total"
+        for txt in ["סה\"כ", datetime.now().strftime('%Y-%m-%d'), f"{total_balance:,.2f}\u20aa", ""]:
+            td = tag("td"); td.string = txt; tot_row.append(td)
         tbl.append(tot_row)
         acct_wrap.append(tbl)
 
@@ -521,6 +572,559 @@ class utils:
         img_acct["src"]   = r"C:\Users\ofeks\OneDrive\Ofek\BankProject\Outputs\accounts_liner_plots.png"
         img_acct["style"] = "width:100%;height:auto;border-radius:8px;margin-top:8px;"
         acct_chart.append(img_acct)
+
+        # ── Housing / Mortgage panel ───────────────────────────────────
+        if mortgage_data:
+            from src_utils.mortgage import TRACKS
+
+            housing_panel = soup.find(id="panel-housing")
+
+            def _h_kpi(label, value_str, color="#1e9d8b", sublabel=None, info=None,
+                       elem_id=None, sublabel_id=None, tooltip_id=None):
+                card = tag("div", class_="kpi-card")
+                lbl  = tag("div", class_="kpi-label")
+                lbl.append(bs4.NavigableString(label))
+                if info:
+                    wrap = tag("span", class_="kpi-info-wrap")
+                    icon = tag("span", class_="kpi-info-icon")
+                    icon.string = "i"
+                    tip  = tag("span", class_="kpi-tooltip")
+                    tip.string = info
+                    if tooltip_id:
+                        tip["id"] = tooltip_id
+                    wrap.append(icon)
+                    wrap.append(tip)
+                    lbl.append(wrap)
+                val  = tag("div", class_="kpi-value")
+                val.string = value_str
+                val["style"] = f"color:{color}"
+                if elem_id:
+                    val["id"] = elem_id
+                card.append(lbl)
+                card.append(val)
+                if sublabel:
+                    sub = tag("div", class_="kpi-sublabel")
+                    sub.string = sublabel
+                    if sublabel_id:
+                        sub["id"] = sublabel_id
+                    card.append(sub)
+                return card
+
+            md = mortgage_data
+
+            apt_price    = md['apartment_price']
+            cur_bal      = md['current_balance']
+            apt_appr     = md['apartment_appreciated']
+            eq_appr      = md['equity_appreciated']
+            mo_appr      = md['monthly_appreciation']
+            yrs          = md['years_elapsed']
+            cat          = md['mortgage_category']
+            def_rate     = md['default_rate']
+            net_inv      = md['net_invested']
+            tot_ret      = md['total_return_pct']
+            ann_ret      = md['annual_return_pct']
+            init_pmt     = md['initial_apartment_payment']
+
+            def _section(title):
+                t = tag("div", class_="housing-section-title")
+                t.string = title
+                housing_panel.append(t)
+
+            def _row2(card_a, card_b, extra_class=""):
+                row = tag("div", class_=f"housing-2col-row {extra_class}".strip())
+                row.append(card_a)
+                row.append(card_b)
+                housing_panel.append(row)
+
+            # ── Rate slider control card ───────────────────────────────
+            rate_card = tag("div", class_="kpi-card housing-rate-control")
+            rate_top  = tag("div", class_="rate-control-top")
+            rate_lbl  = tag("div", class_="rate-label")
+            rate_lbl.string = "שיעור עליית ערך שנתי"
+            rate_val  = tag("span", class_="rate-value-display")
+            rate_val["id"] = "hs-rate-display"
+            rate_val.string = f"{def_rate:.1f}%"
+            rate_top.append(rate_lbl)
+            rate_top.append(rate_val)
+            slider    = tag("input")
+            slider["type"]  = "range"
+            slider["id"]    = "hs-rate-slider"
+            slider["min"]   = "0"
+            slider["max"]   = "20"
+            slider["step"]  = "0.5"
+            slider["value"] = str(def_rate)
+            slider["class"] = "rate-slider"
+            rate_hint = tag("div", class_="rate-hint")
+            rate_hint.string = "ברירת מחדל 5% | גרור לשינוי"
+            rate_card.append(rate_top)
+            rate_card.append(slider)
+            rate_card.append(rate_hint)
+            housing_panel.append(rate_card)
+
+            # ── Row 1: Balance + Equity (big) ─────────────────────────
+            down_pmt       = md['down_payment']                   # theoretical (apt_price - mortgage)
+            init_pay       = md['initial_apartment_payment']       # actual cash paid upfront
+            mort_orig      = md['mortgage_amount']                # original mortgage
+            principal_paid = mort_orig - cur_bal                  # equity built via payments
+            appr_gain_val  = apt_appr - apt_price                 # appreciation gain
+
+            def _pct(v): return round(v / apt_appr * 100, 2)
+            pct_mtg  = _pct(cur_bal)
+            pct_down = _pct(init_pay)
+            pct_prin = _pct(principal_paid)
+            pct_appr = _pct(appr_gain_val)
+
+            # הון עצמי card — built manually to include the 4-segment breakdown bar
+            alltime_inc_val = md['alltime_income']
+            eq_with_inc     = eq_appr + alltime_inc_val   # equity + total income received
+
+            equity_card = tag("div", class_="kpi-card")
+            eq_lbl = tag("div", class_="kpi-label")
+            eq_lbl.append(bs4.NavigableString("הון עצמי"))
+            eq_info_wrap = tag("span", class_="kpi-info-wrap")
+            eq_icon = tag("span", class_="kpi-info-icon"); eq_icon.string = "i"
+            eq_tip  = tag("span", class_="kpi-tooltip")
+            eq_tip.string = (
+                f"הון עצמי = מקדמה + קרן שנפרעה + עליית ערך + סה״כ הכנסות\n"
+                f"  מקדמה:          {init_pay:,.0f}₪\n"
+                f"  קרן שנפרעה:    {principal_paid:,.0f}₪\n"
+                f"  עליית ערך:     {appr_gain_val:,.0f}₪\n"
+                f"  סה״כ הכנסות:   {alltime_inc_val:,.0f}₪\n"
+                f"  = סה״כ:         {eq_with_inc:,.0f}₪"
+            )
+            eq_info_wrap.append(eq_icon); eq_info_wrap.append(eq_tip)
+            eq_lbl.append(eq_info_wrap)
+            eq_val = tag("div", class_="kpi-value")
+            eq_val.string = f"{eq_with_inc:,.0f}\u20aa"
+            eq_val["style"] = "color:#1e9d8b"
+            eq_val["id"] = "hs-equity"
+            eq_sub = tag("div", class_="kpi-sublabel")
+            eq_sub.string = "כולל עליית ערך והכנסות"
+
+            # 4-segment bar: מקדמה | קרן שנפרעה | עליית ערך | הכנסות
+            eq_total   = max(eq_with_inc, 1)
+            peq_down   = round(init_pay         / eq_total * 100, 2)
+            peq_prin   = round(principal_paid   / eq_total * 100, 2)
+            peq_appr   = round(appr_gain_val    / eq_total * 100, 2)
+            peq_inc    = round(alltime_inc_val  / eq_total * 100, 2)
+
+            C_DOWN  = "#81c784"   # gentle green — down payment
+            C_PRIN  = "#4db6ac"   # gentle teal  — principal repaid
+            C_APPR  = "#64b5f6"   # gentle blue  — appreciation
+            C_INC   = "#aed581"   # gentle lime  — income received
+
+            eq_bar_wrap = tag("div", class_="equity-bar-wrap")
+            eq_bar      = tag("div", class_="equity-bar")
+
+            def _bar_seg(elem_id, pct, color, title_txt):
+                s = tag("div", class_="equity-bar-seg")
+                s["id"]    = elem_id
+                s["style"] = f"width:{pct}%;background:{color}"
+                s["title"] = title_txt
+                return s
+
+            eq_bar.append(_bar_seg("hs-bar-down", peq_down, C_DOWN,
+                                   f"מקדמה ₪{init_pay:,.0f}"))
+            eq_bar.append(_bar_seg("hs-bar-prin", peq_prin, C_PRIN,
+                                   f"קרן שנפרעה ₪{principal_paid:,.0f}"))
+            eq_bar.append(_bar_seg("hs-bar-appr", peq_appr, C_APPR,
+                                   f"עליית ערך ₪{appr_gain_val:,.0f}"))
+            eq_bar.append(_bar_seg("hs-bar-inc",  peq_inc,  C_INC,
+                                   f"סה״כ הכנסות ₪{alltime_inc_val:,.0f}"))
+
+            # Legend: 4 items
+            eq_bar_labels = tag("div", class_="equity-bar-labels equity-bar-labels-4")
+
+            def _lbl(text, color, elem_id=None):
+                s = tag("span")
+                s.string = f"\u25cf {text}"
+                s["style"] = f"color:{color}"
+                if elem_id: s["id"] = elem_id
+                return s
+
+            eq_bar_labels.append(_lbl(f"מקדמה ₪{init_pay:,.0f}",             C_DOWN, "hs-lbl-down"))
+            eq_bar_labels.append(_lbl(f"קרן שנפרעה ₪{principal_paid:,.0f}",  C_PRIN, "hs-lbl-prin"))
+            eq_bar_labels.append(_lbl(f"עליית ערך ₪{appr_gain_val:,.0f}",   C_APPR, "hs-lbl-appr"))
+            eq_bar_labels.append(_lbl(f"הכנסות ₪{alltime_inc_val:,.0f}",    C_INC,  "hs-lbl-inc"))
+
+            eq_bar_wrap.append(eq_bar); eq_bar_wrap.append(eq_bar_labels)
+            equity_card.append(eq_lbl); equity_card.append(eq_val)
+            equity_card.append(eq_sub); equity_card.append(eq_bar_wrap)
+
+            _row2(
+                _h_kpi("יתרת משכנתא", f"{cur_bal:,.0f}\u20aa", "#e74c3c",
+                       info="הקרן שנותרה לתשלום על המשכנתא.\nמחושב לפי לוח סילוקין תיאורטי."),
+                equity_card,
+                "housing-balance-row"
+            )
+
+            # ── Row 2: Purchase price | Monthly appreciation | Appreciated value ──
+            row2 = tag("div", class_="housing-3col-row")
+            row2.append(_h_kpi("מחיר רכישה", f"{apt_price:,.0f}\u20aa", "#1a3a5c",
+                                info="מחיר הרכישה המקורי של הדירה (יולי 2025)."))
+            row2.append(_h_kpi("עליית ערך חודשית", f"+{mo_appr:,.0f}\u20aa", "#1e9d8b",
+                                sublabel=f"לפי {def_rate:.1f}%/שנה",
+                                info="הרווח החודשי מעליית ערך הדירה.\n"
+                                     "מחושב: שווי משוער × (1+שיעור)^(1/12) − 1).",
+                                elem_id="hs-monthly-appr"))
+            row2.append(_h_kpi("שווי שוק משוער", f"{apt_appr:,.0f}\u20aa", "#5b8dee",
+                                sublabel=f"{def_rate:.1f}% עלייה שנתית | {yrs:.1f} שנים",
+                                info=f"מחושב לפי: {apt_price:,.0f}₪ × (1+שיעור)^{yrs:.1f} שנים.\n"
+                                     "ניתן לשנות את השיעור בסליידר למעלה.",
+                                elem_id="hs-appr-price"))
+            housing_panel.append(row2)
+
+            # ── Row 3: Monthly payment (full-width) ────────────────────
+            pmt_label = "תשלום חודשי (בפועל)" if md.get("payment_found") else "תשלום חודשי (משוער)"
+            pmt_info  = ("סכום המשכנתא ששולם בפועל החודש, זוהה לפי עסקאות עם 'משכנתא' בשם."
+                         if md.get("payment_found") else
+                         "לא נמצא תשלום בבסיס הנתונים — מוצג הסכום המשוער לפי לוח הסילוקין.")
+            pmt_row = tag("div", class_="housing-full-row")
+            pmt_row.append(_h_kpi(pmt_label, f"{md['total_monthly_payment']:,.2f}\u20aa", "#e74c3c",
+                                  sublabel="תשלום משכנתא", info=pmt_info))
+            housing_panel.append(pmt_row)
+
+            # ── Row 4: Sale return ─────────────────────────────────────
+            alltime_inc   = md['alltime_income']
+            appr_gain     = apt_appr - apt_price          # appreciation gain only
+            sale_proceeds = eq_appr                       # appreciated_price - cur_balance
+            total_back    = sale_proceeds + alltime_inc   # everything you'd receive
+            profit_val    = total_back - net_inv          # net profit
+
+            ret_color = "#1e9d8b" if tot_ret >= 0 else "#e74c3c"
+            ret_info  = (
+                f"חישוב רווח ממכירה:\n"
+                f"  שווי שוק:          {apt_appr:>12,.0f}₪\n"
+                f"  עליית ערך:         {appr_gain:>+12,.0f}₪  ({def_rate:.1f}%/שנה × {yrs:.1f} שנים)\n"
+                f"  יתרת משכנתא:      {-cur_bal:>12,.0f}₪  (תשלום לבנק)\n"
+                f"  = הון עצמי:        {sale_proceeds:>12,.0f}₪\n"
+                f"  + סה״כ הכנסות:    {alltime_inc:>12,.0f}₪  (שכירות + קטגוריה)\n"
+                f"  ─────────────────────────────\n"
+                f"  סה״כ תקבולים:     {total_back:>12,.0f}₪\n"
+                f"  − סה״כ הוצאות:   {-net_inv:>12,.0f}₪\n"
+                f"  = רווח נקי:        {profit_val:>+12,.0f}₪\n"
+                f"\n⚠ לא כולל: מס שבח, עמלות תיווך, עלויות מכירה"
+            )
+            _row2(
+                _h_kpi("תשואה כוללת ממכירה", f"{tot_ret:+.1f}%", ret_color,
+                       sublabel=f"רווח נקי: {profit_val:+,.0f}₪",
+                       info=ret_info,
+                       elem_id="hs-total-return",
+                       sublabel_id="hs-return-sublabel",
+                       tooltip_id="hs-return-tooltip"),
+                _h_kpi("תשואה שנתית (IRR)", f"{ann_ret:+.1f}%", ret_color,
+                       sublabel=f"על פני {yrs:.1f} שנים",
+                       info="תשואה שנתית מחושבת לפי: (1 + תשואה כוללת)^(1/שנים) − 1.\n"
+                            "ניתן לשנות את שיעור עליית הערך בסליידר למעלה.",
+                       elem_id="hs-annual-return")
+            )
+
+            # ── Section: This month ────────────────────────────────────
+            _section("סיכום חודש נוכחי — כל הקטגוריה")
+            _row2(
+                _h_kpi("הוצאות החודש", f"{md['month_out']:,.2f}\u20aa", "#e74c3c",
+                       info=f"סך כל ההוצאות בקטגוריה '{cat}' בחודש זה.\nכולל משכנתא, עמלות וכל תשלום אחר."),
+                _h_kpi("הכנסות החודש", f"{md['month_income']:,.2f}\u20aa", "#1e9d8b",
+                       info=f"סך כל ההכנסות בקטגוריה '{cat}' בחודש זה.\nכולל שכירות וכל הכנסה אחרת.")
+            )
+
+            # ── Section: All-time ──────────────────────────────────────
+            _section("סיכום כולל — כל הזמנים")
+
+            # Build spending card with breakdown bar
+            _at_out      = md['alltime_out']
+            _at_mort     = md['alltime_mortgage_payments']
+            _at_init     = md['initial_apartment_payment']
+            _at_other    = max(_at_out - _at_mort - _at_init, 0.0)
+
+            def _spend_pct(v): return round(v / _at_out * 100, 2) if _at_out > 0 else 0
+
+            _sp_out_card = tag("div", class_="kpi-card")
+
+            # header row with info icon
+            _sp_hdr = tag("div", class_="kpi-info-wrap")
+            _sp_lbl = tag("div", class_="kpi-label"); _sp_lbl.string = "סה״כ הוצאות"
+            _sp_ico = tag("span", class_="kpi-info-icon"); _sp_ico.string = "ⓘ"
+            _sp_tip = tag("span", class_="kpi-tooltip")
+            _sp_tip.string = (
+                f"סך כל ההוצאות בקטגוריה '{cat}' מאז תחילת הנתונים.\n"
+                f"  תשלומי משכנתא:        {_at_mort:>10,.0f}₪\n"
+                f"  תשלום ראשוני לדירה:   {_at_init:>10,.0f}₪\n"
+                f"  הוצאות אחרות:          {_at_other:>10,.0f}₪"
+            )
+            _sp_ico.append(_sp_tip); _sp_hdr.append(_sp_lbl); _sp_hdr.append(_sp_ico)
+            _sp_out_card.append(_sp_hdr)
+
+            _sp_val = tag("div", class_="kpi-value"); _sp_val.string = f"{_at_out:,.2f}₪"
+            _sp_val["style"] = "color:#e74c3c"
+            _sp_out_card.append(_sp_val)
+
+            # Spending breakdown bar
+            _sp_bar_wrap = tag("div", class_="equity-bar-wrap")
+            _sp_bar      = tag("div", class_="equity-bar")
+
+            SC_MORT  = "#e57373"   # gentle red — mortgage payments
+            SC_INIT  = "#ef9a9a"   # lighter gentle red — initial purchase
+            SC_OTHER = "#ffb74d"   # gentle amber — other spending
+
+            def _sp_seg(pct, color, title_txt):
+                s = tag("div", class_="equity-bar-seg")
+                s["style"] = f"width:{pct}%;background:{color}"
+                s["title"] = title_txt
+                return s
+
+            _sp_bar.append(_sp_seg(_spend_pct(_at_mort),  SC_MORT,
+                                   f"תשלומי משכנתא ₪{_at_mort:,.0f}"))
+            _sp_bar.append(_sp_seg(_spend_pct(_at_init),  SC_INIT,
+                                   f"תשלום ראשוני לדירה ₪{_at_init:,.0f}"))
+            _sp_bar.append(_sp_seg(_spend_pct(_at_other), SC_OTHER,
+                                   f"הוצאות אחרות ₪{_at_other:,.0f}"))
+            _sp_bar_wrap.append(_sp_bar)
+
+            # Legend
+            _sp_labels = tag("div", class_="equity-bar-labels-4")
+            for txt, col in [
+                (f"תשלומי משכנתא ₪{_at_mort:,.0f}",   SC_MORT),
+                (f"תשלום ראשוני ₪{_at_init:,.0f}",     SC_INIT),
+                (f"הוצאות אחרות ₪{_at_other:,.0f}",    SC_OTHER),
+            ]:
+                sp = tag("span"); sp.string = f"● {txt}"; sp["style"] = f"color:{col}"
+                _sp_labels.append(sp)
+
+            _sp_bar_wrap.append(_sp_labels)
+            _sp_out_card.append(_sp_bar_wrap)
+
+            _row2(
+                _sp_out_card,
+                _h_kpi("סה״כ הכנסות", f"{md['alltime_income']:,.2f}\u20aa", "#1e9d8b",
+                       info=f"סך כל ההכנסות בקטגוריה '{cat}' מאז תחילת הנתונים.\nכולל כל תשלומי השכירות.")
+            )
+
+            # ── Rent-missing alert banner ──────────────────────────────
+            if not md["rent_found"]:
+                banner = tag("div", class_="housing-alert-banner")
+                banner.string = (
+                    f"\u26a0\ufe0f לא נמצאה הכנסת שכירות לחודש זה בקטגוריה \"{md.get('mortgage_category','שלום שבזי 7')}\" — "
+                    "יש לבדוק אם התשלום התקבל."
+                )
+                housing_panel.append(banner)
+
+            # ── Charts ────────────────────────────────────────────────
+            charts_row = tag("div", class_="charts-grid")
+
+            def _chart_card(title, src, full_width=False):
+                cls  = "chart-card full-width" if full_width else "chart-card"
+                card = tag("div", class_=cls)
+                ttl  = tag("div", class_="chart-card-title")
+                ttl.string = title
+                card.append(ttl)
+                img  = tag("img", src=src)
+                card.append(img)
+                return card
+
+            charts_row.append(_chart_card("יתרת משכנתא לאורך הזמן",    Paths.MORTGAGE_BALANCE_GRAPH,   full_width=True))
+            charts_row.append(_chart_card("פירוט קרן וריבית",           Paths.MORTGAGE_BREAKDOWN_GRAPH))
+            charts_row.append(_chart_card("תזרים מזומנים — דיור",       Paths.MORTGAGE_CASHFLOW_GRAPH))
+            housing_panel.append(charts_row)
+
+            # ── Milestone table ───────────────────────────────────────
+            ms_wrap = tag("div", class_="housing-milestones card")
+            ms_ttl  = tag("div", class_="card-title")
+            ms_ttl.string = "אבני דרך — יתרה משוערת"
+            ms_wrap.append(ms_ttl)
+
+            tbl  = tag("table", class_="milestone-table")
+            # Header
+            hdr  = tag("tr")
+            for col in ["יתרת מטרה (₪)", "חודש משוער", "שנים מתחילת המשכנתא"]:
+                th = tag("th"); th.string = col; hdr.append(th)
+            tbl.append(hdr)
+            # Rows
+            for ms in md["milestones"]:
+                row = tag("tr")
+                d   = ms["date"]
+                d_str = d.strftime("%m/%Y") if hasattr(d, "strftime") else str(d)
+                for txt in [f"{ms['threshold']:,.0f}₪", d_str, f"{ms['years_from_start']}"]:
+                    td = tag("td"); td.string = txt; row.append(td)
+                tbl.append(row)
+            ms_wrap.append(tbl)
+            housing_panel.append(ms_wrap)
+
+            # ── Track breakdown table ──────────────────────────────────
+            tr_wrap = tag("div", class_="housing-tracks card")
+            tr_ttl  = tag("div", class_="card-title")
+            tr_ttl.string = "פירוט מסלולי משכנתא"
+            tr_wrap.append(tr_ttl)
+
+            tr_tbl = tag("table", class_="milestone-table")
+            tr_hdr = tag("tr")
+            for col in ["מסלול", "קרן מקורית (₪)", "ריבית שנתית", "תשלום חודשי (₪)", "סוג"]:
+                th = tag("th"); th.string = col; tr_hdr.append(th)
+            tr_tbl.append(tr_hdr)
+            type_labels = {"fixed": "קבועה", "variable": "משתנה אג\"ח", "prime": "פריים"}
+            for t_info in TRACKS:
+                row = tag("tr")
+                for txt in [
+                    t_info["name"],
+                    f"{t_info['principal']:,.0f}",
+                    f"{t_info['annual_rate']:.2f}%",
+                    f"{t_info['monthly_payment']:,.2f}",
+                    type_labels.get(t_info["type"], t_info["type"]),
+                ]:
+                    td = tag("td"); td.string = txt; row.append(td)
+                tr_tbl.append(row)
+            # Total row
+            tot = tag("tr", class_="track-total")
+            for txt in ["סה״כ", f"{sum(t['principal'] for t in TRACKS):,.0f}", "—",
+                        f"{sum(t['monthly_payment'] for t in TRACKS):,.2f}", "—"]:
+                td = tag("td"); td.string = txt; tot.append(td)
+            tr_tbl.append(tot)
+            tr_wrap.append(tr_tbl)
+            housing_panel.append(tr_wrap)
+
+            # ── All transactions table ─────────────────────────────────
+            txn_df = md.get("housing_transactions")
+            if txn_df is not None and not txn_df.empty:
+                txn_wrap = tag("div", class_="housing-txn-table card")
+                txn_ttl  = tag("div", class_="card-title")
+                txn_ttl.string = f"כל העסקאות — {md['mortgage_category']}"
+                txn_wrap.append(txn_ttl)
+
+                txn_tbl = tag("table", class_="milestone-table housing-txn")
+                hdr = tag("tr")
+                for col in ["תאריך", "שם", "הוצאה (₪)", "הכנסה (₪)"]:
+                    th = tag("th"); th.string = col; hdr.append(th)
+                txn_tbl.append(hdr)
+
+                for _, row in txn_df.iterrows():
+                    tr = tag("tr")
+                    # Date
+                    td_date = tag("td")
+                    td_date.string = str(row["Date"])[:10]
+                    tr.append(td_date)
+                    # Name
+                    td_name = tag("td")
+                    td_name.string = str(row["Name"] or "")
+                    tr.append(td_name)
+                    # Out
+                    td_out = tag("td")
+                    out_val = row["Out"]
+                    if out_val and float(out_val) > 0:
+                        td_out.string = f"{float(out_val):,.2f}"
+                        td_out["style"] = "color:#e74c3c; font-weight:600;"
+                    else:
+                        td_out.string = "—"
+                    tr.append(td_out)
+                    # Income
+                    td_inc = tag("td")
+                    inc_val = row["Income"]
+                    if inc_val and float(inc_val) > 0:
+                        td_inc.string = f"{float(inc_val):,.2f}"
+                        td_inc["style"] = "color:#1e9d8b; font-weight:600;"
+                    else:
+                        td_inc.string = "—"
+                    tr.append(td_inc)
+                    txn_tbl.append(tr)
+
+                txn_wrap.append(txn_tbl)
+                housing_panel.append(txn_wrap)
+
+            # ── Live rate slider JS ────────────────────────────────────
+            js_vars = (
+                f"const APT_PRICE={apt_price};"
+                f"const CUR_BAL={cur_bal};"
+                f"const N_MONTHS={md['months_elapsed']};"
+                f"const NET_INV={net_inv};"
+                f"const ALLTIME_INC={md['alltime_income']};"
+                f"const INIT_PMT={init_pmt};"
+                f"const DOWN_PMT={init_pay};"
+                f"const PRIN_PAID={principal_paid};"
+            )
+            js_code = js_vars + r"""
+const fmtNum  = n => Math.round(Math.abs(n)).toLocaleString('he-IL');
+const fmtShek = n => (n < 0 ? '-' : '') + '₪' + fmtNum(n);
+const fmtPct  = n => (n >= 0 ? '+' : '') + n.toFixed(1) + '%';
+
+function hsRecalc(rate) {
+  const yrs    = N_MONTHS / 12;
+  const appr   = APT_PRICE * Math.pow(1 + rate / 100, yrs);
+  const equity = appr - CUR_BAL;
+  const moAppr = appr * (Math.pow(1 + rate / 100, 1 / 12) - 1);
+  const apprGain = appr - APT_PRICE;
+
+  // Sale return: profit = equity + all income - all spending
+  const totalBack = equity + ALLTIME_INC;
+  const profit    = totalBack - NET_INV;
+  const totRet    = NET_INV > 0 ? profit / NET_INV * 100 : 0;
+  const annRet    = N_MONTHS > 0 ? (Math.pow(1 + totRet / 100, 12 / N_MONTHS) - 1) * 100 : 0;
+  const retColor  = totRet >= 0 ? '#1e9d8b' : '#e74c3c';
+
+  // Update value elements
+  document.getElementById('hs-appr-price').textContent   = fmtShek(appr);
+  document.getElementById('hs-equity').textContent       = fmtShek(equity);
+  document.getElementById('hs-monthly-appr').textContent = '+' + fmtShek(moAppr);
+  const trEl = document.getElementById('hs-total-return');
+  const arEl = document.getElementById('hs-annual-return');
+  trEl.textContent = fmtPct(totRet);  trEl.style.color = retColor;
+  arEl.textContent = fmtPct(annRet);  arEl.style.color = retColor;
+  document.getElementById('hs-rate-display').textContent = rate.toFixed(1) + '%';
+
+  // Update equity bar (4 segments: down payment, principal, appreciation, income)
+  const apprGainVal = Math.max(apprGain, 0);
+  const eqWithInc = equity + ALLTIME_INC;
+  const eqTotal   = eqWithInc || 1;
+  const pDown = DOWN_PMT      / eqTotal * 100;
+  const pPrin = PRIN_PAID     / eqTotal * 100;
+  const pAppr = apprGainVal   / eqTotal * 100;
+  const pInc  = ALLTIME_INC   / eqTotal * 100;
+
+  document.getElementById('hs-equity').textContent = fmtShek(eqWithInc);
+
+  const _upSeg = (id, pct, label) => {
+    const el = document.getElementById(id);
+    if (el) { el.style.width = Math.max(pct, 0).toFixed(2) + '%'; el.title = label; }
+  };
+  _upSeg('hs-bar-down', pDown, 'מקדמה ₪'        + fmtNum(DOWN_PMT));
+  _upSeg('hs-bar-prin', pPrin, 'קרן שנפרעה ₪'   + fmtNum(PRIN_PAID));
+  _upSeg('hs-bar-appr', pAppr, 'עליית ערך ₪'    + fmtNum(apprGainVal));
+  _upSeg('hs-bar-inc',  pInc,  'סה״כ הכנסות ₪'  + fmtNum(ALLTIME_INC));
+
+  const _upLbl = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = '● ' + text; };
+  _upLbl('hs-lbl-down', 'מקדמה ₪'        + fmtNum(DOWN_PMT));
+  _upLbl('hs-lbl-prin', 'קרן שנפרעה ₪'   + fmtNum(PRIN_PAID));
+  _upLbl('hs-lbl-appr', 'עליית ערך ₪'    + fmtNum(apprGainVal));
+  _upLbl('hs-lbl-inc',  'הכנסות ₪'       + fmtNum(ALLTIME_INC));
+
+  // Update sublabel (רווח נקי)
+  const sl = document.getElementById('hs-return-sublabel');
+  if (sl) sl.textContent = 'רווח נקי: ' + (profit >= 0 ? '+' : '') + fmtShek(profit);
+
+  // Update tooltip breakdown
+  const tt = document.getElementById('hs-return-tooltip');
+  if (tt) tt.textContent =
+    'חישוב רווח ממכירה:\n' +
+    '  שווי שוק:          ' + fmtShek(appr)      + '\n' +
+    '  עליית ערך:         ' + (apprGain >= 0 ? '+' : '') + fmtShek(apprGain) +
+        '  (' + rate.toFixed(1) + '%/שנה × ' + yrs.toFixed(1) + ' שנים)\n' +
+    '  יתרת משכנתא:      -' + fmtShek(CUR_BAL)   + '  (תשלום לבנק)\n' +
+    '  = הון עצמי:        '  + fmtShek(equity)    + '\n' +
+    '  + סה\u05bfכ הכנסות:    +' + fmtShek(ALLTIME_INC) + '  (שכירות + קטגוריה)\n' +
+    '  \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n' +
+    '  סה\u05bfכ תקבולים:     ' + fmtShek(totalBack) + '\n' +
+    '  \u2212 סה\u05bfכ הוצאות:   -' + fmtShek(NET_INV)   + '\n' +
+    '  = רווח נקי:        ' + (profit >= 0 ? '+' : '') + fmtShek(profit) + '\n\n' +
+    '\u26a0 לא כולל: מס שבח, עמלות תיווך, עלויות מכירה';
+}
+
+const slider = document.getElementById('hs-rate-slider');
+if (slider) {
+  slider.addEventListener('input', () => hsRecalc(parseFloat(slider.value)));
+  hsRecalc(parseFloat(slider.value));
+}
+"""
+            script = tag("script")
+            script.string = js_code
+            housing_panel.append(script)
 
         # ── Write output ───────────────────────────────────────────────
         with open(r"source\html\output.html", "w", encoding="utf-8") as outf:

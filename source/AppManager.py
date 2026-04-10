@@ -183,9 +183,10 @@ class AppManager:
             
             match res:
                 case 0:
-                    # Get account name
-                    # Get account names from database
-                    account_names = DataBase().get_all_account_names()
+                    # Get account name (exclude read-only virtual accounts)
+                    _READONLY_ACCOUNTS = ["נכס שלום שבזי"]
+                    account_names = [a for a in DataBase().get_all_account_names()
+                                     if a not in _READONLY_ACCOUNTS]
                     account_names.append("Add a new account")
                     
                     # Let user choose from list or add new
@@ -1005,10 +1006,10 @@ class AppManager:
 
             return accounts_data
 
-        # Get accounts data and create linear plot
+        # Get accounts data — הון עצמי will be added after mortgage section
         utils.log("Generating linear plots for all accounts...", "system")
         accounts_data = get_accounts_data()
-        Graphics.plot_linear_plots_graph(accounts_data)
+        # NOTE: plot_linear_plots_graph is called later, after הון עצמי is added
         
         transactions_df = AppManagerUtils.retrieve_and_initialize_data(t)
 
@@ -1161,6 +1162,104 @@ class AppManager:
             utils.log(f"Smart alert detection failed (non-critical): {exc}", "warning")
             alerts = []
 
+        # ---- Mortgage analysis ----
+        utils.log("Generating mortgage analysis...", "system")
+        from src_utils.mortgage import (
+            full_schedule, months_elapsed_and_balance, milestone_schedule,
+            actual_payments, actual_rental_income, current_month_data,
+            alltime_category_data,
+            TOTAL_MONTHLY_PAYMENT, RENTAL_INCOME_PM,
+            APARTMENT_PRICE, MORTGAGE_AMOUNT, DOWN_PAYMENT, MORTGAGE_CATEGORY,
+            FIRST_PAYMENT, INITIAL_APARTMENT_PAYMENT,
+        )
+        _mort_totals, _mort_per_track = full_schedule()
+        _today_date  = t.date() if hasattr(t, "date") else datetime.now().date()
+        _n_months, _cur_balance = months_elapsed_and_balance(_mort_totals, _today_date)
+        _actual_pays   = actual_payments()         # mortgage payments per month (DB)
+        _actual_rental = actual_rental_income()    # rental income per month (DB)
+        _this_month    = current_month_data(t.year, t.month)  # this month's actuals
+        _alltime       = alltime_category_data()   # all-time totals for the category
+        Graphics.plot_mortgage_balance(_mort_totals, _mort_per_track, _today_date)
+        Graphics.plot_mortgage_breakdown(_mort_totals)
+        Graphics.plot_mortgage_cashflow(_actual_pays, _actual_rental,
+                                        RENTAL_INCOME_PM, TOTAL_MONTHLY_PAYMENT,
+                                        mortgage_start=FIRST_PAYMENT)
+        _housing_txns = DataBase().get_all_category_transactions(MORTGAGE_CATEGORY)
+        # 5% annual appreciation on apartment value (default; user can adjust in UI)
+        _DEFAULT_RATE        = 5.0
+        _years_elapsed       = _n_months / 12
+        _appreciated_price   = round(APARTMENT_PRICE * ((1 + _DEFAULT_RATE/100) ** _years_elapsed))
+        _equity_base         = round(APARTMENT_PRICE  - _cur_balance)
+        _equity_appreciated  = round(_appreciated_price - _cur_balance)
+        _monthly_appreciation = round(_appreciated_price * (((1 + _DEFAULT_RATE/100) ** (1/12)) - 1))
+        _alltime_mortgage = float(_actual_pays["total_paid"].sum()) if not _actual_pays.empty else 0.0
+
+        # ── Build הון עצמי timeline (yearly samples, history + projection) ────
+        _EQUITY_ACCOUNT = "נכס שלום שבזי"
+        _rate_monthly   = (1 + _DEFAULT_RATE / 100) ** (1 / 12) - 1
+        _eq_history = []   # (date, equity) up to today — monthly points
+
+        for _, _mrow in _mort_totals.iterrows():
+            _m = _mrow["month"]
+            _m_date = _m.date() if hasattr(_m, "date") else _m
+            if _m_date > _today_date:
+                break   # history only — no future points
+            _months_from_start = max(0, round((_m_date - FIRST_PAYMENT).days / 30.4375))
+            _apt_val  = APARTMENT_PRICE * (1 + _rate_monthly) ** _months_from_start
+            _equity   = round(_apt_val - _mrow["total_balance"] + _alltime["alltime_income"])
+            _eq_history.append((_m_date, _equity))
+
+        # Always pin the current point to the exact דיור panel value
+        _equity_now = _equity_appreciated + _alltime["alltime_income"]
+        if _eq_history:
+            _eq_history[-1] = (_today_date, _equity_now)   # override last point with exact value
+        else:
+            _eq_history = [(_today_date, _equity_now)]
+        accounts_data[_EQUITY_ACCOUNT] = _eq_history
+
+        # Sale return: net_invested = everything spent; profit includes rent received
+        _net_invested        = _alltime["alltime_out"]
+        _sale_profit         = _equity_appreciated + _alltime["alltime_income"] - _net_invested
+        _total_return_pct    = round(_sale_profit / _net_invested * 100, 1) if _net_invested > 0 else 0
+        _annual_return_pct   = round(((1 + _total_return_pct/100) ** (12 / max(_n_months, 1)) - 1) * 100, 1)
+
+        mortgage_data = {
+            "apartment_price":        APARTMENT_PRICE,
+            "apartment_appreciated":  _appreciated_price,
+            "equity":                 _equity_base,
+            "equity_appreciated":     _equity_appreciated,
+            "monthly_appreciation":   _monthly_appreciation,
+            "years_elapsed":          round(_years_elapsed, 1),
+            "mortgage_amount":        MORTGAGE_AMOUNT,
+            "down_payment":           DOWN_PAYMENT,
+            "current_balance":        _cur_balance,
+            # This-month actuals (fall back to projected if not yet in DB)
+            "payment_found":          bool(_this_month["payment"]),
+            "total_monthly_payment":  _this_month["payment"] if _this_month["payment"] else TOTAL_MONTHLY_PAYMENT,
+            "rental_income":          _this_month["rental"]  if _this_month["rental"]  else RENTAL_INCOME_PM,
+            "net_monthly_cost":       _this_month["net"] if _this_month["rent_found"]
+                                      else round((_this_month["payment"] if _this_month["payment"] else TOTAL_MONTHLY_PAYMENT) - RENTAL_INCOME_PM, 2),
+            "rent_found":             _this_month["rent_found"],
+            "month_out":              _this_month["month_out"],
+            "month_income":           _this_month["month_income"],
+            "alltime_out":            _alltime["alltime_out"],
+            "alltime_income":         _alltime["alltime_income"],
+            "alltime_net":            _alltime["alltime_net"],
+            "months_elapsed":         _n_months,
+            "default_rate":           _DEFAULT_RATE,
+            "net_invested":           round(_net_invested, 2),
+            "total_return_pct":       _total_return_pct,
+            "annual_return_pct":      _annual_return_pct,
+            "initial_apartment_payment": INITIAL_APARTMENT_PAYMENT,
+            "alltime_mortgage_payments": round(_alltime_mortgage, 2),
+            "milestones":            milestone_schedule(_mort_totals),
+            "mortgage_category":     MORTGAGE_CATEGORY,
+            "housing_transactions":  _housing_txns,
+        }
+
+        # Generate accounts linear plot — הון עצמי historical only (no future projection, keeps y-axis sane)
+        Graphics.plot_linear_plots_graph(accounts_data)
+
         utils.log("Generating HTML report...", "system")
         utils.generate_html(t.month,
                             t.year,
@@ -1173,7 +1272,8 @@ class AppManager:
                             data,
                             accounts_data,
                             cash_information_data,
-                            alerts=alerts)
+                            alerts=alerts,
+                            mortgage_data=mortgage_data)
         webbrowser.open(r'source\html\output.html')
 
     def debug_value_mismatch(self) -> None:

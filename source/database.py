@@ -427,14 +427,63 @@ class DataBase:
                                       DESC LIMIT 1
                                    """).fetchone()[0]
 
-    def get_gas_related(self, keys: list, year: str = "", month: str = ""):
-        rows = []
-        for k in keys:
-            rows += self.cursor.execute("""
-                                        SELECT transaction_date,business_name,amount FROM Transactions
-                                        WHERE business_name = ?
-                                        """, (k,)).fetchall()
-        return rows
+    def get_housing_income(self, category: str) -> pd.DataFrame:
+        """
+        Return all Income (rent) entries for *category* across all time.
+        Returns columns: Date, Name, Income.
+        """
+        data = self.cursor.execute("""
+            SELECT Date, Name, Income
+            FROM BankTransactions
+            WHERE Category = ?
+              AND Income > 0
+            ORDER BY Date
+        """, (category,)).fetchall()
+        return pd.DataFrame(data, columns=["Date", "Name", "Income"])
+
+    def get_all_category_transactions(self, category: str) -> pd.DataFrame:
+        """
+        Return all transactions (Out and Income) for *category* sorted by date descending.
+        Returns columns: Date, Name, Out, Income.
+        """
+        data = self.cursor.execute("""
+            SELECT Date, Name, Out, Income
+            FROM BankTransactions
+            WHERE Category = ?
+            ORDER BY Date DESC
+        """, (category,)).fetchall()
+        return pd.DataFrame(data, columns=["Date", "Name", "Out", "Income"])
+
+    def get_housing_spending(self, category: str) -> pd.DataFrame:
+        """
+        Return all Out (spending) entries for *category* across all time.
+        Returns columns: Date, Name, Out.
+        """
+        data = self.cursor.execute("""
+            SELECT Date, Name, Out
+            FROM BankTransactions
+            WHERE Category = ?
+              AND Out > 0
+            ORDER BY Date
+        """, (category,)).fetchall()
+        return pd.DataFrame(data, columns=["Date", "Name", "Out"])
+
+    def get_mortgage_payments(self, category: str, name_keyword: str) -> pd.DataFrame:
+        """
+        Return all bank transactions whose Name contains *name_keyword*
+        and whose Category matches *category*, across all time.
+        Used to fetch actual historic mortgage payments.
+        Returns columns: Date, Name, Amount (positive = money out).
+        """
+        data = self.cursor.execute("""
+            SELECT Date, Name, Out AS Amount
+            FROM BankTransactions
+            WHERE Category = ?
+              AND Name LIKE ?
+              AND Out > 0
+            ORDER BY Date
+        """, (category, f"%{name_keyword}%")).fetchall()
+        return pd.DataFrame(data, columns=["Date", "Name", "Amount"])
 
     def get_transactions_by_category(self, cat_name: str) -> pd.DataFrame:
         """

@@ -751,25 +751,38 @@ class AppManager:
             case _:
                 utils.log("Unreachable point reached...", "error")
 
-    def category_analysis(self):
+    def category_analysis(self, category=None, business=None):
 
         name_for_analysis = ""
         category_for_analysis = ""
-        case = utils.template_menu(["Analyze a category", "Analayze a Business"], "Pick an option:", exit=True)
 
-        match case:
-            case 0:
-                return
-            case 1:
-                options = utils.get_saved_categories()
-                idx, sub_options = utils.typer_template_menu(options, "Pick a Category:")
-                category_for_analysis = sub_options[idx]
-            case 2:
-                options = DataBase().get_all_business_names()
-                idx, sub_options = utils.typer_template_menu(options, "Pick a Bussines:")
-                name_for_analysis = sub_options[idx]
-            case _:
-                utils.log("Unreachable point reached...", "error") 
+        if category is not None:
+            case = 1
+            category_for_analysis = category
+        elif business is not None:
+            case = 2
+            name_for_analysis = business
+        else:
+            case = utils.template_menu(["Analyze a category", "Analayze a Business"], "Pick an option:", exit=True)
+            match case:
+                case 0:
+                    return
+                case 1:
+                    options = utils.get_saved_categories()
+                    idx, sub_options = utils.typer_template_menu(options, "Pick a Category:")
+                    category_for_analysis = sub_options[idx]
+                case 2:
+                    options = DataBase().get_all_business_names()
+                    idx, sub_options = utils.typer_template_menu(options, "Pick a Bussines:")
+                    name_for_analysis = sub_options[idx]
+                case _:
+                    utils.log("Unreachable point reached...", "error")
+
+        # Slug for web integration
+        import re as _re_cat
+        _raw_name = category_for_analysis if case == 1 else name_for_analysis
+        _slug_name = _re_cat.sub(r'[^\w\u0590-\u05FF]', '_', _raw_name).strip('_')
+        _slug = ('cat_' if case == 1 else 'biz_') + _slug_name
 
         def get_monthly_average(data: pd.DataFrame) -> float:
             """
@@ -884,7 +897,18 @@ class AppManager:
             utils.log("Unreachable point reached...", "error")
 
         Graphics.plot_general(spendings_sum, spendings_sum_overall_inc, earnings_sum, title_ext='Category_analysis', topic = name_for_analysis, fig_size=(8, 5))
-        # -------------------------- 
+        # --------------------------
+
+        # Monthly chart data for Chart.js
+        from datetime import datetime as _cat_dt
+        from dateutil.relativedelta import relativedelta as _cat_rd
+        _shift = 6
+        _now = _cat_dt.now()
+        _month_labels = [(_now - _cat_rd(months=i)).strftime('%m/%Y') for i in range(_shift)]
+        monthly_chart_data = [
+            {'month': _month_labels[i], 'spending': round(abs(float(spendings_sum[i])), 2), 'income': round(float(earnings_sum[i]), 2)}
+            for i in range(_shift - 1, -1, -1)
+        ]
 
         df_bank_transactions = SimpleMath.process_prices(DataBase().get_transactions('BankTransactions',
                                                                                      category_filter=category_for_analysis,
@@ -935,8 +959,24 @@ class AppManager:
         analisys_data = data.copy()
         active_average, active_sd = get_monthly_active_stats(analisys_data.copy())
 
+        # Pie chart data for Chart.js
+        if case == 1:
+            _pie_df = analisys_data[['Name','Final_Value']].copy()
+            _pie_grouped = _pie_df.assign(Final_Value=_pie_df['Final_Value'].abs()).groupby('Name')['Final_Value'].sum().sort_values(ascending=False)
+        else:
+            _pie_df = analisys_data[['Category','Final_Value']].copy()
+            _pie_grouped = _pie_df.assign(Final_Value=_pie_df['Final_Value'].abs()).groupby('Category')['Final_Value'].sum().sort_values(ascending=False)
+        pie_chart_data = [{'name': str(n), 'value': round(float(v), 2)} for n, v in _pie_grouped.items() if v > 0]
+        if len(pie_chart_data) > 8:
+            _others = sum(x['value'] for x in pie_chart_data[8:])
+            pie_chart_data = pie_chart_data[:8]
+            if _others > 0:
+                pie_chart_data.append({'name': 'אחר', 'value': round(_others, 2)})
+
         utils.create_html_name_analysis({"subtitle": "Specific Analysis",
                                          "Category/business name": category_for_analysis if case == 1 else name_for_analysis,
+                                         "type": "category" if case == 1 else "business",
+                                         "slug": _slug,
                                          "Monthly Average": get_monthly_average(analisys_data.copy()),
                                          "Recent Monthly Average": get_recent_monthly_average(analisys_data.copy(), window_size=5),
                                          "Monthly Active Average": active_average,
@@ -944,34 +984,33 @@ class AppManager:
                                          "Yearly Average": yearly_average(analisys_data.copy())[0],
                                          "Total Spendings": total_spendings(analisys_data.copy()),
                                          "Total Income": total_income(analisys_data.copy()),
-                                         "Yearly use plot path": r"C:\Users\ofeks\OneDrive\Ofek\BankProject\Outputs\General_info_Category_analysis.png",
-                                         "Highest Transaction value" : "X",
-                                         "Highest Transaction date": "X",
-                                         "Association list": get_associated(analisys_data.copy(), case),
-                                         "count pie plot path" : r"C:\Users\ofeks\OneDrive\Ofek\BankProject\Outputs\Category_Distribution.png",
+                                         "monthly_chart_data": monthly_chart_data,
+                                         "pie_chart_data": pie_chart_data,
                                          "transactions": analisys_data})
-        webbrowser.open(r'source\html\Category_output.html')
+        if category is None and business is None:
+            webbrowser.open(r'source\html\Category_output.html')
 
-    def general_analysis(self):
+    def general_analysis(self, t=None):
         from datetime import datetime
-        # -----
-        match utils.template_menu(["Current Month", 
-                                "Last Month",
-                                "Pick A date"], 
-                                "General Analisys: Choose one of the following options:",
-                                exit=True):
+        if t is None:
+            # -----
+            match utils.template_menu(["Current Month",
+                                    "Last Month",
+                                    "Pick A date"],
+                                    "General Analisys: Choose one of the following options:",
+                                    exit=True):
 
-            case 0:
-                return
-            case 1:
-                t = datetime.now()
-            case 2:
-                from dateutil.relativedelta import relativedelta
-                t = datetime.now() - relativedelta(months=1)
-            case 3:
-                t = utils.parse_date_from_user(day=False, return_type="datetime")
-            case _:
-                utils.log("Unreachable point reached...", "error")
+                case 0:
+                    return
+                case 1:
+                    t = datetime.now()
+                case 2:
+                    from dateutil.relativedelta import relativedelta
+                    t = datetime.now() - relativedelta(months=1)
+                case 3:
+                    t = utils.parse_date_from_user(day=False, return_type="datetime")
+                case _:
+                    utils.log("Unreachable point reached...", "error")
 
         data = {}
         
@@ -1347,7 +1386,9 @@ class AppManager:
                             cash_information_data,
                             alerts=alerts,
                             mortgage_data=mortgage_data)
-        webbrowser.open(r'source\html\output.html')
+        import os as _os
+        if not _os.environ.get('BANKAPP_WEB'):
+            webbrowser.open(r'source\html\output.html')
 
     def debug_value_mismatch(self) -> None:
         from datetime import datetime

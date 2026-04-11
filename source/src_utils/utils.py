@@ -2702,120 +2702,540 @@ Please Make sure that none of the following formats have their 'Identifications 
     
     @staticmethod
     def create_html_name_analysis(data: dict) -> None:
-        import bs4
+        import json
+        import os as _os
+        from datetime import datetime as _dt
 
-        # load the file
-        with open(r"source/html/Category_template.html") as inf:
-            txt = inf.read()
-        soup = bs4.BeautifulSoup(txt, features="html.parser")
+        display_name  = data.get('Category/business name', '')
+        type_         = data.get('type', 'category')
+        slug          = data.get('slug', '')
+        type_label    = 'קטגוריה' if type_ == 'category' else 'עסק'
+        generated     = _dt.now().strftime('%d/%m/%Y %H:%M')
 
-        # Find the h2 tag with class 'subtitle'
-        subtitle_tag = soup.find('h2', class_='subtitle')
-        subtitle_tag.string = data['subtitle']
+        def _fmt(v):
+            if v is None or (isinstance(v, float) and v != v):
+                return '—'
+            return f"({abs(v):,.0f}) ₪" if v < 0 else f"{v:,.0f} ₪"
 
-        subtitle_tag = soup.find('h3', class_='category-title')
-        subtitle_tag.string = data['Category/business name']
+        monthly_avg  = data.get('Monthly Average', 0) or 0
+        recent_avg   = data.get('Recent Monthly Average', 0) or 0
+        total_spent  = data.get('Total Spendings', 0) or 0
+        total_income = data.get('Total Income', 0) or 0
 
-        tag = soup.find('td', class_='Monthly Average')
-        if data['Monthly Average'] < 0 :
-            tag.string = f"({abs(data['Monthly Average']):,.2f}) ₪"
-        else:
-            tag.string = f"{data['Monthly Average']:,.2f} ₪"
+        monthly_chart_data = data.get('monthly_chart_data', [])
+        pie_chart_data     = data.get('pie_chart_data', [])
+        monthly_json       = json.dumps(monthly_chart_data, ensure_ascii=False)
+        pie_json           = json.dumps(pie_chart_data, ensure_ascii=False)
 
-        tag = soup.find('td', class_='Recent Monthly Average')
-        if data['Recent Monthly Average'] < 0:
-            tag.string = f"({abs(data['Recent Monthly Average']):,.2f}) ₪"
-        else:
-            tag.string = f"{data['Recent Monthly Average']:,.2f} ₪"
+        # Build transaction rows
+        txn_rows = ''
+        transactions = data.get('transactions')
+        if transactions is not None and not transactions.empty:
+            for _, row in transactions.sort_values(by='Date', ascending=False).iterrows():
+                name = row.get('Description') or row.get('Name', '')
+                date_raw = str(row.get('Date', ''))
+                try:
+                    date_str = _dt.strptime(date_raw, "%Y-%m-%d %H:%M:%S").strftime("%d/%m/%Y")
+                except Exception:
+                    date_str = date_raw[:10]
+                value = row.get('Final_Value', 0)
+                cat   = row.get('Category', '')
+                vcls  = 'neg' if value < 0 else 'pos'
+                vstr  = f"({abs(value):,.0f}) ₪" if value < 0 else f"{value:,.0f} ₪"
+                txn_rows += (
+                    f'<tr><td class="td-date">{date_str}</td>'
+                    f'<td class="td-name">{name}</td>'
+                    f'<td class="td-val {vcls}">{vstr}</td>'
+                    f'<td class="td-cat">{cat}</td></tr>\n'
+                )
 
-        tag = soup.find('td', class_='Monthly Active Average')
-        if data['Monthly Active Average'] < 0:
-            tag.string = f"({abs(data['Monthly Active Average']):,.2f}) ₪"
-        else:
-            tag.string = f"{data['Monthly Active Average']:,.2f} ₪"
+        txn_count = len(transactions) if transactions is not None else 0
+        display_name_js = json.dumps(display_name, ensure_ascii=False)
+        slug_js  = json.dumps(slug, ensure_ascii=False)
+        type_js  = json.dumps(type_, ensure_ascii=False)
 
-        tag = soup.find('td', class_="Monthly Active Standard Deviation")
-        tag.string = f"{data['Monthly Active Standard Deviation']:,.2f} ₪"
+        html = f'''<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>ניתוח: {display_name}</title>
+<style>
+*,*::before,*::after{{box-sizing:border-box;margin:0;padding:0}}
+:root{{
+  --teal:#1e9d8b;--teal-light:#e8f7f5;--teal-glow:rgba(30,157,139,.30);
+  --navy:#1e2a4a;--bg:#f4f6f9;--white:#ffffff;--border:#eef0f6;
+  --text-muted:#888;--red:#e74c3c;--green:#2ecc71;--amber:#f0b429;
+  --shadow-sm:0 2px 10px rgba(0,0,0,.06);--shadow-md:0 6px 20px rgba(0,0,0,.10);
+  --radius:14px;--radius-sm:8px;
+}}
+body{{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;
+     min-height:100vh;direction:rtl;color:var(--navy);font-size:14px}}
 
-        tag = soup.find('td', class_="Yearly Average")
-        if data['Yearly Average'] < 0:
-            tag.string = f"({abs(data['Yearly Average']):,.2f}) ₪"
-        else:
-            tag.string = f"{data['Yearly Average']:,.2f} ₪"
+/* Sidebar */
+.sidebar{{width:72px;background:var(--white);border-left:1px solid var(--border);
+  position:fixed;top:0;right:0;height:100vh;display:flex;flex-direction:column;
+  align-items:center;padding:16px 0 16px;gap:2px;z-index:200;
+  box-shadow:-2px 0 12px rgba(0,0,0,.05)}}
+.sidebar-logo{{width:44px;height:44px;margin-bottom:18px;display:flex;
+  align-items:center;justify-content:center;flex-shrink:0}}
+.nav-btn{{width:50px;height:54px;border-radius:12px;border:none;background:transparent;
+  color:#9aa3bb;cursor:pointer;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:3px;font-size:1.3em;
+  transition:background .18s,color .18s,box-shadow .18s;text-decoration:none}}
+.nav-btn:hover{{background:#f0f4ff;color:var(--navy)}}
+.nav-btn.active{{background:var(--teal);color:#fff;box-shadow:0 4px 14px var(--teal-glow)}}
+.nav-btn .lbl{{font-size:.34em;font-weight:600;letter-spacing:.4px;line-height:1}}
 
-        tag = soup.find('td', class_="Total Spendings")
-        tag.string = f"({data['Total Spendings']:,.2f}) ₪"
+/* Main */
+.main{{margin-right:72px;flex:1;padding:26px 28px 60px;min-width:0}}
 
-        tag = soup.find('td', class_="Total Income")
-        tag.string = f"{data['Total Income']:,.2f} ₪"
+/* Category roller */
+.cat-roller{{width:100%;overflow:hidden;position:relative;padding:10px 0 8px;
+  margin-bottom:14px;background:var(--bg)}}
+.cat-roller::before,.cat-roller::after{{content:'';position:absolute;top:0;bottom:0;
+  width:80px;z-index:3;pointer-events:none}}
+.cat-roller::before{{left:0;background:linear-gradient(to right,var(--bg) 30%,transparent)}}
+.cat-roller::after{{right:0;background:linear-gradient(to left,var(--bg) 30%,transparent)}}
+.roller-track{{display:flex;align-items:center;direction:ltr;will-change:transform}}
+.cm-item{{flex-shrink:0;width:140px;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;padding:6px 4px;cursor:pointer;user-select:none;
+  border-radius:10px;opacity:.2;transform:scale(.82);
+  transition:opacity .35s ease,transform .35s ease,background .18s}}
+.cm-item:hover{{background:rgba(30,157,139,.07)}}
+.cm-item.dist-2{{opacity:.45;transform:scale(.88)}}
+.cm-item.dist-1{{opacity:.68;transform:scale(.94)}}
+.cm-item.active{{opacity:1;transform:scale(1.08);cursor:default;background:rgba(30,157,139,.08)}}
+.cm-label{{font-size:.78em;font-weight:600;color:#999;text-align:center;
+  line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px}}
+.cm-type-tag{{font-size:.6em;color:#bbb;margin-top:1px}}
+.cm-item.dist-1 .cm-label{{color:#666;font-size:.80em}}
+.cm-item.dist-2 .cm-label{{color:#888;font-size:.78em}}
+.cm-item.active .cm-label{{color:var(--teal);font-size:.90em;font-weight:700}}
+.cm-item.active .cm-type-tag{{color:var(--teal)}}
+.cm-dot{{width:5px;height:5px;border-radius:50%;margin-top:5px;background:#d0d4e0;
+  transition:background .3s,width .3s,height .3s}}
+.cm-item.has-file .cm-dot{{background:var(--teal)}}
+.cm-item.active.has-file .cm-dot{{width:7px;height:7px}}
 
-        tag = soup.find('img', alt="Yearly Use")
-        tag['src'] = f"{data['Yearly use plot path']}"
+/* Page header */
+.page-header{{display:flex;justify-content:space-between;align-items:center;
+  margin-bottom:20px;flex-wrap:wrap;gap:10px}}
+.page-header h1{{font-size:1.7em;font-weight:700;color:var(--navy)}}
+.type-badge{{display:inline-block;background:var(--teal);color:#fff;
+  padding:3px 12px;border-radius:14px;font-size:.72em;font-weight:600;margin-right:10px}}
+.page-header-right{{display:flex;align-items:center;gap:10px;flex-shrink:0}}
+.generated-label{{font-size:.72em;color:var(--text-muted);white-space:nowrap}}
+.reload-btn{{padding:5px 14px;border:1.5px solid var(--teal);border-radius:20px;
+  background:var(--white);color:var(--teal);font-size:.78em;font-weight:600;
+  cursor:pointer;transition:background .15s,color .15s;white-space:nowrap;display:none}}
+.reload-btn:hover{{background:var(--teal);color:#fff}}
+.reload-btn.running{{opacity:.6;cursor:wait}}
 
+/* KPI grid */
+.kpi-grid{{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px}}
+@media(max-width:900px){{.kpi-grid{{grid-template-columns:1fr 1fr}}}}
+.kpi-card{{background:var(--white);border-radius:var(--radius);padding:18px 20px 16px;
+  box-shadow:var(--shadow-sm);display:flex;flex-direction:column;gap:7px;
+  transition:transform .18s,box-shadow .18s}}
+.kpi-card:hover{{transform:translateY(-3px);box-shadow:var(--shadow-md)}}
+.kpi-dot{{width:10px;height:10px;border-radius:50%;display:inline-block;
+  margin-left:7px;flex-shrink:0}}
+.kpi-label{{font-size:.76em;color:var(--text-muted);display:flex;align-items:center;font-weight:500}}
+.kpi-value{{font-size:1.45em;font-weight:700;color:var(--navy);line-height:1.1}}
+.kpi-value.neg{{color:var(--red)}}
+.kpi-value.pos{{color:var(--teal)}}
+.kpi-sublabel{{font-size:.68em;color:var(--text-muted);margin-top:4px}}
 
-        tag = soup.find('p', class_="Highest Transaction: Value & Date")
-        tag.string = "The highest transaction value was: " + data["Highest Transaction value"] + "₪ , Executed on " + data["Highest Transaction date"] +" ₪"
+/* Charts row */
+.charts-2col{{display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:22px}}
+@media(max-width:900px){{.charts-2col{{grid-template-columns:1fr}}}}
+.chart-card{{background:var(--white);border-radius:var(--radius);
+  padding:20px 22px;box-shadow:var(--shadow-sm)}}
+.chart-card-title{{font-size:.82em;font-weight:700;color:var(--text-muted);
+  text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px}}
+.chart-wrap{{position:relative;height:220px}}
 
-        # Add associated cate/business:
-        tag = soup.find('p', class_="Associated")
-        
-        for ele in data["Association list"]:
-            sub_tag = soup.new_tag('li')
-            sub_tag.string = f"{ele}"
-            tag.append(sub_tag)
+/* Transactions panel */
+.panel{{background:var(--white);border-radius:var(--radius);
+  padding:20px 22px;box-shadow:var(--shadow-sm)}}
+.panel-header{{font-size:.82em;font-weight:700;color:var(--text-muted);
+  text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px;
+  display:flex;justify-content:space-between;align-items:center}}
+.panel-count{{font-size:.9em;color:var(--navy);font-weight:600}}
+.txn-table-wrap{{overflow-x:auto;max-height:420px;overflow-y:auto}}
+.txn-table{{width:100%;border-collapse:collapse;font-size:.84em}}
+.txn-table th{{padding:8px 12px;text-align:right;font-weight:600;color:var(--text-muted);
+  border-bottom:2px solid var(--border);position:sticky;top:0;background:var(--white)}}
+.txn-table td{{padding:8px 12px;border-bottom:1px solid var(--border);vertical-align:middle}}
+.txn-table tr:last-child td{{border-bottom:none}}
+.txn-table tr:hover td{{background:#fafbfd}}
+.td-date{{color:var(--text-muted);white-space:nowrap;font-size:.9em}}
+.td-name{{max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
+.td-val{{font-weight:600;white-space:nowrap;text-align:left}}
+.td-val.neg{{color:var(--red)}}
+.td-val.pos{{color:var(--teal)}}
+.td-cat{{font-size:.85em;color:var(--text-muted)}}
 
-        tag = soup.find('img', alt="Additional Image")
-        tag['src'] = f"{data['count pie plot path']}"
+/* Log drawer */
+.log-drawer{{position:fixed;bottom:0;left:0;right:72px;background:var(--navy);
+  z-index:300;max-height:220px;display:flex;flex-direction:column;
+  transition:transform .3s ease;transform:translateY(calc(100% - 36px))}}
+.log-drawer.expanded{{transform:translateY(0)}}
+.log-drawer-header{{display:flex;align-items:center;gap:8px;padding:8px 16px;
+  cursor:pointer;flex-shrink:0}}
+.log-drawer-title{{font-size:.8em;color:#aaa;font-weight:600;flex:1}}
+.log-drawer-toggle{{color:#aaa;font-size:.75em}}
+.log-drawer-body{{overflow-y:auto;flex:1;padding:6px 16px 10px;font-size:.75em;
+  color:#cdd;font-family:monospace;line-height:1.6}}
+.log-ind{{width:8px;height:8px;border-radius:50%;background:#555;flex-shrink:0}}
+.log-ind.active{{background:#1e9d8b;animation:pulse 1s infinite}}
+.log-ind.error{{background:var(--red)}}
+@keyframes pulse{{0%,100%{{opacity:1}}50%{{opacity:.4}}}}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+</head>
+<body data-slug={slug_js} data-generated="{generated}" data-type={type_js} data-name={display_name_js}>
 
-        # Add transactions data to html list:
-        list_tag = soup.find('main', class_="leaderboard__profiles")
+<!-- Sidebar -->
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <svg viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="44" height="44" rx="12" fill="#1e9d8b"/>
+      <rect x="8"  y="26" width="6" height="10" rx="1.5" fill="white" opacity="0.6"/>
+      <rect x="17" y="18" width="6" height="18" rx="1.5" fill="white" opacity="0.85"/>
+      <rect x="26" y="10" width="6" height="26" rx="1.5" fill="white"/>
+      <text x="33" y="14" font-family="Arial" font-size="9" font-weight="800" fill="#1e9d8b" opacity="0.9">₪</text>
+    </svg>
+  </div>
+  <a class="nav-btn" href="/" title="דשבורד ראשי">
+    <span>⊞</span><span class="lbl">ראשי</span>
+  </a>
+  <a class="nav-btn active" href="/categories" title="ניתוח קטגוריות">
+    <span>🏷</span><span class="lbl">קטגוריות</span>
+  </a>
+  <div style="flex:1"></div>
+  <button class="nav-btn" id="log-toggle-btn" onclick="toggleLogDrawer()" title="לוג מערכת" style="margin-bottom:8px;display:none">
+    <span>📋</span><span class="lbl">לוג</span>
+  </button>
+</nav>
 
-        from datetime import datetime
+<!-- Category roller -->
+<div class="cat-roller" id="cat-roller" style="display:none">
+  <div class="roller-track" id="roller-track"></div>
+</div>
 
-        def create_list_tag(name: str, date, value):
-            main_tag = soup.new_tag('article')
-            main_tag['class'] = 'leaderboard__profile'
-            
-            # img_tag = soup.new_tag('img')
-            # img_tag['src'] = ""
-            # img_tag['alt'] = "-name here-"
-            # img_tag['class'] = 'leaderboard__picture'
-            # main_tag.append(img_tag)
-            
-            name_tag = soup.new_tag('span')
-            name_tag['class'] = 'leaderboard__name'
-            name_tag.string = datetime.strptime(date, "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d")
-            main_tag.append(name_tag)
+<!-- Log drawer -->
+<div class="log-drawer" id="log-drawer">
+  <div class="log-drawer-header" onclick="toggleLogDrawer()">
+    <span class="log-ind" id="log-ind"></span>
+    <span class="log-drawer-title">לוג מערכת</span>
+    <span class="log-drawer-toggle">▲</span>
+  </div>
+  <div class="log-drawer-body" id="log-body"></div>
+</div>
 
-            name_tag = soup.new_tag('span')
-            name_tag['class'] = 'leaderboard__name'
-            name_tag.string = f"{name}"
-            main_tag.append(name_tag)     
+<!-- Main -->
+<div class="main">
+  <div class="page-header">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <h1>{display_name}</h1>
+      <span class="type-badge">{type_label}</span>
+    </div>
+    <div class="page-header-right">
+      <span class="generated-label" id="generated-label">נוצר: {generated}</span>
+      <button class="reload-btn" id="reload-btn" onclick="reloadCurrent()">&#8635; חשב מחדש</button>
+    </div>
+  </div>
 
-            value_tag = soup.new_tag('span')
-            if value < 0:
-                value_tag['class'] = 'leaderboard__value_neg'
-            else:
-                value_tag['class'] = 'leaderboard__value'
-            value_tag.string = f"{abs(value)} ₪"
-            main_tag.append(value_tag)
+  <!-- KPI cards -->
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-label"><span class="kpi-dot" style="background:#1e9d8b"></span>ממוצע חודשי</div>
+      <div class="kpi-value {'neg' if monthly_avg < 0 else 'pos'}">{_fmt(monthly_avg)}</div>
+      <div class="kpi-sublabel">על פני כל הזמן</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label"><span class="kpi-dot" style="background:#f0b429"></span>ממוצע אחרון</div>
+      <div class="kpi-value {'neg' if recent_avg < 0 else 'pos'}">{_fmt(recent_avg)}</div>
+      <div class="kpi-sublabel">5 חודשים אחרונים</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label"><span class="kpi-dot" style="background:#e74c3c"></span>סה"כ הוצאות</div>
+      <div class="kpi-value neg">{_fmt(total_spent)}</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label"><span class="kpi-dot" style="background:#2ecc71"></span>סה"כ הכנסות</div>
+      <div class="kpi-value pos">{_fmt(total_income)}</div>
+    </div>
+  </div>
 
-            return main_tag
+  <!-- Charts -->
+  <div class="charts-2col">
+    <div class="chart-card">
+      <div class="chart-card-title">הוצאות חודשיות — 6 חודשים אחרונים</div>
+      <div class="chart-wrap"><canvas id="monthly-chart"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-card-title">פילוג</div>
+      <div class="chart-wrap"><canvas id="pie-chart"></canvas></div>
+    </div>
+  </div>
 
-        for _, row in data["transactions"].sort_values(by='Date', ascending=False).iterrows():
-            #date = datetime.strptime(row['Date/Executed_Date'], "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d")
-            #sub_tag.string = f"{row['Name']}\n{row['Final_Value']}\n{date}\n{row['Extra_Info']}"
-            transaction_text = ""
-            if row['Description'] is not None and row['Description'] != "":
-                transaction_text += f"{row['Description']}"
-            else:
-                transaction_text += f"{row['Name']}"   
-            
-            lst_element = create_list_tag(transaction_text, row['Date'], row['Final_Value'])
-            list_tag.append(lst_element)
+  <!-- Transactions -->
+  <div class="panel">
+    <div class="panel-header">
+      עסקאות
+      <span class="panel-count">{txn_count} עסקאות</span>
+    </div>
+    <div class="txn-table-wrap">
+      <table class="txn-table">
+        <thead><tr>
+          <th>תאריך</th><th>שם</th><th>סכום</th><th>קטגוריה</th>
+        </tr></thead>
+        <tbody>
+{txn_rows}        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
 
-        with open(r"source\html\Category_output.html", "w", encoding='utf-8') as outf:
-            outf.write(bs4.BeautifulSoup.prettify(soup))
+<script>
+// ── Embedded data ──────────────────────────────────────────
+const MONTHLY_DATA = {monthly_json};
+const PIE_DATA     = {pie_json};
+const SLUG         = {slug_js};
+const TYPE         = {type_js};
+
+// ── Chart.js — Monthly bar ────────────────────────────────
+(function() {{
+  var ctx = document.getElementById('monthly-chart');
+  if (!ctx || !MONTHLY_DATA.length) return;
+  new Chart(ctx, {{
+    type: 'bar',
+    data: {{
+      labels: MONTHLY_DATA.map(function(d) {{ return d.month; }}),
+      datasets: [
+        {{
+          label: 'הוצאות',
+          data: MONTHLY_DATA.map(function(d) {{ return d.spending; }}),
+          backgroundColor: 'rgba(30,157,139,0.72)',
+          borderColor: 'rgba(30,157,139,1)',
+          borderWidth: 1,
+          borderRadius: 5,
+          order: 1
+        }},
+        {{
+          label: 'הכנסות',
+          data: MONTHLY_DATA.map(function(d) {{ return d.income; }}),
+          backgroundColor: 'rgba(46,204,113,0.60)',
+          borderColor: 'rgba(46,204,113,1)',
+          borderWidth: 1,
+          borderRadius: 5,
+          order: 2
+        }}
+      ]
+    }},
+    options: {{
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {{ legend: {{ position: 'top', labels: {{ font: {{ size: 11 }} }} }} }},
+      scales: {{
+        x: {{ grid: {{ display: false }}, ticks: {{ font: {{ size: 11 }} }} }},
+        y: {{ beginAtZero: true, ticks: {{ font: {{ size: 11 }}, callback: function(v) {{ return v.toLocaleString() + ' ₪'; }} }} }}
+      }}
+    }}
+  }});
+}})();
+
+// ── Chart.js — Doughnut distribution ─────────────────────
+(function() {{
+  var ctx = document.getElementById('pie-chart');
+  if (!ctx || !PIE_DATA.length) return;
+  var COLORS = ['#1e9d8b','#f0b429','#e74c3c','#3498db','#9b59b6','#2ecc71','#e67e22','#1abc9c','#95a5a6'];
+  new Chart(ctx, {{
+    type: 'doughnut',
+    data: {{
+      labels: PIE_DATA.map(function(d) {{ return d.name; }}),
+      datasets: [{{
+        data: PIE_DATA.map(function(d) {{ return d.value; }}),
+        backgroundColor: COLORS.slice(0, PIE_DATA.length),
+        borderWidth: 2,
+        borderColor: '#fff'
+      }}]
+    }},
+    options: {{
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {{
+        legend: {{
+          position: 'bottom',
+          labels: {{ font: {{ size: 10 }}, boxWidth: 12, padding: 8 }}
+        }},
+        tooltip: {{
+          callbacks: {{
+            label: function(ctx) {{
+              var total = ctx.dataset.data.reduce(function(a,b){{return a+b;}},0);
+              var pct = total > 0 ? (ctx.parsed / total * 100).toFixed(1) : 0;
+              return ' ' + ctx.parsed.toLocaleString() + ' ₪ (' + pct + '%)';
+            }}
+          }}
+        }}
+      }}
+    }}
+  }});
+}})();
+
+// ── Category roller ───────────────────────────────────────
+var _activeIdx = -1;
+var _ITEM_W    = 140;
+var _currentSlug = SLUG;
+
+function _buildRoller(list) {{
+  var track = document.getElementById('roller-track');
+  if (!track) return;
+  track.innerHTML = '';
+  _activeIdx = -1;
+
+  list.forEach(function(item, i) {{
+    var el = document.createElement('div');
+    el.className = 'cm-item' + (item.hasFile ? ' has-file' : '');
+    el.dataset.slug = item.slug;
+
+    var lbl = document.createElement('span');
+    lbl.className = 'cm-label';
+    lbl.textContent = item.name;
+    lbl.title = item.name;
+
+    var tag = document.createElement('span');
+    tag.className = 'cm-type-tag';
+    tag.textContent = item.type === 'category' ? 'קטגוריה' : 'עסק';
+
+    var dot = document.createElement('span');
+    dot.className = 'cm-dot';
+
+    el.appendChild(lbl);
+    el.appendChild(tag);
+    el.appendChild(dot);
+
+    el.addEventListener('click', function() {{
+      if (item.slug === _currentSlug) return;
+      location.href = '/category/' + encodeURIComponent(item.slug);
+    }});
+
+    track.appendChild(el);
+    if (item.slug === _currentSlug) _activeIdx = i;
+  }});
+
+  var roller = document.getElementById('cat-roller');
+  if (roller) roller.style.display = '';
+  _applyDist();
+  _centerActive(false);
+}}
+
+function _applyDist() {{
+  var items = document.querySelectorAll('#roller-track .cm-item');
+  items.forEach(function(el, i) {{
+    var d = Math.abs(i - _activeIdx);
+    el.classList.remove('active','dist-1','dist-2');
+    if      (d === 0) el.classList.add('active');
+    else if (d === 1) el.classList.add('dist-1');
+    else if (d === 2) el.classList.add('dist-2');
+  }});
+}}
+
+function _centerActive(animate) {{
+  var track  = document.getElementById('roller-track');
+  var roller = document.getElementById('cat-roller');
+  if (!track || !roller || _activeIdx < 0) return;
+  var offset = roller.offsetWidth / 2 - _activeIdx * _ITEM_W - _ITEM_W / 2;
+  track.style.transition = animate ? 'transform .45s cubic-bezier(.25,.46,.45,.94)' : 'none';
+  track.style.transform  = 'translateX(' + offset + 'px)';
+  if (!animate) {{ void track.offsetWidth; track.style.transition = 'transform .45s cubic-bezier(.25,.46,.45,.94)'; }}
+}}
+
+window.addEventListener('resize', function() {{ _centerActive(false); }});
+
+// ── Reload current ────────────────────────────────────────
+function reloadCurrent() {{
+  var btn = document.getElementById('reload-btn');
+  btn.classList.add('running'); btn.disabled = true;
+  var drawer = document.getElementById('log-drawer');
+  if (!drawer.classList.contains('expanded')) toggleLogDrawer();
+  document.getElementById('log-body').innerHTML = '';
+  setLogInd('active');
+
+  fetch('/api/category/run', {{
+    method: 'POST',
+    headers: {{'Content-Type': 'application/json'}},
+    body: JSON.stringify({{slug: SLUG, type: TYPE}})
+  }}).then(function(r) {{
+    if (r.status === 409) {{ btn.classList.remove('running'); btn.disabled = false; return; }}
+    var es = new EventSource('/api/logs');
+    es.onmessage = function(evt) {{
+      var d = evt.data;
+      if (!d || d === '__CONNECTED__') return;
+      if (d.startsWith('__DONE__')) {{
+        es.close(); setLogInd('');
+        btn.classList.remove('running'); btn.disabled = false;
+        setTimeout(function() {{ location.reload(); }}, 600);
+        return;
+      }}
+      if (d === '__ERROR__') {{ es.close(); setLogInd('error'); btn.classList.remove('running'); btn.disabled = false; return; }}
+      appendLog(d);
+    }};
+    es.onerror = function() {{ es.close(); btn.classList.remove('running'); btn.disabled = false; }};
+  }});
+}}
+
+// ── Log helpers ───────────────────────────────────────────
+function toggleLogDrawer() {{
+  document.getElementById('log-drawer').classList.toggle('expanded');
+}}
+function setLogInd(state) {{
+  var el = document.getElementById('log-ind');
+  el.className = 'log-ind' + (state ? ' ' + state : '');
+}}
+function appendLog(msg) {{
+  var body = document.getElementById('log-body');
+  var line = document.createElement('div');
+  line.textContent = msg;
+  body.appendChild(line);
+  body.scrollTop = body.scrollHeight;
+}}
+
+// ── Flask detection ───────────────────────────────────────
+(function detectFlask() {{
+  fetch('/api/status', {{method: 'GET'}})
+    .then(function(r) {{ return r.json(); }})
+    .then(function() {{
+      document.getElementById('reload-btn').style.display = '';
+      document.getElementById('log-toggle-btn').style.display = '';
+      fetch('/api/category/list')
+        .then(function(r) {{ return r.json(); }})
+        .then(function(list) {{ _buildRoller(list); }})
+        .catch(function() {{}});
+    }})
+    .catch(function() {{}});
+}})();
+</script>
+</body>
+</html>'''
+
+        # Determine output paths
+        _this   = _os.path.abspath(__file__)
+        _src    = _os.path.dirname(_os.path.dirname(_this))   # source/
+        _proj   = _os.path.dirname(_src)                       # BankProject/
+        _html_out = _os.path.join(_src, 'html', 'Category_output.html')
+
+        with open(_html_out, 'w', encoding='utf-8') as _f:
+            _f.write(html)
+
+        if slug:
+            _cat_dir = _os.path.join(_proj, 'Outputs', 'category_analysis')
+            _os.makedirs(_cat_dir, exist_ok=True)
+            with open(_os.path.join(_cat_dir, f'{slug}.html'), 'w', encoding='utf-8') as _f:
+                _f.write(html)
 
     @staticmethod
     def auto_tagger(name: str, category: str = None) -> str:

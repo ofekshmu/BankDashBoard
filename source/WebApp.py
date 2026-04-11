@@ -18,10 +18,17 @@ import re as _re
 from flask import Flask, Response, request, jsonify, send_file, redirect
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
-_HERE                = os.path.dirname(os.path.abspath(__file__))
-OUTPUT_HTML          = os.path.join(_HERE, 'html', 'output.html')
-_PROJECT_DIR         = os.path.dirname(_HERE)
-GENERAL_ANALYSIS_DIR = os.path.join(_PROJECT_DIR, 'Outputs', 'general_analysis')
+_HERE                  = os.path.dirname(os.path.abspath(__file__))
+OUTPUT_HTML            = os.path.join(_HERE, 'html', 'output.html')
+_PROJECT_DIR           = os.path.dirname(_HERE)
+GENERAL_ANALYSIS_DIR   = os.path.join(_PROJECT_DIR, 'Outputs', 'general_analysis')
+CATEGORY_ANALYSIS_DIR  = os.path.join(_PROJECT_DIR, 'Outputs', 'category_analysis')
+
+def _make_slug(type_: str, name: str) -> str:
+    """type_ = 'cat' | 'biz'"""
+    import re as _re2
+    safe = _re2.sub(r'[^\w\u0590-\u05FF]', '_', name).strip('_')
+    return f"{type_}_{safe}"
 
 # ── Log capture via stdout tee ────────────────────────────────────────────────
 _log_queue: queue.Queue = queue.Queue()
@@ -117,6 +124,213 @@ def general_list():
     return jsonify(result)
 
 
+@app.route('/categories')
+def categories_page():
+    """HTML page listing all categories and businesses with generated status."""
+    from database import DataBase
+    cats = DataBase().get_all_category_names() or []
+    bizs = DataBase().get_all_business_names() or []
+
+    def _item_html(name, type_, slug):
+        fpath = os.path.join(CATEGORY_ANALYSIS_DIR, f'{slug}.html')
+        has   = os.path.exists(fpath)
+        dot   = f'<span style="width:8px;height:8px;border-radius:50%;background:{"#1e9d8b" if has else "#ccc"};display:inline-block;margin-left:8px;flex-shrink:0"></span>'
+        label = 'קטגוריה' if type_ == 'category' else 'עסק'
+        badge_color = '#1e9d8b' if type_ == 'category' else '#9b59b6'
+        return (
+            f'<a href="/category/{slug}" style="display:flex;align-items:center;padding:12px 16px;'
+            f'background:#fff;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.06);'
+            f'text-decoration:none;color:#1e2a4a;transition:box-shadow .18s,transform .18s;'
+            f'gap:10px" onmouseover="this.style.transform=\'translateY(-2px)\';this.style.boxShadow=\'0 6px 18px rgba(0,0,0,.10)\'"'
+            f' onmouseout="this.style.transform=\'\';this.style.boxShadow=\'0 2px 8px rgba(0,0,0,.06)\'">'
+            f'{dot}'
+            f'<span style="flex:1;font-weight:600;font-size:.9em">{name}</span>'
+            f'<span style="font-size:.7em;font-weight:700;color:#fff;background:{badge_color};'
+            f'padding:2px 8px;border-radius:10px">{label}</span>'
+            f'</a>'
+        )
+
+    items_html = ''
+    for c in sorted(cats):
+        items_html += _item_html(c, 'category', _make_slug('cat', c))
+    for b in sorted(bizs):
+        items_html += _item_html(b, 'business', _make_slug('biz', b))
+
+    return f'''<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>ניתוח קטגוריות</title>
+<style>
+*{{box-sizing:border-box;margin:0;padding:0}}
+body{{font-family:'Segoe UI',Arial,sans-serif;background:#f4f6f9;color:#1e2a4a;direction:rtl;display:flex;min-height:100vh}}
+.sidebar{{width:72px;background:#fff;border-left:1px solid #eef0f6;position:fixed;top:0;right:0;
+  height:100vh;display:flex;flex-direction:column;align-items:center;padding:16px 0;gap:2px;z-index:200;box-shadow:-2px 0 12px rgba(0,0,0,.05)}}
+.sidebar-logo{{width:44px;height:44px;margin-bottom:18px}}
+.nav-btn{{width:50px;height:54px;border-radius:12px;border:none;background:transparent;color:#9aa3bb;
+  cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:3px;font-size:1.3em;text-decoration:none;transition:background .18s,color .18s}}
+.nav-btn:hover{{background:#f0f4ff;color:#1e2a4a}}
+.nav-btn.active{{background:#1e9d8b;color:#fff;box-shadow:0 4px 14px rgba(30,157,139,.30)}}
+.nav-btn .lbl{{font-size:.34em;font-weight:600}}
+.main{{margin-right:72px;flex:1;padding:30px 32px 60px}}
+.page-header{{margin-bottom:24px}}
+.page-header h1{{font-size:1.7em;font-weight:700}}
+.section-title{{font-size:.75em;font-weight:700;color:#888;text-transform:uppercase;
+  letter-spacing:.6px;margin:20px 0 10px 0;padding-right:4px}}
+.grid{{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}}
+</style>
+</head>
+<body>
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <svg viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="44" height="44" rx="12" fill="#1e9d8b"/>
+      <rect x="8"  y="26" width="6" height="10" rx="1.5" fill="white" opacity="0.6"/>
+      <rect x="17" y="18" width="6" height="18" rx="1.5" fill="white" opacity="0.85"/>
+      <rect x="26" y="10" width="6" height="26" rx="1.5" fill="white"/>
+      <text x="33" y="14" font-family="Arial" font-size="9" font-weight="800" fill="#1e9d8b" opacity="0.9">₪</text>
+    </svg>
+  </div>
+  <a class="nav-btn" href="/" title="דשבורד ראשי"><span>⊞</span><span class="lbl">ראשי</span></a>
+  <a class="nav-btn active" href="/categories" title="קטגוריות"><span>🏷</span><span class="lbl">קטגוריות</span></a>
+</nav>
+<div class="main">
+  <div class="page-header"><h1>ניתוח קטגוריות ועסקים</h1></div>
+  <div class="grid">{items_html}</div>
+</div>
+</body>
+</html>'''
+
+
+@app.route('/category/<path:slug>')
+def serve_category(slug):
+    html_path = os.path.join(CATEGORY_ANALYSIS_DIR, f'{slug}.html')
+    if os.path.exists(html_path):
+        return send_file(html_path)
+    # Auto-trigger generation
+    return _not_generated_category_html(slug)
+
+
+@app.route('/api/category/list')
+def category_list():
+    from database import DataBase
+    from datetime import datetime as _dt
+    cats = DataBase().get_all_category_names() or []
+    bizs = DataBase().get_all_business_names() or []
+    result = []
+    for name in sorted(cats):
+        slug  = _make_slug('cat', name)
+        fpath = os.path.join(CATEGORY_ANALYSIS_DIR, f'{slug}.html')
+        has   = os.path.exists(fpath)
+        result.append({
+            'slug': slug, 'name': name, 'type': 'category', 'hasFile': has,
+            'generated': _dt.fromtimestamp(os.path.getmtime(fpath)).strftime('%d/%m/%Y %H:%M') if has else None
+        })
+    for name in sorted(bizs):
+        slug  = _make_slug('biz', name)
+        fpath = os.path.join(CATEGORY_ANALYSIS_DIR, f'{slug}.html')
+        has   = os.path.exists(fpath)
+        result.append({
+            'slug': slug, 'name': name, 'type': 'business', 'hasFile': has,
+            'generated': _dt.fromtimestamp(os.path.getmtime(fpath)).strftime('%d/%m/%Y %H:%M') if has else None
+        })
+    return jsonify(result)
+
+
+@app.route('/api/category/run', methods=['POST'])
+def run_category():
+    global _analysis_running
+
+    with _analysis_lock:
+        if _analysis_running:
+            return jsonify({'status': 'busy', 'message': 'ניתוח כבר רץ'}), 409
+        _analysis_running = True
+
+    while not _log_queue.empty():
+        try: _log_queue.get_nowait()
+        except queue.Empty: break
+
+    body = request.get_json() or {}
+    slug = body.get('slug', '')
+    type_ = body.get('type', 'category')  # 'category' | 'business'
+
+    # Derive name from slug
+    prefix = 'cat_' if type_ == 'category' else 'biz_'
+    name   = slug[len(prefix):].replace('_', ' ') if slug.startswith(prefix) else slug
+
+    def _worker():
+        global _analysis_running
+        try:
+            from AppManager import AppManager
+            if type_ == 'category':
+                AppManager().category_analysis(category=name)
+            else:
+                AppManager().category_analysis(business=name)
+            _log_queue.put(f'__DONE__:{slug}')
+        except Exception as exc:
+            import traceback
+            _log_queue.put(f'[ERROR] {exc}')
+            for line in traceback.format_exc().splitlines():
+                if line.strip(): _log_queue.put(line)
+            _log_queue.put('__ERROR__')
+        finally:
+            with _analysis_lock:
+                _analysis_running = False
+
+    threading.Thread(target=_worker, daemon=True, name='cat-analysis-worker').start()
+    return jsonify({'status': 'started'})
+
+
+def _not_generated_category_html(slug: str) -> str:
+    import json as _json
+    slug_js  = _json.dumps(slug)
+    type_val = 'category' if slug.startswith('cat_') else 'business'
+    type_js  = _json.dumps(type_val)
+    return f'''<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8"/>
+<title>BankApp</title>
+<style>
+body{{font-family:'Segoe UI',Arial,sans-serif;background:#f4f6f9;display:flex;
+     align-items:center;justify-content:center;min-height:100vh;margin:0}}
+.box{{background:#fff;border-radius:14px;padding:48px 56px;text-align:center;
+     box-shadow:0 6px 20px rgba(0,0,0,.10);max-width:460px}}
+h2{{color:#1e2a4a;margin-bottom:10px}}
+p{{color:#888;font-size:.93em;margin-bottom:28px}}
+#msg{{margin-top:18px;color:#1e9d8b;font-size:.88em}}
+.back{{margin-top:16px;font-size:.8em}}
+.back a{{color:#888;text-decoration:none}}
+.back a:hover{{color:#1e9d8b}}
+</style>
+</head>
+<body>
+<div class="box">
+  <h2>ניתוח קטגוריה</h2>
+  <p>הקובץ עבור ניתוח זה טרם נוצר. מפעיל ניתוח אוטומטי…</p>
+  <p id="msg">מעבד נתונים, אנא המתן…</p>
+  <div class="back"><a href="/categories">&#8592; חזרה לרשימה</a></div>
+</div>
+<script>
+  (function() {{
+    fetch('/api/category/run', {{method:'POST',
+      headers:{{'Content-Type':'application/json'}},
+      body: JSON.stringify({{slug: {slug_js}, type: {type_js}}})
+    }}).then(function() {{
+      var es = new EventSource('/api/logs');
+      es.onmessage = function(e) {{
+        if (e.data.startsWith('__DONE__')) {{ es.close(); location.href = '/category/' + encodeURIComponent({slug_js}); }}
+        if (e.data === '__ERROR__')        {{ es.close(); alert('שגיאה — בדוק את הטרמינל'); }}
+      }};
+    }});
+  }})();
+</script>
+</body>
+</html>'''
+
+
 @app.route('/api/status')
 def status():
     return jsonify({'running': _analysis_running})
@@ -191,7 +405,7 @@ def log_stream():
             safe = msg.replace('\r\n', '↵').replace('\n', '↵').replace('\r', '↵')
             yield f"data: {safe}\n\n"
 
-            if msg in ('__DONE__', '__ERROR__'):
+            if msg.startswith('__DONE__') or msg == '__ERROR__':
                 break
 
     return Response(
@@ -237,9 +451,9 @@ def _not_generated_html(year: int, month: int, yyyy_mm: str) -> str:
   <div class="box">
     <h2>ניתוח חודשי</h2>
     <div class="badge">{month_label}</div>
-    <p>הקובץ עבור חודש זה טרם נוצר. לחץ כדי להפעיל את הניתוח.</p>
-    <button class="btn" id="runBtn" onclick="runNow()">הפעל ניתוח</button>
-    <p id="msg">מעבד נתונים, אנא המתן…</p>
+    <p>הקובץ עבור חודש זה טרם נוצר. מפעיל ניתוח אוטומטי…</p>
+    <button class="btn" id="runBtn" onclick="runNow()" style="display:none">הפעל ניתוח</button>
+    <p id="msg" style="display:block">מעבד נתונים, אנא המתן…</p>
     <div class="back"><a href="/">&#8592; חזרה לדף הראשי</a></div>
   </div>
   <script>
@@ -260,12 +474,14 @@ def _not_generated_html(year: int, month: int, yyyy_mm: str) -> str:
           if (e.data === '__ERROR__') {{
             es.close();
             alert('שגיאה בניתוח — בדוק את הטרמינל');
+            document.getElementById('runBtn').style.display = '';
             document.getElementById('runBtn').disabled = false;
             document.getElementById('msg').style.display = 'none';
           }}
         }};
       }});
     }}
+    runNow();
   </script>
 </body>
 </html>"""

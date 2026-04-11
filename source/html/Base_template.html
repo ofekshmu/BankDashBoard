@@ -29,6 +29,7 @@
 }
 
 /* ── Base ────────────────────────────────────────────────── */
+@keyframes _pageIn { from { opacity: 0; } to { opacity: 1; } }
 body {
   font-family: 'Segoe UI', Arial, sans-serif;
   background: var(--bg);
@@ -37,6 +38,7 @@ body {
   direction: rtl;
   color: var(--navy);
   font-size: 14px;
+  animation: _pageIn 0.22s ease;
 }
 
 /* ── Sidebar ─────────────────────────────────────────────── */
@@ -1423,7 +1425,14 @@ function _buildRoller(list) {
 
     item.addEventListener('click', function() {
       if (m.future || m.key === _currentKey) return;
-      location.href = '/general/' + m.key;
+      _activeIdx = i;
+      _applyDistanceClasses();
+      _centerActive(true);
+      setTimeout(function() {
+        document.body.style.transition = 'opacity 0.18s ease';
+        document.body.style.opacity = '0';
+      }, 280);
+      setTimeout(function() { location.href = '/general/' + m.key; }, 460);
     });
 
     track.appendChild(item);

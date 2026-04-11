@@ -138,7 +138,8 @@ def categories_page():
         label = 'קטגוריה' if type_ == 'category' else 'עסק'
         badge_color = '#1e9d8b' if type_ == 'category' else '#9b59b6'
         return (
-            f'<a href="/category/{slug}" style="display:flex;align-items:center;padding:12px 16px;'
+            f'<a href="/category/{slug}" class="cat-item" data-name="{name}"'
+            f' style="display:flex;align-items:center;padding:12px 16px;'
             f'background:#fff;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.06);'
             f'text-decoration:none;color:#1e2a4a;transition:box-shadow .18s,transform .18s;'
             f'gap:10px" onmouseover="this.style.transform=\'translateY(-2px)\';this.style.boxShadow=\'0 6px 18px rgba(0,0,0,.10)\'"'
@@ -155,6 +156,7 @@ def categories_page():
         items_html += _item_html(c, 'category', _make_slug('cat', c))
     for b in sorted(bizs):
         items_html += _item_html(b, 'business', _make_slug('biz', b))
+    total = len(cats) + len(bizs)
 
     return f'''<!DOCTYPE html>
 <html lang="he" dir="rtl">
@@ -180,6 +182,13 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:#f4f6f9;color:#1e2a4a;d
 .section-title{{font-size:.75em;font-weight:700;color:#888;text-transform:uppercase;
   letter-spacing:.6px;margin:20px 0 10px 0;padding-right:4px}}
 .grid{{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}}
+.search-wrap{{margin-bottom:18px;display:flex;align-items:center;gap:12px}}
+.cat-search{{flex:1;padding:9px 16px;border:1.5px solid #eef0f6;border-radius:10px;
+  font-size:.88em;color:#1e2a4a;background:#fff;outline:none;direction:rtl;
+  transition:border-color .18s,box-shadow .18s}}
+.cat-search:focus{{border-color:#1e9d8b;box-shadow:0 0 0 3px rgba(30,157,139,.12)}}
+.search-count{{font-size:.78em;color:#888;white-space:nowrap;flex-shrink:0}}
+.no-results{{text-align:center;padding:40px;color:#aaa;font-size:.9em;display:none}}
 </style>
 </head>
 <body>
@@ -198,8 +207,28 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:#f4f6f9;color:#1e2a4a;d
 </nav>
 <div class="main">
   <div class="page-header"><h1>ניתוח קטגוריות ועסקים</h1></div>
-  <div class="grid">{items_html}</div>
+  <div class="search-wrap">
+    <input class="cat-search" id="cat-search" type="text" placeholder="חיפוש קטגוריה או עסק..." oninput="filterCats(this.value)">
+    <span class="search-count" id="search-count">{total} פריטים</span>
+  </div>
+  <div class="grid" id="cat-grid">{items_html}</div>
+  <div class="no-results" id="no-results">לא נמצאו תוצאות תואמות</div>
 </div>
+<script>
+function filterCats(q) {{
+  q = q.trim().toLowerCase();
+  var items = document.querySelectorAll('.cat-item');
+  var visible = 0;
+  items.forEach(function(el) {{
+    var name = (el.dataset.name || '').toLowerCase();
+    var match = !q || name.indexOf(q) !== -1;
+    el.style.display = match ? '' : 'none';
+    if (match) visible++;
+  }});
+  document.getElementById('search-count').textContent = visible + ' פריטים';
+  document.getElementById('no-results').style.display = (visible === 0 && q) ? '' : 'none';
+}}
+</script>
 </body>
 </html>'''
 

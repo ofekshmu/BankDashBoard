@@ -2877,6 +2877,15 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;
 .td-val.pos{{color:var(--teal)}}
 .td-cat{{font-size:.85em;color:var(--text-muted)}}
 
+/* Search bar */
+.txn-search-wrap{{margin-bottom:12px}}
+.txn-search{{width:100%;padding:8px 14px;border:1.5px solid var(--border);
+  border-radius:8px;font-size:.84em;color:var(--navy);background:var(--white);
+  outline:none;transition:border-color .18s,box-shadow .18s;direction:rtl}}
+.txn-search:focus{{border-color:var(--teal);box-shadow:0 0 0 3px var(--teal-light)}}
+.txn-no-results{{text-align:center;padding:28px;color:var(--text-muted);
+  font-size:.85em;display:none}}
+
 /* Log drawer */
 .log-drawer{{position:fixed;bottom:0;left:0;right:72px;background:var(--navy);
   z-index:300;max-height:220px;display:flex;flex-direction:column;
@@ -2987,7 +2996,10 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;
   <div class="panel">
     <div class="panel-header">
       עסקאות
-      <span class="panel-count">{txn_count} עסקאות</span>
+      <span class="panel-count" id="panel-count">{txn_count} עסקאות</span>
+    </div>
+    <div class="txn-search-wrap">
+      <input class="txn-search" id="txn-search" type="text" placeholder="חיפוש עסקה..." oninput="filterTxns(this.value)">
     </div>
     <div class="txn-table-wrap">
       <table class="txn-table">
@@ -2997,6 +3009,7 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;
         <tbody>
 {txn_rows}        </tbody>
       </table>
+      <div class="txn-no-results" id="txn-no-results">לא נמצאו עסקאות תואמות</div>
     </div>
   </div>
 </div>
@@ -3203,6 +3216,24 @@ function appendLog(msg) {{
   line.textContent = msg;
   body.appendChild(line);
   body.scrollTop = body.scrollHeight;
+}}
+
+// ── Transaction search ────────────────────────────────────
+function filterTxns(q) {{
+  q = q.trim().toLowerCase();
+  var rows = document.querySelectorAll('.txn-table tbody tr');
+  var visible = 0;
+  rows.forEach(function(row) {{
+    var name = (row.querySelector('.td-name') || document.createElement('td')).textContent || '';
+    var date = (row.querySelector('.td-date') || document.createElement('td')).textContent || '';
+    var match = !q || name.toLowerCase().indexOf(q) !== -1 || date.indexOf(q) !== -1;
+    row.style.display = match ? '' : 'none';
+    if (match) visible++;
+  }});
+  var count = document.getElementById('panel-count');
+  if (count) count.textContent = visible + ' עסקאות';
+  var noRes = document.getElementById('txn-no-results');
+  if (noRes) noRes.style.display = (visible === 0 && q) ? '' : 'none';
 }}
 
 // ── Flask detection ───────────────────────────────────────

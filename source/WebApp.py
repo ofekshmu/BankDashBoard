@@ -283,6 +283,91 @@ def run_category():
     return jsonify({'status': 'started'})
 
 
+def _log_float_style() -> str:
+    return """<style>
+    body { font-family: 'Segoe UI', Arial, sans-serif; background: #f4f6f9;
+           display: flex; align-items: center; justify-content: center;
+           min-height: 100vh; margin: 0; }
+    .box { background: #fff; border-radius: 14px; padding: 48px 56px;
+           text-align: center; box-shadow: 0 6px 20px rgba(0,0,0,.10); max-width: 460px; }
+    h2   { color: #1e2a4a; margin-bottom: 10px; }
+    p    { color: #888; font-size: .93em; margin-bottom: 28px; }
+    .badge { display:inline-block; background:#1e9d8b; color:#fff; border-radius:20px;
+             padding:5px 18px; font-size:.85em; font-weight:600; margin-bottom:24px; }
+    .back { margin-top:16px; font-size:.8em; }
+    .back a { color:#888; text-decoration:none; }
+    .back a:hover { color:#1e9d8b; }
+    /* ── floating log panel ── */
+    .log-float { position:fixed; bottom:32px; left:50%;
+                 transform:translateX(-50%) translateY(12px);
+                 min-width:360px; max-width:520px;
+                 opacity:0; pointer-events:none;
+                 transition:opacity .3s, transform .3s;
+                 z-index:9999; text-align:center; }
+    .log-float.visible { opacity:1; pointer-events:auto; transform:translateX(-50%) translateY(0); }
+    .lf-header { display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:8px; }
+    .lf-spinner { width:14px; height:14px; border:2px solid rgba(30,157,139,.3);
+                  border-top-color:#1e9d8b; border-radius:50%;
+                  animation:lf-spin .7s linear infinite; flex-shrink:0; }
+    .lf-spinner.done  { animation:none; border-color:#2ecc71; }
+    .lf-spinner.error { animation:none; border-color:#c0392b; }
+    @keyframes lf-spin { to { transform:rotate(360deg); } }
+    .lf-title { font-size:.8em; font-weight:600; color:#1e9d8b;
+                text-shadow:0 1px 6px rgba(255,255,255,.9),0 0 2px #fff; }
+    .lf-feed { display:flex; flex-direction:column-reverse; max-height:120px;
+               overflow:hidden; align-items:center; }
+    .lf-line { font-size:.7em; padding:1px 0; white-space:nowrap;
+               color:#2d3a5e; animation:lf-slide .28s ease;
+               text-shadow:0 1px 4px rgba(255,255,255,.95),0 0 1px #fff; }
+    .lf-line:nth-child(2) { opacity:.55; }
+    .lf-line:nth-child(3) { opacity:.3; }
+    .lf-line:nth-child(n+4) { opacity:.12; }
+    .lf-line.warn { color:#b07000; }
+    .lf-line.err  { color:#c0392b; }
+    .lf-line.done { color:#1a7a45; font-weight:600; }
+    @keyframes lf-slide { from { transform:translateY(10px); opacity:0; }
+                          to   { transform:translateY(0); } }
+    </style>"""
+
+
+def _log_float_html() -> str:
+    return """<div class="log-float" id="log-float">
+  <div class="lf-header">
+    <div class="lf-spinner" id="lf-spinner"></div>
+    <span class="lf-title" id="lf-title">מנתח נתונים…</span>
+  </div>
+  <div class="lf-feed" id="lf-feed"></div>
+</div>"""
+
+
+def _log_float_js() -> str:
+    return """var _LF_MAX = 7;
+    function showLogFloat(title) {
+      document.getElementById('lf-feed').innerHTML = '';
+      document.getElementById('lf-title').textContent = title || 'מנתח נתונים…';
+      var sp = document.getElementById('lf-spinner');
+      if (sp) sp.className = 'lf-spinner';
+      document.getElementById('log-float').classList.add('visible');
+    }
+    function hideLogFloat(delay) {
+      setTimeout(function() {
+        document.getElementById('log-float').classList.remove('visible');
+      }, delay || 0);
+    }
+    function appendLog(text, cls) {
+      var feed = document.getElementById('lf-feed');
+      if (!feed) return;
+      var el = document.createElement('div');
+      el.className = 'lf-line' + (cls ? ' ' + cls : '');
+      el.textContent = text;
+      feed.insertBefore(el, feed.firstChild);
+      while (feed.children.length > _LF_MAX) feed.removeChild(feed.lastChild);
+      var sp = document.getElementById('lf-spinner');
+      if (sp && cls === 'done') sp.className = 'lf-spinner done';
+      if (sp && cls === 'err')  sp.className = 'lf-spinner error';
+    }"""
+
+
 def _not_generated_category_html(slug: str) -> str:
     import json as _json
     slug_js  = _json.dumps(slug)
@@ -292,37 +377,41 @@ def _not_generated_category_html(slug: str) -> str:
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8"/>
-<title>BankApp</title>
-<style>
-body{{font-family:'Segoe UI',Arial,sans-serif;background:#f4f6f9;display:flex;
-     align-items:center;justify-content:center;min-height:100vh;margin:0}}
-.box{{background:#fff;border-radius:14px;padding:48px 56px;text-align:center;
-     box-shadow:0 6px 20px rgba(0,0,0,.10);max-width:460px}}
-h2{{color:#1e2a4a;margin-bottom:10px}}
-p{{color:#888;font-size:.93em;margin-bottom:28px}}
-#msg{{margin-top:18px;color:#1e9d8b;font-size:.88em}}
-.back{{margin-top:16px;font-size:.8em}}
-.back a{{color:#888;text-decoration:none}}
-.back a:hover{{color:#1e9d8b}}
-</style>
+<title>BankApp — טוען</title>
+{_log_float_style()}
 </head>
 <body>
 <div class="box">
   <h2>ניתוח קטגוריה</h2>
-  <p>הקובץ עבור ניתוח זה טרם נוצר. מפעיל ניתוח אוטומטי…</p>
-  <p id="msg">מעבד נתונים, אנא המתן…</p>
+  <p>מפעיל ניתוח אוטומטי…</p>
   <div class="back"><a href="/categories">&#8592; חזרה לרשימה</a></div>
 </div>
+{_log_float_html()}
 <script>
+{_log_float_js()}
   (function() {{
+    showLogFloat('מנתח קטגוריה…');
     fetch('/api/category/run', {{method:'POST',
       headers:{{'Content-Type':'application/json'}},
       body: JSON.stringify({{slug: {slug_js}, type: {type_js}}})
     }}).then(function() {{
       var es = new EventSource('/api/logs');
       es.onmessage = function(e) {{
-        if (e.data.startsWith('__DONE__')) {{ es.close(); location.href = '/category/' + encodeURIComponent({slug_js}); }}
-        if (e.data === '__ERROR__')        {{ es.close(); alert('שגיאה — בדוק את הטרמינל'); }}
+        if (!e.data || e.data === '__CONNECTED__') return;
+        if (e.data.startsWith('__DONE__')) {{
+          es.close();
+          appendLog('✓ הניתוח הסתיים — טוען…', 'done');
+          hideLogFloat(900);
+          setTimeout(function() {{ location.href = '/category/' + {slug_js}; }}, 1100);
+          return;
+        }}
+        if (e.data === '__ERROR__') {{
+          es.close();
+          appendLog('✗ שגיאה בניתוח', 'err');
+          hideLogFloat(3000);
+          return;
+        }}
+        appendLog(e.data);
       }};
     }});
   }})();
@@ -427,39 +516,20 @@ def _not_generated_html(year: int, month: int, yyyy_mm: str) -> str:
 <head>
   <meta charset="UTF-8">
   <title>BankApp — {month_label}</title>
-  <style>
-    body {{ font-family: 'Segoe UI', Arial, sans-serif; background: #f4f6f9;
-           display: flex; align-items: center; justify-content: center;
-           min-height: 100vh; margin: 0; }}
-    .box {{ background: #fff; border-radius: 14px; padding: 48px 56px;
-           text-align: center; box-shadow: 0 6px 20px rgba(0,0,0,.10); max-width: 460px; }}
-    h2   {{ color: #1e2a4a; margin-bottom: 10px; }}
-    p    {{ color: #888; font-size: .93em; margin-bottom: 28px; }}
-    .badge {{ display:inline-block; background:#1e9d8b; color:#fff; border-radius:20px;
-              padding:5px 18px; font-size:.85em; font-weight:600; margin-bottom:24px; }}
-    .btn {{ background: #1e9d8b; color: #fff; border: none; border-radius: 10px;
-           padding: 13px 36px; font-size: 1em; cursor: pointer; font-weight: 600; }}
-    .btn:hover {{ background: #178878; }}
-    .btn:disabled {{ opacity: 0.6; cursor: wait; }}
-    #msg {{ margin-top:18px; color:#1e9d8b; display:none; font-size:.88em; }}
-    .back {{ margin-top:16px; font-size:.8em; }}
-    .back a {{ color:#888; text-decoration:none; }}
-    .back a:hover {{ color:#1e9d8b; }}
-  </style>
+  {_log_float_style()}
 </head>
 <body>
   <div class="box">
     <h2>ניתוח חודשי</h2>
     <div class="badge">{month_label}</div>
-    <p>הקובץ עבור חודש זה טרם נוצר. מפעיל ניתוח אוטומטי…</p>
-    <button class="btn" id="runBtn" onclick="runNow()" style="display:none">הפעל ניתוח</button>
-    <p id="msg" style="display:block">מעבד נתונים, אנא המתן…</p>
+    <p>מפעיל ניתוח אוטומטי…</p>
     <div class="back"><a href="/">&#8592; חזרה לדף הראשי</a></div>
   </div>
+  {_log_float_html()}
   <script>
-    function runNow() {{
-      document.getElementById('runBtn').disabled = true;
-      document.getElementById('msg').style.display = 'block';
+    {_log_float_js()}
+    (function() {{
+      showLogFloat('מנתח נתונים…');
       fetch('/api/analysis', {{method:'POST',
             headers:{{'Content-Type':'application/json'}},
             body: JSON.stringify({{month:'pick', date:'{date_str}'}})
@@ -467,21 +537,24 @@ def _not_generated_html(year: int, month: int, yyyy_mm: str) -> str:
       .then(function() {{
         var es = new EventSource('/api/logs');
         es.onmessage = function(e) {{
+          if (!e.data || e.data === '__CONNECTED__') return;
           if (e.data.startsWith('__DONE__')) {{
             es.close();
-            location.href = '/general/{yyyy_mm}';
+            appendLog('✓ הניתוח הסתיים — טוען…', 'done');
+            hideLogFloat(900);
+            setTimeout(function() {{ location.href = '/general/{yyyy_mm}'; }}, 1100);
+            return;
           }}
           if (e.data === '__ERROR__') {{
             es.close();
-            alert('שגיאה בניתוח — בדוק את הטרמינל');
-            document.getElementById('runBtn').style.display = '';
-            document.getElementById('runBtn').disabled = false;
-            document.getElementById('msg').style.display = 'none';
+            appendLog('✗ שגיאה בניתוח', 'err');
+            hideLogFloat(3000);
+            return;
           }}
+          appendLog(e.data);
         }};
       }});
-    }}
-    runNow();
+    }})();
   </script>
 </body>
 </html>"""

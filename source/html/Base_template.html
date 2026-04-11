@@ -176,6 +176,16 @@ body {
 .cm-item.has-file .cm-dot { background: var(--teal); }
 .cm-item.active.has-file .cm-dot { width: 7px; height: 7px; }
 
+/* Future months — not yet available */
+.cm-item.future { cursor: not-allowed; }
+.cm-item.future:hover { background: transparent; }
+.cm-item.future .cm-label { color: #bbb; font-style: italic; }
+.cm-item.future .cm-dot  { background: #e0e0e0; }
+.cm-item.future .cm-future-tag {
+  font-size: 0.62em; color: #bbb; margin-top: 3px;
+  letter-spacing: 0.03em;
+}
+
 /* ── Header right area (generated + reload) ──────────────── */
 .page-header-right {
   display: flex; align-items: center; gap: 10px; flex-shrink: 0;
@@ -776,55 +786,66 @@ body {
   0%,100% { opacity: 1; } 50% { opacity: 0.6; }
 }
 
-/* ── Log drawer (bottom slide-up panel) ──────────────────── */
-.log-drawer {
+/* ── Floating log panel ──────────────────────────────────── */
+.log-float {
   position: fixed;
-  bottom: 0; left: 0; right: 72px;
-  background: #1e2a4a;
-  border-top: 2px solid #2d3e6b;
-  z-index: 180;
-  transition: height 0.24s cubic-bezier(0.4,0,0.2,1);
-  height: 36px;
-  display: flex; flex-direction: column;
+  bottom: 36px; left: 50%;
+  transform: translateX(-50%) translateY(16px);
+  min-width: 360px; max-width: 520px;
+  z-index: 500;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.35s ease, transform 0.35s ease;
+  text-align: center;
 }
-.log-drawer.expanded { height: 240px; }
-.log-drawer-header {
-  height: 36px; min-height: 36px;
-  display: flex; align-items: center; gap: 10px;
-  padding: 0 16px;
-  cursor: pointer;
-  user-select: none;
-  flex-shrink: 0;
+.log-float.visible {
+  opacity: 1; pointer-events: auto;
+  transform: translateX(-50%) translateY(0);
 }
-.log-drawer-title {
-  font-size: 0.75em; font-weight: 600; color: #9aa3c8;
-  flex: 1;
+.lf-header {
+  display: flex; align-items: center; justify-content: center;
+  gap: 8px; margin-bottom: 8px;
 }
-.log-drawer-indicator {
-  width: 8px; height: 8px; border-radius: 50%;
-  background: #444e6a; flex-shrink: 0;
+.lf-spinner {
+  width: 14px; height: 14px;
+  border: 2px solid rgba(30,157,139,0.3);
+  border-top-color: #1e9d8b;
+  border-radius: 50%;
+  animation: lf-spin 0.7s linear infinite; flex-shrink: 0;
 }
-.log-drawer-indicator.active { background: var(--teal); box-shadow: 0 0 6px var(--teal); }
-.log-drawer-indicator.error  { background: var(--red);  box-shadow: 0 0 6px var(--red); }
-.log-drawer-toggle {
-  font-size: 0.72em; color: #6a7599;
-  transition: transform 0.2s;
+.lf-spinner.done { animation: none; border-color: #2ecc71; }
+.lf-spinner.error { animation: none; border-color: #f56565; }
+@keyframes lf-spin { to { transform: rotate(360deg); } }
+.lf-title {
+  font-size: 0.8em; font-weight: 600;
+  color: #1e9d8b;
+  text-shadow: 0 1px 6px rgba(255,255,255,0.9), 0 0 2px rgba(255,255,255,1);
 }
-.log-drawer.expanded .log-drawer-toggle { transform: rotate(180deg); }
-.log-drawer-body {
-  flex: 1; overflow-y: auto;
-  padding: 6px 16px 10px;
-  display: none;
-  font-family: 'Consolas', 'Courier New', monospace;
-  font-size: 0.76em;
-  line-height: 1.6;
-  direction: ltr;
+.lf-feed {
+  display: flex; flex-direction: column-reverse;
+  max-height: 120px; overflow: hidden;
+  position: relative; direction: rtl; align-items: center;
 }
-.log-drawer.expanded .log-drawer-body { display: block; }
-.log-line { padding: 1px 0; }
-.log-line.sys  { color: #90caf9; }
-.log-line.warn { color: #ffcc80; }
-.log-line.err  { color: #ef9a9a; }
+.lf-line {
+  font-size: 0.7em;
+  font-family: 'Segoe UI', sans-serif;
+  padding: 1px 0; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; flex-shrink: 0;
+  animation: lf-slide 0.28s ease;
+  color: #2d3a5e;
+  text-shadow: 0 1px 4px rgba(255,255,255,0.95), 0 0 1px rgba(255,255,255,1);
+}
+.lf-line:nth-child(2) { opacity: .55; }
+.lf-line:nth-child(3) { opacity: .3; }
+.lf-line:nth-child(n+4) { opacity: .12; }
+.lf-line.warn { color: #b07000; }
+.lf-line.err  { color: #c0392b; }
+.lf-line.done { color: #1a7a45; font-weight: 600; }
+@keyframes lf-slide {
+  from { transform: translateY(10px); opacity: 0; }
+  to   { transform: translateY(0); }
+}
+/* keep old drawer hidden but don't break anything that references it */
+.log-drawer { display: none !important; }
 .log-line.info { color: #c8d0e8; }
 
 /* ── Empty state ─────────────────────────────────────────── */
@@ -932,10 +953,6 @@ body {
   <button class="nav-btn" id="actions-toggle-btn" onclick="toggleActionsPanel(this)" title="הפעל ניתוח" style="display:none">
     <span>⚙</span><span class="lbl">ניתוח</span>
   </button>
-  <button class="nav-btn" id="log-toggle-btn" onclick="toggleLogDrawer()" title="לוג מערכת" style="margin-bottom:8px;display:none">
-    <span>📋</span><span class="lbl">לוג</span>
-    <span class="nav-badge" id="log-err-badge" style="background:var(--red);display:none">!</span>
-  </button>
 </nav>
 
 <!-- ── Actions panel ──────────────────────────────────────── -->
@@ -967,14 +984,13 @@ body {
   <div id="actions-status" style="font-size:0.78em;color:var(--text-muted);text-align:center;min-height:1.4em;"></div>
 </div>
 
-<!-- ── Log drawer ─────────────────────────────────────────── -->
-<div class="log-drawer" id="log-drawer">
-  <div class="log-drawer-header" onclick="toggleLogDrawer()">
-    <span class="log-drawer-indicator" id="log-indicator"></span>
-    <span class="log-drawer-title">לוג מערכת</span>
-    <span class="log-drawer-toggle">▲</span>
+<!-- ── Floating log panel ────────────────────────────────── -->
+<div class="log-float" id="log-float">
+  <div class="lf-header">
+    <div class="lf-spinner" id="lf-spinner"></div>
+    <span class="lf-title" id="lf-title">מנתח נתונים…</span>
   </div>
-  <div class="log-drawer-body" id="log-body"></div>
+  <div class="lf-feed" id="lf-feed"></div>
 </div>
 
 <!-- ── Main ──────────────────────────────────────────────── -->
@@ -986,10 +1002,9 @@ body {
   </div>
 
   <div class="page-header">
-    <h1>Dashboard</h1>
-    <span class="month-badge" id="month-label"></span>
+    <span class="generated-label" id="generated-label"></span>
     <div class="page-header-right">
-      <span class="generated-label" id="generated-label"></span>
+      <h1>Dashboard</h1>
       <button class="reload-btn" id="reload-btn" onclick="reloadCurrent()" title="חשב מחדש את החודש הנוכחי">&#8635; חשב מחדש</button>
     </div>
   </div>
@@ -1229,11 +1244,7 @@ function runAnalysis() {
   btn.textContent = 'מעבד…';
   stat.textContent = 'הניתוח התחיל, אנא המתן…';
 
-  // Open log drawer
-  var drawer = document.getElementById('log-drawer');
-  if (!drawer.classList.contains('expanded')) { toggleLogDrawer(); }
-  document.getElementById('log-body').innerHTML = '';
-  setLogIndicator('active');
+  showLogFloat('מנתח נתונים…');
 
   fetch('/api/analysis', {
     method: 'POST',
@@ -1253,24 +1264,25 @@ function runAnalysis() {
       if (!data || data === '__CONNECTED__') return;
       if (data.startsWith('__DONE__')) {
         es.close();
-        setLogIndicator('');
-        appendLog('✓ הניתוח הסתיים — מרענן...', 'sys');
+        appendLog('✓ הניתוח הסתיים — מרענן...', 'done');
+        setLogIndicator('done');
         stat.textContent = 'הדשבורד עודכן!';
         resetRunBtn();
         var parts = data.split(':');
         var monthKey = parts.length > 1 ? parts[1] : null;
+        hideLogFloat(1400);
         setTimeout(function() {
           if (monthKey) { location.href = '/general/' + monthKey; }
           else { location.reload(); }
-        }, 800);
+        }, 900);
         return;
       }
       if (data === '__ERROR__') {
         es.close();
-        setLogIndicator('error');
         appendLog('✗ שגיאה בניתוח', 'err');
-        stat.textContent = 'אירעה שגיאה — ראה לוג';
-        document.getElementById('log-err-badge').style.display = 'block';
+        setLogIndicator('error');
+        stat.textContent = 'אירעה שגיאה';
+        hideLogFloat(3000);
         resetRunBtn();
         return;
       }
@@ -1295,33 +1307,49 @@ function resetRunBtn() {
   btn.textContent = 'הפעל ניתוח';
 }
 
-// ── Log drawer ────────────────────────────────────────────
-function toggleLogDrawer() {
-  document.getElementById('log-drawer').classList.toggle('expanded');
-  document.getElementById('log-toggle-btn').classList.toggle('active',
-    document.getElementById('log-drawer').classList.contains('expanded'));
+// ── Floating log panel ────────────────────────────────────
+var _LF_MAX = 7;
+
+function showLogFloat(title) {
+  document.getElementById('lf-feed').innerHTML = '';
+  document.getElementById('lf-title').textContent = title || 'מנתח נתונים…';
+  var sp = document.getElementById('lf-spinner');
+  sp.className = 'lf-spinner';
+  document.getElementById('log-float').classList.add('visible');
+}
+
+function hideLogFloat(delay) {
+  setTimeout(function() {
+    document.getElementById('log-float').classList.remove('visible');
+  }, delay || 0);
 }
 
 function appendLog(msg, cls) {
-  var body = document.getElementById('log-body');
-  var line = document.createElement('div');
-  line.className = 'log-line ' + (cls || classifyLog(msg));
-  line.textContent = msg;
-  body.appendChild(line);
-  body.scrollTop = body.scrollHeight;
+  var feed = document.getElementById('lf-feed');
+  var el   = document.createElement('div');
+  el.className = 'lf-line ' + (cls || _classifyLog(msg));
+  el.textContent = msg;
+  feed.insertBefore(el, feed.firstChild || null);
+  while (feed.children.length > _LF_MAX) { feed.removeChild(feed.lastChild); }
+  Array.from(feed.children).forEach(function(item, i) {
+    item.style.opacity = Math.max(0.1, 1 - i * 0.16);
+  });
 }
 
-function classifyLog(msg) {
-  if (!msg) return 'info';
-  if (msg.indexOf('[ERROR]') !== -1) return 'err';
+function _classifyLog(msg) {
+  if (!msg) return '';
+  if (msg.indexOf('[ERROR]')   !== -1) return 'err';
   if (msg.indexOf('[WARNING]') !== -1) return 'warn';
-  if (msg.indexOf('[SYSTEM]') !== -1) return 'sys';
-  return 'info';
+  if (msg.indexOf('[SYSTEM]')  !== -1) return 'sys';
+  return '';
 }
 
+// kept for backward compat — no-op
+function toggleLogDrawer() {}
 function setLogIndicator(state) {
-  var ind = document.getElementById('log-indicator');
-  ind.className = 'log-drawer-indicator' + (state ? ' ' + state : '');
+  var sp = document.getElementById('lf-spinner');
+  if (!sp) return;
+  sp.className = 'lf-spinner' + (state ? ' ' + state : '');
 }
 
 // ── Month roller ──────────────────────────────────────────
@@ -1345,26 +1373,27 @@ function _monthLabel(year, month) {
 }
 
 function _buildRoller(list) {
-  // Build a continuous range: earliest file → current month
-  var hasFile = {}, generated = {};
-  list.forEach(function(m) { hasFile[m.key] = true; generated[m.key] = m.generated; });
+  // Always show 13 months: current ±6, regardless of how many are generated
+  var hasFile = {};
+  list.forEach(function(m) { hasFile[m.key] = true; });
 
-  var keys = list.map(function(m) { return m.key; });
-  if (_currentKey) keys.push(_currentKey);
-  keys.sort();
-  if (!keys.length) return;
+  if (!_currentKey) return;
+  var center = _keyToDate(_currentKey);
 
-  var startDate = _keyToDate(keys[0]);
-  var endDate   = _keyToDate(keys[keys.length - 1]);
+  // "Today's month" — months strictly after this are future
+  var now = new Date();
+  var todayMonthKey = _dateToKey(new Date(now.getFullYear(), now.getMonth(), 1));
 
   var months = [];
-  var d = new Date(startDate);
-  while (d <= endDate) {
+  for (var off = -6; off <= 6; off++) {
+    var d = new Date(center.getFullYear(), center.getMonth() + off, 1);
     var k = _dateToKey(d);
-    months.push({ key: k, year: d.getFullYear(), month: d.getMonth() + 1, hasFile: !!hasFile[k] });
-    d.setMonth(d.getMonth() + 1);
+    var isFuture = k > todayMonthKey;
+    months.push({ key: k, year: d.getFullYear(), month: d.getMonth() + 1,
+                  hasFile: !!hasFile[k], future: isFuture });
   }
   _rollerItems = months;
+  _activeIdx   = 6;  // current month is always the center (index 6)
 
   var track = document.getElementById('roller-track');
   if (!track) return;
@@ -1372,7 +1401,7 @@ function _buildRoller(list) {
 
   months.forEach(function(m, i) {
     var item = document.createElement('div');
-    item.className = 'cm-item' + (m.hasFile ? ' has-file' : '');
+    item.className = 'cm-item' + (m.hasFile ? ' has-file' : '') + (m.future ? ' future' : '');
     item.dataset.key = m.key;
 
     var lbl = document.createElement('span');
@@ -1385,14 +1414,19 @@ function _buildRoller(list) {
     item.appendChild(lbl);
     item.appendChild(dot);
 
+    if (m.future) {
+      var tag = document.createElement('span');
+      tag.className   = 'cm-future-tag';
+      tag.textContent = 'טרם הגיע';
+      item.appendChild(tag);
+    }
+
     item.addEventListener('click', function() {
-      var key = m.key;
-      if (key === _currentKey) return;
-      location.href = '/general/' + key;
+      if (m.future || m.key === _currentKey) return;
+      location.href = '/general/' + m.key;
     });
 
     track.appendChild(item);
-    if (m.key === _currentKey) _activeIdx = i;
   });
 
   // Show roller
@@ -1444,32 +1478,36 @@ function reloadCurrent() {
   btn.classList.add('running');
   btn.disabled = true;
 
-  var drawer = document.getElementById('log-drawer');
-  if (!drawer.classList.contains('expanded')) toggleLogDrawer();
-  document.getElementById('log-body').innerHTML = '';
-  setLogIndicator('active');
+  showLogFloat('מחשב מחדש…');
 
   fetch('/api/analysis', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ month: 'pick', date: dateStr })
   }).then(function(r) {
-    if (r.status === 409) { btn.classList.remove('running'); btn.disabled = false; return; }
+    if (r.status === 409) { btn.classList.remove('running'); btn.disabled = false; hideLogFloat(0); return; }
     var es = new EventSource('/api/logs');
     es.onmessage = function(evt) {
       var data = evt.data;
       if (!data || data === '__CONNECTED__') return;
       if (data.startsWith('__DONE__')) {
-        es.close(); setLogIndicator('');
-        appendLog('✓ הניתוח הסתיים — מרענן...', 'sys');
+        es.close();
+        appendLog('✓ הניתוח הסתיים — מרענן...', 'done');
         btn.classList.remove('running'); btn.disabled = false;
-        setTimeout(function() { location.href = '/general/' + _currentKey; }, 600);
+        hideLogFloat(1000);
+        setTimeout(function() { location.href = '/general/' + _currentKey; }, 1200);
         return;
       }
-      if (data === '__ERROR__') { es.close(); setLogIndicator('error'); btn.classList.remove('running'); btn.disabled = false; return; }
+      if (data === '__ERROR__') {
+        es.close();
+        appendLog('✗ שגיאה בניתוח', 'err');
+        btn.classList.remove('running'); btn.disabled = false;
+        hideLogFloat(3000);
+        return;
+      }
       appendLog(data);
     };
-    es.onerror = function() { es.close(); btn.classList.remove('running'); btn.disabled = false; };
+    es.onerror = function() { es.close(); btn.classList.remove('running'); btn.disabled = false; hideLogFloat(0); };
   });
 }
 
@@ -1482,6 +1520,9 @@ function _initMonthNav() {
 
 window.addEventListener('resize', function() { _centerActive(false); });
 
+// Always init the month roller (doesn't depend on server being active)
+_initMonthNav();
+
 // Check if Flask server is available (only show actions panel when running via Flask)
 (function detectFlask() {
   fetch('/api/status', { method: 'GET' })
@@ -1489,18 +1530,12 @@ window.addEventListener('resize', function() { _centerActive(false); });
     .then(function(d) {
       // Server is available — show actions controls
       document.getElementById('actions-toggle-btn').style.display = '';
-      document.getElementById('log-toggle-btn').style.display = '';
       document.getElementById('reload-btn').style.display = '';
-      if (d.running) {
-        setLogIndicator('active');
-        document.getElementById('log-drawer').classList.add('expanded');
-      }
-      _initMonthNav();
+      if (d.running) { setLogIndicator('active'); }
     })
     .catch(function() {
       // No Flask server — hide the web-only controls
       document.getElementById('actions-toggle-btn').style.display = 'none';
-      document.getElementById('log-toggle-btn').style.display = 'none';
     });
 })();
 </script>

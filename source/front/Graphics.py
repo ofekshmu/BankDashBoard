@@ -1,3 +1,5 @@
+import matplotlib
+matplotlib.use('Agg')  # non-interactive backend — must be set before pyplot import
 import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
 import pandas as pd
@@ -103,14 +105,15 @@ class Graphics:
                             colors=color_set)
         create_donut_chart(ax, df_names, pie_name, total_value)
         plt.savefig(f'Outputs\\{pie_name}_category.png')
-        
+        plt.close()
+
         # Create prices pie chart
         prices_df = df.copy()
         prices_df.index = df.index.map(lambda name: f"{prices_df.loc[name,'Final_Value']:,.2f}₪")
 
         if pie_name in ["Spendings", "Earnings"]:
             prices_df, _ = utils.seperate_high_std(prices_df, 'Final_Value')
-        
+
         ax = prices_df.plot.pie(y='Final_Value',
                                     figsize=FIG_SIZE,
                                     legend=False,
@@ -118,6 +121,7 @@ class Graphics:
                                     colors=color_set)
         create_donut_chart(ax, prices_df, pie_name, total_value)
         plt.savefig(f'Outputs\\{pie_name}_prices.png')
+        plt.close()
         
         return outliers_list
 
@@ -293,10 +297,16 @@ class Graphics:
             # Adding the values on top of the bar plots:
             ax = sns.barplot(x="CardID", hue="CardID", y="Final_Value", data=df_card_status, palette=color_dict)
             ax.get_legend().remove() if ax.get_legend() else None
-            for index ,p in enumerate(ax.patches):
+            data_index = 0
+            for p in ax.patches:
                 height = p.get_height()
-                status = df_card_status['Status'].iloc[index]
-                card_id = df_card_status['CardID'].iloc[index]
+                if height == 0 or p.get_width() == 0:
+                    continue
+                if data_index >= len(df_card_status):
+                    break
+                status = df_card_status['Status'].iloc[data_index]
+                card_id = df_card_status['CardID'].iloc[data_index]
+                data_index += 1
                 # ------------ annotate the value of the bar on top of it ------------
                 ax.annotate(f'{height:,.0f}₪',
                             xy=(p.get_x() + p.get_width() / 2, height),

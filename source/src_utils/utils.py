@@ -2920,11 +2920,6 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;
   </button>
 </nav>
 
-<!-- Category roller -->
-<div class="cat-roller" id="cat-roller" style="display:none">
-  <div class="roller-track" id="roller-track"></div>
-</div>
-
 <!-- Log drawer -->
 <div class="log-drawer" id="log-drawer">
   <div class="log-drawer-header" onclick="toggleLogDrawer()">
@@ -2937,6 +2932,12 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;
 
 <!-- Main -->
 <div class="main">
+
+  <!-- Category roller -->
+  <div class="cat-roller" id="cat-roller" style="display:none">
+    <div class="roller-track" id="roller-track"></div>
+  </div>
+
   <div class="page-header">
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <h1>{display_name}</h1>

@@ -1608,9 +1608,28 @@ if (slider) {
             script.string = js_code
             housing_panel.append(script)
 
+        # ── Stamp body with month key and generation timestamp ─────────
+        import os as _os
+        from datetime import datetime as _dt
+        _generated_at = _dt.now().strftime("%d/%m/%Y %H:%M")
+        soup.body['data-month']     = f"{year:04d}_{month_num:02d}"
+        soup.body['data-generated'] = _generated_at
+
         # ── Write output ───────────────────────────────────────────────
+        _html_text = soup.prettify()
+
         with open(r"source\html\output.html", "w", encoding="utf-8") as outf:
-            outf.write(soup.prettify())
+            outf.write(_html_text)
+
+        # ── Also write to Outputs/general_analysis/YYYY_MM.html ────────
+        _utils_dir   = _os.path.dirname(_os.path.abspath(__file__))   # src_utils/
+        _src_dir     = _os.path.dirname(_utils_dir)                    # source/
+        _project_dir = _os.path.dirname(_src_dir)                      # BankProject/
+        _ga_dir      = _os.path.join(_project_dir, 'Outputs', 'general_analysis')
+        _os.makedirs(_ga_dir, exist_ok=True)
+        _ga_path     = _os.path.join(_ga_dir, f"{year:04d}_{month_num:02d}.html")
+        with open(_ga_path, "w", encoding="utf-8") as outf:
+            outf.write(_html_text)
 
     @staticmethod
     def template_menu(options: list[str], msg: str = "Choose one of the following:\n", exit: bool = False, sort: bool = False, col_space: int = 27, row_count: int = 6 ) -> int:

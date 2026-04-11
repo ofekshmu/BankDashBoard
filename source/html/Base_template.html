@@ -88,14 +88,14 @@ body {
 .main {
   margin-right: 72px;
   flex: 1;
-  padding: 26px 28px 50px;
+  padding: 26px 28px 60px;
   min-width: 0;
 }
 
 /* ── Page header ─────────────────────────────────────────── */
 .page-header {
   display: flex; justify-content: space-between; align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 20px; flex-wrap: wrap; gap: 10px;
 }
 .page-header h1 { font-size: 1.85em; font-weight: 700; color: var(--navy); }
 .month-badge {
@@ -103,6 +103,52 @@ body {
   padding: 6px 18px; border-radius: 20px;
   font-size: 0.87em; font-weight: 600;
 }
+
+/* ── Month navigation bar ────────────────────────────────── */
+.month-nav {
+  display: flex; align-items: center; gap: 6px;
+}
+.month-nav-arrow {
+  width: 30px; height: 30px;
+  border: 1.5px solid var(--border); border-radius: 8px;
+  background: var(--white); color: var(--navy);
+  font-size: 0.85em; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.month-nav-arrow:hover  { background: var(--teal-light); border-color: var(--teal); color: var(--teal); }
+.month-nav-arrow:disabled { opacity: 0.35; cursor: default; pointer-events: none; }
+.month-nav-select {
+  padding: 5px 10px;
+  border: 1.5px solid var(--border); border-radius: 8px;
+  background: var(--white); color: var(--navy);
+  font-size: 0.8em; font-weight: 600; cursor: pointer;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.month-nav-select:focus { border-color: var(--teal); }
+.month-nav-select option.has-file  { color: var(--navy); }
+.month-nav-select option.no-file   { color: var(--text-muted); font-style: italic; }
+
+/* ── Header right area (generated + reload) ──────────────── */
+.page-header-right {
+  display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+}
+.generated-label {
+  font-size: 0.72em; color: var(--text-muted);
+  white-space: nowrap;
+}
+.reload-btn {
+  padding: 5px 14px;
+  border: 1.5px solid var(--teal); border-radius: 20px;
+  background: var(--white); color: var(--teal);
+  font-size: 0.78em; font-weight: 600; cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+  display: none;
+}
+.reload-btn:hover { background: var(--teal); color: #fff; }
+.reload-btn.running { opacity: 0.6; cursor: wait; }
 
 /* ── KPI row ─────────────────────────────────────────────── */
 .kpi-row {
@@ -609,6 +655,132 @@ body {
 .acct-wrap tr.acct-total td { font-weight: 700; background: #f8fafc; border-top: 2px solid var(--border); border-bottom: none; }
 .acct-detail-cell { font-size: 0.78em !important; color: #888 !important; white-space: nowrap; }
 
+/* ── Actions panel (slide-in from right, above sidebar) ──── */
+.actions-panel {
+  position: fixed;
+  top: 0; right: 72px;
+  width: 260px;
+  height: 100vh;
+  background: var(--white);
+  border-left: 1px solid var(--border);
+  box-shadow: -4px 0 18px rgba(0,0,0,0.09);
+  z-index: 190;
+  display: flex; flex-direction: column;
+  transform: translateX(100%);
+  transition: transform 0.24s cubic-bezier(0.4,0,0.2,1);
+  padding: 24px 20px;
+  gap: 18px;
+  overflow-y: auto;
+}
+.actions-panel.open { transform: translateX(0); }
+.actions-panel-title {
+  font-size: 0.95em; font-weight: 700; color: var(--navy);
+  border-bottom: 1.5px solid var(--border); padding-bottom: 10px;
+}
+.actions-section-label {
+  font-size: 0.72em; color: var(--text-muted); font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;
+}
+.actions-radio-group {
+  display: flex; flex-direction: column; gap: 6px;
+}
+.actions-radio-label {
+  display: flex; align-items: center; gap: 9px;
+  font-size: 0.86em; color: var(--navy);
+  cursor: pointer; padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--border);
+  transition: border-color 0.15s, background 0.15s;
+}
+.actions-radio-label:hover { border-color: var(--teal); background: var(--teal-light); }
+.actions-radio-label input[type="radio"] { accent-color: var(--teal); }
+.actions-radio-label.selected { border-color: var(--teal); background: var(--teal-light); }
+#actions-date-wrap {
+  display: none;
+}
+#actions-date-wrap.visible { display: block; }
+#actions-date-input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 0.86em;
+  color: var(--navy);
+  background: var(--white);
+  direction: ltr;
+}
+#actions-date-input:focus { outline: none; border-color: var(--teal); }
+.actions-run-btn {
+  width: 100%;
+  padding: 11px 0;
+  background: var(--teal);
+  color: #fff;
+  border: none; border-radius: var(--radius-sm);
+  font-size: 0.9em; font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+}
+.actions-run-btn:hover { background: #178878; }
+.actions-run-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.actions-run-btn.running {
+  background: #888;
+  animation: pulse-btn 1.2s ease-in-out infinite;
+}
+@keyframes pulse-btn {
+  0%,100% { opacity: 1; } 50% { opacity: 0.6; }
+}
+
+/* ── Log drawer (bottom slide-up panel) ──────────────────── */
+.log-drawer {
+  position: fixed;
+  bottom: 0; left: 0; right: 72px;
+  background: #1e2a4a;
+  border-top: 2px solid #2d3e6b;
+  z-index: 180;
+  transition: height 0.24s cubic-bezier(0.4,0,0.2,1);
+  height: 36px;
+  display: flex; flex-direction: column;
+}
+.log-drawer.expanded { height: 240px; }
+.log-drawer-header {
+  height: 36px; min-height: 36px;
+  display: flex; align-items: center; gap: 10px;
+  padding: 0 16px;
+  cursor: pointer;
+  user-select: none;
+  flex-shrink: 0;
+}
+.log-drawer-title {
+  font-size: 0.75em; font-weight: 600; color: #9aa3c8;
+  flex: 1;
+}
+.log-drawer-indicator {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #444e6a; flex-shrink: 0;
+}
+.log-drawer-indicator.active { background: var(--teal); box-shadow: 0 0 6px var(--teal); }
+.log-drawer-indicator.error  { background: var(--red);  box-shadow: 0 0 6px var(--red); }
+.log-drawer-toggle {
+  font-size: 0.72em; color: #6a7599;
+  transition: transform 0.2s;
+}
+.log-drawer.expanded .log-drawer-toggle { transform: rotate(180deg); }
+.log-drawer-body {
+  flex: 1; overflow-y: auto;
+  padding: 6px 16px 10px;
+  display: none;
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 0.76em;
+  line-height: 1.6;
+  direction: ltr;
+}
+.log-drawer.expanded .log-drawer-body { display: block; }
+.log-line { padding: 1px 0; }
+.log-line.sys  { color: #90caf9; }
+.log-line.warn { color: #ffcc80; }
+.log-line.err  { color: #ef9a9a; }
+.log-line.info { color: #c8d0e8; }
+
 /* ── Empty state ─────────────────────────────────────────── */
 .empty-state {
   text-align: center; color: #bbb;
@@ -704,14 +876,78 @@ body {
   <button class="nav-btn" onclick="showPanel('housing',this)" title="דיור ומשכנתא">
     <span>🏠</span><span class="lbl">דיור</span>
   </button>
+
+  <!-- Spacer pushes actions button to bottom -->
+  <div style="flex:1"></div>
+
+  <button class="nav-btn" id="actions-toggle-btn" onclick="toggleActionsPanel(this)" title="הפעל ניתוח" style="display:none">
+    <span>⚙</span><span class="lbl">ניתוח</span>
+  </button>
+  <button class="nav-btn" id="log-toggle-btn" onclick="toggleLogDrawer()" title="לוג מערכת" style="margin-bottom:8px;display:none">
+    <span>📋</span><span class="lbl">לוג</span>
+    <span class="nav-badge" id="log-err-badge" style="background:var(--red);display:none">!</span>
+  </button>
 </nav>
+
+<!-- ── Actions panel ──────────────────────────────────────── -->
+<div class="actions-panel" id="actions-panel">
+  <div class="actions-panel-title">⚙ הפעל ניתוח כללי</div>
+
+  <div>
+    <div class="actions-section-label">בחר תקופה</div>
+    <div class="actions-radio-group" id="actions-radios">
+      <label class="actions-radio-label selected" onclick="selectMonth('current',this)">
+        <input type="radio" name="month" value="current" checked> חודש נוכחי
+      </label>
+      <label class="actions-radio-label" onclick="selectMonth('last',this)">
+        <input type="radio" name="month" value="last"> חודש קודם
+      </label>
+      <label class="actions-radio-label" onclick="selectMonth('pick',this)">
+        <input type="radio" name="month" value="pick"> בחר תאריך…
+      </label>
+    </div>
+    <div id="actions-date-wrap" style="margin-top:8px">
+      <input type="date" id="actions-date-input" />
+    </div>
+  </div>
+
+  <button class="actions-run-btn" id="actions-run-btn" onclick="runAnalysis()">
+    הפעל ניתוח
+  </button>
+
+  <div id="actions-status" style="font-size:0.78em;color:var(--text-muted);text-align:center;min-height:1.4em;"></div>
+</div>
+
+<!-- ── Log drawer ─────────────────────────────────────────── -->
+<div class="log-drawer" id="log-drawer">
+  <div class="log-drawer-header" onclick="toggleLogDrawer()">
+    <span class="log-drawer-indicator" id="log-indicator"></span>
+    <span class="log-drawer-title">לוג מערכת</span>
+    <span class="log-drawer-toggle">▲</span>
+  </div>
+  <div class="log-drawer-body" id="log-body"></div>
+</div>
 
 <!-- ── Main ──────────────────────────────────────────────── -->
 <div class="main">
 
   <div class="page-header">
     <h1>Dashboard</h1>
+
+    <!-- Month navigation -->
+    <div class="month-nav" id="month-nav" style="display:none">
+      <button class="month-nav-arrow" id="prev-month-btn" title="חודש קודם" onclick="navMonth(-1)">&#9664;</button>
+      <select class="month-nav-select" id="month-nav-select" onchange="navToSelected(this.value)"></select>
+      <button class="month-nav-arrow" id="next-month-btn" title="חודש הבא" onclick="navMonth(+1)">&#9654;</button>
+    </div>
+
     <span class="month-badge" id="month-label"></span>
+
+    <!-- Generated timestamp + reload -->
+    <div class="page-header-right">
+      <span class="generated-label" id="generated-label"></span>
+      <button class="reload-btn" id="reload-btn" onclick="reloadCurrent()" title="חשב מחדש את החודש הנוכחי">&#8635; חשב מחדש</button>
+    </div>
   </div>
 
   <!-- KPI rows (injected by Python) -->
@@ -907,6 +1143,307 @@ function sortTx(listId, mode) {
     }
     updateTotal(listId);
   });
+})();
+
+// ── Actions panel ─────────────────────────────────────────
+var _selectedMonth = 'current';
+
+function toggleActionsPanel(btn) {
+  var panel = document.getElementById('actions-panel');
+  var isOpen = panel.classList.contains('open');
+  panel.classList.toggle('open', !isOpen);
+  btn.classList.toggle('active', !isOpen);
+}
+
+function selectMonth(val, labelEl) {
+  _selectedMonth = val;
+  document.querySelectorAll('#actions-radios .actions-radio-label').forEach(function(l) {
+    l.classList.remove('selected');
+  });
+  labelEl.classList.add('selected');
+  var dateWrap = document.getElementById('actions-date-wrap');
+  if (val === 'pick') {
+    dateWrap.classList.add('visible');
+  } else {
+    dateWrap.classList.remove('visible');
+  }
+}
+
+function runAnalysis() {
+  var btn  = document.getElementById('actions-run-btn');
+  var stat = document.getElementById('actions-status');
+  var dateInput = document.getElementById('actions-date-input');
+
+  var body = { month: _selectedMonth };
+  if (_selectedMonth === 'pick') {
+    if (!dateInput.value) { stat.textContent = 'יש לבחור תאריך'; return; }
+    body.date = dateInput.value;
+  }
+
+  btn.disabled = true;
+  btn.classList.add('running');
+  btn.textContent = 'מעבד…';
+  stat.textContent = 'הניתוח התחיל, אנא המתן…';
+
+  // Open log drawer
+  var drawer = document.getElementById('log-drawer');
+  if (!drawer.classList.contains('expanded')) { toggleLogDrawer(); }
+  document.getElementById('log-body').innerHTML = '';
+  setLogIndicator('active');
+
+  fetch('/api/analysis', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  })
+  .then(function(r) {
+    if (r.status === 409) {
+      stat.textContent = 'ניתוח כבר רץ, אנא המתן';
+      resetRunBtn();
+      return;
+    }
+    // Start SSE log stream
+    var es = new EventSource('/api/logs');
+    es.onmessage = function(evt) {
+      var data = evt.data;
+      if (!data || data === '__CONNECTED__') return;
+      if (data.startsWith('__DONE__')) {
+        es.close();
+        setLogIndicator('');
+        appendLog('✓ הניתוח הסתיים — מרענן...', 'sys');
+        stat.textContent = 'הדשבורד עודכן!';
+        resetRunBtn();
+        var parts = data.split(':');
+        var monthKey = parts.length > 1 ? parts[1] : null;
+        setTimeout(function() {
+          if (monthKey) { location.href = '/general/' + monthKey; }
+          else { location.reload(); }
+        }, 800);
+        return;
+      }
+      if (data === '__ERROR__') {
+        es.close();
+        setLogIndicator('error');
+        appendLog('✗ שגיאה בניתוח', 'err');
+        stat.textContent = 'אירעה שגיאה — ראה לוג';
+        document.getElementById('log-err-badge').style.display = 'block';
+        resetRunBtn();
+        return;
+      }
+      appendLog(data);
+    };
+    es.onerror = function() {
+      es.close();
+      setLogIndicator('error');
+      resetRunBtn();
+    };
+  })
+  .catch(function(e) {
+    stat.textContent = 'שגיאת חיבור לשרת';
+    resetRunBtn();
+  });
+}
+
+function resetRunBtn() {
+  var btn = document.getElementById('actions-run-btn');
+  btn.disabled = false;
+  btn.classList.remove('running');
+  btn.textContent = 'הפעל ניתוח';
+}
+
+// ── Log drawer ────────────────────────────────────────────
+function toggleLogDrawer() {
+  document.getElementById('log-drawer').classList.toggle('expanded');
+  document.getElementById('log-toggle-btn').classList.toggle('active',
+    document.getElementById('log-drawer').classList.contains('expanded'));
+}
+
+function appendLog(msg, cls) {
+  var body = document.getElementById('log-body');
+  var line = document.createElement('div');
+  line.className = 'log-line ' + (cls || classifyLog(msg));
+  line.textContent = msg;
+  body.appendChild(line);
+  body.scrollTop = body.scrollHeight;
+}
+
+function classifyLog(msg) {
+  if (!msg) return 'info';
+  if (msg.indexOf('[ERROR]') !== -1) return 'err';
+  if (msg.indexOf('[WARNING]') !== -1) return 'warn';
+  if (msg.indexOf('[SYSTEM]') !== -1) return 'sys';
+  return 'info';
+}
+
+function setLogIndicator(state) {
+  var ind = document.getElementById('log-indicator');
+  ind.className = 'log-drawer-indicator' + (state ? ' ' + state : '');
+}
+
+// ── Month navigation ──────────────────────────────────────
+var _allMonths   = [];   // [{key, year, month, generated, has_file}] sorted ascending
+var _currentKey  = (document.body.dataset || {}).month || '';  // 'YYYY_MM'
+
+function _keyToDate(key) {
+  // key = 'YYYY_MM'
+  var parts = key.split('_');
+  return new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, 1);
+}
+
+function _dateToKey(d) {
+  var y = d.getFullYear();
+  var m = d.getMonth() + 1;
+  return y + '_' + (m < 10 ? '0' + m : m);
+}
+
+function _monthLabel(year, month) {
+  var names = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני',
+               'יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+  return names[month - 1] + ' ' + year;
+}
+
+function navMonth(delta) {
+  if (!_currentKey) return;
+  var d = _keyToDate(_currentKey);
+  d.setMonth(d.getMonth() + delta);
+  var key = _dateToKey(d);
+  location.href = '/general/' + key;
+}
+
+function navToSelected(key) {
+  if (key && key !== _currentKey) location.href = '/general/' + key;
+}
+
+function reloadCurrent() {
+  if (!_currentKey) return;
+  var btn  = document.getElementById('reload-btn');
+  var stat = document.getElementById('actions-status');
+  var parts = _currentKey.split('_');
+  var year  = parseInt(parts[0], 10);
+  var month = parseInt(parts[1], 10);
+  // Build a date string for the first day of the month
+  var dateStr = year + '-' + (month < 10 ? '0' + month : month) + '-01';
+
+  btn.classList.add('running');
+  btn.disabled = true;
+
+  // Open log drawer
+  var drawer = document.getElementById('log-drawer');
+  if (!drawer.classList.contains('expanded')) { toggleLogDrawer(); }
+  document.getElementById('log-body').innerHTML = '';
+  setLogIndicator('active');
+
+  fetch('/api/analysis', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ month: 'pick', date: dateStr })
+  })
+  .then(function(r) {
+    if (r.status === 409) {
+      btn.classList.remove('running');
+      btn.disabled = false;
+      return;
+    }
+    var es = new EventSource('/api/logs');
+    es.onmessage = function(evt) {
+      var data = evt.data;
+      if (!data || data === '__CONNECTED__') return;
+      if (data.startsWith('__DONE__')) {
+        es.close();
+        setLogIndicator('');
+        appendLog('✓ הניתוח הסתיים — מרענן...', 'sys');
+        btn.classList.remove('running');
+        btn.disabled = false;
+        setTimeout(function() { location.href = '/general/' + _currentKey; }, 600);
+        return;
+      }
+      if (data === '__ERROR__') {
+        es.close();
+        setLogIndicator('error');
+        btn.classList.remove('running');
+        btn.disabled = false;
+        return;
+      }
+      appendLog(data);
+    };
+    es.onerror = function() {
+      es.close();
+      btn.classList.remove('running');
+      btn.disabled = false;
+    };
+  });
+}
+
+function _initMonthNav() {
+  fetch('/api/general/list')
+    .then(function(r) { return r.json(); })
+    .then(function(list) {
+      _allMonths = list;
+
+      var sel = document.getElementById('month-nav-select');
+      if (!sel) return;
+      sel.innerHTML = '';
+
+      // Build set of keys that have files
+      var hasFile = {};
+      list.forEach(function(m) { hasFile[m.key] = true; });
+
+      // If current month not in list, add it
+      if (_currentKey && !hasFile[_currentKey]) {
+        var parts = _currentKey.split('_');
+        list.push({
+          key: _currentKey,
+          year: parseInt(parts[0], 10),
+          month: parseInt(parts[1], 10),
+          generated: null,
+          has_file: false
+        });
+        // Re-sort
+        list.sort(function(a, b) { return a.key.localeCompare(b.key); });
+      }
+
+      list.forEach(function(m) {
+        var opt = document.createElement('option');
+        opt.value = m.key;
+        opt.textContent = _monthLabel(m.year, m.month) + (m.generated ? '' : ' (לא נוצר)');
+        opt.className = m.generated ? 'has-file' : 'no-file';
+        if (m.key === _currentKey) opt.selected = true;
+        sel.appendChild(opt);
+      });
+
+      // Show nav bar
+      var nav = document.getElementById('month-nav');
+      if (nav) nav.style.display = '';
+
+      // Update generated label
+      var genLabel = document.getElementById('generated-label');
+      if (genLabel && document.body.dataset && document.body.dataset.generated) {
+        genLabel.textContent = 'נוצר: ' + document.body.dataset.generated;
+      }
+    })
+    .catch(function() { /* not running via Flask, skip */ });
+}
+
+// Check if Flask server is available (only show actions panel when running via Flask)
+(function detectFlask() {
+  fetch('/api/status', { method: 'GET' })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      // Server is available — show actions controls
+      document.getElementById('actions-toggle-btn').style.display = '';
+      document.getElementById('log-toggle-btn').style.display = '';
+      document.getElementById('reload-btn').style.display = '';
+      if (d.running) {
+        setLogIndicator('active');
+        document.getElementById('log-drawer').classList.add('expanded');
+      }
+      _initMonthNav();
+    })
+    .catch(function() {
+      // No Flask server — hide the web-only controls
+      document.getElementById('actions-toggle-btn').style.display = 'none';
+      document.getElementById('log-toggle-btn').style.display = 'none';
+    });
 })();
 </script>
 </body>

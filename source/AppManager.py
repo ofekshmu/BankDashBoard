@@ -799,7 +799,7 @@ class AppManager:
             from datetime import datetime
             #convert date string column to datetime
             data['Date'] = pd.to_datetime(data['Date'])
-            sum = data['Final_Value'].sum(numeric_only=True)
+            sum = data['Final_Value'].sum()
             # calculate the amount of months between the earliest month in the df to the current month
             month_count = (datetime.now().year - data['Date'].min().year) * 12 + (datetime.now().month - data['Date'].min().month) + 1
             return round(sum / month_count, 2)

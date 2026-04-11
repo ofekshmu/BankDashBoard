@@ -291,7 +291,8 @@ class Graphics:
             plt.figure(figsize=(6, 3))
 
             # Adding the values on top of the bar plots:
-            ax = sns.barplot(x="CardID", hue="CardID", y="Final_Value", data=df_card_status, palette=color_dict, legend=False)
+            ax = sns.barplot(x="CardID", hue="CardID", y="Final_Value", data=df_card_status, palette=color_dict)
+            ax.get_legend().remove() if ax.get_legend() else None
             for index ,p in enumerate(ax.patches):
                 height = p.get_height()
                 status = df_card_status['Status'].iloc[index]
@@ -544,7 +545,6 @@ class Graphics:
 
         Amount spent in cash and the amount earned in cash in the given month will be returned.
         """
-        from pandasgui import show
         chart_name = "Cash_Distribution"
         chart_title = chart_name.replace('_', ' ')
         

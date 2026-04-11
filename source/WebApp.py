@@ -90,6 +90,18 @@ def index():
     return _splash_html()
 
 
+@app.route('/outputs/<path:filename>')
+def serve_outputs(filename):
+    """Serve static files from the Outputs directory (e.g. mortgage PNGs)."""
+    outputs_dir = os.path.join(_PROJECT_DIR, 'Outputs')
+    file_path = os.path.join(outputs_dir, filename)
+    if not os.path.abspath(file_path).startswith(os.path.abspath(outputs_dir)):
+        return "Forbidden", 403
+    if not os.path.isfile(file_path):
+        return "Not found", 404
+    return send_file(file_path)
+
+
 @app.route('/general/<yyyy_mm>')
 def serve_general(yyyy_mm):
     if not _re.match(r'^\d{4}_\d{2}$', yyyy_mm):

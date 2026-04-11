@@ -1404,9 +1404,9 @@ class utils:
                 card.append(img)
                 return card
 
-            charts_row.append(_chart_card("יתרת משכנתא לאורך הזמן",    Paths.MORTGAGE_BALANCE_GRAPH,   full_width=True))
-            charts_row.append(_chart_card("פירוט קרן וריבית",           Paths.MORTGAGE_BREAKDOWN_GRAPH))
-            charts_row.append(_chart_card("תזרים מזומנים — דיור",       Paths.MORTGAGE_CASHFLOW_GRAPH))
+            charts_row.append(_chart_card("יתרת משכנתא לאורך הזמן",    "/outputs/Mortgage_Balance.png",   full_width=True))
+            charts_row.append(_chart_card("פירוט קרן וריבית",           "/outputs/Mortgage_Breakdown.png"))
+            charts_row.append(_chart_card("תזרים מזומנים — דיור",       "/outputs/Mortgage_Cashflow.png"))
             housing_panel.append(charts_row)
 
             # ── Milestone table ───────────────────────────────────────

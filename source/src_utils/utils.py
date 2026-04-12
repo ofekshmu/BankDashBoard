@@ -1468,11 +1468,23 @@ class utils:
             txn_df = md.get("housing_transactions")
             if txn_df is not None and not txn_df.empty:
                 txn_wrap = tag("div", class_="housing-txn-table card")
-                txn_ttl  = tag("div", class_="card-title")
-                txn_ttl.string = f"כל העסקאות — {md['mortgage_category']}"
-                txn_wrap.append(txn_ttl)
+                txn_hdr  = tag("div", class_="card-title housing-txn-hdr")
+                ttl_span = tag("span")
+                ttl_span.string = f"כל העסקאות — {md['mortgage_category']}"
+                cnt_span = tag("span", class_="panel-count", id="housing-footer-count")
+                txn_hdr.append(ttl_span)
+                txn_hdr.append(cnt_span)
+                txn_wrap.append(txn_hdr)
 
-                txn_tbl = tag("table", class_="milestone-table housing-txn")
+                # Search box
+                srch_wrap = tag("div", class_="txn-search-wrap")
+                srch_inp  = tag("input", class_="txn-search", id="housing-txn-search",
+                                type="text", placeholder="חיפוש עסקה...")
+                srch_inp["oninput"] = "filterHousingTxns(this.value)"
+                srch_wrap.append(srch_inp)
+                txn_wrap.append(srch_wrap)
+
+                txn_tbl = tag("table", class_="milestone-table housing-txn", id="housing-txn-tbl")
                 hdr = tag("tr")
                 for col in ["תאריך", "שם", "הוצאה (₪)", "הכנסה (₪)"]:
                     th = tag("th"); th.string = col; hdr.append(th)
@@ -1509,6 +1521,13 @@ class utils:
                     txn_tbl.append(tr)
 
                 txn_wrap.append(txn_tbl)
+
+                # Totals footer (sum only — count is in the header)
+                footer = tag("div", class_="txn-footer", id="housing-txn-footer")
+                fs = tag("span", id="housing-footer-sum", class_="txn-footer-sum")
+                footer.append(fs)
+                txn_wrap.append(footer)
+
                 housing_panel.append(txn_wrap)
 
             # ── Live rate slider JS ────────────────────────────────────
@@ -1603,6 +1622,49 @@ if (slider) {
   slider.addEventListener('input', () => hsRecalc(parseFloat(slider.value)));
   hsRecalc(parseFloat(slider.value));
 }
+function _parseHousingAmt(text) {
+  text = (text || '').trim().replace(/,/g, '');
+  if (!text || text === '\u2014') return 0;
+  return parseFloat(text) || 0;
+}
+function _fmtHousingSum(n) {
+  var abs = Math.abs(n).toLocaleString('he-IL', {minimumFractionDigits:0, maximumFractionDigits:0});
+  return n < 0 ? '(' + abs + ') \u20aa' : abs + ' \u20aa';
+}
+function _updateHousingFooter(rows) {
+  var totalOut = 0, totalInc = 0, visible = 0;
+  rows.forEach(function(row) {
+    if (row.style.display === 'none') return;
+    visible++;
+    var cells = row.querySelectorAll('td');
+    if (cells[2]) totalOut += _parseHousingAmt(cells[2].textContent);
+    if (cells[3]) totalInc += _parseHousingAmt(cells[3].textContent);
+  });
+  var fc = document.getElementById('housing-footer-count');
+  if (fc) fc.textContent = visible + ' \u05e2\u05e1\u05e7\u05d0\u05d5\u05ea';
+  var fs = document.getElementById('housing-footer-sum');
+  if (fs) {
+    var net = totalInc - totalOut;
+    fs.textContent = '\u05d4\u05d5\u05e6\u05d0\u05d5\u05ea: ' + _fmtHousingSum(totalOut) + '  |  \u05d4\u05db\u05e0\u05e1\u05d5\u05ea: ' + _fmtHousingSum(totalInc);
+    fs.className = 'txn-footer-sum';
+  }
+}
+function filterHousingTxns(q) {
+  q = q.trim().toLowerCase();
+  var tbl = document.getElementById('housing-txn-tbl');
+  if (!tbl) return;
+  var rows = tbl.querySelectorAll('tr:not(:first-child)');
+  rows.forEach(function(row) {
+    var cells = row.querySelectorAll('td');
+    var text = Array.from(cells).map(function(c) { return c.textContent.toLowerCase(); }).join(' ');
+    row.style.display = (!q || text.indexOf(q) !== -1) ? '' : 'none';
+  });
+  _updateHousingFooter(rows);
+}
+document.addEventListener('DOMContentLoaded', function() {
+  var tbl = document.getElementById('housing-txn-tbl');
+  if (tbl) _updateHousingFooter(tbl.querySelectorAll('tr:not(:first-child)'));
+});
 """
             script = tag("script")
             script.string = js_code
@@ -2885,6 +2947,12 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;
 .txn-search:focus{{border-color:var(--teal);box-shadow:0 0 0 3px var(--teal-light)}}
 .txn-no-results{{text-align:center;padding:28px;color:var(--text-muted);
   font-size:.85em;display:none}}
+.txn-footer{{display:flex;justify-content:space-between;align-items:center;
+  padding:8px 12px;margin-top:6px;border-top:2px solid var(--border);
+  font-size:.82em;font-weight:600;color:var(--navy);background:var(--bg);
+  border-radius:0 0 8px 8px}}
+.txn-footer-sum.neg{{color:var(--red)}}
+.txn-footer-sum.pos{{color:var(--teal)}}
 
 /* Log drawer */
 .log-drawer{{position:fixed;bottom:0;left:0;right:72px;background:var(--navy);
@@ -3010,6 +3078,9 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;
 {txn_rows}        </tbody>
       </table>
       <div class="txn-no-results" id="txn-no-results">לא נמצאו עסקאות תואמות</div>
+    </div>
+    <div class="txn-footer" id="txn-footer">
+      <span class="txn-footer-sum" id="txn-footer-sum"></span>
     </div>
   </div>
 </div>
@@ -3219,29 +3290,61 @@ function appendLog(msg) {{
 }}
 
 // ── Transaction search ────────────────────────────────────
+function _parseTxnAmt(text) {{
+  text = (text || '').trim().replace('₪','').replace(/\s/g,'');
+  if (!text || text === '\u2014') return 0;
+  if (text.startsWith('(') && text.endsWith(')'))
+    return -(parseFloat(text.slice(1,-1).replace(/,/g,'')) || 0);
+  return parseFloat(text.replace(/,/g,'')) || 0;
+}}
+function _fmtSum(n) {{
+  var abs = Math.abs(n).toLocaleString('he-IL', {{minimumFractionDigits:0, maximumFractionDigits:0}});
+  return n < 0 ? '(' + abs + ') \u20aa' : abs + ' \u20aa';
+}}
 function filterTxns(q) {{
   q = q.trim().toLowerCase();
   var rows = document.querySelectorAll('.txn-table tbody tr');
-  var visible = 0;
+  var visible = 0; var sum = 0;
   rows.forEach(function(row) {{
     var name = (row.querySelector('.td-name') || document.createElement('td')).textContent || '';
     var date = (row.querySelector('.td-date') || document.createElement('td')).textContent || '';
     var match = !q || name.toLowerCase().indexOf(q) !== -1 || date.indexOf(q) !== -1;
     row.style.display = match ? '' : 'none';
-    if (match) visible++;
+    if (match) {{
+      visible++;
+      var valEl = row.querySelector('.td-val');
+      if (valEl) sum += _parseTxnAmt(valEl.textContent);
+    }}
   }});
   var count = document.getElementById('panel-count');
-  if (count) count.textContent = visible + ' עסקאות';
+  if (count) count.textContent = visible + ' \u05e2\u05e1\u05e7\u05d0\u05d5\u05ea';
   var noRes = document.getElementById('txn-no-results');
   if (noRes) noRes.style.display = (visible === 0 && q) ? '' : 'none';
+  var fc = document.getElementById('txn-footer-count');
+  if (fc) fc.textContent = visible + ' \u05e2\u05e1\u05e7\u05d0\u05d5\u05ea';
+  var fs = document.getElementById('txn-footer-sum');
+  if (fs) {{ fs.textContent = '\u05e1\u05d4"\u05db: ' + _fmtSum(sum); fs.className = 'txn-footer-sum ' + (sum < 0 ? 'neg' : 'pos'); }}
 }}
+function _initTxnFooter() {{
+  var rows = document.querySelectorAll('.txn-table tbody tr');
+  var sum = 0;
+  rows.forEach(function(row) {{
+    var valEl = row.querySelector('.td-val');
+    if (valEl) sum += _parseTxnAmt(valEl.textContent);
+  }});
+  var fc = document.getElementById('txn-footer-count');
+  if (fc) fc.textContent = rows.length + ' \u05e2\u05e1\u05e7\u05d0\u05d5\u05ea';
+  var fs = document.getElementById('txn-footer-sum');
+  if (fs) {{ fs.textContent = '\u05e1\u05d4"\u05db: ' + _fmtSum(sum); fs.className = 'txn-footer-sum ' + (sum < 0 ? 'neg' : 'pos'); }}
+}}
+document.addEventListener('DOMContentLoaded', _initTxnFooter);
 
 // ── Flask detection ───────────────────────────────────────
 (function detectFlask() {{
   fetch('/api/status', {{method: 'GET'}})
     .then(function(r) {{ return r.json(); }})
     .then(function() {{
-      document.getElementById('reload-btn').style.display = '';
+      document.getElementById('reload-btn').style.display = 'inline-block';
       document.getElementById('log-toggle-btn').style.display = '';
       fetch('/api/category/list')
         .then(function(r) {{ return r.json(); }})

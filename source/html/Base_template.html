@@ -177,6 +177,7 @@ a.nav-btn       { text-decoration: none; }
   transition: background 0.3s, width 0.3s, height 0.3s;
 }
 .cm-item.has-file .cm-dot { background: var(--teal); }
+.cm-item.has-file.stale .cm-dot { background: var(--amber); }
 .cm-item.active.has-file .cm-dot { width: 7px; height: 7px; }
 
 /* Future months — not yet available */
@@ -211,6 +212,14 @@ a.nav-btn       { text-decoration: none; }
 }
 .reload-btn:hover { background: var(--teal); color: #fff; }
 .reload-btn.running { opacity: 0.6; cursor: wait; }
+@keyframes _reloadGlow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(30,157,139,0.55); }
+  50%       { box-shadow: 0 0 0 7px rgba(30,157,139,0); }
+}
+.reload-btn.stale {
+  border-color: var(--teal);
+  animation: _reloadGlow 1.6s ease-in-out infinite;
+}
 
 /* ── KPI row ─────────────────────────────────────────────── */
 .kpi-row {
@@ -1504,6 +1513,18 @@ function _buildRoller(list) {
   var roller = document.getElementById('month-roller');
   if (roller) roller.style.display = '';
 
+  // Colour dots: green = up-to-date, yellow = stale
+  fetch('/api/stale-all')
+    .then(function(r) { return r.json(); })
+    .then(function(map) {
+      document.querySelectorAll('#roller-track .cm-item[data-key]').forEach(function(el) {
+        var k = el.dataset.key;
+        if (map[k] === true)  el.classList.add('stale');
+        else                  el.classList.remove('stale');
+      });
+    })
+    .catch(function() {});
+
   // Attach wheel listener once
   if (roller && !roller._wheelBound) {
     roller._wheelBound = true;
@@ -1592,7 +1613,7 @@ function reloadCurrent() {
       if (data.startsWith('__DONE__')) {
         es.close();
         appendLog('✓ הניתוח הסתיים — מרענן...', 'done');
-        btn.classList.remove('running'); btn.disabled = false;
+        btn.classList.remove('running', 'stale'); btn.disabled = false;
         hideLogFloat(1000);
         setTimeout(function() { location.href = '/general/' + _currentKey; }, 1200);
         return;
@@ -1608,6 +1629,24 @@ function reloadCurrent() {
     };
     es.onerror = function() { es.close(); btn.classList.remove('running'); btn.disabled = false; hideLogFloat(0); };
   });
+}
+
+function _checkStale() {
+  if (!_currentKey) return;
+  fetch('/api/stale/' + _currentKey)
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      var btn  = document.getElementById('reload-btn');
+      var item = document.querySelector('#roller-track .cm-item[data-key="' + _currentKey + '"]');
+      if (d.stale) {
+        btn.classList.add('stale');
+        if (item) item.classList.add('stale');
+      } else {
+        btn.classList.remove('stale');
+        if (item) item.classList.remove('stale');
+      }
+    })
+    .catch(function() {});
 }
 
 function _initMonthNav() {
@@ -1631,6 +1670,7 @@ _initMonthNav();
       document.getElementById('actions-toggle-btn').style.display = '';
       document.getElementById('reload-btn').style.display = 'inline-block';
       if (d.running) { setLogIndicator('active'); }
+      _checkStale();
     })
     .catch(function() {
       // No Flask server — hide the web-only controls

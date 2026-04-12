@@ -7,6 +7,8 @@ GET  /              serve output.html (or a splash screen when none exists)
 POST /api/analysis  start general_analysis in a background thread
 GET  /api/logs      SSE stream of log lines produced during analysis
 GET  /api/status    return {"running": bool}
+GET  /api/stale/<yyyy_mm>   return {"stale": bool}
+GET  /api/stale-all         return {yyyy_mm: bool, ...} for all pages
 """
 
 import os
@@ -464,6 +466,54 @@ def _not_generated_category_html(slug: str) -> str:
 @app.route('/api/status')
 def status():
     return jsonify({'running': _analysis_running})
+
+
+@app.route('/api/stale-all')
+def stale_all():
+    """Return {key: bool} stale status for every generated monthly page."""
+    result = {}
+    if not os.path.isdir(GENERAL_ANALYSIS_DIR):
+        return jsonify(result)
+    max_src = _max_source_mtime()
+    for fname in os.listdir(GENERAL_ANALYSIS_DIR):
+        m = _re.match(r'^(\d{4}_\d{2})\.html$', fname)
+        if m:
+            key = m.group(1)
+            html_mtime = os.path.getmtime(os.path.join(GENERAL_ANALYSIS_DIR, fname))
+            result[key] = max_src > html_mtime
+    return jsonify(result)
+
+
+def _max_source_mtime() -> float:
+    """Return the newest mtime across all source .py/.html files and DB files."""
+    max_mt = 0.0
+    source_dir = os.path.join(_PROJECT_DIR, 'source')
+    _skip_html = {'output.html', 'Category_output.html'}
+    for root, dirs, files in os.walk(source_dir):
+        dirs[:] = [d for d in dirs if d not in ('__pycache__',)]
+        for f in files:
+            if f.endswith('.py') or (f.endswith('.html') and f not in _skip_html):
+                mt = os.path.getmtime(os.path.join(root, f))
+                if mt > max_mt:
+                    max_mt = mt
+    for db in ('ShmuelFamiliy.db', os.path.join('source', 'ShmuelFamiliy.db')):
+        db_path = os.path.join(_PROJECT_DIR, db)
+        if os.path.exists(db_path):
+            mt = os.path.getmtime(db_path)
+            if mt > max_mt:
+                max_mt = mt
+    return max_mt
+
+
+@app.route('/api/stale/<yyyy_mm>')
+def check_stale(yyyy_mm):
+    if not _re.match(r'^\d{4}_\d{2}$', yyyy_mm):
+        return jsonify({'stale': False})
+    html_path = os.path.join(GENERAL_ANALYSIS_DIR, f'{yyyy_mm}.html')
+    if not os.path.exists(html_path):
+        return jsonify({'stale': True})
+    html_mtime = os.path.getmtime(html_path)
+    return jsonify({'stale': _max_source_mtime() > html_mtime})
 
 
 @app.route('/api/analysis', methods=['POST'])

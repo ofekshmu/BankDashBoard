@@ -4,7 +4,7 @@
   <meta charset="utf-8"/>
   <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
   <title id="page-title">
-   Dashboard — April 2026
+   Dashboard — November 2024
   </title>
   <style>
    /* ── Reset ──────────────────────────────────────────────── */
@@ -31,6 +31,7 @@
 }
 
 /* ── Base ────────────────────────────────────────────────── */
+@keyframes _pageIn { from { opacity: 0; } to { opacity: 1; } }
 body {
   font-family: 'Segoe UI', Arial, sans-serif;
   background: var(--bg);
@@ -39,6 +40,7 @@ body {
   direction: rtl;
   color: var(--navy);
   font-size: 14px;
+  animation: _pageIn 0.22s ease;
 }
 
 /* ── Sidebar ─────────────────────────────────────────────── */
@@ -78,6 +80,7 @@ body {
 .nav-btn:hover  { background: #f0f4ff; color: var(--navy); }
 .nav-btn.active { background: var(--teal); color: #fff; box-shadow: 0 4px 14px var(--teal-glow); }
 .nav-btn .lbl   { font-size: 0.34em; font-weight: 600; letter-spacing: 0.4px; line-height: 1; }
+a.nav-btn       { text-decoration: none; }
 .nav-badge {
   position: absolute; top: 7px; left: 6px;
   background: var(--red); color: #fff;
@@ -191,6 +194,9 @@ body {
 /* ── Header right area (generated + reload) ──────────────── */
 .page-header-right {
   display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+}
+.generated-row {
+  display: flex; align-items: center; gap: 8px; flex-shrink: 0;
 }
 .generated-label {
   font-size: 0.72em; color: var(--text-muted);
@@ -409,8 +415,25 @@ body {
 
 /* Transactions table */
 .housing-txn-table { margin-top: 18px; }
+.housing-txn-hdr { display: flex; justify-content: space-between; align-items: center; }
+.panel-count { font-size: 0.9em; color: var(--navy); font-weight: 600; }
 .housing-txn tbody tr:nth-child(even) { background: #f8fafc; }
 .housing-txn td, .housing-txn th { font-size: 0.82em; padding: 7px 12px; }
+.txn-search-wrap { margin-bottom: 12px; }
+.txn-search {
+  width: 100%; padding: 8px 14px;
+  border: 1.5px solid var(--border); border-radius: 8px;
+  font-size: 0.84em; color: var(--navy); background: var(--white);
+  outline: none; transition: border-color 0.18s, box-shadow 0.18s; direction: rtl;
+  box-sizing: border-box;
+}
+.txn-search:focus { border-color: var(--teal); box-shadow: 0 0 0 3px var(--teal-light); }
+.txn-footer { display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 12px; margin-top: 6px; border-top: 2px solid var(--border);
+  font-size: 0.82em; font-weight: 600; color: var(--navy); background: var(--bg);
+  border-radius: 0 0 8px 8px; }
+.txn-footer-sum.neg { color: var(--red); }
+.txn-footer-sum.pos { color: var(--teal); }
 
 .housing-alert-banner {
   background: #fff5f5; border: 1.5px solid #e74c3c; border-radius: var(--radius);
@@ -484,6 +507,25 @@ body {
 .chart-card img { width: 100%; height: auto; border-radius: var(--radius-sm); display: block; }
 .chart-card canvas { max-width: 100%; display: block; }
 .chart-card.full-width img { max-height: 420px; object-fit: contain; }
+
+/* Installment payments grid */
+.payments-section-title {
+  font-size: 0.82em; font-weight: 700; color: var(--navy);
+  margin: 8px 0 12px;
+  padding-left: 10px;
+  border-left: 3px solid var(--teal);
+}
+.payments-grid {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 220px));
+  justify-content: center;
+}
+.payment-footer {
+  text-align: center; font-size: 0.8em; color: #555;
+  margin-top: 8px; font-weight: 600;
+  padding-top: 6px; border-top: 1px solid #eef0f6;
+}
+.tx-grid { margin-bottom: 0; }
+#tx-bottom-block { margin-top: 16px; }
 
 /* hover-swap charts */
 .hover-image-container { position: relative; display: block; width: 100%; }
@@ -913,7 +955,7 @@ body {
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js">
   </script>
  </head>
- <body data-generated="11/04/2026 17:31" data-month="2026_04">
+ <body data-generated="12/04/2026 23:34" data-month="2024_11">
   <!-- ── Sidebar ───────────────────────────────────────────── -->
   <nav class="sidebar">
    <!-- Logo -->
@@ -951,36 +993,28 @@ body {
     </span>
    </button>
    <button class="nav-btn" onclick="showPanel('alerts',this)" title="התראות">
-    <span>
-     ⚠
-    </span>
+    <img alt="" height="24" src="data:image/png;base64,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" style="display:block" width="24"/>
     <span class="nav-badge" id="alert-badge">
-     19
+     13
     </span>
     <span class="lbl">
      התראות
     </span>
    </button>
    <button class="nav-btn" onclick="showPanel('accounts',this)" title="חשבונות">
-    <span>
-     🏦
-    </span>
+    <img alt="" height="24" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAKYklEQVR4nI2ZS2xdRxmAv/+ccx+2kzgPN3Hspk0pbSNSIUiyKGXVBSBRIZAQCCEWCIkNElIlQCybJWLJEsSiYle6rwSljYQoFW1IoSlpkyZx4iZx7Nq+9n2ec2bmZ+F7nLlz57od6ejMPf/M/57/MVdUtQ5YHgwFZPhmOA9heHAi62JrY/NJND8N3+7vBMg+ZWPIrEaQSQCL7fPXxnD4eGL4QgEBNCGuUQWS4RMbIfMxYT4LLBR4Eq2YUmFogXDhmJQerELkCx4jNpEgo1pOJsw/zTK7IwFSRrURChLTqJuAMDS5TyeEh24Um/v7YsJoEiGaRBBUTAijQoaC+ev87yH+cB7ir9xXIzBfCBLGtemCeTViGttLg6GmmbDO/x7Sq/iKeYdWAuw1JoWy0NdjPhtaa5JwsX2fdYhvpmr4fhcz+aSzErpjyFSl3TSgFTvUMG5ZH/+uS8Us4LxNyniS813Aeeuq+V6hMgwAodv481AQH/9ndqEQyaTsG3O1STiqeSxa+fsn5YeRiBQTIDzxUdN5cH2f96t1MWZ9hidp2LdgDFbRHoP5H/eKwyFTGVCr4Kc5nS4tLaXD3xmjITDz9jdWWGlc5GKliOqdAo3h26cdutuYVURVp4EB4/5VJTgbIJQhUwKUwBRgRaQLoKq1FVbq88yXPEiU5u7du+nCwoIVkXy4bh9QB9reOjfEWSnOP/jVWRxx51hJEPp7KL0D7PLysgLZjfaNP3xs7rx1vb300s3e7R8Ac8flePfChQtVMODPYBYXF3vQm7u4celHb6//+0/vdC+98+bav34PNH537VUAM3yUcW37YVdGvqvqlKomwydT1Zo3rw/f6fB7TVXTN/SNDMCo/vzO4F6xXN7RO25Fb5a39fL2hzevtq7/TFWzF/XFpNL2fzev/OIfa28v/6d3Rf9XXNdLnSv67taVvqr+spHUuKyX66raHNKqaKce7SzgMVXVRFR1Buh7LlRpubJO5TYJ4ETEqOr05fUPXjg8ffjHLnFPtHpbRiQRVElrWUpD6Gz3Xj535PRPgcab65f+WJ+pf0sGQl4U1qijU3Q5cXA+nZbmyrurV1767ue+/htgm9GzZ3lQVlQuNJJvqgPmj1g1ujtX1Ubf5r+S/Y3za/0tGpqqQTOcxanDDUrnBqhMpd+/1ro509N83tWTs+3WwBpnxOBS65SOy+nlhV4Z3J6/7VZ/7XCDhOS35zk/OM95P1/E+BvJA+HCWAHmb5rtlYPv9Xq5aw/6xgKlcRTWkltDbstkYIq0tbnlupl5vq/27Np6y3XMIN0u+0m7GLBd9ugUfZyqfNLZtqqZa+e97wCHz3PeD6kVf2EY3fWWLAIIY371PWXnkM1Y9EAvLxJnHc5pMTBlw4nDOotzDgf0bJ641oZTVbquSKQwlNZQ6M45vdvf4OTMogORblEkVmkCdRFRVfWjkO/KY11cBivAfGge//euYEPkqUKtxIJTrLq0Z8sd91GlVINRR25KUsmSvivZLnNUwaqlVMNG3matv0kxZ5LSOVcahURnIrQnVbS7Cs885n0rRH+rqgBOBFsYhzhH35msUxQIQqGGUg3WObpmQCOtY9XRyvukktCxA7byLrkpKF1CpyixTjAPWKuxQyOsAkJedgXzD7FfYbpg7o9EEMkLSwoMypKtwYBEhEItxlmsOjom50jdkVvHer+LVUu3HOAUEkkYFAWDssA5KI2gbhhlRHQoBIxm4rGICKNRKLZpxKRDF3KAlqoYp6RlSacoQcCoHT6GzbzH8alZ+rbkXnuLZpqhqiA78bA0Sm4NxkFpQARlJwtXtCeVESMNThhGY91W2EKKony4scrRxjTKFEvtdZppjcIZcltinKGV93h8/0NYlLxUUhGs6k50UDBOyJ0bCuBQ0QY7pQUeD7ExUsVWd0KxtrAau6Gsig6ZJLrS7jBFSqnKjfUWs/UGKoqKggr9EowK1kFeQCrgVEDBOMf6oKCfW5yF0oEgA3aiHIxWpqECR/gNu/6wZq8s4JfRDoWUlNxYTs8d48zxRQ5OT+MsbPdKCmMpjcMapbRKbpSiUNq9kkFuOdLcxzPzJzl15ChGwWmCqIRuMsmNRg5yBisSRKLw0O6e+OEZqKmQtPOcW59sSK+wJDXlybk5aseOcq/d5r17q7T7JapgnNIZWOqinDm+wCMHD7Od9+nlBX+/c4OLK3c4fmAWh2sy2m6GPu8reNe9wjAaSjjiUsMwaqxTfebESZY21rU0Rvq54frqJirK43MH+dqTj/P6tSU6paG0lmNT+/j26VN8sHaf1z+6Ri3NmKnXmG40OHvsYR49NIdC7ilvEvNjgoRh1M+AYSqvNnXrZC3RdLE0jmMzB2imNQ493CBNhSsr93lveZWvPHqCA1mTepIxN9Pkn0u3eGR2juefWKCeJLSLglaRs9Hv0Mzq1Mg22RHCZ7AaYUkxVsz5gApB2OpVQhgS/fjGZusLV9c2uP5Ji8IarCrNWsbZhQWefXSe5dYmTz+2QO4K7n/c5bnHnuLq2iqvXvuQVt6nlqY0shSD0yxraPIY94FSR3NArJUcsVDVWe01/HpIgVoCh1746rNye+2+U5yW6rRbGF3pdOXy/VV59YOr8o0nTzHbnCZjH3PNTV776DqHphv6zSdO6cL+AzpdS6WWpCKacOLIUXHOLrLTVvp0wyvJUBjNAkBoolibaepJ9lpRui+eOPhQU1GSNBWL8pQpePbECda7fffW7WVxRgcGrW318/QnXz6jx/cfSJIkk1q9TiqCGZSkaZrWXdqpJ/VXeNCXKOORp+oJRvqDsKEJbyBgtC+tYAcLa5+T1C066/Zba2eN6OdLZ58elMXJxnQ9tc5S9qyxaNKczpIsyRj0czOVZbfqSfNSItyuSXoPEKdyvZFlfwF6Hi0Cht3wqfhwlQDTQwFi1ymhAM77rSKisBudDgBHLXypa7s/tNY9k0iSiIhYZ1w9qf+1kTVfyeAWcFVEeqqaiogd4qhFlBdqvPKCsUM8qYEZuwnzLCWqWgmYXLx4sXfu3LlrwDVV/ZtJOWONmSXLJIVBBm+KyAbAy/py+s4Ow6KqyQUuTKJdeUTVF4S3hupfq4Rar65Vqk2V5KFZK+tUGsoAJ4hRtLorqkqE+nCN8XBUsGyIzzJ6pVPhr6w/4hmTLlOrd6yp8Ne5AFYhFh29NPNzig3274U/dpjx5rLXX0V7ffMjRQiP1TChkP477MGZsMb/NlbMhcBYQhvZyPih95n0k5EfzyXY5/+9FZ63ULnRuf9P5EjN7yELS1s/V/hZOlaK+zjw5rF8U8FDZvFgEsD2zMST0njoIpP2xgTymYxZLrReNPt6z+7Biv0bOLGEjcDCdTHXi4XHEEfs36FYGbFribDW8AnH3KFa64fRWHQICfkMSYAjpijfCjEF7ConbOpjZqxGGNaYAAuHvzYMuyH+8LzF+BqZVxoJs+1eh9JnZpJ7hTkkFGjSvlBxvpVjeHZrjLATIvI7ZCzGBMS15a/b60yFI3bBO4JHhkVU9S/MXlkvnMeYCgnt5VKTcE7CEaX1f9BncUwDsFR5AAAAAElFTkSuQmCC" style="display:block" width="24"/>
     <span class="lbl">
      חשבונות
     </span>
    </button>
    <button class="nav-btn" onclick="showPanel('housing',this)" title="דיור ומשכנתא">
-    <span>
-     🏠
-    </span>
+    <img alt="" height="24" src="data:image/png;base64,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" style="display:block" width="24"/>
     <span class="lbl">
      דיור
     </span>
    </button>
    <a class="nav-btn" href="/categories" title="ניתוח קטגוריות">
-    <span>
-     🏷
-    </span>
+    <img alt="" height="24" src="data:image/png;base64,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" style="display:block" width="24"/>
     <span class="lbl">
      קטגוריות
     </span>
@@ -1051,12 +1085,14 @@ body {
     </div>
    </div>
    <div class="page-header">
-    <span class="generated-label" id="generated-label">
-    </span>
     <div class="page-header-right">
      <h1>
       Dashboard
      </h1>
+    </div>
+    <div class="generated-row">
+     <span class="generated-label" id="generated-label">
+     </span>
      <button class="reload-btn" id="reload-btn" onclick="reloadCurrent()" title="חשב מחדש את החודש הנוכחי">
       ↻ חשב מחדש
      </button>
@@ -1081,7 +1117,7 @@ body {
       Net Income
      </div>
      <div class="kpi-value pos">
-      9,622.45₪
+      1,791.36₪
      </div>
     </div>
     <div class="kpi-card">
@@ -1091,7 +1127,7 @@ body {
       Overall Net Income
      </div>
      <div class="kpi-value pos">
-      9,622.45₪
+      2,791.36₪
      </div>
     </div>
    </div>
@@ -1112,7 +1148,7 @@ body {
        (function(){
   new Chart(document.getElementById('chart-spendings-donut'), {
     type: 'doughnut',
-    data: {"labels": ["הלוואה", "עמלות", "שלום שבאזי 7"], "datasets": [{"data": [1000.0, 7.4, 6574.37], "backgroundColor": ["#ef9a9a", "#ffab91", "#ffcc80"], "borderWidth": 1, "borderColor": "#fff", "hoverOffset": 8}]},
+    data: {"labels": ["Japan 2024", "ביטוח בריאות", "הלוואה", "השקעה/חיסכון", "חשבון אינטרנט", "מנויים", "רכב", "שכירות", "תחביבים ופנאי"], "datasets": [{"data": [16700.53, 25.36, 1000.0, 1000.0, 98.99, 64.9, 1779.34, 4400.0, 35.9], "backgroundColor": ["#ef9a9a", "#ffab91", "#ffcc80", "#ffe082", "#f48fb1", "#ff8a65", "#ffd54f", "#f06292", "#ffb74d"], "borderWidth": 1, "borderColor": "#fff", "hoverOffset": 8}]},
     options: {
       responsive: true, maintainAspectRatio: false,
       cutout: '68%',
@@ -1164,7 +1200,7 @@ body {
        (function(){
   new Chart(document.getElementById('chart-earnings-donut'), {
     type: 'doughnut',
-    data: {"labels": ["אחר", "מזומן", "משכורת", "שלום שבאזי 7"], "datasets": [{"data": [49.32, 500.0, 14354.9, 2800.0], "backgroundColor": ["#a5d6a7", "#80cbc4", "#90caf9", "#80deea"], "borderWidth": 1, "borderColor": "#fff", "hoverOffset": 8}]},
+    data: {"labels": ["Japan 2024", "NotCategorized", "החתונה שלנו", "משכורת"], "datasets": [{"data": [246.59, 130.7, 400.0, 26119.09], "backgroundColor": ["#a5d6a7", "#80cbc4", "#90caf9", "#80deea"], "borderWidth": 1, "borderColor": "#fff", "hoverOffset": 8}]},
     options: {
       responsive: true, maintainAspectRatio: false,
       cutout: '68%',
@@ -1208,23 +1244,15 @@ body {
       <div class="chart-card-title">
        השקעות / חיסכון
       </div>
-      <div class="empty-state">
-       אין נתוני השקעות לחודש זה
-      </div>
-     </div>
-     <div class="chart-card">
-      <div class="chart-card-title">
-       מזומן
-      </div>
       <div style="position:relative;height:320px;">
-       <canvas id="chart-cash-donut" style="width:100%;height:100%;">
+       <canvas id="chart-investments-donut" style="width:100%;height:100%;">
        </canvas>
       </div>
       <script>
        (function(){
-  new Chart(document.getElementById('chart-cash-donut'), {
+  new Chart(document.getElementById('chart-investments-donut'), {
     type: 'doughnut',
-    data: {"labels": ["הכנסה  ₪500", "הוצאה  ₪0"], "datasets": [{"data": [500.0, 0.0], "backgroundColor": ["#a5d6a7", "#ef9a9a"], "borderWidth": 1, "borderColor": "#fff", "hoverOffset": 8}]},
+    data: {"labels": ["אנליסט קופ\"ג -מנותבת"], "datasets": [{"data": [1000.0], "backgroundColor": ["#ffcc80"], "borderWidth": 1, "borderColor": "#fff", "hoverOffset": 8}]},
     options: {
       responsive: true, maintainAspectRatio: false,
       cutout: '68%',
@@ -1263,6 +1291,14 @@ body {
   });
 })();
       </script>
+     </div>
+     <div class="chart-card">
+      <div class="chart-card-title">
+       מזומן
+      </div>
+      <div class="empty-state">
+       אין נתוני מזומן לחודש זה
+      </div>
      </div>
      <div class="chart-card full-width">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 4px 14px;border-bottom:1.5px solid #eef0f6;margin-bottom:12px;">
@@ -1317,12 +1353,36 @@ body {
       </script>
      </div>
     </div>
+    <!-- Installment payments section — injected by Python when payments exist -->
+    <div id="overview-payments-wrap" style="display:none">
+     <div class="payments-section-title">
+      תשלומים חודשיים
+     </div>
+     <div class="charts-grid payments-grid" id="overview-payments">
+     </div>
+    </div>
     <div class="outliers-row" id="overview-outliers">
      <div class="outlier-box">
       <h3>
        קטגוריות הוצאה נוספות
       </h3>
       <ul class="outlier-list">
+       <li class="outlier-item">
+        <span class="outlier-name">
+         ביטוח בריאות
+        </span>
+        <span class="outlier-value">
+         25.36₪
+        </span>
+       </li>
+       <li class="outlier-item">
+        <span class="outlier-name">
+         חשבון אינטרנט
+        </span>
+        <span class="outlier-value">
+         98.99₪
+        </span>
+       </li>
        <li class="outlier-item">
         <span class="outlier-name">
          מזומן
@@ -1333,10 +1393,18 @@ body {
        </li>
        <li class="outlier-item">
         <span class="outlier-name">
-         עמלות
+         מנויים
         </span>
         <span class="outlier-value">
-         7.40₪
+         64.90₪
+        </span>
+       </li>
+       <li class="outlier-item">
+        <span class="outlier-name">
+         תחביבים ופנאי
+        </span>
+        <span class="outlier-value">
+         35.90₪
         </span>
        </li>
       </ul>
@@ -1348,10 +1416,34 @@ body {
       <ul class="outlier-list">
        <li class="outlier-item">
         <span class="outlier-name">
-         אחר
+         Japan 2024
         </span>
         <span class="outlier-value">
-         49.32₪
+         246.59₪
+        </span>
+       </li>
+       <li class="outlier-item">
+        <span class="outlier-name">
+         NotCategorized
+        </span>
+        <span class="outlier-value">
+         130.70₪
+        </span>
+       </li>
+       <li class="outlier-item">
+        <span class="outlier-name">
+         החתונה שלנו
+        </span>
+        <span class="outlier-value">
+         400.00₪
+        </span>
+       </li>
+       <li class="outlier-item">
+        <span class="outlier-name">
+         מזומן
+        </span>
+        <span class="outlier-value">
+         0.00₪
         </span>
        </li>
       </ul>
@@ -1393,7 +1485,7 @@ body {
       <div class="cat-pills" id="spendings-cats">
       </div>
       <div class="tx-scroll" id="spendings-list">
-       <div class="num" data-value="631">
+       <div class="num" data-value="291">
         <div class="color-box" style="background-color:#F0E68C">
         </div>
         <h3>
@@ -1406,71 +1498,1117 @@ body {
          הלוואה
         </p>
         <p class="element4">
-         Wednesday 01
+         Friday 01
         </p>
        </div>
-       <div class="num" data-value="633">
+       <div class="num" data-value="293">
         <div class="color-box" style="background-color:#F0E68C">
         </div>
         <h3>
-         טפחות ס.ביטוח-ה
+         2170710 משיכת שיק
         </h3>
         <p class="date">
-         60.00₪
+         4,400.00₪
         </p>
         <p class="cat">
-         שלום שבאזי 7
+         שכירות
         </p>
         <p class="element4">
-         Wednesday 01
+         Friday 01
         </p>
        </div>
-       <div class="num" data-value="634">
+       <div class="num" data-value="857">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         HOTEL ON BOOKING COM
+        </h3>
+        <p class="date">
+         503.01₪
+         <br/>
+         (20,225.0JPY)
+        </p>
+        <p class="cat">
+         Japan 2024
+        </p>
+        <p class="element4">
+         Saturday 02
+        </p>
+       </div>
+       <div class="num" data-value="856">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         GOOGLE  GOOGLE ONE
+        </h3>
+        <p class="date">
+         8.00₪
+        </p>
+        <p class="cat">
+         מנויים
+        </p>
+        <p class="element4">
+         Saturday 02
+        </p>
+       </div>
+       <div class="num" data-value="858">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         HOTEL ON BOOKING COM
+        </h3>
+        <p class="date">
+         166.57₪
+         <br/>
+         (6,705.0JPY)
+        </p>
+        <p class="cat">
+         Japan 2024
+        </p>
+        <p class="element4">
+         Monday 04
+        </p>
+       </div>
+       <div class="num" data-value="287">
         <div class="color-box" style="background-color:#F0E68C">
         </div>
         <h3>
-         טפחות-משכנתא
+         הראל בטוח
         </h3>
         <p class="date">
-         3,714.37₪
+         25.36₪
         </p>
         <p class="cat">
-         שלום שבאזי 7
+         ביטוח בריאות
         </p>
         <p class="element4">
-         Wednesday 01
+         Tuesday 05
         </p>
        </div>
-       <div class="num" data-value="637">
+       <div class="num" data-value="859">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         HOTEL ON BOOKING COM
+        </h3>
+        <p class="date">
+         380.14₪
+         <br/>
+         (15,523.0JPY)
+        </p>
+        <p class="cat">
+         Japan 2024
+        </p>
+        <p class="element4">
+         Tuesday 05
+        </p>
+       </div>
+       <div class="num" data-value="861">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         HOTEL ON BOOKING COM
+        </h3>
+        <p class="date">
+         368.23₪
+         <br/>
+         (15,057.0JPY)
+        </p>
+        <p class="cat">
+         Japan 2024
+        </p>
+        <p class="element4">
+         Wednesday 06
+        </p>
+       </div>
+       <div class="num" data-value="860">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         KLOOK TRAVEL TECHNOL
+        </h3>
+        <p class="date">
+         424.10₪
+        </p>
+        <p class="cat">
+         Japan 2024
+        </p>
+        <p class="element4">
+         Wednesday 06
+        </p>
+       </div>
+       <div class="num" data-value="863">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         LINKTIVITY
+        </h3>
+        <p class="date">
+         43.16₪
+         <br/>
+         (1,760.0JPY)
+        </p>
+        <p class="cat">
+         Japan 2024
+        </p>
+        <p class="element4">
+         Thursday 07
+        </p>
+       </div>
+       <div class="num" data-value="862">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         KLOOK TRAVEL TECHNOL
+        </h3>
+        <p class="date">
+         305.74₪
+        </p>
+        <p class="cat">
+         Japan 2024
+        </p>
+        <p class="element4">
+         Thursday 07
+        </p>
+       </div>
+       <div class="num" data-value="866">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         TOYOTA RENT A LEASE
+        </h3>
+        <p class="date">
+         831.81₪
+         <br/>
+         (33,731.0JPY)
+        </p>
+        <p class="cat">
+         Japan 2024
+        </p>
+        <p class="element4">
+         Friday 08
+        </p>
+       </div>
+       <div class="num" data-value="864">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         GOOGLE  ORI APP STUD
+        </h3>
+        <p class="date">
+         16.90₪
+        </p>
+        <p class="cat">
+         מנויים
+        </p>
+        <p class="element4">
+         Friday 08
+        </p>
+       </div>
+       <div class="num" data-value="865">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         HOTEL ON BOOKING COM
+        </h3>
+        <p class="date">
+         328.01₪
+         <br/>
+         (13,301.0JPY)
+        </p>
+        <p class="cat">
+         Japan 2024
+        </p>
+        <p class="element4">
+         Friday 08
+        </p>
+       </div>
+       <div class="num" data-value="868">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         HOTEL ON BOOKING COM
+        </h3>
+        <p class="date">
+         169.00₪
+         <br/>
+         (6,853.0JPY)
+        </p>
+        <p class="cat">
+         Japan 2024
+        </p>
+        <p class="element4">
+         Saturday 09
+        </p>
+       </div>
+       <div class="num" data-value="867">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         HOTEL ON BOOKING COM
+        </h3>
+        <p class="date">
+         317.70₪
+         <br/>
+         (12,883.0JPY)
+        </p>
+        <p class="cat">
+         Japan 2024
+        </p>
+        <p class="element4">
+         Saturday 09
+        </p>
+       </div>
+       <div class="num" data-value="869">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         HOTEL ON BOOKING COM
+        </h3>
+        <p class="date">
+         268.50₪
+         <br/>
+         (10,951.0JPY)
+        </p>
+        <p class="cat">
+         Japan 2024
+        </p>
+        <p class="element4">
+         Sunday 10
+        </p>
+       </div>
+       <div class="num" data-value="286">
         <div class="color-box" style="background-color:#F0E68C">
         </div>
         <h3>
-         מס ר.זכות שח
+         ליסינג
         </h3>
         <p class="date">
-         7.40₪
+         1,762.69₪
         </p>
         <p class="cat">
-         עמלות
+         רכב
         </p>
         <p class="element4">
-         Wednesday 01
+         Sunday 10
         </p>
        </div>
-       <div class="num" data-value="626">
+       <div class="num" data-value="845">
+        <div class="color-box" style="background-color:#C8F7FF">
+        </div>
+        <h3>
+         GMOPG TABLECHECKUZU
+        </h3>
+        <p class="date">
+         380.07₪
+         <br/>
+         (15,400.0JPY)
+        </p>
+        <p class="cat">
+         Japan 2024
+        </p>
+        <p class="element4">
+         Monday 11
+        </p>
+       </div>
+       <div class="num" data-value="871">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         YUZEN FUSHIMITEN
+        </h3>
+        <p class="date">
+         147.78₪
+         <br/>
+         (6,060.0JPY)
+        </p>
+        <p class="cat">
+         Japan 2024
+        </p>
+        <p class="element4">
+         Tuesday 12
+        </p>
+       </div>
+       <div class="num" data-value="847">
+        <div class="color-box" style="background-color:#C8F7FF">
+        </div>
+        <h3>
+         BOOKING COM
+        </h3>
+        <p class="date">
+         491.22₪
+         <br/>
+         (19,800.0JPY)
+        </p>
+        <p class="cat">
+         Japan 2024
+        </p>
+        <p class="element4">
+         Tuesday 12
+        </p>
+       </div>
+       <div class="num" data-value="846">
+        <div class="color-box" style="background-color:#C8F7FF">
+        </div>
+        <h3>
+         BOOKING COM
+        </h3>
+        <p class="date">
+         1,450.14₪
+         <br/>
+         (58,452.0JPY)
+        </p>
+        <p class="cat">
+         Japan 2024
+        </p>
+        <p class="element4">
+         Tuesday 12
+        </p>
+       </div>
+       <div class="num" data-value="872">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         SHIMOGYO KU  KY
+        </h3>
+        <p class="date">
+         2,487.21₪
+         <br/>
+         (100,000.0JPY)
+        </p>
+        <p class="cat">
+         Japan 2024
+        </p>
+        <p class="element4">
+         Wednesday 13
+        </p>
+       </div>
+       <div class="num" data-value="848">
+        <div class="color-box" style="background-color:#C8F7FF">
+        </div>
+        <h3>
+         BOOKING COM HOTEL
+        </h3>
+        <p class="date">
+         267.94₪
+         <br/>
+         (10,800.0JPY)
+        </p>
+        <p class="cat">
+         Japan 2024
+        </p>
+        <p class="element4">
+         Wednesday 13
+        </p>
+       </div>
+       <div class="num" data-value="854">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         חשבון לשרותי סלקום
+        </h3>
+        <p class="date">
+         98.99₪
+        </p>
+        <p class="cat">
+         חשבון אינטרנט
+        </p>
+        <p class="element4">
+         Saturday 16
+        </p>
+       </div>
+       <div class="num" data-value="283">
         <div class="color-box" style="background-color:#F0E68C">
         </div>
         <h3>
-         3326456 שק חזר-בנ
+         אנליסט קופ"ג -מנותבת
         </h3>
         <p class="date">
-         2,800.00₪
+         1,000.00₪
         </p>
         <p class="cat">
-         שלום שבאזי 7
+         השקעה/חיסכון
         </p>
         <p class="element4">
-         Friday 03
+         Monday 18
+        </p>
+       </div>
+       <div class="num" data-value="873">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         TIMEKOHOBBYSHOP
+        </h3>
+        <p class="date">
+         96.78₪
+         <br/>
+         (3,980.0JPY)
+        </p>
+        <p class="cat">
+         Japan 2024
+        </p>
+        <p class="element4">
+         Tuesday 19
+        </p>
+       </div>
+       <div class="num" data-value="852">
+        <div class="color-box" style="background-color:#C8F7FF">
+        </div>
+        <h3>
+         BOOKING COM
+        </h3>
+        <p class="date">
+         241.56₪
+         <br/>
+         (9,801.0JPY)
+        </p>
+        <p class="cat">
+         Japan 2024
+        </p>
+        <p class="element4">
+         Tuesday 19
+        </p>
+       </div>
+       <div class="num" data-value="851">
+        <div class="color-box" style="background-color:#C8F7FF">
+        </div>
+        <h3>
+         BOOKING COM HOTEL
+        </h3>
+        <p class="date">
+         421.71₪
+         <br/>
+         (17,110.0JPY)
+        </p>
+        <p class="cat">
+         Japan 2024
+        </p>
+        <p class="element4">
+         Tuesday 19
+        </p>
+       </div>
+       <div class="num" data-value="850">
+        <div class="color-box" style="background-color:#C8F7FF">
+        </div>
+        <h3>
+         SP TSIM TOPUP
+        </h3>
+        <p class="date">
+         44.97₪
+         <br/>
+         (1,800.0JPY)
+        </p>
+        <p class="cat">
+         Japan 2024
+        </p>
+        <p class="element4">
+         Tuesday 19
+        </p>
+       </div>
+       <div class="num" data-value="874">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         USJ GOODS
+        </h3>
+        <p class="date">
+         48.53₪
+         <br/>
+         (2,020.0JPY)
+        </p>
+        <p class="cat">
+         Japan 2024
+        </p>
+        <p class="element4">
+         Wednesday 20
+        </p>
+       </div>
+       <div class="num" data-value="875">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         USJ FOODS
+        </h3>
+        <p class="date">
+         84.07₪
+         <br/>
+         (3,500.0JPY)
+        </p>
+        <p class="cat">
+         Japan 2024
+        </p>
+        <p class="element4">
+         Wednesday 20
+        </p>
+       </div>
+       <div class="num" data-value="877">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         G U
+        </h3>
+        <p class="date">
+         171.39₪
+         <br/>
+         (7,048.0JPY)
+        </p>
+        <p class="cat">
+         Japan 2024
+        </p>
+        <p class="element4">
+         Thursday 21
+        </p>
+       </div>
+       <div class="num" data-value="876">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         COCOICHIBANYA
+        </h3>
+        <p class="date">
+         81.76₪
+         <br/>
+         (3,362.0JPY)
+        </p>
+        <p class="cat">
+         Japan 2024
+        </p>
+        <p class="element4">
+         Thursday 21
+        </p>
+       </div>
+       <div class="num" data-value="878">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         MALL CRYSTA NAGAHORI
+        </h3>
+        <p class="date">
+         65.54₪
+         <br/>
+         (2,695.0JPY)
+        </p>
+        <p class="cat">
+         Japan 2024
+        </p>
+        <p class="element4">
+         Thursday 21
+        </p>
+       </div>
+       <div class="num" data-value="879">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         DEAR MALL OSAKA
+        </h3>
+        <p class="date">
+         124.91₪
+         <br/>
+         (5,200.0JPY)
+        </p>
+        <p class="cat">
+         Japan 2024
+        </p>
+        <p class="element4">
+         Thursday 21
+        </p>
+       </div>
+       <div class="num" data-value="882">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         DEAR MALL OSAKA
+        </h3>
+        <p class="date">
+         209.92₪
+         <br/>
+         (8,778.0JPY)
+        </p>
+        <p class="cat">
+         Japan 2024
+        </p>
+        <p class="element4">
+         Friday 22
+        </p>
+       </div>
+       <div class="num" data-value="880">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         PALM AIR
+        </h3>
+        <p class="date">
+         89.98₪
+         <br/>
+         (3,700.0JPY)
+        </p>
+        <p class="cat">
+         Japan 2024
+        </p>
+        <p class="element4">
+         Friday 22
+        </p>
+       </div>
+       <div class="num" data-value="881">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         UNIQLO
+        </h3>
+        <p class="date">
+         651.50₪
+         <br/>
+         (26,791.0JPY)
+        </p>
+        <p class="cat">
+         Japan 2024
+        </p>
+        <p class="element4">
+         Friday 22
+        </p>
+       </div>
+       <div class="num" data-value="883">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         BLUE AND SUP AIR
+        </h3>
+        <p class="date">
+         38.91₪
+         <br/>
+         (1,600.0JPY)
+        </p>
+        <p class="cat">
+         Japan 2024
+        </p>
+        <p class="element4">
+         Saturday 23
+        </p>
+       </div>
+       <div class="num" data-value="853">
+        <div class="color-box" style="background-color:#C8F7FF">
+        </div>
+        <h3>
+         BOOKING COM
+        </h3>
+        <p class="date">
+         204.39₪
+         <br/>
+         (8,262.0JPY)
+        </p>
+        <p class="cat">
+         Japan 2024
+        </p>
+        <p class="element4">
+         Saturday 23
+        </p>
+       </div>
+       <div class="num" data-value="884">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         HOTEL ON BOOKING COM
+        </h3>
+        <p class="date">
+         227.65₪
+         <br/>
+         (9,477.0JPY)
+        </p>
+        <p class="cat">
+         Japan 2024
+        </p>
+        <p class="element4">
+         Sunday 24
+        </p>
+       </div>
+       <div class="num" data-value="885">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         HOTEL ON BOOKING COM
+        </h3>
+        <p class="date">
+         1,570.97₪
+         <br/>
+         (65,400.0JPY)
+        </p>
+        <p class="cat">
+         Japan 2024
+        </p>
+        <p class="element4">
+         Sunday 24
+        </p>
+       </div>
+       <div class="num" data-value="888">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         MAMEZARACHAYA
+        </h3>
+        <p class="date">
+         66.65₪
+         <br/>
+         (2,750.0JPY)
+        </p>
+        <p class="cat">
+         Japan 2024
+        </p>
+        <p class="element4">
+         Monday 25
+        </p>
+       </div>
+       <div class="num" data-value="887">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         SPOTIFYIL
+        </h3>
+        <p class="date">
+         35.90₪
+        </p>
+        <p class="cat">
+         תחביבים ופנאי
+        </p>
+        <p class="element4">
+         Monday 25
+        </p>
+       </div>
+       <div class="num" data-value="886">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         BANKERS STREET CAFE
+        </h3>
+        <p class="date">
+         76.29₪
+         <br/>
+         (3,190.0JPY)
+        </p>
+        <p class="cat">
+         Japan 2024
+        </p>
+        <p class="element4">
+         Monday 25
+        </p>
+       </div>
+       <div class="num" data-value="855">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         פנגו חשבונית חודשית
+        </h3>
+        <p class="date">
+         16.65₪
+        </p>
+        <p class="cat">
+         רכב
+        </p>
+        <p class="element4">
+         Tuesday 26
+        </p>
+       </div>
+       <div class="num" data-value="889">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         MICROSOFT MICROSOFT
+        </h3>
+        <p class="date">
+         40.00₪
+        </p>
+        <p class="cat">
+         מנויים
+        </p>
+        <p class="element4">
+         Tuesday 26
+        </p>
+       </div>
+       <div class="num" data-value="890">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         MIDORINAGANOSHINKAN
+        </h3>
+        <p class="date">
+         77.31₪
+         <br/>
+         (3,190.0JPY)
+        </p>
+        <p class="cat">
+         Japan 2024
+        </p>
+        <p class="element4">
+         Tuesday 26
+        </p>
+       </div>
+       <div class="num" data-value="891">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         DON QUIJOTE NAGANOEK
+        </h3>
+        <p class="date">
+         87.93₪
+         <br/>
+         (3,628.0JPY)
+        </p>
+        <p class="cat">
+         Japan 2024
+        </p>
+        <p class="element4">
+         Tuesday 26
+        </p>
+       </div>
+       <div class="num" data-value="892">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         NAGANO SHI
+        </h3>
+        <p class="date">
+         1,242.36₪
+         <br/>
+         (50,000.0JPY)
+        </p>
+        <p class="cat">
+         Japan 2024
+        </p>
+        <p class="element4">
+         Tuesday 26
+        </p>
+       </div>
+       <div class="num" data-value="893">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         KARUIZAWA PSP  KOMOR
+        </h3>
+        <p class="date">
+         111.68₪
+         <br/>
+         (4,560.0JPY)
+        </p>
+        <p class="cat">
+         Japan 2024
+        </p>
+        <p class="element4">
+         Wednesday 27
+        </p>
+       </div>
+       <div class="num" data-value="894">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         KARUIZAWA PSP  KOMOR
+        </h3>
+        <p class="date">
+         374.65₪
+         <br/>
+         (15,297.0JPY)
+        </p>
+        <p class="cat">
+         Japan 2024
+        </p>
+        <p class="element4">
+         Wednesday 27
+        </p>
+       </div>
+       <div class="num" data-value="901">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         IPPUDO HAMAMATUCHO
+        </h3>
+        <p class="date">
+         69.80₪
+         <br/>
+         (2,850.0JPY)
+        </p>
+        <p class="cat">
+         Japan 2024
+        </p>
+        <p class="element4">
+         Thursday 28
+        </p>
+       </div>
+       <div class="num" data-value="900">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         ADIDAS FO KARUIZAWA
+        </h3>
+        <p class="date">
+         111.95₪
+         <br/>
+         (4,571.0JPY)
+        </p>
+        <p class="cat">
+         Japan 2024
+        </p>
+        <p class="element4">
+         Thursday 28
+        </p>
+       </div>
+       <div class="num" data-value="899">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         HOTEL INDIGO KARUIZA
+        </h3>
+        <p class="date">
+         56.33₪
+         <br/>
+         (2,300.0JPY)
+        </p>
+        <p class="cat">
+         Japan 2024
+        </p>
+        <p class="element4">
+         Thursday 28
+        </p>
+       </div>
+       <div class="num" data-value="896">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         KARUIZAWA PSP  KOMOR
+        </h3>
+        <p class="date">
+         19.54₪
+         <br/>
+         (798.0JPY)
+        </p>
+        <p class="cat">
+         Japan 2024
+        </p>
+        <p class="element4">
+         Thursday 28
+        </p>
+       </div>
+       <div class="num" data-value="897">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         KARUIZAWA PSP  KOMOR
+        </h3>
+        <p class="date">
+         110.51₪
+         <br/>
+         (4,512.0JPY)
+        </p>
+        <p class="cat">
+         Japan 2024
+        </p>
+        <p class="element4">
+         Thursday 28
+        </p>
+       </div>
+       <div class="num" data-value="895">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         NIKE COM
+        </h3>
+        <p class="date">
+         68.56₪
+         <br/>
+         (2,799.0JPY)
+        </p>
+        <p class="cat">
+         Japan 2024
+        </p>
+        <p class="element4">
+         Thursday 28
+        </p>
+       </div>
+       <div class="num" data-value="898">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         KARUIZAWA PSP  KOMOR
+        </h3>
+        <p class="date">
+         156.75₪
+         <br/>
+         (6,400.0JPY)
+        </p>
+        <p class="cat">
+         Japan 2024
+        </p>
+        <p class="element4">
+         Thursday 28
+        </p>
+       </div>
+       <div class="num" data-value="902">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         AIRALO
+        </h3>
+        <p class="date">
+         21.29₪
+         <br/>
+         (5.79$)
+        </p>
+        <p class="cat">
+         Japan 2024
+        </p>
+        <p class="element4">
+         Friday 29
+        </p>
+       </div>
+       <div class="num" data-value="903">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         G U
+        </h3>
+        <p class="date">
+         72.99₪
+         <br/>
+         (2,980.0JPY)
+        </p>
+        <p class="cat">
+         Japan 2024
+        </p>
+        <p class="element4">
+         Friday 29
+        </p>
+       </div>
+       <div class="num" data-value="931">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         DON QUIJOTE SHINJUKU
+        </h3>
+        <p class="date">
+         208.12₪
+         <br/>
+         (8,529.0JPY)
+        </p>
+        <p class="cat">
+         Japan 2024
+        </p>
+        <p class="element4">
+         Saturday 30
+        </p>
+       </div>
+       <div class="num" data-value="932">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         MARUI STORES
+        </h3>
+        <p class="date">
+         62.95₪
+         <br/>
+         (2,580.0JPY)
+        </p>
+        <p class="cat">
+         Japan 2024
+        </p>
+        <p class="element4">
+         Saturday 30
         </p>
        </div>
       </div>
@@ -1480,7 +2618,7 @@ body {
        <span>
         סה"כ:
         <strong id="spendings-sum">
-         7,581.77₪
+         25,105.02₪
         </strong>
        </span>
       </div>
@@ -1517,68 +2655,120 @@ body {
       <div class="cat-pills" id="earnings-cats">
       </div>
       <div class="tx-scroll" id="earnings-list">
-       <div class="num" data-value="632">
+       <div class="num" data-value="292">
         <div class="color-box" style="background-color:#F0E68C">
         </div>
         <h3>
          מופ"ת קבע
         </h3>
         <p class="date">
-         14,354.90₪
+         19,818.49₪
         </p>
         <p class="cat">
          משכורת
         </p>
         <p class="element4">
-         Wednesday 01
+         Friday 01
         </p>
        </div>
-       <div class="num" data-value="635">
+       <div class="num" data-value="870">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         HOTEL ON BOOKING COM
+        </h3>
+        <p class="date">
+         168.02₪
+         <br/>
+         (-6,853.0JPY)
+        </p>
+        <p class="cat">
+         Japan 2024
+        </p>
+        <p class="element4">
+         Sunday 10
+        </p>
+       </div>
+       <div class="num" data-value="849">
+        <div class="color-box" style="background-color:#C8F7FF">
+        </div>
+        <h3>
+         BOOKING COM
+        </h3>
+        <p class="date">
+         54.57₪
+         <br/>
+         (-2,213.0JPY)
+        </p>
+        <p class="cat">
+         Japan 2024
+        </p>
+        <p class="element4">
+         Wednesday 13
+        </p>
+       </div>
+       <div class="num" data-value="285">
         <div class="color-box" style="background-color:#F0E68C">
         </div>
         <h3>
-         (הפקדת שיק בסלולר (1 שיק
+         זיכוי מביט מנעמי מאיר
         </h3>
         <p class="date">
-         2,800.00₪
+         24.00₪
         </p>
         <p class="cat">
-         שלום שבאזי 7
+         Japan 2024
         </p>
         <p class="element4">
-         Wednesday 01
+         Friday 15
         </p>
        </div>
-       <div class="num" data-value="636">
+       <div class="num" data-value="284">
         <div class="color-box" style="background-color:#F0E68C">
         </div>
         <h3>
-         2.00% 31/03 ריבית זכות
+         4046 - ישראכרט
         </h3>
         <p class="date">
-         49.32₪
+         130.70₪
         </p>
         <p class="cat">
-         אחר
+         NotCategorized
         </p>
         <p class="element4">
-         Wednesday 01
+         Sunday 17
         </p>
        </div>
-       <div class="num" data-value="15">
-        <div class="color-box" style="background-color:#ECCD1F">
+       <div class="num" data-value="282">
+        <div class="color-box" style="background-color:#F0E68C">
         </div>
         <h3>
-         כסף ליומהולדת מסבתא
+         זיכוי מביט מאופק שמואל
         </h3>
         <p class="date">
-         500.00₪
+         400.00₪
         </p>
         <p class="cat">
-         מתנות
+         החתונה שלנו
         </p>
         <p class="element4">
-         Wednesday 01
+         Thursday 28
+        </p>
+       </div>
+       <div class="num" data-value="281">
+        <div class="color-box" style="background-color:#F0E68C">
+        </div>
+        <h3>
+         ש.שלמה חברה לבט
+        </h3>
+        <p class="date">
+         6,300.60₪
+        </p>
+        <p class="cat">
+         משכורת
+        </p>
+        <p class="element4">
+         Friday 29
         </p>
        </div>
       </div>
@@ -1588,13 +2778,24 @@ body {
        <span>
         סה"כ:
         <strong id="earnings-sum">
-         17,704.22₪
+         26,896.38₪
         </strong>
        </span>
       </div>
      </div>
     </div>
-    <div class="chart-card full-width">
+    <!-- Full-width block below transaction lists -->
+    <div class="chart-card" id="tx-bottom-block">
+     <div class="chart-card-title">
+      תשלומים
+     </div>
+     <div class="charts-grid payments-grid" id="tx-payments-grid">
+      <div class="empty-state" style="padding: 14px 0;">
+       אין תשלומים פעילים החודש
+      </div>
+     </div>
+    </div>
+    <div class="chart-card full-width" style="margin-top: 16px;">
      <div class="chart-card-title">
       התפלגות כרטיסי אשראי
      </div>
@@ -1604,13 +2805,31 @@ body {
      </div>
      <script>
       (function(){
-  const statusArr = [false];
+  const statusArr = [false, true, false];
+  const statusLabelPlugin = {
+    id: 'statusLabels',
+    afterDatasetDraw(chart) {
+      const {ctx, data, scales: {x, y}} = chart;
+      ctx.save();
+      ctx.textAlign = 'center';
+      ctx.font = '11px Segoe UI,Arial,sans-serif';
+      data.datasets[0].data.forEach(function(val, i) {
+        if (data.labels[i] === 'Bank') return;
+        const st = statusArr[i];
+        const xPos = x.getPixelForValue(i);
+        const yPos = y.getPixelForValue(val) - 6;
+        ctx.fillStyle = st ? '#1a7a45' : '#b07000';
+        ctx.fillText(st ? '✅ מאומת' : '⚠ לא מאומת', xPos, yPos);
+      });
+      ctx.restore();
+    }
+  };
   new Chart(document.getElementById('chart-card-dist'), {
     type: 'bar',
-    data: {"labels": ["Bank"], "datasets": [{"label": "חיוב חודשי", "data": [9622.45], "backgroundColor": ["#F0E68C"], "borderColor": ["#F0E68C"], "borderWidth": 1}]},
+    data: {"labels": ["1565", "4046", "Bank"], "datasets": [{"label": "חיוב חודשי", "data": [13246.95, 3447.43, 18485.74], "backgroundColor": ["#D0FFD0", "#C8F7FF", "#F0E68C"], "borderColor": ["#D0FFD0", "#C8F7FF", "#F0E68C"], "borderWidth": 1}]},
     options: {
       responsive: true, maintainAspectRatio: false,
-      layout: { padding: { top: 8 } },
+      layout: { padding: { top: 24 } },
       plugins: {
         legend: { display: false },
         tooltip: {
@@ -1634,7 +2853,7 @@ body {
         }
       }
     },
-    plugins: []
+    plugins: [statusLabelPlugin]
   });
 })();
      </script>
@@ -1648,7 +2867,7 @@ body {
        ⚠ התראות חכמות
       </h2>
       <span class="alerts-count-badge">
-       19 התראות
+       13 התראות
       </span>
      </div>
      <div class="alerts-matrix">
@@ -1658,10 +2877,10 @@ body {
        </span>
        <div class="alert-body">
         <strong>
-         ירידה בתשלום חודשי: טפחות ס.ביטוח-ה
+         ירידה בתשלום חודשי: שלמה פסגה בע"מ
         </strong>
         <p>
-         סה״כ חודשי: 60₪ — ממוצע חודשים קודמים: 90₪ (-33%)
+         סה״כ חודשי: 1763₪ — ממוצע חודשים קודמים: 2649₪ (-33%)
         </p>
        </div>
       </div>
@@ -1671,10 +2890,10 @@ body {
        </span>
        <div class="alert-body">
         <strong>
-         חיוב קבוע חסר: GOOGLE  GOOGLE ONE
+         חיוב קבוע חסר: GETT
         </strong>
         <p>
-         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 8₪) ולא נמצא החודש
+         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 178₪) ולא נמצא החודש
         </p>
        </div>
       </div>
@@ -1684,10 +2903,10 @@ body {
        </span>
        <div class="alert-body">
         <strong>
-         חיוב קבוע חסר: GOOGLE  TRAVELSPEND
+         חיוב קבוע חסר: העברה ב BIT בנה"פ
         </strong>
         <p>
-         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 17₪) ולא נמצא החודש
+         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 2257₪) ולא נמצא החודש
         </p>
        </div>
       </div>
@@ -1697,140 +2916,10 @@ body {
        </span>
        <div class="alert-body">
         <strong>
-         חיוב קבוע חסר: OPENAI *CHATGPT SUBSCR
+         חיוב קבוע חסר: העברה בBIT
         </strong>
         <p>
-         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 64₪) ולא נמצא החודש
-        </p>
-       </div>
-      </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
-       <span class="alert-icon">
-        ❓
-       </span>
-       <div class="alert-body">
-        <strong>
-         חיוב קבוע חסר: PAYPAL *NETFLIX COM
-        </strong>
-        <p>
-         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 33₪) ולא נמצא החודש
-        </p>
-       </div>
-      </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
-       <span class="alert-icon">
-        ❓
-       </span>
-       <div class="alert-body">
-        <strong>
-         חיוב קבוע חסר: SPOTIFYIL
-        </strong>
-        <p>
-         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 44₪) ולא נמצא החודש
-        </p>
-       </div>
-      </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
-       <span class="alert-icon">
-        ❓
-       </span>
-       <div class="alert-body">
-        <strong>
-         חיוב קבוע חסר: WANIKANI JAPANESE LA
-        </strong>
-        <p>
-         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 28₪) ולא נמצא החודש
-        </p>
-       </div>
-      </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
-       <span class="alert-icon">
-        ❓
-       </span>
-       <div class="alert-body">
-        <strong>
-         חיוב קבוע חסר: WOLT
-        </strong>
-        <p>
-         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 149₪) ולא נמצא החודש
-        </p>
-       </div>
-      </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
-       <span class="alert-icon">
-        ❓
-       </span>
-       <div class="alert-body">
-        <strong>
-         חיוב קבוע חסר: דיפרנט
-        </strong>
-        <p>
-         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 112₪) ולא נמצא החודש
-        </p>
-       </div>
-      </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
-       <span class="alert-icon">
-        ❓
-       </span>
-       <div class="alert-body">
-        <strong>
-         חיוב קבוע חסר: העברה מהחשבון
-        </strong>
-        <p>
-         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 280₪) ולא נמצא החודש
-        </p>
-       </div>
-      </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
-       <span class="alert-icon">
-        ❓
-       </span>
-       <div class="alert-body">
-        <strong>
-         חיוב קבוע חסר: הראל בטוח
-        </strong>
-        <p>
-         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 29₪) ולא נמצא החודש
-        </p>
-       </div>
-      </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
-       <span class="alert-icon">
-        ❓
-       </span>
-       <div class="alert-body">
-        <strong>
-         חיוב קבוע חסר: חשבון לשרותי סלקום
-        </strong>
-        <p>
-         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 100₪) ולא נמצא החודש
-        </p>
-       </div>
-      </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
-       <span class="alert-icon">
-        ❓
-       </span>
-       <div class="alert-body">
-        <strong>
-         חיוב קבוע חסר: יוניברס ראשל"צ- שמוט
-        </strong>
-        <p>
-         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 549₪) ולא נמצא החודש
-        </p>
-       </div>
-      </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
-       <span class="alert-icon">
-        ❓
-       </span>
-       <div class="alert-body">
-        <strong>
-         חיוב קבוע חסר: יפנולוגי-המרכז ללימו
-        </strong>
-        <p>
-         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 530₪) ולא נמצא החודש
+         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 310₪) ולא נמצא החודש
         </p>
        </div>
       </div>
@@ -1843,7 +2932,7 @@ body {
          חיוב קבוע חסר: מ.התחבורה-פנגו מוביט
         </strong>
         <p>
-         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 141₪) ולא נמצא החודש
+         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 154₪) ולא נמצא החודש
         </p>
        </div>
       </div>
@@ -1853,23 +2942,36 @@ body {
        </span>
        <div class="alert-body">
         <strong>
-         חיוב קבוע חסר: נותן לחם בית מאפה בע
+         חיוב קבוע חסר: שופרסל דיל מרכז ראשל
         </strong>
         <p>
-         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 121₪) ולא נמצא החודש
+         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 418₪) ולא נמצא החודש
         </p>
        </div>
       </div>
       <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
        <span class="alert-icon">
-        ❓
+        ⚡
        </span>
        <div class="alert-body">
         <strong>
-         חיוב קבוע חסר: פנגו חשבונית חודשית
+         חיוב כפול: HOTEL ON BOOKING COM
         </strong>
         <p>
-         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 18₪) ולא נמצא החודש
+         חויב פעמיים בסכומים דומים (167₪ ו-169₪) באותו חודש
+        </p>
+       </div>
+      </div>
+      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
+       <span class="alert-icon">
+        ⚡
+       </span>
+       <div class="alert-body">
+        <strong>
+         חיוב כפול: KARUIZAWA PSP  KOMOR
+        </strong>
+        <p>
+         חויב פעמיים בסכומים דומים (111₪ ו-112₪) באותו חודש
         </p>
        </div>
       </div>
@@ -1879,10 +2981,10 @@ body {
        </span>
        <div class="alert-body">
         <strong>
-         קטגוריה בעלייה: שלום שבאזי 7
+         קטגוריה בעלייה: Japan 2024
         </strong>
         <p>
-         סה״כ החודש: 6574₪ — ממוצע חודשי רגיל: 4047₪ (+62%)
+         סה״כ החודש: 16701₪ — ממוצע חודשי רגיל: 4666₪ (+258%)
         </p>
        </div>
       </div>
@@ -1892,10 +2994,49 @@ body {
        </span>
        <div class="alert-body">
         <strong>
-         עסקה חריגה: טפחות ס.ביטוח-ה
+         עסקה חריגה: הראל בטוח
         </strong>
         <p>
-         עסקה של 60₪ — גבוהה מ-95% מתוך עסקאות קודמות של טפחות ס.ביטוח-ה (סף: 59₪)
+         עסקה של 25₪ — גבוהה מ-95% מתוך עסקאות קודמות של הראל בטוח (סף: 25₪)
+        </p>
+       </div>
+      </div>
+      <div class="alert-item" style="border-color:#e74c3c;background-color:#fff5f5;">
+       <span class="alert-icon">
+        💰
+       </span>
+       <div class="alert-body">
+        <strong>
+         עסקה חריגה: BOOKING COM
+        </strong>
+        <p>
+         עסקה של 1450₪ — גבוהה מ-95% מתוך עסקאות בקטגוריה Japan 2024 (סף: 1354₪)
+        </p>
+       </div>
+      </div>
+      <div class="alert-item" style="border-color:#e74c3c;background-color:#fff5f5;">
+       <span class="alert-icon">
+        💰
+       </span>
+       <div class="alert-body">
+        <strong>
+         עסקה חריגה: SHIMOGYO KU  KY
+        </strong>
+        <p>
+         עסקה של 2487₪ — גבוהה מ-95% מתוך עסקאות בקטגוריה Japan 2024 (סף אחוזון: 1354₪) וגם מעל ממוצע+2σ (2035₪)
+        </p>
+       </div>
+      </div>
+      <div class="alert-item" style="border-color:#e74c3c;background-color:#fff5f5;">
+       <span class="alert-icon">
+        💰
+       </span>
+       <div class="alert-body">
+        <strong>
+         עסקה חריגה: HOTEL ON BOOKING COM
+        </strong>
+        <p>
+         עסקה של 1571₪ — גבוהה מ-95% מתוך עסקאות קודמות של HOTEL ON BOOKING COM (סף אחוזון: 686₪) וגם מעל ממוצע+2σ (709₪)
         </p>
        </div>
       </div>
@@ -2084,7 +3225,7 @@ body {
          —
         </td>
         <td>
-         2026-04-11
+         2026-04-12
         </td>
         <td class="acct-detail-cell">
          —
@@ -2109,7 +3250,7 @@ body {
          השקעות
         </td>
        </tr>
-       <tr class="acct-stale" title="עדכון אחרון: 2026-02-28 (42 ימים ללא עדכון) — מומלץ לעדכן את היתרה">
+       <tr class="acct-stale" title="עדכון אחרון: 2026-02-28 (43 ימים ללא עדכון) — מומלץ לעדכן את היתרה">
         <td>
          Analyst
         </td>
@@ -2168,24 +3309,21 @@ body {
          נדל"ן
         </td>
        </tr>
-       <tr class="acct-virtual">
+       <tr class="acct-virtual acct-stale" title="עדכון אחרון: 2024-11-01 (527 ימים ללא עדכון) — מומלץ לעדכן את היתרה">
         <td>
          נכס שלום שבזי
         </td>
         <td>
-         301,668.00₪
+         258,085.00₪
         </td>
-        <td class="acct-change-pos">
-         +8,904₪ (+3.0%)
-        </td>
-        <td class="acct-detail-cell">
-         2026-04-01 | שוק: ₪985,407 | משכנתא: ₪704,324 | הכנסות: ₪20,585 | 5%/שנה
+        <td class="acct-change-neu">
+         —
         </td>
         <td class="acct-detail-cell">
-         <svg class="acct-spark" height="22" viewbox="0 0 64 22" width="64" xmlns="http://www.w3.org/2000/svg">
-          <polyline fill="none" points="1.0,20.0 8.8,18.0 16.5,16.0 24.2,13.9 32.0,11.9 39.8,9.9 47.5,7.8 55.2,5.8 63.0,2.0" stroke="#43a047" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5">
-          </polyline>
-         </svg>
+         2024-11-01 | שוק: ₪950,000 | משכנתא: ₪712,500 | הכנסות: ₪20,585 | 5%/שנה
+        </td>
+        <td class="acct-detail-cell">
+         —
         </td>
        </tr>
        <tr class="acct-subtotal">
@@ -2193,7 +3331,7 @@ body {
          סה"כ נדל"ן
         </td>
         <td>
-         301,668.00₪
+         258,085.00₪
         </td>
         <td>
         </td>
@@ -2207,7 +3345,7 @@ body {
          סה"כ כל החשבונות
         </td>
         <td>
-         707,606.79₪
+         664,023.79₪
         </td>
         <td>
         </td>
@@ -2233,7 +3371,7 @@ body {
   const ctx = document.getElementById('acct-chart-canvas').getContext('2d');
   new Chart(ctx, {
     type: 'line',
-    data: {"labels": ["2025-04-19", "2025-04-30", "2025-05-07", "2025-05-08", "2025-05-24", "2025-05-29", "2025-05-31", "2025-06-21", "2025-06-26", "2025-06-30", "2025-07-19", "2025-07-31", "2025-08-01", "2025-08-07", "2025-08-31", "2025-09-01", "2025-09-13", "2025-09-30", "2025-10-01", "2025-10-25", "2025-10-30", "2025-10-31", "2025-11-01", "2025-11-30", "2025-12-01", "2025-12-31", "2026-01-01", "2026-01-30", "2026-01-31", "2026-02-01", "2026-02-26", "2026-02-28", "2026-03-01", "2026-03-30", "2026-04-01", "2026-04-03", "2026-04-11"], "datasets": [{"label": "Main Bank", "data": [null, 22979.36, null, null, null, 164022.96, null, null, null, 19816.77, null, 33352.01, null, null, 53803.25, null, null, 54880.87, null, null, 52403.51, null, null, 37620.61, null, 27244.34, null, 28722.22, null, null, 31836.39, null, null, 45896.96, null, 47109.79, null], "borderColor": "#90caf9", "backgroundColor": "#90caf9", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "BeinLeumi Invest", "data": [329816.0, 231330.0, 71456.0, null, null, null, null, null, 0.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], "borderColor": "#ffcc80", "backgroundColor": "#ffcc80", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Analyst", "data": [null, 101864.0, null, null, null, null, 108123.0, null, null, 114949.0, null, 148919.0, null, null, 151284.0, null, null, 157523.0, null, null, null, 161771.0, null, null, null, null, null, null, 173231.0, null, null, 174574.0, null, null, null, null, null], "borderColor": "#a5d6a7", "backgroundColor": "#a5d6a7", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "BTB", "data": [null, null, null, 160548.0, 160930.0, null, null, 161615.0, null, null, 162358.0, null, null, null, null, null, 163895.0, null, null, 165013.0, null, null, null, 166104.0, null, null, null, null, null, null, null, null, 168733.0, null, null, null, 169610.0], "borderColor": "#ef9a9a", "backgroundColor": "#ef9a9a", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Altshuler", "data": [null, null, null, null, null, null, null, null, null, null, null, null, null, 0.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], "borderColor": "#ce93d8", "backgroundColor": "#ce93d8", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Total", "data": [329816.0, 356173.36, 196299.36, 356847.36, 357229.36, 498272.96, 504531.96, 505216.96, 433760.96, 296380.77, 297123.77, 344629.01, 603608.01, 603608.01, 626424.25, 631192.25, 632729.25, 640045.87, 644832.87, 645950.87, 643473.51, 647721.51, 652528.51, 638836.61, 643662.61, 633286.34, 638132.34, 639610.22, 651070.22, 655936.22, 659050.39, 660393.39, 667907.39, 681967.96, 690871.96, 692084.79, 707606.79], "borderColor": "#b0bec5", "backgroundColor": "#b0bec5", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Cash", "data": [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 14645.0], "borderColor": "#f48fb1", "backgroundColor": "#f48fb1", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "נכס שלום שבזי", "data": [null, null, null, null, null, null, null, null, null, null, null, null, 258979.0, null, null, 263747.0, null, null, 268534.0, null, null, null, 273341.0, null, 278167.0, null, 283013.0, null, null, 287879.0, null, null, 292764.0, null, 301668.0, null, null], "borderColor": "#80deea", "backgroundColor": "#80deea", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}]},
+    data: {"labels": ["2024-11-01", "2025-04-19", "2025-04-30", "2025-05-07", "2025-05-08", "2025-05-24", "2025-05-29", "2025-05-31", "2025-06-21", "2025-06-26", "2025-06-30", "2025-07-19", "2025-07-31", "2025-08-07", "2025-08-31", "2025-09-13", "2025-09-30", "2025-10-25", "2025-10-30", "2025-10-31", "2025-11-30", "2025-12-31", "2026-01-30", "2026-01-31", "2026-02-26", "2026-02-28", "2026-03-01", "2026-03-30", "2026-04-03", "2026-04-11", "2026-04-12"], "datasets": [{"label": "Main Bank", "data": [null, null, 22979.36, null, null, null, 164022.96, null, null, null, 19816.77, null, 33352.01, null, 53803.25, null, 54880.87, null, 52403.51, null, 37620.61, 27244.34, 28722.22, null, 31836.39, null, null, 45896.96, 47109.79, null, null], "borderColor": "#90caf9", "backgroundColor": "#90caf9", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "BeinLeumi Invest", "data": [null, 329816.0, 231330.0, 71456.0, null, null, null, null, null, 0.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], "borderColor": "#ffcc80", "backgroundColor": "#ffcc80", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Analyst", "data": [null, null, 101864.0, null, null, null, null, 108123.0, null, null, 114949.0, null, 148919.0, null, 151284.0, null, 157523.0, null, null, 161771.0, null, null, null, 173231.0, null, 174574.0, null, null, null, null, null], "borderColor": "#a5d6a7", "backgroundColor": "#a5d6a7", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "BTB", "data": [null, null, null, null, 160548.0, 160930.0, null, null, 161615.0, null, null, 162358.0, null, null, null, 163895.0, null, 165013.0, null, null, 166104.0, null, null, null, null, null, 168733.0, null, null, 169610.0, null], "borderColor": "#ef9a9a", "backgroundColor": "#ef9a9a", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Altshuler", "data": [null, null, null, null, null, null, null, null, null, null, null, null, null, 0.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], "borderColor": "#ce93d8", "backgroundColor": "#ce93d8", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Total", "data": [258085.0, 587901.0, 614258.36, 454384.36, 614932.36, 615314.36, 756357.96, 762616.96, 763301.96, 691845.96, 554465.77, 555208.77, 602714.01, 602714.01, 625530.25, 627067.25, 634383.87, 635501.87, 633024.51, 637272.51, 623580.61, 613204.34, 614682.22, 626142.22, 629256.39, 630599.39, 633228.39, 647288.96, 648501.79, 649378.79, 664023.79], "borderColor": "#b0bec5", "backgroundColor": "#b0bec5", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Cash", "data": [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 14645.0], "borderColor": "#f48fb1", "backgroundColor": "#f48fb1", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "נכס שלום שבזי", "data": [258085.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], "borderColor": "#80deea", "backgroundColor": "#80deea", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}]},
     options: {
       responsive: true,
       maintainAspectRatio: false,
@@ -2327,7 +3465,7 @@ body {
        </span>
       </div>
       <div class="kpi-value" style="color:#e74c3c">
-       704,324₪
+       712,500₪
       </div>
      </div>
      <div class="kpi-card">
@@ -2340,28 +3478,28 @@ body {
         <span class="kpi-tooltip">
          הון עצמי = מקדמה + קרן שנפרעה + עליית ערך + סה״כ הכנסות
   מקדמה:          237,500₪
-  קרן שנפרעה:    8,176₪
-  עליית ערך:     35,407₪
+  קרן שנפרעה:    0₪
+  עליית ערך:     0₪
   סה״כ הכנסות:   20,585₪
-  = סה״כ:         301,668₪
+  = סה״כ:         258,085₪
         </span>
        </span>
       </div>
       <div class="kpi-value" id="hs-equity" style="color:#1e9d8b">
-       301,668₪
+       258,085₪
       </div>
       <div class="kpi-sublabel">
        כולל עליית ערך והכנסות
       </div>
       <div class="equity-bar-wrap">
        <div class="equity-bar">
-        <div class="equity-bar-seg" id="hs-bar-down" style="width:78.73%;background:#81c784" title="מקדמה ₪237,500">
+        <div class="equity-bar-seg" id="hs-bar-down" style="width:92.02%;background:#81c784" title="מקדמה ₪237,500">
         </div>
-        <div class="equity-bar-seg" id="hs-bar-prin" style="width:2.71%;background:#4db6ac" title="קרן שנפרעה ₪8,176">
+        <div class="equity-bar-seg" id="hs-bar-prin" style="width:0.0%;background:#4db6ac" title="קרן שנפרעה ₪0">
         </div>
-        <div class="equity-bar-seg" id="hs-bar-appr" style="width:11.74%;background:#64b5f6" title="עליית ערך ₪35,407">
+        <div class="equity-bar-seg" id="hs-bar-appr" style="width:0.0%;background:#64b5f6" title="עליית ערך ₪0">
         </div>
-        <div class="equity-bar-seg" id="hs-bar-inc" style="width:6.82%;background:#aed581" title="סה״כ הכנסות ₪20,585">
+        <div class="equity-bar-seg" id="hs-bar-inc" style="width:7.98%;background:#aed581" title="סה״כ הכנסות ₪20,585">
         </div>
        </div>
        <div class="equity-bar-labels equity-bar-labels-4">
@@ -2369,10 +3507,10 @@ body {
          ● מקדמה ₪237,500
         </span>
         <span id="hs-lbl-prin" style="color:#4db6ac">
-         ● קרן שנפרעה ₪8,176
+         ● קרן שנפרעה ₪0
         </span>
         <span id="hs-lbl-appr" style="color:#64b5f6">
-         ● עליית ערך ₪35,407
+         ● עליית ערך ₪0
         </span>
         <span id="hs-lbl-inc" style="color:#aed581">
          ● הכנסות ₪20,585
@@ -2412,7 +3550,7 @@ body {
        </span>
       </div>
       <div class="kpi-value" id="hs-monthly-appr" style="color:#1e9d8b">
-       +4,015₪
+       +3,870₪
       </div>
       <div class="kpi-sublabel">
        לפי 5.0%/שנה
@@ -2426,34 +3564,34 @@ body {
          i
         </span>
         <span class="kpi-tooltip">
-         מחושב לפי: 950,000₪ × (1+שיעור)^0.8 שנים.
+         מחושב לפי: 950,000₪ × (1+שיעור)^0.0 שנים.
 ניתן לשנות את השיעור בסליידר למעלה.
         </span>
        </span>
       </div>
       <div class="kpi-value" id="hs-appr-price" style="color:#5b8dee">
-       985,407₪
+       950,000₪
       </div>
       <div class="kpi-sublabel">
-       5.0% עלייה שנתית | 0.8 שנים
+       5.0% עלייה שנתית | 0.0 שנים
       </div>
      </div>
     </div>
     <div class="housing-full-row">
      <div class="kpi-card">
       <div class="kpi-label">
-       תשלום חודשי (בפועל)
+       תשלום חודשי (משוער)
        <span class="kpi-info-wrap">
         <span class="kpi-info-icon">
          i
         </span>
         <span class="kpi-tooltip">
-         סכום המשכנתא ששולם בפועל החודש, זוהה לפי עסקאות עם 'משכנתא' בשם.
+         לא נמצא תשלום בבסיס הנתונים — מוצג הסכום המשוער לפי לוח הסילוקין.
         </span>
        </span>
       </div>
       <div class="kpi-value" style="color:#e74c3c">
-       3,714.37₪
+       3,772.49₪
       </div>
       <div class="kpi-sublabel">
        תשלום משכנתא
@@ -2470,25 +3608,25 @@ body {
         </span>
         <span class="kpi-tooltip" id="hs-return-tooltip">
          חישוב רווח ממכירה:
-  שווי שוק:               985,407₪
-  עליית ערך:              +35,407₪  (5.0%/שנה × 0.8 שנים)
-  יתרת משכנתא:          -704,324₪  (תשלום לבנק)
-  = הון עצמי:             281,083₪
+  שווי שוק:               950,000₪
+  עליית ערך:                   +0₪  (5.0%/שנה × 0.0 שנים)
+  יתרת משכנתא:          -712,500₪  (תשלום לבנק)
+  = הון עצמי:             237,500₪
   + סה״כ הכנסות:          20,585₪  (שכירות + קטגוריה)
   ─────────────────────────────
-  סה״כ תקבולים:          301,668₪
+  סה״כ תקבולים:          258,085₪
   − סה״כ הוצאות:       -343,654₪
-  = רווח נקי:             -41,986₪
+  = רווח נקי:             -85,569₪
 
 ⚠ לא כולל: מס שבח, עמלות תיווך, עלויות מכירה
         </span>
        </span>
       </div>
       <div class="kpi-value" id="hs-total-return" style="color:#e74c3c">
-       -12.2%
+       -24.9%
       </div>
       <div class="kpi-sublabel" id="hs-return-sublabel">
-       רווח נקי: -41,986₪
+       רווח נקי: -85,569₪
       </div>
      </div>
      <div class="kpi-card">
@@ -2505,10 +3643,10 @@ body {
        </span>
       </div>
       <div class="kpi-value" id="hs-annual-return" style="color:#e74c3c">
-       -15.9%
+       -96.8%
       </div>
       <div class="kpi-sublabel">
-       על פני 0.8 שנים
+       על פני 0.0 שנים
       </div>
      </div>
     </div>
@@ -2530,7 +3668,7 @@ body {
        </span>
       </div>
       <div class="kpi-value" style="color:#e74c3c">
-       6,574.37₪
+       0.00₪
       </div>
      </div>
      <div class="kpi-card">
@@ -2547,7 +3685,7 @@ body {
        </span>
       </div>
       <div class="kpi-value" style="color:#1e9d8b">
-       2,800.00₪
+       0.00₪
       </div>
      </div>
     </div>
@@ -2613,24 +3751,27 @@ body {
       </div>
      </div>
     </div>
+    <div class="housing-alert-banner">
+     ⚠️ לא נמצאה הכנסת שכירות לחודש זה בקטגוריה "שלום שבאזי 7" — יש לבדוק אם התשלום התקבל.
+    </div>
     <div class="charts-grid">
      <div class="chart-card full-width">
       <div class="chart-card-title">
        יתרת משכנתא לאורך הזמן
       </div>
-      <img src="C:\Users\ofeks\OneDrive\Ofek\BankProject\Outputs\Mortgage_Balance.png"/>
+      <img src="/outputs/Mortgage_Balance.png"/>
      </div>
      <div class="chart-card">
       <div class="chart-card-title">
        פירוט קרן וריבית
       </div>
-      <img src="C:\Users\ofeks\OneDrive\Ofek\BankProject\Outputs\Mortgage_Breakdown.png"/>
+      <img src="/outputs/Mortgage_Breakdown.png"/>
      </div>
      <div class="chart-card">
       <div class="chart-card-title">
        תזרים מזומנים — דיור
       </div>
-      <img src="C:\Users\ofeks\OneDrive\Ofek\BankProject\Outputs\Mortgage_Cashflow.png"/>
+      <img src="/outputs/Mortgage_Cashflow.png"/>
      </div>
     </div>
     <div class="housing-milestones card">
@@ -2838,10 +3979,17 @@ body {
      </table>
     </div>
     <div class="housing-txn-table card">
-     <div class="card-title">
-      כל העסקאות — שלום שבאזי 7
+     <div class="card-title housing-txn-hdr">
+      <span>
+       כל העסקאות — שלום שבאזי 7
+      </span>
+      <span class="panel-count" id="housing-footer-count">
+      </span>
      </div>
-     <table class="milestone-table housing-txn">
+     <div class="txn-search-wrap">
+      <input class="txn-search" id="housing-txn-search" oninput="filterHousingTxns(this.value)" placeholder="חיפוש עסקה..." type="text"/>
+     </div>
+     <table class="milestone-table housing-txn" id="housing-txn-tbl">
       <tr>
        <th>
         תאריך
@@ -3557,9 +4705,13 @@ body {
        </td>
       </tr>
      </table>
+     <div class="txn-footer" id="housing-txn-footer">
+      <span class="txn-footer-sum" id="housing-footer-sum">
+      </span>
+     </div>
     </div>
     <script>
-     const APT_PRICE=950000;const CUR_BAL=704324.35;const N_MONTHS=9;const NET_INV=343654.21;const ALLTIME_INC=20585.0;const INIT_PMT=237500;const DOWN_PMT=237500;const PRIN_PAID=8175.650000000023;
+     const APT_PRICE=950000;const CUR_BAL=712500.0;const N_MONTHS=0;const NET_INV=343654.21;const ALLTIME_INC=20585.0;const INIT_PMT=237500;const DOWN_PMT=237500;const PRIN_PAID=0.0;
 const fmtNum  = n => Math.round(Math.abs(n)).toLocaleString('he-IL');
 const fmtShek = n => (n < 0 ? '-' : '') + '₪' + fmtNum(n);
 const fmtPct  = n => (n >= 0 ? '+' : '') + n.toFixed(1) + '%';
@@ -3640,6 +4792,49 @@ if (slider) {
   slider.addEventListener('input', () => hsRecalc(parseFloat(slider.value)));
   hsRecalc(parseFloat(slider.value));
 }
+function _parseHousingAmt(text) {
+  text = (text || '').trim().replace(/,/g, '');
+  if (!text || text === '\u2014') return 0;
+  return parseFloat(text) || 0;
+}
+function _fmtHousingSum(n) {
+  var abs = Math.abs(n).toLocaleString('he-IL', {minimumFractionDigits:0, maximumFractionDigits:0});
+  return n < 0 ? '(' + abs + ') \u20aa' : abs + ' \u20aa';
+}
+function _updateHousingFooter(rows) {
+  var totalOut = 0, totalInc = 0, visible = 0;
+  rows.forEach(function(row) {
+    if (row.style.display === 'none') return;
+    visible++;
+    var cells = row.querySelectorAll('td');
+    if (cells[2]) totalOut += _parseHousingAmt(cells[2].textContent);
+    if (cells[3]) totalInc += _parseHousingAmt(cells[3].textContent);
+  });
+  var fc = document.getElementById('housing-footer-count');
+  if (fc) fc.textContent = visible + ' \u05e2\u05e1\u05e7\u05d0\u05d5\u05ea';
+  var fs = document.getElementById('housing-footer-sum');
+  if (fs) {
+    var net = totalInc - totalOut;
+    fs.textContent = '\u05d4\u05d5\u05e6\u05d0\u05d5\u05ea: ' + _fmtHousingSum(totalOut) + '  |  \u05d4\u05db\u05e0\u05e1\u05d5\u05ea: ' + _fmtHousingSum(totalInc);
+    fs.className = 'txn-footer-sum';
+  }
+}
+function filterHousingTxns(q) {
+  q = q.trim().toLowerCase();
+  var tbl = document.getElementById('housing-txn-tbl');
+  if (!tbl) return;
+  var rows = tbl.querySelectorAll('tr:not(:first-child)');
+  rows.forEach(function(row) {
+    var cells = row.querySelectorAll('td');
+    var text = Array.from(cells).map(function(c) { return c.textContent.toLowerCase(); }).join(' ');
+    row.style.display = (!q || text.indexOf(q) !== -1) ? '' : 'none';
+  });
+  _updateHousingFooter(rows);
+}
+document.addEventListener('DOMContentLoaded', function() {
+  var tbl = document.getElementById('housing-txn-tbl');
+  if (tbl) _updateHousingFooter(tbl.querySelectorAll('tr:not(:first-child)'));
+});
     </script>
    </div>
   </div>
@@ -3905,6 +5100,8 @@ function setLogIndicator(state) {
 var _currentKey   = (document.body.dataset || {}).month || '';
 var _rollerItems  = [];   // {key, year, month, hasFile}
 var _activeIdx    = -1;
+var _viewCenterIdx  = -1;  // index physically centred in the viewport (may differ from _activeIdx while scrolling)
+var _rollerIdleTimer = null;
 var _ITEM_W       = 130;  // px — must match .cm-item width in CSS
 
 function _keyToDate(key) {
@@ -3922,27 +5119,28 @@ function _monthLabel(year, month) {
 }
 
 function _buildRoller(list) {
-  // Always show 13 months: current ±6, regardless of how many are generated
   var hasFile = {};
   list.forEach(function(m) { hasFile[m.key] = true; });
 
-  if (!_currentKey) return;
-  var center = _keyToDate(_currentKey);
-
-  // "Today's month" — months strictly after this are future
+  // Build a wide window: 36 months of history + 6 months forward from today
   var now = new Date();
   var todayMonthKey = _dateToKey(new Date(now.getFullYear(), now.getMonth(), 1));
+  var start = new Date(now.getFullYear(), now.getMonth() - 36, 1);
+  var end   = new Date(now.getFullYear(), now.getMonth() + 6,  1);
 
   var months = [];
-  for (var off = -6; off <= 6; off++) {
-    var d = new Date(center.getFullYear(), center.getMonth() + off, 1);
+  var d = new Date(start);
+  while (d <= end) {
     var k = _dateToKey(d);
     var isFuture = k > todayMonthKey;
     months.push({ key: k, year: d.getFullYear(), month: d.getMonth() + 1,
                   hasFile: !!hasFile[k], future: isFuture });
+    d = new Date(d.getFullYear(), d.getMonth() + 1, 1);
   }
   _rollerItems = months;
-  _activeIdx   = 6;  // current month is always the center (index 6)
+  _activeIdx = months.findIndex(function(m) { return m.key === _currentKey; });
+  if (_activeIdx < 0) _activeIdx = months.length - 7;  // fallback near end
+  _viewCenterIdx = _activeIdx;
 
   var track = document.getElementById('roller-track');
   if (!track) return;
@@ -3972,7 +5170,16 @@ function _buildRoller(list) {
 
     item.addEventListener('click', function() {
       if (m.future || m.key === _currentKey) return;
-      location.href = '/general/' + m.key;
+      var alreadyCentered = (_viewCenterIdx === i);
+      _viewCenterIdx = i;
+      _positionTrack(true);
+      // If the item wasn't centred yet, let the scroll animation play before navigating
+      var navDelay = alreadyCentered ? 0 : 360;
+      setTimeout(function() {
+        document.body.style.transition = 'opacity 0.18s ease';
+        document.body.style.opacity = '0';
+      }, navDelay + 80);
+      setTimeout(function() { location.href = '/general/' + m.key; }, navDelay + 260);
     });
 
     track.appendChild(item);
@@ -3981,6 +5188,27 @@ function _buildRoller(list) {
   // Show roller
   var roller = document.getElementById('month-roller');
   if (roller) roller.style.display = '';
+
+  // Attach wheel listener once
+  if (roller && !roller._wheelBound) {
+    roller._wheelBound = true;
+    roller.addEventListener('wheel', function(e) {
+      e.preventDefault();
+      // deltaY > 0 = scroll down = move to newer months; < 0 = older
+      var delta = e.deltaY > 0 ? 1 : -1;
+      _viewCenterIdx = Math.max(0, Math.min(_rollerItems.length - 1, _viewCenterIdx + delta));
+      _positionTrack(true);
+      _applyDistanceClasses();
+      // Auto-return to active month after 5 s of inactivity
+      clearTimeout(_rollerIdleTimer);
+      if (_viewCenterIdx !== _activeIdx) {
+        _rollerIdleTimer = setTimeout(function() {
+          _centerActive(true);
+          _applyDistanceClasses();
+        }, 5000);
+      }
+    }, { passive: false });
+  }
 
   _applyDistanceClasses();
   _centerActive(false);
@@ -3995,7 +5223,7 @@ function _buildRoller(list) {
 function _applyDistanceClasses() {
   var items = document.querySelectorAll('#roller-track .cm-item');
   items.forEach(function(el, i) {
-    var dist = Math.abs(i - _activeIdx);
+    var dist = Math.abs(i - _viewCenterIdx);
     el.classList.remove('active', 'dist-1', 'dist-2');
     if      (dist === 0) el.classList.add('active');
     else if (dist === 1) el.classList.add('dist-1');
@@ -4004,16 +5232,23 @@ function _applyDistanceClasses() {
   });
 }
 
-function _centerActive(animate) {
+// Position the track so _viewCenterIdx is physically centred in the roller
+function _positionTrack(animate) {
   var track  = document.getElementById('roller-track');
   var roller = document.getElementById('month-roller');
-  if (!track || !roller || _activeIdx < 0) return;
-  var offset = roller.offsetWidth / 2 - _activeIdx * _ITEM_W - _ITEM_W / 2;
+  if (!track || !roller || _viewCenterIdx < 0) return;
+  var offset = roller.offsetWidth / 2 - _viewCenterIdx * _ITEM_W - _ITEM_W / 2;
   track.style.transition = animate
-    ? 'transform 0.45s cubic-bezier(0.25, 0.46, 0.45, 0.94)'
+    ? 'transform 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94)'
     : 'none';
   track.style.transform = 'translateX(' + offset + 'px)';
-  if (!animate) { void track.offsetWidth; track.style.transition = 'transform 0.45s cubic-bezier(0.25, 0.46, 0.45, 0.94)'; }
+  if (!animate) { void track.offsetWidth; track.style.transition = 'transform 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94)'; }
+}
+
+// Snap view back to the active (current page) month
+function _centerActive(animate) {
+  _viewCenterIdx = _activeIdx;
+  _positionTrack(animate);
 }
 
 function reloadCurrent() {
@@ -4067,7 +5302,7 @@ function _initMonthNav() {
     .catch(function() {});
 }
 
-window.addEventListener('resize', function() { _centerActive(false); });
+window.addEventListener('resize', function() { _positionTrack(false); });
 
 // Always init the month roller (doesn't depend on server being active)
 _initMonthNav();
@@ -4079,7 +5314,7 @@ _initMonthNav();
     .then(function(d) {
       // Server is available — show actions controls
       document.getElementById('actions-toggle-btn').style.display = '';
-      document.getElementById('reload-btn').style.display = '';
+      document.getElementById('reload-btn').style.display = 'inline-block';
       if (d.running) { setLogIndicator('active'); }
     })
     .catch(function() {

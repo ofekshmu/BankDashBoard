@@ -1217,7 +1217,7 @@ class AppManager:
         
         spendings_df = transactions_df[transactions_df['Final_Value'] < 0]
         spendings_df['Final_Value'] = spendings_df['Final_Value'].apply(lambda x: abs(x))
-        
+
         earnings_df = transactions_df[transactions_df['Final_Value'] > 0]   
         monthly_balance = DataBase().get_latest_Balance()
 

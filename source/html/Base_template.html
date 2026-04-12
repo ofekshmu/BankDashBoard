@@ -506,6 +506,25 @@ a.nav-btn       { text-decoration: none; }
 .chart-card canvas { max-width: 100%; display: block; }
 .chart-card.full-width img { max-height: 420px; object-fit: contain; }
 
+/* Installment payments grid */
+.payments-section-title {
+  font-size: 0.82em; font-weight: 700; color: var(--navy);
+  margin: 8px 0 12px;
+  padding-left: 10px;
+  border-left: 3px solid var(--teal);
+}
+.payments-grid {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 220px));
+  justify-content: center;
+}
+.payment-footer {
+  text-align: center; font-size: 0.8em; color: #555;
+  margin-top: 8px; font-weight: 600;
+  padding-top: 6px; border-top: 1px solid #eef0f6;
+}
+.tx-grid { margin-bottom: 0; }
+#tx-bottom-block { margin-top: 16px; }
+
 /* hover-swap charts */
 .hover-image-container { position: relative; display: block; width: 100%; }
 .hover-image-container img.original  { width: 100%; display: block; border-radius: var(--radius-sm); transition: opacity 0.3s; }
@@ -1044,6 +1063,11 @@ a.nav-btn       { text-decoration: none; }
   <!-- ── Panel: Overview ──────────────────────────────────── -->
   <div id="panel-overview" class="panel active">
     <div class="charts-grid" id="overview-charts"></div>
+    <!-- Installment payments section — injected by Python when payments exist -->
+    <div id="overview-payments-wrap" style="display:none">
+      <div class="payments-section-title">תשלומים חודשיים</div>
+      <div class="charts-grid payments-grid" id="overview-payments"></div>
+    </div>
     <div class="outliers-row" id="overview-outliers"></div>
   </div>
 
@@ -1098,6 +1122,13 @@ a.nav-btn       { text-decoration: none; }
       </div>
 
     </div>
+
+    <!-- Full-width block below transaction lists -->
+    <div id="tx-bottom-block" class="chart-card">
+      <div class="chart-card-title">תשלומים</div>
+      <div class="charts-grid payments-grid" id="tx-payments-grid"></div>
+    </div>
+
   </div>
 
   <!-- ── Panel: Alerts ────────────────────────────────────── -->

@@ -461,10 +461,151 @@ class utils:
             _gen_card.append(_gen_sc)
             charts_grid.append(_gen_card)
 
+        # ── Installment payments donuts ────────────────────────────────
+        # Query card transactions whose Charge_Date is in this exact month —
+        # these are the installments the user actually pays this month.
+        import pandas as _pd, sqlite3 as _sq, re as _re
+        try:
+            _mon = str(month_num).zfill(2)
+            _yr  = str(year)
+            with _sq.connect('ShmuelFamiliy.db') as _pc:
+                _rows = _pc.execute(
+                    "SELECT Name, Transaction_Value, Charge_Value, Extra_Info "
+                    "FROM CardTransactions "
+                    "WHERE strftime('%m',Charge_Date)=? AND strftime('%Y',Charge_Date)=?",
+                    (_mon, _yr)
+                ).fetchall()
+            _pay_rows = [r for r in _rows if r[3] and
+                         _re.search(r'תשלום\s+\d+\s+מתוך\s+\d+', str(r[3]))]
+            if _pay_rows:
+                _pay_df = utils.extract_payments_data(
+                    _pd.DataFrame(_pay_rows, columns=['Name','Final_Value','Charge_Value','Extra_Info']))
+            else:
+                _pay_df = _pd.DataFrame()
+        except Exception as _pe:
+            utils.log(f"payments chart error: {_pe}", "warning")
+            _pay_df = _pd.DataFrame()
+
+        _pay_grid = soup.find(id="tx-payments-grid")
+
+        if _pay_grid is not None and _pay_df.empty:
+            _pay_empty = tag("div", class_="empty-state")
+            _pay_empty["style"] = "padding: 14px 0;"
+            _pay_empty.string = "אין תשלומים פעילים החודש"
+            _pay_grid.append(_pay_empty)
+
+        if _pay_grid is not None and not _pay_df.empty:
+
+            # Distinct (paid, remaining) color pairs — one per payment
+            _PAY_PALETTES = [
+                ("#5C6BC0", "#C5CAE9"),  # indigo
+                ("#26A69A", "#B2DFDB"),  # teal
+                ("#EF5350", "#FFCDD2"),  # red
+                ("#FFA726", "#FFE0B2"),  # orange
+                ("#AB47BC", "#E1BEE7"),  # purple
+                ("#29B6F6", "#B3E5FC"),  # light blue
+                ("#66BB6A", "#C8E6C9"),  # green
+                ("#EC407A", "#FCE4EC"),  # pink
+            ]
+
+            # Center-text plugin: shows "X/Y\nתשלומים"
+            _PAY_CENTER_JS = """
+  {
+    id: 'payCenter',
+    beforeDraw(chart) {
+      if (chart.config.type !== 'doughnut') return;
+      const {ctx, chartArea: {top, bottom, left, right}} = chart;
+      const cx = (left + right) / 2, cy = (top + bottom) / 2;
+      const [paid, rem] = chart.data.datasets[0].data;
+      ctx.save();
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = 'bold 15px Segoe UI,Arial,sans-serif';
+      ctx.fillStyle = '#1e2a4a';
+      ctx.fillText(paid + '/' + (paid + rem), cx, cy - 7);
+      ctx.font = '10px Segoe UI,Arial,sans-serif';
+      ctx.fillStyle = '#888';
+      ctx.fillText('\\u05ea\\u05e9\\u05dc\\u05d5\\u05de\\u05d9\\u05dd', cx, cy + 9);
+      ctx.restore();
+    }
+  }"""
+
+            for _pi, (_, _pr) in enumerate(_pay_df.iterrows()):
+                _pname   = str(_pr['Transaction Name'])
+                _pnum    = int(_pr['Current Payment Number'])
+                _ptotal  = int(_pr['Number of Payments'])
+                _pamt    = float(_pr['Current Payment'])
+                _premain = _ptotal - _pnum
+
+                _pcol_paid, _pcol_rem = _PAY_PALETTES[_pi % len(_PAY_PALETTES)]
+                _pcid    = f"chart-payment-{_pi}"
+
+                _pdata = _json.dumps({
+                    "labels": [f"שולם ({_pnum})", f"נותר ({_premain})"],
+                    "datasets": [{
+                        "data": [_pnum, _premain],
+                        "backgroundColor": [_pcol_paid, _pcol_rem],
+                        "borderWidth": 2, "borderColor": "#fff",
+                        "hoverOffset": 6,
+                    }]
+                }, ensure_ascii=False)
+
+                _pcard = tag("div", class_="chart-card")
+
+                # Title
+                _pttl = tag("div", class_="chart-card-title")
+                _pttl.string = (_pname[:28] + "…") if len(_pname) > 28 else _pname
+                _pcard.append(_pttl)
+
+                # Canvas
+                _pwrap = tag("div"); _pwrap["style"] = "position:relative;height:190px;"
+                _pcanvas = tag("canvas"); _pcanvas["id"] = _pcid
+                _pcanvas["style"] = "width:100%;height:100%;"
+                _pwrap.append(_pcanvas)
+                _pcard.append(_pwrap)
+
+                # Footer: monthly amount
+                _pfooter = tag("div", class_="payment-footer")
+                _pfooter.string = f"₪{_pamt:,.0f} / חודש"
+                _pcard.append(_pfooter)
+
+                # Chart script
+                _psc = tag("script")
+                _psc.string = f"""
+(function(){{
+  new Chart(document.getElementById('{_pcid}'), {{
+    type: 'doughnut',
+    data: {_pdata},
+    options: {{
+      responsive: true, maintainAspectRatio: false,
+      cutout: '68%',
+      plugins: {{
+        legend: {{ position: 'bottom', labels: {{ font: {{ size: 10 }}, padding: 6, boxWidth: 10 }} }},
+        tooltip: {{
+          rtl: true,
+          callbacks: {{
+            label: function(ctx) {{
+              const labels = [
+                'שולם: {_pnum} תשלומים מתוך {_ptotal}',
+                'נותר: {_premain} תשלומים'
+              ];
+              return labels[ctx.dataIndex];
+            }}
+          }}
+        }}
+      }}
+    }},
+    plugins: [{_PAY_CENTER_JS}]
+  }});
+}})();
+"""
+                _pcard.append(_psc)
+                _pay_grid.append(_pcard)
+
         # ── Card distribution chart in Transactions panel ─────────────
         tx_panel = soup.find(id="panel-transactions")
         _card_dist = data.get('card_dist', {})
         card_dist_card = tag("div", class_="chart-card full-width")
+        card_dist_card["style"] = "margin-top: 16px;"
         card_dist_ttl  = tag("div", class_="chart-card-title")
         card_dist_ttl.string = "התפלגות כרטיסי אשראי"
         card_dist_card.append(card_dist_ttl)
@@ -495,12 +636,30 @@ class utils:
             _cd_sc.string = f"""
 (function(){{
   const statusArr = {_cd_status_json};
+  const statusLabelPlugin = {{
+    id: 'statusLabels',
+    afterDatasetDraw(chart) {{
+      const {{ctx, data, scales: {{x, y}}}} = chart;
+      ctx.save();
+      ctx.textAlign = 'center';
+      ctx.font = '11px Segoe UI,Arial,sans-serif';
+      data.datasets[0].data.forEach(function(val, i) {{
+        if (data.labels[i] === 'Bank') return;
+        const st = statusArr[i];
+        const xPos = x.getPixelForValue(i);
+        const yPos = y.getPixelForValue(val) - 6;
+        ctx.fillStyle = st ? '#1a7a45' : '#b07000';
+        ctx.fillText(st ? '\u2705 \u05de\u05d0\u05d5\u05de\u05ea' : '\u26a0 \u05dc\u05d0 \u05de\u05d0\u05d5\u05de\u05ea', xPos, yPos);
+      }});
+      ctx.restore();
+    }}
+  }};
   new Chart(document.getElementById('chart-card-dist'), {{
     type: 'bar',
     data: {_cd_chart_data},
     options: {{
       responsive: true, maintainAspectRatio: false,
-      layout: {{ padding: {{ top: 8 }} }},
+      layout: {{ padding: {{ top: 24 }} }},
       plugins: {{
         legend: {{ display: false }},
         tooltip: {{
@@ -509,7 +668,7 @@ class utils:
             label: function(ctx) {{
               const v = ctx.parsed.y;
               const st = statusArr[ctx.dataIndex];
-              return '\u20aa' + Math.round(v).toLocaleString('he-IL') + (st ? ' \u2705 מאומת' : ' \u26a0 לא מאומת');
+              return '\u20aa' + Math.round(v).toLocaleString('he-IL') + (st ? ' \u2705 \u05de\u05d0\u05d5\u05de\u05ea' : ' \u26a0 \u05dc\u05d0 \u05de\u05d0\u05d5\u05de\u05ea');
             }}
           }}
         }}
@@ -524,7 +683,7 @@ class utils:
         }}
       }}
     }},
-    plugins: []
+    plugins: [statusLabelPlugin]
   }});
 }})();
 """

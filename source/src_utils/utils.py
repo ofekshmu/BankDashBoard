@@ -969,13 +969,14 @@ class utils:
         # Helper: format change cell
         def _change_cell(current, prev):
             if prev is None or prev == 0:
-                return "—", "acct-change-neu"
+                return None, None, "acct-change-neu"
             delta = current - prev
             pct   = delta / abs(prev) * 100
             sign  = "+" if delta >= 0 else ""
-            text  = f"{sign}{delta:,.0f}₪ ({sign}{pct:.1f}%)"
+            amount_text = f"{sign}{delta:,.0f}₪"
+            pct_text    = f"{sign}{pct:.1f}%"
             cls   = "acct-change-pos" if delta >= 0 else "acct-change-neg"
-            return text, cls
+            return amount_text, pct_text, cls
 
         acct_wrap = soup.find(id="accounts-table")
         tbl = tag("table")
@@ -1038,8 +1039,15 @@ class utils:
                 td_val = tag("td"); td_val.string = f"{info['value']:,.2f}\u20aa"; row.append(td_val)
 
                 # Change cell
-                chg_text, chg_cls = _change_cell(info['value'], info['prev'])
-                td_chg = tag("td"); td_chg["class"] = chg_cls; td_chg.string = chg_text
+                chg_amount, chg_pct, chg_cls = _change_cell(info['value'], info['prev'])
+                td_chg = tag("td"); td_chg["class"] = chg_cls
+                if chg_amount is None:
+                    td_chg.string = "—"
+                else:
+                    amt_span = tag("span"); amt_span.string = chg_amount + " "
+                    badge_cls = "acct-pct-badge acct-pct-pos" if chg_cls == "acct-change-pos" else "acct-pct-badge acct-pct-neg"
+                    pct_span = tag("span"); pct_span["class"] = badge_cls; pct_span.string = chg_pct
+                    td_chg.append(amt_span); td_chg.append(pct_span)
                 row.append(td_chg)
 
                 # Date cell — with detail tooltip for virtual accounts

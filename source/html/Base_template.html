@@ -956,6 +956,104 @@ a.nav-btn       { text-decoration: none; }
 .acct-toggle-label {
   font-size: 0.78em; color: var(--text-muted);
 }
+
+/* ── Percentage badge ────────────────────────────────────── */
+.acct-pct-badge {
+  display: inline-block;
+  padding: 1px 7px; border-radius: 10px;
+  font-size: 0.80em; font-weight: 700;
+}
+.acct-pct-pos { background: #e8f5e9; color: #2e7d32; }
+.acct-pct-neg { background: #ffebee; color: #c62828; }
+
+/* ── Account manager button ──────────────────────────────── */
+.acct-manage-btn {
+  padding: 5px 13px;
+  background: var(--teal); color: #fff;
+  border: none; border-radius: var(--radius-sm);
+  font-size: 0.78em; font-weight: 700; cursor: pointer;
+  transition: opacity 0.15s;
+  margin-right: auto;
+}
+.acct-manage-btn:hover { opacity: 0.85; }
+
+/* ── Account manager modal ───────────────────────────────── */
+.acct-modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.38);
+  z-index: 300;
+  align-items: center; justify-content: center;
+}
+.acct-modal-overlay.open { display: flex; }
+.acct-modal {
+  background: var(--white);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 40px rgba(0,0,0,0.18);
+  padding: 26px 26px 20px;
+  width: 370px; max-width: 95vw;
+  direction: rtl;
+  animation: fadein 0.2s ease;
+}
+.acct-modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  border-bottom: 1.5px solid var(--border); padding-bottom: 10px; margin-bottom: 16px;
+}
+.acct-modal-title {
+  font-size: 1.0em; font-weight: 700; color: var(--navy);
+}
+.acct-modal-close {
+  background: none; border: none; font-size: 1.1em;
+  cursor: pointer; color: #aaa; line-height: 1; padding: 0;
+}
+.acct-modal-close:hover { color: var(--navy); }
+.acct-modal-step { display: none; flex-direction: column; gap: 12px; }
+.acct-modal-step.active { display: flex; }
+.acct-modal-menu-btn {
+  width: 100%; padding: 11px 16px; text-align: right;
+  background: #f4f7fc; border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm); color: var(--navy);
+  font-size: 0.90em; font-weight: 600; cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.acct-modal-menu-btn:hover { background: var(--teal-light); border-color: var(--teal); }
+.acct-modal-menu-btn.danger:hover { background: #fff0f0; border-color: #e53935; }
+.acct-modal-label {
+  font-size: 0.80em; color: var(--text-muted); font-weight: 600; margin-bottom: 3px;
+}
+.acct-modal-select, .acct-modal-input {
+  width: 100%; padding: 8px 10px; border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm); font-size: 0.90em;
+  color: var(--navy); background: var(--white);
+  box-sizing: border-box; direction: rtl;
+}
+.acct-modal-select:focus, .acct-modal-input:focus {
+  outline: none; border-color: var(--teal);
+}
+.acct-modal-row { display: flex; gap: 10px; align-items: center; }
+.acct-modal-submit {
+  padding: 9px 20px; background: var(--teal); color: #fff;
+  border: none; border-radius: var(--radius-sm);
+  font-size: 0.90em; font-weight: 700; cursor: pointer;
+  transition: opacity 0.15s; white-space: nowrap;
+}
+.acct-modal-submit:hover { opacity: 0.85; }
+.acct-modal-submit.danger { background: #e53935; }
+.acct-modal-back {
+  font-size: 0.82em; color: var(--teal); cursor: pointer;
+  background: none; border: none; padding: 0; text-decoration: underline;
+}
+.acct-modal-status {
+  font-size: 0.82em; min-height: 1.3em; text-align: center;
+}
+.acct-modal-status.ok  { color: #43a047; }
+.acct-modal-status.err { color: #e53935; }
+.acct-entries-list {
+  max-height: 170px; overflow-y: auto; font-size: 0.80em;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 6px 10px; direction: ltr; background: #fafbfc;
+}
+.acct-entries-list div { padding: 3px 0; border-bottom: 1px solid #f0f0f0; }
+.acct-entries-list div:last-child { border-bottom: none; }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
@@ -1148,7 +1246,10 @@ a.nav-btn       { text-decoration: none; }
   <!-- ── Panel: Accounts ──────────────────────────────────── -->
   <div id="panel-accounts" class="panel">
     <div class="card" id="accounts-table-card">
-      <div class="card-title">יתרות חשבונות</div>
+      <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;">
+        יתרות חשבונות
+        <button class="acct-manage-btn" onclick="openAcctModal()">+ הוסף / נהל</button>
+      </div>
       <div class="acct-wrap" id="accounts-table"></div>
     </div>
     <div class="card" id="accounts-chart-card">
@@ -1162,6 +1263,85 @@ a.nav-btn       { text-decoration: none; }
   <div id="panel-housing" class="panel"></div>
 
 </div><!-- /.main -->
+
+<!-- ── Account manager modal ────────────────────────────── -->
+<div class="acct-modal-overlay" id="acct-modal-overlay" onclick="if(event.target===this)closeAcctModal()">
+  <div class="acct-modal">
+    <div class="acct-modal-header">
+      <span class="acct-modal-title">ניהול חשבונות</span>
+      <button class="acct-modal-close" onclick="closeAcctModal()">✕</button>
+    </div>
+
+    <!-- Step: menu -->
+    <div class="acct-modal-step active" id="acct-step-menu">
+      <button class="acct-modal-menu-btn" onclick="acctShowStep('add-status')">הוסף יתרה לחשבון</button>
+      <button class="acct-modal-menu-btn danger" onclick="acctShowStep('del-account')">מחק חשבון</button>
+      <button class="acct-modal-menu-btn danger" onclick="acctShowStep('del-entry')">מחק רשומה לפי ID</button>
+    </div>
+
+    <!-- Step: add status -->
+    <div class="acct-modal-step" id="acct-step-add-status">
+      <div>
+        <div class="acct-modal-label">חשבון</div>
+        <select class="acct-modal-select" id="acct-sel-name" onchange="acctNameChanged()"></select>
+      </div>
+      <div id="acct-new-name-wrap" style="display:none">
+        <div class="acct-modal-label">שם חשבון חדש</div>
+        <input class="acct-modal-input" id="acct-new-name-input" type="text" placeholder="שם החשבון">
+      </div>
+      <div>
+        <div class="acct-modal-label">תאריך</div>
+        <div style="display:flex;gap:14px;margin-bottom:6px">
+          <label style="font-size:0.86em;cursor:pointer;display:flex;align-items:center;gap:5px">
+            <input type="radio" name="acct-date-radio" value="today" checked onchange="acctDateToggle()"> היום
+          </label>
+          <label style="font-size:0.86em;cursor:pointer;display:flex;align-items:center;gap:5px">
+            <input type="radio" name="acct-date-radio" value="custom" onchange="acctDateToggle()"> תאריך אחר
+          </label>
+        </div>
+        <input class="acct-modal-input" id="acct-date-input" type="date" style="display:none">
+      </div>
+      <div>
+        <div class="acct-modal-label">יתרה</div>
+        <input class="acct-modal-input" id="acct-value-input" type="number" placeholder="0">
+      </div>
+      <div class="acct-modal-row">
+        <button class="acct-modal-submit" onclick="acctSubmitStatus()">הוסף</button>
+        <button class="acct-modal-back" onclick="acctShowStep('menu')">← חזור</button>
+      </div>
+      <div class="acct-modal-status" id="acct-status-add"></div>
+    </div>
+
+    <!-- Step: delete account -->
+    <div class="acct-modal-step" id="acct-step-del-account">
+      <div>
+        <div class="acct-modal-label">בחר חשבון למחיקה</div>
+        <select class="acct-modal-select" id="acct-del-sel"></select>
+      </div>
+      <div class="acct-modal-row">
+        <button class="acct-modal-submit danger" onclick="acctDeleteAccount()">מחק חשבון</button>
+        <button class="acct-modal-back" onclick="acctShowStep('menu')">← חזור</button>
+      </div>
+      <div class="acct-modal-status" id="acct-status-del-acct"></div>
+    </div>
+
+    <!-- Step: delete entry by id -->
+    <div class="acct-modal-step" id="acct-step-del-entry">
+      <div class="acct-modal-label">רשומות קיימות</div>
+      <div class="acct-entries-list" id="acct-entries-list"></div>
+      <div>
+        <div class="acct-modal-label">ID לביטול</div>
+        <input class="acct-modal-input" id="acct-del-id-input" type="number" placeholder="הכנס ID">
+      </div>
+      <div class="acct-modal-row">
+        <button class="acct-modal-submit danger" onclick="acctDeleteEntry()">מחק רשומה</button>
+        <button class="acct-modal-back" onclick="acctShowStep('menu')">← חזור</button>
+      </div>
+      <div class="acct-modal-status" id="acct-status-del-entry"></div>
+    </div>
+
+  </div>
+</div>
 
 <!-- ── Scripts ───────────────────────────────────────────── -->
 <script>
@@ -1677,6 +1857,142 @@ _initMonthNav();
       document.getElementById('actions-toggle-btn').style.display = 'none';
     });
 })();
+
+// ── Account manager modal ─────────────────────────────────
+function openAcctModal() {
+  document.getElementById('acct-modal-overlay').classList.add('open');
+  acctShowStep('menu');
+}
+function closeAcctModal() {
+  document.getElementById('acct-modal-overlay').classList.remove('open');
+}
+function acctShowStep(name) {
+  document.querySelectorAll('.acct-modal-step').forEach(function(s) {
+    s.classList.remove('active');
+  });
+  document.getElementById('acct-step-' + name).classList.add('active');
+  if (name === 'add-status') acctLoadNames();
+  if (name === 'del-account') acctLoadDelNames();
+  if (name === 'del-entry')   acctLoadEntries();
+}
+function acctLoadNames() {
+  fetch('/api/accounts/names')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var sel = document.getElementById('acct-sel-name');
+      sel.innerHTML = '';
+      (data.names || []).forEach(function(n) {
+        var o = document.createElement('option');
+        o.value = n; o.textContent = n;
+        sel.appendChild(o);
+      });
+      var newOpt = document.createElement('option');
+      newOpt.value = '__new__'; newOpt.textContent = '+ חשבון חדש…';
+      sel.appendChild(newOpt);
+      acctNameChanged();
+    });
+}
+function acctLoadDelNames() {
+  fetch('/api/accounts/names')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var sel = document.getElementById('acct-del-sel');
+      sel.innerHTML = '';
+      (data.names || []).forEach(function(n) {
+        var o = document.createElement('option');
+        o.value = n; o.textContent = n;
+        sel.appendChild(o);
+      });
+    });
+}
+function acctLoadEntries() {
+  fetch('/api/accounts/entries')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var el = document.getElementById('acct-entries-list');
+      el.innerHTML = '';
+      (data.entries || []).forEach(function(e) {
+        var d = document.createElement('div');
+        d.textContent = 'ID ' + e.id + ' | ' + e.account + ' | ' + e.date + ' | ₪' + Number(e.value).toLocaleString('he-IL');
+        el.appendChild(d);
+      });
+    });
+}
+function acctNameChanged() {
+  var sel  = document.getElementById('acct-sel-name');
+  var wrap = document.getElementById('acct-new-name-wrap');
+  wrap.style.display = sel.value === '__new__' ? 'block' : 'none';
+}
+function acctDateToggle() {
+  var custom = document.querySelector('input[name="acct-date-radio"][value="custom"]').checked;
+  document.getElementById('acct-date-input').style.display = custom ? 'block' : 'none';
+}
+function acctSubmitStatus() {
+  var sel  = document.getElementById('acct-sel-name');
+  var name = sel.value === '__new__'
+    ? document.getElementById('acct-new-name-input').value.trim()
+    : sel.value;
+  if (!name) { acctSetStatus('acct-status-add', 'יש להזין שם חשבון', 'err'); return; }
+  var dateRadio = document.querySelector('input[name="acct-date-radio"]:checked').value;
+  var date = dateRadio === 'today'
+    ? new Date().toISOString().slice(0, 10)
+    : document.getElementById('acct-date-input').value;
+  if (!date) { acctSetStatus('acct-status-add', 'יש לבחור תאריך', 'err'); return; }
+  var value = parseFloat(document.getElementById('acct-value-input').value);
+  if (isNaN(value)) { acctSetStatus('acct-status-add', 'יתרה לא תקינה', 'err'); return; }
+  fetch('/api/accounts/status', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({name: name, date: date, value: value})
+  }).then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d.ok) {
+        acctSetStatus('acct-status-add', 'נוסף בהצלחה ✓', 'ok');
+        document.getElementById('acct-value-input').value = '';
+        acctLoadNames();
+      } else {
+        acctSetStatus('acct-status-add', d.error || 'שגיאה', 'err');
+      }
+    }).catch(function() { acctSetStatus('acct-status-add', 'שגיאת רשת', 'err'); });
+}
+function acctDeleteAccount() {
+  var name = document.getElementById('acct-del-sel').value;
+  if (!name) return;
+  if (!confirm('למחוק את כל הרשומות של "' + name + '"?')) return;
+  fetch('/api/accounts/delete', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({name: name})
+  }).then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d.ok) {
+        acctSetStatus('acct-status-del-acct', 'נמחק בהצלחה ✓', 'ok');
+        acctLoadDelNames();
+      } else {
+        acctSetStatus('acct-status-del-acct', d.error || 'שגיאה', 'err');
+      }
+    });
+}
+function acctDeleteEntry() {
+  var id = parseInt(document.getElementById('acct-del-id-input').value);
+  if (isNaN(id)) { acctSetStatus('acct-status-del-entry', 'יש להזין ID תקין', 'err'); return; }
+  fetch('/api/accounts/entry/' + id, {method: 'DELETE'})
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d.ok) {
+        acctSetStatus('acct-status-del-entry', 'נמחק ✓', 'ok');
+        acctLoadEntries();
+        document.getElementById('acct-del-id-input').value = '';
+      } else {
+        acctSetStatus('acct-status-del-entry', d.error || 'שגיאה', 'err');
+      }
+    });
+}
+function acctSetStatus(id, msg, type) {
+  var el = document.getElementById(id);
+  el.textContent = msg;
+  el.className = 'acct-modal-status ' + type;
+}
 </script>
 </body>
 </html>

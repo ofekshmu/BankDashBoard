@@ -463,6 +463,99 @@ def _not_generated_category_html(slug: str) -> str:
 </html>'''
 
 
+_READONLY_ACCOUNTS = ["נכס שלום שבזי"]
+_DB_PATH = os.path.join(_PROJECT_DIR, 'ShmuelFamiliy.db')
+
+
+def _acct_db():
+    """Open a fresh connection to the main DB using an absolute path."""
+    import sqlite3 as _sq
+    return _sq.connect(_DB_PATH, check_same_thread=False)
+
+
+@app.route('/api/accounts/names')
+def accounts_names():
+    conn = _acct_db()
+    try:
+        rows = conn.execute(
+            "SELECT DISTINCT AccountName FROM OtherAccountStatus"
+        ).fetchall()
+        names = [r[0] for r in rows if r[0] not in _READONLY_ACCOUNTS]
+        return jsonify({'names': names})
+    finally:
+        conn.close()
+
+
+@app.route('/api/accounts/status', methods=['POST'])
+def accounts_add_status():
+    from datetime import datetime as _dt
+    body  = request.get_json() or {}
+    name  = (body.get('name')  or '').strip()
+    date  = (body.get('date')  or '').strip()
+    value = body.get('value')
+    if not name or not date or value is None:
+        return jsonify({'ok': False, 'error': 'missing fields'})
+    try:
+        _dt.strptime(date, '%Y-%m-%d')
+        conn = _acct_db()
+        try:
+            conn.execute(
+                "INSERT INTO OtherAccountStatus (AccountName, StatusDate, Value, TransactionID) VALUES (?, ?, ?, ?)",
+                (name, date, float(value), None)
+            )
+            conn.commit()
+        finally:
+            conn.close()
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/accounts/delete', methods=['POST'])
+def accounts_delete():
+    body = request.get_json() or {}
+    name = (body.get('name') or '').strip()
+    if not name:
+        return jsonify({'ok': False, 'error': 'missing name'})
+    try:
+        conn = _acct_db()
+        try:
+            conn.execute("DELETE FROM OtherAccountStatus WHERE AccountName = ?", (name,))
+            conn.commit()
+        finally:
+            conn.close()
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/accounts/entries')
+def accounts_entries():
+    conn = _acct_db()
+    try:
+        rows = conn.execute(
+            "SELECT ID, AccountName, StatusDate, Value FROM OtherAccountStatus ORDER BY StatusDate DESC"
+        ).fetchall()
+        entries = [{'id': r[0], 'account': r[1], 'date': r[2], 'value': r[3]} for r in rows]
+        return jsonify({'entries': entries})
+    finally:
+        conn.close()
+
+
+@app.route('/api/accounts/entry/<int:entry_id>', methods=['DELETE'])
+def accounts_delete_entry(entry_id):
+    try:
+        conn = _acct_db()
+        try:
+            conn.execute("DELETE FROM OtherAccountStatus WHERE ID = ?", (entry_id,))
+            conn.commit()
+        finally:
+            conn.close()
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
 @app.route('/api/status')
 def status():
     return jsonify({'running': _analysis_running})

@@ -2411,7 +2411,7 @@ Please Make sure that none of the following formats have their 'Identifications 
         return True
     
     @staticmethod
-    def read_present_table():
+    def read_present_table(progress_callback=None):
         """
         The function reads the file table from the database and creates two dataframes:
         1. df - with the same index and columns as the file table, but with the "Last update" value in the cells.
@@ -2422,6 +2422,7 @@ Please Make sure that none of the following formats have their 'Identifications 
         - "Not verified" -> Red
         - "Missing file" -> Gray
 
+        progress_callback: optional callable(int 0-100) called after each row is processed.
         """
         from database import DataBase
         from dateutil.relativedelta import relativedelta
@@ -2444,25 +2445,33 @@ Please Make sure that none of the following formats have their 'Identifications 
         color_coded_df = pd.DataFrame(index=indexes, columns=columns)
 
         from src_utils.AppManagerUtils import AppManagerUtils
-        # iterate with progress bar to track processing of each file entry
-        for _, row in tqdm(file_df.iterrows(), total=file_df.shape[0], desc="Processing data"):
+        total = file_df.shape[0]
+        _month_cache = {}
+        for i, (_, row) in enumerate(tqdm(file_df.iterrows(), total=total, desc="Processing data")):
             last_update = row["Last_update"]
             date = row["Date"]
             format_name = row["Format"]
             card_number = row["Card_Number"]
             col_name =  format_name + " | " + card_number
             df.at[date, col_name] = last_update
-            
-            processed_df = AppManagerUtils.retrieve_and_initialize_data(datetime.strptime(row["Date"], "%B, %Y"), std_out=False)
-            test_df = utils.card_charge_validation(processed_df, datetime.strptime(row["Date"], "%B, %Y"))
+
+            dt = datetime.strptime(row["Date"], "%B, %Y")
+            if dt not in _month_cache:
+                processed_df = AppManagerUtils.retrieve_and_initialize_data(dt, std_out=False)
+                _month_cache[dt] = utils.card_charge_validation(processed_df, dt)
+            test_df = _month_cache[dt]
             status_series = test_df.loc[test_df['CardID'] == card_number, 'Status']
 
             if not status_series.empty:
                 result = status_series.values[0]
             else:
-                result = None  # or handle as needed
-            
+                result = None
+
             color_coded_df.at[date, col_name] = result
+
+            if progress_callback and total > 0:
+                progress_callback(int((i + 1) / total * 100))
+
         return df, color_coded_df
 
     @staticmethod

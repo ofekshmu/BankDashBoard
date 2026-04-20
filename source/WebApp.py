@@ -22,6 +22,7 @@ from flask import Flask, Response, request, jsonify, send_file, redirect
 # ── Paths ─────────────────────────────────────────────────────────────────────
 _HERE                  = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_HTML            = os.path.join(_HERE, 'html', 'output.html')
+ORGANIZER_HTML         = os.path.join(_HERE, 'html', 'Organizer_Table.html')
 _PROJECT_DIR           = os.path.dirname(_HERE)
 GENERAL_ANALYSIS_DIR   = os.path.join(_PROJECT_DIR, 'Outputs', 'general_analysis')
 CATEGORY_ANALYSIS_DIR  = os.path.join(_PROJECT_DIR, 'Outputs', 'category_analysis')
@@ -788,6 +789,360 @@ def _splash_html() -> str:
   </script>
 </body>
 </html>"""
+
+
+# ── File Organizer ────────────────────────────────────────────────────────────
+
+_ORGANIZER_HTML = """<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>ארגונית קבצים</title>
+<style>
+:root{
+  --navy:#1e2a4a;--teal:#1e9d8b;--teal-light:#e8f7f5;--teal-glow:rgba(30,157,139,.30);
+  --white:#fff;--bg:#f4f6f9;--border:#eef0f6;--text-muted:#9aa3bb;
+  --radius:14px;--radius-sm:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--navy);direction:rtl;display:flex;min-height:100vh}
+.sidebar{width:72px;background:var(--white);border-left:1px solid var(--border);position:fixed;top:0;right:0;height:100vh;display:flex;flex-direction:column;align-items:center;padding:16px 0;gap:2px;z-index:200;box-shadow:-2px 0 12px rgba(0,0,0,.05)}
+.sidebar-logo{width:44px;height:44px;margin-bottom:18px}
+.nav-btn{width:50px;height:54px;border-radius:12px;border:none;background:transparent;color:var(--text-muted);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:1.3em;text-decoration:none;transition:background .18s,color .18s}
+.nav-btn:hover{background:#f0f4ff;color:var(--navy)}
+.nav-btn.active{background:var(--teal);color:#fff;box-shadow:0 4px 14px var(--teal-glow)}
+.nav-btn .lbl{font-size:.34em;font-weight:600;letter-spacing:.4px;line-height:1}
+a.nav-btn{text-decoration:none}
+.main{margin-right:72px;flex:1;padding:30px 32px 60px;min-width:0;overflow-x:hidden}
+.page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px}
+.page-header h1{font-size:1.7em;font-weight:700}
+.regen-btn{display:inline-flex;align-items:center;gap:6px;padding:5px 14px;border:1.5px solid var(--teal);border-radius:20px;background:var(--white);color:var(--teal);font-size:.78em;font-weight:600;cursor:pointer;transition:background .15s,color .15s;white-space:nowrap}
+.regen-btn:hover{background:var(--teal);color:#fff}
+.regen-btn:disabled{opacity:.5;cursor:not-allowed}
+@keyframes _regenGlow{0%,100%{box-shadow:0 0 0 0 rgba(30,157,139,.55)}50%{box-shadow:0 0 0 7px rgba(30,157,139,0)}}
+.regen-icon{font-size:1.05em;display:inline-block}
+.regen-btn.spinning .regen-icon{animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-overlay{display:none;position:fixed;inset:0;background:rgba(255,255,255,.9);z-index:900;flex-direction:column;align-items:center;justify-content:center;gap:16px}
+.loading-overlay.active{display:flex}
+.loading-spinner{width:46px;height:46px;border:4px solid var(--border);border-top-color:var(--teal);border-radius:50%;animation:spin .8s linear infinite}
+.loading-text{font-size:.95em;font-weight:600;color:var(--navy)}
+.loading-pct{font-size:1.6em;font-weight:700;color:var(--teal);min-width:4ch;text-align:center}
+.legend-card{background:var(--white);border-radius:14px;box-shadow:0 2px 16px rgba(0,0,0,.08),0 0 0 1px rgba(0,0,0,.04);padding:20px 26px;margin-bottom:24px}
+.legend-title{font-size:.7em;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.9px;margin-bottom:16px}
+.legend-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:10px 36px}
+.legend-item{display:flex;align-items:flex-start;gap:9px;font-size:.83em;line-height:1.5}
+.legend-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;margin-top:4px}
+.legend-label{font-weight:700;color:var(--navy);white-space:nowrap;margin-left:2px}
+.legend-sep{color:var(--text-muted);margin:0 1px}
+.legend-desc{color:var(--text-muted)}
+.ld-green{background:#22c55e}.ld-yellow{background:#f59e0b}.ld-red{background:#ef4444}
+.ld-blue{background:#3b82f6}.ld-blue2{background:#93c5fd}.ld-gray{background:#9ca3af}
+.table-section{background:var(--white);border-radius:var(--radius);border:1px solid var(--border);overflow:hidden}
+.table-scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;white-space:nowrap}
+.org-th{background:var(--navy);color:#fff;padding:13px 14px;text-align:center;font-size:.79em;font-weight:600;letter-spacing:.3px;position:sticky;top:0;z-index:10}
+.org-th-date{text-align:right;min-width:150px;position:sticky;right:0;z-index:11;border-left:2px solid rgba(255,255,255,.15)}
+.org-td{padding:10px 12px;text-align:center;font-size:.81em;border-bottom:1px solid var(--border);vertical-align:middle;min-width:130px}
+.org-td-date{font-weight:600;color:var(--teal);text-align:right;background:var(--white) !important;position:sticky;right:0;z-index:5;border-left:2px solid var(--border);padding-right:14px}
+tbody tr:hover .org-td{background:rgba(30,157,139,.04) !important}
+tbody tr:hover .org-td-date{background:#f8fffd !important}
+.org-cell-green{background:#f0fdf4 !important;color:#166534}
+.org-cell-yellow{background:#fefce8 !important;color:#854d0e}
+.org-cell-red{background:#fef2f2 !important;color:#991b1b}
+.org-cell-blue-miss{background:#eff6ff !important;color:#1e40af;font-size:.78em;padding:8px 10px !important;text-align:right}
+.org-cell-blue-mis2{background:#f0f9ff !important;color:#0c4a6e;font-size:.78em;padding:8px 10px !important;text-align:right}
+.org-cell-gray{background:#f9fafb !important;color:#9ca3af;font-style:italic}
+.org-cell-label{font-size:.78em;font-weight:700;display:block}
+.org-badge-bank{color:#0369a1}
+.org-cell-date{font-size:.76em;color:#6b7280;display:block;margin-top:2px}
+.org-match-detail{display:flex;flex-direction:column;gap:1px;margin-top:4px;font-size:.75em;opacity:.85}
+.generated-row{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.generated-label{font-size:.72em;color:var(--text-muted);white-space:nowrap}
+</style>
+</head>
+<body data-generated="<!--GENERATED_DATE-->">
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <svg viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="44" height="44" rx="12" fill="#1e9d8b"/>
+      <rect x="8" y="26" width="6" height="10" rx="1.5" fill="white" opacity="0.6"/>
+      <rect x="17" y="18" width="6" height="18" rx="1.5" fill="white" opacity="0.85"/>
+      <rect x="26" y="10" width="6" height="26" rx="1.5" fill="white"/>
+      <text x="33" y="14" font-family="Arial" font-size="9" font-weight="800" fill="#1e9d8b" opacity="0.9">&#8362;</text>
+    </svg>
+  </div>
+  <a class="nav-btn" href="/" title="דשבורד ראשי"><span>&#8862;</span><span class="lbl">ראשי</span></a>
+  <a class="nav-btn" href="/categories" title="ניתוח קטגוריות"><span>&#127991;</span><span class="lbl">קטגוריות</span></a>
+  <a class="nav-btn active" href="/organizer" title="ארגונית קבצים"><span>&#128194;</span><span class="lbl">ארגונית</span></a>
+</nav>
+
+<div class="loading-overlay" id="loading-overlay">
+  <div class="loading-spinner"></div>
+  <div class="loading-text">מחדש נתונים\u2026</div>
+  <div class="loading-pct" id="loading-pct">0%</div>
+</div>
+
+<div class="main">
+  <div class="page-header">
+    <h1>ארגונית קבצים</h1>
+    <div class="generated-row">
+      <span class="generated-label" id="generated-label"></span>
+      <button class="regen-btn" id="regen-btn" onclick="regenerate()"><span class="regen-icon">&#8635;</span> חשב מחדש</button>
+    </div>
+  </div>
+
+  <div class="legend-card">
+    <div class="legend-title">מקרא</div>
+    <div class="legend-grid">
+      <div class="legend-item"><span class="legend-dot ld-green"></span><span class="legend-label">מאומת</span><span class="legend-sep">&mdash;</span><span class="legend-desc">הקובץ עובד ועסקאות הכרטיס התאימו לחיוב בבנק</span></div>
+      <div class="legend-item"><span class="legend-dot ld-green"></span><span class="legend-label">Bank</span><span class="legend-sep">&mdash;</span><span class="legend-desc">קובץ חשבון בנק נרשם (אימות לא רלוונטי)</span></div>
+      <div class="legend-item"><span class="legend-dot ld-yellow"></span><span class="legend-label">לא מאומת</span><span class="legend-sep">&mdash;</span><span class="legend-desc">הקובץ עובד אך לא נמצא חיוב תואם בבנק</span></div>
+      <div class="legend-item"><span class="legend-dot ld-yellow"></span><span class="legend-label">ללא עסקות</span><span class="legend-sep">&mdash;</span><span class="legend-desc">הקובץ נרשם אך לא היו עסקות לכרטיס בחודש זה</span></div>
+      <div class="legend-item"><span class="legend-dot ld-red"></span><span class="legend-label">חסר קובץ</span><span class="legend-sep">&mdash;</span><span class="legend-desc">לא נמצא קובץ לפורמט ולכרטיס בתאריך זה</span></div>
+      <div class="legend-item"><span class="legend-dot ld-blue"></span><span class="legend-label">קובץ חסר + עסקה</span><span class="legend-sep">&mdash;</span><span class="legend-desc">נמצאה עסקה לא מתויגת תואמת אך ללא קובץ</span></div>
+      <div class="legend-item"><span class="legend-dot ld-blue2"></span><span class="legend-label">אי-התאמת ערך</span><span class="legend-sep">&mdash;</span><span class="legend-desc">נמצאה עסקה תואמת אך הסכום שונה</span></div>
+      <div class="legend-item"><span class="legend-dot ld-gray"></span><span class="legend-label">לא זמין</span><span class="legend-sep">&mdash;</span><span class="legend-desc">הפורמט אינו תקף לתאריך זה</span></div>
+    </div>
+  </div>
+
+  <div class="table-section">
+    <div class="table-scroll">
+      <table>
+        <thead><tr><!--TH_CELLS--></tr></thead>
+        <tbody><!--ROWS_HTML--></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var genLabel = document.getElementById('generated-label');
+  if (genLabel && document.body.dataset.generated)
+    genLabel.textContent = '\u05e0\u05d5\u05e6\u05e8: ' + document.body.dataset.generated;
+})();
+function regenerate() {
+  var btn = document.getElementById('regen-btn');
+  var overlay = document.getElementById('loading-overlay');
+  var pct = document.getElementById('loading-pct');
+  btn.disabled = true;
+  btn.classList.add('spinning');
+  pct.textContent = '0%';
+  overlay.classList.add('active');
+  var es = new EventSource('/api/organizer/regenerate');
+  es.onmessage = function(e) {
+    if (e.data === 'done') {
+      es.close(); location.reload();
+    } else if (e.data === 'error') {
+      es.close(); location.reload();
+    } else {
+      var p = parseInt(e.data);
+      if (!isNaN(p)) pct.textContent = p + '%';
+    }
+  };
+  es.onerror = function() { es.close(); location.reload(); };
+}
+</script>
+</body>
+</html>"""
+
+
+def _organizer_splash() -> str:
+    return """<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+  <meta charset="UTF-8">
+  <title>ארגונית קבצים</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f8f9fb;display:flex;align-items:center;justify-content:center;min-height:100vh;flex-direction:column;gap:18px}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .spinner{width:52px;height:52px;border:4px solid #e2e8f0;border-top-color:#1e9d8b;border-radius:50%;animation:spin .8s linear infinite}
+    .label{font-size:.95em;font-weight:600;color:#1a2744}
+    .pct{font-size:1.8em;font-weight:700;color:#1e9d8b;min-width:4ch;text-align:center}
+  </style>
+</head>
+<body>
+  <div class="spinner"></div>
+  <div class="label">מחשב נתונים\u2026</div>
+  <div class="pct" id="pct">0%</div>
+  <script>
+    var es = new EventSource('/api/organizer/regenerate');
+    es.onmessage = function(e) {
+      if (e.data === 'done') { es.close(); location.reload(); }
+      else if (e.data === 'error') { es.close(); }
+      else { var p = parseInt(e.data); if (!isNaN(p)) document.getElementById('pct').textContent = p + '%'; }
+    };
+    es.onerror = function() { es.close(); location.reload(); };
+  </script>
+</body>
+</html>"""
+
+
+def _build_organizer_page(progress_callback=None):
+    from html import escape as _esc
+    sys.path.insert(0, _HERE)
+    from src_utils.utils import utils as _utils
+    from Constants import BANK_CARD_NUMBER
+
+    try:
+        df, color_coded_df = _utils.read_present_table(progress_callback=progress_callback)
+    except Exception as exc:
+        raise
+
+    color_coded_df = color_coded_df.replace({1: 'Verified', 0: 'Not Verified'})
+
+    untagged_cells = {}
+    try:
+        from Configurations.Formats import Formats
+        from database import DataBase as _DB
+        from datetime import datetime as _dt
+        _untagged, _desc = _DB().get_untagged(table='BankTransactions')
+        _TSEP = ' | '
+        _DFMT = '%B, %Y'
+        _DFMT_FULL = '%Y-%m-%d %H:%M:%S'
+        _DLEN = 10
+        for col in df.columns:
+            try:
+                fmt_name, card_num_col = col.split(_TSEP)
+            except Exception:
+                continue
+            card_names = Formats.FORMATS.get(fmt_name, {}).get('Transaction Names', {})
+            if card_num_col in card_names:
+                possible = set(card_names[card_num_col])
+                for idx in df.index:
+                    val = df.at[idx, col]
+                    sts = color_coded_df.at[idx, col] if idx in color_coded_df.index and col in color_coded_df.columns else None
+                    try:
+                        row_date = _dt.strptime(str(idx), _DFMT)
+                    except Exception:
+                        continue
+                    match = _utils._find_untagged_transaction_match(
+                        _untagged, _desc, possible, val, sts,
+                        row_date, _DFMT_FULL, _DLEN
+                    )
+                    if match:
+                        untagged_cells[(idx, col)] = match
+    except Exception:
+        pass
+
+    cols = list(df.columns)
+
+    th_cells = '<th class="org-th org-th-date">תאריך</th>'
+    for col in cols:
+        th_cells += f'<th class="org-th">{_esc(col)}</th>'
+
+    rows_html = ''
+    for idx in df.index:
+        tds = f'<td class="org-td org-td-date">{_esc(str(idx))}</td>'
+        for col in cols:
+            value    = df.at[idx, col]
+            status   = color_coded_df.at[idx, col] if idx in color_coded_df.index and col in color_coded_df.columns else None
+            is_date  = isinstance(value, str) and ('-' in value or '/' in value)
+            card_num_col = col.split(' | ')[-1] if ' | ' in col else ''
+            date_str = str(value)[:10] if is_date and isinstance(value, str) else (str(value) if value is not None else '')
+            cell_key = (idx, col)
+
+            is_invalid = False
+            if 'Isra-Card-2026' in col:
+                try:
+                    yr = str(idx).split(', ')[-1]
+                    if yr.isdigit() and int(yr) < 2026:
+                        is_invalid = True
+                except Exception:
+                    pass
+
+            if is_invalid:
+                tds += '<td class="org-td org-cell-gray"><span class="org-cell-label">N/A</span></td>'
+            elif cell_key in untagged_cells:
+                m      = untagged_cells[cell_key]
+                m_type = m[3] if len(m) > 3 else 'missing'
+                m_name = _esc(str(m[2])) if len(m) > 2 and m[2] else '?'
+                m_val  = _esc(str(m[1])) if len(m) > 1 and m[1] else '?'
+                m_date = str(m[0])[:10]  if m[0] else '?'
+                detail = (f'<div class="org-match-detail">'
+                          f'<span>{m_name}</span><span>\u20aa{m_val}</span><span>{m_date}</span>'
+                          f'</div>')
+                if m_type == 'missing':
+                    tds += f'<td class="org-td org-cell-blue-miss"><b>\u26a0 חסר</b>{detail}</td>'
+                else:
+                    tds += f'<td class="org-td org-cell-blue-mis2"><b>\u26a0 אי-התאמה</b>{detail}</td>'
+            elif card_num_col == BANK_CARD_NUMBER and is_date:
+                tds += (f'<td class="org-td org-cell-green">'
+                        f'<span class="org-cell-label org-badge-bank">Bank</span>'
+                        f'<span class="org-cell-date">{_esc(date_str)}</span></td>')
+            elif status == 'Verified':
+                tds += (f'<td class="org-td org-cell-green">'
+                        f'<span class="org-cell-label">\u2713 מאומת</span>'
+                        f'<span class="org-cell-date">{_esc(date_str)}</span></td>')
+            elif status == 'Not Verified' and card_num_col != BANK_CARD_NUMBER:
+                tds += (f'<td class="org-td org-cell-yellow">'
+                        f'<span class="org-cell-label">\u26a0 לא מאומת</span>'
+                        f'<span class="org-cell-date">{_esc(date_str)}</span></td>')
+            elif is_date and status != 'Not Verified':
+                tds += (f'<td class="org-td org-cell-yellow">'
+                        f'<span class="org-cell-label">\u2014 ללא עסקות</span>'
+                        f'<span class="org-cell-date">{_esc(date_str)}</span></td>')
+            else:
+                disp = date_str if date_str and date_str != 'None' else ''
+                _cell_val = _esc(disp) if disp else '\u2014'
+                tds += f'<td class="org-td org-cell-red">{_cell_val}</td>'
+
+        rows_html += f'<tr>{tds}</tr>\n'
+
+    from datetime import datetime as _now
+    html = _ORGANIZER_HTML \
+        .replace('<!--TH_CELLS-->', th_cells) \
+        .replace('<!--ROWS_HTML-->', rows_html) \
+        .replace('<!--GENERATED_DATE-->', _now.now().strftime('%d/%m/%Y %H:%M'))
+
+    with open(ORGANIZER_HTML, 'w', encoding='utf-8') as _f:
+        _f.write(html)
+
+    return html
+
+
+@app.route('/organizer')
+def organizer_page():
+    if os.path.exists(ORGANIZER_HTML):
+        return send_file(ORGANIZER_HTML)
+    return _organizer_splash()
+
+
+@app.route('/api/organizer/regenerate')
+def organizer_regenerate():
+    import queue as _q
+
+    pq = _q.Queue()
+
+    def _run():
+        try:
+            _build_organizer_page(progress_callback=lambda p: pq.put(p))
+            pq.put('done')
+        except Exception as exc:
+            pq.put(f'error:{exc}')
+
+    threading.Thread(target=_run, daemon=True).start()
+
+    def _generate():
+        while True:
+            val = pq.get()
+            if val == 'done':
+                yield 'data: 100\n\n'
+                yield 'data: done\n\n'
+                break
+            elif isinstance(val, str) and val.startswith('error:'):
+                yield 'data: error\n\n'
+                break
+            else:
+                yield f'data: {val}\n\n'
+
+    return Response(
+        _generate(),
+        mimetype='text/event-stream',
+        headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'},
+    )
 
 
 def start(port: int = 5050, open_browser: bool = True):

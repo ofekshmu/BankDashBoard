@@ -1,4 +1,5 @@
 import sqlite3
+import threading
 from datetime import datetime
 import pandas as pd
 from typing import Literal, Optional
@@ -46,112 +47,110 @@ def check_for_empty_df(func):
 class DataBase:
 
     __instance = None
+    __lock = threading.Lock()
     connection: sqlite3.Connection
     cursor: sqlite3.Cursor
 
     def __new__(cls):
-        if cls.__instance is None:
-            cls.__instance = super().__new__(cls)
-            cls.__instance.connection = sqlite3.connect(f'{Paths.DB_NAME}.db', check_same_thread=False)
-            cls.__instance.cursor = cls.__instance.connection.cursor()
-            cls.__instance.cursor.execute("""
-                CREATE TABLE IF NOT EXISTS Card (
-                CardID          CHAR(4)     PRIMARY KEY,
-                description     TEXT
-                );""")
-            cls.__instance.cursor.execute("""
-                CREATE TABLE IF NOT EXISTS File (
-                File_Name           CHAR        NOT NULL,
-                Format              CHAR        NOT NULL,
-                Card_Number         CHAR        NOT NULL,
-                Date                DATE        NOT NULL,
-                New_Transactions    INT                 ,
-                Transaction_count   INT         NOT NULL,
-                Last_update         DATE        NOT NULL,
-                PRIMARY KEY(File_Name, Format, Card_Number)
-                );""") # Should also add card as primary key for 2 holders of the same format, trying to upload
-                # a file for the same month for 2 different cards
+        with cls.__lock:
+            if cls.__instance is None:
+                cls.__instance = super().__new__(cls)
+                cls.__instance.connection = sqlite3.connect(f'{Paths.DB_NAME}.db', check_same_thread=False)
+                cls.__instance.cursor = cls.__instance.connection.cursor()
+                cls.__instance.cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS Card (
+                    CardID          CHAR(4)     PRIMARY KEY,
+                    description     TEXT
+                    );""")
+                cls.__instance.cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS File (
+                    File_Name           CHAR        NOT NULL,
+                    Format              CHAR        NOT NULL,
+                    Card_Number         CHAR        NOT NULL,
+                    Date                DATE        NOT NULL,
+                    New_Transactions    INT                 ,
+                    Transaction_count   INT         NOT NULL,
+                    Last_update         DATE        NOT NULL,
+                    PRIMARY KEY(File_Name, Format, Card_Number)
+                    );""")
 
-            cls.__instance.cursor.execute("""
-                CREATE TABLE IF NOT EXISTS CashTransactions (
-                ID                  INTEGER         PRIMARY KEY ,
-                Name                CHAR            NOT NULL    ,
-                Execution_Date      DATE            NOT NULL    ,
-                Amount              INT             NOT NULL    ,
-                Currency            CHAR            NOT NULL    ,
-                Category            CHAR            NOT NULL    ,
-                Insertion_Date      DATE            NOT NULL    ,
-                Description         CHAR                                                                       
-                );""")
-            
-            cls.__instance.cursor.execute("""
-                CREATE TABLE IF NOT EXISTS DevisionTransactions (
-                ID                  INTEGER         PRIMARY KEY ,
-                DevisionOfBank      INT             NOT NULL    ,
-                DevisionOfCard      INT             NOT NULL    ,
-                Name                CHAR            NOT NULL    ,
-                Execution_Date      DATE            NOT NULL    ,
-                Amount              INT             NOT NULL    ,
-                Currency            CHAR            NOT NULL    ,
-                Description         CHAR                        ,
-                Category            CHAR            NOT NULL    ,
-                FOREIGN KEY(DevisionOfBank)    REFERENCES BankTransactions(ID),
-                FOREIGN KEY(DevisionOfCard)    REFERENCES CardTransactions(ID)                                   
-                );""")
+                cls.__instance.cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS CashTransactions (
+                    ID                  INTEGER         PRIMARY KEY ,
+                    Name                CHAR            NOT NULL    ,
+                    Execution_Date      DATE            NOT NULL    ,
+                    Amount              INT             NOT NULL    ,
+                    Currency            CHAR            NOT NULL    ,
+                    Category            CHAR            NOT NULL    ,
+                    Insertion_Date      DATE            NOT NULL    ,
+                    Description         CHAR
+                    );""")
 
-            cls.__instance.cursor.execute("""
-                CREATE TABLE IF NOT EXISTS TableMeta (
-                ID                  INTEGER         PRIMARY KEY ,
-                File_Name           CHAR            NOT NULL    ,
-                Format              CHAR            NOT NULL    ,
-                Card_Number         CHAR            NOT NULL    ,
-                Initial_index       INT             NOT NULL    ,
-                Initial_col         INT             NOT NULL    ,
-                Row_count           INT             NOT NULL    ,
-                Bad_rows            CHAR                        ,
-                FOREIGN KEY(File_Name, Format, Card_Number)    REFERENCES File(File_Name, Format, Card_Number)
-                );""")
+                cls.__instance.cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS DevisionTransactions (
+                    ID                  INTEGER         PRIMARY KEY ,
+                    DevisionOfBank      INT             NOT NULL    ,
+                    DevisionOfCard      INT             NOT NULL    ,
+                    Name                CHAR            NOT NULL    ,
+                    Execution_Date      DATE            NOT NULL    ,
+                    Amount              INT             NOT NULL    ,
+                    Currency            CHAR            NOT NULL    ,
+                    Description         CHAR                        ,
+                    Category            CHAR            NOT NULL    ,
+                    FOREIGN KEY(DevisionOfBank)    REFERENCES BankTransactions(ID),
+                    FOREIGN KEY(DevisionOfCard)    REFERENCES CardTransactions(ID)
+                    );""")
 
-            cls.__instance.cursor.execute("""
-                CREATE TABLE IF NOT EXISTS BankTransactions (
-                ID                  INTEGER     PRIMARY KEY ,
-                Date                DATE        NOT NULL    ,
-                Value_Date          DATE                    ,
-                Name                CHAR        NOT NULL    ,
-                Ref                 CHAR                    ,
-                Out                 INT         NOT NULL    ,
-                Income              INT         NOT NULL    ,
-                Balance             INT                     ,
-                Extra_Info          CHAR                    ,
-                Source_file         CHAR        NOT NULL    ,
-                Category            CHAR                    ,
-                Description         CHAR                    ,            
-                Reserved            INT                     ,
-                FOREIGN KEY(source_file)    REFERENCES File(Name)
-                );""")
+                cls.__instance.cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS TableMeta (
+                    ID                  INTEGER         PRIMARY KEY ,
+                    File_Name           CHAR            NOT NULL    ,
+                    Format              CHAR            NOT NULL    ,
+                    Card_Number         CHAR            NOT NULL    ,
+                    Initial_index       INT             NOT NULL    ,
+                    Initial_col         INT             NOT NULL    ,
+                    Row_count           INT             NOT NULL    ,
+                    Bad_rows            CHAR                        ,
+                    FOREIGN KEY(File_Name, Format, Card_Number)    REFERENCES File(File_Name, Format, Card_Number)
+                    );""")
 
-            cls.__instance.cursor.execute("""
-                CREATE TABLE IF NOT EXISTS CardTransactions (
-                ID                  INTEGER     PRIMARY KEY ,
-                CardID              CHAR        NOT NULL    ,
-                Name                CHAR        NOT NULL    ,
-                Executed_Date       DATE        NOT NULL    ,
-                Charge_Date         DATE                    ,
-                Charge_Value        INT                     ,
-                Charge_Currency     CHAR                    ,
-                Transaction_Value   INT                     ,
-                Value_Currency      CHAR                    ,
-                Extra_Info          CHAR                    ,
-                Source_file         CHAR        NOT NULL    ,
-                Category            CHAR                    ,
-                Description         CHAR                    ,
-                Reserved            INT                     ,
-                FOREIGN KEY(CardID)         REFERENCES Card(CardID),
-                FOREIGN KEY(source_file)    REFERENCES File(Name)
-                );""")
-            # Charge value - The initial value/ The total sum of payments of the transaction.
-            # Transaction value - The actual amount credited for
+                cls.__instance.cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS BankTransactions (
+                    ID                  INTEGER     PRIMARY KEY ,
+                    Date                DATE        NOT NULL    ,
+                    Value_Date          DATE                    ,
+                    Name                CHAR        NOT NULL    ,
+                    Ref                 CHAR                    ,
+                    Out                 INT         NOT NULL    ,
+                    Income              INT         NOT NULL    ,
+                    Balance             INT                     ,
+                    Extra_Info          CHAR                    ,
+                    Source_file         CHAR        NOT NULL    ,
+                    Category            CHAR                    ,
+                    Description         CHAR                    ,
+                    Reserved            INT                     ,
+                    FOREIGN KEY(source_file)    REFERENCES File(Name)
+                    );""")
 
+                cls.__instance.cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS CardTransactions (
+                    ID                  INTEGER     PRIMARY KEY ,
+                    CardID              CHAR        NOT NULL    ,
+                    Name                CHAR        NOT NULL    ,
+                    Executed_Date       DATE        NOT NULL    ,
+                    Charge_Date         DATE                    ,
+                    Charge_Value        INT                     ,
+                    Charge_Currency     CHAR                    ,
+                    Transaction_Value   INT                     ,
+                    Value_Currency      CHAR                    ,
+                    Extra_Info          CHAR                    ,
+                    Source_file         CHAR        NOT NULL    ,
+                    Category            CHAR                    ,
+                    Description         CHAR                    ,
+                    Reserved            INT                     ,
+                    FOREIGN KEY(CardID)         REFERENCES Card(CardID),
+                    FOREIGN KEY(source_file)    REFERENCES File(Name)
+                    );""")
         return cls.__instance
 
     def insert_bank_transaction(self,

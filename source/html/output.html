@@ -716,6 +716,7 @@ a.nav-btn       { text-decoration: none; }
 .alert-body p { margin: 0; font-size: 0.79em; color: #555; line-height: 1.45; }
 
 /* Legend — full-width separated section */
+#alerts-card { margin-top: 24px; }
 .alerts-legend-section {
   border-top: 1.5px solid var(--border);
   padding-top: 18px;
@@ -725,12 +726,19 @@ a.nav-btn       { text-decoration: none; }
   font-size: 0.88em; font-weight: 700; color: var(--navy);
   margin-bottom: 14px;
   display: flex; align-items: center; gap: 7px;
+  cursor: pointer; user-select: none;
 }
 .alerts-legend-title::before {
   content: ""; display: inline-block;
   width: 4px; height: 15px;
   background: var(--amber); border-radius: 2px;
 }
+.legend-chevron {
+  margin-right: auto; font-size: 0.75em; color: #999;
+  transition: transform 0.2s; display: inline-block;
+}
+.alerts-legend-section.collapsed .legend-chevron { transform: rotate(180deg); }
+.alerts-legend-section.collapsed .legend-grid { display: none; }
 .legend-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -987,7 +995,7 @@ a.nav-btn       { text-decoration: none; }
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js">
   </script>
  </head>
- <body data-generated="21/04/2026 00:32" data-month="2026_04">
+ <body data-generated="21/04/2026 00:58" data-month="2026_04">
   <!-- ── Sidebar ───────────────────────────────────────────── -->
   <nav class="sidebar">
    <!-- Logo -->
@@ -1009,6 +1017,9 @@ a.nav-btn       { text-decoration: none; }
     </svg>
    </div>
    <button class="nav-btn active" onclick="showPanel('overview',this)" title="סקירה כללית">
+    <span class="nav-badge" id="alert-badge">
+     19
+    </span>
     <span>
      ⊞
     </span>
@@ -1022,15 +1033,6 @@ a.nav-btn       { text-decoration: none; }
     </span>
     <span class="lbl">
      עסקאות
-    </span>
-   </button>
-   <button class="nav-btn" onclick="showPanel('alerts',this)" title="התראות">
-    <img alt="" height="24" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAALo0lEQVR4nI1ZWYwcRxn+/uqeY3f28Gbt4NixExKWkOzmdBIcESBCARI7IAGyIRFCHBLhgeMBiQeQAMFbFHGIF44HEEig4BAIUgiBgExsjGx8JHgH27uOD9be9XoP78zO0dPdVR8PM71bU9Oz9i+Nprrrr7/++/+rWkjmAEQABO3A1r8478SZRwqeu95dl4br0r3aOgIQBcDD1YHO2CUmztxaIEin4eK4ews6aVMBUF2YtOfW2kBSnq917loF7iqoSkHskNKaSwipLkRdvLWYEawqyB2768X5XwFlMWib1RYkTaOmC0Fbo/acSpl33ShtnOYdtjBMNGlvqlIIJEzYgdXNVWzruMqwY24t+on7MmXOFqINKXlpnHECaRpbS4OuphMwDp5N390v4SvNO5gIsBZ0S3eur6f5rGste2NbuLR11wpiWyAB2+/SAq1brLhzLlOJ5j1r3nU3N6m4fCT0V1zK9S20NrIDW1tzLoMtps4pYG8bYYuJjsDegz04h3O+RcPd2wbXtdto+ujUWBp081kFHBGR+4MmqRgkMylMAIAUUeSY3BUKPBCRHud4dhSjrhekpXIb2nFJFkgqkh5Jn2SmNfZaY98ar8xNcCLXpKGwGEx8aKbxp5fPLr3wJKBATuRWaTXHhw8fzgCCMwsv7r4Uv/LSleD0RxWaRmjh2nv7a+ztW++VciTrlodtKwC4lC+jbEi+5fTSq7+aqu//42x0/DHDgWdIvQUom2KxqEQkAkbCc+f2+tu2bdOk2UI18P2L9aM7zgf7fjdZ+ttzJNeLSLyAhV50pnC73qRWbR/tQeT6a1qq9PfiZOMRPLL12MJLzy/L6XuXlirx5nXvlKH+u/sB3Cxy/xSg0Ggs3hVFpcytt7z/iGEMkm8d6L1jaLHSiKeW/o2BofLu0uLyLSSfAnC+xU/U2stOt66CV5QqJPsA1NCewgxWi0kSWAoA9mCP2YVd6w/MvPKnqfjofSrMRe/Y8L6MMoGu87hIw//9to2f+dyF8t6v1zH9ZTJWeWz90dbBR757cOYXv9LZYOegdxfp9XonLu+NdK6WudG7+8jDN+zcUURxaRSjabXA5sOzFEuF1SyT1gK0SVssFmUXduHY5UPPTjRO3LdcycRj1z+eKVenUJx9WU2VZtS63rs+AOCZxejM12arh/Nztdezi41TXwHwveHC3TsvlubVG7Mve+XaBYxd/8FMZTkXTwSnth2bPfSsFdCu+9p8tVnCzcO2IMl4JeePjY2FGnjq9cUTn3hzbla/c9Nj3uXl8zg0uw/aXy+3D38COa/Qf3zxN5+vRyXjYT0Vh1nTS974lec+m1O9MrbhY/Aym/DvmX24tHwW2zfv8M7Oz5vDC288CeBREdHAZLd609GnpXWVad0oiigyIz4OTB968r+1C/7Y8HZE1LLv4r/Qm9uMbTfsgNb/w7nSXwB6GM6Pqut7H5Thwn0ymB2RamOZp5b+IFpfwv0bH0cmuxH/nDmEyEQyOvwAJ4JZ/x8XD32JpL+n+PrV0mibCxkHIbUbHZOxKDTRA8Xyxe2z5TpHr3uH+s/sKcwEdTx0wwfhmxLOlw5iuOd25NVG1OMalqMrqDRKqMV1iOqTrFqPNxf3Q8dzeNfmxzBTDXB0pog7h0fVXLnBk6XpbQAe3D22O0SXGHR47Di0uH7WlqEi3Xj0RG1+qN/fYLJeRvZOn8RNA7djY88gTi8ewlDuNmhNLAbTqERVVMIKKlEZlaiMUjCPUGtQCji9dBQ39FyHrQNvx/6ZCXjKl4K3geO12eFIR/fZe6K9uqem0TSft59RbAliBLdtf8ttVI0IhIfZWmCeuPkWiU1FluIq1uVuxEKwgJB1aAYwjKARwZAwBiBCGPFxpX4ZYVzGyLq38e8XTpEa8u4tYww90AgeJOmhPbl0O7mJXQe6WmEUIEmpRvWJD2++X+phXTSB77znU2pzzwbMlU+DJodSWEZNVxDFdQARNGIYGJCAoQAKaOgQtTjCfGMBD225UzZdt1429A7h0cI6ryfTgyiK38ipjMFq05d2mFnpZm0L2G6T1AEPQNya8wqZnp8sR7XFgtdfpZiROzLZjyhkOa3NnY2YWJIqalEVmiFiBtAMQUNQAAOFmEBoNDyVRT2MOITCkYG+m/po+KKvsifjiAN9mdyvkd4U2h3tSuwmHaEtnV2+7c5UACwNZAs/BgCS2XI5/GFhIPfJgd51PwjmaOqNqmroGuqmCoMYYgwoTVKkQFNgoJBjhv09g5L3ss9XKuHP+/r6FkUkbrkOAGSx6kJrdgiuC3U7Ua1ogaQ/iUkPAAcHBxcCxoP5XAENQ5TiMho6AKDhQSDiAQRIgQFgIDBGkFdZFvKDEsL09ff3X241ZzlLYTG6Q1t29O0HS9s2uE2VGcGIBuCTlAhah3GMSqxRCmMYAkIFpQBpkSPRdCM2LZFTQKRjCFSFZJIFE/ew02baGbytN/PR6Sa2Nex4SMbJXOtM6pmlYBkLjQYCI9BGwRMAZLs5CRgCgAfNBhbrJby9p+NMbvc+gqYb2XzY9aDtTOyeyGxgyq/p2SKsxZWhido0ynHE5ZioGUHVCGq69TOCmlGoG9WaI6ra8GTlIpZNfWOySbFYdPlIE6yj3UkkTStgRGdLuzK3e8+emGTh4OUT7z04ewalEFKNW0zHglrcZLgWK9QjQS0G6lpQjxWWI8iRhXM4MH38IQAF+baY0dFRV2k2893O2W0m7HZQF2cRiyjKb3ft4vGFN7/657njD56ZXzTLEVVNA0GsEGhBYARBpNDQCvWWRYLYQz0GlmOq8wsl88rc+APH5ia/ym8Tk5OTqS2MxYfN44qQvvXg+qNrBbaY90cxGgPY+fKl4988OjtFrSEEoQgoEAJCBCAJglAiIFWzIie7MZY35i7wOnXsG/duGHltZGRkH4AMVv0+rQfqsFASxGtBW1Zq9exSi4OPD/b1KwXPeJ54ikDWU8j6HvIqA18UfE9BQRBqjdBoBCZGqA0iraFBIamH+tf5DRN8OqfyB6YwhS3YYlvcvZJ0hVmpxDbitdz9GIDBzpvulQEIYUBPKQognlLwRAkF8ERBCBgQBgbakCQZk0KAIPnum+8RxvCgoC3mgU7/Tw5fyhpDSPYAaFhIrrSJheyjnAGi7QtR9Zf0cWtsNEQE2hC+IX40/ir2z59Dr2RAAHXdwHuufxu+eOej0B4AbSCeB18UPC0nC+x5OpPJ7G/tobF6f2ozbFo/b5WH9hjo2rLaJmv9PCDzr+HMuh2hDh+GBxWFMMqD9rL8wsM3jW1/4fwJE7GqKEBOxLzrxttlKFM4GGr+3FeqYWjyioip869l8zJJMovOrOfubYO4Fkheph3f0lxLiUjo7lKLa7sDFT331wvHzWuXzxitDR7ZeKt6fOs9Kqv9p3v8np92cNbsgdyK7LqQOHPNICeZb11sKevSSLUukrLWJVK29S7By1o4PSTz4+PjWZJ9pWD5Z0uscJrznOE8S6zySlD+JcmNJHsnOJE7y7P51rqEfs6in9D1rL39FB6VGwOuxu32IS24O4KqBYW6rj8RGv0YwNhXuQMFL/sSgFk0fdg4NMR6b8dfQj+1jUnM1+tcLXpMv2a0rWFf+/nstFRH7v4Wv6W6aLLbVWKCl9D0UtaptQ404jzb0idacm+TkzmfJAFwGshuamoyRmem81tadrOeW1hdzVvNZPrHtW79kBvQbVU6ZR02NRmPrfUugx3tgfVsQ2rHnKZFd4EL7kktbV3agQgp792xTbPbHrYSaFe3tM0Shq825+KlNWZuVb2Wpi2tsCZrVrpRt5jZdQDOogTPvXTqdqJz6a31JTKNRlrstSknEcCuxNfyldKt2K754cwlYCzclTix8NK+YLrMt+ElWrRNtRZD9vNan0vdOHAF6rbOVdzVYrQtm7gEr8ZYGhNAp7bcYF4rplxIa/Xb6AibH+WSamgjreUOa+F2Owa6dLrFTTe8VNz/A3dgspumyX2SAAAAAElFTkSuQmCC" style="display:block" width="24"/>
-    <span class="nav-badge" id="alert-badge">
-     19
-    </span>
-    <span class="lbl">
-     התראות
     </span>
    </button>
    <button class="nav-btn" onclick="showPanel('accounts',this)" title="חשבונות">
@@ -1394,6 +1396,379 @@ a.nav-btn       { text-decoration: none; }
         </span>
        </li>
       </ul>
+     </div>
+    </div>
+    <div class="card" id="alerts-card">
+     <div class="alerts-header">
+      <h2>
+       ⚠ התראות חכמות
+      </h2>
+      <span class="alerts-count-badge">
+       19 התראות
+      </span>
+     </div>
+     <div class="alerts-matrix">
+      <div class="alert-item" style="border-color:#2ecc71;background-color:#f0fff4;">
+       <span class="alert-icon">
+        ⬇
+       </span>
+       <div class="alert-body">
+        <strong>
+         ירידה בתשלום חודשי: טפחות ס.ביטוח-ה
+        </strong>
+        <p>
+         סה״כ חודשי: 60₪ — ממוצע חודשים קודמים: 90₪ (-33%)
+        </p>
+       </div>
+      </div>
+      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
+       <span class="alert-icon">
+        ❓
+       </span>
+       <div class="alert-body">
+        <strong>
+         חיוב קבוע חסר: GOOGLE  GOOGLE ONE
+        </strong>
+        <p>
+         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 8₪) ולא נמצא החודש
+        </p>
+       </div>
+      </div>
+      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
+       <span class="alert-icon">
+        ❓
+       </span>
+       <div class="alert-body">
+        <strong>
+         חיוב קבוע חסר: GOOGLE  TRAVELSPEND
+        </strong>
+        <p>
+         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 17₪) ולא נמצא החודש
+        </p>
+       </div>
+      </div>
+      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
+       <span class="alert-icon">
+        ❓
+       </span>
+       <div class="alert-body">
+        <strong>
+         חיוב קבוע חסר: OPENAI *CHATGPT SUBSCR
+        </strong>
+        <p>
+         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 64₪) ולא נמצא החודש
+        </p>
+       </div>
+      </div>
+      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
+       <span class="alert-icon">
+        ❓
+       </span>
+       <div class="alert-body">
+        <strong>
+         חיוב קבוע חסר: PAYPAL *NETFLIX COM
+        </strong>
+        <p>
+         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 33₪) ולא נמצא החודש
+        </p>
+       </div>
+      </div>
+      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
+       <span class="alert-icon">
+        ❓
+       </span>
+       <div class="alert-body">
+        <strong>
+         חיוב קבוע חסר: SPOTIFYIL
+        </strong>
+        <p>
+         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 44₪) ולא נמצא החודש
+        </p>
+       </div>
+      </div>
+      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
+       <span class="alert-icon">
+        ❓
+       </span>
+       <div class="alert-body">
+        <strong>
+         חיוב קבוע חסר: WANIKANI JAPANESE LA
+        </strong>
+        <p>
+         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 28₪) ולא נמצא החודש
+        </p>
+       </div>
+      </div>
+      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
+       <span class="alert-icon">
+        ❓
+       </span>
+       <div class="alert-body">
+        <strong>
+         חיוב קבוע חסר: WOLT
+        </strong>
+        <p>
+         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 149₪) ולא נמצא החודש
+        </p>
+       </div>
+      </div>
+      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
+       <span class="alert-icon">
+        ❓
+       </span>
+       <div class="alert-body">
+        <strong>
+         חיוב קבוע חסר: דיפרנט
+        </strong>
+        <p>
+         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 112₪) ולא נמצא החודש
+        </p>
+       </div>
+      </div>
+      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
+       <span class="alert-icon">
+        ❓
+       </span>
+       <div class="alert-body">
+        <strong>
+         חיוב קבוע חסר: העברה מהחשבון
+        </strong>
+        <p>
+         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 280₪) ולא נמצא החודש
+        </p>
+       </div>
+      </div>
+      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
+       <span class="alert-icon">
+        ❓
+       </span>
+       <div class="alert-body">
+        <strong>
+         חיוב קבוע חסר: הראל בטוח
+        </strong>
+        <p>
+         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 29₪) ולא נמצא החודש
+        </p>
+       </div>
+      </div>
+      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
+       <span class="alert-icon">
+        ❓
+       </span>
+       <div class="alert-body">
+        <strong>
+         חיוב קבוע חסר: חשבון לשרותי סלקום
+        </strong>
+        <p>
+         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 100₪) ולא נמצא החודש
+        </p>
+       </div>
+      </div>
+      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
+       <span class="alert-icon">
+        ❓
+       </span>
+       <div class="alert-body">
+        <strong>
+         חיוב קבוע חסר: יוניברס ראשל"צ- שמוט
+        </strong>
+        <p>
+         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 549₪) ולא נמצא החודש
+        </p>
+       </div>
+      </div>
+      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
+       <span class="alert-icon">
+        ❓
+       </span>
+       <div class="alert-body">
+        <strong>
+         חיוב קבוע חסר: יפנולוגי-המרכז ללימו
+        </strong>
+        <p>
+         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 530₪) ולא נמצא החודש
+        </p>
+       </div>
+      </div>
+      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
+       <span class="alert-icon">
+        ❓
+       </span>
+       <div class="alert-body">
+        <strong>
+         חיוב קבוע חסר: מ.התחבורה-פנגו מוביט
+        </strong>
+        <p>
+         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 141₪) ולא נמצא החודש
+        </p>
+       </div>
+      </div>
+      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
+       <span class="alert-icon">
+        ❓
+       </span>
+       <div class="alert-body">
+        <strong>
+         חיוב קבוע חסר: נותן לחם בית מאפה בע
+        </strong>
+        <p>
+         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 121₪) ולא נמצא החודש
+        </p>
+       </div>
+      </div>
+      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
+       <span class="alert-icon">
+        ❓
+       </span>
+       <div class="alert-body">
+        <strong>
+         חיוב קבוע חסר: פנגו חשבונית חודשית
+        </strong>
+        <p>
+         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 18₪) ולא נמצא החודש
+        </p>
+       </div>
+      </div>
+      <div class="alert-item" style="border-color:#e74c3c;background-color:#fff5f5;">
+       <span class="alert-icon">
+        📊
+       </span>
+       <div class="alert-body">
+        <strong>
+         קטגוריה בעלייה: שלום שבאזי 7
+        </strong>
+        <p>
+         סה״כ החודש: 6574₪ — ממוצע חודשי רגיל: 4047₪ (+62%)
+        </p>
+       </div>
+      </div>
+      <div class="alert-item" style="border-color:#e74c3c;background-color:#fff5f5;">
+       <span class="alert-icon">
+        💰
+       </span>
+       <div class="alert-body">
+        <strong>
+         עסקה חריגה: טפחות ס.ביטוח-ה
+        </strong>
+        <p>
+         עסקה של 60₪ — גבוהה מ-95% מתוך עסקאות קודמות של טפחות ס.ביטוח-ה (סף: 59₪)
+        </p>
+       </div>
+      </div>
+     </div>
+     <div class="alerts-legend-section">
+      <div class="alerts-legend-title" onclick="toggleAlertLegend(this)">
+       מקרא — הסבר על סוגי ההתראות
+       <span class="legend-chevron">
+        ▲
+       </span>
+      </div>
+      <div class="legend-grid">
+       <div class="legend-row">
+        <span class="legend-icon">
+         🔄
+        </span>
+        <div class="legend-text">
+         <strong>
+          שינוי מחיר
+         </strong>
+         <span>
+          מוכר חוזר שסכום החיוב שלו השתנה ביחס לממוצע ההיסטורי. מופעל כשהשינוי עולה על 20% או ₪30.
+         </span>
+        </div>
+       </div>
+       <div class="legend-row">
+        <span class="legend-icon">
+         🔍
+        </span>
+        <div class="legend-text">
+         <strong>
+          חיוב חוזר חסר
+         </strong>
+         <span>
+          מוכר שהופיע בכל אחד מ-3 החודשים האחרונים ולא הופיע החודש.
+         </span>
+        </div>
+       </div>
+       <div class="legend-row">
+        <span class="legend-icon">
+         🆕
+        </span>
+        <div class="legend-text">
+         <strong>
+          מנוי חדש אפשרי
+         </strong>
+         <span>
+          חיוב ראשון ממוכר חדש בסכום קטן או עגול (עד ₪300).
+         </span>
+        </div>
+       </div>
+       <div class="legend-row">
+        <span class="legend-icon">
+         🔁
+        </span>
+        <div class="legend-text">
+         <strong>
+          חיוב כפול
+         </strong>
+         <span>
+          אותו מוכר חויב פעמיים באותו חודש בסכומים דומים (הפרש עד ₪5).
+         </span>
+        </div>
+       </div>
+       <div class="legend-row">
+        <span class="legend-icon">
+         📊
+        </span>
+        <div class="legend-text">
+         <strong>
+          קפיצה בקטגוריה
+         </strong>
+         <span>
+          סך ההוצאה בקטגוריה עלה פי 1.5 מהממוצע ההיסטורי שלה, ובלפחות ₪200.
+         </span>
+        </div>
+       </div>
+       <div class="legend-row">
+        <span class="legend-icon">
+         💰
+        </span>
+        <div class="legend-text">
+         <strong>
+          עסקה חריגה
+         </strong>
+         <span>
+          עסקה בודדת שחורגת מ-95% מהעסקאות ההיסטוריות באותו מוכר או קטגוריה.
+         </span>
+        </div>
+       </div>
+       <div class="legend-row">
+        <span class="legend-icon">
+         📅
+        </span>
+        <div class="legend-text">
+         <strong>
+          חודש הוצאות גבוה
+         </strong>
+         <span>
+          סך ההוצאות החודש גבוה ב-25% ומעלה מהממוצע ההיסטורי החודשי.
+         </span>
+        </div>
+       </div>
+       <div class="legend-row">
+        <span class="legend-icon">
+         📈
+        </span>
+        <div class="legend-text">
+         <strong>
+          מגמת עלייה בהוצאות
+         </strong>
+         <span>
+          ההוצאות עלו ברציפות במשך 3 חודשים לפחות.
+         </span>
+        </div>
+       </div>
+      </div>
      </div>
     </div>
    </div>
@@ -1761,379 +2136,6 @@ a.nav-btn       { text-decoration: none; }
      </script>
     </div>
    </div>
-   <!-- ── Panel: Alerts ────────────────────────────────────── -->
-   <div class="panel" id="panel-alerts">
-    <div class="card" id="alerts-card">
-     <div class="alerts-header">
-      <h2>
-       ⚠ התראות חכמות
-      </h2>
-      <span class="alerts-count-badge">
-       19 התראות
-      </span>
-     </div>
-     <div class="alerts-matrix">
-      <div class="alert-item" style="border-color:#2ecc71;background-color:#f0fff4;">
-       <span class="alert-icon">
-        ⬇
-       </span>
-       <div class="alert-body">
-        <strong>
-         ירידה בתשלום חודשי: טפחות ס.ביטוח-ה
-        </strong>
-        <p>
-         סה״כ חודשי: 60₪ — ממוצע חודשים קודמים: 90₪ (-33%)
-        </p>
-       </div>
-      </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
-       <span class="alert-icon">
-        ❓
-       </span>
-       <div class="alert-body">
-        <strong>
-         חיוב קבוע חסר: GOOGLE  GOOGLE ONE
-        </strong>
-        <p>
-         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 8₪) ולא נמצא החודש
-        </p>
-       </div>
-      </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
-       <span class="alert-icon">
-        ❓
-       </span>
-       <div class="alert-body">
-        <strong>
-         חיוב קבוע חסר: GOOGLE  TRAVELSPEND
-        </strong>
-        <p>
-         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 17₪) ולא נמצא החודש
-        </p>
-       </div>
-      </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
-       <span class="alert-icon">
-        ❓
-       </span>
-       <div class="alert-body">
-        <strong>
-         חיוב קבוע חסר: OPENAI *CHATGPT SUBSCR
-        </strong>
-        <p>
-         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 64₪) ולא נמצא החודש
-        </p>
-       </div>
-      </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
-       <span class="alert-icon">
-        ❓
-       </span>
-       <div class="alert-body">
-        <strong>
-         חיוב קבוע חסר: PAYPAL *NETFLIX COM
-        </strong>
-        <p>
-         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 33₪) ולא נמצא החודש
-        </p>
-       </div>
-      </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
-       <span class="alert-icon">
-        ❓
-       </span>
-       <div class="alert-body">
-        <strong>
-         חיוב קבוע חסר: SPOTIFYIL
-        </strong>
-        <p>
-         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 44₪) ולא נמצא החודש
-        </p>
-       </div>
-      </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
-       <span class="alert-icon">
-        ❓
-       </span>
-       <div class="alert-body">
-        <strong>
-         חיוב קבוע חסר: WANIKANI JAPANESE LA
-        </strong>
-        <p>
-         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 28₪) ולא נמצא החודש
-        </p>
-       </div>
-      </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
-       <span class="alert-icon">
-        ❓
-       </span>
-       <div class="alert-body">
-        <strong>
-         חיוב קבוע חסר: WOLT
-        </strong>
-        <p>
-         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 149₪) ולא נמצא החודש
-        </p>
-       </div>
-      </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
-       <span class="alert-icon">
-        ❓
-       </span>
-       <div class="alert-body">
-        <strong>
-         חיוב קבוע חסר: דיפרנט
-        </strong>
-        <p>
-         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 112₪) ולא נמצא החודש
-        </p>
-       </div>
-      </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
-       <span class="alert-icon">
-        ❓
-       </span>
-       <div class="alert-body">
-        <strong>
-         חיוב קבוע חסר: העברה מהחשבון
-        </strong>
-        <p>
-         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 280₪) ולא נמצא החודש
-        </p>
-       </div>
-      </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
-       <span class="alert-icon">
-        ❓
-       </span>
-       <div class="alert-body">
-        <strong>
-         חיוב קבוע חסר: הראל בטוח
-        </strong>
-        <p>
-         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 29₪) ולא נמצא החודש
-        </p>
-       </div>
-      </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
-       <span class="alert-icon">
-        ❓
-       </span>
-       <div class="alert-body">
-        <strong>
-         חיוב קבוע חסר: חשבון לשרותי סלקום
-        </strong>
-        <p>
-         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 100₪) ולא נמצא החודש
-        </p>
-       </div>
-      </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
-       <span class="alert-icon">
-        ❓
-       </span>
-       <div class="alert-body">
-        <strong>
-         חיוב קבוע חסר: יוניברס ראשל"צ- שמוט
-        </strong>
-        <p>
-         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 549₪) ולא נמצא החודש
-        </p>
-       </div>
-      </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
-       <span class="alert-icon">
-        ❓
-       </span>
-       <div class="alert-body">
-        <strong>
-         חיוב קבוע חסר: יפנולוגי-המרכז ללימו
-        </strong>
-        <p>
-         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 530₪) ולא נמצא החודש
-        </p>
-       </div>
-      </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
-       <span class="alert-icon">
-        ❓
-       </span>
-       <div class="alert-body">
-        <strong>
-         חיוב קבוע חסר: מ.התחבורה-פנגו מוביט
-        </strong>
-        <p>
-         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 141₪) ולא נמצא החודש
-        </p>
-       </div>
-      </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
-       <span class="alert-icon">
-        ❓
-       </span>
-       <div class="alert-body">
-        <strong>
-         חיוב קבוע חסר: נותן לחם בית מאפה בע
-        </strong>
-        <p>
-         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 121₪) ולא נמצא החודש
-        </p>
-       </div>
-      </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
-       <span class="alert-icon">
-        ❓
-       </span>
-       <div class="alert-body">
-        <strong>
-         חיוב קבוע חסר: פנגו חשבונית חודשית
-        </strong>
-        <p>
-         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 18₪) ולא נמצא החודש
-        </p>
-       </div>
-      </div>
-      <div class="alert-item" style="border-color:#e74c3c;background-color:#fff5f5;">
-       <span class="alert-icon">
-        📊
-       </span>
-       <div class="alert-body">
-        <strong>
-         קטגוריה בעלייה: שלום שבאזי 7
-        </strong>
-        <p>
-         סה״כ החודש: 6574₪ — ממוצע חודשי רגיל: 4047₪ (+62%)
-        </p>
-       </div>
-      </div>
-      <div class="alert-item" style="border-color:#e74c3c;background-color:#fff5f5;">
-       <span class="alert-icon">
-        💰
-       </span>
-       <div class="alert-body">
-        <strong>
-         עסקה חריגה: טפחות ס.ביטוח-ה
-        </strong>
-        <p>
-         עסקה של 60₪ — גבוהה מ-95% מתוך עסקאות קודמות של טפחות ס.ביטוח-ה (סף: 59₪)
-        </p>
-       </div>
-      </div>
-     </div>
-     <div class="alerts-legend-section">
-      <div class="alerts-legend-title">
-       מקרא — הסבר על סוגי ההתראות
-      </div>
-      <div class="legend-grid">
-       <div class="legend-row">
-        <span class="legend-icon">
-         🔄
-        </span>
-        <div class="legend-text">
-         <strong>
-          שינוי מחיר
-         </strong>
-         <span>
-          מוכר חוזר שסכום החיוב שלו השתנה ביחס לממוצע ההיסטורי. מופעל כשהשינוי עולה על 20% או ₪30.
-         </span>
-        </div>
-       </div>
-       <div class="legend-row">
-        <span class="legend-icon">
-         🔍
-        </span>
-        <div class="legend-text">
-         <strong>
-          חיוב חוזר חסר
-         </strong>
-         <span>
-          מוכר שהופיע בכל אחד מ-3 החודשים האחרונים ולא הופיע החודש.
-         </span>
-        </div>
-       </div>
-       <div class="legend-row">
-        <span class="legend-icon">
-         🆕
-        </span>
-        <div class="legend-text">
-         <strong>
-          מנוי חדש אפשרי
-         </strong>
-         <span>
-          חיוב ראשון ממוכר חדש בסכום קטן או עגול (עד ₪300).
-         </span>
-        </div>
-       </div>
-       <div class="legend-row">
-        <span class="legend-icon">
-         🔁
-        </span>
-        <div class="legend-text">
-         <strong>
-          חיוב כפול
-         </strong>
-         <span>
-          אותו מוכר חויב פעמיים באותו חודש בסכומים דומים (הפרש עד ₪5).
-         </span>
-        </div>
-       </div>
-       <div class="legend-row">
-        <span class="legend-icon">
-         📊
-        </span>
-        <div class="legend-text">
-         <strong>
-          קפיצה בקטגוריה
-         </strong>
-         <span>
-          סך ההוצאה בקטגוריה עלה פי 1.5 מהממוצע ההיסטורי שלה, ובלפחות ₪200.
-         </span>
-        </div>
-       </div>
-       <div class="legend-row">
-        <span class="legend-icon">
-         💰
-        </span>
-        <div class="legend-text">
-         <strong>
-          עסקה חריגה
-         </strong>
-         <span>
-          עסקה בודדת שחורגת מ-95% מהעסקאות ההיסטוריות באותו מוכר או קטגוריה.
-         </span>
-        </div>
-       </div>
-       <div class="legend-row">
-        <span class="legend-icon">
-         📅
-        </span>
-        <div class="legend-text">
-         <strong>
-          חודש הוצאות גבוה
-         </strong>
-         <span>
-          סך ההוצאות החודש גבוה ב-25% ומעלה מהממוצע ההיסטורי החודשי.
-         </span>
-        </div>
-       </div>
-       <div class="legend-row">
-        <span class="legend-icon">
-         📈
-        </span>
-        <div class="legend-text">
-         <strong>
-          מגמת עלייה בהוצאות
-         </strong>
-         <span>
-          ההוצאות עלו ברציפות במשך 3 חודשים לפחות.
-         </span>
-        </div>
-       </div>
-      </div>
-     </div>
-    </div>
-   </div>
    <!-- ── Panel: Accounts ──────────────────────────────────── -->
    <div class="panel" id="panel-accounts">
     <div class="card" id="accounts-table-card">
@@ -2340,7 +2342,7 @@ a.nav-btn       { text-decoration: none; }
          </span>
         </td>
         <td class="acct-detail-cell">
-         2026-04-01 | שוק: ₪985,407 | משכנתא: ₪704,324 | הכנסות: ₪20,585 | 5%/שנה
+         2026-04-21 | שוק: ₪985,407 | משכנתא: ₪704,324 | הכנסות: ₪20,585 | 5%/שנה
         </td>
         <td class="acct-detail-cell">
          <svg class="acct-spark" height="22" viewbox="0 0 64 22" width="64" xmlns="http://www.w3.org/2000/svg">
@@ -2394,7 +2396,7 @@ a.nav-btn       { text-decoration: none; }
   const ctx = document.getElementById('acct-chart-canvas').getContext('2d');
   new Chart(ctx, {
     type: 'line',
-    data: {"labels": ["2025-04-30", "2025-05-07", "2025-05-08", "2025-05-24", "2025-05-29", "2025-05-31", "2025-06-21", "2025-06-26", "2025-06-30", "2025-07-19", "2025-07-31", "2025-08-01", "2025-08-07", "2025-08-31", "2025-09-01", "2025-09-13", "2025-09-30", "2025-10-01", "2025-10-25", "2025-10-30", "2025-10-31", "2025-11-01", "2025-11-30", "2025-12-01", "2025-12-31", "2026-01-01", "2026-01-30", "2026-01-31", "2026-02-01", "2026-02-26", "2026-02-28", "2026-03-01", "2026-03-30", "2026-03-31", "2026-04-01", "2026-04-03", "2026-04-11", "2026-04-13", "2026-04-21"], "datasets": [{"label": "Main Bank", "data": [22979.36, null, null, null, 164022.96, null, null, null, 19816.77, null, 33352.01, null, null, 53803.25, null, null, 54880.87, null, null, 52403.51, null, null, 37620.61, null, 27244.34, null, 28722.22, null, null, 31836.39, null, null, 45896.96, null, null, 47109.79, null, null, null], "borderColor": "#90caf9", "backgroundColor": "#90caf9", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "BeinLeumi Invest", "data": [231330.0, 71456.0, null, null, null, null, null, 0.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], "borderColor": "#ffcc80", "backgroundColor": "#ffcc80", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Analyst", "data": [101864.0, null, null, null, null, 108123.0, null, null, 114949.0, null, 148919.0, null, null, 151284.0, null, null, 157523.0, null, null, null, 161771.0, null, null, null, null, null, null, 173231.0, null, null, 174574.0, null, null, 168222.0, null, null, null, null, null], "borderColor": "#a5d6a7", "backgroundColor": "#a5d6a7", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "BTB", "data": [null, null, 160548.0, 160930.0, null, null, 161615.0, null, null, 162358.0, null, null, null, null, null, 163895.0, null, null, 165013.0, null, null, null, 166104.0, null, null, null, null, null, null, null, null, 168733.0, null, null, null, null, 169610.0, null, null], "borderColor": "#ef9a9a", "backgroundColor": "#ef9a9a", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Altshuler", "data": [null, null, null, null, null, null, null, null, null, null, null, null, 0.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], "borderColor": "#ce93d8", "backgroundColor": "#ce93d8", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Interactive Brokers", "data": [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 0.0, null], "borderColor": "#b0bec5", "backgroundColor": "#b0bec5", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Analyst (Yuval)", "data": [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 20000.0, null], "borderColor": "#f48fb1", "backgroundColor": "#f48fb1", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Total", "data": [356173.36, 196299.36, 356847.36, 357229.36, 498272.96, 504531.96, 505216.96, 433760.96, 296380.77, 297123.77, 344629.01, 603608.01, 603608.01, 626424.25, 631192.25, 632729.25, 640045.87, 644832.87, 645950.87, 643473.51, 647721.51, 652528.51, 638836.61, 643662.61, 633286.34, 638132.34, 639610.22, 651070.22, 655936.22, 659050.39, 660393.39, 667907.39, 681967.96, 675615.96, 684519.96, 685732.79, 686609.79, 706609.79, 721254.79], "borderColor": "#80deea", "backgroundColor": "#80deea", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Cash", "data": [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 14645.0], "borderColor": "#e6ee9c", "backgroundColor": "#e6ee9c", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "נכס שלום שבזי", "data": [null, null, null, null, null, null, null, null, null, null, null, 258979.0, null, null, 263747.0, null, null, 268534.0, null, null, null, 273341.0, null, 278167.0, null, 283013.0, null, null, 287879.0, null, null, 292764.0, null, null, 301668.0, null, null, null, null], "borderColor": "#ffab91", "backgroundColor": "#ffab91", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}]},
+    data: {"labels": ["2025-04-30", "2025-05-07", "2025-05-08", "2025-05-24", "2025-05-29", "2025-05-31", "2025-06-21", "2025-06-26", "2025-06-30", "2025-07-19", "2025-07-31", "2025-08-01", "2025-08-07", "2025-08-31", "2025-09-01", "2025-09-13", "2025-09-30", "2025-10-01", "2025-10-25", "2025-10-30", "2025-10-31", "2025-11-01", "2025-11-30", "2025-12-01", "2025-12-31", "2026-01-01", "2026-01-30", "2026-01-31", "2026-02-01", "2026-02-26", "2026-02-28", "2026-03-01", "2026-03-30", "2026-03-31", "2026-04-03", "2026-04-11", "2026-04-13", "2026-04-21"], "datasets": [{"label": "Main Bank", "data": [22979.36, null, null, null, 164022.96, null, null, null, 19816.77, null, 33352.01, null, null, 53803.25, null, null, 54880.87, null, null, 52403.51, null, null, 37620.61, null, 27244.34, null, 28722.22, null, null, 31836.39, null, null, 45896.96, null, 47109.79, null, null, null], "borderColor": "#90caf9", "backgroundColor": "#90caf9", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "BeinLeumi Invest", "data": [231330.0, 71456.0, null, null, null, null, null, 0.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], "borderColor": "#ffcc80", "backgroundColor": "#ffcc80", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Analyst", "data": [101864.0, null, null, null, null, 108123.0, null, null, 114949.0, null, 148919.0, null, null, 151284.0, null, null, 157523.0, null, null, null, 161771.0, null, null, null, null, null, null, 173231.0, null, null, 174574.0, null, null, 168222.0, null, null, null, null], "borderColor": "#a5d6a7", "backgroundColor": "#a5d6a7", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "BTB", "data": [null, null, 160548.0, 160930.0, null, null, 161615.0, null, null, 162358.0, null, null, null, null, null, 163895.0, null, null, 165013.0, null, null, null, 166104.0, null, null, null, null, null, null, null, null, 168733.0, null, null, null, 169610.0, null, null], "borderColor": "#ef9a9a", "backgroundColor": "#ef9a9a", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Altshuler", "data": [null, null, null, null, null, null, null, null, null, null, null, null, 0.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], "borderColor": "#ce93d8", "backgroundColor": "#ce93d8", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Interactive Brokers", "data": [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 0.0, null], "borderColor": "#b0bec5", "backgroundColor": "#b0bec5", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Analyst (Yuval)", "data": [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 20000.0, null], "borderColor": "#f48fb1", "backgroundColor": "#f48fb1", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Total", "data": [356173.36, 196299.36, 356847.36, 357229.36, 498272.96, 504531.96, 505216.96, 433760.96, 296380.77, 297123.77, 344629.01, 603608.01, 603608.01, 626424.25, 631192.25, 632729.25, 640045.87, 644832.87, 645950.87, 643473.51, 647721.51, 652528.51, 638836.61, 643662.61, 633286.34, 638132.34, 639610.22, 651070.22, 655936.22, 659050.39, 660393.39, 667907.39, 681967.96, 675615.96, 676828.79, 677705.79, 697705.79, 721254.79], "borderColor": "#80deea", "backgroundColor": "#80deea", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Cash", "data": [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 14645.0], "borderColor": "#e6ee9c", "backgroundColor": "#e6ee9c", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "נכס שלום שבזי", "data": [null, null, null, null, null, null, null, null, null, null, null, 258979.0, null, null, 263747.0, null, null, 268534.0, null, null, null, 273341.0, null, 278167.0, null, 283013.0, null, null, 287879.0, null, null, 292764.0, null, null, null, null, null, 301668.0], "borderColor": "#ffab91", "backgroundColor": "#ffab91", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}]},
     options: {
       responsive: true,
       maintainAspectRatio: false,
@@ -3991,6 +3993,11 @@ function showPanel(name, btn) {
   var n = parseInt(document.getElementById('alert-badge').textContent);
   if (n > 0) document.getElementById('alert-badge').style.display = 'block';
 })();
+
+// ── Alert legend toggle ────────────────────────────────────
+function toggleAlertLegend(titleEl) {
+  titleEl.closest('.alerts-legend-section').classList.toggle('collapsed');
+}
 
 // ── Transaction filter state ──────────────────────────────
 var activeCat = { 'spendings-list': null, 'earnings-list': null };

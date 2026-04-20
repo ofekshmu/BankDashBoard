@@ -714,6 +714,7 @@ a.nav-btn       { text-decoration: none; }
 .alert-body p { margin: 0; font-size: 0.79em; color: #555; line-height: 1.45; }
 
 /* Legend — full-width separated section */
+#alerts-card { margin-top: 24px; }
 .alerts-legend-section {
   border-top: 1.5px solid var(--border);
   padding-top: 18px;
@@ -723,12 +724,19 @@ a.nav-btn       { text-decoration: none; }
   font-size: 0.88em; font-weight: 700; color: var(--navy);
   margin-bottom: 14px;
   display: flex; align-items: center; gap: 7px;
+  cursor: pointer; user-select: none;
 }
 .alerts-legend-title::before {
   content: ""; display: inline-block;
   width: 4px; height: 15px;
   background: var(--amber); border-radius: 2px;
 }
+.legend-chevron {
+  margin-right: auto; font-size: 0.75em; color: #999;
+  transition: transform 0.2s; display: inline-block;
+}
+.alerts-legend-section.collapsed .legend-chevron { transform: rotate(180deg); }
+.alerts-legend-section.collapsed .legend-grid { display: none; }
 .legend-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -1001,15 +1009,11 @@ a.nav-btn       { text-decoration: none; }
   </div>
 
   <button class="nav-btn active" onclick="showPanel('overview',this)" title="סקירה כללית">
+    <span class="nav-badge" id="alert-badge">0</span>
     <span>⊞</span><span class="lbl">סקירה</span>
   </button>
   <button class="nav-btn" onclick="showPanel('transactions',this)" title="עסקאות">
     <span>☰</span><span class="lbl">עסקאות</span>
-  </button>
-  <button class="nav-btn" onclick="showPanel('alerts',this)" title="התראות">
-    <img src="data:image/png;base64,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" width="24" height="24" style="display:block" alt="">
-    <span class="nav-badge" id="alert-badge">0</span>
-    <span class="lbl">התראות</span>
   </button>
   <button class="nav-btn" onclick="showPanel('accounts',this)" title="חשבונות">
     <img src="data:image/png;base64,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" width="24" height="24" style="display:block" alt="">
@@ -1069,6 +1073,7 @@ a.nav-btn       { text-decoration: none; }
       <div class="charts-grid payments-grid" id="overview-payments"></div>
     </div>
     <div class="outliers-row" id="overview-outliers"></div>
+    <div class="card" id="alerts-card"></div>
   </div>
 
   <!-- ── Panel: Transactions ──────────────────────────────── -->
@@ -1129,11 +1134,6 @@ a.nav-btn       { text-decoration: none; }
       <div class="charts-grid payments-grid" id="tx-payments-grid"></div>
     </div>
 
-  </div>
-
-  <!-- ── Panel: Alerts ────────────────────────────────────── -->
-  <div id="panel-alerts" class="panel">
-    <div class="card" id="alerts-card"></div>
   </div>
 
   <!-- ── Panel: Accounts ──────────────────────────────────── -->
@@ -1251,6 +1251,11 @@ function showPanel(name, btn) {
   var n = parseInt(document.getElementById('alert-badge').textContent);
   if (n > 0) document.getElementById('alert-badge').style.display = 'block';
 })();
+
+// ── Alert legend toggle ────────────────────────────────────
+function toggleAlertLegend(titleEl) {
+  titleEl.closest('.alerts-legend-section').classList.toggle('collapsed');
+}
 
 // ── Transaction filter state ──────────────────────────────
 var activeCat = { 'spendings-list': null, 'earnings-list': null };

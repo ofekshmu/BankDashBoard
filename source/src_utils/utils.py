@@ -870,7 +870,11 @@ class utils:
             # Separated legend section
             legend_section = tag("div", class_="alerts-legend-section")
             legend_title = tag("div", class_="alerts-legend-title")
+            legend_title["onclick"] = "toggleAlertLegend(this)"
             legend_title.string = "מקרא — הסבר על סוגי ההתראות"
+            chevron = tag("span", class_="legend-chevron")
+            chevron.string = "▲"
+            legend_title.append(chevron)
             legend_section.append(legend_title)
             legend_grid = tag("div", class_="legend-grid")
             for icon, name, explanation in _LEGEND_ENTRIES:

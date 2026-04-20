@@ -762,81 +762,6 @@ a.nav-btn       { text-decoration: none; }
 .acct-wrap tr.acct-total td { font-weight: 700; background: #f8fafc; border-top: 2px solid var(--border); border-bottom: none; }
 .acct-detail-cell { font-size: 0.78em !important; color: #888 !important; white-space: nowrap; }
 
-/* ── Actions panel (slide-in from right, above sidebar) ──── */
-.actions-panel {
-  position: fixed;
-  top: 0; right: 72px;
-  width: 260px;
-  height: 100vh;
-  background: var(--white);
-  border-left: 1px solid var(--border);
-  box-shadow: -4px 0 18px rgba(0,0,0,0.09);
-  z-index: 190;
-  display: flex; flex-direction: column;
-  transform: translateX(100%);
-  transition: transform 0.24s cubic-bezier(0.4,0,0.2,1);
-  padding: 24px 20px;
-  gap: 18px;
-  overflow-y: auto;
-}
-.actions-panel.open { transform: translateX(0); }
-.actions-panel-title {
-  font-size: 0.95em; font-weight: 700; color: var(--navy);
-  border-bottom: 1.5px solid var(--border); padding-bottom: 10px;
-}
-.actions-section-label {
-  font-size: 0.72em; color: var(--text-muted); font-weight: 600;
-  text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;
-}
-.actions-radio-group {
-  display: flex; flex-direction: column; gap: 6px;
-}
-.actions-radio-label {
-  display: flex; align-items: center; gap: 9px;
-  font-size: 0.86em; color: var(--navy);
-  cursor: pointer; padding: 7px 10px;
-  border-radius: var(--radius-sm);
-  border: 1.5px solid var(--border);
-  transition: border-color 0.15s, background 0.15s;
-}
-.actions-radio-label:hover { border-color: var(--teal); background: var(--teal-light); }
-.actions-radio-label input[type="radio"] { accent-color: var(--teal); }
-.actions-radio-label.selected { border-color: var(--teal); background: var(--teal-light); }
-#actions-date-wrap {
-  display: none;
-}
-#actions-date-wrap.visible { display: block; }
-#actions-date-input {
-  width: 100%;
-  padding: 8px 10px;
-  border: 1.5px solid var(--border);
-  border-radius: var(--radius-sm);
-  font-size: 0.86em;
-  color: var(--navy);
-  background: var(--white);
-  direction: ltr;
-}
-#actions-date-input:focus { outline: none; border-color: var(--teal); }
-.actions-run-btn {
-  width: 100%;
-  padding: 11px 0;
-  background: var(--teal);
-  color: #fff;
-  border: none; border-radius: var(--radius-sm);
-  font-size: 0.9em; font-weight: 700;
-  cursor: pointer;
-  transition: background 0.15s, opacity 0.15s;
-}
-.actions-run-btn:hover { background: #178878; }
-.actions-run-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.actions-run-btn.running {
-  background: #888;
-  animation: pulse-btn 1.2s ease-in-out infinite;
-}
-@keyframes pulse-btn {
-  0%,100% { opacity: 1; } 50% { opacity: 0.6; }
-}
-
 /* ── Floating log panel ──────────────────────────────────── */
 .log-float {
   position: fixed;
@@ -1099,42 +1024,7 @@ a.nav-btn       { text-decoration: none; }
     <span class="lbl">קטגוריות</span>
   </a>
 
-  <!-- Spacer pushes actions button to bottom -->
-  <div style="flex:1"></div>
-
-  <button class="nav-btn" id="actions-toggle-btn" onclick="toggleActionsPanel(this)" title="הפעל ניתוח" style="display:none">
-    <span>⚙</span><span class="lbl">ניתוח</span>
-  </button>
 </nav>
-
-<!-- ── Actions panel ──────────────────────────────────────── -->
-<div class="actions-panel" id="actions-panel">
-  <div class="actions-panel-title">⚙ הפעל ניתוח כללי</div>
-
-  <div>
-    <div class="actions-section-label">בחר תקופה</div>
-    <div class="actions-radio-group" id="actions-radios">
-      <label class="actions-radio-label selected" onclick="selectMonth('current',this)">
-        <input type="radio" name="month" value="current" checked> חודש נוכחי
-      </label>
-      <label class="actions-radio-label" onclick="selectMonth('last',this)">
-        <input type="radio" name="month" value="last"> חודש קודם
-      </label>
-      <label class="actions-radio-label" onclick="selectMonth('pick',this)">
-        <input type="radio" name="month" value="pick"> בחר תאריך…
-      </label>
-    </div>
-    <div id="actions-date-wrap" style="margin-top:8px">
-      <input type="date" id="actions-date-input" />
-    </div>
-  </div>
-
-  <button class="actions-run-btn" id="actions-run-btn" onclick="runAnalysis()">
-    הפעל ניתוח
-  </button>
-
-  <div id="actions-status" style="font-size:0.78em;color:var(--text-muted);text-align:center;min-height:1.4em;"></div>
-</div>
 
 <!-- ── Floating log panel ────────────────────────────────── -->
 <div class="log-float" id="log-float">
@@ -1452,108 +1342,6 @@ function sortTx(listId, mode) {
   });
 })();
 
-// ── Actions panel ─────────────────────────────────────────
-var _selectedMonth = 'current';
-
-function toggleActionsPanel(btn) {
-  var panel = document.getElementById('actions-panel');
-  var isOpen = panel.classList.contains('open');
-  panel.classList.toggle('open', !isOpen);
-  btn.classList.toggle('active', !isOpen);
-}
-
-function selectMonth(val, labelEl) {
-  _selectedMonth = val;
-  document.querySelectorAll('#actions-radios .actions-radio-label').forEach(function(l) {
-    l.classList.remove('selected');
-  });
-  labelEl.classList.add('selected');
-  var dateWrap = document.getElementById('actions-date-wrap');
-  if (val === 'pick') {
-    dateWrap.classList.add('visible');
-  } else {
-    dateWrap.classList.remove('visible');
-  }
-}
-
-function runAnalysis() {
-  var btn  = document.getElementById('actions-run-btn');
-  var stat = document.getElementById('actions-status');
-  var dateInput = document.getElementById('actions-date-input');
-
-  var body = { month: _selectedMonth };
-  if (_selectedMonth === 'pick') {
-    if (!dateInput.value) { stat.textContent = 'יש לבחור תאריך'; return; }
-    body.date = dateInput.value;
-  }
-
-  btn.disabled = true;
-  btn.classList.add('running');
-  btn.textContent = 'מעבד…';
-  stat.textContent = 'הניתוח התחיל, אנא המתן…';
-
-  showLogFloat('מנתח נתונים…');
-
-  fetch('/api/analysis', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  })
-  .then(function(r) {
-    if (r.status === 409) {
-      stat.textContent = 'ניתוח כבר רץ, אנא המתן';
-      resetRunBtn();
-      return;
-    }
-    // Start SSE log stream
-    var es = new EventSource('/api/logs');
-    es.onmessage = function(evt) {
-      var data = evt.data;
-      if (!data || data === '__CONNECTED__') return;
-      if (data.startsWith('__DONE__')) {
-        es.close();
-        appendLog('✓ הניתוח הסתיים — מרענן...', 'done');
-        setLogIndicator('done');
-        stat.textContent = 'הדשבורד עודכן!';
-        resetRunBtn();
-        var parts = data.split(':');
-        var monthKey = parts.length > 1 ? parts[1] : null;
-        hideLogFloat(1400);
-        setTimeout(function() {
-          if (monthKey) { location.href = '/general/' + monthKey; }
-          else { location.reload(); }
-        }, 900);
-        return;
-      }
-      if (data === '__ERROR__') {
-        es.close();
-        appendLog('✗ שגיאה בניתוח', 'err');
-        setLogIndicator('error');
-        stat.textContent = 'אירעה שגיאה';
-        hideLogFloat(3000);
-        resetRunBtn();
-        return;
-      }
-      appendLog(data);
-    };
-    es.onerror = function() {
-      es.close();
-      setLogIndicator('error');
-      resetRunBtn();
-    };
-  })
-  .catch(function(e) {
-    stat.textContent = 'שגיאת חיבור לשרת';
-    resetRunBtn();
-  });
-}
-
-function resetRunBtn() {
-  var btn = document.getElementById('actions-run-btn');
-  btn.disabled = false;
-  btn.classList.remove('running');
-  btn.textContent = 'הפעל ניתוח';
-}
 
 // ── Floating log panel ────────────────────────────────────
 var _LF_MAX = 7;
@@ -1841,21 +1629,16 @@ window.addEventListener('resize', function() { _positionTrack(false); });
 // Always init the month roller (doesn't depend on server being active)
 _initMonthNav();
 
-// Check if Flask server is available (only show actions panel when running via Flask)
+// Check if Flask server is available (only show reload button when running via Flask)
 (function detectFlask() {
   fetch('/api/status', { method: 'GET' })
     .then(function(r) { return r.json(); })
     .then(function(d) {
-      // Server is available — show actions controls
-      document.getElementById('actions-toggle-btn').style.display = '';
       document.getElementById('reload-btn').style.display = 'inline-block';
       if (d.running) { setLogIndicator('active'); }
       _checkStale();
     })
-    .catch(function() {
-      // No Flask server — hide the web-only controls
-      document.getElementById('actions-toggle-btn').style.display = 'none';
-    });
+    .catch(function() {});
 })();
 
 // ── Account manager modal ─────────────────────────────────

@@ -55,9 +55,10 @@ body {
   height: 100vh;
   display: flex; flex-direction: column; align-items: center;
   padding: 16px 0;
-  gap: 2px;
+  gap: 0;
   z-index: 200;
   box-shadow: -2px 0 12px rgba(0,0,0,.05);
+  overflow-y: auto;
 }
 .sidebar-logo {
   width: 44px; height: 44px;
@@ -83,6 +84,26 @@ body {
 .nav-btn:hover  { background: #f0f4ff; color: var(--navy); }
 .nav-btn.active { background: var(--teal); color: #fff; box-shadow: 0 4px 14px var(--teal-glow); }
 .nav-btn .lbl   { font-size: 0.34em; font-weight: 600; letter-spacing: .4px; line-height: 1; }
+/* ── Nav groups ─────────────────────────────────────────── */
+.nav-group { width: 100%; }
+.nav-group-hdr {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 10px 0 3px; cursor: pointer; user-select: none; gap: 3px;
+}
+.nav-group-sep { width: 44px; height: 1px; background: var(--border); }
+.nav-group-lbl {
+  display: flex; align-items: center; gap: 3px;
+  font-size: 7.5px; font-weight: 700; letter-spacing: .6px; line-height: 1;
+  color: #c0c8da;
+}
+.nav-group-hdr:hover .nav-group-sep  { background: #c8cfdf; }
+.nav-group-hdr:hover .nav-group-lbl  { color: #9aa3bb; }
+.nav-group-chevron { font-size: 6px; transition: transform .2s; display: inline-block; }
+.nav-group.collapsed .nav-group-chevron { transform: scaleY(-1); }
+.nav-group.collapsed .nav-group-body   { display: none; }
+.nav-group-body {
+  display: flex; flex-direction: column; align-items: center; gap: 2px; padding-bottom: 6px;
+}
 
 /* ── Main ────────────────────────────────────────────────────── */
 .main {
@@ -444,18 +465,50 @@ body {
       <path d="M22 17v5l3 3" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
     </svg>
   </div>
-  <a class="nav-btn" href="/" title="ראשי">
-    <span>🏠</span><span class="lbl">ראשי</span>
-  </a>
-  <a class="nav-btn" href="/organizer" title="ארגונית">
-    <span>🗂</span><span class="lbl">ארגונית</span>
-  </a>
-  <a class="nav-btn active" href="/tagger" title="תיוג עסקאות">
-    <span>🏷</span><span class="lbl">תייגן</span>
-  </a>
-  <a class="nav-btn" href="/categories" title="קטגוריות">
-    <span>📊</span><span class="lbl">קטגוריות</span>
-  </a>
+  <!-- Group: חודשי -->
+  <div class="nav-group" id="grp-monthly">
+    <div class="nav-group-hdr" onclick="toggleNavGroup('grp-monthly')">
+      <div class="nav-group-sep"></div>
+      <span class="nav-group-lbl">חודשי <span class="nav-group-chevron">▲</span></span>
+    </div>
+    <div class="nav-group-body">
+      <a class="nav-btn" href="/" title="ראשי">
+        <span>⊞</span><span class="lbl">ראשי</span>
+      </a>
+    </div>
+  </div>
+
+  <!-- Group: נתונים -->
+  <div class="nav-group" id="grp-data">
+    <div class="nav-group-hdr" onclick="toggleNavGroup('grp-data')">
+      <div class="nav-group-sep"></div>
+      <span class="nav-group-lbl">נתונים <span class="nav-group-chevron">▲</span></span>
+    </div>
+    <div class="nav-group-body">
+      <a class="nav-btn" href="/organizer" title="ארגונית">
+        <span>🗂</span><span class="lbl">ארגונית</span>
+      </a>
+      <a class="nav-btn" href="/categories" title="קטגוריות">
+        <span>📊</span><span class="lbl">קטגוריות</span>
+      </a>
+    </div>
+  </div>
+
+  <!-- Group: ניהול -->
+  <div class="nav-group" id="grp-manage">
+    <div class="nav-group-hdr" onclick="toggleNavGroup('grp-manage')">
+      <div class="nav-group-sep"></div>
+      <span class="nav-group-lbl">ניהול <span class="nav-group-chevron">▲</span></span>
+    </div>
+    <div class="nav-group-body">
+      <a class="nav-btn active" href="/tagger" title="תיוג עסקאות">
+        <span>🏷</span><span class="lbl">תייגן</span>
+      </a>
+      <a class="nav-btn" href="/files" title="קבצי נתונים">
+        <span>📁</span><span class="lbl">קבצים</span>
+      </a>
+    </div>
+  </div>
 </nav>
 
 <!-- Refresh progress bar -->
@@ -551,6 +604,11 @@ body {
 </main>
 
 <script>
+// ── Nav group collapse ─────────────────────────────────────────
+function toggleNavGroup(id) {
+  document.getElementById(id).classList.toggle('collapsed');
+}
+
 // ── State ──────────────────────────────────────────────────────
 let _categories = [];          // [{name, count}]
 let _untaggedItems = [];

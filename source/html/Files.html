@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>קבצי נתונים</title>
+<style>
+/* ── Reset & tokens ────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --teal:       #1e9d8b;
+  --teal-light: #e8f7f5;
+  --teal-glow:  rgba(30,157,139,0.25);
+  --navy:       #1e2a4a;
+  --bg:         #f4f6f9;
+  --white:      #ffffff;
+  --border:     #eef0f6;
+  --text-muted: #888;
+  --text-sub:   #555;
+  --red:        #e74c3c;
+  --amber:      #f0b429;
+  --green:      #2ecc71;
+  --purple:     #9b59b6;
+  --shadow-sm:  0 2px 10px rgba(0,0,0,.06);
+  --shadow-md:  0 6px 24px rgba(0,0,0,.10);
+  --radius:     14px;
+  --radius-sm:  8px;
+  --sidebar-w:  72px;
+}
+@keyframes _pageIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
+@keyframes fadeIn  { from{opacity:0} to{opacity:1} }
+@keyframes spin    { to{transform:rotate(360deg)} }
+@keyframes shimmer { 0%{background-position:-400px 0} 100%{background-position:400px 0} }
+@keyframes rowIn   { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:none} }
+
+body {
+  font-family: 'Segoe UI', Arial, sans-serif;
+  background: var(--bg);
+  display: flex;
+  min-height: 100vh;
+  direction: rtl;
+  color: var(--navy);
+  font-size: 14px;
+  animation: _pageIn 0.22s ease;
+}
+
+/* ── Sidebar ──────────────────────────────────────────────────── */
+.sidebar {
+  width: var(--sidebar-w);
+  background: var(--white);
+  border-left: 1px solid var(--border);
+  position: fixed;
+  top: 0; right: 0;
+  height: 100vh;
+  display: flex; flex-direction: column; align-items: center;
+  padding: 16px 0;
+  gap: 0;
+  z-index: 200;
+  box-shadow: -2px 0 12px rgba(0,0,0,.05);
+  overflow-y: auto;
+}
+.sidebar-logo {
+  width: 44px; height: 44px;
+  margin-bottom: 18px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.sidebar-logo svg { width: 100%; height: 100%; }
+.nav-btn {
+  width: 50px; height: 54px;
+  border-radius: 12px;
+  border: none;
+  background: transparent;
+  color: #9aa3bb;
+  cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 3px;
+  font-size: 1.3em;
+  transition: background .18s, color .18s;
+  position: relative;
+  text-decoration: none;
+}
+.nav-btn:hover  { background: #f0f4ff; color: var(--navy); }
+.nav-btn.active { background: var(--teal); color: #fff; box-shadow: 0 4px 14px var(--teal-glow); }
+.nav-btn .lbl   { font-size: 0.34em; font-weight: 600; letter-spacing: .4px; line-height: 1; }
+/* Nav groups */
+.nav-group { width: 100%; }
+.nav-group-hdr {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 10px 0 3px; cursor: pointer; user-select: none; gap: 3px;
+}
+.nav-group-sep { width: 44px; height: 1px; background: var(--border); }
+.nav-group-lbl {
+  display: flex; align-items: center; gap: 3px;
+  font-size: 7.5px; font-weight: 700; letter-spacing: .6px; line-height: 1;
+  color: #c0c8da;
+}
+.nav-group-hdr:hover .nav-group-sep  { background: #c8cfdf; }
+.nav-group-hdr:hover .nav-group-lbl  { color: #9aa3bb; }
+.nav-group-chevron { font-size: 6px; transition: transform .2s; display: inline-block; }
+.nav-group.collapsed .nav-group-chevron { transform: scaleY(-1); }
+.nav-group.collapsed .nav-group-body   { display: none; }
+.nav-group-body {
+  display: flex; flex-direction: column; align-items: center; gap: 2px; padding-bottom: 6px;
+}
+
+/* ── Main ─────────────────────────────────────────────────────── */
+.main {
+  margin-right: var(--sidebar-w);
+  flex: 1;
+  padding: 28px 32px 80px;
+  min-width: 0;
+  max-width: 960px;
+}
+
+/* ── Page header ──────────────────────────────────────────────── */
+.page-header {
+  display: flex; align-items: center; gap: 14px;
+  margin-bottom: 28px;
+  flex-wrap: wrap;
+}
+.page-header h1 { font-size: 1.75em; font-weight: 700; color: var(--navy); }
+
+/* ── Buttons ──────────────────────────────────────────────────── */
+.btn {
+  border: none; border-radius: var(--radius-sm);
+  padding: 8px 18px; font-size: .88em; font-weight: 600;
+  cursor: pointer; transition: background .15s, transform .1s;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.btn:active { transform: scale(.97); }
+.btn-primary { background: var(--teal); color: #fff; }
+.btn-primary:hover { background: #189080; }
+.btn-ghost {
+  background: var(--white); color: var(--navy);
+  border: 1.5px solid var(--border);
+}
+.btn-ghost:hover { background: var(--bg); }
+.btn-amber { background: var(--amber); color: #fff; }
+.btn-amber:hover { background: #d9a020; }
+.btn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+
+/* ── Section ──────────────────────────────────────────────────── */
+.section {
+  background: var(--white);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 24px;
+  overflow: hidden;
+}
+.section-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer; user-select: none; gap: 10px;
+}
+.section-header:hover { background: #fafbff; }
+.section-title {
+  font-weight: 700; font-size: 1.05em; color: var(--navy);
+  display: flex; align-items: center; gap: 10px;
+}
+.section-count {
+  background: var(--teal-light); color: var(--teal);
+  border-radius: 10px; padding: 2px 10px;
+  font-size: .78em; font-weight: 700;
+}
+.section-chevron {
+  font-size: .75em; color: var(--text-muted);
+  transition: transform .25s;
+}
+.section.collapsed .section-chevron { transform: rotate(180deg); }
+.section.collapsed .section-body    { display: none; }
+.section-body { padding: 8px 0; }
+
+/* ── Skeleton ─────────────────────────────────────────────────── */
+.skeleton-row {
+  height: 68px; border-radius: 10px; margin: 8px 16px;
+  background: linear-gradient(90deg,#f0f2f6 25%,#e8eaee 50%,#f0f2f6 75%);
+  background-size: 800px 100%;
+  animation: shimmer 1.4s infinite linear;
+}
+
+/* ── File row ─────────────────────────────────────────────────── */
+.file-list { padding: 4px 0; }
+.file-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+  transition: background .15s;
+  animation: rowIn .2s ease;
+}
+.file-row:last-child { border-bottom: none; }
+.file-row:hover { background: #f8faff; }
+
+.file-icon {
+  flex-shrink: 0;
+  width: 36px; height: 36px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.3em;
+  background: var(--teal-light);
+}
+.file-icon.unrec { background: #fff3e0; }
+
+.file-info { flex: 1; min-width: 0; }
+.file-name {
+  font-weight: 600; font-size: .93em; color: var(--navy);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.file-meta {
+  display: flex; align-items: center; gap: 8px; margin-top: 3px; flex-wrap: wrap;
+}
+.format-badge {
+  background: var(--teal-light); color: var(--teal);
+  border-radius: 20px; padding: 2px 10px;
+  font-size: .73em; font-weight: 700;
+}
+.new-badge {
+  background: #e8f5e9; color: #2e7d32;
+  border-radius: 20px; padding: 2px 10px;
+  font-size: .73em; font-weight: 700;
+}
+.exists-badge {
+  background: #f5f5f5; color: #888;
+  border-radius: 20px; padding: 2px 10px;
+  font-size: .73em; font-weight: 700;
+}
+.file-warn {
+  font-size: .78em; color: var(--amber);
+  display: flex; align-items: center; gap: 4px;
+}
+
+.file-actions { flex-shrink: 0; display: flex; align-items: center; gap: 8px; }
+
+/* ── Parse button states ──────────────────────────────────────── */
+.parse-btn { min-width: 72px; }
+.parse-btn.parsing {
+  background: #f0f2f6; color: var(--text-muted);
+  border-color: transparent; cursor: not-allowed; transform: none;
+}
+.parse-btn.done {
+  background: #e8f5e9; color: #2e7d32;
+  border-color: #c8e6c9;
+}
+.parse-btn.failed {
+  background: #ffebee; color: var(--red);
+  border-color: #ffcdd2;
+}
+
+/* ── Spinner ──────────────────────────────────────────────────── */
+.spin-icon {
+  width: 14px; height: 14px;
+  border: 2px solid rgba(0,0,0,.1);
+  border-top-color: var(--teal);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+  display: inline-block; flex-shrink: 0;
+}
+
+/* ── Upload zone ──────────────────────────────────────────────── */
+.upload-zone {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 28px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color .2s, background .2s;
+  color: var(--text-muted);
+  margin: 0 16px 16px;
+}
+.upload-zone:hover, .upload-zone.drag-over {
+  border-color: var(--teal); background: var(--teal-light); color: var(--teal);
+}
+.upload-zone .upload-icon { font-size: 2em; margin-bottom: 6px; }
+.upload-zone .upload-lbl  { font-size: .88em; font-weight: 600; }
+.upload-zone .upload-sub  { font-size: .77em; margin-top: 4px; opacity: .8; }
+#file-upload-input { display: none; }
+
+/* ── Toast ────────────────────────────────────────────────────── */
+.toast-area {
+  position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+  display: flex; flex-direction: column; gap: 8px; z-index: 9999;
+  pointer-events: none;
+}
+.toast {
+  background: var(--navy); color: #fff;
+  border-radius: 10px; padding: 10px 20px;
+  font-size: .88em; font-weight: 600;
+  box-shadow: var(--shadow-md);
+  animation: fadeIn .2s ease;
+  pointer-events: auto;
+}
+.toast.ok  { background: #2e7d32; }
+.toast.err { background: var(--red); }
+
+/* ── Scrollbar ────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #cdd4e0; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- ── Sidebar ─────────────────────────────────────────────── -->
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <svg viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="44" height="44" rx="12" fill="#1e9d8b"/>
+      <rect x="8"  y="26" width="6" height="10" rx="1.5" fill="white" opacity="0.6"/>
+      <rect x="17" y="18" width="6" height="18" rx="1.5" fill="white" opacity="0.85"/>
+      <rect x="26" y="10" width="6" height="26" rx="1.5" fill="white"/>
+      <text x="33" y="14" font-family="Arial" font-size="9" font-weight="800" fill="#1e9d8b" opacity="0.9">₪</text>
+    </svg>
+  </div>
+
+  <!-- Group: חודשי -->
+  <div class="nav-group" id="grp-monthly">
+    <div class="nav-group-hdr" onclick="toggleNavGroup('grp-monthly')">
+      <div class="nav-group-sep"></div>
+      <span class="nav-group-lbl">חודשי <span class="nav-group-chevron">▲</span></span>
+    </div>
+    <div class="nav-group-body">
+      <a class="nav-btn" href="/" title="ראשי">
+        <span>⊞</span><span class="lbl">ראשי</span>
+      </a>
+    </div>
+  </div>
+
+  <!-- Group: נתונים -->
+  <div class="nav-group" id="grp-data">
+    <div class="nav-group-hdr" onclick="toggleNavGroup('grp-data')">
+      <div class="nav-group-sep"></div>
+      <span class="nav-group-lbl">נתונים <span class="nav-group-chevron">▲</span></span>
+    </div>
+    <div class="nav-group-body">
+      <a class="nav-btn" href="/organizer" title="ארגונית">
+        <span>🗂</span><span class="lbl">ארגונית</span>
+      </a>
+      <a class="nav-btn" href="/categories" title="קטגוריות">
+        <span>📊</span><span class="lbl">קטגוריות</span>
+      </a>
+    </div>
+  </div>
+
+  <!-- Group: ניהול -->
+  <div class="nav-group" id="grp-manage">
+    <div class="nav-group-hdr" onclick="toggleNavGroup('grp-manage')">
+      <div class="nav-group-sep"></div>
+      <span class="nav-group-lbl">ניהול <span class="nav-group-chevron">▲</span></span>
+    </div>
+    <div class="nav-group-body">
+      <a class="nav-btn" href="/tagger" title="תיוג עסקאות">
+        <span>🏷</span><span class="lbl">תייגן</span>
+      </a>
+      <a class="nav-btn active" href="/files" title="קבצי נתונים">
+        <span>📁</span><span class="lbl">קבצים</span>
+      </a>
+    </div>
+  </div>
+</nav>
+
+<!-- Toast area -->
+<div class="toast-area" id="toast-area"></div>
+
+<!-- Hidden file input -->
+<input type="file" id="file-upload-input" multiple
+  accept=".xls,.xlsx,.csv"
+  onchange="handleFileUpload(this.files)"/>
+
+<!-- ── Main ─────────────────────────────────────────────────── -->
+<main class="main">
+
+  <div class="page-header">
+    <h1>📁 קבצי נתונים</h1>
+    <button class="btn btn-ghost" onclick="scanFiles()" id="scan-btn">
+      🔄 רענן
+    </button>
+    <button class="btn btn-primary" onclick="insertAll()" id="insert-all-btn" style="display:none">
+      ▶ עבד את כולם
+    </button>
+    <button class="btn btn-ghost" onclick="openUpload()" style="margin-right:auto">
+      ⬆ העלה קובץ
+    </button>
+  </div>
+
+  <!-- ── Upload zone ──────────────────────────────────────────── -->
+  <div class="upload-zone" id="upload-zone"
+       onclick="openUpload()"
+       ondragover="onDragOver(event)"
+       ondragleave="onDragLeave(event)"
+       ondrop="onDrop(event)">
+    <div class="upload-icon">📂</div>
+    <div class="upload-lbl">גרור קבצים לכאן, או לחץ לבחירה</div>
+    <div class="upload-sub">תבניות נתמכות: Isra-Card, Isra-Card-2026, American-Express, Cal, BeinLeumi-Bank, Leumi-Max</div>
+  </div>
+
+  <!-- ── Section: Recognized files ───────────────────────────── -->
+  <div class="section" id="sec-recog">
+    <div class="section-header" onclick="toggleSection('sec-recog')">
+      <div class="section-title">
+        ✅ קבצים מזוהים
+        <span class="section-count" id="recog-count">–</span>
+      </div>
+      <span class="section-chevron">▲</span>
+    </div>
+    <div class="section-body" id="sec-recog-body">
+      <div class="file-list" id="recog-list">
+        <div class="skeleton-row"></div>
+        <div class="skeleton-row"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Section: Unrecognized files ─────────────────────────── -->
+  <div class="section" id="sec-unrec">
+    <div class="section-header" onclick="toggleSection('sec-unrec')">
+      <div class="section-title">
+        ⚠️ קבצים לא מזוהים
+        <span class="section-count" id="unrec-count">–</span>
+      </div>
+      <span class="section-chevron">▲</span>
+    </div>
+    <div class="section-body" id="sec-unrec-body">
+      <div class="file-list" id="unrec-list">
+        <div class="skeleton-row"></div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+// ── Nav group collapse ─────────────────────────────────────────
+function toggleNavGroup(id) {
+  document.getElementById(id).classList.toggle('collapsed');
+}
+
+// ── Section collapse ───────────────────────────────────────────
+function toggleSection(id) {
+  document.getElementById(id).classList.toggle('collapsed');
+}
+
+// ── State ──────────────────────────────────────────────────────
+let _recognized   = [];
+let _unrecognized = [];
+let _parsing      = false;
+
+// ── Boot ───────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  scanFiles();
+});
+
+// ── Scan ───────────────────────────────────────────────────────
+async function scanFiles() {
+  const btn = document.getElementById('scan-btn');
+  btn.disabled = true;
+  showSkeleton('recog-list', 2);
+  showSkeleton('unrec-list', 1);
+
+  try {
+    const res  = await fetch('/api/files/scan');
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'שגיאה');
+
+    _recognized   = data.recognized   || [];
+    _unrecognized = data.unrecognized || [];
+
+    renderRecognized();
+    renderUnrecognized();
+  } catch (e) {
+    showError('recog-list', e.message);
+    showError('unrec-list', '');
+    toast('שגיאה בסריקה: ' + e.message, 'err');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ── Render recognized ──────────────────────────────────────────
+function renderRecognized() {
+  const list  = document.getElementById('recog-list');
+  const count = document.getElementById('recog-count');
+  count.textContent = _recognized.length;
+
+  const newOnes = _recognized.filter(f => f.is_new);
+  const allBtn  = document.getElementById('insert-all-btn');
+  allBtn.style.display = newOnes.length > 0 ? '' : 'none';
+
+  if (!_recognized.length) {
+    list.innerHTML = '<div style="padding:24px 20px;color:var(--text-muted);font-size:.88em;text-align:center">אין קבצים מזוהים בתיקיית הקלט</div>';
+    return;
+  }
+
+  list.innerHTML = _recognized.map(f => {
+    const statusBadge = f.is_new
+      ? '<span class="new-badge">✦ חדש</span>'
+      : '<span class="exists-badge">כבר עובד</span>';
+
+    const parseBtn = f.is_new
+      ? `<button class="btn btn-primary parse-btn" id="pbtn-${CSS.escape(f.name)}" onclick="insertFile(${JSON.stringify(f.name)})">▶ עבד</button>`
+      : `<button class="btn btn-ghost parse-btn" disabled title="כבר נמצא בבסיס הנתונים">✓ הוכנס</button>`;
+
+    return `
+    <div class="file-row" id="frow-${CSS.escape(f.name)}">
+      <div class="file-icon">📄</div>
+      <div class="file-info">
+        <div class="file-name" title="${esc(f.name)}">${esc(f.name)}</div>
+        <div class="file-meta">
+          <span class="format-badge">${esc(f.format)}</span>
+          ${statusBadge}
+        </div>
+      </div>
+      <div class="file-actions">${parseBtn}</div>
+    </div>`;
+  }).join('');
+}
+
+// ── Render unrecognized ────────────────────────────────────────
+function renderUnrecognized() {
+  const list  = document.getElementById('unrec-list');
+  const count = document.getElementById('unrec-count');
+  count.textContent = _unrecognized.length;
+
+  if (!_unrecognized.length) {
+    list.innerHTML = '<div style="padding:24px 20px;color:var(--text-muted);font-size:.88em;text-align:center">אין קבצים לא מזוהים</div>';
+    return;
+  }
+
+  list.innerHTML = _unrecognized.map(fname => `
+    <div class="file-row">
+      <div class="file-icon unrec">❓</div>
+      <div class="file-info">
+        <div class="file-name" title="${esc(fname)}">${esc(fname)}</div>
+        <div class="file-meta">
+          <span class="file-warn">⚠ פורמט לא מזוהה — לא ניתן לעיבוד</span>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+// ── Insert single file ─────────────────────────────────────────
+async function insertFile(filename) {
+  if (_parsing) { toast('כבר מתבצע עיבוד', 'err'); return; }
+  _parsing = true;
+
+  const btnId = 'pbtn-' + CSS.escape(filename);
+  const btn   = document.getElementById(btnId);
+  if (btn) {
+    btn.classList.add('parsing');
+    btn.innerHTML = '<span class="spin-icon"></span> מעבד…';
+    btn.disabled  = true;
+  }
+
+  try {
+    const res  = await fetch('/api/files/insert', {
+      method:  'POST',
+      headers: {'Content-Type': 'application/json'},
+      body:    JSON.stringify({filename}),
+    });
+    const data = await res.json();
+
+    if (data.ok) {
+      if (btn) {
+        btn.classList.remove('parsing');
+        btn.classList.add('done');
+        btn.innerHTML = '✓ הוכנס';
+      }
+      toast(`✅ ${filename} הוכנס בהצלחה`, 'ok');
+      // refresh after short delay
+      setTimeout(scanFiles, 1200);
+    } else {
+      if (btn) {
+        btn.classList.remove('parsing');
+        btn.classList.add('failed');
+        btn.innerHTML = '✗ שגיאה';
+        btn.disabled  = false;
+      }
+      toast('שגיאה: ' + (data.error || 'כישלון לא ידוע'), 'err');
+    }
+  } catch (e) {
+    if (btn) {
+      btn.classList.remove('parsing');
+      btn.classList.add('failed');
+      btn.innerHTML = '✗ שגיאה';
+      btn.disabled  = false;
+    }
+    toast('שגיאת רשת: ' + e.message, 'err');
+  } finally {
+    _parsing = false;
+  }
+}
+
+// ── Insert all new files ───────────────────────────────────────
+async function insertAll() {
+  if (_parsing) { toast('כבר מתבצע עיבוד', 'err'); return; }
+  const newOnes = _recognized.filter(f => f.is_new);
+  if (!newOnes.length) { toast('אין קבצים חדשים לעיבוד'); return; }
+
+  _parsing = true;
+  const allBtn = document.getElementById('insert-all-btn');
+  allBtn.disabled  = true;
+  allBtn.innerHTML = '<span class="spin-icon"></span> מעבד…';
+
+  // Mark all new file buttons as parsing
+  newOnes.forEach(f => {
+    const btn = document.getElementById('pbtn-' + CSS.escape(f.name));
+    if (btn) {
+      btn.classList.add('parsing');
+      btn.innerHTML = '<span class="spin-icon"></span>';
+      btn.disabled  = true;
+    }
+  });
+
+  try {
+    const res  = await fetch('/api/files/insert-all', {method:'POST'});
+    const data = await res.json();
+
+    if (data.ok) {
+      const results = data.results || [];
+      let ok = 0, fail = 0;
+      results.forEach(r => r.ok ? ok++ : fail++);
+      toast(
+        ok   > 0 ? `✅ ${ok} קבצים הוכנסו בהצלחה` + (fail > 0 ? ` · ${fail} נכשלו` : '') :
+        fail > 0 ? `שגיאה: ${fail} קבצים נכשלו` : 'אין קבצים חדשים',
+        ok > 0 && fail === 0 ? 'ok' : fail > 0 ? 'err' : undefined
+      );
+      setTimeout(scanFiles, 1200);
+    } else {
+      toast('שגיאה: ' + (data.error || 'כישלון'), 'err');
+    }
+  } catch (e) {
+    toast('שגיאת רשת: ' + e.message, 'err');
+  } finally {
+    _parsing = false;
+    allBtn.disabled  = false;
+    allBtn.innerHTML = '▶ עבד את כולם';
+  }
+}
+
+// ── Upload ──────────────────────────────────────────────────────
+function openUpload() {
+  document.getElementById('file-upload-input').click();
+}
+
+async function handleFileUpload(files) {
+  if (!files || !files.length) return;
+  const fileArr = Array.from(files);
+  let uploaded = 0;
+
+  for (const file of fileArr) {
+    const fd = new FormData();
+    fd.append('file', file);
+    try {
+      const res  = await fetch('/api/files/upload', {method:'POST', body: fd});
+      const data = await res.json();
+      if (data.ok) { uploaded++; }
+      else         { toast('שגיאה בהעלאת ' + file.name + ': ' + data.error, 'err'); }
+    } catch (e) {
+      toast('שגיאת רשת בהעלאה: ' + e.message, 'err');
+    }
+  }
+
+  if (uploaded > 0) {
+    toast(`✅ ${uploaded} קבצים הועלו — סורק מחדש…`, 'ok');
+    document.getElementById('file-upload-input').value = '';
+    setTimeout(scanFiles, 600);
+  }
+}
+
+// ── Drag & drop ────────────────────────────────────────────────
+function onDragOver(e) {
+  e.preventDefault();
+  document.getElementById('upload-zone').classList.add('drag-over');
+}
+function onDragLeave(e) {
+  document.getElementById('upload-zone').classList.remove('drag-over');
+}
+function onDrop(e) {
+  e.preventDefault();
+  document.getElementById('upload-zone').classList.remove('drag-over');
+  const files = e.dataTransfer.files;
+  if (files && files.length) handleFileUpload(files);
+}
+
+// ── Helpers ────────────────────────────────────────────────────
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function showSkeleton(listId, n) {
+  const el = document.getElementById(listId);
+  if (el) el.innerHTML = Array(n).fill('<div class="skeleton-row"></div>').join('');
+}
+
+function showError(listId, msg) {
+  const el = document.getElementById(listId);
+  if (!el) return;
+  if (!msg) { el.innerHTML = ''; return; }
+  el.innerHTML = `<div style="padding:16px 20px;color:var(--red);font-size:.88em">⚠ ${esc(msg)}</div>`;
+}
+
+function toast(msg, type) {
+  const area = document.getElementById('toast-area');
+  const el   = document.createElement('div');
+  el.className = 'toast' + (type ? ' ' + type : '');
+  el.textContent = msg;
+  area.appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+</script>
+</body>
+</html>

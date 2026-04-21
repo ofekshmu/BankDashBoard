@@ -27,6 +27,7 @@ _PROJECT_DIR           = os.path.dirname(_HERE)
 GENERAL_ANALYSIS_DIR   = os.path.join(_PROJECT_DIR, 'Outputs', 'general_analysis')
 CATEGORY_ANALYSIS_DIR  = os.path.join(_PROJECT_DIR, 'Outputs', 'category_analysis')
 TAGGER_HTML            = os.path.join(_HERE, 'html', 'Tagger.html')
+FILES_HTML             = os.path.join(_HERE, 'html', 'Files.html')
 
 def _make_slug(type_: str, name: str) -> str:
     """type_ = 'cat' | 'biz'"""
@@ -1322,6 +1323,208 @@ def tagger_categories_add():
         return jsonify({'ok': True})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)})
+
+
+# ── Files routes ──────────────────────────────────────────────────────────────
+
+_INPUT_FOLDER   = os.path.join(_PROJECT_DIR, 'ShmuelFamiliy_Inputs')
+_VERIFIED_FOLDER = os.path.join(_PROJECT_DIR, 'Verified_ShmuelFamiliy_Inputs')
+_INSERT_LOCK = threading.Lock()  # prevent concurrent parses
+
+
+@app.route('/files')
+def files_page():
+    if os.path.exists(FILES_HTML):
+        return send_file(FILES_HTML)
+    return 'Files page not found', 404
+
+
+@app.route('/api/files/scan')
+def files_scan():
+    """Scan the input folder and classify files as recognized / unrecognized."""
+    import builtins as _bt
+    try:
+        import sys as _sys
+        if _HERE not in _sys.path:
+            _sys.path.insert(0, _HERE)
+
+        _orig_input = _bt.input
+        _bt.input = lambda *a, **k: '1'
+        try:
+            from Parser import Parser
+            from database import DataBase
+            parser = Parser.getInstance(newInstance=True)
+        finally:
+            _bt.input = _orig_input
+
+        recognized   = []
+        unrecognized = []
+
+        if os.path.isdir(_INPUT_FOLDER):
+            for fname in sorted(os.listdir(_INPUT_FOLDER)):
+                fpath = os.path.join(_INPUT_FOLDER, fname)
+                if not os.path.isfile(fpath):
+                    continue
+                fmt = parser.name_to_type.get(fname)
+                if fmt:
+                    is_new = fname in parser.names
+                    recognized.append({
+                        'name':   fname,
+                        'format': fmt,
+                        'is_new': is_new,
+                    })
+                else:
+                    unrecognized.append(fname)
+
+        return jsonify({'ok': True, 'recognized': recognized, 'unrecognized': unrecognized})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/files/insert', methods=['POST'])
+def files_insert():
+    """Parse and insert a single file from the input folder (SSE stream)."""
+    import builtins as _bt
+    body     = request.get_json() or {}
+    filename = (body.get('filename') or '').strip()
+    if not filename:
+        return jsonify({'ok': False, 'error': 'missing filename'})
+
+    if not _INSERT_LOCK.acquire(blocking=False):
+        return jsonify({'ok': False, 'error': 'כבר מתבצע עיבוד, נסה שוב בעוד רגע'})
+
+    logs = []
+    try:
+        import sys as _sys
+        if _HERE not in _sys.path:
+            _sys.path.insert(0, _HERE)
+
+        _orig_input = _bt.input
+        _bt.input = lambda *a, **k: '1'
+        try:
+            from Parser import Parser
+            from Context import Context
+            from Configurations.Formats import Formats, Context_class
+            from Card import Card
+            from Bank import Bank
+            from src_utils.utils import utils
+
+            # Capture log output during insert
+            import queue as _q
+            _lq = _q.Queue()
+            _orig_write = None
+
+            parser = Parser.getInstance(newInstance=True)
+            fmt = parser.name_to_type.get(filename)
+            if not fmt:
+                return jsonify({'ok': False, 'error': f'קובץ לא מזוהה: {filename}'})
+
+            fmt_data   = Formats.FORMATS[fmt]
+            class_type = fmt_data['Context']
+
+            context = Context()
+            Context.counter = 0
+
+            if class_type == Context_class.Bank:
+                context.setFile(Bank(filename, fmt_data))
+            elif class_type == Context_class.Card:
+                context.setFile(Card(filename, fmt_data))
+            else:
+                return jsonify({'ok': False, 'error': 'סוג קובץ לא נתמך'})
+
+            Context.counter += 1
+            success = context.render()
+
+            if success:
+                utils.handle_withdrawals()
+                utils.tagger_refresh()
+
+            return jsonify({'ok': success, 'filename': filename, 'format': fmt})
+        finally:
+            _bt.input = _orig_input
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+    finally:
+        _INSERT_LOCK.release()
+
+
+@app.route('/api/files/insert-all', methods=['POST'])
+def files_insert_all():
+    """Parse and insert all NEW (unprocessed) files from the input folder."""
+    import builtins as _bt
+    if not _INSERT_LOCK.acquire(blocking=False):
+        return jsonify({'ok': False, 'error': 'כבר מתבצע עיבוד, נסה שוב בעוד רגע'})
+
+    try:
+        import sys as _sys
+        if _HERE not in _sys.path:
+            _sys.path.insert(0, _HERE)
+
+        _orig_input = _bt.input
+        _bt.input = lambda *a, **k: '1'
+        try:
+            from Parser import Parser
+            from Context import Context
+            from Configurations.Formats import Formats, Context_class
+            from Card import Card
+            from Bank import Bank
+            from src_utils.utils import utils
+
+            parser = Parser.getInstance(newInstance=True)
+            results = []
+
+            context = Context()
+            Context.counter = 0
+
+            for fname in list(parser.names):   # parser.names = new files only
+                fmt      = parser.name_to_type.get(fname)
+                if not fmt:
+                    results.append({'filename': fname, 'ok': False, 'error': 'unrecognized'})
+                    continue
+                fmt_data   = Formats.FORMATS[fmt]
+                class_type = fmt_data['Context']
+
+                if class_type == Context_class.Bank:
+                    context.setFile(Bank(fname, fmt_data))
+                elif class_type == Context_class.Card:
+                    context.setFile(Card(fname, fmt_data))
+                else:
+                    results.append({'filename': fname, 'ok': False, 'error': 'unsupported type'})
+                    continue
+
+                Context.counter += 1
+                try:
+                    ok = context.render()
+                    results.append({'filename': fname, 'ok': ok, 'format': fmt})
+                except Exception as ex:
+                    results.append({'filename': fname, 'ok': False, 'error': str(ex)})
+
+            if any(r['ok'] for r in results):
+                utils.handle_withdrawals()
+                utils.tagger_refresh()
+
+            return jsonify({'ok': True, 'results': results})
+        finally:
+            _bt.input = _orig_input
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+    finally:
+        _INSERT_LOCK.release()
+
+
+@app.route('/api/files/upload', methods=['POST'])
+def files_upload():
+    """Accept a file upload and save it to the input folder."""
+    f = request.files.get('file')
+    if not f or not f.filename:
+        return jsonify({'ok': False, 'error': 'no file'})
+    fname = os.path.basename(f.filename)
+    if not fname:
+        return jsonify({'ok': False, 'error': 'invalid filename'})
+    os.makedirs(_INPUT_FOLDER, exist_ok=True)
+    dest = os.path.join(_INPUT_FOLDER, fname)
+    f.save(dest)
+    return jsonify({'ok': True, 'filename': fname})
 
 
 def start(port: int = 5050, open_browser: bool = True):

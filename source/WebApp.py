@@ -26,6 +26,7 @@ ORGANIZER_HTML         = os.path.join(_HERE, 'html', 'Organizer_Table.html')
 _PROJECT_DIR           = os.path.dirname(_HERE)
 GENERAL_ANALYSIS_DIR   = os.path.join(_PROJECT_DIR, 'Outputs', 'general_analysis')
 CATEGORY_ANALYSIS_DIR  = os.path.join(_PROJECT_DIR, 'Outputs', 'category_analysis')
+TAGGER_HTML            = os.path.join(_HERE, 'html', 'Tagger.html')
 
 def _make_slug(type_: str, name: str) -> str:
     """type_ = 'cat' | 'biz'"""
@@ -1143,6 +1144,184 @@ def organizer_regenerate():
         mimetype='text/event-stream',
         headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'},
     )
+
+
+# ── Tagger routes ─────────────────────────────────────────────────────────────
+
+@app.route('/tagger')
+def tagger_page():
+    if os.path.exists(TAGGER_HTML):
+        return send_file(TAGGER_HTML)
+    return "Tagger page not found", 404
+
+
+@app.route('/api/tagger/untagged')
+def tagger_untagged():
+    from database import DataBase
+    try:
+        db    = DataBase()
+        rows  = db.get_untagged_recent(limit=30)
+        total = db.count_untagged_total()
+        return jsonify({'ok': True, 'items': rows, 'total': total})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/tagger/tagged')
+def tagger_tagged():
+    from database import DataBase
+    try:
+        rows = DataBase().get_recently_tagged(limit=30)
+        return jsonify({'ok': True, 'items': rows})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/tagger/high-value')
+def tagger_high_value():
+    from database import DataBase
+    try:
+        threshold = float(request.args.get('threshold', 500))
+        rows = DataBase().get_high_value_untagged(threshold=threshold)
+        return jsonify({'ok': True, 'items': rows})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+_AT_PATH = os.path.join(_PROJECT_DIR, 'personal information', 'auto_tagger.json')
+
+def _read_at() -> dict:
+    import json as _j
+    if os.path.exists(_AT_PATH):
+        with open(_AT_PATH, encoding='utf-8') as _f:
+            return _j.load(_f)
+    return {}
+
+def _write_at(d: dict):
+    import json as _j
+    with open(_AT_PATH, 'w', encoding='utf-8') as _f:
+        _j.dump(d, _f, ensure_ascii=False)
+
+
+@app.route('/api/tagger/tag', methods=['POST'])
+def tagger_tag():
+    """Tag a single transaction by id."""
+    from database import DataBase
+    body    = request.get_json() or {}
+    table   = (body.get('table')    or '').strip()
+    id_     = body.get('id')
+    cat     = (body.get('category') or '').strip()
+    is_auto = bool(body.get('auto', False))
+
+    if not table or id_ is None or not cat:
+        return jsonify({'ok': False, 'error': 'missing fields'})
+    if table not in ('CardTransactions', 'BankTransactions'):
+        return jsonify({'ok': False, 'error': 'invalid table'})
+    try:
+        DataBase().set_category_ui(table, int(id_), cat, is_auto=is_auto)
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/tagger/tag-all-by-name', methods=['POST'])
+def tagger_tag_all_by_name():
+    """Tag every untagged transaction matching name (across both tables) and save json rule."""
+    from database import DataBase
+    body = request.get_json() or {}
+    name = (body.get('name') or '').strip()
+    cat  = (body.get('category') or '').strip()
+    if not name or not cat:
+        return jsonify({'ok': False, 'error': 'missing fields'})
+    try:
+        db    = DataBase()
+        rows  = db.get_untagged_recent(limit=5000)
+        count = 0
+        for row in rows:
+            if row['name'] == name:
+                db.set_category_ui(row['table_name'], row['id'], cat, is_auto=False)
+                count += 1
+        # Save rule to auto_tagger.json
+        at = _read_at()
+        at[name] = cat
+        _write_at(at)
+        return jsonify({'ok': True, 'tagged': count})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/tagger/name-rule')
+def tagger_name_rule():
+    """Return the auto_tagger.json entry for a given name."""
+    name = (request.args.get('name') or '').strip()
+    if not name:
+        return jsonify({'ok': False, 'error': 'missing name'})
+    try:
+        at     = _read_at()
+        in_dict = name in at
+        rule   = at.get(name)          # None / "No Match" / category string
+        return jsonify({'ok': True, 'in_dict': in_dict, 'rule': rule})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/tagger/save-rule', methods=['POST'])
+def tagger_save_rule():
+    """Force-save a name→rule pair to auto_tagger.json (rule = category or 'No Match')."""
+    body = request.get_json() or {}
+    name = (body.get('name') or '').strip()
+    rule = body.get('rule')           # None / "No Match" / category string
+    if not name:
+        return jsonify({'ok': False, 'error': 'missing name'})
+    try:
+        at = _read_at()
+        at[name] = rule
+        _write_at(at)
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/tagger/categories')
+def tagger_categories():
+    import json as _json
+    try:
+        cats_path = os.path.join(_PROJECT_DIR, 'Personal Information', 'categories.json')
+        with open(cats_path, encoding='utf-8') as f:
+            cats = _json.load(f)
+        db = None
+        try:
+            from database import DataBase
+            db = DataBase()
+            usage = db.count_category_usages()
+        except Exception:
+            usage = {}
+        result = [{'name': c, 'count': usage.get(c, 0)} for c in cats]
+        result.sort(key=lambda x: -x['count'])
+        return jsonify({'ok': True, 'categories': result})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/tagger/categories/add', methods=['POST'])
+def tagger_categories_add():
+    import json as _json
+    body = request.get_json() or {}
+    name = (body.get('name') or '').strip()
+    if not name:
+        return jsonify({'ok': False, 'error': 'missing name'})
+    try:
+        cats_path = os.path.join(_PROJECT_DIR, 'Personal Information', 'categories.json')
+        with open(cats_path, encoding='utf-8') as f:
+            cats = _json.load(f)
+        if name in cats:
+            return jsonify({'ok': False, 'error': 'category already exists'})
+        cats.append(name)
+        with open(cats_path, 'w', encoding='utf-8') as f:
+            _json.dump(cats, f, ensure_ascii=False, indent=2)
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
 
 
 def start(port: int = 5050, open_browser: bool = True):

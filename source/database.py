@@ -1071,6 +1071,177 @@ class DataBase:
                 utils.log(f"Bad input {table_name} in 'set_category' in DataBase class", "error")
 
     @validate_table_name
+    def set_category_ui(self, table_name: str, id: int, category: str, is_auto: bool = False):
+        """
+        Set a tag for a transaction via the UI.
+        Reserved = 0 for manual tag, 1 for auto tag.
+        """
+        reserved_val = 1 if is_auto else 0
+        match table_name:
+            case "CardTransactions":
+                self.cursor.execute("""
+                                    UPDATE CardTransactions
+                                    SET Category = ?, Reserved = ?
+                                    WHERE ID = ?
+                                    """, (category, reserved_val, id,))
+                self.connection.commit()
+            case "BankTransactions":
+                self.cursor.execute("""
+                                    UPDATE BankTransactions
+                                    SET Category = ?, Reserved = ?
+                                    WHERE ID = ?
+                                    """, (category, reserved_val, id,))
+                self.connection.commit()
+            case _:
+                utils.log(f"Bad input {table_name} in 'set_category_ui' in DataBase class", "error")
+
+    def get_untagged_recent(self, limit: int = 30) -> list:
+        """
+        Get the most recent untagged transactions from both tables.
+        Returns a list of dicts with keys: table_name, id, name, exec_date, charge_date,
+        transaction_value, charge_value, currency, reserved, card_id.
+        """
+        rows = self.cursor.execute("""
+            SELECT
+                'CardTransactions' AS table_name,
+                ID,
+                Name,
+                Executed_Date AS exec_date,
+                Charge_Date   AS charge_date,
+                Transaction_Value AS transaction_value,
+                Charge_Value      AS charge_value,
+                Charge_Currency   AS currency,
+                Reserved,
+                CardID            AS card_id
+            FROM CardTransactions
+            WHERE Category IS 'NotCategorized'
+            UNION ALL
+            SELECT
+                'BankTransactions' AS table_name,
+                ID,
+                Name,
+                Date       AS exec_date,
+                Value_Date AS charge_date,
+                Income     AS transaction_value,
+                Out        AS charge_value,
+                'ILS'      AS currency,
+                Reserved,
+                NULL       AS card_id
+            FROM BankTransactions
+            WHERE Category IS 'NotCategorized'
+            ORDER BY exec_date DESC
+            LIMIT ?
+        """, (limit,)).fetchall()
+        cols = ['table_name', 'id', 'name', 'exec_date', 'charge_date',
+                'transaction_value', 'charge_value', 'currency', 'reserved', 'card_id']
+        return [dict(zip(cols, r)) for r in rows]
+
+    def get_recently_tagged(self, limit: int = 30) -> list:
+        """
+        Get recently tagged transactions (Category != NotCategorized) from both tables.
+        Returns list of dicts including the category and reserved flag (0=manual, 1=auto).
+        """
+        rows = self.cursor.execute("""
+            SELECT
+                'CardTransactions' AS table_name,
+                ID,
+                Name,
+                Executed_Date AS exec_date,
+                Charge_Date   AS charge_date,
+                Transaction_Value AS transaction_value,
+                Charge_Value      AS charge_value,
+                Charge_Currency   AS currency,
+                Category,
+                Reserved
+            FROM CardTransactions
+            WHERE Category IS NOT 'NotCategorized'
+            UNION ALL
+            SELECT
+                'BankTransactions' AS table_name,
+                ID,
+                Name,
+                Date       AS exec_date,
+                Value_Date AS charge_date,
+                Income     AS transaction_value,
+                Out        AS charge_value,
+                'ILS'      AS currency,
+                Category,
+                Reserved
+            FROM BankTransactions
+            WHERE Category IS NOT 'NotCategorized'
+            ORDER BY exec_date DESC
+            LIMIT ?
+        """, (limit,)).fetchall()
+        cols = ['table_name', 'id', 'name', 'exec_date', 'charge_date',
+                'transaction_value', 'charge_value', 'currency', 'category', 'reserved']
+        return [dict(zip(cols, r)) for r in rows]
+
+    def get_high_value_untagged(self, threshold: float = 500.0) -> list:
+        """
+        Get untagged transactions with charge_value above threshold.
+        Returns list of dicts, sorted by value descending.
+        """
+        rows = self.cursor.execute("""
+            SELECT
+                'CardTransactions' AS table_name,
+                ID,
+                Name,
+                Executed_Date AS exec_date,
+                Charge_Date   AS charge_date,
+                Transaction_Value AS transaction_value,
+                Charge_Value      AS charge_value,
+                Charge_Currency   AS currency,
+                Reserved,
+                CardID            AS card_id
+            FROM CardTransactions
+            WHERE Category IS 'NotCategorized'
+              AND Charge_Value >= ?
+            UNION ALL
+            SELECT
+                'BankTransactions' AS table_name,
+                ID,
+                Name,
+                Date       AS exec_date,
+                Value_Date AS charge_date,
+                Income     AS transaction_value,
+                Out        AS charge_value,
+                'ILS'      AS currency,
+                Reserved,
+                NULL       AS card_id
+            FROM BankTransactions
+            WHERE Category IS 'NotCategorized'
+              AND (Out >= ? OR Income >= ?)
+            ORDER BY charge_value DESC
+        """, (threshold, threshold, threshold)).fetchall()
+        cols = ['table_name', 'id', 'name', 'exec_date', 'charge_date',
+                'transaction_value', 'charge_value', 'currency', 'reserved', 'card_id']
+        return [dict(zip(cols, r)) for r in rows]
+
+    def count_untagged_total(self) -> int:
+        """Return total count of untagged transactions across both tables."""
+        result = self.cursor.execute("""
+            SELECT COUNT(*) FROM (
+                SELECT ID FROM CardTransactions WHERE Category IS 'NotCategorized'
+                UNION ALL
+                SELECT ID FROM BankTransactions WHERE Category IS 'NotCategorized'
+            )
+        """).fetchone()
+        return result[0] if result else 0
+
+    def count_category_usages(self) -> dict:
+        """
+        Returns a dict of {category: count} for all non-NotCategorized transactions.
+        """
+        rows = self.cursor.execute("""
+            SELECT Category, COUNT(*) FROM (
+                SELECT Category FROM CardTransactions WHERE Category IS NOT 'NotCategorized'
+                UNION ALL
+                SELECT Category FROM BankTransactions WHERE Category IS NOT 'NotCategorized'
+            ) GROUP BY Category ORDER BY COUNT(*) DESC
+        """).fetchall()
+        return {r[0]: r[1] for r in rows}
+
+    @validate_table_name
     def set_description(self, table_name: str, id: int, description: str):
         """
         Set a description for a transaction with a given id.

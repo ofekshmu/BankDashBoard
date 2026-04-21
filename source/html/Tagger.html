@@ -1,0 +1,1147 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>תייגן עסקאות</title>
+<style>
+/* ── Reset & tokens ────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --teal:       #1e9d8b;
+  --teal-light: #e8f7f5;
+  --teal-glow:  rgba(30,157,139,0.25);
+  --navy:       #1e2a4a;
+  --bg:         #f4f6f9;
+  --white:      #ffffff;
+  --border:     #eef0f6;
+  --text-muted: #888;
+  --text-sub:   #555;
+  --red:        #e74c3c;
+  --amber:      #f0b429;
+  --green:      #2ecc71;
+  --purple:     #9b59b6;
+  --shadow-sm:  0 2px 10px rgba(0,0,0,.06);
+  --shadow-md:  0 6px 24px rgba(0,0,0,.10);
+  --radius:     14px;
+  --radius-sm:  8px;
+  --sidebar-w:  72px;
+}
+@keyframes _pageIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
+@keyframes fadeSlideIn { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:none} }
+@keyframes tagPop { 0%{transform:scale(1)} 40%{transform:scale(1.04)} 100%{transform:scale(1)} }
+@keyframes rowExit { to{opacity:0;transform:translateX(-40px);max-height:0;padding:0;margin:0;overflow:hidden} }
+@keyframes spin { to{transform:rotate(360deg)} }
+@keyframes shimmer { 0%{background-position:-400px 0} 100%{background-position:400px 0} }
+
+body {
+  font-family: 'Segoe UI', Arial, sans-serif;
+  background: var(--bg);
+  display: flex;
+  min-height: 100vh;
+  direction: rtl;
+  color: var(--navy);
+  font-size: 14px;
+  animation: _pageIn 0.22s ease;
+}
+
+/* ── Sidebar (same as main app) ──────────────────────────────── */
+.sidebar {
+  width: var(--sidebar-w);
+  background: var(--white);
+  border-left: 1px solid var(--border);
+  position: fixed;
+  top: 0; right: 0;
+  height: 100vh;
+  display: flex; flex-direction: column; align-items: center;
+  padding: 16px 0;
+  gap: 2px;
+  z-index: 200;
+  box-shadow: -2px 0 12px rgba(0,0,0,.05);
+}
+.sidebar-logo {
+  width: 44px; height: 44px;
+  margin-bottom: 18px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.sidebar-logo svg { width: 100%; height: 100%; }
+.nav-btn {
+  width: 50px; height: 54px;
+  border-radius: 12px;
+  border: none;
+  background: transparent;
+  color: #9aa3bb;
+  cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 3px;
+  font-size: 1.3em;
+  transition: background .18s, color .18s;
+  position: relative;
+  text-decoration: none;
+}
+.nav-btn:hover  { background: #f0f4ff; color: var(--navy); }
+.nav-btn.active { background: var(--teal); color: #fff; box-shadow: 0 4px 14px var(--teal-glow); }
+.nav-btn .lbl   { font-size: 0.34em; font-weight: 600; letter-spacing: .4px; line-height: 1; }
+
+/* ── Main ────────────────────────────────────────────────────── */
+.main {
+  margin-right: var(--sidebar-w);
+  flex: 1;
+  padding: 28px 32px 80px;
+  min-width: 0;
+  max-width: 960px;
+}
+
+/* ── Page header ─────────────────────────────────────────────── */
+.page-header {
+  display: flex; align-items: center; gap: 14px;
+  margin-bottom: 28px;
+}
+.page-header h1 {
+  font-size: 1.75em; font-weight: 700; color: var(--navy);
+}
+.header-badge {
+  background: var(--teal); color: #fff;
+  border-radius: 20px; padding: 4px 14px;
+  font-size: .82em; font-weight: 700;
+}
+.header-badge.amber { background: var(--amber); }
+
+/* ── Section ─────────────────────────────────────────────────── */
+.section {
+  background: var(--white);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 24px;
+  overflow: hidden;
+}
+.section-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  user-select: none;
+  gap: 10px;
+}
+.section-header:hover { background: #fafbff; }
+.section-title {
+  font-weight: 700; font-size: 1.05em; color: var(--navy);
+  display: flex; align-items: center; gap: 10px;
+}
+.section-count {
+  background: var(--teal-light); color: var(--teal);
+  border-radius: 10px; padding: 2px 10px;
+  font-size: .78em; font-weight: 700;
+}
+.section-chevron {
+  font-size: .75em; color: var(--text-muted);
+  transition: transform .25s;
+}
+.section.collapsed .section-chevron { transform: rotate(180deg); }
+.section.collapsed .section-body    { display: none; }
+
+/* ── Skeleton loader ─────────────────────────────────────────── */
+.skeleton-row {
+  height: 80px; border-radius: 10px; margin: 10px 16px;
+  background: linear-gradient(90deg,#f0f2f6 25%,#e8eaee 50%,#f0f2f6 75%);
+  background-size: 800px 100%;
+  animation: shimmer 1.4s infinite linear;
+}
+
+/* ── Transaction row ─────────────────────────────────────────── */
+.tx-list { padding: 8px 0; }
+.tx-row {
+  display: flex; align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+  transition: background .15s, opacity .3s, transform .35s, max-height .35s;
+  animation: fadeSlideIn .22s ease;
+  max-height: 200px;
+  overflow: visible;
+  position: relative;
+  z-index: 1;
+}
+.tx-row.focused-row { z-index: 20; }
+.tx-row:last-child { border-bottom: none; }
+.tx-row:hover { background: #f8faff; }
+.tx-row.exiting {
+  animation: rowExit .35s ease forwards;
+  overflow: hidden;
+}
+.tx-row.tagged { animation: tagPop .4s ease; }
+
+.tx-type-pill {
+  flex-shrink: 0;
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1em;
+}
+.tx-type-pill.card { background: #eef2ff; }
+.tx-type-pill.bank { background: #fef3e2; }
+
+.tx-info { flex: 1; min-width: 0; }
+.tx-name {
+  font-weight: 600; font-size: .92em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  margin-bottom: 3px;
+}
+.tx-meta {
+  display: flex; gap: 12px; flex-wrap: wrap;
+  font-size: .76em; color: var(--text-muted);
+}
+.tx-meta .val { color: var(--navy); font-weight: 600; }
+.tx-meta .val.neg { color: var(--red); }
+.tx-meta .val.pos { color: var(--green); }
+
+.tx-actions {
+  display: flex; align-items: center; gap: 8px;
+  flex-shrink: 0;
+}
+
+/* ── Category autocomplete input ─────────────────────────────── */
+.cat-wrap {
+  position: relative;
+  width: 200px;
+}
+.cat-input {
+  width: 100%;
+  padding: 7px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: .84em;
+  font-family: inherit;
+  outline: none;
+  background: var(--bg);
+  color: var(--navy);
+  transition: border-color .18s, box-shadow .18s;
+  direction: rtl;
+}
+.cat-input:focus {
+  border-color: var(--teal);
+  box-shadow: 0 0 0 3px var(--teal-glow);
+  background: var(--white);
+}
+.cat-input.valid   { border-color: var(--teal); }
+.cat-input.invalid { border-color: var(--red); }
+
+.cat-dropdown {
+  position: absolute;
+  top: calc(100% + 4px); right: 0;
+  width: 220px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  z-index: 100;
+  max-height: 220px; overflow-y: auto;
+  display: none;
+}
+.cat-dropdown.open { display: block; animation: fadeSlideIn .14s ease; }
+.cat-opt {
+  padding: 9px 14px;
+  cursor: pointer;
+  font-size: .84em;
+  display: flex; align-items: center; justify-content: space-between;
+  transition: background .12s;
+}
+.cat-opt:hover, .cat-opt.focused { background: var(--teal-light); color: var(--teal); }
+.cat-opt .usage-badge {
+  font-size: .7em; color: var(--text-muted);
+  background: var(--bg); border-radius: 8px;
+  padding: 1px 6px;
+}
+
+/* ── Buttons ─────────────────────────────────────────────────── */
+.btn {
+  padding: 7px 14px;
+  border-radius: var(--radius-sm);
+  border: none;
+  font-size: .82em; font-weight: 600;
+  cursor: pointer;
+  transition: background .15s, transform .1s, opacity .15s;
+  display: inline-flex; align-items: center; gap: 5px;
+}
+.btn:active { transform: scale(.96); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn-primary { background: var(--teal); color: #fff; }
+.btn-primary:hover:not(:disabled) { background: #178a7a; }
+.btn-ghost {
+  background: transparent; color: var(--text-muted);
+  border: 1.5px solid var(--border);
+}
+.btn-ghost:hover { background: var(--bg); color: var(--navy); }
+.btn-icon {
+  width: 32px; height: 32px; padding: 0;
+  border-radius: 8px;
+  font-size: 1em;
+  background: var(--bg);
+  color: var(--text-muted);
+  border: none;
+  display: flex; align-items: center; justify-content: center;
+}
+.btn-icon:hover { background: #eef2ff; color: var(--teal); }
+.btn-tag-all {
+  font-size: .74em; padding: 5px 10px;
+  background: #eef2ff; color: #5c7cfa;
+  border-radius: 6px; border: none;
+  cursor: pointer;
+  transition: background .15s;
+}
+.btn-tag-all:hover { background: #dde6ff; }
+
+/* ── Tagged row (recent) ─────────────────────────────────────── */
+.tx-row.is-tagged .cat-label {
+  background: var(--teal-light); color: var(--teal);
+  border-radius: 6px; padding: 3px 10px;
+  font-size: .78em; font-weight: 700;
+}
+.tx-row.is-tagged .cat-label.auto {
+  background: #eef2ff; color: #5c7cfa;
+}
+.source-flag {
+  font-size: .7em; color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: 5px; padding: 1px 6px;
+}
+
+/* ── High value section ──────────────────────────────────────── */
+.high-val-badge {
+  background: #fff3e0; color: #e65100;
+  border-radius: 6px; padding: 2px 8px;
+  font-size: .72em; font-weight: 700;
+}
+
+/* ── Refresh indicator ───────────────────────────────────────── */
+.refresh-bar {
+  height: 3px; width: 0%;
+  background: var(--teal);
+  border-radius: 2px;
+  transition: width .1s linear;
+  position: fixed;
+  top: 0; right: 0; left: 0;
+  z-index: 999;
+}
+
+/* ── Add category modal ──────────────────────────────────────── */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.35);
+  z-index: 500;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none;
+  transition: opacity .2s;
+}
+.modal-overlay.open { opacity: 1; pointer-events: all; }
+.modal-box {
+  background: var(--white);
+  border-radius: var(--radius);
+  padding: 28px 30px;
+  width: 340px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.2);
+  transform: translateY(20px);
+  transition: transform .2s;
+}
+.modal-overlay.open .modal-box { transform: none; }
+.modal-title { font-size: 1.1em; font-weight: 700; margin-bottom: 14px; }
+.modal-input {
+  width: 100%; padding: 10px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: .9em; font-family: inherit;
+  outline: none; direction: rtl;
+  margin-bottom: 14px;
+}
+.modal-input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px var(--teal-glow); }
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.modal-msg { font-size: .82em; color: var(--red); margin-bottom: 8px; min-height: 18px; }
+
+/* ── Toast notification ──────────────────────────────────────── */
+.toast-area {
+  position: fixed; bottom: 28px; left: 50%;
+  transform: translateX(-50%);
+  z-index: 600;
+  display: flex; flex-direction: column-reverse; align-items: center; gap: 8px;
+}
+.toast {
+  background: var(--navy); color: #fff;
+  padding: 10px 22px; border-radius: 10px;
+  font-size: .88em; font-weight: 500;
+  box-shadow: var(--shadow-md);
+  animation: fadeSlideIn .2s ease;
+  white-space: nowrap;
+}
+.toast.success { background: var(--teal); }
+.toast.error   { background: var(--red); }
+
+/* ── Empty state ─────────────────────────────────────────────── */
+.empty-state {
+  text-align: center; padding: 36px 20px;
+  color: var(--text-muted); font-size: .9em;
+}
+.empty-state .emoji { font-size: 2.2em; margin-bottom: 8px; }
+
+/* ── Spinner ─────────────────────────────────────────────────── */
+.spinner {
+  width: 18px; height: 18px;
+  border: 2px solid var(--border);
+  border-top-color: var(--teal);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+  flex-shrink: 0;
+}
+
+/* ── Tag-all inline prompt ───────────────────────────────────── */
+.tag-all-prompt {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  animation: fadeSlideIn .18s ease;
+}
+.tag-all-q {
+  font-size: .82em; color: var(--navy);
+  flex: 1; min-width: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.tag-all-q strong { color: var(--teal); }
+
+/* ── Tagged filter bar ───────────────────────────────────────── */
+.filter-bar {
+  display: flex; align-items: center; gap: 6px;
+  padding: 10px 20px 4px;
+  border-bottom: 1px solid var(--border);
+}
+.filter-btn {
+  padding: 5px 14px;
+  border-radius: 20px;
+  border: 1.5px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: .78em; font-weight: 600;
+  cursor: pointer;
+  transition: background .15s, color .15s, border-color .15s;
+}
+.filter-btn:hover { background: var(--bg); color: var(--navy); }
+.filter-btn.active {
+  background: var(--teal); color: #fff;
+  border-color: var(--teal);
+}
+
+/* ── Scrollbar ───────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #cdd4e0; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <svg viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="44" height="44" rx="12" fill="#1e9d8b"/>
+      <path d="M12 22C12 16.477 16.477 12 22 12s10 4.477 10 10-4.477 10-10 10S12 27.523 12 22z" stroke="#fff" stroke-width="2.2" fill="none"/>
+      <path d="M22 17v5l3 3" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </div>
+  <a class="nav-btn" href="/" title="ראשי">
+    <span>🏠</span><span class="lbl">ראשי</span>
+  </a>
+  <a class="nav-btn" href="/organizer" title="ארגונית">
+    <span>🗂</span><span class="lbl">ארגונית</span>
+  </a>
+  <a class="nav-btn active" href="/tagger" title="תיוג עסקאות">
+    <span>🏷</span><span class="lbl">תייגן</span>
+  </a>
+  <a class="nav-btn" href="/categories" title="קטגוריות">
+    <span>📊</span><span class="lbl">קטגוריות</span>
+  </a>
+</nav>
+
+<!-- Refresh progress bar -->
+<div class="refresh-bar" id="refresh-bar"></div>
+
+<!-- Toast area -->
+<div class="toast-area" id="toast-area"></div>
+
+<!-- Add category modal -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-title">➕ הוסף קטגוריה חדשה</div>
+    <input class="modal-input" id="modal-input" type="text" placeholder="שם הקטגוריה…" autocomplete="off"/>
+    <div class="modal-msg" id="modal-msg"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">ביטול</button>
+      <button class="btn btn-primary" onclick="submitNewCategory()">הוסף</button>
+    </div>
+  </div>
+</div>
+
+<!-- Main content -->
+<main class="main">
+
+  <div class="page-header">
+    <h1>🏷 תייגן עסקאות</h1>
+    <span class="header-badge" id="untagged-count-badge">טוען…</span>
+    <button class="btn btn-ghost" onclick="openModal()" style="margin-right:auto">
+      ➕ קטגוריה חדשה
+    </button>
+    <button class="btn btn-ghost" onclick="refreshAll()">
+      🔄 רענן
+    </button>
+  </div>
+
+  <!-- ── Section 1: Untagged ───────────────────────────────── -->
+  <div class="section" id="sec-untagged">
+    <div class="section-header" onclick="toggleSection('sec-untagged')">
+      <div class="section-title">
+        ⚠️ עסקאות ללא תיוג
+        <span class="section-count" id="sec-untagged-count">–</span>
+      </div>
+      <span class="section-chevron">▲</span>
+    </div>
+    <div class="section-body" id="sec-untagged-body">
+      <div class="tx-list" id="untagged-list">
+        <div class="skeleton-row"></div>
+        <div class="skeleton-row"></div>
+        <div class="skeleton-row"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Section 2: High-value ─────────────────────────────── -->
+  <div class="section" id="sec-highval">
+    <div class="section-header" onclick="toggleSection('sec-highval')">
+      <div class="section-title">
+        💰 עסקאות גבוהות ללא תיוג
+        <span class="section-count" id="sec-highval-count">–</span>
+      </div>
+      <span class="section-chevron">▲</span>
+    </div>
+    <div class="section-body" id="sec-highval-body">
+      <div class="tx-list" id="highval-list">
+        <div class="skeleton-row"></div>
+        <div class="skeleton-row"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Section 3: Recently tagged ───────────────────────── -->
+  <div class="section collapsed" id="sec-tagged">
+    <div class="section-header" onclick="toggleSection('sec-tagged')">
+      <div class="section-title">
+        ✅ עסקאות שתויגו לאחרונה
+        <span class="section-count" id="sec-tagged-count">–</span>
+      </div>
+      <span class="section-chevron">▲</span>
+    </div>
+    <div class="section-body" id="sec-tagged-body">
+      <div class="filter-bar">
+        <button class="filter-btn active" id="filter-all"    onclick="setTaggedFilter('all')">הכל</button>
+        <button class="filter-btn"        id="filter-manual" onclick="setTaggedFilter('manual')">ידני</button>
+        <button class="filter-btn"        id="filter-auto"   onclick="setTaggedFilter('auto')">אוטומטי</button>
+      </div>
+      <div class="tx-list" id="tagged-list">
+        <div class="skeleton-row"></div>
+        <div class="skeleton-row"></div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+// ── State ──────────────────────────────────────────────────────
+let _categories = [];          // [{name, count}]
+let _untaggedItems = [];
+let _highvalItems  = [];
+let _taggedItems   = [];
+let _taggedFilter  = 'all';    // 'all' | 'manual' | 'auto'
+let _autoRefreshTimer = null;
+let _lastInteraction = Date.now();
+const AUTO_REFRESH_DELAY = 5000;   // 5 s idle → refresh
+
+// ── Boot ───────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  loadCategories().then(() => {
+    loadUntagged();
+    loadHighValue();
+    loadTagged();
+  });
+  document.addEventListener('mousemove', _touchInteraction, { passive: true });
+  document.addEventListener('keydown',   _touchInteraction, { passive: true });
+});
+
+function _touchInteraction() {
+  _lastInteraction = Date.now();
+}
+
+// ── Section collapse ───────────────────────────────────────────
+function toggleSection(id) {
+  document.getElementById(id).classList.toggle('collapsed');
+}
+
+// ── Categories ─────────────────────────────────────────────────
+async function loadCategories() {
+  const res = await fetch('/api/tagger/categories').catch(() => null);
+  if (!res || !res.ok) return;
+  const data = await res.json();
+  if (data.ok) _categories = data.categories;
+}
+
+// ── Untagged list ──────────────────────────────────────────────
+async function loadUntagged() {
+  const el = document.getElementById('untagged-list');
+  el.innerHTML = skeletons(3);
+  const res  = await fetch('/api/tagger/untagged').catch(() => null);
+  const data = res ? await res.json().catch(() => null) : null;
+  if (!data || !data.ok) {
+    el.innerHTML = errorState('לא ניתן לטעון עסקאות', loadUntagged);
+    setTimeout(loadUntagged, 3500);
+    return;
+  }
+  _untaggedItems = data.items;
+  const totalUntagged = data.total ?? _untaggedItems.length;
+  document.getElementById('sec-untagged-count').textContent = totalUntagged;
+  document.getElementById('untagged-count-badge').textContent = `${totalUntagged} ללא תיוג`;
+  renderUntagged();
+}
+
+function renderUntagged() {
+  const el = document.getElementById('untagged-list');
+  if (!_untaggedItems.length) {
+    el.innerHTML = `<div class="empty-state"><div class="emoji">🎉</div>כל העסקאות מתויגות!</div>`;
+    return;
+  }
+  el.innerHTML = _untaggedItems.map((tx, i) => buildUntaggedRow(tx, i)).join('');
+}
+
+function buildUntaggedRow(tx, idx) {
+  const isCard = tx.table_name === 'CardTransactions';
+  const icon   = isCard ? '💳' : '🏦';
+  const cls    = isCard ? 'card' : 'bank';
+  const name   = esc(tx.name || '—');
+  const execD  = fmtDate(tx.exec_date);
+  const charD  = fmtDate(tx.charge_date);
+  const key    = `${tx.table_name}__${tx.id}`;
+
+  let metaHtml = `<span>תאריך ביצוע: <span class="val">${execD}</span></span>`;
+  if (charD !== execD) metaHtml += `<span>תאריך חיוב: <span class="val">${charD}</span></span>`;
+
+  if (isCard) {
+    // Card: show both values + card number
+    const txVal  = fmtMoney(tx.transaction_value, tx.currency);
+    const chgVal = fmtMoney(tx.charge_value, tx.currency);
+    if (tx.transaction_value != null) metaHtml += `<span>ע. עסקה: <span class="val">${txVal}</span></span>`;
+    if (tx.charge_value      != null) metaHtml += `<span>ע. חיוב: <span class="val neg">${chgVal}</span></span>`;
+    if (tx.card_id) metaHtml += `<span>כרטיס: <span class="val">${esc(String(tx.card_id))}</span></span>`;
+  } else {
+    // Bank: single value with direction label
+    const hasOut  = tx.charge_value      != null && tx.charge_value      > 0;
+    const hasIn   = tx.transaction_value != null && tx.transaction_value > 0;
+    if (hasOut)       metaHtml += `<span>הוצאה: <span class="val neg">${fmtMoney(tx.charge_value, 'ILS')}</span></span>`;
+    else if (hasIn)   metaHtml += `<span>הכנסה: <span class="val pos">${fmtMoney(tx.transaction_value, 'ILS')}</span></span>`;
+    else if (tx.charge_value != null) metaHtml += `<span>סכום: <span class="val">${fmtMoney(tx.charge_value, 'ILS')}</span></span>`;
+  }
+
+  return `
+<div class="tx-row" id="row-${esc(key)}" data-key="${esc(key)}"
+     data-table="${esc(tx.table_name)}" data-id="${tx.id}" data-name="${esc(tx.name || '')}">
+  <div class="tx-type-pill ${cls}">${icon}</div>
+  <div class="tx-info">
+    <div class="tx-name" title="${name}">${name}</div>
+    <div class="tx-meta">${metaHtml}</div>
+  </div>
+  <div class="tx-actions">
+    <div class="cat-wrap">
+      <input class="cat-input" type="text"
+             placeholder="קטגוריה…"
+             autocomplete="off"
+             onInput="onCatInput(this,'${esc(key)}')"
+             onFocus="openDropdown(this,'${esc(key)}')"
+             onBlur="scheduleClose(this,'${esc(key)}')"
+             onKeyDown="onCatKey(event,this,'${esc(key)}')"
+             id="inp-${esc(key)}"
+             data-key="${esc(key)}"/>
+      <div class="cat-dropdown" id="dd-${esc(key)}"></div>
+    </div>
+    <button class="btn btn-primary" onclick="tagRow('${esc(key)}')" disabled id="btn-${esc(key)}">
+      תייג
+    </button>
+  </div>
+</div>`;
+}
+
+// ── High value list ────────────────────────────────────────────
+async function loadHighValue() {
+  const el = document.getElementById('highval-list');
+  el.innerHTML = skeletons(2);
+  const res  = await fetch('/api/tagger/high-value?threshold=500').catch(() => null);
+  const data = res ? await res.json().catch(() => null) : null;
+  if (!data || !data.ok) {
+    el.innerHTML = errorState('לא ניתן לטעון', loadHighValue);
+    setTimeout(loadHighValue, 3500);
+    return;
+  }
+  _highvalItems = data.items;
+  document.getElementById('sec-highval-count').textContent = _highvalItems.length;
+  if (!_highvalItems.length) {
+    el.innerHTML = `<div class="empty-state"><div class="emoji">✨</div>אין עסקאות גבוהות ללא תיוג</div>`;
+    return;
+  }
+  el.innerHTML = _highvalItems.map((tx, i) => buildHighValRow(tx, i)).join('');
+}
+
+function buildHighValRow(tx, idx) {
+  const isCard = tx.table_name === 'CardTransactions';
+  const icon   = isCard ? '💳' : '🏦';
+  const cls    = isCard ? 'card' : 'bank';
+  const name   = esc(tx.name || '—');
+  const execD  = fmtDate(tx.exec_date);
+  const key    = `hv_${tx.table_name}__${tx.id}`;
+  const bigVal = Math.max(Math.abs(tx.charge_value || 0), Math.abs(tx.transaction_value || 0));
+
+  let metaHtml = `<span>תאריך: <span class="val">${execD}</span></span>`;
+  if (isCard) {
+    const chgVal = fmtMoney(tx.charge_value, tx.currency);
+    const txVal  = fmtMoney(tx.transaction_value, tx.currency);
+    if (tx.transaction_value != null) metaHtml += `<span>ע. עסקה: <span class="val">${txVal}</span></span>`;
+    if (tx.charge_value      != null) metaHtml += `<span>ע. חיוב: <span class="val neg">${chgVal}</span></span>`;
+    if (tx.card_id) metaHtml += `<span>כרטיס: <span class="val">${esc(String(tx.card_id))}</span></span>`;
+  } else {
+    const hasOut = tx.charge_value      != null && tx.charge_value      > 0;
+    const hasIn  = tx.transaction_value != null && tx.transaction_value > 0;
+    if (hasOut)      metaHtml += `<span>הוצאה: <span class="val neg">${fmtMoney(tx.charge_value, 'ILS')}</span></span>`;
+    else if (hasIn)  metaHtml += `<span>הכנסה: <span class="val pos">${fmtMoney(tx.transaction_value, 'ILS')}</span></span>`;
+  }
+
+  return `
+<div class="tx-row" id="row-${esc(key)}" data-key="${esc(key)}"
+     data-table="${esc(tx.table_name)}" data-id="${tx.id}" data-name="${esc(tx.name || '')}">
+  <div class="tx-type-pill ${cls}">${icon}</div>
+  <div class="tx-info">
+    <div class="tx-name">${name}
+      <span class="high-val-badge">₪${Math.abs(bigVal).toLocaleString('he-IL',{maximumFractionDigits:0})}</span>
+    </div>
+    <div class="tx-meta">${metaHtml}</div>
+  </div>
+  <div class="tx-actions">
+    <div class="cat-wrap">
+      <input class="cat-input" type="text" placeholder="קטגוריה…" autocomplete="off"
+             onInput="onCatInput(this,'${esc(key)}')"
+             onFocus="openDropdown(this,'${esc(key)}')"
+             onBlur="scheduleClose(this,'${esc(key)}')"
+             onKeyDown="onCatKey(event,this,'${esc(key)}')"
+             id="inp-${esc(key)}"
+             data-key="${esc(key)}"/>
+      <div class="cat-dropdown" id="dd-${esc(key)}"></div>
+    </div>
+    <button class="btn btn-primary" onclick="tagRow('${esc(key)}')" disabled id="btn-${esc(key)}">
+      תייג
+    </button>
+  </div>
+</div>`;
+}
+
+// ── Tagged list ────────────────────────────────────────────────
+async function loadTagged() {
+  const el = document.getElementById('tagged-list');
+  el.innerHTML = skeletons(2);
+  const res  = await fetch('/api/tagger/tagged').catch(() => null);
+  const data = res ? await res.json().catch(() => null) : null;
+  if (!data || !data.ok) {
+    el.innerHTML = errorState('לא ניתן לטעון', loadTagged);
+    setTimeout(loadTagged, 3500);
+    return;
+  }
+  _taggedItems = data.items;
+  document.getElementById('sec-tagged-count').textContent = _taggedItems.length;
+  renderTagged();
+}
+
+function setTaggedFilter(f) {
+  _taggedFilter = f;
+  ['all','manual','auto'].forEach(k => {
+    document.getElementById(`filter-${k}`).classList.toggle('active', k === f);
+  });
+  renderTagged();
+}
+
+function _isAuto(tx) {
+  // NULL = old auto-tagger (set_category), 1 = new UI auto, 0 = manual
+  return tx.reserved !== 0;
+}
+
+function renderTagged() {
+  const el = document.getElementById('tagged-list');
+  let items = _taggedItems;
+  if (_taggedFilter === 'manual') items = items.filter(tx => !_isAuto(tx));
+  if (_taggedFilter === 'auto')   items = items.filter(tx =>  _isAuto(tx));
+  if (!items.length) {
+    const msg = _taggedFilter === 'manual' ? 'אין תיוגים ידניים'
+              : _taggedFilter === 'auto'   ? 'אין תיוגים אוטומטיים'
+              : 'אין עסקאות מתויגות עדיין';
+    el.innerHTML = `<div class="empty-state"><div class="emoji">📭</div>${msg}</div>`;
+    return;
+  }
+  el.innerHTML = items.map(tx => buildTaggedRow(tx)).join('');
+}
+
+function buildTaggedRow(tx) {
+  const isCard  = tx.table_name === 'CardTransactions';
+  const icon    = isCard ? '💳' : '🏦';
+  const cls     = isCard ? 'card' : 'bank';
+  const name    = esc(tx.name || '—');
+  const execD   = fmtDate(tx.exec_date);
+  const auto    = _isAuto(tx);
+  const catCls  = auto ? 'cat-label auto' : 'cat-label';
+  const srcLbl  = auto ? 'אוטומטי' : 'ידני';
+
+  let metaHtml = `<span>תאריך: <span class="val">${execD}</span></span>`;
+  if (isCard) {
+    if (tx.transaction_value != null) metaHtml += `<span>ע. עסקה: <span class="val">${fmtMoney(tx.transaction_value, tx.currency)}</span></span>`;
+    if (tx.charge_value      != null) metaHtml += `<span>ע. חיוב: <span class="val neg">${fmtMoney(tx.charge_value, tx.currency)}</span></span>`;
+  } else {
+    const hasOut = tx.charge_value      != null && tx.charge_value      > 0;
+    const hasIn  = tx.transaction_value != null && tx.transaction_value > 0;
+    if (hasOut)      metaHtml += `<span>הוצאה: <span class="val neg">${fmtMoney(tx.charge_value, 'ILS')}</span></span>`;
+    else if (hasIn)  metaHtml += `<span>הכנסה: <span class="val pos">${fmtMoney(tx.transaction_value, 'ILS')}</span></span>`;
+  }
+
+  return `
+<div class="tx-row is-tagged">
+  <div class="tx-type-pill ${cls}">${icon}</div>
+  <div class="tx-info">
+    <div class="tx-name">${name}</div>
+    <div class="tx-meta">${metaHtml}</div>
+  </div>
+  <div class="tx-actions" style="gap:6px">
+    <span class="${catCls}">${esc(tx.category || '')}</span>
+    <span class="source-flag">${srcLbl}</span>
+  </div>
+</div>`;
+}
+
+// ── Autocomplete logic ─────────────────────────────────────────
+function onCatInput(inp, key) {
+  _touchInteraction();
+  const q   = inp.value.trim();
+  const btn = document.getElementById(`btn-${key}`);
+  const exact = _categories.find(c => c.name === q);
+  inp.classList.toggle('valid', !!exact);
+  inp.classList.toggle('invalid', q.length > 0 && !exact);
+  if (btn) btn.disabled = !exact;
+  renderDropdown(inp, key, q);
+}
+
+function openDropdown(inp, key) {
+  _touchInteraction();
+  // Lift this row above siblings so dropdown isn't clipped
+  const row = inp.closest('.tx-row');
+  if (row) row.classList.add('focused-row');
+  renderDropdown(inp, key, inp.value.trim());
+}
+
+function renderDropdown(inp, key, q) {
+  const dd = document.getElementById(`dd-${key}`);
+  if (!dd) return;
+  const lower = q.toLowerCase();
+  let matches = _categories;
+  if (q) {
+    matches = _categories.filter(c =>
+      c.name.toLowerCase().includes(lower) ||
+      c.name.includes(q)
+    );
+  }
+  if (!matches.length) { dd.classList.remove('open'); return; }
+  dd.innerHTML = matches.slice(0, 12).map((c, i) =>
+    `<div class="cat-opt" data-val="${esc(c.name)}"
+          onMouseDown="pickCategory('${esc(key)}','${esc(c.name)}')"
+          id="opt-${esc(key)}-${i}">
+       <span>${esc(c.name)}</span>
+       <span class="usage-badge">${c.count}</span>
+     </div>`
+  ).join('');
+  dd.classList.add('open');
+}
+
+let _closeTimers = {};
+function scheduleClose(inp, key) {
+  _closeTimers[key] = setTimeout(() => {
+    const dd = document.getElementById(`dd-${key}`);
+    if (dd) dd.classList.remove('open');
+    // Restore normal stacking order
+    const row = inp.closest('.tx-row');
+    if (row) row.classList.remove('focused-row');
+  }, 200);
+}
+
+function pickCategory(key, val) {
+  if (_closeTimers[key]) clearTimeout(_closeTimers[key]);
+  const inp = document.getElementById(`inp-${key}`);
+  const btn = document.getElementById(`btn-${key}`);
+  const dd  = document.getElementById(`dd-${key}`);
+  if (inp) { inp.value = val; inp.classList.add('valid'); inp.classList.remove('invalid'); }
+  if (btn) btn.disabled = false;
+  if (dd)  dd.classList.remove('open');
+  _touchInteraction();
+}
+
+function onCatKey(e, inp, key) {
+  const dd = document.getElementById(`dd-${key}`);
+  if (!dd || !dd.classList.contains('open')) return;
+  const opts = dd.querySelectorAll('.cat-opt');
+  let focused = dd.querySelector('.cat-opt.focused');
+  let idx = focused ? Array.from(opts).indexOf(focused) : -1;
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    idx = Math.min(idx + 1, opts.length - 1);
+    opts.forEach(o => o.classList.remove('focused'));
+    if (opts[idx]) opts[idx].classList.add('focused');
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    idx = Math.max(idx - 1, 0);
+    opts.forEach(o => o.classList.remove('focused'));
+    if (opts[idx]) opts[idx].classList.add('focused');
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    if (focused) {
+      pickCategory(key, focused.dataset.val);
+    } else {
+      tagRow(key);
+    }
+  } else if (e.key === 'Escape') {
+    dd.classList.remove('open');
+  } else if (e.key === 'Tab') {
+    // Accept first suggestion
+    const first = dd.querySelector('.cat-opt');
+    if (first) { e.preventDefault(); pickCategory(key, first.dataset.val); }
+  }
+}
+
+// ── Tag a row ──────────────────────────────────────────────────
+async function tagRow(key) {
+  const row = document.querySelector(`[data-key="${key}"]`);
+  if (!row) return;
+  const table    = row.dataset.table;
+  const id       = parseInt(row.dataset.id);
+  const name     = row.dataset.name;
+  const inp      = document.getElementById(`inp-${key}`);
+  const category = inp ? inp.value.trim() : '';
+
+  if (!category || !_categories.find(c => c.name === category)) {
+    showToast('בחר קטגוריה תקינה', 'error');
+    return;
+  }
+
+  setRowLoading(key, true);
+
+  // 1. Check if we already have a rule for this name
+  const ruleRes  = await fetch(`/api/tagger/name-rule?name=${encodeURIComponent(name)}`).catch(() => null);
+  const ruleData = ruleRes ? await ruleRes.json().catch(() => null) : null;
+
+  // 2. Tag this single transaction
+  const res  = await fetch('/api/tagger/tag', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ table, id, category, auto: false })
+  }).catch(() => null);
+  const data = res ? await res.json().catch(() => null) : null;
+
+  if (!data || !data.ok) {
+    showToast('שגיאה בתיוג', 'error');
+    setRowLoading(key, false);
+    return;
+  }
+
+  // 3. Act on the rule
+  const rule    = ruleData?.rule;
+  const inDict  = ruleData?.in_dict;
+
+  if (inDict && rule === 'No Match') {
+    // User previously said "don't tag all this name" — just exit
+    showToast(`תויג: "${category}"`, 'success');
+    exitRow(key);
+  } else if (inDict && rule && rule !== 'No Match') {
+    // User previously said "yes, tag all" — do it silently
+    await _doTagAll(name, category);
+  } else {
+    // No previous decision — ask
+    setRowLoading(key, false);
+    showTagAllPrompt(key, name, category);
+  }
+}
+
+function showTagAllPrompt(key, name, category) {
+  const row = document.querySelector(`[data-key="${key}"]`);
+  if (!row) return;
+  const actions = row.querySelector('.tx-actions');
+  if (!actions) return;
+  const n = esc(name), c = esc(category);
+  actions.innerHTML = `
+    <div class="tag-all-prompt">
+      <span class="tag-all-q">תייג את כל "<strong>${n}</strong>" כ-"${c}"?</span>
+      <button class="btn btn-primary" style="min-width:48px"
+        onclick="confirmTagAll('${esc(key)}','${n}','${c}',true)">כן</button>
+      <button class="btn btn-ghost"
+        onclick="confirmTagAll('${esc(key)}','${n}','${c}',false)">לא</button>
+    </div>`;
+}
+
+async function confirmTagAll(key, name, category, yes) {
+  if (yes) {
+    await _doTagAll(name, category);
+  } else {
+    // Save "No Match" so we never ask again for this name
+    fetch('/api/tagger/save-rule', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ name, rule: 'No Match' })
+    }).catch(() => {});
+    showToast(`תויג: "${category}"`, 'success');
+  }
+  exitRow(key);
+}
+
+async function _doTagAll(name, category) {
+  const res  = await fetch('/api/tagger/tag-all-by-name', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ name, category })
+  }).catch(() => null);
+  const data = res ? await res.json().catch(() => null) : null;
+  const count = data?.tagged ?? 0;
+  const msg = count > 1
+    ? `${count} עסקאות תויגו כ-"${category}"`
+    : `תויג: "${category}"`;
+  showToast(msg, 'success');
+}
+
+function exitRow(key) {
+  const row = document.querySelector(`[data-key="${key}"]`);
+  if (row) row.classList.add('exiting');
+  _lastInteraction = Date.now();
+  setTimeout(scheduleAutoRefresh, 400);
+}
+
+function setRowLoading(key, on) {
+  const btn = document.getElementById(`btn-${key}`);
+  if (!btn) return;
+  if (on) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>';
+  } else {
+    btn.disabled = false;
+    btn.innerHTML = 'תייג';
+  }
+}
+
+// ── Auto-refresh after idle ────────────────────────────────────
+function scheduleAutoRefresh() {
+  if (_autoRefreshTimer) clearTimeout(_autoRefreshTimer);
+  _autoRefreshTimer = setTimeout(() => {
+    const idle = Date.now() - _lastInteraction;
+    if (idle >= AUTO_REFRESH_DELAY - 200) {
+      refreshAll();
+    } else {
+      scheduleAutoRefresh();
+    }
+  }, AUTO_REFRESH_DELAY);
+}
+
+async function refreshAll() {
+  animateRefreshBar();
+  await loadCategories();
+  await Promise.all([loadUntagged(), loadHighValue(), loadTagged()]);
+}
+
+function animateRefreshBar() {
+  const bar = document.getElementById('refresh-bar');
+  bar.style.transition = 'none'; bar.style.width = '0%';
+  requestAnimationFrame(() => {
+    bar.style.transition = 'width 1.1s ease';
+    bar.style.width = '85%';
+    setTimeout(() => {
+      bar.style.transition = 'width .3s ease';
+      bar.style.width = '100%';
+      setTimeout(() => { bar.style.width = '0%'; bar.style.transition = 'none'; }, 350);
+    }, 1100);
+  });
+}
+
+// ── Add category modal ─────────────────────────────────────────
+function openModal() {
+  document.getElementById('modal-input').value = '';
+  document.getElementById('modal-msg').textContent = '';
+  document.getElementById('modal-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('modal-input').focus(), 150);
+}
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+async function submitNewCategory() {
+  const name = document.getElementById('modal-input').value.trim();
+  document.getElementById('modal-msg').textContent = '';
+  if (!name) { document.getElementById('modal-msg').textContent = 'הזן שם'; return; }
+  const res = await fetch('/api/tagger/categories/add', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({name})
+  }).catch(() => null);
+  const data = res ? await res.json() : null;
+  if (data && data.ok) {
+    closeModal();
+    showToast(`קטגוריה "${name}" נוספה`, 'success');
+    await loadCategories();
+  } else {
+    document.getElementById('modal-msg').textContent =
+      (data && data.error) ? data.error : 'שגיאה';
+  }
+}
+
+// ── Toast ──────────────────────────────────────────────────────
+function showToast(msg, type = '') {
+  const area = document.getElementById('toast-area');
+  const t    = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.textContent = msg;
+  area.appendChild(t);
+  setTimeout(() => t.remove(), 3200);
+}
+
+// ── Helpers ────────────────────────────────────────────────────
+function esc(s) {
+  return String(s)
+    .replace(/&/g,'&amp;')
+    .replace(/"/g,'&quot;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;');
+}
+function fmtDate(d) {
+  if (!d) return '—';
+  return String(d).slice(0, 10);
+}
+function fmtMoney(v, currency) {
+  if (v == null) return '—';
+  const sym = (!currency || currency === 'ILS') ? '₪' : currency + ' ';
+  return sym + Math.abs(v).toLocaleString('he-IL', {minimumFractionDigits:0, maximumFractionDigits:2});
+}
+function skeletons(n) {
+  return Array(n).fill('<div class="skeleton-row"></div>').join('');
+}
+function errorState(msg, retryFn) {
+  const id = retryFn ? `retry-${Date.now()}` : '';
+  const btn = retryFn ? `<button class="btn btn-ghost" style="margin-top:10px;font-size:.8em" id="${id}">🔄 נסה שוב</button>` : '';
+  setTimeout(() => {
+    if (retryFn && id) {
+      const el = document.getElementById(id);
+      if (el) el.onclick = retryFn;
+    }
+  }, 0);
+  return `<div class="empty-state"><div class="emoji">⚠️</div>${msg}${btn}</div>`;
+}
+</script>
+</body>
+</html>

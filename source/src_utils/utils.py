@@ -2120,6 +2120,14 @@ document.addEventListener('DOMContentLoaded', function() {
             # Join the destination directory path with the file name to get the new file path
             new_file_path = os.path.join(destination_directory, file_name)
 
+            # If the file is already at the destination (e.g. a previous move copied the
+            # file but failed to delete the source because it was locked in Excel), just
+            # remove the leftover source copy — the verified copy is already safe.
+            if os.path.isfile(new_file_path):
+                os.remove(file_path)
+                utils.log(f"File already at destination; removed source copy: {file_path}", "system")
+                return
+
             # Move the file to the destination directory
             shutil.move(file_path, new_file_path)
 

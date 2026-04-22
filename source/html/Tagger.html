@@ -173,13 +173,13 @@ body {
 /* ── Transaction row ─────────────────────────────────────────── */
 .tx-list { padding: 8px 0; }
 .tx-row {
-  display: flex; align-items: center;
+  display: flex; align-items: flex-start;
   gap: 12px;
   padding: 12px 20px;
   border-bottom: 1px solid var(--border);
   transition: background .15s, opacity .3s, transform .35s, max-height .35s;
   animation: fadeSlideIn .22s ease;
-  max-height: 200px;
+  max-height: 300px;
   overflow: visible;
   position: relative;
   z-index: 1;
@@ -199,10 +199,19 @@ body {
   border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
   font-size: 1em;
+  margin-top: 6px;
 }
 .tx-type-pill.card { background: #eef2ff; }
 .tx-type-pill.bank { background: #fef3e2; }
 
+/* Wrapper that stacks info + actions on top, then description below */
+.tx-body {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.tx-top {
+  display: flex; align-items: center; gap: 12px;
+}
 .tx-info { flex: 1; min-width: 0; }
 .tx-name {
   font-weight: 600; font-size: .92em;
@@ -220,6 +229,16 @@ body {
 .tx-actions {
   display: flex; align-items: center; gap: 8px;
   flex-shrink: 0;
+}
+
+/* Description row — sits below the entry info, clearly separate */
+.tx-desc-row {
+  display: flex; align-items: center; gap: 6px;
+  padding-bottom: 2px;
+}
+.tx-desc-label {
+  font-size: .73em; color: var(--text-muted);
+  white-space: nowrap; flex-shrink: 0;
 }
 
 /* ── Category autocomplete input ─────────────────────────────── */
@@ -448,6 +467,42 @@ body {
   border-color: var(--teal);
 }
 
+/* ── Old-transactions separator ──────────────────────────────── */
+.old-tx-separator {
+  background: #edf0f7;
+  border-top: 1px solid #d8dcea;
+  border-bottom: 1px solid #d8dcea;
+  padding: 9px 20px;
+  text-align: center;
+  color: #8a95b0;
+  font-size: .74em; font-weight: 700;
+  letter-spacing: .9px;
+  text-transform: uppercase;
+  user-select: none;
+}
+
+/* ── Description input ───────────────────────────────────────── */
+.desc-input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 10px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: .82em;
+  font-family: inherit;
+  outline: none;
+  background: var(--bg);
+  color: var(--navy);
+  transition: border-color .18s, box-shadow .18s;
+  direction: rtl;
+}
+.desc-input:focus {
+  border-color: var(--teal);
+  box-shadow: 0 0 0 3px var(--teal-glow);
+  background: var(--white);
+}
+.desc-input::placeholder { color: #bbb; }
+
 /* ── Scrollbar ───────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -671,7 +726,21 @@ function renderUntagged() {
     el.innerHTML = `<div class="empty-state"><div class="emoji">🎉</div>כל העסקאות מתויגות!</div>`;
     return;
   }
-  el.innerHTML = _untaggedItems.map((tx, i) => buildUntaggedRow(tx, i)).join('');
+  const cutoff = new Date();
+  cutoff.setMonth(cutoff.getMonth() - 3);
+
+  let html = '';
+  let separatorInserted = false;
+  for (let i = 0; i < _untaggedItems.length; i++) {
+    const tx = _untaggedItems[i];
+    const execDate = tx.exec_date ? new Date(tx.exec_date) : null;
+    if (!separatorInserted && execDate && execDate < cutoff) {
+      html += `<div class="old-tx-separator">עסקאות ישנות</div>`;
+      separatorInserted = true;
+    }
+    html += buildUntaggedRow(tx, i);
+  }
+  el.innerHTML = html;
 }
 
 function buildUntaggedRow(tx, idx) {
@@ -706,26 +775,38 @@ function buildUntaggedRow(tx, idx) {
 <div class="tx-row" id="row-${esc(key)}" data-key="${esc(key)}"
      data-table="${esc(tx.table_name)}" data-id="${tx.id}" data-name="${esc(tx.name || '')}">
   <div class="tx-type-pill ${cls}">${icon}</div>
-  <div class="tx-info">
-    <div class="tx-name" title="${name}">${name}</div>
-    <div class="tx-meta">${metaHtml}</div>
-  </div>
-  <div class="tx-actions">
-    <div class="cat-wrap">
-      <input class="cat-input" type="text"
-             placeholder="קטגוריה…"
-             autocomplete="off"
-             onInput="onCatInput(this,'${esc(key)}')"
-             onFocus="openDropdown(this,'${esc(key)}')"
-             onBlur="scheduleClose(this,'${esc(key)}')"
-             onKeyDown="onCatKey(event,this,'${esc(key)}')"
-             id="inp-${esc(key)}"
-             data-key="${esc(key)}"/>
-      <div class="cat-dropdown" id="dd-${esc(key)}"></div>
+  <div class="tx-body">
+    <div class="tx-top">
+      <div class="tx-info">
+        <div class="tx-name" title="${name}">${name}</div>
+        <div class="tx-meta">${metaHtml}</div>
+      </div>
+      <div class="tx-actions">
+        <div class="cat-wrap">
+          <input class="cat-input" type="text"
+                 placeholder="קטגוריה…"
+                 autocomplete="off"
+                 onInput="onCatInput(this,'${esc(key)}')"
+                 onFocus="openDropdown(this,'${esc(key)}')"
+                 onBlur="scheduleClose(this,'${esc(key)}')"
+                 onKeyDown="onCatKey(event,this,'${esc(key)}')"
+                 id="inp-${esc(key)}"
+                 data-key="${esc(key)}"/>
+          <div class="cat-dropdown" id="dd-${esc(key)}"></div>
+        </div>
+        <button class="btn btn-primary" onclick="tagRow('${esc(key)}')" disabled id="btn-${esc(key)}">
+          תייג
+        </button>
+      </div>
     </div>
-    <button class="btn btn-primary" onclick="tagRow('${esc(key)}')" disabled id="btn-${esc(key)}">
-      תייג
-    </button>
+    <div class="tx-desc-row">
+      <span class="tx-desc-label">📝 הערה:</span>
+      <input class="desc-input" type="text"
+             placeholder="תיאור (אופציונלי)…"
+             autocomplete="off"
+             id="desc-${esc(key)}"
+             oninput="_touchInteraction()"/>
+    </div>
   </div>
 </div>`;
 }
@@ -777,26 +858,39 @@ function buildHighValRow(tx, idx) {
 <div class="tx-row" id="row-${esc(key)}" data-key="${esc(key)}"
      data-table="${esc(tx.table_name)}" data-id="${tx.id}" data-name="${esc(tx.name || '')}">
   <div class="tx-type-pill ${cls}">${icon}</div>
-  <div class="tx-info">
-    <div class="tx-name">${name}
-      <span class="high-val-badge">₪${Math.abs(bigVal).toLocaleString('he-IL',{maximumFractionDigits:0})}</span>
+  <div class="tx-body">
+    <div class="tx-top">
+      <div class="tx-info">
+        <div class="tx-name">
+          ${name}
+          <span class="high-val-badge">₪${Math.abs(bigVal).toLocaleString('he-IL',{maximumFractionDigits:0})}</span>
+        </div>
+        <div class="tx-meta">${metaHtml}</div>
+      </div>
+      <div class="tx-actions">
+        <div class="cat-wrap">
+          <input class="cat-input" type="text" placeholder="קטגוריה…" autocomplete="off"
+                 onInput="onCatInput(this,'${esc(key)}')"
+                 onFocus="openDropdown(this,'${esc(key)}')"
+                 onBlur="scheduleClose(this,'${esc(key)}')"
+                 onKeyDown="onCatKey(event,this,'${esc(key)}')"
+                 id="inp-${esc(key)}"
+                 data-key="${esc(key)}"/>
+          <div class="cat-dropdown" id="dd-${esc(key)}"></div>
+        </div>
+        <button class="btn btn-primary" onclick="tagRow('${esc(key)}')" disabled id="btn-${esc(key)}">
+          תייג
+        </button>
+      </div>
     </div>
-    <div class="tx-meta">${metaHtml}</div>
-  </div>
-  <div class="tx-actions">
-    <div class="cat-wrap">
-      <input class="cat-input" type="text" placeholder="קטגוריה…" autocomplete="off"
-             onInput="onCatInput(this,'${esc(key)}')"
-             onFocus="openDropdown(this,'${esc(key)}')"
-             onBlur="scheduleClose(this,'${esc(key)}')"
-             onKeyDown="onCatKey(event,this,'${esc(key)}')"
-             id="inp-${esc(key)}"
-             data-key="${esc(key)}"/>
-      <div class="cat-dropdown" id="dd-${esc(key)}"></div>
+    <div class="tx-desc-row">
+      <span class="tx-desc-label">📝 הערה:</span>
+      <input class="desc-input" type="text"
+             placeholder="תיאור (אופציונלי)…"
+             autocomplete="off"
+             id="desc-${esc(key)}"
+             oninput="_touchInteraction()"/>
     </div>
-    <button class="btn btn-primary" onclick="tagRow('${esc(key)}')" disabled id="btn-${esc(key)}">
-      תייג
-    </button>
   </div>
 </div>`;
 }
@@ -984,8 +1078,10 @@ async function tagRow(key) {
   const table    = row.dataset.table;
   const id       = parseInt(row.dataset.id);
   const name     = row.dataset.name;
-  const inp      = document.getElementById(`inp-${key}`);
-  const category = inp ? inp.value.trim() : '';
+  const inp         = document.getElementById(`inp-${key}`);
+  const category    = inp ? inp.value.trim() : '';
+  const descInp     = document.getElementById(`desc-${key}`);
+  const description = descInp ? descInp.value.trim() : '';
 
   if (!category || !_categories.find(c => c.name === category)) {
     showToast('בחר קטגוריה תקינה', 'error');
@@ -998,11 +1094,11 @@ async function tagRow(key) {
   const ruleRes  = await fetch(`/api/tagger/name-rule?name=${encodeURIComponent(name)}`).catch(() => null);
   const ruleData = ruleRes ? await ruleRes.json().catch(() => null) : null;
 
-  // 2. Tag this single transaction
+  // 2. Tag this single transaction (+ optional description)
   const res  = await fetch('/api/tagger/tag', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({ table, id, category, auto: false })
+    body: JSON.stringify({ table, id, category, auto: false, description })
   }).catch(() => null);
   const data = res ? await res.json().catch(() => null) : null;
 

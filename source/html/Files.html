@@ -110,7 +110,6 @@ body {
   flex: 1;
   padding: 28px 32px 80px;
   min-width: 0;
-  max-width: 960px;
 }
 
 /* ── Page header ──────────────────────────────────────────────── */
@@ -199,7 +198,7 @@ body {
   font-size: 1.3em;
   background: var(--teal-light);
 }
-.file-icon.unrec { background: #fff3e0; }
+.file-row.unrecognized .file-icon { background: #fff3e0; }
 
 .file-info { flex: 1; min-width: 0; }
 .file-name {
@@ -224,10 +223,17 @@ body {
   border-radius: 20px; padding: 2px 10px;
   font-size: .73em; font-weight: 700;
 }
-.file-warn {
-  font-size: .78em; color: var(--amber);
-  display: flex; align-items: center; gap: 4px;
+.unrec-badge {
+  background: #fff3e0; color: #e65100;
+  border-radius: 20px; padding: 2px 10px;
+  font-size: .73em; font-weight: 700;
 }
+/* left-edge stripe to distinguish unrecognized rows */
+.file-row.unrecognized {
+  border-right: 3px solid var(--amber);
+  background: #fffdf5;
+}
+.file-row.recognized { border-right: 3px solid transparent; }
 
 .file-actions { flex-shrink: 0; display: flex; align-items: center; gap: 8px; }
 
@@ -393,34 +399,19 @@ body {
     <div class="upload-sub">תבניות נתמכות: Isra-Card, Isra-Card-2026, American-Express, Cal, BeinLeumi-Bank, Leumi-Max</div>
   </div>
 
-  <!-- ── Section: Recognized files ───────────────────────────── -->
-  <div class="section" id="sec-recog">
-    <div class="section-header" onclick="toggleSection('sec-recog')">
+  <!-- ── Section: All files ──────────────────────────────────── -->
+  <div class="section" id="sec-files">
+    <div class="section-header" onclick="toggleSection('sec-files')">
       <div class="section-title">
-        ✅ קבצים מזוהים
-        <span class="section-count" id="recog-count">–</span>
+        📁 קבצים בתיקיית הקלט
+        <span class="section-count" id="files-count">–</span>
       </div>
       <span class="section-chevron">▲</span>
     </div>
-    <div class="section-body" id="sec-recog-body">
-      <div class="file-list" id="recog-list">
+    <div class="section-body" id="sec-files-body">
+      <div class="file-list" id="files-list">
         <div class="skeleton-row"></div>
         <div class="skeleton-row"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── Section: Unrecognized files ─────────────────────────── -->
-  <div class="section" id="sec-unrec">
-    <div class="section-header" onclick="toggleSection('sec-unrec')">
-      <div class="section-title">
-        ⚠️ קבצים לא מזוהים
-        <span class="section-count" id="unrec-count">–</span>
-      </div>
-      <span class="section-chevron">▲</span>
-    </div>
-    <div class="section-body" id="sec-unrec-body">
-      <div class="file-list" id="unrec-list">
         <div class="skeleton-row"></div>
       </div>
     </div>
@@ -453,8 +444,7 @@ document.addEventListener('DOMContentLoaded', () => {
 async function scanFiles() {
   const btn = document.getElementById('scan-btn');
   btn.disabled = true;
-  showSkeleton('recog-list', 2);
-  showSkeleton('unrec-list', 1);
+  showSkeleton('files-list', 3);
 
   try {
     const res  = await fetch('/api/files/scan');
@@ -464,43 +454,40 @@ async function scanFiles() {
     _recognized   = data.recognized   || [];
     _unrecognized = data.unrecognized || [];
 
-    renderRecognized();
-    renderUnrecognized();
+    renderFiles();
   } catch (e) {
-    showError('recog-list', e.message);
-    showError('unrec-list', '');
+    showError('files-list', e.message);
     toast('שגיאה בסריקה: ' + e.message, 'err');
   } finally {
     btn.disabled = false;
   }
 }
 
-// ── Render recognized ──────────────────────────────────────────
-function renderRecognized() {
-  const list  = document.getElementById('recog-list');
-  const count = document.getElementById('recog-count');
-  count.textContent = _recognized.length;
+// ── Render all files (recognized + unrecognized) as one list ───
+function renderFiles() {
+  const list  = document.getElementById('files-list');
+  const count = document.getElementById('files-count');
+  const total = _recognized.length + _unrecognized.length;
+  count.textContent = total;
 
   const newOnes = _recognized.filter(f => f.is_new);
   const allBtn  = document.getElementById('insert-all-btn');
   allBtn.style.display = newOnes.length > 0 ? '' : 'none';
 
-  if (!_recognized.length) {
-    list.innerHTML = '<div style="padding:24px 20px;color:var(--text-muted);font-size:.88em;text-align:center">אין קבצים מזוהים בתיקיית הקלט</div>';
+  if (!total) {
+    list.innerHTML = '<div style="padding:24px 20px;color:var(--text-muted);font-size:.88em;text-align:center">תיקיית הקלט ריקה</div>';
     return;
   }
 
-  list.innerHTML = _recognized.map(f => {
+  const recognizedRows = _recognized.map(f => {
     const statusBadge = f.is_new
       ? '<span class="new-badge">✦ חדש</span>'
-      : '<span class="exists-badge">כבר עובד</span>';
-
+      : '<span class="exists-badge">✔ כבר קיים במערכת</span>';
     const parseBtn = f.is_new
       ? `<button class="btn btn-primary parse-btn" id="pbtn-${CSS.escape(f.name)}" onclick="insertFile(${JSON.stringify(f.name)})">▶ עבד</button>`
       : `<button class="btn btn-ghost parse-btn" disabled title="כבר נמצא בבסיס הנתונים">✓ הוכנס</button>`;
-
     return `
-    <div class="file-row" id="frow-${CSS.escape(f.name)}">
+    <div class="file-row recognized" id="frow-${CSS.escape(f.name)}">
       <div class="file-icon">📄</div>
       <div class="file-info">
         <div class="file-name" title="${esc(f.name)}">${esc(f.name)}</div>
@@ -511,30 +498,20 @@ function renderRecognized() {
       </div>
       <div class="file-actions">${parseBtn}</div>
     </div>`;
-  }).join('');
-}
+  });
 
-// ── Render unrecognized ────────────────────────────────────────
-function renderUnrecognized() {
-  const list  = document.getElementById('unrec-list');
-  const count = document.getElementById('unrec-count');
-  count.textContent = _unrecognized.length;
-
-  if (!_unrecognized.length) {
-    list.innerHTML = '<div style="padding:24px 20px;color:var(--text-muted);font-size:.88em;text-align:center">אין קבצים לא מזוהים</div>';
-    return;
-  }
-
-  list.innerHTML = _unrecognized.map(fname => `
-    <div class="file-row">
-      <div class="file-icon unrec">❓</div>
+  const unrecognizedRows = _unrecognized.map(fname => `
+    <div class="file-row unrecognized">
+      <div class="file-icon">❓</div>
       <div class="file-info">
         <div class="file-name" title="${esc(fname)}">${esc(fname)}</div>
         <div class="file-meta">
-          <span class="file-warn">⚠ פורמט לא מזוהה — לא ניתן לעיבוד</span>
+          <span class="unrec-badge">⚠ לא מזוהה</span>
         </div>
       </div>
-    </div>`).join('');
+    </div>`);
+
+  list.innerHTML = [...recognizedRows, ...unrecognizedRows].join('');
 }
 
 // ── Insert single file ─────────────────────────────────────────

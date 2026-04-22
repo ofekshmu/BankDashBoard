@@ -311,9 +311,9 @@ def run_category():
         try:
             from AppManager import AppManager
             if type_ == 'category':
-                AppManager().category_analysis(category=name)
+                AppManager(skip_parser=True).category_analysis(category=name)
             else:
-                AppManager().category_analysis(business=name)
+                AppManager(skip_parser=True).category_analysis(business=name)
             _log_queue.put(f'__DONE__:{slug}')
         except Exception as exc:
             import traceback
@@ -646,7 +646,7 @@ def run_analysis():
             else:
                 t = datetime.now()
 
-            AppManager().general_analysis(t=t)
+            AppManager(skip_parser=True).general_analysis(t=t)
             _log_queue.put(f'__DONE__:{t.strftime("%Y_%m")}')
 
         except Exception as exc:
@@ -1161,7 +1161,7 @@ def tagger_untagged():
     from database import DataBase
     try:
         db    = DataBase()
-        rows  = db.get_untagged_recent(limit=30)
+        rows  = db.get_untagged_recent(limit=2000)
         total = db.count_untagged_total()
         return jsonify({'ok': True, 'items': rows, 'total': total})
     except Exception as e:
@@ -1214,12 +1214,16 @@ def tagger_tag():
     cat     = (body.get('category') or '').strip()
     is_auto = bool(body.get('auto', False))
 
+    description = (body.get('description') or '').strip()
+
     if not table or id_ is None or not cat:
         return jsonify({'ok': False, 'error': 'missing fields'})
     if table not in ('CardTransactions', 'BankTransactions'):
         return jsonify({'ok': False, 'error': 'invalid table'})
     try:
         DataBase().set_category_ui(table, int(id_), cat, is_auto=is_auto)
+        if description:
+            DataBase().set_transaction_description(description, table, int(id_))
         return jsonify({'ok': True})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)})
@@ -1360,19 +1364,50 @@ def files_scan():
         recognized   = []
         unrecognized = []
 
+        import shutil as _shutil
+        import sqlite3 as _sq
+
+        # Pre-load all known filenames from the DB so we don't rely solely on
+        # the parser (which can't open locked files).
+        _db_known = {}   # fname -> format
+        try:
+            _conn = _sq.connect(_DB_PATH, check_same_thread=False)
+            for _row in _conn.execute("SELECT File_Name, Format FROM File"):
+                _db_known[_row[0]] = _row[1]
+            _conn.close()
+        except Exception:
+            pass
+
         if os.path.isdir(_INPUT_FOLDER):
             for fname in sorted(os.listdir(_INPUT_FOLDER)):
                 fpath = os.path.join(_INPUT_FOLDER, fname)
                 if not os.path.isfile(fpath):
                     continue
+
+                # ── Already in DB? ────────────────────────────────────────
+                db_fmt = _db_known.get(fname)
+                if db_fmt:
+                    # File was previously processed. Try to move it to Verified.
+                    dst_dir  = os.path.join(_VERIFIED_FOLDER, db_fmt)
+                    dst_file = os.path.join(dst_dir, fname)
+                    try:
+                        os.makedirs(dst_dir, exist_ok=True)
+                        if os.path.isfile(dst_file):
+                            # Already at destination — previous move copied but couldn't
+                            # delete the source (file was open).  Remove the source now.
+                            os.remove(fpath)
+                        else:
+                            _shutil.move(fpath, dst_file)
+                        continue   # cleaned up — don't show in list
+                    except Exception:
+                        pass       # still locked — show as "already exists"
+                    recognized.append({'name': fname, 'format': db_fmt, 'is_new': False})
+                    continue
+
+                # ── Not in DB — use parser to identify ────────────────────
                 fmt = parser.name_to_type.get(fname)
                 if fmt:
-                    is_new = fname in parser.names
-                    recognized.append({
-                        'name':   fname,
-                        'format': fmt,
-                        'is_new': is_new,
-                    })
+                    recognized.append({'name': fname, 'format': fmt, 'is_new': True})
                 else:
                     unrecognized.append(fname)
 
@@ -1408,11 +1443,6 @@ def files_insert():
             from Card import Card
             from Bank import Bank
             from src_utils.utils import utils
-
-            # Capture log output during insert
-            import queue as _q
-            _lq = _q.Queue()
-            _orig_write = None
 
             parser = Parser.getInstance(newInstance=True)
             fmt = parser.name_to_type.get(filename)
@@ -1533,4 +1563,4 @@ def start(port: int = 5050, open_browser: bool = True):
     os.environ['BANKAPP_WEB'] = '1'
     if open_browser:
         threading.Timer(1.2, lambda: webbrowser.open(f'http://localhost:{port}')).start()
-    app.run(host='127.0.0.1', port=port, threaded=True, debug=False, use_reloader=False)
+    app.run(host='127.0.0.1', port=port, threaded=False, debug=False, use_reloader=False)

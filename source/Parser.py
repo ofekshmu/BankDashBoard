@@ -167,15 +167,21 @@ class Parser():
                     if data["Identification data"] not in file_name:
                         continue
                 case Identification_Method.CELL:
-                    (location, value) = data["Identification data"]
-                    extracted_value = ExcelManager().set_active_sheet(Paths.INPUT_FOLDER + "\\" + file_name)\
-                                                    .read_cell(*location)
-                    if extracted_value is None: # When no value was read
-                        continue
-                    if value not in extracted_value:
+                    try:
+                        (location, value) = data["Identification data"]
+                        extracted_value = ExcelManager().set_active_sheet(Paths.INPUT_FOLDER + "\\" + file_name)\
+                                                        .read_cell(*location)
+                        if extracted_value is None: # When no value was read
+                            continue
+                        if value not in extracted_value:
+                            continue
+                    except Exception:
                         continue
                 case Identification_Method.HEADERS:
-                    if not utils.is_headers_valid(format, file_name, data["Headers"], data["Header row index"], data["Header col index"]):
+                    try:
+                        if not utils.is_headers_valid(format, file_name, data["Headers"], data["Header row index"], data["Header col index"]):
+                            continue
+                    except Exception:
                         continue
                 case Identification_Method.NONE:
                     utils.log(f"Bad identification method when iterating over {file_name}... Skipping Format...", "warning")

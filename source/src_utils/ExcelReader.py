@@ -1,33 +1,80 @@
 import xlwings as xw
+import threading
 from src_utils.queuebykey import SpecialQueue
 from typing import Union
 
 MAX_ACTIVE_SHEETS = 1
 
+# Each thread gets its own ExcelManager instance so that COM objects
+# (which are apartment-threaded on Windows) are never shared across threads.
+_tls = threading.local()
+
+
 class ExcelManager:
+    # Legacy class-level attributes kept for any code that still references them
+    # directly, but the real state lives in _tls.
     _instance = None
+    dead = True
 
     def __new__(cls):
-        if cls._instance is None or ExcelManager.dead:
-            cls._instance = super(ExcelManager, cls).__new__(cls)
-            cls._instance.app = xw.App(add_book=False, visible=False)
-            cls._instance.queue = SpecialQueue(MAX_ACTIVE_SHEETS)
-            cls._instance.active_sheet = None
+        inst = getattr(_tls, 'instance', None)
+        dead = getattr(_tls, 'dead', True)
+        if inst is None or dead:
+            # Initialize COM for this thread before creating the Excel app.
+            try:
+                import pythoncom
+                pythoncom.CoInitialize()
+            except Exception:
+                pass
+            inst = super(ExcelManager, cls).__new__(cls)
+            inst.app = xw.App(add_book=False, visible=False)
+            inst.queue = SpecialQueue(MAX_ACTIVE_SHEETS)
+            inst.active_sheet = None
+            _tls.instance = inst
+            _tls.dead = False
+            # Keep class-level ref in sync for legacy direct accesses
+            cls._instance = inst
             cls.dead = False
-
-        return cls._instance
+        return inst
 
     def __open_sheet(self, file_path):
         """
         A private function, ment for opening the first sheet in an excel file.
+        Suppresses Excel's "file in use" dialog so it never blocks the user.
         """
+        import os
+        fname = os.path.basename(file_path)
+
+        # Suppress all Excel alert dialogs before opening.
+        try:
+            self.app.display_alerts = False
+        except Exception:
+            pass
+
+        workbook = None
         try:
             workbook = self.app.books.open(file_path)
-            sheet = workbook.sheets[0]  # Read the first sheet in the Excel file
-            self.active_sheet = sheet
-            return sheet
-        except Exception as e:
-            raise ValueError(f"Error opening file or sheet: {str(e)}")
+        except Exception:
+            # File already open in this or another Excel instance — reuse it.
+            for book in self.app.books:
+                try:
+                    if os.path.basename(book.fullname).lower() == fname.lower():
+                        workbook = book
+                        break
+                except Exception:
+                    continue
+
+        try:
+            self.app.display_alerts = True
+        except Exception:
+            pass
+
+        if workbook is None:
+            raise ValueError(f"Cannot open file (in use or inaccessible): {file_path}")
+
+        sheet = workbook.sheets[0]
+        self.active_sheet = sheet
+        return sheet
 
     #@add_root
     def set_active_sheet(self, file_path) -> 'ExcelManager':
@@ -45,19 +92,29 @@ class ExcelManager:
                 removed_sheet.book.close()
             self.queue.push(file_path, self.__open_sheet(file_path))
 
-        return self._instance
+        return self
 
     def close_and_kill_excel(self):
         """
         Call this function at the end of the App in order to close all background running process.
         """
         if self.active_sheet is not None:
-            self.active_sheet.book.close()
-            # self.app.quit()
+            try:
+                self.active_sheet.book.close()
+            except Exception:
+                pass
+        try:
             self.app.kill()
-            self.active_sheet = None
-            self._instance = None
-            ExcelManager.dead = True
+        except Exception:
+            pass
+        self.active_sheet = None
+        # Clear the thread-local instance so the next call creates a fresh one.
+        _tls.instance = None
+        _tls.dead = True
+        ExcelManager._instance = None
+        ExcelManager.dead = True
+        # Note: do NOT call CoUninitialize — COM should stay initialized for the
+        # thread's lifetime so subsequent xw.App() calls succeed without errors.
 
     def read_sheet(self, row_idx: int, row_count: int, col_idx: int, col_count: int, type: str = "value") -> list:
         """

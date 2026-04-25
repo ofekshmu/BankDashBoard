@@ -639,9 +639,9 @@ body {
 .cash-cur-wrap { position: relative; }
 .cash-cur-input { cursor: pointer; caret-color: transparent; }
 .cash-cur-dropdown {
-  display: none; position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+  display: none; position: fixed;
   background: #fff; border: 1.5px solid var(--border); border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0,0,0,.12); z-index: 900; max-height: 200px; overflow-y: auto;
+  box-shadow: 0 8px 24px rgba(0,0,0,.12); z-index: 9999; max-height: 200px; overflow-y: auto;
 }
 .cash-cur-dropdown.open { display: block; }
 .cash-cur-search {
@@ -2416,9 +2416,24 @@ function _makeCurPicker(inpId, dropId, srchId, hidId) {
     });
   }
 
+  function positionDrop() {
+    var rect = inp.getBoundingClientRect();
+    drop.style.width  = rect.width + 'px';
+    drop.style.left   = rect.left  + 'px';
+    var spaceBelow = window.innerHeight - rect.bottom;
+    var dropH = 204;
+    if (spaceBelow < dropH && rect.top > dropH) {
+      drop.style.top    = '';
+      drop.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
+    } else {
+      drop.style.bottom = '';
+      drop.style.top    = (rect.bottom + 4) + 'px';
+    }
+  }
+
   inp.addEventListener('click', function() {
     drop.classList.toggle('open');
-    if (drop.classList.contains('open')) { setTimeout(function() { srch.focus(); }, 30); }
+    if (drop.classList.contains('open')) { positionDrop(); setTimeout(function() { srch.focus(); }, 30); }
   });
   inp.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') drop.classList.remove('open');

@@ -3102,12 +3102,6 @@ Please Make sure that none of the following formats have their 'Identifications 
         transactions = data.get('transactions')
         _has_charge = transactions is not None and 'Charge_Date' in transactions.columns
 
-        # Analytics extras
-        _top5 = []
-        if transactions is not None and not transactions.empty:
-            _top5_df = (transactions.assign(_abs=transactions['Final_Value'].abs())
-                        .nlargest(5, '_abs'))
-
         if transactions is not None and not transactions.empty:
             for _, row in transactions.sort_values(by='Date', ascending=False).iterrows():
                 txn_id   = str(row.get('ID', ''))
@@ -3145,70 +3139,22 @@ Please Make sure that none of the following formats have their 'Identifications 
         txn_count = len(transactions) if transactions is not None else 0
 
         # ── Additional analytics ──────────────────────────────────────────────
-        # Top-5 transactions card
-        _top5_rows = ''
-        if transactions is not None and not transactions.empty:
-            for _, r in (transactions.assign(_abs=transactions['Final_Value'].abs())
-                         .nlargest(5, '_abs').iterrows()):
-                _n  = str(r.get('Description') or r.get('Name', ''))
-                _d  = _parse_date(r.get('Date', ''))
-                _v  = r.get('Final_Value', 0)
-                _vc = 'neg' if _v < 0 else 'pos'
-                _vs = f"({abs(_v):,.0f}) ₪" if _v < 0 else f"{_v:,.0f} ₪"
-                _top5_rows += (
-                    f'<tr><td class="td-date">{_d}</td>'
-                    f'<td class="td-name" style="max-width:200px">{_n}</td>'
-                    f'<td class="td-val {_vc}">{_vs}</td></tr>\n'
-                )
-
         # Monthly totals stats
         _monthly_spend_std = ''
-        _trend_label = ''
-        _trend_cls   = ''
+        _std_months_count  = 0
         if transactions is not None and not transactions.empty:
             import pandas as _pd2
             _tmp = transactions.copy()
             _tmp['_month'] = _pd2.to_datetime(_tmp['Date']).dt.to_period('M')
             _monthly_sums = _tmp.groupby('_month')['Final_Value'].sum()
-            if len(_monthly_sums) >= 2:
+            _std_months_count = len(_monthly_sums)
+            if _std_months_count >= 2:
                 _std = _monthly_sums.std()
                 _monthly_spend_std = f"{abs(_std):,.0f} ₪"
-            # Trend: compare first-half avg to second-half avg
-            if len(_monthly_sums) >= 4:
-                _half = len(_monthly_sums) // 2
-                _first_avg  = _monthly_sums.iloc[:_half].mean()
-                _second_avg = _monthly_sums.iloc[_half:].mean()
-                if abs(_second_avg) > abs(_first_avg) * 1.05:
-                    _trend_label = '↑ עולה'
-                    _trend_cls   = 'neg' if total_spent < 0 else 'pos'
-                elif abs(_second_avg) < abs(_first_avg) * 0.95:
-                    _trend_label = '↓ יורד'
-                    _trend_cls   = 'pos' if total_spent < 0 else 'neg'
-                else:
-                    _trend_label = '→ יציב'
-                    _trend_cls   = ''
         display_name_js = json.dumps(display_name, ensure_ascii=False)
         slug_js  = json.dumps(slug, ensure_ascii=False)
         type_js  = json.dumps(type_, ensure_ascii=False)
 
-        # Pre-compute top-5 block (can't use nested f''' inside outer f''')
-        _th = ('text-align:right;padding:6px 10px;'
-               'color:var(--text-muted);font-size:.78em')
-        _top5_open_html = (
-            '<div class="charts-2col" style="margin-bottom:16px">\n'
-            '  <div class="panel">\n'
-            '    <div class="panel-header">5 הפעולות הגדולות ביותר</div>\n'
-            '    <table class="top5-table">\n'
-            '      <thead><tr>'
-            f'<th style="{_th}">תאריך</th>'
-            f'<th style="{_th}">שם</th>'
-            f'<th style="{_th}">סכום</th>'
-            '</tr></thead>\n'
-            f'      <tbody>{_top5_rows}</tbody>\n'
-            '    </table>\n'
-            '  </div>'
-        ) if _top5_rows else ''
-        _top5_close_html = '</div>' if _top5_rows else ''
 
         html = f'''<!DOCTYPE html>
 <html lang="he" dir="rtl">
@@ -3256,7 +3202,7 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;
 
 /* Category roller — matches month-roller styling */
 .cat-roller{{width:100%;overflow:hidden;position:sticky;top:0;z-index:50;
-  padding:14px 0;background:var(--bg);box-shadow:0 2px 8px rgba(0,0,0,.06)}}
+  padding:14px 0;margin-bottom:18px;background:var(--bg);box-shadow:0 2px 8px rgba(0,0,0,.06)}}
 .cat-roller::before,.cat-roller::after{{content:'';position:absolute;top:0;bottom:0;
   width:100px;z-index:3;pointer-events:none}}
 .cat-roller::before{{left:0;background:linear-gradient(to right,var(--bg) 30%,transparent)}}
@@ -3303,7 +3249,7 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;
 .reload-btn.running{{opacity:.6;cursor:wait}}
 
 /* KPI grid */
-.kpi-grid{{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px}}
+.kpi-grid{{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:22px}}
 @media(max-width:900px){{.kpi-grid{{grid-template-columns:1fr 1fr}}}}
 .kpi-card{{background:var(--white);border-radius:var(--radius);padding:18px 20px 16px;
   box-shadow:var(--shadow-sm);display:flex;flex-direction:column;gap:7px;
@@ -3367,9 +3313,6 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;
 .td-cat{{font-size:.85em;color:var(--text-muted);text-align:right}}
 /* Analytics extras */
 .kpi-trend{{font-size:.95em;font-weight:700}}
-.top5-table{{width:100%;border-collapse:collapse;font-size:.83em}}
-.top5-table td{{padding:7px 10px;border-bottom:1px solid var(--border)}}
-.top5-table tr:last-child td{{border-bottom:none}}
 
 /* Search bar */
 .txn-search-wrap{{margin-bottom:12px}}
@@ -3466,7 +3409,7 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;
   </div>
 
   <!-- KPI cards -->
-  <div class="kpi-grid" style="grid-template-columns:repeat(6,1fr)">
+  <div class="kpi-grid">
     <div class="kpi-card">
       <div class="kpi-label"><span class="kpi-dot" style="background:#1e9d8b"></span>ממוצע חודשי</div>
       <div class="kpi-value {'neg' if monthly_avg < 0 else 'pos'}">{_fmt(monthly_avg)}</div>
@@ -3480,12 +3423,7 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;
     <div class="kpi-card">
       <div class="kpi-label"><span class="kpi-dot" style="background:#9b59b6"></span>סטיית תקן חודשית</div>
       <div class="kpi-value">{_monthly_spend_std or '—'}</div>
-      <div class="kpi-sublabel">תנודתיות הוצאות</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-label"><span class="kpi-dot" style="background:#3498db"></span>מגמה</div>
-      <div class="kpi-value {_trend_cls}">{_trend_label or '—'}</div>
-      <div class="kpi-sublabel">מחצית ראשונה vs שנייה</div>
+      <div class="kpi-sublabel">{'על פני ' + str(_std_months_count) + ' חודשים' if _std_months_count >= 2 else 'אין מספיק נתונים'}</div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label"><span class="kpi-dot" style="background:#e74c3c"></span>סה"כ הוצאות</div>
@@ -3500,14 +3438,11 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;
   <!-- Charts -->
   <div class="{_charts_grid_cls}">
     <div class="chart-card">
-      <div class="chart-card-title">הוצאות חודשיות — 6 חודשים אחרונים</div>
+      <div class="chart-card-title">הוצאות והכנסות — 6 חודשים אחרונים</div>
       <div class="chart-wrap"><canvas id="monthly-chart"></canvas></div>
     </div>
     {f'<div class="pie-col">{pie_cards_html}</div>' if _has_pies else ''}
   </div>
-
-  <!-- Top-5 transactions + Transaction table side by side if top5 exists -->
-  {_top5_open_html}
 
   <!-- Transactions panel -->
   <div class="panel">
@@ -3536,7 +3471,7 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;
       <span class="txn-footer-sum" id="txn-footer-sum"></span>
     </div>
   </div>
-  {_top5_close_html}
+
 </div>
 
 <script>
@@ -3579,8 +3514,8 @@ const NAME           = {display_name_js};
         {{
           label: 'הוצאות',
           data: MONTHLY_DATA.map(function(d) {{ return d.spending; }}),
-          backgroundColor: 'rgba(30,157,139,0.72)',
-          borderColor: 'rgba(30,157,139,1)',
+          backgroundColor: 'rgba(231,76,60,0.75)',
+          borderColor: 'rgba(231,76,60,1)',
           borderWidth: 1,
           borderRadius: 5,
           order: 1
@@ -3588,7 +3523,7 @@ const NAME           = {display_name_js};
         {{
           label: 'הכנסות',
           data: MONTHLY_DATA.map(function(d) {{ return d.income; }}),
-          backgroundColor: 'rgba(46,204,113,0.60)',
+          backgroundColor: 'rgba(46,204,113,0.72)',
           borderColor: 'rgba(46,204,113,1)',
           borderWidth: 1,
           borderRadius: 5,

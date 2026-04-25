@@ -324,13 +324,17 @@ def categories_page():
     bizs = DataBase().get_all_business_names() or []
 
     def _item_html(name, type_, slug):
+        from urllib.parse import quote as _quote
         fpath = os.path.join(CATEGORY_ANALYSIS_DIR, f'{slug}.html')
         has   = os.path.exists(fpath)
         dot   = f'<span style="width:8px;height:8px;border-radius:50%;background:{"#1e9d8b" if has else "#ccc"};display:inline-block;margin-left:8px;flex-shrink:0"></span>'
         label = 'קטגוריה' if type_ == 'category' else 'עסק'
         badge_color = '#1e9d8b' if type_ == 'category' else '#9b59b6'
+        # Include original name as query-param so serve_category can pass it to
+        # the auto-trigger without losing special chars like " and /
+        name_qs = _quote(name, safe='')
         return (
-            f'<a href="/category/{slug}" class="cat-item" data-name="{name}"'
+            f'<a href="/category/{slug}?name={name_qs}" class="cat-item" data-name="{name}"'
             f' style="display:flex;align-items:center;padding:12px 16px;'
             f'background:#fff;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.06);'
             f'text-decoration:none;color:#1e2a4a;transition:box-shadow .18s,transform .18s;'
@@ -457,8 +461,10 @@ def serve_category(slug):
     html_path = os.path.join(CATEGORY_ANALYSIS_DIR, f'{slug}.html')
     if os.path.exists(html_path):
         return send_file(html_path)
-    # Auto-trigger generation
-    return _not_generated_category_html(slug)
+    # Auto-trigger generation — pass original name (from query param) so special
+    # chars (חו"ל, השקעה/חיסכון) are preserved in the analysis request
+    name = request.args.get('name', '')
+    return _not_generated_category_html(slug, name=name)
 
 
 @app.route('/api/category/list')
@@ -617,11 +623,12 @@ def _log_float_js() -> str:
     }"""
 
 
-def _not_generated_category_html(slug: str) -> str:
+def _not_generated_category_html(slug: str, name: str = '') -> str:
     import json as _json
     slug_js  = _json.dumps(slug)
     type_val = 'category' if slug.startswith('cat_') else 'business'
     type_js  = _json.dumps(type_val)
+    name_js  = _json.dumps(name, ensure_ascii=False)
     return f'''<!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -642,7 +649,7 @@ def _not_generated_category_html(slug: str) -> str:
     showLogFloat('מנתח קטגוריה…');
     fetch('/api/category/run', {{method:'POST',
       headers:{{'Content-Type':'application/json'}},
-      body: JSON.stringify({{slug: {slug_js}, type: {type_js}}})
+      body: JSON.stringify({{slug: {slug_js}, type: {type_js}, name: {name_js}}})
     }}).then(function() {{
       var es = new EventSource('/api/logs');
       es.onmessage = function(e) {{

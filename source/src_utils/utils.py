@@ -3125,8 +3125,8 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;
 .nav-item:hover::before{{background:var(--teal)}}
 .nav-item.active{{color:#b8c0d0;cursor:default;pointer-events:none}}
 .nav-sep{{height:1px;background:var(--border);margin:8px 16px}}
-/* Back button — fixed top-left */
-.back-btn{{position:fixed;top:18px;left:18px;height:42px;padding:0 16px;background:var(--white);border:1.5px solid var(--border);border-radius:10px;display:flex;align-items:center;gap:6px;cursor:pointer;z-index:400;box-shadow:var(--shadow-sm);color:var(--text-sub);font-size:.85em;font-weight:600;font-family:inherit;text-decoration:none;transition:background .15s,color .15s,border-color .15s}}
+/* Back button — fixed top-left, bold arrow only */
+.back-btn{{position:fixed;top:18px;left:18px;width:42px;height:42px;padding:0;background:var(--white);border:1.5px solid var(--border);border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:400;box-shadow:var(--shadow-sm);color:var(--text-sub);font-size:1.25em;font-weight:900;text-decoration:none;transition:background .15s,color .15s,border-color .15s;line-height:1}}
 .back-btn:hover{{background:var(--teal-light);border-color:var(--teal);color:var(--teal)}}
 
 /* Main */
@@ -3262,7 +3262,7 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;
     <rect y="12" width="18" height="2" rx="1" fill="currentColor"/>
   </svg>
 </button>
-<a class="back-btn" href="/categories">&#8592; חזרה</a>
+<a class="back-btn" href="/categories" title="חזרה לקטגוריות">&#8592;</a>
 <div class="nav-overlay" id="nav-overlay" onclick="toggleNav()"></div>
 <nav class="sidebar" id="sidebar">
   <div class="sidebar-header">

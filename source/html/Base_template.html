@@ -685,6 +685,19 @@ body {
 .cash-modal-status { font-size: .8em; margin-top: 10px; min-height: 1.2em; }
 .cash-modal-status.ok  { color: var(--teal); }
 .cash-modal-status.err { color: var(--red); }
+.cash-info-icon {
+  display:inline-flex;align-items:center;justify-content:center;
+  width:14px;height:14px;border-radius:50%;background:#b0bec5;color:#fff;
+  font-size:.65em;font-weight:700;cursor:help;margin-right:4px;
+  vertical-align:middle;flex-shrink:0;position:relative;font-style:normal;
+}
+.cash-info-icon::after {
+  content:attr(data-tip);position:absolute;bottom:calc(100% + 6px);right:0;
+  background:#1e2a4a;color:#fff;font-size:.78em;font-weight:400;
+  padding:5px 9px;border-radius:6px;white-space:nowrap;
+  opacity:0;pointer-events:none;transition:opacity .15s;z-index:999;
+}
+.cash-info-icon:hover::after { opacity:1; }
 
 /* ── Chart grid ──────────────────────────────────────────── */
 .charts-grid {
@@ -2234,7 +2247,10 @@ function _loadCashPie() {
         <input class="cash-form-input" id="cash-add-name" type="text" placeholder="למשל: קניות שוק" required>
       </div>
       <div class="cash-form-row">
-        <label class="cash-form-label">סכום * (שלילי = הוצאה, חיובי = הכנסה)</label>
+        <label class="cash-form-label" style="display:flex;align-items:center;gap:4px">
+          סכום *
+          <i class="cash-info-icon" data-tip="שלילי = הוצאה  |  חיובי = הכנסה">i</i>
+        </label>
         <input class="cash-form-input" id="cash-add-amount" type="number" step="0.01" placeholder="0.00" required>
       </div>
       <div class="cash-form-row">
@@ -2253,7 +2269,9 @@ function _loadCashPie() {
       </div>
       <div class="cash-form-row">
         <label class="cash-form-label">קטגוריה</label>
-        <input class="cash-form-input" id="cash-add-cat" type="text" placeholder="NotCategorized">
+        <select class="cash-form-input" id="cash-add-cat">
+          <option value="NotCategorized">NotCategorized</option>
+        </select>
       </div>
       <div class="cash-form-row">
         <label class="cash-form-label">הערה</label>
@@ -2425,12 +2443,35 @@ function _reloadCashPie() {
 
 // ── Add cash transaction modal ────────────────────────────────────────────
 var _cashAddPickerReady = false;
+var _cashCatsLoaded = false;
 function openCashAddModal() {
   document.getElementById('cash-add-modal').classList.add('open');
   document.getElementById('cash-add-date').value = new Date().toISOString().split('T')[0];
+  // Default currency: ILS
+  var _ils = CASH_ALL_CURRENCIES.filter(function(c){return c.code==='ILS';})[0];
+  if (_ils) {
+    document.getElementById('cash-add-cur-inp').value = _ils.code+' '+_ils.sym+'  '+_ils.name;
+    document.getElementById('cash-add-cur-code').value = 'ILS';
+  }
   if (!_cashAddPickerReady) {
     _makeCurPicker('cash-add-cur-inp','cash-add-cur-drop','cash-add-cur-srch','cash-add-cur-code');
     _cashAddPickerReady = true;
+  }
+  // Load categories once
+  if (!_cashCatsLoaded) {
+    _cashCatsLoaded = true;
+    fetch('/api/category/list').then(function(r){return r.json();}).then(function(list){
+      var sel = document.getElementById('cash-add-cat');
+      if (!sel) return;
+      var cats = list.filter(function(c){return c.type==='category';}).map(function(c){return c.name;});
+      cats.sort();
+      sel.innerHTML = '';
+      cats.forEach(function(name){
+        var opt = document.createElement('option'); opt.value = name; opt.textContent = name;
+        sel.appendChild(opt);
+      });
+      if (!cats.length) { var opt=document.createElement('option'); opt.value='NotCategorized'; opt.textContent='NotCategorized'; sel.appendChild(opt); }
+    }).catch(function(){});
   }
 }
 function closeCashAddModal() {

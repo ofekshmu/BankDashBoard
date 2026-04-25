@@ -602,6 +602,88 @@ body {
   margin-top: 6px; font-size: .82em;
   color: var(--text-muted);
 }
+/* ── Cash action buttons ── */
+.cash-action-btn {
+  padding: 5px 13px; border-radius: 20px; font-size: .76em; font-weight: 600;
+  cursor: pointer; transition: background .15s, color .15s, border-color .15s;
+  white-space: nowrap; font-family: inherit;
+}
+.cash-action-btn { background: var(--teal); color: #fff; border: none; }
+.cash-action-btn:hover { background: #178a79; }
+.cash-action-btn--outline { background: #fff; color: var(--teal); border: 1.5px solid var(--teal); }
+.cash-action-btn--outline:hover { background: var(--teal-light); }
+/* ── Cash modals ── */
+.cash-modal-overlay {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45);
+  z-index: 800; align-items: center; justify-content: center;
+}
+.cash-modal-overlay.open { display: flex; }
+.cash-modal {
+  background: #fff; border-radius: 16px; padding: 28px 32px;
+  width: 100%; max-width: 500px; box-shadow: 0 20px 60px rgba(0,0,0,.18);
+  direction: rtl; position: relative; max-height: 90vh; overflow-y: auto;
+}
+.cash-modal-title { font-size: 1.08em; font-weight: 700; color: var(--navy); margin-bottom: 18px; }
+.cash-modal-close {
+  position: absolute; top: 16px; left: 20px; background: none; border: none;
+  font-size: 1.15em; cursor: pointer; color: #aaa; line-height: 1; padding: 4px;
+}
+.cash-modal-close:hover { color: var(--red); }
+.cash-form-row { display: flex; flex-direction: column; gap: 5px; margin-bottom: 13px; }
+.cash-form-label { font-size: .78em; font-weight: 600; color: var(--text-muted); }
+.cash-form-input {
+  padding: 8px 12px; border: 1.5px solid var(--border); border-radius: 8px;
+  font-size: .88em; color: var(--navy); outline: none;
+  transition: border-color .18s; width: 100%; box-sizing: border-box; background: #fff;
+}
+.cash-form-input:focus { border-color: var(--teal); }
+.cash-cur-wrap { position: relative; }
+.cash-cur-input { cursor: pointer; caret-color: transparent; }
+.cash-cur-dropdown {
+  display: none; position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+  background: #fff; border: 1.5px solid var(--border); border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.12); z-index: 900; max-height: 200px; overflow-y: auto;
+}
+.cash-cur-dropdown.open { display: block; }
+.cash-cur-search {
+  padding: 8px 12px; border: none; border-bottom: 1.5px solid var(--border);
+  font-size: .84em; width: 100%; box-sizing: border-box; outline: none; color: var(--navy);
+  position: sticky; top: 0; background: #fff;
+}
+.cash-cur-option {
+  padding: 7px 14px; cursor: pointer; font-size: .83em; color: var(--navy);
+  display: flex; align-items: center; gap: 8px;
+}
+.cash-cur-option:hover { background: var(--teal-light); }
+.cash-cur-code { font-weight: 700; min-width: 38px; color: var(--teal); }
+.cash-cur-sym  { min-width: 20px; color: #888; }
+.cash-cur-name { color: #999; font-size: .92em; }
+.recon-header, .recon-row-grid {
+  display: grid; grid-template-columns: 90px 1fr 1fr 80px;
+  gap: 8px; align-items: center;
+}
+.recon-header { font-size: .74em; font-weight: 600; color: var(--text-muted);
+  border-bottom: 2px solid var(--border); padding-bottom: 7px; margin-bottom: 8px; }
+.recon-row-grid { margin-bottom: 9px; }
+.recon-cur { font-size: .88em; font-weight: 700; }
+.recon-recorded { font-size: .85em; color: var(--navy); }
+.recon-gap { font-size: .82em; font-weight: 700; text-align: center; }
+.recon-gap.pos { color: var(--teal); }
+.recon-gap.neg { color: var(--red); }
+.recon-gap.zero { color: #bbb; }
+.cash-modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+.cash-btn-cancel {
+  padding: 9px 20px; border: 1.5px solid var(--border); border-radius: 8px;
+  background: #fff; color: #888; cursor: pointer; font-size: .84em; font-weight: 600; font-family: inherit;
+}
+.cash-btn-submit {
+  padding: 9px 20px; border: none; border-radius: 8px;
+  background: var(--teal); color: #fff; cursor: pointer; font-size: .84em; font-weight: 600; font-family: inherit;
+}
+.cash-btn-submit:hover { background: #178a79; }
+.cash-modal-status { font-size: .8em; margin-top: 10px; min-height: 1.2em; }
+.cash-modal-status.ok  { color: var(--teal); }
+.cash-modal-status.err { color: var(--red); }
 
 /* ── Chart grid ──────────────────────────────────────────── */
 .charts-grid {
@@ -4265,8 +4347,12 @@ body {
      </div>
     </div>
     <div class="card" id="cash-pie-card">
-     <div class="card-title">
-      מזומן לפי מטבע
+     <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+      <span>מזומן לפי מטבע</span>
+      <div style="display:flex;gap:8px">
+       <button class="cash-action-btn" onclick="openCashAddModal()">+ הוסף עסקה</button>
+       <button class="cash-action-btn cash-action-btn--outline" onclick="openCashReconcileModal()">כיול יתרה ←</button>
+      </div>
      </div>
      <div id="cash-pie-inner" style="min-height:280px;display:flex;align-items:center;justify-content:center;">
      </div>
@@ -6545,5 +6631,250 @@ function _loadCashPie() {
     });
 }
   </script>
+
+<!-- ── Cash: Add Transaction modal ─────────────────────────────────────── -->
+<div class="cash-modal-overlay" id="cash-add-modal" onclick="if(event.target===this)closeCashAddModal()">
+  <div class="cash-modal">
+    <div class="cash-modal-title">הוסף עסקת מזומן</div>
+    <button class="cash-modal-close" onclick="closeCashAddModal()">✕</button>
+    <form id="cash-add-form" onsubmit="event.preventDefault();submitCashAdd()">
+      <div class="cash-form-row">
+        <label class="cash-form-label">שם / תיאור *</label>
+        <input class="cash-form-input" id="cash-add-name" type="text" placeholder="למשל: קניות שוק" required>
+      </div>
+      <div class="cash-form-row">
+        <label class="cash-form-label">סכום * (שלילי = הוצאה, חיובי = הכנסה)</label>
+        <input class="cash-form-input" id="cash-add-amount" type="number" step="0.01" placeholder="0.00" required>
+      </div>
+      <div class="cash-form-row">
+        <label class="cash-form-label">מטבע *</label>
+        <div class="cash-cur-wrap">
+          <input class="cash-form-input cash-cur-input" id="cash-add-cur-inp" type="text" placeholder="בחר מטבע..." readonly>
+          <input type="hidden" id="cash-add-cur-code">
+          <div class="cash-cur-dropdown" id="cash-add-cur-drop">
+            <input class="cash-cur-search" id="cash-add-cur-srch" type="text" placeholder="חפש מטבע...">
+          </div>
+        </div>
+      </div>
+      <div class="cash-form-row">
+        <label class="cash-form-label">תאריך *</label>
+        <input class="cash-form-input" id="cash-add-date" type="date" required>
+      </div>
+      <div class="cash-form-row">
+        <label class="cash-form-label">קטגוריה</label>
+        <input class="cash-form-input" id="cash-add-cat" type="text" placeholder="NotCategorized">
+      </div>
+      <div class="cash-form-row">
+        <label class="cash-form-label">הערה</label>
+        <input class="cash-form-input" id="cash-add-desc" type="text" placeholder="אופציונלי...">
+      </div>
+      <div class="cash-modal-status" id="cash-add-status"></div>
+      <div class="cash-modal-actions">
+        <button type="button" class="cash-btn-cancel" onclick="closeCashAddModal()">ביטול</button>
+        <button type="submit" class="cash-btn-submit">הוסף עסקה ←</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ── Cash: Reconcile modal ────────────────────────────────────────────── -->
+<div class="cash-modal-overlay" id="cash-reconcile-modal" onclick="if(event.target===this)closeCashReconcileModal()">
+  <div class="cash-modal">
+    <div class="cash-modal-title">כיול יתרת מזומן</div>
+    <button class="cash-modal-close" onclick="closeCashReconcileModal()">✕</button>
+    <p style="font-size:.82em;color:#888;margin-bottom:16px">הזן את היתרה הנוכחית שברשותך. יווצרו עסקאות תיקון לסגירת הפער.</p>
+    <div class="recon-header">
+      <div>מטבע</div><div>יתרה רשומה</div><div>יתרה בפועל</div><div style="text-align:center">פער</div>
+    </div>
+    <div id="recon-rows"></div>
+    <div style="margin-top:14px;border-top:1px solid var(--border);padding-top:14px;display:flex;gap:8px;align-items:flex-end">
+      <div style="flex:1">
+        <div class="cash-form-label" style="margin-bottom:5px">הוסף מטבע</div>
+        <div class="cash-cur-wrap">
+          <input class="cash-form-input cash-cur-input" id="recon-add-cur-inp" type="text" placeholder="בחר מטבע..." readonly>
+          <input type="hidden" id="recon-add-cur-code">
+          <div class="cash-cur-dropdown" id="recon-add-cur-drop">
+            <input class="cash-cur-search" id="recon-add-cur-srch" type="text" placeholder="חפש מטבע...">
+          </div>
+        </div>
+      </div>
+      <button class="cash-btn-submit" onclick="addReconCurrency()" style="white-space:nowrap;margin-bottom:0">+ הוסף</button>
+    </div>
+    <div class="cash-modal-status" id="cash-recon-status"></div>
+    <div class="cash-modal-actions">
+      <button class="cash-btn-cancel" onclick="closeCashReconcileModal()">ביטול</button>
+      <button class="cash-btn-submit" onclick="submitReconcile()">צור עסקאות תיקון ←</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var CASH_ALL_CURRENCIES = [
+  {code:'ILS',name:'Israeli New Shekel',sym:'₪'},{code:'USD',name:'US Dollar',sym:'$'},
+  {code:'EUR',name:'Euro',sym:'€'},{code:'GBP',name:'British Pound',sym:'£'},
+  {code:'JPY',name:'Japanese Yen',sym:'¥'},{code:'CHF',name:'Swiss Franc',sym:'Fr'},
+  {code:'AUD',name:'Australian Dollar',sym:'A$'},{code:'CAD',name:'Canadian Dollar',sym:'C$'},
+  {code:'CNY',name:'Chinese Yuan',sym:'¥'},{code:'HKD',name:'Hong Kong Dollar',sym:'HK$'},
+  {code:'NZD',name:'New Zealand Dollar',sym:'NZ$'},{code:'SEK',name:'Swedish Krona',sym:'kr'},
+  {code:'NOK',name:'Norwegian Krone',sym:'kr'},{code:'DKK',name:'Danish Krone',sym:'kr'},
+  {code:'SGD',name:'Singapore Dollar',sym:'S$'},{code:'TRY',name:'Turkish Lira',sym:'₺'},
+  {code:'INR',name:'Indian Rupee',sym:'₹'},{code:'BRL',name:'Brazilian Real',sym:'R$'},
+  {code:'ZAR',name:'South African Rand',sym:'R'},{code:'MXN',name:'Mexican Peso',sym:'MX$'},
+  {code:'AED',name:'UAE Dirham',sym:'د.إ'},{code:'THB',name:'Thai Baht',sym:'฿'},
+  {code:'PLN',name:'Polish Złoty',sym:'zł'},{code:'CZK',name:'Czech Koruna',sym:'Kč'},
+  {code:'HUF',name:'Hungarian Forint',sym:'Ft'},{code:'KRW',name:'South Korean Won',sym:'₩'},
+  {code:'IDR',name:'Indonesian Rupiah',sym:'Rp'},{code:'MYR',name:'Malaysian Ringgit',sym:'RM'},
+  {code:'PHP',name:'Philippine Peso',sym:'₱'},{code:'EGP',name:'Egyptian Pound',sym:'E£'},
+  {code:'JOD',name:'Jordanian Dinar',sym:'JD'},{code:'SAR',name:'Saudi Riyal',sym:'SR'},
+  {code:'QAR',name:'Qatari Riyal',sym:'QR'},{code:'KWD',name:'Kuwaiti Dinar',sym:'KD'},
+  {code:'BHD',name:'Bahraini Dinar',sym:'BD'},{code:'OMR',name:'Omani Rial',sym:'OMR'},
+  {code:'RON',name:'Romanian Leu',sym:'lei'},{code:'BGN',name:'Bulgarian Lev',sym:'лв'},
+  {code:'UAH',name:'Ukrainian Hryvnia',sym:'₴'},{code:'RUB',name:'Russian Ruble',sym:'₽'},
+  {code:'GEL',name:'Georgian Lari',sym:'₾'},{code:'AMD',name:'Armenian Dram',sym:'֏'},
+  {code:'AZN',name:'Azerbaijani Manat',sym:'₼'},{code:'KZT',name:'Kazakhstani Tenge',sym:'₸'},
+  {code:'TWD',name:'Taiwan Dollar',sym:'NT$'},{code:'VND',name:'Vietnamese Dong',sym:'₫'},
+  {code:'MAD',name:'Moroccan Dirham',sym:'MAD'},{code:'TND',name:'Tunisian Dinar',sym:'DT'},
+  {code:'NGN',name:'Nigerian Naira',sym:'₦'},{code:'GHS',name:'Ghanaian Cedi',sym:'₵'},
+  {code:'KES',name:'Kenyan Shilling',sym:'KSh'},{code:'CLP',name:'Chilean Peso',sym:'CLP'},
+  {code:'COP',name:'Colombian Peso',sym:'COP'},{code:'PEN',name:'Peruvian Sol',sym:'S/'},
+  {code:'ARS',name:'Argentine Peso',sym:'ARS'},{code:'ISK',name:'Icelandic Króna',sym:'kr'},
+  {code:'PKR',name:'Pakistani Rupee',sym:'Rs'},{code:'BDT',name:'Bangladeshi Taka',sym:'৳'},
+];
+
+function _makeCurPicker(inpId, dropId, srchId, hidId) {
+  var inp=document.getElementById(inpId), drop=document.getElementById(dropId),
+      srch=document.getElementById(srchId), hid=document.getElementById(hidId);
+  if (!inp||!drop||!srch) return;
+  var seen={}, uniq=[];
+  CASH_ALL_CURRENCIES.forEach(function(c){if(!seen[c.code]){seen[c.code]=1;uniq.push(c);}});
+  function render(q) {
+    q=(q||'').toLowerCase();
+    drop.querySelectorAll('.cash-cur-option').forEach(function(el){el.remove();});
+    (q?uniq.filter(function(c){return c.code.toLowerCase().indexOf(q)>=0||c.name.toLowerCase().indexOf(q)>=0;}):uniq)
+    .forEach(function(c){
+      var opt=document.createElement('div'); opt.className='cash-cur-option';
+      opt.innerHTML='<span class="cash-cur-code">'+c.code+'</span><span class="cash-cur-sym">'+c.sym+'</span><span class="cash-cur-name">'+c.name+'</span>';
+      opt.addEventListener('mousedown',function(e){
+        e.preventDefault(); inp.value=c.code+' '+c.sym+'  '+c.name;
+        if(hid)hid.value=c.code; drop.classList.remove('open'); srch.value=''; render('');
+      }); drop.appendChild(opt);
+    });
+  }
+  inp.addEventListener('click',function(){drop.classList.toggle('open');if(drop.classList.contains('open'))setTimeout(function(){srch.focus();},30);});
+  inp.addEventListener('keydown',function(e){if(e.key==='Escape')drop.classList.remove('open');});
+  srch.addEventListener('input',function(){render(srch.value);});
+  document.addEventListener('click',function(e){if(!inp.closest('.cash-cur-wrap').contains(e.target))drop.classList.remove('open');});
+  render('');
+}
+
+function _reloadCashPie() {
+  if(typeof _cashPieChart!=='undefined'&&_cashPieChart){_cashPieChart.destroy();_cashPieChart=null;}
+  _cashPieLoaded=false;
+  var wrap=document.getElementById('cash-pie-inner');
+  if(wrap)wrap.innerHTML='';
+  _loadCashPie();
+}
+
+var _cashAddPickerReady=false;
+function openCashAddModal(){
+  document.getElementById('cash-add-modal').classList.add('open');
+  document.getElementById('cash-add-date').value=new Date().toISOString().split('T')[0];
+  if(!_cashAddPickerReady){_makeCurPicker('cash-add-cur-inp','cash-add-cur-drop','cash-add-cur-srch','cash-add-cur-code');_cashAddPickerReady=true;}
+}
+function closeCashAddModal(){
+  document.getElementById('cash-add-modal').classList.remove('open');
+  document.getElementById('cash-add-status').textContent='';
+  document.getElementById('cash-add-form').reset();
+  document.getElementById('cash-add-cur-inp').value='';
+  document.getElementById('cash-add-cur-code').value='';
+}
+function submitCashAdd(){
+  var name=document.getElementById('cash-add-name').value.trim(),
+      amount=parseFloat(document.getElementById('cash-add-amount').value),
+      currency=document.getElementById('cash-add-cur-code').value,
+      date=document.getElementById('cash-add-date').value,
+      cat=document.getElementById('cash-add-cat').value.trim()||'NotCategorized',
+      desc=document.getElementById('cash-add-desc').value.trim(),
+      status=document.getElementById('cash-add-status');
+  if(!name||isNaN(amount)||!currency||!date){status.textContent='יש למלא שם, סכום, מטבע ותאריך';status.className='cash-modal-status err';return;}
+  status.textContent='שומר...';status.className='cash-modal-status';
+  fetch('/api/cash/transaction',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({name:name,amount:amount,currency:currency,date:date,category:cat,description:desc})})
+  .then(function(r){return r.json();}).then(function(d){
+    if(d.ok){status.textContent='העסקה נוספה בהצלחה ✓';status.className='cash-modal-status ok';_reloadCashPie();setTimeout(closeCashAddModal,1200);}
+    else{status.textContent='שגיאה: '+(d.error||'לא ידוע');status.className='cash-modal-status err';}
+  }).catch(function(){status.textContent='שגיאת רשת';status.className='cash-modal-status err';});
+}
+
+var _reconBalances={}, _reconPickerReady=false;
+function openCashReconcileModal(){
+  document.getElementById('cash-reconcile-modal').classList.add('open');
+  if(!_reconPickerReady){_makeCurPicker('recon-add-cur-inp','recon-add-cur-drop','recon-add-cur-srch','recon-add-cur-code');_reconPickerReady=true;}
+  fetch('/api/accounts/cash-by-currency').then(function(r){return r.json();}).then(function(d){
+    _reconBalances={};
+    ((d.ok&&d.data)||[]).forEach(function(r){_reconBalances[r.currency]=r.balance;});
+    _renderReconRows();
+  });
+}
+function closeCashReconcileModal(){
+  document.getElementById('cash-reconcile-modal').classList.remove('open');
+  document.getElementById('cash-recon-status').textContent='';
+}
+function _reconSymbol(code){var m=CASH_ALL_CURRENCIES.filter(function(c){return c.code===code;})[0];return m?m.sym:code;}
+function _renderReconRows(){
+  var container=document.getElementById('recon-rows'); container.innerHTML='';
+  Object.keys(_reconBalances).forEach(function(code){
+    var sym=_reconSymbol(code), rec=_reconBalances[code], row=document.createElement('div');
+    row.className='recon-row-grid'; row.id='recon-row-'+code;
+    row.innerHTML='<div class="recon-cur">'+sym+' '+code+'</div>'+
+      '<div class="recon-recorded">'+sym+Math.round(rec).toLocaleString('he-IL')+'</div>'+
+      '<input class="cash-form-input" type="number" step="0.01" placeholder="יתרה בפועל"'+
+        ' id="recon-actual-'+code+'" oninput="_updateGap(\''+code+'\')">'+
+      '<div class="recon-gap zero" id="recon-gap-'+code+'">—</div>';
+    container.appendChild(row);
+  });
+}
+function _updateGap(code){
+  var inp=document.getElementById('recon-actual-'+code), gapEl=document.getElementById('recon-gap-'+code);
+  if(!inp||!gapEl)return;
+  var val=parseFloat(inp.value);
+  if(isNaN(val)){gapEl.textContent='—';gapEl.className='recon-gap zero';return;}
+  var gap=val-(_reconBalances[code]||0), sym=_reconSymbol(code);
+  gapEl.textContent=(gap>=0?'+':'')+sym+Math.abs(Math.round(gap)).toLocaleString('he-IL');
+  gapEl.className='recon-gap '+(gap>0.005?'pos':gap<-0.005?'neg':'zero');
+}
+function addReconCurrency(){
+  var code=document.getElementById('recon-add-cur-code').value;
+  if(!code)return;
+  if(_reconBalances.hasOwnProperty(code)){document.getElementById('recon-add-cur-inp').value='';document.getElementById('recon-add-cur-code').value='';return;}
+  _reconBalances[code]=0;
+  var sym=_reconSymbol(code), row=document.createElement('div');
+  row.className='recon-row-grid'; row.id='recon-row-'+code;
+  row.innerHTML='<div class="recon-cur">'+sym+' '+code+'</div><div class="recon-recorded">0</div>'+
+    '<input class="cash-form-input" type="number" step="0.01" placeholder="יתרה בפועל" id="recon-actual-'+code+'" oninput="_updateGap(\''+code+'\')">'+
+    '<div class="recon-gap zero" id="recon-gap-'+code+'">—</div>';
+  document.getElementById('recon-rows').appendChild(row);
+  document.getElementById('recon-add-cur-inp').value=''; document.getElementById('recon-add-cur-code').value='';
+}
+function submitReconcile(){
+  var entries=[];
+  Object.keys(_reconBalances).forEach(function(code){
+    var inp=document.getElementById('recon-actual-'+code);
+    if(!inp||inp.value==='')return;
+    var actual=parseFloat(inp.value);
+    if(!isNaN(actual))entries.push({currency:code,actual_balance:actual});
+  });
+  var status=document.getElementById('cash-recon-status');
+  if(!entries.length){status.textContent='יש להזין יתרה לפחות עבור מטבע אחד';status.className='cash-modal-status err';return;}
+  status.textContent='יוצר עסקאות תיקון...'; status.className='cash-modal-status';
+  fetch('/api/cash/reconcile',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({entries:entries})})
+  .then(function(r){return r.json();}).then(function(d){
+    if(d.ok){
+      status.textContent=d.created?'נוצרו '+d.created+' עסקאות תיקון ✓':'אין פער — הכל מאוזן ✓';
+      status.className='cash-modal-status ok'; _reloadCashPie(); setTimeout(closeCashReconcileModal,1500);
+    } else {status.textContent='שגיאה: '+(d.error||'לא ידוע');status.className='cash-modal-status err';}
+  }).catch(function(){status.textContent='שגיאת רשת';status.className='cash-modal-status err';});
+}
+</script>
  </body>
 </html>

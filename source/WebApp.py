@@ -881,6 +881,91 @@ def cash_by_currency():
         return jsonify({'ok': False, 'error': str(e)})
 
 
+def _cash_balance_map():
+    """Return {currency_code: balance} for the current cash on hand.
+    Shared by cash_by_currency() and cash_reconcile()."""
+    import sqlite3 as _sq, re as _re2
+    db_candidates = [_DB_PATH, os.path.join(_HERE, 'ShmuelFamiliy.db')]
+    db_file = next((p for p in db_candidates if os.path.exists(p)), None)
+    if not db_file:
+        return {}
+    totals = {}
+    conn = _sq.connect(db_file)
+    cur  = conn.cursor()
+    cur.execute("SELECT SUM(Out) FROM BankTransactions WHERE Category = 'withdrawal'")
+    bank_out = cur.fetchone()[0] or 0
+    totals['ILS'] = float(bank_out)
+    cur.execute('SELECT Currency, SUM(Amount) FROM CashTransactions GROUP BY Currency')
+    for cur_raw, amount in cur.fetchall():
+        m    = _re2.match(r'([A-Z]+)', (cur_raw or '').strip())
+        code = m.group(1) if m else (cur_raw or 'ILS')
+        totals[code] = totals.get(code, 0) + float(amount or 0)
+    conn.close()
+    return totals
+
+
+@app.route('/api/cash/transaction', methods=['POST'])
+def cash_add_transaction():
+    """Add a manual cash transaction."""
+    try:
+        from database import DataBase as _DB
+        from datetime import datetime as _dt
+        body     = request.get_json(force=True) or {}
+        name     = str(body.get('name', '')).strip()
+        amount   = float(body.get('amount', 0))
+        currency = str(body.get('currency', '')).strip()
+        date_str = str(body.get('date', '')).strip()
+        category = str(body.get('category', 'NotCategorized')).strip() or 'NotCategorized'
+        desc     = str(body.get('description', '')).strip()
+        if not name or not currency or not date_str:
+            return jsonify({'ok': False, 'error': 'חסרים שדות חובה'})
+        exec_date = _dt.strptime(date_str, '%Y-%m-%d')
+        db = _DB()
+        db.insert_Cash_Transaction(name, exec_date, amount, currency, category, desc)
+        db.commit_changes()
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/cash/reconcile', methods=['POST'])
+def cash_reconcile():
+    """Create filler cash transactions to close the gap between recorded and actual balance."""
+    try:
+        from database import DataBase as _DB
+        from datetime import datetime as _dt
+        from Constants import ReservedNames
+        body    = request.get_json(force=True) or {}
+        entries = body.get('entries', [])
+        totals  = _cash_balance_map()
+        created = 0
+        details = []
+        db = _DB()
+        for entry in entries:
+            code   = str(entry.get('currency', '')).strip()
+            actual = float(entry.get('actual_balance', 0))
+            if not code:
+                continue
+            recorded = totals.get(code, 0.0)
+            gap = round(actual - recorded, 2)
+            if abs(gap) < 0.01:
+                continue
+            db.insert_Cash_Transaction(
+                name          = f'תיקון יתרה – {code}',
+                executed_date = _dt.now(),
+                amount        = gap,
+                currency      = code,
+                category      = ReservedNames.CASH_FILLER_CATEGORY,
+                description   = f'כיול: רשום {recorded:,.0f}, בפועל {actual:,.0f}'
+            )
+            created += 1
+            details.append({'currency': code, 'gap': gap})
+        db.commit_changes()
+        return jsonify({'ok': True, 'created': created, 'details': details})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
 @app.route('/api/status')
 def status():
     return jsonify({'running': _analysis_running})

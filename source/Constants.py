@@ -81,6 +81,7 @@ class ReservedNames:
 
     EXCLUDED_CATEGORY = "Excluded"
     FILLER_CATEGORY = "Filler"
+    CASH_FILLER_CATEGORY = "cash_filler"
 
     CC_CHARGE_CATEGORY_NAME = "אשראי"
 

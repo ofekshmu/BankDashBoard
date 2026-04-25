@@ -213,7 +213,7 @@ def search_transactions():
                 continue
             results.append({
                 'tx_id':       row['ID'],
-                'date':        row['Date'],
+                'date':        (row['Date'] or '')[:10],
                 'name':        row['Name'] or '',
                 'category':    row['Category'] or '',
                 'amount':      amount,
@@ -260,7 +260,7 @@ def search_transactions():
                 continue
             results.append({
                 'tx_id':       row['ID'],
-                'date':        row['Executed_Date'],
+                'date':        (row['Executed_Date'] or '')[:10],
                 'name':        row['Name'] or '',
                 'category':    row['Category'] or '',
                 'amount':      amount,

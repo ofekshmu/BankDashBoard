@@ -1806,7 +1806,7 @@ class DataBase:
         logger txt file.
         """
         ids = [ids] if not isinstance(ids, list) else ids   # In case more than 1 id was inserted
-        last_update = datetime.now().strftime("%d-%m-%Y")
+        last_update = datetime.now().strftime("%Y-%m-%d")
         for id in ids:
             query_info = """SELECT Source_file, CardID
                             From CardTransactions

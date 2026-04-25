@@ -974,8 +974,8 @@ function renderDbTable() {
     <th onclick="sortDb('format')">מקור ${arrowHtml('format')}</th>
     <th onclick="sortDb('card')">כרטיס ${arrowHtml('card')}</th>
     <th onclick="sortDb('date')">תאריך ${arrowHtml('date')}</th>
-    <th onclick="sortDb('transaction_count')">עסקאות ${arrowHtml('transaction_count')}</th>
-    <th onclick="sortDb('new_transactions')">חדשות ${arrowHtml('new_transactions')}</th>
+    <th onclick="sortDb('transaction_count')">סה"כ עסקאות שזוהו ${arrowHtml('transaction_count')}</th>
+    <th onclick="sortDb('new_transactions')" style="text-align:center">עסקאות חדשות ${arrowHtml('new_transactions')}</th>
     <th onclick="sortDb('last_update')">עדכון אחרון ${arrowHtml('last_update')}</th>
   </tr></thead>`;
 
@@ -991,7 +991,7 @@ function renderDbTable() {
       <td class="db-card">${card}</td>
       <td class="db-date">${f.date || '—'}</td>
       <td class="db-num">${(+f.transaction_count).toLocaleString('he-IL')}</td>
-      <td class="${newCls}">${newTxt}</td>
+      <td class="${newCls}" style="text-align:center">${newTxt}</td>
       <td class="db-date">${f.last_update || '—'}</td>
     </tr>`;
   }).join('') + '</tbody>';

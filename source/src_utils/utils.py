@@ -3057,14 +3057,35 @@ Please Make sure that none of the following formats have their 'Identifications 
         total_income = data.get('Total Income', 0) or 0
 
         monthly_chart_data = data.get('monthly_chart_data', [])
-        pie_chart_data     = data.get('pie_chart_data', [])
+        spending_pie_data  = data.get('spending_pie_data', [])
+        earning_pie_data   = data.get('earning_pie_data', [])
         monthly_json       = json.dumps(monthly_chart_data, ensure_ascii=False)
-        pie_json           = json.dumps(pie_chart_data, ensure_ascii=False)
-        # Pie chart title — clarifies what dimension is shown
-        # Category page → breakdown by business name; Business page → breakdown by category
-        pie_title = 'פילוג לפי עסק' if type_ == 'category' else 'פילוג לפי קטגוריה'
-        # Subtitle hint: values are absolute (spending + income combined by volume)
-        pie_subtitle = 'לפי נפח עסקאות מוחלט'
+        spending_pie_json  = json.dumps(spending_pie_data, ensure_ascii=False)
+        earning_pie_json   = json.dumps(earning_pie_data, ensure_ascii=False)
+
+        # Pie charts — shown only if >= 2 distinct entries (otherwise not meaningful)
+        _pie_dim = 'לפי עסק' if type_ == 'category' else 'לפי קטגוריה'
+        _show_spend_pie = len(spending_pie_data) >= 2
+        _show_earn_pie  = len(earning_pie_data) >= 2
+
+        def _pie_card(canvas_id, title, subtitle):
+            return (
+                f'<div class="chart-card">'
+                f'<div class="chart-card-title">{title}'
+                f'<span class="chart-card-sub">{subtitle}</span></div>'
+                f'<div class="chart-wrap"><canvas id="{canvas_id}"></canvas></div>'
+                f'</div>'
+            )
+
+        pie_cards_html = ''
+        if _show_spend_pie:
+            pie_cards_html += _pie_card('pie-spend', f'פילוג הוצאות', _pie_dim)
+        if _show_earn_pie:
+            pie_cards_html += _pie_card('pie-earn', f'פילוג הכנסות', _pie_dim)
+
+        # Layout: if any pie exists use 2-col (monthly + pies column), else 1-col
+        _has_pies = _show_spend_pie or _show_earn_pie
+        _charts_grid_cls = 'charts-2col' if _has_pies else 'charts-1col'
 
         # Build transaction rows
         txn_rows = ''
@@ -3211,6 +3232,8 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;
 .chart-card-sub{{font-size:.78em;font-weight:400;text-transform:none;
   letter-spacing:0;color:#b0b8c8}}
 .chart-wrap{{position:relative;height:220px}}
+.charts-1col{{display:grid;grid-template-columns:1fr;gap:14px;margin-bottom:22px}}
+.pie-col{{display:flex;flex-direction:column;gap:14px}}
 
 /* Transactions panel */
 .panel{{background:var(--white);border-radius:var(--radius);
@@ -3222,16 +3245,23 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;
 .txn-table-wrap{{overflow-x:auto;max-height:420px;overflow-y:auto}}
 .txn-table{{width:100%;border-collapse:collapse;font-size:.84em}}
 .txn-table th{{padding:8px 12px;text-align:right;font-weight:600;color:var(--text-muted);
-  border-bottom:2px solid var(--border);position:sticky;top:0;background:var(--white)}}
+  border-bottom:2px solid var(--border);position:sticky;top:0;background:var(--white);
+  user-select:none}}
+.txn-table th.th-sortable{{cursor:pointer;white-space:nowrap}}
+.txn-table th.th-sortable:hover{{color:var(--teal)}}
+.th-sort-icon{{display:inline-block;margin-right:4px;font-size:.75em;opacity:.35;
+  transition:opacity .15s}}
+.txn-table th.sort-asc .th-sort-icon,
+.txn-table th.sort-desc .th-sort-icon{{opacity:1;color:var(--teal)}}
 .txn-table td{{padding:8px 12px;border-bottom:1px solid var(--border);vertical-align:middle}}
 .txn-table tr:last-child td{{border-bottom:none}}
 .txn-table tr:hover td{{background:#fafbfd}}
-.td-date{{color:var(--text-muted);white-space:nowrap;font-size:.9em}}
+.td-date{{color:var(--text-muted);white-space:nowrap;font-size:.9em;text-align:right}}
 .td-name{{max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
-.td-val{{font-weight:600;white-space:nowrap;text-align:left}}
+.td-val{{font-weight:600;white-space:nowrap;text-align:right}}
 .td-val.neg{{color:var(--red)}}
 .td-val.pos{{color:var(--teal)}}
-.td-cat{{font-size:.85em;color:var(--text-muted)}}
+.td-cat{{font-size:.85em;color:var(--text-muted);text-align:right}}
 
 /* Search bar */
 .txn-search-wrap{{margin-bottom:12px}}
@@ -3350,15 +3380,12 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;
   </div>
 
   <!-- Charts -->
-  <div class="charts-2col">
+  <div class="{_charts_grid_cls}">
     <div class="chart-card">
       <div class="chart-card-title">הוצאות חודשיות — 6 חודשים אחרונים</div>
       <div class="chart-wrap"><canvas id="monthly-chart"></canvas></div>
     </div>
-    <div class="chart-card">
-      <div class="chart-card-title">{pie_title}<span class="chart-card-sub">{pie_subtitle}</span></div>
-      <div class="chart-wrap"><canvas id="pie-chart"></canvas></div>
-    </div>
+    {f'<div class="pie-col">{pie_cards_html}</div>' if _has_pies else ''}
   </div>
 
   <!-- Transactions -->
@@ -3371,9 +3398,12 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;
       <input class="txn-search" id="txn-search" type="text" placeholder="חיפוש עסקה..." oninput="filterTxns(this.value)">
     </div>
     <div class="txn-table-wrap">
-      <table class="txn-table">
+      <table class="txn-table" id="txn-table">
         <thead><tr>
-          <th>תאריך</th><th>שם</th><th>סכום</th><th>קטגוריה</th>
+          <th class="th-sortable" id="th-date" onclick="sortTxns('date')">תאריך <span class="th-sort-icon">▼</span></th>
+          <th>שם</th>
+          <th class="th-sortable" id="th-val" onclick="sortTxns('val')">סכום <span class="th-sort-icon">▼</span></th>
+          <th>קטגוריה</th>
         </tr></thead>
         <tbody>
 {txn_rows}        </tbody>
@@ -3407,11 +3437,12 @@ function toggleNav() {{
 document.addEventListener('keydown', function(e) {{ if (e.key === 'Escape') closeNav(); }});
 
 // ── Embedded data ──────────────────────────────────────────
-const MONTHLY_DATA = {monthly_json};
-const PIE_DATA     = {pie_json};
-const SLUG         = {slug_js};
-const TYPE         = {type_js};
-const NAME         = {display_name_js};
+const MONTHLY_DATA   = {monthly_json};
+const SPEND_PIE_DATA = {spending_pie_json};
+const EARN_PIE_DATA  = {earning_pie_json};
+const SLUG           = {slug_js};
+const TYPE           = {type_js};
+const NAME           = {display_name_js};
 
 // ── Chart.js — Monthly bar ────────────────────────────────
 (function() {{
@@ -3454,42 +3485,72 @@ const NAME         = {display_name_js};
   }});
 }})();
 
-// ── Chart.js — Doughnut distribution ─────────────────────
+// ── Chart.js — Doughnut distributions ────────────────────
 (function() {{
-  var ctx = document.getElementById('pie-chart');
-  if (!ctx || !PIE_DATA.length) return;
-  var COLORS = ['#1e9d8b','#f0b429','#e74c3c','#3498db','#9b59b6','#2ecc71','#e67e22','#1abc9c','#95a5a6'];
-  new Chart(ctx, {{
-    type: 'doughnut',
-    data: {{
-      labels: PIE_DATA.map(function(d) {{ return d.name; }}),
-      datasets: [{{
-        data: PIE_DATA.map(function(d) {{ return d.value; }}),
-        backgroundColor: COLORS.slice(0, PIE_DATA.length),
-        borderWidth: 2,
-        borderColor: '#fff'
-      }}]
-    }},
-    options: {{
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {{
-        legend: {{
-          position: 'bottom',
-          labels: {{ font: {{ size: 10 }}, boxWidth: 12, padding: 8 }}
-        }},
-        tooltip: {{
-          callbacks: {{
-            label: function(ctx) {{
-              var total = ctx.dataset.data.reduce(function(a,b){{return a+b;}},0);
-              var pct = total > 0 ? (ctx.parsed / total * 100).toFixed(1) : 0;
-              return ' ' + ctx.parsed.toLocaleString() + ' ₪ (' + pct + '%)';
+  var COLORS = ['#e74c3c','#f0b429','#e67e22','#c0392b','#d35400','#e91e63','#9c27b0','#ff5722','#95a5a6'];
+  function makePie(canvasId, pieData) {{
+    var ctx = document.getElementById(canvasId);
+    if (!ctx || !pieData || pieData.length < 2) return;
+    new Chart(ctx, {{
+      type: 'doughnut',
+      data: {{
+        labels: pieData.map(function(d) {{ return d.name; }}),
+        datasets: [{{
+          data: pieData.map(function(d) {{ return d.value; }}),
+          backgroundColor: COLORS.slice(0, pieData.length),
+          borderWidth: 2,
+          borderColor: '#fff'
+        }}]
+      }},
+      options: {{
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {{
+          legend: {{ position: 'bottom', labels: {{ font: {{ size: 10 }}, boxWidth: 12, padding: 8 }} }},
+          tooltip: {{
+            callbacks: {{
+              label: function(c) {{
+                var total = c.dataset.data.reduce(function(a,b){{return a+b;}},0);
+                var pct = total > 0 ? (c.parsed / total * 100).toFixed(1) : 0;
+                return ' ' + c.parsed.toLocaleString() + ' ₪ (' + pct + '%)';
+              }}
             }}
           }}
         }}
       }}
-    }}
-  }});
+    }});
+  }}
+  makePie('pie-spend', SPEND_PIE_DATA);
+  var earnColors = ['#1e9d8b','#3498db','#2ecc71','#1abc9c','#27ae60','#2980b9','#16a085','#8e44ad','#95a5a6'];
+  var ctx2 = document.getElementById('pie-earn');
+  if (ctx2 && EARN_PIE_DATA && EARN_PIE_DATA.length >= 2) {{
+    new Chart(ctx2, {{
+      type: 'doughnut',
+      data: {{
+        labels: EARN_PIE_DATA.map(function(d) {{ return d.name; }}),
+        datasets: [{{
+          data: EARN_PIE_DATA.map(function(d) {{ return d.value; }}),
+          backgroundColor: earnColors.slice(0, EARN_PIE_DATA.length),
+          borderWidth: 2, borderColor: '#fff'
+        }}]
+      }},
+      options: {{
+        responsive: true, maintainAspectRatio: false,
+        plugins: {{
+          legend: {{ position: 'bottom', labels: {{ font: {{ size: 10 }}, boxWidth: 12, padding: 8 }} }},
+          tooltip: {{
+            callbacks: {{
+              label: function(c) {{
+                var total = c.dataset.data.reduce(function(a,b){{return a+b;}},0);
+                var pct = total > 0 ? (c.parsed / total * 100).toFixed(1) : 0;
+                return ' ' + c.parsed.toLocaleString() + ' ₪ (' + pct + '%)';
+              }}
+            }}
+          }}
+        }}
+      }}
+    }});
+  }}
 }})();
 
 // ── Category roller ───────────────────────────────────────
@@ -3611,6 +3672,60 @@ function appendLog(msg) {{
   line.textContent = msg;
   body.appendChild(line);
   body.scrollTop = body.scrollHeight;
+}}
+
+// ── Transaction sort ──────────────────────────────────────
+var _sortCol = 'date';
+var _sortDir = -1;  // -1 = desc (newest first by default)
+
+function sortTxns(col) {{
+  if (_sortCol === col) {{
+    _sortDir = -_sortDir;
+  }} else {{
+    _sortCol = col;
+    _sortDir = col === 'date' ? -1 : 1;
+  }}
+
+  // Update header indicators
+  ['th-date','th-val'].forEach(function(id) {{
+    var th = document.getElementById(id);
+    if (!th) return;
+    th.classList.remove('sort-asc','sort-desc');
+    var icon = th.querySelector('.th-sort-icon');
+    if (icon) icon.textContent = '▼';
+  }});
+  var activeId = col === 'date' ? 'th-date' : 'th-val';
+  var activeTh = document.getElementById(activeId);
+  if (activeTh) {{
+    activeTh.classList.add(_sortDir === 1 ? 'sort-asc' : 'sort-desc');
+    var icon = activeTh.querySelector('.th-sort-icon');
+    if (icon) icon.textContent = _sortDir === 1 ? '▲' : '▼';
+  }}
+
+  var tbody = document.querySelector('#txn-table tbody');
+  if (!tbody) return;
+  var rows = Array.from(tbody.querySelectorAll('tr'));
+  rows.sort(function(a, b) {{
+    var aEl, bEl, aVal, bVal;
+    if (col === 'date') {{
+      aEl = a.querySelector('.td-date'); bEl = b.querySelector('.td-date');
+      // Parse dd/mm/yyyy → comparable string yyyymmdd
+      function parseDate(s) {{
+        if (!s) return '';
+        var p = (s.textContent || s).trim().split('/');
+        return p.length === 3 ? p[2] + p[1] + p[0] : s;
+      }}
+      aVal = parseDate(aEl); bVal = parseDate(bEl);
+      return _sortDir * (aVal < bVal ? -1 : aVal > bVal ? 1 : 0);
+    }} else {{
+      aEl = a.querySelector('.td-val'); bEl = b.querySelector('.td-val');
+      aVal = _parseTxnAmt((aEl || {{}}).textContent || '');
+      bVal = _parseTxnAmt((bEl || {{}}).textContent || '');
+      return _sortDir * (aVal - bVal);
+    }}
+  }});
+  rows.forEach(function(r) {{ tbody.appendChild(r); }});
+  filterTxns(document.getElementById('txn-search').value || '');
 }}
 
 // ── Transaction search ────────────────────────────────────

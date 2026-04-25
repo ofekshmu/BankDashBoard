@@ -961,19 +961,27 @@ class AppManager:
         analisys_data = data.copy()
         active_average, active_sd = get_monthly_active_stats(analisys_data.copy())
 
-        # Pie chart data for Chart.js
-        if case == 1:
-            _pie_df = analisys_data[['Name','Final_Value']].copy()
-            _pie_grouped = _pie_df.assign(Final_Value=_pie_df['Final_Value'].abs()).groupby('Name')['Final_Value'].sum().sort_values(ascending=False)
-        else:
-            _pie_df = analisys_data[['Category','Final_Value']].copy()
-            _pie_grouped = _pie_df.assign(Final_Value=_pie_df['Final_Value'].abs()).groupby('Category')['Final_Value'].sum().sort_values(ascending=False)
-        pie_chart_data = [{'name': str(n), 'value': round(float(v), 2)} for n, v in _pie_grouped.items() if v > 0]
-        if len(pie_chart_data) > 8:
-            _others = sum(x['value'] for x in pie_chart_data[8:])
-            pie_chart_data = pie_chart_data[:8]
-            if _others > 0:
-                pie_chart_data.append({'name': 'אחר', 'value': round(_others, 2)})
+        # Pie chart data for Chart.js — separate spending and earning pies
+        _group_col = 'Name' if case == 1 else 'Category'
+
+        def _build_pie(df, top_n=8):
+            if df.empty: return []
+            grouped = (df.assign(Final_Value=df['Final_Value'].abs())
+                         .groupby(_group_col)['Final_Value'].sum()
+                         .sort_values(ascending=False))
+            items = [{'name': str(n), 'value': round(float(v), 2)}
+                     for n, v in grouped.items() if v > 0]
+            if len(items) > top_n:
+                _others = sum(x['value'] for x in items[top_n:])
+                items = items[:top_n]
+                if _others > 0:
+                    items.append({'name': 'אחר', 'value': round(_others, 2)})
+            return items
+
+        _df_spend = analisys_data[analisys_data['Final_Value'] < 0][[_group_col, 'Final_Value']].copy()
+        _df_earn  = analisys_data[analisys_data['Final_Value'] > 0][[_group_col, 'Final_Value']].copy()
+        spending_pie_data = _build_pie(_df_spend)
+        earning_pie_data  = _build_pie(_df_earn)
 
         utils.create_html_name_analysis({"subtitle": "Specific Analysis",
                                          "Category/business name": category_for_analysis if case == 1 else name_for_analysis,
@@ -987,7 +995,8 @@ class AppManager:
                                          "Total Spendings": total_spendings(analisys_data.copy()),
                                          "Total Income": total_income(analisys_data.copy()),
                                          "monthly_chart_data": monthly_chart_data,
-                                         "pie_chart_data": pie_chart_data,
+                                         "spending_pie_data": spending_pie_data,
+                                         "earning_pie_data":  earning_pie_data,
                                          "transactions": analisys_data})
         if category is None and business is None:
             webbrowser.open(r'source\html\Category_output.html')

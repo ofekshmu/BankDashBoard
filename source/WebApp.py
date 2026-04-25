@@ -510,10 +510,20 @@ def run_category():
     slug = body.get('slug', '')
     type_ = body.get('type', 'category')  # 'category' | 'business'
 
-    # Derive name from slug (prefer explicit name passed by client to avoid slug→name roundtrip
-    # bugs for categories with special chars like חו"ל or השקעה/חיסכון)
+    # Derive name: prefer explicit name from client, then verify against the real DB list.
+    # The slug→name fallback is lossy (special chars like " and / become spaces), so we
+    # cross-check against all known names and pick an exact slug match if found.
     prefix = 'cat_' if type_ == 'category' else 'biz_'
-    name   = body.get('name') or (slug[len(prefix):].replace('_', ' ') if slug.startswith(prefix) else slug)
+    client_name = (body.get('name') or '').strip()
+    try:
+        from database import DataBase as _DB
+        all_names = (_DB().get_all_category_names() if type_ == 'category'
+                     else _DB().get_all_business_names()) or []
+        # Find the name whose slug matches exactly
+        matched = next((n for n in all_names if _make_slug(prefix.rstrip('_'), n) == slug), None)
+        name = matched or client_name or (slug[len(prefix):].replace('_', ' ') if slug.startswith(prefix) else slug)
+    except Exception:
+        name = client_name or (slug[len(prefix):].replace('_', ' ') if slug.startswith(prefix) else slug)
 
     def _worker():
         global _analysis_running

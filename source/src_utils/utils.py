@@ -3060,6 +3060,11 @@ Please Make sure that none of the following formats have their 'Identifications 
         pie_chart_data     = data.get('pie_chart_data', [])
         monthly_json       = json.dumps(monthly_chart_data, ensure_ascii=False)
         pie_json           = json.dumps(pie_chart_data, ensure_ascii=False)
+        # Pie chart title — clarifies what dimension is shown
+        # Category page → breakdown by business name; Business page → breakdown by category
+        pie_title = 'פילוג לפי עסק' if type_ == 'category' else 'פילוג לפי קטגוריה'
+        # Subtitle hint: values are absolute (spending + income combined by volume)
+        pie_subtitle = 'לפי נפח עסקאות מוחלט'
 
         # Build transaction rows
         txn_rows = ''
@@ -3130,26 +3135,32 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;
 .back-btn:hover{{background:var(--teal-light);border-color:var(--teal);color:var(--teal)}}
 
 /* Main */
-.main{{flex:1;padding:72px 28px 60px;min-width:0}}
+.main{{flex:1;padding:0 28px 60px;min-width:0}}
 
-/* Category roller */
-.cat-roller{{width:100%;overflow:hidden;position:relative;padding:10px 0 8px;
-  margin-bottom:14px;background:var(--bg)}}
+/* Category roller — matches month-roller styling */
+.cat-roller{{width:100%;overflow:hidden;position:sticky;top:0;z-index:50;
+  padding:14px 0;background:var(--bg);box-shadow:0 2px 8px rgba(0,0,0,.06)}}
 .cat-roller::before,.cat-roller::after{{content:'';position:absolute;top:0;bottom:0;
-  width:80px;z-index:3;pointer-events:none}}
+  width:100px;z-index:3;pointer-events:none}}
 .cat-roller::before{{left:0;background:linear-gradient(to right,var(--bg) 30%,transparent)}}
 .cat-roller::after{{right:0;background:linear-gradient(to left,var(--bg) 30%,transparent)}}
 .roller-track{{display:flex;align-items:center;direction:ltr;will-change:transform}}
 .cm-item{{flex-shrink:0;width:140px;display:flex;flex-direction:column;align-items:center;
   justify-content:center;padding:6px 4px;cursor:pointer;user-select:none;
   border-radius:10px;opacity:.2;transform:scale(.82);
-  transition:opacity .35s ease,transform .35s ease,background .18s}}
-.cm-item:hover{{background:rgba(30,157,139,.07)}}
+  transition:opacity .35s ease,transform .35s ease,background .18s,filter .12s}}
+.cm-item:not(.active):hover{{background:rgba(30,157,139,.12);filter:brightness(1.04)}}
+.cm-item:not(.active):active{{background:rgba(30,157,139,.22);filter:brightness(.9);
+  transition:background .05s,filter .05s}}
+@keyframes cmTap{{0%{{filter:brightness(1)}}30%{{filter:brightness(.82)}}100%{{filter:brightness(1)}}}}
+.cm-item.tapped{{animation:cmTap .28s ease}}
 .cm-item.dist-2{{opacity:.45;transform:scale(.88)}}
 .cm-item.dist-1{{opacity:.68;transform:scale(.94)}}
 .cm-item.active{{opacity:1;transform:scale(1.08);cursor:default;background:rgba(30,157,139,.08)}}
+.cm-item.active:hover{{background:rgba(30,157,139,.16);filter:brightness(1.03)}}
 .cm-label{{font-size:.78em;font-weight:600;color:#999;text-align:center;
-  line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px}}
+  line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px;
+  transition:color .35s ease,font-size .35s ease}}
 .cm-type-tag{{font-size:.6em;color:#bbb;margin-top:1px}}
 .cm-item.dist-1 .cm-label{{color:#666;font-size:.80em}}
 .cm-item.dist-2 .cm-label{{color:#888;font-size:.78em}}
@@ -3195,7 +3206,10 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;
 .chart-card{{background:var(--white);border-radius:var(--radius);
   padding:20px 22px;box-shadow:var(--shadow-sm)}}
 .chart-card-title{{font-size:.82em;font-weight:700;color:var(--text-muted);
-  text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px}}
+  text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px;
+  display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}}
+.chart-card-sub{{font-size:.78em;font-weight:400;text-transform:none;
+  letter-spacing:0;color:#b0b8c8}}
 .chart-wrap{{position:relative;height:220px}}
 
 /* Transactions panel */
@@ -3342,7 +3356,7 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;
       <div class="chart-wrap"><canvas id="monthly-chart"></canvas></div>
     </div>
     <div class="chart-card">
-      <div class="chart-card-title">פילוג</div>
+      <div class="chart-card-title">{pie_title}<span class="chart-card-sub">{pie_subtitle}</span></div>
       <div class="chart-wrap"><canvas id="pie-chart"></canvas></div>
     </div>
   </div>
@@ -3512,7 +3526,10 @@ function _buildRoller(list) {{
 
     el.addEventListener('click', function() {{
       if (item.slug === _currentSlug) return;
-      location.href = '/category/' + encodeURIComponent(item.slug);
+      el.classList.add('tapped');
+      setTimeout(function() {{
+        location.href = '/category/' + encodeURIComponent(item.slug) + '?name=' + encodeURIComponent(item.name);
+      }}, 200);
     }});
 
     track.appendChild(el);

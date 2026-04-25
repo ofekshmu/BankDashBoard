@@ -821,7 +821,8 @@ class AppManager:
             from datetime import datetime
 
             # Convert dates and filter last 5 months
-            current_date = datetime.now().replace(day=1)
+            # Use midnight so transactions on the 1st of the current month are excluded
+            current_date = datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
             x_months_ago = current_date - relativedelta(months=window_size)
             
             data['Date'] = pd.to_datetime(data['Date'])

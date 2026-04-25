@@ -157,7 +157,8 @@ class utils:
                       accounts_data: dict,
                       cash_information_data: dict,
                       alerts: list = None,
-                      mortgage_data: dict = None) -> None:
+                      mortgage_data: dict = None,
+                      accounts_meta: dict = None) -> None:
         import bs4
         from datetime import datetime
         import calendar
@@ -327,6 +328,21 @@ class utils:
 
         charts_grid = soup.find(id="overview-charts")
 
+        # Helper: outlier box (defined early so it can be injected next to donuts)
+        def _outlier_box(title, items):
+            box = tag("div", class_="outlier-box")
+            h3  = tag("h3"); h3.string = title
+            box.append(h3)
+            ul = tag("ul", class_="outlier-list")
+            for name, value in items:
+                li   = tag("li",   class_="outlier-item")
+                n_sp = tag("span", class_="outlier-name");  n_sp.string = name
+                v_sp = tag("span", class_="outlier-value"); v_sp.string = f"{value:,.2f}\u20aa"
+                li.append(n_sp); li.append(v_sp)
+                ul.append(li)
+            box.append(ul)
+            return box
+
         # Spendings donut
         if data.get('spendings_by_cat'):
             charts_grid.append(_make_donut_card(
@@ -338,6 +354,10 @@ class utils:
             charts_grid.append(_make_donut_card(
                 "chart-earnings-donut", "הכנסות לפי קטגוריה",
                 data['earnings_by_cat'], _PAL_EARN))
+
+        # Extra category boxes — placed directly below the two donut charts
+        charts_grid.append(_outlier_box("קטגוריות הוצאה נוספות", high_std_spendings))
+        charts_grid.append(_outlier_box("קטגוריות הכנסה נוספות", high_std_earnings))
 
         # Investments donut
         if data.get('investments_by_name'):
@@ -374,18 +394,22 @@ class utils:
             # Reverse so oldest is on left, most recent on right
             _gen_months = list(reversed(data['general_months']))
             _gen_sp     = list(reversed(data['general_spendings']))
+            _gen_inv    = list(reversed(data.get('general_investments', [0]*len(_gen_months))))
             _gen_ea     = list(reversed(data['general_earnings']))
             _gen_net    = list(reversed(data['general_net']))
 
             _gen_chart_data = _json.dumps({
                 "labels": _gen_months,
                 "datasets": [
-                    {"type": "bar",  "label": "הוצאות",         "data": _gen_sp,
-                     "backgroundColor": "rgba(239,154,154,0.75)", "borderColor": "#ef5350",
-                     "borderWidth": 1, "order": 2},
-                    {"type": "bar",  "label": "הכנסות",         "data": _gen_ea,
+                    {"type": "bar",  "label": "הוצאות",          "data": _gen_sp,
+                     "backgroundColor": "rgba(239,154,154,0.80)", "borderColor": "#ef5350",
+                     "borderWidth": 1, "order": 2, "stack": "sp"},
+                    {"type": "bar",  "label": "השקעות/חיסכון",   "data": _gen_inv,
+                     "backgroundColor": "rgba(255,183,77,0.85)",  "borderColor": "#ffb74d",
+                     "borderWidth": 1, "order": 2, "stack": "sp"},
+                    {"type": "bar",  "label": "הכנסות",           "data": _gen_ea,
                      "backgroundColor": "rgba(165,214,167,0.75)", "borderColor": "#43a047",
-                     "borderWidth": 1, "order": 2},
+                     "borderWidth": 1, "order": 2, "stack": "ea"},
                     {"type": "line", "label": "נטו (ללא השקעות)", "data": _gen_net,
                      "borderColor": "#1e9d8b", "backgroundColor": "rgba(30,157,139,0.08)",
                      "pointRadius": 5, "pointHoverRadius": 8, "tension": 0.35,
@@ -415,7 +439,20 @@ class utils:
             _mean_banner.append(_mean_num)
             _gen_card.append(_mean_banner)
 
-            _gen_ttl  = tag("div", class_="chart-card-title"); _gen_ttl.string = "מידע כללי"
+            _gen_ttl  = tag("div", class_="chart-card-title")
+            _gen_ttl.append(bs4.NavigableString("מידע כללי "))
+            _gen_info_wrap = tag("span", class_="kpi-info-wrap")
+            _gen_info_icon = tag("span", class_="kpi-info-icon"); _gen_info_icon.string = "i"
+            _gen_info_tip  = tag("span", class_="kpi-tooltip")
+            _gen_info_tip.string = (
+                "עמודות: הוצאות חודשיות (אדום) + השקעות/חיסכון (זהב) + הכנסות (ירוק).\n"
+                "קו תכלת — נטו חודשי (הכנסות פחות הוצאות בלי השקעות):\n"
+                "  נטו = הכנסות − הוצאות (ללא קטגוריית השקעה/חיסכון)\n"
+                "ממוצע חודשי מחושב על 10 החודשים האחרונים."
+            )
+            _gen_info_wrap.append(_gen_info_icon)
+            _gen_info_wrap.append(_gen_info_tip)
+            _gen_ttl.append(_gen_info_wrap)
             _gen_card.append(_gen_ttl)
             _gen_wrap = tag("div"); _gen_wrap["style"] = "position:relative;height:340px;"
             _gen_canvas = tag("canvas"); _gen_canvas["id"] = "chart-general-bar"
@@ -446,8 +483,9 @@ class utils:
         }}
       }},
       scales: {{
-        x: {{ ticks: {{ font: {{ size: 11 }}, maxRotation: 30 }} }},
+        x: {{ stacked: true, ticks: {{ font: {{ size: 11 }}, maxRotation: 30 }} }},
         y: {{
+          stacked: true,
           ticks: {{
             callback: function(v) {{ return '\u20aa' + Math.round(v).toLocaleString('he-IL'); }},
             font: {{ size: 11 }}
@@ -694,29 +732,7 @@ class utils:
             card_dist_card.append(_cd_empty)
         tx_panel.append(card_dist_card)
 
-        # ── Outliers ───────────────────────────────────────────────────
-        outliers_row = soup.find(id="overview-outliers")
-
-        def _outlier_box(title, items):
-            box   = tag("div", class_="outlier-box")
-            h3    = tag("h3")
-            h3.string = title
-            box.append(h3)
-            ul = tag("ul", class_="outlier-list")
-            for name, value in items:
-                li    = tag("li", class_="outlier-item")
-                n_sp  = tag("span", class_="outlier-name")
-                n_sp.string = name
-                v_sp  = tag("span", class_="outlier-value")
-                v_sp.string = f"{value:,.2f}\u20aa"
-                li.append(n_sp)
-                li.append(v_sp)
-                ul.append(li)
-            box.append(ul)
-            return box
-
-        outliers_row.append(_outlier_box("קטגוריות הוצאה נוספות", high_std_spendings))
-        outliers_row.append(_outlier_box("קטגוריות הכנסה נוספות", high_std_earnings))
+        # (Outlier boxes are now injected directly inside overview-charts, after the two pie donuts)
 
         # ── Transaction rows ───────────────────────────────────────────
         def _build_tx_row(item):
@@ -739,11 +755,26 @@ class utils:
             box["style"] = f"background-color:{color}"
             row.append(box)
 
-            name_str = (str(item['Description'])
-                        if item['TableName'] == 'BankTransactions' and item['Description'] is not None
-                        else str(item['Name']))
+            name_str = str(item['Name'])
+            raw_desc = item['Description']
+            has_desc = (
+                raw_desc is not None
+                and not (isinstance(raw_desc, float) and pd.isna(raw_desc))
+                and str(raw_desc).strip()
+                and str(raw_desc).strip() != name_str.strip()
+            )
             h3 = tag("h3")
-            h3.string = name_str
+            if has_desc:
+                span_p = tag("span", class_="tx-primary")
+                span_p.string = str(raw_desc).strip()
+                span_s = tag("span", class_="tx-secondary")
+                span_s.string = name_str
+                h3.append(span_p)
+                h3.append(span_s)
+            else:
+                span_p = tag("span", class_="tx-primary")
+                span_p.string = name_str
+                h3.append(span_p)
             row.append(h3)
 
             if not pd.isnull(item['Amount']):
@@ -912,7 +943,7 @@ class utils:
             _n = name
             if name in VIRTUAL_ACCOUNTS or "נכס" in _n:
                 return "נדל\"ן"
-            for kw in ["אלטשולר", "אנליסט", "Analyst", "btb", "BTB", "השקעות", "קופ", "גמל", "פנסי", "ביטוח"]:
+            for kw in ["אלטשולר", "אנליסט", "Analyst", "btb", "BTB", "השקעות", "קופ", "גמל", "פנסי", "ביטוח", "Interactive", "Brokers"]:
                 if kw in _n:
                     return "השקעות"
             return "כללי"
@@ -940,13 +971,24 @@ class utils:
                 continue
             prev_value = sorted_vals[-2][1] if len(sorted_vals) >= 2 else None
             history = [(_to_date_safe(d), float(v)) for d, v in sorted_vals]
+            # Find value closest to 1 year ago
+            _one_year_ago = _today_d.replace(year=_today_d.year - 1)
+            _year_prev = None
+            if len(history) >= 2:
+                _past = [(abs((d - _one_year_ago).days), v) for d, v in history if d <= latest_date]
+                if _past:
+                    _best = min(_past, key=lambda x: x[0])
+                    # Only use if within 90 days of the target and not the current entry
+                    if _best[0] <= 90 and (_to_date_safe(sorted_vals[-1][0]) != _one_year_ago or len(_past) > 1):
+                        _year_prev = float(_best[1])
             recent_accounts_data[account] = {
-                'date':    latest_date,
-                'value':   float(latest_value),
-                'prev':    float(prev_value) if prev_value is not None else None,
-                'history': history,
-                'group':   _acct_group(account),
-                'stale':   (_today_d - latest_date).days > _stale_threshold,
+                'date':      latest_date,
+                'value':     float(latest_value),
+                'prev':      float(prev_value) if prev_value is not None else None,
+                'year_prev': _year_prev,
+                'history':   history,
+                'group':     _acct_group(account),
+                'stale':     (_today_d - latest_date).days > _stale_threshold,
             }
             total_balance += float(latest_value)
 
@@ -984,13 +1026,13 @@ class utils:
 
         acct_wrap = soup.find(id="accounts-table")
         tbl = tag("table")
-        # Header
+        # Header — 7 columns
+        _CUR_SYM = {'ILS': '₪', 'USD': '$', 'EUR': '€', 'JPY': '¥'}
         hdr = tag("tr")
-        for col in ["חשבון", "יתרה", "שינוי", "עדכון אחרון", "מגמה"]:
+        for col in ["חשבון", "יתרה", "שער", "שינוי", "שינוי/שנה", "עדכון אחרון", "מגמה"]:
             th = tag("th")
             if col == "שינוי":
                 th.append(bs4.NavigableString("שינוי "))
-                # Info icon + tooltip
                 wrap = tag("span", class_="kpi-info-wrap")
                 icon = tag("span", class_="kpi-info-icon"); icon.string = "i"
                 tip  = tag("span", class_="kpi-tooltip")
@@ -1001,6 +1043,30 @@ class utils:
                 )
                 wrap.append(icon); wrap.append(tip)
                 th.append(wrap)
+            elif col == "שינוי/שנה":
+                th.append(bs4.NavigableString("שינוי/שנה "))
+                wrap2 = tag("span", class_="kpi-info-wrap")
+                icon2 = tag("span", class_="kpi-info-icon"); icon2.string = "i"
+                tip2  = tag("span", class_="kpi-tooltip")
+                tip2.string = (
+                    "שינוי ביתרה ביחס לרשומה\n"
+                    "הקרובה ביותר לפני שנה (±90 יום).\n"
+                    "— אם אין נתון."
+                )
+                wrap2.append(icon2); wrap2.append(tip2)
+                th.append(wrap2)
+            elif col == "שער":
+                th.append(bs4.NavigableString("שער ILS/X "))
+                wrap3 = tag("span", class_="kpi-info-wrap")
+                icon3 = tag("span", class_="kpi-info-icon"); icon3.string = "i"
+                tip3  = tag("span", class_="kpi-tooltip")
+                tip3.string = (
+                    "שער חליפין נוכחי לחשבונות\n"
+                    "שנרשמו ב-2 מטבעות (ILS + מטבע אחד).\n"
+                    "— לחשבונות עם מטבע אחד או 3+."
+                )
+                wrap3.append(icon3); wrap3.append(tip3)
+                th.append(wrap3)
             else:
                 th.string = col
             hdr.append(th)
@@ -1016,7 +1082,7 @@ class utils:
 
             # Group header row
             gh_row = tag("tr"); gh_row["class"] = "acct-group-header"
-            gh_td  = tag("td"); gh_td["colspan"] = "5"; gh_td.string = _grp; gh_row.append(gh_td)
+            gh_td  = tag("td"); gh_td["colspan"] = "7"; gh_td.string = _grp; gh_row.append(gh_td)
             tbl.append(gh_row)
 
             _grp_total = 0.0
@@ -1039,10 +1105,32 @@ class utils:
                 # Account name cell
                 td_name = tag("td"); td_name.string = account; row.append(td_name)
 
-                # Balance cell
-                td_val = tag("td"); td_val.string = f"{info['value']:,.2f}\u20aa"; row.append(td_val)
+                # Balance cell — show raw value in last-inserted currency (ILS for ILS accounts)
+                _meta     = (accounts_meta or {}).get(account, {})
+                _last_cur = _meta.get('last_currency', 'ILS') or 'ILS'
+                _last_val = _meta.get('last_raw_value')
+                _all_curs = _meta.get('currencies', {'ILS'})
+                _rate_cur = _meta.get('rate_cur')
+                _rate_val = _meta.get('rate')
+                _cur_sym  = _CUR_SYM.get(_last_cur, _last_cur)
+                td_val = tag("td")
+                if _last_val is not None and _last_cur != 'ILS':
+                    td_val.string = f"{_cur_sym}{_last_val:,.2f}"
+                else:
+                    td_val.string = f"{info['value']:,.2f}\u20aa"
+                row.append(td_val)
 
-                # Change cell
+                # Exchange rate cell — only for exactly-2-currency accounts (ILS + one other)
+                td_rate = tag("td"); td_rate["class"] = "acct-rate-cell"
+                if len(_all_curs) == 2 and _rate_val and _rate_cur:
+                    _rate_dec = 3 if _rate_cur == 'JPY' else 2
+                    td_rate.string = f"{_rate_val:.{_rate_dec}f}"
+                    td_rate["data-rate-cur"] = _rate_cur
+                else:
+                    td_rate.string = "\u2014"
+                row.append(td_rate)
+
+                # Change cell (vs previous entry)
                 chg_amount, chg_pct, chg_cls = _change_cell(info['value'], info['prev'])
                 td_chg = tag("td"); td_chg["class"] = chg_cls
                 if chg_amount is None:
@@ -1053,6 +1141,18 @@ class utils:
                     pct_span = tag("span"); pct_span["class"] = badge_cls; pct_span.string = chg_pct
                     td_chg.append(amt_span); td_chg.append(pct_span)
                 row.append(td_chg)
+
+                # Year-change cell (vs ~1 year ago)
+                yr_amount, yr_pct, yr_cls = _change_cell(info['value'], info['year_prev'])
+                td_yr = tag("td"); td_yr["class"] = yr_cls
+                if yr_amount is None:
+                    td_yr.string = "—"
+                else:
+                    yr_amt_span = tag("span"); yr_amt_span.string = yr_amount + " "
+                    yr_badge_cls = "acct-pct-badge acct-pct-pos" if yr_cls == "acct-change-pos" else "acct-pct-badge acct-pct-neg"
+                    yr_pct_span = tag("span"); yr_pct_span["class"] = yr_badge_cls; yr_pct_span.string = yr_pct
+                    td_yr.append(yr_amt_span); td_yr.append(yr_pct_span)
+                row.append(td_yr)
 
                 # Date cell — with detail tooltip for virtual accounts
                 td_date = tag("td")
@@ -1087,19 +1187,19 @@ class utils:
                 tbl.append(row)
                 _grp_total += info['value']
 
-            # Subtotal row
+            # Subtotal row (ILS)
             sub_row = tag("tr"); sub_row["class"] = "acct-subtotal"
             td_sub_name = tag("td"); td_sub_name.string = f"סה\"כ {_grp}"; sub_row.append(td_sub_name)
             td_sub_val  = tag("td"); td_sub_val.string = f"{_grp_total:,.2f}\u20aa"; sub_row.append(td_sub_val)
-            for _ in range(3):
+            for _ in range(5):
                 sub_row.append(tag("td"))
             tbl.append(sub_row)
 
-        # Grand total row
+        # Grand total row (ILS)
         tot_row = tag("tr"); tot_row["class"] = "acct-total"
         td_tot_name = tag("td"); td_tot_name.string = "סה\"כ כל החשבונות"; tot_row.append(td_tot_name)
         td_tot_val  = tag("td"); td_tot_val.string  = f"{total_balance:,.2f}\u20aa"; tot_row.append(td_tot_val)
-        for _ in range(3):
+        for _ in range(5):
             tot_row.append(tag("td"))
         tbl.append(tot_row)
         acct_wrap.append(tbl)
@@ -1312,7 +1412,7 @@ class utils:
             rate_card.append(rate_top)
             rate_card.append(slider)
             rate_card.append(rate_hint)
-            housing_panel.append(rate_card)
+            # rate_card is appended AFTER the balance row (see below)
 
             # ── Row 1: Balance + Equity (big) ─────────────────────────
             down_pmt       = md['down_payment']                   # theoretical (apt_price - mortgage)
@@ -1411,6 +1511,9 @@ class utils:
                 "housing-balance-row"
             )
 
+            # ── Rate slider (appears below balance cards) ──────────────
+            housing_panel.append(rate_card)
+
             # ── Row 2: Purchase price | Monthly appreciation | Appreciated value ──
             row2 = tag("div", class_="housing-3col-row")
             row2.append(_h_kpi("מחיר רכישה", f"{apt_price:,.0f}\u20aa", "#1a3a5c",
@@ -1427,17 +1530,7 @@ class utils:
                                 elem_id="hs-appr-price"))
             housing_panel.append(row2)
 
-            # ── Row 3: Monthly payment (full-width) ────────────────────
-            pmt_label = "תשלום חודשי (בפועל)" if md.get("payment_found") else "תשלום חודשי (משוער)"
-            pmt_info  = ("סכום המשכנתא ששולם בפועל החודש, זוהה לפי עסקאות עם 'משכנתא' בשם."
-                         if md.get("payment_found") else
-                         "לא נמצא תשלום בבסיס הנתונים — מוצג הסכום המשוער לפי לוח הסילוקין.")
-            pmt_row = tag("div", class_="housing-full-row")
-            pmt_row.append(_h_kpi(pmt_label, f"{md['total_monthly_payment']:,.2f}\u20aa", "#e74c3c",
-                                  sublabel="תשלום משכנתא", info=pmt_info))
-            housing_panel.append(pmt_row)
-
-            # ── Row 4: Sale return ─────────────────────────────────────
+            # ── Row 3: Sale return ─────────────────────────────────────
             alltime_inc   = md['alltime_income']
             appr_gain     = apt_appr - apt_price          # appreciation gain only
             sale_proceeds = eq_appr                       # appreciated_price - cur_balance
@@ -1470,15 +1563,6 @@ class utils:
                        info="תשואה שנתית מחושבת לפי: (1 + תשואה כוללת)^(1/שנים) − 1.\n"
                             "ניתן לשנות את שיעור עליית הערך בסליידר למעלה.",
                        elem_id="hs-annual-return")
-            )
-
-            # ── Section: This month ────────────────────────────────────
-            _section("סיכום חודש נוכחי — כל הקטגוריה")
-            _row2(
-                _h_kpi("הוצאות החודש", f"{md['month_out']:,.2f}\u20aa", "#e74c3c",
-                       info=f"סך כל ההוצאות בקטגוריה '{cat}' בחודש זה.\nכולל משכנתא, עמלות וכל תשלום אחר."),
-                _h_kpi("הכנסות החודש", f"{md['month_income']:,.2f}\u20aa", "#1e9d8b",
-                       info=f"סך כל ההכנסות בקטגוריה '{cat}' בחודש זה.\nכולל שכירות וכל הכנסה אחרת.")
             )
 
             # ── Section: All-time ──────────────────────────────────────
@@ -3022,23 +3106,55 @@ Please Make sure that none of the following formats have their 'Identifications 
 body{{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;
      min-height:100vh;direction:rtl;color:var(--navy);font-size:14px}}
 
-/* Sidebar */
-.sidebar{{width:72px;background:var(--white);border-left:1px solid var(--border);
-  position:fixed;top:0;right:0;height:100vh;display:flex;flex-direction:column;
-  align-items:center;padding:16px 0 16px;gap:2px;z-index:200;
-  box-shadow:-2px 0 12px rgba(0,0,0,.05)}}
-.sidebar-logo{{width:44px;height:44px;margin-bottom:18px;display:flex;
-  align-items:center;justify-content:center;flex-shrink:0}}
-.nav-btn{{width:50px;height:54px;border-radius:12px;border:none;background:transparent;
-  color:#9aa3bb;cursor:pointer;display:flex;flex-direction:column;align-items:center;
-  justify-content:center;gap:3px;font-size:1.3em;
-  transition:background .18s,color .18s,box-shadow .18s;text-decoration:none}}
-.nav-btn:hover{{background:#f0f4ff;color:var(--navy)}}
-.nav-btn.active{{background:var(--teal);color:#fff;box-shadow:0 4px 14px var(--teal-glow)}}
-.nav-btn .lbl{{font-size:.34em;font-weight:600;letter-spacing:.4px;line-height:1}}
+/* Hamburger sidebar */
+.ham-btn{{position:fixed;top:16px;right:16px;width:46px;height:46px;
+  background:var(--white);border:1.5px solid var(--border);border-radius:12px;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:400;
+  box-shadow:var(--shadow-sm);color:var(--navy);
+  transition:background .18s,color .18s,border-color .18s,box-shadow .18s}}
+.ham-btn:hover{{background:var(--teal);border-color:var(--teal);color:#fff;box-shadow:0 4px 14px var(--teal-glow)}}
+.nav-overlay{{position:fixed;inset:0;background:rgba(15,22,45,.32);backdrop-filter:blur(2px);
+  z-index:390;opacity:0;pointer-events:none;transition:opacity .25s ease}}
+.nav-overlay.open{{opacity:1;pointer-events:all}}
+.sidebar{{position:fixed;top:0;right:0;height:100vh;width:272px;background:var(--white);
+  z-index:395;transform:translateX(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);
+  box-shadow:-6px 0 32px rgba(0,0,0,.13);display:flex;flex-direction:column;overflow:hidden}}
+.sidebar.open{{transform:translateX(0)}}
+.sidebar-header{{display:flex;align-items:center;justify-content:space-between;
+  padding:18px 20px 14px;border-bottom:1px solid var(--border);flex-shrink:0}}
+.sidebar-logo-wrap{{display:flex;align-items:center;gap:10px}}
+.sidebar-logo{{width:34px;height:34px;flex-shrink:0}}
+.sidebar-logo svg{{width:100%;height:100%}}
+.sidebar-app-name{{font-size:.9em;font-weight:700;color:var(--navy);letter-spacing:.2px}}
+.sidebar-close{{width:30px;height:30px;border-radius:8px;border:none;background:var(--bg);
+  color:var(--text-muted);font-size:.9em;cursor:pointer;display:flex;align-items:center;
+  justify-content:center;transition:background .15s,color .15s;flex-shrink:0}}
+.sidebar-close:hover{{background:#fee2e2;color:var(--red)}}
+.sidebar-scroll{{flex:1;overflow-y:auto;overflow-x:hidden}}
+.nav-group-hdr{{width:100%;display:flex;align-items:center;justify-content:space-between;
+  padding:11px 20px 9px;background:none;border:none;border-top:1px solid var(--border);
+  color:#9aa3bb;font-size:.7em;font-weight:700;letter-spacing:.7px;text-transform:uppercase;
+  cursor:pointer;text-align:right;transition:background .12s,color .12s}}
+.nav-group:first-child .nav-group-hdr{{border-top:none}}
+.nav-group-hdr:hover{{background:var(--bg);color:var(--navy)}}
+.grp-chevron{{font-size:.8em;transition:transform .22s;flex-shrink:0}}
+.nav-group.collapsed .grp-chevron{{transform:rotate(-90deg)}}
+.nav-group-body{{padding:2px 0 6px}}
+.nav-group.collapsed .nav-group-body{{display:none}}
+.nav-item{{display:flex;align-items:center;gap:11px;padding:10px 14px 10px 20px;
+  text-decoration:none;color:var(--navy);font-size:.88em;font-weight:500;
+  transition:background .12s,color .12s;cursor:pointer;border:none;background:none;
+  width:100%;text-align:right;position:relative}}
+.nav-item::after{{content:'';position:absolute;right:0;top:18%;height:64%;width:3px;
+  border-radius:3px 0 0 3px;background:transparent;transition:background .15s}}
+.nav-item:hover{{background:var(--teal-light);color:var(--teal)}}
+.nav-item:hover::after{{background:var(--teal)}}
+.nav-item.active{{color:#b8c0d0;cursor:default;pointer-events:none}}
+.nav-icon{{font-size:1.05em;flex-shrink:0;width:20px;text-align:center}}
+.nav-label{{flex:1}}
 
 /* Main */
-.main{{margin-right:72px;flex:1;padding:26px 28px 60px;min-width:0}}
+.main{{flex:1;padding:72px 28px 60px;min-width:0}}
 
 /* Category roller */
 .cat-roller{{width:100%;overflow:hidden;position:relative;padding:10px 0 8px;
@@ -3143,7 +3259,7 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;
 .txn-footer-sum.pos{{color:var(--teal)}}
 
 /* Log drawer */
-.log-drawer{{position:fixed;bottom:0;left:0;right:72px;background:var(--navy);
+.log-drawer{{position:fixed;bottom:0;left:0;right:0;background:var(--navy);
   z-index:300;max-height:220px;display:flex;flex-direction:column;
   transition:transform .3s ease;transform:translateY(calc(100% - 36px))}}
 .log-drawer.expanded{{transform:translateY(0)}}
@@ -3162,27 +3278,69 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;
 </head>
 <body data-slug={slug_js} data-generated="{generated}" data-type={type_js} data-name={display_name_js}>
 
-<!-- Sidebar -->
-<nav class="sidebar">
-  <div class="sidebar-logo">
-    <svg viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect width="44" height="44" rx="12" fill="#1e9d8b"/>
-      <rect x="8"  y="26" width="6" height="10" rx="1.5" fill="white" opacity="0.6"/>
-      <rect x="17" y="18" width="6" height="18" rx="1.5" fill="white" opacity="0.85"/>
-      <rect x="26" y="10" width="6" height="26" rx="1.5" fill="white"/>
-      <text x="33" y="14" font-family="Arial" font-size="9" font-weight="800" fill="#1e9d8b" opacity="0.9">₪</text>
-    </svg>
+<!-- Hamburger -->
+<button class="ham-btn" id="ham-btn" onclick="openNav()" aria-label="תפריט">
+  <svg width="18" height="14" viewBox="0 0 18 14" fill="none">
+    <rect width="18" height="2" rx="1" fill="currentColor"/>
+    <rect y="6" width="18" height="2" rx="1" fill="currentColor"/>
+    <rect y="12" width="18" height="2" rx="1" fill="currentColor"/>
+  </svg>
+</button>
+<div class="nav-overlay" id="nav-overlay" onclick="closeNav()"></div>
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <div class="sidebar-logo-wrap">
+      <div class="sidebar-logo">
+        <svg viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="44" height="44" rx="12" fill="#1e9d8b"/>
+          <rect x="8" y="26" width="6" height="10" rx="1.5" fill="white" opacity="0.6"/>
+          <rect x="17" y="18" width="6" height="18" rx="1.5" fill="white" opacity="0.85"/>
+          <rect x="26" y="10" width="6" height="26" rx="1.5" fill="white"/>
+          <text x="33" y="14" font-family="Arial" font-size="9" font-weight="800" fill="#1e9d8b" opacity="0.9">₪</text>
+        </svg>
+      </div>
+      <span class="sidebar-app-name">FinDash</span>
+    </div>
+    <button class="sidebar-close" onclick="closeNav()">✕</button>
   </div>
-  <a class="nav-btn" href="/" title="דשבורד ראשי">
-    <span>⊞</span><span class="lbl">ראשי</span>
-  </a>
-  <a class="nav-btn active" href="/categories" title="ניתוח קטגוריות">
-    <span>🏷</span><span class="lbl">קטגוריות</span>
-  </a>
-  <div style="flex:1"></div>
-  <button class="nav-btn" id="log-toggle-btn" onclick="toggleLogDrawer()" title="לוג מערכת" style="margin-bottom:8px;display:none">
-    <span>📋</span><span class="lbl">לוג</span>
-  </button>
+  <div class="sidebar-scroll">
+    <div class="nav-group" id="grp-monthly">
+      <button class="nav-group-hdr" onclick="toggleGroup('grp-monthly')">
+        <span>חודשי</span><span class="grp-chevron">▼</span>
+      </button>
+      <div class="nav-group-body">
+        <a class="nav-item" href="/">
+          <span class="nav-icon">⊞</span><span class="nav-label">ראשי</span>
+        </a>
+      </div>
+    </div>
+    <div class="nav-group" id="grp-data">
+      <button class="nav-group-hdr" onclick="toggleGroup('grp-data')">
+        <span>נתונים</span><span class="grp-chevron">▼</span>
+      </button>
+      <div class="nav-group-body">
+        <a class="nav-item" href="/organizer">
+          <span class="nav-icon">🗂</span><span class="nav-label">ארגונית</span>
+        </a>
+        <a class="nav-item active" href="/categories">
+          <span class="nav-icon">📊</span><span class="nav-label">קטגוריות</span>
+        </a>
+      </div>
+    </div>
+    <div class="nav-group" id="grp-manage">
+      <button class="nav-group-hdr" onclick="toggleGroup('grp-manage')">
+        <span>ניהול</span><span class="grp-chevron">▼</span>
+      </button>
+      <div class="nav-group-body">
+        <a class="nav-item" href="/tagger">
+          <span class="nav-icon">🏷</span><span class="nav-label">תייגן</span>
+        </a>
+        <a class="nav-item" href="/files">
+          <span class="nav-icon">📁</span><span class="nav-label">קבצים</span>
+        </a>
+      </div>
+    </div>
+  </div>
 </nav>
 
 <!-- Log drawer -->
@@ -3274,6 +3432,22 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;
 </div>
 
 <script>
+// ── Nav helpers ───────────────────────────────────────────
+function openNav() {{
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('nav-overlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}}
+function closeNav() {{
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('nav-overlay').classList.remove('open');
+  document.body.style.overflow = '';
+}}
+function toggleGroup(id) {{
+  document.getElementById(id).classList.toggle('collapsed');
+}}
+document.addEventListener('keydown', function(e) {{ if (e.key === 'Escape') closeNav(); }});
+
 // ── Embedded data ──────────────────────────────────────────
 const MONTHLY_DATA = {monthly_json};
 const PIE_DATA     = {pie_json};
@@ -3533,7 +3707,7 @@ document.addEventListener('DOMContentLoaded', _initTxnFooter);
     .then(function(r) {{ return r.json(); }})
     .then(function() {{
       document.getElementById('reload-btn').style.display = 'inline-block';
-      document.getElementById('log-toggle-btn').style.display = '';
+      var _lt = document.getElementById('log-toggle-btn'); if (_lt) _lt.style.display = '';
       fetch('/api/category/list')
         .then(function(r) {{ return r.json(); }})
         .then(function(list) {{ _buildRoller(list); }})

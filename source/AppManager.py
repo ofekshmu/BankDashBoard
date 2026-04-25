@@ -20,10 +20,10 @@ from Exporter import Exporter
 
 class AppManager:
 
-    def __init__(self):
+    def __init__(self, skip_parser=False):
         res = utils.validate_formats()
         res2 = utils.validate_constants()
-        
+
         result, log, df = utils.handle_withdrawals()
         if result:
             utils.log(f"{log}", 'system')
@@ -31,7 +31,7 @@ class AppManager:
                 utils.log(f"Matched Withdrawals:\n{utils.df_to_markdown(df)}")
         else:
             utils.log(f"Withdrawals handling failed: {log}", 'error')
-        
+
         if type(res2) == str:
             utils.log(res2, 'error')
         else:
@@ -41,13 +41,14 @@ class AppManager:
             utils.log(res, 'error')
         else:
             utils.log(f'Format validation result: {res}', 'system')
-            
+
         if utils.validate_BankTransactions():
             utils.log("Bank Transactions validation passed!")
         else:
             utils.log("Bank Format Vlidation Failed!", 'warning')
-        
-        self.parser = Parser()
+
+        if not skip_parser:
+            self.parser = Parser()
 
     def menu(self):
         while True:
@@ -1015,21 +1016,71 @@ class AppManager:
         data = {}
         
         # Add linear plots data
-        def get_accounts_data() -> dict:
-            """Get historical balance data for all accounts including main bank account"""
+        def get_accounts_data() -> tuple:
+            """Get historical balance data for all accounts.
+            Returns (accounts_data_ils, accounts_raw_meta) where:
+              - accounts_data_ils: {account: [(date, ils_value), ...]} — all values in ILS
+              - accounts_raw_meta: {account: {last_currency, last_raw_value, currencies, rate, rate_cur}}
+            """
             accounts_data = {}
-            
-            # Get main bank account data
+            accounts_raw_meta = {}
+
+            # Get main bank account data (always ILS)
             bank_df = DataBase().get_monthly_bank_balances()
             accounts_data['Main Bank'] = list(zip(bank_df['Date'], bank_df['Balance']))
+            _bank_last = float(bank_df['Balance'].iloc[-1]) if len(bank_df) > 0 else 0.0
+            accounts_raw_meta['Main Bank'] = {
+                'last_currency': 'ILS', 'last_raw_value': _bank_last,
+                'currencies': {'ILS'}, 'rate': None, 'rate_cur': None,
+            }
 
-            # Get other accounts data 
+            # Fetch FX rates once for currency conversion (non-ILS → ILS)
+            import urllib.request as _ureq, json as _json_fx
+            try:
+                with _ureq.urlopen('https://api.exchangerate-api.com/v4/latest/ILS', timeout=5) as _r:
+                    _ils_data = _json_fx.loads(_r.read())
+                _ils_to_x = _ils_data.get('rates', {})
+                _fx_to_ils = {c: 1.0 / r for c, r in _ils_to_x.items() if r}
+                _fx_to_ils['ILS'] = 1.0
+            except Exception:
+                _fx_to_ils = {'ILS': 1.0, 'USD': 3.72, 'EUR': 4.01, 'JPY': 0.025}
+
+            # Get other accounts data (values stored in original currency, convert to ILS)
             other_accounts_df = DataBase().get_account_entries_with_dates()
             for account in other_accounts_df['AccountName'].unique():
-                account_df = other_accounts_df[other_accounts_df['AccountName'] == account]
-                accounts_data[account] = list(zip(account_df['Date'], account_df['Value']))
+                account_df = other_accounts_df[other_accounts_df['AccountName'] == account].sort_values('Date')
+                # Build ILS-converted history (for totals / charts)
+                entries = []
+                for _, row in account_df.iterrows():
+                    val = float(row['Value'])
+                    cur = (str(row.get('Currency', 'ILS') or 'ILS')).strip().upper()
+                    if cur != 'ILS':
+                        val = val * _fx_to_ils.get(cur, 1.0)
+                    entries.append((row['Date'], val))
+                accounts_data[account] = entries
 
-            # Calculate total sum across all accounts
+                # Build raw metadata for display
+                last_row = account_df.iloc[-1]
+                last_cur  = (str(last_row.get('Currency', 'ILS') or 'ILS')).strip().upper()
+                last_val  = float(last_row['Value'])
+                all_curs  = {
+                    (str(c) or 'ILS').strip().upper()
+                    for c in account_df['Currency'] if c and str(c).strip()
+                } or {'ILS'}
+                non_ils = all_curs - {'ILS'}
+                rate, rate_cur = None, None
+                if len(all_curs) == 2 and non_ils:
+                    rate_cur = next(iter(non_ils))
+                    rate = _fx_to_ils.get(rate_cur)
+                accounts_raw_meta[account] = {
+                    'last_currency':  last_cur,
+                    'last_raw_value': last_val,
+                    'currencies':     all_curs,
+                    'rate':           rate,
+                    'rate_cur':       rate_cur,
+                }
+
+            # Calculate total sum across all accounts (ILS)
             all_dates = sorted(set(date for data in accounts_data.values() for date, _ in data))
             total_sums = []
             for date in all_dates:
@@ -1040,14 +1091,14 @@ class AppManager:
                     if valid_entries:
                         total += max(valid_entries, key=lambda x: x[0])[1]
                 total_sums.append((date, total))
-            
+
             accounts_data['Total'] = total_sums
 
-            return accounts_data
+            return accounts_data, accounts_raw_meta
 
         # Get accounts data — הון עצמי will be added after mortgage section
         utils.log("Generating linear plots for all accounts...", "system")
-        accounts_data = get_accounts_data()
+        accounts_data, accounts_raw_meta = get_accounts_data()
         # NOTE: plot_linear_plots_graph is called later, after הון עצמי is added
         
         transactions_df = AppManagerUtils.retrieve_and_initialize_data(t)
@@ -1088,8 +1139,8 @@ class AppManager:
         utils.log("Generating spending pie charts...", "system")
         high_std_spendings = handle_spendings_pie_plot()
 
-        # Capture spendings data for interactive chart
-        _sp_df = transactions_df[transactions_df['Final_Value'] < 0].copy()
+        # Capture spendings data for interactive chart (exclude investments — shown in their own donut)
+        _sp_df = transactions_df[(transactions_df['Final_Value'] < 0) & (transactions_df['Category'] != INVESTMENT_CATEGORY)].copy()
         _sp_cash = {"Name": "מזומן", "Category": "מזומן", "Final_Value": cash_information_data['Monthly Spent Cash']}
         _sp_df = pd.concat([_sp_df, pd.DataFrame([_sp_cash])], ignore_index=True)
         _sp_grouped = _sp_df.groupby("Category")['Final_Value'].sum().abs()
@@ -1155,9 +1206,12 @@ class AppManager:
             (datetime.now() - pd.DateOffset(months=i + _gen_delta)).strftime('%b %Y')
             for i in range(10)
         ]
-        data['general_spendings'] = [round(float(abs(v)), 2) for v in spendings_sum]
-        data['general_earnings']  = [round(float(v), 2)      for v in earnings_sum]
-        data['general_net']       = [round(float(e + s), 2)  for e, s in zip(earnings_sum, spendings_sum_overall_inc)]
+        # Split spendings into pure-spend (no investments) and investments portion
+        data['general_spendings']    = [round(float(abs(v)), 2) for v in spendings_sum_overall_inc]
+        data['general_investments']  = [round(float(abs(s) - abs(n)), 2)
+                                        for s, n in zip(spendings_sum, spendings_sum_overall_inc)]
+        data['general_earnings']     = [round(float(v), 2) for v in earnings_sum]
+        data['general_net']          = [round(float(e + s), 2) for e, s in zip(earnings_sum, spendings_sum_overall_inc)]
 
         # ----- User defined
         utils.log("Generating user defined bar plot...", "system")
@@ -1385,7 +1439,8 @@ class AppManager:
                             accounts_data,
                             cash_information_data,
                             alerts=alerts,
-                            mortgage_data=mortgage_data)
+                            mortgage_data=mortgage_data,
+                            accounts_meta=accounts_raw_meta)
         import os as _os
         if not _os.environ.get('BANKAPP_WEB'):
             webbrowser.open(r'source\html\output.html')

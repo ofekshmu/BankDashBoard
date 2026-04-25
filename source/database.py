@@ -1633,25 +1633,26 @@ class DataBase:
 
         # Base query with date filter
         query = """
-            SELECT 
+            SELECT
                 StatusDate as Date,
                 Value,
-                AccountName
+                AccountName,
+                COALESCE(Currency, 'ILS') as Currency
             FROM OtherAccountStatus
             WHERE StatusDate >= ?
             {}
             ORDER BY StatusDate ASC
         """
-        
+
         if account_name:
             where_clause = "AND AccountName = ?"
-            data = self.cursor.execute(query.format(where_clause), 
+            data = self.cursor.execute(query.format(where_clause),
                                      (from_date_str, account_name)).fetchall()
         else:
-            data = self.cursor.execute(query.format(""), 
+            data = self.cursor.execute(query.format(""),
                                      (from_date_str,)).fetchall()
 
-        df = pd.DataFrame(data, columns=['Date', 'Value', 'AccountName'])
+        df = pd.DataFrame(data, columns=['Date', 'Value', 'AccountName', 'Currency'])
         df['Date'] = pd.to_datetime(df['Date'])
         return df
 

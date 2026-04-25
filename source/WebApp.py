@@ -120,6 +120,181 @@ def serve_general(yyyy_mm):
     return _not_generated_html(year, month, yyyy_mm)
 
 
+@app.route('/accounts')
+def accounts_page():
+    """Redirect to the latest monthly page with ?panel=accounts."""
+    if os.path.isdir(GENERAL_ANALYSIS_DIR):
+        files = sorted(
+            f for f in os.listdir(GENERAL_ANALYSIS_DIR)
+            if _re.match(r'^\d{4}_\d{2}\.html$', f)
+        )
+        if files:
+            latest_key = files[-1].replace('.html', '')
+            return redirect(f'/general/{latest_key}?panel=accounts')
+    return redirect('/?panel=accounts')
+
+
+@app.route('/housing')
+def housing_page():
+    """Redirect to the latest monthly page with ?panel=housing."""
+    if os.path.isdir(GENERAL_ANALYSIS_DIR):
+        files = sorted(
+            f for f in os.listdir(GENERAL_ANALYSIS_DIR)
+            if _re.match(r'^\d{4}_\d{2}\.html$', f)
+        )
+        if files:
+            latest_key = files[-1].replace('.html', '')
+            return redirect(f'/general/{latest_key}?panel=housing')
+    return redirect('/?panel=housing')
+
+
+@app.route('/search')
+def search_page():
+    """Serve the transaction search page."""
+    search_html = os.path.join(_HERE, 'html', 'Search.html')
+    if os.path.exists(search_html):
+        return send_file(search_html)
+    return "Search page not found", 404
+
+
+@app.route('/api/search/transactions')
+def search_transactions():
+    """Search BankTransactions and CardTransactions with optional filters."""
+    import sqlite3 as _sq
+    q_keyword  = (request.args.get('keyword')  or '').strip()
+    q_category = (request.args.get('category') or '').strip()
+    q_business = (request.args.get('business') or '').strip()
+    q_min      = request.args.get('min', type=float)
+    q_max      = request.args.get('max', type=float)
+    q_from     = (request.args.get('from')     or '').strip()
+    q_to       = (request.args.get('to')       or '').strip()
+    q_type     = (request.args.get('type')     or 'all').strip()   # 'income' | 'expense' | 'all'
+
+    results = []
+    try:
+        conn = _sq.connect(_DB_PATH, check_same_thread=False)
+        conn.row_factory = _sq.Row
+
+        # ── BankTransactions ──────────────────────────────────────────
+        bank_where = []
+        bank_params = []
+
+        if q_keyword:
+            bank_where.append("(Name LIKE ? OR Description LIKE ? OR Extra_Info LIKE ?)")
+            like = f'%{q_keyword}%'
+            bank_params += [like, like, like]
+        if q_category:
+            bank_where.append("Category = ?")
+            bank_params.append(q_category)
+        if q_business:
+            bank_where.append("Name LIKE ?")
+            bank_params.append(f'%{q_business}%')
+        if q_from:
+            bank_where.append("Date >= ?")
+            bank_params.append(q_from)
+        if q_to:
+            bank_where.append("Date <= ?")
+            bank_params.append(q_to)
+        if q_type == 'income':
+            bank_where.append("Income > 0")
+        elif q_type == 'expense':
+            bank_where.append("Out > 0")
+
+        bank_sql = "SELECT ID, Date, Name, Category, Income, Out, Description FROM BankTransactions"
+        if bank_where:
+            bank_sql += " WHERE " + " AND ".join(bank_where)
+        bank_sql += " ORDER BY Date DESC LIMIT 500"
+
+        for row in conn.execute(bank_sql, bank_params):
+            amount = float(row['Income'] or 0) - float(row['Out'] or 0)
+            if q_min is not None and abs(amount) < q_min:
+                continue
+            if q_max is not None and abs(amount) > q_max:
+                continue
+            results.append({
+                'tx_id':       row['ID'],
+                'date':        row['Date'],
+                'name':        row['Name'] or '',
+                'category':    row['Category'] or '',
+                'amount':      amount,
+                'description': row['Description'] or '',
+                'source':      'bank',
+                'card_id':     None,
+            })
+
+        # ── CardTransactions ──────────────────────────────────────────
+        card_where = []
+        card_params = []
+
+        if q_keyword:
+            card_where.append("(Name LIKE ? OR Description LIKE ? OR Extra_Info LIKE ?)")
+            like = f'%{q_keyword}%'
+            card_params += [like, like, like]
+        if q_category:
+            card_where.append("Category = ?")
+            card_params.append(q_category)
+        if q_business:
+            card_where.append("Name LIKE ?")
+            card_params.append(f'%{q_business}%')
+        if q_from:
+            card_where.append("Executed_Date >= ?")
+            card_params.append(q_from)
+        if q_to:
+            card_where.append("Executed_Date <= ?")
+            card_params.append(q_to)
+        if q_type == 'income':
+            card_where.append("Transaction_Value > 0")
+        elif q_type == 'expense':
+            card_where.append("Transaction_Value < 0")
+
+        card_sql = "SELECT ID, CardID, Executed_Date, Name, Category, Transaction_Value, Value_Currency, Description FROM CardTransactions"
+        if card_where:
+            card_sql += " WHERE " + " AND ".join(card_where)
+        card_sql += " ORDER BY Executed_Date DESC LIMIT 500"
+
+        for row in conn.execute(card_sql, card_params):
+            amount = float(row['Transaction_Value'] or 0)
+            if q_min is not None and abs(amount) < q_min:
+                continue
+            if q_max is not None and abs(amount) > q_max:
+                continue
+            results.append({
+                'tx_id':       row['ID'],
+                'date':        row['Executed_Date'],
+                'name':        row['Name'] or '',
+                'category':    row['Category'] or '',
+                'amount':      amount,
+                'description': row['Description'] or '',
+                'source':      'card',
+                'card_id':     row['CardID'],
+            })
+
+        conn.close()
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e), 'results': []}), 500
+
+    # Sort combined results by date desc
+    results.sort(key=lambda x: x['date'] or '', reverse=True)
+    return jsonify({'ok': True, 'results': results[:500]})
+
+
+@app.route('/api/search/categories')
+def search_categories():
+    """Return distinct category names for the search filter dropdown."""
+    import sqlite3 as _sq
+    try:
+        conn = _sq.connect(_DB_PATH, check_same_thread=False)
+        cats = set()
+        for row in conn.execute("SELECT DISTINCT Category FROM BankTransactions WHERE Category IS NOT NULL AND Category != ''"):
+            cats.add(row[0])
+        for row in conn.execute("SELECT DISTINCT Category FROM CardTransactions WHERE Category IS NOT NULL AND Category != ''"):
+            cats.add(row[0])
+        conn.close()
+        return jsonify({'categories': sorted(cats)})
+    except Exception as e:
+        return jsonify({'categories': [], 'error': str(e)})
+
+
 @app.route('/api/general/list')
 def general_list():
     from datetime import datetime as _dt
@@ -184,17 +359,26 @@ def categories_page():
 <style>
 *{{box-sizing:border-box;margin:0;padding:0}}
 body{{font-family:'Segoe UI',Arial,sans-serif;background:#f4f6f9;color:#1e2a4a;direction:rtl;display:flex;min-height:100vh}}
-.sidebar{{width:72px;background:#fff;border-left:1px solid #eef0f6;position:fixed;top:0;right:0;
-  height:100vh;display:flex;flex-direction:column;align-items:center;padding:16px 0;gap:2px;z-index:200;box-shadow:-2px 0 12px rgba(0,0,0,.05)}}
-.sidebar-logo{{width:44px;height:44px;margin-bottom:18px}}
-.nav-btn{{width:50px;height:54px;border-radius:12px;border:none;background:transparent;color:#9aa3bb;
-  cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;
-  gap:3px;font-size:1.3em;text-decoration:none;transition:background .18s,color .18s}}
-.nav-btn:hover{{background:#f0f4ff;color:#1e2a4a}}
-.nav-btn.active{{background:#1e9d8b;color:#fff;box-shadow:0 4px 14px rgba(30,157,139,.30)}}
-.nav-btn .lbl{{font-size:.34em;font-weight:600}}
-.main{{margin-right:72px;flex:1;padding:30px 32px 60px}}
-.page-header{{margin-bottom:24px}}
+.ham-btn{{position:fixed;top:18px;right:18px;width:42px;height:42px;background:#fff;border:1.5px solid #eef0f6;border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:400;box-shadow:0 2px 10px rgba(0,0,0,.06);color:#1e2a4a;transition:background .15s,color .15s,border-color .15s}}
+.ham-btn:hover{{background:#1e9d8b;border-color:#1e9d8b;color:#fff}}
+.ham-btn.open{{opacity:0;pointer-events:none}}
+.nav-overlay{{position:fixed;inset:0;background:rgba(15,22,45,.26);z-index:390;opacity:0;pointer-events:none;transition:opacity .22s ease}}
+.nav-overlay.open{{opacity:1;pointer-events:all}}
+.sidebar{{position:fixed;top:0;right:0;height:100vh;width:230px;background:#fff;z-index:395;transform:translate3d(100%,0,0);transition:transform .22s cubic-bezier(.4,0,.2,1);will-change:transform;box-shadow:-4px 0 24px rgba(0,0,0,.09);display:flex;flex-direction:column}}
+.sidebar.open{{transform:translate3d(0,0,0)}}
+.sidebar-header{{display:flex;align-items:center;padding:20px 20px 16px;border-bottom:1px solid #eef0f6;flex-shrink:0}}
+.sidebar-app-name{{font-size:.95em;font-weight:700;color:#1e2a4a}}
+.sidebar-close-btn{{margin-right:auto;background:none;border:none;cursor:pointer;font-size:1.1em;color:#555;line-height:1;padding:4px 6px;border-radius:6px;transition:background .12s,color .12s}}
+.sidebar-close-btn:hover{{background:#e8f7f5;color:#1e9d8b}}
+.sidebar-scroll{{flex:1;overflow-y:auto;overflow-x:hidden;padding:8px 0 16px}}
+.nav-item{{display:flex;align-items:center;padding:10px 20px;text-decoration:none;color:#555;font-size:.875em;font-weight:500;transition:background .1s,color .1s;cursor:pointer;border:none;background:none;width:100%;text-align:right;position:relative;letter-spacing:.1px}}
+.nav-item::before{{content:'';position:absolute;right:0;top:22%;height:56%;width:3px;border-radius:3px 0 0 3px;background:transparent;transition:background .1s}}
+.nav-item:hover{{background:#e8f7f5;color:#1e9d8b}}
+.nav-item:hover::before{{background:#1e9d8b}}
+.nav-item.active{{color:#b8c0d0;cursor:default;pointer-events:none}}
+.nav-sep{{height:1px;background:#eef0f6;margin:8px 16px}}
+.main{{margin-right:0;flex:1;padding:32px 32px 60px}}
+.page-header{{margin-bottom:24px;padding-right:62px}}
 .page-header h1{{font-size:1.7em;font-weight:700}}
 .section-title{{font-size:.75em;font-weight:700;color:#888;text-transform:uppercase;
   letter-spacing:.6px;margin:20px 0 10px 0;padding-right:4px}}
@@ -209,18 +393,32 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:#f4f6f9;color:#1e2a4a;d
 </style>
 </head>
 <body>
-<nav class="sidebar">
-  <div class="sidebar-logo">
-    <svg viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect width="44" height="44" rx="12" fill="#1e9d8b"/>
-      <rect x="8"  y="26" width="6" height="10" rx="1.5" fill="white" opacity="0.6"/>
-      <rect x="17" y="18" width="6" height="18" rx="1.5" fill="white" opacity="0.85"/>
-      <rect x="26" y="10" width="6" height="26" rx="1.5" fill="white"/>
-      <text x="33" y="14" font-family="Arial" font-size="9" font-weight="800" fill="#1e9d8b" opacity="0.9">₪</text>
-    </svg>
+<button class="ham-btn" id="ham-btn" onclick="toggleNav()" aria-label="תפריט">
+  <svg width="18" height="14" viewBox="0 0 18 14" fill="none">
+    <rect width="18" height="2" rx="1" fill="currentColor"/>
+    <rect y="6" width="18" height="2" rx="1" fill="currentColor"/>
+    <rect y="12" width="18" height="2" rx="1" fill="currentColor"/>
+  </svg>
+</button>
+<div class="nav-overlay" id="nav-overlay" onclick="toggleNav()"></div>
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <span class="sidebar-app-name">Menu</span>
+    <button class="sidebar-close-btn" onclick="closeNav()" aria-label="סגור תפריט">✕</button>
   </div>
-  <a class="nav-btn" href="/" title="דשבורד ראשי"><span>⊞</span><span class="lbl">ראשי</span></a>
-  <a class="nav-btn active" href="/categories" title="קטגוריות"><span>🏷</span><span class="lbl">קטגוריות</span></a>
+  <div class="sidebar-scroll">
+    <a class="nav-item" href="/">ניתוח חודשי</a>
+    <a class="nav-item" href="/">עסקאות</a>
+    <div class="nav-sep"></div>
+    <a class="nav-item" href="/accounts">חשבונות</a>
+    <a class="nav-item" href="/housing">דיור</a>
+    <a class="nav-item" href="/organizer">ארגונית</a>
+    <a class="nav-item active" href="/categories">ניתוח קטגוריאלי</a>
+    <a class="nav-item" href="/search">חיפוש</a>
+    <div class="nav-sep"></div>
+    <a class="nav-item" href="/tagger">תייגן</a>
+    <a class="nav-item" href="/files">קבצים</a>
+  </div>
 </nav>
 <div class="main">
   <div class="page-header"><h1>ניתוח קטגוריות ועסקים</h1></div>
@@ -232,6 +430,10 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:#f4f6f9;color:#1e2a4a;d
   <div class="no-results" id="no-results">לא נמצאו תוצאות תואמות</div>
 </div>
 <script>
+function openNav(){{var s=document.getElementById('sidebar'),o=document.getElementById('nav-overlay'),b=document.getElementById('ham-btn');s.classList.add('open');o.classList.add('open');b.classList.add('open');}}
+function closeNav(){{var s=document.getElementById('sidebar'),o=document.getElementById('nav-overlay'),b=document.getElementById('ham-btn');s.classList.remove('open');o.classList.remove('open');b.classList.remove('open');}}
+function toggleNav(){{document.getElementById('sidebar').classList.contains('open')?closeNav():openNav();}}
+document.addEventListener('keydown',function(e){{if(e.key==='Escape')closeNav();}});
 function filterCats(q) {{
   q = q.trim().toLowerCase();
   var items = document.querySelectorAll('.cat-item');
@@ -473,7 +675,40 @@ _DB_PATH = os.path.join(_PROJECT_DIR, 'ShmuelFamiliy.db')
 def _acct_db():
     """Open a fresh connection to the main DB using an absolute path."""
     import sqlite3 as _sq
-    return _sq.connect(_DB_PATH, check_same_thread=False)
+    conn = _sq.connect(_DB_PATH, check_same_thread=False)
+    # Ensure Currency column exists (safe migration)
+    try:
+        conn.execute("ALTER TABLE OtherAccountStatus ADD COLUMN Currency TEXT NOT NULL DEFAULT 'ILS'")
+        conn.commit()
+    except Exception:
+        pass  # Column already exists
+    return conn
+
+
+# ── Exchange-rate cache (refreshed once per hour) ─────────────────────────────
+_fx_cache   = {}   # {'USD': 3.72, 'EUR': 4.01, ...}  (rate TO ILS)
+_fx_fetched = 0.0  # epoch seconds
+
+def _get_fx_rates():
+    """Return a dict of currency→ILS rates, cached for 1 hour."""
+    import time, urllib.request, json as _json
+    global _fx_cache, _fx_fetched
+    if _fx_cache and (time.time() - _fx_fetched) < 3600:
+        return _fx_cache
+    try:
+        url = 'https://api.exchangerate-api.com/v4/latest/ILS'
+        with urllib.request.urlopen(url, timeout=4) as resp:
+            data = _json.loads(resp.read())
+        # data['rates'] maps ILS→X, we want X→ILS
+        ils_to_x = data.get('rates', {})
+        _fx_cache = {cur: 1.0 / rate for cur, rate in ils_to_x.items() if rate}
+        _fx_cache['ILS'] = 1.0
+        _fx_fetched = time.time()
+    except Exception:
+        # Fallback hardcoded approximate rates
+        _fx_cache = {'ILS': 1.0, 'USD': 3.72, 'EUR': 4.01, 'JPY': 0.025}
+        _fx_fetched = time.time()
+    return _fx_cache
 
 
 @app.route('/api/accounts/names')
@@ -492,10 +727,13 @@ def accounts_names():
 @app.route('/api/accounts/status', methods=['POST'])
 def accounts_add_status():
     from datetime import datetime as _dt
-    body  = request.get_json() or {}
-    name  = (body.get('name')  or '').strip()
-    date  = (body.get('date')  or '').strip()
-    value = body.get('value')
+    body     = request.get_json() or {}
+    name     = (body.get('name')     or '').strip()
+    date     = (body.get('date')     or '').strip()
+    value    = body.get('value')
+    currency = (body.get('currency') or 'ILS').strip().upper()
+    if currency not in ('ILS', 'USD', 'EUR', 'JPY'):
+        currency = 'ILS'
     if not name or not date or value is None:
         return jsonify({'ok': False, 'error': 'missing fields'})
     try:
@@ -503,8 +741,8 @@ def accounts_add_status():
         conn = _acct_db()
         try:
             conn.execute(
-                "INSERT INTO OtherAccountStatus (AccountName, StatusDate, Value, TransactionID) VALUES (?, ?, ?, ?)",
-                (name, date, float(value), None)
+                "INSERT INTO OtherAccountStatus (AccountName, StatusDate, Value, TransactionID, Currency) VALUES (?, ?, ?, ?, ?)",
+                (name, date, float(value), None, currency)
             )
             conn.commit()
         finally:
@@ -512,6 +750,25 @@ def accounts_add_status():
         return jsonify({'ok': True})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/accounts/rates')
+def accounts_rates():
+    """Return today's FX rates (X→ILS) and per-account currencies."""
+    rates = _get_fx_rates()
+    # Also return what currency each account uses (latest entry)
+    conn = _acct_db()
+    try:
+        rows = conn.execute(
+            "SELECT AccountName, Currency FROM OtherAccountStatus "
+            "WHERE (AccountName, StatusDate) IN ("
+            "  SELECT AccountName, MAX(StatusDate) FROM OtherAccountStatus GROUP BY AccountName"
+            ")"
+        ).fetchall()
+        acct_currencies = {r[0]: r[1] for r in rows}
+    finally:
+        conn.close()
+    return jsonify({'rates': rates, 'currencies': acct_currencies})
 
 
 @app.route('/api/accounts/delete', methods=['POST'])
@@ -537,9 +794,9 @@ def accounts_entries():
     conn = _acct_db()
     try:
         rows = conn.execute(
-            "SELECT ID, AccountName, StatusDate, Value FROM OtherAccountStatus ORDER BY StatusDate DESC"
+            "SELECT ID, AccountName, StatusDate, Value, Currency FROM OtherAccountStatus ORDER BY StatusDate DESC"
         ).fetchall()
-        entries = [{'id': r[0], 'account': r[1], 'date': r[2], 'value': r[3]} for r in rows]
+        entries = [{'id': r[0], 'account': r[1], 'date': r[2], 'value': r[3], 'currency': r[4] or 'ILS'} for r in rows]
         return jsonify({'entries': entries})
     finally:
         conn.close()
@@ -555,6 +812,53 @@ def accounts_delete_entry(entry_id):
         finally:
             conn.close()
         return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/accounts/cash-by-currency')
+def cash_by_currency():
+    """Return current cash balance per currency, matching accumulate_cash_Balance():
+       cash on hand = bank withdrawals (Out) + CashTransactions (Amount)
+    """
+    import sqlite3 as _sq, re as _re2
+    db_candidates = [_DB_PATH, os.path.join(_HERE, 'ShmuelFamiliy.db')]
+    db_file = next((p for p in db_candidates if os.path.exists(p)), None)
+    if not db_file:
+        return jsonify({'ok': False, 'error': 'database not found'})
+    try:
+        _SYM = {'ILS': '₪', 'USD': '$', 'EUR': '€', 'GBP': '£', 'JPY': '¥'}
+        totals = {}   # currency_code → running balance
+
+        conn = _sq.connect(db_file)
+        cur  = conn.cursor()
+
+        # 1. Bank withdrawals — these represent cash that left the bank and is now on hand.
+        #    They're ILS bank transactions tagged with the withdrawal category.
+        cur.execute(
+            "SELECT SUM(Out) FROM BankTransactions WHERE Category = 'withdrawal'"
+        )
+        bank_out = cur.fetchone()[0] or 0
+        totals['ILS'] = totals.get('ILS', 0) + float(bank_out)
+
+        # 2. CashTransactions — user-recorded cash income (+) and spending (-)
+        cur.execute('SELECT Currency, SUM(Amount) FROM CashTransactions GROUP BY Currency')
+        for cur_raw, amount in cur.fetchall():
+            m    = _re2.match(r'([A-Z]+)', (cur_raw or '').strip())
+            code = m.group(1) if m else (cur_raw or 'ILS')
+            totals[code] = totals.get(code, 0) + float(amount or 0)
+
+        conn.close()
+
+        result = [
+            {
+                'currency': code,
+                'symbol':   _SYM.get(code, code),
+                'balance':  round(bal, 2),
+            }
+            for code, bal in sorted(totals.items(), key=lambda x: -abs(x[1]))
+        ]
+        return jsonify({'ok': True, 'data': result})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)})
 
@@ -808,14 +1112,22 @@ _ORGANIZER_HTML = """<!DOCTYPE html>
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--navy);direction:rtl;display:flex;min-height:100vh}
-.sidebar{width:72px;background:var(--white);border-left:1px solid var(--border);position:fixed;top:0;right:0;height:100vh;display:flex;flex-direction:column;align-items:center;padding:16px 0;gap:2px;z-index:200;box-shadow:-2px 0 12px rgba(0,0,0,.05)}
-.sidebar-logo{width:44px;height:44px;margin-bottom:18px}
-.nav-btn{width:50px;height:54px;border-radius:12px;border:none;background:transparent;color:var(--text-muted);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:1.3em;text-decoration:none;transition:background .18s,color .18s}
-.nav-btn:hover{background:#f0f4ff;color:var(--navy)}
-.nav-btn.active{background:var(--teal);color:#fff;box-shadow:0 4px 14px var(--teal-glow)}
-.nav-btn .lbl{font-size:.34em;font-weight:600;letter-spacing:.4px;line-height:1}
-a.nav-btn{text-decoration:none}
-.main{margin-right:72px;flex:1;padding:30px 32px 60px;min-width:0;overflow-x:hidden}
+.ham-btn{position:fixed;top:18px;right:18px;width:42px;height:42px;background:var(--white);border:1.5px solid var(--border);border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:400;box-shadow:0 2px 10px rgba(0,0,0,.06);color:var(--navy);transition:background .15s,color .15s,border-color .15s}
+.ham-btn:hover,.ham-btn.open{background:var(--teal);border-color:var(--teal);color:#fff}
+.nav-overlay{position:fixed;inset:0;background:rgba(15,22,45,.26);z-index:390;opacity:0;pointer-events:none;transition:opacity .22s ease}
+.nav-overlay.open{opacity:1;pointer-events:all}
+.sidebar{position:fixed;top:0;right:0;height:100vh;width:230px;background:var(--white);z-index:395;transform:translate3d(100%,0,0);transition:transform .22s cubic-bezier(.4,0,.2,1);will-change:transform;box-shadow:-4px 0 24px rgba(0,0,0,.09);display:flex;flex-direction:column}
+.sidebar.open{transform:translate3d(0,0,0)}
+.sidebar-header{display:flex;align-items:center;padding:20px 20px 16px;border-bottom:1px solid var(--border);flex-shrink:0}
+.sidebar-app-name{font-size:.95em;font-weight:700;color:var(--navy)}
+.sidebar-scroll{flex:1;overflow-y:auto;overflow-x:hidden;padding:8px 0 16px}
+.nav-item{display:flex;align-items:center;padding:10px 20px;text-decoration:none;color:#555;font-size:.875em;font-weight:500;transition:background .1s,color .1s;cursor:pointer;border:none;background:none;width:100%;text-align:right;position:relative;letter-spacing:.1px}
+.nav-item::before{content:'';position:absolute;right:0;top:22%;height:56%;width:3px;border-radius:3px 0 0 3px;background:transparent;transition:background .1s}
+.nav-item:hover{background:#e8f7f5;color:#1e9d8b}
+.nav-item:hover::before{background:#1e9d8b}
+.nav-item.active{color:#b8c0d0;cursor:default;pointer-events:none}
+.nav-sep{height:1px;background:#eef0f6;margin:8px 16px}
+.main{margin-right:0;flex:1;padding:72px 32px 60px;min-width:0;overflow-x:hidden}
 .page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px}
 .page-header h1{font-size:1.7em;font-weight:700}
 .regen-btn{display:inline-flex;align-items:center;gap:6px;padding:5px 14px;border:1.5px solid var(--teal);border-radius:20px;background:var(--white);color:var(--teal);font-size:.78em;font-weight:600;cursor:pointer;transition:background .15s,color .15s;white-space:nowrap}
@@ -864,19 +1176,27 @@ tbody tr:hover .org-td-date{background:#f8fffd !important}
 </style>
 </head>
 <body data-generated="<!--GENERATED_DATE-->">
-<nav class="sidebar">
-  <div class="sidebar-logo">
-    <svg viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect width="44" height="44" rx="12" fill="#1e9d8b"/>
-      <rect x="8" y="26" width="6" height="10" rx="1.5" fill="white" opacity="0.6"/>
-      <rect x="17" y="18" width="6" height="18" rx="1.5" fill="white" opacity="0.85"/>
-      <rect x="26" y="10" width="6" height="26" rx="1.5" fill="white"/>
-      <text x="33" y="14" font-family="Arial" font-size="9" font-weight="800" fill="#1e9d8b" opacity="0.9">&#8362;</text>
-    </svg>
+<button class="ham-btn" id="ham-btn" onclick="toggleNav()" aria-label="תפריט">
+  <svg width="18" height="14" viewBox="0 0 18 14" fill="none">
+    <rect width="18" height="2" rx="1" fill="currentColor"/>
+    <rect y="6" width="18" height="2" rx="1" fill="currentColor"/>
+    <rect y="12" width="18" height="2" rx="1" fill="currentColor"/>
+  </svg>
+</button>
+<div class="nav-overlay" id="nav-overlay" onclick="toggleNav()"></div>
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <span class="sidebar-app-name">FinDash</span>
   </div>
-  <a class="nav-btn" href="/" title="דשבורד ראשי"><span>&#8862;</span><span class="lbl">ראשי</span></a>
-  <a class="nav-btn" href="/categories" title="ניתוח קטגוריות"><span>&#127991;</span><span class="lbl">קטגוריות</span></a>
-  <a class="nav-btn active" href="/organizer" title="ארגונית קבצים"><span>&#128194;</span><span class="lbl">ארגונית</span></a>
+  <div class="sidebar-scroll">
+    <a class="nav-item" href="/">ראשי</a>
+    <div class="nav-sep"></div>
+    <a class="nav-item active" href="/organizer">ארגונית</a>
+    <a class="nav-item" href="/categories">קטגוריות</a>
+    <div class="nav-sep"></div>
+    <a class="nav-item" href="/tagger">תייגן</a>
+    <a class="nav-item" href="/files">קבצים</a>
+  </div>
 </nav>
 
 <div class="loading-overlay" id="loading-overlay">
@@ -919,6 +1239,10 @@ tbody tr:hover .org-td-date{background:#f8fffd !important}
 </div>
 
 <script>
+function openNav(){var s=document.getElementById('sidebar'),o=document.getElementById('nav-overlay'),b=document.getElementById('ham-btn');s.classList.add('open');o.classList.add('open');b.classList.add('open');}
+function closeNav(){var s=document.getElementById('sidebar'),o=document.getElementById('nav-overlay'),b=document.getElementById('ham-btn');s.classList.remove('open');o.classList.remove('open');b.classList.remove('open');}
+function toggleNav(){document.getElementById('sidebar').classList.contains('open')?closeNav():openNav();}
+document.addEventListener('keydown',function(e){if(e.key==='Escape')closeNav();});
 (function(){
   var genLabel = document.getElementById('generated-label');
   if (genLabel && document.body.dataset.generated)
@@ -1555,6 +1879,52 @@ def files_upload():
     dest = os.path.join(_INPUT_FOLDER, fname)
     f.save(dest)
     return jsonify({'ok': True, 'filename': fname})
+
+
+@app.route('/api/files/db-files')
+def files_db_list():
+    """Return all rows from the File table (files already in the database)."""
+    import sqlite3 as _sq
+    db_candidates = [
+        _DB_PATH,
+        os.path.join(_HERE, 'ShmuelFamiliy.db'),
+    ]
+    db_file = next((p for p in db_candidates if os.path.exists(p)), None)
+    if not db_file:
+        return jsonify({'ok': False, 'error': 'database not found'})
+    try:
+        conn = _sq.connect(db_file)
+        conn.row_factory = _sq.Row
+        cur  = conn.cursor()
+        cur.execute('''
+            SELECT File_Name, Format, Card_Number, Date,
+                   New_Transactions, Transaction_count, Last_update
+            FROM File
+            ORDER BY Date DESC, Last_update DESC
+        ''')
+        rows = cur.fetchall()
+        conn.close()
+
+        files = []
+        total_tx = 0
+        for r in rows:
+            card = r['Card_Number']
+            if not card or card.lower() in ('not_relevant', 'none', ''):
+                card = None
+            files.append({
+                'name':             r['File_Name'],
+                'format':           r['Format'],
+                'card':             card,
+                'date':             (r['Date'] or '')[:10],
+                'new_transactions': r['New_Transactions'] or 0,
+                'transaction_count': r['Transaction_count'] or 0,
+                'last_update':      (r['Last_update'] or '')[:10],
+            })
+            total_tx += r['Transaction_count'] or 0
+
+        return jsonify({'ok': True, 'files': files, 'total_transactions': total_tx})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
 
 
 def start(port: int = 5050, open_browser: bool = True):

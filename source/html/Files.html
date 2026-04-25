@@ -25,7 +25,6 @@
   --shadow-md:  0 6px 24px rgba(0,0,0,.10);
   --radius:     14px;
   --radius-sm:  8px;
-  --sidebar-w:  72px;
 }
 @keyframes _pageIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
 @keyframes fadeIn  { from{opacity:0} to{opacity:1} }
@@ -44,71 +43,95 @@ body {
   animation: _pageIn 0.22s ease;
 }
 
-/* ── Sidebar ──────────────────────────────────────────────────── */
-.sidebar {
-  width: var(--sidebar-w);
+/* ── Hamburger button ─────────────────────────────────────── */
+.ham-btn {
+  position: fixed;
+  top: 18px; right: 18px;
+  width: 42px; height: 42px;
   background: var(--white);
-  border-left: 1px solid var(--border);
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  z-index: 400;
+  box-shadow: var(--shadow-sm);
+  color: var(--navy);
+  transition: background .15s, color .15s, border-color .15s;
+}
+.ham-btn:hover {
+  background: var(--teal);
+  border-color: var(--teal);
+  color: #fff;
+}
+.ham-btn.open { opacity: 0; pointer-events: none; }
+.sidebar-close-btn {
+  margin-right: auto;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.1em;
+  color: #555;
+  line-height: 1;
+  padding: 4px 6px;
+  border-radius: 6px;
+  transition: background .12s, color .12s;
+}
+.sidebar-close-btn:hover { background: #e8f7f5; color: var(--teal); }
+.nav-overlay {
+  position: fixed; inset: 0;
+  background: rgba(15,22,45,.26);
+  z-index: 390;
+  opacity: 0; pointer-events: none;
+  transition: opacity .22s ease;
+}
+.nav-overlay.open { opacity: 1; pointer-events: all; }
+.sidebar {
   position: fixed;
   top: 0; right: 0;
-  height: 100vh;
-  display: flex; flex-direction: column; align-items: center;
-  padding: 16px 0;
-  gap: 0;
-  z-index: 200;
-  box-shadow: -2px 0 12px rgba(0,0,0,.05);
-  overflow-y: auto;
+  height: 100vh; width: 230px;
+  background: var(--white);
+  z-index: 395;
+  transform: translate3d(100%, 0, 0);
+  transition: transform .22s cubic-bezier(.4,0,.2,1);
+  will-change: transform;
+  box-shadow: -4px 0 24px rgba(0,0,0,.09);
+  display: flex; flex-direction: column;
 }
-.sidebar-logo {
-  width: 44px; height: 44px;
-  margin-bottom: 18px;
-  display: flex; align-items: center; justify-content: center;
+.sidebar.open { transform: translate3d(0, 0, 0); }
+.sidebar-header {
+  display: flex; align-items: center;
+  padding: 20px 20px 16px;
+  border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
-.sidebar-logo svg { width: 100%; height: 100%; }
-.nav-btn {
-  width: 50px; height: 54px;
-  border-radius: 12px;
-  border: none;
-  background: transparent;
-  color: #9aa3bb;
-  cursor: pointer;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 3px;
-  font-size: 1.3em;
-  transition: background .18s, color .18s;
-  position: relative;
-  text-decoration: none;
+.sidebar-app-name { font-size: .95em; font-weight: 700; color: var(--navy); }
+.sidebar-scroll { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 8px 0 16px; }
+.nav-item {
+  display: flex; align-items: center;
+  padding: 10px 20px;
+  text-decoration: none; color: var(--text-sub);
+  font-size: .875em; font-weight: 500;
+  transition: background .1s, color .1s;
+  cursor: pointer; border: none; background: none;
+  width: 100%; text-align: right;
+  position: relative; letter-spacing: .1px;
 }
-.nav-btn:hover  { background: #f0f4ff; color: var(--navy); }
-.nav-btn.active { background: var(--teal); color: #fff; box-shadow: 0 4px 14px var(--teal-glow); }
-.nav-btn .lbl   { font-size: 0.34em; font-weight: 600; letter-spacing: .4px; line-height: 1; }
-/* Nav groups */
-.nav-group { width: 100%; }
-.nav-group-hdr {
-  display: flex; flex-direction: column; align-items: center;
-  padding: 10px 0 3px; cursor: pointer; user-select: none; gap: 3px;
+.nav-item::before {
+  content: '';
+  position: absolute;
+  right: 0; top: 22%; height: 56%;
+  width: 3px; border-radius: 3px 0 0 3px;
+  background: transparent; transition: background .1s;
 }
-.nav-group-sep { width: 44px; height: 1px; background: var(--border); }
-.nav-group-lbl {
-  display: flex; align-items: center; gap: 3px;
-  font-size: 7.5px; font-weight: 700; letter-spacing: .6px; line-height: 1;
-  color: #c0c8da;
-}
-.nav-group-hdr:hover .nav-group-sep  { background: #c8cfdf; }
-.nav-group-hdr:hover .nav-group-lbl  { color: #9aa3bb; }
-.nav-group-chevron { font-size: 6px; transition: transform .2s; display: inline-block; }
-.nav-group.collapsed .nav-group-chevron { transform: scaleY(-1); }
-.nav-group.collapsed .nav-group-body   { display: none; }
-.nav-group-body {
-  display: flex; flex-direction: column; align-items: center; gap: 2px; padding-bottom: 6px;
-}
+.nav-item:hover { background: var(--teal-light); color: var(--teal); }
+.nav-item:hover::before { background: var(--teal); }
+.nav-item.active { color: #b8c0d0; cursor: default; pointer-events: none; }
+.nav-sep { height: 1px; background: var(--border); margin: 8px 16px; }
 
 /* ── Main ─────────────────────────────────────────────────────── */
 .main {
-  margin-right: var(--sidebar-w);
   flex: 1;
-  padding: 28px 32px 80px;
+  padding: 72px 32px 80px;
   min-width: 0;
 }
 
@@ -117,6 +140,7 @@ body {
   display: flex; align-items: center; gap: 14px;
   margin-bottom: 28px;
   flex-wrap: wrap;
+  padding-right: 62px; /* clear fixed ham-btn */
 }
 .page-header h1 { font-size: 1.75em; font-weight: 700; color: var(--navy); }
 
@@ -298,6 +322,142 @@ body {
 .toast.ok  { background: #2e7d32; }
 .toast.err { background: var(--red); }
 
+/* ── DB-files section ─────────────────────────────────────────── */
+
+/* KPI row */
+.db-kpis {
+  display: flex; gap: 12px; padding: 16px 20px 14px;
+  border-bottom: 1px solid var(--border); flex-wrap: wrap;
+}
+.db-kpi {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--bg); border-radius: var(--radius-sm);
+  padding: 10px 18px; flex: 0 0 auto;
+}
+.db-kpi-icon { font-size: 1.3em; flex-shrink: 0; }
+.db-kpi-body { display: flex; flex-direction: column; }
+.db-kpi-value {
+  font-size: 1.45em; font-weight: 700; color: var(--navy);
+  line-height: 1.1; font-variant-numeric: tabular-nums;
+}
+.db-kpi-label { font-size: .72em; color: var(--text-muted); margin-top: 1px; }
+
+/* Format grid (clickable filter cards) */
+.db-fmt-grid {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  padding: 14px 20px; border-bottom: 1px solid var(--border);
+}
+.db-fmt-btn {
+  display: flex; align-items: center; gap: 8px;
+  border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+  padding: 7px 13px; cursor: pointer;
+  background: var(--white); transition: all .15s;
+  text-align: right; font-family: inherit;
+  min-width: 0;
+}
+.db-fmt-btn:hover  { border-color: currentColor; box-shadow: 0 2px 8px rgba(0,0,0,.07); }
+.db-fmt-btn.active { box-shadow: 0 2px 10px rgba(0,0,0,.10); }
+.db-fmt-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  flex-shrink: 0; background: currentColor; opacity: .7;
+}
+.db-fmt-name { font-size: .8em; font-weight: 600; white-space: nowrap; }
+.db-fmt-cnt  {
+  font-size: .75em; font-weight: 700; opacity: .75;
+  background: rgba(0,0,0,.06); border-radius: 20px;
+  padding: 1px 7px; white-space: nowrap; font-variant-numeric: tabular-nums;
+}
+/* "All" button */
+.db-fmt-btn.fmt-all { color: var(--text-sub); }
+.db-fmt-btn.fmt-all.active { background: var(--navy); border-color: var(--navy); color: #fff; }
+/* Per-format colours */
+.db-fmt-btn.fmt-bank  { color: #1565c0; }
+.db-fmt-btn.fmt-bank.active  { background: #e3f0ff; border-color: #1565c0; }
+.db-fmt-btn.fmt-card  { color: var(--teal); }
+.db-fmt-btn.fmt-card.active  { background: var(--teal-light); border-color: var(--teal); }
+.db-fmt-btn.fmt-amex  { color: #7b1fa2; }
+.db-fmt-btn.fmt-amex.active  { background: #f3e8ff; border-color: #7b1fa2; }
+.db-fmt-btn.fmt-cal   { color: #e65100; }
+.db-fmt-btn.fmt-cal.active   { background: #fff3e0; border-color: #e65100; }
+.db-fmt-btn.fmt-max   { color: #2e7d32; }
+.db-fmt-btn.fmt-max.active   { background: #e8f5e9; border-color: #2e7d32; }
+.db-fmt-btn.fmt-other { color: #555; }
+.db-fmt-btn.fmt-other.active { background: #f0f0f0; border-color: #555; }
+
+/* Search bar */
+.db-search-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 20px 12px; border-bottom: 1px solid var(--border);
+}
+.db-search-icon { font-size: 1em; color: var(--text-muted); flex-shrink: 0; }
+.db-search {
+  flex: 1; padding: 8px 13px;
+  border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+  font-size: .87em; color: var(--navy); background: var(--bg);
+  outline: none; transition: border-color .18s, box-shadow .18s;
+  direction: rtl; font-family: inherit;
+}
+.db-search:focus {
+  border-color: var(--teal);
+  box-shadow: 0 0 0 3px rgba(30,157,139,.1);
+}
+.db-result-count { font-size: .78em; color: var(--text-muted); white-space: nowrap; }
+
+/* table */
+.db-table-wrap { overflow-x: auto; }
+.db-table {
+  width: 100%; border-collapse: collapse;
+  font-size: .855em; min-width: 640px;
+}
+.db-table thead th {
+  text-align: right; padding: 9px 14px;
+  font-size: .73em; font-weight: 700;
+  color: var(--text-muted); text-transform: uppercase;
+  letter-spacing: .5px; border-bottom: 1px solid var(--border);
+  white-space: nowrap; cursor: pointer; user-select: none;
+  transition: color .12s;
+}
+.db-table thead th:hover { color: var(--teal); }
+.db-table thead th .sort-arrow { margin-right: 3px; opacity: .4; font-size: .85em; }
+.db-table thead th.sorted .sort-arrow { opacity: 1; color: var(--teal); }
+.db-table tbody tr {
+  border-bottom: 1px solid var(--border); transition: background .1s;
+  animation: rowIn .15s ease;
+}
+.db-table tbody tr:last-child { border-bottom: none; }
+.db-table tbody tr:hover { background: #f7f9ff; }
+.db-table td { padding: 9px 14px; vertical-align: middle; }
+.db-fname {
+  font-weight: 500; max-width: 260px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: var(--navy);
+}
+.db-fmt {
+  display: inline-block; border-radius: 20px;
+  padding: 2px 9px; font-size: .73em; font-weight: 700;
+  white-space: nowrap;
+}
+.fmt-bank   { background: #e3f0ff; color: #1565c0; }
+.fmt-card   { background: var(--teal-light); color: var(--teal); }
+.fmt-amex   { background: #f3e8ff; color: #7b1fa2; }
+.fmt-cal    { background: #fff3e0; color: #e65100; }
+.fmt-max    { background: #e8f5e9; color: #2e7d32; }
+.fmt-other  { background: #f5f5f5; color: #555; }
+.db-card {
+  font-variant-numeric: tabular-nums; font-size: .82em;
+  color: var(--text-muted); white-space: nowrap;
+}
+.db-date { color: var(--text-muted); font-size: .82em; white-space: nowrap; }
+.db-num  { font-variant-numeric: tabular-nums; text-align: left; white-space: nowrap; }
+.db-new  { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.db-new.has-new { color: #2e7d32; font-weight: 700; }
+.db-new.no-new  { color: var(--text-muted); }
+
+.db-no-results {
+  text-align: center; padding: 32px 20px;
+  color: var(--text-muted); font-size: .88em;
+}
+
 /* ── Scrollbar ────────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -306,61 +466,31 @@ body {
 </head>
 <body>
 
-<!-- ── Sidebar ─────────────────────────────────────────────── -->
-<nav class="sidebar">
-  <div class="sidebar-logo">
-    <svg viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect width="44" height="44" rx="12" fill="#1e9d8b"/>
-      <rect x="8"  y="26" width="6" height="10" rx="1.5" fill="white" opacity="0.6"/>
-      <rect x="17" y="18" width="6" height="18" rx="1.5" fill="white" opacity="0.85"/>
-      <rect x="26" y="10" width="6" height="26" rx="1.5" fill="white"/>
-      <text x="33" y="14" font-family="Arial" font-size="9" font-weight="800" fill="#1e9d8b" opacity="0.9">₪</text>
-    </svg>
+<button class="ham-btn" id="ham-btn" onclick="toggleNav()" aria-label="תפריט">
+  <svg width="18" height="14" viewBox="0 0 18 14" fill="none">
+    <rect width="18" height="2" rx="1" fill="currentColor"/>
+    <rect y="6" width="18" height="2" rx="1" fill="currentColor"/>
+    <rect y="12" width="18" height="2" rx="1" fill="currentColor"/>
+  </svg>
+</button>
+<div class="nav-overlay" id="nav-overlay" onclick="toggleNav()"></div>
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <span class="sidebar-app-name">Menu</span>
+    <button class="sidebar-close-btn" onclick="closeNav()" aria-label="סגור תפריט">✕</button>
   </div>
-
-  <!-- Group: חודשי -->
-  <div class="nav-group" id="grp-monthly">
-    <div class="nav-group-hdr" onclick="toggleNavGroup('grp-monthly')">
-      <div class="nav-group-sep"></div>
-      <span class="nav-group-lbl">חודשי <span class="nav-group-chevron">▲</span></span>
-    </div>
-    <div class="nav-group-body">
-      <a class="nav-btn" href="/" title="ראשי">
-        <span>⊞</span><span class="lbl">ראשי</span>
-      </a>
-    </div>
-  </div>
-
-  <!-- Group: נתונים -->
-  <div class="nav-group" id="grp-data">
-    <div class="nav-group-hdr" onclick="toggleNavGroup('grp-data')">
-      <div class="nav-group-sep"></div>
-      <span class="nav-group-lbl">נתונים <span class="nav-group-chevron">▲</span></span>
-    </div>
-    <div class="nav-group-body">
-      <a class="nav-btn" href="/organizer" title="ארגונית">
-        <span>🗂</span><span class="lbl">ארגונית</span>
-      </a>
-      <a class="nav-btn" href="/categories" title="קטגוריות">
-        <span>📊</span><span class="lbl">קטגוריות</span>
-      </a>
-    </div>
-  </div>
-
-  <!-- Group: ניהול -->
-  <div class="nav-group" id="grp-manage">
-    <div class="nav-group-hdr" onclick="toggleNavGroup('grp-manage')">
-      <div class="nav-group-sep"></div>
-      <span class="nav-group-lbl">ניהול <span class="nav-group-chevron">▲</span></span>
-    </div>
-    <div class="nav-group-body">
-      <a class="nav-btn" href="/tagger" title="תיוג עסקאות">
-        <span>🏷</span><span class="lbl">תייגן</span>
-      </a>
-      <a class="nav-btn active" href="/files" title="קבצי נתונים">
-        <span>📁</span><span class="lbl">קבצים</span>
-      </a>
-    </div>
+  <div class="sidebar-scroll">
+    <a class="nav-item" href="/">ניתוח חודשי</a>
+    <a class="nav-item" href="/">עסקאות</a>
+    <div class="nav-sep"></div>
+    <a class="nav-item" href="/accounts">חשבונות</a>
+    <a class="nav-item" href="/housing">דיור</a>
+    <a class="nav-item" href="/organizer">ארגונית</a>
+    <a class="nav-item" href="/categories">ניתוח קטגוריאלי</a>
+    <a class="nav-item" href="/search">חיפוש</a>
+    <div class="nav-sep"></div>
+    <a class="nav-item" href="/tagger">תייגן</a>
+    <a class="nav-item active" href="/files">קבצים</a>
   </div>
 </nav>
 
@@ -417,13 +547,75 @@ body {
     </div>
   </div>
 
+  <!-- ── Section: DB files ────────────────────────────────────── -->
+  <div class="section collapsed" id="sec-db-files">
+    <div class="section-header" onclick="toggleSection('sec-db-files'); if(!_dbLoaded) loadDbFiles();">
+      <div class="section-title">
+        🗄 קבצים במאגר נתונים
+        <span class="section-count" id="db-files-count">–</span>
+      </div>
+      <span class="section-chevron">▲</span>
+    </div>
+    <div class="section-body">
+
+      <!-- KPI cards -->
+      <div class="db-kpis" id="db-kpis" style="display:none">
+        <div class="db-kpi">
+          <div class="db-kpi-icon">🗄</div>
+          <div class="db-kpi-body">
+            <div class="db-kpi-value" id="db-stat-files">–</div>
+            <div class="db-kpi-label">קבצים במאגר</div>
+          </div>
+        </div>
+        <div class="db-kpi">
+          <div class="db-kpi-icon">📊</div>
+          <div class="db-kpi-body">
+            <div class="db-kpi-value" id="db-stat-tx">–</div>
+            <div class="db-kpi-label">סה"כ עסקאות</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Format filter grid -->
+      <div class="db-fmt-grid" id="db-fmt-grid" style="display:none"></div>
+
+      <!-- Search bar -->
+      <div class="db-search-row" id="db-search-row" style="display:none">
+        <span class="db-search-icon">🔍</span>
+        <input class="db-search" id="db-search" type="text"
+               placeholder="חיפוש שם קובץ…" oninput="renderDbTable()">
+        <span class="db-result-count" id="db-result-count"></span>
+      </div>
+
+      <!-- Table -->
+      <div class="db-table-wrap">
+        <div id="db-files-body">
+          <div class="skeleton-row" style="margin:12px 16px"></div>
+          <div class="skeleton-row" style="margin:8px 16px"></div>
+          <div class="skeleton-row" style="margin:8px 16px"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
 </main>
 
 <script>
-// ── Nav group collapse ─────────────────────────────────────────
-function toggleNavGroup(id) {
-  document.getElementById(id).classList.toggle('collapsed');
+function openNav() {
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('nav-overlay').classList.add('open');
+  document.getElementById('ham-btn').classList.add('open');
 }
+function closeNav() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('nav-overlay').classList.remove('open');
+  document.getElementById('ham-btn').classList.remove('open');
+}
+function toggleNav() {
+  document.getElementById('sidebar').classList.contains('open') ? closeNav() : openNav();
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeNav(); });
 
 // ── Section collapse ───────────────────────────────────────────
 function toggleSection(id) {
@@ -656,6 +848,162 @@ function onDrop(e) {
   document.getElementById('upload-zone').classList.remove('drag-over');
   const files = e.dataTransfer.files;
   if (files && files.length) handleFileUpload(files);
+}
+
+// ── DB-Files section ───────────────────────────────────────────
+let _dbLoaded = false;
+let _dbFiles  = [];
+let _dbSort   = { col: 'date', dir: -1 };
+let _dbFmt    = null;
+
+const _FMT_CLASS = {
+  'BeinLeumi-Bank':            'fmt-bank',
+  'BeinLeumi-Bank-Date-Range': 'fmt-bank',
+  'American-Express':          'fmt-amex',
+  'Cal':                       'fmt-cal',
+  'Leumi-Max':                 'fmt-max',
+  'Isra-Card':                 'fmt-card',
+  'Isra-Card-2026':            'fmt-card',
+};
+function _fmtClass(fmt) { return _FMT_CLASS[fmt] || 'fmt-other'; }
+
+// Human-readable short label for format
+const _FMT_LABEL = {
+  'BeinLeumi-Bank':            'בינלאומי',
+  'BeinLeumi-Bank-Date-Range': 'בינלאומי (טווח)',
+  'American-Express':          'אמריקן אקספרס',
+  'Cal':                       'Cal',
+  'Leumi-Max':                 'לאומי Max',
+  'Isra-Card':                 'ישראכארט',
+  'Isra-Card-2026':            'ישראכארט 2026',
+};
+function _fmtLabel(fmt) { return _FMT_LABEL[fmt] || fmt; }
+
+async function loadDbFiles() {
+  _dbLoaded = true;
+  try {
+    const res  = await fetch('/api/files/db-files');
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'שגיאה');
+    _dbFiles = data.files || [];
+
+    const totalTx = data.total_transactions || 0;
+    document.getElementById('db-stat-files').textContent = _dbFiles.length.toLocaleString('he-IL');
+    document.getElementById('db-stat-tx').textContent    = totalTx.toLocaleString('he-IL');
+    document.getElementById('db-files-count').textContent = _dbFiles.length;
+
+    // Build format counts & filter buttons
+    const fmtCounts = {};
+    _dbFiles.forEach(f => { fmtCounts[f.format] = (fmtCounts[f.format] || 0) + 1; });
+    const sortedFmts = Object.entries(fmtCounts).sort((a,b) => b[1]-a[1]);
+
+    const grid = document.getElementById('db-fmt-grid');
+    grid.innerHTML =
+      `<button class="db-fmt-btn fmt-all active" data-fmt="" onclick="setDbFmt(this,'')">
+         <span class="db-fmt-name">הכל</span>
+         <span class="db-fmt-cnt">${_dbFiles.length}</span>
+       </button>` +
+      sortedFmts.map(([fmt, cnt]) =>
+        `<button class="db-fmt-btn ${_fmtClass(fmt)}" data-fmt="${esc(fmt)}" onclick="setDbFmt(this,'${esc(fmt)}')">
+           <span class="db-fmt-dot"></span>
+           <span class="db-fmt-name">${esc(_fmtLabel(fmt))}</span>
+           <span class="db-fmt-cnt">${cnt}</span>
+         </button>`
+      ).join('');
+
+    document.getElementById('db-kpis').style.display      = '';
+    document.getElementById('db-fmt-grid').style.display  = '';
+    document.getElementById('db-search-row').style.display = '';
+
+    renderDbTable();
+  } catch (e) {
+    document.getElementById('db-files-body').innerHTML =
+      `<div class="db-no-results">⚠ שגיאה בטעינה: ${esc(e.message)}</div>`;
+  }
+}
+
+function setDbFmt(el, fmt) {
+  _dbFmt = fmt || null;
+  document.querySelectorAll('#db-fmt-grid .db-fmt-btn').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  renderDbTable();
+}
+
+function sortDb(col) {
+  if (_dbSort.col === col) { _dbSort.dir *= -1; }
+  else { _dbSort.col = col; _dbSort.dir = (col === 'date' || col === 'last_update') ? -1 : 1; }
+  renderDbTable();
+}
+
+function renderDbTable() {
+  const q   = (document.getElementById('db-search').value || '').trim().toLowerCase();
+  const dir = _dbSort.dir;
+  const col = _dbSort.col;
+
+  let rows = _dbFiles.filter(f => {
+    if (_dbFmt && f.format !== _dbFmt) return false;
+    if (q && !f.name.toLowerCase().includes(q)) return false;
+    return true;
+  });
+
+  rows.sort((a, b) => {
+    let va = a[col] ?? '', vb = b[col] ?? '';
+    if (col === 'transaction_count' || col === 'new_transactions') { va = +va; vb = +vb; }
+    if (va < vb) return -dir;
+    if (va > vb) return dir;
+    return 0;
+  });
+
+  const cntEl = document.getElementById('db-result-count');
+  if (cntEl) cntEl.textContent = rows.length !== _dbFiles.length ? `${rows.length} מתוך ${_dbFiles.length}` : `${rows.length} קבצים`;
+
+  if (!rows.length) {
+    document.getElementById('db-files-body').innerHTML =
+      '<div class="db-no-results">לא נמצאו קבצים תואמים</div>';
+    return;
+  }
+
+  const arrowHtml = c => {
+    const active = (_dbSort.col === c);
+    const sym = active ? (_dbSort.dir === 1 ? '▲' : '▼') : '⇅';
+    return `<span class="sort-arrow">${sym}</span>`;
+  };
+
+  const thead = `<thead><tr>
+    <th onclick="sortDb('name')">שם קובץ ${arrowHtml('name')}</th>
+    <th onclick="sortDb('format')">מקור ${arrowHtml('format')}</th>
+    <th onclick="sortDb('card')">כרטיס ${arrowHtml('card')}</th>
+    <th onclick="sortDb('date')">תאריך ${arrowHtml('date')}</th>
+    <th onclick="sortDb('transaction_count')">עסקאות ${arrowHtml('transaction_count')}</th>
+    <th onclick="sortDb('new_transactions')">חדשות ${arrowHtml('new_transactions')}</th>
+    <th onclick="sortDb('last_update')">עדכון אחרון ${arrowHtml('last_update')}</th>
+  </tr></thead>`;
+
+  const tbody = '<tbody>' + rows.map(f => {
+    const card   = f.card
+      ? `<span style="font-variant-numeric:tabular-nums;font-size:.82em">${esc(f.card)}</span>`
+      : `<span class="db-fmt fmt-bank" style="font-size:.7em;padding:1px 7px">בנק</span>`;
+    const newCls = f.new_transactions > 0 ? 'db-new has-new' : 'db-new no-new';
+    const newTxt = f.new_transactions > 0 ? `+${f.new_transactions}` : '—';
+    return `<tr>
+      <td class="db-fname" title="${esc(f.name)}">${esc(f.name)}</td>
+      <td><span class="db-fmt ${_fmtClass(f.format)}">${esc(_fmtLabel(f.format))}</span></td>
+      <td class="db-card">${card}</td>
+      <td class="db-date">${f.date || '—'}</td>
+      <td class="db-num">${(+f.transaction_count).toLocaleString('he-IL')}</td>
+      <td class="${newCls}">${newTxt}</td>
+      <td class="db-date">${f.last_update || '—'}</td>
+    </tr>`;
+  }).join('') + '</tbody>';
+
+  document.getElementById('db-files-body').innerHTML =
+    `<table class="db-table">${thead}${tbody}</table>`;
+
+  // highlight active sort column
+  document.querySelectorAll('.db-table thead th').forEach(th => th.classList.remove('sorted'));
+  const cols = ['name','format','card','date','transaction_count','new_transactions','last_update'];
+  const ths  = document.querySelectorAll('.db-table thead th');
+  if (ths[cols.indexOf(_dbSort.col)]) ths[cols.indexOf(_dbSort.col)].classList.add('sorted');
 }
 
 // ── Helpers ────────────────────────────────────────────────────

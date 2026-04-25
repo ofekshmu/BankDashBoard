@@ -11,15 +11,26 @@
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--navy);direction:rtl;display:flex;min-height:100vh}
-.sidebar{width:72px;background:var(--white);border-left:1px solid var(--border);position:fixed;top:0;right:0;height:100vh;display:flex;flex-direction:column;align-items:center;padding:16px 0;gap:2px;z-index:200;box-shadow:-2px 0 12px rgba(0,0,0,.05)}
-.sidebar-logo{width:44px;height:44px;margin-bottom:18px}
-.nav-btn{width:50px;height:54px;border-radius:12px;border:none;background:transparent;color:var(--text-muted);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:1.3em;text-decoration:none;transition:background .18s,color .18s}
-.nav-btn:hover{background:#f0f4ff;color:var(--navy)}
-.nav-btn.active{background:var(--teal);color:#fff;box-shadow:0 4px 14px var(--teal-glow)}
-.nav-btn .lbl{font-size:.34em;font-weight:600;letter-spacing:.4px;line-height:1}
-a.nav-btn{text-decoration:none}
-.main{margin-right:72px;flex:1;padding:30px 32px 60px;min-width:0;overflow-x:hidden}
-.page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px}
+.ham-btn{position:fixed;top:18px;right:18px;width:42px;height:42px;background:var(--white);border:1.5px solid var(--border);border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:400;box-shadow:0 2px 10px rgba(0,0,0,.06);color:var(--navy);transition:background .15s,color .15s,border-color .15s}
+.ham-btn:hover{background:var(--teal);border-color:var(--teal);color:#fff}
+.ham-btn.open{opacity:0;pointer-events:none}
+.sidebar-close-btn{margin-right:auto;background:none;border:none;cursor:pointer;font-size:1.1em;color:#555;line-height:1;padding:4px 6px;border-radius:6px;transition:background .12s,color .12s}
+.sidebar-close-btn:hover{background:#e8f7f5;color:#1e9d8b}
+.nav-overlay{position:fixed;inset:0;background:rgba(15,22,45,.26);z-index:390;opacity:0;pointer-events:none;transition:opacity .22s ease}
+.nav-overlay.open{opacity:1;pointer-events:all}
+.sidebar{position:fixed;top:0;right:0;height:100vh;width:230px;background:var(--white);z-index:395;transform:translate3d(100%,0,0);transition:transform .22s cubic-bezier(.4,0,.2,1);will-change:transform;box-shadow:-4px 0 24px rgba(0,0,0,.09);display:flex;flex-direction:column}
+.sidebar.open{transform:translate3d(0,0,0)}
+.sidebar-header{display:flex;align-items:center;padding:20px 20px 16px;border-bottom:1px solid var(--border);flex-shrink:0}
+.sidebar-app-name{font-size:.95em;font-weight:700;color:var(--navy)}
+.sidebar-scroll{flex:1;overflow-y:auto;overflow-x:hidden;padding:8px 0 16px}
+.nav-item{display:flex;align-items:center;padding:10px 20px;text-decoration:none;color:#555;font-size:.875em;font-weight:500;transition:background .1s,color .1s;cursor:pointer;border:none;background:none;width:100%;text-align:right;position:relative;letter-spacing:.1px}
+.nav-item::before{content:'';position:absolute;right:0;top:22%;height:56%;width:3px;border-radius:3px 0 0 3px;background:transparent;transition:background .1s}
+.nav-item:hover{background:#e8f7f5;color:#1e9d8b}
+.nav-item:hover::before{background:#1e9d8b}
+.nav-item.active{color:#b8c0d0;cursor:default;pointer-events:none}
+.nav-sep{height:1px;background:#eef0f6;margin:8px 16px}
+.main{margin-right:0;flex:1;padding:30px 32px 60px;min-width:0;overflow-x:hidden}
+.page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;padding-right:62px}
 .page-header h1{font-size:1.7em;font-weight:700}
 .regen-btn{display:inline-flex;align-items:center;gap:6px;padding:5px 14px;border:1.5px solid var(--teal);border-radius:20px;background:var(--white);color:var(--teal);font-size:.78em;font-weight:600;cursor:pointer;transition:background .15s,color .15s;white-space:nowrap}
 .regen-btn:hover{background:var(--teal);color:#fff}
@@ -66,20 +77,33 @@ tbody tr:hover .org-td-date{background:#f8fffd !important}
 .generated-label{font-size:.72em;color:var(--text-muted);white-space:nowrap}
 </style>
 </head>
-<body data-generated="21/04/2026 00:43">
-<nav class="sidebar">
-  <div class="sidebar-logo">
-    <svg viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect width="44" height="44" rx="12" fill="#1e9d8b"/>
-      <rect x="8" y="26" width="6" height="10" rx="1.5" fill="white" opacity="0.6"/>
-      <rect x="17" y="18" width="6" height="18" rx="1.5" fill="white" opacity="0.85"/>
-      <rect x="26" y="10" width="6" height="26" rx="1.5" fill="white"/>
-      <text x="33" y="14" font-family="Arial" font-size="9" font-weight="800" fill="#1e9d8b" opacity="0.9">&#8362;</text>
-    </svg>
+<body data-generated="23/04/2026 23:35">
+<button class="ham-btn" id="ham-btn" onclick="toggleNav()" aria-label="תפריט">
+  <svg width="18" height="14" viewBox="0 0 18 14" fill="none">
+    <rect width="18" height="2" rx="1" fill="currentColor"/>
+    <rect y="6" width="18" height="2" rx="1" fill="currentColor"/>
+    <rect y="12" width="18" height="2" rx="1" fill="currentColor"/>
+  </svg>
+</button>
+<div class="nav-overlay" id="nav-overlay" onclick="toggleNav()"></div>
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <span class="sidebar-app-name">Menu</span>
+    <button class="sidebar-close-btn" onclick="closeNav()" aria-label="סגור תפריט">✕</button>
   </div>
-  <a class="nav-btn" href="/" title="דשבורד ראשי"><span>&#8862;</span><span class="lbl">ראשי</span></a>
-  <a class="nav-btn" href="/categories" title="ניתוח קטגוריות"><span>&#127991;</span><span class="lbl">קטגוריות</span></a>
-  <a class="nav-btn active" href="/organizer" title="ארגונית קבצים"><span>&#128194;</span><span class="lbl">ארגונית</span></a>
+  <div class="sidebar-scroll">
+    <a class="nav-item" href="/">ניתוח חודשי</a>
+    <a class="nav-item" href="/">עסקאות</a>
+    <div class="nav-sep"></div>
+    <a class="nav-item" href="/accounts">חשבונות</a>
+    <a class="nav-item" href="/housing">דיור</a>
+    <a class="nav-item active" href="/organizer">ארגונית</a>
+    <a class="nav-item" href="/categories">ניתוח קטגוריאלי</a>
+    <a class="nav-item" href="/search">חיפוש</a>
+    <div class="nav-sep"></div>
+    <a class="nav-item" href="/tagger">תייגן</a>
+    <a class="nav-item" href="/files">קבצים</a>
+  </div>
 </nav>
 
 <div class="loading-overlay" id="loading-overlay">
@@ -114,7 +138,7 @@ tbody tr:hover .org-td-date{background:#f8fffd !important}
   <div class="table-section">
     <div class="table-scroll">
       <table>
-        <thead><tr><th class="org-th org-th-date">תאריך</th><th class="org-th">Leumi-Max | 1121</th><th class="org-th">Isra-Card | 4046</th><th class="org-th">American-Express | 1565</th><th class="org-th">Isra-Card | 2922</th><th class="org-th">BeinLeumi-Bank | Not_Relevant</th><th class="org-th">BeinLeumi-Bank-Date-Range | Not_Relevant</th><th class="org-th">Cal | 3843</th><th class="org-th">Cal | 4437</th><th class="org-th">Isra-Card-2026 | 2922</th><th class="org-th">Isra-Card-2026 | 4046</th></tr></thead>
+        <thead><tr><th class="org-th org-th-date">תאריך</th><th class="org-th">Leumi-Max | 1121</th><th class="org-th">Isra-Card | 4046</th><th class="org-th">American-Express | 1565</th><th class="org-th">Isra-Card | 2922</th><th class="org-th">BeinLeumi-Bank | Not_Relevant</th><th class="org-th">BeinLeumi-Bank-Date-Range | Not_Relevant</th><th class="org-th">Cal | 3843</th><th class="org-th">Cal | 4437</th><th class="org-th">Isra-Card-2026 | 4046</th><th class="org-th">Isra-Card-2026 | 2922</th></tr></thead>
         <tbody><tr><td class="org-td org-td-date">November, 2023</td><td class="org-td org-cell-yellow"><span class="org-cell-label">⚠ לא מאומת</span><span class="org-cell-date">04-02-2024</span></td><td class="org-td org-cell-green"><span class="org-cell-label">✓ מאומת</span><span class="org-cell-date">02-02-2024</span></td><td class="org-td org-cell-red">nan</td><td class="org-td org-cell-red">nan</td><td class="org-td org-cell-red">nan</td><td class="org-td org-cell-red">nan</td><td class="org-td org-cell-red">nan</td><td class="org-td org-cell-red">nan</td><td class="org-td org-cell-gray"><span class="org-cell-label">N/A</span></td><td class="org-td org-cell-gray"><span class="org-cell-label">N/A</span></td></tr>
 <tr><td class="org-td org-td-date">December, 2023</td><td class="org-td org-cell-yellow"><span class="org-cell-label">⚠ לא מאומת</span><span class="org-cell-date">04-02-2024</span></td><td class="org-td org-cell-green"><span class="org-cell-label">✓ מאומת</span><span class="org-cell-date">02-02-2024</span></td><td class="org-td org-cell-yellow"><span class="org-cell-label">⚠ לא מאומת</span><span class="org-cell-date">02-02-2024</span></td><td class="org-td org-cell-yellow"><span class="org-cell-label">⚠ לא מאומת</span><span class="org-cell-date">02-02-2024</span></td><td class="org-td org-cell-red">nan</td><td class="org-td org-cell-red">nan</td><td class="org-td org-cell-red">nan</td><td class="org-td org-cell-red">nan</td><td class="org-td org-cell-gray"><span class="org-cell-label">N/A</span></td><td class="org-td org-cell-gray"><span class="org-cell-label">N/A</span></td></tr>
 <tr><td class="org-td org-td-date">January, 2024</td><td class="org-td org-cell-green"><span class="org-cell-label">✓ מאומת</span><span class="org-cell-date">04-02-2024</span></td><td class="org-td org-cell-green"><span class="org-cell-label">✓ מאומת</span><span class="org-cell-date">19-02-2024</span></td><td class="org-td org-cell-green"><span class="org-cell-label">✓ מאומת</span><span class="org-cell-date">02-02-2024</span></td><td class="org-td org-cell-green"><span class="org-cell-label">✓ מאומת</span><span class="org-cell-date">02-02-2024</span></td><td class="org-td org-cell-green"><span class="org-cell-label org-badge-bank">Bank</span><span class="org-cell-date">13-02-2024</span></td><td class="org-td org-cell-red">nan</td><td class="org-td org-cell-red">nan</td><td class="org-td org-cell-red">nan</td><td class="org-td org-cell-gray"><span class="org-cell-label">N/A</span></td><td class="org-td org-cell-gray"><span class="org-cell-label">N/A</span></td></tr>
@@ -142,8 +166,8 @@ tbody tr:hover .org-td-date{background:#f8fffd !important}
 <tr><td class="org-td org-td-date">November, 2025</td><td class="org-td org-cell-red">nan</td><td class="org-td org-cell-green"><span class="org-cell-label">✓ מאומת</span><span class="org-cell-date">02-12-2025</span></td><td class="org-td org-cell-green"><span class="org-cell-label">✓ מאומת</span><span class="org-cell-date">02-12-2025</span></td><td class="org-td org-cell-green"><span class="org-cell-label">✓ מאומת</span><span class="org-cell-date">09-12-2025</span></td><td class="org-td org-cell-red">nan</td><td class="org-td org-cell-green"><span class="org-cell-label org-badge-bank">Bank</span><span class="org-cell-date">04-12-2025</span></td><td class="org-td org-cell-green"><span class="org-cell-label">✓ מאומת</span><span class="org-cell-date">02-12-2025</span></td><td class="org-td org-cell-red">nan</td><td class="org-td org-cell-gray"><span class="org-cell-label">N/A</span></td><td class="org-td org-cell-gray"><span class="org-cell-label">N/A</span></td></tr>
 <tr><td class="org-td org-td-date">December, 2025</td><td class="org-td org-cell-red">nan</td><td class="org-td org-cell-green"><span class="org-cell-label">✓ מאומת</span><span class="org-cell-date">02-01-2026</span></td><td class="org-td org-cell-green"><span class="org-cell-label">✓ מאומת</span><span class="org-cell-date">02-01-2026</span></td><td class="org-td org-cell-green"><span class="org-cell-label">✓ מאומת</span><span class="org-cell-date">02-01-2026</span></td><td class="org-td org-cell-green"><span class="org-cell-label org-badge-bank">Bank</span><span class="org-cell-date">02-01-2026</span></td><td class="org-td org-cell-red">nan</td><td class="org-td org-cell-green"><span class="org-cell-label">✓ מאומת</span><span class="org-cell-date">2026-04-04</span></td><td class="org-td org-cell-red">nan</td><td class="org-td org-cell-gray"><span class="org-cell-label">N/A</span></td><td class="org-td org-cell-gray"><span class="org-cell-label">N/A</span></td></tr>
 <tr><td class="org-td org-td-date">January, 2026</td><td class="org-td org-cell-red">nan</td><td class="org-td org-cell-red">nan</td><td class="org-td org-cell-green"><span class="org-cell-label">✓ מאומת</span><span class="org-cell-date">2026-03-01</span></td><td class="org-td org-cell-red">nan</td><td class="org-td org-cell-red">nan</td><td class="org-td org-cell-red">nan</td><td class="org-td org-cell-green"><span class="org-cell-label">✓ מאומת</span><span class="org-cell-date">2026-04-04</span></td><td class="org-td org-cell-red">nan</td><td class="org-td org-cell-green"><span class="org-cell-label">✓ מאומת</span><span class="org-cell-date">2026-03-02</span></td><td class="org-td org-cell-green"><span class="org-cell-label">✓ מאומת</span><span class="org-cell-date">2026-03-02</span></td></tr>
-<tr><td class="org-td org-td-date">February, 2026</td><td class="org-td org-cell-red">nan</td><td class="org-td org-cell-red">nan</td><td class="org-td org-cell-green"><span class="org-cell-label">✓ מאומת</span><span class="org-cell-date">2026-03-07</span></td><td class="org-td org-cell-red">nan</td><td class="org-td org-cell-green"><span class="org-cell-label org-badge-bank">Bank</span><span class="org-cell-date">2026-03-07</span></td><td class="org-td org-cell-green"><span class="org-cell-label org-badge-bank">Bank</span><span class="org-cell-date">2026-03-01</span></td><td class="org-td org-cell-red">nan</td><td class="org-td org-cell-red">nan</td><td class="org-td org-cell-green"><span class="org-cell-label">✓ מאומת</span><span class="org-cell-date">2026-03-02</span></td><td class="org-td org-cell-green"><span class="org-cell-label">✓ מאומת</span><span class="org-cell-date">2026-03-08</span></td></tr>
-<tr><td class="org-td org-td-date">March, 2026</td><td class="org-td org-cell-red">nan</td><td class="org-td org-cell-red">nan</td><td class="org-td org-cell-green"><span class="org-cell-label">✓ מאומת</span><span class="org-cell-date">2026-04-05</span></td><td class="org-td org-cell-red">nan</td><td class="org-td org-cell-green"><span class="org-cell-label org-badge-bank">Bank</span><span class="org-cell-date">2026-04-05</span></td><td class="org-td org-cell-red">nan</td><td class="org-td org-cell-green"><span class="org-cell-label">✓ מאומת</span><span class="org-cell-date">2026-04-04</span></td><td class="org-td org-cell-red">nan</td><td class="org-td org-cell-green"><span class="org-cell-label">✓ מאומת</span><span class="org-cell-date">2026-04-06</span></td><td class="org-td org-cell-green"><span class="org-cell-label">✓ מאומת</span><span class="org-cell-date">2026-04-05</span></td></tr>
+<tr><td class="org-td org-td-date">February, 2026</td><td class="org-td org-cell-red">nan</td><td class="org-td org-cell-red">nan</td><td class="org-td org-cell-green"><span class="org-cell-label">✓ מאומת</span><span class="org-cell-date">2026-03-07</span></td><td class="org-td org-cell-red">nan</td><td class="org-td org-cell-green"><span class="org-cell-label org-badge-bank">Bank</span><span class="org-cell-date">2026-03-07</span></td><td class="org-td org-cell-green"><span class="org-cell-label org-badge-bank">Bank</span><span class="org-cell-date">2026-03-01</span></td><td class="org-td org-cell-red">nan</td><td class="org-td org-cell-red">nan</td><td class="org-td org-cell-green"><span class="org-cell-label">✓ מאומת</span><span class="org-cell-date">2026-03-08</span></td><td class="org-td org-cell-green"><span class="org-cell-label">✓ מאומת</span><span class="org-cell-date">2026-03-02</span></td></tr>
+<tr><td class="org-td org-td-date">March, 2026</td><td class="org-td org-cell-red">nan</td><td class="org-td org-cell-red">nan</td><td class="org-td org-cell-green"><span class="org-cell-label">✓ מאומת</span><span class="org-cell-date">2026-04-05</span></td><td class="org-td org-cell-red">nan</td><td class="org-td org-cell-green"><span class="org-cell-label org-badge-bank">Bank</span><span class="org-cell-date">2026-04-21</span></td><td class="org-td org-cell-red">nan</td><td class="org-td org-cell-green"><span class="org-cell-label">✓ מאומת</span><span class="org-cell-date">2026-04-04</span></td><td class="org-td org-cell-red">nan</td><td class="org-td org-cell-green"><span class="org-cell-label">✓ מאומת</span><span class="org-cell-date">2026-04-05</span></td><td class="org-td org-cell-green"><span class="org-cell-label">✓ מאומת</span><span class="org-cell-date">2026-04-06</span></td></tr>
 </tbody>
       </table>
     </div>
@@ -151,6 +175,10 @@ tbody tr:hover .org-td-date{background:#f8fffd !important}
 </div>
 
 <script>
+function openNav(){var s=document.getElementById('sidebar'),o=document.getElementById('nav-overlay'),b=document.getElementById('ham-btn');s.classList.add('open');o.classList.add('open');b.classList.add('open');}
+function closeNav(){var s=document.getElementById('sidebar'),o=document.getElementById('nav-overlay'),b=document.getElementById('ham-btn');s.classList.remove('open');o.classList.remove('open');b.classList.remove('open');}
+function toggleNav(){document.getElementById('sidebar').classList.contains('open')?closeNav():openNav();}
+document.addEventListener('keydown',function(e){if(e.key==='Escape')closeNav();});
 (function(){
   var genLabel = document.getElementById('generated-label');
   if (genLabel && document.body.dataset.generated)

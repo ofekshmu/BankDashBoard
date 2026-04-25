@@ -449,7 +449,7 @@ body {
 }
 .db-date { color: var(--text-muted); font-size: .82em; white-space: nowrap; }
 .db-num  { font-variant-numeric: tabular-nums; text-align: left; white-space: nowrap; }
-.db-new  { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.db-new  { font-variant-numeric: tabular-nums; white-space: nowrap; text-align: center; }
 .db-new.has-new { color: #2e7d32; font-weight: 700; }
 .db-new.no-new  { color: var(--text-muted); }
 
@@ -991,7 +991,7 @@ function renderDbTable() {
       <td class="db-card">${card}</td>
       <td class="db-date">${f.date || '—'}</td>
       <td class="db-num">${(+f.transaction_count).toLocaleString('he-IL')}</td>
-      <td class="${newCls}" style="text-align:center">${newTxt}</td>
+      <td class="${newCls}">${newTxt}</td>
       <td class="db-date">${f.last_update || '—'}</td>
     </tr>`;
   }).join('') + '</tbody>';

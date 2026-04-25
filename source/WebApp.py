@@ -504,9 +504,10 @@ def run_category():
     slug = body.get('slug', '')
     type_ = body.get('type', 'category')  # 'category' | 'business'
 
-    # Derive name from slug
+    # Derive name from slug (prefer explicit name passed by client to avoid slug→name roundtrip
+    # bugs for categories with special chars like חו"ל or השקעה/חיסכון)
     prefix = 'cat_' if type_ == 'category' else 'biz_'
-    name   = slug[len(prefix):].replace('_', ' ') if slug.startswith(prefix) else slug
+    name   = body.get('name') or (slug[len(prefix):].replace('_', ' ') if slug.startswith(prefix) else slug)
 
     def _worker():
         global _analysis_running

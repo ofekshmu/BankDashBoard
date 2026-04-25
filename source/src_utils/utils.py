@@ -3106,52 +3106,28 @@ Please Make sure that none of the following formats have their 'Identifications 
 body{{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;
      min-height:100vh;direction:rtl;color:var(--navy);font-size:14px}}
 
-/* Hamburger sidebar */
-.ham-btn{{position:fixed;top:16px;right:16px;width:46px;height:46px;
-  background:var(--white);border:1.5px solid var(--border);border-radius:12px;
-  display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:400;
-  box-shadow:var(--shadow-sm);color:var(--navy);
-  transition:background .18s,color .18s,border-color .18s,box-shadow .18s}}
-.ham-btn:hover{{background:var(--teal);border-color:var(--teal);color:#fff;box-shadow:0 4px 14px var(--teal-glow)}}
-.nav-overlay{{position:fixed;inset:0;background:rgba(15,22,45,.32);backdrop-filter:blur(2px);
-  z-index:390;opacity:0;pointer-events:none;transition:opacity .25s ease}}
+/* Hamburger sidebar — matches app-wide unified nav */
+.ham-btn{{position:fixed;top:18px;right:18px;width:42px;height:42px;background:var(--white);border:1.5px solid var(--border);border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:400;box-shadow:var(--shadow-sm);color:var(--navy);transition:background .15s,color .15s,border-color .15s}}
+.ham-btn:hover{{background:var(--teal);border-color:var(--teal);color:#fff}}
+.ham-btn.open{{opacity:0;pointer-events:none}}
+.nav-overlay{{position:fixed;inset:0;background:rgba(15,22,45,.26);z-index:390;opacity:0;pointer-events:none;transition:opacity .22s ease}}
 .nav-overlay.open{{opacity:1;pointer-events:all}}
-.sidebar{{position:fixed;top:0;right:0;height:100vh;width:272px;background:var(--white);
-  z-index:395;transform:translateX(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);
-  box-shadow:-6px 0 32px rgba(0,0,0,.13);display:flex;flex-direction:column;overflow:hidden}}
-.sidebar.open{{transform:translateX(0)}}
-.sidebar-header{{display:flex;align-items:center;justify-content:space-between;
-  padding:18px 20px 14px;border-bottom:1px solid var(--border);flex-shrink:0}}
-.sidebar-logo-wrap{{display:flex;align-items:center;gap:10px}}
-.sidebar-logo{{width:34px;height:34px;flex-shrink:0}}
-.sidebar-logo svg{{width:100%;height:100%}}
-.sidebar-app-name{{font-size:.9em;font-weight:700;color:var(--navy);letter-spacing:.2px}}
-.sidebar-close{{width:30px;height:30px;border-radius:8px;border:none;background:var(--bg);
-  color:var(--text-muted);font-size:.9em;cursor:pointer;display:flex;align-items:center;
-  justify-content:center;transition:background .15s,color .15s;flex-shrink:0}}
-.sidebar-close:hover{{background:#fee2e2;color:var(--red)}}
-.sidebar-scroll{{flex:1;overflow-y:auto;overflow-x:hidden}}
-.nav-group-hdr{{width:100%;display:flex;align-items:center;justify-content:space-between;
-  padding:11px 20px 9px;background:none;border:none;border-top:1px solid var(--border);
-  color:#9aa3bb;font-size:.7em;font-weight:700;letter-spacing:.7px;text-transform:uppercase;
-  cursor:pointer;text-align:right;transition:background .12s,color .12s}}
-.nav-group:first-child .nav-group-hdr{{border-top:none}}
-.nav-group-hdr:hover{{background:var(--bg);color:var(--navy)}}
-.grp-chevron{{font-size:.8em;transition:transform .22s;flex-shrink:0}}
-.nav-group.collapsed .grp-chevron{{transform:rotate(-90deg)}}
-.nav-group-body{{padding:2px 0 6px}}
-.nav-group.collapsed .nav-group-body{{display:none}}
-.nav-item{{display:flex;align-items:center;gap:11px;padding:10px 14px 10px 20px;
-  text-decoration:none;color:var(--navy);font-size:.88em;font-weight:500;
-  transition:background .12s,color .12s;cursor:pointer;border:none;background:none;
-  width:100%;text-align:right;position:relative}}
-.nav-item::after{{content:'';position:absolute;right:0;top:18%;height:64%;width:3px;
-  border-radius:3px 0 0 3px;background:transparent;transition:background .15s}}
+.sidebar{{position:fixed;top:0;right:0;height:100vh;width:230px;background:var(--white);z-index:395;transform:translate3d(100%,0,0);transition:transform .22s cubic-bezier(.4,0,.2,1);will-change:transform;box-shadow:-4px 0 24px rgba(0,0,0,.09);display:flex;flex-direction:column}}
+.sidebar.open{{transform:translate3d(0,0,0)}}
+.sidebar-header{{display:flex;align-items:center;padding:20px 20px 16px;border-bottom:1px solid var(--border);flex-shrink:0}}
+.sidebar-app-name{{font-size:.95em;font-weight:700;color:var(--navy)}}
+.sidebar-close-btn{{margin-right:auto;background:none;border:none;cursor:pointer;font-size:1.1em;color:var(--text-sub);line-height:1;padding:4px 6px;border-radius:6px;transition:background .12s,color .12s;font-family:inherit}}
+.sidebar-close-btn:hover{{background:var(--teal-light);color:var(--teal)}}
+.sidebar-scroll{{flex:1;overflow-y:auto;overflow-x:hidden;padding:8px 0 16px}}
+.nav-item{{display:flex;align-items:center;padding:10px 20px;text-decoration:none;color:var(--text-sub);font-size:.875em;font-weight:500;transition:background .1s,color .1s;cursor:pointer;border:none;background:none;width:100%;text-align:right;position:relative;letter-spacing:.1px;font-family:inherit}}
+.nav-item::before{{content:'';position:absolute;right:0;top:22%;height:56%;width:3px;border-radius:3px 0 0 3px;background:transparent;transition:background .1s}}
 .nav-item:hover{{background:var(--teal-light);color:var(--teal)}}
-.nav-item:hover::after{{background:var(--teal)}}
+.nav-item:hover::before{{background:var(--teal)}}
 .nav-item.active{{color:#b8c0d0;cursor:default;pointer-events:none}}
-.nav-icon{{font-size:1.05em;flex-shrink:0;width:20px;text-align:center}}
-.nav-label{{flex:1}}
+.nav-sep{{height:1px;background:var(--border);margin:8px 16px}}
+/* Back button — fixed top-left */
+.back-btn{{position:fixed;top:18px;left:18px;height:42px;padding:0 16px;background:var(--white);border:1.5px solid var(--border);border-radius:10px;display:flex;align-items:center;gap:6px;cursor:pointer;z-index:400;box-shadow:var(--shadow-sm);color:var(--text-sub);font-size:.85em;font-weight:600;font-family:inherit;text-decoration:none;transition:background .15s,color .15s,border-color .15s}}
+.back-btn:hover{{background:var(--teal-light);border-color:var(--teal);color:var(--teal)}}
 
 /* Main */
 .main{{flex:1;padding:72px 28px 60px;min-width:0}}
@@ -3279,67 +3255,32 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;
 <body data-slug={slug_js} data-generated="{generated}" data-type={type_js} data-name={display_name_js}>
 
 <!-- Hamburger -->
-<button class="ham-btn" id="ham-btn" onclick="openNav()" aria-label="תפריט">
+<button class="ham-btn" id="ham-btn" onclick="toggleNav()" aria-label="תפריט">
   <svg width="18" height="14" viewBox="0 0 18 14" fill="none">
     <rect width="18" height="2" rx="1" fill="currentColor"/>
     <rect y="6" width="18" height="2" rx="1" fill="currentColor"/>
     <rect y="12" width="18" height="2" rx="1" fill="currentColor"/>
   </svg>
 </button>
-<div class="nav-overlay" id="nav-overlay" onclick="closeNav()"></div>
+<a class="back-btn" href="/categories">&#8592; חזרה</a>
+<div class="nav-overlay" id="nav-overlay" onclick="toggleNav()"></div>
 <nav class="sidebar" id="sidebar">
   <div class="sidebar-header">
-    <div class="sidebar-logo-wrap">
-      <div class="sidebar-logo">
-        <svg viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect width="44" height="44" rx="12" fill="#1e9d8b"/>
-          <rect x="8" y="26" width="6" height="10" rx="1.5" fill="white" opacity="0.6"/>
-          <rect x="17" y="18" width="6" height="18" rx="1.5" fill="white" opacity="0.85"/>
-          <rect x="26" y="10" width="6" height="26" rx="1.5" fill="white"/>
-          <text x="33" y="14" font-family="Arial" font-size="9" font-weight="800" fill="#1e9d8b" opacity="0.9">₪</text>
-        </svg>
-      </div>
-      <span class="sidebar-app-name">FinDash</span>
-    </div>
-    <button class="sidebar-close" onclick="closeNav()">✕</button>
+    <span class="sidebar-app-name">Menu</span>
+    <button class="sidebar-close-btn" onclick="closeNav()">✕</button>
   </div>
   <div class="sidebar-scroll">
-    <div class="nav-group" id="grp-monthly">
-      <button class="nav-group-hdr" onclick="toggleGroup('grp-monthly')">
-        <span>חודשי</span><span class="grp-chevron">▼</span>
-      </button>
-      <div class="nav-group-body">
-        <a class="nav-item" href="/">
-          <span class="nav-icon">⊞</span><span class="nav-label">ראשי</span>
-        </a>
-      </div>
-    </div>
-    <div class="nav-group" id="grp-data">
-      <button class="nav-group-hdr" onclick="toggleGroup('grp-data')">
-        <span>נתונים</span><span class="grp-chevron">▼</span>
-      </button>
-      <div class="nav-group-body">
-        <a class="nav-item" href="/organizer">
-          <span class="nav-icon">🗂</span><span class="nav-label">ארגונית</span>
-        </a>
-        <a class="nav-item active" href="/categories">
-          <span class="nav-icon">📊</span><span class="nav-label">קטגוריות</span>
-        </a>
-      </div>
-    </div>
-    <div class="nav-group" id="grp-manage">
-      <button class="nav-group-hdr" onclick="toggleGroup('grp-manage')">
-        <span>ניהול</span><span class="grp-chevron">▼</span>
-      </button>
-      <div class="nav-group-body">
-        <a class="nav-item" href="/tagger">
-          <span class="nav-icon">🏷</span><span class="nav-label">תייגן</span>
-        </a>
-        <a class="nav-item" href="/files">
-          <span class="nav-icon">📁</span><span class="nav-label">קבצים</span>
-        </a>
-      </div>
-    </div>
+    <a class="nav-item" href="/">ניתוח חודשי</a>
+    <a class="nav-item" href="/">עסקאות</a>
+    <div class="nav-sep"></div>
+    <a class="nav-item" href="/accounts">חשבונות</a>
+    <a class="nav-item" href="/housing">דיור</a>
+    <a class="nav-item" href="/organizer">ארגונית</a>
+    <a class="nav-item active" href="/categories">ניתוח קטגוריאלי</a>
+    <a class="nav-item" href="/search">חיפוש</a>
+    <div class="nav-sep"></div>
+    <a class="nav-item" href="/tagger">תייגן</a>
+    <a class="nav-item" href="/files">קבצים</a>
   </div>
 </nav>
 
@@ -3436,15 +3377,18 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;
 function openNav() {{
   document.getElementById('sidebar').classList.add('open');
   document.getElementById('nav-overlay').classList.add('open');
+  document.getElementById('ham-btn').classList.add('open');
   document.body.style.overflow = 'hidden';
 }}
 function closeNav() {{
   document.getElementById('sidebar').classList.remove('open');
   document.getElementById('nav-overlay').classList.remove('open');
+  document.getElementById('ham-btn').classList.remove('open');
   document.body.style.overflow = '';
 }}
-function toggleGroup(id) {{
-  document.getElementById(id).classList.toggle('collapsed');
+function toggleNav() {{
+  var sidebar = document.getElementById('sidebar');
+  if (sidebar.classList.contains('open')) {{ closeNav(); }} else {{ openNav(); }}
 }}
 document.addEventListener('keydown', function(e) {{ if (e.key === 'Escape') closeNav(); }});
 
@@ -3453,6 +3397,7 @@ const MONTHLY_DATA = {monthly_json};
 const PIE_DATA     = {pie_json};
 const SLUG         = {slug_js};
 const TYPE         = {type_js};
+const NAME         = {display_name_js};
 
 // ── Chart.js — Monthly bar ────────────────────────────────
 (function() {{
@@ -3615,7 +3560,7 @@ function reloadCurrent() {{
   fetch('/api/category/run', {{
     method: 'POST',
     headers: {{'Content-Type': 'application/json'}},
-    body: JSON.stringify({{slug: SLUG, type: TYPE}})
+    body: JSON.stringify({{slug: SLUG, type: TYPE, name: NAME}})
   }}).then(function(r) {{
     if (r.status === 409) {{ btn.classList.remove('running'); btn.disabled = false; return; }}
     var es = new EventSource('/api/logs');

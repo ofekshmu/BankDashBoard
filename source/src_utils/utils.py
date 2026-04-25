@@ -3089,30 +3089,126 @@ Please Make sure that none of the following formats have their 'Identifications 
 
         # Build transaction rows
         txn_rows = ''
+        # In category analysis the category column is redundant (all same); hide it
+        _show_cat_col  = (type_ != 'category')
+        # Helpers for safe date parsing
+        def _parse_date(raw):
+            raw = str(raw)
+            for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d"):
+                try: return _dt.strptime(raw, fmt).strftime("%d/%m/%Y")
+                except Exception: pass
+            return raw[:10]
+
         transactions = data.get('transactions')
+        _has_charge = transactions is not None and 'Charge_Date' in transactions.columns
+
+        # Analytics extras
+        _top5 = []
+        if transactions is not None and not transactions.empty:
+            _top5_df = (transactions.assign(_abs=transactions['Final_Value'].abs())
+                        .nlargest(5, '_abs'))
+
         if transactions is not None and not transactions.empty:
             for _, row in transactions.sort_values(by='Date', ascending=False).iterrows():
-                name = row.get('Description') or row.get('Name', '')
-                date_raw = str(row.get('Date', ''))
-                try:
-                    date_str = _dt.strptime(date_raw, "%Y-%m-%d %H:%M:%S").strftime("%d/%m/%Y")
-                except Exception:
-                    date_str = date_raw[:10]
-                value = row.get('Final_Value', 0)
-                cat   = row.get('Category', '')
-                vcls  = 'neg' if value < 0 else 'pos'
-                vstr  = f"({abs(value):,.0f}) ₪" if value < 0 else f"{value:,.0f} ₪"
+                txn_id   = str(row.get('ID', ''))
+                name     = str(row.get('Description') or row.get('Name', ''))
+                date_str = _parse_date(row.get('Date', ''))
+                value    = row.get('Final_Value', 0)
+                cat      = row.get('Category', '')
+                vcls     = 'neg' if value < 0 else 'pos'
+                vstr     = f"({abs(value):,.0f}) ₪" if value < 0 else f"{value:,.0f} ₪"
+
+                # Date type badge: bank vs card
+                table_name = str(row.get('TableName', ''))
+                is_card    = table_name == 'CardTransactions'
+                date_badge = (
+                    '<span class="td-date-badge td-card">אשראי</span>' if is_card
+                    else '<span class="td-date-badge td-bank">בנק</span>'
+                )
+                # Charge date for card (only if different from execution date)
+                charge_html = ''
+                if is_card and _has_charge:
+                    c_raw = str(row.get('Charge_Date', ''))
+                    if c_raw and c_raw not in ('nan', '', str(row.get('Date', ''))):
+                        charge_html = f'<span class="td-charge">חיוב {_parse_date(c_raw)}</span>'
+
+                cat_td = f'<td class="td-cat">{cat}</td>' if _show_cat_col else ''
                 txn_rows += (
-                    f'<tr><td class="td-date">{date_str}</td>'
+                    f'<tr>'
+                    f'<td class="td-id">{txn_id}</td>'
+                    f'<td class="td-date">{date_str}{date_badge}{charge_html}</td>'
                     f'<td class="td-name">{name}</td>'
                     f'<td class="td-val {vcls}">{vstr}</td>'
-                    f'<td class="td-cat">{cat}</td></tr>\n'
+                    f'{cat_td}</tr>\n'
                 )
 
         txn_count = len(transactions) if transactions is not None else 0
+
+        # ── Additional analytics ──────────────────────────────────────────────
+        # Top-5 transactions card
+        _top5_rows = ''
+        if transactions is not None and not transactions.empty:
+            for _, r in (transactions.assign(_abs=transactions['Final_Value'].abs())
+                         .nlargest(5, '_abs').iterrows()):
+                _n  = str(r.get('Description') or r.get('Name', ''))
+                _d  = _parse_date(r.get('Date', ''))
+                _v  = r.get('Final_Value', 0)
+                _vc = 'neg' if _v < 0 else 'pos'
+                _vs = f"({abs(_v):,.0f}) ₪" if _v < 0 else f"{_v:,.0f} ₪"
+                _top5_rows += (
+                    f'<tr><td class="td-date">{_d}</td>'
+                    f'<td class="td-name" style="max-width:200px">{_n}</td>'
+                    f'<td class="td-val {_vc}">{_vs}</td></tr>\n'
+                )
+
+        # Monthly totals stats
+        _monthly_spend_std = ''
+        _trend_label = ''
+        _trend_cls   = ''
+        if transactions is not None and not transactions.empty:
+            import pandas as _pd2
+            _tmp = transactions.copy()
+            _tmp['_month'] = _pd2.to_datetime(_tmp['Date']).dt.to_period('M')
+            _monthly_sums = _tmp.groupby('_month')['Final_Value'].sum()
+            if len(_monthly_sums) >= 2:
+                _std = _monthly_sums.std()
+                _monthly_spend_std = f"{abs(_std):,.0f} ₪"
+            # Trend: compare first-half avg to second-half avg
+            if len(_monthly_sums) >= 4:
+                _half = len(_monthly_sums) // 2
+                _first_avg  = _monthly_sums.iloc[:_half].mean()
+                _second_avg = _monthly_sums.iloc[_half:].mean()
+                if abs(_second_avg) > abs(_first_avg) * 1.05:
+                    _trend_label = '↑ עולה'
+                    _trend_cls   = 'neg' if total_spent < 0 else 'pos'
+                elif abs(_second_avg) < abs(_first_avg) * 0.95:
+                    _trend_label = '↓ יורד'
+                    _trend_cls   = 'pos' if total_spent < 0 else 'neg'
+                else:
+                    _trend_label = '→ יציב'
+                    _trend_cls   = ''
         display_name_js = json.dumps(display_name, ensure_ascii=False)
         slug_js  = json.dumps(slug, ensure_ascii=False)
         type_js  = json.dumps(type_, ensure_ascii=False)
+
+        # Pre-compute top-5 block (can't use nested f''' inside outer f''')
+        _th = ('text-align:right;padding:6px 10px;'
+               'color:var(--text-muted);font-size:.78em')
+        _top5_open_html = (
+            '<div class="charts-2col" style="margin-bottom:16px">\n'
+            '  <div class="panel">\n'
+            '    <div class="panel-header">5 הפעולות הגדולות ביותר</div>\n'
+            '    <table class="top5-table">\n'
+            '      <thead><tr>'
+            f'<th style="{_th}">תאריך</th>'
+            f'<th style="{_th}">שם</th>'
+            f'<th style="{_th}">סכום</th>'
+            '</tr></thead>\n'
+            f'      <tbody>{_top5_rows}</tbody>\n'
+            '    </table>\n'
+            '  </div>'
+        ) if _top5_rows else ''
+        _top5_close_html = '</div>' if _top5_rows else ''
 
         html = f'''<!DOCTYPE html>
 <html lang="he" dir="rtl">
@@ -3256,12 +3352,24 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;
 .txn-table td{{padding:8px 12px;border-bottom:1px solid var(--border);vertical-align:middle}}
 .txn-table tr:last-child td{{border-bottom:none}}
 .txn-table tr:hover td{{background:#fafbfd}}
+.td-id{{color:#b0b8c8;font-size:.75em;font-family:monospace;white-space:nowrap;
+  text-align:right;padding-right:6px;min-width:40px}}
 .td-date{{color:var(--text-muted);white-space:nowrap;font-size:.9em;text-align:right}}
+.td-date-badge{{display:inline-block;font-size:.6em;font-weight:700;border-radius:4px;
+  padding:1px 5px;margin-right:5px;vertical-align:middle;letter-spacing:.3px}}
+.td-bank{{background:#e8f4ff;color:#3498db}}
+.td-card{{background:#fef3e8;color:#e67e22}}
+.td-charge{{display:block;font-size:.72em;color:#b0b8c8;margin-top:1px}}
 .td-name{{max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
 .td-val{{font-weight:600;white-space:nowrap;text-align:right}}
 .td-val.neg{{color:var(--red)}}
 .td-val.pos{{color:var(--teal)}}
 .td-cat{{font-size:.85em;color:var(--text-muted);text-align:right}}
+/* Analytics extras */
+.kpi-trend{{font-size:.95em;font-weight:700}}
+.top5-table{{width:100%;border-collapse:collapse;font-size:.83em}}
+.top5-table td{{padding:7px 10px;border-bottom:1px solid var(--border)}}
+.top5-table tr:last-child td{{border-bottom:none}}
 
 /* Search bar */
 .txn-search-wrap{{margin-bottom:12px}}
@@ -3358,7 +3466,7 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;
   </div>
 
   <!-- KPI cards -->
-  <div class="kpi-grid">
+  <div class="kpi-grid" style="grid-template-columns:repeat(6,1fr)">
     <div class="kpi-card">
       <div class="kpi-label"><span class="kpi-dot" style="background:#1e9d8b"></span>ממוצע חודשי</div>
       <div class="kpi-value {'neg' if monthly_avg < 0 else 'pos'}">{_fmt(monthly_avg)}</div>
@@ -3368,6 +3476,16 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;
       <div class="kpi-label"><span class="kpi-dot" style="background:#f0b429"></span>ממוצע אחרון</div>
       <div class="kpi-value {'neg' if recent_avg < 0 else 'pos'}">{_fmt(recent_avg)}</div>
       <div class="kpi-sublabel">5 חודשים אחרונים</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label"><span class="kpi-dot" style="background:#9b59b6"></span>סטיית תקן חודשית</div>
+      <div class="kpi-value">{_monthly_spend_std or '—'}</div>
+      <div class="kpi-sublabel">תנודתיות הוצאות</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label"><span class="kpi-dot" style="background:#3498db"></span>מגמה</div>
+      <div class="kpi-value {_trend_cls}">{_trend_label or '—'}</div>
+      <div class="kpi-sublabel">מחצית ראשונה vs שנייה</div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label"><span class="kpi-dot" style="background:#e74c3c"></span>סה"כ הוצאות</div>
@@ -3388,7 +3506,10 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;
     {f'<div class="pie-col">{pie_cards_html}</div>' if _has_pies else ''}
   </div>
 
-  <!-- Transactions -->
+  <!-- Top-5 transactions + Transaction table side by side if top5 exists -->
+  {_top5_open_html}
+
+  <!-- Transactions panel -->
   <div class="panel">
     <div class="panel-header">
       עסקאות
@@ -3400,10 +3521,11 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;
     <div class="txn-table-wrap">
       <table class="txn-table" id="txn-table">
         <thead><tr>
+          <th class="td-id" style="color:var(--text-muted)">מזהה</th>
           <th class="th-sortable" id="th-date" onclick="sortTxns('date')">תאריך <span class="th-sort-icon">▼</span></th>
           <th>שם</th>
           <th class="th-sortable" id="th-val" onclick="sortTxns('val')">סכום <span class="th-sort-icon">▼</span></th>
-          <th>קטגוריה</th>
+          {'<th>קטגוריה</th>' if _show_cat_col else ''}
         </tr></thead>
         <tbody>
 {txn_rows}        </tbody>
@@ -3414,6 +3536,7 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;
       <span class="txn-footer-sum" id="txn-footer-sum"></span>
     </div>
   </div>
+  {_top5_close_html}
 </div>
 
 <script>
@@ -3554,8 +3677,11 @@ const NAME           = {display_name_js};
 }})();
 
 // ── Category roller ───────────────────────────────────────
-var _activeIdx = -1;
-var _ITEM_W    = 140;
+var _activeIdx   = -1;
+var _viewIdx     = -1;   // currently centred item (may differ from active when wheel-browsing)
+var _rollerList  = [];
+var _idleTimer   = null;
+var _ITEM_W      = 140;
 var _currentSlug = SLUG;
 
 function _buildRoller(list) {{
@@ -3563,6 +3689,7 @@ function _buildRoller(list) {{
   if (!track) return;
   track.innerHTML = '';
   _activeIdx = -1;
+  _rollerList = list;
 
   list.forEach(function(item, i) {{
     var el = document.createElement('div');
@@ -3597,8 +3724,32 @@ function _buildRoller(list) {{
     if (item.slug === _currentSlug) _activeIdx = i;
   }});
 
+  _viewIdx = _activeIdx;
+
   var roller = document.getElementById('cat-roller');
-  if (roller) roller.style.display = '';
+  if (roller) {{
+    roller.style.display = '';
+    // Attach wheel listener once (same pattern as month roller)
+    if (!roller._wheelBound) {{
+      roller._wheelBound = true;
+      roller.addEventListener('wheel', function(e) {{
+        e.preventDefault();
+        var delta = e.deltaY > 0 ? 1 : -1;
+        _viewIdx = Math.max(0, Math.min(_rollerList.length - 1, _viewIdx + delta));
+        _positionToView(_viewIdx, true);
+        _applyDist();
+        // Snap back to active after 5 s idle
+        clearTimeout(_idleTimer);
+        if (_viewIdx !== _activeIdx) {{
+          _idleTimer = setTimeout(function() {{
+            _viewIdx = _activeIdx;
+            _centerActive(true);
+            _applyDist();
+          }}, 5000);
+        }}
+      }}, {{ passive: false }});
+    }}
+  }}
   _applyDist();
   _centerActive(false);
 }}
@@ -3606,25 +3757,30 @@ function _buildRoller(list) {{
 function _applyDist() {{
   var items = document.querySelectorAll('#roller-track .cm-item');
   items.forEach(function(el, i) {{
-    var d = Math.abs(i - _activeIdx);
+    var dView   = Math.abs(i - _viewIdx);
+    var isActive = (i === _activeIdx);
     el.classList.remove('active','dist-1','dist-2');
-    if      (d === 0) el.classList.add('active');
-    else if (d === 1) el.classList.add('dist-1');
-    else if (d === 2) el.classList.add('dist-2');
+    if (isActive)      el.classList.add('active');
+    if (dView === 1)   el.classList.add('dist-1');
+    if (dView === 2)   el.classList.add('dist-2');
   }});
 }}
 
-function _centerActive(animate) {{
+function _positionToView(idx, animate) {{
   var track  = document.getElementById('roller-track');
   var roller = document.getElementById('cat-roller');
-  if (!track || !roller || _activeIdx < 0) return;
-  var offset = roller.offsetWidth / 2 - _activeIdx * _ITEM_W - _ITEM_W / 2;
+  if (!track || !roller || idx < 0) return;
+  var offset = roller.offsetWidth / 2 - idx * _ITEM_W - _ITEM_W / 2;
   track.style.transition = animate ? 'transform .45s cubic-bezier(.25,.46,.45,.94)' : 'none';
   track.style.transform  = 'translateX(' + offset + 'px)';
   if (!animate) {{ void track.offsetWidth; track.style.transition = 'transform .45s cubic-bezier(.25,.46,.45,.94)'; }}
 }}
 
-window.addEventListener('resize', function() {{ _centerActive(false); }});
+function _centerActive(animate) {{
+  _positionToView(_activeIdx, animate);
+}}
+
+window.addEventListener('resize', function() {{ _viewIdx = _activeIdx; _centerActive(false); }});
 
 // ── Reload current ────────────────────────────────────────
 function reloadCurrent() {{

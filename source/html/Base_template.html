@@ -568,10 +568,23 @@ body {
   font-variant-numeric: tabular-nums; line-height: 1.1;
 }
 .cash-pie-sublabel { font-size: .7em; color: var(--text-muted); margin-top: 2px; }
-.cash-legend { flex: 1; display: flex; flex-direction: column; gap: 8px; min-width: 200px; }
+/* shared column template: dot | currency | original amount | rate | ILS value | pct */
+:root { --cl-grid: 10px 44px 88px 94px 80px 50px; }
+.cash-legend { flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 260px; }
+.cash-legend-header {
+  display: grid; grid-template-columns: var(--cl-grid);
+  gap: 6px; padding: 0 10px 6px;
+  border-bottom: 1px solid var(--border); margin-bottom: 2px;
+}
+.cash-legend-hcell {
+  font-size: .67em; color: var(--text-muted); font-weight: 600;
+  white-space: nowrap; text-align: right;
+}
+.cash-legend-hcell:first-child,
+.cash-legend-hcell:nth-child(2) { text-align: right; }
+.cash-legend-hcell:last-child { text-align: center; }
 .cash-legend-row {
-  display: grid;
-  grid-template-columns: 12px 40px 1fr auto 1fr 46px;
+  display: grid; grid-template-columns: var(--cl-grid);
   align-items: center; gap: 6px;
   padding: 7px 10px; border-radius: var(--radius-sm);
   background: var(--bg); transition: background .12s;
@@ -582,19 +595,19 @@ body {
   justify-self: center;
 }
 .cash-legend-cur {
-  font-weight: 700; font-size: .85em; color: var(--navy);
+  font-weight: 700; font-size: .85em; color: var(--navy); text-align: right;
 }
 .cash-legend-orig {
   font-size: .82em; color: var(--text-muted);
-  font-variant-numeric: tabular-nums; text-align: start;
+  font-variant-numeric: tabular-nums; text-align: right;
 }
 .cash-legend-rate {
   font-size: .72em; color: var(--teal); font-weight: 600;
-  font-variant-numeric: tabular-nums; white-space: nowrap;
+  font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right;
 }
 .cash-legend-ils {
   font-weight: 600; font-size: .88em; color: var(--navy);
-  font-variant-numeric: tabular-nums; text-align: start;
+  font-variant-numeric: tabular-nums; text-align: right;
 }
 .cash-legend-pct {
   font-size: .75em; color: var(--text-muted);
@@ -2319,6 +2332,17 @@ function _loadCashPie() {
 
         var colors = _PIE_PALETTE.slice(0, rows.length);
 
+        // Header row
+        var headerHtml =
+          '<div class="cash-legend-header">' +
+            '<span class="cash-legend-hcell"></span>' +
+            '<span class="cash-legend-hcell">מטבע</span>' +
+            '<span class="cash-legend-hcell">סכום מקורי</span>' +
+            '<span class="cash-legend-hcell">שער חליפין</span>' +
+            '<span class="cash-legend-hcell">שווי ₪</span>' +
+            '<span class="cash-legend-hcell" style="text-align:center">%</span>' +
+          '</div>';
+
         // Legend rows — grid: dot | cur | original | rate | ILS | pct
         var legendHtml = rows.map(function(r, i) {
           var pct     = ilsTotal > 0 ? (r.ils / ilsTotal * 100).toFixed(1) : '0.0';
@@ -2352,7 +2376,7 @@ function _loadCashPie() {
                 '<div class="cash-pie-sublabel">סה"כ מזומן</div>' +
               '</div>' +
             '</div>' +
-            '<div class="cash-legend">' + legendHtml + '</div>' +
+            '<div class="cash-legend">' + headerHtml + legendHtml + '</div>' +
           '</div>';
 
         // Update the Cash balance cell in the accounts table

@@ -554,7 +554,7 @@ body {
   flex-wrap: wrap; padding: 14px 4px 8px; /* extra top padding so hover segments don't clip card title */
 }
 .cash-pie-canvas-wrap {
-  position: relative; overflow: visible; /* allow hoverOffset segments to draw beyond bounds */
+  position: relative;
   width: 220px; height: 220px; flex-shrink: 0;
 }
 .cash-pie-center {
@@ -2399,6 +2399,7 @@ function _loadCashPie() {
             responsive: true,
             maintainAspectRatio: false,
             cutout: '70%',
+            layout: { padding: 10 },   /* room for hoverOffset so arcs don't clip at canvas edge */
             plugins: {
               legend: { display: false },
               tooltip: {

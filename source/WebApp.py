@@ -2235,6 +2235,27 @@ def tx_split_info():
         return jsonify({'ok': False, 'error': str(e)})
 
 
+def _regen_month_for_tx(tbl: str, tx_id: int) -> None:
+    """
+    Background helper: look up the transaction date, then regenerate the
+    monthly HTML so split changes are reflected on the next page load.
+    """
+    try:
+        import sqlite3 as _sq2
+        col  = 'Date' if tbl == 'BankTransactions' else 'Executed_Date'
+        conn = _sq2.connect(_DB_PATH, check_same_thread=False)
+        row  = conn.execute(f'SELECT {col} FROM {tbl} WHERE ID=?', (tx_id,)).fetchone()
+        conn.close()
+        if not row or not row[0]:
+            return
+        from datetime import datetime as _dt2
+        t = _dt2.strptime(str(row[0])[:10], '%Y-%m-%d')
+        from AppManager import AppManager as _AM
+        _AM(skip_parser=True).general_analysis(t=t)
+    except Exception as _e:
+        print(f'[split regen] {_e}')
+
+
 @app.route('/api/transactions/split', methods=['POST'])
 def tx_split_create():
     """Create split rows for a transaction."""
@@ -2261,6 +2282,10 @@ def tx_split_create():
                           'description': splits[i].get('description', ''),
                           'category': splits[i]['category']}
                          for i, sid in enumerate(created_ids)]
+        # Regenerate the monthly HTML in the background so the split is
+        # visible on next page load without a manual analysis run.
+        threading.Thread(target=_regen_month_for_tx, args=(tbl, int(tx_id)),
+                         daemon=True, name='split-regen').start()
         return jsonify({'ok': True, 'splits': result_splits})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)})
@@ -2279,6 +2304,9 @@ def tx_split_revert():
         db = _DB4()
         deleted = db.revert_splits(tbl, int(oid))
         db.commit_changes()
+        # Regenerate the monthly HTML so the revert is visible on next page load.
+        threading.Thread(target=_regen_month_for_tx, args=(tbl, int(oid)),
+                         daemon=True, name='revert-regen').start()
         return jsonify({'ok': True, 'deleted': deleted})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)})

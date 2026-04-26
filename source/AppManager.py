@@ -912,15 +912,25 @@ class AppManager:
             for i in range(_shift - 1, -1, -1)
         ]
 
-        df_bank_transactions = SimpleMath.process_prices(DataBase().get_transactions('BankTransactions',
-                                                                                     category_filter=category_for_analysis,
-                                                                                     name_filter=name_for_analysis), 
-                                                        general_analysis=False)
-        
-        df_card_transactions = SimpleMath.process_prices(DataBase().get_transactions('CardTransactions',
-                                                                                     category_filter=category_for_analysis,
-                                                                                     name_filter=name_for_analysis), 
-                                                        general_analysis=False)
+        # Fetch all transactions (no category pre-filter) so that apply_splits_to_df()
+        # can correctly replace split-originals with their split children before we
+        # filter by category.  Without this, a split transaction would still appear
+        # under its original category and its splits would be invisible.
+        _db_inst = DataBase()
+        _name_f  = name_for_analysis  if name_for_analysis  else None
+
+        _bank_raw = _db_inst.get_transactions('BankTransactions', category_filter=None, name_filter=_name_f)
+        _bank_raw = _db_inst.apply_splits_to_df(_bank_raw)
+        if category_for_analysis:
+            _bank_raw = _bank_raw[_bank_raw['Category'] == category_for_analysis].reset_index(drop=True)
+
+        _card_raw = _db_inst.get_transactions('CardTransactions', category_filter=None, name_filter=_name_f)
+        _card_raw = _db_inst.apply_splits_to_df(_card_raw)
+        if category_for_analysis:
+            _card_raw = _card_raw[_card_raw['Category'] == category_for_analysis].reset_index(drop=True)
+
+        df_bank_transactions = SimpleMath.process_prices(_bank_raw, general_analysis=False)
+        df_card_transactions = SimpleMath.process_prices(_card_raw, general_analysis=False)
         
 
         if df_card_transactions.empty:

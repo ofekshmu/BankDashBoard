@@ -1132,8 +1132,14 @@ class AppManager:
             "Accumulative Cash Balance": utils.accumulate_cash_Balance()
         }
 
-        accounts_data['Cash'] = [(datetime.now(), 
-                                                 cash_information_data["Accumulative Cash Balance"])]
+        try:
+            _cash_history = utils.cash_monthly_history()
+        except Exception as _ce:
+            utils.log(f"cash_monthly_history failed: {_ce}", "warning")
+            _cash_history = []
+        accounts_data['Cash'] = _cash_history if _cash_history else [
+            (datetime.now(), cash_information_data["Accumulative Cash Balance"])
+        ]
 
         
         def handle_spendings_pie_plot():

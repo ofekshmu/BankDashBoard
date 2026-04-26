@@ -458,6 +458,15 @@ body {
   color: var(--text-muted); font-size: .88em;
 }
 
+.db-del-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; border-radius: 6px; border: 1px solid #fca5a5;
+  background: #fff5f5; color: #dc2626; font-size: .95em; cursor: pointer;
+  transition: background .15s, border-color .15s, color .15s;
+  line-height: 1; padding: 0;
+}
+.db-del-btn:hover { background: #dc2626; border-color: #dc2626; color: #fff; }
+
 /* ── Scrollbar ────────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -977,6 +986,7 @@ function renderDbTable() {
     <th onclick="sortDb('transaction_count')">סה"כ עסקאות שזוהו ${arrowHtml('transaction_count')}</th>
     <th onclick="sortDb('new_transactions')" style="text-align:center">עסקאות חדשות ${arrowHtml('new_transactions')}</th>
     <th onclick="sortDb('last_update')">עדכון אחרון ${arrowHtml('last_update')}</th>
+    <th style="width:42px"></th>
   </tr></thead>`;
 
   const tbody = '<tbody>' + rows.map(f => {
@@ -985,6 +995,7 @@ function renderDbTable() {
       : `<span class="db-fmt fmt-bank" style="font-size:.7em;padding:1px 7px">בנק</span>`;
     const newCls = f.new_transactions > 0 ? 'db-new has-new' : 'db-new no-new';
     const newTxt = f.new_transactions > 0 ? `+${f.new_transactions}` : '—';
+    const cardAttr = esc(f.card || '');
     return `<tr>
       <td class="db-fname" title="${esc(f.name)}">${esc(f.name)}</td>
       <td><span class="db-fmt ${_fmtClass(f.format)}">${esc(_fmtLabel(f.format))}</span></td>
@@ -993,6 +1004,10 @@ function renderDbTable() {
       <td class="db-num">${(+f.transaction_count).toLocaleString('he-IL')}</td>
       <td class="${newCls}">${newTxt}</td>
       <td class="db-date">${f.last_update || '—'}</td>
+      <td style="text-align:center;padding:6px 8px">
+        <button class="db-del-btn" title="מחק קובץ"
+          onclick="deleteDbFile(${JSON.stringify(f.name)},${JSON.stringify(f.format)},${JSON.stringify(f.card||'')})">🗑</button>
+      </td>
     </tr>`;
   }).join('') + '</tbody>';
 
@@ -1004,6 +1019,27 @@ function renderDbTable() {
   const cols = ['name','format','card','date','transaction_count','new_transactions','last_update'];
   const ths  = document.querySelectorAll('.db-table thead th');
   if (ths[cols.indexOf(_dbSort.col)]) ths[cols.indexOf(_dbSort.col)].classList.add('sorted');
+}
+
+// ── Delete DB file ─────────────────────────────────────────────
+function deleteDbFile(name, format, card) {
+  const label = name + (card ? ` (${card})` : '');
+  if (!confirm(`למחוק את הקובץ "${label}" ואת כל עסקאותיו מהמאגר?\n\nפעולה זו אינה הפיכה.`)) return;
+  fetch('/api/files/delete', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, format, card })
+  })
+  .then(r => r.json())
+  .then(d => {
+    if (d.ok) {
+      toast('הקובץ נמחק בהצלחה', 'ok');
+      loadDbFiles();          // refresh the table
+    } else {
+      toast('שגיאה במחיקה: ' + (d.error || 'unknown'), 'err');
+    }
+  })
+  .catch(() => toast('שגיאת רשת בעת המחיקה', 'err'));
 }
 
 // ── Helpers ────────────────────────────────────────────────────

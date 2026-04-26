@@ -739,7 +739,7 @@ class utils:
             executed_date = (item['Execution_Date']
                              if not pd.isna(item['Execution_Date'])
                              else item['Executed_Date'])
-            d = datetime.strptime(str(executed_date), "%Y-%m-%d %H:%M:%S").strftime('%A %d')
+            d = datetime.strptime(str(executed_date).split('.')[0], "%Y-%m-%d %H:%M:%S").strftime('%A %d')
 
             row = tag("div", class_="num")
             row["data-value"] = str(item['ID'])
@@ -4139,16 +4139,101 @@ document.addEventListener('DOMContentLoaded', _initTxnFooter);
         total_cash = 0
 
         if not bank_withdrawals_df.empty:
+            # Only bank withdrawals (not card transactions tagged 'withdrawal')
+            bank_withdrawals_df = bank_withdrawals_df[bank_withdrawals_df['TableName'] == 'BankTransactions']
             total_cash += bank_withdrawals_df['Out/Transaction_value'].sum()
-    
+
         cash_df = DataBase().get_Cash_Transactions()
-      
+
         if not cash_df.empty:
             # utils.log(f"Cash Transactions found:\n{utils.df_to_markdown(cash_df)}", 'system')
             total_cash += cash_df['Amount'].sum()
-            
+
 
         return total_cash
+
+    @staticmethod
+    def cash_monthly_history() -> list:
+        """
+        Compute the accumulated cash balance (ILS) at the first of each calendar month,
+        from the earliest cash transaction up to today.
+        Non-ILS currencies are converted using live FX rates.
+        Returns [(datetime, ils_balance), ...] sorted by date (month starts + today).
+        """
+        from database import DataBase
+        from Constants import ReservedNames
+        import urllib.request as _ureq, json as _json_fx
+        from datetime import date as _date, datetime as _dt2
+
+        # Fetch FX rates (ILS-base: currency → ILS multiplier)
+        try:
+            with _ureq.urlopen('https://api.exchangerate-api.com/v4/latest/ILS', timeout=5) as _r:
+                _ils_to_x = _json_fx.loads(_r.read()).get('rates', {})
+            _fx_to_ils = {c: 1.0 / r for c, r in _ils_to_x.items() if r}
+            _fx_to_ils['ILS'] = 1.0
+        except Exception:
+            _fx_to_ils = {'ILS': 1.0, 'USD': 3.72, 'EUR': 4.01, 'JPY': 0.025}
+
+        events = []  # list of (date, ils_amount)
+
+        # 1. Bank withdrawals only (not card) — always ILS
+        withdrawals_df = DataBase().get_transactions_by_category(ReservedNames.WHITDRAWAL_CATEGORY)
+        if not withdrawals_df.empty:
+            # get_transactions_by_category UNIONs BankTransactions + CardTransactions;
+            # only bank withdrawals represent physical cash received.
+            withdrawals_df = withdrawals_df[withdrawals_df['TableName'] == 'BankTransactions']
+            withdrawals_df['Date/Executed_Date'] = pd.to_datetime(
+                withdrawals_df['Date/Executed_Date'], errors='coerce')
+            for _, row in withdrawals_df.iterrows():
+                d = row['Date/Executed_Date']
+                if pd.notna(d):
+                    events.append((d.date(), float(row['Out/Transaction_value'])))
+
+        # 2. Manual CashTransactions — any currency, convert to ILS
+        cash_df = DataBase().get_Cash_Transactions()
+        if not cash_df.empty:
+            cash_df['Execution_Date'] = pd.to_datetime(cash_df['Execution_Date'], errors='coerce')
+            for _, row in cash_df.iterrows():
+                d = row['Execution_Date']
+                if pd.notna(d):
+                    cur  = str(row.get('Currency', 'ILS') or 'ILS').strip().upper()
+                    rate = _fx_to_ils.get(cur, 1.0)
+                    events.append((d.date(), float(row['Amount']) * rate))
+
+        if not events:
+            return []
+
+        events.sort(key=lambda x: x[0])
+
+        # Generate first-of-each-month dates from earliest event to today
+        today = _date.today()
+        cur_m = events[0][0].replace(day=1)
+        months = []
+        while cur_m <= today:
+            months.append(cur_m)
+            if cur_m.month == 12:
+                cur_m = cur_m.replace(year=cur_m.year + 1, month=1)
+            else:
+                cur_m = cur_m.replace(month=cur_m.month + 1)
+
+        # Cumulative balance at each month start (events strictly before that month)
+        result = []
+        ev_idx = 0
+        cumulative = 0.0
+        for m in months:
+            while ev_idx < len(events) and events[ev_idx][0] < m:
+                cumulative += events[ev_idx][1]
+                ev_idx += 1
+            result.append((_dt2.combine(m, _dt2.min.time()), round(cumulative, 2)))
+
+        # Final point: today's full balance (all remaining events)
+        while ev_idx < len(events):
+            cumulative += events[ev_idx][1]
+            ev_idx += 1
+        from datetime import datetime as _dt3
+        result.append((_dt3.now(), round(cumulative, 2)))
+
+        return result
     
     @staticmethod
     def get_cash_transactions(datetime: datetime | None = None) -> pd.DataFrame:
@@ -4165,21 +4250,27 @@ document.addEventListener('DOMContentLoaded', _initTxnFooter);
         from src_utils.calculations import SimpleMath
 
         bank_withdrawals_df = DataBase().get_transactions_by_category(ReservedNames.WHITDRAWAL_CATEGORY)
-        # Note: Only withdrawls are queried here, therefore, process_prices function is not needed.
-        # Convert 'Date/Executed_Date' to datetime before filtering
-        #utils.log(utils.df_to_markdown(bank_withdrawals_df), 'system')
-        bank_withdrawals_df['Date/Executed_Date'] = pd.to_datetime(bank_withdrawals_df['Date/Executed_Date'], errors='coerce')
+        # Only bank withdrawals represent physical cash received — exclude card transactions
+        # tagged 'withdrawal' to match the logic in accumulate_cash_Balance().
+        if not bank_withdrawals_df.empty:
+            bank_withdrawals_df = bank_withdrawals_df[bank_withdrawals_df['TableName'] == 'BankTransactions']
+        # Convert 'Date/Executed_Date' to datetime before filtering.
+        # Use dayfirst=True to handle Israeli DD/MM/YYYY and DD.MM.YYYY formats correctly.
+        bank_withdrawals_df['Date/Executed_Date'] = pd.to_datetime(
+            bank_withdrawals_df['Date/Executed_Date'], errors='coerce', dayfirst=True)
         bank_withdrawals_df = bank_withdrawals_df[
             (bank_withdrawals_df['Date/Executed_Date'].dt.month == datetime.month) &
             (bank_withdrawals_df['Date/Executed_Date'].dt.year == datetime.year)
         ]
-        #utils.log(datetime.strftime("Filtering cash transactions for: %B, %Y"), 'system')
         bank_withdrawals_df = bank_withdrawals_df[['ID','Date/Executed_Date', 'Out/Transaction_value', 'Name', 'Category']]
         bank_withdrawals_df = bank_withdrawals_df.rename(columns={'Date/Executed_Date': 'Execution_Date',
                                                                   'Out/Transaction_value': 'Amount',})
 
         cash_df = DataBase().get_Cash_Transactions(datetime)
-        #convet date column to datetime
+        # Exclude filler transactions — they represent balance adjustments (all-time gap), not
+        # real monthly income or spending. Including them would inflate the monthly totals.
+        if not cash_df.empty and hasattr(ReservedNames, 'CASH_FILLER_CATEGORY'):
+            cash_df = cash_df[cash_df['Category'] != ReservedNames.CASH_FILLER_CATEGORY]
         cash_df['Execution_Date'] = pd.to_datetime(cash_df['Execution_Date'], errors='coerce')
 
         cash_df = cash_df[['ID', 'Execution_Date', 'Amount', 'Name', 'Category']]

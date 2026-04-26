@@ -572,27 +572,50 @@ body {
 .cash-pie-sublabel { font-size: .7em; color: var(--text-muted); margin-top: 2px; }
 .cash-legend { flex: 1; display: flex; flex-direction: column; gap: 8px; min-width: 180px; }
 .cash-legend-row {
-  display: flex; align-items: center; gap: 12px;
-  padding: 9px 14px; border-radius: var(--radius-sm);
+  display: grid;
+  grid-template-columns: 12px 40px 1fr 1fr 46px;
+  align-items: center; gap: 6px;
+  padding: 7px 10px; border-radius: var(--radius-sm);
   background: var(--bg); transition: background .12s;
 }
 .cash-legend-row:hover { background: var(--teal-light); }
 .cash-legend-dot {
-  width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+  width: 10px; height: 10px; border-radius: 50%;
+  justify-self: center;
 }
 .cash-legend-cur {
-  font-weight: 700; font-size: .9em; color: var(--navy); flex: 1;
+  font-weight: 700; font-size: .85em; color: var(--navy);
 }
-.cash-legend-val {
-  font-weight: 600; font-size: .88em;
-  font-variant-numeric: tabular-nums; color: var(--navy);
+.cash-legend-orig {
+  font-size: .82em; color: var(--text-muted);
+  font-variant-numeric: tabular-nums; text-align: start;
+}
+.cash-legend-ils {
+  font-weight: 600; font-size: .88em; color: var(--navy);
+  font-variant-numeric: tabular-nums; text-align: start;
 }
 .cash-legend-pct {
   font-size: .75em; color: var(--text-muted);
   background: var(--white); border-radius: 10px;
-  padding: 1px 7px; white-space: nowrap;
-  font-variant-numeric: tabular-nums;
+  padding: 1px 6px; white-space: nowrap;
+  font-variant-numeric: tabular-nums; text-align: center;
 }
+.cash-rates-panel {
+  margin-top: 14px; padding: 10px 14px;
+  background: var(--bg); border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+.cash-rates-title {
+  font-size: .78em; color: var(--text-muted);
+  font-weight: 600; margin-bottom: 6px;
+}
+.cash-rate-row {
+  display: flex; align-items: center; gap: 8px;
+  font-size: .82em; padding: 2px 0;
+}
+.cash-rate-cur { font-weight: 700; color: var(--navy); min-width: 36px; }
+.cash-rate-arrow { color: var(--text-muted); }
+.cash-rate-val { font-variant-numeric: tabular-nums; color: var(--teal); font-weight: 600; }
 .cash-pie-empty {
   text-align: center; color: var(--text-muted);
   font-size: .88em; padding: 36px 20px;
@@ -1217,7 +1240,7 @@ body {
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js">
   </script>
  </head>
- <body data-generated="25/04/2026 21:03" data-month="2026_04">
+ <body data-generated="26/04/2026 17:55" data-month="2026_04">
   <!-- Hamburger -->
   <button aria-label="תפריט" class="ham-btn" id="ham-btn" onclick="toggleNav()">
    <svg fill="none" height="14" viewbox="0 0 18 14" width="18">
@@ -1409,7 +1432,7 @@ body {
        (function(){
   new Chart(document.getElementById('chart-earnings-donut'), {
     type: 'doughnut',
-    data: {"labels": ["NotCategorized", "אוכל בחוץ", "אחר", "טיפוח ורפואה", "מזומן", "משכורת", "עמלות", "שיעורים פרטיים", "שלום שבאזי 7"], "datasets": [{"data": [90.0, 82.0, 49.32, 469.0, 500.0, 15580.74, 33.37, 150.0, 3177.0], "backgroundColor": ["#a5d6a7", "#80cbc4", "#90caf9", "#80deea", "#c5e1a5", "#b3e5fc", "#b2dfdb", "#a5f3d0", "#81d4fa"], "borderWidth": 1, "borderColor": "#fff", "hoverOffset": 8}]},
+    data: {"labels": ["NotCategorized", "אוכל בחוץ", "אחר", "טיפוח ורפואה", "מזומן", "משכורת", "עמלות", "שיעורים פרטיים", "שלום שבאזי 7"], "datasets": [{"data": [90.0, 82.0, 49.32, 469.0, 207069.0, 15580.74, 33.37, 150.0, 3177.0], "backgroundColor": ["#a5d6a7", "#80cbc4", "#90caf9", "#80deea", "#c5e1a5", "#b3e5fc", "#b2dfdb", "#a5f3d0", "#81d4fa"], "borderWidth": 1, "borderColor": "#fff", "hoverOffset": 8}]},
     options: {
       responsive: true, maintainAspectRatio: false,
       cutout: '68%',
@@ -1511,6 +1534,14 @@ body {
        </li>
        <li class="outlier-item">
         <span class="outlier-name">
+         טיפוח ורפואה
+        </span>
+        <span class="outlier-value">
+         469.00₪
+        </span>
+       </li>
+       <li class="outlier-item">
+        <span class="outlier-name">
          עמלות
         </span>
         <span class="outlier-value">
@@ -1523,6 +1554,14 @@ body {
         </span>
         <span class="outlier-value">
          150.00₪
+        </span>
+       </li>
+       <li class="outlier-item">
+        <span class="outlier-name">
+         שלום שבאזי7
+        </span>
+        <span class="outlier-value">
+         3,177.00₪
         </span>
        </li>
       </ul>
@@ -1591,7 +1630,7 @@ body {
        (function(){
   new Chart(document.getElementById('chart-cash-donut'), {
     type: 'doughnut',
-    data: {"labels": ["הכנסה  ₪500", "הוצאה  ₪0"], "datasets": [{"data": [500.0, 0.0], "backgroundColor": ["#a5d6a7", "#ef9a9a"], "borderWidth": 1, "borderColor": "#fff", "hoverOffset": 8}]},
+    data: {"labels": ["הכנסה  ₪207,069", "הוצאה  ₪0"], "datasets": [{"data": [207069.0, 0.0], "backgroundColor": ["#a5d6a7", "#ef9a9a"], "borderWidth": 1, "borderColor": "#fff", "hoverOffset": 8}]},
     options: {
       responsive: true, maintainAspectRatio: false,
       cutout: '68%',
@@ -2515,6 +2554,60 @@ body {
          Monday 20
         </p>
        </div>
+       <div class="num" data-value="18">
+        <div class="color-box" style="background-color:#ECCD1F">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          תיקון יתרה – EUR
+         </span>
+        </h3>
+        <p class="date">
+         150.00₪
+        </p>
+        <p class="cat">
+         cash_filler
+        </p>
+        <p class="element4">
+         Saturday 25
+        </p>
+       </div>
+       <div class="num" data-value="17">
+        <div class="color-box" style="background-color:#ECCD1F">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          תיקון יתרה – ILS
+         </span>
+        </h3>
+        <p class="date">
+         6,419.00₪
+        </p>
+        <p class="cat">
+         cash_filler
+        </p>
+        <p class="element4">
+         Saturday 25
+        </p>
+       </div>
+       <div class="num" data-value="16">
+        <div class="color-box" style="background-color:#ECCD1F">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          תיקון יתרה – JPY
+         </span>
+        </h3>
+        <p class="date">
+         200,000.00₪
+        </p>
+        <p class="cat">
+         cash_filler
+        </p>
+        <p class="element4">
+         Saturday 25
+        </p>
+       </div>
        <div class="num" data-value="15">
         <div class="color-box" style="background-color:#ECCD1F">
         </div>
@@ -2540,7 +2633,7 @@ body {
        <span>
         סה"כ:
         <strong id="earnings-sum">
-         20,131.43₪
+         226,700.43₪
         </strong>
        </span>
       </div>
@@ -2786,22 +2879,30 @@ body {
          Cash
         </td>
         <td>
-         14,645.00₪
+         7,334.50₪
         </td>
         <td class="acct-rate-cell">
          —
         </td>
-        <td class="acct-change-neu">
-         —
+        <td class="acct-change-pos">
+         <span>
+          +11,190₪
+         </span>
+         <span class="acct-pct-badge acct-pct-pos">
+          +290.3%
+         </span>
         </td>
         <td class="acct-change-neu">
          —
         </td>
         <td>
-         2026-04-25
+         2026-04-26
         </td>
         <td class="acct-detail-cell">
-         —
+         <svg class="acct-spark" height="22" viewbox="0 0 64 22" width="64" xmlns="http://www.w3.org/2000/svg">
+          <polyline fill="none" points="1.0,15.4 6.6,8.7 12.3,2.0 17.9,20.0 23.5,19.9 29.2,19.9 34.8,19.9 40.5,19.9 46.1,19.9 51.7,19.9 57.4,19.7 63.0,7.2" stroke="#43a047" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5">
+          </polyline>
+         </svg>
         </td>
        </tr>
        <tr class="acct-subtotal">
@@ -2809,7 +2910,7 @@ body {
          סה"כ כללי
         </td>
         <td>
-         32,241.56₪
+         24,931.06₪
         </td>
         <td>
         </td>
@@ -3030,7 +3131,7 @@ body {
          סה"כ כל החשבונות
         </td>
         <td>
-         702,449.37₪
+         695,138.87₪
         </td>
         <td>
         </td>
@@ -3060,7 +3161,7 @@ body {
   const ctx = document.getElementById('acct-chart-canvas').getContext('2d');
   new Chart(ctx, {
     type: 'line',
-    data: {"labels": ["2025-04-30", "2025-05-07", "2025-05-08", "2025-05-24", "2025-05-29", "2025-05-31", "2025-06-21", "2025-06-26", "2025-06-30", "2025-07-19", "2025-07-31", "2025-08-01", "2025-08-07", "2025-08-31", "2025-09-01", "2025-09-13", "2025-09-30", "2025-10-01", "2025-10-25", "2025-10-30", "2025-10-31", "2025-11-01", "2025-11-30", "2025-12-01", "2025-12-31", "2026-01-01", "2026-01-30", "2026-01-31", "2026-02-01", "2026-02-26", "2026-02-28", "2026-03-01", "2026-03-30", "2026-03-31", "2026-04-01", "2026-04-11", "2026-04-13", "2026-04-19", "2026-04-20", "2026-04-24", "2026-04-25"], "datasets": [{"label": "Main Bank", "data": [22979.36, null, null, null, 164022.96, null, null, null, 19816.77, null, 33352.01, null, null, 53803.25, null, null, 54880.87, null, null, 52403.51, null, null, 37620.61, null, 27244.34, null, 28722.22, null, null, 31836.39, null, null, 45896.96, null, null, null, null, null, 17596.56, null, null], "borderColor": "#90caf9", "backgroundColor": "#90caf9", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "BeinLeumi Invest", "data": [231330.0, 71456.0, null, null, null, null, null, 0.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], "borderColor": "#ffcc80", "backgroundColor": "#ffcc80", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Analyst", "data": [101864.0, null, null, null, null, 108123.0, null, null, 114949.0, null, 148919.0, null, null, 151284.0, null, null, 157523.0, null, null, null, 161771.0, null, null, null, null, null, null, 173231.0, null, null, 174574.0, null, null, 168222.0, null, null, null, null, null, null, null], "borderColor": "#a5d6a7", "backgroundColor": "#a5d6a7", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "BTB", "data": [null, null, 160548.0, 160930.0, null, null, 161615.0, null, null, 162358.0, null, null, null, null, null, 163895.0, null, null, 165013.0, null, null, null, 166104.0, null, null, null, null, null, null, null, null, 168733.0, null, null, null, 169610.0, null, null, null, 169884.09, null], "borderColor": "#ef9a9a", "backgroundColor": "#ef9a9a", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Altshuler", "data": [null, null, null, null, null, null, null, null, null, null, null, null, 0.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], "borderColor": "#ce93d8", "backgroundColor": "#ce93d8", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Interactive Brokers", "data": [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 0.0, 10000.0, null, 10056.72, null], "borderColor": "#b0bec5", "backgroundColor": "#b0bec5", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Analyst (Yuval)", "data": [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 20000.0, null, null, null, null], "borderColor": "#f48fb1", "backgroundColor": "#f48fb1", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Total", "data": [356173.36, 196299.36, 356847.36, 357229.36, 498272.96, 504531.96, 505216.96, 433760.96, 296380.77, 297123.77, 344629.01, 603985.01, 603985.01, 626801.25, 631569.25, 633106.25, 640422.87, 645209.87, 646327.87, 643850.51, 648098.51, 652905.51, 639213.61, 644039.61, 633663.34, 638509.34, 639987.22, 651447.22, 656313.22, 659427.39, 660770.39, 668284.39, 682344.96, 675992.96, 684896.96, 685773.96, 705773.96, 715773.96, 687473.56, 687804.37, 702449.37], "borderColor": "#80deea", "backgroundColor": "#80deea", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Cash", "data": [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 14645.0], "borderColor": "#e6ee9c", "backgroundColor": "#e6ee9c", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "נכס שלום שבזי", "data": [null, null, null, null, null, null, null, null, null, null, null, 259356.0, null, null, 264124.0, null, null, 268911.0, null, null, null, 273718.0, null, 278544.0, null, 283390.0, null, null, 288256.0, null, null, 293141.0, null, null, 302045.0, null, null, null, null, null, null], "borderColor": "#ffab91", "backgroundColor": "#ffab91", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}]},
+    data: {"labels": ["2025-04-30", "2025-05-07", "2025-05-08", "2025-05-24", "2025-05-29", "2025-05-31", "2025-06-01", "2025-06-21", "2025-06-26", "2025-06-30", "2025-07-01", "2025-07-19", "2025-07-31", "2025-08-01", "2025-08-07", "2025-08-31", "2025-09-01", "2025-09-13", "2025-09-30", "2025-10-01", "2025-10-25", "2025-10-30", "2025-10-31", "2025-11-01", "2025-11-30", "2025-12-01", "2025-12-31", "2026-01-01", "2026-01-30", "2026-01-31", "2026-02-01", "2026-02-26", "2026-02-28", "2026-03-01", "2026-03-30", "2026-03-31", "2026-04-01", "2026-04-11", "2026-04-13", "2026-04-19", "2026-04-20", "2026-04-24", "2026-04-26"], "datasets": [{"label": "Main Bank", "data": [22979.36, null, null, null, 164022.96, null, null, null, null, 19816.77, null, null, 33352.01, null, null, 53803.25, null, null, 54880.87, null, null, 52403.51, null, null, 37620.61, null, 27244.34, null, 28722.22, null, null, 31836.39, null, null, 45896.96, null, null, null, null, null, 17596.56, null, null], "borderColor": "#90caf9", "backgroundColor": "#90caf9", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "BeinLeumi Invest", "data": [231330.0, 71456.0, null, null, null, null, null, null, 0.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], "borderColor": "#ffcc80", "backgroundColor": "#ffcc80", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Analyst", "data": [101864.0, null, null, null, null, 108123.0, null, null, null, 114949.0, null, null, 148919.0, null, null, 151284.0, null, null, 157523.0, null, null, null, 161771.0, null, null, null, null, null, null, 173231.0, null, null, 174574.0, null, null, 168222.0, null, null, null, null, null, null, null], "borderColor": "#a5d6a7", "backgroundColor": "#a5d6a7", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "BTB", "data": [null, null, 160548.0, 160930.0, null, null, null, 161615.0, null, null, null, 162358.0, null, null, null, null, null, 163895.0, null, null, 165013.0, null, null, null, 166104.0, null, null, null, null, null, null, null, null, 168733.0, null, null, null, 169610.0, null, null, null, 169884.09, null], "borderColor": "#ef9a9a", "backgroundColor": "#ef9a9a", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Altshuler", "data": [null, null, null, null, null, null, null, null, null, null, null, null, null, null, 0.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], "borderColor": "#ce93d8", "backgroundColor": "#ce93d8", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Interactive Brokers", "data": [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 0.0, 10000.0, null, 10056.72, null], "borderColor": "#b0bec5", "backgroundColor": "#b0bec5", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Analyst (Yuval)", "data": [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 20000.0, null, null, null, null], "borderColor": "#f48fb1", "backgroundColor": "#f48fb1", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Total", "data": [356173.36, 196299.36, 356847.36, 357229.36, 498272.96, 504531.96, 504531.96, 505216.96, 433760.96, 296380.77, 302380.77, 303123.77, 350629.01, 615985.01, 615985.01, 638801.25, 627414.25, 628951.25, 636267.87, 641154.87, 642272.87, 639795.51, 644043.51, 648850.51, 635158.61, 639984.61, 629608.34, 634454.34, 635932.22, 647392.22, 652258.22, 655372.39, 656715.39, 664229.39, 678289.96, 671937.96, 681041.96, 681918.96, 701918.96, 711918.96, 683618.56, 683949.37, 695138.87], "borderColor": "#80deea", "backgroundColor": "#80deea", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Cash", "data": [null, null, null, null, null, null, 0.0, null, null, null, 6000.0, null, null, 12000.0, null, null, -4155.0, null, null, -4055.0, null, null, null, -4055.0, null, -4055.0, null, -4055.0, null, null, -4055.0, null, null, -4055.0, null, null, -3855.0, null, null, null, null, null, 7334.5], "borderColor": "#e6ee9c", "backgroundColor": "#e6ee9c", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "נכס שלום שבזי", "data": [null, null, null, null, null, null, null, null, null, null, null, null, null, 259356.0, null, null, 264124.0, null, null, 268911.0, null, null, null, 273718.0, null, 278544.0, null, 283390.0, null, null, 288256.0, null, null, 293141.0, null, null, 302045.0, null, null, null, null, null, null], "borderColor": "#ffab91", "backgroundColor": "#ffab91", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}]},
     options: {
       responsive: true,
       maintainAspectRatio: false,
@@ -5304,11 +5405,11 @@ function _enrichAcctTable() {
     }
   });
 }
-// Hook into showPanel to load rates + cash pie when accounts tab opens
+// Hook into showPanel to load rates + cash pie + trend when accounts tab opens
 var _origShowPanel = showPanel;
 showPanel = function(name, btn) {
   _origShowPanel(name, btn);
-  if (name === 'accounts') { _loadFxAndEnrich(); _loadCashPie(); }
+  if (name === 'accounts') { _loadFxAndEnrich(); _loadCashPie(); _updateCashInTrendChart(); }
 };
 
 // ── Cash-by-currency donut chart ─────────────────────────────
@@ -5316,101 +5417,227 @@ var _cashPieLoaded = false;
 var _cashPieChart  = null;
 var _PIE_PALETTE   = ['#1e9d8b','#4d9de0','#e85d04','#9b59b6','#f0b429','#2ecc71','#e74c3c','#b0bec5'];
 
+// Update the Cash row + כללי subtotal + grand total in the accounts table
+function _updateCashAcctRow(ilsTotal) {
+  var trs = Array.from(document.querySelectorAll('#accounts-table tr'));
+  var delta = null;
+
+  // 1. Update Cash balance cell and record delta
+  trs.forEach(function(row) {
+    var cells = row.querySelectorAll('td');
+    if (cells.length > 1 && cells[0].textContent.trim() === 'Cash') {
+      var oldVal = parseFloat(cells[1].textContent.replace(/[^\d.-]/g, '')) || 0;
+      var newStr = Math.round(ilsTotal).toLocaleString('he-IL') + '₪';
+      cells[1].textContent = newStr;
+      delta = ilsTotal - oldVal;
+    }
+  });
+
+  if (delta === null || Math.abs(delta) < 0.5) return;
+
+  // 2. Update כללי subtotal and grand total by adding the delta
+  trs.forEach(function(row) {
+    var cells = row.querySelectorAll('td');
+    if (!cells.length) return;
+    var isSubtotal = row.classList.contains('acct-subtotal');
+    var isTotal    = row.classList.contains('acct-total');
+    if ((isSubtotal || isTotal) && cells.length > 1) {
+      var text = cells[1].textContent;
+      var oldVal = parseFloat(text.replace(/[^\d.-]/g, '')) || 0;
+      cells[1].textContent = Math.round(oldVal + delta).toLocaleString('he-IL') + '₪';
+    }
+  });
+}
+
 function _loadCashPie() {
   if (_cashPieLoaded) return;
   _cashPieLoaded = true;
   var wrap = document.getElementById('cash-pie-inner');
   if (!wrap) return;
 
-  fetch('/api/accounts/cash-by-currency')
-    .then(function(r) { return r.json(); })
-    .then(function(data) {
-      if (!data.ok) {
-        wrap.innerHTML = '<div class="cash-pie-empty"><div class="cash-empty-icon">⚠</div>שגיאה בטעינה</div>';
-        return;
-      }
-      var all  = data.data || [];
-      var rows = all.filter(function(r) { return r.balance > 0; });
+  function doRender(rates) {
+    fetch('/api/accounts/cash-by-currency')
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (!data.ok) {
+          wrap.innerHTML = '<div class="cash-pie-empty"><div class="cash-empty-icon">⚠</div>שגיאה בטעינה</div>';
+          return;
+        }
+        var all  = data.data || [];
+        var rows = all.filter(function(r) { return r.balance > 0; });
 
-      if (!rows.length) {
-        var balStr = all.map(function(r) { return r.symbol + r.balance.toLocaleString('he-IL'); }).join(' | ');
-        wrap.innerHTML =
-          '<div class="cash-pie-empty">' +
-            '<div class="cash-empty-icon">💵</div>' +
-            'אין יתרת מזומן חיובית' +
-            (balStr ? '<div class="cash-empty-sub">יתרה כוללת: ' + balStr + '</div>' : '') +
+        if (!rows.length) {
+          var balStr = all.map(function(r) { return r.symbol + r.balance.toLocaleString('he-IL'); }).join(' | ');
+          wrap.innerHTML =
+            '<div class="cash-pie-empty">' +
+              '<div class="cash-empty-icon">💵</div>' +
+              'אין יתרת מזומן חיובית' +
+              (balStr ? '<div class="cash-empty-sub">יתרה כוללת: ' + balStr + '</div>' : '') +
+            '</div>';
+          return;
+        }
+
+        // Convert each balance to ILS using live rates
+        rows.forEach(function(r) {
+          var rate = (rates && rates[r.currency]) || 1.0;
+          r.rate   = rate;
+          r.ils    = Math.round(r.balance * rate);
+        });
+        var ilsTotal = rows.reduce(function(s, r) { return s + r.ils; }, 0);
+
+        var colors = _PIE_PALETTE.slice(0, rows.length);
+
+        // Legend rows — grid-aligned columns: dot | cur | original | ILS | pct
+        var legendHtml = rows.map(function(r, i) {
+          var pct     = ilsTotal > 0 ? (r.ils / ilsTotal * 100).toFixed(1) : '0.0';
+          var origStr = r.currency !== 'ILS'
+            ? r.symbol + Math.round(r.balance).toLocaleString('he-IL')
+            : '';
+          return '<div class="cash-legend-row">' +
+            '<div class="cash-legend-dot" style="background:' + colors[i] + '"></div>' +
+            '<div class="cash-legend-cur">' + r.currency + '</div>' +
+            '<div class="cash-legend-orig">' + origStr + '</div>' +
+            '<div class="cash-legend-ils">₪' + r.ils.toLocaleString('he-IL') + '</div>' +
+            '<div class="cash-legend-pct">' + pct + '%</div>' +
           '</div>';
-        return;
-      }
+        }).join('');
 
-      var total  = rows.reduce(function(s,r) { return s + r.balance; }, 0);
-      var colors = _PIE_PALETTE.slice(0, rows.length);
+        // Exchange-rate panel — show reverse rate: ₪1 = X [currency]
+        var nonIls = rows.filter(function(r) { return r.currency !== 'ILS'; });
+        var ratesHtml = nonIls.length
+          ? '<div class="cash-rates-panel"><div class="cash-rates-title">שערי חליפין</div>' +
+            nonIls.map(function(r) {
+              var rev = 1 / r.rate;
+              var revStr = rev > 100 ? Math.round(rev).toString()
+                         : rev > 10  ? rev.toFixed(1)
+                         : rev.toFixed(3);
+              return '<div class="cash-rate-row">' +
+                '<span class="cash-rate-cur">₪1</span>' +
+                '<span class="cash-rate-arrow">=</span>' +
+                '<span class="cash-rate-val">' + r.symbol + revStr + '</span>' +
+              '</div>';
+            }).join('') + '</div>'
+          : '';
 
-      // Legend HTML
-      var legendHtml = rows.map(function(r, i) {
-        var pct = total > 0 ? (r.balance / total * 100).toFixed(1) : '0.0';
-        var valStr = r.symbol + Math.round(r.balance).toLocaleString('he-IL');
-        return '<div class="cash-legend-row">' +
-          '<div class="cash-legend-dot" style="background:' + colors[i] + '"></div>' +
-          '<div class="cash-legend-cur">' + r.currency + '</div>' +
-          '<div class="cash-legend-val">' + valStr + '</div>' +
-          '<div class="cash-legend-pct">' + pct + '%</div>' +
-        '</div>';
-      }).join('');
-
-      // Total label in center (ILS equiv if single currency, or sum symbol)
-      var firstSym = rows[0].symbol;
-      var totalStr = firstSym + Math.round(total).toLocaleString('he-IL');
-
-      wrap.innerHTML =
-        '<div class="cash-pie-layout">' +
-          '<div class="cash-pie-canvas-wrap">' +
-            '<canvas id="cash-donut-canvas"></canvas>' +
-            '<div class="cash-pie-center">' +
-              '<div class="cash-pie-total">' + totalStr + '</div>' +
-              '<div class="cash-pie-sublabel">סה"כ מזומן</div>' +
+        wrap.innerHTML =
+          '<div class="cash-pie-layout">' +
+            '<div class="cash-pie-canvas-wrap">' +
+              '<canvas id="cash-donut-canvas"></canvas>' +
+              '<div class="cash-pie-center">' +
+                '<div class="cash-pie-total">₪' + ilsTotal.toLocaleString('he-IL') + '</div>' +
+                '<div class="cash-pie-sublabel">סה"כ מזומן</div>' +
+              '</div>' +
             '</div>' +
-          '</div>' +
-          '<div class="cash-legend">' + legendHtml + '</div>' +
-        '</div>';
+            '<div class="cash-legend">' + legendHtml + ratesHtml + '</div>' +
+          '</div>';
 
-      var canvas = document.getElementById('cash-donut-canvas');
-      if (!canvas || typeof Chart === 'undefined') return;
-      _cashPieChart = new Chart(canvas.getContext('2d'), {
-        type: 'doughnut',
-        data: {
-          labels: rows.map(function(r) { return r.currency; }),
-          datasets: [{
-            data:            rows.map(function(r) { return r.balance; }),
-            backgroundColor: colors,
-            borderWidth:     0,
-            hoverOffset:     8,
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          cutout: '70%',
-          plugins: {
-            legend: { display: false },
-            tooltip: {
-              rtl: true,
-              callbacks: {
-                label: function(ctx) {
-                  var r   = rows[ctx.dataIndex];
-                  var pct = total > 0 ? (ctx.parsed / total * 100).toFixed(1) : '0.0';
-                  return r.currency + ': ' + r.symbol + ctx.parsed.toLocaleString('he-IL') + ' (' + pct + '%)';
+        // Update the Cash balance cell in the accounts table
+        _updateCashAcctRow(ilsTotal);
+
+        var canvas = document.getElementById('cash-donut-canvas');
+        if (!canvas || typeof Chart === 'undefined') return;
+        _cashPieChart = new Chart(canvas.getContext('2d'), {
+          type: 'doughnut',
+          data: {
+            labels: rows.map(function(r) { return r.currency; }),
+            datasets: [{
+              data:            rows.map(function(r) { return r.ils; }),
+              backgroundColor: colors,
+              borderWidth:     0,
+              hoverOffset:     8,
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '70%',
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                rtl: true,
+                callbacks: {
+                  label: function(ctx) {
+                    var r   = rows[ctx.dataIndex];
+                    var pct = ilsTotal > 0 ? (ctx.parsed / ilsTotal * 100).toFixed(1) : '0.0';
+                    var orig = r.symbol + Math.round(r.balance).toLocaleString('he-IL');
+                    var ils  = '₪' + ctx.parsed.toLocaleString('he-IL');
+                    return r.currency + ': ' + orig +
+                      (r.currency !== 'ILS' ? ' ≈ ' + ils : '') +
+                      ' (' + pct + '%)';
+                  }
                 }
               }
             }
           }
-        }
+        });
+      })
+      .catch(function() {
+        var w = document.getElementById('cash-pie-inner');
+        if (w) w.innerHTML = '<div class="cash-pie-empty">שגיאת טעינה</div>';
       });
+  }
+
+  // Use already-loaded rates; otherwise fetch them first
+  if (_fxRates) {
+    doRender(_fxRates);
+  } else {
+    fetch('/api/accounts/rates')
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (!_fxRates) { _fxRates = d.rates || {}; _acctCurrencies = d.currencies || {}; }
+        doRender(_fxRates);
+      })
+      .catch(function() { doRender({}); });
+  }
+}
+
+// ── Cash monthly history in מגמת יתרות chart ──────────────────
+var _cashTrendLoaded = false;
+function _updateCashInTrendChart() {
+  if (_cashTrendLoaded) return;
+  _cashTrendLoaded = true;
+  fetch('/api/cash/monthly-history')
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (!d.ok || !d.data || !d.data.length) return;
+      var canvas = document.getElementById('acct-chart-canvas');
+      if (!canvas || typeof Chart === 'undefined') return;
+      var chart = Chart.getChart ? Chart.getChart(canvas) : null;
+      if (!chart) return;
+
+      // Build new-date → balance map
+      var cashMap = {};
+      d.data.forEach(function(pt) { cashMap[pt.date] = pt.balance; });
+
+      // Merge existing labels with new cash dates
+      var existingLabels = chart.data.labels.slice();
+      var allDatesObj = {};
+      existingLabels.forEach(function(l) { allDatesObj[l] = true; });
+      d.data.forEach(function(pt) { allDatesObj[pt.date] = true; });
+      var sortedDates = Object.keys(allDatesObj).sort();
+
+      // If new dates were added, remap all other datasets first
+      if (sortedDates.length !== existingLabels.length) {
+        chart.data.datasets.forEach(function(ds) {
+          var oldMap = {};
+          existingLabels.forEach(function(l, i) { oldMap[l] = ds.data[i]; });
+          ds.data = sortedDates.map(function(l) {
+            return (oldMap[l] !== undefined ? oldMap[l] : null);
+          });
+        });
+        chart.data.labels = sortedDates;
+      }
+
+      // Replace Cash dataset data with full monthly history
+      var cashDs = chart.data.datasets.find(function(ds) { return ds.label === 'Cash'; });
+      if (cashDs) {
+        cashDs.data = chart.data.labels.map(function(l) {
+          return (cashMap[l] !== undefined ? cashMap[l] : null);
+        });
+      }
+      chart.update();
     })
-    .catch(function() {
-      var w = document.getElementById('cash-pie-inner');
-      if (w) w.innerHTML = '<div class="cash-pie-empty">שגיאת טעינה</div>';
-    });
+    .catch(function() {});
 }
   </script>
   <!-- ── Cash: Add Transaction modal ─────────────────────────────────────── -->
@@ -5432,7 +5659,9 @@ function _loadCashPie() {
      <div class="cash-form-row">
       <label class="cash-form-label" style="display:flex;align-items:center;gap:4px">
        סכום *
-       <i class="cash-info-icon" data-tip="שלילי = הוצאה  |  חיובי = הכנסה">i</i>
+       <i class="cash-info-icon" data-tip="שלילי = הוצאה  |  חיובי = הכנסה">
+        i
+       </i>
       </label>
       <input class="cash-form-input" id="cash-add-amount" placeholder="0.00" required="" step="0.01" type="number"/>
      </div>
@@ -5459,7 +5688,9 @@ function _loadCashPie() {
        קטגוריה
       </label>
       <select class="cash-form-input" id="cash-add-cat">
-       <option value="NotCategorized">NotCategorized</option>
+       <option value="NotCategorized">
+        NotCategorized
+       </option>
       </select>
      </div>
      <div class="cash-form-row">
@@ -5642,7 +5873,7 @@ function _makeCurPicker(inpId, dropId, srchId, hidId) {
     drop.style.width  = rect.width + 'px';
     drop.style.left   = rect.left  + 'px';
     var spaceBelow = window.innerHeight - rect.bottom;
-    var dropH = 204; // max-height
+    var dropH = 204;
     if (spaceBelow < dropH && rect.top > dropH) {
       drop.style.top    = '';
       drop.style.bottom = (window.innerHeight - rect.top + 4) + 'px';

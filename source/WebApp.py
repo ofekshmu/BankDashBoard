@@ -928,6 +928,91 @@ def cash_add_transaction():
         return jsonify({'ok': False, 'error': str(e)})
 
 
+@app.route('/api/cash/monthly-history')
+def cash_monthly_history_api():
+    """Return accumulated cash balance (ILS) sampled at the first of each month."""
+    try:
+        import sqlite3 as _sq, re as _re2, urllib.request as _ureq, json as _json_fx
+        from datetime import date as _date, datetime as _dt
+
+        db_candidates = [_DB_PATH, os.path.join(_HERE, 'ShmuelFamiliy.db')]
+        db_file = next((p for p in db_candidates if os.path.exists(p)), None)
+        if not db_file:
+            return jsonify({'ok': False, 'error': 'database not found'})
+
+        # Live FX rates (currency → ILS multiplier)
+        try:
+            with _ureq.urlopen('https://api.exchangerate-api.com/v4/latest/ILS', timeout=5) as _r:
+                _ils_to_x = _json_fx.loads(_r.read()).get('rates', {})
+            _fx_to_ils = {c: 1.0 / r for c, r in _ils_to_x.items() if r}
+            _fx_to_ils['ILS'] = 1.0
+        except Exception:
+            _fx_to_ils = {'ILS': 1.0, 'USD': 3.72, 'EUR': 4.01, 'JPY': 0.025}
+
+        events = []  # [(date, ils_amount)]
+
+        conn = _sq.connect(db_file)
+        c = conn.cursor()
+
+        # Bank withdrawals (always ILS)
+        c.execute("SELECT Date, Out FROM BankTransactions WHERE Category = 'withdrawal' AND Date IS NOT NULL")
+        for d_str, out_val in c.fetchall():
+            try:
+                d = _dt.strptime(str(d_str)[:10], '%Y-%m-%d').date()
+                events.append((d, float(out_val or 0)))
+            except Exception:
+                pass
+
+        # Manual CashTransactions
+        c.execute("SELECT Execution_Date, Amount, Currency FROM CashTransactions")
+        for d_str, amount, cur_code in c.fetchall():
+            try:
+                d = _dt.strptime(str(d_str)[:10], '%Y-%m-%d').date()
+                m = _re2.match(r'([A-Z]+)', (cur_code or '').strip())
+                code = m.group(1) if m else 'ILS'
+                rate = _fx_to_ils.get(code, 1.0)
+                events.append((d, float(amount or 0) * rate))
+            except Exception:
+                pass
+
+        conn.close()
+
+        if not events:
+            return jsonify({'ok': True, 'data': []})
+
+        events.sort(key=lambda x: x[0])
+
+        # First-of-each-month date range
+        today = _date.today()
+        cur_m = events[0][0].replace(day=1)
+        months = []
+        while cur_m <= today:
+            months.append(cur_m)
+            if cur_m.month == 12:
+                cur_m = cur_m.replace(year=cur_m.year + 1, month=1)
+            else:
+                cur_m = cur_m.replace(month=cur_m.month + 1)
+
+        result = []
+        ev_idx = 0
+        cumulative = 0.0
+        for m in months:
+            while ev_idx < len(events) and events[ev_idx][0] < m:
+                cumulative += events[ev_idx][1]
+                ev_idx += 1
+            result.append({'date': m.strftime('%Y-%m-%d'), 'balance': round(cumulative, 2)})
+
+        # Final point — today's complete balance
+        while ev_idx < len(events):
+            cumulative += events[ev_idx][1]
+            ev_idx += 1
+        result.append({'date': today.strftime('%Y-%m-%d'), 'balance': round(cumulative, 2)})
+
+        return jsonify({'ok': True, 'data': result})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
 @app.route('/api/cash/reconcile', methods=['POST'])
 def cash_reconcile():
     """Create filler cash transactions to close the gap between recorded and actual balance."""
@@ -952,7 +1037,7 @@ def cash_reconcile():
                 continue
             db.insert_Cash_Transaction(
                 name          = f'תיקון יתרה – {code}',
-                executed_date = _dt.now(),
+                executed_date = _dt.now().replace(microsecond=0),
                 amount        = gap,
                 currency      = code,
                 category      = ReservedNames.CASH_FILLER_CATEGORY,
@@ -2026,6 +2111,25 @@ def files_db_list():
             total_tx += r['Transaction_count'] or 0
 
         return jsonify({'ok': True, 'files': files, 'total_transactions': total_tx})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/files/delete', methods=['POST'])
+def files_delete():
+    """Delete a file entry and all its transactions from the database."""
+    body = request.get_json(force=True) or {}
+    name = (body.get('name') or '').strip()
+    fmt  = (body.get('format') or '').strip()
+    card = (body.get('card') or '').strip()
+    if not name or not fmt:
+        return jsonify({'ok': False, 'error': 'missing name or format'})
+    try:
+        from database import DataBase as _DB2
+        db = _DB2()
+        db.drop_file(name, fmt, card)
+        db.commit_changes()
+        return jsonify({'ok': True})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)})
 

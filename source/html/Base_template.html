@@ -551,10 +551,10 @@ body {
 /* ── Cash-currency pie ───────────────────────────────────── */
 .cash-pie-layout {
   display: flex; gap: 36px; align-items: center;
-  flex-wrap: wrap; padding: 8px 4px;
+  flex-wrap: wrap; padding: 14px 4px 8px; /* extra top padding so hover segments don't clip card title */
 }
 .cash-pie-canvas-wrap {
-  position: relative;
+  position: relative; overflow: visible; /* allow hoverOffset segments to draw beyond bounds */
   width: 220px; height: 220px; flex-shrink: 0;
 }
 .cash-pie-center {
@@ -568,10 +568,10 @@ body {
   font-variant-numeric: tabular-nums; line-height: 1.1;
 }
 .cash-pie-sublabel { font-size: .7em; color: var(--text-muted); margin-top: 2px; }
-.cash-legend { flex: 1; display: flex; flex-direction: column; gap: 8px; min-width: 180px; }
+.cash-legend { flex: 1; display: flex; flex-direction: column; gap: 8px; min-width: 200px; }
 .cash-legend-row {
   display: grid;
-  grid-template-columns: 12px 40px 1fr 1fr 46px;
+  grid-template-columns: 12px 40px 1fr auto 1fr 46px;
   align-items: center; gap: 6px;
   padding: 7px 10px; border-radius: var(--radius-sm);
   background: var(--bg); transition: background .12s;
@@ -588,6 +588,10 @@ body {
   font-size: .82em; color: var(--text-muted);
   font-variant-numeric: tabular-nums; text-align: start;
 }
+.cash-legend-rate {
+  font-size: .72em; color: var(--teal); font-weight: 600;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
 .cash-legend-ils {
   font-weight: 600; font-size: .88em; color: var(--navy);
   font-variant-numeric: tabular-nums; text-align: start;
@@ -598,22 +602,6 @@ body {
   padding: 1px 6px; white-space: nowrap;
   font-variant-numeric: tabular-nums; text-align: center;
 }
-.cash-rates-panel {
-  margin-top: 14px; padding: 10px 14px;
-  background: var(--bg); border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-}
-.cash-rates-title {
-  font-size: .78em; color: var(--text-muted);
-  font-weight: 600; margin-bottom: 6px;
-}
-.cash-rate-row {
-  display: flex; align-items: center; gap: 8px;
-  font-size: .82em; padding: 2px 0;
-}
-.cash-rate-cur { font-weight: 700; color: var(--navy); min-width: 36px; }
-.cash-rate-arrow { color: var(--text-muted); }
-.cash-rate-val { font-variant-numeric: tabular-nums; color: var(--teal); font-weight: 600; }
 .cash-pie-empty {
   text-align: center; color: var(--text-muted);
   font-size: .88em; padding: 36px 20px;
@@ -2331,37 +2319,29 @@ function _loadCashPie() {
 
         var colors = _PIE_PALETTE.slice(0, rows.length);
 
-        // Legend rows — grid-aligned columns: dot | cur | original | ILS | pct
+        // Legend rows — grid: dot | cur | original | rate | ILS | pct
         var legendHtml = rows.map(function(r, i) {
           var pct     = ilsTotal > 0 ? (r.ils / ilsTotal * 100).toFixed(1) : '0.0';
           var origStr = r.currency !== 'ILS'
             ? r.symbol + Math.round(r.balance).toLocaleString('he-IL')
             : '';
+          var rateStr = '';
+          if (r.currency !== 'ILS' && r.rate) {
+            var rev = 1 / r.rate;
+            var revStr = rev > 100 ? Math.round(rev).toString()
+                       : rev > 10  ? rev.toFixed(1)
+                       : rev.toFixed(3);
+            rateStr = '₪1=' + r.symbol + revStr;
+          }
           return '<div class="cash-legend-row">' +
             '<div class="cash-legend-dot" style="background:' + colors[i] + '"></div>' +
             '<div class="cash-legend-cur">' + r.currency + '</div>' +
             '<div class="cash-legend-orig">' + origStr + '</div>' +
+            '<div class="cash-legend-rate">' + rateStr + '</div>' +
             '<div class="cash-legend-ils">₪' + r.ils.toLocaleString('he-IL') + '</div>' +
             '<div class="cash-legend-pct">' + pct + '%</div>' +
           '</div>';
         }).join('');
-
-        // Exchange-rate panel — show reverse rate: ₪1 = X [currency]
-        var nonIls = rows.filter(function(r) { return r.currency !== 'ILS'; });
-        var ratesHtml = nonIls.length
-          ? '<div class="cash-rates-panel"><div class="cash-rates-title">שערי חליפין</div>' +
-            nonIls.map(function(r) {
-              var rev = 1 / r.rate;
-              var revStr = rev > 100 ? Math.round(rev).toString()
-                         : rev > 10  ? rev.toFixed(1)
-                         : rev.toFixed(3);
-              return '<div class="cash-rate-row">' +
-                '<span class="cash-rate-cur">₪1</span>' +
-                '<span class="cash-rate-arrow">=</span>' +
-                '<span class="cash-rate-val">' + r.symbol + revStr + '</span>' +
-              '</div>';
-            }).join('') + '</div>'
-          : '';
 
         wrap.innerHTML =
           '<div class="cash-pie-layout">' +
@@ -2372,7 +2352,7 @@ function _loadCashPie() {
                 '<div class="cash-pie-sublabel">סה"כ מזומן</div>' +
               '</div>' +
             '</div>' +
-            '<div class="cash-legend">' + legendHtml + ratesHtml + '</div>' +
+            '<div class="cash-legend">' + legendHtml + '</div>' +
           '</div>';
 
         // Update the Cash balance cell in the accounts table

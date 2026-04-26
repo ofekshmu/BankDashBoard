@@ -304,7 +304,7 @@ def search_transactions():
                     c2.row_factory = _sq.Row
                     if orig_table == 'BankTransactions':
                         meta = c2.execute(
-                            'SELECT Name, Date, Card_Number FROM BankTransactions WHERE ID=?', (orig_id,)
+                            'SELECT Name, Date FROM BankTransactions WHERE ID=?', (orig_id,)
                         ).fetchone()
                         orig_meta_cache[key] = {
                             'name': meta['Name'] if meta else '', 'source': 'bank',

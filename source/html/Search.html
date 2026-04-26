@@ -481,29 +481,82 @@ document.addEventListener('keydown',function(e){
 // ═══════════════════════════════════════════════════════════
 //  Transaction Split Feature — Search page
 // ═══════════════════════════════════════════════════════════
-var _srSplitTx   = { id:null, table:null, name:'', amount:0, category:'', date:'' };
-var _srRevertTx  = { table:null, origId:null };
-var _srRowIdx    = 0;
+var _srSplitTx    = { id:null, table:null, name:'', amount:0, category:'', date:'' };
+var _srRevertTx   = { table:null, origId:null };
+var _srRowIdx     = 0;
 var _srCategories = [];
+var _srOpenDdIdx  = null;
 
-fetch('/api/search/categories').then(function(r){return r.json();}).then(function(d){
-  _srCategories = d.categories || [];
-}).catch(function(){});
+function _srLoadCats(cb) {
+  if (_srCategories.length) { if (cb) cb(); return; }
+  fetch('/api/search/categories').then(function(r){return r.json();}).then(function(d){
+    _srCategories = d.categories || []; if (cb) cb();
+  }).catch(function(){ if (cb) cb(); });
+}
+_srLoadCats();
+
+// Close custom dropdowns on outside click
+document.addEventListener('click', function(e) {
+  if (_srOpenDdIdx === null) return;
+  var dd  = document.getElementById('_srd-dd-' + _srOpenDdIdx);
+  var btn = document.getElementById('_srd-btn-' + _srOpenDdIdx);
+  if (dd && !dd.contains(e.target) && btn && !btn.contains(e.target)) {
+    dd.classList.remove('open'); _srOpenDdIdx = null;
+  }
+}, true);
+
+function _srOpenDd(idx) {
+  if (_srOpenDdIdx !== null && _srOpenDdIdx !== idx) {
+    var p = document.getElementById('_srd-dd-' + _srOpenDdIdx);
+    if (p) p.classList.remove('open');
+  }
+  var btn = document.getElementById('_srd-btn-' + idx);
+  var dd  = document.getElementById('_srd-dd-' + idx);
+  if (!btn || !dd) return;
+  if (_srOpenDdIdx === idx) { dd.classList.remove('open'); _srOpenDdIdx = null; return; }
+  var r = btn.getBoundingClientRect();
+  dd.style.top = (r.bottom + 4) + 'px'; dd.style.left = r.left + 'px'; dd.style.width = r.width + 'px';
+  dd.classList.add('open'); _srOpenDdIdx = idx;
+  var s = dd.querySelector('._srd-search'); if (s) { s.value = ''; _srFilterOpts(idx,''); s.focus(); }
+}
+function _srFilterOpts(idx, q) {
+  var dd = document.getElementById('_srd-dd-' + idx); if (!dd) return;
+  var ql = q.toLowerCase();
+  dd.querySelectorAll('._srd-opt').forEach(function(o){ o.style.display=(!ql||o.textContent.toLowerCase().includes(ql))?'':'none'; });
+}
+function _srSelectCat(idx, val) {
+  var btn = document.getElementById('_srd-btn-' + idx); if (btn) btn.textContent = val;
+  var hid = document.getElementById('_srd-val-' + idx); if (hid) hid.value = val;
+  var dd  = document.getElementById('_srd-dd-' + idx);  if (dd) dd.classList.remove('open');
+  _srOpenDdIdx = null;
+}
+function _srBuildCatDd(idx, cur) {
+  var opts = _srCategories.map(function(c){
+    return '<div class="_srd-opt cash-cur-option" onclick="_srSelectCat('+idx+','+JSON.stringify(c)+')">'+esc(c)+'</div>';
+  }).join('');
+  return '<div style="position:relative">' +
+    '<button type="button" class="s-row-input _srd-btn" id="_srd-btn-'+idx+'" onclick="_srOpenDd('+idx+')" ' +
+      'style="text-align:right;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(cur||'קטגוריה')+'</button>' +
+    '<input type="hidden" id="_srd-val-'+idx+'" value="'+esc(cur||'')+'">' +
+    '<div class="cash-cur-dropdown _srd-dd" id="_srd-dd-'+idx+'" style="position:fixed;z-index:9999">' +
+      '<input class="cash-cur-search _srd-search" type="text" placeholder="חיפוש..." oninput="_srFilterOpts('+idx+',this.value)">' +
+      opts +
+    '</div>' +
+  '</div>';
+}
 
 function srHandleClick(card) {
   var isSplit = card.getAttribute('data-is-split') === '1';
   if (isSplit) {
-    var origTbl = card.getAttribute('data-orig-table');
-    var origId  = card.getAttribute('data-orig-id');
-    srOpenRevert(origTbl, origId);
+    srOpenRevert(card.getAttribute('data-orig-table'), card.getAttribute('data-orig-id'));
   } else {
-    var id   = card.getAttribute('data-tx-id');
-    var tbl  = card.getAttribute('data-orig-table');
-    var name = card.getAttribute('data-name') || '';
-    var amt  = parseFloat(card.getAttribute('data-amount')) || 0;
-    var cat  = card.getAttribute('data-category') || '';
-    var dt   = card.getAttribute('data-date') || '';
-    srOpenConfirm(id, tbl, name, amt, cat, dt);
+    var id  = card.getAttribute('data-tx-id');
+    var tbl = card.getAttribute('data-orig-table');
+    srOpenConfirm(id, tbl,
+      card.getAttribute('data-name') || '',
+      parseFloat(card.getAttribute('data-amount')) || 0,
+      card.getAttribute('data-category') || '',
+      card.getAttribute('data-date') || '');
   }
 }
 
@@ -524,33 +577,38 @@ function srOpenConfirm(id, tbl, name, amt, cat, dt) {
 
 // ── Editor step ───────────────────────────────────────────────
 function srGoEditor() {
-  var banner = document.getElementById('sr-editor-banner');
-  if (banner) banner.innerHTML =
-    '<div class="s-orig-row">' +
-      '<span class="s-orig-name">'+esc(_srSplitTx.name)+'</span>' +
-      '<span class="s-orig-amount">₪'+_srSplitTx.amount.toLocaleString('he-IL',{minimumFractionDigits:2})+'</span>' +
-      '<span class="s-cat-badge">'+esc(_srSplitTx.category)+'</span>' +
-    '</div>';
-  _srRowIdx = 0;
-  document.getElementById('sr-editor-rows').innerHTML = '';
-  srAddRow(); srAddRow();
-  srShowStep('sr-step-editor');
-  srUpdateTotal();
+  _srLoadCats(function() {
+    var banner = document.getElementById('sr-editor-banner');
+    if (banner) banner.innerHTML =
+      '<div class="s-orig-row">' +
+        '<span class="s-orig-name">'+esc(_srSplitTx.name)+'</span>' +
+        '<span class="s-orig-amount">₪'+_srSplitTx.amount.toLocaleString('he-IL',{minimumFractionDigits:2})+'</span>' +
+        '<span class="s-cat-badge">'+esc(_srSplitTx.category)+'</span>' +
+      '</div>';
+    _srRowIdx = 0; _srOpenDdIdx = null;
+    document.getElementById('sr-editor-rows').innerHTML = '';
+    var half = Math.round(_srSplitTx.amount / 2 * 100) / 100;
+    srAddRow(_srSplitTx.name, half, _srSplitTx.category);
+    srAddRow(_srSplitTx.name, _srSplitTx.amount - half, _srSplitTx.category);
+    srShowStep('sr-step-editor');
+    srUpdateTotal();
+  });
 }
 
-function srAddRow() {
+function srAddRow(defaultDesc, defaultAmt, defaultCat) {
   _srRowIdx++;
   var idx = _srRowIdx;
-  var opts = _srCategories.map(function(c){
-    return '<option value="'+esc(c)+'"'+(c===_srSplitTx.category?' selected':'')+'>'+esc(c)+'</option>';
-  }).join('');
+  var cat  = defaultCat  !== undefined ? defaultCat  : _srSplitTx.category;
+  var desc = defaultDesc !== undefined ? defaultDesc : _srSplitTx.name;
+  var amt  = defaultAmt  !== undefined ? defaultAmt  : '';
   var d = document.createElement('div');
   d.className = 's-editor-row'; d.id = 'sr-row-'+idx;
   d.innerHTML =
     '<span class="s-row-num">'+idx+'</span>'+
-    '<input class="s-row-input sr-desc" type="text" placeholder="תיאור">'+
-    '<input class="s-row-input sr-amt" type="number" min="0.01" step="0.01" placeholder="סכום" oninput="srUpdateTotal()">'+
-    '<select class="s-row-input sr-cat">'+opts+'</select>'+
+    '<input class="s-row-input sr-desc" type="text" placeholder="תיאור" value="'+esc(desc)+'">'+
+    '<input class="s-row-input sr-amt" type="number" min="0.01" step="0.01" placeholder="סכום"'+
+      (amt?(' value="'+amt+'"'):'')+' oninput="srUpdateTotal()">'+
+    _srBuildCatDd(idx, cat)+
     (idx>1?'<button class="s-row-remove" onclick="srRemoveRow('+idx+')">✕</button>':'<span></span>');
   document.getElementById('sr-editor-rows').appendChild(d);
 }
@@ -578,9 +636,10 @@ function srUpdateTotal() {
 function srSubmitSplit() {
   var splits=[]; var valid=true;
   document.querySelectorAll('#sr-editor-rows .s-editor-row').forEach(function(row){
-    var desc = row.querySelector('.sr-desc').value.trim();
-    var amt  = parseFloat(row.querySelector('.sr-amt').value);
-    var cat  = row.querySelector('.sr-cat').value;
+    var desc = (row.querySelector('.sr-desc')||{value:''}).value.trim();
+    var amt  = parseFloat((row.querySelector('.sr-amt')||{value:''}).value);
+    var catH = row.querySelector('[id^="_srd-val-"]');
+    var cat  = catH ? catH.value : _srSplitTx.category;
     if (!amt||amt<=0){valid=false;return;}
     splits.push({description:desc,amount:amt,category:cat});
   });
@@ -592,9 +651,9 @@ function srSubmitSplit() {
   }).then(function(r){return r.json();}).then(function(d){
     if(d.ok){
       srCloseSplit();
-      srToast('העסקה פוצלה ל-'+splits.length+' חלקים! חפש מחדש לצפייה.','ok');
+      srToast('העסקה פוצלה ל-'+splits.length+' חלקים! חפש מחדש לצפייה.');
     } else {
-      srSetStatus('שגיאה: '+(d.error||''), 'err');
+      srSetStatus('שגיאה: '+(d.error||''),'err');
       if(btn)btn.disabled=false;
     }
   }).catch(function(){srSetStatus('שגיאת רשת','err');if(btn)btn.disabled=false;});

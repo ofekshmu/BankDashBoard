@@ -2877,11 +2877,91 @@ var _splitTx      = { id: null, table: null, name: '', amount: 0, category: '', 
 var _revertTx     = { table: null, origId: null };
 var _splitRowIdx  = 0;
 var _availCats    = [];
+var _openSplitCatDdId = null;   // which row's cat-dropdown is currently open
 
-// Pre-load categories for the split dropdowns
-fetch('/api/search/categories').then(function(r) { return r.json(); }).then(function(d) {
-  _availCats = d.categories || [];
-}).catch(function() {});
+// Pre-load categories (also re-fetch lazily when modal opens)
+function _loadAvailCats(cb) {
+  if (_availCats.length) { if (cb) cb(); return; }
+  fetch('/api/search/categories').then(function(r) { return r.json(); }).then(function(d) {
+    _availCats = d.categories || [];
+    if (cb) cb();
+  }).catch(function() { if (cb) cb(); });
+}
+_loadAvailCats();
+
+// Close any open category dropdown when clicking elsewhere
+document.addEventListener('click', function(e) {
+  if (_openSplitCatDdId === null) return;
+  var dd  = document.getElementById('_scd-dd-' + _openSplitCatDdId);
+  var btn = document.getElementById('_scd-btn-' + _openSplitCatDdId);
+  if (dd && !dd.contains(e.target) && btn && !btn.contains(e.target)) {
+    dd.classList.remove('open');
+    _openSplitCatDdId = null;
+  }
+}, true);
+
+// ── Category custom dropdown helpers ─────────────────────────
+function _openSplitCatDd(idx) {
+  // Close previous
+  if (_openSplitCatDdId !== null && _openSplitCatDdId !== idx) {
+    var prev = document.getElementById('_scd-dd-' + _openSplitCatDdId);
+    if (prev) prev.classList.remove('open');
+  }
+  var btn = document.getElementById('_scd-btn-' + idx);
+  var dd  = document.getElementById('_scd-dd-' + idx);
+  if (!btn || !dd) return;
+  if (_openSplitCatDdId === idx) {   // toggle close
+    dd.classList.remove('open');
+    _openSplitCatDdId = null;
+    return;
+  }
+  // Position using getBoundingClientRect so it escapes any overflow container
+  var r = btn.getBoundingClientRect();
+  dd.style.top   = (r.bottom + 4) + 'px';
+  dd.style.left  = r.left + 'px';
+  dd.style.width = r.width + 'px';
+  dd.classList.add('open');
+  _openSplitCatDdId = idx;
+  var srch = dd.querySelector('._scd-search');
+  if (srch) { srch.value = ''; _filterSplitCatOpts(idx, ''); srch.focus(); }
+}
+
+function _filterSplitCatOpts(idx, q) {
+  var dd = document.getElementById('_scd-dd-' + idx); if (!dd) return;
+  var ql = q.toLowerCase();
+  dd.querySelectorAll('._scd-opt').forEach(function(o) {
+    o.style.display = (!ql || o.textContent.toLowerCase().includes(ql)) ? '' : 'none';
+  });
+}
+
+function _selectSplitCat(idx, val) {
+  var btn = document.getElementById('_scd-btn-' + idx);
+  var hid = document.getElementById('_scd-val-' + idx);
+  if (btn) btn.textContent = val;
+  if (hid) hid.value = val;
+  var dd = document.getElementById('_scd-dd-' + idx);
+  if (dd) dd.classList.remove('open');
+  _openSplitCatDdId = null;
+}
+
+function _buildSplitCatDd(idx, currentCat) {
+  var opts = _availCats.map(function(c) {
+    return '<div class="_scd-opt cash-cur-option" onclick="_selectSplitCat(' + idx + ',' + JSON.stringify(c) + ')">' + _txEsc(c) + '</div>';
+  }).join('');
+  return '<div class="cash-cur-wrap" style="position:relative">' +
+    '<button type="button" class="split-row-input _scd-btn" id="_scd-btn-' + idx + '" ' +
+      'onclick="_openSplitCatDd(' + idx + ')" ' +
+      'style="text-align:right;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' +
+      _txEsc(currentCat || 'בחר קטגוריה') +
+    '</button>' +
+    '<input type="hidden" id="_scd-val-' + idx + '" value="' + _txEsc(currentCat) + '">' +
+    '<div class="cash-cur-dropdown _scd-dd" id="_scd-dd-' + idx + '" style="position:fixed;z-index:9999">' +
+      '<input class="cash-cur-search _scd-search" type="text" placeholder="חיפוש קטגוריה..." ' +
+        'oninput="_filterSplitCatOpts(' + idx + ',this.value)">' +
+      opts +
+    '</div>' +
+  '</div>';
+}
 
 // ── Event delegation — click any .num row in tx lists ────────
 (function attachTxClickDelegation() {
@@ -2940,37 +3020,43 @@ function _openSplitConfirm(id, tbl, name, amount, cat, date) {
 
 // ── Split — Step 2: editor ────────────────────────────────────
 function _goToSplitEditor() {
-  var banner = document.getElementById('split-editor-banner');
-  if (banner) banner.innerHTML =
-    '<div class="split-orig-row">' +
-      '<span class="split-orig-name">' + _txEsc(_splitTx.name) + '</span>' +
-      '<span class="split-orig-amount">₪' + _splitTx.amount.toLocaleString('he-IL', {minimumFractionDigits:2}) + '</span>' +
-      '<span class="split-cat-badge">' + _txEsc(_splitTx.category) + '</span>' +
-    '</div>';
+  _loadAvailCats(function() {
+    var banner = document.getElementById('split-editor-banner');
+    if (banner) banner.innerHTML =
+      '<div class="split-orig-row">' +
+        '<span class="split-orig-name">' + _txEsc(_splitTx.name) + '</span>' +
+        '<span class="split-orig-amount">₪' + _splitTx.amount.toLocaleString('he-IL', {minimumFractionDigits:2}) + '</span>' +
+        '<span class="split-cat-badge">' + _txEsc(_splitTx.category) + '</span>' +
+      '</div>';
 
-  _splitRowIdx = 0;
-  document.getElementById('split-editor-rows').innerHTML = '';
-  _addSplitRow();
-  _addSplitRow();
-  _showSplitStep('split-step-editor');
-  _updateSplitTotal();
+    _splitRowIdx = 0;
+    _openSplitCatDdId = null;
+    document.getElementById('split-editor-rows').innerHTML = '';
+    // Default: 2 rows, each with half the amount, original name & category
+    var half = Math.round(_splitTx.amount / 2 * 100) / 100;
+    _addSplitRow(_splitTx.name, half, _splitTx.category);
+    _addSplitRow(_splitTx.name, _splitTx.amount - half, _splitTx.category);
+    _showSplitStep('split-step-editor');
+    _updateSplitTotal();
+  });
 }
 
-function _addSplitRow() {
+function _addSplitRow(defaultDesc, defaultAmount, defaultCat) {
   _splitRowIdx++;
   var idx = _splitRowIdx;
-  var catOpts = _availCats.map(function(c) {
-    return '<option value="' + _txEsc(c) + '"' + (c === _splitTx.category ? ' selected' : '') + '>' + _txEsc(c) + '</option>';
-  }).join('');
+  var cat = defaultCat || _splitTx.category;
+  var desc = defaultDesc !== undefined ? defaultDesc : _splitTx.name;
+  var amt  = defaultAmount !== undefined ? defaultAmount : '';
 
   var div = document.createElement('div');
   div.className = 'split-editor-row';
   div.id = 'split-row-' + idx;
   div.innerHTML =
     '<span class="split-row-num">' + idx + '</span>' +
-    '<input class="split-row-input split-row-desc" type="text" placeholder="תיאור (אופציונלי)">' +
-    '<input class="split-row-input split-row-amount" type="number" min="0.01" step="0.01" placeholder="סכום ₪" oninput="_updateSplitTotal()">' +
-    '<select class="split-row-input split-row-cat">' + catOpts + '</select>' +
+    '<input class="split-row-input split-row-desc" type="text" placeholder="תיאור" value="' + _txEsc(desc) + '">' +
+    '<input class="split-row-input split-row-amount" type="number" min="0.01" step="0.01" placeholder="סכום ₪"' +
+      (amt ? ' value="' + amt + '"' : '') + ' oninput="_updateSplitTotal()">' +
+    _buildSplitCatDd(idx, cat) +
     (idx > 1
       ? '<button class="split-row-remove" onclick="_removeSplitRow(' + idx + ')" title="הסר">✕</button>'
       : '<span></span>');
@@ -3006,9 +3092,11 @@ function _submitSplit() {
   var splits = [];
   var valid  = true;
   document.querySelectorAll('#split-editor-rows .split-editor-row').forEach(function(row) {
-    var desc   = row.querySelector('.split-row-desc').value.trim();
-    var amount = parseFloat(row.querySelector('.split-row-amount').value);
-    var cat    = row.querySelector('.split-row-cat').value;
+    var desc   = (row.querySelector('.split-row-desc') || {value:''}).value.trim();
+    var amount = parseFloat((row.querySelector('.split-row-amount') || {value:''}).value);
+    // Read category from the hidden input of the custom dropdown
+    var catHid = row.querySelector('[id^="_scd-val-"]');
+    var cat    = catHid ? catHid.value : _splitTx.category;
     if (!amount || amount <= 0) { valid = false; return; }
     splits.push({ description: desc, amount: amount, category: cat });
   });
@@ -3063,7 +3151,7 @@ function _applyDomSplit(origId, tbl, splits) {
       '<h3>' +
         '<span class="tx-primary">' + _txEsc(primaryText) + '</span>' +
         (showSecondary ? '<span class="tx-secondary">' + _txEsc(_splitTx.name) + '</span>' : '') +
-        '<span class="split-badge">פיצול</span>' +
+        '<span class="split-badge">✂ פיצול</span>' +
       '</h3>' +
       '<p class="date">₪' + s.amount.toLocaleString('he-IL', {minimumFractionDigits:2}) + '</p>' +
       '<p class="cat">' + _txEsc(s.category) + '</p>' +

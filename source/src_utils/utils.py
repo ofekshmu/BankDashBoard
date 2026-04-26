@@ -786,7 +786,7 @@ class utils:
                 h3.append(span_p)
             if _is_split:
                 badge = tag("span", class_="split-badge")
-                badge.string = "פיצול"
+                badge.string = "✂ פיצול"
                 h3.append(badge)
             row.append(h3)
 

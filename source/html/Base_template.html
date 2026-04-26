@@ -912,6 +912,106 @@ body {
   text-align: center; white-space: nowrap;
 }
 
+/* ── Transaction split ───────────────────────────────────── */
+.num { cursor: pointer; }
+.split-badge {
+  display: inline-block; font-size: .58em; font-weight: 700;
+  background: #ede7f6; color: #7b1fa2; border-radius: 6px;
+  padding: 1px 6px; margin-right: 5px; vertical-align: middle;
+  white-space: nowrap; flex-shrink: 0;
+}
+/* Split / Revert modal */
+.split-modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.45); z-index: 900;
+  align-items: center; justify-content: center;
+}
+.split-modal-overlay.open { display: flex; }
+.split-modal {
+  background: #fff; border-radius: 16px; padding: 28px 32px;
+  width: 100%; max-width: 560px; box-shadow: 0 20px 60px rgba(0,0,0,.18);
+  direction: rtl; position: relative; max-height: 92vh; overflow-y: auto;
+}
+.split-modal-title { font-size: 1.06em; font-weight: 700; color: var(--navy); margin-bottom: 16px; }
+.split-modal-close {
+  position: absolute; top: 16px; left: 20px; background: none; border: none;
+  font-size: 1.15em; cursor: pointer; color: #aaa; line-height: 1; padding: 4px;
+}
+.split-modal-close:hover { color: var(--red); }
+.split-step { display: none; flex-direction: column; gap: 10px; }
+.split-step.active { display: flex; }
+/* Original transaction info banner */
+.split-orig-row {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  background: #f7f9ff; border-radius: 10px; padding: 12px 16px;
+}
+.split-orig-name   { font-size: .9em; font-weight: 600; color: var(--navy); flex: 1; }
+.split-orig-amount { font-size: .9em; font-weight: 700; color: var(--teal); white-space: nowrap; }
+.split-orig-date   { font-size: .78em; color: var(--text-muted); white-space: nowrap; }
+.split-cat-badge   {
+  font-size: .72em; background: #f0f2f8; border-radius: 10px;
+  padding: 2px 8px; color: #666; white-space: nowrap;
+}
+/* Editor rows */
+.split-editor-header {
+  display: grid; grid-template-columns: 26px 1fr 110px 130px 28px;
+  gap: 6px; font-size: .72em; color: var(--text-muted); font-weight: 600;
+  padding: 0 2px; margin-bottom: 4px;
+}
+.split-editor-row {
+  display: grid; grid-template-columns: 26px 1fr 110px 130px 28px;
+  gap: 6px; align-items: center; margin-bottom: 6px;
+}
+.split-row-num { font-size: .8em; color: #aaa; text-align: center; }
+.split-row-input {
+  padding: 7px 10px; border: 1.5px solid var(--border); border-radius: 8px;
+  font-size: .85em; color: var(--navy); outline: none; width: 100%;
+  box-sizing: border-box; font-family: inherit;
+  transition: border-color .15s;
+}
+.split-row-input:focus { border-color: var(--teal); }
+.split-row-remove {
+  width: 26px; height: 26px; border: none; background: none;
+  color: #ccc; font-size: 1em; cursor: pointer; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .12s, color .12s;
+}
+.split-row-remove:hover { background: #fff0f0; color: var(--red); }
+.split-add-btn {
+  background: none; border: 1.5px dashed var(--border); border-radius: 8px;
+  color: var(--teal); font-size: .82em; font-weight: 600; cursor: pointer;
+  padding: 7px 14px; text-align: right; font-family: inherit;
+  transition: border-color .15s, background .15s;
+}
+.split-add-btn:hover { background: var(--teal-light); border-color: var(--teal); }
+.split-total-bar {
+  font-size: .82em; display: flex; gap: 12px; flex-wrap: wrap;
+  background: #f7f9ff; border-radius: 8px; padding: 8px 14px;
+  align-items: center;
+}
+.split-total-label { color: var(--text-muted); }
+.split-total-used  { font-weight: 700; color: var(--navy); }
+.split-remaining   { font-weight: 700; }
+.split-modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+.split-status { font-size: .8em; margin-top: 6px; min-height: 1.2em; }
+.split-status.ok  { color: var(--teal); }
+.split-status.err { color: var(--red); }
+/* Revert modal splits list */
+.revert-split-row {
+  display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+  padding: 8px 14px; border-radius: 8px; background: #f7f9ff;
+  margin-bottom: 6px;
+}
+.revert-split-num    { font-size: .78em; color: #aaa; min-width: 16px; }
+.revert-split-amount { font-size: .88em; font-weight: 700; color: var(--navy); min-width: 80px; }
+.revert-split-desc   { font-size: .82em; color: var(--text-sub); flex: 1; }
+.split-btn-danger {
+  padding: 9px 20px; border: none; border-radius: 8px;
+  background: #e53935; color: #fff; cursor: pointer;
+  font-size: .84em; font-weight: 600; font-family: inherit;
+}
+.split-btn-danger:hover { background: #c62828; }
+
 /* ── Alerts ──────────────────────────────────────────────── */
 .alerts-header {
   display: flex; align-items: center; justify-content: space-between;
@@ -2769,6 +2869,367 @@ function submitReconcile() {
     } else { status.textContent = 'שגיאה: ' + (d.error||'לא ידוע'); status.className = 'cash-modal-status err'; }
   }).catch(function() { status.textContent = 'שגיאת רשת'; status.className = 'cash-modal-status err'; });
 }
+
+// ═══════════════════════════════════════════════════════════
+//  Transaction Split Feature
+// ═══════════════════════════════════════════════════════════
+var _splitTx      = { id: null, table: null, name: '', amount: 0, category: '', date: '' };
+var _revertTx     = { table: null, origId: null };
+var _splitRowIdx  = 0;
+var _availCats    = [];
+
+// Pre-load categories for the split dropdowns
+fetch('/api/search/categories').then(function(r) { return r.json(); }).then(function(d) {
+  _availCats = d.categories || [];
+}).catch(function() {});
+
+// ── Event delegation — click any .num row in tx lists ────────
+(function attachTxClickDelegation() {
+  ['spendings-list', 'earnings-list'].forEach(function(lid) {
+    var el = document.getElementById(lid);
+    if (!el) return;
+    el.addEventListener('click', function(e) {
+      var row = e.target.closest && e.target.closest('.num');
+      if (row) _handleTxClick(row);
+    });
+  });
+})();
+
+function _handleTxClick(row) {
+  var id      = row.getAttribute('data-value');
+  var tbl     = row.getAttribute('data-tx-table');
+  var isSplit = row.getAttribute('data-is-split') === '1';
+  var origId  = row.getAttribute('data-orig-id');
+
+  // Only Bank / Card — skip Cash rows
+  if (!tbl || tbl === 'CashTransactions' || !id) return;
+
+  if (isSplit) {
+    _openRevertModal(tbl, origId);
+  } else {
+    var name   = ((row.querySelector('.tx-primary') || {}).textContent || '').trim();
+    var amount = _parseSplitAmt((row.querySelector('.date') || {}).textContent || '');
+    var cat    = ((row.querySelector('.cat')  || {}).textContent || '').trim();
+    var date   = ((row.querySelector('.element4') || {}).textContent || '').trim();
+    _openSplitConfirm(id, tbl, name, amount, cat, date);
+  }
+}
+
+function _parseSplitAmt(str) {
+  return Math.abs(parseFloat(str.replace(/[^\d.]/g, '')) || 0);
+}
+
+function _txEsc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Split — Step 1: confirm dialog ───────────────────────────
+function _openSplitConfirm(id, tbl, name, amount, cat, date) {
+  _splitTx = { id: id, table: tbl, name: name, amount: amount, category: cat, date: date };
+  var info = document.getElementById('split-confirm-info');
+  if (info) info.innerHTML =
+    '<div class="split-orig-row">' +
+      '<span class="split-orig-name">' + _txEsc(name) + '</span>' +
+      '<span class="split-orig-amount">₪' + amount.toLocaleString('he-IL', {minimumFractionDigits:2}) + '</span>' +
+      '<span class="split-orig-date">' + _txEsc(date) + '</span>' +
+      '<span class="split-cat-badge">' + _txEsc(cat) + '</span>' +
+    '</div>';
+  _showSplitStep('split-step-confirm');
+  document.getElementById('split-modal-overlay').classList.add('open');
+}
+
+// ── Split — Step 2: editor ────────────────────────────────────
+function _goToSplitEditor() {
+  var banner = document.getElementById('split-editor-banner');
+  if (banner) banner.innerHTML =
+    '<div class="split-orig-row">' +
+      '<span class="split-orig-name">' + _txEsc(_splitTx.name) + '</span>' +
+      '<span class="split-orig-amount">₪' + _splitTx.amount.toLocaleString('he-IL', {minimumFractionDigits:2}) + '</span>' +
+      '<span class="split-cat-badge">' + _txEsc(_splitTx.category) + '</span>' +
+    '</div>';
+
+  _splitRowIdx = 0;
+  document.getElementById('split-editor-rows').innerHTML = '';
+  _addSplitRow();
+  _addSplitRow();
+  _showSplitStep('split-step-editor');
+  _updateSplitTotal();
+}
+
+function _addSplitRow() {
+  _splitRowIdx++;
+  var idx = _splitRowIdx;
+  var catOpts = _availCats.map(function(c) {
+    return '<option value="' + _txEsc(c) + '"' + (c === _splitTx.category ? ' selected' : '') + '>' + _txEsc(c) + '</option>';
+  }).join('');
+
+  var div = document.createElement('div');
+  div.className = 'split-editor-row';
+  div.id = 'split-row-' + idx;
+  div.innerHTML =
+    '<span class="split-row-num">' + idx + '</span>' +
+    '<input class="split-row-input split-row-desc" type="text" placeholder="תיאור (אופציונלי)">' +
+    '<input class="split-row-input split-row-amount" type="number" min="0.01" step="0.01" placeholder="סכום ₪" oninput="_updateSplitTotal()">' +
+    '<select class="split-row-input split-row-cat">' + catOpts + '</select>' +
+    (idx > 1
+      ? '<button class="split-row-remove" onclick="_removeSplitRow(' + idx + ')" title="הסר">✕</button>'
+      : '<span></span>');
+  document.getElementById('split-editor-rows').appendChild(div);
+}
+
+function _removeSplitRow(idx) {
+  var r = document.getElementById('split-row-' + idx);
+  if (r) r.remove();
+  _updateSplitTotal();
+}
+
+function _updateSplitTotal() {
+  var total = _splitTx.amount;
+  var used  = 0;
+  document.querySelectorAll('#split-editor-rows .split-row-amount').forEach(function(inp) {
+    used += parseFloat(inp.value) || 0;
+  });
+  var rem = total - used;
+  var usedEl = document.getElementById('split-used');
+  var remEl  = document.getElementById('split-rem');
+  if (usedEl) usedEl.textContent = '₪' + used.toLocaleString('he-IL', {minimumFractionDigits:2});
+  if (remEl) {
+    var absRem = Math.abs(rem);
+    remEl.textContent = '₪' + absRem.toLocaleString('he-IL', {minimumFractionDigits:2}) + (rem < 0 ? ' (חריגה)' : '');
+    remEl.style.color = absRem < 0.01 ? 'var(--teal)' : (rem < 0 ? 'var(--red)' : '#888');
+  }
+  var btn = document.getElementById('split-submit-btn');
+  if (btn) btn.disabled = Math.abs(rem) >= 0.01;
+}
+
+function _submitSplit() {
+  var splits = [];
+  var valid  = true;
+  document.querySelectorAll('#split-editor-rows .split-editor-row').forEach(function(row) {
+    var desc   = row.querySelector('.split-row-desc').value.trim();
+    var amount = parseFloat(row.querySelector('.split-row-amount').value);
+    var cat    = row.querySelector('.split-row-cat').value;
+    if (!amount || amount <= 0) { valid = false; return; }
+    splits.push({ description: desc, amount: amount, category: cat });
+  });
+
+  if (!valid || splits.length < 2) {
+    _setSplitStatus('יש להזין סכום חיובי לכל חלק', 'err'); return;
+  }
+
+  var btn = document.getElementById('split-submit-btn');
+  if (btn) btn.disabled = true;
+
+  fetch('/api/transactions/split', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ table: _splitTx.table, id: _splitTx.id, splits: splits })
+  }).then(function(r) { return r.json(); }).then(function(d) {
+    if (d.ok) {
+      _closeSplitModal();
+      _applyDomSplit(_splitTx.id, _splitTx.table, d.splits);
+    } else {
+      _setSplitStatus('שגיאה: ' + (d.error || 'שגיאה לא ידועה'), 'err');
+      if (btn) btn.disabled = false;
+    }
+  }).catch(function() {
+    _setSplitStatus('שגיאת רשת', 'err');
+    if (btn) btn.disabled = false;
+  });
+}
+
+// Immediately update the DOM without a page reload
+function _applyDomSplit(origId, tbl, splits) {
+  var origRow = document.querySelector('.num[data-value="' + origId + '"][data-tx-table="' + tbl + '"]');
+  if (!origRow) return;
+
+  var parent    = origRow.parentNode;
+  var colorBox  = origRow.querySelector('.color-box');
+  var colorStyle = colorBox ? colorBox.getAttribute('style') : '';
+  var dateStr   = ((origRow.querySelector('.element4') || {}).textContent || '').trim();
+  var isSpendings = (parent && parent.id === 'spendings-list');
+
+  splits.forEach(function(s) {
+    var row = document.createElement('div');
+    row.className = 'num';
+    row.setAttribute('data-value',    String(s.split_id));
+    row.setAttribute('data-tx-table', tbl);
+    row.setAttribute('data-is-split', '1');
+    row.setAttribute('data-orig-id',  String(origId));
+    var primaryText = s.description || _splitTx.name;
+    var showSecondary = s.description && s.description !== _splitTx.name;
+    row.innerHTML =
+      '<div class="color-box" style="' + (colorStyle || '') + '"></div>' +
+      '<h3>' +
+        '<span class="tx-primary">' + _txEsc(primaryText) + '</span>' +
+        (showSecondary ? '<span class="tx-secondary">' + _txEsc(_splitTx.name) + '</span>' : '') +
+        '<span class="split-badge">פיצול</span>' +
+      '</h3>' +
+      '<p class="date">₪' + s.amount.toLocaleString('he-IL', {minimumFractionDigits:2}) + '</p>' +
+      '<p class="cat">' + _txEsc(s.category) + '</p>' +
+      '<p class="element4">' + _txEsc(dateStr) + '</p>';
+    row.addEventListener('click', function() { _handleTxClick(row); });
+    parent.insertBefore(row, origRow);
+  });
+
+  origRow.remove();
+  updateTotal(isSpendings ? 'spendings-list' : 'earnings-list');
+}
+
+// ── Revert modal ──────────────────────────────────────────────
+function _openRevertModal(tbl, origId) {
+  _revertTx = { table: tbl, origId: origId };
+  var origEl   = document.getElementById('revert-orig-info');
+  var splitsEl = document.getElementById('revert-splits-list');
+  if (origEl)   origEl.innerHTML   = '<div style="color:#888;font-size:.85em">טוען...</div>';
+  if (splitsEl) splitsEl.innerHTML = '';
+  document.getElementById('revert-modal-overlay').classList.add('open');
+  _setRevertStatus('', '');
+
+  fetch('/api/transactions/split-info?table=' + encodeURIComponent(tbl) + '&id=' + encodeURIComponent(origId))
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    if (!d.ok) { if (origEl) origEl.innerHTML = 'שגיאה: ' + _txEsc(d.error || ''); return; }
+    var orig = d.original;
+    if (origEl) origEl.innerHTML =
+      '<div class="split-orig-row">' +
+        '<span class="split-orig-name">' + _txEsc(orig.name) + '</span>' +
+        '<span class="split-orig-amount">₪' + Math.abs(orig.amount).toLocaleString('he-IL', {minimumFractionDigits:2}) + '</span>' +
+        '<span class="split-orig-date">' + _txEsc(orig.date) + '</span>' +
+        '<span class="split-cat-badge">' + _txEsc(orig.category) + '</span>' +
+      '</div>';
+    if (splitsEl) {
+      splitsEl.innerHTML = d.splits.map(function(s, i) {
+        return '<div class="revert-split-row">' +
+          '<span class="revert-split-num">' + (i+1) + '</span>' +
+          '<span class="revert-split-amount">₪' + s.amount.toLocaleString('he-IL', {minimumFractionDigits:2}) + '</span>' +
+          '<span class="revert-split-desc">' + _txEsc(s.description || '—') + '</span>' +
+          '<span class="split-cat-badge">' + _txEsc(s.category) + '</span>' +
+        '</div>';
+      }).join('');
+    }
+  }).catch(function() { if (origEl) origEl.innerHTML = 'שגיאת רשת'; });
+}
+
+function _closeRevertModal() {
+  document.getElementById('revert-modal-overlay').classList.remove('open');
+}
+
+function _submitRevert() {
+  fetch('/api/transactions/revert-split', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ table: _revertTx.table, id: _revertTx.origId })
+  }).then(function(r) { return r.json(); }).then(function(d) {
+    if (d.ok) {
+      _closeRevertModal();
+      _applyDomRevert(_revertTx.table, _revertTx.origId);
+    } else {
+      _setRevertStatus('שגיאה: ' + (d.error || ''), 'err');
+    }
+  }).catch(function() { _setRevertStatus('שגיאת רשת', 'err'); });
+}
+
+function _applyDomRevert(tbl, origId) {
+  // Remove all split rows with this orig-id; the original is gone from DOM —
+  // a simple toast + reload banner is the cleanest UX
+  document.querySelectorAll('.num[data-orig-id="' + origId + '"][data-tx-table="' + tbl + '"]')
+    .forEach(function(r) { r.remove(); });
+  // Show a banner
+  ['spendings-list','earnings-list'].forEach(function(lid) { updateTotal(lid); });
+  var area = document.getElementById('toast-area');
+  if (area) {
+    var el = document.createElement('div');
+    el.className = 'toast ok';
+    el.textContent = 'הפיצול בוטל. הרץ ניתוח מחדש לשחזור העסקה המקורית.';
+    area.appendChild(el);
+    setTimeout(function() { el.remove(); }, 6000);
+  }
+}
+
+// ── Helpers ───────────────────────────────────────────────────
+function _showSplitStep(id) {
+  document.querySelectorAll('.split-step').forEach(function(s) { s.classList.remove('active'); });
+  var el = document.getElementById(id);
+  if (el) el.classList.add('active');
+}
+function _closeSplitModal() {
+  document.getElementById('split-modal-overlay').classList.remove('open');
+}
+function _setSplitStatus(msg, cls) {
+  var el = document.getElementById('split-modal-status');
+  if (!el) return;
+  el.textContent = msg;
+  el.className   = 'split-status' + (cls ? ' ' + cls : '');
+}
+function _setRevertStatus(msg, cls) {
+  var el = document.getElementById('revert-modal-status');
+  if (!el) return;
+  el.textContent = msg;
+  el.className   = 'split-status' + (cls ? ' ' + cls : '');
+}
 </script>
+
+<!-- ═══ Split modal ═══ -->
+<div class="split-modal-overlay" id="split-modal-overlay"
+     onclick="if(event.target===this)_closeSplitModal()">
+  <div class="split-modal">
+    <button class="split-modal-close" onclick="_closeSplitModal()">✕</button>
+
+    <!-- Step 1: confirm -->
+    <div class="split-step active" id="split-step-confirm">
+      <div class="split-modal-title">פיצול עסקה?</div>
+      <div id="split-confirm-info"></div>
+      <div class="split-modal-actions">
+        <button class="cash-btn-cancel" onclick="_closeSplitModal()">ביטול</button>
+        <button class="cash-btn-submit" onclick="_goToSplitEditor()">פצל עסקה →</button>
+      </div>
+    </div>
+
+    <!-- Step 2: editor -->
+    <div class="split-step" id="split-step-editor">
+      <div class="split-modal-title">פיצול עסקה</div>
+      <div id="split-editor-banner"></div>
+
+      <div class="split-editor-header">
+        <span></span><span>תיאור</span><span>סכום ₪</span><span>קטגוריה</span><span></span>
+      </div>
+      <div id="split-editor-rows"></div>
+
+      <button class="split-add-btn" onclick="_addSplitRow()">+ הוסף חלק</button>
+
+      <div class="split-total-bar">
+        <span class="split-total-label">סה"כ:</span>
+        <span class="split-total-used" id="split-used">₪0</span>
+        <span class="split-total-label" style="margin-right:12px">נשאר:</span>
+        <span class="split-remaining" id="split-rem">₪0</span>
+      </div>
+
+      <div class="split-modal-actions">
+        <button class="cash-btn-cancel" onclick="_closeSplitModal()">ביטול</button>
+        <button class="cash-btn-submit" id="split-submit-btn" onclick="_submitSplit()" disabled>אשר פיצול</button>
+      </div>
+      <div class="split-status" id="split-modal-status"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Revert modal ═══ -->
+<div class="split-modal-overlay" id="revert-modal-overlay"
+     onclick="if(event.target===this)_closeRevertModal()">
+  <div class="split-modal">
+    <button class="split-modal-close" onclick="_closeRevertModal()">✕</button>
+    <div class="split-modal-title">עסקה מפוצלת</div>
+    <div id="revert-orig-info"></div>
+    <div style="margin-top:12px;font-size:.78em;font-weight:600;color:var(--text-muted);margin-bottom:6px">חלקים:</div>
+    <div id="revert-splits-list"></div>
+    <div class="split-modal-actions">
+      <button class="cash-btn-cancel" onclick="_closeRevertModal()">סגור</button>
+      <button class="split-btn-danger" onclick="_submitRevert()">בטל פיצול ↩</button>
+    </div>
+    <div class="split-status" id="revert-modal-status"></div>
+  </div>
+</div>
+
 </body>
 </html>

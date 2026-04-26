@@ -742,7 +742,16 @@ class utils:
             d = datetime.strptime(str(executed_date).split('.')[0], "%Y-%m-%d %H:%M:%S").strftime('%A %d')
 
             row = tag("div", class_="num")
-            row["data-value"] = str(item['ID'])
+            row["data-value"]    = str(item['ID'])
+            row["data-tx-table"] = str(item.get('TableName', ''))
+
+            # Mark split rows so the JS can show the revert dialog
+            _split_orig = item.get('_split_orig_id', None)
+            _is_split   = _split_orig is not None and not (
+                isinstance(_split_orig, float) and pd.isna(_split_orig))
+            if _is_split:
+                row["data-is-split"] = "1"
+                row["data-orig-id"]  = str(int(_split_orig))
 
             if item['TableName'] == 'CardTransactions':
                 color = cards_dict[item['CardID']]
@@ -775,6 +784,10 @@ class utils:
                 span_p = tag("span", class_="tx-primary")
                 span_p.string = name_str
                 h3.append(span_p)
+            if _is_split:
+                badge = tag("span", class_="split-badge")
+                badge.string = "פיצול"
+                h3.append(badge)
             row.append(h3)
 
             if not pd.isnull(item['Amount']):

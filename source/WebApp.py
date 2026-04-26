@@ -273,6 +273,82 @@ def search_transactions():
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e), 'results': []}), 500
 
+    # ── Apply splits: hide originals, surface split rows ─────────────────────
+    try:
+        split_conn  = _sq.connect(_DB_PATH, check_same_thread=False)
+        split_conn.row_factory = _sq.Row
+        split_rows_db = split_conn.execute(
+            'SELECT ID, Original_Table, Original_ID, Amount, Description, Category FROM TransactionSplits'
+        ).fetchall()
+        split_conn.close()
+    except Exception:
+        split_rows_db = []
+
+    if split_rows_db:
+        split_orig_keys = set((r['Original_Table'], r['Original_ID']) for r in split_rows_db)
+        # Remove split originals from results
+        results = [r for r in results
+                   if not (('bank' if r['source'] == 'bank' else 'card') == 'bank'
+                           and ('BankTransactions', r['tx_id']) in split_orig_keys)
+                   and not (r['source'] == 'card'
+                            and ('CardTransactions', r['tx_id']) in split_orig_keys)]
+        # Add split rows (using original row metadata)
+        orig_meta_cache = {}
+        for split_r in split_rows_db:
+            orig_table = split_r['Original_Table']
+            orig_id    = split_r['Original_ID']
+            key        = (orig_table, orig_id)
+            if key not in orig_meta_cache:
+                try:
+                    c2 = _sq.connect(_DB_PATH, check_same_thread=False)
+                    c2.row_factory = _sq.Row
+                    if orig_table == 'BankTransactions':
+                        meta = c2.execute(
+                            'SELECT Name, Date, Card_Number FROM BankTransactions WHERE ID=?', (orig_id,)
+                        ).fetchone()
+                        orig_meta_cache[key] = {
+                            'name': meta['Name'] if meta else '', 'source': 'bank',
+                            'date': (meta['Date'] or '')[:10] if meta else '', 'card_id': None,
+                        }
+                    else:
+                        meta = c2.execute(
+                            'SELECT Name, Executed_Date, CardID FROM CardTransactions WHERE ID=?', (orig_id,)
+                        ).fetchone()
+                        orig_meta_cache[key] = {
+                            'name': meta['Name'] if meta else '', 'source': 'card',
+                            'date': (meta['Executed_Date'] or '')[:10] if meta else '',
+                            'card_id': meta['CardID'] if meta else None,
+                        }
+                    c2.close()
+                except Exception:
+                    orig_meta_cache[key] = {'name': '', 'source': 'bank', 'date': '', 'card_id': None}
+
+            meta = orig_meta_cache[key]
+            # Apply keyword / category / type filters to split rows
+            amount = float(split_r['Amount'])
+            if q_type == 'income' and amount <= 0: continue
+            if q_type == 'expense' and amount >= 0: continue
+            if q_min is not None and abs(amount) < q_min: continue
+            if q_max is not None and abs(amount) > q_max: continue
+            if q_keyword:
+                hay = (meta['name'] + ' ' + (split_r['Description'] or '')).lower()
+                if q_keyword.lower() not in hay: continue
+            if q_category and split_r['Category'] != q_category: continue
+            results.append({
+                'tx_id':       split_r['ID'],
+                'date':        meta['date'],
+                'name':        meta['name'],
+                'category':    split_r['Category'],
+                'amount':      amount,
+                'description': split_r['Description'] or '',
+                'source':      meta['source'],
+                'card_id':     meta['card_id'],
+                'is_split':    True,
+                'split_id':    split_r['ID'],
+                'orig_id':     orig_id,
+                'orig_table':  orig_table,
+            })
+
     # Sort combined results by date desc
     results.sort(key=lambda x: x['date'] or '', reverse=True)
     return jsonify({'ok': True, 'results': results[:500]})
@@ -2111,6 +2187,99 @@ def files_db_list():
             total_tx += r['Transaction_count'] or 0
 
         return jsonify({'ok': True, 'files': files, 'total_transactions': total_tx})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/transactions/split-info')
+def tx_split_info():
+    """Return original transaction details + its splits."""
+    import sqlite3 as _sq
+    tbl = (request.args.get('table') or '').strip()
+    oid = request.args.get('id', type=int)
+    if tbl not in ('BankTransactions', 'CardTransactions') or oid is None:
+        return jsonify({'ok': False, 'error': 'invalid table or id'})
+    try:
+        conn = _sq.connect(_DB_PATH, check_same_thread=False)
+        conn.row_factory = _sq.Row
+        # Fetch original row
+        if tbl == 'BankTransactions':
+            row = conn.execute(
+                'SELECT ID, Name, Category, Description, Out, Income, Date FROM BankTransactions WHERE ID=?', (oid,)
+            ).fetchone()
+            if not row:
+                conn.close(); return jsonify({'ok': False, 'error': 'not found'})
+            amount = float(row['Income'] or 0) - float(row['Out'] or 0)
+            orig = {'id': row['ID'], 'name': row['Name'], 'category': row['Category'] or '',
+                    'description': row['Description'] or '', 'amount': amount, 'date': (row['Date'] or '')[:10]}
+        else:
+            row = conn.execute(
+                'SELECT ID, Name, Category, Description, Transaction_Value, Executed_Date FROM CardTransactions WHERE ID=?', (oid,)
+            ).fetchone()
+            if not row:
+                conn.close(); return jsonify({'ok': False, 'error': 'not found'})
+            orig = {'id': row['ID'], 'name': row['Name'], 'category': row['Category'] or '',
+                    'description': row['Description'] or '',
+                    'amount': float(row['Transaction_Value'] or 0),
+                    'date': (row['Executed_Date'] or '')[:10]}
+        # Fetch splits
+        splits_rows = conn.execute(
+            'SELECT ID, Amount, Description, Category FROM TransactionSplits WHERE Original_Table=? AND Original_ID=? ORDER BY ID',
+            (tbl, oid)
+        ).fetchall()
+        conn.close()
+        splits = [{'id': r['ID'], 'amount': float(r['Amount']),
+                   'description': r['Description'] or '', 'category': r['Category']} for r in splits_rows]
+        return jsonify({'ok': True, 'original': orig, 'splits': splits})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/transactions/split', methods=['POST'])
+def tx_split_create():
+    """Create split rows for a transaction."""
+    body   = request.get_json(force=True) or {}
+    tbl    = (body.get('table') or '').strip()
+    tx_id  = body.get('id')
+    splits = body.get('splits') or []
+    if tbl not in ('BankTransactions', 'CardTransactions') or not tx_id or len(splits) < 2:
+        return jsonify({'ok': False, 'error': 'invalid request'})
+    # Validate each split
+    for s in splits:
+        if not s.get('category') or not s.get('amount') or float(s['amount']) <= 0:
+            return jsonify({'ok': False, 'error': 'each split needs amount > 0 and category'})
+    try:
+        from database import DataBase as _DB3
+        db = _DB3()
+        # Make sure not already split
+        existing = db.get_splits_for_transaction(tbl, int(tx_id))
+        if existing:
+            return jsonify({'ok': False, 'error': 'transaction is already split'})
+        created_ids = db.create_splits(tbl, int(tx_id), splits)
+        db.commit_changes()
+        result_splits = [{'split_id': sid, 'amount': float(splits[i]['amount']),
+                          'description': splits[i].get('description', ''),
+                          'category': splits[i]['category']}
+                         for i, sid in enumerate(created_ids)]
+        return jsonify({'ok': True, 'splits': result_splits})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/transactions/revert-split', methods=['POST'])
+def tx_split_revert():
+    """Remove all splits for a transaction, restoring the original."""
+    body = request.get_json(force=True) or {}
+    tbl  = (body.get('table') or '').strip()
+    oid  = body.get('id')
+    if tbl not in ('BankTransactions', 'CardTransactions') or oid is None:
+        return jsonify({'ok': False, 'error': 'invalid table or id'})
+    try:
+        from database import DataBase as _DB4
+        db = _DB4()
+        deleted = db.revert_splits(tbl, int(oid))
+        db.commit_changes()
+        return jsonify({'ok': True, 'deleted': deleted})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)})
 

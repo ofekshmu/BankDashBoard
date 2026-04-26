@@ -102,6 +102,17 @@ class DataBase:
                     );""")
 
                 cls.__instance.cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS TransactionSplits (
+                    ID              INTEGER PRIMARY KEY AUTOINCREMENT,
+                    Original_Table  TEXT    NOT NULL,
+                    Original_ID     INTEGER NOT NULL,
+                    Amount          REAL    NOT NULL,
+                    Description     TEXT,
+                    Category        TEXT    NOT NULL,
+                    Created_At      TEXT    DEFAULT (datetime('now'))
+                    );""")
+
+                cls.__instance.cursor.execute("""
                     CREATE TABLE IF NOT EXISTS TableMeta (
                     ID                  INTEGER         PRIMARY KEY ,
                     File_Name           CHAR            NOT NULL    ,
@@ -2179,7 +2190,7 @@ class DataBase:
 
         if all_data:
             combined_df = pd.concat(all_data, ignore_index=True)
-            return combined_df
+            return self.apply_splits_to_df(combined_df)
         else:
             return pd.DataFrame()  # Return empty DataFrame if no valid tables provided
         
@@ -2213,4 +2224,118 @@ class DataBase:
             
         self.connection.commit()
         return pd.DataFrame(results, columns=['ID', column_name, 'Status'])
-        
+
+    # ── Transaction Split methods ──────────────────────────────────────────────
+
+    def get_splits_for_transaction(self, original_table: str, original_id: int) -> list:
+        """Return all split rows for a given original transaction."""
+        rows = self.cursor.execute("""
+            SELECT ID, Amount, Description, Category, Created_At
+            FROM TransactionSplits
+            WHERE Original_Table = ? AND Original_ID = ?
+            ORDER BY ID
+        """, (original_table, int(original_id))).fetchall()
+        return [{'id': r[0], 'amount': r[1], 'description': r[2] or '',
+                 'category': r[3], 'created_at': r[4]} for r in rows]
+
+    def get_all_splits(self) -> list:
+        """Return all split records as a list of dicts."""
+        rows = self.cursor.execute("""
+            SELECT ID, Original_Table, Original_ID, Amount, Description, Category
+            FROM TransactionSplits
+        """).fetchall()
+        return [{'split_id': r[0], 'orig_table': r[1], 'orig_id': r[2],
+                 'amount': r[3], 'description': r[4] or '', 'category': r[5]}
+                for r in rows]
+
+    def create_splits(self, original_table: str, original_id: int, splits: list) -> list:
+        """
+        Insert split rows. splits = [{'amount': float, 'description': str, 'category': str}, ...]
+        Returns list of created TransactionSplits IDs.
+        """
+        ids = []
+        for s in splits:
+            self.cursor.execute("""
+                INSERT INTO TransactionSplits (Original_Table, Original_ID, Amount, Description, Category)
+                VALUES (?, ?, ?, ?, ?)
+            """, (original_table, int(original_id),
+                  float(s['amount']), s.get('description', '') or '', s['category']))
+            ids.append(self.cursor.lastrowid)
+        return ids
+
+    def revert_splits(self, original_table: str, original_id: int) -> int:
+        """Remove all splits for a transaction. Returns number of rows deleted."""
+        self.cursor.execute("""
+            DELETE FROM TransactionSplits
+            WHERE Original_Table = ? AND Original_ID = ?
+        """, (original_table, int(original_id)))
+        return self.cursor.rowcount
+
+    def apply_splits_to_df(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Replace split-original rows with their individual split rows.
+        Expects raw column names (Out, Income, Transaction_Value) as returned by
+        query_monthly_transactions() / SELECT *.
+        Adds '_split_orig_id' column (NaN for non-split rows) so downstream
+        code can set data-is-split / data-orig-id HTML attributes.
+        """
+        if df.empty:
+            return df
+
+        all_splits = self.get_all_splits()
+        if not all_splits:
+            return df
+
+        if 'TableName' not in df.columns or 'ID' not in df.columns:
+            return df
+
+        split_keys = set((s['orig_table'], s['orig_id']) for s in all_splits)
+
+        # Vectorised mask: which rows are split originals?
+        mask_orig = pd.Series(False, index=df.index)
+        for tbl, oid in split_keys:
+            mask_orig |= (df['TableName'] == tbl) & (df['ID'] == oid)
+
+        if not mask_orig.any():
+            return df
+
+        df_clean = df[~mask_orig].copy()
+        new_rows = []
+
+        for _, orig_row in df[mask_orig].iterrows():
+            tbl    = str(orig_row['TableName'])
+            oid    = int(orig_row['ID'])
+            my_splits = [s for s in all_splits
+                         if s['orig_table'] == tbl and s['orig_id'] == oid]
+
+            is_spending = (
+                (tbl == 'BankTransactions'  and float(orig_row.get('Out', 0) or 0) > 0) or
+                (tbl == 'CardTransactions'  and float(orig_row.get('Transaction_Value', 0) or 0) > 0)
+            )
+
+            for s in my_splits:
+                sr = orig_row.copy()
+                sr['ID']              = s['split_id']   # use split ID as row identifier
+                sr['_split_orig_id']  = oid              # remember original for revert
+                sr['Category']        = s['category']
+                if s['description']:
+                    sr['Description'] = s['description']
+
+                if tbl == 'BankTransactions':
+                    if is_spending:
+                        sr['Out']    = s['amount']
+                        sr['Income'] = 0
+                    else:
+                        sr['Income'] = s['amount']
+                        sr['Out']    = 0
+                elif tbl == 'CardTransactions':
+                    sr['Transaction_Value'] = s['amount'] if is_spending else -s['amount']
+                    sr['Charge_Value']      = s['amount']
+
+                new_rows.append(sr)
+
+        if new_rows:
+            df_splits = pd.DataFrame(new_rows)
+            return pd.concat([df_clean, df_splits], ignore_index=True)
+        return df_clean
+

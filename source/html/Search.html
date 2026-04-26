@@ -131,6 +131,47 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;m
 /* No results */
 .no-results{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow-sm);text-align:center;padding:60px 28px;color:var(--text-muted)}
 .no-results-icon{font-size:2.5em;margin-bottom:12px;opacity:.4}
+
+/* Split feature */
+.result-card{cursor:pointer}
+.result-card.is-split{border-right:3px solid #7b1fa2}
+.rc-split-badge{font-size:.7em;background:#ede7f6;color:#7b1fa2;border-radius:8px;padding:1px 7px;font-weight:700;margin-top:3px;display:inline-block}
+/* Split / Revert modals */
+.s-modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:900;align-items:center;justify-content:center}
+.s-modal-overlay.open{display:flex}
+.s-modal{background:#fff;border-radius:16px;padding:26px 30px;width:100%;max-width:540px;box-shadow:0 20px 60px rgba(0,0,0,.18);direction:rtl;position:relative;max-height:92vh;overflow-y:auto}
+.s-modal-title{font-size:1.04em;font-weight:700;color:var(--navy);margin-bottom:14px}
+.s-modal-close{position:absolute;top:14px;left:18px;background:none;border:none;font-size:1.1em;cursor:pointer;color:#aaa;padding:4px}
+.s-modal-close:hover{color:var(--red)}
+.s-step{display:none;flex-direction:column;gap:10px}
+.s-step.active{display:flex}
+.s-orig-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#f7f9ff;border-radius:10px;padding:11px 14px}
+.s-orig-name{font-size:.88em;font-weight:600;color:var(--navy);flex:1}
+.s-orig-amount{font-size:.9em;font-weight:700;color:var(--teal);white-space:nowrap}
+.s-cat-badge{font-size:.72em;background:#f0f2f8;border-radius:10px;padding:2px 8px;color:#666}
+.s-editor-header{display:grid;grid-template-columns:22px 1fr 100px 120px 26px;gap:5px;font-size:.7em;color:var(--text-muted);font-weight:600;padding:0 2px;margin-bottom:4px}
+.s-editor-row{display:grid;grid-template-columns:22px 1fr 100px 120px 26px;gap:5px;align-items:center;margin-bottom:5px}
+.s-row-num{font-size:.78em;color:#aaa;text-align:center}
+.s-row-input{padding:7px 9px;border:1.5px solid var(--border);border-radius:7px;font-size:.84em;color:var(--navy);outline:none;width:100%;box-sizing:border-box;font-family:inherit;transition:border-color .15s}
+.s-row-input:focus{border-color:var(--teal)}
+.s-row-remove{width:24px;height:24px;border:none;background:none;color:#ccc;cursor:pointer;border-radius:5px;font-size:.9em;display:flex;align-items:center;justify-content:center;transition:background .12s,color .12s}
+.s-row-remove:hover{background:#fff0f0;color:var(--red)}
+.s-add-btn{background:none;border:1.5px dashed var(--border);border-radius:8px;color:var(--teal);font-size:.8em;font-weight:600;cursor:pointer;padding:7px 14px;font-family:inherit;transition:border-color .15s,background .15s}
+.s-add-btn:hover{background:var(--teal-light);border-color:var(--teal)}
+.s-total-bar{font-size:.8em;display:flex;gap:10px;flex-wrap:wrap;background:#f7f9ff;border-radius:8px;padding:7px 13px;align-items:center}
+.s-modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:16px}
+.s-btn-cancel{padding:9px 18px;border:1.5px solid var(--border);border-radius:8px;background:#fff;color:#888;cursor:pointer;font-size:.84em;font-weight:600;font-family:inherit}
+.s-btn-submit{padding:9px 18px;border:none;border-radius:8px;background:var(--teal);color:#fff;cursor:pointer;font-size:.84em;font-weight:600;font-family:inherit}
+.s-btn-submit:hover{background:var(--teal-dark)}
+.s-btn-danger{padding:9px 18px;border:none;border-radius:8px;background:#e53935;color:#fff;cursor:pointer;font-size:.84em;font-weight:600;font-family:inherit}
+.s-btn-danger:hover{background:#c62828}
+.s-status{font-size:.78em;margin-top:5px;min-height:1.1em}
+.s-status.ok{color:var(--teal)}.s-status.err{color:var(--red)}
+.s-revert-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:7px 12px;border-radius:8px;background:#f7f9ff;margin-bottom:5px}
+.s-revert-num{font-size:.76em;color:#aaa;min-width:14px}
+.s-revert-amt{font-size:.86em;font-weight:700;color:var(--navy);min-width:70px}
+.s-revert-desc{font-size:.8em;color:var(--text-sub);flex:1}
+.s-toast{position:fixed;bottom:24px;right:24px;background:#2e7d32;color:#fff;border-radius:10px;padding:11px 20px;font-size:.85em;font-weight:600;z-index:9999;box-shadow:0 4px 18px rgba(0,0,0,.15);animation:_pageIn .2s ease}
 </style>
 </head>
 <body>
@@ -388,11 +429,28 @@ function renderCards(rows){
     var secondaryText  = hasDesc ? r.name : '';
     var delay   = Math.min(i*0.03, 0.3);
 
-    html += '<div class="result-card" style="animation-delay:'+delay+'s">' +
+    var isSplit    = r.is_split ? true : false;
+    var splitBadge = isSplit ? '<span class="rc-split-badge">פיצול</span>' : '';
+    var cardCls    = 'result-card' + (isSplit ? ' is-split' : '');
+    var origTbl    = r.orig_table || (r.source === 'card' ? 'CardTransactions' : 'BankTransactions');
+    var dataAttrs  =
+      'data-tx-id="'+r.tx_id+'" '+
+      'data-src="'+esc(r.source)+'" '+
+      'data-name="'+esc(r.name)+'" '+
+      'data-amount="'+Math.abs(r.amount)+'" '+
+      'data-category="'+esc(r.category||'')+'" '+
+      'data-date="'+esc(r.date||'')+'" '+
+      (isSplit
+        ? 'data-is-split="1" data-orig-id="'+r.orig_id+'" data-orig-table="'+esc(origTbl)+'"'
+        : 'data-orig-table="'+esc(origTbl)+'"');
+
+    html += '<div class="'+cardCls+'" style="animation-delay:'+delay+'s" '+dataAttrs+
+      ' onclick="srHandleClick(this)">' +
       '<div class="rc-body">' +
         '<div class="rc-name" title="'+esc(primaryText)+'">' +
           '<span class="rc-name-primary">'+esc(primaryText)+'</span>' +
           (secondaryText ? '<span class="rc-name-secondary">'+esc(secondaryText)+'</span>' : '') +
+          splitBadge +
         '</div>' +
         '<div class="rc-meta-row">'+
           '<span class="rc-date">📅 '+(r.date||'—')+'</span>' +
@@ -419,6 +477,246 @@ function esc(s){
 document.addEventListener('keydown',function(e){
   if(e.key==='Enter' && !e.target.closest('nav')) doSearch();
 });
+
+// ═══════════════════════════════════════════════════════════
+//  Transaction Split Feature — Search page
+// ═══════════════════════════════════════════════════════════
+var _srSplitTx   = { id:null, table:null, name:'', amount:0, category:'', date:'' };
+var _srRevertTx  = { table:null, origId:null };
+var _srRowIdx    = 0;
+var _srCategories = [];
+
+fetch('/api/search/categories').then(function(r){return r.json();}).then(function(d){
+  _srCategories = d.categories || [];
+}).catch(function(){});
+
+function srHandleClick(card) {
+  var isSplit = card.getAttribute('data-is-split') === '1';
+  if (isSplit) {
+    var origTbl = card.getAttribute('data-orig-table');
+    var origId  = card.getAttribute('data-orig-id');
+    srOpenRevert(origTbl, origId);
+  } else {
+    var id   = card.getAttribute('data-tx-id');
+    var tbl  = card.getAttribute('data-orig-table');
+    var name = card.getAttribute('data-name') || '';
+    var amt  = parseFloat(card.getAttribute('data-amount')) || 0;
+    var cat  = card.getAttribute('data-category') || '';
+    var dt   = card.getAttribute('data-date') || '';
+    srOpenConfirm(id, tbl, name, amt, cat, dt);
+  }
+}
+
+// ── Confirm step ──────────────────────────────────────────────
+function srOpenConfirm(id, tbl, name, amt, cat, dt) {
+  _srSplitTx = { id:id, table:tbl, name:name, amount:amt, category:cat, date:dt };
+  var el = document.getElementById('sr-confirm-info');
+  if (el) el.innerHTML =
+    '<div class="s-orig-row">' +
+      '<span class="s-orig-name">'+esc(name)+'</span>' +
+      '<span class="s-orig-amount">₪'+amt.toLocaleString('he-IL',{minimumFractionDigits:2})+'</span>' +
+      '<span class="s-cat-badge">'+esc(cat)+'</span>' +
+      '<span style="font-size:.76em;color:var(--text-muted)">'+esc(dt)+'</span>' +
+    '</div>';
+  srShowStep('sr-step-confirm');
+  document.getElementById('sr-split-overlay').classList.add('open');
+}
+
+// ── Editor step ───────────────────────────────────────────────
+function srGoEditor() {
+  var banner = document.getElementById('sr-editor-banner');
+  if (banner) banner.innerHTML =
+    '<div class="s-orig-row">' +
+      '<span class="s-orig-name">'+esc(_srSplitTx.name)+'</span>' +
+      '<span class="s-orig-amount">₪'+_srSplitTx.amount.toLocaleString('he-IL',{minimumFractionDigits:2})+'</span>' +
+      '<span class="s-cat-badge">'+esc(_srSplitTx.category)+'</span>' +
+    '</div>';
+  _srRowIdx = 0;
+  document.getElementById('sr-editor-rows').innerHTML = '';
+  srAddRow(); srAddRow();
+  srShowStep('sr-step-editor');
+  srUpdateTotal();
+}
+
+function srAddRow() {
+  _srRowIdx++;
+  var idx = _srRowIdx;
+  var opts = _srCategories.map(function(c){
+    return '<option value="'+esc(c)+'"'+(c===_srSplitTx.category?' selected':'')+'>'+esc(c)+'</option>';
+  }).join('');
+  var d = document.createElement('div');
+  d.className = 's-editor-row'; d.id = 'sr-row-'+idx;
+  d.innerHTML =
+    '<span class="s-row-num">'+idx+'</span>'+
+    '<input class="s-row-input sr-desc" type="text" placeholder="תיאור">'+
+    '<input class="s-row-input sr-amt" type="number" min="0.01" step="0.01" placeholder="סכום" oninput="srUpdateTotal()">'+
+    '<select class="s-row-input sr-cat">'+opts+'</select>'+
+    (idx>1?'<button class="s-row-remove" onclick="srRemoveRow('+idx+')">✕</button>':'<span></span>');
+  document.getElementById('sr-editor-rows').appendChild(d);
+}
+
+function srRemoveRow(idx) {
+  var r = document.getElementById('sr-row-'+idx); if(r) r.remove();
+  srUpdateTotal();
+}
+
+function srUpdateTotal() {
+  var total = _srSplitTx.amount, used = 0;
+  document.querySelectorAll('#sr-editor-rows .sr-amt').forEach(function(i){ used += parseFloat(i.value)||0; });
+  var rem = total - used;
+  var uEl = document.getElementById('sr-total-used');
+  var rEl = document.getElementById('sr-total-rem');
+  if (uEl) uEl.textContent = '₪'+used.toLocaleString('he-IL',{minimumFractionDigits:2});
+  if (rEl) {
+    rEl.textContent = '₪'+Math.abs(rem).toLocaleString('he-IL',{minimumFractionDigits:2})+(rem<0?' (חריגה)':'');
+    rEl.style.color = Math.abs(rem)<0.01?'var(--teal)':(rem<0?'var(--red)':'#888');
+  }
+  var btn = document.getElementById('sr-submit-btn');
+  if (btn) btn.disabled = Math.abs(rem) >= 0.01;
+}
+
+function srSubmitSplit() {
+  var splits=[]; var valid=true;
+  document.querySelectorAll('#sr-editor-rows .s-editor-row').forEach(function(row){
+    var desc = row.querySelector('.sr-desc').value.trim();
+    var amt  = parseFloat(row.querySelector('.sr-amt').value);
+    var cat  = row.querySelector('.sr-cat').value;
+    if (!amt||amt<=0){valid=false;return;}
+    splits.push({description:desc,amount:amt,category:cat});
+  });
+  if (!valid||splits.length<2){srSetStatus('יש להזין סכום חיובי לכל חלק','err');return;}
+  var btn=document.getElementById('sr-submit-btn'); if(btn)btn.disabled=true;
+  fetch('/api/transactions/split',{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({table:_srSplitTx.table,id:_srSplitTx.id,splits:splits})
+  }).then(function(r){return r.json();}).then(function(d){
+    if(d.ok){
+      srCloseSplit();
+      srToast('העסקה פוצלה ל-'+splits.length+' חלקים! חפש מחדש לצפייה.','ok');
+    } else {
+      srSetStatus('שגיאה: '+(d.error||''), 'err');
+      if(btn)btn.disabled=false;
+    }
+  }).catch(function(){srSetStatus('שגיאת רשת','err');if(btn)btn.disabled=false;});
+}
+
+// ── Revert ────────────────────────────────────────────────────
+function srOpenRevert(tbl, origId) {
+  _srRevertTx = { table:tbl, origId:origId };
+  var oEl = document.getElementById('sr-revert-orig');
+  var sEl = document.getElementById('sr-revert-splits');
+  if(oEl) oEl.innerHTML = '<span style="color:#888;font-size:.84em">טוען...</span>';
+  if(sEl) sEl.innerHTML = '';
+  srSetRevertStatus('','');
+  document.getElementById('sr-revert-overlay').classList.add('open');
+  fetch('/api/transactions/split-info?table='+encodeURIComponent(tbl)+'&id='+encodeURIComponent(origId))
+  .then(function(r){return r.json();}).then(function(d){
+    if(!d.ok){if(oEl)oEl.innerHTML='שגיאה: '+esc(d.error||'');return;}
+    var o=d.original;
+    if(oEl) oEl.innerHTML='<div class="s-orig-row">'+
+      '<span class="s-orig-name">'+esc(o.name)+'</span>'+
+      '<span class="s-orig-amount">₪'+Math.abs(o.amount).toLocaleString('he-IL',{minimumFractionDigits:2})+'</span>'+
+      '<span class="s-cat-badge">'+esc(o.category)+'</span>'+
+      '<span style="font-size:.76em;color:var(--text-muted)">'+esc(o.date)+'</span>'+
+      '</div>';
+    if(sEl) sEl.innerHTML=d.splits.map(function(s,i){
+      return '<div class="s-revert-row">'+
+        '<span class="s-revert-num">'+(i+1)+'</span>'+
+        '<span class="s-revert-amt">₪'+s.amount.toLocaleString('he-IL',{minimumFractionDigits:2})+'</span>'+
+        '<span class="s-revert-desc">'+esc(s.description||'—')+'</span>'+
+        '<span class="s-cat-badge">'+esc(s.category)+'</span>'+
+        '</div>';
+    }).join('');
+  }).catch(function(){if(oEl)oEl.innerHTML='שגיאת רשת';});
+}
+
+function srSubmitRevert() {
+  fetch('/api/transactions/revert-split',{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({table:_srRevertTx.table,id:_srRevertTx.origId})
+  }).then(function(r){return r.json();}).then(function(d){
+    if(d.ok){
+      srCloseRevert();
+      srToast('הפיצול בוטל! חפש מחדש לצפייה.','ok');
+    } else { srSetRevertStatus('שגיאה: '+(d.error||''),'err'); }
+  }).catch(function(){srSetRevertStatus('שגיאת רשת','err');});
+}
+
+// ── Helpers ───────────────────────────────────────────────────
+function srShowStep(id){
+  document.querySelectorAll('.s-step').forEach(function(s){s.classList.remove('active');});
+  var el=document.getElementById(id); if(el)el.classList.add('active');
+}
+function srCloseSplit(){ document.getElementById('sr-split-overlay').classList.remove('open'); }
+function srCloseRevert(){ document.getElementById('sr-revert-overlay').classList.remove('open'); }
+function srSetStatus(msg,cls){
+  var el=document.getElementById('sr-split-status');
+  if(el){el.textContent=msg;el.className='s-status'+(cls?' '+cls:'');}
+}
+function srSetRevertStatus(msg,cls){
+  var el=document.getElementById('sr-revert-status');
+  if(el){el.textContent=msg;el.className='s-status'+(cls?' '+cls:'');}
+}
+function srToast(msg){
+  var el=document.createElement('div');
+  el.className='s-toast'; el.textContent=msg;
+  document.body.appendChild(el);
+  setTimeout(function(){el.remove();},5000);
+}
 </script>
+
+<!-- ═══ Split modal ═══ -->
+<div class="s-modal-overlay" id="sr-split-overlay" onclick="if(event.target===this)srCloseSplit()">
+  <div class="s-modal">
+    <button class="s-modal-close" onclick="srCloseSplit()">✕</button>
+
+    <div class="s-step active" id="sr-step-confirm">
+      <div class="s-modal-title">פיצול עסקה?</div>
+      <div id="sr-confirm-info"></div>
+      <div class="s-modal-actions">
+        <button class="s-btn-cancel" onclick="srCloseSplit()">ביטול</button>
+        <button class="s-btn-submit" onclick="srGoEditor()">פצל עסקה →</button>
+      </div>
+    </div>
+
+    <div class="s-step" id="sr-step-editor">
+      <div class="s-modal-title">פיצול עסקה</div>
+      <div id="sr-editor-banner"></div>
+      <div class="s-editor-header">
+        <span></span><span>תיאור</span><span>סכום ₪</span><span>קטגוריה</span><span></span>
+      </div>
+      <div id="sr-editor-rows"></div>
+      <button class="s-add-btn" onclick="srAddRow()">+ הוסף חלק</button>
+      <div class="s-total-bar">
+        <span style="color:var(--text-muted)">סה"כ:</span>
+        <span id="sr-total-used" style="font-weight:700">₪0</span>
+        <span style="color:var(--text-muted);margin-right:10px">נשאר:</span>
+        <span id="sr-total-rem" style="font-weight:700">₪0</span>
+      </div>
+      <div class="s-modal-actions">
+        <button class="s-btn-cancel" onclick="srCloseSplit()">ביטול</button>
+        <button class="s-btn-submit" id="sr-submit-btn" onclick="srSubmitSplit()" disabled>אשר פיצול</button>
+      </div>
+      <div class="s-status" id="sr-split-status"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Revert modal ═══ -->
+<div class="s-modal-overlay" id="sr-revert-overlay" onclick="if(event.target===this)srCloseRevert()">
+  <div class="s-modal">
+    <button class="s-modal-close" onclick="srCloseRevert()">✕</button>
+    <div class="s-modal-title">עסקה מפוצלת</div>
+    <div id="sr-revert-orig"></div>
+    <div style="margin:10px 0 5px;font-size:.76em;font-weight:600;color:var(--text-muted)">חלקים:</div>
+    <div id="sr-revert-splits"></div>
+    <div class="s-modal-actions">
+      <button class="s-btn-cancel" onclick="srCloseRevert()">סגור</button>
+      <button class="s-btn-danger" onclick="srSubmitRevert()">בטל פיצול ↩</button>
+    </div>
+    <div class="s-status" id="sr-revert-status"></div>
+  </div>
+</div>
+
 </body>
 </html>

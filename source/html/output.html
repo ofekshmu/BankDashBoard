@@ -1341,7 +1341,7 @@ body {
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js">
   </script>
  </head>
- <body data-generated="29/04/2026 09:00" data-month="2026_04">
+ <body data-generated="29/04/2026 09:04" data-month="2026_04">
   <!-- Hamburger -->
   <button aria-label="תפריט" class="ham-btn" id="ham-btn" onclick="toggleNav()">
    <svg fill="none" height="14" viewbox="0 0 18 14" width="18">
@@ -3663,21 +3663,21 @@ body {
       </div>
       <script>
        (function(){
-  var _actualStop = 9;
+  var _isProj = [false, false, false, false, false, false, false, false, false, true, true, true, true, true, true];
   new Chart(document.getElementById('chart-mort-cashflow'), {
     type: 'bar',
-    data: {"labels": ["2025-08", "2025-09", "2025-10", "2025-11", "2025-12", "2026-01", "2026-02", "2026-03", "2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09", "2026-10"], "datasets": [{"label": "\u05ea\u05e9\u05dc\u05d5\u05dd \u05de\u05e9\u05db\u05e0\u05ea\u05d0", "data": [2996.82, 3772.49, 3752.0, 3772.45, 3748.28, 3743.22, 3720.93, 3666.15, 3714.37, 3772.49, 3772.49, 3772.49, 3772.49, 3772.49, 3772.49], "backgroundColor": "#f66b85"}, {"label": "\u05d4\u05db\u05e0\u05e1\u05ea \u05e9\u05db\u05d9\u05e8\u05d5\u05ea", "data": [4100.0, 2800.0, 2800.0, 2800.0, 2800.0, 2800.0, 2800.0, 2800.0, 2800.0, 2800.0, 2800.0, 2800.0, 2800.0, 2800.0, 2800.0], "backgroundColor": "#1e9d8b"}]},
+    data: {"labels": ["2025-08", "2025-09", "2025-10", "2025-11", "2025-12", "2026-01", "2026-02", "2026-03", "2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09", "2026-10"], "datasets": [{"label": "\u05d4\u05d5\u05e6\u05d0\u05d5\u05ea \u05d3\u05d9\u05d5\u05e8", "data": [3112.14, 7889.2, 3842.24, 5031.51, 3950.49, 4225.28, 3922.99, 3868.12, 6717.4, 3772.49, 3772.49, 3772.49, 3772.49, 3772.49, 3772.49], "backgroundColor": ["#f66b85", "#f66b85", "#f66b85", "#f66b85", "#f66b85", "#f66b85", "#f66b85", "#f66b85", "#f66b85", "rgba(246,107,133,0.45)", "rgba(246,107,133,0.45)", "rgba(246,107,133,0.45)", "rgba(246,107,133,0.45)", "rgba(246,107,133,0.45)", "rgba(246,107,133,0.45)"]}, {"label": "\u05d4\u05db\u05e0\u05e1\u05d5\u05ea \u05d3\u05d9\u05d5\u05e8", "data": [4100.0, 435.0, 80.26, 0.0, 2800.0, 2800.0, 2800.0, 2950.0, 3177.0, 2800.0, 2800.0, 2800.0, 2800.0, 2800.0, 2800.0], "backgroundColor": ["#1e9d8b", "#1e9d8b", "#1e9d8b", "#1e9d8b", "#1e9d8b", "#1e9d8b", "#1e9d8b", "#1e9d8b", "#1e9d8b", "rgba(30,157,139,0.45)", "rgba(30,157,139,0.45)", "rgba(30,157,139,0.45)", "rgba(30,157,139,0.45)", "rgba(30,157,139,0.45)", "rgba(30,157,139,0.45)"]}]},
     options: {
       responsive: true, maintainAspectRatio: false,
       plugins: {
         legend: { position: 'bottom', labels: { font: { size: 11 }, padding: 8, boxWidth: 12 } },
         tooltip: { rtl: true, callbacks: { label: function(c) {
-          var suffix = c.dataIndex >= _actualStop ? ' (חיזוי)' : '';
+          var suffix = _isProj[c.dataIndex] ? ' (חיזוי)' : '';
           return c.dataset.label + ': ₪' + Math.round(c.parsed.y).toLocaleString('he-IL') + suffix;
         } } }
       },
       scales: {
-        x: { ticks: { maxTicksLimit: 10, font: { size: 10 } } },
+        x: { ticks: { maxTicksLimit: 14, font: { size: 10 } } },
         y: { ticks: { callback: function(v) { return '₪' + Math.round(v).toLocaleString('he-IL'); }, font: { size: 10 } } }
       }
     }

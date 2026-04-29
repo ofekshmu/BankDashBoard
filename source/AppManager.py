@@ -1363,19 +1363,43 @@ class AppManager:
             }
         # Cashflow: build month list from first payment to today+6 months
         from dateutil.relativedelta import relativedelta as _rdelta
-        _cf_d = FIRST_PAYMENT.replace(day=1)
+
+        _housing_txns = DataBase().get_all_category_transactions(MORTGAGE_CATEGORY)
+
+        # Cashflow chart: aggregate actual transactions by month, then append
+        # projected months for the next 6 months after today.
+        _ht_cf = _housing_txns.copy()
+        _ht_cf['_m'] = pd.to_datetime(_ht_cf['Date']).dt.strftime('%Y-%m')
+        _ht_monthly = (
+            _ht_cf.groupby('_m')
+                  .agg(_out=('Out', 'sum'), _inc=('Income', 'sum'))
+                  .reset_index()
+        )
+        # Only keep months from first mortgage payment onwards
+        _fp_key = FIRST_PAYMENT.strftime('%Y-%m')
+        _ht_monthly = _ht_monthly[_ht_monthly['_m'] >= _fp_key]
+        _actual_out_map = dict(zip(_ht_monthly['_m'], _ht_monthly['_out']))
+        _actual_inc_map = dict(zip(_ht_monthly['_m'], _ht_monthly['_inc']))
+        _today_key = str(_today_date)[:7]
+
+        # Past/current months: use actual DB totals (0 if no transactions)
+        _cf_months, _cf_payments, _cf_rentals, _cf_is_proj = [], [], [], []
+        for _m in sorted(_actual_out_map.keys() | _actual_inc_map.keys()):
+            _cf_months.append(_m)
+            _cf_payments.append(round(float(_actual_out_map.get(_m, 0)), 2))
+            _cf_rentals.append(round(float(_actual_inc_map.get(_m, 0)), 2))
+            _cf_is_proj.append(False)
+
+        # Future months: projected values
+        _cf_d = (_today_date + _rdelta(months=1)).replace(day=1)
         _cf_end = _today_date + _rdelta(months=6)
-        _cf_months, _cf_payments, _cf_rentals = [], [], []
-        _pay_map  = {} if _actual_pays.empty  else {str(d)[:7]: v for d, v in zip(_actual_pays['month'],  _actual_pays['total_paid'])}
-        _rent_map = {} if _actual_rental.empty else {str(d)[:7]: v for d, v in zip(_actual_rental['month'], _actual_rental['total_income'])}
         while _cf_d <= _cf_end:
             _m = str(_cf_d)[:7]
             _cf_months.append(_m)
-            _cf_payments.append(round(float(_pay_map.get(_m, TOTAL_MONTHLY_PAYMENT)), 2))
-            _cf_rentals.append(round(float(_rent_map.get(_m, RENTAL_INCOME_PM)), 2))
+            _cf_payments.append(round(float(TOTAL_MONTHLY_PAYMENT), 2))
+            _cf_rentals.append(round(float(RENTAL_INCOME_PM), 2))
+            _cf_is_proj.append(True)
             _cf_d = (_cf_d + _rdelta(months=1)).replace(day=1)
-
-        _housing_txns = DataBase().get_all_category_transactions(MORTGAGE_CATEGORY)
         # 5% annual appreciation on apartment value (default; user can adjust in UI)
         _DEFAULT_RATE        = 5.0
         _years_elapsed       = _n_months / 12
@@ -1486,9 +1510,8 @@ class AppManager:
                 "months":   _cf_months,
                 "payments": _cf_payments,
                 "rentals":  _cf_rentals,
-                "today":    str(_today_date)[:7],
-                "projected_payment": round(float(TOTAL_MONTHLY_PAYMENT), 2),
-                "projected_rental":  round(float(RENTAL_INCOME_PM), 2),
+                "is_proj":  _cf_is_proj,
+                "today":    _today_key,
             },
         }
 

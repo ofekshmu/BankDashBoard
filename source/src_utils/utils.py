@@ -1774,23 +1774,27 @@ class utils:
                 card_br.append(sc_br)
                 charts_row.append(card_br)
 
-            # 3. Cashflow chart (grouped bar)
+            # 3. Cashflow chart (grouped bar — actual transactions, projected future)
             ccf = md.get("chart_cashflow", {})
             if ccf:
                 card_cf, _ = _mort_chart_card("chart-mort-cashflow", "תזרים מזומנים — דיור")
-                _today_cf  = ccf.get("today", "")
-                _months_cf = ccf.get("months", [])
-                _actual_stop_idx = next((i for i, m in enumerate(_months_cf) if m > _today_cf), len(_months_cf))
+                _is_proj   = ccf.get("is_proj", [False] * len(ccf.get("months", [])))
+                # Actual bars: solid; projected bars: 50% opacity
+                _pay_colors = ["rgba(246,107,133,0.45)" if p else "#f66b85" for p in _is_proj]
+                _inc_colors = ["rgba(30,157,139,0.45)"  if p else "#1e9d8b" for p in _is_proj]
                 _data_cf = _jmort.dumps({
-                    "labels": _months_cf,
+                    "labels": ccf["months"],
                     "datasets": [
-                        {"label": "תשלום משכנתא",  "data": ccf["payments"], "backgroundColor": "#f66b85"},
-                        {"label": "הכנסת שכירות",  "data": ccf["rentals"],  "backgroundColor": "#1e9d8b"},
+                        {"label": "הוצאות דיור",   "data": ccf["payments"],
+                         "backgroundColor": _pay_colors},
+                        {"label": "הכנסות דיור",   "data": ccf["rentals"],
+                         "backgroundColor": _inc_colors},
                     ]
                 })
+                _proj_flags = _jmort.dumps(_is_proj)
                 sc_cf = tag("script")
                 sc_cf.string = f"""(function(){{
-  var _actualStop = {_actual_stop_idx};
+  var _isProj = {_proj_flags};
   new Chart(document.getElementById('chart-mort-cashflow'), {{
     type: 'bar',
     data: {_data_cf},
@@ -1799,12 +1803,12 @@ class utils:
       plugins: {{
         legend: {{ position: 'bottom', labels: {{ font: {{ size: 11 }}, padding: 8, boxWidth: 12 }} }},
         tooltip: {{ rtl: true, callbacks: {{ label: function(c) {{
-          var suffix = c.dataIndex >= _actualStop ? ' (חיזוי)' : '';
+          var suffix = _isProj[c.dataIndex] ? ' (חיזוי)' : '';
           return c.dataset.label + ': ₪' + Math.round(c.parsed.y).toLocaleString('he-IL') + suffix;
         }} }} }}
       }},
       scales: {{
-        x: {{ ticks: {{ maxTicksLimit: 10, font: {{ size: 10 }} }} }},
+        x: {{ ticks: {{ maxTicksLimit: 14, font: {{ size: 10 }} }} }},
         y: {{ ticks: {{ callback: function(v) {{ return '₪' + Math.round(v).toLocaleString('he-IL'); }}, font: {{ size: 10 }} }} }}
       }}
     }}

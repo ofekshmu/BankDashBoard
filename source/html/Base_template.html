@@ -2021,7 +2021,10 @@ function reloadCurrent() {
         appendLog('✓ הניתוח הסתיים — מרענן...', 'done');
         btn.classList.remove('running', 'stale'); btn.disabled = false;
         hideLogFloat(1000);
-        setTimeout(function() { location.href = '/general/' + _currentKey; }, 1200);
+        setTimeout(function() {
+          var _curPanel = new URLSearchParams(window.location.search).get('panel') || '';
+          location.href = '/general/' + _currentKey + (_curPanel ? '?panel=' + _curPanel : '');
+        }, 1200);
         return;
       }
       if (data === '__ERROR__') {

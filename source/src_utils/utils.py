@@ -254,7 +254,9 @@ class utils:
       if (chart.config.type !== 'doughnut') return;
       const {ctx, data, chartArea: {top, bottom, left, right}} = chart;
       const cx = (left + right) / 2, cy = (top + bottom) / 2;
-      const total = data.datasets[0].data.reduce((a, b) => a + b, 0);
+      const meta = chart.getDatasetMeta(0);
+      const total = data.datasets[0].data.reduce((a, b, i) =>
+        (meta.data[i] && meta.data[i].hidden) ? a : a + b, 0);
       ctx.save();
       ctx.font = 'bold 15px Segoe UI,Arial,sans-serif';
       ctx.fillStyle = '#1e2a4a';
@@ -303,8 +305,10 @@ class utils:
           callbacks: {{
             label: function(ctx) {{
               const v = ctx.parsed;
-              const total = ctx.dataset.data.reduce((a,b)=>a+b,0);
-              const pct = total ? (v/total*100).toFixed(1) : 0;
+              const meta = ctx.chart.getDatasetMeta(0);
+              const visTotal = ctx.dataset.data.reduce((a,b,i)=>
+                (meta.data[i]&&meta.data[i].hidden)?a:a+b, 0);
+              const pct = visTotal ? (v/visTotal*100).toFixed(1) : 0;
               return ctx.label + ': \u20aa' + Math.round(v).toLocaleString('he-IL') + ' (' + pct + '%)';
             }}
           }}
@@ -1659,22 +1663,157 @@ class utils:
                 )
                 housing_panel.append(banner)
 
-            # ── Charts ────────────────────────────────────────────────
+            # ── Charts (Chart.js — inline, no PNG downloads) ─────────
+            import json as _jmort
             charts_row = tag("div", class_="charts-grid")
 
-            def _chart_card(title, src, full_width=False):
+            def _mort_chart_card(canvas_id, title, full_width=False):
                 cls  = "chart-card full-width" if full_width else "chart-card"
                 card = tag("div", class_=cls)
                 ttl  = tag("div", class_="chart-card-title")
-                ttl.string = title
-                card.append(ttl)
-                img  = tag("img", src=src)
-                card.append(img)
-                return card
+                ttl.string = title; card.append(ttl)
+                wrap = tag("div"); wrap["style"] = "position:relative;height:280px;"
+                cv   = tag("canvas"); cv["id"] = canvas_id; cv["style"] = "width:100%;height:100%;"
+                wrap.append(cv); card.append(wrap)
+                return card, wrap
 
-            charts_row.append(_chart_card("יתרת משכנתא לאורך הזמן",    "/outputs/Mortgage_Balance.png",   full_width=True))
-            charts_row.append(_chart_card("פירוט קרן וריבית",           "/outputs/Mortgage_Breakdown.png"))
-            charts_row.append(_chart_card("תזרים מזומנים — דיור",       "/outputs/Mortgage_Cashflow.png"))
+            TRACK_COLORS = {"fixed": "#1e9d8b", "variable": "#f0b429", "prime": "#5b8dee"}
+
+            # 1. Balance chart (full-width line)
+            cb = md.get("chart_balance", {})
+            if cb:
+                card_b, _ = _mort_chart_card("chart-mort-balance", "יתרת משכנתא לאורך הזמן", full_width=True)
+                _datasets_b = []
+                for _tn, _td in cb.get("tracks", {}).items():
+                    _datasets_b.append({
+                        "label": _tn, "data": _td["balance"],
+                        "borderColor": TRACK_COLORS.get(_td["track_type"], "#aaa"),
+                        "backgroundColor": "transparent",
+                        "borderWidth": 1.3, "pointRadius": 0, "tension": 0.3,
+                    })
+                _datasets_b.append({
+                    "label": 'סה"כ', "data": cb["total"],
+                    "borderColor": "#1a3a5c", "backgroundColor": "transparent",
+                    "borderWidth": 2.6, "pointRadius": 0, "tension": 0.3,
+                })
+                _today_key = cb.get("today", "")
+                sc_b = tag("script")
+                sc_b.string = f"""(function(){{
+  var _todayKey = {_jmort.dumps(_today_key)};
+  var ch = new Chart(document.getElementById('chart-mort-balance'), {{
+    type: 'line',
+    data: {_jmort.dumps({"labels": cb["months"], "datasets": _datasets_b})},
+    options: {{
+      responsive: true, maintainAspectRatio: false,
+      plugins: {{
+        legend: {{ position: 'bottom', labels: {{ font: {{ size: 11 }}, padding: 8, boxWidth: 12 }} }},
+        annotation: {{ annotations: [] }},
+        tooltip: {{ rtl: true, callbacks: {{ label: function(c) {{
+          return c.dataset.label + ': ₪' + Math.round(c.parsed.y).toLocaleString('he-IL');
+        }} }} }}
+      }},
+      scales: {{
+        x: {{ ticks: {{ maxTicksLimit: 12, maxRotation: 30, font: {{ size: 10 }} }} }},
+        y: {{ ticks: {{ callback: function(v) {{ return '₪' + Math.round(v/1000) + 'K'; }}, font: {{ size: 10 }} }} }}
+      }}
+    }}
+  }});
+  // Draw "today" vertical line
+  var todayIdx = {_jmort.dumps(cb["months"])}.indexOf(_todayKey);
+  if (todayIdx >= 0) {{
+    Chart.register({{
+      id: 'todayLine-mort-balance',
+      afterDraw(chart) {{
+        var meta = chart.getDatasetMeta(chart.data.datasets.length - 1);
+        var pt = meta.data[todayIdx];
+        if (!pt) return;
+        var ctx2 = chart.ctx, x = pt.x;
+        ctx2.save();
+        ctx2.strokeStyle = '#e74c3c'; ctx2.lineWidth = 1.5;
+        ctx2.setLineDash([4, 3]);
+        ctx2.beginPath(); ctx2.moveTo(x, chart.chartArea.top); ctx2.lineTo(x, chart.chartArea.bottom);
+        ctx2.stroke(); ctx2.restore();
+      }}
+    }});
+    ch.update();
+  }}
+}})();"""
+                card_b.append(sc_b)
+                charts_row.append(card_b)
+
+            # 2. Breakdown chart (stacked bar)
+            cbk = md.get("chart_breakdown", {})
+            if cbk:
+                card_br, _ = _mort_chart_card("chart-mort-breakdown", "פירוט קרן וריבית")
+                _data_br = _jmort.dumps({
+                    "labels": cbk["months"],
+                    "datasets": [
+                        {"label": "ריבית",  "data": cbk["interest"],  "backgroundColor": "#f66b85", "stack": "s"},
+                        {"label": "קרן",    "data": cbk["principal"], "backgroundColor": "#1e9d8b", "stack": "s"},
+                    ]
+                })
+                sc_br = tag("script")
+                sc_br.string = f"""(function(){{
+  new Chart(document.getElementById('chart-mort-breakdown'), {{
+    type: 'bar',
+    data: {_data_br},
+    options: {{
+      responsive: true, maintainAspectRatio: false,
+      plugins: {{
+        legend: {{ position: 'bottom', labels: {{ font: {{ size: 11 }}, padding: 8, boxWidth: 12 }} }},
+        tooltip: {{ rtl: true, callbacks: {{ label: function(c) {{
+          return c.dataset.label + ': ₪' + Math.round(c.parsed.y).toLocaleString('he-IL');
+        }} }} }}
+      }},
+      scales: {{
+        x: {{ stacked: true, ticks: {{ maxTicksLimit: 8, font: {{ size: 10 }} }} }},
+        y: {{ stacked: true, ticks: {{ callback: function(v) {{ return '₪' + Math.round(v).toLocaleString('he-IL'); }}, font: {{ size: 10 }} }} }}
+      }}
+    }}
+  }});
+}})();"""
+                card_br.append(sc_br)
+                charts_row.append(card_br)
+
+            # 3. Cashflow chart (grouped bar)
+            ccf = md.get("chart_cashflow", {})
+            if ccf:
+                card_cf, _ = _mort_chart_card("chart-mort-cashflow", "תזרים מזומנים — דיור")
+                _today_cf  = ccf.get("today", "")
+                _months_cf = ccf.get("months", [])
+                _actual_stop_idx = next((i for i, m in enumerate(_months_cf) if m > _today_cf), len(_months_cf))
+                _data_cf = _jmort.dumps({
+                    "labels": _months_cf,
+                    "datasets": [
+                        {"label": "תשלום משכנתא",  "data": ccf["payments"], "backgroundColor": "#f66b85"},
+                        {"label": "הכנסת שכירות",  "data": ccf["rentals"],  "backgroundColor": "#1e9d8b"},
+                    ]
+                })
+                sc_cf = tag("script")
+                sc_cf.string = f"""(function(){{
+  var _actualStop = {_actual_stop_idx};
+  new Chart(document.getElementById('chart-mort-cashflow'), {{
+    type: 'bar',
+    data: {_data_cf},
+    options: {{
+      responsive: true, maintainAspectRatio: false,
+      plugins: {{
+        legend: {{ position: 'bottom', labels: {{ font: {{ size: 11 }}, padding: 8, boxWidth: 12 }} }},
+        tooltip: {{ rtl: true, callbacks: {{ label: function(c) {{
+          var suffix = c.dataIndex >= _actualStop ? ' (חיזוי)' : '';
+          return c.dataset.label + ': ₪' + Math.round(c.parsed.y).toLocaleString('he-IL') + suffix;
+        }} }} }}
+      }},
+      scales: {{
+        x: {{ ticks: {{ maxTicksLimit: 10, font: {{ size: 10 }} }} }},
+        y: {{ ticks: {{ callback: function(v) {{ return '₪' + Math.round(v).toLocaleString('he-IL'); }}, font: {{ size: 10 }} }} }}
+      }}
+    }}
+  }});
+}})();"""
+                card_cf.append(sc_cf)
+                charts_row.append(card_cf)
+
             housing_panel.append(charts_row)
 
             # ── Milestone table ───────────────────────────────────────

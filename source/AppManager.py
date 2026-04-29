@@ -1348,11 +1348,33 @@ class AppManager:
         _actual_rental = actual_rental_income()    # rental income per month (DB)
         _this_month    = current_month_data(t.year, t.month)  # this month's actuals
         _alltime       = alltime_category_data()   # all-time totals for the category
-        Graphics.plot_mortgage_balance(_mort_totals, _mort_per_track, _today_date)
-        Graphics.plot_mortgage_breakdown(_mort_totals)
-        Graphics.plot_mortgage_cashflow(_actual_pays, _actual_rental,
-                                        RENTAL_INCOME_PM, TOTAL_MONTHLY_PAYMENT,
-                                        mortgage_start=FIRST_PAYMENT)
+        # Build Chart.js-ready data (replaces slow matplotlib PNG generation)
+        _step = 3   # sample every 3 months → ~120 points for 30-year schedule
+        _chart_months = [str(d)[:7] for d in _mort_totals['month'].iloc[::_step]]
+        _chart_bal_total = [round(float(v)) for v in _mort_totals['total_balance'].iloc[::_step]]
+        _chart_interest  = [round(float(v), 2) for v in _mort_totals['total_interest'].iloc[::_step]]
+        _chart_principal = [round(float(v), 2) for v in _mort_totals['total_principal'].iloc[::_step]]
+        _chart_tracks = {}
+        for _tn, _tg in _mort_per_track.groupby("track"):
+            _tg_r = _tg.reset_index(drop=True)
+            _chart_tracks[str(_tn)] = {
+                "balance":    [round(float(v)) for v in _tg_r['balance'].iloc[::_step]],
+                "track_type": str(_tg_r["track_type"].iloc[0]),
+            }
+        # Cashflow: build month list from first payment to today+6 months
+        from dateutil.relativedelta import relativedelta as _rdelta
+        _cf_d = FIRST_PAYMENT.replace(day=1)
+        _cf_end = _today_date + _rdelta(months=6)
+        _cf_months, _cf_payments, _cf_rentals = [], [], []
+        _pay_map  = {} if _actual_pays.empty  else {str(d)[:7]: v for d, v in zip(_actual_pays['month'],  _actual_pays['total_paid'])}
+        _rent_map = {} if _actual_rental.empty else {str(d)[:7]: v for d, v in zip(_actual_rental['month'], _actual_rental['total_income'])}
+        while _cf_d <= _cf_end:
+            _m = str(_cf_d)[:7]
+            _cf_months.append(_m)
+            _cf_payments.append(round(float(_pay_map.get(_m, TOTAL_MONTHLY_PAYMENT)), 2))
+            _cf_rentals.append(round(float(_rent_map.get(_m, RENTAL_INCOME_PM)), 2))
+            _cf_d = (_cf_d + _rdelta(months=1)).replace(day=1)
+
         _housing_txns = DataBase().get_all_category_transactions(MORTGAGE_CATEGORY)
         # 5% annual appreciation on apartment value (default; user can adjust in UI)
         _DEFAULT_RATE        = 5.0
@@ -1448,6 +1470,26 @@ class AppManager:
             "mortgage_category":     MORTGAGE_CATEGORY,
             "housing_transactions":  _housing_txns,
             "first_payment_date":    FIRST_PAYMENT.strftime('%Y-%m-%d'),
+            # Chart.js data (replaces matplotlib PNGs)
+            "chart_balance":   {
+                "months": _chart_months,
+                "total":  _chart_bal_total,
+                "tracks": _chart_tracks,
+                "today":  str(_today_date)[:7],
+            },
+            "chart_breakdown": {
+                "months":    _chart_months,
+                "interest":  _chart_interest,
+                "principal": _chart_principal,
+            },
+            "chart_cashflow":  {
+                "months":   _cf_months,
+                "payments": _cf_payments,
+                "rentals":  _cf_rentals,
+                "today":    str(_today_date)[:7],
+                "projected_payment": round(float(TOTAL_MONTHLY_PAYMENT), 2),
+                "projected_rental":  round(float(RENTAL_INCOME_PM), 2),
+            },
         }
 
         # Accounts chart is now rendered as interactive Chart.js in the HTML — no PNG needed

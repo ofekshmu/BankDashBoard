@@ -254,9 +254,8 @@ class utils:
       if (chart.config.type !== 'doughnut') return;
       const {ctx, data, chartArea: {top, bottom, left, right}} = chart;
       const cx = (left + right) / 2, cy = (top + bottom) / 2;
-      const meta = chart.getDatasetMeta(0);
       const total = data.datasets[0].data.reduce((a, b, i) =>
-        (meta.data[i] && meta.data[i].hidden) ? a : a + b, 0);
+        chart.getDataVisibility(i) ? a + b : a, 0);
       ctx.save();
       ctx.font = 'bold 15px Segoe UI,Arial,sans-serif';
       ctx.fillStyle = '#1e2a4a';
@@ -305,9 +304,9 @@ class utils:
           callbacks: {{
             label: function(ctx) {{
               const v = ctx.parsed;
-              const meta = ctx.chart.getDatasetMeta(0);
+              const ch = ctx.chart;
               const visTotal = ctx.dataset.data.reduce((a,b,i)=>
-                (meta.data[i]&&meta.data[i].hidden)?a:a+b, 0);
+                ch.getDataVisibility(i) ? a+b : a, 0);
               const pct = visTotal ? (v/visTotal*100).toFixed(1) : 0;
               return ctx.label + ': \u20aa' + Math.round(v).toLocaleString('he-IL') + ' (' + pct + '%)';
             }}

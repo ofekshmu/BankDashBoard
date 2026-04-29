@@ -1754,7 +1754,7 @@ class utils:
 
                 txn_tbl = tag("table", class_="milestone-table housing-txn", id="housing-txn-tbl")
                 hdr = tag("tr")
-                for col in ["תאריך", "שם", "הוצאה (₪)", "הכנסה (₪)"]:
+                for col in ["תאריך", "שם", "תיאור", "הוצאה (₪)", "הכנסה (₪)"]:
                     th = tag("th"); th.string = col; hdr.append(th)
                 txn_tbl.append(hdr)
 
@@ -1768,6 +1768,12 @@ class utils:
                     td_name = tag("td")
                     td_name.string = str(row["Name"] or "")
                     tr.append(td_name)
+                    # Description
+                    td_desc = tag("td")
+                    desc_val = row.get("Description", "") if hasattr(row, "get") else ""
+                    td_desc.string = str(desc_val) if desc_val and str(desc_val) != "nan" else "—"
+                    td_desc["style"] = "color:#888; font-size:.88em;"
+                    tr.append(td_desc)
                     # Out
                     td_out = tag("td")
                     out_val = row["Out"]

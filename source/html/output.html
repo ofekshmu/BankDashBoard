@@ -553,7 +553,7 @@ body {
 /* ── Cash-currency pie ───────────────────────────────────── */
 .cash-pie-layout {
   display: flex; gap: 36px; align-items: center;
-  flex-wrap: wrap; padding: 8px 4px;
+  flex-wrap: wrap; padding: 14px 4px 8px; /* extra top padding so hover segments don't clip card title */
 }
 .cash-pie-canvas-wrap {
   position: relative;
@@ -570,10 +570,23 @@ body {
   font-variant-numeric: tabular-nums; line-height: 1.1;
 }
 .cash-pie-sublabel { font-size: .7em; color: var(--text-muted); margin-top: 2px; }
-.cash-legend { flex: 1; display: flex; flex-direction: column; gap: 8px; min-width: 180px; }
+/* shared column template: dot | currency | original amount | rate | ILS value | pct */
+:root { --cl-grid: 10px 44px 88px 94px 80px 50px; }
+.cash-legend { flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 260px; }
+.cash-legend-header {
+  display: grid; grid-template-columns: var(--cl-grid);
+  gap: 6px; padding: 0 10px 6px;
+  border-bottom: 1px solid var(--border); margin-bottom: 2px;
+}
+.cash-legend-hcell {
+  font-size: .67em; color: var(--text-muted); font-weight: 600;
+  white-space: nowrap; text-align: right;
+}
+.cash-legend-hcell:first-child,
+.cash-legend-hcell:nth-child(2) { text-align: right; }
+.cash-legend-hcell:last-child { text-align: center; }
 .cash-legend-row {
-  display: grid;
-  grid-template-columns: 12px 40px 1fr 1fr 46px;
+  display: grid; grid-template-columns: var(--cl-grid);
   align-items: center; gap: 6px;
   padding: 7px 10px; border-radius: var(--radius-sm);
   background: var(--bg); transition: background .12s;
@@ -584,15 +597,19 @@ body {
   justify-self: center;
 }
 .cash-legend-cur {
-  font-weight: 700; font-size: .85em; color: var(--navy);
+  font-weight: 700; font-size: .85em; color: var(--navy); text-align: right;
 }
 .cash-legend-orig {
   font-size: .82em; color: var(--text-muted);
-  font-variant-numeric: tabular-nums; text-align: start;
+  font-variant-numeric: tabular-nums; text-align: right;
+}
+.cash-legend-rate {
+  font-size: .72em; color: var(--teal); font-weight: 600;
+  font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right;
 }
 .cash-legend-ils {
   font-weight: 600; font-size: .88em; color: var(--navy);
-  font-variant-numeric: tabular-nums; text-align: start;
+  font-variant-numeric: tabular-nums; text-align: right;
 }
 .cash-legend-pct {
   font-size: .75em; color: var(--text-muted);
@@ -600,22 +617,6 @@ body {
   padding: 1px 6px; white-space: nowrap;
   font-variant-numeric: tabular-nums; text-align: center;
 }
-.cash-rates-panel {
-  margin-top: 14px; padding: 10px 14px;
-  background: var(--bg); border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-}
-.cash-rates-title {
-  font-size: .78em; color: var(--text-muted);
-  font-weight: 600; margin-bottom: 6px;
-}
-.cash-rate-row {
-  display: flex; align-items: center; gap: 8px;
-  font-size: .82em; padding: 2px 0;
-}
-.cash-rate-cur { font-weight: 700; color: var(--navy); min-width: 36px; }
-.cash-rate-arrow { color: var(--text-muted); }
-.cash-rate-val { font-variant-numeric: tabular-nums; color: var(--teal); font-weight: 600; }
 .cash-pie-empty {
   text-align: center; color: var(--text-muted);
   font-size: .88em; padding: 36px 20px;
@@ -913,6 +914,106 @@ body {
   font-size: 0.69em; color: #b0b8cc;
   text-align: center; white-space: nowrap;
 }
+
+/* ── Transaction split ───────────────────────────────────── */
+.num { cursor: pointer; }
+.split-badge {
+  display: inline-block; font-size: .58em; font-weight: 700;
+  background: #ede7f6; color: #7b1fa2; border-radius: 6px;
+  padding: 1px 6px; margin-right: 5px; vertical-align: middle;
+  white-space: nowrap; flex-shrink: 0;
+}
+/* Split / Revert modal */
+.split-modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.45); z-index: 900;
+  align-items: center; justify-content: center;
+}
+.split-modal-overlay.open { display: flex; }
+.split-modal {
+  background: #fff; border-radius: 16px; padding: 28px 32px;
+  width: 100%; max-width: 560px; box-shadow: 0 20px 60px rgba(0,0,0,.18);
+  direction: rtl; position: relative; max-height: 92vh; overflow-y: auto;
+}
+.split-modal-title { font-size: 1.06em; font-weight: 700; color: var(--navy); margin-bottom: 16px; }
+.split-modal-close {
+  position: absolute; top: 16px; left: 20px; background: none; border: none;
+  font-size: 1.15em; cursor: pointer; color: #aaa; line-height: 1; padding: 4px;
+}
+.split-modal-close:hover { color: var(--red); }
+.split-step { display: none; flex-direction: column; gap: 10px; }
+.split-step.active { display: flex; }
+/* Original transaction info banner */
+.split-orig-row {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  background: #f7f9ff; border-radius: 10px; padding: 12px 16px;
+}
+.split-orig-name   { font-size: .9em; font-weight: 600; color: var(--navy); flex: 1; }
+.split-orig-amount { font-size: .9em; font-weight: 700; color: var(--teal); white-space: nowrap; }
+.split-orig-date   { font-size: .78em; color: var(--text-muted); white-space: nowrap; }
+.split-cat-badge   {
+  font-size: .72em; background: #f0f2f8; border-radius: 10px;
+  padding: 2px 8px; color: #666; white-space: nowrap;
+}
+/* Editor rows */
+.split-editor-header {
+  display: grid; grid-template-columns: 26px 1fr 110px 130px 28px;
+  gap: 6px; font-size: .72em; color: var(--text-muted); font-weight: 600;
+  padding: 0 2px; margin-bottom: 4px;
+}
+.split-editor-row {
+  display: grid; grid-template-columns: 26px 1fr 110px 130px 28px;
+  gap: 6px; align-items: center; margin-bottom: 6px;
+}
+.split-row-num { font-size: .8em; color: #aaa; text-align: center; }
+.split-row-input {
+  padding: 7px 10px; border: 1.5px solid var(--border); border-radius: 8px;
+  font-size: .85em; color: var(--navy); outline: none; width: 100%;
+  box-sizing: border-box; font-family: inherit;
+  transition: border-color .15s;
+}
+.split-row-input:focus { border-color: var(--teal); }
+.split-row-remove {
+  width: 26px; height: 26px; border: none; background: none;
+  color: #ccc; font-size: 1em; cursor: pointer; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .12s, color .12s;
+}
+.split-row-remove:hover { background: #fff0f0; color: var(--red); }
+.split-add-btn {
+  background: none; border: 1.5px dashed var(--border); border-radius: 8px;
+  color: var(--teal); font-size: .82em; font-weight: 600; cursor: pointer;
+  padding: 7px 14px; text-align: right; font-family: inherit;
+  transition: border-color .15s, background .15s;
+}
+.split-add-btn:hover { background: var(--teal-light); border-color: var(--teal); }
+.split-total-bar {
+  font-size: .82em; display: flex; gap: 12px; flex-wrap: wrap;
+  background: #f7f9ff; border-radius: 8px; padding: 8px 14px;
+  align-items: center;
+}
+.split-total-label { color: var(--text-muted); }
+.split-total-used  { font-weight: 700; color: var(--navy); }
+.split-remaining   { font-weight: 700; }
+.split-modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+.split-status { font-size: .8em; margin-top: 6px; min-height: 1.2em; }
+.split-status.ok  { color: var(--teal); }
+.split-status.err { color: var(--red); }
+/* Revert modal splits list */
+.revert-split-row {
+  display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+  padding: 8px 14px; border-radius: 8px; background: #f7f9ff;
+  margin-bottom: 6px;
+}
+.revert-split-num    { font-size: .78em; color: #aaa; min-width: 16px; }
+.revert-split-amount { font-size: .88em; font-weight: 700; color: var(--navy); min-width: 80px; }
+.revert-split-desc   { font-size: .82em; color: var(--text-sub); flex: 1; }
+.split-btn-danger {
+  padding: 9px 20px; border: none; border-radius: 8px;
+  background: #e53935; color: #fff; cursor: pointer;
+  font-size: .84em; font-weight: 600; font-family: inherit;
+}
+.split-btn-danger:hover { background: #c62828; }
 
 /* ── Alerts ──────────────────────────────────────────────── */
 .alerts-header {
@@ -1240,7 +1341,7 @@ body {
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js">
   </script>
  </head>
- <body data-generated="26/04/2026 17:55" data-month="2026_04">
+ <body data-generated="29/04/2026 08:34" data-month="2026_04">
   <!-- Hamburger -->
   <button aria-label="תפריט" class="ham-btn" id="ham-btn" onclick="toggleNav()">
    <svg fill="none" height="14" viewbox="0 0 18 14" width="18">
@@ -1432,7 +1533,7 @@ body {
        (function(){
   new Chart(document.getElementById('chart-earnings-donut'), {
     type: 'doughnut',
-    data: {"labels": ["NotCategorized", "אוכל בחוץ", "אחר", "טיפוח ורפואה", "מזומן", "משכורת", "עמלות", "שיעורים פרטיים", "שלום שבאזי 7"], "datasets": [{"data": [90.0, 82.0, 49.32, 469.0, 207069.0, 15580.74, 33.37, 150.0, 3177.0], "backgroundColor": ["#a5d6a7", "#80cbc4", "#90caf9", "#80deea", "#c5e1a5", "#b3e5fc", "#b2dfdb", "#a5f3d0", "#81d4fa"], "borderWidth": 1, "borderColor": "#fff", "hoverOffset": 8}]},
+    data: {"labels": ["NotCategorized", "אוכל בחוץ", "אחר", "טיפוח ורפואה", "מזומן", "משכורת", "עמלות", "שיעורים פרטיים", "שלום שבאזי 7"], "datasets": [{"data": [90.0, 82.0, 49.32, 469.0, 500.0, 15580.74, 33.37, 150.0, 3177.0], "backgroundColor": ["#a5d6a7", "#80cbc4", "#90caf9", "#80deea", "#c5e1a5", "#b3e5fc", "#b2dfdb", "#a5f3d0", "#81d4fa"], "borderWidth": 1, "borderColor": "#fff", "hoverOffset": 8}]},
     options: {
       responsive: true, maintainAspectRatio: false,
       cutout: '68%',
@@ -1534,14 +1635,6 @@ body {
        </li>
        <li class="outlier-item">
         <span class="outlier-name">
-         טיפוח ורפואה
-        </span>
-        <span class="outlier-value">
-         469.00₪
-        </span>
-       </li>
-       <li class="outlier-item">
-        <span class="outlier-name">
          עמלות
         </span>
         <span class="outlier-value">
@@ -1554,14 +1647,6 @@ body {
         </span>
         <span class="outlier-value">
          150.00₪
-        </span>
-       </li>
-       <li class="outlier-item">
-        <span class="outlier-name">
-         שלום שבאזי7
-        </span>
-        <span class="outlier-value">
-         3,177.00₪
         </span>
        </li>
       </ul>
@@ -1630,7 +1715,7 @@ body {
        (function(){
   new Chart(document.getElementById('chart-cash-donut'), {
     type: 'doughnut',
-    data: {"labels": ["הכנסה  ₪207,069", "הוצאה  ₪0"], "datasets": [{"data": [207069.0, 0.0], "backgroundColor": ["#a5d6a7", "#ef9a9a"], "borderWidth": 1, "borderColor": "#fff", "hoverOffset": 8}]},
+    data: {"labels": ["הכנסה  ₪500", "הוצאה  ₪0"], "datasets": [{"data": [500.0, 0.0], "backgroundColor": ["#a5d6a7", "#ef9a9a"], "borderWidth": 1, "borderColor": "#fff", "hoverOffset": 8}]},
     options: {
       responsive: true, maintainAspectRatio: false,
       cutout: '68%',
@@ -1944,7 +2029,7 @@ body {
          קטגוריה בעלייה: שלום שבאזי 7
         </strong>
         <p>
-         סה״כ החודש: 6605₪ — ממוצע חודשי רגיל: 4047₪ (+63%)
+         סה״כ החודש: 6605₪ — ממוצע חודשי רגיל: 4159₪ (+59%)
         </p>
        </div>
       </div>
@@ -2112,7 +2197,7 @@ body {
       <div class="cat-pills" id="spendings-cats">
       </div>
       <div class="tx-scroll" id="spendings-list">
-       <div class="num" data-value="631">
+       <div class="num" data-tx-table="BankTransactions" data-value="631">
         <div class="color-box" style="background-color:#F0E68C">
         </div>
         <h3>
@@ -2130,7 +2215,7 @@ body {
          Wednesday 01
         </p>
        </div>
-       <div class="num" data-value="633">
+       <div class="num" data-tx-table="BankTransactions" data-value="633">
         <div class="color-box" style="background-color:#F0E68C">
         </div>
         <h3>
@@ -2148,7 +2233,7 @@ body {
          Wednesday 01
         </p>
        </div>
-       <div class="num" data-value="634">
+       <div class="num" data-tx-table="BankTransactions" data-value="634">
         <div class="color-box" style="background-color:#F0E68C">
         </div>
         <h3>
@@ -2166,7 +2251,7 @@ body {
          Wednesday 01
         </p>
        </div>
-       <div class="num" data-value="637">
+       <div class="num" data-tx-table="BankTransactions" data-value="637">
         <div class="color-box" style="background-color:#F0E68C">
         </div>
         <h3>
@@ -2184,7 +2269,7 @@ body {
          Wednesday 01
         </p>
        </div>
-       <div class="num" data-value="626">
+       <div class="num" data-tx-table="BankTransactions" data-value="626">
         <div class="color-box" style="background-color:#F0E68C">
         </div>
         <h3>
@@ -2202,7 +2287,7 @@ body {
          Friday 03
         </p>
        </div>
-       <div class="num" data-value="659">
+       <div class="num" data-tx-table="BankTransactions" data-value="659">
         <div class="color-box" style="background-color:#F0E68C">
         </div>
         <h3>
@@ -2220,7 +2305,7 @@ body {
          Tuesday 07
         </p>
        </div>
-       <div class="num" data-value="657">
+       <div class="num" data-tx-table="BankTransactions" data-value="657">
         <div class="color-box" style="background-color:#F0E68C">
         </div>
         <h3>
@@ -2238,7 +2323,7 @@ body {
          Thursday 09
         </p>
        </div>
-       <div class="num" data-value="656">
+       <div class="num" data-tx-table="BankTransactions" data-value="656">
         <div class="color-box" style="background-color:#F0E68C">
         </div>
         <h3>
@@ -2256,7 +2341,7 @@ body {
          Friday 10
         </p>
        </div>
-       <div class="num" data-value="651">
+       <div class="num" data-tx-table="BankTransactions" data-value="651">
         <div class="color-box" style="background-color:#F0E68C">
         </div>
         <h3>
@@ -2274,7 +2359,7 @@ body {
          Tuesday 14
         </p>
        </div>
-       <div class="num" data-value="648">
+       <div class="num" data-tx-table="BankTransactions" data-value="648">
         <div class="color-box" style="background-color:#F0E68C">
         </div>
         <h3>
@@ -2292,7 +2377,7 @@ body {
          Wednesday 15
         </p>
        </div>
-       <div class="num" data-value="649">
+       <div class="num" data-tx-table="BankTransactions" data-value="649">
         <div class="color-box" style="background-color:#F0E68C">
         </div>
         <h3>
@@ -2310,7 +2395,7 @@ body {
          Wednesday 15
         </p>
        </div>
-       <div class="num" data-value="650">
+       <div class="num" data-tx-table="BankTransactions" data-value="650">
         <div class="color-box" style="background-color:#F0E68C">
         </div>
         <h3>
@@ -2371,7 +2456,7 @@ body {
       <div class="cat-pills" id="earnings-cats">
       </div>
       <div class="tx-scroll" id="earnings-list">
-       <div class="num" data-value="632">
+       <div class="num" data-tx-table="BankTransactions" data-value="632">
         <div class="color-box" style="background-color:#F0E68C">
         </div>
         <h3>
@@ -2389,7 +2474,7 @@ body {
          Wednesday 01
         </p>
        </div>
-       <div class="num" data-value="635">
+       <div class="num" data-tx-table="BankTransactions" data-value="635">
         <div class="color-box" style="background-color:#F0E68C">
         </div>
         <h3>
@@ -2407,7 +2492,7 @@ body {
          Wednesday 01
         </p>
        </div>
-       <div class="num" data-value="636">
+       <div class="num" data-tx-table="BankTransactions" data-value="636">
         <div class="color-box" style="background-color:#F0E68C">
         </div>
         <h3>
@@ -2425,7 +2510,7 @@ body {
          Wednesday 01
         </p>
        </div>
-       <div class="num" data-value="660">
+       <div class="num" data-tx-table="BankTransactions" data-value="660">
         <div class="color-box" style="background-color:#F0E68C">
         </div>
         <h3>
@@ -2443,7 +2528,7 @@ body {
          Sunday 05
         </p>
        </div>
-       <div class="num" data-value="658">
+       <div class="num" data-tx-table="BankTransactions" data-value="658">
         <div class="color-box" style="background-color:#F0E68C">
         </div>
         <h3>
@@ -2464,7 +2549,7 @@ body {
          Tuesday 07
         </p>
        </div>
-       <div class="num" data-value="654">
+       <div class="num" data-tx-table="BankTransactions" data-value="654">
         <div class="color-box" style="background-color:#F0E68C">
         </div>
         <h3>
@@ -2482,16 +2567,22 @@ body {
          Friday 10
         </p>
        </div>
-       <div class="num" data-value="655">
+       <div class="num" data-is-split="1" data-orig-id="655" data-tx-table="BankTransactions" data-value="1">
         <div class="color-box" style="background-color:#F0E68C">
         </div>
         <h3>
          <span class="tx-primary">
+          תשלום ארנונה - בן
+         </span>
+         <span class="tx-secondary">
           זיכוי מיידי
+         </span>
+         <span class="split-badge">
+          ✂ פיצול
          </span>
         </h3>
         <p class="date">
-         377.00₪
+         310.00₪
         </p>
         <p class="cat">
          שלום שבאזי 7
@@ -2500,7 +2591,31 @@ body {
          Friday 10
         </p>
        </div>
-       <div class="num" data-value="653">
+       <div class="num" data-is-split="1" data-orig-id="655" data-tx-table="BankTransactions" data-value="2">
+        <div class="color-box" style="background-color:#F0E68C">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          תשלום מיים - בן
+         </span>
+         <span class="tx-secondary">
+          זיכוי מיידי
+         </span>
+         <span class="split-badge">
+          ✂ פיצול
+         </span>
+        </h3>
+        <p class="date">
+         67.00₪
+        </p>
+        <p class="cat">
+         שלום שבאזי 7
+        </p>
+        <p class="element4">
+         Friday 10
+        </p>
+       </div>
+       <div class="num" data-tx-table="BankTransactions" data-value="653">
         <div class="color-box" style="background-color:#F0E68C">
         </div>
         <h3>
@@ -2518,7 +2633,7 @@ body {
          Sunday 12
         </p>
        </div>
-       <div class="num" data-value="652">
+       <div class="num" data-tx-table="BankTransactions" data-value="652">
         <div class="color-box" style="background-color:#F0E68C">
         </div>
         <h3>
@@ -2536,7 +2651,7 @@ body {
          Monday 13
         </p>
        </div>
-       <div class="num" data-value="647">
+       <div class="num" data-tx-table="BankTransactions" data-value="647">
         <div class="color-box" style="background-color:#F0E68C">
         </div>
         <h3>
@@ -2554,61 +2669,7 @@ body {
          Monday 20
         </p>
        </div>
-       <div class="num" data-value="18">
-        <div class="color-box" style="background-color:#ECCD1F">
-        </div>
-        <h3>
-         <span class="tx-primary">
-          תיקון יתרה – EUR
-         </span>
-        </h3>
-        <p class="date">
-         150.00₪
-        </p>
-        <p class="cat">
-         cash_filler
-        </p>
-        <p class="element4">
-         Saturday 25
-        </p>
-       </div>
-       <div class="num" data-value="17">
-        <div class="color-box" style="background-color:#ECCD1F">
-        </div>
-        <h3>
-         <span class="tx-primary">
-          תיקון יתרה – ILS
-         </span>
-        </h3>
-        <p class="date">
-         6,419.00₪
-        </p>
-        <p class="cat">
-         cash_filler
-        </p>
-        <p class="element4">
-         Saturday 25
-        </p>
-       </div>
-       <div class="num" data-value="16">
-        <div class="color-box" style="background-color:#ECCD1F">
-        </div>
-        <h3>
-         <span class="tx-primary">
-          תיקון יתרה – JPY
-         </span>
-        </h3>
-        <p class="date">
-         200,000.00₪
-        </p>
-        <p class="cat">
-         cash_filler
-        </p>
-        <p class="element4">
-         Saturday 25
-        </p>
-       </div>
-       <div class="num" data-value="15">
+       <div class="num" data-tx-table="nan" data-value="15">
         <div class="color-box" style="background-color:#ECCD1F">
         </div>
         <h3>
@@ -2633,7 +2694,7 @@ body {
        <span>
         סה"כ:
         <strong id="earnings-sum">
-         226,700.43₪
+         20,131.43₪
         </strong>
        </span>
       </div>
@@ -2879,24 +2940,24 @@ body {
          Cash
         </td>
         <td>
-         7,334.50₪
+         7,308.53₪
         </td>
         <td class="acct-rate-cell">
          —
         </td>
         <td class="acct-change-pos">
          <span>
-          +11,190₪
+          +11,164₪
          </span>
          <span class="acct-pct-badge acct-pct-pos">
-          +290.3%
+          +289.6%
          </span>
         </td>
         <td class="acct-change-neu">
          —
         </td>
         <td>
-         2026-04-26
+         2026-04-29
         </td>
         <td class="acct-detail-cell">
          <svg class="acct-spark" height="22" viewbox="0 0 64 22" width="64" xmlns="http://www.w3.org/2000/svg">
@@ -2910,7 +2971,7 @@ body {
          סה"כ כללי
         </td>
         <td>
-         24,931.06₪
+         24,905.09₪
         </td>
         <td>
         </td>
@@ -3008,14 +3069,14 @@ body {
          $3,369.00
         </td>
         <td class="acct-rate-cell" data-rate-cur="USD">
-         2.99
+         2.97
         </td>
-        <td class="acct-change-pos">
+        <td class="acct-change-neg">
          <span>
-          +57₪
+          -3₪
          </span>
-         <span class="acct-pct-badge acct-pct-pos">
-          +0.6%
+         <span class="acct-pct-badge acct-pct-neg">
+          -0.0%
          </span>
         </td>
         <td class="acct-change-neu">
@@ -3026,7 +3087,7 @@ body {
         </td>
         <td class="acct-detail-cell">
          <svg class="acct-spark" height="22" viewbox="0 0 64 22" width="64" xmlns="http://www.w3.org/2000/svg">
-          <polyline fill="none" points="1.0,20.0 32.0,2.1 63.0,2.0" stroke="#43a047" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5">
+          <polyline fill="none" points="1.0,20.0 32.0,2.0 63.0,2.0" stroke="#43a047" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5">
           </polyline>
          </svg>
         </td>
@@ -3059,7 +3120,7 @@ body {
          סה"כ השקעות
         </td>
         <td>
-         368,162.81₪
+         368,103.12₪
         </td>
         <td>
         </td>
@@ -3131,7 +3192,7 @@ body {
          סה"כ כל החשבונות
         </td>
         <td>
-         695,138.87₪
+         695,053.21₪
         </td>
         <td>
         </td>
@@ -3161,7 +3222,7 @@ body {
   const ctx = document.getElementById('acct-chart-canvas').getContext('2d');
   new Chart(ctx, {
     type: 'line',
-    data: {"labels": ["2025-04-30", "2025-05-07", "2025-05-08", "2025-05-24", "2025-05-29", "2025-05-31", "2025-06-01", "2025-06-21", "2025-06-26", "2025-06-30", "2025-07-01", "2025-07-19", "2025-07-31", "2025-08-01", "2025-08-07", "2025-08-31", "2025-09-01", "2025-09-13", "2025-09-30", "2025-10-01", "2025-10-25", "2025-10-30", "2025-10-31", "2025-11-01", "2025-11-30", "2025-12-01", "2025-12-31", "2026-01-01", "2026-01-30", "2026-01-31", "2026-02-01", "2026-02-26", "2026-02-28", "2026-03-01", "2026-03-30", "2026-03-31", "2026-04-01", "2026-04-11", "2026-04-13", "2026-04-19", "2026-04-20", "2026-04-24", "2026-04-26"], "datasets": [{"label": "Main Bank", "data": [22979.36, null, null, null, 164022.96, null, null, null, null, 19816.77, null, null, 33352.01, null, null, 53803.25, null, null, 54880.87, null, null, 52403.51, null, null, 37620.61, null, 27244.34, null, 28722.22, null, null, 31836.39, null, null, 45896.96, null, null, null, null, null, 17596.56, null, null], "borderColor": "#90caf9", "backgroundColor": "#90caf9", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "BeinLeumi Invest", "data": [231330.0, 71456.0, null, null, null, null, null, null, 0.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], "borderColor": "#ffcc80", "backgroundColor": "#ffcc80", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Analyst", "data": [101864.0, null, null, null, null, 108123.0, null, null, null, 114949.0, null, null, 148919.0, null, null, 151284.0, null, null, 157523.0, null, null, null, 161771.0, null, null, null, null, null, null, 173231.0, null, null, 174574.0, null, null, 168222.0, null, null, null, null, null, null, null], "borderColor": "#a5d6a7", "backgroundColor": "#a5d6a7", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "BTB", "data": [null, null, 160548.0, 160930.0, null, null, null, 161615.0, null, null, null, 162358.0, null, null, null, null, null, 163895.0, null, null, 165013.0, null, null, null, 166104.0, null, null, null, null, null, null, null, null, 168733.0, null, null, null, 169610.0, null, null, null, 169884.09, null], "borderColor": "#ef9a9a", "backgroundColor": "#ef9a9a", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Altshuler", "data": [null, null, null, null, null, null, null, null, null, null, null, null, null, null, 0.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], "borderColor": "#ce93d8", "backgroundColor": "#ce93d8", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Interactive Brokers", "data": [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 0.0, 10000.0, null, 10056.72, null], "borderColor": "#b0bec5", "backgroundColor": "#b0bec5", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Analyst (Yuval)", "data": [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 20000.0, null, null, null, null], "borderColor": "#f48fb1", "backgroundColor": "#f48fb1", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Total", "data": [356173.36, 196299.36, 356847.36, 357229.36, 498272.96, 504531.96, 504531.96, 505216.96, 433760.96, 296380.77, 302380.77, 303123.77, 350629.01, 615985.01, 615985.01, 638801.25, 627414.25, 628951.25, 636267.87, 641154.87, 642272.87, 639795.51, 644043.51, 648850.51, 635158.61, 639984.61, 629608.34, 634454.34, 635932.22, 647392.22, 652258.22, 655372.39, 656715.39, 664229.39, 678289.96, 671937.96, 681041.96, 681918.96, 701918.96, 711918.96, 683618.56, 683949.37, 695138.87], "borderColor": "#80deea", "backgroundColor": "#80deea", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Cash", "data": [null, null, null, null, null, null, 0.0, null, null, null, 6000.0, null, null, 12000.0, null, null, -4155.0, null, null, -4055.0, null, null, null, -4055.0, null, -4055.0, null, -4055.0, null, null, -4055.0, null, null, -4055.0, null, null, -3855.0, null, null, null, null, null, 7334.5], "borderColor": "#e6ee9c", "backgroundColor": "#e6ee9c", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "נכס שלום שבזי", "data": [null, null, null, null, null, null, null, null, null, null, null, null, null, 259356.0, null, null, 264124.0, null, null, 268911.0, null, null, null, 273718.0, null, 278544.0, null, 283390.0, null, null, 288256.0, null, null, 293141.0, null, null, 302045.0, null, null, null, null, null, null], "borderColor": "#ffab91", "backgroundColor": "#ffab91", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}]},
+    data: {"labels": ["2025-04-30", "2025-05-07", "2025-05-08", "2025-05-24", "2025-05-29", "2025-05-31", "2025-06-01", "2025-06-21", "2025-06-26", "2025-06-30", "2025-07-01", "2025-07-19", "2025-07-31", "2025-08-01", "2025-08-07", "2025-08-31", "2025-09-01", "2025-09-13", "2025-09-30", "2025-10-01", "2025-10-25", "2025-10-30", "2025-10-31", "2025-11-01", "2025-11-30", "2025-12-01", "2025-12-31", "2026-01-01", "2026-01-30", "2026-01-31", "2026-02-01", "2026-02-26", "2026-02-28", "2026-03-01", "2026-03-30", "2026-03-31", "2026-04-01", "2026-04-11", "2026-04-13", "2026-04-19", "2026-04-20", "2026-04-24", "2026-04-29"], "datasets": [{"label": "Main Bank", "data": [22979.36, null, null, null, 164022.96, null, null, null, null, 19816.77, null, null, 33352.01, null, null, 53803.25, null, null, 54880.87, null, null, 52403.51, null, null, 37620.61, null, 27244.34, null, 28722.22, null, null, 31836.39, null, null, 45896.96, null, null, null, null, null, 17596.56, null, null], "borderColor": "#90caf9", "backgroundColor": "#90caf9", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "BeinLeumi Invest", "data": [231330.0, 71456.0, null, null, null, null, null, null, 0.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], "borderColor": "#ffcc80", "backgroundColor": "#ffcc80", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Analyst", "data": [101864.0, null, null, null, null, 108123.0, null, null, null, 114949.0, null, null, 148919.0, null, null, 151284.0, null, null, 157523.0, null, null, null, 161771.0, null, null, null, null, null, null, 173231.0, null, null, 174574.0, null, null, 168222.0, null, null, null, null, null, null, null], "borderColor": "#a5d6a7", "backgroundColor": "#a5d6a7", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "BTB", "data": [null, null, 160548.0, 160930.0, null, null, null, 161615.0, null, null, null, 162358.0, null, null, null, null, null, 163895.0, null, null, 165013.0, null, null, null, 166104.0, null, null, null, null, null, null, null, null, 168733.0, null, null, null, 169610.0, null, null, null, 169884.09, null], "borderColor": "#ef9a9a", "backgroundColor": "#ef9a9a", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Altshuler", "data": [null, null, null, null, null, null, null, null, null, null, null, null, null, null, 0.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], "borderColor": "#ce93d8", "backgroundColor": "#ce93d8", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Interactive Brokers", "data": [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 0.0, 10000.0, null, 9997.03, null], "borderColor": "#b0bec5", "backgroundColor": "#b0bec5", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Analyst (Yuval)", "data": [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 20000.0, null, null, null, null], "borderColor": "#f48fb1", "backgroundColor": "#f48fb1", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Total", "data": [356173.36, 196299.36, 356847.36, 357229.36, 498272.96, 504531.96, 504531.96, 505216.96, 433760.96, 296380.77, 302380.77, 303123.77, 350629.01, 615985.01, 615985.01, 638801.25, 627414.25, 628951.25, 636267.87, 641154.87, 642272.87, 639795.51, 644043.51, 648850.51, 635158.61, 639984.61, 629608.34, 634454.34, 635932.22, 647392.22, 652258.22, 655372.39, 656715.39, 664229.39, 678289.96, 671937.96, 681041.96, 681918.96, 701918.96, 711918.96, 683618.56, 683889.68, 695053.21], "borderColor": "#80deea", "backgroundColor": "#80deea", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Cash", "data": [null, null, null, null, null, null, 0.0, null, null, null, 6000.0, null, null, 12000.0, null, null, -4155.0, null, null, -4055.0, null, null, null, -4055.0, null, -4055.0, null, -4055.0, null, null, -4055.0, null, null, -4055.0, null, null, -3855.0, null, null, null, null, null, 7308.53], "borderColor": "#e6ee9c", "backgroundColor": "#e6ee9c", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "נכס שלום שבזי", "data": [null, null, null, null, null, null, null, null, null, null, null, null, null, 259356.0, null, null, 264124.0, null, null, 268911.0, null, null, null, 273718.0, null, 278544.0, null, 283390.0, null, null, 288256.0, null, null, 293141.0, null, null, 302045.0, null, null, null, null, null, null], "borderColor": "#ffab91", "backgroundColor": "#ffab91", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}]},
     options: {
       responsive: true,
       maintainAspectRatio: false,
@@ -3401,18 +3462,18 @@ body {
   + סה״כ הכנסות:          20,962₪  (שכירות + קטגוריה)
   ─────────────────────────────
   סה״כ תקבולים:          302,045₪
-  − סה״כ הוצאות:       -343,685₪
-  = רווח נקי:             -41,640₪
+  − סה״כ הוצאות:       -346,170₪
+  = רווח נקי:             -44,125₪
 
 ⚠ לא כולל: מס שבח, עמלות תיווך, עלויות מכירה
         </span>
        </span>
       </div>
       <div class="kpi-value" id="hs-total-return" style="color:#e74c3c">
-       -12.1%
+       -12.7%
       </div>
       <div class="kpi-sublabel" id="hs-return-sublabel">
-       רווח נקי: -41,640₪
+       רווח נקי: -44,125₪
       </div>
      </div>
      <div class="kpi-card">
@@ -3429,7 +3490,7 @@ body {
        </span>
       </div>
       <div class="kpi-value" id="hs-annual-return" style="color:#e74c3c">
-       -15.8%
+       -16.6%
       </div>
       <div class="kpi-sublabel">
        על פני 0.8 שנים
@@ -3451,20 +3512,20 @@ body {
          סך כל ההוצאות בקטגוריה 'שלום שבאזי 7' מאז תחילת הנתונים.
   תשלומי משכנתא:            32,887₪
   תשלום ראשוני לדירה:      237,500₪
-  הוצאות אחרות:              73,299₪
+  הוצאות אחרות:              75,783₪
         </span>
        </span>
       </div>
       <div class="kpi-value" style="color:#e74c3c">
-       343,685.24₪
+       346,169.52₪
       </div>
       <div class="equity-bar-wrap">
        <div class="equity-bar">
-        <div class="equity-bar-seg" style="width:9.57%;background:#e57373" title="תשלומי משכנתא ₪32,887">
+        <div class="equity-bar-seg" style="width:9.5%;background:#e57373" title="תשלומי משכנתא ₪32,887">
         </div>
-        <div class="equity-bar-seg" style="width:69.1%;background:#ef9a9a" title="תשלום ראשוני לדירה ₪237,500">
+        <div class="equity-bar-seg" style="width:68.61%;background:#ef9a9a" title="תשלום ראשוני לדירה ₪237,500">
         </div>
-        <div class="equity-bar-seg" style="width:21.33%;background:#ffb74d" title="הוצאות אחרות ₪73,299">
+        <div class="equity-bar-seg" style="width:21.89%;background:#ffb74d" title="הוצאות אחרות ₪75,783">
         </div>
        </div>
        <div class="equity-bar-labels-4">
@@ -3475,7 +3536,7 @@ body {
          ● תשלום ראשוני ₪237,500
         </span>
         <span style="color:#ffb74d">
-         ● הוצאות אחרות ₪73,299
+         ● הוצאות אחרות ₪75,783
         </span>
        </div>
       </div>
@@ -3742,6 +3803,9 @@ body {
         שם
        </th>
        <th>
+        תיאור
+       </th>
+       <th>
         הוצאה (₪)
        </th>
        <th>
@@ -3755,11 +3819,31 @@ body {
        <td>
         זיכוי מיידי
        </td>
+       <td style="color:#888; font-size:.88em;">
+        תשלום מיים - בן
+       </td>
        <td>
         —
        </td>
        <td style="color:#1e9d8b; font-weight:600;">
-        377.00
+        67.00
+       </td>
+      </tr>
+      <tr>
+       <td>
+        2026-04-10
+       </td>
+       <td>
+        זיכוי מיידי
+       </td>
+       <td style="color:#888; font-size:.88em;">
+        תשלום ארנונה - בן
+       </td>
+       <td>
+        —
+       </td>
+       <td style="color:#1e9d8b; font-weight:600;">
+        310.00
        </td>
       </tr>
       <tr>
@@ -3768,6 +3852,9 @@ body {
        </td>
        <td>
         טפחות ס.ביטוח-ה
+       </td>
+       <td style="color:#888; font-size:.88em;">
+        —
        </td>
        <td style="color:#e74c3c; font-weight:600;">
         31.03
@@ -3783,6 +3870,9 @@ body {
        <td>
         3326456 שק חזר-בנ
        </td>
+       <td style="color:#888; font-size:.88em;">
+        —
+       </td>
        <td style="color:#e74c3c; font-weight:600;">
         2,800.00
        </td>
@@ -3792,13 +3882,16 @@ body {
       </tr>
       <tr>
        <td>
-        2026-04-01
+        2026-04-02
        </td>
        <td>
-        טפחות ס.ביטוח-ה
+        דיפרנט
+       </td>
+       <td style="color:#888; font-size:.88em;">
+        —
        </td>
        <td style="color:#e74c3c; font-weight:600;">
-        60.00
+        112.00
        </td>
        <td>
         —
@@ -3810,6 +3903,9 @@ body {
        </td>
        <td>
         טפחות-משכנתא
+       </td>
+       <td style="color:#888; font-size:.88em;">
+        —
        </td>
        <td style="color:#e74c3c; font-weight:600;">
         3,714.37
@@ -3823,7 +3919,27 @@ body {
         2026-04-01
        </td>
        <td>
+        טפחות ס.ביטוח-ה
+       </td>
+       <td style="color:#888; font-size:.88em;">
+        —
+       </td>
+       <td style="color:#e74c3c; font-weight:600;">
+        60.00
+       </td>
+       <td>
+        —
+       </td>
+      </tr>
+      <tr>
+       <td>
+        2026-04-01
+       </td>
+       <td>
         (הפקדת שיק בסלולר (1 שיק
+       </td>
+       <td style="color:#888; font-size:.88em;">
+        —
        </td>
        <td>
         —
@@ -3839,6 +3955,9 @@ body {
        <td>
         זיכוי
        </td>
+       <td style="color:#888; font-size:.88em;">
+        תשלום מים איאד
+       </td>
        <td>
         —
        </td>
@@ -3853,6 +3972,9 @@ body {
        <td>
         טפחות ס.ביטוח-ה
        </td>
+       <td style="color:#888; font-size:.88em;">
+        —
+       </td>
        <td style="color:#e74c3c; font-weight:600;">
         30.97
        </td>
@@ -3862,13 +3984,16 @@ body {
       </tr>
       <tr>
        <td>
-        2026-03-01
+        2026-03-02
        </td>
        <td>
-        טפחות ס.ביטוח-ה
+        דיפרנט
+       </td>
+       <td style="color:#888; font-size:.88em;">
+        —
        </td>
        <td style="color:#e74c3c; font-weight:600;">
-        59.00
+        112.00
        </td>
        <td>
         —
@@ -3879,7 +4004,27 @@ body {
         2026-03-01
        </td>
        <td>
+        (הפקדת שיק בסלולר (1 שיק
+       </td>
+       <td style="color:#888; font-size:.88em;">
+        —
+       </td>
+       <td>
+        —
+       </td>
+       <td style="color:#1e9d8b; font-weight:600;">
+        2,800.00
+       </td>
+      </tr>
+      <tr>
+       <td>
+        2026-03-01
+       </td>
+       <td>
         טפחות-משכנתא
+       </td>
+       <td style="color:#888; font-size:.88em;">
+        —
        </td>
        <td style="color:#e74c3c; font-weight:600;">
         3,666.15
@@ -3893,13 +4038,16 @@ body {
         2026-03-01
        </td>
        <td>
-        (הפקדת שיק בסלולר (1 שיק
+        טפחות ס.ביטוח-ה
+       </td>
+       <td style="color:#888; font-size:.88em;">
+        —
+       </td>
+       <td style="color:#e74c3c; font-weight:600;">
+        59.00
        </td>
        <td>
         —
-       </td>
-       <td style="color:#1e9d8b; font-weight:600;">
-        2,800.00
        </td>
       </tr>
       <tr>
@@ -3908,6 +4056,9 @@ body {
        </td>
        <td>
         טפחות ס.ביטוח-ה
+       </td>
+       <td style="color:#888; font-size:.88em;">
+        —
        </td>
        <td style="color:#e74c3c; font-weight:600;">
         31.06
@@ -3921,7 +4072,27 @@ body {
         2026-02-02
        </td>
        <td>
+        דיפרנט
+       </td>
+       <td style="color:#888; font-size:.88em;">
+        —
+       </td>
+       <td style="color:#e74c3c; font-weight:600;">
+        112.00
+       </td>
+       <td>
+        —
+       </td>
+      </tr>
+      <tr>
+       <td>
+        2026-02-02
+       </td>
+       <td>
         (הפקדת שיק בסלולר (1 שיק
+       </td>
+       <td style="color:#888; font-size:.88em;">
+        —
        </td>
        <td>
         —
@@ -3935,10 +4106,13 @@ body {
         2026-02-01
        </td>
        <td>
-        טפחות ס.ביטוח-ה
+        טפחות-משכנתא
+       </td>
+       <td style="color:#888; font-size:.88em;">
+        —
        </td>
        <td style="color:#e74c3c; font-weight:600;">
-        59.00
+        3,720.93
        </td>
        <td>
         —
@@ -3949,10 +4123,13 @@ body {
         2026-02-01
        </td>
        <td>
-        טפחות-משכנתא
+        טפחות ס.ביטוח-ה
+       </td>
+       <td style="color:#888; font-size:.88em;">
+        —
        </td>
        <td style="color:#e74c3c; font-weight:600;">
-        3,720.93
+        59.00
        </td>
        <td>
         —
@@ -3964,6 +4141,9 @@ body {
        </td>
        <td>
         העברה מהחשבון
+       </td>
+       <td style="color:#888; font-size:.88em;">
+        וועד
        </td>
        <td style="color:#e74c3c; font-weight:600;">
         280.00
@@ -3979,6 +4159,9 @@ body {
        <td>
         טפחות ס.ביטוח-ה
        </td>
+       <td style="color:#888; font-size:.88em;">
+        —
+       </td>
        <td style="color:#e74c3c; font-weight:600;">
         31.06
        </td>
@@ -3993,6 +4176,9 @@ body {
        <td>
         (הפקדת שיק בסלולר (1 שיק
        </td>
+       <td style="color:#888; font-size:.88em;">
+        —
+       </td>
        <td>
         —
        </td>
@@ -4002,10 +4188,30 @@ body {
       </tr>
       <tr>
        <td>
+        2026-01-02
+       </td>
+       <td>
+        דיפרנט
+       </td>
+       <td style="color:#888; font-size:.88em;">
+        —
+       </td>
+       <td style="color:#e74c3c; font-weight:600;">
+        112.00
+       </td>
+       <td>
+        —
+       </td>
+      </tr>
+      <tr>
+       <td>
         2026-01-01
        </td>
        <td>
         טפחות ס.ביטוח-ה
+       </td>
+       <td style="color:#888; font-size:.88em;">
+        —
        </td>
        <td style="color:#e74c3c; font-weight:600;">
         59.00
@@ -4020,6 +4226,9 @@ body {
        </td>
        <td>
         טפחות-משכנתא
+       </td>
+       <td style="color:#888; font-size:.88em;">
+        —
        </td>
        <td style="color:#e74c3c; font-weight:600;">
         3,743.22
@@ -4035,8 +4244,28 @@ body {
        <td>
         טפחות ס.ביטוח-ה
        </td>
+       <td style="color:#888; font-size:.88em;">
+        —
+       </td>
        <td style="color:#e74c3c; font-weight:600;">
         31.21
+       </td>
+       <td>
+        —
+       </td>
+      </tr>
+      <tr>
+       <td>
+        2025-12-02
+       </td>
+       <td>
+        דיפרנט
+       </td>
+       <td style="color:#888; font-size:.88em;">
+        —
+       </td>
+       <td style="color:#e74c3c; font-weight:600;">
+        112.00
        </td>
        <td>
         —
@@ -4048,6 +4277,9 @@ body {
        </td>
        <td>
         טפחות ס.ביטוח-ה
+       </td>
+       <td style="color:#888; font-size:.88em;">
+        —
        </td>
        <td style="color:#e74c3c; font-weight:600;">
         59.00
@@ -4062,6 +4294,9 @@ body {
        </td>
        <td>
         טפחות-משכנתא
+       </td>
+       <td style="color:#888; font-size:.88em;">
+        —
        </td>
        <td style="color:#e74c3c; font-weight:600;">
         3,748.28
@@ -4077,6 +4312,9 @@ body {
        <td>
         (הפקדת שיק בסלולר (1 שיק
        </td>
+       <td style="color:#888; font-size:.88em;">
+        —
+       </td>
        <td>
         —
        </td>
@@ -4086,13 +4324,101 @@ body {
       </tr>
       <tr>
        <td>
+        2025-11-24
+       </td>
+       <td>
+        הראל תביעות - בלו
+       </td>
+       <td style="color:#888; font-size:.88em;">
+        השתתפות עצמית צנרת
+       </td>
+       <td style="color:#e74c3c; font-weight:600;">
+        300.00
+       </td>
+       <td>
+        —
+       </td>
+      </tr>
+      <tr>
+       <td>
         2025-11-10
        </td>
        <td>
         טפחות ס.ביטוח-ה
        </td>
+       <td style="color:#888; font-size:.88em;">
+        —
+       </td>
        <td style="color:#e74c3c; font-weight:600;">
         31.06
+       </td>
+       <td>
+        —
+       </td>
+      </tr>
+      <tr>
+       <td>
+        2025-11-09
+       </td>
+       <td>
+        הראל תביעות - בלו
+       </td>
+       <td style="color:#888; font-size:.88em;">
+        השתתפות עצמית ביטוח צנרת
+       </td>
+       <td style="color:#e74c3c; font-weight:600;">
+        200.00
+       </td>
+       <td>
+        —
+       </td>
+      </tr>
+      <tr>
+       <td>
+        2025-11-02
+       </td>
+       <td>
+        ספיר נכסים
+       </td>
+       <td style="color:#888; font-size:.88em;">
+        שילוח שיקים דייר
+       </td>
+       <td style="color:#e74c3c; font-weight:600;">
+        85.00
+       </td>
+       <td>
+        —
+       </td>
+      </tr>
+      <tr>
+       <td>
+        2025-11-02
+       </td>
+       <td>
+        ספיר נכסים
+       </td>
+       <td style="color:#888; font-size:.88em;">
+        —
+       </td>
+       <td style="color:#e74c3c; font-weight:600;">
+        472.00
+       </td>
+       <td>
+        —
+       </td>
+      </tr>
+      <tr>
+       <td>
+        2025-11-02
+       </td>
+       <td>
+        טפחות-משכנתא
+       </td>
+       <td style="color:#888; font-size:.88em;">
+        —
+       </td>
+       <td style="color:#e74c3c; font-weight:600;">
+        3,772.45
        </td>
        <td>
         —
@@ -4104,6 +4430,9 @@ body {
        </td>
        <td>
         טפחות ס.ביטוח-ה
+       </td>
+       <td style="color:#888; font-size:.88em;">
+        —
        </td>
        <td style="color:#e74c3c; font-weight:600;">
         59.00
@@ -4117,10 +4446,13 @@ body {
         2025-11-02
        </td>
        <td>
-        טפחות-משכנתא
+        דיפרנט
+       </td>
+       <td style="color:#888; font-size:.88em;">
+        ביטוח דייר זיר איאד
        </td>
        <td style="color:#e74c3c; font-weight:600;">
-        3,772.45
+        112.00
        </td>
        <td>
         —
@@ -4133,8 +4465,45 @@ body {
        <td>
         טפחות ס.ביטוח-ה
        </td>
+       <td style="color:#888; font-size:.88em;">
+        —
+       </td>
        <td style="color:#e74c3c; font-weight:600;">
         31.24
+       </td>
+       <td>
+        —
+       </td>
+      </tr>
+      <tr>
+       <td>
+        2025-10-08
+       </td>
+       <td>
+        ישיר ביטוח דירה
+       </td>
+       <td style="color:#888; font-size:.88em;">
+        —
+       </td>
+       <td>
+        —
+       </td>
+       <td style="color:#1e9d8b; font-weight:600;">
+        80.26
+       </td>
+      </tr>
+      <tr>
+       <td>
+        2025-10-03
+       </td>
+       <td>
+        טפחות-משכנתא
+       </td>
+       <td style="color:#888; font-size:.88em;">
+        —
+       </td>
+       <td style="color:#e74c3c; font-weight:600;">
+        3,752.00
        </td>
        <td>
         —
@@ -4147,22 +4516,11 @@ body {
        <td>
         טפחות ס.ביטוח-ה
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
-        59.00
-       </td>
-       <td>
+       <td style="color:#888; font-size:.88em;">
         —
        </td>
-      </tr>
-      <tr>
-       <td>
-        2025-10-03
-       </td>
-       <td>
-        טפחות-משכנתא
-       </td>
        <td style="color:#e74c3c; font-weight:600;">
-        3,752.00
+        59.00
        </td>
        <td>
         —
@@ -4175,8 +4533,28 @@ body {
        <td>
         העברה מהחשבון
        </td>
+       <td style="color:#888; font-size:.88em;">
+        שיפוץ,נורות,ברזים,אסלה
+       </td>
        <td style="color:#e74c3c; font-weight:600;">
         3,300.00
+       </td>
+       <td>
+        —
+       </td>
+      </tr>
+      <tr>
+       <td>
+        2025-09-25
+       </td>
+       <td>
+        ישיר ביטוח דירה
+       </td>
+       <td style="color:#888; font-size:.88em;">
+        —
+       </td>
+       <td style="color:#e74c3c; font-weight:600;">
+        57.71
        </td>
        <td>
         —
@@ -4188,6 +4566,9 @@ body {
        </td>
        <td>
         העברה מהחשבון
+       </td>
+       <td style="color:#888; font-size:.88em;">
+        ניקיון דירה
        </td>
        <td style="color:#e74c3c; font-weight:600;">
         700.00
@@ -4203,6 +4584,9 @@ body {
        <td>
         זיכוי מביט מאופק שמואל
        </td>
+       <td style="color:#888; font-size:.88em;">
+        חלק יחסי שכירות יול-אוגוסט 2025
+       </td>
        <td>
         —
        </td>
@@ -4216,6 +4600,9 @@ body {
        </td>
        <td>
         טפחות ס.ביטוח-ה
+       </td>
+       <td style="color:#888; font-size:.88em;">
+        —
        </td>
        <td style="color:#e74c3c; font-weight:600;">
         59.00
@@ -4231,8 +4618,28 @@ body {
        <td>
         טפחות-משכנתא
        </td>
+       <td style="color:#888; font-size:.88em;">
+        —
+       </td>
        <td style="color:#e74c3c; font-weight:600;">
         3,772.49
+       </td>
+       <td>
+        —
+       </td>
+      </tr>
+      <tr>
+       <td>
+        2025-08-26
+       </td>
+       <td>
+        ישיר ביטוח דירה
+       </td>
+       <td style="color:#888; font-size:.88em;">
+        —
+       </td>
+       <td style="color:#e74c3c; font-weight:600;">
+        57.32
        </td>
        <td>
         —
@@ -4244,6 +4651,9 @@ body {
        </td>
        <td>
         זיכוי מבל"ל מספיאשוילי בנימין
+       </td>
+       <td style="color:#888; font-size:.88em;">
+        שכירות יולי אוגוסט
        </td>
        <td>
         —
@@ -4259,6 +4669,9 @@ body {
        <td>
         טפחות ס.ביטוח-ה
        </td>
+       <td style="color:#888; font-size:.88em;">
+        ביטוח דירה
+       </td>
        <td style="color:#e74c3c; font-weight:600;">
         58.00
        </td>
@@ -4272,6 +4685,9 @@ body {
        </td>
        <td>
         טפחות-משכנתא
+       </td>
+       <td style="color:#888; font-size:.88em;">
+        —
        </td>
        <td style="color:#e74c3c; font-weight:600;">
         2,996.82
@@ -4287,6 +4703,9 @@ body {
        <td>
         העברה מהחשבון
        </td>
+       <td style="color:#888; font-size:.88em;">
+        תשלום אגרות דרך ספיר עורכת הדין
+       </td>
        <td style="color:#e74c3c; font-weight:600;">
         406.00
        </td>
@@ -4300,6 +4719,9 @@ body {
        </td>
        <td>
         4061230010 זיכוי מיידי
+       </td>
+       <td style="color:#888; font-size:.88em;">
+        שכירות
        </td>
        <td>
         —
@@ -4315,6 +4737,9 @@ body {
        <td>
         5632180010 זיכוי מיידי
        </td>
+       <td style="color:#888; font-size:.88em;">
+        שכירות
+       </td>
        <td>
         —
        </td>
@@ -4328,6 +4753,77 @@ body {
        </td>
        <td>
         רכישת נכס
+       </td>
+       <td style="color:#888; font-size:.88em;">
+        הון ראשוני לסגירת משכנתא של המוכרים
+       </td>
+       <td style="color:#e74c3c; font-weight:600;">
+        28,040.20
+       </td>
+       <td>
+        —
+       </td>
+      </tr>
+      <tr>
+       <td>
+        2025-06-26
+       </td>
+       <td>
+        טפחות-מזרחי
+       </td>
+       <td style="color:#888; font-size:.88em;">
+        עמלה חתימת משכנתא
+       </td>
+       <td style="color:#e74c3c; font-weight:600;">
+        185.00
+       </td>
+       <td>
+        —
+       </td>
+      </tr>
+      <tr>
+       <td>
+        2025-06-26
+       </td>
+       <td>
+        טפחות-מזרחי
+       </td>
+       <td style="color:#888; font-size:.88em;">
+        עמלה חתימת משכנתא
+       </td>
+       <td style="color:#e74c3c; font-weight:600;">
+        12.00
+       </td>
+       <td>
+        —
+       </td>
+      </tr>
+      <tr>
+       <td>
+        2025-06-26
+       </td>
+       <td>
+        טפחות-מזרחי
+       </td>
+       <td style="color:#888; font-size:.88em;">
+        עמלה חתימה על משכנתא
+       </td>
+       <td style="color:#e74c3c; font-weight:600;">
+        12.00
+       </td>
+       <td>
+        —
+       </td>
+      </tr>
+      <tr>
+       <td>
+        2025-06-26
+       </td>
+       <td>
+        רכישת נכס
+       </td>
+       <td style="color:#888; font-size:.88em;">
+        הון ראשוני לסגירת משכנתא של המוכרים
        </td>
        <td style="color:#e74c3c; font-weight:600;">
         100,000.00
@@ -4343,8 +4839,11 @@ body {
        <td>
         רכישת נכס
        </td>
+       <td style="color:#888; font-size:.88em;">
+        הון ראשון לחשבון המוכרים
+       </td>
        <td style="color:#e74c3c; font-weight:600;">
-        28,040.20
+        9,460.00
        </td>
        <td>
         —
@@ -4352,13 +4851,50 @@ body {
       </tr>
       <tr>
        <td>
-        2025-06-26
+        2025-06-25
        </td>
        <td>
-        רכישת נכס
+        ישיר ביטוח דירה
+       </td>
+       <td style="color:#888; font-size:.88em;">
+        ביטוח מבנה
        </td>
        <td style="color:#e74c3c; font-weight:600;">
-        9,460.00
+        51.75
+       </td>
+       <td>
+        —
+       </td>
+      </tr>
+      <tr>
+       <td>
+        2025-06-09
+       </td>
+       <td>
+        חברת דואר ישראל בע"מ
+       </td>
+       <td style="color:#888; font-size:.88em;">
+        משלוח דואר לעורכת דין
+       </td>
+       <td style="color:#e74c3c; font-weight:600;">
+        63.50
+       </td>
+       <td>
+        —
+       </td>
+      </tr>
+      <tr>
+       <td>
+        2025-06-09
+       </td>
+       <td>
+        העברה ב BIT בנה"פ
+       </td>
+       <td style="color:#888; font-size:.88em;">
+        נוטריון
+       </td>
+       <td style="color:#e74c3c; font-weight:600;">
+        316.00
        </td>
        <td>
         —
@@ -4370,6 +4906,9 @@ body {
        </td>
        <td>
         העברה מהחשבון
+       </td>
+       <td style="color:#888; font-size:.88em;">
+        ייעוץ משכנתא
        </td>
        <td style="color:#e74c3c; font-weight:600;">
         6,500.00
@@ -4385,6 +4924,9 @@ body {
        <td>
         העברה מהחשבון
        </td>
+       <td style="color:#888; font-size:.88em;">
+        —
+       </td>
        <td style="color:#e74c3c; font-weight:600;">
         12,000.00
        </td>
@@ -4399,6 +4941,9 @@ body {
        <td>
         העברה מהחשבון
        </td>
+       <td style="color:#888; font-size:.88em;">
+        תיווך קניית דירה
+       </td>
        <td style="color:#e74c3c; font-weight:600;">
         23,600.00
        </td>
@@ -4411,10 +4956,13 @@ body {
         2025-04-27
        </td>
        <td>
-        עמלת מכירת שיק בנקאי
+        חיוב בגין הכנת שיק בנקאי
+       </td>
+       <td style="color:#888; font-size:.88em;">
+        שיק בנקאי
        </td>
        <td style="color:#e74c3c; font-weight:600;">
-        13.70
+        100,000.00
        </td>
        <td>
         —
@@ -4425,10 +4973,13 @@ body {
         2025-04-27
        </td>
        <td>
-        חיוב בגין הכנת שיק בנקאי
+        עמלת מכירת שיק בנקאי
+       </td>
+       <td style="color:#888; font-size:.88em;">
+        —
        </td>
        <td style="color:#e74c3c; font-weight:600;">
-        100,000.00
+        13.70
        </td>
        <td>
         —
@@ -4440,6 +4991,9 @@ body {
        </td>
        <td>
         העברה מהחשבון
+       </td>
+       <td style="color:#888; font-size:.88em;">
+        שמאות
        </td>
        <td style="color:#e74c3c; font-weight:600;">
         2,950.00
@@ -4455,6 +5009,9 @@ body {
        <td>
         העברה מהחשבון
        </td>
+       <td style="color:#888; font-size:.88em;">
+        ליווי ניראל פעימה שנייה
+       </td>
        <td style="color:#e74c3c; font-weight:600;">
         15,000.00
        </td>
@@ -4468,6 +5025,9 @@ body {
        </td>
        <td>
         העברה מהחשבון
+       </td>
+       <td style="color:#888; font-size:.88em;">
+        ליווי ניראל פעימה ראשונה
        </td>
        <td style="color:#e74c3c; font-weight:600;">
         5,000.00
@@ -4483,7 +5043,7 @@ body {
      </div>
     </div>
     <script>
-     const APT_PRICE=950000;const CUR_BAL=704324.35;const N_MONTHS=9;const NET_INV=343685.24;const ALLTIME_INC=20962.0;const INIT_PMT=237500;const DOWN_PMT=237500;const PRIN_PAID=8175.650000000023;
+     const APT_PRICE=950000;const CUR_BAL=704324.35;const N_MONTHS=9;const NET_INV=346169.52;const ALLTIME_INC=20962.0;const INIT_PMT=237500;const DOWN_PMT=237500;const PRIN_PAID=8175.650000000023;
 const fmtNum  = n => Math.round(Math.abs(n)).toLocaleString('he-IL');
 const fmtShek = n => (n < 0 ? '-' : '') + '₪' + fmtNum(n);
 const fmtPct  = n => (n >= 0 ? '+' : '') + n.toFixed(1) + '%';
@@ -5487,37 +6047,40 @@ function _loadCashPie() {
 
         var colors = _PIE_PALETTE.slice(0, rows.length);
 
-        // Legend rows — grid-aligned columns: dot | cur | original | ILS | pct
+        // Header row
+        var headerHtml =
+          '<div class="cash-legend-header">' +
+            '<span class="cash-legend-hcell"></span>' +
+            '<span class="cash-legend-hcell">מטבע</span>' +
+            '<span class="cash-legend-hcell">סכום מקורי</span>' +
+            '<span class="cash-legend-hcell">שער חליפין</span>' +
+            '<span class="cash-legend-hcell">שווי ₪</span>' +
+            '<span class="cash-legend-hcell" style="text-align:center">%</span>' +
+          '</div>';
+
+        // Legend rows — grid: dot | cur | original | rate | ILS | pct
         var legendHtml = rows.map(function(r, i) {
           var pct     = ilsTotal > 0 ? (r.ils / ilsTotal * 100).toFixed(1) : '0.0';
           var origStr = r.currency !== 'ILS'
             ? r.symbol + Math.round(r.balance).toLocaleString('he-IL')
             : '';
+          var rateStr = '';
+          if (r.currency !== 'ILS' && r.rate) {
+            var rev = 1 / r.rate;
+            var revStr = rev > 100 ? Math.round(rev).toString()
+                       : rev > 10  ? rev.toFixed(1)
+                       : rev.toFixed(3);
+            rateStr = '₪1=' + r.symbol + revStr;
+          }
           return '<div class="cash-legend-row">' +
             '<div class="cash-legend-dot" style="background:' + colors[i] + '"></div>' +
             '<div class="cash-legend-cur">' + r.currency + '</div>' +
             '<div class="cash-legend-orig">' + origStr + '</div>' +
+            '<div class="cash-legend-rate">' + rateStr + '</div>' +
             '<div class="cash-legend-ils">₪' + r.ils.toLocaleString('he-IL') + '</div>' +
             '<div class="cash-legend-pct">' + pct + '%</div>' +
           '</div>';
         }).join('');
-
-        // Exchange-rate panel — show reverse rate: ₪1 = X [currency]
-        var nonIls = rows.filter(function(r) { return r.currency !== 'ILS'; });
-        var ratesHtml = nonIls.length
-          ? '<div class="cash-rates-panel"><div class="cash-rates-title">שערי חליפין</div>' +
-            nonIls.map(function(r) {
-              var rev = 1 / r.rate;
-              var revStr = rev > 100 ? Math.round(rev).toString()
-                         : rev > 10  ? rev.toFixed(1)
-                         : rev.toFixed(3);
-              return '<div class="cash-rate-row">' +
-                '<span class="cash-rate-cur">₪1</span>' +
-                '<span class="cash-rate-arrow">=</span>' +
-                '<span class="cash-rate-val">' + r.symbol + revStr + '</span>' +
-              '</div>';
-            }).join('') + '</div>'
-          : '';
 
         wrap.innerHTML =
           '<div class="cash-pie-layout">' +
@@ -5528,7 +6091,7 @@ function _loadCashPie() {
                 '<div class="cash-pie-sublabel">סה"כ מזומן</div>' +
               '</div>' +
             '</div>' +
-            '<div class="cash-legend">' + legendHtml + ratesHtml + '</div>' +
+            '<div class="cash-legend">' + headerHtml + legendHtml + '</div>' +
           '</div>';
 
         // Update the Cash balance cell in the accounts table
@@ -5551,6 +6114,7 @@ function _loadCashPie() {
             responsive: true,
             maintainAspectRatio: false,
             cutout: '70%',
+            layout: { padding: 10 },   /* room for hoverOffset so arcs don't clip at canvas edge */
             plugins: {
               legend: { display: false },
               tooltip: {
@@ -6072,6 +6636,497 @@ function submitReconcile() {
     } else { status.textContent = 'שגיאה: ' + (d.error||'לא ידוע'); status.className = 'cash-modal-status err'; }
   }).catch(function() { status.textContent = 'שגיאת רשת'; status.className = 'cash-modal-status err'; });
 }
+
+// ═══════════════════════════════════════════════════════════
+//  Transaction Split Feature
+// ═══════════════════════════════════════════════════════════
+var _splitTx      = { id: null, table: null, name: '', amount: 0, category: '', date: '' };
+var _revertTx     = { table: null, origId: null };
+var _splitRowIdx  = 0;
+var _availCats    = [];
+var _openSplitCatDdId = null;   // which row's cat-dropdown is currently open
+
+// Pre-load categories (also re-fetch lazily when modal opens)
+function _loadAvailCats(cb) {
+  if (_availCats.length) { if (cb) cb(); return; }
+  fetch('/api/search/categories').then(function(r) { return r.json(); }).then(function(d) {
+    _availCats = d.categories || [];
+    if (cb) cb();
+  }).catch(function() { if (cb) cb(); });
+}
+_loadAvailCats();
+
+// Close any open category dropdown when clicking elsewhere
+document.addEventListener('click', function(e) {
+  if (_openSplitCatDdId === null) return;
+  var dd  = document.getElementById('_scd-dd-' + _openSplitCatDdId);
+  var btn = document.getElementById('_scd-btn-' + _openSplitCatDdId);
+  if (dd && !dd.contains(e.target) && btn && !btn.contains(e.target)) {
+    dd.classList.remove('open');
+    _openSplitCatDdId = null;
+  }
+}, true);
+
+// ── Category custom dropdown helpers ─────────────────────────
+function _openSplitCatDd(idx) {
+  // Close previous
+  if (_openSplitCatDdId !== null && _openSplitCatDdId !== idx) {
+    var prev = document.getElementById('_scd-dd-' + _openSplitCatDdId);
+    if (prev) prev.classList.remove('open');
+  }
+  var btn = document.getElementById('_scd-btn-' + idx);
+  var dd  = document.getElementById('_scd-dd-' + idx);
+  if (!btn || !dd) return;
+  if (_openSplitCatDdId === idx) {   // toggle close
+    dd.classList.remove('open');
+    _openSplitCatDdId = null;
+    return;
+  }
+  // Position using getBoundingClientRect so it escapes any overflow container
+  var r = btn.getBoundingClientRect();
+  dd.style.top   = (r.bottom + 4) + 'px';
+  dd.style.left  = r.left + 'px';
+  dd.style.width = r.width + 'px';
+  dd.classList.add('open');
+  _openSplitCatDdId = idx;
+  var srch = dd.querySelector('._scd-search');
+  if (srch) { srch.value = ''; _filterSplitCatOpts(idx, ''); srch.focus(); }
+}
+
+function _filterSplitCatOpts(idx, q) {
+  var dd = document.getElementById('_scd-dd-' + idx); if (!dd) return;
+  var ql = q.toLowerCase();
+  dd.querySelectorAll('._scd-opt').forEach(function(o) {
+    o.style.display = (!ql || o.textContent.toLowerCase().includes(ql)) ? '' : 'none';
+  });
+}
+
+function _selectSplitCat(idx, val) {
+  var btn = document.getElementById('_scd-btn-' + idx);
+  var hid = document.getElementById('_scd-val-' + idx);
+  if (btn) btn.textContent = val;
+  if (hid) hid.value = val;
+  var dd = document.getElementById('_scd-dd-' + idx);
+  if (dd) dd.classList.remove('open');
+  _openSplitCatDdId = null;
+}
+
+function _buildSplitCatDd(idx, currentCat) {
+  var opts = _availCats.map(function(c) {
+    return '<div class="_scd-opt cash-cur-option" onclick="_selectSplitCat(' + idx + ',' + JSON.stringify(c) + ')">' + _txEsc(c) + '</div>';
+  }).join('');
+  return '<div class="cash-cur-wrap" style="position:relative">' +
+    '<button type="button" class="split-row-input _scd-btn" id="_scd-btn-' + idx + '" ' +
+      'onclick="_openSplitCatDd(' + idx + ')" ' +
+      'style="text-align:right;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' +
+      _txEsc(currentCat || 'בחר קטגוריה') +
+    '</button>' +
+    '<input type="hidden" id="_scd-val-' + idx + '" value="' + _txEsc(currentCat) + '">' +
+    '<div class="cash-cur-dropdown _scd-dd" id="_scd-dd-' + idx + '" style="position:fixed;z-index:9999">' +
+      '<input class="cash-cur-search _scd-search" type="text" placeholder="חיפוש קטגוריה..." ' +
+        'oninput="_filterSplitCatOpts(' + idx + ',this.value)">' +
+      opts +
+    '</div>' +
+  '</div>';
+}
+
+// ── Event delegation — click any .num row in tx lists ────────
+(function attachTxClickDelegation() {
+  ['spendings-list', 'earnings-list'].forEach(function(lid) {
+    var el = document.getElementById(lid);
+    if (!el) return;
+    el.addEventListener('click', function(e) {
+      var row = e.target.closest && e.target.closest('.num');
+      if (row) _handleTxClick(row);
+    });
+  });
+})();
+
+function _handleTxClick(row) {
+  var id      = row.getAttribute('data-value');
+  var tbl     = row.getAttribute('data-tx-table');
+  var isSplit = row.getAttribute('data-is-split') === '1';
+  var origId  = row.getAttribute('data-orig-id');
+
+  // Only Bank / Card — skip Cash rows
+  if (!tbl || tbl === 'CashTransactions' || !id) return;
+
+  if (isSplit) {
+    _openRevertModal(tbl, origId);
+  } else {
+    var name   = ((row.querySelector('.tx-primary') || {}).textContent || '').trim();
+    var amount = _parseSplitAmt((row.querySelector('.date') || {}).textContent || '');
+    var cat    = ((row.querySelector('.cat')  || {}).textContent || '').trim();
+    var date   = ((row.querySelector('.element4') || {}).textContent || '').trim();
+    _openSplitConfirm(id, tbl, name, amount, cat, date);
+  }
+}
+
+function _parseSplitAmt(str) {
+  return Math.abs(parseFloat(str.replace(/[^\d.]/g, '')) || 0);
+}
+
+function _txEsc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Split — Step 1: confirm dialog ───────────────────────────
+function _openSplitConfirm(id, tbl, name, amount, cat, date) {
+  _splitTx = { id: id, table: tbl, name: name, amount: amount, category: cat, date: date };
+  var info = document.getElementById('split-confirm-info');
+  if (info) info.innerHTML =
+    '<div class="split-orig-row">' +
+      '<span class="split-orig-name">' + _txEsc(name) + '</span>' +
+      '<span class="split-orig-amount">₪' + amount.toLocaleString('he-IL', {minimumFractionDigits:2}) + '</span>' +
+      '<span class="split-orig-date">' + _txEsc(date) + '</span>' +
+      '<span class="split-cat-badge">' + _txEsc(cat) + '</span>' +
+    '</div>';
+  _showSplitStep('split-step-confirm');
+  document.getElementById('split-modal-overlay').classList.add('open');
+}
+
+// ── Split — Step 2: editor ────────────────────────────────────
+function _goToSplitEditor() {
+  _loadAvailCats(function() {
+    var banner = document.getElementById('split-editor-banner');
+    if (banner) banner.innerHTML =
+      '<div class="split-orig-row">' +
+        '<span class="split-orig-name">' + _txEsc(_splitTx.name) + '</span>' +
+        '<span class="split-orig-amount">₪' + _splitTx.amount.toLocaleString('he-IL', {minimumFractionDigits:2}) + '</span>' +
+        '<span class="split-cat-badge">' + _txEsc(_splitTx.category) + '</span>' +
+      '</div>';
+
+    _splitRowIdx = 0;
+    _openSplitCatDdId = null;
+    document.getElementById('split-editor-rows').innerHTML = '';
+    // Default: 2 rows, each with half the amount, original name & category
+    var half = Math.round(_splitTx.amount / 2 * 100) / 100;
+    _addSplitRow(_splitTx.name, half, _splitTx.category);
+    _addSplitRow(_splitTx.name, _splitTx.amount - half, _splitTx.category);
+    _showSplitStep('split-step-editor');
+    _updateSplitTotal();
+  });
+}
+
+function _addSplitRow(defaultDesc, defaultAmount, defaultCat) {
+  _splitRowIdx++;
+  var idx = _splitRowIdx;
+  var cat = defaultCat || _splitTx.category;
+  var desc = defaultDesc !== undefined ? defaultDesc : _splitTx.name;
+  var amt  = defaultAmount !== undefined ? defaultAmount : '';
+
+  var div = document.createElement('div');
+  div.className = 'split-editor-row';
+  div.id = 'split-row-' + idx;
+  div.innerHTML =
+    '<span class="split-row-num">' + idx + '</span>' +
+    '<input class="split-row-input split-row-desc" type="text" placeholder="תיאור" value="' + _txEsc(desc) + '">' +
+    '<input class="split-row-input split-row-amount" type="number" min="0.01" step="0.01" placeholder="סכום ₪"' +
+      (amt ? ' value="' + amt + '"' : '') + ' oninput="_updateSplitTotal()">' +
+    _buildSplitCatDd(idx, cat) +
+    (idx > 1
+      ? '<button class="split-row-remove" onclick="_removeSplitRow(' + idx + ')" title="הסר">✕</button>'
+      : '<span></span>');
+  document.getElementById('split-editor-rows').appendChild(div);
+}
+
+function _removeSplitRow(idx) {
+  var r = document.getElementById('split-row-' + idx);
+  if (r) r.remove();
+  _updateSplitTotal();
+}
+
+function _updateSplitTotal() {
+  var total = _splitTx.amount;
+  var used  = 0;
+  document.querySelectorAll('#split-editor-rows .split-row-amount').forEach(function(inp) {
+    used += parseFloat(inp.value) || 0;
+  });
+  var rem = total - used;
+  var usedEl = document.getElementById('split-used');
+  var remEl  = document.getElementById('split-rem');
+  if (usedEl) usedEl.textContent = '₪' + used.toLocaleString('he-IL', {minimumFractionDigits:2});
+  if (remEl) {
+    var absRem = Math.abs(rem);
+    remEl.textContent = '₪' + absRem.toLocaleString('he-IL', {minimumFractionDigits:2}) + (rem < 0 ? ' (חריגה)' : '');
+    remEl.style.color = absRem < 0.01 ? 'var(--teal)' : (rem < 0 ? 'var(--red)' : '#888');
+  }
+  var btn = document.getElementById('split-submit-btn');
+  if (btn) btn.disabled = Math.abs(rem) >= 0.01;
+}
+
+function _submitSplit() {
+  var splits = [];
+  var valid  = true;
+  document.querySelectorAll('#split-editor-rows .split-editor-row').forEach(function(row) {
+    var desc   = (row.querySelector('.split-row-desc') || {value:''}).value.trim();
+    var amount = parseFloat((row.querySelector('.split-row-amount') || {value:''}).value);
+    // Read category from the hidden input of the custom dropdown
+    var catHid = row.querySelector('[id^="_scd-val-"]');
+    var cat    = catHid ? catHid.value : _splitTx.category;
+    if (!amount || amount <= 0) { valid = false; return; }
+    splits.push({ description: desc, amount: amount, category: cat });
+  });
+
+  if (!valid || splits.length < 2) {
+    _setSplitStatus('יש להזין סכום חיובי לכל חלק', 'err'); return;
+  }
+
+  var btn = document.getElementById('split-submit-btn');
+  if (btn) btn.disabled = true;
+
+  fetch('/api/transactions/split', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ table: _splitTx.table, id: _splitTx.id, splits: splits })
+  }).then(function(r) { return r.json(); }).then(function(d) {
+    if (d.ok) {
+      _closeSplitModal();
+      _applyDomSplit(_splitTx.id, _splitTx.table, d.splits);
+    } else {
+      _setSplitStatus('שגיאה: ' + (d.error || 'שגיאה לא ידועה'), 'err');
+      if (btn) btn.disabled = false;
+    }
+  }).catch(function() {
+    _setSplitStatus('שגיאת רשת', 'err');
+    if (btn) btn.disabled = false;
+  });
+}
+
+// Immediately update the DOM without a page reload
+function _applyDomSplit(origId, tbl, splits) {
+  var origRow = document.querySelector('.num[data-value="' + origId + '"][data-tx-table="' + tbl + '"]');
+  if (!origRow) return;
+
+  var parent    = origRow.parentNode;
+  var colorBox  = origRow.querySelector('.color-box');
+  var colorStyle = colorBox ? colorBox.getAttribute('style') : '';
+  var dateStr   = ((origRow.querySelector('.element4') || {}).textContent || '').trim();
+  var isSpendings = (parent && parent.id === 'spendings-list');
+
+  splits.forEach(function(s) {
+    var row = document.createElement('div');
+    row.className = 'num';
+    row.setAttribute('data-value',    String(s.split_id));
+    row.setAttribute('data-tx-table', tbl);
+    row.setAttribute('data-is-split', '1');
+    row.setAttribute('data-orig-id',  String(origId));
+    var primaryText = s.description || _splitTx.name;
+    var showSecondary = s.description && s.description !== _splitTx.name;
+    row.innerHTML =
+      '<div class="color-box" style="' + (colorStyle || '') + '"></div>' +
+      '<h3>' +
+        '<span class="tx-primary">' + _txEsc(primaryText) + '</span>' +
+        (showSecondary ? '<span class="tx-secondary">' + _txEsc(_splitTx.name) + '</span>' : '') +
+        '<span class="split-badge">✂ פיצול</span>' +
+      '</h3>' +
+      '<p class="date">₪' + s.amount.toLocaleString('he-IL', {minimumFractionDigits:2}) + '</p>' +
+      '<p class="cat">' + _txEsc(s.category) + '</p>' +
+      '<p class="element4">' + _txEsc(dateStr) + '</p>';
+    row.addEventListener('click', function() { _handleTxClick(row); });
+    parent.insertBefore(row, origRow);
+  });
+
+  origRow.remove();
+  updateTotal(isSpendings ? 'spendings-list' : 'earnings-list');
+}
+
+// ── Revert modal ──────────────────────────────────────────────
+function _openRevertModal(tbl, origId) {
+  _revertTx = { table: tbl, origId: origId };
+  var origEl   = document.getElementById('revert-orig-info');
+  var splitsEl = document.getElementById('revert-splits-list');
+  if (origEl)   origEl.innerHTML   = '<div style="color:#888;font-size:.85em">טוען...</div>';
+  if (splitsEl) splitsEl.innerHTML = '';
+  document.getElementById('revert-modal-overlay').classList.add('open');
+  _setRevertStatus('', '');
+
+  fetch('/api/transactions/split-info?table=' + encodeURIComponent(tbl) + '&id=' + encodeURIComponent(origId))
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    if (!d.ok) { if (origEl) origEl.innerHTML = 'שגיאה: ' + _txEsc(d.error || ''); return; }
+    var orig = d.original;
+    if (origEl) origEl.innerHTML =
+      '<div class="split-orig-row">' +
+        '<span class="split-orig-name">' + _txEsc(orig.name) + '</span>' +
+        '<span class="split-orig-amount">₪' + Math.abs(orig.amount).toLocaleString('he-IL', {minimumFractionDigits:2}) + '</span>' +
+        '<span class="split-orig-date">' + _txEsc(orig.date) + '</span>' +
+        '<span class="split-cat-badge">' + _txEsc(orig.category) + '</span>' +
+      '</div>';
+    if (splitsEl) {
+      splitsEl.innerHTML = d.splits.map(function(s, i) {
+        return '<div class="revert-split-row">' +
+          '<span class="revert-split-num">' + (i+1) + '</span>' +
+          '<span class="revert-split-amount">₪' + s.amount.toLocaleString('he-IL', {minimumFractionDigits:2}) + '</span>' +
+          '<span class="revert-split-desc">' + _txEsc(s.description || '—') + '</span>' +
+          '<span class="split-cat-badge">' + _txEsc(s.category) + '</span>' +
+        '</div>';
+      }).join('');
+    }
+  }).catch(function() { if (origEl) origEl.innerHTML = 'שגיאת רשת'; });
+}
+
+function _closeRevertModal() {
+  document.getElementById('revert-modal-overlay').classList.remove('open');
+}
+
+function _submitRevert() {
+  fetch('/api/transactions/revert-split', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ table: _revertTx.table, id: _revertTx.origId })
+  }).then(function(r) { return r.json(); }).then(function(d) {
+    if (d.ok) {
+      _closeRevertModal();
+      _applyDomRevert(_revertTx.table, _revertTx.origId);
+    } else {
+      _setRevertStatus('שגיאה: ' + (d.error || ''), 'err');
+    }
+  }).catch(function() { _setRevertStatus('שגיאת רשת', 'err'); });
+}
+
+function _applyDomRevert(tbl, origId) {
+  // Remove all split rows with this orig-id; the original is gone from DOM —
+  // a simple toast + reload banner is the cleanest UX
+  document.querySelectorAll('.num[data-orig-id="' + origId + '"][data-tx-table="' + tbl + '"]')
+    .forEach(function(r) { r.remove(); });
+  // Show a banner
+  ['spendings-list','earnings-list'].forEach(function(lid) { updateTotal(lid); });
+  var area = document.getElementById('toast-area');
+  if (area) {
+    var el = document.createElement('div');
+    el.className = 'toast ok';
+    el.textContent = 'הפיצול בוטל. הרץ ניתוח מחדש לשחזור העסקה המקורית.';
+    area.appendChild(el);
+    setTimeout(function() { el.remove(); }, 6000);
+  }
+}
+
+// ── Helpers ───────────────────────────────────────────────────
+function _showSplitStep(id) {
+  document.querySelectorAll('.split-step').forEach(function(s) { s.classList.remove('active'); });
+  var el = document.getElementById(id);
+  if (el) el.classList.add('active');
+}
+function _closeSplitModal() {
+  document.getElementById('split-modal-overlay').classList.remove('open');
+}
+function _setSplitStatus(msg, cls) {
+  var el = document.getElementById('split-modal-status');
+  if (!el) return;
+  el.textContent = msg;
+  el.className   = 'split-status' + (cls ? ' ' + cls : '');
+}
+function _setRevertStatus(msg, cls) {
+  var el = document.getElementById('revert-modal-status');
+  if (!el) return;
+  el.textContent = msg;
+  el.className   = 'split-status' + (cls ? ' ' + cls : '');
+}
   </script>
+  <!-- ═══ Split modal ═══ -->
+  <div class="split-modal-overlay" id="split-modal-overlay" onclick="if(event.target===this)_closeSplitModal()">
+   <div class="split-modal">
+    <button class="split-modal-close" onclick="_closeSplitModal()">
+     ✕
+    </button>
+    <!-- Step 1: confirm -->
+    <div class="split-step active" id="split-step-confirm">
+     <div class="split-modal-title">
+      פיצול עסקה?
+     </div>
+     <div id="split-confirm-info">
+     </div>
+     <div class="split-modal-actions">
+      <button class="cash-btn-cancel" onclick="_closeSplitModal()">
+       ביטול
+      </button>
+      <button class="cash-btn-submit" onclick="_goToSplitEditor()">
+       פצל עסקה →
+      </button>
+     </div>
+    </div>
+    <!-- Step 2: editor -->
+    <div class="split-step" id="split-step-editor">
+     <div class="split-modal-title">
+      פיצול עסקה
+     </div>
+     <div id="split-editor-banner">
+     </div>
+     <div class="split-editor-header">
+      <span>
+      </span>
+      <span>
+       תיאור
+      </span>
+      <span>
+       סכום ₪
+      </span>
+      <span>
+       קטגוריה
+      </span>
+      <span>
+      </span>
+     </div>
+     <div id="split-editor-rows">
+     </div>
+     <button class="split-add-btn" onclick="_addSplitRow()">
+      + הוסף חלק
+     </button>
+     <div class="split-total-bar">
+      <span class="split-total-label">
+       סה"כ:
+      </span>
+      <span class="split-total-used" id="split-used">
+       ₪0
+      </span>
+      <span class="split-total-label" style="margin-right:12px">
+       נשאר:
+      </span>
+      <span class="split-remaining" id="split-rem">
+       ₪0
+      </span>
+     </div>
+     <div class="split-modal-actions">
+      <button class="cash-btn-cancel" onclick="_closeSplitModal()">
+       ביטול
+      </button>
+      <button class="cash-btn-submit" disabled="" id="split-submit-btn" onclick="_submitSplit()">
+       אשר פיצול
+      </button>
+     </div>
+     <div class="split-status" id="split-modal-status">
+     </div>
+    </div>
+   </div>
+  </div>
+  <!-- ═══ Revert modal ═══ -->
+  <div class="split-modal-overlay" id="revert-modal-overlay" onclick="if(event.target===this)_closeRevertModal()">
+   <div class="split-modal">
+    <button class="split-modal-close" onclick="_closeRevertModal()">
+     ✕
+    </button>
+    <div class="split-modal-title">
+     עסקה מפוצלת
+    </div>
+    <div id="revert-orig-info">
+    </div>
+    <div style="margin-top:12px;font-size:.78em;font-weight:600;color:var(--text-muted);margin-bottom:6px">
+     חלקים:
+    </div>
+    <div id="revert-splits-list">
+    </div>
+    <div class="split-modal-actions">
+     <button class="cash-btn-cancel" onclick="_closeRevertModal()">
+      סגור
+     </button>
+     <button class="split-btn-danger" onclick="_submitRevert()">
+      בטל פיצול ↩
+     </button>
+    </div>
+    <div class="split-status" id="revert-modal-status">
+    </div>
+   </div>
+  </div>
  </body>
 </html>

@@ -535,6 +535,72 @@ body {
 }
 .desc-input::placeholder { color: #bbb; }
 
+/* ── Rules table ─────────────────────────────────────────────── */
+.rules-filter-bar {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.rules-filter-input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: .84em; font-family: inherit;
+  outline: none; direction: rtl;
+  background: var(--bg); color: var(--navy);
+}
+.rules-filter-input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px var(--teal-glow); }
+.rules-list { padding: 0; }
+.rule-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--border);
+  transition: background .12s;
+}
+.rule-row:last-child { border-bottom: none; }
+.rule-row:hover { background: #f8faff; }
+.rule-name {
+  flex: 1; min-width: 0;
+  font-size: .88em; font-weight: 600;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.rule-count {
+  font-size: .72em; color: var(--text-muted);
+  background: var(--bg); border-radius: 8px; padding: 2px 8px;
+  flex-shrink: 0; white-space: nowrap;
+}
+.rule-cat-select {
+  padding: 6px 10px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: .84em; font-family: inherit;
+  outline: none;
+  background: var(--bg); color: var(--navy);
+  cursor: pointer; direction: rtl;
+  min-width: 150px;
+  transition: border-color .15s;
+}
+.rule-cat-select:focus { border-color: var(--teal); box-shadow: 0 0 0 3px var(--teal-glow); }
+
+/* ── Search tagged section ───────────────────────────────────── */
+.search-bar {
+  display: flex; align-items: center; gap: 8px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.search-input {
+  flex: 1;
+  padding: 9px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: .86em; font-family: inherit;
+  outline: none; direction: rtl;
+  background: var(--bg); color: var(--navy);
+}
+.search-input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px var(--teal-glow); }
+.search-input::placeholder { color: #bbb; }
+
 /* ── Scrollbar ───────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -576,6 +642,21 @@ body {
 
 <!-- Toast area -->
 <div class="toast-area" id="toast-area"></div>
+
+<!-- Remap confirmation modal -->
+<div class="modal-overlay" id="remap-modal-overlay">
+  <div class="modal-box">
+    <div class="modal-title">🔄 שינוי קטגוריה</div>
+    <div id="remap-modal-name" style="font-weight:600;margin-bottom:8px;font-size:.92em;color:var(--navy);"></div>
+    <div id="remap-modal-arrow" style="font-size:.9em;color:var(--text-sub);margin-bottom:6px;"></div>
+    <div id="remap-modal-count" style="font-size:.82em;color:var(--text-muted);margin-bottom:18px;"></div>
+    <div class="modal-msg" id="remap-modal-msg"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="cancelRemap()">ביטול</button>
+      <button class="btn btn-primary" id="remap-confirm-btn" onclick="confirmRemap()">אשר שינוי</button>
+    </div>
+  </div>
+</div>
 
 <!-- Add category modal -->
 <div class="modal-overlay" id="modal-overlay">
@@ -657,6 +738,49 @@ body {
       <div class="tx-list" id="tagged-list">
         <div class="skeleton-row"></div>
         <div class="skeleton-row"></div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ── Section 4: Manage Rules ──────────────────────────────── -->
+  <div class="section collapsed" id="sec-rules">
+    <div class="section-header" onclick="onRulesSectionClick()">
+      <div class="section-title">
+        ⚙️ ניהול כללי תיוג
+        <span class="section-count" id="sec-rules-count">–</span>
+      </div>
+      <span class="section-chevron">▲</span>
+    </div>
+    <div class="section-body" id="sec-rules-body">
+      <div class="rules-filter-bar">
+        <input class="rules-filter-input" id="rules-filter" type="text"
+               placeholder="סנן לפי שם עסק או קטגוריה…" autocomplete="off"
+               oninput="filterRules()"/>
+      </div>
+      <div class="rules-list" id="rules-list">
+        <div class="empty-state"><div class="emoji">⚙️</div>טוען…</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Section 5: Search Tagged ─────────────────────────────── -->
+  <div class="section collapsed" id="sec-search">
+    <div class="section-header" onclick="toggleSection('sec-search')">
+      <div class="section-title">
+        🔍 חיפוש עסקאות מתויגות
+      </div>
+      <span class="section-chevron">▲</span>
+    </div>
+    <div class="section-body" id="sec-search-body">
+      <div class="search-bar">
+        <input class="search-input" id="search-tagged-input" type="text"
+               placeholder="שם עסק או מספר עסקה…" autocomplete="off"
+               onkeydown="if(event.key==='Enter') searchTagged()"/>
+        <button class="btn btn-primary" onclick="searchTagged()">🔍 חפש</button>
+      </div>
+      <div class="tx-list" id="search-tagged-list">
+        <div class="empty-state"><div class="emoji">🔍</div>הזן שם עסק או מספר עסקה לחיפוש</div>
       </div>
     </div>
   </div>
@@ -1310,6 +1434,276 @@ function errorState(msg, retryFn) {
     }
   }, 0);
   return `<div class="empty-state"><div class="emoji">⚠️</div>${msg}${btn}</div>`;
+}
+
+// ── Manage Rules ───────────────────────────────────────────────
+let _allRules   = [];
+let _rulesLoaded = false;
+
+function onRulesSectionClick() {
+  const sec = document.getElementById('sec-rules');
+  const wasCollapsed = sec.classList.contains('collapsed');
+  sec.classList.toggle('collapsed');
+  if (wasCollapsed && !_rulesLoaded) loadRules();
+}
+
+async function loadRules() {
+  const el = document.getElementById('rules-list');
+  el.innerHTML = skeletons(3);
+  const res  = await fetch('/api/tagger/rules').catch(() => null);
+  const data = res ? await res.json().catch(() => null) : null;
+  if (!data || !data.ok) {
+    el.innerHTML = errorState('לא ניתן לטעון כללים', loadRules);
+    return;
+  }
+  _allRules   = data.rules;
+  _rulesLoaded = true;
+  document.getElementById('sec-rules-count').textContent = _allRules.length;
+  renderRules();
+}
+
+function filterRules() {
+  renderRules();
+}
+
+function renderRules() {
+  const el  = document.getElementById('rules-list');
+  const q   = (document.getElementById('rules-filter')?.value || '').trim().toLowerCase();
+  let list  = _allRules;
+  if (q) {
+    list = list.filter(r =>
+      r.name.toLowerCase().includes(q) ||
+      r.category.toLowerCase().includes(q)
+    );
+  } else {
+    list = list.slice(0, 200);
+  }
+  if (!list.length) {
+    el.innerHTML = `<div class="empty-state"><div class="emoji">🔎</div>לא נמצאו כללים</div>`;
+    return;
+  }
+  el.innerHTML = list.map(r => buildRuleRow(r)).join('');
+}
+
+function buildRuleRow(r) {
+  const opts = _categories.map(c =>
+    `<option value="${esc(c.name)}"${c.name === r.category ? ' selected' : ''}>${esc(c.name)}</option>`
+  ).join('');
+  const countLabel = r.count > 0
+    ? `${r.count} עסקאות`
+    : 'ללא עסקאות';
+  return `
+<div class="rule-row">
+  <div class="rule-name" title="${esc(r.name)}">${esc(r.name)}</div>
+  <span class="rule-count">${countLabel}</span>
+  <select class="rule-cat-select"
+          data-name="${esc(r.name)}"
+          data-cat="${esc(r.category)}"
+          data-count="${r.count}"
+          onchange="onRuleSelectChange(this)">
+    ${opts}
+  </select>
+</div>`;
+}
+
+function onRuleSelectChange(sel) {
+  const oldCat = sel.dataset.cat;
+  const newCat = sel.value;
+  if (newCat === oldCat) return;
+  const name  = sel.dataset.name;
+  const count = parseInt(sel.dataset.count) || 0;
+  _remapPending = { sel, oldCat, newCat, name, count };
+  openRemapModal();
+}
+
+// ── Remap modal ────────────────────────────────────────────────
+let _remapPending = null;
+
+function openRemapModal() {
+  const { name, oldCat, newCat, count } = _remapPending;
+  document.getElementById('remap-modal-name').textContent  = `לשנות את קטגוריית "${name}"`;
+  document.getElementById('remap-modal-arrow').textContent = `מ־"${oldCat}" ל־"${newCat}"?`;
+  document.getElementById('remap-modal-count').textContent = count > 0
+    ? `${count} עסקאות קיימות יעודכנו בהתאם.`
+    : 'אין עסקאות קיימות שישתנו.';
+  document.getElementById('remap-modal-msg').textContent = '';
+  document.getElementById('remap-confirm-btn').disabled   = false;
+  document.getElementById('remap-confirm-btn').innerHTML  = 'אשר שינוי';
+  document.getElementById('remap-modal-overlay').classList.add('open');
+}
+
+function closeRemapModal() {
+  document.getElementById('remap-modal-overlay').classList.remove('open');
+}
+
+function cancelRemap() {
+  if (_remapPending) {
+    _remapPending.sel.value = _remapPending.oldCat;
+  }
+  closeRemapModal();
+}
+
+async function confirmRemap() {
+  const { sel, name, newCat } = _remapPending;
+  const btn = document.getElementById('remap-confirm-btn');
+  btn.disabled  = true;
+  btn.innerHTML = '<span class="spinner"></span>';
+  document.getElementById('remap-modal-msg').textContent = '';
+
+  const res  = await fetch('/api/tagger/rules/remap', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ name, new_category: newCat })
+  }).catch(() => null);
+  const data = res ? await res.json().catch(() => null) : null;
+
+  if (data && data.ok) {
+    sel.dataset.cat = newCat;
+    // update count in dataset/display
+    const row = sel.closest('.rule-row');
+    if (row) {
+      const badge = row.querySelector('.rule-count');
+      if (badge && data.updated > 0) {
+        badge.textContent = `${data.updated} עסקאות אוטומטיות`;
+        sel.dataset.count = data.updated;
+      }
+    }
+    // sync _allRules cache
+    const rule = _allRules.find(r => r.name === name);
+    if (rule) rule.category = newCat;
+    closeRemapModal();
+    showToast(`כלל עודכן ל-"${newCat}"` + (data.updated ? ` (${data.updated} עסקאות)` : '') + ' — מחשב מחדש ברקע…', 'success');
+    _triggerRegen();
+  } else {
+    sel.value = _remapPending.oldCat;
+    document.getElementById('remap-modal-msg').textContent =
+      (data && data.error) ? data.error : 'שגיאה בעדכון';
+    btn.disabled  = false;
+    btn.innerHTML = 'אשר שינוי';
+  }
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { cancelRemap(); closeRemapModal(); }
+});
+
+// ── Search Tagged ──────────────────────────────────────────────
+async function searchTagged() {
+  const q  = (document.getElementById('search-tagged-input')?.value || '').trim();
+  const el = document.getElementById('search-tagged-list');
+  if (!q) { showToast('הזן שם או מספר עסקה', 'error'); return; }
+  el.innerHTML = skeletons(2);
+  const res  = await fetch(`/api/tagger/search-tagged?q=${encodeURIComponent(q)}`).catch(() => null);
+  const data = res ? await res.json().catch(() => null) : null;
+  if (!data || !data.ok) {
+    el.innerHTML = errorState('שגיאה בחיפוש', null);
+    return;
+  }
+  if (!data.items.length) {
+    el.innerHTML = `<div class="empty-state"><div class="emoji">🔎</div>לא נמצאו עסקאות מתויגות</div>`;
+    return;
+  }
+  el.innerHTML = data.items.map(tx => buildSearchResultRow(tx)).join('');
+}
+
+function buildSearchResultRow(tx) {
+  const isCard = tx.table_name === 'CardTransactions';
+  const icon   = isCard ? '💳' : '🏦';
+  const cls    = isCard ? 'card' : 'bank';
+  const name   = esc(tx.name || '—');
+  const execD  = fmtDate(tx.exec_date);
+  const key    = `sr_${tx.table_name}__${tx.id}`;
+  const auto   = tx.reserved !== 0;
+  const catCls = auto ? 'cat-label auto' : 'cat-label';
+
+  let metaHtml = `<span>תאריך: <span class="val">${execD}</span></span>`;
+  if (isCard) {
+    if (tx.transaction_value != null) metaHtml += `<span>ע. עסקה: <span class="val">${fmtMoney(tx.transaction_value, tx.currency)}</span></span>`;
+    if (tx.charge_value      != null) metaHtml += `<span>ע. חיוב: <span class="val neg">${fmtMoney(tx.charge_value, tx.currency)}</span></span>`;
+  } else {
+    const hasOut = tx.charge_value      != null && tx.charge_value      > 0;
+    const hasIn  = tx.transaction_value != null && tx.transaction_value > 0;
+    if (hasOut)      metaHtml += `<span>הוצאה: <span class="val neg">${fmtMoney(tx.charge_value, 'ILS')}</span></span>`;
+    else if (hasIn)  metaHtml += `<span>הכנסה: <span class="val pos">${fmtMoney(tx.transaction_value, 'ILS')}</span></span>`;
+  }
+  metaHtml += `<span>ID: <span class="val">${tx.id}</span></span>`;
+
+  return `
+<div class="tx-row is-tagged" id="row-${esc(key)}" data-key="${esc(key)}"
+     data-table="${esc(tx.table_name)}" data-id="${tx.id}">
+  <div class="tx-type-pill ${cls}">${icon}</div>
+  <div class="tx-body">
+    <div class="tx-top">
+      <div class="tx-info">
+        <div class="tx-name" title="${name}">${name}</div>
+        <div class="tx-meta">${metaHtml}</div>
+      </div>
+      <div class="tx-actions">
+        <span class="${catCls}" id="cat-badge-${esc(key)}">${esc(tx.category || '')}</span>
+        <div class="cat-wrap">
+          <input class="cat-input" type="text"
+                 placeholder="קטגוריה חדשה…"
+                 autocomplete="off"
+                 onInput="onCatInput(this,'${esc(key)}')"
+                 onFocus="openDropdown(this,'${esc(key)}')"
+                 onBlur="scheduleClose(this,'${esc(key)}')"
+                 onKeyDown="onCatKey(event,this,'${esc(key)}')"
+                 id="inp-${esc(key)}"
+                 data-key="${esc(key)}"/>
+          <div class="cat-dropdown" id="dd-${esc(key)}"></div>
+        </div>
+        <button class="btn btn-primary" onclick="retagSearchRow('${esc(key)}')"
+                disabled id="btn-${esc(key)}">שנה</button>
+      </div>
+    </div>
+  </div>
+</div>`;
+}
+
+// Kick off a background page regeneration so housing / monthly pages stay in sync.
+function _triggerRegen() {
+  fetch('/api/analysis', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ month: 'current' })
+  }).catch(() => {});
+}
+
+async function retagSearchRow(key) {
+  const row = document.querySelector(`[data-key="${key}"]`);
+  if (!row) return;
+  const table    = row.dataset.table;
+  const id       = parseInt(row.dataset.id);
+  const inp      = document.getElementById(`inp-${key}`);
+  const category = inp ? inp.value.trim() : '';
+
+  if (!category || !_categories.find(c => c.name === category)) {
+    showToast('בחר קטגוריה תקינה', 'error');
+    return;
+  }
+
+  setRowLoading(key, true);
+
+  const res  = await fetch('/api/tagger/tag', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ table, id, category, auto: false })
+  }).catch(() => null);
+  const data = res ? await res.json().catch(() => null) : null;
+
+  setRowLoading(key, false);
+
+  if (data && data.ok) {
+    const badge = document.getElementById(`cat-badge-${key}`);
+    if (badge) { badge.textContent = category; badge.className = 'cat-label'; }
+    if (inp)   { inp.value = ''; inp.classList.remove('valid', 'invalid'); }
+    const btn = document.getElementById(`btn-${key}`);
+    if (btn)   btn.disabled = true;
+    showToast(`קטגוריה עודכנה ל-"${category}" — מחשב מחדש ברקע…`, 'success');
+    _triggerRegen();
+  } else {
+    showToast('שגיאה בעדכון', 'error');
+  }
 }
 </script>
 </body>

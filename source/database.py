@@ -454,29 +454,83 @@ class DataBase:
     def get_all_category_transactions(self, category: str) -> pd.DataFrame:
         """
         Return all transactions (Out and Income) for *category* sorted by date descending.
+        Mirrors the category-analysis path: fetch all → apply_splits → filter by category →
+        process_prices on cards, so split children are included and values match exactly.
         Returns columns: Date, Name, Out, Income.
         """
-        data = self.cursor.execute("""
-            SELECT Date, Name, Out, Income
-            FROM BankTransactions
-            WHERE Category = ?
-            ORDER BY Date DESC
-        """, (category,)).fetchall()
-        return pd.DataFrame(data, columns=["Date", "Name", "Out", "Income"])
+        from src_utils.calculations import SimpleMath
+        from datetime import datetime as _dt
+
+        bank_raw = self.get_transactions('BankTransactions', category_filter=None, name_filter=None)
+        bank_raw = self.apply_splits_to_df(bank_raw)
+        bank_raw = bank_raw[bank_raw['Category'] == category].reset_index(drop=True)
+
+        card_raw = self.get_transactions('CardTransactions', category_filter=None, name_filter=None)
+        card_raw = self.apply_splits_to_df(card_raw)
+        card_raw = card_raw[card_raw['Category'] == category].reset_index(drop=True)
+
+        bank_df = pd.DataFrame({
+            "Date":        bank_raw["Date"],
+            "Name":        bank_raw["Name"],
+            "Out":         bank_raw["Out"],
+            "Income":      bank_raw["Income"],
+            "Description": bank_raw["Description"] if "Description" in bank_raw.columns else "",
+        }) if not bank_raw.empty else pd.DataFrame(columns=["Date", "Name", "Out", "Income", "Description"])
+
+        if not card_raw.empty:
+            card_proc = SimpleMath.process_prices(card_raw, date=_dt.now(), general_analysis=False)
+            card_result = pd.DataFrame({
+                "Date":        card_proc["Executed_Date"],
+                "Name":        card_proc["Name"],
+                "Out":         card_proc["Final_Value"].apply(lambda v: abs(float(v)) if v < 0 else 0.0),
+                "Income":      card_proc["Final_Value"].apply(lambda v: float(v) if v > 0 else 0.0),
+                "Description": card_proc["Description"] if "Description" in card_proc.columns else "",
+            })
+            combined = pd.concat([bank_df, card_result], ignore_index=True)
+        else:
+            combined = bank_df
+
+        combined["Date"] = pd.to_datetime(combined["Date"])
+        return combined.sort_values("Date", ascending=False).reset_index(drop=True)
 
     def get_housing_spending(self, category: str) -> pd.DataFrame:
         """
         Return all Out (spending) entries for *category* across all time.
+        Mirrors the category-analysis path: fetch all → apply_splits → filter by category →
+        process_prices on cards, so split children are included and values match exactly.
         Returns columns: Date, Name, Out.
         """
-        data = self.cursor.execute("""
-            SELECT Date, Name, Out
-            FROM BankTransactions
-            WHERE Category = ?
-              AND Out > 0
-            ORDER BY Date
-        """, (category,)).fetchall()
-        return pd.DataFrame(data, columns=["Date", "Name", "Out"])
+        from src_utils.calculations import SimpleMath
+        from datetime import datetime as _dt
+
+        bank_raw = self.get_transactions('BankTransactions', category_filter=None, name_filter=None)
+        bank_raw = self.apply_splits_to_df(bank_raw)
+        bank_raw = bank_raw[(bank_raw['Category'] == category) & (bank_raw['Out'] > 0)].reset_index(drop=True)
+
+        card_raw = self.get_transactions('CardTransactions', category_filter=None, name_filter=None)
+        card_raw = self.apply_splits_to_df(card_raw)
+        card_raw = card_raw[card_raw['Category'] == category].reset_index(drop=True)
+
+        bank_df = pd.DataFrame({
+            "Date": bank_raw["Date"],
+            "Name": bank_raw["Name"],
+            "Out":  bank_raw["Out"],
+        }) if not bank_raw.empty else pd.DataFrame(columns=["Date", "Name", "Out"])
+
+        if not card_raw.empty:
+            card_proc = SimpleMath.process_prices(card_raw, date=_dt.now(), general_analysis=False)
+            spending = card_proc[card_proc["Final_Value"] < 0].copy()
+            card_result = pd.DataFrame({
+                "Date": spending["Executed_Date"],
+                "Name": spending["Name"],
+                "Out":  spending["Final_Value"].apply(lambda v: abs(float(v))),
+            })
+            combined = pd.concat([bank_df, card_result], ignore_index=True)
+        else:
+            combined = bank_df
+
+        combined["Date"] = pd.to_datetime(combined["Date"])
+        return combined.sort_values("Date").reset_index(drop=True)
 
     def get_mortgage_payments(self, category: str, name_keyword: str) -> pd.DataFrame:
         """
@@ -1251,6 +1305,71 @@ class DataBase:
             ) GROUP BY Category ORDER BY COUNT(*) DESC
         """).fetchall()
         return {r[0]: r[1] for r in rows}
+
+    def count_auto_tagged_per_name(self) -> dict:
+        """Returns {name: count} for all tagged (non-NotCategorized) transactions across both tables."""
+        rows = self.cursor.execute("""
+            SELECT Name, COUNT(*) FROM (
+                SELECT Name FROM CardTransactions WHERE Category IS NOT 'NotCategorized'
+                UNION ALL
+                SELECT Name FROM BankTransactions WHERE Category IS NOT 'NotCategorized'
+            ) GROUP BY Name
+        """).fetchall()
+        return {r[0]: r[1] for r in rows}
+
+    def remap_auto_tagged(self, name: str, new_category: str) -> int:
+        """Update ALL existing transactions matching name to new_category (auto + manual).
+        Returns total rows updated."""
+        self.cursor.execute(
+            "UPDATE CardTransactions SET Category = ? WHERE Name = ?",
+            (new_category, name)
+        )
+        card_count = self.cursor.rowcount
+        self.cursor.execute(
+            "UPDATE BankTransactions SET Category = ? WHERE Name = ?",
+            (new_category, name)
+        )
+        bank_count = self.cursor.rowcount
+        self.connection.commit()
+        return card_count + bank_count
+
+    def search_tagged(self, query: str, limit: int = 50) -> list:
+        """Search tagged transactions by name (partial) or exact numeric ID."""
+        try:
+            id_val = int(query)
+            rows = self.cursor.execute("""
+                SELECT 'CardTransactions' AS table_name, ID, Name,
+                    Executed_Date AS exec_date, Charge_Date AS charge_date,
+                    Transaction_Value AS transaction_value, Charge_Value AS charge_value,
+                    Charge_Currency AS currency, Category, Reserved, CardID AS card_id
+                FROM CardTransactions WHERE Category IS NOT 'NotCategorized' AND ID = ?
+                UNION ALL
+                SELECT 'BankTransactions' AS table_name, ID, Name,
+                    Date AS exec_date, Value_Date AS charge_date,
+                    Income AS transaction_value, Out AS charge_value,
+                    'ILS' AS currency, Category, Reserved, NULL AS card_id
+                FROM BankTransactions WHERE Category IS NOT 'NotCategorized' AND ID = ?
+                ORDER BY exec_date DESC LIMIT ?
+            """, (id_val, id_val, limit)).fetchall()
+        except ValueError:
+            like = f'%{query}%'
+            rows = self.cursor.execute("""
+                SELECT 'CardTransactions' AS table_name, ID, Name,
+                    Executed_Date AS exec_date, Charge_Date AS charge_date,
+                    Transaction_Value AS transaction_value, Charge_Value AS charge_value,
+                    Charge_Currency AS currency, Category, Reserved, CardID AS card_id
+                FROM CardTransactions WHERE Category IS NOT 'NotCategorized' AND Name LIKE ?
+                UNION ALL
+                SELECT 'BankTransactions' AS table_name, ID, Name,
+                    Date AS exec_date, Value_Date AS charge_date,
+                    Income AS transaction_value, Out AS charge_value,
+                    'ILS' AS currency, Category, Reserved, NULL AS card_id
+                FROM BankTransactions WHERE Category IS NOT 'NotCategorized' AND Name LIKE ?
+                ORDER BY exec_date DESC LIMIT ?
+            """, (like, like, limit)).fetchall()
+        cols = ['table_name', 'id', 'name', 'exec_date', 'charge_date',
+                'transaction_value', 'charge_value', 'currency', 'category', 'reserved', 'card_id']
+        return [dict(zip(cols, r)) for r in rows]
 
     @validate_table_name
     def set_description(self, table_name: str, id: int, description: str):

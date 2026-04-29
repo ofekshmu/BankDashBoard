@@ -1917,6 +1917,65 @@ def tagger_categories_add():
         return jsonify({'ok': False, 'error': str(e)})
 
 
+@app.route('/api/tagger/rules')
+def tagger_rules():
+    """Return all auto_tagger.json entries that map to a real category (not null/No Match),
+    with count of auto-tagged transactions per name."""
+    from database import DataBase
+    try:
+        at    = _read_at()
+        db    = DataBase()
+        usage = db.count_auto_tagged_per_name()
+        rules = [
+            {'name': name, 'category': cat, 'count': usage.get(name, 0)}
+            for name, cat in at.items()
+            if cat and cat != 'No Match'
+        ]
+        rules.sort(key=lambda x: -x['count'])
+        return jsonify({'ok': True, 'rules': rules})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/tagger/rules/remap', methods=['POST'])
+def tagger_rules_remap():
+    """Change category for a business-name rule: update auto_tagger.json + all auto-tagged rows."""
+    import json as _json
+    from database import DataBase
+    body    = request.get_json() or {}
+    name    = (body.get('name')         or '').strip()
+    new_cat = (body.get('new_category') or '').strip()
+    if not name or not new_cat:
+        return jsonify({'ok': False, 'error': 'missing fields'})
+    cats_path = os.path.join(_PROJECT_DIR, 'Personal Information', 'categories.json')
+    try:
+        with open(cats_path, encoding='utf-8') as f:
+            cats = _json.load(f)
+        if new_cat not in cats:
+            return jsonify({'ok': False, 'error': 'category not found'})
+        at = _read_at()
+        at[name] = new_cat
+        _write_at(at)
+        updated = DataBase().remap_auto_tagged(name, new_cat)
+        return jsonify({'ok': True, 'updated': updated})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/tagger/search-tagged')
+def tagger_search_tagged():
+    """Search tagged transactions by name (partial match) or exact numeric ID."""
+    from database import DataBase
+    q = (request.args.get('q') or '').strip()
+    if not q:
+        return jsonify({'ok': False, 'error': 'missing query'})
+    try:
+        rows = DataBase().search_tagged(q)
+        return jsonify({'ok': True, 'items': rows})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
 # ── Files routes ──────────────────────────────────────────────────────────────
 
 _INPUT_FOLDER   = os.path.join(_PROJECT_DIR, 'ShmuelFamiliy_Inputs')

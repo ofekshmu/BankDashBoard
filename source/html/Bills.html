@@ -34,8 +34,7 @@ body {
   font-size: 14px;
   display: flex;
   flex-direction: column;
-  height: 100vh;
-  overflow: hidden;
+  overflow-y: auto;
 }
 
 /* ── Hamburger + slide-in nav ────────────────────────────── */
@@ -143,7 +142,7 @@ body {
 .body-wrap {
   display: flex;
   flex: 1;
-  overflow: hidden;
+  align-items: flex-start;
 }
 
 /* ── Bill types sidebar ──────────────────────────────────── */
@@ -154,8 +153,11 @@ body {
   border-left: 1.5px solid var(--border);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
   flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
 }
 .types-title {
   padding: 12px 13px 8px;
@@ -266,8 +268,8 @@ body {
   flex: 1;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
   background: var(--white);
+  min-width: 0;
 }
 .chart-controls {
   display: flex; align-items: center; gap: 10px;
@@ -295,13 +297,70 @@ body {
 .range-info { font-size: 0.76em; color: var(--text-muted); }
 
 .chart-wrap {
-  flex: 1;
   position: relative;
   padding: 14px 14px 8px;
-  overflow: hidden;
-  min-height: 0;
+  overflow-y: auto;
 }
 #bills-chart { cursor: crosshair; display: block; }
+
+/* ── Per-type KPI cards strip ────────────────────────────── */
+.type-kpi-bar {
+  border-top: 2px solid var(--border);
+  background: var(--bg);
+  flex-shrink: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+.type-kpi-bar:empty { display: none; }
+.type-kpi-section-hdr {
+  padding: 5px 16px 3px;
+  font-size: 0.68em;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  background: var(--white);
+}
+.type-kpi-cards {
+  display: flex;
+  gap: 0;
+  padding: 0;
+}
+.type-kpi-card {
+  min-width: 155px;
+  padding: 8px 14px 9px;
+  border-right: 1px solid var(--border);
+  flex-shrink: 0;
+  background: var(--white);
+}
+.type-kpi-card:last-child { border-right: none; }
+.type-kpi-name {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.74em;
+  font-weight: 700;
+  color: var(--navy);
+  margin-bottom: 5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.type-kpi-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.type-kpi-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3px 8px;
+}
+.type-kpi-item { display: flex; flex-direction: column; }
+.type-kpi-label { font-size: 0.62em; color: var(--text-muted); line-height: 1.2; }
+.type-kpi-val   { font-size: 0.84em; font-weight: 700; color: var(--navy); line-height: 1.3; }
+.type-kpi-val.accent { color: var(--teal); }
 .chart-empty-state {
   position: absolute; inset: 0;
   display: flex; flex-direction: column;
@@ -459,26 +518,31 @@ body.resize-end    { cursor: ew-resize !important; }
 
 /* tx search */
 .tx-search-wrap { position: relative; }
+#tx-search-inp {
+  font-size: 1em !important;
+  padding: 10px 14px !important;
+}
 .tx-results {
   position: fixed;
   background: var(--white);
-  border: 1.5px solid var(--border);
-  border-radius: 8px;
-  max-height: 220px; overflow-y: auto;
+  border: 1.5px solid var(--teal);
+  border-radius: 10px;
+  max-height: 320px; overflow-y: auto;
   z-index: 1000; box-shadow: var(--shadow-md);
+  min-width: 360px;
 }
 .tx-row {
-  padding: 7px 11px;
+  padding: 10px 14px;
   cursor: pointer;
-  display: flex; gap: 9px; align-items: center;
+  display: flex; gap: 12px; align-items: center;
   border-bottom: 1px solid var(--border);
-  font-size: 0.82em; transition: background .1s;
+  font-size: 0.9em; transition: background .1s;
 }
 .tx-row:last-child { border-bottom: none; }
 .tx-row:hover { background: var(--teal-light); }
-.tx-row-date { color: var(--text-muted); min-width: 72px; flex-shrink: 0; }
+.tx-row-date { color: var(--text-muted); min-width: 82px; flex-shrink: 0; font-size: 0.85em; }
 .tx-row-name { flex: 1; font-weight: 600; }
-.tx-row-amt  { color: var(--text-sub); flex-shrink: 0; }
+.tx-row-amt  { color: var(--teal); font-weight: 700; flex-shrink: 0; }
 .tx-selected {
   padding: 7px 11px;
   background: var(--teal-light); border: 1.5px solid var(--teal);
@@ -614,7 +678,9 @@ body.resize-end    { cursor: ew-resize !important; }
       <span class="range-info" id="range-info"></span>
     </div>
     <div class="chart-wrap" id="chart-wrap">
-      <canvas id="bills-chart"></canvas>
+      <div id="chart-sizer" style="position:relative;width:100%">
+        <canvas id="bills-chart"></canvas>
+      </div>
       <div class="zoom-select" id="zoom-select"></div>
       <div class="chart-empty-state" id="empty-state">
         <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.5"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
@@ -636,8 +702,14 @@ body.resize-end    { cursor: ew-resize !important; }
       </div>
     </div>
 
-    <!-- ── Bottom KPI stats bar ─────────────────────────── -->
+    <!-- ── Bottom group KPI bar ─────────────────────────── -->
     <div class="stats-bar" id="stats-bar"></div>
+
+    <!-- ── Per-type KPI cards ────────────────────────────── -->
+    <div class="type-kpi-bar" id="type-kpi-bar">
+      <div class="type-kpi-section-hdr">ניתוח לפי חשבון</div>
+      <div class="type-kpi-cards" id="type-kpi-cards"></div>
+    </div>
   </div>
 </div>
 
@@ -983,7 +1055,7 @@ async function api(method, url, body) {
 // ─────────────────────────────────────────────────────────────
 async function loadTypes() {
   const r = await api('GET', '/api/bills/types');
-  if (r.ok) { billTypes = r.types; renderTypes(); renderStatsBar(); }
+  if (r.ok) { billTypes = r.types; renderTypes(); renderStatsBar(); renderTypeKpiBar(); }
 }
 
 async function loadEntries() {
@@ -992,6 +1064,7 @@ async function loadEntries() {
     billEntries = r.entries;
     renderChart();
     renderStatsBar();
+    renderTypeKpiBar();
     if (document.getElementById('stats-panel')?.classList.contains('open')) renderStats();
   }
 }
@@ -1194,6 +1267,67 @@ function renderStatsBar() {
   bar.innerHTML = cards.join('');
 }
 
+// ─────────────────────────────────────────────────────────────
+// Per-type KPI cards strip
+// ─────────────────────────────────────────────────────────────
+function renderTypeKpiBar() {
+  const container = document.getElementById('type-kpi-cards');
+  const bar       = document.getElementById('type-kpi-bar');
+  if (!container) return;
+  if (!billTypes.length) { if (bar) bar.style.display = 'none'; return; }
+  if (bar) bar.style.display = '';
+
+  const fmtAmt  = v => v > 0 ? '₪' + Math.round(v).toLocaleString('he-IL') : '—';
+  const nMonths = chartMonths.length || 1;
+
+  container.innerHTML = billTypes.map(type => {
+    const entries = billEntries.filter(e => e.bill_type_id === type.id && !e.is_filler);
+    const withAmt = entries.filter(e => e.amount != null);
+    const amounts = withAmt.map(e => Math.abs(e.amount));
+    const n       = amounts.length;
+    const total   = amounts.reduce((s, a) => s + a, 0);
+    const avg     = n ? total / n : 0;
+    const monthAvg = total / nMonths;
+
+    let std = 0;
+    if (n > 1) {
+      const variance = amounts.reduce((s, a) => s + (a - avg) ** 2, 0) / (n - 1);
+      std = Math.sqrt(variance);
+    }
+
+    return `
+      <div class="type-kpi-card">
+        <div class="type-kpi-name">
+          <span class="type-kpi-dot" style="background:${type.color}"></span>
+          ${esc(type.name)}
+        </div>
+        <div class="type-kpi-grid">
+          <div class="type-kpi-item">
+            <span class="type-kpi-label">ממוצע חודשי</span>
+            <span class="type-kpi-val accent">${fmtAmt(monthAvg)}</span>
+          </div>
+          <div class="type-kpi-item">
+            <span class="type-kpi-label">ממוצע תשלום</span>
+            <span class="type-kpi-val">${fmtAmt(avg)}</span>
+          </div>
+          <div class="type-kpi-item">
+            <span class="type-kpi-label">כמות תשלומים</span>
+            <span class="type-kpi-val">${n}</span>
+          </div>
+          <div class="type-kpi-item">
+            <span class="type-kpi-label">סה״כ שולם</span>
+            <span class="type-kpi-val">${fmtAmt(total)}</span>
+          </div>
+          ${std > 0 ? `
+          <div class="type-kpi-item" style="grid-column:1/-1">
+            <span class="type-kpi-label">סטיית תקן</span>
+            <span class="type-kpi-val" style="color:var(--text-sub)">±${fmtAmt(std)}</span>
+          </div>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+}
+
 async function deleteType(id) {
   if (!confirm('למחוק סוג חשבון זה ואת כל הרשומות שלו?')) return;
   const r = await api('DELETE', `/api/bills/types/${id}`);
@@ -1318,10 +1452,18 @@ function renderChart() {
   });
 
   // Grouped types first (ordered), then ungrouped — no header rows
-  for (const types of Object.values(groups)) {
+  // groupBands: array of {startIdx, endIdx, name} for rowBgPlugin group shading
+  const groupBands = [];
+  for (const [gName, types] of Object.entries(groups)) {
+    const startIdx = yLabels.length;
     types.forEach(t => yLabels.push(String(t.id)));
+    groupBands.push({ startIdx, endIdx: yLabels.length - 1, name: gName });
   }
-  noGroup.forEach(t => yLabels.push(String(t.id)));
+  if (noGroup.length) {
+    const startIdx = yLabels.length;
+    noGroup.forEach(t => yLabels.push(String(t.id)));
+    groupBands.push({ startIdx, endIdx: yLabels.length - 1, name: null });
+  }
 
   // ── Build datasets ────────────────────────────────────────────
   const datasets = [];
@@ -1337,7 +1479,7 @@ function renderChart() {
       borderWidth:        2,
       borderRadius:       6,
       borderSkipped:      false,
-      barPercentage:      0.88,
+      barPercentage:      1.0,
       categoryPercentage: 1.0,
       data: entries.map(e => {
         const s  = mIdx[e.start_month] ?? (e.start_month < viewStart ? -1 : months.length);
@@ -1373,22 +1515,31 @@ function renderChart() {
     }
   }
 
-  // ── Month tick labels ─────────────────────────────────────────
-  const step = months.length > 24 ? 3 : months.length > 12 ? 2 : 1;
+  // ── Month tick labels (whole-month positions only; half-months get blank) ──
+  const step = months.length > 36 ? 3 : months.length > 18 ? 2 : 1;
   const tickLabels = months.map((m, i) => i % step === 0 ? monthLabel(m) : '');
 
   // ── Canvas height — fixed row height so bars are thick; wrap scrolls ────
   const wrapEl  = document.getElementById('chart-wrap');
-  wrapEl.style.overflowY = 'auto';
-  const ROW_H   = 168;
-  const canvasH = Math.max(yLabels.length * ROW_H, wrapEl.clientHeight || 300, 120);
-
+  const ROW_H   = 42;
+  const canvasH = Math.max(yLabels.length * ROW_H, 120);
+  // Drive wrap height from content so page scrolls — sizer tells Chart.js the canvas height
+  wrapEl.style.height = canvasH + 28 + 'px'; // +28 for padding
+  const sizerEl = document.getElementById('chart-sizer');
+  sizerEl.style.height = canvasH + 'px';
 
   const canvas = document.getElementById('bills-chart');
-  canvas.style.height = canvasH + 'px';
   canvas.style.width  = '100%';
 
-  // ── Row background plugin ─────────────────────────────────────
+  // ── Row background plugin — group-aware shading + dividers ──────
+  // Palette of subtle tints cycled per group
+  const GROUP_TINTS = [
+    'rgba(30,157,139,0.06)',   // teal
+    'rgba(99,102,241,0.06)',   // indigo
+    'rgba(245,158,11,0.06)',   // amber
+    'rgba(236,72,153,0.06)',   // pink
+    'rgba(16,185,129,0.06)',   // emerald
+  ];
   const rowBgPlugin = {
     id: 'rowBg',
     beforeDraw(ch) {
@@ -1396,14 +1547,46 @@ function renderChart() {
       const yAxis = ch.scales.y;
       const xAxis = ch.scales.x;
       if (!yAxis || !xAxis) return;
-      const left  = xAxis.left;
-      const right = xAxis.right;
-      yAxis.ticks.forEach((tick, i) => {
-        if (i % 2 !== 0) return;
-        const top  = yAxis.getPixelForValue(tick.value ?? i);
-        const rowH = yAxis.height / yAxis.ticks.length;
-        ctx.fillStyle = 'rgba(0,0,0,0.018)';
-        ctx.fillRect(left, top - rowH / 2, right - left, rowH);
+      const left   = xAxis.left;
+      const right  = xAxis.right;
+      const rowH   = yAxis.height / yAxis.ticks.length;
+
+      // Shade each group band with its own tint
+      groupBands.forEach((band, gi) => {
+        const tint = band.name ? GROUP_TINTS[gi % GROUP_TINTS.length] : 'rgba(0,0,0,0.012)';
+        for (let i = band.startIdx; i <= band.endIdx; i++) {
+          const cy = yAxis.getPixelForValue(yLabels[i]);
+          ctx.fillStyle = tint;
+          ctx.fillRect(left, cy - rowH / 2, right - left, rowH);
+        }
+        // Draw separator line between groups (not after the last)
+        if (band.endIdx < yLabels.length - 1) {
+          const sepY = yAxis.getPixelForValue(yLabels[band.endIdx]) + rowH / 2;
+          ctx.save();
+          ctx.strokeStyle = 'rgba(0,0,0,0.12)';
+          ctx.lineWidth   = 1.5;
+          ctx.setLineDash([4, 3]);
+          ctx.beginPath();
+          ctx.moveTo(left,  sepY);
+          ctx.lineTo(right, sepY);
+          ctx.stroke();
+          ctx.restore();
+        }
+        // Draw group label inside the band on the right edge
+        if (band.name) {
+          const topY  = yAxis.getPixelForValue(yLabels[band.startIdx]) - rowH / 2;
+          const botY  = yAxis.getPixelForValue(yLabels[band.endIdx])   + rowH / 2;
+          ctx.save();
+          ctx.font      = '500 10px "Segoe UI", Arial, sans-serif';
+          ctx.fillStyle = 'rgba(0,0,0,0.22)';
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'top';
+          ctx.fillText(band.name, right + 4, topY + 4);
+          // Thin left border stripe for the group
+          ctx.fillStyle = GROUP_TINTS[gi % GROUP_TINTS.length].replace(/[\d.]+\)$/, '0.55)');
+          ctx.fillRect(left, topY, 3, botY - topY);
+          ctx.restore();
+        }
       });
     },
   };
@@ -1433,6 +1616,7 @@ function renderChart() {
     plugins: [rowBgPlugin, todayPlugin, barHandlesPlugin],
     options: {
       indexAxis:          'y',
+      grouped:            false,
       responsive:         true,
       maintainAspectRatio: false,
       animation:          { duration: 180 },
@@ -1441,15 +1625,22 @@ function renderChart() {
           type:  'linear',
           min:   0,
           max:   months.length,
-          grid:  { color: 'rgba(0,0,0,0.05)', drawTicks: false },
+          grid: {
+            color:     (ctx) => ctx.tick?.value % 1 === 0 ? 'rgba(0,0,0,0.09)' : 'rgba(0,0,0,0.03)',
+            lineWidth: (ctx) => ctx.tick?.value % 1 === 0 ? 1 : 0.6,
+            drawTicks: false,
+          },
           border: { display: false },
           ticks: {
-            stepSize:    1,
-            callback:    (v) => tickLabels[Math.round(v)] ?? '',
-            font:        { size: 11, weight: '500' },
-            color:       '#999',
+            stepSize: 0.5,
+            callback: (v) => {
+              if (v % 1 !== 0) return '';
+              return tickLabels[Math.round(v)] ?? '';
+            },
+            font:        { size: 12, weight: '600' },
+            color:       (ctx) => ctx.tick?.value % 1 !== 0 ? 'transparent' : '#666',
             maxRotation: 0,
-            padding:     6,
+            padding:     8,
           },
         },
         y: {
@@ -1560,8 +1751,9 @@ function onChartMouseMove(e) {
   html += `<span style="color:#aaa;font-size:0.88em">${s}`;
   if (en !== s) html += ` – ${en}`;
   html += `</span>`;
-  if (entry.amount != null) {
-    const fmt = '₪' + Math.abs(entry.amount).toLocaleString('he-IL', {maximumFractionDigits: 0});
+  const displayAmt = entry.amount != null ? entry.amount : entry.tx_amount;
+  if (displayAmt != null) {
+    const fmt = '₪' + Math.abs(displayAmt).toLocaleString('he-IL', {maximumFractionDigits: 0});
     html += `<div style="font-size:1.18em;font-weight:700;color:#6ef;margin-top:4px">${fmt}</div>`;
   }
   if (dp._filler) {
@@ -1628,12 +1820,13 @@ function openEditModal(eid) {
     // Name
     document.getElementById('edit-tx-name').textContent = entry.tx_name || `#${entry.transaction_id}`;
 
-    // Amount (stored at entry creation time)
+    // Amount: prefer stored entry amount, fall back to linked transaction amount
     const amtWrap = document.getElementById('edit-tx-amt-wrap');
-    if (entry.amount != null) {
+    const editAmt = entry.amount != null ? entry.amount : entry.tx_amount;
+    if (editAmt != null) {
       amtWrap.style.display = '';
       document.getElementById('edit-tx-amt').textContent =
-        '₪' + Math.abs(entry.amount).toLocaleString('he-IL', {maximumFractionDigits: 0});
+        '₪' + Math.abs(editAmt).toLocaleString('he-IL', {maximumFractionDigits: 0});
     } else { amtWrap.style.display = 'none'; }
 
     // Dates
@@ -2244,9 +2437,29 @@ function setEntryMode(mode) {
 
 function populateTypeSelect(selId) {
   const sel = document.getElementById(selId);
-  sel.innerHTML = billTypes.length
-    ? billTypes.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join('')
-    : '<option value="">— אין סוגי חשבונות —</option>';
+  if (!billTypes.length) {
+    sel.innerHTML = '<option value="">— אין סוגי חשבונות —</option>';
+    return;
+  }
+  // Group types by group name for <optgroup> rendering
+  const grouped = {};
+  const noGroup = [];
+  billTypes.forEach(t => {
+    if (t.group) (grouped[t.group] = grouped[t.group] || []).push(t);
+    else noGroup.push(t);
+  });
+  let html = '';
+  for (const [gName, types] of Object.entries(grouped)) {
+    html += `<optgroup label="${esc(gName)}">`;
+    html += types.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join('');
+    html += `</optgroup>`;
+  }
+  if (noGroup.length) {
+    if (html) html += `<optgroup label="ללא קבוצה">`;
+    html += noGroup.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join('');
+    if (html && Object.keys(grouped).length) html += `</optgroup>`;
+  }
+  sel.innerHTML = html;
 }
 
 // Returns an error string if [start,end] overlaps any existing entry of typeId,
@@ -2351,9 +2564,13 @@ function positionTxResults() {
   const inp  = document.getElementById('tx-search-inp');
   const box  = document.getElementById('tx-results');
   const rect = inp.getBoundingClientRect();
-  box.style.top   = (rect.bottom + 2) + 'px';
-  box.style.left  = rect.left + 'px';
-  box.style.width = rect.width + 'px';
+  const w    = Math.max(rect.width, 360);
+  box.style.top   = (rect.bottom + 4) + 'px';
+  // Align to input's right edge (RTL: start from right side of input)
+  const rightEdge = window.innerWidth - rect.right;
+  box.style.right = rightEdge + 'px';
+  box.style.left  = 'auto';
+  box.style.width = w + 'px';
 }
 
 function showTxResults(items) {

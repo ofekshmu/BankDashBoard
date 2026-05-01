@@ -908,7 +908,7 @@ const ghostBarsPlugin = {
 
       const x0 = xAxis.getPixelForValue(si);
       const x1 = xAxis.getPixelForValue(ei + 1);
-      const cy = yAxis.getPixelForValue(type.name);
+      const cy = yAxis.getPixelForValue(String(type.id));
 
       ctx.save();
       _roundRect(ctx, x0, cy - barH / 2, x1 - x0, barH, 5);
@@ -1305,34 +1305,27 @@ function renderChart() {
   }
   document.getElementById('empty-state').classList.add('hidden');
 
-  // ── Build grouped y-axis labels ──────────────────────────────
-  // Types that share the same GroupName are collected under a header row.
-  // Group header rows use a special prefix so we can detect them in callbacks.
-  const GROUP_PREFIX = '​​';  // zero-width spaces — invisible but unique
-  const typeColorMap  = {};             // label → hex color
-  const groupHeaders  = new Set();      // labels that are group headers
-  const yLabels       = [];             // final ordered y-axis label list
+  // ── Build y-axis labels (one row per type, ordered by group) ──
+  // Use type.id (as string) as the internal y-key so same-name types in
+  // different groups get separate rows. The tick callback shows the name.
+  const typeColorMap = {};   // id string → hex color
+  const typeNameMap  = {};   // id string → display name
+  const yLabels      = [];   // ordered list of id strings
 
-  const groups   = {};
-  const noGroup  = [];
+  const groups  = {};
+  const noGroup = [];
   billTypes.forEach(t => {
-    typeColorMap[t.name] = t.color;
-    if (t.group) {
-      (groups[t.group] = groups[t.group] || []).push(t);
-    } else {
-      noGroup.push(t);
-    }
+    typeColorMap[String(t.id)] = t.color;
+    typeNameMap[String(t.id)]  = t.name;
+    if (t.group) { (groups[t.group] = groups[t.group] || []).push(t); }
+    else          { noGroup.push(t); }
   });
 
-  // Grouped types first
-  for (const [gName, types] of Object.entries(groups)) {
-    const hdr = GROUP_PREFIX + gName;
-    groupHeaders.add(hdr);
-    yLabels.push(hdr);
-    types.forEach(t => yLabels.push(t.name));
+  // Grouped types first (ordered), then ungrouped — no header rows
+  for (const types of Object.values(groups)) {
+    types.forEach(t => yLabels.push(String(t.id)));
   }
-  // Ungrouped types
-  noGroup.forEach(t => yLabels.push(t.name));
+  noGroup.forEach(t => yLabels.push(String(t.id)));
 
   // ── Build datasets ────────────────────────────────────────────
   const datasets = [];
@@ -1353,7 +1346,7 @@ function renderChart() {
       data: entries.map(e => {
         const s  = mIdx[e.start_month] ?? (e.start_month < viewStart ? -1 : months.length);
         const en = mIdx[e.end_month]   ?? (e.end_month   < viewStart ? -1 : months.length);
-        return { x: [s, en + 1], y: type.name, _eid: e.id, _filler: false };
+        return { x: [s, en + 1], y: String(type.id), _eid: e.id, _filler: false };
       }),
     });
   });
@@ -1362,12 +1355,12 @@ function renderChart() {
   const fillers = billEntries.filter(e => e.is_filler);
   if (fillers.length) {
     const fillerData = fillers.map(e => {
-      const type     = billTypes.find(t => t.id === e.bill_type_id);
-      const typeName = type ? type.name : '';
+      const type = billTypes.find(t => t.id === e.bill_type_id);
+      if (!type) return null;
       const s  = mIdx[e.start_month] ?? (e.start_month < viewStart ? -1 : months.length);
       const en = mIdx[e.end_month]   ?? (e.end_month   < viewStart ? -1 : months.length);
-      return { x: [s, en + 1], y: typeName, _eid: e.id, _filler: true, _note: e.note };
-    }).filter(d => d.y);
+      return { x: [s, en + 1], y: String(type.id), _eid: e.id, _filler: true, _note: e.note };
+    }).filter(Boolean);
     if (fillerData.length) {
       datasets.push({
         label:              '__fillers__',
@@ -1408,17 +1401,11 @@ function renderChart() {
       const left  = xAxis.left;
       const right = xAxis.right;
       yAxis.ticks.forEach((tick, i) => {
-        const label   = yAxis.getLabelForValue(tick.value ?? i);
-        const isHdr   = groupHeaders.has(label);
-        const top     = yAxis.getPixelForValue(tick.value ?? i);
-        const rowH    = yAxis.height / yAxis.ticks.length;
-        if (isHdr) {
-          ctx.fillStyle = 'rgba(0,0,0,0.04)';
-          ctx.fillRect(left, top - rowH / 2, right - left, rowH);
-        } else if (i % 2 === 0) {
-          ctx.fillStyle = 'rgba(0,0,0,0.018)';
-          ctx.fillRect(left, top - rowH / 2, right - left, rowH);
-        }
+        if (i % 2 !== 0) return;
+        const top  = yAxis.getPixelForValue(tick.value ?? i);
+        const rowH = yAxis.height / yAxis.ticks.length;
+        ctx.fillStyle = 'rgba(0,0,0,0.018)';
+        ctx.fillRect(left, top - rowH / 2, right - left, rowH);
       });
     },
   };
@@ -1474,22 +1461,9 @@ function renderChart() {
           border: { display: false },
           offset: true,
           ticks: {
-            font: (ctx) => {
-              const label = ctx.tick?.label ?? '';
-              return groupHeaders.has(label)
-                ? { size: 11, weight: '700' }
-                : { size: 12, weight: '600' };
-            },
-            color: (ctx) => {
-              const label = ctx.tick?.label ?? '';
-              if (groupHeaders.has(label)) return '#555';
-              return typeColorMap[label] || '#444';
-            },
-            callback: (val, i) => {
-              const label = yLabels[i] ?? '';
-              if (groupHeaders.has(label)) return label.replace(GROUP_PREFIX, '');
-              return label;
-            },
+            font: () => ({ size: 12, weight: '600' }),
+            color: (ctx) => typeColorMap[ctx.tick?.label ?? ''] || '#444',
+            callback: (val, i) => typeNameMap[yLabels[i] ?? ''] || '',
             padding: 10,
           },
         },

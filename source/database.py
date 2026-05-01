@@ -162,6 +162,43 @@ class DataBase:
                     FOREIGN KEY(CardID)         REFERENCES Card(CardID),
                     FOREIGN KEY(source_file)    REFERENCES File(Name)
                     );""")
+
+                cls.__instance.cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS BillTypes (
+                    ID          INTEGER PRIMARY KEY AUTOINCREMENT,
+                    Name        TEXT    NOT NULL,
+                    Color       TEXT    DEFAULT '#1e9d8b',
+                    GroupName   TEXT,
+                    Created_At  TEXT    DEFAULT (datetime('now'))
+                    );""")
+                # Migrate: add GroupName if table existed before this column was added
+                try:
+                    cls.__instance.cursor.execute("ALTER TABLE BillTypes ADD COLUMN GroupName TEXT")
+                except Exception:
+                    pass
+
+                cls.__instance.cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS BillEntries (
+                    ID                  INTEGER PRIMARY KEY AUTOINCREMENT,
+                    BillType_ID         INTEGER NOT NULL,
+                    Start_Month         TEXT    NOT NULL,
+                    End_Month           TEXT    NOT NULL,
+                    Transaction_Table   TEXT,
+                    Transaction_ID      INTEGER,
+                    Amount              REAL,
+                    Note                TEXT,
+                    Is_Filler           INTEGER DEFAULT 0,
+                    Created_At          TEXT    DEFAULT (datetime('now')),
+                    FOREIGN KEY(BillType_ID) REFERENCES BillTypes(ID)
+                    );""")
+
+                cls.__instance.cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS BillSuggestionsDismissed (
+                    ID                  INTEGER PRIMARY KEY AUTOINCREMENT,
+                    Transaction_Name    TEXT    NOT NULL UNIQUE,
+                    Dismissed_At        TEXT    DEFAULT (datetime('now'))
+                    );""")
+
         return cls.__instance
 
     def insert_bank_transaction(self,
@@ -2458,3 +2495,119 @@ class DataBase:
             return pd.concat([df_clean, df_splits], ignore_index=True)
         return df_clean
 
+    # ── Bills tracker ──────────────────────────────────────────────────────────
+
+    def get_bill_types(self) -> list:
+        rows = self.cursor.execute(
+            "SELECT ID, Name, Color, GroupName FROM BillTypes ORDER BY GroupName NULLS LAST, ID"
+        ).fetchall()
+        return [{'id': r[0], 'name': r[1], 'color': r[2] or '#1e9d8b', 'group': r[3] or ''} for r in rows]
+
+    def add_bill_type(self, name: str, color: str = '#1e9d8b', group: str = '') -> int:
+        self.cursor.execute(
+            "INSERT INTO BillTypes (Name, Color, GroupName) VALUES (?, ?, ?)",
+            (name.strip(), color, group.strip() or None)
+        )
+        return self.cursor.lastrowid
+
+    def update_bill_type(self, type_id: int, name: str, color: str, group: str = ''):
+        self.cursor.execute(
+            "UPDATE BillTypes SET Name=?, Color=?, GroupName=? WHERE ID=?",
+            (name.strip(), color, group.strip() or None, type_id)
+        )
+
+    def delete_bill_type(self, type_id: int):
+        self.cursor.execute("DELETE FROM BillEntries WHERE BillType_ID = ?", (type_id,))
+        self.cursor.execute("DELETE FROM BillTypes WHERE ID = ?", (type_id,))
+
+    def get_bill_entries(self) -> list:
+        rows = self.cursor.execute("""
+            SELECT e.ID, e.BillType_ID, e.Start_Month, e.End_Month,
+                   e.Transaction_Table, e.Transaction_ID, e.Amount, e.Note, e.Is_Filler,
+                   COALESCE(b.Name,          c.Name)           AS TxName,
+                   COALESCE(b.Date,          c.Executed_Date)  AS TxDate,
+                   COALESCE(b.Category,      c.Category)       AS TxCategory,
+                   COALESCE(b.Description,   c.Description)    AS TxDescription,
+                   COALESCE(b.Extra_Info,    c.Extra_Info)     AS TxExtraInfo,
+                   b.Ref                                       AS TxRef,
+                   b.Balance                                   AS TxBalance,
+                   b.Value_Date                                AS TxValueDate,
+                   c.CardID                                    AS TxCardID,
+                   c.Charge_Date                               AS TxChargeDate,
+                   c.Charge_Value                              AS TxChargeValue,
+                   c.Charge_Currency                           AS TxChargeCurrency
+            FROM BillEntries e
+            LEFT JOIN BankTransactions b
+              ON e.Transaction_Table='BankTransactions' AND e.Transaction_ID=b.ID
+            LEFT JOIN CardTransactions c
+              ON e.Transaction_Table='CardTransactions' AND e.Transaction_ID=c.ID
+            ORDER BY e.Start_Month
+        """).fetchall()
+        return [{'id': r[0], 'bill_type_id': r[1], 'start_month': r[2],
+                 'end_month': r[3], 'transaction_table': r[4], 'transaction_id': r[5],
+                 'amount': r[6], 'note': r[7] or '', 'is_filler': bool(r[8]),
+                 'tx_name':          r[9]  or '',
+                 'tx_date':         (r[10] or '')[:10],
+                 'tx_category':      r[11] or '',
+                 'tx_description':   r[12] or '',
+                 'tx_extra_info':    r[13] or '',
+                 'tx_ref':           r[14] or '',
+                 'tx_balance':       r[15],
+                 'tx_value_date':   (r[16] or '')[:10],
+                 'tx_card_id':       r[17] or '',
+                 'tx_charge_date':  (r[18] or '')[:10],
+                 'tx_charge_value':  r[19],
+                 'tx_charge_currency': r[20] or ''}
+                for r in rows]
+
+    def check_bill_entry_overlap(self, bill_type_id: int, start_month: str,
+                                 end_month: str, exclude_id: int = None) -> str | None:
+        """Return an error string if the date range overlaps an existing entry of the same type, else None."""
+        params = [bill_type_id, end_month, start_month]
+        sql = """
+            SELECT e.ID, e.Start_Month, e.End_Month, bt.Name
+            FROM BillEntries e
+            JOIN BillTypes bt ON bt.ID = e.BillType_ID
+            WHERE e.BillType_ID = ?
+              AND e.Start_Month <= ?
+              AND e.End_Month   >= ?
+        """
+        if exclude_id is not None:
+            sql += " AND e.ID != ?"
+            params.append(exclude_id)
+        row = self.cursor.execute(sql, params).fetchone()
+        if row:
+            return f"חפיפה עם רשומה קיימת ({row[1]} – {row[2]})"
+        return None
+
+    def add_bill_entry(self, bill_type_id: int, start_month: str, end_month: str,
+                       transaction_table=None, transaction_id=None,
+                       amount=None, note=None, is_filler=False) -> int:
+        self.cursor.execute("""
+            INSERT INTO BillEntries
+            (BillType_ID, Start_Month, End_Month, Transaction_Table, Transaction_ID,
+             Amount, Note, Is_Filler)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (bill_type_id, start_month, end_month, transaction_table,
+              transaction_id, amount, note, 1 if is_filler else 0))
+        return self.cursor.lastrowid
+
+    def update_bill_entry(self, entry_id: int, start_month: str, end_month: str, note=None):
+        self.cursor.execute("""
+            UPDATE BillEntries SET Start_Month = ?, End_Month = ?, Note = ?
+            WHERE ID = ?
+        """, (start_month, end_month, note, entry_id))
+
+    def delete_bill_entry(self, entry_id: int):
+        self.cursor.execute("DELETE FROM BillEntries WHERE ID = ?", (entry_id,))
+
+    def dismiss_bill_suggestion(self, transaction_name: str):
+        self.cursor.execute("""
+            INSERT OR IGNORE INTO BillSuggestionsDismissed (Transaction_Name) VALUES (?)
+        """, (transaction_name,))
+
+    def get_bill_suggestions_dismissed(self) -> set:
+        rows = self.cursor.execute(
+            "SELECT Transaction_Name FROM BillSuggestionsDismissed"
+        ).fetchall()
+        return {r[0] for r in rows}

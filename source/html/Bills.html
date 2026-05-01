@@ -1,0 +1,2213 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>מעקב חשבונות</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  --teal:       #1e9d8b;
+  --teal-light: #e8f7f5;
+  --teal-glow:  rgba(30,157,139,.28);
+  --navy:       #1e2a4a;
+  --bg:         #f4f6f9;
+  --white:      #ffffff;
+  --border:     #eef0f6;
+  --text-muted: #888;
+  --text-sub:   #555;
+  --red:        #e74c3c;
+  --amber:      #f0b429;
+  --green:      #2ecc71;
+  --shadow-sm:  0 2px 10px rgba(0,0,0,.06);
+  --shadow-md:  0 6px 20px rgba(0,0,0,.10);
+  --radius:     14px;
+  --radius-sm:  8px;
+}
+*,*::before,*::after { box-sizing: border-box; margin:0; padding:0; }
+body {
+  font-family: 'Segoe UI', Arial, sans-serif;
+  background: var(--bg);
+  min-height: 100vh;
+  direction: rtl;
+  color: var(--navy);
+  font-size: 14px;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ── Top bar ─────────────────────────────────────────────── */
+.top-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 11px 20px;
+  background: var(--white);
+  border-bottom: 1.5px solid var(--border);
+  flex-shrink: 0;
+  z-index: 10;
+}
+.top-bar h1 { font-size: 1.1em; font-weight: 700; }
+.spacer { flex: 1; }
+.back-btn {
+  color: var(--teal);
+  text-decoration: none;
+  font-size: 0.82em;
+  font-weight: 600;
+  padding: 5px 12px;
+  border: 1.5px solid var(--teal);
+  border-radius: 7px;
+  transition: background .13s, color .13s;
+}
+.back-btn:hover { background: var(--teal); color: #fff; }
+
+/* ── Buttons ─────────────────────────────────────────────── */
+.btn {
+  padding: 7px 14px;
+  border: none; border-radius: 8px;
+  cursor: pointer; font-size: 0.82em; font-weight: 600;
+  font-family: inherit;
+  transition: background .13s, transform .08s, box-shadow .13s;
+  display: inline-flex; align-items: center; gap: 5px;
+}
+.btn:hover { transform: translateY(-1px); }
+.btn-primary { background: var(--teal); color: #fff; }
+.btn-primary:hover { background: #178a79; box-shadow: 0 3px 10px var(--teal-glow); }
+.btn-ghost { background: transparent; border: 1.5px solid var(--border); color: var(--navy); }
+.btn-ghost:hover { border-color: var(--teal); color: var(--teal); }
+.btn-danger { background: #fef2f2; border: 1.5px solid #fca5a5; color: var(--red); }
+.btn-danger:hover { background: var(--red); color: #fff; border-color: var(--red); }
+.btn-sm { padding: 4px 9px; font-size: 0.75em; }
+.btn-xs { padding: 3px 7px; font-size: 0.72em; }
+
+/* ── Main body split ─────────────────────────────────────── */
+.body-wrap {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ── Bill types sidebar ──────────────────────────────────── */
+.types-panel {
+  width: 185px;
+  min-width: 160px;
+  background: var(--white);
+  border-left: 1.5px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.types-title {
+  padding: 12px 13px 8px;
+  font-weight: 700;
+  font-size: 0.85em;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.types-title .add-type-btn {
+  margin-right: auto;
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  background: var(--teal-light);
+  border: none;
+  color: var(--teal);
+  font-size: 1.15em; font-weight: 700;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .12s;
+  line-height: 1;
+}
+.types-title .add-type-btn:hover { background: var(--teal); color: #fff; }
+.types-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 7px 9px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.type-item {
+  display: flex; align-items: center; gap: 7px;
+  padding: 6px 7px;
+  border-radius: 8px;
+  background: var(--bg);
+  cursor: default;
+  transition: background .11s;
+}
+.type-item:hover { background: var(--teal-light); }
+.type-dot {
+  width: 11px; height: 11px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.type-name {
+  flex: 1;
+  font-size: 0.82em; font-weight: 600;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.type-del {
+  opacity: 0;
+  width: 17px; height: 17px;
+  border-radius: 4px;
+  background: none; border: none;
+  cursor: pointer; color: var(--text-muted);
+  font-size: 0.85em;
+  display: flex; align-items: center; justify-content: center;
+  transition: opacity .1s, background .1s, color .1s;
+  flex-shrink: 0;
+}
+.type-item:hover .type-del { opacity: 1; }
+.type-del:hover { background: #fef2f2; color: var(--red); }
+.types-empty {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.8em;
+  padding: 18px 10px;
+}
+
+/* ── Stats panel ─────────────────────────────────────────────── */
+.stats-toggle {
+  width: 100%; background: none; border: none; border-top: 1px solid var(--border);
+  padding: 7px 12px; font-size: 0.76em; font-weight: 700; color: var(--text-muted);
+  cursor: pointer; display: flex; align-items: center; gap: 6px; text-align: right;
+  justify-content: space-between;
+}
+.stats-toggle:hover { background: var(--teal-light); color: var(--teal); }
+.stats-toggle .arrow { font-size: 0.85em; transition: transform .2s; }
+.stats-toggle.open .arrow { transform: rotate(180deg); }
+.stats-panel {
+  border-top: 1px solid var(--border);
+  overflow-y: auto; flex-shrink: 0;
+  max-height: 0; overflow: hidden; transition: max-height .25s ease;
+}
+.stats-panel.open { max-height: 280px; overflow-y: auto; }
+.stat-row {
+  padding: 6px 11px; border-bottom: 1px solid var(--border);
+  font-size: 0.76em;
+}
+.stat-row:last-child { border-bottom: none; }
+.stat-row-hdr {
+  display: flex; align-items: center; gap: 6px;
+  font-weight: 700; margin-bottom: 3px;
+}
+.stat-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.stat-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 1px 10px;
+  color: var(--text-sub);
+}
+.stat-grid span:nth-child(odd)  { color: var(--text-muted); }
+.stat-grid span:nth-child(even) { font-weight: 600; color: var(--navy); }
+
+/* ── Chart area ──────────────────────────────────────────── */
+.chart-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--white);
+}
+.chart-controls {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+.year-nav {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 0.82em; font-weight: 600;
+}
+.nav-arrow {
+  width: 26px; height: 26px;
+  border-radius: 7px;
+  border: 1.5px solid var(--border);
+  background: var(--white);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--navy); font-size: 0.85em;
+  transition: border-color .12s, color .12s;
+}
+.nav-arrow:hover { border-color: var(--teal); color: var(--teal); }
+.year-label { min-width: 65px; text-align: center; }
+.range-info { font-size: 0.76em; color: var(--text-muted); }
+
+.chart-wrap {
+  flex: 1;
+  position: relative;
+  padding: 14px 14px 8px;
+  overflow: hidden;
+  min-height: 0;
+}
+#bills-chart { cursor: crosshair; display: block; }
+.chart-empty-state {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 10px;
+  color: var(--text-muted); font-size: 0.88em;
+  pointer-events: none;
+}
+.hidden { display: none !important; }
+.chart-empty-state.hidden { display: none; }
+
+/* drag cursor feedback */
+body.dragging-bar  { cursor: grabbing !important; }
+body.dragging-bar * { cursor: grabbing !important; }
+body.resize-start  { cursor: ew-resize !important; }
+body.resize-end    { cursor: ew-resize !important; }
+
+/* ── Suggestions panel ───────────────────────────────────── */
+.suggestions-section {
+  background: var(--white);
+  border-top: 1.5px solid var(--border);
+  max-height: 230px;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+.sug-header {
+  padding: 9px 16px 7px;
+  font-weight: 700; font-size: 0.85em;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 8px;
+  flex-shrink: 0;
+}
+.sug-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 18px; height: 18px; padding: 0 5px;
+  background: var(--amber); color: #fff;
+  border-radius: 9px; font-size: 0.72em; font-weight: 700;
+}
+.sug-list {
+  overflow-y: auto;
+  padding: 4px 12px;
+}
+.sug-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 4px;
+  border-bottom: 1px solid var(--border);
+}
+.sug-item:last-child { border-bottom: none; }
+.sug-date  { font-size: 0.76em; color: var(--text-muted); min-width: 72px; flex-shrink: 0; }
+.sug-name  { flex: 1; font-size: 0.84em; font-weight: 600; }
+.sug-amt   { font-size: 0.82em; color: var(--text-sub); min-width: 65px; text-align: left; flex-shrink: 0; }
+.sug-acts  { display: flex; gap: 5px; flex-shrink: 0; }
+.sug-empty {
+  text-align: center; color: var(--text-muted);
+  font-size: 0.82em; padding: 18px;
+}
+
+/* ── Modals ──────────────────────────────────────────────── */
+.overlay {
+  position: fixed; inset: 0;
+  background: rgba(15,22,45,.45);
+  z-index: 600;
+  display: flex; align-items: center; justify-content: center;
+}
+.overlay.hidden { display: none; }
+.modal {
+  background: var(--white);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+  width: min(500px, 96vw);
+  max-height: 92vh;
+  overflow-y: auto;
+  padding: 22px 24px 20px;
+  display: flex; flex-direction: column; gap: 15px;
+  position: relative;
+  animation: _slideIn .18s ease;
+}
+@keyframes _slideIn { from { opacity:0; transform: translateY(-10px); } to { opacity:1; transform: none; } }
+.modal-close {
+  position: absolute; top: 14px; left: 16px;
+  background: none; border: none; font-size: 1.2em;
+  cursor: pointer; color: var(--text-muted); line-height: 1;
+}
+.modal-close:hover { color: var(--red); }
+.modal-title { font-size: 1.02em; font-weight: 700; padding-left: 20px; }
+
+/* form */
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field label { font-size: 0.79em; font-weight: 600; color: var(--text-sub); }
+.field input,.field select,.field textarea {
+  padding: 8px 11px;
+  border: 1.5px solid var(--border); border-radius: 8px;
+  font-size: 0.88em; font-family: inherit;
+  color: var(--navy); background: var(--white);
+  transition: border-color .12s; outline: none;
+}
+.field input:focus,.field select:focus,.field textarea:focus { border-color: var(--teal); }
+.field textarea { resize: vertical; min-height: 62px; }
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.modal-actions { display: flex; gap: 9px; justify-content: flex-end; margin-top: 2px; }
+
+/* mode toggle */
+.mode-toggle {
+  display: flex;
+  border: 1.5px solid var(--border); border-radius: 8px; overflow: hidden;
+}
+.mode-toggle button {
+  flex: 1; padding: 8px; border: none; background: transparent;
+  font-family: inherit; font-size: 0.83em; font-weight: 600;
+  cursor: pointer; color: var(--text-sub); transition: background .12s, color .12s;
+}
+.mode-toggle button.active { background: var(--teal); color: #fff; }
+
+/* tx search */
+.tx-search-wrap { position: relative; }
+.tx-results {
+  position: fixed;
+  background: var(--white);
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  max-height: 220px; overflow-y: auto;
+  z-index: 1000; box-shadow: var(--shadow-md);
+}
+.tx-row {
+  padding: 7px 11px;
+  cursor: pointer;
+  display: flex; gap: 9px; align-items: center;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.82em; transition: background .1s;
+}
+.tx-row:last-child { border-bottom: none; }
+.tx-row:hover { background: var(--teal-light); }
+.tx-row-date { color: var(--text-muted); min-width: 72px; flex-shrink: 0; }
+.tx-row-name { flex: 1; font-weight: 600; }
+.tx-row-amt  { color: var(--text-sub); flex-shrink: 0; }
+.tx-selected {
+  padding: 7px 11px;
+  background: var(--teal-light); border: 1.5px solid var(--teal);
+  border-radius: 8px; font-size: 0.82em;
+  display: flex; align-items: center; gap: 9px;
+}
+.tx-selected .clear { margin-right: auto; background: none; border: none; cursor: pointer; color: var(--text-muted); }
+.tx-selected .clear:hover { color: var(--red); }
+
+/* color palette */
+.color-row { display: flex; gap: 7px; flex-wrap: wrap; align-items: center; }
+.c-opt {
+  width: 24px; height: 24px; border-radius: 50%;
+  border: 2.5px solid transparent; cursor: pointer;
+  transition: transform .1s, border-color .1s;
+}
+.c-opt:hover { transform: scale(1.18); }
+.c-opt.sel { border-color: var(--navy); }
+
+/* inline status */
+.inline-status {
+  padding: 6px 10px; border-radius: 7px; font-size: 0.8em; font-weight: 600; display: none;
+}
+.inline-status.ok  { background: #f0fdf4; color: #16a34a; border: 1px solid #86efac; display: block; }
+.inline-status.err { background: #fef2f2; color: var(--red); border: 1px solid #fca5a5; display: block; }
+
+/* bar tooltip */
+#bar-tip {
+  position: fixed;
+  background: var(--navy); color: #fff;
+  padding: 5px 10px; border-radius: 6px;
+  font-size: 0.78em; pointer-events: none;
+  z-index: 800; white-space: nowrap; display: none;
+  box-shadow: var(--shadow-sm);
+  line-height: 1.5;
+}
+
+/* bar context menu */
+#bar-menu {
+  position: fixed;
+  background: var(--white);
+  border: 1.5px solid var(--border);
+  border-radius: 9px;
+  box-shadow: var(--shadow-md);
+  padding: 5px 0;
+  z-index: 900;
+  min-width: 140px;
+  display: none;
+}
+#bar-menu button {
+  display: block; width: 100%;
+  padding: 7px 14px;
+  background: none; border: none;
+  text-align: right; font-family: inherit; font-size: 0.83em;
+  cursor: pointer; color: var(--navy);
+  transition: background .1s;
+}
+#bar-menu button:hover { background: var(--teal-light); color: var(--teal); }
+#bar-menu button.danger:hover { background: #fef2f2; color: var(--red); }
+
+@keyframes fadeIn { from { opacity:0; transform:translateY(3px); } to { opacity:1; transform:none; } }
+</style>
+</head>
+<body>
+
+<!-- ── Top bar ─────────────────────────────────────────────── -->
+<div class="top-bar">
+  <a href="/" class="back-btn">← חזרה</a>
+  <h1>מעקב חשבונות</h1>
+  <span class="spacer"></span>
+  <button class="btn btn-ghost btn-sm" onclick="openFillerModal()">+ הוסף מילוי</button>
+  <button class="btn btn-primary btn-sm" onclick="openAddEntryModal()">+ הוסף רשומה</button>
+</div>
+
+<!-- ── Body split ──────────────────────────────────────────── -->
+<div class="body-wrap">
+
+  <!-- Bill types sidebar -->
+  <div class="types-panel">
+    <div class="types-title">
+      <span>סוגי חשבונות</span>
+      <button class="add-type-btn" title="הוסף סוג חשבון" onclick="openAddTypeModal()">+</button>
+    </div>
+    <div class="types-list" id="types-list">
+      <div class="types-empty">אין סוגי חשבונות.<br>לחץ + להוסיף.</div>
+    </div>
+    <!-- Statistics panel -->
+    <button class="stats-toggle" id="stats-toggle" onclick="toggleStats()">
+      <span>סטטיסטיקות</span><span class="arrow">▾</span>
+    </button>
+    <div class="stats-panel" id="stats-panel"></div>
+  </div>
+
+  <!-- Chart area -->
+  <div class="chart-area">
+    <div class="chart-controls">
+      <div class="year-nav">
+        <button class="nav-arrow" onclick="shiftView(-6)" title="6 חודשים אחורה">‹‹</button>
+        <button class="nav-arrow" onclick="shiftView(-1)" title="חודש אחורה">‹</button>
+        <span class="year-label" id="view-label">—</span>
+        <button class="nav-arrow" onclick="shiftView(1)" title="חודש קדימה">›</button>
+        <button class="nav-arrow" onclick="shiftView(6)" title="6 חודשים קדימה">››</button>
+      </div>
+      <button class="btn btn-ghost btn-xs" onclick="fitView()">הצג הכל</button>
+      <span class="spacer"></span>
+      <span class="range-info" id="range-info"></span>
+    </div>
+    <div class="chart-wrap" id="chart-wrap">
+      <canvas id="bills-chart"></canvas>
+      <div class="chart-empty-state" id="empty-state">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.5"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <span>אין נתונים — הוסף סוגי חשבונות ורשומות כדי להתחיל</span>
+      </div>
+    </div>
+
+    <!-- ── Suggestions panel ──────────────────────────────── -->
+    <div class="suggestions-section">
+      <div class="sug-header">
+        <span>עסקאות מוצעות</span>
+        <span class="sug-badge" id="sug-badge" style="display:none">0</span>
+        <span class="spacer"></span>
+        <button class="btn btn-primary btn-xs" id="apply-all-btn" style="display:none" onclick="applyAll()">החל הכל</button>
+        <button class="btn btn-ghost btn-xs" onclick="loadSuggestions()">רענן</button>
+      </div>
+      <div class="sug-list" id="sug-list">
+        <div class="sug-empty">טוען…</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Bar tooltip & context menu ─────────────────────────── -->
+<div id="bar-tip"></div>
+<div id="bar-menu">
+  <button onclick="barMenuEdit()">✏ ערוך תאריכים</button>
+  <button onclick="barMenuDelete()" class="danger">✕ מחק רשומה</button>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MODAL: Add Bill Type
+     ═══════════════════════════════════════════════════════════ -->
+<div class="overlay hidden" id="modal-type">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-type')">✕</button>
+    <h2 class="modal-title">הוסף סוג חשבון</h2>
+    <div class="field">
+      <label>שם החשבון</label>
+      <input id="type-name-inp" type="text" placeholder="למשל: חשמל, אינטרנט, טלפון…" maxlength="40">
+    </div>
+    <div class="field">
+      <label>קבוצה <span style="color:var(--text-muted);font-weight:400">(אופציונלי — למשל: דירה 1)</span></label>
+      <input id="type-group-inp" type="text" placeholder="השאר ריק אם אין קבוצה" maxlength="40" list="group-datalist">
+      <datalist id="group-datalist"></datalist>
+    </div>
+    <div class="field">
+      <label>צבע</label>
+      <div class="color-row" id="type-color-row"></div>
+    </div>
+    <div class="inline-status" id="type-status"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-type')">ביטול</button>
+      <button class="btn btn-primary" onclick="submitAddType()">הוסף</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MODAL: Add Entry (transaction-linked or filler)
+     ═══════════════════════════════════════════════════════════ -->
+<div class="overlay hidden" id="modal-entry">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-entry')">✕</button>
+    <h2 class="modal-title" id="entry-modal-title">הוסף רשומה</h2>
+
+    <div class="mode-toggle" id="entry-mode-toggle">
+      <button id="mode-tx-btn"     class="active"  onclick="setEntryMode('tx')">עסקה</button>
+      <button id="mode-filler-btn"                 onclick="setEntryMode('filler')">מילוי ריק</button>
+    </div>
+
+    <div class="field">
+      <label>סוג חשבון</label>
+      <select id="entry-type-sel"></select>
+    </div>
+
+    <!-- TX mode: search transaction -->
+    <div id="tx-section">
+      <div class="field">
+        <label>חפש עסקה</label>
+        <div class="tx-search-wrap">
+          <input id="tx-search-inp" type="text" placeholder="חפש לפי שם…" autocomplete="off"
+                 oninput="onTxSearch(this.value)" onfocus="onTxFocus()">
+          <div class="tx-results hidden" id="tx-results"></div>
+        </div>
+      </div>
+      <div class="tx-selected hidden" id="tx-selected" style="flex-direction:column;align-items:stretch;gap:6px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span id="tx-sel-source-badge" style="font-size:0.7em;font-weight:700;padding:2px 6px;border-radius:4px;flex-shrink:0"></span>
+          <span id="tx-sel-name" style="font-weight:700;flex:1;font-size:0.9em"></span>
+          <button class="clear" onclick="clearTxSelection()" style="pointer-events:all">✕</button>
+        </div>
+        <div style="display:flex;gap:16px;font-size:0.8em;flex-wrap:wrap">
+          <span><span style="color:var(--text-muted)">תאריך: </span><span id="tx-sel-date" style="font-weight:600"></span></span>
+          <span><span style="color:var(--text-muted)">סכום: </span><span id="tx-sel-amt" style="font-weight:600;color:var(--red)"></span></span>
+          <span id="tx-sel-cat-wrap"><span style="color:var(--text-muted)">קטגוריה: </span><span id="tx-sel-cat" style="font-weight:600"></span></span>
+        </div>
+        <div id="tx-sel-desc-wrap" style="font-size:0.78em;color:var(--text-muted);font-style:italic"></div>
+      </div>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label>מחודש</label>
+        <input id="entry-start" type="month">
+      </div>
+      <div class="field">
+        <label>עד חודש</label>
+        <input id="entry-end" type="month">
+      </div>
+    </div>
+
+    <!-- Filler mode: note -->
+    <div class="field hidden" id="filler-note-field">
+      <label>הערה (אופציונלי)</label>
+      <textarea id="filler-note" placeholder="למשל: בתקופה זו החשבון לא היה בתוקף…"></textarea>
+    </div>
+
+    <div class="inline-status" id="entry-status"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-entry')">ביטול</button>
+      <button class="btn btn-primary" onclick="submitEntry()">שמור</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MODAL: Edit entry
+     ═══════════════════════════════════════════════════════════ -->
+<div class="overlay hidden" id="modal-edit">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-edit')">✕</button>
+    <h2 class="modal-title">ערוך רשומה</h2>
+    <input type="hidden" id="edit-entry-id">
+
+    <!-- Bill type -->
+    <div class="field">
+      <label>סוג חשבון</label>
+      <div style="display:flex;align-items:center;gap:8px;padding:5px 0">
+        <span id="edit-type-dot" style="width:12px;height:12px;border-radius:50%;flex-shrink:0;display:inline-block"></span>
+        <span id="edit-type-name" style="font-weight:600;font-size:0.92em"></span>
+      </div>
+    </div>
+
+    <!-- Linked transaction -->
+    <div class="field" id="edit-tx-section">
+      <label>עסקה מקושרת</label>
+      <div class="tx-selected" style="pointer-events:none;flex-direction:column;align-items:stretch;gap:7px">
+        <!-- Row 1: source badge + name -->
+        <div style="display:flex;align-items:center;gap:8px">
+          <span id="edit-tx-source" style="font-size:0.7em;font-weight:700;padding:2px 7px;border-radius:4px;flex-shrink:0"></span>
+          <span id="edit-tx-name" style="font-weight:700;flex:1;font-size:0.92em"></span>
+        </div>
+        <!-- Row 2: date / value-date / amount -->
+        <div style="display:flex;gap:14px;font-size:0.8em;flex-wrap:wrap">
+          <span id="edit-tx-date-wrap"><span style="color:var(--text-muted)">תאריך: </span><span id="edit-tx-date" style="font-weight:600"></span></span>
+          <span id="edit-tx-vdate-wrap"><span style="color:var(--text-muted)">ערך: </span><span id="edit-tx-vdate" style="font-weight:600"></span></span>
+          <span id="edit-tx-cdate-wrap"><span style="color:var(--text-muted)">חיוב: </span><span id="edit-tx-cdate" style="font-weight:600"></span></span>
+          <span id="edit-tx-amt-wrap"><span style="color:var(--text-muted)">סכום: </span><span id="edit-tx-amt" style="font-weight:600;color:var(--red)"></span></span>
+          <span id="edit-tx-charge-wrap"><span style="color:var(--text-muted)">חיוב: </span><span id="edit-tx-charge" style="font-weight:600"></span></span>
+        </div>
+        <!-- Row 3: category / ref / card / balance -->
+        <div style="display:flex;gap:14px;font-size:0.8em;flex-wrap:wrap">
+          <span id="edit-tx-cat-wrap"><span style="color:var(--text-muted)">קטגוריה: </span><span id="edit-tx-cat" style="font-weight:600"></span></span>
+          <span id="edit-tx-ref-wrap"><span style="color:var(--text-muted)">אסמכתא: </span><span id="edit-tx-ref" style="font-weight:600"></span></span>
+          <span id="edit-tx-card-wrap"><span style="color:var(--text-muted)">כרטיס: </span><span id="edit-tx-card" style="font-weight:600"></span></span>
+          <span id="edit-tx-bal-wrap"><span style="color:var(--text-muted)">יתרה: </span><span id="edit-tx-bal" style="font-weight:600"></span></span>
+        </div>
+        <!-- Row 4: description -->
+        <div id="edit-tx-desc-wrap" style="font-size:0.78em;color:var(--text-muted);font-style:italic"></div>
+        <!-- Row 5: extra info -->
+        <div id="edit-tx-extra-wrap" style="font-size:0.78em;color:var(--text-muted)"></div>
+      </div>
+    </div>
+
+    <!-- Dates -->
+    <div class="field-row">
+      <div class="field">
+        <label>מחודש</label>
+        <input id="edit-start" type="month">
+      </div>
+      <div class="field">
+        <label>עד חודש</label>
+        <input id="edit-end" type="month">
+      </div>
+    </div>
+
+    <!-- Note (always visible) -->
+    <div class="field">
+      <label>הערה</label>
+      <textarea id="edit-note" placeholder="הוסף הערה…" style="min-height:54px"></textarea>
+    </div>
+
+    <div class="inline-status" id="edit-status"></div>
+    <div class="modal-actions">
+      <button class="btn btn-danger btn-sm" style="margin-left:auto" onclick="deleteEditEntry()">מחק רשומה</button>
+      <button class="btn btn-ghost" onclick="closeModal('modal-edit')">ביטול</button>
+      <button class="btn btn-primary" onclick="submitEdit()">שמור</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MODAL: Edit bill type (name + color)
+     ═══════════════════════════════════════════════════════════ -->
+<div class="overlay hidden" id="modal-edit-type">
+  <div class="modal" style="max-width:360px">
+    <button class="modal-close" onclick="closeModal('modal-edit-type')">✕</button>
+    <h2 class="modal-title">ערוך סוג חשבון</h2>
+    <input type="hidden" id="edit-type-id">
+    <div class="field">
+      <label>שם</label>
+      <input id="edit-type-name-inp" type="text" placeholder="שם החשבון…">
+    </div>
+    <div class="field">
+      <label>קבוצה <span style="color:var(--text-muted);font-weight:400">(אופציונלי)</span></label>
+      <input id="edit-type-group-inp" type="text" placeholder="למשל: דירה 1" maxlength="40" list="group-datalist">
+    </div>
+    <div class="field">
+      <label>צבע</label>
+      <div class="color-row" id="edit-type-color-row"></div>
+    </div>
+    <div class="inline-status" id="edit-type-status"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-edit-type')">ביטול</button>
+      <button class="btn btn-primary" onclick="submitEditType()">שמור</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MODAL: Suggestion → quick-add as bill
+     ═══════════════════════════════════════════════════════════ -->
+<div class="overlay hidden" id="modal-sug-add">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-sug-add')">✕</button>
+    <h2 class="modal-title">הוסף עסקה כחשבון</h2>
+    <input type="hidden" id="sug-tx-table">
+    <input type="hidden" id="sug-tx-id">
+    <input type="hidden" id="sug-tx-name">
+    <div class="field">
+      <label>עסקה</label>
+      <div class="tx-selected" style="pointer-events:none">
+        <span id="sug-disp-date" style="color:var(--text-muted);min-width:72px"></span>
+        <span id="sug-disp-name" style="font-weight:600;flex:1"></span>
+        <span id="sug-disp-amt"  style="color:var(--text-sub)"></span>
+      </div>
+    </div>
+    <div class="field">
+      <label>סוג חשבון</label>
+      <select id="sug-type-sel"></select>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>מחודש</label>
+        <input id="sug-start" type="month">
+      </div>
+      <div class="field">
+        <label>עד חודש</label>
+        <input id="sug-end" type="month">
+      </div>
+    </div>
+    <div class="inline-status" id="sug-add-status"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-sug-add')">ביטול</button>
+      <button class="btn btn-primary" onclick="submitSugAdd()">הוסף</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SCRIPT
+     ═══════════════════════════════════════════════════════════ -->
+<script>
+// ─────────────────────────────────────────────────────────────
+// State
+// ─────────────────────────────────────────────────────────────
+const COLORS = ['#1e9d8b','#3b82f6','#f59e0b','#ef4444','#10b981',
+                '#8b5cf6','#f97316','#06b6d4','#e879f9','#84cc16'];
+
+let billTypes   = [];   // [{id,name,color,group}]
+let billEntries = [];   // [{id,bill_type_id,start_month,end_month,...}]
+let chart       = null;
+
+// Shared month state (set by renderChart, used by plugins + stats)
+let chartMonths = [];
+let chartMIdx   = {};
+
+const SUMMARY_LABEL = 'סה"כ חודשי';
+
+// View window: [viewStart, viewEnd] as 'YYYY-MM' strings
+let viewStart = null;
+let viewEnd   = null;
+
+// Selected transaction for add-entry modal
+let selectedTx = null;   // {tx_id, date, name, amount, source}
+let txSearchTimer = null;
+
+// Bar interaction
+let dragState    = null;   // active drag state
+let potentialDrag = null;  // pending (click or drag, not yet decided)
+let menuEntryId  = null;
+let hoveredBarInfo = null; // {startX, endX, centerY, barHeight, zone} for handle drawing
+
+// ── Jira-style handle plugin ───────────────────────────────────────────────
+const barHandlesPlugin = {
+  id: 'barHandles',
+  afterDraw(ch) {
+    if (!hoveredBarInfo || dragState) return;
+    const ctx = ch.ctx;
+    const { startX, endX, centerY, zone } = hoveredBarInfo;
+    ctx.save();
+
+    // Draw handle circles at both ends
+    [[startX, zone === 'start'], [endX, zone === 'end']].forEach(([x, active]) => {
+      ctx.beginPath();
+      ctx.arc(x, centerY, 7, 0, Math.PI * 2);
+      ctx.fillStyle   = active ? '#1e9d8b' : '#fff';
+      ctx.strokeStyle = '#1e9d8b';
+      ctx.lineWidth   = 2.5;
+      ctx.shadowColor = 'rgba(0,0,0,0.22)';
+      ctx.shadowBlur  = 5;
+      ctx.fill();
+      ctx.stroke();
+    });
+
+    // Center grip dots when hovering in the middle (move zone)
+    if (zone === 'move') {
+      ctx.shadowBlur  = 0;
+      ctx.fillStyle   = 'rgba(255,255,255,0.82)';
+      const mx = (startX + endX) / 2;
+      [-5, 0, 5].forEach(dx => {
+        ctx.beginPath();
+        ctx.arc(mx + dx, centerY, 2.2, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
+
+    ctx.restore();
+  },
+};
+
+// ─────────────────────────────────────────────────────────────
+// Init
+// ─────────────────────────────────────────────────────────────
+async function init() {
+  await Promise.all([loadTypes(), loadEntries()]);
+  loadSuggestions();
+  initDrag();
+}
+
+// ─────────────────────────────────────────────────────────────
+// API helpers
+// ─────────────────────────────────────────────────────────────
+async function api(method, url, body) {
+  const opts = { method, headers: {'Content-Type':'application/json'} };
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(url, opts);
+  return r.json();
+}
+
+// ─────────────────────────────────────────────────────────────
+// Load data
+// ─────────────────────────────────────────────────────────────
+async function loadTypes() {
+  const r = await api('GET', '/api/bills/types');
+  if (r.ok) { billTypes = r.types; renderTypes(); }
+}
+
+async function loadEntries() {
+  const r = await api('GET', '/api/bills/entries');
+  if (r.ok) {
+    billEntries = r.entries;
+    renderChart();
+    if (document.getElementById('stats-panel')?.classList.contains('open')) renderStats();
+  }
+}
+
+async function loadSuggestions() {
+  document.getElementById('sug-list').innerHTML = '<div class="sug-empty">טוען…</div>';
+  const r = await api('GET', '/api/bills/suggestions');
+  if (r.ok) {
+    renderSuggestions(r.suggestions);
+    // Re-render chart so canvas height accounts for the now-visible suggestions panel
+    requestAnimationFrame(() => renderChart());
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Render bill types sidebar
+// ─────────────────────────────────────────────────────────────
+function renderTypes() {
+  const list = document.getElementById('types-list');
+  if (!billTypes.length) {
+    list.innerHTML = '<div class="types-empty">אין סוגי חשבונות.<br>לחץ + להוסיף.</div>';
+    return;
+  }
+
+  // Group types for sidebar display
+  const groups  = {};
+  const noGroup = [];
+  billTypes.forEach(t => {
+    if (t.group) { (groups[t.group] = groups[t.group] || []).push(t); }
+    else          { noGroup.push(t); }
+  });
+
+  const typeRow = t => `
+    <div class="type-item" onclick="openEditTypeModal(${t.id})" title="לחץ לעריכה" style="cursor:pointer">
+      <span class="type-dot" style="background:${t.color}"></span>
+      <span class="type-name">${esc(t.name)}</span>
+      <button class="type-del" onclick="event.stopPropagation();deleteType(${t.id})" title="מחק">✕</button>
+    </div>`;
+
+  let html = '';
+  for (const [gName, types] of Object.entries(groups)) {
+    html += `<div style="font-size:0.72em;font-weight:700;color:var(--text-muted);padding:6px 7px 2px;letter-spacing:.04em;text-transform:uppercase">${esc(gName)}</div>`;
+    html += types.map(typeRow).join('');
+  }
+  html += noGroup.map(typeRow).join('');
+  list.innerHTML = html;
+
+  // Update group autocomplete datalist
+  const dl = document.getElementById('group-datalist');
+  if (dl) {
+    const existing = [...new Set(billTypes.map(t => t.group).filter(Boolean))];
+    dl.innerHTML = existing.map(g => `<option value="${esc(g)}">`).join('');
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Statistics panel (E)
+// ─────────────────────────────────────────────────────────────
+function toggleStats() {
+  const btn   = document.getElementById('stats-toggle');
+  const panel = document.getElementById('stats-panel');
+  const open  = panel.classList.toggle('open');
+  btn.classList.toggle('open', open);
+  if (open) renderStats();
+}
+
+function renderStats() {
+  const panel = document.getElementById('stats-panel');
+  if (!billTypes.length) {
+    panel.innerHTML = '<div style="padding:14px;font-size:0.78em;color:var(--text-muted);text-align:center">אין נתונים</div>';
+    return;
+  }
+
+  panel.innerHTML = billTypes.map(type => {
+    const entries = billEntries.filter(e => e.bill_type_id === type.id && !e.is_filler);
+    const withAmt = entries.filter(e => e.amount != null);
+    const total   = withAmt.reduce((s, e) => s + Math.abs(e.amount), 0);
+    const avg     = withAmt.length ? total / withAmt.length : 0;
+    const annual  = avg * 12;
+
+    // Last payment: latest tx_date or end_month
+    const dates = entries.map(e => e.tx_date || e.end_month).filter(Boolean).sort();
+    const last  = dates.length ? dates[dates.length - 1] : null;
+
+    // Longest gap (in months) between consecutive entries sorted by start_month
+    let maxGap = 0;
+    if (entries.length > 1) {
+      const sorted = [...entries].sort((a, b) => a.start_month.localeCompare(b.start_month));
+      for (let i = 1; i < sorted.length; i++) {
+        const gap = monthDiff(sorted[i-1].end_month, sorted[i].start_month);
+        if (gap > maxGap) maxGap = gap;
+      }
+    }
+
+    const fmtAmt = n => n > 0
+      ? '₪' + Math.round(n).toLocaleString('he-IL')
+      : '—';
+    const fmtDate = d => d
+      ? (d.length === 7 ? monthLabel(d) : d.slice(0, 7).replace('-', '/'))
+      : '—';
+
+    return `
+      <div class="stat-row">
+        <div class="stat-row-hdr">
+          <span class="stat-dot" style="background:${type.color}"></span>
+          <span>${esc(type.name)}</span>
+        </div>
+        <div class="stat-grid">
+          <span>ממוצע חודשי</span><span>${fmtAmt(avg)}</span>
+          <span>שנתי משוער</span><span>${fmtAmt(annual)}</span>
+          <span>תשלום אחרון</span><span>${fmtDate(last)}</span>
+          <span>פער מרבי</span><span>${maxGap > 0 ? maxGap + ' חודשים' : '—'}</span>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+async function deleteType(id) {
+  if (!confirm('למחוק סוג חשבון זה ואת כל הרשומות שלו?')) return;
+  const r = await api('DELETE', `/api/bills/types/${id}`);
+  if (r.ok) { await Promise.all([loadTypes(), loadEntries()]); }
+  else alert('שגיאה: ' + r.error);
+}
+
+// ─────────────────────────────────────────────────────────────
+// Month utilities
+// ─────────────────────────────────────────────────────────────
+function monthAdd(ym, n) {
+  let [y, m] = ym.split('-').map(Number);
+  m += n;
+  while (m > 12) { m -= 12; y++; }
+  while (m < 1)  { m += 12; y--; }
+  return `${y}-${String(m).padStart(2,'0')}`;
+}
+
+function monthDiff(a, b) {  // b - a in months
+  const [ay, am] = a.split('-').map(Number);
+  const [by, bm] = b.split('-').map(Number);
+  return (by - ay) * 12 + (bm - am);
+}
+
+function monthLabel(ym) {
+  const [y, m] = ym.split('-').map(Number);
+  const names = ['ינו','פבר','מרס','אפר','מאי','יונ','יול','אוג','ספט','אוק','נוב','דצמ'];
+  return `${names[m-1]} ${String(y).slice(2)}`;
+}
+
+function todayYM() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+}
+
+function computeViewBounds() {
+  if (!billEntries.length) {
+    const t = todayYM();
+    return { start: monthAdd(t, -5), end: monthAdd(t, 6) };
+  }
+  const starts = billEntries.map(e => e.start_month);
+  const ends   = billEntries.map(e => e.end_month);
+  const s = starts.reduce((a,b) => a < b ? a : b);
+  const e = ends.reduce((a,b) => a > b ? a : b);
+  return { start: monthAdd(s, -1), end: monthAdd(e, 1) };
+}
+
+function ensureView() {
+  if (!viewStart || !viewEnd) {
+    const b = computeViewBounds();
+    viewStart = b.start;
+    viewEnd   = b.end;
+  }
+}
+
+function fitView() {
+  const b = computeViewBounds();
+  viewStart = b.start;
+  viewEnd   = b.end;
+  renderChart();
+}
+
+function shiftView(months) {
+  ensureView();
+  viewStart = monthAdd(viewStart, months);
+  viewEnd   = monthAdd(viewEnd, months);
+  renderChart();
+}
+
+function buildMonthList() {
+  ensureView();
+  const list = [];
+  let cur = viewStart;
+  while (cur <= viewEnd) {
+    list.push(cur);
+    cur = monthAdd(cur, 1);
+  }
+  return list;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Chart rendering
+// ─────────────────────────────────────────────────────────────
+function renderChart() {
+  ensureView();
+  const months = buildMonthList();
+  const mIdx   = {};
+  months.forEach((m, i) => mIdx[m] = i);
+  // Expose to module scope for plugins and stats
+  chartMonths = months;
+  chartMIdx   = mIdx;
+
+  // Label
+  document.getElementById('view-label').textContent = `${monthLabel(viewStart)} – ${monthLabel(viewEnd)}`;
+  document.getElementById('range-info').textContent  = `${months.length} חודשים`;
+
+  // Empty state
+  const hasData = billTypes.length > 0 && billEntries.length > 0;
+  document.getElementById('empty-state').classList.toggle('hidden', hasData || billTypes.length > 0);
+
+  if (!billTypes.length) {
+    if (chart) { chart.destroy(); chart = null; }
+    document.getElementById('empty-state').classList.remove('hidden');
+    return;
+  }
+  document.getElementById('empty-state').classList.add('hidden');
+
+  // ── Build grouped y-axis labels ──────────────────────────────
+  // Types that share the same GroupName are collected under a header row.
+  // Group header rows use a special prefix so we can detect them in callbacks.
+  const GROUP_PREFIX = '​​';  // zero-width spaces — invisible but unique
+  const typeColorMap  = {};             // label → hex color
+  const groupHeaders  = new Set();      // labels that are group headers
+  const yLabels       = [];             // final ordered y-axis label list
+
+  const groups   = {};
+  const noGroup  = [];
+  billTypes.forEach(t => {
+    typeColorMap[t.name] = t.color;
+    if (t.group) {
+      (groups[t.group] = groups[t.group] || []).push(t);
+    } else {
+      noGroup.push(t);
+    }
+  });
+
+  // Grouped types first
+  for (const [gName, types] of Object.entries(groups)) {
+    const hdr = GROUP_PREFIX + gName;
+    groupHeaders.add(hdr);
+    yLabels.push(hdr);
+    types.forEach(t => yLabels.push(t.name));
+  }
+  // Ungrouped types
+  noGroup.forEach(t => yLabels.push(t.name));
+
+  // Summary row at the bottom
+  yLabels.push(SUMMARY_LABEL);
+
+  // ── Build datasets ────────────────────────────────────────────
+  const datasets = [];
+
+  billTypes.forEach(type => {
+    const entries = billEntries.filter(e => e.bill_type_id === type.id && !e.is_filler);
+    if (!entries.length) return;
+    const hex = type.color;
+    datasets.push({
+      label:              type.name,
+      backgroundColor:    hex + 'bb',
+      borderColor:        hex,
+      borderWidth:        2,
+      borderRadius:       6,
+      borderSkipped:      false,
+      barPercentage:      0.6,
+      categoryPercentage: 0.8,
+      data: entries.map(e => {
+        const s  = mIdx[e.start_month] ?? (e.start_month < viewStart ? -1 : months.length);
+        const en = mIdx[e.end_month]   ?? (e.end_month   < viewStart ? -1 : months.length);
+        return { x: [s, en + 1], y: type.name, _eid: e.id, _filler: false };
+      }),
+    });
+  });
+
+  // Filler entries
+  const fillers = billEntries.filter(e => e.is_filler);
+  if (fillers.length) {
+    const fillerData = fillers.map(e => {
+      const type     = billTypes.find(t => t.id === e.bill_type_id);
+      const typeName = type ? type.name : '';
+      const s  = mIdx[e.start_month] ?? (e.start_month < viewStart ? -1 : months.length);
+      const en = mIdx[e.end_month]   ?? (e.end_month   < viewStart ? -1 : months.length);
+      return { x: [s, en + 1], y: typeName, _eid: e.id, _filler: true, _note: e.note };
+    }).filter(d => d.y);
+    if (fillerData.length) {
+      datasets.push({
+        label:              '__fillers__',
+        backgroundColor:    'rgba(160,160,160,0.22)',
+        borderColor:        'rgba(140,140,140,0.5)',
+        borderWidth:        1.5,
+        borderDash:         [5, 4],
+        borderRadius:       5,
+        borderSkipped:      false,
+        barPercentage:      0.38,
+        categoryPercentage: 0.8,
+        data:               fillerData,
+      });
+    }
+  }
+
+  // ── Month tick labels ─────────────────────────────────────────
+  const step = months.length > 24 ? 3 : months.length > 12 ? 2 : 1;
+  const tickLabels = months.map((m, i) => i % step === 0 ? monthLabel(m) : '');
+
+  // ── Canvas height ─────────────────────────────────────────────
+  const wrapEl  = document.getElementById('chart-wrap');
+  wrapEl.style.overflowY = 'hidden';
+  const canvasH = Math.max(wrapEl.clientHeight || 300, 120);
+
+  const canvas = document.getElementById('bills-chart');
+  canvas.style.height = canvasH + 'px';
+  canvas.style.width  = '100%';
+
+  // ── Row background plugin ─────────────────────────────────────
+  const rowBgPlugin = {
+    id: 'rowBg',
+    beforeDraw(ch) {
+      const ctx   = ch.ctx;
+      const yAxis = ch.scales.y;
+      const xAxis = ch.scales.x;
+      if (!yAxis || !xAxis) return;
+      const left  = xAxis.left;
+      const right = xAxis.right;
+      yAxis.ticks.forEach((tick, i) => {
+        const label   = yAxis.getLabelForValue(tick.value ?? i);
+        const isHdr   = groupHeaders.has(label);
+        const top     = yAxis.getPixelForValue(tick.value ?? i);
+        const rowH    = yAxis.height / yAxis.ticks.length;
+        if (isHdr) {
+          ctx.fillStyle = 'rgba(0,0,0,0.04)';
+          ctx.fillRect(left, top - rowH / 2, right - left, rowH);
+        } else if (i % 2 === 0) {
+          ctx.fillStyle = 'rgba(0,0,0,0.018)';
+          ctx.fillRect(left, top - rowH / 2, right - left, rowH);
+        }
+      });
+    },
+  };
+
+  // ── Current-month highlight plugin ───────────────────────────
+  const todayM = todayYM();
+  const todayI = mIdx[todayM];
+  const todayPlugin = {
+    id: 'todayCol',
+    beforeDraw(ch) {
+      if (todayI == null) return;
+      const ctx   = ch.ctx;
+      const xAxis = ch.scales.x;
+      const yAxis = ch.scales.y;
+      const x0 = xAxis.getPixelForValue(todayI);
+      const x1 = xAxis.getPixelForValue(todayI + 1);
+      ctx.fillStyle = 'rgba(30,157,139,0.08)';
+      ctx.fillRect(x0, yAxis.top, x1 - x0, yAxis.bottom - yAxis.top);
+    },
+  };
+
+  // ── Monthly cost summary plugin ───────────────────────────────
+  const monthSummaryPlugin = {
+    id: 'monthSummary',
+    afterDraw(ch) {
+      const ctx   = ch.ctx;
+      const xAxis = ch.scales.x;
+      const yAxis = ch.scales.y;
+      if (!xAxis || !yAxis) return;
+
+      const summaryY = yAxis.getPixelForValue(SUMMARY_LABEL);
+      if (!summaryY) return;
+
+      // Background strip for summary row
+      const rowH = yAxis.height / yAxis.ticks.length;
+      ctx.fillStyle = 'rgba(30,157,139,0.07)';
+      ctx.fillRect(xAxis.left, summaryY - rowH / 2, xAxis.right - xAxis.left, rowH);
+
+      // Per-month totals
+      chartMonths.forEach((m, i) => {
+        const total = billEntries
+          .filter(e => !e.is_filler && e.start_month === m && e.amount != null)
+          .reduce((sum, e) => sum + Math.abs(e.amount), 0);
+
+        if (total === 0) return;
+
+        const x = (xAxis.getPixelForValue(i) + xAxis.getPixelForValue(i + 1)) / 2;
+        ctx.save();
+        ctx.textAlign    = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.font         = `bold 9.5px 'Segoe UI', Arial, sans-serif`;
+        ctx.fillStyle    = '#1e9d8b';
+        ctx.fillText('₪' + Math.round(total).toLocaleString('he-IL'), x, summaryY);
+        ctx.restore();
+      });
+    },
+  };
+
+  if (chart) chart.destroy();
+
+  chart = new Chart(canvas, {
+    type: 'bar',
+    data: { datasets },
+    plugins: [rowBgPlugin, todayPlugin, monthSummaryPlugin, barHandlesPlugin],
+    options: {
+      indexAxis:          'y',
+      responsive:         true,
+      maintainAspectRatio: false,
+      animation:          { duration: 180 },
+      scales: {
+        x: {
+          type:  'linear',
+          min:   0,
+          max:   months.length,
+          grid:  { color: 'rgba(0,0,0,0.05)', drawTicks: false },
+          border: { display: false },
+          ticks: {
+            stepSize:    1,
+            callback:    (v) => tickLabels[Math.round(v)] ?? '',
+            font:        { size: 11, weight: '500' },
+            color:       '#999',
+            maxRotation: 0,
+            padding:     6,
+          },
+        },
+        y: {
+          type:   'category',
+          labels: yLabels,
+          grid:   { display: false },
+          border: { display: false },
+          offset: true,
+          ticks: {
+            font: (ctx) => {
+              const label = ctx.tick?.label ?? '';
+              if (label === SUMMARY_LABEL) return { size: 10, weight: '600', style: 'italic' };
+              return groupHeaders.has(label)
+                ? { size: 11, weight: '700' }
+                : { size: 12, weight: '600' };
+            },
+            color: (ctx) => {
+              const label = ctx.tick?.label ?? '';
+              if (label === SUMMARY_LABEL) return '#1e9d8b';
+              if (groupHeaders.has(label)) return '#555';
+              return typeColorMap[label] || '#444';
+            },
+            callback: (val, i) => {
+              const label = yLabels[i] ?? '';
+              if (groupHeaders.has(label)) return label.replace(GROUP_PREFIX, '');
+              return label;
+            },
+            padding: 10,
+          },
+        },
+      },
+      plugins: {
+        legend:  { display: false },
+        tooltip: { enabled: false },
+      },
+    },
+  });
+
+  // Custom tooltip + handles on mousemove
+  canvas.addEventListener('mousemove', onChartMouseMove);
+  canvas.addEventListener('mouseleave', () => {
+    hideTip();
+    if (hoveredBarInfo) {
+      hoveredBarInfo = null;
+      canvas.style.cursor = 'crosshair';
+      chart && chart.draw();
+    }
+  });
+
+  // Context menu on right-click
+  canvas.addEventListener('contextmenu', onChartRightClick);
+}
+
+// ─────────────────────────────────────────────────────────────
+// Custom tooltip
+// ─────────────────────────────────────────────────────────────
+const tip = document.getElementById('bar-tip');
+
+function showTip(html, x, y) {
+  tip.innerHTML = html;
+  tip.style.display = 'block';
+  tip.style.left = (x + 14) + 'px';
+  tip.style.top  = (y - 10) + 'px';
+}
+function hideTip() {
+  tip.style.display = 'none';
+}
+
+const HANDLE_PX = 13; // px from bar edge to trigger resize cursor/handle
+
+function onChartMouseMove(e) {
+  if (dragState) return;
+
+  const el = getBarAt(e);
+  const canvas = document.getElementById('bills-chart');
+
+  if (!el) {
+    hideTip();
+    if (hoveredBarInfo) {
+      hoveredBarInfo = null;
+      canvas.style.cursor = 'crosshair';
+      chart && chart.draw();
+    }
+    return;
+  }
+
+  const dp    = chart.data.datasets[el.datasetIndex].data[el.index];
+  const meta  = chart.getDatasetMeta(el.datasetIndex);
+  const bar   = meta.data[el.index];
+  const rect  = canvas.getBoundingClientRect();
+  const mouseX = e.clientX - rect.left;
+
+  // Determine interaction zone
+  let zone;
+  if (Math.abs(mouseX - bar.base) < HANDLE_PX)      zone = 'start';
+  else if (Math.abs(mouseX - bar.x) < HANDLE_PX)    zone = 'end';
+  else                                                zone = 'move';
+
+  canvas.style.cursor = zone === 'move' ? 'grab' : 'ew-resize';
+
+  hoveredBarInfo = {
+    startX:    bar.base,
+    endX:      bar.x,
+    centerY:   bar.y,
+    barHeight: bar.height,
+    zone,
+    eid:       dp._eid,
+  };
+  chart.draw();
+
+  // Tooltip
+  const entry = billEntries.find(en => en.id === dp._eid);
+  if (!entry) { hideTip(); return; }
+  const type = billTypes.find(t => t.id === entry.bill_type_id);
+  const s  = monthLabel(entry.start_month);
+  const en = monthLabel(entry.end_month);
+  let html = `<b>${type ? esc(type.name) : ''}</b><br>${s} – ${en}`;
+  if (entry.amount)  html += `<br>₪${Math.abs(entry.amount).toLocaleString('he-IL',{maximumFractionDigits:0})}`;
+  if (dp._filler)    html += `<br><em style="color:#aaa">מילוי ריק</em>`;
+  if (entry.note)    html += `<br><small style="color:#ccc">${esc(entry.note)}</small>`;
+  if (entry.tx_name) html += `<br><small style="color:#9dd">${esc(entry.tx_name)}</small>`;
+  showTip(html, e.clientX, e.clientY);
+}
+
+function onChartRightClick(e) {
+  e.preventDefault();
+  const el = getBarAt(e);
+  if (!el) { hideMenu(); return; }
+  const dp = chart.data.datasets[el.datasetIndex].data[el.index];
+  menuEntryId = dp._eid;
+  const menu = document.getElementById('bar-menu');
+  menu.style.display = 'block';
+  menu.style.left = e.clientX + 'px';
+  menu.style.top  = e.clientY + 'px';
+}
+
+function hideMenu() {
+  document.getElementById('bar-menu').style.display = 'none';
+}
+document.addEventListener('click', hideMenu);
+
+function barMenuEdit() {
+  hideMenu();
+  if (menuEntryId) openEditModal(menuEntryId);
+}
+
+function openEditModal(eid) {
+  const entry = billEntries.find(e => e.id === eid);
+  if (!entry) return;
+  const type = billTypes.find(t => t.id === entry.bill_type_id);
+
+  document.getElementById('edit-entry-id').value = entry.id;
+  document.getElementById('edit-start').value    = entry.start_month;
+  document.getElementById('edit-end').value      = entry.end_month;
+  document.getElementById('edit-note').value     = entry.note || '';
+
+  // Bill type dot + name
+  const dot = document.getElementById('edit-type-dot');
+  dot.style.background = type ? type.color : '#ccc';
+  document.getElementById('edit-type-name').textContent = type ? type.name : '—';
+
+  // Linked transaction — show whenever a transaction_id is stored
+  const txSection = document.getElementById('edit-tx-section');
+  if (entry.transaction_id) {
+    txSection.classList.remove('hidden');
+    const isCard = entry.transaction_table === 'CardTransactions';
+
+    // Source badge
+    const srcEl = document.getElementById('edit-tx-source');
+    srcEl.textContent  = isCard ? 'כרטיס' : 'בנק';
+    srcEl.style.background = isCard ? 'var(--amber)' : 'var(--teal)';
+    srcEl.style.color  = '#fff';
+
+    // Name
+    document.getElementById('edit-tx-name').textContent = entry.tx_name || `#${entry.transaction_id}`;
+
+    // Amount (stored at entry creation time)
+    const amtWrap = document.getElementById('edit-tx-amt-wrap');
+    if (entry.amount != null) {
+      amtWrap.style.display = '';
+      document.getElementById('edit-tx-amt').textContent =
+        '₪' + Math.abs(entry.amount).toLocaleString('he-IL', {maximumFractionDigits: 0});
+    } else { amtWrap.style.display = 'none'; }
+
+    // Dates
+    const setWrap = (wrapId, spanId, val) => {
+      const w = document.getElementById(wrapId);
+      if (val) { w.style.display = ''; document.getElementById(spanId).textContent = val; }
+      else { w.style.display = 'none'; }
+    };
+    setWrap('edit-tx-date-wrap',   'edit-tx-date',   entry.tx_date);
+    setWrap('edit-tx-vdate-wrap',  'edit-tx-vdate',  isCard ? null : entry.tx_value_date);
+    setWrap('edit-tx-cdate-wrap',  'edit-tx-cdate',  isCard ? entry.tx_charge_date : null);
+
+    // Charge value (card only)
+    const chargeWrap = document.getElementById('edit-tx-charge-wrap');
+    if (isCard && entry.tx_charge_value != null) {
+      chargeWrap.style.display = '';
+      const cur = entry.tx_charge_currency || '';
+      document.getElementById('edit-tx-charge').textContent =
+        entry.tx_charge_value.toLocaleString('he-IL', {maximumFractionDigits: 0}) + (cur ? ' ' + cur : '');
+    } else { chargeWrap.style.display = 'none'; }
+
+    // Category / ref / card / balance
+    setWrap('edit-tx-cat-wrap',  'edit-tx-cat',  entry.tx_category);
+    setWrap('edit-tx-ref-wrap',  'edit-tx-ref',  isCard ? null : entry.tx_ref);
+    setWrap('edit-tx-card-wrap', 'edit-tx-card', isCard ? entry.tx_card_id : null);
+    const balWrap = document.getElementById('edit-tx-bal-wrap');
+    if (!isCard && entry.tx_balance != null) {
+      balWrap.style.display = '';
+      document.getElementById('edit-tx-bal').textContent =
+        '₪' + entry.tx_balance.toLocaleString('he-IL', {maximumFractionDigits: 0});
+    } else { balWrap.style.display = 'none'; }
+
+    // Description + extra info
+    const descWrap = document.getElementById('edit-tx-desc-wrap');
+    if (entry.tx_description) { descWrap.style.display = ''; descWrap.textContent = entry.tx_description; }
+    else { descWrap.style.display = 'none'; }
+
+    const extraWrap = document.getElementById('edit-tx-extra-wrap');
+    if (entry.tx_extra_info) { extraWrap.style.display = ''; extraWrap.textContent = entry.tx_extra_info; }
+    else { extraWrap.style.display = 'none'; }
+  } else {
+    txSection.classList.add('hidden');
+  }
+
+  document.getElementById('edit-status').className = 'inline-status';
+  openModal('modal-edit');
+}
+
+async function deleteEditEntry() {
+  const id = parseInt(document.getElementById('edit-entry-id').value);
+  if (!confirm('למחוק רשומה זו?')) return;
+  const r = await api('DELETE', `/api/bills/entries/${id}`);
+  if (r.ok) {
+    closeModal('modal-edit');
+    await loadEntries();
+    loadSuggestions();
+  } else {
+    setStatus(document.getElementById('edit-status'), 'err', r.error || 'שגיאה');
+  }
+}
+
+async function barMenuDelete() {
+  hideMenu();
+  if (!menuEntryId) return;
+  if (!confirm('למחוק רשומה זו?')) return;
+  const r = await api('DELETE', `/api/bills/entries/${menuEntryId}`);
+  if (r.ok) { await loadEntries(); loadSuggestions(); }
+  else alert('שגיאה: ' + r.error);
+}
+
+// ─────────────────────────────────────────────────────────────
+// Drag & resize bars
+// ─────────────────────────────────────────────────────────────
+function getBarAt(event) {
+  if (!chart) return null;
+  const els = chart.getElementsAtEventForMode(event, 'nearest', { intersect: true }, false);
+  return els.length ? els[0] : null;
+}
+
+function initDrag() {
+  const canvas = document.getElementById('bills-chart');
+  canvas.addEventListener('mousedown', onDragStart);
+  document.addEventListener('mousemove', onDragMove);
+  document.addEventListener('mouseup',   onDragEnd);
+}
+
+function onDragStart(e) {
+  if (e.button !== 0) return;
+  const el = getBarAt(e);
+  if (!el) return;
+
+  const dp  = chart.data.datasets[el.datasetIndex].data[el.index];
+  const eid = dp._eid;
+  if (!eid) return;
+
+  const meta   = chart.getDatasetMeta(el.datasetIndex);
+  const bar    = meta.data[el.index];
+  const rect   = e.target.getBoundingClientRect();
+  const mouseX = e.clientX - rect.left;
+
+  let dragType;
+  if (Math.abs(mouseX - bar.base) < HANDLE_PX)   dragType = 'resize-start';
+  else if (Math.abs(mouseX - bar.x) < HANDLE_PX) dragType = 'resize-end';
+  else                                             dragType = 'move';
+
+  const months = buildMonthList();
+  const mIdx   = {};
+  months.forEach((m, i) => mIdx[m] = i);
+
+  const entry = billEntries.find(en => en.id === eid);
+  if (!entry) return;
+
+  potentialDrag = {
+    entryId: eid, dIdx: el.datasetIndex, pIdx: el.index,
+    dragType,
+    startMouseX: e.clientX, startMouseY: e.clientY,
+    origStart:  mIdx[entry.start_month] ?? 0,
+    origEnd:    mIdx[entry.end_month]   ?? 0,
+    origStartM: entry.start_month,
+    origEndM:   entry.end_month,
+  };
+  e.preventDefault();
+}
+
+function onDragMove(e) {
+  // Promote potentialDrag → real dragState once mouse moves > 5px
+  if (potentialDrag && !dragState) {
+    const dx = Math.abs(e.clientX - potentialDrag.startMouseX);
+    const dy = Math.abs(e.clientY - potentialDrag.startMouseY);
+    if (dx > 5 || dy > 5) {
+      dragState     = { ...potentialDrag };
+      potentialDrag = null;
+      hoveredBarInfo = null;
+      document.body.classList.add(
+        dragState.dragType === 'move' ? 'dragging-bar' :
+        dragState.dragType === 'resize-start' ? 'resize-start' : 'resize-end'
+      );
+    }
+    return;
+  }
+  if (!dragState || !chart) return;
+
+  const xScale = chart.scales.x;
+  const canvas = document.getElementById('bills-chart');
+  const rect   = canvas.getBoundingClientRect();
+  const curIdx = Math.round(xScale.getValueForPixel(e.clientX - rect.left));
+  const startIdx = Math.round(xScale.getValueForPixel(dragState.startMouseX - rect.left));
+  const delta  = curIdx - startIdx;
+
+  let newS = dragState.origStart;
+  let newE = dragState.origEnd;
+  if (dragState.dragType === 'move') {
+    newS = dragState.origStart + delta;
+    newE = dragState.origEnd   + delta;
+  } else if (dragState.dragType === 'resize-start') {
+    newS = Math.min(dragState.origStart + delta, newE);
+  } else {
+    newE = Math.max(dragState.origEnd + delta, newS);
+  }
+
+  const months = buildMonthList();
+  newS = Math.max(0, Math.min(newS, months.length - 1));
+  newE = Math.max(0, Math.min(newE, months.length - 1));
+  if (newS > newE) newS = newE;
+
+  const dp = chart.data.datasets[dragState.dIdx].data[dragState.pIdx];
+  dp.x = [newS, newE + 1];
+  chart.update('none');
+}
+
+async function onDragEnd(e) {
+  // Click (no drag) → open edit modal
+  if (potentialDrag && !dragState) {
+    const eid = potentialDrag.entryId;
+    potentialDrag = null;
+    openEditModal(eid);
+    return;
+  }
+
+  if (!dragState) return;
+  document.body.classList.remove('dragging-bar','resize-start','resize-end');
+
+  const months    = buildMonthList();
+  const dp        = chart.data.datasets[dragState.dIdx].data[dragState.pIdx];
+  const [ns, ne]  = dp.x;
+  const newStartM = months[ns]                   || dragState.origStartM;
+  const newEndM   = months[Math.max(0, ne - 1)]  || dragState.origEndM;
+  const entry     = billEntries.find(en => en.id === dragState.entryId);
+  const changed   = newStartM !== dragState.origStartM || newEndM !== dragState.origEndM;
+  dragState = null;
+
+  if (!changed || !entry) return;
+
+  const r = await api('PUT', `/api/bills/entries/${entry.id}`, {
+    start_month: newStartM, end_month: newEndM, note: entry.note,
+  });
+  if (r.ok) {
+    entry.start_month = newStartM;
+    entry.end_month   = newEndM;
+    renderChart();
+  } else {
+    alert('שגיאה בשמירה: ' + r.error);
+    renderChart();
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Suggestions
+// ─────────────────────────────────────────────────────────────
+function renderSuggestions(items) {
+  const list  = document.getElementById('sug-list');
+  const badge = document.getElementById('sug-badge');
+
+  const applyBtn = document.getElementById('apply-all-btn');
+  if (!items.length) {
+    list.innerHTML = '<div class="sug-empty">אין עסקאות מוצעות</div>';
+    badge.style.display = 'none';
+    if (applyBtn) applyBtn.style.display = 'none';
+    return;
+  }
+
+  badge.textContent  = items.length;
+  badge.style.display = 'inline-flex';
+  if (applyBtn) applyBtn.style.display = '';
+  list.innerHTML = items.map(it => `
+    <div class="sug-item" id="sug-${it.table}-${it.id}">
+      <span class="sug-date">${it.date}</span>
+      <span class="sug-name">${esc(it.name)}</span>
+      <span class="sug-amt">₪${Math.abs(it.amount).toLocaleString('he-IL',{maximumFractionDigits:0})}</span>
+      <div class="sug-acts">
+        <button class="btn btn-primary btn-xs"
+          onclick="openSugAdd('${it.table}','${it.id}','${esc(it.name)}','${it.date}','${it.amount}','${esc(it.matched_name)}')">
+          + הוסף כחשבון
+        </button>
+        <button class="btn btn-ghost btn-xs"
+          onclick="dismissSuggestion('${esc(it.name)}','${it.table}-${it.id}')">
+          לא חשבון
+        </button>
+      </div>
+    </div>`).join('');
+}
+
+async function dismissSuggestion(name, elemId) {
+  const r = await api('POST', '/api/bills/suggestions/dismiss', { name });
+  if (r.ok) {
+    const el = document.getElementById('sug-' + elemId);
+    if (el) el.remove();
+    // Update badge
+    const remaining = document.querySelectorAll('.sug-item').length;
+    const badge = document.getElementById('sug-badge');
+    if (!remaining) { badge.style.display = 'none'; }
+    else badge.textContent = remaining;
+  }
+}
+
+function openSugAdd(table, id, name, date, amount, matchedName) {
+  document.getElementById('sug-tx-table').value  = table;
+  document.getElementById('sug-tx-id').value     = id;
+  document.getElementById('sug-tx-name').value   = name;
+  document.getElementById('sug-disp-date').textContent = date;
+  document.getElementById('sug-disp-name').textContent = name;
+  document.getElementById('sug-disp-amt').textContent  =
+    '₪' + Math.abs(parseFloat(amount)).toLocaleString('he-IL', {maximumFractionDigits:0});
+
+  // Pre-set months from tx date
+  const txMonth = (date || '').slice(0, 7);
+  document.getElementById('sug-start').value = txMonth;
+  document.getElementById('sug-end').value   = txMonth;
+
+  populateTypeSelect('sug-type-sel');
+
+  // Pre-select the bill type of the entry that triggered this suggestion
+  if (matchedName) {
+    const matchedEntry = billEntries.find(e => e.tx_name === matchedName);
+    if (matchedEntry) {
+      document.getElementById('sug-type-sel').value = matchedEntry.bill_type_id;
+    }
+  }
+
+  document.getElementById('sug-add-status').className = 'inline-status';
+  openModal('modal-sug-add');
+}
+
+async function submitSugAdd() {
+  const table  = document.getElementById('sug-tx-table').value;
+  const txId   = parseInt(document.getElementById('sug-tx-id').value);
+  const txName = document.getElementById('sug-tx-name').value;
+  const typeId = parseInt(document.getElementById('sug-type-sel').value);
+  const start  = document.getElementById('sug-start').value;
+  const end    = document.getElementById('sug-end').value;
+  const st     = document.getElementById('sug-add-status');
+
+  if (!typeId || !start || !end) { setStatus(st, 'err', 'נא למלא את כל השדות'); return; }
+  if (start > end) { setStatus(st, 'err', 'תאריך התחלה לאחר הסיום'); return; }
+  const overlapErrS = clientOverlapCheck(typeId, start, end);
+  if (overlapErrS) {
+    closeModal('modal-sug-add');
+    const rowEl = document.getElementById(`sug-${table}-${txId}`);
+    if (rowEl) {
+      rowEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      rowEl.style.transition = 'background 0.2s';
+      rowEl.style.background = 'rgba(220,38,38,0.18)';
+      setTimeout(() => { rowEl.style.background = ''; }, 1800);
+    }
+    return;
+  }
+
+  const r = await api('POST', '/api/bills/entries', {
+    bill_type_id:      typeId,
+    start_month:       start,
+    end_month:         end,
+    transaction_table: table === 'BankTransactions' ? 'BankTransactions' : 'CardTransactions',
+    transaction_id:    txId,
+    is_filler:         false,
+  });
+  if (r.ok) {
+    closeModal('modal-sug-add');
+    await loadEntries();
+    loadSuggestions();
+  } else {
+    setStatus(st, 'err', r.error || 'שגיאה');
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Add Type modal
+// ─────────────────────────────────────────────────────────────
+function openAddTypeModal() {
+  document.getElementById('type-name-inp').value  = '';
+  document.getElementById('type-group-inp').value = '';
+  document.getElementById('type-status').className = 'inline-status';
+  const row = document.getElementById('type-color-row');
+  row.innerHTML = COLORS.map((c, i) =>
+    `<div class="c-opt${i===0?' sel':''}" style="background:${c}" data-color="${c}"
+          onclick="selectColor(this)"></div>`
+  ).join('');
+  openModal('modal-type');
+  setTimeout(() => document.getElementById('type-name-inp').focus(), 80);
+}
+
+function selectColor(el) {
+  document.querySelectorAll('#type-color-row .c-opt').forEach(e => e.classList.remove('sel'));
+  el.classList.add('sel');
+}
+
+async function submitAddType() {
+  const name  = document.getElementById('type-name-inp').value.trim();
+  const group = document.getElementById('type-group-inp').value.trim();
+  const selC  = document.querySelector('#type-color-row .c-opt.sel');
+  const color = selC ? selC.dataset.color : COLORS[0];
+  const st    = document.getElementById('type-status');
+  if (!name) { setStatus(st, 'err', 'נא להזין שם'); return; }
+  const r = await api('POST', '/api/bills/types', { name, color, group });
+  if (r.ok) {
+    closeModal('modal-type');
+    await loadTypes();
+    renderChart();
+  } else {
+    setStatus(st, 'err', r.error || 'שגיאה');
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Edit bill type modal
+// ─────────────────────────────────────────────────────────────
+function openEditTypeModal(id) {
+  const type = billTypes.find(t => t.id === id);
+  if (!type) return;
+  document.getElementById('edit-type-id').value         = id;
+  document.getElementById('edit-type-name-inp').value   = type.name;
+  document.getElementById('edit-type-group-inp').value  = type.group || '';
+  document.getElementById('edit-type-status').className = 'inline-status';
+  const row = document.getElementById('edit-type-color-row');
+  row.innerHTML = COLORS.map(c =>
+    `<div class="c-opt${c===type.color?' sel':''}" style="background:${c}" data-color="${c}"
+          onclick="selectEditTypeColor(this)"></div>`
+  ).join('');
+  // If current color isn't in palette, add it selected
+  if (!COLORS.includes(type.color)) {
+    row.insertAdjacentHTML('afterbegin',
+      `<div class="c-opt sel" style="background:${type.color}" data-color="${type.color}"
+            onclick="selectEditTypeColor(this)"></div>`);
+  }
+  openModal('modal-edit-type');
+  setTimeout(() => document.getElementById('edit-type-name-inp').focus(), 80);
+}
+
+function selectEditTypeColor(el) {
+  document.querySelectorAll('#edit-type-color-row .c-opt').forEach(e => e.classList.remove('sel'));
+  el.classList.add('sel');
+}
+
+async function submitEditType() {
+  const id    = parseInt(document.getElementById('edit-type-id').value);
+  const name  = document.getElementById('edit-type-name-inp').value.trim();
+  const group = document.getElementById('edit-type-group-inp').value.trim();
+  const selC  = document.querySelector('#edit-type-color-row .c-opt.sel');
+  const color = selC ? selC.dataset.color : COLORS[0];
+  const st    = document.getElementById('edit-type-status');
+  if (!name) { setStatus(st, 'err', 'נא להזין שם'); return; }
+  const r = await api('PUT', `/api/bills/types/${id}`, { name, color, group });
+  if (r.ok) {
+    closeModal('modal-edit-type');
+    await loadTypes();
+    await loadEntries();
+  } else {
+    setStatus(st, 'err', r.error || 'שגיאה');
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Apply all suggestions
+// ─────────────────────────────────────────────────────────────
+async function applyAll() {
+  const items = [...document.querySelectorAll('.sug-item')];
+  if (!items.length) return;
+  if (!confirm(`להחיל את כל ${items.length} ההמלצות אוטומטית?`)) return;
+
+  let added = 0, skipped = 0;
+  for (const el of items) {
+    // reconstruct from the onclick of the + button
+    const btn = el.querySelector('.btn-primary');
+    if (!btn) continue;
+    const m = btn.getAttribute('onclick').match(
+      /openSugAdd\('([^']+)','([^']+)','([^']*)','([^']*)','([^']*)','([^']*)'\)/
+    );
+    if (!m) continue;
+    const [, table, id, name, date, amount, matchedName] = m;
+    const txMonth = (date || '').slice(0, 7);
+    if (!txMonth) { skipped++; continue; }
+
+    // Find bill type from matched entry
+    const matchedEntry = billEntries.find(e => e.tx_name === matchedName);
+    const typeId = matchedEntry ? matchedEntry.bill_type_id : (billTypes[0] ? billTypes[0].id : null);
+    if (!typeId) { skipped++; continue; }
+
+    const overlap = clientOverlapCheck(typeId, txMonth, txMonth);
+    if (overlap) { skipped++; continue; }
+
+    const r = await api('POST', '/api/bills/entries', {
+      bill_type_id:      typeId,
+      start_month:       txMonth,
+      end_month:         txMonth,
+      transaction_table: table === 'CardTransactions' ? 'CardTransactions' : 'BankTransactions',
+      transaction_id:    parseInt(id),
+      amount:            Math.abs(parseFloat(amount)),
+      is_filler:         false,
+    });
+    if (r.ok) {
+      added++;
+      // Update local cache so overlap checks work for subsequent items
+      billEntries.push({
+        id: r.id, bill_type_id: typeId,
+        start_month: txMonth, end_month: txMonth,
+        tx_name: name, tx_date: date, amount: Math.abs(parseFloat(amount)),
+        transaction_table: table, transaction_id: parseInt(id),
+        note: '', is_filler: false,
+      });
+      el.remove();
+    } else {
+      skipped++;
+    }
+  }
+
+  await loadEntries();
+  await loadSuggestions();
+  if (added) alert(`נוספו ${added} רשומות${skipped ? `, דולגו ${skipped}` : ''}.`);
+}
+
+// ─────────────────────────────────────────────────────────────
+// Add Entry modal
+// ─────────────────────────────────────────────────────────────
+let currentEntryMode = 'tx';
+
+function openAddEntryModal() {
+  selectedTx = null;
+  document.getElementById('tx-search-inp').value = '';
+  document.getElementById('tx-results').classList.add('hidden');
+  document.getElementById('tx-selected').classList.add('hidden');
+  document.getElementById('tx-section').style.display = '';
+
+  const t = todayYM();
+  document.getElementById('entry-start').value = t;
+  document.getElementById('entry-end').value   = t;
+  document.getElementById('entry-modal-title').textContent = 'הוסף רשומה';
+  document.getElementById('entry-mode-toggle').style.display = 'flex';
+  document.getElementById('entry-status').className = 'inline-status';
+  setEntryMode('tx');
+  populateTypeSelect('entry-type-sel');
+  openModal('modal-entry');
+}
+
+function openFillerModal() {
+  selectedTx = null;
+  const t = todayYM();
+  document.getElementById('entry-start').value = t;
+  document.getElementById('entry-end').value   = t;
+  document.getElementById('entry-modal-title').textContent = 'הוסף מילוי ריק';
+  document.getElementById('entry-mode-toggle').style.display = 'none';
+  document.getElementById('entry-status').className = 'inline-status';
+  setEntryMode('filler');
+  populateTypeSelect('entry-type-sel');
+  openModal('modal-entry');
+}
+
+function setEntryMode(mode) {
+  currentEntryMode = mode;
+  document.getElementById('mode-tx-btn').classList.toggle('active',     mode === 'tx');
+  document.getElementById('mode-filler-btn').classList.toggle('active', mode === 'filler');
+  document.getElementById('tx-section').style.display       = mode === 'tx' ? '' : 'none';
+  document.getElementById('filler-note-field').classList.toggle('hidden', mode !== 'filler');
+}
+
+function populateTypeSelect(selId) {
+  const sel = document.getElementById(selId);
+  sel.innerHTML = billTypes.length
+    ? billTypes.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join('')
+    : '<option value="">— אין סוגי חשבונות —</option>';
+}
+
+// Returns an error string if [start,end] overlaps any existing entry of typeId,
+// optionally excluding one entry (by ID) for edit checks.
+function clientOverlapCheck(typeId, start, end, excludeId) {
+  const conflict = billEntries.find(e =>
+    e.bill_type_id === typeId &&
+    e.id !== excludeId &&
+    e.start_month <= end &&
+    e.end_month   >= start
+  );
+  if (!conflict) return null;
+  const type = billTypes.find(t => t.id === typeId);
+  return `חפיפה עם רשומה קיימת של "${type ? type.name : ''}" (${conflict.start_month} – ${conflict.end_month})`;
+}
+
+async function submitEntry() {
+  const typeId = parseInt(document.getElementById('entry-type-sel').value);
+  const start  = document.getElementById('entry-start').value;
+  const end    = document.getElementById('entry-end').value;
+  const st     = document.getElementById('entry-status');
+
+  if (!typeId) { setStatus(st, 'err', 'נא לבחור סוג חשבון'); return; }
+  if (!start || !end) { setStatus(st, 'err', 'נא לבחור תאריכים'); return; }
+  if (start > end) { setStatus(st, 'err', 'תאריך התחלה לאחר הסיום'); return; }
+  const overlapErr = clientOverlapCheck(typeId, start, end);
+  if (overlapErr) { setStatus(st, 'err', overlapErr); return; }
+
+  const body = { bill_type_id: typeId, start_month: start, end_month: end };
+
+  if (currentEntryMode === 'tx') {
+    if (!selectedTx) { setStatus(st, 'err', 'נא לבחור עסקה'); return; }
+    body.transaction_table = selectedTx.source === 'bank' ? 'BankTransactions' : 'CardTransactions';
+    body.transaction_id    = selectedTx.tx_id;
+    body.amount            = Math.abs(selectedTx.amount);
+    body.is_filler         = false;
+  } else {
+    body.is_filler = true;
+    body.note      = document.getElementById('filler-note').value.trim();
+  }
+
+  const r = await api('POST', '/api/bills/entries', body);
+  if (r.ok) {
+    closeModal('modal-entry');
+    await loadEntries();
+    loadSuggestions();
+  } else {
+    setStatus(st, 'err', r.error || 'שגיאה');
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Edit entry modal
+// ─────────────────────────────────────────────────────────────
+async function submitEdit() {
+  const id    = parseInt(document.getElementById('edit-entry-id').value);
+  const start = document.getElementById('edit-start').value;
+  const end   = document.getElementById('edit-end').value;
+  const note  = document.getElementById('edit-note').value;
+  const st    = document.getElementById('edit-status');
+  if (!start || !end) { setStatus(st, 'err', 'נא לבחור תאריכים'); return; }
+  if (start > end) { setStatus(st, 'err', 'תאריך התחלה לאחר הסיום'); return; }
+  const entry = billEntries.find(e => e.id === id);
+  if (entry) {
+    const overlapErr = clientOverlapCheck(entry.bill_type_id, start, end, id);
+    if (overlapErr) { setStatus(st, 'err', overlapErr); return; }
+  }
+  const r = await api('PUT', `/api/bills/entries/${id}`, { start_month: start, end_month: end, note });
+  if (r.ok) {
+    closeModal('modal-edit');
+    await loadEntries();
+  } else {
+    setStatus(st, 'err', r.error || 'שגיאה');
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Transaction search (for add entry modal)
+// ─────────────────────────────────────────────────────────────
+function onTxFocus() {
+  positionTxResults();
+}
+
+function onTxSearch(val) {
+  clearTimeout(txSearchTimer);
+  const q = val.trim();
+  if (!q) { document.getElementById('tx-results').classList.add('hidden'); return; }
+  positionTxResults();
+  txSearchTimer = setTimeout(() => doTxSearch(q), 250);
+}
+
+async function doTxSearch(q) {
+  const url = `/api/search/transactions?keyword=${encodeURIComponent(q)}`;
+  try {
+    const r = await fetch(url);
+    const d = await r.json();
+    showTxResults(d.results || []);
+  } catch(e) { showTxResults([]); }
+}
+
+function positionTxResults() {
+  const inp  = document.getElementById('tx-search-inp');
+  const box  = document.getElementById('tx-results');
+  const rect = inp.getBoundingClientRect();
+  box.style.top   = (rect.bottom + 2) + 'px';
+  box.style.left  = rect.left + 'px';
+  box.style.width = rect.width + 'px';
+}
+
+function showTxResults(items) {
+  const box = document.getElementById('tx-results');
+  if (!items.length) { box.classList.add('hidden'); return; }
+  positionTxResults();
+  box.classList.remove('hidden');
+  box.innerHTML = items.slice(0, 60).map(it => `
+    <div class="tx-row" onclick="selectTx(${JSON.stringify(it).replace(/"/g,'&quot;')})">
+      <span class="tx-row-date">${it.date}</span>
+      <span class="tx-row-name">${esc(it.name)}</span>
+      <span class="tx-row-amt">₪${Math.abs(it.amount).toLocaleString('he-IL',{maximumFractionDigits:0})}</span>
+    </div>`).join('');
+}
+
+function selectTx(tx) {
+  selectedTx = tx;
+  document.getElementById('tx-results').classList.add('hidden');
+  document.getElementById('tx-search-inp').value = '';
+
+  // Source badge
+  const badge = document.getElementById('tx-sel-source-badge');
+  if (tx.source === 'bank') {
+    badge.textContent = 'בנק';
+    badge.style.background = '#dbeafe';
+    badge.style.color       = '#1d4ed8';
+  } else {
+    badge.textContent = tx.card_id ? `כרטיס ${tx.card_id}` : 'אשראי';
+    badge.style.background = '#fef3c7';
+    badge.style.color       = '#92400e';
+  }
+
+  document.getElementById('tx-sel-name').textContent = tx.name;
+  document.getElementById('tx-sel-date').textContent = tx.date;
+  document.getElementById('tx-sel-amt').textContent  =
+    '₪' + Math.abs(tx.amount).toLocaleString('he-IL', {maximumFractionDigits:2});
+
+  // Category
+  const catWrap = document.getElementById('tx-sel-cat-wrap');
+  if (tx.category && tx.category !== 'NotCategorized') {
+    catWrap.style.display = '';
+    document.getElementById('tx-sel-cat').textContent = tx.category;
+  } else {
+    catWrap.style.display = 'none';
+  }
+
+  // Description
+  const descWrap = document.getElementById('tx-sel-desc-wrap');
+  if (tx.description) {
+    descWrap.textContent = tx.description;
+    descWrap.style.display = '';
+  } else {
+    descWrap.style.display = 'none';
+  }
+
+  document.getElementById('tx-selected').classList.remove('hidden');
+
+  // Auto-set month from tx date
+  const m = (tx.date || '').slice(0, 7);
+  if (m) {
+    document.getElementById('entry-start').value = m;
+    document.getElementById('entry-end').value   = m;
+  }
+}
+
+function clearTxSelection() {
+  selectedTx = null;
+  document.getElementById('tx-selected').classList.add('hidden');
+}
+
+// ─────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────
+function openModal(id)  { document.getElementById(id).classList.remove('hidden'); }
+function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+function setStatus(el, type, msg) {
+  el.className = 'inline-status ' + type;
+  el.textContent = msg;
+}
+
+function esc(s) {
+  return String(s ?? '')
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+
+// Close modals on overlay click
+document.querySelectorAll('.overlay').forEach(ov => {
+  ov.addEventListener('click', e => {
+    if (e.target === ov) closeModal(ov.id);
+  });
+});
+
+// Close tx dropdown when clicking outside it
+document.addEventListener('click', e => {
+  const box = document.getElementById('tx-results');
+  const inp = document.getElementById('tx-search-inp');
+  if (!box.contains(e.target) && e.target !== inp) {
+    box.classList.add('hidden');
+  }
+});
+
+// Enter key in type-name input
+document.getElementById('type-name-inp').addEventListener('keydown', e => {
+  if (e.key === 'Enter') submitAddType();
+});
+
+// ─────────────────────────────────────────────────────────────
+// Start
+// ─────────────────────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>

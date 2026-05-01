@@ -203,7 +203,7 @@ def search_transactions():
         bank_sql = "SELECT ID, Date, Name, Category, Income, Out, Description FROM BankTransactions"
         if bank_where:
             bank_sql += " WHERE " + " AND ".join(bank_where)
-        bank_sql += " ORDER BY Date DESC LIMIT 500"
+        bank_sql += " ORDER BY Date DESC LIMIT 2000"
 
         for row in conn.execute(bank_sql, bank_params):
             amount = float(row['Income'] or 0) - float(row['Out'] or 0)
@@ -250,7 +250,7 @@ def search_transactions():
         card_sql = "SELECT ID, CardID, Executed_Date, Name, Category, Transaction_Value, Value_Currency, Description FROM CardTransactions"
         if card_where:
             card_sql += " WHERE " + " AND ".join(card_where)
-        card_sql += " ORDER BY Executed_Date DESC LIMIT 500"
+        card_sql += " ORDER BY Executed_Date DESC LIMIT 2000"
 
         for row in conn.execute(card_sql, card_params):
             amount = float(row['Transaction_Value'] or 0)
@@ -2384,6 +2384,212 @@ def files_delete():
         from database import DataBase as _DB2
         db = _DB2()
         db.drop_file(name, fmt, card)
+        db.commit_changes()
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+BILLS_HTML = os.path.join(_HERE, 'html', 'Bills.html')
+
+# ── Bills tracker routes ───────────────────────────────────────────────────────
+
+@app.route('/bills')
+def bills_page():
+    if os.path.exists(BILLS_HTML):
+        return send_file(BILLS_HTML)
+    return "Bills page not found", 404
+
+
+@app.route('/api/bills/types', methods=['GET', 'POST'])
+def api_bills_types():
+    from database import DataBase
+    db = DataBase()
+    if request.method == 'GET':
+        return jsonify({'ok': True, 'types': db.get_bill_types()})
+    body = request.get_json(force=True) or {}
+    name  = (body.get('name')  or '').strip()
+    color = (body.get('color') or '#1e9d8b').strip()
+    if not name:
+        return jsonify({'ok': False, 'error': 'Name required'})
+    try:
+        group = (body.get('group') or '').strip()
+        tid = db.add_bill_type(name, color, group)
+        db.commit_changes()
+        return jsonify({'ok': True, 'id': tid})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/bills/types/<int:type_id>', methods=['PUT', 'DELETE'])
+def api_bills_type(type_id):
+    from database import DataBase
+    db = DataBase()
+    if request.method == 'PUT':
+        body  = request.get_json(force=True) or {}
+        name  = (body.get('name')  or '').strip()
+        color = (body.get('color') or '#1e9d8b').strip()
+        group = (body.get('group') or '').strip()
+        if not name:
+            return jsonify({'ok': False, 'error': 'Name required'})
+        try:
+            db.update_bill_type(type_id, name, color, group)
+            db.commit_changes()
+            return jsonify({'ok': True})
+        except Exception as e:
+            return jsonify({'ok': False, 'error': str(e)})
+    try:
+        db.delete_bill_type(type_id)
+        db.commit_changes()
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/bills/entries', methods=['GET', 'POST'])
+def api_bills_entries():
+    from database import DataBase
+    db = DataBase()
+    if request.method == 'GET':
+        return jsonify({'ok': True, 'entries': db.get_bill_entries()})
+    body = request.get_json(force=True) or {}
+    try:
+        overlap = db.check_bill_entry_overlap(
+            int(body['bill_type_id']), body['start_month'], body['end_month']
+        )
+        if overlap:
+            return jsonify({'ok': False, 'error': overlap})
+        eid = db.add_bill_entry(
+            bill_type_id      = int(body['bill_type_id']),
+            start_month       = body['start_month'],
+            end_month         = body['end_month'],
+            transaction_table = body.get('transaction_table'),
+            transaction_id    = body.get('transaction_id'),
+            amount            = body.get('amount'),
+            note              = body.get('note', ''),
+            is_filler         = bool(body.get('is_filler', False)),
+        )
+        db.commit_changes()
+        return jsonify({'ok': True, 'id': eid})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/bills/entries/<int:entry_id>', methods=['PUT', 'DELETE'])
+def api_bills_entry(entry_id):
+    from database import DataBase
+    db = DataBase()
+    if request.method == 'DELETE':
+        try:
+            db.delete_bill_entry(entry_id)
+            db.commit_changes()
+            return jsonify({'ok': True})
+        except Exception as e:
+            return jsonify({'ok': False, 'error': str(e)})
+    body = request.get_json(force=True) or {}
+    try:
+        # Need the bill_type_id of this entry to check overlap
+        row = db.cursor.execute(
+            "SELECT BillType_ID FROM BillEntries WHERE ID=?", (entry_id,)
+        ).fetchone()
+        if row:
+            overlap = db.check_bill_entry_overlap(
+                row[0], body['start_month'], body['end_month'], exclude_id=entry_id
+            )
+            if overlap:
+                return jsonify({'ok': False, 'error': overlap})
+        db.update_bill_entry(
+            entry_id,
+            start_month = body['start_month'],
+            end_month   = body['end_month'],
+            note        = body.get('note'),
+        )
+        db.commit_changes()
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/bills/suggestions')
+def api_bills_suggestions():
+    import sqlite3 as _sq
+    conn = _sq.connect(_DB_PATH, check_same_thread=False)
+    conn.row_factory = _sq.Row
+    try:
+        from database import DataBase
+        db = DataBase()
+        dismissed = db.get_bill_suggestions_dismissed()
+
+        linked = conn.execute("""
+            SELECT DISTINCT b.Name FROM BillEntries e
+            JOIN BankTransactions b
+              ON e.Transaction_Table='BankTransactions' AND e.Transaction_ID=b.ID
+            UNION
+            SELECT DISTINCT c.Name FROM BillEntries e
+            JOIN CardTransactions c
+              ON e.Transaction_Table='CardTransactions' AND e.Transaction_ID=c.ID
+        """).fetchall()
+        linked_names = [r[0] for r in linked if r[0]]
+        if not linked_names:
+            return jsonify({'ok': True, 'suggestions': []})
+
+        already = conn.execute(
+            "SELECT Transaction_Table, Transaction_ID FROM BillEntries WHERE Transaction_Table IS NOT NULL"
+        ).fetchall()
+        linked_bank = {r[1] for r in already if r[0] == 'BankTransactions'}
+        linked_card = {r[1] for r in already if r[0] == 'CardTransactions'}
+
+        suggestions = []
+        seen = set()
+        for name in linked_names:
+            if name in dismissed:
+                continue
+            for r in conn.execute(
+                "SELECT ID, Date, Name, Out, Income FROM BankTransactions WHERE Name=? ORDER BY Date DESC LIMIT 30",
+                (name,)
+            ).fetchall():
+                key = ('B', r[0])
+                if r[0] in linked_bank or key in seen:
+                    continue
+                seen.add(key)
+                suggestions.append({
+                    'table': 'BankTransactions', 'id': r[0],
+                    'date': (r[1] or '')[:10], 'name': r[2] or '',
+                    'amount': float(r[3] or 0) or float(r[4] or 0),
+                    'matched_name': name,
+                })
+            for r in conn.execute(
+                "SELECT ID, Executed_Date, Name, Transaction_Value FROM CardTransactions WHERE Name=? ORDER BY Executed_Date DESC LIMIT 30",
+                (name,)
+            ).fetchall():
+                key = ('C', r[0])
+                if r[0] in linked_card or key in seen:
+                    continue
+                seen.add(key)
+                suggestions.append({
+                    'table': 'CardTransactions', 'id': r[0],
+                    'date': (r[1] or '')[:10], 'name': r[2] or '',
+                    'amount': abs(float(r[3] or 0)),
+                    'matched_name': name,
+                })
+        suggestions.sort(key=lambda x: x['date'], reverse=True)
+        return jsonify({'ok': True, 'suggestions': suggestions[:100]})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+    finally:
+        conn.close()
+
+
+@app.route('/api/bills/suggestions/dismiss', methods=['POST'])
+def api_bills_suggestions_dismiss():
+    from database import DataBase
+    body = request.get_json(force=True) or {}
+    name = (body.get('name') or '').strip()
+    if not name:
+        return jsonify({'ok': False, 'error': 'name required'})
+    try:
+        db = DataBase()
+        db.dismiss_bill_suggestion(name)
         db.commit_changes()
         return jsonify({'ok': True})
     except Exception as e:

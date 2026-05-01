@@ -303,6 +303,47 @@ body.resize-end    { cursor: ew-resize !important; }
   font-size: 0.82em; padding: 18px;
 }
 
+/* ── Bottom KPI stats bar ────────────────────────────────── */
+.stats-bar {
+  display: flex;
+  border-top: 2px solid var(--border);
+  background: var(--white);
+  flex-shrink: 0;
+  overflow-x: auto;
+}
+.stats-bar:empty { display: none; }
+.stats-card {
+  flex: 1;
+  min-width: 160px;
+  padding: 10px 18px 10px;
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.stats-card:last-child { border-right: none; }
+.stats-card-title {
+  font-size: 0.7em;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 1px;
+}
+.stats-kpi-row {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+.stats-kpi { display: flex; flex-direction: column; }
+.stats-kpi-label { font-size: 0.68em; color: var(--text-muted); margin-bottom: 1px; }
+.stats-kpi-val   { font-size: 0.95em; font-weight: 700; color: var(--navy); }
+.stats-kpi-val.accent { color: var(--teal); }
+
 /* ── Ghost / pending-recurrence panel ───────────────────── */
 .ghost-section {
   background: #fffbeb;
@@ -434,11 +475,11 @@ body.resize-end    { cursor: ew-resize !important; }
 #bar-tip {
   position: fixed;
   background: var(--navy); color: #fff;
-  padding: 5px 10px; border-radius: 6px;
-  font-size: 0.78em; pointer-events: none;
+  padding: 8px 13px; border-radius: 8px;
+  font-size: 0.8em; pointer-events: none;
   z-index: 800; white-space: nowrap; display: none;
-  box-shadow: var(--shadow-sm);
-  line-height: 1.5;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.28);
+  line-height: 1.55;
 }
 
 /* bar context menu */
@@ -545,6 +586,9 @@ body.resize-end    { cursor: ew-resize !important; }
         <div class="sug-empty">טוען…</div>
       </div>
     </div>
+
+    <!-- ── Bottom KPI stats bar ─────────────────────────── -->
+    <div class="stats-bar" id="stats-bar"></div>
   </div>
 </div>
 
@@ -813,8 +857,6 @@ let chart       = null;
 let chartMonths = [];
 let chartMIdx   = {};
 
-const SUMMARY_LABEL = 'סה"כ חודשי';
-
 // View window: [viewStart, viewEnd] as 'YYYY-MM' strings
 let viewStart = null;
 let viewEnd   = null;
@@ -950,7 +992,7 @@ async function api(method, url, body) {
 // ─────────────────────────────────────────────────────────────
 async function loadTypes() {
   const r = await api('GET', '/api/bills/types');
-  if (r.ok) { billTypes = r.types; renderTypes(); }
+  if (r.ok) { billTypes = r.types; renderTypes(); renderStatsBar(); }
 }
 
 async function loadEntries() {
@@ -958,6 +1000,7 @@ async function loadEntries() {
   if (r.ok) {
     billEntries = r.entries;
     renderChart();
+    renderStatsBar();
     if (document.getElementById('stats-panel')?.classList.contains('open')) renderStats();
   }
 }
@@ -1073,6 +1116,86 @@ function renderStats() {
         </div>
       </div>`;
   }).join('');
+}
+
+// ─────────────────────────────────────────────────────────────
+// Bottom KPI stats bar
+// ─────────────────────────────────────────────────────────────
+function renderStatsBar() {
+  const bar = document.getElementById('stats-bar');
+  if (!bar || !billTypes.length) { if (bar) bar.innerHTML = ''; return; }
+
+  // Build groups
+  const groupMap = {};
+  const noGroup  = [];
+  billTypes.forEach(t => {
+    if (t.group) { (groupMap[t.group] = groupMap[t.group] || []).push(t); }
+    else noGroup.push(t);
+  });
+
+  const allGroups = [
+    ...Object.entries(groupMap).map(([name, types]) => ({ name, types })),
+    ...(noGroup.length ? [{ name: null, types: noGroup }] : []),
+  ];
+
+  const fmtAmt  = n => n > 0 ? '₪' + Math.round(n).toLocaleString('he-IL') : '—';
+  const fmtDate = d => d ? d.slice(0, 7).replace('-', '/') : '—';
+
+  const cards = allGroups.map(({ name, types }) => {
+    const typeIds  = new Set(types.map(t => t.id));
+    const entries  = billEntries.filter(e => typeIds.has(e.bill_type_id) && !e.is_filler);
+    const withAmt  = entries.filter(e => e.amount != null);
+
+    // Per-type monthly avg summed across group
+    let monthlyAvg = 0;
+    types.forEach(t => {
+      const te = withAmt.filter(e => e.bill_type_id === t.id);
+      if (te.length) monthlyAvg += te.reduce((s, e) => s + Math.abs(e.amount), 0) / te.length;
+    });
+    const annual = monthlyAvg * 12;
+
+    // Last payment date
+    const dates = entries.map(e => e.tx_date || e.end_month).filter(Boolean).sort();
+    const last   = dates.length ? dates[dates.length - 1] : null;
+
+    // Number of entries in the current view window
+    const inView = entries.filter(e =>
+      viewStart && viewEnd && e.start_month <= viewEnd && e.end_month >= viewStart
+    ).length;
+
+    const dots = types.map(t =>
+      `<span style="width:8px;height:8px;border-radius:50%;background:${t.color};display:inline-block;flex-shrink:0"></span>`
+    ).join('');
+
+    return `
+      <div class="stats-card">
+        <div class="stats-card-title">${dots}&nbsp;${name ? esc(name) : 'כללי'}</div>
+        <div class="stats-kpi-row">
+          <div class="stats-kpi">
+            <span class="stats-kpi-label">ממוצע חודשי</span>
+            <span class="stats-kpi-val accent">${fmtAmt(monthlyAvg)}</span>
+          </div>
+          <div class="stats-kpi">
+            <span class="stats-kpi-label">שנתי משוער</span>
+            <span class="stats-kpi-val">${fmtAmt(annual)}</span>
+          </div>
+          <div class="stats-kpi">
+            <span class="stats-kpi-label">תשלום אחרון</span>
+            <span class="stats-kpi-val">${fmtDate(last)}</span>
+          </div>
+          <div class="stats-kpi">
+            <span class="stats-kpi-label">חשבונות</span>
+            <span class="stats-kpi-val">${types.length}</span>
+          </div>
+          ${inView ? `<div class="stats-kpi">
+            <span class="stats-kpi-label">בתצוגה</span>
+            <span class="stats-kpi-val">${inView}</span>
+          </div>` : ''}
+        </div>
+      </div>`;
+  });
+
+  bar.innerHTML = cards.join('');
 }
 
 async function deleteType(id) {
@@ -1211,9 +1334,6 @@ function renderChart() {
   // Ungrouped types
   noGroup.forEach(t => yLabels.push(t.name));
 
-  // Summary row at the bottom
-  yLabels.push(SUMMARY_LABEL);
-
   // ── Build datasets ────────────────────────────────────────────
   const datasets = [];
 
@@ -1320,49 +1440,12 @@ function renderChart() {
     },
   };
 
-  // ── Monthly cost summary plugin ───────────────────────────────
-  const monthSummaryPlugin = {
-    id: 'monthSummary',
-    afterDraw(ch) {
-      const ctx   = ch.ctx;
-      const xAxis = ch.scales.x;
-      const yAxis = ch.scales.y;
-      if (!xAxis || !yAxis) return;
-
-      const summaryY = yAxis.getPixelForValue(SUMMARY_LABEL);
-      if (!summaryY) return;
-
-      // Background strip for summary row
-      const rowH = yAxis.height / yAxis.ticks.length;
-      ctx.fillStyle = 'rgba(30,157,139,0.07)';
-      ctx.fillRect(xAxis.left, summaryY - rowH / 2, xAxis.right - xAxis.left, rowH);
-
-      // Per-month totals
-      chartMonths.forEach((m, i) => {
-        const total = billEntries
-          .filter(e => !e.is_filler && e.start_month === m && e.amount != null)
-          .reduce((sum, e) => sum + Math.abs(e.amount), 0);
-
-        if (total === 0) return;
-
-        const x = (xAxis.getPixelForValue(i) + xAxis.getPixelForValue(i + 1)) / 2;
-        ctx.save();
-        ctx.textAlign    = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.font         = `bold 9.5px 'Segoe UI', Arial, sans-serif`;
-        ctx.fillStyle    = '#1e9d8b';
-        ctx.fillText('₪' + Math.round(total).toLocaleString('he-IL'), x, summaryY);
-        ctx.restore();
-      });
-    },
-  };
-
   if (chart) chart.destroy();
 
   chart = new Chart(canvas, {
     type: 'bar',
     data: { datasets },
-    plugins: [rowBgPlugin, todayPlugin, monthSummaryPlugin, ghostBarsPlugin, barHandlesPlugin],
+    plugins: [rowBgPlugin, todayPlugin, ghostBarsPlugin, barHandlesPlugin],
     options: {
       indexAxis:          'y',
       responsive:         true,
@@ -1393,14 +1476,12 @@ function renderChart() {
           ticks: {
             font: (ctx) => {
               const label = ctx.tick?.label ?? '';
-              if (label === SUMMARY_LABEL) return { size: 10, weight: '600', style: 'italic' };
               return groupHeaders.has(label)
                 ? { size: 11, weight: '700' }
                 : { size: 12, weight: '600' };
             },
             color: (ctx) => {
               const label = ctx.tick?.label ?? '';
-              if (label === SUMMARY_LABEL) return '#1e9d8b';
               if (groupHeaders.has(label)) return '#555';
               return typeColorMap[label] || '#444';
             },
@@ -1495,14 +1576,31 @@ function onChartMouseMove(e) {
   // Tooltip
   const entry = billEntries.find(en => en.id === dp._eid);
   if (!entry) { hideTip(); return; }
-  const type = billTypes.find(t => t.id === entry.bill_type_id);
+  const type  = billTypes.find(t => t.id === entry.bill_type_id);
+  const color = type ? type.color : '#888';
   const s  = monthLabel(entry.start_month);
   const en = monthLabel(entry.end_month);
-  let html = `<b>${type ? esc(type.name) : ''}</b><br>${s} – ${en}`;
-  if (entry.amount)  html += `<br>₪${Math.abs(entry.amount).toLocaleString('he-IL',{maximumFractionDigits:0})}`;
-  if (dp._filler)    html += `<br><em style="color:#aaa">מילוי ריק</em>`;
-  if (entry.note)    html += `<br><small style="color:#ccc">${esc(entry.note)}</small>`;
-  if (entry.tx_name) html += `<br><small style="color:#9dd">${esc(entry.tx_name)}</small>`;
+
+  let html = `<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+    <span style="width:9px;height:9px;border-radius:50%;background:${color};flex-shrink:0;display:inline-block"></span>
+    <b style="font-size:1.02em">${type ? esc(type.name) : ''}</b>
+  </div>`;
+  html += `<span style="color:#aaa;font-size:0.88em">${s}`;
+  if (en !== s) html += ` – ${en}`;
+  html += `</span>`;
+  if (entry.amount != null) {
+    const fmt = '₪' + Math.abs(entry.amount).toLocaleString('he-IL', {maximumFractionDigits: 0});
+    html += `<div style="font-size:1.18em;font-weight:700;color:#6ef;margin-top:4px">${fmt}</div>`;
+  }
+  if (dp._filler) {
+    html += `<div style="color:#888;font-size:0.82em;margin-top:2px;font-style:italic">מילוי ריק</div>`;
+  }
+  if (entry.tx_name) {
+    html += `<div style="color:#9dd;font-size:0.8em;margin-top:2px">${esc(entry.tx_name)}</div>`;
+  }
+  if (entry.note) {
+    html += `<div style="color:#aaa;font-size:0.78em;margin-top:1px;font-style:italic">${esc(entry.note)}</div>`;
+  }
   showTip(html, e.clientX, e.clientY);
 }
 

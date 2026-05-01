@@ -38,30 +38,83 @@ body {
   overflow: hidden;
 }
 
-/* ── Top bar ─────────────────────────────────────────────── */
-.top-bar {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 11px 20px;
+/* ── Hamburger + slide-in nav ────────────────────────────── */
+.ham-btn {
+  position: fixed;
+  top: 14px; right: 14px;
+  width: 40px; height: 40px;
   background: var(--white);
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; z-index: 500;
+  box-shadow: var(--shadow-sm);
+  color: var(--navy);
+  transition: background .15s, color .15s, border-color .15s;
+}
+.ham-btn:hover { background: var(--teal); border-color: var(--teal); color: #fff; }
+.ham-btn.open  { opacity: 0; pointer-events: none; }
+.nav-overlay {
+  position: fixed; inset: 0;
+  background: rgba(15,22,45,.26);
+  z-index: 490; opacity: 0; pointer-events: none;
+  transition: opacity .22s ease;
+}
+.nav-overlay.open { opacity: 1; pointer-events: all; }
+.nav-sidebar {
+  position: fixed; top: 0; right: 0;
+  height: 100vh; width: 230px;
+  background: var(--white); z-index: 495;
+  transform: translate3d(100%, 0, 0);
+  transition: transform .22s cubic-bezier(.4,0,.2,1);
+  box-shadow: -4px 0 24px rgba(0,0,0,.09);
+  display: flex; flex-direction: column;
+}
+.nav-sidebar.open { transform: translate3d(0, 0, 0); }
+.nav-sidebar-hdr {
+  display: flex; align-items: center;
+  padding: 18px 18px 14px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.nav-sidebar-hdr span { font-size: .95em; font-weight: 700; color: var(--navy); }
+.nav-close-btn {
+  margin-right: auto; background: none; border: none;
+  cursor: pointer; font-size: 1.1em; color: #555;
+  padding: 4px 6px; border-radius: 6px;
+  transition: background .12s, color .12s;
+}
+.nav-close-btn:hover { background: var(--teal-light); color: var(--teal); }
+.nav-scroll { flex: 1; overflow-y: auto; padding: 8px 0 16px; }
+.nav-link {
+  display: flex; align-items: center;
+  padding: 10px 20px;
+  text-decoration: none; color: var(--text-sub);
+  font-size: .875em; font-weight: 500;
+  transition: background .1s, color .1s;
+  position: relative;
+}
+.nav-link::before {
+  content: ''; position: absolute;
+  right: 0; top: 22%; height: 56%;
+  width: 3px; border-radius: 3px 0 0 3px;
+  background: transparent; transition: background .1s;
+}
+.nav-link:hover { background: var(--teal-light); color: var(--teal); }
+.nav-link:hover::before { background: var(--teal); }
+.nav-link.active { color: #b8c0d0; cursor: default; pointer-events: none; }
+.nav-sep { height: 1px; background: var(--border); margin: 8px 16px; }
+
+/* ── Page header (replaces top-bar) ─────────────────────── */
+.chart-page-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 16px 10px 52px;
   border-bottom: 1.5px solid var(--border);
   flex-shrink: 0;
-  z-index: 10;
+  background: var(--white);
 }
-.top-bar h1 { font-size: 1.1em; font-weight: 700; }
+.page-title { font-size: 1em; font-weight: 700; margin-left: 4px; }
 .spacer { flex: 1; }
-.back-btn {
-  color: var(--teal);
-  text-decoration: none;
-  font-size: 0.82em;
-  font-weight: 600;
-  padding: 5px 12px;
-  border: 1.5px solid var(--teal);
-  border-radius: 7px;
-  transition: background .13s, color .13s;
-}
-.back-btn:hover { background: var(--teal); color: #fff; }
 
 /* ── Buttons ─────────────────────────────────────────────── */
 .btn {
@@ -510,14 +563,35 @@ body.resize-end    { cursor: ew-resize !important; }
 </head>
 <body>
 
-<!-- ── Top bar ─────────────────────────────────────────────── -->
-<div class="top-bar">
-  <a href="/" class="back-btn">← חזרה</a>
-  <h1>מעקב חשבונות</h1>
-  <span class="spacer"></span>
-  <button class="btn btn-ghost btn-sm" onclick="openFillerModal()">+ הוסף מילוי</button>
-  <button class="btn btn-primary btn-sm" onclick="openAddEntryModal()">+ הוסף רשומה</button>
-</div>
+<!-- ── Hamburger + slide-in nav ───────────────────────────── -->
+<button class="ham-btn" id="ham-btn" onclick="toggleNav()" aria-label="תפריט">
+  <svg width="18" height="14" viewBox="0 0 18 14" fill="none">
+    <rect width="18" height="2" rx="1" fill="currentColor"/>
+    <rect y="6" width="18" height="2" rx="1" fill="currentColor"/>
+    <rect y="12" width="18" height="2" rx="1" fill="currentColor"/>
+  </svg>
+</button>
+<div class="nav-overlay" id="nav-overlay" onclick="toggleNav()"></div>
+<nav class="nav-sidebar" id="nav-sidebar">
+  <div class="nav-sidebar-hdr">
+    <span>Menu</span>
+    <button class="nav-close-btn" onclick="closeNav()" aria-label="סגור תפריט">✕</button>
+  </div>
+  <div class="nav-scroll">
+    <a class="nav-link" href="/">ניתוח חודשי</a>
+    <a class="nav-link" href="/">עסקאות</a>
+    <div class="nav-sep"></div>
+    <a class="nav-link" href="/accounts">חשבונות</a>
+    <a class="nav-link" href="/housing">דיור</a>
+    <a class="nav-link" href="/organizer">ארגונית</a>
+    <a class="nav-link active" href="/bills">מעקב חשבונות</a>
+    <a class="nav-link" href="/categories">ניתוח קטגוריאלי</a>
+    <a class="nav-link" href="/search">חיפוש</a>
+    <div class="nav-sep"></div>
+    <a class="nav-link" href="/tagger">תייגן</a>
+    <a class="nav-link" href="/files">קבצים</a>
+  </div>
+</nav>
 
 <!-- ── Body split ──────────────────────────────────────────── -->
 <div class="body-wrap">
@@ -540,6 +614,13 @@ body.resize-end    { cursor: ew-resize !important; }
 
   <!-- Chart area -->
   <div class="chart-area">
+    <!-- Page header (title + add buttons) -->
+    <div class="chart-page-header">
+      <span class="page-title">מעקב חשבונות</span>
+      <span class="spacer"></span>
+      <button class="btn btn-ghost btn-sm" onclick="openFillerModal()">+ הוסף מילוי</button>
+      <button class="btn btn-primary btn-sm" onclick="openAddEntryModal()">+ הוסף רשומה</button>
+    </div>
     <div class="chart-controls">
       <div class="year-nav">
         <button class="nav-arrow" onclick="shiftView(-6)" title="6 חודשים אחורה">‹‹</button>
@@ -550,6 +631,13 @@ body.resize-end    { cursor: ew-resize !important; }
       </div>
       <button class="btn btn-ghost btn-xs" onclick="fitView()">הצג הכל</button>
       <button class="btn btn-ghost btn-xs" onclick="detectRecurrences()" title="זיהוי תשלומים חוזרים">⟳ זהה חזרות</button>
+      <div style="display:flex;align-items:center;gap:4px;margin-right:4px">
+        <input type="month" id="zoom-start" title="תחילת טווח" onchange="applyZoom()"
+          style="padding:3px 6px;border:1.5px solid var(--border);border-radius:6px;font-size:0.78em;font-family:inherit;outline:none;color:var(--navy)">
+        <span style="color:var(--text-muted);font-size:0.8em">—</span>
+        <input type="month" id="zoom-end" title="סוף טווח" onchange="applyZoom()"
+          style="padding:3px 6px;border:1.5px solid var(--border);border-radius:6px;font-size:0.78em;font-family:inherit;outline:none;color:var(--navy)">
+      </div>
       <span class="spacer"></span>
       <span class="range-info" id="range-info"></span>
     </div>
@@ -1042,7 +1130,12 @@ function renderTypes() {
 
   let html = '';
   for (const [gName, types] of Object.entries(groups)) {
-    html += `<div style="font-size:0.72em;font-weight:700;color:var(--text-muted);padding:6px 7px 2px;letter-spacing:.04em;text-transform:uppercase">${esc(gName)}</div>`;
+    html += `<div style="font-size:0.72em;font-weight:700;color:var(--text-muted);padding:6px 7px 2px;letter-spacing:.04em;text-transform:uppercase;display:flex;align-items:center;gap:3px">
+      <span style="flex:1">${esc(gName)}</span>
+      <button onclick="renameGroup('${esc(gName)}')" title="שנה שם קבוצה"
+        style="opacity:0;background:none;border:none;cursor:pointer;font-size:1.1em;padding:1px 4px;border-radius:4px;color:var(--text-muted);transition:opacity .15s"
+        onmouseenter="this.style.opacity='1'" onmouseleave="this.style.opacity='0'">✎</button>
+    </div>`;
     html += types.map(typeRow).join('');
   }
   html += noGroup.map(typeRow).join('');
@@ -1341,8 +1434,8 @@ function renderChart() {
       borderWidth:        2,
       borderRadius:       6,
       borderSkipped:      false,
-      barPercentage:      0.6,
-      categoryPercentage: 0.8,
+      barPercentage:      0.82,
+      categoryPercentage: 1.0,
       data: entries.map(e => {
         const s  = mIdx[e.start_month] ?? (e.start_month < viewStart ? -1 : months.length);
         const en = mIdx[e.end_month]   ?? (e.end_month   < viewStart ? -1 : months.length);
@@ -1370,8 +1463,8 @@ function renderChart() {
         borderDash:         [5, 4],
         borderRadius:       5,
         borderSkipped:      false,
-        barPercentage:      0.38,
-        categoryPercentage: 0.8,
+        barPercentage:      0.45,
+        categoryPercentage: 1.0,
         data:               fillerData,
       });
     }
@@ -1381,10 +1474,15 @@ function renderChart() {
   const step = months.length > 24 ? 3 : months.length > 12 ? 2 : 1;
   const tickLabels = months.map((m, i) => i % step === 0 ? monthLabel(m) : '');
 
-  // ── Canvas height ─────────────────────────────────────────────
+  // ── Canvas height — fixed row height so bars are thick; wrap scrolls ────
   const wrapEl  = document.getElementById('chart-wrap');
-  wrapEl.style.overflowY = 'hidden';
-  const canvasH = Math.max(wrapEl.clientHeight || 300, 120);
+  wrapEl.style.overflowY = 'auto';
+  const ROW_H   = 56;
+  const canvasH = Math.max(yLabels.length * ROW_H, wrapEl.clientHeight || 300, 120);
+
+  // Sync zoom inputs
+  document.getElementById('zoom-start').value = viewStart || '';
+  document.getElementById('zoom-end').value   = viewEnd   || '';
 
   const canvas = document.getElementById('bills-chart');
   canvas.style.height = canvasH + 'px';
@@ -2588,6 +2686,52 @@ document.addEventListener('click', e => {
 document.getElementById('type-name-inp').addEventListener('keydown', e => {
   if (e.key === 'Enter') submitAddType();
 });
+
+// ─────────────────────────────────────────────────────────────
+// Zoom (date range inputs)
+// ─────────────────────────────────────────────────────────────
+function applyZoom() {
+  const s = document.getElementById('zoom-start').value;
+  const e = document.getElementById('zoom-end').value;
+  if (s && e && s <= e) {
+    viewStart = s;
+    viewEnd   = e;
+    renderChart();
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Group rename
+// ─────────────────────────────────────────────────────────────
+async function renameGroup(oldName) {
+  const newName = prompt(`שנה שם קבוצה "${oldName}":`, oldName);
+  if (!newName || newName.trim() === oldName) return;
+  const trimmed = newName.trim();
+  const inGroup = billTypes.filter(t => t.group === oldName);
+  await Promise.all(inGroup.map(t =>
+    api('PUT', `/api/bills/types/${t.id}`, { name: t.name, color: t.color, group: trimmed })
+  ));
+  await loadTypes();
+  renderChart();
+}
+
+// ─────────────────────────────────────────────────────────────
+// Hamburger nav
+// ─────────────────────────────────────────────────────────────
+function openNav() {
+  document.getElementById('nav-sidebar').classList.add('open');
+  document.getElementById('nav-overlay').classList.add('open');
+  document.getElementById('ham-btn').classList.add('open');
+}
+function closeNav() {
+  document.getElementById('nav-sidebar').classList.remove('open');
+  document.getElementById('nav-overlay').classList.remove('open');
+  document.getElementById('ham-btn').classList.remove('open');
+}
+function toggleNav() {
+  document.getElementById('nav-sidebar').classList.contains('open') ? closeNav() : openNav();
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeNav(); });
 
 // ─────────────────────────────────────────────────────────────
 // Start

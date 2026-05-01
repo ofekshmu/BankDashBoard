@@ -1602,6 +1602,11 @@ function onDragMove(e) {
       dragState     = { ...potentialDrag };
       potentialDrag = null;
       hoveredBarInfo = null;
+      // Save original bar colors so we can restore them on cancel
+      const ds = chart.data.datasets[dragState.dIdx];
+      dragState.origBg     = ds.backgroundColor;
+      dragState.origBorder = ds.borderColor;
+      dragState.overlapping = false;
       document.body.classList.add(
         dragState.dragType === 'move' ? 'dragging-bar' :
         dragState.dragType === 'resize-start' ? 'resize-start' : 'resize-end'
@@ -1634,8 +1639,40 @@ function onDragMove(e) {
   newE = Math.max(0, Math.min(newE, months.length - 1));
   if (newS > newE) newS = newE;
 
+  // Live overlap feedback — tint bar red if position would conflict
+  const dragEntry  = billEntries.find(en => en.id === dragState.entryId);
+  const newStartM  = months[newS];
+  const newEndM    = months[newE];
+  const ds         = chart.data.datasets[dragState.dIdx];
+  if (dragEntry && newStartM && newEndM) {
+    const hasOverlap = !!clientOverlapCheck(dragEntry.bill_type_id, newStartM, newEndM, dragState.entryId);
+    if (hasOverlap !== dragState.overlapping) {
+      dragState.overlapping  = hasOverlap;
+      ds.backgroundColor = hasOverlap ? 'rgba(220,38,38,0.55)' : dragState.origBg;
+      ds.borderColor     = hasOverlap ? '#dc2626'              : dragState.origBorder;
+    }
+  }
+
   const dp = chart.data.datasets[dragState.dIdx].data[dragState.pIdx];
   dp.x = [newS, newE + 1];
+  chart.update('none');
+}
+
+async function blinkBar(dIdx, pIdx, revertX, origBg, origBorder) {
+  if (!chart) return;
+  const ds = chart.data.datasets[dIdx];
+  for (let i = 0; i < 3; i++) {
+    ds.backgroundColor = 'rgba(220,38,38,0.65)';
+    ds.borderColor     = '#dc2626';
+    chart.update('none');
+    await new Promise(r => setTimeout(r, 130));
+    ds.backgroundColor = 'rgba(220,38,38,0.15)';
+    chart.update('none');
+    await new Promise(r => setTimeout(r, 100));
+  }
+  ds.backgroundColor = origBg;
+  ds.borderColor     = origBorder;
+  chart.data.datasets[dIdx].data[pIdx].x = revertX;
   chart.update('none');
 }
 
@@ -1658,6 +1695,16 @@ async function onDragEnd(e) {
   const newEndM   = months[Math.max(0, ne - 1)]  || dragState.origEndM;
   const entry     = billEntries.find(en => en.id === dragState.entryId);
   const changed   = newStartM !== dragState.origStartM || newEndM !== dragState.origEndM;
+
+  // If overlapping — blink red and revert, no save
+  if (dragState.overlapping) {
+    const origX = [dragState.origStart, dragState.origEnd + 1];
+    const { dIdx, pIdx, origBg, origBorder } = dragState;
+    dragState = null;
+    await blinkBar(dIdx, pIdx, origX, origBg, origBorder);
+    return;
+  }
+
   dragState = null;
 
   if (!changed || !entry) return;
@@ -1670,7 +1717,7 @@ async function onDragEnd(e) {
     entry.end_month   = newEndM;
     renderChart();
   } else {
-    alert('שגיאה בשמירה: ' + r.error);
+    // Server rejected (e.g. race condition) — blink and revert
     renderChart();
   }
 }

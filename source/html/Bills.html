@@ -303,6 +303,29 @@ body.resize-end    { cursor: ew-resize !important; }
   font-size: 0.82em; padding: 18px;
 }
 
+/* ── Ghost / pending-recurrence panel ───────────────────── */
+.ghost-section {
+  background: #fffbeb;
+  border-top: 1.5px solid #fde68a;
+  max-height: 200px;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+.ghost-header {
+  padding: 8px 16px 6px;
+  font-weight: 700; font-size: 0.85em;
+  border-bottom: 1px solid #fde68a;
+  display: flex; align-items: center; gap: 8px;
+  flex-shrink: 0;
+}
+.ghost-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 18px; height: 18px; padding: 0 5px;
+  background: #f59e0b; color: #fff;
+  border-radius: 9px; font-size: 0.72em; font-weight: 700;
+}
+
 /* ── Modals ──────────────────────────────────────────────── */
 .overlay {
   position: fixed; inset: 0;
@@ -485,6 +508,7 @@ body.resize-end    { cursor: ew-resize !important; }
         <button class="nav-arrow" onclick="shiftView(6)" title="6 חודשים קדימה">››</button>
       </div>
       <button class="btn btn-ghost btn-xs" onclick="fitView()">הצג הכל</button>
+      <button class="btn btn-ghost btn-xs" onclick="detectRecurrences()" title="זיהוי תשלומים חוזרים">⟳ זהה חזרות</button>
       <span class="spacer"></span>
       <span class="range-info" id="range-info"></span>
     </div>
@@ -494,6 +518,18 @@ body.resize-end    { cursor: ew-resize !important; }
         <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.5"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
         <span>אין נתונים — הוסף סוגי חשבונות ורשומות כדי להתחיל</span>
       </div>
+    </div>
+
+    <!-- ── Ghost / recurring predictions panel ─────────────── -->
+    <div class="ghost-section hidden" id="ghost-section">
+      <div class="ghost-header">
+        <span>⟳ חזרות מוצעות</span>
+        <span class="ghost-badge" id="ghost-badge">0</span>
+        <span class="spacer"></span>
+        <button class="btn btn-primary btn-xs" onclick="approveAllGhosts()">אשר הכל</button>
+        <button class="btn btn-ghost btn-xs" onclick="dismissAllGhosts()">בטל הכל</button>
+      </div>
+      <div class="sug-list" id="ghost-list"></div>
     </div>
 
     <!-- ── Suggestions panel ──────────────────────────────── -->
@@ -792,6 +828,65 @@ let dragState    = null;   // active drag state
 let potentialDrag = null;  // pending (click or drag, not yet decided)
 let menuEntryId  = null;
 let hoveredBarInfo = null; // {startX, endX, centerY, barHeight, zone} for handle drawing
+let ghostEntries = [];     // proposed recurring entries not yet saved to DB
+
+// ── Ghost (pending recurring) bars plugin ─────────────────────────────────
+function _roundRect(ctx, x, y, w, h, r) {
+  r = Math.min(r, Math.abs(w) / 2, Math.abs(h) / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.arcTo(x + w, y,   x + w, y + r,   r);
+  ctx.lineTo(x + w,     y + h - r);
+  ctx.arcTo(x + w, y+h, x+w-r, y + h,   r);
+  ctx.lineTo(x + r,     y + h);
+  ctx.arcTo(x, y+h,     x, y+h-r,       r);
+  ctx.lineTo(x,         y + r);
+  ctx.arcTo(x, y,       x+r, y,         r);
+  ctx.closePath();
+}
+
+const ghostBarsPlugin = {
+  id: 'ghostBars',
+  afterDraw(ch) {
+    if (!ghostEntries.length) return;
+    const ctx   = ch.ctx;
+    const xAxis = ch.scales.x;
+    const yAxis = ch.scales.y;
+    if (!xAxis || !yAxis) return;
+    const rowH = yAxis.height / (yAxis.ticks.length || 1);
+    const barH = rowH * 0.52;
+
+    ghostEntries.forEach(g => {
+      const type = billTypes.find(t => t.id === g.bill_type_id);
+      if (!type) return;
+      const si = chartMIdx[g.start_month];
+      const ei = chartMIdx[g.end_month];
+      if (si == null || ei == null) return;
+
+      const x0 = xAxis.getPixelForValue(si);
+      const x1 = xAxis.getPixelForValue(ei + 1);
+      const cy = yAxis.getPixelForValue(type.name);
+
+      ctx.save();
+      _roundRect(ctx, x0, cy - barH / 2, x1 - x0, barH, 5);
+      ctx.fillStyle = 'rgba(245,158,11,0.14)';
+      ctx.fill();
+      ctx.setLineDash([6, 4]);
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.setLineDash([]);
+      ctx.fillStyle = '#d97706';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.font = 'bold 11px "Segoe UI", Arial, sans-serif';
+      ctx.fillText('?', (x0 + x1) / 2, cy);
+      ctx.restore();
+    });
+  },
+};
 
 // ── Jira-style handle plugin ───────────────────────────────────────────────
 const barHandlesPlugin = {
@@ -1267,7 +1362,7 @@ function renderChart() {
   chart = new Chart(canvas, {
     type: 'bar',
     data: { datasets },
-    plugins: [rowBgPlugin, todayPlugin, monthSummaryPlugin, barHandlesPlugin],
+    plugins: [rowBgPlugin, todayPlugin, monthSummaryPlugin, ghostBarsPlugin, barHandlesPlugin],
     options: {
       indexAxis:          'y',
       responsive:         true,
@@ -1924,6 +2019,177 @@ async function submitEditType() {
   } else {
     setStatus(st, 'err', r.error || 'שגיאה');
   }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Recurring bill detection (Feature C)
+// ─────────────────────────────────────────────────────────────
+function detectRecurrences() {
+  ghostEntries = [];
+  const today = todayYM();
+
+  billTypes.forEach(type => {
+    const entries = billEntries
+      .filter(e => e.bill_type_id === type.id && !e.is_filler)
+      .sort((a, b) => a.start_month.localeCompare(b.start_month));
+    if (entries.length < 2) return;
+
+    // Compute start-to-start intervals
+    const intervals = [];
+    for (let i = 1; i < entries.length; i++) {
+      const gap = monthDiff(entries[i-1].start_month, entries[i].start_month);
+      if (gap > 0) intervals.push(gap);
+    }
+    if (!intervals.length) return;
+
+    // Most common interval
+    const freq = {};
+    intervals.forEach(g => freq[g] = (freq[g]||0) + 1);
+    const dominant = parseInt(Object.entries(freq).sort((a,b) => b[1]-a[1])[0][0]);
+
+    // Require ≥50% of intervals within ±1 month of dominant
+    const consistent = intervals.filter(g => Math.abs(g - dominant) <= 1).length / intervals.length;
+    if (consistent < 0.5) return;
+
+    const last     = entries[entries.length - 1];
+    const duration = monthDiff(last.start_month, last.end_month);
+
+    let nextStart = monthAdd(last.start_month, dominant);
+    for (let i = 0; i < 6; i++) {
+      const nextEnd = monthAdd(nextStart, duration);
+      if (monthDiff(today, nextStart) > 12) break;
+
+      const covered = billEntries.find(e =>
+        e.bill_type_id === type.id && !e.is_filler &&
+        e.start_month <= nextEnd && e.end_month >= nextStart
+      );
+      const ghostCovered = ghostEntries.find(g =>
+        g.bill_type_id === type.id &&
+        g.start_month <= nextEnd && g.end_month >= nextStart
+      );
+      if (!covered && !ghostCovered) {
+        ghostEntries.push({
+          bill_type_id: type.id,
+          start_month:  nextStart,
+          end_month:    nextEnd,
+          interval:     dominant,
+          _ghost:       true,
+          _id:          `ghost-${type.id}-${nextStart}`,
+        });
+      }
+      nextStart = monthAdd(nextStart, dominant);
+    }
+  });
+
+  // Extend view to include ghost bars if they're in the future
+  if (ghostEntries.length) {
+    const latestGhost = ghostEntries.map(g => g.end_month).reduce((a, b) => a > b ? a : b);
+    if (!viewEnd || latestGhost > viewEnd) {
+      ensureView();
+      viewEnd = monthAdd(latestGhost, 1);
+    }
+  }
+
+  renderGhostPanel();
+  renderChart();
+
+  if (!ghostEntries.length) {
+    alert('לא זוהו דפוסי חזרה עבור החשבונות הקיימים.\nנדרשות לפחות 2 רשומות לכל סוג חשבון עם מרווח קבוע.');
+  }
+}
+
+function renderGhostPanel() {
+  const section = document.getElementById('ghost-section');
+  const list    = document.getElementById('ghost-list');
+  if (!ghostEntries.length) {
+    section.classList.add('hidden');
+    return;
+  }
+  section.classList.remove('hidden');
+  document.getElementById('ghost-badge').textContent = ghostEntries.length;
+  list.innerHTML = ghostEntries.map(g => {
+    const type = billTypes.find(t => t.id === g.bill_type_id);
+    const span = g.start_month === g.end_month
+      ? monthLabel(g.start_month)
+      : `${monthLabel(g.start_month)} – ${monthLabel(g.end_month)}`;
+    return `
+      <div class="sug-item" id="${g._id}">
+        <span class="type-dot" style="background:${type?.color||'#888'}"></span>
+        <span class="sug-name">${esc(type?.name||'?')}</span>
+        <span class="sug-date">${span}</span>
+        <span style="font-size:0.72em;color:var(--text-muted)">כל ${g.interval} חודשים</span>
+        <div class="sug-acts">
+          <button class="btn btn-primary btn-xs" onclick="approveGhost('${g._id}')">אשר ✓</button>
+          <button class="btn btn-ghost btn-xs" onclick="dismissGhost('${g._id}')">בטל</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+async function approveGhost(ghostId) {
+  const g = ghostEntries.find(x => x._id === ghostId);
+  if (!g) return;
+  const overlap = clientOverlapCheck(g.bill_type_id, g.start_month, g.end_month);
+  if (overlap) { alert('חפיפה: ' + overlap); return; }
+  const r = await api('POST', '/api/bills/entries', {
+    bill_type_id: g.bill_type_id,
+    start_month:  g.start_month,
+    end_month:    g.end_month,
+    is_filler:    false,
+  });
+  if (r.ok) {
+    ghostEntries = ghostEntries.filter(x => x._id !== ghostId);
+    document.getElementById(ghostId)?.remove();
+    if (!ghostEntries.length) document.getElementById('ghost-section').classList.add('hidden');
+    else document.getElementById('ghost-badge').textContent = ghostEntries.length;
+    await loadEntries();
+  } else {
+    alert('שגיאה: ' + (r.error || 'שגיאה'));
+  }
+}
+
+function dismissGhost(ghostId) {
+  ghostEntries = ghostEntries.filter(x => x._id !== ghostId);
+  document.getElementById(ghostId)?.remove();
+  if (!ghostEntries.length) document.getElementById('ghost-section').classList.add('hidden');
+  else document.getElementById('ghost-badge').textContent = ghostEntries.length;
+  renderChart();
+}
+
+async function approveAllGhosts() {
+  if (!ghostEntries.length) return;
+  if (!confirm(`לאשר את כל ${ghostEntries.length} החזרות המוצעות?`)) return;
+
+  let added = 0, skipped = 0;
+  const toApprove = [...ghostEntries];
+  for (const g of toApprove) {
+    const overlap = clientOverlapCheck(g.bill_type_id, g.start_month, g.end_month);
+    if (overlap) { skipped++; continue; }
+    const r = await api('POST', '/api/bills/entries', {
+      bill_type_id: g.bill_type_id,
+      start_month:  g.start_month,
+      end_month:    g.end_month,
+      is_filler:    false,
+    });
+    if (r.ok) {
+      added++;
+      billEntries.push({
+        id: r.id, bill_type_id: g.bill_type_id,
+        start_month: g.start_month, end_month: g.end_month,
+        is_filler: false, note: '',
+      });
+    } else { skipped++; }
+  }
+  ghostEntries = [];
+  document.getElementById('ghost-section').classList.add('hidden');
+  await loadEntries();
+  if (added) alert(`נוספו ${added} רשומות${skipped ? `, דולגו ${skipped}` : ''}.`);
+}
+
+function dismissAllGhosts() {
+  ghostEntries = [];
+  document.getElementById('ghost-section').classList.add('hidden');
+  renderChart();
 }
 
 // ─────────────────────────────────────────────────────────────

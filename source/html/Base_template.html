@@ -131,6 +131,14 @@ body {
 .nav-item:hover::before { background: var(--teal); }
 .nav-item.active { color: #b8c0d0; cursor: default; pointer-events: none; }
 .nav-sep { height: 1px; background: var(--border); margin: 8px 16px; }
+.nav-alert-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--amber, #f59e0b);
+  margin-inline-start: auto;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 2px var(--white, #fff);
+}
 
 /* ── Main container ──────────────────────────────────────── */
 .main {
@@ -1361,7 +1369,7 @@ body {
     <button class="nav-item" id="nav-accounts" onclick="showPanel('accounts',this);closeNav()">חשבונות</button>
     <a class="nav-item" href="/housing">דיור</a>
     <a class="nav-item" href="/organizer">ארגונית</a>
-    <a class="nav-item" href="/bills">מעקב חשבונות</a>
+    <a class="nav-item" href="/bills" id="nav-bills-link">מעקב חשבונות<span class="nav-alert-dot" id="nav-bills-dot" style="display:none"></span></a>
     <a class="nav-item" href="/categories">ניתוח קטגוריאלי</a>
     <a class="nav-item" href="/search">חיפוש</a>
     <div class="nav-sep"></div>
@@ -3328,5 +3336,13 @@ function _setRevertStatus(msg, cls) {
   </div>
 </div>
 
+<script>
+// Show alert dot on bills nav link when suggestions are pending
+fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
+  const dot = document.getElementById('nav-bills-dot');
+  if (dot && Array.isArray(d.suggestions) && d.suggestions.length > 0)
+    dot.style.display = '';
+}).catch(() => {});
+</script>
 </body>
 </html>

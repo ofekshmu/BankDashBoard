@@ -2535,7 +2535,12 @@ class DataBase:
                    c.CardID                                    AS TxCardID,
                    c.Charge_Date                               AS TxChargeDate,
                    c.Charge_Value                              AS TxChargeValue,
-                   c.Charge_Currency                           AS TxChargeCurrency
+                   c.Charge_Currency                           AS TxChargeCurrency,
+                   COALESCE(
+                     CASE WHEN b.Income > 0 THEN CAST(b.Income AS REAL)
+                          ELSE CAST(b.Out AS REAL) END,
+                     ABS(CAST(c.Transaction_Value AS REAL))
+                   )                                           AS TxAmount
             FROM BillEntries e
             LEFT JOIN BankTransactions b
               ON e.Transaction_Table='BankTransactions' AND e.Transaction_ID=b.ID
@@ -2557,20 +2562,24 @@ class DataBase:
                  'tx_card_id':       r[17] or '',
                  'tx_charge_date':  (r[18] or '')[:10],
                  'tx_charge_value':  r[19],
-                 'tx_charge_currency': r[20] or ''}
+                 'tx_charge_currency': r[20] or '',
+                 'tx_amount':         r[21]}
                 for r in rows]
 
     def check_bill_entry_overlap(self, bill_type_id: int, start_month: str,
                                  end_month: str, exclude_id: int = None) -> str | None:
         """Return an error string if the date range overlaps an existing entry of the same type, else None."""
-        params = [bill_type_id, end_month, start_month]
+        # Normalize: 'YYYY-MM' → 'YYYY-MM-01' for start, 'YYYY-MM-31' for end
+        def ns(m): return m if len(m) > 7 else m + '-01'
+        def ne(m): return m if len(m) > 7 else m + '-31'
+        params = [bill_type_id, ne(end_month), ns(start_month)]
         sql = """
             SELECT e.ID, e.Start_Month, e.End_Month, bt.Name
             FROM BillEntries e
             JOIN BillTypes bt ON bt.ID = e.BillType_ID
             WHERE e.BillType_ID = ?
-              AND e.Start_Month <= ?
-              AND e.End_Month   >= ?
+              AND CASE WHEN LENGTH(e.Start_Month)=7 THEN e.Start_Month||'-01' ELSE e.Start_Month END < ?
+              AND CASE WHEN LENGTH(e.End_Month)=7   THEN e.End_Month  ||'-31' ELSE e.End_Month   END > ?
         """
         if exclude_id is not None:
             sql += " AND e.ID != ?"

@@ -99,6 +99,14 @@ body {
 .nav-link:hover::before { background: var(--teal); }
 .nav-link.active { color: #b8c0d0; cursor: default; pointer-events: none; }
 .nav-sep { height: 1px; background: var(--border); margin: 8px 16px; }
+.nav-alert-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--amber, #f59e0b);
+  margin-inline-start: auto;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 2px var(--surface, #fff);
+}
 
 /* ── Page header (replaces top-bar) ─────────────────────── */
 .chart-page-header {
@@ -268,8 +276,19 @@ body {
   flex: 1;
   display: flex;
   flex-direction: column;
-  background: var(--white);
+  background: var(--bg);
   min-width: 0;
+  overflow-y: auto;
+  padding: 14px;
+  gap: 14px;
+}
+/* ── Shared card block ───────────────────────────────────── */
+.bills-card {
+  background: var(--white);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  flex-shrink: 0;
 }
 .chart-controls {
   display: flex; align-items: center; gap: 10px;
@@ -303,15 +322,10 @@ body {
 }
 #bills-chart { cursor: crosshair; display: block; }
 
-/* ── Per-type KPI cards strip ────────────────────────────── */
+/* ── Per-type KPI cards grid ─────────────────────────────── */
 .type-kpi-bar {
-  border-top: 2px solid var(--border);
-  background: var(--bg);
-  flex-shrink: 0;
-  overflow-x: auto;
-  overflow-y: hidden;
+  background: var(--white);
 }
-.type-kpi-bar:empty { display: none; }
 .type-kpi-section-hdr {
   padding: 5px 16px 3px;
   font-size: 0.68em;
@@ -320,21 +334,27 @@ body {
   text-transform: uppercase;
   color: var(--text-muted);
   border-bottom: 1px solid var(--border);
-  background: var(--white);
 }
 .type-kpi-cards {
-  display: flex;
-  gap: 0;
-  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 1px;
+  background: var(--border);
+  border-top: 1px solid var(--border);
 }
 .type-kpi-card {
-  min-width: 155px;
-  padding: 8px 14px 9px;
-  border-right: 1px solid var(--border);
-  flex-shrink: 0;
+  padding: 10px 14px 12px;
   background: var(--white);
+  position: relative;
+  overflow: hidden;
 }
-.type-kpi-card:last-child { border-right: none; }
+.type-kpi-card::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--kpi-color, var(--teal));
+}
 .type-kpi-name {
   display: flex;
   align-items: center;
@@ -352,15 +372,35 @@ body {
   border-radius: 50%;
   flex-shrink: 0;
 }
-.type-kpi-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 3px 8px;
+.type-kpi-main-val {
+  font-size: 1.18em;
+  font-weight: 800;
+  color: var(--kpi-color, var(--teal));
+  line-height: 1.25;
+  margin: 5px 0 0;
+  letter-spacing: -0.02em;
 }
-.type-kpi-item { display: flex; flex-direction: column; }
-.type-kpi-label { font-size: 0.62em; color: var(--text-muted); line-height: 1.2; }
-.type-kpi-val   { font-size: 0.84em; font-weight: 700; color: var(--navy); line-height: 1.3; }
-.type-kpi-val.accent { color: var(--teal); }
+.type-kpi-main-lbl {
+  font-size: 0.60em;
+  color: var(--text-muted);
+  margin-bottom: 7px;
+  margin-top: 1px;
+}
+.type-kpi-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 2px;
+}
+.type-kpi-cell { display: flex; flex-direction: column; flex: 1; }
+.type-kpi-label { font-size: 0.59em; color: var(--text-muted); line-height: 1.2; }
+.type-kpi-val   { font-size: 0.80em; font-weight: 700; color: var(--navy); line-height: 1.35; }
+.type-kpi-total {
+  margin-top: 6px;
+  font-size: 0.62em;
+  color: var(--text-sub);
+  border-top: 1px solid var(--border);
+  padding-top: 4px;
+}
 .chart-empty-state {
   position: absolute; inset: 0;
   display: flex; flex-direction: column;
@@ -381,7 +421,6 @@ body.resize-end    { cursor: ew-resize !important; }
 /* ── Suggestions panel ───────────────────────────────────── */
 .suggestions-section {
   background: var(--white);
-  border-top: 1.5px solid var(--border);
   max-height: 230px;
   display: flex;
   flex-direction: column;
@@ -422,7 +461,6 @@ body.resize-end    { cursor: ew-resize !important; }
 /* ── Bottom KPI stats bar ────────────────────────────────── */
 .stats-bar {
   display: flex;
-  border-top: 2px solid var(--border);
   background: var(--white);
   flex-shrink: 0;
   overflow-x: auto;
@@ -621,7 +659,7 @@ body.resize-end    { cursor: ew-resize !important; }
     <a class="nav-link" href="/accounts">חשבונות</a>
     <a class="nav-link" href="/housing">דיור</a>
     <a class="nav-link" href="/organizer">ארגונית</a>
-    <a class="nav-link active" href="/bills">מעקב חשבונות</a>
+    <a class="nav-link active" href="/bills" id="nav-bills-link">מעקב חשבונות<span class="nav-alert-dot" id="nav-bills-dot" style="display:none"></span></a>
     <a class="nav-link" href="/categories">ניתוח קטגוריאלי</a>
     <a class="nav-link" href="/search">חיפוש</a>
     <div class="nav-sep"></div>
@@ -651,45 +689,48 @@ body.resize-end    { cursor: ew-resize !important; }
 
   <!-- Chart area -->
   <div class="chart-area">
-    <!-- Page header (title + add buttons) -->
-    <div class="chart-page-header">
-      <button class="ham-btn" id="ham-btn" onclick="toggleNav()" aria-label="תפריט">
-        <svg width="18" height="14" viewBox="0 0 18 14" fill="none">
-          <rect width="18" height="2" rx="1" fill="currentColor"/>
-          <rect y="6" width="18" height="2" rx="1" fill="currentColor"/>
-          <rect y="12" width="18" height="2" rx="1" fill="currentColor"/>
-        </svg>
-      </button>
-      <span class="page-title">מעקב חשבונות</span>
-      <span class="spacer"></span>
-      <button class="btn btn-ghost btn-sm" onclick="openFillerModal()">+ הוסף מילוי</button>
-      <button class="btn btn-primary btn-sm" onclick="openAddEntryModal()">+ הוסף רשומה</button>
-    </div>
-    <div class="chart-controls">
-      <div class="year-nav">
-        <button class="nav-arrow" onclick="shiftView(-6)" title="6 חודשים אחורה">‹‹</button>
-        <button class="nav-arrow" onclick="shiftView(-1)" title="חודש אחורה">‹</button>
-        <span class="year-label" id="view-label">—</span>
-        <button class="nav-arrow" onclick="shiftView(1)" title="חודש קדימה">›</button>
-        <button class="nav-arrow" onclick="shiftView(6)" title="6 חודשים קדימה">››</button>
+    <!-- ── Card 1: Page header + chart controls + chart ──── -->
+    <div class="bills-card">
+      <!-- Page header (title + add buttons) -->
+      <div class="chart-page-header">
+        <button class="ham-btn" id="ham-btn" onclick="toggleNav()" aria-label="תפריט">
+          <svg width="18" height="14" viewBox="0 0 18 14" fill="none">
+            <rect width="18" height="2" rx="1" fill="currentColor"/>
+            <rect y="6" width="18" height="2" rx="1" fill="currentColor"/>
+            <rect y="12" width="18" height="2" rx="1" fill="currentColor"/>
+          </svg>
+        </button>
+        <span class="page-title">מעקב חשבונות</span>
+        <span class="spacer"></span>
+        <button class="btn btn-ghost btn-sm" onclick="openFillerModal()">+ הוסף מילוי</button>
+        <button class="btn btn-primary btn-sm" onclick="openAddEntryModal()">+ הוסף רשומה</button>
       </div>
-      <button class="btn btn-ghost btn-xs" onclick="fitView()">הצג הכל</button>
-      <span class="spacer"></span>
-      <span class="range-info" id="range-info"></span>
-    </div>
-    <div class="chart-wrap" id="chart-wrap">
-      <div id="chart-sizer" style="position:relative;width:100%">
-        <canvas id="bills-chart"></canvas>
+      <div class="chart-controls">
+        <div class="year-nav">
+          <button class="nav-arrow" onclick="shiftView(-6)" title="6 חודשים אחורה">‹‹</button>
+          <button class="nav-arrow" onclick="shiftView(-1)" title="חודש אחורה">‹</button>
+          <span class="year-label" id="view-label">—</span>
+          <button class="nav-arrow" onclick="shiftView(1)" title="חודש קדימה">›</button>
+          <button class="nav-arrow" onclick="shiftView(6)" title="6 חודשים קדימה">››</button>
+        </div>
+        <button class="btn btn-ghost btn-xs" onclick="fitView()">הצג הכל</button>
+        <span class="spacer"></span>
+        <span class="range-info" id="range-info"></span>
       </div>
-      <div class="zoom-select" id="zoom-select"></div>
-      <div class="chart-empty-state" id="empty-state">
-        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.5"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-        <span>אין נתונים — הוסף סוגי חשבונות ורשומות כדי להתחיל</span>
+      <div class="chart-wrap" id="chart-wrap">
+        <div id="chart-sizer" style="position:relative;width:100%">
+          <canvas id="bills-chart"></canvas>
+        </div>
+        <div class="zoom-select" id="zoom-select"></div>
+        <div class="chart-empty-state" id="empty-state">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.5"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <span>אין נתונים — הוסף סוגי חשבונות ורשומות כדי להתחיל</span>
+        </div>
       </div>
     </div>
 
-    <!-- ── Suggestions panel ──────────────────────────────── -->
-    <div class="suggestions-section">
+    <!-- ── Card 2: Suggestions panel ─────────────────────── -->
+    <div class="bills-card suggestions-section">
       <div class="sug-header">
         <span>עסקאות מוצעות</span>
         <span class="sug-badge" id="sug-badge" style="display:none">0</span>
@@ -702,13 +743,18 @@ body.resize-end    { cursor: ew-resize !important; }
       </div>
     </div>
 
-    <!-- ── Bottom group KPI bar ─────────────────────────── -->
-    <div class="stats-bar" id="stats-bar"></div>
+    <!-- ── Card 3: Group KPI stats bar ───────────────────── -->
+    <div class="bills-card" id="stats-bar-card" style="display:none">
+      <div class="type-kpi-section-hdr">סיכום לפי קבוצה</div>
+      <div class="stats-bar" id="stats-bar"></div>
+    </div>
 
-    <!-- ── Per-type KPI cards ────────────────────────────── -->
-    <div class="type-kpi-bar" id="type-kpi-bar">
-      <div class="type-kpi-section-hdr">ניתוח לפי חשבון</div>
-      <div class="type-kpi-cards" id="type-kpi-cards"></div>
+    <!-- ── Card 4: Per-type KPI cards ────────────────────── -->
+    <div class="bills-card" id="type-kpi-card-wrap" style="display:none">
+      <div class="type-kpi-bar" id="type-kpi-bar">
+        <div class="type-kpi-section-hdr">ניתוח לפי חשבון</div>
+        <div class="type-kpi-cards" id="type-kpi-cards"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -1191,8 +1237,9 @@ function renderStats() {
 // Bottom KPI stats bar
 // ─────────────────────────────────────────────────────────────
 function renderStatsBar() {
-  const bar = document.getElementById('stats-bar');
-  if (!bar || !billTypes.length) { if (bar) bar.innerHTML = ''; return; }
+  const bar     = document.getElementById('stats-bar');
+  const barCard = document.getElementById('stats-bar-card');
+  if (!bar || !billTypes.length) { if (bar) bar.innerHTML = ''; if (barCard) barCard.style.display = 'none'; return; }
 
   // Build groups
   const groupMap = {};
@@ -1265,6 +1312,7 @@ function renderStatsBar() {
   });
 
   bar.innerHTML = cards.join('');
+  if (barCard) barCard.style.display = '';
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -1272,10 +1320,10 @@ function renderStatsBar() {
 // ─────────────────────────────────────────────────────────────
 function renderTypeKpiBar() {
   const container = document.getElementById('type-kpi-cards');
-  const bar       = document.getElementById('type-kpi-bar');
+  const cardWrap  = document.getElementById('type-kpi-card-wrap');
   if (!container) return;
-  if (!billTypes.length) { if (bar) bar.style.display = 'none'; return; }
-  if (bar) bar.style.display = '';
+  if (!billTypes.length) { if (cardWrap) cardWrap.style.display = 'none'; return; }
+  if (cardWrap) cardWrap.style.display = '';
 
   const fmtAmt  = v => v > 0 ? '₪' + Math.round(v).toLocaleString('he-IL') : '—';
   const nMonths = chartMonths.length || 1;
@@ -1296,33 +1344,25 @@ function renderTypeKpiBar() {
     }
 
     return `
-      <div class="type-kpi-card">
+      <div class="type-kpi-card" style="--kpi-color:${type.color}">
         <div class="type-kpi-name">
           <span class="type-kpi-dot" style="background:${type.color}"></span>
           ${esc(type.name)}
         </div>
-        <div class="type-kpi-grid">
-          <div class="type-kpi-item">
-            <span class="type-kpi-label">ממוצע חודשי</span>
-            <span class="type-kpi-val accent">${fmtAmt(monthAvg)}</span>
-          </div>
-          <div class="type-kpi-item">
+        <div class="type-kpi-main-val">${fmtAmt(monthAvg)}</div>
+        <div class="type-kpi-main-lbl">ממוצע חודשי</div>
+        <div class="type-kpi-row">
+          <div class="type-kpi-cell">
             <span class="type-kpi-label">ממוצע תשלום</span>
             <span class="type-kpi-val">${fmtAmt(avg)}</span>
           </div>
-          <div class="type-kpi-item">
-            <span class="type-kpi-label">כמות תשלומים</span>
+          <div class="type-kpi-cell">
+            <span class="type-kpi-label">תשלומים</span>
             <span class="type-kpi-val">${n}</span>
           </div>
-          <div class="type-kpi-item">
-            <span class="type-kpi-label">סה״כ שולם</span>
-            <span class="type-kpi-val">${fmtAmt(total)}</span>
-          </div>
-          ${std > 0 ? `
-          <div class="type-kpi-item" style="grid-column:1/-1">
-            <span class="type-kpi-label">סטיית תקן</span>
-            <span class="type-kpi-val" style="color:var(--text-sub)">±${fmtAmt(std)}</span>
-          </div>` : ''}
+        </div>
+        <div class="type-kpi-total">
+          סה"כ ${fmtAmt(total)}${std > 0 ? `&ensp;·&ensp;±${fmtAmt(std)}` : ''}
         </div>
       </div>`;
   }).join('');
@@ -1353,10 +1393,50 @@ function monthDiff(a, b) {  // b - a in months
 }
 
 function monthLabel(ym) {
-  const [y, m] = ym.split('-').map(Number);
+  const base = ym.slice(0, 7);
+  const day  = parseInt(ym.slice(8)) || 1;
+  const [y, m] = base.split('-').map(Number);
   const names = ['ינו','פבר','מרס','אפר','מאי','יונ','יול','אוג','ספט','אוק','נוב','דצמ'];
-  return `${names[m-1]} ${String(y).slice(2)}`;
+  const lbl = `${names[m-1]} '${String(y).slice(2)}`;
+  return day >= 15 ? `mid-${names[m-1]} '${String(y).slice(2)}` : lbl;
 }
+
+// ── Half-month ↔ x-position helpers ─────────────────────────
+// "YYYY-MM"    → first half of that month  (x = N + 0)
+// "YYYY-MM-15" → second half of that month (x = N + 0.5)
+function mStartX(m, mIdxMap) {
+  const base = m.slice(0, 7);
+  const day  = parseInt(m.slice(8)) || 1;
+  const n    = mIdxMap[base];
+  if (n == null) return null;
+  return n + (day >= 15 ? 0.5 : 0);
+}
+// exclusive end: "YYYY-MM" ends at N+1, "YYYY-MM-15" ends at N+0.5
+function mEndX(m, mIdxMap) {
+  const base = m.slice(0, 7);
+  const day  = parseInt(m.slice(8)) || 1;
+  const n    = mIdxMap[base];
+  if (n == null) return null;
+  return day >= 15 ? n + 0.5 : n + 1;
+}
+function xToStartM(x, monthsArr) {
+  const n = Math.floor(x);
+  const base = monthsArr[Math.max(0, n)];
+  if (!base) return null;
+  return x % 1 >= 0.5 ? base + '-15' : base;
+}
+function xToEndM(x, monthsArr) {
+  // x is exclusive upper bound
+  if (x % 1 < 0.01) {  // integer → end of month N-1
+    return monthsArr[Math.max(0, Math.floor(x) - 1)] || null;
+  } else {              // half → second half of month floor(x)
+    const base = monthsArr[Math.floor(x)];
+    return base ? base + '-15' : null;
+  }
+}
+// normalize for lexicographic overlap comparison
+function normS(m) { return m.length > 7 ? m : m + '-01'; }
+function normE(m) { return m.length > 7 ? m : m + '-31'; }
 
 function todayYM() {
   const d = new Date();
@@ -1482,9 +1562,9 @@ function renderChart() {
       barPercentage:      1.0,
       categoryPercentage: 1.0,
       data: entries.map(e => {
-        const s  = mIdx[e.start_month] ?? (e.start_month < viewStart ? -1 : months.length);
-        const en = mIdx[e.end_month]   ?? (e.end_month   < viewStart ? -1 : months.length);
-        return { x: [s, en + 1], y: String(type.id), _eid: e.id, _filler: false };
+        const s  = mStartX(e.start_month, mIdx) ?? (e.start_month.slice(0,7) < viewStart ? -1 : months.length);
+        const en = mEndX(e.end_month, mIdx)     ?? (e.end_month.slice(0,7)   < viewStart ? -1 : months.length);
+        return { x: [s, en], y: String(type.id), _eid: e.id, _filler: false };
       }),
     });
   });
@@ -1495,9 +1575,9 @@ function renderChart() {
     const fillerData = fillers.map(e => {
       const type = billTypes.find(t => t.id === e.bill_type_id);
       if (!type) return null;
-      const s  = mIdx[e.start_month] ?? (e.start_month < viewStart ? -1 : months.length);
-      const en = mIdx[e.end_month]   ?? (e.end_month   < viewStart ? -1 : months.length);
-      return { x: [s, en + 1], y: String(type.id), _eid: e.id, _filler: true, _note: e.note };
+      const s  = mStartX(e.start_month, mIdx) ?? (e.start_month.slice(0,7) < viewStart ? -1 : months.length);
+      const en = mEndX(e.end_month, mIdx)     ?? (e.end_month.slice(0,7)   < viewStart ? -1 : months.length);
+      return { x: [s, en], y: String(type.id), _eid: e.id, _filler: true, _note: e.note };
     }).filter(Boolean);
     if (fillerData.length) {
       datasets.push({
@@ -1953,8 +2033,8 @@ function onDragStart(e) {
     entryId: eid, dIdx: el.datasetIndex, pIdx: el.index,
     dragType,
     startMouseX: e.clientX, startMouseY: e.clientY,
-    origStart:  mIdx[entry.start_month] ?? 0,
-    origEnd:    mIdx[entry.end_month]   ?? 0,
+    origStart:  mStartX(entry.start_month, chartMIdx) ?? 0,
+    origEnd:    mEndX(entry.end_month,   chartMIdx) ?? 1,
     origStartM: entry.start_month,
     origEndM:   entry.end_month,
   };
@@ -2004,34 +2084,35 @@ function onDragMove(e) {
   }
   if (!dragState || !chart) return;
 
-  const xScale = chart.scales.x;
-  const canvas = document.getElementById('bills-chart');
-  const rect   = canvas.getBoundingClientRect();
-  const curIdx = Math.round(xScale.getValueForPixel(e.clientX - rect.left));
-  const startIdx = Math.round(xScale.getValueForPixel(dragState.startMouseX - rect.left));
-  const delta  = curIdx - startIdx;
+  const xScale   = chart.scales.x;
+  const canvas   = document.getElementById('bills-chart');
+  const rect     = canvas.getBoundingClientRect();
+  const SNAP     = 0.5;
+  const snap     = v => Math.round(v / SNAP) * SNAP;
+  const curIdx   = snap(xScale.getValueForPixel(e.clientX - rect.left));
+  const startIdx = snap(xScale.getValueForPixel(dragState.startMouseX - rect.left));
+  const delta    = curIdx - startIdx;
 
   let newS = dragState.origStart;
-  let newE = dragState.origEnd;
+  let newE = dragState.origEnd;   // origEnd is exclusive
   if (dragState.dragType === 'move') {
     newS = dragState.origStart + delta;
     newE = dragState.origEnd   + delta;
   } else if (dragState.dragType === 'resize-start') {
-    newS = Math.min(dragState.origStart + delta, newE);
+    newS = Math.min(dragState.origStart + delta, newE - SNAP);
   } else {
-    newE = Math.max(dragState.origEnd + delta, newS);
+    newE = Math.max(dragState.origEnd + delta, newS + SNAP);
   }
 
   const months = buildMonthList();
-  newS = Math.max(0, Math.min(newS, months.length - 1));
-  newE = Math.max(0, Math.min(newE, months.length - 1));
-  if (newS > newE) newS = newE;
+  newS = Math.max(0,    Math.min(newS, months.length - SNAP));
+  newE = Math.max(SNAP, Math.min(newE, months.length));
 
   // Live overlap feedback — tint bar red if position would conflict
-  const dragEntry  = billEntries.find(en => en.id === dragState.entryId);
-  const newStartM  = months[newS];
-  const newEndM    = months[newE];
-  const ds         = chart.data.datasets[dragState.dIdx];
+  const dragEntry = billEntries.find(en => en.id === dragState.entryId);
+  const newStartM = xToStartM(newS, months);
+  const newEndM   = xToEndM(newE, months);
+  const ds        = chart.data.datasets[dragState.dIdx];
   if (dragEntry && newStartM && newEndM) {
     const hasOverlap = !!clientOverlapCheck(dragEntry.bill_type_id, newStartM, newEndM, dragState.entryId);
     if (hasOverlap !== dragState.overlapping) {
@@ -2042,7 +2123,7 @@ function onDragMove(e) {
   }
 
   const dp = chart.data.datasets[dragState.dIdx].data[dragState.pIdx];
-  dp.x = [newS, newE + 1];
+  dp.x = [newS, newE];   // newE already exclusive
   chart.update('none');
 }
 
@@ -2097,14 +2178,14 @@ async function onDragEnd(e) {
   const months    = buildMonthList();
   const dp        = chart.data.datasets[dragState.dIdx].data[dragState.pIdx];
   const [ns, ne]  = dp.x;
-  const newStartM = months[ns]                   || dragState.origStartM;
-  const newEndM   = months[Math.max(0, ne - 1)]  || dragState.origEndM;
+  const newStartM = xToStartM(ns, months) || dragState.origStartM;
+  const newEndM   = xToEndM(ne, months)   || dragState.origEndM;
   const entry     = billEntries.find(en => en.id === dragState.entryId);
   const changed   = newStartM !== dragState.origStartM || newEndM !== dragState.origEndM;
 
   // If overlapping — blink red and revert, no save
   if (dragState.overlapping) {
-    const origX = [dragState.origStart, dragState.origEnd + 1];
+    const origX = [dragState.origStart, dragState.origEnd]; // already exclusive
     const { dIdx, pIdx, origBg, origBorder } = dragState;
     dragState = null;
     await blinkBar(dIdx, pIdx, origX, origBg, origBorder);
@@ -2123,7 +2204,8 @@ async function onDragEnd(e) {
     entry.end_month   = newEndM;
     renderChart();
   } else {
-    // Server rejected (e.g. race condition) — blink and revert
+    console.error('drag save failed', r.error, {newStartM, newEndM, ns, ne});
+    alert('שמירה נכשלה: ' + (r.error || 'שגיאה לא ידועה') + `\nstart=${newStartM} end=${newEndM}`);
     renderChart();
   }
 }
@@ -2134,17 +2216,20 @@ async function onDragEnd(e) {
 function renderSuggestions(items) {
   const list  = document.getElementById('sug-list');
   const badge = document.getElementById('sug-badge');
+  const navDot = document.getElementById('nav-bills-dot');
 
   const applyBtn = document.getElementById('apply-all-btn');
   if (!items.length) {
     list.innerHTML = '<div class="sug-empty">אין עסקאות מוצעות</div>';
     badge.style.display = 'none';
+    if (navDot) navDot.style.display = 'none';
     if (applyBtn) applyBtn.style.display = 'none';
     return;
   }
 
   badge.textContent  = items.length;
   badge.style.display = 'inline-flex';
+  if (navDot) navDot.style.display = '';
   if (applyBtn) applyBtn.style.display = '';
   list.innerHTML = items.map(it => `
     <div class="sug-item" id="sug-${it.table}-${it.id}">
@@ -2169,11 +2254,14 @@ async function dismissSuggestion(name, elemId) {
   if (r.ok) {
     const el = document.getElementById('sug-' + elemId);
     if (el) el.remove();
-    // Update badge
+    // Update badge + nav dot
     const remaining = document.querySelectorAll('.sug-item').length;
-    const badge = document.getElementById('sug-badge');
-    if (!remaining) { badge.style.display = 'none'; }
-    else badge.textContent = remaining;
+    const badge  = document.getElementById('sug-badge');
+    const navDot = document.getElementById('nav-bills-dot');
+    if (!remaining) {
+      badge.style.display = 'none';
+      if (navDot) navDot.style.display = 'none';
+    } else { badge.textContent = remaining; }
   }
 }
 
@@ -2465,11 +2553,12 @@ function populateTypeSelect(selId) {
 // Returns an error string if [start,end] overlaps any existing entry of typeId,
 // optionally excluding one entry (by ID) for edit checks.
 function clientOverlapCheck(typeId, start, end, excludeId) {
+  const s1 = normS(start), e1 = normE(end);
   const conflict = billEntries.find(e =>
     e.bill_type_id === typeId &&
     e.id !== excludeId &&
-    e.start_month <= end &&
-    e.end_month   >= start
+    normS(e.start_month) < e1 &&
+    normE(e.end_month)   > s1
   );
   if (!conflict) return null;
   const type = billTypes.find(t => t.id === typeId);

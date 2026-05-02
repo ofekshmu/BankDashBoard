@@ -1401,7 +1401,7 @@ body {
     </div>
     <div class="generated-row">
       <span class="generated-label" id="generated-label"></span>
-      <button class="reload-btn" id="reload-btn" onclick="reloadCurrent()" title="חשב מחדש את החודש הנוכחי">&#8635; חשב מחדש</button>
+      <button class="reload-btn" id="reload-btn" onclick="reloadCurrent()" title="חשב מחדש">&#8635; חשב מחדש</button>
     </div>
   </div>
 
@@ -2003,6 +2003,15 @@ function _centerActive(animate) {
 }
 
 function reloadCurrent() {
+  var path = window.location.pathname;
+  if (path.indexOf('/category/') !== -1) {
+    _reloadCategory(path.split('/category/')[1].replace(/\/$/, ''));
+  } else {
+    _reloadGeneral();
+  }
+}
+
+function _reloadGeneral() {
   if (!_currentKey) return;
   var btn = document.getElementById('reload-btn');
   var parts = _currentKey.split('_');
@@ -2012,8 +2021,7 @@ function reloadCurrent() {
 
   btn.classList.add('running');
   btn.disabled = true;
-
-  showLogFloat('מחשב מחדש…');
+  showLogFloat('מחשב מחדש חודש…');
 
   fetch('/api/analysis', {
     method: 'POST',
@@ -2049,22 +2057,75 @@ function reloadCurrent() {
   });
 }
 
-function _checkStale() {
-  if (!_currentKey) return;
-  fetch('/api/stale/' + _currentKey)
-    .then(function(r) { return r.json(); })
-    .then(function(d) {
-      var btn  = document.getElementById('reload-btn');
-      var item = document.querySelector('#roller-track .cm-item[data-key="' + _currentKey + '"]');
-      if (d.stale) {
-        btn.classList.add('stale');
-        if (item) item.classList.add('stale');
-      } else {
-        btn.classList.remove('stale');
-        if (item) item.classList.remove('stale');
+function _reloadCategory(slug) {
+  var btn   = document.getElementById('reload-btn');
+  var type_ = slug.startsWith('biz_') ? 'business' : 'category';
+
+  btn.classList.add('running');
+  btn.disabled = true;
+  showLogFloat('מחשב מחדש ניתוח…');
+
+  fetch('/api/category/run', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ slug: slug, type: type_ })
+  }).then(function(r) {
+    if (r.status === 409) { btn.classList.remove('running'); btn.disabled = false; hideLogFloat(0); return; }
+    var es = new EventSource('/api/logs');
+    es.onmessage = function(evt) {
+      var data = evt.data;
+      if (!data || data === '__CONNECTED__') return;
+      if (data.startsWith('__DONE__')) {
+        es.close();
+        appendLog('✓ הניתוח הסתיים — מרענן...', 'done');
+        btn.classList.remove('running', 'stale'); btn.disabled = false;
+        hideLogFloat(1000);
+        setTimeout(function() { location.reload(); }, 1200);
+        return;
       }
-    })
-    .catch(function() {});
+      if (data === '__ERROR__') {
+        es.close();
+        appendLog('✗ שגיאה בניתוח', 'err');
+        btn.classList.remove('running'); btn.disabled = false;
+        hideLogFloat(3000);
+        return;
+      }
+      appendLog(data);
+    };
+    es.onerror = function() { es.close(); btn.classList.remove('running'); btn.disabled = false; hideLogFloat(0); };
+  });
+}
+
+function _checkStale() {
+  var btn  = document.getElementById('reload-btn');
+  var path = window.location.pathname;
+
+  if (path.indexOf('/category/') !== -1) {
+    // Category page — check against its own manifest
+    var slug = path.split('/category/')[1].replace(/\/$/, '');
+    fetch('/api/stale/cat/' + slug)
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d.stale) btn.classList.add('stale');
+        else         btn.classList.remove('stale');
+      })
+      .catch(function() {});
+  } else if (_currentKey) {
+    // General monthly analysis page
+    fetch('/api/stale/' + _currentKey)
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        var item = document.querySelector('#roller-track .cm-item[data-key="' + _currentKey + '"]');
+        if (d.stale) {
+          btn.classList.add('stale');
+          if (item) item.classList.add('stale');
+        } else {
+          btn.classList.remove('stale');
+          if (item) item.classList.remove('stale');
+        }
+      })
+      .catch(function() {});
+  }
 }
 
 function _initMonthNav() {

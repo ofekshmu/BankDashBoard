@@ -15,6 +15,9 @@ import os
 import sys
 import queue
 import threading
+import time as _time
+import json as _json
+import builtins as _builtins
 
 import re as _re
 from flask import Flask, Response, request, jsonify, send_file, redirect
@@ -69,6 +72,114 @@ class _TeeStream:
 # Install tee once on import
 if not isinstance(sys.stdout, _TeeStream):
     sys.stdout = _TeeStream(sys.stdout)
+
+# ── Dependency tracking ───────────────────────────────────────────────────────
+# Each analysis thread activates thread-local tracking; the patched open()
+# records every source .html file that is read during generation so we can
+# build an accurate per-page dependency manifest without any hardcoded lists.
+
+_dep_tracking = threading.local()   # .active, .source_dir, .touched
+_orig_open    = _builtins.open
+
+def _dep_open(file, *args, **kwargs):
+    """Replacement for builtins.open that logs .html reads in the active thread."""
+    if getattr(_dep_tracking, 'active', False) and isinstance(file, (str, bytes)):
+        fp = os.path.normpath(str(file))
+        sd = getattr(_dep_tracking, 'source_dir', '')
+        if sd and fp.startswith(sd) and fp.endswith('.html') and os.path.exists(fp):
+            _dep_tracking.touched[fp] = os.path.getmtime(fp)
+    return _orig_open(file, *args, **kwargs)
+
+_builtins.open = _dep_open
+
+
+def _capture_deps_and_run(fn):
+    """Run fn() and return (deps_dict, db_mtime) of files actually used.
+
+    deps_dict maps abs-path → mtime-at-generation for every .py file
+    executed inside source/ (via sys.settrace) and every .html file opened
+    inside source/ (via the _dep_open hook above).  The caller saves this as a
+    manifest so future staleness checks only watch relevant files.
+    """
+    source_dir = os.path.normpath(os.path.join(_PROJECT_DIR, 'source'))
+    touched: dict[str, float] = {}
+
+    # Activate thread-local HTML tracking
+    _dep_tracking.active     = True
+    _dep_tracking.source_dir = source_dir
+    _dep_tracking.touched    = touched
+
+    def _tracer(frame, event, _arg):
+        if event == 'call':
+            fp = os.path.normpath(frame.f_code.co_filename)
+            if fp not in touched and fp.startswith(source_dir) and fp.endswith('.py'):
+                try:
+                    touched[fp] = os.path.getmtime(fp)
+                except OSError:
+                    pass
+        return _tracer
+
+    old_trace = sys.gettrace()
+    sys.settrace(_tracer)
+    try:
+        fn()
+    finally:
+        sys.settrace(old_trace)
+        _dep_tracking.active = False
+
+    db_mtime = 0.0
+    for _db in ('ShmuelFamiliy.db', os.path.join('source', 'ShmuelFamiliy.db')):
+        _db_path = os.path.join(_PROJECT_DIR, _db)
+        if os.path.exists(_db_path):
+            db_mtime = max(db_mtime, os.path.getmtime(_db_path))
+
+    return touched, db_mtime
+
+
+def _save_manifest(html_path: str, deps: dict, db_mtime: float):
+    """Write a JSON manifest alongside html_path recording its exact deps."""
+    manifest = {'generated_at': _time.time(), 'deps': deps, 'db_mtime': db_mtime}
+    try:
+        with _orig_open(html_path.replace('.html', '.manifest.json'), 'w', encoding='utf-8') as _f:
+            _json.dump(manifest, _f)
+    except Exception:
+        pass
+
+
+def _is_stale_manifest(html_path: str) -> bool:
+    """True if any dependency recorded in the manifest has changed since generation.
+
+    Falls back to the broad _max_source_mtime() check when no manifest exists
+    yet (first run before any generation with the new system).
+    """
+    manifest_path = html_path.replace('.html', '.manifest.json')
+    if not os.path.exists(manifest_path):
+        return _max_source_mtime() > os.path.getmtime(html_path)
+    try:
+        with _orig_open(manifest_path, encoding='utf-8') as _f:
+            data = _json.load(_f)
+    except Exception:
+        return True
+
+    eps = 0.05  # 50 ms tolerance for filesystem clock skew
+    for fp, rec_mt in data.get('deps', {}).items():
+        try:
+            if os.path.getmtime(fp) > rec_mt + eps:
+                return True
+        except OSError:
+            pass
+
+    db_rec = data.get('db_mtime', 0.0)
+    for _db in ('ShmuelFamiliy.db', os.path.join('source', 'ShmuelFamiliy.db')):
+        _db_path = os.path.join(_PROJECT_DIR, _db)
+        try:
+            if os.path.exists(_db_path) and os.path.getmtime(_db_path) > db_rec + eps:
+                return True
+        except OSError:
+            pass
+
+    return False
+
 
 # ── Analysis state ────────────────────────────────────────────────────────────
 _analysis_running = False
@@ -605,10 +716,19 @@ def run_category():
         global _analysis_running
         try:
             from AppManager import AppManager
-            if type_ == 'category':
-                AppManager(skip_parser=True).category_analysis(category=name)
-            else:
-                AppManager(skip_parser=True).category_analysis(business=name)
+
+            def _do():
+                if type_ == 'category':
+                    AppManager(skip_parser=True).category_analysis(category=name)
+                else:
+                    AppManager(skip_parser=True).category_analysis(business=name)
+
+            deps, db_mtime = _capture_deps_and_run(_do)
+
+            html_path = os.path.join(CATEGORY_ANALYSIS_DIR, f'{slug}.html')
+            if os.path.exists(html_path):
+                _save_manifest(html_path, deps, db_mtime)
+
             _log_queue.put(f'__DONE__:{slug}')
         except Exception as exc:
             import traceback
@@ -1138,13 +1258,11 @@ def stale_all():
     result = {}
     if not os.path.isdir(GENERAL_ANALYSIS_DIR):
         return jsonify(result)
-    max_src = _max_source_mtime()
     for fname in os.listdir(GENERAL_ANALYSIS_DIR):
         m = _re.match(r'^(\d{4}_\d{2})\.html$', fname)
         if m:
             key = m.group(1)
-            html_mtime = os.path.getmtime(os.path.join(GENERAL_ANALYSIS_DIR, fname))
-            result[key] = max_src > html_mtime
+            result[key] = _is_stale_manifest(os.path.join(GENERAL_ANALYSIS_DIR, fname))
     return jsonify(result)
 
 
@@ -1169,6 +1287,17 @@ def _max_source_mtime() -> float:
     return max_mt
 
 
+@app.route('/api/stale/cat/<slug>')
+def check_stale_category(slug):
+    """Staleness check for a category/business analysis page."""
+    if not _re.match(r'^[\w֐-׿]+$', slug):
+        return jsonify({'stale': False})
+    html_path = os.path.join(CATEGORY_ANALYSIS_DIR, f'{slug}.html')
+    if not os.path.exists(html_path):
+        return jsonify({'stale': True})
+    return jsonify({'stale': _is_stale_manifest(html_path)})
+
+
 @app.route('/api/stale/<yyyy_mm>')
 def check_stale(yyyy_mm):
     if not _re.match(r'^\d{4}_\d{2}$', yyyy_mm):
@@ -1176,8 +1305,7 @@ def check_stale(yyyy_mm):
     html_path = os.path.join(GENERAL_ANALYSIS_DIR, f'{yyyy_mm}.html')
     if not os.path.exists(html_path):
         return jsonify({'stale': True})
-    html_mtime = os.path.getmtime(html_path)
-    return jsonify({'stale': _max_source_mtime() > html_mtime})
+    return jsonify({'stale': _is_stale_manifest(html_path)})
 
 
 @app.route('/api/analysis', methods=['POST'])
@@ -1214,8 +1342,16 @@ def run_analysis():
             else:
                 t = datetime.now()
 
-            AppManager(skip_parser=True).general_analysis(t=t)
-            _log_queue.put(f'__DONE__:{t.strftime("%Y_%m")}')
+            deps, db_mtime = _capture_deps_and_run(
+                lambda: AppManager(skip_parser=True).general_analysis(t=t)
+            )
+
+            key       = t.strftime('%Y_%m')
+            html_path = os.path.join(GENERAL_ANALYSIS_DIR, f'{key}.html')
+            if os.path.exists(html_path):
+                _save_manifest(html_path, deps, db_mtime)
+
+            _log_queue.put(f'__DONE__:{key}')
 
         except Exception as exc:
             import traceback
@@ -1708,7 +1844,11 @@ def organizer_regenerate():
 
     def _run():
         try:
-            _build_organizer_page(progress_callback=lambda p: pq.put(p))
+            deps, db_mtime = _capture_deps_and_run(
+                lambda: _build_organizer_page(progress_callback=lambda p: pq.put(p))
+            )
+            if os.path.exists(ORGANIZER_HTML):
+                _save_manifest(ORGANIZER_HTML, deps, db_mtime)
             pq.put('done')
         except Exception as exc:
             pq.put(f'error:{exc}')

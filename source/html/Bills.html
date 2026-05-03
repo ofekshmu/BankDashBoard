@@ -39,13 +39,17 @@ body {
 
 /* ── Hamburger + slide-in nav ────────────────────────────── */
 .ham-btn {
+  position: fixed;
+  top: 14px; right: 14px;
+  z-index: 500;
   width: 36px; height: 36px;
-  background: none;
+  background: var(--white);
   border: 1.5px solid var(--border);
   border-radius: 9px;
   display: flex; align-items: center; justify-content: center;
-  cursor: pointer; flex-shrink: 0;
+  cursor: pointer;
   color: var(--navy);
+  box-shadow: var(--shadow-sm);
   transition: background .15s, color .15s, border-color .15s;
 }
 .ham-btn:hover { background: var(--teal); border-color: var(--teal); color: #fff; }
@@ -108,15 +112,67 @@ body {
   box-shadow: 0 0 0 2px var(--surface, #fff);
 }
 
-/* ── Page header (replaces top-bar) ─────────────────────── */
+/* ── Page header ─────────────────────────────────────────── */
 .chart-page-header {
   display: flex; align-items: center; gap: 10px;
-  padding: 9px 14px;
+  padding: 9px 60px 9px 14px; /* right padding clears the fixed hamburger */
   border-bottom: 1.5px solid var(--border);
   flex-shrink: 0;
   background: var(--white);
 }
 .page-title { font-size: 1em; font-weight: 700; }
+
+/* ── In-page types strip ─────────────────────────────────── */
+.types-strip-bar {
+  display: flex; align-items: center; gap: 6px;
+  padding: 8px 14px; flex-wrap: wrap;
+  border-bottom: 1px solid var(--border);
+  background: var(--white);
+}
+.type-chip {
+  display: flex; align-items: center; gap: 5px;
+  padding: 4px 10px; border-radius: 20px;
+  background: var(--bg); border: 1.5px solid var(--border);
+  cursor: pointer; font-size: 0.8em; font-weight: 600;
+  color: var(--navy); transition: border-color .12s, background .12s;
+}
+.type-chip:hover { border-color: var(--teal); background: var(--teal-light); color: var(--teal); }
+.type-chip-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.types-strip-add {
+  padding: 4px 10px; border-radius: 20px;
+  background: none; border: 1.5px dashed var(--border);
+  cursor: pointer; font-size: 0.8em; font-weight: 600;
+  color: var(--text-muted); font-family: inherit;
+  transition: border-color .12s, color .12s;
+}
+.types-strip-add:hover { border-color: var(--teal); color: var(--teal); }
+
+/* ── KPI group dividers ──────────────────────────────────── */
+.type-kpi-group + .type-kpi-group { border-top: 2px solid var(--border); }
+
+/* ── KPI info tooltip ────────────────────────────────────── */
+.kpi-info {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 13px; height: 13px; border-radius: 50%;
+  font-size: 0.68em; font-style: italic; font-weight: 700;
+  background: rgba(255,255,255,0.22); color: rgba(255,255,255,0.9);
+  border: 1px solid rgba(255,255,255,0.35);
+  cursor: help; margin-inline-start: 4px;
+  vertical-align: middle; flex-shrink: 0;
+  position: relative;
+}
+.kpi-info::after {
+  content: attr(data-tip);
+  position: absolute; bottom: calc(100% + 7px); left: 50%;
+  transform: translateX(-50%);
+  background: var(--navy); color: #fff;
+  font-size: 11px; font-weight: 400; font-style: normal;
+  padding: 5px 9px; border-radius: 7px; line-height: 1.55;
+  white-space: pre; pointer-events: none;
+  opacity: 0; transition: opacity .15s; z-index: 300;
+  box-shadow: 0 3px 12px rgba(0,0,0,.25);
+}
+.kpi-info:hover::after { opacity: 1; }
 
 /* ── Drag-to-zoom selection overlay ─────────────────────── */
 .zoom-select {
@@ -153,52 +209,6 @@ body {
   align-items: flex-start;
 }
 
-/* ── Bill types sidebar ──────────────────────────────────── */
-.types-panel {
-  width: 185px;
-  min-width: 160px;
-  background: var(--white);
-  border-left: 1.5px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
-  position: sticky;
-  top: 0;
-  height: 100vh;
-  overflow-y: auto;
-}
-.types-title {
-  padding: 12px 13px 8px;
-  font-weight: 700;
-  font-size: 0.85em;
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
-}
-.types-title .add-type-btn {
-  margin-right: auto;
-  width: 24px; height: 24px;
-  border-radius: 50%;
-  background: var(--teal-light);
-  border: none;
-  color: var(--teal);
-  font-size: 1.15em; font-weight: 700;
-  cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  transition: background .12s;
-  line-height: 1;
-}
-.types-title .add-type-btn:hover { background: var(--teal); color: #fff; }
-.types-list {
-  flex: 1;
-  overflow-y: auto;
-  padding: 7px 9px;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
 .type-item {
   display: flex; align-items: center; gap: 7px;
   padding: 6px 7px;
@@ -237,39 +247,6 @@ body {
   font-size: 0.8em;
   padding: 18px 10px;
 }
-
-/* ── Stats panel ─────────────────────────────────────────────── */
-.stats-toggle {
-  width: 100%; background: none; border: none; border-top: 1px solid var(--border);
-  padding: 7px 12px; font-size: 0.76em; font-weight: 700; color: var(--text-muted);
-  cursor: pointer; display: flex; align-items: center; gap: 6px; text-align: right;
-  justify-content: space-between;
-}
-.stats-toggle:hover { background: var(--teal-light); color: var(--teal); }
-.stats-toggle .arrow { font-size: 0.85em; transition: transform .2s; }
-.stats-toggle.open .arrow { transform: rotate(180deg); }
-.stats-panel {
-  border-top: 1px solid var(--border);
-  overflow-y: auto; flex-shrink: 0;
-  max-height: 0; overflow: hidden; transition: max-height .25s ease;
-}
-.stats-panel.open { max-height: 280px; overflow-y: auto; }
-.stat-row {
-  padding: 6px 11px; border-bottom: 1px solid var(--border);
-  font-size: 0.76em;
-}
-.stat-row:last-child { border-bottom: none; }
-.stat-row-hdr {
-  display: flex; align-items: center; gap: 6px;
-  font-weight: 700; margin-bottom: 3px;
-}
-.stat-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
-.stat-grid {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 1px 10px;
-  color: var(--text-sub);
-}
-.stat-grid span:nth-child(odd)  { color: var(--text-muted); }
-.stat-grid span:nth-child(even) { font-weight: 600; color: var(--navy); }
 
 /* ── Chart area ──────────────────────────────────────────── */
 .chart-area {
@@ -323,84 +300,89 @@ body {
 #bills-chart { cursor: crosshair; display: block; }
 
 /* ── Per-type KPI cards grid ─────────────────────────────── */
-.type-kpi-bar {
-  background: var(--white);
-}
+.type-kpi-bar { background: var(--white); }
 .type-kpi-section-hdr {
-  padding: 5px 16px 3px;
-  font-size: 0.68em;
-  font-weight: 700;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
+  padding: 7px 16px 5px;
+  font-size: 0.68em; font-weight: 700;
+  letter-spacing: 0.07em; text-transform: uppercase;
   color: var(--text-muted);
   border-bottom: 1px solid var(--border);
 }
 .type-kpi-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
-  gap: 1px;
-  background: var(--border);
-  border-top: 1px solid var(--border);
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 0;
 }
 .type-kpi-card {
-  padding: 10px 14px 12px;
-  background: var(--white);
-  position: relative;
-  overflow: hidden;
-}
-.type-kpi-card::before {
-  content: '';
-  position: absolute;
-  left: 0; top: 0; bottom: 0;
-  width: 3px;
+  padding: 16px 18px 14px;
   background: var(--kpi-color, var(--teal));
+  position: relative;
+  overflow: visible;
+  border: none;
+  outline: 1px solid rgba(255,255,255,0.12);
 }
+#type-kpi-card-wrap { overflow: visible; }
 .type-kpi-name {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 0.74em;
-  font-weight: 700;
-  color: var(--navy);
-  margin-bottom: 5px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.type-kpi-dot {
-  width: 8px; height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
+  font-size: 0.70em; font-weight: 700;
+  color: rgba(255,255,255,0.80);
+  text-transform: uppercase; letter-spacing: 0.07em;
+  margin-bottom: 10px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .type-kpi-main-val {
-  font-size: 1.18em;
-  font-weight: 800;
-  color: var(--kpi-color, var(--teal));
-  line-height: 1.25;
-  margin: 5px 0 0;
+  font-size: 1.65em; font-weight: 800;
+  color: #fff; line-height: 1.05;
   letter-spacing: -0.02em;
 }
 .type-kpi-main-lbl {
   font-size: 0.60em;
-  color: var(--text-muted);
-  margin-bottom: 7px;
-  margin-top: 1px;
+  color: rgba(255,255,255,0.68);
+  margin-bottom: 10px; margin-top: 3px;
+  text-transform: uppercase; letter-spacing: 0.04em;
+  display: flex; align-items: center; gap: 4px;
 }
-.type-kpi-row {
-  display: flex;
-  gap: 10px;
-  margin-top: 2px;
-}
+.type-kpi-row { display: flex; gap: 14px; margin-top: 4px; }
 .type-kpi-cell { display: flex; flex-direction: column; flex: 1; }
-.type-kpi-label { font-size: 0.59em; color: var(--text-muted); line-height: 1.2; }
-.type-kpi-val   { font-size: 0.80em; font-weight: 700; color: var(--navy); line-height: 1.35; }
+.type-kpi-label { font-size: 0.59em; color: rgba(255,255,255,0.65); line-height: 1.2; }
+.type-kpi-val   { font-size: 0.82em; font-weight: 700; color: #fff; line-height: 1.35; }
 .type-kpi-total {
-  margin-top: 6px;
-  font-size: 0.62em;
-  color: var(--text-sub);
-  border-top: 1px solid var(--border);
-  padding-top: 4px;
+  margin-top: 8px; font-size: 0.62em;
+  color: rgba(255,255,255,0.65);
+  border-top: 1px solid rgba(255,255,255,0.22);
+  padding-top: 5px;
 }
+/* ── KPI view-range banner ───────────────────────────────── */
+#kpi-view-banner {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 16px; border-radius: 10px;
+  font-size: 0.82em; font-weight: 500;
+  margin-bottom: 6px;
+}
+#kpi-view-banner.all-time {
+  background: rgba(99,102,241,0.08);
+  color: var(--text-muted);
+  border: 1px solid rgba(99,102,241,0.18);
+}
+#kpi-view-banner.filtered {
+  background: rgba(251,191,36,0.1);
+  color: #92400e;
+  border: 1px solid rgba(251,191,36,0.4);
+}
+body.dark #kpi-view-banner.filtered {
+  color: #fde68a;
+  background: rgba(251,191,36,0.1);
+  border-color: rgba(251,191,36,0.3);
+}
+#kpi-view-banner .banner-icon { font-size: 1em; flex-shrink: 0; }
+#kpi-view-banner .banner-range { font-weight: 700; }
+#kpi-view-banner .banner-fit-btn {
+  margin-right: auto; padding: 2px 10px; border-radius: 6px;
+  border: 1px solid currentColor; background: transparent;
+  color: inherit; font-size: 0.88em; cursor: pointer;
+  opacity: 0.75; transition: opacity 0.15s;
+}
+#kpi-view-banner .banner-fit-btn:hover { opacity: 1; }
+
 .chart-empty-state {
   position: absolute; inset: 0;
   display: flex; flex-direction: column;
@@ -642,9 +624,44 @@ body.resize-end    { cursor: ew-resize !important; }
 #bar-menu button.danger:hover { background: #fef2f2; color: var(--red); }
 
 @keyframes fadeIn { from { opacity:0; transform:translateY(3px); } to { opacity:1; transform:none; } }
+
+/* ── Page loader ─────────────────────────────────────────────── */
+#bills-loader {
+  position: fixed; inset: 0;
+  background: var(--bg);
+  z-index: 9999;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 18px;
+}
+#bills-loader .spinner {
+  width: 48px; height: 48px;
+  border: 4px solid var(--border);
+  border-top-color: var(--teal);
+  border-radius: 50%;
+  animation: spin .75s linear infinite;
+}
+#bills-loader .loader-label {
+  font-size: .9rem; color: var(--text-muted); font-weight: 500;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
+
+<div id="bills-loader">
+  <div class="spinner"></div>
+  <div class="loader-label">טוען נתונים…</div>
+</div>
+
+<!-- Fixed hamburger (top-right, matches the rest of the app) -->
+<button class="ham-btn" id="ham-btn" onclick="toggleNav()" aria-label="תפריט">
+  <svg width="18" height="14" viewBox="0 0 18 14" fill="none">
+    <rect width="18" height="2" rx="1" fill="currentColor"/>
+    <rect y="6" width="18" height="2" rx="1" fill="currentColor"/>
+    <rect y="12" width="18" height="2" rx="1" fill="currentColor"/>
+  </svg>
+</button>
 
 <div class="nav-overlay" id="nav-overlay" onclick="toggleNav()"></div>
 <nav class="nav-sidebar" id="nav-sidebar">
@@ -668,43 +685,20 @@ body.resize-end    { cursor: ew-resize !important; }
   </div>
 </nav>
 
-<!-- ── Body split ──────────────────────────────────────────── -->
+<!-- ── Body (full-width, no sidebar) ───────────────────────── -->
 <div class="body-wrap">
-
-  <!-- Bill types sidebar -->
-  <div class="types-panel">
-    <div class="types-title">
-      <span>סוגי חשבונות</span>
-      <button class="add-type-btn" title="הוסף סוג חשבון" onclick="openAddTypeModal()">+</button>
-    </div>
-    <div class="types-list" id="types-list">
-      <div class="types-empty">אין סוגי חשבונות.<br>לחץ + להוסיף.</div>
-    </div>
-    <!-- Statistics panel -->
-    <button class="stats-toggle" id="stats-toggle" onclick="toggleStats()">
-      <span>סטטיסטיקות</span><span class="arrow">▾</span>
-    </button>
-    <div class="stats-panel" id="stats-panel"></div>
-  </div>
-
   <!-- Chart area -->
   <div class="chart-area">
     <!-- ── Card 1: Page header + chart controls + chart ──── -->
     <div class="bills-card">
-      <!-- Page header (title + add buttons) -->
+      <!-- Page header (title + add button) -->
       <div class="chart-page-header">
-        <button class="ham-btn" id="ham-btn" onclick="toggleNav()" aria-label="תפריט">
-          <svg width="18" height="14" viewBox="0 0 18 14" fill="none">
-            <rect width="18" height="2" rx="1" fill="currentColor"/>
-            <rect y="6" width="18" height="2" rx="1" fill="currentColor"/>
-            <rect y="12" width="18" height="2" rx="1" fill="currentColor"/>
-          </svg>
-        </button>
         <span class="page-title">מעקב חשבונות</span>
         <span class="spacer"></span>
-        <button class="btn btn-ghost btn-sm" onclick="openFillerModal()">+ הוסף מילוי</button>
-        <button class="btn btn-primary btn-sm" onclick="openAddEntryModal()">+ הוסף רשומה</button>
+        <button class="btn btn-primary btn-sm" onclick="openAddEntryModal()">+ הוסף</button>
       </div>
+      <!-- In-page bill types strip -->
+      <div class="types-strip-bar" id="types-list"></div>
       <div class="chart-controls">
         <div class="year-nav">
           <button class="nav-arrow" onclick="shiftView(-6)" title="6 חודשים אחורה">‹‹</button>
@@ -743,18 +737,18 @@ body.resize-end    { cursor: ew-resize !important; }
       </div>
     </div>
 
+    <!-- ── KPI view-range banner ────────────────────────── -->
+    <div id="kpi-view-banner" style="display:none"></div>
+
     <!-- ── Card 3: Group KPI stats bar ───────────────────── -->
     <div class="bills-card" id="stats-bar-card" style="display:none">
       <div class="type-kpi-section-hdr">סיכום לפי קבוצה</div>
       <div class="stats-bar" id="stats-bar"></div>
     </div>
 
-    <!-- ── Card 4: Per-type KPI cards ────────────────────── -->
+    <!-- ── Card 4: Per-type KPI cards (groups rendered by JS) ── -->
     <div class="bills-card" id="type-kpi-card-wrap" style="display:none">
-      <div class="type-kpi-bar" id="type-kpi-bar">
-        <div class="type-kpi-section-hdr">ניתוח לפי חשבון</div>
-        <div class="type-kpi-cards" id="type-kpi-cards"></div>
-      </div>
+      <div class="type-kpi-bar" id="type-kpi-bar"></div>
     </div>
   </div>
 </div>
@@ -800,41 +794,34 @@ body.resize-end    { cursor: ew-resize !important; }
 <div class="overlay hidden" id="modal-entry">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-entry')">✕</button>
-    <h2 class="modal-title" id="entry-modal-title">הוסף רשומה</h2>
-
-    <div class="mode-toggle" id="entry-mode-toggle">
-      <button id="mode-tx-btn"     class="active"  onclick="setEntryMode('tx')">עסקה</button>
-      <button id="mode-filler-btn"                 onclick="setEntryMode('filler')">מילוי ריק</button>
-    </div>
+    <h2 class="modal-title" id="entry-modal-title">הוסף</h2>
 
     <div class="field">
       <label>סוג חשבון</label>
       <select id="entry-type-sel"></select>
     </div>
 
-    <!-- TX mode: search transaction -->
-    <div id="tx-section">
-      <div class="field">
-        <label>חפש עסקה</label>
-        <div class="tx-search-wrap">
-          <input id="tx-search-inp" type="text" placeholder="חפש לפי שם…" autocomplete="off"
-                 oninput="onTxSearch(this.value)" onfocus="onTxFocus()">
-          <div class="tx-results hidden" id="tx-results"></div>
-        </div>
+    <!-- Transaction search (optional) -->
+    <div class="field">
+      <label>עסקה מקושרת <span style="color:var(--text-muted);font-weight:400">(אופציונלי)</span></label>
+      <div class="tx-search-wrap">
+        <input id="tx-search-inp" type="text" placeholder="חפש לפי שם…" autocomplete="off"
+               oninput="onTxSearch(this.value)" onfocus="onTxFocus()">
+        <div class="tx-results hidden" id="tx-results"></div>
       </div>
-      <div class="tx-selected hidden" id="tx-selected" style="flex-direction:column;align-items:stretch;gap:6px">
-        <div style="display:flex;align-items:center;gap:8px">
-          <span id="tx-sel-source-badge" style="font-size:0.7em;font-weight:700;padding:2px 6px;border-radius:4px;flex-shrink:0"></span>
-          <span id="tx-sel-name" style="font-weight:700;flex:1;font-size:0.9em"></span>
-          <button class="clear" onclick="clearTxSelection()" style="pointer-events:all">✕</button>
-        </div>
-        <div style="display:flex;gap:16px;font-size:0.8em;flex-wrap:wrap">
-          <span><span style="color:var(--text-muted)">תאריך: </span><span id="tx-sel-date" style="font-weight:600"></span></span>
-          <span><span style="color:var(--text-muted)">סכום: </span><span id="tx-sel-amt" style="font-weight:600;color:var(--red)"></span></span>
-          <span id="tx-sel-cat-wrap"><span style="color:var(--text-muted)">קטגוריה: </span><span id="tx-sel-cat" style="font-weight:600"></span></span>
-        </div>
-        <div id="tx-sel-desc-wrap" style="font-size:0.78em;color:var(--text-muted);font-style:italic"></div>
+    </div>
+    <div class="tx-selected hidden" id="tx-selected" style="flex-direction:column;align-items:stretch;gap:6px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span id="tx-sel-source-badge" style="font-size:0.7em;font-weight:700;padding:2px 6px;border-radius:4px;flex-shrink:0"></span>
+        <span id="tx-sel-name" style="font-weight:700;flex:1;font-size:0.9em"></span>
+        <button class="clear" onclick="clearTxSelection()" style="pointer-events:all">✕</button>
       </div>
+      <div style="display:flex;gap:16px;font-size:0.8em;flex-wrap:wrap">
+        <span><span style="color:var(--text-muted)">תאריך: </span><span id="tx-sel-date" style="font-weight:600"></span></span>
+        <span><span style="color:var(--text-muted)">סכום: </span><span id="tx-sel-amt" style="font-weight:600;color:var(--red)"></span></span>
+        <span id="tx-sel-cat-wrap"><span style="color:var(--text-muted)">קטגוריה: </span><span id="tx-sel-cat" style="font-weight:600"></span></span>
+      </div>
+      <div id="tx-sel-desc-wrap" style="font-size:0.78em;color:var(--text-muted);font-style:italic"></div>
     </div>
 
     <div class="field-row">
@@ -848,10 +835,10 @@ body.resize-end    { cursor: ew-resize !important; }
       </div>
     </div>
 
-    <!-- Filler mode: note -->
-    <div class="field hidden" id="filler-note-field">
+    <!-- Note (always visible) -->
+    <div class="field" id="filler-note-field">
       <label>הערה (אופציונלי)</label>
-      <textarea id="filler-note" placeholder="למשל: בתקופה זו החשבון לא היה בתוקף…"></textarea>
+      <textarea id="filler-note" placeholder="הערה…"></textarea>
     </div>
 
     <div class="inline-status" id="entry-status"></div>
@@ -877,6 +864,32 @@ body.resize-end    { cursor: ew-resize !important; }
       <div style="display:flex;align-items:center;gap:8px;padding:5px 0">
         <span id="edit-type-dot" style="width:12px;height:12px;border-radius:50%;flex-shrink:0;display:inline-block"></span>
         <span id="edit-type-name" style="font-weight:600;font-size:0.92em"></span>
+      </div>
+    </div>
+
+    <!-- Filler: attach transaction -->
+    <div class="field hidden" id="edit-attach-tx-wrap">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:2px 0 6px">
+        <span style="font-size:0.79em;font-weight:600;color:var(--text-sub)">מילוי ריק</span>
+        <button class="btn btn-ghost btn-xs" onclick="toggleEditAttachTx()" id="edit-attach-tx-btn">+ קשר עסקה</button>
+      </div>
+      <div id="edit-attach-search-wrap" class="hidden">
+        <div class="tx-search-wrap">
+          <input id="edit-attach-tx-inp" type="text" placeholder="חפש עסקה לקישור…" autocomplete="off"
+                 oninput="onEditAttachSearch(this.value)" onfocus="onEditAttachFocus()">
+          <div class="tx-results hidden" id="edit-attach-results"></div>
+        </div>
+        <div class="tx-selected hidden" id="edit-attach-selected" style="margin-top:6px;flex-direction:column;gap:5px">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span id="edit-attach-badge" style="font-size:0.7em;font-weight:700;padding:2px 6px;border-radius:4px;flex-shrink:0"></span>
+            <span id="edit-attach-name" style="font-weight:700;flex:1;font-size:0.9em"></span>
+            <button class="clear" onclick="clearEditAttach()">✕</button>
+          </div>
+          <div style="display:flex;gap:14px;font-size:0.8em">
+            <span><span style="color:var(--text-muted)">תאריך: </span><span id="edit-attach-date" style="font-weight:600"></span></span>
+            <span><span style="color:var(--text-muted)">סכום: </span><span id="edit-attach-amt" style="font-weight:600;color:var(--red)"></span></span>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -1029,8 +1042,24 @@ let viewStart = null;
 let viewEnd   = null;
 
 // Selected transaction for add-entry modal
-let selectedTx = null;   // {tx_id, date, name, amount, source}
-let txSearchTimer = null;
+let selectedTx     = null;   // {tx_id, date, name, amount, source}
+let editAttachTx   = null;   // tx being attached to a filler entry in edit modal
+let txSearchTimer  = null;
+
+// Duplicate transaction tracking
+let dupEntryIds = new Set();  // entry IDs whose transaction is used by >1 entry
+
+function computeDupEntries() {
+  const txCount = {};
+  billEntries.forEach(e => {
+    if (e.transaction_id != null && e.transaction_table) {
+      const k = e.transaction_table + ':' + e.transaction_id;
+      (txCount[k] = txCount[k] || []).push(e.id);
+    }
+  });
+  dupEntryIds = new Set();
+  Object.values(txCount).forEach(ids => { if (ids.length > 1) ids.forEach(id => dupEntryIds.add(id)); });
+}
 
 // Bar interaction
 let dragState    = null;   // active drag state
@@ -1082,6 +1111,8 @@ const barHandlesPlugin = {
 // ─────────────────────────────────────────────────────────────
 async function init() {
   await Promise.all([loadTypes(), loadEntries()]);
+  const loader = document.getElementById('bills-loader');
+  if (loader) loader.style.display = 'none';
   loadSuggestions();
   initDrag();
 }
@@ -1108,10 +1139,11 @@ async function loadEntries() {
   const r = await api('GET', '/api/bills/entries');
   if (r.ok) {
     billEntries = r.entries;
+    computeDupEntries();
     renderChart();
     renderStatsBar();
     renderTypeKpiBar();
-    if (document.getElementById('stats-panel')?.classList.contains('open')) renderStats();
+    renderKpiBanner();
   }
 }
 
@@ -1130,37 +1162,16 @@ async function loadSuggestions() {
 // ─────────────────────────────────────────────────────────────
 function renderTypes() {
   const list = document.getElementById('types-list');
-  if (!billTypes.length) {
-    list.innerHTML = '<div class="types-empty">אין סוגי חשבונות.<br>לחץ + להוסיף.</div>';
-    return;
-  }
+  if (!list) return;
 
-  // Group types for sidebar display
-  const groups  = {};
-  const noGroup = [];
-  billTypes.forEach(t => {
-    if (t.group) { (groups[t.group] = groups[t.group] || []).push(t); }
-    else          { noGroup.push(t); }
-  });
+  const chip = t => `
+    <button class="type-chip" onclick="openEditTypeModal(${t.id})" title="לחץ לעריכה">
+      <span class="type-chip-dot" style="background:${t.color}"></span>
+      ${esc(t.name)}
+    </button>`;
 
-  const typeRow = t => `
-    <div class="type-item" onclick="openEditTypeModal(${t.id})" title="לחץ לעריכה" style="cursor:pointer">
-      <span class="type-dot" style="background:${t.color}"></span>
-      <span class="type-name">${esc(t.name)}</span>
-      <button class="type-del" onclick="event.stopPropagation();deleteType(${t.id})" title="מחק">✕</button>
-    </div>`;
-
-  let html = '';
-  for (const [gName, types] of Object.entries(groups)) {
-    html += `<div style="font-size:0.72em;font-weight:700;color:var(--text-muted);padding:6px 7px 2px;letter-spacing:.04em;text-transform:uppercase;display:flex;align-items:center;gap:3px">
-      <span style="flex:1">${esc(gName)}</span>
-      <button onclick="renameGroup(${JSON.stringify(gName)})" title="שנה שם קבוצה"
-        style="opacity:0;background:none;border:none;cursor:pointer;font-size:1.1em;padding:1px 4px;border-radius:4px;color:var(--text-muted);transition:opacity .15s"
-        onmouseenter="this.style.opacity='1'" onmouseleave="this.style.opacity='0'">✎</button>
-    </div>`;
-    html += types.map(typeRow).join('');
-  }
-  html += noGroup.map(typeRow).join('');
+  let html = billTypes.map(chip).join('');
+  html += `<button class="types-strip-add" onclick="openAddTypeModal()">+ הוסף סוג</button>`;
   list.innerHTML = html;
 
   // Update group autocomplete datalist
@@ -1172,70 +1183,51 @@ function renderTypes() {
 }
 
 // ─────────────────────────────────────────────────────────────
-// Statistics panel (E)
-// ─────────────────────────────────────────────────────────────
-function toggleStats() {
-  const btn   = document.getElementById('stats-toggle');
-  const panel = document.getElementById('stats-panel');
-  const open  = panel.classList.toggle('open');
-  btn.classList.toggle('open', open);
-  if (open) renderStats();
-}
-
-function renderStats() {
-  const panel = document.getElementById('stats-panel');
-  if (!billTypes.length) {
-    panel.innerHTML = '<div style="padding:14px;font-size:0.78em;color:var(--text-muted);text-align:center">אין נתונים</div>';
-    return;
-  }
-
-  panel.innerHTML = billTypes.map(type => {
-    const entries = billEntries.filter(e => e.bill_type_id === type.id && !e.is_filler);
-    const withAmt = entries.filter(e => e.amount != null);
-    const total   = withAmt.reduce((s, e) => s + Math.abs(e.amount), 0);
-    const avg     = withAmt.length ? total / withAmt.length : 0;
-    const annual  = avg * 12;
-
-    // Last payment: latest tx_date or end_month
-    const dates = entries.map(e => e.tx_date || e.end_month).filter(Boolean).sort();
-    const last  = dates.length ? dates[dates.length - 1] : null;
-
-    // Longest gap (in months) between consecutive entries sorted by start_month
-    let maxGap = 0;
-    if (entries.length > 1) {
-      const sorted = [...entries].sort((a, b) => a.start_month.localeCompare(b.start_month));
-      for (let i = 1; i < sorted.length; i++) {
-        const gap = monthDiff(sorted[i-1].end_month, sorted[i].start_month);
-        if (gap > maxGap) maxGap = gap;
-      }
-    }
-
-    const fmtAmt = n => n > 0
-      ? '₪' + Math.round(n).toLocaleString('he-IL')
-      : '—';
-    const fmtDate = d => d
-      ? (d.length === 7 ? monthLabel(d) : d.slice(0, 7).replace('-', '/'))
-      : '—';
-
-    return `
-      <div class="stat-row">
-        <div class="stat-row-hdr">
-          <span class="stat-dot" style="background:${type.color}"></span>
-          <span>${esc(type.name)}</span>
-        </div>
-        <div class="stat-grid">
-          <span>ממוצע חודשי</span><span>${fmtAmt(avg)}</span>
-          <span>שנתי משוער</span><span>${fmtAmt(annual)}</span>
-          <span>תשלום אחרון</span><span>${fmtDate(last)}</span>
-          <span>פער מרבי</span><span>${maxGap > 0 ? maxGap + ' חודשים' : '—'}</span>
-        </div>
-      </div>`;
-  }).join('');
-}
-
 // ─────────────────────────────────────────────────────────────
 // Bottom KPI stats bar
 // ─────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+// View-range helpers
+// ─────────────────────────────────────────────────────────────
+function isAllTimeView() {
+  if (!billEntries.length || !viewStart || !viewEnd) return true;
+  const allStarts = billEntries.map(e => e.start_month.slice(0, 7));
+  const allEnds   = billEntries.map(e => e.end_month.slice(0, 7));
+  const dataStart = allStarts.reduce((a, b) => a < b ? a : b);
+  const dataEnd   = allEnds.reduce((a, b) => a > b ? a : b);
+  return viewStart <= dataStart && viewEnd >= dataEnd;
+}
+
+// Returns true if entry overlaps the current view window
+function inCurrentView(e) {
+  if (!viewStart || !viewEnd) return true;
+  return e.start_month.slice(0, 7) <= viewEnd &&
+         e.end_month.slice(0, 7)   >= viewStart;
+}
+
+function renderKpiBanner() {
+  const banner = document.getElementById('kpi-view-banner');
+  if (!banner) return;
+  const hasData = billTypes.length > 0;
+  if (!hasData) { banner.style.display = 'none'; return; }
+
+  banner.style.display = 'flex';
+
+  if (isAllTimeView()) {
+    banner.className = 'all-time';
+    banner.innerHTML = `<span class="banner-icon">📊</span>
+      <span>מציג נתונים לכל התקופה</span>`;
+  } else {
+    const startLbl = monthLabel(viewStart);
+    // viewEnd is exclusive (one past last visible month), so label one month back
+    const endLbl   = monthLabel(monthAdd(viewEnd, -1));
+    banner.className = 'filtered';
+    banner.innerHTML = `<span class="banner-icon">🔍</span>
+      <span>מציג: <span class="banner-range">${startLbl} – ${endLbl}</span></span>
+      <button class="banner-fit-btn" onclick="fitView()">הצג הכל</button>`;
+  }
+}
+
 function renderStatsBar() {
   const bar     = document.getElementById('stats-bar');
   const barCard = document.getElementById('stats-bar-card');
@@ -1259,16 +1251,14 @@ function renderStatsBar() {
 
   const cards = allGroups.map(({ name, types }) => {
     const typeIds  = new Set(types.map(t => t.id));
-    const entries  = billEntries.filter(e => typeIds.has(e.bill_type_id) && !e.is_filler);
-    const withAmt  = entries.filter(e => e.amount != null);
+    const entries  = billEntries.filter(e => typeIds.has(e.bill_type_id) && !e.is_filler && inCurrentView(e));
+    // effective amount: prefer stored Amount, fall back to tx_amount from the linked transaction
+    const withAmt  = entries.filter(e => (e.amount ?? e.tx_amount) != null);
 
-    // Per-type monthly avg summed across group
-    let monthlyAvg = 0;
-    types.forEach(t => {
-      const te = withAmt.filter(e => e.bill_type_id === t.id);
-      if (te.length) monthlyAvg += te.reduce((s, e) => s + Math.abs(e.amount), 0) / te.length;
-    });
-    const annual = monthlyAvg * 12;
+    // Monthly avg = total / union span of months with actual payment amounts
+    const totalAmt   = withAmt.reduce((s, e) => s + Math.abs(e.amount ?? e.tx_amount), 0);
+    const spanMonths = calcSpanMonths(withAmt);
+    const monthlyAvg = withAmt.length ? totalAmt / spanMonths : 0;
 
     // Last payment date
     const dates = entries.map(e => e.tx_date || e.end_month).filter(Boolean).sort();
@@ -1292,8 +1282,8 @@ function renderStatsBar() {
             <span class="stats-kpi-val accent">${fmtAmt(monthlyAvg)}</span>
           </div>
           <div class="stats-kpi">
-            <span class="stats-kpi-label">שנתי משוער</span>
-            <span class="stats-kpi-val">${fmtAmt(annual)}</span>
+            <span class="stats-kpi-label">חודשי תשלום</span>
+            <span class="stats-kpi-val">${spanMonths}</span>
           </div>
           <div class="stats-kpi">
             <span class="stats-kpi-label">תשלום אחרון</span>
@@ -1316,56 +1306,74 @@ function renderStatsBar() {
 }
 
 // ─────────────────────────────────────────────────────────────
-// Per-type KPI cards strip
+// Per-type KPI cards strip — grouped by user-defined group
 // ─────────────────────────────────────────────────────────────
 function renderTypeKpiBar() {
-  const container = document.getElementById('type-kpi-cards');
-  const cardWrap  = document.getElementById('type-kpi-card-wrap');
-  if (!container) return;
+  const kpiBar  = document.getElementById('type-kpi-bar');
+  const cardWrap = document.getElementById('type-kpi-card-wrap');
+  if (!kpiBar) return;
   if (!billTypes.length) { if (cardWrap) cardWrap.style.display = 'none'; return; }
   if (cardWrap) cardWrap.style.display = '';
 
   const fmtAmt  = v => v > 0 ? '₪' + Math.round(v).toLocaleString('he-IL') : '—';
-  const nMonths = chartMonths.length || 1;
+  const fmtSpan = v => (v % 1 === 0) ? String(v) : v.toFixed(1);
+  let _firstCard = true;
 
-  container.innerHTML = billTypes.map(type => {
-    const entries = billEntries.filter(e => e.bill_type_id === type.id && !e.is_filler);
-    const withAmt = entries.filter(e => e.amount != null);
-    const amounts = withAmt.map(e => Math.abs(e.amount));
-    const n       = amounts.length;
-    const total   = amounts.reduce((s, a) => s + a, 0);
-    const avg     = n ? total / n : 0;
-    const monthAvg = total / nMonths;
-
-    let std = 0;
-    if (n > 1) {
-      const variance = amounts.reduce((s, a) => s + (a - avg) ** 2, 0) / (n - 1);
-      std = Math.sqrt(variance);
-    }
-
+  const kpiCard = type => {
+    const entries    = billEntries.filter(e => e.bill_type_id === type.id && !e.is_filler && inCurrentView(e));
+    // effective amount: prefer stored Amount, fall back to tx_amount from linked transaction
+    const withAmt    = entries.filter(e => (e.amount ?? e.tx_amount) != null);
+    const amounts    = withAmt.map(e => Math.abs(e.amount ?? e.tx_amount));
+    const n          = entries.length;
+    const total      = amounts.reduce((s, a) => s + a, 0);
+    const spanMonths = calcSpanMonths(withAmt);
+    const monthAvg   = withAmt.length ? total / spanMonths : 0;
+    const showInfo   = _firstCard; _firstCard = false;
     return `
       <div class="type-kpi-card" style="--kpi-color:${type.color}">
-        <div class="type-kpi-name">
-          <span class="type-kpi-dot" style="background:${type.color}"></span>
-          ${esc(type.name)}
-        </div>
+        <div class="type-kpi-name">${esc(type.name)}</div>
         <div class="type-kpi-main-val">${fmtAmt(monthAvg)}</div>
-        <div class="type-kpi-main-lbl">ממוצע חודשי</div>
+        <div class="type-kpi-main-lbl">ממוצע חודשי${showInfo ? '<span class="kpi-info" data-tip="סה&quot;כ ÷ חודשי תשלום פעילים&#10;פערים ללא תשלום לא נספרים">i</span>' : ''}</div>
         <div class="type-kpi-row">
           <div class="type-kpi-cell">
-            <span class="type-kpi-label">ממוצע תשלום</span>
-            <span class="type-kpi-val">${fmtAmt(avg)}</span>
+            <span class="type-kpi-label">סה"כ</span>
+            <span class="type-kpi-val">${fmtAmt(total)}</span>
           </div>
           <div class="type-kpi-cell">
             <span class="type-kpi-label">תשלומים</span>
             <span class="type-kpi-val">${n}</span>
           </div>
         </div>
-        <div class="type-kpi-total">
-          סה"כ ${fmtAmt(total)}${std > 0 ? `&ensp;·&ensp;±${fmtAmt(std)}` : ''}
-        </div>
+        <div class="type-kpi-total">${fmtSpan(spanMonths)} חודשי תשלום</div>
       </div>`;
-  }).join('');
+  };
+
+  // Separate types into groups
+  const groupMap = {};
+  const noGroup  = [];
+  billTypes.forEach(t => {
+    if (t.group) { (groupMap[t.group] = groupMap[t.group] || []).push(t); }
+    else noGroup.push(t);
+  });
+
+  let html = '';
+  for (const [gName, types] of Object.entries(groupMap)) {
+    html += `
+      <div class="type-kpi-group">
+        <div class="type-kpi-section-hdr">${esc(gName)}</div>
+        <div class="type-kpi-cards">${types.map(kpiCard).join('')}</div>
+      </div>`;
+  }
+  if (noGroup.length) {
+    const label = Object.keys(groupMap).length ? 'ללא קבוצה' : 'ניתוח לפי חשבון';
+    html += `
+      <div class="type-kpi-group">
+        <div class="type-kpi-section-hdr">${label}</div>
+        <div class="type-kpi-cards">${noGroup.map(kpiCard).join('')}</div>
+      </div>`;
+  }
+
+  kpiBar.innerHTML = html;
 }
 
 async function deleteType(id) {
@@ -1390,6 +1398,39 @@ function monthDiff(a, b) {  // b - a in months
   const [ay, am] = a.split('-').map(Number);
   const [by, bm] = b.split('-').map(Number);
   return (by - ay) * 12 + (bm - am);
+}
+
+function calcSpanMonths(entries) {
+  // Duration in months using the half-month coordinate system (same as the chart bars).
+  // "YYYY-MM"    starts at half-idx N*2+0, ends exclusively at N*2+2 (full month = 1 month)
+  // "YYYY-MM-15" starts at half-idx N*2+1, ends exclusively at N*2+1 (half-month = 0.5 months)
+  // Overlapping entry ranges are merged so they aren't double-counted.
+  if (!entries.length) return 1;
+
+  function halfCoords(e) {
+    const [sy, sm] = e.start_month.slice(0, 7).split('-').map(Number);
+    const sd = parseInt(e.start_month.slice(8)) || 1;
+    const s  = sy * 24 + (sm - 1) * 2 + (sd >= 15 ? 1 : 0);
+
+    const [ey, em] = e.end_month.slice(0, 7).split('-').map(Number);
+    const ed = parseInt(e.end_month.slice(8)) || 1;
+    const en = ey * 24 + (em - 1) * 2 + (ed >= 15 ? 1 : 2);
+    return [s, en];
+  }
+
+  const intervals = entries.map(halfCoords).filter(([s, e]) => e > s);
+  if (!intervals.length) return 1;
+
+  intervals.sort((a, b) => a[0] - b[0]);
+  const merged = [[...intervals[0]]];
+  for (let i = 1; i < intervals.length; i++) {
+    const last = merged[merged.length - 1];
+    if (intervals[i][0] <= last[1]) { last[1] = Math.max(last[1], intervals[i][1]); }
+    else                            { merged.push([...intervals[i]]); }
+  }
+
+  const halves = merged.reduce((s, [a, b]) => s + (b - a), 0);
+  return Math.max(halves / 2, 0.5);
 }
 
 function monthLabel(ym) {
@@ -1468,6 +1509,9 @@ function fitView() {
   viewStart = b.start;
   viewEnd   = b.end;
   renderChart();
+  renderStatsBar();
+  renderTypeKpiBar();
+  renderKpiBanner();
 }
 
 function shiftView(months) {
@@ -1475,6 +1519,9 @@ function shiftView(months) {
   viewStart = monthAdd(viewStart, months);
   viewEnd   = monthAdd(viewEnd, months);
   renderChart();
+  renderStatsBar();
+  renderTypeKpiBar();
+  renderKpiBanner();
 }
 
 function buildMonthList() {
@@ -1552,10 +1599,12 @@ function renderChart() {
     const entries = billEntries.filter(e => e.bill_type_id === type.id && !e.is_filler);
     if (!entries.length) return;
     const hex = type.color;
+    const DUP_BG  = 'rgba(220,38,38,0.65)';
+    const DUP_BRD = '#dc2626';
     datasets.push({
       label:              type.name,
-      backgroundColor:    hex + 'bb',
-      borderColor:        hex,
+      backgroundColor:    entries.map(e => dupEntryIds.has(e.id) ? DUP_BG  : hex + 'bb'),
+      borderColor:        entries.map(e => dupEntryIds.has(e.id) ? DUP_BRD : hex),
       borderWidth:        2,
       borderRadius:       6,
       borderSkipped:      false,
@@ -1839,6 +1888,9 @@ function onChartMouseMove(e) {
   if (dp._filler) {
     html += `<div style="color:#888;font-size:0.82em;margin-top:2px;font-style:italic">מילוי ריק</div>`;
   }
+  if (dupEntryIds.has(dp._eid)) {
+    html += `<div style="color:#f87171;font-size:0.8em;margin-top:3px;font-weight:600">⚠ עסקה משוכפלת</div>`;
+  }
   if (entry.tx_name) {
     html += `<div style="color:#9dd;font-size:0.8em;margin-top:2px">${esc(entry.tx_name)}</div>`;
   }
@@ -1874,6 +1926,10 @@ function openEditModal(eid) {
   const entry = billEntries.find(e => e.id === eid);
   if (!entry) return;
   const type = billTypes.find(t => t.id === entry.bill_type_id);
+  // Always reset attach section
+  const attachWrap = document.getElementById('edit-attach-tx-wrap');
+  if (attachWrap) attachWrap.classList.add('hidden');
+  editAttachTx = null;
 
   document.getElementById('edit-entry-id').value = entry.id;
   document.getElementById('edit-start').value    = entry.start_month;
@@ -1949,6 +2005,14 @@ function openEditModal(eid) {
     else { extraWrap.style.display = 'none'; }
   } else {
     txSection.classList.add('hidden');
+    // Filler entry: show attach-tx section
+    const attachWrap = document.getElementById('edit-attach-tx-wrap');
+    if (attachWrap) {
+      attachWrap.classList.remove('hidden');
+      document.getElementById('edit-attach-search-wrap').classList.add('hidden');
+      document.getElementById('edit-attach-tx-btn').textContent = '+ קשר עסקה';
+      clearEditAttach();
+    }
   }
 
   document.getElementById('edit-status').className = 'inline-status';
@@ -2158,7 +2222,13 @@ async function onDragEnd(e) {
       const months  = buildMonthList();
       const s  = months[Math.max(0, si)];
       const en = months[Math.min(months.length - 1, ei)];
-      if (s && en) { viewStart = s; viewEnd = monthAdd(en, 1); renderChart(); }
+      if (s && en) {
+        viewStart = s; viewEnd = monthAdd(en, 1);
+        renderChart();
+        renderStatsBar();
+        renderTypeKpiBar();
+        renderKpiBanner();
+      }
     }
     zoomDrag = null;
     return;
@@ -2202,7 +2272,11 @@ async function onDragEnd(e) {
   if (r.ok) {
     entry.start_month = newStartM;
     entry.end_month   = newEndM;
+    computeDupEntries();
     renderChart();
+    renderTypeKpiBar();
+    renderStatsBar();
+    renderKpiBanner();
   } else {
     console.error('drag save failed', r.error, {newStartM, newEndM, ns, ne});
     alert('שמירה נכשלה: ' + (r.error || 'שגיאה לא ידועה') + `\nstart=${newStartM} end=${newEndM}`);
@@ -2482,45 +2556,86 @@ async function applyAll() {
 // ─────────────────────────────────────────────────────────────
 // Add Entry modal
 // ─────────────────────────────────────────────────────────────
-let currentEntryMode = 'tx';
-
 function openAddEntryModal() {
   selectedTx = null;
   document.getElementById('tx-search-inp').value = '';
   document.getElementById('tx-results').classList.add('hidden');
   document.getElementById('tx-selected').classList.add('hidden');
-  document.getElementById('tx-section').style.display = '';
+  document.getElementById('filler-note').value = '';
 
   const t = todayYM();
   document.getElementById('entry-start').value = t;
   document.getElementById('entry-end').value   = t;
-  document.getElementById('entry-modal-title').textContent = 'הוסף רשומה';
-  document.getElementById('entry-mode-toggle').style.display = 'flex';
   document.getElementById('entry-status').className = 'inline-status';
-  setEntryMode('tx');
   populateTypeSelect('entry-type-sel');
   openModal('modal-entry');
 }
 
-function openFillerModal() {
-  selectedTx = null;
-  const t = todayYM();
-  document.getElementById('entry-start').value = t;
-  document.getElementById('entry-end').value   = t;
-  document.getElementById('entry-modal-title').textContent = 'הוסף מילוי ריק';
-  document.getElementById('entry-mode-toggle').style.display = 'none';
-  document.getElementById('entry-status').className = 'inline-status';
-  setEntryMode('filler');
-  populateTypeSelect('entry-type-sel');
-  openModal('modal-entry');
+// ── Edit modal: attach TX to filler ──────────────────────────
+function toggleEditAttachTx() {
+  const wrap = document.getElementById('edit-attach-search-wrap');
+  const isOpen = !wrap.classList.contains('hidden');
+  wrap.classList.toggle('hidden', isOpen);
+  if (isOpen) { clearEditAttach(); }
+  document.getElementById('edit-attach-tx-btn').textContent = isOpen ? '+ קשר עסקה' : '✕ בטל';
 }
-
-function setEntryMode(mode) {
-  currentEntryMode = mode;
-  document.getElementById('mode-tx-btn').classList.toggle('active',     mode === 'tx');
-  document.getElementById('mode-filler-btn').classList.toggle('active', mode === 'filler');
-  document.getElementById('tx-section').style.display       = mode === 'tx' ? '' : 'none';
-  document.getElementById('filler-note-field').classList.toggle('hidden', mode !== 'filler');
+function onEditAttachFocus() { positionResults('edit-attach-tx-inp', 'edit-attach-results'); }
+function onEditAttachSearch(val) {
+  clearTimeout(txSearchTimer);
+  const q = val.trim();
+  if (!q) { document.getElementById('edit-attach-results').classList.add('hidden'); return; }
+  positionResults('edit-attach-tx-inp', 'edit-attach-results');
+  txSearchTimer = setTimeout(() => doEditAttachSearch(q), 250);
+}
+async function doEditAttachSearch(q) {
+  try {
+    const d = await (await fetch(`/api/search/transactions?keyword=${encodeURIComponent(q)}`)).json();
+    showEditAttachResults(d.results || []);
+  } catch(e) { showEditAttachResults([]); }
+}
+function showEditAttachResults(items) {
+  const box = document.getElementById('edit-attach-results');
+  if (!items.length) { box.classList.add('hidden'); return; }
+  positionResults('edit-attach-tx-inp', 'edit-attach-results');
+  box.classList.remove('hidden');
+  box.innerHTML = items.slice(0, 60).map(it => `
+    <div class="tx-row" onclick="selectEditAttach(${JSON.stringify(it).replace(/"/g,'&quot;')})">
+      <span class="tx-row-date">${it.date}</span>
+      <span class="tx-row-name">${esc(it.name)}</span>
+      <span class="tx-row-amt">₪${Math.abs(it.amount).toLocaleString('he-IL',{maximumFractionDigits:0})}</span>
+    </div>`).join('');
+}
+function selectEditAttach(tx) {
+  editAttachTx = tx;
+  document.getElementById('edit-attach-tx-inp').value = '';
+  document.getElementById('edit-attach-results').classList.add('hidden');
+  const sel = document.getElementById('edit-attach-selected');
+  sel.classList.remove('hidden');
+  const isCard = tx.source !== 'bank';
+  const badge = document.getElementById('edit-attach-badge');
+  badge.textContent = isCard ? 'כרטיס' : 'בנק';
+  badge.style.background = isCard ? 'var(--amber)' : 'var(--teal)';
+  badge.style.color = '#fff';
+  document.getElementById('edit-attach-name').textContent = tx.name;
+  document.getElementById('edit-attach-date').textContent = tx.date;
+  document.getElementById('edit-attach-amt').textContent  = '₪' + Math.abs(tx.amount).toLocaleString('he-IL',{maximumFractionDigits:0});
+}
+function clearEditAttach() {
+  editAttachTx = null;
+  document.getElementById('edit-attach-selected').classList.add('hidden');
+  document.getElementById('edit-attach-tx-inp').value = '';
+  document.getElementById('edit-attach-results').classList.add('hidden');
+}
+function positionResults(inputId, boxId) {
+  const inp  = document.getElementById(inputId);
+  const box  = document.getElementById(boxId);
+  const rect = inp.getBoundingClientRect();
+  const w    = Math.max(rect.width, 300);
+  box.style.top   = (rect.bottom + 4) + 'px';
+  const rightEdge = window.innerWidth - rect.right;
+  box.style.right = rightEdge + 'px';
+  box.style.left  = 'auto';
+  box.style.width = w + 'px';
 }
 
 function populateTypeSelect(selId) {
@@ -2577,17 +2692,17 @@ async function submitEntry() {
   const overlapErr = clientOverlapCheck(typeId, start, end);
   if (overlapErr) { setStatus(st, 'err', overlapErr); return; }
 
-  const body = { bill_type_id: typeId, start_month: start, end_month: end };
-
-  if (currentEntryMode === 'tx') {
-    if (!selectedTx) { setStatus(st, 'err', 'נא לבחור עסקה'); return; }
+  const body = {
+    bill_type_id: typeId, start_month: start, end_month: end,
+    note: document.getElementById('filler-note').value.trim(),
+  };
+  if (selectedTx) {
     body.transaction_table = selectedTx.source === 'bank' ? 'BankTransactions' : 'CardTransactions';
     body.transaction_id    = selectedTx.tx_id;
     body.amount            = Math.abs(selectedTx.amount);
     body.is_filler         = false;
   } else {
     body.is_filler = true;
-    body.note      = document.getElementById('filler-note').value.trim();
   }
 
   const r = await api('POST', '/api/bills/entries', body);
@@ -2616,9 +2731,17 @@ async function submitEdit() {
     const overlapErr = clientOverlapCheck(entry.bill_type_id, start, end, id);
     if (overlapErr) { setStatus(st, 'err', overlapErr); return; }
   }
-  const r = await api('PUT', `/api/bills/entries/${id}`, { start_month: start, end_month: end, note });
+  const body = { start_month: start, end_month: end, note };
+  if (editAttachTx) {
+    body.transaction_table = editAttachTx.source === 'bank' ? 'BankTransactions' : 'CardTransactions';
+    body.transaction_id    = editAttachTx.tx_id;
+    body.amount            = Math.abs(editAttachTx.amount);
+    body.is_filler         = false;
+  }
+  const r = await api('PUT', `/api/bills/entries/${id}`, body);
   if (r.ok) {
     closeModal('modal-edit');
+    editAttachTx = null;
     await loadEntries();
   } else {
     setStatus(st, 'err', r.error || 'שגיאה');

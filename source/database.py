@@ -2601,11 +2601,20 @@ class DataBase:
               transaction_id, amount, note, 1 if is_filler else 0))
         return self.cursor.lastrowid
 
-    def update_bill_entry(self, entry_id: int, start_month: str, end_month: str, note=None):
-        self.cursor.execute("""
-            UPDATE BillEntries SET Start_Month = ?, End_Month = ?, Note = ?
-            WHERE ID = ?
-        """, (start_month, end_month, note, entry_id))
+    def update_bill_entry(self, entry_id: int, start_month: str, end_month: str, note=None,
+                          transaction_table=None, transaction_id=None, amount=None, is_filler=None):
+        sets   = ["Start_Month=?", "End_Month=?", "Note=?"]
+        params = [start_month, end_month, note]
+        if transaction_table is not None:
+            sets.append("Transaction_Table=?"); params.append(transaction_table)
+        if transaction_id is not None:
+            sets.append("Transaction_ID=?"); params.append(transaction_id)
+        if amount is not None:
+            sets.append("Amount=?"); params.append(amount)
+        if is_filler is not None:
+            sets.append("Is_Filler=?"); params.append(1 if is_filler else 0)
+        params.append(entry_id)
+        self.cursor.execute(f"UPDATE BillEntries SET {', '.join(sets)} WHERE ID=?", params)
 
     def delete_bill_entry(self, entry_id: int):
         self.cursor.execute("DELETE FROM BillEntries WHERE ID = ?", (entry_id,))

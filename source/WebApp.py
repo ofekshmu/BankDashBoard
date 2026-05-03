@@ -96,9 +96,9 @@ _builtins.open = _dep_open
 def _capture_deps_and_run(fn):
     """Run fn() and return (deps_dict, db_mtime) of files actually used.
 
-    deps_dict maps abs-path → mtime-at-generation for every .py file
-    executed inside source/ (via sys.settrace) and every .html file opened
-    inside source/ (via the _dep_open hook above).  The caller saves this as a
+    deps_dict maps abs-path → mtime-at-generation for every .py file loaded
+    in source/ (via sys.modules scan) and every .html file opened inside
+    source/ (via the _dep_open hook above).  The caller saves this as a
     manifest so future staleness checks only watch relevant files.
     """
     source_dir = os.path.normpath(os.path.join(_PROJECT_DIR, 'source'))
@@ -109,23 +109,23 @@ def _capture_deps_and_run(fn):
     _dep_tracking.source_dir = source_dir
     _dep_tracking.touched    = touched
 
-    def _tracer(frame, event, _arg):
-        if event == 'call':
-            fp = os.path.normpath(frame.f_code.co_filename)
-            if fp not in touched and fp.startswith(source_dir) and fp.endswith('.py'):
-                try:
-                    touched[fp] = os.path.getmtime(fp)
-                except OSError:
-                    pass
-        return _tracer
-
-    old_trace = sys.gettrace()
-    sys.settrace(_tracer)
     try:
         fn()
     finally:
-        sys.settrace(old_trace)
         _dep_tracking.active = False
+
+    # Collect all source .py modules currently loaded.  Using sys.modules
+    # instead of sys.settrace avoids a Python 3.10 + numpy/matplotlib
+    # incompatibility where settrace causes np.finfo() to raise TypeError.
+    for _mod in list(sys.modules.values()):
+        try:
+            _fp = getattr(_mod, '__file__', None)
+            if _fp:
+                _fp = os.path.normpath(_fp)
+                if _fp.startswith(source_dir) and _fp.endswith('.py'):
+                    touched[_fp] = os.path.getmtime(_fp)
+        except OSError:
+            pass
 
     db_mtime = 0.0
     for _db in ('ShmuelFamiliy.db', os.path.join('source', 'ShmuelFamiliy.db')):
@@ -1487,7 +1487,7 @@ def _splash_html() -> str:
         .then(() => {
           var es = new EventSource('/api/logs');
           es.onmessage = function(e) {
-            if (e.data === '__DONE__') { es.close(); location.reload(); }
+            if (e.data.startsWith('__DONE__')) { es.close(); location.reload(); }
             if (e.data === '__ERROR__') { es.close(); alert('שגיאה בניתוח — בדוק את הטרמינל'); }
           };
         });
@@ -2640,9 +2640,13 @@ def api_bills_entry(entry_id):
                 return jsonify({'ok': False, 'error': overlap})
         db.update_bill_entry(
             entry_id,
-            start_month = body['start_month'],
-            end_month   = body['end_month'],
-            note        = body.get('note'),
+            start_month       = body['start_month'],
+            end_month         = body['end_month'],
+            note              = body.get('note'),
+            transaction_table = body.get('transaction_table'),
+            transaction_id    = body.get('transaction_id'),
+            amount            = body.get('amount'),
+            is_filler         = body.get('is_filler'),
         )
         db.commit_changes()
         return jsonify({'ok': True})

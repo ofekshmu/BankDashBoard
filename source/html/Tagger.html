@@ -1030,7 +1030,7 @@ function buildUntaggedRow(tx, idx) {
   if (isCard) {
     // Card: show both values + card number
     const txVal  = fmtMoney(tx.transaction_value, tx.currency);
-    const chgVal = fmtMoney(tx.charge_value, tx.currency);
+    const chgVal = fmtMoney(tx.charge_value, 'ILS');
     if (tx.transaction_value != null) metaHtml += `<span>ע. עסקה: <span class="val ${tx.transaction_value < 0 ? 'pos' : 'neg'}">${txVal}</span></span>`;
     if (tx.charge_value      != null) metaHtml += `<span>ע. חיוב: <span class="val ${tx.charge_value < 0 ? 'pos' : 'neg'}">${chgVal}</span></span>`;
     if (tx.card_id) metaHtml += `<span>כרטיס: <span class="val">${esc(String(tx.card_id))}</span></span>`;
@@ -1127,7 +1127,7 @@ function buildHighValRow(tx, idx) {
 
   let metaHtml = `<span>תאריך: <span class="val">${execD}</span></span>`;
   if (isCard) {
-    const chgVal = fmtMoney(tx.charge_value, tx.currency);
+    const chgVal = fmtMoney(tx.charge_value, 'ILS');
     const txVal  = fmtMoney(tx.transaction_value, tx.currency);
     if (tx.transaction_value != null) metaHtml += `<span>ע. עסקה: <span class="val ${tx.transaction_value < 0 ? 'pos' : 'neg'}">${txVal}</span></span>`;
     if (tx.charge_value      != null) metaHtml += `<span>ע. חיוב: <span class="val ${tx.charge_value < 0 ? 'pos' : 'neg'}">${chgVal}</span></span>`;
@@ -1250,7 +1250,7 @@ function buildTaggedRow(tx) {
   let metaHtml = `<span>תאריך: <span class="val">${execD}</span></span>`;
   if (isCard) {
     if (tx.transaction_value != null) metaHtml += `<span>ע. עסקה: <span class="val ${tx.transaction_value < 0 ? 'pos' : 'neg'}">${fmtMoney(tx.transaction_value, tx.currency)}</span></span>`;
-    if (tx.charge_value      != null) metaHtml += `<span>ע. חיוב: <span class="val ${tx.charge_value < 0 ? 'pos' : 'neg'}">${fmtMoney(tx.charge_value, tx.currency)}</span></span>`;
+    if (tx.charge_value      != null) metaHtml += `<span>ע. חיוב: <span class="val ${tx.charge_value < 0 ? 'pos' : 'neg'}">${fmtMoney(tx.charge_value, 'ILS')}</span></span>`;
   } else {
     const hasOut = tx.charge_value      != null && tx.charge_value      > 0;
     const hasIn  = tx.transaction_value != null && tx.transaction_value > 0;
@@ -1778,7 +1778,7 @@ function buildSearchResultRow(tx) {
   let metaHtml = `<span>תאריך: <span class="val">${execD}</span></span>`;
   if (isCard) {
     if (tx.transaction_value != null) metaHtml += `<span>ע. עסקה: <span class="val ${tx.transaction_value < 0 ? 'pos' : 'neg'}">${fmtMoney(tx.transaction_value, tx.currency)}</span></span>`;
-    if (tx.charge_value      != null) metaHtml += `<span>ע. חיוב: <span class="val ${tx.charge_value < 0 ? 'pos' : 'neg'}">${fmtMoney(tx.charge_value, tx.currency)}</span></span>`;
+    if (tx.charge_value      != null) metaHtml += `<span>ע. חיוב: <span class="val ${tx.charge_value < 0 ? 'pos' : 'neg'}">${fmtMoney(tx.charge_value, 'ILS')}</span></span>`;
   } else {
     const hasOut = tx.charge_value      != null && tx.charge_value      > 0;
     const hasIn  = tx.transaction_value != null && tx.transaction_value > 0;

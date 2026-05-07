@@ -703,8 +703,7 @@ class utils:
                 _pcard.append(_psc)
                 _pay_grid.append(_pcard)
 
-        # ── Card distribution chart in Transactions panel ─────────────
-        tx_panel = soup.find(id="panel-transactions")
+        # ── Card distribution chart (appended to overview-charts grid) ──
         _card_dist = data.get('card_dist', {})
         card_dist_card = tag("div", class_="chart-card full-width")
         card_dist_card["style"] = "margin-top: 16px;"
@@ -794,7 +793,7 @@ class utils:
             _cd_empty = tag("div", class_="empty-state")
             _cd_empty.string = "אין נתוני כרטיסים"
             card_dist_card.append(_cd_empty)
-        tx_panel.append(card_dist_card)
+        charts_grid.append(card_dist_card)
 
         # (Outlier boxes are now injected directly inside overview-charts, after the two pie donuts)
 

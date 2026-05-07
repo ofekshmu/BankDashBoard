@@ -1434,7 +1434,6 @@ body {
   </div>
   <div class="sidebar-scroll">
     <button class="nav-item" id="nav-overview" onclick="showPanel('overview',this);closeNav()">ניתוח חודשי</button>
-    <button class="nav-item" id="nav-transactions" onclick="showPanel('transactions',this);closeNav()">עסקאות</button>
     <div class="nav-sep"></div>
     <button class="nav-item" id="nav-accounts" onclick="showPanel('accounts',this);closeNav()">חשבונות</button>
     <a class="nav-item" href="/housing">דיור</a>
@@ -1510,16 +1509,8 @@ body {
   <!-- ── Panel: Overview ──────────────────────────────────── -->
   <div id="panel-overview" class="panel active">
     <div class="charts-grid" id="overview-charts"></div>
-    <!-- Installment payments section — injected by Python when payments exist -->
-    <div id="overview-payments-wrap" style="display:none">
-      <div class="payments-section-title">תשלומים חודשיים</div>
-      <div class="charts-grid payments-grid" id="overview-payments"></div>
-    </div>
-    <div class="card" id="alerts-card"></div>
-  </div>
 
-  <!-- ── Panel: Transactions ──────────────────────────────── -->
-  <div id="panel-transactions" class="panel">
+    <!-- Transactions: spendings + earnings -->
     <div class="tx-grid">
 
       <!-- Spendings -->
@@ -1570,12 +1561,13 @@ body {
 
     </div>
 
-    <!-- Full-width block below transaction lists -->
+    <!-- Full-width payments block (injected by Python) -->
     <div id="tx-bottom-block" class="chart-card">
       <div class="chart-card-title">תשלומים</div>
       <div class="charts-grid payments-grid" id="tx-payments-grid"></div>
     </div>
 
+    <div class="card" id="alerts-card"></div>
   </div>
 
   <!-- ── Panel: Accounts ──────────────────────────────────── -->
@@ -1722,9 +1714,9 @@ function toggleNav() {
   document.getElementById('sidebar').classList.contains('open') ? closeNav() : openNav();
 }
 // ── Panel navigation ──────────────────────────────────────
-var _PANEL_TITLES = { overview: 'ניתוח חודשי', transactions: 'עסקאות', accounts: 'חשבונות', housing: 'ניהול נכס' };
+var _PANEL_TITLES = { overview: 'ניתוח חודשי', accounts: 'חשבונות', housing: 'ניהול נכס' };
 // Panels that show the month roller and monthly KPI cards
-var _MONTHLY_PANELS = { overview: true, transactions: true };
+var _MONTHLY_PANELS = { overview: true };
 function _applyPanelUI(name) {
   var isMonthly = !!_MONTHLY_PANELS[name];
   var kpiRow  = document.getElementById('kpi-row');

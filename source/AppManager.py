@@ -1517,6 +1517,13 @@ class AppManager:
 
         # Accounts chart is now rendered as interactive Chart.js in the HTML — no PNG needed
 
+        utils.log("Checking organizer status for missing files...", "system")
+        try:
+            org_alerts = utils.get_organizer_alerts_for_month(t)
+        except Exception as _oe:
+            utils.log(f"Organizer alerts skipped: {_oe}", "warning")
+            org_alerts = []
+
         utils.log("Generating HTML report...", "system")
         utils.generate_html(t.month,
                             t.year,
@@ -1531,7 +1538,8 @@ class AppManager:
                             cash_information_data,
                             alerts=alerts,
                             mortgage_data=mortgage_data,
-                            accounts_meta=accounts_raw_meta)
+                            accounts_meta=accounts_raw_meta,
+                            organizer_alerts=org_alerts or None)
         import os as _os
         if not _os.environ.get('BANKAPP_WEB'):
             webbrowser.open(r'source\html\output.html')

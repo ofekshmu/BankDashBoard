@@ -114,6 +114,10 @@ body {
 }
 .sidebar-app-name { font-size: .95em; font-weight: 700; color: var(--navy); }
 .sidebar-scroll { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 8px 0 16px; }
+.sidebar-footer{padding:12px 16px;border-top:1px solid var(--border);flex-shrink:0}
+.nav-restart-btn{width:100%;padding:8px 12px;border:1.5px dashed var(--border);border-radius:8px;background:none;color:var(--text-muted);font-size:.78em;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:7px;justify-content:center;transition:background .15s,color .15s,border-color .15s}
+.nav-restart-btn:hover{background:#fff3f3;color:#e53935;border-color:#e53935}
+.nav-restart-btn:disabled{opacity:.5;cursor:default}
 .nav-item {
   display: flex; align-items: center;
   padding: 10px 20px;
@@ -605,6 +609,56 @@ body {
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #cdd4e0; border-radius: 3px; }
+
+/* ── Split feature ───────────────────────────────────────────── */
+.tg-split-btn{background:none;border:1.5px solid var(--border);border-radius:6px;padding:4px 10px;font-size:.75em;color:#7b1fa2;cursor:pointer;font-family:inherit;transition:background .12s,border-color .12s;white-space:nowrap;flex-shrink:0}
+.tg-split-btn:hover{background:#ede7f6;border-color:#9c27b0}
+.cash-cur-dropdown{display:none;background:#fff;border:1.5px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:9999;max-height:220px;overflow-y:auto}
+.cash-cur-dropdown.open{display:block}
+.cash-cur-search{padding:8px 12px;border:none;border-bottom:1.5px solid var(--border);font-size:.84em;width:100%;box-sizing:border-box;outline:none;color:var(--navy);position:sticky;top:0;background:#fff;font-family:inherit}
+.cash-cur-option{padding:7px 14px;cursor:pointer;font-size:.83em;color:var(--navy)}
+.cash-cur-option:hover{background:var(--teal-light)}
+.s-modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:900;align-items:center;justify-content:center}
+.s-modal-overlay.open{display:flex}
+.s-modal{background:#fff;border-radius:16px;padding:26px 30px;width:100%;max-width:540px;box-shadow:0 20px 60px rgba(0,0,0,.18);direction:rtl;position:relative;max-height:92vh;overflow-y:auto}
+.s-modal-title{font-size:1.04em;font-weight:700;color:var(--navy);margin-bottom:14px}
+.s-modal-close{position:absolute;top:14px;left:18px;background:none;border:none;font-size:1.1em;cursor:pointer;color:#aaa;padding:4px}
+.s-modal-close:hover{color:var(--red)}
+.s-step{display:none;flex-direction:column;gap:10px}
+.s-step.active{display:flex}
+.tg-step{display:none;flex-direction:column;gap:10px}
+.tg-step.active{display:flex}
+.s-orig-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#f7f9ff;border-radius:10px;padding:11px 14px}
+.s-orig-name{font-size:.88em;font-weight:600;color:var(--navy);flex:1}
+.s-orig-amount{font-size:.9em;font-weight:700;color:var(--teal);white-space:nowrap}
+.s-cat-badge{font-size:.72em;background:#f0f2f8;border-radius:10px;padding:2px 8px;color:#666}
+.s-editor-header{display:grid;grid-template-columns:22px 1fr 100px 120px 26px;gap:5px;font-size:.7em;color:var(--text-muted);font-weight:600;padding:0 2px;margin-bottom:4px}
+.s-editor-row{display:grid;grid-template-columns:22px 1fr 100px 120px 26px;gap:5px;align-items:center;margin-bottom:5px}
+.s-row-num{font-size:.78em;color:#aaa;text-align:center}
+.s-row-input{padding:7px 9px;border:1.5px solid var(--border);border-radius:7px;font-size:.84em;color:var(--navy);outline:none;width:100%;box-sizing:border-box;font-family:inherit;transition:border-color .15s}
+.s-row-input:focus{border-color:var(--teal)}
+.s-row-remove{width:24px;height:24px;border:none;background:none;color:#ccc;cursor:pointer;border-radius:5px;font-size:.9em;display:flex;align-items:center;justify-content:center;transition:background .12s,color .12s}
+.s-row-remove:hover{background:#fff0f0;color:var(--red)}
+.s-add-btn{background:none;border:1.5px dashed var(--border);border-radius:8px;color:var(--teal);font-size:.8em;font-weight:600;cursor:pointer;padding:7px 14px;font-family:inherit;transition:border-color .15s,background .15s}
+.s-add-btn:hover{background:var(--teal-light);border-color:var(--teal)}
+.s-total-bar{font-size:.8em;display:flex;gap:10px;flex-wrap:wrap;background:#f7f9ff;border-radius:8px;padding:7px 13px;align-items:center}
+.s-modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:16px}
+.s-btn-cancel{padding:9px 18px;border:1.5px solid var(--border);border-radius:8px;background:#fff;color:#888;cursor:pointer;font-size:.84em;font-weight:600;font-family:inherit}
+.s-btn-submit{padding:9px 18px;border:none;border-radius:8px;background:var(--teal);color:#fff;cursor:pointer;font-size:.84em;font-weight:600;font-family:inherit}
+.s-btn-submit:disabled{opacity:.45;cursor:not-allowed}
+.s-btn-danger{padding:9px 18px;border:none;border-radius:8px;background:#e53935;color:#fff;cursor:pointer;font-size:.84em;font-weight:600;font-family:inherit}
+.s-status{font-size:.78em;margin-top:5px;min-height:1.1em}
+.s-status.ok{color:var(--teal)}.s-status.err{color:var(--red)}
+.s-revert-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:7px 12px;border-radius:8px;background:#f7f9ff;margin-bottom:5px}
+.s-revert-num{font-size:.76em;color:#aaa;min-width:14px}
+.s-revert-amt{font-size:.86em;font-weight:700;color:var(--navy);min-width:70px}
+.s-revert-desc{font-size:.8em;color:var(--text-sub);flex:1}
+@keyframes lockGlow{0%{box-shadow:0 0 0 0 rgba(30,157,139,.65)}60%{box-shadow:0 0 0 9px rgba(30,157,139,0)}100%{box-shadow:0 0 0 0 rgba(30,157,139,0)}}
+@keyframes lockFail{0%{box-shadow:0 0 0 0 rgba(231,76,60,.7)}60%{box-shadow:0 0 0 9px rgba(231,76,60,0)}100%{box-shadow:0 0 0 0 rgba(231,76,60,0)}}
+.split-locked{border-color:var(--teal) !important;background:var(--teal-light) !important}
+.split-lock-flash{animation:lockGlow .55s ease-out forwards}
+.split-lock-fail{animation:lockFail .55s ease-out forwards;border-color:var(--red) !important}
+.split-sum-error{border-color:var(--red) !important}
 </style>
 </head>
 <body>
@@ -635,6 +689,12 @@ body {
     <div class="nav-sep"></div>
     <a class="nav-item active" href="/tagger">תייגן</a>
     <a class="nav-item" href="/files">קבצים</a>
+  </div>
+  <div class="sidebar-footer">
+    <button class="nav-restart-btn" onclick="restartServer(this)">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
+      הפעל שרת מחדש
+    </button>
   </div>
 </nav>
 
@@ -696,6 +756,7 @@ body {
       <span class="section-chevron">▲</span>
     </div>
     <div class="section-body" id="sec-untagged-body">
+      <div class="filter-bar" id="untagged-card-filter-bar" style="display:none"></div>
       <div class="tx-list" id="untagged-list">
         <div class="skeleton-row"></div>
         <div class="skeleton-row"></div>
@@ -789,6 +850,15 @@ body {
 </main>
 
 <script>
+function restartServer(btn) {
+  btn.disabled = true;
+  btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg> מפעיל מחדש…';
+  fetch('/api/restart',{method:'POST'}).catch(function(){}).finally(function(){
+    var t=setInterval(function(){
+      fetch('/').then(function(r){if(r.ok){clearInterval(t);location.reload();}}).catch(function(){});
+    },800);
+  });
+}
 function openNav() {
   document.getElementById('sidebar').classList.add('open');
   document.getElementById('nav-overlay').classList.add('open');
@@ -809,8 +879,15 @@ let _categories = [];          // [{name, count}]
 let _untaggedItems = [];
 let _highvalItems  = [];
 let _taggedItems   = [];
-let _taggedFilter  = 'all';    // 'all' | 'manual' | 'auto'
+let _taggedFilter       = 'all';   // 'all' | 'manual' | 'auto'
+let _untaggedCardFilter = null;    // null = all cards, otherwise card_id string
 let _autoRefreshTimer = null;
+// Guard against concurrent loads / stale retry chains
+let _loading    = { untagged: false, highval: false, tagged: false };
+let _retryTimer = { untagged: null,  highval: null,  tagged: null  };
+let _retryCount = { untagged: 0,     highval: 0,     tagged: 0     };
+const MAX_AUTO_RETRIES  = 3;
+const FETCH_TIMEOUT_MS  = 12000;
 let _lastInteraction = Date.now();
 const AUTO_REFRESH_DELAY = 5000;   // 5 s idle → refresh
 
@@ -843,27 +920,47 @@ async function loadCategories() {
 }
 
 // ── Untagged list ──────────────────────────────────────────────
-async function loadUntagged() {
+async function loadUntagged(manual = false) {
+  if (_loading.untagged) return;
+  if (manual) _retryCount.untagged = 0;
+  _loading.untagged = true;
+  if (_retryTimer.untagged) { clearTimeout(_retryTimer.untagged); _retryTimer.untagged = null; }
   const el = document.getElementById('untagged-list');
   el.innerHTML = skeletons(3);
-  const res  = await fetch('/api/tagger/untagged').catch(() => null);
+  const ctrl = new AbortController();
+  const tout = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
+  const res  = await fetch('/api/tagger/untagged', { signal: ctrl.signal }).catch(() => null);
+  clearTimeout(tout);
   const data = res ? await res.json().catch(() => null) : null;
+  _loading.untagged = false;
   if (!data || !data.ok) {
-    el.innerHTML = errorState('לא ניתן לטעון עסקאות', loadUntagged);
-    setTimeout(loadUntagged, 3500);
+    _retryCount.untagged++;
+    el.innerHTML = errorState('לא ניתן לטעון עסקאות', () => loadUntagged(true));
+    if (_retryCount.untagged <= MAX_AUTO_RETRIES) {
+      _retryTimer.untagged = setTimeout(loadUntagged, 3500);
+    }
     return;
   }
+  _retryCount.untagged = 0;
   _untaggedItems = data.items;
   const totalUntagged = data.total ?? _untaggedItems.length;
   document.getElementById('sec-untagged-count').textContent = totalUntagged;
   document.getElementById('untagged-count-badge').textContent = `${totalUntagged} ללא תיוג`;
+  buildCardFilterBar();
   renderUntagged();
 }
 
 function renderUntagged() {
   const el = document.getElementById('untagged-list');
-  if (!_untaggedItems.length) {
-    el.innerHTML = `<div class="empty-state"><div class="emoji">🎉</div>כל העסקאות מתויגות!</div>`;
+
+  const items = _untaggedCardFilter
+    ? _untaggedItems.filter(tx => tx.table_name === 'CardTransactions' && String(tx.card_id) === _untaggedCardFilter)
+    : _untaggedItems;
+
+  if (!items.length) {
+    el.innerHTML = _untaggedCardFilter
+      ? `<div class="empty-state"><div class="emoji">🎉</div>אין עסקאות ללא תיוג לכרטיס ${esc(_untaggedCardFilter)}</div>`
+      : `<div class="empty-state"><div class="emoji">🎉</div>כל העסקאות מתויגות!</div>`;
     return;
   }
   const cutoff = new Date();
@@ -871,8 +968,8 @@ function renderUntagged() {
 
   let html = '';
   let separatorInserted = false;
-  for (let i = 0; i < _untaggedItems.length; i++) {
-    const tx = _untaggedItems[i];
+  for (let i = 0; i < items.length; i++) {
+    const tx = items[i];
     const execDate = tx.exec_date ? new Date(tx.exec_date) : null;
     if (!separatorInserted && execDate && execDate < cutoff) {
       html += `<div class="old-tx-separator">עסקאות ישנות</div>`;
@@ -881,6 +978,41 @@ function renderUntagged() {
     html += buildUntaggedRow(tx, i);
   }
   el.innerHTML = html;
+}
+
+function buildCardFilterBar() {
+  const bar = document.getElementById('untagged-card-filter-bar');
+  if (!bar) return;
+
+  const cardIds = [...new Set(
+    _untaggedItems
+      .filter(tx => tx.table_name === 'CardTransactions' && tx.card_id)
+      .map(tx => String(tx.card_id))
+  )].sort();
+
+  if (cardIds.length < 2) {
+    bar.style.display = 'none';
+    _untaggedCardFilter = null;
+    return;
+  }
+
+  bar.style.display = '';
+  bar.innerHTML =
+    `<span style="font-size:.78em;color:var(--text-muted);flex-shrink:0">כרטיס:</span>` +
+    `<button class="filter-btn active" id="ucf-all" onclick="setUntaggedCardFilter(null)">הכל</button>` +
+    cardIds.map(id =>
+      `<button class="filter-btn" id="ucf-${CSS.escape(id)}" onclick="setUntaggedCardFilter('${esc(id)}')">${esc(id)}</button>`
+    ).join('');
+}
+
+function setUntaggedCardFilter(cardId) {
+  _untaggedCardFilter = cardId;
+  document.querySelectorAll('#untagged-card-filter-bar .filter-btn').forEach(b => b.classList.remove('active'));
+  const activeBtn = cardId
+    ? document.getElementById('ucf-' + CSS.escape(cardId))
+    : document.getElementById('ucf-all');
+  if (activeBtn) activeBtn.classList.add('active');
+  renderUntagged();
 }
 
 function buildUntaggedRow(tx, idx) {
@@ -899,8 +1031,8 @@ function buildUntaggedRow(tx, idx) {
     // Card: show both values + card number
     const txVal  = fmtMoney(tx.transaction_value, tx.currency);
     const chgVal = fmtMoney(tx.charge_value, tx.currency);
-    if (tx.transaction_value != null) metaHtml += `<span>ע. עסקה: <span class="val">${txVal}</span></span>`;
-    if (tx.charge_value      != null) metaHtml += `<span>ע. חיוב: <span class="val neg">${chgVal}</span></span>`;
+    if (tx.transaction_value != null) metaHtml += `<span>ע. עסקה: <span class="val ${tx.transaction_value < 0 ? 'pos' : 'neg'}">${txVal}</span></span>`;
+    if (tx.charge_value      != null) metaHtml += `<span>ע. חיוב: <span class="val ${tx.charge_value < 0 ? 'pos' : 'neg'}">${chgVal}</span></span>`;
     if (tx.card_id) metaHtml += `<span>כרטיס: <span class="val">${esc(String(tx.card_id))}</span></span>`;
   } else {
     // Bank: single value with direction label
@@ -937,6 +1069,7 @@ function buildUntaggedRow(tx, idx) {
         <button class="btn btn-primary" onclick="tagRow('${esc(key)}')" disabled id="btn-${esc(key)}">
           תייג
         </button>
+        <button class="tg-split-btn" onclick="tgOpenSplit(event,'${esc(tx.table_name)}',${tx.id},'${esc(tx.name||'')}',${Math.abs(tx.charge_value ?? tx.transaction_value ?? 0)},'${esc(tx.exec_date||'')}')">✂️ פצל</button>
       </div>
     </div>
     <div class="tx-desc-row">
@@ -952,16 +1085,28 @@ function buildUntaggedRow(tx, idx) {
 }
 
 // ── High value list ────────────────────────────────────────────
-async function loadHighValue() {
+async function loadHighValue(manual = false) {
+  if (_loading.highval) return;
+  if (manual) _retryCount.highval = 0;
+  _loading.highval = true;
+  if (_retryTimer.highval) { clearTimeout(_retryTimer.highval); _retryTimer.highval = null; }
   const el = document.getElementById('highval-list');
   el.innerHTML = skeletons(2);
-  const res  = await fetch('/api/tagger/high-value?threshold=500').catch(() => null);
+  const ctrl = new AbortController();
+  const tout = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
+  const res  = await fetch('/api/tagger/high-value?threshold=500', { signal: ctrl.signal }).catch(() => null);
+  clearTimeout(tout);
   const data = res ? await res.json().catch(() => null) : null;
+  _loading.highval = false;
   if (!data || !data.ok) {
-    el.innerHTML = errorState('לא ניתן לטעון', loadHighValue);
-    setTimeout(loadHighValue, 3500);
+    _retryCount.highval++;
+    el.innerHTML = errorState('לא ניתן לטעון', () => loadHighValue(true));
+    if (_retryCount.highval <= MAX_AUTO_RETRIES) {
+      _retryTimer.highval = setTimeout(loadHighValue, 3500);
+    }
     return;
   }
+  _retryCount.highval = 0;
   _highvalItems = data.items;
   document.getElementById('sec-highval-count').textContent = _highvalItems.length;
   if (!_highvalItems.length) {
@@ -984,8 +1129,8 @@ function buildHighValRow(tx, idx) {
   if (isCard) {
     const chgVal = fmtMoney(tx.charge_value, tx.currency);
     const txVal  = fmtMoney(tx.transaction_value, tx.currency);
-    if (tx.transaction_value != null) metaHtml += `<span>ע. עסקה: <span class="val">${txVal}</span></span>`;
-    if (tx.charge_value      != null) metaHtml += `<span>ע. חיוב: <span class="val neg">${chgVal}</span></span>`;
+    if (tx.transaction_value != null) metaHtml += `<span>ע. עסקה: <span class="val ${tx.transaction_value < 0 ? 'pos' : 'neg'}">${txVal}</span></span>`;
+    if (tx.charge_value      != null) metaHtml += `<span>ע. חיוב: <span class="val ${tx.charge_value < 0 ? 'pos' : 'neg'}">${chgVal}</span></span>`;
     if (tx.card_id) metaHtml += `<span>כרטיס: <span class="val">${esc(String(tx.card_id))}</span></span>`;
   } else {
     const hasOut = tx.charge_value      != null && tx.charge_value      > 0;
@@ -1021,6 +1166,7 @@ function buildHighValRow(tx, idx) {
         <button class="btn btn-primary" onclick="tagRow('${esc(key)}')" disabled id="btn-${esc(key)}">
           תייג
         </button>
+        <button class="tg-split-btn" onclick="tgOpenSplit(event,'${esc(tx.table_name)}',${tx.id},'${esc(tx.name||'')}',${Math.abs(tx.charge_value ?? tx.transaction_value ?? 0)},'${esc(tx.exec_date||'')}')">✂️ פצל</button>
       </div>
     </div>
     <div class="tx-desc-row">
@@ -1036,16 +1182,28 @@ function buildHighValRow(tx, idx) {
 }
 
 // ── Tagged list ────────────────────────────────────────────────
-async function loadTagged() {
+async function loadTagged(manual = false) {
+  if (_loading.tagged) return;
+  if (manual) _retryCount.tagged = 0;
+  _loading.tagged = true;
+  if (_retryTimer.tagged) { clearTimeout(_retryTimer.tagged); _retryTimer.tagged = null; }
   const el = document.getElementById('tagged-list');
   el.innerHTML = skeletons(2);
-  const res  = await fetch('/api/tagger/tagged').catch(() => null);
+  const ctrl = new AbortController();
+  const tout = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
+  const res  = await fetch('/api/tagger/tagged', { signal: ctrl.signal }).catch(() => null);
+  clearTimeout(tout);
   const data = res ? await res.json().catch(() => null) : null;
+  _loading.tagged = false;
   if (!data || !data.ok) {
-    el.innerHTML = errorState('לא ניתן לטעון', loadTagged);
-    setTimeout(loadTagged, 3500);
+    _retryCount.tagged++;
+    el.innerHTML = errorState('לא ניתן לטעון', () => loadTagged(true));
+    if (_retryCount.tagged <= MAX_AUTO_RETRIES) {
+      _retryTimer.tagged = setTimeout(loadTagged, 3500);
+    }
     return;
   }
+  _retryCount.tagged = 0;
   _taggedItems = data.items;
   document.getElementById('sec-tagged-count').textContent = _taggedItems.length;
   renderTagged();
@@ -1091,8 +1249,8 @@ function buildTaggedRow(tx) {
 
   let metaHtml = `<span>תאריך: <span class="val">${execD}</span></span>`;
   if (isCard) {
-    if (tx.transaction_value != null) metaHtml += `<span>ע. עסקה: <span class="val">${fmtMoney(tx.transaction_value, tx.currency)}</span></span>`;
-    if (tx.charge_value      != null) metaHtml += `<span>ע. חיוב: <span class="val neg">${fmtMoney(tx.charge_value, tx.currency)}</span></span>`;
+    if (tx.transaction_value != null) metaHtml += `<span>ע. עסקה: <span class="val ${tx.transaction_value < 0 ? 'pos' : 'neg'}">${fmtMoney(tx.transaction_value, tx.currency)}</span></span>`;
+    if (tx.charge_value      != null) metaHtml += `<span>ע. חיוב: <span class="val ${tx.charge_value < 0 ? 'pos' : 'neg'}">${fmtMoney(tx.charge_value, tx.currency)}</span></span>`;
   } else {
     const hasOut = tx.charge_value      != null && tx.charge_value      > 0;
     const hasIn  = tx.transaction_value != null && tx.transaction_value > 0;
@@ -1619,8 +1777,8 @@ function buildSearchResultRow(tx) {
 
   let metaHtml = `<span>תאריך: <span class="val">${execD}</span></span>`;
   if (isCard) {
-    if (tx.transaction_value != null) metaHtml += `<span>ע. עסקה: <span class="val">${fmtMoney(tx.transaction_value, tx.currency)}</span></span>`;
-    if (tx.charge_value      != null) metaHtml += `<span>ע. חיוב: <span class="val neg">${fmtMoney(tx.charge_value, tx.currency)}</span></span>`;
+    if (tx.transaction_value != null) metaHtml += `<span>ע. עסקה: <span class="val ${tx.transaction_value < 0 ? 'pos' : 'neg'}">${fmtMoney(tx.transaction_value, tx.currency)}</span></span>`;
+    if (tx.charge_value      != null) metaHtml += `<span>ע. חיוב: <span class="val ${tx.charge_value < 0 ? 'pos' : 'neg'}">${fmtMoney(tx.charge_value, tx.currency)}</span></span>`;
   } else {
     const hasOut = tx.charge_value      != null && tx.charge_value      > 0;
     const hasIn  = tx.transaction_value != null && tx.transaction_value > 0;
@@ -1659,6 +1817,328 @@ function buildSearchResultRow(tx) {
     </div>
   </div>
 </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  Transaction Split Feature — Tagger page
+// ═══════════════════════════════════════════════════════════
+var _tgSplitTx   = { id: null, table: null, name: '', amount: 0, date: '' };
+var _tgRevertTx  = { table: null, origId: null };
+var _tgRowIdx    = 0;
+var _tgOpenDdIdx = null;
+var _tgLockedRows = new Set();
+
+document.addEventListener('click', function(e) {
+  if (_tgOpenDdIdx === null) return;
+  var dd  = document.getElementById('_tgd-dd-' + _tgOpenDdIdx);
+  var btn = document.getElementById('_tgd-btn-' + _tgOpenDdIdx);
+  if (dd && !dd.contains(e.target) && btn && !btn.contains(e.target)) {
+    dd.classList.remove('open'); _tgOpenDdIdx = null;
+  }
+}, true);
+
+document.body.addEventListener('mousedown', function(e) {
+  var opt = e.target.closest ? e.target.closest('._tgd-opt') : null;
+  if (!opt) return;
+  e.preventDefault();
+  var dd = opt.parentNode;
+  while (dd && !/^_tgd-dd-/.test(dd.id)) dd = dd.parentNode;
+  if (!dd) return;
+  _tgSelectCat(parseInt(dd.id.replace('_tgd-dd-', ''), 10), opt.getAttribute('data-val'));
+});
+
+function _tgCatNames() { return _categories.map(function(c){ return c.name || c; }); }
+
+function _tgOpenDd(idx) {
+  if (_tgOpenDdIdx !== null && _tgOpenDdIdx !== idx) {
+    var p = document.getElementById('_tgd-dd-' + _tgOpenDdIdx);
+    if (p) p.classList.remove('open');
+  }
+  var btn = document.getElementById('_tgd-btn-' + idx);
+  var dd  = document.getElementById('_tgd-dd-' + idx);
+  if (!btn || !dd) return;
+  if (_tgOpenDdIdx === idx) { dd.classList.remove('open'); _tgOpenDdIdx = null; return; }
+  if (!dd.querySelectorAll('._tgd-opt').length) {
+    var s2 = dd.querySelector('._tgd-search');
+    if (s2) s2.insertAdjacentHTML('afterend', _tgCatNames().map(function(c){
+      return '<div class="_tgd-opt cash-cur-option" data-val="'+esc(c)+'">'+esc(c)+'</div>';
+    }).join(''));
+  }
+  if (dd.parentNode !== document.body) document.body.appendChild(dd);
+  var r = btn.getBoundingClientRect();
+  dd.style.top = (r.bottom + 4) + 'px'; dd.style.left = r.left + 'px'; dd.style.width = r.width + 'px';
+  dd.classList.add('open'); _tgOpenDdIdx = idx;
+  var s = dd.querySelector('._tgd-search');
+  if (s) { s.value = ''; _tgFilterOpts(idx, ''); s.focus(); }
+}
+function _tgFilterOpts(idx, q) {
+  var dd = document.getElementById('_tgd-dd-' + idx); if (!dd) return;
+  var ql = q.toLowerCase();
+  dd.querySelectorAll('._tgd-opt').forEach(function(o){
+    o.style.display = (!ql || o.textContent.toLowerCase().includes(ql)) ? '' : 'none';
+  });
+}
+function _tgSelectCat(idx, val) {
+  var btn = document.getElementById('_tgd-btn-' + idx); if (btn) btn.textContent = val;
+  var hid = document.getElementById('_tgd-val-' + idx); if (hid) hid.value = val;
+  var dd  = document.getElementById('_tgd-dd-' + idx);  if (dd) dd.classList.remove('open');
+  _tgOpenDdIdx = null;
+}
+function _tgBuildCatDd(idx, cur) {
+  var opts = _tgCatNames().map(function(c){
+    return '<div class="_tgd-opt cash-cur-option" data-val="'+esc(c)+'">'+esc(c)+'</div>';
+  }).join('');
+  return '<div style="position:relative">' +
+    '<button type="button" class="s-row-input _tgd-btn" id="_tgd-btn-'+idx+'" onclick="_tgOpenDd('+idx+')" ' +
+      'style="text-align:right;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(cur||'קטגוריה')+'</button>' +
+    '<input type="hidden" id="_tgd-val-'+idx+'" value="'+esc(cur||'')+'">' +
+    '<div class="cash-cur-dropdown _tgd-dd" id="_tgd-dd-'+idx+'" style="position:fixed;z-index:9999">' +
+      '<input class="cash-cur-search _tgd-search" type="text" placeholder="חיפוש..." oninput="_tgFilterOpts('+idx+',this.value)">' +
+      opts +
+    '</div>' +
+  '</div>';
+}
+
+function tgOpenSplit(e, table, id, name, amount, date) {
+  e.stopPropagation();
+  _tgSplitTx = { id: String(id), table: table, name: name, amount: parseFloat(amount) || 0, date: date };
+  var el = document.getElementById('tg-confirm-info');
+  if (el) el.innerHTML =
+    '<div class="s-orig-row">' +
+      '<span class="s-orig-name">'+esc(name)+'</span>' +
+      '<span class="s-orig-amount">₪'+_tgSplitTx.amount.toLocaleString('he-IL',{minimumFractionDigits:2})+'</span>' +
+      '<span style="font-size:.76em;color:var(--text-muted)">'+esc(date)+'</span>' +
+    '</div>';
+  tgShowStep('tg-step-confirm');
+  document.getElementById('tg-split-overlay').classList.add('open');
+}
+
+function tgGoEditor() {
+  var banner = document.getElementById('tg-editor-banner');
+  if (banner) banner.innerHTML =
+    '<div class="s-orig-row">' +
+      '<span class="s-orig-name">'+esc(_tgSplitTx.name)+'</span>' +
+      '<span class="s-orig-amount">₪'+_tgSplitTx.amount.toLocaleString('he-IL',{minimumFractionDigits:2})+'</span>' +
+    '</div>';
+  _tgRowIdx = 0; _tgOpenDdIdx = null; _tgLockedRows = new Set();
+  document.querySelectorAll('[id^="_tgd-dd-"]').forEach(function(el){ if (el.parentNode === document.body) el.remove(); });
+  document.getElementById('tg-editor-rows').innerHTML = '';
+  var half = Math.round(_tgSplitTx.amount / 2 * 100) / 100;
+  tgAddRow(_tgSplitTx.name, half, '');
+  tgAddRow(_tgSplitTx.name, _tgSplitTx.amount - half, '');
+  tgShowStep('tg-step-editor');
+  tgUpdateTotal();
+}
+
+function tgAddRow(defaultDesc, defaultAmt, defaultCat) {
+  _tgRowIdx++;
+  var idx  = _tgRowIdx;
+  var desc = defaultDesc !== undefined ? defaultDesc : _tgSplitTx.name;
+  var amt  = defaultAmt  !== undefined ? defaultAmt  : '';
+  var cat  = defaultCat  !== undefined ? defaultCat  : '';
+  var d = document.createElement('div');
+  d.className = 's-editor-row'; d.id = 'tg-row-' + idx;
+  d.innerHTML =
+    '<span class="s-row-num">'+idx+'</span>' +
+    '<input class="s-row-input tg-desc" type="text" placeholder="תיאור" value="'+esc(desc)+'">' +
+    '<input class="s-row-input tg-amt" type="number" min="0.01" step="0.01" placeholder="סכום"' +
+      (amt ? ' value="'+amt+'"' : '') +
+      ' oninput="tgUnlockRow('+idx+');tgUpdateTotal()"' +
+      ' onkeydown="if(event.key===\'Enter\'){event.preventDefault();tgLockRow('+idx+');}">'+
+    _tgBuildCatDd(idx, cat) +
+    (idx > 1 ? '<button class="s-row-remove" onclick="tgRemoveRow('+idx+')">✕</button>' : '<span></span>');
+  document.getElementById('tg-editor-rows').appendChild(d);
+  if (typeof defaultAmt === 'undefined') tgRedistribute(); else tgUpdateTotal();
+}
+function tgRemoveRow(idx) {
+  var r = document.getElementById('tg-row-' + idx); if (r) r.remove();
+  _tgLockedRows.delete(idx);
+  tgRedistribute();
+}
+
+function tgLockRow(idx) {
+  var inp = document.querySelector('#tg-row-'+idx+' .tg-amt');
+  if (!inp || inp.value === '' || isNaN(parseFloat(inp.value))) return;
+  if (_tgLockedRows.has(idx)) {
+    inp.classList.remove('split-lock-flash'); void inp.offsetWidth; inp.classList.add('split-lock-flash');
+    tgRedistribute();
+    return;
+  }
+  var thisVal = parseFloat(inp.value) || 0;
+  var lockedSum = 0, unlockedCount = 0;
+  document.querySelectorAll('#tg-editor-rows .s-editor-row').forEach(function(row) {
+    var ri = parseInt(row.id.replace('tg-row-', ''), 10); if (isNaN(ri)) return;
+    if (_tgLockedRows.has(ri)) { var ri2 = row.querySelector('.tg-amt'); if (ri2) lockedSum += parseFloat(ri2.value) || 0; }
+    else { unlockedCount++; }
+  });
+  var rem = Math.round((_tgSplitTx.amount - lockedSum - thisVal) * 100) / 100;
+  if (unlockedCount === 1) {
+    if (Math.abs(rem) >= 0.01) {
+      inp.classList.remove('split-lock-fail'); void inp.offsetWidth; inp.classList.add('split-lock-fail');
+      return;
+    }
+  } else if (unlockedCount === 2) {
+    if (rem < 0.01) {
+      inp.classList.remove('split-lock-fail'); void inp.offsetWidth; inp.classList.add('split-lock-fail');
+      return;
+    }
+  }
+  _tgLockedRows.add(idx);
+  inp.classList.remove('split-sum-error', 'split-lock-fail');
+  inp.classList.add('split-locked');
+  inp.classList.remove('split-lock-flash');
+  void inp.offsetWidth;
+  inp.classList.add('split-lock-flash');
+  tgRedistribute();
+}
+
+function tgUnlockRow(idx) {
+  var inp = document.querySelector('#tg-row-'+idx+' .tg-amt');
+  if (inp) inp.classList.remove('split-lock-fail');
+  if (!_tgLockedRows.has(idx)) return;
+  _tgLockedRows.delete(idx);
+  if (inp) inp.classList.remove('split-locked', 'split-lock-flash');
+}
+
+function tgRedistribute() {
+  var total = _tgSplitTx.amount, lockedSum = 0, unlockedItems = [];
+  document.querySelectorAll('#tg-editor-rows .s-editor-row').forEach(function(row) {
+    var idx = parseInt(row.id.replace('tg-row-', ''), 10); if (isNaN(idx)) return;
+    var inp = row.querySelector('.tg-amt'); if (!inp) return;
+    if (_tgLockedRows.has(idx)) { lockedSum += parseFloat(inp.value) || 0; }
+    else { unlockedItems.push({ idx: idx, inp: inp }); }
+  });
+  var rem = Math.round((total - lockedSum) * 100) / 100;
+  if (!unlockedItems.length) { tgUpdateTotal(); return; }
+  if (rem <= 0) { unlockedItems.forEach(function(u){ u.inp.value = 0; }); tgUpdateTotal(); return; }
+  if (unlockedItems.length === 1) {
+    unlockedItems[0].inp.value = rem;
+    _tgLockedRows.add(unlockedItems[0].idx);
+    var li = unlockedItems[0].inp;
+    li.classList.remove('split-sum-error', 'split-lock-fail');
+    li.classList.add('split-locked'); li.classList.remove('split-lock-flash');
+    void li.offsetWidth; li.classList.add('split-lock-flash');
+    tgUpdateTotal(); return;
+  }
+  var perRow = Math.round(rem / unlockedItems.length * 100) / 100, assigned = 0;
+  unlockedItems.forEach(function(u, i) {
+    var v = (i < unlockedItems.length - 1) ? perRow : Math.round((rem - assigned) * 100) / 100;
+    if (i < unlockedItems.length - 1) assigned += perRow;
+    u.inp.value = v;
+  });
+  tgUpdateTotal();
+}
+
+function tgUpdateTotal() {
+  var total = _tgSplitTx.amount, used = 0;
+  document.querySelectorAll('#tg-editor-rows .tg-amt').forEach(function(i){ used += parseFloat(i.value) || 0; });
+  var rem = total - used;
+  var uEl = document.getElementById('tg-total-used');
+  var rEl = document.getElementById('tg-total-rem');
+  if (uEl) uEl.textContent = '₪' + used.toLocaleString('he-IL', {minimumFractionDigits:2});
+  if (rEl) {
+    rEl.textContent = '₪' + Math.abs(rem).toLocaleString('he-IL', {minimumFractionDigits:2}) + (rem < 0 ? ' (חריגה)' : '');
+    rEl.style.color = Math.abs(rem) < 0.01 ? 'var(--teal)' : (rem < 0 ? 'var(--red)' : '#888');
+  }
+  var btn = document.getElementById('tg-submit-btn');
+  if (btn) btn.disabled = Math.abs(rem) >= 0.01;
+  var unlockedItems = [];
+  document.querySelectorAll('#tg-editor-rows .s-editor-row').forEach(function(row) {
+    var ri = parseInt(row.id.replace('tg-row-', ''), 10); if (isNaN(ri)) return;
+    if (!_tgLockedRows.has(ri)) { var inp = row.querySelector('.tg-amt'); if (inp) unlockedItems.push({ri:ri,inp:inp}); }
+  });
+  var showErr = unlockedItems.length > 2 && Math.abs(rem) >= 0.01;
+  unlockedItems.forEach(function(u) {
+    if (showErr) { tgUnlockRow(u.ri); u.inp.classList.add('split-sum-error'); }
+    else { u.inp.classList.remove('split-sum-error'); }
+  });
+}
+function tgSubmitSplit() {
+  var splits = [], valid = true;
+  document.querySelectorAll('#tg-editor-rows .s-editor-row').forEach(function(row) {
+    var desc = (row.querySelector('.tg-desc') || {value: ''}).value.trim();
+    var amt  = parseFloat((row.querySelector('.tg-amt') || {value: ''}).value);
+    var catH = row.querySelector('[id^="_tgd-val-"]');
+    var cat  = (catH ? catH.value : '') || 'NotCategorized';
+    if (!amt || amt <= 0) { valid = false; return; }
+    splits.push({ description: desc, amount: amt, category: cat });
+  });
+  if (!valid || splits.length < 2) { tgSetStatus('יש להזין סכום חיובי לכל חלק', 'err'); return; }
+  var btn = document.getElementById('tg-submit-btn'); if (btn) btn.disabled = true;
+  fetch('/api/transactions/split', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ table: _tgSplitTx.table, id: _tgSplitTx.id, splits: splits })
+  }).then(function(r){ return r.json(); }).then(function(d) {
+    if (d.ok) {
+      tgCloseSplit();
+      showToast('העסקה פוצלה ל-' + splits.length + ' חלקים!', 'success');
+      setTimeout(function(){ loadUntagged(true); loadHighValue(true); }, 600);
+    } else {
+      tgSetStatus('שגיאה: ' + (d.error || ''), 'err');
+      if (btn) btn.disabled = false;
+    }
+  }).catch(function(){ tgSetStatus('שגיאת רשת', 'err'); if (btn) btn.disabled = false; });
+}
+
+function tgOpenRevert(e, tbl, origId) {
+  if (e) e.stopPropagation();
+  _tgRevertTx = { table: tbl, origId: origId };
+  var oEl = document.getElementById('tg-revert-orig');
+  var sEl = document.getElementById('tg-revert-splits');
+  if (oEl) oEl.innerHTML = '<span style="color:#888;font-size:.84em">טוען...</span>';
+  if (sEl) sEl.innerHTML = '';
+  tgSetRevertStatus('', '');
+  document.getElementById('tg-revert-overlay').classList.add('open');
+  fetch('/api/transactions/split-info?table=' + encodeURIComponent(tbl) + '&id=' + encodeURIComponent(origId))
+    .then(function(r){ return r.json(); }).then(function(d) {
+      if (!d.ok) { if (oEl) oEl.innerHTML = 'שגיאה: ' + esc(d.error || ''); return; }
+      var o = d.original;
+      if (oEl) oEl.innerHTML = '<div class="s-orig-row">' +
+        '<span class="s-orig-name">'+esc(o.name)+'</span>' +
+        '<span class="s-orig-amount">₪'+Math.abs(o.amount).toLocaleString('he-IL',{minimumFractionDigits:2})+'</span>' +
+        '<span class="s-cat-badge">'+esc(o.category)+'</span>' +
+        '<span style="font-size:.76em;color:var(--text-muted)">'+esc(o.date)+'</span>' +
+        '</div>';
+      if (sEl) sEl.innerHTML = d.splits.map(function(s, i) {
+        return '<div class="s-revert-row">' +
+          '<span class="s-revert-num">'+(i+1)+'</span>' +
+          '<span class="s-revert-amt">₪'+s.amount.toLocaleString('he-IL',{minimumFractionDigits:2})+'</span>' +
+          '<span class="s-revert-desc">'+esc(s.description||'—')+'</span>' +
+          '<span class="s-cat-badge">'+esc(s.category)+'</span>' +
+          '</div>';
+      }).join('');
+    }).catch(function(){ if (oEl) oEl.innerHTML = 'שגיאת רשת'; });
+}
+function tgSubmitRevert() {
+  fetch('/api/transactions/revert-split', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ table: _tgRevertTx.table, id: _tgRevertTx.origId })
+  }).then(function(r){ return r.json(); }).then(function(d) {
+    if (d.ok) {
+      tgCloseRevert();
+      showToast('הפיצול בוטל!', 'success');
+      setTimeout(function(){ loadUntagged(true); loadHighValue(true); }, 600);
+    } else { tgSetRevertStatus('שגיאה: ' + (d.error || ''), 'err'); }
+  }).catch(function(){ tgSetRevertStatus('שגיאת רשת', 'err'); });
+}
+
+function tgShowStep(id) {
+  document.querySelectorAll('.tg-step').forEach(function(s){ s.classList.remove('active'); });
+  var el = document.getElementById(id); if (el) el.classList.add('active');
+}
+function tgCloseSplit() {
+  document.getElementById('tg-split-overlay').classList.remove('open');
+  _tgOpenDdIdx = null;
+  document.querySelectorAll('[id^="_tgd-dd-"]').forEach(function(el){ if (el.parentNode === document.body) el.remove(); });
+}
+function tgCloseRevert() { document.getElementById('tg-revert-overlay').classList.remove('open'); }
+function tgSetStatus(msg, cls) {
+  var el = document.getElementById('tg-split-status');
+  if (el) { el.textContent = msg; el.className = 's-status' + (cls ? ' ' + cls : ''); }
+}
+function tgSetRevertStatus(msg, cls) {
+  var el = document.getElementById('tg-revert-status');
+  if (el) { el.textContent = msg; el.className = 's-status' + (cls ? ' ' + cls : ''); }
 }
 
 // Kick off a background page regeneration so housing / monthly pages stay in sync.
@@ -1707,5 +2187,59 @@ async function retagSearchRow(key) {
   }
 }
 </script>
+
+<!-- ═══ Split modal ═══ -->
+<div class="s-modal-overlay" id="tg-split-overlay" onclick="if(event.target===this)tgCloseSplit()">
+  <div class="s-modal">
+    <button class="s-modal-close" onclick="tgCloseSplit()">✕</button>
+
+    <div class="tg-step active" id="tg-step-confirm">
+      <div class="s-modal-title">פיצול עסקה?</div>
+      <div id="tg-confirm-info"></div>
+      <div class="s-modal-actions">
+        <button class="s-btn-cancel" onclick="tgCloseSplit()">ביטול</button>
+        <button class="s-btn-submit" onclick="tgGoEditor()">פצל עסקה →</button>
+      </div>
+    </div>
+
+    <div class="tg-step" id="tg-step-editor">
+      <div class="s-modal-title">פיצול עסקה</div>
+      <div id="tg-editor-banner"></div>
+      <div class="s-editor-header">
+        <span></span><span>תיאור</span><span>סכום ₪</span><span>קטגוריה</span><span></span>
+      </div>
+      <div id="tg-editor-rows"></div>
+      <button class="s-add-btn" onclick="tgAddRow()">+ הוסף חלק</button>
+      <div class="s-total-bar">
+        <span style="color:var(--text-muted)">סה"כ:</span>
+        <span id="tg-total-used" style="font-weight:700">₪0</span>
+        <span style="color:var(--text-muted);margin-right:10px">נשאר:</span>
+        <span id="tg-total-rem" style="font-weight:700">₪0</span>
+      </div>
+      <div class="s-modal-actions">
+        <button class="s-btn-cancel" onclick="tgCloseSplit()">ביטול</button>
+        <button class="s-btn-submit" id="tg-submit-btn" onclick="tgSubmitSplit()" disabled>אשר פיצול</button>
+      </div>
+      <div class="s-status" id="tg-split-status"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Revert-split modal ═══ -->
+<div class="s-modal-overlay" id="tg-revert-overlay" onclick="if(event.target===this)tgCloseRevert()">
+  <div class="s-modal">
+    <button class="s-modal-close" onclick="tgCloseRevert()">✕</button>
+    <div class="s-modal-title">עסקה מפוצלת</div>
+    <div id="tg-revert-orig"></div>
+    <div style="margin:10px 0 5px;font-size:.76em;font-weight:600;color:var(--text-muted)">חלקים:</div>
+    <div id="tg-revert-splits"></div>
+    <div class="s-modal-actions">
+      <button class="s-btn-cancel" onclick="tgCloseRevert()">סגור</button>
+      <button class="s-btn-danger" onclick="tgSubmitRevert()">בטל פיצול ↩</button>
+    </div>
+    <div class="s-status" id="tg-revert-status"></div>
+  </div>
+</div>
+
 </body>
 </html>

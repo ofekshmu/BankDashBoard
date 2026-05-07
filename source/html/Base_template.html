@@ -110,6 +110,10 @@ body {
 }
 .sidebar-app-name { font-size: .95em; font-weight: 700; color: var(--navy); }
 .sidebar-scroll { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 8px 0 16px; }
+.sidebar-footer{padding:12px 16px;border-top:1px solid var(--border);flex-shrink:0}
+.nav-restart-btn{width:100%;padding:8px 12px;border:1.5px dashed var(--border);border-radius:8px;background:none;color:var(--text-muted);font-size:.78em;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:7px;justify-content:center;transition:background .15s,color .15s,border-color .15s}
+.nav-restart-btn:hover{background:#fff3f3;color:#e53935;border-color:#e53935}
+.nav-restart-btn:disabled{opacity:.5;cursor:default}
 .nav-item {
   display: flex; align-items: center;
   padding: 10px 20px;
@@ -161,6 +165,24 @@ body {
   padding: 6px 18px; border-radius: 20px;
   font-size: 0.87em; font-weight: 600;
 }
+
+/* ── Organizer missing-file alerts ──────────────────────── */
+#organizer-alerts { margin-bottom: 16px; }
+#organizer-alerts:empty { display: none; }
+.org-alerts-section-title {
+  font-size: 0.75em; font-weight: 700; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.8px;
+  margin-bottom: 10px;
+}
+.org-missing-card {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 10px 16px; border-radius: 8px; margin-bottom: 8px;
+  border: 1.5px solid; font-size: 0.83em; line-height: 1.4;
+}
+.org-missing-card.type-blue { background:#eff6ff; border-color:#93c5fd; color:#1e40af; }
+.org-missing-icon { flex-shrink: 0; font-size: 1em; }
+.org-missing-label { font-weight: 700; }
+.org-missing-detail { opacity: 0.8; font-size: 0.92em; margin-top: 2px; }
 
 /* ── Month roller ────────────────────────────────────────── */
 .month-roller {
@@ -293,6 +315,18 @@ body {
   border-color: var(--teal);
   animation: _reloadGlow 1.6s ease-in-out infinite;
 }
+.server-stale-banner {
+  display: none; align-items: center; gap: 10px; flex-wrap: wrap;
+  background: #fff8e1; border: 1.5px solid #f9a825; border-radius: 10px;
+  padding: 10px 16px; margin-bottom: 14px;
+  color: #6d4c00; font-size: .82em; font-weight: 600;
+}
+.server-stale-banner span { flex: 1; }
+.server-stale-banner button {
+  background: none; border: none; color: #6d4c00; cursor: pointer;
+  font-size: 1.1em; line-height: 1; padding: 0 2px; opacity: .7;
+}
+.server-stale-banner button:hover { opacity: 1; }
 
 /* ── KPI row ─────────────────────────────────────────────── */
 .kpi-row {
@@ -979,6 +1013,12 @@ body {
   transition: border-color .15s;
 }
 .split-row-input:focus { border-color: var(--teal); }
+@keyframes lockGlow{0%{box-shadow:0 0 0 0 rgba(30,157,139,.65)}60%{box-shadow:0 0 0 9px rgba(30,157,139,0)}100%{box-shadow:0 0 0 0 rgba(30,157,139,0)}}
+@keyframes lockFail{0%{box-shadow:0 0 0 0 rgba(231,76,60,.7)}60%{box-shadow:0 0 0 9px rgba(231,76,60,0)}100%{box-shadow:0 0 0 0 rgba(231,76,60,0)}}
+.split-locked{border-color:var(--teal) !important;background:var(--teal-light) !important}
+.split-lock-flash{animation:lockGlow .55s ease-out forwards}
+.split-lock-fail{animation:lockFail .55s ease-out forwards;border-color:var(--red) !important}
+.split-sum-error{border-color:var(--red) !important}
 .split-row-remove {
   width: 26px; height: 26px; border: none; background: none;
   color: #ccc; font-size: 1em; cursor: pointer; border-radius: 6px;
@@ -1184,6 +1224,36 @@ body {
 .log-drawer { display: none !important; }
 .log-line.info { color: #c8d0e8; }
 
+/* ── Credit-card confirmation modal ─────────────────────── */
+.cc-modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(15,22,45,.55);
+  z-index: 10000;
+  display: flex; align-items: center; justify-content: center;
+}
+.cc-modal {
+  background: var(--white); border-radius: 14px; padding: 28px 32px;
+  max-width: 440px; width: 90%;
+  box-shadow: 0 12px 40px rgba(0,0,0,.22);
+  text-align: right; direction: rtl;
+}
+.cc-modal-title { font-size: 1.05em; font-weight: 700; color: var(--navy); margin-bottom: 10px; }
+.cc-modal-body  { font-size: .85em; color: var(--text-sub); margin-bottom: 16px; line-height: 1.6; }
+.cc-modal-row   {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 5px 0; border-bottom: 1px solid var(--border); font-size: .83em;
+}
+.cc-modal-row:last-child { border-bottom: none; }
+.cc-modal-label { color: var(--text-muted); }
+.cc-modal-val   { font-weight: 600; color: var(--navy); }
+.cc-modal-btns  { display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px; }
+.cc-btn { border: none; border-radius: 8px; padding: 8px 22px; font-size: .88em;
+          font-weight: 600; cursor: pointer; transition: background .15s; font-family: inherit; }
+.cc-btn-yes { background: var(--teal); color: #fff; }
+.cc-btn-yes:hover { background: #189080; }
+.cc-btn-no  { background: #f0f2f6; color: var(--text-sub); }
+.cc-btn-no:hover  { background: #e2e5ed; }
+
 /* ── Empty state ─────────────────────────────────────────── */
 .empty-state {
   text-align: center; color: #bbb;
@@ -1376,6 +1446,12 @@ body {
     <a class="nav-item" href="/tagger">תייגן</a>
     <a class="nav-item" href="/files">קבצים</a>
   </div>
+  <div class="sidebar-footer">
+    <button class="nav-restart-btn" onclick="restartServer(this)">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
+      הפעל שרת מחדש
+    </button>
+  </div>
 </nav>
 
 <!-- ── Floating log panel ────────────────────────────────── -->
@@ -1385,6 +1461,19 @@ body {
     <span class="lf-title" id="lf-title">מנתח נתונים…</span>
   </div>
   <div class="lf-feed" id="lf-feed"></div>
+</div>
+
+<!-- ── Credit-card confirmation modal ───────────────────── -->
+<div id="cc-modal-overlay" class="cc-modal-overlay" style="display:none">
+  <div class="cc-modal">
+    <div class="cc-modal-title">🏦 עסקת אשראי זוהתה</div>
+    <div class="cc-modal-body">האפליקציה מצאה עסקה בחשבון הבנק שעשויה להיות חיוב כרטיס אשראי. האם לסווג אותה כ"אשראי"?</div>
+    <div id="cc-modal-rows"></div>
+    <div class="cc-modal-btns">
+      <button class="cc-btn cc-btn-no"  onclick="ccRespond(false)">לא — דלג</button>
+      <button class="cc-btn cc-btn-yes" onclick="ccRespond(true)">כן — אשר</button>
+    </div>
+  </div>
 </div>
 
 <!-- ── Main ──────────────────────────────────────────────── -->
@@ -1404,6 +1493,15 @@ body {
       <button class="reload-btn" id="reload-btn" onclick="reloadCurrent()" title="חשב מחדש">&#8635; חשב מחדש</button>
     </div>
   </div>
+
+  <!-- Server-stale warning banner -->
+  <div id="server-stale-banner" class="server-stale-banner">
+    <span>⚠ קבצי מקור השתנו מאז הפעלת השרת — הפעל מחדש כדי לראות את השינויים האחרונים.</span>
+    <button onclick="document.getElementById('server-stale-banner').style.display='none'" title="סגור">✕</button>
+  </div>
+
+  <!-- Organizer missing-file alerts (injected by Python) -->
+  <div id="organizer-alerts"></div>
 
   <!-- KPI rows (injected by Python) -->
   <div class="kpi-row"  id="kpi-row"></div>
@@ -1601,6 +1699,15 @@ body {
 <!-- ── Scripts ───────────────────────────────────────────── -->
 <script>
 // ── Hamburger sidebar ────────────────────────────────────
+function restartServer(btn) {
+  btn.disabled = true;
+  btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg> מפעיל מחדש…';
+  fetch('/api/restart',{method:'POST'}).catch(function(){}).finally(function(){
+    var t=setInterval(function(){
+      fetch('/').then(function(r){if(r.ok){clearInterval(t);location.reload();}}).catch(function(){});
+    },800);
+  });
+}
 function openNav() {
   document.getElementById('sidebar').classList.add('open');
   document.getElementById('nav-overlay').classList.add('open');
@@ -1662,14 +1769,31 @@ function showPanel(name, btn) {
       navBtn = document.querySelector('.nav-item[href="/' + panel + '"]');
     }
     if (navBtn) navBtn.classList.add('active');
-    // Load live data for accounts panel when opened via URL
+    // Load live data for accounts panel when opened via URL.
+    // Use setTimeout(0) — DOMContentLoaded has already fired at this point
+    // and the showPanel override (which calls these) is defined later in the
+    // same script block, so we need to defer until the full script finishes.
     if (panel === 'accounts') {
-      document.addEventListener('DOMContentLoaded', function() {
-        _loadFxAndEnrich();
-        _loadCashPie();
-      });
+      setTimeout(function() {
+        if (typeof _loadFxAndEnrich === 'function') _loadFxAndEnrich();
+        if (typeof _loadCashPie === 'function') _loadCashPie();
+        if (typeof _updateCashInTrendChart === 'function') _updateCashInTrendChart();
+      }, 0);
     }
   }
+})();
+
+// ── Server-stale banner ───────────────────────────────────
+(function checkServerStale() {
+  fetch('/api/server-stale')
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d.stale) {
+        var b = document.getElementById('server-stale-banner');
+        if (b) b.style.display = 'flex';
+      }
+    })
+    .catch(function() {});
 })();
 
 // ── Alert badge ───────────────────────────────────────────
@@ -1822,6 +1946,33 @@ function setLogIndicator(state) {
   var sp = document.getElementById('lf-spinner');
   if (!sp) return;
   sp.className = 'lf-spinner' + (state ? ' ' + state : '');
+}
+
+function showCCPrompt(txData) {
+  var labels = {ID:'מזהה', Date:'תאריך', Name:'שם', Out:'סכום', Category:'קטגוריה', Description:'תיאור'};
+  var rows = document.getElementById('cc-modal-rows');
+  if (!rows) return;
+  var html = '';
+  ['Name','Date','Out','Description','ID'].forEach(function(k) {
+    var v = txData[k];
+    if (v != null && v !== '' && v !== 'nan' && v !== 'None') {
+      html += '<div class="cc-modal-row">' +
+              '<span class="cc-modal-label">' + (labels[k] || k) + '</span>' +
+              '<span class="cc-modal-val">' + String(v).replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</span>' +
+              '</div>';
+    }
+  });
+  rows.innerHTML = html;
+  document.getElementById('cc-modal-overlay').style.display = 'flex';
+}
+
+function ccRespond(choice) {
+  document.getElementById('cc-modal-overlay').style.display = 'none';
+  fetch('/api/analysis/respond', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({choice: choice})
+  }).catch(function(){});
 }
 
 // ── Month roller ──────────────────────────────────────────
@@ -2033,6 +2184,10 @@ function _reloadGeneral() {
     es.onmessage = function(evt) {
       var data = evt.data;
       if (!data || data === '__CONNECTED__') return;
+      if (data.startsWith('__PROMPT_CC__:')) {
+        try { showCCPrompt(JSON.parse(data.slice(14))); } catch(_e) {}
+        return;
+      }
       if (data.startsWith('__DONE__')) {
         es.close();
         appendLog('✓ הניתוח הסתיים — מרענן...', 'done');
@@ -2222,6 +2377,90 @@ function acctDateToggle() {
   var custom = document.querySelector('input[name="acct-date-radio"][value="custom"]').checked;
   document.getElementById('acct-date-input').style.display = custom ? 'block' : 'none';
 }
+// ── Optimistic update helpers ─────────────────────────────────
+
+// Update the balance cell in the accounts table for the matching row.
+function _acctOptimisticTableUpdate(name, value, currency) {
+  var sym = {ILS: '₪', USD: '$', EUR: '€', JPY: '¥'};
+  var s = sym[currency] || currency;
+  var displayVal = currency === 'ILS'
+    ? value.toLocaleString('he-IL', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + '₪'
+    : s + value.toLocaleString('he-IL', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+  var trs = Array.from(document.querySelectorAll('#accounts-table tr'));
+  var delta = null;
+  trs.forEach(function(row) {
+    var cells = row.querySelectorAll('td');
+    if (cells.length > 1 && cells[0].textContent.trim() === name) {
+      var oldNum = parseFloat(cells[1].textContent.replace(/[^\d.-]/g, '')) || 0;
+      // For non-ILS accounts the table shows raw foreign value; compute ILS delta
+      var rate    = (currency !== 'ILS' && _fxRates) ? (_fxRates[currency] || 1) : 1;
+      var newILS  = value * rate;
+      var oldILS  = currency === 'ILS' ? oldNum : oldNum * rate;
+      delta = newILS - oldILS;
+      cells[1].textContent = displayVal;
+      row.style.transition = 'background .25s';
+      row.style.background = 'var(--teal-light)';
+      setTimeout(function() { row.style.background = ''; }, 900);
+    }
+  });
+  // Propagate delta to subtotal / total rows
+  if (delta !== null && Math.abs(delta) > 0.01) {
+    trs.forEach(function(row) {
+      if (!row.classList.contains('acct-subtotal') && !row.classList.contains('acct-total')) return;
+      var cells = row.querySelectorAll('td');
+      if (cells.length < 2) return;
+      var old = parseFloat(cells[1].textContent.replace(/[^\d.-]/g, '')) || 0;
+      cells[1].textContent = Math.round(old + delta).toLocaleString('he-IL') + '₪';
+    });
+  }
+}
+
+// Add or update the data point in the Chart.js trend chart.
+// Values in the chart are stored as ILS (non-ILS accounts are converted via FX rates).
+function _acctOptimisticChartUpdate(name, date, value, currency) {
+  var canvas = document.getElementById('acct-chart-canvas');
+  if (!canvas || typeof Chart === 'undefined') return;
+  var chart = Chart.getChart ? Chart.getChart(canvas) : null;
+  if (!chart) return;
+
+  var rate      = (currency !== 'ILS' && _fxRates) ? (_fxRates[currency] || 1) : 1;
+  var ilsValue  = Math.round(value * rate * 100) / 100;
+  var labels    = chart.data.labels;
+  var datasets  = chart.data.datasets;
+
+  // Locate or insert the date in the sorted label array
+  var idx = labels.indexOf(date);
+  if (idx === -1) {
+    var insertAt = labels.findIndex(function(l) { return l > date; });
+    if (insertAt === -1) insertAt = labels.length;
+    labels.splice(insertAt, 0, date);
+    datasets.forEach(function(ds) { ds.data.splice(insertAt, 0, null); });
+    idx = insertAt;
+  }
+
+  // Find the dataset for this account name and record the ILS delta
+  var delta = 0;
+  datasets.forEach(function(ds) {
+    if (ds.label === name) {
+      var oldVal = ds.data[idx] || 0;
+      delta = ilsValue - oldVal;
+      ds.data[idx] = ilsValue;
+    }
+  });
+
+  // Update the Total dataset at this date by the same delta
+  if (delta !== 0) {
+    datasets.forEach(function(ds) {
+      if (ds.label === 'Total') {
+        var old = ds.data[idx] || 0;
+        ds.data[idx] = Math.round((old + delta) * 100) / 100;
+      }
+    });
+  }
+
+  chart.update('none'); // instant, no animation
+}
+
 function acctSubmitStatus() {
   var sel  = document.getElementById('acct-sel-name');
   var name = sel.value === '__new__'
@@ -2236,6 +2475,12 @@ function acctSubmitStatus() {
   var value    = parseFloat(document.getElementById('acct-value-input').value);
   var currency = document.getElementById('acct-currency-input').value || 'ILS';
   if (isNaN(value)) { acctSetStatus('acct-status-add', 'יתרה לא תקינה', 'err'); return; }
+
+  // Optimistic update — update table and chart immediately while the request is in flight
+  _acctOptimisticTableUpdate(name, value, currency);
+  _acctOptimisticChartUpdate(name, date, value, currency);
+  acctSetStatus('acct-status-add', 'שומר…', 'ok');
+
   fetch('/api/accounts/status', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
@@ -2248,6 +2493,7 @@ function acctSubmitStatus() {
         acctLoadNames();
       } else {
         acctSetStatus('acct-status-add', d.error || 'שגיאה', 'err');
+        if (typeof _enrichAcctTable === 'function') _enrichAcctTable();
       }
     }).catch(function() { acctSetStatus('acct-status-add', 'שגיאת רשת', 'err'); });
 }
@@ -2954,6 +3200,7 @@ function submitReconcile() {
 var _splitTx      = { id: null, table: null, name: '', amount: 0, category: '', date: '' };
 var _revertTx     = { table: null, origId: null };
 var _splitRowIdx  = 0;
+var _splitLockedRows = new Set();
 var _availCats    = [];
 var _openSplitCatDdId = null;   // which row's cat-dropdown is currently open
 
@@ -2998,6 +3245,8 @@ function _openSplitCatDd(idx) {
   dd.style.top   = (r.bottom + 4) + 'px';
   dd.style.left  = r.left + 'px';
   dd.style.width = r.width + 'px';
+  // Hoist to body so overflow:auto on the modal can't clip pointer events
+  if (dd.parentNode !== document.body) document.body.appendChild(dd);
   dd.classList.add('open');
   _openSplitCatDdId = idx;
   var srch = dd.querySelector('._scd-search');
@@ -3024,7 +3273,7 @@ function _selectSplitCat(idx, val) {
 
 function _buildSplitCatDd(idx, currentCat) {
   var opts = _availCats.map(function(c) {
-    return '<div class="_scd-opt cash-cur-option" onclick="_selectSplitCat(' + idx + ',' + JSON.stringify(c) + ')">' + _txEsc(c) + '</div>';
+    return '<div class="_scd-opt cash-cur-option" data-val="' + _txEsc(c) + '">' + _txEsc(c) + '</div>';
   }).join('');
   return '<div class="cash-cur-wrap" style="position:relative">' +
     '<button type="button" class="split-row-input _scd-btn" id="_scd-btn-' + idx + '" ' +
@@ -3040,6 +3289,19 @@ function _buildSplitCatDd(idx, currentCat) {
     '</div>' +
   '</div>';
 }
+
+// Global capture-phase delegate — handles clicks on any _scd-opt regardless of DOM position
+document.addEventListener('mousedown', function(e) {
+  var opt = e.target.closest ? e.target.closest('._scd-opt') : null;
+  if (!opt) return;
+  e.preventDefault();
+  // Walk up to find the parent _scd-dd-* container
+  var dd = opt.parentNode;
+  while (dd && !(dd.id && /^_scd-dd-/.test(dd.id))) dd = dd.parentNode;
+  if (!dd) return;
+  var idx = parseInt(dd.id.replace('_scd-dd-', ''), 10);
+  if (!isNaN(idx)) _selectSplitCat(idx, opt.getAttribute('data-val'));
+}, true);
 
 // ── Event delegation — click any .num row in tx lists ────────
 (function attachTxClickDelegation() {
@@ -3109,6 +3371,11 @@ function _goToSplitEditor() {
 
     _splitRowIdx = 0;
     _openSplitCatDdId = null;
+    _splitLockedRows = new Set();
+    // Remove any hoisted dropdowns from a previous editor session
+    document.querySelectorAll('._scd-dd').forEach(function(dd) {
+      if (dd.parentNode === document.body) document.body.removeChild(dd);
+    });
     document.getElementById('split-editor-rows').innerHTML = '';
     // Default: 2 rows, each with half the amount, original name & category
     var half = Math.round(_splitTx.amount / 2 * 100) / 100;
@@ -3133,7 +3400,9 @@ function _addSplitRow(defaultDesc, defaultAmount, defaultCat) {
     '<span class="split-row-num">' + idx + '</span>' +
     '<input class="split-row-input split-row-desc" type="text" placeholder="תיאור" value="' + _txEsc(desc) + '">' +
     '<input class="split-row-input split-row-amount" type="number" min="0.01" step="0.01" placeholder="סכום ₪"' +
-      (amt ? ' value="' + amt + '"' : '') + ' oninput="_updateSplitTotal()">' +
+      (amt ? ' value="' + amt + '"' : '') +
+      ' oninput="_unlockSplitRow(' + idx + ');_updateSplitTotal()"' +
+      ' onkeydown="if(event.key===\'Enter\'){event.preventDefault();_lockSplitRow(' + idx + ');}">' +
     _buildSplitCatDd(idx, cat) +
     (idx > 1
       ? '<button class="split-row-remove" onclick="_removeSplitRow(' + idx + ')" title="הסר">✕</button>'
@@ -3144,6 +3413,80 @@ function _addSplitRow(defaultDesc, defaultAmount, defaultCat) {
 function _removeSplitRow(idx) {
   var r = document.getElementById('split-row-' + idx);
   if (r) r.remove();
+  _splitLockedRows.delete(idx);
+  _redistributeSplit();
+}
+
+function _lockSplitRow(idx) {
+  var inp = document.querySelector('#split-row-' + idx + ' .split-row-amount');
+  if (!inp || inp.value === '' || isNaN(parseFloat(inp.value))) return;
+  if (_splitLockedRows.has(idx)) {
+    inp.classList.remove('split-lock-flash'); void inp.offsetWidth; inp.classList.add('split-lock-flash');
+    _redistributeSplit();
+    return;
+  }
+  var thisVal = parseFloat(inp.value) || 0;
+  var lockedSum = 0, unlockedCount = 0;
+  document.querySelectorAll('#split-editor-rows .split-editor-row').forEach(function(row) {
+    var ri = parseInt(row.id.replace('split-row-', ''), 10); if (isNaN(ri)) return;
+    if (_splitLockedRows.has(ri)) { var ri2 = row.querySelector('.split-row-amount'); if (ri2) lockedSum += parseFloat(ri2.value) || 0; }
+    else { unlockedCount++; }
+  });
+  var rem = Math.round((_splitTx.amount - lockedSum - thisVal) * 100) / 100;
+  if (unlockedCount === 1) {
+    if (Math.abs(rem) >= 0.01) {
+      inp.classList.remove('split-lock-fail'); void inp.offsetWidth; inp.classList.add('split-lock-fail');
+      return;
+    }
+  } else if (unlockedCount === 2) {
+    if (rem < 0.01) {
+      inp.classList.remove('split-lock-fail'); void inp.offsetWidth; inp.classList.add('split-lock-fail');
+      return;
+    }
+  }
+  _splitLockedRows.add(idx);
+  inp.classList.remove('split-sum-error', 'split-lock-fail');
+  inp.classList.add('split-locked');
+  inp.classList.remove('split-lock-flash');
+  void inp.offsetWidth;
+  inp.classList.add('split-lock-flash');
+  _redistributeSplit();
+}
+
+function _unlockSplitRow(idx) {
+  var inp = document.querySelector('#split-row-' + idx + ' .split-row-amount');
+  if (inp) inp.classList.remove('split-lock-fail');
+  if (!_splitLockedRows.has(idx)) return;
+  _splitLockedRows.delete(idx);
+  if (inp) inp.classList.remove('split-locked', 'split-lock-flash');
+}
+
+function _redistributeSplit() {
+  var total = _splitTx.amount, lockedSum = 0, unlockedItems = [];
+  document.querySelectorAll('#split-editor-rows .split-editor-row').forEach(function(row) {
+    var idx = parseInt(row.id.replace('split-row-', ''), 10); if (isNaN(idx)) return;
+    var inp = row.querySelector('.split-row-amount'); if (!inp) return;
+    if (_splitLockedRows.has(idx)) { lockedSum += parseFloat(inp.value) || 0; }
+    else { unlockedItems.push({ idx: idx, inp: inp }); }
+  });
+  var rem = Math.round((total - lockedSum) * 100) / 100;
+  if (!unlockedItems.length) { _updateSplitTotal(); return; }
+  if (rem <= 0) { unlockedItems.forEach(function(u){ u.inp.value = 0; }); _updateSplitTotal(); return; }
+  if (unlockedItems.length === 1) {
+    unlockedItems[0].inp.value = rem;
+    _splitLockedRows.add(unlockedItems[0].idx);
+    var li = unlockedItems[0].inp;
+    li.classList.remove('split-sum-error', 'split-lock-fail');
+    li.classList.add('split-locked'); li.classList.remove('split-lock-flash');
+    void li.offsetWidth; li.classList.add('split-lock-flash');
+    _updateSplitTotal(); return;
+  }
+  var perRow = Math.round(rem / unlockedItems.length * 100) / 100, assigned = 0;
+  unlockedItems.forEach(function(u, i) {
+    var v = (i < unlockedItems.length - 1) ? perRow : Math.round((rem - assigned) * 100) / 100;
+    if (i < unlockedItems.length - 1) assigned += perRow;
+    u.inp.value = v;
+  });
   _updateSplitTotal();
 }
 
@@ -3164,6 +3507,16 @@ function _updateSplitTotal() {
   }
   var btn = document.getElementById('split-submit-btn');
   if (btn) btn.disabled = Math.abs(rem) >= 0.01;
+  var unlockedItems = [];
+  document.querySelectorAll('#split-editor-rows .split-editor-row').forEach(function(row) {
+    var ri = parseInt(row.id.replace('split-row-', ''), 10); if (isNaN(ri)) return;
+    if (!_splitLockedRows.has(ri)) { var inp = row.querySelector('.split-row-amount'); if (inp) unlockedItems.push({ri:ri,inp:inp}); }
+  });
+  var showErr = unlockedItems.length > 2 && Math.abs(rem) >= 0.01;
+  unlockedItems.forEach(function(u) {
+    if (showErr) { _unlockSplitRow(u.ri); u.inp.classList.add('split-sum-error'); }
+    else { u.inp.classList.remove('split-sum-error'); }
+  });
 }
 
 function _submitSplit() {
@@ -3321,6 +3674,11 @@ function _showSplitStep(id) {
 }
 function _closeSplitModal() {
   document.getElementById('split-modal-overlay').classList.remove('open');
+  // Remove any dropdowns that were hoisted to body
+  document.querySelectorAll('._scd-dd').forEach(function(dd) {
+    if (dd.parentNode === document.body) document.body.removeChild(dd);
+  });
+  _openSplitCatDdId = null;
 }
 function _setSplitStatus(msg, cls) {
   var el = document.getElementById('split-modal-status');

@@ -33,6 +33,10 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;m
 .sidebar-close-btn{margin-right:auto;background:none;border:none;cursor:pointer;font-size:1.1em;color:var(--text-sub);line-height:1;padding:4px 6px;border-radius:6px;transition:background .12s,color .12s}
 .sidebar-close-btn:hover{background:var(--teal-light);color:var(--teal)}
 .sidebar-scroll{flex:1;overflow-y:auto;overflow-x:hidden;padding:8px 0 16px}
+.sidebar-footer{padding:12px 16px;border-top:1px solid var(--border);flex-shrink:0}
+.nav-restart-btn{width:100%;padding:8px 12px;border:1.5px dashed var(--border);border-radius:8px;background:none;color:var(--text-muted);font-size:.78em;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:7px;justify-content:center;transition:background .15s,color .15s,border-color .15s}
+.nav-restart-btn:hover{background:#fff3f3;color:#e53935;border-color:#e53935}
+.nav-restart-btn:disabled{opacity:.5;cursor:default}
 .nav-item{display:flex;align-items:center;padding:10px 20px;text-decoration:none;color:var(--text-sub);font-size:.875em;font-weight:500;transition:background .1s,color .1s;cursor:pointer;border:none;background:none;width:100%;text-align:right;position:relative;letter-spacing:.1px;font-family:inherit}
 .nav-item::before{content:'';position:absolute;right:0;top:22%;height:56%;width:3px;border-radius:3px 0 0 3px;background:transparent;transition:background .1s}
 .nav-item:hover{background:var(--teal-light);color:var(--teal)}
@@ -81,6 +85,57 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;m
 .amount-row{display:flex;gap:8px;align-items:center}
 .amount-sep{color:var(--text-muted);font-size:.85em;flex-shrink:0}
 
+/* ── Date range picker ─────────────────────────────────────── */
+.drp-trigger{width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);
+  font-size:.88em;color:var(--navy);background:var(--white);cursor:pointer;
+  display:flex;align-items:center;gap:7px;transition:border-color .18s,box-shadow .18s;
+  font-family:inherit}
+.drp-trigger:focus,.drp-trigger.open{border-color:var(--teal);outline:none;box-shadow:0 0 0 3px rgba(30,157,139,.12)}
+.drp-lbl{flex:1;text-align:right;color:var(--text-muted)}
+.drp-lbl.set{color:var(--navy);font-weight:500}
+.drp-clr-btn{background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:.9em;
+  padding:1px 4px;border-radius:4px;line-height:1;transition:color .12s;flex-shrink:0}
+.drp-clr-btn:hover{color:var(--red)}
+.drp-popup{position:fixed;z-index:2000;background:var(--white);border:1.5px solid var(--border);
+  border-radius:14px;box-shadow:0 8px 32px rgba(0,0,0,.15);padding:16px 14px;width:294px;
+  display:none;direction:ltr;user-select:none}
+.drp-popup.open{display:block}
+.drp-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.drp-nav-btn{width:28px;height:28px;border-radius:50%;border:none;background:none;cursor:pointer;
+  color:var(--text-sub);font-size:1.1em;display:flex;align-items:center;justify-content:center;
+  transition:background .12s,color .12s}
+.drp-nav-btn:hover{background:var(--teal-light);color:var(--teal)}
+.drp-nav-title{font-size:.88em;font-weight:700;color:var(--navy);cursor:pointer;border-radius:6px;padding:2px 8px;transition:background .12s,color .12s}
+.drp-nav-title:hover{background:var(--teal-light);color:var(--teal)}
+.drp-dow-row{display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:2px}
+.drp-dow{text-align:center;font-size:.7em;font-weight:700;color:var(--text-muted);padding:3px 0}
+.drp-days-grid{display:grid;grid-template-columns:repeat(7,1fr)}
+.drp-day{position:relative;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.drp-day.other-month{opacity:.28;pointer-events:none}
+.drp-bg{position:absolute;top:5px;bottom:5px;background:transparent;z-index:0;pointer-events:none}
+.drp-n{position:relative;z-index:1;width:28px;height:28px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:.82em;font-weight:500;color:var(--navy);transition:background .1s,color .1s}
+.drp-day:not(.range-start):not(.range-end):not(.in-range):hover .drp-n{background:var(--teal-light);color:var(--teal)}
+/* Range fill */
+.drp-day.in-range   .drp-bg{left:0;right:0;background:rgba(30,157,139,.13)}
+.drp-day.range-start .drp-bg{left:50%;right:0;background:rgba(30,157,139,.13)}
+.drp-day.range-end   .drp-bg{left:0;right:50%;background:rgba(30,157,139,.13)}
+.drp-day.range-start.range-end .drp-bg{display:none}
+/* Selected circles */
+.drp-day.range-start .drp-n,.drp-day.range-end .drp-n{background:var(--teal);color:#fff;font-weight:700}
+/* Today ring */
+.drp-day.today:not(.range-start):not(.range-end) .drp-n{border:2px solid var(--teal)}
+/* Year grid */
+.drp-year-cell{height:40px;display:flex;align-items:center;justify-content:center;border-radius:8px;cursor:pointer;font-size:.85em;font-weight:500;color:var(--navy);transition:background .12s,color .12s}
+.drp-year-cell:hover{background:var(--teal-light);color:var(--teal)}
+.drp-year-cell.cur-year{background:var(--teal);color:#fff;font-weight:700}
+/* Picker footer */
+.drp-footer{display:flex;justify-content:flex-end;margin-top:10px;padding-top:8px;border-top:1px solid var(--border)}
+.drp-ok-btn{background:var(--teal);color:#fff;border:none;border-radius:8px;padding:7px 26px;font-size:.84em;font-weight:700;cursor:pointer;font-family:inherit;transition:background .15s,opacity .15s}
+.drp-ok-btn:hover{background:var(--teal-dark)}
+.drp-ok-btn:disabled{opacity:.4;cursor:default}
+
 /* Type chips */
 .type-chip-row{display:flex;gap:8px;flex-wrap:wrap}
 .type-chip{display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border:1.5px solid var(--border);border-radius:20px;cursor:pointer;font-size:.82em;font-weight:500;color:var(--text-sub);transition:border-color .15s,background .15s,color .15s;user-select:none}
@@ -94,6 +149,10 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;m
 .sort-row{margin-right:auto;display:flex;align-items:center;gap:6px;font-size:.8em;color:var(--text-muted)}
 .sort-select{border:1.5px solid var(--border);border-radius:var(--radius-xs);padding:4px 10px;font-size:.85em;color:var(--navy);background:var(--white);font-family:inherit;cursor:pointer;outline:none}
 .sort-select:focus{border-color:var(--teal)}
+.results-sum-sep{color:var(--border);font-size:.9em;margin:0 2px}
+.results-sum-badge{border-radius:20px;font-size:.72em;font-weight:700;padding:2px 10px;white-space:nowrap}
+.results-sum-badge.pos{background:rgba(46,204,113,.14);color:#1a7a40}
+.results-sum-badge.neg{background:rgba(231,76,60,.11);color:#c0392b}
 
 /* Hint / empty / spinner */
 .results-hint-card{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow-sm);text-align:center;padding:60px 28px;color:var(--text-muted);font-size:.92em}
@@ -135,6 +194,12 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;m
 /* Split feature */
 .result-card{cursor:pointer}
 .result-card.is-split{border-right:3px solid #7b1fa2}
+/* Cash/category dropdown (same as Base_template — needed since Search.html is standalone) */
+.cash-cur-dropdown{display:none;background:#fff;border:1.5px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:9999;max-height:220px;overflow-y:auto}
+.cash-cur-dropdown.open{display:block}
+.cash-cur-search{padding:8px 12px;border:none;border-bottom:1.5px solid var(--border);font-size:.84em;width:100%;box-sizing:border-box;outline:none;color:var(--navy);position:sticky;top:0;background:#fff;font-family:inherit}
+.cash-cur-option{padding:7px 14px;cursor:pointer;font-size:.83em;color:var(--navy)}
+.cash-cur-option:hover{background:var(--teal-light)}
 .rc-split-badge{font-size:.7em;background:#ede7f6;color:#7b1fa2;border-radius:8px;padding:1px 7px;font-weight:700;margin-top:3px;display:inline-block}
 /* Split / Revert modals */
 .s-modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:900;align-items:center;justify-content:center}
@@ -172,6 +237,12 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;m
 .s-revert-amt{font-size:.86em;font-weight:700;color:var(--navy);min-width:70px}
 .s-revert-desc{font-size:.8em;color:var(--text-sub);flex:1}
 .s-toast{position:fixed;bottom:24px;right:24px;background:#2e7d32;color:#fff;border-radius:10px;padding:11px 20px;font-size:.85em;font-weight:600;z-index:9999;box-shadow:0 4px 18px rgba(0,0,0,.15);animation:_pageIn .2s ease}
+@keyframes lockGlow{0%{box-shadow:0 0 0 0 rgba(30,157,139,.65)}60%{box-shadow:0 0 0 9px rgba(30,157,139,0)}100%{box-shadow:0 0 0 0 rgba(30,157,139,0)}}
+@keyframes lockFail{0%{box-shadow:0 0 0 0 rgba(231,76,60,.7)}60%{box-shadow:0 0 0 9px rgba(231,76,60,0)}100%{box-shadow:0 0 0 0 rgba(231,76,60,0)}}
+.split-locked{border-color:var(--teal) !important;background:var(--teal-light) !important}
+.split-lock-flash{animation:lockGlow .55s ease-out forwards}
+.split-lock-fail{animation:lockFail .55s ease-out forwards;border-color:var(--red) !important}
+.split-sum-error{border-color:var(--red) !important}
 </style>
 </head>
 <body>
@@ -203,6 +274,12 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;m
     <a class="nav-item" href="/tagger">תייגן</a>
     <a class="nav-item" href="/files">קבצים</a>
   </div>
+  <div class="sidebar-footer">
+    <button class="nav-restart-btn" onclick="restartServer(this)">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
+      הפעל שרת מחדש
+    </button>
+  </div>
 </nav>
 
 <div class="main">
@@ -216,10 +293,10 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;m
     <div class="search-bar">
       <div class="search-bar-keyword">
         <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input id="f-keyword" type="text" placeholder="חפש לפי שם, תיאור, פרטים…" autocomplete="off"/>
+        <input id="f-keyword" type="text" placeholder="חפש לפי שם, תיאור, פרטים…" autocomplete="off" oninput="_scheduleSearch()"/>
       </div>
       <div class="search-bar-cat">
-        <select id="f-category">
+        <select id="f-category" onchange="_scheduleSearch()">
           <option value="">— כל הקטגוריות —</option>
         </select>
       </div>
@@ -247,33 +324,53 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;m
         <!-- Business -->
         <div>
           <div class="field-label">עסק / שם</div>
-          <input class="field-input" id="f-business" type="text" placeholder="שם עסק…" autocomplete="off"/>
+          <input class="field-input" id="f-business" type="text" placeholder="שם עסק…" autocomplete="off" oninput="_scheduleSearch()"/>
         </div>
         <!-- Amount -->
         <div>
           <div class="field-label">טווח סכום (₪)</div>
           <div class="amount-row">
-            <input class="field-input" id="f-min" type="number" min="0" placeholder="מינ'" style="flex:1"/>
+            <input class="field-input" id="f-min" type="number" min="0" placeholder="מינ'" style="flex:1" oninput="_scheduleSearch()"/>
             <span class="amount-sep">—</span>
-            <input class="field-input" id="f-max" type="number" min="0" placeholder="מקס'" style="flex:1"/>
+            <input class="field-input" id="f-max" type="number" min="0" placeholder="מקס'" style="flex:1" oninput="_scheduleSearch()"/>
           </div>
         </div>
         <!-- Dates -->
         <div>
           <div class="field-label">טווח תאריכים</div>
-          <div class="amount-row">
-            <input class="field-input" id="f-from" type="date" style="flex:1"/>
-            <span class="amount-sep">—</span>
-            <input class="field-input" id="f-to" type="date" style="flex:1"/>
+          <button class="drp-trigger" id="drp-trigger" type="button" onclick="drpToggle()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;color:var(--text-muted)"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            <span class="drp-lbl" id="drp-lbl">בחר טווח תאריכים</span>
+            <button class="drp-clr-btn" id="drp-clr" type="button" onclick="drpClear(event)" style="display:none">✕</button>
+          </button>
+          <div class="drp-popup" id="drp-popup" dir="ltr">
+            <div class="drp-nav">
+              <button class="drp-nav-btn" type="button" onclick="drpShiftMonth(-1)">&#8249;</button>
+              <span class="drp-nav-title" id="drp-nav-title" onclick="drpToggleYearMode()"></span>
+              <button class="drp-nav-btn" type="button" onclick="drpShiftMonth(1)">&#8250;</button>
+            </div>
+            <div class="drp-dow-row">
+              <div class="drp-dow">S</div><div class="drp-dow">M</div><div class="drp-dow">T</div>
+              <div class="drp-dow">W</div><div class="drp-dow">T</div><div class="drp-dow">F</div>
+              <div class="drp-dow">S</div>
+            </div>
+            <div class="drp-days-grid" id="drp-days"
+                 onmouseleave="if(_drpPicking){_drpHover=null;_drpUpdateRangeClasses()}"></div>
+            <div class="drp-footer">
+              <button class="drp-ok-btn" id="drp-ok-btn" type="button" onclick="drpConfirm()" disabled>אישור</button>
+            </div>
           </div>
+          <!-- hidden inputs consumed by existing doSearch / clearForm -->
+          <input type="hidden" id="f-from"/>
+          <input type="hidden" id="f-to"/>
         </div>
         <!-- Type chips spanning full row -->
         <div style="grid-column:1/-1">
           <div class="field-label" style="margin-bottom:8px">סוג עסקה</div>
           <div class="type-chip-row">
-            <label class="type-chip"><input type="radio" name="txtype" value="all" checked/> הכל</label>
-            <label class="type-chip"><input type="radio" name="txtype" value="income"/> הכנסות בלבד</label>
-            <label class="type-chip"><input type="radio" name="txtype" value="expense"/> הוצאות בלבד</label>
+            <label class="type-chip"><input type="radio" name="txtype" value="all" checked onchange="_scheduleSearch()"/> הכל</label>
+            <label class="type-chip"><input type="radio" name="txtype" value="income" onchange="_scheduleSearch()"/> הכנסות בלבד</label>
+            <label class="type-chip"><input type="radio" name="txtype" value="expense" onchange="_scheduleSearch()"/> הוצאות בלבד</label>
           </div>
         </div>
       </div>
@@ -285,6 +382,9 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;m
     <span class="results-count-text">נמצאו</span>
     <span class="results-count-badge" id="count-badge">0</span>
     <span class="results-count-text">תוצאות</span>
+    <span class="results-sum-sep">|</span>
+    <span class="results-count-text">סה"כ</span>
+    <span class="results-sum-badge" id="sum-badge"></span>
     <div class="sort-row">
       <span>מיון:</span>
       <select class="sort-select" id="sort-select" onchange="resortCards()">
@@ -306,10 +406,26 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;m
 
 <script>
 // ── Nav ─────────────────────────────────────────────────────────
+function restartServer(btn) {
+  btn.disabled = true;
+  btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg> מפעיל מחדש…';
+  fetch('/api/restart',{method:'POST'}).catch(function(){}).finally(function(){
+    var t=setInterval(function(){
+      fetch('/').then(function(r){if(r.ok){clearInterval(t);location.reload();}}).catch(function(){});
+    },800);
+  });
+}
 function openNav(){document.getElementById('sidebar').classList.add('open');document.getElementById('nav-overlay').classList.add('open');document.getElementById('ham-btn').classList.add('open')}
 function closeNav(){document.getElementById('sidebar').classList.remove('open');document.getElementById('nav-overlay').classList.remove('open');document.getElementById('ham-btn').classList.remove('open')}
 function toggleNav(){document.getElementById('sidebar').classList.contains('open')?closeNav():openNav()}
 document.addEventListener('keydown',function(e){if(e.key==='Escape')closeNav()});
+
+// ── Auto-search debounce ────────────────────────────────────────
+var _searchTimer = null;
+function _scheduleSearch() {
+  clearTimeout(_searchTimer);
+  _searchTimer = setTimeout(doSearch, 420);
+}
 
 // ── Advanced panel ──────────────────────────────────────────────
 var _advOpen = false;
@@ -378,6 +494,7 @@ function clearForm(){
   document.getElementById('f-max').value = '';
   document.getElementById('f-from').value = '';
   document.getElementById('f-to').value = '';
+  drpReset();
   document.querySelector('input[name="txtype"][value="all"]').checked = true;
   document.getElementById('results-meta').style.display = 'none';
   document.getElementById('results-root').innerHTML =
@@ -408,6 +525,13 @@ function renderCards(rows){
 
   badge.textContent = rows.length;
   metaRow.style.display = rows.length > 0 ? 'flex' : 'none';
+  var total = rows.reduce(function(s,r){return s+r.amount;},0);
+  var sumBadge = document.getElementById('sum-badge');
+  if(sumBadge){
+    var isPos = total >= 0;
+    sumBadge.textContent = (isPos?'+':'') + total.toLocaleString('he-IL',{minimumFractionDigits:2,maximumFractionDigits:2}) + '₪';
+    sumBadge.className = 'results-sum-badge ' + (isPos?'pos':'neg');
+  }
 
   if(rows.length===0){
     root.innerHTML = '<div class="no-results"><div class="no-results-icon">🔎</div><div>לא נמצאו תוצאות תואמות</div></div>';
@@ -474,6 +598,261 @@ function esc(s){
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+// ── Date Range Picker ───────────────────────────────────────
+var _drpStart   = null;   // 'YYYY-MM-DD'
+var _drpEnd     = null;   // 'YYYY-MM-DD'
+var _drpHover   = null;   // date string being hovered during pick
+var _drpPicking = false;  // true after first click, awaiting second
+var _drpMode    = 'cal';  // 'cal' | 'year'
+var _drpYearBase = 0;     // first year shown in year-grid
+var _drpY = new Date().getFullYear();
+var _drpM = new Date().getMonth() + 1; // 1-12
+var _drpMon = ['January','February','March','April','May','June',
+               'July','August','September','October','November','December'];
+
+function drpToggle() {
+  var popup = document.getElementById('drp-popup');
+  if (popup.classList.contains('open')) { drpClose(); return; }
+  _drpRenderCal();
+  var r = document.getElementById('drp-trigger').getBoundingClientRect();
+  var pw = 294;
+  var left = r.left;
+  if (left + pw > window.innerWidth - 8) left = window.innerWidth - pw - 8;
+  popup.style.top  = (r.bottom + 5) + 'px';
+  popup.style.left = Math.max(8, left) + 'px';
+  document.getElementById('drp-trigger').classList.add('open');
+  popup.classList.add('open');
+  _drpSetOkState();
+}
+
+function drpClose() {
+  document.getElementById('drp-popup').classList.remove('open');
+  document.getElementById('drp-trigger').classList.remove('open');
+  _drpHover   = null;
+  _drpPicking = false;
+  _drpMode    = 'cal';
+}
+
+function drpClear(e) {
+  if (e) e.stopPropagation();
+  _drpStart = _drpEnd = _drpHover = null;
+  _drpPicking = false;
+  document.getElementById('f-from').value = '';
+  document.getElementById('f-to').value   = '';
+  _drpUpdateLabel();
+  drpClose();
+}
+
+function drpReset() { drpClear(); }
+
+function drpShiftMonth(d) {
+  if (_drpMode === 'year') { _drpYearBase += d * 12; _drpRenderCal(); return; }
+  _drpM += d;
+  if (_drpM > 12) { _drpM = 1;  _drpY++; }
+  if (_drpM < 1)  { _drpM = 12; _drpY--; }
+  _drpRenderCal();
+}
+
+function _drpToday() {
+  var t = new Date();
+  return t.getFullYear() + '-' + String(t.getMonth()+1).padStart(2,'0') + '-' + String(t.getDate()).padStart(2,'0');
+}
+
+function _drpFmt(d) {
+  if (!d) return '';
+  var p = d.split('-');
+  return p[2] + '/' + p[1] + '/' + p[0];
+}
+
+function _drpUpdateLabel() {
+  var lbl = document.getElementById('drp-lbl');
+  var clr = document.getElementById('drp-clr');
+  if (_drpStart && _drpEnd) {
+    lbl.textContent = _drpFmt(_drpStart) + ' — ' + _drpFmt(_drpEnd);
+    lbl.classList.add('set'); clr.style.display = '';
+  } else if (_drpStart) {
+    lbl.textContent = _drpFmt(_drpStart) + ' — …';
+    lbl.classList.add('set'); clr.style.display = '';
+  } else {
+    lbl.textContent = 'בחר טווח תאריכים';
+    lbl.classList.remove('set'); clr.style.display = 'none';
+  }
+}
+
+function drpClickDay(el) {
+  var d = el.dataset.date; if (!d) return;
+  if (!_drpPicking) {
+    // First click — anchor the start, enter range-preview mode
+    _drpStart   = d;
+    _drpEnd     = null;
+    _drpPicking = true;
+    _drpHover   = d;
+  } else {
+    // Second click — lock in the end, keep popup open for OK
+    var s = _drpStart, e = d;
+    if (e < s) { var tmp = s; s = e; e = tmp; }
+    _drpStart = s; _drpEnd = e;
+    _drpPicking = false; _drpHover = null;
+  }
+  _drpUpdateLabel();
+  _drpUpdateRangeClasses();
+  _drpSetOkState();
+}
+
+function drpHoverDay(el) {
+  if (!_drpPicking) return;
+  _drpHover = el.dataset.date || null;
+  _drpUpdateRangeClasses();
+}
+
+function _drpSetOkState() {
+  var btn = document.getElementById('drp-ok-btn');
+  if (btn) btn.disabled = !_drpStart;
+}
+
+function drpConfirm() {
+  if (!_drpStart) return;
+  var s = _drpStart, e = _drpEnd || _drpStart;
+  document.getElementById('f-from').value = s;
+  document.getElementById('f-to').value   = e;
+  _drpStart = s; _drpEnd = e;
+  _drpUpdateLabel();
+  drpClose();
+  doSearch();
+}
+
+// Update only CSS classes on existing day cells — no DOM rebuild
+function _drpUpdateRangeClasses() {
+  var ds, de;
+  if (_drpPicking && _drpHover) {
+    ds = _drpHover < _drpStart ? _drpHover : _drpStart;
+    de = _drpHover > _drpStart ? _drpHover : _drpStart;
+  } else { ds = _drpStart; de = _drpEnd; }
+  document.querySelectorAll('#drp-days .drp-day').forEach(function(cell) {
+    var d = cell.dataset.date;
+    cell.classList.remove('range-start','range-end','in-range');
+    if (!d || !ds) return;
+    if (ds && de) {
+      if      (d === ds && d === de) cell.classList.add('range-start','range-end');
+      else if (d === ds)             cell.classList.add('range-start');
+      else if (d === de)             cell.classList.add('range-end');
+      else if (d > ds && d < de)    cell.classList.add('in-range');
+    } else if (d === ds) { cell.classList.add('range-start','range-end'); }
+  });
+}
+
+function drpToggleYearMode() {
+  if (_drpMode === 'year') {
+    _drpMode = 'cal';
+  } else {
+    _drpMode = 'year';
+    _drpYearBase = _drpY - 5; // centre grid on current year
+  }
+  _drpRenderCal();
+}
+
+function drpSelectYear(yr) {
+  _drpY    = yr;
+  _drpMode = 'cal';
+  _drpRenderCal();
+  _drpSetOkState();
+}
+
+function _drpRenderCal() {
+  var title  = document.getElementById('drp-nav-title');
+  var grid   = document.getElementById('drp-days');
+  var dowRow = document.querySelector('.drp-dow-row');
+  if (!title || !grid) return;
+
+  // ── Year-picker mode ───────────────────────────────────────────
+  if (_drpMode === 'year') {
+    if (dowRow) dowRow.style.display = 'none';
+    grid.style.gridTemplateColumns = 'repeat(3,1fr)';
+    title.textContent = _drpYearBase + ' – ' + (_drpYearBase + 11);
+    var yHtml = '';
+    for (var j = 0; j < 12; j++) {
+      var yr = _drpYearBase + j;
+      yHtml += '<div class="drp-year-cell' + (yr === _drpY ? ' cur-year' : '') + '"' +
+               ' onclick="drpSelectYear(' + yr + ')">' + yr + '</div>';
+    }
+    grid.innerHTML = yHtml;
+    return;
+  }
+
+  // ── Calendar mode ──────────────────────────────────────────────
+  if (dowRow) dowRow.style.display = '';
+  grid.style.gridTemplateColumns = '';
+  title.textContent = _drpMon[_drpM - 1] + ' ' + _drpY;
+
+  var firstDow    = new Date(_drpY, _drpM - 1, 1).getDay(); // 0=Sun
+  var daysInMonth = new Date(_drpY, _drpM, 0).getDate();
+  var prevDays    = new Date(_drpY, _drpM - 1, 0).getDate();
+  var today       = _drpToday();
+
+  // Display range (anchor + hover preview while picking)
+  var ds, de;
+  if (_drpPicking && _drpHover) {
+    ds = _drpHover < _drpStart ? _drpHover : _drpStart;
+    de = _drpHover > _drpStart ? _drpHover : _drpStart;
+  } else {
+    ds = _drpStart; de = _drpEnd;
+  }
+
+  var totalCells = Math.ceil((firstDow + daysInMonth) / 7) * 7;
+  var html = '';
+
+  for (var i = 0; i < totalCells; i++) {
+    var day, cellDate, isOther = false;
+
+    if (i < firstDow) {
+      // prev-month filler
+      day = prevDays - firstDow + i + 1;
+      var pm = _drpM - 1 < 1 ? 12 : _drpM - 1;
+      var py = _drpM - 1 < 1 ? _drpY - 1 : _drpY;
+      cellDate = py + '-' + String(pm).padStart(2,'0') + '-' + String(day).padStart(2,'0');
+      isOther = true;
+    } else if (i >= firstDow + daysInMonth) {
+      // next-month filler
+      day = i - firstDow - daysInMonth + 1;
+      var nm = _drpM + 1 > 12 ? 1 : _drpM + 1;
+      var ny = _drpM + 1 > 12 ? _drpY + 1 : _drpY;
+      cellDate = ny + '-' + String(nm).padStart(2,'0') + '-' + String(day).padStart(2,'0');
+      isOther = true;
+    } else {
+      day = i - firstDow + 1;
+      cellDate = _drpY + '-' + String(_drpM).padStart(2,'0') + '-' + String(day).padStart(2,'0');
+    }
+
+    var cls = ['drp-day'];
+    if (isOther) cls.push('other-month');
+    if (cellDate === today) cls.push('today');
+
+    if (ds && de) {
+      if      (cellDate === ds && cellDate === de) cls.push('range-start','range-end');
+      else if (cellDate === ds)                    cls.push('range-start');
+      else if (cellDate === de)                    cls.push('range-end');
+      else if (cellDate > ds && cellDate < de)     cls.push('in-range');
+    } else if (ds && cellDate === ds) {
+      cls.push('range-start','range-end');
+    }
+
+    html += '<div class="' + cls.join(' ') + '" data-date="' + cellDate + '"' +
+            ' onclick="drpClickDay(this)" onmouseenter="drpHoverDay(this)">' +
+            '<div class="drp-bg"></div>' +
+            '<div class="drp-n">' + day + '</div></div>';
+  }
+
+  grid.innerHTML = html;
+}
+
+// Close on outside click
+document.addEventListener('click', function(e) {
+  var popup   = document.getElementById('drp-popup');
+  var trigger = document.getElementById('drp-trigger');
+  if (!popup || !popup.classList.contains('open')) return;
+  if (!popup.contains(e.target) && !trigger.contains(e.target)) drpClose();
+});
+
 // Enter to search
 document.addEventListener('keydown',function(e){
   if(e.key==='Enter' && !e.target.closest('nav')) doSearch();
@@ -487,6 +866,7 @@ var _srRevertTx   = { table:null, origId:null };
 var _srRowIdx     = 0;
 var _srCategories = [];
 var _srOpenDdIdx  = null;
+var _srLockedRows = new Set();
 
 function _srLoadCats(cb) {
   if (_srCategories.length) { if (cb) cb(); return; }
@@ -506,6 +886,18 @@ document.addEventListener('click', function(e) {
   }
 }, true);
 
+// Single delegate for option selection — avoids JSON.stringify breaking HTML attributes
+document.body.addEventListener('mousedown', function(e) {
+  var opt = e.target.closest ? e.target.closest('._srd-opt') : null;
+  if (!opt) return;
+  e.preventDefault();
+  var dd = opt.parentNode;
+  while (dd && !dd.id.match(/^_srd-dd-/)) dd = dd.parentNode;
+  if (!dd) return;
+  var idx = parseInt(dd.id.replace('_srd-dd-', ''), 10);
+  _srSelectCat(idx, opt.getAttribute('data-val'));
+});
+
 function _srOpenDd(idx) {
   if (_srOpenDdIdx !== null && _srOpenDdIdx !== idx) {
     var p = document.getElementById('_srd-dd-' + _srOpenDdIdx);
@@ -515,6 +907,19 @@ function _srOpenDd(idx) {
   var dd  = document.getElementById('_srd-dd-' + idx);
   if (!btn || !dd) return;
   if (_srOpenDdIdx === idx) { dd.classList.remove('open'); _srOpenDdIdx = null; return; }
+  // Rebuild options if categories weren't loaded when the row was created
+  _srLoadCats(function() {
+    if (!dd.querySelectorAll('._srd-opt').length && _srCategories.length) {
+      var optsHtml = _srCategories.map(function(c){
+        return '<div class="_srd-opt cash-cur-option" data-val="'+esc(c)+'">'+esc(c)+'</div>';
+      }).join('');
+      var s2 = dd.querySelector('._srd-search');
+      if (s2) s2.insertAdjacentHTML('afterend', optsHtml);
+      _srBindOptListeners(dd, idx);
+    }
+  });
+  // Hoist dropdown to <body> so it escapes the modal's overflow:auto pointer-events clipping
+  if (dd.parentNode !== document.body) document.body.appendChild(dd);
   var r = btn.getBoundingClientRect();
   dd.style.top = (r.bottom + 4) + 'px'; dd.style.left = r.left + 'px'; dd.style.width = r.width + 'px';
   dd.classList.add('open'); _srOpenDdIdx = idx;
@@ -533,7 +938,7 @@ function _srSelectCat(idx, val) {
 }
 function _srBuildCatDd(idx, cur) {
   var opts = _srCategories.map(function(c){
-    return '<div class="_srd-opt cash-cur-option" onclick="_srSelectCat('+idx+','+JSON.stringify(c)+')">'+esc(c)+'</div>';
+    return '<div class="_srd-opt cash-cur-option" data-val="'+esc(c)+'">'+esc(c)+'</div>';
   }).join('');
   return '<div style="position:relative">' +
     '<button type="button" class="s-row-input _srd-btn" id="_srd-btn-'+idx+'" onclick="_srOpenDd('+idx+')" ' +
@@ -586,7 +991,9 @@ function srGoEditor() {
         '<span class="s-orig-amount">₪'+_srSplitTx.amount.toLocaleString('he-IL',{minimumFractionDigits:2})+'</span>' +
         '<span class="s-cat-badge">'+esc(_srSplitTx.category)+'</span>' +
       '</div>';
-    _srRowIdx = 0; _srOpenDdIdx = null;
+    _srRowIdx = 0; _srOpenDdIdx = null; _srLockedRows = new Set();
+    // Remove any dropdowns previously hoisted to body
+    document.querySelectorAll('[id^="_srd-dd-"]').forEach(function(el){ if(el.parentNode===document.body) el.remove(); });
     document.getElementById('sr-editor-rows').innerHTML = '';
     var half = Math.round(_srSplitTx.amount / 2 * 100) / 100;
     srAddRow(_srSplitTx.name, half, _srSplitTx.category);
@@ -608,14 +1015,113 @@ function srAddRow(defaultDesc, defaultAmt, defaultCat) {
     '<span class="s-row-num">'+idx+'</span>'+
     '<input class="s-row-input sr-desc" type="text" placeholder="תיאור" value="'+esc(desc)+'">'+
     '<input class="s-row-input sr-amt" type="number" min="0.01" step="0.01" placeholder="סכום"'+
-      (amt?(' value="'+amt+'"'):'')+' oninput="srUpdateTotal()">'+
+      (amt?(' value="'+amt+'"'):'')+
+      ' oninput="srUnlockRow('+idx+');srUpdateTotal()"'+
+      ' onkeydown="if(event.key===\'Enter\'){event.preventDefault();srLockRow('+idx+');}">'+
     _srBuildCatDd(idx, cat)+
     (idx>1?'<button class="s-row-remove" onclick="srRemoveRow('+idx+')">✕</button>':'<span></span>');
   document.getElementById('sr-editor-rows').appendChild(d);
+  // Attach mousedown directly — inline onclick is broken because JSON.stringify embeds
+  // literal double-quotes which terminate the HTML attribute before the handler ends
+  _srBindOptListeners(document.getElementById('_srd-dd-'+idx), idx);
+  if (typeof defaultAmt === 'undefined') srRedistribute(); else srUpdateTotal();
+}
+
+function _srBindOptListeners(ddEl, ddIdx) {
+  if (!ddEl) return;
+  ddEl.querySelectorAll('._srd-opt').forEach(function(opt) {
+    if (opt._srBound) return;          // avoid double-binding on rebuild
+    opt._srBound = true;
+    opt.addEventListener('mousedown', function(e) {
+      e.preventDefault();              // keep focus on search input
+      _srSelectCat(ddIdx, opt.getAttribute('data-val'));
+    });
+    opt.addEventListener('click', function(e) {
+      e.preventDefault();
+      _srSelectCat(ddIdx, opt.getAttribute('data-val'));
+    });
+  });
 }
 
 function srRemoveRow(idx) {
   var r = document.getElementById('sr-row-'+idx); if(r) r.remove();
+  _srLockedRows.delete(idx);
+  srRedistribute();
+}
+
+function srLockRow(idx) {
+  var inp = document.querySelector('#sr-row-'+idx+' .sr-amt');
+  if (!inp || inp.value === '' || isNaN(parseFloat(inp.value))) return;
+  if (_srLockedRows.has(idx)) {
+    inp.classList.remove('split-lock-flash'); void inp.offsetWidth; inp.classList.add('split-lock-flash');
+    srRedistribute();
+    return;
+  }
+  var thisVal = parseFloat(inp.value) || 0;
+  var lockedSum = 0, unlockedCount = 0;
+  document.querySelectorAll('#sr-editor-rows .s-editor-row').forEach(function(row) {
+    var ri = parseInt(row.id.replace('sr-row-', ''), 10); if (isNaN(ri)) return;
+    if (_srLockedRows.has(ri)) { var ri2 = row.querySelector('.sr-amt'); if (ri2) lockedSum += parseFloat(ri2.value) || 0; }
+    else { unlockedCount++; }
+  });
+  // rem = what the remaining unlocked cells must sum to after this one locks
+  var rem = Math.round((_srSplitTx.amount - lockedSum - thisVal) * 100) / 100;
+  if (unlockedCount === 1) {
+    // Last unlocked — value must exactly match the needed amount
+    if (Math.abs(rem) >= 0.01) {
+      inp.classList.remove('split-lock-fail'); void inp.offsetWidth; inp.classList.add('split-lock-fail');
+      return;
+    }
+  } else if (unlockedCount === 2) {
+    // One other unlocked cell — it will auto-adjust; refuse only if remainder would be invalid
+    if (rem < 0.01) {
+      inp.classList.remove('split-lock-fail'); void inp.offsetWidth; inp.classList.add('split-lock-fail');
+      return;
+    }
+  }
+  _srLockedRows.add(idx);
+  inp.classList.remove('split-sum-error', 'split-lock-fail');
+  inp.classList.add('split-locked');
+  inp.classList.remove('split-lock-flash');
+  void inp.offsetWidth;
+  inp.classList.add('split-lock-flash');
+  srRedistribute();
+}
+
+function srUnlockRow(idx) {
+  var inp = document.querySelector('#sr-row-'+idx+' .sr-amt');
+  if (inp) inp.classList.remove('split-lock-fail');
+  if (!_srLockedRows.has(idx)) return;
+  _srLockedRows.delete(idx);
+  if (inp) inp.classList.remove('split-locked', 'split-lock-flash');
+}
+
+function srRedistribute() {
+  var total = _srSplitTx.amount, lockedSum = 0, unlockedItems = [];
+  document.querySelectorAll('#sr-editor-rows .s-editor-row').forEach(function(row) {
+    var idx = parseInt(row.id.replace('sr-row-', ''), 10); if (isNaN(idx)) return;
+    var inp = row.querySelector('.sr-amt'); if (!inp) return;
+    if (_srLockedRows.has(idx)) { lockedSum += parseFloat(inp.value) || 0; }
+    else { unlockedItems.push({ idx: idx, inp: inp }); }
+  });
+  var rem = Math.round((total - lockedSum) * 100) / 100;
+  if (!unlockedItems.length) { srUpdateTotal(); return; }
+  if (rem <= 0) { unlockedItems.forEach(function(u){ u.inp.value = 0; }); srUpdateTotal(); return; }
+  if (unlockedItems.length === 1) {
+    unlockedItems[0].inp.value = rem;
+    _srLockedRows.add(unlockedItems[0].idx);
+    var li = unlockedItems[0].inp;
+    li.classList.remove('split-sum-error', 'split-lock-fail');
+    li.classList.add('split-locked'); li.classList.remove('split-lock-flash');
+    void li.offsetWidth; li.classList.add('split-lock-flash');
+    srUpdateTotal(); return;
+  }
+  var perRow = Math.round(rem / unlockedItems.length * 100) / 100, assigned = 0;
+  unlockedItems.forEach(function(u, i) {
+    var v = (i < unlockedItems.length - 1) ? perRow : Math.round((rem - assigned) * 100) / 100;
+    if (i < unlockedItems.length - 1) assigned += perRow;
+    u.inp.value = v;
+  });
   srUpdateTotal();
 }
 
@@ -632,6 +1138,16 @@ function srUpdateTotal() {
   }
   var btn = document.getElementById('sr-submit-btn');
   if (btn) btn.disabled = Math.abs(rem) >= 0.01;
+  var unlockedItems = [];
+  document.querySelectorAll('#sr-editor-rows .s-editor-row').forEach(function(row) {
+    var ri = parseInt(row.id.replace('sr-row-', ''), 10); if (isNaN(ri)) return;
+    if (!_srLockedRows.has(ri)) { var inp = row.querySelector('.sr-amt'); if (inp) unlockedItems.push({ri:ri,inp:inp}); }
+  });
+  var showErr = unlockedItems.length > 2 && Math.abs(rem) >= 0.01;
+  unlockedItems.forEach(function(u) {
+    if (showErr) { srUnlockRow(u.ri); u.inp.classList.add('split-sum-error'); }
+    else { u.inp.classList.remove('split-sum-error'); }
+  });
 }
 
 function srSubmitSplit() {
@@ -707,7 +1223,11 @@ function srShowStep(id){
   document.querySelectorAll('.s-step').forEach(function(s){s.classList.remove('active');});
   var el=document.getElementById(id); if(el)el.classList.add('active');
 }
-function srCloseSplit(){ document.getElementById('sr-split-overlay').classList.remove('open'); }
+function srCloseSplit(){
+  document.getElementById('sr-split-overlay').classList.remove('open');
+  _srOpenDdIdx = null;
+  document.querySelectorAll('[id^="_srd-dd-"]').forEach(function(el){ if(el.parentNode===document.body) el.remove(); });
+}
 function srCloseRevert(){ document.getElementById('sr-revert-overlay').classList.remove('open'); }
 function srSetStatus(msg,cls){
   var el=document.getElementById('sr-split-status');

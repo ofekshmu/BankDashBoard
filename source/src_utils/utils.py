@@ -13,6 +13,10 @@ from src_utils.ExcelReader import ExcelManager
 
 class utils:
 
+    # Set to a callable(row_bank_dict) -> bool by WebApp.py when running in web mode.
+    # Used in card_charge_validation to show a web popup instead of a terminal menu.
+    _cc_confirm_hook = None
+
     @staticmethod
     def log(msg: str, category: str = "", e: str = "\n"):
 
@@ -158,7 +162,8 @@ class utils:
                       cash_information_data: dict,
                       alerts: list = None,
                       mortgage_data: dict = None,
-                      accounts_meta: dict = None) -> None:
+                      accounts_meta: dict = None,
+                      organizer_alerts: list = None) -> None:
         import bs4
         from datetime import datetime
         import calendar
@@ -180,6 +185,39 @@ class utils:
         badge_el = soup.find(id="alert-badge")
         if badge_el:
             badge_el.string = str(len(alerts) if alerts else 0)
+
+        # ── Organizer missing-file alerts ──────────────────────────────
+        org_el = soup.find(id="organizer-alerts")
+        if org_el is not None and organizer_alerts:
+            def _otag(name, **attrs):
+                t_ = soup.new_tag(name)
+                for k, v in attrs.items():
+                    t_[k.rstrip("_")] = v
+                return t_
+
+            hdr = _otag("div", class_="org-alerts-section-title")
+            hdr.string = f"קבצים חסרים לחודש זה — {len(organizer_alerts)}"
+            org_el.append(hdr)
+
+            for oa in organizer_alerts:
+                row = _otag("div", class_="org-missing-card type-blue")
+
+                icon = _otag("span", class_="org-missing-icon")
+                icon.string = "⚠"
+                row.append(icon)
+
+                body = _otag("div")
+                lbl = _otag("span", class_="org-missing-label")
+                lbl.string = f"חסר עסקה — {oa['col']}"
+                body.append(lbl)
+
+                ut = oa["untagged"]
+                det = _otag("div", class_="org-missing-detail")
+                det.string = f"{ut[2]} | ₪{ut[1]} | {ut[0]}"
+                body.append(det)
+
+                row.append(body)
+                org_el.append(row)
 
         # ── Helper: new tag shorthand ──────────────────────────────────
         def tag(name, **attrs):
@@ -298,7 +336,20 @@ class utils:
       responsive: true, maintainAspectRatio: false,
       cutout: '68%',
       plugins: {{
-        legend: {{ position: 'bottom', labels: {{ font: {{ size: 11 }}, padding: 10, boxWidth: 12 }} }},
+        legend: {{
+          position: 'bottom',
+          labels: {{ font: {{ size: 11 }}, padding: 10, boxWidth: 12 }},
+          onHover: function(evt, item, legend) {{
+            var ch = legend.chart;
+            ch.tooltip.setActiveElements([{{datasetIndex: 0, index: item.index}}], evt);
+            ch.update();
+          }},
+          onLeave: function(evt, item, legend) {{
+            var ch = legend.chart;
+            ch.tooltip.setActiveElements([], evt);
+            ch.update();
+          }}
+        }},
         tooltip: {{
           rtl: true,
           callbacks: {{
@@ -308,7 +359,7 @@ class utils:
               const visTotal = ctx.dataset.data.reduce((a,b,i)=>
                 ch.getDataVisibility(i) ? a+b : a, 0);
               const pct = visTotal ? (v/visTotal*100).toFixed(1) : 0;
-              return ctx.label + ': \u20aa' + Math.round(v).toLocaleString('he-IL') + ' (' + pct + '%)';
+              return '\u20aa' + Math.round(v).toLocaleString('he-IL') + ' (' + pct + '%)';
             }}
           }}
         }}
@@ -358,9 +409,6 @@ class utils:
                 "chart-earnings-donut", "הכנסות לפי קטגוריה",
                 data['earnings_by_cat'], _PAL_EARN))
 
-        # Extra category boxes — placed directly below the two donut charts
-        charts_grid.append(_outlier_box("קטגוריות הוצאה נוספות", high_std_spendings))
-        charts_grid.append(_outlier_box("קטגוריות הכנסה נוספות", high_std_earnings))
 
         # Investments donut
         if data.get('investments_by_name'):
@@ -620,7 +668,20 @@ class utils:
       responsive: true, maintainAspectRatio: false,
       cutout: '68%',
       plugins: {{
-        legend: {{ position: 'bottom', labels: {{ font: {{ size: 10 }}, padding: 6, boxWidth: 10 }} }},
+        legend: {{
+          position: 'bottom',
+          labels: {{ font: {{ size: 10 }}, padding: 6, boxWidth: 10 }},
+          onHover: function(evt, item, legend) {{
+            var ch = legend.chart;
+            ch.tooltip.setActiveElements([{{datasetIndex: 0, index: item.index}}], evt);
+            ch.update();
+          }},
+          onLeave: function(evt, item, legend) {{
+            var ch = legend.chart;
+            ch.tooltip.setActiveElements([], evt);
+            ch.update();
+          }}
+        }},
         tooltip: {{
           rtl: true,
           callbacks: {{
@@ -2732,6 +2793,84 @@ Please Make sure that none of the following formats have their 'Identifications 
         return df, color_coded_df
 
     @staticmethod
+    def get_organizer_alerts_for_month(t):
+        """
+        Returns missing-file alerts for month t, mirroring the organizer table logic.
+        Each entry dict: {'col', 'fmt', 'card', 'has_untagged', 'untagged'}
+        Only columns that have appeared at least once in the file table are considered.
+        """
+        from database import DataBase
+        from dateutil.relativedelta import relativedelta
+        from Configurations.Formats import Formats
+
+        try:
+            file_df = DataBase().get_file_table()
+        except Exception:
+            return []
+        if file_df.empty:
+            return []
+
+        def _parse(d):
+            try:
+                return datetime.strptime(str(d), "%Y-%m-%d %H:%M:%S")
+            except Exception:
+                return None
+
+        file_df = file_df.copy()
+        file_df['_dt'] = file_df['Date'].apply(_parse)
+        file_df = file_df.dropna(subset=['_dt'])
+
+        charge_dt = t + relativedelta(months=1)
+
+        all_cols = {
+            f"{row['Format']} | {row['Card_Number']}"
+            for _, row in file_df.iterrows()
+        }
+        present_cols = {
+            f"{row['Format']} | {row['Card_Number']}"
+            for _, row in file_df.iterrows()
+            if row['_dt'].month == charge_dt.month and row['_dt'].year == charge_dt.year
+        }
+
+        missing = all_cols - present_cols
+
+        filtered = []
+        for col in missing:
+            fmt, card = col.split(' | ', 1)
+            if fmt == 'Isra-Card-2026' and t.year < 2026:
+                continue
+            filtered.append((fmt, card, col))
+
+        if not filtered:
+            return []
+
+        try:
+            _untagged, _desc = DataBase().get_untagged(table='BankTransactions')
+            _DFMT = '%Y-%m-%d %H:%M:%S'
+            _DLEN = 10
+        except Exception:
+            _untagged, _desc = [], []
+
+        results = []
+        for fmt, card, col in sorted(filtered):
+            card_names = Formats.FORMATS.get(fmt, {}).get('Transaction Names', {})
+            possible = set(card_names.get(card, []))
+            if not possible or not _untagged:
+                continue
+            match = utils._find_untagged_transaction_match(
+                _untagged, _desc, possible, None, None, t, _DFMT, _DLEN
+            )
+            if match is None:
+                continue
+            results.append({
+                'col':      col,
+                'fmt':      fmt,
+                'card':     card,
+                'untagged': match,
+            })
+        return results
+
+    @staticmethod
     def _find_untagged_transaction_match(untagged_transactions, desc, possible_names, value, status, 
                                          row_month_year, date_format_full, date_string_length):
         """
@@ -4538,8 +4677,13 @@ document.addEventListener('DOMContentLoaded', _initTxnFooter);
                     if row_bank['Category'] == CC_CHARGE_CATEGORY_NAME:
                         break
 
-                    if utils.template_menu(['No', 'Yes'], f"App found this transaction to be a credit card:\n\
-                                        {row_bank}\n Do you Agree?"):
+                    hook = utils._cc_confirm_hook
+                    if hook is not None:
+                        approved = hook(row_bank.to_dict())
+                    else:
+                        approved = utils.template_menu(['No', 'Yes'], f"App found this transaction to be a credit card:\n\
+                                        {row_bank}\n Do you Agree?")
+                    if approved:
                         DataBase().set_category('BankTransactions', row_bank['ID'], CC_CHARGE_CATEGORY_NAME)
                         DataBase().commit_changes()
                         break

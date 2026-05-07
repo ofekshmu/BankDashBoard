@@ -185,6 +185,27 @@ def _is_stale_manifest(html_path: str) -> bool:
 _analysis_running = False
 _analysis_lock    = threading.Lock()
 
+# ── Credit-card confirmation prompt (analysis thread ↔ browser) ───────────────
+_cc_prompt_event  = threading.Event()
+_cc_prompt_choice = False   # True = user approved, False = user skipped / timed out
+
+
+def _web_cc_confirm(row_bank_dict: dict) -> bool:
+    """Called from the analysis thread when a potential CC charge is found.
+    Sends a __PROMPT_CC__ SSE message, blocks until the user responds (or 120 s).
+    Returns True if the user approves categorising as אשראי, False otherwise.
+    """
+    global _cc_prompt_choice
+    try:
+        tx = {k: str(v) for k, v in row_bank_dict.items()}
+        _cc_prompt_choice = False
+        _cc_prompt_event.clear()
+        _log_queue.put('__PROMPT_CC__:' + _json.dumps(tx, ensure_ascii=False))
+        _cc_prompt_event.wait(timeout=120)   # default = skip (False) on timeout
+    except Exception:
+        pass
+    return _cc_prompt_choice
+
 # ── Flask app ─────────────────────────────────────────────────────────────────
 app = Flask(__name__)
 app.config['JSON_AS_ASCII'] = False
@@ -266,6 +287,19 @@ def search_page():
     if os.path.exists(search_html):
         return send_file(search_html)
     return "Search page not found", 404
+
+
+@app.route('/api/restart', methods=['POST'])
+def restart_server():
+    """Restart the Flask server process."""
+    import threading, subprocess
+    def _do():
+        import time as _t
+        _t.sleep(0.35)
+        subprocess.Popen([sys.executable] + sys.argv, cwd=os.getcwd())
+        os._exit(0)
+    threading.Thread(target=_do, daemon=True).start()
+    return jsonify({'ok': True})
 
 
 @app.route('/api/search/transactions')
@@ -354,9 +388,9 @@ def search_transactions():
             card_where.append("Executed_Date <= ?")
             card_params.append(q_to)
         if q_type == 'income':
-            card_where.append("Transaction_Value > 0")
+            card_where.append("Transaction_Value < 0")   # negative = refund/credit = income
         elif q_type == 'expense':
-            card_where.append("Transaction_Value < 0")
+            card_where.append("Transaction_Value > 0")   # positive = charge = expense
 
         card_sql = "SELECT ID, CardID, Executed_Date, Name, Category, Transaction_Value, Value_Currency, Description FROM CardTransactions"
         if card_where:
@@ -364,7 +398,7 @@ def search_transactions():
         card_sql += " ORDER BY Executed_Date DESC LIMIT 2000"
 
         for row in conn.execute(card_sql, card_params):
-            amount = float(row['Transaction_Value'] or 0)
+            amount = -float(row['Transaction_Value'] or 0)  # negate: positive charge → negative (expense)
             if q_min is not None and abs(amount) < q_min:
                 continue
             if q_max is not None and abs(amount) > q_max:
@@ -435,8 +469,10 @@ def search_transactions():
                     orig_meta_cache[key] = {'name': '', 'source': 'bank', 'date': '', 'card_id': None}
 
             meta = orig_meta_cache[key]
-            # Apply keyword / category / type filters to split rows
+            # Apply all filters to split rows (date, keyword, category, type, amount)
             amount = float(split_r['Amount'])
+            if q_from and meta['date'] and meta['date'] < q_from: continue
+            if q_to   and meta['date'] and meta['date'] > q_to:   continue
             if q_type == 'income' and amount <= 0: continue
             if q_type == 'expense' and amount >= 0: continue
             if q_min is not None and abs(amount) < q_min: continue
@@ -610,6 +646,12 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:#f4f6f9;color:#1e2a4a;d
     <a class="nav-item" href="/tagger">תייגן</a>
     <a class="nav-item" href="/files">קבצים</a>
   </div>
+  <div class="sidebar-footer" style="padding:12px 16px;border-top:1px solid #eef0f6;flex-shrink:0">
+    <button onclick="restartServer(this)" style="width:100%;padding:8px 12px;border:1.5px dashed #eef0f6;border-radius:8px;background:none;color:#888;font-size:.78em;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:7px;justify-content:center;transition:background .15s,color .15s,border-color .15s" onmouseover="this.style.background='#fff3f3';this.style.color='#e53935';this.style.borderColor='#e53935'" onmouseout="this.style.background='none';this.style.color='#888';this.style.borderColor='#eef0f6'">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
+      הפעל שרת מחדש
+    </button>
+  </div>
 </nav>
 <div class="main">
   <div class="page-header"><h1>ניתוח קטגוריות ועסקים</h1></div>
@@ -621,6 +663,7 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:#f4f6f9;color:#1e2a4a;d
   <div class="no-results" id="no-results">לא נמצאו תוצאות תואמות</div>
 </div>
 <script>
+function restartServer(btn){{btn.disabled=true;btn.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg> מפעיל מחדש…';fetch('/api/restart',{{method:'POST'}}).catch(function(){{}}).finally(function(){{var t=setInterval(function(){{fetch('/').then(function(r){{if(r.ok){{clearInterval(t);location.reload();}}}}).catch(function(){{}});}},800);}});}}
 function openNav(){{var s=document.getElementById('sidebar'),o=document.getElementById('nav-overlay'),b=document.getElementById('ham-btn');s.classList.add('open');o.classList.add('open');b.classList.add('open');}}
 function closeNav(){{var s=document.getElementById('sidebar'),o=document.getElementById('nav-overlay'),b=document.getElementById('ham-btn');s.classList.remove('open');o.classList.remove('open');b.classList.remove('open');}}
 function toggleNav(){{document.getElementById('sidebar').classList.contains('open')?closeNav():openNav();}}
@@ -788,6 +831,25 @@ def _log_float_style() -> str:
     .lf-line.done { color:#1a7a45; font-weight:600; }
     @keyframes lf-slide { from { transform:translateY(10px); opacity:0; }
                           to   { transform:translateY(0); } }
+    /* ── CC-charge confirmation modal ── */
+    .cc-modal-overlay { position:fixed; inset:0; background:rgba(15,22,45,.55);
+                        z-index:10000; display:flex; align-items:center; justify-content:center; }
+    .cc-modal { background:#fff; border-radius:14px; padding:28px 32px; max-width:420px; width:90%;
+                box-shadow:0 12px 40px rgba(0,0,0,.2); text-align:right; direction:rtl; }
+    .cc-modal-title { font-size:1em; font-weight:700; color:#1e2a4a; margin-bottom:12px; }
+    .cc-modal-body  { font-size:.85em; color:#555; margin-bottom:18px; line-height:1.6; }
+    .cc-modal-row   { display:flex; justify-content:space-between; padding:4px 0;
+                      border-bottom:1px solid #eef0f6; font-size:.83em; }
+    .cc-modal-row:last-child { border-bottom:none; }
+    .cc-modal-label { color:#888; }
+    .cc-modal-val   { font-weight:600; color:#1e2a4a; }
+    .cc-modal-btns  { display:flex; gap:10px; justify-content:flex-end; margin-top:18px; }
+    .cc-btn { border:none; border-radius:8px; padding:8px 22px; font-size:.88em;
+              font-weight:600; cursor:pointer; transition:background .15s; font-family:inherit; }
+    .cc-btn-yes { background:#1e9d8b; color:#fff; }
+    .cc-btn-yes:hover { background:#189080; }
+    .cc-btn-no  { background:#f0f2f6; color:#555; }
+    .cc-btn-no:hover  { background:#e2e5ed; }
     </style>"""
 
 
@@ -798,6 +860,17 @@ def _log_float_html() -> str:
     <span class="lf-title" id="lf-title">מנתח נתונים…</span>
   </div>
   <div class="lf-feed" id="lf-feed"></div>
+</div>
+<div id="cc-modal-overlay" class="cc-modal-overlay" style="display:none">
+  <div class="cc-modal">
+    <div class="cc-modal-title">🏦 עסקת אשראי זוהתה</div>
+    <div class="cc-modal-body">האפליקציה מצאה עסקה בחשבון הבנק שעשויה להיות חיוב כרטיס אשראי. האם לסווג אותה כ&quot;אשראי&quot;?</div>
+    <div id="cc-modal-rows"></div>
+    <div class="cc-modal-btns">
+      <button class="cc-btn cc-btn-no"  onclick="ccRespond(false)">לא — דלג</button>
+      <button class="cc-btn cc-btn-yes" onclick="ccRespond(true)">כן — אשר</button>
+    </div>
+  </div>
 </div>"""
 
 
@@ -826,6 +899,29 @@ def _log_float_js() -> str:
       var sp = document.getElementById('lf-spinner');
       if (sp && cls === 'done') sp.className = 'lf-spinner done';
       if (sp && cls === 'err')  sp.className = 'lf-spinner error';
+    }
+    function showCCPrompt(txData) {
+      var labels = {ID:'מזהה', Date:'תאריך', Name:'שם', Out:'סכום', Category:'קטגוריה', Description:'תיאור'};
+      var rows = document.getElementById('cc-modal-rows');
+      if (!rows) return;
+      var html = '';
+      ['Name','Date','Out','Description','ID'].forEach(function(k) {
+        if (txData[k] != null && txData[k] !== '' && txData[k] !== 'nan') {
+          html += '<div class="cc-modal-row"><span class="cc-modal-label">' + (labels[k]||k) + '</span>' +
+                  '<span class="cc-modal-val">' + String(txData[k]).replace(/</g,'&lt;') + '</span></div>';
+        }
+      });
+      rows.innerHTML = html;
+      var ov = document.getElementById('cc-modal-overlay');
+      if (ov) ov.style.display = 'flex';
+    }
+    function ccRespond(choice) {
+      var ov = document.getElementById('cc-modal-overlay');
+      if (ov) ov.style.display = 'none';
+      fetch('/api/analysis/respond', {method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({choice: choice})
+      }).catch(function(){});
     }"""
 
 
@@ -1287,6 +1383,28 @@ def _max_source_mtime() -> float:
     return max_mt
 
 
+def _source_files_mtime() -> float:
+    """Newest mtime for source .py / .html files only (excludes DB)."""
+    max_mt = 0.0
+    source_dir = os.path.join(_PROJECT_DIR, 'source')
+    _skip = {'output.html', 'Category_output.html'}
+    for root, dirs, files in os.walk(source_dir):
+        dirs[:] = [d for d in dirs if d != '__pycache__']
+        for f in files:
+            if f.endswith('.py') or (f.endswith('.html') and f not in _skip):
+                mt = os.path.getmtime(os.path.join(root, f))
+                if mt > max_mt:
+                    max_mt = mt
+    return max_mt
+
+_server_start_mtime = _source_files_mtime()
+
+
+@app.route('/api/server-stale')
+def server_stale():
+    return jsonify({'stale': _source_files_mtime() > _server_start_mtime})
+
+
 @app.route('/api/stale/cat/<slug>')
 def check_stale_category(slug):
     """Staleness check for a category/business analysis page."""
@@ -1334,6 +1452,11 @@ def run_analysis():
             from AppManager import AppManager
             from datetime import datetime
             from dateutil.relativedelta import relativedelta
+            from src_utils.utils import utils as _utils
+
+            # Install web-mode CC prompt hook so card_charge_validation shows a
+            # browser popup instead of blocking on stdin.
+            _utils._cc_confirm_hook = _web_cc_confirm
 
             if month_sel == 'last':
                 t = datetime.now() - relativedelta(months=1)
@@ -1364,6 +1487,11 @@ def run_analysis():
         finally:
             with _analysis_lock:
                 _analysis_running = False
+            try:
+                from src_utils.utils import utils as _utils
+                _utils._cc_confirm_hook = None
+            except Exception:
+                pass
 
     threading.Thread(target=_worker, daemon=True, name='analysis-worker').start()
     return jsonify({'status': 'started'})
@@ -1398,6 +1526,16 @@ def log_stream():
     )
 
 
+@app.route('/api/analysis/respond', methods=['POST'])
+def analysis_respond():
+    """Receive the user's yes/no answer to a credit-card confirmation prompt."""
+    global _cc_prompt_choice
+    body = request.get_json() or {}
+    _cc_prompt_choice = bool(body.get('choice', False))
+    _cc_prompt_event.set()
+    return jsonify({'ok': True})
+
+
 def _not_generated_html(year: int, month: int, yyyy_mm: str) -> str:
     import calendar
     month_label = f"{calendar.month_name[month]} {year}"
@@ -1429,6 +1567,10 @@ def _not_generated_html(year: int, month: int, yyyy_mm: str) -> str:
         var es = new EventSource('/api/logs');
         es.onmessage = function(e) {{
           if (!e.data || e.data === '__CONNECTED__') return;
+          if (e.data.startsWith('__PROMPT_CC__:')) {{
+            try {{ showCCPrompt(JSON.parse(e.data.slice(14))); }} catch(_) {{}}
+            return;
+          }}
           if (e.data.startsWith('__DONE__')) {{
             es.close();
             appendLog('✓ הניתוח הסתיים — טוען…', 'done');
@@ -1597,6 +1739,12 @@ tbody tr:hover .org-td-date{background:#f8fffd !important}
     <a class="nav-item" href="/tagger">תייגן</a>
     <a class="nav-item" href="/files">קבצים</a>
   </div>
+  <div class="sidebar-footer" style="padding:12px 16px;border-top:1px solid var(--border);flex-shrink:0">
+    <button onclick="restartServer(this)" style="width:100%;padding:8px 12px;border:1.5px dashed var(--border);border-radius:8px;background:none;color:var(--text-muted);font-size:.78em;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:7px;justify-content:center" onmouseover="this.style.background='#fff3f3';this.style.color='#e53935';this.style.borderColor='#e53935'" onmouseout="this.style.background='none';this.style.color='';this.style.borderColor=''">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
+      הפעל שרת מחדש
+    </button>
+  </div>
 </nav>
 
 <div class="loading-overlay" id="loading-overlay">
@@ -1639,6 +1787,7 @@ tbody tr:hover .org-td-date{background:#f8fffd !important}
 </div>
 
 <script>
+function restartServer(btn){btn.disabled=true;btn.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg> מפעיל מחדש…';fetch('/api/restart',{method:'POST'}).catch(function(){}).finally(function(){var t=setInterval(function(){fetch('/').then(function(r){if(r.ok){clearInterval(t);location.reload();}}).catch(function(){});},800);});}
 function openNav(){var s=document.getElementById('sidebar'),o=document.getElementById('nav-overlay'),b=document.getElementById('ham-btn');s.classList.add('open');o.classList.add('open');b.classList.add('open');}
 function closeNav(){var s=document.getElementById('sidebar'),o=document.getElementById('nav-overlay'),b=document.getElementById('ham-btn');s.classList.remove('open');o.classList.remove('open');b.classList.remove('open');}
 function toggleNav(){document.getElementById('sidebar').classList.contains('open')?closeNav():openNav();}
@@ -2196,7 +2345,11 @@ def files_scan():
                 if fmt:
                     recognized.append({'name': fname, 'format': fmt, 'is_new': True})
                 else:
-                    unrecognized.append(fname)
+                    reasons = parser.diagnose_identification(fname)
+                    details = '; '.join(
+                        f'{f}: {r}' for f, r in reasons if r != 'matched'
+                    ) or None
+                    unrecognized.append({'name': fname, 'details': details})
 
         return jsonify({'ok': True, 'recognized': recognized, 'unrecognized': unrecognized})
     except Exception as e:
@@ -2205,8 +2358,7 @@ def files_scan():
 
 @app.route('/api/files/insert', methods=['POST'])
 def files_insert():
-    """Parse and insert a single file from the input folder (SSE stream)."""
-    import builtins as _bt
+    """Parse and insert a single file — runs in background thread; logs stream via /api/logs."""
     body     = request.get_json() or {}
     filename = (body.get('filename') or '').strip()
     if not filename:
@@ -2215,15 +2367,22 @@ def files_insert():
     if not _INSERT_LOCK.acquire(blocking=False):
         return jsonify({'ok': False, 'error': 'כבר מתבצע עיבוד, נסה שוב בעוד רגע'})
 
-    logs = []
-    try:
-        import sys as _sys
-        if _HERE not in _sys.path:
-            _sys.path.insert(0, _HERE)
+    # Drain stale messages from any previous run
+    while not _log_queue.empty():
+        try:
+            _log_queue.get_nowait()
+        except queue.Empty:
+            break
 
+    def _worker():
+        import builtins as _bt
         _orig_input = _bt.input
         _bt.input = lambda *a, **k: '1'
         try:
+            import sys as _sys
+            if _HERE not in _sys.path:
+                _sys.path.insert(0, _HERE)
+
             from Parser import Parser
             from Context import Context
             from Configurations.Formats import Formats, Context_class
@@ -2231,10 +2390,21 @@ def files_insert():
             from Bank import Bank
             from src_utils.utils import utils
 
-            parser = Parser.getInstance(newInstance=True)
+            # Reuse the Parser instance from the last scan — re-identifying files
+            # from scratch can fail if the target file is transiently locked.
+            parser = Parser.getInstance()
             fmt = parser.name_to_type.get(filename)
             if not fmt:
-                return jsonify({'ok': False, 'error': f'קובץ לא מזוהה: {filename}'})
+                parser = Parser.getInstance(newInstance=True)
+                fmt = parser.name_to_type.get(filename)
+            if not fmt:
+                reasons = parser.diagnose_identification(filename)
+                details = '; '.join(
+                    f'{f}: {r}' for f, r in reasons if r != 'matched'
+                ) or 'לא ניתן לאבחן'
+                utils.log(f'קובץ לא מזוהה: {filename} — {details}', 'error')
+                _log_queue.put('__ERROR__')
+                return
 
             fmt_data   = Formats.FORMATS[fmt]
             class_type = fmt_data['Context']
@@ -2247,7 +2417,9 @@ def files_insert():
             elif class_type == Context_class.Card:
                 context.setFile(Card(filename, fmt_data))
             else:
-                return jsonify({'ok': False, 'error': 'סוג קובץ לא נתמך'})
+                utils.log('סוג קובץ לא נתמך', 'error')
+                _log_queue.put('__ERROR__')
+                return
 
             Context.counter += 1
             success = context.render()
@@ -2256,13 +2428,21 @@ def files_insert():
                 utils.handle_withdrawals()
                 utils.tagger_refresh()
 
-            return jsonify({'ok': success, 'filename': filename, 'format': fmt})
+            _log_queue.put(f'__DONE__:{filename}' if success else '__ERROR__')
+
+        except Exception as e:
+            import traceback
+            _log_queue.put(f'[ERROR] {e}')
+            for line in traceback.format_exc().splitlines():
+                if line.strip():
+                    _log_queue.put(line)
+            _log_queue.put('__ERROR__')
         finally:
             _bt.input = _orig_input
-    except Exception as e:
-        return jsonify({'ok': False, 'error': str(e)})
-    finally:
-        _INSERT_LOCK.release()
+            _INSERT_LOCK.release()
+
+    threading.Thread(target=_worker, daemon=True, name='insert-worker').start()
+    return jsonify({'status': 'started', 'filename': filename})
 
 
 @app.route('/api/files/insert-all', methods=['POST'])
@@ -2287,7 +2467,7 @@ def files_insert_all():
             from Bank import Bank
             from src_utils.utils import utils
 
-            parser = Parser.getInstance(newInstance=True)
+            parser = Parser.getInstance()
             results = []
 
             context = Context()
@@ -2746,4 +2926,4 @@ def start(port: int = 5050, open_browser: bool = True):
     os.environ['BANKAPP_WEB'] = '1'
     if open_browser:
         threading.Timer(1.2, lambda: webbrowser.open(f'http://localhost:{port}')).start()
-    app.run(host='127.0.0.1', port=port, threaded=False, debug=False, use_reloader=False)
+    app.run(host='127.0.0.1', port=port, threaded=True, debug=False, use_reloader=False)

@@ -170,7 +170,8 @@ class Formats:
                                 "Cell currency": True,
                                 "Cell currency headers": ["סכום\nעסקה", "סכום\nחיוב"],
                                 "Transaction Names": {"3843" : ['עפ"י הרשאה כאל'],
-                                                       "4437" : ['עפ"י הרשאה כאל']}},
+                                                       "4437" : ['עפ"י הרשאה כאל'],
+                                                       "7329" : ['עפ"י הרשאה כאל']}},
 
                "BeinLeumi-Bank-Date-Range": {"Format Name": "BeinLeumi-Bank-Date-Range",
                                   "Context": Context_class.Bank,

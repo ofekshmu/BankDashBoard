@@ -1217,6 +1217,10 @@ class DataBase:
                 CardID            AS card_id
             FROM CardTransactions
             WHERE Category IS 'NotCategorized'
+              AND NOT EXISTS (
+                SELECT 1 FROM TransactionSplits
+                WHERE Original_Table = 'CardTransactions' AND Original_ID = CardTransactions.ID
+              )
             UNION ALL
             SELECT
                 'BankTransactions' AS table_name,
@@ -1231,6 +1235,10 @@ class DataBase:
                 NULL       AS card_id
             FROM BankTransactions
             WHERE Category IS 'NotCategorized'
+              AND NOT EXISTS (
+                SELECT 1 FROM TransactionSplits
+                WHERE Original_Table = 'BankTransactions' AND Original_ID = BankTransactions.ID
+              )
             ORDER BY exec_date DESC
             LIMIT ?
         """, (limit,)).fetchall()
@@ -1298,6 +1306,10 @@ class DataBase:
             FROM CardTransactions
             WHERE Category IS 'NotCategorized'
               AND Charge_Value >= ?
+              AND NOT EXISTS (
+                SELECT 1 FROM TransactionSplits
+                WHERE Original_Table = 'CardTransactions' AND Original_ID = CardTransactions.ID
+              )
             UNION ALL
             SELECT
                 'BankTransactions' AS table_name,
@@ -1313,6 +1325,10 @@ class DataBase:
             FROM BankTransactions
             WHERE Category IS 'NotCategorized'
               AND (Out >= ? OR Income >= ?)
+              AND NOT EXISTS (
+                SELECT 1 FROM TransactionSplits
+                WHERE Original_Table = 'BankTransactions' AND Original_ID = BankTransactions.ID
+              )
             ORDER BY charge_value DESC
         """, (threshold, threshold, threshold)).fetchall()
         cols = ['table_name', 'id', 'name', 'exec_date', 'charge_date',
@@ -1323,9 +1339,19 @@ class DataBase:
         """Return total count of untagged transactions across both tables."""
         result = self.cursor.execute("""
             SELECT COUNT(*) FROM (
-                SELECT ID FROM CardTransactions WHERE Category IS 'NotCategorized'
+                SELECT ID FROM CardTransactions
+                WHERE Category IS 'NotCategorized'
+                  AND NOT EXISTS (
+                    SELECT 1 FROM TransactionSplits
+                    WHERE Original_Table = 'CardTransactions' AND Original_ID = CardTransactions.ID
+                  )
                 UNION ALL
-                SELECT ID FROM BankTransactions WHERE Category IS 'NotCategorized'
+                SELECT ID FROM BankTransactions
+                WHERE Category IS 'NotCategorized'
+                  AND NOT EXISTS (
+                    SELECT 1 FROM TransactionSplits
+                    WHERE Original_Table = 'BankTransactions' AND Original_ID = BankTransactions.ID
+                  )
             )
         """).fetchone()
         return result[0] if result else 0

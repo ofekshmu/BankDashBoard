@@ -103,156 +103,23 @@ class DataBase:
         with cls.__lock:
             if cls.__instance is None:
                 cls.__instance = super().__new__(cls)
-                cls.__instance.connection = sqlite3.connect(f'{Paths.DB_NAME}.db', check_same_thread=False)
-                cls.__instance.cursor = cls.__instance.connection.cursor()
-                cls.__instance.cursor.execute("""
-                    CREATE TABLE IF NOT EXISTS Card (
-                    CardID          CHAR(4)     PRIMARY KEY,
-                    description     TEXT
-                    );""")
-                cls.__instance.cursor.execute("""
-                    CREATE TABLE IF NOT EXISTS File (
-                    File_Name           CHAR        NOT NULL,
-                    Format              CHAR        NOT NULL,
-                    Card_Number         CHAR        NOT NULL,
-                    Date                DATE        NOT NULL,
-                    New_Transactions    INT                 ,
-                    Transaction_count   INT         NOT NULL,
-                    Last_update         DATE        NOT NULL,
-                    PRIMARY KEY(File_Name, Format, Card_Number)
-                    );""")
 
-                cls.__instance.cursor.execute("""
-                    CREATE TABLE IF NOT EXISTS CashTransactions (
-                    ID                  INTEGER         PRIMARY KEY ,
-                    Name                CHAR            NOT NULL    ,
-                    Execution_Date      DATE            NOT NULL    ,
-                    Amount              INT             NOT NULL    ,
-                    Currency            CHAR            NOT NULL    ,
-                    Category            CHAR            NOT NULL    ,
-                    Insertion_Date      DATE            NOT NULL    ,
-                    Description         CHAR
-                    );""")
-
-                cls.__instance.cursor.execute("""
-                    CREATE TABLE IF NOT EXISTS DevisionTransactions (
-                    ID                  INTEGER         PRIMARY KEY ,
-                    DevisionOfBank      INT             NOT NULL    ,
-                    DevisionOfCard      INT             NOT NULL    ,
-                    Name                CHAR            NOT NULL    ,
-                    Execution_Date      DATE            NOT NULL    ,
-                    Amount              INT             NOT NULL    ,
-                    Currency            CHAR            NOT NULL    ,
-                    Description         CHAR                        ,
-                    Category            CHAR            NOT NULL    ,
-                    FOREIGN KEY(DevisionOfBank)    REFERENCES BankTransactions(ID),
-                    FOREIGN KEY(DevisionOfCard)    REFERENCES CardTransactions(ID)
-                    );""")
-
-                cls.__instance.cursor.execute("""
-                    CREATE TABLE IF NOT EXISTS TransactionSplits (
-                    ID              INTEGER PRIMARY KEY AUTOINCREMENT,
-                    Original_Table  TEXT    NOT NULL,
-                    Original_ID     INTEGER NOT NULL,
-                    Amount          REAL    NOT NULL,
-                    Description     TEXT,
-                    Category        TEXT    NOT NULL,
-                    Created_At      TEXT    DEFAULT (datetime('now'))
-                    );""")
-
-                cls.__instance.cursor.execute("""
-                    CREATE TABLE IF NOT EXISTS TableMeta (
-                    ID                  INTEGER         PRIMARY KEY ,
-                    File_Name           CHAR            NOT NULL    ,
-                    Format              CHAR            NOT NULL    ,
-                    Card_Number         CHAR            NOT NULL    ,
-                    Initial_index       INT             NOT NULL    ,
-                    Initial_col         INT             NOT NULL    ,
-                    Row_count           INT             NOT NULL    ,
-                    Bad_rows            CHAR                        ,
-                    FOREIGN KEY(File_Name, Format, Card_Number)    REFERENCES File(File_Name, Format, Card_Number)
-                    );""")
-
-                cls.__instance.cursor.execute("""
-                    CREATE TABLE IF NOT EXISTS BankTransactions (
-                    ID                  INTEGER     PRIMARY KEY ,
-                    Date                DATE        NOT NULL    ,
-                    Value_Date          DATE                    ,
-                    Name                CHAR        NOT NULL    ,
-                    Ref                 CHAR                    ,
-                    Out                 INT         NOT NULL    ,
-                    Income              INT         NOT NULL    ,
-                    Balance             INT                     ,
-                    Extra_Info          CHAR                    ,
-                    Source_file         CHAR        NOT NULL    ,
-                    Category            CHAR                    ,
-                    Description         CHAR                    ,
-                    Reserved            INT                     ,
-                    FOREIGN KEY(source_file)    REFERENCES File(Name)
-                    );""")
-
-                cls.__instance.cursor.execute("""
-                    CREATE TABLE IF NOT EXISTS CardTransactions (
-                    ID                  INTEGER     PRIMARY KEY ,
-                    CardID              CHAR        NOT NULL    ,
-                    Name                CHAR        NOT NULL    ,
-                    Executed_Date       DATE        NOT NULL    ,
-                    Charge_Date         DATE                    ,
-                    Charge_Value        INT                     ,
-                    Charge_Currency     CHAR                    ,
-                    Transaction_Value   INT                     ,
-                    Value_Currency      CHAR                    ,
-                    Extra_Info          CHAR                    ,
-                    Source_file         CHAR        NOT NULL    ,
-                    Category            CHAR                    ,
-                    Description         CHAR                    ,
-                    Reserved            INT                     ,
-                    FOREIGN KEY(CardID)         REFERENCES Card(CardID),
-                    FOREIGN KEY(source_file)    REFERENCES File(Name)
-                    );""")
-
-                cls.__instance.cursor.execute("""
-                    CREATE TABLE IF NOT EXISTS BillTypes (
-                    ID          INTEGER PRIMARY KEY AUTOINCREMENT,
-                    Name        TEXT    NOT NULL,
-                    Color       TEXT    DEFAULT '#1e9d8b',
-                    GroupName   TEXT,
-                    Created_At  TEXT    DEFAULT (datetime('now'))
-                    );""")
-                # Migrate: add GroupName if table existed before this column was added
-                try:
-                    cls.__instance.cursor.execute("ALTER TABLE BillTypes ADD COLUMN GroupName TEXT")
-                except Exception:
-                    pass
-
-                cls.__instance.cursor.execute("""
-                    CREATE TABLE IF NOT EXISTS BillEntries (
-                    ID                  INTEGER PRIMARY KEY AUTOINCREMENT,
-                    BillType_ID         INTEGER NOT NULL,
-                    Start_Month         TEXT    NOT NULL,
-                    End_Month           TEXT    NOT NULL,
-                    Transaction_Table   TEXT,
-                    Transaction_ID      INTEGER,
-                    Amount              REAL,
-                    Note                TEXT,
-                    Is_Filler           INTEGER DEFAULT 0,
-                    Created_At          TEXT    DEFAULT (datetime('now')),
-                    FOREIGN KEY(BillType_ID) REFERENCES BillTypes(ID)
-                    );""")
-
-                cls.__instance.cursor.execute("""
-                    CREATE TABLE IF NOT EXISTS BillSuggestionsDismissed (
-                    ID                  INTEGER PRIMARY KEY AUTOINCREMENT,
-                    Transaction_Name    TEXT    NOT NULL UNIQUE,
-                    Dismissed_At        TEXT    DEFAULT (datetime('now'))
-                    );""")
-
-                # PostgreSQL connection for new features (login_activity etc.)
-                cls.__instance.conn = get_db_connection()
-                if cls.__instance.conn is None:
-                    utils.log("Failed to connect to PostgreSQL", 'error')
+                # On Vercel (serverless), use PostgreSQL; locally use SQLite
+                if os.getenv('DATABASE_URL'):
+                    # Vercel/PostgreSQL mode - use PostgreSQL connection
+                    try:
+                        pg_conn = psycopg2.connect(os.getenv('DATABASE_URL'))
+                        cls.__instance.connection = pg_conn
+                        cls.__instance.cursor = pg_conn.cursor()
+                        utils.log("Using PostgreSQL backend", 'system')
+                    except Exception as e:
+                        utils.log(f"PostgreSQL connection failed: {e}", 'error')
+                        cls.__instance.connection = None
+                        cls.__instance.cursor = None
                 else:
-                    initialize_login_activity_table()
+                    # Local/SQLite mode
+                    cls.__instance.connection = sqlite3.connect(f'{Paths.DB_NAME}.db', check_same_thread=False)
+                    cls.__instance.cursor = cls.__instance.connection.cursor()
 
         return cls.__instance
 

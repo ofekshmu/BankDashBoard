@@ -31,3 +31,4 @@ source/Configurations/Formats.py
 browser_profiles/
 Outputs/download_log.log
 .worktrees/
+.env

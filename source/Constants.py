@@ -62,6 +62,16 @@ class Paths:
     #GENERAL_INFO_USER_DEFINED_GRAPH =   "C:/Users/ofeks/Desktop/BankProject/Outputs/General_info_user_defined.png"
     CARD_DIST_PIE_GRAPH =               "C:/Users/ofeks/OneDrive/Ofek/BankProject/Outputs/Card_Distribution.png"
 
+    # Mortgage analysis charts
+    MORTGAGE_BALANCE_GRAPH    = r"C:\Users\ofeks\OneDrive\Ofek\BankProject\Outputs\Mortgage_Balance.png"
+    MORTGAGE_BREAKDOWN_GRAPH  = r"C:\Users\ofeks\OneDrive\Ofek\BankProject\Outputs\Mortgage_Breakdown.png"
+    MORTGAGE_CASHFLOW_GRAPH   = r"C:\Users\ofeks\OneDrive\Ofek\BankProject\Outputs\Mortgage_Cashflow.png"
+    MORTGAGE_PIE_GRAPH        = r"C:\Users\ofeks\OneDrive\Ofek\BankProject\Outputs\Mortgage_Pie.png"
+
+
+    #HTML's Names/Paths:
+    ORGANIZER_TABLE_NAME = "C:\\Users\\ofeks\\OneDrive\\Ofek\\BankProject\\source\\html\\Organizer_Table.html"
+
 class ReservedNames:
     """
     Reserved names are used to identify specific files or categories that should not be processed or are reserved for special purposes.
@@ -71,8 +81,9 @@ class ReservedNames:
 
     EXCLUDED_CATEGORY = "Excluded"
     FILLER_CATEGORY = "Filler"
+    CASH_FILLER_CATEGORY = "cash_filler"
 
-    
+    CC_CHARGE_CATEGORY_NAME = "אשראי"
 
 class Local:
 
@@ -127,7 +138,7 @@ class GeneralPlot:
                                "בילויים",
                                "בריאות וכושר",
                                "חשבונות",
-                               "חתונות",
+                               "חתונות ואירועים",
                                "מתנות",
                                "מצרכים",
                                "השכלה ולימודים"]

@@ -67,10 +67,18 @@ The value parsed is {parsed_text}", "error")
                 res = re.search(pattern, date_str)
 
                 if res:
-                    month_number = int(res.group(1))
-                    year_number = int(res.group(2))
+                    a = int(res.group(1))
+                    b = int(res.group(2))
+                    if a <= 12 and a > 0:
+                        month_number, year_number = a, b
+                    elif b <= 12 and b > 0:
+                        month_number, year_number = b, a
+                    else:
+                        utils.log(f"Problem extrcting month, values received are a={a}, b={b}", 'error')
+                    
                     if year_number < 100:
                         year_number += 2000
+                    # produce a pure date (no time component)
                     time_stamp = datetime(year_number, month_number, 1)
                 else:
                     utils.log(f"The given time_stamp_format {self.time_stamp_format} for format {self.format_name} did not yield any result\n\
@@ -144,6 +152,30 @@ The value parsed is {parsed_text}", "error")
                                                        Transaction_Value=row[4],
                                                        Value_Currency=row[5],
                                                        Extra_Info=f"Serial: {row[6]} | Info: ({row[7]})")
+                case "Isra-Card-2026":
+
+                    # According to the format json for isra-card-2026,
+                    # the first value should hold the year and second should hold the month and the day of the charge
+                    # expected format for first value is *Month name in hebrew* *Year(4digits) example: ינואר 2026
+                    # expected format for second value is *day(2 digits).month(2 digits)* *לחיוב ב-* exmaple: 02.01 לחיוב ב- 
+                    if len(self.adittional_data_field_value) != 2:
+                        utils.log(f"Error: For isra-card-2026 format, the adittional data field should contain 2 values, but {len(self.adittional_data_field_value)} were found. Check your format json and the file being parsed.", "error")
+                    
+                    year = utils.reg_extract(r'\d{4}', self.adittional_data_field_value[0])
+                    month_day = utils.reg_extract(r'\d{2}\.\d{2}', self.adittional_data_field_value[1])
+                    
+                    charge_data = utils.date_ready(f"{month_day}.{year}")
+
+                    DataBase().insert_card_transaction(CardID=self.card_number,
+                                                       Name=row[1],
+                                                       Executed_Date=utils.date_ready(row[0]),
+                                                       Charge_Date=charge_data,
+                                                       Charge_Value=row[2],
+                                                       Source_file=self.name,
+                                                       Charge_Currency=row[3],
+                                                       Transaction_Value=row[4],
+                                                       Value_Currency=row[5],
+                                                       Extra_Info=f"Serial: {row[6]} | Info: ({row[7]})")
                 case "American-Express":
 
                     DataBase().insert_card_transaction(CardID=self.card_number,
@@ -181,21 +213,21 @@ The value parsed is {parsed_text}", "error")
                                                        Value_Currency=row[6],
                                                        Extra_Info=f"Type: {row[7]} | Note: None")          
                 case "Cal":
-                    if row[3] != row[2]:
-                        utils.log("Cal_Sufersal Format cannot handel different currencies - a transaction with different currencies was found", "error")
-                    
                     str_charge_date = utils.reg_extract(r'(\d{2}/\d{2}/\d{4})', self.adittional_data_field_value)
                     charge_date = datetime.strptime(str_charge_date, "%d/%m/%Y")
-                    
+
+                    charge_value, charge_currency = row[2]
+                    transaction_value, value_currency = row[3]
+
                     DataBase().insert_card_transaction(CardID=self.card_number,
                                                        Name=row[1],
                                                        Executed_Date=row[0],
                                                        Charge_Date=charge_date,
-                                                       Charge_Value=row[3],
+                                                       Charge_Value=charge_value,
                                                        Source_file=self.name,
-                                                       Charge_Currency="₪",
-                                                       Transaction_Value=row[2],
-                                                       Value_Currency="₪",
+                                                       Charge_Currency=charge_currency,
+                                                       Transaction_Value=transaction_value,
+                                                       Value_Currency=value_currency,
                                                        Extra_Info=f"Type: {row[4]} - {row[5]} | Note: {row[6]}"
                                                        )
                 case _:

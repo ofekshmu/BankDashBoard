@@ -9,6 +9,8 @@ personal information
 personal_config.json
 setup.cfg
 *.txt
+!requirements.txt
+!Log_file.txt
 *.cmd
 *.png
 *csv
@@ -28,3 +30,8 @@ Formats.py
 *.xlsx
 output.html
 source/Configurations/Formats.py
+browser_profiles/
+Outputs/download_log.log
+migration_script.py.log
+.env
+!.env.example

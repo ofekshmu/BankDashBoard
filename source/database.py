@@ -3,6 +3,12 @@ import threading
 from datetime import datetime
 import pandas as pd
 from typing import Literal, Optional
+import os
+from dotenv import load_dotenv
+import psycopg2
+from psycopg2.extras import DictCursor
+
+load_dotenv()
 
 
 # local imports
@@ -10,6 +16,48 @@ from decorators import try_catch, error_handler
 from src_utils.utils import utils
 from Constants import Local, Paths
 from typing import Tuple
+
+
+# PostgreSQL connection
+def get_db_connection():
+    """Get PostgreSQL connection from environment variable"""
+    try:
+        conn = psycopg2.connect(os.getenv('DATABASE_URL'))
+        return conn
+    except Exception as e:
+        utils.log(f"Database connection failed: {e}", 'error')
+        return None
+
+
+def initialize_login_activity_table():
+    """Create login_activity table if it doesn't exist"""
+    conn = get_db_connection()
+    if conn is None:
+        return False
+
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS login_activity (
+                id SERIAL PRIMARY KEY,
+                login_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                logout_time TIMESTAMP,
+                session_id VARCHAR(255),
+                device_info VARCHAR(500),
+                ip_address VARCHAR(45)
+            );
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_login_time ON login_activity(login_time DESC);
+        """)
+        conn.commit()
+        cursor.close()
+        conn.close()
+        utils.log("login_activity table initialized", 'system')
+        return True
+    except Exception as e:
+        utils.log(f"Failed to initialize login_activity table: {e}", 'error')
+        return False
 
 
 # ----------------------------------------------------------------------
@@ -198,6 +246,12 @@ class DataBase:
                     Transaction_Name    TEXT    NOT NULL UNIQUE,
                     Dismissed_At        TEXT    DEFAULT (datetime('now'))
                     );""")
+
+                # PostgreSQL connection for new features (login_activity etc.)
+                cls.__instance.conn = get_db_connection()
+                if cls.__instance.conn is None:
+                    utils.log("Failed to connect to PostgreSQL", 'error')
+                initialize_login_activity_table()
 
         return cls.__instance
 
@@ -2046,6 +2100,61 @@ class DataBase:
 
     def commit_changes(self) -> None:
         self.connection.commit()
+
+    # ── Login activity (PostgreSQL) ────────────────────────────────────────────
+
+    def log_login(self, session_id, device_info, ip_address):
+        """Log a user login event"""
+        if self.conn is None:
+            return False
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute("""
+                INSERT INTO login_activity (session_id, device_info, ip_address)
+                VALUES (%s, %s, %s)
+            """, (session_id, device_info, ip_address))
+            self.conn.commit()
+            cursor.close()
+            return True
+        except Exception as e:
+            utils.log(f"Failed to log login: {e}", 'error')
+            return False
+
+    def log_logout(self, session_id):
+        """Log a user logout event"""
+        if self.conn is None:
+            return False
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute("""
+                UPDATE login_activity
+                SET logout_time = CURRENT_TIMESTAMP
+                WHERE session_id = %s AND logout_time IS NULL
+            """, (session_id,))
+            self.conn.commit()
+            cursor.close()
+            return True
+        except Exception as e:
+            utils.log(f"Failed to log logout: {e}", 'error')
+            return False
+
+    def get_login_activity(self):
+        """Get all login activity (for activity log page)"""
+        if self.conn is None:
+            return []
+        try:
+            cursor = self.conn.cursor(cursor_factory=DictCursor)
+            cursor.execute("""
+                SELECT id, login_time, logout_time, device_info, ip_address
+                FROM login_activity
+                ORDER BY login_time DESC
+            """)
+            rows = cursor.fetchall()
+            cursor.close()
+            return rows
+        except Exception as e:
+            utils.log(f"Failed to get login activity: {e}", 'error')
+            return []
 
     def get_monthly_bank_balances(self, from_date: datetime = None) -> pd.DataFrame:
         """

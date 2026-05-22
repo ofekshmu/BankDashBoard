@@ -45,9 +45,10 @@ def test_get_device_info(auth_manager, flask_app):
         assert 'Mozilla' in device_info
 
 def test_get_ip_address(auth_manager, flask_app):
-    """Test IP address extraction"""
+    """Test IP address extraction from remote_addr (not X-Forwarded-For)"""
     with flask_app.test_request_context(
-        headers={'X-Forwarded-For': '192.168.1.100, 10.0.0.1'}
+        environ_base={'REMOTE_ADDR': '192.168.1.100'},
+        headers={'X-Forwarded-For': '10.0.0.1'}
     ):
         ip = auth_manager.get_ip_address(request)
         assert ip == '192.168.1.100'

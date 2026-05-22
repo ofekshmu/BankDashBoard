@@ -1,5 +1,5 @@
 import os
-import hashlib
+import hmac
 import secrets
 from datetime import datetime
 from dotenv import load_dotenv
@@ -21,7 +21,7 @@ class AuthManager:
             utils.log("Admin password not configured", 'error')
             return False
 
-        return provided_password == self.admin_password
+        return hmac.compare_digest(provided_password, self.admin_password)
 
     def generate_session_id(self):
         """Generate a secure session ID"""
@@ -34,12 +34,5 @@ class AuthManager:
 
     def get_ip_address(self, request):
         """Get client IP address from Flask request"""
-        # Check for proxy headers first
-        if request.headers.get('X-Forwarded-For'):
-            ip = request.headers.get('X-Forwarded-For').split(',')[0].strip()
-        elif request.headers.get('X-Real-IP'):
-            ip = request.headers.get('X-Real-IP')
-        else:
-            ip = request.remote_addr
-
-        return ip[:45]  # Truncate to 45 chars (max IPv6 length)
+        ip = request.remote_addr
+        return ip[:45] if ip else "Unknown"

@@ -251,7 +251,8 @@ class DataBase:
                 cls.__instance.conn = get_db_connection()
                 if cls.__instance.conn is None:
                     utils.log("Failed to connect to PostgreSQL", 'error')
-                initialize_login_activity_table()
+                else:
+                    initialize_login_activity_table()
 
         return cls.__instance
 
@@ -2101,11 +2102,24 @@ class DataBase:
     def commit_changes(self) -> None:
         self.connection.commit()
 
+    def _ensure_pg_connection(self):
+        """Ensure PostgreSQL connection is alive; reconnect if needed"""
+        if self.conn is None:
+            self.conn = get_db_connection()
+        else:
+            try:
+                cursor = self.conn.cursor()
+                cursor.execute("SELECT 1")
+                cursor.close()
+            except Exception:
+                self.conn = get_db_connection()
+        return self.conn is not None
+
     # ── Login activity (PostgreSQL) ────────────────────────────────────────────
 
     def log_login(self, session_id, device_info, ip_address):
         """Log a user login event"""
-        if self.conn is None:
+        if not self._ensure_pg_connection():
             return False
         try:
             cursor = self.conn.cursor()
@@ -2122,7 +2136,7 @@ class DataBase:
 
     def log_logout(self, session_id):
         """Log a user logout event"""
-        if self.conn is None:
+        if not self._ensure_pg_connection():
             return False
         try:
             cursor = self.conn.cursor()
@@ -2140,7 +2154,7 @@ class DataBase:
 
     def get_login_activity(self):
         """Get all login activity (for activity log page)"""
-        if self.conn is None:
+        if not self._ensure_pg_connection():
             return []
         try:
             cursor = self.conn.cursor(cursor_factory=DictCursor)

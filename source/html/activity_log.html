@@ -172,7 +172,7 @@
                 <tr>
                     <td>{{ activity.login_time }}</td>
                     <td>
-                        {% if 'Still logged in' in activity.logout_time %}
+                        {% if activity.is_still_logged_in %}
                         <span class="status-active">{{ activity.logout_time }}</span>
                         {% else %}
                         <span class="status-inactive">{{ activity.logout_time }}</span>

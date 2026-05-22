@@ -15,10 +15,12 @@ def activity_log():
     # Format data for display
     formatted_activities = []
     for activity in activities:
+        is_still_logged_in = activity['logout_time'] is None
         formatted_activities.append({
             'id': activity['id'],
             'login_time': activity['login_time'].strftime('%Y-%m-%d %H:%M:%S') if activity['login_time'] else 'N/A',
             'logout_time': activity['logout_time'].strftime('%Y-%m-%d %H:%M:%S') if activity['logout_time'] else 'Still logged in',
+            'is_still_logged_in': is_still_logged_in,
             'device_info': activity['device_info'],
             'ip_address': activity['ip_address']
         })

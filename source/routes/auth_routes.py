@@ -13,12 +13,12 @@ def login():
     if request.method == 'POST':
         password = request.form.get('password', '')
 
+        session_id = auth_manager.generate_session_id()
+        device_info = auth_manager.get_device_info(request)
+        ip_address = auth_manager.get_ip_address(request)
+
         if auth_manager.validate_password(password):
             # Password is correct
-            session_id = auth_manager.generate_session_id()
-            device_info = auth_manager.get_device_info(request)
-            ip_address = auth_manager.get_ip_address(request)
-
             # Log the login
             db.log_login(session_id, device_info, ip_address)
 
@@ -31,7 +31,7 @@ def login():
             return redirect(url_for('index'))  # Redirect to main app
         else:
             # Password is incorrect
-            utils.log(f"Failed login attempt from {request.remote_addr}", 'warning')
+            utils.log(f"Failed login attempt from {ip_address}", 'warning')
             return render_template('login.html', error='Invalid password')
 
     # GET request - show login page

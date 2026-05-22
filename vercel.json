@@ -1,9 +1,3 @@
 {
-  "buildCommand": "pip install -r requirements.txt",
-  "functions": {
-    "app.py": {
-      "memory": 1024,
-      "maxDuration": 60
-    }
-  }
+  "buildCommand": "pip install -r requirements.txt"
 }

@@ -21,6 +21,9 @@ import builtins as _builtins
 
 import re as _re
 from flask import Flask, Response, request, jsonify, send_file, redirect
+from routes.auth_routes import auth_bp, require_login
+from routes.activity_routes import activity_bp
+from flask_session import Session
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 _HERE                  = os.path.dirname(os.path.abspath(__file__))
@@ -210,8 +213,17 @@ def _web_cc_confirm(row_bank_dict: dict) -> bool:
 app = Flask(__name__)
 app.config['JSON_AS_ASCII'] = False
 
+# Register authentication blueprints
+app.register_blueprint(auth_bp)
+app.register_blueprint(activity_bp)
+
+# Configure session
+app.config['SESSION_TYPE'] = 'filesystem'
+Session(app)
+
 
 @app.route('/')
+@require_login
 def index():
     # Redirect to the latest monthly file if available
     if os.path.isdir(GENERAL_ANALYSIS_DIR):

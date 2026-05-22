@@ -212,6 +212,7 @@ def _web_cc_confirm(row_bank_dict: dict) -> bool:
 # ── Flask app ─────────────────────────────────────────────────────────────────
 app = Flask(__name__)
 app.config['JSON_AS_ASCII'] = False
+app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY', 'dev-key-change-in-production')
 
 # Register authentication blueprints
 app.register_blueprint(auth_bp)
@@ -224,6 +225,18 @@ app.config['SESSION_COOKIE_SECURE'] = True  # HTTPS only
 app.config['SESSION_COOKIE_HTTPONLY'] = True  # No JS access
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 Session(app)
+
+# Global error handler for unhandled exceptions
+@app.errorhandler(Exception)
+def handle_error(error):
+    utils.log(f"UNHANDLED ERROR: {type(error).__name__}: {str(error)}", 'error')
+    import traceback
+    utils.log(traceback.format_exc(), 'error')
+    return {
+        "error": "Internal Server Error",
+        "message": str(error),
+        "type": type(error).__name__
+    }, 500
 
 
 @app.route('/')

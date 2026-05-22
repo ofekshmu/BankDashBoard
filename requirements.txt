@@ -1,10 +1,11 @@
 Flask==2.3.2
-Flask-Session==0.4.0
-pandas==1.5.3
-psycopg2-binary==2.9.6
+Flask-Session==0.5.0
+pandas==2.0.3
+psycopg2-binary==2.9.9
 python-dotenv==1.0.0
-pytest==7.3.2
-openpyxl==3.10.10
+pytest==7.4.0
+openpyxl==3.13.0
 xlrd==2.0.1
-selenium==4.10.0
+selenium==4.15.0
 requests==2.31.0
+gunicorn==21.2.0

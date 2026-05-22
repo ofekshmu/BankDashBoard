@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 """
 Migration script: SQLite to PostgreSQL
 Copies CardTransactions and BankTransactions data from local SQLite to Neon PostgreSQL
@@ -11,9 +12,14 @@ from dotenv import load_dotenv
 import psycopg2
 from psycopg2.extras import execute_batch
 
+# Handle unicode encoding on Windows
+if sys.platform == 'win32':
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+
 load_dotenv()
 
-DB_SQLITE = 'source/database.db'  # Update path if different
+DB_SQLITE = 'C:/Users/ofeks/OneDrive/Ofek/BankProject/ShmuelFamiliy 2026-05-22.db'  # Latest database backup
 DB_POSTGRES_URL = os.getenv('DATABASE_URL')
 
 if not DB_POSTGRES_URL:
@@ -52,10 +58,10 @@ def migrate_table(sqlite_conn, pg_conn, table_name):
         execute_batch(pg_cursor, insert_sql, rows, page_size=100)
         pg_conn.commit()
 
-        print(f"  ✓ Migrated {len(rows)} rows from {table_name}")
+        print(f"  [OK] Migrated {len(rows)} rows from {table_name}")
     except Exception as e:
         pg_conn.rollback()
-        print(f"  ✗ Error migrating {table_name}: {e}")
+        print(f"  [ERROR] Error migrating {table_name}: {e}")
         return False
     finally:
         pg_cursor.close()
@@ -88,10 +94,10 @@ def main():
         pg_conn.close()
         sqlite_conn.close()
 
-        print("\n✓ Migration completed successfully")
+        print("\n[OK] Migration completed successfully")
 
     except Exception as e:
-        print(f"\n✗ Migration failed: {e}")
+        print(f"\n[ERROR] Migration failed: {e}")
         sys.exit(1)
 
 if __name__ == '__main__':

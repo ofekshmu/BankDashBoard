@@ -217,8 +217,12 @@ app.config['JSON_AS_ASCII'] = False
 app.register_blueprint(auth_bp)
 app.register_blueprint(activity_bp)
 
-# Configure session
-app.config['SESSION_TYPE'] = 'filesystem'
+# Configure session for serverless: use signed cookies (no persistent backend needed)
+app.config['SESSION_TYPE'] = 'null'
+app.config['PERMANENT_SESSION_LIFETIME'] = 86400  # 24 hours
+app.config['SESSION_COOKIE_SECURE'] = True  # HTTPS only
+app.config['SESSION_COOKIE_HTTPONLY'] = True  # No JS access
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 Session(app)
 
 

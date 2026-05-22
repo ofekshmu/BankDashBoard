@@ -1,0 +1,2 @@
+[tool.vercel]
+entrypoint = "source.WebApp:app"

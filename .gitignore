@@ -30,3 +30,4 @@ output.html
 source/Configurations/Formats.py
 browser_profiles/
 Outputs/download_log.log
+migration_script.py.log

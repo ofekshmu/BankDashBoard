@@ -1,0 +1,2310 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>תייגן עסקאות</title>
+<style>
+/* ── Reset & tokens ────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --teal:       #1e9d8b;
+  --teal-light: #e8f7f5;
+  --teal-glow:  rgba(30,157,139,0.25);
+  --navy:       #1e2a4a;
+  --bg:         #f4f6f9;
+  --white:      #ffffff;
+  --border:     #eef0f6;
+  --text-muted: #888;
+  --text-sub:   #555;
+  --red:        #e74c3c;
+  --amber:      #f0b429;
+  --green:      #2ecc71;
+  --purple:     #9b59b6;
+  --shadow-sm:  0 2px 10px rgba(0,0,0,.06);
+  --shadow-md:  0 6px 24px rgba(0,0,0,.10);
+  --radius:     14px;
+  --radius-sm:  8px;
+}
+@keyframes _pageIn { from{opacity:0} to{opacity:1} }
+@keyframes fadeSlideIn { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:none} }
+@keyframes tagPop { 0%{transform:scale(1)} 40%{transform:scale(1.04)} 100%{transform:scale(1)} }
+@keyframes rowExit { to{opacity:0;transform:translateX(-40px);max-height:0;padding:0;margin:0;overflow:hidden} }
+@keyframes spin { to{transform:rotate(360deg)} }
+@keyframes shimmer { 0%{background-position:-400px 0} 100%{background-position:400px 0} }
+
+body {
+  font-family: 'Segoe UI', Arial, sans-serif;
+  background: var(--bg);
+  display: flex;
+  min-height: 100vh;
+  direction: rtl;
+  color: var(--navy);
+  font-size: 14px;
+  animation: _pageIn 0.22s ease;
+}
+
+/* ── Hamburger button ─────────────────────────────────────── */
+.ham-btn {
+  position: fixed;
+  top: 18px; right: 18px;
+  width: 42px; height: 42px;
+  background: var(--white);
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  z-index: 1001;
+  box-shadow: var(--shadow-sm);
+  color: var(--navy);
+  pointer-events: auto;
+  transition: background .15s, color .15s, border-color .15s;
+}
+.ham-btn:hover {
+  background: var(--teal);
+  border-color: var(--teal);
+  color: #fff;
+}
+.ham-btn.open {
+  opacity: 0;
+  pointer-events: none;
+}
+.sidebar-close-btn {
+  margin-right: auto;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.1em;
+  color: var(--text-sub);
+  line-height: 1;
+  padding: 4px 6px;
+  border-radius: 6px;
+  transition: background .12s, color .12s;
+}
+.sidebar-close-btn:hover {
+  background: var(--teal-light);
+  color: var(--teal);
+}
+.nav-overlay {
+  position: fixed; inset: 0;
+  background: rgba(15,22,45,.26);
+  z-index: 390;
+  opacity: 0; pointer-events: none;
+  transition: opacity .22s ease;
+}
+.nav-overlay.open { opacity: 1; pointer-events: all; }
+.sidebar {
+  position: fixed;
+  top: 0; right: 0;
+  height: 100vh; width: 230px;
+  background: var(--white);
+  z-index: 395;
+  transform: translate3d(100%, 0, 0);
+  transition: transform .22s cubic-bezier(.4,0,.2,1);
+  will-change: transform;
+  box-shadow: -4px 0 24px rgba(0,0,0,.09);
+  display: flex; flex-direction: column;
+}
+.sidebar.open { transform: translate3d(0, 0, 0); }
+.sidebar-header {
+  display: flex; align-items: center;
+  padding: 20px 20px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.sidebar-app-name { font-size: .95em; font-weight: 700; color: var(--navy); }
+.sidebar-scroll { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 8px 0 16px; }
+.sidebar-footer{padding:12px 16px;border-top:1px solid var(--border);flex-shrink:0}
+.nav-restart-btn{width:100%;padding:8px 12px;border:1.5px dashed var(--border);border-radius:8px;background:none;color:var(--text-muted);font-size:.78em;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:7px;justify-content:center;transition:background .15s,color .15s,border-color .15s}
+.nav-restart-btn:hover{background:#fff3f3;color:#e53935;border-color:#e53935}
+.nav-restart-btn:disabled{opacity:.5;cursor:default}
+.nav-item {
+  display: flex; align-items: center;
+  padding: 10px 20px;
+  text-decoration: none; color: var(--text-sub);
+  font-size: .875em; font-weight: 500;
+  transition: background .1s, color .1s;
+  cursor: pointer; border: none; background: none;
+  width: 100%; text-align: right;
+  position: relative; letter-spacing: .1px;
+}
+.nav-item::before {
+  content: '';
+  position: absolute;
+  right: 0; top: 22%; height: 56%;
+  width: 3px; border-radius: 3px 0 0 3px;
+  background: transparent; transition: background .1s;
+}
+.nav-item:hover { background: var(--teal-light); color: var(--teal); }
+.nav-item:hover::before { background: var(--teal); }
+.nav-item.active { color: #b8c0d0; cursor: default; pointer-events: none; }
+.nav-sep { height: 1px; background: var(--border); margin: 8px 16px; }
+
+/* ── Main ────────────────────────────────────────────────────── */
+.main {
+  flex: 1;
+  padding: 72px 32px 80px;
+  min-width: 0;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+/* ── Page header ─────────────────────────────────────────────── */
+.page-header {
+  display: flex; align-items: center; gap: 14px;
+  margin-bottom: 28px;
+  padding-right: 62px;
+}
+.page-header h1 {
+  font-size: 1.75em; font-weight: 700; color: var(--navy);
+}
+.header-badge {
+  background: var(--teal); color: #fff;
+  border-radius: 20px; padding: 4px 14px;
+  font-size: .82em; font-weight: 700;
+}
+.header-badge.amber { background: var(--amber); }
+
+/* ── Section ─────────────────────────────────────────────────── */
+.section {
+  background: var(--white);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 24px;
+  overflow: hidden;
+}
+.section-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  user-select: none;
+  gap: 10px;
+}
+.section-header:hover { background: #fafbff; }
+.section-title {
+  font-weight: 700; font-size: 1.05em; color: var(--navy);
+  display: flex; align-items: center; gap: 10px;
+}
+.section-count {
+  background: var(--teal-light); color: var(--teal);
+  border-radius: 10px; padding: 2px 10px;
+  font-size: .78em; font-weight: 700;
+}
+.section-chevron {
+  font-size: .75em; color: var(--text-muted);
+  transition: transform .25s;
+}
+.section.collapsed .section-chevron { transform: rotate(180deg); }
+.section.collapsed .section-body    { display: none; }
+
+/* ── Skeleton loader ─────────────────────────────────────────── */
+.skeleton-row {
+  height: 80px; border-radius: 10px; margin: 10px 16px;
+  background: linear-gradient(90deg,#f0f2f6 25%,#e8eaee 50%,#f0f2f6 75%);
+  background-size: 800px 100%;
+  animation: shimmer 1.4s infinite linear;
+}
+
+/* ── Transaction row ─────────────────────────────────────────── */
+.tx-list { padding: 8px 0; }
+.tx-row {
+  display: flex; align-items: flex-start;
+  gap: 12px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+  transition: background .15s, opacity .3s, transform .35s, max-height .35s;
+  animation: fadeSlideIn .22s ease;
+  max-height: 300px;
+  overflow: visible;
+  position: relative;
+  z-index: 1;
+}
+.tx-row.focused-row { z-index: 20; }
+.tx-row:last-child { border-bottom: none; }
+.tx-row:hover { background: #f8faff; }
+.tx-row.exiting {
+  animation: rowExit .35s ease forwards;
+  overflow: hidden;
+}
+.tx-row.tagged { animation: tagPop .4s ease; }
+
+.tx-type-pill {
+  flex-shrink: 0;
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1em;
+  margin-top: 6px;
+}
+.tx-type-pill.card { background: #eef2ff; }
+.tx-type-pill.bank { background: #fef3e2; }
+
+/* Wrapper that stacks info + actions on top, then description below */
+.tx-body {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.tx-top {
+  display: flex; align-items: center; gap: 12px;
+}
+.tx-info { flex: 1; min-width: 0; }
+.tx-name {
+  font-weight: 600; font-size: .92em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  margin-bottom: 3px;
+}
+.tx-meta {
+  display: flex; gap: 12px; flex-wrap: wrap;
+  font-size: .76em; color: var(--text-muted);
+}
+.tx-meta .val { color: var(--navy); font-weight: 600; }
+.tx-meta .val.neg { color: var(--red); }
+.tx-meta .val.pos { color: var(--green); }
+
+.tx-actions {
+  display: flex; align-items: center; gap: 8px;
+  flex-shrink: 0;
+}
+
+/* Description row — sits below the entry info, clearly separate */
+.tx-desc-row {
+  display: flex; align-items: center; gap: 6px;
+  padding-bottom: 2px;
+}
+.tx-desc-label {
+  font-size: .73em; color: var(--text-muted);
+  white-space: nowrap; flex-shrink: 0;
+}
+
+/* ── Category autocomplete input ─────────────────────────────── */
+.cat-wrap {
+  position: relative;
+  width: 200px;
+}
+.cat-input {
+  width: 100%;
+  padding: 7px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: .84em;
+  font-family: inherit;
+  outline: none;
+  background: var(--bg);
+  color: var(--navy);
+  transition: border-color .18s, box-shadow .18s;
+  direction: rtl;
+}
+.cat-input:focus {
+  border-color: var(--teal);
+  box-shadow: 0 0 0 3px var(--teal-glow);
+  background: var(--white);
+}
+.cat-input.valid   { border-color: var(--teal); }
+.cat-input.invalid { border-color: var(--red); }
+
+.cat-dropdown {
+  position: absolute;
+  top: calc(100% + 4px); right: 0;
+  width: 220px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  z-index: 100;
+  max-height: 220px; overflow-y: auto;
+  display: none;
+}
+.cat-dropdown.open { display: block; animation: fadeSlideIn .14s ease; }
+.cat-opt {
+  padding: 9px 14px;
+  cursor: pointer;
+  font-size: .84em;
+  display: flex; align-items: center; justify-content: space-between;
+  transition: background .12s;
+}
+.cat-opt:hover, .cat-opt.focused { background: var(--teal-light); color: var(--teal); }
+.cat-opt .usage-badge {
+  font-size: .7em; color: var(--text-muted);
+  background: var(--bg); border-radius: 8px;
+  padding: 1px 6px;
+}
+
+/* ── Buttons ─────────────────────────────────────────────────── */
+.btn {
+  padding: 7px 14px;
+  border-radius: var(--radius-sm);
+  border: none;
+  font-size: .82em; font-weight: 600;
+  cursor: pointer;
+  transition: background .15s, transform .1s, opacity .15s;
+  display: inline-flex; align-items: center; gap: 5px;
+}
+.btn:active { transform: scale(.96); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn-primary { background: var(--teal); color: #fff; }
+.btn-primary:hover:not(:disabled) { background: #178a7a; }
+.btn-ghost {
+  background: transparent; color: var(--text-muted);
+  border: 1.5px solid var(--border);
+}
+.btn-ghost:hover { background: var(--bg); color: var(--navy); }
+.btn-icon {
+  width: 32px; height: 32px; padding: 0;
+  border-radius: 8px;
+  font-size: 1em;
+  background: var(--bg);
+  color: var(--text-muted);
+  border: none;
+  display: flex; align-items: center; justify-content: center;
+}
+.btn-icon:hover { background: #eef2ff; color: var(--teal); }
+.btn-tag-all {
+  font-size: .74em; padding: 5px 10px;
+  background: #eef2ff; color: #5c7cfa;
+  border-radius: 6px; border: none;
+  cursor: pointer;
+  transition: background .15s;
+}
+.btn-tag-all:hover { background: #dde6ff; }
+
+/* ── Tagged row (recent) ─────────────────────────────────────── */
+.tx-row.is-tagged .cat-label {
+  background: var(--teal-light); color: var(--teal);
+  border-radius: 6px; padding: 3px 10px;
+  font-size: .78em; font-weight: 700;
+}
+.tx-row.is-tagged .cat-label.auto {
+  background: #eef2ff; color: #5c7cfa;
+}
+.source-flag {
+  font-size: .7em; color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: 5px; padding: 1px 6px;
+}
+
+/* ── High value section ──────────────────────────────────────── */
+.high-val-badge {
+  background: #fff3e0; color: #e65100;
+  border-radius: 6px; padding: 2px 8px;
+  font-size: .72em; font-weight: 700;
+}
+
+/* ── Refresh indicator ───────────────────────────────────────── */
+.refresh-bar {
+  height: 3px; width: 0%;
+  background: var(--teal);
+  border-radius: 2px;
+  transition: width .1s linear;
+  position: fixed;
+  top: 0; right: 0; left: 0;
+  z-index: 999;
+}
+
+/* ── Add category modal ──────────────────────────────────────── */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.35);
+  z-index: 500;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none;
+  transition: opacity .2s;
+}
+.modal-overlay.open { opacity: 1; pointer-events: all; }
+.modal-box {
+  background: var(--white);
+  border-radius: var(--radius);
+  padding: 28px 30px;
+  width: 340px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.2);
+  transform: translateY(20px);
+  transition: transform .2s;
+}
+.modal-overlay.open .modal-box { transform: none; }
+.modal-title { font-size: 1.1em; font-weight: 700; margin-bottom: 14px; }
+.modal-input {
+  width: 100%; padding: 10px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: .9em; font-family: inherit;
+  outline: none; direction: rtl;
+  margin-bottom: 14px;
+}
+.modal-input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px var(--teal-glow); }
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.modal-msg { font-size: .82em; color: var(--red); margin-bottom: 8px; min-height: 18px; }
+
+/* ── Toast notification ──────────────────────────────────────── */
+.toast-area {
+  position: fixed; bottom: 28px; left: 50%;
+  transform: translateX(-50%);
+  z-index: 600;
+  display: flex; flex-direction: column-reverse; align-items: center; gap: 8px;
+}
+.toast {
+  background: var(--navy); color: #fff;
+  padding: 10px 22px; border-radius: 10px;
+  font-size: .88em; font-weight: 500;
+  box-shadow: var(--shadow-md);
+  animation: fadeSlideIn .2s ease;
+  white-space: nowrap;
+}
+.toast.success { background: var(--teal); }
+.toast.error   { background: var(--red); }
+
+/* ── Empty state ─────────────────────────────────────────────── */
+.empty-state {
+  text-align: center; padding: 36px 20px;
+  color: var(--text-muted); font-size: .9em;
+}
+.empty-state .emoji { font-size: 2.2em; margin-bottom: 8px; }
+
+/* ── Spinner ─────────────────────────────────────────────────── */
+.spinner {
+  width: 18px; height: 18px;
+  border: 2px solid var(--border);
+  border-top-color: var(--teal);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+  flex-shrink: 0;
+}
+
+/* ── Tag-all inline prompt ───────────────────────────────────── */
+.tag-all-prompt {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  animation: fadeSlideIn .18s ease;
+}
+.tag-all-q {
+  font-size: .82em; color: var(--navy);
+  flex: 1; min-width: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.tag-all-q strong { color: var(--teal); }
+
+/* ── Tagged filter bar ───────────────────────────────────────── */
+.filter-bar {
+  display: flex; align-items: center; gap: 6px;
+  padding: 10px 20px 4px;
+  border-bottom: 1px solid var(--border);
+}
+.filter-btn {
+  padding: 5px 14px;
+  border-radius: 20px;
+  border: 1.5px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: .78em; font-weight: 600;
+  cursor: pointer;
+  transition: background .15s, color .15s, border-color .15s;
+}
+.filter-btn:hover { background: var(--bg); color: var(--navy); }
+.filter-btn.active {
+  background: var(--teal); color: #fff;
+  border-color: var(--teal);
+}
+
+/* ── Old-transactions separator ──────────────────────────────── */
+.old-tx-separator {
+  background: #edf0f7;
+  border-top: 1px solid #d8dcea;
+  border-bottom: 1px solid #d8dcea;
+  padding: 9px 20px;
+  text-align: center;
+  color: #8a95b0;
+  font-size: .74em; font-weight: 700;
+  letter-spacing: .9px;
+  text-transform: uppercase;
+  user-select: none;
+}
+
+/* ── Description input ───────────────────────────────────────── */
+.desc-input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 10px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: .82em;
+  font-family: inherit;
+  outline: none;
+  background: var(--bg);
+  color: var(--navy);
+  transition: border-color .18s, box-shadow .18s;
+  direction: rtl;
+}
+.desc-input:focus {
+  border-color: var(--teal);
+  box-shadow: 0 0 0 3px var(--teal-glow);
+  background: var(--white);
+}
+.desc-input::placeholder { color: #bbb; }
+
+/* ── Rules table ─────────────────────────────────────────────── */
+.rules-filter-bar {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.rules-filter-input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: .84em; font-family: inherit;
+  outline: none; direction: rtl;
+  background: var(--bg); color: var(--navy);
+}
+.rules-filter-input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px var(--teal-glow); }
+.rules-list { padding: 0; }
+.rule-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--border);
+  transition: background .12s;
+}
+.rule-row:last-child { border-bottom: none; }
+.rule-row:hover { background: #f8faff; }
+.rule-name {
+  flex: 1; min-width: 0;
+  font-size: .88em; font-weight: 600;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.rule-count {
+  font-size: .72em; color: var(--text-muted);
+  background: var(--bg); border-radius: 8px; padding: 2px 8px;
+  flex-shrink: 0; white-space: nowrap;
+}
+.rule-cat-select {
+  padding: 6px 10px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: .84em; font-family: inherit;
+  outline: none;
+  background: var(--bg); color: var(--navy);
+  cursor: pointer; direction: rtl;
+  min-width: 150px;
+  transition: border-color .15s;
+}
+.rule-cat-select:focus { border-color: var(--teal); box-shadow: 0 0 0 3px var(--teal-glow); }
+
+/* ── Search tagged section ───────────────────────────────────── */
+.search-bar {
+  display: flex; align-items: center; gap: 8px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.search-input {
+  flex: 1;
+  padding: 9px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: .86em; font-family: inherit;
+  outline: none; direction: rtl;
+  background: var(--bg); color: var(--navy);
+}
+.search-input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px var(--teal-glow); }
+.search-input::placeholder { color: #bbb; }
+
+/* ── Scrollbar ───────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #cdd4e0; border-radius: 3px; }
+
+/* ── Split feature ───────────────────────────────────────────── */
+.tg-split-btn{background:none;border:1.5px solid var(--border);border-radius:6px;padding:4px 10px;font-size:.75em;color:#7b1fa2;cursor:pointer;font-family:inherit;transition:background .12s,border-color .12s;white-space:nowrap;flex-shrink:0}
+.tg-split-btn:hover{background:#ede7f6;border-color:#9c27b0}
+.cash-cur-dropdown{display:none;background:#fff;border:1.5px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:9999;max-height:220px;overflow-y:auto}
+.cash-cur-dropdown.open{display:block}
+.cash-cur-search{padding:8px 12px;border:none;border-bottom:1.5px solid var(--border);font-size:.84em;width:100%;box-sizing:border-box;outline:none;color:var(--navy);position:sticky;top:0;background:#fff;font-family:inherit}
+.cash-cur-option{padding:7px 14px;cursor:pointer;font-size:.83em;color:var(--navy)}
+.cash-cur-option:hover{background:var(--teal-light)}
+.s-modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:900;align-items:center;justify-content:center}
+.s-modal-overlay.open{display:flex}
+.s-modal{background:#fff;border-radius:16px;padding:26px 30px;width:100%;max-width:540px;box-shadow:0 20px 60px rgba(0,0,0,.18);direction:rtl;position:relative;max-height:92vh;overflow-y:auto}
+.s-modal-title{font-size:1.04em;font-weight:700;color:var(--navy);margin-bottom:14px}
+.s-modal-close{position:absolute;top:14px;left:18px;background:none;border:none;font-size:1.1em;cursor:pointer;color:#aaa;padding:4px}
+.s-modal-close:hover{color:var(--red)}
+.s-step{display:none;flex-direction:column;gap:10px}
+.s-step.active{display:flex}
+.tg-step{display:none;flex-direction:column;gap:10px}
+.tg-step.active{display:flex}
+.s-orig-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#f7f9ff;border-radius:10px;padding:11px 14px}
+.s-orig-name{font-size:.88em;font-weight:600;color:var(--navy);flex:1}
+.s-orig-amount{font-size:.9em;font-weight:700;color:var(--teal);white-space:nowrap}
+.s-cat-badge{font-size:.72em;background:#f0f2f8;border-radius:10px;padding:2px 8px;color:#666}
+.s-editor-header{display:grid;grid-template-columns:22px 1fr 100px 120px 26px;gap:5px;font-size:.7em;color:var(--text-muted);font-weight:600;padding:0 2px;margin-bottom:4px}
+.s-editor-row{display:grid;grid-template-columns:22px 1fr 100px 120px 26px;gap:5px;align-items:center;margin-bottom:5px}
+.s-row-num{font-size:.78em;color:#aaa;text-align:center}
+.s-row-input{padding:7px 9px;border:1.5px solid var(--border);border-radius:7px;font-size:.84em;color:var(--navy);outline:none;width:100%;box-sizing:border-box;font-family:inherit;transition:border-color .15s}
+.s-row-input:focus{border-color:var(--teal)}
+.s-row-remove{width:24px;height:24px;border:none;background:none;color:#ccc;cursor:pointer;border-radius:5px;font-size:.9em;display:flex;align-items:center;justify-content:center;transition:background .12s,color .12s}
+.s-row-remove:hover{background:#fff0f0;color:var(--red)}
+.s-add-btn{background:none;border:1.5px dashed var(--border);border-radius:8px;color:var(--teal);font-size:.8em;font-weight:600;cursor:pointer;padding:7px 14px;font-family:inherit;transition:border-color .15s,background .15s}
+.s-add-btn:hover{background:var(--teal-light);border-color:var(--teal)}
+.s-total-bar{font-size:.8em;display:flex;gap:10px;flex-wrap:wrap;background:#f7f9ff;border-radius:8px;padding:7px 13px;align-items:center}
+.s-modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:16px}
+.s-btn-cancel{padding:9px 18px;border:1.5px solid var(--border);border-radius:8px;background:#fff;color:#888;cursor:pointer;font-size:.84em;font-weight:600;font-family:inherit}
+.s-btn-submit{padding:9px 18px;border:none;border-radius:8px;background:var(--teal);color:#fff;cursor:pointer;font-size:.84em;font-weight:600;font-family:inherit}
+.s-btn-submit:disabled{opacity:.45;cursor:not-allowed}
+.s-btn-danger{padding:9px 18px;border:none;border-radius:8px;background:#e53935;color:#fff;cursor:pointer;font-size:.84em;font-weight:600;font-family:inherit}
+.s-status{font-size:.78em;margin-top:5px;min-height:1.1em}
+.s-status.ok{color:var(--teal)}.s-status.err{color:var(--red)}
+.s-revert-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:7px 12px;border-radius:8px;background:#f7f9ff;margin-bottom:5px}
+.s-revert-num{font-size:.76em;color:#aaa;min-width:14px}
+.s-revert-amt{font-size:.86em;font-weight:700;color:var(--navy);min-width:70px}
+.s-revert-desc{font-size:.8em;color:var(--text-sub);flex:1}
+@keyframes lockGlow{0%{box-shadow:0 0 0 0 rgba(30,157,139,.65)}60%{box-shadow:0 0 0 9px rgba(30,157,139,0)}100%{box-shadow:0 0 0 0 rgba(30,157,139,0)}}
+@keyframes lockFail{0%{box-shadow:0 0 0 0 rgba(231,76,60,.7)}60%{box-shadow:0 0 0 9px rgba(231,76,60,0)}100%{box-shadow:0 0 0 0 rgba(231,76,60,0)}}
+.split-locked{border-color:var(--teal) !important;background:var(--teal-light) !important}
+.split-lock-flash{animation:lockGlow .55s ease-out forwards}
+.split-lock-fail{animation:lockFail .55s ease-out forwards;border-color:var(--red) !important}
+.split-sum-error{border-color:var(--red) !important}
+
+/* ── Mobile Responsive Design ──────────────────────────────────────────────── */
+@media (max-width: 768px) {
+    body {
+        padding: 10px;
+        font-size: 14px;
+    }
+
+    .container, .main-content {
+        padding: 10px;
+        margin: 0;
+    }
+
+    table {
+        font-size: 12px;
+        display: block;
+        overflow-x: auto;
+    }
+
+    th, td {
+        padding: 8px;
+    }
+
+    button, input, select {
+        padding: 12px;
+        font-size: 16px;
+        min-height: 44px;
+    }
+
+    .header, .sidebar, .navigation {
+        display: block;
+        width: 100%;
+    }
+
+    h1, h2, h3 {
+        font-size: 18px;
+        margin-bottom: 15px;
+    }
+}
+
+@media (max-width: 480px) {
+    body {
+        padding: 5px;
+        font-size: 12px;
+    }
+
+    table {
+        font-size: 10px;
+    }
+
+    th, td {
+        padding: 5px;
+    }
+
+    button, input, select {
+        width: 100%;
+        padding: 12px;
+        font-size: 16px;
+        margin-bottom: 10px;
+    }
+
+    h1, h2 {
+        font-size: 16px;
+    }
+}
+</style>
+</head>
+<body>
+
+<button class="ham-btn" id="ham-btn" onclick="toggleNav()" aria-label="תפריט">
+  <svg width="18" height="14" viewBox="0 0 18 14" fill="none">
+    <rect width="18" height="2" rx="1" fill="currentColor"/>
+    <rect y="6" width="18" height="2" rx="1" fill="currentColor"/>
+    <rect y="12" width="18" height="2" rx="1" fill="currentColor"/>
+  </svg>
+</button>
+<div class="nav-overlay" id="nav-overlay" onclick="toggleNav()"></div>
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <span class="sidebar-app-name">Menu</span>
+    <button class="sidebar-close-btn" onclick="closeNav()" aria-label="סגור תפריט">✕</button>
+  </div>
+  <div class="sidebar-scroll">
+    <a class="nav-item" href="/">ניתוח חודשי</a>
+    <a class="nav-item" href="/">עסקאות</a>
+    <div class="nav-sep"></div>
+    <a class="nav-item" href="/accounts">חשבונות</a>
+    <a class="nav-item" href="/housing">דיור</a>
+    <a class="nav-item" href="/organizer">ארגונית</a>
+    <a class="nav-item" href="/bills">מעקב חשבונות</a>
+    <a class="nav-item" href="/categories">ניתוח קטגוריאלי</a>
+    <a class="nav-item" href="/search">חיפוש</a>
+    <div class="nav-sep"></div>
+    <a class="nav-item active" href="/tagger">תייגן</a>
+    <a class="nav-item" href="/files">קבצים</a>
+  </div>
+  <div class="sidebar-footer">
+    <button class="nav-restart-btn" onclick="restartServer(this)">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
+      הפעל שרת מחדש
+    </button>
+  </div>
+</nav>
+
+<!-- Refresh progress bar -->
+<div class="refresh-bar" id="refresh-bar"></div>
+
+<!-- Toast area -->
+<div class="toast-area" id="toast-area"></div>
+
+<!-- Remap confirmation modal -->
+<div class="modal-overlay" id="remap-modal-overlay">
+  <div class="modal-box">
+    <div class="modal-title">🔄 שינוי קטגוריה</div>
+    <div id="remap-modal-name" style="font-weight:600;margin-bottom:8px;font-size:.92em;color:var(--navy);"></div>
+    <div id="remap-modal-arrow" style="font-size:.9em;color:var(--text-sub);margin-bottom:6px;"></div>
+    <div id="remap-modal-count" style="font-size:.82em;color:var(--text-muted);margin-bottom:18px;"></div>
+    <div class="modal-msg" id="remap-modal-msg"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="cancelRemap()">ביטול</button>
+      <button class="btn btn-primary" id="remap-confirm-btn" onclick="confirmRemap()">אשר שינוי</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add category modal -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-title">➕ הוסף קטגוריה חדשה</div>
+    <input class="modal-input" id="modal-input" type="text" placeholder="שם הקטגוריה…" autocomplete="off"/>
+    <div class="modal-msg" id="modal-msg"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">ביטול</button>
+      <button class="btn btn-primary" onclick="submitNewCategory()">הוסף</button>
+    </div>
+  </div>
+</div>
+
+<!-- Main content -->
+<main class="main">
+
+  <div class="page-header">
+    <h1>🏷 תייגן עסקאות</h1>
+    <span class="header-badge" id="untagged-count-badge">טוען…</span>
+    <button class="btn btn-ghost" onclick="openModal()" style="margin-right:auto">
+      ➕ קטגוריה חדשה
+    </button>
+    <button class="btn btn-ghost" onclick="refreshAll()">
+      🔄 רענן
+    </button>
+  </div>
+
+  <!-- ── Section 1: Untagged ───────────────────────────────── -->
+  <div class="section" id="sec-untagged">
+    <div class="section-header" onclick="toggleSection('sec-untagged')">
+      <div class="section-title">
+        ⚠️ עסקאות ללא תיוג
+        <span class="section-count" id="sec-untagged-count">–</span>
+      </div>
+      <span class="section-chevron">▲</span>
+    </div>
+    <div class="section-body" id="sec-untagged-body">
+      <div class="filter-bar" id="untagged-card-filter-bar" style="display:none"></div>
+      <div class="tx-list" id="untagged-list">
+        <div class="skeleton-row"></div>
+        <div class="skeleton-row"></div>
+        <div class="skeleton-row"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Section 2: High-value ─────────────────────────────── -->
+  <div class="section" id="sec-highval">
+    <div class="section-header" onclick="toggleSection('sec-highval')">
+      <div class="section-title">
+        💰 עסקאות גבוהות ללא תיוג
+        <span class="section-count" id="sec-highval-count">–</span>
+      </div>
+      <span class="section-chevron">▲</span>
+    </div>
+    <div class="section-body" id="sec-highval-body">
+      <div class="tx-list" id="highval-list">
+        <div class="skeleton-row"></div>
+        <div class="skeleton-row"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Section 3: Recently tagged ───────────────────────── -->
+  <div class="section collapsed" id="sec-tagged">
+    <div class="section-header" onclick="toggleSection('sec-tagged')">
+      <div class="section-title">
+        ✅ עסקאות שתויגו לאחרונה
+        <span class="section-count" id="sec-tagged-count">–</span>
+      </div>
+      <span class="section-chevron">▲</span>
+    </div>
+    <div class="section-body" id="sec-tagged-body">
+      <div class="filter-bar">
+        <button class="filter-btn active" id="filter-all"    onclick="setTaggedFilter('all')">הכל</button>
+        <button class="filter-btn"        id="filter-manual" onclick="setTaggedFilter('manual')">ידני</button>
+        <button class="filter-btn"        id="filter-auto"   onclick="setTaggedFilter('auto')">אוטומטי</button>
+      </div>
+      <div class="tx-list" id="tagged-list">
+        <div class="skeleton-row"></div>
+        <div class="skeleton-row"></div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ── Section 4: Manage Rules ──────────────────────────────── -->
+  <div class="section collapsed" id="sec-rules">
+    <div class="section-header" onclick="onRulesSectionClick()">
+      <div class="section-title">
+        ⚙️ ניהול כללי תיוג
+        <span class="section-count" id="sec-rules-count">–</span>
+      </div>
+      <span class="section-chevron">▲</span>
+    </div>
+    <div class="section-body" id="sec-rules-body">
+      <div class="rules-filter-bar">
+        <input class="rules-filter-input" id="rules-filter" type="text"
+               placeholder="סנן לפי שם עסק או קטגוריה…" autocomplete="off"
+               oninput="filterRules()"/>
+      </div>
+      <div class="rules-list" id="rules-list">
+        <div class="empty-state"><div class="emoji">⚙️</div>טוען…</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Section 5: Search Tagged ─────────────────────────────── -->
+  <div class="section collapsed" id="sec-search">
+    <div class="section-header" onclick="toggleSection('sec-search')">
+      <div class="section-title">
+        🔍 חיפוש עסקאות מתויגות
+      </div>
+      <span class="section-chevron">▲</span>
+    </div>
+    <div class="section-body" id="sec-search-body">
+      <div class="search-bar">
+        <input class="search-input" id="search-tagged-input" type="text"
+               placeholder="שם עסק או מספר עסקה…" autocomplete="off"
+               onkeydown="if(event.key==='Enter') searchTagged()"/>
+        <button class="btn btn-primary" onclick="searchTagged()">🔍 חפש</button>
+      </div>
+      <div class="tx-list" id="search-tagged-list">
+        <div class="empty-state"><div class="emoji">🔍</div>הזן שם עסק או מספר עסקה לחיפוש</div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+function restartServer(btn) {
+  btn.disabled = true;
+  btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg> מפעיל מחדש…';
+  fetch('/api/restart',{method:'POST'}).catch(function(){}).finally(function(){
+    var t=setInterval(function(){
+      fetch('/').then(function(r){if(r.ok){clearInterval(t);location.reload();}}).catch(function(){});
+    },800);
+  });
+}
+function openNav() {
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('nav-overlay').classList.add('open');
+  document.getElementById('ham-btn').classList.add('open');
+}
+function closeNav() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('nav-overlay').classList.remove('open');
+  document.getElementById('ham-btn').classList.remove('open');
+}
+function toggleNav() {
+  document.getElementById('sidebar').classList.contains('open') ? closeNav() : openNav();
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeNav(); });
+
+// ── State ──────────────────────────────────────────────────────
+let _categories = [];          // [{name, count}]
+let _untaggedItems = [];
+let _highvalItems  = [];
+let _taggedItems   = [];
+let _taggedFilter       = 'all';   // 'all' | 'manual' | 'auto'
+let _untaggedCardFilter = null;    // null = all cards, otherwise card_id string
+let _autoRefreshTimer = null;
+// Guard against concurrent loads / stale retry chains
+let _loading    = { untagged: false, highval: false, tagged: false };
+let _retryTimer = { untagged: null,  highval: null,  tagged: null  };
+let _retryCount = { untagged: 0,     highval: 0,     tagged: 0     };
+const MAX_AUTO_RETRIES  = 3;
+const FETCH_TIMEOUT_MS  = 12000;
+let _lastInteraction = Date.now();
+const AUTO_REFRESH_DELAY = 5000;   // 5 s idle → refresh
+
+// ── Boot ───────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  loadCategories().then(() => {
+    loadUntagged();
+    loadHighValue();
+    loadTagged();
+  });
+  document.addEventListener('mousemove', _touchInteraction, { passive: true });
+  document.addEventListener('keydown',   _touchInteraction, { passive: true });
+});
+
+function _touchInteraction() {
+  _lastInteraction = Date.now();
+}
+
+// ── Section collapse ───────────────────────────────────────────
+function toggleSection(id) {
+  document.getElementById(id).classList.toggle('collapsed');
+}
+
+// ── Categories ─────────────────────────────────────────────────
+async function loadCategories() {
+  const res = await fetch('/api/tagger/categories').catch(() => null);
+  if (!res || !res.ok) return;
+  const data = await res.json();
+  if (data.ok) _categories = data.categories;
+}
+
+// ── Untagged list ──────────────────────────────────────────────
+async function loadUntagged(manual = false) {
+  if (_loading.untagged) return;
+  if (manual) _retryCount.untagged = 0;
+  _loading.untagged = true;
+  if (_retryTimer.untagged) { clearTimeout(_retryTimer.untagged); _retryTimer.untagged = null; }
+  const el = document.getElementById('untagged-list');
+  el.innerHTML = skeletons(3);
+  const ctrl = new AbortController();
+  const tout = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
+  const res  = await fetch('/api/tagger/untagged', { signal: ctrl.signal }).catch(() => null);
+  clearTimeout(tout);
+  const data = res ? await res.json().catch(() => null) : null;
+  _loading.untagged = false;
+  if (!data || !data.ok) {
+    _retryCount.untagged++;
+    el.innerHTML = errorState('לא ניתן לטעון עסקאות', () => loadUntagged(true));
+    if (_retryCount.untagged <= MAX_AUTO_RETRIES) {
+      _retryTimer.untagged = setTimeout(loadUntagged, 3500);
+    }
+    return;
+  }
+  _retryCount.untagged = 0;
+  _untaggedItems = data.items;
+  const totalUntagged = data.total ?? _untaggedItems.length;
+  document.getElementById('sec-untagged-count').textContent = totalUntagged;
+  document.getElementById('untagged-count-badge').textContent = `${totalUntagged} ללא תיוג`;
+  buildCardFilterBar();
+  renderUntagged();
+}
+
+function renderUntagged() {
+  const el = document.getElementById('untagged-list');
+
+  const items = _untaggedCardFilter
+    ? _untaggedItems.filter(tx => tx.table_name === 'CardTransactions' && String(tx.card_id) === _untaggedCardFilter)
+    : _untaggedItems;
+
+  if (!items.length) {
+    el.innerHTML = _untaggedCardFilter
+      ? `<div class="empty-state"><div class="emoji">🎉</div>אין עסקאות ללא תיוג לכרטיס ${esc(_untaggedCardFilter)}</div>`
+      : `<div class="empty-state"><div class="emoji">🎉</div>כל העסקאות מתויגות!</div>`;
+    return;
+  }
+  const cutoff = new Date();
+  cutoff.setMonth(cutoff.getMonth() - 3);
+
+  let html = '';
+  let separatorInserted = false;
+  for (let i = 0; i < items.length; i++) {
+    const tx = items[i];
+    const execDate = tx.exec_date ? new Date(tx.exec_date) : null;
+    if (!separatorInserted && execDate && execDate < cutoff) {
+      html += `<div class="old-tx-separator">עסקאות ישנות</div>`;
+      separatorInserted = true;
+    }
+    html += buildUntaggedRow(tx, i);
+  }
+  el.innerHTML = html;
+}
+
+function buildCardFilterBar() {
+  const bar = document.getElementById('untagged-card-filter-bar');
+  if (!bar) return;
+
+  const cardIds = [...new Set(
+    _untaggedItems
+      .filter(tx => tx.table_name === 'CardTransactions' && tx.card_id)
+      .map(tx => String(tx.card_id))
+  )].sort();
+
+  if (cardIds.length < 2) {
+    bar.style.display = 'none';
+    _untaggedCardFilter = null;
+    return;
+  }
+
+  bar.style.display = '';
+  bar.innerHTML =
+    `<span style="font-size:.78em;color:var(--text-muted);flex-shrink:0">כרטיס:</span>` +
+    `<button class="filter-btn active" id="ucf-all" onclick="setUntaggedCardFilter(null)">הכל</button>` +
+    cardIds.map(id =>
+      `<button class="filter-btn" id="ucf-${CSS.escape(id)}" onclick="setUntaggedCardFilter('${esc(id)}')">${esc(id)}</button>`
+    ).join('');
+}
+
+function setUntaggedCardFilter(cardId) {
+  _untaggedCardFilter = cardId;
+  document.querySelectorAll('#untagged-card-filter-bar .filter-btn').forEach(b => b.classList.remove('active'));
+  const activeBtn = cardId
+    ? document.getElementById('ucf-' + CSS.escape(cardId))
+    : document.getElementById('ucf-all');
+  if (activeBtn) activeBtn.classList.add('active');
+  renderUntagged();
+}
+
+function buildUntaggedRow(tx, idx) {
+  const isCard = tx.table_name === 'CardTransactions';
+  const icon   = isCard ? '💳' : '🏦';
+  const cls    = isCard ? 'card' : 'bank';
+  const name   = esc(tx.name || '—');
+  const execD  = fmtDate(tx.exec_date);
+  const charD  = fmtDate(tx.charge_date);
+  const key    = `${tx.table_name}__${tx.id}`;
+
+  let metaHtml = `<span>תאריך ביצוע: <span class="val">${execD}</span></span>`;
+  if (charD !== execD) metaHtml += `<span>תאריך חיוב: <span class="val">${charD}</span></span>`;
+
+  if (isCard) {
+    // Card: show both values + card number
+    const txVal  = fmtMoney(tx.transaction_value, tx.currency);
+    const chgVal = fmtMoney(tx.charge_value, 'ILS');
+    if (tx.transaction_value != null) metaHtml += `<span>ע. עסקה: <span class="val ${tx.transaction_value < 0 ? 'pos' : 'neg'}">${txVal}</span></span>`;
+    if (tx.charge_value      != null) metaHtml += `<span>ע. חיוב: <span class="val ${tx.charge_value < 0 ? 'pos' : 'neg'}">${chgVal}</span></span>`;
+    if (tx.card_id) metaHtml += `<span>כרטיס: <span class="val">${esc(String(tx.card_id))}</span></span>`;
+  } else {
+    // Bank: single value with direction label
+    const hasOut  = tx.charge_value      != null && tx.charge_value      > 0;
+    const hasIn   = tx.transaction_value != null && tx.transaction_value > 0;
+    if (hasOut)       metaHtml += `<span>הוצאה: <span class="val neg">${fmtMoney(tx.charge_value, 'ILS')}</span></span>`;
+    else if (hasIn)   metaHtml += `<span>הכנסה: <span class="val pos">${fmtMoney(tx.transaction_value, 'ILS')}</span></span>`;
+    else if (tx.charge_value != null) metaHtml += `<span>סכום: <span class="val">${fmtMoney(tx.charge_value, 'ILS')}</span></span>`;
+  }
+
+  return `
+<div class="tx-row" id="row-${esc(key)}" data-key="${esc(key)}"
+     data-table="${esc(tx.table_name)}" data-id="${tx.id}" data-name="${esc(tx.name || '')}">
+  <div class="tx-type-pill ${cls}">${icon}</div>
+  <div class="tx-body">
+    <div class="tx-top">
+      <div class="tx-info">
+        <div class="tx-name" title="${name}">${name}</div>
+        <div class="tx-meta">${metaHtml}</div>
+      </div>
+      <div class="tx-actions">
+        <div class="cat-wrap">
+          <input class="cat-input" type="text"
+                 placeholder="קטגוריה…"
+                 autocomplete="off"
+                 onInput="onCatInput(this,'${esc(key)}')"
+                 onFocus="openDropdown(this,'${esc(key)}')"
+                 onBlur="scheduleClose(this,'${esc(key)}')"
+                 onKeyDown="onCatKey(event,this,'${esc(key)}')"
+                 id="inp-${esc(key)}"
+                 data-key="${esc(key)}"/>
+          <div class="cat-dropdown" id="dd-${esc(key)}"></div>
+        </div>
+        <button class="btn btn-primary" onclick="tagRow('${esc(key)}')" disabled id="btn-${esc(key)}">
+          תייג
+        </button>
+        <button class="tg-split-btn" onclick="tgOpenSplit(event,'${esc(tx.table_name)}',${tx.id},'${esc(tx.name||'')}',${Math.abs(tx.charge_value ?? tx.transaction_value ?? 0)},'${esc(tx.exec_date||'')}')">✂️ פצל</button>
+      </div>
+    </div>
+    <div class="tx-desc-row">
+      <span class="tx-desc-label">📝 הערה:</span>
+      <input class="desc-input" type="text"
+             placeholder="תיאור (אופציונלי)…"
+             autocomplete="off"
+             id="desc-${esc(key)}"
+             oninput="_touchInteraction()"/>
+    </div>
+  </div>
+</div>`;
+}
+
+// ── High value list ────────────────────────────────────────────
+async function loadHighValue(manual = false) {
+  if (_loading.highval) return;
+  if (manual) _retryCount.highval = 0;
+  _loading.highval = true;
+  if (_retryTimer.highval) { clearTimeout(_retryTimer.highval); _retryTimer.highval = null; }
+  const el = document.getElementById('highval-list');
+  el.innerHTML = skeletons(2);
+  const ctrl = new AbortController();
+  const tout = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
+  const res  = await fetch('/api/tagger/high-value?threshold=500', { signal: ctrl.signal }).catch(() => null);
+  clearTimeout(tout);
+  const data = res ? await res.json().catch(() => null) : null;
+  _loading.highval = false;
+  if (!data || !data.ok) {
+    _retryCount.highval++;
+    el.innerHTML = errorState('לא ניתן לטעון', () => loadHighValue(true));
+    if (_retryCount.highval <= MAX_AUTO_RETRIES) {
+      _retryTimer.highval = setTimeout(loadHighValue, 3500);
+    }
+    return;
+  }
+  _retryCount.highval = 0;
+  _highvalItems = data.items;
+  document.getElementById('sec-highval-count').textContent = _highvalItems.length;
+  if (!_highvalItems.length) {
+    el.innerHTML = `<div class="empty-state"><div class="emoji">✨</div>אין עסקאות גבוהות ללא תיוג</div>`;
+    return;
+  }
+  el.innerHTML = _highvalItems.map((tx, i) => buildHighValRow(tx, i)).join('');
+}
+
+function buildHighValRow(tx, idx) {
+  const isCard = tx.table_name === 'CardTransactions';
+  const icon   = isCard ? '💳' : '🏦';
+  const cls    = isCard ? 'card' : 'bank';
+  const name   = esc(tx.name || '—');
+  const execD  = fmtDate(tx.exec_date);
+  const key    = `hv_${tx.table_name}__${tx.id}`;
+  const bigVal = Math.max(Math.abs(tx.charge_value || 0), Math.abs(tx.transaction_value || 0));
+
+  let metaHtml = `<span>תאריך: <span class="val">${execD}</span></span>`;
+  if (isCard) {
+    const chgVal = fmtMoney(tx.charge_value, 'ILS');
+    const txVal  = fmtMoney(tx.transaction_value, tx.currency);
+    if (tx.transaction_value != null) metaHtml += `<span>ע. עסקה: <span class="val ${tx.transaction_value < 0 ? 'pos' : 'neg'}">${txVal}</span></span>`;
+    if (tx.charge_value      != null) metaHtml += `<span>ע. חיוב: <span class="val ${tx.charge_value < 0 ? 'pos' : 'neg'}">${chgVal}</span></span>`;
+    if (tx.card_id) metaHtml += `<span>כרטיס: <span class="val">${esc(String(tx.card_id))}</span></span>`;
+  } else {
+    const hasOut = tx.charge_value      != null && tx.charge_value      > 0;
+    const hasIn  = tx.transaction_value != null && tx.transaction_value > 0;
+    if (hasOut)      metaHtml += `<span>הוצאה: <span class="val neg">${fmtMoney(tx.charge_value, 'ILS')}</span></span>`;
+    else if (hasIn)  metaHtml += `<span>הכנסה: <span class="val pos">${fmtMoney(tx.transaction_value, 'ILS')}</span></span>`;
+  }
+
+  return `
+<div class="tx-row" id="row-${esc(key)}" data-key="${esc(key)}"
+     data-table="${esc(tx.table_name)}" data-id="${tx.id}" data-name="${esc(tx.name || '')}">
+  <div class="tx-type-pill ${cls}">${icon}</div>
+  <div class="tx-body">
+    <div class="tx-top">
+      <div class="tx-info">
+        <div class="tx-name">
+          ${name}
+          <span class="high-val-badge">₪${Math.abs(bigVal).toLocaleString('he-IL',{maximumFractionDigits:0})}</span>
+        </div>
+        <div class="tx-meta">${metaHtml}</div>
+      </div>
+      <div class="tx-actions">
+        <div class="cat-wrap">
+          <input class="cat-input" type="text" placeholder="קטגוריה…" autocomplete="off"
+                 onInput="onCatInput(this,'${esc(key)}')"
+                 onFocus="openDropdown(this,'${esc(key)}')"
+                 onBlur="scheduleClose(this,'${esc(key)}')"
+                 onKeyDown="onCatKey(event,this,'${esc(key)}')"
+                 id="inp-${esc(key)}"
+                 data-key="${esc(key)}"/>
+          <div class="cat-dropdown" id="dd-${esc(key)}"></div>
+        </div>
+        <button class="btn btn-primary" onclick="tagRow('${esc(key)}')" disabled id="btn-${esc(key)}">
+          תייג
+        </button>
+        <button class="tg-split-btn" onclick="tgOpenSplit(event,'${esc(tx.table_name)}',${tx.id},'${esc(tx.name||'')}',${Math.abs(tx.charge_value ?? tx.transaction_value ?? 0)},'${esc(tx.exec_date||'')}')">✂️ פצל</button>
+      </div>
+    </div>
+    <div class="tx-desc-row">
+      <span class="tx-desc-label">📝 הערה:</span>
+      <input class="desc-input" type="text"
+             placeholder="תיאור (אופציונלי)…"
+             autocomplete="off"
+             id="desc-${esc(key)}"
+             oninput="_touchInteraction()"/>
+    </div>
+  </div>
+</div>`;
+}
+
+// ── Tagged list ────────────────────────────────────────────────
+async function loadTagged(manual = false) {
+  if (_loading.tagged) return;
+  if (manual) _retryCount.tagged = 0;
+  _loading.tagged = true;
+  if (_retryTimer.tagged) { clearTimeout(_retryTimer.tagged); _retryTimer.tagged = null; }
+  const el = document.getElementById('tagged-list');
+  el.innerHTML = skeletons(2);
+  const ctrl = new AbortController();
+  const tout = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
+  const res  = await fetch('/api/tagger/tagged', { signal: ctrl.signal }).catch(() => null);
+  clearTimeout(tout);
+  const data = res ? await res.json().catch(() => null) : null;
+  _loading.tagged = false;
+  if (!data || !data.ok) {
+    _retryCount.tagged++;
+    el.innerHTML = errorState('לא ניתן לטעון', () => loadTagged(true));
+    if (_retryCount.tagged <= MAX_AUTO_RETRIES) {
+      _retryTimer.tagged = setTimeout(loadTagged, 3500);
+    }
+    return;
+  }
+  _retryCount.tagged = 0;
+  _taggedItems = data.items;
+  document.getElementById('sec-tagged-count').textContent = _taggedItems.length;
+  renderTagged();
+}
+
+function setTaggedFilter(f) {
+  _taggedFilter = f;
+  ['all','manual','auto'].forEach(k => {
+    document.getElementById(`filter-${k}`).classList.toggle('active', k === f);
+  });
+  renderTagged();
+}
+
+function _isAuto(tx) {
+  // NULL = old auto-tagger (set_category), 1 = new UI auto, 0 = manual
+  return tx.reserved !== 0;
+}
+
+function renderTagged() {
+  const el = document.getElementById('tagged-list');
+  let items = _taggedItems;
+  if (_taggedFilter === 'manual') items = items.filter(tx => !_isAuto(tx));
+  if (_taggedFilter === 'auto')   items = items.filter(tx =>  _isAuto(tx));
+  if (!items.length) {
+    const msg = _taggedFilter === 'manual' ? 'אין תיוגים ידניים'
+              : _taggedFilter === 'auto'   ? 'אין תיוגים אוטומטיים'
+              : 'אין עסקאות מתויגות עדיין';
+    el.innerHTML = `<div class="empty-state"><div class="emoji">📭</div>${msg}</div>`;
+    return;
+  }
+  el.innerHTML = items.map(tx => buildTaggedRow(tx)).join('');
+}
+
+function buildTaggedRow(tx) {
+  const isCard  = tx.table_name === 'CardTransactions';
+  const icon    = isCard ? '💳' : '🏦';
+  const cls     = isCard ? 'card' : 'bank';
+  const name    = esc(tx.name || '—');
+  const execD   = fmtDate(tx.exec_date);
+  const auto    = _isAuto(tx);
+  const catCls  = auto ? 'cat-label auto' : 'cat-label';
+  const srcLbl  = auto ? 'אוטומטי' : 'ידני';
+
+  let metaHtml = `<span>תאריך: <span class="val">${execD}</span></span>`;
+  if (isCard) {
+    if (tx.transaction_value != null) metaHtml += `<span>ע. עסקה: <span class="val ${tx.transaction_value < 0 ? 'pos' : 'neg'}">${fmtMoney(tx.transaction_value, tx.currency)}</span></span>`;
+    if (tx.charge_value      != null) metaHtml += `<span>ע. חיוב: <span class="val ${tx.charge_value < 0 ? 'pos' : 'neg'}">${fmtMoney(tx.charge_value, 'ILS')}</span></span>`;
+  } else {
+    const hasOut = tx.charge_value      != null && tx.charge_value      > 0;
+    const hasIn  = tx.transaction_value != null && tx.transaction_value > 0;
+    if (hasOut)      metaHtml += `<span>הוצאה: <span class="val neg">${fmtMoney(tx.charge_value, 'ILS')}</span></span>`;
+    else if (hasIn)  metaHtml += `<span>הכנסה: <span class="val pos">${fmtMoney(tx.transaction_value, 'ILS')}</span></span>`;
+  }
+
+  return `
+<div class="tx-row is-tagged">
+  <div class="tx-type-pill ${cls}">${icon}</div>
+  <div class="tx-info">
+    <div class="tx-name">${name}</div>
+    <div class="tx-meta">${metaHtml}</div>
+  </div>
+  <div class="tx-actions" style="gap:6px">
+    <span class="${catCls}">${esc(tx.category || '')}</span>
+    <span class="source-flag">${srcLbl}</span>
+  </div>
+</div>`;
+}
+
+// ── Autocomplete logic ─────────────────────────────────────────
+function onCatInput(inp, key) {
+  _touchInteraction();
+  const q   = inp.value.trim();
+  const btn = document.getElementById(`btn-${key}`);
+  const exact = _categories.find(c => c.name === q);
+  inp.classList.toggle('valid', !!exact);
+  inp.classList.toggle('invalid', q.length > 0 && !exact);
+  if (btn) btn.disabled = !exact;
+  renderDropdown(inp, key, q);
+}
+
+function openDropdown(inp, key) {
+  _touchInteraction();
+  // Lift this row above siblings so dropdown isn't clipped
+  const row = inp.closest('.tx-row');
+  if (row) row.classList.add('focused-row');
+  renderDropdown(inp, key, inp.value.trim());
+}
+
+function renderDropdown(inp, key, q) {
+  const dd = document.getElementById(`dd-${key}`);
+  if (!dd) return;
+  const lower = q.toLowerCase();
+  let matches = _categories;
+  if (q) {
+    matches = _categories.filter(c =>
+      c.name.toLowerCase().includes(lower) ||
+      c.name.includes(q)
+    );
+  }
+  if (!matches.length) { dd.classList.remove('open'); return; }
+  dd.innerHTML = matches.slice(0, 12).map((c, i) =>
+    `<div class="cat-opt" data-val="${esc(c.name)}"
+          onMouseDown="pickCategory('${esc(key)}','${esc(c.name)}')"
+          id="opt-${esc(key)}-${i}">
+       <span>${esc(c.name)}</span>
+       <span class="usage-badge">${c.count}</span>
+     </div>`
+  ).join('');
+  dd.classList.add('open');
+}
+
+let _closeTimers = {};
+function scheduleClose(inp, key) {
+  _closeTimers[key] = setTimeout(() => {
+    const dd = document.getElementById(`dd-${key}`);
+    if (dd) dd.classList.remove('open');
+    // Restore normal stacking order
+    const row = inp.closest('.tx-row');
+    if (row) row.classList.remove('focused-row');
+  }, 200);
+}
+
+function pickCategory(key, val) {
+  if (_closeTimers[key]) clearTimeout(_closeTimers[key]);
+  const inp = document.getElementById(`inp-${key}`);
+  const btn = document.getElementById(`btn-${key}`);
+  const dd  = document.getElementById(`dd-${key}`);
+  if (inp) { inp.value = val; inp.classList.add('valid'); inp.classList.remove('invalid'); }
+  if (btn) btn.disabled = false;
+  if (dd)  dd.classList.remove('open');
+  _touchInteraction();
+}
+
+function onCatKey(e, inp, key) {
+  const dd = document.getElementById(`dd-${key}`);
+  if (!dd || !dd.classList.contains('open')) return;
+  const opts = dd.querySelectorAll('.cat-opt');
+  let focused = dd.querySelector('.cat-opt.focused');
+  let idx = focused ? Array.from(opts).indexOf(focused) : -1;
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    idx = Math.min(idx + 1, opts.length - 1);
+    opts.forEach(o => o.classList.remove('focused'));
+    if (opts[idx]) opts[idx].classList.add('focused');
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    idx = Math.max(idx - 1, 0);
+    opts.forEach(o => o.classList.remove('focused'));
+    if (opts[idx]) opts[idx].classList.add('focused');
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    if (focused) {
+      pickCategory(key, focused.dataset.val);
+    } else {
+      tagRow(key);
+    }
+  } else if (e.key === 'Escape') {
+    dd.classList.remove('open');
+  } else if (e.key === 'Tab') {
+    // Accept first suggestion
+    const first = dd.querySelector('.cat-opt');
+    if (first) { e.preventDefault(); pickCategory(key, first.dataset.val); }
+  }
+}
+
+// ── Tag a row ──────────────────────────────────────────────────
+async function tagRow(key) {
+  const row = document.querySelector(`[data-key="${key}"]`);
+  if (!row) return;
+  const table    = row.dataset.table;
+  const id       = parseInt(row.dataset.id);
+  const name     = row.dataset.name;
+  const inp         = document.getElementById(`inp-${key}`);
+  const category    = inp ? inp.value.trim() : '';
+  const descInp     = document.getElementById(`desc-${key}`);
+  const description = descInp ? descInp.value.trim() : '';
+
+  if (!category || !_categories.find(c => c.name === category)) {
+    showToast('בחר קטגוריה תקינה', 'error');
+    return;
+  }
+
+  setRowLoading(key, true);
+
+  // 1. Check if we already have a rule for this name
+  const ruleRes  = await fetch(`/api/tagger/name-rule?name=${encodeURIComponent(name)}`).catch(() => null);
+  const ruleData = ruleRes ? await ruleRes.json().catch(() => null) : null;
+
+  // 2. Tag this single transaction (+ optional description)
+  const res  = await fetch('/api/tagger/tag', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ table, id, category, auto: false, description })
+  }).catch(() => null);
+  const data = res ? await res.json().catch(() => null) : null;
+
+  if (!data || !data.ok) {
+    showToast('שגיאה בתיוג', 'error');
+    setRowLoading(key, false);
+    return;
+  }
+
+  // 3. Act on the rule
+  const rule    = ruleData?.rule;
+  const inDict  = ruleData?.in_dict;
+
+  if (inDict && rule === 'No Match') {
+    // User previously said "don't tag all this name" — just exit
+    showToast(`תויג: "${category}"`, 'success');
+    exitRow(key);
+  } else if (inDict && rule && rule !== 'No Match') {
+    // User previously said "yes, tag all" — do it silently
+    await _doTagAll(name, category);
+  } else {
+    // No previous decision — ask
+    setRowLoading(key, false);
+    showTagAllPrompt(key, name, category);
+  }
+}
+
+function showTagAllPrompt(key, name, category) {
+  const row = document.querySelector(`[data-key="${key}"]`);
+  if (!row) return;
+  const actions = row.querySelector('.tx-actions');
+  if (!actions) return;
+  const n = esc(name), c = esc(category);
+  actions.innerHTML = `
+    <div class="tag-all-prompt">
+      <span class="tag-all-q">תייג את כל "<strong>${n}</strong>" כ-"${c}"?</span>
+      <button class="btn btn-primary" style="min-width:48px"
+        onclick="confirmTagAll('${esc(key)}','${n}','${c}',true)">כן</button>
+      <button class="btn btn-ghost"
+        onclick="confirmTagAll('${esc(key)}','${n}','${c}',false)">לא</button>
+    </div>`;
+}
+
+async function confirmTagAll(key, name, category, yes) {
+  if (yes) {
+    await _doTagAll(name, category);
+  } else {
+    // Save "No Match" so we never ask again for this name
+    fetch('/api/tagger/save-rule', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ name, rule: 'No Match' })
+    }).catch(() => {});
+    showToast(`תויג: "${category}"`, 'success');
+  }
+  exitRow(key);
+}
+
+async function _doTagAll(name, category) {
+  const res  = await fetch('/api/tagger/tag-all-by-name', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ name, category })
+  }).catch(() => null);
+  const data = res ? await res.json().catch(() => null) : null;
+  const count = data?.tagged ?? 0;
+  const msg = count > 1
+    ? `${count} עסקאות תויגו כ-"${category}"`
+    : `תויג: "${category}"`;
+  showToast(msg, 'success');
+}
+
+function exitRow(key) {
+  const row = document.querySelector(`[data-key="${key}"]`);
+  if (row) row.classList.add('exiting');
+  _lastInteraction = Date.now();
+  setTimeout(scheduleAutoRefresh, 400);
+}
+
+function setRowLoading(key, on) {
+  const btn = document.getElementById(`btn-${key}`);
+  if (!btn) return;
+  if (on) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>';
+  } else {
+    btn.disabled = false;
+    btn.innerHTML = 'תייג';
+  }
+}
+
+// ── Auto-refresh after idle ────────────────────────────────────
+function scheduleAutoRefresh() {
+  if (_autoRefreshTimer) clearTimeout(_autoRefreshTimer);
+  _autoRefreshTimer = setTimeout(() => {
+    const idle = Date.now() - _lastInteraction;
+    if (idle >= AUTO_REFRESH_DELAY - 200) {
+      refreshAll();
+    } else {
+      scheduleAutoRefresh();
+    }
+  }, AUTO_REFRESH_DELAY);
+}
+
+async function refreshAll() {
+  animateRefreshBar();
+  await loadCategories();
+  await Promise.all([loadUntagged(), loadHighValue(), loadTagged()]);
+}
+
+function animateRefreshBar() {
+  const bar = document.getElementById('refresh-bar');
+  bar.style.transition = 'none'; bar.style.width = '0%';
+  requestAnimationFrame(() => {
+    bar.style.transition = 'width 1.1s ease';
+    bar.style.width = '85%';
+    setTimeout(() => {
+      bar.style.transition = 'width .3s ease';
+      bar.style.width = '100%';
+      setTimeout(() => { bar.style.width = '0%'; bar.style.transition = 'none'; }, 350);
+    }, 1100);
+  });
+}
+
+// ── Add category modal ─────────────────────────────────────────
+function openModal() {
+  document.getElementById('modal-input').value = '';
+  document.getElementById('modal-msg').textContent = '';
+  document.getElementById('modal-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('modal-input').focus(), 150);
+}
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+async function submitNewCategory() {
+  const name = document.getElementById('modal-input').value.trim();
+  document.getElementById('modal-msg').textContent = '';
+  if (!name) { document.getElementById('modal-msg').textContent = 'הזן שם'; return; }
+  const res = await fetch('/api/tagger/categories/add', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({name})
+  }).catch(() => null);
+  const data = res ? await res.json() : null;
+  if (data && data.ok) {
+    closeModal();
+    showToast(`קטגוריה "${name}" נוספה`, 'success');
+    await loadCategories();
+  } else {
+    document.getElementById('modal-msg').textContent =
+      (data && data.error) ? data.error : 'שגיאה';
+  }
+}
+
+// ── Toast ──────────────────────────────────────────────────────
+function showToast(msg, type = '') {
+  const area = document.getElementById('toast-area');
+  const t    = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.textContent = msg;
+  area.appendChild(t);
+  setTimeout(() => t.remove(), 3200);
+}
+
+// ── Helpers ────────────────────────────────────────────────────
+function esc(s) {
+  return String(s)
+    .replace(/&/g,'&amp;')
+    .replace(/"/g,'&quot;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;');
+}
+function fmtDate(d) {
+  if (!d) return '—';
+  return String(d).slice(0, 10);
+}
+function fmtMoney(v, currency) {
+  if (v == null) return '—';
+  const sym = (!currency || currency === 'ILS') ? '₪' : currency + ' ';
+  return sym + Math.abs(v).toLocaleString('he-IL', {minimumFractionDigits:0, maximumFractionDigits:2});
+}
+function skeletons(n) {
+  return Array(n).fill('<div class="skeleton-row"></div>').join('');
+}
+function errorState(msg, retryFn) {
+  const id = retryFn ? `retry-${Date.now()}` : '';
+  const btn = retryFn ? `<button class="btn btn-ghost" style="margin-top:10px;font-size:.8em" id="${id}">🔄 נסה שוב</button>` : '';
+  setTimeout(() => {
+    if (retryFn && id) {
+      const el = document.getElementById(id);
+      if (el) el.onclick = retryFn;
+    }
+  }, 0);
+  return `<div class="empty-state"><div class="emoji">⚠️</div>${msg}${btn}</div>`;
+}
+
+// ── Manage Rules ───────────────────────────────────────────────
+let _allRules   = [];
+let _rulesLoaded = false;
+
+function onRulesSectionClick() {
+  const sec = document.getElementById('sec-rules');
+  const wasCollapsed = sec.classList.contains('collapsed');
+  sec.classList.toggle('collapsed');
+  if (wasCollapsed && !_rulesLoaded) loadRules();
+}
+
+async function loadRules() {
+  const el = document.getElementById('rules-list');
+  el.innerHTML = skeletons(3);
+  const res  = await fetch('/api/tagger/rules').catch(() => null);
+  const data = res ? await res.json().catch(() => null) : null;
+  if (!data || !data.ok) {
+    el.innerHTML = errorState('לא ניתן לטעון כללים', loadRules);
+    return;
+  }
+  _allRules   = data.rules;
+  _rulesLoaded = true;
+  document.getElementById('sec-rules-count').textContent = _allRules.length;
+  renderRules();
+}
+
+function filterRules() {
+  renderRules();
+}
+
+function renderRules() {
+  const el  = document.getElementById('rules-list');
+  const q   = (document.getElementById('rules-filter')?.value || '').trim().toLowerCase();
+  let list  = _allRules;
+  if (q) {
+    list = list.filter(r =>
+      r.name.toLowerCase().includes(q) ||
+      r.category.toLowerCase().includes(q)
+    );
+  } else {
+    list = list.slice(0, 200);
+  }
+  if (!list.length) {
+    el.innerHTML = `<div class="empty-state"><div class="emoji">🔎</div>לא נמצאו כללים</div>`;
+    return;
+  }
+  el.innerHTML = list.map(r => buildRuleRow(r)).join('');
+}
+
+function buildRuleRow(r) {
+  const opts = _categories.map(c =>
+    `<option value="${esc(c.name)}"${c.name === r.category ? ' selected' : ''}>${esc(c.name)}</option>`
+  ).join('');
+  const countLabel = r.count > 0
+    ? `${r.count} עסקאות`
+    : 'ללא עסקאות';
+  return `
+<div class="rule-row">
+  <div class="rule-name" title="${esc(r.name)}">${esc(r.name)}</div>
+  <span class="rule-count">${countLabel}</span>
+  <select class="rule-cat-select"
+          data-name="${esc(r.name)}"
+          data-cat="${esc(r.category)}"
+          data-count="${r.count}"
+          onchange="onRuleSelectChange(this)">
+    ${opts}
+  </select>
+</div>`;
+}
+
+function onRuleSelectChange(sel) {
+  const oldCat = sel.dataset.cat;
+  const newCat = sel.value;
+  if (newCat === oldCat) return;
+  const name  = sel.dataset.name;
+  const count = parseInt(sel.dataset.count) || 0;
+  _remapPending = { sel, oldCat, newCat, name, count };
+  openRemapModal();
+}
+
+// ── Remap modal ────────────────────────────────────────────────
+let _remapPending = null;
+
+function openRemapModal() {
+  const { name, oldCat, newCat, count } = _remapPending;
+  document.getElementById('remap-modal-name').textContent  = `לשנות את קטגוריית "${name}"`;
+  document.getElementById('remap-modal-arrow').textContent = `מ־"${oldCat}" ל־"${newCat}"?`;
+  document.getElementById('remap-modal-count').textContent = count > 0
+    ? `${count} עסקאות קיימות יעודכנו בהתאם.`
+    : 'אין עסקאות קיימות שישתנו.';
+  document.getElementById('remap-modal-msg').textContent = '';
+  document.getElementById('remap-confirm-btn').disabled   = false;
+  document.getElementById('remap-confirm-btn').innerHTML  = 'אשר שינוי';
+  document.getElementById('remap-modal-overlay').classList.add('open');
+}
+
+function closeRemapModal() {
+  document.getElementById('remap-modal-overlay').classList.remove('open');
+}
+
+function cancelRemap() {
+  if (_remapPending) {
+    _remapPending.sel.value = _remapPending.oldCat;
+  }
+  closeRemapModal();
+}
+
+async function confirmRemap() {
+  const { sel, name, newCat } = _remapPending;
+  const btn = document.getElementById('remap-confirm-btn');
+  btn.disabled  = true;
+  btn.innerHTML = '<span class="spinner"></span>';
+  document.getElementById('remap-modal-msg').textContent = '';
+
+  const res  = await fetch('/api/tagger/rules/remap', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ name, new_category: newCat })
+  }).catch(() => null);
+  const data = res ? await res.json().catch(() => null) : null;
+
+  if (data && data.ok) {
+    sel.dataset.cat = newCat;
+    // update count in dataset/display
+    const row = sel.closest('.rule-row');
+    if (row) {
+      const badge = row.querySelector('.rule-count');
+      if (badge && data.updated > 0) {
+        badge.textContent = `${data.updated} עסקאות אוטומטיות`;
+        sel.dataset.count = data.updated;
+      }
+    }
+    // sync _allRules cache
+    const rule = _allRules.find(r => r.name === name);
+    if (rule) rule.category = newCat;
+    closeRemapModal();
+    showToast(`כלל עודכן ל-"${newCat}"` + (data.updated ? ` (${data.updated} עסקאות)` : '') + ' — מחשב מחדש ברקע…', 'success');
+    _triggerRegen();
+  } else {
+    sel.value = _remapPending.oldCat;
+    document.getElementById('remap-modal-msg').textContent =
+      (data && data.error) ? data.error : 'שגיאה בעדכון';
+    btn.disabled  = false;
+    btn.innerHTML = 'אשר שינוי';
+  }
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { cancelRemap(); closeRemapModal(); }
+});
+
+// ── Search Tagged ──────────────────────────────────────────────
+async function searchTagged() {
+  const q  = (document.getElementById('search-tagged-input')?.value || '').trim();
+  const el = document.getElementById('search-tagged-list');
+  if (!q) { showToast('הזן שם או מספר עסקה', 'error'); return; }
+  el.innerHTML = skeletons(2);
+  const res  = await fetch(`/api/tagger/search-tagged?q=${encodeURIComponent(q)}`).catch(() => null);
+  const data = res ? await res.json().catch(() => null) : null;
+  if (!data || !data.ok) {
+    el.innerHTML = errorState('שגיאה בחיפוש', null);
+    return;
+  }
+  if (!data.items.length) {
+    el.innerHTML = `<div class="empty-state"><div class="emoji">🔎</div>לא נמצאו עסקאות מתויגות</div>`;
+    return;
+  }
+  el.innerHTML = data.items.map(tx => buildSearchResultRow(tx)).join('');
+}
+
+function buildSearchResultRow(tx) {
+  const isCard = tx.table_name === 'CardTransactions';
+  const icon   = isCard ? '💳' : '🏦';
+  const cls    = isCard ? 'card' : 'bank';
+  const name   = esc(tx.name || '—');
+  const execD  = fmtDate(tx.exec_date);
+  const key    = `sr_${tx.table_name}__${tx.id}`;
+  const auto   = tx.reserved !== 0;
+  const catCls = auto ? 'cat-label auto' : 'cat-label';
+
+  let metaHtml = `<span>תאריך: <span class="val">${execD}</span></span>`;
+  if (isCard) {
+    if (tx.transaction_value != null) metaHtml += `<span>ע. עסקה: <span class="val ${tx.transaction_value < 0 ? 'pos' : 'neg'}">${fmtMoney(tx.transaction_value, tx.currency)}</span></span>`;
+    if (tx.charge_value      != null) metaHtml += `<span>ע. חיוב: <span class="val ${tx.charge_value < 0 ? 'pos' : 'neg'}">${fmtMoney(tx.charge_value, 'ILS')}</span></span>`;
+  } else {
+    const hasOut = tx.charge_value      != null && tx.charge_value      > 0;
+    const hasIn  = tx.transaction_value != null && tx.transaction_value > 0;
+    if (hasOut)      metaHtml += `<span>הוצאה: <span class="val neg">${fmtMoney(tx.charge_value, 'ILS')}</span></span>`;
+    else if (hasIn)  metaHtml += `<span>הכנסה: <span class="val pos">${fmtMoney(tx.transaction_value, 'ILS')}</span></span>`;
+  }
+  metaHtml += `<span>ID: <span class="val">${tx.id}</span></span>`;
+
+  return `
+<div class="tx-row is-tagged" id="row-${esc(key)}" data-key="${esc(key)}"
+     data-table="${esc(tx.table_name)}" data-id="${tx.id}">
+  <div class="tx-type-pill ${cls}">${icon}</div>
+  <div class="tx-body">
+    <div class="tx-top">
+      <div class="tx-info">
+        <div class="tx-name" title="${name}">${name}</div>
+        <div class="tx-meta">${metaHtml}</div>
+      </div>
+      <div class="tx-actions">
+        <span class="${catCls}" id="cat-badge-${esc(key)}">${esc(tx.category || '')}</span>
+        <div class="cat-wrap">
+          <input class="cat-input" type="text"
+                 placeholder="קטגוריה חדשה…"
+                 autocomplete="off"
+                 onInput="onCatInput(this,'${esc(key)}')"
+                 onFocus="openDropdown(this,'${esc(key)}')"
+                 onBlur="scheduleClose(this,'${esc(key)}')"
+                 onKeyDown="onCatKey(event,this,'${esc(key)}')"
+                 id="inp-${esc(key)}"
+                 data-key="${esc(key)}"/>
+          <div class="cat-dropdown" id="dd-${esc(key)}"></div>
+        </div>
+        <button class="btn btn-primary" onclick="retagSearchRow('${esc(key)}')"
+                disabled id="btn-${esc(key)}">שנה</button>
+      </div>
+    </div>
+  </div>
+</div>`;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  Transaction Split Feature — Tagger page
+// ═══════════════════════════════════════════════════════════
+var _tgSplitTx   = { id: null, table: null, name: '', amount: 0, date: '' };
+var _tgRevertTx  = { table: null, origId: null };
+var _tgRowIdx    = 0;
+var _tgOpenDdIdx = null;
+var _tgLockedRows = new Set();
+
+document.addEventListener('click', function(e) {
+  if (_tgOpenDdIdx === null) return;
+  var dd  = document.getElementById('_tgd-dd-' + _tgOpenDdIdx);
+  var btn = document.getElementById('_tgd-btn-' + _tgOpenDdIdx);
+  if (dd && !dd.contains(e.target) && btn && !btn.contains(e.target)) {
+    dd.classList.remove('open'); _tgOpenDdIdx = null;
+  }
+}, true);
+
+document.body.addEventListener('mousedown', function(e) {
+  var opt = e.target.closest ? e.target.closest('._tgd-opt') : null;
+  if (!opt) return;
+  e.preventDefault();
+  var dd = opt.parentNode;
+  while (dd && !/^_tgd-dd-/.test(dd.id)) dd = dd.parentNode;
+  if (!dd) return;
+  _tgSelectCat(parseInt(dd.id.replace('_tgd-dd-', ''), 10), opt.getAttribute('data-val'));
+});
+
+function _tgCatNames() { return _categories.map(function(c){ return c.name || c; }); }
+
+function _tgOpenDd(idx) {
+  if (_tgOpenDdIdx !== null && _tgOpenDdIdx !== idx) {
+    var p = document.getElementById('_tgd-dd-' + _tgOpenDdIdx);
+    if (p) p.classList.remove('open');
+  }
+  var btn = document.getElementById('_tgd-btn-' + idx);
+  var dd  = document.getElementById('_tgd-dd-' + idx);
+  if (!btn || !dd) return;
+  if (_tgOpenDdIdx === idx) { dd.classList.remove('open'); _tgOpenDdIdx = null; return; }
+  if (!dd.querySelectorAll('._tgd-opt').length) {
+    var s2 = dd.querySelector('._tgd-search');
+    if (s2) s2.insertAdjacentHTML('afterend', _tgCatNames().map(function(c){
+      return '<div class="_tgd-opt cash-cur-option" data-val="'+esc(c)+'">'+esc(c)+'</div>';
+    }).join(''));
+  }
+  if (dd.parentNode !== document.body) document.body.appendChild(dd);
+  var r = btn.getBoundingClientRect();
+  dd.style.top = (r.bottom + 4) + 'px'; dd.style.left = r.left + 'px'; dd.style.width = r.width + 'px';
+  dd.classList.add('open'); _tgOpenDdIdx = idx;
+  var s = dd.querySelector('._tgd-search');
+  if (s) { s.value = ''; _tgFilterOpts(idx, ''); s.focus(); }
+}
+function _tgFilterOpts(idx, q) {
+  var dd = document.getElementById('_tgd-dd-' + idx); if (!dd) return;
+  var ql = q.toLowerCase();
+  dd.querySelectorAll('._tgd-opt').forEach(function(o){
+    o.style.display = (!ql || o.textContent.toLowerCase().includes(ql)) ? '' : 'none';
+  });
+}
+function _tgSelectCat(idx, val) {
+  var btn = document.getElementById('_tgd-btn-' + idx); if (btn) btn.textContent = val;
+  var hid = document.getElementById('_tgd-val-' + idx); if (hid) hid.value = val;
+  var dd  = document.getElementById('_tgd-dd-' + idx);  if (dd) dd.classList.remove('open');
+  _tgOpenDdIdx = null;
+}
+function _tgBuildCatDd(idx, cur) {
+  var opts = _tgCatNames().map(function(c){
+    return '<div class="_tgd-opt cash-cur-option" data-val="'+esc(c)+'">'+esc(c)+'</div>';
+  }).join('');
+  return '<div style="position:relative">' +
+    '<button type="button" class="s-row-input _tgd-btn" id="_tgd-btn-'+idx+'" onclick="_tgOpenDd('+idx+')" ' +
+      'style="text-align:right;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(cur||'קטגוריה')+'</button>' +
+    '<input type="hidden" id="_tgd-val-'+idx+'" value="'+esc(cur||'')+'">' +
+    '<div class="cash-cur-dropdown _tgd-dd" id="_tgd-dd-'+idx+'" style="position:fixed;z-index:9999">' +
+      '<input class="cash-cur-search _tgd-search" type="text" placeholder="חיפוש..." oninput="_tgFilterOpts('+idx+',this.value)">' +
+      opts +
+    '</div>' +
+  '</div>';
+}
+
+function tgOpenSplit(e, table, id, name, amount, date) {
+  e.stopPropagation();
+  _tgSplitTx = { id: String(id), table: table, name: name, amount: parseFloat(amount) || 0, date: date };
+  var el = document.getElementById('tg-confirm-info');
+  if (el) el.innerHTML =
+    '<div class="s-orig-row">' +
+      '<span class="s-orig-name">'+esc(name)+'</span>' +
+      '<span class="s-orig-amount">₪'+_tgSplitTx.amount.toLocaleString('he-IL',{minimumFractionDigits:2})+'</span>' +
+      '<span style="font-size:.76em;color:var(--text-muted)">'+esc(date)+'</span>' +
+    '</div>';
+  tgShowStep('tg-step-confirm');
+  document.getElementById('tg-split-overlay').classList.add('open');
+}
+
+function tgGoEditor() {
+  var banner = document.getElementById('tg-editor-banner');
+  if (banner) banner.innerHTML =
+    '<div class="s-orig-row">' +
+      '<span class="s-orig-name">'+esc(_tgSplitTx.name)+'</span>' +
+      '<span class="s-orig-amount">₪'+_tgSplitTx.amount.toLocaleString('he-IL',{minimumFractionDigits:2})+'</span>' +
+    '</div>';
+  _tgRowIdx = 0; _tgOpenDdIdx = null; _tgLockedRows = new Set();
+  document.querySelectorAll('[id^="_tgd-dd-"]').forEach(function(el){ if (el.parentNode === document.body) el.remove(); });
+  document.getElementById('tg-editor-rows').innerHTML = '';
+  var half = Math.round(_tgSplitTx.amount / 2 * 100) / 100;
+  tgAddRow(_tgSplitTx.name, half, '');
+  tgAddRow(_tgSplitTx.name, _tgSplitTx.amount - half, '');
+  tgShowStep('tg-step-editor');
+  tgUpdateTotal();
+}
+
+function tgAddRow(defaultDesc, defaultAmt, defaultCat) {
+  _tgRowIdx++;
+  var idx  = _tgRowIdx;
+  var desc = defaultDesc !== undefined ? defaultDesc : _tgSplitTx.name;
+  var amt  = defaultAmt  !== undefined ? defaultAmt  : '';
+  var cat  = defaultCat  !== undefined ? defaultCat  : '';
+  var d = document.createElement('div');
+  d.className = 's-editor-row'; d.id = 'tg-row-' + idx;
+  d.innerHTML =
+    '<span class="s-row-num">'+idx+'</span>' +
+    '<input class="s-row-input tg-desc" type="text" placeholder="תיאור" value="'+esc(desc)+'">' +
+    '<input class="s-row-input tg-amt" type="number" min="0.01" step="0.01" placeholder="סכום"' +
+      (amt ? ' value="'+amt+'"' : '') +
+      ' oninput="tgUnlockRow('+idx+');tgUpdateTotal()"' +
+      ' onkeydown="if(event.key===\'Enter\'){event.preventDefault();tgLockRow('+idx+');}">'+
+    _tgBuildCatDd(idx, cat) +
+    (idx > 1 ? '<button class="s-row-remove" onclick="tgRemoveRow('+idx+')">✕</button>' : '<span></span>');
+  document.getElementById('tg-editor-rows').appendChild(d);
+  if (typeof defaultAmt === 'undefined') tgRedistribute(); else tgUpdateTotal();
+}
+function tgRemoveRow(idx) {
+  var r = document.getElementById('tg-row-' + idx); if (r) r.remove();
+  _tgLockedRows.delete(idx);
+  tgRedistribute();
+}
+
+function tgLockRow(idx) {
+  var inp = document.querySelector('#tg-row-'+idx+' .tg-amt');
+  if (!inp || inp.value === '' || isNaN(parseFloat(inp.value))) return;
+  if (_tgLockedRows.has(idx)) {
+    inp.classList.remove('split-lock-flash'); void inp.offsetWidth; inp.classList.add('split-lock-flash');
+    tgRedistribute();
+    return;
+  }
+  var thisVal = parseFloat(inp.value) || 0;
+  var lockedSum = 0, unlockedCount = 0;
+  document.querySelectorAll('#tg-editor-rows .s-editor-row').forEach(function(row) {
+    var ri = parseInt(row.id.replace('tg-row-', ''), 10); if (isNaN(ri)) return;
+    if (_tgLockedRows.has(ri)) { var ri2 = row.querySelector('.tg-amt'); if (ri2) lockedSum += parseFloat(ri2.value) || 0; }
+    else { unlockedCount++; }
+  });
+  var rem = Math.round((_tgSplitTx.amount - lockedSum - thisVal) * 100) / 100;
+  if (unlockedCount === 1) {
+    if (Math.abs(rem) >= 0.01) {
+      inp.classList.remove('split-lock-fail'); void inp.offsetWidth; inp.classList.add('split-lock-fail');
+      return;
+    }
+  } else if (unlockedCount === 2) {
+    if (rem < 0.01) {
+      inp.classList.remove('split-lock-fail'); void inp.offsetWidth; inp.classList.add('split-lock-fail');
+      return;
+    }
+  }
+  _tgLockedRows.add(idx);
+  inp.classList.remove('split-sum-error', 'split-lock-fail');
+  inp.classList.add('split-locked');
+  inp.classList.remove('split-lock-flash');
+  void inp.offsetWidth;
+  inp.classList.add('split-lock-flash');
+  tgRedistribute();
+}
+
+function tgUnlockRow(idx) {
+  var inp = document.querySelector('#tg-row-'+idx+' .tg-amt');
+  if (inp) inp.classList.remove('split-lock-fail');
+  if (!_tgLockedRows.has(idx)) return;
+  _tgLockedRows.delete(idx);
+  if (inp) inp.classList.remove('split-locked', 'split-lock-flash');
+}
+
+function tgRedistribute() {
+  var total = _tgSplitTx.amount, lockedSum = 0, unlockedItems = [];
+  document.querySelectorAll('#tg-editor-rows .s-editor-row').forEach(function(row) {
+    var idx = parseInt(row.id.replace('tg-row-', ''), 10); if (isNaN(idx)) return;
+    var inp = row.querySelector('.tg-amt'); if (!inp) return;
+    if (_tgLockedRows.has(idx)) { lockedSum += parseFloat(inp.value) || 0; }
+    else { unlockedItems.push({ idx: idx, inp: inp }); }
+  });
+  var rem = Math.round((total - lockedSum) * 100) / 100;
+  if (!unlockedItems.length) { tgUpdateTotal(); return; }
+  if (rem <= 0) { unlockedItems.forEach(function(u){ u.inp.value = 0; }); tgUpdateTotal(); return; }
+  if (unlockedItems.length === 1) {
+    unlockedItems[0].inp.value = rem;
+    _tgLockedRows.add(unlockedItems[0].idx);
+    var li = unlockedItems[0].inp;
+    li.classList.remove('split-sum-error', 'split-lock-fail');
+    li.classList.add('split-locked'); li.classList.remove('split-lock-flash');
+    void li.offsetWidth; li.classList.add('split-lock-flash');
+    tgUpdateTotal(); return;
+  }
+  var perRow = Math.round(rem / unlockedItems.length * 100) / 100, assigned = 0;
+  unlockedItems.forEach(function(u, i) {
+    var v = (i < unlockedItems.length - 1) ? perRow : Math.round((rem - assigned) * 100) / 100;
+    if (i < unlockedItems.length - 1) assigned += perRow;
+    u.inp.value = v;
+  });
+  tgUpdateTotal();
+}
+
+function tgUpdateTotal() {
+  var total = _tgSplitTx.amount, used = 0;
+  document.querySelectorAll('#tg-editor-rows .tg-amt').forEach(function(i){ used += parseFloat(i.value) || 0; });
+  var rem = total - used;
+  var uEl = document.getElementById('tg-total-used');
+  var rEl = document.getElementById('tg-total-rem');
+  if (uEl) uEl.textContent = '₪' + used.toLocaleString('he-IL', {minimumFractionDigits:2});
+  if (rEl) {
+    rEl.textContent = '₪' + Math.abs(rem).toLocaleString('he-IL', {minimumFractionDigits:2}) + (rem < 0 ? ' (חריגה)' : '');
+    rEl.style.color = Math.abs(rem) < 0.01 ? 'var(--teal)' : (rem < 0 ? 'var(--red)' : '#888');
+  }
+  var btn = document.getElementById('tg-submit-btn');
+  if (btn) btn.disabled = Math.abs(rem) >= 0.01;
+  var unlockedItems = [];
+  document.querySelectorAll('#tg-editor-rows .s-editor-row').forEach(function(row) {
+    var ri = parseInt(row.id.replace('tg-row-', ''), 10); if (isNaN(ri)) return;
+    if (!_tgLockedRows.has(ri)) { var inp = row.querySelector('.tg-amt'); if (inp) unlockedItems.push({ri:ri,inp:inp}); }
+  });
+  var showErr = unlockedItems.length > 2 && Math.abs(rem) >= 0.01;
+  unlockedItems.forEach(function(u) {
+    if (showErr) { tgUnlockRow(u.ri); u.inp.classList.add('split-sum-error'); }
+    else { u.inp.classList.remove('split-sum-error'); }
+  });
+}
+function tgSubmitSplit() {
+  var splits = [], valid = true;
+  document.querySelectorAll('#tg-editor-rows .s-editor-row').forEach(function(row) {
+    var desc = (row.querySelector('.tg-desc') || {value: ''}).value.trim();
+    var amt  = parseFloat((row.querySelector('.tg-amt') || {value: ''}).value);
+    var catH = row.querySelector('[id^="_tgd-val-"]');
+    var cat  = (catH ? catH.value : '') || 'NotCategorized';
+    if (!amt || amt <= 0) { valid = false; return; }
+    splits.push({ description: desc, amount: amt, category: cat });
+  });
+  if (!valid || splits.length < 2) { tgSetStatus('יש להזין סכום חיובי לכל חלק', 'err'); return; }
+  var btn = document.getElementById('tg-submit-btn'); if (btn) btn.disabled = true;
+  fetch('/api/transactions/split', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ table: _tgSplitTx.table, id: _tgSplitTx.id, splits: splits })
+  }).then(function(r){ return r.json(); }).then(function(d) {
+    if (d.ok) {
+      tgCloseSplit();
+      showToast('העסקה פוצלה ל-' + splits.length + ' חלקים!', 'success');
+      setTimeout(function(){ loadUntagged(true); loadHighValue(true); }, 600);
+    } else {
+      tgSetStatus('שגיאה: ' + (d.error || ''), 'err');
+      if (btn) btn.disabled = false;
+    }
+  }).catch(function(){ tgSetStatus('שגיאת רשת', 'err'); if (btn) btn.disabled = false; });
+}
+
+function tgOpenRevert(e, tbl, origId) {
+  if (e) e.stopPropagation();
+  _tgRevertTx = { table: tbl, origId: origId };
+  var oEl = document.getElementById('tg-revert-orig');
+  var sEl = document.getElementById('tg-revert-splits');
+  if (oEl) oEl.innerHTML = '<span style="color:#888;font-size:.84em">טוען...</span>';
+  if (sEl) sEl.innerHTML = '';
+  tgSetRevertStatus('', '');
+  document.getElementById('tg-revert-overlay').classList.add('open');
+  fetch('/api/transactions/split-info?table=' + encodeURIComponent(tbl) + '&id=' + encodeURIComponent(origId))
+    .then(function(r){ return r.json(); }).then(function(d) {
+      if (!d.ok) { if (oEl) oEl.innerHTML = 'שגיאה: ' + esc(d.error || ''); return; }
+      var o = d.original;
+      if (oEl) oEl.innerHTML = '<div class="s-orig-row">' +
+        '<span class="s-orig-name">'+esc(o.name)+'</span>' +
+        '<span class="s-orig-amount">₪'+Math.abs(o.amount).toLocaleString('he-IL',{minimumFractionDigits:2})+'</span>' +
+        '<span class="s-cat-badge">'+esc(o.category)+'</span>' +
+        '<span style="font-size:.76em;color:var(--text-muted)">'+esc(o.date)+'</span>' +
+        '</div>';
+      if (sEl) sEl.innerHTML = d.splits.map(function(s, i) {
+        return '<div class="s-revert-row">' +
+          '<span class="s-revert-num">'+(i+1)+'</span>' +
+          '<span class="s-revert-amt">₪'+s.amount.toLocaleString('he-IL',{minimumFractionDigits:2})+'</span>' +
+          '<span class="s-revert-desc">'+esc(s.description||'—')+'</span>' +
+          '<span class="s-cat-badge">'+esc(s.category)+'</span>' +
+          '</div>';
+      }).join('');
+    }).catch(function(){ if (oEl) oEl.innerHTML = 'שגיאת רשת'; });
+}
+function tgSubmitRevert() {
+  fetch('/api/transactions/revert-split', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ table: _tgRevertTx.table, id: _tgRevertTx.origId })
+  }).then(function(r){ return r.json(); }).then(function(d) {
+    if (d.ok) {
+      tgCloseRevert();
+      showToast('הפיצול בוטל!', 'success');
+      setTimeout(function(){ loadUntagged(true); loadHighValue(true); }, 600);
+    } else { tgSetRevertStatus('שגיאה: ' + (d.error || ''), 'err'); }
+  }).catch(function(){ tgSetRevertStatus('שגיאת רשת', 'err'); });
+}
+
+function tgShowStep(id) {
+  document.querySelectorAll('.tg-step').forEach(function(s){ s.classList.remove('active'); });
+  var el = document.getElementById(id); if (el) el.classList.add('active');
+}
+function tgCloseSplit() {
+  document.getElementById('tg-split-overlay').classList.remove('open');
+  _tgOpenDdIdx = null;
+  document.querySelectorAll('[id^="_tgd-dd-"]').forEach(function(el){ if (el.parentNode === document.body) el.remove(); });
+}
+function tgCloseRevert() { document.getElementById('tg-revert-overlay').classList.remove('open'); }
+function tgSetStatus(msg, cls) {
+  var el = document.getElementById('tg-split-status');
+  if (el) { el.textContent = msg; el.className = 's-status' + (cls ? ' ' + cls : ''); }
+}
+function tgSetRevertStatus(msg, cls) {
+  var el = document.getElementById('tg-revert-status');
+  if (el) { el.textContent = msg; el.className = 's-status' + (cls ? ' ' + cls : ''); }
+}
+
+// Kick off a background page regeneration so housing / monthly pages stay in sync.
+function _triggerRegen() {
+  fetch('/api/analysis', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ month: 'current' })
+  }).catch(() => {});
+}
+
+async function retagSearchRow(key) {
+  const row = document.querySelector(`[data-key="${key}"]`);
+  if (!row) return;
+  const table    = row.dataset.table;
+  const id       = parseInt(row.dataset.id);
+  const inp      = document.getElementById(`inp-${key}`);
+  const category = inp ? inp.value.trim() : '';
+
+  if (!category || !_categories.find(c => c.name === category)) {
+    showToast('בחר קטגוריה תקינה', 'error');
+    return;
+  }
+
+  setRowLoading(key, true);
+
+  const res  = await fetch('/api/tagger/tag', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ table, id, category, auto: false })
+  }).catch(() => null);
+  const data = res ? await res.json().catch(() => null) : null;
+
+  setRowLoading(key, false);
+
+  if (data && data.ok) {
+    const badge = document.getElementById(`cat-badge-${key}`);
+    if (badge) { badge.textContent = category; badge.className = 'cat-label'; }
+    if (inp)   { inp.value = ''; inp.classList.remove('valid', 'invalid'); }
+    const btn = document.getElementById(`btn-${key}`);
+    if (btn)   btn.disabled = true;
+    showToast(`קטגוריה עודכנה ל-"${category}" — מחשב מחדש ברקע…`, 'success');
+    _triggerRegen();
+  } else {
+    showToast('שגיאה בעדכון', 'error');
+  }
+}
+</script>
+
+<!-- ═══ Split modal ═══ -->
+<div class="s-modal-overlay" id="tg-split-overlay" onclick="if(event.target===this)tgCloseSplit()">
+  <div class="s-modal">
+    <button class="s-modal-close" onclick="tgCloseSplit()">✕</button>
+
+    <div class="tg-step active" id="tg-step-confirm">
+      <div class="s-modal-title">פיצול עסקה?</div>
+      <div id="tg-confirm-info"></div>
+      <div class="s-modal-actions">
+        <button class="s-btn-cancel" onclick="tgCloseSplit()">ביטול</button>
+        <button class="s-btn-submit" onclick="tgGoEditor()">פצל עסקה →</button>
+      </div>
+    </div>
+
+    <div class="tg-step" id="tg-step-editor">
+      <div class="s-modal-title">פיצול עסקה</div>
+      <div id="tg-editor-banner"></div>
+      <div class="s-editor-header">
+        <span></span><span>תיאור</span><span>סכום ₪</span><span>קטגוריה</span><span></span>
+      </div>
+      <div id="tg-editor-rows"></div>
+      <button class="s-add-btn" onclick="tgAddRow()">+ הוסף חלק</button>
+      <div class="s-total-bar">
+        <span style="color:var(--text-muted)">סה"כ:</span>
+        <span id="tg-total-used" style="font-weight:700">₪0</span>
+        <span style="color:var(--text-muted);margin-right:10px">נשאר:</span>
+        <span id="tg-total-rem" style="font-weight:700">₪0</span>
+      </div>
+      <div class="s-modal-actions">
+        <button class="s-btn-cancel" onclick="tgCloseSplit()">ביטול</button>
+        <button class="s-btn-submit" id="tg-submit-btn" onclick="tgSubmitSplit()" disabled>אשר פיצול</button>
+      </div>
+      <div class="s-status" id="tg-split-status"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Revert-split modal ═══ -->
+<div class="s-modal-overlay" id="tg-revert-overlay" onclick="if(event.target===this)tgCloseRevert()">
+  <div class="s-modal">
+    <button class="s-modal-close" onclick="tgCloseRevert()">✕</button>
+    <div class="s-modal-title">עסקה מפוצלת</div>
+    <div id="tg-revert-orig"></div>
+    <div style="margin:10px 0 5px;font-size:.76em;font-weight:600;color:var(--text-muted)">חלקים:</div>
+    <div id="tg-revert-splits"></div>
+    <div class="s-modal-actions">
+      <button class="s-btn-cancel" onclick="tgCloseRevert()">סגור</button>
+      <button class="s-btn-danger" onclick="tgSubmitRevert()">בטל פיצול ↩</button>
+    </div>
+    <div class="s-status" id="tg-revert-status"></div>
+  </div>
+</div>
+
+</body>
+</html>

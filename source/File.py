@@ -1,0 +1,609 @@
+from abc import abstractmethod
+from src_utils.utils import utils
+from Constants import Local, Paths, BANK_CARD_NUMBER
+from typing import List, Union
+from database import DataBase
+from src_utils.ExcelReader import ExcelManager
+from typing import Tuple
+from Configurations.Formats import Formats
+
+class File:
+    def __init__(self, name: str, format_info: dict):
+        '''
+        File is read from local.XLSX_PATH.
+
+        Parameters
+        ----------
+        name: a string indicating the name of the file
+        bank_acc_loc: a 2 character string indicating the cell index
+        initial row: a number indicating the header row
+        headers: a list of string containing table headers
+        '''
+        self.name = name
+        self.format_name = format_info["Format Name"]
+        self.context = format_info["Context"]
+        self.id_method = format_info["Identification method"]
+        self.id_data = format_info["Identification data"]
+        self.sortion_method = format_info["Sortion method"]
+        self.sortion_key = format_info["Sortion key"]
+        self.headers = format_info["Headers"]
+        self.secondary_headers = format_info["Secondary Headers"]
+        self.double_tables = format_info["Double tables"]
+        self.header_row_idx = format_info["Header row index"]
+        self.header_col_idx = format_info["Header col index"]
+        self.adittional_data_field = format_info["Adittional data field"]
+        self.adittional_data_field_value = None
+        self.independent = format_info["Independent"]
+        self.flip = format_info["flip"]
+        self.associated = format_info["associated"]
+
+        # This value will determine the index of the secondary headers, if exists
+        # The value is updated in the validate function
+        self.secondary_headers_row_idx = -1
+
+        self.cell_currency = format_info["Cell currency"]
+        self.cell_currency_headers = format_info["Cell currency headers"]
+
+        self.table_1 = []
+        self.table_2 = []
+        self.flip_table_location = False
+
+    def load(self) -> bool:
+        '''
+
+        Parameters
+        ----------
+        file_name: a string indicating the name of the file
+        '''
+        try:
+            ExcelManager().set_active_sheet(Paths.INPUT_FOLDER + "\\" + self.name)
+            return True
+        except Exception as e:
+            utils.log(str(e), category='debug')
+            return False
+
+    def validate_headers(self) -> bool:
+        '''
+        The function validates the table headers in the file.
+        The values of the headers and the initial row are given in the Constants.py.
+        '''
+        valid = False  
+        if self.double_tables: 
+            header_options = [self.headers, self.secondary_headers]
+        else:
+            header_options = [self.headers]
+        for index, headers in enumerate(header_options):
+            # Looks for the headers in a @err area of the given estimated
+            err = 5
+            temp = self.header_row_idx - err
+            lower_bound = 1 if temp < 1 else temp
+            for row in range(lower_bound, self.header_row_idx + err):
+                for i in range(0, 3):   # error in col selection TODO: improve impl
+                    valid = True
+                    col = i
+                    for name in headers:
+                        utils.log(f'(FILE/Validate_headers) row number = {row}, col = {col}, name = {name[::-1]}', 'debug')
+                        value = ExcelManager().read_cell(row, col)
+                        if value != name:
+                            valid = False
+                            break
+                        col += 1
+                    if valid:
+                        if row != self.header_row_idx:
+                            utils.log(f"Headers for file {self.name} were found at line {row}, Not in {self.header_row_idx} as specified\nIndex updated.", "warning")
+                            self.header_row_idx = row
+                        break
+                if valid:
+                    break
+            if valid:
+                if index == 1:
+                    self.flip_table_location = True
+                break
+
+        if not valid:
+            res = utils.template_menu(['Its Ok, the file is Empty. Mark it as Empty.', 'Skip File.', 'Break code.'],
+                                      f'No Headers were found at the given initial index (err used = {err}), What do you want to do?')
+            match res:
+                case 0:
+                    utils.log("Option not implemanted, skipping the file...", 'system')    # TODO
+                    return False
+                case 1:
+                    return False
+                case 2:
+                    exit()
+
+        else:
+            utils.log("Initial headers match!", "system")
+
+        if self.double_tables:
+            row_idx = self.header_row_idx + 1
+            col_idx = self.header_col_idx
+            utils.log("col idx is not being checked for errors...File header valdiation", "warning")
+            extracted_secondary_headers = ExcelManager().read_sheet(row_idx, 1, col_idx, len(self.secondary_headers))
+            tries_left = 100
+            while tries_left:
+                if extracted_secondary_headers == self.secondary_headers:
+                    utils.log("Secondary headers match!", "system")
+                    self.secondary_headers_row_idx = row_idx
+                    return True
+                
+                if "אין נתונים להצגה" == extracted_secondary_headers[0]:
+                    utils.log("Secondary table is empty! Moving on..", "system")
+                    self.secondary_headers_row_idx = row_idx
+                    self.double_tables = False
+                    return True
+
+                row_idx += 1
+                tries_left -= 1
+                extracted_secondary_headers = ExcelManager().read_sheet(row_idx, 1, col_idx, len(self.secondary_headers))
+
+            utils.log("Secondary Table was not found, Continuing...", "system")
+            self.double_tables = False
+
+
+        return True
+    
+        # def look_for_headers(header_lst: list, header_row_idx: int = -1, err: int = 2) -> Tuple[bool, int]:
+            
+        #     if header_row_idx < 0:
+        #         tries_left = 100
+        #         while tries_left:
+        #             pass
+
+        #     # determine lower bound for error radius
+        #     temp = header_row_idx + 1 - err
+        #     lower_bound = 1 if temp < 1 else temp
+
+        #     for row in range(lower_bound, header_row_idx + err):
+        #         for i in range(0, 3):   # error in col selection TODO: improve impl
+        #             valid = True
+        #             col = i
+        #             for name in header_lst:
+        #                 utils.log(f'(FILE/Validate_headers) row number = {row}, col = {col}, name = {name[::-1]}', 'debug')
+        #                 if ExcelManager().read_cell(row, col) != name:
+        #                     valid = False
+        #                     break
+        #                 col += 1
+        #             if valid:
+        #                 if row != header_row_idx:
+        #                     utils.log(f"Headers were found at line {row}, Not in {self.header_row_idx} as specified\nIndex updated.", "warning")
+        #                     header_row_idx = row
+        #                 break
+        #         if valid:
+        #             break
+
+        #     return valid, header_row_idx    
+
+        # headers_are_valid, new_header_row_idx = look_for_headers(self.headers, self.header_row_idx)
+        # if headers_are_valid:
+        #     utils.log(f"Initial Headers are Valid.", "system")
+        #     if new_header_row_idx != self.header_row_idx:
+        #         self.header_row_idx = new_header_row_idx
+        #         utils.log(f"Header row idx was updated to {new_header_row_idx}", "system")
+        # else:
+        #     utils.log(f"Initial table Headers were not found...", "system")
+        
+        # if not self.double_tables and headers_are_valid:
+        #     return True
+
+        # if self.double_tables:
+        #     if headers_are_valid:
+        #         secondary_headers_are_valid, new_sec_header_row_idx = look_for_headers(self.secondary_headers, self.secondary_headers_row_idx)
+        #         if secondary_headers_are_valid:
+        #             utils.log(f"Secondary Headers are Valid.", "system")
+        #             if new_sec_header_row_idx != self.secondary_headers_row_idx:
+        #                 self.secondary_headers_row_idx = new_sec_header_row_idx
+        #                 utils.log(f"Secondary Header row idx was updated to {new_sec_header_row_idx}", "system")
+        #         else:
+        #             utils.log(f"Secondary Headers were not found...", "system")
+        #         return True
+        #     else:   # Initial headers are not valid, than check the second table as first.
+
+        #         secondary_headers_are_valid, new_sec_header_row_idx = look_for_headers(self.secondary_headers, self.header_row_idx)
+        #         if secondary_headers_are_valid:
+        #             utils.log(f"Secondary Headers are Valid as initial table.", "system")
+        #             if new_sec_header_row_idx != self.secondary_headers_row_idx:
+        #                 self.secondary_headers_row_idx = new_sec_header_row_idx
+        #                 utils.log(f"Secondary Header row idx was updated to {new_sec_header_row_idx}", "system")
+        #             return True
+        #         else:
+        #             utils.log(f"Secondary Headers are Invalid as Initial Headers.", "system")
+            
+        # utils.log(f"Error Validating Headers... for file {self.name} ({self.format_name})", 'system')
+        # return False
+
+
+    @abstractmethod
+    def parse(self) -> int:
+        """
+        Function responsibility is the complete parse of the data file.
+        Currently, 'BankTransactionFile' and 'OuterCreditFile' are using this implementation.
+        'Inner credit file is using a different one becuase of the complexity.
+        """
+
+        def read_table(header_lst: list, header_row_idx: int, first_col_idx: int) -> int:
+            """
+            bad_indexes indexes will varie from 0 to (counter - 1) to fit the use of python lists.
+            """
+            def is_bad_value(entire_row) -> bool:
+                """
+                Bad values are predetermined and are not included in the final parsed table.
+                Bad values are used to ignore tables rows that do not represent transactions.
+                These are identified using....
+                """
+                if entire_row[2] == "TOTAL FOR DATE" or\
+                        entire_row[1] == 'סך חיוב בש"ח:' or\
+                            entire_row[4] == 'יתרת פתיחה':
+                    return True
+                return False
+
+            def Cash_advancment_fee(row):
+                """
+                'Cash Advance fee' row appears when using the ATM abroad. it has no dates and only shows the commission fee.
+                In order to handle this case in the best way possible, uppon Discovery, an error will trigger, asking the user to merge the transactions
+                by hand (change the input excel file and than try again)
+                """
+                if row[2] == "CASH ADVANCE FEE" and \
+                    row[0] is None and \
+                        row[1] is None:
+                    return True
+                return False
+            
+            bad_indexes = []
+            row_counter = 0
+            row_idx = header_row_idx + 1
+            col_idx = first_col_idx
+
+            table_entry = ExcelManager().read_sheet(row_idx, 1, col_idx, len(header_lst))
+            test_table_format = ExcelManager().read_sheet(row_idx, 1, col_idx, len(header_lst), type="format")
+            #utils.log(f"Table format: {test_table_format}")
+            cc_end = table_entry[0]
+
+            if is_bad_value(table_entry):
+                bad_indexes.append(row_idx - header_row_idx - 1)
+                cc_end = "Bad value"
+
+            while (cc_end is not None and \
+                    cc_end != "עסקאות בחו˝ל"):
+                row_counter += 1
+                row_idx += 1
+                table_entry = ExcelManager().read_sheet(row_idx, 1, col_idx, len(header_lst))
+                cc_end = table_entry[0]
+
+                if Cash_advancment_fee(table_entry):
+                    utils.log("Cash Advancment row found, Please edit the excel file accordingly and try again. Check spec file for more info...", "error")
+
+                if is_bad_value(table_entry):
+                    bad_indexes.append(row_idx - header_row_idx - 1)    # Get the index relative to the header row
+                    cc_end = "Bad value"
+
+            bad_indexes = ', '.join([str(i) for i in bad_indexes])
+
+            DataBase().insert_table_meta_data(self.name,
+                                              self.format_name,
+                                              self.card_number,
+                                              header_row_idx + 1,
+                                              col_idx,
+                                              row_counter,
+                                              bad_indexes)
+
+            valid_rows = row_counter - len(bad_indexes.split(",")) if len(bad_indexes) >= 1 else row_counter
+            utils.log(f'Meta data saved. Table data:\n\
+            {"first data row index:":25s}{header_row_idx + 1}\n\
+            {"initial col index:":25s}{first_col_idx}\n\
+            {"number of rows:":25s}{row_counter}\n\
+            {"Bad rows indexes:":25s}{bad_indexes}\n\
+            {"valid rows:":25s}{valid_rows}', 'system')
+            return valid_rows
+        
+        def read_adittional_data_field() -> Union[List[str], str]:
+            """
+            Reads one or multiple values from the excel file based on adittional_data_field configuration.
+            
+            The adittional_data_field can be:
+            - A tuple (row, col) for a single cell
+            - A list of tuples for multiple cells
+            
+            Returns:
+                - A list of strings if multiple cells are specified
+                - A single string if one cell is specified
+                - An empty list on error or if value is None
+
+            2/3/2026 - added support for list of multiple tuples as an input
+            """
+            def is_valid_cell(cell) -> bool:
+                """Validates that cell is a proper tuple with valid row and column indices."""
+                return (isinstance(cell, tuple) and 
+                        len(cell) == 2 and 
+                        isinstance(cell[0], int) and cell[0] >= 1 and 
+                        isinstance(cell[1], int) and cell[1] >= 0)
+            
+            def read_cell_value(cell: tuple) -> Union[str, None]:
+                """Reads a single cell value and converts it to string."""
+                row, col = cell
+                value = ExcelManager().read_cell(row, col)
+                return str(value) if value is not None else None
+            
+            if self.adittional_data_field is None:
+                return []
+            
+            # Handle list of cells
+            if isinstance(self.adittional_data_field, list):
+                if not self.adittional_data_field:
+                    return []
+                
+                parsed_values = []
+                for cell in self.adittional_data_field:
+                    if not is_valid_cell(cell):
+                        utils.log(f"Invalid cell format in adittional data field: {cell}. Check your format json!", 'error')
+                        return []
+                    
+                    value = read_cell_value(cell)
+                    if value is None:
+                        utils.log(f'Adittional data field at {cell} is None.', 'error')
+                        return []
+                    
+                    parsed_values.append(value)
+                
+                return parsed_values
+            
+            # Handle single cell tuple
+            elif isinstance(self.adittional_data_field, tuple):
+                if not is_valid_cell(self.adittional_data_field):
+                    utils.log(f"Invalid cell properties for adittional data field: {self.adittional_data_field}. Check your format json!", 'error')
+                    return []
+                
+                value = read_cell_value(self.adittional_data_field)
+                if value is None:
+                    utils.log(f'Adittional data field at {self.adittional_data_field} is None.', 'error')
+                    return []
+                
+                return value
+            
+            else:
+                utils.log(f"adittional_data_field must be a tuple or list of tuples, got {type(self.adittional_data_field)}", 'error')
+                return []
+
+        
+        if self.adittional_data_field is not None:
+            self.adittional_data_field_value = read_adittional_data_field()
+
+        valid_rows = read_table(self.headers, self.header_row_idx, self.header_col_idx)
+
+        if self.double_tables:
+            valid_rows += read_table(self.secondary_headers, self.secondary_headers_row_idx, self.header_col_idx)
+
+        return valid_rows
+
+    @abstractmethod
+    def check_duplicates(self) -> bool:
+        """
+        The function will check if the currently parsed file was allready inserted to the data base,
+        based on the card number, format name and date specified in the File database.
+        If the file was already inserted, the function will return False else True.
+        """
+        
+
+    def clean(self, flip: bool = False) -> bool:
+        """
+        Function will clean the read data.
+        Given a table of transactions, it will change the table to contain only new
+        ones which did not appear before.
+        """
+
+        def get_recent_file_info(sorted_dict: dict):
+            keys = list(sorted_dict.keys())     # Convert keys to a list
+            index = keys.index(self.name)       # Get the index of the target key
+            
+            if index > 0:                               # Check if there is a previous key
+                prev_key = keys[index - 1]              # the file parsed before the current one (recent file)
+                return prev_key, sorted_dict[prev_key]  # file name : file format
+            else:
+                raise ValueError("Not previous file...")
+                return None                             # No previous key if the target is the first key
+            
+        def get_last_file_name(sorted_names: list) -> Union[str, None]:
+            """
+            The function receives a list containing all the file names of the same format at the current
+            file being cleaned. It returns the name of the file which is hierarchically before the current one.
+            Order is defined by the sortion key stated in the file's format table.
+            In case there is not recent file before the current one, None is returned.
+            """
+            idx = sorted_names.index(self.name)
+            if idx == 0:
+                return None
+            return sorted_names[idx - 1],
+
+        def get_row(table):
+            for i, row in enumerate(table):
+                if len(row) < 9:
+                    # this is an if stament sutied for a specific case of isra-card
+                    return i, row
+                if row[8] == "  * תנועות היום":
+                    pass
+                else:
+                    return i, row
+
+        def read_and_merge(meta_data: list[dict], root: str) -> tuple[list, list]:
+            """
+            Reads one or two transaction tables from their Excel files and returns them as a pair.
+
+            'Merge' refers to collecting both tables (primary and secondary) so they can later
+            be inserted into the same database table. The tables are not combined here.
+
+            Args:
+                meta_data: List of 1 or 2 metadata dicts produced during parsing, each containing
+                           the file name, starting row/col, row count, and bad-row indexes needed
+                           to locate and clean the table in its Excel file.
+                root:      Filesystem root path under which the Excel file is stored.
+
+            Returns:
+                (table_1, table_2): Both are lists of rows with bad rows removed.
+                                    table_2 is [] when the file has only one table.
+                                    For single-table files with cell_currency enabled, columns listed
+                                    in cell_currency_headers are returned as (value, currency) tuples
+                                    instead of raw values.
+                                    Important!: this should be handled properly by the insert function of each file type.
+            """
+            def normalize(table: list, row_count: int) -> list:
+                # ExcelManager returns a flat list (not a list of rows) when row_count == 1.
+                return [table] if row_count == 1 else table
+
+            def filter_bad_rows(table: list, bad_rows_str: str) -> list:
+                # note: bad_rows_str indexes are relative to the first data row, not the Excel row number.
+                if not bad_rows_str.strip():
+                    return table
+                bad_indexes = {int(i) for i in bad_rows_str.strip().split(',')}
+                return [row for i, row in enumerate(table) if i not in bad_indexes]
+
+            def read_table(meta: dict, headers: list) -> list:
+                sheet_args = (meta['Initial_index'], meta['Row_count'], meta['Initial_col'], len(headers))
+                table = ExcelManager().set_active_sheet(root + "\\" + meta['File_Name'])\
+                                      .read_sheet(*sheet_args)
+                table = normalize(table, meta['Row_count'])
+                return filter_bad_rows(table, meta['Bad_rows'])
+
+            if self.double_tables:
+                [meta_0, meta_1] = meta_data
+                return read_table(meta_0, self.headers), read_table(meta_1, self.secondary_headers)
+            else:
+                [meta] = meta_data
+                table = read_table(meta, self.headers)
+
+                if self.cell_currency:
+                    # Some formats encode the currency (e.g. USD, EUR) inside the cell's number format
+                    # string rather than as a separate column. Re-read the same sheet with type="format"
+                    # to get the format string for each cell, then extract the currency symbol from the
+                    # relevant columns (cell_currency_headers) and bundle it with the cell value as a
+                    # (value, currency) tuple, replacing the raw value in-place.
+                    sheet_args = (meta['Initial_index'], meta['Row_count'], meta['Initial_col'], len(self.headers))
+                    # Note: read_sheet(type="format") always returns a 2D list, so normalize is not needed.
+                    formats = filter_bad_rows(
+                        ExcelManager().set_active_sheet(root + "\\" + meta['File_Name'])\
+                                      .read_sheet(*sheet_args, type="format"),
+                        meta['Bad_rows']
+                    )
+                    col_indexes = [self.headers.index(h) for h in self.cell_currency_headers]
+                    for row, fmt_row in zip(table, formats):
+                        for col_idx in col_indexes:
+                            currency = ExcelManager.extract_currency_from_number_format(fmt_row[col_idx] or "")
+                            row[col_idx] = (row[col_idx], currency)  # (value, currency)
+
+                return table, []
+
+        # -----------------------------------------------------------------
+        #                      Function's main starts here
+        # -----------------------------------------------------------------
+        current_tables = DataBase().get_table_Meta(self.name, self.format_name, self.card_number)
+        self.table_1, self.table_2 = read_and_merge(current_tables, root=Paths.INPUT_FOLDER)
+        if self.flip_table_location:
+            self.table_1, self.table_2 = self.table_2, self.table_1
+        self.counter = len(self.table_1) + len(self.table_2)
+        DataBase().set_new_trans_count(self.name, self.counter)
+
+        if self.independent:
+            # ------------------------------- Log ---------------------------------
+            utils.log(f"File {self.format_name} is INDEPENDANT of its previous. Total valid transactions in it are {self.counter}", "system")
+            # ---------------------------------------------------------------------
+            return True
+
+        from Parser import Parser
+        sorted_name_format_dict = Parser.getInstance().get_names(self.format_name, self.associated, self.card_number)    # type: ignore
+        recent_file_name, recent_file_format = get_recent_file_info(sorted_name_format_dict)
+        # recent_file_name = get_last_file_name(list(name_format_dict.keys()))
+        # recent_file_format = name_format_dict[recent_file_name]
+        if recent_file_name is None:
+            # ------------------------------- Log ---------------------------------
+            utils.log(f"{self.name} has not earlier file - Nothing to clean. Total valid transactions in it are {self.counter}", "system")
+            # --------------------------------------------------------------------- 
+            return True
+
+        recent_tables = DataBase().get_table_Meta(recent_file_name, recent_file_format, self.card_number)
+
+        # recent tables are extacted from files which have been verified, therefore, located in a different root folder.
+        recent_table_1, recent_table_2 = read_and_merge(recent_tables, root=Paths.VERIFIED_FOLDER + "\\" + recent_file_format)
+
+        def compare_tables(recent_table, current_table) -> list:
+            """
+            TODO
+            """
+
+            if recent_table is None:
+                utils.log("recent_table is none, Check your code.", "error")
+                return []
+
+            if current_table is None:
+                utils.log("curr_table is none, Check your code.", "error")
+                return []
+            
+            if (self.format_name, recent_file_format) == ("BeinLeumi-Bank-Date-Range", "BeinLeumi-Bank") or\
+                (recent_file_format, self.format_name) == ("BeinLeumi-Bank-Date-Range", "BeinLeumi-Bank"):
+                recent_table = utils.match_BeinLeumi_headers(recent_table)
+
+            # Some of the files have their transactions marked from bottom to top and some the other way around
+            if self.flip:   # indication for the current table
+                current_table = current_table[::-1]
+            
+            if Formats.FORMATS[recent_file_format]['flip']:
+                recent_table = recent_table[::-1]
+            
+            i = -1
+            index, row = get_row(recent_table)
+            if row in current_table:
+                i = current_table.index(row)
+                for j in range(1, len(current_table) - i):
+                    if j >= len(recent_table) or i + j >= len(current_table):
+                        break
+                    if recent_table[index + j] != current_table[i + j]:
+                        utils.log(f"""Missmatched trasaction while cleaning the file {self.name},
+             in accordance with it's previous {recent_file_name}.
+             Try checking index: {index + j} in old table vs {i + j} in new table!
+             The rows are:
+             => {recent_table[index + j]}
+             => {current_table[i + j]}
+
+            What do you want to do?
+            1 -> Difference in rows doesn't matter, continue as equal.
+            2 -> Rows are different, Continue.
+            3 -> Something is wrong, stop an let me debug.
+            """, category="warning")
+                        choise = int(input())
+                        if choise == 2:
+                            return []
+                        elif choise == 3:
+                            exit()
+            if i == -1:
+                return current_table
+            return current_table[:i]
+
+        self.table_1 = compare_tables(recent_table_1, self.table_1)
+
+        if self.double_tables:
+            self.table_2 = compare_tables(recent_table_2, self.table_2)
+
+        new_transactions_count = len(self.table_1) + len(self.table_2)
+        utils.log(f'File was cleaned: Out of {self.counter} Transactions, {new_transactions_count} new were found!', 'system')
+        utils.log(f"Updating the the transaction count in the file to {new_transactions_count}", 'system')
+        DataBase().set_new_trans_count(self.name, new_transactions_count)
+        return True
+
+    @abstractmethod
+    def insert(self) -> bool:
+        pass
+
+    # @staticmethod
+    # def cell(row: int, col: int, sheet: Sheet) -> Union[str, None]:
+    #     '''
+    #     Returns the value of the cell with indexes [row, col]
+    #     '''
+    #     if row >= 0 and col >= 0:
+    #         return sheet[f'{chr(65 + col)}{row}'].value
+    #     else:
+    #         utils.log(f"Invalid indexes -> ({row}, {col})", "error")
+    #         return ""
+
+    def get_info(self) -> Tuple[str, str]:
+        return self.name, self.format_name
+
+    def __str__(self):
+        return f"\t -> GenericFileClass"

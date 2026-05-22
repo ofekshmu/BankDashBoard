@@ -1,0 +1,160 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard</title>
+    <!-- Add any necessary CSS stylesheets or JavaScript libraries here -->
+    <link href="Category_style.css" rel="stylesheet"/>
+    <link href="Category_sassy.css" rel="stylesheet"/>
+    <style>
+        /* Add CSS styles here */
+
+        /* ── Mobile Responsive Design ──────────────────────────────────────────────── */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+                font-size: 14px;
+            }
+
+            .container, .main-content {
+                padding: 10px;
+                margin: 0;
+            }
+
+            table {
+                font-size: 12px;
+                display: block;
+                overflow-x: auto;
+            }
+
+            th, td {
+                padding: 8px;
+            }
+
+            button, input, select {
+                padding: 12px;
+                font-size: 16px;
+                min-height: 44px;
+            }
+
+            .header, .sidebar, .navigation {
+                display: block;
+                width: 100%;
+            }
+
+            h1, h2, h3 {
+                font-size: 18px;
+                margin-bottom: 15px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            body {
+                padding: 5px;
+                font-size: 12px;
+            }
+
+            table {
+                font-size: 10px;
+            }
+
+            th, td {
+                padding: 5px;
+            }
+
+            button, input, select {
+                width: 100%;
+                padding: 12px;
+                font-size: 16px;
+                margin-bottom: 10px;
+            }
+
+            h1, h2 {
+                font-size: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="title">Dashboard</h1>
+        <h2 class="subtitle">Category/Business Analysis</h2>
+        <h3 class="category-title">Category Name</h3>
+        
+        <!-- Statistics Table -->
+        <div class="statistics">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Statistic</th>
+                        <th>Value (ILS)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Monthly Average</td>
+                        <td class="Monthly Average">Value</td>
+                    </tr>
+                    <tr>
+                        <td>Recent Monthly Average (Last 5 months)</td>
+                        <td class="Recent Monthly Average">Value</td>
+                    </tr>
+                    <tr>
+                        <td>Monthly Active Average</td>
+                        <td class="Monthly Active Average">Value</td>
+                    </tr>
+                    <tr>
+                        <td>Monthly Active Standard Deviation</td>
+                        <td class="Monthly Active Standard Deviation">Value</td>
+                    </tr>
+                    <tr>
+                        <td>Yearly Average</td>
+                        <td class="Yearly Average">Value</td>
+                    </tr>
+                    <tr>
+                        <td>Total Spendings</td>
+                        <td class="Total Spendings">Value</td>
+                    </tr>
+                    <tr>
+                        <td>Total Income</td>
+                        <td class="Total Income">Value</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Yearly Use Image -->
+        <div class="yearly-use">
+            <img src="yearly_use_image.jpg" alt="Yearly Use">
+        </div>
+        
+        <!-- More Information Section -->
+        <h2 class="more-info-title">More Information</h2>
+        <div class="more-information">
+            <div class="transaction-info">
+                <p class="Highest Transaction: Value & Date">Highest Transaction: Value (Date)</p>
+                <p class="Associated">Others associations are:</p>
+                <ul>
+                    <!-- Add more list items as needed -->
+                </ul>
+            </div>
+            <div class="additional-image">
+                <img src="temp_image_path.png" alt="Additional Image">
+            </div>
+        </div>
+            <div class="transaction-list">
+                <h3>Transaction Information</h3>
+                <main class="leaderboard__profiles">
+                <!-- <article class="leaderboard__profile">
+                    <img src="https://randomuser.me/api/portraits/men/37.jpg" alt="Evan Spiegel" class="leaderboard__picture">
+                    <span class="leaderboard__name">Evan Spiegel</span>
+                    <span class="leaderboard__value">2.1<span>B</span></span>
+                  </article>-->
+                </main>
+
+            </div>
+    </div>
+</body>
+</html>

@@ -659,6 +659,71 @@ body {
 .split-lock-flash{animation:lockGlow .55s ease-out forwards}
 .split-lock-fail{animation:lockFail .55s ease-out forwards;border-color:var(--red) !important}
 .split-sum-error{border-color:var(--red) !important}
+
+/* ── Mobile Responsive Design ──────────────────────────────────────────────── */
+@media (max-width: 768px) {
+    body {
+        padding: 10px;
+        font-size: 14px;
+    }
+
+    .container, .main-content {
+        padding: 10px;
+        margin: 0;
+    }
+
+    table {
+        font-size: 12px;
+        display: block;
+        overflow-x: auto;
+    }
+
+    th, td {
+        padding: 8px;
+    }
+
+    button, input, select {
+        padding: 12px;
+        font-size: 16px;
+        min-height: 44px;
+    }
+
+    .header, .sidebar, .navigation {
+        display: block;
+        width: 100%;
+    }
+
+    h1, h2, h3 {
+        font-size: 18px;
+        margin-bottom: 15px;
+    }
+}
+
+@media (max-width: 480px) {
+    body {
+        padding: 5px;
+        font-size: 12px;
+    }
+
+    table {
+        font-size: 10px;
+    }
+
+    th, td {
+        padding: 5px;
+    }
+
+    button, input, select {
+        width: 100%;
+        padding: 12px;
+        font-size: 16px;
+        margin-bottom: 10px;
+    }
+
+    h1, h2 {
+        font-size: 16px;
+    }
+}
 </style>
 </head>
 <body>

@@ -1,2 +1,21 @@
+[project]
+name = "bankdashboard"
+version = "1.0.0"
+description = "Bank transaction dashboard with PostgreSQL backend"
+requires-python = ">=3.10"
+dependencies = [
+    "Flask==2.3.2",
+    "Flask-Session==0.5.0",
+    "pandas==2.1.4",
+    "psycopg2-binary==2.9.9",
+    "python-dotenv==1.0.0",
+    "pytest==7.4.0",
+    "openpyxl==3.1.5",
+    "xlrd==2.0.1",
+    "selenium==4.15.0",
+    "requests==2.31.0",
+    "gunicorn==21.2.0",
+]
+
 [tool.vercel]
 entrypoint = "source.WebApp:app"

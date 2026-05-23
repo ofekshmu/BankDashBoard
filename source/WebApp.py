@@ -210,7 +210,7 @@ def _web_cc_confirm(row_bank_dict: dict) -> bool:
     return _cc_prompt_choice
 
 # ── Flask app ─────────────────────────────────────────────────────────────────
-app = Flask(__name__)
+app = Flask(__name__, template_folder='html')
 app.config['JSON_AS_ASCII'] = False
 app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY', 'dev-key-change-in-production')
 

@@ -47,8 +47,26 @@ def _make_slug(type_: str, name: str) -> str:
 # ── Log capture via stdout tee ────────────────────────────────────────────────
 _log_queue: queue.Queue = queue.Queue()
 
+# ── Debug broadcast — rolling buffer + multi-subscriber SSE ──────────────────
+_DEBUG_BUFFER_MAX = 300
+_debug_buffer: list = []
+_debug_subscribers: list = []
+_debug_lock = threading.Lock()
+
+def _debug_put(line: str):
+    """Append line to rolling buffer and push to every live debug subscriber."""
+    with _debug_lock:
+        _debug_buffer.append(line)
+        if len(_debug_buffer) > _DEBUG_BUFFER_MAX:
+            del _debug_buffer[:-_DEBUG_BUFFER_MAX]
+        for q in list(_debug_subscribers):
+            try:
+                q.put_nowait(line)
+            except Exception:
+                pass
+
 class _TeeStream:
-    """Forwards every write() to the original stream *and* the SSE log queue."""
+    """Forwards every write() to the original stream *and* the SSE log queues."""
     def __init__(self, original):
         self._orig = original
 
@@ -64,6 +82,7 @@ class _TeeStream:
         stripped = text.strip()
         if stripped:
             _log_queue.put(stripped)
+            _debug_put(stripped)
 
     def flush(self):
         self._orig.flush()
@@ -1541,6 +1560,40 @@ def log_stream():
             'Cache-Control': 'no-cache',
             'X-Accel-Buffering': 'no',
         },
+    )
+
+
+@app.route('/api/debug-logs')
+def debug_log_stream():
+    """Persistent SSE stream — replays rolling buffer then forwards new lines."""
+    def _generate():
+        sub_q: queue.Queue = queue.Queue()
+        with _debug_lock:
+            buffered = list(_debug_buffer)
+            _debug_subscribers.append(sub_q)
+        try:
+            for line in buffered:
+                safe = line.replace('\r\n', '↵').replace('\n', '↵').replace('\r', '↵')
+                yield f'data: {safe}\n\n'
+            while True:
+                try:
+                    msg = sub_q.get(timeout=25)
+                except queue.Empty:
+                    yield 'data: \n\n'
+                    continue
+                safe = msg.replace('\r\n', '↵').replace('\n', '↵').replace('\r', '↵')
+                yield f'data: {safe}\n\n'
+        finally:
+            with _debug_lock:
+                try:
+                    _debug_subscribers.remove(sub_q)
+                except ValueError:
+                    pass
+
+    return Response(
+        _generate(),
+        mimetype='text/event-stream',
+        headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'},
     )
 
 

@@ -226,17 +226,18 @@ app.config['SECRET_KEY'] = secret_key
 app.secret_key = secret_key  # Also set directly on app object
 print(f"DEBUG: SECRET_KEY set to: {secret_key[:20]}..." if secret_key else "DEBUG: SECRET_KEY is empty!", flush=True)
 
-# Register authentication blueprints
-app.register_blueprint(auth_bp)
-app.register_blueprint(activity_bp)
-
 # Configure session for serverless: use signed cookies (no persistent backend needed)
+# MUST be configured before blueprints are registered
 app.config['SESSION_TYPE'] = 'null'
 app.config['PERMANENT_SESSION_LIFETIME'] = 86400  # 24 hours
 app.config['SESSION_COOKIE_SECURE'] = True  # HTTPS only
 app.config['SESSION_COOKIE_HTTPONLY'] = True  # No JS access
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 Session(app)
+
+# Register authentication blueprints (after session is initialized)
+app.register_blueprint(auth_bp)
+app.register_blueprint(activity_bp)
 
 # Global error handler for unhandled exceptions
 @app.errorhandler(Exception)

@@ -47,9 +47,12 @@ class utils:
                 utils.log(msg=f"Key error in log function: got '{category}'", category='error')
 
         if write:
-            f = open("Log_file.txt", 'a', encoding="utf-8")
-            f.write(log_st + "\n")
-            f.close()
+            try:
+                f = open("Log_file.txt", 'a', encoding="utf-8")
+                f.write(log_st + "\n")
+                f.close()
+            except (OSError, IOError):
+                pass
             print(log_st, end=e)
 
         if category == "error":

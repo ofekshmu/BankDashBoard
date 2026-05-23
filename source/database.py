@@ -355,7 +355,7 @@ class DataBase:
         '''
         Close The connection to the database.
         '''
-        self.connectionection.close()
+        self.connection.close()
 
     # TODO: this function is currently not being used anywhere.
     def get_data_by_file_name(self, file_name: str, card_number: str):
@@ -1108,14 +1108,14 @@ class DataBase:
                                     SET Category = ?, Reserved = ?
                                     WHERE ID = ?
                                     """, (category, reserved_val, id,))
-                self.connectionection.commit()
+                self.connection.commit()
             case "BankTransactions":
                 self.cursor.execute("""
                                     UPDATE BankTransactions
                                     SET Category = ?, Reserved = ?
                                     WHERE ID = ?
                                     """, (category, reserved_val, id,))
-                self.connectionection.commit()
+                self.connection.commit()
             case _:
                 utils.log(f"Bad input {table_name} in 'set_category_ui' in DataBase class", "error")
 
@@ -1315,7 +1315,7 @@ class DataBase:
             (new_category, name)
         )
         bank_count = self.cursor.rowcount
-        self.connectionection.commit()
+        self.connection.commit()
         return card_count + bank_count
 
     def search_tagged(self, query: str, limit: int = 50) -> list:
@@ -1715,7 +1715,7 @@ class DataBase:
                 FOREIGN KEY(TransactionID) REFERENCES BankTransactions(ID)
             );
         """)
-        self.connectionection.commit()
+        self.connection.commit()
 
     def insert_other_account_status(self, account_name: str, status_date: str, value: float, transaction_id: int = None):
         """Insert a new status record for another account"""
@@ -1724,7 +1724,7 @@ class DataBase:
             VALUES (?, ?, ?, ?)
         """
         self.cursor.execute(query, (account_name, status_date, value, transaction_id))
-        self.connectionection.commit()
+        self.connection.commit()
 
     def get_account_entries_with_dates(self, account_name: str = None, from_date: datetime = None) -> pd.DataFrame:
         """
@@ -1797,7 +1797,7 @@ class DataBase:
                 "DELETE FROM OtherAccountStatus WHERE AccountName = ?", 
                 (account_name,)
             )
-            self.connectionection.commit()
+            self.connection.commit()
             return True
         except Exception as e:
             utils.log(f"Error deleting account: {str(e)}", "error")
@@ -1832,7 +1832,7 @@ class DataBase:
                 "DELETE FROM OtherAccountStatus WHERE ID = ?", 
                 (entry_id,)
             )
-            self.connectionection.commit()
+            self.connection.commit()
             return True
         except Exception as e:
             utils.log(f"Error deleting entry: {str(e)}", "error")
@@ -1967,14 +1967,14 @@ class DataBase:
 # ----------------------------------------------------------------------
 
     def commit_changes(self) -> None:
-        self.connectionection.commit()
+        self.connection.commit()
 
     def _ensure_pg_connection(self):
         """Ensure PostgreSQL connection is alive; reconnect if needed"""
-        if self.connectionection is None:
+        if self.connection is None:
             return False
         try:
-            cursor = self.connectionection.cursor()
+            cursor = self.connection.cursor()
             cursor.execute("SELECT 1")
             cursor.close()
             return True
@@ -2315,7 +2315,7 @@ class DataBase:
         """
         try:
             self.cursor.execute("DELETE FROM CashTransactions WHERE ID = ?", (transaction_id,))
-            self.connectionection.commit()
+            self.connection.commit()
             utils.log(f"Cash transaction with ID {transaction_id} deleted successfully.", "system")
             return True
         except Exception as e:
@@ -2393,7 +2393,7 @@ class DataBase:
             except Exception:
                 results.append((entry_id, date_str, 'Failed to fix'))
             
-        self.connectionection.commit()
+        self.connection.commit()
         return pd.DataFrame(results, columns=['ID', column_name, 'Status'])
 
     # ── Transaction Split methods ──────────────────────────────────────────────

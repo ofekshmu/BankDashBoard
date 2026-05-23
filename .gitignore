@@ -5,14 +5,11 @@ inputs
 .vscode
 *.db
 __pycache__
-personal information
-personal_config.json
 setup.cfg
 # *.txt - commented out to allow requirements.txt
 *.cmd
 *.png
 *csv
-categories.json
 output.html
 Inputs Yuval
 Inputs_testing
@@ -32,3 +29,8 @@ browser_profiles/
 Outputs/download_log.log
 .worktrees/
 .env
+
+# Personal information — only categories.json is tracked (safe); rest are sensitive
+personal information/personal_config.json
+personal information/auto_tagger.json
+personal information/categories-backup copy.json

@@ -114,6 +114,7 @@ body {
 .nav-restart-btn{width:100%;padding:8px 12px;border:1.5px dashed var(--border);border-radius:8px;background:none;color:var(--text-muted);font-size:.78em;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:7px;justify-content:center;transition:background .15s,color .15s,border-color .15s}
 .nav-restart-btn:hover{background:#fff3f3;color:#e53935;border-color:#e53935}
 .nav-restart-btn:disabled{opacity:.5;cursor:default}
+.app-version-badge{margin-top:8px;text-align:center;font-size:.72em;color:var(--text-muted);letter-spacing:.03em;opacity:.7;user-select:none;}
 .nav-item {
   display: flex; align-items: center;
   padding: 10px 20px;
@@ -1412,6 +1413,70 @@ body {
 .acct-entries-list div { padding: 3px 0; border-bottom: 1px solid #f0f0f0; }
 .acct-entries-list div:last-child { border-bottom: none; }
 
+/* ── Mobile category legend card (hidden on desktop) ────── */
+.mobile-cat-legend-card { display: none; }
+.mobile-cat-list {
+  list-style: none; margin: 0; padding: 0;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.mobile-cat-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 0; border-bottom: 1px solid var(--border);
+  font-size: 0.84em;
+}
+.mobile-cat-item:last-child { border-bottom: none; }
+.mobile-cat-dot {
+  width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+}
+.mobile-cat-name {
+  flex: 1; color: var(--text-sub); direction: rtl;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.mobile-cat-value {
+  font-weight: 700; color: var(--navy); font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* ── Mobile view (≤768px) ────────────────────────────────── */
+@media (max-width: 768px) {
+
+  /* 1. Reload button → circular FAB fixed at bottom-right */
+  .reload-btn {
+    position: fixed;
+    bottom: 22px;
+    right: 18px;
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    padding: 0;
+    background: var(--teal);
+    color: #fff;
+    font-size: 1.5em;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 16px rgba(30,157,139,0.45);
+    z-index: 998;
+    border: none;
+  }
+  .reload-btn.stale {
+    box-shadow: 0 4px 16px rgba(30,157,139,0.45),
+                0 0 0 4px rgba(30,157,139,0.25);
+  }
+  .reload-btn-label { display: none; }
+
+  /* 2. Charts grid → single column so each donut gets full width */
+  .charts-grid { grid-template-columns: 1fr; }
+
+  /* 3. Show mobile category legend cards */
+  .mobile-cat-legend-card { display: block; }
+
+  /* 4. Reduce donut canvas height on mobile */
+  .donut-chart-wrap { height: 220px !important; }
+
+  /* 5. Reduce general bar chart height on mobile */
+  #chart-general-wrap { height: 200px !important; }
+}
+
 </style>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
@@ -1450,6 +1515,7 @@ body {
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
       הפעל שרת מחדש
     </button>
+    <div class="app-version-badge" id="app-version-badge">v—</div>
   </div>
 </nav>
 
@@ -1489,7 +1555,7 @@ body {
     </div>
     <div class="generated-row">
       <span class="generated-label" id="generated-label"></span>
-      <button class="reload-btn" id="reload-btn" onclick="reloadCurrent()" title="חשב מחדש">&#8635; חשב מחדש</button>
+      <button class="reload-btn" id="reload-btn" onclick="reloadCurrent()" title="חשב מחדש">&#8635; <span class="reload-btn-label">חשב מחדש</span></button>
     </div>
   </div>
 
@@ -1726,7 +1792,10 @@ function _applyPanelUI(name) {
   var roller = document.getElementById('month-roller');
   if (roller) roller.style.display = isMonthly ? '' : 'none';
   var reloadBtn = document.getElementById('reload-btn');
-  if (reloadBtn) reloadBtn.style.display = isMonthly ? '' : 'none';
+  if (reloadBtn) {
+    var _mob = window.matchMedia('(max-width:768px)').matches;
+    reloadBtn.style.display = isMonthly ? (_mob ? 'flex' : '') : 'none';
+  }
 }
 function showPanel(name, btn) {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
@@ -2292,9 +2361,18 @@ _initMonthNav();
   fetch('/api/status', { method: 'GET' })
     .then(function(r) { return r.json(); })
     .then(function(d) {
-      document.getElementById('reload-btn').style.display = 'inline-block';
+      document.getElementById('reload-btn').style.display =
+        window.matchMedia('(max-width:768px)').matches ? 'flex' : 'inline-block';
       if (d.running) { setLogIndicator('active'); }
       _checkStale();
+    })
+    .catch(function() {});
+  // Fetch and display app version
+  fetch('/api/version')
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      var badge = document.getElementById('app-version-badge');
+      if (badge && d.version) { badge.textContent = 'v' + d.version; }
     })
     .catch(function() {});
 })();

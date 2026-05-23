@@ -31,9 +31,15 @@ load_dotenv()
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 _HERE                  = os.path.dirname(os.path.abspath(__file__))
+_PROJECT_DIR           = os.path.dirname(_HERE)
+
+# Ensure CWD is always the project root so all relative paths (Personal Information/,
+# ShmuelFamiliy.db, Outputs/, etc.) resolve correctly regardless of where the
+# process was started (e.g. Vercel serverless, pytest, local terminal).
+os.chdir(_PROJECT_DIR)
+
 OUTPUT_HTML            = os.path.join(_HERE, 'html', 'output.html')
 ORGANIZER_HTML         = os.path.join(_HERE, 'html', 'Organizer_Table.html')
-_PROJECT_DIR           = os.path.dirname(_HERE)
 GENERAL_ANALYSIS_DIR   = os.path.join(_PROJECT_DIR, 'Outputs', 'general_analysis')
 CATEGORY_ANALYSIS_DIR  = os.path.join(_PROJECT_DIR, 'Outputs', 'category_analysis')
 TAGGER_HTML            = os.path.join(_HERE, 'html', 'Tagger.html')
@@ -1385,6 +1391,18 @@ def cash_reconcile():
 @app.route('/api/status')
 def status():
     return jsonify({'running': _analysis_running})
+
+
+@app.route('/api/version')
+def version():
+    """Return the app version from the VERSION file at project root."""
+    try:
+        version_path = os.path.join(_PROJECT_DIR, 'VERSION')
+        with open(version_path, encoding='utf-8') as f:
+            v = f.read().strip()
+    except Exception:
+        v = '—'
+    return jsonify({'version': v})
 
 
 @app.route('/api/stale-all')

@@ -6,9 +6,7 @@ inputs
 *.db
 __pycache__
 setup.cfg
-*.txt
-!requirements.txt
-!Log_file.txt
+# *.txt - commented out to allow requirements.txt
 *.cmd
 *.png
 *csv
@@ -29,6 +27,10 @@ output.html
 source/Configurations/Formats.py
 browser_profiles/
 Outputs/download_log.log
-migration_script.py.log
+.worktrees/
 .env
-!.env.example
+
+# Personal information — only categories.json is tracked (safe); rest are sensitive
+personal information/personal_config.json
+personal information/auto_tagger.json
+personal information/categories-backup copy.json

@@ -1135,6 +1135,7 @@ class DataBase:
                 Transaction_Value AS transaction_value,
                 Charge_Value      AS charge_value,
                 Charge_Currency   AS currency,
+                Value_Currency    AS value_currency,
                 Reserved,
                 CardID            AS card_id
             FROM CardTransactions
@@ -1153,6 +1154,7 @@ class DataBase:
                 Income     AS transaction_value,
                 Out        AS charge_value,
                 'ILS'      AS currency,
+                'ILS'      AS value_currency,
                 Reserved,
                 NULL       AS card_id
             FROM BankTransactions
@@ -1165,7 +1167,7 @@ class DataBase:
             LIMIT ?
         """, (limit,)).fetchall()
         cols = ['table_name', 'id', 'name', 'exec_date', 'charge_date',
-                'transaction_value', 'charge_value', 'currency', 'reserved', 'card_id']
+                'transaction_value', 'charge_value', 'currency', 'value_currency', 'reserved', 'card_id']
         return [dict(zip(cols, r)) for r in rows]
 
     def get_recently_tagged(self, limit: int = 30) -> list:
@@ -1183,6 +1185,7 @@ class DataBase:
                 Transaction_Value AS transaction_value,
                 Charge_Value      AS charge_value,
                 Charge_Currency   AS currency,
+                Value_Currency    AS value_currency,
                 Category,
                 Reserved
             FROM CardTransactions
@@ -1197,6 +1200,7 @@ class DataBase:
                 Income     AS transaction_value,
                 Out        AS charge_value,
                 'ILS'      AS currency,
+                'ILS'      AS value_currency,
                 Category,
                 Reserved
             FROM BankTransactions
@@ -1205,7 +1209,7 @@ class DataBase:
             LIMIT ?
         """, (limit,)).fetchall()
         cols = ['table_name', 'id', 'name', 'exec_date', 'charge_date',
-                'transaction_value', 'charge_value', 'currency', 'category', 'reserved']
+                'transaction_value', 'charge_value', 'currency', 'value_currency', 'category', 'reserved']
         return [dict(zip(cols, r)) for r in rows]
 
     def get_high_value_untagged(self, threshold: float = 500.0) -> list:
@@ -1223,6 +1227,7 @@ class DataBase:
                 Transaction_Value AS transaction_value,
                 Charge_Value      AS charge_value,
                 Charge_Currency   AS currency,
+                Value_Currency    AS value_currency,
                 Reserved,
                 CardID            AS card_id
             FROM CardTransactions
@@ -1242,6 +1247,7 @@ class DataBase:
                 Income     AS transaction_value,
                 Out        AS charge_value,
                 'ILS'      AS currency,
+                'ILS'      AS value_currency,
                 Reserved,
                 NULL       AS card_id
             FROM BankTransactions
@@ -1254,7 +1260,7 @@ class DataBase:
             ORDER BY charge_value DESC
         """, (threshold, threshold, threshold)).fetchall()
         cols = ['table_name', 'id', 'name', 'exec_date', 'charge_date',
-                'transaction_value', 'charge_value', 'currency', 'reserved', 'card_id']
+                'transaction_value', 'charge_value', 'currency', 'value_currency', 'reserved', 'card_id']
         return [dict(zip(cols, r)) for r in rows]
 
     def count_untagged_total(self) -> int:
@@ -1326,13 +1332,15 @@ class DataBase:
                 SELECT 'CardTransactions' AS table_name, ID, Name,
                     Executed_Date AS exec_date, Charge_Date AS charge_date,
                     Transaction_Value AS transaction_value, Charge_Value AS charge_value,
-                    Charge_Currency AS currency, Category, Reserved, CardID AS card_id
+                    Charge_Currency AS currency, Category, Reserved, CardID AS card_id,
+                    COALESCE(Description, '') AS description
                 FROM CardTransactions WHERE Category IS NOT 'NotCategorized' AND ID = ?
                 UNION ALL
                 SELECT 'BankTransactions' AS table_name, ID, Name,
                     Date AS exec_date, Value_Date AS charge_date,
                     Income AS transaction_value, Out AS charge_value,
-                    'ILS' AS currency, Category, Reserved, NULL AS card_id
+                    'ILS' AS currency, Category, Reserved, NULL AS card_id,
+                    COALESCE(Description, '') AS description
                 FROM BankTransactions WHERE Category IS NOT 'NotCategorized' AND ID = ?
                 ORDER BY exec_date DESC LIMIT ?
             """, (id_val, id_val, limit)).fetchall()
@@ -1342,18 +1350,21 @@ class DataBase:
                 SELECT 'CardTransactions' AS table_name, ID, Name,
                     Executed_Date AS exec_date, Charge_Date AS charge_date,
                     Transaction_Value AS transaction_value, Charge_Value AS charge_value,
-                    Charge_Currency AS currency, Category, Reserved, CardID AS card_id
+                    Charge_Currency AS currency, Category, Reserved, CardID AS card_id,
+                    COALESCE(Description, '') AS description
                 FROM CardTransactions WHERE Category IS NOT 'NotCategorized' AND Name LIKE ?
                 UNION ALL
                 SELECT 'BankTransactions' AS table_name, ID, Name,
                     Date AS exec_date, Value_Date AS charge_date,
                     Income AS transaction_value, Out AS charge_value,
-                    'ILS' AS currency, Category, Reserved, NULL AS card_id
+                    'ILS' AS currency, Category, Reserved, NULL AS card_id,
+                    COALESCE(Description, '') AS description
                 FROM BankTransactions WHERE Category IS NOT 'NotCategorized' AND Name LIKE ?
                 ORDER BY exec_date DESC LIMIT ?
             """, (like, like, limit)).fetchall()
         cols = ['table_name', 'id', 'name', 'exec_date', 'charge_date',
-                'transaction_value', 'charge_value', 'currency', 'category', 'reserved', 'card_id']
+                'transaction_value', 'charge_value', 'currency', 'category', 'reserved', 'card_id',
+                'description']
         return [dict(zip(cols, r)) for r in rows]
 
     @validate_table_name

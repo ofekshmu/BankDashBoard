@@ -1,4 +1,4 @@
-from Constants import Settings, ReservedNames, Paths, CC_CHARGE_CATEGORY_NAME
+﻿from Constants import Settings, ReservedNames, Paths, CC_CHARGE_CATEGORY_NAME
 import json
 from typing import Union
 from datetime import datetime
@@ -308,7 +308,9 @@ class utils:
   }"""
 
         def _make_donut_card(canvas_id, title, cat_data, palette, full_width=False):
-            """Return a chart-card div containing a Chart.js doughnut + inline script."""
+            """Return (chart_card, mobile_legend_card) for a Chart.js doughnut.
+            On mobile the built-in legend is hidden and the legend_card (a separate
+            card with a category list) is shown instead via CSS."""
             _labels = list(cat_data.keys())
             _values = list(cat_data.values())
             # Cycle palette to cover all slices
@@ -324,7 +326,8 @@ class utils:
             card = tag("div", class_=card_cls)
             ttl = tag("div", class_="chart-card-title"); ttl.string = title
             card.append(ttl)
-            wrap = tag("div"); wrap["style"] = "position:relative;height:320px;"
+            wrap = tag("div", class_="donut-chart-wrap")
+            wrap["style"] = "position:relative;height:320px;"
             canvas = tag("canvas"); canvas["id"] = canvas_id
             canvas["style"] = "width:100%;height:100%;"
             wrap.append(canvas)
@@ -332,6 +335,7 @@ class utils:
             sc = tag("script")
             sc.string = f"""
 (function(){{
+  var _isMob = window.matchMedia('(max-width:768px)').matches;
   new Chart(document.getElementById('{canvas_id}'), {{
     type: 'doughnut',
     data: {_chart_data},
@@ -340,6 +344,7 @@ class utils:
       cutout: '68%',
       plugins: {{
         legend: {{
+          display: !_isMob,
           position: 'bottom',
           labels: {{ font: {{ size: 11 }}, padding: 10, boxWidth: 12 }},
           onHover: function(evt, item, legend) {{
@@ -373,7 +378,26 @@ class utils:
 }})();
 """
             card.append(sc)
-            return card
+
+            # \u2500\u2500 Mobile-only category legend card \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+            legend_card = tag("div", class_="chart-card mobile-cat-legend-card")
+            leg_ttl = tag("div", class_="chart-card-title"); leg_ttl.string = title
+            legend_card.append(leg_ttl)
+            leg_ul = tag("ul", class_="mobile-cat-list")
+            _total = sum(_values) or 1
+            for i, (lbl, val) in enumerate(zip(_labels, _values)):
+                li = tag("li", class_="mobile-cat-item")
+                dot = tag("span", class_="mobile-cat-dot")
+                dot["style"] = f"background:{_colors[i]}"
+                name_sp = tag("span", class_="mobile-cat-name"); name_sp.string = lbl
+                pct = val / _total * 100
+                val_sp = tag("span", class_="mobile-cat-value")
+                val_sp.string = f"\u20aa{round(val):,} ({pct:.0f}%)"
+                li.append(dot); li.append(name_sp); li.append(val_sp)
+                leg_ul.append(li)
+            legend_card.append(leg_ul)
+
+            return card, legend_card
 
         # Color palettes per chart type
         _PAL_SPEND  = ["#ef9a9a","#ffab91","#ffcc80","#ffe082","#f48fb1",
@@ -402,22 +426,24 @@ class utils:
 
         # Spendings donut
         if data.get('spendings_by_cat'):
-            charts_grid.append(_make_donut_card(
+            _c, _l = _make_donut_card(
                 "chart-spendings-donut", "הוצאות לפי קטגוריה",
-                data['spendings_by_cat'], _PAL_SPEND))
+                data['spendings_by_cat'], _PAL_SPEND)
+            charts_grid.append(_c); charts_grid.append(_l)
 
         # Earnings donut
         if data.get('earnings_by_cat'):
-            charts_grid.append(_make_donut_card(
+            _c, _l = _make_donut_card(
                 "chart-earnings-donut", "הכנסות לפי קטגוריה",
-                data['earnings_by_cat'], _PAL_EARN))
-
+                data['earnings_by_cat'], _PAL_EARN)
+            charts_grid.append(_c); charts_grid.append(_l)
 
         # Investments donut
         if data.get('investments_by_name'):
-            charts_grid.append(_make_donut_card(
+            _c, _l = _make_donut_card(
                 "chart-investments-donut", "השקעות / חיסכון",
-                data['investments_by_name'], _PAL_INVEST))
+                data['investments_by_name'], _PAL_INVEST)
+            charts_grid.append(_c); charts_grid.append(_l)
         else:
             # Empty state card
             _inv_card = tag("div", class_="chart-card")
@@ -431,11 +457,12 @@ class utils:
         _cash_earned = abs(float(cash_information_data.get('Monthly Earned Cash', 0)))
         _cash_spent  = abs(float(cash_information_data.get('Monthly Spent Cash',  0)))
         if _cash_earned + _cash_spent > 0:
-            charts_grid.append(_make_donut_card(
+            _c, _l = _make_donut_card(
                 "chart-cash-donut", "מזומן",
-                {f"הכנסה  \u20aa{_cash_earned:,.0f}": _cash_earned,
-                 f"הוצאה  \u20aa{_cash_spent:,.0f}":  _cash_spent},
-                ["#a5d6a7", "#ef9a9a"]))
+                {f"הכנסה  ₪{_cash_earned:,.0f}": _cash_earned,
+                 f"הוצאה  ₪{_cash_spent:,.0f}":  _cash_spent},
+                ["#a5d6a7", "#ef9a9a"])
+            charts_grid.append(_c); charts_grid.append(_l)
         else:
             _cash_card = tag("div", class_="chart-card")
             _cash_ttl  = tag("div", class_="chart-card-title"); _cash_ttl.string = "מזומן"
@@ -508,7 +535,8 @@ class utils:
             _gen_info_wrap.append(_gen_info_tip)
             _gen_ttl.append(_gen_info_wrap)
             _gen_card.append(_gen_ttl)
-            _gen_wrap = tag("div"); _gen_wrap["style"] = "position:relative;height:340px;"
+            _gen_wrap = tag("div"); _gen_wrap["id"] = "chart-general-wrap"
+            _gen_wrap["style"] = "position:relative;height:340px;"
             _gen_canvas = tag("canvas"); _gen_canvas["id"] = "chart-general-bar"
             _gen_canvas["style"] = "width:100%;height:100%;"
             _gen_wrap.append(_gen_canvas)
@@ -516,14 +544,26 @@ class utils:
             _gen_sc = tag("script")
             _gen_sc.string = f"""
 (function(){{
+  var _isMob = window.matchMedia('(max-width:768px)').matches;
+  var _rawData = {_gen_chart_data};
+  var _chartData = _rawData;
+  if (_isMob) {{
+    var _n = 3;
+    _chartData = {{
+      labels: _rawData.labels.slice(-_n),
+      datasets: _rawData.datasets.map(function(ds) {{
+        return Object.assign({{}}, ds, {{ data: ds.data.slice(-_n) }});
+      }})
+    }};
+  }}
   new Chart(document.getElementById('chart-general-bar'), {{
     type: 'bar',
-    data: {_gen_chart_data},
+    data: _chartData,
     options: {{
       responsive: true, maintainAspectRatio: false,
       interaction: {{ mode: 'index', intersect: false }},
       plugins: {{
-        legend: {{ position: 'top', labels: {{ font: {{ size: 12 }}, padding: 16 }} }},
+        legend: {{ position: 'top', labels: {{ font: {{ size: _isMob ? 10 : 12 }}, padding: 12 }} }},
         tooltip: {{
           rtl: true,
           callbacks: {{

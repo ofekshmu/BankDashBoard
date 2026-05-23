@@ -218,10 +218,10 @@ app = Flask(__name__, template_folder='html')
 app.config['JSON_AS_ASCII'] = False
 
 # Ensure SECRET_KEY is set (required for session management)
-secret_key = os.getenv('FLASK_SECRET_KEY') or os.getenv('SECRET_KEY')
+secret_key = os.getenv('flask_secret_key') or os.getenv('FLASK_SECRET_KEY') or os.getenv('SECRET_KEY')
 if not secret_key:
     secret_key = 'dev-key-change-in-production'
-    print("WARNING: FLASK_SECRET_KEY not set, using default dev key", flush=True)
+    print("WARNING: flask_secret_key not set, using default dev key", flush=True)
 app.config['SECRET_KEY'] = secret_key
 app.secret_key = secret_key  # Also set directly on app object
 print(f"DEBUG: SECRET_KEY set to: {secret_key[:20]}..." if secret_key else "DEBUG: SECRET_KEY is empty!", flush=True)

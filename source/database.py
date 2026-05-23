@@ -1971,16 +1971,15 @@ class DataBase:
 
     def _ensure_pg_connection(self):
         """Ensure PostgreSQL connection is alive; reconnect if needed"""
-        if self.conn is None:
-            self.conn = get_db_connection()
-        else:
-            try:
-                cursor = self.conn.cursor()
-                cursor.execute("SELECT 1")
-                cursor.close()
-            except Exception:
-                self.conn = get_db_connection()
-        return self.conn is not None
+        if self.connection is None:
+            return False
+        try:
+            cursor = self.connection.cursor()
+            cursor.execute("SELECT 1")
+            cursor.close()
+            return True
+        except Exception:
+            return False
 
     # ── Login activity (PostgreSQL) ────────────────────────────────────────────
 

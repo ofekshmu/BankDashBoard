@@ -2233,7 +2233,7 @@ def tagger_save_rule():
 def tagger_categories():
     import json as _json
     try:
-        cats_path = os.path.join(_PROJECT_DIR, 'Personal Information', 'categories.json')
+        cats_path = os.path.join(_PROJECT_DIR, 'personal information', 'categories.json')
         with open(cats_path, encoding='utf-8') as f:
             cats = _json.load(f)
         db = None
@@ -2258,7 +2258,7 @@ def tagger_categories_add():
     if not name:
         return jsonify({'ok': False, 'error': 'missing name'})
     try:
-        cats_path = os.path.join(_PROJECT_DIR, 'Personal Information', 'categories.json')
+        cats_path = os.path.join(_PROJECT_DIR, 'personal information', 'categories.json')
         with open(cats_path, encoding='utf-8') as f:
             cats = _json.load(f)
         if name in cats:
@@ -2301,7 +2301,7 @@ def tagger_rules_remap():
     new_cat = (body.get('new_category') or '').strip()
     if not name or not new_cat:
         return jsonify({'ok': False, 'error': 'missing fields'})
-    cats_path = os.path.join(_PROJECT_DIR, 'Personal Information', 'categories.json')
+    cats_path = os.path.join(_PROJECT_DIR, 'personal information', 'categories.json')
     try:
         with open(cats_path, encoding='utf-8') as f:
             cats = _json.load(f)

@@ -114,6 +114,7 @@ body {
 .nav-restart-btn{width:100%;padding:8px 12px;border:1.5px dashed var(--border);border-radius:8px;background:none;color:var(--text-muted);font-size:.78em;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:7px;justify-content:center;transition:background .15s,color .15s,border-color .15s}
 .nav-restart-btn:hover{background:#fff3f3;color:#e53935;border-color:#e53935}
 .nav-restart-btn:disabled{opacity:.5;cursor:default}
+.app-version-badge{margin-top:8px;text-align:center;font-size:.72em;color:var(--text-muted);letter-spacing:.03em;opacity:.7;user-select:none;}
 .nav-item {
   display: flex; align-items: center;
   padding: 10px 20px;
@@ -1514,6 +1515,7 @@ body {
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
       הפעל שרת מחדש
     </button>
+    <div class="app-version-badge" id="app-version-badge">v—</div>
   </div>
 </nav>
 
@@ -2363,6 +2365,14 @@ _initMonthNav();
         window.matchMedia('(max-width:768px)').matches ? 'flex' : 'inline-block';
       if (d.running) { setLogIndicator('active'); }
       _checkStale();
+    })
+    .catch(function() {});
+  // Fetch and display app version
+  fetch('/api/version')
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      var badge = document.getElementById('app-version-badge');
+      if (badge && d.version) { badge.textContent = 'v' + d.version; }
     })
     .catch(function() {});
 })();

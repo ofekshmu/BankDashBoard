@@ -1354,6 +1354,18 @@ def status():
     return jsonify({'running': _analysis_running})
 
 
+@app.route('/api/version')
+def version():
+    """Return the app version from the VERSION file at project root."""
+    try:
+        version_path = os.path.join(_PROJECT_DIR, 'VERSION')
+        with open(version_path, encoding='utf-8') as f:
+            v = f.read().strip()
+    except Exception:
+        v = '—'
+    return jsonify({'version': v})
+
+
 @app.route('/api/stale-all')
 def stale_all():
     """Return {key: bool} stale status for every generated monthly page."""

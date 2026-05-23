@@ -20,6 +20,13 @@ import json as _json
 import builtins as _builtins
 
 import re as _re
+
+# Ensure source/ is on sys.path so sub-packages (routes/) resolve correctly
+# when Vercel imports this file from /var/task (not from /var/task/source).
+_THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+if _THIS_DIR not in sys.path:
+    sys.path.insert(0, _THIS_DIR)
+
 try:
     from dotenv import load_dotenv
     load_dotenv()

@@ -1,0 +1,14 @@
+{
+  "builds": [
+    {
+      "src": "source/WebApp.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "source/WebApp.py"
+    }
+  ]
+}

@@ -24,9 +24,15 @@ from flask import Flask, Response, request, jsonify, send_file, redirect
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 _HERE                  = os.path.dirname(os.path.abspath(__file__))
+_PROJECT_DIR           = os.path.dirname(_HERE)
+
+# Ensure CWD is always the project root so all relative paths (Personal Information/,
+# ShmuelFamiliy.db, Outputs/, etc.) resolve correctly regardless of where the
+# process was started (e.g. Vercel serverless, pytest, local terminal).
+os.chdir(_PROJECT_DIR)
+
 OUTPUT_HTML            = os.path.join(_HERE, 'html', 'output.html')
 ORGANIZER_HTML         = os.path.join(_HERE, 'html', 'Organizer_Table.html')
-_PROJECT_DIR           = os.path.dirname(_HERE)
 GENERAL_ANALYSIS_DIR   = os.path.join(_PROJECT_DIR, 'Outputs', 'general_analysis')
 CATEGORY_ANALYSIS_DIR  = os.path.join(_PROJECT_DIR, 'Outputs', 'category_analysis')
 TAGGER_HTML            = os.path.join(_HERE, 'html', 'Tagger.html')

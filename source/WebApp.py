@@ -20,22 +20,7 @@ import json as _json
 import builtins as _builtins
 
 import re as _re
-
-# Ensure source/ is on sys.path so sub-packages (routes/) resolve correctly
-# when Vercel imports this file from /var/task (not from /var/task/source).
-_THIS_DIR = os.path.dirname(os.path.abspath(__file__))
-if _THIS_DIR not in sys.path:
-    sys.path.insert(0, _THIS_DIR)
-
-try:
-    from dotenv import load_dotenv
-    load_dotenv()
-except ImportError:
-    pass  # On Vercel, env vars are injected by the platform
 from flask import Flask, Response, request, jsonify, send_file, redirect
-from routes.auth_routes import auth_bp, require_login
-from routes.activity_routes import activity_bp
-from flask_session import Session
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 _HERE                  = os.path.dirname(os.path.abspath(__file__))
@@ -64,8 +49,8 @@ _log_queue: queue.Queue = queue.Queue()
 
 # ── Debug broadcast — rolling buffer + multi-subscriber SSE ──────────────────
 _DEBUG_BUFFER_MAX = 300
-_debug_buffer: list = []        # rolling window of last N lines
-_debug_subscribers: list = []   # one queue per open /api/debug-logs connection
+_debug_buffer: list = []
+_debug_subscribers: list = []
 _debug_lock = threading.Lock()
 
 def _debug_put(line: str):
@@ -97,7 +82,7 @@ class _TeeStream:
         stripped = text.strip()
         if stripped:
             _log_queue.put(stripped)
-            _debug_put(stripped)   # also broadcast to debug panel
+            _debug_put(stripped)
 
     def flush(self):
         self._orig.flush()
@@ -247,43 +232,11 @@ def _web_cc_confirm(row_bank_dict: dict) -> bool:
     return _cc_prompt_choice
 
 # ── Flask app ─────────────────────────────────────────────────────────────────
-app = Flask(__name__, template_folder='html')
+app = Flask(__name__)
 app.config['JSON_AS_ASCII'] = False
-
-# Ensure SECRET_KEY is set (required for session management)
-secret_key = os.getenv('flask_secret_key') or os.getenv('FLASK_SECRET_KEY') or os.getenv('SECRET_KEY')
-if not secret_key:
-    secret_key = 'dev-key-change-in-production'
-    print("WARNING: flask_secret_key not set, using default dev key", flush=True)
-app.config['SECRET_KEY'] = secret_key
-app.secret_key = secret_key  # Also set directly on app object
-print(f"DEBUG: SECRET_KEY set to: {secret_key[:20]}..." if secret_key else "DEBUG: SECRET_KEY is empty!", flush=True)
-
-# Configure session cookies for serverless (using Flask's built-in signed cookies, NOT Flask-Session)
-app.config['PERMANENT_SESSION_LIFETIME'] = 86400  # 24 hours
-app.config['SESSION_COOKIE_SECURE'] = True  # HTTPS only
-app.config['SESSION_COOKIE_HTTPONLY'] = True  # No JS access
-app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-
-# Register authentication blueprints
-app.register_blueprint(auth_bp)
-app.register_blueprint(activity_bp)
-
-# Global error handler for unhandled exceptions
-@app.errorhandler(Exception)
-def handle_error(error):
-    import traceback
-    print(f"UNHANDLED ERROR: {type(error).__name__}: {str(error)}", flush=True)
-    print(traceback.format_exc(), flush=True)
-    return {
-        "error": "Internal Server Error",
-        "message": str(error),
-        "type": type(error).__name__
-    }, 500
 
 
 @app.route('/')
-@require_login
 def index():
     # Redirect to the latest monthly file if available
     if os.path.isdir(GENERAL_ANALYSIS_DIR):
@@ -1612,8 +1565,7 @@ def log_stream():
 
 @app.route('/api/debug-logs')
 def debug_log_stream():
-    """Persistent SSE stream — replays rolling buffer then forwards new lines.
-    Stays open until the client disconnects; never closes on __DONE__/__ERROR__."""
+    """Persistent SSE stream — replays rolling buffer then forwards new lines."""
     def _generate():
         sub_q: queue.Queue = queue.Queue()
         with _debug_lock:
@@ -1627,7 +1579,7 @@ def debug_log_stream():
                 try:
                     msg = sub_q.get(timeout=25)
                 except queue.Empty:
-                    yield 'data: \n\n'   # keepalive
+                    yield 'data: \n\n'
                     continue
                 safe = msg.replace('\r\n', '↵').replace('\n', '↵').replace('\r', '↵')
                 yield f'data: {safe}\n\n'
@@ -2287,7 +2239,7 @@ def tagger_save_rule():
 def tagger_categories():
     import json as _json
     try:
-        cats_path = os.path.join(_PROJECT_DIR, 'personal information', 'categories.json')
+        cats_path = os.path.join(_PROJECT_DIR, 'Personal Information', 'categories.json')
         with open(cats_path, encoding='utf-8') as f:
             cats = _json.load(f)
         db = None
@@ -2312,7 +2264,7 @@ def tagger_categories_add():
     if not name:
         return jsonify({'ok': False, 'error': 'missing name'})
     try:
-        cats_path = os.path.join(_PROJECT_DIR, 'personal information', 'categories.json')
+        cats_path = os.path.join(_PROJECT_DIR, 'Personal Information', 'categories.json')
         with open(cats_path, encoding='utf-8') as f:
             cats = _json.load(f)
         if name in cats:
@@ -2355,7 +2307,7 @@ def tagger_rules_remap():
     new_cat = (body.get('new_category') or '').strip()
     if not name or not new_cat:
         return jsonify({'ok': False, 'error': 'missing fields'})
-    cats_path = os.path.join(_PROJECT_DIR, 'personal information', 'categories.json')
+    cats_path = os.path.join(_PROJECT_DIR, 'Personal Information', 'categories.json')
     try:
         with open(cats_path, encoding='utf-8') as f:
             cats = _json.load(f)

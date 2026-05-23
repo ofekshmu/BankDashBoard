@@ -115,6 +115,22 @@ body {
 .nav-restart-btn:hover{background:#fff3f3;color:#e53935;border-color:#e53935}
 .nav-restart-btn:disabled{opacity:.5;cursor:default}
 .app-version-badge{margin-top:8px;text-align:center;font-size:.72em;color:var(--text-muted);letter-spacing:.03em;opacity:.7;user-select:none;}
+/* ── Debug log panel ─────────────────────────────────────── */
+.debug-fab{position:fixed;bottom:22px;right:18px;width:42px;height:42px;border-radius:50%;background:var(--navy);color:#fff;font-size:.72em;font-family:monospace;font-weight:700;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,0.3);z-index:997;letter-spacing:-.5px;}
+.debug-fab:hover{filter:brightness(1.2);}
+@media(max-width:768px){.debug-fab{bottom:84px;right:18px;}}
+.debug-panel{position:fixed;bottom:72px;right:16px;width:480px;max-width:calc(100vw - 32px);height:340px;background:#12121f;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.55);z-index:996;display:none;flex-direction:column;overflow:hidden;font-family:monospace;}
+.debug-panel.open{display:flex;}
+@media(max-width:768px){.debug-panel{bottom:136px;right:8px;left:8px;width:auto;}}
+.debug-hdr{display:flex;align-items:center;justify-content:space-between;padding:7px 12px;background:#0a0a18;color:#7ec8e3;font-size:.7em;font-weight:700;letter-spacing:.06em;flex-shrink:0;border-bottom:1px solid #222;}
+.debug-hdr-btns{display:flex;gap:5px;}
+.debug-hdr-btns button{background:none;border:1px solid #333;color:#888;border-radius:4px;padding:2px 8px;font-size:.9em;cursor:pointer;font-family:monospace;}
+.debug-hdr-btns button:hover{background:#1e1e2e;color:#eee;}
+.debug-feed{flex:1;overflow-y:auto;padding:6px 10px;font-size:.68em;line-height:1.55;color:#c8d8e4;}
+.debug-line{white-space:pre-wrap;word-break:break-all;padding:1px 0;border-bottom:1px solid #1a1a2a;}
+.debug-line.err{color:#ff6b6b;}
+.debug-line.warn{color:#ffa94d;}
+.debug-line.ok{color:#69db7c;}
 .nav-item {
   display: flex; align-items: center;
   padding: 10px 20px;
@@ -1519,6 +1535,19 @@ body {
   </div>
 </nav>
 
+<!-- ── Debug log FAB + panel ─────────────────────────────── -->
+<button class="debug-fab" id="debug-fab" onclick="toggleDebugPanel()" title="App logs">&lt;/&gt;</button>
+<div class="debug-panel" id="debug-panel">
+  <div class="debug-hdr">
+    <span>▸ app logs</span>
+    <div class="debug-hdr-btns">
+      <button onclick="clearDebugPanel()">clear</button>
+      <button onclick="toggleDebugPanel()">✕</button>
+    </div>
+  </div>
+  <div class="debug-feed" id="debug-feed"></div>
+</div>
+
 <!-- ── Floating log panel ────────────────────────────────── -->
 <div class="log-float" id="log-float">
   <div class="lf-header">
@@ -2376,6 +2405,44 @@ _initMonthNav();
     })
     .catch(function() {});
 })();
+
+// ── Debug log panel ───────────────────────────────────────
+var _dbgEs = null;
+
+function toggleDebugPanel() {
+  var panel = document.getElementById('debug-panel');
+  var isOpen = panel.classList.toggle('open');
+  if (isOpen && !_dbgEs) _startDebugStream();
+}
+
+function clearDebugPanel() {
+  document.getElementById('debug-feed').innerHTML = '';
+}
+
+function _startDebugStream() {
+  _dbgEs = new EventSource('/api/debug-logs');
+  _dbgEs.onmessage = function(e) {
+    if (!e.data || !e.data.trim()) return;
+    var feed = document.getElementById('debug-feed');
+    var line = document.createElement('div');
+    line.className = 'debug-line';
+    var t = e.data;
+    if (/error|exception|traceback|critical/i.test(t)) line.classList.add('err');
+    else if (/warn|warning/i.test(t)) line.classList.add('warn');
+    else if (/done|success|ok|✓/i.test(t)) line.classList.add('ok');
+    line.textContent = t;
+    feed.appendChild(line);
+    feed.scrollTop = feed.scrollHeight;
+    while (feed.children.length > 600) feed.removeChild(feed.firstChild);
+  };
+  _dbgEs.onerror = function() {
+    if (_dbgEs) { _dbgEs.close(); _dbgEs = null; }
+    var panel = document.getElementById('debug-panel');
+    if (panel && panel.classList.contains('open')) {
+      setTimeout(_startDebugStream, 3000);
+    }
+  };
+}
 
 // ── Account manager modal ─────────────────────────────────
 function openAcctModal() {

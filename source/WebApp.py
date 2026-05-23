@@ -229,9 +229,9 @@ Session(app)
 # Global error handler for unhandled exceptions
 @app.errorhandler(Exception)
 def handle_error(error):
-    utils.log(f"UNHANDLED ERROR: {type(error).__name__}: {str(error)}", 'error')
     import traceback
-    utils.log(traceback.format_exc(), 'error')
+    print(f"UNHANDLED ERROR: {type(error).__name__}: {str(error)}", flush=True)
+    print(traceback.format_exc(), flush=True)
     return {
         "error": "Internal Server Error",
         "message": str(error),

@@ -2,10 +2,12 @@ import os
 import hmac
 import secrets
 from datetime import datetime
-from dotenv import load_dotenv
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass  # On Vercel, env vars are injected by the platform
 from src_utils.utils import utils
-
-load_dotenv()
 
 class AuthManager:
     """Manage authentication for the application"""

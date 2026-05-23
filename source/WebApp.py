@@ -223,6 +223,7 @@ if not secret_key:
     secret_key = 'dev-key-change-in-production'
     print("WARNING: FLASK_SECRET_KEY not set, using default dev key", flush=True)
 app.config['SECRET_KEY'] = secret_key
+print(f"DEBUG: SECRET_KEY set to: {secret_key[:20]}..." if secret_key else "DEBUG: SECRET_KEY is empty!", flush=True)
 
 # Register authentication blueprints
 app.register_blueprint(auth_bp)

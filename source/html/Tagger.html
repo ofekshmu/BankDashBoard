@@ -254,6 +254,16 @@ body {
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   margin-bottom: 3px;
 }
+.tx-name-secondary {
+  display: block;
+  font-size: .75em;
+  font-weight: 400;
+  color: var(--text-muted);
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .tx-meta {
   display: flex; gap: 12px; flex-wrap: wrap;
   font-size: .76em; color: var(--text-muted);
@@ -952,6 +962,7 @@ async function loadUntagged(manual = false) {
 
 function renderUntagged() {
   const el = document.getElementById('untagged-list');
+  _cleanupLiftedDropdowns(el);
 
   const items = _untaggedCardFilter
     ? _untaggedItems.filter(tx => tx.table_name === 'CardTransactions' && String(tx.card_id) === _untaggedCardFilter)
@@ -1029,10 +1040,10 @@ function buildUntaggedRow(tx, idx) {
 
   if (isCard) {
     // Card: show both values + card number
-    const txVal  = fmtMoney(tx.transaction_value, tx.currency);
-    const chgVal = fmtMoney(tx.charge_value, 'ILS');
-    if (tx.transaction_value != null) metaHtml += `<span>ע. עסקה: <span class="val ${tx.transaction_value < 0 ? 'pos' : 'neg'}">${txVal}</span></span>`;
-    if (tx.charge_value      != null) metaHtml += `<span>ע. חיוב: <span class="val ${tx.charge_value < 0 ? 'pos' : 'neg'}">${chgVal}</span></span>`;
+    const chgVal = fmtMoney(tx.charge_value, tx.currency);
+    const txVal  = fmtMoney(tx.transaction_value, tx.value_currency || 'ILS');
+    if (tx.charge_value      != null) metaHtml += `<span>ע. עסקה: <span class="val ${tx.charge_value < 0 ? 'pos' : 'neg'}">${chgVal}</span></span>`;
+    if (tx.transaction_value != null) metaHtml += `<span>ע. חיוב: <span class="val ${tx.transaction_value < 0 ? 'pos' : 'neg'}">${txVal}</span></span>`;
     if (tx.card_id) metaHtml += `<span>כרטיס: <span class="val">${esc(String(tx.card_id))}</span></span>`;
   } else {
     // Bank: single value with direction label
@@ -1091,6 +1102,7 @@ async function loadHighValue(manual = false) {
   _loading.highval = true;
   if (_retryTimer.highval) { clearTimeout(_retryTimer.highval); _retryTimer.highval = null; }
   const el = document.getElementById('highval-list');
+  _cleanupLiftedDropdowns(el);
   el.innerHTML = skeletons(2);
   const ctrl = new AbortController();
   const tout = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
@@ -1127,10 +1139,10 @@ function buildHighValRow(tx, idx) {
 
   let metaHtml = `<span>תאריך: <span class="val">${execD}</span></span>`;
   if (isCard) {
-    const chgVal = fmtMoney(tx.charge_value, 'ILS');
-    const txVal  = fmtMoney(tx.transaction_value, tx.currency);
-    if (tx.transaction_value != null) metaHtml += `<span>ע. עסקה: <span class="val ${tx.transaction_value < 0 ? 'pos' : 'neg'}">${txVal}</span></span>`;
-    if (tx.charge_value      != null) metaHtml += `<span>ע. חיוב: <span class="val ${tx.charge_value < 0 ? 'pos' : 'neg'}">${chgVal}</span></span>`;
+    const chgVal = fmtMoney(tx.charge_value, tx.currency);
+    const txVal  = fmtMoney(tx.transaction_value, tx.value_currency || 'ILS');
+    if (tx.charge_value      != null) metaHtml += `<span>ע. עסקה: <span class="val ${tx.charge_value < 0 ? 'pos' : 'neg'}">${chgVal}</span></span>`;
+    if (tx.transaction_value != null) metaHtml += `<span>ע. חיוב: <span class="val ${tx.transaction_value < 0 ? 'pos' : 'neg'}">${txVal}</span></span>`;
     if (tx.card_id) metaHtml += `<span>כרטיס: <span class="val">${esc(String(tx.card_id))}</span></span>`;
   } else {
     const hasOut = tx.charge_value      != null && tx.charge_value      > 0;
@@ -1188,6 +1200,7 @@ async function loadTagged(manual = false) {
   _loading.tagged = true;
   if (_retryTimer.tagged) { clearTimeout(_retryTimer.tagged); _retryTimer.tagged = null; }
   const el = document.getElementById('tagged-list');
+  _cleanupLiftedDropdowns(el);
   el.innerHTML = skeletons(2);
   const ctrl = new AbortController();
   const tout = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
@@ -1249,8 +1262,8 @@ function buildTaggedRow(tx) {
 
   let metaHtml = `<span>תאריך: <span class="val">${execD}</span></span>`;
   if (isCard) {
-    if (tx.transaction_value != null) metaHtml += `<span>ע. עסקה: <span class="val ${tx.transaction_value < 0 ? 'pos' : 'neg'}">${fmtMoney(tx.transaction_value, tx.currency)}</span></span>`;
-    if (tx.charge_value      != null) metaHtml += `<span>ע. חיוב: <span class="val ${tx.charge_value < 0 ? 'pos' : 'neg'}">${fmtMoney(tx.charge_value, 'ILS')}</span></span>`;
+    if (tx.charge_value      != null) metaHtml += `<span>ע. עסקה: <span class="val ${tx.charge_value < 0 ? 'pos' : 'neg'}">${fmtMoney(tx.charge_value, tx.currency)}</span></span>`;
+    if (tx.transaction_value != null) metaHtml += `<span>ע. חיוב: <span class="val ${tx.transaction_value < 0 ? 'pos' : 'neg'}">${fmtMoney(tx.transaction_value, tx.value_currency || 'ILS')}</span></span>`;
   } else {
     const hasOut = tx.charge_value      != null && tx.charge_value      > 0;
     const hasIn  = tx.transaction_value != null && tx.transaction_value > 0;
@@ -1272,12 +1285,29 @@ function buildTaggedRow(tx) {
 </div>`;
 }
 
+// ── Dropdown lift helpers ──────────────────────────────────────
+function _cleanupLiftedDropdowns(container) {
+  if (!container) return;
+  container.querySelectorAll('[data-key]').forEach(row => {
+    const dd = document.getElementById('dd-' + row.dataset.key);
+    if (dd && dd.parentNode === document.body) dd.remove();
+  });
+}
+
+window.addEventListener('scroll', function() {
+  document.querySelectorAll('.cat-dropdown.open').forEach(dd => dd.classList.remove('open'));
+}, { passive: true, capture: true });
+
+window.addEventListener('resize', function() {
+  document.querySelectorAll('.cat-dropdown.open').forEach(dd => dd.classList.remove('open'));
+}, { passive: true });
+
 // ── Autocomplete logic ─────────────────────────────────────────
 function onCatInput(inp, key) {
   _touchInteraction();
   const q   = inp.value.trim();
   const btn = document.getElementById(`btn-${key}`);
-  const exact = _categories.find(c => c.name === q);
+  const exact = _categories.find(c => c.name === q) || q === 'Excluded';
   inp.classList.toggle('valid', !!exact);
   inp.classList.toggle('invalid', q.length > 0 && !exact);
   if (btn) btn.disabled = !exact;
@@ -1286,9 +1316,20 @@ function onCatInput(inp, key) {
 
 function openDropdown(inp, key) {
   _touchInteraction();
-  // Lift this row above siblings so dropdown isn't clipped
   const row = inp.closest('.tx-row');
   if (row) row.classList.add('focused-row');
+  const dd = document.getElementById(`dd-${key}`);
+  if (dd && dd.parentNode !== document.body) document.body.appendChild(dd);
+  if (dd) {
+    const r = inp.getBoundingClientRect();
+    Object.assign(dd.style, {
+      position: 'fixed',
+      top:   (r.bottom + 2) + 'px',
+      left:  Math.max(4, r.right - 220) + 'px',
+      width: '220px',
+      right: 'auto'
+    });
+  }
   renderDropdown(inp, key, inp.value.trim());
 }
 
@@ -1303,13 +1344,17 @@ function renderDropdown(inp, key, q) {
       c.name.includes(q)
     );
   }
-  if (!matches.length) { dd.classList.remove('open'); return; }
-  dd.innerHTML = matches.slice(0, 12).map((c, i) =>
+  const showExcluded = !q || 'excluded'.includes(lower);
+  const allMatches = showExcluded
+    ? [...matches, { name: 'Excluded', count: null }]
+    : matches;
+  if (!allMatches.length) { dd.classList.remove('open'); return; }
+  dd.innerHTML = allMatches.slice(0, 13).map((c, i) =>
     `<div class="cat-opt" data-val="${esc(c.name)}"
           onMouseDown="pickCategory('${esc(key)}','${esc(c.name)}')"
           id="opt-${esc(key)}-${i}">
        <span>${esc(c.name)}</span>
-       <span class="usage-badge">${c.count}</span>
+       <span class="usage-badge">${c.count != null ? c.count : '✕'}</span>
      </div>`
   ).join('');
   dd.classList.add('open');
@@ -1751,6 +1796,7 @@ async function searchTagged() {
   const q  = (document.getElementById('search-tagged-input')?.value || '').trim();
   const el = document.getElementById('search-tagged-list');
   if (!q) { showToast('הזן שם או מספר עסקה', 'error'); return; }
+  _cleanupLiftedDropdowns(el);
   el.innerHTML = skeletons(2);
   const res  = await fetch(`/api/tagger/search-tagged?q=${encodeURIComponent(q)}`).catch(() => null);
   const data = res ? await res.json().catch(() => null) : null;
@@ -1766,26 +1812,28 @@ async function searchTagged() {
 }
 
 function buildSearchResultRow(tx) {
-  const isCard = tx.table_name === 'CardTransactions';
-  const icon   = isCard ? '💳' : '🏦';
-  const cls    = isCard ? 'card' : 'bank';
-  const name   = esc(tx.name || '—');
-  const execD  = fmtDate(tx.exec_date);
-  const key    = `sr_${tx.table_name}__${tx.id}`;
-  const auto   = tx.reserved !== 0;
-  const catCls = auto ? 'cat-label auto' : 'cat-label';
+  const isCard      = tx.table_name === 'CardTransactions';
+  const icon        = isCard ? '💳' : '🏦';
+  const cls         = isCard ? 'card' : 'bank';
+  const name        = esc(tx.name || '—');
+  const execD       = fmtDate(tx.exec_date);
+  const key         = `sr_${tx.table_name}__${tx.id}`;
+  const auto        = tx.reserved !== 0;
+  const catCls      = auto ? 'cat-label auto' : 'cat-label';
+  const existingDesc = (tx.description || '').trim();
 
-  let metaHtml = `<span>תאריך: <span class="val">${execD}</span></span>`;
+  // ID is first = rightmost in RTL layout
+  let metaHtml = `<span>ID: <span class="val">${tx.id}</span></span>`;
+  metaHtml += `<span>תאריך: <span class="val">${execD}</span></span>`;
   if (isCard) {
-    if (tx.transaction_value != null) metaHtml += `<span>ע. עסקה: <span class="val ${tx.transaction_value < 0 ? 'pos' : 'neg'}">${fmtMoney(tx.transaction_value, tx.currency)}</span></span>`;
-    if (tx.charge_value      != null) metaHtml += `<span>ע. חיוב: <span class="val ${tx.charge_value < 0 ? 'pos' : 'neg'}">${fmtMoney(tx.charge_value, 'ILS')}</span></span>`;
+    if (tx.charge_value      != null) metaHtml += `<span>ע. עסקה: <span class="val ${tx.charge_value < 0 ? 'pos' : 'neg'}">${fmtMoney(tx.charge_value, tx.currency)}</span></span>`;
+    if (tx.transaction_value != null) metaHtml += `<span>ע. חיוב: <span class="val ${tx.transaction_value < 0 ? 'pos' : 'neg'}">${fmtMoney(tx.transaction_value, tx.value_currency || 'ILS')}</span></span>`;
   } else {
     const hasOut = tx.charge_value      != null && tx.charge_value      > 0;
     const hasIn  = tx.transaction_value != null && tx.transaction_value > 0;
-    if (hasOut)      metaHtml += `<span>הוצאה: <span class="val neg">${fmtMoney(tx.charge_value, 'ILS')}</span></span>`;
-    else if (hasIn)  metaHtml += `<span>הכנסה: <span class="val pos">${fmtMoney(tx.transaction_value, 'ILS')}</span></span>`;
+    if (hasOut)     metaHtml += `<span>הוצאה: <span class="val neg">${fmtMoney(tx.charge_value, 'ILS')}</span></span>`;
+    else if (hasIn) metaHtml += `<span>הכנסה: <span class="val pos">${fmtMoney(tx.transaction_value, 'ILS')}</span></span>`;
   }
-  metaHtml += `<span>ID: <span class="val">${tx.id}</span></span>`;
 
   return `
 <div class="tx-row is-tagged" id="row-${esc(key)}" data-key="${esc(key)}"
@@ -1794,7 +1842,10 @@ function buildSearchResultRow(tx) {
   <div class="tx-body">
     <div class="tx-top">
       <div class="tx-info">
-        <div class="tx-name" title="${name}">${name}</div>
+        <div class="tx-name" title="${name}">
+          ${name}
+          ${existingDesc ? `<span class="tx-name-secondary">${esc(existingDesc)}</span>` : ''}
+        </div>
         <div class="tx-meta">${metaHtml}</div>
       </div>
       <div class="tx-actions">
@@ -1814,6 +1865,15 @@ function buildSearchResultRow(tx) {
         <button class="btn btn-primary" onclick="retagSearchRow('${esc(key)}')"
                 disabled id="btn-${esc(key)}">שנה</button>
       </div>
+    </div>
+    <div class="tx-desc-row">
+      <span class="tx-desc-label">📝 הערה:</span>
+      <input class="desc-input" type="text"
+             placeholder="תיאור (אופציונלי)…"
+             value="${esc(existingDesc)}"
+             autocomplete="off"
+             id="desc-${esc(key)}"
+             oninput="_touchInteraction()"/>
     </div>
   </div>
 </div>`;
@@ -2157,18 +2217,23 @@ async function retagSearchRow(key) {
   const id       = parseInt(row.dataset.id);
   const inp      = document.getElementById(`inp-${key}`);
   const category = inp ? inp.value.trim() : '';
+  const descInp  = document.getElementById(`desc-${key}`);
+  const newDesc  = descInp ? descInp.value.trim() : '';
 
-  if (!category || !_categories.find(c => c.name === category)) {
+  if (!category || (!_categories.find(c => c.name === category) && category !== 'Excluded')) {
     showToast('בחר קטגוריה תקינה', 'error');
     return;
   }
 
   setRowLoading(key, true);
 
+  const body = { table, id, category, auto: false };
+  if (newDesc) body.description = newDesc;
+
   const res  = await fetch('/api/tagger/tag', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({ table, id, category, auto: false })
+    body: JSON.stringify(body)
   }).catch(() => null);
   const data = res ? await res.json().catch(() => null) : null;
 
@@ -2180,6 +2245,15 @@ async function retagSearchRow(key) {
     if (inp)   { inp.value = ''; inp.classList.remove('valid', 'invalid'); }
     const btn = document.getElementById(`btn-${key}`);
     if (btn)   btn.disabled = true;
+    // Update the displayed description if a new one was saved
+    if (newDesc) {
+      const nameEl = row.querySelector('.tx-name');
+      if (nameEl) {
+        let sec = nameEl.querySelector('.tx-name-secondary');
+        if (!sec) { sec = document.createElement('span'); sec.className = 'tx-name-secondary'; nameEl.appendChild(sec); }
+        sec.textContent = newDesc;
+      }
+    }
     showToast(`קטגוריה עודכנה ל-"${category}" — מחשב מחדש ברקע…`, 'success');
     _triggerRegen();
   } else {

@@ -12,6 +12,6 @@ gunicorn==21.2.0
 send2trash==1.8.2
 tqdm==4.66.1
 python-dateutil==2.8.2
-numpy==1.24.3
+numpy==1.26.4
 seaborn==0.12.2
 xlwings==0.30.4

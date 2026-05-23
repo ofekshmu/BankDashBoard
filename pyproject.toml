@@ -15,6 +15,7 @@ dependencies = [
     "selenium==4.15.0",
     "requests==2.31.0",
     "gunicorn==21.2.0",
+    "send2trash==1.8.2",
 ]
 
 [tool.vercel]

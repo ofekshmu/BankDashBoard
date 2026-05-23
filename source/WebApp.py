@@ -20,10 +20,14 @@ import json as _json
 import builtins as _builtins
 
 import re as _re
+from dotenv import load_dotenv
 from flask import Flask, Response, request, jsonify, send_file, redirect
 from routes.auth_routes import auth_bp, require_login
 from routes.activity_routes import activity_bp
 from flask_session import Session
+
+# Load environment variables from .env file if present (for local development)
+load_dotenv()
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 _HERE                  = os.path.dirname(os.path.abspath(__file__))
@@ -212,7 +216,13 @@ def _web_cc_confirm(row_bank_dict: dict) -> bool:
 # ── Flask app ─────────────────────────────────────────────────────────────────
 app = Flask(__name__, template_folder='html')
 app.config['JSON_AS_ASCII'] = False
-app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY', 'dev-key-change-in-production')
+
+# Ensure SECRET_KEY is set (required for session management)
+secret_key = os.getenv('FLASK_SECRET_KEY') or os.getenv('SECRET_KEY')
+if not secret_key:
+    secret_key = 'dev-key-change-in-production'
+    print("WARNING: FLASK_SECRET_KEY not set, using default dev key", flush=True)
+app.config['SECRET_KEY'] = secret_key
 
 # Register authentication blueprints
 app.register_blueprint(auth_bp)

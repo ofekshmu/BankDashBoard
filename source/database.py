@@ -1567,7 +1567,7 @@ class DataBase:
 
     def total_income(self, name_for_analysis: str, case: Literal[0, 1]) -> float:
         """
-        Returns the total sum of all spendings of a chosen category \ business transactions
+        Returns the total sum of all spendings of a chosen category or business transactions
         case 0: Category
         case 1: Business
         """

@@ -20,14 +20,15 @@ import json as _json
 import builtins as _builtins
 
 import re as _re
-from dotenv import load_dotenv
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass  # On Vercel, env vars are injected by the platform
 from flask import Flask, Response, request, jsonify, send_file, redirect
 from routes.auth_routes import auth_bp, require_login
 from routes.activity_routes import activity_bp
 from flask_session import Session
-
-# Load environment variables from .env file if present (for local development)
-load_dotenv()
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 _HERE                  = os.path.dirname(os.path.abspath(__file__))

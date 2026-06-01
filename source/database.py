@@ -199,6 +199,38 @@ class DataBase:
                     Dismissed_At        TEXT    DEFAULT (datetime('now'))
                     );""")
 
+                cls.__instance.cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS SpotifyMembers (
+                    ID          INTEGER PRIMARY KEY AUTOINCREMENT,
+                    Name        TEXT    NOT NULL,
+                    Is_Exempt   INTEGER NOT NULL DEFAULT 0,
+                    Is_Active   INTEGER NOT NULL DEFAULT 1,
+                    Created_At  TEXT    DEFAULT (datetime('now'))
+                    );""")
+
+                cls.__instance.cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS SpotifyMonthlyCharge (
+                    ID           INTEGER PRIMARY KEY AUTOINCREMENT,
+                    Month        TEXT    NOT NULL UNIQUE,
+                    Total_Amount REAL    NOT NULL,
+                    Member_Count INTEGER NOT NULL,
+                    TX_ID        INTEGER,
+                    Confirmed    INTEGER NOT NULL DEFAULT 0,
+                    Created_At   TEXT    DEFAULT (datetime('now'))
+                    );""")
+
+                cls.__instance.cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS SpotifyMemberPayments (
+                    ID           INTEGER PRIMARY KEY AUTOINCREMENT,
+                    Member_ID    INTEGER NOT NULL,
+                    Amount       REAL    NOT NULL,
+                    Payment_Date TEXT    NOT NULL,
+                    TX_ID        INTEGER,
+                    Note         TEXT,
+                    Created_At   TEXT    DEFAULT (datetime('now')),
+                    FOREIGN KEY(Member_ID) REFERENCES SpotifyMembers(ID)
+                    );""")
+
         return cls.__instance
 
     def insert_bank_transaction(self,

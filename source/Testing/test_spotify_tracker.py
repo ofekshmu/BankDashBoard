@@ -118,6 +118,46 @@ def test_compute_balance_even():
     print("PASS: compute_balance even")
 
 
+def test_full_balance_flow():
+    from SpotifyTracker import compute_all_balances
+    db = DataBase()
+
+    # Setup: 3 members (1 exempt, 2 paying), 2 months of charges
+    db.cursor.execute("DELETE FROM SpotifyMemberPayments WHERE Member_ID IN (SELECT ID FROM SpotifyMembers WHERE Name LIKE 'E2E_%')")
+    db.cursor.execute("DELETE FROM SpotifyMembers WHERE Name LIKE 'E2E_%'")
+    db.cursor.execute("DELETE FROM SpotifyMonthlyCharge WHERE Month IN ('2099-03','2099-04')")
+    db.commit_changes()
+
+    owner_id = db.add_spotify_member('E2E_Owner', is_exempt=1)
+    alice_id = db.add_spotify_member('E2E_Alice', is_exempt=0)
+    bob_id   = db.add_spotify_member('E2E_Bob',   is_exempt=0)
+
+    # 2 months, 3 members → share = 120/3 = 40 per person
+    db.add_spotify_charge('2099-03', total_amount=120.0, member_count=3, confirmed=1)
+    db.add_spotify_charge('2099-04', total_amount=120.0, member_count=3, confirmed=1)
+
+    # Alice pays for both months (80 total — even)
+    db.add_spotify_payment(alice_id, 80.0, '2099-03-10')
+
+    # Bob pays only once (40 — owes 1 month)
+    db.add_spotify_payment(bob_id, 40.0, '2099-03-15')
+
+    balances = compute_all_balances(db)
+    bal_by_name = {b['name']: b for b in balances}
+
+    assert 'E2E_Owner' not in bal_by_name, "Exempt member must not appear in balances"
+    assert bal_by_name['E2E_Alice']['status'] == 'even',  f"Alice should be even, got {bal_by_name['E2E_Alice']}"
+    assert bal_by_name['E2E_Bob']['status']   == 'owes',  f"Bob should owe, got {bal_by_name['E2E_Bob']}"
+    assert bal_by_name['E2E_Bob']['months_status'] == -1, f"Bob should owe 1 month, got {bal_by_name['E2E_Bob']['months_status']}"
+
+    # Cleanup
+    db.cursor.execute("DELETE FROM SpotifyMemberPayments WHERE Member_ID IN (?,?)", (alice_id, bob_id))
+    db.cursor.execute("DELETE FROM SpotifyMembers WHERE ID IN (?,?,?)", (owner_id, alice_id, bob_id))
+    db.cursor.execute("DELETE FROM SpotifyMonthlyCharge WHERE Month IN ('2099-03','2099-04')")
+    db.commit_changes()
+    print("PASS: full balance flow e2e")
+
+
 if __name__ == '__main__':
     test_spotify_tables_exist()
     print("PASS: all Spotify tables exist")
@@ -127,4 +167,5 @@ if __name__ == '__main__':
     test_compute_balance_owes()
     test_compute_balance_ahead()
     test_compute_balance_even()
+    test_full_balance_flow()
     print("\nAll tests passed")

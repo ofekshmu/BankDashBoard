@@ -1,0 +1,1181 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spotify Tracker</title>
+<style>
+:root {
+  --teal:       #1e9d8b;
+  --teal-light: #e8f7f5;
+  --teal-dark:  #178878;
+  --teal-glow:  rgba(30,157,139,.28);
+  --navy:       #1e2a4a;
+  --bg:         #f4f6f9;
+  --white:      #ffffff;
+  --border:     #eef0f6;
+  --text-muted: #888;
+  --text-sub:   #555;
+  --red:        #e74c3c;
+  --amber:      #f0b429;
+  --green:      #2ecc71;
+  --shadow-sm:  0 2px 10px rgba(0,0,0,.06);
+  --shadow-md:  0 6px 20px rgba(0,0,0,.10);
+  --radius:     14px;
+  --radius-sm:  8px;
+}
+*,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Segoe UI', Arial, sans-serif;
+  background: var(--bg);
+  min-height: 100vh;
+  direction: rtl;
+  color: var(--navy);
+  font-size: 14px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Hamburger + slide-in nav ─────────────────────────────── */
+.ham-btn {
+  position: fixed; top: 14px; right: 14px; z-index: 500;
+  width: 36px; height: 36px;
+  background: var(--white); border: 1.5px solid var(--border);
+  border-radius: 9px; display: flex; align-items: center; justify-content: center;
+  cursor: pointer; color: var(--navy); box-shadow: var(--shadow-sm);
+  transition: background .15s, color .15s, border-color .15s;
+}
+.ham-btn:hover { background: var(--teal); border-color: var(--teal); color: #fff; }
+.ham-btn.open { opacity: 0; pointer-events: none; }
+.nav-overlay {
+  position: fixed; inset: 0;
+  background: rgba(15,22,45,.26);
+  z-index: 490; opacity: 0; pointer-events: none;
+  transition: opacity .22s ease;
+}
+.nav-overlay.open { opacity: 1; pointer-events: all; }
+.sidebar {
+  position: fixed; top: 0; right: 0;
+  height: 100vh; width: 230px;
+  background: var(--white); z-index: 495;
+  transform: translate3d(100%, 0, 0);
+  transition: transform .22s cubic-bezier(.4,0,.2,1);
+  will-change: transform;
+  box-shadow: -4px 0 24px rgba(0,0,0,.09);
+  display: flex; flex-direction: column;
+}
+.sidebar.open { transform: translate3d(0, 0, 0); }
+.sidebar-header {
+  display: flex; align-items: center;
+  padding: 20px 20px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.sidebar-app-name { font-size: .95em; font-weight: 700; color: var(--navy); }
+.sidebar-close-btn {
+  margin-right: auto; background: none; border: none;
+  cursor: pointer; font-size: 1.1em; color: var(--text-sub);
+  line-height: 1; padding: 4px 6px; border-radius: 6px;
+  transition: background .12s, color .12s;
+}
+.sidebar-close-btn:hover { background: var(--teal-light); color: var(--teal); }
+.sidebar-scroll { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 8px 0 16px; }
+.sidebar-footer { padding: 12px 16px; border-top: 1px solid var(--border); flex-shrink: 0; }
+.nav-restart-btn {
+  width: 100%; padding: 8px 12px;
+  border: 1.5px dashed var(--border); border-radius: 8px;
+  background: none; color: var(--text-muted);
+  font-size: .78em; font-weight: 600; cursor: pointer;
+  font-family: inherit; display: flex; align-items: center;
+  gap: 7px; justify-content: center;
+  transition: background .15s, color .15s, border-color .15s;
+}
+.nav-restart-btn:hover { background: #fff3f3; color: #e53935; border-color: #e53935; }
+.nav-restart-btn:disabled { opacity: .5; cursor: default; }
+.nav-item {
+  display: flex; align-items: center; padding: 10px 20px;
+  text-decoration: none; color: var(--text-sub);
+  font-size: .875em; font-weight: 500;
+  transition: background .1s, color .1s;
+  cursor: pointer; border: none; background: none;
+  width: 100%; text-align: right;
+  position: relative; letter-spacing: .1px; font-family: inherit;
+}
+.nav-item::before {
+  content: ''; position: absolute; right: 0; top: 22%; height: 56%;
+  width: 3px; border-radius: 3px 0 0 3px;
+  background: transparent; transition: background .1s;
+}
+.nav-item:hover { background: var(--teal-light); color: var(--teal); }
+.nav-item:hover::before { background: var(--teal); }
+.nav-item.active { color: #b8c0d0; cursor: default; pointer-events: none; }
+.nav-sep { height: 1px; background: var(--border); margin: 8px 16px; }
+
+/* ── Page layout ──────────────────────────────────────────── */
+.page-wrap { flex: 1; display: flex; flex-direction: column; padding-bottom: 60px; }
+
+/* ── Page header ──────────────────────────────────────────── */
+.page-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 60px 9px 14px;
+  border-bottom: 1.5px solid var(--border);
+  flex-shrink: 0; background: var(--white);
+}
+.page-title { font-size: 1em; font-weight: 700; }
+.spacer { flex: 1; }
+
+/* ── Buttons ──────────────────────────────────────────────── */
+.btn {
+  padding: 7px 14px; border: none; border-radius: 8px;
+  cursor: pointer; font-size: 0.82em; font-weight: 600;
+  font-family: inherit;
+  transition: background .13s, transform .08s, box-shadow .13s;
+  display: inline-flex; align-items: center; gap: 5px;
+}
+.btn:hover { transform: translateY(-1px); }
+.btn-primary { background: var(--teal); color: #fff; }
+.btn-primary:hover { background: var(--teal-dark); }
+.btn-ghost {
+  background: none; color: var(--navy);
+  border: 1.5px solid var(--border);
+}
+.btn-ghost:hover { border-color: var(--teal); color: var(--teal); background: var(--teal-light); }
+.btn-sm { padding: 5px 11px; font-size: .8em; }
+.btn-xs { padding: 4px 9px; font-size: .77em; }
+.btn-danger { background: var(--red); color: #fff; }
+.btn-danger:hover { background: #c0392b; }
+
+/* ── Charge banner ────────────────────────────────────────── */
+.charge-banner {
+  background: #fffbea;
+  border-bottom: 2px solid var(--amber);
+  padding: 10px 20px;
+  display: flex; align-items: center; gap: 12px;
+  font-size: .88em; font-weight: 500;
+}
+.charge-banner-icon { font-size: 1.3em; }
+.charge-banner-text { flex: 1; color: #7a5100; }
+
+/* ── Summary bar ──────────────────────────────────────────── */
+.summary-bar {
+  background: var(--navy);
+  padding: 12px 20px;
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+}
+.summary-chip {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 6px 14px; border-radius: 20px;
+  background: rgba(255,255,255,.08);
+  font-size: .78em; font-weight: 600; color: rgba(255,255,255,.7);
+  min-width: 80px;
+}
+.summary-chip .chip-val {
+  font-size: 1.3em; font-weight: 700; color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+.summary-chip.red .chip-val { color: #ff8a8a; }
+.summary-chip.amber .chip-val { color: #ffc34d; }
+
+/* ── Tabs ─────────────────────────────────────────────────── */
+.tabs-bar {
+  background: var(--white);
+  border-bottom: 1.5px solid var(--border);
+  display: flex; align-items: center;
+  padding: 0 20px; gap: 4px;
+  overflow-x: auto; flex-shrink: 0;
+}
+.tab-btn {
+  padding: 11px 14px; border: none; background: none;
+  cursor: pointer; font-family: inherit;
+  font-size: .83em; font-weight: 600;
+  color: var(--text-sub);
+  border-bottom: 2.5px solid transparent;
+  margin-bottom: -1.5px;
+  transition: color .14s, border-color .14s;
+  white-space: nowrap; display: flex; align-items: center; gap: 5px;
+}
+.tab-btn:hover { color: var(--teal); }
+.tab-btn.active { color: var(--teal); border-bottom-color: var(--teal); }
+.tab-badge {
+  font-size: .75em; font-weight: 700; border-radius: 12px;
+  padding: 1px 7px;
+}
+.tab-badge.owes { background: rgba(231,76,60,.12); color: var(--red); }
+.tab-badge.even { background: rgba(46,204,113,.12); color: #1a7a40; }
+.tab-badge.ahead { background: rgba(30,157,139,.12); color: var(--teal); }
+
+/* ── Tab panels ───────────────────────────────────────────── */
+.tab-panel { display: none; padding: 20px; }
+.tab-panel.active { display: block; }
+
+/* ── Member grid (overview) ───────────────────────────────── */
+.member-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px; margin-bottom: 24px;
+}
+.member-card {
+  background: var(--white); border-radius: var(--radius);
+  box-shadow: var(--shadow-sm); padding: 16px 18px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.member-card-name { font-size: .95em; font-weight: 700; color: var(--navy); }
+.member-card-balance {
+  font-size: 1.15em; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.member-card-balance.owes { color: var(--red); }
+.member-card-balance.even { color: var(--green); }
+.member-card-balance.ahead { color: var(--teal); }
+.member-card-meta { font-size: .78em; color: var(--text-muted); }
+
+/* ── Tables ───────────────────────────────────────────────── */
+.section-title {
+  font-size: .8em; font-weight: 700; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: .5px;
+  margin-bottom: 10px; margin-top: 20px;
+}
+.data-table {
+  width: 100%; border-collapse: collapse;
+  background: var(--white); border-radius: var(--radius);
+  box-shadow: var(--shadow-sm); overflow: hidden;
+  font-size: .84em;
+}
+.data-table th {
+  background: #f8f9fc; padding: 10px 14px;
+  text-align: right; font-size: .77em; font-weight: 700;
+  color: var(--text-muted); text-transform: uppercase; letter-spacing: .4px;
+  border-bottom: 1px solid var(--border);
+}
+.data-table td {
+  padding: 10px 14px; border-bottom: 1px solid var(--border);
+  color: var(--navy); vertical-align: middle;
+}
+.data-table tr:last-child td { border-bottom: none; }
+.data-table tr:hover td { background: #fafbfc; }
+.table-wrap { overflow-x: auto; border-radius: var(--radius); }
+.empty-row td { text-align: center; color: var(--text-muted); padding: 24px; font-style: italic; }
+
+/* ── Member detail layout ─────────────────────────────────── */
+.member-detail {
+  display: flex; gap: 18px; align-items: flex-start; flex-wrap: wrap;
+}
+.member-info-card {
+  width: 220px; flex-shrink: 0;
+  background: var(--white); border-radius: var(--radius);
+  box-shadow: var(--shadow-sm); padding: 18px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.member-info-name { font-size: 1.1em; font-weight: 700; color: var(--navy); }
+.balance-card {
+  border-radius: 10px; padding: 12px;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.balance-card.owes { background: rgba(231,76,60,.1); }
+.balance-card.even { background: rgba(46,204,113,.1); }
+.balance-card.ahead { background: rgba(30,157,139,.1); }
+.balance-card-label { font-size: .72em; font-weight: 700; color: var(--text-muted); text-transform: uppercase; }
+.balance-card-amount {
+  font-size: 1.6em; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.balance-card.owes .balance-card-amount { color: var(--red); }
+.balance-card.even .balance-card-amount { color: var(--green); }
+.balance-card.ahead .balance-card-amount { color: var(--teal); }
+.share-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: var(--teal-light); color: var(--teal);
+  border-radius: 20px; padding: 4px 12px;
+  font-size: .78em; font-weight: 700;
+}
+.member-right-panel { flex: 1; min-width: 0; }
+
+/* ── Assign dropdown in table ─────────────────────────────── */
+.assign-sel {
+  border: 1.5px solid var(--border); border-radius: 6px;
+  padding: 4px 8px; font-size: .8em; color: var(--navy);
+  background: var(--white); font-family: inherit; cursor: pointer;
+  max-width: 140px;
+}
+.assign-sel:focus { border-color: var(--teal); outline: none; }
+
+/* ── Modals ───────────────────────────────────────────────── */
+.modal-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(15,22,45,.38);
+  z-index: 600; display: none;
+  align-items: center; justify-content: center;
+}
+.modal-backdrop.open { display: flex; }
+.modal {
+  background: var(--white); border-radius: var(--radius);
+  box-shadow: 0 16px 48px rgba(0,0,0,.18);
+  padding: 28px 28px 24px;
+  width: 460px; max-width: calc(100vw - 32px);
+  max-height: 90vh; overflow-y: auto;
+  direction: rtl; position: relative;
+}
+.modal-title { font-size: 1.05em; font-weight: 700; margin-bottom: 20px; }
+.modal-close-btn {
+  position: absolute; top: 16px; left: 18px;
+  background: none; border: none; cursor: pointer;
+  font-size: 1.1em; color: var(--text-muted);
+  padding: 4px 6px; border-radius: 6px;
+  transition: background .12s, color .12s;
+}
+.modal-close-btn:hover { background: var(--teal-light); color: var(--teal); }
+.modal-footer { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+.field-row { margin-bottom: 14px; }
+.field-label {
+  font-size: .72em; font-weight: 700; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: .5px; margin-bottom: 5px; display: block;
+}
+.field-input {
+  width: 100%; padding: 9px 13px;
+  border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+  font-size: .88em; color: var(--navy); background: var(--white);
+  outline: none; font-family: inherit; direction: rtl;
+  transition: border-color .18s, box-shadow .18s;
+}
+.field-input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(30,157,139,.12); }
+.field-checkbox-row {
+  display: flex; align-items: center; gap: 8px;
+  font-size: .88em; color: var(--navy); cursor: pointer;
+}
+
+/* ── Unmatched tx list (in assign modal) ──────────────────── */
+.tx-list { display: flex; flex-direction: column; gap: 6px; max-height: 200px; overflow-y: auto; margin-bottom: 16px; }
+.tx-item {
+  border: 1.5px solid var(--border); border-radius: 8px;
+  padding: 9px 13px; cursor: pointer; display: flex;
+  align-items: center; justify-content: space-between;
+  transition: border-color .12s, background .12s;
+  font-size: .84em;
+}
+.tx-item:hover { border-color: var(--teal); background: var(--teal-light); }
+.tx-item.selected { border-color: var(--teal); background: var(--teal-light); }
+.tx-item-amount { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--teal); }
+.tx-item-date { color: var(--text-muted); font-size: .9em; }
+.tx-divider { border: none; border-top: 1px solid var(--border); margin: 12px 0; }
+
+/* ── Suggestion highlight ─────────────────────────────────── */
+.suggestion-box {
+  background: var(--teal-light); border: 1.5px solid var(--teal);
+  border-radius: 8px; padding: 10px 14px; margin-bottom: 14px;
+  font-size: .85em; color: var(--teal); font-weight: 500;
+  display: flex; align-items: center; gap: 8px;
+}
+
+/* ── Spinner ──────────────────────────────────────────────── */
+.spinner { width: 28px; height: 28px; border: 3px solid rgba(30,157,139,.2); border-top-color: var(--teal); border-radius: 50%; animation: spin .7s linear infinite; margin: 0 auto; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-wrap { padding: 40px 0; text-align: center; }
+.loading-label { margin-top: 10px; color: var(--text-muted); font-size: .85em; }
+
+/* ── Amount formatting ────────────────────────────────────── */
+.amount-neg { color: var(--red); font-weight: 700; font-variant-numeric: tabular-nums; }
+.amount-pos { color: var(--green); font-weight: 700; font-variant-numeric: tabular-nums; }
+.btn-icon-del { background: none; border: none; cursor: pointer; color: var(--text-muted); padding: 3px 6px; border-radius: 5px; font-size: .9em; transition: color .12s, background .12s; }
+.btn-icon-del:hover { color: var(--red); background: rgba(231,76,60,.08); }
+</style>
+</head>
+<body>
+
+<!-- Hamburger -->
+<button class="ham-btn" id="ham-btn" onclick="toggleNav()" aria-label="תפריט">
+  <svg width="18" height="14" viewBox="0 0 18 14" fill="none">
+    <rect width="18" height="2" rx="1" fill="currentColor"/>
+    <rect y="6" width="18" height="2" rx="1" fill="currentColor"/>
+    <rect y="12" width="18" height="2" rx="1" fill="currentColor"/>
+  </svg>
+</button>
+
+<!-- Nav overlay -->
+<div class="nav-overlay" id="nav-overlay" onclick="toggleNav()"></div>
+
+<!-- Sidebar -->
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <span class="sidebar-app-name">Menu</span>
+    <button class="sidebar-close-btn" onclick="closeNav()" aria-label="סגור תפריט">✕</button>
+  </div>
+  <div class="sidebar-scroll">
+    <a class="nav-item" href="/">ניתוח חודשי</a>
+    <a class="nav-item" href="/accounts">חשבונות</a>
+    <a class="nav-item" href="/housing">דיור</a>
+    <a class="nav-item" href="/organizer">ארגונית</a>
+    <a class="nav-item" href="/bills">מעקב חשבונות</a>
+    <a class="nav-item" href="/categories">ניתוח קטגוריאלי</a>
+    <a class="nav-item" href="/search">חיפוש</a>
+    <a class="nav-item active" href="/spotify">Spotify Tracker</a>
+    <div class="nav-sep"></div>
+    <a class="nav-item" href="/tagger">תייגן</a>
+    <a class="nav-item" href="/files">קבצים</a>
+  </div>
+  <div class="sidebar-footer">
+    <button class="nav-restart-btn" onclick="restartServer(this)">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
+      הפעל שרת מחדש
+    </button>
+  </div>
+</nav>
+
+<!-- Page wrap -->
+<div class="page-wrap">
+
+  <!-- Page header -->
+  <div class="page-header">
+    <span class="page-title">🎵 Spotify Tracker</span>
+    <span class="spacer"></span>
+    <button class="btn btn-ghost btn-sm" onclick="openAddMemberModal()">+ חבר</button>
+    <button class="btn btn-primary btn-sm" onclick="openExportModal()">📄 ייצוא PDF</button>
+  </div>
+
+  <!-- Charge confirmation banner (hidden by default) -->
+  <div class="charge-banner" id="chargeBanner" style="display:none">
+    <span class="charge-banner-icon">⚠️</span>
+    <span class="charge-banner-text" id="chargeBannerText">לא אושר חיוב לחודש הנוכחי</span>
+    <button class="btn btn-sm" style="background:var(--amber);color:#fff;border:none;" onclick="openConfirmChargeModal()">אשר חיוב</button>
+  </div>
+
+  <!-- Summary bar -->
+  <div class="summary-bar" id="summaryBar">
+    <div class="summary-chip">
+      <span>חיוב חודשי</span>
+      <span class="chip-val" id="sumMonthlyCharge">—</span>
+    </div>
+    <div class="summary-chip">
+      <span>חלק לאדם</span>
+      <span class="chip-val" id="sumPerPerson">—</span>
+    </div>
+    <div class="summary-chip red">
+      <span>סה"כ חוב</span>
+      <span class="chip-val" id="sumTotalOutstanding">₪0</span>
+    </div>
+    <div class="summary-chip amber">
+      <span>תשלומים לא משויכים</span>
+      <span class="chip-val" id="sumUnmatched">0</span>
+    </div>
+  </div>
+
+  <!-- Member tabs bar -->
+  <div class="tabs-bar" id="tabsBar">
+    <button class="tab-btn active" id="tab-btn-overview" onclick="switchTab('overview', this, null)">📋 סקירה כללית</button>
+    <!-- dynamic member tabs injected here -->
+  </div>
+
+  <!-- Overview panel -->
+  <div class="tab-panel active" id="panel-overview">
+    <div class="loading-wrap" id="overviewLoader">
+      <div class="spinner"></div>
+      <div class="loading-label">טוען נתונים…</div>
+    </div>
+    <div id="overviewContent" style="display:none">
+      <div class="member-grid" id="memberGrid"></div>
+      <div class="section-title">תשלומים לא משויכים</div>
+      <div class="table-wrap">
+        <table class="data-table" id="unmatchedTable">
+          <thead>
+            <tr>
+              <th>תאריך</th>
+              <th>סכום</th>
+              <th>מקור</th>
+              <th>תיאור</th>
+              <th>שייך ל...</th>
+            </tr>
+          </thead>
+          <tbody id="unmatchedTbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dynamic member panels injected here -->
+  <div id="memberPanelsContainer"></div>
+
+</div><!-- end page-wrap -->
+
+
+<!-- ═══════════════════════════════════════════════════════
+     MODAL 1: Assign payment
+═══════════════════════════════════════════════════════ -->
+<div class="modal-backdrop" id="modalAssign">
+  <div class="modal">
+    <button class="modal-close-btn" onclick="closeModal('modalAssign')">✕</button>
+    <div class="modal-title">שייך תשלום ל<span id="assignMemberName"></span></div>
+
+    <div class="section-title" style="margin-top:0">בחר עסקה קיימת (אופציונלי)</div>
+    <div class="tx-list" id="assignTxList">
+      <div style="color:var(--text-muted);font-size:.85em;font-style:italic">אין עסקאות לא משויכות</div>
+    </div>
+    <hr class="tx-divider">
+
+    <div class="field-row">
+      <label class="field-label">סכום (₪)</label>
+      <input class="field-input" type="number" id="assignAmount" placeholder="0.00" step="0.01">
+    </div>
+    <div class="field-row">
+      <label class="field-label">תאריך</label>
+      <input class="field-input" type="date" id="assignDate">
+    </div>
+    <div class="field-row">
+      <label class="field-label">הערה</label>
+      <input class="field-input" type="text" id="assignNote" placeholder="הערה אופציונלית">
+    </div>
+    <input type="hidden" id="assignMemberId">
+    <input type="hidden" id="assignTxId">
+
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modalAssign')">ביטול</button>
+      <button class="btn btn-primary" onclick="submitAssignPayment()">שייך תשלום</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════
+     MODAL 2: Add/Edit member
+═══════════════════════════════════════════════════════ -->
+<div class="modal-backdrop" id="modalMember">
+  <div class="modal">
+    <button class="modal-close-btn" onclick="closeModal('modalMember')">✕</button>
+    <div class="modal-title" id="memberModalTitle">הוסף חבר</div>
+
+    <div class="field-row">
+      <label class="field-label">שם</label>
+      <input class="field-input" type="text" id="memberName" placeholder="שם החבר">
+    </div>
+    <div class="field-row">
+      <label class="field-checkbox-row">
+        <input type="checkbox" id="memberExempt">
+        פטור מתשלום (לא משלם חלק)
+      </label>
+    </div>
+    <input type="hidden" id="memberEditId">
+
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modalMember')">ביטול</button>
+      <button class="btn btn-primary" onclick="submitMember()">שמור</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════
+     MODAL 3: Confirm charge
+═══════════════════════════════════════════════════════ -->
+<div class="modal-backdrop" id="modalCharge">
+  <div class="modal">
+    <button class="modal-close-btn" onclick="closeModal('modalCharge')">✕</button>
+    <div class="modal-title">אשר חיוב חודשי</div>
+
+    <div class="suggestion-box" id="chargeSuggestion" style="display:none">
+      <span>💡</span>
+      <span id="chargeSuggestionText"></span>
+    </div>
+
+    <div class="field-row">
+      <label class="field-label">חודש (YYYY-MM)</label>
+      <input class="field-input" type="month" id="chargeMonth">
+    </div>
+    <div class="field-row">
+      <label class="field-label">סכום כולל (₪)</label>
+      <input class="field-input" type="number" id="chargeAmount" placeholder="0.00" step="0.01">
+    </div>
+    <div class="field-row">
+      <label class="field-label">מספר משלמים</label>
+      <input class="field-input" type="number" id="chargeMemberCount" placeholder="4" min="1">
+    </div>
+    <input type="hidden" id="chargeSuggestedTxId">
+
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modalCharge')">ביטול</button>
+      <button class="btn btn-primary" onclick="submitCharge()">אשר חיוב</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════
+     MODAL 4: Export PDF
+═══════════════════════════════════════════════════════ -->
+<div class="modal-backdrop" id="modalExport">
+  <div class="modal">
+    <button class="modal-close-btn" onclick="closeModal('modalExport')">✕</button>
+    <div class="modal-title">ייצוא דוח PDF</div>
+
+    <div class="field-row">
+      <label class="field-checkbox-row" style="margin-bottom:8px">
+        <input type="radio" name="exportType" value="all" id="exportAll" checked onchange="toggleExportMember()">
+        כל החברים
+      </label>
+      <label class="field-checkbox-row">
+        <input type="radio" name="exportType" value="specific" id="exportSpecific" onchange="toggleExportMember()">
+        חבר ספציפי
+      </label>
+    </div>
+    <div class="field-row" id="exportMemberRow" style="display:none">
+      <label class="field-label">בחר חבר</label>
+      <select class="field-input" id="exportMemberSelect"></select>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modalExport')">ביטול</button>
+      <button class="btn btn-primary" onclick="doExportPDF()">📄 ייצוא</button>
+    </div>
+  </div>
+</div>
+
+
+<script>
+'use strict';
+
+// ── State ──────────────────────────────────────────────────────
+var state = {
+  members: [],
+  charges: [],
+  balance: {},
+  unmatched: [],
+  payments: {},     // memberId -> array
+  openedTabs: {}    // memberId -> true (already fetched)
+};
+
+// ── Nav ────────────────────────────────────────────────────────
+function restartServer(btn) {
+  btn.disabled = true;
+  btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg> מפעיל מחדש…';
+  fetch('/api/restart', {method:'POST'}).catch(function(){}).finally(function(){
+    var t = setInterval(function(){
+      fetch('/').then(function(r){ if(r.ok){ clearInterval(t); location.reload(); } }).catch(function(){});
+    }, 1500);
+  });
+}
+function openNav(){
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('nav-overlay').classList.add('open');
+  document.getElementById('ham-btn').classList.add('open');
+}
+function closeNav(){
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('nav-overlay').classList.remove('open');
+  document.getElementById('ham-btn').classList.remove('open');
+}
+function toggleNav(){
+  document.getElementById('sidebar').classList.contains('open') ? closeNav() : openNav();
+}
+document.addEventListener('keydown', function(e){ if(e.key==='Escape'){ closeNav(); closeAllModals(); } });
+
+// ── Helpers ────────────────────────────────────────────────────
+function fmt(n){
+  if(n == null) return '—';
+  return '₪' + parseFloat(n).toLocaleString('he-IL', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+function fmtDate(s){
+  if(!s) return '—';
+  var d = new Date(s);
+  return isNaN(d) ? s : d.toLocaleDateString('he-IL');
+}
+function closeAllModals(){
+  document.querySelectorAll('.modal-backdrop').forEach(function(m){ m.classList.remove('open'); });
+}
+function closeModal(id){
+  document.getElementById(id).classList.remove('open');
+}
+function openModal(id){
+  document.getElementById(id).classList.add('open');
+}
+
+// ── Init ───────────────────────────────────────────────────────
+function init(){
+  Promise.all([
+    fetch('/api/spotify/members').then(function(r){ return r.json(); }),
+    fetch('/api/spotify/charges').then(function(r){ return r.json(); }),
+    fetch('/api/spotify/balance').then(function(r){ return r.json(); }),
+    fetch('/api/spotify/unmatched').then(function(r){ return r.json(); })
+  ]).then(function(results){
+    state.members  = results[0] || [];
+    state.charges  = results[1] || [];
+    state.balance  = results[2] || {};
+    state.unmatched= results[3] || [];
+
+    renderSummaryBar();
+    checkChargeBanner();
+    renderMemberTabs();
+    renderOverview();
+
+    document.getElementById('overviewLoader').style.display = 'none';
+    document.getElementById('overviewContent').style.display = 'block';
+  }).catch(function(err){
+    console.error('init error', err);
+    document.getElementById('overviewLoader').innerHTML = '<div style="color:var(--red);font-size:.9em">שגיאה בטעינת נתונים</div>';
+  });
+}
+
+// ── Summary bar ────────────────────────────────────────────────
+function renderSummaryBar(){
+  var latestCharge = state.charges.length ? state.charges[state.charges.length-1] : null;
+  var monthly = latestCharge ? latestCharge.total_amount : null;
+  var perPerson = latestCharge && latestCharge.member_count ? (latestCharge.total_amount / latestCharge.member_count) : null;
+
+  document.getElementById('sumMonthlyCharge').textContent = monthly != null ? fmt(monthly) : '—';
+  document.getElementById('sumPerPerson').textContent = perPerson != null ? fmt(perPerson) : '—';
+
+  // total outstanding (sum of positive balances = owes)
+  var totalOwed = 0;
+  var bal = state.balance;
+  Object.keys(bal).forEach(function(id){
+    var v = bal[id];
+    var amount = typeof v === 'object' ? (v.balance || v.amount || 0) : v;
+    if(amount < 0) totalOwed += Math.abs(amount);
+  });
+  document.getElementById('sumTotalOutstanding').textContent = fmt(totalOwed);
+  document.getElementById('sumUnmatched').textContent = state.unmatched.length;
+}
+
+// ── Charge banner ──────────────────────────────────────────────
+function checkChargeBanner(){
+  var now = new Date();
+  var curMonth = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
+  var found = state.charges.some(function(c){ return (c.month || '').slice(0,7) === curMonth; });
+  if(!found){
+    var monthNames = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+    document.getElementById('chargeBannerText').textContent = 'לא אושר חיוב לחודש ' + monthNames[now.getMonth()] + ' ' + now.getFullYear();
+    document.getElementById('chargeBanner').style.display = 'flex';
+  } else {
+    document.getElementById('chargeBanner').style.display = 'none';
+  }
+}
+
+// ── Member tabs ────────────────────────────────────────────────
+function renderMemberTabs(){
+  var bar = document.getElementById('tabsBar');
+  // Remove existing member tabs (keep overview tab)
+  bar.querySelectorAll('[data-member-tab]').forEach(function(el){ el.remove(); });
+
+  state.members.forEach(function(m){
+    var bal = state.balance[m.id] || state.balance[String(m.id)] || {};
+    var amount = typeof bal === 'object' ? (bal.balance !== undefined ? bal.balance : (bal.amount || 0)) : bal;
+    var status = amount > 0.01 ? 'ahead' : (amount < -0.01 ? 'owes' : 'even');
+    var statusLabel = status === 'ahead' ? 'קדימה' : (status === 'owes' ? 'חייב' : 'מאוזן');
+
+    var btn = document.createElement('button');
+    btn.className = 'tab-btn';
+    btn.setAttribute('data-member-tab', m.id);
+    btn.id = 'tab-btn-' + m.id;
+    btn.innerHTML = escHtml(m.name) + ' <span class="tab-badge ' + status + '">' + statusLabel + '</span>';
+    btn.onclick = function(){ switchTab('member-' + m.id, btn, m.id); };
+    bar.appendChild(btn);
+  });
+}
+
+// ── Switch tab ─────────────────────────────────────────────────
+function switchTab(tabId, btn, memberId){
+  // Deactivate all tabs
+  document.querySelectorAll('.tab-btn').forEach(function(b){ b.classList.remove('active'); });
+  document.querySelectorAll('.tab-panel').forEach(function(p){ p.classList.remove('active'); });
+  btn.classList.add('active');
+
+  if(tabId === 'overview'){
+    document.getElementById('panel-overview').classList.add('active');
+    return;
+  }
+
+  // Member panel
+  var panelId = 'panel-member-' + memberId;
+  var existing = document.getElementById(panelId);
+  if(!existing){
+    var div = document.createElement('div');
+    div.className = 'tab-panel active';
+    div.id = panelId;
+    div.innerHTML = '<div class="loading-wrap"><div class="spinner"></div><div class="loading-label">טוען…</div></div>';
+    document.getElementById('memberPanelsContainer').appendChild(div);
+    existing = div;
+  } else {
+    existing.classList.add('active');
+  }
+
+  if(!state.openedTabs[memberId]){
+    state.openedTabs[memberId] = true;
+    fetch('/api/spotify/payments?member_id=' + memberId)
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        state.payments[memberId] = data || [];
+        renderMemberDetail(memberId);
+      })
+      .catch(function(){
+        state.payments[memberId] = [];
+        renderMemberDetail(memberId);
+      });
+  } else {
+    renderMemberDetail(memberId);
+  }
+}
+
+// ── Overview ────────────────────────────────────────────────────
+function renderOverview(){
+  renderMemberGrid();
+  renderUnmatchedTable();
+}
+
+function renderMemberGrid(){
+  var grid = document.getElementById('memberGrid');
+  grid.innerHTML = '';
+  if(!state.members.length){
+    grid.innerHTML = '<div style="color:var(--text-muted);font-style:italic;font-size:.9em">אין חברים. הוסף חבר בעזרת הכפתור למעלה.</div>';
+    return;
+  }
+  state.members.forEach(function(m){
+    var bal = state.balance[m.id] || state.balance[String(m.id)] || {};
+    var amount = typeof bal === 'object' ? (bal.balance !== undefined ? bal.balance : (bal.amount || 0)) : bal;
+    var status = amount > 0.01 ? 'ahead' : (amount < -0.01 ? 'owes' : 'even');
+    var statusLabel = status === 'ahead' ? 'קדים בתשלום' : (status === 'owes' ? 'חייב' : 'מאוזן');
+    var lastPay = typeof bal === 'object' ? (bal.last_payment_date || bal.last_payment || null) : null;
+
+    var card = document.createElement('div');
+    card.className = 'member-card';
+    card.innerHTML = '<div class="member-card-name">' + escHtml(m.name) + (m.is_exempt ? ' <span style="font-size:.7em;color:var(--text-muted)">(פטור)</span>' : '') + '</div>'
+      + '<div class="member-card-balance ' + status + '">' + fmt(amount) + '</div>'
+      + '<div class="member-card-meta">' + statusLabel + '</div>'
+      + (lastPay ? '<div class="member-card-meta">תשלום אחרון: ' + fmtDate(lastPay) + '</div>' : '')
+      + '<button class="btn btn-ghost btn-xs" style="margin-top:4px" onclick="openAssignModal(' + m.id + ',\'' + escHtml(m.name).replace(/'/g,"\\'") + '\')">+ שייך תשלום</button>';
+    grid.appendChild(card);
+  });
+}
+
+function renderUnmatchedTable(){
+  var tbody = document.getElementById('unmatchedTbody');
+  tbody.innerHTML = '';
+  if(!state.unmatched.length){
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="5">אין תשלומים לא משויכים</td></tr>';
+    return;
+  }
+  state.unmatched.forEach(function(tx){
+    var tr = document.createElement('tr');
+    var memberOptions = '<option value="">-- בחר חבר --</option>'
+      + state.members.map(function(m){ return '<option value="' + m.id + '">' + escHtml(m.name) + '</option>'; }).join('');
+    tr.innerHTML = '<td>' + fmtDate(tx.date || tx.transaction_date) + '</td>'
+      + '<td class="amount-neg">' + fmt(tx.amount) + '</td>'
+      + '<td>' + escHtml(tx.source || tx.account_name || '—') + '</td>'
+      + '<td>' + escHtml(tx.description || tx.name || '—') + '</td>'
+      + '<td><select class="assign-sel" onchange="quickAssign(this,' + tx.id + ')">' + memberOptions + '</select></td>';
+    tbody.appendChild(tr);
+  });
+}
+
+function quickAssign(sel, txId){
+  var memberId = sel.value;
+  if(!memberId) return;
+  var tx = state.unmatched.find(function(t){ return t.id == txId; });
+  if(!tx) return;
+  fetch('/api/spotify/payments', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({
+      member_id: parseInt(memberId),
+      amount: tx.amount,
+      date: tx.date || tx.transaction_date,
+      transaction_id: txId,
+      note: 'שויך מרשימת לא משויכים'
+    })
+  }).then(function(r){ return r.json(); })
+    .then(function(){ refreshAll(); })
+    .catch(function(e){ console.error(e); });
+}
+
+// ── Member detail ───────────────────────────────────────────────
+function renderMemberDetail(memberId){
+  var panel = document.getElementById('panel-member-' + memberId);
+  if(!panel) return;
+  var member = state.members.find(function(m){ return m.id == memberId; });
+  if(!member){ panel.innerHTML = '<div style="color:var(--red);padding:20px">חבר לא נמצא</div>'; return; }
+
+  var bal = state.balance[memberId] || state.balance[String(memberId)] || {};
+  var amount = typeof bal === 'object' ? (bal.balance !== undefined ? bal.balance : (bal.amount || 0)) : bal;
+  var status = amount > 0.01 ? 'ahead' : (amount < -0.01 ? 'owes' : 'even');
+  var statusLabel = status === 'ahead' ? 'קדים בתשלום' : (status === 'owes' ? 'חייב' : 'מאוזן');
+
+  // Current share
+  var latestCharge = state.charges.length ? state.charges[state.charges.length-1] : null;
+  var share = latestCharge && latestCharge.member_count ? (latestCharge.total_amount / latestCharge.member_count) : null;
+
+  var payments = state.payments[memberId] || [];
+
+  // Payment rows
+  var payRows = payments.length
+    ? payments.map(function(p){
+        return '<tr><td>' + fmtDate(p.date || p.payment_date) + '</td>'
+          + '<td class="amount-pos">' + fmt(p.amount) + '</td>'
+          + '<td>' + escHtml(p.source || p.account_name || '—') + '</td>'
+          + '<td>' + escHtml(p.note || '—') + '</td>'
+          + '<td><button class="btn-icon-del" title="הסר" onclick="deletePayment(' + p.id + ',' + memberId + ')">🗑</button></td></tr>';
+      }).join('')
+    : '<tr class="empty-row"><td colspan="5">אין תשלומים רשומים</td></tr>';
+
+  // Charge history rows
+  var chargeRows = state.charges.length
+    ? state.charges.slice().reverse().map(function(c){
+        var pp = c.member_count ? (c.total_amount / c.member_count) : 0;
+        return '<tr><td>' + escHtml(c.month || '—') + '</td>'
+          + '<td>' + fmt(c.total_amount) + '</td>'
+          + '<td>' + (c.member_count || '—') + '</td>'
+          + '<td>' + fmt(pp) + '</td></tr>';
+      }).join('')
+    : '<tr class="empty-row"><td colspan="4">אין היסטוריית חיובים</td></tr>';
+
+  panel.innerHTML = '<div class="member-detail">'
+    + '<div class="member-info-card">'
+    + '<div class="member-info-name">' + escHtml(member.name) + '</div>'
+    + '<div class="balance-card ' + status + '">'
+    + '<div class="balance-card-label">' + statusLabel + '</div>'
+    + '<div class="balance-card-amount">' + fmt(Math.abs(amount)) + '</div>'
+    + '</div>'
+    + (share != null ? '<div><span class="share-chip">חלק חודשי: ' + fmt(share) + '</span></div>' : '')
+    + '<button class="btn btn-ghost btn-sm" style="width:100%;margin-top:4px" onclick="openAssignModal(' + memberId + ',\'' + escHtml(member.name).replace(/'/g,"\\'") + '\')">+ שייך תשלום</button>'
+    + '<button class="btn btn-ghost btn-sm" style="width:100%;margin-top:4px" onclick="openEditMemberModal(' + member.id + ',\'' + escHtml(member.name).replace(/'/g,"\\'") + '\',' + (member.is_exempt ? 'true' : 'false') + ')">✏️ ערוך חבר</button>'
+    + '</div>'
+    + '<div class="member-right-panel">'
+    + '<div class="section-title" style="margin-top:0">היסטוריית תשלומים</div>'
+    + '<div class="table-wrap"><table class="data-table"><thead><tr><th>תאריך</th><th>סכום</th><th>מקור</th><th>הערה</th><th></th></tr></thead>'
+    + '<tbody>' + payRows + '</tbody></table></div>'
+    + '<div class="section-title">היסטוריית חיובים חודשיים</div>'
+    + '<div class="table-wrap"><table class="data-table"><thead><tr><th>חודש</th><th>סה"כ</th><th>מספר חברים</th><th>חלק לאדם</th></tr></thead>'
+    + '<tbody>' + chargeRows + '</tbody></table></div>'
+    + '</div></div>';
+}
+
+// ── Assign payment modal ────────────────────────────────────────
+function openAssignModal(memberId, memberName){
+  document.getElementById('assignMemberId').value = memberId;
+  document.getElementById('assignMemberName').textContent = memberName;
+  document.getElementById('assignTxId').value = '';
+  document.getElementById('assignAmount').value = '';
+  document.getElementById('assignNote').value = '';
+  document.getElementById('assignDate').value = new Date().toISOString().slice(0,10);
+
+  var list = document.getElementById('assignTxList');
+  list.innerHTML = '';
+  if(!state.unmatched.length){
+    list.innerHTML = '<div style="color:var(--text-muted);font-size:.85em;font-style:italic">אין עסקאות לא משויכות</div>';
+  } else {
+    state.unmatched.forEach(function(tx){
+      var div = document.createElement('div');
+      div.className = 'tx-item';
+      div.setAttribute('data-tx-id', tx.id);
+      div.innerHTML = '<span>' + escHtml(tx.description || tx.name || '—') + ' &nbsp; <span class="tx-item-date">' + fmtDate(tx.date || tx.transaction_date) + '</span></span>'
+        + '<span class="tx-item-amount">' + fmt(tx.amount) + '</span>';
+      div.onclick = function(){
+        list.querySelectorAll('.tx-item').forEach(function(i){ i.classList.remove('selected'); });
+        div.classList.add('selected');
+        document.getElementById('assignTxId').value = tx.id;
+        document.getElementById('assignAmount').value = tx.amount;
+        document.getElementById('assignDate').value = (tx.date || tx.transaction_date || '').slice(0,10);
+      };
+      list.appendChild(div);
+    });
+  }
+  openModal('modalAssign');
+}
+
+function submitAssignPayment(){
+  var memberId = parseInt(document.getElementById('assignMemberId').value);
+  var amount = parseFloat(document.getElementById('assignAmount').value);
+  var date = document.getElementById('assignDate').value;
+  var note = document.getElementById('assignNote').value;
+  var txId = document.getElementById('assignTxId').value;
+
+  if(!memberId || isNaN(amount) || !date){
+    alert('נא למלא סכום ותאריך');
+    return;
+  }
+  var body = { member_id: memberId, amount: amount, date: date, note: note };
+  if(txId) body.transaction_id = parseInt(txId);
+
+  fetch('/api/spotify/payments', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(body)
+  }).then(function(r){ return r.json(); })
+    .then(function(){
+      closeModal('modalAssign');
+      delete state.openedTabs[memberId];
+      refreshAll();
+    })
+    .catch(function(e){ console.error(e); alert('שגיאה בשמירה'); });
+}
+
+// ── Delete payment ──────────────────────────────────────────────
+function deletePayment(paymentId, memberId){
+  if(!confirm('למחוק תשלום זה?')) return;
+  fetch('/api/spotify/payments/' + paymentId, { method: 'DELETE' })
+    .then(function(r){ return r.json(); })
+    .then(function(){
+      delete state.openedTabs[memberId];
+      refreshAll();
+    })
+    .catch(function(e){ console.error(e); alert('שגיאה במחיקה'); });
+}
+
+// ── Member modal ────────────────────────────────────────────────
+function openAddMemberModal(){
+  document.getElementById('memberModalTitle').textContent = 'הוסף חבר';
+  document.getElementById('memberName').value = '';
+  document.getElementById('memberExempt').checked = false;
+  document.getElementById('memberEditId').value = '';
+  openModal('modalMember');
+}
+
+function openEditMemberModal(id, name, isExempt){
+  document.getElementById('memberModalTitle').textContent = 'ערוך חבר';
+  document.getElementById('memberName').value = name;
+  document.getElementById('memberExempt').checked = !!isExempt;
+  document.getElementById('memberEditId').value = id;
+  openModal('modalMember');
+}
+
+function submitMember(){
+  var name = document.getElementById('memberName').value.trim();
+  var isExempt = document.getElementById('memberExempt').checked;
+  var editId = document.getElementById('memberEditId').value;
+  if(!name){ alert('נא להזין שם'); return; }
+
+  var method = editId ? 'PUT' : 'POST';
+  var url = editId ? '/api/spotify/members/' + editId : '/api/spotify/members';
+
+  fetch(url, {
+    method: method,
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ name: name, is_exempt: isExempt })
+  }).then(function(r){ return r.json(); })
+    .then(function(){
+      closeModal('modalMember');
+      refreshAll();
+    })
+    .catch(function(e){ console.error(e); alert('שגיאה בשמירה'); });
+}
+
+// ── Confirm charge modal ────────────────────────────────────────
+function openConfirmChargeModal(){
+  var now = new Date();
+  document.getElementById('chargeMonth').value = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
+  document.getElementById('chargeAmount').value = '';
+  document.getElementById('chargeMemberCount').value = state.members.filter(function(m){ return !m.is_exempt; }).length || '';
+  document.getElementById('chargeSuggestion').style.display = 'none';
+  document.getElementById('chargeSuggestedTxId').value = '';
+
+  // Fetch suggestions
+  fetch('/api/spotify/unmatched')
+    .then(function(r){ return r.json(); })
+    .then(function(txs){
+      var spotify = txs.filter(function(tx){
+        var d = (tx.description || tx.name || '').toLowerCase();
+        return d.includes('spotify') || d.includes('ספוטיפי');
+      });
+      if(spotify.length){
+        var tx = spotify[0];
+        document.getElementById('chargeSuggestionText').textContent = 'נמצאה עסקה מוצעת: ' + (tx.description || tx.name) + ' — ' + fmt(tx.amount) + ' (' + fmtDate(tx.date || tx.transaction_date) + ')';
+        document.getElementById('chargeSuggestion').style.display = 'flex';
+        document.getElementById('chargeAmount').value = tx.amount;
+        document.getElementById('chargeSuggestedTxId').value = tx.id;
+      }
+    }).catch(function(){});
+
+  openModal('modalCharge');
+}
+
+function submitCharge(){
+  var month = document.getElementById('chargeMonth').value;
+  var amount = parseFloat(document.getElementById('chargeAmount').value);
+  var memberCount = parseInt(document.getElementById('chargeMemberCount').value);
+  var txId = document.getElementById('chargeSuggestedTxId').value;
+
+  if(!month || isNaN(amount) || isNaN(memberCount)){
+    alert('נא למלא את כל השדות');
+    return;
+  }
+  var body = { month: month, total_amount: amount, member_count: memberCount };
+  if(txId) body.transaction_id = parseInt(txId);
+
+  fetch('/api/spotify/charges', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(body)
+  }).then(function(r){ return r.json(); })
+    .then(function(){
+      closeModal('modalCharge');
+      document.getElementById('chargeBanner').style.display = 'none';
+      refreshAll();
+    })
+    .catch(function(e){ console.error(e); alert('שגיאה בשמירה'); });
+}
+
+// ── Export modal ────────────────────────────────────────────────
+function openExportModal(){
+  document.getElementById('exportAll').checked = true;
+  document.getElementById('exportMemberRow').style.display = 'none';
+
+  var sel = document.getElementById('exportMemberSelect');
+  sel.innerHTML = state.members.map(function(m){
+    return '<option value="' + m.id + '">' + escHtml(m.name) + '</option>';
+  }).join('');
+
+  openModal('modalExport');
+}
+
+function toggleExportMember(){
+  var specific = document.getElementById('exportSpecific').checked;
+  document.getElementById('exportMemberRow').style.display = specific ? 'block' : 'none';
+}
+
+function doExportPDF(){
+  var specific = document.getElementById('exportSpecific').checked;
+  var url = '/api/spotify/report';
+  if(specific){
+    var memberId = document.getElementById('exportMemberSelect').value;
+    if(memberId) url += '?member_id=' + memberId;
+  }
+  window.open(url, '_blank');
+  closeModal('modalExport');
+}
+
+// ── Refresh ─────────────────────────────────────────────────────
+function refreshAll(){
+  Promise.all([
+    fetch('/api/spotify/members').then(function(r){ return r.json(); }),
+    fetch('/api/spotify/charges').then(function(r){ return r.json(); }),
+    fetch('/api/spotify/balance').then(function(r){ return r.json(); }),
+    fetch('/api/spotify/unmatched').then(function(r){ return r.json(); })
+  ]).then(function(results){
+    state.members   = results[0] || [];
+    state.charges   = results[1] || [];
+    state.balance   = results[2] || {};
+    state.unmatched = results[3] || [];
+
+    renderSummaryBar();
+    checkChargeBanner();
+    renderMemberTabs();
+    renderOverview();
+
+    // Re-render already-opened member tabs
+    Object.keys(state.openedTabs).forEach(function(id){
+      var mid = parseInt(id);
+      fetch('/api/spotify/payments?member_id=' + mid)
+        .then(function(r){ return r.json(); })
+        .then(function(data){
+          state.payments[mid] = data || [];
+          renderMemberDetail(mid);
+        }).catch(function(){});
+    });
+  }).catch(function(e){ console.error('refresh error', e); });
+}
+
+// ── XSS helper ─────────────────────────────────────────────────
+function escHtml(s){
+  if(s == null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Boot ────────────────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>

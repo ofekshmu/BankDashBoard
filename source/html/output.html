@@ -4,7 +4,7 @@
   <meta charset="utf-8"/>
   <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
   <title id="page-title">
-   Dashboard — January 2026
+   Dashboard — April 2026
   </title>
   <style>
    /* ── Reset ──────────────────────────────────────────────── */
@@ -116,6 +116,7 @@ body {
 .nav-restart-btn{width:100%;padding:8px 12px;border:1.5px dashed var(--border);border-radius:8px;background:none;color:var(--text-muted);font-size:.78em;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:7px;justify-content:center;transition:background .15s,color .15s,border-color .15s}
 .nav-restart-btn:hover{background:#fff3f3;color:#e53935;border-color:#e53935}
 .nav-restart-btn:disabled{opacity:.5;cursor:default}
+.app-version-badge{margin-top:8px;text-align:center;font-size:.72em;color:var(--text-muted);letter-spacing:.03em;opacity:.7;user-select:none;}
 /* ── Debug log panel ─────────────────────────────────────── */
 .debug-fab{position:fixed;bottom:22px;right:18px;width:42px;height:42px;border-radius:50%;background:var(--navy);color:#fff;font-size:.72em;font-family:monospace;font-weight:700;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,0.3);z-index:997;letter-spacing:-.5px;}
 .debug-fab:hover{filter:brightness(1.2);}
@@ -1429,13 +1430,77 @@ body {
 }
 .acct-entries-list div { padding: 3px 0; border-bottom: 1px solid #f0f0f0; }
 .acct-entries-list div:last-child { border-bottom: none; }
+
+/* ── Mobile category legend card (hidden on desktop) ────── */
+.mobile-cat-legend-card { display: none; }
+.mobile-cat-list {
+  list-style: none; margin: 0; padding: 0;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.mobile-cat-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 0; border-bottom: 1px solid var(--border);
+  font-size: 0.84em;
+}
+.mobile-cat-item:last-child { border-bottom: none; }
+.mobile-cat-dot {
+  width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+}
+.mobile-cat-name {
+  flex: 1; color: var(--text-sub); direction: rtl;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.mobile-cat-value {
+  font-weight: 700; color: var(--navy); font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* ── Mobile view (≤768px) ────────────────────────────────── */
+@media (max-width: 768px) {
+
+  /* 1. Reload button → circular FAB fixed at bottom-right */
+  .reload-btn {
+    position: fixed;
+    bottom: 22px;
+    right: 18px;
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    padding: 0;
+    background: var(--teal);
+    color: #fff;
+    font-size: 1.5em;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 16px rgba(30,157,139,0.45);
+    z-index: 998;
+    border: none;
+  }
+  .reload-btn.stale {
+    box-shadow: 0 4px 16px rgba(30,157,139,0.45),
+                0 0 0 4px rgba(30,157,139,0.25);
+  }
+  .reload-btn-label { display: none; }
+
+  /* 2. Charts grid → single column so each donut gets full width */
+  .charts-grid { grid-template-columns: 1fr; }
+
+  /* 3. Show mobile category legend cards */
+  .mobile-cat-legend-card { display: block; }
+
+  /* 4. Reduce donut canvas height on mobile */
+  .donut-chart-wrap { height: 220px !important; }
+
+  /* 5. Reduce general bar chart height on mobile */
+  #chart-general-wrap { height: 200px !important; }
+}
   </style>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js">
   </script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js">
   </script>
  </head>
- <body data-generated="16/05/2026 23:33" data-month="2026_01">
+ <body data-generated="23/05/2026 22:31" data-month="2026_04">
   <!-- Hamburger -->
   <button aria-label="תפריט" class="ham-btn" id="ham-btn" onclick="toggleNav()">
    <svg fill="none" height="14" viewbox="0 0 18 14" width="18">
@@ -1484,6 +1549,9 @@ body {
     <a class="nav-item" href="/search">
      חיפוש
     </a>
+    <a class="nav-item" href="/spotify">
+     Spotify Tracker
+    </a>
     <div class="nav-sep">
     </div>
     <a class="nav-item" href="/tagger">
@@ -1503,19 +1571,31 @@ body {
      </svg>
      הפעל שרת מחדש
     </button>
+    <div class="app-version-badge" id="app-version-badge">
+     v—
+    </div>
    </div>
   </nav>
   <!-- ── Debug log FAB + panel ─────────────────────────────── -->
-  <button class="debug-fab" id="debug-fab" onclick="toggleDebugPanel()" title="App logs">&lt;/&gt;</button>
+  <button class="debug-fab" id="debug-fab" onclick="toggleDebugPanel()" title="App logs">
+   &lt;/&gt;
+  </button>
   <div class="debug-panel" id="debug-panel">
-    <div class="debug-hdr">
-      <span>▸ app logs</span>
-      <div class="debug-hdr-btns">
-        <button onclick="clearDebugPanel()">clear</button>
-        <button onclick="toggleDebugPanel()">✕</button>
-      </div>
+   <div class="debug-hdr">
+    <span>
+     ▸ app logs
+    </span>
+    <div class="debug-hdr-btns">
+     <button onclick="clearDebugPanel()">
+      clear
+     </button>
+     <button onclick="toggleDebugPanel()">
+      ✕
+     </button>
     </div>
-    <div class="debug-feed" id="debug-feed"></div>
+   </div>
+   <div class="debug-feed" id="debug-feed">
+   </div>
   </div>
   <!-- ── Floating log panel ────────────────────────────────── -->
   <div class="log-float" id="log-float">
@@ -1567,7 +1647,10 @@ body {
      <span class="generated-label" id="generated-label">
      </span>
      <button class="reload-btn" id="reload-btn" onclick="reloadCurrent()" title="חשב מחדש">
-      ↻ חשב מחדש
+      ↻
+      <span class="reload-btn-label">
+       חשב מחדש
+      </span>
      </button>
     </div>
    </div>
@@ -1601,8 +1684,8 @@ body {
       </span>
       Net Income
      </div>
-     <div class="kpi-value pos">
-      1,689.16₪
+     <div class="kpi-value neg">
+      -24,574.24₪
      </div>
     </div>
     <div class="kpi-card">
@@ -1612,7 +1695,7 @@ body {
       Overall Net Income
      </div>
      <div class="kpi-value pos">
-      2,689.16₪
+      6,425.76₪
      </div>
     </div>
    </div>
@@ -1625,20 +1708,22 @@ body {
       <div class="chart-card-title">
        הוצאות לפי קטגוריה
       </div>
-      <div style="position:relative;height:320px;">
+      <div class="donut-chart-wrap" style="position:relative;height:320px;">
        <canvas id="chart-spendings-donut" style="width:100%;height:100%;">
        </canvas>
       </div>
       <script>
        (function(){
+  var _isMob = window.matchMedia('(max-width:768px)').matches;
   new Chart(document.getElementById('chart-spendings-donut'), {
     type: 'doughnut',
-    data: {"labels": ["אוכל בחוץ", "אחר", "ביטוח בריאות", "בילויים", "בריאות וכושר", "הלוואה", "השכלה ולימודים", "חו\"ל", "חשבון אינטרנט", "חשבונות", "טיפוח ורפואה", "מנויים", "מצרכים", "מתנות", "רהיטים ובית", "רכב", "שכירות", "שלום שבאזי 7", "תחבורה ציבורית", "תחביבים ופנאי"], "datasets": [{"data": [647.3, 399.0, 29.44, 1060.0, 405.0, 1000.0, 1618.84, 3404.89, 99.83, 536.64, 510.49, 272.4, 1151.24, 129.9, 347.83, 2350.88, 6712.0, 3945.28, 501.2, 43.9], "backgroundColor": ["#ef9a9a", "#ffab91", "#ffcc80", "#ffe082", "#f48fb1", "#ff8a65", "#ffd54f", "#f06292", "#ffb74d", "#e57373", "#ef9a9a", "#ffab91", "#ffcc80", "#ffe082", "#f48fb1", "#ff8a65", "#ffd54f", "#f06292", "#ffb74d", "#e57373"], "borderWidth": 1, "borderColor": "#fff", "hoverOffset": 8}]},
+    data: {"labels": ["NotCategorized", "אוכל בחוץ", "ביטוח בריאות", "בילויים", "בריאות וכושר", "הלוואה", "השכלה ולימודים", "חשבונות", "חתונות ואירועים", "טיפוח ורפואה", "מנויים", "מצרכים", "מתנות", "עמלות", "רהיטים ובית", "רכב", "שכירות", "שלום שבאזי 7", "תחבורה ציבורית", "תחביבים ופנאי"], "datasets": [{"data": [57.0, 965.53, 29.41, 79.0, 2112.8, 1000.0, 557.11, 237.14, 350.0, 655.09, 104.34, 2774.0, 567.0, 7.4, 2297.12, 2371.17, 5880.0, 4443.86, 128.0, 43.9], "backgroundColor": ["#ef9a9a", "#ffab91", "#ffcc80", "#ffe082", "#f48fb1", "#ff8a65", "#ffd54f", "#f06292", "#ffb74d", "#e57373", "#ef9a9a", "#ffab91", "#ffcc80", "#ffe082", "#f48fb1", "#ff8a65", "#ffd54f", "#f06292", "#ffb74d", "#e57373"], "borderWidth": 1, "borderColor": "#fff", "hoverOffset": 8}]},
     options: {
       responsive: true, maintainAspectRatio: false,
       cutout: '68%',
       plugins: {
         legend: {
+          display: !_isMob,
           position: 'bottom',
           labels: { font: { size: 11 }, padding: 10, boxWidth: 12 },
           onHover: function(evt, item, legend) {
@@ -1688,25 +1773,234 @@ body {
   });
 })();
       </script>
+     </div>
+     <div class="chart-card mobile-cat-legend-card">
+      <div class="chart-card-title">
+       הוצאות לפי קטגוריה
+      </div>
+      <ul class="mobile-cat-list">
+       <li class="mobile-cat-item">
+        <span class="mobile-cat-dot" style="background:#ef9a9a">
+        </span>
+        <span class="mobile-cat-name">
+         NotCategorized
+        </span>
+        <span class="mobile-cat-value">
+         ₪57 (0%)
+        </span>
+       </li>
+       <li class="mobile-cat-item">
+        <span class="mobile-cat-dot" style="background:#ffab91">
+        </span>
+        <span class="mobile-cat-name">
+         אוכל בחוץ
+        </span>
+        <span class="mobile-cat-value">
+         ₪966 (4%)
+        </span>
+       </li>
+       <li class="mobile-cat-item">
+        <span class="mobile-cat-dot" style="background:#ffcc80">
+        </span>
+        <span class="mobile-cat-name">
+         ביטוח בריאות
+        </span>
+        <span class="mobile-cat-value">
+         ₪29 (0%)
+        </span>
+       </li>
+       <li class="mobile-cat-item">
+        <span class="mobile-cat-dot" style="background:#ffe082">
+        </span>
+        <span class="mobile-cat-name">
+         בילויים
+        </span>
+        <span class="mobile-cat-value">
+         ₪79 (0%)
+        </span>
+       </li>
+       <li class="mobile-cat-item">
+        <span class="mobile-cat-dot" style="background:#f48fb1">
+        </span>
+        <span class="mobile-cat-name">
+         בריאות וכושר
+        </span>
+        <span class="mobile-cat-value">
+         ₪2,113 (9%)
+        </span>
+       </li>
+       <li class="mobile-cat-item">
+        <span class="mobile-cat-dot" style="background:#ff8a65">
+        </span>
+        <span class="mobile-cat-name">
+         הלוואה
+        </span>
+        <span class="mobile-cat-value">
+         ₪1,000 (4%)
+        </span>
+       </li>
+       <li class="mobile-cat-item">
+        <span class="mobile-cat-dot" style="background:#ffd54f">
+        </span>
+        <span class="mobile-cat-name">
+         השכלה ולימודים
+        </span>
+        <span class="mobile-cat-value">
+         ₪557 (2%)
+        </span>
+       </li>
+       <li class="mobile-cat-item">
+        <span class="mobile-cat-dot" style="background:#f06292">
+        </span>
+        <span class="mobile-cat-name">
+         חשבונות
+        </span>
+        <span class="mobile-cat-value">
+         ₪237 (1%)
+        </span>
+       </li>
+       <li class="mobile-cat-item">
+        <span class="mobile-cat-dot" style="background:#ffb74d">
+        </span>
+        <span class="mobile-cat-name">
+         חתונות ואירועים
+        </span>
+        <span class="mobile-cat-value">
+         ₪350 (1%)
+        </span>
+       </li>
+       <li class="mobile-cat-item">
+        <span class="mobile-cat-dot" style="background:#e57373">
+        </span>
+        <span class="mobile-cat-name">
+         טיפוח ורפואה
+        </span>
+        <span class="mobile-cat-value">
+         ₪655 (3%)
+        </span>
+       </li>
+       <li class="mobile-cat-item">
+        <span class="mobile-cat-dot" style="background:#ef9a9a">
+        </span>
+        <span class="mobile-cat-name">
+         מנויים
+        </span>
+        <span class="mobile-cat-value">
+         ₪104 (0%)
+        </span>
+       </li>
+       <li class="mobile-cat-item">
+        <span class="mobile-cat-dot" style="background:#ffab91">
+        </span>
+        <span class="mobile-cat-name">
+         מצרכים
+        </span>
+        <span class="mobile-cat-value">
+         ₪2,774 (11%)
+        </span>
+       </li>
+       <li class="mobile-cat-item">
+        <span class="mobile-cat-dot" style="background:#ffcc80">
+        </span>
+        <span class="mobile-cat-name">
+         מתנות
+        </span>
+        <span class="mobile-cat-value">
+         ₪567 (2%)
+        </span>
+       </li>
+       <li class="mobile-cat-item">
+        <span class="mobile-cat-dot" style="background:#ffe082">
+        </span>
+        <span class="mobile-cat-name">
+         עמלות
+        </span>
+        <span class="mobile-cat-value">
+         ₪7 (0%)
+        </span>
+       </li>
+       <li class="mobile-cat-item">
+        <span class="mobile-cat-dot" style="background:#f48fb1">
+        </span>
+        <span class="mobile-cat-name">
+         רהיטים ובית
+        </span>
+        <span class="mobile-cat-value">
+         ₪2,297 (9%)
+        </span>
+       </li>
+       <li class="mobile-cat-item">
+        <span class="mobile-cat-dot" style="background:#ff8a65">
+        </span>
+        <span class="mobile-cat-name">
+         רכב
+        </span>
+        <span class="mobile-cat-value">
+         ₪2,371 (10%)
+        </span>
+       </li>
+       <li class="mobile-cat-item">
+        <span class="mobile-cat-dot" style="background:#ffd54f">
+        </span>
+        <span class="mobile-cat-name">
+         שכירות
+        </span>
+        <span class="mobile-cat-value">
+         ₪5,880 (24%)
+        </span>
+       </li>
+       <li class="mobile-cat-item">
+        <span class="mobile-cat-dot" style="background:#f06292">
+        </span>
+        <span class="mobile-cat-name">
+         שלום שבאזי 7
+        </span>
+        <span class="mobile-cat-value">
+         ₪4,444 (18%)
+        </span>
+       </li>
+       <li class="mobile-cat-item">
+        <span class="mobile-cat-dot" style="background:#ffb74d">
+        </span>
+        <span class="mobile-cat-name">
+         תחבורה ציבורית
+        </span>
+        <span class="mobile-cat-value">
+         ₪128 (1%)
+        </span>
+       </li>
+       <li class="mobile-cat-item">
+        <span class="mobile-cat-dot" style="background:#e57373">
+        </span>
+        <span class="mobile-cat-name">
+         תחביבים ופנאי
+        </span>
+        <span class="mobile-cat-value">
+         ₪44 (0%)
+        </span>
+       </li>
+      </ul>
      </div>
      <div class="chart-card">
       <div class="chart-card-title">
        הכנסות לפי קטגוריה
       </div>
-      <div style="position:relative;height:320px;">
+      <div class="donut-chart-wrap" style="position:relative;height:320px;">
        <canvas id="chart-earnings-donut" style="width:100%;height:100%;">
        </canvas>
       </div>
       <script>
        (function(){
+  var _isMob = window.matchMedia('(max-width:768px)').matches;
   new Chart(document.getElementById('chart-earnings-donut'), {
     type: 'doughnut',
-    data: {"labels": ["אוכל בחוץ", "אחר", "חו\"ל", "משכורת", "שיעורים פרטיים", "שלום שבאזי 7"], "datasets": [{"data": [175.0, 400.0, 31.0, 24299.22, 150.0, 2800.0], "backgroundColor": ["#a5d6a7", "#80cbc4", "#90caf9", "#80deea", "#c5e1a5", "#b3e5fc"], "borderWidth": 1, "borderColor": "#fff", "hoverOffset": 8}]},
+    data: {"labels": ["אוכל בחוץ", "אחר", "בילויים", "טיפוח ורפואה", "מזומן", "משכורת", "מתנות", "עמלות", "שיעורים פרטיים", "שלום שבאזי 7"], "datasets": [{"data": [82.0, 49.32, 498.0, 469.0, 500.0, 28836.94, 90.0, 33.37, 150.0, 877.0], "backgroundColor": ["#a5d6a7", "#80cbc4", "#90caf9", "#80deea", "#c5e1a5", "#b3e5fc", "#b2dfdb", "#a5f3d0", "#81d4fa", "#aed581"], "borderWidth": 1, "borderColor": "#fff", "hoverOffset": 8}]},
     options: {
       responsive: true, maintainAspectRatio: false,
       cutout: '68%',
       plugins: {
         legend: {
+          display: !_isMob,
           position: 'bottom',
           labels: { font: { size: 11 }, padding: 10, boxWidth: 12 },
           onHover: function(evt, item, legend) {
@@ -1756,25 +2050,134 @@ body {
   });
 })();
       </script>
+     </div>
+     <div class="chart-card mobile-cat-legend-card">
+      <div class="chart-card-title">
+       הכנסות לפי קטגוריה
+      </div>
+      <ul class="mobile-cat-list">
+       <li class="mobile-cat-item">
+        <span class="mobile-cat-dot" style="background:#a5d6a7">
+        </span>
+        <span class="mobile-cat-name">
+         אוכל בחוץ
+        </span>
+        <span class="mobile-cat-value">
+         ₪82 (0%)
+        </span>
+       </li>
+       <li class="mobile-cat-item">
+        <span class="mobile-cat-dot" style="background:#80cbc4">
+        </span>
+        <span class="mobile-cat-name">
+         אחר
+        </span>
+        <span class="mobile-cat-value">
+         ₪49 (0%)
+        </span>
+       </li>
+       <li class="mobile-cat-item">
+        <span class="mobile-cat-dot" style="background:#90caf9">
+        </span>
+        <span class="mobile-cat-name">
+         בילויים
+        </span>
+        <span class="mobile-cat-value">
+         ₪498 (2%)
+        </span>
+       </li>
+       <li class="mobile-cat-item">
+        <span class="mobile-cat-dot" style="background:#80deea">
+        </span>
+        <span class="mobile-cat-name">
+         טיפוח ורפואה
+        </span>
+        <span class="mobile-cat-value">
+         ₪469 (1%)
+        </span>
+       </li>
+       <li class="mobile-cat-item">
+        <span class="mobile-cat-dot" style="background:#c5e1a5">
+        </span>
+        <span class="mobile-cat-name">
+         מזומן
+        </span>
+        <span class="mobile-cat-value">
+         ₪500 (2%)
+        </span>
+       </li>
+       <li class="mobile-cat-item">
+        <span class="mobile-cat-dot" style="background:#b3e5fc">
+        </span>
+        <span class="mobile-cat-name">
+         משכורת
+        </span>
+        <span class="mobile-cat-value">
+         ₪28,837 (91%)
+        </span>
+       </li>
+       <li class="mobile-cat-item">
+        <span class="mobile-cat-dot" style="background:#b2dfdb">
+        </span>
+        <span class="mobile-cat-name">
+         מתנות
+        </span>
+        <span class="mobile-cat-value">
+         ₪90 (0%)
+        </span>
+       </li>
+       <li class="mobile-cat-item">
+        <span class="mobile-cat-dot" style="background:#a5f3d0">
+        </span>
+        <span class="mobile-cat-name">
+         עמלות
+        </span>
+        <span class="mobile-cat-value">
+         ₪33 (0%)
+        </span>
+       </li>
+       <li class="mobile-cat-item">
+        <span class="mobile-cat-dot" style="background:#81d4fa">
+        </span>
+        <span class="mobile-cat-name">
+         שיעורים פרטיים
+        </span>
+        <span class="mobile-cat-value">
+         ₪150 (0%)
+        </span>
+       </li>
+       <li class="mobile-cat-item">
+        <span class="mobile-cat-dot" style="background:#aed581">
+        </span>
+        <span class="mobile-cat-name">
+         שלום שבאזי 7
+        </span>
+        <span class="mobile-cat-value">
+         ₪877 (3%)
+        </span>
+       </li>
+      </ul>
      </div>
      <div class="chart-card">
       <div class="chart-card-title">
        השקעות / חיסכון
       </div>
-      <div style="position:relative;height:320px;">
+      <div class="donut-chart-wrap" style="position:relative;height:320px;">
        <canvas id="chart-investments-donut" style="width:100%;height:100%;">
        </canvas>
       </div>
       <script>
        (function(){
+  var _isMob = window.matchMedia('(max-width:768px)').matches;
   new Chart(document.getElementById('chart-investments-donut'), {
     type: 'doughnut',
-    data: {"labels": ["אנליסט קופ\"ג -מנותבת"], "datasets": [{"data": [1000.0], "backgroundColor": ["#ffcc80"], "borderWidth": 1, "borderColor": "#fff", "hoverOffset": 8}]},
+    data: {"labels": ["אנליסט קופ\"ג -מנותבת", "העברה מהחשבון"], "datasets": [{"data": [1000.0, 30000.0], "backgroundColor": ["#ffcc80", "#ffb74d"], "borderWidth": 1, "borderColor": "#fff", "hoverOffset": 8}]},
     options: {
       responsive: true, maintainAspectRatio: false,
       cutout: '68%',
       plugins: {
         legend: {
+          display: !_isMob,
           position: 'bottom',
           labels: { font: { size: 11 }, padding: 10, boxWidth: 12 },
           onHover: function(evt, item, legend) {
@@ -1825,13 +2228,129 @@ body {
 })();
       </script>
      </div>
+     <div class="chart-card mobile-cat-legend-card">
+      <div class="chart-card-title">
+       השקעות / חיסכון
+      </div>
+      <ul class="mobile-cat-list">
+       <li class="mobile-cat-item">
+        <span class="mobile-cat-dot" style="background:#ffcc80">
+        </span>
+        <span class="mobile-cat-name">
+         אנליסט קופ"ג -מנותבת
+        </span>
+        <span class="mobile-cat-value">
+         ₪1,000 (3%)
+        </span>
+       </li>
+       <li class="mobile-cat-item">
+        <span class="mobile-cat-dot" style="background:#ffb74d">
+        </span>
+        <span class="mobile-cat-name">
+         העברה מהחשבון
+        </span>
+        <span class="mobile-cat-value">
+         ₪30,000 (97%)
+        </span>
+       </li>
+      </ul>
+     </div>
      <div class="chart-card">
       <div class="chart-card-title">
        מזומן
       </div>
-      <div class="empty-state">
-       אין נתוני מזומן לחודש זה
+      <div class="donut-chart-wrap" style="position:relative;height:320px;">
+       <canvas id="chart-cash-donut" style="width:100%;height:100%;">
+       </canvas>
       </div>
+      <script>
+       (function(){
+  var _isMob = window.matchMedia('(max-width:768px)').matches;
+  new Chart(document.getElementById('chart-cash-donut'), {
+    type: 'doughnut',
+    data: {"labels": ["הכנסה  ₪500", "הוצאה  ₪0"], "datasets": [{"data": [500.0, 0.0], "backgroundColor": ["#a5d6a7", "#ef9a9a"], "borderWidth": 1, "borderColor": "#fff", "hoverOffset": 8}]},
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      cutout: '68%',
+      plugins: {
+        legend: {
+          display: !_isMob,
+          position: 'bottom',
+          labels: { font: { size: 11 }, padding: 10, boxWidth: 12 },
+          onHover: function(evt, item, legend) {
+            var ch = legend.chart;
+            ch.tooltip.setActiveElements([{datasetIndex: 0, index: item.index}], evt);
+            ch.update();
+          },
+          onLeave: function(evt, item, legend) {
+            var ch = legend.chart;
+            ch.tooltip.setActiveElements([], evt);
+            ch.update();
+          }
+        },
+        tooltip: {
+          rtl: true,
+          callbacks: {
+            label: function(ctx) {
+              const v = ctx.parsed;
+              const ch = ctx.chart;
+              const visTotal = ctx.dataset.data.reduce((a,b,i)=>
+                ch.getDataVisibility(i) ? a+b : a, 0);
+              const pct = visTotal ? (v/visTotal*100).toFixed(1) : 0;
+              return '₪' + Math.round(v).toLocaleString('he-IL') + ' (' + pct + '%)';
+            }
+          }
+        }
+      }
+    },
+    plugins: [
+  {
+    id: 'centerText',
+    beforeDraw(chart) {
+      if (chart.config.type !== 'doughnut') return;
+      const {ctx, data, chartArea: {top, bottom, left, right}} = chart;
+      const cx = (left + right) / 2, cy = (top + bottom) / 2;
+      const total = data.datasets[0].data.reduce((a, b, i) =>
+        chart.getDataVisibility(i) ? a + b : a, 0);
+      ctx.save();
+      ctx.font = 'bold 15px Segoe UI,Arial,sans-serif';
+      ctx.fillStyle = '#1e2a4a';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('₪' + Math.round(total).toLocaleString('he-IL'), cx, cy);
+      ctx.restore();
+    }
+  }]
+  });
+})();
+      </script>
+     </div>
+     <div class="chart-card mobile-cat-legend-card">
+      <div class="chart-card-title">
+       מזומן
+      </div>
+      <ul class="mobile-cat-list">
+       <li class="mobile-cat-item">
+        <span class="mobile-cat-dot" style="background:#a5d6a7">
+        </span>
+        <span class="mobile-cat-name">
+         הכנסה  ₪500
+        </span>
+        <span class="mobile-cat-value">
+         ₪500 (100%)
+        </span>
+       </li>
+       <li class="mobile-cat-item">
+        <span class="mobile-cat-dot" style="background:#ef9a9a">
+        </span>
+        <span class="mobile-cat-name">
+         הוצאה  ₪0
+        </span>
+        <span class="mobile-cat-value">
+         ₪0 (0%)
+        </span>
+       </li>
+      </ul>
      </div>
      <div class="chart-card full-width">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 4px 14px;border-bottom:1.5px solid #eef0f6;margin-bottom:12px;">
@@ -1856,20 +2375,32 @@ body {
         </span>
        </span>
       </div>
-      <div style="position:relative;height:340px;">
+      <div id="chart-general-wrap" style="position:relative;height:340px;">
        <canvas id="chart-general-bar" style="width:100%;height:100%;">
        </canvas>
       </div>
       <script>
        (function(){
+  var _isMob = window.matchMedia('(max-width:768px)').matches;
+  var _rawData = {"labels": ["Aug 2025", "Sep 2025", "Oct 2025", "Nov 2025", "Dec 2025", "Jan 2026", "Feb 2026", "Mar 2026", "Apr 2026", "May 2026"], "datasets": [{"type": "bar", "label": "הוצאות", "data": [54885.74, 30450.05, 27846.96, 51563.71, 27813.38, 25166.06, 27269.09, 23590.35, 24659.87, 4756.51], "backgroundColor": "rgba(239,154,154,0.80)", "borderColor": "#ef5350", "borderWidth": 1, "order": 2, "stack": "sp"}, {"type": "bar", "label": "השקעות/חיסכון", "data": [1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 31000.0, 0.0], "backgroundColor": "rgba(255,183,77,0.85)", "borderColor": "#ffb74d", "borderWidth": 1, "order": 2, "stack": "sp"}, {"type": "bar", "label": "הכנסות", "data": [71178.84, 37871.02, 26431.24, 28579.77, 28875.0, 27855.22, 29208.53, 44340.0, 31085.63, 15241.61], "backgroundColor": "rgba(165,214,167,0.75)", "borderColor": "#43a047", "borderWidth": 1, "order": 2, "stack": "ea"}, {"type": "line", "label": "נטו (ללא השקעות)", "data": [16293.1, 7420.97, -1415.72, -22983.94, 1061.62, 2689.16, 1939.44, 20749.65, 6425.76, 10485.1], "borderColor": "#1e9d8b", "backgroundColor": "rgba(30,157,139,0.08)", "pointRadius": 5, "pointHoverRadius": 8, "tension": 0.35, "fill": true, "borderWidth": 2, "order": 1}]};
+  var _chartData = _rawData;
+  if (_isMob) {
+    var _n = 3;
+    _chartData = {
+      labels: _rawData.labels.slice(-_n),
+      datasets: _rawData.datasets.map(function(ds) {
+        return Object.assign({}, ds, { data: ds.data.slice(-_n) });
+      })
+    };
+  }
   new Chart(document.getElementById('chart-general-bar'), {
     type: 'bar',
-    data: {"labels": ["Aug 2025", "Sep 2025", "Oct 2025", "Nov 2025", "Dec 2025", "Jan 2026", "Feb 2026", "Mar 2026", "Apr 2026", "May 2026"], "datasets": [{"type": "bar", "label": "הוצאות", "data": [54885.74, 30450.05, 27846.96, 51563.71, 27813.38, 25166.06, 27269.09, 23590.35, 24659.87, 4756.51], "backgroundColor": "rgba(239,154,154,0.80)", "borderColor": "#ef5350", "borderWidth": 1, "order": 2, "stack": "sp"}, {"type": "bar", "label": "השקעות/חיסכון", "data": [1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 31000.0, 0.0], "backgroundColor": "rgba(255,183,77,0.85)", "borderColor": "#ffb74d", "borderWidth": 1, "order": 2, "stack": "sp"}, {"type": "bar", "label": "הכנסות", "data": [71178.84, 37871.02, 26431.24, 28579.77, 28875.0, 27855.22, 29208.53, 44340.0, 31085.63, 15241.61], "backgroundColor": "rgba(165,214,167,0.75)", "borderColor": "#43a047", "borderWidth": 1, "order": 2, "stack": "ea"}, {"type": "line", "label": "נטו (ללא השקעות)", "data": [16293.1, 7420.97, -1415.72, -22983.94, 1061.62, 2689.16, 1939.44, 20749.65, 6425.76, 10485.1], "borderColor": "#1e9d8b", "backgroundColor": "rgba(30,157,139,0.08)", "pointRadius": 5, "pointHoverRadius": 8, "tension": 0.35, "fill": true, "borderWidth": 2, "order": 1}]},
+    data: _chartData,
     options: {
       responsive: true, maintainAspectRatio: false,
       interaction: { mode: 'index', intersect: false },
       plugins: {
-        legend: { position: 'top', labels: { font: { size: 12 }, padding: 16 } },
+        legend: { position: 'top', labels: { font: { size: _isMob ? 10 : 12 }, padding: 12 } },
         tooltip: {
           rtl: true,
           callbacks: {
@@ -1928,7 +2459,7 @@ body {
   };
   new Chart(document.getElementById('chart-card-dist'), {
     type: 'bar',
-    data: {"labels": ["1565", "2922", "3843", "4046", "Bank"], "datasets": [{"label": "חיוב חודשי", "data": [7831.9, 1267.37, 95.71, 2728.99, 13613.13], "backgroundColor": ["#D0FFD0", "#FFD7BA", "#FFEDCC", "#C8F7FF", "#F5DCB7"], "borderColor": ["#D0FFD0", "#FFD7BA", "#FFEDCC", "#C8F7FF", "#F5DCB7"], "borderWidth": 1}]},
+    data: {"labels": ["1565", "2922", "4046", "7329", "Bank"], "datasets": [{"label": "חיוב חודשי", "data": [6944.56, 1385.02, 1953.27, 538.07, 13753.32], "backgroundColor": ["#D0FFD0", "#FFD7BA", "#C8F7FF", "#F0E68C", "#F5DCB7"], "borderColor": ["#D0FFD0", "#FFD7BA", "#C8F7FF", "#F0E68C", "#F5DCB7"], "borderWidth": 1}]},
     options: {
       responsive: true, maintainAspectRatio: false,
       layout: { padding: { top: 24 } },
@@ -1994,7 +2525,7 @@ body {
       <div class="cat-pills" id="spendings-cats">
       </div>
       <div class="tx-scroll" id="spendings-list">
-       <div class="num" data-tx-table="BankTransactions" data-value="563">
+       <div class="num" data-tx-table="BankTransactions" data-value="631">
         <div class="color-box" style="background-color:#F5DCB7">
         </div>
         <h3>
@@ -2009,10 +2540,31 @@ body {
          הלוואה
         </p>
         <p class="element4">
-         Thursday 01
+         Wednesday 01
         </p>
        </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="1947">
+       <div class="num" data-tx-table="CardTransactions" data-value="2134">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          bath &amp; body works
+         </span>
+         <span class="tx-secondary">
+          BBW ביג אשדוד-גמא
+         </span>
+        </h3>
+        <p class="date">
+         60.00₪
+        </p>
+        <p class="cat">
+         מתנות
+        </p>
+        <p class="element4">
+         Wednesday 01
+        </p>
+       </div>
+       <div class="num" data-tx-table="CardTransactions" data-value="2179">
         <div class="color-box" style="background-color:#D0FFD0">
         </div>
         <h3>
@@ -2027,219 +2579,28 @@ body {
          מנויים
         </p>
         <p class="element4">
-         Thursday 01
+         Wednesday 01
         </p>
        </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="1917">
-        <div class="color-box" style="background-color:#D0FFD0">
+       <div class="num" data-tx-table="CardTransactions" data-value="2210">
+        <div class="color-box" style="background-color:#C8F7FF">
         </div>
         <h3>
          <span class="tx-primary">
-          ארנונה
-         </span>
-         <span class="tx-secondary">
-          עיריית ראשל"צ-מענה ק
+          פליינג טייגר - ביג א
          </span>
         </h3>
         <p class="date">
-         832.00₪
+         40.00₪
         </p>
         <p class="cat">
-         שכירות
+         מתנות
         </p>
         <p class="element4">
-         Thursday 01
+         Wednesday 01
         </p>
        </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="1946">
-        <div class="color-box" style="background-color:#D0FFD0">
-        </div>
-        <h3>
-         <span class="tx-primary">
-          GOOGLE  TRAVELSPEND
-         </span>
-        </h3>
-        <p class="date">
-         16.90₪
-        </p>
-        <p class="cat">
-         מנויים
-        </p>
-        <p class="element4">
-         Thursday 01
-        </p>
-       </div>
-       <div class="num" data-tx-table="BankTransactions" data-value="565">
-        <div class="color-box" style="background-color:#F5DCB7">
-        </div>
-        <h3>
-         <span class="tx-primary">
-          טפחות ס.ביטוח-ה
-         </span>
-        </h3>
-        <p class="date">
-         59.00₪
-        </p>
-        <p class="cat">
-         שלום שבאזי 7
-        </p>
-        <p class="element4">
-         Thursday 01
-        </p>
-       </div>
-       <div class="num" data-tx-table="BankTransactions" data-value="566">
-        <div class="color-box" style="background-color:#F5DCB7">
-        </div>
-        <h3>
-         <span class="tx-primary">
-          טפחות-משכנתא
-         </span>
-        </h3>
-        <p class="date">
-         3,743.22₪
-        </p>
-        <p class="cat">
-         שלום שבאזי 7
-        </p>
-        <p class="element4">
-         Thursday 01
-        </p>
-       </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="2078">
-        <div class="color-box" style="background-color:#FFEDCC">
-        </div>
-        <h3>
-         <span class="tx-primary">
-          יוניברס ראשל"צ -שמוטקין
-         </span>
-        </h3>
-        <p class="date">
-         95.71₪
-        </p>
-        <p class="cat">
-         מצרכים
-        </p>
-        <p class="element4">
-         Friday 02
-        </p>
-       </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="1919">
-        <div class="color-box" style="background-color:#D0FFD0">
-        </div>
-        <h3>
-         <span class="tx-primary">
-          מאפיית פארין-יציל
-         </span>
-        </h3>
-        <p class="date">
-         24.00₪
-        </p>
-        <p class="cat">
-         אוכל בחוץ
-        </p>
-        <p class="element4">
-         Friday 02
-        </p>
-       </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="1918">
-        <div class="color-box" style="background-color:#D0FFD0">
-        </div>
-        <h3>
-         <span class="tx-primary">
-          מאפיית פארין-יציל
-         </span>
-        </h3>
-        <p class="date">
-         12.00₪
-        </p>
-        <p class="cat">
-         אוכל בחוץ
-        </p>
-        <p class="element4">
-         Friday 02
-        </p>
-       </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="1920">
-        <div class="color-box" style="background-color:#D0FFD0">
-        </div>
-        <h3>
-         <span class="tx-primary">
-          מזוודות מחבר לסטיבן
-         </span>
-         <span class="tx-secondary">
-          חבר מסעדות וא' בוקר
-         </span>
-        </h3>
-        <p class="date">
-         399.00₪
-        </p>
-        <p class="cat">
-         אחר
-        </p>
-        <p class="element4">
-         Saturday 03
-        </p>
-       </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="1948">
-        <div class="color-box" style="background-color:#D0FFD0">
-        </div>
-        <h3>
-         <span class="tx-primary">
-          ZETY COM
-         </span>
-        </h3>
-        <p class="date">
-         76.90₪
-         <br/>
-         (23.95$)
-        </p>
-        <p class="cat">
-         מנויים
-        </p>
-        <p class="element4">
-         Saturday 03
-        </p>
-       </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="1921">
-        <div class="color-box" style="background-color:#D0FFD0">
-        </div>
-        <h3>
-         <span class="tx-primary">
-          יפנולוגיה נובמבר דצמבר 25
-         </span>
-         <span class="tx-secondary">
-          העברה ב BIT בנה"פ
-         </span>
-        </h3>
-        <p class="date">
-         1,060.00₪
-        </p>
-        <p class="cat">
-         השכלה ולימודים
-        </p>
-        <p class="element4">
-         Sunday 04
-        </p>
-       </div>
-       <div class="num" data-tx-table="BankTransactions" data-value="606">
-        <div class="color-box" style="background-color:#F5DCB7">
-        </div>
-        <h3>
-         <span class="tx-primary">
-          הראל בטוח
-         </span>
-        </h3>
-        <p class="date">
-         29.44₪
-        </p>
-        <p class="cat">
-         ביטוח בריאות
-        </p>
-        <p class="element4">
-         Monday 05
-        </p>
-       </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="1997">
+       <div class="num" data-tx-table="CardTransactions" data-value="2187">
         <div class="color-box" style="background-color:#FFD7BA">
         </div>
         <h3>
@@ -2254,232 +2615,28 @@ body {
          השכלה ולימודים
         </p>
         <p class="element4">
-         Monday 05
+         Wednesday 01
         </p>
        </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="2021">
-        <div class="color-box" style="background-color:#C8F7FF">
+       <div class="num" data-tx-table="BankTransactions" data-value="634">
+        <div class="color-box" style="background-color:#F5DCB7">
         </div>
         <h3>
          <span class="tx-primary">
-          קפה עם דלל
-         </span>
-         <span class="tx-secondary">
-          ללוש
+          טפחות-משכנתא
          </span>
         </h3>
         <p class="date">
-         124.00₪
+         3,714.37₪
         </p>
         <p class="cat">
-         אוכל בחוץ
+         שלום שבאזי 7
         </p>
         <p class="element4">
-         Monday 05
+         Wednesday 01
         </p>
        </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="1922">
-        <div class="color-box" style="background-color:#D0FFD0">
-        </div>
-        <h3>
-         <span class="tx-primary">
-          רנאטו בר
-         </span>
-        </h3>
-        <p class="date">
-         70.00₪
-        </p>
-        <p class="cat">
-         אוכל בחוץ
-        </p>
-        <p class="element4">
-         Monday 05
-        </p>
-       </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="2022">
-        <div class="color-box" style="background-color:#C8F7FF">
-        </div>
-        <h3>
-         <span class="tx-primary">
-          נאייקס ישראל מכונות
-         </span>
-        </h3>
-        <p class="date">
-         5.50₪
-        </p>
-        <p class="cat">
-         אוכל בחוץ
-        </p>
-        <p class="element4">
-         Monday 05
-        </p>
-       </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="1923">
-        <div class="color-box" style="background-color:#D0FFD0">
-        </div>
-        <h3>
-         <span class="tx-primary">
-          חב החשמל-דן תש אינט'
-         </span>
-        </h3>
-        <p class="date">
-         536.64₪
-        </p>
-        <p class="cat">
-         חשבונות
-        </p>
-        <p class="element4">
-         Tuesday 06
-        </p>
-       </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="1996">
-        <div class="color-box" style="background-color:#FFD7BA">
-        </div>
-        <h3>
-         <span class="tx-primary">
-          PAYPAL *ALIPAYSINGA
-         </span>
-        </h3>
-        <p class="date">
-         75.19₪
-        </p>
-        <p class="cat">
-         רהיטים ובית
-        </p>
-        <p class="element4">
-         Tuesday 06
-        </p>
-       </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="2018">
-        <div class="color-box" style="background-color:#C8F7FF">
-        </div>
-        <h3>
-         <span class="tx-primary">
-          פז YELLOW ק.אריה
-         </span>
-        </h3>
-        <p class="date">
-         12.50₪
-        </p>
-        <p class="cat">
-         אוכל בחוץ
-        </p>
-        <p class="element4">
-         Wednesday 07
-        </p>
-       </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="2020">
-        <div class="color-box" style="background-color:#C8F7FF">
-        </div>
-        <h3>
-         <span class="tx-primary">
-          סיוון אבו גבות
-         </span>
-         <span class="tx-secondary">
-          העברה בBIT
-         </span>
-        </h3>
-        <p class="date">
-         100.00₪
-        </p>
-        <p class="cat">
-         טיפוח ורפואה
-        </p>
-        <p class="element4">
-         Wednesday 07
-        </p>
-       </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="2019">
-        <div class="color-box" style="background-color:#C8F7FF">
-        </div>
-        <h3>
-         <span class="tx-primary">
-          סופר פארם ראשל"צ צפו
-         </span>
-        </h3>
-        <p class="date">
-         45.90₪
-        </p>
-        <p class="cat">
-         טיפוח ורפואה
-        </p>
-        <p class="element4">
-         Wednesday 07
-        </p>
-       </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="1924">
-        <div class="color-box" style="background-color:#D0FFD0">
-        </div>
-        <h3>
-         <span class="tx-primary">
-          סופר שינקין בע"מ
-         </span>
-        </h3>
-        <p class="date">
-         102.83₪
-        </p>
-        <p class="cat">
-         מצרכים
-        </p>
-        <p class="element4">
-         Wednesday 07
-        </p>
-       </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="2017">
-        <div class="color-box" style="background-color:#C8F7FF">
-        </div>
-        <h3>
-         <span class="tx-primary">
-          אילנס רכבת-ת"א ההגנה
-         </span>
-        </h3>
-        <p class="date">
-         28.00₪
-        </p>
-        <p class="cat">
-         אוכל בחוץ
-        </p>
-        <p class="element4">
-         Thursday 08
-        </p>
-       </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="1925">
-        <div class="color-box" style="background-color:#D0FFD0">
-        </div>
-        <h3>
-         <span class="tx-primary">
-          יוניברס יהוד
-         </span>
-        </h3>
-        <p class="date">
-         205.30₪
-        </p>
-        <p class="cat">
-         מצרכים
-        </p>
-        <p class="element4">
-         Thursday 08
-        </p>
-       </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="1926">
-        <div class="color-box" style="background-color:#D0FFD0">
-        </div>
-        <h3>
-         <span class="tx-primary">
-          סוד הבשר ראשל"צ
-         </span>
-        </h3>
-        <p class="date">
-         72.50₪
-        </p>
-        <p class="cat">
-         מצרכים
-        </p>
-        <p class="element4">
-         Thursday 08
-        </p>
-       </div>
-       <div class="num" data-tx-table="BankTransactions" data-value="605">
+       <div class="num" data-tx-table="BankTransactions" data-value="633">
         <div class="color-box" style="background-color:#F5DCB7">
         </div>
         <h3>
@@ -2488,233 +2645,304 @@ body {
          </span>
         </h3>
         <p class="date">
-         31.06₪
+         60.00₪
         </p>
         <p class="cat">
          שלום שבאזי 7
         </p>
         <p class="element4">
-         Sunday 11
+         Wednesday 01
         </p>
        </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="2016">
+       <div class="num" data-tx-table="BankTransactions" data-value="637">
+        <div class="color-box" style="background-color:#F5DCB7">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          מס ר.זכות שח
+         </span>
+        </h3>
+        <p class="date">
+         7.40₪
+        </p>
+        <p class="cat">
+         עמלות
+        </p>
+        <p class="element4">
+         Wednesday 01
+        </p>
+       </div>
+       <div class="num" data-tx-table="CardTransactions" data-value="2135">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          מגבונים
+         </span>
+         <span class="tx-secondary">
+          חבר כללי
+         </span>
+        </h3>
+        <p class="date">
+         59.00₪
+        </p>
+        <p class="cat">
+         מצרכים
+        </p>
+        <p class="element4">
+         Friday 03
+        </p>
+       </div>
+       <div class="num" data-tx-table="CardTransactions" data-value="2138">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          עירית חיפה
+         </span>
+        </h3>
+        <p class="date">
+         309.46₪
+        </p>
+        <p class="cat">
+         שלום שבאזי 7
+        </p>
+        <p class="element4">
+         Saturday 04
+        </p>
+       </div>
+       <div class="num" data-tx-table="CardTransactions" data-value="2137">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          WOLT ISRAEL
+         </span>
+        </h3>
+        <p class="date">
+         221.98₪
+        </p>
+        <p class="cat">
+         אוכל בחוץ
+        </p>
+        <p class="element4">
+         Saturday 04
+        </p>
+       </div>
+       <div class="num" data-tx-table="CardTransactions" data-value="2136">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          מארז מוצרי ניקיון
+         </span>
+         <span class="tx-secondary">
+          חבר כללי
+         </span>
+        </h3>
+        <p class="date">
+         99.00₪
+        </p>
+        <p class="cat">
+         מצרכים
+        </p>
+        <p class="element4">
+         Saturday 04
+        </p>
+       </div>
+       <div class="num" data-tx-table="CardTransactions" data-value="2209">
         <div class="color-box" style="background-color:#C8F7FF">
         </div>
         <h3>
          <span class="tx-primary">
-          פדיקור
-         </span>
-         <span class="tx-secondary">
-          העברה בBIT
+          סופר פארם ראשל"צ צפו
          </span>
         </h3>
         <p class="date">
-         250.00₪
+         86.09₪
         </p>
         <p class="cat">
          טיפוח ורפואה
         </p>
         <p class="element4">
-         Monday 12
+         Monday 06
         </p>
        </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="1995">
-        <div class="color-box" style="background-color:#FFD7BA">
-        </div>
-        <h3>
-         <span class="tx-primary">
-          Anime concert
-         </span>
-         <span class="tx-secondary">
-          HARMONY WAVE SOLUTIONS
-         </span>
-        </h3>
-        <p class="date">
-         424.00₪
-        </p>
-        <p class="cat">
-         בילויים
-        </p>
-        <p class="element4">
-         Monday 12
-        </p>
-       </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="1927">
+       <div class="num" data-tx-table="CardTransactions" data-value="2180">
         <div class="color-box" style="background-color:#D0FFD0">
         </div>
         <h3>
          <span class="tx-primary">
-          על האש אצל גברי
+          CLAUDE AI SUBSCRIPTI
+         </span>
+        </h3>
+        <p class="date">
+         63.44₪
+         <br/>
+         (20.0$)
+        </p>
+        <p class="cat">
+         מנויים
+        </p>
+        <p class="element4">
+         Tuesday 07
+        </p>
+       </div>
+       <div class="num" data-tx-table="CardTransactions" data-value="2186">
+        <div class="color-box" style="background-color:#FFD7BA">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          בדיקת מי שפיר
+         </span>
+         <span class="tx-secondary">
+          אסותא ראשון בע"מ-צמר
+         </span>
+        </h3>
+        <p class="date">
+         469.00₪
+        </p>
+        <p class="cat">
+         טיפוח ורפואה
+        </p>
+        <p class="element4">
+         Tuesday 07
+        </p>
+       </div>
+       <div class="num" data-tx-table="CardTransactions" data-value="2141">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          קפה ללוש קניון הזהב-
+         </span>
+        </h3>
+        <p class="date">
+         100.00₪
+        </p>
+        <p class="cat">
+         אוכל בחוץ
+        </p>
+        <p class="element4">
+         Tuesday 07
+        </p>
+       </div>
+       <div class="num" data-tx-table="CardTransactions" data-value="2139">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          חניון קניון הזהב - ס
+         </span>
+        </h3>
+        <p class="date">
+         27.88₪
+        </p>
+        <p class="cat">
+         רכב
+        </p>
+        <p class="element4">
+         Tuesday 07
+        </p>
+       </div>
+       <div class="num" data-tx-table="CardTransactions" data-value="2140">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          טעינות "חבר" טעמים
+         </span>
+        </h3>
+        <p class="date">
+         57.00₪
+        </p>
+        <p class="cat">
+         NotCategorized
+        </p>
+        <p class="element4">
+         Tuesday 07
+        </p>
+       </div>
+       <div class="num" data-tx-table="BankTransactions" data-value="659">
+        <div class="color-box" style="background-color:#F5DCB7">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          הראל בטוח
+         </span>
+        </h3>
+        <p class="date">
+         29.41₪
+        </p>
+        <p class="cat">
+         ביטוח בריאות
+        </p>
+        <p class="element4">
+         Tuesday 07
+        </p>
+       </div>
+       <div class="num" data-tx-table="CardTransactions" data-value="2142">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          מייבש כלים
+         </span>
+         <span class="tx-secondary">
+          אייס/ אוטודיפו- אונל
+         </span>
+        </h3>
+        <p class="date">
+         154.26₪
+        </p>
+        <p class="cat">
+         רהיטים ובית
+        </p>
+        <p class="element4">
+         Wednesday 08
+        </p>
+       </div>
+       <div class="num" data-tx-table="BankTransactions" data-value="657">
+        <div class="color-box" style="background-color:#F5DCB7">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          העברה מהחשבון
+         </span>
+        </h3>
+        <p class="date">
+         20,000.00₪
+        </p>
+        <p class="cat">
+         השקעה/חיסכון
+        </p>
+        <p class="element4">
+         Thursday 09
+        </p>
+       </div>
+       <div class="num" data-tx-table="CardTransactions" data-value="2143">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          החזר לארי - חשבונות מיים
          </span>
          <span class="tx-secondary">
           העברה ב BIT בנה"פ
          </span>
         </h3>
         <p class="date">
-         186.00₪
+         217.00₪
         </p>
         <p class="cat">
-         בילויים
+         שלום שבאזי 7
         </p>
         <p class="element4">
-         Monday 12
+         Thursday 09
         </p>
        </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="2015">
-        <div class="color-box" style="background-color:#C8F7FF">
-        </div>
-        <h3>
-         <span class="tx-primary">
-          מצאים קסטרו
-         </span>
-         <span class="tx-secondary">
-          קסטרו מודל בע"מ-גמא
-         </span>
-        </h3>
-        <p class="date">
-         91.36₪
-        </p>
-        <p class="cat">
-         רהיטים ובית
-        </p>
-        <p class="element4">
-         Tuesday 13
-        </p>
-       </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="1928">
+       <div class="num" data-tx-table="CardTransactions" data-value="2144">
         <div class="color-box" style="background-color:#D0FFD0">
-        </div>
-        <h3>
-         <span class="tx-primary">
-          שופרסל דיל גולדה חול
-         </span>
-        </h3>
-        <p class="date">
-         109.14₪
-        </p>
-        <p class="cat">
-         מצרכים
-        </p>
-        <p class="element4">
-         Wednesday 14
-        </p>
-       </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="2013">
-        <div class="color-box" style="background-color:#C8F7FF">
-        </div>
-        <h3>
-         <span class="tx-primary">
-          פז YELLOW ק.אריה
-         </span>
-        </h3>
-        <p class="date">
-         16.80₪
-        </p>
-        <p class="cat">
-         אוכל בחוץ
-        </p>
-        <p class="element4">
-         Wednesday 14
-        </p>
-       </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="2014">
-        <div class="color-box" style="background-color:#C8F7FF">
-        </div>
-        <h3>
-         <span class="tx-primary">
-          יומהולדת אבא של יובל
-         </span>
-         <span class="tx-secondary">
-          דלתא חונים קונים ראש
-         </span>
-        </h3>
-        <p class="date">
-         129.90₪
-        </p>
-        <p class="cat">
-         מתנות
-        </p>
-        <p class="element4">
-         Wednesday 14
-        </p>
-       </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="1929">
-        <div class="color-box" style="background-color:#D0FFD0">
-        </div>
-        <h3>
-         <span class="tx-primary">
-          טאיו סופרמקט אסייתי
-         </span>
-        </h3>
-        <p class="date">
-         115.80₪
-        </p>
-        <p class="cat">
-         מצרכים
-        </p>
-        <p class="element4">
-         Wednesday 14
-        </p>
-       </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="1994">
-        <div class="color-box" style="background-color:#FFD7BA">
-        </div>
-        <h3>
-         <span class="tx-primary">
-          חניון בר אילן
-         </span>
-        </h3>
-        <p class="date">
-         24.00₪
-        </p>
-        <p class="cat">
-         רכב
-        </p>
-        <p class="element4">
-         Wednesday 14
-        </p>
-       </div>
-       <div class="num" data-tx-table="BankTransactions" data-value="604">
-        <div class="color-box" style="background-color:#F5DCB7">
-        </div>
-        <h3>
-         <span class="tx-primary">
-          2170700 משיכת שיק
-         </span>
-        </h3>
-        <p class="date">
-         5,600.00₪
-        </p>
-        <p class="cat">
-         שכירות
-        </p>
-        <p class="element4">
-         Thursday 15
-        </p>
-       </div>
-       <div class="num" data-tx-table="BankTransactions" data-value="603">
-        <div class="color-box" style="background-color:#F5DCB7">
-        </div>
-        <h3>
-         <span class="tx-primary">
-          וועד
-         </span>
-         <span class="tx-secondary">
-          העברה מהחשבון
-         </span>
-        </h3>
-        <p class="date">
-         280.00₪
-        </p>
-        <p class="cat">
-         שכירות
-        </p>
-        <p class="element4">
-         Thursday 15
-        </p>
-       </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="2012">
-        <div class="color-box" style="background-color:#C8F7FF">
         </div>
         <h3>
          <span class="tx-primary">
@@ -2722,95 +2950,212 @@ body {
          </span>
         </h3>
         <p class="date">
-         26.32₪
+         48.00₪
         </p>
         <p class="cat">
          מצרכים
         </p>
         <p class="element4">
-         Thursday 15
+         Thursday 09
         </p>
        </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="1930">
-        <div class="color-box" style="background-color:#D0FFD0">
-        </div>
-        <h3>
-         <span class="tx-primary">
-          חשבון לשרותי סלקום
-         </span>
-        </h3>
-        <p class="date">
-         99.83₪
-        </p>
-        <p class="cat">
-         חשבון אינטרנט
-        </p>
-        <p class="element4">
-         Friday 16
-        </p>
-       </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="1931">
-        <div class="color-box" style="background-color:#D0FFD0">
-        </div>
-        <h3>
-         <span class="tx-primary">
-          פנגו-חניונים
-         </span>
-        </h3>
-        <p class="date">
-         44.00₪
-        </p>
-        <p class="cat">
-         רכב
-        </p>
-        <p class="element4">
-         Saturday 17
-        </p>
-       </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="2011">
+       <div class="num" data-tx-table="CardTransactions" data-value="2208">
         <div class="color-box" style="background-color:#C8F7FF">
         </div>
         <h3>
          <span class="tx-primary">
-          ניצת הדובדבן ראשל"צ
+          מארז ליולדת
+         </span>
+         <span class="tx-secondary">
+          מוצצים אונליין- צמרת
          </span>
         </h3>
         <p class="date">
-         9.90₪
+         7.00₪
         </p>
         <p class="cat">
          מצרכים
         </p>
         <p class="element4">
-         Sunday 18
+         Friday 10
         </p>
        </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="2010">
-        <div class="color-box" style="background-color:#C8F7FF">
+       <div class="num" data-tx-table="CardTransactions" data-value="2145">
+        <div class="color-box" style="background-color:#D0FFD0">
         </div>
         <h3>
          <span class="tx-primary">
-          אילנס  רכבת פ"ת קריי
+          חדר - אגס
+         </span>
+         <span class="tx-secondary">
+          טעינות - חבר של קבע
          </span>
         </h3>
         <p class="date">
-         8.00₪
+         566.00₪
+        </p>
+        <p class="cat">
+         רהיטים ובית
+        </p>
+        <p class="element4">
+         Friday 10
+        </p>
+       </div>
+       <div class="num" data-tx-table="CardTransactions" data-value="2146">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          CARREFOUR ראשון לציו
+         </span>
+        </h3>
+        <p class="date">
+         58.70₪
+        </p>
+        <p class="cat">
+         מצרכים
+        </p>
+        <p class="element4">
+         Friday 10
+        </p>
+       </div>
+       <div class="num" data-tx-table="CardTransactions" data-value="2147">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          WOLT ISRAEL
+         </span>
+        </h3>
+        <p class="date">
+         8.62₪
         </p>
         <p class="cat">
          אוכל בחוץ
         </p>
         <p class="element4">
-         Sunday 18
+         Friday 10
         </p>
        </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="1934">
+       <div class="num" data-tx-table="CardTransactions" data-value="2148">
         <div class="color-box" style="background-color:#D0FFD0">
         </div>
         <h3>
          <span class="tx-primary">
-          קפה
+          WOLT ISRAEL
+         </span>
+        </h3>
+        <p class="date">
+         178.50₪
+        </p>
+        <p class="cat">
+         אוכל בחוץ
+        </p>
+        <p class="element4">
+         Friday 10
+        </p>
+       </div>
+       <div class="num" data-tx-table="CardTransactions" data-value="2207">
+        <div class="color-box" style="background-color:#C8F7FF">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          נוי השדה WOLT
          </span>
          <span class="tx-secondary">
+          WOLT
+         </span>
+        </h3>
+        <p class="date">
+         77.93₪
+        </p>
+        <p class="cat">
+         מצרכים
+        </p>
+        <p class="element4">
+         Friday 10
+        </p>
+       </div>
+       <div class="num" data-tx-table="BankTransactions" data-value="656">
+        <div class="color-box" style="background-color:#F5DCB7">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          טפחות ס.ביטוח-ה
+         </span>
+        </h3>
+        <p class="date">
+         31.03₪
+        </p>
+        <p class="cat">
+         שלום שבאזי 7
+        </p>
+        <p class="element4">
+         Friday 10
+        </p>
+       </div>
+       <div class="num" data-tx-table="CardTransactions" data-value="2149">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          קפה עלמה ראשון לציון
+         </span>
+        </h3>
+        <p class="date">
+         176.00₪
+        </p>
+        <p class="cat">
+         אוכל בחוץ
+        </p>
+        <p class="element4">
+         Saturday 11
+        </p>
+       </div>
+       <div class="num" data-tx-table="CardTransactions" data-value="2185">
+        <div class="color-box" style="background-color:#FFD7BA">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          AliExpress
+         </span>
+         <span class="tx-secondary">
+          PAYPAL *AISGECOMMER
+         </span>
+        </h3>
+        <p class="date">
+         341.12₪
+        </p>
+        <p class="cat">
+         רהיטים ובית
+        </p>
+        <p class="element4">
+         Saturday 11
+        </p>
+       </div>
+       <div class="num" data-tx-table="CardTransactions" data-value="2150">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          חניון ספרה פארק-אין
+         </span>
+        </h3>
+        <p class="date">
+         35.00₪
+        </p>
+        <p class="cat">
+         רכב
+        </p>
+        <p class="element4">
+         Saturday 11
+        </p>
+       </div>
+       <div class="num" data-tx-table="CardTransactions" data-value="2155">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         <span class="tx-primary">
           העברה ב BIT בנה"פ
          </span>
         </h3>
@@ -2821,345 +3166,265 @@ body {
          מצרכים
         </p>
         <p class="element4">
-         Sunday 18
+         Sunday 12
         </p>
        </div>
-       <div class="num" data-tx-table="BankTransactions" data-value="602">
-        <div class="color-box" style="background-color:#F5DCB7">
-        </div>
-        <h3>
-         <span class="tx-primary">
-          אנליסט קופ"ג -מנותבת
-         </span>
-        </h3>
-        <p class="date">
-         1,000.00₪
-        </p>
-        <p class="cat">
-         השקעה/חיסכון
-        </p>
-        <p class="element4">
-         Sunday 18
-        </p>
-       </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="1933">
-        <div class="color-box" style="background-color:#D0FFD0">
-        </div>
-        <h3>
-         <span class="tx-primary">
-          קשת טעמים סניף ראשון
-         </span>
-        </h3>
-        <p class="date">
-         76.23₪
-        </p>
-        <p class="cat">
-         מצרכים
-        </p>
-        <p class="element4">
-         Sunday 18
-        </p>
-       </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="1932">
-        <div class="color-box" style="background-color:#D0FFD0">
-        </div>
-        <h3>
-         <span class="tx-primary">
-          רישיונות נהיגה בינלאומי
-         </span>
-         <span class="tx-secondary">
-          אופט הלפרין ראשל"צ ל
-         </span>
-        </h3>
-        <p class="date">
-         18.00₪
-        </p>
-        <p class="cat">
-         חו"ל
-        </p>
-        <p class="element4">
-         Sunday 18
-        </p>
-       </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="1935">
-        <div class="color-box" style="background-color:#D0FFD0">
-        </div>
-        <h3>
-         <span class="tx-primary">
-          רנאטו בר
-         </span>
-        </h3>
-        <p class="date">
-         50.00₪
-        </p>
-        <p class="cat">
-         אוכל בחוץ
-        </p>
-        <p class="element4">
-         Monday 19
-        </p>
-       </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="2009">
+       <div class="num" data-tx-table="CardTransactions" data-value="2205">
         <div class="color-box" style="background-color:#C8F7FF">
         </div>
         <h3>
          <span class="tx-primary">
-          הופעה מרגי
+          UPAPP
+         </span>
+        </h3>
+        <p class="date">
+         25.00₪
+        </p>
+        <p class="cat">
+         בריאות וכושר
+        </p>
+        <p class="element4">
+         Sunday 12
+        </p>
+       </div>
+       <div class="num" data-tx-table="CardTransactions" data-value="2153">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          חדר - אגס
          </span>
          <span class="tx-secondary">
-          בארבי. נט - מ.ש. הפק
+          טעינות - חבר של קבע
          </span>
         </h3>
         <p class="date">
-         450.00₪
-        </p>
-        <p class="cat">
-         בילויים
-        </p>
-        <p class="element4">
-         Tuesday 20
-        </p>
-       </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="1949">
-        <div class="color-box" style="background-color:#D0FFD0">
-        </div>
-        <h3>
-         <span class="tx-primary">
-          WANIKANI JAPANESE LA
-         </span>
-        </h3>
-        <p class="date">
-         28.84₪
-         <br/>
-         (9.0$)
-        </p>
-        <p class="cat">
-         השכלה ולימודים
-        </p>
-        <p class="element4">
-         Tuesday 20
-        </p>
-       </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="1937">
-        <div class="color-box" style="background-color:#D0FFD0">
-        </div>
-        <h3>
-         <span class="tx-primary">
-          נותן לחם בית מאפה בע
-         </span>
-        </h3>
-        <p class="date">
-         48.67₪
-        </p>
-        <p class="cat">
-         מצרכים
-        </p>
-        <p class="element4">
-         Wednesday 21
-        </p>
-       </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="1936">
-        <div class="color-box" style="background-color:#D0FFD0">
-        </div>
-        <h3>
-         <span class="tx-primary">
-          יוניברס ראשל"צ- שמוט
-         </span>
-        </h3>
-        <p class="date">
-         85.71₪
-        </p>
-        <p class="cat">
-         מצרכים
-        </p>
-        <p class="element4">
-         Wednesday 21
-        </p>
-       </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="1993">
-        <div class="color-box" style="background-color:#FFD7BA">
-        </div>
-        <h3>
-         <span class="tx-primary">
-          PAYPAL *NETFLIX COM
-         </span>
-        </h3>
-        <p class="date">
-         32.90₪
-        </p>
-        <p class="cat">
-         מנויים
-        </p>
-        <p class="element4">
-         Wednesday 21
-        </p>
-       </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="1950">
-        <div class="color-box" style="background-color:#D0FFD0">
-        </div>
-        <h3>
-         <span class="tx-primary">
-          SPOTIFYIL
-         </span>
-        </h3>
-        <p class="date">
-         43.90₪
-        </p>
-        <p class="cat">
-         תחביבים ופנאי
-        </p>
-        <p class="element4">
-         Thursday 22
-        </p>
-       </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="2008">
-        <div class="color-box" style="background-color:#C8F7FF">
-        </div>
-        <h3>
-         <span class="tx-primary">
-          כדורי בחילה
-         </span>
-         <span class="tx-secondary">
-          סופר פארם ראשל"צ צפו
-         </span>
-        </h3>
-        <p class="date">
-         114.59₪
-        </p>
-        <p class="cat">
-         טיפוח ורפואה
-        </p>
-        <p class="element4">
-         Friday 23
-        </p>
-       </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="1938">
-        <div class="color-box" style="background-color:#D0FFD0">
-        </div>
-        <h3>
-         <span class="tx-primary">
-          נותן לחם בית מאפה בע
-         </span>
-        </h3>
-        <p class="date">
-         23.68₪
-        </p>
-        <p class="cat">
-         מצרכים
-        </p>
-        <p class="element4">
-         Saturday 24
-        </p>
-       </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="1992">
-        <div class="color-box" style="background-color:#FFD7BA">
-        </div>
-        <h3>
-         <span class="tx-primary">
-          PAYPAL *AISGECOMMER
-         </span>
-        </h3>
-        <p class="date">
-         181.28₪
+         278.00₪
         </p>
         <p class="cat">
          רהיטים ובית
         </p>
         <p class="element4">
-         Sunday 25
+         Sunday 12
         </p>
        </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="2007">
-        <div class="color-box" style="background-color:#C8F7FF">
-        </div>
-        <h3>
-         <span class="tx-primary">
-          מ.התחבורה-פנגו מוביט
-         </span>
-        </h3>
-        <p class="date">
-         287.00₪
-        </p>
-        <p class="cat">
-         תחבורה ציבורית
-        </p>
-        <p class="element4">
-         Sunday 25
-        </p>
-       </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="1939">
+       <div class="num" data-tx-table="CardTransactions" data-value="2152">
         <div class="color-box" style="background-color:#D0FFD0">
         </div>
         <h3>
          <span class="tx-primary">
-          נאייקס ישראל מכונות
+          חדר - אגס
+         </span>
+         <span class="tx-secondary">
+          טעינות - חבר של קבע
          </span>
         </h3>
         <p class="date">
-         4.50₪
+         131.00₪
         </p>
         <p class="cat">
-         אוכל בחוץ
+         רהיטים ובית
         </p>
         <p class="element4">
-         Sunday 25
+         Sunday 12
         </p>
        </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="2006">
+       <div class="num" data-tx-table="CardTransactions" data-value="2151">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          חדר - אגס
+         </span>
+         <span class="tx-secondary">
+          טעינות - חבר של קבע
+         </span>
+        </h3>
+        <p class="date">
+         259.00₪
+        </p>
+        <p class="cat">
+         רהיטים ובית
+        </p>
+        <p class="element4">
+         Sunday 12
+        </p>
+       </div>
+       <div class="num" data-tx-table="CardTransactions" data-value="2206">
         <div class="color-box" style="background-color:#C8F7FF">
         </div>
         <h3>
          <span class="tx-primary">
-          WOLT
+          תפארת הלחם
          </span>
         </h3>
         <p class="date">
-         101.27₪
+         4.00₪
         </p>
         <p class="cat">
          מצרכים
         </p>
         <p class="element4">
-         Sunday 25
+         Sunday 12
         </p>
        </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="1940">
+       <div class="num" data-tx-table="CardTransactions" data-value="2154">
         <div class="color-box" style="background-color:#D0FFD0">
         </div>
         <h3>
          <span class="tx-primary">
-          מנורה בטוח נסיע'חו"ל
+          מתננה לנועם
+         </span>
+         <span class="tx-secondary">
+          מקס ברנר ריטייל בע"מ
          </span>
         </h3>
         <p class="date">
-         506.00₪
+         217.00₪
         </p>
         <p class="cat">
-         חו"ל
+         מתנות
         </p>
         <p class="element4">
-         Monday 26
+         Sunday 12
         </p>
        </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="2004">
+       <div class="num" data-tx-table="CardTransactions" data-value="2204">
         <div class="color-box" style="background-color:#C8F7FF">
         </div>
         <h3>
          <span class="tx-primary">
-          שווארמה ראש העיר
+          ונוס ריהוט ביתי-צמרת
          </span>
         </h3>
         <p class="date">
-         58.00₪
+         35.00₪
         </p>
         <p class="cat">
-         אוכל בחוץ
+         רהיטים ובית
         </p>
         <p class="element4">
-         Monday 26
+         Monday 13
         </p>
        </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="2005">
+       <div class="num" data-is-split="1" data-orig-id="2156" data-tx-table="CardTransactions" data-value="5">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          מצעים למיטה
+         </span>
+         <span class="tx-secondary">
+          רשת כוורת בצה"ל -טלפ
+         </span>
+         <span class="split-badge">
+          ✂ פיצול
+         </span>
+        </h3>
+        <p class="date">
+         100.00₪
+        </p>
+        <p class="cat">
+         רהיטים ובית
+        </p>
+        <p class="element4">
+         Monday 13
+        </p>
+       </div>
+       <div class="num" data-is-split="1" data-orig-id="2156" data-tx-table="CardTransactions" data-value="6">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          רשת כוורת בצה"ל -טלפ
+         </span>
+         <span class="split-badge">
+          ✂ פיצול
+         </span>
+        </h3>
+        <p class="date">
+         82.50₪
+        </p>
+        <p class="cat">
+         מצרכים
+        </p>
+        <p class="element4">
+         Monday 13
+        </p>
+       </div>
+       <div class="num" data-tx-table="CardTransactions" data-value="2157">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          חבר מ ספורט
+         </span>
+        </h3>
+        <p class="date">
+         1,501.00₪
+        </p>
+        <p class="cat">
+         בריאות וכושר
+        </p>
+        <p class="element4">
+         Tuesday 14
+        </p>
+       </div>
+       <div class="num" data-tx-table="CardTransactions" data-value="2158">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          רמי לוי רוטשילד ראשו
+         </span>
+        </h3>
+        <p class="date">
+         7.90₪
+        </p>
+        <p class="cat">
+         בריאות וכושר
+        </p>
+        <p class="element4">
+         Tuesday 14
+        </p>
+       </div>
+       <div class="num" data-tx-table="CardTransactions" data-value="2159">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          פז גז
+         </span>
+        </h3>
+        <p class="date">
+         34.15₪
+        </p>
+        <p class="cat">
+         חשבונות
+        </p>
+        <p class="element4">
+         Tuesday 14
+        </p>
+       </div>
+       <div class="num" data-tx-table="BankTransactions" data-value="651">
+        <div class="color-box" style="background-color:#F5DCB7">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          העברה מהחשבון
+         </span>
+        </h3>
+        <p class="date">
+         5,000.00₪
+        </p>
+        <p class="cat">
+         השקעה/חיסכון
+        </p>
+        <p class="element4">
+         Tuesday 14
+        </p>
+       </div>
+       <div class="num" data-tx-table="CardTransactions" data-value="2203">
         <div class="color-box" style="background-color:#C8F7FF">
         </div>
         <h3>
@@ -3174,28 +3439,519 @@ body {
          בריאות וכושר
         </p>
         <p class="element4">
-         Monday 26
+         Tuesday 14
         </p>
        </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="1942">
+       <div class="num" data-tx-table="CardTransactions" data-value="2202">
+        <div class="color-box" style="background-color:#C8F7FF">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          נותן לחם בית מאפה בע
+         </span>
+        </h3>
+        <p class="date">
+         44.50₪
+        </p>
+        <p class="cat">
+         מצרכים
+        </p>
+        <p class="element4">
+         Tuesday 14
+        </p>
+       </div>
+       <div class="num" data-tx-table="BankTransactions" data-value="648">
+        <div class="color-box" style="background-color:#F5DCB7">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          העברה מהחשבון
+         </span>
+        </h3>
+        <p class="date">
+         280.00₪
+        </p>
+        <p class="cat">
+         שכירות
+        </p>
+        <p class="element4">
+         Wednesday 15
+        </p>
+       </div>
+       <div class="num" data-tx-table="BankTransactions" data-value="649">
+        <div class="color-box" style="background-color:#F5DCB7">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          2170694 משיכת שיק
+         </span>
+        </h3>
+        <p class="date">
+         5,600.00₪
+        </p>
+        <p class="cat">
+         שכירות
+        </p>
+        <p class="element4">
+         Wednesday 15
+        </p>
+       </div>
+       <div class="num" data-tx-table="BankTransactions" data-value="650">
+        <div class="color-box" style="background-color:#F5DCB7">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          אנליסט קופ"ג -מנותבת
+         </span>
+        </h3>
+        <p class="date">
+         1,000.00₪
+        </p>
+        <p class="cat">
+         השקעה/חיסכון
+        </p>
+        <p class="element4">
+         Wednesday 15
+        </p>
+       </div>
+       <div class="num" data-tx-table="CardTransactions" data-value="2201">
+        <div class="color-box" style="background-color:#C8F7FF">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          מארז פסטה - חבר
+         </span>
+         <span class="tx-secondary">
+          חבר כללי
+         </span>
+        </h3>
+        <p class="date">
+         79.00₪
+        </p>
+        <p class="cat">
+         מצרכים
+        </p>
+        <p class="element4">
+         Thursday 16
+        </p>
+       </div>
+       <div class="num" data-tx-table="CardTransactions" data-value="2160">
         <div class="color-box" style="background-color:#D0FFD0">
         </div>
         <h3>
          <span class="tx-primary">
-          VIVINO
+          סלקום ישראל בע"מ
          </span>
         </h3>
         <p class="date">
-         178.00₪
+         98.44₪
         </p>
         <p class="cat">
-         אוכל בחוץ
+         חשבונות
         </p>
         <p class="element4">
-         Tuesday 27
+         Thursday 16
         </p>
        </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="1941">
+       <div class="num" data-tx-table="CardTransactions" data-value="2212">
+        <div class="color-box" style="background-color:#F0E68C">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          שופרסל און ליין
+         </span>
+        </h3>
+        <p class="date">
+         538.07₪
+        </p>
+        <p class="cat">
+         מצרכים
+        </p>
+        <p class="element4">
+         Friday 17
+        </p>
+       </div>
+       <div class="num" data-tx-table="CardTransactions" data-value="2161">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          רמי לוי רוטשילד ראשו
+         </span>
+        </h3>
+        <p class="date">
+         24.50₪
+        </p>
+        <p class="cat">
+         בריאות וכושר
+        </p>
+        <p class="element4">
+         Friday 17
+        </p>
+       </div>
+       <div class="num" data-tx-table="CardTransactions" data-value="2164">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          שייק
+         </span>
+         <span class="tx-secondary">
+          רמי לוי רוטשילד ראשו
+         </span>
+        </h3>
+        <p class="date">
+         23.70₪
+        </p>
+        <p class="cat">
+         בריאות וכושר
+        </p>
+        <p class="element4">
+         Sunday 19
+        </p>
+       </div>
+       <div class="num" data-tx-table="CardTransactions" data-value="2163">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          אייקון ראשל"צ
+         </span>
+        </h3>
+        <p class="date">
+         99.00₪
+        </p>
+        <p class="cat">
+         בריאות וכושר
+        </p>
+        <p class="element4">
+         Sunday 19
+        </p>
+       </div>
+       <div class="num" data-tx-table="CardTransactions" data-value="2162">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          סונול ראשון מזרח
+         </span>
+        </h3>
+        <p class="date">
+         7.28₪
+        </p>
+        <p class="cat">
+         מצרכים
+        </p>
+        <p class="element4">
+         Sunday 19
+        </p>
+       </div>
+       <div class="num" data-tx-table="CardTransactions" data-value="2200">
+        <div class="color-box" style="background-color:#C8F7FF">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          מגן מזרן
+         </span>
+         <span class="tx-secondary">
+          פנדה הום בע"מ
+         </span>
+        </h3>
+        <p class="date">
+         184.80₪
+        </p>
+        <p class="cat">
+         רהיטים ובית
+        </p>
+        <p class="element4">
+         Sunday 19
+        </p>
+       </div>
+       <div class="num" data-tx-table="CardTransactions" data-value="2181">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          WANIKANI JAPANESE LA
+         </span>
+        </h3>
+        <p class="date">
+         27.11₪
+         <br/>
+         (9.0$)
+        </p>
+        <p class="cat">
+         השכלה ולימודים
+        </p>
+        <p class="element4">
+         Monday 20
+        </p>
+       </div>
+       <div class="num" data-tx-table="CardTransactions" data-value="2166">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          סוד הבשר ראשל"צ
+         </span>
+        </h3>
+        <p class="date">
+         384.54₪
+        </p>
+        <p class="cat">
+         מצרכים
+        </p>
+        <p class="element4">
+         Monday 20
+        </p>
+       </div>
+       <div class="num" data-tx-table="CardTransactions" data-value="2165">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          יוניברס ראשל"צ- שמוט
+         </span>
+        </h3>
+        <p class="date">
+         341.96₪
+        </p>
+        <p class="cat">
+         מצרכים
+        </p>
+        <p class="element4">
+         Monday 20
+        </p>
+       </div>
+       <div class="num" data-tx-table="BankTransactions" data-value="672">
+        <div class="color-box" style="background-color:#F5DCB7">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          Interactive brokers
+         </span>
+         <span class="tx-secondary">
+          העברה מהחשבון
+         </span>
+        </h3>
+        <p class="date">
+         5,000.00₪
+        </p>
+        <p class="cat">
+         השקעה/חיסכון
+        </p>
+        <p class="element4">
+         Tuesday 21
+        </p>
+       </div>
+       <div class="num" data-tx-table="CardTransactions" data-value="2199">
+        <div class="color-box" style="background-color:#C8F7FF">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          גבות
+         </span>
+         <span class="tx-secondary">
+          העברה בBIT
+         </span>
+        </h3>
+        <p class="date">
+         100.00₪
+        </p>
+        <p class="cat">
+         טיפוח ורפואה
+        </p>
+        <p class="element4">
+         Tuesday 21
+        </p>
+       </div>
+       <div class="num" data-tx-table="CardTransactions" data-value="2184">
+        <div class="color-box" style="background-color:#FFD7BA">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          PAYPAL *NETFLIX COM
+         </span>
+        </h3>
+        <p class="date">
+         32.90₪
+        </p>
+        <p class="cat">
+         מנויים
+        </p>
+        <p class="element4">
+         Tuesday 21
+        </p>
+       </div>
+       <div class="num" data-tx-table="CardTransactions" data-value="2198">
+        <div class="color-box" style="background-color:#C8F7FF">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          סיטי מרקט באר יעקב ב
+         </span>
+        </h3>
+        <p class="date">
+         29.80₪
+        </p>
+        <p class="cat">
+         מצרכים
+        </p>
+        <p class="element4">
+         Tuesday 21
+        </p>
+       </div>
+       <div class="num" data-tx-table="CardTransactions" data-value="2197">
+        <div class="color-box" style="background-color:#C8F7FF">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          שקישוק
+         </span>
+        </h3>
+        <p class="date">
+         56.63₪
+        </p>
+        <p class="cat">
+         מצרכים
+        </p>
+        <p class="element4">
+         Tuesday 21
+        </p>
+       </div>
+       <div class="num" data-tx-table="CardTransactions" data-value="2182">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          SPOTIFYIL
+         </span>
+        </h3>
+        <p class="date">
+         43.90₪
+        </p>
+        <p class="cat">
+         תחביבים ופנאי
+        </p>
+        <p class="element4">
+         Wednesday 22
+        </p>
+       </div>
+       <div class="num" data-tx-table="CardTransactions" data-value="2168">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          סיליקון למקלחת
+         </span>
+         <span class="tx-secondary">
+          סנטר ראשון
+         </span>
+        </h3>
+        <p class="date">
+         15.00₪
+        </p>
+        <p class="cat">
+         רהיטים ובית
+        </p>
+        <p class="element4">
+         Thursday 23
+        </p>
+       </div>
+       <div class="num" data-tx-table="CardTransactions" data-value="2196">
+        <div class="color-box" style="background-color:#C8F7FF">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          שופרסל דיל תחנה מרכז
+         </span>
+        </h3>
+        <p class="date">
+         114.02₪
+        </p>
+        <p class="cat">
+         מצרכים
+        </p>
+        <p class="element4">
+         Friday 24
+        </p>
+       </div>
+       <div class="num" data-tx-table="CardTransactions" data-value="2194">
+        <div class="color-box" style="background-color:#C8F7FF">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          כרטיסים - תצוגת בייבילנד
+         </span>
+         <span class="tx-secondary">
+          בייבילנד
+         </span>
+        </h3>
+        <p class="date">
+         29.00₪
+        </p>
+        <p class="cat">
+         בילויים
+        </p>
+        <p class="element4">
+         Sunday 26
+        </p>
+       </div>
+       <div class="num" data-tx-table="CardTransactions" data-value="2195">
+        <div class="color-box" style="background-color:#C8F7FF">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          מ.התחבורה-פנגו מוביט
+         </span>
+        </h3>
+        <p class="date">
+         128.00₪
+        </p>
+        <p class="cat">
+         תחבורה ציבורית
+        </p>
+        <p class="element4">
+         Sunday 26
+        </p>
+       </div>
+       <div class="num" data-tx-table="CardTransactions" data-value="2192">
+        <div class="color-box" style="background-color:#C8F7FF">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          נותן לחם בית מאפה בע
+         </span>
+        </h3>
+        <p class="date">
+         58.50₪
+        </p>
+        <p class="cat">
+         מצרכים
+        </p>
+        <p class="element4">
+         Monday 27
+        </p>
+       </div>
+       <div class="num" data-tx-table="CardTransactions" data-value="2193">
+        <div class="color-box" style="background-color:#C8F7FF">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          סונול ראשון מזרח
+         </span>
+        </h3>
+        <p class="date">
+         14.90₪
+        </p>
+        <p class="cat">
+         מצרכים
+        </p>
+        <p class="element4">
+         Monday 27
+        </p>
+       </div>
+       <div class="num" data-tx-table="CardTransactions" data-value="2169">
         <div class="color-box" style="background-color:#D0FFD0">
         </div>
         <h3>
@@ -3204,166 +3960,226 @@ body {
          </span>
         </h3>
         <p class="date">
-         20.81₪
+         39.55₪
         </p>
         <p class="cat">
          רכב
         </p>
         <p class="element4">
-         Tuesday 27
+         Monday 27
         </p>
        </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="1951">
+       <div class="num" data-tx-table="CardTransactions" data-value="2170">
         <div class="color-box" style="background-color:#D0FFD0">
         </div>
         <h3>
          <span class="tx-primary">
-          HOTEL ON BOOKING COM
+          נוי השדה אינטרנט-גמא
          </span>
         </h3>
         <p class="date">
-         178.83₪
-         <br/>
-         (8,811.0JPY)
-        </p>
-        <p class="cat">
-         חו"ל
-        </p>
-        <p class="element4">
-         Wednesday 28
-        </p>
-       </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="2002">
-        <div class="color-box" style="background-color:#C8F7FF">
-        </div>
-        <h3>
-         <span class="tx-primary">
-          GETT
-         </span>
-        </h3>
-        <p class="date">
-         34.50₪
-        </p>
-        <p class="cat">
-         תחבורה ציבורית
-        </p>
-        <p class="element4">
-         Wednesday 28
-        </p>
-       </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="1952">
-        <div class="color-box" style="background-color:#D0FFD0">
-        </div>
-        <h3>
-         <span class="tx-primary">
-          HOTEL ON BOOKING COM
-         </span>
-        </h3>
-        <p class="date">
-         302.02₪
-         <br/>
-         (14,880.0JPY)
-        </p>
-        <p class="cat">
-         חו"ל
-        </p>
-        <p class="element4">
-         Wednesday 28
-        </p>
-       </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="1943">
-        <div class="color-box" style="background-color:#D0FFD0">
-        </div>
-        <h3>
-         <span class="tx-primary">
-          פנינה פאי
-         </span>
-        </h3>
-        <p class="date">
-         56.00₪
-        </p>
-        <p class="cat">
-         אוכל בחוץ
-        </p>
-        <p class="element4">
-         Wednesday 28
-        </p>
-       </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="2003">
-        <div class="color-box" style="background-color:#C8F7FF">
-        </div>
-        <h3>
-         <span class="tx-primary">
-          GETT
-         </span>
-        </h3>
-        <p class="date">
-         29.70₪
-        </p>
-        <p class="cat">
-         תחבורה ציבורית
-        </p>
-        <p class="element4">
-         Wednesday 28
-        </p>
-       </div>
-       <div class="num" data-tx-table="BankTransactions" data-value="600">
-        <div class="color-box" style="background-color:#F5DCB7">
-        </div>
-        <h3>
-         <span class="tx-primary">
-          עמלת הפקדות/משיכת מזומנים בחשבון מט"ח
-         </span>
-        </h3>
-        <p class="date">
-         237.30₪
-        </p>
-        <p class="cat">
-         חו"ל
-        </p>
-        <p class="element4">
-         Wednesday 28
-        </p>
-       </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="2001">
-        <div class="color-box" style="background-color:#C8F7FF">
-        </div>
-        <h3>
-         <span class="tx-primary">
-          OPENAI *CHATGPT SUBSCR
-         </span>
-        </h3>
-        <p class="date">
-         63.57₪
-         <br/>
-         (20.0$)
-        </p>
-        <p class="cat">
-         מנויים
-        </p>
-        <p class="element4">
-         Friday 30
-        </p>
-       </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="2000">
-        <div class="color-box" style="background-color:#C8F7FF">
-        </div>
-        <h3>
-         <span class="tx-primary">
-          סופר הנחלה
-         </span>
-        </h3>
-        <p class="date">
-         18.18₪
+         443.90₪
         </p>
         <p class="cat">
          מצרכים
         </p>
         <p class="element4">
-         Friday 30
+         Monday 27
         </p>
        </div>
-       <div class="num" data-tx-table="BankTransactions" data-value="599">
+       <div class="num" data-tx-table="CardTransactions" data-value="2171">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          WOLT ISRAEL
+         </span>
+        </h3>
+        <p class="date">
+         196.33₪
+        </p>
+        <p class="cat">
+         אוכל בחוץ
+        </p>
+        <p class="element4">
+         Monday 27
+        </p>
+       </div>
+       <div class="num" data-tx-table="CardTransactions" data-value="2191">
+        <div class="color-box" style="background-color:#C8F7FF">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          שובר וולט
+         </span>
+         <span class="tx-secondary">
+          חבר כללי
+         </span>
+        </h3>
+        <p class="date">
+         25.00₪
+        </p>
+        <p class="cat">
+         אוכל בחוץ
+        </p>
+        <p class="element4">
+         Monday 27
+        </p>
+       </div>
+       <div class="num" data-tx-table="CardTransactions" data-value="2172">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          משתלת על הדרך
+         </span>
+        </h3>
+        <p class="date">
+         167.94₪
+        </p>
+        <p class="cat">
+         רהיטים ובית
+        </p>
+        <p class="element4">
+         Tuesday 28
+        </p>
+       </div>
+       <div class="num" data-tx-table="CardTransactions" data-value="2173">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          יוניברס ראשל"צ- שמוט
+         </span>
+        </h3>
+        <p class="date">
+         47.15₪
+        </p>
+        <p class="cat">
+         מצרכים
+        </p>
+        <p class="element4">
+         Tuesday 28
+        </p>
+       </div>
+       <div class="num" data-tx-table="BankTransactions" data-value="671">
+        <div class="color-box" style="background-color:#F5DCB7">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          שיר צ'קול
+         </span>
+         <span class="tx-secondary">
+          2296490 משיכת שיק
+         </span>
+        </h3>
+        <p class="date">
+         350.00₪
+        </p>
+        <p class="cat">
+         חתונות ואירועים
+        </p>
+        <p class="element4">
+         Tuesday 28
+        </p>
+       </div>
+       <div class="num" data-tx-table="CardTransactions" data-value="2174">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          רמי לוי רוטשילד ראשו
+         </span>
+        </h3>
+        <p class="date">
+         26.70₪
+        </p>
+        <p class="cat">
+         בריאות וכושר
+        </p>
+        <p class="element4">
+         Tuesday 28
+        </p>
+       </div>
+       <div class="num" data-tx-table="CardTransactions" data-value="2175">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          כסא בטיחות אוטו
+         </span>
+         <span class="tx-secondary">
+          טעינות - חבר של קבע
+         </span>
+        </h3>
+        <p class="date">
+         65.00₪
+        </p>
+        <p class="cat">
+         רהיטים ובית
+        </p>
+        <p class="element4">
+         Wednesday 29
+        </p>
+       </div>
+       <div class="num" data-tx-table="CardTransactions" data-value="2177">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          נותן לחם בית מאפה בע
+         </span>
+        </h3>
+        <p class="date">
+         117.62₪
+        </p>
+        <p class="cat">
+         מצרכים
+        </p>
+        <p class="element4">
+         Wednesday 29
+        </p>
+       </div>
+       <div class="num" data-tx-table="CardTransactions" data-value="2190">
+        <div class="color-box" style="background-color:#C8F7FF">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          אילנס  רכבת פ"ת קריי
+         </span>
+        </h3>
+        <p class="date">
+         10.00₪
+        </p>
+        <p class="cat">
+         אוכל בחוץ
+        </p>
+        <p class="element4">
+         Wednesday 29
+        </p>
+       </div>
+       <div class="num" data-tx-table="CardTransactions" data-value="2176">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          על האש ענפים
+         </span>
+         <span class="tx-secondary">
+          העברה ב BIT בנה"פ
+         </span>
+        </h3>
+        <p class="date">
+         50.00₪
+        </p>
+        <p class="cat">
+         בילויים
+        </p>
+        <p class="element4">
+         Wednesday 29
+        </p>
+       </div>
+       <div class="num" data-tx-table="BankTransactions" data-value="670">
         <div class="color-box" style="background-color:#F5DCB7">
         </div>
         <h3>
@@ -3372,126 +4188,97 @@ body {
          </span>
         </h3>
         <p class="date">
-         2,262.07₪
+         2,268.74₪
         </p>
         <p class="cat">
          רכב
         </p>
         <p class="element4">
-         Friday 30
+         Thursday 30
         </p>
        </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="1999">
+       <div class="num" data-tx-table="CardTransactions" data-value="2178">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          אלקטרה פאוור חשמל
+         </span>
+        </h3>
+        <p class="date">
+         104.55₪
+        </p>
+        <p class="cat">
+         חשבונות
+        </p>
+        <p class="element4">
+         Thursday 30
+        </p>
+       </div>
+       <div class="num" data-tx-table="CardTransactions" data-value="2183">
+        <div class="color-box" style="background-color:#FFD7BA">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          פלאפל
+         </span>
+         <span class="tx-secondary">
+          מגדלי כנא הגליל בע"מ
+         </span>
+        </h3>
+        <p class="date">
+         12.00₪
+        </p>
+        <p class="cat">
+         אוכל בחוץ
+        </p>
+        <p class="element4">
+         Thursday 30
+        </p>
+       </div>
+       <div class="num" data-tx-table="CardTransactions" data-value="2189">
         <div class="color-box" style="background-color:#C8F7FF">
         </div>
         <h3>
          <span class="tx-primary">
-          לנדוור נתבג רוטנדה
+          חטיפים
+         </span>
+         <span class="tx-secondary">
+          סונול המשתלה
          </span>
         </h3>
         <p class="date">
-         57.00₪
+         37.10₪
         </p>
         <p class="cat">
-         חו"ל
+         אוכל בחוץ
         </p>
         <p class="element4">
-         Saturday 31
+         Thursday 30
         </p>
        </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="1998">
+       <div class="num" data-tx-table="CardTransactions" data-value="2188">
         <div class="color-box" style="background-color:#C8F7FF">
         </div>
         <h3>
          <span class="tx-primary">
-          GETT
+          בת מצווה - הבת של סווטה
+         </span>
+         <span class="tx-secondary">
+          העברה בBIT
          </span>
         </h3>
         <p class="date">
-         150.00₪
+         250.00₪
         </p>
         <p class="cat">
-         תחבורה ציבורית
+         מתנות
         </p>
         <p class="element4">
-         Saturday 31
+         Friday 01
         </p>
        </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="1953">
-        <div class="color-box" style="background-color:#D0FFD0">
-        </div>
-        <h3>
-         <span class="tx-primary">
-          ZETY COM
-         </span>
-        </h3>
-        <p class="date">
-         74.13₪
-         <br/>
-         (23.95$)
-        </p>
-        <p class="cat">
-         מנויים
-        </p>
-        <p class="element4">
-         Saturday 31
-        </p>
-       </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="1945">
-        <div class="color-box" style="background-color:#D0FFD0">
-        </div>
-        <h3>
-         <span class="tx-primary">
-          צ'וקה נתב"ג  בע"מ
-         </span>
-        </h3>
-        <p class="date">
-         49.00₪
-        </p>
-        <p class="cat">
-         חו"ל
-        </p>
-        <p class="element4">
-         Saturday 31
-        </p>
-       </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="1944">
-        <div class="color-box" style="background-color:#D0FFD0">
-        </div>
-        <h3>
-         <span class="tx-primary">
-          קפה קפה טרמינל 3 נתב
-         </span>
-        </h3>
-        <p class="date">
-         26.00₪
-        </p>
-        <p class="cat">
-         חו"ל
-        </p>
-        <p class="element4">
-         Saturday 31
-        </p>
-       </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="1916">
-        <div class="color-box" style="background-color:#D0FFD0">
-        </div>
-        <h3>
-         <span class="tx-primary">
-          אל על אינטרנט בתשלומ
-         </span>
-        </h3>
-        <p class="date">
-         2,030.74₪
-        </p>
-        <p class="cat">
-         חו"ל
-        </p>
-        <p class="element4">
-         Monday 02
-        </p>
-       </div>
-       <div class="num" data-tx-table="CardTransactions" data-value="2023">
+       <div class="num" data-tx-table="CardTransactions" data-value="2211">
         <div class="color-box" style="background-color:#C8F7FF">
         </div>
         <h3>
@@ -3506,7 +4293,7 @@ body {
          שלום שבאזי 7
         </p>
         <p class="element4">
-         Monday 02
+         Saturday 02
         </p>
        </div>
       </div>
@@ -3516,7 +4303,7 @@ body {
        <span>
         סה"כ:
         <strong id="spendings-sum">
-         26,166.06₪
+         55,659.87₪
         </strong>
        </span>
       </div>
@@ -3552,7 +4339,7 @@ body {
       <div class="cat-pills" id="earnings-cats">
       </div>
       <div class="tx-scroll" id="earnings-list">
-       <div class="num" data-tx-table="BankTransactions" data-value="564">
+       <div class="num" data-tx-table="BankTransactions" data-value="632">
         <div class="color-box" style="background-color:#F5DCB7">
         </div>
         <h3>
@@ -3561,83 +4348,146 @@ body {
          </span>
         </h3>
         <p class="date">
-         12,038.02₪
+         14,354.90₪
         </p>
         <p class="cat">
          משכורת
         </p>
         <p class="element4">
-         Thursday 01
+         Wednesday 01
         </p>
        </div>
-       <div class="num" data-tx-table="BankTransactions" data-value="615">
+       <div class="num" data-tx-table="BankTransactions" data-value="636">
         <div class="color-box" style="background-color:#F5DCB7">
         </div>
         <h3>
          <span class="tx-primary">
-          (הפקדת שיק בסלולר (1 שיק
+          2.00% 31/03 ריבית זכות
          </span>
         </h3>
         <p class="date">
-         2,800.00₪
-        </p>
-        <p class="cat">
-         שלום שבאזי 7
-        </p>
-        <p class="element4">
-         Friday 02
-        </p>
-       </div>
-       <div class="num" data-tx-table="BankTransactions" data-value="607">
-        <div class="color-box" style="background-color:#F5DCB7">
-        </div>
-        <h3>
-         <span class="tx-primary">
-          מזוודות מחבר לסטיבן
-         </span>
-         <span class="tx-secondary">
-          זיכוי מביט מאופק שמואל
-         </span>
-        </h3>
-        <p class="date">
-         400.00₪
+         49.32₪
         </p>
         <p class="cat">
          אחר
         </p>
         <p class="element4">
-         Sunday 04
+         Wednesday 01
         </p>
        </div>
-       <div class="num" data-tx-table="BankTransactions" data-value="608">
+       <div class="num" data-tx-table="BankTransactions" data-value="660">
         <div class="color-box" style="background-color:#F5DCB7">
         </div>
         <h3>
          <span class="tx-primary">
-          מינהטומיי
+          זיכוי מבל"ל מבנק לאומי לישראל
+         </span>
+        </h3>
+        <p class="date">
+         33.37₪
+        </p>
+        <p class="cat">
+         עמלות
+        </p>
+        <p class="element4">
+         Sunday 05
+        </p>
+       </div>
+       <div class="num" data-tx-table="BankTransactions" data-value="658">
+        <div class="color-box" style="background-color:#F5DCB7">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          חומוס אליהו
          </span>
          <span class="tx-secondary">
           זיכוי מביט מאופק שמואל
          </span>
         </h3>
         <p class="date">
-         175.00₪
+         82.00₪
         </p>
         <p class="cat">
          אוכל בחוץ
         </p>
         <p class="element4">
-         Sunday 04
+         Tuesday 07
         </p>
        </div>
-       <div class="num" data-tx-table="BankTransactions" data-value="609">
+       <div class="num" data-tx-table="BankTransactions" data-value="654">
         <div class="color-box" style="background-color:#F5DCB7">
         </div>
         <h3>
          <span class="tx-primary">
-          שילה
+          זר פרחים להורים
          </span>
          <span class="tx-secondary">
+          זיכוי מביט מיובל ריצקר
+         </span>
+        </h3>
+        <p class="date">
+         90.00₪
+        </p>
+        <p class="cat">
+         מתנות
+        </p>
+        <p class="element4">
+         Friday 10
+        </p>
+       </div>
+       <div class="num" data-is-split="1" data-orig-id="655" data-tx-table="BankTransactions" data-value="1">
+        <div class="color-box" style="background-color:#F5DCB7">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          תשלום ארנונה - בן
+         </span>
+         <span class="tx-secondary">
+          זיכוי מיידי
+         </span>
+         <span class="split-badge">
+          ✂ פיצול
+         </span>
+        </h3>
+        <p class="date">
+         310.00₪
+        </p>
+        <p class="cat">
+         שלום שבאזי 7
+        </p>
+        <p class="element4">
+         Friday 10
+        </p>
+       </div>
+       <div class="num" data-is-split="1" data-orig-id="655" data-tx-table="BankTransactions" data-value="2">
+        <div class="color-box" style="background-color:#F5DCB7">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          תשלום מיים - בן
+         </span>
+         <span class="tx-secondary">
+          זיכוי מיידי
+         </span>
+         <span class="split-badge">
+          ✂ פיצול
+         </span>
+        </h3>
+        <p class="date">
+         67.00₪
+        </p>
+        <p class="cat">
+         שלום שבאזי 7
+        </p>
+        <p class="element4">
+         Friday 10
+        </p>
+       </div>
+       <div class="num" data-tx-table="BankTransactions" data-value="653">
+        <div class="color-box" style="background-color:#F5DCB7">
+        </div>
+        <h3>
+         <span class="tx-primary">
           זיכוי מביט מאופק שמואל
          </span>
         </h3>
@@ -3648,31 +4498,85 @@ body {
          שיעורים פרטיים
         </p>
         <p class="element4">
-         Sunday 04
+         Sunday 12
         </p>
        </div>
-       <div class="num" data-tx-table="BankTransactions" data-value="610">
+       <div class="num" data-tx-table="BankTransactions" data-value="652">
         <div class="color-box" style="background-color:#F5DCB7">
         </div>
         <h3>
          <span class="tx-primary">
-          החזר ממאי
-         </span>
-         <span class="tx-secondary">
-          זיכוי מביט מאופק שמואל
+          זיכוי מביט מיובל ריצקר
          </span>
         </h3>
         <p class="date">
-         31.00₪
+         469.00₪
         </p>
         <p class="cat">
-         חו"ל
+         טיפוח ורפואה
         </p>
         <p class="element4">
-         Sunday 04
+         Monday 13
         </p>
        </div>
-       <div class="num" data-tx-table="BankTransactions" data-value="601">
+       <div class="num" data-tx-table="BankTransactions" data-value="647">
+        <div class="color-box" style="background-color:#F5DCB7">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          משהב"ט
+         </span>
+        </h3>
+        <p class="date">
+         1,225.84₪
+        </p>
+        <p class="cat">
+         משכורת
+        </p>
+        <p class="element4">
+         Monday 20
+        </p>
+       </div>
+       <div class="num" data-tx-table="BankTransactions" data-value="673">
+        <div class="color-box" style="background-color:#F5DCB7">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          שיפוצים - בן
+         </span>
+         <span class="tx-secondary">
+          זיכוי מיידי
+         </span>
+        </h3>
+        <p class="date">
+         500.00₪
+        </p>
+        <p class="cat">
+         שלום שבאזי 7
+        </p>
+        <p class="element4">
+         Tuesday 21
+        </p>
+       </div>
+       <div class="num" data-tx-table="CardTransactions" data-value="2167">
+        <div class="color-box" style="background-color:#D0FFD0">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          חבר הצגות
+         </span>
+        </h3>
+        <p class="date">
+         498.00₪
+        </p>
+        <p class="cat">
+         בילויים
+        </p>
+        <p class="element4">
+         Tuesday 21
+        </p>
+       </div>
+       <div class="num" data-tx-table="BankTransactions" data-value="669">
         <div class="color-box" style="background-color:#F5DCB7">
         </div>
         <h3>
@@ -3681,13 +4585,31 @@ body {
          </span>
         </h3>
         <p class="date">
-         12,261.20₪
+         13,256.20₪
         </p>
         <p class="cat">
          משכורת
         </p>
         <p class="element4">
-         Wednesday 28
+         Thursday 30
+        </p>
+       </div>
+       <div class="num" data-tx-table="nan" data-value="15">
+        <div class="color-box" style="background-color:#ECCD1F">
+        </div>
+        <h3>
+         <span class="tx-primary">
+          כסף ליומהולדת מסבתא
+         </span>
+        </h3>
+        <p class="date">
+         500.00₪
+        </p>
+        <p class="cat">
+         מתנות
+        </p>
+        <p class="element4">
+         Wednesday 01
         </p>
        </div>
       </div>
@@ -3697,7 +4619,7 @@ body {
        <span>
         סה"כ:
         <strong id="earnings-sum">
-         27,855.22₪
+         31,585.63₪
         </strong>
        </span>
       </div>
@@ -3711,81 +4633,10 @@ body {
      <div class="charts-grid payments-grid" id="tx-payments-grid">
       <div class="chart-card">
        <div class="chart-card-title">
-        אל על אינטרנט בתשלומ
-       </div>
-       <div style="position:relative;height:190px;">
-        <canvas id="chart-payment-0" style="width:100%;height:100%;">
-        </canvas>
-       </div>
-       <div class="payment-footer">
-        ₪2,031 / חודש
-       </div>
-       <script>
-        (function(){
-  new Chart(document.getElementById('chart-payment-0'), {
-    type: 'doughnut',
-    data: {"labels": ["שולם (2)", "נותר (2)"], "datasets": [{"data": [2, 2], "backgroundColor": ["#5C6BC0", "#C5CAE9"], "borderWidth": 2, "borderColor": "#fff", "hoverOffset": 6}]},
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      cutout: '68%',
-      plugins: {
-        legend: {
-          position: 'bottom',
-          labels: { font: { size: 10 }, padding: 6, boxWidth: 10 },
-          onHover: function(evt, item, legend) {
-            var ch = legend.chart;
-            ch.tooltip.setActiveElements([{datasetIndex: 0, index: item.index}], evt);
-            ch.update();
-          },
-          onLeave: function(evt, item, legend) {
-            var ch = legend.chart;
-            ch.tooltip.setActiveElements([], evt);
-            ch.update();
-          }
-        },
-        tooltip: {
-          rtl: true,
-          callbacks: {
-            label: function(ctx) {
-              const labels = [
-                'שולם: 2 תשלומים מתוך 4',
-                'נותר: 2 תשלומים'
-              ];
-              return labels[ctx.dataIndex];
-            }
-          }
-        }
-      }
-    },
-    plugins: [
-  {
-    id: 'payCenter',
-    beforeDraw(chart) {
-      if (chart.config.type !== 'doughnut') return;
-      const {ctx, chartArea: {top, bottom, left, right}} = chart;
-      const cx = (left + right) / 2, cy = (top + bottom) / 2;
-      const [paid, rem] = chart.data.datasets[0].data;
-      ctx.save();
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.font = 'bold 15px Segoe UI,Arial,sans-serif';
-      ctx.fillStyle = '#1e2a4a';
-      ctx.fillText(paid + '/' + (paid + rem), cx, cy - 7);
-      ctx.font = '10px Segoe UI,Arial,sans-serif';
-      ctx.fillStyle = '#888';
-      ctx.fillText('\u05ea\u05e9\u05dc\u05d5\u05de\u05d9\u05dd', cx, cy + 9);
-      ctx.restore();
-    }
-  }]
-  });
-})();
-       </script>
-      </div>
-      <div class="chart-card">
-       <div class="chart-card-title">
         דיפרנט
        </div>
        <div style="position:relative;height:190px;">
-        <canvas id="chart-payment-1" style="width:100%;height:100%;">
+        <canvas id="chart-payment-0" style="width:100%;height:100%;">
         </canvas>
        </div>
        <div class="payment-footer">
@@ -3793,9 +4644,9 @@ body {
        </div>
        <script>
         (function(){
-  new Chart(document.getElementById('chart-payment-1'), {
+  new Chart(document.getElementById('chart-payment-0'), {
     type: 'doughnut',
-    data: {"labels": ["שולם (3)", "נותר (9)"], "datasets": [{"data": [3, 9], "backgroundColor": ["#26A69A", "#B2DFDB"], "borderWidth": 2, "borderColor": "#fff", "hoverOffset": 6}]},
+    data: {"labels": ["שולם (6)", "נותר (6)"], "datasets": [{"data": [6, 6], "backgroundColor": ["#5C6BC0", "#C5CAE9"], "borderWidth": 2, "borderColor": "#fff", "hoverOffset": 6}]},
     options: {
       responsive: true, maintainAspectRatio: false,
       cutout: '68%',
@@ -3819,8 +4670,8 @@ body {
           callbacks: {
             label: function(ctx) {
               const labels = [
-                'שולם: 3 תשלומים מתוך 12',
-                'נותר: 9 תשלומים'
+                'שולם: 6 תשלומים מתוך 12',
+                'נותר: 6 תשלומים'
               ];
               return labels[ctx.dataIndex];
             }
@@ -3859,7 +4710,7 @@ body {
        ⚠ התראות חכמות
       </h2>
       <span class="alerts-count-badge">
-       22 התראות
+       27 התראות
       </span>
      </div>
      <div class="alerts-matrix">
@@ -3869,49 +4720,10 @@ body {
        </span>
        <div class="alert-body">
         <strong>
-         ירידה בתשלום חודשי: WOLT
+         ירידה בתשלום חודשי: טעינות "חבר" טעמים
         </strong>
         <p>
-         סה״כ חודשי: 101₪ — ממוצע חודשים קודמים: 233₪ (-57%)
-        </p>
-       </div>
-      </div>
-      <div class="alert-item" style="border-color:#2ecc71;background-color:#f0fff4;">
-       <span class="alert-icon">
-        ⬇
-       </span>
-       <div class="alert-body">
-        <strong>
-         ירידה בתשלום חודשי: יוניברס ראשל"צ- שמוט
-        </strong>
-        <p>
-         סה״כ חודשי: 86₪ — ממוצע חודשים קודמים: 376₪ (-77%)
-        </p>
-       </div>
-      </div>
-      <div class="alert-item" style="border-color:#e74c3c;background-color:#fff5f5;">
-       <span class="alert-icon">
-        ⬆
-       </span>
-       <div class="alert-body">
-        <strong>
-         עלייה בתשלום חודשי: סופר שינקין בע"מ
-        </strong>
-        <p>
-         סה״כ חודשי: 103₪ — ממוצע חודשים קודמים: 24₪ (+324%)
-        </p>
-       </div>
-      </div>
-      <div class="alert-item" style="border-color:#2ecc71;background-color:#f0fff4;">
-       <span class="alert-icon">
-        ⬇
-       </span>
-       <div class="alert-body">
-        <strong>
-         ירידה בתשלום חודשי: פנגו חשבונית חודשית
-        </strong>
-        <p>
-         סה״כ חודשי: 21₪ — ממוצע חודשים קודמים: 52₪ (-60%)
+         סה״כ חודשי: 57₪ — ממוצע חודשים קודמים: 276₪ (-79%)
         </p>
        </div>
       </div>
@@ -3921,10 +4733,10 @@ body {
        </span>
        <div class="alert-body">
         <strong>
-         חיוב קבוע חסר: PAYPAL  NETFLIX COM
+         חיוב קבוע חסר: GOOGLE  TRAVELSPEND
         </strong>
         <p>
-         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 33₪) ולא נמצא החודש
+         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 17₪) ולא נמצא החודש
         </p>
        </div>
       </div>
@@ -3934,10 +4746,10 @@ body {
        </span>
        <div class="alert-body">
         <strong>
-         חיוב קבוע חסר: ביי-מי שוברי מתנה
+         חיוב קבוע חסר: OPENAI *CHATGPT SUBSCR
         </strong>
         <p>
-         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 267₪) ולא נמצא החודש
+         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 64₪) ולא נמצא החודש
         </p>
        </div>
       </div>
@@ -3947,88 +4759,10 @@ body {
        </span>
        <div class="alert-body">
         <strong>
-         חיוב קבוע חסר: טיב טעם רשתות ראשל"צ
+         חיוב קבוע חסר: חשבון לשרותי סלקום
         </strong>
         <p>
-         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 286₪) ולא נמצא החודש
-        </p>
-       </div>
-      </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
-       <span class="alert-icon">
-        ❓
-       </span>
-       <div class="alert-body">
-        <strong>
-         חיוב קבוע חסר: טעינות - חבר של קבע
-        </strong>
-        <p>
-         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 307₪) ולא נמצא החודש
-        </p>
-       </div>
-      </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
-       <span class="alert-icon">
-        ❓
-       </span>
-       <div class="alert-body">
-        <strong>
-         חיוב קבוע חסר: משתלת על הדרך
-        </strong>
-        <p>
-         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 173₪) ולא נמצא החודש
-        </p>
-       </div>
-      </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
-       <span class="alert-icon">
-        ❓
-       </span>
-       <div class="alert-body">
-        <strong>
-         חיוב קבוע חסר: סונול ראשון מזרח
-        </strong>
-        <p>
-         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 57₪) ולא נמצא החודש
-        </p>
-       </div>
-      </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
-       <span class="alert-icon">
-        ⚡
-       </span>
-       <div class="alert-body">
-        <strong>
-         חיוב כפול: GETT
-        </strong>
-        <p>
-         חויב פעמיים בסכומים דומים (30₪ ו-34₪) באותו חודש
-        </p>
-       </div>
-      </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
-       <span class="alert-icon">
-        ⚡
-       </span>
-       <div class="alert-body">
-        <strong>
-         חיוב כפול: ZETY COM
-        </strong>
-        <p>
-         חויב פעמיים בסכומים דומים (74₪ ו-77₪) באותו חודש
-        </p>
-       </div>
-      </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
-       <span class="alert-icon">
-        ⚡
-       </span>
-       <div class="alert-body">
-        <strong>
-         חיוב כפול: נאייקס ישראל מכונות
-        </strong>
-        <p>
-         חויב פעמיים בסכומים דומים (4₪ ו-6₪) באותו חודש
+         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 100₪) ולא נמצא החודש
         </p>
        </div>
       </div>
@@ -4041,7 +4775,7 @@ body {
          חיוב כפול: נותן לחם בית מאפה בע
         </strong>
         <p>
-         חויב פעמיים בסכומים דומים (24₪ ו-26₪) באותו חודש
+         חויב פעמיים בסכומים דומים (44₪ ו-48₪) באותו חודש
         </p>
        </div>
       </div>
@@ -4051,10 +4785,88 @@ body {
        </span>
        <div class="alert-body">
         <strong>
-         חיוב כפול: פז YELLOW ק.אריה
+         חיוב כפול: רמי לוי רוטשילד ראשו
         </strong>
         <p>
-         חויב פעמיים בסכומים דומים (12₪ ו-17₪) באותו חודש
+         חויב פעמיים בסכומים דומים (24₪ ו-24₪) באותו חודש
+        </p>
+       </div>
+      </div>
+      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
+       <span class="alert-icon">
+        🆕
+       </span>
+       <div class="alert-body">
+        <strong>
+         חיוב חדש: BBW ביג אשדוד-גמא
+        </strong>
+        <p>
+         חויב 60₪ — לא נראה ב-6 החודשים האחרונים. ייתכן שמדובר במנוי חדש
+        </p>
+       </div>
+      </div>
+      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
+       <span class="alert-icon">
+        🆕
+       </span>
+       <div class="alert-body">
+        <strong>
+         חיוב חדש: UPAPP
+        </strong>
+        <p>
+         חויב 25₪ — לא נראה ב-6 החודשים האחרונים. ייתכן שמדובר במנוי חדש
+        </p>
+       </div>
+      </div>
+      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
+       <span class="alert-icon">
+        🆕
+       </span>
+       <div class="alert-body">
+        <strong>
+         חיוב חדש: ונוס ריהוט ביתי-צמרת
+        </strong>
+        <p>
+         חויב 35₪ — לא נראה ב-6 החודשים האחרונים. ייתכן שמדובר במנוי חדש
+        </p>
+       </div>
+      </div>
+      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
+       <span class="alert-icon">
+        🆕
+       </span>
+       <div class="alert-body">
+        <strong>
+         חיוב חדש: חניון ספרה פארק-אין
+        </strong>
+        <p>
+         חויב 35₪ — לא נראה ב-6 החודשים האחרונים. ייתכן שמדובר במנוי חדש
+        </p>
+       </div>
+      </div>
+      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
+       <span class="alert-icon">
+        🆕
+       </span>
+       <div class="alert-body">
+        <strong>
+         חיוב חדש: פליינג טייגר - ביג א
+        </strong>
+        <p>
+         חויב 40₪ — לא נראה ב-6 החודשים האחרונים. ייתכן שמדובר במנוי חדש
+        </p>
+       </div>
+      </div>
+      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
+       <span class="alert-icon">
+        🆕
+       </span>
+       <div class="alert-body">
+        <strong>
+         חיוב חדש: קפה ללוש קניון הזהב-
+        </strong>
+        <p>
+         חויב 100₪ — לא נראה ב-6 החודשים האחרונים. ייתכן שמדובר במנוי חדש
         </p>
        </div>
       </div>
@@ -4064,10 +4876,10 @@ body {
        </span>
        <div class="alert-body">
         <strong>
-         קטגוריה בעלייה: אחר
+         קטגוריה בעלייה: בריאות וכושר
         </strong>
         <p>
-         סה״כ החודש: 399₪ — ממוצע חודשי רגיל: 47₪ (+750%)
+         סה״כ החודש: 2113₪ — ממוצע חודשי רגיל: 488₪ (+333%)
         </p>
        </div>
       </div>
@@ -4077,10 +4889,10 @@ body {
        </span>
        <div class="alert-body">
         <strong>
-         קטגוריה בעלייה: בילויים
+         קטגוריה בעלייה: טיפוח ורפואה
         </strong>
         <p>
-         סה״כ החודש: 1060₪ — ממוצע חודשי רגיל: 659₪ (+61%)
+         סה״כ החודש: 655₪ — ממוצע חודשי רגיל: 225₪ (+191%)
         </p>
        </div>
       </div>
@@ -4090,10 +4902,23 @@ body {
        </span>
        <div class="alert-body">
         <strong>
-         קטגוריה בעלייה: השכלה ולימודים
+         קטגוריה בעלייה: מתנות
         </strong>
         <p>
-         סה״כ החודש: 1619₪ — ממוצע חודשי רגיל: 295₪ (+449%)
+         סה״כ החודש: 567₪ — ממוצע חודשי רגיל: 259₪ (+119%)
+        </p>
+       </div>
+      </div>
+      <div class="alert-item" style="border-color:#e74c3c;background-color:#fff5f5;">
+       <span class="alert-icon">
+        📊
+       </span>
+       <div class="alert-body">
+        <strong>
+         קטגוריה בעלייה: רהיטים ובית
+        </strong>
+        <p>
+         סה״כ החודש: 2297₪ — ממוצע חודשי רגיל: 475₪ (+383%)
         </p>
        </div>
       </div>
@@ -4103,10 +4928,10 @@ body {
        </span>
        <div class="alert-body">
         <strong>
-         עסקה חריגה: אל על אינטרנט בתשלומ
+         עסקה חריגה: טפחות ס.ביטוח-ה
         </strong>
         <p>
-         עסקה של 2031₪ — גבוהה מ-95% מתוך עסקאות בקטגוריה חו"ל (סף: 1858₪)
+         עסקה של 60₪ — גבוהה מ-95% מתוך עסקאות קודמות של טפחות ס.ביטוח-ה (סף: 59₪)
         </p>
        </div>
       </div>
@@ -4116,10 +4941,10 @@ body {
        </span>
        <div class="alert-body">
         <strong>
-         עסקה חריגה: העברה ב BIT בנה"פ
+         עסקה חריגה: WOLT ISRAEL
         </strong>
         <p>
-         עסקה של 1060₪ — גבוהה מ-95% מתוך עסקאות קודמות של העברה ב BIT בנה"פ (סף אחוזון: 504₪) וגם מעל ממוצע+2σ (462₪)
+         עסקה של 222₪ — גבוהה מ-95% מתוך עסקאות בקטגוריה אוכל בחוץ (סף: 212₪)
         </p>
        </div>
       </div>
@@ -4129,10 +4954,88 @@ body {
        </span>
        <div class="alert-body">
         <strong>
-         עסקה חריגה: מ.התחבורה-פנגו מוביט
+         עסקה חריגה: טעינות - חבר של קבע
         </strong>
         <p>
-         עסקה של 287₪ — גבוהה מ-95% מתוך עסקאות קודמות של מ.התחבורה-פנגו מוביט (סף: 281₪)
+         עסקה של 566₪ — גבוהה מ-95% מתוך עסקאות בקטגוריה רהיטים ובית (סף אחוזון: 299₪) וגם מעל ממוצע+2σ (323₪)
+        </p>
+       </div>
+      </div>
+      <div class="alert-item" style="border-color:#e74c3c;background-color:#fff5f5;">
+       <span class="alert-icon">
+        💰
+       </span>
+       <div class="alert-body">
+        <strong>
+         עסקה חריגה: חבר מ ספורט
+        </strong>
+        <p>
+         עסקה של 1501₪ — גבוהה מ-95% מתוך עסקאות בקטגוריה בריאות וכושר (סף אחוזון: 405₪) וגם מעל ממוצע+2σ (448₪)
+        </p>
+       </div>
+      </div>
+      <div class="alert-item" style="border-color:#e74c3c;background-color:#fff5f5;">
+       <span class="alert-icon">
+        💰
+       </span>
+       <div class="alert-body">
+        <strong>
+         עסקה חריגה: סוד הבשר ראשל"צ
+        </strong>
+        <p>
+         עסקה של 385₪ — גבוהה מ-95% מתוך עסקאות קודמות של סוד הבשר ראשל"צ (סף אחוזון: 270₪) וגם מעל ממוצע+2σ (293₪)
+        </p>
+       </div>
+      </div>
+      <div class="alert-item" style="border-color:#e74c3c;background-color:#fff5f5;">
+       <span class="alert-icon">
+        💰
+       </span>
+       <div class="alert-body">
+        <strong>
+         עסקה חריגה: נוי השדה אינטרנט-גמא
+        </strong>
+        <p>
+         עסקה של 444₪ — גבוהה מ-95% מתוך עסקאות בקטגוריה מצרכים (סף אחוזון: 382₪) וגם מעל ממוצע+2σ (358₪)
+        </p>
+       </div>
+      </div>
+      <div class="alert-item" style="border-color:#e74c3c;background-color:#fff5f5;">
+       <span class="alert-icon">
+        💰
+       </span>
+       <div class="alert-body">
+        <strong>
+         עסקה חריגה: נותן לחם בית מאפה בע
+        </strong>
+        <p>
+         עסקה של 118₪ — גבוהה מ-95% מתוך עסקאות קודמות של נותן לחם בית מאפה בע (סף אחוזון: 89₪) וגם מעל ממוצע+2σ (95₪)
+        </p>
+       </div>
+      </div>
+      <div class="alert-item" style="border-color:#e74c3c;background-color:#fff5f5;">
+       <span class="alert-icon">
+        💰
+       </span>
+       <div class="alert-body">
+        <strong>
+         עסקה חריגה: PAYPAL *AISGECOMMER
+        </strong>
+        <p>
+         עסקה של 341₪ — גבוהה מ-95% מתוך עסקאות בקטגוריה רהיטים ובית (סף אחוזון: 299₪) וגם מעל ממוצע+2σ (323₪)
+        </p>
+       </div>
+      </div>
+      <div class="alert-item" style="border-color:#e74c3c;background-color:#fff5f5;">
+       <span class="alert-icon">
+        💰
+       </span>
+       <div class="alert-body">
+        <strong>
+         עסקה חריגה: אסותא ראשון בע"מ-צמר
+        </strong>
+        <p>
+         עסקה של 469₪ — גבוהה מ-95% מתוך עסקאות בקטגוריה טיפוח ורפואה (סף אחוזון: 176₪) וגם מעל ממוצע+2σ (200₪)
         </p>
        </div>
       </div>
@@ -4145,7 +5048,20 @@ body {
          עסקה חריגה: העברה בBIT
         </strong>
         <p>
-         עסקה של 250₪ — גבוהה מ-95% מתוך עסקאות קודמות של העברה בBIT (סף אחוזון: 102₪) וגם מעל ממוצע+2σ (132₪)
+         עסקה של 250₪ — גבוהה מ-95% מתוך עסקאות קודמות של העברה בBIT (סף: 220₪)
+        </p>
+       </div>
+      </div>
+      <div class="alert-item" style="border-color:#e74c3c;background-color:#fff5f5;">
+       <span class="alert-icon">
+        💰
+       </span>
+       <div class="alert-body">
+        <strong>
+         עסקה חריגה: שופרסל און ליין
+        </strong>
+        <p>
+         עסקה של 538₪ — גבוהה מ-95% מתוך עסקאות בקטגוריה מצרכים (סף אחוזון: 382₪) וגם מעל ממוצע+2σ (358₪)
         </p>
        </div>
       </div>
@@ -4376,7 +5292,7 @@ body {
          Cash
         </td>
         <td>
-         11,252.33₪
+         645.00₪
         </td>
         <td class="acct-rate-cell">
          —
@@ -4386,18 +5302,18 @@ body {
           +4,000₪
          </span>
          <span class="acct-pct-badge acct-pct-pos">
-          +55.2%
+          +119.2%
          </span>
         </td>
         <td class="acct-change-neu">
          —
         </td>
         <td>
-         2026-05-16
+         2026-05-23
         </td>
         <td class="acct-detail-cell">
          <svg class="acct-spark" height="22" viewbox="0 0 64 22" width="64" xmlns="http://www.w3.org/2000/svg">
-          <polyline fill="none" points="1.0,8.7 6.6,2.0 12.3,20.0 17.9,19.9 23.5,19.9 29.2,19.9 34.8,19.9 40.5,19.9 46.1,19.9 51.7,19.7 57.4,7.3 63.0,2.8" stroke="#43a047" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5">
+          <polyline fill="none" points="1.0,8.7 6.6,2.0 12.3,20.0 17.9,19.9 23.5,19.9 29.2,19.9 34.8,19.9 40.5,19.9 46.1,19.9 51.7,19.7 57.4,19.1 63.0,14.7" stroke="#e53935" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5">
           </polyline>
          </svg>
         </td>
@@ -4407,7 +5323,7 @@ body {
          סה"כ כללי
         </td>
         <td>
-         34,650.53₪
+         24,043.20₪
         </td>
         <td>
         </td>
@@ -4505,11 +5421,11 @@ body {
          $3,525.40
         </td>
         <td class="acct-rate-cell" data-rate-cur="USD">
-         2.92
+         2.90
         </td>
         <td class="acct-change-pos">
          <span>
-          +456₪
+          +453₪
          </span>
          <span class="acct-pct-badge acct-pct-pos">
           +4.6%
@@ -4523,12 +5439,12 @@ body {
         </td>
         <td class="acct-detail-cell">
          <svg class="acct-spark" height="22" viewbox="0 0 64 22" width="64" xmlns="http://www.w3.org/2000/svg">
-          <polyline fill="none" points="1.0,20.0 21.7,2.5 42.3,2.8 63.0,2.0" stroke="#43a047" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5">
+          <polyline fill="none" points="1.0,20.0 21.7,2.4 42.3,2.8 63.0,2.0" stroke="#43a047" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5">
           </polyline>
          </svg>
         </td>
        </tr>
-       <tr class="acct-stale" title="עדכון אחרון: 2026-04-13 (33 ימים ללא עדכון) — מומלץ לעדכן את היתרה">
+       <tr class="acct-stale" title="עדכון אחרון: 2026-04-13 (40 ימים ללא עדכון) — מומלץ לעדכן את היתרה">
         <td>
          Analyst (Yuval)
         </td>
@@ -4556,7 +5472,7 @@ body {
          סה"כ השקעות
         </td>
         <td>
-         384,170.22₪
+         384,110.64₪
         </td>
         <td>
         </td>
@@ -4574,38 +5490,38 @@ body {
          נדל"ן
         </td>
        </tr>
-       <tr class="acct-virtual acct-stale" title="עדכון אחרון: 2026-01-01 (135 ימים ללא עדכון) — מומלץ לעדכן את היתרה">
+       <tr class="acct-virtual acct-stale" title="עדכון אחרון: 2026-04-01 (52 ימים ללא עדכון) — מומלץ לעדכן את היתרה">
         <td>
          נכס שלום שבזי
         </td>
         <td>
-         285,040.00₪
+         299,745.00₪
         </td>
         <td class="acct-rate-cell">
          —
         </td>
         <td class="acct-change-pos">
          <span>
-          +8,796₪
+          +8,904₪
          </span>
          <span class="acct-pct-badge acct-pct-pos">
-          +3.2%
+          +3.1%
          </span>
         </td>
         <td class="acct-change-pos">
          <span>
-          +27,984₪
+          +42,689₪
          </span>
          <span class="acct-pct-badge acct-pct-pos">
-          +10.9%
+          +16.6%
          </span>
         </td>
         <td class="acct-detail-cell">
-         2026-01-01 | שוק: ₪973,460 | משכנתא: ₪707,082 | הכנסות: ₪18,662 | 5%/שנה
+         2026-04-01 | שוק: ₪985,407 | משכנתא: ₪704,324 | הכנסות: ₪18,662 | 5%/שנה
         </td>
         <td class="acct-detail-cell">
          <svg class="acct-spark" height="22" viewbox="0 0 64 22" width="64" xmlns="http://www.w3.org/2000/svg">
-          <polyline fill="none" points="1.0,20.0 13.4,16.9 25.8,13.9 38.2,10.8 50.6,7.7 63.0,2.0" stroke="#43a047" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5">
+          <polyline fill="none" points="1.0,20.0 8.8,18.0 16.5,16.0 24.2,13.9 32.0,11.9 39.8,9.9 47.5,7.8 55.2,5.8 63.0,2.0" stroke="#43a047" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5">
           </polyline>
          </svg>
         </td>
@@ -4615,7 +5531,7 @@ body {
          סה"כ נדל"ן
         </td>
         <td>
-         285,040.00₪
+         299,745.00₪
         </td>
         <td>
         </td>
@@ -4633,7 +5549,7 @@ body {
          סה"כ כל החשבונות
         </td>
         <td>
-         703,860.75₪
+         707,898.84₪
         </td>
         <td>
         </td>
@@ -4663,7 +5579,7 @@ body {
   const ctx = document.getElementById('acct-chart-canvas').getContext('2d');
   new Chart(ctx, {
     type: 'line',
-    data: {"labels": ["2025-05-24", "2025-05-29", "2025-05-31", "2025-06-01", "2025-06-21", "2025-06-26", "2025-06-30", "2025-07-01", "2025-07-19", "2025-07-31", "2025-08-01", "2025-08-07", "2025-08-31", "2025-09-01", "2025-09-13", "2025-09-30", "2025-10-01", "2025-10-25", "2025-10-30", "2025-10-31", "2025-11-01", "2025-11-30", "2025-12-01", "2025-12-31", "2026-01-01", "2026-01-30", "2026-01-31", "2026-02-01", "2026-02-26", "2026-02-28", "2026-03-01", "2026-03-30", "2026-03-31", "2026-04-01", "2026-04-11", "2026-04-13", "2026-04-19", "2026-04-24", "2026-04-30", "2026-05-01", "2026-05-02", "2026-05-03", "2026-05-16"], "datasets": [{"label": "Main Bank", "data": [null, 164022.96, null, null, null, null, 19816.77, null, null, 33352.01, null, null, 53803.25, null, null, 54880.87, null, null, 52403.51, null, null, 37620.61, null, 27244.34, null, 28722.22, null, null, 31836.39, null, null, 45896.96, null, null, null, null, null, null, 23734.02, null, null, 23398.2, null], "borderColor": "#90caf9", "backgroundColor": "#90caf9", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "BTB", "data": [160930.0, null, null, null, 161615.0, null, null, null, 162358.0, null, null, null, null, null, 163895.0, null, null, 165013.0, null, null, null, 166104.0, null, null, null, null, null, null, null, null, 168733.0, null, null, null, 169610.0, null, null, 169884.09, null, null, null, null, null], "borderColor": "#ffcc80", "backgroundColor": "#ffcc80", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Analyst", "data": [null, null, 108123.0, null, null, null, 114949.0, null, null, 148919.0, null, null, 151284.0, null, null, 157523.0, null, null, null, 161771.0, null, null, null, null, null, null, 173231.0, null, null, 174574.0, null, null, 168222.0, null, null, null, null, null, 184008.0, null, null, null, null], "borderColor": "#a5d6a7", "backgroundColor": "#a5d6a7", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "BeinLeumi Invest", "data": [null, null, null, null, null, 0.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], "borderColor": "#ef9a9a", "backgroundColor": "#ef9a9a", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Altshuler", "data": [null, null, null, null, null, null, null, null, null, null, null, 0.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], "borderColor": "#ce93d8", "backgroundColor": "#ce93d8", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Interactive Brokers", "data": [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 0.0, 10000.0, 9822.16, null, null, 10278.13, null, null], "borderColor": "#b0bec5", "backgroundColor": "#b0bec5", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Analyst (Yuval)", "data": [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 20000.0, null, null, null, null, null, null, null], "borderColor": "#f48fb1", "backgroundColor": "#f48fb1", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Total", "data": [160930.0, 324952.96, 433075.96, 433075.96, 433760.96, 433760.96, 296380.77, 302380.77, 303123.77, 350629.01, 613685.01, 613685.01, 636501.25, 625114.25, 626651.25, 633967.87, 638854.87, 639972.87, 637495.51, 641743.51, 646550.51, 632858.61, 637684.61, 627308.34, 636104.34, 637582.22, 649042.22, 649042.22, 652156.39, 653499.39, 656128.39, 670188.96, 663836.96, 664036.96, 664913.96, 684913.96, 694913.96, 695010.21, 688633.27, 699740.6, 700196.57, 699860.75, 703860.75], "borderColor": "#80deea", "backgroundColor": "#80deea", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Cash", "data": [null, null, null, 0.0, null, null, null, 6000.0, null, null, 12000.0, null, null, -4155.0, null, null, -4055.0, null, null, null, -4055.0, null, -4055.0, null, -4055.0, null, null, -4055.0, null, null, -4055.0, null, null, -3855.0, null, null, null, null, null, 7252.33, null, null, 11252.33], "borderColor": "#e6ee9c", "backgroundColor": "#e6ee9c", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "נכס שלום שבזי", "data": [null, null, null, null, null, null, null, null, null, null, 257056.0, null, null, 261824.0, null, null, 266611.0, null, null, null, 271418.0, null, 276244.0, null, 285040.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], "borderColor": "#ffab91", "backgroundColor": "#ffab91", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}]},
+    data: {"labels": ["2025-05-24", "2025-05-29", "2025-05-31", "2025-06-01", "2025-06-21", "2025-06-26", "2025-06-30", "2025-07-01", "2025-07-19", "2025-07-31", "2025-08-01", "2025-08-07", "2025-08-31", "2025-09-01", "2025-09-13", "2025-09-30", "2025-10-01", "2025-10-25", "2025-10-30", "2025-10-31", "2025-11-01", "2025-11-30", "2025-12-01", "2025-12-31", "2026-01-01", "2026-01-30", "2026-01-31", "2026-02-01", "2026-02-26", "2026-02-28", "2026-03-01", "2026-03-30", "2026-03-31", "2026-04-01", "2026-04-11", "2026-04-13", "2026-04-19", "2026-04-24", "2026-04-30", "2026-05-01", "2026-05-02", "2026-05-03", "2026-05-23"], "datasets": [{"label": "Main Bank", "data": [null, 164022.96, null, null, null, null, 19816.77, null, null, 33352.01, null, null, 53803.25, null, null, 54880.87, null, null, 52403.51, null, null, 37620.61, null, 27244.34, null, 28722.22, null, null, 31836.39, null, null, 45896.96, null, null, null, null, null, null, 23734.02, null, null, 23398.2, null], "borderColor": "#90caf9", "backgroundColor": "#90caf9", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "BTB", "data": [160930.0, null, null, null, 161615.0, null, null, null, 162358.0, null, null, null, null, null, 163895.0, null, null, 165013.0, null, null, null, 166104.0, null, null, null, null, null, null, null, null, 168733.0, null, null, null, 169610.0, null, null, 169884.09, null, null, null, null, null], "borderColor": "#ffcc80", "backgroundColor": "#ffcc80", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Analyst", "data": [null, null, 108123.0, null, null, null, 114949.0, null, null, 148919.0, null, null, 151284.0, null, null, 157523.0, null, null, null, 161771.0, null, null, null, null, null, null, 173231.0, null, null, 174574.0, null, null, 168222.0, null, null, null, null, null, 184008.0, null, null, null, null], "borderColor": "#a5d6a7", "backgroundColor": "#a5d6a7", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "BeinLeumi Invest", "data": [null, null, null, null, null, 0.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], "borderColor": "#ef9a9a", "backgroundColor": "#ef9a9a", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Altshuler", "data": [null, null, null, null, null, null, null, null, null, null, null, 0.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], "borderColor": "#ce93d8", "backgroundColor": "#ce93d8", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Interactive Brokers", "data": [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 0.0, 10000.0, 9765.22, null, null, 10218.55, null, null], "borderColor": "#b0bec5", "backgroundColor": "#b0bec5", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Analyst (Yuval)", "data": [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 20000.0, null, null, null, null, null, null, null], "borderColor": "#f48fb1", "backgroundColor": "#f48fb1", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Total", "data": [160930.0, 324952.96, 433075.96, 433075.96, 433760.96, 433760.96, 296380.77, 302380.77, 303123.77, 350629.01, 613685.01, 613685.01, 636501.25, 625114.25, 626651.25, 633967.87, 638854.87, 639972.87, 637495.51, 641743.51, 646550.51, 632858.61, 637684.61, 627308.34, 632154.34, 633632.22, 645092.22, 649958.22, 653072.39, 654415.39, 661929.39, 675989.96, 669637.96, 678741.96, 679618.96, 699618.96, 709618.96, 709658.27, 703281.33, 703781.33, 704234.66, 703898.84, 707898.84], "borderColor": "#80deea", "backgroundColor": "#80deea", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Cash", "data": [null, null, null, 0.0, null, null, null, 6000.0, null, null, 12000.0, null, null, -4155.0, null, null, -4055.0, null, null, null, -4055.0, null, -4055.0, null, -4055.0, null, null, -4055.0, null, null, -4055.0, null, null, -3855.0, null, null, null, null, null, -3355.0, null, null, 645.0], "borderColor": "#e6ee9c", "backgroundColor": "#e6ee9c", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "נכס שלום שבזי", "data": [null, null, null, null, null, null, null, null, null, null, 257056.0, null, null, 261824.0, null, null, 266611.0, null, null, null, 271418.0, null, 276244.0, null, 281090.0, null, null, 285956.0, null, null, 290841.0, null, null, 299745.0, null, null, null, null, null, null, null, null, null], "borderColor": "#ffab91", "backgroundColor": "#ffab91", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}]},
     options: {
       responsive: true,
       maintainAspectRatio: false,
@@ -4760,7 +5676,7 @@ body {
        </span>
       </div>
       <div class="kpi-value" style="color:#e74c3c">
-       707,082₪
+       704,324₪
       </div>
      </div>
      <div class="kpi-card">
@@ -4773,28 +5689,28 @@ body {
         <span class="kpi-tooltip">
          הון עצמי = מקדמה + קרן שנפרעה + עליית ערך + סה״כ הכנסות
   מקדמה:          237,500₪
-  קרן שנפרעה:    5,418₪
-  עליית ערך:     23,460₪
+  קרן שנפרעה:    8,176₪
+  עליית ערך:     35,407₪
   סה״כ הכנסות:   18,662₪
-  = סה״כ:         285,040₪
+  = סה״כ:         299,745₪
         </span>
        </span>
       </div>
       <div class="kpi-value" id="hs-equity" style="color:#1e9d8b">
-       285,040₪
+       299,745₪
       </div>
       <div class="kpi-sublabel">
        כולל עליית ערך והכנסות
       </div>
       <div class="equity-bar-wrap">
        <div class="equity-bar">
-        <div class="equity-bar-seg" id="hs-bar-down" style="width:83.32%;background:#81c784" title="מקדמה ₪237,500">
+        <div class="equity-bar-seg" id="hs-bar-down" style="width:79.23%;background:#81c784" title="מקדמה ₪237,500">
         </div>
-        <div class="equity-bar-seg" id="hs-bar-prin" style="width:1.9%;background:#4db6ac" title="קרן שנפרעה ₪5,418">
+        <div class="equity-bar-seg" id="hs-bar-prin" style="width:2.73%;background:#4db6ac" title="קרן שנפרעה ₪8,176">
         </div>
-        <div class="equity-bar-seg" id="hs-bar-appr" style="width:8.23%;background:#64b5f6" title="עליית ערך ₪23,460">
+        <div class="equity-bar-seg" id="hs-bar-appr" style="width:11.81%;background:#64b5f6" title="עליית ערך ₪35,407">
         </div>
-        <div class="equity-bar-seg" id="hs-bar-inc" style="width:6.55%;background:#aed581" title="סה״כ הכנסות ₪18,662">
+        <div class="equity-bar-seg" id="hs-bar-inc" style="width:6.23%;background:#aed581" title="סה״כ הכנסות ₪18,662">
         </div>
        </div>
        <div class="equity-bar-labels equity-bar-labels-4">
@@ -4802,10 +5718,10 @@ body {
          ● מקדמה ₪237,500
         </span>
         <span id="hs-lbl-prin" style="color:#4db6ac">
-         ● קרן שנפרעה ₪5,418
+         ● קרן שנפרעה ₪8,176
         </span>
         <span id="hs-lbl-appr" style="color:#64b5f6">
-         ● עליית ערך ₪23,460
+         ● עליית ערך ₪35,407
         </span>
         <span id="hs-lbl-inc" style="color:#aed581">
          ● הכנסות ₪18,662
@@ -4859,7 +5775,7 @@ body {
        </span>
       </div>
       <div class="kpi-value" id="hs-monthly-appr" style="color:#1e9d8b">
-       +3,966₪
+       +4,015₪
       </div>
       <div class="kpi-sublabel">
        לפי 5.0%/שנה
@@ -4873,16 +5789,16 @@ body {
          i
         </span>
         <span class="kpi-tooltip">
-         מחושב לפי: 950,000₪ × (1+שיעור)^0.5 שנים.
+         מחושב לפי: 950,000₪ × (1+שיעור)^0.8 שנים.
 ניתן לשנות את השיעור בסליידר למעלה.
         </span>
        </span>
       </div>
       <div class="kpi-value" id="hs-appr-price" style="color:#5b8dee">
-       973,460₪
+       985,407₪
       </div>
       <div class="kpi-sublabel">
-       5.0% עלייה שנתית | 0.5 שנים
+       5.0% עלייה שנתית | 0.8 שנים
       </div>
      </div>
     </div>
@@ -4896,25 +5812,25 @@ body {
         </span>
         <span class="kpi-tooltip" id="hs-return-tooltip">
          חישוב רווח ממכירה:
-  שווי שוק:               973,460₪
-  עליית ערך:              +23,460₪  (5.0%/שנה × 0.5 שנים)
-  יתרת משכנתא:          -707,082₪  (תשלום לבנק)
-  = הון עצמי:             266,378₪
+  שווי שוק:               985,407₪
+  עליית ערך:              +35,407₪  (5.0%/שנה × 0.8 שנים)
+  יתרת משכנתא:          -704,324₪  (תשלום לבנק)
+  = הון עצמי:             281,083₪
   + סה״כ הכנסות:          18,662₪  (שכירות + קטגוריה)
   ─────────────────────────────
-  סה״כ תקבולים:          285,040₪
+  סה״כ תקבולים:          299,745₪
   − סה״כ הוצאות:       -353,710₪
-  = רווח נקי:             -68,670₪
+  = רווח נקי:             -53,965₪
 
 ⚠ לא כולל: מס שבח, עמלות תיווך, עלויות מכירה
         </span>
        </span>
       </div>
       <div class="kpi-value" id="hs-total-return" style="color:#e74c3c">
-       -19.4%
+       -15.3%
       </div>
       <div class="kpi-sublabel" id="hs-return-sublabel">
-       רווח נקי: -68,670₪
+       רווח נקי: -53,965₪
       </div>
      </div>
      <div class="kpi-card">
@@ -4931,10 +5847,10 @@ body {
        </span>
       </div>
       <div class="kpi-value" id="hs-annual-return" style="color:#e74c3c">
-       -35.0%
+       -19.9%
       </div>
       <div class="kpi-sublabel">
-       על פני 0.5 שנים
+       על פני 0.8 שנים
       </div>
      </div>
     </div>
@@ -5000,6 +5916,9 @@ body {
       </div>
      </div>
     </div>
+    <div class="housing-alert-banner">
+     ⚠️ לא נמצאה הכנסת שכירות לחודש זה בקטגוריה "שלום שבאזי 7" — יש לבדוק אם התשלום התקבל.
+    </div>
     <div class="charts-grid">
      <div class="chart-card full-width">
       <div class="chart-card-title">
@@ -5011,7 +5930,7 @@ body {
       </div>
       <script>
        (function(){
-  var _todayKey = "2026-01";
+  var _todayKey = "2026-04";
   var ch = new Chart(document.getElementById('chart-mort-balance'), {
     type: 'line',
     data: {"labels": ["2025-08", "2025-11", "2026-02", "2026-05", "2026-08", "2026-11", "2027-02", "2027-05", "2027-08", "2027-11", "2028-02", "2028-05", "2028-08", "2028-11", "2029-02", "2029-05", "2029-08", "2029-11", "2030-02", "2030-05", "2030-08", "2030-11", "2031-02", "2031-05", "2031-08", "2031-11", "2032-02", "2032-05", "2032-08", "2032-11", "2033-02", "2033-05", "2033-08", "2033-11", "2034-02", "2034-05", "2034-08", "2034-11", "2035-02", "2035-05", "2035-08", "2035-11", "2036-02", "2036-05", "2036-08", "2036-11", "2037-02", "2037-05", "2037-08", "2037-11", "2038-02", "2038-05", "2038-08", "2038-11", "2039-02", "2039-05", "2039-08", "2039-11", "2040-02", "2040-05", "2040-08", "2040-11", "2041-02", "2041-05", "2041-08", "2041-11", "2042-02", "2042-05", "2042-08", "2042-11", "2043-02", "2043-05", "2043-08", "2043-11", "2044-02", "2044-05", "2044-08", "2044-11", "2045-02", "2045-05", "2045-08", "2045-11", "2046-02", "2046-05", "2046-08", "2046-11", "2047-02", "2047-05", "2047-08", "2047-11", "2048-02", "2048-05", "2048-08", "2048-11", "2049-02", "2049-05", "2049-08", "2049-11", "2050-02", "2050-05", "2050-08", "2050-11", "2051-02", "2051-05", "2051-08", "2051-11", "2052-02", "2052-05", "2052-08", "2052-11", "2053-02", "2053-05", "2053-08", "2053-11", "2054-02", "2054-05", "2054-08", "2054-11", "2055-02", "2055-05"], "datasets": [{"label": "\u05d0\u05d2\"\u05d7 (8)", "data": [284627, 283498, 282357, 281203, 280036, 278856, 277662, 276454, 275233, 273998, 272749, 271486, 270208, 268916, 267609, 266287, 264951, 263599, 262231, 260848, 259450, 258035, 256605, 255158, 253695, 252215, 250718, 249204, 247673, 246125, 244559, 242975, 241374, 239754, 238115, 236458, 234782, 233088, 231373, 229640, 227886, 226113, 224320, 222506, 220671, 218816, 216940, 215042, 213123, 211182, 209218, 207233, 205225, 203194, 201140, 199063, 196962, 194837, 192688, 190514, 188316, 186093, 183845, 181571, 179271, 176945, 174593, 172214, 169807, 167374, 164913, 162424, 159906, 157360, 154785, 152181, 149547, 146883, 144189, 141464, 138709, 135921, 133103, 130252, 127369, 124453, 121504, 118521, 115505, 112454, 109368, 106248, 103092, 99900, 96672, 93407, 90105, 86765, 83388, 79972, 76517, 73023, 69489, 65915, 62301, 58645, 54948, 51209, 47427, 43602, 39734, 35822, 31865, 27864, 23816, 19723, 15584, 11397, 7163, 2880], "borderColor": "#f0b429", "backgroundColor": "transparent", "borderWidth": 1.3, "pointRadius": 0, "tension": 0.3}, {"label": "\u05e4\u05e8\u05d9\u05d9\u05dd (9)", "data": [185281, 184618, 183947, 183266, 182576, 181877, 181168, 180449, 179721, 178983, 178235, 177477, 176708, 175930, 175140, 174340, 173529, 172707, 171874, 171029, 170173, 169306, 168426, 167535, 166632, 165716, 164788, 163848, 162894, 161928, 160949, 159956, 158950, 157930, 156897, 155849, 154788, 153711, 152621, 151515, 150395, 149259, 148108, 146941, 145758, 144560, 143345, 142113, 140865, 139600, 138318, 137019, 135702, 134367, 133014, 131642, 130252, 128843, 127415, 125968, 124501, 123014, 121507, 119979, 118431, 116862, 115271, 113659, 112025, 110369, 108691, 106990, 105265, 103518, 101746, 99951, 98131, 96286, 94417, 92522, 90601, 88655, 86682, 84682, 82655, 80601, 78519, 76408, 74269, 72101, 69904, 67676, 65419, 63131, 60812, 58461, 56079, 53664, 51216, 48736, 46221, 43673, 41090, 38472, 35818, 33129, 30403, 27640, 24840, 22001, 19124, 16208, 13253, 10258, 7221, 4144, 1025], "borderColor": "#5b8dee", "backgroundColor": "transparent", "borderWidth": 1.3, "pointRadius": 0, "tension": 0.3}, {"label": "\u05e7\u05d1\u05d5\u05e2\u05d4 (10)", "data": [113358, 112931, 112498, 112059, 111616, 111167, 110712, 110253, 109787, 109316, 108840, 108358, 107869, 107375, 106875, 106369, 105857, 105339, 104814, 104284, 103746, 103203, 102652, 102095, 101532, 100961, 100384, 99800, 99209, 98610, 98005, 97392, 96772, 96144, 95508, 94866, 94215, 93556, 92890, 92215, 91533, 90842, 90143, 89435, 88719, 87994, 87261, 86518, 85767, 85007, 84237, 83458, 82670, 81873, 81065, 80248, 79422, 78585, 77738, 76881, 76013, 75136, 74247, 73348, 72438, 71517, 70585, 69642, 68687, 67721, 66743, 65754, 64753, 63739, 62713, 61675, 60625, 59561, 58485, 57396, 56294, 55179, 54050, 52907, 51751, 50581, 49397, 48198, 46985, 45758, 44515, 43258, 41986, 40698, 39394, 38075, 36740, 35389, 34022, 32638, 31238, 29821, 28386, 26935, 25466, 23979, 22474, 20951, 19410, 17850, 16271, 14674, 13057, 11421, 9764, 8088, 6392, 4676, 2938, 1180], "borderColor": "#1e9d8b", "backgroundColor": "transparent", "borderWidth": 1.3, "pointRadius": 0, "tension": 0.3}, {"label": "\u05e7\u05d1\u05d5\u05e2\u05d4 (7)", "data": [128340, 127855, 127365, 126869, 126367, 125859, 125344, 124824, 124297, 123764, 123224, 122678, 122126, 121566, 121000, 120427, 119848, 119261, 118667, 118066, 117458, 116842, 116220, 115589, 114951, 114305, 113652, 112990, 112321, 111644, 110958, 110264, 109562, 108851, 108132, 107404, 106668, 105922, 105167, 104404, 103631, 102849, 102057, 101256, 100446, 99625, 98795, 97954, 97104, 96243, 95372, 94490, 93598, 92695, 91781, 90856, 89920, 88973, 88014, 87044, 86062, 85068, 84062, 83045, 82014, 80972, 79917, 78849, 77768, 76675, 75568, 74447, 73314, 72166, 71005, 69830, 68641, 67437, 66219, 64986, 63738, 62475, 61197, 59904, 58595, 57270, 55930, 54573, 53200, 51810, 50404, 48980, 47540, 46082, 44606, 43113, 41602, 40072, 38524, 36958, 35372, 33768, 32144, 30501, 28837, 27154, 25451, 23727, 21982, 20216, 18429, 16620, 14790, 12937, 11063, 9165, 7245, 5302, 3335, 1344], "borderColor": "#1e9d8b", "backgroundColor": "transparent", "borderWidth": 1.3, "pointRadius": 0, "tension": 0.3}, {"label": "\u05e1\u05d4\"\u05db", "data": [711606, 708903, 706167, 703398, 700595, 697758, 694886, 691980, 689039, 686062, 683048, 679998, 676911, 673787, 670625, 667424, 664184, 660905, 657586, 654227, 650827, 647386, 643903, 640378, 636809, 633198, 629542, 625842, 622098, 618307, 614471, 610588, 606657, 602679, 598653, 594577, 590452, 586277, 582051, 577774, 573445, 569063, 564627, 560138, 555594, 550995, 546340, 541628, 536859, 532032, 527146, 522200, 517195, 512128, 507000, 501809, 496555, 491238, 485855, 480407, 474893, 469311, 463661, 457943, 452155, 446296, 440366, 434364, 428289, 422139, 415915, 409615, 403238, 396783, 390250, 383637, 376943, 370168, 363310, 356368, 349342, 342230, 335032, 327745, 320370, 312905, 305349, 297700, 289959, 282123, 274191, 266162, 258036, 249810, 241484, 233056, 224525, 215891, 207150, 198303, 189349, 180284, 171109, 161822, 152422, 142907, 133275, 123526, 113658, 103669, 93559, 83324, 72965, 62479, 51865, 41121, 30246, 21374, 13436, 5405], "borderColor": "#1a3a5c", "backgroundColor": "transparent", "borderWidth": 2.6, "pointRadius": 0, "tension": 0.3}]},
@@ -5095,7 +6014,7 @@ body {
   var _isProj = [false, false, false, false, false, false, false, false, false, false, true, true, true, true, true, true];
   new Chart(document.getElementById('chart-mort-cashflow'), {
     type: 'bar',
-    data: {"labels": ["2025-08", "2025-09", "2025-10", "2025-11", "2025-12", "2026-01", "2026-02", "2026-03", "2026-04", "2026-05", "2026-02", "2026-03", "2026-04", "2026-05", "2026-06", "2026-07"], "datasets": [{"label": "\u05d4\u05d5\u05e6\u05d0\u05d5\u05ea \u05d3\u05d9\u05d5\u05e8", "data": [3112.14, 7889.2, 3842.24, 5031.51, 3950.49, 3945.28, 3922.99, 3868.12, 4443.86, 3868.51, 3772.49, 3772.49, 3772.49, 3772.49, 3772.49, 3772.49], "backgroundColor": ["#f66b85", "#f66b85", "#f66b85", "#f66b85", "#f66b85", "#f66b85", "#f66b85", "#f66b85", "#f66b85", "#f66b85", "rgba(246,107,133,0.45)", "rgba(246,107,133,0.45)", "rgba(246,107,133,0.45)", "rgba(246,107,133,0.45)", "rgba(246,107,133,0.45)", "rgba(246,107,133,0.45)"]}, {"label": "\u05d4\u05db\u05e0\u05e1\u05d5\u05ea \u05d3\u05d9\u05d5\u05e8", "data": [4100.0, 435.0, 80.26, 0.0, 2800.0, 2800.0, 2800.0, 2950.0, 877.0, 0.0, 2800.0, 2800.0, 2800.0, 2800.0, 2800.0, 2800.0], "backgroundColor": ["#1e9d8b", "#1e9d8b", "#1e9d8b", "#1e9d8b", "#1e9d8b", "#1e9d8b", "#1e9d8b", "#1e9d8b", "#1e9d8b", "#1e9d8b", "rgba(30,157,139,0.45)", "rgba(30,157,139,0.45)", "rgba(30,157,139,0.45)", "rgba(30,157,139,0.45)", "rgba(30,157,139,0.45)", "rgba(30,157,139,0.45)"]}]},
+    data: {"labels": ["2025-08", "2025-09", "2025-10", "2025-11", "2025-12", "2026-01", "2026-02", "2026-03", "2026-04", "2026-05", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09", "2026-10"], "datasets": [{"label": "\u05d4\u05d5\u05e6\u05d0\u05d5\u05ea \u05d3\u05d9\u05d5\u05e8", "data": [3112.14, 7889.2, 3842.24, 5031.51, 3950.49, 3945.28, 3922.99, 3868.12, 4443.86, 3868.51, 3772.49, 3772.49, 3772.49, 3772.49, 3772.49, 3772.49], "backgroundColor": ["#f66b85", "#f66b85", "#f66b85", "#f66b85", "#f66b85", "#f66b85", "#f66b85", "#f66b85", "#f66b85", "#f66b85", "rgba(246,107,133,0.45)", "rgba(246,107,133,0.45)", "rgba(246,107,133,0.45)", "rgba(246,107,133,0.45)", "rgba(246,107,133,0.45)", "rgba(246,107,133,0.45)"]}, {"label": "\u05d4\u05db\u05e0\u05e1\u05d5\u05ea \u05d3\u05d9\u05d5\u05e8", "data": [4100.0, 435.0, 80.26, 0.0, 2800.0, 2800.0, 2800.0, 2950.0, 877.0, 0.0, 2800.0, 2800.0, 2800.0, 2800.0, 2800.0, 2800.0], "backgroundColor": ["#1e9d8b", "#1e9d8b", "#1e9d8b", "#1e9d8b", "#1e9d8b", "#1e9d8b", "#1e9d8b", "#1e9d8b", "#1e9d8b", "#1e9d8b", "rgba(30,157,139,0.45)", "rgba(30,157,139,0.45)", "rgba(30,157,139,0.45)", "rgba(30,157,139,0.45)", "rgba(30,157,139,0.45)", "rgba(30,157,139,0.45)"]}]},
     options: {
       responsive: true, maintainAspectRatio: false,
       plugins: {
@@ -6647,7 +7566,7 @@ body {
      </div>
     </div>
     <script>
-     const APT_PRICE=950000;const CUR_BAL=707082.5;const N_MONTHS=6;const NET_INV=353710.49;const ALLTIME_INC=18662.0;const INIT_PMT=237500;const DOWN_PMT=237500;const PRIN_PAID=5417.5;
+     const APT_PRICE=950000;const CUR_BAL=704324.35;const N_MONTHS=9;const NET_INV=353710.49;const ALLTIME_INC=18662.0;const INIT_PMT=237500;const DOWN_PMT=237500;const PRIN_PAID=8175.650000000023;
 const fmtNum  = n => Math.round(Math.abs(n)).toLocaleString('he-IL');
 const fmtShek = n => (n < 0 ? '-' : '') + '₪' + fmtNum(n);
 const fmtPct  = n => (n >= 0 ? '+' : '') + n.toFixed(1) + '%';
@@ -6946,7 +7865,10 @@ function _applyPanelUI(name) {
   var roller = document.getElementById('month-roller');
   if (roller) roller.style.display = isMonthly ? '' : 'none';
   var reloadBtn = document.getElementById('reload-btn');
-  if (reloadBtn) reloadBtn.style.display = isMonthly ? '' : 'none';
+  if (reloadBtn) {
+    var _mob = window.matchMedia('(max-width:768px)').matches;
+    reloadBtn.style.display = isMonthly ? (_mob ? 'flex' : '') : 'none';
+  }
 }
 function showPanel(name, btn) {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
@@ -7512,23 +8434,35 @@ _initMonthNav();
   fetch('/api/status', { method: 'GET' })
     .then(function(r) { return r.json(); })
     .then(function(d) {
-      document.getElementById('reload-btn').style.display = 'inline-block';
+      document.getElementById('reload-btn').style.display =
+        window.matchMedia('(max-width:768px)').matches ? 'flex' : 'inline-block';
       if (d.running) { setLogIndicator('active'); }
       _checkStale();
+    })
+    .catch(function() {});
+  // Fetch and display app version
+  fetch('/api/version')
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      var badge = document.getElementById('app-version-badge');
+      if (badge && d.version) { badge.textContent = 'v' + d.version; }
     })
     .catch(function() {});
 })();
 
 // ── Debug log panel ───────────────────────────────────────
 var _dbgEs = null;
+
 function toggleDebugPanel() {
   var panel = document.getElementById('debug-panel');
   var isOpen = panel.classList.toggle('open');
   if (isOpen && !_dbgEs) _startDebugStream();
 }
+
 function clearDebugPanel() {
   document.getElementById('debug-feed').innerHTML = '';
 }
+
 function _startDebugStream() {
   _dbgEs = new EventSource('/api/debug-logs');
   _dbgEs.onmessage = function(e) {
@@ -7548,7 +8482,9 @@ function _startDebugStream() {
   _dbgEs.onerror = function() {
     if (_dbgEs) { _dbgEs.close(); _dbgEs = null; }
     var panel = document.getElementById('debug-panel');
-    if (panel && panel.classList.contains('open')) setTimeout(_startDebugStream, 3000);
+    if (panel && panel.classList.contains('open')) {
+      setTimeout(_startDebugStream, 3000);
+    }
   };
 }
 

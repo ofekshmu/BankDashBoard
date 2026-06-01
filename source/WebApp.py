@@ -2991,6 +2991,191 @@ def api_bills_suggestions_dismiss():
         return jsonify({'ok': False, 'error': str(e)})
 
 
+SPOTIFY_HTML = os.path.join(_HERE, 'html', 'SpotifyTracker.html')
+
+# ── Spotify Tracker routes ─────────────────────────────────────────────────────
+
+@app.route('/spotify')
+def spotify_page():
+    if os.path.exists(SPOTIFY_HTML):
+        return send_file(SPOTIFY_HTML)
+    return "Spotify Tracker page not found", 404
+
+
+@app.route('/api/spotify/members', methods=['GET', 'POST'])
+def api_spotify_members():
+    from database import DataBase
+    db = DataBase()
+    if request.method == 'GET':
+        return jsonify({'ok': True, 'members': db.get_spotify_members()})
+    body = request.get_json(force=True) or {}
+    name = (body.get('name') or '').strip()
+    if not name:
+        return jsonify({'ok': False, 'error': 'name required'})
+    try:
+        mid = db.add_spotify_member(name, is_exempt=int(body.get('is_exempt', 0)))
+        return jsonify({'ok': True, 'id': mid})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/spotify/members/<int:member_id>', methods=['PUT', 'DELETE'])
+def api_spotify_member(member_id):
+    from database import DataBase
+    db = DataBase()
+    if request.method == 'DELETE':
+        try:
+            db.delete_spotify_member(member_id)
+            return jsonify({'ok': True})
+        except Exception as e:
+            return jsonify({'ok': False, 'error': str(e)})
+    body = request.get_json(force=True) or {}
+    try:
+        db.update_spotify_member(
+            member_id,
+            name=body.get('name', '').strip(),
+            is_exempt=int(body.get('is_exempt', 0)),
+            is_active=int(body.get('is_active', 1)),
+        )
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/spotify/charges', methods=['GET', 'POST'])
+def api_spotify_charges():
+    from database import DataBase
+    db = DataBase()
+    if request.method == 'GET':
+        return jsonify({'ok': True, 'charges': db.get_spotify_charges()})
+    body = request.get_json(force=True) or {}
+    try:
+        members = db.get_spotify_members()
+        active_count = sum(1 for m in members if m['is_active'])
+        cid = db.add_spotify_charge(
+            month=body.get('month', ''),
+            total_amount=float(body.get('total_amount', 0)),
+            member_count=int(body.get('member_count', active_count)),
+            tx_id=body.get('tx_id'),
+            confirmed=int(body.get('confirmed', 1)),
+        )
+        return jsonify({'ok': True, 'id': cid})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/spotify/charges/<int:charge_id>', methods=['PUT'])
+def api_spotify_charge(charge_id):
+    from database import DataBase
+    db = DataBase()
+    body = request.get_json(force=True) or {}
+    try:
+        db.update_spotify_charge(
+            charge_id,
+            total_amount=float(body.get('total_amount', 0)),
+            member_count=int(body.get('member_count', 1)),
+            confirmed=int(body.get('confirmed', 1)),
+        )
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/spotify/charges/suggestions')
+def api_spotify_charge_suggestions():
+    import sys as _sys
+    _sys.path.insert(0, _HERE)
+    from SpotifyTracker import get_charge_suggestions
+    try:
+        suggestions = get_charge_suggestions(_DB_PATH)
+        return jsonify({'ok': True, 'suggestions': suggestions})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/spotify/payments', methods=['GET', 'POST'])
+def api_spotify_payments():
+    from database import DataBase
+    db = DataBase()
+    if request.method == 'GET':
+        member_id = request.args.get('member_id', type=int)
+        return jsonify({'ok': True, 'payments': db.get_spotify_payments(member_id)})
+    body = request.get_json(force=True) or {}
+    try:
+        pid = db.add_spotify_payment(
+            member_id=int(body.get('member_id', 0)),
+            amount=float(body.get('amount', 0)),
+            payment_date=(body.get('payment_date') or '').strip(),
+            tx_id=body.get('tx_id'),
+            note=(body.get('note') or '').strip() or None,
+        )
+        return jsonify({'ok': True, 'id': pid})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/spotify/payments/<int:payment_id>', methods=['DELETE'])
+def api_spotify_payment(payment_id):
+    from database import DataBase
+    db = DataBase()
+    try:
+        db.delete_spotify_payment(payment_id)
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/spotify/unmatched')
+def api_spotify_unmatched():
+    import sys as _sys
+    _sys.path.insert(0, _HERE)
+    from SpotifyTracker import get_unmatched_payments
+    try:
+        return jsonify({'ok': True, 'transactions': get_unmatched_payments(_DB_PATH)})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/spotify/balance')
+def api_spotify_balance():
+    import sys as _sys
+    _sys.path.insert(0, _HERE)
+    from database import DataBase
+    from SpotifyTracker import compute_all_balances
+    try:
+        db = DataBase()
+        return jsonify({'ok': True, 'balances': compute_all_balances(db)})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/spotify/report')
+def api_spotify_report():
+    import sys as _sys
+    _sys.path.insert(0, _HERE)
+    from database import DataBase
+    from SpotifyTracker import generate_pdf_report
+    raw = request.args.get('member_id', '')
+    if raw == 'all' or not raw:
+        member_ids = []
+    else:
+        try:
+            member_ids = [int(x) for x in raw.split(',') if x.strip()]
+        except ValueError:
+            return jsonify({'ok': False, 'error': 'invalid member_id'}), 400
+    try:
+        db = DataBase()
+        pdf_bytes = generate_pdf_report(member_ids, db)
+        from flask import Response
+        return Response(
+            pdf_bytes,
+            mimetype='application/pdf',
+            headers={'Content-Disposition': 'attachment; filename="spotify_report.pdf"'},
+        )
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
 def start(port: int = 5050, open_browser: bool = True):
     """Start the Flask server and optionally open the browser."""
     import webbrowser

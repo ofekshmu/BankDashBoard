@@ -78,10 +78,53 @@ def test_payment_crud():
     print("PASS: payment CRUD")
 
 
+def test_compute_balance_owes():
+    from SpotifyTracker import compute_balance
+    charges = [
+        {'month': '2025-04', 'total_amount': 120.0, 'member_count': 4, 'confirmed': 1},
+        {'month': '2025-05', 'total_amount': 120.0, 'member_count': 4, 'confirmed': 1},
+        {'month': '2025-06', 'total_amount': 120.0, 'member_count': 4, 'confirmed': 1},
+    ]
+    payments = [{'amount': 30.0}]  # paid only one month
+    result = compute_balance(payments, charges)
+    assert result['status'] == 'owes'
+    assert result['balance'] == round(30.0 - 90.0, 2)  # -60.0
+    assert result['months_status'] == -2  # ceil(60/30) = 2
+    print("PASS: compute_balance owes")
+
+
+def test_compute_balance_ahead():
+    from SpotifyTracker import compute_balance
+    charges = [
+        {'month': '2025-06', 'total_amount': 120.0, 'member_count': 4, 'confirmed': 1},
+    ]
+    payments = [{'amount': 90.0}]  # paid 3x the monthly share
+    result = compute_balance(payments, charges)
+    assert result['status'] == 'ahead'
+    assert result['balance'] == 60.0  # 90 - 30 = 60
+    assert result['months_status'] == 2  # floor(60/30) = 2
+    print("PASS: compute_balance ahead")
+
+
+def test_compute_balance_even():
+    from SpotifyTracker import compute_balance
+    charges = [
+        {'month': '2025-06', 'total_amount': 120.0, 'member_count': 4, 'confirmed': 1},
+    ]
+    payments = [{'amount': 30.0}]
+    result = compute_balance(payments, charges)
+    assert result['status'] == 'even'
+    assert result['months_status'] == 0
+    print("PASS: compute_balance even")
+
+
 if __name__ == '__main__':
     test_spotify_tables_exist()
     print("PASS: all Spotify tables exist")
     test_member_crud()
     test_charge_crud()
     test_payment_crud()
+    test_compute_balance_owes()
+    test_compute_balance_ahead()
+    test_compute_balance_even()
     print("\nAll tests passed")

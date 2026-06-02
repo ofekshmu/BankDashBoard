@@ -322,6 +322,11 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;m
     <!-- Advanced panel -->
     <div class="adv-panel" id="adv-panel">
       <div class="adv-inner">
+        <!-- Transaction ID -->
+        <div>
+          <div class="field-label">מזהה עסקה (ID)</div>
+          <input class="field-input" id="f-id" type="number" min="1" placeholder="מספר מזהה…" autocomplete="off" oninput="_scheduleSearch()"/>
+        </div>
         <!-- Business -->
         <div>
           <div class="field-label">עסק / שם</div>
@@ -501,6 +506,7 @@ function doSearch(){
   var params = new URLSearchParams();
   var kw  = document.getElementById('f-keyword').value.trim();
   var cat = document.getElementById('f-category').value.trim();
+  var tid = document.getElementById('f-id').value.trim();
   var biz = document.getElementById('f-business').value.trim();
   var mn  = _amtMode === 'range' ? document.getElementById('f-min').value.trim() : '';
   var mx  = _amtMode === 'range' ? document.getElementById('f-max').value.trim() : '';
@@ -511,6 +517,7 @@ function doSearch(){
   var sp  = document.querySelector('input[name="txsplit"]:checked').value;
   var src = document.querySelector('input[name="txsource"]:checked').value;
 
+  if(tid) params.set('id', tid);
   if(kw)  params.set('keyword', kw);
   if(cat) params.set('category', cat);
   if(biz) params.set('business', biz);
@@ -540,6 +547,7 @@ function doSearch(){
 function clearForm(){
   document.getElementById('f-keyword').value  = '';
   document.getElementById('f-category').value = '';
+  document.getElementById('f-id').value       = '';
   document.getElementById('f-business').value = '';
   document.getElementById('f-min').value   = '';
   document.getElementById('f-max').value   = '';

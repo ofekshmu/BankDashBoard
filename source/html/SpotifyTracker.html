@@ -1199,13 +1199,17 @@ function submitAssignPayment(){
 // ── Delete payment ──────────────────────────────────────────────
 function deletePayment(paymentId, memberId){
   if(!confirm('למחוק תשלום זה?')) return;
+  // Optimistic: remove the row immediately
+  if(state.payments[memberId]){
+    state.payments[memberId] = state.payments[memberId].filter(function(p){ return p.id !== paymentId; });
+    renderMemberDetail(memberId);
+  }
   fetch('/api/spotify/payments/' + paymentId, { method: 'DELETE' })
     .then(function(r){ return r.json(); })
-    .then(function(){
-      delete state.openedTabs[memberId];
-      refreshAll();
+    .then(function(res){
+      if(res && !res.ok){ refreshAll(); } else { refreshAll(); }
     })
-    .catch(function(e){ console.error(e); alert('שגיאה במחיקה'); });
+    .catch(function(e){ console.error(e); refreshAll(); });
 }
 
 // ── Member modal ────────────────────────────────────────────────

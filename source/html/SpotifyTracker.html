@@ -221,6 +221,8 @@ body {
 }
 .member-card-name { font-size: .95em; font-weight: 700; color: var(--navy); }
 .member-card-hidden { opacity: .45; }
+.member-card-owner { padding: 10px 14px; gap: 4px; }
+.member-card-owner .member-card-name { font-size: .82em; color: var(--text-muted); font-weight: 600; }
 .member-card-balance {
   font-size: 1.15em; font-weight: 700;
   font-variant-numeric: tabular-nums;
@@ -910,6 +912,57 @@ function toggleHideMember(id){
   renderMemberGrid();
 }
 
+function _buildMemberCard(m, isHidden){
+  var bal     = state.balance[m.id] || state.balance[String(m.id)] || {};
+  var amount  = typeof bal === 'object' ? (bal.balance !== undefined ? bal.balance : (bal.amount || 0)) : bal;
+  var months  = typeof bal === 'object' ? (bal.months_status || 0) : 0;
+  var count   = typeof bal === 'object' ? (bal.payment_count || 0) : 0;
+  var lastPay = typeof bal === 'object' ? (bal.last_payment_date || bal.last_payment || null) : null;
+  var status  = amount > 0.01 ? 'ahead' : (amount < -0.01 ? 'owes' : 'even');
+  var statusLabel = status === 'ahead' ? 'קדים בתשלום' : (status === 'owes' ? 'חייב' : 'מאוזן');
+
+  var monthsColor = months > 0 ? 'var(--teal)' : 'var(--red)';
+  var monthsHtml  = months !== 0
+    ? '<div class="member-card-meta" style="color:' + monthsColor + ';font-weight:600">'
+        + (months > 0 ? '+' : '') + months + ' חודשים</div>'
+    : '';
+
+  var hideBtn = '<button class="btn-icon-del" title="' + (isHidden ? 'הצג' : 'הסתר')
+    + '" style="font-size:.75em;opacity:.5;flex-shrink:0" onclick="toggleHideMember(' + m.id + ')">'
+    + (isHidden ? '👁' : '✕') + '</button>';
+
+  var card = document.createElement('div');
+  card.className = 'member-card' + (isHidden ? ' member-card-hidden' : '');
+  card.innerHTML =
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:4px">'
+    +   '<div class="member-card-name">' + escHtml(m.name) + '</div>'
+    +   hideBtn
+    + '</div>'
+    + '<div class="member-card-balance ' + status + '">' + fmt(amount) + '</div>'
+    + '<div class="member-card-meta">' + statusLabel + '</div>'
+    + monthsHtml
+    + '<div class="member-card-meta">' + count + ' תשלומים</div>'
+    + (lastPay ? '<div class="member-card-meta">תשלום אחרון: ' + fmtDate(lastPay) + '</div>' : '')
+    + '<button class="btn btn-ghost btn-xs" style="margin-top:4px" onclick="openAssignModal(' + m.id + ',\'' + escHtml(m.name).replace(/'/g,"\\'") + '\')">+ שייך תשלום</button>';
+  return card;
+}
+
+function _buildOwnerCard(m, isHidden){
+  var hideBtn = '<button class="btn-icon-del" title="' + (isHidden ? 'הצג' : 'הסתר')
+    + '" style="font-size:.7em;opacity:.4;flex-shrink:0" onclick="toggleHideMember(' + m.id + ')">'
+    + (isHidden ? '👁' : '✕') + '</button>';
+
+  var card = document.createElement('div');
+  card.className = 'member-card member-card-owner' + (isHidden ? ' member-card-hidden' : '');
+  card.innerHTML =
+      '<div style="display:flex;justify-content:space-between;align-items:center;gap:4px">'
+    +   '<div class="member-card-name">' + escHtml(m.name) + '</div>'
+    +   hideBtn
+    + '</div>'
+    + '<div class="member-card-meta">בעלים</div>';
+  return card;
+}
+
 function renderMemberGrid(){
   var grid = document.getElementById('memberGrid');
   grid.innerHTML = '';
@@ -919,47 +972,27 @@ function renderMemberGrid(){
   }
 
   var hiddenCount = state.members.filter(function(m){ return _hiddenMembers[m.id]; }).length;
-
-  // "show hidden" toggle when some are hidden
   if(hiddenCount){
     var tog = document.createElement('div');
-    tog.style.cssText = 'margin-bottom:8px;font-size:.82em;color:var(--text-muted);cursor:pointer;user-select:none';
+    tog.style.cssText = 'grid-column:1/-1;margin-bottom:4px;font-size:.82em;color:var(--text-muted);cursor:pointer;user-select:none';
     tog.textContent = (_showHidden ? '▾ ' : '▸ ') + 'מוסתרים (' + hiddenCount + ')';
     tog.onclick = function(){ _showHidden = !_showHidden; renderMemberGrid(); };
     grid.appendChild(tog);
   }
 
-  state.members.forEach(function(m){
+  var paying = state.members.filter(function(m){ return !m.is_exempt; });
+  var owners = state.members.filter(function(m){ return  m.is_exempt; });
+
+  paying.forEach(function(m){
     var isHidden = !!_hiddenMembers[m.id];
     if(isHidden && !_showHidden) return;
+    grid.appendChild(_buildMemberCard(m, isHidden));
+  });
 
-    var bal = state.balance[m.id] || state.balance[String(m.id)] || {};
-    var amount  = typeof bal === 'object' ? (bal.balance !== undefined ? bal.balance : (bal.amount || 0)) : bal;
-    var months  = typeof bal === 'object' ? (bal.months_status || 0) : 0;
-    var count   = typeof bal === 'object' ? (bal.payment_count || 0) : 0;
-    var lastPay = typeof bal === 'object' ? (bal.last_payment_date || bal.last_payment || null) : null;
-    var status  = m.is_exempt ? 'even' : (amount > 0.01 ? 'ahead' : (amount < -0.01 ? 'owes' : 'even'));
-    var statusLabel = m.is_exempt ? 'בעלים' : (status === 'ahead' ? 'קדים בתשלום' : (status === 'owes' ? 'חייב' : 'מאוזן'));
-
-    var monthsStr = '';
-    if(!m.is_exempt && months !== 0){
-      monthsStr = months > 0
-        ? '<span style="color:var(--teal);font-size:.82em">+' + months + ' חודשים</span>'
-        : '<span style="color:var(--red);font-size:.82em">' + months + ' חודשים</span>';
-    }
-
-    var card = document.createElement('div');
-    card.className = 'member-card' + (isHidden ? ' member-card-hidden' : '');
-    card.innerHTML =
-        '<div style="display:flex;justify-content:space-between;align-items:flex-start">'
-      +   '<div class="member-card-name">' + escHtml(m.name) + (m.is_exempt ? ' <span style="font-size:.7em;color:var(--text-muted)">(בעלים)</span>' : '') + '</div>'
-      +   '<button class="btn-icon-del" title="' + (isHidden ? 'הצג' : 'הסתר') + '" style="font-size:.75em;opacity:.5" onclick="toggleHideMember(' + m.id + ')">' + (isHidden ? '👁' : '✕') + '</button>'
-      + '</div>'
-      + (!m.is_exempt ? '<div class="member-card-balance ' + status + '">' + fmt(amount) + (monthsStr ? ' ' + monthsStr : '') + '</div>' : '')
-      + '<div class="member-card-meta">' + statusLabel + '</div>'
-      + (!m.is_exempt ? '<div class="member-card-meta" style="font-size:.8em;color:var(--text-muted)">' + count + ' תשלומים' + (lastPay ? ' · ' + fmtDate(lastPay) : '') + '</div>' : '')
-      + (!m.is_exempt ? '<button class="btn btn-ghost btn-xs" style="margin-top:4px" onclick="openAssignModal(' + m.id + ',\'' + escHtml(m.name).replace(/'/g,"\\'") + '\')">+ שייך תשלום</button>' : '');
-    grid.appendChild(card);
+  owners.forEach(function(m){
+    var isHidden = !!_hiddenMembers[m.id];
+    if(isHidden && !_showHidden) return;
+    grid.appendChild(_buildOwnerCard(m, isHidden));
   });
 }
 

@@ -334,13 +334,18 @@ def search_transactions():
     q_keyword  = (request.args.get('keyword')  or '').strip()
     q_category = (request.args.get('category') or '').strip()
     q_business = (request.args.get('business') or '').strip()
-    q_min      = request.args.get('min', type=float)
-    q_max      = request.args.get('max', type=float)
+    q_min      = request.args.get('min',   type=float)
+    q_max      = request.args.get('max',   type=float)
+    q_exact    = request.args.get('exact', type=float)
+    if q_exact is not None:          # exact overrides range — allow 0.01 tolerance
+        q_min = q_exact - 0.01
+        q_max = q_exact + 0.01
     q_from     = (request.args.get('from')     or '').strip()
     q_to       = (request.args.get('to')       or '').strip()
     q_type     = (request.args.get('type')     or 'all').strip()   # 'income' | 'expense' | 'all'
     q_id       = request.args.get('id',  type=int)
     q_split    = (request.args.get('split')    or 'any').strip()  # 'split' | 'nonsplit' | 'any'
+    q_source   = (request.args.get('source')   or 'all').strip()  # 'bank' | 'card' | 'all'
 
     results = []
     try:
@@ -392,7 +397,7 @@ def search_transactions():
             bank_sql += " WHERE " + " AND ".join(bank_where)
         bank_sql += " ORDER BY Date DESC LIMIT 2000"
 
-        for row in conn.execute(bank_sql, bank_params):
+        for row in (conn.execute(bank_sql, bank_params) if q_source != 'card' else []):
             amount = float(row['Income'] or 0) - float(row['Out'] or 0)
             if q_min is not None and abs(amount) < q_min:
                 continue
@@ -446,7 +451,7 @@ def search_transactions():
             card_sql += " WHERE " + " AND ".join(card_where)
         card_sql += " ORDER BY Executed_Date DESC LIMIT 2000"
 
-        for row in conn.execute(card_sql, card_params):
+        for row in (conn.execute(card_sql, card_params) if q_source != 'bank' else []):
             amount = -float(row['Transaction_Value'] or 0)  # negate: positive charge → negative (expense)
             if q_min is not None and abs(amount) < q_min:
                 continue

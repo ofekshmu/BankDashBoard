@@ -329,11 +329,22 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;m
         </div>
         <!-- Amount -->
         <div>
-          <div class="field-label">טווח סכום (₪)</div>
-          <div class="amount-row">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <div class="field-label" style="margin-bottom:0">סכום (₪)</div>
+            <div style="display:flex;gap:4px;margin-right:auto">
+              <button id="amt-mode-range" onclick="setAmtMode('range')"
+                style="padding:2px 8px;border-radius:5px;border:1.5px solid var(--teal);background:var(--teal);color:#fff;font-size:.72em;font-weight:600;cursor:pointer;font-family:inherit">טווח</button>
+              <button id="amt-mode-exact" onclick="setAmtMode('exact')"
+                style="padding:2px 8px;border-radius:5px;border:1.5px solid var(--border);background:none;color:var(--text-sub);font-size:.72em;font-weight:600;cursor:pointer;font-family:inherit">ערך מדויק</button>
+            </div>
+          </div>
+          <div id="amt-range-row" class="amount-row">
             <input class="field-input" id="f-min" type="number" min="0" placeholder="מינ'" style="flex:1" oninput="_scheduleSearch()"/>
             <span class="amount-sep">—</span>
             <input class="field-input" id="f-max" type="number" min="0" placeholder="מקס'" style="flex:1" oninput="_scheduleSearch()"/>
+          </div>
+          <div id="amt-exact-row" style="display:none">
+            <input class="field-input" id="f-exact" type="number" min="0" placeholder="סכום מדויק (₪)" oninput="_scheduleSearch()"/>
           </div>
         </div>
         <!-- Dates -->
@@ -372,6 +383,15 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;m
             <label class="type-chip"><input type="radio" name="txtype" value="all" checked onchange="_scheduleSearch()"/> הכל</label>
             <label class="type-chip"><input type="radio" name="txtype" value="income" onchange="_scheduleSearch()"/> הכנסות בלבד</label>
             <label class="type-chip"><input type="radio" name="txtype" value="expense" onchange="_scheduleSearch()"/> הוצאות בלבד</label>
+          </div>
+        </div>
+        <!-- Source filter chips -->
+        <div style="grid-column:1/-1">
+          <div class="field-label" style="margin-bottom:8px">מקור עסקה</div>
+          <div class="type-chip-row">
+            <label class="type-chip"><input type="radio" name="txsource" value="all" checked onchange="_scheduleSearch()"/> הכל</label>
+            <label class="type-chip"><input type="radio" name="txsource" value="bank" onchange="_scheduleSearch()"/> בנק בלבד</label>
+            <label class="type-chip"><input type="radio" name="txsource" value="card" onchange="_scheduleSearch()"/> כרטיס בלבד</label>
           </div>
         </div>
         <!-- Split filter chips -->
@@ -437,6 +457,23 @@ function _scheduleSearch() {
   _searchTimer = setTimeout(doSearch, 420);
 }
 
+// ── Amount mode toggle ───────────────────────────────────────────
+var _amtMode = 'range';
+function setAmtMode(mode){
+  _amtMode = mode;
+  document.getElementById('amt-range-row').style.display = mode === 'range' ? '' : 'none';
+  document.getElementById('amt-exact-row').style.display = mode === 'exact' ? '' : 'none';
+  var rBtn = document.getElementById('amt-mode-range');
+  var eBtn = document.getElementById('amt-mode-exact');
+  rBtn.style.background   = mode === 'range' ? 'var(--teal)' : 'none';
+  rBtn.style.color        = mode === 'range' ? '#fff' : 'var(--text-sub)';
+  rBtn.style.borderColor  = mode === 'range' ? 'var(--teal)' : 'var(--border)';
+  eBtn.style.background   = mode === 'exact' ? 'var(--teal)' : 'none';
+  eBtn.style.color        = mode === 'exact' ? '#fff' : 'var(--text-sub)';
+  eBtn.style.borderColor  = mode === 'exact' ? 'var(--teal)' : 'var(--border)';
+  _scheduleSearch();
+}
+
 // ── Advanced panel ──────────────────────────────────────────────
 var _advOpen = false;
 function toggleAdv(){
@@ -465,22 +502,24 @@ function doSearch(){
   var kw  = document.getElementById('f-keyword').value.trim();
   var cat = document.getElementById('f-category').value.trim();
   var biz = document.getElementById('f-business').value.trim();
-  var mn  = document.getElementById('f-min').value.trim();
-  var mx  = document.getElementById('f-max').value.trim();
+  var mn  = _amtMode === 'range' ? document.getElementById('f-min').value.trim() : '';
+  var mx  = _amtMode === 'range' ? document.getElementById('f-max').value.trim() : '';
+  var ex  = _amtMode === 'exact' ? document.getElementById('f-exact').value.trim() : '';
   var fd  = document.getElementById('f-from').value.trim();
   var td  = document.getElementById('f-to').value.trim();
   var tp  = document.querySelector('input[name="txtype"]:checked').value;
   var sp  = document.querySelector('input[name="txsplit"]:checked').value;
+  var src = document.querySelector('input[name="txsource"]:checked').value;
 
   if(kw)  params.set('keyword', kw);
   if(cat) params.set('category', cat);
   if(biz) params.set('business', biz);
-  if(mn)  params.set('min', mn);
-  if(mx)  params.set('max', mx);
+  if(ex){ params.set('exact', ex); } else { if(mn) params.set('min', mn); if(mx) params.set('max', mx); }
   if(fd)  params.set('from', fd);
   if(td)  params.set('to', td);
-  if(tp && tp!=='all') params.set('type', tp);
-  if(sp && sp!=='any') params.set('split', sp);
+  if(tp  && tp!=='all') params.set('type',   tp);
+  if(sp  && sp!=='any') params.set('split',  sp);
+  if(src && src!=='all') params.set('source', src);
 
   document.getElementById('results-meta').style.display = 'none';
   document.getElementById('results-root').innerHTML =
@@ -502,13 +541,16 @@ function clearForm(){
   document.getElementById('f-keyword').value  = '';
   document.getElementById('f-category').value = '';
   document.getElementById('f-business').value = '';
-  document.getElementById('f-min').value = '';
-  document.getElementById('f-max').value = '';
+  document.getElementById('f-min').value   = '';
+  document.getElementById('f-max').value   = '';
+  document.getElementById('f-exact').value = '';
+  setAmtMode('range');
   document.getElementById('f-from').value = '';
   document.getElementById('f-to').value = '';
   drpReset();
-  document.querySelector('input[name="txtype"][value="all"]').checked = true;
-  document.querySelector('input[name="txsplit"][value="any"]').checked = true;
+  document.querySelector('input[name="txtype"][value="all"]').checked   = true;
+  document.querySelector('input[name="txsplit"][value="any"]').checked   = true;
+  document.querySelector('input[name="txsource"][value="all"]').checked  = true;
   document.getElementById('results-meta').style.display = 'none';
   document.getElementById('results-root').innerHTML =
     '<div class="results-hint-card"><div class="hint-icon">🔍</div><div>הזן קריטריוני חיפוש ולחץ "חפש"</div></div>';

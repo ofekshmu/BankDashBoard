@@ -1220,6 +1220,8 @@ function renderMemberDetail(memberId){
 }
 
 // ── Assign payment modal ────────────────────────────────────────
+var _assignedTxIds = {};
+
 function openAssignModal(memberId, memberName){
   document.getElementById('assignMemberId').value = memberId;
   document.getElementById('assignMemberName').textContent = memberName;
@@ -1237,6 +1239,14 @@ function openAssignModal(memberId, memberName){
   document.getElementById('srResults').style.display = 'none';
   document.getElementById('srResultsList').innerHTML = '';
   document.getElementById('assignSelectedChip').style.display = 'none';
+
+  // Fetch assigned tx_ids so search results can be greyed out
+  fetch('/api/spotify/payments/assigned-tx-ids')
+    .then(function(r){ return r.json(); })
+    .then(function(res){
+      _assignedTxIds = {};
+      (res.tx_ids || []).forEach(function(id){ _assignedTxIds[id] = true; });
+    }).catch(function(){});
 
   var list = document.getElementById('assignTxList');
   list.innerHTML = '';
@@ -1313,19 +1323,25 @@ function runAssignSearch(){
       }
       // show max 50
       results.slice(0, 50).forEach(function(tx){
+        var alreadyUsed = !!_assignedTxIds[tx.tx_id];
         var amtColor = tx.amount >= 0 ? 'var(--teal)' : 'var(--red)';
         var row = document.createElement('div');
-        row.className = 'assign-sr-row';
+        row.className = 'assign-sr-row' + (alreadyUsed ? ' assign-sr-used' : '');
         row.innerHTML =
             '<span class="assign-sr-date">' + fmtDate(tx.date) + '</span>'
           + '<span class="assign-sr-name" title="' + escHtml(tx.name) + '">' + escHtml(tx.name) + '</span>'
-          + '<span class="assign-sr-amt" style="color:' + amtColor + '">' + fmt(Math.abs(tx.amount)) + '</span>'
-          + '<span class="assign-sr-src">' + (tx.source === 'card' ? 'כרטיס' : 'בנק') + ' #' + tx.tx_id + '</span>';
-        row.onclick = function(){
-          list.querySelectorAll('.assign-sr-row').forEach(function(r){ r.classList.remove('selected'); });
-          row.classList.add('selected');
-          _applyAssignTx(tx.tx_id, Math.abs(tx.amount), tx.date, tx.name);
-        };
+          + '<span class="assign-sr-amt" style="color:' + (alreadyUsed ? 'var(--text-muted)' : amtColor) + '">' + fmt(Math.abs(tx.amount)) + '</span>'
+          + '<span class="assign-sr-src">' + (tx.source === 'card' ? 'כרטיס' : 'בנק') + ' #' + tx.tx_id + '</span>'
+          + (alreadyUsed ? '<span style="font-size:.72em;color:var(--text-muted);white-space:nowrap">כבר שויך</span>' : '');
+        if(!alreadyUsed){
+          row.onclick = function(){
+            list.querySelectorAll('.assign-sr-row').forEach(function(r){ r.classList.remove('selected'); });
+            row.classList.add('selected');
+            _applyAssignTx(tx.tx_id, Math.abs(tx.amount), tx.date, tx.name);
+          };
+        } else {
+          row.style.cssText += ';opacity:.45;cursor:default';
+        }
         list.appendChild(row);
       });
       if(results.length > 50){
@@ -1357,7 +1373,11 @@ function submitAssignPayment(){
     headers: {'Content-Type':'application/json'},
     body: JSON.stringify(body)
   }).then(function(r){ return r.json(); })
-    .then(function(){
+    .then(function(res){
+      if(res && !res.ok){
+        alert(res.error || 'שגיאה בשמירה');
+        return;
+      }
       closeModal('modalAssign');
       delete state.openedTabs[memberId];
       refreshAll();

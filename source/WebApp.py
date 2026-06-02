@@ -3117,16 +3117,30 @@ def api_spotify_payments():
         return jsonify({'ok': True, 'payments': db.get_spotify_payments(member_id)})
     body = request.get_json(force=True) or {}
     try:
+        tx_id = body.get('tx_id')
+        if tx_id is not None:
+            if int(tx_id) in db.get_spotify_assigned_tx_ids():
+                return jsonify({'ok': False, 'error': 'עסקה זו כבר שויכה לחבר אחר'})
         pid = db.add_spotify_payment(
             member_id=int(body.get('member_id', 0)),
             amount=float(body.get('amount', 0)),
             payment_date=(body.get('payment_date') or '').strip(),
-            tx_id=body.get('tx_id'),
+            tx_id=tx_id,
             note=(body.get('note') or '').strip() or None,
         )
         return jsonify({'ok': True, 'id': pid})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/spotify/payments/assigned-tx-ids')
+def api_spotify_assigned_tx_ids():
+    from database import DataBase
+    db = DataBase()
+    try:
+        return jsonify({'ok': True, 'tx_ids': list(db.get_spotify_assigned_tx_ids())})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e), 'tx_ids': []})
 
 
 @app.route('/api/spotify/payments/<int:payment_id>', methods=['DELETE'])

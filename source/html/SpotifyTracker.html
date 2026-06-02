@@ -1040,6 +1040,7 @@ function submitMember(){
   var editId = document.getElementById('memberEditId').value;
   if(!name){ alert('נא להזין שם'); return; }
 
+  var isNew = !editId;
   var method = editId ? 'PUT' : 'POST';
   var url = editId ? '/api/spotify/members/' + editId : '/api/spotify/members';
 
@@ -1048,9 +1049,12 @@ function submitMember(){
     headers: {'Content-Type':'application/json'},
     body: JSON.stringify({ name: name, is_exempt: isExempt })
   }).then(function(r){ return r.json(); })
-    .then(function(){
+    .then(function(res){
       closeModal('modalMember');
-      refreshAll();
+      refreshAll(isNew && res.id ? function(){
+        var btn = document.getElementById('tab-btn-' + res.id);
+        if(btn) switchTab('member-' + res.id, btn, res.id);
+      } : null);
     })
     .catch(function(e){ console.error(e); alert('שגיאה בשמירה'); });
 }
@@ -1137,7 +1141,7 @@ function doExportPDF(){
 }
 
 // ── Refresh ─────────────────────────────────────────────────────
-function refreshAll(){
+function refreshAll(callback){
   Promise.all([
     fetch('/api/spotify/members').then(function(r){ return r.json(); }),
     fetch('/api/spotify/charges').then(function(r){ return r.json(); }),
@@ -1157,14 +1161,24 @@ function refreshAll(){
     renderOverview();
 
     // Re-render already-opened member tabs
-    Object.keys(state.openedTabs).forEach(function(id){
+    var openIds = Object.keys(state.openedTabs);
+    var pending = openIds.length;
+    if(!pending){
+      if(callback) callback();
+      return;
+    }
+    openIds.forEach(function(id){
       var mid = parseInt(id);
       fetch('/api/spotify/payments?member_id=' + mid)
         .then(function(r){ return r.json(); })
         .then(function(data){
-          state.payments[mid] = data || [];
+          state.payments[mid] = (data && data.payments) || [];
           renderMemberDetail(mid);
-        }).catch(function(){});
+        }).catch(function(){})
+        .finally(function(){
+          pending--;
+          if(pending === 0 && callback) callback();
+        });
     });
   }).catch(function(e){ console.error('refresh error', e); });
 }

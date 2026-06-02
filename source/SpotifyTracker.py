@@ -86,9 +86,10 @@ def compute_all_balances(db) -> list:
 
 def get_charge_suggestions(db_path: str) -> list:
     """
-    Find outgoing BankTransactions whose Name contains 'spotify' (case-insensitive)
-    that have no confirmed SpotifyMonthlyCharge for that month yet.
-    Returns list of {tx_id, date, name, amount, month}.
+    Find outgoing transactions whose Name contains 'spotify' (case-insensitive)
+    from both BankTransactions and CardTransactions, excluding months that already
+    have a confirmed SpotifyMonthlyCharge.
+    Returns list of {tx_id, date, name, amount, month, source}.
     """
     conn = sqlite3.connect(db_path, check_same_thread=False)
     conn.row_factory = sqlite3.Row
@@ -98,27 +99,49 @@ def get_charge_suggestions(db_path: str) -> list:
                 "SELECT Month FROM SpotifyMonthlyCharge WHERE Confirmed = 1"
             ).fetchall()
         }
-        rows = conn.execute("""
-            SELECT ID, Date, Name, Out
+
+        candidates = []
+
+        for row in conn.execute("""
+            SELECT ID, Date, Name, Out AS amount
             FROM BankTransactions
             WHERE LOWER(Name) LIKE '%spotify%' AND Out > 0
             ORDER BY Date DESC LIMIT 24
-        """).fetchall()
-
-        by_month = {}
-        for row in rows:
+        """).fetchall():
             month = (row['Date'] or '')[:7]
-            if not month or month in confirmed_months:
-                continue
-            candidate = {
-                'tx_id':  row['ID'],
-                'date':   row['Date'],
-                'name':   row['Name'],
-                'amount': float(row['Out'] or 0),
-                'month':  month,
-            }
-            if month not in by_month or candidate['amount'] > by_month[month]['amount']:
-                by_month[month] = candidate
+            if month and month not in confirmed_months:
+                candidates.append({
+                    'tx_id':  row['ID'],
+                    'date':   row['Date'],
+                    'name':   row['Name'],
+                    'amount': float(row['amount'] or 0),
+                    'month':  month,
+                    'source': 'BankTransactions',
+                })
+
+        for row in conn.execute("""
+            SELECT ID, Executed_Date AS date, Name, Charge_Value AS amount
+            FROM CardTransactions
+            WHERE LOWER(Name) LIKE '%spotify%' AND Charge_Value > 0
+            ORDER BY date DESC LIMIT 24
+        """).fetchall():
+            month = (row['date'] or '')[:7]
+            if month and month not in confirmed_months:
+                candidates.append({
+                    'tx_id':  row['ID'],
+                    'date':   row['date'],
+                    'name':   row['Name'],
+                    'amount': float(row['amount'] or 0),
+                    'month':  month,
+                    'source': 'CardTransactions',
+                })
+
+        # Keep highest-amount candidate per month
+        by_month = {}
+        for c in candidates:
+            m = c['month']
+            if m not in by_month or c['amount'] > by_month[m]['amount']:
+                by_month[m] = c
 
         return sorted(by_month.values(), key=lambda x: x['month'], reverse=True)
     finally:
@@ -127,8 +150,12 @@ def get_charge_suggestions(db_path: str) -> list:
 
 def get_unmatched_payments(db_path: str) -> list:
     """
-    Return Spotify-categorized transactions (bank + card, income side) that have
-    not yet been assigned to any SpotifyMemberPayment.
+    Return income transactions that look like Spotify family-member reimbursements
+    and have not yet been assigned to any SpotifyMemberPayment.
+
+    Matches BankTransactions (income side) where the transaction name, description,
+    or category contains 'spotify' (case-insensitive).  Card transactions are
+    excluded here because card charges are outgoing costs, not incoming payments.
     """
     conn = sqlite3.connect(db_path, check_same_thread=False)
     conn.row_factory = sqlite3.Row
@@ -142,34 +169,24 @@ def get_unmatched_payments(db_path: str) -> list:
         results = []
 
         for row in conn.execute("""
-            SELECT ID, Date, Name, Income AS amount
+            SELECT ID, Date, Name, Income AS amount, Description, Category
             FROM BankTransactions
-            WHERE LOWER(Category) LIKE '%spotify%' AND Income > 0
+            WHERE Income > 0
+              AND (
+                LOWER(Name)        LIKE '%spotify%'
+                OR LOWER(Description) LIKE '%spotify%'
+                OR LOWER(Category)    LIKE '%spotify%'
+              )
             ORDER BY Date DESC LIMIT 200
         """).fetchall():
             if row['ID'] not in assigned:
                 results.append({
-                    'id':     row['ID'],
-                    'date':   row['Date'],
-                    'name':   row['Name'],
-                    'amount': float(row['amount'] or 0),
-                    'source': 'BankTransactions',
-                })
-
-        for row in conn.execute("""
-            SELECT ID, Executed_Date AS date, Name,
-                   ABS(Transaction_Value) AS amount
-            FROM CardTransactions
-            WHERE LOWER(Category) LIKE '%spotify%'
-            ORDER BY date DESC LIMIT 200
-        """).fetchall():
-            if row['ID'] not in assigned:
-                results.append({
-                    'id':     row['ID'],
-                    'date':   row['date'],
-                    'name':   row['Name'],
-                    'amount': float(row['amount'] or 0),
-                    'source': 'CardTransactions',
+                    'id':       row['ID'],
+                    'date':     row['Date'],
+                    'name':     row['Name'],
+                    'amount':   float(row['amount'] or 0),
+                    'source':   'BankTransactions',
+                    'category': row['Category'] or '',
                 })
 
         results.sort(key=lambda x: x['date'] or '', reverse=True)

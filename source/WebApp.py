@@ -3113,8 +3113,61 @@ def api_spotify_payments():
     from database import DataBase
     db = DataBase()
     if request.method == 'GET':
+        import sqlite3 as _sq
         member_id = request.args.get('member_id', type=int)
-        return jsonify({'ok': True, 'payments': db.get_spotify_payments(member_id)})
+        payments = db.get_spotify_payments(member_id)
+
+        # Enrich payments that have a tx_id with transaction details
+        tx_ids = [p['tx_id'] for p in payments if p['tx_id'] is not None]
+        tx_details = {}
+        if tx_ids:
+            try:
+                conn = _sq.connect(_DB_PATH, check_same_thread=False)
+                conn.row_factory = _sq.Row
+                placeholders = ','.join('?' * len(tx_ids))
+
+                splits = {r[0] for r in conn.execute(
+                    f"SELECT DISTINCT Original_ID FROM TransactionSplits WHERE Original_Table='BankTransactions' AND Original_ID IN ({placeholders})",
+                    tx_ids
+                ).fetchall()}
+                splits |= {r[0] for r in conn.execute(
+                    f"SELECT DISTINCT Original_ID FROM TransactionSplits WHERE Original_Table='CardTransactions' AND Original_ID IN ({placeholders})",
+                    tx_ids
+                ).fetchall()}
+
+                for row in conn.execute(
+                    f"SELECT ID, Name, Description, Category FROM BankTransactions WHERE ID IN ({placeholders})",
+                    tx_ids
+                ).fetchall():
+                    tx_details[row['ID']] = {
+                        'tx_name': row['Name'] or '',
+                        'tx_description': row['Description'] or '',
+                        'tx_category': row['Category'] or '',
+                        'tx_split': row['ID'] in splits,
+                        'tx_source': 'bank',
+                    }
+
+                for row in conn.execute(
+                    f"SELECT ID, Name, Description, Category FROM CardTransactions WHERE ID IN ({placeholders})",
+                    tx_ids
+                ).fetchall():
+                    if row['ID'] not in tx_details:
+                        tx_details[row['ID']] = {
+                            'tx_name': row['Name'] or '',
+                            'tx_description': row['Description'] or '',
+                            'tx_category': row['Category'] or '',
+                            'tx_split': row['ID'] in splits,
+                            'tx_source': 'card',
+                        }
+                conn.close()
+            except Exception:
+                pass
+
+        for p in payments:
+            if p['tx_id'] in tx_details:
+                p.update(tx_details[p['tx_id']])
+
+        return jsonify({'ok': True, 'payments': payments})
     body = request.get_json(force=True) or {}
     try:
         tx_id = body.get('tx_id')

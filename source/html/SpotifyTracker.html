@@ -1203,17 +1203,24 @@ function renderMemberDetail(memberId){
   var payRows = payments.length
     ? payments.map(function(p){
         var isManual = !p.tx_id;
-        var txBadge = isManual
+        var txCell = isManual
           ? '<span title="' + escHtml(p.note || '') + '" style="cursor:help;color:var(--amber)">ℹ️ ידני</span>'
-          : '<span style="color:var(--text-muted);font-size:.82em">#' + p.tx_id + '</span>';
+          : '<span style="color:var(--text-muted);font-size:.82em">#' + p.tx_id + (p.tx_source ? ' (' + (p.tx_source === 'card' ? 'כרטיס' : 'בנק') + ')' : '') + '</span>'
+            + (p.tx_split ? ' <span style="font-size:.72em;color:var(--teal);font-weight:600">פוצל</span>' : '');
+        var nameCell = isManual ? '—'
+          : (p.tx_description && p.tx_description !== p.tx_name
+              ? escHtml(p.tx_description) + '<br><span style="color:var(--text-muted);font-size:.8em">' + escHtml(p.tx_name) + '</span>'
+              : escHtml(p.tx_name || p.tx_description || '—'));
         return '<tr>'
           + '<td>' + fmtDate(p.date || p.payment_date) + '</td>'
           + '<td class="amount-pos">' + fmt(p.amount) + '</td>'
-          + '<td>' + txBadge + '</td>'
+          + '<td style="font-size:.82em">' + txCell + '</td>'
+          + '<td style="font-size:.85em">' + nameCell + '</td>'
+          + '<td style="font-size:.82em;color:var(--text-muted)">' + escHtml(p.tx_category || (isManual ? '—' : '')) + '</td>'
           + '<td>' + escHtml(p.note || '—') + '</td>'
           + '<td><button class="btn-icon-del" title="הסר" onclick="deletePayment(' + p.id + ',' + memberId + ')">🗑</button></td></tr>';
       }).join('')
-    : '<tr class="empty-row"><td colspan="5">אין תשלומים רשומים</td></tr>';
+    : '<tr class="empty-row"><td colspan="7">אין תשלומים רשומים</td></tr>';
 
   // Charge history rows
   var chargeRows = state.charges.length
@@ -1249,7 +1256,7 @@ function renderMemberDetail(memberId){
     + '</div>'
     + '<div class="member-right-panel">'
     + '<div class="section-title" style="margin-top:0">היסטוריית תשלומים</div>'
-    + '<div class="table-wrap"><table class="data-table"><thead><tr><th>תאריך</th><th>סכום</th><th>מקור</th><th>הערה</th><th></th></tr></thead>'
+    + '<div class="table-wrap"><table class="data-table"><thead><tr><th>תאריך</th><th>סכום</th><th>עסקה</th><th>שם / תיאור</th><th>קטגוריה</th><th>הערה</th><th></th></tr></thead>'
     + '<tbody>' + payRows + '</tbody></table></div>'
     + '<div class="section-title">היסטוריית חיובים חודשיים</div>'
     + '<div class="table-wrap"><table class="data-table"><thead><tr><th>חודש</th><th>סה"כ</th><th>מספר חברים</th><th>חלק לאדם</th></tr></thead>'

@@ -3052,12 +3052,20 @@ def api_spotify_charges():
     try:
         members = db.get_spotify_members()
         active_count = sum(1 for m in members if m['is_active'])
+        month = body.get('month', '')
+        total_amount = float(body.get('total_amount', 0))
+        member_count = int(body.get('member_count', active_count))
+        confirmed = int(body.get('confirmed', 1))
+        existing = [c for c in db.get_spotify_charges() if (c.get('month') or '').startswith(month)]
+        if existing:
+            db.update_spotify_charge(existing[0]['id'], total_amount=total_amount, member_count=member_count, confirmed=confirmed)
+            return jsonify({'ok': True, 'id': existing[0]['id']})
         cid = db.add_spotify_charge(
-            month=body.get('month', ''),
-            total_amount=float(body.get('total_amount', 0)),
-            member_count=int(body.get('member_count', active_count)),
+            month=month,
+            total_amount=total_amount,
+            member_count=member_count,
             tx_id=body.get('tx_id'),
-            confirmed=int(body.get('confirmed', 1)),
+            confirmed=confirmed,
         )
         return jsonify({'ok': True, 'id': cid})
     except Exception as e:

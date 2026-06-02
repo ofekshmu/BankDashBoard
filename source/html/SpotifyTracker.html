@@ -693,10 +693,12 @@ function init(){
     fetch('/api/spotify/balance').then(function(r){ return r.json(); }),
     fetch('/api/spotify/unmatched').then(function(r){ return r.json(); })
   ]).then(function(results){
-    state.members  = results[0] || [];
-    state.charges  = results[1] || [];
-    state.balance  = results[2] || {};
-    state.unmatched= results[3] || [];
+    state.members   = (results[0] && results[0].members)      || [];
+    state.charges   = (results[1] && results[1].charges)      || [];
+    var balList     = (results[2] && results[2].balances)      || [];
+    state.balance   = {};
+    balList.forEach(function(b){ state.balance[b.member_id] = b; });
+    state.unmatched = (results[3] && results[3].transactions)  || [];
 
     renderSummaryBar();
     checkChargeBanner();
@@ -713,7 +715,7 @@ function init(){
 
 // ── Summary bar ────────────────────────────────────────────────
 function renderSummaryBar(){
-  var latestCharge = state.charges.length ? state.charges[state.charges.length-1] : null;
+  var latestCharge = state.charges.length ? state.charges[0] : null;
   var monthly = latestCharge ? latestCharge.total_amount : null;
   var perPerson = latestCharge && latestCharge.member_count ? (latestCharge.total_amount / latestCharge.member_count) : null;
 
@@ -799,7 +801,7 @@ function switchTab(tabId, btn, memberId){
     fetch('/api/spotify/payments?member_id=' + memberId)
       .then(function(r){ return r.json(); })
       .then(function(data){
-        state.payments[memberId] = data || [];
+        state.payments[memberId] = (data && data.payments) || [];
         renderMemberDetail(memberId);
       })
       .catch(function(){
@@ -873,8 +875,8 @@ function quickAssign(sel, txId){
     body: JSON.stringify({
       member_id: parseInt(memberId),
       amount: tx.amount,
-      date: tx.date || tx.transaction_date,
-      transaction_id: txId,
+      payment_date: (tx.date || tx.transaction_date || '').slice(0,10),
+      tx_id: txId,
       note: 'שויך מרשימת לא משויכים'
     })
   }).then(function(r){ return r.json(); })
@@ -895,7 +897,7 @@ function renderMemberDetail(memberId){
   var statusLabel = status === 'ahead' ? 'קדים בתשלום' : (status === 'owes' ? 'חייב' : 'מאוזן');
 
   // Current share
-  var latestCharge = state.charges.length ? state.charges[state.charges.length-1] : null;
+  var latestCharge = state.charges.length ? state.charges[0] : null;
   var share = latestCharge && latestCharge.member_count ? (latestCharge.total_amount / latestCharge.member_count) : null;
 
   var payments = state.payments[memberId] || [];
@@ -987,8 +989,8 @@ function submitAssignPayment(){
     alert('נא למלא סכום ותאריך');
     return;
   }
-  var body = { member_id: memberId, amount: amount, date: date, note: note };
-  if(txId) body.transaction_id = parseInt(txId);
+  var body = { member_id: memberId, amount: amount, payment_date: date, note: note };
+  if(txId) body.tx_id = parseInt(txId);
 
   fetch('/api/spotify/payments', {
     method: 'POST',
@@ -1062,20 +1064,17 @@ function openConfirmChargeModal(){
   document.getElementById('chargeSuggestion').style.display = 'none';
   document.getElementById('chargeSuggestedTxId').value = '';
 
-  // Fetch suggestions
-  fetch('/api/spotify/unmatched')
+  // Fetch charge suggestions from the dedicated endpoint
+  fetch('/api/spotify/charges/suggestions')
     .then(function(r){ return r.json(); })
-    .then(function(txs){
-      var spotify = txs.filter(function(tx){
-        var d = (tx.description || tx.name || '').toLowerCase();
-        return d.includes('spotify') || d.includes('ספוטיפי');
-      });
-      if(spotify.length){
-        var tx = spotify[0];
-        document.getElementById('chargeSuggestionText').textContent = 'נמצאה עסקה מוצעת: ' + (tx.description || tx.name) + ' — ' + fmt(tx.amount) + ' (' + fmtDate(tx.date || tx.transaction_date) + ')';
+    .then(function(res){
+      var suggestions = (res && res.suggestions) || [];
+      if(suggestions.length){
+        var s = suggestions[0];
+        document.getElementById('chargeSuggestionText').textContent = 'נמצאה עסקה מוצעת: ' + (s.name || s.description || '') + ' — ' + fmt(s.amount) + ' (' + fmtDate(s.date || s.transaction_date) + ')';
         document.getElementById('chargeSuggestion').style.display = 'flex';
-        document.getElementById('chargeAmount').value = tx.amount;
-        document.getElementById('chargeSuggestedTxId').value = tx.id;
+        document.getElementById('chargeAmount').value = s.amount;
+        document.getElementById('chargeSuggestedTxId').value = s.id || '';
       }
     }).catch(function(){});
 
@@ -1093,7 +1092,7 @@ function submitCharge(){
     return;
   }
   var body = { month: month, total_amount: amount, member_count: memberCount };
-  if(txId) body.transaction_id = parseInt(txId);
+  if(txId) body.tx_id = parseInt(txId);
 
   fetch('/api/spotify/charges', {
     method: 'POST',
@@ -1145,10 +1144,12 @@ function refreshAll(){
     fetch('/api/spotify/balance').then(function(r){ return r.json(); }),
     fetch('/api/spotify/unmatched').then(function(r){ return r.json(); })
   ]).then(function(results){
-    state.members   = results[0] || [];
-    state.charges   = results[1] || [];
-    state.balance   = results[2] || {};
-    state.unmatched = results[3] || [];
+    state.members   = (results[0] && results[0].members)      || [];
+    state.charges   = (results[1] && results[1].charges)      || [];
+    var balList     = (results[2] && results[2].balances)      || [];
+    state.balance   = {};
+    balList.forEach(function(b){ state.balance[b.member_id] = b; });
+    state.unmatched = (results[3] && results[3].transactions)  || [];
 
     renderSummaryBar();
     checkChargeBanner();

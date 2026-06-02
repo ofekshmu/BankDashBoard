@@ -499,12 +499,6 @@ body {
     </div>
   </div>
 
-  <!-- Member tabs bar -->
-  <div class="tabs-bar" id="tabsBar">
-    <button class="tab-btn active" id="tab-btn-overview" onclick="switchTab('overview', this, null)">📋 סקירה כללית</button>
-    <!-- dynamic member tabs injected here -->
-  </div>
-
   <!-- Overview panel -->
   <div class="tab-panel active" id="panel-overview">
     <div class="loading-wrap" id="overviewLoader">
@@ -843,7 +837,6 @@ function init(){
     state.suggestions = (results[4] && results[4].suggestions)   || [];
 
     renderSummaryBar();
-    renderMemberTabs();
     renderOverview();
 
     document.getElementById('overviewLoader').style.display = 'none';
@@ -899,17 +892,10 @@ function checkChargeBanner(){
   }
 }
 
-// ── Member tabs ────────────────────────────────────────────────
-function renderMemberTabs(){
-  // Remove any leftover member tabs (only overview tab should remain)
-  document.getElementById('tabsBar').querySelectorAll('[data-member-tab]').forEach(function(el){ el.remove(); });
-}
 
 // ── Switch tab ─────────────────────────────────────────────────
 function switchTab(tabId, btn, memberId){
-  document.querySelectorAll('.tab-btn').forEach(function(b){ b.classList.remove('active'); });
   document.querySelectorAll('.tab-panel').forEach(function(p){ p.classList.remove('active'); });
-  if(btn) btn.classList.add('active');
 
   if(tabId === 'overview'){
     document.getElementById('panel-overview').classList.add('active');
@@ -1229,7 +1215,11 @@ function renderMemberDetail(memberId){
       }).join('')
     : '<tr class="empty-row"><td colspan="4">אין היסטוריית חיובים</td></tr>';
 
-  panel.innerHTML = '<div class="member-detail">'
+  panel.innerHTML = '<button onclick="switchTab(\'overview\',null,null)" '
+    + 'style="background:none;border:none;cursor:pointer;color:var(--teal);font-size:.88em;font-weight:600;'
+    + 'display:flex;align-items:center;gap:5px;padding:0 0 14px;font-family:inherit">'
+    + '→ חזרה לסקירה</button>'
+    + '<div class="member-detail">'
     + '<div class="member-info-card">'
     + '<div class="member-info-name">' + escHtml(member.name) + '</div>'
     + '<div class="balance-card ' + status + '">'
@@ -1634,7 +1624,6 @@ function refreshAll(callback){
     state.suggestions = (results[4] && results[4].suggestions)   || [];
 
     renderSummaryBar();
-    renderMemberTabs();
     renderOverview();
 
     // Re-render already-opened member tabs

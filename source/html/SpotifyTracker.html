@@ -374,13 +374,14 @@ body {
   text-transform: uppercase; letter-spacing: .5px; margin-bottom: 5px; display: block;
 }
 .field-input {
-  width: 100%; padding: 9px 13px;
+  width: 100%; padding: 9px 13px; box-sizing: border-box; height: 38px;
   border: 1.5px solid var(--border); border-radius: var(--radius-sm);
   font-size: .88em; color: var(--navy); background: var(--white);
   outline: none; font-family: inherit; direction: rtl;
   transition: border-color .18s, box-shadow .18s;
 }
 .field-input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(30,157,139,.12); }
+input[type="date"].field-input { padding: 0 10px; appearance: none; -webkit-appearance: none; }
 .field-checkbox-row {
   display: flex; align-items: center; gap: 8px;
   font-size: .88em; color: var(--navy); cursor: pointer;

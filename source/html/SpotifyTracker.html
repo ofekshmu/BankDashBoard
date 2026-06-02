@@ -437,11 +437,11 @@ body {
   <!-- Summary bar -->
   <div class="summary-bar" id="summaryBar">
     <div class="summary-chip">
-      <span>חיוב חודשי</span>
+      <span>חיוב חודשי נוכחי</span>
       <span class="chip-val" id="sumMonthlyCharge">—</span>
     </div>
     <div class="summary-chip">
-      <span>חלק לאדם</span>
+      <span>חלק לאדם (ממוצע)</span>
       <span class="chip-val" id="sumPerPerson">—</span>
     </div>
     <div class="summary-chip">
@@ -747,12 +747,21 @@ function init(){
 
 // ── Summary bar ────────────────────────────────────────────────
 function renderSummaryBar(){
-  var latestCharge = state.charges.length ? state.charges[0] : null;
+  var confirmed = state.charges.filter(function(c){ return c.confirmed; });
+  var latestCharge = confirmed.length ? confirmed[0] : null;
   var monthly = latestCharge ? latestCharge.total_amount : null;
-  var perPerson = latestCharge && latestCharge.member_count ? (latestCharge.total_amount / latestCharge.member_count) : null;
+
+  // Average per-person across all confirmed charges (accounts for price changes over time)
+  var avgPerPerson = null;
+  if(confirmed.length){
+    var totalShares = confirmed.reduce(function(s, c){
+      return s + (c.member_count ? c.total_amount / c.member_count : 0);
+    }, 0);
+    avgPerPerson = totalShares / confirmed.length;
+  }
 
   document.getElementById('sumMonthlyCharge').textContent = monthly != null ? fmt(monthly) : '—';
-  document.getElementById('sumPerPerson').textContent = perPerson != null ? fmt(perPerson) : '—';
+  document.getElementById('sumPerPerson').textContent = avgPerPerson != null ? fmt(avgPerPerson) : '—';
   document.getElementById('sumLastChargeMonth').textContent = latestCharge ? fmtMonth(latestCharge.month) : '—';
 
   // total outstanding (sum of positive balances = owes)

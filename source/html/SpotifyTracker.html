@@ -910,6 +910,10 @@ function quickConfirmCharge(month, amount, memberCount, txId, btn){
   }).then(function(r){ return r.json(); })
     .then(function(res){
       if(res && res.ok){
+        // Remove this month immediately so the row disappears without waiting for refreshAll
+        state.suggestions = state.suggestions.filter(function(s){ return s.month !== month; });
+        renderSuggestionsTable();
+        // Refresh balances and charges in background
         refreshAll();
       } else {
         btn.disabled = false;
@@ -920,7 +924,8 @@ function quickConfirmCharge(month, amount, memberCount, txId, btn){
     .catch(function(e){
       btn.disabled = false;
       btn.textContent = 'אשר ✓';
-      console.error(e);
+      console.error('quickConfirmCharge error:', e);
+      alert('שגיאת רשת — בדוק את הקונסולה ונסה שוב');
     });
 }
 

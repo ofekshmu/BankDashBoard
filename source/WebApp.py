@@ -339,6 +339,7 @@ def search_transactions():
     q_from     = (request.args.get('from')     or '').strip()
     q_to       = (request.args.get('to')       or '').strip()
     q_type     = (request.args.get('type')     or 'all').strip()   # 'income' | 'expense' | 'all'
+    q_id       = request.args.get('id',  type=int)
 
     results = []
     try:
@@ -349,6 +350,9 @@ def search_transactions():
         bank_where = []
         bank_params = []
 
+        if q_id is not None:
+            bank_where.append("ID = ?")
+            bank_params.append(q_id)
         if q_keyword:
             bank_where.append("(Name LIKE ? OR Description LIKE ? OR Extra_Info LIKE ?)")
             like = f'%{q_keyword}%'
@@ -396,6 +400,9 @@ def search_transactions():
         card_where = []
         card_params = []
 
+        if q_id is not None:
+            card_where.append("ID = ?")
+            card_params.append(q_id)
         if q_keyword:
             card_where.append("(Name LIKE ? OR Description LIKE ? OR Extra_Info LIKE ?)")
             like = f'%{q_keyword}%'

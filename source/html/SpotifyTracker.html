@@ -317,6 +317,38 @@ body {
   max-height: 90vh; overflow-y: auto;
   direction: rtl; position: relative;
 }
+.modal-wide { width: 640px; }
+/* ── Assign search panel ──────────────────────────────── */
+.assign-search-row {
+  display: grid; grid-template-columns: 90px 1fr 1fr 1fr auto;
+  gap: 6px; align-items: flex-end; margin-bottom: 8px;
+}
+.assign-search-results {
+  max-height: 200px; overflow-y: auto;
+  border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+  margin-bottom: 12px;
+}
+.assign-sr-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 10px; cursor: pointer; font-size: .83em;
+  border-bottom: 1px solid var(--border); transition: background .1s;
+}
+.assign-sr-row:last-child { border-bottom: none; }
+.assign-sr-row:hover { background: var(--teal-light); }
+.assign-sr-row.selected { background: var(--teal-light); border-right: 3px solid var(--teal); }
+.assign-sr-date { color: var(--text-muted); flex-shrink: 0; }
+.assign-sr-name { flex: 1; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.assign-sr-amt  { font-weight: 700; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+.assign-sr-src  { font-size: .75em; color: var(--text-muted); flex-shrink: 0; }
+.assign-selected-chip {
+  display: flex; align-items: center; gap: 6px; font-size: .82em;
+  background: var(--teal-light); border: 1.5px solid var(--teal);
+  border-radius: 6px; padding: 5px 10px; margin-bottom: 10px; color: var(--teal);
+}
+.assign-selected-chip button {
+  background: none; border: none; cursor: pointer; color: var(--teal);
+  font-size: .9em; line-height: 1; padding: 0 2px;
+}
 .modal-title { font-size: 1.05em; font-weight: 700; margin-bottom: 20px; }
 .modal-close-btn {
   position: absolute; top: 16px; left: 18px;
@@ -529,15 +561,66 @@ body {
      MODAL 1: Assign payment
 ═══════════════════════════════════════════════════════ -->
 <div class="modal-backdrop" id="modalAssign">
-  <div class="modal">
+  <div class="modal modal-wide">
     <button class="modal-close-btn" onclick="closeModal('modalAssign')">✕</button>
     <div class="modal-title">שייך תשלום ל<span id="assignMemberName"></span></div>
 
-    <div class="section-title" style="margin-top:0">בחר עסקה קיימת (אופציונלי)</div>
+    <!-- Unmatched suggestions -->
+    <div class="section-title" style="margin-top:0">עסקאות Spotify לא משויכות</div>
     <div class="tx-list" id="assignTxList">
       <div style="color:var(--text-muted);font-size:.85em;font-style:italic">אין עסקאות לא משויכות</div>
     </div>
     <hr class="tx-divider">
+
+    <!-- Transaction search -->
+    <div class="section-title">חפש עסקה</div>
+    <div class="assign-search-row">
+      <div>
+        <div class="field-label">מזהה (ID)</div>
+        <input class="field-input" type="number" id="srId" placeholder="מזהה">
+      </div>
+      <div>
+        <div class="field-label">סכום מינימלי</div>
+        <input class="field-input" type="number" id="srMin" placeholder="₪ מ-" step="0.01">
+      </div>
+      <div>
+        <div class="field-label">סכום מקסימלי</div>
+        <input class="field-input" type="number" id="srMax" placeholder="₪ עד" step="0.01">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;grid-column:span 1">
+        <div>
+          <div class="field-label">מתאריך</div>
+          <input class="field-input" type="date" id="srFrom">
+        </div>
+        <div>
+          <div class="field-label">עד תאריך</div>
+          <input class="field-input" type="date" id="srTo">
+        </div>
+      </div>
+      <div style="padding-bottom:1px">
+        <div class="field-label">&nbsp;</div>
+        <button class="btn btn-primary btn-sm" onclick="runAssignSearch()" id="srBtn">חפש</button>
+      </div>
+    </div>
+    <!-- allow Enter key in any search field -->
+    <script>
+    (function(){
+      ['srId','srMin','srMax','srFrom','srTo'].forEach(function(id){
+        document.getElementById(id).addEventListener('keydown', function(e){ if(e.key==='Enter') runAssignSearch(); });
+      });
+    })();
+    </script>
+    <div id="srResults" style="display:none">
+      <div class="assign-search-results" id="srResultsList"></div>
+    </div>
+
+    <!-- Selected transaction chip -->
+    <div id="assignSelectedChip" class="assign-selected-chip" style="display:none">
+      <span>✓ עסקה נבחרה:</span>
+      <span id="assignSelectedText" style="flex:1"></span>
+      <button onclick="clearAssignSelection()">✕</button>
+    </div>
+    <hr class="tx-divider" style="margin-bottom:14px">
 
     <div class="field-row">
       <label class="field-label">סכום (₪)</label>
@@ -1145,6 +1228,16 @@ function openAssignModal(memberId, memberName){
   document.getElementById('assignNote').value = '';
   document.getElementById('assignDate').value = new Date().toISOString().slice(0,10);
 
+  // Reset search panel
+  document.getElementById('srId').value = '';
+  document.getElementById('srMin').value = '';
+  document.getElementById('srMax').value = '';
+  document.getElementById('srFrom').value = '';
+  document.getElementById('srTo').value = '';
+  document.getElementById('srResults').style.display = 'none';
+  document.getElementById('srResultsList').innerHTML = '';
+  document.getElementById('assignSelectedChip').style.display = 'none';
+
   var list = document.getElementById('assignTxList');
   list.innerHTML = '';
   if(!state.unmatched.length){
@@ -1159,14 +1252,90 @@ function openAssignModal(memberId, memberName){
       div.onclick = function(){
         list.querySelectorAll('.tx-item').forEach(function(i){ i.classList.remove('selected'); });
         div.classList.add('selected');
-        document.getElementById('assignTxId').value = tx.id;
-        document.getElementById('assignAmount').value = tx.amount;
-        document.getElementById('assignDate').value = (tx.date || tx.transaction_date || '').slice(0,10);
+        _applyAssignTx(tx.id, tx.amount, (tx.date || tx.transaction_date || '').slice(0,10), tx.name || tx.description || '');
       };
       list.appendChild(div);
     });
   }
   openModal('modalAssign');
+}
+
+function _applyAssignTx(txId, amount, date, label){
+  document.getElementById('assignTxId').value = txId;
+  document.getElementById('assignAmount').value = amount;
+  document.getElementById('assignDate').value = date;
+  document.getElementById('assignSelectedText').textContent = label + ' — ' + fmt(amount) + ' (' + fmtDate(date) + ')';
+  document.getElementById('assignSelectedChip').style.display = 'flex';
+}
+
+function clearAssignSelection(){
+  document.getElementById('assignTxId').value = '';
+  document.getElementById('assignSelectedChip').style.display = 'none';
+  // deselect search rows
+  document.querySelectorAll('#srResultsList .assign-sr-row').forEach(function(r){ r.classList.remove('selected'); });
+  document.querySelectorAll('#assignTxList .tx-item').forEach(function(i){ i.classList.remove('selected'); });
+}
+
+function runAssignSearch(){
+  var id  = document.getElementById('srId').value.trim();
+  var min = document.getElementById('srMin').value.trim();
+  var max = document.getElementById('srMax').value.trim();
+  var from = document.getElementById('srFrom').value;
+  var to   = document.getElementById('srTo').value;
+
+  if(!id && !min && !max && !from && !to){
+    alert('נא להזין לפחות פרמטר חיפוש אחד');
+    return;
+  }
+
+  var params = new URLSearchParams();
+  if(id)   params.set('id',   id);
+  if(min)  params.set('min',  min);
+  if(max)  params.set('max',  max);
+  if(from) params.set('from', from);
+  if(to)   params.set('to',   to);
+
+  var btn = document.getElementById('srBtn');
+  btn.disabled = true; btn.textContent = '...';
+
+  fetch('/api/search/transactions?' + params.toString())
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      btn.disabled = false; btn.textContent = 'חפש';
+      var results = (data && data.results) || [];
+      var list = document.getElementById('srResultsList');
+      list.innerHTML = '';
+      document.getElementById('srResults').style.display = 'block';
+
+      if(!results.length){
+        list.innerHTML = '<div style="padding:10px;color:var(--text-muted);font-size:.85em;text-align:center">לא נמצאו תוצאות</div>';
+        return;
+      }
+      // show max 50
+      results.slice(0, 50).forEach(function(tx){
+        var amtColor = tx.amount >= 0 ? 'var(--teal)' : 'var(--red)';
+        var row = document.createElement('div');
+        row.className = 'assign-sr-row';
+        row.innerHTML =
+            '<span class="assign-sr-date">' + fmtDate(tx.date) + '</span>'
+          + '<span class="assign-sr-name" title="' + escHtml(tx.name) + '">' + escHtml(tx.name) + '</span>'
+          + '<span class="assign-sr-amt" style="color:' + amtColor + '">' + fmt(Math.abs(tx.amount)) + '</span>'
+          + '<span class="assign-sr-src">' + (tx.source === 'card' ? 'כרטיס' : 'בנק') + ' #' + tx.tx_id + '</span>';
+        row.onclick = function(){
+          list.querySelectorAll('.assign-sr-row').forEach(function(r){ r.classList.remove('selected'); });
+          row.classList.add('selected');
+          _applyAssignTx(tx.tx_id, Math.abs(tx.amount), tx.date, tx.name);
+        };
+        list.appendChild(row);
+      });
+      if(results.length > 50){
+        list.innerHTML += '<div style="padding:6px 10px;color:var(--text-muted);font-size:.78em;text-align:center">מוצגות 50 מתוך ' + results.length + ' תוצאות — צמצם את החיפוש</div>';
+      }
+    })
+    .catch(function(e){
+      btn.disabled = false; btn.textContent = 'חפש';
+      console.error(e);
+    });
 }
 
 function submitAssignPayment(){

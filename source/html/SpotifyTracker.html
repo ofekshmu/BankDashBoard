@@ -895,7 +895,7 @@ function renderMemberTabs(){
   // Remove existing member tabs (keep overview tab)
   bar.querySelectorAll('[data-member-tab]').forEach(function(el){ el.remove(); });
 
-  state.members.forEach(function(m){
+  state.members.filter(function(m){ return !m.is_exempt; }).forEach(function(m){
     var bal = state.balance[m.id] || state.balance[String(m.id)] || {};
     var amount = typeof bal === 'object' ? (bal.balance !== undefined ? bal.balance : (bal.amount || 0)) : bal;
     var status = amount > 0.01 ? 'ahead' : (amount < -0.01 ? 'owes' : 'even');
@@ -937,21 +937,17 @@ function switchTab(tabId, btn, memberId){
     existing.classList.add('active');
   }
 
-  if(!state.openedTabs[memberId]){
-    state.openedTabs[memberId] = true;
-    fetch('/api/spotify/payments?member_id=' + memberId)
-      .then(function(r){ return r.json(); })
-      .then(function(data){
-        state.payments[memberId] = (data && data.payments) || [];
-        renderMemberDetail(memberId);
-      })
-      .catch(function(){
-        state.payments[memberId] = [];
-        renderMemberDetail(memberId);
-      });
-  } else {
-    renderMemberDetail(memberId);
-  }
+  state.openedTabs[memberId] = true;
+  fetch('/api/spotify/payments?member_id=' + memberId)
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      state.payments[memberId] = (data && data.payments) || [];
+      renderMemberDetail(memberId);
+    })
+    .catch(function(){
+      state.payments[memberId] = [];
+      renderMemberDetail(memberId);
+    });
 }
 
 // ── Overview ────────────────────────────────────────────────────

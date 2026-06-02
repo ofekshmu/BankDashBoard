@@ -623,19 +623,13 @@ body {
     <hr class="tx-divider" style="margin-bottom:14px">
 
     <div class="field-row">
-      <label class="field-label">סכום (₪)</label>
-      <input class="field-input" type="number" id="assignAmount" placeholder="0.00" step="0.01">
-    </div>
-    <div class="field-row">
-      <label class="field-label">תאריך</label>
-      <input class="field-input" type="date" id="assignDate">
-    </div>
-    <div class="field-row">
       <label class="field-label">הערה</label>
       <input class="field-input" type="text" id="assignNote" placeholder="הערה אופציונלית">
     </div>
     <input type="hidden" id="assignMemberId">
     <input type="hidden" id="assignTxId">
+    <input type="hidden" id="assignAmount">
+    <input type="hidden" id="assignDate">
 
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modalAssign')">ביטול</button>
@@ -1227,8 +1221,8 @@ function openAssignModal(memberId, memberName){
   document.getElementById('assignMemberName').textContent = memberName;
   document.getElementById('assignTxId').value = '';
   document.getElementById('assignAmount').value = '';
+  document.getElementById('assignDate').value = '';
   document.getElementById('assignNote').value = '';
-  document.getElementById('assignDate').value = new Date().toISOString().slice(0,10);
 
   // Reset search panel
   document.getElementById('srId').value = '';
@@ -1356,17 +1350,16 @@ function runAssignSearch(){
 
 function submitAssignPayment(){
   var memberId = parseInt(document.getElementById('assignMemberId').value);
+  var txId = document.getElementById('assignTxId').value;
   var amount = parseFloat(document.getElementById('assignAmount').value);
   var date = document.getElementById('assignDate').value;
   var note = document.getElementById('assignNote').value;
-  var txId = document.getElementById('assignTxId').value;
 
-  if(!memberId || isNaN(amount) || !date){
-    alert('נא למלא סכום ותאריך');
+  if(!txId){
+    alert('נא לבחור עסקה מהרשימה או מחיפוש');
     return;
   }
-  var body = { member_id: memberId, amount: amount, payment_date: date, note: note };
-  if(txId) body.tx_id = parseInt(txId);
+  var body = { member_id: memberId, amount: amount, payment_date: date, tx_id: parseInt(txId), note: note };
 
   fetch('/api/spotify/payments', {
     method: 'POST',

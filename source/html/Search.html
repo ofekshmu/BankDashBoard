@@ -352,9 +352,9 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;m
             <input class="field-input" id="f-exact" type="number" min="0" placeholder="סכום מדויק (₪)" oninput="_scheduleSearch()"/>
           </div>
         </div>
-        <!-- Dates -->
+        <!-- Execution date -->
         <div>
-          <div class="field-label">טווח תאריכים</div>
+          <div class="field-label">תאריך ביצוע</div>
           <button class="drp-trigger" id="drp-trigger" type="button" onclick="drpToggle()">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;color:var(--text-muted)"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
             <span class="drp-lbl" id="drp-lbl">בחר טווח תאריכים</span>
@@ -380,6 +380,15 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;m
           <!-- hidden inputs consumed by existing doSearch / clearForm -->
           <input type="hidden" id="f-from"/>
           <input type="hidden" id="f-to"/>
+        </div>
+        <!-- Charge date -->
+        <div>
+          <div class="field-label">תאריך חיוב</div>
+          <div class="amount-row" style="gap:6px">
+            <input class="field-input" id="f-charge-from" type="date" style="flex:1" onchange="_scheduleSearch()"/>
+            <span class="amount-sep">—</span>
+            <input class="field-input" id="f-charge-to" type="date" style="flex:1" onchange="_scheduleSearch()"/>
+          </div>
         </div>
         <!-- Type chips spanning full row -->
         <div style="grid-column:1/-1">
@@ -513,6 +522,8 @@ function doSearch(){
   var ex  = _amtMode === 'exact' ? document.getElementById('f-exact').value.trim() : '';
   var fd  = document.getElementById('f-from').value.trim();
   var td  = document.getElementById('f-to').value.trim();
+  var cfd = document.getElementById('f-charge-from').value.trim();
+  var ctd = document.getElementById('f-charge-to').value.trim();
   var tp  = document.querySelector('input[name="txtype"]:checked').value;
   var sp  = document.querySelector('input[name="txsplit"]:checked').value;
   var src = document.querySelector('input[name="txsource"]:checked').value;
@@ -522,8 +533,10 @@ function doSearch(){
   if(cat) params.set('category', cat);
   if(biz) params.set('business', biz);
   if(ex){ params.set('exact', ex); } else { if(mn) params.set('min', mn); if(mx) params.set('max', mx); }
-  if(fd)  params.set('from', fd);
-  if(td)  params.set('to', td);
+  if(fd)  params.set('from',        fd);
+  if(td)  params.set('to',          td);
+  if(cfd) params.set('charge_from', cfd);
+  if(ctd) params.set('charge_to',   ctd);
   if(tp  && tp!=='all') params.set('type',   tp);
   if(sp  && sp!=='any') params.set('split',  sp);
   if(src && src!=='all') params.set('source', src);
@@ -553,8 +566,10 @@ function clearForm(){
   document.getElementById('f-max').value   = '';
   document.getElementById('f-exact').value = '';
   setAmtMode('range');
-  document.getElementById('f-from').value = '';
-  document.getElementById('f-to').value = '';
+  document.getElementById('f-from').value        = '';
+  document.getElementById('f-to').value          = '';
+  document.getElementById('f-charge-from').value = '';
+  document.getElementById('f-charge-to').value   = '';
   drpReset();
   document.querySelector('input[name="txtype"][value="all"]').checked   = true;
   document.querySelector('input[name="txsplit"][value="any"]').checked   = true;

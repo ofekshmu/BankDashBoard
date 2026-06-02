@@ -340,8 +340,10 @@ def search_transactions():
     if q_exact is not None:          # exact overrides range — allow 0.01 tolerance
         q_min = q_exact - 0.01
         q_max = q_exact + 0.01
-    q_from     = (request.args.get('from')     or '').strip()
-    q_to       = (request.args.get('to')       or '').strip()
+    q_from        = (request.args.get('from')        or '').strip()
+    q_to          = (request.args.get('to')          or '').strip()
+    q_charge_from = (request.args.get('charge_from') or '').strip()
+    q_charge_to   = (request.args.get('charge_to')   or '').strip()
     q_type     = (request.args.get('type')     or 'all').strip()   # 'income' | 'expense' | 'all'
     q_id       = request.args.get('id',  type=int)
     q_split    = (request.args.get('split')    or 'any').strip()  # 'split' | 'nonsplit' | 'any'
@@ -387,6 +389,12 @@ def search_transactions():
         if q_to:
             bank_where.append("Date <= ?")
             bank_params.append(q_to)
+        if q_charge_from:
+            bank_where.append("Value_Date >= ?")
+            bank_params.append(q_charge_from)
+        if q_charge_to:
+            bank_where.append("Value_Date <= ?")
+            bank_params.append(q_charge_to)
         if q_type == 'income':
             bank_where.append("Income > 0")
         elif q_type == 'expense':
@@ -441,6 +449,12 @@ def search_transactions():
         if q_to:
             card_where.append("Executed_Date <= ?")
             card_params.append(q_to)
+        if q_charge_from:
+            card_where.append("Charge_Date >= ?")
+            card_params.append(q_charge_from)
+        if q_charge_to:
+            card_where.append("Charge_Date <= ?")
+            card_params.append(q_charge_to)
         if q_type == 'income':
             card_where.append("Transaction_Value < 0")   # negative = refund/credit = income
         elif q_type == 'expense':

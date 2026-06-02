@@ -374,6 +374,15 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;m
             <label class="type-chip"><input type="radio" name="txtype" value="expense" onchange="_scheduleSearch()"/> הוצאות בלבד</label>
           </div>
         </div>
+        <!-- Split filter chips -->
+        <div style="grid-column:1/-1">
+          <div class="field-label" style="margin-bottom:8px">פיצול עסקה</div>
+          <div class="type-chip-row">
+            <label class="type-chip"><input type="radio" name="txsplit" value="any" checked onchange="_scheduleSearch()"/> הכל</label>
+            <label class="type-chip"><input type="radio" name="txsplit" value="split" onchange="_scheduleSearch()"/> מפוצלות בלבד</label>
+            <label class="type-chip"><input type="radio" name="txsplit" value="nonsplit" onchange="_scheduleSearch()"/> לא מפוצלות בלבד</label>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -461,6 +470,7 @@ function doSearch(){
   var fd  = document.getElementById('f-from').value.trim();
   var td  = document.getElementById('f-to').value.trim();
   var tp  = document.querySelector('input[name="txtype"]:checked').value;
+  var sp  = document.querySelector('input[name="txsplit"]:checked').value;
 
   if(kw)  params.set('keyword', kw);
   if(cat) params.set('category', cat);
@@ -470,6 +480,7 @@ function doSearch(){
   if(fd)  params.set('from', fd);
   if(td)  params.set('to', td);
   if(tp && tp!=='all') params.set('type', tp);
+  if(sp && sp!=='any') params.set('split', sp);
 
   document.getElementById('results-meta').style.display = 'none';
   document.getElementById('results-root').innerHTML =
@@ -497,6 +508,7 @@ function clearForm(){
   document.getElementById('f-to').value = '';
   drpReset();
   document.querySelector('input[name="txtype"][value="all"]').checked = true;
+  document.querySelector('input[name="txsplit"][value="any"]').checked = true;
   document.getElementById('results-meta').style.display = 'none';
   document.getElementById('results-root').innerHTML =
     '<div class="results-hint-card"><div class="hint-icon">🔍</div><div>הזן קריטריוני חיפוש ולחץ "חפש"</div></div>';

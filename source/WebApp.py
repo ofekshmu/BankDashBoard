@@ -340,11 +340,24 @@ def search_transactions():
     q_to       = (request.args.get('to')       or '').strip()
     q_type     = (request.args.get('type')     or 'all').strip()   # 'income' | 'expense' | 'all'
     q_id       = request.args.get('id',  type=int)
+    q_split    = (request.args.get('split')    or 'any').strip()  # 'split' | 'nonsplit' | 'any'
 
     results = []
     try:
         conn = _sq.connect(_DB_PATH, check_same_thread=False)
         conn.row_factory = _sq.Row
+
+        # Pre-fetch split IDs if the filter is active
+        split_ids_bank = set()
+        split_ids_card = set()
+        if q_split != 'any':
+            for r in conn.execute(
+                "SELECT Original_ID, Original_Table FROM TransactionSplits"
+            ).fetchall():
+                if r['Original_Table'] == 'BankTransactions':
+                    split_ids_bank.add(r['Original_ID'])
+                else:
+                    split_ids_card.add(r['Original_ID'])
 
         # ── BankTransactions ──────────────────────────────────────────
         bank_where = []
@@ -385,6 +398,9 @@ def search_transactions():
                 continue
             if q_max is not None and abs(amount) > q_max:
                 continue
+            is_split = row['ID'] in split_ids_bank
+            if q_split == 'split'    and not is_split: continue
+            if q_split == 'nonsplit' and     is_split: continue
             results.append({
                 'tx_id':       row['ID'],
                 'date':        (row['Date'] or '')[:10],
@@ -394,6 +410,7 @@ def search_transactions():
                 'description': row['Description'] or '',
                 'source':      'bank',
                 'card_id':     None,
+                'is_split':    is_split,
             })
 
         # ── CardTransactions ──────────────────────────────────────────
@@ -435,6 +452,9 @@ def search_transactions():
                 continue
             if q_max is not None and abs(amount) > q_max:
                 continue
+            is_split = row['ID'] in split_ids_card
+            if q_split == 'split'    and not is_split: continue
+            if q_split == 'nonsplit' and     is_split: continue
             results.append({
                 'tx_id':       row['ID'],
                 'date':        (row['Executed_Date'] or '')[:10],
@@ -444,6 +464,7 @@ def search_transactions():
                 'description': row['Description'] or '',
                 'source':      'card',
                 'card_id':     row['CardID'],
+                'is_split':    is_split,
             })
 
         conn.close()

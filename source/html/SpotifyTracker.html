@@ -664,6 +664,7 @@ input[type="date"].field-input { padding: 0 10px; appearance: none; -webkit-appe
     </div>
     <input type="hidden" id="assignMemberId">
     <input type="hidden" id="assignTxId">
+    <input type="hidden" id="assignTxSource">
     <input type="hidden" id="assignAmount">
     <input type="hidden" id="assignDate">
 
@@ -1185,6 +1186,7 @@ function quickAssign(sel, txId){
       amount: tx.amount,
       payment_date: (tx.date || tx.transaction_date || '').slice(0,10),
       tx_id: txId,
+      tx_source: 'bank',
       note: 'שויך מרשימת לא משויכים'
     })
   }).then(function(r){ return r.json(); })
@@ -1291,9 +1293,10 @@ var _assignedTxIds = {};
 function openAssignModal(memberId, memberName){
   document.getElementById('assignMemberId').value = memberId;
   document.getElementById('assignMemberName').textContent = memberName;
-  document.getElementById('assignTxId').value = '';
-  document.getElementById('assignAmount').value = '';
-  document.getElementById('assignDate').value = '';
+  document.getElementById('assignTxId').value     = '';
+  document.getElementById('assignTxSource').value  = '';
+  document.getElementById('assignAmount').value    = '';
+  document.getElementById('assignDate').value      = '';
   document.getElementById('assignNote').value = '';
 
   // Reset manual section
@@ -1344,7 +1347,7 @@ function openAssignModal(memberId, memberName){
       div.onclick = function(){
         list.querySelectorAll('.tx-item').forEach(function(i){ i.classList.remove('selected'); });
         div.classList.add('selected');
-        _applyAssignTx(tx.id, tx.amount, (tx.date || tx.transaction_date || '').slice(0,10), tx.name || tx.description || '');
+        _applyAssignTx(tx.id, tx.amount, (tx.date || tx.transaction_date || '').slice(0,10), tx.name || tx.description || '', 'bank');
       };
       list.appendChild(div);
     });
@@ -1352,10 +1355,11 @@ function openAssignModal(memberId, memberName){
   openModal('modalAssign');
 }
 
-function _applyAssignTx(txId, amount, date, label){
-  document.getElementById('assignTxId').value = txId;
-  document.getElementById('assignAmount').value = amount;
-  document.getElementById('assignDate').value = date;
+function _applyAssignTx(txId, amount, date, label, source){
+  document.getElementById('assignTxId').value     = txId;
+  document.getElementById('assignTxSource').value  = source || '';
+  document.getElementById('assignAmount').value    = amount;
+  document.getElementById('assignDate').value      = date;
   document.getElementById('assignSelectedText').textContent = label + ' — ' + fmt(amount) + ' (' + fmtDate(date) + ')';
   document.getElementById('assignSelectedChip').style.display = 'flex';
 }
@@ -1431,7 +1435,7 @@ function runAssignSearch(){
           row.onclick = function(){
             list.querySelectorAll('.assign-sr-row').forEach(function(r){ r.classList.remove('selected'); });
             row.classList.add('selected');
-            _applyAssignTx(tx.tx_id, Math.abs(tx.amount), tx.date, tx.description || tx.name);
+            _applyAssignTx(tx.tx_id, Math.abs(tx.amount), tx.date, tx.description || tx.name, tx.source);
           };
         } else {
           row.style.cssText += ';opacity:.45;cursor:default';
@@ -1476,14 +1480,16 @@ function submitAssignPayment(){
     }
     body = { member_id: memberId, amount: amount, payment_date: date, note: desc + (note ? ' | ' + note : '') };
   } else {
-    var txId  = document.getElementById('assignTxId').value;
-    var amount = parseFloat(document.getElementById('assignAmount').value);
-    var date   = document.getElementById('assignDate').value;
+    var txId     = document.getElementById('assignTxId').value;
+    var txSource = document.getElementById('assignTxSource').value;
+    var amount   = parseFloat(document.getElementById('assignAmount').value);
+    var date     = document.getElementById('assignDate').value;
     if(!txId){
       alert('נא לבחור עסקה מהרשימה או מחיפוש, או להשתמש בתשלום ידני');
       return;
     }
-    body = { member_id: memberId, amount: amount, payment_date: date, tx_id: parseInt(txId), note: note };
+    body = { member_id: memberId, amount: amount, payment_date: date,
+             tx_id: parseInt(txId), tx_source: txSource || null, note: note };
   }
 
   fetch('/api/spotify/payments', {

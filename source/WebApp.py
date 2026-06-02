@@ -3161,11 +3161,13 @@ def api_spotify_payments():
         if tx_id is not None:
             if int(tx_id) in db.get_spotify_assigned_tx_ids():
                 return jsonify({'ok': False, 'error': 'עסקה זו כבר שויכה לחבר אחר'})
+        tx_source = (body.get('tx_source') or '').strip() or None
         pid = db.add_spotify_payment(
             member_id=int(body.get('member_id', 0)),
             amount=float(body.get('amount', 0)),
             payment_date=(body.get('payment_date') or '').strip(),
             tx_id=tx_id,
+            tx_source=tx_source,
             note=(body.get('note') or '').strip() or None,
         )
         return jsonify({'ok': True, 'id': pid})

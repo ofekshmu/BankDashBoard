@@ -229,10 +229,19 @@ class DataBase:
                     Amount       REAL    NOT NULL,
                     Payment_Date TEXT    NOT NULL,
                     TX_ID        INTEGER,
+                    TX_Source    TEXT,
                     Note         TEXT,
                     Created_At   TEXT    DEFAULT (datetime('now')),
                     FOREIGN KEY(Member_ID) REFERENCES SpotifyMembers(ID)
                     );""")
+                # Add TX_Source to existing DBs that predate this column
+                try:
+                    cls.__instance.cursor.execute(
+                        "ALTER TABLE SpotifyMemberPayments ADD COLUMN TX_Source TEXT"
+                    )
+                    cls.__instance.connection.commit()
+                except Exception:
+                    pass  # column already exists
 
                 cls.__instance.cursor.execute("""
                     CREATE TABLE IF NOT EXISTS SpotifyDismissedPayments (
@@ -2762,20 +2771,41 @@ class DataBase:
         self.connection.commit()
 
     def get_spotify_payments(self, member_id: int = None) -> list:
+        # TX_Source tells us which table the TX_ID refers to:
+        #   'bank'  → BankTransactions.ID
+        #   'card'  → CardTransactions.ID
+        #   'split' → TransactionSplits.ID  (category/desc come from the split row)
+        #   NULL    → legacy rows: try bank then card (old behaviour)
         sql = """
             SELECT
-                p.ID, p.Member_ID, p.Amount, p.Payment_Date, p.TX_ID, p.Note,
-                COALESCE(bt.Name,        ct.Name)        AS tx_name,
-                COALESCE(bt.Description, ct.Description) AS tx_description,
-                COALESCE(bt.Category,    ct.Category)    AS tx_category,
-                CASE WHEN bt.ID IS NOT NULL THEN 'bank'
+                p.ID, p.Member_ID, p.Amount, p.Payment_Date, p.TX_ID,
+                p.TX_Source, p.Note,
+                -- Name from original transaction (split rows use parent name)
+                COALESCE(orig_bt.Name, orig_ct.Name, bt.Name, ct.Name) AS tx_name,
+                -- Description: split row's own description wins
+                COALESCE(sp.Description, bt.Description, ct.Description) AS tx_description,
+                -- Category: split row's category is the user-assigned one — always prefer it
+                COALESCE(sp.Category, bt.Category, ct.Category) AS tx_category,
+                CASE WHEN p.TX_Source IS NOT NULL THEN p.TX_Source
+                     WHEN bt.ID IS NOT NULL THEN 'bank'
                      WHEN ct.ID IS NOT NULL THEN 'card'
-                     ELSE NULL END                       AS tx_source,
-                CASE WHEN sp.Original_ID IS NOT NULL THEN 1 ELSE 0 END AS tx_split
+                     ELSE NULL END AS resolved_source,
+                CASE WHEN sp.ID IS NOT NULL THEN 1 ELSE 0 END AS tx_split
             FROM SpotifyMemberPayments p
+            -- Direct bank/card lookup (used when TX_Source is bank/card/NULL)
             LEFT JOIN BankTransactions  bt ON bt.ID = p.TX_ID
-            LEFT JOIN CardTransactions  ct ON ct.ID = p.TX_ID AND bt.ID IS NULL
-            LEFT JOIN TransactionSplits sp ON sp.Original_ID = p.TX_ID
+                AND (p.TX_Source IS NULL OR p.TX_Source = 'bank')
+            LEFT JOIN CardTransactions  ct ON ct.ID = p.TX_ID
+                AND (p.TX_Source IS NULL OR p.TX_Source = 'card')
+                AND bt.ID IS NULL
+            -- Split lookup (used when TX_Source = 'split')
+            LEFT JOIN TransactionSplits sp ON sp.ID = p.TX_ID
+                AND p.TX_Source = 'split'
+            -- Original transaction name/date for split rows
+            LEFT JOIN BankTransactions orig_bt ON orig_bt.ID = sp.Original_ID
+                AND sp.Original_Table = 'BankTransactions'
+            LEFT JOIN CardTransactions orig_ct ON orig_ct.ID = sp.Original_ID
+                AND sp.Original_Table = 'CardTransactions'
             {where}
             ORDER BY p.Payment_Date DESC
         """
@@ -2790,19 +2820,20 @@ class DataBase:
         return [{
             'id':             r[0],  'member_id':      r[1],
             'amount':         r[2],  'payment_date':   r[3],
-            'tx_id':          r[4],  'note':           r[5],
-            'tx_name':        r[6] or '',
-            'tx_description': r[7] or '',
-            'tx_category':    r[8] or '',
-            'tx_source':      r[9] or '',
-            'tx_split':       bool(r[10]),
+            'tx_id':          r[4],  'tx_source_raw':  r[5],
+            'note':           r[6],
+            'tx_name':        r[7] or '',
+            'tx_description': r[8] or '',
+            'tx_category':    r[9] or '',
+            'tx_source':      r[10] or '',
+            'tx_split':       bool(r[11]),
         } for r in rows]
 
     def add_spotify_payment(self, member_id: int, amount: float, payment_date: str,
-                            tx_id=None, note: str = None) -> int:
+                            tx_id=None, tx_source: str = None, note: str = None) -> int:
         cur = self.connection.execute(
-            "INSERT INTO SpotifyMemberPayments (Member_ID, Amount, Payment_Date, TX_ID, Note) VALUES (?,?,?,?,?)",
-            (int(member_id), float(amount), payment_date, tx_id, note)
+            "INSERT INTO SpotifyMemberPayments (Member_ID, Amount, Payment_Date, TX_ID, TX_Source, Note) VALUES (?,?,?,?,?,?)",
+            (int(member_id), float(amount), payment_date, tx_id, tx_source, note)
         )
         self.connection.commit()
         return cur.lastrowid

@@ -507,10 +507,19 @@ body {
     </div>
     <div id="overviewContent" style="display:none">
 
-      <!-- Missing months alert -->
-      <div id="missingMonthsSection" style="display:none">
-        <div class="section-title" style="color:var(--amber)">⚠️ חיובים חסרים</div>
-        <div id="missingMonthsList"></div>
+      <!-- Missing months alert banner -->
+      <div id="missingMonthsSection" style="display:none;
+        background:#fffbea; border:1.5px solid #e6a817; border-radius:12px;
+        padding:13px 18px; margin-bottom:18px;
+        display:none; align-items:center; gap:12px; direction:rtl">
+        <span style="flex:1;font-size:.88em;font-weight:500;color:#7a5100">
+          <span style="margin-left:6px">⚠</span>
+          <span id="missingMonthsList"></span>
+        </span>
+        <button onclick="document.getElementById('missingMonthsSection').style.display='none'"
+          style="background:none;border:none;cursor:pointer;color:#b07a20;font-size:1em;
+          line-height:1;padding:2px 4px;flex-shrink:0;border-radius:4px"
+          title="סגור">✕</button>
       </div>
 
       <div class="member-grid" id="memberGrid"></div>
@@ -975,11 +984,9 @@ function renderMissingMonths(){
   var list = document.getElementById('missingMonthsList');
   var missing = getMissingMonths();
   if(!missing.length){ section.style.display = 'none'; return; }
-  section.style.display = 'block';
-  list.innerHTML = missing.map(function(m){
-    return '<div style="display:inline-block;background:var(--amber-light,#fff8e1);border:1px solid var(--amber);border-radius:6px;padding:4px 12px;margin:4px;font-size:.85em;color:var(--amber)">'
-      + escHtml(fmtMonth(m)) + '</div>';
-  }).join('');
+  section.style.display = 'flex';
+  var monthNames = missing.map(fmtMonth).join(', ');
+  list.textContent = 'חיובי Spotify חסרים לחודשים: ' + monthNames + ' — אשר את החיובים החסרים ברשימה למטה.';
 }
 
 function _buildMemberCard(m){

@@ -218,7 +218,17 @@ body {
   background: var(--white); border-radius: var(--radius);
   box-shadow: var(--shadow-sm); padding: 16px 18px;
   display: flex; flex-direction: column; gap: 8px;
+  cursor: pointer; transition: box-shadow .18s, transform .18s;
 }
+.member-card:hover { box-shadow: 0 4px 20px rgba(30,157,139,.18); transform: translateY(-2px); }
+.member-card-owner { cursor: default; }
+.member-card-owner:hover { box-shadow: var(--shadow-sm); transform: none; }
+@keyframes cardPress {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(.96); }
+  100% { transform: scale(1); }
+}
+.member-card-pressing { animation: cardPress .22s ease; }
 .member-card-name { font-size: .95em; font-weight: 700; color: var(--navy); }
 .member-card-owner { padding: 10px 14px; gap: 4px; }
 .member-card-owner .member-card-name { font-size: .82em; color: var(--text-muted); font-weight: 600; }
@@ -891,32 +901,15 @@ function checkChargeBanner(){
 
 // ── Member tabs ────────────────────────────────────────────────
 function renderMemberTabs(){
-  var bar = document.getElementById('tabsBar');
-  // Remove existing member tabs (keep overview tab)
-  bar.querySelectorAll('[data-member-tab]').forEach(function(el){ el.remove(); });
-
-  state.members.filter(function(m){ return !m.is_exempt; }).forEach(function(m){
-    var bal = state.balance[m.id] || state.balance[String(m.id)] || {};
-    var amount = typeof bal === 'object' ? (bal.balance !== undefined ? bal.balance : (bal.amount || 0)) : bal;
-    var status = amount > 0.01 ? 'ahead' : (amount < -0.01 ? 'owes' : 'even');
-    var statusLabel = status === 'ahead' ? 'קדימה' : (status === 'owes' ? 'חייב' : 'מאוזן');
-
-    var btn = document.createElement('button');
-    btn.className = 'tab-btn';
-    btn.setAttribute('data-member-tab', m.id);
-    btn.id = 'tab-btn-' + m.id;
-    btn.innerHTML = escHtml(m.name) + ' <span class="tab-badge ' + status + '">' + statusLabel + '</span>';
-    btn.onclick = function(){ switchTab('member-' + m.id, btn, m.id); };
-    bar.appendChild(btn);
-  });
+  // Remove any leftover member tabs (only overview tab should remain)
+  document.getElementById('tabsBar').querySelectorAll('[data-member-tab]').forEach(function(el){ el.remove(); });
 }
 
 // ── Switch tab ─────────────────────────────────────────────────
 function switchTab(tabId, btn, memberId){
-  // Deactivate all tabs
   document.querySelectorAll('.tab-btn').forEach(function(b){ b.classList.remove('active'); });
   document.querySelectorAll('.tab-panel').forEach(function(p){ p.classList.remove('active'); });
-  btn.classList.add('active');
+  if(btn) btn.classList.add('active');
 
   if(tabId === 'overview'){
     document.getElementById('panel-overview').classList.add('active');
@@ -1021,13 +1014,20 @@ function _buildMemberCard(m){
   var card = document.createElement('div');
   card.className = 'member-card';
   card.innerHTML =
-      '<div class="member-card-name">' + escHtml(m.name) + '</div>'
+      '<div class="member-card-name">' + escHtml(m.name) + ' <span style="font-size:.7em;color:var(--text-muted);float:left">←</span></div>'
     + '<div class="member-card-balance ' + status + '">' + fmt(amount) + '</div>'
     + '<div class="member-card-meta">' + statusLabel + '</div>'
     + monthsHtml
     + '<div class="member-card-meta">' + count + ' תשלומים</div>'
-    + (lastPay ? '<div class="member-card-meta">תשלום אחרון: ' + fmtDate(lastPay) + '</div>' : '')
-    + '<button class="btn btn-ghost btn-xs" style="margin-top:4px" onclick="openAssignModal(' + m.id + ',\'' + escHtml(m.name).replace(/'/g,"\\'") + '\')">+ שייך תשלום</button>';
+    + (lastPay ? '<div class="member-card-meta">תשלום אחרון: ' + fmtDate(lastPay) + '</div>' : '');
+
+  card.onclick = function(e){
+    // Don't trigger if a button inside was clicked
+    if(e.target.closest('button')) return;
+    card.classList.add('member-card-pressing');
+    card.addEventListener('animationend', function(){ card.classList.remove('member-card-pressing'); }, {once: true});
+    switchTab('member-' + m.id, null, m.id);
+  };
   return card;
 }
 

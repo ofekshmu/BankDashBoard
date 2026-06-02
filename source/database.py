@@ -2762,17 +2762,41 @@ class DataBase:
         self.connection.commit()
 
     def get_spotify_payments(self, member_id: int = None) -> list:
+        sql = """
+            SELECT
+                p.ID, p.Member_ID, p.Amount, p.Payment_Date, p.TX_ID, p.Note,
+                COALESCE(bt.Name,        ct.Name)        AS tx_name,
+                COALESCE(bt.Description, ct.Description) AS tx_description,
+                COALESCE(bt.Category,    ct.Category)    AS tx_category,
+                CASE WHEN bt.ID IS NOT NULL THEN 'bank'
+                     WHEN ct.ID IS NOT NULL THEN 'card'
+                     ELSE NULL END                       AS tx_source,
+                CASE WHEN sp.Original_ID IS NOT NULL THEN 1 ELSE 0 END AS tx_split
+            FROM SpotifyMemberPayments p
+            LEFT JOIN BankTransactions  bt ON bt.ID = p.TX_ID
+            LEFT JOIN CardTransactions  ct ON ct.ID = p.TX_ID AND bt.ID IS NULL
+            LEFT JOIN TransactionSplits sp ON sp.Original_ID = p.TX_ID
+            {where}
+            ORDER BY p.Payment_Date DESC
+        """
         if member_id is not None:
             rows = self.connection.execute(
-                "SELECT ID, Member_ID, Amount, Payment_Date, TX_ID, Note FROM SpotifyMemberPayments WHERE Member_ID=? ORDER BY Payment_Date DESC",
-                (member_id,)
+                sql.format(where="WHERE p.Member_ID = ?"), (member_id,)
             ).fetchall()
         else:
             rows = self.connection.execute(
-                "SELECT ID, Member_ID, Amount, Payment_Date, TX_ID, Note FROM SpotifyMemberPayments ORDER BY Payment_Date DESC"
+                sql.format(where="")
             ).fetchall()
-        return [{'id': r[0], 'member_id': r[1], 'amount': r[2], 'payment_date': r[3],
-                 'tx_id': r[4], 'note': r[5]} for r in rows]
+        return [{
+            'id':             r[0],  'member_id':      r[1],
+            'amount':         r[2],  'payment_date':   r[3],
+            'tx_id':          r[4],  'note':           r[5],
+            'tx_name':        r[6] or '',
+            'tx_description': r[7] or '',
+            'tx_category':    r[8] or '',
+            'tx_source':      r[9] or '',
+            'tx_split':       bool(r[10]),
+        } for r in rows]
 
     def add_spotify_payment(self, member_id: int, amount: float, payment_date: str,
                             tx_id=None, note: str = None) -> int:

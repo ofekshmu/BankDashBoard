@@ -472,6 +472,28 @@ body {
     </div>
     <div id="overviewContent" style="display:none">
       <div class="member-grid" id="memberGrid"></div>
+
+      <!-- Detected but unconfirmed Spotify charges -->
+      <div id="suggestionsSection" style="display:none">
+        <div class="section-title">חיובי Spotify שזוהו — ממתינים לאישור</div>
+        <div class="table-wrap">
+          <table class="data-table" id="suggestionsTable">
+            <thead>
+              <tr>
+                <th>חודש</th>
+                <th>תאריך עסקה</th>
+                <th>שם עסקה</th>
+                <th>סכום</th>
+                <th>חברים פעילים</th>
+                <th>חלק לאדם</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="suggestionsTbody"></tbody>
+          </table>
+        </div>
+      </div>
+
       <div class="section-title">תשלומים לא משויכים</div>
       <div class="table-wrap">
         <table class="data-table" id="unmatchedTable">
@@ -636,8 +658,9 @@ var state = {
   charges: [],
   balance: {},
   unmatched: [],
-  payments: {},     // memberId -> array
-  openedTabs: {}    // memberId -> true (already fetched)
+  suggestions: [],   // detected but unconfirmed Spotify charges
+  payments: {},      // memberId -> array
+  openedTabs: {}     // memberId -> true (already fetched)
 };
 
 // ── Nav ────────────────────────────────────────────────────────
@@ -691,14 +714,16 @@ function init(){
     fetch('/api/spotify/members').then(function(r){ return r.json(); }),
     fetch('/api/spotify/charges').then(function(r){ return r.json(); }),
     fetch('/api/spotify/balance').then(function(r){ return r.json(); }),
-    fetch('/api/spotify/unmatched').then(function(r){ return r.json(); })
+    fetch('/api/spotify/unmatched').then(function(r){ return r.json(); }),
+    fetch('/api/spotify/charges/suggestions').then(function(r){ return r.json(); })
   ]).then(function(results){
-    state.members   = (results[0] && results[0].members)      || [];
-    state.charges   = (results[1] && results[1].charges)      || [];
-    var balList     = (results[2] && results[2].balances)      || [];
-    state.balance   = {};
+    state.members     = (results[0] && results[0].members)      || [];
+    state.charges     = (results[1] && results[1].charges)      || [];
+    var balList       = (results[2] && results[2].balances)      || [];
+    state.balance     = {};
     balList.forEach(function(b){ state.balance[b.member_id] = b; });
-    state.unmatched = (results[3] && results[3].transactions)  || [];
+    state.unmatched   = (results[3] && results[3].transactions)  || [];
+    state.suggestions = (results[4] && results[4].suggestions)   || [];
 
     renderSummaryBar();
     checkChargeBanner();
@@ -816,6 +841,7 @@ function switchTab(tabId, btn, memberId){
 // ── Overview ────────────────────────────────────────────────────
 function renderOverview(){
   renderMemberGrid();
+  renderSuggestionsTable();
   renderUnmatchedTable();
 }
 
@@ -842,6 +868,60 @@ function renderMemberGrid(){
       + '<button class="btn btn-ghost btn-xs" style="margin-top:4px" onclick="openAssignModal(' + m.id + ',\'' + escHtml(m.name).replace(/'/g,"\\'") + '\')">+ שייך תשלום</button>';
     grid.appendChild(card);
   });
+}
+
+function renderSuggestionsTable(){
+  var section = document.getElementById('suggestionsSection');
+  var tbody = document.getElementById('suggestionsTbody');
+  tbody.innerHTML = '';
+
+  if(!state.suggestions.length){
+    section.style.display = 'none';
+    return;
+  }
+  section.style.display = 'block';
+
+  var activeMemberCount = state.members.filter(function(m){ return !m.is_exempt && m.is_active; }).length || 1;
+
+  state.suggestions.forEach(function(s){
+    var perPerson = activeMemberCount ? (s.amount / activeMemberCount) : s.amount;
+    var tr = document.createElement('tr');
+    tr.innerHTML = '<td>' + escHtml(s.month || '—') + '</td>'
+      + '<td>' + fmtDate(s.date) + '</td>'
+      + '<td>' + escHtml(s.name || '—') + '</td>'
+      + '<td class="amount-neg">' + fmt(s.amount) + '</td>'
+      + '<td style="text-align:center">' + activeMemberCount + '</td>'
+      + '<td>' + fmt(perPerson) + '</td>'
+      + '<td><button class="btn btn-sm" style="background:var(--teal);color:#fff;border:none;white-space:nowrap" '
+      + 'onclick="quickConfirmCharge(\'' + escHtml(s.month) + '\',' + s.amount + ',' + activeMemberCount + ',' + (s.tx_id || 'null') + ',this)">אשר ✓</button></td>';
+    tbody.appendChild(tr);
+  });
+}
+
+function quickConfirmCharge(month, amount, memberCount, txId, btn){
+  btn.disabled = true;
+  btn.textContent = '...';
+  var body = { month: month, total_amount: amount, member_count: memberCount };
+  if(txId) body.tx_id = txId;
+  fetch('/api/spotify/charges', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(body)
+  }).then(function(r){ return r.json(); })
+    .then(function(res){
+      if(res && res.ok){
+        refreshAll();
+      } else {
+        btn.disabled = false;
+        btn.textContent = 'אשר ✓';
+        alert('שגיאה: ' + (res && res.error ? res.error : 'נסה שוב'));
+      }
+    })
+    .catch(function(e){
+      btn.disabled = false;
+      btn.textContent = 'אשר ✓';
+      console.error(e);
+    });
 }
 
 function renderUnmatchedTable(){
@@ -1146,14 +1226,16 @@ function refreshAll(callback){
     fetch('/api/spotify/members').then(function(r){ return r.json(); }),
     fetch('/api/spotify/charges').then(function(r){ return r.json(); }),
     fetch('/api/spotify/balance').then(function(r){ return r.json(); }),
-    fetch('/api/spotify/unmatched').then(function(r){ return r.json(); })
+    fetch('/api/spotify/unmatched').then(function(r){ return r.json(); }),
+    fetch('/api/spotify/charges/suggestions').then(function(r){ return r.json(); })
   ]).then(function(results){
-    state.members   = (results[0] && results[0].members)      || [];
-    state.charges   = (results[1] && results[1].charges)      || [];
-    var balList     = (results[2] && results[2].balances)      || [];
-    state.balance   = {};
+    state.members     = (results[0] && results[0].members)      || [];
+    state.charges     = (results[1] && results[1].charges)      || [];
+    var balList       = (results[2] && results[2].balances)      || [];
+    state.balance     = {};
     balList.forEach(function(b){ state.balance[b.member_id] = b; });
-    state.unmatched = (results[3] && results[3].transactions)  || [];
+    state.unmatched   = (results[3] && results[3].transactions)  || [];
+    state.suggestions = (results[4] && results[4].suggestions)   || [];
 
     renderSummaryBar();
     checkChargeBanner();

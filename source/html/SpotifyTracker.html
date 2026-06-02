@@ -1339,7 +1339,7 @@ function runAssignSearch(){
         row.className = 'assign-sr-row' + (alreadyUsed ? ' assign-sr-used' : '');
         row.innerHTML =
             '<span class="assign-sr-date">' + fmtDate(tx.date) + '</span>'
-          + '<span class="assign-sr-name" title="' + escHtml(tx.name) + '">' + escHtml(tx.name) + '</span>'
+          + '<span class="assign-sr-name" title="' + escHtml(tx.description || tx.name) + '">' + escHtml(tx.description || tx.name) + '</span>'
           + '<span class="assign-sr-amt" style="color:' + (alreadyUsed ? 'var(--text-muted)' : amtColor) + '">' + fmt(Math.abs(tx.amount)) + '</span>'
           + '<span class="assign-sr-src">' + (tx.source === 'card' ? 'כרטיס' : 'בנק') + ' #' + tx.tx_id + '</span>'
           + (alreadyUsed ? '<span style="font-size:.72em;color:var(--text-muted);white-space:nowrap">כבר שויך</span>' : '');
@@ -1347,7 +1347,7 @@ function runAssignSearch(){
           row.onclick = function(){
             list.querySelectorAll('.assign-sr-row').forEach(function(r){ r.classList.remove('selected'); });
             row.classList.add('selected');
-            _applyAssignTx(tx.tx_id, Math.abs(tx.amount), tx.date, tx.name);
+            _applyAssignTx(tx.tx_id, Math.abs(tx.amount), tx.date, tx.description || tx.name);
           };
         } else {
           row.style.cssText += ';opacity:.45;cursor:default';

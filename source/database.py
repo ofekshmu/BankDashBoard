@@ -234,6 +234,12 @@ class DataBase:
                     FOREIGN KEY(Member_ID) REFERENCES SpotifyMembers(ID)
                     );""")
 
+                cls.__instance.cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS SpotifyDismissedPayments (
+                    TX_ID      INTEGER PRIMARY KEY,
+                    Created_At TEXT    DEFAULT (datetime('now'))
+                    );""")
+
         return cls.__instance
 
     def insert_bank_transaction(self,
@@ -2784,5 +2790,17 @@ class DataBase:
     def get_spotify_assigned_tx_ids(self) -> set:
         rows = self.connection.execute(
             "SELECT TX_ID FROM SpotifyMemberPayments WHERE TX_ID IS NOT NULL"
+        ).fetchall()
+        return {r[0] for r in rows}
+
+    def dismiss_spotify_payment(self, tx_id: int):
+        self.connection.execute(
+            "INSERT OR IGNORE INTO SpotifyDismissedPayments (TX_ID) VALUES (?)", (tx_id,)
+        )
+        self.connection.commit()
+
+    def get_spotify_dismissed_tx_ids(self) -> set:
+        rows = self.connection.execute(
+            "SELECT TX_ID FROM SpotifyDismissedPayments"
         ).fetchall()
         return {r[0] for r in rows}

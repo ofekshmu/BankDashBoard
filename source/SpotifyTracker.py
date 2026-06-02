@@ -165,6 +165,12 @@ def get_unmatched_payments(db_path: str) -> list:
                 "SELECT TX_ID FROM SpotifyMemberPayments WHERE TX_ID IS NOT NULL"
             ).fetchall()
         }
+        dismissed = {
+            r[0] for r in conn.execute(
+                "SELECT TX_ID FROM SpotifyDismissedPayments"
+            ).fetchall()
+        }
+        excluded = assigned | dismissed
 
         results = []
 
@@ -179,7 +185,7 @@ def get_unmatched_payments(db_path: str) -> list:
               )
             ORDER BY Date DESC LIMIT 200
         """).fetchall():
-            if row['ID'] not in assigned:
+            if row['ID'] not in excluded:
                 results.append({
                     'id':       row['ID'],
                     'date':     row['Date'],

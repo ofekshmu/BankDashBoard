@@ -3144,6 +3144,17 @@ def api_spotify_unmatched():
         return jsonify({'ok': False, 'error': str(e)})
 
 
+@app.route('/api/spotify/unmatched/<int:tx_id>/dismiss', methods=['POST'])
+def api_spotify_dismiss_payment(tx_id):
+    from database import DataBase
+    db = DataBase()
+    try:
+        db.dismiss_spotify_payment(tx_id)
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
 @app.route('/api/spotify/balance')
 def api_spotify_balance():
     import sys as _sys

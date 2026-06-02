@@ -448,6 +448,10 @@ body {
       <span>חלק לאדם</span>
       <span class="chip-val" id="sumPerPerson">—</span>
     </div>
+    <div class="summary-chip">
+      <span>חיוב אחרון</span>
+      <span class="chip-val" id="sumLastChargeMonth">—</span>
+    </div>
     <div class="summary-chip red">
       <span>סה"כ חוב</span>
       <span class="chip-val" id="sumTotalOutstanding">₪0</span>
@@ -471,6 +475,31 @@ body {
       <div class="loading-label">טוען נתונים…</div>
     </div>
     <div id="overviewContent" style="display:none">
+
+      <!-- Missing months alert -->
+      <div id="missingMonthsSection" style="display:none">
+        <div class="section-title" style="color:var(--amber)">⚠️ חיובים חסרים</div>
+        <div id="missingMonthsList"></div>
+      </div>
+
+      <!-- Member payment statistics -->
+      <div class="section-title">סטטיסטיקות תשלומים</div>
+      <div class="table-wrap">
+        <table class="data-table" id="memberStatsTable">
+          <thead>
+            <tr>
+              <th>חבר</th>
+              <th>מספר תשלומים</th>
+              <th>תשלום אחרון</th>
+              <th>יתרה</th>
+              <th>סטטוס</th>
+              <th>חודשים</th>
+            </tr>
+          </thead>
+          <tbody id="memberStatsTbody"></tbody>
+        </table>
+      </div>
+
       <div class="member-grid" id="memberGrid"></div>
 
       <!-- Detected but unconfirmed Spotify charges -->
@@ -504,6 +533,7 @@ body {
               <th>מקור</th>
               <th>תיאור</th>
               <th>שייך ל...</th>
+              <th></th>
             </tr>
           </thead>
           <tbody id="unmatchedTbody"></tbody>
@@ -746,6 +776,7 @@ function renderSummaryBar(){
 
   document.getElementById('sumMonthlyCharge').textContent = monthly != null ? fmt(monthly) : '—';
   document.getElementById('sumPerPerson').textContent = perPerson != null ? fmt(perPerson) : '—';
+  document.getElementById('sumLastChargeMonth').textContent = latestCharge ? fmtMonth(latestCharge.month) : '—';
 
   // total outstanding (sum of positive balances = owes)
   var totalOwed = 0;
@@ -840,9 +871,86 @@ function switchTab(tabId, btn, memberId){
 
 // ── Overview ────────────────────────────────────────────────────
 function renderOverview(){
+  renderMissingMonths();
+  renderMemberStats();
   renderMemberGrid();
   renderSuggestionsTable();
   renderUnmatchedTable();
+}
+
+function fmtMonth(m){
+  if(!m) return '—';
+  var monthNames = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+  var parts = (m + '').split('-');
+  var y = parts[0], mo = parseInt(parts[1], 10);
+  return (monthNames[mo-1] || m) + ' ' + y;
+}
+
+function getMissingMonths(){
+  var confirmed = state.charges.filter(function(c){ return c.confirmed; });
+  if(!confirmed.length) return [];
+  var months = confirmed.map(function(c){ return c.month; }).sort();
+  var first = months[0];
+  var now = new Date();
+  // Only alert up to last month (current month's charge may not have happened yet)
+  var prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  var endY = prevMonth.getFullYear();
+  var endM = prevMonth.getMonth() + 1;
+  var end = endY + '-' + String(endM).padStart(2,'0');
+  var set = {};
+  months.forEach(function(m){ set[m] = true; });
+  var missing = [];
+  var cur = first;
+  while(cur <= end){
+    if(!set[cur]) missing.push(cur);
+    var p = cur.split('-');
+    var y = parseInt(p[0]), mo = parseInt(p[1]);
+    mo++; if(mo > 12){ mo = 1; y++; }
+    cur = y + '-' + String(mo).padStart(2,'0');
+  }
+  return missing;
+}
+
+function renderMissingMonths(){
+  var section = document.getElementById('missingMonthsSection');
+  var list = document.getElementById('missingMonthsList');
+  var missing = getMissingMonths();
+  if(!missing.length){ section.style.display = 'none'; return; }
+  section.style.display = 'block';
+  list.innerHTML = missing.map(function(m){
+    return '<div style="display:inline-block;background:var(--amber-light,#fff8e1);border:1px solid var(--amber);border-radius:6px;padding:4px 12px;margin:4px;font-size:.85em;color:var(--amber)">'
+      + escHtml(fmtMonth(m)) + '</div>';
+  }).join('');
+}
+
+function renderMemberStats(){
+  var tbody = document.getElementById('memberStatsTbody');
+  tbody.innerHTML = '';
+  var paying = state.members.filter(function(m){ return !m.is_exempt && m.is_active; });
+  if(!paying.length){
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="6">אין חברים משלמים</td></tr>';
+    return;
+  }
+  paying.forEach(function(m){
+    var b = state.balance[m.id] || state.balance[String(m.id)] || {};
+    var amount  = typeof b === 'object' ? (b.balance !== undefined ? b.balance : 0) : b;
+    var count   = b.payment_count || 0;
+    var lastPay = b.last_payment || null;
+    var months  = b.months_status || 0;
+    var status  = amount > 0.01 ? 'ahead' : (amount < -0.01 ? 'owes' : 'even');
+    var statusLabel = status === 'ahead' ? '<span style="color:var(--green)">קדים</span>'
+                    : status === 'owes'  ? '<span style="color:var(--red)">חייב</span>'
+                    : '<span style="color:var(--text-muted)">מאוזן</span>';
+    var monthsLabel = months > 0 ? ('+' + months + ' חודשים') : months < 0 ? (months + ' חודשים') : '—';
+    var tr = document.createElement('tr');
+    tr.innerHTML = '<td>' + escHtml(m.name) + '</td>'
+      + '<td style="text-align:center">' + count + '</td>'
+      + '<td>' + (lastPay ? fmtDate(lastPay) : '<span style="color:var(--text-muted)">אין</span>') + '</td>'
+      + '<td class="' + (amount >= 0 ? 'amount-pos' : 'amount-neg') + '">' + fmt(amount) + '</td>'
+      + '<td>' + statusLabel + '</td>'
+      + '<td style="text-align:center">' + monthsLabel + '</td>';
+    tbody.appendChild(tr);
+  });
 }
 
 function renderMemberGrid(){
@@ -933,7 +1041,7 @@ function renderUnmatchedTable(){
   var tbody = document.getElementById('unmatchedTbody');
   tbody.innerHTML = '';
   if(!state.unmatched.length){
-    tbody.innerHTML = '<tr class="empty-row"><td colspan="5">אין תשלומים לא משויכים</td></tr>';
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="6">אין תשלומים לא משויכים</td></tr>';
     return;
   }
   state.unmatched.forEach(function(tx){
@@ -944,9 +1052,26 @@ function renderUnmatchedTable(){
       + '<td class="amount-neg">' + fmt(tx.amount) + '</td>'
       + '<td>' + escHtml(tx.source || tx.account_name || '—') + '</td>'
       + '<td>' + escHtml(tx.description || tx.name || '—') + '</td>'
-      + '<td><select class="assign-sel" onchange="quickAssign(this,' + tx.id + ')">' + memberOptions + '</select></td>';
+      + '<td><select class="assign-sel" onchange="quickAssign(this,' + tx.id + ')">' + memberOptions + '</select></td>'
+      + '<td><button class="btn btn-ghost btn-xs" style="color:var(--text-muted);white-space:nowrap" onclick="dismissUnmatched(' + tx.id + ',this)">לא רלוונטי ✕</button></td>';
     tbody.appendChild(tr);
   });
+}
+
+function dismissUnmatched(txId, btn){
+  btn.disabled = true;
+  fetch('/api/spotify/unmatched/' + txId + '/dismiss', { method: 'POST' })
+    .then(function(r){ return r.json(); })
+    .then(function(res){
+      if(res && res.ok){
+        state.unmatched = state.unmatched.filter(function(t){ return t.id !== txId; });
+        renderUnmatchedTable();
+        document.getElementById('sumUnmatched').textContent = state.unmatched.length;
+      } else {
+        btn.disabled = false;
+      }
+    })
+    .catch(function(){ btn.disabled = false; });
 }
 
 function quickAssign(sel, txId){

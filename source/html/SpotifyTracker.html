@@ -550,7 +550,8 @@ body {
             <tr>
               <th>תאריך</th>
               <th>סכום</th>
-              <th>מקור</th>
+              <th>#</th>
+              <th>שם</th>
               <th>תיאור</th>
               <th>שייך ל...</th>
               <th></th>
@@ -1109,7 +1110,7 @@ function renderUnmatchedTable(){
   var tbody = document.getElementById('unmatchedTbody');
   tbody.innerHTML = '';
   if(!state.unmatched.length){
-    tbody.innerHTML = '<tr class="empty-row"><td colspan="6">אין תשלומים לא משויכים</td></tr>';
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="8">אין תשלומים לא משויכים</td></tr>';
     return;
   }
   state.unmatched.forEach(function(tx){
@@ -1118,8 +1119,9 @@ function renderUnmatchedTable(){
       + state.members.map(function(m){ return '<option value="' + m.id + '">' + escHtml(m.name) + '</option>'; }).join('');
     tr.innerHTML = '<td>' + fmtDate(tx.date || tx.transaction_date) + '</td>'
       + '<td class="amount-neg">' + fmt(tx.amount) + '</td>'
-      + '<td>' + escHtml(tx.source || tx.account_name || '—') + '</td>'
-      + '<td>' + escHtml(tx.description || tx.name || '—') + '</td>'
+      + '<td style="color:var(--text-muted);font-size:.8em">#' + tx.id + '</td>'
+      + '<td style="font-size:.85em">' + escHtml(tx.name || '—') + '</td>'
+      + '<td style="font-size:.85em;color:var(--text-muted)">' + escHtml(tx.description || '—') + '</td>'
       + '<td><select class="assign-sel" onchange="quickAssign(this,' + tx.id + ')">' + memberOptions + '</select></td>'
       + '<td><button class="btn btn-ghost btn-xs" style="color:var(--text-muted);white-space:nowrap" onclick="dismissUnmatched(' + tx.id + ',this)">לא רלוונטי ✕</button></td>';
     tbody.appendChild(tr);

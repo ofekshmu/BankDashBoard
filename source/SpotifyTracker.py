@@ -187,12 +187,13 @@ def get_unmatched_payments(db_path: str) -> list:
         """).fetchall():
             if row['ID'] not in excluded:
                 results.append({
-                    'id':       row['ID'],
-                    'date':     row['Date'],
-                    'name':     row['Name'],
-                    'amount':   float(row['amount'] or 0),
-                    'source':   'BankTransactions',
-                    'category': row['Category'] or '',
+                    'id':          row['ID'],
+                    'date':        row['Date'],
+                    'name':        row['Name'],
+                    'description': row['Description'] or '',
+                    'amount':      float(row['amount'] or 0),
+                    'source':      'BankTransactions',
+                    'category':    row['Category'] or '',
                 })
 
         results.sort(key=lambda x: x['date'] or '', reverse=True)

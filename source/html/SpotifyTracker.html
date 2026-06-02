@@ -620,8 +620,31 @@ body {
       <span id="assignSelectedText" style="flex:1"></span>
       <button onclick="clearAssignSelection()">✕</button>
     </div>
-    <hr class="tx-divider" style="margin-bottom:14px">
 
+    <!-- Manual payment toggle -->
+    <div style="text-align:center;margin:10px 0">
+      <button class="btn btn-ghost btn-sm" onclick="toggleManualPayment()" id="manualToggleBtn"
+        style="font-size:.8em;color:var(--text-muted)">
+        ℹ️ לא נמצאה עסקה מתאימה — הזן ידנית
+      </button>
+    </div>
+    <div id="manualPaySection" style="display:none;background:var(--bg);border-radius:var(--radius-sm);padding:12px;margin-bottom:10px">
+      <div style="font-size:.8em;color:var(--amber);font-weight:600;margin-bottom:10px">⚠️ תשלום ידני — ללא עסקה מקושרת</div>
+      <div class="field-row">
+        <label class="field-label">סכום (₪)</label>
+        <input class="field-input" type="number" id="manualAmount" placeholder="0.00" step="0.01">
+      </div>
+      <div class="field-row">
+        <label class="field-label">תאריך</label>
+        <input class="field-input" type="date" id="manualDate">
+      </div>
+      <div class="field-row" style="margin-bottom:0">
+        <label class="field-label">סיבה / תיאור *</label>
+        <input class="field-input" type="text" id="manualDesc" placeholder="הסבר מדוע תשלום זה לא נמצא בDB">
+      </div>
+    </div>
+
+    <hr class="tx-divider" style="margin-bottom:14px">
     <div class="field-row">
       <label class="field-label">הערה</label>
       <input class="field-input" type="text" id="assignNote" placeholder="הערה אופציונלית">
@@ -1179,9 +1202,14 @@ function renderMemberDetail(memberId){
   // Payment rows
   var payRows = payments.length
     ? payments.map(function(p){
-        return '<tr><td>' + fmtDate(p.date || p.payment_date) + '</td>'
+        var isManual = !p.tx_id;
+        var txBadge = isManual
+          ? '<span title="' + escHtml(p.note || '') + '" style="cursor:help;color:var(--amber)">ℹ️ ידני</span>'
+          : '<span style="color:var(--text-muted);font-size:.82em">#' + p.tx_id + '</span>';
+        return '<tr>'
+          + '<td>' + fmtDate(p.date || p.payment_date) + '</td>'
           + '<td class="amount-pos">' + fmt(p.amount) + '</td>'
-          + '<td>' + escHtml(p.source || p.account_name || '—') + '</td>'
+          + '<td>' + txBadge + '</td>'
           + '<td>' + escHtml(p.note || '—') + '</td>'
           + '<td><button class="btn-icon-del" title="הסר" onclick="deletePayment(' + p.id + ',' + memberId + ')">🗑</button></td></tr>';
       }).join('')
@@ -1240,6 +1268,13 @@ function openAssignModal(memberId, memberName){
   document.getElementById('assignDate').value = '';
   document.getElementById('assignNote').value = '';
 
+  // Reset manual section
+  document.getElementById('manualPaySection').style.display = 'none';
+  document.getElementById('manualToggleBtn').style.color = '';
+  document.getElementById('manualAmount').value = '';
+  document.getElementById('manualDate').value = new Date().toISOString().slice(0,10);
+  document.getElementById('manualDesc').value = '';
+
   // Reset search panel
   document.getElementById('srId').value = '';
   document.getElementById('srMin').value = '';
@@ -1267,8 +1302,17 @@ function openAssignModal(memberId, memberName){
       var div = document.createElement('div');
       div.className = 'tx-item';
       div.setAttribute('data-tx-id', tx.id);
-      div.innerHTML = '<span>' + escHtml(tx.description || tx.name || '—') + ' &nbsp; <span class="tx-item-date">' + fmtDate(tx.date || tx.transaction_date) + '</span></span>'
-        + '<span class="tx-item-amount">' + fmt(tx.amount) + '</span>';
+      div.innerHTML =
+          '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">'
+        +   '<span style="font-weight:600;font-size:.88em">' + escHtml(tx.description || tx.name || '—') + '</span>'
+        +   '<span class="tx-item-amount">' + fmt(tx.amount) + '</span>'
+        + '</div>'
+        + '<div style="font-size:.76em;color:var(--text-muted);margin-top:2px;display:flex;gap:10px;flex-wrap:wrap">'
+        +   '<span>#' + tx.id + '</span>'
+        +   (tx.name && tx.description ? '<span>' + escHtml(tx.name) + '</span>' : '')
+        +   (tx.category ? '<span>' + escHtml(tx.category) + '</span>' : '')
+        +   '<span class="tx-item-date">' + fmtDate(tx.date || tx.transaction_date) + '</span>'
+        + '</div>';
       div.onclick = function(){
         list.querySelectorAll('.tx-item').forEach(function(i){ i.classList.remove('selected'); });
         div.classList.add('selected');
@@ -1337,12 +1381,24 @@ function runAssignSearch(){
         var amtColor = tx.amount >= 0 ? 'var(--teal)' : 'var(--red)';
         var row = document.createElement('div');
         row.className = 'assign-sr-row' + (alreadyUsed ? ' assign-sr-used' : '');
+        var isSplit = tx.source === 'split';
+        var srcLabel = isSplit ? 'פיצול' : (tx.source === 'card' ? 'כרטיס' : 'בנק');
         row.innerHTML =
-            '<span class="assign-sr-date">' + fmtDate(tx.date) + '</span>'
-          + '<span class="assign-sr-name" title="' + escHtml(tx.description || tx.name) + '">' + escHtml(tx.description || tx.name) + '</span>'
-          + '<span class="assign-sr-amt" style="color:' + (alreadyUsed ? 'var(--text-muted)' : amtColor) + '">' + fmt(Math.abs(tx.amount)) + '</span>'
-          + '<span class="assign-sr-src">' + (tx.source === 'card' ? 'כרטיס' : 'בנק') + ' #' + tx.tx_id + '</span>'
-          + (alreadyUsed ? '<span style="font-size:.72em;color:var(--text-muted);white-space:nowrap">כבר שויך</span>' : '');
+            '<div style="flex:1;min-width:0">'
+          +   '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">'
+          +     '<span class="assign-sr-name" title="' + escHtml(tx.description || tx.name) + '">' + escHtml(tx.description || tx.name) + '</span>'
+          +     '<span class="assign-sr-amt" style="color:' + (alreadyUsed ? 'var(--text-muted)' : amtColor) + '">' + fmt(Math.abs(tx.amount)) + '</span>'
+          +   '</div>'
+          +   '<div style="font-size:.74em;color:var(--text-muted);margin-top:2px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
+          +     '<span>' + fmtDate(tx.date) + '</span>'
+          +     '<span>#' + tx.tx_id + '</span>'
+          +     (tx.description && tx.name && tx.description !== tx.name ? '<span>' + escHtml(tx.name) + '</span>' : '')
+          +     (tx.category ? '<span>' + escHtml(tx.category) + '</span>' : '')
+          +     '<span>' + srcLabel + '</span>'
+          +     (isSplit ? '<span style="color:var(--teal);font-weight:600">פוצל</span>' : '')
+          +     (alreadyUsed ? '<span style="color:var(--text-muted);font-weight:600">כבר שויך</span>' : '')
+          +   '</div>'
+          + '</div>';
         if(!alreadyUsed){
           row.onclick = function(){
             list.querySelectorAll('.assign-sr-row').forEach(function(r){ r.classList.remove('selected'); });
@@ -1364,18 +1420,43 @@ function runAssignSearch(){
     });
 }
 
+function toggleManualPayment(){
+  var sec = document.getElementById('manualPaySection');
+  var btn = document.getElementById('manualToggleBtn');
+  var open = sec.style.display !== 'none';
+  sec.style.display = open ? 'none' : 'block';
+  btn.style.color = open ? '' : 'var(--amber)';
+  if(!open){
+    // clear any DB selection when switching to manual
+    clearAssignSelection();
+  }
+}
+
 function submitAssignPayment(){
   var memberId = parseInt(document.getElementById('assignMemberId').value);
-  var txId = document.getElementById('assignTxId').value;
-  var amount = parseFloat(document.getElementById('assignAmount').value);
-  var date = document.getElementById('assignDate').value;
   var note = document.getElementById('assignNote').value;
+  var manualOpen = document.getElementById('manualPaySection').style.display !== 'none';
+  var body;
 
-  if(!txId){
-    alert('נא לבחור עסקה מהרשימה או מחיפוש');
-    return;
+  if(manualOpen){
+    var amount = parseFloat(document.getElementById('manualAmount').value);
+    var date   = document.getElementById('manualDate').value;
+    var desc   = document.getElementById('manualDesc').value.trim();
+    if(isNaN(amount) || !date || !desc){
+      alert('נא למלא סכום, תאריך וסיבה לתשלום הידני');
+      return;
+    }
+    body = { member_id: memberId, amount: amount, payment_date: date, note: desc + (note ? ' | ' + note : '') };
+  } else {
+    var txId  = document.getElementById('assignTxId').value;
+    var amount = parseFloat(document.getElementById('assignAmount').value);
+    var date   = document.getElementById('assignDate').value;
+    if(!txId){
+      alert('נא לבחור עסקה מהרשימה או מחיפוש, או להשתמש בתשלום ידני');
+      return;
+    }
+    body = { member_id: memberId, amount: amount, payment_date: date, tx_id: parseInt(txId), note: note };
   }
-  var body = { member_id: memberId, amount: amount, payment_date: date, tx_id: parseInt(txId), note: note };
 
   fetch('/api/spotify/payments', {
     method: 'POST',

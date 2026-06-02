@@ -220,6 +220,7 @@ body {
   display: flex; flex-direction: column; gap: 8px;
 }
 .member-card-name { font-size: .95em; font-weight: 700; color: var(--navy); }
+.member-card-hidden { opacity: .45; }
 .member-card-balance {
   font-size: 1.15em; font-weight: 700;
   font-variant-numeric: tabular-nums;
@@ -431,13 +432,6 @@ body {
     <button class="btn btn-primary btn-sm" onclick="openExportModal()">📄 ייצוא PDF</button>
   </div>
 
-  <!-- Charge confirmation banner (hidden by default) -->
-  <div class="charge-banner" id="chargeBanner" style="display:none">
-    <span class="charge-banner-icon">⚠️</span>
-    <span class="charge-banner-text" id="chargeBannerText">לא אושר חיוב לחודש הנוכחי</span>
-    <button class="btn btn-sm" style="background:var(--amber);color:#fff;border:none;" onclick="openConfirmChargeModal()">אשר חיוב</button>
-  </div>
-
   <!-- Summary bar -->
   <div class="summary-bar" id="summaryBar">
     <div class="summary-chip">
@@ -480,24 +474,6 @@ body {
       <div id="missingMonthsSection" style="display:none">
         <div class="section-title" style="color:var(--amber)">⚠️ חיובים חסרים</div>
         <div id="missingMonthsList"></div>
-      </div>
-
-      <!-- Member payment statistics -->
-      <div class="section-title">סטטיסטיקות תשלומים</div>
-      <div class="table-wrap">
-        <table class="data-table" id="memberStatsTable">
-          <thead>
-            <tr>
-              <th>חבר</th>
-              <th>מספר תשלומים</th>
-              <th>תשלום אחרון</th>
-              <th>יתרה</th>
-              <th>סטטוס</th>
-              <th>חודשים</th>
-            </tr>
-          </thead>
-          <tbody id="memberStatsTbody"></tbody>
-        </table>
       </div>
 
       <div class="member-grid" id="memberGrid"></div>
@@ -756,7 +732,6 @@ function init(){
     state.suggestions = (results[4] && results[4].suggestions)   || [];
 
     renderSummaryBar();
-    checkChargeBanner();
     renderMemberTabs();
     renderOverview();
 
@@ -872,7 +847,6 @@ function switchTab(tabId, btn, memberId){
 // ── Overview ────────────────────────────────────────────────────
 function renderOverview(){
   renderMissingMonths();
-  renderMemberStats();
   renderMemberGrid();
   renderSuggestionsTable();
   renderUnmatchedTable();
@@ -923,34 +897,17 @@ function renderMissingMonths(){
   }).join('');
 }
 
-function renderMemberStats(){
-  var tbody = document.getElementById('memberStatsTbody');
-  tbody.innerHTML = '';
-  var paying = state.members.filter(function(m){ return !m.is_exempt && m.is_active; });
-  if(!paying.length){
-    tbody.innerHTML = '<tr class="empty-row"><td colspan="6">אין חברים משלמים</td></tr>';
-    return;
-  }
-  paying.forEach(function(m){
-    var b = state.balance[m.id] || state.balance[String(m.id)] || {};
-    var amount  = typeof b === 'object' ? (b.balance !== undefined ? b.balance : 0) : b;
-    var count   = b.payment_count || 0;
-    var lastPay = b.last_payment || null;
-    var months  = b.months_status || 0;
-    var status  = amount > 0.01 ? 'ahead' : (amount < -0.01 ? 'owes' : 'even');
-    var statusLabel = status === 'ahead' ? '<span style="color:var(--green)">קדים</span>'
-                    : status === 'owes'  ? '<span style="color:var(--red)">חייב</span>'
-                    : '<span style="color:var(--text-muted)">מאוזן</span>';
-    var monthsLabel = months > 0 ? ('+' + months + ' חודשים') : months < 0 ? (months + ' חודשים') : '—';
-    var tr = document.createElement('tr');
-    tr.innerHTML = '<td>' + escHtml(m.name) + '</td>'
-      + '<td style="text-align:center">' + count + '</td>'
-      + '<td>' + (lastPay ? fmtDate(lastPay) : '<span style="color:var(--text-muted)">אין</span>') + '</td>'
-      + '<td class="' + (amount >= 0 ? 'amount-pos' : 'amount-neg') + '">' + fmt(amount) + '</td>'
-      + '<td>' + statusLabel + '</td>'
-      + '<td style="text-align:center">' + monthsLabel + '</td>';
-    tbody.appendChild(tr);
-  });
+var _hiddenMembers = (function(){
+  try { return JSON.parse(localStorage.getItem('spotify_hidden_members') || '{}'); } catch(e){ return {}; }
+})();
+var _showHidden = false;
+
+function _saveHidden(){ try{ localStorage.setItem('spotify_hidden_members', JSON.stringify(_hiddenMembers)); }catch(e){} }
+
+function toggleHideMember(id){
+  if(_hiddenMembers[id]) delete _hiddenMembers[id]; else _hiddenMembers[id] = true;
+  _saveHidden();
+  renderMemberGrid();
 }
 
 function renderMemberGrid(){
@@ -960,20 +917,48 @@ function renderMemberGrid(){
     grid.innerHTML = '<div style="color:var(--text-muted);font-style:italic;font-size:.9em">אין חברים. הוסף חבר בעזרת הכפתור למעלה.</div>';
     return;
   }
+
+  var hiddenCount = state.members.filter(function(m){ return _hiddenMembers[m.id]; }).length;
+
+  // "show hidden" toggle when some are hidden
+  if(hiddenCount){
+    var tog = document.createElement('div');
+    tog.style.cssText = 'margin-bottom:8px;font-size:.82em;color:var(--text-muted);cursor:pointer;user-select:none';
+    tog.textContent = (_showHidden ? '▾ ' : '▸ ') + 'מוסתרים (' + hiddenCount + ')';
+    tog.onclick = function(){ _showHidden = !_showHidden; renderMemberGrid(); };
+    grid.appendChild(tog);
+  }
+
   state.members.forEach(function(m){
+    var isHidden = !!_hiddenMembers[m.id];
+    if(isHidden && !_showHidden) return;
+
     var bal = state.balance[m.id] || state.balance[String(m.id)] || {};
-    var amount = typeof bal === 'object' ? (bal.balance !== undefined ? bal.balance : (bal.amount || 0)) : bal;
-    var status = amount > 0.01 ? 'ahead' : (amount < -0.01 ? 'owes' : 'even');
-    var statusLabel = status === 'ahead' ? 'קדים בתשלום' : (status === 'owes' ? 'חייב' : 'מאוזן');
+    var amount  = typeof bal === 'object' ? (bal.balance !== undefined ? bal.balance : (bal.amount || 0)) : bal;
+    var months  = typeof bal === 'object' ? (bal.months_status || 0) : 0;
+    var count   = typeof bal === 'object' ? (bal.payment_count || 0) : 0;
     var lastPay = typeof bal === 'object' ? (bal.last_payment_date || bal.last_payment || null) : null;
+    var status  = m.is_exempt ? 'even' : (amount > 0.01 ? 'ahead' : (amount < -0.01 ? 'owes' : 'even'));
+    var statusLabel = m.is_exempt ? 'בעלים' : (status === 'ahead' ? 'קדים בתשלום' : (status === 'owes' ? 'חייב' : 'מאוזן'));
+
+    var monthsStr = '';
+    if(!m.is_exempt && months !== 0){
+      monthsStr = months > 0
+        ? '<span style="color:var(--teal);font-size:.82em">+' + months + ' חודשים</span>'
+        : '<span style="color:var(--red);font-size:.82em">' + months + ' חודשים</span>';
+    }
 
     var card = document.createElement('div');
-    card.className = 'member-card';
-    card.innerHTML = '<div class="member-card-name">' + escHtml(m.name) + (m.is_exempt ? ' <span style="font-size:.7em;color:var(--text-muted)">(פטור)</span>' : '') + '</div>'
-      + '<div class="member-card-balance ' + status + '">' + fmt(amount) + '</div>'
+    card.className = 'member-card' + (isHidden ? ' member-card-hidden' : '');
+    card.innerHTML =
+        '<div style="display:flex;justify-content:space-between;align-items:flex-start">'
+      +   '<div class="member-card-name">' + escHtml(m.name) + (m.is_exempt ? ' <span style="font-size:.7em;color:var(--text-muted)">(בעלים)</span>' : '') + '</div>'
+      +   '<button class="btn-icon-del" title="' + (isHidden ? 'הצג' : 'הסתר') + '" style="font-size:.75em;opacity:.5" onclick="toggleHideMember(' + m.id + ')">' + (isHidden ? '👁' : '✕') + '</button>'
+      + '</div>'
+      + (!m.is_exempt ? '<div class="member-card-balance ' + status + '">' + fmt(amount) + (monthsStr ? ' ' + monthsStr : '') + '</div>' : '')
       + '<div class="member-card-meta">' + statusLabel + '</div>'
-      + (lastPay ? '<div class="member-card-meta">תשלום אחרון: ' + fmtDate(lastPay) + '</div>' : '')
-      + '<button class="btn btn-ghost btn-xs" style="margin-top:4px" onclick="openAssignModal(' + m.id + ',\'' + escHtml(m.name).replace(/'/g,"\\'") + '\')">+ שייך תשלום</button>';
+      + (!m.is_exempt ? '<div class="member-card-meta" style="font-size:.8em;color:var(--text-muted)">' + count + ' תשלומים' + (lastPay ? ' · ' + fmtDate(lastPay) : '') + '</div>' : '')
+      + (!m.is_exempt ? '<button class="btn btn-ghost btn-xs" style="margin-top:4px" onclick="openAssignModal(' + m.id + ',\'' + escHtml(m.name).replace(/'/g,"\\'") + '\')">+ שייך תשלום</button>' : '');
     grid.appendChild(card);
   });
 }
@@ -1315,7 +1300,6 @@ function submitCharge(){
   }).then(function(r){ return r.json(); })
     .then(function(){
       closeModal('modalCharge');
-      document.getElementById('chargeBanner').style.display = 'none';
       refreshAll();
     })
     .catch(function(e){ console.error(e); alert('שגיאה בשמירה'); });
@@ -1368,7 +1352,6 @@ function refreshAll(callback){
     state.suggestions = (results[4] && results[4].suggestions)   || [];
 
     renderSummaryBar();
-    checkChargeBanner();
     renderMemberTabs();
     renderOverview();
 

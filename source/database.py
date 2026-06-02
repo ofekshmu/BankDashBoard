@@ -2703,35 +2703,37 @@ class DataBase:
         return {r[0] for r in rows}
 
     # ── Spotify tracker ────────────────────────────────────────────────────────
+    # All methods below use self.connection.execute() (creates a fresh cursor per
+    # call) instead of the shared self.cursor, making them safe under threaded Flask.
 
     def get_spotify_members(self) -> list:
-        rows = self.cursor.execute(
+        rows = self.connection.execute(
             "SELECT ID, Name, Is_Exempt, Is_Active FROM SpotifyMembers ORDER BY ID"
         ).fetchall()
         return [{'id': r[0], 'name': r[1], 'is_exempt': r[2], 'is_active': r[3]} for r in rows]
 
     def add_spotify_member(self, name: str, is_exempt: int = 0) -> int:
-        self.cursor.execute(
+        cur = self.connection.execute(
             "INSERT INTO SpotifyMembers (Name, Is_Exempt) VALUES (?, ?)",
             (name.strip(), int(is_exempt))
         )
-        self.commit_changes()
-        return self.cursor.lastrowid
+        self.connection.commit()
+        return cur.lastrowid
 
     def update_spotify_member(self, member_id: int, name: str, is_exempt: int, is_active: int):
-        self.cursor.execute(
+        self.connection.execute(
             "UPDATE SpotifyMembers SET Name=?, Is_Exempt=?, Is_Active=? WHERE ID=?",
             (name.strip(), int(is_exempt), int(is_active), member_id)
         )
-        self.commit_changes()
+        self.connection.commit()
 
     def delete_spotify_member(self, member_id: int):
-        self.cursor.execute("DELETE FROM SpotifyMemberPayments WHERE Member_ID = ?", (member_id,))
-        self.cursor.execute("DELETE FROM SpotifyMembers WHERE ID = ?", (member_id,))
-        self.commit_changes()
+        self.connection.execute("DELETE FROM SpotifyMemberPayments WHERE Member_ID = ?", (member_id,))
+        self.connection.execute("DELETE FROM SpotifyMembers WHERE ID = ?", (member_id,))
+        self.connection.commit()
 
     def get_spotify_charges(self) -> list:
-        rows = self.cursor.execute(
+        rows = self.connection.execute(
             "SELECT ID, Month, Total_Amount, Member_Count, TX_ID, Confirmed FROM SpotifyMonthlyCharge ORDER BY Month DESC"
         ).fetchall()
         return [{'id': r[0], 'month': r[1], 'total_amount': r[2], 'member_count': r[3],
@@ -2739,28 +2741,28 @@ class DataBase:
 
     def add_spotify_charge(self, month: str, total_amount: float, member_count: int,
                            tx_id=None, confirmed: int = 0) -> int:
-        self.cursor.execute(
+        cur = self.connection.execute(
             "INSERT INTO SpotifyMonthlyCharge (Month, Total_Amount, Member_Count, TX_ID, Confirmed) VALUES (?,?,?,?,?)",
             (month, float(total_amount), int(member_count), tx_id, int(confirmed))
         )
-        self.commit_changes()
-        return self.cursor.lastrowid
+        self.connection.commit()
+        return cur.lastrowid
 
     def update_spotify_charge(self, charge_id: int, total_amount: float, member_count: int, confirmed: int):
-        self.cursor.execute(
+        self.connection.execute(
             "UPDATE SpotifyMonthlyCharge SET Total_Amount=?, Member_Count=?, Confirmed=? WHERE ID=?",
             (float(total_amount), int(member_count), int(confirmed), charge_id)
         )
-        self.commit_changes()
+        self.connection.commit()
 
     def get_spotify_payments(self, member_id: int = None) -> list:
         if member_id is not None:
-            rows = self.cursor.execute(
+            rows = self.connection.execute(
                 "SELECT ID, Member_ID, Amount, Payment_Date, TX_ID, Note FROM SpotifyMemberPayments WHERE Member_ID=? ORDER BY Payment_Date DESC",
                 (member_id,)
             ).fetchall()
         else:
-            rows = self.cursor.execute(
+            rows = self.connection.execute(
                 "SELECT ID, Member_ID, Amount, Payment_Date, TX_ID, Note FROM SpotifyMemberPayments ORDER BY Payment_Date DESC"
             ).fetchall()
         return [{'id': r[0], 'member_id': r[1], 'amount': r[2], 'payment_date': r[3],
@@ -2768,19 +2770,19 @@ class DataBase:
 
     def add_spotify_payment(self, member_id: int, amount: float, payment_date: str,
                             tx_id=None, note: str = None) -> int:
-        self.cursor.execute(
+        cur = self.connection.execute(
             "INSERT INTO SpotifyMemberPayments (Member_ID, Amount, Payment_Date, TX_ID, Note) VALUES (?,?,?,?,?)",
             (int(member_id), float(amount), payment_date, tx_id, note)
         )
-        self.commit_changes()
-        return self.cursor.lastrowid
+        self.connection.commit()
+        return cur.lastrowid
 
     def delete_spotify_payment(self, payment_id: int):
-        self.cursor.execute("DELETE FROM SpotifyMemberPayments WHERE ID = ?", (payment_id,))
-        self.commit_changes()
+        self.connection.execute("DELETE FROM SpotifyMemberPayments WHERE ID = ?", (payment_id,))
+        self.connection.commit()
 
     def get_spotify_assigned_tx_ids(self) -> set:
-        rows = self.cursor.execute(
+        rows = self.connection.execute(
             "SELECT TX_ID FROM SpotifyMemberPayments WHERE TX_ID IS NOT NULL"
         ).fetchall()
         return {r[0] for r in rows}

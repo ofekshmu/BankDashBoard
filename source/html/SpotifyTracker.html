@@ -1216,7 +1216,7 @@ function renderMemberDetail(memberId){
           + '<td class="amount-pos">' + fmt(p.amount) + '</td>'
           + '<td style="font-size:.82em">' + txCell + '</td>'
           + '<td style="font-size:.85em">' + nameCell + '</td>'
-          + '<td style="font-size:.82em;color:var(--text-muted)">' + escHtml(p.tx_category || (isManual ? '—' : '')) + '</td>'
+          + '<td style="font-size:.82em;color:var(--text-muted)">' + escHtml(p.tx_category || '—') + '</td>'
           + '<td>' + escHtml(p.note || '—') + '</td>'
           + '<td><button class="btn-icon-del" title="הסר" onclick="deletePayment(' + p.id + ',' + memberId + ')">🗑</button></td></tr>';
       }).join('')

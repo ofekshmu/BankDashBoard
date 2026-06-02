@@ -3160,12 +3160,16 @@ def api_spotify_payments():
                             'tx_source': 'card',
                         }
                 conn.close()
-            except Exception:
-                pass
+            except Exception as _enrich_err:
+                import traceback as _tb
+                _tb.print_exc()
 
         for p in payments:
-            if p['tx_id'] in tx_details:
+            if p['tx_id'] is not None and p['tx_id'] in tx_details:
                 p.update(tx_details[p['tx_id']])
+            elif p['tx_id'] is not None:
+                # tx_id present but not found in either table
+                p.update({'tx_name': '—', 'tx_description': '', 'tx_category': '—', 'tx_split': False, 'tx_source': ''})
 
         return jsonify({'ok': True, 'payments': payments})
     body = request.get_json(force=True) or {}

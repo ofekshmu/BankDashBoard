@@ -220,7 +220,6 @@ body {
   display: flex; flex-direction: column; gap: 8px;
 }
 .member-card-name { font-size: .95em; font-weight: 700; color: var(--navy); }
-.member-card-hidden { opacity: .45; }
 .member-card-owner { padding: 10px 14px; gap: 4px; }
 .member-card-owner .member-card-name { font-size: .82em; color: var(--text-muted); font-weight: 600; }
 .member-card-balance {
@@ -908,20 +907,7 @@ function renderMissingMonths(){
   }).join('');
 }
 
-var _hiddenMembers = (function(){
-  try { return JSON.parse(localStorage.getItem('spotify_hidden_members') || '{}'); } catch(e){ return {}; }
-})();
-var _showHidden = false;
-
-function _saveHidden(){ try{ localStorage.setItem('spotify_hidden_members', JSON.stringify(_hiddenMembers)); }catch(e){} }
-
-function toggleHideMember(id){
-  if(_hiddenMembers[id]) delete _hiddenMembers[id]; else _hiddenMembers[id] = true;
-  _saveHidden();
-  renderMemberGrid();
-}
-
-function _buildMemberCard(m, isHidden){
+function _buildMemberCard(m){
   var bal     = state.balance[m.id] || state.balance[String(m.id)] || {};
   var amount  = typeof bal === 'object' ? (bal.balance !== undefined ? bal.balance : (bal.amount || 0)) : bal;
   var months  = typeof bal === 'object' ? (bal.months_status || 0) : 0;
@@ -936,17 +922,10 @@ function _buildMemberCard(m, isHidden){
         + (months > 0 ? '+' : '') + months + ' חודשים</div>'
     : '';
 
-  var hideBtn = '<button class="btn-icon-del" title="' + (isHidden ? 'הצג' : 'הסתר')
-    + '" style="font-size:.75em;opacity:.5;flex-shrink:0" onclick="toggleHideMember(' + m.id + ')">'
-    + (isHidden ? '👁' : '✕') + '</button>';
-
   var card = document.createElement('div');
-  card.className = 'member-card' + (isHidden ? ' member-card-hidden' : '');
+  card.className = 'member-card';
   card.innerHTML =
-      '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:4px">'
-    +   '<div class="member-card-name">' + escHtml(m.name) + '</div>'
-    +   hideBtn
-    + '</div>'
+      '<div class="member-card-name">' + escHtml(m.name) + '</div>'
     + '<div class="member-card-balance ' + status + '">' + fmt(amount) + '</div>'
     + '<div class="member-card-meta">' + statusLabel + '</div>'
     + monthsHtml
@@ -956,18 +935,11 @@ function _buildMemberCard(m, isHidden){
   return card;
 }
 
-function _buildOwnerCard(m, isHidden){
-  var hideBtn = '<button class="btn-icon-del" title="' + (isHidden ? 'הצג' : 'הסתר')
-    + '" style="font-size:.7em;opacity:.4;flex-shrink:0" onclick="toggleHideMember(' + m.id + ')">'
-    + (isHidden ? '👁' : '✕') + '</button>';
-
+function _buildOwnerCard(m){
   var card = document.createElement('div');
-  card.className = 'member-card member-card-owner' + (isHidden ? ' member-card-hidden' : '');
+  card.className = 'member-card member-card-owner';
   card.innerHTML =
-      '<div style="display:flex;justify-content:space-between;align-items:center;gap:4px">'
-    +   '<div class="member-card-name">' + escHtml(m.name) + '</div>'
-    +   hideBtn
-    + '</div>'
+      '<div class="member-card-name">' + escHtml(m.name) + '</div>'
     + '<div class="member-card-meta">בעלים</div>';
   return card;
 }
@@ -980,29 +952,11 @@ function renderMemberGrid(){
     return;
   }
 
-  var hiddenCount = state.members.filter(function(m){ return _hiddenMembers[m.id]; }).length;
-  if(hiddenCount){
-    var tog = document.createElement('div');
-    tog.style.cssText = 'grid-column:1/-1;margin-bottom:4px;font-size:.82em;color:var(--text-muted);cursor:pointer;user-select:none';
-    tog.textContent = (_showHidden ? '▾ ' : '▸ ') + 'מוסתרים (' + hiddenCount + ')';
-    tog.onclick = function(){ _showHidden = !_showHidden; renderMemberGrid(); };
-    grid.appendChild(tog);
-  }
-
   var paying = state.members.filter(function(m){ return !m.is_exempt; });
   var owners = state.members.filter(function(m){ return  m.is_exempt; });
 
-  paying.forEach(function(m){
-    var isHidden = !!_hiddenMembers[m.id];
-    if(isHidden && !_showHidden) return;
-    grid.appendChild(_buildMemberCard(m, isHidden));
-  });
-
-  owners.forEach(function(m){
-    var isHidden = !!_hiddenMembers[m.id];
-    if(isHidden && !_showHidden) return;
-    grid.appendChild(_buildOwnerCard(m, isHidden));
-  });
+  paying.forEach(function(m){ grid.appendChild(_buildMemberCard(m)); });
+  owners.forEach(function(m){ grid.appendChild(_buildOwnerCard(m)); });
 }
 
 function renderSuggestionsTable(){

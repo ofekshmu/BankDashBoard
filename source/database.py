@@ -55,7 +55,10 @@ class DataBase:
         with cls.__lock:
             if cls.__instance is None:
                 cls.__instance = super().__new__(cls)
-                cls.__instance.connection = sqlite3.connect(f'{Paths.DB_NAME}.db', check_same_thread=False)
+                import os as _os
+                _db_file = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), '..', f'{Paths.DB_NAME}.db')
+                _db_file = _os.path.normpath(_db_file)
+                cls.__instance.connection = sqlite3.connect(_db_file, check_same_thread=False)
                 cls.__instance.cursor = cls.__instance.connection.cursor()
                 cls.__instance.cursor.execute("""
                     CREATE TABLE IF NOT EXISTS Card (

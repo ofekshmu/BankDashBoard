@@ -515,6 +515,22 @@ body {
   padding-right: 4px;
 }
 
+/* Dual side-by-side KPIs inside equity card */
+.equity-dual-row {
+  display: flex;
+  direction: rtl;
+  gap: 0;
+}
+.equity-dual-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 0 12px;
+}
+.equity-dual-col:first-child {
+  border-left: 1.5px solid var(--border);
+}
+
 /* Equity breakdown bar */
 .equity-bar-wrap { margin-top: 14px; }
 .equity-bar {
@@ -1494,28 +1510,62 @@ body {
 .acct-entries-list div { padding: 3px 0; border-bottom: 1px solid #f0f0f0; }
 .acct-entries-list div:last-child { border-bottom: none; }
 
-/* ── Mobile category legend card (hidden on desktop) ────── */
-.mobile-cat-legend-card { display: none; }
-.mobile-cat-list {
-  list-style: none; margin: 0; padding: 0;
-  display: flex; flex-direction: column; gap: 6px;
+/* ── Donut category legend toggle bar ─────────────────────── */
+.cat-legend-toggle {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  margin-top: 12px;
+  padding: 6px 0;
+  border-top: 1.5px solid var(--border);
+  cursor: pointer;
+  color: #aab0c0;
+  font-size: 0.78em; font-weight: 600; letter-spacing: 0.02em;
+  user-select: none;
+  transition: color 0.15s;
 }
-.mobile-cat-item {
-  display: flex; align-items: center; gap: 8px;
-  padding: 6px 0; border-bottom: 1px solid var(--border);
-  font-size: 0.84em;
+.cat-legend-toggle:hover { color: var(--navy); }
+.cat-toggle-chevron {
+  display: inline-block;
+  transition: transform 0.2s;
+  font-size: 1.1em;
+  line-height: 1;
 }
-.mobile-cat-item:last-child { border-bottom: none; }
-.mobile-cat-dot {
-  width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+
+/* ── Donut category legend (all screen sizes) ─────────────── */
+.cat-legend-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  direction: rtl;
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transition: max-height 0.35s ease, opacity 0.25s ease;
 }
-.mobile-cat-name {
-  flex: 1; color: var(--text-sub); direction: rtl;
+.cat-legend-grid.open {
+  max-height: 1200px;
+  opacity: 1;
+}
+.cat-legend-row {
+  display: flex; align-items: center; gap: 7px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.15s;
+  font-size: 0.82em;
+  min-width: 0;
+}
+.cat-legend-row:hover { background: #f5f7fc; }
+.cat-dot {
+  width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0;
+}
+.cat-name {
+  flex: 1; color: var(--text-sub);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  min-width: 0;
 }
-.mobile-cat-value {
-  font-weight: 700; color: var(--navy); font-variant-numeric: tabular-nums;
-  white-space: nowrap;
+.cat-val {
+  font-weight: 700; color: var(--navy);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+  font-size: 0.92em;
 }
 
 /* ── Mobile view (≤768px) ────────────────────────────────── */
@@ -1548,8 +1598,8 @@ body {
   /* 2. Charts grid → single column so each donut gets full width */
   .charts-grid { grid-template-columns: 1fr; }
 
-  /* 3. Show mobile category legend cards */
-  .mobile-cat-legend-card { display: block; }
+  /* 3. Category legend → single column on mobile */
+  .cat-legend-grid { grid-template-columns: 1fr; }
 
   /* 4. Reduce donut canvas height on mobile */
   .donut-chart-wrap { height: 220px !important; }
@@ -1563,7 +1613,7 @@ body {
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js">
   </script>
  </head>
- <body data-generated="06/06/2026 16:01" data-month="2026_05">
+ <body data-generated="06/06/2026 22:53" data-month="2026_05">
   <!-- Hamburger -->
   <button aria-label="תפריט" class="ham-btn" id="ham-btn" onclick="toggleNav()">
    <svg fill="none" height="14" viewbox="0 0 18 14" width="18">
@@ -1875,21 +1925,7 @@ body {
       responsive: true, maintainAspectRatio: false,
       cutout: '68%',
       plugins: {
-        legend: {
-          display: !_isMob,
-          position: 'bottom',
-          labels: { font: { size: 11 }, padding: 10, boxWidth: 12 },
-          onHover: function(evt, item, legend) {
-            var ch = legend.chart;
-            ch.tooltip.setActiveElements([{datasetIndex: 0, index: item.index}], evt);
-            ch.update();
-          },
-          onLeave: function(evt, item, legend) {
-            var ch = legend.chart;
-            ch.tooltip.setActiveElements([], evt);
-            ch.update();
-          }
-        },
+        legend: { display: false },
         tooltip: {
           rtl: true,
           callbacks: {
@@ -1926,233 +1962,261 @@ body {
   });
 })();
       </script>
-     </div>
-     <div class="chart-card mobile-cat-legend-card">
-      <div class="chart-card-title">
-       הוצאות לפי קטגוריה
+      <script>
+       document.getElementById('chart-spendings-donut')._chartInst = Chart.getChart(document.getElementById('chart-spendings-donut'));
+      </script>
+      <div class="cat-legend-toggle" id="chart-spendings-donut-toggle" onclick="(function(){var g=document.getElementById('chart-spendings-donut-legend'),t=document.getElementById('chart-spendings-donut-toggle'),open=g.classList.contains('open');g.classList.toggle('open',!open);t.querySelector('.cat-toggle-chevron').style.transform=open?'':'rotate(180deg)';})()">
+       <span class="cat-toggle-label">
+        פירוט קטגוריות
+       </span>
+       <span class="cat-toggle-chevron">
+        ▾
+       </span>
       </div>
-      <ul class="mobile-cat-list">
-       <li class="mobile-cat-item">
-        <span class="mobile-cat-dot" style="background:#ef9a9a">
+      <div class="cat-legend-grid" id="chart-spendings-donut-legend">
+       <div class="cat-legend-row" data-cid="chart-spendings-donut" data-idx="19">
+        <span class="cat-dot" style="background:#e57373">
         </span>
-        <span class="mobile-cat-name">
-         NotCategorized
-        </span>
-        <span class="mobile-cat-value">
-         ₪212 (1%)
-        </span>
-       </li>
-       <li class="mobile-cat-item">
-        <span class="mobile-cat-dot" style="background:#ffab91">
-        </span>
-        <span class="mobile-cat-name">
-         withdrawal
-        </span>
-        <span class="mobile-cat-value">
-         ₪4,000 (11%)
-        </span>
-       </li>
-       <li class="mobile-cat-item">
-        <span class="mobile-cat-dot" style="background:#ffcc80">
-        </span>
-        <span class="mobile-cat-name">
-         אוכל בחוץ
-        </span>
-        <span class="mobile-cat-value">
-         ₪1,422 (4%)
-        </span>
-       </li>
-       <li class="mobile-cat-item">
-        <span class="mobile-cat-dot" style="background:#ffe082">
-        </span>
-        <span class="mobile-cat-name">
-         אחר
-        </span>
-        <span class="mobile-cat-value">
-         ₪894 (2%)
-        </span>
-       </li>
-       <li class="mobile-cat-item">
-        <span class="mobile-cat-dot" style="background:#f48fb1">
-        </span>
-        <span class="mobile-cat-name">
-         ביטוח בריאות
-        </span>
-        <span class="mobile-cat-value">
-         ₪156 (0%)
-        </span>
-       </li>
-       <li class="mobile-cat-item">
-        <span class="mobile-cat-dot" style="background:#ff8a65">
-        </span>
-        <span class="mobile-cat-name">
-         בילויים
-        </span>
-        <span class="mobile-cat-value">
-         ₪504 (1%)
-        </span>
-       </li>
-       <li class="mobile-cat-item">
-        <span class="mobile-cat-dot" style="background:#ffd54f">
-        </span>
-        <span class="mobile-cat-name">
-         בריאות וכושר
-        </span>
-        <span class="mobile-cat-value">
-         ₪471 (1%)
-        </span>
-       </li>
-       <li class="mobile-cat-item">
-        <span class="mobile-cat-dot" style="background:#f06292">
-        </span>
-        <span class="mobile-cat-name">
-         הלבשה
-        </span>
-        <span class="mobile-cat-value">
-         ₪333 (1%)
-        </span>
-       </li>
-       <li class="mobile-cat-item">
-        <span class="mobile-cat-dot" style="background:#ffb74d">
-        </span>
-        <span class="mobile-cat-name">
-         הלוואה
-        </span>
-        <span class="mobile-cat-value">
-         ₪1,000 (3%)
-        </span>
-       </li>
-       <li class="mobile-cat-item">
-        <span class="mobile-cat-dot" style="background:#e57373">
-        </span>
-        <span class="mobile-cat-name">
-         השכלה ולימודים
-        </span>
-        <span class="mobile-cat-value">
-         ₪556 (1%)
-        </span>
-       </li>
-       <li class="mobile-cat-item">
-        <span class="mobile-cat-dot" style="background:#ef9a9a">
-        </span>
-        <span class="mobile-cat-name">
-         חשבונות
-        </span>
-        <span class="mobile-cat-value">
-         ₪764 (2%)
-        </span>
-       </li>
-       <li class="mobile-cat-item">
-        <span class="mobile-cat-dot" style="background:#ffab91">
-        </span>
-        <span class="mobile-cat-name">
-         טיפוח ורפואה
-        </span>
-        <span class="mobile-cat-value">
-         ₪40 (0%)
-        </span>
-       </li>
-       <li class="mobile-cat-item">
-        <span class="mobile-cat-dot" style="background:#ffcc80">
-        </span>
-        <span class="mobile-cat-name">
-         מוצרי חשמל
-        </span>
-        <span class="mobile-cat-value">
-         ₪298 (1%)
-        </span>
-       </li>
-       <li class="mobile-cat-item">
-        <span class="mobile-cat-dot" style="background:#ffe082">
-        </span>
-        <span class="mobile-cat-name">
-         מנויים
-        </span>
-        <span class="mobile-cat-value">
-         ₪143 (0%)
-        </span>
-       </li>
-       <li class="mobile-cat-item">
-        <span class="mobile-cat-dot" style="background:#f48fb1">
-        </span>
-        <span class="mobile-cat-name">
-         מצרכים
-        </span>
-        <span class="mobile-cat-value">
-         ₪2,627 (7%)
-        </span>
-       </li>
-       <li class="mobile-cat-item">
-        <span class="mobile-cat-dot" style="background:#ff8a65">
-        </span>
-        <span class="mobile-cat-name">
-         מתנות
-        </span>
-        <span class="mobile-cat-value">
-         ₪327 (1%)
-        </span>
-       </li>
-       <li class="mobile-cat-item">
-        <span class="mobile-cat-dot" style="background:#ffd54f">
-        </span>
-        <span class="mobile-cat-name">
-         רהיטים ובית
-        </span>
-        <span class="mobile-cat-value">
-         ₪1,813 (5%)
-        </span>
-       </li>
-       <li class="mobile-cat-item">
-        <span class="mobile-cat-dot" style="background:#f06292">
-        </span>
-        <span class="mobile-cat-name">
-         רכב
-        </span>
-        <span class="mobile-cat-value">
-         ₪2,453 (7%)
-        </span>
-       </li>
-       <li class="mobile-cat-item">
-        <span class="mobile-cat-dot" style="background:#ffb74d">
-        </span>
-        <span class="mobile-cat-name">
-         שכירות
-        </span>
-        <span class="mobile-cat-value">
-         ₪5,880 (16%)
-        </span>
-       </li>
-       <li class="mobile-cat-item">
-        <span class="mobile-cat-dot" style="background:#e57373">
-        </span>
-        <span class="mobile-cat-name">
+        <span class="cat-name">
          שלום שבאזי 7
         </span>
-        <span class="mobile-cat-value">
+        <span class="cat-val">
          ₪12,820 (34%)
         </span>
-       </li>
-       <li class="mobile-cat-item">
-        <span class="mobile-cat-dot" style="background:#ef9a9a">
+       </div>
+       <div class="cat-legend-row" data-cid="chart-spendings-donut" data-idx="18">
+        <span class="cat-dot" style="background:#ffb74d">
         </span>
-        <span class="mobile-cat-name">
+        <span class="cat-name">
+         שכירות
+        </span>
+        <span class="cat-val">
+         ₪5,880 (16%)
+        </span>
+       </div>
+       <div class="cat-legend-row" data-cid="chart-spendings-donut" data-idx="1">
+        <span class="cat-dot" style="background:#ffab91">
+        </span>
+        <span class="cat-name">
+         withdrawal
+        </span>
+        <span class="cat-val">
+         ₪4,000 (11%)
+        </span>
+       </div>
+       <div class="cat-legend-row" data-cid="chart-spendings-donut" data-idx="14">
+        <span class="cat-dot" style="background:#f48fb1">
+        </span>
+        <span class="cat-name">
+         מצרכים
+        </span>
+        <span class="cat-val">
+         ₪2,627 (7%)
+        </span>
+       </div>
+       <div class="cat-legend-row" data-cid="chart-spendings-donut" data-idx="17">
+        <span class="cat-dot" style="background:#f06292">
+        </span>
+        <span class="cat-name">
+         רכב
+        </span>
+        <span class="cat-val">
+         ₪2,453 (7%)
+        </span>
+       </div>
+       <div class="cat-legend-row" data-cid="chart-spendings-donut" data-idx="16">
+        <span class="cat-dot" style="background:#ffd54f">
+        </span>
+        <span class="cat-name">
+         רהיטים ובית
+        </span>
+        <span class="cat-val">
+         ₪1,813 (5%)
+        </span>
+       </div>
+       <div class="cat-legend-row" data-cid="chart-spendings-donut" data-idx="2">
+        <span class="cat-dot" style="background:#ffcc80">
+        </span>
+        <span class="cat-name">
+         אוכל בחוץ
+        </span>
+        <span class="cat-val">
+         ₪1,422 (4%)
+        </span>
+       </div>
+       <div class="cat-legend-row" data-cid="chart-spendings-donut" data-idx="8">
+        <span class="cat-dot" style="background:#ffb74d">
+        </span>
+        <span class="cat-name">
+         הלוואה
+        </span>
+        <span class="cat-val">
+         ₪1,000 (3%)
+        </span>
+       </div>
+       <div class="cat-legend-row" data-cid="chart-spendings-donut" data-idx="3">
+        <span class="cat-dot" style="background:#ffe082">
+        </span>
+        <span class="cat-name">
+         אחר
+        </span>
+        <span class="cat-val">
+         ₪894 (2%)
+        </span>
+       </div>
+       <div class="cat-legend-row" data-cid="chart-spendings-donut" data-idx="10">
+        <span class="cat-dot" style="background:#ef9a9a">
+        </span>
+        <span class="cat-name">
+         חשבונות
+        </span>
+        <span class="cat-val">
+         ₪764 (2%)
+        </span>
+       </div>
+       <div class="cat-legend-row" data-cid="chart-spendings-donut" data-idx="9">
+        <span class="cat-dot" style="background:#e57373">
+        </span>
+        <span class="cat-name">
+         השכלה ולימודים
+        </span>
+        <span class="cat-val">
+         ₪556 (1%)
+        </span>
+       </div>
+       <div class="cat-legend-row" data-cid="chart-spendings-donut" data-idx="5">
+        <span class="cat-dot" style="background:#ff8a65">
+        </span>
+        <span class="cat-name">
+         בילויים
+        </span>
+        <span class="cat-val">
+         ₪504 (1%)
+        </span>
+       </div>
+       <div class="cat-legend-row" data-cid="chart-spendings-donut" data-idx="6">
+        <span class="cat-dot" style="background:#ffd54f">
+        </span>
+        <span class="cat-name">
+         בריאות וכושר
+        </span>
+        <span class="cat-val">
+         ₪471 (1%)
+        </span>
+       </div>
+       <div class="cat-legend-row" data-cid="chart-spendings-donut" data-idx="20">
+        <span class="cat-dot" style="background:#ef9a9a">
+        </span>
+        <span class="cat-name">
          תחבורה ציבורית
         </span>
-        <span class="mobile-cat-value">
+        <span class="cat-val">
          ₪356 (1%)
         </span>
-       </li>
-       <li class="mobile-cat-item">
-        <span class="mobile-cat-dot" style="background:#ffab91">
+       </div>
+       <div class="cat-legend-row" data-cid="chart-spendings-donut" data-idx="7">
+        <span class="cat-dot" style="background:#f06292">
         </span>
-        <span class="mobile-cat-name">
+        <span class="cat-name">
+         הלבשה
+        </span>
+        <span class="cat-val">
+         ₪333 (1%)
+        </span>
+       </div>
+       <div class="cat-legend-row" data-cid="chart-spendings-donut" data-idx="15">
+        <span class="cat-dot" style="background:#ff8a65">
+        </span>
+        <span class="cat-name">
+         מתנות
+        </span>
+        <span class="cat-val">
+         ₪327 (1%)
+        </span>
+       </div>
+       <div class="cat-legend-row" data-cid="chart-spendings-donut" data-idx="12">
+        <span class="cat-dot" style="background:#ffcc80">
+        </span>
+        <span class="cat-name">
+         מוצרי חשמל
+        </span>
+        <span class="cat-val">
+         ₪298 (1%)
+        </span>
+       </div>
+       <div class="cat-legend-row" data-cid="chart-spendings-donut" data-idx="0">
+        <span class="cat-dot" style="background:#ef9a9a">
+        </span>
+        <span class="cat-name">
+         NotCategorized
+        </span>
+        <span class="cat-val">
+         ₪212 (1%)
+        </span>
+       </div>
+       <div class="cat-legend-row" data-cid="chart-spendings-donut" data-idx="4">
+        <span class="cat-dot" style="background:#f48fb1">
+        </span>
+        <span class="cat-name">
+         ביטוח בריאות
+        </span>
+        <span class="cat-val">
+         ₪156 (0%)
+        </span>
+       </div>
+       <div class="cat-legend-row" data-cid="chart-spendings-donut" data-idx="13">
+        <span class="cat-dot" style="background:#ffe082">
+        </span>
+        <span class="cat-name">
+         מנויים
+        </span>
+        <span class="cat-val">
+         ₪143 (0%)
+        </span>
+       </div>
+       <div class="cat-legend-row" data-cid="chart-spendings-donut" data-idx="21">
+        <span class="cat-dot" style="background:#ffab91">
+        </span>
+        <span class="cat-name">
          תחביבים ופנאי
         </span>
-        <span class="mobile-cat-value">
+        <span class="cat-val">
          ₪105 (0%)
         </span>
-       </li>
-      </ul>
+       </div>
+       <div class="cat-legend-row" data-cid="chart-spendings-donut" data-idx="11">
+        <span class="cat-dot" style="background:#ffab91">
+        </span>
+        <span class="cat-name">
+         טיפוח ורפואה
+        </span>
+        <span class="cat-val">
+         ₪40 (0%)
+        </span>
+       </div>
+      </div>
+      <script>
+       (function(){
+  var rows = document.querySelectorAll('.cat-legend-row[data-cid="chart-spendings-donut"]');
+  rows.forEach(function(row) {
+    var idx = +row.dataset.idx;
+    row.addEventListener('click', function() {
+      var ch = document.getElementById('chart-spendings-donut')._chartInst;
+      ch.toggleDataVisibility(idx); ch.update();
+      row.style.opacity = ch.getDataVisibility(idx) ? '1' : '0.35';
+    });
+    row.addEventListener('mouseenter', function() {
+      var ch = document.getElementById('chart-spendings-donut')._chartInst;
+      ch.tooltip.setActiveElements([{datasetIndex:0,index:idx}], {x:0,y:0});
+      ch.update();
+    });
+    row.addEventListener('mouseleave', function() {
+      var ch = document.getElementById('chart-spendings-donut')._chartInst;
+      ch.tooltip.setActiveElements([], {x:0,y:0}); ch.update();
+    });
+  });
+})();
+      </script>
      </div>
      <div class="chart-card">
       <div class="chart-card-title">
@@ -2181,21 +2245,7 @@ body {
       responsive: true, maintainAspectRatio: false,
       cutout: '68%',
       plugins: {
-        legend: {
-          display: !_isMob,
-          position: 'bottom',
-          labels: { font: { size: 11 }, padding: 10, boxWidth: 12 },
-          onHover: function(evt, item, legend) {
-            var ch = legend.chart;
-            ch.tooltip.setActiveElements([{datasetIndex: 0, index: item.index}], evt);
-            ch.update();
-          },
-          onLeave: function(evt, item, legend) {
-            var ch = legend.chart;
-            ch.tooltip.setActiveElements([], evt);
-            ch.update();
-          }
-        },
+        legend: { display: false },
         tooltip: {
           rtl: true,
           callbacks: {
@@ -2232,53 +2282,81 @@ body {
   });
 })();
       </script>
-     </div>
-     <div class="chart-card mobile-cat-legend-card">
-      <div class="chart-card-title">
-       הכנסות לחשבון לפי קטגוריה
+      <script>
+       document.getElementById('chart-earnings-donut')._chartInst = Chart.getChart(document.getElementById('chart-earnings-donut'));
+      </script>
+      <div class="cat-legend-toggle" id="chart-earnings-donut-toggle" onclick="(function(){var g=document.getElementById('chart-earnings-donut-legend'),t=document.getElementById('chart-earnings-donut-toggle'),open=g.classList.contains('open');g.classList.toggle('open',!open);t.querySelector('.cat-toggle-chevron').style.transform=open?'':'rotate(180deg)';})()">
+       <span class="cat-toggle-label">
+        פירוט קטגוריות
+       </span>
+       <span class="cat-toggle-chevron">
+        ▾
+       </span>
       </div>
-      <ul class="mobile-cat-list">
-       <li class="mobile-cat-item">
-        <span class="mobile-cat-dot" style="background:#a5d6a7">
+      <div class="cat-legend-grid" id="chart-earnings-donut-legend">
+       <div class="cat-legend-row" data-cid="chart-earnings-donut" data-idx="1">
+        <span class="cat-dot" style="background:#80cbc4">
         </span>
-        <span class="mobile-cat-name">
-         אחר
-        </span>
-        <span class="mobile-cat-value">
-         ₪396 (1%)
-        </span>
-       </li>
-       <li class="mobile-cat-item">
-        <span class="mobile-cat-dot" style="background:#80cbc4">
-        </span>
-        <span class="mobile-cat-name">
+        <span class="cat-name">
          משכורת
         </span>
-        <span class="mobile-cat-value">
+        <span class="cat-val">
          ₪28,134 (80%)
         </span>
-       </li>
-       <li class="mobile-cat-item">
-        <span class="mobile-cat-dot" style="background:#90caf9">
+       </div>
+       <div class="cat-legend-row" data-cid="chart-earnings-donut" data-idx="3">
+        <span class="cat-dot" style="background:#80deea">
         </span>
-        <span class="mobile-cat-name">
-         שיעורים פרטיים
-        </span>
-        <span class="mobile-cat-value">
-         ₪450 (1%)
-        </span>
-       </li>
-       <li class="mobile-cat-item">
-        <span class="mobile-cat-dot" style="background:#80deea">
-        </span>
-        <span class="mobile-cat-name">
+        <span class="cat-name">
          שלום שבאזי 7
         </span>
-        <span class="mobile-cat-value">
+        <span class="cat-val">
          ₪6,100 (17%)
         </span>
-       </li>
-      </ul>
+       </div>
+       <div class="cat-legend-row" data-cid="chart-earnings-donut" data-idx="2">
+        <span class="cat-dot" style="background:#90caf9">
+        </span>
+        <span class="cat-name">
+         שיעורים פרטיים
+        </span>
+        <span class="cat-val">
+         ₪450 (1%)
+        </span>
+       </div>
+       <div class="cat-legend-row" data-cid="chart-earnings-donut" data-idx="0">
+        <span class="cat-dot" style="background:#a5d6a7">
+        </span>
+        <span class="cat-name">
+         אחר
+        </span>
+        <span class="cat-val">
+         ₪396 (1%)
+        </span>
+       </div>
+      </div>
+      <script>
+       (function(){
+  var rows = document.querySelectorAll('.cat-legend-row[data-cid="chart-earnings-donut"]');
+  rows.forEach(function(row) {
+    var idx = +row.dataset.idx;
+    row.addEventListener('click', function() {
+      var ch = document.getElementById('chart-earnings-donut')._chartInst;
+      ch.toggleDataVisibility(idx); ch.update();
+      row.style.opacity = ch.getDataVisibility(idx) ? '1' : '0.35';
+    });
+    row.addEventListener('mouseenter', function() {
+      var ch = document.getElementById('chart-earnings-donut')._chartInst;
+      ch.tooltip.setActiveElements([{datasetIndex:0,index:idx}], {x:0,y:0});
+      ch.update();
+    });
+    row.addEventListener('mouseleave', function() {
+      var ch = document.getElementById('chart-earnings-donut')._chartInst;
+      ch.tooltip.setActiveElements([], {x:0,y:0}); ch.update();
+    });
+  });
+})();
+      </script>
      </div>
      <div class="chart-card">
       <div class="chart-card-title">
@@ -2399,21 +2477,7 @@ body {
       responsive: true, maintainAspectRatio: false,
       cutout: '68%',
       plugins: {
-        legend: {
-          display: !_isMob,
-          position: 'bottom',
-          labels: { font: { size: 11 }, padding: 10, boxWidth: 12 },
-          onHover: function(evt, item, legend) {
-            var ch = legend.chart;
-            ch.tooltip.setActiveElements([{datasetIndex: 0, index: item.index}], evt);
-            ch.update();
-          },
-          onLeave: function(evt, item, legend) {
-            var ch = legend.chart;
-            ch.tooltip.setActiveElements([], evt);
-            ch.update();
-          }
-        },
+        legend: { display: false },
         tooltip: {
           rtl: true,
           callbacks: {
@@ -2450,33 +2514,61 @@ body {
   });
 })();
       </script>
-     </div>
-     <div class="chart-card mobile-cat-legend-card">
-      <div class="chart-card-title">
-       הכנסות/הוצאות במזומן
+      <script>
+       document.getElementById('chart-cash-donut')._chartInst = Chart.getChart(document.getElementById('chart-cash-donut'));
+      </script>
+      <div class="cat-legend-toggle" id="chart-cash-donut-toggle" onclick="(function(){var g=document.getElementById('chart-cash-donut-legend'),t=document.getElementById('chart-cash-donut-toggle'),open=g.classList.contains('open');g.classList.toggle('open',!open);t.querySelector('.cat-toggle-chevron').style.transform=open?'':'rotate(180deg)';})()">
+       <span class="cat-toggle-label">
+        פירוט קטגוריות
+       </span>
+       <span class="cat-toggle-chevron">
+        ▾
+       </span>
       </div>
-      <ul class="mobile-cat-list">
-       <li class="mobile-cat-item">
-        <span class="mobile-cat-dot" style="background:#a5d6a7">
+      <div class="cat-legend-grid" id="chart-cash-donut-legend">
+       <div class="cat-legend-row" data-cid="chart-cash-donut" data-idx="0">
+        <span class="cat-dot" style="background:#a5d6a7">
         </span>
-        <span class="mobile-cat-name">
+        <span class="cat-name">
          הכנסה  ₪4,000
         </span>
-        <span class="mobile-cat-value">
+        <span class="cat-val">
          ₪4,000 (100%)
         </span>
-       </li>
-       <li class="mobile-cat-item">
-        <span class="mobile-cat-dot" style="background:#ef9a9a">
+       </div>
+       <div class="cat-legend-row" data-cid="chart-cash-donut" data-idx="1">
+        <span class="cat-dot" style="background:#ef9a9a">
         </span>
-        <span class="mobile-cat-name">
+        <span class="cat-name">
          הוצאה  ₪0
         </span>
-        <span class="mobile-cat-value">
+        <span class="cat-val">
          ₪0 (0%)
         </span>
-       </li>
-      </ul>
+       </div>
+      </div>
+      <script>
+       (function(){
+  var rows = document.querySelectorAll('.cat-legend-row[data-cid="chart-cash-donut"]');
+  rows.forEach(function(row) {
+    var idx = +row.dataset.idx;
+    row.addEventListener('click', function() {
+      var ch = document.getElementById('chart-cash-donut')._chartInst;
+      ch.toggleDataVisibility(idx); ch.update();
+      row.style.opacity = ch.getDataVisibility(idx) ? '1' : '0.35';
+    });
+    row.addEventListener('mouseenter', function() {
+      var ch = document.getElementById('chart-cash-donut')._chartInst;
+      ch.tooltip.setActiveElements([{datasetIndex:0,index:idx}], {x:0,y:0});
+      ch.update();
+    });
+    row.addEventListener('mouseleave', function() {
+      var ch = document.getElementById('chart-cash-donut')._chartInst;
+      ch.tooltip.setActiveElements([], {x:0,y:0}); ch.update();
+    });
+  });
+})();
+      </script>
      </div>
      <div class="chart-card full-width">
       <div style="display:flex;align-items:stretch;gap:0;padding:4px 0 14px;border-bottom:1.5px solid #eef0f6;margin-bottom:12px;">
@@ -2484,7 +2576,7 @@ body {
         <div style="font-size:0.72em;font-weight:600;color:#888;margin-bottom:3px;">
          ממוצע נטו חודשי
         </div>
-        <div style="font-size:1.15em;font-weight:800;color:#e74c3c;">
+        <div data-neg-clr="#e74c3c" data-pos-clr="#1e9d8b" id="gen-kpi-val-0" style="font-size:1.15em;font-weight:800;color:#e74c3c;">
          -5,733₪
         </div>
        </div>
@@ -2492,7 +2584,7 @@ body {
         <div style="font-size:0.72em;font-weight:600;color:#888;margin-bottom:3px;">
          סה"כ הכנסות
         </div>
-        <div style="font-size:1.15em;font-weight:800;color:#43a047;">
+        <div id="gen-kpi-val-1" style="font-size:1.15em;font-weight:800;color:#43a047;">
          499,120₪
         </div>
        </div>
@@ -2500,7 +2592,7 @@ body {
         <div style="font-size:0.72em;font-weight:600;color:#888;margin-bottom:3px;">
          סה"כ הוצאות
         </div>
-        <div style="font-size:1.15em;font-weight:800;color:#ef5350;">
+        <div id="gen-kpi-val-2" style="font-size:1.15em;font-weight:800;color:#ef5350;">
          627,096₪
         </div>
        </div>
@@ -2508,7 +2600,7 @@ body {
         <div style="font-size:0.72em;font-weight:600;color:#888;margin-bottom:3px;">
          סה"כ השקעות נטו
         </div>
-        <div style="font-size:1.15em;font-weight:800;color:#e8a020;">
+        <div id="gen-kpi-val-3" style="font-size:1.15em;font-weight:800;color:#e8a020;">
          58,532₪
         </div>
        </div>
@@ -2546,15 +2638,131 @@ body {
       })
     };
   }
+
+  // ── Month-exclusion state ──────────────────────────────────
+  var _excluded = new Set();
+  var _N = _chartData.labels.length;
+  // RGBA arrays for smooth colour interpolation [r, g, b, a]
+  var _BASE_RGBA = [
+    [239,154,154,0.80],
+    [255,183, 77,0.85],
+    [165,214,167,0.75],
+    [255,183, 77,0.85]
+  ];
+  var _DIM_RGBA  = [210,215,225,0.18];
+  var _BASE_BD   = ['#ef5350','#ffb74d','#43a047','#ffb74d'];
+  var _DIM_BD    = 'rgba(180,185,195,0.4)';
+
+  function _toRgba(c) { return 'rgba('+c[0]+','+c[1]+','+c[2]+','+c[3]+')'; }
+  function _lerp(a,b,t) { return a+(b-a)*t; }
+  function _lerpC(a,b,t) {
+    return [Math.round(_lerp(a[0],b[0],t)), Math.round(_lerp(a[1],b[1],t)),
+            Math.round(_lerp(a[2],b[2],t)), +_lerp(a[3],b[3],t).toFixed(3)];
+  }
+
+  var _animRaf = null;
+  function _fadeColumn(ch, idx, toExclude) {
+    if (_animRaf) cancelAnimationFrame(_animRaf);
+    var DURATION = 320, start = null;
+    function tick(ts) {
+      if (!start) start = ts;
+      var p = Math.min((ts - start) / DURATION, 1);
+      var ease = p < 0.5 ? 2*p*p : -1+(4-2*p)*p;
+      ch.data.datasets.forEach(function(ds, di) {
+        if (ds.type === 'bar') {
+          ds.backgroundColor = ds.data.map(function(_, i) {
+            if (i === idx) {
+              var t = toExclude ? ease : 1 - ease;
+              return _toRgba(_lerpC(_BASE_RGBA[di], _DIM_RGBA, t));
+            }
+            return _excluded.has(i) ? _toRgba(_DIM_RGBA) : _toRgba(_BASE_RGBA[di]);
+          });
+          ds.borderColor = ds.data.map(function(_, i) {
+            return _excluded.has(i) ? _DIM_BD : _BASE_BD[di];
+          });
+        } else {
+          ds.pointBackgroundColor = ds.data.map(function(_, i) {
+            if (i === idx) {
+              var t = toExclude ? ease : 1 - ease;
+              return _toRgba(_lerpC([30,157,139,1],[200,210,220,0.25],t));
+            }
+            return _excluded.has(i) ? 'rgba(200,210,220,0.25)' : '#1e9d8b';
+          });
+          ds.pointRadius = ds.data.map(function(_, i) {
+            return _excluded.has(i) ? 1.5 : 5;
+          });
+        }
+      });
+      ch.update('none');
+      if (p < 1) _animRaf = requestAnimationFrame(tick);
+      else _animRaf = null;
+    }
+    requestAnimationFrame(tick);
+  }
+
+  function _fmtKpi(v) {
+    var a = Math.abs(Math.round(v));
+    var s = a.toLocaleString('he-IL') + '₪';
+    return v < 0 ? '-' + s : s;
+  }
+
+  function _updateKPIs(data) {
+    var sp      = data.datasets[0].data;
+    var inv_out = data.datasets[1].data;
+    var ea      = data.datasets[2].data;
+    var inv_in  = data.datasets[3].data;
+    var net     = data.datasets[4].data;
+    var n = data.labels.length;
+    var totalIncome = 0, totalOutcome = 0, totalInvest = 0, totalNet = 0, cnt = 0;
+    for (var i = 0; i < n; i++) {
+      if (_excluded.has(i)) continue;
+      cnt++;
+      totalIncome  += (ea[i]      || 0) + (inv_in[i]  || 0);
+      totalOutcome += (sp[i]      || 0) + (inv_out[i] || 0);
+      totalInvest  += (inv_out[i] || 0) - (inv_in[i]  || 0);
+      totalNet     += (net[i]     || 0);
+    }
+    var meanNet = cnt ? totalNet / cnt : 0;
+    var vals = [meanNet, totalIncome, totalOutcome, totalInvest];
+    vals.forEach(function(v, i) {
+      var el = document.getElementById('gen-kpi-val-' + i);
+      if (!el) return;
+      el.textContent = _fmtKpi(v);
+      if (i === 0) el.style.color = v >= 0 ? '#1e9d8b' : '#e74c3c';
+    });
+  }
+
   new Chart(document.getElementById('chart-general-bar'), {
     type: 'bar',
     data: _chartData,
     options: {
       responsive: true, maintainAspectRatio: false,
       interaction: { mode: 'nearest', intersect: true },
+      onClick: function(event, elements, chart) {
+        var idx = Math.round(chart.scales.x.getValueForPixel(event.x));
+        if (idx < 0 || idx >= _N) return;
+        var toExclude = !_excluded.has(idx);
+        if (toExclude) _excluded.add(idx); else _excluded.delete(idx);
+        _updateKPIs(chart.data);
+        _fadeColumn(chart, idx, toExclude);
+      },
       plugins: {
-        legend: { position: 'bottom', labels: { font: { size: _isMob ? 10 : 12 }, padding: 12,
-          filter: function(item) { return item.text !== ''; } } },
+        legend: { position: 'bottom',
+          onClick: null, onHover: null, onLeave: null,
+          labels: { font: { size: _isMob ? 10 : 12 }, padding: 12,
+            filter: function(item) { return item.text !== ''; },
+            generateLabels: function(chart) {
+              var items = Chart.defaults.plugins.legend.labels.generateLabels(chart);
+              items.forEach(function(item) {
+                var di = item.datasetIndex;
+                if (di < _BASE_RGBA.length) {
+                  item.fillStyle   = _toRgba(_BASE_RGBA[di]);
+                  item.strokeStyle = _BASE_BD[di];
+                }
+              });
+              return items;
+            }
+          } },
         tooltip: {
           rtl: true,
           backgroundColor: 'rgba(255,255,255,0.97)',
@@ -2578,7 +2786,10 @@ body {
         }
       },
       scales: {
-        x: { stacked: true, ticks: { font: { size: 11 }, maxRotation: 30 } },
+        x: { stacked: true, ticks: {
+          font: { size: 11 }, maxRotation: 30,
+          color: function(ctx) { return _excluded.has(ctx.index) ? '#bbb' : undefined; }
+        } },
         y: {
           stacked: true,
           ticks: {
@@ -2589,6 +2800,7 @@ body {
       }
     }
   });
+  document.getElementById('chart-general-bar').style.cursor = 'pointer';
 })();
       </script>
      </div>
@@ -6463,27 +6675,56 @@ body {
       </div>
      </div>
      <div class="kpi-card">
-      <div class="kpi-label">
-       הון עצמי
-       <span class="kpi-info-wrap">
-        <span class="kpi-info-icon">
-         i
-        </span>
-        <span class="kpi-tooltip">
-         הון עצמי = מקדמה + קרן שנפרעה + עליית ערך + סה״כ הכנסות
+      <div class="equity-dual-row">
+       <div class="equity-dual-col">
+        <div class="kpi-label">
+         שווי בעלות הנכס
+         <span class="kpi-info-wrap">
+          <span class="kpi-info-icon">
+           i
+          </span>
+          <span class="kpi-tooltip">
+           שווי הבעלות על הנכס (ללא הכנסות משכירות):
+  מקדמה:        237,500₪
+  קרן שנפרעה:  9,102₪
+  עליית ערך:   39,422₪
+  = סה״כ:       286,024₪
+
+זהו הערך המוצג בעמוד החשבונות תחת 'נכס'.
+          </span>
+         </span>
+        </div>
+        <div class="kpi-value" id="hs-ownership-val" style="color:#5b8dee">
+         286,024₪
+        </div>
+        <div class="kpi-sublabel">
+         ללא הכנסות
+        </div>
+       </div>
+       <div class="equity-dual-col">
+        <div class="kpi-label">
+         הון עצמי
+         <span class="kpi-info-wrap">
+          <span class="kpi-info-icon">
+           i
+          </span>
+          <span class="kpi-tooltip">
+           הון עצמי = מקדמה + קרן שנפרעה + עליית ערך + סה״כ הכנסות
   מקדמה:          237,500₪
   קרן שנפרעה:    9,102₪
   עליית ערך:     39,422₪
   סה״כ הכנסות:   24,762₪
   = סה״כ:         310,786₪
-        </span>
-       </span>
-      </div>
-      <div class="kpi-value" id="hs-equity" style="color:#1e9d8b">
-       310,786₪
-      </div>
-      <div class="kpi-sublabel">
-       כולל עליית ערך והכנסות
+          </span>
+         </span>
+        </div>
+        <div class="kpi-value" id="hs-equity" style="color:#1e9d8b">
+         310,786₪
+        </div>
+        <div class="kpi-sublabel">
+         כולל הכנסות
+        </div>
+       </div>
       </div>
       <div class="equity-bar-wrap">
        <div class="equity-bar">
@@ -8539,6 +8780,8 @@ function hsRecalc(rate) {
   // Update value elements
   document.getElementById('hs-appr-price').textContent   = fmtShek(appr);
   document.getElementById('hs-equity').textContent       = fmtShek(equity);
+  const owEl = document.getElementById('hs-ownership-val');
+  if (owEl) owEl.textContent = fmtShek(equity);
   document.getElementById('hs-monthly-appr').textContent = '+' + fmtShek(moAppr);
   const trEl = document.getElementById('hs-total-return');
   const arEl = document.getElementById('hs-annual-return');
@@ -11004,6 +11247,52 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   if (dot && Array.isArray(d.suggestions) && d.suggestions.length > 0)
     dot.style.display = '';
 }).catch(() => {});
+  </script>
+  <script>
+   // Auto-position kpi tooltips to prevent viewport clipping
+(function() {
+  var PAD = 10;
+  document.addEventListener('mouseenter', function(e) {
+    var wrap = e.target.closest && e.target.closest('.kpi-info-wrap');
+    if (!wrap) return;
+    var tip = wrap.querySelector('.kpi-tooltip');
+    if (!tip) return;
+    // Reset previous adjustments so we measure from default position
+    tip.style.left = '';
+    tip.style.right = '';
+    tip.style.transform = '';
+    // Read position while still visibility:hidden (layout is calculated)
+    var rect = tip.getBoundingClientRect();
+    var vw = window.innerWidth;
+    if (rect.right > vw - PAD) {
+      // Overflows right edge — anchor right edge to icon right
+      tip.style.right = '0';
+      tip.style.left = 'auto';
+    } else if (rect.left < PAD) {
+      // Overflows left edge — anchor left edge to icon left
+      tip.style.left = '0';
+      tip.style.right = 'auto';
+    }
+    // Also guard top edge: if tooltip goes above viewport, flip below icon
+    var rect2 = tip.getBoundingClientRect();
+    if (rect2.top < PAD) {
+      tip.style.bottom = 'auto';
+      tip.style.top = 'calc(100% + 8px)';
+    }
+  }, true);
+
+  document.addEventListener('mouseleave', function(e) {
+    var wrap = e.target.closest && e.target.closest('.kpi-info-wrap');
+    if (!wrap) return;
+    var tip = wrap.querySelector('.kpi-tooltip');
+    if (!tip) return;
+    tip.style.left = '';
+    tip.style.right = '';
+    tip.style.transform = '';
+    tip.style.top = '';
+    tip.style.bottom = '';
+  }, true);
+})();
   </script>
  </body>
 </html>

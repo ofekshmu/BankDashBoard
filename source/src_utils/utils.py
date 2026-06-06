@@ -791,7 +791,11 @@ class utils:
                 _cell_lbl["style"] = "font-size:0.72em;font-weight:600;color:#888;margin-bottom:3px;"
                 _cell_lbl.string = _lbl
                 _cell_val = tag("div")
+                _cell_val["id"] = f"gen-kpi-val-{_i}"
                 _cell_val["style"] = f"font-size:1.15em;font-weight:800;color:{_clr};"
+                if _i == 0:
+                    _cell_val["data-pos-clr"] = "#1e9d8b"
+                    _cell_val["data-neg-clr"] = "#e74c3c"
                 _cell_val.string = _val
                 _cell.append(_cell_lbl)
                 _cell.append(_cell_val)
@@ -835,15 +839,131 @@ class utils:
       }})
     }};
   }}
+
+  // ── Month-exclusion state ──────────────────────────────────
+  var _excluded = new Set();
+  var _N = _chartData.labels.length;
+  // RGBA arrays for smooth colour interpolation [r, g, b, a]
+  var _BASE_RGBA = [
+    [239,154,154,0.80],
+    [255,183, 77,0.85],
+    [165,214,167,0.75],
+    [255,183, 77,0.85]
+  ];
+  var _DIM_RGBA  = [210,215,225,0.18];
+  var _BASE_BD   = ['#ef5350','#ffb74d','#43a047','#ffb74d'];
+  var _DIM_BD    = 'rgba(180,185,195,0.4)';
+
+  function _toRgba(c) {{ return 'rgba('+c[0]+','+c[1]+','+c[2]+','+c[3]+')'; }}
+  function _lerp(a,b,t) {{ return a+(b-a)*t; }}
+  function _lerpC(a,b,t) {{
+    return [Math.round(_lerp(a[0],b[0],t)), Math.round(_lerp(a[1],b[1],t)),
+            Math.round(_lerp(a[2],b[2],t)), +_lerp(a[3],b[3],t).toFixed(3)];
+  }}
+
+  var _animRaf = null;
+  function _fadeColumn(ch, idx, toExclude) {{
+    if (_animRaf) cancelAnimationFrame(_animRaf);
+    var DURATION = 320, start = null;
+    function tick(ts) {{
+      if (!start) start = ts;
+      var p = Math.min((ts - start) / DURATION, 1);
+      var ease = p < 0.5 ? 2*p*p : -1+(4-2*p)*p;
+      ch.data.datasets.forEach(function(ds, di) {{
+        if (ds.type === 'bar') {{
+          ds.backgroundColor = ds.data.map(function(_, i) {{
+            if (i === idx) {{
+              var t = toExclude ? ease : 1 - ease;
+              return _toRgba(_lerpC(_BASE_RGBA[di], _DIM_RGBA, t));
+            }}
+            return _excluded.has(i) ? _toRgba(_DIM_RGBA) : _toRgba(_BASE_RGBA[di]);
+          }});
+          ds.borderColor = ds.data.map(function(_, i) {{
+            return _excluded.has(i) ? _DIM_BD : _BASE_BD[di];
+          }});
+        }} else {{
+          ds.pointBackgroundColor = ds.data.map(function(_, i) {{
+            if (i === idx) {{
+              var t = toExclude ? ease : 1 - ease;
+              return _toRgba(_lerpC([30,157,139,1],[200,210,220,0.25],t));
+            }}
+            return _excluded.has(i) ? 'rgba(200,210,220,0.25)' : '#1e9d8b';
+          }});
+          ds.pointRadius = ds.data.map(function(_, i) {{
+            return _excluded.has(i) ? 1.5 : 5;
+          }});
+        }}
+      }});
+      ch.update('none');
+      if (p < 1) _animRaf = requestAnimationFrame(tick);
+      else _animRaf = null;
+    }}
+    requestAnimationFrame(tick);
+  }}
+
+  function _fmtKpi(v) {{
+    var a = Math.abs(Math.round(v));
+    var s = a.toLocaleString('he-IL') + '\u20aa';
+    return v < 0 ? '-' + s : s;
+  }}
+
+  function _updateKPIs(data) {{
+    var sp      = data.datasets[0].data;
+    var inv_out = data.datasets[1].data;
+    var ea      = data.datasets[2].data;
+    var inv_in  = data.datasets[3].data;
+    var net     = data.datasets[4].data;
+    var n = data.labels.length;
+    var totalIncome = 0, totalOutcome = 0, totalInvest = 0, totalNet = 0, cnt = 0;
+    for (var i = 0; i < n; i++) {{
+      if (_excluded.has(i)) continue;
+      cnt++;
+      totalIncome  += (ea[i]      || 0) + (inv_in[i]  || 0);
+      totalOutcome += (sp[i]      || 0) + (inv_out[i] || 0);
+      totalInvest  += (inv_out[i] || 0) - (inv_in[i]  || 0);
+      totalNet     += (net[i]     || 0);
+    }}
+    var meanNet = cnt ? totalNet / cnt : 0;
+    var vals = [meanNet, totalIncome, totalOutcome, totalInvest];
+    vals.forEach(function(v, i) {{
+      var el = document.getElementById('gen-kpi-val-' + i);
+      if (!el) return;
+      el.textContent = _fmtKpi(v);
+      if (i === 0) el.style.color = v >= 0 ? '#1e9d8b' : '#e74c3c';
+    }});
+  }}
+
   new Chart(document.getElementById('chart-general-bar'), {{
     type: 'bar',
     data: _chartData,
     options: {{
       responsive: true, maintainAspectRatio: false,
       interaction: {{ mode: 'nearest', intersect: true }},
+      onClick: function(event, elements, chart) {{
+        var idx = Math.round(chart.scales.x.getValueForPixel(event.x));
+        if (idx < 0 || idx >= _N) return;
+        var toExclude = !_excluded.has(idx);
+        if (toExclude) _excluded.add(idx); else _excluded.delete(idx);
+        _updateKPIs(chart.data);
+        _fadeColumn(chart, idx, toExclude);
+      }},
       plugins: {{
-        legend: {{ position: 'bottom', labels: {{ font: {{ size: _isMob ? 10 : 12 }}, padding: 12,
-          filter: function(item) {{ return item.text !== ''; }} }} }},
+        legend: {{ position: 'bottom',
+          onClick: null, onHover: null, onLeave: null,
+          labels: {{ font: {{ size: _isMob ? 10 : 12 }}, padding: 12,
+            filter: function(item) {{ return item.text !== ''; }},
+            generateLabels: function(chart) {{
+              var items = Chart.defaults.plugins.legend.labels.generateLabels(chart);
+              items.forEach(function(item) {{
+                var di = item.datasetIndex;
+                if (di < _BASE_RGBA.length) {{
+                  item.fillStyle   = _toRgba(_BASE_RGBA[di]);
+                  item.strokeStyle = _BASE_BD[di];
+                }}
+              }});
+              return items;
+            }}
+          }} }},
         tooltip: {{
           rtl: true,
           backgroundColor: 'rgba(255,255,255,0.97)',
@@ -867,7 +987,10 @@ class utils:
         }}
       }},
       scales: {{
-        x: {{ stacked: true, ticks: {{ font: {{ size: 11 }}, maxRotation: 30 }} }},
+        x: {{ stacked: true, ticks: {{
+          font: {{ size: 11 }}, maxRotation: 30,
+          color: function(ctx) {{ return _excluded.has(ctx.index) ? '#bbb' : undefined; }}
+        }} }},
         y: {{
           stacked: true,
           ticks: {{
@@ -878,6 +1001,7 @@ class utils:
       }}
     }}
   }});
+  document.getElementById('chart-general-bar').style.cursor = 'pointer';
 }})();
 """
             _gen_card.append(_gen_sc)
@@ -1852,6 +1976,37 @@ class utils:
             eq_with_inc     = eq_appr + alltime_inc_val   # equity + total income received
 
             equity_card = tag("div", class_="kpi-card")
+
+            # ── Dual side-by-side KPI: הון עצמי | שווי בעלות הנכס ───────
+            dual = tag("div", class_="equity-dual-row")
+
+            # Left col in RTL: שווי בעלות הנכס
+            own_col = tag("div", class_="equity-dual-col")
+            own_lbl_div = tag("div", class_="kpi-label")
+            own_lbl_div.append(bs4.NavigableString("שווי בעלות הנכס"))
+            own_info_wrap = tag("span", class_="kpi-info-wrap")
+            own_icon = tag("span", class_="kpi-info-icon"); own_icon.string = "i"
+            own_tip  = tag("span", class_="kpi-tooltip")
+            own_tip.string = (
+                f"שווי הבעלות על הנכס (ללא הכנסות משכירות):\n"
+                f"  מקדמה:        {init_pay:,.0f}₪\n"
+                f"  קרן שנפרעה:  {principal_paid:,.0f}₪\n"
+                f"  עליית ערך:   {appr_gain_val:,.0f}₪\n"
+                f"  = סה״כ:       {eq_appr:,.0f}₪\n\n"
+                f"זהו הערך המוצג בעמוד החשבונות תחת 'נכס'."
+            )
+            own_info_wrap.append(own_icon); own_info_wrap.append(own_tip)
+            own_lbl_div.append(own_info_wrap)
+            own_val = tag("div", class_="kpi-value")
+            own_val["id"] = "hs-ownership-val"
+            own_val["style"] = "color:#5b8dee"
+            own_val.string = f"{eq_appr:,.0f}₪"
+            own_sub = tag("div", class_="kpi-sublabel")
+            own_sub.string = "ללא הכנסות"
+            own_col.append(own_lbl_div); own_col.append(own_val); own_col.append(own_sub)
+
+            # Right col in RTL: הון עצמי (including income)
+            eq_col = tag("div", class_="equity-dual-col")
             eq_lbl = tag("div", class_="kpi-label")
             eq_lbl.append(bs4.NavigableString("הון עצמי"))
             eq_info_wrap = tag("span", class_="kpi-info-wrap")
@@ -1868,23 +2023,27 @@ class utils:
             eq_info_wrap.append(eq_icon); eq_info_wrap.append(eq_tip)
             eq_lbl.append(eq_info_wrap)
             eq_val = tag("div", class_="kpi-value")
-            eq_val.string = f"{eq_with_inc:,.0f}\u20aa"
+            eq_val.string = f"{eq_with_inc:,.0f}₪"
             eq_val["style"] = "color:#1e9d8b"
             eq_val["id"] = "hs-equity"
             eq_sub = tag("div", class_="kpi-sublabel")
-            eq_sub.string = "כולל עליית ערך והכנסות"
+            eq_sub.string = "כולל הכנסות"
+            eq_col.append(eq_lbl); eq_col.append(eq_val); eq_col.append(eq_sub)
 
-            # 4-segment bar: מקדמה | קרן שנפרעה | עליית ערך | הכנסות
+            dual.append(own_col); dual.append(eq_col)
+            equity_card.append(dual)
+
+            # 4-segment bar
             eq_total   = max(eq_with_inc, 1)
             peq_down   = round(init_pay         / eq_total * 100, 2)
             peq_prin   = round(principal_paid   / eq_total * 100, 2)
             peq_appr   = round(appr_gain_val    / eq_total * 100, 2)
             peq_inc    = round(alltime_inc_val  / eq_total * 100, 2)
 
-            C_DOWN  = "#81c784"   # gentle green — down payment
-            C_PRIN  = "#4db6ac"   # gentle teal  — principal repaid
-            C_APPR  = "#64b5f6"   # gentle blue  — appreciation
-            C_INC   = "#aed581"   # gentle lime  — income received
+            C_DOWN  = "#81c784"
+            C_PRIN  = "#4db6ac"
+            C_APPR  = "#64b5f6"
+            C_INC   = "#aed581"
 
             eq_bar_wrap = tag("div", class_="equity-bar-wrap")
             eq_bar      = tag("div", class_="equity-bar")
@@ -1905,7 +2064,6 @@ class utils:
             eq_bar.append(_bar_seg("hs-bar-inc",  peq_inc,  C_INC,
                                    f"סה״כ הכנסות ₪{alltime_inc_val:,.0f}"))
 
-            # Legend: 4 items
             eq_bar_labels = tag("div", class_="equity-bar-labels equity-bar-labels-4")
 
             def _lbl(text, color, elem_id=None):
@@ -1921,18 +2079,6 @@ class utils:
             eq_bar_labels.append(_lbl(f"הכנסות ₪{alltime_inc_val:,.0f}",    C_INC,  "hs-lbl-inc"))
 
             eq_bar_wrap.append(eq_bar); eq_bar_wrap.append(eq_bar_labels)
-
-            # Secondary row: שווי בעלות הנכס = מקדמה + קרן + עליית ערך (no income)
-            own_row = tag("div", class_="kpi-secondary-row")
-            own_lbl = tag("span", class_="kpi-secondary-label")
-            own_lbl.string = "שווי בעלות הנכס"
-            own_val = tag("span", class_="kpi-secondary-value")
-            own_val["id"] = "hs-ownership-val"
-            own_val.string = f"{eq_appr:,.0f}₪"
-            own_row.append(own_lbl); own_row.append(own_val)
-
-            equity_card.append(eq_lbl); equity_card.append(eq_val)
-            equity_card.append(eq_sub); equity_card.append(own_row)
             equity_card.append(eq_bar_wrap)
 
             _row2(

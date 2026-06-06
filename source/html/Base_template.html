@@ -513,19 +513,20 @@ body {
   padding-right: 4px;
 }
 
-/* Secondary KPI row inside equity card */
-.kpi-secondary-row {
-  display: flex; align-items: baseline; justify-content: space-between;
-  margin-top: 10px; padding-top: 8px;
-  border-top: 1px solid var(--border);
+/* Dual side-by-side KPIs inside equity card */
+.equity-dual-row {
+  display: flex;
   direction: rtl;
+  gap: 0;
 }
-.kpi-secondary-label {
-  font-size: 0.78em; font-weight: 600; color: #888;
+.equity-dual-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 0 12px;
 }
-.kpi-secondary-value {
-  font-size: 1.05em; font-weight: 800; color: #5b8dee;
-  font-variant-numeric: tabular-nums;
+.equity-dual-col:first-child {
+  border-left: 1.5px solid var(--border);
 }
 
 /* Equity breakdown bar */
@@ -4038,6 +4039,53 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   if (dot && Array.isArray(d.suggestions) && d.suggestions.length > 0)
     dot.style.display = '';
 }).catch(() => {});
+</script>
+
+<script>
+// Auto-position kpi tooltips to prevent viewport clipping
+(function() {
+  var PAD = 10;
+  document.addEventListener('mouseenter', function(e) {
+    var wrap = e.target.closest && e.target.closest('.kpi-info-wrap');
+    if (!wrap) return;
+    var tip = wrap.querySelector('.kpi-tooltip');
+    if (!tip) return;
+    // Reset previous adjustments so we measure from default position
+    tip.style.left = '';
+    tip.style.right = '';
+    tip.style.transform = '';
+    // Read position while still visibility:hidden (layout is calculated)
+    var rect = tip.getBoundingClientRect();
+    var vw = window.innerWidth;
+    if (rect.right > vw - PAD) {
+      // Overflows right edge — anchor right edge to icon right
+      tip.style.right = '0';
+      tip.style.left = 'auto';
+    } else if (rect.left < PAD) {
+      // Overflows left edge — anchor left edge to icon left
+      tip.style.left = '0';
+      tip.style.right = 'auto';
+    }
+    // Also guard top edge: if tooltip goes above viewport, flip below icon
+    var rect2 = tip.getBoundingClientRect();
+    if (rect2.top < PAD) {
+      tip.style.bottom = 'auto';
+      tip.style.top = 'calc(100% + 8px)';
+    }
+  }, true);
+
+  document.addEventListener('mouseleave', function(e) {
+    var wrap = e.target.closest && e.target.closest('.kpi-info-wrap');
+    if (!wrap) return;
+    var tip = wrap.querySelector('.kpi-tooltip');
+    if (!tip) return;
+    tip.style.left = '';
+    tip.style.right = '';
+    tip.style.transform = '';
+    tip.style.top = '';
+    tip.style.bottom = '';
+  }, true);
+})();
 </script>
 </body>
 </html>

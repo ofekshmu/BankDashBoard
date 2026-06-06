@@ -513,6 +513,21 @@ body {
   padding-right: 4px;
 }
 
+/* Secondary KPI row inside equity card */
+.kpi-secondary-row {
+  display: flex; align-items: baseline; justify-content: space-between;
+  margin-top: 10px; padding-top: 8px;
+  border-top: 1px solid var(--border);
+  direction: rtl;
+}
+.kpi-secondary-label {
+  font-size: 0.78em; font-weight: 600; color: #888;
+}
+.kpi-secondary-value {
+  font-size: 1.05em; font-weight: 800; color: #5b8dee;
+  font-variant-numeric: tabular-nums;
+}
+
 /* Equity breakdown bar */
 .equity-bar-wrap { margin-top: 14px; }
 .equity-bar {
@@ -1517,6 +1532,14 @@ body {
   display: grid;
   grid-template-columns: 1fr 1fr;
   direction: rtl;
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transition: max-height 0.35s ease, opacity 0.25s ease;
+}
+.cat-legend-grid.open {
+  max-height: 1200px;
+  opacity: 1;
 }
 .cat-legend-row {
   display: flex; align-items: center; gap: 7px;

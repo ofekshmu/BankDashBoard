@@ -471,8 +471,8 @@ class utils:
                 f"(function(){{"
                 f"var g=document.getElementById('{_grid_id}'),"
                 f"t=document.getElementById('{_toggle_id}'),"
-                f"open=g.style.display!=='none';"
-                f"g.style.display=open?'none':'grid';"
+                f"open=g.classList.contains('open');"
+                f"g.classList.toggle('open',!open);"
                 f"t.querySelector('.cat-toggle-chevron').style.transform=open?'':'rotate(180deg)';"
                 f"}})()"
             )
@@ -488,7 +488,6 @@ class utils:
             _sorted_items = sorted(enumerate(zip(_labels, _values)), key=lambda x: -x[1][1])
             grid = tag("div", class_="cat-legend-grid")
             grid["id"] = _grid_id
-            grid["style"] = "display:none;"
             for orig_idx, (lbl, val) in _sorted_items:
                 pct = val / _total * 100
                 row = tag("div", class_="cat-legend-row")
@@ -1922,8 +1921,19 @@ class utils:
             eq_bar_labels.append(_lbl(f"הכנסות ₪{alltime_inc_val:,.0f}",    C_INC,  "hs-lbl-inc"))
 
             eq_bar_wrap.append(eq_bar); eq_bar_wrap.append(eq_bar_labels)
+
+            # Secondary row: שווי בעלות הנכס = מקדמה + קרן + עליית ערך (no income)
+            own_row = tag("div", class_="kpi-secondary-row")
+            own_lbl = tag("span", class_="kpi-secondary-label")
+            own_lbl.string = "שווי בעלות הנכס"
+            own_val = tag("span", class_="kpi-secondary-value")
+            own_val["id"] = "hs-ownership-val"
+            own_val.string = f"{eq_appr:,.0f}₪"
+            own_row.append(own_lbl); own_row.append(own_val)
+
             equity_card.append(eq_lbl); equity_card.append(eq_val)
-            equity_card.append(eq_sub); equity_card.append(eq_bar_wrap)
+            equity_card.append(eq_sub); equity_card.append(own_row)
+            equity_card.append(eq_bar_wrap)
 
             _row2(
                 _h_kpi("יתרת משכנתא", f"{cur_bal:,.0f}\u20aa", "#e74c3c",
@@ -2385,6 +2395,8 @@ function hsRecalc(rate) {
   // Update value elements
   document.getElementById('hs-appr-price').textContent   = fmtShek(appr);
   document.getElementById('hs-equity').textContent       = fmtShek(equity);
+  const owEl = document.getElementById('hs-ownership-val');
+  if (owEl) owEl.textContent = fmtShek(equity);
   document.getElementById('hs-monthly-appr').textContent = '+' + fmtShek(moAppr);
   const trEl = document.getElementById('hs-total-return');
   const arEl = document.getElementById('hs-annual-return');

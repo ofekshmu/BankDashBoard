@@ -395,9 +395,7 @@ class utils:
   }"""
 
         def _make_donut_card(canvas_id, title, cat_data, palette, full_width=False, colors=None, border_colors=None, border_widths=None, tooltip=None):
-            """Return (chart_card, mobile_legend_card) for a Chart.js doughnut.
-            On mobile the built-in legend is hidden and the legend_card (a separate
-            card with a category list) is shown instead via CSS."""
+            """Return a chart-card div with a Chart.js doughnut and a custom HTML category legend grid."""
             _labels = list(cat_data.keys())
             _values = list(cat_data.values())
             _colors = colors if colors is not None else [palette[i % len(palette)] for i in range(len(_labels))]
@@ -435,21 +433,7 @@ class utils:
       responsive: true, maintainAspectRatio: false,
       cutout: '68%',
       plugins: {{
-        legend: {{
-          display: !_isMob,
-          position: 'bottom',
-          labels: {{ font: {{ size: 11 }}, padding: 10, boxWidth: 12 }},
-          onHover: function(evt, item, legend) {{
-            var ch = legend.chart;
-            ch.tooltip.setActiveElements([{{datasetIndex: 0, index: item.index}}], evt);
-            ch.update();
-          }},
-          onLeave: function(evt, item, legend) {{
-            var ch = legend.chart;
-            ch.tooltip.setActiveElements([], evt);
-            ch.update();
-          }}
-        }},
+        legend: {{ display: false }},
         tooltip: {{
           rtl: true,
           callbacks: {{
@@ -469,27 +453,58 @@ class utils:
   }});
 }})();
 """
+            # Expose chart instance for custom legend interaction
+            sc_ref = tag("script")
+            sc_ref.string = (
+                f"document.getElementById('{canvas_id}')._chartInst = "
+                f"Chart.getChart(document.getElementById('{canvas_id}'));"
+            )
             card.append(sc)
+            card.append(sc_ref)
 
-            # \u2500\u2500 Mobile-only category legend card \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
-            legend_card = tag("div", class_="chart-card mobile-cat-legend-card")
-            leg_ttl = tag("div", class_="chart-card-title"); leg_ttl.string = title
-            legend_card.append(leg_ttl)
-            leg_ul = tag("ul", class_="mobile-cat-list")
+            # Unified category legend grid (desktop: 2-col, mobile: 1-col)
             _total = sum(_values) or 1
-            for i, (lbl, val) in enumerate(zip(_labels, _values)):
-                li = tag("li", class_="mobile-cat-item")
-                dot = tag("span", class_="mobile-cat-dot")
-                dot["style"] = f"background:{_colors[i]}"
-                name_sp = tag("span", class_="mobile-cat-name"); name_sp.string = lbl
+            _sorted_items = sorted(enumerate(zip(_labels, _values)), key=lambda x: -x[1][1])
+            grid = tag("div", class_="cat-legend-grid")
+            for orig_idx, (lbl, val) in _sorted_items:
                 pct = val / _total * 100
-                val_sp = tag("span", class_="mobile-cat-value")
+                row = tag("div", class_="cat-legend-row")
+                row["data-cid"] = canvas_id
+                row["data-idx"] = str(orig_idx)
+                dot = tag("span", class_="cat-dot")
+                dot["style"] = f"background:{_colors[orig_idx]}"
+                name_sp = tag("span", class_="cat-name"); name_sp.string = lbl
+                val_sp = tag("span", class_="cat-val")
                 val_sp.string = f"\u20aa{round(val):,} ({pct:.0f}%)"
-                li.append(dot); li.append(name_sp); li.append(val_sp)
-                leg_ul.append(li)
-            legend_card.append(leg_ul)
+                row.append(dot); row.append(name_sp); row.append(val_sp)
+                grid.append(row)
+            card.append(grid)
+            sc_leg = tag("script")
+            sc_leg.string = f"""
+(function(){{
+  var rows = document.querySelectorAll('.cat-legend-row[data-cid="{canvas_id}"]');
+  rows.forEach(function(row) {{
+    var idx = +row.dataset.idx;
+    row.addEventListener('click', function() {{
+      var ch = document.getElementById('{canvas_id}')._chartInst;
+      ch.toggleDataVisibility(idx); ch.update();
+      row.style.opacity = ch.getDataVisibility(idx) ? '1' : '0.35';
+    }});
+    row.addEventListener('mouseenter', function() {{
+      var ch = document.getElementById('{canvas_id}')._chartInst;
+      ch.tooltip.setActiveElements([{{datasetIndex:0,index:idx}}], {{x:0,y:0}});
+      ch.update();
+    }});
+    row.addEventListener('mouseleave', function() {{
+      var ch = document.getElementById('{canvas_id}')._chartInst;
+      ch.tooltip.setActiveElements([], {{x:0,y:0}}); ch.update();
+    }});
+  }});
+}})();
+"""
+            card.append(sc_leg)
 
-            return card, legend_card
+            return card
 
         def _make_investment_bar_card(title, total_out, total_in, net, items):
             """Horizontal bar chart (הפקדות/משיכות) + totals + detailed transaction list."""
@@ -635,21 +650,21 @@ class utils:
 
         # Spendings donut
         if data.get('spendings_by_cat'):
-            _c, _l = _make_donut_card(
+            _c = _make_donut_card(
                 "chart-spendings-donut", "הוצאות לפי קטגוריה",
                 data['spendings_by_cat'], _PAL_SPEND,
                 tooltip="פילוח ההוצאות מהחשבון הבנקאי לפי קטגוריה.\n"
                         "אינו כולל השקעות/חיסכון (מוצגים בגרף נפרד) ומזומן (מוצג בגרף מזומן).")
-            charts_grid.append(_c); charts_grid.append(_l)
+            charts_grid.append(_c)
 
         # Earnings donut
         if data.get('earnings_by_cat'):
-            _c, _l = _make_donut_card(
+            _c = _make_donut_card(
                 "chart-earnings-donut", "הכנסות לחשבון לפי קטגוריה",
                 data['earnings_by_cat'], _PAL_EARN,
                 tooltip="פילוח ההכנסות שהתקבלו לחשבון הבנק הראשי לפי קטגוריה.\n"
                         "אינו כולל השקעות/חיסכון ומזומן.")
-            charts_grid.append(_c); charts_grid.append(_l)
+            charts_grid.append(_c)
 
         # Investments bar chart + transaction list
         _inv_card = _make_investment_bar_card(
@@ -665,7 +680,7 @@ class utils:
         _cash_earned = abs(float(cash_information_data.get('Monthly Earned Cash', 0)))
         _cash_spent  = abs(float(cash_information_data.get('Monthly Spent Cash',  0)))
         if _cash_earned + _cash_spent > 0:
-            _c, _l = _make_donut_card(
+            _c = _make_donut_card(
                 "chart-cash-donut", "הכנסות/הוצאות במזומן",
                 {f"הכנסה  ₪{_cash_earned:,.0f}": _cash_earned,
                  f"הוצאה  ₪{_cash_spent:,.0f}":  _cash_spent},
@@ -673,7 +688,7 @@ class utils:
                 tooltip="תזרים מזומנים פיזי בלבד — אינו כולל תשלומי כרטיס אשראי.\n"
                         "הכנסה: כולל משיכות מהבנק לכיס (כסף שהגיע לידיים).\n"
                         "הוצאה: תשלומים מזומנים ידניים שנרשמו.")
-            charts_grid.append(_c); charts_grid.append(_l)
+            charts_grid.append(_c)
         else:
             _cash_card = tag("div", class_="chart-card")
             _cash_ttl  = tag("div", class_="chart-card-title"); _cash_ttl.string = "הכנסות/הוצאות במזומן"

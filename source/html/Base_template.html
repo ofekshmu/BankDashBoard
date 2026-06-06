@@ -1492,28 +1492,36 @@ body {
 .acct-entries-list div { padding: 3px 0; border-bottom: 1px solid #f0f0f0; }
 .acct-entries-list div:last-child { border-bottom: none; }
 
-/* ── Mobile category legend card (hidden on desktop) ────── */
-.mobile-cat-legend-card { display: none; }
-.mobile-cat-list {
-  list-style: none; margin: 0; padding: 0;
-  display: flex; flex-direction: column; gap: 6px;
+/* ── Donut category legend (all screen sizes) ─────────────── */
+.cat-legend-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin-top: 12px;
+  border-top: 1.5px solid var(--border);
+  direction: rtl;
 }
-.mobile-cat-item {
-  display: flex; align-items: center; gap: 8px;
-  padding: 6px 0; border-bottom: 1px solid var(--border);
-  font-size: 0.84em;
+.cat-legend-row {
+  display: flex; align-items: center; gap: 7px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.15s;
+  font-size: 0.82em;
+  min-width: 0;
 }
-.mobile-cat-item:last-child { border-bottom: none; }
-.mobile-cat-dot {
-  width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+.cat-legend-row:hover { background: #f5f7fc; }
+.cat-dot {
+  width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0;
 }
-.mobile-cat-name {
-  flex: 1; color: var(--text-sub); direction: rtl;
+.cat-name {
+  flex: 1; color: var(--text-sub);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  min-width: 0;
 }
-.mobile-cat-value {
-  font-weight: 700; color: var(--navy); font-variant-numeric: tabular-nums;
-  white-space: nowrap;
+.cat-val {
+  font-weight: 700; color: var(--navy);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+  font-size: 0.92em;
 }
 
 /* ── Mobile view (≤768px) ────────────────────────────────── */
@@ -1546,8 +1554,8 @@ body {
   /* 2. Charts grid → single column so each donut gets full width */
   .charts-grid { grid-template-columns: 1fr; }
 
-  /* 3. Show mobile category legend cards */
-  .mobile-cat-legend-card { display: block; }
+  /* 3. Category legend → single column on mobile */
+  .cat-legend-grid { grid-template-columns: 1fr; }
 
   /* 4. Reduce donut canvas height on mobile */
   .donut-chart-wrap { height: 220px !important; }

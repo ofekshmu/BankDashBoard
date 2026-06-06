@@ -1492,12 +1492,30 @@ body {
 .acct-entries-list div { padding: 3px 0; border-bottom: 1px solid #f0f0f0; }
 .acct-entries-list div:last-child { border-bottom: none; }
 
+/* ── Donut category legend toggle bar ─────────────────────── */
+.cat-legend-toggle {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  margin-top: 12px;
+  padding: 6px 0;
+  border-top: 1.5px solid var(--border);
+  cursor: pointer;
+  color: #aab0c0;
+  font-size: 0.78em; font-weight: 600; letter-spacing: 0.02em;
+  user-select: none;
+  transition: color 0.15s;
+}
+.cat-legend-toggle:hover { color: var(--navy); }
+.cat-toggle-chevron {
+  display: inline-block;
+  transition: transform 0.2s;
+  font-size: 1.1em;
+  line-height: 1;
+}
+
 /* ── Donut category legend (all screen sizes) ─────────────── */
 .cat-legend-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  margin-top: 12px;
-  border-top: 1.5px solid var(--border);
   direction: rtl;
 }
 .cat-legend-row {

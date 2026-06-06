@@ -462,10 +462,33 @@ class utils:
             card.append(sc)
             card.append(sc_ref)
 
-            # Unified category legend grid (desktop: 2-col, mobile: 1-col)
+            # Unified category legend grid (desktop: 2-col, mobile: 1-col) — collapsed by default
+            _grid_id = canvas_id + '-legend'
+            _toggle_id = canvas_id + '-toggle'
+            toggle = tag("div", class_="cat-legend-toggle")
+            toggle["id"] = _toggle_id
+            toggle["onclick"] = (
+                f"(function(){{"
+                f"var g=document.getElementById('{_grid_id}'),"
+                f"t=document.getElementById('{_toggle_id}'),"
+                f"open=g.style.display!=='none';"
+                f"g.style.display=open?'none':'grid';"
+                f"t.querySelector('.cat-toggle-chevron').style.transform=open?'':'rotate(180deg)';"
+                f"}})()"
+            )
+            toggle_lbl = tag("span", class_="cat-toggle-label")
+            toggle_lbl.string = "פירוט קטגוריות"
+            toggle_chev = tag("span", class_="cat-toggle-chevron")
+            toggle_chev.string = "\u25be"  # ▾
+            toggle.append(toggle_lbl)
+            toggle.append(toggle_chev)
+            card.append(toggle)
+
             _total = sum(_values) or 1
             _sorted_items = sorted(enumerate(zip(_labels, _values)), key=lambda x: -x[1][1])
             grid = tag("div", class_="cat-legend-grid")
+            grid["id"] = _grid_id
+            grid["style"] = "display:none;"
             for orig_idx, (lbl, val) in _sorted_items:
                 pct = val / _total * 100
                 row = tag("div", class_="cat-legend-row")

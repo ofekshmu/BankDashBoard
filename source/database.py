@@ -249,6 +249,15 @@ class DataBase:
                     Created_At TEXT    DEFAULT (datetime('now'))
                     );""")
 
+                # Migrate: add Source column to OtherAccountStatus if it doesn't exist
+                try:
+                    cls.__instance.cursor.execute(
+                        "ALTER TABLE OtherAccountStatus ADD COLUMN Source TEXT"
+                    )
+                    cls.__instance.connection.commit()
+                except Exception:
+                    pass  # column already exists
+
         return cls.__instance
 
     def insert_bank_transaction(self,
@@ -523,6 +532,25 @@ class DataBase:
                                       ORDER BY Date
                                       DESC LIMIT 1
                                    """).fetchone()[0]
+
+    @error_handler(default_return=None)
+    def get_latest_balance_date(self) -> str:
+        row = self.cursor.execute("""SELECT Date FROM BankTransactions
+                                      ORDER BY Date DESC LIMIT 1
+                                   """).fetchone()
+        return row[0] if row else None
+
+    @error_handler(default_return=None)
+    def get_balance_for_month(self, year: int, month: int):
+        row = self.cursor.execute("""
+            SELECT Balance FROM BankTransactions
+            WHERE strftime('%Y', Date) = ?
+              AND strftime('%m', Date) = ?
+              AND Balance IS NOT NULL
+              AND TRIM(CAST(Balance AS TEXT)) != ''
+            ORDER BY Date DESC LIMIT 1
+        """, (str(year), f"{month:02d}")).fetchone()
+        return row[0] if row else None
 
     def get_housing_income(self, category: str) -> pd.DataFrame:
         """
@@ -1849,21 +1877,36 @@ class DataBase:
                 ID              INTEGER     PRIMARY KEY AUTOINCREMENT,
                 AccountName     TEXT        NOT NULL,
                 StatusDate      DATE        NOT NULL,
-                Value          REAL        NOT NULL,
-                TransactionID  INTEGER,
+                Value           REAL        NOT NULL,
+                TransactionID   INTEGER,
+                Currency        TEXT        DEFAULT 'ILS',
+                Source          TEXT,
                 FOREIGN KEY(TransactionID) REFERENCES BankTransactions(ID)
             );
         """)
+        # Safe migrations for existing DBs
+        for _col, _def in [("Currency", "TEXT DEFAULT 'ILS'"), ("Source", "TEXT")]:
+            try:
+                self.cursor.execute(f"ALTER TABLE OtherAccountStatus ADD COLUMN {_col} {_def}")
+            except Exception:
+                pass
         self.connection.commit()
 
     def insert_other_account_status(self, account_name: str, status_date: str, value: float, transaction_id: int = None):
-        """Insert a new status record for another account"""
+        """Insert a new manual status record for another account"""
         query = """
-            INSERT INTO OtherAccountStatus (AccountName, StatusDate, Value, TransactionID)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO OtherAccountStatus (AccountName, StatusDate, Value, TransactionID, Source)
+            VALUES (?, ?, ?, ?, NULL)
         """
         self.cursor.execute(query, (account_name, status_date, value, transaction_id))
         self.connection.commit()
+
+    def insert_auto_account_status(self, account_name: str, status_date: str, value: float):
+        """Insert an auto-generated status point (not shown in the management UI)."""
+        self.cursor.execute(
+            "INSERT INTO OtherAccountStatus (AccountName, StatusDate, Value, TransactionID, Source) VALUES (?, ?, ?, NULL, 'auto')",
+            (account_name, status_date, value)
+        )
 
     def get_account_entries_with_dates(self, account_name: str = None, from_date: datetime = None) -> pd.DataFrame:
         """
@@ -1943,15 +1986,11 @@ class DataBase:
             return False
 
     def get_account_entries(self) -> list:
-        """
-        Get all entries from OtherAccountStatus with their IDs
-        
-        Returns:
-            list: List of tuples containing (ID, StatusDate, Value)
-        """
+        """Get manual-only entries from OtherAccountStatus (excludes auto-generated points)."""
         query = """
-            SELECT ID, StatusDate, Value 
-            FROM OtherAccountStatus 
+            SELECT ID, AccountName, StatusDate, Value
+            FROM OtherAccountStatus
+            WHERE Source IS NULL OR Source != 'auto'
             ORDER BY StatusDate DESC
         """
         return self.cursor.execute(query).fetchall()
@@ -2780,28 +2819,26 @@ class DataBase:
             SELECT
                 p.ID, p.Member_ID, p.Amount, p.Payment_Date, p.TX_ID,
                 p.TX_Source, p.Note,
-                -- Name from original transaction (split rows use parent name)
-                COALESCE(orig_bt.Name, orig_ct.Name, bt.Name, ct.Name) AS tx_name,
-                -- Description: split row's own description wins
-                COALESCE(sp.Description, bt.Description, ct.Description) AS tx_description,
-                -- Category: split row's category is the user-assigned one — always prefer it
-                COALESCE(sp.Category, bt.Category, ct.Category) AS tx_category,
-                CASE WHEN p.TX_Source IS NOT NULL THEN p.TX_Source
+                COALESCE(orig_bt.Name, orig_ct.Name, bt.Name, ct.Name)        AS tx_name,
+                COALESCE(sp.Description, bt.Description, ct.Description)       AS tx_description,
+                COALESCE(sp.Category,    bt.Category,    ct.Category)          AS tx_category,
+                CASE WHEN sp.ID IS NOT NULL THEN 'split'
                      WHEN bt.ID IS NOT NULL THEN 'bank'
                      WHEN ct.ID IS NOT NULL THEN 'card'
-                     ELSE NULL END AS resolved_source,
-                CASE WHEN sp.ID IS NOT NULL THEN 1 ELSE 0 END AS tx_split
+                     ELSE NULL END                                              AS resolved_source,
+                CASE WHEN sp.ID IS NOT NULL THEN 1 ELSE 0 END                  AS tx_split
             FROM SpotifyMemberPayments p
-            -- Direct bank/card lookup (used when TX_Source is bank/card/NULL)
-            LEFT JOIN BankTransactions  bt ON bt.ID = p.TX_ID
-                AND (p.TX_Source IS NULL OR p.TX_Source = 'bank')
-            LEFT JOIN CardTransactions  ct ON ct.ID = p.TX_ID
-                AND (p.TX_Source IS NULL OR p.TX_Source = 'card')
-                AND bt.ID IS NULL
-            -- Split lookup (used when TX_Source = 'split')
+            -- Split lookup: explicit 'split' source OR legacy NULL (check splits first —
+            -- they are user-created and more specific than bank/card rows with the same ID)
             LEFT JOIN TransactionSplits sp ON sp.ID = p.TX_ID
-                AND p.TX_Source = 'split'
-            -- Original transaction name/date for split rows
+                AND (p.TX_Source = 'split' OR p.TX_Source IS NULL)
+            -- Bank lookup: explicit 'bank' OR legacy NULL where no split matched
+            LEFT JOIN BankTransactions  bt ON bt.ID = p.TX_ID
+                AND (p.TX_Source = 'bank' OR (p.TX_Source IS NULL AND sp.ID IS NULL))
+            -- Card lookup: explicit 'card' OR legacy NULL where neither split nor bank matched
+            LEFT JOIN CardTransactions  ct ON ct.ID = p.TX_ID
+                AND (p.TX_Source = 'card' OR (p.TX_Source IS NULL AND sp.ID IS NULL AND bt.ID IS NULL))
+            -- Original transaction name for split rows
             LEFT JOIN BankTransactions orig_bt ON orig_bt.ID = sp.Original_ID
                 AND sp.Original_Table = 'BankTransactions'
             LEFT JOIN CardTransactions orig_ct ON orig_ct.ID = sp.Original_ID

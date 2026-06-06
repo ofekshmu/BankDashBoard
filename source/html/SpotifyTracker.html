@@ -788,15 +788,20 @@ var state = {
 function restartServer(btn) {
   btn.disabled = true;
   var spinSvg = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>';
-  btn.innerHTML = spinSvg + ' שולח…';
+  btn.innerHTML = spinSvg + ' מאתחל…';
 
-  fetch('/api/restart', {method:'POST'})
-    .catch(function(){})
-    .finally(function(){
-      btn.innerHTML = spinSvg + ' מחכה לסגירה…';
-      var deadline = Date.now() + 20000;
-      var phase = 'down';   // first wait for server to go DOWN, then UP
+  // Step 1: capture current server's startup timestamp
+  fetch('/api/status', {cache:'no-store'})
+    .then(function(r){ return r.json(); })
+    .then(function(s){ return s.started_at || 0; })
+    .catch(function(){ return 0; })
+    .then(function(oldTs){
+      // Step 2: send restart
+      fetch('/api/restart', {method:'POST'}).catch(function(){});
+      btn.innerHTML = spinSvg + ' מפעיל מחדש…';
 
+      // Step 3: poll until started_at changes (new process) or timeout
+      var deadline = Date.now() + 30000;
       var t = setInterval(function(){
         if(Date.now() > deadline){
           clearInterval(t);
@@ -805,20 +810,15 @@ function restartServer(btn) {
           return;
         }
         fetch('/api/status', {cache:'no-store'})
-          .then(function(r){
-            if(phase === 'down') return;   // still up — keep waiting
-            // phase === 'up' and got a response
-            if(r.ok){ clearInterval(t); location.reload(); }
-          })
-          .catch(function(){
-            if(phase === 'down'){
-              // server went down — now wait for it to come back
-              phase = 'up';
-              btn.innerHTML = spinSvg + ' מפעיל מחדש…';
+          .then(function(r){ return r.json(); })
+          .then(function(s){
+            if(s.started_at && s.started_at !== oldTs){
+              clearInterval(t);
+              location.reload();
             }
-            // phase === 'up' — still down, keep waiting
-          });
-      }, 600);
+          })
+          .catch(function(){}); // server still down — keep waiting
+      }, 700);
     });
 }
 function openNav(){

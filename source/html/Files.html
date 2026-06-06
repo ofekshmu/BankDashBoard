@@ -1163,7 +1163,7 @@ function renderDbTable() {
       <td class="db-date">${f.last_update || '—'}</td>
       <td style="text-align:center;padding:6px 8px">
         <button class="db-del-btn" title="מחק קובץ"
-          onclick="deleteDbFile(${JSON.stringify(f.name)},${JSON.stringify(f.format)},${JSON.stringify(f.card||'')})">🗑</button>
+          onclick="deleteDbFile(${JSON.stringify(f.name).replace(/"/g,'&quot;')},${JSON.stringify(f.format).replace(/"/g,'&quot;')},${JSON.stringify(f.card||'').replace(/"/g,'&quot;')})">🗑</button>
       </td>
     </tr>`;
   }).join('') + '</tbody>';

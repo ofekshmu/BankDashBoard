@@ -65,6 +65,14 @@ def _debug_put(line: str):
             except Exception:
                 pass
 
+def _log_error(exc, tb_str: str):
+    """Put exception + traceback to both the analysis queue and the debug panel."""
+    import traceback as _tb
+    lines = [f'[ERROR] {exc}'] + [l for l in tb_str.splitlines() if l.strip()]
+    for line in lines:
+        _log_queue.put(line)
+        _debug_put(line)
+
 class _TeeStream:
     """Forwards every write() to the original stream *and* the SSE log queues."""
     def __init__(self, original):
@@ -94,9 +102,11 @@ class _TeeStream:
         return getattr(self._orig, name)
 
 
-# Install tee once on import
+# Install tee once on import — capture both stdout and stderr so exceptions appear in debug panel
 if not isinstance(sys.stdout, _TeeStream):
     sys.stdout = _TeeStream(sys.stdout)
+if not isinstance(sys.stderr, _TeeStream):
+    sys.stderr = _TeeStream(sys.stderr)
 
 # ── Dependency tracking ───────────────────────────────────────────────────────
 # Each analysis thread activates thread-local tracking; the patched open()
@@ -238,18 +248,37 @@ app.config['JSON_AS_ASCII'] = False
 
 @app.route('/')
 def index():
-    # Redirect to the latest monthly file if available
+    # Compute the default fallback path
+    default_path = None
     if os.path.isdir(GENERAL_ANALYSIS_DIR):
         files = sorted(
             f for f in os.listdir(GENERAL_ANALYSIS_DIR)
             if _re.match(r'^\d{4}_\d{2}\.html$', f)
         )
         if files:
-            latest_key = files[-1].replace('.html', '')
-            return redirect(f'/general/{latest_key}')
-    if os.path.exists(OUTPUT_HTML):
-        return send_file(OUTPUT_HTML)
-    return _splash_html()
+            default_path = '/general/' + files[-1].replace('.html', '')
+    if default_path is None and os.path.exists(OUTPUT_HTML):
+        default_path = '/output'
+    if default_path is None:
+        return _splash_html()
+
+    # Serve a lightweight JS redirect that checks localStorage first.
+    # If a page was viewed within the last hour, go there; otherwise go to default.
+    STALE_MS = 3600 * 1000  # 1 hour
+    html = f"""<!DOCTYPE html><html><head><meta charset="UTF-8">
+<script>
+(function(){{
+  var STALE={STALE_MS};
+  try{{
+    var s=JSON.parse(localStorage.getItem('lv_page')||'null');
+    if(s&&s.p&&s.p!=='/'&&(Date.now()-s.ts)<STALE){{
+      window.location.replace(s.p);return;
+    }}
+  }}catch(e){{}}
+  window.location.replace({_json.dumps(default_path)});
+}})();
+</script></head><body></body></html>"""
+    return html, 200, {'Content-Type': 'text/html; charset=utf-8'}
 
 
 @app.route('/outputs/<path:filename>')
@@ -847,9 +876,7 @@ def run_category():
             _log_queue.put(f'__DONE__:{slug}')
         except Exception as exc:
             import traceback
-            _log_queue.put(f'[ERROR] {exc}')
-            for line in traceback.format_exc().splitlines():
-                if line.strip(): _log_queue.put(line)
+            _log_error(exc, traceback.format_exc())
             _log_queue.put('__ERROR__')
         finally:
             with _analysis_lock:
@@ -1058,12 +1085,17 @@ def _acct_db():
     """Open a fresh connection to the main DB using an absolute path."""
     import sqlite3 as _sq
     conn = _sq.connect(_DB_PATH, check_same_thread=False)
-    # Ensure Currency column exists (safe migration)
+    # Ensure Currency and Source columns exist (safe migrations)
     try:
         conn.execute("ALTER TABLE OtherAccountStatus ADD COLUMN Currency TEXT NOT NULL DEFAULT 'ILS'")
         conn.commit()
     except Exception:
-        pass  # Column already exists
+        pass
+    try:
+        conn.execute("ALTER TABLE OtherAccountStatus ADD COLUMN Source TEXT")
+        conn.commit()
+    except Exception:
+        pass
     return conn
 
 
@@ -1176,7 +1208,7 @@ def accounts_entries():
     conn = _acct_db()
     try:
         rows = conn.execute(
-            "SELECT ID, AccountName, StatusDate, Value, Currency FROM OtherAccountStatus ORDER BY StatusDate DESC"
+            "SELECT ID, AccountName, StatusDate, Value, Currency FROM OtherAccountStatus WHERE Source IS NULL OR Source != 'auto' ORDER BY StatusDate DESC"
         ).fetchall()
         entries = [{'id': r[0], 'account': r[1], 'date': r[2], 'value': r[3], 'currency': r[4] or 'ILS'} for r in rows]
         return jsonify({'entries': entries})
@@ -1415,9 +1447,12 @@ def cash_reconcile():
         return jsonify({'ok': False, 'error': str(e)})
 
 
+import time as _time
+_SERVER_START_TIME = _time.time()
+
 @app.route('/api/status')
 def status():
-    return jsonify({'running': _analysis_running})
+    return jsonify({'running': _analysis_running, 'started_at': _SERVER_START_TIME})
 
 
 @app.route('/api/version')
@@ -1562,10 +1597,7 @@ def run_analysis():
 
         except Exception as exc:
             import traceback
-            _log_queue.put(f'[ERROR] {exc}')
-            for line in traceback.format_exc().splitlines():
-                if line.strip():
-                    _log_queue.put(line)
+            _log_error(exc, traceback.format_exc())
             _log_queue.put('__ERROR__')
 
         finally:
@@ -2550,10 +2582,7 @@ def files_insert():
 
         except Exception as e:
             import traceback
-            _log_queue.put(f'[ERROR] {e}')
-            for line in traceback.format_exc().splitlines():
-                if line.strip():
-                    _log_queue.put(line)
+            _log_error(e, traceback.format_exc())
             _log_queue.put('__ERROR__')
         finally:
             _bt.input = _orig_input
@@ -2821,6 +2850,13 @@ def files_delete():
     try:
         from database import DataBase as _DB2
         db = _DB2()
+        if not card:
+            row = db.cursor.execute(
+                'SELECT Card_Number FROM File WHERE File_Name = ? AND Format = ?',
+                (name, fmt)
+            ).fetchone()
+            if row:
+                card = row[0] or ''
         db.drop_file(name, fmt, card)
         db.commit_changes()
         return jsonify({'ok': True})

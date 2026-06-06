@@ -892,9 +892,9 @@ class AppManager:
         
         # -------------------------- Plot general graph --------------------------
         if case == 2:
-            spendings_sum, spendings_sum_overall_inc, earnings_sum = SimpleMath.get_monthly_shifted(shift=6, category=None, business=name_for_analysis)
+            spendings_sum, spendings_sum_overall_inc, earnings_sum, earnings_net_sum = SimpleMath.get_monthly_shifted(shift=6, category=None, business=name_for_analysis)
         elif case == 1:
-            spendings_sum, spendings_sum_overall_inc, earnings_sum = SimpleMath.get_monthly_shifted(shift=6, category=category_for_analysis, business=None)
+            spendings_sum, spendings_sum_overall_inc, earnings_sum, earnings_net_sum = SimpleMath.get_monthly_shifted(shift=6, category=category_for_analysis, business=None)
         else:
             utils.log("Unreachable point reached...", "error")
 
@@ -1151,7 +1151,51 @@ class AppManager:
             (datetime.now(), cash_information_data["Accumulative Cash Balance"])
         ]
 
-        
+        # Auto-generate monthly end-of-month balance points for Main Bank and Cash.
+        # These are stored with Source='auto' and are hidden from the management UI.
+        try:
+            import calendar as _cal
+            _db_auto = DataBase()
+            _existing_entries = _db_auto.cursor.execute(
+                "SELECT AccountName, CAST(strftime('%Y', StatusDate) AS INTEGER), CAST(strftime('%m', StatusDate) AS INTEGER) FROM OtherAccountStatus"
+            ).fetchall()
+            _existing_set = set((_r[0], _r[1], _r[2]) for _r in _existing_entries)
+
+            _today = datetime.now()
+
+            # Build month-end cash balances from history:
+            # cash_monthly_history() gives balance at START of each month = end of previous month.
+            _cash_end_by_ym = {}
+            for _dt_pt, _bal_pt in (_cash_history or []):
+                if hasattr(_dt_pt, 'day') and _dt_pt.day == 1:
+                    _pm = _dt_pt.month - 1 if _dt_pt.month > 1 else 12
+                    _py = _dt_pt.year if _dt_pt.month > 1 else _dt_pt.year - 1
+                    _cash_end_by_ym[(_py, _pm)] = _bal_pt
+
+            for _i in range(1, 14):
+                _m = _today.month - _i
+                _y = _today.year
+                while _m <= 0:
+                    _m += 12
+                    _y -= 1
+                _last_day = f"{_y}-{_m:02d}-{_cal.monthrange(_y, _m)[1]}"
+
+                # Main Bank
+                if ('Main Bank', _y, _m) not in _existing_set:
+                    _bal = DataBase().get_balance_for_month(_y, _m)
+                    if _bal is not None:
+                        _db_auto.insert_auto_account_status('Main Bank', _last_day, float(_bal))
+                        _existing_set.add(('Main Bank', _y, _m))
+
+                # Cash
+                if ('Cash', _y, _m) not in _existing_set and (_y, _m) in _cash_end_by_ym:
+                    _db_auto.insert_auto_account_status('Cash', _last_day, float(_cash_end_by_ym[(_y, _m)]))
+                    _existing_set.add(('Cash', _y, _m))
+
+            _db_auto.commit_changes()
+        except Exception as _auto_e:
+            utils.log(f"auto account points failed: {_auto_e}", "warning")
+
         def handle_spendings_pie_plot():
             color_pallete = sns.light_palette("#f66b85", n_colors=10, reverse=True)
             cash_flow_row = {"Name": "מזומן", "Category": "מזומן", "Description/Charge_Currency": None , "Final_Value": cash_information_data['Monthly Spent Cash']}
@@ -1174,11 +1218,7 @@ class AppManager:
 
         def handle_earnings_pie_plot():
             color_pallete = sns.light_palette("#4fba89", n_colors=10, reverse=True)
-
-            cash_flow_row = {"Name": "מזומן", "Category": "מזומן", "Final_Value": cash_information_data['Monthly Earned Cash']}
-            temp_df = transactions_df[(transactions_df['Final_Value'] > 0)]
-            temp_df = pd.concat([temp_df, pd.DataFrame([cash_flow_row])], ignore_index=True)
-
+            temp_df = transactions_df[(transactions_df['Final_Value'] > 0) & (transactions_df['Category'] != INVESTMENT_CATEGORY)]
             return Graphics.plot_transactions_pie_chart(temp_df.groupby("Category").sum(numeric_only=True),
                                                         "Earnings",
                                                         color_pallete)
@@ -1186,38 +1226,54 @@ class AppManager:
         utils.log("Generating earnings pie charts...", "system")
         high_std_earnings = handle_earnings_pie_plot()
 
-        # Capture earnings data for interactive chart
-        _ea_df = transactions_df[transactions_df['Final_Value'] > 0].copy()
-        _ea_cash = {"Name": "מזומן", "Category": "מזומן", "Final_Value": cash_information_data['Monthly Earned Cash']}
-        _ea_df = pd.concat([_ea_df, pd.DataFrame([_ea_cash])], ignore_index=True)
+        # Capture earnings data for interactive chart (account income only — cash handled by cash chart)
+        _ea_df = transactions_df[(transactions_df['Final_Value'] > 0) & (transactions_df['Category'] != INVESTMENT_CATEGORY)].copy()
         _ea_grouped = _ea_df.groupby("Category")['Final_Value'].sum()
         data['earnings_by_cat'] = {str(k): round(float(v), 2) for k, v in _ea_grouped.items() if v > 0}
 
-        def handle_investments_pie_plot():
-            color_pallete = GOLDEN_COLOR_PALLETE
-            temp_df = transactions_df[(transactions_df["Category"] == INVESTMENT_CATEGORY)]
-            Graphics.plot_transactions_pie_chart(temp_df,
-                                                "Investments",
-                                                color_pallete)
-
         utils.log("Generating investments pie charts...", "system")
-        handle_investments_pie_plot()
-
-        # Capture investments data for interactive chart
         _inv_df = transactions_df[transactions_df["Category"] == INVESTMENT_CATEGORY].copy()
+        Graphics.plot_investments_distribution(_inv_df)
+
+        # Capture investments data for bar chart + transaction list
         if not _inv_df.empty:
-            _inv_df['_label'] = _inv_df.apply(
-                lambda r: str(r['Description/Charge_Currency'] if pd.notna(r.get('Description/Charge_Currency')) else r['Name']),
-                axis=1
-            )
-            _inv_grouped = _inv_df.groupby('_label')['Final_Value'].sum().abs()
-            data['investments_by_name'] = {str(k): round(float(v), 2) for k, v in _inv_grouped.items() if v > 0}
+            _inv_df['_abs'] = _inv_df['Final_Value'].abs()
+            _inv_out_total = round(float(_inv_df.loc[_inv_df['Final_Value'] < 0, '_abs'].sum()), 2)
+            _inv_in_total  = round(float(_inv_df.loc[_inv_df['Final_Value'] > 0, '_abs'].sum()), 2)
+            data['investments_total_out'] = _inv_out_total
+            data['investments_total_in']  = _inv_in_total
+            data['investments_net']       = round(float(_inv_df['Final_Value'].sum()), 2)
+            _inv_items = []
+            for _, _row in _inv_df.sort_values('Executed_Date').iterrows():
+                _desc = _row.get('Description/Charge_Currency')
+                _has_desc = (_desc is not None and
+                             not (isinstance(_desc, float) and pd.isna(_desc)) and
+                             str(_desc).strip() and
+                             str(_desc).strip() != str(_row['Name']).strip())
+                try:
+                    _date_str = pd.to_datetime(str(_row['Executed_Date'])).strftime('%d/%m')
+                except Exception:
+                    _date_str = ''
+                _inv_items.append({
+                    'id':    int(_row['ID']),
+                    'date':  _date_str,
+                    'table': str(_row.get('TableName', '')),
+                    'card':  str(_row.get('CardID', '')),
+                    'name':  str(_row['Name']),
+                    'desc':  str(_desc).strip() if _has_desc else None,
+                    'amount': round(float(_row['_abs']), 2),
+                    'dir':   'out' if _row['Final_Value'] < 0 else 'in',
+                })
+            data['investments_items'] = _inv_items
         else:
-            data['investments_by_name'] = {}
+            data['investments_total_out'] = 0.0
+            data['investments_total_in']  = 0.0
+            data['investments_net']       = 0.0
+            data['investments_items']     = []
 
         # ----- General
         utils.log("Generating general bar plot...", "system")
-        spendings_sum, spendings_sum_overall_inc, earnings_sum = SimpleMath.get_monthly_shifted(shift=10)
+        spendings_sum, spendings_sum_overall_inc, earnings_sum, earnings_net_sum = SimpleMath.get_monthly_shifted(shift=13, start_delta=1)
 
         Graphics.plot_general(spendings_sum,
                               spendings_sum_overall_inc,
@@ -1225,23 +1281,62 @@ class AppManager:
                               lp_Overall_income=True,
                               lp_user_defined=False)
 
-        # Capture general chart data for interactive chart
-        from Constants import GENERAL_PLOT as _GP
-        _gen_delta = 0 if _GP.SHOW_CURRENT_MONTH else 1
+        # Capture general chart data for interactive chart — always 12 full months, never the current partial month
+        _gen_delta = 1
         data['general_months'] = [
             (datetime.now() - pd.DateOffset(months=i + _gen_delta)).strftime('%b %Y')
-            for i in range(10)
+            for i in range(12)
         ]
         # Split spendings into pure-spend (no investments) and investments portion
-        data['general_spendings']    = [round(float(abs(v)), 2) for v in spendings_sum_overall_inc]
-        data['general_investments']  = [round(float(abs(s) - abs(n)), 2)
-                                        for s, n in zip(spendings_sum, spendings_sum_overall_inc)]
-        data['general_earnings']     = [round(float(v), 2) for v in earnings_sum]
-        data['general_net']          = [round(float(e + s), 2) for e, s in zip(earnings_sum, spendings_sum_overall_inc)]
+        data['general_spendings']         = [round(float(abs(v)), 2) for v in spendings_sum_overall_inc]
+        data['general_investments_out']   = [round(float(abs(s) - abs(n)), 2)
+                                             for s, n in zip(spendings_sum, spendings_sum_overall_inc)]
+        data['general_investments_in']    = [round(float(max(0.0, e - en)), 2)
+                                             for e, en in zip(earnings_sum, earnings_net_sum)]
+        data['general_earnings']          = [round(float(v), 2) for v in earnings_net_sum]
+        data['general_net']               = [round(float(e + s), 2) for e, s in zip(earnings_net_sum, spendings_sum_overall_inc)]
+
+        # Add cash net per month so the net line matches the KPI (ATM withdrawals are not losses).
+        # Must mirror utils.get_cash_transactions: manual CashTransactions + bank withdrawal entries.
+        from Constants import ReservedNames
+        _manual_cash = DataBase().get_Cash_Transactions()
+        if not _manual_cash.empty:
+            if hasattr(ReservedNames, 'CASH_FILLER_CATEGORY'):
+                _manual_cash = _manual_cash[_manual_cash['Category'] != ReservedNames.CASH_FILLER_CATEGORY]
+            _manual_cash['Execution_Date'] = pd.to_datetime(_manual_cash['Execution_Date'], errors='coerce')
+            _manual_cash = _manual_cash.dropna(subset=['Execution_Date'])
+            _manual_cash = _manual_cash[['Execution_Date', 'Amount']]
+        else:
+            _manual_cash = pd.DataFrame(columns=['Execution_Date', 'Amount'])
+
+        _bank_wd = DataBase().get_transactions_by_category(ReservedNames.WHITDRAWAL_CATEGORY)
+        if not _bank_wd.empty:
+            _bank_wd = _bank_wd[_bank_wd['TableName'] == 'BankTransactions']
+            _bank_wd['Date/Executed_Date'] = pd.to_datetime(_bank_wd['Date/Executed_Date'], errors='coerce', dayfirst=True)
+            _bank_wd = _bank_wd.dropna(subset=['Date/Executed_Date'])
+            _bank_wd = _bank_wd.rename(columns={'Date/Executed_Date': 'Execution_Date', 'Out/Transaction_value': 'Amount'})[['Execution_Date', 'Amount']]
+        else:
+            _bank_wd = pd.DataFrame(columns=['Execution_Date', 'Amount'])
+
+        _all_cash_df = pd.concat([_manual_cash, _bank_wd], ignore_index=True)
+        if not _all_cash_df.empty:
+            _all_cash_df['_ym'] = (_all_cash_df['Execution_Date'].dt.year.astype(str)
+                                   + '-' + _all_cash_df['Execution_Date'].dt.month.astype(str))
+            _cash_by_ym = _all_cash_df.groupby('_ym')['Amount'].sum().to_dict()
+            for _gi in range(len(data['general_net'])):
+                _mdt = datetime.now() - pd.DateOffset(months=_gi + _gen_delta)
+                _key = f"{_mdt.year}-{_mdt.month}"
+                data['general_net'][_gi] = round(
+                    data['general_net'][_gi] + float(_cash_by_ym.get(_key, 0.0)), 2
+                )
+
+        # Recompute mean from the cash-adjusted net values
+        if data['general_net']:
+            data['overall_net_mean'] = round(sum(data['general_net']) / len(data['general_net']), 2)
 
         # ----- User defined
         utils.log("Generating user defined bar plot...", "system")
-        user_spendings_sum, _, user_earnings_sum = SimpleMath.get_monthly_shifted(shift=10, category= GeneralPlot.USER_DEFINED_CATEGORIES)
+        user_spendings_sum, _, user_earnings_sum, _user_earnings_net = SimpleMath.get_monthly_shifted(shift=13, start_delta=1, category= GeneralPlot.USER_DEFINED_CATEGORIES)
 
         Graphics.plot_general(user_spendings_sum,
                               spendings_sum_overall_inc,
@@ -1286,20 +1381,53 @@ class AppManager:
         #                         cash_information_data['Monthly Spent Cash']
         
         total_monthly_income = transactions_df[(transactions_df['Final_Value'] > 0)]['Final_Value'].sum()
+        total_monthly_income_no_invest = transactions_df[(transactions_df['Final_Value'] > 0) &
+                                                         (transactions_df["Category"] != INVESTMENT_CATEGORY)]['Final_Value'].sum()
         total_monthly_outcome = transactions_df[(transactions_df['Final_Value'] < 0)]['Final_Value'].sum()
-        total_monthly_outcome_no_invest = transactions_df[(transactions_df['Final_Value'] < 0) & 
+        total_monthly_outcome_no_invest = transactions_df[(transactions_df['Final_Value'] < 0) &
                                                           ((transactions_df["Category"] != INVESTMENT_CATEGORY))]['Final_Value'].sum()
-        data['net income'] = (total_monthly_income + total_monthly_outcome) 
+        data['net income'] = (total_monthly_income + total_monthly_outcome)
 
-        data['overall net income'] = (total_monthly_income + \
-                                      total_monthly_outcome_no_invest)
-        data['overall_net_mean'] = (np.array(earnings_sum) + np.array(spendings_sum_overall_inc)).mean()
+        # Cash net accounts for ATM withdrawals: the bank records -4000 but the user
+        # received that cash, so it's not a real loss. Adding cash net (earned - spent)
+        # cancels the bank-side withdrawal and adds any genuine cash-only transactions.
+        _cash_net = (cash_information_data['Monthly Earned Cash'] +
+                     cash_information_data['Monthly Spent Cash'])
+        data['overall net income'] = (total_monthly_income_no_invest +
+                                      total_monthly_outcome_no_invest +
+                                      _cash_net)
+        # overall_net_mean is recalculated after the cash adjustment below
         
-        spendings_df = transactions_df[transactions_df['Final_Value'] < 0]
+        spendings_df = transactions_df[
+            (transactions_df['Final_Value'] < 0) &
+            (transactions_df['Category'] != INVESTMENT_CATEGORY)
+        ].copy()
         spendings_df['Final_Value'] = spendings_df['Final_Value'].apply(lambda x: abs(x))
 
         earnings_df = transactions_df[transactions_df['Final_Value'] > 0]   
         monthly_balance = DataBase().get_latest_Balance()
+        _month_end_bal = DataBase().get_balance_for_month(t.year, t.month)
+        data['month_end_balance'] = float(_month_end_bal) if _month_end_bal is not None else float(monthly_balance)
+        _balance_date_raw = DataBase().get_latest_balance_date()
+        data['balance_date'] = ''
+        if _balance_date_raw:
+            try:
+                from datetime import datetime as _dt2
+                _bd = _dt2.strptime(str(_balance_date_raw)[:10], '%Y-%m-%d')
+                data['balance_date'] = f"{_bd.strftime('%B')} {_bd.day} {_bd.year}"
+            except Exception:
+                data['balance_date'] = str(_balance_date_raw)
+
+        # Reconstruct balance snapshots for sparkline (most recent first → reverse)
+        _monthly_nets = [float(e + s) for e, s in zip(earnings_net_sum, spendings_sum_overall_inc)]
+        _bal = float(monthly_balance)
+        _bal_history = [round(_bal, 2)]
+        for _net in _monthly_nets:
+            _bal -= _net
+            _bal_history.append(round(_bal, 2))
+        _bal_history.reverse()  # oldest → newest
+        data['balance_history'] = _bal_history[-7:]   # 6 spans = 7 points
+        data['balance_delta']   = round(float(data['net income']), 2)
 
         # ---- Smart Alerts ----
         # Collect the last 6 months of processed transaction DataFrames to
@@ -1421,11 +1549,11 @@ class AppManager:
                 break   # history only — no future points
             _months_from_start = max(0, round((_m_date - FIRST_PAYMENT).days / 30.4375))
             _apt_val  = APARTMENT_PRICE * (1 + _rate_monthly) ** _months_from_start
-            _equity   = round(_apt_val - _mrow["total_balance"] + _alltime["alltime_income"])
+            _equity   = round(_apt_val - _mrow["total_balance"])
             _eq_history.append((_m_date, _equity))
 
-        # Always pin the current point to the exact דיור panel value
-        _equity_now = _equity_appreciated + _alltime["alltime_income"]
+        # Always pin the current point to מקדמה + קרן + עליית ערך (no הכנסות)
+        _equity_now = _equity_appreciated
         if _eq_history:
             _eq_history[-1] = (_today_date, _equity_now)   # override last point with exact value
         else:

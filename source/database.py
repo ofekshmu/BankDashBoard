@@ -191,6 +191,15 @@ class DataBase:
                     participant_id  INTEGER     REFERENCES GymParticipants(id),
                     PRIMARY KEY(session_id, participant_id)
                     );""")
+                cls.__instance.cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS OtherAccountStatus (
+                    ID              INTEGER     PRIMARY KEY AUTOINCREMENT,
+                    AccountName     TEXT        NOT NULL,
+                    StatusDate      DATE        NOT NULL,
+                    Value           REAL        NOT NULL,
+                    TransactionID   INTEGER,
+                    FOREIGN KEY(TransactionID) REFERENCES BankTransactions(ID)
+                    );""")
                 cls.__instance.connection.commit()
 
         return cls.__instance

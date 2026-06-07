@@ -376,6 +376,7 @@ async function renderParticipantList() {
         <button class="icon-btn" title="${p.is_active?'השבת':'הפעל'}" onclick="toggleActive(${p.id},${p.is_active})">
           ${p.is_active?'&#x23F8;':'&#x25B6;'}
         </button>
+        <button class="icon-btn" title="מחק משתתף" style="color:#e74c3c" onclick="deleteParticipant(${p.id},'${esc(p.name)}')">&#x1F5D1;</button>
       </div>
     </li>`).join('');
 }
@@ -410,6 +411,14 @@ async function toggleActive(pid, current) {
   });
   const d = await r.json();
   if (d.ok) renderParticipantList();
+  else showToast('שגיאה: ' + (d.error||''));
+}
+
+async function deleteParticipant(pid, name) {
+  if (!confirm('למחוק את ' + name + '?\nכל נתוני האימונים שלו יימחקו.')) return;
+  const r = await fetch('/api/gym/participants/'+pid, {method:'DELETE'});
+  const d = await r.json();
+  if (d.ok) { renderParticipantList(); showToast('✓ ' + name + ' נמחק'); }
   else showToast('שגיאה: ' + (d.error||''));
 }
 

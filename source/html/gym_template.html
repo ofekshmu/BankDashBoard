@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gym Expense Splitter</title>
+    <link href="gym_style.css" rel="stylesheet"/>
+</head>
+<body>
+    <div class="page-wrapper">
+
+        <header class="page-header">
+            <div class="header-icon">&#127947;</div>
+            <div class="header-text">
+                <h1>Gym Expense Splitter</h1>
+                <p class="subtitle">Protein shake cost tracker</p>
+            </div>
+            <div class="header-meta">
+                <span class="last-updated">Updated: <span class="update-date">—</span></span>
+            </div>
+        </header>
+
+        <!-- Member summary cards -->
+        <section class="section-title">
+            <h2>Members</h2>
+        </section>
+        <section class="members-grid" id="members-grid">
+            <!-- cards injected by BeautifulSoup -->
+        </section>
+
+        <!-- Recommended next payer -->
+        <section class="recommendation-banner" id="recommendation-banner">
+            <div class="rec-label">Next to Pay</div>
+            <div class="rec-name">—</div>
+            <div class="rec-detail">No sessions recorded yet</div>
+        </section>
+
+        <!-- Debt table -->
+        <section class="section-title">
+            <h2>Debt Breakdown</h2>
+            <p class="section-sub">Who owes whom (running totals)</p>
+        </section>
+        <div class="table-scroll">
+            <table class="data-table" id="debt-table">
+                <thead>
+                    <tr>
+                        <th>Person</th>
+                        <th>Fronted for others (₪)</th>
+                        <th>Owes to others (₪)</th>
+                        <th>Net balance (₪)</th>
+                        <th>Total paid out (₪)</th>
+                        <th>Sessions</th>
+                    </tr>
+                </thead>
+                <tbody id="debt-body">
+                    <!-- rows injected by BeautifulSoup -->
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Session history -->
+        <section class="section-title">
+            <h2>Session History</h2>
+            <p class="section-sub">Most recent first</p>
+        </section>
+        <div class="table-scroll">
+            <table class="data-table" id="sessions-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Date</th>
+                        <th>Attendees</th>
+                        <th>Payer</th>
+                        <th>Price / person (₪)</th>
+                        <th>Total (₪)</th>
+                        <th>Notes</th>
+                    </tr>
+                </thead>
+                <tbody id="sessions-body">
+                    <!-- rows injected by BeautifulSoup -->
+                </tbody>
+            </table>
+        </div>
+
+        <footer class="page-footer">Gym Expense Splitter &mdash; BankDashboard</footer>
+    </div>
+</body>
+</html>

@@ -152,6 +152,33 @@ class DataBase:
             # Charge value - The initial value/ The total sum of payments of the transaction.
             # Transaction value - The actual amount credited for
 
+            cls.__instance.cursor.execute("""
+                CREATE TABLE IF NOT EXISTS GymParticipants (
+                id              INTEGER     PRIMARY KEY AUTOINCREMENT,
+                name            TEXT        NOT NULL,
+                is_active       INTEGER     DEFAULT 1,
+                insertion_date  TEXT        NOT NULL
+                );""")
+
+            cls.__instance.cursor.execute("""
+                CREATE TABLE IF NOT EXISTS GymSessions (
+                id              INTEGER     PRIMARY KEY AUTOINCREMENT,
+                date            TEXT        NOT NULL,
+                product_price   REAL        NOT NULL,
+                payer_id        INTEGER     NOT NULL    REFERENCES GymParticipants(id),
+                notes           TEXT,
+                insertion_date  TEXT        NOT NULL
+                );""")
+
+            cls.__instance.cursor.execute("""
+                CREATE TABLE IF NOT EXISTS GymSessionParticipants (
+                session_id      INTEGER     REFERENCES GymSessions(id),
+                participant_id  INTEGER     REFERENCES GymParticipants(id),
+                PRIMARY KEY(session_id, participant_id)
+                );""")
+
+            cls.__instance.connection.commit()
+
         return cls.__instance
 
     def insert_bank_transaction(self,
@@ -1973,4 +2000,119 @@ class DataBase:
             
         self.connection.commit()
         return pd.DataFrame(results, columns=['ID', column_name, 'Status'])
-        
+
+    # ------------------------------------------------------------------ #
+    #                       GYM EXPENSE SPLITTER                          #
+    # ------------------------------------------------------------------ #
+
+    def gym_add_participant(self, name: str) -> int:
+        from datetime import datetime
+        self.cursor.execute(
+            "INSERT INTO GymParticipants(name, is_active, insertion_date) VALUES(?, 1, ?)",
+            (name.strip(), datetime.now().strftime("%Y-%m-%d"))
+        )
+        self.connection.commit()
+        return self.cursor.lastrowid
+
+    def gym_rename_participant(self, pid: int, new_name: str):
+        self.cursor.execute("UPDATE GymParticipants SET name = ? WHERE id = ?", (new_name.strip(), pid))
+        self.connection.commit()
+
+    def gym_set_participant_active(self, pid: int, is_active: bool):
+        self.cursor.execute("UPDATE GymParticipants SET is_active = ? WHERE id = ?", (1 if is_active else 0, pid))
+        self.connection.commit()
+
+    def gym_get_all_participants(self, active_only: bool = False) -> pd.DataFrame:
+        if active_only:
+            rows = self.cursor.execute(
+                "SELECT id, name, is_active FROM GymParticipants WHERE is_active = 1 ORDER BY name"
+            ).fetchall()
+        else:
+            rows = self.cursor.execute(
+                "SELECT id, name, is_active FROM GymParticipants ORDER BY name"
+            ).fetchall()
+        return pd.DataFrame(rows, columns=["id", "name", "is_active"])
+
+    def gym_insert_session(self, date: str, product_price: float, payer_id: int, notes: str = "") -> int:
+        from datetime import datetime
+        self.cursor.execute(
+            "INSERT INTO GymSessions(date, product_price, payer_id, notes, insertion_date) VALUES(?, ?, ?, ?, ?)",
+            (date, product_price, payer_id, notes, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        )
+        self.connection.commit()
+        return self.cursor.lastrowid
+
+    def gym_insert_session_participant(self, session_id: int, participant_id: int):
+        self.cursor.execute(
+            "INSERT OR IGNORE INTO GymSessionParticipants(session_id, participant_id) VALUES(?, ?)",
+            (session_id, participant_id)
+        )
+        self.connection.commit()
+
+    def gym_get_all_sessions(self) -> pd.DataFrame:
+        rows = self.cursor.execute("""
+            SELECT
+                s.id,
+                s.date,
+                s.product_price,
+                p.name AS payer_name,
+                s.notes,
+                s.insertion_date,
+                (SELECT COUNT(*) FROM GymSessionParticipants gsp WHERE gsp.session_id = s.id) AS participant_count
+            FROM GymSessions s
+            JOIN GymParticipants p ON p.id = s.payer_id
+            ORDER BY s.date DESC, s.id DESC
+        """).fetchall()
+        return pd.DataFrame(rows, columns=["id", "date", "product_price", "payer_name", "notes", "insertion_date", "participant_count"])
+
+    def gym_get_session_participants(self, session_id: int) -> pd.DataFrame:
+        rows = self.cursor.execute("""
+            SELECT p.id, p.name
+            FROM GymSessionParticipants gsp
+            JOIN GymParticipants p ON p.id = gsp.participant_id
+            WHERE gsp.session_id = ?
+            ORDER BY p.name
+        """, (session_id,)).fetchall()
+        return pd.DataFrame(rows, columns=["id", "name"])
+
+    def gym_get_last_price(self) -> Optional[float]:
+        row = self.cursor.execute(
+            "SELECT product_price FROM GymSessions ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+        return row[0] if row else None
+
+    def gym_get_debt_summary(self) -> pd.DataFrame:
+        """
+        Returns per-person: total_fronted (paid for others), total_owed (owe to others), net balance.
+        net > 0 means others owe you; net < 0 means you owe others.
+        """
+        rows = self.cursor.execute("""
+            SELECT
+                p.id,
+                p.name,
+                COALESCE(SUM(CASE WHEN s.payer_id = p.id
+                    THEN (gsp_count.cnt - 1) * s.product_price
+                    ELSE 0 END), 0) AS total_fronted,
+                COALESCE(SUM(CASE WHEN s.payer_id != p.id
+                    THEN s.product_price
+                    ELSE 0 END), 0) AS total_owed,
+                COALESCE(SUM(CASE WHEN s.payer_id = p.id
+                    THEN (gsp_count.cnt - 1) * s.product_price
+                    ELSE -s.product_price
+                    END), 0) AS net_balance,
+                COALESCE(SUM(CASE WHEN s.payer_id = p.id
+                    THEN s.product_price * gsp_count.cnt
+                    ELSE 0 END), 0) AS total_paid_out,
+                COUNT(DISTINCT gsp.session_id) AS sessions_attended
+            FROM GymParticipants p
+            LEFT JOIN GymSessionParticipants gsp ON gsp.participant_id = p.id
+            LEFT JOIN GymSessions s ON s.id = gsp.session_id
+            LEFT JOIN (
+                SELECT session_id, COUNT(*) AS cnt
+                FROM GymSessionParticipants
+                GROUP BY session_id
+            ) gsp_count ON gsp_count.session_id = s.id
+            GROUP BY p.id, p.name
+            ORDER BY net_balance ASC
+        """).fetchall()
+        return pd.DataFrame(rows, columns=["id", "name", "total_fronted", "total_owed", "net_balance", "total_paid_out", "sessions_attended"])

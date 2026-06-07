@@ -51,6 +51,8 @@ class AppManager:
         self.parser = Parser()
 
     def menu(self):
+        from GymSplitter import GymSplitter
+        gym_splitter = GymSplitter()
         while True:
             match utils.template_menu(options=['Update/Parse files',
                                              'Show statistics',
@@ -62,7 +64,8 @@ class AppManager:
                                              'add cash transaction',
                                              'Export Excel',
                                              'Insert other account status',
-                                             'Advanced Search'],
+                                             'Advanced Search',
+                                             'Gym Expense Splitter'],
                                              msg='Hello Ofek! What would you like to do today?',
                                              exit=True,
                                              col_space=33):
@@ -94,6 +97,8 @@ class AppManager:
                     self.Insert_other_account_status()
                 case 11:
                     self.advanced_search()
+                case 12:
+                    gym_splitter.menu()
                 case _:
                     utils.log("Please insert a valid number.",'system')
 

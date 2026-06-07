@@ -599,11 +599,12 @@ class utils:
         # ── Installment payments donuts ────────────────────────────────
         # Query card transactions whose Charge_Date is in this exact month —
         # these are the installments the user actually pays this month.
-        import pandas as _pd, sqlite3 as _sq, re as _re
+        import pandas as _pd, sqlite3 as _sq, re as _re, os as _eos
         try:
             _mon = str(month_num).zfill(2)
             _yr  = str(year)
-            with _sq.connect('ShmuelFamiliy.db') as _pc:
+            _db_path = '/tmp/ShmuelFamiliy.db' if _eos.getenv('DATABASE_URL') else 'ShmuelFamiliy.db'
+            with _sq.connect(_db_path) as _pc:
                 _rows = _pc.execute(
                     "SELECT Name, Transaction_Value, Charge_Value, Extra_Info "
                     "FROM CardTransactions "

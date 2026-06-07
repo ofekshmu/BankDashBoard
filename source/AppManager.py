@@ -1316,7 +1316,7 @@ class AppManager:
         _bank_wd = DataBase().get_transactions_by_category(ReservedNames.WHITDRAWAL_CATEGORY)
         if not _bank_wd.empty:
             _bank_wd = _bank_wd[_bank_wd['TableName'] == 'BankTransactions']
-            _bank_wd['Date/Executed_Date'] = pd.to_datetime(_bank_wd['Date/Executed_Date'], errors='coerce', dayfirst=True)
+            _bank_wd['Date/Executed_Date'] = pd.to_datetime(_bank_wd['Date/Executed_Date'], errors='coerce', dayfirst=False)
             _bank_wd = _bank_wd.dropna(subset=['Date/Executed_Date'])
             _bank_wd = _bank_wd.rename(columns={'Date/Executed_Date': 'Execution_Date', 'Out/Transaction_value': 'Amount'})[['Execution_Date', 'Amount']]
         else:

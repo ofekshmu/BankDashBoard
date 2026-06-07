@@ -3253,6 +3253,64 @@ def api_gym_delete_session(sid):
         conn.close()
 
 
+@app.route('/admin/upload-db', methods=['GET', 'POST'])
+def admin_upload_db():
+    """Upload a local ShmuelFamiliy.db to /tmp so Vercel has real data.
+    Protected by UPLOAD_SECRET env var. Only meaningful when DATABASE_URL is set."""
+    secret = os.getenv('UPLOAD_SECRET', '')
+    if not secret:
+        return "UPLOAD_SECRET env var not configured.", 403
+
+    if request.method == 'GET':
+        return '''<!doctype html><html lang="he" dir="rtl">
+<head><meta charset="utf-8"><title>העלאת מסד נתונים</title>
+<style>
+  body{font-family:sans-serif;max-width:480px;margin:80px auto;padding:0 16px;background:#121212;color:#e0e0e0}
+  h2{color:#1db954}
+  input,button{width:100%;box-sizing:border-box;padding:10px;margin:8px 0;border-radius:6px;border:1px solid #333;background:#1e1e1e;color:#e0e0e0;font-size:1em}
+  button{background:#1db954;color:#000;font-weight:bold;cursor:pointer;border:none}
+  button:hover{background:#17a349}
+  .note{font-size:.82em;color:#888;margin-top:12px}
+</style></head>
+<body>
+<h2>העלאת מסד נתונים</h2>
+<form method="post" enctype="multipart/form-data">
+  <input type="password" name="password" placeholder="סיסמה" required>
+  <input type="file" name="db_file" accept=".db" required>
+  <button type="submit">העלה</button>
+</form>
+<p class="note">הקובץ יישמר ב־/tmp ויישאר זמין עד שהמכולה מתחלפת (cold start).</p>
+</body></html>'''
+
+    # POST — validate password then save file
+    if request.form.get('password', '') != secret:
+        return "סיסמה שגויה.", 403
+
+    db_file = request.files.get('db_file')
+    if not db_file or not db_file.filename.endswith('.db'):
+        return "יש לבחור קובץ .db תקין.", 400
+
+    dest = '/tmp/ShmuelFamiliy.db'
+    db_file.save(dest)
+
+    # Reset the DataBase singleton so the next query uses the new file.
+    try:
+        from database import DataBase
+        with DataBase._DataBase__lock:
+            inst = DataBase._DataBase__instance
+            if inst is not None:
+                try:
+                    inst.connection.close()
+                except Exception:
+                    pass
+            DataBase._DataBase__instance = None
+    except Exception:
+        pass
+
+    size_kb = os.path.getsize(dest) // 1024
+    return f"✓ מסד הנתונים הועלה בהצלחה ({size_kb} KB). <a href='/'>חזרה לדף הבית</a>"
+
+
 def start(port: int = 5050, open_browser: bool = True):
     """Start the Flask server and optionally open the browser."""
     import webbrowser

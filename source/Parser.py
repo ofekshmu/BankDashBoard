@@ -114,6 +114,15 @@ class Parser():
 
                 self.name_to_type[name] = file_type
 
+        # Release all Excel file handles opened during identification so that
+        # subsequent Parser constructions (e.g. files_insert) can re-open the
+        # same files without hitting a stale COM lock.
+        try:
+            from src_utils.ExcelReader import ExcelManager as _EM
+            _EM().close_and_kill_excel()
+        except Exception:
+            pass
+
         # Sort the read file names according to dates/serial number
         for k, v in self.type_to_name.items():
             self.type_to_name[k] = {name: value for name, value in sorted(v.items(), key=lambda item: item[1])}
@@ -167,15 +176,21 @@ class Parser():
                     if data["Identification data"] not in file_name:
                         continue
                 case Identification_Method.CELL:
-                    (location, value) = data["Identification data"]
-                    extracted_value = ExcelManager().set_active_sheet(Paths.INPUT_FOLDER + "\\" + file_name)\
-                                                    .read_cell(*location)
-                    if extracted_value is None: # When no value was read
-                        continue
-                    if value not in extracted_value:
+                    try:
+                        (location, value) = data["Identification data"]
+                        extracted_value = ExcelManager().set_active_sheet(Paths.INPUT_FOLDER + "\\" + file_name)\
+                                                        .read_cell(*location)
+                        if extracted_value is None: # When no value was read
+                            continue
+                        if value not in extracted_value:
+                            continue
+                    except Exception:
                         continue
                 case Identification_Method.HEADERS:
-                    if not utils.is_headers_valid(format, file_name, data["Headers"], data["Header row index"], data["Header col index"]):
+                    try:
+                        if not utils.is_headers_valid(format, file_name, data["Headers"], data["Header row index"], data["Header col index"]):
+                            continue
+                    except Exception:
                         continue
                 case Identification_Method.NONE:
                     utils.log(f"Bad identification method when iterating over {file_name}... Skipping Format...", "warning")
@@ -187,6 +202,59 @@ class Parser():
 
         utils.log(f"{file_name} was not identified.", "warning")
         return None, None
+
+    def diagnose_identification(self, file_name: str) -> list:
+        """
+        Run identification against every format and return a list of
+        (format_name, reason) strings explaining why each one failed.
+        Used to build a helpful error message when a file is unrecognized.
+        """
+        from src_utils.ExcelReader import ExcelManager as _EM
+        reasons = []
+        for fmt, data in Formats.FORMATS.items():
+            id_method = data["Identification method"]
+            try:
+                if id_method == Identification_Method.FILE_NAME:
+                    expected = data["Identification data"]
+                    if expected in file_name:
+                        reasons.append((fmt, "matched"))
+                    else:
+                        reasons.append((fmt, f"שם קובץ: לא מכיל '{expected}'"))
+
+                elif id_method == Identification_Method.CELL:
+                    (location, expected_val) = data["Identification data"]
+                    try:
+                        actual = _EM().set_active_sheet(
+                            Paths.INPUT_FOLDER + "\\" + file_name
+                        ).read_cell(*location)
+                        if actual is None:
+                            reasons.append((fmt, f"תא {location}: ריק"))
+                        elif expected_val not in str(actual):
+                            reasons.append((fmt, f"תא {location}: נמצא '{str(actual)[:50]}', צפוי '{expected_val}'"))
+                        else:
+                            reasons.append((fmt, "matched"))
+                    except Exception as e:
+                        reasons.append((fmt, f"תא {location}: שגיאה בקריאה ({e})"))
+
+                elif id_method == Identification_Method.HEADERS:
+                    try:
+                        valid = utils.is_headers_valid(
+                            fmt, file_name,
+                            data["Headers"], data["Header row index"], data["Header col index"]
+                        )
+                        if valid:
+                            reasons.append((fmt, "matched"))
+                        else:
+                            expected_first = data["Headers"][:3]
+                            reasons.append((fmt, f"כותרות: לא נמצאו כותרות תואמות (שורה ~{data['Header row index']}, צפוי: {expected_first}...)"))
+                    except Exception as e:
+                        reasons.append((fmt, f"כותרות: שגיאה ({e})"))
+
+                else:
+                    reasons.append((fmt, "שיטת זיהוי לא נתמכת"))
+            except Exception as e:
+                reasons.append((fmt, f"שגיאה: {e}"))
+        return reasons
 
     def get_names(self, format_type: str, associated_formats: list,  card_number):
         """
@@ -225,9 +293,17 @@ class Parser():
                 return srch_result.group()[1:]
             case Sortion_Method.BY_NAME_DATE:
                 try:
-                    date_str = re.search("\d{1,2}_\d{1,2}_\d{4}|\d{1,2}_\d{4}|\d{2}.\d{2}.\d{2}", name).group()
+                    isra_Card_2026 = "\d{4}_(\d{2}_\d{4})"
+                    result_lst = re.findall(isra_Card_2026 + r"|" + r"(\d{1,2}_\d{1,2}_\d{4})|(\d{1,2}_\d{4})|(\d{2}\.\d{2}\.\d{2})", name)
                 except Exception as e:
                     utils.log(f"The file named {utils.name_he(name)} is of unknown date format.", "error")
+                if len(result_lst) != 1:
+                    utils.log(f"param name: {utils.name_he(name)}\nparam result_lst: {result_lst}, no match or too many matches...", "error")
+                    return None
+                else:
+                    tuple = result_lst[0]
+                    date_str = next((d for d in tuple if d), None)
+                    
                 date = re.split(r'[_\.]', date_str)
                 import datetime
                 if len(date) == 2:

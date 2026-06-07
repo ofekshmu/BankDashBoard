@@ -1023,6 +1023,23 @@ _DB_PATH = os.path.join(_PROJECT_DIR, 'ShmuelFamiliy.db')
 # DATABASE_URL guard already used in database.py DataBase.__new__().
 if os.getenv('DATABASE_URL'):
     _DB_PATH = '/tmp/ShmuelFamiliy.db'
+    # Copy personal information files to /tmp so they are writable.
+    # The project dir (/var/task) is read-only on Vercel; any json.dump to
+    # personal information/*.json would raise OSError errno 30.
+    import shutil as _shutil
+    _TMP_PERSONAL = '/tmp/personal information'
+    os.makedirs(_TMP_PERSONAL, exist_ok=True)
+    for _fname in ('personal_config.json', 'categories.json', 'auto_tagger.json', 'currency.json'):
+        _src = os.path.join(_PROJECT_DIR, 'personal information', _fname)
+        _dst = os.path.join(_TMP_PERSONAL, _fname)
+        if os.path.exists(_src) and not os.path.exists(_dst):
+            _shutil.copy2(_src, _dst)
+    # Patch Constants.Paths so every module reads/writes the /tmp copies.
+    from Constants import Paths as _Paths
+    _Paths.PERSONAL_CONFIG  = os.path.join(_TMP_PERSONAL, 'personal_config.json')
+    _Paths.CATEGORY_JSON    = os.path.join(_TMP_PERSONAL, 'categories.json')
+    _Paths.AUTO_TAGGER_JSON = os.path.join(_TMP_PERSONAL, 'auto_tagger.json')
+    _Paths.Currency_JSON    = os.path.join(_TMP_PERSONAL, 'currency.json')
 
 GYM_HTML = os.path.join(_HERE, 'html', 'Gym.html')
 

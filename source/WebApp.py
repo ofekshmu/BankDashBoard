@@ -13,6 +13,11 @@ GET  /api/stale-all         return {yyyy_mm: bool, ...} for all pages
 
 import os
 import sys
+
+# Ensure source/ siblings (AppManager, database, etc.) are importable whether
+# this module is loaded via app.py or directly as a Vercel serverless function.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 import queue
 import threading
 import time as _time

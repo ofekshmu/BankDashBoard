@@ -70,6 +70,12 @@ def _debug_put(line: str):
             except Exception:
                 pass
 
+def _log_put(msg: str):
+    """Put a message into both the ephemeral /api/logs queue and the persistent debug log window."""
+    _log_queue.put(msg)
+    if msg and not msg.startswith('__'):
+        _debug_put(msg)
+
 class _TeeStream:
     """Forwards every write() to the original stream *and* the SSE log queues."""
     def __init__(self, original):
@@ -807,9 +813,9 @@ def run_category():
             _log_queue.put(f'__DONE__:{slug}')
         except Exception as exc:
             import traceback
-            _log_queue.put(f'[ERROR] {exc}')
+            _log_put(f'[ERROR] {exc}')
             for line in traceback.format_exc().splitlines():
-                if line.strip(): _log_queue.put(line)
+                if line.strip(): _log_put(line)
             _log_queue.put('__ERROR__')
         finally:
             with _analysis_lock:
@@ -1558,10 +1564,10 @@ def run_analysis():
 
         except Exception as exc:
             import traceback
-            _log_queue.put(f'[ERROR] {exc}')
+            _log_put(f'[ERROR] {exc}')
             for line in traceback.format_exc().splitlines():
                 if line.strip():
-                    _log_queue.put(line)
+                    _log_put(line)
             _log_queue.put('__ERROR__')
 
         finally:
@@ -2546,10 +2552,10 @@ def files_insert():
 
         except Exception as e:
             import traceback
-            _log_queue.put(f'[ERROR] {e}')
+            _log_put(f'[ERROR] {e}')
             for line in traceback.format_exc().splitlines():
                 if line.strip():
-                    _log_queue.put(line)
+                    _log_put(line)
             _log_queue.put('__ERROR__')
         finally:
             _bt.input = _orig_input

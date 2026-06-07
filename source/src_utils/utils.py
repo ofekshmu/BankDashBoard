@@ -5077,10 +5077,8 @@ document.addEventListener('DOMContentLoaded', _initTxnFooter);
         # tagged 'withdrawal' to match the logic in accumulate_cash_Balance().
         if not bank_withdrawals_df.empty:
             bank_withdrawals_df = bank_withdrawals_df[bank_withdrawals_df['TableName'] == 'BankTransactions']
-        # Convert 'Date/Executed_Date' to datetime before filtering.
-        # Use dayfirst=True to handle Israeli DD/MM/YYYY and DD.MM.YYYY formats correctly.
         bank_withdrawals_df['Date/Executed_Date'] = pd.to_datetime(
-            bank_withdrawals_df['Date/Executed_Date'], errors='coerce', dayfirst=True)
+            bank_withdrawals_df['Date/Executed_Date'], errors='coerce', dayfirst=False)
         bank_withdrawals_df = bank_withdrawals_df[
             (bank_withdrawals_df['Date/Executed_Date'].dt.month == datetime.month) &
             (bank_withdrawals_df['Date/Executed_Date'].dt.year == datetime.year)

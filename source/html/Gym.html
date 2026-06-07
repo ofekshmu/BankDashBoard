@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>חלוקת הוצאות ג׳ים</title>
+<style>
+/* ── Reset ── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+/* ── Variables ── */
+:root{
+  --bg:#121212;--surface:#181818;--card:#282828;--card-hover:#333;
+  --green:#1DB954;--green-dk:#169c46;--red:#e05a5a;--border:#3a3a3a;
+  --txt:#fff;--txt2:#b3b3b3;--txt3:#6a6a6a;
+  --a1:#1DB954;--a2:#509bf5;--a3:#c862e0;--a4:#f59c1a;--a5:#e05a5a;
+  --r:12px;--r2:8px;--tr:.18s ease;
+}
+body{background:linear-gradient(160deg,#1a0533 0%,#121212 40%,#0a1f0e 100%);
+  min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  color:var(--txt);line-height:1.5;direction:rtl}
+/* ── Layout ── */
+.page{max-width:960px;margin:0 auto;padding:1.5rem 1.25rem 4rem}
+/* ── Header ── */
+.hdr{display:flex;align-items:center;gap:1rem;padding:1.75rem 0 2rem;border-bottom:1px solid var(--border);margin-bottom:1.75rem;flex-wrap:wrap}
+.hdr-icon{font-size:2.6rem;line-height:1}
+.hdr-text h1{font-size:2rem;font-weight:900;letter-spacing:-.5px}
+.hdr-text p{color:var(--txt2);font-size:.9rem;margin-top:.15rem}
+.hdr-actions{margin-right:auto;display:flex;gap:.5rem;flex-wrap:wrap}
+/* ── Buttons ── */
+.btn{display:inline-flex;align-items:center;gap:.4rem;padding:.5rem 1rem;border-radius:20px;font-size:.82rem;font-weight:700;cursor:pointer;border:none;transition:opacity var(--tr),transform var(--tr)}
+.btn:hover{opacity:.88;transform:translateY(-1px)}
+.btn-green{background:var(--green);color:#000}
+.btn-outline{background:transparent;border:1.5px solid var(--border);color:var(--txt2)}
+.btn-outline:hover{border-color:var(--txt2);color:var(--txt)}
+.btn-sm{padding:.35rem .75rem;font-size:.76rem}
+/* ── Section titles ── */
+.sec{margin:2rem 0 .85rem}
+.sec h2{font-size:1.3rem;font-weight:700}
+.sec p{font-size:.82rem;color:var(--txt3);margin-top:.15rem}
+/* ── Member cards ── */
+.members{display:flex;flex-wrap:wrap;gap:.9rem}
+.card{flex:1 1 200px;background:var(--card);border-radius:var(--r);padding:1.25rem 1.1rem 1.1rem;border-top:4px solid var(--a1);transition:background var(--tr),box-shadow var(--tr),transform var(--tr)}
+.card:hover{background:var(--card-hover);box-shadow:0 8px 24px rgba(0,0,0,.5);transform:translateY(-2px)}
+.card:nth-child(1){border-top-color:var(--a1)}.card:nth-child(2){border-top-color:var(--a2)}
+.card:nth-child(3){border-top-color:var(--a3)}.card:nth-child(4){border-top-color:var(--a4)}.card:nth-child(5){border-top-color:var(--a5)}
+.avatar{width:44px;height:44px;border-radius:50%;background:var(--a1);display:flex;align-items:center;justify-content:center;font-size:1.2rem;font-weight:700;color:#000;margin-bottom:.75rem}
+.card:nth-child(1) .avatar{background:var(--a1);color:#000}
+.card:nth-child(2) .avatar{background:var(--a2);color:#fff}
+.card:nth-child(3) .avatar{background:var(--a3);color:#fff}
+.card:nth-child(4) .avatar{background:var(--a4);color:#000}
+.card:nth-child(5) .avatar{background:var(--a5);color:#fff}
+.card-name{font-size:1rem;font-weight:700;margin-bottom:.65rem}
+.stat{display:flex;justify-content:space-between;font-size:.78rem;color:var(--txt2);margin-top:.25rem}
+.stat .v{font-weight:600;color:var(--txt)}.v.pos{color:var(--green)}.v.neg{color:var(--red)}
+/* ── Recommendation banner ── */
+.rec{background:linear-gradient(135deg,var(--green),var(--green-dk));border-radius:var(--r);padding:1.5rem 1.75rem;display:flex;align-items:center;gap:1.25rem;margin:1.5rem 0;box-shadow:0 4px 20px rgba(29,185,84,.35);flex-wrap:wrap}
+.rec-lbl{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:rgba(0,0,0,.6);white-space:nowrap}
+.rec-name{font-size:1.7rem;font-weight:900;color:#000;letter-spacing:-.5px}
+.rec-detail{font-size:.85rem;color:rgba(0,0,0,.65);margin-right:auto}
+/* ── Tables ── */
+.tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:var(--r2);border:1px solid var(--border);margin-bottom:.5rem}
+table{width:100%;border-collapse:collapse;font-size:.85rem}
+thead{background:#1e1e1e}
+th{padding:.7rem .9rem;text-align:right;color:var(--txt2);font-weight:600;font-size:.75rem;text-transform:uppercase;letter-spacing:.7px;white-space:nowrap;border-bottom:1px solid var(--border)}
+td{padding:.65rem .9rem;color:var(--txt);border-bottom:1px solid var(--border);vertical-align:middle}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:nth-child(even) td{background:rgba(255,255,255,.025)}
+tbody tr:hover td{background:rgba(255,255,255,.06)}
+td.pos{color:var(--green);font-weight:600}td.neg{color:var(--red);font-weight:600}
+.badge{display:inline-block;background:var(--green);color:#000;font-size:.68rem;font-weight:700;padding:.12rem .45rem;border-radius:20px}
+.del-btn{background:none;border:none;color:var(--txt3);cursor:pointer;font-size:.9rem;padding:2px 6px;border-radius:4px;transition:color var(--tr),background var(--tr)}
+.del-btn:hover{color:var(--red);background:rgba(224,90,90,.12)}
+/* ── Empty state ── */
+.empty{text-align:center;padding:2.5rem;color:var(--txt3);font-size:.9rem}
+/* ── Modal ── */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;align-items:center;justify-content:center;padding:1rem}
+.overlay.open{display:flex}
+.modal{background:#1e1e1e;border-radius:var(--r);padding:1.5rem;width:100%;max-width:460px;max-height:90vh;overflow-y:auto;border:1px solid var(--border)}
+.modal h3{font-size:1.1rem;font-weight:700;margin-bottom:1.25rem}
+.field{margin-bottom:.9rem}
+.field label{display:block;font-size:.78rem;color:var(--txt2);margin-bottom:.35rem;font-weight:600}
+.field input,.field select,.field textarea{width:100%;background:#282828;border:1.5px solid var(--border);border-radius:var(--r2);color:var(--txt);padding:.55rem .75rem;font-size:.88rem;font-family:inherit;outline:none;transition:border-color var(--tr)}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--green)}
+.field textarea{resize:vertical;min-height:60px}
+.field select option{background:#282828}
+.checkboxes{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.25rem}
+.cb-item{display:flex;align-items:center;gap:.4rem;background:var(--card);border:1.5px solid var(--border);border-radius:20px;padding:.3rem .75rem;cursor:pointer;font-size:.82rem;transition:border-color var(--tr),background var(--tr)}
+.cb-item input{display:none}
+.cb-item.selected{border-color:var(--green);background:rgba(29,185,84,.15);color:var(--green)}
+.modal-actions{display:flex;gap:.65rem;justify-content:flex-end;margin-top:1.25rem;flex-wrap:wrap}
+/* ── Toast ── */
+.toast{position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%) translateY(100px);background:#282828;color:var(--txt);padding:.6rem 1.2rem;border-radius:20px;font-size:.82rem;font-weight:600;border:1px solid var(--border);z-index:200;transition:transform .3s ease,opacity .3s ease;opacity:0;pointer-events:none}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+/* ── Manage list ── */
+.p-list{list-style:none;margin-top:.5rem}
+.p-item{display:flex;align-items:center;gap:.6rem;padding:.5rem 0;border-bottom:1px solid var(--border)}
+.p-item:last-child{border-bottom:none}
+.p-item .p-name{flex:1;font-size:.9rem}
+.p-item .p-badge{font-size:.7rem;padding:.1rem .45rem;border-radius:20px;font-weight:700}
+.p-badge.active{background:rgba(29,185,84,.2);color:var(--green)}
+.p-badge.inactive{background:rgba(255,255,255,.08);color:var(--txt3)}
+.p-item .actions{display:flex;gap:.35rem}
+.icon-btn{background:none;border:none;color:var(--txt3);cursor:pointer;padding:3px 6px;border-radius:4px;font-size:.85rem;transition:color var(--tr),background var(--tr)}
+.icon-btn:hover{color:var(--txt);background:rgba(255,255,255,.08)}
+/* ── Responsive ── */
+@media(max-width:600px){
+  .page{padding:1rem .9rem 3rem}
+  .hdr{padding:1.25rem 0 1.5rem}
+  .hdr-text h1{font-size:1.5rem}
+  .hdr-actions{margin-right:0;width:100%}
+  .members{flex-direction:column}
+  .card{flex:1 1 auto}
+  .rec{flex-direction:column;align-items:flex-start;gap:.4rem}
+  .rec-detail{margin-right:0}
+  th,td{padding:.55rem .65rem;font-size:.78rem}
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Header -->
+  <div class="hdr">
+    <div class="hdr-icon">💪</div>
+    <div class="hdr-text">
+      <h1>חלוקת הוצאות ג׳ים</h1>
+      <p>מעקב פרוטאין ותשלומים משותפים</p>
+    </div>
+    <div class="hdr-actions">
+      <button class="btn btn-green" onclick="openSessionModal()">+ תיעוד אימון</button>
+      <button class="btn btn-outline" onclick="openManageModal()">⚙ ניהול משתתפים</button>
+    </div>
+  </div>
+
+  <!-- Member cards -->
+  <div class="sec"><h2>משתתפים</h2></div>
+  <div class="members" id="members"></div>
+
+  <!-- Recommendation -->
+  <div class="rec" id="rec" style="display:none">
+    <div class="rec-lbl">תור לשלם</div>
+    <div class="rec-name" id="rec-name">—</div>
+    <div class="rec-detail" id="rec-detail"></div>
+  </div>
+
+  <!-- Debt table -->
+  <div class="sec"><h2>פירוט חוב</h2><p>מי חייב למי (סך כולל)</p></div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th>שם</th><th>שילם עבור אחרים (₪)</th><th>חייב לאחרים (₪)</th>
+        <th>יתרה נטו (₪)</th><th>סה״כ ששולם (₪)</th><th>אימונים</th>
+      </tr></thead>
+      <tbody id="debt-body"></tbody>
+    </table>
+  </div>
+
+  <!-- Session history -->
+  <div class="sec"><h2>היסטוריית אימונים</h2><p>הכי חדש ראשון</p></div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th>#</th><th>תאריך</th><th>משתתפים</th><th>שילם</th>
+        <th>מחיר לאדם (₪)</th><th>סה״כ (₪)</th><th>הערות</th><th></th>
+      </tr></thead>
+      <tbody id="sessions-body"></tbody>
+    </table>
+  </div>
+
+</div>
+
+<!-- Add session modal -->
+<div class="overlay" id="session-overlay">
+  <div class="modal">
+    <h3>תיעוד אימון חדש</h3>
+    <div class="field">
+      <label>תאריך</label>
+      <input type="date" id="s-date">
+    </div>
+    <div class="field">
+      <label>משתתפים</label>
+      <div class="checkboxes" id="s-attendees"></div>
+    </div>
+    <div class="field">
+      <label>מחיר לאדם (₪)</label>
+      <input type="number" id="s-price" step="0.5" min="0" placeholder="25">
+    </div>
+    <div class="field">
+      <label id="s-payer-lbl">מי שילם?</label>
+      <select id="s-payer"></select>
+    </div>
+    <div class="field">
+      <label>הערות (אופציונלי)</label>
+      <textarea id="s-notes" rows="2"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeSessionModal()">ביטול</button>
+      <button class="btn btn-green" onclick="submitSession()">שמור</button>
+    </div>
+  </div>
+</div>
+
+<!-- Manage participants modal -->
+<div class="overlay" id="manage-overlay">
+  <div class="modal">
+    <h3>ניהול משתתפים</h3>
+    <ul class="p-list" id="p-list"></ul>
+    <div style="margin-top:1.1rem;display:flex;gap:.5rem">
+      <input type="text" id="new-p-name" placeholder="שם משתתף חדש..." style="flex:1;background:#282828;border:1.5px solid var(--border);border-radius:8px;color:#fff;padding:.5rem .75rem;font-size:.88rem;font-family:inherit;outline:none">
+      <button class="btn btn-green btn-sm" onclick="addParticipant()">הוסף</button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeManageModal()">סגור</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+const ACCENTS = ['#1DB954','#509bf5','#c862e0','#f59c1a','#e05a5a'];
+const ACCENTS_DARK = [true, false, false, true, false]; // true = dark text on bg
+
+let _data = {debts:[], sessions:[], last_price:25};
+let _editing_pid = null;
+
+// ── Data loading ───────────────────────────────────────────
+async function load() {
+  try {
+    const r = await fetch('/api/gym/summary');
+    const d = await r.json();
+    if (!d.ok) { showToast('שגיאה בטעינת נתונים'); return; }
+    _data = d;
+    renderAll();
+    populateSessionForm();
+  } catch(e) { showToast('שגיאת רשת'); }
+}
+
+function renderAll() {
+  renderMembers();
+  renderRec();
+  renderDebts();
+  renderSessions();
+}
+
+// ── Member cards ────────────────────────────────────────────
+function renderMembers() {
+  const el = document.getElementById('members');
+  if (!_data.debts.length) {
+    el.innerHTML = '<div class="empty">אין משתתפים עדיין. הוסף משתתפים דרך "ניהול משתתפים".</div>';
+    return;
+  }
+  el.innerHTML = _data.debts.map((p, i) => {
+    const c = ACCENTS[i % ACCENTS.length];
+    const dark = ACCENTS_DARK[i % ACCENTS.length];
+    return `
+    <div class="card" style="border-top-color:${c}">
+      <div class="avatar" style="background:${c};color:${dark?'#000':'#fff'}">${p.name[0].toUpperCase()}</div>
+      <div class="card-name">${esc(p.name)}</div>
+      <div class="stat"><span>אימונים</span><span class="v">${p.sessions}</span></div>
+      <div class="stat"><span>שולם סה״כ</span><span class="v">₪${fmt(p.total_paid)}</span></div>
+      <div class="stat"><span>שילם עבור אחרים</span><span class="v ${p.fronted>0?'pos':''}">${p.fronted>0?'+':''}₪${fmt(p.fronted)}</span></div>
+      <div class="stat"><span>חייב לאחרים</span><span class="v ${p.owed>0?'neg':''}">${p.owed>0?'-':''}₪${fmt(p.owed)}</span></div>
+      <div class="stat"><span>יתרה נטו</span><span class="v ${p.net>0?'pos':p.net<0?'neg':''}">${p.net>0?'+':''}₪${fmt(p.net)}</span></div>
+    </div>`;
+  }).join('');
+}
+
+// ── Recommendation ──────────────────────────────────────────
+function renderRec() {
+  const rec = document.getElementById('rec');
+  if (!_data.debts.length) { rec.style.display='none'; return; }
+  const worst = _data.debts[0]; // ordered by net ASC
+  rec.style.display = 'flex';
+  document.getElementById('rec-name').textContent = worst.name;
+  document.getElementById('rec-detail').textContent =
+    `יתרה נטו: ${worst.net>0?'+':''}₪${fmt(worst.net)} — תור לשלם הפעם`;
+}
+
+// ── Debt table ──────────────────────────────────────────────
+function renderDebts() {
+  const tb = document.getElementById('debt-body');
+  if (!_data.debts.length) {
+    tb.innerHTML = '<tr><td colspan="6" class="empty">אין נתונים עדיין</td></tr>';
+    return;
+  }
+  tb.innerHTML = _data.debts.map(p => `
+    <tr>
+      <td>${esc(p.name)}</td>
+      <td class="${p.fronted>0?'pos':''}">₪${fmt(p.fronted)}</td>
+      <td class="${p.owed>0?'neg':''}">₪${fmt(p.owed)}</td>
+      <td class="${p.net>0?'pos':p.net<0?'neg':''}">₪${p.net>0?'+':''}${fmt(p.net)}</td>
+      <td>₪${fmt(p.total_paid)}</td>
+      <td>${p.sessions}</td>
+    </tr>`).join('');
+}
+
+// ── Session history ─────────────────────────────────────────
+function renderSessions() {
+  const tb = document.getElementById('sessions-body');
+  if (!_data.sessions.length) {
+    tb.innerHTML = '<tr><td colspan="8" class="empty">אין אימונים מתועדים עדיין</td></tr>';
+    return;
+  }
+  tb.innerHTML = _data.sessions.map(s => `
+    <tr>
+      <td>${s.id}</td>
+      <td>${s.date}</td>
+      <td>${esc(s.attendees.join(', '))}</td>
+      <td><span class="badge">${esc(s.payer)}</span></td>
+      <td>₪${fmt(s.price)}</td>
+      <td>₪${fmt(s.total)}</td>
+      <td>${esc(s.notes)}</td>
+      <td><button class="del-btn" onclick="deleteSession(${s.id})" title="מחק">🗑</button></td>
+    </tr>`).join('');
+}
+
+// ── Session modal ───────────────────────────────────────────
+function populateSessionForm() {
+  // date default
+  const today = new Date().toISOString().slice(0,10);
+  document.getElementById('s-date').value = today;
+  // price default
+  document.getElementById('s-price').value = _data.last_price || 25;
+  // attendees checkboxes
+  const active = _data.debts.filter(p => p.is_active);
+  const att = document.getElementById('s-attendees');
+  att.innerHTML = active.map(p =>
+    `<label class="cb-item" onclick="toggleCb(this)">
+       <input type="checkbox" value="${p.id}"> ${esc(p.name)}
+     </label>`
+  ).join('');
+  // payer select
+  const sel = document.getElementById('s-payer');
+  sel.innerHTML = active.map(p =>
+    `<option value="${p.id}">${esc(p.name)}</option>`
+  ).join('');
+  // pre-select recommended payer
+  if (_data.debts.length) {
+    sel.value = _data.debts[0].id;
+  }
+}
+
+function toggleCb(label) {
+  label.classList.toggle('selected');
+  label.querySelector('input').checked = label.classList.contains('selected');
+}
+
+function openSessionModal() {
+  populateSessionForm();
+  document.getElementById('session-overlay').classList.add('open');
+}
+function closeSessionModal() {
+  document.getElementById('session-overlay').classList.remove('open');
+}
+
+async function submitSession() {
+  const date  = document.getElementById('s-date').value;
+  const price = parseFloat(document.getElementById('s-price').value) || 25;
+  const payer = parseInt(document.getElementById('s-payer').value);
+  const notes = document.getElementById('s-notes').value.trim();
+  const attendees = [...document.querySelectorAll('#s-attendees input:checked')]
+                      .map(i => parseInt(i.value));
+  if (!attendees.length) { showToast('יש לבחור לפחות משתתף אחד'); return; }
+  if (!payer) { showToast('יש לבחור מי שילם'); return; }
+  const r = await fetch('/api/gym/sessions', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({date, price, payer_id:payer, attendees, notes})
+  });
+  const d = await r.json();
+  if (d.ok) { closeSessionModal(); showToast('✓ אימון נשמר'); load(); }
+  else showToast('שגיאה: ' + d.error);
+}
+
+// ── Delete session ──────────────────────────────────────────
+async function deleteSession(sid) {
+  if (!confirm('למחוק אימון זה?')) return;
+  const r = await fetch('/api/gym/sessions/'+sid, {method:'DELETE'});
+  const d = await r.json();
+  if (d.ok) { showToast('אימון נמחק'); load(); }
+  else showToast('שגיאה: ' + d.error);
+}
+
+// ── Manage participants modal ───────────────────────────────
+async function openManageModal() {
+  await renderParticipantList();
+  document.getElementById('manage-overlay').classList.add('open');
+}
+function closeManageModal() {
+  document.getElementById('manage-overlay').classList.remove('open');
+  load();
+}
+
+async function renderParticipantList() {
+  const r = await fetch('/api/gym/participants');
+  const d = await r.json();
+  const ul = document.getElementById('p-list');
+  if (!d.ok || !d.participants.length) {
+    ul.innerHTML = '<li class="empty" style="padding:.75rem 0">אין משתתפים עדיין</li>';
+    return;
+  }
+  ul.innerHTML = d.participants.map(p => `
+    <li class="p-item" id="pitem-${p.id}">
+      <span class="p-name" id="pname-${p.id}">${esc(p.name)}</span>
+      <span class="p-badge ${p.is_active?'active':'inactive'}">${p.is_active?'פעיל':'לא פעיל'}</span>
+      <div class="actions">
+        <button class="icon-btn" title="שנה שם" onclick="editName(${p.id})">✏️</button>
+        <button class="icon-btn" title="${p.is_active?'השבת':'הפעל'}" onclick="toggleActive(${p.id},${p.is_active})">
+          ${p.is_active?'🔇':'🔔'}
+        </button>
+      </div>
+    </li>`).join('');
+}
+
+async function addParticipant() {
+  const inp = document.getElementById('new-p-name');
+  const name = inp.value.trim();
+  if (!name) return;
+  const r = await fetch('/api/gym/participants', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({name})
+  });
+  const d = await r.json();
+  if (d.ok) { inp.value=''; renderParticipantList(); showToast(`✓ ${name} נוסף`); }
+  else showToast('שגיאה: ' + d.error);
+}
+
+async function editName(pid) {
+  const span = document.getElementById('pname-'+pid);
+  const current = span.textContent;
+  const name = prompt('שם חדש:', current);
+  if (!name || name.trim() === current) return;
+  const r = await fetch('/api/gym/participants/'+pid, {
+    method:'PATCH', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({name: name.trim()})
+  });
+  const d = await r.json();
+  if (d.ok) { renderParticipantList(); showToast('✓ שם עודכן'); }
+  else showToast('שגיאה: ' + d.error);
+}
+
+async function toggleActive(pid, current) {
+  const r = await fetch('/api/gym/participants/'+pid, {
+    method:'PATCH', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({is_active: !current})
+  });
+  const d = await r.json();
+  if (d.ok) renderParticipantList();
+  else showToast('שגיאה: ' + d.error);
+}
+
+// ── Helpers ─────────────────────────────────────────────────
+function fmt(n){ return Number(n).toFixed(2).replace(/\.00$/, ''); }
+function esc(s){ const d=document.createElement('div'); d.textContent=s||''; return d.innerHTML; }
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+// Close overlays on backdrop click
+document.getElementById('session-overlay').addEventListener('click', e => { if(e.target===e.currentTarget) closeSessionModal(); });
+document.getElementById('manage-overlay').addEventListener('click', e => { if(e.target===e.currentTarget) closeManageModal(); });
+
+load();
+</script>
+</body>
+</html>

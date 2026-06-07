@@ -43,12 +43,16 @@ class utils:
                 utils.log(msg=f"Key error in log function: got '{category}'", category='error')
 
         if write:
-            f = open("Log_file.txt", 'a', encoding="utf-8")
-            f.write(log_st + "\n")
-            f.close()
+            log_path = '/tmp/Log_file.txt' if os.getenv('DATABASE_URL') else 'Log_file.txt'
+            try:
+                f = open(log_path, 'a', encoding="utf-8")
+                f.write(log_st + "\n")
+                f.close()
+            except OSError:
+                pass
             print(log_st, end=e)
 
-        if category == "error":
+        if category == "error" and not os.getenv('DATABASE_URL'):
             exit()
         # if category == 'warning':
         #     utils.warning_halt()

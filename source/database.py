@@ -1,7 +1,14 @@
 import sqlite3
+import threading
 from datetime import datetime
 import pandas as pd
 from typing import Literal, Optional
+import os
+from dotenv import load_dotenv
+import psycopg2
+from psycopg2.extras import DictCursor
+
+load_dotenv()
 
 
 # local imports
@@ -9,6 +16,48 @@ from decorators import try_catch, error_handler
 from src_utils.utils import utils
 from Constants import Local, Paths
 from typing import Tuple
+
+
+# PostgreSQL connection
+def get_db_connection():
+    """Get PostgreSQL connection from environment variable"""
+    try:
+        conn = psycopg2.connect(os.getenv('DATABASE_URL'))
+        return conn
+    except Exception as e:
+        utils.log(f"Database connection failed: {e}", 'error')
+        return None
+
+
+def initialize_login_activity_table():
+    """Create login_activity table if it doesn't exist"""
+    conn = get_db_connection()
+    if conn is None:
+        return False
+
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS login_activity (
+                id SERIAL PRIMARY KEY,
+                login_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                logout_time TIMESTAMP,
+                session_id VARCHAR(255),
+                device_info VARCHAR(500),
+                ip_address VARCHAR(45)
+            );
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_login_time ON login_activity(login_time DESC);
+        """)
+        conn.commit()
+        cursor.close()
+        conn.close()
+        utils.log("login_activity table initialized", 'system')
+        return True
+    except Exception as e:
+        utils.log(f"Failed to initialize login_activity table: {e}", 'error')
+        return False
 
 
 # ----------------------------------------------------------------------
@@ -46,138 +95,31 @@ def check_for_empty_df(func):
 class DataBase:
 
     __instance = None
+    __lock = threading.Lock()
     connection: sqlite3.Connection
     cursor: sqlite3.Cursor
 
     def __new__(cls):
-        if cls.__instance is None:
-            cls.__instance = super().__new__(cls)
-            cls.__instance.connection = sqlite3.connect(f'{Paths.DB_NAME}.db')
-            cls.__instance.cursor = cls.__instance.connection.cursor()
-            cls.__instance.cursor.execute("""
-                CREATE TABLE IF NOT EXISTS Card (
-                CardID          CHAR(4)     PRIMARY KEY,
-                description     TEXT
-                );""")
-            cls.__instance.cursor.execute("""
-                CREATE TABLE IF NOT EXISTS File (
-                File_Name           CHAR        NOT NULL,
-                Format              CHAR        NOT NULL,
-                Card_Number         CHAR        NOT NULL,
-                Date                DATE        NOT NULL,
-                New_Transactions    INT                 ,
-                Transaction_count   INT         NOT NULL,
-                Last_update         DATE        NOT NULL,
-                PRIMARY KEY(File_Name, Format, Card_Number)
-                );""") # Should also add card as primary key for 2 holders of the same format, trying to upload
-                # a file for the same month for 2 different cards
+        with cls.__lock:
+            if cls.__instance is None:
+                cls.__instance = super().__new__(cls)
 
-            cls.__instance.cursor.execute("""
-                CREATE TABLE IF NOT EXISTS CashTransactions (
-                ID                  INTEGER         PRIMARY KEY ,
-                Name                CHAR            NOT NULL    ,
-                Execution_Date      DATE            NOT NULL    ,
-                Amount              INT             NOT NULL    ,
-                Currency            CHAR            NOT NULL    ,
-                Category            CHAR            NOT NULL    ,
-                Insertion_Date      DATE            NOT NULL    ,
-                Description         CHAR                                                                       
-                );""")
-            
-            cls.__instance.cursor.execute("""
-                CREATE TABLE IF NOT EXISTS DevisionTransactions (
-                ID                  INTEGER         PRIMARY KEY ,
-                DevisionOfBank      INT             NOT NULL    ,
-                DevisionOfCard      INT             NOT NULL    ,
-                Name                CHAR            NOT NULL    ,
-                Execution_Date      DATE            NOT NULL    ,
-                Amount              INT             NOT NULL    ,
-                Currency            CHAR            NOT NULL    ,
-                Description         CHAR                        ,
-                Category            CHAR            NOT NULL    ,
-                FOREIGN KEY(DevisionOfBank)    REFERENCES BankTransactions(ID),
-                FOREIGN KEY(DevisionOfCard)    REFERENCES CardTransactions(ID)                                   
-                );""")
-
-            cls.__instance.cursor.execute("""
-                CREATE TABLE IF NOT EXISTS TableMeta (
-                ID                  INTEGER         PRIMARY KEY ,
-                File_Name           CHAR            NOT NULL    ,
-                Format              CHAR            NOT NULL    ,
-                Card_Number         CHAR            NOT NULL    ,
-                Initial_index       INT             NOT NULL    ,
-                Initial_col         INT             NOT NULL    ,
-                Row_count           INT             NOT NULL    ,
-                Bad_rows            CHAR                        ,
-                FOREIGN KEY(File_Name, Format, Card_Number)    REFERENCES File(File_Name, Format, Card_Number)
-                );""")
-
-            cls.__instance.cursor.execute("""
-                CREATE TABLE IF NOT EXISTS BankTransactions (
-                ID                  INTEGER     PRIMARY KEY ,
-                Date                DATE        NOT NULL    ,
-                Value_Date          DATE                    ,
-                Name                CHAR        NOT NULL    ,
-                Ref                 CHAR                    ,
-                Out                 INT         NOT NULL    ,
-                Income              INT         NOT NULL    ,
-                Balance             INT                     ,
-                Extra_Info          CHAR                    ,
-                Source_file         CHAR        NOT NULL    ,
-                Category            CHAR                    ,
-                Description         CHAR                    ,            
-                Reserved            INT                     ,
-                FOREIGN KEY(source_file)    REFERENCES File(Name)
-                );""")
-
-            cls.__instance.cursor.execute("""
-                CREATE TABLE IF NOT EXISTS CardTransactions (
-                ID                  INTEGER     PRIMARY KEY ,
-                CardID              CHAR        NOT NULL    ,
-                Name                CHAR        NOT NULL    ,
-                Executed_Date       DATE        NOT NULL    ,
-                Charge_Date         DATE                    ,
-                Charge_Value        INT                     ,
-                Charge_Currency     CHAR                    ,
-                Transaction_Value   INT                     ,
-                Value_Currency      CHAR                    ,
-                Extra_Info          CHAR                    ,
-                Source_file         CHAR        NOT NULL    ,
-                Category            CHAR                    ,
-                Description         CHAR                    ,
-                Reserved            INT                     ,
-                FOREIGN KEY(CardID)         REFERENCES Card(CardID),
-                FOREIGN KEY(source_file)    REFERENCES File(Name)
-                );""")
-            # Charge value - The initial value/ The total sum of payments of the transaction.
-            # Transaction value - The actual amount credited for
-
-            cls.__instance.cursor.execute("""
-                CREATE TABLE IF NOT EXISTS GymParticipants (
-                id              INTEGER     PRIMARY KEY AUTOINCREMENT,
-                name            TEXT        NOT NULL,
-                is_active       INTEGER     DEFAULT 1,
-                insertion_date  TEXT        NOT NULL
-                );""")
-
-            cls.__instance.cursor.execute("""
-                CREATE TABLE IF NOT EXISTS GymSessions (
-                id              INTEGER     PRIMARY KEY AUTOINCREMENT,
-                date            TEXT        NOT NULL,
-                product_price   REAL        NOT NULL,
-                payer_id        INTEGER     NOT NULL    REFERENCES GymParticipants(id),
-                notes           TEXT,
-                insertion_date  TEXT        NOT NULL
-                );""")
-
-            cls.__instance.cursor.execute("""
-                CREATE TABLE IF NOT EXISTS GymSessionParticipants (
-                session_id      INTEGER     REFERENCES GymSessions(id),
-                participant_id  INTEGER     REFERENCES GymParticipants(id),
-                PRIMARY KEY(session_id, participant_id)
-                );""")
-
-            cls.__instance.connection.commit()
+                # On Vercel (serverless), use PostgreSQL; locally use SQLite
+                if os.getenv('DATABASE_URL'):
+                    # Vercel/PostgreSQL mode - use PostgreSQL connection
+                    try:
+                        pg_conn = psycopg2.connect(os.getenv('DATABASE_URL'))
+                        cls.__instance.connection = pg_conn
+                        cls.__instance.cursor = pg_conn.cursor()
+                        utils.log("Using PostgreSQL backend", 'system')
+                    except Exception as e:
+                        utils.log(f"PostgreSQL connection failed: {e}", 'error')
+                        cls.__instance.connection = None
+                        cls.__instance.cursor = None
+                else:
+                    # Local/SQLite mode
+                    cls.__instance.connection = sqlite3.connect(f'{Paths.DB_NAME}.db', check_same_thread=False)
+                    cls.__instance.cursor = cls.__instance.connection.cursor()
 
         return cls.__instance
 
@@ -321,8 +263,8 @@ class DataBase:
         Insert a new file to local DB.
         @date: date stated in excel file.
         '''
-        last_update = utils.date_ready(datetime.now().strftime("%d-%m-%Y"))
-        self.cursor.execute(f"""
+        last_update = utils.date_ready(datetime.now().strftime("%d-%m-%Y")).date()
+        self.cursor.execute("""
             INSERT INTO File(File_Name, Format, Card_Number, Date, New_Transactions, Transaction_count, Last_update)
             VALUES(?, ?, ?, ?, ?, ?, ?)
             """, (name, format_name, card_number, date, new_trans_count, trans_count, last_update)
@@ -454,14 +396,117 @@ class DataBase:
                                       DESC LIMIT 1
                                    """).fetchone()[0]
 
-    def get_gas_related(self, keys: list, year: str = "", month: str = ""):
-        rows = []
-        for k in keys:
-            rows += self.cursor.execute("""
-                                        SELECT transaction_date,business_name,amount FROM Transactions
-                                        WHERE business_name = ?
-                                        """, (k,)).fetchall()
-        return rows
+    def get_housing_income(self, category: str) -> pd.DataFrame:
+        """
+        Return all Income (rent) entries for *category* across all time.
+        Returns columns: Date, Name, Income.
+        """
+        data = self.cursor.execute("""
+            SELECT Date, Name, Income
+            FROM BankTransactions
+            WHERE Category = ?
+              AND Income > 0
+            ORDER BY Date
+        """, (category,)).fetchall()
+        return pd.DataFrame(data, columns=["Date", "Name", "Income"])
+
+    def get_all_category_transactions(self, category: str) -> pd.DataFrame:
+        """
+        Return all transactions (Out and Income) for *category* sorted by date descending.
+        Mirrors the category-analysis path: fetch all → apply_splits → filter by category →
+        process_prices on cards, so split children are included and values match exactly.
+        Returns columns: Date, Name, Out, Income.
+        """
+        from src_utils.calculations import SimpleMath
+        from datetime import datetime as _dt
+
+        bank_raw = self.get_transactions('BankTransactions', category_filter=None, name_filter=None)
+        bank_raw = self.apply_splits_to_df(bank_raw)
+        bank_raw = bank_raw[bank_raw['Category'] == category].reset_index(drop=True)
+
+        card_raw = self.get_transactions('CardTransactions', category_filter=None, name_filter=None)
+        card_raw = self.apply_splits_to_df(card_raw)
+        card_raw = card_raw[card_raw['Category'] == category].reset_index(drop=True)
+
+        bank_df = pd.DataFrame({
+            "Date":        bank_raw["Date"],
+            "Name":        bank_raw["Name"],
+            "Out":         bank_raw["Out"],
+            "Income":      bank_raw["Income"],
+            "Description": bank_raw["Description"] if "Description" in bank_raw.columns else "",
+        }) if not bank_raw.empty else pd.DataFrame(columns=["Date", "Name", "Out", "Income", "Description"])
+
+        if not card_raw.empty:
+            card_proc = SimpleMath.process_prices(card_raw, date=_dt.now(), general_analysis=False)
+            card_result = pd.DataFrame({
+                "Date":        card_proc["Executed_Date"],
+                "Name":        card_proc["Name"],
+                "Out":         card_proc["Final_Value"].apply(lambda v: abs(float(v)) if v < 0 else 0.0),
+                "Income":      card_proc["Final_Value"].apply(lambda v: float(v) if v > 0 else 0.0),
+                "Description": card_proc["Description"] if "Description" in card_proc.columns else "",
+            })
+            combined = pd.concat([bank_df, card_result], ignore_index=True)
+        else:
+            combined = bank_df
+
+        combined["Date"] = pd.to_datetime(combined["Date"])
+        return combined.sort_values("Date", ascending=False).reset_index(drop=True)
+
+    def get_housing_spending(self, category: str) -> pd.DataFrame:
+        """
+        Return all Out (spending) entries for *category* across all time.
+        Mirrors the category-analysis path: fetch all → apply_splits → filter by category →
+        process_prices on cards, so split children are included and values match exactly.
+        Returns columns: Date, Name, Out.
+        """
+        from src_utils.calculations import SimpleMath
+        from datetime import datetime as _dt
+
+        bank_raw = self.get_transactions('BankTransactions', category_filter=None, name_filter=None)
+        bank_raw = self.apply_splits_to_df(bank_raw)
+        bank_raw = bank_raw[(bank_raw['Category'] == category) & (bank_raw['Out'] > 0)].reset_index(drop=True)
+
+        card_raw = self.get_transactions('CardTransactions', category_filter=None, name_filter=None)
+        card_raw = self.apply_splits_to_df(card_raw)
+        card_raw = card_raw[card_raw['Category'] == category].reset_index(drop=True)
+
+        bank_df = pd.DataFrame({
+            "Date": bank_raw["Date"],
+            "Name": bank_raw["Name"],
+            "Out":  bank_raw["Out"],
+        }) if not bank_raw.empty else pd.DataFrame(columns=["Date", "Name", "Out"])
+
+        if not card_raw.empty:
+            card_proc = SimpleMath.process_prices(card_raw, date=_dt.now(), general_analysis=False)
+            spending = card_proc[card_proc["Final_Value"] < 0].copy()
+            card_result = pd.DataFrame({
+                "Date": spending["Executed_Date"],
+                "Name": spending["Name"],
+                "Out":  spending["Final_Value"].apply(lambda v: abs(float(v))),
+            })
+            combined = pd.concat([bank_df, card_result], ignore_index=True)
+        else:
+            combined = bank_df
+
+        combined["Date"] = pd.to_datetime(combined["Date"])
+        return combined.sort_values("Date").reset_index(drop=True)
+
+    def get_mortgage_payments(self, category: str, name_keyword: str) -> pd.DataFrame:
+        """
+        Return all bank transactions whose Name contains *name_keyword*
+        and whose Category matches *category*, across all time.
+        Used to fetch actual historic mortgage payments.
+        Returns columns: Date, Name, Amount (positive = money out).
+        """
+        data = self.cursor.execute("""
+            SELECT Date, Name, Out AS Amount
+            FROM BankTransactions
+            WHERE Category = ?
+              AND Name LIKE ?
+              AND Out > 0
+            ORDER BY Date
+        """, (category, f"%{name_keyword}%")).fetchall()
+        return pd.DataFrame(data, columns=["Date", "Name", "Amount"])
 
     def get_transactions_by_category(self, cat_name: str) -> pd.DataFrame:
         """
@@ -1008,6 +1053,26 @@ class DataBase:
             sorted_list = sorted(res1 + res2, key=lambda x: x[2], reverse=True)
             return sorted_list, [d[0] for d in self.cursor.description]
 
+    def get_untagged_card_payments(self) -> Tuple[list, list]:
+        """
+        Get all untagged CardTransactions with all necessary columns.
+        Returns: (list of tuples, list of column names)
+        """
+        res = self.cursor.execute("""
+            SELECT
+                ID,
+                Name,
+                Charge_Date,
+                Charge_Value,
+                Extra_Info,
+                Category,
+                Description
+            FROM CardTransactions
+            WHERE Category IS 'NotCategorized'
+            ORDER BY Charge_Date ASC
+        """).fetchall()
+        return res, [d[0] for d in self.cursor.description]
+
     @validate_table_name
     def set_category(self, table_name: str, id: int, category: str):
         """
@@ -1028,6 +1093,279 @@ class DataBase:
                                     """, (category, id,))
             case _:
                 utils.log(f"Bad input {table_name} in 'set_category' in DataBase class", "error")
+
+    @validate_table_name
+    def set_category_ui(self, table_name: str, id: int, category: str, is_auto: bool = False):
+        """
+        Set a tag for a transaction via the UI.
+        Reserved = 0 for manual tag, 1 for auto tag.
+        """
+        reserved_val = 1 if is_auto else 0
+        match table_name:
+            case "CardTransactions":
+                self.cursor.execute("""
+                                    UPDATE CardTransactions
+                                    SET Category = ?, Reserved = ?
+                                    WHERE ID = ?
+                                    """, (category, reserved_val, id,))
+                self.connection.commit()
+            case "BankTransactions":
+                self.cursor.execute("""
+                                    UPDATE BankTransactions
+                                    SET Category = ?, Reserved = ?
+                                    WHERE ID = ?
+                                    """, (category, reserved_val, id,))
+                self.connection.commit()
+            case _:
+                utils.log(f"Bad input {table_name} in 'set_category_ui' in DataBase class", "error")
+
+    def get_untagged_recent(self, limit: int = 30) -> list:
+        """
+        Get the most recent untagged transactions from both tables.
+        Returns a list of dicts with keys: table_name, id, name, exec_date, charge_date,
+        transaction_value, charge_value, currency, reserved, card_id.
+        """
+        rows = self.cursor.execute("""
+            SELECT
+                'CardTransactions' AS table_name,
+                ID,
+                Name,
+                Executed_Date AS exec_date,
+                Charge_Date   AS charge_date,
+                Transaction_Value AS transaction_value,
+                Charge_Value      AS charge_value,
+                Charge_Currency   AS currency,
+                Value_Currency    AS value_currency,
+                Reserved,
+                CardID            AS card_id
+            FROM CardTransactions
+            WHERE Category IS 'NotCategorized'
+              AND NOT EXISTS (
+                SELECT 1 FROM TransactionSplits
+                WHERE Original_Table = 'CardTransactions' AND Original_ID = CardTransactions.ID
+              )
+            UNION ALL
+            SELECT
+                'BankTransactions' AS table_name,
+                ID,
+                Name,
+                Date       AS exec_date,
+                Value_Date AS charge_date,
+                Income     AS transaction_value,
+                Out        AS charge_value,
+                'ILS'      AS currency,
+                'ILS'      AS value_currency,
+                Reserved,
+                NULL       AS card_id
+            FROM BankTransactions
+            WHERE Category IS 'NotCategorized'
+              AND NOT EXISTS (
+                SELECT 1 FROM TransactionSplits
+                WHERE Original_Table = 'BankTransactions' AND Original_ID = BankTransactions.ID
+              )
+            ORDER BY exec_date DESC
+            LIMIT ?
+        """, (limit,)).fetchall()
+        cols = ['table_name', 'id', 'name', 'exec_date', 'charge_date',
+                'transaction_value', 'charge_value', 'currency', 'value_currency', 'reserved', 'card_id']
+        return [dict(zip(cols, r)) for r in rows]
+
+    def get_recently_tagged(self, limit: int = 30) -> list:
+        """
+        Get recently tagged transactions (Category != NotCategorized) from both tables.
+        Returns list of dicts including the category and reserved flag (0=manual, 1=auto).
+        """
+        rows = self.cursor.execute("""
+            SELECT
+                'CardTransactions' AS table_name,
+                ID,
+                Name,
+                Executed_Date AS exec_date,
+                Charge_Date   AS charge_date,
+                Transaction_Value AS transaction_value,
+                Charge_Value      AS charge_value,
+                Charge_Currency   AS currency,
+                Value_Currency    AS value_currency,
+                Category,
+                Reserved
+            FROM CardTransactions
+            WHERE Category IS NOT 'NotCategorized'
+            UNION ALL
+            SELECT
+                'BankTransactions' AS table_name,
+                ID,
+                Name,
+                Date       AS exec_date,
+                Value_Date AS charge_date,
+                Income     AS transaction_value,
+                Out        AS charge_value,
+                'ILS'      AS currency,
+                'ILS'      AS value_currency,
+                Category,
+                Reserved
+            FROM BankTransactions
+            WHERE Category IS NOT 'NotCategorized'
+            ORDER BY exec_date DESC
+            LIMIT ?
+        """, (limit,)).fetchall()
+        cols = ['table_name', 'id', 'name', 'exec_date', 'charge_date',
+                'transaction_value', 'charge_value', 'currency', 'value_currency', 'category', 'reserved']
+        return [dict(zip(cols, r)) for r in rows]
+
+    def get_high_value_untagged(self, threshold: float = 500.0) -> list:
+        """
+        Get untagged transactions with charge_value above threshold.
+        Returns list of dicts, sorted by value descending.
+        """
+        rows = self.cursor.execute("""
+            SELECT
+                'CardTransactions' AS table_name,
+                ID,
+                Name,
+                Executed_Date AS exec_date,
+                Charge_Date   AS charge_date,
+                Transaction_Value AS transaction_value,
+                Charge_Value      AS charge_value,
+                Charge_Currency   AS currency,
+                Value_Currency    AS value_currency,
+                Reserved,
+                CardID            AS card_id
+            FROM CardTransactions
+            WHERE Category IS 'NotCategorized'
+              AND Charge_Value >= ?
+              AND NOT EXISTS (
+                SELECT 1 FROM TransactionSplits
+                WHERE Original_Table = 'CardTransactions' AND Original_ID = CardTransactions.ID
+              )
+            UNION ALL
+            SELECT
+                'BankTransactions' AS table_name,
+                ID,
+                Name,
+                Date       AS exec_date,
+                Value_Date AS charge_date,
+                Income     AS transaction_value,
+                Out        AS charge_value,
+                'ILS'      AS currency,
+                'ILS'      AS value_currency,
+                Reserved,
+                NULL       AS card_id
+            FROM BankTransactions
+            WHERE Category IS 'NotCategorized'
+              AND (Out >= ? OR Income >= ?)
+              AND NOT EXISTS (
+                SELECT 1 FROM TransactionSplits
+                WHERE Original_Table = 'BankTransactions' AND Original_ID = BankTransactions.ID
+              )
+            ORDER BY charge_value DESC
+        """, (threshold, threshold, threshold)).fetchall()
+        cols = ['table_name', 'id', 'name', 'exec_date', 'charge_date',
+                'transaction_value', 'charge_value', 'currency', 'value_currency', 'reserved', 'card_id']
+        return [dict(zip(cols, r)) for r in rows]
+
+    def count_untagged_total(self) -> int:
+        """Return total count of untagged transactions across both tables."""
+        result = self.cursor.execute("""
+            SELECT COUNT(*) FROM (
+                SELECT ID FROM CardTransactions
+                WHERE Category IS 'NotCategorized'
+                  AND NOT EXISTS (
+                    SELECT 1 FROM TransactionSplits
+                    WHERE Original_Table = 'CardTransactions' AND Original_ID = CardTransactions.ID
+                  )
+                UNION ALL
+                SELECT ID FROM BankTransactions
+                WHERE Category IS 'NotCategorized'
+                  AND NOT EXISTS (
+                    SELECT 1 FROM TransactionSplits
+                    WHERE Original_Table = 'BankTransactions' AND Original_ID = BankTransactions.ID
+                  )
+            )
+        """).fetchone()
+        return result[0] if result else 0
+
+    def count_category_usages(self) -> dict:
+        """
+        Returns a dict of {category: count} for all non-NotCategorized transactions.
+        """
+        rows = self.cursor.execute("""
+            SELECT Category, COUNT(*) FROM (
+                SELECT Category FROM CardTransactions WHERE Category IS NOT 'NotCategorized'
+                UNION ALL
+                SELECT Category FROM BankTransactions WHERE Category IS NOT 'NotCategorized'
+            ) GROUP BY Category ORDER BY COUNT(*) DESC
+        """).fetchall()
+        return {r[0]: r[1] for r in rows}
+
+    def count_auto_tagged_per_name(self) -> dict:
+        """Returns {name: count} for all tagged (non-NotCategorized) transactions across both tables."""
+        rows = self.cursor.execute("""
+            SELECT Name, COUNT(*) FROM (
+                SELECT Name FROM CardTransactions WHERE Category IS NOT 'NotCategorized'
+                UNION ALL
+                SELECT Name FROM BankTransactions WHERE Category IS NOT 'NotCategorized'
+            ) GROUP BY Name
+        """).fetchall()
+        return {r[0]: r[1] for r in rows}
+
+    def remap_auto_tagged(self, name: str, new_category: str) -> int:
+        """Update ALL existing transactions matching name to new_category (auto + manual).
+        Returns total rows updated."""
+        self.cursor.execute(
+            "UPDATE CardTransactions SET Category = ? WHERE Name = ?",
+            (new_category, name)
+        )
+        card_count = self.cursor.rowcount
+        self.cursor.execute(
+            "UPDATE BankTransactions SET Category = ? WHERE Name = ?",
+            (new_category, name)
+        )
+        bank_count = self.cursor.rowcount
+        self.connection.commit()
+        return card_count + bank_count
+
+    def search_tagged(self, query: str, limit: int = 50) -> list:
+        """Search tagged transactions by name (partial) or exact numeric ID."""
+        try:
+            id_val = int(query)
+            rows = self.cursor.execute("""
+                SELECT 'CardTransactions' AS table_name, ID, Name,
+                    Executed_Date AS exec_date, Charge_Date AS charge_date,
+                    Transaction_Value AS transaction_value, Charge_Value AS charge_value,
+                    Charge_Currency AS currency, Category, Reserved, CardID AS card_id,
+                    COALESCE(Description, '') AS description
+                FROM CardTransactions WHERE Category IS NOT 'NotCategorized' AND ID = ?
+                UNION ALL
+                SELECT 'BankTransactions' AS table_name, ID, Name,
+                    Date AS exec_date, Value_Date AS charge_date,
+                    Income AS transaction_value, Out AS charge_value,
+                    'ILS' AS currency, Category, Reserved, NULL AS card_id,
+                    COALESCE(Description, '') AS description
+                FROM BankTransactions WHERE Category IS NOT 'NotCategorized' AND ID = ?
+                ORDER BY exec_date DESC LIMIT ?
+            """, (id_val, id_val, limit)).fetchall()
+        except ValueError:
+            like = f'%{query}%'
+            rows = self.cursor.execute("""
+                SELECT 'CardTransactions' AS table_name, ID, Name,
+                    Executed_Date AS exec_date, Charge_Date AS charge_date,
+                    Transaction_Value AS transaction_value, Charge_Value AS charge_value,
+                    Charge_Currency AS currency, Category, Reserved, CardID AS card_id,
+                    COALESCE(Description, '') AS description
+                FROM CardTransactions WHERE Category IS NOT 'NotCategorized' AND Name LIKE ?
+                UNION ALL
+                SELECT 'BankTransactions' AS table_name, ID, Name,
+                    Date AS exec_date, Value_Date AS charge_date,
+                    Income AS transaction_value, Out AS charge_value,
+                    'ILS' AS currency, Category, Reserved, NULL AS card_id,
+                    COALESCE(Description, '') AS description
+                FROM BankTransactions WHERE Category IS NOT 'NotCategorized' AND Name LIKE ?
+                ORDER BY exec_date DESC LIMIT ?
+            """, (like, like, limit)).fetchall()
+        cols = ['table_name', 'id', 'name', 'exec_date', 'charge_date',
+                'transaction_value', 'charge_value', 'currency', 'category', 'reserved', 'card_id',
+                'description']
+        return [dict(zip(cols, r)) for r in rows]
 
     @validate_table_name
     def set_description(self, table_name: str, id: int, description: str):
@@ -1240,7 +1578,7 @@ class DataBase:
 
     def total_income(self, name_for_analysis: str, case: Literal[0, 1]) -> float:
         """
-        Returns the total sum of all spendings of a chosen category \ business transactions
+        Returns the total sum of all spendings of a chosen category or business transactions
         case 0: Category
         case 1: Business
         """
@@ -1421,25 +1759,26 @@ class DataBase:
 
         # Base query with date filter
         query = """
-            SELECT 
+            SELECT
                 StatusDate as Date,
                 Value,
-                AccountName
+                AccountName,
+                COALESCE(Currency, 'ILS') as Currency
             FROM OtherAccountStatus
             WHERE StatusDate >= ?
             {}
             ORDER BY StatusDate ASC
         """
-        
+
         if account_name:
             where_clause = "AND AccountName = ?"
-            data = self.cursor.execute(query.format(where_clause), 
+            data = self.cursor.execute(query.format(where_clause),
                                      (from_date_str, account_name)).fetchall()
         else:
-            data = self.cursor.execute(query.format(""), 
+            data = self.cursor.execute(query.format(""),
                                      (from_date_str,)).fetchall()
 
-        df = pd.DataFrame(data, columns=['Date', 'Value', 'AccountName'])
+        df = pd.DataFrame(data, columns=['Date', 'Value', 'AccountName', 'Currency'])
         df['Date'] = pd.to_datetime(df['Date'])
         return df
 
@@ -1593,7 +1932,7 @@ class DataBase:
         logger txt file.
         """
         ids = [ids] if not isinstance(ids, list) else ids   # In case more than 1 id was inserted
-        last_update = datetime.now().strftime("%d-%m-%Y")
+        last_update = datetime.now().strftime("%Y-%m-%d")
         for id in ids:
             query_info = """SELECT Source_file, CardID
                             From CardTransactions
@@ -1640,6 +1979,73 @@ class DataBase:
 
     def commit_changes(self) -> None:
         self.connection.commit()
+
+    def _ensure_pg_connection(self):
+        """Ensure PostgreSQL connection is alive; reconnect if needed"""
+        if self.connection is None:
+            return False
+        try:
+            cursor = self.connection.cursor()
+            cursor.execute("SELECT 1")
+            cursor.close()
+            return True
+        except Exception:
+            return False
+
+    # ── Login activity (PostgreSQL) ────────────────────────────────────────────
+
+    def log_login(self, session_id, device_info, ip_address):
+        """Log a user login event"""
+        if not self._ensure_pg_connection():
+            return False
+        try:
+            cursor = self.connection.cursor()
+            cursor.execute("""
+                INSERT INTO login_activity (session_id, device_info, ip_address)
+                VALUES (%s, %s, %s)
+            """, (session_id, device_info, ip_address))
+            self.connection.commit()
+            cursor.close()
+            return True
+        except Exception as e:
+            utils.log(f"Failed to log login: {e}", 'error')
+            return False
+
+    def log_logout(self, session_id):
+        """Log a user logout event"""
+        if not self._ensure_pg_connection():
+            return False
+        try:
+            cursor = self.connection.cursor()
+            cursor.execute("""
+                UPDATE login_activity
+                SET logout_time = CURRENT_TIMESTAMP
+                WHERE session_id = %s AND logout_time IS NULL
+            """, (session_id,))
+            self.connection.commit()
+            cursor.close()
+            return True
+        except Exception as e:
+            utils.log(f"Failed to log logout: {e}", 'error')
+            return False
+
+    def get_login_activity(self):
+        """Get all login activity (for activity log page)"""
+        if not self._ensure_pg_connection():
+            return []
+        try:
+            cursor = self.connection.cursor(cursor_factory=DictCursor)
+            cursor.execute("""
+                SELECT id, login_time, logout_time, device_info, ip_address
+                FROM login_activity
+                ORDER BY login_time DESC
+            """)
+            rows = cursor.fetchall()
+            cursor.close()
+            return rows
+        except Exception as e:
+            utils.log(f"Failed to get login activity: {e}", 'error')
+            return []
 
     def get_monthly_bank_balances(self, from_date: datetime = None) -> pd.DataFrame:
         """
@@ -1966,7 +2372,7 @@ class DataBase:
 
         if all_data:
             combined_df = pd.concat(all_data, ignore_index=True)
-            return combined_df
+            return self.apply_splits_to_df(combined_df)
         else:
             return pd.DataFrame()  # Return empty DataFrame if no valid tables provided
         
@@ -2001,118 +2407,251 @@ class DataBase:
         self.connection.commit()
         return pd.DataFrame(results, columns=['ID', column_name, 'Status'])
 
-    # ------------------------------------------------------------------ #
-    #                       GYM EXPENSE SPLITTER                          #
-    # ------------------------------------------------------------------ #
+    # ── Transaction Split methods ──────────────────────────────────────────────
 
-    def gym_add_participant(self, name: str) -> int:
-        from datetime import datetime
+    def get_splits_for_transaction(self, original_table: str, original_id: int) -> list:
+        """Return all split rows for a given original transaction."""
+        rows = self.cursor.execute("""
+            SELECT ID, Amount, Description, Category, Created_At
+            FROM TransactionSplits
+            WHERE Original_Table = ? AND Original_ID = ?
+            ORDER BY ID
+        """, (original_table, int(original_id))).fetchall()
+        return [{'id': r[0], 'amount': r[1], 'description': r[2] or '',
+                 'category': r[3], 'created_at': r[4]} for r in rows]
+
+    def get_all_splits(self) -> list:
+        """Return all split records as a list of dicts."""
+        rows = self.cursor.execute("""
+            SELECT ID, Original_Table, Original_ID, Amount, Description, Category
+            FROM TransactionSplits
+        """).fetchall()
+        return [{'split_id': r[0], 'orig_table': r[1], 'orig_id': r[2],
+                 'amount': r[3], 'description': r[4] or '', 'category': r[5]}
+                for r in rows]
+
+    def create_splits(self, original_table: str, original_id: int, splits: list) -> list:
+        """
+        Insert split rows. splits = [{'amount': float, 'description': str, 'category': str}, ...]
+        Returns list of created TransactionSplits IDs.
+        """
+        ids = []
+        for s in splits:
+            self.cursor.execute("""
+                INSERT INTO TransactionSplits (Original_Table, Original_ID, Amount, Description, Category)
+                VALUES (?, ?, ?, ?, ?)
+            """, (original_table, int(original_id),
+                  float(s['amount']), s.get('description', '') or '', s['category']))
+            ids.append(self.cursor.lastrowid)
+        return ids
+
+    def revert_splits(self, original_table: str, original_id: int) -> int:
+        """Remove all splits for a transaction. Returns number of rows deleted."""
+        self.cursor.execute("""
+            DELETE FROM TransactionSplits
+            WHERE Original_Table = ? AND Original_ID = ?
+        """, (original_table, int(original_id)))
+        return self.cursor.rowcount
+
+    def apply_splits_to_df(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Replace split-original rows with their individual split rows.
+        Expects raw column names (Out, Income, Transaction_Value) as returned by
+        query_monthly_transactions() / SELECT *.
+        Adds '_split_orig_id' column (NaN for non-split rows) so downstream
+        code can set data-is-split / data-orig-id HTML attributes.
+        """
+        if df.empty:
+            return df
+
+        all_splits = self.get_all_splits()
+        if not all_splits:
+            return df
+
+        if 'TableName' not in df.columns or 'ID' not in df.columns:
+            return df
+
+        split_keys = set((s['orig_table'], s['orig_id']) for s in all_splits)
+
+        # Vectorised mask: which rows are split originals?
+        mask_orig = pd.Series(False, index=df.index)
+        for tbl, oid in split_keys:
+            mask_orig |= (df['TableName'] == tbl) & (df['ID'] == oid)
+
+        if not mask_orig.any():
+            return df
+
+        df_clean = df[~mask_orig].copy()
+        new_rows = []
+
+        for _, orig_row in df[mask_orig].iterrows():
+            tbl    = str(orig_row['TableName'])
+            oid    = int(orig_row['ID'])
+            my_splits = [s for s in all_splits
+                         if s['orig_table'] == tbl and s['orig_id'] == oid]
+
+            is_spending = (
+                (tbl == 'BankTransactions'  and float(orig_row.get('Out', 0) or 0) > 0) or
+                (tbl == 'CardTransactions'  and float(orig_row.get('Transaction_Value', 0) or 0) > 0)
+            )
+
+            for s in my_splits:
+                sr = orig_row.copy()
+                sr['ID']              = s['split_id']   # use split ID as row identifier
+                sr['_split_orig_id']  = oid              # remember original for revert
+                sr['Category']        = s['category']
+                if s['description']:
+                    sr['Description'] = s['description']
+
+                if tbl == 'BankTransactions':
+                    if is_spending:
+                        sr['Out']    = s['amount']
+                        sr['Income'] = 0
+                    else:
+                        sr['Income'] = s['amount']
+                        sr['Out']    = 0
+                elif tbl == 'CardTransactions':
+                    sr['Transaction_Value'] = s['amount'] if is_spending else -s['amount']
+                    sr['Charge_Value']      = s['amount']
+
+                new_rows.append(sr)
+
+        if new_rows:
+            df_splits = pd.DataFrame(new_rows)
+            return pd.concat([df_clean, df_splits], ignore_index=True)
+        return df_clean
+
+    # ── Bills tracker ──────────────────────────────────────────────────────────
+
+    def get_bill_types(self) -> list:
+        rows = self.cursor.execute(
+            "SELECT ID, Name, Color, GroupName FROM BillTypes ORDER BY GroupName NULLS LAST, ID"
+        ).fetchall()
+        return [{'id': r[0], 'name': r[1], 'color': r[2] or '#1e9d8b', 'group': r[3] or ''} for r in rows]
+
+    def add_bill_type(self, name: str, color: str = '#1e9d8b', group: str = '') -> int:
         self.cursor.execute(
-            "INSERT INTO GymParticipants(name, is_active, insertion_date) VALUES(?, 1, ?)",
-            (name.strip(), datetime.now().strftime("%Y-%m-%d"))
+            "INSERT INTO BillTypes (Name, Color, GroupName) VALUES (?, ?, ?)",
+            (name.strip(), color, group.strip() or None)
         )
-        self.connection.commit()
         return self.cursor.lastrowid
 
-    def gym_rename_participant(self, pid: int, new_name: str):
-        self.cursor.execute("UPDATE GymParticipants SET name = ? WHERE id = ?", (new_name.strip(), pid))
-        self.connection.commit()
-
-    def gym_set_participant_active(self, pid: int, is_active: bool):
-        self.cursor.execute("UPDATE GymParticipants SET is_active = ? WHERE id = ?", (1 if is_active else 0, pid))
-        self.connection.commit()
-
-    def gym_get_all_participants(self, active_only: bool = False) -> pd.DataFrame:
-        if active_only:
-            rows = self.cursor.execute(
-                "SELECT id, name, is_active FROM GymParticipants WHERE is_active = 1 ORDER BY name"
-            ).fetchall()
-        else:
-            rows = self.cursor.execute(
-                "SELECT id, name, is_active FROM GymParticipants ORDER BY name"
-            ).fetchall()
-        return pd.DataFrame(rows, columns=["id", "name", "is_active"])
-
-    def gym_insert_session(self, date: str, product_price: float, payer_id: int, notes: str = "") -> int:
-        from datetime import datetime
+    def update_bill_type(self, type_id: int, name: str, color: str, group: str = ''):
         self.cursor.execute(
-            "INSERT INTO GymSessions(date, product_price, payer_id, notes, insertion_date) VALUES(?, ?, ?, ?, ?)",
-            (date, product_price, payer_id, notes, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+            "UPDATE BillTypes SET Name=?, Color=?, GroupName=? WHERE ID=?",
+            (name.strip(), color, group.strip() or None, type_id)
         )
-        self.connection.commit()
+
+    def delete_bill_type(self, type_id: int):
+        self.cursor.execute("DELETE FROM BillEntries WHERE BillType_ID = ?", (type_id,))
+        self.cursor.execute("DELETE FROM BillTypes WHERE ID = ?", (type_id,))
+
+    def get_bill_entries(self) -> list:
+        rows = self.cursor.execute("""
+            SELECT e.ID, e.BillType_ID, e.Start_Month, e.End_Month,
+                   e.Transaction_Table, e.Transaction_ID, e.Amount, e.Note, e.Is_Filler,
+                   COALESCE(b.Name,          c.Name)           AS TxName,
+                   COALESCE(b.Date,          c.Executed_Date)  AS TxDate,
+                   COALESCE(b.Category,      c.Category)       AS TxCategory,
+                   COALESCE(b.Description,   c.Description)    AS TxDescription,
+                   COALESCE(b.Extra_Info,    c.Extra_Info)     AS TxExtraInfo,
+                   b.Ref                                       AS TxRef,
+                   b.Balance                                   AS TxBalance,
+                   b.Value_Date                                AS TxValueDate,
+                   c.CardID                                    AS TxCardID,
+                   c.Charge_Date                               AS TxChargeDate,
+                   c.Charge_Value                              AS TxChargeValue,
+                   c.Charge_Currency                           AS TxChargeCurrency,
+                   COALESCE(
+                     CASE WHEN b.Income > 0 THEN CAST(b.Income AS REAL)
+                          ELSE CAST(b.Out AS REAL) END,
+                     ABS(CAST(c.Transaction_Value AS REAL))
+                   )                                           AS TxAmount
+            FROM BillEntries e
+            LEFT JOIN BankTransactions b
+              ON e.Transaction_Table='BankTransactions' AND e.Transaction_ID=b.ID
+            LEFT JOIN CardTransactions c
+              ON e.Transaction_Table='CardTransactions' AND e.Transaction_ID=c.ID
+            ORDER BY e.Start_Month
+        """).fetchall()
+        return [{'id': r[0], 'bill_type_id': r[1], 'start_month': r[2],
+                 'end_month': r[3], 'transaction_table': r[4], 'transaction_id': r[5],
+                 'amount': r[6], 'note': r[7] or '', 'is_filler': bool(r[8]),
+                 'tx_name':          r[9]  or '',
+                 'tx_date':         (r[10] or '')[:10],
+                 'tx_category':      r[11] or '',
+                 'tx_description':   r[12] or '',
+                 'tx_extra_info':    r[13] or '',
+                 'tx_ref':           r[14] or '',
+                 'tx_balance':       r[15],
+                 'tx_value_date':   (r[16] or '')[:10],
+                 'tx_card_id':       r[17] or '',
+                 'tx_charge_date':  (r[18] or '')[:10],
+                 'tx_charge_value':  r[19],
+                 'tx_charge_currency': r[20] or '',
+                 'tx_amount':         r[21]}
+                for r in rows]
+
+    def check_bill_entry_overlap(self, bill_type_id: int, start_month: str,
+                                 end_month: str, exclude_id: int = None) -> str | None:
+        """Return an error string if the date range overlaps an existing entry of the same type, else None."""
+        # Normalize: 'YYYY-MM' → 'YYYY-MM-01' for start, 'YYYY-MM-31' for end
+        def ns(m): return m if len(m) > 7 else m + '-01'
+        def ne(m): return m if len(m) > 7 else m + '-31'
+        params = [bill_type_id, ne(end_month), ns(start_month)]
+        sql = """
+            SELECT e.ID, e.Start_Month, e.End_Month, bt.Name
+            FROM BillEntries e
+            JOIN BillTypes bt ON bt.ID = e.BillType_ID
+            WHERE e.BillType_ID = ?
+              AND CASE WHEN LENGTH(e.Start_Month)=7 THEN e.Start_Month||'-01' ELSE e.Start_Month END < ?
+              AND CASE WHEN LENGTH(e.End_Month)=7   THEN e.End_Month  ||'-31' ELSE e.End_Month   END > ?
+        """
+        if exclude_id is not None:
+            sql += " AND e.ID != ?"
+            params.append(exclude_id)
+        row = self.cursor.execute(sql, params).fetchone()
+        if row:
+            return f"חפיפה עם רשומה קיימת ({row[1]} – {row[2]})"
+        return None
+
+    def add_bill_entry(self, bill_type_id: int, start_month: str, end_month: str,
+                       transaction_table=None, transaction_id=None,
+                       amount=None, note=None, is_filler=False) -> int:
+        self.cursor.execute("""
+            INSERT INTO BillEntries
+            (BillType_ID, Start_Month, End_Month, Transaction_Table, Transaction_ID,
+             Amount, Note, Is_Filler)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (bill_type_id, start_month, end_month, transaction_table,
+              transaction_id, amount, note, 1 if is_filler else 0))
         return self.cursor.lastrowid
 
-    def gym_insert_session_participant(self, session_id: int, participant_id: int):
-        self.cursor.execute(
-            "INSERT OR IGNORE INTO GymSessionParticipants(session_id, participant_id) VALUES(?, ?)",
-            (session_id, participant_id)
-        )
-        self.connection.commit()
+    def update_bill_entry(self, entry_id: int, start_month: str, end_month: str, note=None,
+                          transaction_table=None, transaction_id=None, amount=None, is_filler=None):
+        sets   = ["Start_Month=?", "End_Month=?", "Note=?"]
+        params = [start_month, end_month, note]
+        if transaction_table is not None:
+            sets.append("Transaction_Table=?"); params.append(transaction_table)
+        if transaction_id is not None:
+            sets.append("Transaction_ID=?"); params.append(transaction_id)
+        if amount is not None:
+            sets.append("Amount=?"); params.append(amount)
+        if is_filler is not None:
+            sets.append("Is_Filler=?"); params.append(1 if is_filler else 0)
+        params.append(entry_id)
+        self.cursor.execute(f"UPDATE BillEntries SET {', '.join(sets)} WHERE ID=?", params)
 
-    def gym_get_all_sessions(self) -> pd.DataFrame:
-        rows = self.cursor.execute("""
-            SELECT
-                s.id,
-                s.date,
-                s.product_price,
-                p.name AS payer_name,
-                s.notes,
-                s.insertion_date,
-                (SELECT COUNT(*) FROM GymSessionParticipants gsp WHERE gsp.session_id = s.id) AS participant_count
-            FROM GymSessions s
-            JOIN GymParticipants p ON p.id = s.payer_id
-            ORDER BY s.date DESC, s.id DESC
-        """).fetchall()
-        return pd.DataFrame(rows, columns=["id", "date", "product_price", "payer_name", "notes", "insertion_date", "participant_count"])
+    def delete_bill_entry(self, entry_id: int):
+        self.cursor.execute("DELETE FROM BillEntries WHERE ID = ?", (entry_id,))
 
-    def gym_get_session_participants(self, session_id: int) -> pd.DataFrame:
-        rows = self.cursor.execute("""
-            SELECT p.id, p.name
-            FROM GymSessionParticipants gsp
-            JOIN GymParticipants p ON p.id = gsp.participant_id
-            WHERE gsp.session_id = ?
-            ORDER BY p.name
-        """, (session_id,)).fetchall()
-        return pd.DataFrame(rows, columns=["id", "name"])
+    def dismiss_bill_suggestion(self, transaction_name: str):
+        self.cursor.execute("""
+            INSERT OR IGNORE INTO BillSuggestionsDismissed (Transaction_Name) VALUES (?)
+        """, (transaction_name,))
 
-    def gym_get_last_price(self) -> Optional[float]:
-        row = self.cursor.execute(
-            "SELECT product_price FROM GymSessions ORDER BY id DESC LIMIT 1"
-        ).fetchone()
-        return row[0] if row else None
-
-    def gym_get_debt_summary(self) -> pd.DataFrame:
-        """
-        Returns per-person: total_fronted (paid for others), total_owed (owe to others), net balance.
-        net > 0 means others owe you; net < 0 means you owe others.
-        """
-        rows = self.cursor.execute("""
-            SELECT
-                p.id,
-                p.name,
-                COALESCE(SUM(CASE WHEN s.payer_id = p.id
-                    THEN (gsp_count.cnt - 1) * s.product_price
-                    ELSE 0 END), 0) AS total_fronted,
-                COALESCE(SUM(CASE WHEN s.payer_id != p.id
-                    THEN s.product_price
-                    ELSE 0 END), 0) AS total_owed,
-                COALESCE(SUM(CASE WHEN s.payer_id = p.id
-                    THEN (gsp_count.cnt - 1) * s.product_price
-                    ELSE -s.product_price
-                    END), 0) AS net_balance,
-                COALESCE(SUM(CASE WHEN s.payer_id = p.id
-                    THEN s.product_price * gsp_count.cnt
-                    ELSE 0 END), 0) AS total_paid_out,
-                COUNT(DISTINCT gsp.session_id) AS sessions_attended
-            FROM GymParticipants p
-            LEFT JOIN GymSessionParticipants gsp ON gsp.participant_id = p.id
-            LEFT JOIN GymSessions s ON s.id = gsp.session_id
-            LEFT JOIN (
-                SELECT session_id, COUNT(*) AS cnt
-                FROM GymSessionParticipants
-                GROUP BY session_id
-            ) gsp_count ON gsp_count.session_id = s.id
-            GROUP BY p.id, p.name
-            ORDER BY net_balance ASC
-        """).fetchall()
-        return pd.DataFrame(rows, columns=["id", "name", "total_fronted", "total_owed", "net_balance", "total_paid_out", "sessions_attended"])
+    def get_bill_suggestions_dismissed(self) -> set:
+        rows = self.cursor.execute(
+            "SELECT Transaction_Name FROM BillSuggestionsDismissed"
+        ).fetchall()
+        return {r[0] for r in rows}

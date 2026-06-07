@@ -172,7 +172,9 @@ class utils:
         from datetime import datetime
         import calendar
 
-        with open(r"source\html\Base_template.html", encoding="utf-8") as inf:
+        import os as _os
+        _html_dir = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), '..', 'html')
+        with open(_os.path.join(_html_dir, 'Base_template.html'), encoding="utf-8") as inf:
             soup = bs4.BeautifulSoup(inf.read(), "html.parser")
 
         month_label = f"{calendar.month_name[month_num]} {year}"
@@ -2200,7 +2202,7 @@ document.addEventListener('DOMContentLoaded', function() {
         # ── Write output ───────────────────────────────────────────────
         _html_text = soup.prettify()
 
-        with open(r"source\html\output.html", "w", encoding="utf-8") as outf:
+        with open(_os.path.join(_html_dir, 'output.html'), "w", encoding="utf-8") as outf:
             outf.write(_html_text)
 
         # ── Also write to Outputs/general_analysis/YYYY_MM.html ────────

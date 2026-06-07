@@ -109,13 +109,14 @@ class GymSplitter:
         # Notes
         notes = input("Notes (optional): ").strip()
 
-        # Persist
-        session_id = self.db.gym_insert_session(session_date, product_price, payer_id, notes)
-        for pid in attendee_ids:
-            self.db.gym_insert_session_participant(session_id, pid)
+        # Persist (atomic: session + all participants in one transaction)
+        session_id = self.db.gym_insert_session_with_participants(
+            session_date, product_price, payer_id, notes, attendee_ids
+        )
 
         payer_name = participants_df.loc[participants_df["id"] == payer_id, "name"].values[0]
-        total = product_price * len(attendee_ids)
+        # Payer may have been auto-added to attendees, so count unique
+        total = product_price * len(set(attendee_ids) | {payer_id})
         utils.log(
             f"\n✓ Session recorded — {session_date} | "
             f"Attendees: {', '.join(attendee_names)} | "
@@ -207,8 +208,8 @@ class GymSplitter:
         try:
             import bs4
         except ImportError:
-            import pip
-            pip.main(["install", "beautifulsoup4"])
+            import subprocess, sys
+            subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'beautifulsoup4'])
             import bs4
 
         with open(self.HTML_TEMPLATE, "r", encoding="utf-8") as f:

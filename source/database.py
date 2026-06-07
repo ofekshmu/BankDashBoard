@@ -2772,21 +2772,28 @@ class DataBase:
         ).fetchone()
         return float(row[0]) if row else None
 
-    def gym_insert_session(self, session_date: str, product_price: float, payer_id: int, notes: str = '') -> int:
+    def gym_insert_session_with_participants(self, session_date: str, product_price: float,
+                                              payer_id: int, notes: str, attendee_ids: list) -> int:
+        """Insert session + all participants atomically. Payer is auto-added to attendees if missing."""
         from datetime import datetime as _dt
-        self.cursor.execute(
-            "INSERT INTO GymSessions(date, product_price, payer_id, notes, insertion_date) VALUES(?,?,?,?,?)",
-            (session_date, product_price, payer_id, notes, _dt.now().strftime('%Y-%m-%d %H:%M:%S'))
-        )
-        self.connection.commit()
-        return self.cursor.lastrowid
-
-    def gym_insert_session_participant(self, session_id: int, participant_id: int):
-        self.cursor.execute(
-            "INSERT OR IGNORE INTO GymSessionParticipants(session_id, participant_id) VALUES(?,?)",
-            (session_id, participant_id)
-        )
-        self.connection.commit()
+        if payer_id not in attendee_ids:
+            attendee_ids = [payer_id] + list(attendee_ids)
+        try:
+            self.cursor.execute(
+                "INSERT INTO GymSessions(date, product_price, payer_id, notes, insertion_date) VALUES(?,?,?,?,?)",
+                (session_date, product_price, payer_id, notes, _dt.now().strftime('%Y-%m-%d %H:%M:%S'))
+            )
+            sid = self.cursor.lastrowid
+            for pid in attendee_ids:
+                self.cursor.execute(
+                    "INSERT OR IGNORE INTO GymSessionParticipants(session_id, participant_id) VALUES(?,?)",
+                    (sid, pid)
+                )
+            self.connection.commit()
+            return sid
+        except Exception:
+            self.connection.rollback()
+            raise
 
     def gym_get_debt_summary(self) -> pd.DataFrame:
         rows = self.cursor.execute("""

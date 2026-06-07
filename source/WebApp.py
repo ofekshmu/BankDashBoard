@@ -3093,8 +3093,11 @@ def api_gym_update_participant(pid):
     conn = _gym_db()
     try:
         if 'name' in body:
+            new_name = body['name'].strip()
+            if not new_name:
+                return jsonify({'ok': False, 'error': 'name cannot be empty'})
             conn.execute("UPDATE GymParticipants SET name=? WHERE id=?",
-                         (body['name'].strip(), pid))
+                         (new_name, pid))
         if 'is_active' in body:
             conn.execute("UPDATE GymParticipants SET is_active=? WHERE id=?",
                          (1 if body['is_active'] else 0, pid))
@@ -3187,13 +3190,17 @@ def api_gym_add_session():
     notes     = (body.get('notes') or '').strip()
     if not attendees or not payer_id:
         return jsonify({'ok': False, 'error': 'payer_id and attendees are required'})
+    if price <= 0:
+        return jsonify({'ok': False, 'error': 'price must be positive'})
+    # Payer must be an attendee for the debt formula to balance correctly
+    if payer_id not in attendees:
+        attendees = [payer_id] + attendees
     conn = _gym_db()
     try:
         conn.execute(
             "INSERT INTO GymSessions(date, product_price, payer_id, notes, insertion_date) VALUES(?,?,?,?,?)",
             (date_str, price, payer_id, notes, _dt.now().strftime('%Y-%m-%d %H:%M:%S'))
         )
-        conn.commit()
         sid = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
         for pid in attendees:
             conn.execute(
@@ -3203,6 +3210,7 @@ def api_gym_add_session():
         conn.commit()
         return jsonify({'ok': True, 'session_id': sid})
     except Exception as e:
+        conn.rollback()
         return jsonify({'ok': False, 'error': str(e)})
     finally:
         conn.close()

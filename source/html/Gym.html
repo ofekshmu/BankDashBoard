@@ -360,10 +360,13 @@ async function submitSession() {
   const price = parseFloat(document.getElementById('s-price').value) || 25;
   const payer = parseInt(document.getElementById('s-payer').value);
   const notes = document.getElementById('s-notes').value.trim();
-  const attendees = [...document.querySelectorAll('#s-attendees input:checked')]
+  let attendees = [...document.querySelectorAll('#s-attendees input:checked')]
                       .map(i => parseInt(i.value));
   if (!attendees.length) { showToast('יש לבחור לפחות משתתף אחד'); return; }
   if (!payer) { showToast('יש לבחור מי שילם'); return; }
+  if (price <= 0) { showToast('המחיר חייב להיות חיובי'); return; }
+  // Auto-include payer in attendees to keep debt formula balanced
+  if (!attendees.includes(payer)) attendees = [payer, ...attendees];
   const r = await fetch('/api/gym/sessions', {
     method:'POST',
     headers:{'Content-Type':'application/json'},
@@ -431,7 +434,7 @@ async function editName(pid) {
   const span = document.getElementById('pname-'+pid);
   const current = span.textContent;
   const name = prompt('שם חדש:', current);
-  if (!name || name.trim() === current) return;
+  if (!name || !name.trim() || name.trim() === current) return;
   const r = await fetch('/api/gym/participants/'+pid, {
     method:'PATCH', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({name: name.trim()})

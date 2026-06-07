@@ -1576,6 +1576,7 @@ body {
     <div class="debug-hdr">
       <span>▸ app logs</span>
       <div class="debug-hdr-btns">
+        <button onclick="copyDebugPanel()" id="debug-copy-btn">copy</button>
         <button onclick="clearDebugPanel()">clear</button>
         <button onclick="toggleDebugPanel()">✕</button>
       </div>
@@ -7593,6 +7594,16 @@ function toggleDebugPanel() {
 }
 function clearDebugPanel() {
   document.getElementById('debug-feed').innerHTML = '';
+}
+function copyDebugPanel() {
+  var lines = Array.from(document.getElementById('debug-feed').children)
+                   .map(function(el) { return el.textContent; }).join('\n');
+  navigator.clipboard.writeText(lines).then(function() {
+    var btn = document.getElementById('debug-copy-btn');
+    var prev = btn.textContent;
+    btn.textContent = '✓';
+    setTimeout(function() { btn.textContent = prev; }, 1500);
+  });
 }
 function _startDebugStream() {
   _dbgEs = new EventSource('/api/debug-logs');

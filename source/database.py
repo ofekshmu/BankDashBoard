@@ -104,22 +104,104 @@ class DataBase:
             if cls.__instance is None:
                 cls.__instance = super().__new__(cls)
 
-                # On Vercel (serverless), use PostgreSQL; locally use SQLite
-                if os.getenv('DATABASE_URL'):
-                    # Vercel/PostgreSQL mode - use PostgreSQL connection
-                    try:
-                        pg_conn = psycopg2.connect(os.getenv('DATABASE_URL'))
-                        cls.__instance.connection = pg_conn
-                        cls.__instance.cursor = pg_conn.cursor()
-                        utils.log("Using PostgreSQL backend", 'system')
-                    except Exception as e:
-                        utils.log(f"PostgreSQL connection failed: {e}", 'error')
-                        cls.__instance.connection = None
-                        cls.__instance.cursor = None
-                else:
-                    # Local/SQLite mode
-                    cls.__instance.connection = sqlite3.connect(f'{Paths.DB_NAME}.db', check_same_thread=False)
-                    cls.__instance.cursor = cls.__instance.connection.cursor()
+                # All queries use SQLite syntax (?), so always use SQLite.
+                # On Vercel /var/task is read-only — use /tmp to match WebApp.py's _DB_PATH.
+                db_path = '/tmp/ShmuelFamiliy.db' if os.getenv('DATABASE_URL') else f'{Paths.DB_NAME}.db'
+                cls.__instance.connection = sqlite3.connect(db_path, check_same_thread=False)
+                cls.__instance.cursor = cls.__instance.connection.cursor()
+                cls.__instance.cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS Card (
+                    CardID          CHAR(4)     PRIMARY KEY,
+                    description     TEXT
+                    );""")
+                cls.__instance.cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS File (
+                    File_Name           CHAR        NOT NULL,
+                    Format              CHAR        NOT NULL,
+                    Card_Number         CHAR        NOT NULL,
+                    Date                DATE        NOT NULL,
+                    New_Transactions    INT                 ,
+                    Transaction_count   INT         NOT NULL,
+                    Last_update         DATE        NOT NULL,
+                    PRIMARY KEY(File_Name, Format, Card_Number)
+                    );""")
+                cls.__instance.cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS CashTransactions (
+                    ID                  INTEGER         PRIMARY KEY ,
+                    Name                CHAR            NOT NULL    ,
+                    Execution_Date      DATE            NOT NULL    ,
+                    Amount              INT             NOT NULL    ,
+                    Currency            CHAR            NOT NULL    ,
+                    Category            CHAR            NOT NULL    ,
+                    Insertion_Date      DATE            NOT NULL    ,
+                    Description         CHAR
+                    );""")
+                cls.__instance.cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS BankTransactions (
+                    ID                  INTEGER     PRIMARY KEY ,
+                    Date                DATE        NOT NULL    ,
+                    Value_Date          DATE                    ,
+                    Name                CHAR        NOT NULL    ,
+                    Ref                 CHAR                    ,
+                    Out                 INT         NOT NULL    ,
+                    Income              INT         NOT NULL    ,
+                    Balance             INT                     ,
+                    Extra_Info          CHAR                    ,
+                    Source_file         CHAR        NOT NULL    ,
+                    Category            CHAR                    ,
+                    Description         CHAR                    ,
+                    Reserved            INT
+                    );""")
+                cls.__instance.cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS CardTransactions (
+                    ID                  INTEGER     PRIMARY KEY ,
+                    CardID              CHAR        NOT NULL    ,
+                    Name                CHAR        NOT NULL    ,
+                    Executed_Date       DATE        NOT NULL    ,
+                    Charge_Date         DATE                    ,
+                    Charge_Value        INT                     ,
+                    Charge_Currency     CHAR                    ,
+                    Transaction_Value   INT                     ,
+                    Value_Currency      CHAR                    ,
+                    Extra_Info          CHAR                    ,
+                    Source_file         CHAR        NOT NULL    ,
+                    Category            CHAR                    ,
+                    Description         CHAR                    ,
+                    Reserved            INT
+                    );""")
+                cls.__instance.cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS GymParticipants (
+                    id              INTEGER     PRIMARY KEY AUTOINCREMENT,
+                    name            TEXT        NOT NULL,
+                    is_active       INTEGER     DEFAULT 1,
+                    insertion_date  TEXT        NOT NULL
+                    );""")
+                cls.__instance.cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS GymSessions (
+                    id              INTEGER     PRIMARY KEY AUTOINCREMENT,
+                    date            TEXT        NOT NULL,
+                    product_price   REAL        NOT NULL,
+                    payer_id        INTEGER     NOT NULL    REFERENCES GymParticipants(id),
+                    notes           TEXT,
+                    insertion_date  TEXT        NOT NULL
+                    );""")
+                cls.__instance.cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS GymSessionParticipants (
+                    session_id      INTEGER     REFERENCES GymSessions(id),
+                    participant_id  INTEGER     REFERENCES GymParticipants(id),
+                    PRIMARY KEY(session_id, participant_id)
+                    );""")
+                cls.__instance.cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS OtherAccountStatus (
+                    ID              INTEGER     PRIMARY KEY AUTOINCREMENT,
+                    AccountName     TEXT        NOT NULL,
+                    StatusDate      DATE        NOT NULL,
+                    Value           REAL        NOT NULL,
+                    Currency        TEXT        DEFAULT 'ILS',
+                    TransactionID   INTEGER,
+                    FOREIGN KEY(TransactionID) REFERENCES BankTransactions(ID)
+                    );""")
+                cls.__instance.connection.commit()
 
         return cls.__instance
 
@@ -1721,8 +1803,9 @@ class DataBase:
                 ID              INTEGER     PRIMARY KEY AUTOINCREMENT,
                 AccountName     TEXT        NOT NULL,
                 StatusDate      DATE        NOT NULL,
-                Value          REAL        NOT NULL,
-                TransactionID  INTEGER,
+                Value           REAL        NOT NULL,
+                Currency        TEXT        DEFAULT 'ILS',
+                TransactionID   INTEGER,
                 FOREIGN KEY(TransactionID) REFERENCES BankTransactions(ID)
             );
         """)
@@ -2655,3 +2738,104 @@ class DataBase:
             "SELECT Transaction_Name FROM BillSuggestionsDismissed"
         ).fetchall()
         return {r[0] for r in rows}
+
+    # ── Gym Expense Splitter ───────────────────────────────────────────────────
+
+    def gym_get_all_participants(self, active_only: bool = False) -> pd.DataFrame:
+        sql = "SELECT id, name, is_active FROM GymParticipants"
+        if active_only:
+            sql += " WHERE is_active = 1"
+        sql += " ORDER BY name"
+        rows = self.cursor.execute(sql).fetchall()
+        return pd.DataFrame(rows, columns=['id', 'name', 'is_active'])
+
+    def gym_add_participant(self, name: str) -> int:
+        from datetime import date as _date
+        self.cursor.execute(
+            "INSERT INTO GymParticipants(name, is_active, insertion_date) VALUES(?, 1, ?)",
+            (name.strip(), _date.today().isoformat())
+        )
+        self.connection.commit()
+        return self.cursor.lastrowid
+
+    def gym_rename_participant(self, pid: int, new_name: str):
+        self.cursor.execute("UPDATE GymParticipants SET name=? WHERE id=?", (new_name.strip(), pid))
+        self.connection.commit()
+
+    def gym_set_participant_active(self, pid: int, is_active: bool):
+        self.cursor.execute("UPDATE GymParticipants SET is_active=? WHERE id=?", (1 if is_active else 0, pid))
+        self.connection.commit()
+
+    def gym_get_last_price(self) -> Optional[float]:
+        row = self.cursor.execute(
+            "SELECT product_price FROM GymSessions ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+        return float(row[0]) if row else None
+
+    def gym_insert_session_with_participants(self, session_date: str, product_price: float,
+                                              payer_id: int, notes: str, attendee_ids: list) -> int:
+        """Insert session + all participants atomically. Payer is auto-added to attendees if missing."""
+        from datetime import datetime as _dt
+        if payer_id not in attendee_ids:
+            attendee_ids = [payer_id] + list(attendee_ids)
+        try:
+            self.cursor.execute(
+                "INSERT INTO GymSessions(date, product_price, payer_id, notes, insertion_date) VALUES(?,?,?,?,?)",
+                (session_date, product_price, payer_id, notes, _dt.now().strftime('%Y-%m-%d %H:%M:%S'))
+            )
+            sid = self.cursor.lastrowid
+            for pid in attendee_ids:
+                self.cursor.execute(
+                    "INSERT OR IGNORE INTO GymSessionParticipants(session_id, participant_id) VALUES(?,?)",
+                    (sid, pid)
+                )
+            self.connection.commit()
+            return sid
+        except Exception:
+            self.connection.rollback()
+            raise
+
+    def gym_get_debt_summary(self) -> pd.DataFrame:
+        rows = self.cursor.execute("""
+            SELECT
+                p.id, p.name, p.is_active,
+                COALESCE(SUM(CASE WHEN s.payer_id = p.id
+                    THEN (cnt.c - 1) * s.product_price ELSE 0 END), 0) AS total_fronted,
+                COALESCE(SUM(CASE WHEN s.payer_id != p.id
+                    THEN s.product_price ELSE 0 END), 0) AS total_owed,
+                COALESCE(SUM(CASE WHEN s.payer_id = p.id
+                    THEN (cnt.c - 1) * s.product_price
+                    ELSE -s.product_price END), 0) AS net_balance,
+                COALESCE(SUM(CASE WHEN s.payer_id = p.id
+                    THEN s.product_price * cnt.c ELSE 0 END), 0) AS total_paid_out,
+                COUNT(DISTINCT gsp.session_id) AS sessions_attended
+            FROM GymParticipants p
+            LEFT JOIN GymSessionParticipants gsp ON gsp.participant_id = p.id
+            LEFT JOIN GymSessions s ON s.id = gsp.session_id
+            LEFT JOIN (SELECT session_id, COUNT(*) c FROM GymSessionParticipants GROUP BY session_id) cnt
+                ON cnt.session_id = s.id
+            GROUP BY p.id, p.name, p.is_active
+            ORDER BY net_balance ASC
+        """).fetchall()
+        return pd.DataFrame(rows, columns=[
+            'id', 'name', 'is_active',
+            'total_fronted', 'total_owed', 'net_balance', 'total_paid_out', 'sessions_attended'
+        ])
+
+    def gym_get_all_sessions(self) -> pd.DataFrame:
+        rows = self.cursor.execute("""
+            SELECT s.id, s.date, s.product_price, p.name AS payer_name, s.notes,
+                   (SELECT COUNT(*) FROM GymSessionParticipants WHERE session_id = s.id) AS participant_count
+            FROM GymSessions s
+            JOIN GymParticipants p ON p.id = s.payer_id
+            ORDER BY s.date DESC, s.id DESC
+        """).fetchall()
+        return pd.DataFrame(rows, columns=['id', 'date', 'product_price', 'payer_name', 'notes', 'participant_count'])
+
+    def gym_get_session_participants(self, session_id: int) -> pd.DataFrame:
+        rows = self.cursor.execute("""
+            SELECT p.id, p.name FROM GymSessionParticipants gsp
+            JOIN GymParticipants p ON p.id = gsp.participant_id
+            WHERE gsp.session_id = ?
+        """, (session_id,)).fetchall()
+        return pd.DataFrame(rows, columns=['id', 'name'])

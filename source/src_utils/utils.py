@@ -47,15 +47,16 @@ class utils:
                 utils.log(msg=f"Key error in log function: got '{category}'", category='error')
 
         if write:
+            log_path = '/tmp/Log_file.txt' if os.getenv('DATABASE_URL') else 'Log_file.txt'
             try:
-                f = open("Log_file.txt", 'a', encoding="utf-8")
+                f = open(log_path, 'a', encoding="utf-8")
                 f.write(log_st + "\n")
                 f.close()
             except (OSError, IOError):
                 pass
             print(log_st, end=e)
 
-        if category == "error":
+        if category == "error" and not os.getenv('DATABASE_URL'):
             exit()
         # if category == 'warning':
         #     utils.warning_halt()
@@ -2593,8 +2594,11 @@ document.addEventListener('DOMContentLoaded', function() {
         from Constants import GeneralPlot
 
         # Read the categories from the JSON file
-        with open(Paths.CATEGORY_JSON, encoding='utf-8') as file:
-            categories = json.load(file)
+        try:
+            with open(Paths.CATEGORY_JSON, encoding='utf-8') as file:
+                categories = json.load(file)
+        except FileNotFoundError:
+            return True  # file not present on this environment — skip validation
         # Check if all user-defined categories exist in the JSON file
         for category in GeneralPlot.USER_DEFINED_CATEGORIES:
             if category not in categories:
@@ -4362,7 +4366,10 @@ document.addEventListener('DOMContentLoaded', _initTxnFooter);
         def is_valid_balance(value):
             return isinstance(value, (int, float))
 
-        personal_conf_dict = json.load(open(Paths.PERSONAL_CONFIG, encoding='utf-8'))
+        try:
+            personal_conf_dict = json.load(open(Paths.PERSONAL_CONFIG, encoding='utf-8'))
+        except FileNotFoundError:
+            return True  # config not present on this environment — skip validation
         date_str = personal_conf_dict['bank_transactions_last_valid_date']
         last_valid_date = datetime.strptime(date_str, "%Y-%m-%d")
         df = DataBase().query_Bank_Transactions_for_validation(last_valid_date)

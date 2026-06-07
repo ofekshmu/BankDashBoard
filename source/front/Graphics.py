@@ -685,7 +685,7 @@ class Graphics:
                 va='center', ha='left', fontsize=10, color=net_color, fontweight='bold')
 
         plt.tight_layout()
-        for path in [f'Outputs\\{chart_name}_category.png', f'Outputs\\{chart_name}_prices.png']:
+        for path in [_out(f'{chart_name}_category.png'), _out(f'{chart_name}_prices.png')]:
             plt.savefig(path)
         plt.close()
 
@@ -767,7 +767,7 @@ class Graphics:
         ax.legend(loc="upper right", fontsize=8)
         plt.xticks(rotation=30)
         plt.tight_layout()
-        plt.savefig(r"Outputs\Mortgage_Balance.png", dpi=120)
+        plt.savefig(_out("Mortgage_Balance.png"), dpi=120)
         plt.close()
 
     @staticmethod
@@ -798,7 +798,7 @@ class Graphics:
         ax.legend(loc="upper right")
         plt.xticks(rotation=30)
         plt.tight_layout()
-        plt.savefig(r"Outputs\Mortgage_Breakdown.png", dpi=120)
+        plt.savefig(_out("Mortgage_Breakdown.png"), dpi=120)
         plt.close()
 
     @staticmethod
@@ -896,7 +896,7 @@ class Graphics:
         ax.legend(handles=handles, loc="upper right", fontsize=8)
 
         plt.tight_layout()
-        plt.savefig(r"Outputs\Mortgage_Cashflow.png", dpi=120)
+        plt.savefig(_out("Mortgage_Cashflow.png"), dpi=120)
         plt.close()
 
     @staticmethod
@@ -936,5 +936,5 @@ class Graphics:
 
         ax.set_title(_h("הוצאות מול הכנסות — כל הזמנים"), fontsize=13, pad=14)
         plt.tight_layout()
-        plt.savefig(r"Outputs\Mortgage_Pie.png", dpi=120)
+        plt.savefig(_out("Mortgage_Pie.png"), dpi=120)
         plt.close()

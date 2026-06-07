@@ -47,12 +47,16 @@ class utils:
                 utils.log(msg=f"Key error in log function: got '{category}'", category='error')
 
         if write:
-            f = open("Log_file.txt", 'a', encoding="utf-8")
-            f.write(log_st + "\n")
-            f.close()
+            log_path = '/tmp/Log_file.txt' if os.getenv('DATABASE_URL') else 'Log_file.txt'
+            try:
+                f = open(log_path, 'a', encoding="utf-8")
+                f.write(log_st + "\n")
+                f.close()
+            except (OSError, IOError):
+                pass
             print(log_st, end=e)
 
-        if category == "error":
+        if category == "error" and not os.getenv('DATABASE_URL'):
             exit()
         # if category == 'warning':
         #     utils.warning_halt()
@@ -170,7 +174,9 @@ class utils:
         from datetime import datetime
         import calendar
 
-        with open(r"source\html\Base_template.html", encoding="utf-8") as inf:
+        import os as _os
+        _html_dir = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), '..', 'html')
+        with open(_os.path.join(_html_dir, 'Base_template.html'), encoding="utf-8") as inf:
             soup = bs4.BeautifulSoup(inf.read(), "html.parser")
 
         month_label = f"{calendar.month_name[month_num]} {year}"
@@ -1010,11 +1016,12 @@ class utils:
         # ── Installment payments donuts ────────────────────────────────
         # Query card transactions whose Charge_Date is in this exact month —
         # these are the installments the user actually pays this month.
-        import pandas as _pd, sqlite3 as _sq, re as _re
+        import pandas as _pd, sqlite3 as _sq, re as _re, os as _eos
         try:
             _mon = str(month_num).zfill(2)
             _yr  = str(year)
-            with _sq.connect('ShmuelFamiliy.db') as _pc:
+            _db_path = '/tmp/ShmuelFamiliy.db' if _eos.getenv('DATABASE_URL') else 'ShmuelFamiliy.db'
+            with _sq.connect(_db_path) as _pc:
                 _rows = _pc.execute(
                     "SELECT Name, Transaction_Value, Charge_Value, Extra_Info "
                     "FROM CardTransactions "
@@ -2660,16 +2667,22 @@ document.addEventListener('DOMContentLoaded', function() {
         # ── Write output ───────────────────────────────────────────────
         _html_text = soup.prettify()
 
-        with open(r"source\html\output.html", "w", encoding="utf-8") as outf:
+        _utils_dir   = _os.path.dirname(_os.path.abspath(__file__))
+        _src_dir     = _os.path.dirname(_utils_dir)
+        _project_dir = _os.path.dirname(_src_dir)
+
+        if _os.getenv('DATABASE_URL'):  # Vercel: /var/task is read-only
+            _out_html = '/tmp/output.html'
+            _ga_dir   = '/tmp/general_analysis'
+        else:
+            _out_html = _os.path.join(_html_dir, 'output.html')
+            _ga_dir   = _os.path.join(_project_dir, 'Outputs', 'general_analysis')
+        _os.makedirs(_ga_dir, exist_ok=True)
+
+        with open(_out_html, "w", encoding="utf-8") as outf:
             outf.write(_html_text)
 
-        # ── Also write to Outputs/general_analysis/YYYY_MM.html ────────
-        _utils_dir   = _os.path.dirname(_os.path.abspath(__file__))   # src_utils/
-        _src_dir     = _os.path.dirname(_utils_dir)                    # source/
-        _project_dir = _os.path.dirname(_src_dir)                      # BankProject/
-        _ga_dir      = _os.path.join(_project_dir, 'Outputs', 'general_analysis')
-        _os.makedirs(_ga_dir, exist_ok=True)
-        _ga_path     = _os.path.join(_ga_dir, f"{year:04d}_{month_num:02d}.html")
+        _ga_path = _os.path.join(_ga_dir, f"{year:04d}_{month_num:02d}.html")
         with open(_ga_path, "w", encoding="utf-8") as outf:
             outf.write(_html_text)
 
@@ -3054,8 +3067,11 @@ document.addEventListener('DOMContentLoaded', function() {
         from Constants import GeneralPlot
 
         # Read the categories from the JSON file
-        with open(Paths.CATEGORY_JSON, encoding='utf-8') as file:
-            categories = json.load(file)
+        try:
+            with open(Paths.CATEGORY_JSON, encoding='utf-8') as file:
+                categories = json.load(file)
+        except FileNotFoundError:
+            return True  # file not present on this environment — skip validation
         # Check if all user-defined categories exist in the JSON file
         for category in GeneralPlot.USER_DEFINED_CATEGORIES:
             if category not in categories:
@@ -4824,7 +4840,10 @@ document.addEventListener('DOMContentLoaded', _initTxnFooter);
         def is_valid_balance(value):
             return isinstance(value, (int, float))
 
-        personal_conf_dict = json.load(open(Paths.PERSONAL_CONFIG, encoding='utf-8'))
+        try:
+            personal_conf_dict = json.load(open(Paths.PERSONAL_CONFIG, encoding='utf-8'))
+        except FileNotFoundError:
+            return True  # config not present on this environment — skip validation
         date_str = personal_conf_dict['bank_transactions_last_valid_date']
         last_valid_date = datetime.strptime(date_str, "%Y-%m-%d")
         df = DataBase().query_Bank_Transactions_for_validation(last_valid_date)

@@ -12,6 +12,15 @@ from typing import Tuple
 import matplotlib.patches as mpatches
 import numpy as np
 from datetime import datetime
+import os
+
+_OUTPUTS_DIR = '/tmp/Outputs' if os.getenv('DATABASE_URL') else 'Outputs'
+os.makedirs(_OUTPUTS_DIR, exist_ok=True)
+
+
+def _out(filename: str) -> str:
+    """Return a writable output path for a chart file."""
+    return os.path.join(_OUTPUTS_DIR, filename)
 
 
 class Graphics:
@@ -23,8 +32,8 @@ class Graphics:
         _, ax = plt.subplots()
         ax.pie([], labels=[])
         ax.set_title('Empty Pie Chart')
-        plt.savefig(f'Outputs\\{pie_name}_category.png')
-        plt.savefig(f'Outputs\\{pie_name}_prices.png')
+        plt.savefig(_out(f'{pie_name}_category.png'))
+        plt.savefig(_out(f'{pie_name}_prices.png'))
 
     @staticmethod
     def plot_transactions_pie_chart(df: pd.DataFrame, pie_name: str, color_set: list) -> list:
@@ -104,7 +113,7 @@ class Graphics:
                             title=pie_name,
                             colors=color_set)
         create_donut_chart(ax, df_names, pie_name, total_value)
-        plt.savefig(f'Outputs\\{pie_name}_category.png')
+        plt.savefig(_out(f'{pie_name}_category.png'))
         plt.close()
 
         # Create prices pie chart
@@ -120,9 +129,9 @@ class Graphics:
                                     title=pie_name,
                                     colors=color_set)
         create_donut_chart(ax, prices_df, pie_name, total_value)
-        plt.savefig(f'Outputs\\{pie_name}_prices.png')
+        plt.savefig(_out(f'{pie_name}_prices.png'))
         plt.close()
-        
+
         return outliers_list
 
     @staticmethod
@@ -277,7 +286,7 @@ class Graphics:
         ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda value, tick_number: f'{value:,.0f}₪' ))
 
         # Save plot
-        output_path = f'Outputs\\General_info{"_" + title_ext if title_ext else ""}.png'
+        output_path = _out(f'General_info{"_" + title_ext if title_ext else ""}.png')
         plt.savefig(output_path, bbox_inches='tight')
         plt.close()
 
@@ -353,7 +362,7 @@ class Graphics:
             # set the title of the plot
             ax.set_title('Empty Chart')
 
-        plt.savefig(r'Outputs\Card_Distribution.png')
+        plt.savefig(_out('Card_Distribution.png'))
 
     @staticmethod
     def plot_pie_distribution(df: pd.DataFrame) -> list:
@@ -418,7 +427,7 @@ class Graphics:
             # set the title of the plot
             ax.set_title('Empty Pie Chart')
 
-        plt.savefig(r'Outputs\Category_Distribution.png')
+        plt.savefig(_out('Category_Distribution.png'))
         return outliers_lst
     
     @staticmethod
@@ -484,7 +493,8 @@ class Graphics:
         plt.ylabel("Balance (₪)")
         plt.gca().yaxis.set_major_formatter(plt.FuncFormatter(lambda v, _: f'{v:,.0f}₪'))
         plt.tight_layout()
-        plt.savefig(r'Outputs\accounts_liner_plots.png')
+
+        plt.savefig(_out('accounts_liner_plots.png'))
         plt.close()
 
 
@@ -497,7 +507,7 @@ class Graphics:
             _, ax = plt.subplots()
             ax.pie([], labels=[])
             ax.set_title('No Payments Data for this month')
-            plt.savefig(r'Outputs\payments_pie_graphs.png')
+            plt.savefig(_out('payments_pie_graphs.png'))
             return None
 
         n = len(monthly_payments_df)
@@ -536,7 +546,7 @@ class Graphics:
             )
 
         plt.tight_layout()
-        plt.savefig(r'Outputs\payments_pie_graphs.png')
+        plt.savefig(_out('payments_pie_graphs.png'))
         plt.close()
 
     @staticmethod
@@ -626,12 +636,12 @@ class Graphics:
         # Chart 1: Grouped by category name
         plot_pie_chart(data=df,
                        data_index=lambda row: utils.heb_conversion(row['Category']),
-                       output_path=f'Outputs\\{chart_name}_category.png')
+                       output_path=_out(f'{chart_name}_category.png'))
         
         # Chart 2: Grouped by price
         plot_pie_chart(data=df, 
                        data_index=lambda row: f"{row['Amount']:,.2f}₪",
-                       output_path=f'Outputs\\{chart_name}_prices.png')
+                       output_path=_out(f'{chart_name}_prices.png'))
 
         return abs(total_spendings), total_earnings
 

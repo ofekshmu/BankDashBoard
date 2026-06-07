@@ -13,6 +13,11 @@ GET  /api/stale-all         return {yyyy_mm: bool, ...} for all pages
 
 import os
 import sys
+
+# Ensure source/ siblings (AppManager, database, etc.) are importable whether
+# this module is loaded via app.py or directly as a Vercel serverless function.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 import queue
 import threading
 import time as _time
@@ -65,9 +70,14 @@ def _debug_put(line: str):
             except Exception:
                 pass
 
+def _log_put(msg: str):
+    """Put a message into both the ephemeral /api/logs queue and the persistent debug log window."""
+    _log_queue.put(msg)
+    if msg and not msg.startswith('__'):
+        _debug_put(msg)
+
 def _log_error(exc, tb_str: str):
     """Put exception + traceback to both the analysis queue and the debug panel."""
-    import traceback as _tb
     lines = [f'[ERROR] {exc}'] + [l for l in tb_str.splitlines() if l.strip()]
     for line in lines:
         _log_queue.put(line)
@@ -746,6 +756,8 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:#f4f6f9;color:#1e2a4a;d
     <div class="nav-sep"></div>
     <a class="nav-item" href="/tagger">תייגן</a>
     <a class="nav-item" href="/files">קבצים</a>
+    <div class="nav-sep"></div>
+    <a class="nav-item" href="/gym">💪 חלוקת הוצאות ג׳ים</a>
   </div>
   <div class="sidebar-footer" style="padding:12px 16px;border-top:1px solid #eef0f6;flex-shrink:0">
     <button onclick="restartServer(this)" style="width:100%;padding:8px 12px;border:1.5px dashed #eef0f6;border-radius:8px;background:none;color:#888;font-size:.78em;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:7px;justify-content:center;transition:background .15s,color .15s,border-color .15s" onmouseover="this.style.background='#fff3f3';this.style.color='#e53935';this.style.borderColor='#e53935'" onmouseout="this.style.background='none';this.style.color='#888';this.style.borderColor='#eef0f6'">
@@ -1079,6 +1091,65 @@ def _not_generated_category_html(slug: str, name: str = '') -> str:
 
 _READONLY_ACCOUNTS = ["נכס שלום שבזי"]
 _DB_PATH = os.path.join(_PROJECT_DIR, 'ShmuelFamiliy.db')
+# When DATABASE_URL is set (Vercel/PostgreSQL mode) the project dir is read-only;
+# direct sqlite3.connect(_DB_PATH) calls need a writable path — mirrors the same
+# DATABASE_URL guard already used in database.py DataBase.__new__().
+if os.getenv('DATABASE_URL'):
+    _DB_PATH = '/tmp/ShmuelFamiliy.db'
+    # Copy personal information files to /tmp so they are writable.
+    # The project dir (/var/task) is read-only on Vercel; any json.dump to
+    # personal information/*.json would raise OSError errno 30.
+    import shutil as _shutil
+    _TMP_PERSONAL = '/tmp/personal information'
+    os.makedirs(_TMP_PERSONAL, exist_ok=True)
+    for _fname in ('personal_config.json', 'categories.json', 'auto_tagger.json', 'currency.json'):
+        _src = os.path.join(_PROJECT_DIR, 'personal information', _fname)
+        _dst = os.path.join(_TMP_PERSONAL, _fname)
+        if os.path.exists(_src) and not os.path.exists(_dst):
+            _shutil.copy2(_src, _dst)
+    # Patch Constants.Paths so every module reads/writes the /tmp copies.
+    from Constants import Paths as _Paths
+    _Paths.PERSONAL_CONFIG  = os.path.join(_TMP_PERSONAL, 'personal_config.json')
+    _Paths.CATEGORY_JSON    = os.path.join(_TMP_PERSONAL, 'categories.json')
+    _Paths.AUTO_TAGGER_JSON = os.path.join(_TMP_PERSONAL, 'auto_tagger.json')
+    _Paths.Currency_JSON    = os.path.join(_TMP_PERSONAL, 'currency.json')
+    # Redirect all generated-HTML output dirs to /tmp (project dir is read-only).
+    GENERAL_ANALYSIS_DIR  = '/tmp/general_analysis'
+    CATEGORY_ANALYSIS_DIR = '/tmp/category_analysis'
+    OUTPUT_HTML           = '/tmp/output.html'
+    os.makedirs(GENERAL_ANALYSIS_DIR, exist_ok=True)
+    os.makedirs(CATEGORY_ANALYSIS_DIR, exist_ok=True)
+
+GYM_HTML = os.path.join(_HERE, 'html', 'Gym.html')
+
+
+def _gym_db():
+    """Return a SQLite connection with gym tables guaranteed to exist."""
+    import sqlite3 as _sq
+    conn = _sq.connect(_DB_PATH, check_same_thread=False)
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS GymParticipants (
+            id             INTEGER PRIMARY KEY AUTOINCREMENT,
+            name           TEXT    NOT NULL,
+            is_active      INTEGER DEFAULT 1,
+            insertion_date TEXT    NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS GymSessions (
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            date          TEXT    NOT NULL,
+            product_price REAL    NOT NULL,
+            payer_id      INTEGER NOT NULL REFERENCES GymParticipants(id),
+            notes         TEXT,
+            insertion_date TEXT   NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS GymSessionParticipants (
+            session_id     INTEGER REFERENCES GymSessions(id),
+            participant_id INTEGER REFERENCES GymParticipants(id),
+            PRIMARY KEY (session_id, participant_id)
+        );
+    """)
+    conn.commit()
+    return conn
 
 
 def _acct_db():
@@ -3292,6 +3363,254 @@ def api_spotify_report():
         )
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)})
+
+
+# ── Gym Expense Splitter ──────────────────────────────────────────────────────
+
+@app.route('/gym')
+def gym_page():
+    if os.path.exists(GYM_HTML):
+        return send_file(GYM_HTML)
+    return 'Gym page not found', 404
+
+
+@app.route('/api/gym/participants', methods=['GET'])
+def api_gym_participants():
+    conn = _gym_db()
+    try:
+        rows = conn.execute(
+            "SELECT id, name, is_active FROM GymParticipants ORDER BY name"
+        ).fetchall()
+        return jsonify({'ok': True, 'participants': [
+            {'id': r[0], 'name': r[1], 'is_active': bool(r[2])} for r in rows
+        ]})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+    finally:
+        conn.close()
+
+
+@app.route('/api/gym/participants', methods=['POST'])
+def api_gym_add_participant():
+    body = request.get_json(force=True)
+    name = (body.get('name') or '').strip()
+    if not name:
+        return jsonify({'ok': False, 'error': 'name is required'})
+    from datetime import datetime as _dt
+    conn = _gym_db()
+    try:
+        conn.execute(
+            "INSERT INTO GymParticipants(name, is_active, insertion_date) VALUES(?,1,?)",
+            (name, _dt.now().strftime('%Y-%m-%d'))
+        )
+        conn.commit()
+        pid = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+        return jsonify({'ok': True, 'id': pid})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+    finally:
+        conn.close()
+
+
+@app.route('/api/gym/participants/<int:pid>', methods=['PATCH'])
+def api_gym_update_participant(pid):
+    body = request.get_json(force=True)
+    conn = _gym_db()
+    try:
+        if 'name' in body:
+            new_name = body['name'].strip()
+            if not new_name:
+                return jsonify({'ok': False, 'error': 'name cannot be empty'})
+            conn.execute("UPDATE GymParticipants SET name=? WHERE id=?",
+                         (new_name, pid))
+        if 'is_active' in body:
+            conn.execute("UPDATE GymParticipants SET is_active=? WHERE id=?",
+                         (1 if body['is_active'] else 0, pid))
+        conn.commit()
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+    finally:
+        conn.close()
+
+
+@app.route('/api/gym/summary', methods=['GET'])
+def api_gym_summary():
+    conn = _gym_db()
+    try:
+        # debt summary per person
+        debts = conn.execute("""
+            SELECT
+                p.id, p.name, p.is_active,
+                COALESCE(SUM(CASE WHEN s.payer_id = p.id
+                    THEN (cnt.c - 1) * s.product_price ELSE 0 END), 0) AS fronted,
+                COALESCE(SUM(CASE WHEN s.payer_id != p.id
+                    THEN s.product_price ELSE 0 END), 0) AS owed,
+                COALESCE(SUM(CASE WHEN s.payer_id = p.id
+                    THEN (cnt.c - 1) * s.product_price
+                    ELSE -s.product_price END), 0) AS net,
+                COALESCE(SUM(CASE WHEN s.payer_id = p.id
+                    THEN s.product_price * cnt.c ELSE 0 END), 0) AS total_paid,
+                COUNT(DISTINCT gsp.session_id) AS sessions
+            FROM GymParticipants p
+            LEFT JOIN GymSessionParticipants gsp ON gsp.participant_id = p.id
+            LEFT JOIN GymSessions s ON s.id = gsp.session_id
+            LEFT JOIN (SELECT session_id, COUNT(*) c FROM GymSessionParticipants GROUP BY session_id) cnt
+                ON cnt.session_id = s.id
+            GROUP BY p.id, p.name, p.is_active
+            ORDER BY net ASC
+        """).fetchall()
+
+        # session history
+        sessions_raw = conn.execute("""
+            SELECT s.id, s.date, s.product_price, p.name AS payer, s.notes,
+                   (SELECT COUNT(*) FROM GymSessionParticipants WHERE session_id=s.id) AS cnt
+            FROM GymSessions s
+            JOIN GymParticipants p ON p.id = s.payer_id
+            ORDER BY s.date DESC, s.id DESC
+            LIMIT 50
+        """).fetchall()
+
+        sessions = []
+        for row in sessions_raw:
+            parts = conn.execute("""
+                SELECT p.name FROM GymSessionParticipants gsp
+                JOIN GymParticipants p ON p.id = gsp.participant_id
+                WHERE gsp.session_id = ?
+            """, (row[0],)).fetchall()
+            sessions.append({
+                'id': row[0], 'date': row[1], 'price': row[2],
+                'payer': row[3], 'notes': row[4] or '',
+                'count': row[5], 'total': round(row[2] * row[5], 2),
+                'attendees': [r[0] for r in parts],
+            })
+
+        last_price = conn.execute(
+            "SELECT product_price FROM GymSessions ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+
+        return jsonify({
+            'ok': True,
+            'debts': [{'id': r[0], 'name': r[1], 'is_active': bool(r[2]),
+                        'fronted': round(r[3], 2), 'owed': round(r[4], 2),
+                        'net': round(r[5], 2), 'total_paid': round(r[6], 2),
+                        'sessions': r[7]} for r in debts],
+            'sessions': sessions,
+            'last_price': last_price[0] if last_price else 25.0,
+        })
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+    finally:
+        conn.close()
+
+
+@app.route('/api/gym/sessions', methods=['POST'])
+def api_gym_add_session():
+    body = request.get_json(force=True)
+    from datetime import datetime as _dt, date as _date
+    date_str  = (body.get('date') or _date.today().isoformat()).strip()
+    price     = float(body.get('price', 25.0))
+    payer_id  = int(body.get('payer_id', 0))
+    attendees = [int(x) for x in body.get('attendees', [])]
+    notes     = (body.get('notes') or '').strip()
+    if not attendees or not payer_id:
+        return jsonify({'ok': False, 'error': 'payer_id and attendees are required'})
+    if price <= 0:
+        return jsonify({'ok': False, 'error': 'price must be positive'})
+    # Payer must be an attendee for the debt formula to balance correctly
+    if payer_id not in attendees:
+        attendees = [payer_id] + attendees
+    conn = _gym_db()
+    try:
+        conn.execute(
+            "INSERT INTO GymSessions(date, product_price, payer_id, notes, insertion_date) VALUES(?,?,?,?,?)",
+            (date_str, price, payer_id, notes, _dt.now().strftime('%Y-%m-%d %H:%M:%S'))
+        )
+        sid = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+        for pid in attendees:
+            conn.execute(
+                "INSERT OR IGNORE INTO GymSessionParticipants(session_id, participant_id) VALUES(?,?)",
+                (sid, pid)
+            )
+        conn.commit()
+        return jsonify({'ok': True, 'session_id': sid})
+    except Exception as e:
+        conn.rollback()
+        return jsonify({'ok': False, 'error': str(e)})
+    finally:
+        conn.close()
+
+
+@app.route('/api/gym/sessions/<int:sid>', methods=['DELETE'])
+def api_gym_delete_session(sid):
+    conn = _gym_db()
+    try:
+        conn.execute("DELETE FROM GymSessionParticipants WHERE session_id=?", (sid,))
+        conn.execute("DELETE FROM GymSessions WHERE id=?", (sid,))
+        conn.commit()
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+    finally:
+        conn.close()
+
+
+@app.route('/admin/upload-db', methods=['GET', 'POST'])
+def admin_upload_db():
+    """Upload a local ShmuelFamiliy.db to /tmp so Vercel has real data.
+    Protected by UPLOAD_SECRET env var. Only meaningful when DATABASE_URL is set."""
+    secret = os.getenv('UPLOAD_SECRET', '')
+    if not secret:
+        return "UPLOAD_SECRET env var not configured.", 403
+
+    if request.method == 'GET':
+        return '''<!doctype html><html lang="he" dir="rtl">
+<head><meta charset="utf-8"><title>העלאת מסד נתונים</title>
+<style>
+  body{font-family:sans-serif;max-width:480px;margin:80px auto;padding:0 16px;background:#121212;color:#e0e0e0}
+  h2{color:#1db954}
+  input,button{width:100%;box-sizing:border-box;padding:10px;margin:8px 0;border-radius:6px;border:1px solid #333;background:#1e1e1e;color:#e0e0e0;font-size:1em}
+  button{background:#1db954;color:#000;font-weight:bold;cursor:pointer;border:none}
+  button:hover{background:#17a349}
+  .note{font-size:.82em;color:#888;margin-top:12px}
+</style></head>
+<body>
+<h2>העלאת מסד נתונים</h2>
+<form method="post" enctype="multipart/form-data">
+  <input type="password" name="password" placeholder="סיסמה" required>
+  <input type="file" name="db_file" accept=".db" required>
+  <button type="submit">העלה</button>
+</form>
+<p class="note">הקובץ יישמר ב־/tmp ויישאר זמין עד שהמכולה מתחלפת (cold start).</p>
+</body></html>'''
+
+    # POST — validate password then save file
+    if request.form.get('password', '') != secret:
+        return "סיסמה שגויה.", 403
+
+    db_file = request.files.get('db_file')
+    if not db_file or not db_file.filename.endswith('.db'):
+        return "יש לבחור קובץ .db תקין.", 400
+
+    dest = '/tmp/ShmuelFamiliy.db'
+    db_file.save(dest)
+
+    # Reset the DataBase singleton so the next query uses the new file.
+    try:
+        from database import DataBase
+        with DataBase._DataBase__lock:
+            inst = DataBase._DataBase__instance
+            if inst is not None:
+                try:
+                    inst.connection.close()
+                except Exception:
+                    pass
+            DataBase._DataBase__instance = None
+    except Exception:
+        pass
+
+    size_kb = os.path.getsize(dest) // 1024
+    return f"✓ מסד הנתונים הועלה בהצלחה ({size_kb} KB). <a href='/'>חזרה לדף הבית</a>"
 
 
 def start(port: int = 5050, open_browser: bool = True):

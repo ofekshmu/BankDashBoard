@@ -195,7 +195,8 @@ class SimpleMath:
             """
 
             cond_different_values = row['Charge_Value'] != row['Transaction_Value']
-            cond_string_pattern = 'תשלום' in row['Extra_Info'] and 'מתוך' in row['Extra_Info']
+            _extra = row['Extra_Info']
+            cond_string_pattern = bool(_extra) and 'תשלום' in _extra and 'מתוך' in _extra
             cond_different_dates = row['Charge_Date'] != row['Executed_Date']
             cond_smaller_charge_value = row['Charge_Value'] > row['Transaction_Value']
 

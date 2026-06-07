@@ -3,6 +3,12 @@ import threading
 from datetime import datetime
 import pandas as pd
 from typing import Literal, Optional
+import os
+from dotenv import load_dotenv
+import psycopg2
+from psycopg2.extras import DictCursor
+
+load_dotenv()
 
 
 # local imports
@@ -10,6 +16,48 @@ from decorators import try_catch, error_handler
 from src_utils.utils import utils
 from Constants import Local, Paths
 from typing import Tuple
+
+
+# PostgreSQL connection
+def get_db_connection():
+    """Get PostgreSQL connection from environment variable"""
+    try:
+        conn = psycopg2.connect(os.getenv('DATABASE_URL'))
+        return conn
+    except Exception as e:
+        utils.log(f"Database connection failed: {e}", 'error')
+        return None
+
+
+def initialize_login_activity_table():
+    """Create login_activity table if it doesn't exist"""
+    conn = get_db_connection()
+    if conn is None:
+        return False
+
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS login_activity (
+                id SERIAL PRIMARY KEY,
+                login_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                logout_time TIMESTAMP,
+                session_id VARCHAR(255),
+                device_info VARCHAR(500),
+                ip_address VARCHAR(45)
+            );
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_login_time ON login_activity(login_time DESC);
+        """)
+        conn.commit()
+        cursor.close()
+        conn.close()
+        utils.log("login_activity table initialized", 'system')
+        return True
+    except Exception as e:
+        utils.log(f"Failed to initialize login_activity table: {e}", 'error')
+        return False
 
 
 # ----------------------------------------------------------------------
@@ -56,8 +104,12 @@ class DataBase:
             if cls.__instance is None:
                 cls.__instance = super().__new__(cls)
                 import os as _os
-                _db_file = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), '..', f'{Paths.DB_NAME}.db')
-                _db_file = _os.path.normpath(_db_file)
+                if _os.getenv('DATABASE_URL'):
+                    _db_file = '/tmp/ShmuelFamiliy.db'
+                else:
+                    _db_file = _os.path.normpath(
+                        _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), '..', f'{Paths.DB_NAME}.db')
+                    )
                 cls.__instance.connection = sqlite3.connect(_db_file, check_same_thread=False)
                 cls.__instance.cursor = cls.__instance.connection.cursor()
                 cls.__instance.cursor.execute("""
@@ -76,7 +128,6 @@ class DataBase:
                     Last_update         DATE        NOT NULL,
                     PRIMARY KEY(File_Name, Format, Card_Number)
                     );""")
-
                 cls.__instance.cursor.execute("""
                     CREATE TABLE IF NOT EXISTS CashTransactions (
                     ID                  INTEGER         PRIMARY KEY ,
@@ -88,46 +139,6 @@ class DataBase:
                     Insertion_Date      DATE            NOT NULL    ,
                     Description         CHAR
                     );""")
-
-                cls.__instance.cursor.execute("""
-                    CREATE TABLE IF NOT EXISTS DevisionTransactions (
-                    ID                  INTEGER         PRIMARY KEY ,
-                    DevisionOfBank      INT             NOT NULL    ,
-                    DevisionOfCard      INT             NOT NULL    ,
-                    Name                CHAR            NOT NULL    ,
-                    Execution_Date      DATE            NOT NULL    ,
-                    Amount              INT             NOT NULL    ,
-                    Currency            CHAR            NOT NULL    ,
-                    Description         CHAR                        ,
-                    Category            CHAR            NOT NULL    ,
-                    FOREIGN KEY(DevisionOfBank)    REFERENCES BankTransactions(ID),
-                    FOREIGN KEY(DevisionOfCard)    REFERENCES CardTransactions(ID)
-                    );""")
-
-                cls.__instance.cursor.execute("""
-                    CREATE TABLE IF NOT EXISTS TransactionSplits (
-                    ID              INTEGER PRIMARY KEY AUTOINCREMENT,
-                    Original_Table  TEXT    NOT NULL,
-                    Original_ID     INTEGER NOT NULL,
-                    Amount          REAL    NOT NULL,
-                    Description     TEXT,
-                    Category        TEXT    NOT NULL,
-                    Created_At      TEXT    DEFAULT (datetime('now'))
-                    );""")
-
-                cls.__instance.cursor.execute("""
-                    CREATE TABLE IF NOT EXISTS TableMeta (
-                    ID                  INTEGER         PRIMARY KEY ,
-                    File_Name           CHAR            NOT NULL    ,
-                    Format              CHAR            NOT NULL    ,
-                    Card_Number         CHAR            NOT NULL    ,
-                    Initial_index       INT             NOT NULL    ,
-                    Initial_col         INT             NOT NULL    ,
-                    Row_count           INT             NOT NULL    ,
-                    Bad_rows            CHAR                        ,
-                    FOREIGN KEY(File_Name, Format, Card_Number)    REFERENCES File(File_Name, Format, Card_Number)
-                    );""")
-
                 cls.__instance.cursor.execute("""
                     CREATE TABLE IF NOT EXISTS BankTransactions (
                     ID                  INTEGER     PRIMARY KEY ,
@@ -142,10 +153,8 @@ class DataBase:
                     Source_file         CHAR        NOT NULL    ,
                     Category            CHAR                    ,
                     Description         CHAR                    ,
-                    Reserved            INT                     ,
-                    FOREIGN KEY(source_file)    REFERENCES File(Name)
+                    Reserved            INT
                     );""")
-
                 cls.__instance.cursor.execute("""
                     CREATE TABLE IF NOT EXISTS CardTransactions (
                     ID                  INTEGER     PRIMARY KEY ,
@@ -161,46 +170,41 @@ class DataBase:
                     Source_file         CHAR        NOT NULL    ,
                     Category            CHAR                    ,
                     Description         CHAR                    ,
-                    Reserved            INT                     ,
-                    FOREIGN KEY(CardID)         REFERENCES Card(CardID),
-                    FOREIGN KEY(source_file)    REFERENCES File(Name)
+                    Reserved            INT
                     );""")
-
                 cls.__instance.cursor.execute("""
-                    CREATE TABLE IF NOT EXISTS BillTypes (
-                    ID          INTEGER PRIMARY KEY AUTOINCREMENT,
-                    Name        TEXT    NOT NULL,
-                    Color       TEXT    DEFAULT '#1e9d8b',
-                    GroupName   TEXT,
-                    Created_At  TEXT    DEFAULT (datetime('now'))
+                    CREATE TABLE IF NOT EXISTS GymParticipants (
+                    id              INTEGER     PRIMARY KEY AUTOINCREMENT,
+                    name            TEXT        NOT NULL,
+                    is_active       INTEGER     DEFAULT 1,
+                    insertion_date  TEXT        NOT NULL
                     );""")
-                # Migrate: add GroupName if table existed before this column was added
-                try:
-                    cls.__instance.cursor.execute("ALTER TABLE BillTypes ADD COLUMN GroupName TEXT")
-                except Exception:
-                    pass
-
                 cls.__instance.cursor.execute("""
-                    CREATE TABLE IF NOT EXISTS BillEntries (
-                    ID                  INTEGER PRIMARY KEY AUTOINCREMENT,
-                    BillType_ID         INTEGER NOT NULL,
-                    Start_Month         TEXT    NOT NULL,
-                    End_Month           TEXT    NOT NULL,
-                    Transaction_Table   TEXT,
-                    Transaction_ID      INTEGER,
-                    Amount              REAL,
-                    Note                TEXT,
-                    Is_Filler           INTEGER DEFAULT 0,
-                    Created_At          TEXT    DEFAULT (datetime('now')),
-                    FOREIGN KEY(BillType_ID) REFERENCES BillTypes(ID)
+                    CREATE TABLE IF NOT EXISTS GymSessions (
+                    id              INTEGER     PRIMARY KEY AUTOINCREMENT,
+                    date            TEXT        NOT NULL,
+                    product_price   REAL        NOT NULL,
+                    payer_id        INTEGER     NOT NULL    REFERENCES GymParticipants(id),
+                    notes           TEXT,
+                    insertion_date  TEXT        NOT NULL
                     );""")
-
                 cls.__instance.cursor.execute("""
-                    CREATE TABLE IF NOT EXISTS BillSuggestionsDismissed (
-                    ID                  INTEGER PRIMARY KEY AUTOINCREMENT,
-                    Transaction_Name    TEXT    NOT NULL UNIQUE,
-                    Dismissed_At        TEXT    DEFAULT (datetime('now'))
+                    CREATE TABLE IF NOT EXISTS GymSessionParticipants (
+                    session_id      INTEGER     REFERENCES GymSessions(id),
+                    participant_id  INTEGER     REFERENCES GymParticipants(id),
+                    PRIMARY KEY(session_id, participant_id)
                     );""")
+                cls.__instance.cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS OtherAccountStatus (
+                    ID              INTEGER     PRIMARY KEY AUTOINCREMENT,
+                    AccountName     TEXT        NOT NULL,
+                    StatusDate      DATE        NOT NULL,
+                    Value           REAL        NOT NULL,
+                    Currency        TEXT        DEFAULT 'ILS',
+                    TransactionID   INTEGER,
+                    FOREIGN KEY(TransactionID) REFERENCES BankTransactions(ID)
+                    );""")
+                cls.__instance.connection.commit()
 
                 cls.__instance.cursor.execute("""
                     CREATE TABLE IF NOT EXISTS SpotifyMembers (
@@ -1734,7 +1738,7 @@ class DataBase:
 
     def total_income(self, name_for_analysis: str, case: Literal[0, 1]) -> float:
         """
-        Returns the total sum of all spendings of a chosen category \ business transactions
+        Returns the total sum of all spendings of a chosen category or business transactions
         case 0: Category
         case 1: Business
         """
@@ -2146,6 +2150,73 @@ class DataBase:
 
     def commit_changes(self) -> None:
         self.connection.commit()
+
+    def _ensure_pg_connection(self):
+        """Ensure PostgreSQL connection is alive; reconnect if needed"""
+        if self.connection is None:
+            return False
+        try:
+            cursor = self.connection.cursor()
+            cursor.execute("SELECT 1")
+            cursor.close()
+            return True
+        except Exception:
+            return False
+
+    # ── Login activity (PostgreSQL) ────────────────────────────────────────────
+
+    def log_login(self, session_id, device_info, ip_address):
+        """Log a user login event"""
+        if not self._ensure_pg_connection():
+            return False
+        try:
+            cursor = self.connection.cursor()
+            cursor.execute("""
+                INSERT INTO login_activity (session_id, device_info, ip_address)
+                VALUES (%s, %s, %s)
+            """, (session_id, device_info, ip_address))
+            self.connection.commit()
+            cursor.close()
+            return True
+        except Exception as e:
+            utils.log(f"Failed to log login: {e}", 'error')
+            return False
+
+    def log_logout(self, session_id):
+        """Log a user logout event"""
+        if not self._ensure_pg_connection():
+            return False
+        try:
+            cursor = self.connection.cursor()
+            cursor.execute("""
+                UPDATE login_activity
+                SET logout_time = CURRENT_TIMESTAMP
+                WHERE session_id = %s AND logout_time IS NULL
+            """, (session_id,))
+            self.connection.commit()
+            cursor.close()
+            return True
+        except Exception as e:
+            utils.log(f"Failed to log logout: {e}", 'error')
+            return False
+
+    def get_login_activity(self):
+        """Get all login activity (for activity log page)"""
+        if not self._ensure_pg_connection():
+            return []
+        try:
+            cursor = self.connection.cursor(cursor_factory=DictCursor)
+            cursor.execute("""
+                SELECT id, login_time, logout_time, device_info, ip_address
+                FROM login_activity
+                ORDER BY login_time DESC
+            """)
+            rows = cursor.fetchall()
+            cursor.close()
+            return rows
+        except Exception as e:
+            utils.log(f"Failed to get login activity: {e}", 'error')
+            return []
 
     def get_monthly_bank_balances(self, from_date: datetime = None) -> pd.DataFrame:
         """
@@ -2896,3 +2967,104 @@ class DataBase:
             "SELECT TX_ID FROM SpotifyDismissedPayments"
         ).fetchall()
         return {r[0] for r in rows}
+
+    # ── Gym Expense Splitter ───────────────────────────────────────────────────
+
+    def gym_get_all_participants(self, active_only: bool = False) -> pd.DataFrame:
+        sql = "SELECT id, name, is_active FROM GymParticipants"
+        if active_only:
+            sql += " WHERE is_active = 1"
+        sql += " ORDER BY name"
+        rows = self.cursor.execute(sql).fetchall()
+        return pd.DataFrame(rows, columns=['id', 'name', 'is_active'])
+
+    def gym_add_participant(self, name: str) -> int:
+        from datetime import date as _date
+        self.cursor.execute(
+            "INSERT INTO GymParticipants(name, is_active, insertion_date) VALUES(?, 1, ?)",
+            (name.strip(), _date.today().isoformat())
+        )
+        self.connection.commit()
+        return self.cursor.lastrowid
+
+    def gym_rename_participant(self, pid: int, new_name: str):
+        self.cursor.execute("UPDATE GymParticipants SET name=? WHERE id=?", (new_name.strip(), pid))
+        self.connection.commit()
+
+    def gym_set_participant_active(self, pid: int, is_active: bool):
+        self.cursor.execute("UPDATE GymParticipants SET is_active=? WHERE id=?", (1 if is_active else 0, pid))
+        self.connection.commit()
+
+    def gym_get_last_price(self) -> Optional[float]:
+        row = self.cursor.execute(
+            "SELECT product_price FROM GymSessions ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+        return float(row[0]) if row else None
+
+    def gym_insert_session_with_participants(self, session_date: str, product_price: float,
+                                              payer_id: int, notes: str, attendee_ids: list) -> int:
+        """Insert session + all participants atomically. Payer is auto-added to attendees if missing."""
+        from datetime import datetime as _dt
+        if payer_id not in attendee_ids:
+            attendee_ids = [payer_id] + list(attendee_ids)
+        try:
+            self.cursor.execute(
+                "INSERT INTO GymSessions(date, product_price, payer_id, notes, insertion_date) VALUES(?,?,?,?,?)",
+                (session_date, product_price, payer_id, notes, _dt.now().strftime('%Y-%m-%d %H:%M:%S'))
+            )
+            sid = self.cursor.lastrowid
+            for pid in attendee_ids:
+                self.cursor.execute(
+                    "INSERT OR IGNORE INTO GymSessionParticipants(session_id, participant_id) VALUES(?,?)",
+                    (sid, pid)
+                )
+            self.connection.commit()
+            return sid
+        except Exception:
+            self.connection.rollback()
+            raise
+
+    def gym_get_debt_summary(self) -> pd.DataFrame:
+        rows = self.cursor.execute("""
+            SELECT
+                p.id, p.name, p.is_active,
+                COALESCE(SUM(CASE WHEN s.payer_id = p.id
+                    THEN (cnt.c - 1) * s.product_price ELSE 0 END), 0) AS total_fronted,
+                COALESCE(SUM(CASE WHEN s.payer_id != p.id
+                    THEN s.product_price ELSE 0 END), 0) AS total_owed,
+                COALESCE(SUM(CASE WHEN s.payer_id = p.id
+                    THEN (cnt.c - 1) * s.product_price
+                    ELSE -s.product_price END), 0) AS net_balance,
+                COALESCE(SUM(CASE WHEN s.payer_id = p.id
+                    THEN s.product_price * cnt.c ELSE 0 END), 0) AS total_paid_out,
+                COUNT(DISTINCT gsp.session_id) AS sessions_attended
+            FROM GymParticipants p
+            LEFT JOIN GymSessionParticipants gsp ON gsp.participant_id = p.id
+            LEFT JOIN GymSessions s ON s.id = gsp.session_id
+            LEFT JOIN (SELECT session_id, COUNT(*) c FROM GymSessionParticipants GROUP BY session_id) cnt
+                ON cnt.session_id = s.id
+            GROUP BY p.id, p.name, p.is_active
+            ORDER BY net_balance ASC
+        """).fetchall()
+        return pd.DataFrame(rows, columns=[
+            'id', 'name', 'is_active',
+            'total_fronted', 'total_owed', 'net_balance', 'total_paid_out', 'sessions_attended'
+        ])
+
+    def gym_get_all_sessions(self) -> pd.DataFrame:
+        rows = self.cursor.execute("""
+            SELECT s.id, s.date, s.product_price, p.name AS payer_name, s.notes,
+                   (SELECT COUNT(*) FROM GymSessionParticipants WHERE session_id = s.id) AS participant_count
+            FROM GymSessions s
+            JOIN GymParticipants p ON p.id = s.payer_id
+            ORDER BY s.date DESC, s.id DESC
+        """).fetchall()
+        return pd.DataFrame(rows, columns=['id', 'date', 'product_price', 'payer_name', 'notes', 'participant_count'])
+
+    def gym_get_session_participants(self, session_id: int) -> pd.DataFrame:
+        rows = self.cursor.execute("""
+            SELECT p.id, p.name FROM GymSessionParticipants gsp
+            JOIN GymParticipants p ON p.id = gsp.participant_id
+            WHERE gsp.session_id = ?
+        """, (session_id,)).fetchall()
+        return pd.DataFrame(rows, columns=['id', 'name'])

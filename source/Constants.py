@@ -49,10 +49,10 @@ class Paths:
     VERIFIED_FOLDER =   f"Verified_{INPUT_FOLDER}"
     UPDATE_FOLDER =     "to_update"                                     # Used for the update process
     
-    PERSONAL_CONFIG =   'Personal Information/personal_config.json'     # Personal configuration file
-    CATEGORY_JSON =     'Personal Information/categories.json'          # Categories JSON file (holds all different categories)
+    PERSONAL_CONFIG =   'personal information/personal_config.json'     # Personal configuration file
+    CATEGORY_JSON =     'personal information/categories.json'          # Categories JSON file (holds all different categories)
     AUTO_TAGGER_JSON =  'personal information/auto_tagger.json'         # Holds setting fro auto tagging different transactions
-    Currency_JSON =     'Personal Information/currency.json'            # Holds used currencies in the cash table
+    Currency_JSON =     'personal information/currency.json'            # Holds used currencies in the cash table
 
     #EXTENSION_1 = '.xls'    # Excel file extension                      # Extension type 1 for parsing
     #EXTENSION_2 = '.csv'    # CSV file extension                        # Extension type 2 for parsing      

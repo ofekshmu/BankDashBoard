@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>מעקב ג׳ים</title>
+<title>Gym Tracker</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -106,6 +106,29 @@ td.pos{color:var(--teal);font-weight:600}td.neg{color:var(--red);font-weight:600
 .icon-btn{background:none;border:none;color:var(--muted);cursor:pointer;padding:3px 7px;border-radius:4px;font-size:.85rem;transition:color var(--tr),background var(--tr)}
 .icon-btn:hover{color:var(--navy);background:#f0f3fa}
 
+/* ── Hamburger + slide-in nav ── */
+.ham-btn{position:fixed;top:14px;right:14px;width:38px;height:38px;background:var(--white);border:1.5px solid var(--border);border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--navy);z-index:500;transition:background var(--tr),color var(--tr);box-shadow:var(--shadow-sm)}
+.ham-btn:hover{background:var(--teal-light);color:var(--teal)}
+.nav-overlay{position:fixed;inset:0;background:rgba(15,22,45,.26);z-index:490;opacity:0;pointer-events:none;transition:opacity .22s ease}
+.nav-overlay.open{opacity:1;pointer-events:all}
+.sidebar{position:fixed;top:0;right:0;height:100vh;width:230px;background:var(--white);z-index:495;transform:translate3d(100%,0,0);transition:transform .22s cubic-bezier(.4,0,.2,1);box-shadow:-4px 0 24px rgba(0,0,0,.09);display:flex;flex-direction:column}
+.sidebar.open{transform:translate3d(0,0,0)}
+.sidebar-header{display:flex;align-items:center;padding:20px 20px 16px;border-bottom:1px solid var(--border);flex-shrink:0}
+.sidebar-app-name{font-size:.95em;font-weight:700;color:var(--navy)}
+.sidebar-close-btn{margin-right:auto;background:none;border:none;cursor:pointer;font-size:1.1em;color:var(--muted);padding:4px 6px;border-radius:6px;transition:background var(--tr),color var(--tr)}
+.sidebar-close-btn:hover{background:var(--teal-light);color:var(--teal)}
+.sidebar-scroll{flex:1;overflow-y:auto;overflow-x:hidden;padding:8px 0 16px}
+.sidebar-footer{padding:12px 16px;border-top:1px solid var(--border);flex-shrink:0}
+.nav-restart-btn{width:100%;padding:8px 12px;border:1.5px dashed var(--border);border-radius:8px;background:none;color:var(--muted);font-size:.78em;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:7px;justify-content:center;transition:background .15s,color .15s,border-color .15s}
+.nav-restart-btn:hover{background:#fff3f3;color:#e53935;border-color:#e53935}
+.nav-item{display:flex;align-items:center;padding:10px 20px;text-decoration:none;color:var(--muted);font-size:.875em;font-weight:500;transition:background .1s,color .1s;position:relative}
+.nav-item::before{content:'';position:absolute;right:0;top:22%;height:56%;width:3px;border-radius:3px 0 0 3px;background:transparent;transition:background .1s}
+.nav-item:hover{background:var(--teal-light);color:var(--teal)}
+.nav-item:hover::before{background:var(--teal)}
+.nav-item.active{background:var(--teal-light);color:var(--teal);font-weight:700;pointer-events:none}
+.nav-item.active::before{background:var(--teal)}
+.nav-sep{height:1px;background:var(--border);margin:8px 16px}
+
 /* ── Responsive ── */
 @media(max-width:600px){
   .page{padding:1rem .9rem 3rem}
@@ -121,6 +144,47 @@ td.pos{color:var(--teal);font-weight:600}td.neg{color:var(--red);font-weight:600
 </style>
 </head>
 <body>
+
+<!-- Nav overlay -->
+<div class="nav-overlay" id="nav-overlay" onclick="toggleNav()"></div>
+
+<!-- Sidebar -->
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <span class="sidebar-app-name">Menu</span>
+    <button class="sidebar-close-btn" onclick="closeNav()" aria-label="סגור תפריט">✕</button>
+  </div>
+  <div class="sidebar-scroll">
+    <a class="nav-item" href="/">ניתוח חודשי</a>
+    <a class="nav-item" href="/accounts">חשבונות</a>
+    <a class="nav-item" href="/housing">דיור</a>
+    <a class="nav-item" href="/organizer">ארגונית</a>
+    <a class="nav-item" href="/bills">מעקב חשבונות</a>
+    <a class="nav-item" href="/categories">ניתוח קטגוריאלי</a>
+    <a class="nav-item" href="/search">חיפוש</a>
+    <a class="nav-item" href="/spotify">Spotify Tracker</a>
+    <a class="nav-item active" href="/gym">💪 Gym Tracker</a>
+    <div class="nav-sep"></div>
+    <a class="nav-item" href="/tagger">תייגן</a>
+    <a class="nav-item" href="/files">קבצים</a>
+  </div>
+  <div class="sidebar-footer">
+    <button class="nav-restart-btn" onclick="restartServer(this)">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
+      הפעל שרת מחדש
+    </button>
+  </div>
+</nav>
+
+<!-- Hamburger button (fixed top-right) -->
+<button class="ham-btn" id="ham-btn" onclick="toggleNav()" aria-label="תפריט">
+  <svg width="18" height="14" viewBox="0 0 18 14" fill="none">
+    <rect width="18" height="2" rx="1" fill="currentColor"/>
+    <rect y="6" width="18" height="2" rx="1" fill="currentColor"/>
+    <rect y="12" width="18" height="2" rx="1" fill="currentColor"/>
+  </svg>
+</button>
+
 <div class="page">
 
   <a class="back-link" href="/">&#8592; חזרה לדשבורד</a>
@@ -129,7 +193,7 @@ td.pos{color:var(--teal);font-weight:600}td.neg{color:var(--red);font-weight:600
   <div class="hdr">
     <div class="hdr-icon">&#x1F4AA;</div>
     <div class="hdr-text">
-      <h1>מעקב ג׳ים</h1>
+      <h1>Gym Tracker</h1>
       <p>חלוקת הוצאות ותשלומים משותפים</p>
     </div>
     <div class="hdr-actions">
@@ -137,10 +201,6 @@ td.pos{color:var(--teal);font-weight:600}td.neg{color:var(--red);font-weight:600
       <button class="btn btn-outline" onclick="openManageModal()">&#9881; ניהול משתתפים</button>
     </div>
   </div>
-
-  <!-- Member cards -->
-  <div class="sec"><h2>משתתפים</h2></div>
-  <div class="members" id="members"></div>
 
   <!-- Recommendation -->
   <div class="rec" id="rec" style="display:none">
@@ -150,6 +210,10 @@ td.pos{color:var(--teal);font-weight:600}td.neg{color:var(--red);font-weight:600
     </div>
     <div class="rec-detail" id="rec-detail"></div>
   </div>
+
+  <!-- Member cards -->
+  <div class="sec"><h2>משתתפים</h2></div>
+  <div class="members" id="members"></div>
 
   <!-- Debt table -->
   <div class="sec"><h2>פירוט חוב</h2><p>מי חייב למי (סך כולל)</p></div>
@@ -432,6 +496,26 @@ function showToast(msg) {
 
 document.getElementById('session-overlay').addEventListener('click', e => { if(e.target===e.currentTarget) closeSessionModal(); });
 document.getElementById('manage-overlay').addEventListener('click',  e => { if(e.target===e.currentTarget) closeManageModal(); });
+
+// ── Nav ──────────────────────────────────────────────────────
+function openNav() {
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('nav-overlay').classList.add('open');
+}
+function closeNav() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('nav-overlay').classList.remove('open');
+}
+function toggleNav() {
+  document.getElementById('sidebar').classList.contains('open') ? closeNav() : openNav();
+}
+async function restartServer(btn) {
+  btn.disabled = true;
+  btn.textContent = 'מפעיל...';
+  try { await fetch('/restart', {method:'POST'}); } catch(_) {}
+  setTimeout(() => { btn.disabled=false; btn.innerHTML='↺ הפעל שרת מחדש'; }, 3000);
+}
+document.addEventListener('keydown', e => { if(e.key==='Escape') closeNav(); });
 
 load();
 </script>

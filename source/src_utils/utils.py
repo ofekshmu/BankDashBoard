@@ -2202,16 +2202,22 @@ document.addEventListener('DOMContentLoaded', function() {
         # ── Write output ───────────────────────────────────────────────
         _html_text = soup.prettify()
 
-        with open(_os.path.join(_html_dir, 'output.html'), "w", encoding="utf-8") as outf:
+        _utils_dir   = _os.path.dirname(_os.path.abspath(__file__))
+        _src_dir     = _os.path.dirname(_utils_dir)
+        _project_dir = _os.path.dirname(_src_dir)
+
+        if _os.getenv('DATABASE_URL'):  # Vercel: /var/task is read-only
+            _out_html = '/tmp/output.html'
+            _ga_dir   = '/tmp/general_analysis'
+        else:
+            _out_html = _os.path.join(_html_dir, 'output.html')
+            _ga_dir   = _os.path.join(_project_dir, 'Outputs', 'general_analysis')
+        _os.makedirs(_ga_dir, exist_ok=True)
+
+        with open(_out_html, "w", encoding="utf-8") as outf:
             outf.write(_html_text)
 
-        # ── Also write to Outputs/general_analysis/YYYY_MM.html ────────
-        _utils_dir   = _os.path.dirname(_os.path.abspath(__file__))   # src_utils/
-        _src_dir     = _os.path.dirname(_utils_dir)                    # source/
-        _project_dir = _os.path.dirname(_src_dir)                      # BankProject/
-        _ga_dir      = _os.path.join(_project_dir, 'Outputs', 'general_analysis')
-        _os.makedirs(_ga_dir, exist_ok=True)
-        _ga_path     = _os.path.join(_ga_dir, f"{year:04d}_{month_num:02d}.html")
+        _ga_path = _os.path.join(_ga_dir, f"{year:04d}_{month_num:02d}.html")
         with open(_ga_path, "w", encoding="utf-8") as outf:
             outf.write(_html_text)
 

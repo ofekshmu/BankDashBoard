@@ -1040,6 +1040,12 @@ if os.getenv('DATABASE_URL'):
     _Paths.CATEGORY_JSON    = os.path.join(_TMP_PERSONAL, 'categories.json')
     _Paths.AUTO_TAGGER_JSON = os.path.join(_TMP_PERSONAL, 'auto_tagger.json')
     _Paths.Currency_JSON    = os.path.join(_TMP_PERSONAL, 'currency.json')
+    # Redirect all generated-HTML output dirs to /tmp (project dir is read-only).
+    GENERAL_ANALYSIS_DIR  = '/tmp/general_analysis'
+    CATEGORY_ANALYSIS_DIR = '/tmp/category_analysis'
+    OUTPUT_HTML           = '/tmp/output.html'
+    os.makedirs(GENERAL_ANALYSIS_DIR, exist_ok=True)
+    os.makedirs(CATEGORY_ANALYSIS_DIR, exist_ok=True)
 
 GYM_HTML = os.path.join(_HERE, 'html', 'Gym.html')
 

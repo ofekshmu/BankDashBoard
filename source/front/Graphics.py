@@ -566,10 +566,10 @@ class Graphics:
         Amount spent in cash and the amount earned in cash in the given month will be returned.
         """
         chart_name = "Cash_Distribution"
-        chart_title = chart_name.replace('_', ' ')
-        
+        chart_title = "הכנסות/הוצאות במזומן"
+
         if df_monthly_cash_transactions.empty:
-            Graphics._create_empty_chart(chart_title)
+            Graphics._create_empty_chart(chart_name)
             return 0.0, 0.0
 
         df = df_monthly_cash_transactions.copy()
@@ -644,6 +644,50 @@ class Graphics:
                        output_path=_out(f'{chart_name}_prices.png'))
 
         return abs(total_spendings), total_earnings
+
+    @staticmethod
+    def plot_investments_distribution(df: pd.DataFrame) -> None:
+        """Horizontal bar chart showing הפקדות / משיכות totals with net annotation."""
+        chart_name = "Investments"
+        COLOR_OUT = "#D4A017"   # gold – savings deposit
+        COLOR_IN  = "#E8900C"   # amber – savings withdrawal
+
+        if df.empty:
+            Graphics._create_empty_chart(chart_name)
+            return
+
+        total_out = df[df['Final_Value'] < 0]['Final_Value'].abs().sum()
+        total_in  = df[df['Final_Value'] > 0]['Final_Value'].sum()
+        net       = df['Final_Value'].sum()
+
+        labels = [utils.heb_conversion("הפקדות")]
+        values = [total_out]
+        colors = [COLOR_OUT]
+        if total_in > 0:
+            labels.append(utils.heb_conversion("משיכות"))
+            values.append(total_in)
+            colors.append(COLOR_IN)
+
+        fig, ax = plt.subplots(figsize=(7, max(2.5, 1.2 * len(labels))))
+        ax.barh(labels, values, color=colors, edgecolor='white', linewidth=1)
+
+        ax.set_xlabel('')
+        ax.set_title(chart_name, fontsize=16)
+        ax.xaxis.set_visible(False)
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.spines['bottom'].set_visible(False)
+
+        net_color = COLOR_OUT if net < 0 else "#1e9d8b"
+        net_sign  = "−" if net < 0 else "+"
+        ax.text(max(values) * 1.02, len(labels) - 1,
+                f"נטו: {net_sign}{abs(net):,.0f} ₪",
+                va='center', ha='left', fontsize=10, color=net_color, fontweight='bold')
+
+        plt.tight_layout()
+        for path in [f'Outputs\\{chart_name}_category.png', f'Outputs\\{chart_name}_prices.png']:
+            plt.savefig(path)
+        plt.close()
 
     # ── Mortgage analysis plots ────────────────────────────────────────────────
 

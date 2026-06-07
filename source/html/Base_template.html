@@ -4,6 +4,12 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title id="page-title">Dashboard</title>
+<script>
+(function(){
+  var p=window.location.pathname;
+  if(p&&p!=='/')try{localStorage.setItem('lv_page',JSON.stringify({p:p,ts:Date.now()}));}catch(e){}
+})();
+</script>
 <style>
 /* ── Reset ──────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -348,11 +354,14 @@ body {
 /* ── KPI row ─────────────────────────────────────────────── */
 .kpi-row {
   display: grid;
-  grid-template-columns: 2fr 1fr;
+  grid-template-columns: 2fr 1fr 1fr;
   gap: 14px;
   margin-bottom: 22px;
 }
-/* Responsive: collapse to 2 cols on narrow screens */
+/* Responsive: collapse on narrow screens */
+@media (max-width: 900px) {
+  .kpi-row { grid-template-columns: 2fr 1fr; }
+}
 @media (max-width: 700px) {
   .kpi-row { grid-template-columns: 1fr; }
   .kpi-card.hero { grid-row: span 1; }
@@ -367,25 +376,28 @@ body {
 }
 .kpi-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
 
-/* Hero card — Balance */
+/* Hero card — Overall Net Income */
 .kpi-card.hero {
   background: linear-gradient(135deg, #1a8f7e 0%, #1e9d8b 60%, #22b5a0 100%);
   grid-row: span 2;
   justify-content: center;
   padding: 26px 28px;
 }
+.kpi-card.hero.neg-hero {
+  background: linear-gradient(135deg, #a33030 0%, #b03535 60%, #c04040 100%);
+}
 .kpi-card.hero .kpi-label { color: rgba(255,255,255,0.75); }
 .kpi-card.hero .kpi-dot   { background: rgba(255,255,255,0.6) !important; }
 .kpi-card.hero .kpi-value { font-size: 2.2em; color: #fff; }
 
-/* Secondary row — cash metrics span 2 cols each */
+/* Secondary row — investment KPIs */
 .kpi-row-2 {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 14px;
   margin-bottom: 22px;
 }
-@media (max-width: 1000px) { .kpi-row-2 { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 700px) { .kpi-row-2 { grid-template-columns: 1fr; } }
 
 .kpi-dot {
   width: 10px; height: 10px; border-radius: 50%;
@@ -444,6 +456,24 @@ body {
 .kpi-info-wrap:hover .kpi-tooltip { visibility: visible; opacity: 1; }
 .kpi-value.pos { color: var(--teal); }
 .kpi-value.neg { color: var(--red); }
+.kpi-balance-card .kpi-value { font-size: 1.5em; }
+.kpi-balance-delta { font-size: 0.78em; font-weight: 600; margin-top: 2px; }
+.kpi-balance-delta.pos { color: var(--teal); }
+.kpi-balance-delta.neg { color: var(--red); }
+
+/* Date subtitle (Balance card) */
+.kpi-subtitle { font-size: 0.68em; font-style: italic; margin-top: 3px; color: var(--text-muted); letter-spacing: 0.02em; }
+.kpi-card.hero .kpi-subtitle { color: rgba(255,255,255,0.55); }
+
+/* Featured card — Overall Net Income */
+.kpi-card.featured { border-right: 3px solid var(--teal); }
+.kpi-card.featured .kpi-value { font-size: 2em; }
+
+/* Muted card — zero-value investment KPIs */
+.kpi-card.muted { opacity: 0.45; pointer-events: none; }
+.kpi-card.muted .kpi-value { color: #9aa3bb !important; }
+.kpi-card.muted .kpi-label { color: #b0b8cc !important; }
+.kpi-card.muted .kpi-dot   { background: #c5cad8 !important; }
 
 /* Stacked cash card separator */
 .kpi-sep { border: none; border-top: 1px solid var(--border); margin: 10px 0; }
@@ -481,6 +511,22 @@ body {
   letter-spacing: 0.6px;
   margin-bottom: 8px;
   padding-right: 4px;
+}
+
+/* Dual side-by-side KPIs inside equity card */
+.equity-dual-row {
+  display: flex;
+  direction: rtl;
+  gap: 0;
+}
+.equity-dual-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 0 12px;
+}
+.equity-dual-col:first-child {
+  border-left: 1.5px solid var(--border);
 }
 
 /* Equity breakdown bar */
@@ -980,6 +1026,38 @@ body {
   padding: 1px 6px; margin-right: 5px; vertical-align: middle;
   white-space: nowrap; flex-shrink: 0;
 }
+.num .tx-id { font-size: .60em; color: #c5ccd8; font-family: monospace; margin-top: 1px; white-space: nowrap; }
+.manual-cash-badge {
+  display: block; font-size: .55em; font-weight: 700;
+  background: #e8f7f5; color: #1e9d8b; border: 1px solid #b2dfdb; border-radius: 6px;
+  padding: 1px 6px; margin-top: 2px;
+  white-space: nowrap; width: fit-content;
+}
+.auto-cash-badge {
+  display: block; font-size: .55em; font-weight: 700;
+  background: #fef9e7; color: #b7860b; border: 1px solid #f9e0a2; border-radius: 6px;
+  padding: 1px 6px; margin-top: 2px;
+  white-space: nowrap; width: fit-content;
+}
+/* Investment bar card */
+.inv-tx-list {
+  list-style: none; margin: 0; padding: 0;
+  font-size: 0.88em; max-height: 200px; overflow-y: auto;
+  border-top: 1px solid #eee;
+}
+.inv-tx-row {
+  display: grid;
+  grid-template-columns: 8px auto 1fr auto;
+  align-items: center; gap: 8px;
+  padding: 8px 10px; border-bottom: 1px solid #f0f0f5;
+  cursor: default; transition: background 0.15s;
+}
+.inv-tx-row:hover { background: #f5f5f8; }
+.inv-tx-dot  { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.inv-tx-meta { color: #9aa; white-space: nowrap; font-size: 0.88em; }
+.inv-tx-name { color: #2d3a5e; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.inv-tx-out  { color: #E8900C; font-weight: 700; white-space: nowrap; }
+.inv-tx-in   { color: #C8A000; font-weight: 700; white-space: nowrap; }
 /* Split / Revert modal */
 .split-modal-overlay {
   display: none; position: fixed; inset: 0;
@@ -1196,46 +1274,39 @@ body {
 }
 .lf-header {
   display: flex; align-items: center; justify-content: center;
-  gap: 8px; margin-bottom: 8px;
+  gap: 10px; margin-bottom: 10px;
 }
 .lf-spinner {
-  width: 14px; height: 14px;
-  border: 2px solid rgba(30,157,139,0.3);
+  width: 22px; height: 22px;
+  border: 3px solid rgba(30,157,139,0.25);
   border-top-color: #1e9d8b;
   border-radius: 50%;
-  animation: lf-spin 0.7s linear infinite; flex-shrink: 0;
+  animation: lf-spin 0.8s linear infinite; flex-shrink: 0;
 }
-.lf-spinner.done { animation: none; border-color: #2ecc71; }
+.lf-spinner.done  { animation: none; border-color: #2ecc71; }
 .lf-spinner.error { animation: none; border-color: #f56565; }
 @keyframes lf-spin { to { transform: rotate(360deg); } }
 .lf-title {
-  font-size: 0.8em; font-weight: 600;
-  color: #1e9d8b;
+  font-size: 0.8em; font-weight: 600; color: #1e9d8b;
   text-shadow: 0 1px 6px rgba(255,255,255,0.9), 0 0 2px rgba(255,255,255,1);
+  max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.lf-feed {
-  display: flex; flex-direction: column-reverse;
-  max-height: 120px; overflow: hidden;
-  position: relative; direction: rtl; align-items: center;
+.lf-progress-row {
+  display: flex; align-items: center; gap: 8px;
 }
-.lf-line {
-  font-size: 0.7em;
-  font-family: 'Segoe UI', sans-serif;
-  padding: 1px 0; white-space: nowrap;
-  overflow: hidden; text-overflow: ellipsis; flex-shrink: 0;
-  animation: lf-slide 0.28s ease;
-  color: #2d3a5e;
-  text-shadow: 0 1px 4px rgba(255,255,255,0.95), 0 0 1px rgba(255,255,255,1);
+.lf-progress-wrap {
+  flex: 1; height: 5px; background: rgba(30,157,139,0.18);
+  border-radius: 3px; overflow: hidden;
 }
-.lf-line:nth-child(2) { opacity: .55; }
-.lf-line:nth-child(3) { opacity: .3; }
-.lf-line:nth-child(n+4) { opacity: .12; }
-.lf-line.warn { color: #b07000; }
-.lf-line.err  { color: #c0392b; }
-.lf-line.done { color: #1a7a45; font-weight: 600; }
-@keyframes lf-slide {
-  from { transform: translateY(10px); opacity: 0; }
-  to   { transform: translateY(0); }
+.lf-progress-bar {
+  height: 100%; width: 0%;
+  background: #1e9d8b;
+  transition: width 0.4s ease;
+  border-radius: 3px;
+}
+.lf-pct {
+  font-size: 0.78em; font-weight: 700; color: #1e9d8b; min-width: 34px; text-align: right;
+  text-shadow: 0 1px 4px rgba(255,255,255,0.9);
 }
 /* keep old drawer hidden but don't break anything that references it */
 .log-drawer { display: none !important; }
@@ -1395,10 +1466,18 @@ body {
   font-size: 0.80em; color: var(--text-muted); font-weight: 600; margin-bottom: 3px;
 }
 .acct-modal-select, .acct-modal-input {
-  width: 100%; padding: 8px 10px; border: 1.5px solid var(--border);
+  width: 100%; padding: 8px 10px; border: 1.5px solid #c9d0e0;
   border-radius: var(--radius-sm); font-size: 0.90em;
   color: var(--navy); background: var(--white);
   box-sizing: border-box; direction: rtl;
+}
+.acct-modal-select {
+  appearance: none; -webkit-appearance: none;
+  padding-left: 28px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236b7a99'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: left 10px center;
+  cursor: pointer;
 }
 .acct-modal-select:focus, .acct-modal-input:focus {
   outline: none; border-color: var(--teal);
@@ -1429,28 +1508,62 @@ body {
 .acct-entries-list div { padding: 3px 0; border-bottom: 1px solid #f0f0f0; }
 .acct-entries-list div:last-child { border-bottom: none; }
 
-/* ── Mobile category legend card (hidden on desktop) ────── */
-.mobile-cat-legend-card { display: none; }
-.mobile-cat-list {
-  list-style: none; margin: 0; padding: 0;
-  display: flex; flex-direction: column; gap: 6px;
+/* ── Donut category legend toggle bar ─────────────────────── */
+.cat-legend-toggle {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  margin-top: 12px;
+  padding: 6px 0;
+  border-top: 1.5px solid var(--border);
+  cursor: pointer;
+  color: #aab0c0;
+  font-size: 0.78em; font-weight: 600; letter-spacing: 0.02em;
+  user-select: none;
+  transition: color 0.15s;
 }
-.mobile-cat-item {
-  display: flex; align-items: center; gap: 8px;
-  padding: 6px 0; border-bottom: 1px solid var(--border);
-  font-size: 0.84em;
+.cat-legend-toggle:hover { color: var(--navy); }
+.cat-toggle-chevron {
+  display: inline-block;
+  transition: transform 0.2s;
+  font-size: 1.1em;
+  line-height: 1;
 }
-.mobile-cat-item:last-child { border-bottom: none; }
-.mobile-cat-dot {
-  width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+
+/* ── Donut category legend (all screen sizes) ─────────────── */
+.cat-legend-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  direction: rtl;
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transition: max-height 0.35s ease, opacity 0.25s ease;
 }
-.mobile-cat-name {
-  flex: 1; color: var(--text-sub); direction: rtl;
+.cat-legend-grid.open {
+  max-height: 1200px;
+  opacity: 1;
+}
+.cat-legend-row {
+  display: flex; align-items: center; gap: 7px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.15s;
+  font-size: 0.82em;
+  min-width: 0;
+}
+.cat-legend-row:hover { background: #f5f7fc; }
+.cat-dot {
+  width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0;
+}
+.cat-name {
+  flex: 1; color: var(--text-sub);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  min-width: 0;
 }
-.mobile-cat-value {
-  font-weight: 700; color: var(--navy); font-variant-numeric: tabular-nums;
-  white-space: nowrap;
+.cat-val {
+  font-weight: 700; color: var(--navy);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+  font-size: 0.92em;
 }
 
 /* ── Mobile view (≤768px) ────────────────────────────────── */
@@ -1483,8 +1596,8 @@ body {
   /* 2. Charts grid → single column so each donut gets full width */
   .charts-grid { grid-template-columns: 1fr; }
 
-  /* 3. Show mobile category legend cards */
-  .mobile-cat-legend-card { display: block; }
+  /* 3. Category legend → single column on mobile */
+  .cat-legend-grid { grid-template-columns: 1fr; }
 
   /* 4. Reduce donut canvas height on mobile */
   .donut-chart-wrap { height: 220px !important; }
@@ -1522,6 +1635,7 @@ body {
     <a class="nav-item" href="/bills" id="nav-bills-link">מעקב חשבונות<span class="nav-alert-dot" id="nav-bills-dot" style="display:none"></span></a>
     <a class="nav-item" href="/categories">ניתוח קטגוריאלי</a>
     <a class="nav-item" href="/search">חיפוש</a>
+    <a class="nav-item" href="/spotify">Spotify Tracker</a>
     <div class="nav-sep"></div>
     <a class="nav-item" href="/tagger">תייגן</a>
     <a class="nav-item" href="/files">קבצים</a>
@@ -1554,7 +1668,12 @@ body {
     <div class="lf-spinner" id="lf-spinner"></div>
     <span class="lf-title" id="lf-title">מנתח נתונים…</span>
   </div>
-  <div class="lf-feed" id="lf-feed"></div>
+  <div class="lf-progress-row">
+    <div class="lf-progress-wrap">
+      <div class="lf-progress-bar" id="lf-progress-bar"></div>
+    </div>
+    <span class="lf-pct" id="lf-pct">0%</span>
+  </div>
 </div>
 
 <!-- ── Credit-card confirmation modal ───────────────────── -->
@@ -1994,13 +2113,39 @@ function sortTx(listId, mode) {
 
 
 // ── Floating log panel ────────────────────────────────────
-var _LF_MAX = 7;
+var _LF_EST_TOTAL = 45;   // estimated log messages per full analysis run
+var _lf_msg_count = 0;
+
+function _lfSetProgress(pct, state) {
+  var bar   = document.getElementById('lf-progress-bar');
+  var pctEl = document.getElementById('lf-pct');
+  var sp    = document.getElementById('lf-spinner');
+  if (!bar || !pctEl) return;
+  if (pct !== null) {
+    bar.style.width = pct + '%';
+    pctEl.textContent = pct + '%';
+  }
+  if (state === 'done') {
+    bar.style.background = '#2ecc71';
+    pctEl.style.color = '#1a7a45';
+    if (sp) sp.className = 'lf-spinner done';
+  } else if (state === 'error') {
+    bar.style.background = '#f56565';
+    pctEl.style.color = '#c0392b';
+    pctEl.textContent = 'שגיאה';
+    if (sp) sp.className = 'lf-spinner error';
+  }
+}
 
 function showLogFloat(title) {
-  document.getElementById('lf-feed').innerHTML = '';
+  _lf_msg_count = 0;
+  var bar = document.getElementById('lf-progress-bar');
+  var pctEl = document.getElementById('lf-pct');
+  if (bar)   { bar.style.width = '0%'; bar.style.background = '#1e9d8b'; }
+  if (pctEl) { pctEl.textContent = '0%'; pctEl.style.color = '#1e9d8b'; }
   document.getElementById('lf-title').textContent = title || 'מנתח נתונים…';
   var sp = document.getElementById('lf-spinner');
-  sp.className = 'lf-spinner';
+  if (sp) sp.className = 'lf-spinner';
   document.getElementById('log-float').classList.add('visible');
 }
 
@@ -2011,15 +2156,14 @@ function hideLogFloat(delay) {
 }
 
 function appendLog(msg, cls) {
-  var feed = document.getElementById('lf-feed');
-  var el   = document.createElement('div');
-  el.className = 'lf-line ' + (cls || _classifyLog(msg));
-  el.textContent = msg;
-  feed.insertBefore(el, feed.firstChild || null);
-  while (feed.children.length > _LF_MAX) { feed.removeChild(feed.lastChild); }
-  Array.from(feed.children).forEach(function(item, i) {
-    item.style.opacity = Math.max(0.1, 1 - i * 0.16);
-  });
+  if (cls === 'done') { _lfSetProgress(100, 'done'); return; }
+  if (cls === 'err')  { _lfSetProgress(null, 'error'); return; }
+  if (msg && msg.indexOf('[SYSTEM]') !== -1) {
+    var label = msg.replace(/\[SYSTEM\]\s*/i, '').trim();
+    if (label) document.getElementById('lf-title').textContent = label;
+  }
+  _lf_msg_count++;
+  _lfSetProgress(Math.min(90, Math.round(_lf_msg_count / _LF_EST_TOTAL * 100)), null);
 }
 
 function _classifyLog(msg) {
@@ -2540,62 +2684,57 @@ function _acctOptimisticTableUpdate(name, value, currency) {
       setTimeout(function() { row.style.background = ''; }, 900);
     }
   });
-  // Propagate delta to subtotal / total rows
+  // Propagate delta only to this account's group subtotal + the grand total
   if (delta !== null && Math.abs(delta) > 0.01) {
+    var matchIdx = trs.findIndex(function(r) {
+      var c = r.querySelectorAll('td');
+      return c.length > 1 && c[0].textContent.trim() === name;
+    });
+    // Update the first acct-subtotal row after the matched row (before the next group header)
+    if (matchIdx !== -1) {
+      var subtotalDone = false;
+      for (var j = matchIdx + 1; j < trs.length; j++) {
+        if (trs[j].classList.contains('acct-group-header')) break;
+        if (trs[j].classList.contains('acct-subtotal') && !subtotalDone) {
+          var sc = trs[j].querySelectorAll('td');
+          if (sc.length >= 2) {
+            var sOld = parseFloat(sc[1].textContent.replace(/[^\d.-]/g, '')) || 0;
+            sc[1].textContent = Math.round(sOld + delta).toLocaleString('he-IL') + '₪';
+          }
+          subtotalDone = true;
+        }
+      }
+    }
+    // Always update the grand total row
     trs.forEach(function(row) {
-      if (!row.classList.contains('acct-subtotal') && !row.classList.contains('acct-total')) return;
-      var cells = row.querySelectorAll('td');
-      if (cells.length < 2) return;
-      var old = parseFloat(cells[1].textContent.replace(/[^\d.-]/g, '')) || 0;
-      cells[1].textContent = Math.round(old + delta).toLocaleString('he-IL') + '₪';
+      if (!row.classList.contains('acct-total')) return;
+      var c = row.querySelectorAll('td');
+      if (c.length >= 2) {
+        var old = parseFloat(c[1].textContent.replace(/[^\d.-]/g, '')) || 0;
+        c[1].textContent = Math.round(old + delta).toLocaleString('he-IL') + '₪';
+      }
     });
   }
 }
 
-// Add or update the data point in the Chart.js trend chart.
-// Values in the chart are stored as ILS (non-ILS accounts are converted via FX rates).
+// Update the Chart.js trend chart for an existing date point only.
+// New dates are not inserted — the chart updates correctly on חשב מחדש.
 function _acctOptimisticChartUpdate(name, date, value, currency) {
   var canvas = document.getElementById('acct-chart-canvas');
   if (!canvas || typeof Chart === 'undefined') return;
   var chart = Chart.getChart ? Chart.getChart(canvas) : null;
   if (!chart) return;
 
-  var rate      = (currency !== 'ILS' && _fxRates) ? (_fxRates[currency] || 1) : 1;
-  var ilsValue  = Math.round(value * rate * 100) / 100;
-  var labels    = chart.data.labels;
-  var datasets  = chart.data.datasets;
+  var idx = chart.data.labels.indexOf(date);
+  if (idx === -1) return; // new date — chart updates on חשב מחדש
 
-  // Locate or insert the date in the sorted label array
-  var idx = labels.indexOf(date);
-  if (idx === -1) {
-    var insertAt = labels.findIndex(function(l) { return l > date; });
-    if (insertAt === -1) insertAt = labels.length;
-    labels.splice(insertAt, 0, date);
-    datasets.forEach(function(ds) { ds.data.splice(insertAt, 0, null); });
-    idx = insertAt;
-  }
+  var rate     = (currency !== 'ILS' && _fxRates) ? (_fxRates[currency] || 1) : 1;
+  var ilsValue = Math.round(value * rate * 100) / 100;
 
-  // Find the dataset for this account name and record the ILS delta
-  var delta = 0;
-  datasets.forEach(function(ds) {
-    if (ds.label === name) {
-      var oldVal = ds.data[idx] || 0;
-      delta = ilsValue - oldVal;
-      ds.data[idx] = ilsValue;
-    }
+  chart.data.datasets.forEach(function(ds) {
+    if (ds.label === name) { ds.data[idx] = ilsValue; }
   });
-
-  // Update the Total dataset at this date by the same delta
-  if (delta !== 0) {
-    datasets.forEach(function(ds) {
-      if (ds.label === 'Total') {
-        var old = ds.data[idx] || 0;
-        ds.data[idx] = Math.round((old + delta) * 100) / 100;
-      }
-    });
-  }
-
-  chart.update('none'); // instant, no animation
+  chart.update('none');
 }
 
 function acctSubmitStatus() {
@@ -3720,6 +3859,7 @@ function _applyDomSplit(origId, tbl, splits) {
         '<span class="tx-primary">' + _txEsc(primaryText) + '</span>' +
         (showSecondary ? '<span class="tx-secondary">' + _txEsc(_splitTx.name) + '</span>' : '') +
         '<span class="split-badge">✂ פיצול</span>' +
+        '<span class="tx-id">#' + origId + '</span>' +
       '</h3>' +
       '<p class="date">₪' + s.amount.toLocaleString('he-IL', {minimumFractionDigits:2}) + '</p>' +
       '<p class="cat">' + _txEsc(s.category) + '</p>' +
@@ -3899,6 +4039,53 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   if (dot && Array.isArray(d.suggestions) && d.suggestions.length > 0)
     dot.style.display = '';
 }).catch(() => {});
+</script>
+
+<script>
+// Auto-position kpi tooltips to prevent viewport clipping
+(function() {
+  var PAD = 10;
+  document.addEventListener('mouseenter', function(e) {
+    var wrap = e.target.closest && e.target.closest('.kpi-info-wrap');
+    if (!wrap) return;
+    var tip = wrap.querySelector('.kpi-tooltip');
+    if (!tip) return;
+    // Reset previous adjustments so we measure from default position
+    tip.style.left = '';
+    tip.style.right = '';
+    tip.style.transform = '';
+    // Read position while still visibility:hidden (layout is calculated)
+    var rect = tip.getBoundingClientRect();
+    var vw = window.innerWidth;
+    if (rect.right > vw - PAD) {
+      // Overflows right edge — anchor right edge to icon right
+      tip.style.right = '0';
+      tip.style.left = 'auto';
+    } else if (rect.left < PAD) {
+      // Overflows left edge — anchor left edge to icon left
+      tip.style.left = '0';
+      tip.style.right = 'auto';
+    }
+    // Also guard top edge: if tooltip goes above viewport, flip below icon
+    var rect2 = tip.getBoundingClientRect();
+    if (rect2.top < PAD) {
+      tip.style.bottom = 'auto';
+      tip.style.top = 'calc(100% + 8px)';
+    }
+  }, true);
+
+  document.addEventListener('mouseleave', function(e) {
+    var wrap = e.target.closest && e.target.closest('.kpi-info-wrap');
+    if (!wrap) return;
+    var tip = wrap.querySelector('.kpi-tooltip');
+    if (!tip) return;
+    tip.style.left = '';
+    tip.style.right = '';
+    tip.style.transform = '';
+    tip.style.top = '';
+    tip.style.bottom = '';
+  }, true);
+})();
 </script>
 </body>
 </html>

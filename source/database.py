@@ -103,11 +103,14 @@ class DataBase:
         with cls.__lock:
             if cls.__instance is None:
                 cls.__instance = super().__new__(cls)
-
-                # All queries use SQLite syntax (?), so always use SQLite.
-                # On Vercel /var/task is read-only — use /tmp to match WebApp.py's _DB_PATH.
-                db_path = '/tmp/ShmuelFamiliy.db' if os.getenv('DATABASE_URL') else f'{Paths.DB_NAME}.db'
-                cls.__instance.connection = sqlite3.connect(db_path, check_same_thread=False)
+                import os as _os
+                if _os.getenv('DATABASE_URL'):
+                    _db_file = '/tmp/ShmuelFamiliy.db'
+                else:
+                    _db_file = _os.path.normpath(
+                        _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), '..', f'{Paths.DB_NAME}.db')
+                    )
+                cls.__instance.connection = sqlite3.connect(_db_file, check_same_thread=False)
                 cls.__instance.cursor = cls.__instance.connection.cursor()
                 cls.__instance.cursor.execute("""
                     CREATE TABLE IF NOT EXISTS Card (
@@ -202,6 +205,62 @@ class DataBase:
                     FOREIGN KEY(TransactionID) REFERENCES BankTransactions(ID)
                     );""")
                 cls.__instance.connection.commit()
+
+                cls.__instance.cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS SpotifyMembers (
+                    ID          INTEGER PRIMARY KEY AUTOINCREMENT,
+                    Name        TEXT    NOT NULL,
+                    Is_Exempt   INTEGER NOT NULL DEFAULT 0,
+                    Is_Active   INTEGER NOT NULL DEFAULT 1,
+                    Created_At  TEXT    DEFAULT (datetime('now'))
+                    );""")
+
+                cls.__instance.cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS SpotifyMonthlyCharge (
+                    ID           INTEGER PRIMARY KEY AUTOINCREMENT,
+                    Month        TEXT    NOT NULL UNIQUE,
+                    Total_Amount REAL    NOT NULL,
+                    Member_Count INTEGER NOT NULL,
+                    TX_ID        INTEGER,
+                    Confirmed    INTEGER NOT NULL DEFAULT 0,
+                    Created_At   TEXT    DEFAULT (datetime('now'))
+                    );""")
+
+                cls.__instance.cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS SpotifyMemberPayments (
+                    ID           INTEGER PRIMARY KEY AUTOINCREMENT,
+                    Member_ID    INTEGER NOT NULL,
+                    Amount       REAL    NOT NULL,
+                    Payment_Date TEXT    NOT NULL,
+                    TX_ID        INTEGER,
+                    TX_Source    TEXT,
+                    Note         TEXT,
+                    Created_At   TEXT    DEFAULT (datetime('now')),
+                    FOREIGN KEY(Member_ID) REFERENCES SpotifyMembers(ID)
+                    );""")
+                # Add TX_Source to existing DBs that predate this column
+                try:
+                    cls.__instance.cursor.execute(
+                        "ALTER TABLE SpotifyMemberPayments ADD COLUMN TX_Source TEXT"
+                    )
+                    cls.__instance.connection.commit()
+                except Exception:
+                    pass  # column already exists
+
+                cls.__instance.cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS SpotifyDismissedPayments (
+                    TX_ID      INTEGER PRIMARY KEY,
+                    Created_At TEXT    DEFAULT (datetime('now'))
+                    );""")
+
+                # Migrate: add Source column to OtherAccountStatus if it doesn't exist
+                try:
+                    cls.__instance.cursor.execute(
+                        "ALTER TABLE OtherAccountStatus ADD COLUMN Source TEXT"
+                    )
+                    cls.__instance.connection.commit()
+                except Exception:
+                    pass  # column already exists
 
         return cls.__instance
 
@@ -477,6 +536,25 @@ class DataBase:
                                       ORDER BY Date
                                       DESC LIMIT 1
                                    """).fetchone()[0]
+
+    @error_handler(default_return=None)
+    def get_latest_balance_date(self) -> str:
+        row = self.cursor.execute("""SELECT Date FROM BankTransactions
+                                      ORDER BY Date DESC LIMIT 1
+                                   """).fetchone()
+        return row[0] if row else None
+
+    @error_handler(default_return=None)
+    def get_balance_for_month(self, year: int, month: int):
+        row = self.cursor.execute("""
+            SELECT Balance FROM BankTransactions
+            WHERE strftime('%Y', Date) = ?
+              AND strftime('%m', Date) = ?
+              AND Balance IS NOT NULL
+              AND TRIM(CAST(Balance AS TEXT)) != ''
+            ORDER BY Date DESC LIMIT 1
+        """, (str(year), f"{month:02d}")).fetchone()
+        return row[0] if row else None
 
     def get_housing_income(self, category: str) -> pd.DataFrame:
         """
@@ -1804,21 +1882,35 @@ class DataBase:
                 AccountName     TEXT        NOT NULL,
                 StatusDate      DATE        NOT NULL,
                 Value           REAL        NOT NULL,
-                Currency        TEXT        DEFAULT 'ILS',
                 TransactionID   INTEGER,
+                Currency        TEXT        DEFAULT 'ILS',
+                Source          TEXT,
                 FOREIGN KEY(TransactionID) REFERENCES BankTransactions(ID)
             );
         """)
+        # Safe migrations for existing DBs
+        for _col, _def in [("Currency", "TEXT DEFAULT 'ILS'"), ("Source", "TEXT")]:
+            try:
+                self.cursor.execute(f"ALTER TABLE OtherAccountStatus ADD COLUMN {_col} {_def}")
+            except Exception:
+                pass
         self.connection.commit()
 
     def insert_other_account_status(self, account_name: str, status_date: str, value: float, transaction_id: int = None):
-        """Insert a new status record for another account"""
+        """Insert a new manual status record for another account"""
         query = """
-            INSERT INTO OtherAccountStatus (AccountName, StatusDate, Value, TransactionID)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO OtherAccountStatus (AccountName, StatusDate, Value, TransactionID, Source)
+            VALUES (?, ?, ?, ?, NULL)
         """
         self.cursor.execute(query, (account_name, status_date, value, transaction_id))
         self.connection.commit()
+
+    def insert_auto_account_status(self, account_name: str, status_date: str, value: float):
+        """Insert an auto-generated status point (not shown in the management UI)."""
+        self.cursor.execute(
+            "INSERT INTO OtherAccountStatus (AccountName, StatusDate, Value, TransactionID, Source) VALUES (?, ?, ?, NULL, 'auto')",
+            (account_name, status_date, value)
+        )
 
     def get_account_entries_with_dates(self, account_name: str = None, from_date: datetime = None) -> pd.DataFrame:
         """
@@ -1898,15 +1990,11 @@ class DataBase:
             return False
 
     def get_account_entries(self) -> list:
-        """
-        Get all entries from OtherAccountStatus with their IDs
-        
-        Returns:
-            list: List of tuples containing (ID, StatusDate, Value)
-        """
+        """Get manual-only entries from OtherAccountStatus (excludes auto-generated points)."""
         query = """
-            SELECT ID, StatusDate, Value 
-            FROM OtherAccountStatus 
+            SELECT ID, AccountName, StatusDate, Value
+            FROM OtherAccountStatus
+            WHERE Source IS NULL OR Source != 'auto'
             ORDER BY StatusDate DESC
         """
         return self.cursor.execute(query).fetchall()
@@ -2736,6 +2824,147 @@ class DataBase:
     def get_bill_suggestions_dismissed(self) -> set:
         rows = self.cursor.execute(
             "SELECT Transaction_Name FROM BillSuggestionsDismissed"
+        ).fetchall()
+        return {r[0] for r in rows}
+
+    # ── Spotify tracker ────────────────────────────────────────────────────────
+    # All methods below use self.connection.execute() (creates a fresh cursor per
+    # call) instead of the shared self.cursor, making them safe under threaded Flask.
+
+    def get_spotify_members(self) -> list:
+        rows = self.connection.execute(
+            "SELECT ID, Name, Is_Exempt, Is_Active FROM SpotifyMembers ORDER BY ID"
+        ).fetchall()
+        return [{'id': r[0], 'name': r[1], 'is_exempt': r[2], 'is_active': r[3]} for r in rows]
+
+    def add_spotify_member(self, name: str, is_exempt: int = 0) -> int:
+        cur = self.connection.execute(
+            "INSERT INTO SpotifyMembers (Name, Is_Exempt) VALUES (?, ?)",
+            (name.strip(), int(is_exempt))
+        )
+        self.connection.commit()
+        return cur.lastrowid
+
+    def update_spotify_member(self, member_id: int, name: str, is_exempt: int, is_active: int):
+        self.connection.execute(
+            "UPDATE SpotifyMembers SET Name=?, Is_Exempt=?, Is_Active=? WHERE ID=?",
+            (name.strip(), int(is_exempt), int(is_active), member_id)
+        )
+        self.connection.commit()
+
+    def delete_spotify_member(self, member_id: int):
+        self.connection.execute("DELETE FROM SpotifyMemberPayments WHERE Member_ID = ?", (member_id,))
+        self.connection.execute("DELETE FROM SpotifyMembers WHERE ID = ?", (member_id,))
+        self.connection.commit()
+
+    def get_spotify_charges(self) -> list:
+        rows = self.connection.execute(
+            "SELECT ID, Month, Total_Amount, Member_Count, TX_ID, Confirmed FROM SpotifyMonthlyCharge ORDER BY Month DESC"
+        ).fetchall()
+        return [{'id': r[0], 'month': r[1], 'total_amount': r[2], 'member_count': r[3],
+                 'tx_id': r[4], 'confirmed': r[5]} for r in rows]
+
+    def add_spotify_charge(self, month: str, total_amount: float, member_count: int,
+                           tx_id=None, confirmed: int = 0) -> int:
+        cur = self.connection.execute(
+            "INSERT INTO SpotifyMonthlyCharge (Month, Total_Amount, Member_Count, TX_ID, Confirmed) VALUES (?,?,?,?,?)",
+            (month, float(total_amount), int(member_count), tx_id, int(confirmed))
+        )
+        self.connection.commit()
+        return cur.lastrowid
+
+    def update_spotify_charge(self, charge_id: int, total_amount: float, member_count: int, confirmed: int):
+        self.connection.execute(
+            "UPDATE SpotifyMonthlyCharge SET Total_Amount=?, Member_Count=?, Confirmed=? WHERE ID=?",
+            (float(total_amount), int(member_count), int(confirmed), charge_id)
+        )
+        self.connection.commit()
+
+    def get_spotify_payments(self, member_id: int = None) -> list:
+        # TX_Source tells us which table the TX_ID refers to:
+        #   'bank'  → BankTransactions.ID
+        #   'card'  → CardTransactions.ID
+        #   'split' → TransactionSplits.ID  (category/desc come from the split row)
+        #   NULL    → legacy rows: try bank then card (old behaviour)
+        sql = """
+            SELECT
+                p.ID, p.Member_ID, p.Amount, p.Payment_Date, p.TX_ID,
+                p.TX_Source, p.Note,
+                COALESCE(orig_bt.Name, orig_ct.Name, bt.Name, ct.Name)        AS tx_name,
+                COALESCE(sp.Description, bt.Description, ct.Description)       AS tx_description,
+                COALESCE(sp.Category,    bt.Category,    ct.Category)          AS tx_category,
+                CASE WHEN sp.ID IS NOT NULL THEN 'split'
+                     WHEN bt.ID IS NOT NULL THEN 'bank'
+                     WHEN ct.ID IS NOT NULL THEN 'card'
+                     ELSE NULL END                                              AS resolved_source,
+                CASE WHEN sp.ID IS NOT NULL THEN 1 ELSE 0 END                  AS tx_split
+            FROM SpotifyMemberPayments p
+            -- Split lookup: explicit 'split' source OR legacy NULL (check splits first —
+            -- they are user-created and more specific than bank/card rows with the same ID)
+            LEFT JOIN TransactionSplits sp ON sp.ID = p.TX_ID
+                AND (p.TX_Source = 'split' OR p.TX_Source IS NULL)
+            -- Bank lookup: explicit 'bank' OR legacy NULL where no split matched
+            LEFT JOIN BankTransactions  bt ON bt.ID = p.TX_ID
+                AND (p.TX_Source = 'bank' OR (p.TX_Source IS NULL AND sp.ID IS NULL))
+            -- Card lookup: explicit 'card' OR legacy NULL where neither split nor bank matched
+            LEFT JOIN CardTransactions  ct ON ct.ID = p.TX_ID
+                AND (p.TX_Source = 'card' OR (p.TX_Source IS NULL AND sp.ID IS NULL AND bt.ID IS NULL))
+            -- Original transaction name for split rows
+            LEFT JOIN BankTransactions orig_bt ON orig_bt.ID = sp.Original_ID
+                AND sp.Original_Table = 'BankTransactions'
+            LEFT JOIN CardTransactions orig_ct ON orig_ct.ID = sp.Original_ID
+                AND sp.Original_Table = 'CardTransactions'
+            {where}
+            ORDER BY p.Payment_Date DESC
+        """
+        if member_id is not None:
+            rows = self.connection.execute(
+                sql.format(where="WHERE p.Member_ID = ?"), (member_id,)
+            ).fetchall()
+        else:
+            rows = self.connection.execute(
+                sql.format(where="")
+            ).fetchall()
+        return [{
+            'id':             r[0],  'member_id':      r[1],
+            'amount':         r[2],  'payment_date':   r[3],
+            'tx_id':          r[4],  'tx_source_raw':  r[5],
+            'note':           r[6],
+            'tx_name':        r[7] or '',
+            'tx_description': r[8] or '',
+            'tx_category':    r[9] or '',
+            'tx_source':      r[10] or '',
+            'tx_split':       bool(r[11]),
+        } for r in rows]
+
+    def add_spotify_payment(self, member_id: int, amount: float, payment_date: str,
+                            tx_id=None, tx_source: str = None, note: str = None) -> int:
+        cur = self.connection.execute(
+            "INSERT INTO SpotifyMemberPayments (Member_ID, Amount, Payment_Date, TX_ID, TX_Source, Note) VALUES (?,?,?,?,?,?)",
+            (int(member_id), float(amount), payment_date, tx_id, tx_source, note)
+        )
+        self.connection.commit()
+        return cur.lastrowid
+
+    def delete_spotify_payment(self, payment_id: int):
+        self.connection.execute("DELETE FROM SpotifyMemberPayments WHERE ID = ?", (payment_id,))
+        self.connection.commit()
+
+    def get_spotify_assigned_tx_ids(self) -> set:
+        rows = self.connection.execute(
+            "SELECT TX_ID FROM SpotifyMemberPayments WHERE TX_ID IS NOT NULL"
+        ).fetchall()
+        return {r[0] for r in rows}
+
+    def dismiss_spotify_payment(self, tx_id: int):
+        self.connection.execute(
+            "INSERT OR IGNORE INTO SpotifyDismissedPayments (TX_ID) VALUES (?)", (tx_id,)
+        )
+        self.connection.commit()
+
+    def get_spotify_dismissed_tx_ids(self) -> set:
+        rows = self.connection.execute(
+            "SELECT TX_ID FROM SpotifyDismissedPayments"
         ).fetchall()
         return {r[0] for r in rows}
 

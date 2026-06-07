@@ -76,6 +76,13 @@ def _log_put(msg: str):
     if msg and not msg.startswith('__'):
         _debug_put(msg)
 
+def _log_error(exc, tb_str: str):
+    """Put exception + traceback to both the analysis queue and the debug panel."""
+    lines = [f'[ERROR] {exc}'] + [l for l in tb_str.splitlines() if l.strip()]
+    for line in lines:
+        _log_queue.put(line)
+        _debug_put(line)
+
 class _TeeStream:
     """Forwards every write() to the original stream *and* the SSE log queues."""
     def __init__(self, original):
@@ -105,9 +112,11 @@ class _TeeStream:
         return getattr(self._orig, name)
 
 
-# Install tee once on import
+# Install tee once on import — capture both stdout and stderr so exceptions appear in debug panel
 if not isinstance(sys.stdout, _TeeStream):
     sys.stdout = _TeeStream(sys.stdout)
+if not isinstance(sys.stderr, _TeeStream):
+    sys.stderr = _TeeStream(sys.stderr)
 
 # ── Dependency tracking ───────────────────────────────────────────────────────
 # Each analysis thread activates thread-local tracking; the patched open()
@@ -249,18 +258,37 @@ app.config['JSON_AS_ASCII'] = False
 
 @app.route('/')
 def index():
-    # Redirect to the latest monthly file if available
+    # Compute the default fallback path
+    default_path = None
     if os.path.isdir(GENERAL_ANALYSIS_DIR):
         files = sorted(
             f for f in os.listdir(GENERAL_ANALYSIS_DIR)
             if _re.match(r'^\d{4}_\d{2}\.html$', f)
         )
         if files:
-            latest_key = files[-1].replace('.html', '')
-            return redirect(f'/general/{latest_key}')
-    if os.path.exists(OUTPUT_HTML):
-        return send_file(OUTPUT_HTML)
-    return _splash_html()
+            default_path = '/general/' + files[-1].replace('.html', '')
+    if default_path is None and os.path.exists(OUTPUT_HTML):
+        default_path = '/output'
+    if default_path is None:
+        return _splash_html()
+
+    # Serve a lightweight JS redirect that checks localStorage first.
+    # If a page was viewed within the last hour, go there; otherwise go to default.
+    STALE_MS = 3600 * 1000  # 1 hour
+    html = f"""<!DOCTYPE html><html><head><meta charset="UTF-8">
+<script>
+(function(){{
+  var STALE={STALE_MS};
+  try{{
+    var s=JSON.parse(localStorage.getItem('lv_page')||'null');
+    if(s&&s.p&&s.p!=='/'&&(Date.now()-s.ts)<STALE){{
+      window.location.replace(s.p);return;
+    }}
+  }}catch(e){{}}
+  window.location.replace({_json.dumps(default_path)});
+}})();
+</script></head><body></body></html>"""
+    return html, 200, {'Content-Type': 'text/html; charset=utf-8'}
 
 
 @app.route('/outputs/<path:filename>')
@@ -345,21 +373,45 @@ def search_transactions():
     q_keyword  = (request.args.get('keyword')  or '').strip()
     q_category = (request.args.get('category') or '').strip()
     q_business = (request.args.get('business') or '').strip()
-    q_min      = request.args.get('min', type=float)
-    q_max      = request.args.get('max', type=float)
-    q_from     = (request.args.get('from')     or '').strip()
-    q_to       = (request.args.get('to')       or '').strip()
+    q_min      = request.args.get('min',   type=float)
+    q_max      = request.args.get('max',   type=float)
+    q_exact    = request.args.get('exact', type=float)
+    if q_exact is not None:          # exact overrides range — allow 0.01 tolerance
+        q_min = q_exact - 0.01
+        q_max = q_exact + 0.01
+    q_from        = (request.args.get('from')        or '').strip()
+    q_to          = (request.args.get('to')          or '').strip()
+    q_charge_from = (request.args.get('charge_from') or '').strip()
+    q_charge_to   = (request.args.get('charge_to')   or '').strip()
     q_type     = (request.args.get('type')     or 'all').strip()   # 'income' | 'expense' | 'all'
+    q_id       = request.args.get('id',  type=int)
+    q_split    = (request.args.get('split')    or 'any').strip()  # 'split' | 'nonsplit' | 'any'
+    q_source   = (request.args.get('source')   or 'all').strip()  # 'bank' | 'card' | 'all'
 
     results = []
     try:
         conn = _sq.connect(_DB_PATH, check_same_thread=False)
         conn.row_factory = _sq.Row
 
+        # Pre-fetch split IDs if the filter is active
+        split_ids_bank = set()
+        split_ids_card = set()
+        if q_split != 'any':
+            for r in conn.execute(
+                "SELECT Original_ID, Original_Table FROM TransactionSplits"
+            ).fetchall():
+                if r['Original_Table'] == 'BankTransactions':
+                    split_ids_bank.add(r['Original_ID'])
+                else:
+                    split_ids_card.add(r['Original_ID'])
+
         # ── BankTransactions ──────────────────────────────────────────
         bank_where = []
         bank_params = []
 
+        if q_id is not None:
+            bank_where.append("ID = ?")
+            bank_params.append(q_id)
         if q_keyword:
             bank_where.append("(Name LIKE ? OR Description LIKE ? OR Extra_Info LIKE ?)")
             like = f'%{q_keyword}%'
@@ -376,6 +428,12 @@ def search_transactions():
         if q_to:
             bank_where.append("Date <= ?")
             bank_params.append(q_to)
+        if q_charge_from:
+            bank_where.append("Value_Date >= ?")
+            bank_params.append(q_charge_from)
+        if q_charge_to:
+            bank_where.append("Value_Date <= ?")
+            bank_params.append(q_charge_to)
         if q_type == 'income':
             bank_where.append("Income > 0")
         elif q_type == 'expense':
@@ -386,12 +444,15 @@ def search_transactions():
             bank_sql += " WHERE " + " AND ".join(bank_where)
         bank_sql += " ORDER BY Date DESC LIMIT 2000"
 
-        for row in conn.execute(bank_sql, bank_params):
+        for row in (conn.execute(bank_sql, bank_params) if q_source != 'card' else []):
             amount = float(row['Income'] or 0) - float(row['Out'] or 0)
             if q_min is not None and abs(amount) < q_min:
                 continue
             if q_max is not None and abs(amount) > q_max:
                 continue
+            is_split = row['ID'] in split_ids_bank
+            if q_split == 'split'    and not is_split: continue
+            if q_split == 'nonsplit' and     is_split: continue
             results.append({
                 'tx_id':       row['ID'],
                 'date':        (row['Date'] or '')[:10],
@@ -401,12 +462,16 @@ def search_transactions():
                 'description': row['Description'] or '',
                 'source':      'bank',
                 'card_id':     None,
+                'is_split':    is_split,
             })
 
         # ── CardTransactions ──────────────────────────────────────────
         card_where = []
         card_params = []
 
+        if q_id is not None:
+            card_where.append("ID = ?")
+            card_params.append(q_id)
         if q_keyword:
             card_where.append("(Name LIKE ? OR Description LIKE ? OR Extra_Info LIKE ?)")
             like = f'%{q_keyword}%'
@@ -423,6 +488,12 @@ def search_transactions():
         if q_to:
             card_where.append("Executed_Date <= ?")
             card_params.append(q_to)
+        if q_charge_from:
+            card_where.append("Charge_Date >= ?")
+            card_params.append(q_charge_from)
+        if q_charge_to:
+            card_where.append("Charge_Date <= ?")
+            card_params.append(q_charge_to)
         if q_type == 'income':
             card_where.append("Transaction_Value < 0")   # negative = refund/credit = income
         elif q_type == 'expense':
@@ -433,12 +504,15 @@ def search_transactions():
             card_sql += " WHERE " + " AND ".join(card_where)
         card_sql += " ORDER BY Executed_Date DESC LIMIT 2000"
 
-        for row in conn.execute(card_sql, card_params):
+        for row in (conn.execute(card_sql, card_params) if q_source != 'bank' else []):
             amount = -float(row['Transaction_Value'] or 0)  # negate: positive charge → negative (expense)
             if q_min is not None and abs(amount) < q_min:
                 continue
             if q_max is not None and abs(amount) > q_max:
                 continue
+            is_split = row['ID'] in split_ids_card
+            if q_split == 'split'    and not is_split: continue
+            if q_split == 'nonsplit' and     is_split: continue
             results.append({
                 'tx_id':       row['ID'],
                 'date':        (row['Executed_Date'] or '')[:10],
@@ -448,6 +522,7 @@ def search_transactions():
                 'description': row['Description'] or '',
                 'source':      'card',
                 'card_id':     row['CardID'],
+                'is_split':    is_split,
             })
 
         conn.close()
@@ -813,9 +888,7 @@ def run_category():
             _log_queue.put(f'__DONE__:{slug}')
         except Exception as exc:
             import traceback
-            _log_put(f'[ERROR] {exc}')
-            for line in traceback.format_exc().splitlines():
-                if line.strip(): _log_put(line)
+            _log_error(exc, traceback.format_exc())
             _log_queue.put('__ERROR__')
         finally:
             with _analysis_lock:
@@ -1083,12 +1156,17 @@ def _acct_db():
     """Open a fresh connection to the main DB using an absolute path."""
     import sqlite3 as _sq
     conn = _sq.connect(_DB_PATH, check_same_thread=False)
-    # Ensure Currency column exists (safe migration)
+    # Ensure Currency and Source columns exist (safe migrations)
     try:
         conn.execute("ALTER TABLE OtherAccountStatus ADD COLUMN Currency TEXT NOT NULL DEFAULT 'ILS'")
         conn.commit()
     except Exception:
-        pass  # Column already exists
+        pass
+    try:
+        conn.execute("ALTER TABLE OtherAccountStatus ADD COLUMN Source TEXT")
+        conn.commit()
+    except Exception:
+        pass
     return conn
 
 
@@ -1201,7 +1279,7 @@ def accounts_entries():
     conn = _acct_db()
     try:
         rows = conn.execute(
-            "SELECT ID, AccountName, StatusDate, Value, Currency FROM OtherAccountStatus ORDER BY StatusDate DESC"
+            "SELECT ID, AccountName, StatusDate, Value, Currency FROM OtherAccountStatus WHERE Source IS NULL OR Source != 'auto' ORDER BY StatusDate DESC"
         ).fetchall()
         entries = [{'id': r[0], 'account': r[1], 'date': r[2], 'value': r[3], 'currency': r[4] or 'ILS'} for r in rows]
         return jsonify({'entries': entries})
@@ -1440,9 +1518,12 @@ def cash_reconcile():
         return jsonify({'ok': False, 'error': str(e)})
 
 
+import time as _time
+_SERVER_START_TIME = _time.time()
+
 @app.route('/api/status')
 def status():
-    return jsonify({'running': _analysis_running})
+    return jsonify({'running': _analysis_running, 'started_at': _SERVER_START_TIME})
 
 
 @app.route('/api/version')
@@ -1587,10 +1668,7 @@ def run_analysis():
 
         except Exception as exc:
             import traceback
-            _log_put(f'[ERROR] {exc}')
-            for line in traceback.format_exc().splitlines():
-                if line.strip():
-                    _log_put(line)
+            _log_error(exc, traceback.format_exc())
             _log_queue.put('__ERROR__')
 
         finally:
@@ -2575,10 +2653,7 @@ def files_insert():
 
         except Exception as e:
             import traceback
-            _log_put(f'[ERROR] {e}')
-            for line in traceback.format_exc().splitlines():
-                if line.strip():
-                    _log_put(line)
+            _log_error(e, traceback.format_exc())
             _log_queue.put('__ERROR__')
         finally:
             _bt.input = _orig_input
@@ -2846,6 +2921,13 @@ def files_delete():
     try:
         from database import DataBase as _DB2
         db = _DB2()
+        if not card:
+            row = db.cursor.execute(
+                'SELECT Card_Number FROM File WHERE File_Name = ? AND Format = ?',
+                (name, fmt)
+            ).fetchone()
+            if row:
+                card = row[0] or ''
         db.drop_file(name, fmt, card)
         db.commit_changes()
         return jsonify({'ok': True})
@@ -3059,6 +3141,226 @@ def api_bills_suggestions_dismiss():
         db.dismiss_bill_suggestion(name)
         db.commit_changes()
         return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+SPOTIFY_HTML = os.path.join(_HERE, 'html', 'SpotifyTracker.html')
+
+# ── Spotify Tracker routes ─────────────────────────────────────────────────────
+
+@app.route('/spotify')
+def spotify_page():
+    if os.path.exists(SPOTIFY_HTML):
+        return send_file(SPOTIFY_HTML)
+    return "Spotify Tracker page not found", 404
+
+
+@app.route('/api/spotify/members', methods=['GET', 'POST'])
+def api_spotify_members():
+    from database import DataBase
+    db = DataBase()
+    if request.method == 'GET':
+        return jsonify({'ok': True, 'members': db.get_spotify_members()})
+    body = request.get_json(force=True) or {}
+    name = (body.get('name') or '').strip()
+    if not name:
+        return jsonify({'ok': False, 'error': 'name required'})
+    try:
+        mid = db.add_spotify_member(name, is_exempt=int(body.get('is_exempt', 0)))
+        return jsonify({'ok': True, 'id': mid})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/spotify/members/<int:member_id>', methods=['PUT', 'DELETE'])
+def api_spotify_member(member_id):
+    from database import DataBase
+    db = DataBase()
+    if request.method == 'DELETE':
+        try:
+            db.delete_spotify_member(member_id)
+            return jsonify({'ok': True})
+        except Exception as e:
+            return jsonify({'ok': False, 'error': str(e)})
+    body = request.get_json(force=True) or {}
+    try:
+        db.update_spotify_member(
+            member_id,
+            name=body.get('name', '').strip(),
+            is_exempt=int(body.get('is_exempt', 0)),
+            is_active=int(body.get('is_active', 1)),
+        )
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/spotify/charges', methods=['GET', 'POST'])
+def api_spotify_charges():
+    from database import DataBase
+    db = DataBase()
+    if request.method == 'GET':
+        return jsonify({'ok': True, 'charges': db.get_spotify_charges()})
+    body = request.get_json(force=True) or {}
+    try:
+        members = db.get_spotify_members()
+        active_count = sum(1 for m in members if m['is_active'])
+        month = body.get('month', '')
+        total_amount = float(body.get('total_amount', 0))
+        member_count = int(body.get('member_count', active_count))
+        confirmed = int(body.get('confirmed', 1))
+        existing = [c for c in db.get_spotify_charges() if (c.get('month') or '').startswith(month)]
+        if existing:
+            db.update_spotify_charge(existing[0]['id'], total_amount=total_amount, member_count=member_count, confirmed=confirmed)
+            return jsonify({'ok': True, 'id': existing[0]['id']})
+        cid = db.add_spotify_charge(
+            month=month,
+            total_amount=total_amount,
+            member_count=member_count,
+            tx_id=body.get('tx_id'),
+            confirmed=confirmed,
+        )
+        return jsonify({'ok': True, 'id': cid})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/spotify/charges/<int:charge_id>', methods=['PUT'])
+def api_spotify_charge(charge_id):
+    from database import DataBase
+    db = DataBase()
+    body = request.get_json(force=True) or {}
+    try:
+        db.update_spotify_charge(
+            charge_id,
+            total_amount=float(body.get('total_amount', 0)),
+            member_count=int(body.get('member_count', 1)),
+            confirmed=int(body.get('confirmed', 1)),
+        )
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/spotify/charges/suggestions')
+def api_spotify_charge_suggestions():
+    import sys as _sys
+    _sys.path.insert(0, _HERE)
+    from SpotifyTracker import get_charge_suggestions
+    try:
+        suggestions = get_charge_suggestions(_DB_PATH)
+        return jsonify({'ok': True, 'suggestions': suggestions})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/spotify/payments', methods=['GET', 'POST'])
+def api_spotify_payments():
+    from database import DataBase
+    db = DataBase()
+    if request.method == 'GET':
+        member_id = request.args.get('member_id', type=int)
+        return jsonify({'ok': True, 'payments': db.get_spotify_payments(member_id)})
+    body = request.get_json(force=True) or {}
+    try:
+        tx_id = body.get('tx_id')
+        if tx_id is not None:
+            if int(tx_id) in db.get_spotify_assigned_tx_ids():
+                return jsonify({'ok': False, 'error': 'עסקה זו כבר שויכה לחבר אחר'})
+        tx_source = (body.get('tx_source') or '').strip() or None
+        pid = db.add_spotify_payment(
+            member_id=int(body.get('member_id', 0)),
+            amount=float(body.get('amount', 0)),
+            payment_date=(body.get('payment_date') or '').strip(),
+            tx_id=tx_id,
+            tx_source=tx_source,
+            note=(body.get('note') or '').strip() or None,
+        )
+        return jsonify({'ok': True, 'id': pid})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/spotify/payments/assigned-tx-ids')
+def api_spotify_assigned_tx_ids():
+    from database import DataBase
+    db = DataBase()
+    try:
+        return jsonify({'ok': True, 'tx_ids': list(db.get_spotify_assigned_tx_ids())})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e), 'tx_ids': []})
+
+
+@app.route('/api/spotify/payments/<int:payment_id>', methods=['DELETE'])
+def api_spotify_payment(payment_id):
+    from database import DataBase
+    db = DataBase()
+    try:
+        db.delete_spotify_payment(payment_id)
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/spotify/unmatched')
+def api_spotify_unmatched():
+    import sys as _sys
+    _sys.path.insert(0, _HERE)
+    from SpotifyTracker import get_unmatched_payments
+    try:
+        return jsonify({'ok': True, 'transactions': get_unmatched_payments(_DB_PATH)})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/spotify/unmatched/<int:tx_id>/dismiss', methods=['POST'])
+def api_spotify_dismiss_payment(tx_id):
+    from database import DataBase
+    db = DataBase()
+    try:
+        db.dismiss_spotify_payment(tx_id)
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/spotify/balance')
+def api_spotify_balance():
+    import sys as _sys
+    _sys.path.insert(0, _HERE)
+    from database import DataBase
+    from SpotifyTracker import compute_all_balances
+    try:
+        db = DataBase()
+        return jsonify({'ok': True, 'balances': compute_all_balances(db)})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/spotify/report')
+def api_spotify_report():
+    import sys as _sys
+    _sys.path.insert(0, _HERE)
+    from database import DataBase
+    from SpotifyTracker import generate_pdf_report
+    raw = request.args.get('member_id', '')
+    if raw == 'all' or not raw:
+        member_ids = []
+    else:
+        try:
+            member_ids = [int(x) for x in raw.split(',') if x.strip()]
+        except ValueError:
+            return jsonify({'ok': False, 'error': 'invalid member_id'}), 400
+    try:
+        db = DataBase()
+        pdf_bytes = generate_pdf_report(member_ids, db)
+        from flask import Response
+        return Response(
+            pdf_bytes,
+            mimetype='application/pdf',
+            headers={'Content-Disposition': 'attachment; filename="spotify_report.pdf"'},
+        )
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)})
 

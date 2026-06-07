@@ -632,6 +632,7 @@ body {
     <a class="nav-item" href="/bills">מעקב חשבונות</a>
     <a class="nav-item" href="/categories">ניתוח קטגוריאלי</a>
     <a class="nav-item" href="/search">חיפוש</a>
+    <a class="nav-item" href="/spotify">Spotify Tracker</a>
     <div class="nav-sep"></div>
     <a class="nav-item" href="/tagger">תייגן</a>
     <a class="nav-item active" href="/files">קבצים</a>
@@ -1227,7 +1228,7 @@ function renderDbTable() {
       <td class="db-date">${f.last_update || '—'}</td>
       <td style="text-align:center;padding:6px 8px">
         <button class="db-del-btn" title="מחק קובץ"
-          onclick="deleteDbFile(${JSON.stringify(f.name)},${JSON.stringify(f.format)},${JSON.stringify(f.card||'')})">🗑</button>
+          onclick="deleteDbFile(${JSON.stringify(f.name).replace(/"/g,'&quot;')},${JSON.stringify(f.format).replace(/"/g,'&quot;')},${JSON.stringify(f.card||'').replace(/"/g,'&quot;')})">🗑</button>
       </td>
     </tr>`;
   }).join('') + '</tbody>';

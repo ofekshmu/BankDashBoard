@@ -140,13 +140,15 @@ class utils:
         "Monthly Mean":             ("#f0b429", True),
         "Deposit/Spent Cash":       ("#e74c3c", False),
         "Withdrawed/Earned Cash":   ("#1e9d8b", True),
+        "הפקדה לחיסכון/השקעה":      ("#D4A017", False),
+        "משיכה מחסכון":             ("#E8900C", True),
     }
 
     # Overview chart cards: (title, src_attr_name | None for hover-pairs)
     _CHART_CARDS: list = [
         # (title, src key in Paths or None if hover-pair)
         ("הוצאות לפי קטגוריה",    None),   # hover-pair: Spendings
-        ("הכנסות לפי קטגוריה",    None),   # hover-pair: Earnings
+        ("הכנסות לחשבון לפי קטגוריה", None),   # hover-pair: Earnings
         ("השקעות / חיסכון",        None),   # hover-pair: Investments
         ("מידע כללי",              "GENERAL_INFO_GRAPH"),
         ("מזומן",                  None),   # hover-pair: Cash Distribution
@@ -233,36 +235,122 @@ class utils:
             return t
 
         # ── KPI cards ──────────────────────────────────────────────────
+        _TT = {
+            "Balance":
+                "יתרת החשבון הבנקאי הראשי, כפי שדווחה בקובץ הבנק האחרון שהועלה.",
+            "Overall Net Income":
+                "השינוי הכולל בעושרך הפיננסי באותו חודש — בנק ומזומן יחד, ללא השקעות.\n"
+                "משיכת מזומן מהבנק אינה הפסד — הכסף עבר לכיסך, לכן היא מקוזזת.\n"
+                "חישוב: (הכנסות בנק − הוצאות בנק) + (הכנסות מזומן − הוצאות מזומן) — ללא השקעות",
+            "Deposit/Spent Cash":
+                "סך הוצאות שבוצעו במזומן במהלך החודש (תשלומים ידניים).",
+            "Withdrawed/Earned Cash":
+                "סך הכנסות מזומן פיזיות — כולל משיכות מהבנק לכיס.\n"
+                "משיכת מזומן מהבנק מופיעה כהוצאה בחשבון הבנקאי ובמקביל כהכנסה כאן.",
+            "יתרה חודשית":
+                "יתרת הבנק בסוף החודש הנבחר — הרשומה האחרונה בקובץ הבנק לאותו חודש.\n"
+                "השינוי (▲/▼) מציג את ההפרש הכולל בין כלל ההכנסות לכלל ההוצאות באותו חודש,\n"
+                "כולל פעולות השקעה/חיסכון.",
+            "הפקדה לחיסכון/השקעה":
+                "סך הכסף שהועבר לחשבונות חיסכון/השקעה באותו חודש.\n"
+                "כסף זה לא 'הוצא' לתצרוכת — הוא הועבר לחשבון אחר שלך.\n"
+                "לכן אינו נכלל ב'הכנסה נטו מפעילות שוטפת'.",
+            "משיכה מחסכון":
+                "סך הכסף שנמשך בחזרה מחשבונות חיסכון/השקעה לחשבון הראשי.\n"
+                "כסף זה אינו הכנסה חדשה — הוא מכספים שהפקדת בעבר.\n"
+                "לכן אינו נכלל ב'הכנסה נטו מפעילות שוטפת'.",
+        }
         kpi_metrics_main = [
-            ("Balance",            monthly_balance,            monthly_balance >= 0,           True),
-            ("Net Income",         data["net income"],          data["net income"] >= 0,         False),
-            ("Overall Net Income", data["overall net income"],  data["overall net income"] >= 0, False),
+            ("Overall Net Income", data["overall net income"],  data["overall net income"] >= 0, True),
+            ("Balance",            monthly_balance,            monthly_balance >= 0,           False),
         ]
         kpi_metrics_cash = [
             ("Deposit/Spent Cash",     cash_information_data['Monthly Spent Cash'],  False, False),
             ("Withdrawed/Earned Cash", cash_information_data['Monthly Earned Cash'], True,  False),
         ]
 
-        def _make_kpi_card(label, value, is_positive, is_hero):
+        def _info_icon(tip_text):
+            wrap = tag("span", class_="kpi-info-wrap")
+            icon = tag("span", class_="kpi-info-icon"); icon.string = "i"
+            tip  = tag("span", class_="kpi-tooltip");   tip.string  = tip_text
+            wrap.append(icon); wrap.append(tip)
+            return wrap
+
+        def _make_kpi_card(label, value, is_positive, is_hero, tooltip=None, subtitle=None, extra_cls='', value_color=None):
             dot_color, _ = utils._KPI_CONFIG.get(label, ("#9aa3bb", True))
             val_cls    = "pos" if is_positive else "neg"
             amount_str = f"{value:,.2f}\u20aa" if value >= 0 else f"-{abs(value):,.2f}\u20aa"
-            card_cls   = "kpi-card hero" if is_hero else "kpi-card"
+            if is_hero:
+                card_cls = "kpi-card hero neg-hero" if not is_positive else "kpi-card hero"
+            elif extra_cls:
+                card_cls = f"kpi-card {extra_cls}"
+            else:
+                card_cls = "kpi-card"
             card = tag("div", class_=card_cls)
             lbl  = tag("div", class_="kpi-label")
             dot  = tag("span", class_="kpi-dot")
             dot["style"] = f"background:{dot_color}"
             lbl.append(dot)
             lbl.append(label)
+            if tooltip:
+                lbl.append(_info_icon(tooltip))
             val = tag("div", class_=f"kpi-value {val_cls}")
+            if value_color:
+                val["style"] = f"color:{value_color}"
             val.string = amount_str
             card.append(lbl)
             card.append(val)
+            if subtitle:
+                sub = tag("div", class_="kpi-subtitle")
+                sub.string = subtitle
+                card.append(sub)
+            return card
+
+        def _make_balance_sparkline_card(current_balance, delta, history):
+            month_bal = data.get('month_end_balance', current_balance)
+            card = tag("div", class_="kpi-card kpi-balance-card")
+            lbl = tag("div", class_="kpi-label")
+            dot = tag("span", class_="kpi-dot")
+            dot["style"] = "background:#1e9d8b"
+            lbl.append(dot); lbl.append("יתרה חודשית")
+            lbl.append(_info_icon(_TT.get("יתרה חודשית", "")))
+            card.append(lbl)
+            val = tag("div", class_=f"kpi-value {'pos' if month_bal >= 0 else 'neg'}")
+            val.string = f"{month_bal:,.0f}₪"
+            card.append(val)
+            delta_pos  = delta >= 0
+            delta_sign = "▲" if delta_pos else "▼"
+            delta_cls  = "kpi-balance-delta pos" if delta_pos else "kpi-balance-delta neg"
+            delta_div  = tag("div", class_=delta_cls)
+            delta_div.string = f"{delta_sign} {abs(delta):,.0f}₪ החודש"
+            card.append(delta_div)
             return card
 
         kpi_row = soup.find(id="kpi-row")
         for label, value, is_positive, is_hero in kpi_metrics_main:
-            kpi_row.append(_make_kpi_card(label, value, is_positive, is_hero))
+            _sub = data.get('balance_date', '') if label == 'Balance' else None
+            kpi_row.append(_make_kpi_card(label, value, is_positive, is_hero,
+                                          tooltip=_TT.get(label),
+                                          subtitle=_sub))
+        kpi_row.append(_make_balance_sparkline_card(
+            monthly_balance,
+            data.get('balance_delta', 0),
+            data.get('balance_history', [])
+        ))
+
+        _inv_out = data.get('investments_total_out', 0.0)
+        _inv_in  = data.get('investments_total_in',  0.0)
+        kpi_row.append(_make_kpi_card(
+            "הפקדה לחיסכון/השקעה", _inv_out, False, False,
+            tooltip=_TT.get("הפקדה לחיסכון/השקעה"),
+            value_color="#D4A017" if _inv_out != 0 else None,
+            extra_cls="muted" if _inv_out == 0 else ""
+        ))
+        kpi_row.append(_make_kpi_card(
+            "משיכה מחסכון", _inv_in, True, False,
+            tooltip=_TT.get("משיכה מחסכון"),
+            extra_cls="muted" if _inv_in == 0 else ""
+        ))
 
         def _make_split_cash_card(metrics):
             card = tag("div", class_="kpi-card")
@@ -278,6 +366,8 @@ class utils:
                 dot["style"] = f"background:{dot_color}"
                 lbl.append(dot)
                 lbl.append(label)
+                if label in _TT:
+                    lbl.append(_info_icon(_TT[label]))
                 val = tag("div", class_=f"kpi-value {val_cls}")
                 val.string = amount_str
                 card.append(lbl)
@@ -310,24 +400,27 @@ class utils:
     }
   }"""
 
-        def _make_donut_card(canvas_id, title, cat_data, palette, full_width=False):
-            """Return (chart_card, mobile_legend_card) for a Chart.js doughnut.
-            On mobile the built-in legend is hidden and the legend_card (a separate
-            card with a category list) is shown instead via CSS."""
+        def _make_donut_card(canvas_id, title, cat_data, palette, full_width=False, colors=None, border_colors=None, border_widths=None, tooltip=None):
+            """Return a chart-card div with a Chart.js doughnut and a custom HTML category legend grid."""
             _labels = list(cat_data.keys())
             _values = list(cat_data.values())
-            # Cycle palette to cover all slices
-            _colors = [palette[i % len(palette)] for i in range(len(_labels))]
+            _colors = colors if colors is not None else [palette[i % len(palette)] for i in range(len(_labels))]
+            _bg_colors = ['transparent' if c == 'none' else c for c in _colors]
+            _b_colors  = border_colors if border_colors is not None else "#fff"
+            _b_widths  = border_widths if border_widths is not None else 1
             _chart_data = _json.dumps({
                 "labels":   _labels,
-                "datasets": [{"data": _values, "backgroundColor": _colors,
-                              "borderWidth": 1, "borderColor": "#fff",
+                "datasets": [{"data": _values, "backgroundColor": _bg_colors,
+                              "borderWidth": _b_widths, "borderColor": _b_colors,
                               "hoverOffset": 8}]
             }, ensure_ascii=False)
 
             card_cls = "chart-card full-width" if full_width else "chart-card"
             card = tag("div", class_=card_cls)
-            ttl = tag("div", class_="chart-card-title"); ttl.string = title
+            ttl = tag("div", class_="chart-card-title")
+            ttl.append(bs4.NavigableString(title))
+            if tooltip:
+                ttl.append(_info_icon(tooltip))
             card.append(ttl)
             wrap = tag("div", class_="donut-chart-wrap")
             wrap["style"] = "position:relative;height:320px;"
@@ -346,21 +439,7 @@ class utils:
       responsive: true, maintainAspectRatio: false,
       cutout: '68%',
       plugins: {{
-        legend: {{
-          display: !_isMob,
-          position: 'bottom',
-          labels: {{ font: {{ size: 11 }}, padding: 10, boxWidth: 12 }},
-          onHover: function(evt, item, legend) {{
-            var ch = legend.chart;
-            ch.tooltip.setActiveElements([{{datasetIndex: 0, index: item.index}}], evt);
-            ch.update();
-          }},
-          onLeave: function(evt, item, legend) {{
-            var ch = legend.chart;
-            ch.tooltip.setActiveElements([], evt);
-            ch.update();
-          }}
-        }},
+        legend: {{ display: false }},
         tooltip: {{
           rtl: true,
           callbacks: {{
@@ -380,27 +459,197 @@ class utils:
   }});
 }})();
 """
+            # Expose chart instance for custom legend interaction
+            sc_ref = tag("script")
+            sc_ref.string = (
+                f"document.getElementById('{canvas_id}')._chartInst = "
+                f"Chart.getChart(document.getElementById('{canvas_id}'));"
+            )
+            card.append(sc)
+            card.append(sc_ref)
+
+            # Unified category legend grid (desktop: 2-col, mobile: 1-col) — collapsed by default
+            _grid_id = canvas_id + '-legend'
+            _toggle_id = canvas_id + '-toggle'
+            toggle = tag("div", class_="cat-legend-toggle")
+            toggle["id"] = _toggle_id
+            toggle["onclick"] = (
+                f"(function(){{"
+                f"var g=document.getElementById('{_grid_id}'),"
+                f"t=document.getElementById('{_toggle_id}'),"
+                f"open=g.classList.contains('open');"
+                f"g.classList.toggle('open',!open);"
+                f"t.querySelector('.cat-toggle-chevron').style.transform=open?'':'rotate(180deg)';"
+                f"}})()"
+            )
+            toggle_lbl = tag("span", class_="cat-toggle-label")
+            toggle_lbl.string = "פירוט קטגוריות"
+            toggle_chev = tag("span", class_="cat-toggle-chevron")
+            toggle_chev.string = "\u25be"  # ▾
+            toggle.append(toggle_lbl)
+            toggle.append(toggle_chev)
+            card.append(toggle)
+
+            _total = sum(_values) or 1
+            _sorted_items = sorted(enumerate(zip(_labels, _values)), key=lambda x: -x[1][1])
+            grid = tag("div", class_="cat-legend-grid")
+            grid["id"] = _grid_id
+            for orig_idx, (lbl, val) in _sorted_items:
+                pct = val / _total * 100
+                row = tag("div", class_="cat-legend-row")
+                row["data-cid"] = canvas_id
+                row["data-idx"] = str(orig_idx)
+                dot = tag("span", class_="cat-dot")
+                dot["style"] = f"background:{_colors[orig_idx]}"
+                name_sp = tag("span", class_="cat-name"); name_sp.string = lbl
+                val_sp = tag("span", class_="cat-val")
+                val_sp.string = f"\u20aa{round(val):,} ({pct:.0f}%)"
+                row.append(dot); row.append(name_sp); row.append(val_sp)
+                grid.append(row)
+            card.append(grid)
+            sc_leg = tag("script")
+            sc_leg.string = f"""
+(function(){{
+  var rows = document.querySelectorAll('.cat-legend-row[data-cid="{canvas_id}"]');
+  rows.forEach(function(row) {{
+    var idx = +row.dataset.idx;
+    row.addEventListener('click', function() {{
+      var ch = document.getElementById('{canvas_id}')._chartInst;
+      ch.toggleDataVisibility(idx); ch.update();
+      row.style.opacity = ch.getDataVisibility(idx) ? '1' : '0.35';
+    }});
+    row.addEventListener('mouseenter', function() {{
+      var ch = document.getElementById('{canvas_id}')._chartInst;
+      ch.tooltip.setActiveElements([{{datasetIndex:0,index:idx}}], {{x:0,y:0}});
+      ch.update();
+    }});
+    row.addEventListener('mouseleave', function() {{
+      var ch = document.getElementById('{canvas_id}')._chartInst;
+      ch.tooltip.setActiveElements([], {{x:0,y:0}}); ch.update();
+    }});
+  }});
+}})();
+"""
+            card.append(sc_leg)
+
+            return card
+
+        def _make_investment_bar_card(title, total_out, total_in, net, items):
+            """Horizontal bar chart (הפקדות/משיכות) + totals + detailed transaction list."""
+            COLOR_OUT = "#D4A017"   # gold – deposit
+            COLOR_IN  = "#E8900C"   # amber – withdrawal
+
+            card = tag("div", class_="chart-card")
+            ttl = tag("div", class_="chart-card-title")
+            ttl.append(bs4.NavigableString(title))
+            ttl.append(_info_icon(
+                "פעולות העברה בין החשבון הראשי לחשבונות חיסכון/השקעה.\n"
+                "הפקדות (לחשבון אחר): כסף שיצא לחשבון חיסכון — מופיע כהוצאה בגרף הכללי.\n"
+                "משיכות (מחשבון אחר): כסף שחזר מחשבון חיסכון — מופיע כהכנסה בגרף הכללי.\n"
+                "פעולות אלה אינן נחשבות הכנסה/הוצאה אמיתית — הן לא משפיעות על נטו שוטף."
+            ))
+            card.append(ttl)
+
+            if total_out == 0.0 and total_in == 0.0:
+                empty = tag("div", class_="empty-state"); empty.string = "אין נתוני השקעות לחודש זה"
+                card.append(empty)
+                return card
+
+            # ── Bar chart (values shown as end-of-bar labels) ─────────
+            wrap = tag("div", class_="donut-chart-wrap")
+            wrap["style"] = "position:relative;height:90px;"
+            canvas = tag("canvas"); canvas["id"] = "chart-investments-bar"
+            canvas["style"] = "width:100%;height:100%;"
+            wrap.append(canvas)
+            card.append(wrap)
+
+            _labels = ["הפקדה לחיסכון/השקעה"]
+            _values = [total_out]
+            _bg     = [COLOR_OUT]
+            _colors_js = [COLOR_OUT]
+            if total_in > 0:
+                _labels.append("משיכה מחסכון")
+                _values.append(total_in)
+                _bg.append(COLOR_IN)
+                _colors_js.append(COLOR_IN)
+
+            _chart_data = _json.dumps({
+                "labels": _labels,
+                "datasets": [{"data": _values,
+                               "backgroundColor": _bg,
+                               "borderColor": _bg,
+                               "borderWidth": 1,
+                               "borderRadius": 3,
+                               "borderSkipped": False}]
+            }, ensure_ascii=False)
+            _label_colors_js = _json.dumps(_colors_js)
+
+            sc = tag("script")
+            sc.string = f"""
+(function(){{
+  var _barLabelPlugin = {{
+    id: 'invBarLabels',
+    afterDatasetsDraw: function(chart) {{
+      var ctx = chart.ctx;
+      var colors = {_label_colors_js};
+      chart.data.datasets.forEach(function(ds, di) {{
+        chart.getDatasetMeta(di).data.forEach(function(bar, j) {{
+          var v = ds.data[j];
+          if (!v) return;
+          var txt = Math.round(v).toLocaleString('he-IL') + ' ₪';
+          ctx.save();
+          ctx.fillStyle = colors[j] || '#2d3a5e';
+          ctx.font = 'bold 12px "Segoe UI", sans-serif';
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(txt, bar.x + 6, bar.y);
+          ctx.restore();
+        }});
+      }});
+    }}
+  }};
+  new Chart(document.getElementById('chart-investments-bar'), {{
+    type: 'bar',
+    data: {_chart_data},
+    options: {{
+      indexAxis: 'y',
+      responsive: true, maintainAspectRatio: false,
+      layout: {{ padding: {{ right: 90 }} }},
+      plugins: {{ legend: {{ display: false }},
+        tooltip: {{ rtl: true, callbacks: {{
+          label: function(ctx) {{ return '₪' + Math.round(ctx.parsed.x).toLocaleString('he-IL'); }}
+        }} }} }},
+      scales: {{
+        x: {{ display: false, beginAtZero: true }},
+        y: {{ ticks: {{ font: {{ size: 11 }}, color: '#2d3a5e' }}, grid: {{ display: false }} }}
+      }}
+    }},
+    plugins: [_barLabelPlugin]
+  }});
+}})();
+"""
             card.append(sc)
 
-            # \u2500\u2500 Mobile-only category legend card \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
-            legend_card = tag("div", class_="chart-card mobile-cat-legend-card")
-            leg_ttl = tag("div", class_="chart-card-title"); leg_ttl.string = title
-            legend_card.append(leg_ttl)
-            leg_ul = tag("ul", class_="mobile-cat-list")
-            _total = sum(_values) or 1
-            for i, (lbl, val) in enumerate(zip(_labels, _values)):
-                li = tag("li", class_="mobile-cat-item")
-                dot = tag("span", class_="mobile-cat-dot")
-                dot["style"] = f"background:{_colors[i]}"
-                name_sp = tag("span", class_="mobile-cat-name"); name_sp.string = lbl
-                pct = val / _total * 100
-                val_sp = tag("span", class_="mobile-cat-value")
-                val_sp.string = f"\u20aa{round(val):,} ({pct:.0f}%)"
-                li.append(dot); li.append(name_sp); li.append(val_sp)
-                leg_ul.append(li)
-            legend_card.append(leg_ul)
+            # ── Transaction list ─────────────────────────────────────
+            if items:
+                ul = tag("ul", class_="inv-tx-list")
+                for it in items:
+                    li = tag("li", class_="inv-tx-row")
+                    dot = tag("span", class_="inv-tx-dot")
+                    _clr = cards_dict.get('Bank' if it['table'] == 'BankTransactions' else it['card'], '#aaa')
+                    dot["style"] = f"background:{_clr}"
+                    _src = "בנק" if it['table'] == 'BankTransactions' else "כרטיס"
+                    meta = tag("span", class_="inv-tx-meta")
+                    meta.string = f"#{it['id']} · {it['date']} · {_src}"
+                    name_wrap = tag("span", class_="inv-tx-name")
+                    name_wrap.string = f"{it['desc']} — {it['name']}" if it.get('desc') else it['name']
+                    amt = tag("span", class_=f"inv-tx-{'out' if it['dir']=='out' else 'in'}")
+                    amt.string = f"{it['amount']:,.0f} ₪"
+                    li.append(dot); li.append(meta); li.append(name_wrap); li.append(amt)
+                    ul.append(li)
+                card.append(ul)
 
-            return card, legend_card
+            return card
 
         # Color palettes per chart type
         _PAL_SPEND  = ["#ef9a9a","#ffab91","#ffcc80","#ffe082","#f48fb1",
@@ -429,46 +678,48 @@ class utils:
 
         # Spendings donut
         if data.get('spendings_by_cat'):
-            _c, _l = _make_donut_card(
+            _c = _make_donut_card(
                 "chart-spendings-donut", "הוצאות לפי קטגוריה",
-                data['spendings_by_cat'], _PAL_SPEND)
-            charts_grid.append(_c); charts_grid.append(_l)
+                data['spendings_by_cat'], _PAL_SPEND,
+                tooltip="פילוח ההוצאות מהחשבון הבנקאי לפי קטגוריה.\n"
+                        "אינו כולל השקעות/חיסכון (מוצגים בגרף נפרד) ומזומן (מוצג בגרף מזומן).")
+            charts_grid.append(_c)
 
         # Earnings donut
         if data.get('earnings_by_cat'):
-            _c, _l = _make_donut_card(
-                "chart-earnings-donut", "הכנסות לפי קטגוריה",
-                data['earnings_by_cat'], _PAL_EARN)
-            charts_grid.append(_c); charts_grid.append(_l)
+            _c = _make_donut_card(
+                "chart-earnings-donut", "הכנסות לחשבון לפי קטגוריה",
+                data['earnings_by_cat'], _PAL_EARN,
+                tooltip="פילוח ההכנסות שהתקבלו לחשבון הבנק הראשי לפי קטגוריה.\n"
+                        "אינו כולל השקעות/חיסכון ומזומן.")
+            charts_grid.append(_c)
 
-        # Investments donut
-        if data.get('investments_by_name'):
-            _c, _l = _make_donut_card(
-                "chart-investments-donut", "השקעות / חיסכון",
-                data['investments_by_name'], _PAL_INVEST)
-            charts_grid.append(_c); charts_grid.append(_l)
-        else:
-            # Empty state card
-            _inv_card = tag("div", class_="chart-card")
-            _inv_ttl  = tag("div", class_="chart-card-title"); _inv_ttl.string = "השקעות / חיסכון"
-            _inv_empty = tag("div", class_="empty-state")
-            _inv_empty.string = "אין נתוני השקעות לחודש זה"
-            _inv_card.append(_inv_ttl); _inv_card.append(_inv_empty)
-            charts_grid.append(_inv_card)
+        # Investments bar chart + transaction list
+        _inv_card = _make_investment_bar_card(
+            "השקעות / חיסכון",
+            data.get('investments_total_out', 0.0),
+            data.get('investments_total_in',  0.0),
+            data.get('investments_net',       0.0),
+            data.get('investments_items',     [])
+        )
+        charts_grid.append(_inv_card)
 
         # Cash donut (income vs expense)
         _cash_earned = abs(float(cash_information_data.get('Monthly Earned Cash', 0)))
         _cash_spent  = abs(float(cash_information_data.get('Monthly Spent Cash',  0)))
         if _cash_earned + _cash_spent > 0:
-            _c, _l = _make_donut_card(
-                "chart-cash-donut", "מזומן",
+            _c = _make_donut_card(
+                "chart-cash-donut", "הכנסות/הוצאות במזומן",
                 {f"הכנסה  ₪{_cash_earned:,.0f}": _cash_earned,
                  f"הוצאה  ₪{_cash_spent:,.0f}":  _cash_spent},
-                ["#a5d6a7", "#ef9a9a"])
-            charts_grid.append(_c); charts_grid.append(_l)
+                ["#a5d6a7", "#ef9a9a"],
+                tooltip="תזרים מזומנים פיזי בלבד — אינו כולל תשלומי כרטיס אשראי.\n"
+                        "הכנסה: כולל משיכות מהבנק לכיס (כסף שהגיע לידיים).\n"
+                        "הוצאה: תשלומים מזומנים ידניים שנרשמו.")
+            charts_grid.append(_c)
         else:
             _cash_card = tag("div", class_="chart-card")
-            _cash_ttl  = tag("div", class_="chart-card-title"); _cash_ttl.string = "מזומן"
+            _cash_ttl  = tag("div", class_="chart-card-title"); _cash_ttl.string = "הכנסות/הוצאות במזומן"
             _cash_empty = tag("div", class_="empty-state"); _cash_empty.string = "אין נתוני מזומן לחודש זה"
             _cash_card.append(_cash_ttl); _cash_card.append(_cash_empty)
             charts_grid.append(_cash_card)
@@ -478,9 +729,13 @@ class utils:
             # Reverse so oldest is on left, most recent on right
             _gen_months = list(reversed(data['general_months']))
             _gen_sp     = list(reversed(data['general_spendings']))
-            _gen_inv    = list(reversed(data.get('general_investments', [0]*len(_gen_months))))
             _gen_ea     = list(reversed(data['general_earnings']))
             _gen_net    = list(reversed(data['general_net']))
+            # Outgoing investments always stack on spending side; incoming on earnings side
+            _gen_inv_out = list(reversed(data.get('general_investments_out', [0]*len(_gen_months))))
+            _gen_inv_in  = list(reversed(data.get('general_investments_in',  [0]*len(_gen_months))))
+            _INV_BG = "rgba(255,183,77,0.85)"
+            _INV_BD = "#ffb74d"
 
             _gen_chart_data = _json.dumps({
                 "labels": _gen_months,
@@ -488,11 +743,14 @@ class utils:
                     {"type": "bar",  "label": "הוצאות",          "data": _gen_sp,
                      "backgroundColor": "rgba(239,154,154,0.80)", "borderColor": "#ef5350",
                      "borderWidth": 1, "order": 2, "stack": "sp"},
-                    {"type": "bar",  "label": "השקעות/חיסכון",   "data": _gen_inv,
-                     "backgroundColor": "rgba(255,183,77,0.85)",  "borderColor": "#ffb74d",
+                    {"type": "bar",  "label": "השקעות/חיסכון",   "data": _gen_inv_out,
+                     "backgroundColor": _INV_BG, "borderColor": _INV_BD,
                      "borderWidth": 1, "order": 2, "stack": "sp"},
                     {"type": "bar",  "label": "הכנסות",           "data": _gen_ea,
                      "backgroundColor": "rgba(165,214,167,0.75)", "borderColor": "#43a047",
+                     "borderWidth": 1, "order": 2, "stack": "ea"},
+                    {"type": "bar",  "label": "",                  "data": _gen_inv_in,
+                     "backgroundColor": _INV_BG, "borderColor": _INV_BD,
                      "borderWidth": 1, "order": 2, "stack": "ea"},
                     {"type": "line", "label": "נטו (ללא השקעות)", "data": _gen_net,
                      "borderColor": "#1e9d8b", "backgroundColor": "rgba(30,157,139,0.08)",
@@ -503,24 +761,51 @@ class utils:
 
             _gen_card = tag("div", class_="chart-card full-width")
 
-            # Monthly mean banner
-            _mean_val = data.get("overall_net_mean", 0)
-            _mean_pos = _mean_val >= 0
-            _mean_str = f"{_mean_val:,.0f}\u20aa" if _mean_pos else f"-{abs(_mean_val):,.0f}\u20aa"
-            _mean_color = "#1e9d8b" if _mean_pos else "#e74c3c"
+            # KPI banner — 4 metrics across the top
+            _mean_val      = data.get("overall_net_mean", 0)
+            _total_income  = round(sum(_gen_ea) + sum(_gen_inv_in), 0)
+            _total_outcome = round(sum(_gen_sp) + sum(_gen_inv_out), 0)
+            _total_invest  = round(sum(_gen_inv_out) - sum(_gen_inv_in), 0)
+
+            def _fmt_ils(v):
+                s = f"{abs(v):,.0f}\u20aa"
+                return ("-" + s) if v < 0 else s
+
+            _kpi_items = [
+                ("ממוצע נטו חודשי",
+                 _fmt_ils(_mean_val), "#1e9d8b" if _mean_val >= 0 else "#e74c3c"),
+                ('סה"כ הכנסות',
+                 _fmt_ils(_total_income),  "#43a047"),
+                ('סה"כ הוצאות',
+                 _fmt_ils(_total_outcome), "#ef5350"),
+                ('סה"כ השקעות נטו',
+                 _fmt_ils(_total_invest),  "#e8a020"),
+            ]
             _mean_banner = tag("div")
             _mean_banner["style"] = (
-                "display:flex;align-items:center;justify-content:space-between;"
-                "padding:8px 4px 14px;border-bottom:1.5px solid #eef0f6;margin-bottom:12px;"
+                "display:flex;align-items:stretch;gap:0;"
+                "padding:4px 0 14px;border-bottom:1.5px solid #eef0f6;margin-bottom:12px;"
             )
-            _mean_lbl = tag("span")
-            _mean_lbl["style"] = "font-size:0.78em;font-weight:600;color:#888;"
-            _mean_lbl.string = "ממוצע חודשי נטו (10 חודשים אחרונים)"
-            _mean_num = tag("span")
-            _mean_num["style"] = f"font-size:1.4em;font-weight:800;color:{_mean_color};"
-            _mean_num.string = _mean_str
-            _mean_banner.append(_mean_lbl)
-            _mean_banner.append(_mean_num)
+            for _i, (_lbl, _val, _clr) in enumerate(_kpi_items):
+                _cell = tag("div")
+                _border = "" if _i == len(_kpi_items) - 1 else "border-left:1.5px solid #eef0f6;"
+                _cell["style"] = (
+                    f"flex:1;text-align:center;padding:6px 10px;{_border}"
+                    "direction:rtl;"
+                )
+                _cell_lbl = tag("div")
+                _cell_lbl["style"] = "font-size:0.72em;font-weight:600;color:#888;margin-bottom:3px;"
+                _cell_lbl.string = _lbl
+                _cell_val = tag("div")
+                _cell_val["id"] = f"gen-kpi-val-{_i}"
+                _cell_val["style"] = f"font-size:1.15em;font-weight:800;color:{_clr};"
+                if _i == 0:
+                    _cell_val["data-pos-clr"] = "#1e9d8b"
+                    _cell_val["data-neg-clr"] = "#e74c3c"
+                _cell_val.string = _val
+                _cell.append(_cell_lbl)
+                _cell.append(_cell_val)
+                _mean_banner.append(_cell)
             _gen_card.append(_mean_banner)
 
             _gen_ttl  = tag("div", class_="chart-card-title")
@@ -530,9 +815,10 @@ class utils:
             _gen_info_tip  = tag("span", class_="kpi-tooltip")
             _gen_info_tip.string = (
                 "עמודות: הוצאות חודשיות (אדום) + השקעות/חיסכון (זהב) + הכנסות (ירוק).\n"
-                "קו תכלת — נטו חודשי (הכנסות פחות הוצאות בלי השקעות):\n"
-                "  נטו = הכנסות − הוצאות (ללא קטגוריית השקעה/חיסכון)\n"
-                "ממוצע חודשי מחושב על 10 החודשים האחרונים."
+                "קו תכלת — נטו חודשי כולל מזומן (ללא השקעות):\n"
+                "  נטו = (הכנסות בנק − הוצאות בנק) + (הכנסות מזומן − הוצאות מזומן)\n"
+                "  משיכת מזומן מהבנק מקוזזת — הכסף עבר לכיס, לא אבד.\n"
+                "מחושב על 12 החודשים האחרונים (לא כולל החודש הנוכחי)."
             )
             _gen_info_wrap.append(_gen_info_icon)
             _gen_info_wrap.append(_gen_info_tip)
@@ -559,28 +845,158 @@ class utils:
       }})
     }};
   }}
+
+  // ── Month-exclusion state ──────────────────────────────────
+  var _excluded = new Set();
+  var _N = _chartData.labels.length;
+  // RGBA arrays for smooth colour interpolation [r, g, b, a]
+  var _BASE_RGBA = [
+    [239,154,154,0.80],
+    [255,183, 77,0.85],
+    [165,214,167,0.75],
+    [255,183, 77,0.85]
+  ];
+  var _DIM_RGBA  = [210,215,225,0.18];
+  var _BASE_BD   = ['#ef5350','#ffb74d','#43a047','#ffb74d'];
+  var _DIM_BD    = 'rgba(180,185,195,0.4)';
+
+  function _toRgba(c) {{ return 'rgba('+c[0]+','+c[1]+','+c[2]+','+c[3]+')'; }}
+  function _lerp(a,b,t) {{ return a+(b-a)*t; }}
+  function _lerpC(a,b,t) {{
+    return [Math.round(_lerp(a[0],b[0],t)), Math.round(_lerp(a[1],b[1],t)),
+            Math.round(_lerp(a[2],b[2],t)), +_lerp(a[3],b[3],t).toFixed(3)];
+  }}
+
+  var _animRaf = null;
+  function _fadeColumn(ch, idx, toExclude) {{
+    if (_animRaf) cancelAnimationFrame(_animRaf);
+    var DURATION = 320, start = null;
+    function tick(ts) {{
+      if (!start) start = ts;
+      var p = Math.min((ts - start) / DURATION, 1);
+      var ease = p < 0.5 ? 2*p*p : -1+(4-2*p)*p;
+      ch.data.datasets.forEach(function(ds, di) {{
+        if (ds.type === 'bar') {{
+          ds.backgroundColor = ds.data.map(function(_, i) {{
+            if (i === idx) {{
+              var t = toExclude ? ease : 1 - ease;
+              return _toRgba(_lerpC(_BASE_RGBA[di], _DIM_RGBA, t));
+            }}
+            return _excluded.has(i) ? _toRgba(_DIM_RGBA) : _toRgba(_BASE_RGBA[di]);
+          }});
+          ds.borderColor = ds.data.map(function(_, i) {{
+            return _excluded.has(i) ? _DIM_BD : _BASE_BD[di];
+          }});
+        }} else {{
+          ds.pointBackgroundColor = ds.data.map(function(_, i) {{
+            if (i === idx) {{
+              var t = toExclude ? ease : 1 - ease;
+              return _toRgba(_lerpC([30,157,139,1],[200,210,220,0.25],t));
+            }}
+            return _excluded.has(i) ? 'rgba(200,210,220,0.25)' : '#1e9d8b';
+          }});
+          ds.pointRadius = ds.data.map(function(_, i) {{
+            return _excluded.has(i) ? 1.5 : 5;
+          }});
+        }}
+      }});
+      ch.update('none');
+      if (p < 1) _animRaf = requestAnimationFrame(tick);
+      else _animRaf = null;
+    }}
+    requestAnimationFrame(tick);
+  }}
+
+  function _fmtKpi(v) {{
+    var a = Math.abs(Math.round(v));
+    var s = a.toLocaleString('he-IL') + '\u20aa';
+    return v < 0 ? '-' + s : s;
+  }}
+
+  function _updateKPIs(data) {{
+    var sp      = data.datasets[0].data;
+    var inv_out = data.datasets[1].data;
+    var ea      = data.datasets[2].data;
+    var inv_in  = data.datasets[3].data;
+    var net     = data.datasets[4].data;
+    var n = data.labels.length;
+    var totalIncome = 0, totalOutcome = 0, totalInvest = 0, totalNet = 0, cnt = 0;
+    for (var i = 0; i < n; i++) {{
+      if (_excluded.has(i)) continue;
+      cnt++;
+      totalIncome  += (ea[i]      || 0) + (inv_in[i]  || 0);
+      totalOutcome += (sp[i]      || 0) + (inv_out[i] || 0);
+      totalInvest  += (inv_out[i] || 0) - (inv_in[i]  || 0);
+      totalNet     += (net[i]     || 0);
+    }}
+    var meanNet = cnt ? totalNet / cnt : 0;
+    var vals = [meanNet, totalIncome, totalOutcome, totalInvest];
+    vals.forEach(function(v, i) {{
+      var el = document.getElementById('gen-kpi-val-' + i);
+      if (!el) return;
+      el.textContent = _fmtKpi(v);
+      if (i === 0) el.style.color = v >= 0 ? '#1e9d8b' : '#e74c3c';
+    }});
+  }}
+
   new Chart(document.getElementById('chart-general-bar'), {{
     type: 'bar',
     data: _chartData,
     options: {{
       responsive: true, maintainAspectRatio: false,
-      interaction: {{ mode: 'index', intersect: false }},
+      interaction: {{ mode: 'nearest', intersect: true }},
+      onClick: function(event, elements, chart) {{
+        var idx = Math.round(chart.scales.x.getValueForPixel(event.x));
+        if (idx < 0 || idx >= _N) return;
+        var toExclude = !_excluded.has(idx);
+        if (toExclude) _excluded.add(idx); else _excluded.delete(idx);
+        _updateKPIs(chart.data);
+        _fadeColumn(chart, idx, toExclude);
+      }},
       plugins: {{
-        legend: {{ position: 'top', labels: {{ font: {{ size: _isMob ? 10 : 12 }}, padding: 12 }} }},
+        legend: {{ position: 'bottom',
+          onClick: null, onHover: null, onLeave: null,
+          labels: {{ font: {{ size: _isMob ? 10 : 12 }}, padding: 12,
+            filter: function(item) {{ return item.text !== ''; }},
+            generateLabels: function(chart) {{
+              var items = Chart.defaults.plugins.legend.labels.generateLabels(chart);
+              items.forEach(function(item) {{
+                var di = item.datasetIndex;
+                if (di < _BASE_RGBA.length) {{
+                  item.fillStyle   = _toRgba(_BASE_RGBA[di]);
+                  item.strokeStyle = _BASE_BD[di];
+                }}
+              }});
+              return items;
+            }}
+          }} }},
         tooltip: {{
           rtl: true,
+          backgroundColor: 'rgba(255,255,255,0.97)',
+          borderColor: '#d0d6e8',
+          borderWidth: 1,
+          titleColor: '#444',
+          titleFont: {{ size: 11, weight: '600' }},
+          bodyColor: '#111',
+          bodyFont: {{ weight: 'bold', size: 14 }},
+          padding: {{ x: 12, y: 10 }},
+          cornerRadius: 8,
           callbacks: {{
             label: function(ctx) {{
-              const v = ctx.parsed.y;
-              if (v == null) return null;
+              const v = ctx.raw;
+              if (v == null || v === 0) return null;
+              const lbl = ctx.dataset.label || '\u05d4\u05e9\u05e7\u05e2\u05d5\u05ea/\u05d7\u05d9\u05e1\u05db\u05d5\u05df';
               const sign = v >= 0 ? '' : '-';
-              return ctx.dataset.label + ': ' + sign + '\u20aa' + Math.abs(Math.round(v)).toLocaleString('he-IL');
+              return ' ' + lbl + ': ' + sign + '\u20aa' + Math.abs(Math.round(v)).toLocaleString('he-IL');
             }}
           }}
         }}
       }},
       scales: {{
-        x: {{ stacked: true, ticks: {{ font: {{ size: 11 }}, maxRotation: 30 }} }},
+        x: {{ stacked: true, ticks: {{
+          font: {{ size: 11 }}, maxRotation: 30,
+          color: function(ctx) {{ return _excluded.has(ctx.index) ? '#bbb' : undefined; }}
+        }} }},
         y: {{
           stacked: true,
           ticks: {{
@@ -591,6 +1007,7 @@ class utils:
       }}
     }}
   }});
+  document.getElementById('chart-general-bar').style.cursor = 'pointer';
 }})();
 """
             _gen_card.append(_gen_sc)
@@ -846,10 +1263,12 @@ class utils:
 
         # ── Transaction rows ───────────────────────────────────────────
         def _build_tx_row(item):
-            executed_date = (item['Execution_Date']
-                             if not pd.isna(item['Execution_Date'])
-                             else item['Executed_Date'])
-            d = datetime.strptime(str(executed_date).split('.')[0], "%Y-%m-%d %H:%M:%S").strftime('%A %d')
+            _exec = item.get('Execution_Date') if hasattr(item, 'get') else None
+            executed_date = _exec if (_exec is not None and not pd.isna(_exec)) else item['Executed_Date']
+            try:
+                d = datetime.strptime(str(executed_date).split('.')[0], "%Y-%m-%d %H:%M:%S").strftime('%A %d')
+            except (ValueError, TypeError):
+                d = ''
 
             row = tag("div", class_="num")
             row["data-value"]    = str(item['ID'])
@@ -898,10 +1317,23 @@ class utils:
                 badge = tag("span", class_="split-badge")
                 badge.string = "✂ פיצול"
                 h3.append(badge)
+            span_id = tag("span", class_="tx-id")
+            span_id.string = f"#{item['ID']}"
+            h3.append(span_id)
+            _manual_cash_flag = item.get('_manual_cash')
+            if _manual_cash_flag is True:
+                mc_badge = tag("span", class_="manual-cash-badge")
+                mc_badge.string = "מזומן ידני"
+                h3.append(mc_badge)
+            elif _manual_cash_flag is False:
+                ac_badge = tag("span", class_="auto-cash-badge")
+                ac_badge.string = "משיכת מזומן"
+                h3.append(ac_badge)
             row.append(h3)
 
-            if not pd.isnull(item['Amount']):
-                price1, price2 = f"{item['Amount']:,.2f}\u20aa", ""
+            _amount = item.get('Amount', float('nan')) if hasattr(item, 'get') else float('nan')
+            if not pd.isnull(_amount):
+                price1, price2 = f"{_amount:,.2f}\u20aa", ""
             elif item['Charge_Currency'] == item['Value_Currency'] or item['TableName'] == 'BankTransactions':
                 price1, price2 = f"{item['Final_Value']:,.2f}\u20aa", ""
             else:
@@ -941,17 +1373,13 @@ class utils:
         if sp_sum:
             sp_sum.string = f"{sp_total:,.2f}\u20aa"
 
-        # Earnings
-        df_cash_ea = cash_information_data['Monthly Cash Transactions']
-        df_cash_ea = df_cash_ea[df_cash_ea['Amount'] > 0]
-        earnings_df = pd.concat([earnings_df, df_cash_ea], ignore_index=True)
+        # Earnings — account transactions only; cash flows handled by the cash chart
 
         ea_list  = soup.find(id="earnings-list")
         ea_total = 0.0
         for _, item in earnings_df.sort_values(by='Executed_Date', ascending=True).iterrows():
             ea_list.append(_build_tx_row(item))
-            val = item['Amount'] if not pd.isnull(item['Amount']) else item['Final_Value']
-            ea_total += abs(float(val))
+            ea_total += abs(float(item['Final_Value']))
 
         ea_sum = soup.find(id="earnings-sum")
         if ea_sum:
@@ -1555,6 +1983,37 @@ class utils:
             eq_with_inc     = eq_appr + alltime_inc_val   # equity + total income received
 
             equity_card = tag("div", class_="kpi-card")
+
+            # ── Dual side-by-side KPI: הון עצמי | שווי בעלות הנכס ───────
+            dual = tag("div", class_="equity-dual-row")
+
+            # Left col in RTL: שווי בעלות הנכס
+            own_col = tag("div", class_="equity-dual-col")
+            own_lbl_div = tag("div", class_="kpi-label")
+            own_lbl_div.append(bs4.NavigableString("שווי בעלות הנכס"))
+            own_info_wrap = tag("span", class_="kpi-info-wrap")
+            own_icon = tag("span", class_="kpi-info-icon"); own_icon.string = "i"
+            own_tip  = tag("span", class_="kpi-tooltip")
+            own_tip.string = (
+                f"שווי הבעלות על הנכס (ללא הכנסות משכירות):\n"
+                f"  מקדמה:        {init_pay:,.0f}₪\n"
+                f"  קרן שנפרעה:  {principal_paid:,.0f}₪\n"
+                f"  עליית ערך:   {appr_gain_val:,.0f}₪\n"
+                f"  = סה״כ:       {eq_appr:,.0f}₪\n\n"
+                f"זהו הערך המוצג בעמוד החשבונות תחת 'נכס'."
+            )
+            own_info_wrap.append(own_icon); own_info_wrap.append(own_tip)
+            own_lbl_div.append(own_info_wrap)
+            own_val = tag("div", class_="kpi-value")
+            own_val["id"] = "hs-ownership-val"
+            own_val["style"] = "color:#5b8dee"
+            own_val.string = f"{eq_appr:,.0f}₪"
+            own_sub = tag("div", class_="kpi-sublabel")
+            own_sub.string = "ללא הכנסות"
+            own_col.append(own_lbl_div); own_col.append(own_val); own_col.append(own_sub)
+
+            # Right col in RTL: הון עצמי (including income)
+            eq_col = tag("div", class_="equity-dual-col")
             eq_lbl = tag("div", class_="kpi-label")
             eq_lbl.append(bs4.NavigableString("הון עצמי"))
             eq_info_wrap = tag("span", class_="kpi-info-wrap")
@@ -1571,23 +2030,27 @@ class utils:
             eq_info_wrap.append(eq_icon); eq_info_wrap.append(eq_tip)
             eq_lbl.append(eq_info_wrap)
             eq_val = tag("div", class_="kpi-value")
-            eq_val.string = f"{eq_with_inc:,.0f}\u20aa"
+            eq_val.string = f"{eq_with_inc:,.0f}₪"
             eq_val["style"] = "color:#1e9d8b"
             eq_val["id"] = "hs-equity"
             eq_sub = tag("div", class_="kpi-sublabel")
-            eq_sub.string = "כולל עליית ערך והכנסות"
+            eq_sub.string = "כולל הכנסות"
+            eq_col.append(eq_lbl); eq_col.append(eq_val); eq_col.append(eq_sub)
 
-            # 4-segment bar: מקדמה | קרן שנפרעה | עליית ערך | הכנסות
+            dual.append(own_col); dual.append(eq_col)
+            equity_card.append(dual)
+
+            # 4-segment bar
             eq_total   = max(eq_with_inc, 1)
             peq_down   = round(init_pay         / eq_total * 100, 2)
             peq_prin   = round(principal_paid   / eq_total * 100, 2)
             peq_appr   = round(appr_gain_val    / eq_total * 100, 2)
             peq_inc    = round(alltime_inc_val  / eq_total * 100, 2)
 
-            C_DOWN  = "#81c784"   # gentle green — down payment
-            C_PRIN  = "#4db6ac"   # gentle teal  — principal repaid
-            C_APPR  = "#64b5f6"   # gentle blue  — appreciation
-            C_INC   = "#aed581"   # gentle lime  — income received
+            C_DOWN  = "#81c784"
+            C_PRIN  = "#4db6ac"
+            C_APPR  = "#64b5f6"
+            C_INC   = "#aed581"
 
             eq_bar_wrap = tag("div", class_="equity-bar-wrap")
             eq_bar      = tag("div", class_="equity-bar")
@@ -1608,7 +2071,6 @@ class utils:
             eq_bar.append(_bar_seg("hs-bar-inc",  peq_inc,  C_INC,
                                    f"סה״כ הכנסות ₪{alltime_inc_val:,.0f}"))
 
-            # Legend: 4 items
             eq_bar_labels = tag("div", class_="equity-bar-labels equity-bar-labels-4")
 
             def _lbl(text, color, elem_id=None):
@@ -1624,8 +2086,7 @@ class utils:
             eq_bar_labels.append(_lbl(f"הכנסות ₪{alltime_inc_val:,.0f}",    C_INC,  "hs-lbl-inc"))
 
             eq_bar_wrap.append(eq_bar); eq_bar_wrap.append(eq_bar_labels)
-            equity_card.append(eq_lbl); equity_card.append(eq_val)
-            equity_card.append(eq_sub); equity_card.append(eq_bar_wrap)
+            equity_card.append(eq_bar_wrap)
 
             _row2(
                 _h_kpi("יתרת משכנתא", f"{cur_bal:,.0f}\u20aa", "#e74c3c",
@@ -1830,6 +2291,7 @@ class utils:
     Chart.register({{
       id: 'todayLine-mort-balance',
       afterDraw(chart) {{
+        if (chart.canvas.id !== 'chart-mort-balance') return;
         var meta = chart.getDatasetMeta(chart.data.datasets.length - 1);
         var pt = meta.data[todayIdx];
         if (!pt) return;
@@ -2086,6 +2548,8 @@ function hsRecalc(rate) {
   // Update value elements
   document.getElementById('hs-appr-price').textContent   = fmtShek(appr);
   document.getElementById('hs-equity').textContent       = fmtShek(equity);
+  const owEl = document.getElementById('hs-ownership-val');
+  if (owEl) owEl.textContent = fmtShek(equity);
   document.getElementById('hs-monthly-appr').textContent = '+' + fmtShek(moAppr);
   const trEl = document.getElementById('hs-total-return');
   const arEl = document.getElementById('hs-annual-return');
@@ -3728,6 +4192,7 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;
     <a class="nav-item" href="/organizer">ארגונית</a>
     <a class="nav-item active" href="/categories">ניתוח קטגוריאלי</a>
     <a class="nav-item" href="/search">חיפוש</a>
+    <a class="nav-item" href="/spotify">Spotify Tracker</a>
     <div class="nav-sep"></div>
     <a class="nav-item" href="/tagger">תייגן</a>
     <a class="nav-item" href="/files">קבצים</a>
@@ -4632,6 +5097,8 @@ document.addEventListener('DOMContentLoaded', _initTxnFooter);
         cash_df['Execution_Date'] = pd.to_datetime(cash_df['Execution_Date'], errors='coerce')
 
         cash_df = cash_df[['ID', 'Execution_Date', 'Amount', 'Name', 'Category']]
+        cash_df['_manual_cash'] = True
+        bank_withdrawals_df['_manual_cash'] = False
 
         combined_cash_df = pd.concat([cash_df, bank_withdrawals_df], ignore_index=True)
         combined_cash_df = combined_cash_df.sort_values(by='Execution_Date', ascending=False).reset_index(drop=True)
@@ -4710,6 +5177,9 @@ document.addEventListener('DOMContentLoaded', _initTxnFooter);
         # ----- New Code Here -------------------------------------
         from database import DataBase
         from Constants import Settings, Trans_Type
+
+        if processed_df.empty:
+            return pd.DataFrame()
 
         wip_df = processed_df.copy()
 
@@ -4800,7 +5270,7 @@ document.addEventListener('DOMContentLoaded', _initTxnFooter);
             # extract all the keys represting card numbers in the Transaction Names dictionary for each format dictionary
             possible_bank_transaction_names = [name for format_config in Formats.FORMATS.values() for card_id, names in format_config["Transaction Names"].items() for name in names if card_id == row['CardID']]
         
-            # Get all bank transactions for the month of the first withdrawal
+            # Get all bank transactions for the month of the withdrawal
             transaction_date = datetime.strptime(row['Executed_Date'], "%Y-%m-%d %H:%M:%S")
             bank_transactions_df = DataBase().get_Bank_Transactions(transaction_date.month, transaction_date.year)
 
@@ -4809,11 +5279,21 @@ document.addEventListener('DOMContentLoaded', _initTxnFooter);
                 (bank_transactions_df['Out'] == row['Transaction_Value']) &
                 (bank_transactions_df['Name'].isin(possible_bank_transaction_names))
             ]
-            
+
+            # Some cards (e.g. Premium Express / 1565) are debited in the following month
+            if matched_transactions_df.empty:
+                next_date = utils.next_month(transaction_date)
+                bank_transactions_df = DataBase().get_Bank_Transactions(next_date.month, next_date.year)
+                matched_transactions_df = bank_transactions_df[
+                    (bank_transactions_df['Out'] == row['Transaction_Value']) &
+                    (bank_transactions_df['Name'].isin(possible_bank_transaction_names))
+                ]
+
             #utils.log(f"{utils.df_to_markdown(matched_transactions_df)}")
 
             if matched_transactions_df.empty:
-                return False, f"No matching transactions found for withdrawal ID: {row['ID']}, CardID: {row['CardID']}, Executed Date: {row['Executed_Date']}", pd.DataFrame()
+                utils.log(f"No matching bank transaction found for withdrawal ID: {row['ID']}, CardID: {row['CardID']}, Executed Date: {row['Executed_Date']}. Skipping.", 'warning')
+                continue
 
             # if the size of the df is larger than 1, it means that there are multiple transactions that match the withdrawal.
             # Only the first one will be matched, and the rest will be ignored.

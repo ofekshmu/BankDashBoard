@@ -80,8 +80,9 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;m
 .adv-inner{padding-top:18px;border-top:1px solid var(--border);margin-top:16px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
 @media(max-width:700px){.adv-inner{grid-template-columns:1fr}}
 .field-label{font-size:.72em;font-weight:700;color:var(--text-muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px}
-.field-input{width:100%;padding:9px 13px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:.88em;color:var(--navy);background:var(--white);outline:none;transition:border-color .18s,box-shadow .18s;font-family:inherit;direction:rtl}
+.field-input{width:100%;padding:9px 13px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:.88em;color:var(--navy);background:var(--white);outline:none;transition:border-color .18s,box-shadow .18s;font-family:inherit;direction:rtl;box-sizing:border-box;height:38px}
 .field-input:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(30,157,139,.12)}
+input[type="date"].field-input{padding:0 10px;appearance:none;-webkit-appearance:none}
 .amount-row{display:flex;gap:8px;align-items:center}
 .amount-sep{color:var(--text-muted);font-size:.85em;flex-shrink:0}
 
@@ -270,6 +271,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;m
     <a class="nav-item" href="/bills">מעקב חשבונות</a>
     <a class="nav-item" href="/categories">ניתוח קטגוריאלי</a>
     <a class="nav-item active" href="/search">חיפוש</a>
+    <a class="nav-item" href="/spotify">Spotify Tracker</a>
     <div class="nav-sep"></div>
     <a class="nav-item" href="/tagger">תייגן</a>
     <a class="nav-item" href="/files">קבצים</a>
@@ -321,6 +323,11 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;m
     <!-- Advanced panel -->
     <div class="adv-panel" id="adv-panel">
       <div class="adv-inner">
+        <!-- Transaction ID -->
+        <div>
+          <div class="field-label">מזהה עסקה (ID)</div>
+          <input class="field-input" id="f-id" type="number" min="1" placeholder="מספר מזהה…" autocomplete="off" oninput="_scheduleSearch()"/>
+        </div>
         <!-- Business -->
         <div>
           <div class="field-label">עסק / שם</div>
@@ -328,16 +335,27 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;m
         </div>
         <!-- Amount -->
         <div>
-          <div class="field-label">טווח סכום (₪)</div>
-          <div class="amount-row">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <div class="field-label" style="margin-bottom:0">סכום (₪)</div>
+            <div style="display:flex;gap:4px;margin-right:auto">
+              <button id="amt-mode-range" onclick="setAmtMode('range')"
+                style="padding:2px 8px;border-radius:5px;border:1.5px solid var(--teal);background:var(--teal);color:#fff;font-size:.72em;font-weight:600;cursor:pointer;font-family:inherit">טווח</button>
+              <button id="amt-mode-exact" onclick="setAmtMode('exact')"
+                style="padding:2px 8px;border-radius:5px;border:1.5px solid var(--border);background:none;color:var(--text-sub);font-size:.72em;font-weight:600;cursor:pointer;font-family:inherit">ערך מדויק</button>
+            </div>
+          </div>
+          <div id="amt-range-row" class="amount-row">
             <input class="field-input" id="f-min" type="number" min="0" placeholder="מינ'" style="flex:1" oninput="_scheduleSearch()"/>
             <span class="amount-sep">—</span>
             <input class="field-input" id="f-max" type="number" min="0" placeholder="מקס'" style="flex:1" oninput="_scheduleSearch()"/>
           </div>
+          <div id="amt-exact-row" style="display:none">
+            <input class="field-input" id="f-exact" type="number" min="0" placeholder="סכום מדויק (₪)" oninput="_scheduleSearch()"/>
+          </div>
         </div>
-        <!-- Dates -->
+        <!-- Execution date -->
         <div>
-          <div class="field-label">טווח תאריכים</div>
+          <div class="field-label">תאריך ביצוע</div>
           <button class="drp-trigger" id="drp-trigger" type="button" onclick="drpToggle()">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;color:var(--text-muted)"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
             <span class="drp-lbl" id="drp-lbl">בחר טווח תאריכים</span>
@@ -364,6 +382,15 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;m
           <input type="hidden" id="f-from"/>
           <input type="hidden" id="f-to"/>
         </div>
+        <!-- Charge date -->
+        <div>
+          <div class="field-label">תאריך חיוב</div>
+          <div class="amount-row" style="gap:6px">
+            <input class="field-input" id="f-charge-from" type="date" style="flex:1" onchange="_scheduleSearch()"/>
+            <span class="amount-sep">—</span>
+            <input class="field-input" id="f-charge-to" type="date" style="flex:1" onchange="_scheduleSearch()"/>
+          </div>
+        </div>
         <!-- Type chips spanning full row -->
         <div style="grid-column:1/-1">
           <div class="field-label" style="margin-bottom:8px">סוג עסקה</div>
@@ -371,6 +398,24 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;m
             <label class="type-chip"><input type="radio" name="txtype" value="all" checked onchange="_scheduleSearch()"/> הכל</label>
             <label class="type-chip"><input type="radio" name="txtype" value="income" onchange="_scheduleSearch()"/> הכנסות בלבד</label>
             <label class="type-chip"><input type="radio" name="txtype" value="expense" onchange="_scheduleSearch()"/> הוצאות בלבד</label>
+          </div>
+        </div>
+        <!-- Source filter chips -->
+        <div style="grid-column:1/-1">
+          <div class="field-label" style="margin-bottom:8px">מקור עסקה</div>
+          <div class="type-chip-row">
+            <label class="type-chip"><input type="radio" name="txsource" value="all" checked onchange="_scheduleSearch()"/> הכל</label>
+            <label class="type-chip"><input type="radio" name="txsource" value="bank" onchange="_scheduleSearch()"/> בנק בלבד</label>
+            <label class="type-chip"><input type="radio" name="txsource" value="card" onchange="_scheduleSearch()"/> כרטיס בלבד</label>
+          </div>
+        </div>
+        <!-- Split filter chips -->
+        <div style="grid-column:1/-1">
+          <div class="field-label" style="margin-bottom:8px">פיצול עסקה</div>
+          <div class="type-chip-row">
+            <label class="type-chip"><input type="radio" name="txsplit" value="any" checked onchange="_scheduleSearch()"/> הכל</label>
+            <label class="type-chip"><input type="radio" name="txsplit" value="split" onchange="_scheduleSearch()"/> מפוצלות בלבד</label>
+            <label class="type-chip"><input type="radio" name="txsplit" value="nonsplit" onchange="_scheduleSearch()"/> לא מפוצלות בלבד</label>
           </div>
         </div>
       </div>
@@ -427,6 +472,23 @@ function _scheduleSearch() {
   _searchTimer = setTimeout(doSearch, 420);
 }
 
+// ── Amount mode toggle ───────────────────────────────────────────
+var _amtMode = 'range';
+function setAmtMode(mode){
+  _amtMode = mode;
+  document.getElementById('amt-range-row').style.display = mode === 'range' ? '' : 'none';
+  document.getElementById('amt-exact-row').style.display = mode === 'exact' ? '' : 'none';
+  var rBtn = document.getElementById('amt-mode-range');
+  var eBtn = document.getElementById('amt-mode-exact');
+  rBtn.style.background   = mode === 'range' ? 'var(--teal)' : 'none';
+  rBtn.style.color        = mode === 'range' ? '#fff' : 'var(--text-sub)';
+  rBtn.style.borderColor  = mode === 'range' ? 'var(--teal)' : 'var(--border)';
+  eBtn.style.background   = mode === 'exact' ? 'var(--teal)' : 'none';
+  eBtn.style.color        = mode === 'exact' ? '#fff' : 'var(--text-sub)';
+  eBtn.style.borderColor  = mode === 'exact' ? 'var(--teal)' : 'var(--border)';
+  _scheduleSearch();
+}
+
 // ── Advanced panel ──────────────────────────────────────────────
 var _advOpen = false;
 function toggleAdv(){
@@ -454,21 +516,31 @@ function doSearch(){
   var params = new URLSearchParams();
   var kw  = document.getElementById('f-keyword').value.trim();
   var cat = document.getElementById('f-category').value.trim();
+  var tid = document.getElementById('f-id').value.trim();
   var biz = document.getElementById('f-business').value.trim();
-  var mn  = document.getElementById('f-min').value.trim();
-  var mx  = document.getElementById('f-max').value.trim();
+  var mn  = _amtMode === 'range' ? document.getElementById('f-min').value.trim() : '';
+  var mx  = _amtMode === 'range' ? document.getElementById('f-max').value.trim() : '';
+  var ex  = _amtMode === 'exact' ? document.getElementById('f-exact').value.trim() : '';
   var fd  = document.getElementById('f-from').value.trim();
   var td  = document.getElementById('f-to').value.trim();
+  var cfd = document.getElementById('f-charge-from').value.trim();
+  var ctd = document.getElementById('f-charge-to').value.trim();
   var tp  = document.querySelector('input[name="txtype"]:checked').value;
+  var sp  = document.querySelector('input[name="txsplit"]:checked').value;
+  var src = document.querySelector('input[name="txsource"]:checked').value;
 
+  if(tid) params.set('id', tid);
   if(kw)  params.set('keyword', kw);
   if(cat) params.set('category', cat);
   if(biz) params.set('business', biz);
-  if(mn)  params.set('min', mn);
-  if(mx)  params.set('max', mx);
-  if(fd)  params.set('from', fd);
-  if(td)  params.set('to', td);
-  if(tp && tp!=='all') params.set('type', tp);
+  if(ex){ params.set('exact', ex); } else { if(mn) params.set('min', mn); if(mx) params.set('max', mx); }
+  if(fd)  params.set('from',        fd);
+  if(td)  params.set('to',          td);
+  if(cfd) params.set('charge_from', cfd);
+  if(ctd) params.set('charge_to',   ctd);
+  if(tp  && tp!=='all') params.set('type',   tp);
+  if(sp  && sp!=='any') params.set('split',  sp);
+  if(src && src!=='all') params.set('source', src);
 
   document.getElementById('results-meta').style.display = 'none';
   document.getElementById('results-root').innerHTML =
@@ -489,13 +561,20 @@ function doSearch(){
 function clearForm(){
   document.getElementById('f-keyword').value  = '';
   document.getElementById('f-category').value = '';
+  document.getElementById('f-id').value       = '';
   document.getElementById('f-business').value = '';
-  document.getElementById('f-min').value = '';
-  document.getElementById('f-max').value = '';
-  document.getElementById('f-from').value = '';
-  document.getElementById('f-to').value = '';
+  document.getElementById('f-min').value   = '';
+  document.getElementById('f-max').value   = '';
+  document.getElementById('f-exact').value = '';
+  setAmtMode('range');
+  document.getElementById('f-from').value        = '';
+  document.getElementById('f-to').value          = '';
+  document.getElementById('f-charge-from').value = '';
+  document.getElementById('f-charge-to').value   = '';
   drpReset();
-  document.querySelector('input[name="txtype"][value="all"]').checked = true;
+  document.querySelector('input[name="txtype"][value="all"]').checked   = true;
+  document.querySelector('input[name="txsplit"][value="any"]').checked   = true;
+  document.querySelector('input[name="txsource"][value="all"]').checked  = true;
   document.getElementById('results-meta').style.display = 'none';
   document.getElementById('results-root').innerHTML =
     '<div class="results-hint-card"><div class="hint-icon">🔍</div><div>הזן קריטריוני חיפוש ולחץ "חפש"</div></div>';

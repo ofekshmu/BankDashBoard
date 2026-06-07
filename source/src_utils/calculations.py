@@ -69,7 +69,7 @@ class SimpleMath:
                 "Maximum Amount":   f'{abs(max)}₪'}
 
     @staticmethod
-    def get_monthly_shifted(shift: int = 5, category=None, business=None) -> Tuple[list[int], list[int], list[int]]:
+    def get_monthly_shifted(shift: int = 5, category=None, business=None, start_delta=None) -> Tuple[list[int], list[int], list[int], list[int]]:
         """
         The function receives as input the number of months to calculate from this current
         one backwards shift. And returns three lists contatining The monthly spendings and earnings of the last @shift
@@ -84,10 +84,14 @@ class SimpleMath:
         from Constants import INVESTMENT_CATEGORY
 
         current_date = datetime.now()
-        initial_delta = 0 if GENERAL_PLOT.SHOW_CURRENT_MONTH else 1
+        if start_delta is not None:
+            initial_delta = start_delta
+        else:
+            initial_delta = 0 if GENERAL_PLOT.SHOW_CURRENT_MONTH else 1
         spendings_lst = []
         spendings_net_lst = []
         earnings_lst = []
+        earnings_net_lst = []
 
         for i in range(initial_delta, shift):
             calculated_date = current_date - pd.DateOffset(months=i)
@@ -113,11 +117,13 @@ class SimpleMath:
             spendings_lst.append(df_i['Final_Value'][(df_i['Final_Value'] < 0)].sum())
             spendings_net_lst.append(df_i['Final_Value'][(df_i['Final_Value'] < 0) & (df_i['Category'] != INVESTMENT_CATEGORY)].sum())
             earnings_lst.append(df_i['Final_Value'][(df_i['Final_Value'] > 0)].sum())
+            earnings_net_lst.append(df_i['Final_Value'][(df_i['Final_Value'] > 0) & (df_i['Category'] != INVESTMENT_CATEGORY)].sum())
             
         # data is returned backwards to fit the plot_general function.
         return spendings_lst, \
                 spendings_net_lst, \
-                earnings_lst
+                earnings_lst, \
+                earnings_net_lst
 
     @staticmethod
     def general_info(data):

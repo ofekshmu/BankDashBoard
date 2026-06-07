@@ -480,10 +480,13 @@ async function toggleActive(pid, current) {
 
 async function deleteParticipant(pid, name) {
   if (!confirm('למחוק את ' + name + '?\nכל נתוני האימונים שלו יימחקו.')) return;
-  const r = await fetch('/api/gym/participants/'+pid, {method:'DELETE'});
-  const d = await r.json();
-  if (d.ok) { renderParticipantList(); showToast('✓ ' + name + ' נמחק'); }
-  else showToast('שגיאה: ' + (d.error||''));
+  try {
+    const r = await fetch('/api/gym/participants/'+pid, {method:'DELETE'});
+    if (!r.ok) { showToast('שגיאה: ' + r.status + ' ' + r.statusText); return; }
+    const d = await r.json();
+    if (d.ok) { renderParticipantList(); showToast('✓ ' + name + ' נמחק'); }
+    else showToast('שגיאה: ' + (d.error||''));
+  } catch(e) { showToast('שגיאת רשת — ' + e.message); }
 }
 
 function fmt(n) { return Number(n).toFixed(2).replace(/\.00$/, ''); }

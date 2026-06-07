@@ -197,6 +197,7 @@ class DataBase:
                     AccountName     TEXT        NOT NULL,
                     StatusDate      DATE        NOT NULL,
                     Value           REAL        NOT NULL,
+                    Currency        TEXT        DEFAULT 'ILS',
                     TransactionID   INTEGER,
                     FOREIGN KEY(TransactionID) REFERENCES BankTransactions(ID)
                     );""")
@@ -1802,8 +1803,9 @@ class DataBase:
                 ID              INTEGER     PRIMARY KEY AUTOINCREMENT,
                 AccountName     TEXT        NOT NULL,
                 StatusDate      DATE        NOT NULL,
-                Value          REAL        NOT NULL,
-                TransactionID  INTEGER,
+                Value           REAL        NOT NULL,
+                Currency        TEXT        DEFAULT 'ILS',
+                TransactionID   INTEGER,
                 FOREIGN KEY(TransactionID) REFERENCES BankTransactions(ID)
             );
         """)

@@ -20,7 +20,7 @@ from Exporter import Exporter
 
 class AppManager:
 
-    def __init__(self):
+    def __init__(self, skip_parser=False):
         res = utils.validate_formats()
         res2 = utils.validate_constants()
         
@@ -48,7 +48,8 @@ class AppManager:
         else:
             utils.log("Bank Format Vlidation Failed!", 'warning')
         
-        self.parser = Parser()
+        if not skip_parser:
+            self.parser = Parser()
 
     def menu(self):
         from GymSplitter import GymSplitter
@@ -957,26 +958,27 @@ class AppManager:
         webbrowser.open(r'source\html\Category_output.html')
 
 
-    def general_analysis(self):
+    def general_analysis(self, t=None):
         from datetime import datetime
-        # -----
-        match utils.template_menu(["Current Month", 
-                                "Last Month",
-                                "Pick A date"], 
-                                "General Analisys: Choose one of the following options:",
-                                exit=True):
+        if t is None:
+            # -----
+            match utils.template_menu(["Current Month",
+                                    "Last Month",
+                                    "Pick A date"],
+                                    "General Analisys: Choose one of the following options:",
+                                    exit=True):
 
-            case 0:
-                return
-            case 1:
-                t = datetime.now()
-            case 2:
-                from dateutil.relativedelta import relativedelta
-                t = datetime.now() - relativedelta(months=1)
-            case 3:
-                t = utils.parse_date_from_user(day=False, return_type="datetime")
-            case _:
-                utils.log("Unreachable point reached...", "error")
+                case 0:
+                    return
+                case 1:
+                    t = datetime.now()
+                case 2:
+                    from dateutil.relativedelta import relativedelta
+                    t = datetime.now() - relativedelta(months=1)
+                case 3:
+                    t = utils.parse_date_from_user(day=False, return_type="datetime")
+                case _:
+                    utils.log("Unreachable point reached...", "error")
 
         data = {}
         

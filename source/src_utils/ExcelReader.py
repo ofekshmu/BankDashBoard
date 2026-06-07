@@ -1,4 +1,9 @@
-import xlwings as xw
+try:
+    import xlwings as xw
+    _XLWINGS_AVAILABLE = True
+except ImportError:
+    xw = None  # type: ignore
+    _XLWINGS_AVAILABLE = False
 from src_utils.queuebykey import SpecialQueue
 from typing import Union
 

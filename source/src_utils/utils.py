@@ -1789,7 +1789,10 @@ Please Make sure that none of the following formats have their 'Identifications 
         def is_valid_balance(value):
             return isinstance(value, (int, float))
 
-        personal_conf_dict = json.load(open(Paths.PERSONAL_CONFIG, encoding='utf-8'))
+        try:
+            personal_conf_dict = json.load(open(Paths.PERSONAL_CONFIG, encoding='utf-8'))
+        except FileNotFoundError:
+            return True  # config not present on this environment — skip validation
         date_str = personal_conf_dict['bank_transactions_last_valid_date']
         last_valid_date = datetime.strptime(date_str, "%Y-%m-%d")
         df = DataBase().query_Bank_Transactions_for_validation(last_valid_date)

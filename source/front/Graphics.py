@@ -520,7 +520,6 @@ class Graphics:
 
         Amount spent in cash and the amount earned in cash in the given month will be returned.
         """
-        from pandasgui import show
         chart_name = "Cash_Distribution"
         chart_title = chart_name.replace('_', ' ')
         

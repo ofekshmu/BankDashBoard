@@ -9,7 +9,10 @@ from database import DataBase
 from front.Graphics import Graphics
 from src_utils.calculations import SimpleMath
 from src_utils.ExcelReader import ExcelManager
-from src_utils.AppManagerUtils import AppManagerUtils
+try:
+    from src_utils.AppManagerUtils import AppManagerUtils
+except ImportError:
+    AppManagerUtils = None  # type: ignore — local-only module, not available on server
 import webbrowser
 from Configurations.Formats import Formats, Context_class
 import pandas as pd

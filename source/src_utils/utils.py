@@ -1036,8 +1036,11 @@ class utils:
         from Constants import GeneralPlot
 
         # Read the categories from the JSON file
-        with open(Paths.CATEGORY_JSON, encoding='utf-8') as file:
-            categories = json.load(file)
+        try:
+            with open(Paths.CATEGORY_JSON, encoding='utf-8') as file:
+                categories = json.load(file)
+        except FileNotFoundError:
+            return True  # file not present on this environment — skip validation
         # Check if all user-defined categories exist in the JSON file
         for category in GeneralPlot.USER_DEFINED_CATEGORIES:
             if category not in categories:

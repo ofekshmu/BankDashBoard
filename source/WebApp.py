@@ -1005,6 +1005,11 @@ def _not_generated_category_html(slug: str, name: str = '') -> str:
 
 _READONLY_ACCOUNTS = ["נכס שלום שבזי"]
 _DB_PATH = os.path.join(_PROJECT_DIR, 'ShmuelFamiliy.db')
+# When DATABASE_URL is set (Vercel/PostgreSQL mode) the project dir is read-only;
+# direct sqlite3.connect(_DB_PATH) calls need a writable path — mirrors the same
+# DATABASE_URL guard already used in database.py DataBase.__new__().
+if os.getenv('DATABASE_URL'):
+    _DB_PATH = '/tmp/ShmuelFamiliy.db'
 
 
 def _acct_db():

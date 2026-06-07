@@ -3434,6 +3434,21 @@ def api_gym_update_participant(pid):
         conn.close()
 
 
+@app.route('/api/gym/participants/<int:pid>', methods=['DELETE'])
+def api_gym_delete_participant(pid):
+    conn = _gym_db()
+    try:
+        # Remove from sessions first to satisfy FK constraints
+        conn.execute("DELETE FROM GymSessionParticipants WHERE participant_id=?", (pid,))
+        conn.execute("DELETE FROM GymParticipants WHERE id=?", (pid,))
+        conn.commit()
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+    finally:
+        conn.close()
+
+
 @app.route('/api/gym/summary', methods=['GET'])
 def api_gym_summary():
     conn = _gym_db()

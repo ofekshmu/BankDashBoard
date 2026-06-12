@@ -244,9 +244,39 @@ input[type="date"].field-input{padding:0 10px;appearance:none;-webkit-appearance
 .split-lock-flash{animation:lockGlow .55s ease-out forwards}
 .split-lock-fail{animation:lockFail .55s ease-out forwards;border-color:var(--red) !important}
 .split-sum-error{border-color:var(--red) !important}
+html { overflow-x: hidden; -webkit-text-size-adjust: 100%; }
+body { overflow-x: hidden; }
+
+@media (max-width: 700px) {
+  .adv-inner { grid-template-columns: 1fr 1fr; }
+}
+
 @media (max-width: 600px) {
-  .main { padding: 56px 12px 80px !important; }
-  .page-header { padding-right: 0 !important; }
+  .main { padding: 0 12px 60px !important; }
+  .page-header { padding-top: 72px; padding-right: 0 !important; }
+
+  /* Search bar stacks vertically */
+  .search-bar { flex-direction: column; gap: 8px; }
+  .search-bar-cat { flex: unset; width: 100%; }
+
+  /* Buttons full-width row */
+  .btn-search,
+  .btn-reset { flex: 1; justify-content: center; }
+  .search-bar > .btn-search,
+  .search-bar > .btn-reset { width: 100%; }
+
+  /* Advanced grid → single column */
+  .adv-inner { grid-template-columns: 1fr; gap: 10px; }
+
+  /* Results table scrollable */
+  #results-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  /* Result cards adapt */
+  .rc-row { flex-wrap: wrap; gap: 6px; }
+  .rc-amount-block { min-width: unset; width: 100%; align-items: flex-start; }
+
+  /* Modal cap */
+  .s-modal { max-width: calc(100vw - 24px) !important; padding: 18px 16px !important; }
 }
 </style>
 <link rel="stylesheet" href="/design-system.css">

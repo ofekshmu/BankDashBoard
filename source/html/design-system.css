@@ -4,13 +4,14 @@
    ============================================================ */
 
 /* --- Google Fonts --- */
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;500&family=Syne:wght@600;700;800&display=swap');
 
 /* --- Design Tokens --- */
 :root {
   /* Typography */
-  --font-body: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
-  --font-mono: 'DM Mono', 'SF Mono', 'Fira Code', 'Courier New', monospace;
+  --font-body:    'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  --font-mono:    'JetBrains Mono', 'SF Mono', 'Fira Code', 'Courier New', monospace;
+  --font-display: 'Syne', -apple-system, BlinkMacSystemFont, sans-serif;
 
   /* Colors */
   --teal:        #1e9d8b;
@@ -66,18 +67,25 @@ input, select, textarea, button {
   font-size: 16px; /* prevent iOS zoom on inputs */
 }
 
-/* Monetary values — applied via .mono class or on elements with data-currency */
+/* Monetary values — table/inline amounts use JetBrains Mono */
 .mono,
 .amount,
 [data-currency],
 td.amount,
-.kpi-value,
 .stat-value,
 .debt-amount,
 .balance-amount {
   font-family: var(--font-mono) !important;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.01em;
+}
+
+/* Large KPI display values use Syne — bold, architectural, premium */
+.kpi-value,
+.kpi-val {
+  font-family: var(--font-display) !important;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
 }
 
 /* --- Background warm-up --- */

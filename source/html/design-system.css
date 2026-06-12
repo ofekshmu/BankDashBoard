@@ -9,8 +9,8 @@
 /* --- Design Tokens --- */
 :root {
   /* Typography */
-  --font-body: 'IBM Plex Sans', 'Segoe UI', Arial, sans-serif;
-  --font-mono: 'DM Mono', 'Courier New', monospace;
+  --font-body: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'DM Mono', 'SF Mono', 'Fira Code', 'Courier New', monospace;
 
   /* Colors */
   --teal:        #1e9d8b;
@@ -50,10 +50,20 @@
   box-sizing: border-box;
 }
 
+html {
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  overflow-x: hidden;
+}
+
 /* --- Global Font Override --- */
 body,
 input, select, textarea, button {
   font-family: var(--font-body) !important;
+  font-size: 16px; /* prevent iOS zoom on inputs */
 }
 
 /* Monetary values — applied via .mono class or on elements with data-currency */
@@ -75,80 +85,37 @@ body {
   background-color: var(--bg) !important;
 }
 
+/* Bottom nav removed — sidebar (☰) is the sole nav on all viewports */
+.bottom-nav { display: none !important; }
+
 /* ============================================================
-   BOTTOM NAV BAR (mobile only, ≤600px)
+   RESPONSIVE KPI CARDS (dashboard)
    ============================================================ */
-.bottom-nav {
-  display: none;
-}
-
 @media (max-width: 600px) {
-  .bottom-nav {
-    display: flex;
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    z-index: 9000;
-    background: var(--bg-white);
-    border-top: 1px solid var(--border);
-    box-shadow: 0 -2px 12px rgba(0,0,0,0.08);
-    padding: 0;
-    height: 60px;
-    align-items: stretch;
+  /* Hero card value — scale down so it never overflows */
+  .kpi-card.hero .kpi-value,
+  .kpi-card.hero .kpi-val {
+    font-size: clamp(1.5em, 9vw, 2.2em) !important;
+    word-break: break-all;
   }
 
-  .bottom-nav a,
-  .bottom-nav button {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 3px;
-    font-size: 0.62rem;
-    font-weight: 500;
-    color: var(--text-muted);
-    text-decoration: none;
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 6px 0;
-    transition: color var(--transition);
-    letter-spacing: 0.02em;
-    min-height: 44px;
+  /* Regular KPI values */
+  .kpi-value,
+  .kpi-val,
+  .stat-value {
+    font-size: clamp(1.2em, 6vw, 1.8em) !important;
+    word-break: break-all;
   }
 
-  .bottom-nav a .bnav-icon,
-  .bottom-nav button .bnav-icon {
-    font-size: 1.2rem;
-    line-height: 1;
+  /* Ensure KPI cards don't overflow their grid cell */
+  .kpi-card {
+    min-width: 0;
+    overflow: hidden;
   }
 
-  .bottom-nav a.active,
-  .bottom-nav a:hover,
-  .bottom-nav button:hover {
-    color: var(--teal);
-  }
-
-  .bottom-nav a.active .bnav-icon {
-    transform: scale(1.1);
-  }
-
-  /* Push page content above bottom nav */
-  body {
-    padding-bottom: 64px !important;
-  }
-
-  /* Hide hamburger button on mobile when bottom nav is present */
-  .ham-btn {
-    display: none !important;
-  }
-
-  /* Sidebar still usable via bottom nav ☰ tap */
-  .sidebar-overlay,
-  #sidebar {
-    z-index: 9100 !important;
+  /* Main content area padding — clear the page header / ham-btn */
+  .main {
+    padding: 0 12px 80px !important;
   }
 }
 

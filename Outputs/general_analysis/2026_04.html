@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html dir="rtl" lang="he">
  <head>
   <meta charset="utf-8"/>
@@ -15,6 +15,7 @@
   <style>
    /* ── Reset ──────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { overflow-x: hidden; -webkit-text-size-adjust: 100%; }
 
 /* ── Tokens ─────────────────────────────────────────────── */
 :root {
@@ -10952,28 +10953,6 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
 })();
   </script>
  <!-- ── Bottom navigation bar (mobile only) ───────────────── -->
-<nav class="bottom-nav" id="bottom-nav" aria-label="ניווט תחתון">
-  <a href="/" class="bottom-nav-item" data-page="dashboard">
-    <span class="bnav-icon">📊</span>
-    <span>ראשי</span>
-  </a>
-  <a href="/search" class="bottom-nav-item" data-page="search">
-    <span class="bnav-icon">🔍</span>
-    <span>חיפוש</span>
-  </a>
-  <a href="/bills" class="bottom-nav-item" data-page="bills">
-    <span class="bnav-icon">📋</span>
-    <span>חשבונות</span>
-  </a>
-  <a href="/gym" class="bottom-nav-item" data-page="gym">
-    <span class="bnav-icon">💪</span>
-    <span>כושר</span>
-  </a>
-  <button class="bottom-nav-item" onclick="toggleNav()" aria-label="תפריט">
-    <span class="bnav-icon">☰</span>
-    <span>תפריט</span>
-  </button>
-</nav>
 <script>
 (function(){
   var p = window.location.pathname;

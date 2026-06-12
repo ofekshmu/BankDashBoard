@@ -22,7 +22,7 @@
   --teal-light: #e8f7f5;
   --teal-glow:  rgba(30,157,139,0.30);
   --navy:       #1e2a4a;
-  --bg:         #f4f6f9;
+  --bg:         #f7f6f2;
   --white:      #ffffff;
   --border:     #eef0f6;
   --text-muted: #888;
@@ -39,7 +39,7 @@
 /* ── Base ────────────────────────────────────────────────── */
 @keyframes _pageIn { from { opacity: 0; } to { opacity: 1; } }
 body {
-  font-family: 'Segoe UI', Arial, sans-serif;
+  font-family: var(--font-body, 'Segoe UI', Arial, sans-serif);
   background: var(--bg);
   display: flex;
   min-height: 100vh;
@@ -127,6 +127,7 @@ body {
 .debug-fab{position:fixed;bottom:22px;right:18px;width:42px;height:42px;border-radius:50%;background:var(--navy);color:#fff;font-size:.72em;font-family:monospace;font-weight:700;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,0.3);z-index:997;letter-spacing:-.5px;}
 .debug-fab:hover{filter:brightness(1.2);}
 @media(max-width:768px){.debug-fab{bottom:84px;right:18px;}}
+@media(max-width:600px){.debug-fab{bottom:72px;right:12px;}}
 .debug-panel{position:fixed;bottom:72px;right:16px;width:480px;max-width:calc(100vw - 32px);height:340px;background:#12121f;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.55);z-index:996;display:none;flex-direction:column;overflow:hidden;font-family:monospace;}
 .debug-panel.open{display:flex;}
 @media(max-width:768px){.debug-panel{bottom:136px;right:8px;left:8px;width:auto;}}
@@ -175,6 +176,9 @@ body {
   flex: 1;
   padding: 0 28px 60px;
   min-width: 0;
+}
+@media (max-width: 600px) {
+  .main { padding: 0 12px 80px; }
 }
 
 /* ── Page header ─────────────────────────────────────────── */
@@ -1612,9 +1616,9 @@ body {
   </script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js">
   </script>
- <link rel="stylesheet" href="/design-system.css">
-</head>
- <body data-generated="08/06/2026 09:28" data-month="2026_05">
+  <link href="/design-system.css" rel="stylesheet"/>
+ </head>
+ <body data-generated="12/06/2026 12:53" data-month="2026_05">
   <!-- Hamburger -->
   <button aria-label="תפריט" class="ham-btn" id="ham-btn" onclick="toggleNav()">
    <svg fill="none" height="14" viewbox="0 0 18 14" width="18">
@@ -6291,7 +6295,7 @@ body {
          Cash
         </td>
         <td>
-         11,242.87₪
+         11,257.15₪
         </td>
         <td class="acct-rate-cell">
          —
@@ -6308,7 +6312,7 @@ body {
          —
         </td>
         <td>
-         2026-06-08
+         2026-06-12
         </td>
         <td class="acct-detail-cell">
          <svg class="acct-spark" height="22" viewbox="0 0 64 22" width="64" xmlns="http://www.w3.org/2000/svg">
@@ -6322,7 +6326,7 @@ body {
          סה"כ כללי
         </td>
         <td>
-         42,393.17₪
+         42,407.45₪
         </td>
         <td>
         </td>
@@ -6420,11 +6424,11 @@ body {
          $3,928.00
         </td>
         <td class="acct-rate-cell" data-rate-cur="USD">
-         2.94
+         2.95
         </td>
         <td class="acct-change-pos">
          <span>
-          +1,184₪
+          +1,188₪
          </span>
          <span class="acct-pct-badge acct-pct-pos">
           +11.4%
@@ -6438,7 +6442,7 @@ body {
         </td>
         <td class="acct-detail-cell">
          <svg class="acct-spark" height="22" viewbox="0 0 64 22" width="64" xmlns="http://www.w3.org/2000/svg">
-          <polyline fill="none" points="1.0,20.0 16.5,4.4 32.0,4.6 47.5,3.8 63.0,2.0" stroke="#43a047" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5">
+          <polyline fill="none" points="1.0,20.0 16.5,4.5 32.0,4.6 47.5,3.8 63.0,2.0" stroke="#43a047" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5">
           </polyline>
          </svg>
         </td>
@@ -6479,7 +6483,7 @@ body {
          סה"כ השקעות
         </td>
         <td>
-         386,906.09₪
+         386,940.17₪
         </td>
         <td>
         </td>
@@ -6497,7 +6501,7 @@ body {
          נדל"ן
         </td>
        </tr>
-       <tr class="acct-virtual acct-stale" title="עדכון אחרון: 2026-05-01 (38 ימים ללא עדכון) — מומלץ לעדכן את היתרה">
+       <tr class="acct-virtual acct-stale" title="עדכון אחרון: 2026-05-01 (42 ימים ללא עדכון) — מומלץ לעדכן את היתרה">
         <td>
          נכס שלום שבזי
         </td>
@@ -6556,7 +6560,7 @@ body {
          סה"כ כל החשבונות
         </td>
         <td>
-         715,323.26₪
+         715,371.62₪
         </td>
         <td>
         </td>
@@ -6586,7 +6590,7 @@ body {
   const ctx = document.getElementById('acct-chart-canvas').getContext('2d');
   new Chart(ctx, {
     type: 'line',
-    data: {"labels": ["2025-06-01", "2025-06-21", "2025-06-26", "2025-06-30", "2025-07-01", "2025-07-19", "2025-07-31", "2025-08-01", "2025-08-07", "2025-08-31", "2025-09-01", "2025-09-13", "2025-09-30", "2025-10-01", "2025-10-25", "2025-10-31", "2025-11-01", "2025-11-30", "2025-12-01", "2025-12-31", "2026-01-01", "2026-01-31", "2026-02-01", "2026-02-28", "2026-03-01", "2026-03-31", "2026-04-01", "2026-04-11", "2026-04-13", "2026-04-19", "2026-04-24", "2026-04-30", "2026-05-01", "2026-05-02", "2026-05-31", "2026-06-01", "2026-06-06", "2026-06-08"], "datasets": [{"label": "Main Bank", "data": [null, null, null, 19816.77, null, null, 33352.01, null, null, 53803.25, null, null, 54880.87, null, null, 52403.51, null, 37620.61, null, 27258.78, null, 28722.22, null, 31836.39, null, 45896.96, null, null, null, null, null, 23734.02, null, null, 31150.3, null, null, null], "borderColor": "#90caf9", "backgroundColor": "#90caf9", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "BTB", "data": [null, 161615.0, null, null, null, 162358.0, null, null, null, null, null, 163895.0, null, null, 165013.0, null, null, 166104.0, null, null, null, null, null, null, 168733.0, null, null, 169610.0, null, null, 169884.09, null, null, null, null, null, 161242.15, null], "borderColor": "#ffcc80", "backgroundColor": "#ffcc80", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "BeinLeumi Invest", "data": [null, null, 0.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], "borderColor": "#a5d6a7", "backgroundColor": "#a5d6a7", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Analyst", "data": [null, null, null, 114949.0, null, null, 148919.0, null, null, 151284.0, null, null, 157523.0, null, null, 161771.0, null, null, null, null, null, 173231.0, null, 174574.0, null, 168222.0, null, null, null, null, null, 184008.0, null, null, 191456.0, null, null, null], "borderColor": "#ef9a9a", "backgroundColor": "#ef9a9a", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Cash", "data": [0.0, null, null, null, 6000.0, null, null, 12000.0, null, null, -4155.0, null, null, -4055.0, null, null, -4055.0, null, -4055.0, null, -4055.0, null, -4055.0, null, -4055.0, null, -3855.0, null, null, null, null, null, 7242.87, null, null, 11242.87, null, 11242.87], "borderColor": "#ce93d8", "backgroundColor": "#ce93d8", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Altshuler", "data": [null, null, null, null, null, null, null, null, 0.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], "borderColor": "#b0bec5", "backgroundColor": "#b0bec5", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Interactive Brokers", "data": [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 0.0, 10000.0, 9908.82, null, null, 10368.82, null, null, 11552.94, null], "borderColor": "#f48fb1", "backgroundColor": "#f48fb1", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Analyst (Yuval)", "data": [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 20000.0, null, null, null, null, null, 22655.0, null, null, null], "borderColor": "#80deea", "backgroundColor": "#80deea", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Total", "data": [0.0, 161615.0, 161615.0, 296380.77, 302380.77, 303123.77, 350629.01, 595023.01, 595023.01, 617839.25, 606452.25, 607989.25, 615305.87, 620192.87, 621310.87, 623081.51, 627888.51, 614196.61, 619022.61, 608660.78, 613506.78, 626430.22, 631296.22, 635753.39, 643267.39, 650975.96, 656080.96, 656957.96, 676957.96, 686957.96, 687140.87, 680763.93, 700801.8, 701261.8, 718781.08, 722781.08, 715323.26, 715323.26], "borderColor": "#e6ee9c", "backgroundColor": "#e6ee9c", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "נכס שלום שבזי", "data": [null, null, null, null, null, null, null, 238394.0, null, null, 243162.0, null, null, 247949.0, null, null, 252756.0, null, 257582.0, null, 262428.0, null, 267294.0, null, 272179.0, null, 277084.0, null, null, null, null, null, 286024.0, null, null, null, null, null], "borderColor": "#ffab91", "backgroundColor": "#ffab91", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}]},
+    data: {"labels": ["2025-06-01", "2025-06-21", "2025-06-26", "2025-06-30", "2025-07-01", "2025-07-19", "2025-07-31", "2025-08-01", "2025-08-07", "2025-08-31", "2025-09-01", "2025-09-13", "2025-09-30", "2025-10-01", "2025-10-25", "2025-10-31", "2025-11-01", "2025-11-30", "2025-12-01", "2025-12-31", "2026-01-01", "2026-01-31", "2026-02-01", "2026-02-28", "2026-03-01", "2026-03-31", "2026-04-01", "2026-04-11", "2026-04-13", "2026-04-19", "2026-04-24", "2026-04-30", "2026-05-01", "2026-05-02", "2026-05-31", "2026-06-01", "2026-06-06", "2026-06-12"], "datasets": [{"label": "Main Bank", "data": [null, null, null, 19816.77, null, null, 33352.01, null, null, 53803.25, null, null, 54880.87, null, null, 52403.51, null, 37620.61, null, 27258.78, null, 28722.22, null, 31836.39, null, 45896.96, null, null, null, null, null, 23734.02, null, null, 31150.3, null, null, null], "borderColor": "#90caf9", "backgroundColor": "#90caf9", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "BTB", "data": [null, 161615.0, null, null, null, 162358.0, null, null, null, null, null, 163895.0, null, null, 165013.0, null, null, 166104.0, null, null, null, null, null, null, 168733.0, null, null, 169610.0, null, null, 169884.09, null, null, null, null, null, 161242.15, null], "borderColor": "#ffcc80", "backgroundColor": "#ffcc80", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "BeinLeumi Invest", "data": [null, null, 0.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], "borderColor": "#a5d6a7", "backgroundColor": "#a5d6a7", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Analyst", "data": [null, null, null, 114949.0, null, null, 148919.0, null, null, 151284.0, null, null, 157523.0, null, null, 161771.0, null, null, null, null, null, 173231.0, null, 174574.0, null, 168222.0, null, null, null, null, null, 184008.0, null, null, 191456.0, null, null, null], "borderColor": "#ef9a9a", "backgroundColor": "#ef9a9a", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Cash", "data": [0.0, null, null, null, 6000.0, null, null, 12000.0, null, null, -4155.0, null, null, -4055.0, null, null, -4055.0, null, -4055.0, null, -4055.0, null, -4055.0, null, -4055.0, null, -3855.0, null, null, null, null, null, 7257.15, null, null, 11257.15, null, 11257.15], "borderColor": "#ce93d8", "backgroundColor": "#ce93d8", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Altshuler", "data": [null, null, null, null, null, null, null, null, 0.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], "borderColor": "#b0bec5", "backgroundColor": "#b0bec5", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Interactive Brokers", "data": [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 0.0, 10000.0, 9938.05, null, null, 10399.41, null, null, 11587.02, null], "borderColor": "#f48fb1", "backgroundColor": "#f48fb1", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Analyst (Yuval)", "data": [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 20000.0, null, null, null, null, null, 22655.0, null, null, null], "borderColor": "#80deea", "backgroundColor": "#80deea", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Total", "data": [0.0, 161615.0, 161615.0, 296380.77, 302380.77, 303123.77, 350629.01, 595023.01, 595023.01, 617839.25, 606452.25, 607989.25, 615305.87, 620192.87, 621310.87, 623081.51, 627888.51, 614196.61, 619022.61, 608660.78, 613506.78, 626430.22, 631296.22, 635753.39, 643267.39, 650975.96, 656080.96, 656957.96, 676957.96, 686957.96, 687170.1, 680793.16, 700845.31, 701306.67, 718825.95, 722825.95, 715371.62, 715371.62], "borderColor": "#e6ee9c", "backgroundColor": "#e6ee9c", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "נכס שלום שבזי", "data": [null, null, null, null, null, null, null, 238394.0, null, null, 243162.0, null, null, 247949.0, null, null, 252756.0, null, 257582.0, null, 262428.0, null, 267294.0, null, 272179.0, null, 277084.0, null, null, null, null, null, 286024.0, null, null, null, null, null], "borderColor": "#ffab91", "backgroundColor": "#ffab91", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}]},
     options: {
       responsive: true,
       maintainAspectRatio: false,
@@ -11306,31 +11310,51 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   }, true);
 })();
   </script>
- <!-- ── Bottom navigation bar (mobile only) ───────────────── -->
-<nav class="bottom-nav" id="bottom-nav" aria-label="ניווט תחתון">
-  <a href="/" class="bottom-nav-item" data-page="dashboard">
-    <span class="bnav-icon">📊</span>
-    <span>ראשי</span>
-  </a>
-  <a href="/search" class="bottom-nav-item" data-page="search">
-    <span class="bnav-icon">🔍</span>
-    <span>חיפוש</span>
-  </a>
-  <a href="/bills" class="bottom-nav-item" data-page="bills">
-    <span class="bnav-icon">📋</span>
-    <span>חשבונות</span>
-  </a>
-  <a href="/gym" class="bottom-nav-item" data-page="gym">
-    <span class="bnav-icon">💪</span>
-    <span>כושר</span>
-  </a>
-  <button class="bottom-nav-item" onclick="toggleNav()" aria-label="תפריט">
-    <span class="bnav-icon">☰</span>
-    <span>תפריט</span>
-  </button>
-</nav>
-<script>
-(function(){
+  <!-- ── Bottom navigation bar (mobile only) ───────────────── -->
+  <nav aria-label="ניווט תחתון" class="bottom-nav" id="bottom-nav">
+   <a class="bottom-nav-item" data-page="dashboard" href="/">
+    <span class="bnav-icon">
+     📊
+    </span>
+    <span>
+     ראשי
+    </span>
+   </a>
+   <a class="bottom-nav-item" data-page="search" href="/search">
+    <span class="bnav-icon">
+     🔍
+    </span>
+    <span>
+     חיפוש
+    </span>
+   </a>
+   <a class="bottom-nav-item" data-page="bills" href="/bills">
+    <span class="bnav-icon">
+     📋
+    </span>
+    <span>
+     חשבונות
+    </span>
+   </a>
+   <a class="bottom-nav-item" data-page="gym" href="/gym">
+    <span class="bnav-icon">
+     💪
+    </span>
+    <span>
+     כושר
+    </span>
+   </a>
+   <button aria-label="תפריט" class="bottom-nav-item" onclick="toggleNav()">
+    <span class="bnav-icon">
+     ☰
+    </span>
+    <span>
+     תפריט
+    </span>
+   </button>
+  </nav>
+  <script>
+   (function(){
   var p = window.location.pathname;
   var map = {'dashboard':['/'],'search':['/search'],'bills':['/bills'],'gym':['/gym']};
   document.querySelectorAll('.bottom-nav-item[data-page]').forEach(function(el){
@@ -11338,5 +11362,6 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     if(pages && pages.indexOf(p) !== -1) el.classList.add('active');
   });
 })();
-</script></body>
+  </script>
+ </body>
 </html>

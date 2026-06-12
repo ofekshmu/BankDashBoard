@@ -40,57 +40,56 @@ body {
 /* ── Hamburger + slide-in nav ────────────────────────────── */
 .ham-btn {
   position: fixed;
-  top: 14px; right: 14px;
-  z-index: 500;
-  width: 36px; height: 36px;
+  top: 18px; right: 18px;
+  z-index: 400;
+  width: 42px; height: 42px;
   background: var(--white);
   border: 1.5px solid var(--border);
-  border-radius: 9px;
+  border-radius: 10px;
   display: flex; align-items: center; justify-content: center;
   cursor: pointer;
   color: var(--navy);
   box-shadow: var(--shadow-sm);
   transition: background .15s, color .15s, border-color .15s;
 }
-.ham-btn:hover { background: var(--teal); border-color: var(--teal); color: #fff; }
-.ham-btn.open { opacity: 0; pointer-events: none; }
+.ham-btn:hover { background: var(--teal-light); color: var(--teal); }
 .nav-overlay {
   position: fixed; inset: 0;
   background: rgba(15,22,45,.26);
-  z-index: 490; opacity: 0; pointer-events: none;
+  z-index: 390; opacity: 0; pointer-events: none;
   transition: opacity .22s ease;
 }
 .nav-overlay.open { opacity: 1; pointer-events: all; }
-.nav-sidebar {
+.sidebar {
   position: fixed; top: 0; right: 0;
   height: 100vh; width: 230px;
-  background: var(--white); z-index: 495;
+  background: var(--white); z-index: 395;
   transform: translate3d(100%, 0, 0);
   transition: transform .22s cubic-bezier(.4,0,.2,1);
   box-shadow: -4px 0 24px rgba(0,0,0,.09);
   display: flex; flex-direction: column;
 }
-.nav-sidebar.open { transform: translate3d(0, 0, 0); }
-.nav-sidebar-hdr {
+.sidebar.open { transform: translate3d(0, 0, 0); }
+.sidebar-header {
   display: flex; align-items: center;
-  padding: 18px 18px 14px;
+  padding: 20px 20px 16px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
-.nav-sidebar-hdr span { font-size: .95em; font-weight: 700; color: var(--navy); }
-.nav-close-btn {
+.sidebar-app-name { font-size: .95em; font-weight: 700; color: var(--navy); }
+.sidebar-close-btn {
   margin-right: auto; background: none; border: none;
   cursor: pointer; font-size: 1.1em; color: #555;
   padding: 4px 6px; border-radius: 6px;
   transition: background .12s, color .12s;
 }
-.nav-close-btn:hover { background: var(--teal-light); color: var(--teal); }
-.nav-scroll { flex: 1; overflow-y: auto; padding: 8px 0 16px; }
+.sidebar-close-btn:hover { background: var(--teal-light); color: var(--teal); }
+.sidebar-scroll { flex: 1; overflow-y: auto; padding: 8px 0 16px; }
 .sidebar-footer{padding:12px 16px;border-top:1px solid var(--border);flex-shrink:0}
 .nav-restart-btn{width:100%;padding:8px 12px;border:1.5px dashed var(--border);border-radius:8px;background:none;color:var(--text-muted);font-size:.78em;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:7px;justify-content:center;transition:background .15s,color .15s,border-color .15s}
 .nav-restart-btn:hover{background:#fff3f3;color:#e53935;border-color:#e53935}
 .nav-restart-btn:disabled{opacity:.5;cursor:default}
-.nav-link {
+.nav-item {
   display: flex; align-items: center;
   padding: 10px 20px;
   text-decoration: none; color: var(--text-sub);
@@ -98,15 +97,15 @@ body {
   transition: background .1s, color .1s;
   position: relative;
 }
-.nav-link::before {
+.nav-item::before {
   content: ''; position: absolute;
   right: 0; top: 22%; height: 56%;
   width: 3px; border-radius: 3px 0 0 3px;
   background: transparent; transition: background .1s;
 }
-.nav-link:hover { background: var(--teal-light); color: var(--teal); }
-.nav-link:hover::before { background: var(--teal); }
-.nav-link.active { color: #b8c0d0; cursor: default; pointer-events: none; }
+.nav-item:hover { background: var(--teal-light); color: var(--teal); }
+.nav-item:hover::before { background: var(--teal); }
+.nav-item.active { color: #b8c0d0; cursor: default; pointer-events: none; }
 .nav-sep { height: 1px; background: var(--border); margin: 8px 16px; }
 .nav-alert-dot {
   width: 8px; height: 8px;
@@ -744,25 +743,25 @@ body.resize-end    { cursor: ew-resize !important; }
 </button>
 
 <div class="nav-overlay" id="nav-overlay" onclick="toggleNav()"></div>
-<nav class="nav-sidebar" id="nav-sidebar">
-  <div class="nav-sidebar-hdr">
-    <span>Menu</span>
-    <button class="nav-close-btn" onclick="closeNav()" aria-label="סגור תפריט">✕</button>
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <span class="sidebar-app-name">Menu</span>
+    <button class="sidebar-close-btn" onclick="closeNav()" aria-label="סגור תפריט">✕</button>
   </div>
-  <div class="nav-scroll">
-    <a class="nav-link" href="/">ניתוח חודשי</a>
-    <a class="nav-link" href="/">עסקאות</a>
+  <div class="sidebar-scroll">
+    <a class="nav-item" href="/">ניתוח חודשי</a>
     <div class="nav-sep"></div>
-    <a class="nav-link" href="/accounts">חשבונות</a>
-    <a class="nav-link" href="/housing">דיור</a>
-    <a class="nav-link" href="/organizer">ארגונית</a>
-    <a class="nav-link active" href="/bills" id="nav-bills-link">מעקב חשבונות<span class="nav-alert-dot" id="nav-bills-dot" style="display:none"></span></a>
-    <a class="nav-link" href="/categories">ניתוח קטגוריאלי</a>
-    <a class="nav-link" href="/search">חיפוש</a>
-    <a class="nav-link" href="/spotify">Spotify Tracker</a>
+    <a class="nav-item" href="/accounts">חשבונות</a>
+    <a class="nav-item" href="/housing">דיור</a>
+    <a class="nav-item" href="/organizer">ארגונית</a>
+    <a class="nav-item active" href="/bills" id="nav-bills-link">מעקב חשבונות<span class="nav-alert-dot" id="nav-bills-dot" style="display:none"></span></a>
+    <a class="nav-item" href="/categories">ניתוח קטגוריאלי</a>
+    <a class="nav-item" href="/search">חיפוש</a>
+    <a class="nav-item" href="/spotify">Spotify Tracker</a>
+    <a class="nav-item" href="/gym">💪 Gym Tracker</a>
     <div class="nav-sep"></div>
-    <a class="nav-link" href="/tagger">תייגן</a>
-    <a class="nav-link" href="/files">קבצים</a>
+    <a class="nav-item" href="/tagger">תייגן</a>
+    <a class="nav-item" href="/files">קבצים</a>
   </div>
   <div class="sidebar-footer">
     <button class="nav-restart-btn" onclick="restartServer(this)">
@@ -3008,17 +3007,17 @@ function restartServer(btn) {
   });
 }
 function openNav() {
-  document.getElementById('nav-sidebar').classList.add('open');
+  document.getElementById('sidebar').classList.add('open');
   document.getElementById('nav-overlay').classList.add('open');
   document.getElementById('ham-btn').classList.add('open');
 }
 function closeNav() {
-  document.getElementById('nav-sidebar').classList.remove('open');
+  document.getElementById('sidebar').classList.remove('open');
   document.getElementById('nav-overlay').classList.remove('open');
   document.getElementById('ham-btn').classList.remove('open');
 }
 function toggleNav() {
-  document.getElementById('nav-sidebar').classList.contains('open') ? closeNav() : openNav();
+  document.getElementById('sidebar').classList.contains('open') ? closeNav() : openNav();
 }
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeNav(); });
 

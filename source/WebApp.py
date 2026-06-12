@@ -291,6 +291,13 @@ def index():
     return html, 200, {'Content-Type': 'text/html; charset=utf-8'}
 
 
+@app.route('/design-system.css')
+def serve_design_system():
+    """Serve the shared design system CSS file."""
+    css_path = os.path.join(_HERE, 'html', 'design-system.css')
+    return send_file(css_path, mimetype='text/css')
+
+
 @app.route('/outputs/<path:filename>')
 def serve_outputs(filename):
     """Serve static files from the Outputs directory (e.g. mortgage PNGs)."""

@@ -51,7 +51,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--na
 .legend-desc{color:var(--text-muted)}
 .ld-green{background:#22c55e}.ld-yellow{background:#f59e0b}.ld-red{background:#ef4444}
 .ld-blue{background:#3b82f6}.ld-blue2{background:#93c5fd}.ld-gray{background:#9ca3af}
-.table-section{background:var(--white);border-radius:var(--radius);border:1px solid var(--border);overflow:hidden}
+.table-section{background:var(--white);border-radius:var(--radius);border:1px solid var(--border)}
 .table-scroll{overflow-x:auto}
 table{border-collapse:collapse;width:100%;white-space:nowrap}
 .org-th{background:var(--navy);color:#fff;padding:13px 14px;text-align:center;font-size:.79em;font-weight:600;letter-spacing:.3px;position:sticky;top:0;z-index:10}
@@ -75,69 +75,38 @@ tbody tr:hover .org-td-date{background:#f8fffd !important}
 
 /* ── Mobile Responsive Design ──────────────────────────────────────────────── */
 @media (max-width: 768px) {
-    body {
-        padding: 10px;
-        font-size: 14px;
-    }
-
-    .container, .main-content {
-        padding: 10px;
-        margin: 0;
-    }
-
-    table {
-        font-size: 12px;
-        display: block;
-        overflow-x: auto;
-    }
-
-    th, td {
-        padding: 8px;
-    }
-
-    button, input, select {
-        padding: 12px;
-        font-size: 16px;
-        min-height: 44px;
-    }
-
-    .header, .sidebar, .navigation {
-        display: block;
-        width: 100%;
-    }
-
-    h1, h2, h3 {
-        font-size: 18px;
-        margin-bottom: 15px;
-    }
+  /* Keep table as table (not display:block) so sticky columns work */
+  .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .org-th, .org-td { font-size: 0.72em; padding: 7px 8px; min-width: 90px; }
+  .org-th-date, .org-td-date { min-width: 100px; font-size: 0.74em; }
+  .legend-grid { grid-template-columns: 1fr; gap: 8px; }
 }
 
-@media (max-width: 480px) {
-    body {
-        padding: 5px;
-        font-size: 12px;
-    }
-
-    table {
-        font-size: 10px;
-    }
-
-    th, td {
-        padding: 5px;
-    }
-
-    button, input, select {
-        width: 100%;
-        padding: 12px;
-        font-size: 16px;
-        margin-bottom: 10px;
-    }
-
-    h1, h2 {
-        font-size: 16px;
-    }
+@media (max-width: 600px) {
+  .org-th, .org-td { font-size: 0.68em; padding: 5px 6px; min-width: 72px; }
+  .org-th-date, .org-td-date { min-width: 86px; }
+  .org-cell-date { display: none; } /* hide date sub-label on small screens */
+  .page-header { flex-wrap: wrap; gap: 8px; padding-right: 0; }
+  .page-header h1 { font-size: 1.3em; }
+  .legend-card { padding: 14px 16px; }
+  /* Scroll hint */
+  .table-scroll::after {
+    content: '← גלול לראות עוד';
+    display: block;
+    text-align: center;
+    font-size: 0.72em;
+    color: #9aa3bb;
+    padding: 6px;
+    background: #f9fafb;
+    border-top: 1px solid #eef0f6;
+  }
+}
+@media (max-width: 600px) {
+  .main { padding: 56px 12px 80px !important; }
+  .page-header { padding-right: 0 !important; }
 }
 </style>
+<link rel="stylesheet" href="/design-system.css">
 </head>
 <body data-generated="06/06/2026 16:54">
 <button class="ham-btn" id="ham-btn" onclick="toggleNav()" aria-label="תפריט">
@@ -272,5 +241,37 @@ function regenerate() {
   es.onerror = function() { es.close(); location.reload(); };
 }
 </script>
-</body>
+<!-- ── Bottom navigation bar (mobile only) ───────────────── -->
+<nav class="bottom-nav" id="bottom-nav" aria-label="ניווט תחתון">
+  <a href="/" class="bottom-nav-item" data-page="dashboard">
+    <span class="bnav-icon">📊</span>
+    <span>ראשי</span>
+  </a>
+  <a href="/search" class="bottom-nav-item" data-page="search">
+    <span class="bnav-icon">🔍</span>
+    <span>חיפוש</span>
+  </a>
+  <a href="/bills" class="bottom-nav-item" data-page="bills">
+    <span class="bnav-icon">📋</span>
+    <span>חשבונות</span>
+  </a>
+  <a href="/gym" class="bottom-nav-item" data-page="gym">
+    <span class="bnav-icon">💪</span>
+    <span>כושר</span>
+  </a>
+  <button class="bottom-nav-item" onclick="toggleNav()" aria-label="תפריט">
+    <span class="bnav-icon">☰</span>
+    <span>תפריט</span>
+  </button>
+</nav>
+<script>
+(function(){
+  var p = window.location.pathname;
+  var map = {'dashboard':['/'],'search':['/search'],'bills':['/bills'],'gym':['/gym']};
+  document.querySelectorAll('.bottom-nav-item[data-page]').forEach(function(el){
+    var pages = map[el.dataset.page];
+    if(pages && pages.indexOf(p) !== -1) el.classList.add('active');
+  });
+})();
+</script></body>
 </html>

@@ -141,7 +141,12 @@ td.pos{color:var(--teal);font-weight:600}td.neg{color:var(--red);font-weight:600
   .rec-detail{margin-right:0}
   th,td{padding:.55rem .65rem;font-size:.78rem}
 }
+@media (max-width: 600px) {
+  .main { padding: 56px 12px 80px !important; }
+  .page-header { padding-right: 0 !important; }
+}
 </style>
+<link rel="stylesheet" href="/design-system.css">
 </head>
 <body>
 
@@ -522,5 +527,37 @@ document.addEventListener('keydown', e => { if(e.key==='Escape') closeNav(); });
 
 load();
 </script>
-</body>
+<!-- ── Bottom navigation bar (mobile only) ───────────────── -->
+<nav class="bottom-nav" id="bottom-nav" aria-label="ניווט תחתון">
+  <a href="/" class="bottom-nav-item" data-page="dashboard">
+    <span class="bnav-icon">📊</span>
+    <span>ראשי</span>
+  </a>
+  <a href="/search" class="bottom-nav-item" data-page="search">
+    <span class="bnav-icon">🔍</span>
+    <span>חיפוש</span>
+  </a>
+  <a href="/bills" class="bottom-nav-item" data-page="bills">
+    <span class="bnav-icon">📋</span>
+    <span>חשבונות</span>
+  </a>
+  <a href="/gym" class="bottom-nav-item" data-page="gym">
+    <span class="bnav-icon">💪</span>
+    <span>כושר</span>
+  </a>
+  <button class="bottom-nav-item" onclick="toggleNav()" aria-label="תפריט">
+    <span class="bnav-icon">☰</span>
+    <span>תפריט</span>
+  </button>
+</nav>
+<script>
+(function(){
+  var p = window.location.pathname;
+  var map = {'dashboard':['/'],'search':['/search'],'bills':['/bills'],'gym':['/gym']};
+  document.querySelectorAll('.bottom-nav-item[data-page]').forEach(function(el){
+    var pages = map[el.dataset.page];
+    if(pages && pages.indexOf(p) !== -1) el.classList.add('active');
+  });
+})();
+</script></body>
 </html>

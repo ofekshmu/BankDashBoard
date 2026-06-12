@@ -20,7 +20,7 @@
   --teal-light: #e8f7f5;
   --teal-glow:  rgba(30,157,139,0.30);
   --navy:       #1e2a4a;
-  --bg:         #f4f6f9;
+  --bg:         #f7f6f2;
   --white:      #ffffff;
   --border:     #eef0f6;
   --text-muted: #888;
@@ -37,7 +37,7 @@
 /* ── Base ────────────────────────────────────────────────── */
 @keyframes _pageIn { from { opacity: 0; } to { opacity: 1; } }
 body {
-  font-family: 'Segoe UI', Arial, sans-serif;
+  font-family: var(--font-body, 'Segoe UI', Arial, sans-serif);
   background: var(--bg);
   display: flex;
   min-height: 100vh;
@@ -125,6 +125,7 @@ body {
 .debug-fab{position:fixed;bottom:22px;right:18px;width:42px;height:42px;border-radius:50%;background:var(--navy);color:#fff;font-size:.72em;font-family:monospace;font-weight:700;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,0.3);z-index:997;letter-spacing:-.5px;}
 .debug-fab:hover{filter:brightness(1.2);}
 @media(max-width:768px){.debug-fab{bottom:84px;right:18px;}}
+@media(max-width:600px){.debug-fab{bottom:72px;right:12px;}}
 .debug-panel{position:fixed;bottom:72px;right:16px;width:480px;max-width:calc(100vw - 32px);height:340px;background:#12121f;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.55);z-index:996;display:none;flex-direction:column;overflow:hidden;font-family:monospace;}
 .debug-panel.open{display:flex;}
 @media(max-width:768px){.debug-panel{bottom:136px;right:8px;left:8px;width:auto;}}
@@ -173,6 +174,9 @@ body {
   flex: 1;
   padding: 0 28px 60px;
   min-width: 0;
+}
+@media (max-width: 600px) {
+  .main { padding: 0 12px 80px; }
 }
 
 /* ── Page header ─────────────────────────────────────────── */
@@ -1609,6 +1613,7 @@ body {
 </style>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+<link rel="stylesheet" href="/design-system.css">
 </head>
 <body>
 
@@ -4086,6 +4091,40 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     tip.style.top = '';
     tip.style.bottom = '';
   }, true);
+})();
+</script>
+
+<!-- ── Bottom navigation bar (mobile only) ───────────────── -->
+<nav class="bottom-nav" id="bottom-nav" aria-label="ניווט תחתון">
+  <a href="/" class="bottom-nav-item" data-page="dashboard">
+    <span class="bnav-icon">📊</span>
+    <span>ראשי</span>
+  </a>
+  <a href="/search" class="bottom-nav-item" data-page="search">
+    <span class="bnav-icon">🔍</span>
+    <span>חיפוש</span>
+  </a>
+  <a href="/bills" class="bottom-nav-item" data-page="bills">
+    <span class="bnav-icon">📋</span>
+    <span>חשבונות</span>
+  </a>
+  <a href="/gym" class="bottom-nav-item" data-page="gym">
+    <span class="bnav-icon">💪</span>
+    <span>כושר</span>
+  </a>
+  <button class="bottom-nav-item" onclick="toggleNav()" aria-label="תפריט">
+    <span class="bnav-icon">☰</span>
+    <span>תפריט</span>
+  </button>
+</nav>
+<script>
+(function(){
+  var p = window.location.pathname;
+  var map = {'dashboard':['/'],'search':['/search'],'bills':['/bills'],'gym':['/gym']};
+  document.querySelectorAll('.bottom-nav-item[data-page]').forEach(function(el){
+    var pages = map[el.dataset.page];
+    if(pages && pages.indexOf(p) !== -1) el.classList.add('active');
+  });
 })();
 </script>
 </body>

@@ -1051,10 +1051,17 @@ body {
   background: #f0f2f8; border-radius: 10px;
   padding: 2px 7px; white-space: nowrap;
   text-align: center; overflow: hidden; text-overflow: ellipsis;
+  order: 5;
 }
 .num .element4 {
   font-size: 0.69em; color: #b0b8cc;
   text-align: center; white-space: nowrap;
+  order: 4;
+}
+@media (max-width: 560px) {
+  .num { grid-template-columns: 6px 1fr 90px; gap: 6px; padding: 8px 4px; }
+  .num .cat, .num .element4 { display: none; }
+  .num .date { font-size: 0.82em; }
 }
 
 /* Mobile: compact transaction rows */

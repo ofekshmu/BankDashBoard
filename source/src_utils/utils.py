@@ -660,8 +660,12 @@ class utils:
         accounts_plot_div = soup.find('div', class_='container_img', style='margin-top: 50px;')
         soup.body.insert(soup.body.contents.index(accounts_plot_div) + 1, accounts_summary_div)
 
+        html_content = bs4.BeautifulSoup.prettify(soup)
         with open(r"source\html\output.html", "w", encoding='utf-8') as outf:
-            outf.write(bs4.BeautifulSoup.prettify(soup))
+            outf.write(html_content)
+        dashboard_path = rf"source\html\dashboard_{year}_{month_num:02d}.html"
+        with open(dashboard_path, "w", encoding='utf-8') as outf:
+            outf.write(html_content)
 
     @staticmethod
     def template_menu(options: list[str], msg: str = "Choose one of the following:\n", exit: bool = False, sort: bool = False, col_space: int = 27, row_count: int = 6 ) -> int:

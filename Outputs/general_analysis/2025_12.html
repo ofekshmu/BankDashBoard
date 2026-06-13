@@ -93,7 +93,7 @@ body {
 .nav-overlay {
   position: fixed; inset: 0;
   background: rgba(15,22,45,.26);
-  z-index: 390;
+  z-index: 1000;
   opacity: 0; pointer-events: none;
   transition: opacity .22s ease;
 }
@@ -103,7 +103,7 @@ body {
   top: 0; right: 0;
   height: 100vh; width: 230px;
   background: var(--white);
-  z-index: 395;
+  z-index: 1002;
   transform: translate3d(100%, 0, 0);
   transition: transform .22s cubic-bezier(.4,0,.2,1);
   will-change: transform;
@@ -926,7 +926,10 @@ body {
 
 /* ── Transaction panels ──────────────────────────────────── */
 .tx-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-@media (max-width: 900px) { .tx-grid { grid-template-columns: 1fr; } }
+@media (max-width: 900px) {
+  .tx-grid { grid-template-columns: 1fr; }
+  .tx-grid > .card { min-width: 0; overflow-x: hidden; }
+}
 
 .tx-toolbar {
   display: flex; align-items: center; gap: 8px;
@@ -1019,6 +1022,14 @@ body {
 .num .element4 {
   font-size: 0.69em; color: #b0b8cc;
   text-align: center; white-space: nowrap;
+}
+
+/* Mobile: compact transaction rows */
+@media (max-width: 540px) {
+  .num { grid-template-columns: 6px 1fr 68px 52px; gap: 6px; padding: 8px 4px; }
+  .num .element4 { display: none; }
+  .num .date { font-size: 0.72em; }
+  .num .cat { font-size: 0.62em; padding: 2px 4px; }
 }
 
 /* ── Transaction split ───────────────────────────────────── */
@@ -1383,6 +1394,12 @@ body {
 .acct-wrap tr.acct-stale td:first-child::before {
   content: "⚠ "; color: #f0b429; font-size: 0.85em;
 }
+/* ── Accounts table — mobile horizontal scroll ───────────── */
+@media (max-width: 700px) {
+  .acct-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .acct-wrap table { min-width: 480px; }
+  .acct-detail-cell { display: none; }
+}
 /* Sparkline SVG */
 .acct-spark { display: block; overflow: visible; }
 /* Toggle button */
@@ -1614,6 +1631,17 @@ body {
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js">
   </script>
  <link rel="stylesheet" href="/design-system.css">
+<style>
+/* Housing tables — mobile scroll fix */
+@media (max-width: 700px) {
+  .milestone-table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .housing-txn table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+}
+</style>
 </head>
  <body data-generated="07/06/2026 23:36" data-month="2025_12">
   <!-- Hamburger -->
@@ -1631,9 +1659,7 @@ body {
   </div>
   <nav class="sidebar" id="sidebar">
    <div class="sidebar-header">
-    <span class="sidebar-app-name">
-     Menu
-    </span>
+    <span class="sidebar-app-name">ניהול כספים</span>
     <button aria-label="סגור תפריט" class="sidebar-close-btn" onclick="closeNav()">
      ✕
     </button>

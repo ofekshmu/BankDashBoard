@@ -1,4 +1,5 @@
-﻿<!DOCTYPE html>
+﻿
+<!DOCTYPE html>
 <html dir="rtl" lang="he">
  <head>
   <meta charset="utf-8"/>
@@ -15,6 +16,7 @@
   <style>
    /* ── Reset ──────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { overflow-x: hidden; -webkit-text-size-adjust: 100%; }
 
 /* ── Tokens ─────────────────────────────────────────────── */
 :root {
@@ -46,6 +48,7 @@ body {
   direction: rtl;
   color: var(--navy);
   font-size: 14px;
+  overflow-x: hidden;
   animation: _pageIn 0.22s ease;
 }
 
@@ -92,7 +95,7 @@ body {
 .nav-overlay {
   position: fixed; inset: 0;
   background: rgba(15,22,45,.26);
-  z-index: 390;
+  z-index: 1000;
   opacity: 0; pointer-events: none;
   transition: opacity .22s ease;
 }
@@ -102,7 +105,7 @@ body {
   top: 0; right: 0;
   height: 100vh; width: 230px;
   background: var(--white);
-  z-index: 395;
+  z-index: 1002;
   transform: translate3d(100%, 0, 0);
   transition: transform .22s cubic-bezier(.4,0,.2,1);
   will-change: transform;
@@ -126,8 +129,7 @@ body {
 /* ── Debug log panel ─────────────────────────────────────── */
 .debug-fab{position:fixed;bottom:22px;right:18px;width:42px;height:42px;border-radius:50%;background:var(--navy);color:#fff;font-size:.72em;font-family:monospace;font-weight:700;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,0.3);z-index:997;letter-spacing:-.5px;}
 .debug-fab:hover{filter:brightness(1.2);}
-@media(max-width:768px){.debug-fab{bottom:84px;right:18px;}}
-@media(max-width:600px){.debug-fab{bottom:72px;right:12px;}}
+@media(max-width:768px){.debug-fab{bottom:88px;right:18px;}}
 .debug-panel{position:fixed;bottom:72px;right:16px;width:480px;max-width:calc(100vw - 32px);height:340px;background:#12121f;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.55);z-index:996;display:none;flex-direction:column;overflow:hidden;font-family:monospace;}
 .debug-panel.open{display:flex;}
 @media(max-width:768px){.debug-panel{bottom:136px;right:8px;left:8px;width:auto;}}
@@ -635,6 +637,32 @@ body {
 .milestone-table tr.track-total td { font-weight: 700; background: var(--bg); border-top: 2px solid var(--border); }
 .milestone-table tr:hover td { background: #f0f7ff; }
 
+/* ── Housing: mobile responsive ─────────────────────────── */
+@media (max-width: 700px) {
+  .housing-2col-row,
+  .housing-3col-row { grid-template-columns: 1fr; }
+
+  .equity-dual-row { flex-direction: column; }
+  .equity-dual-col:first-child {
+    border-left: none;
+    border-bottom: 1.5px solid var(--border);
+    padding: 0 0 14px 0;
+    margin-bottom: 14px;
+  }
+  .equity-dual-col { padding: 0; }
+
+  .housing-balance-row .kpi-card .kpi-value { font-size: 1.6em; }
+
+  .housing-txn table,
+  .milestone-table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .rate-control-top { flex-direction: column; align-items: flex-start; gap: 6px; }
+}
+
 /* ── Panels ──────────────────────────────────────────────── */
 .panel { display: none; animation: fadein 0.22s ease; }
 .panel.active { display: block; }
@@ -929,7 +957,10 @@ body {
 
 /* ── Transaction panels ──────────────────────────────────── */
 .tx-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-@media (max-width: 900px) { .tx-grid { grid-template-columns: 1fr; } }
+@media (max-width: 900px) {
+  .tx-grid { grid-template-columns: 1fr; }
+  .tx-grid > .card { min-width: 0; overflow-x: hidden; }
+}
 
 .tx-toolbar {
   display: flex; align-items: center; gap: 8px;
@@ -1022,6 +1053,14 @@ body {
 .num .element4 {
   font-size: 0.69em; color: #b0b8cc;
   text-align: center; white-space: nowrap;
+}
+
+/* Mobile: compact transaction rows */
+@media (max-width: 540px) {
+  .num { grid-template-columns: 6px 1fr 68px 52px; gap: 6px; padding: 8px 4px; }
+  .num .element4 { display: none; }
+  .num .date { font-size: 0.72em; }
+  .num .cat { font-size: 0.62em; padding: 2px 4px; }
 }
 
 /* ── Transaction split ───────────────────────────────────── */
@@ -1386,6 +1425,12 @@ body {
 .acct-wrap tr.acct-stale td:first-child::before {
   content: "⚠ "; color: #f0b429; font-size: 0.85em;
 }
+/* ── Accounts table — mobile horizontal scroll ───────────── */
+@media (max-width: 700px) {
+  .acct-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .acct-wrap table { min-width: 480px; }
+  .acct-detail-cell { display: none; }
+}
 /* Sparkline SVG */
 .acct-spark { display: block; overflow: visible; }
 /* Toggle button */
@@ -1618,7 +1663,7 @@ body {
   </script>
   <link href="/design-system.css" rel="stylesheet"/>
  </head>
- <body data-generated="12/06/2026 13:10" data-month="2026_06">
+ <body data-generated="12/06/2026 14:20" data-month="2026_06">
   <!-- Hamburger -->
   <button aria-label="תפריט" class="ham-btn" id="ham-btn" onclick="toggleNav()">
    <svg fill="none" height="14" viewbox="0 0 18 14" width="18">
@@ -1635,7 +1680,7 @@ body {
   <nav class="sidebar" id="sidebar">
    <div class="sidebar-header">
     <span class="sidebar-app-name">
-     Menu
+     ניהול כספים
     </span>
     <button aria-label="סגור תפריט" class="sidebar-close-btn" onclick="closeNav()">
      ✕
@@ -8261,6 +8306,5 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   }, true);
 })();
   </script>
-  
  </body>
 </html>

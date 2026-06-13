@@ -187,7 +187,7 @@ body {
   padding-top: 26px;
   padding-right: 62px; /* clear fixed ham-btn */
 }
-.page-header h1 { font-size: 1.85em; font-weight: 700; color: var(--navy); }
+.page-header h1 { font-size: 1.85em; font-weight: 700; color: var(--navy); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .month-badge {
   background: var(--teal); color: #fff;
   padding: 6px 18px; border-radius: 20px;
@@ -1715,8 +1715,7 @@ body {
   </div>
   <nav class="sidebar" id="sidebar">
    <div class="sidebar-header">
-    <img src="/favicon.svg" alt="BankDash" style="width:28px;height:28px;border-radius:7px;flex-shrink:0;">
-    <span class="sidebar-app-name">ניהול כספים</span>
+    <span class="sidebar-app-name">BankDash</span>
     <button aria-label="סגור תפריט" class="sidebar-close-btn" onclick="closeNav()">
      ✕
     </button>

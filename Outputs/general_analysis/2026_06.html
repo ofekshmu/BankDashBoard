@@ -7,6 +7,8 @@
   <title id="page-title">
    Dashboard — June 2026
   </title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="alternate icon" href="/favicon.ico">
   <script>
    (function(){
   var p=window.location.pathname;
@@ -114,7 +116,7 @@ body {
 }
 .sidebar.open { transform: translate3d(0, 0, 0); }
 .sidebar-header {
-  display: flex; align-items: center;
+  display: flex; align-items: center; gap: 9px;
   padding: 20px 20px 16px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
@@ -1662,7 +1664,54 @@ body {
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js">
   </script>
   <link href="/design-system.css" rel="stylesheet"/>
- </head>
+ <style>
+/* ── Transaction detail bottom-sheet (mobile) ─────────────── */
+.tx-detail-overlay {
+  position: fixed; inset: 0;
+  background: rgba(15,22,45,.45);
+  z-index: 1200;
+  display: none; align-items: flex-end; justify-content: center;
+  touch-action: none;
+}
+.tx-detail-overlay.open { display: flex; }
+.tx-detail-sheet {
+  width: 100%; max-width: 520px;
+  background: var(--white);
+  border-radius: 20px 20px 0 0;
+  padding: 12px 20px 36px;
+  box-shadow: 0 -8px 32px rgba(0,0,0,.14);
+  animation: _txSlide .22s ease;
+  max-height: 80vh; overflow-y: auto;
+}
+@keyframes _txSlide { from { transform: translateY(50px); opacity:0; } to { transform:translateY(0); opacity:1; } }
+.tx-detail-handle { width:36px; height:4px; border-radius:2px; background:#d0d4e0; margin:0 auto 14px; }
+.tx-detail-top { display:flex; align-items:flex-start; gap:12px; margin-bottom:14px; padding-bottom:14px; border-bottom:1px solid var(--border); }
+.tx-detail-color { width:6px; min-height:52px; border-radius:4px; flex-shrink:0; }
+.tx-detail-names { flex:1; min-width:0; }
+.tx-detail-primary { font-size:1.0em; font-weight:700; color:var(--navy); line-height:1.35; }
+.tx-detail-secondary { font-size:0.78em; color:var(--text-muted); margin-top:3px; }
+.tx-detail-tid { font-size:0.68em; color:#c5ccd8; font-family:monospace; margin-top:2px; }
+.tx-detail-amount { font-size:1.55em; font-weight:800; flex-shrink:0; color:var(--red); }
+.tx-detail-amount.income { color:var(--green); }
+.tx-detail-rows { display:flex; flex-direction:column; gap:9px; margin-bottom:18px; }
+.tx-detail-row { display:flex; justify-content:space-between; align-items:center; font-size:0.855em; }
+.tx-detail-lbl { color:var(--text-muted); font-weight:500; }
+.tx-detail-val { font-weight:600; color:var(--navy); }
+.tx-detail-chip { background:#f0f2f8; border-radius:10px; padding:3px 10px; }
+.tx-detail-actions { display:flex; gap:10px; }
+.tx-detail-split-btn { flex:1; padding:13px; border-radius:10px; background:var(--teal); color:#fff; border:none; font-size:0.9em; font-weight:700; cursor:pointer; font-family:inherit; }
+.tx-detail-split-btn:active { filter:brightness(.9); }
+.tx-detail-close-btn { padding:13px 18px; border-radius:10px; background:var(--bg); color:var(--text-sub); border:1.5px solid var(--border); font-size:0.9em; font-weight:600; cursor:pointer; font-family:inherit; }
+.tx-detail-close-btn:active { background:var(--border); }
+.cat-pills-toggle-btn {
+  font-size:0.74em; color:var(--teal); cursor:pointer; font-weight:600;
+  padding:3px 9px; border-radius:8px; background:var(--teal-light);
+  border:none; font-family:inherit; white-space:nowrap; flex-shrink:0;
+}
+.cat-pills-toggle-btn:hover { background:var(--teal); color:#fff; }
+.cat-pill.pills-hidden { display:none; }
+</style>
+</head>
  <body data-generated="12/06/2026 14:20" data-month="2026_06">
   <!-- Hamburger -->
   <button aria-label="תפריט" class="ham-btn" id="ham-btn" onclick="toggleNav()">
@@ -1679,6 +1728,7 @@ body {
   </div>
   <nav class="sidebar" id="sidebar">
    <div class="sidebar-header">
+    <img src="/favicon.svg" alt="BankDash" style="width:28px;height:28px;border-radius:7px;flex-shrink:0;">
     <span class="sidebar-app-name">
      ניהול כספים
     </span>
@@ -8306,5 +8356,121 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   }, true);
 })();
   </script>
- </body>
+ <script>
+(function() {
+  var overlay = document.createElement('div');
+  overlay.id = 'tx-detail-overlay';
+  overlay.className = 'tx-detail-overlay';
+  overlay.innerHTML =
+    '<div class="tx-detail-sheet" id="tx-detail-sheet">' +
+      '<div class="tx-detail-handle"></div>' +
+      '<div class="tx-detail-top">' +
+        '<div class="tx-detail-color" id="tx-dc"></div>' +
+        '<div class="tx-detail-names">' +
+          '<div class="tx-detail-primary" id="tx-dp"></div>' +
+          '<div class="tx-detail-secondary" id="tx-ds" style="display:none"></div>' +
+          '<div class="tx-detail-tid" id="tx-di"></div>' +
+        '</div>' +
+        '<div class="tx-detail-amount" id="tx-da"></div>' +
+      '</div>' +
+      '<div class="tx-detail-rows">' +
+        '<div class="tx-detail-row"><span class="tx-detail-lbl">תאריך</span><span class="tx-detail-val" id="tx-ddate"></span></div>' +
+        '<div class="tx-detail-row"><span class="tx-detail-lbl">קטגוריה</span><span class="tx-detail-val tx-detail-chip" id="tx-dcat"></span></div>' +
+        '<div class="tx-detail-row"><span class="tx-detail-lbl">חשבון</span><span class="tx-detail-val" id="tx-dacct"></span></div>' +
+      '</div>' +
+      '<div class="tx-detail-actions">' +
+        '<button class="tx-detail-split-btn" id="tx-dsplit">✂ פיצול עסקה</button>' +
+        '<button class="tx-detail-close-btn" id="tx-dclose">סגור</button>' +
+      '</div>' +
+    '</div>';
+  document.body.appendChild(overlay);
+  var _pendingRow = null;
+  function openDetail(row) {
+    _pendingRow = row;
+    var _t = function(sel) { var el = row.querySelector(sel); return el ? el.textContent.trim() : ''; };
+    var primary   = _t('.tx-primary');
+    var secondary = _t('.tx-secondary');
+    var txId      = _t('.tx-id');
+    var amount    = _t('.date');
+    var cat       = _t('.cat');
+    var date      = _t('.element4');
+    var _cb = row.querySelector('.color-box');
+    var colorBg   = _cb ? _cb.style.backgroundColor : '';
+    var tbl = row.getAttribute('data-tx-table') || '';
+    var isIncome = !!row.closest('#earnings-list');
+    document.getElementById('tx-dc').style.backgroundColor = colorBg;
+    document.getElementById('tx-dp').textContent = primary;
+    var secEl = document.getElementById('tx-ds');
+    secEl.textContent = secondary; secEl.style.display = secondary ? '' : 'none';
+    document.getElementById('tx-di').textContent = txId;
+    var amtEl = document.getElementById('tx-da');
+    amtEl.textContent = amount;
+    amtEl.className = 'tx-detail-amount' + (isIncome ? ' income' : '');
+    document.getElementById('tx-ddate').textContent = date || 'אין מידע';
+    document.getElementById('tx-dcat').textContent = cat || '—';
+    document.getElementById('tx-dacct').textContent = tbl === 'BankTransactions' ? 'חשבון בנק' : tbl === 'CardTransactions' ? 'כרטיס אשראי' : 'מזומן';
+    document.getElementById('tx-dsplit').style.display = (tbl === 'CashTransactions' || !tbl) ? 'none' : '';
+    overlay.classList.add('open');
+  }
+  function closeDetail() { overlay.classList.remove('open'); _pendingRow = null; }
+  document.getElementById('tx-dclose').addEventListener('click', closeDetail);
+  overlay.addEventListener('click', function(e) { if (e.target === overlay) closeDetail(); });
+  document.getElementById('tx-dsplit').addEventListener('click', function() {
+    var row = _pendingRow; closeDetail(); if (row) _handleTxClick(row);
+  });
+  var _origClick = window._handleTxClick;
+  window._handleTxClick = function(row) {
+    if (window.matchMedia('(max-width: 768px)').matches) { openDetail(row); } else { _origClick(row); }
+  };
+})();
+(function() {
+  var SHOW = 6;
+  ['spendings-cats', 'earnings-cats'].forEach(function(cid) {
+    var container = document.getElementById(cid);
+    if (!container) return;
+    var pills = Array.from(container.querySelectorAll('.cat-pill'));
+    if (pills.length <= SHOW) return;
+    pills.slice(SHOW).forEach(function(p) { p.classList.add('pills-hidden'); });
+    var btn = document.createElement('button');
+    btn.className = 'cat-pills-toggle-btn';
+    var extra = pills.length - SHOW;
+    btn.textContent = '+ ' + extra + ' עוד';
+    var open = false;
+    btn.onclick = function() {
+      open = !open;
+      pills.slice(SHOW).forEach(function(p) { p.classList.toggle('pills-hidden', !open); });
+      btn.textContent = open ? '▲ פחות' : ('+ ' + extra + ' עוד');
+    };
+    container.appendChild(btn);
+  });
+})();
+(function() {
+  var roller = document.getElementById('month-roller');
+  var track = document.getElementById('roller-track');
+  if (!roller || !track) return;
+  var startX = 0, startIdx = 0, dragging = false, moved = false;
+  roller.addEventListener('pointerdown', function(e) {
+    if (e.pointerType === 'mouse') return;
+    startX = e.clientX; startIdx = typeof _viewCenterIdx !== 'undefined' ? _viewCenterIdx : 0;
+    dragging = true; moved = false; roller.setPointerCapture(e.pointerId);
+  }, { passive: false });
+  roller.addEventListener('pointermove', function(e) {
+    if (!dragging) return;
+    var dx = startX - e.clientX;
+    if (Math.abs(dx) > 4) moved = true;
+    var IW = typeof _ITEM_W !== 'undefined' ? _ITEM_W : 130;
+    var maxIdx = (typeof _rollerItems !== 'undefined' ? _rollerItems.length : 43) - 1;
+    _viewCenterIdx = Math.max(0, Math.min(maxIdx, Math.round(startIdx + dx / IW)));
+    _positionTrack(false);
+  }, { passive: false });
+  roller.addEventListener('pointerup', function() {
+    if (!dragging) return; dragging = false;
+    if (!moved) return; _positionTrack(true); _applyDistanceClasses();
+  }, { passive: false });
+  roller.addEventListener('click', function(e) {
+    if (moved) { moved = false; e.stopImmediatePropagation(); }
+  }, true);
+})();
+</script>
+</body>
 </html>

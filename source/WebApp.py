@@ -258,7 +258,10 @@ app.config['JSON_AS_ASCII'] = False
 
 @app.route('/')
 def index():
-    # Compute the default fallback path
+    landing = os.path.join(_HERE, 'html', 'index.html')
+    if os.path.exists(landing):
+        return send_file(landing)
+    # Fallback: redirect to most recent dashboard
     default_path = None
     if os.path.isdir(GENERAL_ANALYSIS_DIR):
         files = sorted(
@@ -271,24 +274,18 @@ def index():
         default_path = '/output'
     if default_path is None:
         return _splash_html()
+    return redirect(default_path)
 
-    # Serve a lightweight JS redirect that checks localStorage first.
-    # If a page was viewed within the last hour, go there; otherwise go to default.
-    STALE_MS = 3600 * 1000  # 1 hour
-    html = f"""<!DOCTYPE html><html><head><meta charset="UTF-8">
-<script>
-(function(){{
-  var STALE={STALE_MS};
-  try{{
-    var s=JSON.parse(localStorage.getItem('lv_page')||'null');
-    if(s&&s.p&&s.p!=='/'&&(Date.now()-s.ts)<STALE){{
-      window.location.replace(s.p);return;
-    }}
-  }}catch(e){{}}
-  window.location.replace({_json.dumps(default_path)});
-}})();
-</script></head><body></body></html>"""
-    return html, 200, {'Content-Type': 'text/html; charset=utf-8'}
+
+@app.route('/api/auth/verify', methods=['POST'])
+def api_auth_verify():
+    """Verify dashboard password. Password is set via DASHBOARD_PASSWORD env var."""
+    data     = request.get_json(silent=True) or {}
+    password = data.get('password', '')
+    secret   = os.getenv('DASHBOARD_PASSWORD', 'ofek')
+    if password == secret:
+        return jsonify({'ok': True})
+    return jsonify({'ok': False}), 401
 
 
 @app.route('/design-system.css')

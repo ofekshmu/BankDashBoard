@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BankDash — Personal Finance Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --green:       #22c55e;
+      --green-dark:  #16a34a;
+      --green-light: #dcfce7;
+      --green-mid:   #86efac;
+      --text:        #0f172a;
+      --muted:       #64748b;
+      --bg:          #ffffff;
+      --surface:     #f8fafc;
+      --border:      #e2e8f0;
+      --radius:      14px;
+      --shadow:      0 4px 24px rgba(0,0,0,.08);
+      --shadow-lg:   0 12px 48px rgba(0,0,0,.12);
+    }
+
+    html { scroll-behavior: smooth; scroll-padding-top: 72px; }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      overflow-x: hidden;
+    }
+
+    /* ─── NAVBAR ──────────────────────────────────────────── */
+    #navbar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      padding: 0 24px;
+      height: 64px;
+      display: flex; align-items: center; justify-content: space-between;
+      transition: background .25s, box-shadow .25s, backdrop-filter .25s;
+    }
+    #navbar.scrolled {
+      background: rgba(255,255,255,.88);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      box-shadow: 0 1px 0 rgba(0,0,0,.07);
+    }
+    .nav-logo {
+      font-size: 1.25rem; font-weight: 800; color: var(--text);
+      display: flex; align-items: center; gap: 8px; text-decoration: none;
+    }
+    .nav-logo-icon {
+      width: 32px; height: 32px; border-radius: 8px;
+      background: linear-gradient(135deg, var(--green) 0%, var(--green-dark) 100%);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px; color: #fff;
+    }
+    .nav-links {
+      display: flex; gap: 28px; list-style: none;
+    }
+    .nav-links a {
+      font-size: .9rem; font-weight: 500; color: var(--muted);
+      text-decoration: none; transition: color .2s;
+    }
+    .nav-links a:hover { color: var(--text); }
+    #nav-auth-btn {
+      padding: 8px 20px; border-radius: 8px; font-size: .9rem; font-weight: 600;
+      cursor: pointer; border: none; transition: all .2s;
+    }
+    #nav-auth-btn.sign-in {
+      background: var(--green); color: #fff;
+    }
+    #nav-auth-btn.sign-in:hover { background: var(--green-dark); }
+    #nav-auth-btn.sign-out {
+      background: transparent; color: var(--muted); border: 1.5px solid var(--border);
+    }
+    #nav-auth-btn.sign-out:hover { color: var(--text); border-color: #94a3b8; }
+
+    @media (max-width: 640px) {
+      .nav-links { display: none; }
+      #navbar { padding: 0 16px; }
+    }
+
+    /* ─── HERO ────────────────────────────────────────────── */
+    #hero {
+      min-height: 100vh;
+      padding: 120px 24px 80px;
+      display: flex; align-items: center; justify-content: center;
+      position: relative; overflow: hidden;
+      background: linear-gradient(160deg, #f0fdf4 0%, #ecfdf5 40%, #f8fafc 100%);
+    }
+    .hero-inner {
+      max-width: 1100px; width: 100%;
+      display: grid; grid-template-columns: 1fr 1fr; gap: 64px;
+      align-items: center;
+    }
+    .hero-label {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: var(--green-light); color: var(--green-dark);
+      font-size: .8rem; font-weight: 600; padding: 5px 12px; border-radius: 100px;
+      margin-bottom: 20px;
+    }
+    .hero-label::before { content: '●'; font-size: .65rem; }
+    h1 {
+      font-size: clamp(2.2rem, 4vw, 3.4rem);
+      font-weight: 800; line-height: 1.15; letter-spacing: -.03em;
+      margin-bottom: 20px;
+    }
+    .gradient-text {
+      background: linear-gradient(135deg, var(--green-dark) 0%, var(--green) 60%, #4ade80 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero-sub {
+      font-size: 1.1rem; color: var(--muted); line-height: 1.7;
+      max-width: 440px; margin-bottom: 36px;
+    }
+    .hero-cta {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 14px 28px; border-radius: 10px; font-size: 1rem; font-weight: 600;
+      background: var(--green); color: #fff; border: none; cursor: pointer;
+      transition: all .2s; text-decoration: none;
+    }
+    .hero-cta:hover { background: var(--green-dark); transform: translateY(-1px); box-shadow: 0 8px 24px rgba(34,197,94,.35); }
+    .hero-cta-arrow { font-size: 1.1rem; transition: transform .2s; }
+    .hero-cta:hover .hero-cta-arrow { transform: translateX(3px); }
+
+    /* Mockup card */
+    .mockup-wrap {
+      position: relative;
+    }
+    .mockup-card {
+      background: #fff;
+      border-radius: 20px;
+      box-shadow: var(--shadow-lg), 0 0 0 1px rgba(0,0,0,.04);
+      padding: 24px;
+      position: relative; z-index: 2;
+    }
+    .mockup-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 18px;
+    }
+    .mockup-title { font-size: .95rem; font-weight: 700; color: var(--text); }
+    .mockup-month { font-size: .8rem; color: var(--muted); background: var(--surface); padding: 4px 10px; border-radius: 6px; }
+    .mockup-total {
+      text-align: center; padding: 14px; border-radius: 12px;
+      background: linear-gradient(135deg, var(--green) 0%, var(--green-dark) 100%);
+      color: #fff; margin-bottom: 16px;
+    }
+    .mockup-total-label { font-size: .75rem; opacity: .85; margin-bottom: 2px; }
+    .mockup-total-amount { font-size: 1.6rem; font-weight: 800; direction: ltr; }
+    .tx-list { display: flex; flex-direction: column; gap: 8px; }
+    .tx-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 10px; border-radius: 8px; background: var(--surface);
+    }
+    .tx-row:nth-child(even) { background: #f1f5f9; }
+    .tx-name { font-size: .85rem; font-weight: 500; color: var(--text); direction: rtl; text-align: right; flex: 1; }
+    .tx-amt { font-size: .85rem; font-weight: 600; white-space: nowrap; margin-right: 12px; direction: ltr; }
+    .tx-amt.credit { color: #22c55e; }
+    .tx-amt.debit  { color: #ef4444; }
+    .tx-cat { font-size: .7rem; color: var(--muted); background: #fff; padding: 2px 7px; border-radius: 5px; white-space: nowrap; }
+
+    /* Floating accent cards */
+    .accent-card {
+      position: absolute; z-index: 3;
+      background: #fff; border-radius: 12px;
+      box-shadow: var(--shadow);
+      padding: 12px 16px;
+      display: flex; align-items: center; gap: 10px;
+      animation: float 4s ease-in-out infinite;
+    }
+    .accent-card:nth-child(2) { animation-delay: -1.5s; }
+    .accent-card:nth-child(3) { animation-delay: -3s; }
+    .accent-icon { width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; flex-shrink: 0; }
+    .accent-label { font-size: .7rem; color: var(--muted); line-height: 1; margin-bottom: 3px; }
+    .accent-value { font-size: .9rem; font-weight: 700; color: var(--text); }
+    .accent-card.top-right { top: -18px; right: -20px; }
+    .accent-card.bottom-left { bottom: 20px; left: -24px; }
+    .accent-card.mid-right { top: 50%; right: -30px; transform: translateY(-50%); }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50%       { transform: translateY(-8px); }
+    }
+    .accent-card.mid-right { animation: float-mid 4s ease-in-out infinite; }
+    @keyframes float-mid {
+      0%, 100% { transform: translateY(-50%); }
+      50%       { transform: translateY(calc(-50% - 8px)); }
+    }
+
+    /* Blobs */
+    .blob {
+      position: absolute; border-radius: 50%; filter: blur(80px); opacity: .35;
+      animation: blob-drift 8s ease-in-out infinite;
+    }
+    .blob-1 { width: 400px; height: 400px; background: #bbf7d0; top: -100px; right: 10%; animation-delay: 0s; }
+    .blob-2 { width: 300px; height: 300px; background: #a7f3d0; bottom: 10%; left: 5%; animation-delay: -4s; }
+    .blob-3 { width: 250px; height: 250px; background: #d1fae5; top: 40%; left: 30%; animation-delay: -2s; }
+    @keyframes blob-drift {
+      0%, 100% { transform: scale(1) translate(0, 0); }
+      33%       { transform: scale(1.06) translate(20px, -20px); }
+      66%       { transform: scale(.96) translate(-15px, 15px); }
+    }
+
+    @media (max-width: 860px) {
+      .hero-inner { grid-template-columns: 1fr; gap: 48px; }
+      .hero-text { text-align: center; display: flex; flex-direction: column; align-items: center; }
+      .mockup-wrap { max-width: 360px; margin: 0 auto; }
+      .accent-card.mid-right { display: none; }
+    }
+
+    /* ─── FEATURES ────────────────────────────────────────── */
+    #features {
+      padding: 96px 24px;
+      background: var(--bg);
+    }
+    .section-header { text-align: center; margin-bottom: 56px; }
+    .section-label {
+      font-size: .8rem; font-weight: 600; color: var(--green-dark);
+      letter-spacing: .08em; text-transform: uppercase; margin-bottom: 12px;
+    }
+    .section-title { font-size: clamp(1.8rem, 3vw, 2.4rem); font-weight: 800; letter-spacing: -.02em; }
+    .section-sub { font-size: 1rem; color: var(--muted); margin-top: 10px; }
+
+    .features-grid {
+      max-width: 1000px; margin: 0 auto;
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 20px;
+    }
+    .feature-card {
+      padding: 28px 24px; border-radius: var(--radius);
+      background: var(--surface); border: 1.5px solid transparent;
+      transition: all .25s;
+    }
+    .feature-card:hover {
+      border-color: var(--green-mid); background: #fff;
+      box-shadow: var(--shadow); transform: translateY(-3px);
+    }
+    .feature-icon {
+      width: 48px; height: 48px; border-radius: 12px; margin-bottom: 16px;
+      background: var(--green-light);
+      display: flex; align-items: center; justify-content: center; font-size: 1.4rem;
+    }
+    .feature-title { font-size: 1rem; font-weight: 700; margin-bottom: 8px; }
+    .feature-desc { font-size: .875rem; color: var(--muted); line-height: 1.65; }
+
+    /* ─── MONTHS ──────────────────────────────────────────── */
+    #months {
+      padding: 96px 24px;
+      background: linear-gradient(180deg, #f0fdf4 0%, #fff 100%);
+    }
+    .months-nav {
+      display: flex; align-items: center; justify-content: center; gap: 16px;
+      margin-bottom: 28px;
+    }
+    .month-arrow {
+      width: 40px; height: 40px; border-radius: 50%; border: 1.5px solid var(--border);
+      background: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center;
+      font-size: 1rem; color: var(--muted); transition: all .2s; flex-shrink: 0;
+    }
+    .month-arrow:hover { border-color: var(--green); color: var(--green); }
+    .months-scroll-wrap { overflow: hidden; flex: 1; max-width: 900px; }
+    #months-track {
+      display: flex; gap: 12px;
+      transition: transform .35s cubic-bezier(.4,0,.2,1);
+    }
+    .month-card {
+      flex-shrink: 0; width: 130px;
+      border-radius: 12px; padding: 16px 12px;
+      text-align: center; cursor: pointer;
+      background: #fff; border: 1.5px solid var(--border);
+      transition: all .2s; user-select: none;
+    }
+    .month-card.has-data {
+      border-color: var(--green-mid);
+    }
+    .month-card.has-data:hover {
+      background: var(--green-light); border-color: var(--green);
+      transform: translateY(-2px); box-shadow: 0 6px 20px rgba(34,197,94,.2);
+    }
+    .month-card.current-month {
+      background: var(--green); border-color: var(--green); color: #fff;
+      box-shadow: 0 6px 20px rgba(34,197,94,.35);
+    }
+    .month-card.current-month .mc-name,
+    .month-card.current-month .mc-year,
+    .month-card.current-month .mc-badge { color: #fff; opacity: .9; }
+    .month-card.future { opacity: .5; cursor: default; }
+    .mc-name { font-size: 1rem; font-weight: 700; margin-bottom: 2px; }
+    .mc-year { font-size: .75rem; color: var(--muted); margin-bottom: 8px; }
+    .mc-badge {
+      font-size: .65rem; padding: 2px 7px; border-radius: 100px;
+      background: var(--green-light); color: var(--green-dark); font-weight: 600;
+    }
+    .month-card.current-month .mc-badge { background: rgba(255,255,255,.25); color: #fff; }
+    .month-card:not(.has-data):not(.current-month) .mc-badge { background: var(--surface); color: var(--muted); }
+
+    /* ─── AUTH MODAL ──────────────────────────────────────── */
+    #modal-backdrop {
+      display: none;
+      position: fixed; inset: 0; z-index: 200;
+      background: rgba(15,23,42,.45);
+      backdrop-filter: blur(4px);
+      align-items: center; justify-content: center;
+    }
+    #modal-backdrop.open { display: flex; }
+    #modal {
+      background: #fff; border-radius: 20px;
+      padding: 40px 36px; width: 100%; max-width: 400px; margin: 16px;
+      box-shadow: 0 24px 64px rgba(0,0,0,.18);
+      animation: spring-in .45s cubic-bezier(.34,1.56,.64,1);
+    }
+    @keyframes spring-in {
+      from { opacity: 0; transform: scale(.85) translateY(20px); }
+      to   { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    #modal.shake { animation: shake .4s; }
+    @keyframes shake {
+      0%,100% { transform: translateX(0); }
+      20%      { transform: translateX(-8px); }
+      40%      { transform: translateX(8px); }
+      60%      { transform: translateX(-5px); }
+      80%      { transform: translateX(5px); }
+    }
+    .modal-icon {
+      width: 52px; height: 52px; border-radius: 14px;
+      background: var(--green-light);
+      display: flex; align-items: center; justify-content: center; font-size: 1.5rem;
+      margin-bottom: 20px;
+    }
+    .modal-title { font-size: 1.4rem; font-weight: 800; margin-bottom: 6px; }
+    .modal-sub { font-size: .9rem; color: var(--muted); margin-bottom: 24px; }
+    #modal-input {
+      width: 100%; padding: 12px 14px; border-radius: 10px;
+      border: 1.5px solid var(--border); font-size: 1rem; font-family: inherit;
+      transition: border-color .2s; outline: none; margin-bottom: 12px;
+    }
+    #modal-input:focus { border-color: var(--green); }
+    #modal-input.error { border-color: #ef4444; }
+    #modal-error {
+      font-size: .82rem; color: #ef4444; margin-bottom: 16px; min-height: 1em;
+    }
+    #modal-submit {
+      width: 100%; padding: 13px; border-radius: 10px;
+      background: var(--green); color: #fff; border: none;
+      font-size: 1rem; font-weight: 600; cursor: pointer; transition: background .2s;
+    }
+    #modal-submit:hover { background: var(--green-dark); }
+    .modal-close {
+      position: absolute; top: 16px; right: 16px;
+      width: 32px; height: 32px; border-radius: 50%; border: none;
+      background: var(--surface); cursor: pointer; font-size: 1rem; color: var(--muted);
+      display: flex; align-items: center; justify-content: center; transition: background .2s;
+    }
+    .modal-close:hover { background: #e2e8f0; }
+    #modal { position: relative; }
+
+    /* ─── FOOTER ──────────────────────────────────────────── */
+    footer {
+      padding: 32px 24px;
+      background: #0f172a;
+      text-align: center;
+    }
+    .footer-logo { font-size: 1rem; font-weight: 700; color: #fff; margin-bottom: 6px; }
+    .footer-sub { font-size: .82rem; color: #64748b; }
+  </style>
+</head>
+<body>
+
+<!-- ─── NAVBAR ─────────────────────────────────────────────── -->
+<nav id="navbar">
+  <a class="nav-logo" href="/">
+    <span class="nav-logo-icon">₪</span>
+    BankDash
+  </a>
+  <ul class="nav-links">
+    <li><a href="#features">Features</a></li>
+    <li><a href="#months">Dashboards</a></li>
+  </ul>
+  <button id="nav-auth-btn" class="sign-in" onclick="handleAuthBtn()">Sign In</button>
+</nav>
+
+<!-- ─── HERO ───────────────────────────────────────────────── -->
+<section id="hero">
+  <div class="blob blob-1"></div>
+  <div class="blob blob-2"></div>
+  <div class="blob blob-3"></div>
+
+  <div class="hero-inner">
+    <div class="hero-text">
+      <div class="hero-label">Personal Finance</div>
+      <h1>Your money.<br><span class="gradient-text">Crystal clear.</span></h1>
+      <p class="hero-sub">
+        Automatically parsed from your bank exports. Beautiful monthly dashboards, smart categories, and trend insights — all in one place.
+      </p>
+      <a href="#months" class="hero-cta" onclick="scrollToMonths(event)">
+        View Dashboards <span class="hero-cta-arrow">→</span>
+      </a>
+    </div>
+
+    <div class="mockup-wrap">
+      <!-- Accent cards -->
+      <div class="accent-card top-right">
+        <div class="accent-icon" style="background:#dcfce7">💰</div>
+        <div>
+          <div class="accent-label">Monthly income</div>
+          <div class="accent-value">₪8,500</div>
+        </div>
+      </div>
+      <div class="accent-card bottom-left">
+        <div class="accent-icon" style="background:#fef3c7">📊</div>
+        <div>
+          <div class="accent-label">Transactions</div>
+          <div class="accent-value">42 this month</div>
+        </div>
+      </div>
+      <div class="accent-card mid-right">
+        <div class="accent-icon" style="background:#ede9fe">📈</div>
+        <div>
+          <div class="accent-label">vs last month</div>
+          <div class="accent-value" style="color:#22c55e">−12%</div>
+        </div>
+      </div>
+
+      <!-- Dashboard mockup -->
+      <div class="mockup-card">
+        <div class="mockup-header">
+          <span class="mockup-title">June 2026</span>
+          <span class="mockup-month">יוני 2026</span>
+        </div>
+        <div class="mockup-total">
+          <div class="mockup-total-label">Total Spending</div>
+          <div class="mockup-total-amount">₪6,240</div>
+        </div>
+        <div class="tx-list">
+          <div class="tx-row">
+            <span class="tx-cat">מזון</span>
+            <span class="tx-amt debit">−₪280</span>
+            <span class="tx-name">סופר חצי חינם</span>
+          </div>
+          <div class="tx-row">
+            <span class="tx-cat">דלק</span>
+            <span class="tx-amt debit">−₪120</span>
+            <span class="tx-name">תחנת דלק פז</span>
+          </div>
+          <div class="tx-row">
+            <span class="tx-cat">קניות</span>
+            <span class="tx-amt debit">−₪450</span>
+            <span class="tx-name">כלבו שלי</span>
+          </div>
+          <div class="tx-row">
+            <span class="tx-cat">הכנסה</span>
+            <span class="tx-amt credit">+₪8,500</span>
+            <span class="tx-name">העברה נכנסת</span>
+          </div>
+          <div class="tx-row">
+            <span class="tx-cat">ספורט</span>
+            <span class="tx-amt debit">−₪350</span>
+            <span class="tx-name">נייקי</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── FEATURES ────────────────────────────────────────────── -->
+<section id="features">
+  <div class="section-header">
+    <div class="section-label">What you get</div>
+    <h2 class="section-title">Everything you need to understand your money</h2>
+    <p class="section-sub">Built for the way Israelis actually bank.</p>
+  </div>
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-icon">📅</div>
+      <div class="feature-title">Monthly Analytics</div>
+      <div class="feature-desc">Detailed breakdown of every shekel — income, spending, and net balance for each month.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🏷️</div>
+      <div class="feature-title">Smart Categories</div>
+      <div class="feature-desc">Transactions automatically sorted into categories. Edit and tag to match your lifestyle.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📈</div>
+      <div class="feature-title">Trend Reports</div>
+      <div class="feature-desc">See how your spending patterns shift month over month with visual charts.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🔒</div>
+      <div class="feature-title">Fully Private</div>
+      <div class="feature-desc">Your data never leaves your device. Pure local SQLite — no cloud, no tracking.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── MONTHS ───────────────────────────────────────────────── -->
+<section id="months">
+  <div class="section-header">
+    <div class="section-label">Dashboards</div>
+    <h2 class="section-title">Browse by month</h2>
+    <p class="section-sub">Click any generated month to view its full dashboard.</p>
+  </div>
+
+  <div class="months-nav">
+    <button class="month-arrow" id="arrow-left" onclick="shiftCarousel(-1)" aria-label="Scroll left">‹</button>
+    <div class="months-scroll-wrap">
+      <div id="months-track"></div>
+    </div>
+    <button class="month-arrow" id="arrow-right" onclick="shiftCarousel(1)" aria-label="Scroll right">›</button>
+  </div>
+</section>
+
+<!-- ─── FOOTER ───────────────────────────────────────────────── -->
+<footer>
+  <div class="footer-logo">BankDash ₪</div>
+  <div class="footer-sub">Personal finance, beautifully organized.</div>
+</footer>
+
+<!-- ─── AUTH MODAL ───────────────────────────────────────────── -->
+<div id="modal-backdrop" role="dialog" aria-modal="true">
+  <div id="modal">
+    <button class="modal-close" onclick="closeModal()" aria-label="Close">✕</button>
+    <div class="modal-icon">🔐</div>
+    <div class="modal-title">Sign in to BankDash</div>
+    <div class="modal-sub">Enter your password to access the dashboards.</div>
+    <input
+      id="modal-input" type="password"
+      placeholder="Password"
+      autocomplete="current-password"
+      onkeydown="if(event.key==='Enter')submitAuth()"
+    >
+    <div id="modal-error"></div>
+    <button id="modal-submit" onclick="submitAuth()">Sign In</button>
+  </div>
+</div>
+
+<script>
+/* ───── Auth helpers ─────────────────────────────── */
+const SESSION_KEY  = 'bankdash_session';
+const SESSION_DAYS = 7;
+const AUTH_HASH    = 'e44c4b52f87c6f5c66a5b35d4d5c7f8b1a2e3d4c5b6a7f8e9d0c1b2a3';
+// Password is verified server-side via /api/auth/verify
+
+function isAuthed() {
+  try {
+    const s = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
+    return s && s.ts && (Date.now() - s.ts) < SESSION_DAYS * 86400 * 1000;
+  } catch { return false; }
+}
+
+function saveSession() {
+  localStorage.setItem(SESSION_KEY, JSON.stringify({ ts: Date.now() }));
+}
+
+function clearSession() {
+  localStorage.removeItem(SESSION_KEY);
+}
+
+function updateAuthUI() {
+  const btn = document.getElementById('nav-auth-btn');
+  if (isAuthed()) {
+    btn.textContent = 'Sign Out';
+    btn.className = 'sign-out';
+  } else {
+    btn.textContent = 'Sign In';
+    btn.className = 'sign-in';
+  }
+}
+
+function handleAuthBtn() {
+  if (isAuthed()) {
+    clearSession();
+    updateAuthUI();
+  } else {
+    openModal(null);
+  }
+}
+
+/* ───── Modal ──────────────────────────────────────── */
+let _pendingRedirect = null;
+
+function openModal(redirectUrl) {
+  _pendingRedirect = redirectUrl;
+  document.getElementById('modal-backdrop').classList.add('open');
+  document.getElementById('modal-input').value = '';
+  document.getElementById('modal-error').textContent = '';
+  document.getElementById('modal-input').classList.remove('error');
+  setTimeout(() => document.getElementById('modal-input').focus(), 50);
+}
+
+function closeModal() {
+  document.getElementById('modal-backdrop').classList.remove('open');
+  _pendingRedirect = null;
+}
+
+document.getElementById('modal-backdrop').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+async function submitAuth() {
+  const pw = document.getElementById('modal-input').value.trim();
+  if (!pw) return;
+
+  try {
+    const res = await fetch('/api/auth/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: pw })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      saveSession();
+      closeModal();
+      updateAuthUI();
+      if (_pendingRedirect) window.location.href = _pendingRedirect;
+    } else {
+      throw new Error('wrong');
+    }
+  } catch {
+    const input = document.getElementById('modal-input');
+    const err   = document.getElementById('modal-error');
+    const modal = document.getElementById('modal');
+    input.classList.add('error');
+    err.textContent = 'Incorrect password. Try again.';
+    modal.classList.remove('shake');
+    void modal.offsetWidth; // reflow
+    modal.classList.add('shake');
+    setTimeout(() => { input.classList.remove('error'); modal.classList.remove('shake'); }, 600);
+  }
+}
+
+/* ───── Month carousel ─────────────────────────────── */
+const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+let   carouselOffset = 0;
+const CARD_W         = 142; // card width + gap
+
+function buildMonths(availableKeys) {
+  const now      = new Date();
+  const curYear  = now.getFullYear();
+  const curMonth = now.getMonth(); // 0-indexed
+
+  const months = [];
+  for (let delta = -24; delta <= 6; delta++) {
+    let y = curYear, m = curMonth + delta;
+    while (m < 0)  { m += 12; y--; }
+    while (m > 11) { m -= 12; y++; }
+    const key     = `${String(y).padStart(4,'0')}_${String(m+1).padStart(2,'0')}`;
+    const isCur   = delta === 0;
+    const isFuture= delta > 0;
+    const hasData = availableKeys.has(key);
+    months.push({ y, m, key, isCur, isFuture, hasData });
+  }
+  return months;
+}
+
+function renderCarousel(months) {
+  const track = document.getElementById('months-track');
+  track.innerHTML = '';
+  months.forEach(({ y, m, key, isCur, isFuture, hasData }) => {
+    const card = document.createElement('div');
+    card.className = 'month-card' +
+      (isCur   ? ' current-month' : '') +
+      (hasData && !isCur ? ' has-data' : '') +
+      (isFuture ? ' future' : '');
+
+    const badge = isCur ? 'Current' : hasData ? 'Ready' : isFuture ? 'Upcoming' : '—';
+    card.innerHTML = `
+      <div class="mc-name">${MONTH_NAMES[m]}</div>
+      <div class="mc-year">${y}</div>
+      <div class="mc-badge">${badge}</div>
+    `;
+
+    if (!isFuture) {
+      card.addEventListener('click', () => {
+        if (!isAuthed()) { openModal(`/general/${key}`); return; }
+        window.location.href = `/general/${key}`;
+      });
+    }
+    track.appendChild(card);
+  });
+
+  // Scroll current month into view (center)
+  const currentIdx = 24; // 24 months back = index 24
+  const wrapW = document.querySelector('.months-scroll-wrap').offsetWidth;
+  const visibleCards = Math.floor(wrapW / CARD_W);
+  carouselOffset = Math.max(0, currentIdx - Math.floor(visibleCards / 2));
+  applyCarouselOffset(false);
+}
+
+function applyCarouselOffset(animate = true) {
+  const track = document.getElementById('months-track');
+  if (!animate) track.style.transition = 'none';
+  track.style.transform = `translateX(-${carouselOffset * CARD_W}px)`;
+  if (!animate) void track.offsetWidth, track.style.transition = '';
+}
+
+function shiftCarousel(dir) {
+  const total   = 31; // months array length
+  const track   = document.getElementById('months-track');
+  const wrapW   = document.querySelector('.months-scroll-wrap').offsetWidth;
+  const visible = Math.floor(wrapW / CARD_W);
+  carouselOffset = Math.max(0, Math.min(total - visible, carouselOffset + dir * Math.max(1, Math.floor(visible / 2))));
+  applyCarouselOffset();
+}
+
+function scrollToMonths(e) {
+  e.preventDefault();
+  document.getElementById('months').scrollIntoView({ behavior: 'smooth' });
+}
+
+/* ───── Navbar scroll effect ────────────────────────── */
+window.addEventListener('scroll', () => {
+  document.getElementById('navbar').classList.toggle('scrolled', window.scrollY > 20);
+}, { passive: true });
+
+/* ───── Init ─────────────────────────────────────────── */
+updateAuthUI();
+
+fetch('/api/general/list')
+  .then(r => r.json())
+  .then(list => {
+    const keys = new Set(list.map(item => item.key));
+    const months = buildMonths(keys);
+    renderCarousel(months);
+  })
+  .catch(() => {
+    // No data yet — still render the timeline
+    renderCarousel(buildMonths(new Set()));
+  });
+</script>
+</body>
+</html>

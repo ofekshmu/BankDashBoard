@@ -1654,7 +1654,18 @@ body {
   /* 5. Reduce general bar chart height on mobile */
   #chart-general-wrap { height: 200px !important; }
 }
-  </style>
+  /* -- Accounts panel -- narrow mobile layout ------------------- */
+@media (max-width: 620px) {
+  #accounts-table th:nth-child(n+5),
+  #accounts-table td:nth-child(n+5) { display: none; }
+  .acct-wrap table { min-width: 0; width: 100%; }
+  .acct-wrap { overflow-x: visible; }
+  #accounts-table td:nth-child(1) { white-space: nowrap; max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
+  .cash-pie-layout { flex-direction: column; align-items: center; gap: 10px; }
+  .cash-pie-canvas-wrap { width: 180px; height: 180px; }
+  .cash-legend { min-width: 0; width: 100%; }
+  #accounts-chart-card canvas { height: 280px !important; }
+}</style>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js">
   </script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js">
@@ -1706,7 +1717,18 @@ body {
 }
 .cat-pills-toggle-btn:hover { background:var(--teal); color:#fff; }
 .cat-pill.pills-hidden { display:none; }
-</style>
+/* -- Accounts panel -- narrow mobile layout ------------------- */
+@media (max-width: 620px) {
+  #accounts-table th:nth-child(n+5),
+  #accounts-table td:nth-child(n+5) { display: none; }
+  .acct-wrap table { min-width: 0; width: 100%; }
+  .acct-wrap { overflow-x: visible; }
+  #accounts-table td:nth-child(1) { white-space: nowrap; max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
+  .cash-pie-layout { flex-direction: column; align-items: center; gap: 10px; }
+  .cash-pie-canvas-wrap { width: 180px; height: 180px; }
+  .cash-legend { min-width: 0; width: 100%; }
+  #accounts-chart-card canvas { height: 280px !important; }
+}</style>
 </head>
  <body data-generated="13/06/2026 20:34" data-month="2025_12">
   <!-- Hamburger -->

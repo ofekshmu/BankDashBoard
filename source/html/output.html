@@ -1481,6 +1481,23 @@ body {
   .acct-wrap table { min-width: 480px; }
   .acct-detail-cell { display: none; }
 }
+/* ── Accounts panel — narrow mobile layout ───────────────── */
+@media (max-width: 620px) {
+  /* Hide low-priority columns: שינוי/שנה (5), עדכון אחרון (6), מגמה (7) */
+  #accounts-table th:nth-child(n+5),
+  #accounts-table td:nth-child(n+5) { display: none; }
+  /* Table now fits without forced min-width */
+  .acct-wrap table { min-width: 0; width: 100%; }
+  .acct-wrap { overflow-x: visible; }
+  /* Prevent account name from wrapping */
+  #accounts-table td:nth-child(1) { white-space: nowrap; max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
+  /* Stack cash-pie layout vertically */
+  .cash-pie-layout { flex-direction: column; align-items: center; gap: 10px; }
+  .cash-pie-canvas-wrap { width: 180px; height: 180px; }
+  .cash-legend { min-width: 0; width: 100%; }
+  /* Chart legend: smaller font to save space */
+  #accounts-chart-card canvas { height: 280px !important; }
+}
 /* Sparkline SVG */
 .acct-spark { display: block; overflow: visible; }
 /* Toggle button */

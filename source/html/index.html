@@ -196,6 +196,7 @@
     .blob {
       position: absolute; border-radius: 50%; filter: blur(80px); opacity: .35;
       animation: blob-drift 8s ease-in-out infinite;
+      pointer-events: none;
     }
     .blob-1 { width: 400px; height: 400px; background: #bbf7d0; top: -100px; right: 10%; animation-delay: 0s; }
     .blob-2 { width: 300px; height: 300px; background: #a7f3d0; bottom: 10%; left: 5%; animation-delay: -4s; }
@@ -396,7 +397,7 @@
       <p class="hero-sub">
         Automatically parsed from your bank exports. Beautiful monthly dashboards, smart categories, and trend insights — all in one place.
       </p>
-      <a href="#months" class="hero-cta" onclick="scrollToMonths(event)">
+      <a href="#months" class="hero-cta">
         View Dashboards <span class="hero-cta-arrow">→</span>
       </a>
     </div>
@@ -614,10 +615,11 @@ async function submitAuth() {
     });
     const data = await res.json();
     if (data.ok) {
+      const dest = _pendingRedirect;
       saveSession();
       closeModal();
       updateAuthUI();
-      if (_pendingRedirect) window.location.href = _pendingRedirect;
+      if (dest) window.location.href = dest;
     } else {
       throw new Error('wrong');
     }
@@ -706,11 +708,6 @@ function shiftCarousel(dir) {
   const visible = Math.floor(wrapW / CARD_W);
   carouselOffset = Math.max(0, Math.min(total - visible, carouselOffset + dir * Math.max(1, Math.floor(visible / 2))));
   applyCarouselOffset();
-}
-
-function scrollToMonths(e) {
-  e.preventDefault();
-  document.getElementById('months').scrollIntoView({ behavior: 'smooth' });
 }
 
 /* ───── Navbar scroll effect ────────────────────────── */

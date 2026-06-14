@@ -10,6 +10,7 @@ personal_config.json
 setup.cfg
 *.txt
 !requirements.txt
+!requirements-local.txt
 .env
 *.cmd
 *.png

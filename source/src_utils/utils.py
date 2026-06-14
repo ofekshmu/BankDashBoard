@@ -8,7 +8,6 @@ import send2trash
 from typing import Tuple
 import pandas as pd
 from tqdm import tqdm
-from src_utils.ExcelReader import ExcelManager
 
 
 class utils:
@@ -834,6 +833,7 @@ class utils:
         The function will check nearby cells recursively until it finds the headers.
         Recursion will stop when the header is found or when the the offset is 5 cells away from the initial row/column.
         '''
+        from src_utils.ExcelReader import ExcelManager
         em = ExcelManager().set_active_sheet(Paths.INPUT_FOLDER + "\\" + file_name)
         
         col_max_offset = 2
@@ -915,6 +915,7 @@ class utils:
                 utils.log(f"New directory made: {destination_directory}", "system")
                 os.makedirs(destination_directory)
 
+            from src_utils.ExcelReader import ExcelManager
             ExcelManager().close_and_kill_excel()
             # Join the destination directory path with the file name to get the new file path
             new_file_path = os.path.join(destination_directory, file_name)

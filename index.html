@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BankDash — Personal Finance Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    /* ── RESET ─────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --white:       #ffffff;
+      --off-white:   #f8fffe;
+      --green-50:    #f0faf4;
+      --green-100:   #dcf5e7;
+      --green-200:   #b8e4c9;
+      --green-300:   #8dd5a9;
+      --green-400:   #5dbf87;
+      --green-500:   #2a9d5c;
+      --green-600:   #1e7d47;
+      --green-700:   #155c34;
+      --dark:        #0f1923;
+      --gray-600:    #4a5568;
+      --gray-500:    #718096;
+      --gray-300:    #e2e8f0;
+      --gray-100:    #f7fafc;
+      --shadow-sm:   0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+      --shadow-md:   0 4px 20px rgba(0,0,0,.08), 0 2px 8px rgba(0,0,0,.04);
+      --shadow-lg:   0 10px 40px rgba(0,0,0,.12), 0 4px 16px rgba(0,0,0,.06);
+      --shadow-g:    0 8px 30px rgba(42,157,92,.25);
+      --r-sm:  8px;
+      --r-md:  16px;
+      --r-lg:  24px;
+      --font:  'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --nav-h: 72px;
+      --ease:  0.25s cubic-bezier(.4,0,.2,1);
+    }
+
+    html { scroll-behavior: smooth; }
+    body { font-family: var(--font); background: var(--white); color: var(--dark); line-height: 1.6; overflow-x: hidden; }
+
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--green-200); border-radius: 99px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--green-300); }
+
+    /* ── NAV ────────────────────────────────────────── */
+    .nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      height: var(--nav-h);
+      display: flex; align-items: center; padding: 0 5%;
+      background: rgba(255,255,255,.82);
+      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(184,228,201,.3);
+      transition: box-shadow var(--ease);
+    }
+    .nav.scrolled { box-shadow: 0 4px 20px rgba(0,0,0,.06); }
+    .nav-logo {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 1.3rem; font-weight: 700; color: var(--dark); text-decoration: none;
+    }
+    .nav-logo-icon {
+      width: 36px; height: 36px;
+      background: linear-gradient(135deg, var(--green-400), var(--green-500));
+      border-radius: var(--r-sm);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.05rem;
+      box-shadow: 0 4px 12px rgba(42,157,92,.3);
+    }
+    .nav-links {
+      display: flex; align-items: center; gap: 2rem;
+      margin-left: auto; margin-right: 2rem; list-style: none;
+    }
+    .nav-links a { color: var(--gray-600); text-decoration: none; font-size: .925rem; font-weight: 500; transition: color var(--ease); }
+    .nav-links a:hover { color: var(--green-500); }
+    .nav-btn {
+      padding: 9px 22px;
+      background: var(--green-500); color: white;
+      border: none; border-radius: 99px;
+      font-size: .9rem; font-weight: 600; cursor: pointer;
+      transition: background var(--ease), transform var(--ease), box-shadow var(--ease);
+      font-family: var(--font); white-space: nowrap;
+    }
+    .nav-btn:hover { background: var(--green-600); transform: translateY(-1px); box-shadow: var(--shadow-g); }
+    .nav-btn.out { background: transparent; color: var(--green-500); border: 2px solid var(--green-200); }
+    .nav-btn.out:hover { background: var(--green-50); box-shadow: none; transform: none; }
+    .ham-btn { display: none; background: none; border: none; cursor: pointer; padding: 8px; color: var(--dark); margin-left: auto; }
+
+    /* ── HERO ───────────────────────────────────────── */
+    .hero {
+      min-height: 100svh;
+      display: flex; align-items: center;
+      padding: calc(var(--nav-h) + 4rem) 5% 5rem;
+      position: relative; overflow: hidden;
+      background: linear-gradient(160deg, #fff 0%, #f0faf4 45%, #dcf5e7 100%);
+    }
+    .blob {
+      position: absolute; border-radius: 50%;
+      filter: blur(60px); opacity: .5; pointer-events: none;
+    }
+    .blob-1 { width: 600px; height: 600px; background: radial-gradient(circle, #b8e4c9 0%, transparent 70%); top: -100px; right: -200px; }
+    .blob-2 { width: 400px; height: 400px; background: radial-gradient(circle, #8dd5a9 0%, transparent 70%); bottom: -100px; left: -100px; opacity: .3; }
+
+    .hero-inner {
+      max-width: 1200px; margin: 0 auto; width: 100%;
+      display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: center;
+    }
+
+    .badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 6px 16px;
+      background: var(--green-100); border: 1px solid var(--green-200);
+      border-radius: 99px; font-size: .82rem; font-weight: 600; color: var(--green-600);
+      margin-bottom: 1.5rem;
+    }
+    .badge-dot { width: 7px; height: 7px; background: var(--green-500); border-radius: 50%; animation: pulse 2s infinite; }
+
+    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(.8)} }
+
+    .hero h1 {
+      font-size: clamp(2.4rem, 5vw, 3.9rem);
+      font-weight: 800; line-height: 1.15;
+      color: var(--dark); letter-spacing: -.02em; margin-bottom: 1.25rem;
+    }
+    .hero h1 .hl {
+      background: linear-gradient(135deg, var(--green-500), var(--green-400));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .hero p { font-size: 1.1rem; color: var(--gray-600); margin-bottom: 2.5rem; max-width: 480px; line-height: 1.75; }
+
+    .hero-cta { display: flex; gap: 1rem; flex-wrap: wrap; }
+    .btn-p {
+      padding: 14px 32px;
+      background: linear-gradient(135deg, var(--green-500), var(--green-400));
+      color: white; border: none; border-radius: 99px;
+      font-size: 1rem; font-weight: 600; cursor: pointer;
+      box-shadow: 0 6px 20px rgba(42,157,92,.35);
+      transition: all var(--ease); font-family: var(--font);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .btn-p:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(42,157,92,.45); }
+    .btn-s {
+      padding: 14px 32px;
+      background: white; color: var(--dark);
+      border: 1.5px solid var(--gray-300); border-radius: 99px;
+      font-size: 1rem; font-weight: 600; cursor: pointer;
+      transition: all var(--ease); font-family: var(--font);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .btn-s:hover { border-color: var(--green-300); background: var(--green-50); transform: translateY(-2px); }
+
+    /* ── MOCKUP ─────────────────────────────────────── */
+    .hero-visual { position: relative; }
+    .mockup {
+      background: white; border-radius: var(--r-lg); padding: 28px;
+      box-shadow: var(--shadow-lg), 0 0 0 1px rgba(184,228,201,.2);
+      position: relative; overflow: hidden;
+    }
+    .mockup::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px;
+      background: linear-gradient(90deg, var(--green-400), var(--green-300), var(--green-500));
+    }
+    .mk-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+    .mk-title { font-size: .85rem; font-weight: 600; color: var(--gray-600); }
+    .mk-chip { font-size: .72rem; padding: 3px 10px; background: var(--green-100); color: var(--green-600); border-radius: 99px; font-weight: 600; }
+    .mk-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+    .mk-stat { background: var(--gray-100); border-radius: var(--r-sm); padding: 14px; }
+    .mk-stat-lbl { font-size: .72rem; color: var(--gray-500); font-weight: 500; margin-bottom: 4px; }
+    .mk-stat-val { font-size: 1.25rem; font-weight: 700; color: var(--dark); }
+    .mk-stat-val.g { color: var(--green-500); }
+    .mk-stat-val.r { color: #e53e3e; }
+    .mk-bars { margin-bottom: 16px; }
+    .mk-bar-row { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+    .mk-bar-lbl { font-size: .72rem; color: var(--gray-500); width: 60px; flex-shrink: 0; }
+    .mk-bar-track { flex: 1; height: 8px; background: var(--gray-100); border-radius: 99px; overflow: hidden; }
+    .mk-bar-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--green-300), var(--green-400)); }
+    .mk-txs { display: flex; flex-direction: column; gap: 10px; }
+    .mk-tx { display: flex; align-items: center; gap: 12px; padding: 10px 12px; background: var(--gray-100); border-radius: var(--r-sm); }
+    .mk-tx-ico { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: .85rem; flex-shrink: 0; }
+    .mk-tx-info { flex: 1; }
+    .mk-tx-name { font-size: .78rem; font-weight: 600; color: var(--dark); }
+    .mk-tx-cat { font-size: .68rem; color: var(--gray-500); }
+    .mk-tx-amt { font-size: .82rem; font-weight: 700; }
+
+    .float-card {
+      position: absolute; background: white; border-radius: var(--r-md);
+      padding: 14px 18px; box-shadow: var(--shadow-md);
+    }
+    .float-card-1 { top: -20px; right: -30px; animation: float 4s ease-in-out infinite; }
+    .float-card-2 { bottom: 20px; left: -30px; animation: float 4s ease-in-out 2s infinite; }
+    @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+    .fc-inner { display: flex; align-items: center; gap: 10px; }
+    .fc-ico { font-size: 1.4rem; }
+    .fc-lbl { font-size: .72rem; color: var(--gray-500); }
+    .fc-val { font-size: 1rem; font-weight: 700; color: var(--dark); }
+
+    /* ── FEATURES ───────────────────────────────────── */
+    .features { padding: 6rem 5%; background: white; }
+    .features-inner { max-width: 1200px; margin: 0 auto; }
+    .sec-tag {
+      display: inline-block; padding: 5px 14px;
+      background: var(--green-100); color: var(--green-600);
+      font-size: .8rem; font-weight: 600; border-radius: 99px;
+      margin-bottom: 1rem; letter-spacing: .05em; text-transform: uppercase;
+    }
+    .sec-title { font-size: clamp(1.8rem,3vw,2.5rem); font-weight: 800; color: var(--dark); margin-bottom: .75rem; letter-spacing: -.02em; }
+    .sec-sub { font-size: 1.05rem; color: var(--gray-500); margin-bottom: 3rem; max-width: 520px; }
+    .feat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px,1fr)); gap: 1.5rem; }
+    .feat-card {
+      padding: 28px; border-radius: var(--r-md); border: 1px solid var(--gray-300);
+      background: white; transition: all var(--ease); position: relative; overflow: hidden;
+    }
+    .feat-card::after {
+      content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 3px;
+      background: linear-gradient(90deg, var(--green-400), var(--green-300));
+      transform: scaleX(0); transition: transform var(--ease); transform-origin: left;
+    }
+    .feat-card:hover { border-color: var(--green-200); box-shadow: 0 8px 30px rgba(42,157,92,.12); transform: translateY(-4px); }
+    .feat-card:hover::after { transform: scaleX(1); }
+    .feat-ico {
+      width: 52px; height: 52px; background: var(--green-50); border-radius: var(--r-sm);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.5rem; margin-bottom: 1.25rem; transition: background var(--ease);
+    }
+    .feat-card:hover .feat-ico { background: var(--green-100); }
+    .feat-card h3 { font-size: 1.05rem; font-weight: 700; color: var(--dark); margin-bottom: .5rem; }
+    .feat-card p { font-size: .9rem; color: var(--gray-500); line-height: 1.65; }
+
+    /* ── MONTHS ─────────────────────────────────────── */
+    .months { padding: 6rem 5%; background: linear-gradient(180deg, var(--green-50) 0%, var(--white) 100%); overflow: hidden; }
+    .months-inner { max-width: 1200px; margin: 0 auto; }
+    .months-head {
+      display: flex; align-items: flex-end; justify-content: space-between;
+      margin-bottom: 2.5rem; gap: 1rem; flex-wrap: wrap;
+    }
+    .nav-arrows { display: flex; gap: 8px; }
+    .arrow-btn {
+      width: 40px; height: 40px; border-radius: 50%;
+      border: 1.5px solid var(--gray-300); background: white;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: all var(--ease); color: var(--dark); font-size: 1.1rem;
+    }
+    .arrow-btn:hover { border-color: var(--green-400); background: var(--green-50); color: var(--green-600); }
+
+    .scroll-wrap { position: relative; }
+    .scroll-wrap::before,
+    .scroll-wrap::after {
+      content: ''; position: absolute; top: 0; bottom: 0; width: 60px; z-index: 2; pointer-events: none;
+    }
+    .scroll-wrap::before { left: 0;  background: linear-gradient(to right, var(--green-50), transparent); }
+    .scroll-wrap::after  { right: 0; background: linear-gradient(to left,  var(--green-50), transparent); }
+
+    .month-strip {
+      display: flex; gap: 14px;
+      overflow-x: auto; scroll-snap-type: x mandatory;
+      scrollbar-width: none; -ms-overflow-style: none;
+      padding: 12px 60px; scroll-padding: 60px;
+    }
+    .month-strip::-webkit-scrollbar { display: none; }
+
+    .month-card {
+      flex-shrink: 0; width: 140px;
+      padding: 20px 16px; border-radius: var(--r-md);
+      background: white; border: 1.5px solid var(--gray-300);
+      cursor: pointer; scroll-snap-align: start;
+      transition: all var(--ease);
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+      position: relative; text-align: center; user-select: none;
+    }
+    .month-card:hover { border-color: var(--green-400); box-shadow: 0 6px 24px rgba(42,157,92,.15); transform: translateY(-4px); }
+    .month-card.current { border-color: var(--green-400); background: linear-gradient(160deg, var(--green-50), white); }
+    .month-card.current .mc-name { color: var(--green-600); }
+    .month-card.future { opacity: .55; }
+    .mc-name { font-size: 1rem; font-weight: 700; color: var(--dark); line-height: 1.2; }
+    .mc-year { font-size: .75rem; color: var(--gray-500); font-weight: 500; }
+    .mc-arrow { font-size: .75rem; color: var(--green-400); margin-top: 8px; transition: transform var(--ease); }
+    .month-card:hover .mc-arrow { transform: translateX(3px); }
+
+    /* lock overlay — only shows when strip is NOT authenticated */
+    .month-lock {
+      position: absolute; inset: 0; border-radius: calc(var(--r-md) - 1.5px);
+      background: rgba(255,255,255,.75); backdrop-filter: blur(4px);
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+      opacity: 0; transition: opacity var(--ease);
+    }
+    .month-strip:not(.auth-ok) .month-card:hover .month-lock { opacity: 1; }
+    .lock-ico { font-size: 1.2rem; }
+    .lock-lbl { font-size: .68rem; font-weight: 600; color: var(--gray-600); }
+
+    .auth-hint {
+      display: flex; align-items: center; gap: 12px;
+      padding: 14px 20px; margin-top: 1.5rem;
+      background: var(--green-100); border: 1px solid var(--green-200); border-radius: var(--r-sm);
+      font-size: .875rem; color: var(--green-700);
+    }
+    .auth-hint.hidden { display: none; }
+    .auth-hint-btn {
+      margin-left: auto; padding: 7px 18px;
+      background: var(--green-500); color: white;
+      border: none; border-radius: 99px;
+      font-size: .8rem; font-weight: 600; cursor: pointer;
+      font-family: var(--font); transition: background var(--ease); white-space: nowrap;
+    }
+    .auth-hint-btn:hover { background: var(--green-600); }
+
+    /* ── FOOTER ─────────────────────────────────────── */
+    .footer {
+      padding: 3rem 5%; background: var(--dark);
+      color: rgba(255,255,255,.55);
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 1rem; flex-wrap: wrap;
+    }
+    .footer-logo { display: flex; align-items: center; gap: 10px; color: white; text-decoration: none; font-weight: 700; font-size: 1.1rem; }
+    .footer-logo-ico { width: 32px; height: 32px; background: linear-gradient(135deg, var(--green-400), var(--green-500)); border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+    .footer-copy { font-size: .82rem; }
+
+    /* ── MODAL ──────────────────────────────────────── */
+    .backdrop {
+      position: fixed; inset: 0; z-index: 1000;
+      background: rgba(15,25,35,.5); backdrop-filter: blur(8px);
+      display: flex; align-items: center; justify-content: center; padding: 1rem;
+      opacity: 0; pointer-events: none; transition: opacity .3s ease;
+    }
+    .backdrop.open { opacity: 1; pointer-events: all; }
+    .modal {
+      background: white; border-radius: var(--r-lg); padding: 2.5rem;
+      width: 100%; max-width: 400px;
+      box-shadow: var(--shadow-lg);
+      transform: scale(.94) translateY(12px);
+      transition: transform .3s cubic-bezier(.34,1.56,.64,1);
+      position: relative;
+    }
+    .backdrop.open .modal { transform: scale(1) translateY(0); }
+    .modal-x {
+      position: absolute; top: 16px; right: 16px;
+      width: 32px; height: 32px; border-radius: 50%;
+      background: var(--gray-100); border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.2rem; color: var(--gray-500); transition: background var(--ease);
+    }
+    .modal-x:hover { background: var(--gray-300); }
+    .modal-ico {
+      width: 56px; height: 56px;
+      background: linear-gradient(135deg, var(--green-100), var(--green-200));
+      border-radius: var(--r-md);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.75rem; margin-bottom: 1.25rem;
+    }
+    .modal h2 { font-size: 1.4rem; font-weight: 800; color: var(--dark); margin-bottom: .4rem; }
+    .modal .modal-sub { font-size: .875rem; color: var(--gray-500); margin-bottom: 1.75rem; }
+    .form-lbl { display: block; font-size: .83rem; font-weight: 600; color: var(--dark); margin-bottom: 6px; }
+    .form-inp {
+      width: 100%; padding: 12px 16px;
+      border: 1.5px solid var(--gray-300); border-radius: var(--r-sm);
+      font-size: .95rem; font-family: var(--font); color: var(--dark);
+      transition: border-color var(--ease), box-shadow var(--ease); outline: none;
+    }
+    .form-inp:focus { border-color: var(--green-400); box-shadow: 0 0 0 3px rgba(93,191,135,.15); }
+    .form-inp.err { border-color: #e53e3e; }
+    .form-err { font-size: .8rem; color: #e53e3e; margin-top: 6px; display: none; }
+    .form-err.show { display: block; }
+    .form-grp { margin-bottom: 1.25rem; }
+    .form-submit {
+      width: 100%; padding: 13px;
+      background: linear-gradient(135deg, var(--green-500), var(--green-400));
+      color: white; border: none; border-radius: var(--r-sm);
+      font-size: 1rem; font-weight: 600; cursor: pointer;
+      font-family: var(--font);
+      box-shadow: 0 4px 12px rgba(42,157,92,.3);
+      transition: all var(--ease);
+    }
+    .form-submit:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(42,157,92,.4); }
+    .form-submit:active { transform: translateY(0); }
+
+    /* ── TOAST ──────────────────────────────────────── */
+    .toasts { position: fixed; bottom: 24px; right: 24px; z-index: 2000; display: flex; flex-direction: column; gap: 8px; }
+    .toast {
+      padding: 13px 18px; border-radius: var(--r-sm);
+      font-size: .875rem; font-weight: 500;
+      display: flex; align-items: center; gap: 10px;
+      box-shadow: var(--shadow-md); max-width: 320px;
+      animation: slideIn .3s cubic-bezier(.34,1.56,.64,1) forwards;
+    }
+    .toast.ok  { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
+    .toast.bad { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+    @keyframes slideIn  { from{transform:translateX(120%);opacity:0} to{transform:translateX(0);opacity:1} }
+    @keyframes slideOut { from{transform:translateX(0);opacity:1}    to{transform:translateX(120%);opacity:0} }
+    .toast.gone { animation: slideOut .3s ease forwards; }
+    @keyframes shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-6px)} 40%{transform:translateX(6px)} 60%{transform:translateX(-4px)} 80%{transform:translateX(4px)} }
+
+    /* ── RESPONSIVE ─────────────────────────────────── */
+    @media (max-width: 900px) {
+      .hero-inner { grid-template-columns: 1fr; gap: 3rem; }
+      .hero-visual { max-width: 480px; margin: 0 auto; }
+      .float-card-1 { top: -15px; right: -10px; }
+      .float-card-2 { display: none; }
+      .nav-links { display: none; }
+      .ham-btn { display: flex; }
+    }
+    @media (max-width: 600px) {
+      .hero { padding-top: calc(var(--nav-h) + 2rem); }
+      .hero-cta { flex-direction: column; }
+      .btn-p, .btn-s { width: 100%; justify-content: center; }
+      .nav-btn { display: none; }
+      .months-head { flex-direction: column; align-items: flex-start; }
+      .footer { flex-direction: column; text-align: center; }
+      .month-card { width: 120px; padding: 16px 12px; }
+      .modal { padding: 1.75rem; }
+      .toasts { bottom: 16px; right: 16px; left: 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════
+     NAVIGATION
+════════════════════════════════════════════ -->
+<nav class="nav" id="nav">
+  <a href="#" class="nav-logo" aria-label="BankDash home">
+    <div class="nav-logo-icon">💰</div>
+    <span>BankDash</span>
+  </a>
+  <ul class="nav-links" aria-label="Main navigation">
+    <li><a href="#features">Features</a></li>
+    <li><a href="#months">Dashboard</a></li>
+  </ul>
+  <button class="nav-btn" id="navAuthBtn" onclick="handleNavAuth()">Sign In</button>
+  <button class="ham-btn" onclick="scrollToMonths()" aria-label="Go to months">
+    <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <path stroke-linecap="round" d="M4 6h16M4 12h16M4 18h16"/>
+    </svg>
+  </button>
+</nav>
+
+<!-- ════════════════════════════════════════════
+     HERO
+════════════════════════════════════════════ -->
+<section class="hero" aria-label="Hero">
+  <div class="blob blob-1" aria-hidden="true"></div>
+  <div class="blob blob-2" aria-hidden="true"></div>
+
+  <div class="hero-inner">
+    <!-- Left: copy -->
+    <div>
+      <div class="badge" aria-label="Product tag">
+        <div class="badge-dot" aria-hidden="true"></div>
+        Personal Finance Dashboard
+      </div>
+      <h1>Your Money,<br /><span class="hl">Clearly Understood</span></h1>
+      <p>Transform your bank data into beautiful monthly insights. Track every expense, spot trends, and stay on top of your finances — all in one place.</p>
+      <div class="hero-cta">
+        <button class="btn-p" onclick="scrollToMonths()">
+          View Dashboards
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+          </svg>
+        </button>
+        <button class="btn-s" onclick="openModal()">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+          Sign In
+        </button>
+      </div>
+    </div>
+
+    <!-- Right: mockup -->
+    <div class="hero-visual" aria-hidden="true">
+      <div class="float-card float-card-1">
+        <div class="fc-inner">
+          <div class="fc-ico">📈</div>
+          <div>
+            <div class="fc-lbl">Monthly Savings</div>
+            <div class="fc-val" style="color:var(--green-500)">+₪2,340</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="mockup">
+        <div class="mk-head">
+          <span class="mk-title">June 2026 · Overview</span>
+          <span class="mk-chip">Live</span>
+        </div>
+        <div class="mk-stats">
+          <div class="mk-stat">
+            <div class="mk-stat-lbl">Income</div>
+            <div class="mk-stat-val g">₪18,500</div>
+          </div>
+          <div class="mk-stat">
+            <div class="mk-stat-lbl">Expenses</div>
+            <div class="mk-stat-val r">₪12,340</div>
+          </div>
+        </div>
+        <div class="mk-bars">
+          <div class="mk-bar-row">
+            <span class="mk-bar-lbl">Food</span>
+            <div class="mk-bar-track"><div class="mk-bar-fill" style="width:72%"></div></div>
+          </div>
+          <div class="mk-bar-row">
+            <span class="mk-bar-lbl">Transport</span>
+            <div class="mk-bar-track"><div class="mk-bar-fill" style="width:45%"></div></div>
+          </div>
+          <div class="mk-bar-row">
+            <span class="mk-bar-lbl">Shopping</span>
+            <div class="mk-bar-track"><div class="mk-bar-fill" style="width:60%"></div></div>
+          </div>
+        </div>
+        <div class="mk-txs">
+          <div class="mk-tx">
+            <div class="mk-tx-ico" style="background:#e6f4ea">🛒</div>
+            <div class="mk-tx-info">
+              <div class="mk-tx-name">Shufersal</div>
+              <div class="mk-tx-cat">Groceries</div>
+            </div>
+            <div class="mk-tx-amt" style="color:#e53e3e">-₪340</div>
+          </div>
+          <div class="mk-tx">
+            <div class="mk-tx-ico" style="background:#fffbeb">⛽</div>
+            <div class="mk-tx-info">
+              <div class="mk-tx-name">Paz Station</div>
+              <div class="mk-tx-cat">Transport</div>
+            </div>
+            <div class="mk-tx-amt" style="color:#e53e3e">-₪280</div>
+          </div>
+          <div class="mk-tx">
+            <div class="mk-tx-ico" style="background:#f0faf4">💼</div>
+            <div class="mk-tx-info">
+              <div class="mk-tx-name">Salary</div>
+              <div class="mk-tx-cat">Income</div>
+            </div>
+            <div class="mk-tx-amt" style="color:var(--green-500)">+₪18,500</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="float-card float-card-2">
+        <div class="fc-inner">
+          <div class="fc-ico">🏷️</div>
+          <div>
+            <div class="fc-lbl">Categories</div>
+            <div class="fc-val">12 tracked</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════
+     FEATURES
+════════════════════════════════════════════ -->
+<section class="features" id="features" aria-labelledby="feat-heading">
+  <div class="features-inner">
+    <div class="sec-tag">Why BankDash</div>
+    <h2 class="sec-title" id="feat-heading">Everything You Need<br/>to Understand Your Money</h2>
+    <p class="sec-sub">A complete personal finance toolkit, built for clarity and designed for action.</p>
+    <div class="feat-grid">
+      <div class="feat-card">
+        <div class="feat-ico">📊</div>
+        <h3>Monthly Analytics</h3>
+        <p>Deep-dive into any month with interactive charts and breakdowns. See exactly where every shekel goes.</p>
+      </div>
+      <div class="feat-card">
+        <div class="feat-ico">🏷️</div>
+        <h3>Smart Categories</h3>
+        <p>Transactions are automatically grouped into categories — food, transport, shopping, and more.</p>
+      </div>
+      <div class="feat-card">
+        <div class="feat-ico">📈</div>
+        <h3>Trend Reports</h3>
+        <p>Compare months at a glance. Spot spending patterns and track how habits evolve over time.</p>
+      </div>
+      <div class="feat-card">
+        <div class="feat-ico">🔒</div>
+        <h3>Fully Private</h3>
+        <p>Your data never leaves your device. Stored locally in SQLite — no cloud, no subscriptions.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════
+     MONTH CAROUSEL
+════════════════════════════════════════════ -->
+<section class="months" id="months" aria-labelledby="months-heading">
+  <div class="months-inner">
+    <div class="months-head">
+      <div>
+        <div class="sec-tag">Monthly View</div>
+        <h2 class="sec-title" id="months-heading">Jump to Any Month</h2>
+        <p class="sec-sub" style="margin-bottom:0">Select a month to open its full dashboard. Sign in required.</p>
+      </div>
+      <div class="nav-arrows" aria-label="Scroll carousel">
+        <button class="arrow-btn" id="arrowL" aria-label="Scroll left">&#8592;</button>
+        <button class="arrow-btn" id="arrowR" aria-label="Scroll right">&#8594;</button>
+      </div>
+    </div>
+
+    <div class="scroll-wrap">
+      <div class="month-strip" id="monthStrip" role="list" aria-label="Month list">
+        <!-- filled by JS -->
+      </div>
+    </div>
+
+    <div class="auth-hint" id="authHint" role="status">
+      <span aria-hidden="true">🔒</span>
+      <span>Sign in to access monthly dashboards</span>
+      <button class="auth-hint-btn" onclick="openModal()">Sign In</button>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════
+     FOOTER
+════════════════════════════════════════════ -->
+<footer class="footer" aria-label="Site footer">
+  <a href="#" class="footer-logo" aria-label="BankDash home">
+    <div class="footer-logo-ico" aria-hidden="true">💰</div>
+    <span>BankDash</span>
+  </a>
+  <span class="footer-copy">Built with ♥ for personal finance &nbsp;·&nbsp; © 2026</span>
+</footer>
+
+<!-- ════════════════════════════════════════════
+     AUTH MODAL
+════════════════════════════════════════════ -->
+<div class="backdrop" id="backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-title" onclick="backdropClick(event)">
+  <div class="modal">
+    <button class="modal-x" onclick="closeModal()" aria-label="Close">×</button>
+    <div class="modal-ico" aria-hidden="true">🔐</div>
+    <h2 id="modal-title">Welcome Back</h2>
+    <p class="modal-sub">Enter your password to access your personal finance dashboard.</p>
+    <form id="signInForm" onsubmit="handleSignIn(event)" novalidate>
+      <div class="form-grp">
+        <label class="form-lbl" for="pwInput">Password</label>
+        <input class="form-inp" type="password" id="pwInput" placeholder="Enter your password" autocomplete="current-password" />
+        <div class="form-err" id="formErr" role="alert">Incorrect password. Please try again.</div>
+      </div>
+      <button type="submit" class="form-submit">Sign In</button>
+    </form>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════
+     TOAST CONTAINER
+════════════════════════════════════════════ -->
+<div class="toasts" id="toasts" aria-live="polite" aria-atomic="true"></div>
+
+<!-- ════════════════════════════════════════════
+     SCRIPTS
+════════════════════════════════════════════ -->
+<script>
+  /* ── CONSTANTS ──────────────────────────────── */
+  const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const SESSION_KEY  = 'bankdash_auth';
+  const SESSION_TTL  = 7 * 24 * 60 * 60 * 1000;
+  const _k           = btoa('ofek'); // lightweight obfuscation for a local personal app
+
+  /* ── AUTH ───────────────────────────────────── */
+  function isSignedIn() {
+    try {
+      const s = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
+      if (!s || s.token !== 'ok' || Date.now() > s.exp) {
+        localStorage.removeItem(SESSION_KEY);
+        return false;
+      }
+      return true;
+    } catch { return false; }
+  }
+
+  function trySignIn(pw) {
+    if (btoa(pw) !== _k) return false;
+    localStorage.setItem(SESSION_KEY, JSON.stringify({ token: 'ok', exp: Date.now() + SESSION_TTL }));
+    return true;
+  }
+
+  function signOut() {
+    localStorage.removeItem(SESSION_KEY);
+    syncAuthUI();
+    toast('Signed out', 'ok');
+  }
+
+  /* ── NAV SCROLL EFFECT ──────────────────────── */
+  window.addEventListener('scroll', () => {
+    document.getElementById('nav').classList.toggle('scrolled', window.scrollY > 10);
+  });
+  function scrollToMonths() {
+    document.getElementById('months').scrollIntoView({ behavior: 'smooth' });
+  }
+
+  /* ── MODAL ──────────────────────────────────── */
+  let _pendingUrl = null;
+
+  function openModal(url = null) {
+    _pendingUrl = url;
+    document.getElementById('backdrop').classList.add('open');
+    setTimeout(() => document.getElementById('pwInput').focus(), 320);
+  }
+  function closeModal() {
+    document.getElementById('backdrop').classList.remove('open');
+    document.getElementById('pwInput').value = '';
+    setFormError(false);
+  }
+  function backdropClick(e) {
+    if (e.target === document.getElementById('backdrop')) closeModal();
+  }
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+  /* ── SIGN IN ────────────────────────────────── */
+  function handleSignIn(e) {
+    e.preventDefault();
+    const inp = document.getElementById('pwInput');
+    const pw  = inp.value;
+
+    if (!pw) { inp.classList.add('err'); setFormError(true, 'Please enter your password.'); return; }
+
+    if (trySignIn(pw)) {
+      closeModal();
+      syncAuthUI();
+      toast('✓ Signed in successfully', 'ok');
+      if (_pendingUrl) {
+        setTimeout(() => { window.location.href = _pendingUrl; }, 500);
+        _pendingUrl = null;
+      }
+    } else {
+      inp.value = '';
+      inp.classList.add('err');
+      setFormError(true, 'Incorrect password. Please try again.');
+      inp.style.animation = 'none';
+      void inp.offsetWidth;
+      inp.style.animation = 'shake .4s ease';
+    }
+  }
+
+  function setFormError(show, msg = '') {
+    const el = document.getElementById('formErr');
+    const inp = document.getElementById('pwInput');
+    el.textContent = msg;
+    el.classList.toggle('show', show);
+    if (!show) inp.classList.remove('err');
+  }
+
+  /* ── NAV AUTH BUTTON ────────────────────────── */
+  function handleNavAuth() {
+    isSignedIn() ? signOut() : openModal();
+  }
+
+  /* ── SYNC UI STATE ──────────────────────────── */
+  function syncAuthUI() {
+    const ok     = isSignedIn();
+    const btn    = document.getElementById('navAuthBtn');
+    const hint   = document.getElementById('authHint');
+    const strip  = document.getElementById('monthStrip');
+
+    btn.textContent = ok ? 'Sign Out' : 'Sign In';
+    btn.classList.toggle('out', ok);
+    hint.classList.toggle('hidden', ok);
+    strip.classList.toggle('auth-ok', ok);
+  }
+
+  /* ── MONTH CAROUSEL ─────────────────────────── */
+  function buildCarousel() {
+    const strip = document.getElementById('monthStrip');
+    const now   = new Date();
+    const cy    = now.getFullYear();
+    const cm    = now.getMonth(); // 0-indexed
+
+    strip.innerHTML = '';
+
+    // 24 months back → 6 months ahead
+    for (let d = -24; d <= 6; d++) {
+      const dt  = new Date(cy, cm + d, 1);
+      const y   = dt.getFullYear();
+      const m   = dt.getMonth(); // 0-indexed
+      const mm  = String(m + 1).padStart(2, '0');
+      const url = `source/html/dashboard_${y}_${mm}.html`;
+
+      const isCurrent = y === cy && m === cm;
+      const isFuture  = y > cy || (y === cy && m > cm);
+
+      const card = document.createElement('div');
+      card.className = ['month-card', isCurrent ? 'current' : '', isFuture ? 'future' : ''].filter(Boolean).join(' ');
+      card.setAttribute('role', 'listitem');
+      card.setAttribute('aria-label', `${MONTHS_SHORT[m]} ${y}`);
+      card.innerHTML = `
+        <div class="mc-name">${MONTHS_SHORT[m]}</div>
+        <div class="mc-year">${y}</div>
+        <div class="mc-arrow">→</div>
+        <div class="month-lock" aria-hidden="true">
+          <span class="lock-ico">🔒</span>
+          <span class="lock-lbl">Sign in</span>
+        </div>`;
+
+      card.addEventListener('click', () => {
+        if (isSignedIn()) window.location.href = url;
+        else openModal(url);
+      });
+
+      strip.appendChild(card);
+    }
+
+    // Centre the current month card
+    const current = strip.querySelector('.month-card.current');
+    if (current) setTimeout(() => current.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' }), 150);
+  }
+
+  /* ── ARROW BUTTONS ──────────────────────────── */
+  document.getElementById('arrowL').addEventListener('click', () => {
+    document.getElementById('monthStrip').scrollBy({ left: -300, behavior: 'smooth' });
+  });
+  document.getElementById('arrowR').addEventListener('click', () => {
+    document.getElementById('monthStrip').scrollBy({ left: 300, behavior: 'smooth' });
+  });
+
+  /* ── TOAST ──────────────────────────────────── */
+  function toast(msg, type = 'ok') {
+    const el = document.createElement('div');
+    el.className = `toast ${type}`;
+    el.textContent = msg;
+    document.getElementById('toasts').appendChild(el);
+    setTimeout(() => {
+      el.classList.add('gone');
+      setTimeout(() => el.remove(), 320);
+    }, 3000);
+  }
+
+  /* ── INIT ───────────────────────────────────── */
+  buildCarousel();
+  syncAuthUI();
+</script>
+</body>
+</html>

@@ -1110,7 +1110,7 @@ class DataBase:
                                    AND 
                                    TO_CHAR(Charge_Date::timestamp, 'YYYY') = %s
 
-                            """, (m_i, m_ip1, m_ip1, m_ip1, m_im1, m_ip1, y_ip1, )).fetchall() # TODO can this be simplified for just the transactions at the set charge date%s
+                            """, (m_i, m_ip1, m_ip1, m_ip1, m_im1, m_ip1, y_ip1, )).fetchall() # TODO can this be simplified for just the transactions at the set charge date?
         
         return pd.DataFrame(data, columns=[d[0] for d in self.cursor.description])
 

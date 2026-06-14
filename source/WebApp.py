@@ -258,9 +258,19 @@ app.config['JSON_AS_ASCII'] = False
 
 @app.route('/')
 def index():
-    landing = os.path.join(_PROJECT_DIR, 'index.html')
-    if os.path.exists(landing):
-        return send_file(landing)
+    # Try multiple candidate paths for index.html
+    for candidate in [
+        os.path.join(_PROJECT_DIR, 'index.html'),
+        os.path.join(_HERE, '..', 'index.html'),
+        '/var/task/index.html',
+    ]:
+        try:
+            p = os.path.abspath(candidate)
+            if os.path.isfile(p):
+                with open(p, encoding='utf-8') as f:
+                    return f.read(), 200, {'Content-Type': 'text/html; charset=utf-8'}
+        except Exception:
+            continue
     return _splash_html()
 
 

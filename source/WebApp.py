@@ -269,6 +269,15 @@ def api_auth_verify():
     return jsonify({'ok': ok})
 
 
+@app.errorhandler(404)
+def not_found(e):
+    """Redirect any 404 back to the landing page rather than showing a raw error."""
+    if request.path.startswith('/api/'):
+        return jsonify({'ok': False, 'error': 'not found'}), 404
+    # For page routes, send the user back home
+    return redirect('/')
+
+
 @app.route('/')
 def index():
     # Try multiple candidate paths for index.html

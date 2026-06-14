@@ -736,9 +736,10 @@
       closeModal();
       syncAuthUI();
       toast('✓ Signed in successfully', 'ok');
-      if (_pendingUrl) {
-        setTimeout(() => { window.location.href = _pendingUrl; }, 500);
-        _pendingUrl = null;
+      const dest = _pendingUrl;
+      _pendingUrl = null;
+      if (dest && dest !== '/' && dest !== window.location.pathname) {
+        setTimeout(() => { window.location.href = dest; }, 500);
       }
     } else {
       inp.value = '';

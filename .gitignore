@@ -9,6 +9,8 @@ personal information
 personal_config.json
 setup.cfg
 *.txt
+!requirements.txt
+.env
 *.cmd
 *.png
 *csv

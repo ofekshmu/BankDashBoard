@@ -38,8 +38,12 @@ os.chdir(_PROJECT_DIR)
 
 OUTPUT_HTML            = os.path.join(_HERE, 'html', 'output.html')
 ORGANIZER_HTML         = os.path.join(_HERE, 'html', 'Organizer_Table.html')
-GENERAL_ANALYSIS_DIR   = os.path.join(_PROJECT_DIR, 'Outputs', 'general_analysis')
-CATEGORY_ANALYSIS_DIR  = os.path.join(_PROJECT_DIR, 'Outputs', 'category_analysis')
+if os.getenv('DATABASE_URL'):  # Vercel: /var/task is read-only; use /tmp
+    GENERAL_ANALYSIS_DIR  = '/tmp/general_analysis'
+    CATEGORY_ANALYSIS_DIR = '/tmp/category_analysis'
+else:
+    GENERAL_ANALYSIS_DIR  = os.path.join(_PROJECT_DIR, 'Outputs', 'general_analysis')
+    CATEGORY_ANALYSIS_DIR = os.path.join(_PROJECT_DIR, 'Outputs', 'category_analysis')
 TAGGER_HTML            = os.path.join(_HERE, 'html', 'Tagger.html')
 FILES_HTML             = os.path.join(_HERE, 'html', 'Files.html')
 

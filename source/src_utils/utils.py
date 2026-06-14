@@ -4718,7 +4718,7 @@ document.addEventListener('DOMContentLoaded', _initTxnFooter);
             _f.write(html)
 
         if slug:
-            _cat_dir = _os.path.join(_proj, 'Outputs', 'category_analysis')
+            _cat_dir = '/tmp/category_analysis' if _os.getenv('DATABASE_URL') else _os.path.join(_proj, 'Outputs', 'category_analysis')
             _os.makedirs(_cat_dir, exist_ok=True)
             with open(_os.path.join(_cat_dir, f'{slug}.html'), 'w', encoding='utf-8') as _f:
                 _f.write(html)

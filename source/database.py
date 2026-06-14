@@ -90,21 +90,6 @@ class DataBase:
                 );""")
             
             cls.__instance.cursor.execute("""
-                CREATE TABLE IF NOT EXISTS DevisionTransactions (
-                ID                  SERIAL          PRIMARY KEY,
-                DevisionOfBank      INT             NOT NULL    ,
-                DevisionOfCard      INT             NOT NULL    ,
-                Name                CHAR            NOT NULL    ,
-                Execution_Date      DATE            NOT NULL    ,
-                Amount              INT             NOT NULL    ,
-                Currency            CHAR            NOT NULL    ,
-                Description         CHAR                        ,
-                Category            CHAR            NOT NULL    ,
-                FOREIGN KEY(DevisionOfBank)    REFERENCES BankTransactions(ID),
-                FOREIGN KEY(DevisionOfCard)    REFERENCES CardTransactions(ID)                                   
-                );""")
-
-            cls.__instance.cursor.execute("""
                 CREATE TABLE IF NOT EXISTS TableMeta (
                 ID                  SERIAL          PRIMARY KEY,
                 File_Name           CHAR            NOT NULL    ,
@@ -130,9 +115,8 @@ class DataBase:
                 Extra_Info          CHAR                    ,
                 Source_file         CHAR        NOT NULL    ,
                 Category            CHAR                    ,
-                Description         CHAR                    ,            
-                Reserved            INT                     ,
-                FOREIGN KEY(source_file)    REFERENCES File(Name)
+                Description         CHAR                    ,
+                Reserved            INT
                 );""")
 
             cls.__instance.cursor.execute("""
@@ -151,8 +135,22 @@ class DataBase:
                 Category            CHAR                    ,
                 Description         CHAR                    ,
                 Reserved            INT                     ,
-                FOREIGN KEY(CardID)         REFERENCES Card(CardID),
-                FOREIGN KEY(source_file)    REFERENCES File(Name)
+                FOREIGN KEY(CardID)         REFERENCES Card(CardID)
+                );""")
+
+            cls.__instance.cursor.execute("""
+                CREATE TABLE IF NOT EXISTS DevisionTransactions (
+                ID                  SERIAL          PRIMARY KEY,
+                DevisionOfBank      INT             NOT NULL    ,
+                DevisionOfCard      INT             NOT NULL    ,
+                Name                CHAR            NOT NULL    ,
+                Execution_Date      DATE            NOT NULL    ,
+                Amount              INT             NOT NULL    ,
+                Currency            CHAR            NOT NULL    ,
+                Description         CHAR                        ,
+                Category            CHAR            NOT NULL    ,
+                FOREIGN KEY(DevisionOfBank)    REFERENCES BankTransactions(ID),
+                FOREIGN KEY(DevisionOfCard)    REFERENCES CardTransactions(ID)
                 );""")
             # Charge value - The initial value/ The total sum of payments of the transaction.
             # Transaction value - The actual amount credited for

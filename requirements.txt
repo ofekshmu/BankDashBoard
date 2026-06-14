@@ -4,3 +4,5 @@ flask>=3.0.0
 psycopg2-binary>=2.9.9
 python-dotenv>=1.0.0
 pandas>=2.0.0
+tqdm>=4.0.0
+send2trash>=1.8.0

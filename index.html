@@ -776,7 +776,7 @@
       const y   = dt.getFullYear();
       const m   = dt.getMonth(); // 0-indexed
       const mm  = String(m + 1).padStart(2, '0');
-      const url = `source/html/dashboard_${y}_${mm}.html`;
+      const url = `/general/${y}_${mm}`;
 
       const isCurrent = y === cy && m === cm;
       const isFuture  = y > cy || (y === cy && m > cm);

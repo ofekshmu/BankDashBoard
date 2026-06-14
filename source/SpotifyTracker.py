@@ -4,7 +4,6 @@ Spotify Family Plan Tracker — business logic and PDF generation.
 import math
 import io
 import os
-import sqlite3
 
 # ── Balance calculation ────────────────────────────────────────────────────────
 
@@ -84,15 +83,33 @@ def compute_all_balances(db) -> list:
 
 # ── Transaction suggestions ────────────────────────────────────────────────────
 
-def get_charge_suggestions(db_path: str) -> list:
+def _spotify_pg_conn():
+    """Return a psycopg2 DictCursor-backed connection for Spotify queries."""
+    import psycopg2, psycopg2.extras
+    raw = psycopg2.connect(os.environ['DATABASE_URL'])
+    raw.autocommit = False
+
+    class _Conn:
+        def __init__(self, c):
+            self._c = c
+        def execute(self, sql, params=()):
+            cur = self._c.cursor(cursor_factory=psycopg2.extras.DictCursor)
+            cur.execute(sql.replace('?', '%s'), params)
+            return cur
+        def close(self):
+            self._c.close()
+
+    return _Conn(raw)
+
+
+def get_charge_suggestions(db_path: str = None) -> list:
     """
     Find outgoing transactions whose Name contains 'spotify' (case-insensitive)
     from both BankTransactions and CardTransactions, excluding months that already
     have a confirmed SpotifyMonthlyCharge.
     Returns list of {tx_id, date, name, amount, month, source}.
     """
-    conn = sqlite3.connect(db_path, check_same_thread=False)
-    conn.row_factory = sqlite3.Row
+    conn = _spotify_pg_conn()
     try:
         confirmed_months = {
             r[0] for r in conn.execute(
@@ -148,7 +165,7 @@ def get_charge_suggestions(db_path: str) -> list:
         conn.close()
 
 
-def get_unmatched_payments(db_path: str) -> list:
+def get_unmatched_payments(db_path: str = None) -> list:
     """
     Return income transactions that look like Spotify family-member reimbursements
     and have not yet been assigned to any SpotifyMemberPayment.
@@ -157,8 +174,7 @@ def get_unmatched_payments(db_path: str) -> list:
     or category contains 'spotify' (case-insensitive).  Card transactions are
     excluded here because card charges are outgoing costs, not incoming payments.
     """
-    conn = sqlite3.connect(db_path, check_same_thread=False)
-    conn.row_factory = sqlite3.Row
+    conn = _spotify_pg_conn()
     try:
         assigned = {
             r[0] for r in conn.execute(

@@ -258,37 +258,10 @@ app.config['JSON_AS_ASCII'] = False
 
 @app.route('/')
 def index():
-    # Compute the default fallback path
-    default_path = None
-    if os.path.isdir(GENERAL_ANALYSIS_DIR):
-        files = sorted(
-            f for f in os.listdir(GENERAL_ANALYSIS_DIR)
-            if _re.match(r'^\d{4}_\d{2}\.html$', f)
-        )
-        if files:
-            default_path = '/general/' + files[-1].replace('.html', '')
-    if default_path is None and os.path.exists(OUTPUT_HTML):
-        default_path = '/output'
-    if default_path is None:
-        return _splash_html()
-
-    # Serve a lightweight JS redirect that checks localStorage first.
-    # If a page was viewed within the last hour, go there; otherwise go to default.
-    STALE_MS = 3600 * 1000  # 1 hour
-    html = f"""<!DOCTYPE html><html><head><meta charset="UTF-8">
-<script>
-(function(){{
-  var STALE={STALE_MS};
-  try{{
-    var s=JSON.parse(localStorage.getItem('lv_page')||'null');
-    if(s&&s.p&&s.p!=='/'&&(Date.now()-s.ts)<STALE){{
-      window.location.replace(s.p);return;
-    }}
-  }}catch(e){{}}
-  window.location.replace({_json.dumps(default_path)});
-}})();
-</script></head><body></body></html>"""
-    return html, 200, {'Content-Type': 'text/html; charset=utf-8'}
+    landing = os.path.join(_PROJECT_DIR, 'index.html')
+    if os.path.exists(landing):
+        return send_file(landing)
+    return _splash_html()
 
 
 @app.route('/outputs/<path:filename>')
@@ -369,7 +342,6 @@ def restart_server():
 @app.route('/api/search/transactions')
 def search_transactions():
     """Search BankTransactions and CardTransactions with optional filters."""
-    import sqlite3 as _sq
     q_keyword  = (request.args.get('keyword')  or '').strip()
     q_category = (request.args.get('category') or '').strip()
     q_business = (request.args.get('business') or '').strip()
@@ -390,8 +362,7 @@ def search_transactions():
 
     results = []
     try:
-        conn = _sq.connect(_DB_PATH, check_same_thread=False)
-        conn.row_factory = _sq.Row
+        conn = _pg_conn()
 
         # Pre-fetch split IDs if the filter is active
         split_ids_bank = set()
@@ -531,8 +502,7 @@ def search_transactions():
 
     # ── Apply splits: hide originals, surface split rows ─────────────────────
     try:
-        split_conn  = _sq.connect(_DB_PATH, check_same_thread=False)
-        split_conn.row_factory = _sq.Row
+        split_conn = _pg_conn()
         split_rows_db = split_conn.execute(
             'SELECT ID, Original_Table, Original_ID, Amount, Description, Category FROM TransactionSplits'
         ).fetchall()
@@ -556,11 +526,10 @@ def search_transactions():
             key        = (orig_table, orig_id)
             if key not in orig_meta_cache:
                 try:
-                    c2 = _sq.connect(_DB_PATH, check_same_thread=False)
-                    c2.row_factory = _sq.Row
+                    c2 = _pg_conn()
                     if orig_table == 'BankTransactions':
                         meta = c2.execute(
-                            'SELECT Name, Date FROM BankTransactions WHERE ID=?', (orig_id,)
+                            'SELECT Name, Date FROM BankTransactions WHERE ID=%s', (orig_id,)
                         ).fetchone()
                         orig_meta_cache[key] = {
                             'name': meta['Name'] if meta else '', 'source': 'bank',
@@ -568,7 +537,7 @@ def search_transactions():
                         }
                     else:
                         meta = c2.execute(
-                            'SELECT Name, Executed_Date, CardID FROM CardTransactions WHERE ID=?', (orig_id,)
+                            'SELECT Name, Executed_Date, CardID FROM CardTransactions WHERE ID=%s', (orig_id,)
                         ).fetchone()
                         orig_meta_cache[key] = {
                             'name': meta['Name'] if meta else '', 'source': 'card',
@@ -615,9 +584,8 @@ def search_transactions():
 @app.route('/api/search/categories')
 def search_categories():
     """Return distinct category names for the search filter dropdown."""
-    import sqlite3 as _sq
     try:
-        conn = _sq.connect(_DB_PATH, check_same_thread=False)
+        conn = _pg_conn()
         cats = set()
         for row in conn.execute("SELECT DISTINCT Category FROM BankTransactions WHERE Category IS NOT NULL AND Category != ''"):
             cats.add(row[0])
@@ -1123,50 +1091,87 @@ if os.getenv('DATABASE_URL'):
 GYM_HTML = os.path.join(_HERE, 'html', 'Gym.html')
 
 
+class _PGConn:
+    """Thin wrapper around psycopg2 connection that mimics sqlite3's conn.execute() API."""
+
+    def __init__(self, raw_conn):
+        import psycopg2.extras
+        self._conn = raw_conn
+        self._factory = psycopg2.extras.DictCursor
+
+    def _sql(self, sql):
+        return sql.replace('?', '%s').replace(
+            'INSERT OR IGNORE INTO', 'INSERT INTO'
+        ).replace('ON CONFLICT NOTHING', 'ON CONFLICT DO NOTHING')
+
+    def execute(self, sql, params=()):
+        sql = self._sql(sql)
+        cur = self._conn.cursor(cursor_factory=self._factory)
+        cur.execute(sql, params)
+        return cur
+
+    def commit(self):   self._conn.commit()
+    def rollback(self): self._conn.rollback()
+    def close(self):    self._conn.close()
+
+    def cursor(self):
+        import psycopg2.extras
+        return self._conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
+
+def _pg_conn():
+    """Return a _PGConn wrapper connected to the PostgreSQL database."""
+    import psycopg2
+    raw = psycopg2.connect(os.environ['DATABASE_URL'])
+    raw.autocommit = False
+    return _PGConn(raw)
+
+
 def _gym_db():
-    """Return a SQLite connection with gym tables guaranteed to exist."""
-    import sqlite3 as _sq
-    conn = _sq.connect(_DB_PATH, check_same_thread=False)
-    conn.executescript("""
+    """Return a _PGConn connection with gym tables guaranteed to exist."""
+    conn = _pg_conn()
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS GymParticipants (
-            id             INTEGER PRIMARY KEY AUTOINCREMENT,
+            id             SERIAL PRIMARY KEY,
             name           TEXT    NOT NULL,
             is_active      INTEGER DEFAULT 1,
             insertion_date TEXT    NOT NULL
-        );
+        )
+    """)
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS GymSessions (
-            id            INTEGER PRIMARY KEY AUTOINCREMENT,
-            date          TEXT    NOT NULL,
-            product_price REAL    NOT NULL,
-            payer_id      INTEGER NOT NULL REFERENCES GymParticipants(id),
-            notes         TEXT,
-            insertion_date TEXT   NOT NULL
-        );
+            id             SERIAL PRIMARY KEY,
+            date           TEXT    NOT NULL,
+            product_price  REAL    NOT NULL,
+            payer_id       INTEGER NOT NULL REFERENCES GymParticipants(id),
+            notes          TEXT,
+            insertion_date TEXT    NOT NULL
+        )
+    """)
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS GymSessionParticipants (
             session_id     INTEGER REFERENCES GymSessions(id),
             participant_id INTEGER REFERENCES GymParticipants(id),
             PRIMARY KEY (session_id, participant_id)
-        );
+        )
     """)
     conn.commit()
     return conn
 
 
 def _acct_db():
-    """Open a fresh connection to the main DB using an absolute path."""
-    import sqlite3 as _sq
-    conn = _sq.connect(_DB_PATH, check_same_thread=False)
-    # Ensure Currency and Source columns exist (safe migrations)
+    """Open a fresh connection to the main PostgreSQL DB."""
+    conn = _pg_conn()
     try:
-        conn.execute("ALTER TABLE OtherAccountStatus ADD COLUMN Currency TEXT NOT NULL DEFAULT 'ILS'")
+        conn.execute("ALTER TABLE OtherAccountStatus ADD COLUMN IF NOT EXISTS Currency TEXT NOT NULL DEFAULT 'ILS'")
         conn.commit()
     except Exception:
-        pass
+        conn.rollback()
     try:
-        conn.execute("ALTER TABLE OtherAccountStatus ADD COLUMN Source TEXT")
+        conn.execute("ALTER TABLE OtherAccountStatus ADD COLUMN IF NOT EXISTS Source TEXT")
         conn.commit()
     except Exception:
-        pass
+        conn.rollback()
     return conn
 
 
@@ -1306,29 +1311,22 @@ def cash_by_currency():
     """Return current cash balance per currency, matching accumulate_cash_Balance():
        cash on hand = bank withdrawals (Out) + CashTransactions (Amount)
     """
-    import sqlite3 as _sq, re as _re2
-    db_candidates = [_DB_PATH, os.path.join(_HERE, 'ShmuelFamiliy.db')]
-    db_file = next((p for p in db_candidates if os.path.exists(p)), None)
-    if not db_file:
-        return jsonify({'ok': False, 'error': 'database not found'})
+    import re as _re2
     try:
         _SYM = {'ILS': '₪', 'USD': '$', 'EUR': '€', 'GBP': '£', 'JPY': '¥'}
         totals = {}   # currency_code → running balance
 
-        conn = _sq.connect(db_file)
-        cur  = conn.cursor()
+        conn = _pg_conn()
 
         # 1. Bank withdrawals — these represent cash that left the bank and is now on hand.
         #    They're ILS bank transactions tagged with the withdrawal category.
-        cur.execute(
+        bank_out = conn.execute(
             "SELECT SUM(Out) FROM BankTransactions WHERE Category = 'withdrawal'"
-        )
-        bank_out = cur.fetchone()[0] or 0
+        ).fetchone()[0] or 0
         totals['ILS'] = totals.get('ILS', 0) + float(bank_out)
 
         # 2. CashTransactions — user-recorded cash income (+) and spending (-)
-        cur.execute('SELECT Currency, SUM(Amount) FROM CashTransactions GROUP BY Currency')
-        for cur_raw, amount in cur.fetchall():
+        for cur_raw, amount in conn.execute('SELECT Currency, SUM(Amount) FROM CashTransactions GROUP BY Currency').fetchall():
             m    = _re2.match(r'([A-Z]+)', (cur_raw or '').strip())
             code = m.group(1) if m else (cur_raw or 'ILS')
             totals[code] = totals.get(code, 0) + float(amount or 0)
@@ -1351,23 +1349,19 @@ def cash_by_currency():
 def _cash_balance_map():
     """Return {currency_code: balance} for the current cash on hand.
     Shared by cash_by_currency() and cash_reconcile()."""
-    import sqlite3 as _sq, re as _re2
-    db_candidates = [_DB_PATH, os.path.join(_HERE, 'ShmuelFamiliy.db')]
-    db_file = next((p for p in db_candidates if os.path.exists(p)), None)
-    if not db_file:
-        return {}
+    import re as _re2
     totals = {}
-    conn = _sq.connect(db_file)
-    cur  = conn.cursor()
-    cur.execute("SELECT SUM(Out) FROM BankTransactions WHERE Category = 'withdrawal'")
-    bank_out = cur.fetchone()[0] or 0
-    totals['ILS'] = float(bank_out)
-    cur.execute('SELECT Currency, SUM(Amount) FROM CashTransactions GROUP BY Currency')
-    for cur_raw, amount in cur.fetchall():
-        m    = _re2.match(r'([A-Z]+)', (cur_raw or '').strip())
-        code = m.group(1) if m else (cur_raw or 'ILS')
-        totals[code] = totals.get(code, 0) + float(amount or 0)
-    conn.close()
+    try:
+        conn = _pg_conn()
+        bank_out = conn.execute("SELECT SUM(Out) FROM BankTransactions WHERE Category = 'withdrawal'").fetchone()[0] or 0
+        totals['ILS'] = float(bank_out)
+        for cur_raw, amount in conn.execute('SELECT Currency, SUM(Amount) FROM CashTransactions GROUP BY Currency').fetchall():
+            m    = _re2.match(r'([A-Z]+)', (cur_raw or '').strip())
+            code = m.group(1) if m else (cur_raw or 'ILS')
+            totals[code] = totals.get(code, 0) + float(amount or 0)
+        conn.close()
+    except Exception:
+        pass
     return totals
 
 
@@ -1399,13 +1393,8 @@ def cash_add_transaction():
 def cash_monthly_history_api():
     """Return accumulated cash balance (ILS) sampled at the first of each month."""
     try:
-        import sqlite3 as _sq, re as _re2, urllib.request as _ureq, json as _json_fx
+        import re as _re2, urllib.request as _ureq, json as _json_fx
         from datetime import date as _date, datetime as _dt
-
-        db_candidates = [_DB_PATH, os.path.join(_HERE, 'ShmuelFamiliy.db')]
-        db_file = next((p for p in db_candidates if os.path.exists(p)), None)
-        if not db_file:
-            return jsonify({'ok': False, 'error': 'database not found'})
 
         # Live FX rates (currency → ILS multiplier)
         try:
@@ -1418,12 +1407,10 @@ def cash_monthly_history_api():
 
         events = []  # [(date, ils_amount)]
 
-        conn = _sq.connect(db_file)
-        c = conn.cursor()
+        conn = _pg_conn()
 
         # Bank withdrawals (always ILS)
-        c.execute("SELECT Date, Out FROM BankTransactions WHERE Category = 'withdrawal' AND Date IS NOT NULL")
-        for d_str, out_val in c.fetchall():
+        for d_str, out_val in conn.execute("SELECT Date, Out FROM BankTransactions WHERE Category = 'withdrawal' AND Date IS NOT NULL").fetchall():
             try:
                 d = _dt.strptime(str(d_str)[:10], '%Y-%m-%d').date()
                 events.append((d, float(out_val or 0)))
@@ -1431,8 +1418,7 @@ def cash_monthly_history_api():
                 pass
 
         # Manual CashTransactions
-        c.execute("SELECT Execution_Date, Amount, Currency FROM CashTransactions")
-        for d_str, amount, cur_code in c.fetchall():
+        for d_str, amount, cur_code in conn.execute("SELECT Execution_Date, Amount, Currency FROM CashTransactions").fetchall():
             try:
                 d = _dt.strptime(str(d_str)[:10], '%Y-%m-%d').date()
                 m = _re2.match(r'([A-Z]+)', (cur_code or '').strip())
@@ -2522,13 +2508,12 @@ def files_scan():
         unrecognized = []
 
         import shutil as _shutil
-        import sqlite3 as _sq
 
         # Pre-load all known filenames from the DB so we don't rely solely on
         # the parser (which can't open locked files).
         _db_known = {}   # fname -> format
         try:
-            _conn = _sq.connect(_DB_PATH, check_same_thread=False)
+            _conn = _pg_conn()
             for _row in _conn.execute("SELECT File_Name, Format FROM File"):
                 _db_known[_row[0]] = _row[1]
             _conn.close()
@@ -2745,25 +2730,14 @@ def files_upload():
 @app.route('/api/files/db-files')
 def files_db_list():
     """Return all rows from the File table (files already in the database)."""
-    import sqlite3 as _sq
-    db_candidates = [
-        _DB_PATH,
-        os.path.join(_HERE, 'ShmuelFamiliy.db'),
-    ]
-    db_file = next((p for p in db_candidates if os.path.exists(p)), None)
-    if not db_file:
-        return jsonify({'ok': False, 'error': 'database not found'})
     try:
-        conn = _sq.connect(db_file)
-        conn.row_factory = _sq.Row
-        cur  = conn.cursor()
-        cur.execute('''
+        conn = _pg_conn()
+        rows = conn.execute('''
             SELECT File_Name, Format, Card_Number, Date,
                    New_Transactions, Transaction_count, Last_update
             FROM File
             ORDER BY Date DESC, Last_update DESC
-        ''')
-        rows = cur.fetchall()
+        ''').fetchall()
         conn.close()
 
         files = []
@@ -2791,18 +2765,16 @@ def files_db_list():
 @app.route('/api/transactions/split-info')
 def tx_split_info():
     """Return original transaction details + its splits."""
-    import sqlite3 as _sq
     tbl = (request.args.get('table') or '').strip()
     oid = request.args.get('id', type=int)
     if tbl not in ('BankTransactions', 'CardTransactions') or oid is None:
         return jsonify({'ok': False, 'error': 'invalid table or id'})
     try:
-        conn = _sq.connect(_DB_PATH, check_same_thread=False)
-        conn.row_factory = _sq.Row
+        conn = _pg_conn()
         # Fetch original row
         if tbl == 'BankTransactions':
             row = conn.execute(
-                'SELECT ID, Name, Category, Description, Out, Income, Date FROM BankTransactions WHERE ID=?', (oid,)
+                'SELECT ID, Name, Category, Description, Out, Income, Date FROM BankTransactions WHERE ID=%s', (oid,)
             ).fetchone()
             if not row:
                 conn.close(); return jsonify({'ok': False, 'error': 'not found'})
@@ -2811,7 +2783,7 @@ def tx_split_info():
                     'description': row['Description'] or '', 'amount': amount, 'date': (row['Date'] or '')[:10]}
         else:
             row = conn.execute(
-                'SELECT ID, Name, Category, Description, Transaction_Value, Executed_Date FROM CardTransactions WHERE ID=?', (oid,)
+                'SELECT ID, Name, Category, Description, Transaction_Value, Executed_Date FROM CardTransactions WHERE ID=%s', (oid,)
             ).fetchone()
             if not row:
                 conn.close(); return jsonify({'ok': False, 'error': 'not found'})
@@ -2821,7 +2793,7 @@ def tx_split_info():
                     'date': (row['Executed_Date'] or '')[:10]}
         # Fetch splits
         splits_rows = conn.execute(
-            'SELECT ID, Amount, Description, Category FROM TransactionSplits WHERE Original_Table=? AND Original_ID=? ORDER BY ID',
+            'SELECT ID, Amount, Description, Category FROM TransactionSplits WHERE Original_Table=%s AND Original_ID=%s ORDER BY ID',
             (tbl, oid)
         ).fetchall()
         conn.close()
@@ -2838,10 +2810,9 @@ def _regen_month_for_tx(tbl: str, tx_id: int) -> None:
     monthly HTML so split changes are reflected on the next page load.
     """
     try:
-        import sqlite3 as _sq2
         col  = 'Date' if tbl == 'BankTransactions' else 'Executed_Date'
-        conn = _sq2.connect(_DB_PATH, check_same_thread=False)
-        row  = conn.execute(f'SELECT {col} FROM {tbl} WHERE ID=?', (tx_id,)).fetchone()
+        conn = _pg_conn()
+        row  = conn.execute(f'SELECT {col} FROM {tbl} WHERE ID=%s', (tx_id,)).fetchone()
         conn.close()
         if not row or not row[0]:
             return
@@ -2923,7 +2894,7 @@ def files_delete():
         db = _DB2()
         if not card:
             row = db.cursor.execute(
-                'SELECT Card_Number FROM File WHERE File_Name = ? AND Format = ?',
+                'SELECT Card_Number FROM File WHERE File_Name = %s AND Format = %s',
                 (name, fmt)
             ).fetchone()
             if row:
@@ -3061,9 +3032,7 @@ def api_bills_entry(entry_id):
 
 @app.route('/api/bills/suggestions')
 def api_bills_suggestions():
-    import sqlite3 as _sq
-    conn = _sq.connect(_DB_PATH, check_same_thread=False)
-    conn.row_factory = _sq.Row
+    conn = _pg_conn()
     try:
         from database import DataBase
         db = DataBase()
@@ -3399,12 +3368,12 @@ def api_gym_add_participant():
     from datetime import datetime as _dt
     conn = _gym_db()
     try:
-        conn.execute(
-            "INSERT INTO GymParticipants(name, is_active, insertion_date) VALUES(?,1,?)",
+        cur = conn.execute(
+            "INSERT INTO GymParticipants(name, is_active, insertion_date) VALUES(%s,1,%s) RETURNING id",
             (name, _dt.now().strftime('%Y-%m-%d'))
         )
+        pid = cur.fetchone()[0]
         conn.commit()
-        pid = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
         return jsonify({'ok': True, 'id': pid})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)})
@@ -3537,14 +3506,14 @@ def api_gym_add_session():
         attendees = [payer_id] + attendees
     conn = _gym_db()
     try:
-        conn.execute(
-            "INSERT INTO GymSessions(date, product_price, payer_id, notes, insertion_date) VALUES(?,?,?,?,?)",
+        cur = conn.execute(
+            "INSERT INTO GymSessions(date, product_price, payer_id, notes, insertion_date) VALUES(%s,%s,%s,%s,%s) RETURNING id",
             (date_str, price, payer_id, notes, _dt.now().strftime('%Y-%m-%d %H:%M:%S'))
         )
-        sid = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+        sid = cur.fetchone()[0]
         for pid in attendees:
             conn.execute(
-                "INSERT OR IGNORE INTO GymSessionParticipants(session_id, participant_id) VALUES(?,?)",
+                "INSERT INTO GymSessionParticipants(session_id, participant_id) VALUES(%s,%s) ON CONFLICT DO NOTHING",
                 (sid, pid)
             )
         conn.commit()

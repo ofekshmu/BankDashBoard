@@ -657,7 +657,6 @@
   const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const SESSION_KEY  = 'bankdash_auth';
   const SESSION_TTL  = 7 * 24 * 60 * 60 * 1000;
-  const _k           = btoa('ofek'); // lightweight obfuscation for a local personal app
 
   /* ── AUTH ───────────────────────────────────── */
   function isSignedIn() {
@@ -671,10 +670,20 @@
     } catch { return false; }
   }
 
-  function trySignIn(pw) {
-    if (btoa(pw) !== _k) return false;
-    localStorage.setItem(SESSION_KEY, JSON.stringify({ token: 'ok', exp: Date.now() + SESSION_TTL }));
-    return true;
+  async function trySignIn(pw) {
+    try {
+      const r = await fetch('/api/auth/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: pw }),
+      });
+      const data = await r.json();
+      if (data.ok) {
+        localStorage.setItem(SESSION_KEY, JSON.stringify({ token: 'ok', exp: Date.now() + SESSION_TTL }));
+        return true;
+      }
+    } catch {}
+    return false;
   }
 
   function signOut() {
@@ -710,14 +719,20 @@
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
   /* ── SIGN IN ────────────────────────────────── */
-  function handleSignIn(e) {
+  async function handleSignIn(e) {
     e.preventDefault();
     const inp = document.getElementById('pwInput');
     const pw  = inp.value;
 
     if (!pw) { inp.classList.add('err'); setFormError(true, 'Please enter your password.'); return; }
 
-    if (trySignIn(pw)) {
+    const btn = e.target.querySelector('button[type=submit]') || document.getElementById('signinBtn');
+    if (btn) btn.disabled = true;
+
+    const ok = await trySignIn(pw);
+    if (btn) btn.disabled = false;
+
+    if (ok) {
       closeModal();
       syncAuthUI();
       toast('✓ Signed in successfully', 'ok');

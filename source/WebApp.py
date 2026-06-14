@@ -256,6 +256,19 @@ app = Flask(__name__)
 app.config['JSON_AS_ASCII'] = False
 
 
+@app.route('/api/auth/verify', methods=['POST'])
+def api_auth_verify():
+    """Check password against ADMIN_PASSWORD env var."""
+    import hmac
+    body     = request.get_json(force=True) or {}
+    pw       = str(body.get('password', ''))
+    expected = os.environ.get('ADMIN_PASSWORD', '')
+    if not expected:
+        return jsonify({'ok': False, 'error': 'ADMIN_PASSWORD not set'})
+    ok = hmac.compare_digest(pw, expected)
+    return jsonify({'ok': ok})
+
+
 @app.route('/')
 def index():
     # Try multiple candidate paths for index.html

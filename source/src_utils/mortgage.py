@@ -176,9 +176,9 @@ def current_month_data(year: int, month: int) -> dict:
     rows = DataBase().cursor.execute("""
         SELECT Name, Out, Income
         FROM BankTransactions
-        WHERE Category = ?
-          AND Date >= ?
-          AND Date <= ?
+        WHERE Category = %s
+          AND Date >= %s
+          AND Date <= %s
     """, (MORTGAGE_CATEGORY, d1, d2)).fetchall()
 
     payment      = sum(r[1] for r in rows if r[1] and "משכנתא" in (r[0] or ""))

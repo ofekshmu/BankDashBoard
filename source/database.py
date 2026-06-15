@@ -15,6 +15,43 @@ from Constants import Local, Paths
 from typing import Tuple
 
 
+# PostgreSQL lowercases all unquoted identifiers.  This map restores the
+# original mixed-case column names that the rest of the codebase expects.
+_PG_COL_CASE = {
+    # universal
+    'id': 'ID', 'name': 'Name', 'category': 'Category',
+    'description': 'Description', 'currency': 'Currency',
+    'amount': 'Amount', 'reserved': 'Reserved', 'format': 'Format',
+    'date': 'Date', 'value': 'Value', 'source': 'Source',
+    # Card
+    'cardid': 'CardID',
+    # File
+    'file_name': 'File_Name', 'card_number': 'Card_Number',
+    'new_transactions': 'New_Transactions', 'transaction_count': 'Transaction_count',
+    'last_update': 'Last_update',
+    # BankTransactions
+    'value_date': 'Value_Date', 'ref': 'Ref', 'out': 'Out',
+    'income': 'Income', 'balance': 'Balance', 'extra_info': 'Extra_Info',
+    'source_file': 'Source_file',
+    # CardTransactions
+    'executed_date': 'Executed_Date', 'charge_date': 'Charge_Date',
+    'charge_value': 'Charge_Value', 'charge_currency': 'Charge_Currency',
+    'transaction_value': 'Transaction_Value', 'value_currency': 'Value_Currency',
+    # CashTransactions
+    'execution_date': 'Execution_Date', 'insertion_date': 'Insertion_Date',
+    # TableMeta
+    'initial_index': 'Initial_index', 'initial_col': 'Initial_col',
+    'row_count': 'Row_count', 'bad_rows': 'Bad_rows',
+    # DevisionTransactions
+    'devisionofbank': 'DevisionOfBank', 'devisionofcard': 'DevisionOfCard',
+    # SQL aliases used in queries
+    'tablename': 'TableName',
+    # OtherAccountStatus
+    'accountname': 'AccountName', 'statusdate': 'StatusDate',
+    'transactionid': 'TransactionID',
+}
+
+
 class _ChainableCursor:
     """
     Cursor proxy that makes execute() return self (matching sqlite3's API).
@@ -37,7 +74,12 @@ class _ChainableCursor:
     def fetchmany(self, n): return self._c.fetchmany(n) if self._c else []
 
     @property
-    def description(self): return self._c.description if self._c else None
+    def description(self):
+        if not self._c or not self._c.description:
+            return None
+        # Wrap each Column so d[0] is the original mixed-case name.
+        return [(_PG_COL_CASE.get(d[0], d[0]),) + tuple(d[1:]) for d in self._c.description]
+
     @property
     def rowcount(self):    return self._c.rowcount if self._c else 0
 
@@ -458,10 +500,186 @@ class DataBase:
         """
 
         """
-        return self.cursor.execute("""SELECT Balance FROM BankTransactions
-                                      ORDER BY Date
-                                      DESC LIMIT 1
-                                   """).fetchone()[0]
+        row = self.cursor.execute("""SELECT Balance FROM BankTransactions
+                                      WHERE Balance IS NOT NULL
+                                      ORDER BY Date DESC, ID DESC
+                                      LIMIT 1
+                                   """).fetchone()
+        return row[0] if row else None
+
+    def get_all_splits(self) -> list:
+        """Return all split records as a list of dicts."""
+        rows = self.cursor.execute("""
+            SELECT ID, Original_Table, Original_ID, Amount, Description, Category
+            FROM TransactionSplits
+        """).fetchall()
+        return [{'split_id': r[0], 'orig_table': r[1], 'orig_id': r[2],
+                 'amount': r[3], 'description': r[4] or '', 'category': r[5]}
+                for r in rows]
+
+    def apply_splits_to_df(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Replace split-original rows with their individual split rows."""
+        if df.empty:
+            return df
+        all_splits = self.get_all_splits()
+        if not all_splits:
+            return df
+        if 'TableName' not in df.columns or 'ID' not in df.columns:
+            return df
+        split_keys = set((s['orig_table'], s['orig_id']) for s in all_splits)
+        mask_orig = pd.Series(False, index=df.index)
+        for tbl, oid in split_keys:
+            mask_orig |= (df['TableName'] == tbl) & (df['ID'] == oid)
+        if not mask_orig.any():
+            return df
+        df_clean = df[~mask_orig].copy()
+        new_rows = []
+        for _, orig_row in df[mask_orig].iterrows():
+            tbl  = str(orig_row['TableName'])
+            oid  = int(orig_row['ID'])
+            my_splits = [s for s in all_splits
+                         if s['orig_table'] == tbl and s['orig_id'] == oid]
+            is_spending = (
+                (tbl == 'BankTransactions' and float(orig_row.get('Out', 0) or 0) > 0) or
+                (tbl == 'CardTransactions' and float(orig_row.get('Transaction_Value', 0) or 0) > 0)
+            )
+            for s in my_splits:
+                sr = orig_row.copy()
+                sr['ID']             = s['split_id']
+                sr['_split_orig_id'] = oid
+                sr['Category']       = s['category']
+                if s['description']:
+                    sr['Description'] = s['description']
+                if tbl == 'BankTransactions':
+                    sr['Out']    = s['amount'] if is_spending else 0
+                    sr['Income'] = 0 if is_spending else s['amount']
+                elif tbl == 'CardTransactions':
+                    sr['Transaction_Value'] = s['amount'] if is_spending else -s['amount']
+                    sr['Charge_Value']      = s['amount']
+                new_rows.append(sr)
+        if new_rows:
+            return pd.concat([df_clean, pd.DataFrame(new_rows)], ignore_index=True)
+        return df_clean
+
+    def get_mortgage_payments(self, category: str, name_keyword: str) -> pd.DataFrame:
+        """Return bank transactions whose Name contains name_keyword and Category matches.
+        Returns columns: Date, Name, Amount (positive = money out)."""
+        data = self.cursor.execute("""
+            SELECT Date, Name, Out AS Amount
+            FROM BankTransactions
+            WHERE Category = %s
+              AND Name ILIKE %s
+              AND Out > 0
+            ORDER BY Date ASC
+        """, (category, f'%{name_keyword}%')).fetchall()
+        return pd.DataFrame(data, columns=['Date', 'Name', 'Amount'])
+
+    def get_all_category_transactions(self, category: str) -> pd.DataFrame:
+        """Return all transactions (bank + card, with splits applied) for a category.
+        Returns columns: Date, Name, Out, Income, Description."""
+        from src_utils.calculations import SimpleMath
+        from datetime import datetime as _dt
+
+        bank_raw = self.get_transactions('BankTransactions', category_filter=None, name_filter=None)
+        bank_raw = self.apply_splits_to_df(bank_raw)
+        bank_raw = bank_raw[bank_raw['Category'] == category].reset_index(drop=True)
+
+        card_raw = self.get_transactions('CardTransactions', category_filter=None, name_filter=None)
+        card_raw = self.apply_splits_to_df(card_raw)
+        card_raw = card_raw[card_raw['Category'] == category].reset_index(drop=True)
+
+        bank_df = pd.DataFrame({
+            'Date':        bank_raw['Date'],
+            'Name':        bank_raw['Name'],
+            'Out':         bank_raw['Out'],
+            'Income':      bank_raw['Income'],
+            'Description': bank_raw['Description'] if 'Description' in bank_raw.columns else '',
+        }) if not bank_raw.empty else pd.DataFrame(columns=['Date', 'Name', 'Out', 'Income', 'Description'])
+
+        if not card_raw.empty:
+            card_proc = SimpleMath.process_prices(card_raw, date=_dt.now(), general_analysis=False)
+            card_result = pd.DataFrame({
+                'Date':        card_proc['Executed_Date'],
+                'Name':        card_proc['Name'],
+                'Out':         card_proc['Final_Value'].apply(lambda v: abs(float(v)) if v < 0 else 0.0),
+                'Income':      card_proc['Final_Value'].apply(lambda v: float(v) if v > 0 else 0.0),
+                'Description': card_proc['Description'] if 'Description' in card_proc.columns else '',
+            })
+            combined = pd.concat([bank_df, card_result], ignore_index=True)
+        else:
+            combined = bank_df
+
+        combined['Date'] = pd.to_datetime(combined['Date'])
+        return combined.sort_values('Date', ascending=False).reset_index(drop=True)
+
+    def get_housing_spending(self, category: str) -> pd.DataFrame:
+        """Return all Out (spending) entries for category across all time (bank + card, splits applied).
+        Returns columns: Date, Name, Out."""
+        from src_utils.calculations import SimpleMath
+        from datetime import datetime as _dt
+
+        bank_raw = self.get_transactions('BankTransactions', category_filter=None, name_filter=None)
+        bank_raw = self.apply_splits_to_df(bank_raw)
+        bank_raw = bank_raw[(bank_raw['Category'] == category) & (bank_raw['Out'] > 0)].reset_index(drop=True)
+
+        card_raw = self.get_transactions('CardTransactions', category_filter=None, name_filter=None)
+        card_raw = self.apply_splits_to_df(card_raw)
+        card_raw = card_raw[card_raw['Category'] == category].reset_index(drop=True)
+
+        bank_df = pd.DataFrame({
+            'Date': bank_raw['Date'],
+            'Name': bank_raw['Name'],
+            'Out':  bank_raw['Out'],
+        }) if not bank_raw.empty else pd.DataFrame(columns=['Date', 'Name', 'Out'])
+
+        if not card_raw.empty:
+            card_proc = SimpleMath.process_prices(card_raw, date=_dt.now(), general_analysis=False)
+            spending = card_proc[card_proc['Final_Value'] < 0].copy()
+            card_result = pd.DataFrame({
+                'Date': spending['Executed_Date'],
+                'Name': spending['Name'],
+                'Out':  spending['Final_Value'].apply(lambda v: abs(float(v))),
+            })
+            combined = pd.concat([bank_df, card_result], ignore_index=True)
+        else:
+            combined = bank_df
+
+        combined['Date'] = pd.to_datetime(combined['Date'])
+        return combined.sort_values('Date').reset_index(drop=True)
+
+    def get_housing_income(self, category: str) -> pd.DataFrame:
+        """Return all Income (rent) entries for category across all time.
+        Returns columns: Date, Name, Income."""
+        data = self.cursor.execute("""
+            SELECT Date, Name, Income
+            FROM BankTransactions
+            WHERE Category = %s
+              AND Income > 0
+            ORDER BY Date ASC
+        """, (category,)).fetchall()
+        return pd.DataFrame(data, columns=['Date', 'Name', 'Income'])
+
+    def get_latest_balance_date(self):
+        """Return the Date of the most recent BankTransactions row that has a Balance."""
+        row = self.cursor.execute("""
+            SELECT Date FROM BankTransactions
+            WHERE Balance IS NOT NULL
+            ORDER BY Date DESC, ID DESC
+            LIMIT 1
+        """).fetchone()
+        return row[0] if row else None
+
+    def get_balance_for_month(self, year: int, month: int):
+        """Return the last BankTransactions balance for the given year/month, or None."""
+        row = self.cursor.execute("""
+            SELECT Balance FROM BankTransactions
+            WHERE TO_CHAR(Date::timestamp, 'YYYY') = %s
+              AND TO_CHAR(Date::timestamp, 'MM')   = %s
+              AND Balance IS NOT NULL
+            ORDER BY Date DESC, ID DESC
+            LIMIT 1
+        """, (str(year), str(month).zfill(2))).fetchone()
+        return row[0] if row else None
 
     def get_gas_related(self, keys: list, year: str = "", month: str = ""):
         rows = []
@@ -486,7 +704,7 @@ class DataBase:
                                         Income AS "Income/Charge_Value",
                                         Category,
                                         Description AS "Description/Charge_Currency",
-                                        Reserved AS "Reserved/Value_Currency",
+                                        Reserved::text AS "Reserved/Value_Currency",
                                         Date AS "Date/Executed_Date",
                                         Value_Date AS "Value_Date/Charge_Date",
                                         Extra_Info
@@ -539,7 +757,7 @@ class DataBase:
                                         Out AS "Out/Transaction_value",
                                         Income AS "Income/Charge_Value",
                                         Description AS "Description/Charge_Currency",
-                                        Reserved AS "Reserved/Value_Currency",
+                                        Reserved::text AS "Reserved/Value_Currency",
                                         Category,
                                         Extra_Info,
                                         Source_file
@@ -620,7 +838,7 @@ class DataBase:
                                         Out AS "Out/Transaction_value",
                                         Income AS "Income/Charge_Value",
                                         Description AS "Description/Charge_Currency",
-                                        Reserved AS "Reserved/Value_Currency",
+                                        Reserved::text AS "Reserved/Value_Currency",
                                         Category,
                                         Extra_Info,
                                         Source_file
@@ -685,7 +903,7 @@ class DataBase:
                                         Out AS "Out/Transaction_value",
                                         Income AS "Income/Charge_Value",
                                         Description AS "Description/Charge_Currency",
-                                        Reserved AS "Reserved/Value_Currency",
+                                        Reserved::text AS "Reserved/Value_Currency",
                                         Category,
                                         Extra_Info,
                                         Source_file
@@ -738,7 +956,7 @@ class DataBase:
                                         Out AS "Out/Transaction_value",
                                         Income AS "Income/Charge_Value",
                                         Description AS "Description/Charge_Currency",
-                                        Reserved AS "Reserved/Value_Currency",
+                                        Reserved::text AS "Reserved/Value_Currency",
                                         Category,
                                         Extra_Info,
                                         Source_file
@@ -1430,25 +1648,26 @@ class DataBase:
 
         # Base query with date filter
         query = """
-            SELECT 
+            SELECT
                 StatusDate as Date,
                 Value,
-                AccountName
+                AccountName,
+                Currency
             FROM OtherAccountStatus
             WHERE StatusDate >= %s
             {}
             ORDER BY StatusDate ASC
         """
-        
+
         if account_name:
             where_clause = "AND AccountName = %s"
-            data = self.cursor.execute(query.format(where_clause), 
+            data = self.cursor.execute(query.format(where_clause),
                                      (from_date_str, account_name)).fetchall()
         else:
-            data = self.cursor.execute(query.format(""), 
+            data = self.cursor.execute(query.format(""),
                                      (from_date_str,)).fetchall()
 
-        df = pd.DataFrame(data, columns=['Date', 'Value', 'AccountName'])
+        df = pd.DataFrame(data, columns=['Date', 'Value', 'AccountName', 'Currency'])
         df['Date'] = pd.to_datetime(df['Date'])
         return df
 
@@ -1679,9 +1898,7 @@ class DataBase:
                     ) as rn
                 FROM BankTransactions
                 WHERE Date >= %s
-                AND Balance IS NOT NULL 
-                AND trim(Balance::text) != ''
-                AND Balance != ' '
+                AND Balance IS NOT NULL
             )
             SELECT 
                 Date,
@@ -1731,9 +1948,7 @@ class DataBase:
                     ) as rn
                 FROM BankTransactions
                 WHERE Date >= %s
-                AND Balance IS NOT NULL 
-                AND trim(Balance::text) != ''
-                AND Balance != ' '
+                AND Balance IS NOT NULL
             )
             SELECT 
                 Date,

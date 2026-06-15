@@ -1,7 +1,7 @@
 ﻿from Constants import Settings, ReservedNames, Paths, CC_CHARGE_CATEGORY_NAME
 import json
 from typing import Union
-from datetime import datetime
+from datetime import datetime, date as _date
 import shutil
 import os
 import send2trash
@@ -4866,19 +4866,16 @@ document.addEventListener('DOMContentLoaded', _initTxnFooter);
                                     Transaction date is {row['Date']}", "error")
                     else:
                         last_valid_date = row['Date']
-                        print(type(last_valid_date))
 
-        if isinstance(last_valid_date, datetime):
+        if isinstance(last_valid_date, (datetime, _date)):
             last_valid_date = last_valid_date.strftime("%Y-%m-%d")
         else:
-            # Convert the string to a datetime object
-            date_object = datetime.strptime(last_valid_date, "%Y-%m-%d %H:%M:%S")
-
-            # Define the format for the string without the timestamp
-            date_format_without_timestamp = "%Y-%m-%d"
-
-            # Convert the datetime object back to a string without the timestamp
-            last_valid_date = date_object.strftime(date_format_without_timestamp)
+            # SQLite returns dates as strings — parse and reformat without timestamp
+            try:
+                date_object = datetime.strptime(last_valid_date, "%Y-%m-%d %H:%M:%S")
+            except ValueError:
+                date_object = datetime.strptime(last_valid_date, "%Y-%m-%d")
+            last_valid_date = date_object.strftime("%Y-%m-%d")
             
         personal_conf_dict['bank_transactions_last_valid_date'] = last_valid_date
         json.dump(personal_conf_dict, open(Paths.PERSONAL_CONFIG, "w", encoding='utf-8'))

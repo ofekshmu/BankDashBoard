@@ -300,10 +300,10 @@ def not_found(e):
 
 @app.route('/')
 def index():
-    # Try multiple candidate paths for index.html
+    # Check project-root index.html first (landing page with auth)
     for candidate in [
         os.path.join(_PROJECT_DIR, 'index.html'),
-        os.path.join(_HERE, '..', 'index.html'),
+        os.path.join(_HERE, 'html', 'index.html'),
         '/var/task/index.html',
     ]:
         try:
@@ -313,7 +313,50 @@ def index():
                     return f.read(), 200, {'Content-Type': 'text/html; charset=utf-8'}
         except Exception:
             continue
-    return _splash_html()
+    # Fallback: redirect to most recent dashboard
+    default_path = None
+    if os.path.isdir(GENERAL_ANALYSIS_DIR):
+        files = sorted(
+            f for f in os.listdir(GENERAL_ANALYSIS_DIR)
+            if _re.match(r'^\d{4}_\d{2}\.html$', f)
+        )
+        if files:
+            default_path = '/general/' + files[-1].replace('.html', '')
+    if default_path is None and os.path.exists(OUTPUT_HTML):
+        default_path = '/output'
+    if default_path is None:
+        return _splash_html()
+    return redirect(default_path)
+
+
+@app.route('/api/auth/verify', methods=['POST'])
+def api_auth_verify():
+    data     = request.get_json(silent=True) or {}
+    password = data.get('password', '')
+    secret   = os.getenv('ADMIN_PASSWORD') or os.getenv('DASHBOARD_PASSWORD', 'ofek')
+    if password == secret:
+        return jsonify({'ok': True})
+    return jsonify({'ok': False}), 401
+
+
+@app.route('/favicon.svg')
+def serve_favicon_svg():
+    svg_path = os.path.join(_HERE, 'html', 'logo.svg')
+    return send_file(svg_path, mimetype='image/svg+xml')
+
+
+@app.route('/favicon.ico')
+def serve_favicon_ico():
+    ico_path = os.path.join(_PROJECT_DIR, 'bankproject.ico')
+    if os.path.isfile(ico_path):
+        return send_file(ico_path, mimetype='image/x-icon')
+    return serve_favicon_svg()
+
+
+@app.route('/design-system.css')
+def serve_design_system():
+    css_path = os.path.join(_HERE, 'html', 'design-system.css')
+    return send_file(css_path, mimetype='text/css')
 
 
 @app.route('/outputs/<path:filename>')

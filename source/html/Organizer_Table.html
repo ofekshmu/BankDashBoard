@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
@@ -13,9 +13,9 @@
 body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--navy);direction:rtl;display:flex;min-height:100vh}
 .ham-btn{position:fixed;top:18px;right:18px;width:42px;height:42px;background:var(--white);border:1.5px solid var(--border);border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:400;box-shadow:0 2px 10px rgba(0,0,0,.06);color:var(--navy);transition:background .15s,color .15s,border-color .15s}
 .ham-btn:hover,.ham-btn.open{background:var(--teal);border-color:var(--teal);color:#fff}
-.nav-overlay{position:fixed;inset:0;background:rgba(15,22,45,.26);z-index:390;opacity:0;pointer-events:none;transition:opacity .22s ease}
+.nav-overlay{position:fixed;inset:0;background:rgba(15,22,45,.26);z-index:1000;opacity:0;pointer-events:none;transition:opacity .22s ease}
 .nav-overlay.open{opacity:1;pointer-events:all}
-.sidebar{position:fixed;top:0;right:0;height:100vh;width:230px;background:var(--white);z-index:395;transform:translate3d(100%,0,0);transition:transform .22s cubic-bezier(.4,0,.2,1);will-change:transform;box-shadow:-4px 0 24px rgba(0,0,0,.09);display:flex;flex-direction:column}
+.sidebar{position:fixed;top:0;right:0;height:100vh;width:230px;background:var(--white);z-index:1002;transform:translate3d(100%,0,0);transition:transform .22s cubic-bezier(.4,0,.2,1);will-change:transform;box-shadow:-4px 0 24px rgba(0,0,0,.09);display:flex;flex-direction:column}
 .sidebar.open{transform:translate3d(0,0,0)}
 .sidebar-header{display:flex;align-items:center;padding:20px 20px 16px;border-bottom:1px solid var(--border);flex-shrink:0}
 .sidebar-app-name{font-size:.95em;font-weight:700;color:var(--navy)}
@@ -26,6 +26,11 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--na
 .nav-item:hover::before{background:#1e9d8b}
 .nav-item.active{color:#b8c0d0;cursor:default;pointer-events:none}
 .nav-sep{height:1px;background:#eef0f6;margin:8px 16px}
+.sidebar-close-btn{margin-right:auto;background:none;border:none;cursor:pointer;font-size:1.1em;color:#555;padding:4px 6px;border-radius:6px;transition:background .12s,color .12s}
+.sidebar-close-btn:hover{background:var(--teal-light);color:var(--teal)}
+.sidebar-footer{padding:12px 16px;border-top:1px solid var(--border);flex-shrink:0}
+.nav-restart-btn{width:100%;padding:8px 12px;border:1.5px dashed var(--border);border-radius:8px;background:none;color:var(--text-muted);font-size:.78em;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:7px;justify-content:center;transition:background .15s,color .15s,border-color .15s}
+.nav-restart-btn:hover{background:#fff3f3;color:#e53935;border-color:#e53935}
 .main{margin-right:0;flex:1;padding:72px 32px 60px;min-width:0;overflow-x:hidden}
 .page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px}
 .page-header h1{font-size:1.7em;font-weight:700}
@@ -51,7 +56,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--na
 .legend-desc{color:var(--text-muted)}
 .ld-green{background:#22c55e}.ld-yellow{background:#f59e0b}.ld-red{background:#ef4444}
 .ld-blue{background:#3b82f6}.ld-blue2{background:#93c5fd}.ld-gray{background:#9ca3af}
-.table-section{background:var(--white);border-radius:var(--radius);border:1px solid var(--border);overflow:hidden}
+.table-section{background:var(--white);border-radius:var(--radius);border:1px solid var(--border)}
 .table-scroll{overflow-x:auto}
 table{border-collapse:collapse;width:100%;white-space:nowrap}
 .org-th{background:var(--navy);color:#fff;padding:13px 14px;text-align:center;font-size:.79em;font-weight:600;letter-spacing:.3px;position:sticky;top:0;z-index:10}
@@ -75,69 +80,38 @@ tbody tr:hover .org-td-date{background:#f8fffd !important}
 
 /* ── Mobile Responsive Design ──────────────────────────────────────────────── */
 @media (max-width: 768px) {
-    body {
-        padding: 10px;
-        font-size: 14px;
-    }
-
-    .container, .main-content {
-        padding: 10px;
-        margin: 0;
-    }
-
-    table {
-        font-size: 12px;
-        display: block;
-        overflow-x: auto;
-    }
-
-    th, td {
-        padding: 8px;
-    }
-
-    button, input, select {
-        padding: 12px;
-        font-size: 16px;
-        min-height: 44px;
-    }
-
-    .header, .sidebar, .navigation {
-        display: block;
-        width: 100%;
-    }
-
-    h1, h2, h3 {
-        font-size: 18px;
-        margin-bottom: 15px;
-    }
+  /* Keep table as table (not display:block) so sticky columns work */
+  .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .org-th, .org-td { font-size: 0.72em; padding: 7px 8px; min-width: 90px; }
+  .org-th-date, .org-td-date { min-width: 100px; font-size: 0.74em; }
+  .legend-grid { grid-template-columns: 1fr; gap: 8px; }
 }
 
-@media (max-width: 480px) {
-    body {
-        padding: 5px;
-        font-size: 12px;
-    }
-
-    table {
-        font-size: 10px;
-    }
-
-    th, td {
-        padding: 5px;
-    }
-
-    button, input, select {
-        width: 100%;
-        padding: 12px;
-        font-size: 16px;
-        margin-bottom: 10px;
-    }
-
-    h1, h2 {
-        font-size: 16px;
-    }
+@media (max-width: 600px) {
+  .org-th, .org-td { font-size: 0.68em; padding: 5px 6px; min-width: 72px; }
+  .org-th-date, .org-td-date { min-width: 86px; }
+  .org-cell-date { display: none; } /* hide date sub-label on small screens */
+  .page-header { flex-wrap: wrap; gap: 8px; padding-right: 0; }
+  .page-header h1 { font-size: 1.3em; }
+  .legend-card { padding: 14px 16px; }
+  /* Scroll hint */
+  .table-scroll::after {
+    content: '← גלול לראות עוד';
+    display: block;
+    text-align: center;
+    font-size: 0.72em;
+    color: #9aa3bb;
+    padding: 6px;
+    background: #f9fafb;
+    border-top: 1px solid #eef0f6;
+  }
+}
+@media (max-width: 600px) {
+  .main { padding: 56px 12px 80px !important; }
+  .page-header { padding-right: 0 !important; }
 }
 </style>
+<link rel="stylesheet" href="/design-system.css">
 </head>
 <body data-generated="06/06/2026 16:54">
 <button class="ham-btn" id="ham-btn" onclick="toggleNav()" aria-label="תפריט">
@@ -150,19 +124,26 @@ tbody tr:hover .org-td-date{background:#f8fffd !important}
 <div class="nav-overlay" id="nav-overlay" onclick="toggleNav()"></div>
 <nav class="sidebar" id="sidebar">
   <div class="sidebar-header">
-    <span class="sidebar-app-name">FinDash</span>
+    <span class="sidebar-app-name">ניהול כספים</span>
+    <button class="sidebar-close-btn" onclick="closeNav()" aria-label="סגור תפריט">✕</button>
   </div>
   <div class="sidebar-scroll">
-    <a class="nav-item" href="/">ראשי</a>
+    <a class="nav-item" href="/">ניתוח חודשי</a>
     <div class="nav-sep"></div>
+    <a class="nav-item" href="/accounts">חשבונות</a>
+    <a class="nav-item" href="/housing">דיור</a>
     <a class="nav-item active" href="/organizer">ארגונית</a>
-    <a class="nav-item" href="/categories">קטגוריות</a>
+    <a class="nav-item" href="/bills">מעקב חשבונות</a>
+    <a class="nav-item" href="/categories">ניתוח קטגוריאלי</a>
+    <a class="nav-item" href="/search">חיפוש</a>
+    <a class="nav-item" href="/spotify">Spotify Tracker</a>
+    <a class="nav-item" href="/gym">💪 Gym Tracker</a>
     <div class="nav-sep"></div>
     <a class="nav-item" href="/tagger">תייגן</a>
     <a class="nav-item" href="/files">קבצים</a>
   </div>
-  <div class="sidebar-footer" style="padding:12px 16px;border-top:1px solid var(--border);flex-shrink:0">
-    <button onclick="restartServer(this)" style="width:100%;padding:8px 12px;border:1.5px dashed var(--border);border-radius:8px;background:none;color:var(--text-muted);font-size:.78em;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:7px;justify-content:center" onmouseover="this.style.background='#fff3f3';this.style.color='#e53935';this.style.borderColor='#e53935'" onmouseout="this.style.background='none';this.style.color='';this.style.borderColor=''">
+  <div class="sidebar-footer">
+    <button class="nav-restart-btn" onclick="restartServer(this)">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
       הפעל שרת מחדש
     </button>

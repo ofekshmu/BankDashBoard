@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8"/>
@@ -24,9 +24,9 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;m
 .ham-btn{position:fixed;top:18px;right:18px;width:42px;height:42px;background:var(--white);border:1.5px solid var(--border);border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:400;box-shadow:var(--shadow-sm);color:var(--navy);transition:background .15s,color .15s,border-color .15s}
 .ham-btn:hover{background:var(--teal);border-color:var(--teal);color:#fff}
 .ham-btn.open{opacity:0;pointer-events:none}
-.nav-overlay{position:fixed;inset:0;background:rgba(15,22,45,.26);z-index:390;opacity:0;pointer-events:none;transition:opacity .22s ease}
+.nav-overlay{position:fixed;inset:0;background:rgba(15,22,45,.26);z-index:1000;opacity:0;pointer-events:none;transition:opacity .22s ease}
 .nav-overlay.open{opacity:1;pointer-events:all}
-.sidebar{position:fixed;top:0;right:0;height:100vh;width:230px;background:var(--white);z-index:395;transform:translate3d(100%,0,0);transition:transform .22s cubic-bezier(.4,0,.2,1);will-change:transform;box-shadow:-4px 0 24px rgba(0,0,0,.09);display:flex;flex-direction:column}
+.sidebar{position:fixed;top:0;right:0;height:100vh;width:230px;background:var(--white);z-index:1002;transform:translate3d(100%,0,0);transition:transform .22s cubic-bezier(.4,0,.2,1);will-change:transform;box-shadow:-4px 0 24px rgba(0,0,0,.09);display:flex;flex-direction:column}
 .sidebar.open{transform:translate3d(0,0,0)}
 .sidebar-header{display:flex;align-items:center;padding:20px 20px 16px;border-bottom:1px solid var(--border);flex-shrink:0}
 .sidebar-app-name{font-size:.95em;font-weight:700;color:var(--navy)}
@@ -244,7 +244,42 @@ input[type="date"].field-input{padding:0 10px;appearance:none;-webkit-appearance
 .split-lock-flash{animation:lockGlow .55s ease-out forwards}
 .split-lock-fail{animation:lockFail .55s ease-out forwards;border-color:var(--red) !important}
 .split-sum-error{border-color:var(--red) !important}
+html { overflow-x: hidden; -webkit-text-size-adjust: 100%; }
+body { overflow-x: hidden; }
+
+@media (max-width: 700px) {
+  .adv-inner { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 600px) {
+  .main { padding: 0 12px 60px !important; }
+  .page-header { padding-top: 72px; padding-right: 0 !important; }
+
+  /* Search bar stacks vertically */
+  .search-bar { flex-direction: column; gap: 8px; }
+  .search-bar-cat { flex: unset; width: 100%; }
+
+  /* Buttons full-width row */
+  .btn-search,
+  .btn-reset { flex: 1; justify-content: center; }
+  .search-bar > .btn-search,
+  .search-bar > .btn-reset { width: 100%; }
+
+  /* Advanced grid → single column */
+  .adv-inner { grid-template-columns: 1fr; gap: 10px; }
+
+  /* Results table scrollable */
+  #results-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  /* Result cards adapt */
+  .rc-row { flex-wrap: wrap; gap: 6px; }
+  .rc-amount-block { min-width: unset; width: 100%; align-items: flex-start; }
+
+  /* Modal cap */
+  .s-modal { max-width: calc(100vw - 24px) !important; padding: 18px 16px !important; }
+}
 </style>
+<link rel="stylesheet" href="/design-system.css">
 </head>
 <body>
 
@@ -258,7 +293,7 @@ input[type="date"].field-input{padding:0 10px;appearance:none;-webkit-appearance
 <div class="nav-overlay" id="nav-overlay" onclick="toggleNav()"></div>
 <nav class="sidebar" id="sidebar">
   <div class="sidebar-header">
-    <span class="sidebar-app-name">Menu</span>
+    <span class="sidebar-app-name">ניהול כספים</span>
     <button class="sidebar-close-btn" onclick="closeNav()" aria-label="סגור תפריט">✕</button>
   </div>
   <div class="sidebar-scroll">

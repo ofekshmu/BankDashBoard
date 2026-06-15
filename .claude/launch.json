@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "BankDash",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-c", "from source.WebApp import start; start(port=5050, open_browser=False)"],
+      "port": 5050,
+      "autoPort": false
+    }
+  ]
+}

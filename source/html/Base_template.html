@@ -1,9 +1,11 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title id="page-title">Dashboard</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="alternate icon" href="/favicon.ico">
 <script>
 (function(){
   var p=window.location.pathname;
@@ -13,6 +15,7 @@
 <style>
 /* ── Reset ──────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { overflow-x: hidden; -webkit-text-size-adjust: 100%; }
 
 /* ── Tokens ─────────────────────────────────────────────── */
 :root {
@@ -20,7 +23,7 @@
   --teal-light: #e8f7f5;
   --teal-glow:  rgba(30,157,139,0.30);
   --navy:       #1e2a4a;
-  --bg:         #f4f6f9;
+  --bg:         #f7f6f2;
   --white:      #ffffff;
   --border:     #eef0f6;
   --text-muted: #888;
@@ -37,13 +40,14 @@
 /* ── Base ────────────────────────────────────────────────── */
 @keyframes _pageIn { from { opacity: 0; } to { opacity: 1; } }
 body {
-  font-family: 'Segoe UI', Arial, sans-serif;
+  font-family: var(--font-body, 'Segoe UI', Arial, sans-serif);
   background: var(--bg);
   display: flex;
   min-height: 100vh;
   direction: rtl;
   color: var(--navy);
   font-size: 14px;
+  overflow-x: hidden;
   animation: _pageIn 0.22s ease;
 }
 
@@ -90,7 +94,7 @@ body {
 .nav-overlay {
   position: fixed; inset: 0;
   background: rgba(15,22,45,.26);
-  z-index: 390;
+  z-index: 1000;
   opacity: 0; pointer-events: none;
   transition: opacity .22s ease;
 }
@@ -100,7 +104,7 @@ body {
   top: 0; right: 0;
   height: 100vh; width: 230px;
   background: var(--white);
-  z-index: 395;
+  z-index: 1002;
   transform: translate3d(100%, 0, 0);
   transition: transform .22s cubic-bezier(.4,0,.2,1);
   will-change: transform;
@@ -109,7 +113,7 @@ body {
 }
 .sidebar.open { transform: translate3d(0, 0, 0); }
 .sidebar-header {
-  display: flex; align-items: center;
+  display: flex; align-items: center; gap: 9px;
   padding: 20px 20px 16px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
@@ -124,7 +128,7 @@ body {
 /* ── Debug log panel ─────────────────────────────────────── */
 .debug-fab{position:fixed;bottom:22px;right:18px;width:42px;height:42px;border-radius:50%;background:var(--navy);color:#fff;font-size:.72em;font-family:monospace;font-weight:700;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,0.3);z-index:997;letter-spacing:-.5px;}
 .debug-fab:hover{filter:brightness(1.2);}
-@media(max-width:768px){.debug-fab{bottom:84px;right:18px;}}
+@media(max-width:768px){.debug-fab{bottom:88px;right:18px;}}
 .debug-panel{position:fixed;bottom:72px;right:16px;width:480px;max-width:calc(100vw - 32px);height:340px;background:#12121f;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.55);z-index:996;display:none;flex-direction:column;overflow:hidden;font-family:monospace;}
 .debug-panel.open{display:flex;}
 @media(max-width:768px){.debug-panel{bottom:136px;right:8px;left:8px;width:auto;}}
@@ -173,6 +177,9 @@ body {
   flex: 1;
   padding: 0 28px 60px;
   min-width: 0;
+}
+@media (max-width: 600px) {
+  .main { padding: 0 12px 80px; }
 }
 
 /* ── Page header ─────────────────────────────────────────── */
@@ -628,6 +635,32 @@ body {
 .milestone-table td { padding: 7px 12px; border-bottom: 1px solid var(--border); color: var(--text-sub); }
 .milestone-table tr.track-total td { font-weight: 700; background: var(--bg); border-top: 2px solid var(--border); }
 .milestone-table tr:hover td { background: #f0f7ff; }
+
+/* ── Housing: mobile responsive ─────────────────────────── */
+@media (max-width: 700px) {
+  .housing-2col-row,
+  .housing-3col-row { grid-template-columns: 1fr; }
+
+  .equity-dual-row { flex-direction: column; }
+  .equity-dual-col:first-child {
+    border-left: none;
+    border-bottom: 1.5px solid var(--border);
+    padding: 0 0 14px 0;
+    margin-bottom: 14px;
+  }
+  .equity-dual-col { padding: 0; }
+
+  .housing-balance-row .kpi-card .kpi-value { font-size: 1.6em; }
+
+  .housing-txn table,
+  .milestone-table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .rate-control-top { flex-direction: column; align-items: flex-start; gap: 6px; }
+}
 
 /* ── Panels ──────────────────────────────────────────────── */
 .panel { display: none; animation: fadein 0.22s ease; }
@@ -1380,6 +1413,12 @@ body {
 .acct-wrap tr.acct-stale td:first-child::before {
   content: "⚠ "; color: #f0b429; font-size: 0.85em;
 }
+/* ── Accounts table — mobile horizontal scroll ───────────── */
+@media (max-width: 700px) {
+  .acct-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .acct-wrap table { min-width: 480px; }
+  .acct-detail-cell { display: none; }
+}
 /* Sparkline SVG */
 .acct-spark { display: block; overflow: visible; }
 /* Toggle button */
@@ -1609,6 +1648,7 @@ body {
 </style>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+<link rel="stylesheet" href="/design-system.css">
 </head>
 <body>
 
@@ -1623,7 +1663,8 @@ body {
 <div class="nav-overlay" id="nav-overlay" onclick="toggleNav()"></div>
 <nav class="sidebar" id="sidebar">
   <div class="sidebar-header">
-    <span class="sidebar-app-name">Menu</span>
+    <img src="/favicon.svg" alt="BankDash" style="width:28px;height:28px;border-radius:7px;flex-shrink:0;">
+    <span class="sidebar-app-name">ניהול כספים</span>
     <button class="sidebar-close-btn" onclick="closeNav()" aria-label="סגור תפריט">✕</button>
   </div>
   <div class="sidebar-scroll">
@@ -4088,5 +4129,6 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   }, true);
 })();
 </script>
+
 </body>
 </html>

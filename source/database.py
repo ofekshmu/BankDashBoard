@@ -16,25 +16,35 @@ from typing import Tuple
 
 
 class _ChainableCursor:
-    """Wraps a psycopg2 cursor so execute() returns self, matching sqlite3 behaviour."""
-    def __init__(self, cursor):
-        self._c = cursor
+    """
+    Cursor proxy that makes execute() return self (matching sqlite3's API).
+
+    Creates a new underlying psycopg2 cursor on every execute() call so that
+    a failed query (which puts the transaction in an error state) never leaves
+    the shared cursor in a broken state for subsequent queries.
+    """
+    def __init__(self, conn):
+        self._conn = conn
+        self._c = None
 
     def execute(self, sql, params=()):
+        self._c = self._conn.cursor()
         self._c.execute(sql, params)
         return self
 
-    def fetchall(self):  return self._c.fetchall()
-    def fetchone(self):  return self._c.fetchone()
-    def fetchmany(self, n): return self._c.fetchmany(n)
+    def fetchall(self):     return self._c.fetchall() if self._c else []
+    def fetchone(self):     return self._c.fetchone() if self._c else None
+    def fetchmany(self, n): return self._c.fetchmany(n) if self._c else []
 
     @property
-    def description(self): return self._c.description
+    def description(self): return self._c.description if self._c else None
     @property
-    def rowcount(self):    return self._c.rowcount
+    def rowcount(self):    return self._c.rowcount if self._c else 0
 
     def __getattr__(self, name):
-        return getattr(self._c, name)
+        if self._c is not None:
+            return getattr(self._c, name)
+        raise AttributeError(name)
 
 
 # ----------------------------------------------------------------------
@@ -80,7 +90,7 @@ class DataBase:
             cls.__instance = super().__new__(cls)
             cls.__instance.connection = psycopg2.connect(os.environ['DATABASE_URL'])
             cls.__instance.connection.autocommit = False
-            cls.__instance.cursor = _ChainableCursor(cls.__instance.connection.cursor())
+            cls.__instance.cursor = _ChainableCursor(cls.__instance.connection)
             cls.__instance.cursor.execute("""
                 CREATE TABLE IF NOT EXISTS Card (
                 CardID          CHAR(4)     PRIMARY KEY,

@@ -1035,49 +1035,72 @@ def run_category_stream():
 
 def _log_float_style() -> str:
     return """<style>
-    body { font-family: 'Segoe UI', Arial, sans-serif; background: #f4f6f9;
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { overflow-x: hidden; -webkit-text-size-adjust: 100%; }
+    body { font-family: 'Segoe UI', system-ui, Arial, sans-serif;
+           background: linear-gradient(135deg, #0f1a35 0%, #1a3550 50%, #0d2b3e 100%);
            display: flex; align-items: center; justify-content: center;
-           min-height: 100vh; margin: 0; }
-    .box { background: #fff; border-radius: 14px; padding: 48px 56px;
-           text-align: center; box-shadow: 0 6px 20px rgba(0,0,0,.10); max-width: 460px; }
-    h2   { color: #1e2a4a; margin-bottom: 10px; }
-    p    { color: #888; font-size: .93em; margin-bottom: 28px; }
-    .badge { display:inline-block; background:#1e9d8b; color:#fff; border-radius:20px;
-             padding:5px 18px; font-size:.85em; font-weight:600; margin-bottom:24px; }
-    .back { margin-top:16px; font-size:.8em; }
-    .back a { color:#888; text-decoration:none; }
-    .back a:hover { color:#1e9d8b; }
-    /* ── floating log panel ── */
-    .log-float { position:fixed; bottom:32px; left:50%;
-                 transform:translateX(-50%) translateY(12px);
-                 min-width:360px; max-width:520px;
+           min-height: 100vh; padding: 20px; }
+    /* ── Main card ── */
+    .box { background: rgba(255,255,255,.97); border-radius: 20px;
+           padding: 40px 36px 32px; text-align: center;
+           box-shadow: 0 24px 64px rgba(0,0,0,.35), 0 0 0 1px rgba(255,255,255,.08);
+           width: 100%; max-width: 440px; }
+    .box-icon { font-size: 2.4em; margin-bottom: 14px; line-height: 1;
+                animation: pulse-icon 2.2s ease-in-out infinite; }
+    @keyframes pulse-icon { 0%,100%{transform:scale(1)} 50%{transform:scale(1.1)} }
+    .box h2 { color: #1e2a4a; font-size: 1.45em; font-weight: 800;
+              margin-bottom: 8px; letter-spacing: -.01em; }
+    .box p  { color: #6b7a99; font-size: 1em; margin-bottom: 22px; line-height: 1.5; }
+    .badge { display:inline-flex; align-items:center; gap:6px;
+             background: linear-gradient(135deg,#1e9d8b,#148a7a);
+             color:#fff; border-radius:24px;
+             padding:7px 20px; font-size:.95em; font-weight:700;
+             margin-bottom:26px; box-shadow:0 4px 12px rgba(30,157,139,.35); }
+    /* ── Progress bar ── */
+    .progress-wrap { background: #f0f2f8; border-radius: 8px; height: 6px;
+                     margin: 0 0 20px; overflow: hidden; }
+    .progress-bar  { height: 100%; border-radius: 8px;
+                     background: linear-gradient(90deg,#1e9d8b,#2dd4bf);
+                     width: 0%; animation: progress-fill 45s ease-out forwards; }
+    @keyframes progress-fill { 0%{width:2%} 30%{width:45%} 70%{width:78%} 95%{width:92%} 100%{width:94%} }
+    .back { margin-top: 20px; font-size: .9em; }
+    .back a { color: #9aa3bb; text-decoration: none; }
+    .back a:hover { color: #1e9d8b; }
+    /* ── Floating log panel ── */
+    .log-float { position:fixed; bottom:24px; left:16px; right:16px;
+                 transform:translateY(12px);
                  opacity:0; pointer-events:none;
                  transition:opacity .3s, transform .3s;
                  z-index:9999; text-align:center; }
-    .log-float.visible { opacity:1; pointer-events:auto; transform:translateX(-50%) translateY(0); }
-    .lf-header { display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:8px; }
+    .log-float.visible { opacity:1; pointer-events:auto; transform:translateY(0); }
+    .lf-inner { display:inline-block; background:rgba(15,26,55,.88);
+                backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+                border-radius:14px; padding:10px 18px 8px;
+                max-width:100%; box-shadow:0 8px 24px rgba(0,0,0,.3); }
+    .lf-header { display:flex; align-items:center; justify-content:center;
+                 gap:8px; margin-bottom:6px; }
     .lf-spinner { width:14px; height:14px; border:2px solid rgba(30,157,139,.3);
                   border-top-color:#1e9d8b; border-radius:50%;
                   animation:lf-spin .7s linear infinite; flex-shrink:0; }
     .lf-spinner.done  { animation:none; border-color:#2ecc71; }
     .lf-spinner.error { animation:none; border-color:#c0392b; }
     @keyframes lf-spin { to { transform:rotate(360deg); } }
-    .lf-title { font-size:.8em; font-weight:600; color:#1e9d8b;
-                text-shadow:0 1px 6px rgba(255,255,255,.9),0 0 2px #fff; }
-    .lf-feed { display:flex; flex-direction:column-reverse; max-height:120px;
+    .lf-title { font-size:.9em; font-weight:700; color:#5eead4; }
+    .lf-feed { display:flex; flex-direction:column-reverse; max-height:80px;
                overflow:hidden; align-items:center; }
-    .lf-line { font-size:.7em; padding:1px 0; white-space:nowrap;
-               color:#2d3a5e; animation:lf-slide .28s ease;
-               text-shadow:0 1px 4px rgba(255,255,255,.95),0 0 1px #fff; }
-    .lf-line:nth-child(2) { opacity:.55; }
-    .lf-line:nth-child(3) { opacity:.3; }
-    .lf-line:nth-child(n+4) { opacity:.12; }
-    .lf-line.warn { color:#b07000; }
-    .lf-line.err  { color:#c0392b; }
-    .lf-line.done { color:#1a7a45; font-weight:600; }
-    @keyframes lf-slide { from { transform:translateY(10px); opacity:0; }
+    .lf-line { font-size:.78em; padding:1px 0; white-space:nowrap; overflow:hidden;
+               text-overflow:ellipsis; max-width:calc(100vw - 60px);
+               color:#c8d8e4; animation:lf-slide .28s ease; }
+    .lf-line:nth-child(2) { opacity:.5; }
+    .lf-line:nth-child(3) { opacity:.25; }
+    .lf-line:nth-child(n+4) { opacity:.1; }
+    .lf-line.warn { color:#fbbf24; }
+    .lf-line.err  { color:#f87171; }
+    .lf-line.done { color:#4ade80; font-weight:700; }
+    @keyframes lf-slide { from { transform:translateY(8px); opacity:0; }
                           to   { transform:translateY(0); } }
-    /* ── debug FAB + panel ── */
+    /* ── Debug FAB + panel ── */
     .debug-fab { position:fixed; bottom:22px; right:18px; width:42px; height:42px;
                  border-radius:50%; background:#1e2a4a; color:#fff; font-size:.72em;
                  font-family:monospace; font-weight:700; border:none; cursor:pointer;
@@ -1108,33 +1131,40 @@ def _log_float_style() -> str:
     .debug-line.ok   { color:#69db7c; }
     /* ── CC-charge confirmation modal ── */
     .cc-modal-overlay { position:fixed; inset:0; background:rgba(15,22,45,.55);
-                        z-index:10000; display:flex; align-items:center; justify-content:center; }
-    .cc-modal { background:#fff; border-radius:14px; padding:28px 32px; max-width:420px; width:90%;
+                        z-index:10000; display:flex; align-items:center; justify-content:center;
+                        padding:16px; }
+    .cc-modal { background:#fff; border-radius:16px; padding:24px 22px; max-width:420px; width:100%;
                 box-shadow:0 12px 40px rgba(0,0,0,.2); text-align:right; direction:rtl; }
-    .cc-modal-title { font-size:1em; font-weight:700; color:#1e2a4a; margin-bottom:12px; }
-    .cc-modal-body  { font-size:.85em; color:#555; margin-bottom:18px; line-height:1.6; }
-    .cc-modal-row   { display:flex; justify-content:space-between; padding:4px 0;
-                      border-bottom:1px solid #eef0f6; font-size:.83em; }
+    .cc-modal-title { font-size:1.05em; font-weight:700; color:#1e2a4a; margin-bottom:12px; }
+    .cc-modal-body  { font-size:.9em; color:#555; margin-bottom:18px; line-height:1.6; }
+    .cc-modal-row   { display:flex; justify-content:space-between; padding:6px 0;
+                      border-bottom:1px solid #eef0f6; font-size:.88em; }
     .cc-modal-row:last-child { border-bottom:none; }
     .cc-modal-label { color:#888; }
     .cc-modal-val   { font-weight:600; color:#1e2a4a; }
     .cc-modal-btns  { display:flex; gap:10px; justify-content:flex-end; margin-top:18px; }
-    .cc-btn { border:none; border-radius:8px; padding:8px 22px; font-size:.88em;
+    .cc-btn { border:none; border-radius:10px; padding:11px 24px; font-size:.92em;
               font-weight:600; cursor:pointer; transition:background .15s; font-family:inherit; }
     .cc-btn-yes { background:#1e9d8b; color:#fff; }
     .cc-btn-yes:hover { background:#189080; }
     .cc-btn-no  { background:#f0f2f6; color:#555; }
     .cc-btn-no:hover  { background:#e2e5ed; }
+    @media (max-width: 480px) {
+      .box { padding: 32px 22px 26px; border-radius: 16px; }
+      .box h2 { font-size: 1.25em; }
+    }
     </style>"""
 
 
 def _log_float_html() -> str:
     return """<div class="log-float" id="log-float">
-  <div class="lf-header">
-    <div class="lf-spinner" id="lf-spinner"></div>
-    <span class="lf-title" id="lf-title">מנתח נתונים…</span>
+  <div class="lf-inner">
+    <div class="lf-header">
+      <div class="lf-spinner" id="lf-spinner"></div>
+      <span class="lf-title" id="lf-title">מנתח נתונים…</span>
+    </div>
+    <div class="lf-feed" id="lf-feed"></div>
   </div>
-  <div class="lf-feed" id="lf-feed"></div>
 </div>
 <button class="debug-fab" id="debug-fab" onclick="toggleDebugPanel()" title="App logs">&lt;/&gt;</button>
 <div class="debug-panel" id="debug-panel">
@@ -2085,14 +2115,17 @@ def _not_generated_html(year: int, month: int, yyyy_mm: str) -> str:
 <html lang="he" dir="rtl">
 <head>
   <meta charset="UTF-8">
-  <title>BankApp — {month_label}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BankDash — {month_label}</title>
   {_log_float_style()}
 </head>
 <body>
   <div class="box">
-    <h2>ניתוח חודשי</h2>
-    <div class="badge">{month_label}</div>
-    <p>מפעיל ניתוח אוטומטי…</p>
+    <div class="box-icon">📊</div>
+    <h2>מנתח נתונים</h2>
+    <div class="badge">📅 {month_label}</div>
+    <div class="progress-wrap"><div class="progress-bar" id="prog-bar"></div></div>
+    <p>מעבד עסקאות ומייצר דוח חודשי…</p>
     <div class="back"><a href="/">&#8592; חזרה לדף הראשי</a></div>
   </div>
   {_log_float_html()}
@@ -2139,26 +2172,43 @@ def _splash_html() -> str:
 <html lang="he" dir="rtl">
 <head>
   <meta charset="UTF-8">
-  <title>BankApp — טוען</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BankDash — טוען</title>
   <style>
-    body { font-family: 'Segoe UI', Arial, sans-serif; background: #f4f6f9;
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', system-ui, Arial, sans-serif;
+           background: linear-gradient(135deg, #0f1a35 0%, #1a3550 50%, #0d2b3e 100%);
            display: flex; align-items: center; justify-content: center;
-           min-height: 100vh; margin: 0; }
-    .box { background: #fff; border-radius: 14px; padding: 48px 56px;
-           text-align: center; box-shadow: 0 6px 20px rgba(0,0,0,.10); max-width: 440px; }
-    h2   { color: #1e2a4a; margin-bottom: 12px; }
-    p    { color: #888; font-size: .93em; margin-bottom: 32px; }
-    .btn { background: #1e9d8b; color: #fff; border: none; border-radius: 10px;
-           padding: 13px 36px; font-size: 1em; cursor: pointer; font-weight: 600; }
-    .btn:hover { background: #178878; }
+           min-height: 100vh; padding: 20px; }
+    .box { background: rgba(255,255,255,.97); border-radius: 20px;
+           padding: 40px 36px 32px; text-align: center;
+           box-shadow: 0 24px 64px rgba(0,0,0,.35);
+           width: 100%; max-width: 420px; }
+    .box-icon { font-size: 2.4em; margin-bottom: 14px; }
+    h2  { color: #1e2a4a; font-size: 1.45em; font-weight: 800;
+          margin-bottom: 10px; letter-spacing: -.01em; }
+    p   { color: #6b7a99; font-size: 1em; margin-bottom: 28px; line-height: 1.5; }
+    .btn { background: linear-gradient(135deg,#1e9d8b,#148a7a); color: #fff;
+           border: none; border-radius: 12px; padding: 15px 36px;
+           font-size: 1.05em; cursor: pointer; font-weight: 700;
+           width: 100%; box-shadow: 0 6px 18px rgba(30,157,139,.4);
+           transition: filter .15s; font-family: inherit; }
+    .btn:hover { filter: brightness(1.08); }
+    .btn:disabled { opacity: .65; cursor: not-allowed; }
+    #msg { margin-top: 16px; color: #1e9d8b; font-size: .95em; font-weight: 600; display: none; }
+    @media (max-width: 480px) {
+      .box { padding: 32px 22px 26px; border-radius: 16px; }
+      h2   { font-size: 1.25em; }
+    }
   </style>
 </head>
 <body>
   <div class="box">
-    <h2>ברוך הבא ל-BankApp</h2>
+    <div class="box-icon">🏦</div>
+    <h2>ברוך הבא ל-BankDash</h2>
     <p>טרם נוצר דשבורד. לחץ כדי להפעיל ניתוח עבור החודש הנוכחי.</p>
     <button class="btn" id="runBtn" onclick="runNow()">הפעל ניתוח</button>
-    <p id="msg" style="margin-top:18px;color:#1e9d8b;display:none;">מעבד נתונים, אנא המתן…</p>
+    <p id="msg">מעבד נתונים, אנא המתן…</p>
   </div>
   <script>
     function runNow() {

@@ -325,7 +325,8 @@ class utils:
             card.append(delta_div)
             return card
 
-        kpi_row = soup.find(id="kpi-row")
+        kpi_row  = soup.find(id="kpi-row")
+        kpi_row2 = soup.find(id="kpi-row-2")
         for label, value, is_positive, is_hero in kpi_metrics_main:
             _sub = data.get('balance_date', '') if label == 'Balance' else None
             kpi_row.append(_make_kpi_card(label, value, is_positive, is_hero,
@@ -339,13 +340,13 @@ class utils:
 
         _inv_out = data.get('investments_total_out', 0.0)
         _inv_in  = data.get('investments_total_in',  0.0)
-        kpi_row.append(_make_kpi_card(
+        kpi_row2.append(_make_kpi_card(
             "הפקדה לחיסכון/השקעה", _inv_out, False, False,
             tooltip=_TT.get("הפקדה לחיסכון/השקעה"),
             value_color="#D4A017" if _inv_out != 0 else None,
             extra_cls="muted" if _inv_out == 0 else ""
         ))
-        kpi_row.append(_make_kpi_card(
+        kpi_row2.append(_make_kpi_card(
             "משיכה מחסכון", _inv_in, True, False,
             tooltip=_TT.get("משיכה מחסכון"),
             extra_cls="muted" if _inv_in == 0 else ""
@@ -2670,7 +2671,7 @@ document.addEventListener('DOMContentLoaded', function() {
         _src_dir     = _os.path.dirname(_utils_dir)
         _project_dir = _os.path.dirname(_src_dir)
 
-        if _os.getenv('DATABASE_URL'):  # Vercel: /var/task is read-only
+        if _os.getenv('VERCEL'):  # Vercel: /var/task is read-only
             _out_html = '/tmp/output.html'
             _ga_dir   = '/tmp/general_analysis'
         else:

@@ -38,7 +38,7 @@ os.chdir(_PROJECT_DIR)
 
 OUTPUT_HTML            = os.path.join(_HERE, 'html', 'output.html')
 ORGANIZER_HTML         = os.path.join(_HERE, 'html', 'Organizer_Table.html')
-if os.getenv('DATABASE_URL'):  # Vercel: /var/task is read-only; use /tmp
+if os.getenv('VERCEL'):  # Vercel: /var/task is read-only; use /tmp
     GENERAL_ANALYSIS_DIR  = '/tmp/general_analysis'
     CATEGORY_ANALYSIS_DIR = '/tmp/category_analysis'
 else:
@@ -1264,10 +1264,9 @@ def _not_generated_category_html(slug: str, name: str = '') -> str:
 
 _READONLY_ACCOUNTS = ["נכס שלום שבזי"]
 _DB_PATH = os.path.join(_PROJECT_DIR, 'ShmuelFamiliy.db')
-# When DATABASE_URL is set (Vercel/PostgreSQL mode) the project dir is read-only;
-# direct sqlite3.connect(_DB_PATH) calls need a writable path — mirrors the same
-# DATABASE_URL guard already used in database.py DataBase.__new__().
-if os.getenv('DATABASE_URL'):
+# When running on Vercel the project dir (/var/task) is read-only;
+# direct sqlite3.connect(_DB_PATH) calls need a writable path.
+if os.getenv('VERCEL'):
     _DB_PATH = '/tmp/ShmuelFamiliy.db'
     # Copy personal information files to /tmp so they are writable.
     # The project dir (/var/task) is read-only on Vercel; any json.dump to

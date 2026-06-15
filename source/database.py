@@ -127,12 +127,20 @@ class DataBase:
     connection: psycopg2.extensions.connection
     cursor: psycopg2.extensions.cursor
 
+    @classmethod
+    def _connect(cls):
+        """Create a fresh connection and attach it to the singleton instance."""
+        cls.__instance.connection = psycopg2.connect(os.environ['DATABASE_URL'])
+        cls.__instance.connection.autocommit = False
+        cls.__instance.cursor = _ChainableCursor(cls.__instance.connection)
+
     def __new__(cls):
         if cls.__instance is None:
             cls.__instance = super().__new__(cls)
-            cls.__instance.connection = psycopg2.connect(os.environ['DATABASE_URL'])
-            cls.__instance.connection.autocommit = False
-            cls.__instance.cursor = _ChainableCursor(cls.__instance.connection)
+            cls._connect()
+        elif cls.__instance.connection.closed:
+            # Connection dropped (e.g. Neon idle timeout) — reconnect transparently.
+            cls._connect()
             cls.__instance.cursor.execute("""
                 CREATE TABLE IF NOT EXISTS Card (
                 CardID          CHAR(4)     PRIMARY KEY,
@@ -465,6 +473,7 @@ class DataBase:
         Close The connection to the database.
         '''
         self.connection.close()
+        DataBase.__instance = None
 
     # TODO: this function is currently not being used anywhere.
     def get_data_by_file_name(self, file_name: str, card_number: str):

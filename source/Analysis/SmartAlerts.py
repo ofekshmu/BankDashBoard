@@ -292,6 +292,26 @@ class AlertDetector:
         current_names = set(self._current_spend["Name"].unique())
         missing       = recurring - current_names
 
+        # If current month has no card transactions, card-only recurring merchants
+        # are absent by design (billing cycle delay) — don't fire false alerts.
+        current_has_cards = (
+            "TableName" in self._current.columns
+            and (self._current["TableName"] == "CardTransactions").any()
+        )
+        if not current_has_cards:
+            def _is_card_only(name: str) -> bool:
+                """True if every history appearance of this merchant is from CardTransactions."""
+                for df in lookback_dfs:
+                    if "TableName" not in df.columns:
+                        return False
+                    rows = df[df["Name"] == name]
+                    if rows.empty:
+                        continue
+                    if not (rows["TableName"] == "CardTransactions").all():
+                        return False
+                return True
+            missing = {m for m in missing if not _is_card_only(m)}
+
         alerts: List[Alert] = []
         for name in sorted(missing):
             hist_amounts = [

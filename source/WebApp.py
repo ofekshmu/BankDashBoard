@@ -1367,7 +1367,7 @@ class _PGConn:
 def _pg_conn():
     """Return a _PGConn wrapper connected to the PostgreSQL database."""
     import psycopg2
-    raw = psycopg2.connect(os.environ['DATABASE_URL'])
+    raw = psycopg2.connect(os.environ['DATABASE_URL'], connect_timeout=10)
     raw.autocommit = False
     return _PGConn(raw)
 

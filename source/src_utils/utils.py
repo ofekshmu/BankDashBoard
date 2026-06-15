@@ -783,7 +783,7 @@ class utils:
             ]
             _mean_banner = tag("div")
             _mean_banner["style"] = (
-                "display:flex;align-items:stretch;gap:0;"
+                "display:flex;align-items:stretch;gap:0;flex-wrap:wrap;"
                 "padding:4px 0 14px;border-bottom:1.5px solid #eef0f6;margin-bottom:12px;"
             )
             for _i, (_lbl, _val, _clr) in enumerate(_kpi_items):

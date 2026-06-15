@@ -55,6 +55,10 @@ def _make_slug(type_: str, name: str) -> str:
 
 # ── Log capture via stdout tee ────────────────────────────────────────────────
 _log_queue: queue.Queue = queue.Queue()
+# Per-thread queue: when set, print/log output from that thread goes here instead
+# of the global _log_queue so the SSE generator (in the same Vercel invocation)
+# can receive it directly — no cross-invocation shared state needed.
+_thread_log_queue = threading.local()
 
 # ── Debug broadcast — rolling buffer + multi-subscriber SSE ──────────────────
 _DEBUG_BUFFER_MAX = 300
@@ -75,16 +79,24 @@ def _debug_put(line: str):
                 pass
 
 def _log_put(msg: str):
-    """Put a message into both the ephemeral /api/logs queue and the persistent debug log window."""
-    _log_queue.put(msg)
+    """Route msg to the thread-local queue (streaming endpoint) or global queue (legacy)."""
+    local_q = getattr(_thread_log_queue, 'queue', None)
+    if local_q is not None:
+        local_q.put(msg)
+    else:
+        _log_queue.put(msg)
     if msg and not msg.startswith('__'):
         _debug_put(msg)
 
 def _log_error(exc, tb_str: str):
     """Put exception + traceback to both the analysis queue and the debug panel."""
     lines = [f'[ERROR] {exc}'] + [l for l in tb_str.splitlines() if l.strip()]
+    local_q = getattr(_thread_log_queue, 'queue', None)
     for line in lines:
-        _log_queue.put(line)
+        if local_q is not None:
+            local_q.put(line)
+        else:
+            _log_queue.put(line)
         _debug_put(line)
 
 class _TeeStream:
@@ -103,7 +115,11 @@ class _TeeStream:
             self._orig.flush()
         stripped = text.strip()
         if stripped:
-            _log_queue.put(stripped)
+            local_q = getattr(_thread_log_queue, 'queue', None)
+            if local_q is not None:
+                local_q.put(stripped)
+            else:
+                _log_queue.put(stripped)
             _debug_put(stripped)
 
     def flush(self):
@@ -902,6 +918,80 @@ def run_category():
     return jsonify({'status': 'started'})
 
 
+@app.route('/api/category/stream')
+def run_category_stream():
+    """SSE endpoint: runs category analysis inline so thread + stream share the same invocation."""
+    global _analysis_running
+    slug        = request.args.get('slug', '')
+    type_val    = request.args.get('type', 'category')
+    client_name = (request.args.get('name') or '').strip()
+
+    with _analysis_lock:
+        if _analysis_running:
+            def _busy():
+                yield 'data: __ERROR__:busy\n\n'
+            return Response(_busy(), mimetype='text/event-stream',
+                            headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'})
+        _analysis_running = True
+
+    prefix = 'cat_' if type_val == 'category' else 'biz_'
+    try:
+        from database import DataBase as _DB
+        all_names = (_DB().get_all_category_names() if type_val == 'category'
+                     else _DB().get_all_business_names()) or []
+        matched = next((n for n in all_names if _make_slug(prefix.rstrip('_'), n) == slug), None)
+        name = matched or client_name or (slug[len(prefix):].replace('_', ' ') if slug.startswith(prefix) else slug)
+    except Exception:
+        name = client_name or (slug[len(prefix):].replace('_', ' ') if slug.startswith(prefix) else slug)
+
+    local_q: queue.Queue = queue.Queue()
+
+    def _worker():
+        global _analysis_running
+        _thread_log_queue.queue = local_q
+        try:
+            from AppManager import AppManager
+            def _do():
+                if type_val == 'category':
+                    AppManager(skip_parser=True).category_analysis(category=name)
+                else:
+                    AppManager(skip_parser=True).category_analysis(business=name)
+            deps, db_mtime = _capture_deps_and_run(_do)
+            html_path = os.path.join(CATEGORY_ANALYSIS_DIR, f'{slug}.html')
+            if os.path.exists(html_path):
+                _save_manifest(html_path, deps, db_mtime)
+            local_q.put(f'__DONE__:{slug}')
+        except Exception as exc:
+            import traceback
+            _log_error(exc, traceback.format_exc())
+            local_q.put('__ERROR__')
+        finally:
+            with _analysis_lock:
+                _analysis_running = False
+
+    threading.Thread(target=_worker, daemon=True, name='cat-stream-worker').start()
+
+    def _generate():
+        yield 'data: __CONNECTED__\n\n'
+        while True:
+            try:
+                msg = local_q.get(timeout=25)
+            except queue.Empty:
+                yield 'data: \n\n'
+                continue
+            safe = msg.replace('\r\n', '↵').replace('\n', '↵').replace('\r', '↵')
+            yield f'data: {safe}\n\n'
+            if msg.startswith('__DONE__') or msg == '__ERROR__':
+                break
+
+    return Response(
+        _generate(),
+        mimetype='text/event-stream',
+        headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'},
+    )
+
+
+
 def _log_float_style() -> str:
     return """<style>
     body { font-family: 'Segoe UI', Arial, sans-serif; background: #f4f6f9;
@@ -946,6 +1036,35 @@ def _log_float_style() -> str:
     .lf-line.done { color:#1a7a45; font-weight:600; }
     @keyframes lf-slide { from { transform:translateY(10px); opacity:0; }
                           to   { transform:translateY(0); } }
+    /* ── debug FAB + panel ── */
+    .debug-fab { position:fixed; bottom:22px; right:18px; width:42px; height:42px;
+                 border-radius:50%; background:#1e2a4a; color:#fff; font-size:.72em;
+                 font-family:monospace; font-weight:700; border:none; cursor:pointer;
+                 display:flex; align-items:center; justify-content:center;
+                 box-shadow:0 4px 14px rgba(0,0,0,.3); z-index:997; letter-spacing:-.5px; }
+    .debug-fab:hover { filter:brightness(1.2); }
+    .debug-panel { position:fixed; bottom:72px; right:16px; width:480px;
+                   max-width:calc(100vw - 32px); height:340px; background:#12121f;
+                   border-radius:12px; box-shadow:0 8px 32px rgba(0,0,0,.55);
+                   z-index:996; display:none; flex-direction:column; overflow:hidden;
+                   font-family:monospace; }
+    .debug-panel.open { display:flex; }
+    .debug-hdr { display:flex; align-items:center; justify-content:space-between;
+                 padding:7px 12px; background:#0a0a18; color:#7ec8e3; font-size:.7em;
+                 font-weight:700; letter-spacing:.06em; flex-shrink:0;
+                 border-bottom:1px solid #222; }
+    .debug-hdr-btns { display:flex; gap:5px; }
+    .debug-hdr-btns button { background:none; border:1px solid #333; color:#888;
+                              border-radius:4px; padding:2px 8px; font-size:.9em;
+                              cursor:pointer; font-family:monospace; }
+    .debug-hdr-btns button:hover { background:#1e1e2e; color:#eee; }
+    .debug-feed { flex:1; overflow-y:auto; padding:6px 10px; font-size:.68em;
+                  line-height:1.55; color:#c8d8e4; }
+    .debug-line { white-space:pre-wrap; word-break:break-all; padding:1px 0;
+                  border-bottom:1px solid #1a1a2a; }
+    .debug-line.err  { color:#ff6b6b; }
+    .debug-line.warn { color:#ffa94d; }
+    .debug-line.ok   { color:#69db7c; }
     /* ── CC-charge confirmation modal ── */
     .cc-modal-overlay { position:fixed; inset:0; background:rgba(15,22,45,.55);
                         z-index:10000; display:flex; align-items:center; justify-content:center; }
@@ -976,6 +1095,17 @@ def _log_float_html() -> str:
   </div>
   <div class="lf-feed" id="lf-feed"></div>
 </div>
+<button class="debug-fab" id="debug-fab" onclick="toggleDebugPanel()" title="App logs">&lt;/&gt;</button>
+<div class="debug-panel" id="debug-panel">
+  <div class="debug-hdr">
+    <span>▸ app logs</span>
+    <div class="debug-hdr-btns">
+      <button onclick="clearDebugPanel()">clear</button>
+      <button onclick="toggleDebugPanel()">✕</button>
+    </div>
+  </div>
+  <div class="debug-feed" id="debug-feed"></div>
+</div>
 <div id="cc-modal-overlay" class="cc-modal-overlay" style="display:none">
   <div class="cc-modal">
     <div class="cc-modal-title">🏦 עסקת אשראי זוהתה</div>
@@ -990,7 +1120,7 @@ def _log_float_html() -> str:
 
 
 def _log_float_js() -> str:
-    return """var _LF_MAX = 7;
+    return """var _LF_MAX = 12;
     function showLogFloat(title) {
       document.getElementById('lf-feed').innerHTML = '';
       document.getElementById('lf-title').textContent = title || 'מנתח נתונים…';
@@ -1037,6 +1167,41 @@ def _log_float_js() -> str:
         headers:{'Content-Type':'application/json'},
         body: JSON.stringify({choice: choice})
       }).catch(function(){});
+    }
+    /* ── debug panel ── */
+    var _dbgEs = null;
+    function toggleDebugPanel() {
+      var panel = document.getElementById('debug-panel');
+      var isOpen = panel.classList.toggle('open');
+      if (isOpen && !_dbgEs) _startDebugStream();
+    }
+    function clearDebugPanel() {
+      document.getElementById('debug-feed').innerHTML = '';
+    }
+    function _startDebugStream() {
+      _dbgEs = new EventSource('/api/debug-logs');
+      _dbgEs.onmessage = function(e) {
+        if (!e.data || !e.data.trim()) return;
+        var feed = document.getElementById('debug-feed');
+        if (!feed) return;
+        var line = document.createElement('div');
+        line.className = 'debug-line';
+        var t = e.data;
+        if (/error|exception|traceback|critical/i.test(t)) line.classList.add('err');
+        else if (/warn|warning/i.test(t)) line.classList.add('warn');
+        else if (/done|success|ok|✓/i.test(t)) line.classList.add('ok');
+        line.textContent = t;
+        feed.appendChild(line);
+        feed.scrollTop = feed.scrollHeight;
+        while (feed.children.length > 600) feed.removeChild(feed.firstChild);
+      };
+      _dbgEs.onerror = function() {
+        if (_dbgEs) { _dbgEs.close(); _dbgEs = null; }
+        var panel = document.getElementById('debug-panel');
+        if (panel && panel.classList.contains('open')) {
+          setTimeout(_startDebugStream, 3000);
+        }
+      };
     }"""
 
 
@@ -1064,29 +1229,33 @@ def _not_generated_category_html(slug: str, name: str = '') -> str:
 {_log_float_js()}
   (function() {{
     showLogFloat('מנתח קטגוריה…');
-    fetch('/api/category/run', {{method:'POST',
-      headers:{{'Content-Type':'application/json'}},
-      body: JSON.stringify({{slug: {slug_js}, type: {type_js}, name: {name_js}}})
-    }}).then(function() {{
-      var es = new EventSource('/api/logs');
-      es.onmessage = function(e) {{
-        if (!e.data || e.data === '__CONNECTED__') return;
-        if (e.data.startsWith('__DONE__')) {{
-          es.close();
-          appendLog('✓ הניתוח הסתיים — טוען…', 'done');
-          hideLogFloat(900);
-          setTimeout(function() {{ location.href = '/category/' + {slug_js}; }}, 1100);
-          return;
-        }}
-        if (e.data === '__ERROR__') {{
-          es.close();
-          appendLog('✗ שגיאה בניתוח', 'err');
-          hideLogFloat(3000);
-          return;
-        }}
-        appendLog(e.data);
-      }};
-    }});
+    var _qs = '?slug=' + encodeURIComponent({slug_js}) +
+              '&type=' + encodeURIComponent({type_js}) +
+              '&name=' + encodeURIComponent({name_js});
+    var es = new EventSource('/api/category/stream' + _qs);
+    var _tid = setTimeout(function() {{
+      if (es.readyState !== EventSource.CLOSED) {{
+        es.close();
+        appendLog('✗ תם הזמן — נסה לרענן', 'err');
+      }}
+    }}, 300000);
+    es.onmessage = function(e) {{
+      if (!e.data || e.data === '__CONNECTED__') return;
+      if (e.data.startsWith('__DONE__')) {{
+        clearTimeout(_tid); es.close();
+        appendLog('✓ הניתוח הסתיים — טוען…', 'done');
+        hideLogFloat(900);
+        setTimeout(function() {{ location.href = '/category/' + {slug_js}; }}, 1100);
+        return;
+      }}
+      if (e.data === '__ERROR__') {{
+        clearTimeout(_tid); es.close();
+        appendLog('✗ שגיאה בניתוח', 'err');
+        hideLogFloat(3000);
+        return;
+      }}
+      appendLog(e.data);
+    }};
   }})();
 </script>
 </body>
@@ -1706,6 +1875,83 @@ def run_analysis():
     return jsonify({'status': 'started'})
 
 
+@app.route('/api/analysis-stream')
+def run_analysis_stream():
+    """SSE endpoint: runs general analysis inline so thread + stream share the same invocation."""
+    global _analysis_running
+    month_sel = request.args.get('month', 'current')
+    date_str  = request.args.get('date', '')
+
+    with _analysis_lock:
+        if _analysis_running:
+            def _busy():
+                yield 'data: __ERROR__:busy\n\n'
+            return Response(_busy(), mimetype='text/event-stream',
+                            headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'})
+        _analysis_running = True
+
+    local_q: queue.Queue = queue.Queue()
+
+    def _worker():
+        global _analysis_running
+        _thread_log_queue.queue = local_q
+        try:
+            from AppManager import AppManager
+            from datetime import datetime
+            from dateutil.relativedelta import relativedelta
+            from src_utils.utils import utils as _utils
+            _utils._cc_confirm_hook = _web_cc_confirm
+
+            if month_sel == 'last':
+                t = datetime.now() - relativedelta(months=1)
+            elif month_sel == 'pick' and date_str:
+                t = datetime.strptime(date_str, '%Y-%m-%d')
+            else:
+                t = datetime.now()
+
+            deps, db_mtime = _capture_deps_and_run(
+                lambda: AppManager(skip_parser=True).general_analysis(t=t)
+            )
+            key = t.strftime('%Y_%m')
+            html_path = os.path.join(GENERAL_ANALYSIS_DIR, f'{key}.html')
+            if os.path.exists(html_path):
+                _save_manifest(html_path, deps, db_mtime)
+            local_q.put(f'__DONE__:{key}')
+        except Exception as exc:
+            import traceback
+            _log_error(exc, traceback.format_exc())
+            local_q.put('__ERROR__')
+        finally:
+            with _analysis_lock:
+                _analysis_running = False
+            try:
+                from src_utils.utils import utils as _utils
+                _utils._cc_confirm_hook = None
+            except Exception:
+                pass
+
+    threading.Thread(target=_worker, daemon=True, name='analysis-stream-worker').start()
+
+    def _generate():
+        yield 'data: __CONNECTED__\n\n'
+        while True:
+            try:
+                msg = local_q.get(timeout=25)
+            except queue.Empty:
+                yield 'data: \n\n'
+                continue
+            safe = msg.replace('\r\n', '↵').replace('\n', '↵').replace('\r', '↵')
+            yield f'data: {safe}\n\n'
+            if msg.startswith('__DONE__') or msg == '__ERROR__':
+                break
+
+    return Response(
+        _generate(),
+        mimetype='text/event-stream',
+        headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'},
+    )
+
+
 @app.route('/api/logs')
 def log_stream():
     """Server-Sent Events endpoint — streams log lines as they arrive."""
@@ -1802,34 +2048,34 @@ def _not_generated_html(year: int, month: int, yyyy_mm: str) -> str:
     {_log_float_js()}
     (function() {{
       showLogFloat('מנתח נתונים…');
-      fetch('/api/analysis', {{method:'POST',
-            headers:{{'Content-Type':'application/json'}},
-            body: JSON.stringify({{month:'pick', date:'{date_str}'}})
-      }})
-      .then(function() {{
-        var es = new EventSource('/api/logs');
-        es.onmessage = function(e) {{
-          if (!e.data || e.data === '__CONNECTED__') return;
-          if (e.data.startsWith('__PROMPT_CC__:')) {{
-            try {{ showCCPrompt(JSON.parse(e.data.slice(14))); }} catch(_) {{}}
-            return;
-          }}
-          if (e.data.startsWith('__DONE__')) {{
-            es.close();
-            appendLog('✓ הניתוח הסתיים — טוען…', 'done');
-            hideLogFloat(900);
-            setTimeout(function() {{ location.href = '/general/{yyyy_mm}'; }}, 1100);
-            return;
-          }}
-          if (e.data === '__ERROR__') {{
-            es.close();
-            appendLog('✗ שגיאה בניתוח', 'err');
-            hideLogFloat(3000);
-            return;
-          }}
-          appendLog(e.data);
-        }};
-      }});
+      var es = new EventSource('/api/analysis-stream?month=pick&date={date_str}');
+      var _tid = setTimeout(function() {{
+        if (es.readyState !== EventSource.CLOSED) {{
+          es.close();
+          appendLog('✗ תם הזמן — נסה לרענן', 'err');
+        }}
+      }}, 300000);
+      es.onmessage = function(e) {{
+        if (!e.data || e.data === '__CONNECTED__') return;
+        if (e.data.startsWith('__PROMPT_CC__:')) {{
+          try {{ showCCPrompt(JSON.parse(e.data.slice(14))); }} catch(_) {{}}
+          return;
+        }}
+        if (e.data.startsWith('__DONE__')) {{
+          clearTimeout(_tid); es.close();
+          appendLog('✓ הניתוח הסתיים — טוען…', 'done');
+          hideLogFloat(900);
+          setTimeout(function() {{ location.href = '/general/{yyyy_mm}'; }}, 1100);
+          return;
+        }}
+        if (e.data === '__ERROR__') {{
+          clearTimeout(_tid); es.close();
+          appendLog('✗ שגיאה בניתוח', 'err');
+          hideLogFloat(3000);
+          return;
+        }}
+        appendLog(e.data);
+      }};
     }})();
   </script>
 </body>

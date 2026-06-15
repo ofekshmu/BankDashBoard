@@ -329,16 +329,6 @@ def index():
     return redirect(default_path)
 
 
-@app.route('/api/auth/verify', methods=['POST'])
-def api_auth_verify():
-    data     = request.get_json(silent=True) or {}
-    password = data.get('password', '')
-    secret   = os.getenv('ADMIN_PASSWORD') or os.getenv('DASHBOARD_PASSWORD', 'ofek')
-    if password == secret:
-        return jsonify({'ok': True})
-    return jsonify({'ok': False}), 401
-
-
 @app.route('/favicon.svg')
 def serve_favicon_svg():
     svg_path = os.path.join(_HERE, 'html', 'logo.svg')

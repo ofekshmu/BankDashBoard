@@ -36,6 +36,14 @@ _PROJECT_DIR           = os.path.dirname(_HERE)
 # process was started (e.g. Vercel serverless, pytest, local terminal).
 os.chdir(_PROJECT_DIR)
 
+# Load .env from project root so DATABASE_URL / ADMIN_PASSWORD are available
+# for _pg_conn() and other direct os.environ accesses in this module.
+try:
+    from dotenv import load_dotenv as _load_dotenv
+    _load_dotenv(os.path.join(_PROJECT_DIR, '.env'))
+except Exception:
+    pass
+
 OUTPUT_HTML            = os.path.join(_HERE, 'html', 'output.html')
 ORGANIZER_HTML         = os.path.join(_HERE, 'html', 'Organizer_Table.html')
 if os.getenv('VERCEL'):  # Vercel: /var/task is read-only; use /tmp
@@ -1418,23 +1426,27 @@ _fx_fetched = 0.0  # epoch seconds
 
 def _get_fx_rates():
     """Return a dict of currency→ILS rates, cached for 1 hour."""
-    import time, urllib.request, json as _json
+    import time, urllib.request, json as _json, threading as _thr
     global _fx_cache, _fx_fetched
     if _fx_cache and (time.time() - _fx_fetched) < 3600:
         return _fx_cache
-    try:
-        url = 'https://api.exchangerate-api.com/v4/latest/ILS'
-        with urllib.request.urlopen(url, timeout=4) as resp:
-            data = _json.loads(resp.read())
-        # data['rates'] maps ILS→X, we want X→ILS
-        ils_to_x = data.get('rates', {})
-        _fx_cache = {cur: 1.0 / rate for cur, rate in ils_to_x.items() if rate}
-        _fx_cache['ILS'] = 1.0
-        _fx_fetched = time.time()
-    except Exception:
-        # Fallback hardcoded approximate rates
-        _fx_cache = {'ILS': 1.0, 'USD': 3.72, 'EUR': 4.01, 'JPY': 0.025}
-        _fx_fetched = time.time()
+    # Use a daemon thread with hard join timeout — urlopen(timeout=N) alone
+    # can hang if the TCP connection stalls before the timeout fires.
+    result = {'ILS': 1.0, 'USD': 3.72, 'EUR': 4.01, 'JPY': 0.025}
+    def _fetch():
+        try:
+            url = 'https://api.exchangerate-api.com/v4/latest/ILS'
+            with urllib.request.urlopen(url, timeout=4) as resp:
+                ils_to_x = _json.loads(resp.read()).get('rates', {})
+                result.update({c: 1.0 / r for c, r in ils_to_x.items() if r})
+                result['ILS'] = 1.0
+        except Exception:
+            pass
+    t = _thr.Thread(target=_fetch, daemon=True)
+    t.start()
+    t.join(timeout=4)
+    _fx_cache = result
+    _fx_fetched = time.time()
     return _fx_cache
 
 

@@ -1406,18 +1406,26 @@ def _gym_db():
 
 def _acct_db():
     """Open a fresh connection to the main PostgreSQL DB."""
-    conn = _pg_conn()
+    return _pg_conn()
+
+
+def _run_acct_migrations():
+    """One-time DDL migrations for OtherAccountStatus. Called once at startup."""
     try:
-        conn.execute("ALTER TABLE OtherAccountStatus ADD COLUMN IF NOT EXISTS Currency TEXT NOT NULL DEFAULT 'ILS'")
-        conn.commit()
+        conn = _pg_conn()
+        try:
+            conn.execute("ALTER TABLE OtherAccountStatus ADD COLUMN IF NOT EXISTS Currency TEXT NOT NULL DEFAULT 'ILS'")
+            conn.commit()
+        except Exception:
+            conn.rollback()
+        try:
+            conn.execute("ALTER TABLE OtherAccountStatus ADD COLUMN IF NOT EXISTS Source TEXT")
+            conn.commit()
+        except Exception:
+            conn.rollback()
+        conn.close()
     except Exception:
-        conn.rollback()
-    try:
-        conn.execute("ALTER TABLE OtherAccountStatus ADD COLUMN IF NOT EXISTS Source TEXT")
-        conn.commit()
-    except Exception:
-        conn.rollback()
-    return conn
+        pass
 
 
 # ── Exchange-rate cache (refreshed once per hour) ─────────────────────────────
@@ -3927,6 +3935,7 @@ def start(port: int = 5050, open_browser: bool = True):
     """Start the Flask server and optionally open the browser."""
     import webbrowser
     os.environ['BANKAPP_WEB'] = '1'
+    _run_acct_migrations()
     if open_browser:
         threading.Timer(1.2, lambda: webbrowser.open(f'http://localhost:{port}')).start()
     app.run(host='127.0.0.1', port=port, threaded=True, debug=False, use_reloader=False)

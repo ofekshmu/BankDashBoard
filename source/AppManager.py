@@ -1058,16 +1058,23 @@ class AppManager:
                 'currencies': {'ILS'}, 'rate': None, 'rate_cur': None,
             }
 
-            # Fetch FX rates once for currency conversion (non-ILS → ILS)
-            import urllib.request as _ureq, json as _json_fx
-            try:
-                with _ureq.urlopen('https://api.exchangerate-api.com/v4/latest/ILS', timeout=5) as _r:
-                    _ils_data = _json_fx.loads(_r.read())
-                _ils_to_x = _ils_data.get('rates', {})
-                _fx_to_ils = {c: 1.0 / r for c, r in _ils_to_x.items() if r}
-                _fx_to_ils['ILS'] = 1.0
-            except Exception:
-                _fx_to_ils = {'ILS': 1.0, 'USD': 3.72, 'EUR': 4.01, 'JPY': 0.025}
+            # Fetch FX rates once for currency conversion (non-ILS → ILS).
+            # Use a daemon thread with a hard join timeout so a stalled TCP
+            # connection never blocks the analysis (urlopen timeout alone is
+            # not reliable on Vercel/serverless environments).
+            import urllib.request as _ureq, json as _json_fx, threading as _thr
+            _fx_to_ils = {'ILS': 1.0, 'USD': 3.72, 'EUR': 4.01, 'JPY': 0.025}
+            def _fetch_fx():
+                try:
+                    with _ureq.urlopen('https://api.exchangerate-api.com/v4/latest/ILS', timeout=4) as _r:
+                        _ils_to_x = _json_fx.loads(_r.read()).get('rates', {})
+                        _fx_to_ils.update({c: 1.0 / r for c, r in _ils_to_x.items() if r})
+                        _fx_to_ils['ILS'] = 1.0
+                except Exception:
+                    pass
+            _fx_t = _thr.Thread(target=_fetch_fx, daemon=True)
+            _fx_t.start()
+            _fx_t.join(timeout=4)  # fallback rates used if not done in 4 s
 
             # Get other accounts data (values stored in original currency, convert to ILS)
             other_accounts_df = DataBase().get_account_entries_with_dates()

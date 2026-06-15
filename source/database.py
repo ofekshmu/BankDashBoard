@@ -15,6 +15,28 @@ from Constants import Local, Paths
 from typing import Tuple
 
 
+class _ChainableCursor:
+    """Wraps a psycopg2 cursor so execute() returns self, matching sqlite3 behaviour."""
+    def __init__(self, cursor):
+        self._c = cursor
+
+    def execute(self, sql, params=()):
+        self._c.execute(sql, params)
+        return self
+
+    def fetchall(self):  return self._c.fetchall()
+    def fetchone(self):  return self._c.fetchone()
+    def fetchmany(self, n): return self._c.fetchmany(n)
+
+    @property
+    def description(self): return self._c.description
+    @property
+    def rowcount(self):    return self._c.rowcount
+
+    def __getattr__(self, name):
+        return getattr(self._c, name)
+
+
 # ----------------------------------------------------------------------
 def validate_table_name(func):
     def wrapper(self, table_name, *args, **kwargs):
@@ -58,7 +80,7 @@ class DataBase:
             cls.__instance = super().__new__(cls)
             cls.__instance.connection = psycopg2.connect(os.environ['DATABASE_URL'])
             cls.__instance.connection.autocommit = False
-            cls.__instance.cursor = cls.__instance.connection.cursor()
+            cls.__instance.cursor = _ChainableCursor(cls.__instance.connection.cursor())
             cls.__instance.cursor.execute("""
                 CREATE TABLE IF NOT EXISTS Card (
                 CardID          CHAR(4)     PRIMARY KEY,
@@ -154,6 +176,7 @@ class DataBase:
                 );""")
             # Charge value - The initial value/ The total sum of payments of the transaction.
             # Transaction value - The actual amount credited for
+            cls.__instance.connection.commit()
 
         return cls.__instance
 

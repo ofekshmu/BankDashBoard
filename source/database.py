@@ -1,4 +1,8 @@
-import sqlite3
+import os
+import psycopg2
+from dotenv import load_dotenv
+
+load_dotenv()
 from datetime import datetime
 import pandas as pd
 from typing import Literal, Optional
@@ -9,6 +13,80 @@ from decorators import try_catch, error_handler
 from src_utils.utils import utils
 from Constants import Local, Paths
 from typing import Tuple
+
+
+# PostgreSQL lowercases all unquoted identifiers.  This map restores the
+# original mixed-case column names that the rest of the codebase expects.
+_PG_COL_CASE = {
+    # universal
+    'id': 'ID', 'name': 'Name', 'category': 'Category',
+    'description': 'Description', 'currency': 'Currency',
+    'amount': 'Amount', 'reserved': 'Reserved', 'format': 'Format',
+    'date': 'Date', 'value': 'Value', 'source': 'Source',
+    # Card
+    'cardid': 'CardID',
+    # File
+    'file_name': 'File_Name', 'card_number': 'Card_Number',
+    'new_transactions': 'New_Transactions', 'transaction_count': 'Transaction_count',
+    'last_update': 'Last_update',
+    # BankTransactions
+    'value_date': 'Value_Date', 'ref': 'Ref', 'out': 'Out',
+    'income': 'Income', 'balance': 'Balance', 'extra_info': 'Extra_Info',
+    'source_file': 'Source_file',
+    # CardTransactions
+    'executed_date': 'Executed_Date', 'charge_date': 'Charge_Date',
+    'charge_value': 'Charge_Value', 'charge_currency': 'Charge_Currency',
+    'transaction_value': 'Transaction_Value', 'value_currency': 'Value_Currency',
+    # CashTransactions
+    'execution_date': 'Execution_Date', 'insertion_date': 'Insertion_Date',
+    # TableMeta
+    'initial_index': 'Initial_index', 'initial_col': 'Initial_col',
+    'row_count': 'Row_count', 'bad_rows': 'Bad_rows',
+    # DevisionTransactions
+    'devisionofbank': 'DevisionOfBank', 'devisionofcard': 'DevisionOfCard',
+    # SQL aliases used in queries
+    'tablename': 'TableName',
+    # OtherAccountStatus
+    'accountname': 'AccountName', 'statusdate': 'StatusDate',
+    'transactionid': 'TransactionID',
+}
+
+
+class _ChainableCursor:
+    """
+    Cursor proxy that makes execute() return self (matching sqlite3's API).
+
+    Creates a new underlying psycopg2 cursor on every execute() call so that
+    a failed query (which puts the transaction in an error state) never leaves
+    the shared cursor in a broken state for subsequent queries.
+    """
+    def __init__(self, conn):
+        self._conn = conn
+        self._c = None
+
+    def execute(self, sql, params=()):
+        self._c = self._conn.cursor()
+        self._c.execute(sql, params)
+        return self
+
+    def fetchall(self):     return self._c.fetchall() if self._c else []
+    def fetchone(self):     return self._c.fetchone() if self._c else None
+    def fetchmany(self, n): return self._c.fetchmany(n) if self._c else []
+
+    @property
+    def description(self):
+        if not self._c or not self._c.description:
+            return None
+        # Wrap each Column so d[0] is the original mixed-case name.
+        return [(_PG_COL_CASE.get(d[0], d[0]),) + tuple(d[1:]) for d in self._c.description]
+
+    @property
+    def rowcount(self):    return self._c.rowcount if self._c else 0
+
+    def __getattr__(self, name):
+        if self._c is not None:
+            return getattr(self._c, name)
+        raise AttributeError(name)
 
 
 # ----------------------------------------------------------------------
@@ -46,14 +124,23 @@ def check_for_empty_df(func):
 class DataBase:
 
     __instance = None
-    connection: sqlite3.Connection
-    cursor: sqlite3.Cursor
+    connection: psycopg2.extensions.connection
+    cursor: psycopg2.extensions.cursor
+
+    @classmethod
+    def _connect(cls):
+        """Create a fresh connection and attach it to the singleton instance."""
+        cls.__instance.connection = psycopg2.connect(os.environ['DATABASE_URL'])
+        cls.__instance.connection.autocommit = False
+        cls.__instance.cursor = _ChainableCursor(cls.__instance.connection)
 
     def __new__(cls):
         if cls.__instance is None:
             cls.__instance = super().__new__(cls)
-            cls.__instance.connection = sqlite3.connect(f'{Paths.DB_NAME}.db')
-            cls.__instance.cursor = cls.__instance.connection.cursor()
+            cls._connect()
+        elif cls.__instance.connection.closed:
+            # Connection dropped (e.g. Neon idle timeout) — reconnect transparently.
+            cls._connect()
             cls.__instance.cursor.execute("""
                 CREATE TABLE IF NOT EXISTS Card (
                 CardID          CHAR(4)     PRIMARY KEY,
@@ -74,7 +161,7 @@ class DataBase:
 
             cls.__instance.cursor.execute("""
                 CREATE TABLE IF NOT EXISTS CashTransactions (
-                ID                  INTEGER         PRIMARY KEY ,
+                ID                  SERIAL          PRIMARY KEY,
                 Name                CHAR            NOT NULL    ,
                 Execution_Date      DATE            NOT NULL    ,
                 Amount              INT             NOT NULL    ,
@@ -85,23 +172,8 @@ class DataBase:
                 );""")
             
             cls.__instance.cursor.execute("""
-                CREATE TABLE IF NOT EXISTS DevisionTransactions (
-                ID                  INTEGER         PRIMARY KEY ,
-                DevisionOfBank      INT             NOT NULL    ,
-                DevisionOfCard      INT             NOT NULL    ,
-                Name                CHAR            NOT NULL    ,
-                Execution_Date      DATE            NOT NULL    ,
-                Amount              INT             NOT NULL    ,
-                Currency            CHAR            NOT NULL    ,
-                Description         CHAR                        ,
-                Category            CHAR            NOT NULL    ,
-                FOREIGN KEY(DevisionOfBank)    REFERENCES BankTransactions(ID),
-                FOREIGN KEY(DevisionOfCard)    REFERENCES CardTransactions(ID)                                   
-                );""")
-
-            cls.__instance.cursor.execute("""
                 CREATE TABLE IF NOT EXISTS TableMeta (
-                ID                  INTEGER         PRIMARY KEY ,
+                ID                  SERIAL          PRIMARY KEY,
                 File_Name           CHAR            NOT NULL    ,
                 Format              CHAR            NOT NULL    ,
                 Card_Number         CHAR            NOT NULL    ,
@@ -114,25 +186,24 @@ class DataBase:
 
             cls.__instance.cursor.execute("""
                 CREATE TABLE IF NOT EXISTS BankTransactions (
-                ID                  INTEGER     PRIMARY KEY ,
+                ID                  SERIAL      PRIMARY KEY,
                 Date                DATE        NOT NULL    ,
                 Value_Date          DATE                    ,
                 Name                CHAR        NOT NULL    ,
                 Ref                 CHAR                    ,
                 Out                 INT         NOT NULL    ,
                 Income              INT         NOT NULL    ,
-                Balance             INT                     ,
+                Balance             TEXT                    ,
                 Extra_Info          CHAR                    ,
                 Source_file         CHAR        NOT NULL    ,
                 Category            CHAR                    ,
-                Description         CHAR                    ,            
-                Reserved            INT                     ,
-                FOREIGN KEY(source_file)    REFERENCES File(Name)
+                Description         CHAR                    ,
+                Reserved            INT
                 );""")
 
             cls.__instance.cursor.execute("""
                 CREATE TABLE IF NOT EXISTS CardTransactions (
-                ID                  INTEGER     PRIMARY KEY ,
+                ID                  SERIAL      PRIMARY KEY,
                 CardID              CHAR        NOT NULL    ,
                 Name                CHAR        NOT NULL    ,
                 Executed_Date       DATE        NOT NULL    ,
@@ -146,11 +217,26 @@ class DataBase:
                 Category            CHAR                    ,
                 Description         CHAR                    ,
                 Reserved            INT                     ,
-                FOREIGN KEY(CardID)         REFERENCES Card(CardID),
-                FOREIGN KEY(source_file)    REFERENCES File(Name)
+                FOREIGN KEY(CardID)         REFERENCES Card(CardID)
+                );""")
+
+            cls.__instance.cursor.execute("""
+                CREATE TABLE IF NOT EXISTS DevisionTransactions (
+                ID                  SERIAL          PRIMARY KEY,
+                DevisionOfBank      INT             NOT NULL    ,
+                DevisionOfCard      INT             NOT NULL    ,
+                Name                CHAR            NOT NULL    ,
+                Execution_Date      DATE            NOT NULL    ,
+                Amount              INT             NOT NULL    ,
+                Currency            CHAR            NOT NULL    ,
+                Description         CHAR                        ,
+                Category            CHAR            NOT NULL    ,
+                FOREIGN KEY(DevisionOfBank)    REFERENCES BankTransactions(ID),
+                FOREIGN KEY(DevisionOfCard)    REFERENCES CardTransactions(ID)
                 );""")
             # Charge value - The initial value/ The total sum of payments of the transaction.
             # Transaction value - The actual amount credited for
+            cls.__instance.connection.commit()
 
         return cls.__instance
 
@@ -181,7 +267,7 @@ class DataBase:
                 Extra_Info,
                 Source_file,
                 Category)
-            VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
         self.cursor.execute(query, (
                                 Date,
@@ -212,7 +298,7 @@ class DataBase:
         """
         self.cursor.execute("""
             INSERT INTO TableMeta(File_Name, Format, Card_Number, Initial_index, Initial_col, Row_count, Bad_rows)
-            VALUES(?, ?, ?, ?, ?, ?, ?)""", (file_name, file_format, card_number, initial_index, initial_col, row_count, bad_rows))
+            VALUES(%s, %s, %s, %s, %s, %s, %s)""", (file_name, file_format, card_number, initial_index, initial_col, row_count, bad_rows))
 
     def get_table_Meta(self, file_name: str, format_name: str, card_number: str ):
         """
@@ -220,9 +306,9 @@ class DataBase:
         """
         query = """ SELECT *
                     From TableMeta
-                    WHERE File_name = ?
-                    AND Format = ?
-                    AND Card_number = ?
+                    WHERE File_name = %s
+                    AND Format = %s
+                    AND Card_number = %s
                 """
         res = self.cursor.execute(query, (file_name, format_name, card_number, )).fetchall()
         res_dicts = []
@@ -267,7 +353,7 @@ class DataBase:
                         Extra_Info,
                         Source_file,
                         Category)
-                    VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """
         self.cursor.execute(query, (
                                 CardID,
@@ -297,14 +383,14 @@ class DataBase:
         last_update = utils.date_ready(datetime.now().strftime("%d-%m-%Y"))
         self.cursor.execute(f"""
             INSERT INTO File(File_Name, Format, Card_Number, Date, New_Transactions, Transaction_count, Last_update)
-            VALUES(?, ?, ?, ?, ?, ?, ?)
+            VALUES(%s, %s, %s, %s, %s, %s, %s)
             """, (name, format_name, card_number, date, new_trans_count, trans_count, last_update)
             )
 
     def set_new_trans_count(self, file_name: str, count: int) -> bool:
         self.cursor.execute("""UPDATE File
-                               SET New_Transactions = :count
-                               WHERE File_Name = :file_name""",
+                               SET New_Transactions = %(count)s
+                               WHERE File_Name = %(file_name)s""",
                             {'count': count,
                              'file_name': file_name})
         return True
@@ -314,7 +400,7 @@ class DataBase:
         ans = self.cursor.execute("""
                     SELECT 1
                     FROM Card
-                    WHERE cardID = ?;
+                    WHERE cardID = %s;
                 """, (cardID,)).fetchone()
         return False if ans is None else True
 
@@ -326,7 +412,7 @@ class DataBase:
         Insert a new card to local DB.
         '''
         self.cursor.execute("""
-            INSERT INTO Card VALUES(?, ?)
+            INSERT INTO Card VALUES(%s, %s)
             """, (id, description))
 
     def is_file_exists(self, file_name: str, file_format: str = None, card_number: str = '') -> bool:
@@ -341,15 +427,15 @@ class DataBase:
             ans = self.cursor.execute("""
                         SELECT 1
                         FROM File
-                        WHERE File_Name = ?;
+                        WHERE File_Name = %s;
                     """, (file_name,)).fetchone()
             
         else:
             ans = self.cursor.execute("""
                         SELECT 1
                         FROM File
-                        WHERE File_Name = ?
-                        AND Format = ?;
+                        WHERE File_Name = %s
+                        AND Format = %s;
                     """, (file_name, file_format,)).fetchone()
 
         return False if ans is None else True
@@ -362,9 +448,9 @@ class DataBase:
         ans = self.cursor.execute("""
                     SELECT 1
                     FROM File
-                    WHERE Format = ?
-                    AND Card_Number = ?
-                    AND Date = ?;
+                    WHERE Format = %s
+                    AND Card_Number = %s
+                    AND Date = %s;
                 """, (file_format, card_number, date,)).fetchone()
 
         return False if ans is None else True
@@ -377,7 +463,7 @@ class DataBase:
         '''
         query = """ SELECT Transaction_count
                     FROM File
-                    WHERE Name = ?;
+                    WHERE Name = %s;
                 """
         return self.cursor.execute(query, (file_name,)).fetchone()[0]
 
@@ -387,6 +473,7 @@ class DataBase:
         Close The connection to the database.
         '''
         self.connection.close()
+        DataBase.__instance = None
 
     # TODO: this function is currently not being used anywhere.
     def get_data_by_file_name(self, file_name: str, card_number: str):
@@ -401,7 +488,7 @@ class DataBase:
                                         Ref, Out, Income, Balance,
                                         Category
                                     FROM BankTransactions
-                                    WHERE source_file = ?"""
+                                    WHERE source_file = %s"""
                                    , (file_name,)).fetchall()
         lst2 = self.cursor.execute("""
                                     SELECT ID,
@@ -413,8 +500,8 @@ class DataBase:
                                         Transaction_Value, Value_Currency, Extra_info,
                                         Category
                                     FROM CardTransactions
-                                    WHERE source_file = ?
-                                    AND CardID = ?""", (file_name, card_number, )).fetchall()
+                                    WHERE source_file = %s
+                                    AND CardID = %s""", (file_name, card_number, )).fetchall()
         return lst1 + lst2
     
     @error_handler(default_return=-99999)
@@ -422,17 +509,193 @@ class DataBase:
         """
 
         """
-        return self.cursor.execute("""SELECT Balance FROM BankTransactions
-                                      ORDER BY Date
-                                      DESC LIMIT 1
-                                   """).fetchone()[0]
+        row = self.cursor.execute("""SELECT Balance FROM BankTransactions
+                                      WHERE Balance IS NOT NULL
+                                      ORDER BY Date DESC, ID DESC
+                                      LIMIT 1
+                                   """).fetchone()
+        return row[0] if row else None
+
+    def get_all_splits(self) -> list:
+        """Return all split records as a list of dicts."""
+        rows = self.cursor.execute("""
+            SELECT ID, Original_Table, Original_ID, Amount, Description, Category
+            FROM TransactionSplits
+        """).fetchall()
+        return [{'split_id': r[0], 'orig_table': r[1], 'orig_id': r[2],
+                 'amount': r[3], 'description': r[4] or '', 'category': r[5]}
+                for r in rows]
+
+    def apply_splits_to_df(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Replace split-original rows with their individual split rows."""
+        if df.empty:
+            return df
+        all_splits = self.get_all_splits()
+        if not all_splits:
+            return df
+        if 'TableName' not in df.columns or 'ID' not in df.columns:
+            return df
+        split_keys = set((s['orig_table'], s['orig_id']) for s in all_splits)
+        mask_orig = pd.Series(False, index=df.index)
+        for tbl, oid in split_keys:
+            mask_orig |= (df['TableName'] == tbl) & (df['ID'] == oid)
+        if not mask_orig.any():
+            return df
+        df_clean = df[~mask_orig].copy()
+        new_rows = []
+        for _, orig_row in df[mask_orig].iterrows():
+            tbl  = str(orig_row['TableName'])
+            oid  = int(orig_row['ID'])
+            my_splits = [s for s in all_splits
+                         if s['orig_table'] == tbl and s['orig_id'] == oid]
+            is_spending = (
+                (tbl == 'BankTransactions' and float(orig_row.get('Out', 0) or 0) > 0) or
+                (tbl == 'CardTransactions' and float(orig_row.get('Transaction_Value', 0) or 0) > 0)
+            )
+            for s in my_splits:
+                sr = orig_row.copy()
+                sr['ID']             = s['split_id']
+                sr['_split_orig_id'] = oid
+                sr['Category']       = s['category']
+                if s['description']:
+                    sr['Description'] = s['description']
+                if tbl == 'BankTransactions':
+                    sr['Out']    = s['amount'] if is_spending else 0
+                    sr['Income'] = 0 if is_spending else s['amount']
+                elif tbl == 'CardTransactions':
+                    sr['Transaction_Value'] = s['amount'] if is_spending else -s['amount']
+                    sr['Charge_Value']      = s['amount']
+                new_rows.append(sr)
+        if new_rows:
+            return pd.concat([df_clean, pd.DataFrame(new_rows)], ignore_index=True)
+        return df_clean
+
+    def get_mortgage_payments(self, category: str, name_keyword: str) -> pd.DataFrame:
+        """Return bank transactions whose Name contains name_keyword and Category matches.
+        Returns columns: Date, Name, Amount (positive = money out)."""
+        data = self.cursor.execute("""
+            SELECT Date, Name, Out AS Amount
+            FROM BankTransactions
+            WHERE Category = %s
+              AND Name ILIKE %s
+              AND Out > 0
+            ORDER BY Date ASC
+        """, (category, f'%{name_keyword}%')).fetchall()
+        return pd.DataFrame(data, columns=['Date', 'Name', 'Amount'])
+
+    def get_all_category_transactions(self, category: str) -> pd.DataFrame:
+        """Return all transactions (bank + card, with splits applied) for a category.
+        Returns columns: Date, Name, Out, Income, Description."""
+        from src_utils.calculations import SimpleMath
+        from datetime import datetime as _dt
+
+        bank_raw = self.get_transactions('BankTransactions', category_filter=None, name_filter=None)
+        bank_raw = self.apply_splits_to_df(bank_raw)
+        bank_raw = bank_raw[bank_raw['Category'] == category].reset_index(drop=True)
+
+        card_raw = self.get_transactions('CardTransactions', category_filter=None, name_filter=None)
+        card_raw = self.apply_splits_to_df(card_raw)
+        card_raw = card_raw[card_raw['Category'] == category].reset_index(drop=True)
+
+        bank_df = pd.DataFrame({
+            'Date':        bank_raw['Date'],
+            'Name':        bank_raw['Name'],
+            'Out':         bank_raw['Out'],
+            'Income':      bank_raw['Income'],
+            'Description': bank_raw['Description'] if 'Description' in bank_raw.columns else '',
+        }) if not bank_raw.empty else pd.DataFrame(columns=['Date', 'Name', 'Out', 'Income', 'Description'])
+
+        if not card_raw.empty:
+            card_proc = SimpleMath.process_prices(card_raw, date=_dt.now(), general_analysis=False)
+            card_result = pd.DataFrame({
+                'Date':        card_proc['Executed_Date'],
+                'Name':        card_proc['Name'],
+                'Out':         card_proc['Final_Value'].apply(lambda v: abs(float(v)) if v < 0 else 0.0),
+                'Income':      card_proc['Final_Value'].apply(lambda v: float(v) if v > 0 else 0.0),
+                'Description': card_proc['Description'] if 'Description' in card_proc.columns else '',
+            })
+            combined = pd.concat([bank_df, card_result], ignore_index=True)
+        else:
+            combined = bank_df
+
+        combined['Date'] = pd.to_datetime(combined['Date'])
+        return combined.sort_values('Date', ascending=False).reset_index(drop=True)
+
+    def get_housing_spending(self, category: str) -> pd.DataFrame:
+        """Return all Out (spending) entries for category across all time (bank + card, splits applied).
+        Returns columns: Date, Name, Out."""
+        from src_utils.calculations import SimpleMath
+        from datetime import datetime as _dt
+
+        bank_raw = self.get_transactions('BankTransactions', category_filter=None, name_filter=None)
+        bank_raw = self.apply_splits_to_df(bank_raw)
+        bank_raw = bank_raw[(bank_raw['Category'] == category) & (bank_raw['Out'] > 0)].reset_index(drop=True)
+
+        card_raw = self.get_transactions('CardTransactions', category_filter=None, name_filter=None)
+        card_raw = self.apply_splits_to_df(card_raw)
+        card_raw = card_raw[card_raw['Category'] == category].reset_index(drop=True)
+
+        bank_df = pd.DataFrame({
+            'Date': bank_raw['Date'],
+            'Name': bank_raw['Name'],
+            'Out':  bank_raw['Out'],
+        }) if not bank_raw.empty else pd.DataFrame(columns=['Date', 'Name', 'Out'])
+
+        if not card_raw.empty:
+            card_proc = SimpleMath.process_prices(card_raw, date=_dt.now(), general_analysis=False)
+            spending = card_proc[card_proc['Final_Value'] < 0].copy()
+            card_result = pd.DataFrame({
+                'Date': spending['Executed_Date'],
+                'Name': spending['Name'],
+                'Out':  spending['Final_Value'].apply(lambda v: abs(float(v))),
+            })
+            combined = pd.concat([bank_df, card_result], ignore_index=True)
+        else:
+            combined = bank_df
+
+        combined['Date'] = pd.to_datetime(combined['Date'])
+        return combined.sort_values('Date').reset_index(drop=True)
+
+    def get_housing_income(self, category: str) -> pd.DataFrame:
+        """Return all Income (rent) entries for category across all time.
+        Returns columns: Date, Name, Income."""
+        data = self.cursor.execute("""
+            SELECT Date, Name, Income
+            FROM BankTransactions
+            WHERE Category = %s
+              AND Income > 0
+            ORDER BY Date ASC
+        """, (category,)).fetchall()
+        return pd.DataFrame(data, columns=['Date', 'Name', 'Income'])
+
+    def get_latest_balance_date(self):
+        """Return the Date of the most recent BankTransactions row that has a Balance."""
+        row = self.cursor.execute("""
+            SELECT Date FROM BankTransactions
+            WHERE Balance IS NOT NULL
+            ORDER BY Date DESC, ID DESC
+            LIMIT 1
+        """).fetchone()
+        return row[0] if row else None
+
+    def get_balance_for_month(self, year: int, month: int):
+        """Return the last BankTransactions balance for the given year/month, or None."""
+        row = self.cursor.execute("""
+            SELECT Balance FROM BankTransactions
+            WHERE TO_CHAR(Date::timestamp, 'YYYY') = %s
+              AND TO_CHAR(Date::timestamp, 'MM')   = %s
+              AND Balance IS NOT NULL
+            ORDER BY Date DESC, ID DESC
+            LIMIT 1
+        """, (str(year), str(month).zfill(2))).fetchone()
+        return row[0] if row else None
 
     def get_gas_related(self, keys: list, year: str = "", month: str = ""):
         rows = []
         for k in keys:
             rows += self.cursor.execute("""
                                         SELECT transaction_date,business_name,amount FROM Transactions
-                                        WHERE business_name = ?
+                                        WHERE business_name = %s
                                         """, (k,)).fetchall()
         return rows
 
@@ -446,16 +709,16 @@ class DataBase:
                                         'BankTransactions' AS TableName,
                                         ID,
                                         Name,
-                                        Out AS 'Out/Transaction_value',
-                                        Income AS 'Income/Charge_Value',
+                                        Out AS "Out/Transaction_value",
+                                        Income AS "Income/Charge_Value",
                                         Category,
-                                        Description AS 'Description/Charge_Currency',
-                                        Reserved AS 'Reserved/Value_Currency',
-                                        Date AS 'Date/Executed_Date',
-                                        Value_Date AS 'Value_Date/Charge_Date',
+                                        Description AS "Description/Charge_Currency",
+                                        Reserved::text AS "Reserved/Value_Currency",
+                                        Date AS "Date/Executed_Date",
+                                        Value_Date AS "Value_Date/Charge_Date",
                                         Extra_Info
                                    FROM BankTransactions
-                                   WHERE Category = ?
+                                   WHERE Category = %s
                                    UNION ALL
                                    SELECT
                                         'CardTransactions' AS TableName,
@@ -470,7 +733,7 @@ class DataBase:
                                         Charge_Date,
                                         Extra_info
                                    FROM CardTransactions
-                                   WHERE Category = ?
+                                   WHERE Category = %s
                                    """,
                                    (cat_name, cat_name)).fetchall()
     
@@ -490,28 +753,28 @@ class DataBase:
         day2 = datetime(year, month, last_day).strftime('%Y-%m-%d %H:%M:%S')
 
         # (Transaction_Value*Charge_Value < 0 
-        # AND Charge_Date >= ? AND Charge_Date <= ?)
+        # AND Charge_Date >= %s AND Charge_Date <= %s)
         # This section is ment for retriving refund issued to the credit card.
         data = self.cursor.execute("""
                                     SELECT
                                         ID,
                                         'BankTransactions' AS TableName,
-                                        Ref AS 'Ref/CardID',
+                                        Ref AS "Ref/CardID",
                                         Name,
-                                        Date AS 'Date/Executed_Date',
-                                        Value_Date AS 'Value_Date/Charge_Date',
-                                        Out AS 'Out/Transaction_value',
-                                        Income AS 'Income/Charge_Value',
-                                        Description AS 'Description/Charge_Currency',
-                                        Reserved AS 'Reserved/Value_Currency',
+                                        Date AS "Date/Executed_Date",
+                                        Value_Date AS "Value_Date/Charge_Date",
+                                        Out AS "Out/Transaction_value",
+                                        Income AS "Income/Charge_Value",
+                                        Description AS "Description/Charge_Currency",
+                                        Reserved::text AS "Reserved/Value_Currency",
                                         Category,
                                         Extra_Info,
                                         Source_file
                                     FROM BankTransactions
-                                    WHERE Date >= ?
-                                    AND Date <= ?
+                                    WHERE Date >= %s
+                                    AND Date <= %s
                                     AND Income != 0
-                                    AND (Category != ? OR Category IS NULL)
+                                    AND (Category != %s OR Category IS NULL)
                                     UNION ALL
                                     SELECT
                                         ID,
@@ -528,11 +791,11 @@ class DataBase:
                                         Extra_Info,
                                         Source_file
                                     FROM CardTransactions
-                                    WHERE (Executed_Date >= ?
-                                    AND Executed_Date <= ?
+                                    WHERE (Executed_Date >= %s
+                                    AND Executed_Date <= %s
                                     AND Transaction_Value < 0)
                                     OR (Transaction_Value*Charge_Value < 0 
-                                    AND Charge_Date >= ? AND Charge_Date <= ?)
+                                    AND Charge_Date >= %s AND Charge_Date <= %s)
                                     """, (day1, day2, "אשראי", day1, day2, day1, day2)).fetchall()
         
         df = pd.DataFrame(data, columns=[d[0] for d in self.cursor.description])
@@ -571,28 +834,28 @@ class DataBase:
         # bt_end = datetime(fit_year, fit_month, last_day).strftime('%Y-%m-%d %H:%M:%S')
         # Notes about the sql command:
         # in the cardtransaction table:
-        #   1. The following condition might not be relevant: (Executed_Date >= ? AND Executed_Date <= ?)
+        #   1. The following condition might not be relevant: (Executed_Date >= %s AND Executed_Date <= %s)
         #   2. Card transaction which represent spendings will always be positive.
         data = self.cursor.execute("""
                                     SELECT
                                         'BankTransactions' AS TableName,
                                         ID,
-                                        Ref AS 'Ref/CardID',
+                                        Ref AS "Ref/CardID",
                                         Name,
-                                        Date AS 'Date/Executed_Date',
-                                        Value_Date AS 'Value_Date/Charge_Date',
-                                        Out AS 'Out/Transaction_value',
-                                        Income AS 'Income/Charge_Value',
-                                        Description AS 'Description/Charge_Currency',
-                                        Reserved AS 'Reserved/Value_Currency',
+                                        Date AS "Date/Executed_Date",
+                                        Value_Date AS "Value_Date/Charge_Date",
+                                        Out AS "Out/Transaction_value",
+                                        Income AS "Income/Charge_Value",
+                                        Description AS "Description/Charge_Currency",
+                                        Reserved::text AS "Reserved/Value_Currency",
                                         Category,
                                         Extra_Info,
                                         Source_file
                                     FROM BankTransactions
-                                    WHERE Date >= ?
-                                    AND Date <= ?
+                                    WHERE Date >= %s
+                                    AND Date <= %s
                                     AND Out != 0
-                                    AND (Category != ? OR Category IS NULL)
+                                    AND (Category != %s OR Category IS NULL)
                                     UNION ALL
                                     SELECT
                                         'CardTransactions' AS TableName,
@@ -610,11 +873,11 @@ class DataBase:
                                         Source_file
                                     FROM CardTransactions
                                     WHERE Transaction_Value > 0 AND (
-                                        (Executed_Date >= ? AND Executed_Date <= ?)
+                                        (Executed_Date >= %s AND Executed_Date <= %s)
                                         OR 
-                                        (strftime('%m', Charge_Date) = ? and strftime('%Y', Charge_Date) = ?)
+                                        (TO_CHAR(Charge_Date::timestamp, 'MM') = %s and TO_CHAR(Charge_Date::timestamp, 'YYYY') = %s)
                                         OR
-                                        (strftime('%m', Charge_Date) = ? and strftime('%Y', Charge_Date) = ?)
+                                        (TO_CHAR(Charge_Date::timestamp, 'MM') = %s and TO_CHAR(Charge_Date::timestamp, 'YYYY') = %s)
                                     )
                                     """, (b_init, b_end, "אשראי", b_init, b_end, next_month, next_year, current_month, year,)).fetchall()
         df = pd.DataFrame(data, columns=[d[0] for d in self.cursor.description])
@@ -642,21 +905,21 @@ class DataBase:
                                     SELECT
                                         ID,
                                         'BankTransactions' AS TableName,
-                                        Ref AS 'Ref/CardID',
+                                        Ref AS "Ref/CardID",
                                         Name,
-                                        Date AS 'Date/Executed_Date',
-                                        Value_Date AS 'Value_Date/Charge_Date',
-                                        Out AS 'Out/Transaction_value',
-                                        Income AS 'Income/Charge_Value',
-                                        Description AS 'Description/Charge_Currency',
-                                        Reserved AS 'Reserved/Value_Currency',
+                                        Date AS "Date/Executed_Date",
+                                        Value_Date AS "Value_Date/Charge_Date",
+                                        Out AS "Out/Transaction_value",
+                                        Income AS "Income/Charge_Value",
+                                        Description AS "Description/Charge_Currency",
+                                        Reserved::text AS "Reserved/Value_Currency",
                                         Category,
                                         Extra_Info,
                                         Source_file
                                     FROM BankTransactions
                                     WHERE 
                                             Income != 0
-                                        AND Category != ? 
+                                        AND Category != %s 
                                     UNION ALL
                                     SELECT
                                         ID,
@@ -695,21 +958,21 @@ class DataBase:
         data = self.cursor.execute("""
                                     SELECT
                                         'BankTransactions' AS TableName,
-                                        Ref AS 'Ref/CardID',
+                                        Ref AS "Ref/CardID",
                                         Name,
-                                        Date AS 'Date/Executed_Date',
-                                        Value_Date AS 'Value_Date/Charge_Date',
-                                        Out AS 'Out/Transaction_value',
-                                        Income AS 'Income/Charge_Value',
-                                        Description AS 'Description/Charge_Currency',
-                                        Reserved AS 'Reserved/Value_Currency',
+                                        Date AS "Date/Executed_Date",
+                                        Value_Date AS "Value_Date/Charge_Date",
+                                        Out AS "Out/Transaction_value",
+                                        Income AS "Income/Charge_Value",
+                                        Description AS "Description/Charge_Currency",
+                                        Reserved::text AS "Reserved/Value_Currency",
                                         Category,
                                         Extra_Info,
                                         Source_file
                                     FROM BankTransactions
                                     WHERE 
                                         Out != 0
-                                        AND (Category != ? OR Category IS NULL)
+                                        AND (Category != %s OR Category IS NULL)
                                     UNION ALL
                                     SELECT
                                         'CardTransactions' AS TableName,
@@ -765,11 +1028,11 @@ class DataBase:
             query += "WHERE "
 
         if category_filter is not None and category_filter != "":
-            query_parts.append("category = ?")
+            query_parts.append("category = %s")
             query_values.append(category_filter)
 
         if name_filter is not None and name_filter != "":
-            query_parts.append("name = ?")
+            query_parts.append("name = %s")
             query_values.append(name_filter)
 
         query += " AND ".join(query_parts)
@@ -790,20 +1053,20 @@ class DataBase:
     #     data = self.cursor.execute("""
     #                                 SELECT
     #                                     'BankTransactions' AS TableName,
-    #                                     Ref AS 'Ref/CardID',
+    #                                     Ref AS "Ref/CardID",
     #                                     Name,
-    #                                     Date AS 'Date/Executed_Date',
-    #                                     Value_Date AS 'Value_Date/Charge_Date',
-    #                                     Out AS 'Out/Transaction_value',
-    #                                     Income AS 'Income/Charge_Value',
-    #                                     Description AS 'Description/Charge_Currency',
-    #                                     Reserved AS 'Reserved/Value_Currency',
+    #                                     Date AS "Date/Executed_Date",
+    #                                     Value_Date AS "Value_Date/Charge_Date",
+    #                                     Out AS "Out/Transaction_value",
+    #                                     Income AS "Income/Charge_Value",
+    #                                     Description AS "Description/Charge_Currency",
+    #                                     Reserved AS "Reserved/Value_Currency",
     #                                     Category,
     #                                     Extra_Info,
     #                                     Source_file,
     #                                     Description
     #                                 FROM BankTransactions
-    #                                 WHERE Category != ?
+    #                                 WHERE Category != %s
     #                                 UNION ALL
     #                                 SELECT
     #                                     'CardTransactions' AS TableName,
@@ -838,7 +1101,7 @@ class DataBase:
         for word in Local.VISA_KEY_WORDS:
             items += self.cursor.execute("""
                                         SELECT Date,Source_Dest,Amount,Balance FROM BankTransactions
-                                        WHERE Source_Dest = ?
+                                        WHERE Source_Dest = %s
                                         """, (word,)).fetchall()
         return items
 
@@ -859,8 +1122,8 @@ class DataBase:
         res = self.cursor.execute("""
                                     SELECT File_Name
                                     FROM File
-                                    WHERE Format = ?
-                                    AND Card_Number = ?
+                                    WHERE Format = %s
+                                    AND Card_Number = %s
                                     """, (format_name, card_number,)).fetchall()
         
         return [tup[0] for tup in res] # to get result as list
@@ -872,27 +1135,27 @@ class DataBase:
         self.cursor.execute("""
                             DELETE
                             From File
-                            WHERE File_Name = ?
-                            AND Format = ?
-                            AND Card_Number = ?
+                            WHERE File_Name = %s
+                            AND Format = %s
+                            AND Card_Number = %s
                             """, (file_name, format_name, card_number,))
         self.cursor.execute("""
                             DELETE
                             From BankTransactions
-                            WHERE source_file = ?
+                            WHERE source_file = %s
                             """, (file_name,))
         self.cursor.execute("""
                             DELETE
                             From CardTransactions
-                            WHERE source_file = ?
-                            AND CardID = ?
+                            WHERE source_file = %s
+                            AND CardID = %s
                             """, (file_name, card_number,))
         self.cursor.execute("""
                             DELETE
                             From TableMeta
-                            WHERE File_Name = ?
-                            AND Format = ?
-                            AND Card_Number = ?                            
+                            WHERE File_Name = %s
+                            AND Format = %s
+                            AND Card_Number = %s                            
                             """, (file_name, format_name, card_number, ))
 
     def get_untagged(self, table: str = None) -> Tuple[list, list]:
@@ -921,7 +1184,7 @@ class DataBase:
                                         Source_file,
                                         Null
                                     FROM BankTransactions
-                                    WHERE Category IS 'NotCategorized'
+                                    WHERE Category = 'NotCategorized'
                                     ORDER BY ID DESC
                                 """).fetchall()
             return res, [d[0] for d in self.cursor.description]
@@ -932,14 +1195,14 @@ class DataBase:
                                         ID,
                                         Executed_Date,
                                         Name,
-                                        CardID AS 'CardID/Ref',
-                                        Charge_Value AS 'Charge_Value/Out',
-                                        Transaction_Value AS 'Transaction_Value/Income' ,
+                                        CardID AS "CardID/Ref",
+                                        Charge_Value AS "Charge_Value/Out",
+                                        Transaction_Value AS "Transaction_Value/Income" ,
                                         Extra_Info,
                                         Source_file,
                                         Charge_Currency
                                     FROM CardTransactions
-                                    WHERE Category IS 'NotCategorized'
+                                    WHERE Category = 'NotCategorized'
                                     ORDER BY ID DESC
                                 """).fetchall()
             return res, [d[0] for d in self.cursor.description]
@@ -957,7 +1220,7 @@ class DataBase:
                                         Source_file,
                                         Null
                                     FROM BankTransactions
-                                    WHERE Category IS 'NotCategorized'
+                                    WHERE Category = 'NotCategorized'
                                     ORDER BY ID DESC
                                 """).fetchall()
             res2 = self.cursor.execute("""
@@ -966,14 +1229,14 @@ class DataBase:
                                         ID,
                                         Executed_Date,
                                         Name,
-                                        CardID AS 'CardID/Ref',
-                                        Charge_Value AS 'Charge_Value/Out',
-                                        Transaction_Value AS 'Transaction_Value/Income' ,
+                                        CardID AS "CardID/Ref",
+                                        Charge_Value AS "Charge_Value/Out",
+                                        Transaction_Value AS "Transaction_Value/Income" ,
                                         Extra_Info,
                                         Source_file,
                                         Charge_Currency
                                     FROM CardTransactions
-                                    WHERE Category IS 'NotCategorized'
+                                    WHERE Category = 'NotCategorized'
                                     ORDER BY ID DESC
                                 """).fetchall()
             # Sortion order is made for better handling of tagging
@@ -990,14 +1253,14 @@ class DataBase:
             case "CardTransactions":
                 self.cursor.execute("""
                                     UPDATE CardTransactions
-                                    SET Category = ?
-                                    WHERE ID = ?
+                                    SET Category = %s
+                                    WHERE ID = %s
                                     """, (category, id,))
             case "BankTransactions":
                 self.cursor.execute("""
                                     UPDATE BankTransactions
-                                    SET Category = ?
-                                    WHERE ID = ?
+                                    SET Category = %s
+                                    WHERE ID = %s
                                     """, (category, id,))
             case _:
                 utils.log(f"Bad input {table_name} in 'set_category' in DataBase class", "error")
@@ -1009,8 +1272,8 @@ class DataBase:
         """
         query = """
                     UPDATE {}
-                    SET Description = ?
-                    WHERE ID = ?
+                    SET Description = %s
+                    WHERE ID = %s
                 """.format(table_name)
         
         self.cursor.execute(query, (description, id))
@@ -1022,7 +1285,7 @@ class DataBase:
         query = """
                     SELECT *
                     FROM {}
-                    WHERE Name = ?
+                    WHERE Name = %s
                 """.format(table_name)
         return pd.DataFrame(self.cursor.execute(query, (name,)).fetchall(), columns=[d[0] for d in self.cursor.description])
 
@@ -1035,8 +1298,8 @@ class DataBase:
         query = """
                     SELECT *
                     FROM {}
-                    WHERE Name = ?
-                    AND Category IS 'NotCategorized'
+                    WHERE Name = %s
+                    AND Category = 'NotCategorized'
                     """.format(table_name)
         return pd.DataFrame(self.cursor.execute(query, (name,)).fetchall(), columns=[d[0] for d in self.cursor.description])
 
@@ -1052,7 +1315,7 @@ class DataBase:
         return self.cursor.execute("""
                                    SELECT Description
                                    FROM file
-                                   WHERE Name = ?
+                                   WHERE Name = %s
                                    """, (name,)).fetchone()[0]
 
     def set_transaction_description(self, desc: str, TableName: str, id: int) -> None:
@@ -1061,8 +1324,8 @@ class DataBase:
         """
         query = """
                     UPDATE {}
-                    SET Description = ?
-                    WHERE ID = ?
+                    SET Description = %s
+                    WHERE ID = %s
                 """.format(TableName)
         self.cursor.execute(query, (desc, id))
 
@@ -1081,29 +1344,29 @@ class DataBase:
         m_ip1 = '0' + str(m_ip1) if len(str(m_ip1)) == 1 else str(m_ip1)
         m_im1 = '0' + str(m_im1) if len(str(m_im1)) == 1 else str(m_im1)
 
-        # Executed_Date AS 'Date/Executed_Date',
-        # Charge_Date AS 'Value_Date/Charge_Date'
+        # Executed_Date AS "Date/Executed_Date",
+        # Charge_Date AS "Value_Date/Charge_Date"
         # AS key word is added in order to match the 'process_prices' function
         data = self.cursor.execute("""
                             SELECT 'CardTransactions' AS TableName,
                                    CardID,
-                                   Executed_Date AS 'Date/Executed_Date',
-                                   Charge_Date AS 'Value_Date/Charge_Date',
-                                   Charge_Value AS 'Income/Charge_Value',
-                                   Charge_Currency AS 'Description/Charge_Currency',
-                                   Value_Currency AS 'Reserved/Value_Currency',
-                                   Transaction_Value AS 'Out/Transaction_value',
+                                   Executed_Date AS "Date/Executed_Date",
+                                   Charge_Date AS "Value_Date/Charge_Date",
+                                   Charge_Value AS "Income/Charge_Value",
+                                   Charge_Currency AS "Description/Charge_Currency",
+                                   Value_Currency AS "Reserved/Value_Currency",
+                                   Transaction_Value AS "Out/Transaction_value",
                                    Category
                             FROM CardTransactions
                             WHERE ( 
-                                    (strftime('%m', Executed_Date) = ? AND strftime('%m', Charge_Date) = ?) 
+                                    (TO_CHAR(Executed_Date::timestamp, 'MM') = %s AND TO_CHAR(Charge_Date::timestamp, 'MM') = %s) 
                                     OR 
-                                    (strftime('%m', Executed_Date) = ? AND strftime('%m', Charge_Date) = ? AND Transaction_Value > 0)
+                                    (TO_CHAR(Executed_Date::timestamp, 'MM') = %s AND TO_CHAR(Charge_Date::timestamp, 'MM') = %s AND Transaction_Value > 0)
                                     OR
-                                   (strftime('%m', Executed_Date) = ? AND strftime('%m', Charge_Date) = ?)
+                                   (TO_CHAR(Executed_Date::timestamp, 'MM') = %s AND TO_CHAR(Charge_Date::timestamp, 'MM') = %s)
                                    ) 
                                    AND 
-                                   strftime('%Y', Charge_Date) = ?
+                                   TO_CHAR(Charge_Date::timestamp, 'YYYY') = %s
 
                             """, (m_i, m_ip1, m_ip1, m_ip1, m_im1, m_ip1, y_ip1, )).fetchall() # TODO can this be simplified for just the transactions at the set charge date?
         
@@ -1120,10 +1383,10 @@ class DataBase:
 
         data = self.cursor.execute("""
                             SELECT ID, Name, Date, Ref, Out, Category FROM BankTransactions
-                            WHERE strftime('%m', Date) = ?
-                            AND strftime('%Y', Date) = ?
+                            WHERE TO_CHAR(Date::timestamp, 'MM') = %s
+                            AND TO_CHAR(Date::timestamp, 'YYYY') = %s
                             """, (str_month, str(year), )).fetchall()
-                            # AND strftime('%d', Date) = ?
+                            # AND strftime('%d', Date) = %s
         return pd.DataFrame(data=data, columns=[d[0] for d in self.cursor.description])
 
     def get_card_ids(self) -> list:
@@ -1182,7 +1445,7 @@ class DataBase:
         """
         return int(self.cursor.execute("""
                             SELECT
-                            ROUND((julianday(MAX(Charge_Date)) - julianday(MIN(Charge_Date))) / 30, 0)  + 1
+                            ROUND(EXTRACT(EPOCH FROM (MAX(Charge_Date::timestamp) - MIN(Charge_Date::timestamp))) / 86400 / 30) + 1
                             FROM CardTransactions 
                             """).fetchone()[0])
     
@@ -1201,11 +1464,11 @@ class DataBase:
             FROM (
                 SELECT Out AS sum_i
                 FROM BankTransactions
-                WHERE {condition} = ?
+                WHERE {condition} = %s
             UNION ALL
                 SELECT Transaction_Value AS sum_i
                 FROM CardTransactions
-                WHERE {condition} = ? AND Transaction_Value > 0
+                WHERE {condition} = %s AND Transaction_Value > 0
                 ) AS merged_table 
                 """
         return self.cursor.execute(query, (name_for_analysis, name_for_analysis,)).fetchone()[0]
@@ -1227,11 +1490,11 @@ class DataBase:
                 FROM (
                     SELECT Income AS sum_i
                     FROM BankTransactions
-                    WHERE {condition} = ?
+                    WHERE {condition} = %s
                 UNION ALL
                     SELECT Transaction_Value AS sum_i
                     FROM CardTransactions
-                    WHERE {condition} = ? AND Transaction_Value < 0
+                    WHERE {condition} = %s AND Transaction_Value < 0
                     ) AS merged_table 
                     """
         return self.cursor.execute(query, (name_for_analysis, name_for_analysis,)).fetchone()[0]
@@ -1254,11 +1517,11 @@ class DataBase:
             FROM (
                 SELECT Income - Out AS sum_i
                 FROM BankTransactions
-                WHERE {condition} = ?
+                WHERE {condition} = %s
             UNION ALL
                 SELECT -Transaction_Value AS sum_i
                 FROM CardTransactions
-                WHERE {condition} = ?
+                WHERE {condition} = %s
                 ) AS merged_table
             """
         return self.cursor.execute(query, (name_for_analysis, name_for_analysis,)).fetchone()[0]
@@ -1278,13 +1541,13 @@ class DataBase:
         query = f"""
             SELECT SUM(sum_i), year, month
             FROM (
-                SELECT Income + Out AS sum_i, strftime('%Y', Date) AS year, strftime('%m', Date) AS month
+                SELECT Income + Out AS sum_i, TO_CHAR(Date::timestamp, 'YYYY') AS year, TO_CHAR(Date::timestamp, 'MM') AS month
                 FROM BankTransactions
-                WHERE {condition} = ?
+                WHERE {condition} = %s
             UNION ALL
-                SELECT Transaction_Value AS sum_i, strftime('%Y', Executed_Date) AS year, strftime('%m', Executed_Date) AS month
+                SELECT Transaction_Value AS sum_i, TO_CHAR(Executed_Date::timestamp, 'YYYY') AS year, TO_CHAR(Executed_Date::timestamp, 'MM') AS month
                 FROM CardTransactions
-                WHERE {condition} = ?
+                WHERE {condition} = %s
                 ) AS merged_table
             GROUP BY year, month
             ORDER BY year, month
@@ -1301,7 +1564,7 @@ class DataBase:
         query = """
                     SELECT ID, Date, Out, Income, Balance
                     FROM BankTransactions
-                    WHERE (Date >= ?)
+                    WHERE (Date >= %s)
                 """
         data = self.cursor.execute(query, (last_valid_date_str,)).fetchall()
         return pd.DataFrame(data=data, columns=[d[0] for d in self.cursor.description])
@@ -1313,7 +1576,7 @@ class DataBase:
         query = """
         SELECT *
         FROM CardTransactions 
-        WHERE Name LIKE ? or Description Like ?
+        WHERE Name LIKE %s or Description Like %s
 
         """
 
@@ -1331,7 +1594,7 @@ class DataBase:
         data_1 = self.cursor.execute("""
                             SELECT *, 'BankTransactions' AS TableName                                
                             FROM BankTransactions
-                            WHERE Date >= ?           
+                            WHERE Date >= %s           
                             """, (date_str,)).fetchall()
         
         df_1 = pd.DataFrame(data=data_1, columns=[d[0] for d in self.cursor.description])
@@ -1339,7 +1602,7 @@ class DataBase:
         data_2 = self.cursor.execute("""
                             SELECT *, 'CardTransactions' AS TableName                               
                             FROM CardTransactions
-                            WHERE Executed_Date >= ?
+                            WHERE Executed_Date >= %s
                             """, (date_str,)).fetchall()
     
         df_2 = pd.DataFrame(data=data_2, columns=[d[0] for d in self.cursor.description])
@@ -1353,7 +1616,7 @@ class DataBase:
         """Creates or updates the other accounts status table"""
         self.cursor.execute("""
             CREATE TABLE IF NOT EXISTS OtherAccountStatus (
-                ID              INTEGER     PRIMARY KEY AUTOINCREMENT,
+                ID              SERIAL      PRIMARY KEY,
                 AccountName     TEXT        NOT NULL,
                 StatusDate      DATE        NOT NULL,
                 Value          REAL        NOT NULL,
@@ -1367,7 +1630,7 @@ class DataBase:
         """Insert a new status record for another account"""
         query = """
             INSERT INTO OtherAccountStatus (AccountName, StatusDate, Value, TransactionID)
-            VALUES (?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s)
         """
         self.cursor.execute(query, (account_name, status_date, value, transaction_id))
         self.connection.commit()
@@ -1394,25 +1657,26 @@ class DataBase:
 
         # Base query with date filter
         query = """
-            SELECT 
+            SELECT
                 StatusDate as Date,
                 Value,
-                AccountName
+                AccountName,
+                Currency
             FROM OtherAccountStatus
-            WHERE StatusDate >= ?
+            WHERE StatusDate >= %s
             {}
             ORDER BY StatusDate ASC
         """
-        
+
         if account_name:
-            where_clause = "AND AccountName = ?"
-            data = self.cursor.execute(query.format(where_clause), 
+            where_clause = "AND AccountName = %s"
+            data = self.cursor.execute(query.format(where_clause),
                                      (from_date_str, account_name)).fetchall()
         else:
-            data = self.cursor.execute(query.format(""), 
+            data = self.cursor.execute(query.format(""),
                                      (from_date_str,)).fetchall()
 
-        df = pd.DataFrame(data, columns=['Date', 'Value', 'AccountName'])
+        df = pd.DataFrame(data, columns=['Date', 'Value', 'AccountName', 'Currency'])
         df['Date'] = pd.to_datetime(df['Date'])
         return df
 
@@ -1439,7 +1703,7 @@ class DataBase:
         """
         try:
             self.cursor.execute(
-                "DELETE FROM OtherAccountStatus WHERE AccountName = ?", 
+                "DELETE FROM OtherAccountStatus WHERE AccountName = %s", 
                 (account_name,)
             )
             self.connection.commit()
@@ -1474,7 +1738,7 @@ class DataBase:
         """
         try:
             self.cursor.execute(
-                "DELETE FROM OtherAccountStatus WHERE ID = ?", 
+                "DELETE FROM OtherAccountStatus WHERE ID = %s", 
                 (entry_id,)
             )
             self.connection.commit()
@@ -1492,22 +1756,22 @@ class DataBase:
         param2 = input('Insert transaction ID:')
         param3, _ = utils.handle_categories()
         if param1 == 0:
-            query = """SELECT * FROM BankTransactions WHERE id = ?"""
+            query = """SELECT * FROM BankTransactions WHERE id = %s"""
             prev = self.cursor.execute(query, (param2,)).fetchall()
             
-            query = """UPDATE BankTransactions SET category = ? WHERE id = ?"""            
+            query = """UPDATE BankTransactions SET category = %s WHERE id = %s"""            
             self.cursor.execute(query, (param3, param2,)).fetchall()
             
-            query = """SELECT * FROM BankTransactions WHERE id = ?"""
+            query = """SELECT * FROM BankTransactions WHERE id = %s"""
             after = self.cursor.execute(query, (param2,)).fetchall()
         else:   # 1
-            query = """SELECT * FROM CardTransactions WHERE id = ?"""
+            query = """SELECT * FROM CardTransactions WHERE id = %s"""
             prev = self.cursor.execute(query, (param2,)).fetchall()
             
-            query = """UPDATE CardTransactions SET category = ? WHERE id = ?"""            
+            query = """UPDATE CardTransactions SET category = %s WHERE id = %s"""            
             self.cursor.execute(query, (param3, param2,)).fetchall()
             
-            query = """SELECT * FROM CardTransactions WHERE id = ?"""
+            query = """SELECT * FROM CardTransactions WHERE id = %s"""
             after = self.cursor.execute(query, (param2,)).fetchall()
 
         utils.log(f"Before: {prev}")
@@ -1519,22 +1783,22 @@ class DataBase:
         param2 = input('Insert transaction ID:')
         param3 = "NotCategorized"
         if param1 == 0:
-            query = """SELECT * FROM BankTransactions WHERE id = ?"""
+            query = """SELECT * FROM BankTransactions WHERE id = %s"""
             prev = self.cursor.execute(query, (param2,)).fetchall()
             
-            query = """UPDATE BankTransactions SET category = ? WHERE id = ?"""            
+            query = """UPDATE BankTransactions SET category = %s WHERE id = %s"""            
             self.cursor.execute(query, (param3, param2,)).fetchall()
             
-            query = """SELECT * FROM BankTransactions WHERE id = ?"""
+            query = """SELECT * FROM BankTransactions WHERE id = %s"""
             after = self.cursor.execute(query, (param2,)).fetchall()
         else:   # 1
-            query = """SELECT * FROM CardTransactions WHERE id = ?"""
+            query = """SELECT * FROM CardTransactions WHERE id = %s"""
             prev = self.cursor.execute(query, (param2,)).fetchall()
             
-            query = """UPDATE CardTransactions SET category = ? WHERE id = ?"""            
+            query = """UPDATE CardTransactions SET category = %s WHERE id = %s"""            
             self.cursor.execute(query, (param3, param2,)).fetchall()
             
-            query = """SELECT * FROM CardTransactions WHERE id = ?"""
+            query = """SELECT * FROM CardTransactions WHERE id = %s"""
             after = self.cursor.execute(query, (param2,)).fetchall()
 
         utils.log(f"Before: {prev}")
@@ -1550,8 +1814,8 @@ class DataBase:
             
             self.cursor.execute(f"""
                     UPDATE {table_name}
-                    SET category = ?
-                    WHERE category = ?
+                    SET category = %s
+                    WHERE category = %s
                 """, (to, frm,))
             
             rows_affected = self.cursor.rowcount
@@ -1570,20 +1834,20 @@ class DataBase:
         for id in ids:
             query_info = """SELECT Source_file, CardID
                             From CardTransactions
-                            WHERE ID = ?
+                            WHERE ID = %s
                             """
             (file_name, card_id) = self.cursor.execute(query_info, (id,)).fetchone()
             
             query_del = """ DELETE 
                             FROM CardTransactions
-                            WHERE Id = ?
+                            WHERE Id = %s
                         """
 
             query_upd = """ UPDATE File
-                            SET Last_update = ?
-                            WHERE File_Name = ? AND Card_Number = ?
+                            SET Last_update = %s
+                            WHERE File_Name = %s AND Card_Number = %s
                         """
-                            # SET Bad_rows = Bad_rows || ?
+                            # SET Bad_rows = Bad_rows || %s
                             # WHERE some_condition;  # Modify this as per your condition
             self.cursor.execute(query_del, (id,))
             self.cursor.execute(query_upd, (last_update, file_name, card_id))
@@ -1603,7 +1867,7 @@ class DataBase:
         insertion_date = datetime.now()
         self.cursor.execute("""
                 INSERT INTO CashTransactions (Name, Execution_Date, Amount, Currency, Category, insertion_date, Description)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
         """, (name, executed_date, amount, currency, category, insertion_date, description))
 
         return True
@@ -1636,16 +1900,14 @@ class DataBase:
                 SELECT 
                     Date,
                     Balance,
-                    strftime('%Y-%m', Date) as YearMonth,
+                    TO_CHAR(Date::timestamp, 'YYYY-MM') as YearMonth,
                     ROW_NUMBER() OVER (
-                        PARTITION BY strftime('%Y-%m', Date)
+                        PARTITION BY TO_CHAR(Date::timestamp, 'YYYY-MM')
                         ORDER BY Date DESC, ID DESC
                     ) as rn
                 FROM BankTransactions
-                WHERE Date >= ?
-                AND Balance IS NOT NULL 
-                AND trim(Balance) != ''
-                AND Balance != ' '
+                WHERE Date >= %s
+                AND Balance IS NOT NULL
             )
             SELECT 
                 Date,
@@ -1688,16 +1950,14 @@ class DataBase:
                 SELECT 
                     Date,
                     Balance,
-                    strftime('%Y-%m', Date) as YearMonth,
+                    TO_CHAR(Date::timestamp, 'YYYY-MM') as YearMonth,
                     ROW_NUMBER() OVER (
-                        PARTITION BY strftime('%Y-%m', Date)
+                        PARTITION BY TO_CHAR(Date::timestamp, 'YYYY-MM')
                         ORDER BY Date DESC, ID DESC
                     ) as rn
                 FROM BankTransactions
-                WHERE Date >= ?
-                AND Balance IS NOT NULL 
-                AND trim(Balance) != ''
-                AND Balance != ' '
+                WHERE Date >= %s
+                AND Balance IS NOT NULL
             )
             SELECT 
                 Date,
@@ -1736,7 +1996,7 @@ class DataBase:
         # Update the dates
         self.cursor.execute("""
             UPDATE File
-            SET Date = '2025' || substr(Date, 5)
+            SET Date = '2025' || SUBSTRING(Date FROM 5)
             WHERE Date LIKE '0025%'
         """)
         
@@ -1789,28 +2049,28 @@ class DataBase:
             if 'date_range' in params:
                 start, end = params['date_range']
                 if start:
-                    query_parts.append("Date_Executed_Date >= ?")
+                    query_parts.append("Date_Executed_Date >= %s")
                     query_values.append(start)
                 if end:
-                    query_parts.append("Date_Executed_Date <= ?")
+                    query_parts.append("Date_Executed_Date <= %s")
                     query_values.append(end)
 
             if 'name' in params:
-                query_parts.append("(Name LIKE ? OR Extra_Info LIKE ? OR Description LIKE ?)")
+                query_parts.append("(Name LIKE %s OR Extra_Info LIKE %s OR Description LIKE %s)")
                 query_values.extend([f"%{params['name']}%", f"%{params['name']}%", f"%{params['name']}%"])
 
             if 'value_range' in params:
                 min_val, max_val = params['value_range']
                 if min_val is not None and max_val is not None:
-                    query_parts.append("((Out_Transaction_Value >= ? AND Out_Transaction_Value <= ?) OR (Income_Charge_Value >= ? AND Income_Charge_Value <= ?))")
+                    query_parts.append("((Out_Transaction_Value >= %s AND Out_Transaction_Value <= %s) OR (Income_Charge_Value >= %s AND Income_Charge_Value <= %s))")
                     query_values.extend([min_val, max_val, min_val, max_val])
 
             if 'table' in params:
-                query_parts.append("TableName = ?")
+                query_parts.append("TableName = %s")
                 query_values.append(params['table'])
 
             if 'category' in params:
-                query_parts.append("Category = ?")
+                query_parts.append("Category = %s")
                 query_values.append(params['category'])
 
             query += " AND ".join(query_parts)
@@ -1837,8 +2097,8 @@ class DataBase:
             year_str = str(datetime.year)
             data = self.cursor.execute("""
                                 SELECT * FROM CashTransactions
-                                WHERE strftime('%m', Execution_Date) = ?
-                                AND strftime('%Y', Execution_Date) = ?
+                                WHERE TO_CHAR(Execution_Date::timestamp, 'MM') = %s
+                                AND TO_CHAR(Execution_Date::timestamp, 'YYYY') = %s
                                 """, (month_str, year_str,)).fetchall()
         
         return pd.DataFrame(data=data, columns=[d[0] for d in self.cursor.description])
@@ -1855,13 +2115,13 @@ class DataBase:
         else:
             table = "CardTransactions"
 
-        query = f"""SELECT * FROM {table} WHERE id = ?"""
+        query = f"""SELECT * FROM {table} WHERE id = %s"""
         prev = self.cursor.execute(query, (param2,)).fetchall()
             
-        query = f"""UPDATE {table} SET Description = ? WHERE id = ?"""            
+        query = f"""UPDATE {table} SET Description = %s WHERE id = %s"""            
         self.cursor.execute(query, (param3, param2,))
             
-        query = f"""SELECT * FROM {table} WHERE id = ?"""
+        query = f"""SELECT * FROM {table} WHERE id = %s"""
         after = self.cursor.execute(query, (param2,)).fetchall()
 
         utils.log(f"Before: {prev}")
@@ -1877,7 +2137,7 @@ class DataBase:
         Returns:
             bool: True if the transaction exists, False otherwise.
         """
-        query = "SELECT 1 FROM CashTransactions WHERE ID = ?"
+        query = "SELECT 1 FROM CashTransactions WHERE ID = %s"
         result = self.cursor.execute(query, (transaction_id,)).fetchone()
         return result is not None
     
@@ -1892,7 +2152,7 @@ class DataBase:
             bool: True if deletion was successful, False otherwise.
         """
         try:
-            self.cursor.execute("DELETE FROM CashTransactions WHERE ID = ?", (transaction_id,))
+            self.cursor.execute("DELETE FROM CashTransactions WHERE ID = %s", (transaction_id,))
             self.connection.commit()
             utils.log(f"Cash transaction with ID {transaction_id} deleted successfully.", "system")
             return True
@@ -1920,7 +2180,7 @@ class DataBase:
                                 SELECT *, 'BankTransactions' AS TableName
                                 FROM BankTransactions
                                 WHERE 
-                                    (strftime('%m', Date) = ? AND strftime('%Y', Date) = ?)
+                                    (TO_CHAR(Date::timestamp, 'MM') = %s AND TO_CHAR(Date::timestamp, 'YYYY') = %s)
                                 """, (month_str, year_str, )).fetchall()
             bank_df = pd.DataFrame(data=bank_data, columns=[d[0] for d in self.cursor.description])
             all_data.append(bank_df)
@@ -1930,9 +2190,9 @@ class DataBase:
                                 SELECT *, 'CardTransactions' AS TableName
                                 FROM CardTransactions
                                 WHERE 
-                                    (strftime('%m', Executed_Date) = ? AND strftime('%Y', Executed_Date) = ?)
+                                    (TO_CHAR(Executed_Date::timestamp, 'MM') = %s AND TO_CHAR(Executed_Date::timestamp, 'YYYY') = %s)
                                     or
-                                    (strftime('%m', Charge_Date) = ? AND strftime('%Y', Charge_Date) = ?)
+                                    (TO_CHAR(Charge_Date::timestamp, 'MM') = %s AND TO_CHAR(Charge_Date::timestamp, 'YYYY') = %s)
                                 """, (month_str, year_str, next_month_str, next_year_str,)).fetchall()
             card_df = pd.DataFrame(data=card_data, columns=[d[0] for d in self.cursor.description])
             all_data.append(card_df)
@@ -1962,8 +2222,8 @@ class DataBase:
                 # Update the database with the fixed date
                 update_query = f"""
                     UPDATE {table_name}
-                    SET {column_name} = ?
-                    WHERE ID = ?
+                    SET {column_name} = %s
+                    WHERE ID = %s
                 """
                 self.cursor.execute(update_query, (fixed_date, entry_id))
                 results.append((entry_id, fixed_date, 'Fixed'))

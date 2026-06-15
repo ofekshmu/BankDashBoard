@@ -1299,6 +1299,7 @@ body {
 .acct-wrap tr.acct-virtual td:first-child::after { content: " ✦"; font-style: normal; font-size: 0.75em; opacity: 0.6; }
 .acct-wrap tr.acct-total td { font-weight: 700; background: #f8fafc; border-top: 2px solid var(--border); border-bottom: none; }
 .acct-detail-cell { font-size: 0.78em !important; color: #888 !important; white-space: nowrap; }
+.acct-wrap td:nth-child(6) { white-space: nowrap; }
 
 /* ── Floating log panel ──────────────────────────────────── */
 .log-float {
@@ -1654,17 +1655,24 @@ body {
   /* 5. Reduce general bar chart height on mobile */
   #chart-general-wrap { height: 200px !important; }
 }
-  /* -- Accounts panel -- narrow mobile layout ------------------- */
-@media (max-width: 620px) {
-  #accounts-table th:nth-child(n+5),
-  #accounts-table td:nth-child(n+5) { display: none; }
-  .acct-wrap table { min-width: 0; width: 100%; }
-  .acct-wrap { overflow-x: visible; }
-  #accounts-table td:nth-child(1) { white-space: nowrap; max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
-  .cash-pie-layout { flex-direction: column; align-items: center; gap: 10px; }
-  .cash-pie-canvas-wrap { width: 180px; height: 180px; }
-  .cash-legend { min-width: 0; width: 100%; }
-  #accounts-chart-card canvas { height: 280px !important; }
+  /* -- Accounts: table scrollable inside clipped card -- */
+#accounts-table-card { overflow: hidden; }
+.acct-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.acct-wrap table { min-width: 560px; }
+/* -- Accounts: custom chart legend -- */
+.acct-legend-custom { display:flex; flex-wrap:wrap; justify-content:space-between; padding:4px 0 10px; }
+.acct-legend-dot { width:22px; height:12px; border-radius:3px; position:relative; cursor:pointer; flex-shrink:0; display:inline-block; }
+.acct-legend-tip { position:absolute; bottom:calc(100% + 6px); left:50%; transform:translateX(-50%); background:rgba(20,30,60,.88); color:#fff; font-size:.72em; padding:3px 8px; border-radius:5px; white-space:nowrap; pointer-events:none; opacity:0; transition:opacity .15s; z-index:20; }
+.acct-legend-tip::after { content:''; position:absolute; top:100%; left:50%; transform:translateX(-50%); border:4px solid transparent; border-top-color:rgba(20,30,60,.88); }
+.acct-legend-dot:hover .acct-legend-tip,.acct-legend-dot.lbl-open .acct-legend-tip { opacity:1; }
+@media (max-width: 640px) {
+  #accounts-chart { height: 340px !important; }
+  .cash-pie-layout { flex-direction:column; align-items:center; gap:10px; }
+  .cash-pie-canvas-wrap { width:180px; height:180px; }
+  .cash-legend { min-width:0; width:100%; }
+  .cash-legend-orig, .cash-legend-rate,
+  .cash-legend-hcell:nth-child(3), .cash-legend-hcell:nth-child(4) { display: none; }
+  .cash-legend-header, .cash-legend-row { grid-template-columns: 10px 44px 1fr 46px; }
 }</style>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js">
   </script>
@@ -1717,18 +1725,7 @@ body {
 }
 .cat-pills-toggle-btn:hover { background:var(--teal); color:#fff; }
 .cat-pill.pills-hidden { display:none; }
-/* -- Accounts panel -- narrow mobile layout ------------------- */
-@media (max-width: 620px) {
-  #accounts-table th:nth-child(n+5),
-  #accounts-table td:nth-child(n+5) { display: none; }
-  .acct-wrap table { min-width: 0; width: 100%; }
-  .acct-wrap { overflow-x: visible; }
-  #accounts-table td:nth-child(1) { white-space: nowrap; max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
-  .cash-pie-layout { flex-direction: column; align-items: center; gap: 10px; }
-  .cash-pie-canvas-wrap { width: 180px; height: 180px; }
-  .cash-legend { min-width: 0; width: 100%; }
-  #accounts-chart-card canvas { height: 280px !important; }
-}</style>
+</style>
 </head>
  <body data-generated="13/06/2026 20:34" data-month="2025_12">
   <!-- Hamburger -->
@@ -10852,7 +10849,51 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   document.getElementById('tx-dsplit').addEventListener('click', function() {
     var row = _pendingRow; closeDetail(); if (row) _handleTxClick(row);
   });
-  var _origClick = window._handleTxClick;
+  (function() {
+  var canvas = document.getElementById('acct-chart-canvas');
+  if (!canvas || typeof Chart === 'undefined') return;
+  var chart = Chart.getChart ? Chart.getChart(canvas) : null;
+  if (!chart) return;
+  chart.options.plugins.legend.display = false;
+  var vw = window.innerWidth;
+  var labels = chart.data.labels || [];
+  var maxPts = vw < 480 ? 14 : vw < 768 ? 22 : labels.length;
+  if (labels.length > maxPts) { chart.options.scales.x.min = labels[labels.length - maxPts]; }
+  chart.options.scales.x.ticks.maxRotation = vw < 640 ? 60 : 45;
+  chart.options.scales.x.ticks.maxTicksLimit = vw < 480 ? 4 : vw < 768 ? 7 : 14;
+  chart.update('none');
+  var legendEl = document.createElement('div');
+  legendEl.className = 'acct-legend-custom';
+  legendEl.id = 'acct-legend-custom';
+  chart.data.datasets.forEach(function(ds) {
+    var dot = document.createElement('span');
+    dot.className = 'acct-legend-dot';
+    dot.style.backgroundColor = ds.borderColor;
+    var tip = document.createElement('span');
+    tip.className = 'acct-legend-tip';
+    tip.textContent = ds.label;
+    dot.appendChild(tip);
+    dot.addEventListener('mouseenter', function() {
+      var r = tip.getBoundingClientRect();
+      if (r.right > window.innerWidth - 4) { tip.style.left = 'auto'; tip.style.right = '0'; tip.style.transform = 'none'; }
+      if (r.left < 4) { tip.style.left = '0'; tip.style.right = 'auto'; tip.style.transform = 'none'; }
+    });
+    dot.addEventListener('mouseleave', function() { tip.style.cssText = ''; });
+    dot.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var open = dot.classList.contains('lbl-open');
+      document.querySelectorAll('.acct-legend-dot.lbl-open').forEach(function(d) { d.classList.remove('lbl-open'); });
+      if (!open) dot.classList.add('lbl-open');
+    });
+    legendEl.appendChild(dot);
+  });
+  var chartDiv = document.getElementById('accounts-chart');
+  if (chartDiv) chartDiv.parentNode.insertBefore(legendEl, chartDiv);
+  document.addEventListener('click', function() {
+    document.querySelectorAll('.acct-legend-dot.lbl-open').forEach(function(d) { d.classList.remove('lbl-open'); });
+  });
+})();
+var _origClick = window._handleTxClick;
   window._handleTxClick = function(row) {
     if (window.matchMedia('(max-width: 768px)').matches) { openDetail(row); } else { _origClick(row); }
   };

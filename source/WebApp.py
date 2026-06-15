@@ -288,6 +288,20 @@ def api_auth_verify():
     return jsonify({'ok': False}), 401
 
 
+@app.route('/favicon.svg')
+def serve_favicon_svg():
+    svg_path = os.path.join(_HERE, 'html', 'logo.svg')
+    return send_file(svg_path, mimetype='image/svg+xml')
+
+
+@app.route('/favicon.ico')
+def serve_favicon_ico():
+    ico_path = os.path.join(_PROJECT_DIR, 'bankproject.ico')
+    if os.path.isfile(ico_path):
+        return send_file(ico_path, mimetype='image/x-icon')
+    return serve_favicon_svg()
+
+
 @app.route('/design-system.css')
 def serve_design_system():
     """Serve the shared design system CSS file."""

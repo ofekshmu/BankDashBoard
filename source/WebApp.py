@@ -374,10 +374,6 @@ def serve_general(yyyy_mm):
         return send_file(html_path)
     year  = int(yyyy_mm[:4])
     month = int(yyyy_mm[5:7])
-    # Auto-regen fires at most once per app session per month.
-    # If it already ran (or is running), show a manual-trigger page instead.
-    if yyyy_mm in _session_auto_triggered:
-        return _regen_blocked_html(year, month, yyyy_mm)
     _session_auto_triggered.add(yyyy_mm)
     return _not_generated_html(year, month, yyyy_mm)
 
@@ -2058,72 +2054,6 @@ def analysis_respond():
     return jsonify({'ok': True})
 
 
-@app.route('/api/analysis/force-regen/<yyyy_mm>', methods=['POST'])
-def force_regen_month(yyyy_mm):
-    """Remove a month from the session-auto-triggered set so the next visit
-    to /general/<yyyy_mm> will auto-regenerate again.  Used by the manual
-    'Regenerate' button on the blocked page."""
-    if not _re.match(r'^\d{4}_\d{2}$', yyyy_mm):
-        return jsonify({'ok': False, 'error': 'invalid format'}), 400
-    _session_auto_triggered.discard(yyyy_mm)
-    return jsonify({'ok': True})
-
-
-def _regen_blocked_html(year: int, month: int, yyyy_mm: str) -> str:
-    """Shown when the page is missing but auto-regen already ran this session."""
-    import calendar
-    month_label = f"{calendar.month_name[month]} {year}"
-    return f"""<!DOCTYPE html>
-<html lang="he" dir="rtl">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>BankDash — {month_label}</title>
-  <style>
-    *, *::before, *::after {{ box-sizing: border-box; margin: 0; padding: 0; }}
-    body {{ font-family: 'Segoe UI', Arial, sans-serif; background: #f0faf5;
-            min-height: 100vh; display: flex; align-items: center;
-            justify-content: center; padding: 16px; }}
-    .card {{ background: #fff; border-radius: 20px; padding: 32px 22px 26px;
-             width: 100%; max-width: 420px;
-             box-shadow: 0 4px 28px rgba(52,184,136,.13); text-align: center; }}
-    .badge {{ display: inline-block; background: #d8f3dc; color: #2d6a4f;
-              border-radius: 99px; padding: 4px 16px; font-size: .8em;
-              font-weight: 600; margin-bottom: 14px; }}
-    h2  {{ color: #1e2a4a; font-size: 1.1em; font-weight: 700; margin-bottom: 8px; }}
-    p   {{ color: #6b8c7a; font-size: .84em; line-height: 1.6; margin-bottom: 22px; }}
-    .btn {{ display: inline-block; background: #52b788; color: #fff;
-             border: none; border-radius: 10px; padding: 11px 28px;
-             font-size: .9em; font-weight: 600; cursor: pointer;
-             font-family: inherit; transition: background .15s; }}
-    .btn:hover {{ background: #3da870; }}
-    .btn:disabled {{ opacity: .6; cursor: wait; }}
-    .back {{ margin-top: 16px; font-size: .8em; }}
-    .back a {{ color: #52b788; text-decoration: none; }}
-    .back a:hover {{ color: #1e9d8b; }}
-  </style>
-</head>
-<body>
-  <div class="card">
-    <div class="badge">{month_label}</div>
-    <h2>הדף טרם נוצר</h2>
-    <p>ניתוח אוטומטי כבר הופעל עבור חודש זה במהלך הסשן הנוכחי.<br>
-       לחץ על הכפתור להפעלה מחדש ידנית.</p>
-    <button class="btn" id="regen-btn" onclick="doRegen()">הפעל ניתוח ידנית</button>
-    <div class="back"><a href="/">&#8592; חזרה לדף הראשי</a></div>
-  </div>
-  <script>
-    function doRegen() {{
-      var btn = document.getElementById('regen-btn');
-      btn.disabled = true;
-      btn.textContent = 'מכין…';
-      fetch('/api/analysis/force-regen/{yyyy_mm}', {{method: 'POST'}})
-        .then(function() {{ location.href = '/general/{yyyy_mm}'; }})
-        .catch(function() {{ btn.disabled = false; btn.textContent = 'הפעל ניתוח ידנית'; }});
-    }}
-  </script>
-</body>
-</html>"""
 
 
 def _not_generated_html(year: int, month: int, yyyy_mm: str) -> str:

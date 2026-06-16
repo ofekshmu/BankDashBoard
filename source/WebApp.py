@@ -2092,8 +2092,11 @@ def _not_generated_html(year: int, month: int, yyyy_mm: str) -> str:
     .prog-pct   {{ font-size: .74em; font-weight: 700; color: #52b788; }}
     .prog-bar  {{ height: 7px; background: #d8f3dc; border-radius: 99px; overflow: hidden; }}
     .prog-fill {{ height: 100%;
-                  background: linear-gradient(90deg, #74c69d 0%, #1e9d8b 100%);
-                  border-radius: 99px; width: 0%; transition: width .5s ease; }}
+                  background: linear-gradient(90deg, #74c69d 0%, #1e9d8b 50%, #34d9c3 75%, #1e9d8b 100%);
+                  background-size: 200% auto;
+                  border-radius: 99px; width: 0%; transition: width .4s ease;
+                  animation: progShimmer 2s linear infinite; }}
+    @keyframes progShimmer {{ to {{ background-position: -200% center; }} }}
 
     /* log panel */
     .log-panel {{ border: 1px solid #d8f3dc; border-radius: 12px; overflow: hidden; }}
@@ -2196,9 +2199,10 @@ def _not_generated_html(year: int, month: int, yyyy_mm: str) -> str:
     var _pct = 0, _done = false;
     var _ptimer = setInterval(function() {{
       if (_done) return;
-      _pct += (88 - _pct) * 0.04;
+      var step = _pct < 50 ? 1.5 : (_pct < 75 ? 0.5 : 0.15);
+      _pct = Math.min(_pct + step, 89);
       _setPct(_pct);
-    }}, 450);
+    }}, 250);
     function _setPct(p) {{
       p = Math.min(Math.max(p, 0), 100);
       document.getElementById('prog-fill').style.width = p.toFixed(1) + '%';

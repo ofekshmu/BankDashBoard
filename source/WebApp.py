@@ -2172,11 +2172,11 @@ def _not_generated_html(year: int, month: int, yyyy_mm: str) -> str:
     @keyframes blink {{ 0%,100% {{ opacity:1; }} 50% {{ opacity:.15; }} }}
     .log-hdr-title {{ font-size: .7em; font-weight: 600; color: #52b788;
                       letter-spacing: .04em; text-transform: uppercase; flex: 1; }}
-    .copy-btn {{ background: none; border: 1px solid #b7e4c7; border-radius: 6px;
-                 padding: 2px 8px; font-size: .68em; color: #52b788; cursor: pointer;
-                 font-family: inherit; transition: background .15s, color .15s; white-space: nowrap; }}
-    .copy-btn:hover {{ background: #d8f3dc; color: #2d6a4f; }}
-    .copy-btn.copied {{ background: #d8f3dc; color: #2d6a4f; border-color: #52b788; }}
+    .copy-btn {{ background: none; border: none; border-radius: 6px;
+                 padding: 3px 5px; color: #52b788; cursor: pointer;
+                 line-height: 1; transition: color .15s; }}
+    .copy-btn:hover {{ color: #2d6a4f; }}
+    .copy-btn.copied {{ color: #2d6a4f; }}
     .log-feed {{ max-height: 210px; overflow-y: auto; padding: 10px 12px;
                  display: flex; flex-direction: column; gap: 2px;
                  scrollbar-width: thin; scrollbar-color: #b7e4c7 transparent; }}
@@ -2235,7 +2235,11 @@ def _not_generated_html(year: int, month: int, yyyy_mm: str) -> str:
       <div class="log-hdr">
         <div class="log-dot" id="log-dot"></div>
         <span class="log-hdr-title">יומן אירועים</span>
-        <button class="copy-btn" id="copy-btn" onclick="copyLog()">העתק</button>
+        <button class="copy-btn" id="copy-btn" onclick="copyLog()" title="העתק לוג">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+          </svg>
+        </button>
       </div>
       <div class="log-feed" id="lf-feed"></div>
     </div>
@@ -2315,15 +2319,17 @@ def _not_generated_html(year: int, month: int, yyyy_mm: str) -> str:
     function copyLog() {{
       var lines = document.getElementById('lf-feed').querySelectorAll('.log-line');
       var text = Array.from(lines).map(function(l) {{ return l.textContent; }}).join('\n');
+      var _copyIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+      var _checkIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
       navigator.clipboard.writeText(text).then(function() {{
         var btn = document.getElementById('copy-btn');
-        btn.textContent = '✓ הועתק';
+        btn.innerHTML = _checkIcon;
         btn.classList.add('copied');
-        setTimeout(function() {{ btn.textContent = 'העתק'; btn.classList.remove('copied'); }}, 2000);
+        setTimeout(function() {{ btn.innerHTML = _copyIcon; btn.classList.remove('copied'); }}, 2000);
       }}).catch(function() {{
         var btn = document.getElementById('copy-btn');
-        btn.textContent = 'שגיאה';
-        setTimeout(function() {{ btn.textContent = 'העתק'; }}, 2000);
+        btn.textContent = '✕';
+        setTimeout(function() {{ btn.innerHTML = _copyIcon; }}, 2000);
       }});
     }}
 

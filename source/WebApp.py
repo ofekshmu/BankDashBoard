@@ -1037,48 +1037,52 @@ def run_category_stream():
 
 def _log_float_style() -> str:
     return """<style>
-    body { font-family: 'Segoe UI', Arial, sans-serif; background: #f4f6f9;
+    body { font-family: 'Segoe UI', Arial, sans-serif;
+           background: linear-gradient(135deg, #0f1627 0%, #1a2e52 100%);
            display: flex; align-items: center; justify-content: center;
            min-height: 100vh; margin: 0; }
-    .box { background: #fff; border-radius: 14px; padding: 48px 56px;
-           text-align: center; box-shadow: 0 6px 20px rgba(0,0,0,.10); max-width: 460px; }
-    h2   { color: #1e2a4a; margin-bottom: 10px; }
-    p    { color: #888; font-size: .93em; margin-bottom: 28px; }
+    .box { background: #fff; border-radius: 16px; padding: 44px 52px 40px;
+           text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,.4);
+           max-width: 460px; width: 90%; }
+    h2   { color: #1e2a4a; margin-bottom: 10px; font-size: 1.3em; }
+    p    { color: #6b7a99; font-size: .93em; margin-bottom: 24px; }
     .badge { display:inline-block; background:#1e9d8b; color:#fff; border-radius:20px;
              padding:5px 18px; font-size:.85em; font-weight:600; margin-bottom:24px; }
-    .back { margin-top:16px; font-size:.8em; }
-    .back a { color:#888; text-decoration:none; }
+    .back { margin-top:20px; font-size:.8em; }
+    .back a { color:#aaa; text-decoration:none; }
     .back a:hover { color:#1e9d8b; }
     /* ── floating log panel ── */
-    .log-float { position:fixed; bottom:32px; left:50%;
-                 transform:translateX(-50%) translateY(12px);
-                 min-width:360px; max-width:520px;
+    .log-float { position:fixed; bottom:28px; left:50%;
+                 transform:translateX(-50%) translateY(20px);
+                 width:500px; max-width:calc(100vw - 32px);
+                 background:#0d1424; border:1px solid rgba(30,157,139,.25);
+                 border-radius:12px; padding:12px 14px 10px;
                  opacity:0; pointer-events:none;
                  transition:opacity .3s, transform .3s;
-                 z-index:9999; text-align:center; }
+                 z-index:9999;
+                 box-shadow:0 8px 32px rgba(0,0,0,.6); }
     .log-float.visible { opacity:1; pointer-events:auto; transform:translateX(-50%) translateY(0); }
-    .lf-header { display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:8px; }
+    .lf-header { display:flex; align-items:center; gap:8px; margin-bottom:8px;
+                 padding-bottom:8px; border-bottom:1px solid rgba(255,255,255,.07); }
     .lf-spinner { width:14px; height:14px; border:2px solid rgba(30,157,139,.3);
                   border-top-color:#1e9d8b; border-radius:50%;
                   animation:lf-spin .7s linear infinite; flex-shrink:0; }
     .lf-spinner.done  { animation:none; border-color:#2ecc71; }
-    .lf-spinner.error { animation:none; border-color:#c0392b; }
+    .lf-spinner.error { animation:none; border-color:#e74c3c; }
     @keyframes lf-spin { to { transform:rotate(360deg); } }
-    .lf-title { font-size:.8em; font-weight:600; color:#1e9d8b;
-                text-shadow:0 1px 6px rgba(255,255,255,.9),0 0 2px #fff; }
-    .lf-feed { display:flex; flex-direction:column-reverse; max-height:120px;
-               overflow:hidden; align-items:center; }
-    .lf-line { font-size:.7em; padding:1px 0; white-space:nowrap;
-               color:#2d3a5e; animation:lf-slide .28s ease;
-               text-shadow:0 1px 4px rgba(255,255,255,.95),0 0 1px #fff; }
-    .lf-line:nth-child(2) { opacity:.55; }
-    .lf-line:nth-child(3) { opacity:.3; }
-    .lf-line:nth-child(n+4) { opacity:.12; }
-    .lf-line.warn { color:#b07000; }
-    .lf-line.err  { color:#c0392b; }
-    .lf-line.done { color:#1a7a45; font-weight:600; }
-    @keyframes lf-slide { from { transform:translateY(10px); opacity:0; }
-                          to   { transform:translateY(0); } }
+    .lf-title { font-size:.8em; font-weight:600; color:#1e9d8b; letter-spacing:.02em; }
+    .lf-feed { display:flex; flex-direction:column; max-height:160px;
+               overflow-y:auto; gap:1px;
+               scrollbar-width:thin; scrollbar-color:#1e9d8b transparent; }
+    .lf-feed::-webkit-scrollbar { width:4px; }
+    .lf-feed::-webkit-scrollbar-thumb { background:#1e9d8b; border-radius:2px; }
+    .lf-line { font-size:.74em; font-family:'Consolas','Courier New',monospace;
+               padding:2px 4px; white-space:pre-wrap; word-break:break-word;
+               line-height:1.55; color:#9eb8d0; direction:ltr; text-align:left;
+               border-radius:3px; }
+    .lf-line.warn { color:#ffa94d; }
+    .lf-line.err  { color:#ff6b6b; }
+    .lf-line.done { color:#69db7c; font-weight:600; }
     /* ── debug FAB + panel ── */
     .debug-fab { position:fixed; bottom:22px; right:18px; width:42px; height:42px;
                  border-radius:50%; background:#1e2a4a; color:#fff; font-size:.72em;
@@ -1163,7 +1167,7 @@ def _log_float_html() -> str:
 
 
 def _log_float_js() -> str:
-    return """var _LF_MAX = 12;
+    return """var _LF_MAX = 80;
     function showLogFloat(title) {
       document.getElementById('lf-feed').innerHTML = '';
       document.getElementById('lf-title').textContent = title || 'מנתח נתונים…';
@@ -1182,8 +1186,9 @@ def _log_float_js() -> str:
       var el = document.createElement('div');
       el.className = 'lf-line' + (cls ? ' ' + cls : '');
       el.textContent = text;
-      feed.insertBefore(el, feed.firstChild);
-      while (feed.children.length > _LF_MAX) feed.removeChild(feed.lastChild);
+      feed.appendChild(el);
+      while (feed.children.length > _LF_MAX) feed.removeChild(feed.firstChild);
+      feed.scrollTop = feed.scrollHeight;
       var sp = document.getElementById('lf-spinner');
       if (sp && cls === 'done') sp.className = 'lf-spinner done';
       if (sp && cls === 'err')  sp.className = 'lf-spinner error';

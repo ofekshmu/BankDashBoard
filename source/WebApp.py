@@ -1055,34 +1055,27 @@ def _log_float_style() -> str:
     .log-float { position:fixed; bottom:28px; left:50%;
                  transform:translateX(-50%) translateY(20px);
                  width:500px; max-width:calc(100vw - 32px);
-                 background:#0d1424; border:1px solid rgba(30,157,139,.25);
-                 border-radius:12px; padding:12px 14px 10px;
+                 background:#1a1f2e; border:1px solid rgba(255,255,255,.1);
+                 border-radius:10px; padding:10px 14px 10px;
                  opacity:0; pointer-events:none;
                  transition:opacity .3s, transform .3s;
                  z-index:9999;
-                 box-shadow:0 8px 32px rgba(0,0,0,.6); }
+                 box-shadow:0 6px 24px rgba(0,0,0,.5); }
     .log-float.visible { opacity:1; pointer-events:auto; transform:translateX(-50%) translateY(0); }
-    .lf-header { display:flex; align-items:center; gap:8px; margin-bottom:8px;
-                 padding-bottom:8px; border-bottom:1px solid rgba(255,255,255,.07); }
-    .lf-spinner { width:14px; height:14px; border:2px solid rgba(30,157,139,.3);
-                  border-top-color:#1e9d8b; border-radius:50%;
-                  animation:lf-spin .7s linear infinite; flex-shrink:0; }
-    .lf-spinner.done  { animation:none; border-color:#2ecc71; }
-    .lf-spinner.error { animation:none; border-color:#e74c3c; }
-    @keyframes lf-spin { to { transform:rotate(360deg); } }
-    .lf-title { font-size:.8em; font-weight:600; color:#1e9d8b; letter-spacing:.02em; }
+    .lf-header { margin-bottom:8px; padding-bottom:7px;
+                 border-bottom:1px solid rgba(255,255,255,.07); }
+    .lf-title { font-size:.78em; font-weight:600; color:#b0b8cc; letter-spacing:.02em; }
     .lf-feed { display:flex; flex-direction:column; max-height:160px;
                overflow-y:auto; gap:1px;
-               scrollbar-width:thin; scrollbar-color:#1e9d8b transparent; }
-    .lf-feed::-webkit-scrollbar { width:4px; }
-    .lf-feed::-webkit-scrollbar-thumb { background:#1e9d8b; border-radius:2px; }
+               scrollbar-width:thin; scrollbar-color:rgba(255,255,255,.15) transparent; }
+    .lf-feed::-webkit-scrollbar { width:3px; }
+    .lf-feed::-webkit-scrollbar-thumb { background:rgba(255,255,255,.15); border-radius:2px; }
     .lf-line { font-size:.74em; font-family:'Consolas','Courier New',monospace;
                padding:2px 4px; white-space:pre-wrap; word-break:break-word;
-               line-height:1.55; color:#9eb8d0; direction:ltr; text-align:left;
-               border-radius:3px; }
-    .lf-line.warn { color:#ffa94d; }
-    .lf-line.err  { color:#ff6b6b; }
-    .lf-line.done { color:#69db7c; font-weight:600; }
+               line-height:1.55; color:#8899b0; direction:ltr; text-align:left; }
+    .lf-line.warn { color:#c8a84b; }
+    .lf-line.err  { color:#c0504a; }
+    .lf-line.done { color:#6fa86f; font-weight:600; }
     /* ── debug FAB + panel ── */
     .debug-fab { position:fixed; bottom:22px; right:18px; width:42px; height:42px;
                  border-radius:50%; background:#1e2a4a; color:#fff; font-size:.72em;
@@ -1137,7 +1130,6 @@ def _log_float_style() -> str:
 def _log_float_html() -> str:
     return """<div class="log-float" id="log-float">
   <div class="lf-header">
-    <div class="lf-spinner" id="lf-spinner"></div>
     <span class="lf-title" id="lf-title">מנתח נתונים…</span>
   </div>
   <div class="lf-feed" id="lf-feed"></div>
@@ -1171,8 +1163,6 @@ def _log_float_js() -> str:
     function showLogFloat(title) {
       document.getElementById('lf-feed').innerHTML = '';
       document.getElementById('lf-title').textContent = title || 'מנתח נתונים…';
-      var sp = document.getElementById('lf-spinner');
-      if (sp) sp.className = 'lf-spinner';
       document.getElementById('log-float').classList.add('visible');
     }
     function hideLogFloat(delay) {
@@ -1189,9 +1179,6 @@ def _log_float_js() -> str:
       feed.appendChild(el);
       while (feed.children.length > _LF_MAX) feed.removeChild(feed.firstChild);
       feed.scrollTop = feed.scrollHeight;
-      var sp = document.getElementById('lf-spinner');
-      if (sp && cls === 'done') sp.className = 'lf-spinner done';
-      if (sp && cls === 'err')  sp.className = 'lf-spinner error';
     }
     function showCCPrompt(txData) {
       var labels = {ID:'מזהה', Date:'תאריך', Name:'שם', Out:'סכום', Category:'קטגוריה', Description:'תיאור'};
@@ -2529,11 +2516,19 @@ def organizer_regenerate():
 
     def _run():
         try:
+            # read_present_table drives 0-100 internally but only covers ~75% of
+            # the total work; scale it to 0-75 so the remaining stages (HTML build,
+            # file write, manifest) fill the rest of the bar accurately.
+            def _scaled(p):
+                pq.put(int(p * 0.75))
+
             deps, db_mtime = _capture_deps_and_run(
-                lambda: _build_organizer_page(progress_callback=lambda p: pq.put(p))
+                lambda: _build_organizer_page(progress_callback=_scaled)
             )
+            pq.put(88)   # HTML built and written to disk
             if os.path.exists(ORGANIZER_HTML):
                 _save_manifest(ORGANIZER_HTML, deps, db_mtime)
+            pq.put(95)   # manifest saved
             pq.put('done')
         except Exception as exc:
             pq.put(f'error:{exc}')

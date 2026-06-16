@@ -2171,7 +2171,12 @@ def _not_generated_html(year: int, month: int, yyyy_mm: str) -> str:
                 flex-shrink: 0; animation: blink 1.2s ease-in-out infinite; }}
     @keyframes blink {{ 0%,100% {{ opacity:1; }} 50% {{ opacity:.15; }} }}
     .log-hdr-title {{ font-size: .7em; font-weight: 600; color: #52b788;
-                      letter-spacing: .04em; text-transform: uppercase; }}
+                      letter-spacing: .04em; text-transform: uppercase; flex: 1; }}
+    .copy-btn {{ background: none; border: 1px solid #b7e4c7; border-radius: 6px;
+                 padding: 2px 8px; font-size: .68em; color: #52b788; cursor: pointer;
+                 font-family: inherit; transition: background .15s, color .15s; white-space: nowrap; }}
+    .copy-btn:hover {{ background: #d8f3dc; color: #2d6a4f; }}
+    .copy-btn.copied {{ background: #d8f3dc; color: #2d6a4f; border-color: #52b788; }}
     .log-feed {{ max-height: 210px; overflow-y: auto; padding: 10px 12px;
                  display: flex; flex-direction: column; gap: 2px;
                  scrollbar-width: thin; scrollbar-color: #b7e4c7 transparent; }}
@@ -2230,6 +2235,7 @@ def _not_generated_html(year: int, month: int, yyyy_mm: str) -> str:
       <div class="log-hdr">
         <div class="log-dot" id="log-dot"></div>
         <span class="log-hdr-title">יומן אירועים</span>
+        <button class="copy-btn" id="copy-btn" onclick="copyLog()">העתק</button>
       </div>
       <div class="log-feed" id="lf-feed"></div>
     </div>
@@ -2303,6 +2309,22 @@ def _not_generated_html(year: int, month: int, yyyy_mm: str) -> str:
         headers:{{'Content-Type':'application/json'}},
         body: JSON.stringify({{choice: choice}})
       }}).catch(function(){{}});
+    }}
+
+    /* ── copy log ── */
+    function copyLog() {{
+      var lines = document.getElementById('lf-feed').querySelectorAll('.log-line');
+      var text = Array.from(lines).map(function(l) {{ return l.textContent; }}).join('\n');
+      navigator.clipboard.writeText(text).then(function() {{
+        var btn = document.getElementById('copy-btn');
+        btn.textContent = '✓ הועתק';
+        btn.classList.add('copied');
+        setTimeout(function() {{ btn.textContent = 'העתק'; btn.classList.remove('copied'); }}, 2000);
+      }}).catch(function() {{
+        var btn = document.getElementById('copy-btn');
+        btn.textContent = 'שגיאה';
+        setTimeout(function() {{ btn.textContent = 'העתק'; }}, 2000);
+      }});
     }}
 
     /* ── stream ── */

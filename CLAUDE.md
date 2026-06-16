@@ -155,6 +155,15 @@ Always develop on `features-and-fixes` (or a named feature branch), not on `clau
 
 ---
 
+## Versioning — standing rule
+
+- The version number lives in `/VERSION` (semver, one line, e.g. `1.1.0`).
+- **On every commit and push to this repo, increment the patch version** (e.g. `1.1.0` → `1.1.1`). Minor bumps for new features, major bumps for breaking changes.
+- The version is served by `GET /api/version` and displayed in **all sidebar footers** via `<div id="app-version-badge-*">`. There are currently two badges (`app-version-badge-1` in the category page sidebar, `app-version-badge-2` in the organizer/monthly page sidebar). Each sidebar's `<script>` block fetches `/api/version` and populates its badge.
+- This rule applies to every Claude session and every repo — always bump the version as part of each commit.
+
+---
+
 ## Deployment
 
 The app runs on Vercel (serverless). Entry point: `source/WebApp.py`. The database is SQLite; the Vercel path differs from local — see `fill_missing.py` and `database.py` for path resolution. Do not hardcode local Windows paths (e.g. `C:\\Users\\ofeks\\...`).

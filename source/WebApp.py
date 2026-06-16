@@ -817,6 +817,7 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:#f4f6f9;color:#1e2a4a;d
     <a class="nav-item" href="/gym">💪 Gym Tracker</a>
   </div>
   <div class="sidebar-footer" style="padding:12px 16px;border-top:1px solid #eef0f6;flex-shrink:0">
+    <div id="app-version-badge-1" style="text-align:center;font-size:.7em;color:#b0bec5;margin-bottom:8px;letter-spacing:.03em;">v—</div>
     <button onclick="restartServer(this)" style="width:100%;padding:8px 12px;border:1.5px dashed #eef0f6;border-radius:8px;background:none;color:#888;font-size:.78em;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:7px;justify-content:center;transition:background .15s,color .15s,border-color .15s" onmouseover="this.style.background='#fff3f3';this.style.color='#e53935';this.style.borderColor='#e53935'" onmouseout="this.style.background='none';this.style.color='#888';this.style.borderColor='#eef0f6'">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
       הפעל שרת מחדש
@@ -838,6 +839,7 @@ function openNav(){{var s=document.getElementById('sidebar'),o=document.getEleme
 function closeNav(){{var s=document.getElementById('sidebar'),o=document.getElementById('nav-overlay'),b=document.getElementById('ham-btn');s.classList.remove('open');o.classList.remove('open');b.classList.remove('open');}}
 function toggleNav(){{document.getElementById('sidebar').classList.contains('open')?closeNav():openNav();}}
 document.addEventListener('keydown',function(e){{if(e.key==='Escape')closeNav();}});
+fetch('/api/version').then(function(r){{return r.json();}}).then(function(d){{var b=document.getElementById('app-version-badge-1');if(b&&d.version)b.textContent='v'+d.version;}}).catch(function(){{}});
 function filterCats(q) {{
   q = q.trim().toLowerCase();
   var items = document.querySelectorAll('.cat-item');
@@ -2451,6 +2453,7 @@ tbody tr:hover .org-td-date{background:#f8fffd !important}
     <a class="nav-item" href="/files">קבצים</a>
   </div>
   <div class="sidebar-footer" style="padding:12px 16px;border-top:1px solid var(--border);flex-shrink:0">
+    <div id="app-version-badge-2" style="text-align:center;font-size:.7em;color:var(--text-muted);margin-bottom:8px;letter-spacing:.03em;opacity:.7;">v—</div>
     <button onclick="restartServer(this)" style="width:100%;padding:8px 12px;border:1.5px dashed var(--border);border-radius:8px;background:none;color:var(--text-muted);font-size:.78em;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:7px;justify-content:center" onmouseover="this.style.background='#fff3f3';this.style.color='#e53935';this.style.borderColor='#e53935'" onmouseout="this.style.background='none';this.style.color='';this.style.borderColor=''">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
       הפעל שרת מחדש
@@ -2503,6 +2506,7 @@ function openNav(){var s=document.getElementById('sidebar'),o=document.getElemen
 function closeNav(){var s=document.getElementById('sidebar'),o=document.getElementById('nav-overlay'),b=document.getElementById('ham-btn');s.classList.remove('open');o.classList.remove('open');b.classList.remove('open');}
 function toggleNav(){document.getElementById('sidebar').classList.contains('open')?closeNav():openNav();}
 document.addEventListener('keydown',function(e){if(e.key==='Escape')closeNav();});
+fetch('/api/version').then(function(r){return r.json();}).then(function(d){var b=document.getElementById('app-version-badge-2');if(b&&d.version)b.textContent='v'+d.version;}).catch(function(){});
 (function(){
   var genLabel = document.getElementById('generated-label');
   if (genLabel && document.body.dataset.generated)

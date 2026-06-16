@@ -1025,45 +1025,46 @@ def run_category_stream():
 
 def _log_float_style() -> str:
     return """<style>
-    body { font-family: 'Segoe UI', Arial, sans-serif;
-           background: linear-gradient(135deg, #0f1627 0%, #1a2e52 100%);
-           display: flex; align-items: center; justify-content: center;
-           min-height: 100vh; margin: 0; }
-    .box { background: #fff; border-radius: 16px; padding: 44px 52px 40px;
-           text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,.4);
-           max-width: 460px; width: 90%; }
-    h2   { color: #1e2a4a; margin-bottom: 10px; font-size: 1.3em; }
-    p    { color: #6b7a99; font-size: .93em; margin-bottom: 24px; }
-    .badge { display:inline-block; background:#1e9d8b; color:#fff; border-radius:20px;
-             padding:5px 18px; font-size:.85em; font-weight:600; margin-bottom:24px; }
-    .back { margin-top:20px; font-size:.8em; }
-    .back a { color:#aaa; text-decoration:none; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0faf5;
+           min-height: 100vh; display: flex; align-items: center;
+           justify-content: center; padding: 16px; }
+    .box { background: #fff; border-radius: 20px; padding: 28px 22px 22px;
+           text-align: center; box-shadow: 0 4px 28px rgba(52,184,136,.13);
+           max-width: 460px; width: 100%; }
+    h2   { color: #1e2a4a; margin-bottom: 6px; font-size: 1.15em; font-weight:700; }
+    p    { color: #6b8c7a; font-size: .84em; margin-bottom: 20px; }
+    .badge { display:inline-block; background:#d8f3dc; color:#2d6a4f; border-radius:99px;
+             padding:4px 16px; font-size:.8em; font-weight:600; margin-bottom:12px; }
+    .back { margin-top:18px; font-size:.8em; }
+    .back a { color:#52b788; text-decoration:none; }
     .back a:hover { color:#1e9d8b; }
-    /* ── floating log panel ── */
-    .log-float { position:fixed; bottom:28px; left:50%;
-                 transform:translateX(-50%) translateY(20px);
-                 width:500px; max-width:calc(100vw - 32px);
-                 background:#1a1f2e; border:1px solid rgba(255,255,255,.1);
-                 border-radius:10px; padding:10px 14px 10px;
+    /* ── floating log panel (used by category regen page) ── */
+    .log-float { position:fixed; bottom:20px; left:50%;
+                 transform:translateX(-50%) translateY(16px);
+                 width:460px; max-width:calc(100vw - 24px);
+                 background:#fff; border:1px solid #d8f3dc;
+                 border-radius:14px; padding:0;
                  opacity:0; pointer-events:none;
                  transition:opacity .3s, transform .3s;
                  z-index:9999;
-                 box-shadow:0 6px 24px rgba(0,0,0,.5); }
+                 box-shadow:0 4px 20px rgba(52,184,136,.15); }
     .log-float.visible { opacity:1; pointer-events:auto; transform:translateX(-50%) translateY(0); }
-    .lf-header { margin-bottom:8px; padding-bottom:7px;
-                 border-bottom:1px solid rgba(255,255,255,.07); }
-    .lf-title { font-size:.78em; font-weight:600; color:#b0b8cc; letter-spacing:.02em; }
+    .lf-header { padding:8px 12px; background:#f0faf5;
+                 border-bottom:1px solid #d8f3dc; border-radius:14px 14px 0 0;
+                 display:flex; align-items:center; gap:6px; }
+    .lf-title { font-size:.72em; font-weight:600; color:#52b788; letter-spacing:.03em; }
     .lf-feed { display:flex; flex-direction:column; max-height:160px;
-               overflow-y:auto; gap:1px;
-               scrollbar-width:thin; scrollbar-color:rgba(255,255,255,.15) transparent; }
+               overflow-y:auto; gap:1px; padding:8px 12px;
+               scrollbar-width:thin; scrollbar-color:#b7e4c7 transparent; }
     .lf-feed::-webkit-scrollbar { width:3px; }
-    .lf-feed::-webkit-scrollbar-thumb { background:rgba(255,255,255,.15); border-radius:2px; }
+    .lf-feed::-webkit-scrollbar-thumb { background:#b7e4c7; border-radius:2px; }
     .lf-line { font-size:.74em; font-family:'Consolas','Courier New',monospace;
-               padding:2px 4px; white-space:pre-wrap; word-break:break-word;
-               line-height:1.55; color:#8899b0; direction:ltr; text-align:left; }
-    .lf-line.warn { color:#c8a84b; }
-    .lf-line.err  { color:#c0504a; }
-    .lf-line.done { color:#6fa86f; font-weight:600; }
+               padding:1px 0; white-space:pre-wrap; word-break:break-word;
+               line-height:1.55; color:#3d6b55; direction:ltr; text-align:left; }
+    .lf-line.warn { color:#8a6200; }
+    .lf-line.err  { color:#b83232; font-weight:500; }
+    .lf-line.done { color:#1e7a50; font-weight:600; }
     /* ── debug FAB + panel ── */
     .debug-fab { position:fixed; bottom:22px; right:18px; width:42px; height:42px;
                  border-radius:50%; background:#1e2a4a; color:#fff; font-size:.72em;
@@ -2055,25 +2056,183 @@ def _not_generated_html(year: int, month: int, yyyy_mm: str) -> str:
 <html lang="he" dir="rtl">
 <head>
   <meta charset="UTF-8">
-  <title>BankApp — {month_label}</title>
-  {_log_float_style()}
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BankDash — {month_label}</title>
+  <style>
+    *, *::before, *::after {{ box-sizing: border-box; margin: 0; padding: 0; }}
+    body {{ font-family: 'Segoe UI', Arial, sans-serif; background: #f0faf5;
+            min-height: 100vh; display: flex; align-items: center;
+            justify-content: center; padding: 16px; }}
+    .card {{ background: #fff; border-radius: 20px; padding: 28px 22px 22px;
+             width: 100%; max-width: 460px;
+             box-shadow: 0 4px 28px rgba(52,184,136,.13); }}
+
+    /* header */
+    .hdr {{ text-align: center; margin-bottom: 22px; }}
+    .badge {{ display: inline-block; background: #d8f3dc; color: #2d6a4f;
+              border-radius: 99px; padding: 4px 16px; font-size: .8em;
+              font-weight: 600; margin-bottom: 10px; }}
+    .hdr h2 {{ color: #1e2a4a; font-size: 1.15em; font-weight: 700; margin-bottom: 4px; }}
+    .hdr p  {{ color: #6b8c7a; font-size: .84em; }}
+
+    /* progress */
+    .prog-wrap {{ margin-bottom: 18px; }}
+    .prog-row {{ display: flex; justify-content: space-between; margin-bottom: 7px; }}
+    .prog-label {{ font-size: .74em; color: #6b8c7a; }}
+    .prog-pct   {{ font-size: .74em; font-weight: 700; color: #52b788; }}
+    .prog-bar  {{ height: 7px; background: #d8f3dc; border-radius: 99px; overflow: hidden; }}
+    .prog-fill {{ height: 100%;
+                  background: linear-gradient(90deg, #74c69d 0%, #1e9d8b 100%);
+                  border-radius: 99px; width: 0%; transition: width .5s ease; }}
+
+    /* log panel */
+    .log-panel {{ border: 1px solid #d8f3dc; border-radius: 12px; overflow: hidden; }}
+    .log-hdr {{ background: #f0faf5; padding: 7px 12px; border-bottom: 1px solid #d8f3dc;
+                display: flex; align-items: center; gap: 6px; }}
+    .log-dot {{ width: 6px; height: 6px; border-radius: 50%; background: #52b788;
+                flex-shrink: 0; animation: blink 1.2s ease-in-out infinite; }}
+    @keyframes blink {{ 0%,100% {{ opacity:1; }} 50% {{ opacity:.15; }} }}
+    .log-hdr-title {{ font-size: .7em; font-weight: 600; color: #52b788;
+                      letter-spacing: .04em; text-transform: uppercase; }}
+    .log-feed {{ max-height: 210px; overflow-y: auto; padding: 10px 12px;
+                 display: flex; flex-direction: column; gap: 2px;
+                 scrollbar-width: thin; scrollbar-color: #b7e4c7 transparent; }}
+    .log-feed::-webkit-scrollbar {{ width: 3px; }}
+    .log-feed::-webkit-scrollbar-thumb {{ background: #b7e4c7; border-radius: 2px; }}
+    .log-line {{ font-size: .75em; font-family: 'Consolas','Courier New',monospace;
+                 line-height: 1.55; color: #3d6b55; white-space: pre-wrap;
+                 word-break: break-word; direction: ltr; text-align: left; }}
+    .log-line.warn {{ color: #8a6200; }}
+    .log-line.err  {{ color: #b83232; font-weight: 500; }}
+    .log-line.done {{ color: #1e7a50; font-weight: 600; }}
+
+    .back {{ text-align: center; margin-top: 18px; font-size: .8em; }}
+    .back a {{ color: #52b788; text-decoration: none; }}
+    .back a:hover {{ color: #1e9d8b; }}
+
+    /* CC modal */
+    .cc-overlay {{ position:fixed; inset:0; background:rgba(15,40,30,.45);
+                   z-index:10000; display:flex; align-items:center; justify-content:center; }}
+    .cc-modal  {{ background:#fff; border-radius:16px; padding:24px 22px;
+                  max-width:400px; width:90%; box-shadow:0 12px 40px rgba(0,0,0,.18);
+                  text-align:right; direction:rtl; }}
+    .cc-title  {{ font-size:.95em; font-weight:700; color:#1e2a4a; margin-bottom:10px; }}
+    .cc-body   {{ font-size:.82em; color:#5a7a6a; margin-bottom:14px; line-height:1.6; }}
+    .cc-row    {{ display:flex; justify-content:space-between; padding:4px 0;
+                  border-bottom:1px solid #edf5f0; font-size:.82em; }}
+    .cc-row:last-child {{ border-bottom:none; }}
+    .cc-lbl    {{ color:#8aad96; }}
+    .cc-val    {{ font-weight:600; color:#1e2a4a; }}
+    .cc-btns   {{ display:flex; gap:8px; justify-content:flex-end; margin-top:16px; }}
+    .cc-btn    {{ border:none; border-radius:8px; padding:7px 20px; font-size:.85em;
+                  font-weight:600; cursor:pointer; transition:background .15s; font-family:inherit; }}
+    .cc-yes    {{ background:#52b788; color:#fff; }}
+    .cc-yes:hover {{ background:#3da870; }}
+    .cc-no     {{ background:#edf5f0; color:#4a7060; }}
+    .cc-no:hover  {{ background:#d8f3dc; }}
+  </style>
 </head>
 <body>
-  <div class="box">
-    <h2>ניתוח חודשי</h2>
-    <div class="badge">{month_label}</div>
-    <p>מפעיל ניתוח אוטומטי…</p>
+  <div class="card">
+    <div class="hdr">
+      <div class="badge">{month_label}</div>
+      <h2>מנתח נתונים</h2>
+      <p>הניתוח החודשי מופעל אוטומטית, אנא המתן…</p>
+    </div>
+
+    <div class="prog-wrap">
+      <div class="prog-row">
+        <span class="prog-label">התקדמות</span>
+        <span class="prog-pct" id="prog-pct">0%</span>
+      </div>
+      <div class="prog-bar"><div class="prog-fill" id="prog-fill"></div></div>
+    </div>
+
+    <div class="log-panel">
+      <div class="log-hdr">
+        <div class="log-dot" id="log-dot"></div>
+        <span class="log-hdr-title">יומן אירועים</span>
+      </div>
+      <div class="log-feed" id="lf-feed"></div>
+    </div>
+
     <div class="back"><a href="/">&#8592; חזרה לדף הראשי</a></div>
   </div>
-  {_log_float_html()}
+
+  <div id="cc-overlay" class="cc-overlay" style="display:none">
+    <div class="cc-modal">
+      <div class="cc-title">עסקת אשראי זוהתה</div>
+      <div class="cc-body">נמצאה עסקה שעשויה להיות חיוב כרטיס אשראי. האם לסווג אותה כ&quot;אשראי&quot;?</div>
+      <div id="cc-rows"></div>
+      <div class="cc-btns">
+        <button class="cc-btn cc-no"  onclick="ccRespond(false)">לא — דלג</button>
+        <button class="cc-btn cc-yes" onclick="ccRespond(true)">כן — אשר</button>
+      </div>
+    </div>
+  </div>
+
   <script>
-    {_log_float_js()}
+    /* ── progress ── */
+    var _pct = 0, _done = false;
+    var _ptimer = setInterval(function() {{
+      if (_done) return;
+      _pct += (88 - _pct) * 0.04;
+      _setPct(_pct);
+    }}, 450);
+    function _setPct(p) {{
+      p = Math.min(Math.max(p, 0), 100);
+      document.getElementById('prog-fill').style.width = p.toFixed(1) + '%';
+      document.getElementById('prog-pct').textContent = Math.round(p) + '%';
+    }}
+    function _finishPct() {{
+      _done = true; clearInterval(_ptimer); _setPct(100);
+      var d = document.getElementById('log-dot');
+      if (d) {{ d.style.animation = 'none'; d.style.background = '#52b788'; }}
+    }}
+    function _errorPct() {{
+      _done = true; clearInterval(_ptimer);
+      var d = document.getElementById('log-dot');
+      if (d) {{ d.style.animation = 'none'; d.style.background = '#b83232'; }}
+    }}
+
+    /* ── log ── */
+    function appendLog(text, cls) {{
+      var feed = document.getElementById('lf-feed');
+      if (!feed) return;
+      var el = document.createElement('div');
+      el.className = 'log-line' + (cls ? ' ' + cls : '');
+      el.textContent = text;
+      feed.appendChild(el);
+      while (feed.children.length > 120) feed.removeChild(feed.firstChild);
+      feed.scrollTop = feed.scrollHeight;
+    }}
+
+    /* ── CC modal ── */
+    function showCCPrompt(tx) {{
+      var labels = {{ID:'מזהה', Date:'תאריך', Name:'שם', Out:'סכום', Description:'תיאור'}};
+      var html = '';
+      ['Name','Date','Out','Description','ID'].forEach(function(k) {{
+        if (tx[k] != null && tx[k] !== '' && tx[k] !== 'nan')
+          html += '<div class="cc-row"><span class="cc-lbl">' + (labels[k]||k) + '</span>'
+                + '<span class="cc-val">' + String(tx[k]).replace(/</g,'&lt;') + '</span></div>';
+      }});
+      document.getElementById('cc-rows').innerHTML = html;
+      document.getElementById('cc-overlay').style.display = 'flex';
+    }}
+    function ccRespond(choice) {{
+      document.getElementById('cc-overlay').style.display = 'none';
+      fetch('/api/analysis/respond', {{method:'POST',
+        headers:{{'Content-Type':'application/json'}},
+        body: JSON.stringify({{choice: choice}})
+      }}).catch(function(){{}});
+    }}
+
+    /* ── stream ── */
     (function() {{
-      showLogFloat('מנתח נתונים…');
       var es = new EventSource('/api/analysis-stream?month=pick&date={date_str}');
       var _tid = setTimeout(function() {{
         if (es.readyState !== EventSource.CLOSED) {{
-          es.close();
+          es.close(); _errorPct();
           appendLog('✗ תם הזמן — נסה לרענן', 'err');
         }}
       }}, 300000);
@@ -2085,18 +2244,23 @@ def _not_generated_html(year: int, month: int, yyyy_mm: str) -> str:
         }}
         if (e.data.startsWith('__DONE__')) {{
           clearTimeout(_tid); es.close();
+          _finishPct();
           appendLog('✓ הניתוח הסתיים — טוען…', 'done');
-          hideLogFloat(900);
           setTimeout(function() {{ location.href = '/general/{yyyy_mm}'; }}, 1100);
           return;
         }}
         if (e.data === '__ERROR__') {{
           clearTimeout(_tid); es.close();
+          _errorPct();
           appendLog('✗ שגיאה בניתוח', 'err');
-          hideLogFloat(3000);
           return;
         }}
         appendLog(e.data);
+      }};
+      es.onerror = function() {{
+        if (es.readyState === EventSource.CLOSED) return;
+        es.close(); _errorPct();
+        appendLog('✗ חיבור נותק', 'err');
       }};
     }})();
   </script>

@@ -3432,6 +3432,11 @@ BILLS_HTML = os.path.join(_HERE, 'html', 'Bills.html')
 
 @app.route('/bills')
 def bills_page():
+    try:
+        from database import DataBase
+        DataBase().ensure_bill_tables()
+    except Exception:
+        pass
     if os.path.exists(BILLS_HTML):
         return send_file(BILLS_HTML)
     return "Bills page not found", 404
@@ -3640,6 +3645,11 @@ SPOTIFY_HTML = os.path.join(_HERE, 'html', 'SpotifyTracker.html')
 
 @app.route('/spotify')
 def spotify_page():
+    try:
+        from database import DataBase
+        DataBase().ensure_spotify_tables()
+    except Exception:
+        pass
     if os.path.exists(SPOTIFY_HTML):
         return send_file(SPOTIFY_HTML)
     return "Spotify Tracker page not found", 404

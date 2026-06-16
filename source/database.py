@@ -236,6 +236,57 @@ class DataBase:
                 );""")
             # Charge value - The initial value/ The total sum of payments of the transaction.
             # Transaction value - The actual amount credited for
+            cls.__instance.cursor.execute("""
+                CREATE TABLE IF NOT EXISTS BillTypes (
+                    ID        SERIAL  PRIMARY KEY,
+                    Name      TEXT    NOT NULL,
+                    Color     TEXT    NOT NULL DEFAULT '#1e9d8b',
+                    BillGroup TEXT
+                )""")
+            cls.__instance.cursor.execute("""
+                CREATE TABLE IF NOT EXISTS BillEntries (
+                    ID                SERIAL   PRIMARY KEY,
+                    BillType_ID       INTEGER  NOT NULL REFERENCES BillTypes(ID) ON DELETE CASCADE,
+                    Start_Month       TEXT     NOT NULL,
+                    End_Month         TEXT     NOT NULL,
+                    Transaction_Table TEXT,
+                    Transaction_ID    INTEGER,
+                    Amount            FLOAT,
+                    Note              TEXT,
+                    Is_Filler         INTEGER  DEFAULT 0
+                )""")
+            cls.__instance.cursor.execute("""
+                CREATE TABLE IF NOT EXISTS BillSuggestionsDismissed (
+                    Name TEXT PRIMARY KEY
+                )""")
+            cls.__instance.cursor.execute("""
+                CREATE TABLE IF NOT EXISTS SpotifyMembers (
+                    ID             SERIAL  PRIMARY KEY,
+                    Name           TEXT    NOT NULL,
+                    Is_Exempt      INTEGER DEFAULT 0,
+                    Is_Active      INTEGER DEFAULT 1,
+                    Insertion_Date TEXT    NOT NULL
+                )""")
+            cls.__instance.cursor.execute("""
+                CREATE TABLE IF NOT EXISTS SpotifyMonthlyCharge (
+                    ID           SERIAL  PRIMARY KEY,
+                    Month        TEXT    NOT NULL,
+                    TotalAmount  FLOAT   NOT NULL,
+                    MemberCount  INTEGER NOT NULL,
+                    TX_ID        INTEGER,
+                    Confirmed    INTEGER DEFAULT 1
+                )""")
+            cls.__instance.cursor.execute("""
+                CREATE TABLE IF NOT EXISTS SpotifyMemberPayments (
+                    ID           SERIAL  PRIMARY KEY,
+                    Member_ID    INTEGER NOT NULL REFERENCES SpotifyMembers(ID) ON DELETE CASCADE,
+                    Amount       FLOAT   NOT NULL,
+                    Payment_Date TEXT    NOT NULL,
+                    TX_ID        INTEGER,
+                    TX_Source    TEXT,
+                    Note         TEXT,
+                    Dismissed    INTEGER DEFAULT 0
+                )""")
             cls.__instance.connection.commit()
 
         return cls.__instance
@@ -2227,10 +2278,292 @@ class DataBase:
                 """
                 self.cursor.execute(update_query, (fixed_date, entry_id))
                 results.append((entry_id, fixed_date, 'Fixed'))
-            
+
             except Exception:
                 results.append((entry_id, date_str, 'Failed to fix'))
-            
+
         self.connection.commit()
         return pd.DataFrame(results, columns=['ID', column_name, 'Status'])
-        
+
+    # ── Bills / Payment-tracking ───────────────────────────────────────────────
+
+    def ensure_bill_tables(self) -> None:
+        """Create BillTypes, BillEntries and BillSuggestionsDismissed if absent."""
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS BillTypes (
+                ID        SERIAL  PRIMARY KEY,
+                Name      TEXT    NOT NULL,
+                Color     TEXT    NOT NULL DEFAULT '#1e9d8b',
+                BillGroup TEXT
+            )
+        """)
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS BillEntries (
+                ID                SERIAL   PRIMARY KEY,
+                BillType_ID       INTEGER  NOT NULL REFERENCES BillTypes(ID) ON DELETE CASCADE,
+                Start_Month       TEXT     NOT NULL,
+                End_Month         TEXT     NOT NULL,
+                Transaction_Table TEXT,
+                Transaction_ID    INTEGER,
+                Amount            FLOAT,
+                Note              TEXT,
+                Is_Filler         INTEGER  DEFAULT 0
+            )
+        """)
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS BillSuggestionsDismissed (
+                Name TEXT PRIMARY KEY
+            )
+        """)
+        self.connection.commit()
+
+    def get_bill_types(self) -> list:
+        rows = self.cursor.execute(
+            "SELECT ID, Name, Color, BillGroup FROM BillTypes ORDER BY Name"
+        ).fetchall()
+        return [{'id': r[0], 'name': r[1], 'color': r[2], 'group': r[3] or ''} for r in rows]
+
+    def add_bill_type(self, name: str, color: str, group: str = '') -> int:
+        row = self.cursor.execute(
+            "INSERT INTO BillTypes (Name, Color, BillGroup) VALUES (%s, %s, %s) RETURNING ID",
+            (name, color, group or None)
+        ).fetchone()
+        return row[0]
+
+    def update_bill_type(self, type_id: int, name: str, color: str, group: str = '') -> None:
+        self.cursor.execute(
+            "UPDATE BillTypes SET Name=%s, Color=%s, BillGroup=%s WHERE ID=%s",
+            (name, color, group or None, type_id)
+        )
+
+    def delete_bill_type(self, type_id: int) -> None:
+        self.cursor.execute("DELETE FROM BillTypes WHERE ID=%s", (type_id,))
+
+    def get_bill_entries(self) -> list:
+        rows = self.cursor.execute("""
+            SELECT ID, BillType_ID, Start_Month, End_Month,
+                   Transaction_Table, Transaction_ID, Amount, Note, Is_Filler
+            FROM BillEntries ORDER BY Start_Month DESC
+        """).fetchall()
+        return [
+            {
+                'id': r[0], 'bill_type_id': r[1],
+                'start_month': r[2], 'end_month': r[3],
+                'transaction_table': r[4], 'transaction_id': r[5],
+                'amount': float(r[6]) if r[6] is not None else None,
+                'note': r[7] or '', 'is_filler': bool(r[8]),
+            }
+            for r in rows
+        ]
+
+    def check_bill_entry_overlap(
+        self, bill_type_id: int, start_month: str, end_month: str, exclude_id: int = None
+    ) -> str:
+        sql = """
+            SELECT ID FROM BillEntries
+            WHERE BillType_ID = %s
+              AND Start_Month <= %s AND End_Month >= %s
+              {exclude}
+            LIMIT 1
+        """
+        params = [bill_type_id, end_month, start_month]
+        if exclude_id is not None:
+            sql = sql.format(exclude="AND ID <> %s")
+            params.append(exclude_id)
+        else:
+            sql = sql.format(exclude="")
+        row = self.cursor.execute(sql, params).fetchone()
+        if row:
+            return f"חפיפה עם רשומה קיימת (ID={row[0]})"
+        return ''
+
+    def add_bill_entry(
+        self, bill_type_id: int, start_month: str, end_month: str,
+        transaction_table=None, transaction_id=None, amount=None,
+        note: str = '', is_filler: bool = False,
+    ) -> int:
+        row = self.cursor.execute("""
+            INSERT INTO BillEntries
+                (BillType_ID, Start_Month, End_Month, Transaction_Table,
+                 Transaction_ID, Amount, Note, Is_Filler)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING ID
+        """, (
+            bill_type_id, start_month, end_month,
+            transaction_table, transaction_id,
+            float(amount) if amount is not None else None,
+            note or None, int(is_filler),
+        )).fetchone()
+        return row[0]
+
+    def update_bill_entry(
+        self, entry_id: int, start_month: str, end_month: str,
+        note=None, transaction_table=None, transaction_id=None,
+        amount=None, is_filler=None,
+    ) -> None:
+        self.cursor.execute("""
+            UPDATE BillEntries SET
+                Start_Month=%s, End_Month=%s, Note=%s,
+                Transaction_Table=%s, Transaction_ID=%s,
+                Amount=%s, Is_Filler=%s
+            WHERE ID=%s
+        """, (
+            start_month, end_month, note or None,
+            transaction_table, transaction_id,
+            float(amount) if amount is not None else None,
+            int(is_filler) if is_filler is not None else 0,
+            entry_id,
+        ))
+
+    def delete_bill_entry(self, entry_id: int) -> None:
+        self.cursor.execute("DELETE FROM BillEntries WHERE ID=%s", (entry_id,))
+
+    def get_bill_suggestions_dismissed(self) -> set:
+        rows = self.cursor.execute(
+            "SELECT Name FROM BillSuggestionsDismissed"
+        ).fetchall()
+        return {r[0] for r in rows}
+
+    def dismiss_bill_suggestion(self, name: str) -> None:
+        self.cursor.execute(
+            "INSERT INTO BillSuggestionsDismissed (Name) VALUES (%s) ON CONFLICT DO NOTHING",
+            (name,)
+        )
+
+    # ── Spotify Tracker ────────────────────────────────────────────────────────
+
+    def ensure_spotify_tables(self) -> None:
+        """Create Spotify tables if they don't exist yet."""
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS SpotifyMembers (
+                ID             SERIAL  PRIMARY KEY,
+                Name           TEXT    NOT NULL,
+                Is_Exempt      INTEGER DEFAULT 0,
+                Is_Active      INTEGER DEFAULT 1,
+                Insertion_Date TEXT    NOT NULL
+            )
+        """)
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS SpotifyMonthlyCharge (
+                ID           SERIAL  PRIMARY KEY,
+                Month        TEXT    NOT NULL,
+                TotalAmount  FLOAT   NOT NULL,
+                MemberCount  INTEGER NOT NULL,
+                TX_ID        INTEGER,
+                Confirmed    INTEGER DEFAULT 1
+            )
+        """)
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS SpotifyMemberPayments (
+                ID           SERIAL  PRIMARY KEY,
+                Member_ID    INTEGER NOT NULL REFERENCES SpotifyMembers(ID) ON DELETE CASCADE,
+                Amount       FLOAT   NOT NULL,
+                Payment_Date TEXT    NOT NULL,
+                TX_ID        INTEGER,
+                TX_Source    TEXT,
+                Note         TEXT,
+                Dismissed    INTEGER DEFAULT 0
+            )
+        """)
+        self.connection.commit()
+
+    def get_spotify_members(self) -> list:
+        rows = self.cursor.execute(
+            "SELECT ID, Name, Is_Exempt, Is_Active FROM SpotifyMembers ORDER BY Name"
+        ).fetchall()
+        return [{'id': r[0], 'name': r[1], 'is_exempt': bool(r[2]), 'is_active': bool(r[3])} for r in rows]
+
+    def add_spotify_member(self, name: str, is_exempt: int = 0) -> int:
+        from datetime import date
+        row = self.cursor.execute(
+            "INSERT INTO SpotifyMembers (Name, Is_Exempt, Is_Active, Insertion_Date) VALUES (%s, %s, 1, %s) RETURNING ID",
+            (name, int(is_exempt), date.today().isoformat())
+        ).fetchone()
+        self.connection.commit()
+        return row[0]
+
+    def update_spotify_member(self, member_id: int, name: str, is_exempt: int = 0, is_active: int = 1) -> None:
+        self.cursor.execute(
+            "UPDATE SpotifyMembers SET Name=%s, Is_Exempt=%s, Is_Active=%s WHERE ID=%s",
+            (name, int(is_exempt), int(is_active), member_id)
+        )
+        self.connection.commit()
+
+    def delete_spotify_member(self, member_id: int) -> None:
+        self.cursor.execute("DELETE FROM SpotifyMembers WHERE ID=%s", (member_id,))
+        self.connection.commit()
+
+    def get_spotify_charges(self) -> list:
+        rows = self.cursor.execute(
+            "SELECT ID, Month, TotalAmount, MemberCount, TX_ID, Confirmed FROM SpotifyMonthlyCharge ORDER BY Month DESC"
+        ).fetchall()
+        return [
+            {'id': r[0], 'month': r[1], 'total_amount': float(r[2]),
+             'member_count': r[3], 'tx_id': r[4], 'confirmed': bool(r[5])}
+            for r in rows
+        ]
+
+    def add_spotify_charge(
+        self, month: str, total_amount: float, member_count: int,
+        tx_id=None, confirmed: int = 1
+    ) -> int:
+        row = self.cursor.execute(
+            "INSERT INTO SpotifyMonthlyCharge (Month, TotalAmount, MemberCount, TX_ID, Confirmed) VALUES (%s, %s, %s, %s, %s) RETURNING ID",
+            (month, float(total_amount), int(member_count), tx_id, int(confirmed))
+        ).fetchone()
+        self.connection.commit()
+        return row[0]
+
+    def update_spotify_charge(
+        self, charge_id: int, total_amount: float, member_count: int, confirmed: int = 1
+    ) -> None:
+        self.cursor.execute(
+            "UPDATE SpotifyMonthlyCharge SET TotalAmount=%s, MemberCount=%s, Confirmed=%s WHERE ID=%s",
+            (float(total_amount), int(member_count), int(confirmed), charge_id)
+        )
+        self.connection.commit()
+
+    def get_spotify_payments(self, member_id: int = None) -> list:
+        if member_id is not None:
+            rows = self.cursor.execute(
+                "SELECT ID, Member_ID, Amount, Payment_Date, TX_ID, TX_Source, Note FROM SpotifyMemberPayments WHERE Member_ID=%s AND Dismissed=0 ORDER BY Payment_Date DESC",
+                (member_id,)
+            ).fetchall()
+        else:
+            rows = self.cursor.execute(
+                "SELECT ID, Member_ID, Amount, Payment_Date, TX_ID, TX_Source, Note FROM SpotifyMemberPayments WHERE Dismissed=0 ORDER BY Payment_Date DESC"
+            ).fetchall()
+        return [
+            {'id': r[0], 'member_id': r[1], 'amount': float(r[2]),
+             'payment_date': r[3], 'tx_id': r[4], 'tx_source': r[5], 'note': r[6]}
+            for r in rows
+        ]
+
+    def get_spotify_assigned_tx_ids(self) -> set:
+        rows = self.cursor.execute(
+            "SELECT TX_ID FROM SpotifyMemberPayments WHERE TX_ID IS NOT NULL AND Dismissed=0"
+        ).fetchall()
+        return {r[0] for r in rows}
+
+    def add_spotify_payment(
+        self, member_id: int, amount: float, payment_date: str,
+        tx_id=None, tx_source: str = None, note: str = None
+    ) -> int:
+        row = self.cursor.execute(
+            "INSERT INTO SpotifyMemberPayments (Member_ID, Amount, Payment_Date, TX_ID, TX_Source, Note) VALUES (%s, %s, %s, %s, %s, %s) RETURNING ID",
+            (int(member_id), float(amount), payment_date, tx_id, tx_source, note)
+        ).fetchone()
+        self.connection.commit()
+        return row[0]
+
+    def delete_spotify_payment(self, payment_id: int) -> None:
+        self.cursor.execute("DELETE FROM SpotifyMemberPayments WHERE ID=%s", (payment_id,))
+        self.connection.commit()
+
+    def dismiss_spotify_payment(self, tx_id: int) -> None:
+        self.cursor.execute(
+            "UPDATE SpotifyMemberPayments SET Dismissed=1 WHERE TX_ID=%s",
+            (int(tx_id),)
+        )
+        self.connection.commit()
+

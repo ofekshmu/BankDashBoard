@@ -278,13 +278,11 @@ app.config['JSON_AS_ASCII'] = False
 
 @app.route('/api/auth/verify', methods=['POST'])
 def api_auth_verify():
-    """Check password against ADMIN_PASSWORD env var."""
+    """Check password against ADMIN_PASSWORD / DASHBOARD_PASSWORD env var."""
     import hmac
     body     = request.get_json(force=True) or {}
     pw       = str(body.get('password', ''))
-    expected = os.environ.get('ADMIN_PASSWORD', '')
-    if not expected:
-        return jsonify({'ok': False, 'error': 'ADMIN_PASSWORD not set'})
+    expected = os.environ.get('ADMIN_PASSWORD') or os.environ.get('DASHBOARD_PASSWORD', 'ofek')
     ok = hmac.compare_digest(pw, expected)
     return jsonify({'ok': ok})
 
@@ -327,16 +325,6 @@ def index():
     if default_path is None:
         return _splash_html()
     return redirect(default_path)
-
-
-@app.route('/api/auth/verify', methods=['POST'])
-def api_auth_verify():
-    data     = request.get_json(silent=True) or {}
-    password = data.get('password', '')
-    secret   = os.getenv('ADMIN_PASSWORD') or os.getenv('DASHBOARD_PASSWORD', 'ofek')
-    if password == secret:
-        return jsonify({'ok': True})
-    return jsonify({'ok': False}), 401
 
 
 @app.route('/favicon.svg')

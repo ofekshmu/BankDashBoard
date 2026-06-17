@@ -4389,35 +4389,54 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     function _renderKpi(data) {
         var kpi = data.kpi || {};
 
-        function _kpiCard(label, value, sub, posNeg) {
-            var valStr = _fmt(value);
-            var valClass = 'kpi-value' + (posNeg === 'pos' ? ' pos' : posNeg === 'neg' ? ' neg' : '');
-            return '<div class="kpi-card">' +
-                '<div class="kpi-label">' + _esc(label) + '</div>' +
-                '<div class="' + valClass + '">' + _esc(valStr) + '</div>' +
-                (sub ? '<div class="kpi-sub">' + _esc(sub) + '</div>' : '') +
-                '</div>';
+        function _dot(color) {
+            return '<span class="kpi-dot" style="background:' + _esc(color) + '"></span>';
         }
 
         var netIncome = kpi.overall_net_income;
-        var invest = kpi.investments_net;
-        var balance = kpi.month_end_balance;
+        var invest    = kpi.investments_net;
+        var balance   = kpi.month_end_balance;
         var cashEarned = kpi.cash_earned;
-        var cashSpent = kpi.cash_spent;
+        var cashSpent  = kpi.cash_spent;
+
+        var isPos = parseFloat(netIncome) >= 0;
+        var heroClass = 'kpi-card hero' + (isPos ? '' : ' neg-hero');
+        var netValClass = 'kpi-value ' + (isPos ? 'pos' : 'neg');
 
         var row1 = document.getElementById('kpi-row');
         if (row1) {
             row1.innerHTML =
-                _kpiCard('הכנסה נטו חודשית', netIncome, null, parseFloat(netIncome) >= 0 ? 'pos' : 'neg') +
-                _kpiCard('השקעות נטו', invest, null, parseFloat(invest) >= 0 ? 'pos' : 'neg') +
-                _kpiCard('יתרה סוף חודש', balance, kpi.balance_date || '', null);
+                '<div class="' + heroClass + '">' +
+                    '<div class="kpi-label">' + _dot('#f0b429') + 'Overall Net Income</div>' +
+                    '<div class="' + netValClass + '">' + _esc(_fmt(netIncome)) + '</div>' +
+                '</div>' +
+                '<div class="kpi-card">' +
+                    '<div class="kpi-label">' + _dot('#1e9d8b') + 'Balance</div>' +
+                    '<div class="kpi-value pos">' + _esc(_fmt(balance)) + '</div>' +
+                    (kpi.balance_date ? '<div class="kpi-subtitle">' + _esc(kpi.balance_date) + '</div>' : '') +
+                '</div>' +
+                '<div class="kpi-card kpi-balance-card">' +
+                    '<div class="kpi-label">' + _dot('#1e9d8b') + 'יתרה חודשית</div>' +
+                    '<div class="kpi-value ' + (parseFloat(balance) >= 0 ? 'pos' : 'neg') + '">' + _esc(_fmt(balance)) + '</div>' +
+                '</div>';
         }
 
         var row2 = document.getElementById('kpi-row-2');
         if (row2) {
+            var investVal = parseFloat(invest) || 0;
             row2.innerHTML =
-                _kpiCard('הכנסה מזומן', cashEarned, null, 'pos') +
-                _kpiCard('הוצאה מזומן', cashSpent, null, 'neg');
+                '<div class="kpi-card">' +
+                    '<div class="kpi-label">' + _dot('#D4A017') + 'הפקדה לחיסכון/השקעה</div>' +
+                    '<div class="kpi-value" style="color:#D4A017">' + _esc(_fmt(Math.abs(investVal))) + '</div>' +
+                '</div>' +
+                '<div class="kpi-card">' +
+                    '<div class="kpi-label">' + _dot('#1e9d8b') + 'הכנסה מזומן</div>' +
+                    '<div class="kpi-value pos">' + _esc(_fmt(cashEarned)) + '</div>' +
+                '</div>' +
+                '<div class="kpi-card">' +
+                    '<div class="kpi-label">' + _dot('#e74c3c') + 'הוצאה מזומן</div>' +
+                    '<div class="kpi-value neg">' + _esc(_fmt(cashSpent)) + '</div>' +
+                '</div>';
         }
     }
 
@@ -4441,32 +4460,93 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         var canvas = document.getElementById(canvasId);
         if (!canvas || typeof Chart === 'undefined') return;
         _destroyChart(canvasId);
+        var usedColors = colors || _CHART_COLORS;
+        var total = values.reduce(function(s, v) { return s + (parseFloat(v) || 0); }, 0);
+
         _dynCharts[canvasId] = new Chart(canvas.getContext('2d'), {
             type: 'doughnut',
             data: {
                 labels: labels,
                 datasets: [{
                     data: values,
-                    backgroundColor: colors || _CHART_COLORS,
-                    borderWidth: 2,
-                    hoverOffset: 10,
+                    backgroundColor: usedColors.length >= labels.length
+                        ? usedColors
+                        : labels.map(function(_, i) { return usedColors[i % usedColors.length]; }),
+                    borderWidth: 1,
+                    borderColor: '#fff',
+                    hoverOffset: 8,
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                cutout: '68%',
                 plugins: {
-                    legend: { position: 'bottom', labels: { font: { size: 11 } } },
+                    legend: { display: false },
                     tooltip: {
+                        rtl: true,
                         callbacks: {
                             label: function(ctx) {
                                 var v = ctx.parsed;
-                                return ' ' + ctx.label + ': ' + v.toLocaleString('he-IL', {minimumFractionDigits:2}) + '₪';
+                                var ch = ctx.chart;
+                                var visTotal = ctx.dataset.data.reduce(function(a, b, i) {
+                                    return ch.getDataVisibility(i) ? a + b : a;
+                                }, 0);
+                                var pct = visTotal ? (v / visTotal * 100).toFixed(1) : 0;
+                                return '₪' + Math.round(v).toLocaleString('he-IL') + ' (' + pct + '%)';
                             }
                         }
                     }
                 }
-            }
+            },
+            plugins: [{
+                id: 'centerText',
+                beforeDraw: function(chart) {
+                    if (chart.config.type !== 'doughnut') return;
+                    var ca = chart.chartArea;
+                    if (!ca) return;
+                    var cx = (ca.left + ca.right) / 2, cy = (ca.top + ca.bottom) / 2;
+                    var visTotal = chart.data.datasets[0].data.reduce(function(a, b, i) {
+                        return chart.getDataVisibility(i) ? a + b : a;
+                    }, 0);
+                    chart.ctx.save();
+                    chart.ctx.font = 'bold 15px Segoe UI,Arial,sans-serif';
+                    chart.ctx.fillStyle = '#1e2a4a';
+                    chart.ctx.textAlign = 'center';
+                    chart.ctx.textBaseline = 'middle';
+                    chart.ctx.fillText('₪' + Math.round(visTotal).toLocaleString('he-IL'), cx, cy);
+                    chart.ctx.restore();
+                }
+            }]
+        });
+
+        // Build custom legend
+        var legendEl = document.getElementById(canvasId + '-legend');
+        if (!legendEl) return;
+        legendEl.innerHTML = '';
+        var sorted = labels.map(function(l, i) {
+            return { l: l, v: parseFloat(values[i]) || 0, i: i,
+                     c: usedColors.length >= labels.length ? usedColors[i] : usedColors[i % usedColors.length] };
+        });
+        sorted.sort(function(a, b) { return b.v - a.v; });
+        sorted.forEach(function(item) {
+            var pct = total ? (item.v / total * 100).toFixed(0) : 0;
+            var row = document.createElement('div');
+            row.className = 'cat-legend-row';
+            row.dataset.cid = canvasId;
+            row.dataset.idx = String(item.i);
+            row.innerHTML = '<span class="cat-dot" style="background:' + _esc(item.c) + '"></span>' +
+                '<span class="cat-name">' + _esc(item.l) + '</span>' +
+                '<span class="cat-val">₪' + Math.round(item.v).toLocaleString('he-IL') + ' (' + pct + '%)</span>';
+            row.addEventListener('click', function() {
+                var chart = _dynCharts[canvasId];
+                if (!chart) return;
+                var idx = parseInt(row.dataset.idx, 10);
+                chart.toggleDataVisibility(idx);
+                chart.update();
+                row.classList.toggle('hidden');
+            });
+            legendEl.appendChild(row);
         });
     }
 
@@ -4476,12 +4556,26 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         oc.innerHTML = '';
 
         function _chartCard(title, canvasId, height) {
-            height = height || 280;
+            height = height || 320;
             var card = document.createElement('div');
             card.className = 'chart-card';
-            card.innerHTML = '<div class="chart-card-title">' + _esc(title) + '</div>' +
+            card.innerHTML =
+                '<div class="chart-card-title">' + _esc(title) + '</div>' +
                 '<div class="donut-chart-wrap" style="position:relative;height:' + height + 'px;">' +
-                '<canvas id="' + canvasId + '"></canvas></div>';
+                    '<canvas id="' + canvasId + '"></canvas>' +
+                '</div>' +
+                '<div class="cat-legend-toggle" id="' + canvasId + '-toggle">' +
+                    '<span class="cat-toggle-label">פירוט קטגוריות</span>' +
+                    '<span class="cat-toggle-chevron">▾</span>' +
+                '</div>' +
+                '<div class="cat-legend-grid" id="' + canvasId + '-legend"></div>';
+            card.querySelector('.cat-legend-toggle').addEventListener('click', function() {
+                var lg = card.querySelector('.cat-legend-grid');
+                var tg = card.querySelector('.cat-legend-toggle');
+                var open = lg.classList.contains('open');
+                lg.classList.toggle('open', !open);
+                tg.querySelector('.cat-toggle-chevron').style.transform = open ? '' : 'rotate(180deg)';
+            });
             oc.appendChild(card);
         }
 

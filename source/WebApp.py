@@ -297,7 +297,7 @@ def api_auth_verify():
     body     = request.get_json(force=True) or {}
     pw       = str(body.get('password', ''))
     expected = os.environ.get('ADMIN_PASSWORD') or os.environ.get('DASHBOARD_PASSWORD', 'ofek')
-    ok = hmac.compare_digest(pw, expected)
+    ok = hmac.compare_digest(pw.encode('utf-8'), expected.encode('utf-8'))
     return jsonify({'ok': ok})
 
 

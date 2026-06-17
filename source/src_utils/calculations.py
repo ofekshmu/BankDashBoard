@@ -197,7 +197,7 @@ class SimpleMath:
             cond_different_values = row['Charge_Value'] != row['Transaction_Value']
             _extra = row['Extra_Info']
             cond_string_pattern = bool(_extra) and 'תשלום' in _extra and 'מתוך' in _extra
-            cond_different_dates = row['Charge_Date'] != row['Executed_Date']
+            cond_different_dates = pd.to_datetime(row['Charge_Date']) != pd.to_datetime(row['Executed_Date'])
             cond_smaller_charge_value = row['Charge_Value'] > row['Transaction_Value']
 
             # Safeguard - in case the transaction is not a payment but still fits the pattern

@@ -66,7 +66,14 @@ class _ChainableCursor:
 
     def execute(self, sql, params=()):
         self._c = self._conn.cursor()
-        self._c.execute(sql, params)
+        try:
+            self._c.execute(sql, params)
+        except Exception:
+            try:
+                self._conn.rollback()
+            except Exception:
+                pass
+            raise
         return self
 
     def fetchall(self):     return self._c.fetchall() if self._c else []

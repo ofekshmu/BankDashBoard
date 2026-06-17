@@ -1244,11 +1244,10 @@ class AppManager:
 
         utils.log("Generating investments pie charts...", "system")
         _inv_df = transactions_df[transactions_df["Category"] == INVESTMENT_CATEGORY].copy()
-        Graphics.plot_transactions_pie_chart(
-            _inv_df.groupby("Category").sum(numeric_only=True),
-            "Investments",
-            GOLDEN_COLOR_PALLETE,
-        )
+        try:
+            Graphics.plot_transactions_pie_chart(_inv_df, "Investments", GOLDEN_COLOR_PALLETE)
+        except Exception:
+            pass
 
         # Capture investments data for bar chart + transaction list
         if not _inv_df.empty:

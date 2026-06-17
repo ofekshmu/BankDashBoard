@@ -60,6 +60,7 @@ FILES_HTML             = os.path.join(_HERE, 'html', 'Files.html')
 # Subsequent visits without the file won't trigger another auto-regen — the user
 # must click the manual button.  A new deployment resets this set (fresh process).
 _session_auto_triggered: set = set()
+_monthly_data_cache: dict = {}
 
 def _make_slug(type_: str, name: str) -> str:
     """type_ = 'cat' | 'biz'"""
@@ -377,13 +378,42 @@ def serve_outputs(filename):
 def serve_general(yyyy_mm):
     if not _re.match(r'^\d{4}_\d{2}$', yyyy_mm):
         return "Invalid month format", 400
-    html_path = os.path.join(GENERAL_ANALYSIS_DIR, f'{yyyy_mm}.html')
-    if os.path.exists(html_path):
-        return send_file(html_path)
+    template_path = os.path.join(_HERE, 'html', 'Base_template.html')
+    try:
+        with open(template_path, 'r', encoding='utf-8') as _f:
+            _html = _f.read()
+        _html = _html.replace('<body>', f'<body data-month="{yyyy_mm}">', 1)
+        return Response(_html, mimetype='text/html')
+    except Exception:
+        return "Template not found", 500
+
+
+@app.route('/api/general/<yyyy_mm>/data')
+def monthly_data_api(yyyy_mm):
+    import time as _time
+    if not _re.match(r'^\d{4}_\d{2}$', yyyy_mm):
+        return jsonify({'error': 'Invalid month format'}), 400
+    cached = _monthly_data_cache.get(yyyy_mm)
+    if cached:
+        return jsonify(cached['data'])
     year  = int(yyyy_mm[:4])
     month = int(yyyy_mm[5:7])
-    _session_auto_triggered.add(yyyy_mm)
-    return _not_generated_html(year, month, yyyy_mm)
+    from datetime import datetime as _dt2
+    t = _dt2(year, month, 1)
+    try:
+        from AppManager import AppManager
+        payload = AppManager(skip_parser=True).general_analysis(t=t, data_only=True)
+        _monthly_data_cache[yyyy_mm] = {'ts': _time.time(), 'data': payload}
+        return jsonify(payload)
+    except Exception as e:
+        import traceback
+        return jsonify({'error': str(e), 'trace': traceback.format_exc()}), 500
+
+
+@app.route('/api/general/<yyyy_mm>/invalidate', methods=['POST'])
+def invalidate_monthly_cache(yyyy_mm):
+    _monthly_data_cache.pop(yyyy_mm, None)
+    return jsonify({'ok': True})
 
 
 @app.route('/accounts')
@@ -1848,6 +1878,10 @@ def check_stale_category(slug):
 def check_stale(yyyy_mm):
     if not _re.match(r'^\d{4}_\d{2}$', yyyy_mm):
         return jsonify({'stale': False})
+    cached = _monthly_data_cache.get(yyyy_mm)
+    if cached:
+        import time as _time
+        return jsonify({'stale': _max_source_mtime() > cached['ts']})
     html_path = os.path.join(GENERAL_ANALYSIS_DIR, f'{yyyy_mm}.html')
     if not os.path.exists(html_path):
         return jsonify({'stale': True})
@@ -1901,6 +1935,7 @@ def run_analysis():
             html_path = os.path.join(GENERAL_ANALYSIS_DIR, f'{key}.html')
             if os.path.exists(html_path):
                 _save_manifest(html_path, deps, db_mtime)
+            _monthly_data_cache.pop(key, None)
 
             _log_queue.put(f'__DONE__:{key}')
 
@@ -1963,6 +1998,7 @@ def run_analysis_stream():
             html_path = os.path.join(GENERAL_ANALYSIS_DIR, f'{key}.html')
             if os.path.exists(html_path):
                 _save_manifest(html_path, deps, db_mtime)
+            _monthly_data_cache.pop(key, None)
             local_q.put(f'__DONE__:{key}')
         except Exception as exc:
             import traceback

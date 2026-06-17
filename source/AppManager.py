@@ -1015,7 +1015,7 @@ class AppManager:
         if category is None and business is None:
             webbrowser.open(r'source\html\Category_output.html')
 
-    def general_analysis(self, t=None):
+    def general_analysis(self, t=None, data_only=False):
         from datetime import datetime
         if t is None:
             # -----
@@ -1244,7 +1244,11 @@ class AppManager:
 
         utils.log("Generating investments pie charts...", "system")
         _inv_df = transactions_df[transactions_df["Category"] == INVESTMENT_CATEGORY].copy()
-        Graphics.plot_investments_distribution(_inv_df)
+        Graphics.plot_transactions_pie_chart(
+            _inv_df.groupby("Category").sum(numeric_only=True),
+            "Investments",
+            GOLDEN_COLOR_PALLETE,
+        )
 
         # Capture investments data for bar chart + transaction list
         if not _inv_df.empty:
@@ -1663,6 +1667,14 @@ class AppManager:
             utils.log(f"Organizer alerts skipped: {_oe}", "warning")
             org_alerts = []
 
+        if data_only:
+            return self._build_data_payload(
+                t, data, spendings_df, earnings_df, payments_df,
+                monthly_balance, card_color_dict, cash_information_data,
+                accounts_data, accounts_raw_meta, alerts, mortgage_data,
+                org_alerts,
+            )
+
         utils.log("Generating HTML report...", "system")
         utils.generate_html(t.month,
                             t.year,
@@ -1682,6 +1694,261 @@ class AppManager:
         import os as _os
         if not _os.environ.get('BANKAPP_WEB'):
             webbrowser.open(r'source\html\output.html')
+
+    def _build_data_payload(self, t, data, spendings_df, earnings_df, payments_df,
+                            monthly_balance, card_color_dict, cash_information_data,
+                            accounts_data, accounts_raw_meta, alerts, mortgage_data,
+                            org_alerts):
+        """Serialize all general_analysis outputs to a JSON-safe dict."""
+        import math as _math
+        import numpy as _np
+        from datetime import datetime as _dtnow
+
+        def _safe(v):
+            if v is None:
+                return None
+            if isinstance(v, float) and (_math.isnan(v) or _math.isinf(v)):
+                return None
+            if hasattr(v, 'item'):
+                return v.item()
+            if isinstance(v, (int, float, str, bool)):
+                return v
+            return str(v)
+
+        def _ser_tx_row(row):
+            if 'Final_Value' in row.index and not (isinstance(row.get('Final_Value', None), float) and _math.isnan(row['Final_Value'])):
+                try:
+                    date_str = pd.to_datetime(str(row['Executed_Date'])).strftime('%d/%m/%Y')
+                except Exception:
+                    date_str = str(row.get('Executed_Date', ''))
+                return {
+                    'id':       _safe(row.get('ID')),
+                    'name':     str(row.get('Name', '')),
+                    'category': str(row.get('Category', '')),
+                    'amount':   _safe(row.get('Final_Value')),
+                    'date':     date_str,
+                    'desc':     str(row.get('Description/Charge_Currency', '') or ''),
+                    'card':     str(row.get('CardID', '') or ''),
+                    'table':    str(row.get('TableName', '') or ''),
+                    'is_cash':  False,
+                }
+            else:
+                try:
+                    date_str = pd.to_datetime(str(row.get('Execution_Date', ''))).strftime('%d/%m/%Y')
+                except Exception:
+                    date_str = str(row.get('Execution_Date', ''))
+                return {
+                    'id':       _safe(row.get('ID')),
+                    'name':     str(row.get('Name', '')),
+                    'category': str(row.get('Category', '')),
+                    'amount':   _safe(row.get('Amount')),
+                    'date':     date_str,
+                    'desc':     str(row.get('Description', '') or ''),
+                    'card':     'Cash',
+                    'table':    'CashTransactions',
+                    'is_cash':  True,
+                }
+
+        def _ser_spendings():
+            rows = []
+            for _, row in spendings_df.iterrows():
+                rows.append(_ser_tx_row(row))
+            cash_df = cash_information_data.get('Monthly Cash Transactions', pd.DataFrame())
+            if not cash_df.empty:
+                for _, row in cash_df[cash_df['Amount'] < 0].iterrows():
+                    rows.append({
+                        'id':       _safe(row.get('ID')),
+                        'name':     str(row.get('Name', '')),
+                        'category': str(row.get('Category', '')),
+                        'amount':   _safe(row.get('Amount')),
+                        'date':     (pd.to_datetime(str(row.get('Execution_Date', ''))).strftime('%d/%m/%Y')
+                                     if row.get('Execution_Date') else ''),
+                        'desc':     str(row.get('Description', '') or ''),
+                        'card':     'Cash',
+                        'table':    'CashTransactions',
+                        'is_cash':  True,
+                    })
+            return rows
+
+        def _ser_earnings():
+            rows = []
+            for _, row in earnings_df.iterrows():
+                rows.append(_ser_tx_row(row))
+            cash_df = cash_information_data.get('Monthly Cash Transactions', pd.DataFrame())
+            if not cash_df.empty:
+                for _, row in cash_df[cash_df['Amount'] > 0].iterrows():
+                    rows.append({
+                        'id':       _safe(row.get('ID')),
+                        'name':     str(row.get('Name', '')),
+                        'category': str(row.get('Category', '')),
+                        'amount':   _safe(row.get('Amount')),
+                        'date':     (pd.to_datetime(str(row.get('Execution_Date', ''))).strftime('%d/%m/%Y')
+                                     if row.get('Execution_Date') else ''),
+                        'desc':     str(row.get('Description', '') or ''),
+                        'card':     'Cash',
+                        'table':    'CashTransactions',
+                        'is_cash':  True,
+                    })
+            return rows
+
+        def _ser_accounts():
+            result = {}
+            for name, pts in accounts_data.items():
+                serialized = []
+                for d, v in pts:
+                    try:
+                        ds = d.strftime('%Y-%m-%d') if hasattr(d, 'strftime') else str(d)[:10]
+                    except Exception:
+                        ds = str(d)
+                    serialized.append([ds, round(float(v), 2)])
+                result[name] = serialized
+            return result
+
+        def _ser_accounts_meta():
+            result = {}
+            for name, meta in accounts_raw_meta.items():
+                result[name] = {
+                    'last_currency':  str(meta.get('last_currency', 'ILS')),
+                    'last_raw_value': round(float(meta.get('last_raw_value', 0) or 0), 2),
+                    'currencies':     list(meta.get('currencies', {'ILS'})),
+                    'rate':           _safe(meta.get('rate')),
+                    'rate_cur':       str(meta.get('rate_cur', '') or ''),
+                }
+            return result
+
+        def _ser_mortgage():
+            if not mortgage_data:
+                return {}
+            result = {}
+            for k, v in mortgage_data.items():
+                if k == 'housing_transactions':
+                    if hasattr(v, 'to_dict'):
+                        txns = []
+                        for _, row in v.iterrows():
+                            txns.append({
+                                'date':   str(row.get('Date', '')),
+                                'name':   str(row.get('Name', '')),
+                                'out':    _safe(row.get('Out', 0)),
+                                'income': _safe(row.get('Income', 0)),
+                            })
+                        result[k] = txns
+                    else:
+                        result[k] = []
+                elif k == 'milestones':
+                    if hasattr(v, 'to_dict'):
+                        result[k] = v.to_dict(orient='records')
+                    elif isinstance(v, list):
+                        result[k] = v
+                    else:
+                        result[k] = []
+                elif isinstance(v, dict):
+                    result[k] = {str(kk): _safe(vv) for kk, vv in v.items()}
+                elif isinstance(v, (list, tuple)):
+                    result[k] = [_safe(x) for x in v]
+                else:
+                    result[k] = _safe(v)
+            return result
+
+        def _ser_alerts():
+            out = []
+            for a in (alerts or []):
+                try:
+                    out.append({
+                        'icon':        getattr(a, 'icon', ''),
+                        'title':       getattr(a, 'title', ''),
+                        'description': getattr(a, 'description', ''),
+                        'color':       getattr(a, 'color', '#1e9d8b'),
+                    })
+                except Exception:
+                    pass
+            return out
+
+        def _ser_org_alerts():
+            out = []
+            for a in (org_alerts or []):
+                try:
+                    if isinstance(a, dict):
+                        out.append({'title': str(a.get('title', '')), 'message': str(a.get('message', ''))})
+                    else:
+                        out.append({'title': str(getattr(a, 'title', '')), 'message': str(getattr(a, 'message', ''))})
+                except Exception:
+                    pass
+            return out
+
+        def _ser_payments():
+            if payments_df is None or (hasattr(payments_df, 'empty') and payments_df.empty):
+                return []
+            rows = []
+            for _, row in payments_df.iterrows():
+                rows.append({
+                    'name':    str(row.get('Name', '')),
+                    'paid':    _safe(row.get('Paid', 0)),
+                    'total':   _safe(row.get('Total', 0)),
+                    'left':    _safe(row.get('Left', 0)),
+                    'monthly': _safe(row.get('Monthly', 0)),
+                    'pct':     _safe(row.get('Pct', 0)),
+                })
+            return rows
+
+        _month_names = {
+            1: 'ינואר', 2: 'פברואר', 3: 'מרץ', 4: 'אפריל',
+            5: 'מאי', 6: 'יוני', 7: 'יולי', 8: 'אוגוסט',
+            9: 'ספטמבר', 10: 'אוקטובר', 11: 'נובמבר', 12: 'דצמבר',
+        }
+        month_label = f"{_month_names.get(t.month, '')} {t.year}"
+        generated_at = _dtnow.now().strftime('%d/%m/%Y %H:%M')
+
+        return {
+            'month':       t.month,
+            'year':        t.year,
+            'month_label': month_label,
+            'generated_at': generated_at,
+            'kpi': {
+                'overall_net_income':     _safe(data.get('overall net income', 0)),
+                'net_income':             _safe(data.get('net income', 0)),
+                'month_end_balance':      _safe(data.get('month_end_balance', 0)),
+                'balance_date':           str(data.get('balance_date', '')),
+                'balance_history':        [_safe(v) for v in data.get('balance_history', [])],
+                'balance_delta':          _safe(data.get('balance_delta', 0)),
+                'investments_total_out':  _safe(data.get('investments_total_out', 0)),
+                'investments_total_in':   _safe(data.get('investments_total_in', 0)),
+                'investments_net':        _safe(data.get('investments_net', 0)),
+                'overall_net_mean':       _safe(data.get('overall_net_mean', 0)),
+                'monthly_balance':        _safe(float(monthly_balance) if monthly_balance is not None else 0),
+                'cash_earned':            _safe(cash_information_data.get('Monthly Earned Cash', 0)),
+                'cash_spent':             _safe(cash_information_data.get('Monthly Spent Cash', 0)),
+            },
+            'charts': {
+                'spendings_by_cat':        {str(k): _safe(v) for k, v in data.get('spendings_by_cat', {}).items()},
+                'earnings_by_cat':         {str(k): _safe(v) for k, v in data.get('earnings_by_cat', {}).items()},
+                'investments_items':       data.get('investments_items', []),
+                'card_dist':               {str(k): {
+                                               'amount': _safe(v.get('amount')),
+                                               'status': bool(v.get('status')),
+                                               'color':  str(v.get('color', '')),
+                                            } for k, v in data.get('card_dist', {}).items()},
+                'general_months':          data.get('general_months', []),
+                'general_spendings':       [_safe(v) for v in data.get('general_spendings', [])],
+                'general_earnings':        [_safe(v) for v in data.get('general_earnings', [])],
+                'general_net':             [_safe(v) for v in data.get('general_net', [])],
+                'general_investments_out': [_safe(v) for v in data.get('general_investments_out', [])],
+                'general_investments_in':  [_safe(v) for v in data.get('general_investments_in', [])],
+                'overall_net_mean':        _safe(data.get('overall_net_mean', 0)),
+                'cash_earned':             _safe(cash_information_data.get('Monthly Earned Cash', 0)),
+                'cash_spent':              _safe(cash_information_data.get('Monthly Spent Cash', 0)),
+            },
+            'transactions': {
+                'spendings': _ser_spendings(),
+                'earnings':  _ser_earnings(),
+            },
+            'payments':         _ser_payments(),
+            'alerts':           _ser_alerts(),
+            'organizer_alerts': _ser_org_alerts(),
+            'accounts':         _ser_accounts(),
+            'accounts_meta':    _ser_accounts_meta(),
+            'mortgage':         _ser_mortgage(),
+            'card_colors':      {str(k): str(v) for k, v in card_color_dict.items()},
+        }
 
     def debug_value_mismatch(self) -> None:
         from datetime import datetime

@@ -1418,7 +1418,11 @@ class AppManager:
         earnings_df = transactions_df[transactions_df['Final_Value'] > 0]   
         monthly_balance = DataBase().get_latest_Balance()
         _month_end_bal = DataBase().get_balance_for_month(t.year, t.month)
-        data['month_end_balance'] = float(_month_end_bal) if _month_end_bal is not None else float(monthly_balance)
+        _raw_bal = _month_end_bal if _month_end_bal is not None else monthly_balance
+        try:
+            data['month_end_balance'] = float(_raw_bal) if _raw_bal is not None else None
+        except (TypeError, ValueError):
+            data['month_end_balance'] = None
         _balance_date_raw = DataBase().get_latest_balance_date()
         data['balance_date'] = ''
         if _balance_date_raw:
@@ -1867,16 +1871,13 @@ class AppManager:
             invest_mask2 = earnings_df['Category'] == invest_cat
             invest_net += earnings_df.loc[invest_mask2, 'Final_Value'].sum()
 
-        bal_val, bal_date = None, ''
-        if monthly_balance:
+        bal_val  = data.get('month_end_balance')
+        bal_date = data.get('balance_date', '')
+        if bal_val is not None:
             try:
-                last_entry = list(monthly_balance.values())[-1] if monthly_balance else []
-                if last_entry:
-                    last_pt = last_entry[-1]
-                    bal_val = round(float(last_pt[1]), 2)
-                    bal_date = str(last_pt[0])[:10] if last_pt[0] else ''
-            except Exception:
-                pass
+                bal_val = round(float(bal_val), 2)
+            except (TypeError, ValueError):
+                bal_val = None
 
         cash_df = cash_information_data.get('Monthly Cash Transactions', pd.DataFrame()) if cash_information_data else pd.DataFrame()
         cash_earned = cash_df[cash_df['Amount'] > 0]['Amount'].sum() if not cash_df.empty else 0

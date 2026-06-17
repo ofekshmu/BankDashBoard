@@ -50,7 +50,7 @@ from typing import List
 import numpy as np
 import pandas as pd
 
-from Constants import INVESTMENT_CATEGORY, CC_CHARGE_CATEGORY_NAME
+from Constants import INVESTMENT_CATEGORY, CC_CHARGE_CATEGORY_NAME, ReservedNames
 
 logger = logging.getLogger(__name__)
 
@@ -117,7 +117,7 @@ class AlertDetector:
 
     # Categories whose transactions are excluded from alert analysis.
     # Investment amounts vary by design; credit-card-charge entries are internal.
-    _SKIP_CATEGORIES: frozenset = frozenset({INVESTMENT_CATEGORY, CC_CHARGE_CATEGORY_NAME})
+    _SKIP_CATEGORIES: frozenset = frozenset({INVESTMENT_CATEGORY, CC_CHARGE_CATEGORY_NAME, ReservedNames.WHITDRAWAL_CATEGORY})
 
     def __init__(
         self,

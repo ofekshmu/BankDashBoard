@@ -1038,34 +1038,42 @@ def _log_float_style() -> str:
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html { overflow-x: hidden; -webkit-text-size-adjust: 100%; }
     body { font-family: 'Segoe UI', system-ui, Arial, sans-serif;
-           background: linear-gradient(135deg, #0f1a35 0%, #1a3550 50%, #0d2b3e 100%);
+           background: linear-gradient(150deg, #edfaf8 0%, #f7fffe 50%, #e8f7f6 100%);
            display: flex; align-items: center; justify-content: center;
            min-height: 100vh; padding: 20px; }
     /* ── Main card ── */
-    .box { background: rgba(255,255,255,.97); border-radius: 20px;
+    .box { background: rgba(255,255,255,.98); border-radius: 20px;
            padding: 40px 36px 32px; text-align: center;
-           box-shadow: 0 24px 64px rgba(0,0,0,.35), 0 0 0 1px rgba(255,255,255,.08);
+           box-shadow: 0 24px 64px rgba(30,157,139,.12), 0 0 0 1px rgba(30,157,139,.08);
            width: 100%; max-width: 440px; }
     .box-icon { font-size: 2.4em; margin-bottom: 14px; line-height: 1;
                 animation: pulse-icon 2.2s ease-in-out infinite; }
     @keyframes pulse-icon { 0%,100%{transform:scale(1)} 50%{transform:scale(1.1)} }
-    .box h2 { color: #1e2a4a; font-size: 1.45em; font-weight: 800;
+    .box h2 { color: #0d4a42; font-size: 1.45em; font-weight: 800;
               margin-bottom: 8px; letter-spacing: -.01em; }
-    .box p  { color: #6b7a99; font-size: 1em; margin-bottom: 22px; line-height: 1.5; }
+    .box p  { color: #5c7a75; font-size: 1em; margin-bottom: 22px; line-height: 1.5; }
     .badge { display:inline-flex; align-items:center; gap:6px;
              background: linear-gradient(135deg,#1e9d8b,#148a7a);
              color:#fff; border-radius:24px;
              padding:7px 20px; font-size:.95em; font-weight:700;
              margin-bottom:26px; box-shadow:0 4px 12px rgba(30,157,139,.35); }
+    /* ── Start button ── */
+    .start-btn { background: linear-gradient(135deg,#1e9d8b,#148a7a); color:#fff;
+                 border:none; border-radius:12px; padding:14px 36px;
+                 font-size:1.05em; cursor:pointer; font-weight:700;
+                 width:100%; box-shadow:0 6px 18px rgba(30,157,139,.35);
+                 transition:filter .15s; font-family:inherit; margin-bottom:8px; }
+    .start-btn:hover { filter:brightness(1.08); }
+    .start-btn:disabled { opacity:.6; cursor:not-allowed; }
     /* ── Progress bar ── */
-    .progress-wrap { background: #f0f2f8; border-radius: 8px; height: 6px;
+    .progress-wrap { background: #e4f5f3; border-radius: 8px; height: 6px;
                      margin: 0 0 20px; overflow: hidden; }
     .progress-bar  { height: 100%; border-radius: 8px;
                      background: linear-gradient(90deg,#1e9d8b,#2dd4bf);
                      width: 0%; animation: progress-fill 45s ease-out forwards; }
     @keyframes progress-fill { 0%{width:2%} 30%{width:45%} 70%{width:78%} 95%{width:92%} 100%{width:94%} }
     .back { margin-top: 20px; font-size: .9em; }
-    .back a { color: #9aa3bb; text-decoration: none; }
+    .back a { color: #7aaea9; text-decoration: none; }
     .back a:hover { color: #1e9d8b; }
     /* ── Floating log panel ── */
     .log-float { position:fixed; bottom:24px; left:16px; right:16px;
@@ -1074,12 +1082,13 @@ def _log_float_style() -> str:
                  transition:opacity .3s, transform .3s;
                  z-index:9999; text-align:center; }
     .log-float.visible { opacity:1; pointer-events:auto; transform:translateY(0); }
-    .lf-inner { display:inline-block; background:rgba(15,26,55,.88);
+    .lf-inner { display:block; background:rgba(10,50,45,.92);
                 backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
-                border-radius:14px; padding:10px 18px 8px;
-                max-width:100%; box-shadow:0 8px 24px rgba(0,0,0,.3); }
+                border-radius:14px; padding:12px 18px 10px;
+                max-width:100%; box-shadow:0 8px 24px rgba(0,0,0,.2);
+                border:1px solid rgba(30,157,139,.25); }
     .lf-header { display:flex; align-items:center; justify-content:center;
-                 gap:8px; margin-bottom:6px; }
+                 gap:8px; margin-bottom:8px; }
     .lf-spinner { width:14px; height:14px; border:2px solid rgba(30,157,139,.3);
                   border-top-color:#1e9d8b; border-radius:50%;
                   animation:lf-spin .7s linear infinite; flex-shrink:0; }
@@ -1087,45 +1096,43 @@ def _log_float_style() -> str:
     .lf-spinner.error { animation:none; border-color:#c0392b; }
     @keyframes lf-spin { to { transform:rotate(360deg); } }
     .lf-title { font-size:.9em; font-weight:700; color:#5eead4; }
-    .lf-feed { display:flex; flex-direction:column-reverse; max-height:80px;
-               overflow:hidden; align-items:center; }
-    .lf-line { font-size:.78em; padding:1px 0; white-space:nowrap; overflow:hidden;
-               text-overflow:ellipsis; max-width:calc(100vw - 60px);
-               color:#c8d8e4; animation:lf-slide .28s ease; }
-    .lf-line:nth-child(2) { opacity:.5; }
-    .lf-line:nth-child(3) { opacity:.25; }
-    .lf-line:nth-child(n+4) { opacity:.1; }
+    .lf-feed { display:flex; flex-direction:column; gap:3px; max-height:70px;
+               overflow:hidden; }
+    .lf-line { font-size:.8em; padding:2px 0; white-space:nowrap; overflow:hidden;
+               text-overflow:ellipsis; max-width:100%;
+               color:#c8e8e4; animation:lf-slide .28s ease; }
+    .lf-line:not(:first-child) { opacity:.45; }
     .lf-line.warn { color:#fbbf24; }
     .lf-line.err  { color:#f87171; }
     .lf-line.done { color:#4ade80; font-weight:700; }
-    @keyframes lf-slide { from { transform:translateY(8px); opacity:0; }
+    @keyframes lf-slide { from { transform:translateY(6px); opacity:0; }
                           to   { transform:translateY(0); } }
     /* ── Debug FAB + panel ── */
-    .debug-fab { position:fixed; bottom:22px; right:18px; width:42px; height:42px;
-                 border-radius:50%; background:#1e2a4a; color:#fff; font-size:.72em;
+    .debug-fab { position:fixed; top:18px; right:18px; width:42px; height:42px;
+                 border-radius:50%; background:#148a7a; color:#fff; font-size:.72em;
                  font-family:monospace; font-weight:700; border:none; cursor:pointer;
                  display:flex; align-items:center; justify-content:center;
-                 box-shadow:0 4px 14px rgba(0,0,0,.3); z-index:997; letter-spacing:-.5px; }
+                 box-shadow:0 4px 14px rgba(30,157,139,.3); z-index:997; letter-spacing:-.5px; }
     .debug-fab:hover { filter:brightness(1.2); }
-    .debug-panel { position:fixed; bottom:72px; right:16px; width:480px;
-                   max-width:calc(100vw - 32px); height:340px; background:#12121f;
-                   border-radius:12px; box-shadow:0 8px 32px rgba(0,0,0,.55);
+    .debug-panel { position:fixed; top:70px; right:16px; width:480px;
+                   max-width:calc(100vw - 32px); height:340px; background:#0a2e28;
+                   border-radius:12px; box-shadow:0 8px 32px rgba(0,0,0,.4);
                    z-index:996; display:none; flex-direction:column; overflow:hidden;
-                   font-family:monospace; }
+                   font-family:monospace; border:1px solid rgba(30,157,139,.2); }
     .debug-panel.open { display:flex; }
     .debug-hdr { display:flex; align-items:center; justify-content:space-between;
-                 padding:7px 12px; background:#0a0a18; color:#7ec8e3; font-size:.7em;
+                 padding:7px 12px; background:#061f1a; color:#5eead4; font-size:.7em;
                  font-weight:700; letter-spacing:.06em; flex-shrink:0;
-                 border-bottom:1px solid #222; }
+                 border-bottom:1px solid rgba(30,157,139,.15); }
     .debug-hdr-btns { display:flex; gap:5px; }
-    .debug-hdr-btns button { background:none; border:1px solid #333; color:#888;
+    .debug-hdr-btns button { background:none; border:1px solid rgba(30,157,139,.25); color:#7aaea9;
                               border-radius:4px; padding:2px 8px; font-size:.9em;
                               cursor:pointer; font-family:monospace; }
-    .debug-hdr-btns button:hover { background:#1e1e2e; color:#eee; }
+    .debug-hdr-btns button:hover { background:rgba(30,157,139,.1); color:#eee; }
     .debug-feed { flex:1; overflow-y:auto; padding:6px 10px; font-size:.68em;
-                  line-height:1.55; color:#c8d8e4; }
+                  line-height:1.55; color:#c8e8e4; }
     .debug-line { white-space:pre-wrap; word-break:break-all; padding:1px 0;
-                  border-bottom:1px solid #1a1a2a; }
+                  border-bottom:1px solid rgba(30,157,139,.08); }
     .debug-line.err  { color:#ff6b6b; }
     .debug-line.warn { color:#ffa94d; }
     .debug-line.ok   { color:#69db7c; }
@@ -1612,8 +1619,9 @@ def cash_by_currency():
         ).fetchone()[0] or 0
         totals['ILS'] = totals.get('ILS', 0) + float(bank_out)
 
-        # 2. CashTransactions — user-recorded cash income (+) and spending (-)
-        for cur_raw, amount in conn.execute('SELECT Currency, SUM(Amount) FROM CashTransactions GROUP BY Currency').fetchall():
+        # 2. CashTransactions — user-recorded cash income (+) and spending (-).
+        #    Exclude 'withdrawal' category: those entries duplicate BankTransactions above.
+        for cur_raw, amount in conn.execute("SELECT Currency, SUM(Amount) FROM CashTransactions WHERE Category != 'withdrawal' GROUP BY Currency").fetchall():
             m    = _re2.match(r'([A-Z]+)', (cur_raw or '').strip())
             code = m.group(1) if m else (cur_raw or 'ILS')
             totals[code] = totals.get(code, 0) + float(amount or 0)
@@ -1642,7 +1650,7 @@ def _cash_balance_map():
         conn = _pg_conn()
         bank_out = conn.execute("SELECT SUM(Out) FROM BankTransactions WHERE Category = 'withdrawal'").fetchone()[0] or 0
         totals['ILS'] = float(bank_out)
-        for cur_raw, amount in conn.execute('SELECT Currency, SUM(Amount) FROM CashTransactions GROUP BY Currency').fetchall():
+        for cur_raw, amount in conn.execute("SELECT Currency, SUM(Amount) FROM CashTransactions WHERE Category != 'withdrawal' GROUP BY Currency").fetchall():
             m    = _re2.match(r'([A-Z]+)', (cur_raw or '').strip())
             code = m.group(1) if m else (cur_raw or 'ILS')
             totals[code] = totals.get(code, 0) + float(amount or 0)
@@ -1704,8 +1712,8 @@ def cash_monthly_history_api():
             except Exception:
                 pass
 
-        # Manual CashTransactions
-        for d_str, amount, cur_code in conn.execute("SELECT Execution_Date, Amount, Currency FROM CashTransactions").fetchall():
+        # Manual CashTransactions (exclude withdrawal category — already in bank withdrawals above)
+        for d_str, amount, cur_code in conn.execute("SELECT Execution_Date, Amount, Currency FROM CashTransactions WHERE Category != 'withdrawal'").fetchall():
             try:
                 d = _dt.strptime(str(d_str)[:10], '%Y-%m-%d').date()
                 m = _re2.match(r'([A-Z]+)', (cur_code or '').strip())
@@ -2109,7 +2117,11 @@ def analysis_respond():
 
 def _not_generated_html(year: int, month: int, yyyy_mm: str) -> str:
     import calendar
-    month_label = f"{calendar.month_name[month]} {year}"
+    month_names_he = {
+        1:'ינואר',2:'פברואר',3:'מרץ',4:'אפריל',5:'מאי',6:'יוני',
+        7:'יולי',8:'אוגוסט',9:'ספטמבר',10:'אוקטובר',11:'נובמבר',12:'דצמבר'
+    }
+    month_label = f"{month_names_he.get(month, calendar.month_name[month])} {year}"
     date_str    = f"{year}-{month:02d}-01"
     return f"""<!DOCTYPE html>
 <html lang="he" dir="rtl">
@@ -2122,22 +2134,30 @@ def _not_generated_html(year: int, month: int, yyyy_mm: str) -> str:
 <body>
   <div class="box">
     <div class="box-icon">📊</div>
-    <h2>מנתח נתונים</h2>
+    <h2>BankDash</h2>
     <div class="badge">📅 {month_label}</div>
-    <div class="progress-wrap"><div class="progress-bar" id="prog-bar"></div></div>
-    <p>מעבד עסקאות ומייצר דוח חודשי…</p>
+    <p>הדוח עבור חודש זה טרם נוצר.<br>לחץ להפעלת הניתוח.</p>
+    <button class="start-btn" id="start-btn" onclick="startAnalysis()">הפעל ניתוח</button>
+    <div class="progress-wrap" id="progress-wrap" style="display:none"><div class="progress-bar" id="prog-bar"></div></div>
     <div class="back"><a href="/">&#8592; חזרה לדף הראשי</a></div>
   </div>
   {_log_float_html()}
   <script>
     {_log_float_js()}
-    (function() {{
+    function startAnalysis() {{
+      var btn = document.getElementById('start-btn');
+      var pw  = document.getElementById('progress-wrap');
+      btn.disabled = true;
+      btn.textContent = 'מנתח נתונים…';
+      pw.style.display = 'block';
       showLogFloat('מנתח נתונים…');
       var es = new EventSource('/api/analysis-stream?month=pick&date={date_str}');
       var _tid = setTimeout(function() {{
         if (es.readyState !== EventSource.CLOSED) {{
           es.close();
           appendLog('✗ תם הזמן — נסה לרענן', 'err');
+          btn.disabled = false;
+          btn.textContent = 'נסה שוב';
         }}
       }}, 300000);
       es.onmessage = function(e) {{
@@ -2157,11 +2177,13 @@ def _not_generated_html(year: int, month: int, yyyy_mm: str) -> str:
           clearTimeout(_tid); es.close();
           appendLog('✗ שגיאה בניתוח', 'err');
           hideLogFloat(3000);
+          btn.disabled = false;
+          btn.textContent = 'נסה שוב';
           return;
         }}
         appendLog(e.data);
       }};
-    }})();
+    }}
   </script>
 </body>
 </html>"""
@@ -2177,21 +2199,21 @@ def _splash_html() -> str:
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Segoe UI', system-ui, Arial, sans-serif;
-           background: linear-gradient(135deg, #0f1a35 0%, #1a3550 50%, #0d2b3e 100%);
+           background: linear-gradient(150deg, #edfaf8 0%, #f7fffe 50%, #e8f7f6 100%);
            display: flex; align-items: center; justify-content: center;
            min-height: 100vh; padding: 20px; }
-    .box { background: rgba(255,255,255,.97); border-radius: 20px;
+    .box { background: rgba(255,255,255,.98); border-radius: 20px;
            padding: 40px 36px 32px; text-align: center;
-           box-shadow: 0 24px 64px rgba(0,0,0,.35);
+           box-shadow: 0 24px 64px rgba(30,157,139,.12), 0 0 0 1px rgba(30,157,139,.08);
            width: 100%; max-width: 420px; }
     .box-icon { font-size: 2.4em; margin-bottom: 14px; }
-    h2  { color: #1e2a4a; font-size: 1.45em; font-weight: 800;
+    h2  { color: #0d4a42; font-size: 1.45em; font-weight: 800;
           margin-bottom: 10px; letter-spacing: -.01em; }
-    p   { color: #6b7a99; font-size: 1em; margin-bottom: 28px; line-height: 1.5; }
+    p   { color: #5c7a75; font-size: 1em; margin-bottom: 28px; line-height: 1.5; }
     .btn { background: linear-gradient(135deg,#1e9d8b,#148a7a); color: #fff;
            border: none; border-radius: 12px; padding: 15px 36px;
            font-size: 1.05em; cursor: pointer; font-weight: 700;
-           width: 100%; box-shadow: 0 6px 18px rgba(30,157,139,.4);
+           width: 100%; box-shadow: 0 6px 18px rgba(30,157,139,.35);
            transition: filter .15s; font-family: inherit; }
     .btn:hover { filter: brightness(1.08); }
     .btn:disabled { opacity: .65; cursor: not-allowed; }

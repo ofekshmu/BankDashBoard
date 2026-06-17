@@ -4968,6 +4968,8 @@ document.addEventListener('DOMContentLoaded', _initTxnFooter);
         cash_df = DataBase().get_Cash_Transactions()
 
         if not cash_df.empty:
+            # Exclude withdrawal-category entries (already counted from BankTransactions above)
+            cash_df = cash_df[cash_df['Category'] != ReservedNames.WHITDRAWAL_CATEGORY]
             # utils.log(f"Cash Transactions found:\n{utils.df_to_markdown(cash_df)}", 'system')
             total_cash += cash_df['Amount'].sum()
 
@@ -5011,9 +5013,11 @@ document.addEventListener('DOMContentLoaded', _initTxnFooter);
                 if pd.notna(d):
                     events.append((d.date(), float(row['Out/Transaction_value'])))
 
-        # 2. Manual CashTransactions — any currency, convert to ILS
+        # 2. Manual CashTransactions — any currency, convert to ILS.
+        #    Exclude withdrawal category: ATM withdrawals already in bank events above.
         cash_df = DataBase().get_Cash_Transactions()
         if not cash_df.empty:
+            cash_df = cash_df[cash_df['Category'] != ReservedNames.WHITDRAWAL_CATEGORY]
             cash_df['Execution_Date'] = pd.to_datetime(cash_df['Execution_Date'], errors='coerce')
             for _, row in cash_df.iterrows():
                 d = row['Execution_Date']
@@ -5089,8 +5093,12 @@ document.addEventListener('DOMContentLoaded', _initTxnFooter);
         cash_df = DataBase().get_Cash_Transactions(datetime)
         # Exclude filler transactions — they represent balance adjustments (all-time gap), not
         # real monthly income or spending. Including them would inflate the monthly totals.
-        if not cash_df.empty and hasattr(ReservedNames, 'CASH_FILLER_CATEGORY'):
-            cash_df = cash_df[cash_df['Category'] != ReservedNames.CASH_FILLER_CATEGORY]
+        if not cash_df.empty:
+            if hasattr(ReservedNames, 'CASH_FILLER_CATEGORY'):
+                cash_df = cash_df[cash_df['Category'] != ReservedNames.CASH_FILLER_CATEGORY]
+            # Exclude withdrawal-category manual entries — ATM withdrawals are already
+            # counted from BankTransactions above; including them here would double-count.
+            cash_df = cash_df[cash_df['Category'] != ReservedNames.WHITDRAWAL_CATEGORY]
         cash_df['Execution_Date'] = pd.to_datetime(cash_df['Execution_Date'], errors='coerce')
 
         cash_df = cash_df[['ID', 'Execution_Date', 'Amount', 'Name', 'Category']]
@@ -5173,12 +5181,17 @@ document.addEventListener('DOMContentLoaded', _initTxnFooter);
         """
         # ----- New Code Here -------------------------------------
         from database import DataBase
-        from Constants import Settings, Trans_Type
+        from Constants import Settings, Trans_Type, ReservedNames
 
         if processed_df.empty:
             return pd.DataFrame()
 
         wip_df = processed_df.copy()
+
+        # Exclude ATM withdrawals — they are handled separately and should not be
+        # included in the card-charge sum used for verification.
+        if 'Category' in wip_df.columns:
+            wip_df = wip_df[wip_df['Category'] != ReservedNames.WHITDRAWAL_CATEGORY]
 
         # Define the nan values for all bank transaction to a valid value: "Bank" for easier use
         wip_df['CardID'] = wip_df.apply(lambda row: 'Bank' if row['TableName'] == 'BankTransactions' else row['CardID'], axis=1)
@@ -5268,7 +5281,14 @@ document.addEventListener('DOMContentLoaded', _initTxnFooter);
             possible_bank_transaction_names = [name for format_config in Formats.FORMATS.values() for card_id, names in format_config["Transaction Names"].items() for name in names if card_id == row['CardID']]
         
             # Get all bank transactions for the month of the withdrawal
-            transaction_date = datetime.strptime(row['Executed_Date'], "%Y-%m-%d %H:%M:%S")
+            _ed = row['Executed_Date']
+            if isinstance(_ed, (datetime, _date)):
+                transaction_date = datetime(_ed.year, _ed.month, _ed.day)
+            else:
+                try:
+                    transaction_date = datetime.strptime(str(_ed), "%Y-%m-%d %H:%M:%S")
+                except ValueError:
+                    transaction_date = datetime.strptime(str(_ed)[:10], "%Y-%m-%d")
             bank_transactions_df = DataBase().get_Bank_Transactions(transaction_date.month, transaction_date.year)
 
             #check if transaction matches in the bank_transactions_df

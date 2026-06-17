@@ -376,7 +376,7 @@ def serve_outputs(filename):
 
 @app.route('/general/<yyyy_mm>')
 def serve_general(yyyy_mm):
-    if not _re.match(r'^\d{4}_\d{2}$', yyyy_mm):
+    if not _re.match(r'^\d{4}_\d{2}$', yyyy_mm) or not (1 <= int(yyyy_mm[5:7]) <= 12):
         return "Invalid month format", 400
     template_path = os.path.join(_HERE, 'html', 'Base_template.html')
     try:
@@ -393,14 +393,16 @@ def monthly_data_api(yyyy_mm):
     import time as _time
     if not _re.match(r'^\d{4}_\d{2}$', yyyy_mm):
         return jsonify({'error': 'Invalid month format'}), 400
+    month_num = int(yyyy_mm[5:7])
+    if not (1 <= month_num <= 12):
+        return jsonify({'error': 'Invalid month number'}), 400
     cached = _monthly_data_cache.get(yyyy_mm)
     if cached:
         return jsonify(cached['data'])
     year  = int(yyyy_mm[:4])
-    month = int(yyyy_mm[5:7])
-    from datetime import datetime as _dt2
-    t = _dt2(year, month, 1)
     try:
+        from datetime import datetime as _dt2
+        t = _dt2(year, month_num, 1)
         from AppManager import AppManager
         payload = AppManager(skip_parser=True).general_analysis(t=t, data_only=True)
         _monthly_data_cache[yyyy_mm] = {'ts': _time.time(), 'data': payload}

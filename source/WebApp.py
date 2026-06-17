@@ -55,6 +55,12 @@ else:
 TAGGER_HTML            = os.path.join(_HERE, 'html', 'Tagger.html')
 FILES_HTML             = os.path.join(_HERE, 'html', 'Files.html')
 
+# Months that have already had auto-regeneration triggered this app session.
+# A month is added the first time its HTML is missing and we show the regen page.
+# Subsequent visits without the file won't trigger another auto-regen — the user
+# must click the manual button.  A new deployment resets this set (fresh process).
+_session_auto_triggered: set = set()
+
 def _make_slug(type_: str, name: str) -> str:
     """type_ = 'cat' | 'biz'"""
     import re as _re2
@@ -286,13 +292,11 @@ app.config['JSON_AS_ASCII'] = False
 
 @app.route('/api/auth/verify', methods=['POST'])
 def api_auth_verify():
-    """Check password against ADMIN_PASSWORD env var."""
+    """Check password against ADMIN_PASSWORD / DASHBOARD_PASSWORD env var."""
     import hmac
     body     = request.get_json(force=True) or {}
     pw       = str(body.get('password', ''))
-    expected = os.environ.get('ADMIN_PASSWORD', '')
-    if not expected:
-        return jsonify({'ok': False, 'error': 'ADMIN_PASSWORD not set'})
+    expected = os.environ.get('ADMIN_PASSWORD') or os.environ.get('DASHBOARD_PASSWORD', 'ofek')
     ok = hmac.compare_digest(pw, expected)
     return jsonify({'ok': ok})
 
@@ -376,9 +380,9 @@ def serve_general(yyyy_mm):
     html_path = os.path.join(GENERAL_ANALYSIS_DIR, f'{yyyy_mm}.html')
     if os.path.exists(html_path):
         return send_file(html_path)
-    # File missing — show a "not generated yet" page
     year  = int(yyyy_mm[:4])
     month = int(yyyy_mm[5:7])
+    _session_auto_triggered.add(yyyy_mm)
     return _not_generated_html(year, month, yyyy_mm)
 
 
@@ -821,6 +825,7 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:#f4f6f9;color:#1e2a4a;d
     <a class="nav-item" href="/gym">💪 Gym Tracker</a>
   </div>
   <div class="sidebar-footer" style="padding:12px 16px;border-top:1px solid #eef0f6;flex-shrink:0">
+    <div id="app-version-badge-1" style="text-align:center;font-size:.7em;color:#b0bec5;margin-bottom:8px;letter-spacing:.03em;">v—</div>
     <button onclick="restartServer(this)" style="width:100%;padding:8px 12px;border:1.5px dashed #eef0f6;border-radius:8px;background:none;color:#888;font-size:.78em;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:7px;justify-content:center;transition:background .15s,color .15s,border-color .15s" onmouseover="this.style.background='#fff3f3';this.style.color='#e53935';this.style.borderColor='#e53935'" onmouseout="this.style.background='none';this.style.color='#888';this.style.borderColor='#eef0f6'">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
       הפעל שרת מחדש
@@ -842,6 +847,7 @@ function openNav(){{var s=document.getElementById('sidebar'),o=document.getEleme
 function closeNav(){{var s=document.getElementById('sidebar'),o=document.getElementById('nav-overlay'),b=document.getElementById('ham-btn');s.classList.remove('open');o.classList.remove('open');b.classList.remove('open');}}
 function toggleNav(){{document.getElementById('sidebar').classList.contains('open')?closeNav():openNav();}}
 document.addEventListener('keydown',function(e){{if(e.key==='Escape')closeNav();}});
+fetch('/api/version').then(function(r){{return r.json();}}).then(function(d){{var b=document.getElementById('app-version-badge-1');if(b&&d.version)b.textContent='v'+d.version;}}).catch(function(){{}});
 function filterCats(q) {{
   q = q.trim().toLowerCase();
   var items = document.querySelectorAll('.cat-item');
@@ -1036,142 +1042,102 @@ def run_category_stream():
 def _log_float_style() -> str:
     return """<style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html { overflow-x: hidden; -webkit-text-size-adjust: 100%; }
-    body { font-family: 'Segoe UI', system-ui, Arial, sans-serif;
-           background: linear-gradient(150deg, #edfaf8 0%, #f7fffe 50%, #e8f7f6 100%);
-           display: flex; align-items: center; justify-content: center;
-           min-height: 100vh; padding: 20px; }
-    /* ── Main card ── */
-    .box { background: rgba(255,255,255,.98); border-radius: 20px;
-           padding: 40px 36px 32px; text-align: center;
-           box-shadow: 0 24px 64px rgba(30,157,139,.12), 0 0 0 1px rgba(30,157,139,.08);
-           width: 100%; max-width: 440px; }
-    .box-icon { font-size: 2.4em; margin-bottom: 14px; line-height: 1;
-                animation: pulse-icon 2.2s ease-in-out infinite; }
-    @keyframes pulse-icon { 0%,100%{transform:scale(1)} 50%{transform:scale(1.1)} }
-    .box h2 { color: #0d4a42; font-size: 1.45em; font-weight: 800;
-              margin-bottom: 8px; letter-spacing: -.01em; }
-    .box p  { color: #5c7a75; font-size: 1em; margin-bottom: 22px; line-height: 1.5; }
-    .badge { display:inline-flex; align-items:center; gap:6px;
-             background: linear-gradient(135deg,#1e9d8b,#148a7a);
-             color:#fff; border-radius:24px;
-             padding:7px 20px; font-size:.95em; font-weight:700;
-             margin-bottom:26px; box-shadow:0 4px 12px rgba(30,157,139,.35); }
-    /* ── Start button ── */
-    .start-btn { background: linear-gradient(135deg,#1e9d8b,#148a7a); color:#fff;
-                 border:none; border-radius:12px; padding:14px 36px;
-                 font-size:1.05em; cursor:pointer; font-weight:700;
-                 width:100%; box-shadow:0 6px 18px rgba(30,157,139,.35);
-                 transition:filter .15s; font-family:inherit; margin-bottom:8px; }
-    .start-btn:hover { filter:brightness(1.08); }
-    .start-btn:disabled { opacity:.6; cursor:not-allowed; }
-    /* ── Progress bar ── */
-    .progress-wrap { background: #e4f5f3; border-radius: 8px; height: 6px;
-                     margin: 0 0 20px; overflow: hidden; }
-    .progress-bar  { height: 100%; border-radius: 8px;
-                     background: linear-gradient(90deg,#1e9d8b,#2dd4bf);
-                     width: 0%; animation: progress-fill 45s ease-out forwards; }
-    @keyframes progress-fill { 0%{width:2%} 30%{width:45%} 70%{width:78%} 95%{width:92%} 100%{width:94%} }
-    .back { margin-top: 20px; font-size: .9em; }
-    .back a { color: #7aaea9; text-decoration: none; }
-    .back a:hover { color: #1e9d8b; }
-    /* ── Floating log panel ── */
-    .log-float { position:fixed; bottom:24px; left:16px; right:16px;
-                 transform:translateY(12px);
+    body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0faf5;
+           min-height: 100vh; display: flex; align-items: center;
+           justify-content: center; padding: 16px; }
+    .box { background: #fff; border-radius: 20px; padding: 28px 22px 22px;
+           text-align: center; box-shadow: 0 4px 28px rgba(52,184,136,.13);
+           max-width: 460px; width: 100%; }
+    h2   { color: #1e2a4a; margin-bottom: 6px; font-size: 1.15em; font-weight:700; }
+    p    { color: #6b8c7a; font-size: .84em; margin-bottom: 20px; }
+    .badge { display:inline-block; background:#d8f3dc; color:#2d6a4f; border-radius:99px;
+             padding:4px 16px; font-size:.8em; font-weight:600; margin-bottom:12px; }
+    .back { margin-top:18px; font-size:.8em; }
+    .back a { color:#52b788; text-decoration:none; }
+    .back a:hover { color:#1e9d8b; }
+    /* ── floating log panel (used by category regen page) ── */
+    .log-float { position:fixed; bottom:20px; left:50%;
+                 transform:translateX(-50%) translateY(16px);
+                 width:460px; max-width:calc(100vw - 24px);
+                 background:#fff; border:1px solid #d8f3dc;
+                 border-radius:14px; padding:0;
                  opacity:0; pointer-events:none;
                  transition:opacity .3s, transform .3s;
-                 z-index:9999; text-align:center; }
-    .log-float.visible { opacity:1; pointer-events:auto; transform:translateY(0); }
-    .lf-inner { display:block; background:rgba(10,50,45,.92);
-                backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
-                border-radius:14px; padding:12px 18px 10px;
-                max-width:100%; box-shadow:0 8px 24px rgba(0,0,0,.2);
-                border:1px solid rgba(30,157,139,.25); }
-    .lf-header { display:flex; align-items:center; justify-content:center;
-                 gap:8px; margin-bottom:8px; }
-    .lf-spinner { width:14px; height:14px; border:2px solid rgba(30,157,139,.3);
-                  border-top-color:#1e9d8b; border-radius:50%;
-                  animation:lf-spin .7s linear infinite; flex-shrink:0; }
-    .lf-spinner.done  { animation:none; border-color:#2ecc71; }
-    .lf-spinner.error { animation:none; border-color:#c0392b; }
-    @keyframes lf-spin { to { transform:rotate(360deg); } }
-    .lf-title { font-size:.9em; font-weight:700; color:#5eead4; }
-    .lf-feed { display:flex; flex-direction:column; gap:3px; max-height:70px;
-               overflow:hidden; }
-    .lf-line { font-size:.8em; padding:2px 0; white-space:nowrap; overflow:hidden;
-               text-overflow:ellipsis; max-width:100%;
-               color:#c8e8e4; animation:lf-slide .28s ease; }
-    .lf-line:not(:first-child) { opacity:.45; }
-    .lf-line.warn { color:#fbbf24; }
-    .lf-line.err  { color:#f87171; }
-    .lf-line.done { color:#4ade80; font-weight:700; }
-    @keyframes lf-slide { from { transform:translateY(6px); opacity:0; }
-                          to   { transform:translateY(0); } }
-    /* ── Debug FAB + panel ── */
-    .debug-fab { position:fixed; top:18px; right:18px; width:42px; height:42px;
-                 border-radius:50%; background:#148a7a; color:#fff; font-size:.72em;
+                 z-index:9999;
+                 box-shadow:0 4px 20px rgba(52,184,136,.15); }
+    .log-float.visible { opacity:1; pointer-events:auto; transform:translateX(-50%) translateY(0); }
+    .lf-header { padding:8px 12px; background:#f0faf5;
+                 border-bottom:1px solid #d8f3dc; border-radius:14px 14px 0 0;
+                 display:flex; align-items:center; gap:6px; }
+    .lf-title { font-size:.72em; font-weight:600; color:#52b788; letter-spacing:.03em; }
+    .lf-feed { display:flex; flex-direction:column; max-height:160px;
+               overflow-y:auto; gap:1px; padding:8px 12px;
+               scrollbar-width:thin; scrollbar-color:#b7e4c7 transparent; }
+    .lf-feed::-webkit-scrollbar { width:3px; }
+    .lf-feed::-webkit-scrollbar-thumb { background:#b7e4c7; border-radius:2px; }
+    .lf-line { font-size:.74em; font-family:'Consolas','Courier New',monospace;
+               padding:1px 0; white-space:pre-wrap; word-break:break-word;
+               line-height:1.55; color:#3d6b55; direction:ltr; text-align:left; }
+    .lf-line.warn { color:#8a6200; }
+    .lf-line.err  { color:#b83232; font-weight:500; }
+    .lf-line.done { color:#1e7a50; font-weight:600; }
+    /* ── debug FAB + panel ── */
+    .debug-fab { position:fixed; bottom:22px; right:18px; width:42px; height:42px;
+                 border-radius:50%; background:#1e2a4a; color:#fff; font-size:.72em;
                  font-family:monospace; font-weight:700; border:none; cursor:pointer;
                  display:flex; align-items:center; justify-content:center;
-                 box-shadow:0 4px 14px rgba(30,157,139,.3); z-index:997; letter-spacing:-.5px; }
+                 box-shadow:0 4px 14px rgba(0,0,0,.3); z-index:997; letter-spacing:-.5px; }
     .debug-fab:hover { filter:brightness(1.2); }
-    .debug-panel { position:fixed; top:70px; right:16px; width:480px;
-                   max-width:calc(100vw - 32px); height:340px; background:#0a2e28;
-                   border-radius:12px; box-shadow:0 8px 32px rgba(0,0,0,.4);
+    .debug-panel { position:fixed; bottom:72px; right:16px; width:480px;
+                   max-width:calc(100vw - 32px); height:340px; background:#12121f;
+                   border-radius:12px; box-shadow:0 8px 32px rgba(0,0,0,.55);
                    z-index:996; display:none; flex-direction:column; overflow:hidden;
-                   font-family:monospace; border:1px solid rgba(30,157,139,.2); }
+                   font-family:monospace; }
     .debug-panel.open { display:flex; }
     .debug-hdr { display:flex; align-items:center; justify-content:space-between;
-                 padding:7px 12px; background:#061f1a; color:#5eead4; font-size:.7em;
+                 padding:7px 12px; background:#0a0a18; color:#7ec8e3; font-size:.7em;
                  font-weight:700; letter-spacing:.06em; flex-shrink:0;
-                 border-bottom:1px solid rgba(30,157,139,.15); }
+                 border-bottom:1px solid #222; }
     .debug-hdr-btns { display:flex; gap:5px; }
-    .debug-hdr-btns button { background:none; border:1px solid rgba(30,157,139,.25); color:#7aaea9;
+    .debug-hdr-btns button { background:none; border:1px solid #333; color:#888;
                               border-radius:4px; padding:2px 8px; font-size:.9em;
                               cursor:pointer; font-family:monospace; }
-    .debug-hdr-btns button:hover { background:rgba(30,157,139,.1); color:#eee; }
+    .debug-hdr-btns button:hover { background:#1e1e2e; color:#eee; }
     .debug-feed { flex:1; overflow-y:auto; padding:6px 10px; font-size:.68em;
-                  line-height:1.55; color:#c8e8e4; }
+                  line-height:1.55; color:#c8d8e4; }
     .debug-line { white-space:pre-wrap; word-break:break-all; padding:1px 0;
-                  border-bottom:1px solid rgba(30,157,139,.08); }
+                  border-bottom:1px solid #1a1a2a; }
     .debug-line.err  { color:#ff6b6b; }
     .debug-line.warn { color:#ffa94d; }
     .debug-line.ok   { color:#69db7c; }
     /* ── CC-charge confirmation modal ── */
     .cc-modal-overlay { position:fixed; inset:0; background:rgba(15,22,45,.55);
-                        z-index:10000; display:flex; align-items:center; justify-content:center;
-                        padding:16px; }
-    .cc-modal { background:#fff; border-radius:16px; padding:24px 22px; max-width:420px; width:100%;
+                        z-index:10000; display:flex; align-items:center; justify-content:center; }
+    .cc-modal { background:#fff; border-radius:14px; padding:28px 32px; max-width:420px; width:90%;
                 box-shadow:0 12px 40px rgba(0,0,0,.2); text-align:right; direction:rtl; }
-    .cc-modal-title { font-size:1.05em; font-weight:700; color:#1e2a4a; margin-bottom:12px; }
-    .cc-modal-body  { font-size:.9em; color:#555; margin-bottom:18px; line-height:1.6; }
-    .cc-modal-row   { display:flex; justify-content:space-between; padding:6px 0;
-                      border-bottom:1px solid #eef0f6; font-size:.88em; }
+    .cc-modal-title { font-size:1em; font-weight:700; color:#1e2a4a; margin-bottom:12px; }
+    .cc-modal-body  { font-size:.85em; color:#555; margin-bottom:18px; line-height:1.6; }
+    .cc-modal-row   { display:flex; justify-content:space-between; padding:4px 0;
+                      border-bottom:1px solid #eef0f6; font-size:.83em; }
     .cc-modal-row:last-child { border-bottom:none; }
     .cc-modal-label { color:#888; }
     .cc-modal-val   { font-weight:600; color:#1e2a4a; }
     .cc-modal-btns  { display:flex; gap:10px; justify-content:flex-end; margin-top:18px; }
-    .cc-btn { border:none; border-radius:10px; padding:11px 24px; font-size:.92em;
+    .cc-btn { border:none; border-radius:8px; padding:8px 22px; font-size:.88em;
               font-weight:600; cursor:pointer; transition:background .15s; font-family:inherit; }
     .cc-btn-yes { background:#1e9d8b; color:#fff; }
     .cc-btn-yes:hover { background:#189080; }
     .cc-btn-no  { background:#f0f2f6; color:#555; }
     .cc-btn-no:hover  { background:#e2e5ed; }
-    @media (max-width: 480px) {
-      .box { padding: 32px 22px 26px; border-radius: 16px; }
-      .box h2 { font-size: 1.25em; }
-    }
     </style>"""
 
 
 def _log_float_html() -> str:
     return """<div class="log-float" id="log-float">
-  <div class="lf-inner">
-    <div class="lf-header">
-      <div class="lf-spinner" id="lf-spinner"></div>
-      <span class="lf-title" id="lf-title">מנתח נתונים…</span>
-    </div>
-    <div class="lf-feed" id="lf-feed"></div>
+  <div class="lf-header">
+    <span class="lf-title" id="lf-title">מנתח נתונים…</span>
   </div>
+  <div class="lf-feed" id="lf-feed"></div>
 </div>
 <button class="debug-fab" id="debug-fab" onclick="toggleDebugPanel()" title="App logs">&lt;/&gt;</button>
 <div class="debug-panel" id="debug-panel">
@@ -1198,12 +1164,10 @@ def _log_float_html() -> str:
 
 
 def _log_float_js() -> str:
-    return """var _LF_MAX = 12;
+    return """var _LF_MAX = 80;
     function showLogFloat(title) {
       document.getElementById('lf-feed').innerHTML = '';
       document.getElementById('lf-title').textContent = title || 'מנתח נתונים…';
-      var sp = document.getElementById('lf-spinner');
-      if (sp) sp.className = 'lf-spinner';
       document.getElementById('log-float').classList.add('visible');
     }
     function hideLogFloat(delay) {
@@ -1217,11 +1181,9 @@ def _log_float_js() -> str:
       var el = document.createElement('div');
       el.className = 'lf-line' + (cls ? ' ' + cls : '');
       el.textContent = text;
-      feed.insertBefore(el, feed.firstChild);
-      while (feed.children.length > _LF_MAX) feed.removeChild(feed.lastChild);
-      var sp = document.getElementById('lf-spinner');
-      if (sp && cls === 'done') sp.className = 'lf-spinner done';
-      if (sp && cls === 'err')  sp.className = 'lf-spinner error';
+      feed.appendChild(el);
+      while (feed.children.length > _LF_MAX) feed.removeChild(feed.firstChild);
+      feed.scrollTop = feed.scrollHeight;
     }
     function showCCPrompt(txData) {
       var labels = {ID:'מזהה', Date:'תאריך', Name:'שם', Out:'סכום', Category:'קטגוריה', Description:'תיאור'};
@@ -1471,27 +1433,23 @@ _fx_fetched = 0.0  # epoch seconds
 
 def _get_fx_rates():
     """Return a dict of currency→ILS rates, cached for 1 hour."""
-    import time, urllib.request, json as _json, threading as _thr
+    import time, urllib.request, json as _json
     global _fx_cache, _fx_fetched
     if _fx_cache and (time.time() - _fx_fetched) < 3600:
         return _fx_cache
-    # Use a daemon thread with hard join timeout — urlopen(timeout=N) alone
-    # can hang if the TCP connection stalls before the timeout fires.
-    result = {'ILS': 1.0, 'USD': 3.72, 'EUR': 4.01, 'JPY': 0.025}
-    def _fetch():
-        try:
-            url = 'https://api.exchangerate-api.com/v4/latest/ILS'
-            with urllib.request.urlopen(url, timeout=4) as resp:
-                ils_to_x = _json.loads(resp.read()).get('rates', {})
-                result.update({c: 1.0 / r for c, r in ils_to_x.items() if r})
-                result['ILS'] = 1.0
-        except Exception:
-            pass
-    t = _thr.Thread(target=_fetch, daemon=True)
-    t.start()
-    t.join(timeout=4)
-    _fx_cache = result
-    _fx_fetched = time.time()
+    try:
+        url = 'https://api.exchangerate-api.com/v4/latest/ILS'
+        with urllib.request.urlopen(url, timeout=4) as resp:
+            data = _json.loads(resp.read())
+        # data['rates'] maps ILS→X, we want X→ILS
+        ils_to_x = data.get('rates', {})
+        _fx_cache = {cur: 1.0 / rate for cur, rate in ils_to_x.items() if rate}
+        _fx_cache['ILS'] = 1.0
+        _fx_fetched = time.time()
+    except Exception:
+        # Fallback hardcoded approximate rates
+        _fx_cache = {'ILS': 1.0, 'USD': 3.72, 'EUR': 4.01, 'JPY': 0.025}
+        _fx_fetched = time.time()
     return _fx_cache
 
 
@@ -1619,9 +1577,8 @@ def cash_by_currency():
         ).fetchone()[0] or 0
         totals['ILS'] = totals.get('ILS', 0) + float(bank_out)
 
-        # 2. CashTransactions — user-recorded cash income (+) and spending (-).
-        #    Exclude 'withdrawal' category: those entries duplicate BankTransactions above.
-        for cur_raw, amount in conn.execute("SELECT Currency, SUM(Amount) FROM CashTransactions WHERE Category != 'withdrawal' GROUP BY Currency").fetchall():
+        # 2. CashTransactions — user-recorded cash income (+) and spending (-)
+        for cur_raw, amount in conn.execute('SELECT Currency, SUM(Amount) FROM CashTransactions GROUP BY Currency').fetchall():
             m    = _re2.match(r'([A-Z]+)', (cur_raw or '').strip())
             code = m.group(1) if m else (cur_raw or 'ILS')
             totals[code] = totals.get(code, 0) + float(amount or 0)
@@ -1650,7 +1607,7 @@ def _cash_balance_map():
         conn = _pg_conn()
         bank_out = conn.execute("SELECT SUM(Out) FROM BankTransactions WHERE Category = 'withdrawal'").fetchone()[0] or 0
         totals['ILS'] = float(bank_out)
-        for cur_raw, amount in conn.execute("SELECT Currency, SUM(Amount) FROM CashTransactions WHERE Category != 'withdrawal' GROUP BY Currency").fetchall():
+        for cur_raw, amount in conn.execute('SELECT Currency, SUM(Amount) FROM CashTransactions GROUP BY Currency').fetchall():
             m    = _re2.match(r'([A-Z]+)', (cur_raw or '').strip())
             code = m.group(1) if m else (cur_raw or 'ILS')
             totals[code] = totals.get(code, 0) + float(amount or 0)
@@ -1712,8 +1669,8 @@ def cash_monthly_history_api():
             except Exception:
                 pass
 
-        # Manual CashTransactions (exclude withdrawal category — already in bank withdrawals above)
-        for d_str, amount, cur_code in conn.execute("SELECT Execution_Date, Amount, Currency FROM CashTransactions WHERE Category != 'withdrawal'").fetchall():
+        # Manual CashTransactions
+        for d_str, amount, cur_code in conn.execute("SELECT Execution_Date, Amount, Currency FROM CashTransactions").fetchall():
             try:
                 d = _dt.strptime(str(d_str)[:10], '%Y-%m-%d').date()
                 m = _re2.match(r'([A-Z]+)', (cur_code or '').strip())
@@ -2115,49 +2072,226 @@ def analysis_respond():
     return jsonify({'ok': True})
 
 
+
+
 def _not_generated_html(year: int, month: int, yyyy_mm: str) -> str:
     import calendar
-    month_names_he = {
-        1:'ינואר',2:'פברואר',3:'מרץ',4:'אפריל',5:'מאי',6:'יוני',
-        7:'יולי',8:'אוגוסט',9:'ספטמבר',10:'אוקטובר',11:'נובמבר',12:'דצמבר'
-    }
-    month_label = f"{month_names_he.get(month, calendar.month_name[month])} {year}"
+    month_label = f"{calendar.month_name[month]} {year}"
     date_str    = f"{year}-{month:02d}-01"
     return f"""<!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>BankDash — {month_label}</title>
-  {_log_float_style()}
+  <style>
+    *, *::before, *::after {{ box-sizing: border-box; margin: 0; padding: 0; }}
+    body {{ font-family: 'Segoe UI', Arial, sans-serif; background: #f0faf5;
+            min-height: 100vh; display: flex; align-items: center;
+            justify-content: center; padding: 16px; }}
+    .card {{ background: #fff; border-radius: 20px; padding: 28px 22px 22px;
+             width: 100%; max-width: 460px;
+             box-shadow: 0 4px 28px rgba(52,184,136,.13); }}
+
+    /* header */
+    .hdr {{ text-align: center; margin-bottom: 22px; }}
+    .badge {{ display: inline-block; background: #d8f3dc; color: #2d6a4f;
+              border-radius: 99px; padding: 4px 16px; font-size: .8em;
+              font-weight: 600; margin-bottom: 10px; }}
+    .hdr h2 {{ color: #1e2a4a; font-size: 1.15em; font-weight: 700; margin-bottom: 4px; }}
+    .hdr p  {{ color: #6b8c7a; font-size: .84em; }}
+
+    /* progress */
+    .prog-wrap {{ margin-bottom: 18px; }}
+    .prog-row {{ display: flex; justify-content: space-between; margin-bottom: 7px; }}
+    .prog-label {{ font-size: .74em; color: #6b8c7a; }}
+    .prog-pct   {{ font-size: .74em; font-weight: 700; color: #52b788; }}
+    .prog-bar  {{ height: 7px; background: #d8f3dc; border-radius: 99px; overflow: hidden; }}
+    .prog-fill {{ height: 100%;
+                  background: linear-gradient(90deg, #74c69d 0%, #1e9d8b 50%, #34d9c3 75%, #1e9d8b 100%);
+                  background-size: 200% auto;
+                  border-radius: 99px; width: 0%; transition: width .4s ease;
+                  animation: progShimmer 2s linear infinite; }}
+    @keyframes progShimmer {{ to {{ background-position: -200% center; }} }}
+
+    /* log panel */
+    .log-panel {{ border: 1px solid #d8f3dc; border-radius: 12px; overflow: hidden; }}
+    .log-hdr {{ background: #f0faf5; padding: 7px 12px; border-bottom: 1px solid #d8f3dc;
+                display: flex; align-items: center; gap: 6px; }}
+    .log-dot {{ width: 6px; height: 6px; border-radius: 50%; background: #52b788;
+                flex-shrink: 0; animation: blink 1.2s ease-in-out infinite; }}
+    @keyframes blink {{ 0%,100% {{ opacity:1; }} 50% {{ opacity:.15; }} }}
+    .log-hdr-title {{ font-size: .7em; font-weight: 600; color: #52b788;
+                      letter-spacing: .04em; text-transform: uppercase; flex: 1; }}
+    .copy-btn {{ background: none; border: none; border-radius: 6px;
+                 padding: 3px 5px; color: #52b788; cursor: pointer;
+                 line-height: 1; transition: color .15s; }}
+    .copy-btn:hover {{ color: #2d6a4f; }}
+    .copy-btn.copied {{ color: #2d6a4f; }}
+    .log-feed {{ max-height: 210px; overflow-y: auto; padding: 10px 12px;
+                 display: flex; flex-direction: column; gap: 2px;
+                 scrollbar-width: thin; scrollbar-color: #b7e4c7 transparent; }}
+    .log-feed::-webkit-scrollbar {{ width: 3px; }}
+    .log-feed::-webkit-scrollbar-thumb {{ background: #b7e4c7; border-radius: 2px; }}
+    .log-line {{ font-size: .75em; font-family: 'Consolas','Courier New',monospace;
+                 line-height: 1.55; color: #3d6b55; white-space: pre-wrap;
+                 word-break: break-word; direction: ltr; text-align: left; }}
+    .log-line.warn {{ color: #8a6200; }}
+    .log-line.err  {{ color: #b83232; font-weight: 500; }}
+    .log-line.done {{ color: #1e7a50; font-weight: 600; }}
+
+    .back {{ text-align: center; margin-top: 18px; font-size: .8em; }}
+    .back a {{ color: #52b788; text-decoration: none; }}
+    .back a:hover {{ color: #1e9d8b; }}
+
+    /* CC modal */
+    .cc-overlay {{ position:fixed; inset:0; background:rgba(15,40,30,.45);
+                   z-index:10000; display:flex; align-items:center; justify-content:center; }}
+    .cc-modal  {{ background:#fff; border-radius:16px; padding:24px 22px;
+                  max-width:400px; width:90%; box-shadow:0 12px 40px rgba(0,0,0,.18);
+                  text-align:right; direction:rtl; }}
+    .cc-title  {{ font-size:.95em; font-weight:700; color:#1e2a4a; margin-bottom:10px; }}
+    .cc-body   {{ font-size:.82em; color:#5a7a6a; margin-bottom:14px; line-height:1.6; }}
+    .cc-row    {{ display:flex; justify-content:space-between; padding:4px 0;
+                  border-bottom:1px solid #edf5f0; font-size:.82em; }}
+    .cc-row:last-child {{ border-bottom:none; }}
+    .cc-lbl    {{ color:#8aad96; }}
+    .cc-val    {{ font-weight:600; color:#1e2a4a; }}
+    .cc-btns   {{ display:flex; gap:8px; justify-content:flex-end; margin-top:16px; }}
+    .cc-btn    {{ border:none; border-radius:8px; padding:7px 20px; font-size:.85em;
+                  font-weight:600; cursor:pointer; transition:background .15s; font-family:inherit; }}
+    .cc-yes    {{ background:#52b788; color:#fff; }}
+    .cc-yes:hover {{ background:#3da870; }}
+    .cc-no     {{ background:#edf5f0; color:#4a7060; }}
+    .cc-no:hover  {{ background:#d8f3dc; }}
+  </style>
 </head>
 <body>
-  <div class="box">
-    <div class="box-icon">📊</div>
-    <h2>BankDash</h2>
-    <div class="badge">📅 {month_label}</div>
-    <p>הדוח עבור חודש זה טרם נוצר.<br>לחץ להפעלת הניתוח.</p>
-    <button class="start-btn" id="start-btn" onclick="startAnalysis()">הפעל ניתוח</button>
-    <div class="progress-wrap" id="progress-wrap" style="display:none"><div class="progress-bar" id="prog-bar"></div></div>
+  <div class="card">
+    <div class="hdr">
+      <div class="badge">{month_label}</div>
+      <h2>מנתח נתונים</h2>
+      <p>הניתוח החודשי מופעל אוטומטית, אנא המתן…</p>
+    </div>
+
+    <div class="prog-wrap">
+      <div class="prog-row">
+        <span class="prog-label">התקדמות</span>
+        <span class="prog-pct" id="prog-pct">0%</span>
+      </div>
+      <div class="prog-bar"><div class="prog-fill" id="prog-fill"></div></div>
+    </div>
+
+    <div class="log-panel">
+      <div class="log-hdr">
+        <div class="log-dot" id="log-dot"></div>
+        <span class="log-hdr-title">יומן אירועים</span>
+        <button class="copy-btn" id="copy-btn" onclick="copyLog()" title="העתק לוג">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+          </svg>
+        </button>
+      </div>
+      <div class="log-feed" id="lf-feed"></div>
+    </div>
+
     <div class="back"><a href="/">&#8592; חזרה לדף הראשי</a></div>
   </div>
-  {_log_float_html()}
+
+  <div id="cc-overlay" class="cc-overlay" style="display:none">
+    <div class="cc-modal">
+      <div class="cc-title">עסקת אשראי זוהתה</div>
+      <div class="cc-body">נמצאה עסקה שעשויה להיות חיוב כרטיס אשראי. האם לסווג אותה כ&quot;אשראי&quot;?</div>
+      <div id="cc-rows"></div>
+      <div class="cc-btns">
+        <button class="cc-btn cc-no"  onclick="ccRespond(false)">לא — דלג</button>
+        <button class="cc-btn cc-yes" onclick="ccRespond(true)">כן — אשר</button>
+      </div>
+    </div>
+  </div>
+
   <script>
-    {_log_float_js()}
-    function startAnalysis() {{
-      var btn = document.getElementById('start-btn');
-      var pw  = document.getElementById('progress-wrap');
-      btn.disabled = true;
-      btn.textContent = 'מנתח נתונים…';
-      pw.style.display = 'block';
-      showLogFloat('מנתח נתונים…');
+    /* ── progress ── */
+    var _pct = 0, _done = false;
+    var _ptimer = setInterval(function() {{
+      if (_done) return;
+      var step = _pct < 50 ? 1.5 : (_pct < 75 ? 0.5 : 0.15);
+      _pct = Math.min(_pct + step, 89);
+      _setPct(_pct);
+    }}, 250);
+    function _setPct(p) {{
+      p = Math.min(Math.max(p, 0), 100);
+      document.getElementById('prog-fill').style.width = p.toFixed(1) + '%';
+      document.getElementById('prog-pct').textContent = Math.round(p) + '%';
+    }}
+    function _finishPct() {{
+      _done = true; clearInterval(_ptimer); _setPct(100);
+      var d = document.getElementById('log-dot');
+      if (d) {{ d.style.animation = 'none'; d.style.background = '#52b788'; }}
+    }}
+    function _errorPct() {{
+      _done = true; clearInterval(_ptimer);
+      var d = document.getElementById('log-dot');
+      if (d) {{ d.style.animation = 'none'; d.style.background = '#b83232'; }}
+    }}
+
+    /* ── log ── */
+    function appendLog(text, cls) {{
+      var feed = document.getElementById('lf-feed');
+      if (!feed) return;
+      var el = document.createElement('div');
+      el.className = 'log-line' + (cls ? ' ' + cls : '');
+      el.textContent = text;
+      feed.appendChild(el);
+      while (feed.children.length > 120) feed.removeChild(feed.firstChild);
+      feed.scrollTop = feed.scrollHeight;
+    }}
+
+    /* ── CC modal ── */
+    function showCCPrompt(tx) {{
+      var labels = {{ID:'מזהה', Date:'תאריך', Name:'שם', Out:'סכום', Description:'תיאור'}};
+      var html = '';
+      ['Name','Date','Out','Description','ID'].forEach(function(k) {{
+        if (tx[k] != null && tx[k] !== '' && tx[k] !== 'nan')
+          html += '<div class="cc-row"><span class="cc-lbl">' + (labels[k]||k) + '</span>'
+                + '<span class="cc-val">' + String(tx[k]).replace(/</g,'&lt;') + '</span></div>';
+      }});
+      document.getElementById('cc-rows').innerHTML = html;
+      document.getElementById('cc-overlay').style.display = 'flex';
+    }}
+    function ccRespond(choice) {{
+      document.getElementById('cc-overlay').style.display = 'none';
+      fetch('/api/analysis/respond', {{method:'POST',
+        headers:{{'Content-Type':'application/json'}},
+        body: JSON.stringify({{choice: choice}})
+      }}).catch(function(){{}});
+    }}
+
+    /* ── copy log ── */
+    function copyLog() {{
+      var lines = document.getElementById('lf-feed').querySelectorAll('.log-line');
+      var text = Array.from(lines).map(function(l) {{ return l.textContent; }}).join('\n');
+      var _copyIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+      var _checkIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+      navigator.clipboard.writeText(text).then(function() {{
+        var btn = document.getElementById('copy-btn');
+        btn.innerHTML = _checkIcon;
+        btn.classList.add('copied');
+        setTimeout(function() {{ btn.innerHTML = _copyIcon; btn.classList.remove('copied'); }}, 2000);
+      }}).catch(function() {{
+        var btn = document.getElementById('copy-btn');
+        btn.textContent = '✕';
+        setTimeout(function() {{ btn.innerHTML = _copyIcon; }}, 2000);
+      }});
+    }}
+
+    /* ── stream ── */
+    (function() {{
       var es = new EventSource('/api/analysis-stream?month=pick&date={date_str}');
       var _tid = setTimeout(function() {{
         if (es.readyState !== EventSource.CLOSED) {{
-          es.close();
+          es.close(); _errorPct();
           appendLog('✗ תם הזמן — נסה לרענן', 'err');
-          btn.disabled = false;
-          btn.textContent = 'נסה שוב';
         }}
       }}, 300000);
       es.onmessage = function(e) {{
@@ -2168,22 +2302,25 @@ def _not_generated_html(year: int, month: int, yyyy_mm: str) -> str:
         }}
         if (e.data.startsWith('__DONE__')) {{
           clearTimeout(_tid); es.close();
+          _finishPct();
           appendLog('✓ הניתוח הסתיים — טוען…', 'done');
-          hideLogFloat(900);
           setTimeout(function() {{ location.href = '/general/{yyyy_mm}'; }}, 1100);
           return;
         }}
         if (e.data === '__ERROR__') {{
           clearTimeout(_tid); es.close();
+          _errorPct();
           appendLog('✗ שגיאה בניתוח', 'err');
-          hideLogFloat(3000);
-          btn.disabled = false;
-          btn.textContent = 'נסה שוב';
           return;
         }}
         appendLog(e.data);
       }};
-    }}
+      es.onerror = function() {{
+        if (es.readyState === EventSource.CLOSED) return;
+        es.close(); _errorPct();
+        appendLog('✗ חיבור נותק', 'err');
+      }};
+    }})();
   </script>
 </body>
 </html>"""
@@ -2194,43 +2331,26 @@ def _splash_html() -> str:
 <html lang="he" dir="rtl">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>BankDash — טוען</title>
+  <title>BankApp — טוען</title>
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Segoe UI', system-ui, Arial, sans-serif;
-           background: linear-gradient(150deg, #edfaf8 0%, #f7fffe 50%, #e8f7f6 100%);
+    body { font-family: 'Segoe UI', Arial, sans-serif; background: #f4f6f9;
            display: flex; align-items: center; justify-content: center;
-           min-height: 100vh; padding: 20px; }
-    .box { background: rgba(255,255,255,.98); border-radius: 20px;
-           padding: 40px 36px 32px; text-align: center;
-           box-shadow: 0 24px 64px rgba(30,157,139,.12), 0 0 0 1px rgba(30,157,139,.08);
-           width: 100%; max-width: 420px; }
-    .box-icon { font-size: 2.4em; margin-bottom: 14px; }
-    h2  { color: #0d4a42; font-size: 1.45em; font-weight: 800;
-          margin-bottom: 10px; letter-spacing: -.01em; }
-    p   { color: #5c7a75; font-size: 1em; margin-bottom: 28px; line-height: 1.5; }
-    .btn { background: linear-gradient(135deg,#1e9d8b,#148a7a); color: #fff;
-           border: none; border-radius: 12px; padding: 15px 36px;
-           font-size: 1.05em; cursor: pointer; font-weight: 700;
-           width: 100%; box-shadow: 0 6px 18px rgba(30,157,139,.35);
-           transition: filter .15s; font-family: inherit; }
-    .btn:hover { filter: brightness(1.08); }
-    .btn:disabled { opacity: .65; cursor: not-allowed; }
-    #msg { margin-top: 16px; color: #1e9d8b; font-size: .95em; font-weight: 600; display: none; }
-    @media (max-width: 480px) {
-      .box { padding: 32px 22px 26px; border-radius: 16px; }
-      h2   { font-size: 1.25em; }
-    }
+           min-height: 100vh; margin: 0; }
+    .box { background: #fff; border-radius: 14px; padding: 48px 56px;
+           text-align: center; box-shadow: 0 6px 20px rgba(0,0,0,.10); max-width: 440px; }
+    h2   { color: #1e2a4a; margin-bottom: 12px; }
+    p    { color: #888; font-size: .93em; margin-bottom: 32px; }
+    .btn { background: #1e9d8b; color: #fff; border: none; border-radius: 10px;
+           padding: 13px 36px; font-size: 1em; cursor: pointer; font-weight: 600; }
+    .btn:hover { background: #178878; }
   </style>
 </head>
 <body>
   <div class="box">
-    <div class="box-icon">🏦</div>
-    <h2>ברוך הבא ל-BankDash</h2>
+    <h2>ברוך הבא ל-BankApp</h2>
     <p>טרם נוצר דשבורד. לחץ כדי להפעיל ניתוח עבור החודש הנוכחי.</p>
     <button class="btn" id="runBtn" onclick="runNow()">הפעל ניתוח</button>
-    <p id="msg">מעבד נתונים, אנא המתן…</p>
+    <p id="msg" style="margin-top:18px;color:#1e9d8b;display:none;">מעבד נתונים, אנא המתן…</p>
   </div>
   <script>
     function runNow() {
@@ -2353,6 +2473,7 @@ tbody tr:hover .org-td-date{background:#f8fffd !important}
     <a class="nav-item" href="/files">קבצים</a>
   </div>
   <div class="sidebar-footer" style="padding:12px 16px;border-top:1px solid var(--border);flex-shrink:0">
+    <div id="app-version-badge-2" style="text-align:center;font-size:.7em;color:var(--text-muted);margin-bottom:8px;letter-spacing:.03em;opacity:.7;">v—</div>
     <button onclick="restartServer(this)" style="width:100%;padding:8px 12px;border:1.5px dashed var(--border);border-radius:8px;background:none;color:var(--text-muted);font-size:.78em;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:7px;justify-content:center" onmouseover="this.style.background='#fff3f3';this.style.color='#e53935';this.style.borderColor='#e53935'" onmouseout="this.style.background='none';this.style.color='';this.style.borderColor=''">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
       הפעל שרת מחדש
@@ -2405,6 +2526,7 @@ function openNav(){var s=document.getElementById('sidebar'),o=document.getElemen
 function closeNav(){var s=document.getElementById('sidebar'),o=document.getElementById('nav-overlay'),b=document.getElementById('ham-btn');s.classList.remove('open');o.classList.remove('open');b.classList.remove('open');}
 function toggleNav(){document.getElementById('sidebar').classList.contains('open')?closeNav():openNav();}
 document.addEventListener('keydown',function(e){if(e.key==='Escape')closeNav();});
+fetch('/api/version').then(function(r){return r.json();}).then(function(d){var b=document.getElementById('app-version-badge-2');if(b&&d.version)b.textContent='v'+d.version;}).catch(function(){});
 (function(){
   var genLabel = document.getElementById('generated-label');
   if (genLabel && document.body.dataset.generated)
@@ -2606,11 +2728,19 @@ def organizer_regenerate():
 
     def _run():
         try:
+            # read_present_table drives 0-100 internally but only covers ~75% of
+            # the total work; scale it to 0-75 so the remaining stages (HTML build,
+            # file write, manifest) fill the rest of the bar accurately.
+            def _scaled(p):
+                pq.put(int(p * 0.75))
+
             deps, db_mtime = _capture_deps_and_run(
-                lambda: _build_organizer_page(progress_callback=lambda p: pq.put(p))
+                lambda: _build_organizer_page(progress_callback=_scaled)
             )
+            pq.put(88)   # HTML built and written to disk
             if os.path.exists(ORGANIZER_HTML):
                 _save_manifest(ORGANIZER_HTML, deps, db_mtime)
+            pq.put(95)   # manifest saved
             pq.put('done')
         except Exception as exc:
             pq.put(f'error:{exc}')
@@ -3318,6 +3448,11 @@ BILLS_HTML = os.path.join(_HERE, 'html', 'Bills.html')
 
 @app.route('/bills')
 def bills_page():
+    try:
+        from database import DataBase
+        DataBase().ensure_bill_tables()
+    except Exception:
+        pass
     if os.path.exists(BILLS_HTML):
         return send_file(BILLS_HTML)
     return "Bills page not found", 404
@@ -3526,6 +3661,11 @@ SPOTIFY_HTML = os.path.join(_HERE, 'html', 'SpotifyTracker.html')
 
 @app.route('/spotify')
 def spotify_page():
+    try:
+        from database import DataBase
+        DataBase().ensure_spotify_tables()
+    except Exception:
+        pass
     if os.path.exists(SPOTIFY_HTML):
         return send_file(SPOTIFY_HTML)
     return "Spotify Tracker page not found", 404

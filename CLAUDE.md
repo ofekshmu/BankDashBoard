@@ -1,197 +1,169 @@
-# BankDash — Claude Project Context
+# BankDashBoard — Claude Context
 
 ## What this app is
 
-BankDash is a **personal finance dashboard** for the Shmuel family. It ingests Israeli bank and credit-card Excel exports, stores them in a database, runs analysis, and serves a Hebrew RTL web dashboard on `http://localhost:5050`.
-
-Key features: monthly spending/earnings/investment analysis, KPI summaries, smart alerts, mortgage tracking, cash-flow by currency, account status, category drill-down, bills tracker, Spotify cost splitter, gym session splitter.
+A personal finance dashboard that parses raw Excel files downloaded from Bank Leumi, stores them in a local SQLite database, and serves a Flask web app with monthly analysis, category breakdowns, a file organizer, and cash tracking.
 
 ---
 
-## How to run
-
-```bash
-# From repo root
-python source/main.py        # starts Flask on :5050 and opens browser
-# OR
-python source/WebApp.py      # same, without the atexit cleanup hook
-```
-
-The app runs with `flask run` equivalent via `WebApp.start(port=5050)`.
-
----
-
-## Architecture overview
+## Repository layout
 
 ```
 source/
-  main.py              ← entrypoint; calls WebApp.start()
-  WebApp.py            ← Flask app (~4000 lines); all routes + UI helper HTML
-  AppManager.py        ← orchestrates analysis pipeline (parse → validate → generate)
-  database.py          ← DataBase class; wraps SQLite (local) and PostgreSQL (prod)
-  Bank.py / Card.py    ← models for bank / credit-card transaction records
-  Parser.py            ← parses bank/card Excel exports into DataBase rows
-  File.py              ← file tracking; knows which Excel files have been imported
-  Constants.py         ← shared constants (reserved category names, column names)
-  auth.py              ← HMAC-based password verification
-  decorators.py        ← Flask auth decorator
-  front/Graphics.py    ← generates chart images (matplotlib/plotly) → Outputs/
-  Analysis/
-    SmartAlerts.py     ← detects unusual spending patterns; returns alert list
+  WebApp.py          — Flask app, all routes, HTML generation helpers
+  AppManager.py      — CLI entry point, orchestrates parsing → DB → analysis
+  database.py        — DataBase singleton (SQLite via sqlite3)
+  Constants.py       — All enums and reserved string constants
   src_utils/
-    utils.py           ← generate_html() — the main HTML report builder (~2700 lines)
-    calculations.py    ← financial calculations (net, savings rate, etc.)
-    mortgage.py        ← mortgage amortisation helpers
-    AppManagerUtils.py ← helper functions for AppManager
-    ExcelReader.py     ← openpyxl wrapper for reading bank Excel files
+    utils.py         — Core logic: generate_html, card_charge_validation,
+                       handle_withdrawals, get_cash_transactions,
+                       accumulate_cash_Balance, read_present_table, …
+    calculations.py  — process_prices (classifies each transaction into Trans_Type)
+  Configurations/
+    Formats.py       — Per-bank-format config (column names, card numbers, tx names)
   routes/
-    auth_routes.py     ← /login, /logout routes
-    activity_routes.py ← /activity log routes
-  html/
-    Base_template.html ← HTML skeleton: all CSS + static JS (see rule below)
-    output.html        ← GENERATED — last analysis output. DO NOT EDIT.
-    Bills.html         ← bills tracker page template
-    Search.html        ← search page template
-    Tagger.html        ← category tagger page template
-    Gym.html           ← gym splitter page template
-    Organizer_Table.html ← file organizer template
-    design-system.css  ← shared design tokens (colours, typography, spacing)
-    index.html         ← landing page / auth gate
-Outputs/
-  general_analysis/    ← GENERATED monthly reports (2025_12.html, 2026_05.html…)
-  category_analysis/   ← GENERATED category drill-down reports
-  Graphics/            ← GENERATED chart images
-fill_missing.py        ← one-shot SQLite → PostgreSQL gap-filler (idempotent)
+    auth_routes.py   — Blueprint for /login /logout (separate from WebApp.py auth)
+  html/              — Static HTML templates (Base_template.html, Files.html, …)
 ```
 
 ---
 
-## Database
+## Key domain concepts
 
-### Two modes
-| Environment | DB | Connection |
+### Transaction tables
+- **BankTransactions** — direct bank debits/credits (transfers, CC charges, ATM debits)
+- **CardTransactions** — individual credit card line items
+- **CashTransactions** — manual cash entries created by the user
+
+### Trans_Type (enum in Constants.py)
+Each row in a processed DataFrame is classified by `process_prices()` in `calculations.py`:
+
+| Value | Meaning |
+|---|---|
+| `payment` | instalment payment transaction |
+| `flowing` | regular recurring expense |
+| `payback` | refund |
+| `withdrawl` | ATM cash withdrawal (note: intentional typo in codebase) |
+| `excluded` | manually excluded or CC-charge rows |
+| `default` | everything else |
+| `bank` | bank-side transaction |
+
+### ReservedNames (Constants.py)
+| Constant | Value | Used for |
 |---|---|---|
-| Local dev | SQLite `ShmuelFamiliy.db` (repo root) | `DataBase()` — auto-detected |
-| Vercel / prod | Neon PostgreSQL | `DATABASE_URL` env var in `.env` |
-
-Detection: `os.getenv('DATABASE_URL')` — if set, use PostgreSQL; else SQLite.
-
-### Tables (SQLite names; PostgreSQL names are all-lowercase)
-| Table | Contents |
-|---|---|
-| `BankTransactions` | Bank account debit/credit rows |
-| `CardTransactions` | Credit-card charge rows |
-| `CashTransactions` | Manual cash entries |
-| `DevisionTransactions` | Split-transaction child rows |
-| `Card` | Credit card metadata (name, last4, owner) |
-| `File` | Imported Excel file registry |
-| `TableMeta` | Per-month metadata (month key, record counts) |
-| `OtherAccountStatus` | Savings/investment account balances & FX rates |
-| `BillTypes` / `BillEntries` | Bills tracker |
-| `SpotifyMembers` / `SpotifyCharges` / `SpotifyPayments` | Spotify cost splitter |
-| `GymParticipants` / `GymSessions` | Gym session splitter |
-
-### PostgreSQL gotchas
-- Table and column names in PostgreSQL queries must be **all-lowercase** (e.g. `banktransactions`, `executed_date`). SQLite is case-insensitive; PostgreSQL is not.
-- `psycopg2` uses `%s` placeholders; SQLite uses `?`. `database.py` handles this via `_ChainableCursor` adapter.
-- Always `connect_timeout=10` when calling `psycopg2.connect()` — without it, TCP hangs are silent and unrecoverable.
-- Run `ALTER TABLE` DDL **once at startup** (`_run_acct_migrations()` in `WebApp.py`), never per-request — DDL locks the table and blocks all concurrent reads.
-
-### Monthly query logic
-- Bank rows belong to month **M** when `Executed_Date` is in month M.
-- Card rows belong to month **M** when `Charge_Date` is in month **M+1** (Israeli banks charge the following month). Example: May 2026 analysis → `Charge_Date BETWEEN 2026-06-01 AND 2026-06-30`.
+| `WITHDRAWAL` | `"משיכת מזומנים"` | Name of ATM withdrawal rows in CardTransactions |
+| `WHITDRAWAL_CATEGORY` | `"withdrawal"` | Category tag applied to matched withdrawal rows |
+| `EXCLUDED_CATEGORY` | `"Excluded"` | Manually excluded transactions |
+| `CC_CHARGE_CATEGORY_NAME` | `"אשראי"` | Bank-side credit-card charge rows |
 
 ---
 
-## HTML report generation — THE CRITICAL RULE
+## ATM withdrawal handling — critical invariant
 
-**Source files to edit:**
+An ATM withdrawal creates **two rows**:
+1. `CardTransactions` — name `"משיכת מזומנים"`, the card debit
+2. `BankTransactions` — the matching bank debit the same month
 
-| File | When to edit |
-|---|---|
-| `source/html/Base_template.html` | Any CSS or static JS that should appear in generated reports |
-| `source/src_utils/utils.py` — `generate_html()` | Programmatically-built HTML sections (KPI stat row, transaction lists, chart containers, etc.) |
-| `source/WebApp.py` — `_log_float_style()` / `_not_generated_html()` / `_splash_html()` | The regeneration-in-progress screen and "no dashboard yet" splash |
+`utils.handle_withdrawals()` matches them and tags **both** with `category = "withdrawal"`.
 
-**Files to NEVER edit directly:**
+**Any function that sums money or counts transactions must exclude `WHITDRAWAL_CATEGORY`**, otherwise the same cash leaves is counted twice. The places that do (or must) apply this filter:
 
-| File | Why |
-|---|---|
-| `source/html/output.html` | Overwritten on every `generate_html()` call. Any edit is lost immediately. |
-| `Outputs/general_analysis/*.html` | Overwritten when user clicks "חשב מחדש". Any edit is lost on next regeneration. |
+- `calculations.process_prices` — `is_withdrawals_transaction()` returns `Trans_Type.withdrawl`; these rows are excluded in general analysis
+- `utils.card_charge_validation()` — filters `processed_df` by `Category != WHITDRAWAL_CATEGORY` before summing per-card totals (otherwise the card sum inflates and the charge validation fails)
+- `utils.accumulate_cash_Balance()` — filters CashTransactions by `Category != WHITDRAWAL_CATEGORY` (bank-side debit already counted separately)
+- `utils.get_cash_transactions()` — same filter on CashTransactions
 
-**History:** Commits `eadd163`–`876c7ef` patched the generated files directly. All fixes disappeared on next analysis. They were backported to `Base_template.html` and `utils.py` in commits `78a6e8d` and `56d1796`.
+---
 
-After any change to `Base_template.html` or `utils.py`, regenerate the cached month HTML by calling:
-```
-POST /api/analysis   body: {"month":"pick","date":"YYYY-MM-01"}
+## Organizer page regeneration — progress bar
+
+`/api/organizer/regenerate` streams numeric progress to the client.
+
+**Work breakdown** (approximate):
+- 0–75 % → `read_present_table()` row loop — the only place that calls `progress_callback`
+- 75–88 % → untagged-cells detection loop + HTML string building + file write (inside `_build_organizer_page`)
+- 88–95 % → `_save_manifest()`
+- 95–100 % → `done` signal
+
+The progress callback passed to `_build_organizer_page` must be **scaled to 0–75** so the bar does not freeze at ~75 % and then jump to 100.
+
+```python
+def _scaled(p):
+    pq.put(int(p * 0.75))   # maps read_present_table 0-100 → 0-75
+
+deps, db_mtime = _capture_deps_and_run(
+    lambda: _build_organizer_page(progress_callback=_scaled)
+)
+pq.put(88)   # after HTML written to disk
+_save_manifest(...)
+pq.put(95)   # after manifest
+pq.put('done')
 ```
 
 ---
 
-## Flask app key facts
+## Page regeneration screen
 
-- **Port:** 5050 (local). Vercel uses serverless.
-- **Auth:** `DASHBOARD_PASSWORD` (read-only) and `ADMIN_PASSWORD` (upload/admin). Verified via HMAC in `auth.py`. Set in `.env`.
-- **`.env` must NEVER be committed.** It is gitignored. A prior accidental commit exposed the Neon password — rotate in Neon console before any prod deploy.
-- **Threaded:** `app.run(threaded=True)` — concurrent requests are supported.
-- **FX rates:** fetched from `api.exchangerate-api.com` in a daemon thread with `join(timeout=4)`. Never use bare `urlopen` (TCP hangs with no timeout).
-- **VERCEL env detection:**
-  - `os.getenv('VERCEL')` → write HTML to `/tmp/`, not `Outputs/`
-  - `os.getenv('DATABASE_URL')` → use PostgreSQL, write logs/db to `/tmp/`
+When a monthly analysis doesn't exist yet, `_not_generated_html()` is shown. Its style/HTML/JS come from three shared helpers used by both monthly and category regeneration pages:
 
-### Key routes
-| Route | What it does |
-|---|---|
-| `GET /` | Landing page / auth gate (`source/html/index.html`) |
-| `GET /general/<yyyy_mm>` | Serves monthly analysis HTML; triggers regeneration if stale or missing |
-| `POST /api/analysis` | Starts analysis in background thread. Body: `{"month":"current"/"last"/"pick", "date":"YYYY-MM-DD"}` |
-| `GET /api/analysis-stream` | SSE stream of analysis log lines → drives the regen screen progress |
-| `GET /api/stale/<yyyy_mm>` | Returns whether cached HTML is stale vs DB |
-| `GET /api/accounts/rates` | FX rates + account balances for the Accounts panel |
-| `GET /api/accounts/cash-by-currency` | Cash breakdown by currency |
-| `POST /admin/upload-db` | Upload a local SQLite DB to the server (Vercel workaround) |
+- `_log_float_style()` — `<style>` block (body background, `.box`, `.log-float`, `.lf-*`)
+- `_log_float_html()` — the floating log panel markup
+- `_log_float_js()` — `showLogFloat / hideLogFloat / appendLog / showCCPrompt`
+
+**Do not add a separate copy of these helpers** — they are intentionally shared.
+
+The log feed (`#lf-feed`) uses `flex-direction:column` with `appendChild` + `scrollTop = scrollHeight` so newest lines appear at the bottom. Do not switch back to `column-reverse` / `insertBefore`.
 
 ---
 
-## Analysis pipeline
+## Color palette
 
-`POST /api/analysis` → background thread → `AppManager.__init__()` → runs in order:
+| Token | Hex | Used for |
+|---|---|---|
+| Navy | `#1e2a4a` | Headings, sidebar background, body text |
+| Teal | `#1e9d8b` | Accent, buttons, badges, links |
+| Background | `#f4f6f9` | Dashboard page backgrounds |
+| White | `#fff` | Card/panel backgrounds |
+| Page regen bg | `linear-gradient(135deg, #0f1627 0%, #1a2e52 100%)` | Regeneration / loading screens only |
 
-1. **Parse** — `Parser.py` reads new Excel files from `ShmuelFamiliy_Inputs/`
-2. **Validate** — format checks, withdrawal detection, constants validation
-3. **Generate charts** — `front/Graphics.py` writes PNGs to `Outputs/Graphics/`
-4. **Smart alerts** — `Analysis/SmartAlerts.py` returns alert list
-5. **Mortgage analysis** — `src_utils/mortgage.py`
-6. **Generate HTML** — `src_utils/utils.py::generate_html()` reads `Base_template.html`, fills in data, writes to `Outputs/general_analysis/<yyyy_mm>.html` and `source/html/output.html`
+CSS variables used in the dashboard HTML: `var(--teal)`, `var(--navy)`, `var(--white)`, `var(--border)`, `var(--text-muted)`.
+
+---
+
+## Flask routes — duplicate-route pitfall
+
+`WebApp.py` defines most routes inline. `source/routes/` contains Blueprints for newer features. **Never define the same route or endpoint name in both places.** Flask raises `AssertionError: View function mapping is overwriting an existing endpoint function` at startup if a route is registered twice. Check with:
+
+```bash
+grep -n "api/auth/verify\|api_auth_verify" source/WebApp.py
+```
+
+The canonical auth check endpoint is `POST /api/auth/verify` in `WebApp.py` — it uses `hmac.compare_digest` and falls back to `DASHBOARD_PASSWORD` → `'ofek'` if `ADMIN_PASSWORD` is not set.
+
+---
+
+## Branch conventions
+
+| Branch | Purpose |
+|---|---|
+| `main` | Stable, deployed to Vercel |
+| `Dev/Analysis2-0` | Active local development branch |
+| `features-and-fixes` | Claude-assisted features and bug fixes (branch from `main`) |
+| `claude/session-*` | Auto-created per Claude session (ephemeral, not for long-lived work) |
+
+Always develop on `features-and-fixes` (or a named feature branch), not on `claude/session-*` branches.
+
+---
+
+## Versioning — standing rule
+
+- The version number lives in `/VERSION` (semver, one line, e.g. `1.1.0`).
+- **On every commit and push to this repo, increment the patch version** (e.g. `1.1.0` → `1.1.1`). Minor bumps for new features, major bumps for breaking changes.
+- The version is served by `GET /api/version` and displayed in **all sidebar footers** via `<div id="app-version-badge-*">`. There are currently two badges (`app-version-badge-1` in the category page sidebar, `app-version-badge-2` in the organizer/monthly page sidebar). Each sidebar's `<script>` block fetches `/api/version` and populates its badge.
+- This rule applies to every Claude session and every repo — always bump the version as part of each commit.
 
 ---
 
 ## Deployment
 
-- **Branch:** `deployment2_0` (active deployment debug branch, off `main`)
-- **Platform:** Vercel (serverless Python)
-- **DB:** Neon PostgreSQL (free tier). Connection string in `.env` as `DATABASE_URL`.
-- **`fill_missing.py`** — run from repo root to sync SQLite rows into PostgreSQL. Uses per-row savepoints so FK violations skip one row without rolling back the whole transaction.
-
----
-
-## Design system
-
-- **Colour tokens** defined in `source/html/design-system.css` and mirrored as CSS vars in `Base_template.html`: `--navy`, `--teal`, `--teal-light`, `--red`, `--green`, `--border`, `--bg`, `--white`, `--text-muted`, etc.
-- **RTL** — all pages are `dir="rtl" lang="he"` (Hebrew).
-- **Mobile-first** — sidebar collapses behind a hamburger (`ham-btn`), panels stack vertically at ≤900px, transaction rows lose non-essential columns at ≤560px.
-- **Month roller** — horizontal carousel at the top of each analysis page; touch/swipe supported via Pointer Events API.
-
----
-
-## Common pitfalls
-
-| Symptom | Root cause | Fix |
-|---|---|---|
-| Analysis hangs at "Generating linear plots" | `urlopen` for FX rates blocks on TCP with no timeout | Use daemon thread + `join(timeout=4)` |
-| `KeyError: 'DATABASE_URL'` in `_pg_conn()` | `load_dotenv` not called before WebApp imports | Call `load_dotenv` at module top in `WebApp.py` |
-| `AssertionError: View function mapping is overwriting an existing endpoint` | Duplicate `@app.route` definition | Search for the duplicate and remove it |
-| Chart panel empty / hanging | `ALTER TABLE` DDL in per-request `_acct_db()` locks table | Move DDL to one-time `_run_acct_migrations()` at startup |
-| UI fix disappears after regeneration | Fix was applied to `output.html` or `Outputs/*.html`, not `Base_template.html` | Port CSS/JS to `Base_template.html` or `utils.py` |
-| PostgreSQL FK violation rolling back all rows | `pg.rollback()` in the FK handler rolls back the whole transaction | Use savepoints: `SAVEPOINT sp / ROLLBACK TO SAVEPOINT sp / RELEASE SAVEPOINT sp` |
+The app runs on Vercel (serverless). Entry point: `source/WebApp.py`. The database is SQLite; the Vercel path differs from local — see `fill_missing.py` and `database.py` for path resolution. Do not hardcode local Windows paths (e.g. `C:\\Users\\ofeks\\...`).

@@ -4331,6 +4331,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
 <style>
 .skel-card { background: linear-gradient(90deg,#e8eaf0 25%,#f4f6f9 50%,#e8eaf0 75%); background-size: 200% 100%; border-radius: 10px; height: 90px; animation: skel-shimmer 1.5s infinite; }
 @keyframes skel-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+.kpi-sub { font-size: 0.68em; color: var(--text-muted); margin-top: 4px; }
 </style>
 <script>
 (function() {
@@ -4388,12 +4389,12 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     function _renderKpi(data) {
         var kpi = data.kpi || {};
 
-        function _kpiCard(label, value, sub, colorClass) {
-            colorClass = colorClass || '';
+        function _kpiCard(label, value, sub, posNeg) {
             var valStr = _fmt(value);
-            return '<div class="kpi-card' + (colorClass ? ' ' + colorClass : '') + '">' +
+            var valClass = 'kpi-value' + (posNeg === 'pos' ? ' pos' : posNeg === 'neg' ? ' neg' : '');
+            return '<div class="kpi-card">' +
                 '<div class="kpi-label">' + _esc(label) + '</div>' +
-                '<div class="kpi-value">' + _esc(valStr) + '</div>' +
+                '<div class="' + valClass + '">' + _esc(valStr) + '</div>' +
                 (sub ? '<div class="kpi-sub">' + _esc(sub) + '</div>' : '') +
                 '</div>';
         }
@@ -4407,16 +4408,16 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         var row1 = document.getElementById('kpi-row');
         if (row1) {
             row1.innerHTML =
-                _kpiCard('הכנסה נטו חודשית', netIncome, null, parseFloat(netIncome) >= 0 ? 'kpi-positive' : 'kpi-negative') +
-                _kpiCard('השקעות נטו', invest, null, parseFloat(invest) >= 0 ? 'kpi-positive' : 'kpi-negative') +
+                _kpiCard('הכנסה נטו חודשית', netIncome, null, parseFloat(netIncome) >= 0 ? 'pos' : 'neg') +
+                _kpiCard('השקעות נטו', invest, null, parseFloat(invest) >= 0 ? 'pos' : 'neg') +
                 _kpiCard('יתרה סוף חודש', balance, kpi.balance_date || '', null);
         }
 
         var row2 = document.getElementById('kpi-row-2');
         if (row2) {
             row2.innerHTML =
-                _kpiCard('הכנסה מזומן', cashEarned, null, null) +
-                _kpiCard('הוצאה מזומן', cashSpent, null, null);
+                _kpiCard('הכנסה מזומן', cashEarned, null, 'pos') +
+                _kpiCard('הוצאה מזומן', cashSpent, null, 'neg');
         }
     }
 
@@ -4634,12 +4635,15 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         if (!card) return;
         var alerts = data.alerts || [];
         if (!alerts.length) { card.style.display = 'none'; return; }
-        var html = '<div class="card-title">התראות חכמות</div><div class="alerts-grid">';
+        var BG_MAP = {'#e74c3c':'#fff5f5','#2ecc71':'#f0fff4','#f0b429':'#fffbeb'};
+        var html = '<div class="card-title">התראות חכמות</div><div class="alerts-matrix">';
         alerts.forEach(function(a) {
-            html += '<div class="alert-item" style="border-left:4px solid ' + _esc(a.color || '#1e9d8b') + ';">' +
+            var color = a.color || '#f0b429';
+            var bg = BG_MAP[color] || '#fafafa';
+            html += '<div class="alert-item" style="border-color:' + _esc(color) + ';background-color:' + _esc(bg) + ';">' +
                 '<span class="alert-icon">' + _esc(a.icon || '') + '</span>' +
-                '<div><div class="alert-title">' + _esc(a.title) + '</div>' +
-                '<div class="alert-desc">' + _esc(a.description) + '</div></div></div>';
+                '<div class="alert-body"><strong>' + _esc(a.title) + '</strong>' +
+                '<p>' + _esc(a.description) + '</p></div></div>';
         });
         html += '</div>';
         card.innerHTML = html;

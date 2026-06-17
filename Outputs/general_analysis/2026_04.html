@@ -9286,42 +9286,41 @@ function _reloadGeneral() {
   btn.disabled = true;
   showLogFloat('מחשב מחדש חודש…');
 
-  fetch('/api/analysis', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ month: 'pick', date: dateStr })
-  }).then(function(r) {
-    if (r.status === 409) { btn.classList.remove('running'); btn.disabled = false; hideLogFloat(0); return; }
-    var es = new EventSource('/api/logs');
-    es.onmessage = function(evt) {
-      var data = evt.data;
-      if (!data || data === '__CONNECTED__') return;
-      if (data.startsWith('__PROMPT_CC__:')) {
-        try { showCCPrompt(JSON.parse(data.slice(14))); } catch(_e) {}
-        return;
-      }
-      if (data.startsWith('__DONE__')) {
-        es.close();
-        appendLog('✓ הניתוח הסתיים — מרענן...', 'done');
-        btn.classList.remove('running', 'stale'); btn.disabled = false;
-        hideLogFloat(1000);
-        setTimeout(function() {
-          var _curPanel = new URLSearchParams(window.location.search).get('panel') || '';
-          location.href = '/general/' + _currentKey + (_curPanel ? '?panel=' + _curPanel : '');
-        }, 1200);
-        return;
-      }
-      if (data === '__ERROR__') {
-        es.close();
-        appendLog('✗ שגיאה בניתוח', 'err');
-        btn.classList.remove('running'); btn.disabled = false;
-        hideLogFloat(3000);
-        return;
-      }
-      appendLog(data);
-    };
-    es.onerror = function() { es.close(); btn.classList.remove('running'); btn.disabled = false; hideLogFloat(0); };
-  });
+  var es = new EventSource('/api/analysis-stream?month=pick&date=' + dateStr);
+  es.onmessage = function(evt) {
+    var data = evt.data;
+    if (!data || data === '__CONNECTED__') return;
+    if (data.startsWith('__PROMPT_CC__:')) {
+      try { showCCPrompt(JSON.parse(data.slice(14))); } catch(_e) {}
+      return;
+    }
+    if (data.startsWith('__DONE__')) {
+      es.close();
+      appendLog('✓ הניתוח הסתיים — מרענן...', 'done');
+      btn.classList.remove('running', 'stale'); btn.disabled = false;
+      hideLogFloat(1000);
+      setTimeout(function() {
+        var _curPanel = new URLSearchParams(window.location.search).get('panel') || '';
+        location.href = '/general/' + _currentKey + (_curPanel ? '?panel=' + _curPanel : '');
+      }, 1200);
+      return;
+    }
+    if (data === '__ERROR__' || data.startsWith('__ERROR__:')) {
+      es.close();
+      appendLog('✗ שגיאה בניתוח', 'err');
+      btn.classList.remove('running'); btn.disabled = false;
+      hideLogFloat(3000);
+      return;
+    }
+    appendLog(data);
+  };
+  es.onerror = function() {
+    if (es.readyState === EventSource.CLOSED) return;
+    es.close();
+    appendLog('✗ חיבור נותק', 'err');
+    btn.classList.remove('running'); btn.disabled = false;
+    hideLogFloat(3000);
+  };
 }
 
 function _reloadCategory(slug) {
@@ -9332,35 +9331,34 @@ function _reloadCategory(slug) {
   btn.disabled = true;
   showLogFloat('מחשב מחדש ניתוח…');
 
-  fetch('/api/category/run', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ slug: slug, type: type_ })
-  }).then(function(r) {
-    if (r.status === 409) { btn.classList.remove('running'); btn.disabled = false; hideLogFloat(0); return; }
-    var es = new EventSource('/api/logs');
-    es.onmessage = function(evt) {
-      var data = evt.data;
-      if (!data || data === '__CONNECTED__') return;
-      if (data.startsWith('__DONE__')) {
-        es.close();
-        appendLog('✓ הניתוח הסתיים — מרענן...', 'done');
-        btn.classList.remove('running', 'stale'); btn.disabled = false;
-        hideLogFloat(1000);
-        setTimeout(function() { location.reload(); }, 1200);
-        return;
-      }
-      if (data === '__ERROR__') {
-        es.close();
-        appendLog('✗ שגיאה בניתוח', 'err');
-        btn.classList.remove('running'); btn.disabled = false;
-        hideLogFloat(3000);
-        return;
-      }
-      appendLog(data);
-    };
-    es.onerror = function() { es.close(); btn.classList.remove('running'); btn.disabled = false; hideLogFloat(0); };
-  });
+  var es = new EventSource('/api/category/stream?slug=' + encodeURIComponent(slug) + '&type=' + type_);
+  es.onmessage = function(evt) {
+    var data = evt.data;
+    if (!data || data === '__CONNECTED__') return;
+    if (data.startsWith('__DONE__')) {
+      es.close();
+      appendLog('✓ הניתוח הסתיים — מרענן...', 'done');
+      btn.classList.remove('running', 'stale'); btn.disabled = false;
+      hideLogFloat(1000);
+      setTimeout(function() { location.reload(); }, 1200);
+      return;
+    }
+    if (data === '__ERROR__' || data.startsWith('__ERROR__:')) {
+      es.close();
+      appendLog('✗ שגיאה בניתוח', 'err');
+      btn.classList.remove('running'); btn.disabled = false;
+      hideLogFloat(3000);
+      return;
+    }
+    appendLog(data);
+  };
+  es.onerror = function() {
+    if (es.readyState === EventSource.CLOSED) return;
+    es.close();
+    appendLog('✗ חיבור נותק', 'err');
+    btn.classList.remove('running'); btn.disabled = false;
+    hideLogFloat(3000);
+  };
 }
 
 function _checkStale() {

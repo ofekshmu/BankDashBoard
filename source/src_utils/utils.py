@@ -4548,27 +4548,25 @@ function reloadCurrent() {{
   document.getElementById('log-body').innerHTML = '';
   setLogInd('active');
 
-  fetch('/api/category/run', {{
-    method: 'POST',
-    headers: {{'Content-Type': 'application/json'}},
-    body: JSON.stringify({{slug: SLUG, type: TYPE, name: NAME}})
-  }}).then(function(r) {{
-    if (r.status === 409) {{ btn.classList.remove('running'); btn.disabled = false; return; }}
-    var es = new EventSource('/api/logs');
-    es.onmessage = function(evt) {{
-      var d = evt.data;
-      if (!d || d === '__CONNECTED__') return;
-      if (d.startsWith('__DONE__')) {{
-        es.close(); setLogInd('');
-        btn.classList.remove('running'); btn.disabled = false;
-        setTimeout(function() {{ location.reload(); }}, 600);
-        return;
-      }}
-      if (d === '__ERROR__') {{ es.close(); setLogInd('error'); btn.classList.remove('running'); btn.disabled = false; return; }}
-      appendLog(d);
-    }};
-    es.onerror = function() {{ es.close(); btn.classList.remove('running'); btn.disabled = false; }};
-  }});
+  var es = new EventSource('/api/category/stream?slug=' + encodeURIComponent(SLUG) + '&type=' + TYPE);
+  es.onmessage = function(evt) {{
+    var d = evt.data;
+    if (!d || d === '__CONNECTED__') return;
+    if (d.startsWith('__DONE__')) {{
+      es.close(); setLogInd('');
+      btn.classList.remove('running'); btn.disabled = false;
+      setTimeout(function() {{ location.reload(); }}, 600);
+      return;
+    }}
+    if (d === '__ERROR__' || d.startsWith('__ERROR__:')) {{
+      es.close(); setLogInd('error'); btn.classList.remove('running'); btn.disabled = false; return;
+    }}
+    appendLog(d);
+  }};
+  es.onerror = function() {{
+    if (es.readyState === EventSource.CLOSED) return;
+    es.close(); setLogInd('error'); btn.classList.remove('running'); btn.disabled = false;
+  }};
 }}
 
 // ── Log helpers ───────────────────────────────────────────

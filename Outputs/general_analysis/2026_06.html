@@ -7,8 +7,8 @@
   <title id="page-title">
    Dashboard — June 2026
   </title>
-<link rel="icon" type="image/svg+xml" href="/favicon.svg">
-<link rel="alternate icon" href="/favicon.ico">
+  <link href="/favicon.svg" rel="icon" type="image/svg+xml"/>
+  <link href="/favicon.ico" rel="alternate icon"/>
   <script>
    (function(){
   var p=window.location.pathname;
@@ -959,9 +959,12 @@ body {
 
 /* ── Transaction panels ──────────────────────────────────── */
 .tx-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-@media (max-width: 900px) {
-  .tx-grid { grid-template-columns: 1fr; }
-  .tx-grid > .card { min-width: 0; overflow-x: hidden; }
+@media (max-width: 900px) { .tx-grid { grid-template-columns: 1fr; } .tx-grid > .card { min-width: 0; overflow-x: hidden; } }
+@media (max-width: 540px) {
+  .num { grid-template-columns: 6px 1fr 68px 52px; gap: 6px; padding: 8px 4px; }
+  .num .element4 { display: none; }
+  .num .date { font-size: 0.72em; }
+  .num .cat { font-size: 0.62em; padding: 2px 4px; }
 }
 
 .tx-toolbar {
@@ -1062,14 +1065,6 @@ body {
   .num { grid-template-columns: 6px 1fr 90px; gap: 6px; padding: 8px 4px; }
   .num .cat, .num .element4 { display: none; }
   .num .date { font-size: 0.82em; }
-}
-
-/* Mobile: compact transaction rows */
-@media (max-width: 540px) {
-  .num { grid-template-columns: 6px 1fr 68px 52px; gap: 6px; padding: 8px 4px; }
-  .num .element4 { display: none; }
-  .num .date { font-size: 0.72em; }
-  .num .cat { font-size: 0.62em; padding: 2px 4px; }
 }
 
 /* ── Transaction split ───────────────────────────────────── */
@@ -1310,7 +1305,6 @@ body {
 .acct-wrap tr.acct-virtual td:first-child::after { content: " ✦"; font-style: normal; font-size: 0.75em; opacity: 0.6; }
 .acct-wrap tr.acct-total td { font-weight: 700; background: #f8fafc; border-top: 2px solid var(--border); border-bottom: none; }
 .acct-detail-cell { font-size: 0.78em !important; color: #888 !important; white-space: nowrap; }
-.acct-wrap td:nth-child(6) { white-space: nowrap; }
 
 /* ── Floating log panel ──────────────────────────────────── */
 .log-float {
@@ -1440,6 +1434,23 @@ body {
   .acct-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .acct-wrap table { min-width: 480px; }
   .acct-detail-cell { display: none; }
+}
+/* ── Accounts panel — narrow mobile layout ───────────────── */
+@media (max-width: 620px) {
+  /* Hide low-priority columns: שינוי/שנה (5), עדכון אחרון (6), מגמה (7) */
+  #accounts-table th:nth-child(n+5),
+  #accounts-table td:nth-child(n+5) { display: none; }
+  /* Table now fits without forced min-width */
+  .acct-wrap table { min-width: 0; width: 100%; }
+  .acct-wrap { overflow-x: visible; }
+  /* Prevent account name from wrapping */
+  #accounts-table td:nth-child(1) { white-space: nowrap; max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
+  /* Stack cash-pie layout vertically */
+  .cash-pie-layout { flex-direction: column; align-items: center; gap: 10px; }
+  .cash-pie-canvas-wrap { width: 180px; height: 180px; overflow: hidden; }
+  .cash-pie-canvas-wrap canvas { width: 180px !important; height: 180px !important; }
+  .cash-legend { min-width: 0; width: 100%; }
+  #accounts-chart-card canvas { height: 280px !important; }
 }
 /* Sparkline SVG */
 .acct-spark { display: block; overflow: visible; }
@@ -1666,31 +1677,7 @@ body {
   /* 5. Reduce general bar chart height on mobile */
   #chart-general-wrap { height: 200px !important; }
 }
-  /* -- Accounts: table scrollable inside clipped card -- */
-#accounts-table-card { overflow: hidden; }
-.acct-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-.acct-wrap table { min-width: 560px; }
-/* -- Accounts: custom chart legend -- */
-.acct-legend-custom { display:flex; flex-wrap:wrap; justify-content:space-between; padding:4px 0 10px; }
-.acct-legend-dot { width:22px; height:12px; border-radius:3px; position:relative; cursor:pointer; flex-shrink:0; display:inline-block; }
-.acct-legend-tip { position:absolute; bottom:calc(100% + 6px); left:50%; transform:translateX(-50%); background:rgba(20,30,60,.88); color:#fff; font-size:.72em; padding:3px 8px; border-radius:5px; white-space:nowrap; pointer-events:none; opacity:0; transition:opacity .15s; z-index:20; }
-.acct-legend-tip::after { content:''; position:absolute; top:100%; left:50%; transform:translateX(-50%); border:4px solid transparent; border-top-color:rgba(20,30,60,.88); }
-.acct-legend-dot:hover .acct-legend-tip,.acct-legend-dot.lbl-open .acct-legend-tip { opacity:1; }
-@media (max-width: 640px) {
-  #accounts-chart { height: 340px !important; }
-  .cash-pie-layout { flex-direction:column; align-items:center; gap:10px; }
-  .cash-pie-canvas-wrap { width:180px; height:180px; }
-  .cash-legend { min-width:0; width:100%; }
-  .cash-legend-orig, .cash-legend-rate,
-  .cash-legend-hcell:nth-child(3), .cash-legend-hcell:nth-child(4) { display: none; }
-  .cash-legend-header, .cash-legend-row { grid-template-columns: 10px 44px 1fr 46px; }
-}</style>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js">
-  </script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js">
-  </script>
-  <link href="/design-system.css" rel="stylesheet"/>
- <style>
+
 /* ── Transaction detail bottom-sheet (mobile) ─────────────── */
 .tx-detail-overlay {
   position: fixed; inset: 0;
@@ -1736,9 +1723,14 @@ body {
 }
 .cat-pills-toggle-btn:hover { background:var(--teal); color:#fff; }
 .cat-pill.pills-hidden { display:none; }
-</style>
-</head>
- <body data-generated="12/06/2026 14:20" data-month="2026_06">
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js">
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js">
+  </script>
+  <link href="/design-system.css" rel="stylesheet"/>
+ </head>
+ <body data-generated="17/06/2026 21:16" data-month="2026_06">
   <!-- Hamburger -->
   <button aria-label="תפריט" class="ham-btn" id="ham-btn" onclick="toggleNav()">
    <svg fill="none" height="14" viewbox="0 0 18 14" width="18">
@@ -1754,8 +1746,9 @@ body {
   </div>
   <nav class="sidebar" id="sidebar">
    <div class="sidebar-header">
+    <img alt="BankDash" src="/favicon.svg" style="width:28px;height:28px;border-radius:7px;flex-shrink:0;"/>
     <span class="sidebar-app-name">
-     BankDash
+     ניהול כספים
     </span>
     <button aria-label="סגור תפריט" class="sidebar-close-btn" onclick="closeNav()">
      ✕
@@ -1933,7 +1926,7 @@ body {
       </span>
      </div>
      <div class="kpi-value pos">
-      8,557.50₪
+      8,558.00₪
      </div>
     </div>
     <div class="kpi-card">
@@ -1951,7 +1944,7 @@ body {
       </span>
      </div>
      <div class="kpi-value pos">
-      27,375.62₪
+      27,375.00₪
      </div>
      <div class="kpi-subtitle">
       June 2 2026
@@ -1974,12 +1967,14 @@ body {
       </span>
      </div>
      <div class="kpi-value pos">
-      27,376₪
+      27,375₪
      </div>
      <div class="kpi-balance-delta pos">
       ▲ 7,558₪ החודש
      </div>
     </div>
+   </div>
+   <div class="kpi-row-2" id="kpi-row-2">
     <div class="kpi-card">
      <div class="kpi-label">
       <span class="kpi-dot" style="background:#D4A017">
@@ -2021,8 +2016,6 @@ body {
      </div>
     </div>
    </div>
-   <div class="kpi-row-2" id="kpi-row-2">
-   </div>
    <!-- ── Panel: Overview ──────────────────────────────────── -->
    <div class="panel active" id="panel-overview">
     <div class="charts-grid" id="overview-charts">
@@ -2048,7 +2041,7 @@ body {
   var _isMob = window.matchMedia('(max-width:768px)').matches;
   new Chart(document.getElementById('chart-spendings-donut'), {
     type: 'doughnut',
-    data: {"labels": ["הלוואה", "שלום שבאזי 7"], "datasets": [{"data": [1000.0, 3771.83], "backgroundColor": ["#ef9a9a", "#ffab91"], "borderWidth": 1, "borderColor": "#fff", "hoverOffset": 8}]},
+    data: {"labels": ["הלוואה", "שלום שבאזי 7"], "datasets": [{"data": [1000.0, 3771.0], "backgroundColor": ["#ef9a9a", "#ffab91"], "borderWidth": 1, "borderColor": "#fff", "hoverOffset": 8}]},
     options: {
       responsive: true, maintainAspectRatio: false,
       cutout: '68%',
@@ -2109,7 +2102,7 @@ body {
          שלום שבאזי 7
         </span>
         <span class="cat-val">
-         ₪3,772 (79%)
+         ₪3,771 (79%)
         </span>
        </div>
        <div class="cat-legend-row" data-cid="chart-spendings-donut" data-idx="0">
@@ -2168,7 +2161,7 @@ body {
   var _isMob = window.matchMedia('(max-width:768px)').matches;
   new Chart(document.getElementById('chart-earnings-donut'), {
     type: 'doughnut',
-    data: {"labels": ["משכורת"], "datasets": [{"data": [13329.33], "backgroundColor": ["#a5d6a7"], "borderWidth": 1, "borderColor": "#fff", "hoverOffset": 8}]},
+    data: {"labels": ["משכורת"], "datasets": [{"data": [13329.0], "backgroundColor": ["#a5d6a7"], "borderWidth": 1, "borderColor": "#fff", "hoverOffset": 8}]},
     options: {
       responsive: true, maintainAspectRatio: false,
       cutout: '68%',
@@ -2343,13 +2336,13 @@ body {
       </div>
      </div>
      <div class="chart-card full-width">
-      <div style="display:flex;align-items:stretch;gap:0;padding:4px 0 14px;border-bottom:1.5px solid #eef0f6;margin-bottom:12px;flex-wrap:wrap;">
+      <div style="display:flex;align-items:stretch;gap:0;flex-wrap:wrap;padding:4px 0 14px;border-bottom:1.5px solid #eef0f6;margin-bottom:12px;">
        <div style="flex:1;text-align:center;padding:6px 10px;border-left:1.5px solid #eef0f6;direction:rtl;">
         <div style="font-size:0.72em;font-weight:600;color:#888;margin-bottom:3px;">
          ממוצע נטו חודשי
         </div>
         <div data-neg-clr="#e74c3c" data-pos-clr="#1e9d8b" id="gen-kpi-val-0" style="font-size:1.15em;font-weight:800;color:#e74c3c;">
-         -5,733₪
+         -5,399₪
         </div>
        </div>
        <div style="flex:1;text-align:center;padding:6px 10px;border-left:1.5px solid #eef0f6;direction:rtl;">
@@ -2357,7 +2350,7 @@ body {
          סה"כ הכנסות
         </div>
         <div id="gen-kpi-val-1" style="font-size:1.15em;font-weight:800;color:#43a047;">
-         499,120₪
+         499,101₪
         </div>
        </div>
        <div style="flex:1;text-align:center;padding:6px 10px;border-left:1.5px solid #eef0f6;direction:rtl;">
@@ -2365,7 +2358,7 @@ body {
          סה"כ הוצאות
         </div>
         <div id="gen-kpi-val-2" style="font-size:1.15em;font-weight:800;color:#ef5350;">
-         627,096₪
+         627,072₪
         </div>
        </div>
        <div style="flex:1;text-align:center;padding:6px 10px;direction:rtl;">
@@ -2373,7 +2366,7 @@ body {
          סה"כ השקעות נטו
         </div>
         <div id="gen-kpi-val-3" style="font-size:1.15em;font-weight:800;color:#e8a020;">
-         58,532₪
+         58,533₪
         </div>
        </div>
       </div>
@@ -2399,7 +2392,7 @@ body {
       <script>
        (function(){
   var _isMob = window.matchMedia('(max-width:768px)').matches;
-  var _rawData = {"labels": ["Jun 2025", "Jul 2025", "Aug 2025", "Sep 2025", "Oct 2025", "Nov 2025", "Dec 2025", "Jan 2026", "Feb 2026", "Mar 2026", "Apr 2026", "May 2026"], "datasets": [{"type": "bar", "label": "הוצאות", "data": [193796.19, 30879.83, 54885.74, 30450.05, 27846.96, 51563.71, 27813.38, 25166.06, 27269.09, 23590.35, 24659.87, 37174.79], "backgroundColor": "rgba(239,154,154,0.80)", "borderColor": "#ef5350", "borderWidth": 1, "order": 2, "stack": "sp"}, {"type": "bar", "label": "השקעות/חיסכון", "data": [31000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 31000.0, 1000.0], "backgroundColor": "rgba(255,183,77,0.85)", "borderColor": "#ffb74d", "borderWidth": 1, "order": 2, "stack": "sp"}, {"type": "bar", "label": "הכנסות", "data": [85040.87, 43573.71, 67711.11, 37871.02, 26431.24, 28579.77, 28875.0, 27855.22, 29208.53, 44340.0, 31085.63, 35079.81], "backgroundColor": "rgba(165,214,167,0.75)", "borderColor": "#43a047", "borderWidth": 1, "order": 2, "stack": "ea"}, {"type": "bar", "label": "", "data": [0.0, 0.0, 3467.73, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 10000.0], "backgroundColor": "rgba(255,183,77,0.85)", "borderColor": "#ffb74d", "borderWidth": 1, "order": 2, "stack": "ea"}, {"type": "line", "label": "נטו (ללא השקעות)", "data": [-102755.32, 18693.88, -3329.63, 7520.97, -1415.72, -22983.94, 1061.62, 2689.16, 1939.44, 20949.65, 6925.76, 1905.02], "borderColor": "#1e9d8b", "backgroundColor": "rgba(30,157,139,0.08)", "pointRadius": 5, "pointHoverRadius": 8, "tension": 0.35, "fill": true, "borderWidth": 2, "order": 1}]};
+  var _rawData = {"labels": ["Jun 2025", "Jul 2025", "Aug 2025", "Sep 2025", "Oct 2025", "Nov 2025", "Dec 2025", "Jan 2026", "Feb 2026", "Mar 2026", "Apr 2026", "May 2026"], "datasets": [{"type": "bar", "label": "הוצאות", "data": [193799.0, 30879.0, 54882.0, 30452.0, 27846.0, 51569.0, 27814.0, 25170.0, 27268.0, 23588.0, 24662.0, 37143.0], "backgroundColor": "rgba(239,154,154,0.80)", "borderColor": "#ef5350", "borderWidth": 1, "order": 2, "stack": "sp"}, {"type": "bar", "label": "השקעות/חיסכון", "data": [31000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 31000.0, 1000.0], "backgroundColor": "rgba(255,183,77,0.85)", "borderColor": "#ffb74d", "borderWidth": 1, "order": 2, "stack": "sp"}, {"type": "bar", "label": "הכנסות", "data": [85039.0, 43572.0, 67710.0, 37870.0, 26429.0, 28579.0, 28873.0, 27855.0, 29207.0, 44338.0, 31083.0, 35079.0], "backgroundColor": "rgba(165,214,167,0.75)", "borderColor": "#43a047", "borderWidth": 1, "order": 2, "stack": "ea"}, {"type": "bar", "label": "", "data": [0.0, 0.0, 3467.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 10000.0], "backgroundColor": "rgba(255,183,77,0.85)", "borderColor": "#ffb74d", "borderWidth": 1, "order": 2, "stack": "ea"}, {"type": "line", "label": "נטו (ללא השקעות)", "data": [-102760.0, 18693.0, -3327.0, 7518.0, -1417.0, -22990.0, 1059.0, 2685.0, 1939.0, 20950.0, 6921.0, 5936.0], "borderColor": "#1e9d8b", "backgroundColor": "rgba(30,157,139,0.08)", "pointRadius": 5, "pointHoverRadius": 8, "tension": 0.35, "fill": true, "borderWidth": 2, "order": 1}]};
   var _chartData = _rawData;
   if (_isMob) {
     var _n = 3;
@@ -2607,7 +2600,7 @@ body {
   };
   new Chart(document.getElementById('chart-card-dist'), {
     type: 'bar',
-    data: {"labels": ["Bank"], "datasets": [{"label": "חיוב חודשי", "data": [7557.5], "backgroundColor": ["#F5DCB7"], "borderColor": ["#F5DCB7"], "borderWidth": 1}]},
+    data: {"labels": ["Bank"], "datasets": [{"label": "חיוב חודשי", "data": [7558.0], "backgroundColor": ["#F5DCB7"], "borderColor": ["#F5DCB7"], "borderWidth": 1}]},
     options: {
       responsive: true, maintainAspectRatio: false,
       layout: { padding: { top: 24 } },
@@ -2691,7 +2684,6 @@ body {
          הלוואה
         </p>
         <p class="element4">
-         Monday 01
         </p>
        </div>
        <div class="num" data-tx-table="BankTransactions" data-value="680">
@@ -2706,13 +2698,12 @@ body {
          </span>
         </h3>
         <p class="date">
-         61.15₪
+         61.00₪
         </p>
         <p class="cat">
          שלום שבאזי 7
         </p>
         <p class="element4">
-         Monday 01
         </p>
        </div>
        <div class="num" data-tx-table="BankTransactions" data-value="681">
@@ -2727,13 +2718,12 @@ body {
          </span>
         </h3>
         <p class="date">
-         3,710.68₪
+         3,710.00₪
         </p>
         <p class="cat">
          שלום שבאזי 7
         </p>
         <p class="element4">
-         Monday 01
         </p>
        </div>
       </div>
@@ -2743,7 +2733,7 @@ body {
        <span>
         סה"כ:
         <strong id="spendings-sum">
-         4,771.83₪
+         4,771.00₪
         </strong>
        </span>
       </div>
@@ -2791,13 +2781,12 @@ body {
          </span>
         </h3>
         <p class="date">
-         13,329.33₪
+         13,329.00₪
         </p>
         <p class="cat">
          משכורת
         </p>
         <p class="element4">
-         Monday 01
         </p>
        </div>
       </div>
@@ -2807,7 +2796,7 @@ body {
        <span>
         סה"כ:
         <strong id="earnings-sum">
-         13,329.33₪
+         13,329.00₪
         </strong>
        </span>
       </div>
@@ -2819,76 +2808,8 @@ body {
       תשלומים
      </div>
      <div class="charts-grid payments-grid" id="tx-payments-grid">
-      <div class="chart-card">
-       <div class="chart-card-title">
-        דיפרנט
-       </div>
-       <div style="position:relative;height:190px;">
-        <canvas id="chart-payment-0" style="width:100%;height:100%;">
-        </canvas>
-       </div>
-       <div class="payment-footer">
-        ₪112 / חודש
-       </div>
-       <script>
-        (function(){
-  new Chart(document.getElementById('chart-payment-0'), {
-    type: 'doughnut',
-    data: {"labels": ["שולם (8)", "נותר (4)"], "datasets": [{"data": [8, 4], "backgroundColor": ["#5C6BC0", "#C5CAE9"], "borderWidth": 2, "borderColor": "#fff", "hoverOffset": 6}]},
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      cutout: '68%',
-      plugins: {
-        legend: {
-          position: 'bottom',
-          labels: { font: { size: 10 }, padding: 6, boxWidth: 10 },
-          onHover: function(evt, item, legend) {
-            var ch = legend.chart;
-            ch.tooltip.setActiveElements([{datasetIndex: 0, index: item.index}], evt);
-            ch.update();
-          },
-          onLeave: function(evt, item, legend) {
-            var ch = legend.chart;
-            ch.tooltip.setActiveElements([], evt);
-            ch.update();
-          }
-        },
-        tooltip: {
-          rtl: true,
-          callbacks: {
-            label: function(ctx) {
-              const labels = [
-                'שולם: 8 תשלומים מתוך 12',
-                'נותר: 4 תשלומים'
-              ];
-              return labels[ctx.dataIndex];
-            }
-          }
-        }
-      }
-    },
-    plugins: [
-  {
-    id: 'payCenter',
-    beforeDraw(chart) {
-      if (chart.config.type !== 'doughnut') return;
-      const {ctx, chartArea: {top, bottom, left, right}} = chart;
-      const cx = (left + right) / 2, cy = (top + bottom) / 2;
-      const [paid, rem] = chart.data.datasets[0].data;
-      ctx.save();
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.font = 'bold 15px Segoe UI,Arial,sans-serif';
-      ctx.fillStyle = '#1e2a4a';
-      ctx.fillText(paid + '/' + (paid + rem), cx, cy - 7);
-      ctx.font = '10px Segoe UI,Arial,sans-serif';
-      ctx.fillStyle = '#888';
-      ctx.fillText('\u05ea\u05e9\u05dc\u05d5\u05de\u05d9\u05dd', cx, cy + 9);
-      ctx.restore();
-    }
-  }]
-  });
-})();
-       </script>
+      <div class="empty-state" style="padding: 14px 0;">
+       אין תשלומים פעילים החודש
       </div>
      </div>
     </div>
@@ -2898,101 +2819,10 @@ body {
        ⚠ התראות חכמות
       </h2>
       <span class="alerts-count-badge">
-       18 התראות
+       4 התראות
       </span>
      </div>
      <div class="alerts-matrix">
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
-       <span class="alert-icon">
-        ❓
-       </span>
-       <div class="alert-body">
-        <strong>
-         חיוב קבוע חסר: GOOGLE  GOOGLE ONE
-        </strong>
-        <p>
-         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 8₪) ולא נמצא החודש
-        </p>
-       </div>
-      </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
-       <span class="alert-icon">
-        ❓
-       </span>
-       <div class="alert-body">
-        <strong>
-         חיוב קבוע חסר: PAYPAL *NETFLIX COM
-        </strong>
-        <p>
-         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 33₪) ולא נמצא החודש
-        </p>
-       </div>
-      </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
-       <span class="alert-icon">
-        ❓
-       </span>
-       <div class="alert-body">
-        <strong>
-         חיוב קבוע חסר: WANIKANI JAPANESE LA
-        </strong>
-        <p>
-         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 27₪) ולא נמצא החודש
-        </p>
-       </div>
-      </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
-       <span class="alert-icon">
-        ❓
-       </span>
-       <div class="alert-body">
-        <strong>
-         חיוב קבוע חסר: WOLT ISRAEL
-        </strong>
-        <p>
-         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 484₪) ולא נמצא החודש
-        </p>
-       </div>
-      </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
-       <span class="alert-icon">
-        ❓
-       </span>
-       <div class="alert-body">
-        <strong>
-         חיוב קבוע חסר: אלקטרה פאוור חשמל
-        </strong>
-        <p>
-         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 410₪) ולא נמצא החודש
-        </p>
-       </div>
-      </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
-       <span class="alert-icon">
-        ❓
-       </span>
-       <div class="alert-body">
-        <strong>
-         חיוב קבוע חסר: דיפרנט
-        </strong>
-        <p>
-         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 112₪) ולא נמצא החודש
-        </p>
-       </div>
-      </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
-       <span class="alert-icon">
-        ❓
-       </span>
-       <div class="alert-body">
-        <strong>
-         חיוב קבוע חסר: העברה ב BIT בנה"פ
-        </strong>
-        <p>
-         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 578₪) ולא נמצא החודש
-        </p>
-       </div>
-      </div>
       <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
        <span class="alert-icon">
         ❓
@@ -3013,97 +2843,6 @@ body {
        <div class="alert-body">
         <strong>
          חיוב קבוע חסר: הראל בטוח
-        </strong>
-        <p>
-         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 29₪) ולא נמצא החודש
-        </p>
-       </div>
-      </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
-       <span class="alert-icon">
-        ❓
-       </span>
-       <div class="alert-body">
-        <strong>
-         חיוב קבוע חסר: יפנולוגי-המרכז ללימו
-        </strong>
-        <p>
-         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 530₪) ולא נמצא החודש
-        </p>
-       </div>
-      </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
-       <span class="alert-icon">
-        ❓
-       </span>
-       <div class="alert-body">
-        <strong>
-         חיוב קבוע חסר: מ.התחבורה-פנגו מוביט
-        </strong>
-        <p>
-         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 147₪) ולא נמצא החודש
-        </p>
-       </div>
-      </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
-       <span class="alert-icon">
-        ❓
-       </span>
-       <div class="alert-body">
-        <strong>
-         חיוב קבוע חסר: נותן לחם בית מאפה בע
-        </strong>
-        <p>
-         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 282₪) ולא נמצא החודש
-        </p>
-       </div>
-      </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
-       <span class="alert-icon">
-        ❓
-       </span>
-       <div class="alert-body">
-        <strong>
-         חיוב קבוע חסר: סוד הבשר ראשל"צ
-        </strong>
-        <p>
-         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 380₪) ולא נמצא החודש
-        </p>
-       </div>
-      </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
-       <span class="alert-icon">
-        ❓
-       </span>
-       <div class="alert-body">
-        <strong>
-         חיוב קבוע חסר: סונול ראשון מזרח
-        </strong>
-        <p>
-         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 36₪) ולא נמצא החודש
-        </p>
-       </div>
-      </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
-       <span class="alert-icon">
-        ❓
-       </span>
-       <div class="alert-body">
-        <strong>
-         חיוב קבוע חסר: סופר פארם ראשל"צ צפו
-        </strong>
-        <p>
-         חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 89₪) ולא נמצא החודש
-        </p>
-       </div>
-      </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
-       <span class="alert-icon">
-        ❓
-       </span>
-       <div class="alert-body">
-        <strong>
-         חיוב קבוע חסר: פנגו חשבונית חודשית
         </strong>
         <p>
          חויב בכל אחד מ-3 החודשים האחרונים (ממוצע 29₪) ולא נמצא החודש
@@ -3363,7 +3102,7 @@ body {
          Cash
         </td>
         <td>
-         11,257.15₪
+         11,206.46₪
         </td>
         <td class="acct-rate-cell">
          —
@@ -3376,15 +3115,20 @@ body {
           +0.0%
          </span>
         </td>
-        <td class="acct-change-neu">
-         —
+        <td class="acct-change-pos">
+         <span>
+          +5,206₪
+         </span>
+         <span class="acct-pct-badge acct-pct-pos">
+          +86.8%
+         </span>
         </td>
         <td>
-         2026-06-12
+         2026-06-17
         </td>
         <td class="acct-detail-cell">
          <svg class="acct-spark" height="22" viewbox="0 0 64 22" width="64" xmlns="http://www.w3.org/2000/svg">
-          <polyline fill="none" points="1.0,2.0 6.6,20.0 12.3,19.9 17.9,19.9 23.5,19.9 29.2,19.9 34.8,19.9 40.5,19.9 46.1,19.7 51.7,7.3 57.4,2.8 63.0,2.8" stroke="#e53935" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5">
+          <polyline fill="none" points="1.0,2.0 6.6,20.0 12.3,19.9 17.9,19.9 23.5,19.9 29.2,19.9 34.8,19.9 40.5,19.9 46.1,19.7 51.7,7.3 57.4,2.9 63.0,2.9" stroke="#e53935" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5">
           </polyline>
          </svg>
         </td>
@@ -3394,7 +3138,7 @@ body {
          סה"כ כללי
         </td>
         <td>
-         42,407.45₪
+         42,356.76₪
         </td>
         <td>
         </td>
@@ -3417,7 +3161,7 @@ body {
          BTB
         </td>
         <td>
-         161,242.15₪
+         161,242.16₪
         </td>
         <td class="acct-rate-cell">
          —
@@ -3492,11 +3236,11 @@ body {
          $3,928.00
         </td>
         <td class="acct-rate-cell" data-rate-cur="USD">
-         2.95
+         2.92
         </td>
         <td class="acct-change-pos">
          <span>
-          +1,188₪
+          +1,174₪
          </span>
          <span class="acct-pct-badge acct-pct-pos">
           +11.4%
@@ -3510,7 +3254,7 @@ body {
         </td>
         <td class="acct-detail-cell">
          <svg class="acct-spark" height="22" viewbox="0 0 64 22" width="64" xmlns="http://www.w3.org/2000/svg">
-          <polyline fill="none" points="1.0,20.0 16.5,4.5 32.0,4.6 47.5,3.8 63.0,2.0" stroke="#43a047" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5">
+          <polyline fill="none" points="1.0,20.0 16.5,4.3 32.0,4.6 47.5,3.8 63.0,2.0" stroke="#43a047" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5">
           </polyline>
          </svg>
         </td>
@@ -3551,7 +3295,7 @@ body {
          סה"כ השקעות
         </td>
         <td>
-         386,940.17₪
+         386,805.06₪
         </td>
         <td>
         </td>
@@ -3628,7 +3372,7 @@ body {
          סה"כ כל החשבונות
         </td>
         <td>
-         720,333.62₪
+         720,147.82₪
         </td>
         <td>
         </td>
@@ -3658,7 +3402,7 @@ body {
   const ctx = document.getElementById('acct-chart-canvas').getContext('2d');
   new Chart(ctx, {
     type: 'line',
-    data: {"labels": ["2025-06-01", "2025-06-21", "2025-06-26", "2025-06-30", "2025-07-01", "2025-07-19", "2025-07-31", "2025-08-01", "2025-08-07", "2025-08-31", "2025-09-01", "2025-09-13", "2025-09-30", "2025-10-01", "2025-10-25", "2025-10-31", "2025-11-01", "2025-11-30", "2025-12-01", "2025-12-31", "2026-01-01", "2026-01-31", "2026-02-01", "2026-02-28", "2026-03-01", "2026-03-31", "2026-04-01", "2026-04-11", "2026-04-13", "2026-04-19", "2026-04-24", "2026-04-30", "2026-05-01", "2026-05-02", "2026-05-31", "2026-06-01", "2026-06-06", "2026-06-12"], "datasets": [{"label": "Main Bank", "data": [null, null, null, 19816.77, null, null, 33352.01, null, null, 53803.25, null, null, 54880.87, null, null, 52403.51, null, 37620.61, null, 27258.78, null, 28722.22, null, 31836.39, null, 45896.96, null, null, null, null, null, 23734.02, null, null, 31150.3, null, null, null], "borderColor": "#90caf9", "backgroundColor": "#90caf9", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "BTB", "data": [null, 161615.0, null, null, null, 162358.0, null, null, null, null, null, 163895.0, null, null, 165013.0, null, null, 166104.0, null, null, null, null, null, null, 168733.0, null, null, 169610.0, null, null, 169884.09, null, null, null, null, null, 161242.15, null], "borderColor": "#ffcc80", "backgroundColor": "#ffcc80", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "BeinLeumi Invest", "data": [null, null, 0.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], "borderColor": "#a5d6a7", "backgroundColor": "#a5d6a7", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Analyst", "data": [null, null, null, 114949.0, null, null, 148919.0, null, null, 151284.0, null, null, 157523.0, null, null, 161771.0, null, null, null, null, null, 173231.0, null, 174574.0, null, 168222.0, null, null, null, null, null, 184008.0, null, null, 191456.0, null, null, null], "borderColor": "#ef9a9a", "backgroundColor": "#ef9a9a", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Cash", "data": [0.0, null, null, null, 6000.0, null, null, 12000.0, null, null, -4155.0, null, null, -4055.0, null, null, -4055.0, null, -4055.0, null, -4055.0, null, -4055.0, null, -4055.0, null, -3855.0, null, null, null, null, null, 7257.15, null, null, 11257.15, null, 11257.15], "borderColor": "#ce93d8", "backgroundColor": "#ce93d8", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Altshuler", "data": [null, null, null, null, null, null, null, null, 0.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], "borderColor": "#b0bec5", "backgroundColor": "#b0bec5", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Interactive Brokers", "data": [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 0.0, 10000.0, 9938.05, null, null, 10399.41, null, null, 11587.02, null], "borderColor": "#f48fb1", "backgroundColor": "#f48fb1", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Analyst (Yuval)", "data": [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 20000.0, null, null, null, null, null, 22655.0, null, null, null], "borderColor": "#80deea", "backgroundColor": "#80deea", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Total", "data": [0.0, 161615.0, 161615.0, 296380.77, 302380.77, 303123.77, 350629.01, 595023.01, 595023.01, 617839.25, 606452.25, 607989.25, 615305.87, 620192.87, 621310.87, 623081.51, 627888.51, 614196.61, 619022.61, 608660.78, 613506.78, 626430.22, 631296.22, 635753.39, 643267.39, 650975.96, 656080.96, 656957.96, 676957.96, 686957.96, 687170.1, 680793.16, 696830.31, 697291.67, 714810.95, 727787.95, 720333.62, 720333.62], "borderColor": "#e6ee9c", "backgroundColor": "#e6ee9c", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "נכס שלום שבזי", "data": [null, null, null, null, null, null, null, 238394.0, null, null, 243162.0, null, null, 247949.0, null, null, 252756.0, null, 257582.0, null, 262428.0, null, 267294.0, null, 272179.0, null, 277084.0, null, null, null, null, null, 282009.0, null, null, 290986.0, null, null], "borderColor": "#ffab91", "backgroundColor": "#ffab91", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}]},
+    data: {"labels": ["2025-06-01", "2025-06-21", "2025-06-26", "2025-06-30", "2025-07-01", "2025-07-19", "2025-07-31", "2025-08-01", "2025-08-07", "2025-08-31", "2025-09-01", "2025-09-13", "2025-09-30", "2025-10-01", "2025-10-25", "2025-10-31", "2025-11-01", "2025-11-30", "2025-12-01", "2025-12-31", "2026-01-01", "2026-01-31", "2026-02-01", "2026-02-28", "2026-03-01", "2026-03-31", "2026-04-01", "2026-04-11", "2026-04-13", "2026-04-19", "2026-04-24", "2026-04-30", "2026-05-01", "2026-05-02", "2026-05-31", "2026-06-01", "2026-06-06", "2026-06-17"], "datasets": [{"label": "Main Bank", "data": [null, null, null, 19816.77, null, null, 33352.01, null, null, 53803.25, null, null, 54880.87, null, null, 52403.51, null, 37620.61, null, 27258.78, null, 28722.22, null, 31836.39, null, 45896.96, null, null, null, null, null, 23734.02, null, null, 31150.3, null, null, null], "borderColor": "#90caf9", "backgroundColor": "#90caf9", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "BTB", "data": [null, 161615.0, null, null, null, 162358.0, null, null, null, null, null, 163895.0, null, null, 165013.0, null, null, 166104.0, null, null, null, null, null, null, 168733.0, null, null, 169610.0, null, null, 169884.1, null, null, null, null, null, 161242.16, null], "borderColor": "#ffcc80", "backgroundColor": "#ffcc80", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "BeinLeumi Invest", "data": [null, null, 0.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], "borderColor": "#a5d6a7", "backgroundColor": "#a5d6a7", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Analyst", "data": [null, null, null, 114949.0, null, null, 148919.0, null, null, 151284.0, null, null, 157523.0, null, null, 161771.0, null, null, null, null, null, 173231.0, null, 174574.0, null, 168222.0, null, null, null, null, null, 184008.0, null, null, 191456.0, null, null, null], "borderColor": "#ef9a9a", "backgroundColor": "#ef9a9a", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Cash", "data": [0.0, null, null, null, 6000.0, null, null, 12000.0, null, null, -4155.0, null, null, -4055.0, null, null, -4055.0, null, -4055.0, null, -4055.0, null, -4055.0, null, -4055.0, null, -3855.0, null, null, null, null, null, 7206.46, null, null, 11206.46, null, 11206.46], "borderColor": "#ce93d8", "backgroundColor": "#ce93d8", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Altshuler", "data": [null, null, null, null, null, null, null, null, 0.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], "borderColor": "#b0bec5", "backgroundColor": "#b0bec5", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Interactive Brokers", "data": [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 0.0, 10000.0, 9822.16, null, null, 10278.13, null, null, 11451.9, null], "borderColor": "#f48fb1", "backgroundColor": "#f48fb1", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Analyst (Yuval)", "data": [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 20000.0, null, null, null, null, null, 22655.0, null, null, null], "borderColor": "#80deea", "backgroundColor": "#80deea", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "Total", "data": [0.0, 161615.0, 161615.0, 296380.77, 302380.77, 303123.77, 350629.01, 595023.01, 595023.01, 617839.25, 606452.25, 607989.25, 615305.87, 620192.87, 621310.87, 623081.51, 627888.51, 614196.61, 619022.61, 608660.78, 613506.78, 626430.22, 631296.22, 635753.39, 643267.39, 650975.96, 656080.96, 656957.96, 676957.96, 686957.96, 687054.22, 680677.28, 696663.74, 697119.71, 714638.99, 727615.99, 720147.82, 720147.82], "borderColor": "#e6ee9c", "backgroundColor": "#e6ee9c", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}, {"label": "נכס שלום שבזי", "data": [null, null, null, null, null, null, null, 238394.0, null, null, 243162.0, null, null, 247949.0, null, null, 252756.0, null, 257582.0, null, 262428.0, null, 267294.0, null, 272179.0, null, 277084.0, null, null, null, null, null, 282009.0, null, null, 290986.0, null, null], "borderColor": "#ffab91", "backgroundColor": "#ffab91", "pointRadius": 4, "pointHoverRadius": 8, "tension": 0.35, "spanGaps": true}]},
     options: {
       responsive: true,
       maintainAspectRatio: false,
@@ -3927,8 +3671,8 @@ body {
   + סה״כ הכנסות:          24,762₪  (שכירות + קטגוריה)
   ─────────────────────────────
   סה״כ תקבולים:          315,748₪
-  − סה״כ הוצאות:       -366,545₪
-  = רווח נקי:             -50,797₪
+  − סה״כ הוצאות:       -366,538₪
+  = רווח נקי:             -50,790₪
 
 ⚠ לא כולל: מס שבח, עמלות תיווך, עלויות מכירה
         </span>
@@ -3938,7 +3682,7 @@ body {
        -13.9%
       </div>
       <div class="kpi-sublabel" id="hs-return-sublabel">
-       רווח נקי: -50,797₪
+       רווח נקי: -50,790₪
       </div>
      </div>
      <div class="kpi-card">
@@ -3975,33 +3719,33 @@ body {
         ⓘ
         <span class="kpi-tooltip">
          סך כל ההוצאות בקטגוריה 'שלום שבאזי 7' מאז תחילת הנתונים.
-  תשלומי משכנתא:            40,294₪
+  תשלומי משכנתא:            40,289₪
   תשלום ראשוני לדירה:      237,500₪
-  הוצאות אחרות:              88,752₪
+  הוצאות אחרות:              88,749₪
         </span>
        </span>
       </div>
       <div class="kpi-value" style="color:#e74c3c">
-       366,545.47₪
+       366,538.00₪
       </div>
       <div class="equity-bar-wrap">
        <div class="equity-bar">
-        <div class="equity-bar-seg" style="width:10.99%;background:#e57373" title="תשלומי משכנתא ₪40,294">
+        <div class="equity-bar-seg" style="width:10.99%;background:#e57373" title="תשלומי משכנתא ₪40,289">
         </div>
-        <div class="equity-bar-seg" style="width:64.79%;background:#ef9a9a" title="תשלום ראשוני לדירה ₪237,500">
+        <div class="equity-bar-seg" style="width:64.8%;background:#ef9a9a" title="תשלום ראשוני לדירה ₪237,500">
         </div>
-        <div class="equity-bar-seg" style="width:24.21%;background:#ffb74d" title="הוצאות אחרות ₪88,752">
+        <div class="equity-bar-seg" style="width:24.21%;background:#ffb74d" title="הוצאות אחרות ₪88,749">
         </div>
        </div>
        <div class="equity-bar-labels-4">
         <span style="color:#e57373">
-         ● תשלומי משכנתא ₪40,294
+         ● תשלומי משכנתא ₪40,289
         </span>
         <span style="color:#ef9a9a">
          ● תשלום ראשוני ₪237,500
         </span>
         <span style="color:#ffb74d">
-         ● הוצאות אחרות ₪88,752
+         ● הוצאות אחרות ₪88,749
         </span>
        </div>
       </div>
@@ -4123,7 +3867,7 @@ body {
   var _isProj = [false, false, false, false, false, false, false, false, false, false, false, true, true, true, true, true, true];
   new Chart(document.getElementById('chart-mort-cashflow'), {
     type: 'bar',
-    data: {"labels": ["2025-08", "2025-09", "2025-10", "2025-11", "2025-12", "2026-01", "2026-02", "2026-03", "2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09", "2026-10", "2026-11", "2026-12"], "datasets": [{"label": "\u05d4\u05d5\u05e6\u05d0\u05d5\u05ea \u05d3\u05d9\u05d5\u05e8", "data": [3112.14, 7889.2, 3842.24, 5031.51, 3950.49, 3945.28, 3922.99, 3868.12, 4443.86, 12819.66, 3883.83, 3772.49, 3772.49, 3772.49, 3772.49, 3772.49, 3772.49], "backgroundColor": ["#f66b85", "#f66b85", "#f66b85", "#f66b85", "#f66b85", "#f66b85", "#f66b85", "#f66b85", "#f66b85", "#f66b85", "#f66b85", "rgba(246,107,133,0.45)", "rgba(246,107,133,0.45)", "rgba(246,107,133,0.45)", "rgba(246,107,133,0.45)", "rgba(246,107,133,0.45)", "rgba(246,107,133,0.45)"]}, {"label": "\u05d4\u05db\u05e0\u05e1\u05d5\u05ea \u05d3\u05d9\u05d5\u05e8", "data": [4100.0, 435.0, 80.26, 0.0, 2800.0, 2800.0, 2800.0, 2950.0, 877.0, 6100.0, 0.0, 2800.0, 2800.0, 2800.0, 2800.0, 2800.0, 2800.0], "backgroundColor": ["#1e9d8b", "#1e9d8b", "#1e9d8b", "#1e9d8b", "#1e9d8b", "#1e9d8b", "#1e9d8b", "#1e9d8b", "#1e9d8b", "#1e9d8b", "#1e9d8b", "rgba(30,157,139,0.45)", "rgba(30,157,139,0.45)", "rgba(30,157,139,0.45)", "rgba(30,157,139,0.45)", "rgba(30,157,139,0.45)", "rgba(30,157,139,0.45)"]}]},
+    data: {"labels": ["2025-08", "2025-09", "2025-10", "2025-11", "2025-12", "2026-01", "2026-02", "2026-03", "2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09", "2026-10", "2026-11", "2026-12"], "datasets": [{"label": "\u05d4\u05d5\u05e6\u05d0\u05d5\u05ea \u05d3\u05d9\u05d5\u05e8", "data": [3111.0, 7889.0, 3842.0, 5031.0, 3950.0, 3945.0, 3922.0, 3867.0, 4443.0, 12819.0, 3883.0, 3772.49, 3772.49, 3772.49, 3772.49, 3772.49, 3772.49], "backgroundColor": ["#f66b85", "#f66b85", "#f66b85", "#f66b85", "#f66b85", "#f66b85", "#f66b85", "#f66b85", "#f66b85", "#f66b85", "#f66b85", "rgba(246,107,133,0.45)", "rgba(246,107,133,0.45)", "rgba(246,107,133,0.45)", "rgba(246,107,133,0.45)", "rgba(246,107,133,0.45)", "rgba(246,107,133,0.45)"]}, {"label": "\u05d4\u05db\u05e0\u05e1\u05d5\u05ea \u05d3\u05d9\u05d5\u05e8", "data": [4100.0, 435.0, 80.0, 0.0, 2800.0, 2800.0, 2800.0, 2950.0, 877.0, 6100.0, 0.0, 2800.0, 2800.0, 2800.0, 2800.0, 2800.0, 2800.0], "backgroundColor": ["#1e9d8b", "#1e9d8b", "#1e9d8b", "#1e9d8b", "#1e9d8b", "#1e9d8b", "#1e9d8b", "#1e9d8b", "#1e9d8b", "#1e9d8b", "#1e9d8b", "rgba(30,157,139,0.45)", "rgba(30,157,139,0.45)", "rgba(30,157,139,0.45)", "rgba(30,157,139,0.45)", "rgba(30,157,139,0.45)", "rgba(30,157,139,0.45)"]}]},
     options: {
       responsive: true, maintainAspectRatio: false,
       plugins: {
@@ -4404,7 +4148,7 @@ body {
         —
        </td>
        <td style="color:#e74c3c; font-weight:600;">
-        61.15
+        61.00
        </td>
        <td>
         —
@@ -4421,7 +4165,7 @@ body {
         —
        </td>
        <td style="color:#e74c3c; font-weight:600;">
-        3,710.68
+        3,710.00
        </td>
        <td>
         —
@@ -4523,7 +4267,7 @@ body {
         —
        </td>
        <td style="color:#e74c3c; font-weight:600;">
-        31.15
+        31.00
        </td>
        <td>
         —
@@ -4574,7 +4318,7 @@ body {
         —
        </td>
        <td style="color:#e74c3c; font-weight:600;">
-        3,696.51
+        3,696.00
        </td>
        <td>
         —
@@ -4659,7 +4403,7 @@ body {
         —
        </td>
        <td style="color:#e74c3c; font-weight:600;">
-        31.03
+        31.00
        </td>
        <td>
         —
@@ -4693,7 +4437,7 @@ body {
         —
        </td>
        <td style="color:#e74c3c; font-weight:600;">
-        309.46
+        309.00
        </td>
        <td>
         —
@@ -4727,7 +4471,7 @@ body {
         —
        </td>
        <td style="color:#e74c3c; font-weight:600;">
-        3,714.37
+        3,714.00
        </td>
        <td>
         —
@@ -4778,7 +4522,7 @@ body {
         —
        </td>
        <td style="color:#e74c3c; font-weight:600;">
-        30.97
+        30.00
        </td>
        <td>
         —
@@ -4829,7 +4573,7 @@ body {
         —
        </td>
        <td style="color:#e74c3c; font-weight:600;">
-        3,666.15
+        3,666.00
        </td>
        <td>
         —
@@ -4863,7 +4607,7 @@ body {
         —
        </td>
        <td style="color:#e74c3c; font-weight:600;">
-        31.06
+        31.00
        </td>
        <td>
         —
@@ -4931,7 +4675,7 @@ body {
         —
        </td>
        <td style="color:#e74c3c; font-weight:600;">
-        3,720.93
+        3,720.00
        </td>
        <td>
         —
@@ -4948,7 +4692,7 @@ body {
         —
        </td>
        <td style="color:#e74c3c; font-weight:600;">
-        31.06
+        31.00
        </td>
        <td>
         —
@@ -5016,7 +4760,7 @@ body {
         —
        </td>
        <td style="color:#e74c3c; font-weight:600;">
-        3,743.22
+        3,743.00
        </td>
        <td>
         —
@@ -5033,7 +4777,7 @@ body {
         —
        </td>
        <td style="color:#e74c3c; font-weight:600;">
-        31.21
+        31.00
        </td>
        <td>
         —
@@ -5101,7 +4845,7 @@ body {
         —
        </td>
        <td style="color:#e74c3c; font-weight:600;">
-        3,748.28
+        3,748.00
        </td>
        <td>
         —
@@ -5135,7 +4879,7 @@ body {
         —
        </td>
        <td style="color:#e74c3c; font-weight:600;">
-        31.06
+        31.00
        </td>
        <td>
         —
@@ -5237,7 +4981,7 @@ body {
         —
        </td>
        <td style="color:#e74c3c; font-weight:600;">
-        3,772.45
+        3,772.00
        </td>
        <td>
         —
@@ -5254,7 +4998,7 @@ body {
         —
        </td>
        <td style="color:#e74c3c; font-weight:600;">
-        31.24
+        31.00
        </td>
        <td>
         —
@@ -5274,7 +5018,7 @@ body {
         —
        </td>
        <td style="color:#1e9d8b; font-weight:600;">
-        80.26
+        80.00
        </td>
       </tr>
       <tr>
@@ -5339,7 +5083,7 @@ body {
         —
        </td>
        <td style="color:#e74c3c; font-weight:600;">
-        57.71
+        58.00
        </td>
        <td>
         —
@@ -5407,7 +5151,7 @@ body {
         —
        </td>
        <td style="color:#e74c3c; font-weight:600;">
-        3,772.49
+        3,772.00
        </td>
        <td>
         —
@@ -5424,7 +5168,7 @@ body {
         —
        </td>
        <td style="color:#e74c3c; font-weight:600;">
-        57.32
+        57.00
        </td>
        <td>
         —
@@ -5458,7 +5202,7 @@ body {
         —
        </td>
        <td style="color:#e74c3c; font-weight:600;">
-        2,996.82
+        2,996.00
        </td>
        <td>
         —
@@ -5594,7 +5338,7 @@ body {
         הון ראשוני לסגירת משכנתא של המוכרים
        </td>
        <td style="color:#e74c3c; font-weight:600;">
-        28,040.20
+        28,040.00
        </td>
        <td>
         —
@@ -5645,7 +5389,7 @@ body {
         ביטוח מבנה
        </td>
        <td style="color:#e74c3c; font-weight:600;">
-        51.75
+        52.00
        </td>
        <td>
         —
@@ -5662,7 +5406,7 @@ body {
         משלוח דואר לעורכת דין
        </td>
        <td style="color:#e74c3c; font-weight:600;">
-        63.50
+        64.00
        </td>
        <td>
         —
@@ -5781,7 +5525,7 @@ body {
         —
        </td>
        <td style="color:#e74c3c; font-weight:600;">
-        13.70
+        13.00
        </td>
        <td>
         —
@@ -5845,7 +5589,7 @@ body {
      </div>
     </div>
     <script>
-     const APT_PRICE=950000;const CUR_BAL=702467.0;const N_MONTHS=11;const NET_INV=366545.47;const ALLTIME_INC=24762.0;const INIT_PMT=237500;const DOWN_PMT=237500;const PRIN_PAID=10033.0;
+     const APT_PRICE=950000;const CUR_BAL=702467.0;const N_MONTHS=11;const NET_INV=366538.0;const ALLTIME_INC=24762.0;const INIT_PMT=237500;const DOWN_PMT=237500;const PRIN_PAID=10033.0;
 const fmtNum  = n => Math.round(Math.abs(n)).toLocaleString('he-IL');
 const fmtShek = n => (n < 0 ? '-' : '') + '₪' + fmtNum(n);
 const fmtPct  = n => (n >= 0 ? '+' : '') + n.toFixed(1) + '%';
@@ -6614,42 +6358,43 @@ function _reloadGeneral() {
   btn.disabled = true;
   showLogFloat('מחשב מחדש חודש…');
 
-  fetch('/api/analysis', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ month: 'pick', date: dateStr })
-  }).then(function(r) {
-    if (r.status === 409) { btn.classList.remove('running'); btn.disabled = false; hideLogFloat(0); return; }
-    var es = new EventSource('/api/logs');
-    es.onmessage = function(evt) {
-      var data = evt.data;
-      if (!data || data === '__CONNECTED__') return;
-      if (data.startsWith('__PROMPT_CC__:')) {
-        try { showCCPrompt(JSON.parse(data.slice(14))); } catch(_e) {}
-        return;
-      }
-      if (data.startsWith('__DONE__')) {
-        es.close();
-        appendLog('✓ הניתוח הסתיים — מרענן...', 'done');
-        btn.classList.remove('running', 'stale'); btn.disabled = false;
-        hideLogFloat(1000);
-        setTimeout(function() {
-          var _curPanel = new URLSearchParams(window.location.search).get('panel') || '';
-          location.href = '/general/' + _currentKey + (_curPanel ? '?panel=' + _curPanel : '');
-        }, 1200);
-        return;
-      }
-      if (data === '__ERROR__') {
-        es.close();
-        appendLog('✗ שגיאה בניתוח', 'err');
-        btn.classList.remove('running'); btn.disabled = false;
-        hideLogFloat(3000);
-        return;
-      }
-      appendLog(data);
-    };
-    es.onerror = function() { es.close(); btn.classList.remove('running'); btn.disabled = false; hideLogFloat(0); };
-  });
+  // Use /api/analysis-stream so the analysis and log stream share the same
+  // server process — avoids cross-instance queue isolation on Vercel serverless.
+  var es = new EventSource('/api/analysis-stream?month=pick&date=' + dateStr);
+  es.onmessage = function(evt) {
+    var data = evt.data;
+    if (!data || data === '__CONNECTED__') return;
+    if (data.startsWith('__PROMPT_CC__:')) {
+      try { showCCPrompt(JSON.parse(data.slice(14))); } catch(_e) {}
+      return;
+    }
+    if (data.startsWith('__DONE__')) {
+      es.close();
+      appendLog('✓ הניתוח הסתיים — מרענן...', 'done');
+      btn.classList.remove('running', 'stale'); btn.disabled = false;
+      hideLogFloat(1000);
+      setTimeout(function() {
+        var _curPanel = new URLSearchParams(window.location.search).get('panel') || '';
+        location.href = '/general/' + _currentKey + (_curPanel ? '?panel=' + _curPanel : '');
+      }, 1200);
+      return;
+    }
+    if (data === '__ERROR__' || data.startsWith('__ERROR__:')) {
+      es.close();
+      appendLog('✗ שגיאה בניתוח', 'err');
+      btn.classList.remove('running'); btn.disabled = false;
+      hideLogFloat(3000);
+      return;
+    }
+    appendLog(data);
+  };
+  es.onerror = function() {
+    if (es.readyState === EventSource.CLOSED) return;
+    es.close();
+    appendLog('✗ חיבור נותק', 'err');
+    btn.classList.remove('running'); btn.disabled = false;
+    hideLogFloat(3000);
+  };
 }
 
 function _reloadCategory(slug) {
@@ -6660,35 +6405,34 @@ function _reloadCategory(slug) {
   btn.disabled = true;
   showLogFloat('מחשב מחדש ניתוח…');
 
-  fetch('/api/category/run', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ slug: slug, type: type_ })
-  }).then(function(r) {
-    if (r.status === 409) { btn.classList.remove('running'); btn.disabled = false; hideLogFloat(0); return; }
-    var es = new EventSource('/api/logs');
-    es.onmessage = function(evt) {
-      var data = evt.data;
-      if (!data || data === '__CONNECTED__') return;
-      if (data.startsWith('__DONE__')) {
-        es.close();
-        appendLog('✓ הניתוח הסתיים — מרענן...', 'done');
-        btn.classList.remove('running', 'stale'); btn.disabled = false;
-        hideLogFloat(1000);
-        setTimeout(function() { location.reload(); }, 1200);
-        return;
-      }
-      if (data === '__ERROR__') {
-        es.close();
-        appendLog('✗ שגיאה בניתוח', 'err');
-        btn.classList.remove('running'); btn.disabled = false;
-        hideLogFloat(3000);
-        return;
-      }
-      appendLog(data);
-    };
-    es.onerror = function() { es.close(); btn.classList.remove('running'); btn.disabled = false; hideLogFloat(0); };
-  });
+  var es = new EventSource('/api/category/stream?slug=' + encodeURIComponent(slug) + '&type=' + type_);
+  es.onmessage = function(evt) {
+    var data = evt.data;
+    if (!data || data === '__CONNECTED__') return;
+    if (data.startsWith('__DONE__')) {
+      es.close();
+      appendLog('✓ הניתוח הסתיים — מרענן...', 'done');
+      btn.classList.remove('running', 'stale'); btn.disabled = false;
+      hideLogFloat(1000);
+      setTimeout(function() { location.reload(); }, 1200);
+      return;
+    }
+    if (data === '__ERROR__' || data.startsWith('__ERROR__:')) {
+      es.close();
+      appendLog('✗ שגיאה בניתוח', 'err');
+      btn.classList.remove('running'); btn.disabled = false;
+      hideLogFloat(3000);
+      return;
+    }
+    appendLog(data);
+  };
+  es.onerror = function() {
+    if (es.readyState === EventSource.CLOSED) return;
+    es.close();
+    appendLog('✗ חיבור נותק', 'err');
+    btn.classList.remove('running'); btn.disabled = false;
+    hideLogFloat(3000);
+  };
 }
 
 function _checkStale() {
@@ -8381,7 +8125,8 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   }, true);
 })();
   </script>
- <script>
+  <script>
+   /* ── Transaction detail bottom-sheet ─────────────────────── */
 (function() {
   var overlay = document.createElement('div');
   overlay.id = 'tx-detail-overlay';
@@ -8443,55 +8188,13 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   document.getElementById('tx-dsplit').addEventListener('click', function() {
     var row = _pendingRow; closeDetail(); if (row) _handleTxClick(row);
   });
-  (function() {
-  var canvas = document.getElementById('acct-chart-canvas');
-  if (!canvas || typeof Chart === 'undefined') return;
-  var chart = Chart.getChart ? Chart.getChart(canvas) : null;
-  if (!chart) return;
-  chart.options.plugins.legend.display = false;
-  var vw = window.innerWidth;
-  var labels = chart.data.labels || [];
-  var maxPts = vw < 480 ? 14 : vw < 768 ? 22 : labels.length;
-  if (labels.length > maxPts) { chart.options.scales.x.min = labels[labels.length - maxPts]; }
-  chart.options.scales.x.ticks.maxRotation = vw < 640 ? 60 : 45;
-  chart.options.scales.x.ticks.maxTicksLimit = vw < 480 ? 4 : vw < 768 ? 7 : 14;
-  chart.update('none');
-  var legendEl = document.createElement('div');
-  legendEl.className = 'acct-legend-custom';
-  legendEl.id = 'acct-legend-custom';
-  chart.data.datasets.forEach(function(ds) {
-    var dot = document.createElement('span');
-    dot.className = 'acct-legend-dot';
-    dot.style.backgroundColor = ds.borderColor;
-    var tip = document.createElement('span');
-    tip.className = 'acct-legend-tip';
-    tip.textContent = ds.label;
-    dot.appendChild(tip);
-    dot.addEventListener('mouseenter', function() {
-      var r = tip.getBoundingClientRect();
-      if (r.right > window.innerWidth - 4) { tip.style.left = 'auto'; tip.style.right = '0'; tip.style.transform = 'none'; }
-      if (r.left < 4) { tip.style.left = '0'; tip.style.right = 'auto'; tip.style.transform = 'none'; }
-    });
-    dot.addEventListener('mouseleave', function() { tip.style.cssText = ''; });
-    dot.addEventListener('click', function(e) {
-      e.stopPropagation();
-      var open = dot.classList.contains('lbl-open');
-      document.querySelectorAll('.acct-legend-dot.lbl-open').forEach(function(d) { d.classList.remove('lbl-open'); });
-      if (!open) dot.classList.add('lbl-open');
-    });
-    legendEl.appendChild(dot);
-  });
-  var chartDiv = document.getElementById('accounts-chart');
-  if (chartDiv) chartDiv.parentNode.insertBefore(legendEl, chartDiv);
-  document.addEventListener('click', function() {
-    document.querySelectorAll('.acct-legend-dot.lbl-open').forEach(function(d) { d.classList.remove('lbl-open'); });
-  });
-})();
-var _origClick = window._handleTxClick;
+  var _origClick = window._handleTxClick;
   window._handleTxClick = function(row) {
-    if (window.matchMedia('(max-width: 768px)').matches) { openDetail(row); } else { _origClick(row); }
+    if (window.matchMedia('(max-width: 768px)').matches) { openDetail(row); } else { if (_origClick) _origClick(row); }
   };
 })();
+
+/* ── Category pills collapse (> 6) ───────────────────────── */
 (function() {
   var SHOW = 6;
   ['spendings-cats', 'earnings-cats'].forEach(function(cid) {
@@ -8513,6 +8216,8 @@ var _origClick = window._handleTxClick;
     container.appendChild(btn);
   });
 })();
+
+/* ── Month roller touch swipe ─────────────────────────────── */
 (function() {
   var roller = document.getElementById('month-roller');
   var track = document.getElementById('roller-track');
@@ -8540,6 +8245,6 @@ var _origClick = window._handleTxClick;
     if (moved) { moved = false; e.stopImmediatePropagation(); }
   }, true);
 })();
-</script>
-</body>
+  </script>
+ </body>
 </html>

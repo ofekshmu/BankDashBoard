@@ -4344,15 +4344,15 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   0%   { background-position: 200% 0; }
   100% { background-position: -200% 0; }
 }
-.skel-kpi  { height: 90px; margin: 6px; flex: 1; min-width: 140px; }
-.skel-chart{ height: 260px; margin: 8px 0; }
-.skel-row  { height: 48px; margin: 4px 0; border-radius: 8px; }
+.skel-kpi   { height: 90px; margin: 6px; flex: 1; min-width: 140px; }
+.skel-chart { height: 260px; margin: 8px 0; }
+.skel-row   { height: 48px; margin: 4px 0; border-radius: 8px; }
 </style>
 
 <script>
 (function() {
   var _yyyy_mm = document.body.dataset.month;
-  if (!_yyyy_mm) return;   // static pages: skip
+  if (!_yyyy_mm) return;
 
   // ── Helpers ────────────────────────────────────────────────────────────
   function _esc(s) {
@@ -4365,237 +4365,490 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     var d = decimals != null ? decimals : 0;
     return Number(n).toLocaleString('he-IL', {minimumFractionDigits: d, maximumFractionDigits: d}) + ' ₪';
   }
-  function _sign(n) { return n >= 0 ? '+' : ''; }
-  function _clr(n, posClr, negClr) {
-    return n >= 0 ? (posClr || '#1e9d8b') : (negClr || '#e74c3c');
-  }
 
   // ── Skeleton placeholders ──────────────────────────────────────────────
   function _showSkeletons() {
-    var kr = document.getElementById('kpi-row');
+    var kr  = document.getElementById('kpi-row');
     var kr2 = document.getElementById('kpi-row-2');
+    var skel3 = '<div class="skel-card skel-row"></div><div class="skel-card skel-row"></div><div class="skel-card skel-row"></div>';
     if (kr)  kr.innerHTML  = '<div class="skel-card skel-kpi"></div><div class="skel-card skel-kpi"></div><div class="skel-card skel-kpi"></div>';
     if (kr2) kr2.innerHTML = '<div class="skel-card skel-kpi"></div><div class="skel-card skel-kpi"></div>';
     var sl = document.getElementById('spendings-list');
     var el = document.getElementById('earnings-list');
-    var skel3 = '<div class="skel-card skel-row"></div><div class="skel-card skel-row"></div><div class="skel-card skel-row"></div>';
     if (sl) sl.innerHTML = skel3;
     if (el) el.innerHTML = skel3;
   }
 
+  // ── KPI helper ─────────────────────────────────────────────────────────
+  function _kpiCard(label, value, isPos, isHero, dotColor, subtitle, extraCls) {
+    var cls = isHero
+      ? ('kpi-card hero' + (isPos ? '' : ' neg-hero'))
+      : ('kpi-card' + (extraCls ? ' ' + extraCls : ''));
+    return '<div class="' + cls + '">' +
+      '<div class="kpi-label"><span class="kpi-dot" style="background:' + (dotColor || '#9aa3bb') + '"></span>' + _esc(label) + '</div>' +
+      '<div class="kpi-value ' + (isPos ? 'pos' : 'neg') + '">' + (isPos ? '+' : '') + _fmt(value) + '</div>' +
+      (subtitle ? '<div class="kpi-sublabel">' + subtitle + '</div>' : '') +
+    '</div>';
+  }
+
   // ── KPI cards ──────────────────────────────────────────────────────────
   function _renderKpi(data) {
-    var k = data.kpi || {};
-    var kr = document.getElementById('kpi-row');
+    var k   = data.kpi || {};
+    var kr  = document.getElementById('kpi-row');
     var kr2 = document.getElementById('kpi-row-2');
     if (!kr) return;
 
     var netIncome = k.overall_net_income || 0;
-    var invNet    = k.investments_net || 0;
-    var balance   = k.month_end_balance || 0;
+    var balance   = k.month_end_balance  || 0;
+    var delta     = k.balance_delta      || 0;
+    var invOut    = k.investments_total_out || 0;
+    var invIn     = k.investments_total_in  || 0;
 
     kr.innerHTML =
-      '<div class="kpi-card">' +
-        '<div class="kpi-label">הכנסה נטו (חודש)</div>' +
-        '<div class="kpi-value" style="color:' + _clr(netIncome) + '">' + _sign(netIncome) + _fmt(netIncome) + '</div>' +
-        '<div class="kpi-sub">ממוצע: ' + _fmt(k.overall_net_mean) + '</div>' +
-      '</div>' +
-      '<div class="kpi-card">' +
-        '<div class="kpi-label">השקעות נטו</div>' +
-        '<div class="kpi-value" style="color:' + _clr(invNet,'#7b61ff','#e74c3c') + '">' + _sign(invNet) + _fmt(invNet) + '</div>' +
-        '<div class="kpi-sub">יציאות: ' + _fmt(k.investments_total_out) + ' / כניסות: ' + _fmt(k.investments_total_in) + '</div>' +
-      '</div>' +
-      '<div class="kpi-card">' +
-        '<div class="kpi-label">יתרת חשבון' + (k.balance_date ? ' (' + _esc(k.balance_date) + ')' : '') + '</div>' +
-        '<div class="kpi-value">' + _fmt(balance) + '</div>' +
-        '<div class="kpi-sub">שינוי: ' + _sign(k.balance_delta) + _fmt(k.balance_delta) + '</div>' +
+      _kpiCard('הכנסה נטו (חודש)', netIncome, netIncome >= 0, true, '#1e9d8b',
+        'ממוצע: ' + _fmt(k.overall_net_mean)) +
+      '<div class="kpi-card kpi-balance-card">' +
+        '<div class="kpi-label"><span class="kpi-dot" style="background:#1e9d8b"></span>יתרה חודשית' +
+        (k.balance_date ? ' (' + _esc(k.balance_date) + ')' : '') + '</div>' +
+        '<div class="kpi-value ' + (balance >= 0 ? 'pos' : 'neg') + '">' +
+          Math.round(balance).toLocaleString('he-IL') + ' ₪</div>' +
+        '<div class="kpi-balance-delta ' + (delta >= 0 ? 'pos' : 'neg') + '">' +
+          (delta >= 0 ? '▲' : '▼') + ' ' + Math.abs(Math.round(delta)).toLocaleString('he-IL') + '₪ החודש' +
+        '</div>' +
       '</div>';
 
     if (kr2) {
       kr2.innerHTML =
-        '<div class="kpi-card">' +
-          '<div class="kpi-label">מזומן שנכנס</div>' +
-          '<div class="kpi-value" style="color:#1e9d8b">' + _fmt(k.cash_earned) + '</div>' +
-        '</div>' +
-        '<div class="kpi-card">' +
-          '<div class="kpi-label">מזומן שיצא</div>' +
-          '<div class="kpi-value" style="color:#e74c3c">' + _fmt(Math.abs(k.cash_spent || 0)) + '</div>' +
-        '</div>';
+        _kpiCard('הפקדה לחיסכון/השקעה', invOut, false, false, '#D4A017', '', invOut === 0 ? 'muted' : '') +
+        _kpiCard('משיכה מחסכון', invIn, true, false, '#E8900C', '', invIn === 0 ? 'muted' : '');
     }
   }
 
-  // ── Charts ─────────────────────────────────────────────────────────────
+  // ── Chart helpers ──────────────────────────────────────────────────────
   function _destroyChart(canvasId) {
     if (typeof Chart === 'undefined') return;
-    var existing = Chart.getChart(canvasId);
-    if (existing) existing.destroy();
+    var ex = Chart.getChart(canvasId);
+    if (ex) ex.destroy();
   }
 
-  function _buildDonut(canvasId, labels, values, colors, title) {
-    _destroyChart(canvasId);
-    var ctx = document.getElementById(canvasId);
-    if (!ctx) return;
-    new Chart(ctx, {
-      type: 'doughnut',
-      data: {
-        labels: labels,
-        datasets: [{ data: values, backgroundColor: colors, borderWidth: 1 }]
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false, cutout: '65%',
-        plugins: {
-          legend: { position: 'right', labels: { font: { size: 11 }, boxWidth: 12 } },
-          title:  { display: !!title, text: title, font: { size: 13 } }
-        }
-      }
+  var _DONUT_CENTER_PLUGIN = {
+    id: 'dynCenterText',
+    beforeDraw: function(chart) {
+      if (chart.config.type !== 'doughnut') return;
+      var ctx = chart.ctx, ca = chart.chartArea;
+      var cx  = (ca.left + ca.right) / 2, cy = (ca.top + ca.bottom) / 2;
+      var total = chart.data.datasets[0].data.reduce(function(a, b, i) {
+        return chart.getDataVisibility(i) ? a + b : a;
+      }, 0);
+      ctx.save();
+      ctx.font = 'bold 15px Segoe UI,Arial,sans-serif';
+      ctx.fillStyle = '#1e2a4a';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('₪' + Math.round(total).toLocaleString('he-IL'), cx, cy);
+      ctx.restore();
+    }
+  };
+
+  var _PAL_SPEND = ['#ef9a9a','#ffcc80','#ffe082','#a5d6a7','#80cbc4','#90caf9','#ce93d8','#f48fb1'];
+  var _PAL_EARN  = ['#a5d6a7','#80cbc4','#90caf9','#ce93d8','#ffe082','#ffcc80','#ef9a9a','#f48fb1'];
+
+  function _buildDonutCard(container, canvasId, title, catData, palette) {
+    var labels = Object.keys(catData);
+    var values = labels.map(function(k) { return catData[k]; });
+    if (!labels.length) return;
+    var colors = palette.slice(0, labels.length);
+    var total  = values.reduce(function(a, b) { return a + b; }, 0) || 1;
+
+    var card = document.createElement('div');
+    card.className = 'chart-card';
+    var ttl = document.createElement('div');
+    ttl.className = 'chart-card-title';
+    ttl.textContent = title;
+    card.appendChild(ttl);
+
+    var wrap = document.createElement('div');
+    wrap.className = 'donut-chart-wrap';
+    wrap.style.cssText = 'position:relative;height:320px;';
+    var canvas = document.createElement('canvas');
+    canvas.id = canvasId;
+    canvas.style.cssText = 'width:100%;height:100%;';
+    wrap.appendChild(canvas);
+    card.appendChild(wrap);
+
+    var gridId   = canvasId + '-legend';
+    var toggleId = canvasId + '-toggle';
+    var toggle = document.createElement('div');
+    toggle.className = 'cat-legend-toggle';
+    toggle.id = toggleId;
+    toggle.innerHTML = '<span class="cat-toggle-label">פירוט קטגוריות</span>' +
+                       '<span class="cat-toggle-chevron">▾</span>';
+    toggle.onclick = function() {
+      var g = document.getElementById(gridId), t = document.getElementById(toggleId);
+      var open = g.classList.contains('open');
+      g.classList.toggle('open', !open);
+      t.querySelector('.cat-toggle-chevron').style.transform = open ? '' : 'rotate(180deg)';
+    };
+    card.appendChild(toggle);
+
+    var lgrid = document.createElement('div');
+    lgrid.className = 'cat-legend-grid';
+    lgrid.id = gridId;
+    var sorted = labels.map(function(l, i) { return [i, l, values[i]]; })
+                       .sort(function(a, b) { return b[2] - a[2]; });
+    sorted.forEach(function(item) {
+      var idx = item[0], lbl = item[1], val = item[2];
+      var pct = (val / total * 100).toFixed(0);
+      var row = document.createElement('div');
+      row.className = 'cat-legend-row';
+      row.dataset.cid = canvasId;
+      row.dataset.idx = String(idx);
+      row.innerHTML =
+        '<span class="cat-dot" style="background:' + colors[idx] + '"></span>' +
+        '<span class="cat-name">' + _esc(lbl) + '</span>' +
+        '<span class="cat-val">₪' + Math.round(val).toLocaleString('he-IL') + ' (' + pct + '%)</span>';
+      lgrid.appendChild(row);
+    });
+    card.appendChild(lgrid);
+    container.appendChild(card);
+
+    requestAnimationFrame(function() {
+      _destroyChart(canvasId);
+      var inst = new Chart(canvas, {
+        type: 'doughnut',
+        data: {
+          labels: labels,
+          datasets: [{ data: values, backgroundColor: colors,
+                       borderWidth: 1, borderColor: '#fff', hoverOffset: 8 }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false, cutout: '68%',
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              rtl: true,
+              callbacks: {
+                label: function(ctx) {
+                  var v = ctx.parsed, ch = ctx.chart;
+                  var vis = ctx.dataset.data.reduce(function(a, b, i) {
+                    return ch.getDataVisibility(i) ? a + b : a;
+                  }, 0);
+                  var pct = vis ? (v / vis * 100).toFixed(1) : 0;
+                  return '₪' + Math.round(v).toLocaleString('he-IL') + ' (' + pct + '%)';
+                }
+              }
+            }
+          }
+        },
+        plugins: [_DONUT_CENTER_PLUGIN]
+      });
+      canvas._chartInst = inst;
+      lgrid.querySelectorAll('.cat-legend-row').forEach(function(row) {
+        var idx = +row.dataset.idx;
+        row.addEventListener('click', function() {
+          inst.toggleDataVisibility(idx); inst.update();
+          row.style.opacity = inst.getDataVisibility(idx) ? '1' : '0.35';
+        });
+        row.addEventListener('mouseenter', function() {
+          inst.tooltip.setActiveElements([{datasetIndex: 0, index: idx}], {x: 0, y: 0}); inst.update();
+        });
+        row.addEventListener('mouseleave', function() {
+          inst.tooltip.setActiveElements([], {x: 0, y: 0}); inst.update();
+        });
+      });
     });
   }
 
+  // ── Overview charts ────────────────────────────────────────────────────
   function _renderOverviewCharts(data) {
-    if (typeof Chart === 'undefined') return;
+    var grid = document.getElementById('overview-charts');
+    if (!grid || typeof Chart === 'undefined') return;
+    grid.innerHTML = '';
     var ch = data.charts || {};
 
-    // Spendings donut
-    var sp = ch.spendings_by_cat || {};
-    var spKeys = Object.keys(sp), spVals = spKeys.map(function(k){ return sp[k]; });
-    var donutColors = ['#f66b85','#ff9f40','#ffcd56','#4bc0c0','#36a2eb','#9966ff','#c9cbcf','#ff6384'];
-    _buildDonut('chart-spendings-donut', spKeys, spVals,
-      donutColors.slice(0, spKeys.length), 'הוצאות לפי קטגוריה');
+    if (ch.spendings_by_cat && Object.keys(ch.spendings_by_cat).length) {
+      _buildDonutCard(grid, 'chart-spendings-donut', 'הוצאות לפי קטגוריה',
+                      ch.spendings_by_cat, _PAL_SPEND);
+    }
+    if (ch.earnings_by_cat && Object.keys(ch.earnings_by_cat).length) {
+      _buildDonutCard(grid, 'chart-earnings-donut', 'הכנסות לחשבון לפי קטגוריה',
+                      ch.earnings_by_cat, _PAL_EARN);
+    }
 
-    // Earnings donut
-    var ea = ch.earnings_by_cat || {};
-    var eaKeys = Object.keys(ea), eaVals = eaKeys.map(function(k){ return ea[k]; });
-    var eaColors = ['#4fba89','#36a2eb','#9966ff','#4bc0c0','#ffcd56','#ff9f40','#f66b85'];
-    _buildDonut('chart-earnings-donut', eaKeys, eaVals,
-      eaColors.slice(0, eaKeys.length), 'הכנסות לפי קטגוריה');
+    if (ch.general_months && ch.general_months.length) {
+      var genCard = document.createElement('div');
+      genCard.className = 'chart-card full-width';
+      var genTtl = document.createElement('div');
+      genTtl.className = 'chart-card-title';
+      genTtl.textContent = 'הוצאות והכנסות — חודשים אחרונים';
+      genCard.appendChild(genTtl);
+      var genWrap = document.createElement('div');
+      genWrap.style.cssText = 'position:relative;height:320px;';
+      var genCanvas = document.createElement('canvas');
+      genCanvas.id = 'chart-general-bar';
+      genCanvas.style.cssText = 'width:100%;height:100%;';
+      genWrap.appendChild(genCanvas);
+      genCard.appendChild(genWrap);
+      grid.appendChild(genCard);
 
-    // Card distribution donut
-    var cd = ch.card_dist || {};
-    var cdKeys = Object.keys(cd);
-    _buildDonut('chart-cards-donut', cdKeys,
-      cdKeys.map(function(k){ return cd[k].amount; }),
-      cdKeys.map(function(k){ return cd[k].color || '#b0bec5'; }),
-      'חלוקת כרטיסים');
+      var months  = (ch.general_months         || []).slice().reverse();
+      var sp2     = (ch.general_spendings       || []).slice().reverse();
+      var ea2     = (ch.general_earnings        || []).slice().reverse();
+      var net2    = (ch.general_net             || []).slice().reverse();
+      var invOut2 = (ch.general_investments_out || []).slice().reverse();
+      var invIn2  = (ch.general_investments_in  || []).slice().reverse();
+      var mean    = ch.overall_net_mean || 0;
+      var _IB = 'rgba(255,183,77,0.85)', _ID = '#ffb74d';
 
-    // General bar + net line
-    _destroyChart('chart-general-bar');
-    var gbCtx = document.getElementById('chart-general-bar');
-    if (gbCtx && ch.general_months && ch.general_months.length) {
-      var months = ch.general_months.slice().reverse();
-      var sp2   = (ch.general_spendings || []).slice().reverse();
-      var ea2   = (ch.general_earnings  || []).slice().reverse();
-      var net2  = (ch.general_net       || []).slice().reverse();
-      var mean  = ch.overall_net_mean || 0;
-      new Chart(gbCtx, {
-        data: {
-          labels: months,
-          datasets: [
-            { type:'bar',  label:'הוצאות', data: sp2, backgroundColor:'rgba(246,107,133,0.7)', order:2 },
-            { type:'bar',  label:'הכנסות', data: ea2, backgroundColor:'rgba(79,186,137,0.7)',  order:2 },
-            { type:'line', label:'נטו',    data: net2, borderColor:'#7b61ff', backgroundColor:'transparent',
-              borderWidth:2, pointRadius:3, tension:0.35, order:1 },
-            { type:'line', label:'ממוצע נטו', data: months.map(function(){ return mean; }),
-              borderColor:'rgba(123,97,255,0.35)', borderDash:[5,5], backgroundColor:'transparent',
-              pointRadius:0, borderWidth:1.5, order:1 }
-          ]
-        },
-        options: {
-          responsive:true, maintainAspectRatio:false,
-          plugins:{ legend:{ position:'bottom', labels:{ font:{ size:11 } } } },
-          scales:{
-            x:{ ticks:{ maxTicksLimit:8, maxRotation:30 } },
-            y:{ ticks:{ callback:function(v){ return v.toLocaleString('he-IL'); } } }
+      requestAnimationFrame(function() {
+        _destroyChart('chart-general-bar');
+        new Chart(genCanvas, {
+          data: {
+            labels: months,
+            datasets: [
+              { type:'bar',  label:'הוצאות',          data: sp2,     backgroundColor:'rgba(239,154,154,0.80)', borderColor:'#ef5350', borderWidth:1, order:2, stack:'sp' },
+              { type:'bar',  label:'השקעות/חיסכון', data: invOut2, backgroundColor:_IB, borderColor:_ID, borderWidth:1, order:2, stack:'sp' },
+              { type:'bar',  label:'הכנסות',           data: ea2,     backgroundColor:'rgba(165,214,167,0.75)', borderColor:'#43a047', borderWidth:1, order:2, stack:'ea' },
+              { type:'bar',  label:'',                                               data: invIn2,  backgroundColor:_IB, borderColor:_ID, borderWidth:1, order:2, stack:'ea' },
+              { type:'line', label:'נטו (ללא השקעות)', data: net2, borderColor:'#1e9d8b', backgroundColor:'rgba(30,157,139,0.08)', pointRadius:5, pointHoverRadius:8, tension:0.35, fill:true, borderWidth:2, order:1 },
+              { type:'line', label:'ממוצע נטו', data: months.map(function() { return mean; }), borderColor:'rgba(30,157,139,0.35)', borderDash:[5,5], backgroundColor:'transparent', pointRadius:0, borderWidth:1.5, order:1 }
+            ]
+          },
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { position:'bottom', labels:{ font:{ size:11 } } } },
+            scales: {
+              x: { ticks:{ maxTicksLimit:8, maxRotation:30 } },
+              y: { ticks:{ callback: function(v) { return v.toLocaleString('he-IL'); } } }
+            }
           }
-        }
+        });
       });
     }
   }
 
   // ── Transactions ───────────────────────────────────────────────────────
   function _renderTransactions(data) {
-    var tx = data.transactions || {};
-    function _buildRows(list, listId) {
+    var colors = data.card_colors || {};
+    var tx     = data.transactions || {};
+
+    function _cardColor(card, table) {
+      if (table === 'CashTransactions') return '#ECCD1F';
+      if (table === 'BankTransactions') return colors['Bank'] || '#1e2a4a';
+      return colors[String(card)] || '#b0bec5';
+    }
+
+    function _buildRow(row) {
+      var div = document.createElement('div');
+      div.className = 'num';
+      div.dataset.value   = String(row.id   || '');
+      div.dataset.txTable = String(row.table || '');
+
+      var box = document.createElement('div');
+      box.className = 'color-box';
+      box.style.backgroundColor = _cardColor(row.card, row.table);
+      div.appendChild(box);
+
+      var h3   = document.createElement('h3');
+      var name = String(row.name || '');
+      var desc = (row.desc && String(row.desc).trim() && String(row.desc).trim() !== name)
+                 ? String(row.desc).trim() : '';
+      if (desc) {
+        h3.innerHTML = '<span class="tx-primary">' + _esc(desc) + '</span>' +
+                       '<span class="tx-secondary">' + _esc(name) + '</span>';
+      } else {
+        h3.innerHTML = '<span class="tx-primary">' + _esc(name) + '</span>';
+      }
+      h3.innerHTML += '<span class="tx-id">#' + _esc(row.id) + '</span>';
+      div.appendChild(h3);
+
+      var pAmt = document.createElement('p');
+      pAmt.className = 'date';
+      var amt = row.amount != null ? Math.abs(Number(row.amount)) : 0;
+      pAmt.textContent = amt.toLocaleString('he-IL', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + '₪';
+      div.appendChild(pAmt);
+
+      var pCat = document.createElement('p');
+      pCat.className = 'cat';
+      pCat.textContent = String(row.category || '');
+      div.appendChild(pCat);
+
+      var pDate = document.createElement('p');
+      pDate.className = 'element4';
+      pDate.textContent = String(row.date || '');
+      div.appendChild(pDate);
+
+      return div;
+    }
+
+    function _populate(list, listId) {
       var el = document.getElementById(listId);
       if (!el) return;
       el.innerHTML = '';
+      var total = 0;
       (list || []).forEach(function(row) {
-        var amt = row.amount != null ? Math.abs(row.amount) : 0;
-        var isNeg = listId.indexOf('spendings') >= 0;
-        var color = isNeg ? '#e74c3c' : '#1e9d8b';
-        var div = document.createElement('div');
-        div.className = 'tx-row';
-        div.innerHTML =
-          '<span class="cat">' + _esc(row.category) + '</span>' +
-          '<span class="name">' + _esc(row.name) + (row.desc ? ' <span class="desc">(' + _esc(row.desc) + ')</span>' : '') + '</span>' +
-          '<span class="num">' +
-            '<span class="date">' + _esc(row.date) + '</span>' +
-            '<span class="amt" style="color:' + color + '">' +
-              (isNeg ? '-' : '+') + _fmt(amt) +
-            '</span>' +
-          '</span>';
-        div.dataset.cat    = row.category || '';
-        div.dataset.amount = amt;
-        el.appendChild(div);
+        el.appendChild(_buildRow(row));
+        total += row.amount != null ? Math.abs(Number(row.amount)) : 0;
       });
-    }
-    _buildRows(tx.spendings, 'spendings-list');
-    _buildRows(tx.earnings,  'earnings-list');
 
-    // Rebuild category pills (replicate buildPillsAndTotals IIFE logic)
-    ['spendings-list', 'earnings-list'].forEach(function(listId) {
+      var sumId   = listId.replace('-list', '-sum');
+      var countId = listId.replace('-list', '-count');
+      var sumEl   = document.getElementById(sumId);
+      var cntEl   = document.getElementById(countId);
+      if (sumEl) sumEl.textContent =
+        total.toLocaleString('he-IL', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + '₪';
+      if (cntEl) cntEl.textContent = (list || []).length + ' עסקאות';
+
       var cats = {};
-      document.querySelectorAll('#' + listId + ' .cat').forEach(function(el) {
-        var c = el.textContent.trim();
-        if (c) cats[c] = (cats[c] || 0) + 1;
+      el.querySelectorAll('.cat').forEach(function(c) {
+        var t = c.textContent.trim();
+        if (t) cats[t] = (cats[t] || 0) + 1;
       });
-      var pillsContainer = document.getElementById(listId.replace('-list', '-cats'));
-      if (pillsContainer) {
-        pillsContainer.innerHTML = '';
-        Object.keys(cats).sort(function(a,b){ return cats[b]-cats[a]; }).forEach(function(cat) {
+      var pillsCont = document.getElementById(listId.replace('-list', '-cats'));
+      if (pillsCont) {
+        pillsCont.innerHTML = '';
+        Object.keys(cats).sort(function(a, b) { return cats[b] - cats[a]; }).forEach(function(cat) {
           var pill = document.createElement('button');
           pill.className = 'cat-pill';
           pill.textContent = cat + ' (' + cats[cat] + ')';
           pill.onclick = function() { if (typeof filterByCat === 'function') filterByCat(listId, cat, pill); };
-          pillsContainer.appendChild(pill);
+          pillsCont.appendChild(pill);
         });
       }
       if (typeof updateTotal === 'function') updateTotal(listId);
-    });
+    }
+
+    _populate(tx.spendings, 'spendings-list');
+    _populate(tx.earnings,  'earnings-list');
   }
 
-  // ── Payments ───────────────────────────────────────────────────────────
+  // ── Payments (installment doughnuts) ──────────────────────────────────
+  var _PAY_PALETTES = [
+    ['#5C6BC0','#C5CAE9'], ['#26A69A','#B2DFDB'],
+    ['#EF5350','#FFCDD2'], ['#FFA726','#FFE0B2'],
+    ['#AB47BC','#E1BEE7'], ['#29B6F6','#B3E5FC'],
+    ['#66BB6A','#C8E6C9'], ['#EC407A','#FCE4EC']
+  ];
+
   function _renderPayments(data) {
     var grid = document.getElementById('tx-payments-grid');
     if (!grid) return;
+    grid.innerHTML = '';
     var payments = data.payments || [];
-    if (!payments.length) { grid.innerHTML = '<p style="color:#aaa;text-align:center">אין תשלומים חודשיים</p>'; return; }
-    grid.innerHTML = payments.map(function(p) {
-      var pct = Math.min(100, Math.round((p.pct || 0) * 100));
-      return '<div class="payment-card">' +
-        '<div class="payment-name">' + _esc(p.name) + '</div>' +
-        '<div class="payment-progress"><div class="payment-bar" style="width:' + pct + '%"></div></div>' +
-        '<div class="payment-meta">' + pct + '% — שולם ' + _fmt(p.paid) + ' מתוך ' + _fmt(p.total) +
-          ' (נותר: ' + _fmt(p.left) + ')' +
-        '</div>' +
-      '</div>';
-    }).join('');
+    if (!payments.length) {
+      var empty = document.createElement('div');
+      empty.className = 'empty-state';
+      empty.style.padding = '14px 0';
+      empty.textContent = 'אין תשלומים פעילים החודש';
+      grid.appendChild(empty);
+      return;
+    }
+
+    payments.forEach(function(p, pi) {
+      var pnum    = p.current_num || 0;
+      var ptotal  = p.total_num   || 1;
+      var premain = p.remain_num  != null ? p.remain_num : Math.max(0, ptotal - pnum);
+      var pamt    = p.monthly_amt || 0;
+      var pname   = String(p.name || '');
+      var cols    = _PAY_PALETTES[pi % _PAY_PALETTES.length];
+      var pcid    = 'chart-payment-' + pi;
+
+      var card = document.createElement('div');
+      card.className = 'chart-card';
+
+      var ttl = document.createElement('div');
+      ttl.className = 'chart-card-title';
+      ttl.textContent = pname.length > 28 ? pname.slice(0, 28) + '…' : pname;
+      card.appendChild(ttl);
+
+      var wrap = document.createElement('div');
+      wrap.style.cssText = 'position:relative;height:190px;';
+      var canvas = document.createElement('canvas');
+      canvas.id  = pcid;
+      canvas.style.cssText = 'width:100%;height:100%;';
+      wrap.appendChild(canvas);
+      card.appendChild(wrap);
+
+      var footer = document.createElement('div');
+      footer.className = 'payment-footer';
+      footer.textContent = '₪' + pamt.toLocaleString('he-IL', {minimumFractionDigits:0, maximumFractionDigits:0}) + ' / חודש';
+      card.appendChild(footer);
+
+      grid.appendChild(card);
+
+      (function(idx, cv, rv, colorPair, id) {
+        var PayPlugin = {
+          id: 'payCenter_' + idx,
+          beforeDraw: function(chart) {
+            if (chart.config.type !== 'doughnut') return;
+            var ctx = chart.ctx, ca = chart.chartArea;
+            var cx  = (ca.left + ca.right) / 2, cy = (ca.top + ca.bottom) / 2;
+            ctx.save();
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.font = 'bold 15px Segoe UI,Arial,sans-serif'; ctx.fillStyle = '#1e2a4a';
+            ctx.fillText(cv + '/' + (cv + rv), cx, cy - 7);
+            ctx.font = '10px Segoe UI,Arial,sans-serif'; ctx.fillStyle = '#888';
+            ctx.fillText('תשלומים', cx, cy + 9);
+            ctx.restore();
+          }
+        };
+        requestAnimationFrame(function() {
+          _destroyChart(id);
+          new Chart(document.getElementById(id), {
+            type: 'doughnut',
+            data: {
+              labels: ['שולם (' + cv + ')', 'נותר (' + rv + ')'],
+              datasets: [{ data: [cv, rv], backgroundColor: colorPair, borderWidth: 2, borderColor: '#fff', hoverOffset: 6 }]
+            },
+            options: {
+              responsive: true, maintainAspectRatio: false, cutout: '68%',
+              plugins: {
+                legend: { position:'bottom', labels:{ font:{ size:10 }, boxWidth: 10 } },
+                tooltip: { callbacks: { label: function(ctx) { return ctx.label; } } }
+              }
+            },
+            plugins: [PayPlugin]
+          });
+        });
+      })(pi, pnum, premain, cols, pcid);
+    });
   }
 
   // ── Smart Alerts ───────────────────────────────────────────────────────
+  var _ALERT_BG = { '#e74c3c':'#fff5f5', '#2ecc71':'#f0fff4', '#f0b429':'#fffbeb' };
+
   function _renderAlerts(data) {
     var card = document.getElementById('alerts-card');
     if (!card) return;
+    card.innerHTML = '';
     var alerts = data.alerts || [];
-    if (!alerts.length) { card.innerHTML = '<div style="color:#aaa;text-align:center;padding:20px">אין התראות</div>'; return; }
-    card.innerHTML = '<div class="card-title">התראות חכמות</div>' +
-      '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin-top:12px">' +
-      alerts.map(function(a) {
-        return '<div style="border-right:4px solid ' + _esc(a.color || '#1e9d8b') + ';padding:10px 14px;background:#fafafa;border-radius:6px">' +
-          (a.icon ? '<span style="margin-left:6px">' + _esc(a.icon) + '</span>' : '') +
-          '<strong>' + _esc(a.title) + '</strong>' +
-          '<p style="margin:4px 0 0;font-size:.85em;color:#555">' + _esc(a.description) + '</p>' +
-          '</div>';
-      }).join('') + '</div>';
+    if (!alerts.length) {
+      card.innerHTML = '<div style="color:#aaa;text-align:center;padding:20px">אין התראות</div>';
+      return;
+    }
+
+    var header = document.createElement('div');
+    header.className = 'alerts-header';
+    header.innerHTML =
+      '<h2>⚠ התראות חכמות</h2>' +
+      '<span class="alerts-count-badge">' + alerts.length + ' התראות</span>';
+    card.appendChild(header);
+
+    var matrix = document.createElement('div');
+    matrix.className = 'alerts-matrix';
+    alerts.forEach(function(a) {
+      var bc = a.color || '#f0b429';
+      var bg = _ALERT_BG[bc] || '#fafafa';
+      var item = document.createElement('div');
+      item.className = 'alert-item';
+      item.style.cssText = 'border-color:' + bc + ';background-color:' + bg + ';';
+      item.innerHTML =
+        '<span class="alert-icon">' + _esc(a.icon || '•') + '</span>' +
+        '<div class="alert-body"><strong>' + _esc(a.title) + '</strong>' +
+        '<p>' + _esc(a.description || '') + '</p></div>';
+      matrix.appendChild(item);
+    });
+    card.appendChild(matrix);
   }
 
   // ── Organizer Alerts ───────────────────────────────────────────────────
@@ -4604,10 +4857,11 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     if (!el) return;
     var org = data.organizer_alerts || [];
     el.innerHTML = org.map(function(a) {
-      return '<div style="background:#fff8e1;border-right:4px solid #f0ad4e;padding:10px 14px;border-radius:6px;margin-bottom:8px">' +
+      return '<div style="background:#fff8e1;border-right:4px solid #f0ad4e;' +
+             'padding:10px 14px;border-radius:6px;margin-bottom:8px">' +
         '<strong>' + _esc(a.title) + '</strong>' +
         (a.message ? '<span style="margin-right:8px;color:#555">' + _esc(a.message) + '</span>' : '') +
-        '</div>';
+      '</div>';
     }).join('');
   }
 
@@ -4617,7 +4871,6 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     if (!tbl || !data.accounts) return;
     var meta = data.accounts_meta || {};
 
-    // Populate _acctCurrencies so the existing enrichment functions work
     if (typeof _acctCurrencies !== 'undefined') {
       Object.keys(meta).forEach(function(name) {
         var m = meta[name];
@@ -4631,30 +4884,27 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     var rows = '';
     Object.keys(data.accounts).forEach(function(name) {
       if (name === 'Total') return;
-      var pts = data.accounts[name] || [];
+      var pts  = data.accounts[name] || [];
       var last = pts.length ? pts[pts.length - 1][1] : 0;
-      var m = meta[name] || {};
-      var cur = m.last_currency || 'ILS';
-      var raw = m.last_raw_value != null ? m.last_raw_value : last;
+      var m    = meta[name] || {};
+      var cur  = m.last_currency || 'ILS';
+      var raw  = m.last_raw_value != null ? m.last_raw_value : last;
       var display = cur === 'ILS'
         ? _fmt(last)
         : Number(raw).toLocaleString('he-IL', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' ' + cur +
           ' (' + _fmt(last) + ')';
-      rows += '<tr class="acct-row"><td>' + _esc(name) + '</td><td style="text-align:left;direction:ltr">' + display + '</td></tr>';
+      rows += '<tr class="acct-row"><td>' + _esc(name) + '</td>' +
+              '<td style="text-align:left;direction:ltr">' + display + '</td></tr>';
     });
-
-    // Total row
-    var totalPts = data.accounts['Total'] || [];
+    var totalPts  = data.accounts['Total'] || [];
     var totalLast = totalPts.length ? totalPts[totalPts.length - 1][1] : 0;
     rows += '<tr class="acct-total-row" style="font-weight:700;border-top:2px solid #e0e4ef">' +
-      '<td>סה"כ</td><td style="text-align:left;direction:ltr">' + _fmt(totalLast) + '</td></tr>';
+            '<td>סה"כ</td><td style="text-align:left;direction:ltr">' + _fmt(totalLast) + '</td></tr>';
 
-    var thead = tbl.querySelector('thead');
-    var tbody = tbl.querySelector('tbody');
-    if (!thead) {
+    if (!tbl.querySelector('thead')) {
       tbl.innerHTML = '<thead><tr><th>חשבון</th><th>יתרה</th></tr></thead><tbody></tbody>';
-      tbody = tbl.querySelector('tbody');
     }
+    var tbody = tbl.querySelector('tbody');
     if (tbody) tbody.innerHTML = rows;
   }
 
@@ -4673,7 +4923,6 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     }
     _destroyChart('acct-chart-canvas');
 
-    // Collect all unique date labels across accounts, sorted
     var dateSet = {}, allDates = [];
     Object.keys(data.accounts).forEach(function(name) {
       (data.accounts[name] || []).forEach(function(p) {
@@ -4681,28 +4930,24 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       });
     });
     allDates.sort();
-    // Thin labels so x-axis stays readable
-    var step = Math.max(1, Math.floor(allDates.length / 24));
-    var labels = allDates.filter(function(_, i){ return i % step === 0; });
+    var step   = Math.max(1, Math.floor(allDates.length / 24));
+    var labels = allDates.filter(function(_, i) { return i % step === 0; });
 
-    var palette = ['#1e9d8b','#7b61ff','#f0ad4e','#e74c3c','#36a2eb','#4bc0c0','#f66b85','#9966ff'];
+    var palette  = ['#1e9d8b','#7b61ff','#f0ad4e','#e74c3c','#36a2eb','#4bc0c0','#f66b85','#9966ff'];
     var datasets = [];
     var colorIdx = 0;
     Object.keys(data.accounts).forEach(function(name) {
       var pts = data.accounts[name] || [];
       if (!pts.length) return;
-      // Index each data point by its position in allDates
       var indexed = {};
-      pts.forEach(function(p){ indexed[p[0]] = p[1]; });
+      pts.forEach(function(p) { indexed[p[0]] = p[1]; });
       var color = name === 'Total' ? '#333' : palette[colorIdx++ % palette.length];
       datasets.push({
         label: name,
-        data: labels.map(function(d){ return indexed[d] != null ? indexed[d] : null; }),
-        borderColor: color,
-        backgroundColor: 'transparent',
-        borderWidth: name === 'Total' ? 2.5 : 1.5,
-        spanGaps: true,
-        pointRadius: 2, tension: 0.3,
+        data: labels.map(function(d) { return indexed[d] != null ? indexed[d] : null; }),
+        borderColor: color, backgroundColor: 'transparent',
+        borderWidth: name === 'Total' ? 2.5 : 1.5, spanGaps: true,
+        pointRadius: 2, tension: 0.3
       });
     });
 
@@ -4711,10 +4956,10 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       data: { labels: labels, datasets: datasets },
       options: {
         responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } } },
+        plugins: { legend: { position:'bottom', labels:{ font:{ size:11 } } } },
         scales: {
-          x: { ticks: { maxTicksLimit: 12, maxRotation: 30 } },
-          y: { ticks: { callback: function(v){ return v.toLocaleString('he-IL'); } } }
+          x: { ticks:{ maxTicksLimit:12, maxRotation:30 } },
+          y: { ticks:{ callback: function(v) { return v.toLocaleString('he-IL'); } } }
         }
       }
     });
@@ -4729,8 +4974,6 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       panel.innerHTML = '<div class="card" style="padding:30px;text-align:center;color:#aaa">אין נתוני דיור</div>';
       return;
     }
-
-    // KPI row
     var kpiHtml = '<div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:16px">';
     [
       ['apartment_price',       'מחיר דירה'],
@@ -4738,56 +4981,51 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       ['equity_appreciated',    'הון עצמי (עם עליית ערך)'],
       ['current_balance',       'יתרת משכנתא'],
       ['total_monthly_payment', 'תשלום חודשי'],
-      ['rental_income',         'שכר דירה'],
+      ['rental_income',         'שכר דירה']
     ].forEach(function(kv) {
       var v = m[kv[0]];
       if (v != null) {
         kpiHtml += '<div class="kpi-card" style="min-width:160px">' +
           '<div class="kpi-label">' + _esc(kv[1]) + '</div>' +
-          '<div class="kpi-value" style="font-size:1.1em">' + _fmt(v) + '</div>' +
-          '</div>';
+          '<div class="kpi-value" style="font-size:1.1em">' + _fmt(v) + '</div></div>';
       }
     });
     kpiHtml += '</div>';
-
-    // Transactions table
+    var txns   = m.housing_transactions || [];
     var txHtml = '';
-    var txns = m.housing_transactions || [];
     if (txns.length) {
       txHtml = '<div class="card" style="margin-top:16px"><div class="card-title">עסקאות נכס</div>' +
         '<table style="width:100%;border-collapse:collapse;font-size:.85em">' +
         '<thead><tr><th>תאריך</th><th>שם</th><th>יציאה</th><th>כניסה</th></tr></thead><tbody>' +
         txns.slice(-30).map(function(tx) {
           return '<tr><td>' + _esc(tx.date) + '</td><td>' + _esc(tx.name) + '</td>' +
-            '<td style="color:#e74c3c">' + (tx.out  ? _fmt(tx.out)    : '') + '</td>' +
+            '<td style="color:#e74c3c">' + (tx.out    ? _fmt(tx.out)    : '') + '</td>' +
             '<td style="color:#1e9d8b">' + (tx.income ? _fmt(tx.income) : '') + '</td></tr>';
-        }).join('') +
-        '</tbody></table></div>';
+        }).join('') + '</tbody></table></div>';
     }
+    panel.innerHTML =
+      '<div class="card"><div class="card-title">ניהול משכנתא / נכס</div>' + kpiHtml + '</div>' + txHtml;
 
-    panel.innerHTML = '<div class="card"><div class="card-title">ניהול משכנתא / נכס</div>' + kpiHtml + '</div>' + txHtml;
-
-    // Render housing charts if Chart.js-ready data is available
     if (typeof Chart !== 'undefined' && m.chart_cashflow) {
-      var cf = m.chart_cashflow;
+      var cf     = m.chart_cashflow;
       var cfWrap = document.createElement('div');
-      cfWrap.className = 'card';
+      cfWrap.className   = 'card';
       cfWrap.style.marginTop = '16px';
-      cfWrap.innerHTML = '<div class="card-title">תזרים תשלומים</div><canvas id="housing-cf-canvas" style="height:220px"></canvas>';
+      cfWrap.innerHTML =
+        '<div class="card-title">תזרים תשלומים</div>' +
+        '<canvas id="housing-cf-canvas" style="height:220px"></canvas>';
       panel.appendChild(cfWrap);
       new Chart(document.getElementById('housing-cf-canvas'), {
         type: 'bar',
         data: {
           labels: cf.months,
           datasets: [
-            { label: 'תשלום משכנתא', data: cf.payments, backgroundColor: 'rgba(246,107,133,0.7)' },
-            { label: 'שכר דירה',     data: cf.rentals,  backgroundColor: 'rgba(79,186,137,0.7)'  },
+            { label:'תשלום משכנתא', data: cf.payments, backgroundColor:'rgba(246,107,133,0.7)' },
+            { label:'שכר דירה',                        data: cf.rentals,  backgroundColor:'rgba(79,186,137,0.7)'   }
           ]
         },
-        options: {
-          responsive:true, maintainAspectRatio:false,
-          scales:{ x:{ ticks:{ maxTicksLimit:12, maxRotation:30 } } }
-        }
+        options: { responsive:true, maintainAspectRatio:false,
+                   scales: { x: { ticks: { maxTicksLimit:12, maxRotation:30 } } } }
       });
     }
   }
@@ -4796,9 +5034,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   function _renderDynamicData(data) {
     document.title = 'ניתוח חודשי — ' + (data.month_label || '');
     var genLabel = document.getElementById('generated-label');
-    if (genLabel && data.generated_at) {
-      genLabel.textContent = 'נוצר: ' + data.generated_at;
-    }
+    if (genLabel && data.generated_at) genLabel.textContent = 'נוצר: ' + data.generated_at;
     [_renderKpi, _renderOverviewCharts, _renderTransactions, _renderPayments,
      _renderAlerts, _renderOrganizerAlerts, _renderAccountsTable, _renderAccountsChart, _renderHousing]
     .forEach(function(fn) {
@@ -4820,7 +5056,272 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       })
       .catch(function(err) {
         var kr = document.getElementById('kpi-row');
-        if (kr) kr.innerHTML = '<div style="color:#e74c3c;padding:20px">שגיאה בטעינת נתונים: ' + _esc(String(err)) + '</div>';
+        if (kr) kr.innerHTML =
+          '<div style="color:#e74c3c;padding:20px">שגיאה בטעינת נתונים: ' + _esc(String(err)) + '</div>';
+        console.error('Dynamic page load error:', err);
+      });
+  }
+
+  document.addEventListener('DOMContentLoaded', _initDynamicPage);
+})();
+</script>
+              }
+            },
+            plugins: [PayPlugin]
+          });
+        });
+      })(pi, pnum, premain, cols, pcid);
+    });
+  }
+
+  // ── Smart Alerts ───────────────────────────────────────────────────────
+  var _ALERT_BG = { '#e74c3c':'#fff5f5', '#2ecc71':'#f0fff4', '#f0b429':'#fffbeb' };
+
+  function _renderAlerts(data) {
+    var card = document.getElementById('alerts-card');
+    if (!card) return;
+    card.innerHTML = '';
+    var alerts = data.alerts || [];
+    if (!alerts.length) {
+      card.innerHTML = '<div style="color:#aaa;text-align:center;padding:20px">אין התראות</div>';
+      return;
+    }
+
+    var header = document.createElement('div');
+    header.className = 'alerts-header';
+    header.innerHTML =
+      '<h2>⚠ התראות חכמות</h2>' +
+      '<span class="alerts-count-badge">' + alerts.length + ' התראות</span>';
+    card.appendChild(header);
+
+    var matrix = document.createElement('div');
+    matrix.className = 'alerts-matrix';
+    alerts.forEach(function(a) {
+      var bc = a.color || '#f0b429';
+      var bg = _ALERT_BG[bc] || '#fafafa';
+      var item = document.createElement('div');
+      item.className = 'alert-item';
+      item.style.cssText = 'border-color:' + bc + ';background-color:' + bg + ';';
+      item.innerHTML =
+        '<span class="alert-icon">' + _esc(a.icon || '•') + '</span>' +
+        '<div class="alert-body"><strong>' + _esc(a.title) + '</strong>' +
+        '<p>' + _esc(a.description || '') + '</p></div>';
+      matrix.appendChild(item);
+    });
+    card.appendChild(matrix);
+  }
+
+  // ── Organizer Alerts ───────────────────────────────────────────────────
+  function _renderOrganizerAlerts(data) {
+    var el = document.getElementById('organizer-alerts');
+    if (!el) return;
+    var org = data.organizer_alerts || [];
+    el.innerHTML = org.map(function(a) {
+      return '<div style="background:#fff8e1;border-right:4px solid #f0ad4e;' +
+             'padding:10px 14px;border-radius:6px;margin-bottom:8px">' +
+        '<strong>' + _esc(a.title) + '</strong>' +
+        (a.message ? '<span style="margin-right:8px;color:#555">' + _esc(a.message) + '</span>' : '') +
+      '</div>';
+    }).join('');
+  }
+
+  // ── Accounts Table ─────────────────────────────────────────────────────
+  function _renderAccountsTable(data) {
+    var tbl = document.getElementById('accounts-table');
+    if (!tbl || !data.accounts) return;
+    var meta = data.accounts_meta || {};
+
+    if (typeof _acctCurrencies !== 'undefined') {
+      Object.keys(meta).forEach(function(name) {
+        var m = meta[name];
+        if (m && m.currencies && m.currencies.length) {
+          _acctCurrencies = _acctCurrencies || {};
+          _acctCurrencies[name] = m.currencies[0];
+        }
+      });
+    }
+
+    var rows = '';
+    Object.keys(data.accounts).forEach(function(name) {
+      if (name === 'Total') return;
+      var pts  = data.accounts[name] || [];
+      var last = pts.length ? pts[pts.length - 1][1] : 0;
+      var m    = meta[name] || {};
+      var cur  = m.last_currency || 'ILS';
+      var raw  = m.last_raw_value != null ? m.last_raw_value : last;
+      var display = cur === 'ILS'
+        ? _fmt(last)
+        : Number(raw).toLocaleString('he-IL', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' ' + cur +
+          ' (' + _fmt(last) + ')';
+      rows += '<tr class="acct-row"><td>' + _esc(name) + '</td>' +
+              '<td style="text-align:left;direction:ltr">' + display + '</td></tr>';
+    });
+    var totalPts  = data.accounts['Total'] || [];
+    var totalLast = totalPts.length ? totalPts[totalPts.length - 1][1] : 0;
+    rows += '<tr class="acct-total-row" style="font-weight:700;border-top:2px solid #e0e4ef">' +
+            '<td>סה"כ</td><td style="text-align:left;direction:ltr">' + _fmt(totalLast) + '</td></tr>';
+
+    if (!tbl.querySelector('thead')) {
+      tbl.innerHTML = '<thead><tr><th>חשבון</th><th>יתרה</th></tr></thead><tbody></tbody>';
+    }
+    var tbody = tbl.querySelector('tbody');
+    if (tbody) tbody.innerHTML = rows;
+  }
+
+  // ── Accounts Chart ─────────────────────────────────────────────────────
+  function _renderAccountsChart(data) {
+    if (typeof Chart === 'undefined' || !data.accounts) return;
+    var wrap = document.getElementById('accounts-chart');
+    if (!wrap) return;
+
+    var canvas = document.getElementById('acct-chart-canvas');
+    if (!canvas) {
+      canvas = document.createElement('canvas');
+      canvas.id = 'acct-chart-canvas';
+      canvas.style.cssText = 'width:100%;height:100%;';
+      wrap.appendChild(canvas);
+    }
+    _destroyChart('acct-chart-canvas');
+
+    var dateSet = {}, allDates = [];
+    Object.keys(data.accounts).forEach(function(name) {
+      (data.accounts[name] || []).forEach(function(p) {
+        if (!dateSet[p[0]]) { dateSet[p[0]] = true; allDates.push(p[0]); }
+      });
+    });
+    allDates.sort();
+    var step   = Math.max(1, Math.floor(allDates.length / 24));
+    var labels = allDates.filter(function(_, i) { return i % step === 0; });
+
+    var palette  = ['#1e9d8b','#7b61ff','#f0ad4e','#e74c3c','#36a2eb','#4bc0c0','#f66b85','#9966ff'];
+    var datasets = [];
+    var colorIdx = 0;
+    Object.keys(data.accounts).forEach(function(name) {
+      var pts = data.accounts[name] || [];
+      if (!pts.length) return;
+      var indexed = {};
+      pts.forEach(function(p) { indexed[p[0]] = p[1]; });
+      var color = name === 'Total' ? '#333' : palette[colorIdx++ % palette.length];
+      datasets.push({
+        label: name,
+        data: labels.map(function(d) { return indexed[d] != null ? indexed[d] : null; }),
+        borderColor: color, backgroundColor: 'transparent',
+        borderWidth: name === 'Total' ? 2.5 : 1.5, spanGaps: true,
+        pointRadius: 2, tension: 0.3
+      });
+    });
+
+    new Chart(canvas, {
+      type: 'line',
+      data: { labels: labels, datasets: datasets },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position:'bottom', labels:{ font:{ size:11 } } } },
+        scales: {
+          x: { ticks:{ maxTicksLimit:12, maxRotation:30 } },
+          y: { ticks:{ callback: function(v) { return v.toLocaleString('he-IL'); } } }
+        }
+      }
+    });
+  }
+
+  // ── Housing / Mortgage ─────────────────────────────────────────────────
+  function _renderHousing(data) {
+    var panel = document.getElementById('panel-housing');
+    if (!panel) return;
+    var m = data.mortgage || {};
+    if (!m || !Object.keys(m).length) {
+      panel.innerHTML = '<div class="card" style="padding:30px;text-align:center;color:#aaa">אין נתוני דיור</div>';
+      return;
+    }
+    var kpiHtml = '<div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:16px">';
+    [
+      ['apartment_price',       'מחיר דירה'],
+      ['apartment_appreciated', 'שווי נוכחי'],
+      ['equity_appreciated',    'הון עצמי (עם עליית ערך)'],
+      ['current_balance',       'יתרת משכנתא'],
+      ['total_monthly_payment', 'תשלום חודשי'],
+      ['rental_income',         'שכר דירה']
+    ].forEach(function(kv) {
+      var v = m[kv[0]];
+      if (v != null) {
+        kpiHtml += '<div class="kpi-card" style="min-width:160px">' +
+          '<div class="kpi-label">' + _esc(kv[1]) + '</div>' +
+          '<div class="kpi-value" style="font-size:1.1em">' + _fmt(v) + '</div>' +
+          '</div>';
+      }
+    });
+    kpiHtml += '</div>';
+
+    var txns  = m.housing_transactions || [];
+    var txHtml = '';
+    if (txns.length) {
+      txHtml = '<div class="card" style="margin-top:16px"><div class="card-title">עסקאות נכס</div>' +
+        '<table style="width:100%;border-collapse:collapse;font-size:.85em">' +
+        '<thead><tr><th>תאריך</th><th>שם</th><th>יציאה</th><th>כניסה</th></tr></thead><tbody>' +
+        txns.slice(-30).map(function(tx) {
+          return '<tr><td>' + _esc(tx.date) + '</td><td>' + _esc(tx.name) + '</td>' +
+            '<td style="color:#e74c3c">' + (tx.out    ? _fmt(tx.out)    : '') + '</td>' +
+            '<td style="color:#1e9d8b">' + (tx.income ? _fmt(tx.income) : '') + '</td></tr>';
+        }).join('') + '</tbody></table></div>';
+    }
+    panel.innerHTML =
+      '<div class="card"><div class="card-title">ניהול משכנתא / נכס</div>' + kpiHtml + '</div>' + txHtml;
+
+    if (typeof Chart !== 'undefined' && m.chart_cashflow) {
+      var cf     = m.chart_cashflow;
+      var cfWrap = document.createElement('div');
+      cfWrap.className   = 'card';
+      cfWrap.style.marginTop = '16px';
+      cfWrap.innerHTML =
+        '<div class="card-title">תזרים תשלומים</div>' +
+        '<canvas id="housing-cf-canvas" style="height:220px"></canvas>';
+      panel.appendChild(cfWrap);
+      new Chart(document.getElementById('housing-cf-canvas'), {
+        type: 'bar',
+        data: {
+          labels: cf.months,
+          datasets: [
+            { label:'תשלום משכנתא', data: cf.payments, backgroundColor:'rgba(246,107,133,0.7)' },
+            { label:'שכר דירה',     data: cf.rentals,  backgroundColor:'rgba(79,186,137,0.7)'  }
+          ]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          scales: { x: { ticks: { maxTicksLimit:12, maxRotation:30 } } }
+        }
+      });
+    }
+  }
+
+  // ── Main render orchestrator ───────────────────────────────────────────
+  function _renderDynamicData(data) {
+    document.title = 'ניתוח חודשי — ' + (data.month_label || '');
+    var genLabel = document.getElementById('generated-label');
+    if (genLabel && data.generated_at) genLabel.textContent = 'נוצר: ' + data.generated_at;
+    [_renderKpi, _renderOverviewCharts, _renderTransactions, _renderPayments,
+     _renderAlerts, _renderOrganizerAlerts, _renderAccountsTable, _renderAccountsChart, _renderHousing]
+    .forEach(function(fn) {
+      try { fn(data); } catch(e) { console.error(fn.name + ' failed:', e); }
+    });
+  }
+
+  // ── Init ───────────────────────────────────────────────────────────────
+  function _initDynamicPage() {
+    _showSkeletons();
+    fetch('/api/general/' + _yyyy_mm + '/data')
+      .then(function(r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      })
+      .then(function(d) {
+        if (d.error) throw new Error(d.error);
+        _renderDynamicData(d);
+      })
+      .catch(function(err) {
+        var kr = document.getElementById('kpi-row');
+        if (kr) kr.innerHTML =
+          '<div style="color:#e74c3c;padding:20px">שגיאה בטעינת נתונים: ' + _esc(String(err)) + '</div>';
         console.error('Dynamic page load error:', err);
       });
   }

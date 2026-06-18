@@ -1879,13 +1879,17 @@ class AppManager:
                 return []
             rows = []
             for _, row in payments_df.iterrows():
+                total_num   = int(row.get('Number of Payments', 0) or 0)
+                current_num = int(row.get('Current Payment Number', 0) or 0)
+                monthly_amt = _safe(row.get('Current Payment', 0))
+                total_amt   = _safe(row.get('Total Amount', 0))
                 rows.append({
-                    'name':    str(row.get('Name', '')),
-                    'paid':    _safe(row.get('Paid', 0)),
-                    'total':   _safe(row.get('Total', 0)),
-                    'left':    _safe(row.get('Left', 0)),
-                    'monthly': _safe(row.get('Monthly', 0)),
-                    'pct':     _safe(row.get('Pct', 0)),
+                    'name':        str(row.get('Transaction Name', '')),
+                    'current_num': current_num,
+                    'total_num':   total_num,
+                    'remain_num':  max(0, total_num - current_num),
+                    'monthly_amt': monthly_amt,
+                    'total_amt':   total_amt,
                 })
             return rows
 

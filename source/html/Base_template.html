@@ -4673,32 +4673,47 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     }
     _destroyChart('acct-chart-canvas');
 
+    // Collect all unique date labels across accounts, sorted
+    var dateSet = {}, allDates = [];
+    Object.keys(data.accounts).forEach(function(name) {
+      (data.accounts[name] || []).forEach(function(p) {
+        if (!dateSet[p[0]]) { dateSet[p[0]] = true; allDates.push(p[0]); }
+      });
+    });
+    allDates.sort();
+    // Thin labels so x-axis stays readable
+    var step = Math.max(1, Math.floor(allDates.length / 24));
+    var labels = allDates.filter(function(_, i){ return i % step === 0; });
+
     var palette = ['#1e9d8b','#7b61ff','#f0ad4e','#e74c3c','#36a2eb','#4bc0c0','#f66b85','#9966ff'];
     var datasets = [];
     var colorIdx = 0;
     Object.keys(data.accounts).forEach(function(name) {
       var pts = data.accounts[name] || [];
       if (!pts.length) return;
+      // Index each data point by its position in allDates
+      var indexed = {};
+      pts.forEach(function(p){ indexed[p[0]] = p[1]; });
       var color = name === 'Total' ? '#333' : palette[colorIdx++ % palette.length];
       datasets.push({
         label: name,
-        data: pts.map(function(p){ return { x: p[0], y: p[1] }; }),
+        data: labels.map(function(d){ return indexed[d] != null ? indexed[d] : null; }),
         borderColor: color,
         backgroundColor: 'transparent',
         borderWidth: name === 'Total' ? 2.5 : 1.5,
-        borderDash: name === 'Total' ? [] : undefined,
+        spanGaps: true,
         pointRadius: 2, tension: 0.3,
       });
     });
 
     new Chart(canvas, {
       type: 'line',
-      data: { datasets: datasets },
+      data: { labels: labels, datasets: datasets },
       options: {
         responsive: true, maintainAspectRatio: false,
         plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } } },
         scales: {
-          x: { type: 'time', time: { unit: 'month' }, ticks: { maxTicksLimit: 10 } },
+          x: { ticks: { maxTicksLimit: 12, maxRotation: 30 } },
           y: { ticks: { callback: function(v){ return v.toLocaleString('he-IL'); } } }
         }
       }
@@ -4784,15 +4799,11 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     if (genLabel && data.generated_at) {
       genLabel.textContent = 'נוצר: ' + data.generated_at;
     }
-    _renderKpi(data);
-    _renderOverviewCharts(data);
-    _renderTransactions(data);
-    _renderPayments(data);
-    _renderAlerts(data);
-    _renderOrganizerAlerts(data);
-    _renderAccountsTable(data);
-    _renderAccountsChart(data);
-    _renderHousing(data);
+    [_renderKpi, _renderOverviewCharts, _renderTransactions, _renderPayments,
+     _renderAlerts, _renderOrganizerAlerts, _renderAccountsTable, _renderAccountsChart, _renderHousing]
+    .forEach(function(fn) {
+      try { fn(data); } catch(e) { console.error(fn.name + ' failed:', e); }
+    });
   }
 
   // ── Init ───────────────────────────────────────────────────────────────

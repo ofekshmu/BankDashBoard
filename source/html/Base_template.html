@@ -126,12 +126,12 @@ body {
 .nav-restart-btn:disabled{opacity:.5;cursor:default}
 .app-version-badge{margin-top:8px;text-align:center;font-size:.72em;color:var(--text-muted);letter-spacing:.03em;opacity:.7;user-select:none;}
 /* ── Debug log panel ─────────────────────────────────────── */
-.debug-fab{position:fixed;bottom:22px;right:18px;width:42px;height:42px;border-radius:50%;background:var(--navy);color:#fff;font-size:.72em;font-family:monospace;font-weight:700;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,0.3);z-index:997;letter-spacing:-.5px;}
+.debug-fab{position:fixed;bottom:88px;right:18px;width:42px;height:42px;border-radius:50%;background:var(--navy);color:#fff;font-size:.72em;font-family:monospace;font-weight:700;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,0.3);z-index:997;letter-spacing:-.5px;}
 .debug-fab:hover{filter:brightness(1.2);}
-@media(max-width:768px){.debug-fab{bottom:88px;right:18px;}}
-.debug-panel{position:fixed;bottom:72px;right:16px;width:480px;max-width:calc(100vw - 32px);height:340px;background:#12121f;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.55);z-index:996;display:none;flex-direction:column;overflow:hidden;font-family:monospace;}
+@media(max-width:768px){.debug-fab{bottom:154px;right:18px;}}
+.debug-panel{position:fixed;bottom:140px;right:16px;width:480px;max-width:calc(100vw - 32px);height:340px;background:#12121f;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.55);z-index:996;display:none;flex-direction:column;overflow:hidden;font-family:monospace;}
 .debug-panel.open{display:flex;}
-@media(max-width:768px){.debug-panel{bottom:136px;right:8px;left:8px;width:auto;}}
+@media(max-width:768px){.debug-panel{bottom:204px;right:8px;left:8px;width:auto;}}
 .debug-hdr{display:flex;align-items:center;justify-content:space-between;padding:7px 12px;background:#0a0a18;color:#7ec8e3;font-size:.7em;font-weight:700;letter-spacing:.06em;flex-shrink:0;border-bottom:1px solid #222;}
 .debug-hdr-btns{display:flex;gap:5px;}
 .debug-hdr-btns button{background:none;border:1px solid #333;color:#888;border-radius:4px;padding:2px 8px;font-size:.9em;cursor:pointer;font-family:monospace;}
@@ -315,7 +315,7 @@ body {
   letter-spacing: 0.03em;
 }
 
-/* ── Header right area (generated + reload) ──────────────── */
+/* ── Header right area (generated label only now) ─────────── */
 .page-header-right {
   display: flex; align-items: center; gap: 10px; flex-shrink: 0;
 }
@@ -326,13 +326,77 @@ body {
   font-size: 0.72em; color: var(--text-muted);
   white-space: nowrap;
 }
+
+/* ── Regeneration FAB (always fixed, both desktop + mobile) ── */
 .reload-btn {
-  padding: 5px 14px;
-  border: 1.5px solid var(--teal); border-radius: 20px;
-  background: var(--white); color: var(--teal);
-  font-size: 0.78em; font-weight: 600; cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  position: fixed; bottom: 22px; right: 18px; z-index: 999;
+  height: 52px; padding: 0 22px;
+  background: var(--teal); color: #fff; border: none;
+  border-radius: 26px; font-size: .85em; font-weight: 700;
+  cursor: pointer; display: flex; align-items: center; gap: 8px;
+  box-shadow: 0 4px 18px rgba(30,157,139,0.45);
   white-space: nowrap;
+  transition: box-shadow 0.2s, opacity 0.2s;
+}
+.reload-btn:hover { box-shadow: 0 6px 24px rgba(30,157,139,0.65); }
+.reload-btn.running { opacity: 0.65; cursor: wait; }
+@keyframes _reloadGlow {
+  0%, 100% { box-shadow: 0 4px 18px rgba(30,157,139,0.45), 0 0 0 0 rgba(30,157,139,0.55); }
+  50%       { box-shadow: 0 4px 18px rgba(30,157,139,0.45), 0 0 0 8px rgba(30,157,139,0); }
+}
+.reload-btn.stale { animation: _reloadGlow 1.6s ease-in-out infinite; }
+@media (max-width: 768px) {
+  .reload-btn { width: 52px; padding: 0; border-radius: 50%; justify-content: center; }
+  .reload-btn-label { display: none; }
+}
+
+/* ── Stale tags — float above FAB ────────────────────────── */
+#regen-stale-tags {
+  position: fixed; bottom: 84px; right: 18px; z-index: 999;
+  display: flex; flex-direction: column; align-items: flex-end; gap: 6px;
+  pointer-events: none;
+}
+.stale-tag {
+  pointer-events: auto;
+  display: flex; align-items: center; gap: 5px;
+  background: #fff4e1; border: 1.5px solid #f0ad4e;
+  border-radius: 20px; padding: 4px 12px;
+  font-size: .75em; font-weight: 600; color: #7a4f00;
+  cursor: pointer; white-space: nowrap;
+  opacity: 0; transform: translateX(12px);
+  transition: opacity 0.25s ease, transform 0.25s ease, background 0.15s;
+}
+.stale-tag.shown { opacity: 1; transform: translateX(0); }
+.stale-tag:hover { background: #f0ad4e; color: #fff; }
+.stale-tag.code { background: #fff0f0; border-color: #e74c3c; color: #7a0000; }
+.stale-tag.code:hover { background: #e74c3c; color: #fff; }
+
+/* ── Regeneration progress panel (slides left from FAB) ───── */
+#regen-progress-panel {
+  position: fixed; bottom: 22px; right: 80px; z-index: 997;
+  height: 52px; max-width: 0; overflow: hidden;
+  background: var(--navy); border-radius: 26px 0 0 26px;
+  display: flex; align-items: center;
+  box-shadow: -4px 4px 20px rgba(0,0,0,0.18);
+  transition: max-width 0.35s cubic-bezier(0.4,0,0.2,1);
+}
+#regen-progress-panel.visible { max-width: 230px; }
+.regen-prog-inner {
+  width: 210px; padding: 0 18px 0 22px;
+  color: #fff; font-size: .78em;
+  display: flex; flex-direction: column; gap: 7px;
+  white-space: nowrap;
+}
+#regen-prog-label { font-weight: 600; letter-spacing: .01em; }
+.regen-prog-track {
+  height: 4px; background: rgba(255,255,255,0.2);
+  border-radius: 4px; overflow: hidden;
+}
+.regen-prog-fill {
+  height: 100%; background: var(--teal); width: 0%;
+  border-radius: 4px; transition: width 0.6s ease;
+}
+@media (max-width: 768px) { #regen-progress-panel { display: none; } }
   display: none;
 }
 .reload-btn:hover { background: var(--teal); color: #fff; }
@@ -1662,31 +1726,7 @@ body {
 /* ── Mobile view (≤768px) ────────────────────────────────── */
 @media (max-width: 768px) {
 
-  /* 1. Reload button → circular FAB fixed at bottom-right */
-  .reload-btn {
-    position: fixed;
-    bottom: 22px;
-    right: 18px;
-    width: 52px;
-    height: 52px;
-    border-radius: 50%;
-    padding: 0;
-    background: var(--teal);
-    color: #fff;
-    font-size: 1.5em;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 4px 16px rgba(30,157,139,0.45);
-    z-index: 998;
-    border: none;
-  }
-  .reload-btn.stale {
-    box-shadow: 0 4px 16px rgba(30,157,139,0.45),
-                0 0 0 4px rgba(30,157,139,0.25);
-  }
-  .reload-btn-label { display: none; }
-
-  /* 2. Charts grid → single column so each donut gets full width */
+  /* 1. Charts grid → single column so each donut gets full width */
   .charts-grid { grid-template-columns: 1fr; }
 
   /* 3. Category legend → single column on mobile */
@@ -1845,14 +1885,26 @@ body {
     </div>
     <div class="generated-row">
       <span class="generated-label" id="generated-label"></span>
-      <span class="stale-tag" id="stale-tag-db" onclick="reloadCurrent()" title="לחץ לחישוב מחדש">⚡ נתונים עודכנו</span>
-      <span class="stale-tag code" id="stale-tag-code" onclick="reloadCurrent()" title="קוד עודכן — חשב מחדש">⚠ קוד עודכן</span>
-      <button class="reload-btn" id="reload-btn" onclick="reloadCurrent()" title="חשב מחדש">&#8635; <span class="reload-btn-label">חשב מחדש</span></button>
     </div>
   </div>
 
   <!-- Month-switch SPA loading overlay -->
   <div id="month-nav-overlay"><div class="mnav-spinner"></div></div>
+
+  <!-- Regeneration FAB: stale tags + progress panel + button -->
+  <div id="regen-stale-tags">
+    <span class="stale-tag" id="stale-tag-db" onclick="reloadCurrent()" title="לחץ לחישוב מחדש">⚡ נתונים עודכנו</span>
+    <span class="stale-tag code" id="stale-tag-code" onclick="reloadCurrent()" title="קוד עודכן">⚠ קוד עודכן</span>
+  </div>
+  <div id="regen-progress-panel">
+    <div class="regen-prog-inner">
+      <span id="regen-prog-label">מחשב…</span>
+      <div class="regen-prog-track"><div class="regen-prog-fill" id="regen-prog-fill"></div></div>
+    </div>
+  </div>
+  <button class="reload-btn" id="reload-btn" onclick="reloadCurrent()" title="חשב מחדש">
+    &#8635; <span class="reload-btn-label">חשב מחדש</span>
+  </button>
 
   <!-- Server-stale warning banner -->
   <div id="server-stale-banner" class="server-stale-banner">
@@ -2147,9 +2199,8 @@ function showPanel(name, btn) {
       if (d.stale) {
         var b = document.getElementById('server-stale-banner');
         if (b) b.style.display = 'flex';
-        // Also show the compact code-stale tag next to reload button
         var tag = document.getElementById('stale-tag-code');
-        if (tag) tag.style.display = 'inline-flex';
+        if (tag) tag.classList.add('shown');
         var btn = document.getElementById('reload-btn');
         if (btn) btn.classList.add('stale');
       }
@@ -2550,6 +2601,40 @@ function reloadCurrent() {
   }
 }
 
+// ── Regeneration progress controller ──────────────────────
+var _regenProg = {
+  _val: 0, _timer: null,
+  start: function() {
+    var self = this; self._val = 0; self._set(0);
+    var panel = document.getElementById('regen-progress-panel');
+    if (panel) panel.classList.add('visible');
+    clearInterval(self._timer);
+    self._timer = setInterval(function() {
+      var remaining = 88 - self._val;
+      self._val = Math.min(88, self._val + remaining * 0.05);
+      self._set(Math.round(self._val));
+    }, 600);
+  },
+  done: function(success) {
+    clearInterval(this._timer); this._timer = null;
+    this._set(100, success ? '✓ הושלם!' : '✗ שגיאה');
+    var panel = document.getElementById('regen-progress-panel');
+    setTimeout(function() {
+      if (panel) panel.classList.remove('visible');
+    }, 1800);
+    setTimeout(function() {
+      document.getElementById('regen-prog-fill') &&
+        (document.getElementById('regen-prog-fill').style.width = '0%');
+    }, 2200);
+  },
+  _set: function(pct, label) {
+    var fill = document.getElementById('regen-prog-fill');
+    var lbl  = document.getElementById('regen-prog-label');
+    if (fill) fill.style.width = pct + '%';
+    if (lbl)  lbl.textContent = label || ('מחשב… ' + pct + '%');
+  }
+};
+
 function _reloadGeneral() {
   if (!_currentKey) return;
   var btn = document.getElementById('reload-btn');
@@ -2558,16 +2643,18 @@ function _reloadGeneral() {
   var month = parseInt(parts[1], 10);
   var dateStr = year + '-' + (month < 10 ? '0' + month : '' + month) + '-01';
 
-  btn.classList.add('running');
-  btn.disabled = true;
-  showLogFloat('מחשב מחדש חודש…');
+  btn.classList.add('running'); btn.disabled = true;
+  _regenProg.start();
 
   fetch('/api/analysis', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ month: 'pick', date: dateStr })
   }).then(function(r) {
-    if (r.status === 409) { btn.classList.remove('running'); btn.disabled = false; hideLogFloat(0); return; }
+    if (r.status === 409) {
+      btn.classList.remove('running'); btn.disabled = false;
+      _regenProg.done(false); return;
+    }
     var es = new EventSource('/api/logs');
     es.onmessage = function(evt) {
       var data = evt.data;
@@ -2576,27 +2663,28 @@ function _reloadGeneral() {
         try { showCCPrompt(JSON.parse(data.slice(14))); } catch(_e) {}
         return;
       }
+      // Try to nudge progress from percentage hints in log messages
+      var pctMatch = data.match(/\b(\d{1,3})\s*%/);
+      if (pctMatch) {
+        var hint = parseInt(pctMatch[1], 10);
+        if (hint > _regenProg._val && hint < 95) {
+          _regenProg._val = hint; _regenProg._set(hint);
+        }
+      }
       if (data.startsWith('__DONE__')) {
         es.close();
-        appendLog('✓ הניתוח הסתיים — טוען נתונים מחדש...', 'done');
         btn.classList.remove('running', 'stale'); btn.disabled = false;
-        // Invalidate server cache + re-render in place (no page reload)
         fetch('/api/general/' + _currentKey + '/invalidate', {method: 'POST'})
+          .then(function() { return window._monthNav ? window._monthNav.refresh(_currentKey) : null; })
           .then(function() {
-            if (window._monthNav) {
-              return window._monthNav.refresh(_currentKey);
-            }
-          })
-          .then(function() {
-            hideLogFloat(800);
-            var dbTag = document.getElementById('stale-tag-db');
-            var codeTag = document.getElementById('stale-tag-code');
-            if (dbTag) dbTag.style.display = 'none';
-            if (codeTag) codeTag.style.display = 'none';
+            _regenProg.done(true);
+            ['stale-tag-db','stale-tag-code'].forEach(function(id) {
+              var el = document.getElementById(id);
+              if (el) el.classList.remove('shown');
+            });
           })
           .catch(function() {
-            hideLogFloat(500);
-            // Fallback: page reload if in-place refresh fails
+            _regenProg.done(false);
             var _curPanel = new URLSearchParams(window.location.search).get('panel') || '';
             setTimeout(function() {
               location.href = '/general/' + _currentKey + (_curPanel ? '?panel=' + _curPanel : '');
@@ -2608,12 +2696,14 @@ function _reloadGeneral() {
         es.close();
         appendLog('✗ שגיאה בניתוח', 'err');
         btn.classList.remove('running'); btn.disabled = false;
-        hideLogFloat(3000);
-        return;
+        _regenProg.done(false); return;
       }
       appendLog(data);
     };
-    es.onerror = function() { es.close(); btn.classList.remove('running'); btn.disabled = false; hideLogFloat(0); };
+    es.onerror = function() {
+      es.close(); btn.classList.remove('running'); btn.disabled = false;
+      _regenProg.done(false);
+    };
   });
 }
 
@@ -2678,11 +2768,11 @@ function _checkStale() {
         if (d.stale) {
           btn.classList.add('stale');
           if (item) item.classList.add('stale');
-          if (dbTag) dbTag.style.display = 'inline-flex';
+          if (dbTag) dbTag.classList.add('shown');
         } else {
           btn.classList.remove('stale');
           if (item) item.classList.remove('stale');
-          if (dbTag) dbTag.style.display = 'none';
+          if (dbTag) dbTag.classList.remove('shown');
         }
       })
       .catch(function() {});
@@ -2713,13 +2803,11 @@ window.addEventListener('popstate', function(e) {
 // Always init the month roller (doesn't depend on server being active)
 _initMonthNav();
 
-// Check if Flask server is available (only show reload button when running via Flask)
+// Check Flask availability and stale status
 (function detectFlask() {
   fetch('/api/status', { method: 'GET' })
     .then(function(r) { return r.json(); })
     .then(function(d) {
-      document.getElementById('reload-btn').style.display =
-        window.matchMedia('(max-width:768px)').matches ? 'flex' : 'inline-block';
       if (d.running) { setLogIndicator('active'); }
       _checkStale();
     })
@@ -5627,13 +5715,27 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       });
   }
 
+  // ── Content fade helper ───────────────────────────────────────────────
+  var _FADE_ELS = ['kpi-row','kpi-row-2','panel-overview','panel-accounts','panel-housing'];
+  function _fadeOut(cb) {
+    var els = _FADE_ELS.map(function(id) { return document.getElementById(id); }).filter(Boolean);
+    els.forEach(function(el) { el.style.transition = 'opacity 0.14s'; el.style.opacity = '0'; });
+    setTimeout(function() { cb(els); }, 150);
+  }
+  function _fadeIn(els) {
+    requestAnimationFrame(function() {
+      requestAnimationFrame(function() {
+        (els || _FADE_ELS.map(function(id){return document.getElementById(id);}).filter(Boolean))
+          .forEach(function(el) { el.style.transition = 'opacity 0.22s'; el.style.opacity = '1'; });
+      });
+    });
+  }
+
   // ── Init on page load ─────────────────────────────────────────────────
   function _initDynamicPage() {
     var cached = _cacheGet(_yyyy_mm);
     if (cached) {
-      // Instant render from cache
       _renderDynamicData(cached);
-      // Validate freshness in background — show stale badge if needed
       fetch('/api/stale/' + _yyyy_mm)
         .then(function(r) { return r.json(); })
         .then(function(d) {
@@ -5641,13 +5743,12 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
             var btn = document.getElementById('reload-btn');
             var tag = document.getElementById('stale-tag-db');
             if (btn) btn.classList.add('stale');
-            if (tag) tag.style.display = 'inline-flex';
+            if (tag) tag.classList.add('shown');
           }
         })
         .catch(function() {});
       return;
     }
-    // No cache — show skeletons and fetch
     _showSkeletons();
     _fetchAndRender(_yyyy_mm)
       .catch(function(err) {
@@ -5655,19 +5756,15 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         if (kr) kr.innerHTML =
           '<div style="color:#e74c3c;padding:20px 0">שגיאה בטעינת נתונים: ' + _esc(String(err)) + '</div>';
         console.error('Dynamic page load error:', err);
-        // Auto-open debug panel on load error
-        if (typeof toggleDebugPanel === 'function') {
-          setTimeout(toggleDebugPanel, 400);
-        }
+        if (typeof toggleDebugPanel === 'function') setTimeout(toggleDebugPanel, 400);
       });
   }
 
   // ── Public SPA navigation API ─────────────────────────────────────────
   window._monthNav = {
     navigate: function(key, skipPush) {
-      if (!key) return Promise.resolve();
+      if (!key) return;
       _currentKey = key;
-      // Update URL
       if (!skipPush) {
         var url = '/general/' + key;
         var panel = new URLSearchParams(window.location.search).get('panel') || '';
@@ -5678,34 +5775,51 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       document.querySelectorAll('#roller-track .cm-item').forEach(function(el) {
         el.classList.toggle('active', el.dataset.key === key);
       });
-      // Dismiss stale tags from previous month
-      var dbTag = document.getElementById('stale-tag-db');
-      if (dbTag) dbTag.style.display = 'none';
+      // Dismiss stale tags
+      ['stale-tag-db','stale-tag-code'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.classList.remove('shown');
+      });
+      var btn = document.getElementById('reload-btn');
+      if (btn) btn.classList.remove('stale');
 
       var cached = _cacheGet(key);
-      if (cached) {
-        _yyyy_mm = key;
-        _renderDynamicData(cached);
-        // Background staleness check for cached data
-        fetch('/api/stale/' + key)
-          .then(function(r) { return r.json(); })
-          .then(function(d) {
-            var btn = document.getElementById('reload-btn');
-            if (btn) btn.classList.toggle('stale', !!d.stale);
-            if (dbTag) dbTag.style.display = d.stale ? 'inline-flex' : 'none';
-          })
-          .catch(function() {});
-        return Promise.resolve();
-      }
-      // Not cached — overlay + fetch
-      _showNavOverlay();
-      return _fetchAndRender(key)
-        .then(function() { _hideNavOverlay(); })
-        .catch(function(err) {
-          _hideNavOverlay();
-          console.error('Month navigation error:', err);
-          if (typeof toggleDebugPanel === 'function') toggleDebugPanel();
-        });
+
+      // Always fade out first, then render/fetch
+      _fadeOut(function(els) {
+        if (cached) {
+          _yyyy_mm = key;
+          _renderDynamicData(cached);
+          _fadeIn(els);
+          // Background stale check
+          fetch('/api/stale/' + key)
+            .then(function(r) { return r.json(); })
+            .then(function(d) {
+              if (btn) btn.classList.toggle('stale', !!d.stale);
+              var dbTag = document.getElementById('stale-tag-db');
+              if (dbTag) dbTag.classList.toggle('shown', !!d.stale);
+            })
+            .catch(function() {});
+        } else {
+          _showNavOverlay();
+          fetch('/api/general/' + key + '/data')
+            .then(function(r) { return r.json(); })
+            .then(function(d) {
+              if (d.error) throw new Error(d.error);
+              _cacheSet(key, d);
+              _yyyy_mm = key;
+              _renderDynamicData(d);
+              _hideNavOverlay();
+              _fadeIn(els);
+            })
+            .catch(function(err) {
+              _hideNavOverlay();
+              _fadeIn(els);
+              console.error('Month navigation error:', err);
+              if (typeof toggleDebugPanel === 'function') toggleDebugPanel();
+            });
+        }
+      });
     },
 
     refresh: function(key) {

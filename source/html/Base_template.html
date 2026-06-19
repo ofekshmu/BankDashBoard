@@ -4390,19 +4390,21 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
 
   // ── KPI tooltips (matching Python _TT dict) ────────────────────────────
   var _KPI_TT = {
-    'הכנסה נטו (חודש)':
-      'סך ההכנסות לחשבון הבנקאי בניכוי סך ההוצאות — אינו כולל השקעות/חיסכון.\n' +
-      'כולל גם תזרים מזומן (הכנסות מזומן בניכוי הוצאות מזומן).',
-    'יתרה':
-      'יתרת הבנק הנוכחית (לפי קובץ הבנק).',
+    'Overall Net Income':
+      'השינוי הכולל בעושרך הפיננסי באותו חודש — בנק ומזומן יחד, ללא השקעות.\n' +
+      'משיכת מזומן מהבנק אינה הפסד — הכסף עבר לכיסך, לכן היא מקוזזת.\n' +
+      'חישוב: (הכנסות בנק − הוצאות בנק) + (הכנסות מזומן − הוצאות מזומן) — ללא השקעות',
+    'Balance':
+      'יתרת החשבון הבנקאי הראשי, כפי שדווחה בקובץ הבנק האחרון שהועלה.',
     'יתרה חודשית':
       'יתרת הבנק בסוף החודש הנבחר — הרשומה האחרונה בקובץ הבנק לאותו חודש.\n' +
-      'השינוי (▲/▼) מציג את ההפרש הכולל בין כלל ההכנסות לכלל ההוצאות באותו חודש.',
+      'השינוי (▲/▼) מציג את ההפרש הכולל בין כלל ההכנסות לכלל ההוצאות באותו חודש,\n' +
+      'כולל פעולות השקעה/חיסכון.',
     'הפקדה לחיסכון/השקעה':
-      'כסף שהועבר מהחשבון הראשי לחשבונות חיסכון/השקעה.\n' +
+      'סך הכסף שהועבר לחשבונות חיסכון/השקעה באותו חודש.\n' +
       'אינו נחשב הוצאה — הכסף עדיין שייך לך.',
     'משיכה מחסכון':
-      'כסף שחזר מחשבונות חיסכון/השקעה לחשבון הראשי.\n' +
+      'סך הכסף שנמשך בחזרה מחשבונות חיסכון/השקעה לחשבון הראשי.\n' +
       'אינו נחשב הכנסה — הכסף היה שייך לך גם קודם.'
   };
 
@@ -4437,8 +4439,8 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     var monthlyBal = k.monthly_balance || 0;
 
     kr.innerHTML =
-      _kpiCard('הכנסה נטו (חודש)', netIncome, netIncome >= 0, true, '#f0b429') +
-      _kpiCard('יתרה', monthlyBal, monthlyBal >= 0, false, '#1e9d8b',
+      _kpiCard('Overall Net Income', netIncome, netIncome >= 0, true, '#f0b429') +
+      _kpiCard('Balance', monthlyBal, monthlyBal >= 0, false, '#1e9d8b',
         k.balance_date ? _esc(k.balance_date) : '') +
       '<div class="kpi-card kpi-balance-card">' +
         '<div class="kpi-label"><span class="kpi-dot" style="background:#1e9d8b"></span>יתרה חודשית' +
@@ -4489,10 +4491,12 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   var _PAL_EARN  = ['#a5d6a7','#80cbc4','#90caf9','#ce93d8','#ffe082','#ffcc80','#ef9a9a','#f48fb1'];
 
   var _CHART_TT = {
-    'הוצאות לפי קטגוריה':            'פירוט ההוצאות מכרטיסי האשראי לפי קטגוריה לחודש הנבחר.',
-    'הכנסות לחשבון לפי קטגוריה':     'פירוט ההכנסות לחשבון הבנק לפי קטגוריה לחודש הנבחר.',
-    'הכנסות/הוצאות במזומן':          'סיכום עסקאות המזומן שתועדו ידנית לחודש הנבחר.',
-    'כרטיסי אשראי — התפלגות הוצאות': 'חלוקת ההוצאות לפי כרטיס אשראי לחודש הנבחר.'
+    'הוצאות לפי קטגוריה':      'פילוח ההוצאות מהחשבון הבנקאי לפי קטגוריה.',
+    'הכנסות לחשבון לפי קטגוריה': 'פילוח ההכנסות שהתקבלו לחשבון הבנק לפי קטגוריה לחודש שנבחר.',
+    'השקעות / חיסכון':          'פעולות העברה בין החשבון הראשי לחשבונות חיסכון/השקעה באותו חודש.',
+    'הכנסות/הוצאות במזומן':     'תזרים מזומנים פיזי בלבד — אינו כולל תשלומי כרטיס או העברות בנקאיות.',
+    'מידע כללי':                 'עמודות: הוצאות חודשיות (אדום) + השקעות/חיסכון (זהב). קו: הכנסות חודשיות (ירוק). ממוצע כולל 13 חודשים.',
+    'התפלגות כרטיסי אשראי':     'חלוקת ההוצאות לפי כרטיס אשראי לחודש הנבחר.'
   };
 
   function _buildDonutCard(container, canvasId, title, catData, palette) {
@@ -4627,7 +4631,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       invCard.className = 'chart-card';
       var invTtl = document.createElement('div');
       invTtl.className = 'chart-card-title';
-      invTtl.textContent = 'השקעות / חיסכון';
+      invTtl.innerHTML = 'השקעות / חיסכון' + _tipHtml(_CHART_TT['השקעות / חיסכון'] || '');
       invCard.appendChild(invTtl);
       var totalOut = k.investments_total_out || 0;
       var totalIn  = k.investments_total_in  || 0;
@@ -4709,13 +4713,18 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
             dot.style.background = clr;
             var meta = document.createElement('span');
             meta.className = 'inv-tx-meta';
-            meta.textContent = it.date || '';
+            var d = String(it.date || '');
+            var ddmm = d.length >= 10 ? d.slice(8, 10) + '/' + d.slice(5, 7) : d;
+            var src  = it.table === 'BankTransactions' ? 'בנק' : (String(it.card || ''));
+            meta.textContent = (it.ref ? '#' + it.ref + ' · ' : '') + ddmm + ' · ' + src;
             var name = document.createElement('span');
             name.className = 'inv-tx-name';
             name.textContent = it.name || '';
+            var absAmt = Math.abs(Number(it.amount || 0));
+            var isOut  = Number(it.amount || 0) < 0;
             var amt = document.createElement('span');
-            amt.className = it.dir === 'out' ? 'inv-tx-out' : 'inv-tx-in';
-            amt.textContent = (it.dir === 'out' ? '−' : '+') + '₪' + Math.round(it.amount || 0).toLocaleString('he-IL');
+            amt.className = isOut ? 'inv-tx-out' : 'inv-tx-in';
+            amt.textContent = absAmt.toLocaleString('he-IL', {minimumFractionDigits: 0, maximumFractionDigits: 0}) + ' ₪';
             li.appendChild(dot); li.appendChild(meta); li.appendChild(name); li.appendChild(amt);
             ul.appendChild(li);
           });
@@ -4740,7 +4749,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         cashCard.className = 'chart-card';
         var cashTtl = document.createElement('div');
         cashTtl.className = 'chart-card-title';
-        cashTtl.textContent = 'הכנסות/הוצאות במזומן';
+        cashTtl.innerHTML = 'הכנסות/הוצאות במזומן' + _tipHtml(_CHART_TT['הכנסות/הוצאות במזומן'] || '');
         var cashEmpty = document.createElement('div');
         cashEmpty.className = 'empty-state';
         cashEmpty.textContent = 'אין נתוני מזומן לחודש זה';
@@ -4803,7 +4812,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
 
       var genTtl = document.createElement('div');
       genTtl.className = 'chart-card-title';
-      genTtl.textContent = 'מידע כללי';
+      genTtl.innerHTML = 'מידע כללי' + _tipHtml(_CHART_TT['מידע כללי'] || '');
       genCard.appendChild(genTtl);
 
       var genWrap = document.createElement('div');
@@ -4850,7 +4859,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       cdCard.style.marginTop = '16px';
       var cdTtl = document.createElement('div');
       cdTtl.className = 'chart-card-title';
-      cdTtl.textContent = 'התפלגות כרטיסי אשראי';
+      cdTtl.innerHTML = 'התפלגות כרטיסי אשראי' + _tipHtml(_CHART_TT['התפלגות כרטיסי אשראי'] || '');
       cdCard.appendChild(cdTtl);
       var cdKeys = Object.keys(cd);
       if (cdKeys.length) {

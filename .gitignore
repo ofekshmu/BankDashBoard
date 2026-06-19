@@ -40,6 +40,10 @@ screenshot*.mjs
 check_*.mjs
 panel_*.mjs
 
+# Runtime log files
+Log_file.txt
+*.log
+
 # Personal information — only categories.json is tracked (safe); rest are sensitive
 personal information/personal_config.json
 personal information/auto_tagger.json

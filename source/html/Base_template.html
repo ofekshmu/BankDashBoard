@@ -5076,6 +5076,10 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     if (!card) return;
     card.innerHTML = '';
     var alerts = data.alerts || [];
+
+    var badge = document.getElementById('alert-badge');
+    if (badge) badge.textContent = String(alerts.length);
+
     if (!alerts.length) {
       card.innerHTML = '<div style="color:#aaa;text-align:center;padding:20px">אין התראות</div>';
       return;
@@ -5110,21 +5114,73 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     var el = document.getElementById('organizer-alerts');
     if (!el) return;
     var org = data.organizer_alerts || [];
-    el.innerHTML = org.map(function(a) {
-      return '<div style="background:#fff8e1;border-right:4px solid #f0ad4e;' +
-             'padding:10px 14px;border-radius:6px;margin-bottom:8px">' +
-        '<strong>' + _esc(a.title) + '</strong>' +
-        (a.message ? '<span style="margin-right:8px;color:#555">' + _esc(a.message) + '</span>' : '') +
-      '</div>';
-    }).join('');
+    if (!org.length) { el.innerHTML = ''; return; }
+    var hdr = document.createElement('div');
+    hdr.className = 'org-alerts-section-title';
+    hdr.textContent = 'קבצים חסרים לחודש זה — ' + org.length;
+    el.innerHTML = '';
+    el.appendChild(hdr);
+    org.forEach(function(a) {
+      var row = document.createElement('div');
+      row.className = 'org-missing-card type-blue';
+      var icon = document.createElement('span');
+      icon.className = 'org-missing-icon';
+      icon.textContent = '⚠';
+      var body = document.createElement('div');
+      var lbl = document.createElement('span');
+      lbl.className = 'org-missing-label';
+      lbl.textContent = _esc(a.title);
+      body.appendChild(lbl);
+      if (a.message) {
+        var detail = document.createElement('div');
+        detail.className = 'org-missing-detail';
+        detail.textContent = _esc(a.message);
+        body.appendChild(detail);
+      }
+      row.appendChild(icon); row.appendChild(body);
+      el.appendChild(row);
+    });
   }
 
   // ── Accounts Table ─────────────────────────────────────────────────────
   function _renderAccountsTable(data) {
-    var tbl = document.getElementById('accounts-table');
-    if (!tbl || !data.accounts) return;
+    var wrap = document.getElementById('accounts-table');
+    if (!wrap || !data.accounts) return;
     var meta = data.accounts_meta || {};
+    var _CUR_SYM = {ILS:'₪', USD:'$', EUR:'€', JPY:'¥'};
+    var _STALE_DAYS = 30;
+    var _today = new Date();
+    var _VIRTUAL = {'נכס שלום שבזי': true};
+    var _GROUP_ORDER = ['כללי','השקעות','נדל"ן'];
+    var _INV_KW = ['אלטשולר','אנליסט','Analyst','btb','BTB','השקעות','קופ','גמל','פנסי','ביטוח','Interactive','Brokers'];
 
+    function _acctGroup(name) {
+      if (_VIRTUAL[name] || name.indexOf('נכס') !== -1) return 'נדל"ן';
+      for (var i = 0; i < _INV_KW.length; i++) { if (name.indexOf(_INV_KW[i]) !== -1) return 'השקעות'; }
+      return 'כללי';
+    }
+    function _sparkline(pts, n, w, h) {
+      n = n || 12; w = w || 64; h = h || 22;
+      var last = pts.slice(-n);
+      if (last.length < 2) return '';
+      var vals = last.map(function(p){return p[1];});
+      var mn = Math.min.apply(null, vals), mx = Math.max.apply(null, vals);
+      var rng = mx - mn || 1;
+      var xs = last.map(function(_, i){ return Math.round(i*(w-2)/(last.length-1)+1); });
+      var ys = last.map(function(p){ return Math.round((1-(p[1]-mn)/rng)*(h-4)+2); });
+      var pts_str = xs.map(function(x,i){return x+','+ys[i];}).join(' ');
+      var col = vals[vals.length-1] >= vals[0] ? '#43a047' : '#e53935';
+      return '<svg class="acct-spark" width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'" xmlns="http://www.w3.org/2000/svg">' +
+             '<polyline points="'+pts_str+'" fill="none" stroke="'+col+'" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/></svg>';
+    }
+    function _changeCell(cur, prev) {
+      if (prev == null) return {txt:'ₓ', cls:'acct-change-neu'};
+      var delta = cur - prev;
+      var sign = delta >= 0 ? '+' : '';
+      return {txt: sign+Math.round(delta).toLocaleString('he-IL')+'₪', cls: delta >= 0 ? 'acct-change-pos' : 'acct-change-neg'};
+    }
+
+    // Update _acctCurrencies for live FX enrichment
     if (typeof _acctCurrencies !== 'undefined') {
       Object.keys(meta).forEach(function(name) {
         var m = meta[name];
@@ -5135,31 +5191,87 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       });
     }
 
-    var rows = '';
+    // Build rich account info
+    var rich = {};
     Object.keys(data.accounts).forEach(function(name) {
       if (name === 'Total') return;
-      var pts  = data.accounts[name] || [];
-      var last = pts.length ? pts[pts.length - 1][1] : 0;
-      var m    = meta[name] || {};
-      var cur  = m.last_currency || 'ILS';
-      var raw  = m.last_raw_value != null ? m.last_raw_value : last;
-      var display = cur === 'ILS'
-        ? _fmt(last)
-        : Number(raw).toLocaleString('he-IL', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' ' + cur +
-          ' (' + _fmt(last) + ')';
-      rows += '<tr class="acct-row"><td>' + _esc(name) + '</td>' +
-              '<td style="text-align:left;direction:ltr">' + display + '</td></tr>';
+      var pts = (data.accounts[name] || []).slice().sort(function(a,b){return a[0]<b[0]?-1:1;});
+      if (!pts.length) return;
+      var last = pts[pts.length-1];
+      var lastDate = new Date(last[0]);
+      var lastVal  = last[1];
+      if (lastVal === 0) return;
+      var prev = pts.length >= 2 ? pts[pts.length-2][1] : null;
+      var stale = (_today - lastDate) / 86400000 > _STALE_DAYS;
+      // Year-ago value
+      var oneYearAgo = new Date(_today); oneYearAgo.setFullYear(oneYearAgo.getFullYear()-1);
+      var yearPrev = null;
+      var bestDiff = Infinity;
+      pts.slice(0,-1).forEach(function(p){
+        var d = Math.abs(new Date(p[0]) - oneYearAgo);
+        if (d < bestDiff && d <= 90*86400000) { bestDiff = d; yearPrev = p[1]; }
+      });
+      rich[name] = {
+        value: lastVal, prev: prev, stale: stale,
+        yearPrev: yearPrev, group: _acctGroup(name), pts: pts,
+        lastDate: lastDate, lastDateStr: last[0],
+        cur: (meta[name] || {}).last_currency || 'ILS',
+        rawVal: (meta[name] || {}).last_raw_value,
+        rateCur: (meta[name] || {}).rate_cur,
+        rate: (meta[name] || {}).rate,
+        currencies: (meta[name] || {}).currencies || ['ILS']
+      };
     });
+
+    // Build HTML
+    var hdr = '<thead><tr>' +
+      '<th>חשבון</th><th>יתרה</th><th class="acct-rate-cell">שער ILS/X</th>' +
+      '<th>שינוי</th><th>שינוי/שנה</th><th>עדכון אחרון</th><th>מגמה</th>' +
+      '</tr></thead>';
+    var bodyRows = '';
+
+    _GROUP_ORDER.forEach(function(grp) {
+      var grpAccts = Object.keys(rich).filter(function(n){return rich[n].group===grp;});
+      if (!grpAccts.length) return;
+      bodyRows += '<tr class="acct-group-header"><td colspan="7">'+_esc(grp)+'</td></tr>';
+      var grpTotal = 0;
+      grpAccts.forEach(function(name) {
+        var r = rich[name];
+        grpTotal += r.value;
+        var cls = 'acct-row';
+        if (_VIRTUAL[name]) cls += ' acct-virtual';
+        if (r.stale) cls += ' acct-stale';
+        var sym = _CUR_SYM[r.cur] || r.cur;
+        var valDisplay = (r.cur !== 'ILS' && r.rawVal != null)
+          ? sym + Number(r.rawVal).toFixed(2) + ' ('+Math.round(r.value).toLocaleString('he-IL')+'₪)'
+          : Math.round(r.value).toLocaleString('he-IL') + '₪';
+        var rateDisplay = (r.currencies.length === 2 && r.rate && r.rateCur)
+          ? Number(r.rate).toFixed(r.rateCur === 'JPY' ? 3 : 2) : '—';
+        var ch = _changeCell(r.value, r.prev);
+        var ych = r.yearPrev != null ? _changeCell(r.value, r.yearPrev) : {txt:'—', cls:'acct-change-neu'};
+        var dateStr = r.lastDateStr || '';
+        var spark = _sparkline(r.pts);
+        bodyRows += '<tr class="'+cls+'">' +
+          '<td>'+_esc(name)+'</td>' +
+          '<td style="direction:ltr;text-align:left">'+valDisplay+'</td>' +
+          '<td class="acct-rate-cell">'+rateDisplay+'</td>' +
+          '<td class="'+ch.cls+'">'+ch.txt+'</td>' +
+          '<td class="'+ych.cls+'">'+ych.txt+'</td>' +
+          '<td class="acct-detail-cell">'+_esc(dateStr)+'</td>' +
+          '<td>'+spark+'</td>' +
+          '</tr>';
+      });
+      bodyRows += '<tr class="acct-subtotal"><td colspan="6">סה"כ '+_esc(grp)+'</td>' +
+                  '<td style="direction:ltr;text-align:left;font-weight:700">'+Math.round(grpTotal).toLocaleString('he-IL')+'₪</td></tr>';
+    });
+
+    // Grand total
     var totalPts  = data.accounts['Total'] || [];
     var totalLast = totalPts.length ? totalPts[totalPts.length - 1][1] : 0;
-    rows += '<tr class="acct-total-row" style="font-weight:700;border-top:2px solid #e0e4ef">' +
-            '<td>סה"כ</td><td style="text-align:left;direction:ltr">' + _fmt(totalLast) + '</td></tr>';
+    bodyRows += '<tr class="acct-total"><td colspan="6">סה"כ</td>' +
+                '<td style="direction:ltr;text-align:left;font-weight:700">'+Math.round(totalLast).toLocaleString('he-IL')+'₪</td></tr>';
 
-    if (!tbl.querySelector('thead')) {
-      tbl.innerHTML = '<thead><tr><th>חשבון</th><th>יתרה</th></tr></thead><tbody></tbody>';
-    }
-    var tbody = tbl.querySelector('tbody');
-    if (tbody) tbody.innerHTML = rows;
+    wrap.innerHTML = '<table>'+hdr+'<tbody>'+bodyRows+'</tbody></table>';
   }
 
   // ── Accounts Chart ─────────────────────────────────────────────────────

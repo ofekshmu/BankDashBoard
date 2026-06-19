@@ -4344,7 +4344,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   0%   { background-position: 200% 0; }
   100% { background-position: -200% 0; }
 }
-.skel-kpi   { height: 90px; margin: 6px; flex: 1; min-width: 140px; }
+.skel-kpi   { height: 90px; margin: 6px; }
 .skel-chart { height: 260px; margin: 8px 0; }
 .skel-row   { height: 48px; margin: 4px 0; border-radius: 8px; }
 </style>
@@ -4404,9 +4404,12 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     var invOut    = k.investments_total_out || 0;
     var invIn     = k.investments_total_in  || 0;
 
+    var monthlyBal = k.monthly_balance || 0;
     kr.innerHTML =
       _kpiCard('הכנסה נטו (חודש)', netIncome, netIncome >= 0, true, '#1e9d8b',
         'ממוצע: ' + _fmt(k.overall_net_mean)) +
+      _kpiCard('יתרה', monthlyBal, monthlyBal >= 0, false, '#1e9d8b',
+        k.balance_date ? _esc(k.balance_date) : '') +
       '<div class="kpi-card kpi-balance-card">' +
         '<div class="kpi-label"><span class="kpi-dot" style="background:#1e9d8b"></span>יתרה חודשית' +
         (k.balance_date ? ' (' + _esc(k.balance_date) + ')' : '') + '</div>' +
@@ -4583,6 +4586,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       genTtl.textContent = 'הוצאות והכנסות — חודשים אחרונים';
       genCard.appendChild(genTtl);
       var genWrap = document.createElement('div');
+      genWrap.id = 'chart-general-wrap';
       genWrap.style.cssText = 'position:relative;height:320px;';
       var genCanvas = document.createElement('canvas');
       genCanvas.id = 'chart-general-bar';

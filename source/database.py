@@ -65,6 +65,14 @@ class _ChainableCursor:
         self._c = None
 
     def execute(self, sql, params=()):
+        # If a prior query left the connection in an aborted transaction, roll
+        # back before attempting the next query so subsequent queries succeed.
+        if (self._conn.get_transaction_status() ==
+                psycopg2.extensions.TRANSACTION_STATUS_INERROR):
+            try:
+                self._conn.rollback()
+            except Exception:
+                pass
         self._c = self._conn.cursor()
         self._c.execute(sql, params)
         return self
@@ -138,6 +146,13 @@ class DataBase:
         if cls.__instance is None:
             cls.__instance = super().__new__(cls)
             cls._connect()
+        elif cls.__instance.connection.get_transaction_status() == psycopg2.extensions.TRANSACTION_STATUS_INERROR:
+            # Previous request left the shared connection in an aborted-transaction
+            # state.  Roll back to recover without a full reconnect.
+            try:
+                cls.__instance.connection.rollback()
+            except Exception:
+                cls._connect()
         elif cls.__instance.connection.closed:
             # Connection dropped (e.g. Neon idle timeout) — reconnect transparently.
             cls._connect()

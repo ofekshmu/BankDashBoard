@@ -4362,8 +4362,10 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   }
   function _fmt(n, decimals) {
     if (n == null) return '—';
-    var d = decimals != null ? decimals : 0;
-    return Number(n).toLocaleString('he-IL', {minimumFractionDigits: d, maximumFractionDigits: d}) + ' ₪';
+    var d = decimals != null ? decimals : 2;
+    var v = Number(n);
+    var s = Math.abs(v).toLocaleString('he-IL', {minimumFractionDigits: d, maximumFractionDigits: d}) + '₪';
+    return v < 0 ? '-' + s : s;
   }
 
   // ── Skeleton placeholders ──────────────────────────────────────────────
@@ -4386,8 +4388,8 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       : ('kpi-card' + (extraCls ? ' ' + extraCls : ''));
     return '<div class="' + cls + '">' +
       '<div class="kpi-label"><span class="kpi-dot" style="background:' + (dotColor || '#9aa3bb') + '"></span>' + _esc(label) + '</div>' +
-      '<div class="kpi-value ' + (isPos ? 'pos' : 'neg') + '">' + (isPos ? '+' : '') + _fmt(value) + '</div>' +
-      (subtitle ? '<div class="kpi-sublabel">' + subtitle + '</div>' : '') +
+      '<div class="kpi-value ' + (isPos ? 'pos' : 'neg') + '">' + _fmt(value) + '</div>' +
+      (subtitle ? '<div class="kpi-subtitle">' + subtitle + '</div>' : '') +
     '</div>';
   }
 
@@ -4414,7 +4416,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         '<div class="kpi-label"><span class="kpi-dot" style="background:#1e9d8b"></span>יתרה חודשית' +
         (k.balance_date ? ' (' + _esc(k.balance_date) + ')' : '') + '</div>' +
         '<div class="kpi-value ' + (balance >= 0 ? 'pos' : 'neg') + '">' +
-          Math.round(balance).toLocaleString('he-IL') + ' ₪</div>' +
+          Math.round(balance).toLocaleString('he-IL') + '₪</div>' +
         '<div class="kpi-balance-delta ' + (delta >= 0 ? 'pos' : 'neg') + '">' +
           (delta >= 0 ? '▲' : '▼') + ' ' + Math.abs(Math.round(delta)).toLocaleString('he-IL') + '₪ החודש' +
         '</div>' +

@@ -1426,12 +1426,13 @@ def _pg_conn():
 def _get_latest_yyyy_mm():
     """Return the latest month key (e.g. '2026_05') that has data in the DB.
 
-    First checks the filesystem (HTML files in GENERAL_ANALYSIS_DIR), then
-    falls back to a MAX(Date) query so this works on Vercel where the output
-    directory is always empty.
+    Check order: (1) filesystem HTML files, (2) in-memory API cache,
+    (3) DB MAX(Date) query — so this works both locally and on Vercel.
     """
     from datetime import datetime as _dt
-    # Filesystem check (works locally)
+    import logging as _log
+
+    # 1. Filesystem (populated locally when HTML output is generated)
     if os.path.isdir(GENERAL_ANALYSIS_DIR):
         files = sorted(
             f for f in os.listdir(GENERAL_ANALYSIS_DIR)
@@ -1439,7 +1440,12 @@ def _get_latest_yyyy_mm():
         )
         if files:
             return files[-1].replace('.html', '')
-    # DB fallback (works on Vercel / API-first)
+
+    # 2. In-memory API cache (populated after the first data request)
+    if _monthly_data_cache:
+        return max(_monthly_data_cache.keys())
+
+    # 3. DB query fallback (works on Vercel / API-first)
     try:
         if os.getenv('DATABASE_URL'):
             conn = _pg_conn()
@@ -1449,13 +1455,16 @@ def _get_latest_yyyy_mm():
                 conn.close()
         else:
             from database import DataBase
-            row = DataBase().cursor.execute("SELECT MAX(Date) FROM BankTransactions").fetchone()
+            row = DataBase().cursor.execute(
+                "SELECT MAX(Date) FROM BankTransactions"
+            ).fetchone()
         if row and row[0]:
             d_str = str(row[0])[:10]
             d = _dt.strptime(d_str, '%Y-%m-%d')
             return f'{d.year:04d}_{d.month:02d}'
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.getLogger(__name__).warning('_get_latest_yyyy_mm DB query failed: %s', _e)
+
     return None
 
 

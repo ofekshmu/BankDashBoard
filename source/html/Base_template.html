@@ -358,6 +358,30 @@ body {
 }
 .server-stale-banner button:hover { opacity: 1; }
 
+/* ── Stale / cache indicators ──────────────────────────── */
+.stale-tag {
+  display: none; align-items: center; gap: 5px;
+  background: #fff4e1; border: 1.5px solid #f0ad4e; border-radius: 20px;
+  padding: 3px 10px; font-size: .75em; font-weight: 600; color: #7a4f00;
+  cursor: pointer; white-space: nowrap; vertical-align: middle;
+}
+.stale-tag:hover { background: #f0ad4e; color: #fff; }
+.stale-tag.code  { background: #fff0f0; border-color: #e74c3c; color: #7a0000; }
+.stale-tag.code:hover { background: #e74c3c; color: #fff; }
+
+/* ── Month-switch loading overlay (SPA navigation) ────── */
+#month-nav-overlay {
+  display: none; position: fixed; inset: 0; z-index: 9990;
+  background: rgba(255,255,255,0.55); backdrop-filter: blur(3px);
+  align-items: center; justify-content: center;
+}
+#month-nav-overlay .mnav-spinner {
+  width: 36px; height: 36px; border-radius: 50%;
+  border: 3px solid var(--border); border-top-color: var(--teal);
+  animation: _reloadSpin .7s linear infinite;
+}
+@keyframes _reloadSpin { to { transform: rotate(360deg); } }
+
 /* ── KPI row ─────────────────────────────────────────────── */
 .kpi-row {
   display: grid;
@@ -1821,9 +1845,14 @@ body {
     </div>
     <div class="generated-row">
       <span class="generated-label" id="generated-label"></span>
+      <span class="stale-tag" id="stale-tag-db" onclick="reloadCurrent()" title="לחץ לחישוב מחדש">⚡ נתונים עודכנו</span>
+      <span class="stale-tag code" id="stale-tag-code" onclick="reloadCurrent()" title="קוד עודכן — חשב מחדש">⚠ קוד עודכן</span>
       <button class="reload-btn" id="reload-btn" onclick="reloadCurrent()" title="חשב מחדש">&#8635; <span class="reload-btn-label">חשב מחדש</span></button>
     </div>
   </div>
+
+  <!-- Month-switch SPA loading overlay -->
+  <div id="month-nav-overlay"><div class="mnav-spinner"></div></div>
 
   <!-- Server-stale warning banner -->
   <div id="server-stale-banner" class="server-stale-banner">
@@ -2118,6 +2147,11 @@ function showPanel(name, btn) {
       if (d.stale) {
         var b = document.getElementById('server-stale-banner');
         if (b) b.style.display = 'flex';
+        // Also show the compact code-stale tag next to reload button
+        var tag = document.getElementById('stale-tag-code');
+        if (tag) tag.style.display = 'inline-flex';
+        var btn = document.getElementById('reload-btn');
+        if (btn) btn.classList.add('stale');
       }
     })
     .catch(function() {});
@@ -2292,8 +2326,6 @@ function _classifyLog(msg) {
   return '';
 }
 
-// kept for backward compat — no-op
-function toggleLogDrawer() {}
 function setLogIndicator(state) {
   var sp = document.getElementById('lf-spinner');
   if (!sp) return;
@@ -2407,13 +2439,17 @@ function _buildRoller(list) {
       var alreadyCentered = (_viewCenterIdx === i);
       _viewCenterIdx = i;
       _positionTrack(true);
-      // If the item wasn't centred yet, let the scroll animation play before navigating
       var navDelay = alreadyCentered ? 0 : 360;
       setTimeout(function() {
-        document.body.style.transition = 'opacity 0.18s ease';
-        document.body.style.opacity = '0';
-      }, navDelay + 80);
-      setTimeout(function() { location.href = '/general/' + m.key; }, navDelay + 260);
+        if (window._monthNav) {
+          window._monthNav.navigate(m.key);
+        } else {
+          // Fallback: full-page navigation
+          document.body.style.transition = 'opacity 0.18s ease';
+          document.body.style.opacity = '0';
+          setTimeout(function() { location.href = '/general/' + m.key; }, 180);
+        }
+      }, navDelay);
     });
 
     track.appendChild(item);
@@ -2542,13 +2578,30 @@ function _reloadGeneral() {
       }
       if (data.startsWith('__DONE__')) {
         es.close();
-        appendLog('✓ הניתוח הסתיים — מרענן...', 'done');
+        appendLog('✓ הניתוח הסתיים — טוען נתונים מחדש...', 'done');
         btn.classList.remove('running', 'stale'); btn.disabled = false;
-        hideLogFloat(1000);
-        setTimeout(function() {
-          var _curPanel = new URLSearchParams(window.location.search).get('panel') || '';
-          location.href = '/general/' + _currentKey + (_curPanel ? '?panel=' + _curPanel : '');
-        }, 1200);
+        // Invalidate server cache + re-render in place (no page reload)
+        fetch('/api/general/' + _currentKey + '/invalidate', {method: 'POST'})
+          .then(function() {
+            if (window._monthNav) {
+              return window._monthNav.refresh(_currentKey);
+            }
+          })
+          .then(function() {
+            hideLogFloat(800);
+            var dbTag = document.getElementById('stale-tag-db');
+            var codeTag = document.getElementById('stale-tag-code');
+            if (dbTag) dbTag.style.display = 'none';
+            if (codeTag) codeTag.style.display = 'none';
+          })
+          .catch(function() {
+            hideLogFloat(500);
+            // Fallback: page reload if in-place refresh fails
+            var _curPanel = new URLSearchParams(window.location.search).get('panel') || '';
+            setTimeout(function() {
+              location.href = '/general/' + _currentKey + (_curPanel ? '?panel=' + _curPanel : '');
+            }, 300);
+          });
         return;
       }
       if (data === '__ERROR__') {
@@ -2608,7 +2661,6 @@ function _checkStale() {
   var path = window.location.pathname;
 
   if (path.indexOf('/category/') !== -1) {
-    // Category page — check against its own manifest
     var slug = path.split('/category/')[1].replace(/\/$/, '');
     fetch('/api/stale/cat/' + slug)
       .then(function(r) { return r.json(); })
@@ -2618,17 +2670,19 @@ function _checkStale() {
       })
       .catch(function() {});
   } else if (_currentKey) {
-    // General monthly analysis page
     fetch('/api/stale/' + _currentKey)
       .then(function(r) { return r.json(); })
       .then(function(d) {
         var item = document.querySelector('#roller-track .cm-item[data-key="' + _currentKey + '"]');
+        var dbTag = document.getElementById('stale-tag-db');
         if (d.stale) {
           btn.classList.add('stale');
           if (item) item.classList.add('stale');
+          if (dbTag) dbTag.style.display = 'inline-flex';
         } else {
           btn.classList.remove('stale');
           if (item) item.classList.remove('stale');
+          if (dbTag) dbTag.style.display = 'none';
         }
       })
       .catch(function() {});
@@ -2643,6 +2697,18 @@ function _initMonthNav() {
 }
 
 window.addEventListener('resize', function() { _positionTrack(false); });
+
+// Browser back/forward — re-render the navigated month without full page reload
+window.addEventListener('popstate', function(e) {
+  var key = e.state && e.state.monthKey;
+  if (!key) {
+    var m = window.location.pathname.match(/\/general\/(\d{4}_\d{2})/);
+    key = m && m[1];
+  }
+  if (key && window._monthNav) {
+    window._monthNav.navigate(key, true /* skipPush */);
+  }
+});
 
 // Always init the month roller (doesn't depend on server being active)
 _initMonthNav();
@@ -4368,6 +4434,34 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     return v < 0 ? '-' + s : s;
   }
 
+  // ── Client-side data cache (sessionStorage, 1-hour TTL) ───────────────
+  var _CACHE_PFX = 'gd_';
+  var _CACHE_TTL  = 60 * 60 * 1000; // 1 h
+
+  function _cacheGet(key) {
+    try {
+      var raw = sessionStorage.getItem(_CACHE_PFX + key);
+      if (!raw) return null;
+      var entry = JSON.parse(raw);
+      if (Date.now() - entry.ts > _CACHE_TTL) {
+        sessionStorage.removeItem(_CACHE_PFX + key);
+        return null;
+      }
+      return entry.data;
+    } catch(_) { return null; }
+  }
+
+  function _cacheSet(key, data) {
+    try {
+      sessionStorage.setItem(_CACHE_PFX + key,
+        JSON.stringify({ts: Date.now(), data: data}));
+    } catch(_) {}
+  }
+
+  function _cacheInvalidate(key) {
+    try { sessionStorage.removeItem(_CACHE_PFX + key); } catch(_) {}
+  }
+
   // ── Skeleton placeholders ──────────────────────────────────────────────
   function _showSkeletons() {
     var kr  = document.getElementById('kpi-row');
@@ -5504,10 +5598,20 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     });
   }
 
-  // ── Init ───────────────────────────────────────────────────────────────
-  function _initDynamicPage() {
-    _showSkeletons();
-    fetch('/api/general/' + _yyyy_mm + '/data')
+  // ── Loading overlay helpers ────────────────────────────────────────────
+  function _showNavOverlay() {
+    var o = document.getElementById('month-nav-overlay');
+    if (o) o.style.display = 'flex';
+  }
+  function _hideNavOverlay() {
+    var o = document.getElementById('month-nav-overlay');
+    if (o) o.style.display = 'none';
+  }
+
+  // ── Core fetch + render ───────────────────────────────────────────────
+  function _fetchAndRender(key, opts) {
+    opts = opts || {};
+    return fetch('/api/general/' + key + '/data')
       .then(function(r) {
         return r.json().then(function(d) {
           if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
@@ -5516,15 +5620,99 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       })
       .then(function(d) {
         if (d.error) throw new Error(d.error);
+        _cacheSet(key, d);
+        _yyyy_mm = key;
         _renderDynamicData(d);
-      })
+        return d;
+      });
+  }
+
+  // ── Init on page load ─────────────────────────────────────────────────
+  function _initDynamicPage() {
+    var cached = _cacheGet(_yyyy_mm);
+    if (cached) {
+      // Instant render from cache
+      _renderDynamicData(cached);
+      // Validate freshness in background — show stale badge if needed
+      fetch('/api/stale/' + _yyyy_mm)
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (d.stale) {
+            var btn = document.getElementById('reload-btn');
+            var tag = document.getElementById('stale-tag-db');
+            if (btn) btn.classList.add('stale');
+            if (tag) tag.style.display = 'inline-flex';
+          }
+        })
+        .catch(function() {});
+      return;
+    }
+    // No cache — show skeletons and fetch
+    _showSkeletons();
+    _fetchAndRender(_yyyy_mm)
       .catch(function(err) {
         var kr = document.getElementById('kpi-row');
         if (kr) kr.innerHTML =
           '<div style="color:#e74c3c;padding:20px 0">שגיאה בטעינת נתונים: ' + _esc(String(err)) + '</div>';
         console.error('Dynamic page load error:', err);
+        // Auto-open debug panel on load error
+        if (typeof toggleDebugPanel === 'function') {
+          setTimeout(toggleDebugPanel, 400);
+        }
       });
   }
+
+  // ── Public SPA navigation API ─────────────────────────────────────────
+  window._monthNav = {
+    navigate: function(key, skipPush) {
+      if (!key) return Promise.resolve();
+      _currentKey = key;
+      // Update URL
+      if (!skipPush) {
+        var url = '/general/' + key;
+        var panel = new URLSearchParams(window.location.search).get('panel') || '';
+        if (panel) url += '?panel=' + panel;
+        history.pushState({monthKey: key}, '', url);
+      }
+      // Update roller active state
+      document.querySelectorAll('#roller-track .cm-item').forEach(function(el) {
+        el.classList.toggle('active', el.dataset.key === key);
+      });
+      // Dismiss stale tags from previous month
+      var dbTag = document.getElementById('stale-tag-db');
+      if (dbTag) dbTag.style.display = 'none';
+
+      var cached = _cacheGet(key);
+      if (cached) {
+        _yyyy_mm = key;
+        _renderDynamicData(cached);
+        // Background staleness check for cached data
+        fetch('/api/stale/' + key)
+          .then(function(r) { return r.json(); })
+          .then(function(d) {
+            var btn = document.getElementById('reload-btn');
+            if (btn) btn.classList.toggle('stale', !!d.stale);
+            if (dbTag) dbTag.style.display = d.stale ? 'inline-flex' : 'none';
+          })
+          .catch(function() {});
+        return Promise.resolve();
+      }
+      // Not cached — overlay + fetch
+      _showNavOverlay();
+      return _fetchAndRender(key)
+        .then(function() { _hideNavOverlay(); })
+        .catch(function(err) {
+          _hideNavOverlay();
+          console.error('Month navigation error:', err);
+          if (typeof toggleDebugPanel === 'function') toggleDebugPanel();
+        });
+    },
+
+    refresh: function(key) {
+      _cacheInvalidate(key || _yyyy_mm);
+      return _fetchAndRender(key || _yyyy_mm);
+    }
+  };
 
   document.addEventListener('DOMContentLoaded', _initDynamicPage);
 })();

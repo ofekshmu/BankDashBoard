@@ -147,6 +147,9 @@ class DataBase:
         if cls.__instance is None:
             cls.__instance = super().__new__(cls)
             cls._connect()
+        elif not hasattr(cls.__instance, 'connection') or cls.__instance.connection is None:
+            # _connect() failed on a prior call — retry
+            cls._connect()
         elif cls.__instance.connection.get_transaction_status() == psycopg2.extensions.TRANSACTION_STATUS_INERROR:
             # Previous request left the shared connection in an aborted-transaction
             # state.  Roll back to recover without a full reconnect.
@@ -2488,6 +2491,10 @@ class DataBase:
                 TX_ID INTEGER PRIMARY KEY
             )
         """)
+        # Idempotently add columns that may be missing from tables created by older code
+        self.cursor.execute(
+            "ALTER TABLE SpotifyMemberPayments ADD COLUMN IF NOT EXISTS Dismissed INTEGER DEFAULT 0"
+        )
         self.connection.commit()
         DataBase.__spotify_tables_ready = True
 

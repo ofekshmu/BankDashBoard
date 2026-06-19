@@ -3879,8 +3879,9 @@ def api_spotify_charge_suggestions():
         _sys.path.insert(0, _HERE)
         from SpotifyTracker import get_charge_suggestions
         from database import DataBase
-        DataBase().ensure_spotify_tables()
-        suggestions = get_charge_suggestions(_DB_PATH)
+        db = DataBase()
+        db.ensure_spotify_tables()
+        suggestions = get_charge_suggestions(db)
         return jsonify({'ok': True, 'suggestions': suggestions})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)})
@@ -3944,8 +3945,9 @@ def api_spotify_unmatched():
         _sys.path.insert(0, _HERE)
         from SpotifyTracker import get_unmatched_payments
         from database import DataBase
-        DataBase().ensure_spotify_tables()
-        return jsonify({'ok': True, 'transactions': get_unmatched_payments(_DB_PATH)})
+        db = DataBase()
+        db.ensure_spotify_tables()
+        return jsonify({'ok': True, 'transactions': get_unmatched_payments(db)})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)})
 

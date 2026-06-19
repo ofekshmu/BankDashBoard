@@ -346,47 +346,36 @@ body {
 }
 .reload-btn:hover { box-shadow: 0 6px 24px rgba(30,157,139,0.65); }
 .reload-btn.running { opacity: 0.65; cursor: wait; }
-@keyframes _reloadGlow {
-  0%, 100% { box-shadow: 0 4px 18px rgba(30,157,139,0.45), 0 0 0 0 rgba(30,157,139,0.55); }
-  50%       { box-shadow: 0 4px 18px rgba(30,157,139,0.45), 0 0 0 8px rgba(30,157,139,0); }
+
+/* Stale: DB changed → amber pulse */
+@keyframes _reloadGlowAmber {
+  0%, 100% { box-shadow: 0 4px 18px rgba(240,173,78,0.55), 0 0 0 0   rgba(240,173,78,0.45); }
+  50%       { box-shadow: 0 4px 18px rgba(240,173,78,0.55), 0 0 0 10px rgba(240,173,78,0); }
 }
-.reload-btn.stale { animation: _reloadGlow 1.6s ease-in-out infinite; }
+.reload-btn.stale-db {
+  background: #e6971a; color: #fff;
+  box-shadow: 0 4px 18px rgba(240,173,78,0.45);
+  animation: _reloadGlowAmber 1.6s ease-in-out infinite;
+}
+.reload-btn.stale-db:hover { box-shadow: 0 6px 24px rgba(240,173,78,0.75); }
+
+/* Stale: code changed → red pulse (overrides amber) */
+@keyframes _reloadGlowRed {
+  0%, 100% { box-shadow: 0 4px 18px rgba(231,76,60,0.55), 0 0 0 0   rgba(231,76,60,0.45); }
+  50%       { box-shadow: 0 4px 18px rgba(231,76,60,0.55), 0 0 0 10px rgba(231,76,60,0); }
+}
+.reload-btn.stale-code {
+  background: #e74c3c; color: #fff;
+  box-shadow: 0 4px 18px rgba(231,76,60,0.45);
+  animation: _reloadGlowRed 1.6s ease-in-out infinite;
+}
+.reload-btn.stale-code:hover { box-shadow: 0 6px 24px rgba(231,76,60,0.75); }
+
 .reload-btn-icon { font-size: 1.6em; line-height: 1; display: flex; align-items: center; }
 @media (max-width: 768px) {
   .reload-btn { width: 52px; padding: 0; border-radius: 50%; justify-content: center; }
   .reload-btn-label { display: none; }
 }
-
-/* ── Stale glow dots above FAB ───────────────────────────── */
-#regen-stale-tags {
-  position: fixed; bottom: 84px; right: 26px; z-index: 999;
-  display: flex; flex-direction: column; align-items: flex-end; gap: 7px;
-  pointer-events: none;
-}
-@keyframes _glowPulseYellow {
-  0%, 100% { box-shadow: 0 0 5px 2px rgba(240,173,78,0.5),  0 0 0 0   rgba(240,173,78,0.3); }
-  50%       { box-shadow: 0 0 10px 5px rgba(240,173,78,0.7), 0 0 18px 8px rgba(240,173,78,0.2); }
-}
-@keyframes _glowPulseRed {
-  0%, 100% { box-shadow: 0 0 5px 2px rgba(231,76,60,0.5),  0 0 0 0   rgba(231,76,60,0.3); }
-  50%       { box-shadow: 0 0 10px 5px rgba(231,76,60,0.7), 0 0 18px 8px rgba(231,76,60,0.2); }
-}
-.stale-tag {
-  pointer-events: auto;
-  width: 14px; height: 14px;
-  border-radius: 50%;
-  background: #f0ad4e;
-  cursor: pointer;
-  opacity: 0; transform: scale(0.3);
-  transition: opacity 0.3s ease, transform 0.3s ease;
-}
-.stale-tag.shown {
-  opacity: 1; transform: scale(1);
-  animation: _glowPulseYellow 1.8s ease-in-out infinite;
-}
-.stale-tag:hover { transform: scale(1.25); }
-.stale-tag.code { background: #e74c3c; }
-.stale-tag.code.shown { animation: _glowPulseRed 1.8s ease-in-out infinite; }
 
 /* ── Regeneration progress panel (slides left from FAB) ───── */
 #regen-progress-panel {
@@ -1884,11 +1873,7 @@ body {
   <!-- Month-switch SPA loading overlay -->
   <div id="month-nav-overlay"><div class="mnav-spinner"></div></div>
 
-  <!-- Regeneration FAB: stale tags + progress panel + button -->
-  <div id="regen-stale-tags">
-    <span class="stale-tag" id="stale-tag-db" onclick="reloadCurrent()" title="נתונים עודכנו — לחץ לחישוב מחדש"></span>
-    <span class="stale-tag code" id="stale-tag-code" onclick="reloadCurrent()" title="קוד עודכן — לחץ לחישוב מחדש"></span>
-  </div>
+  <!-- Regeneration FAB: progress panel + button -->
   <div id="regen-progress-panel">
     <div class="regen-prog-inner">
       <span id="regen-prog-label">מחשב…</span>
@@ -2175,16 +2160,14 @@ function showPanel(name, btn) {
   }
 })();
 
-// ── Server-stale banner ───────────────────────────────────
+// ── Code-stale check → red FAB ───────────────────────────
 (function checkServerStale() {
   fetch('/api/server-stale')
     .then(function(r) { return r.json(); })
     .then(function(d) {
       if (d.stale) {
-        var tag = document.getElementById('stale-tag-code');
-        if (tag) tag.classList.add('shown');
         var btn = document.getElementById('reload-btn');
-        if (btn) btn.classList.add('stale');
+        if (btn) { btn.classList.remove('stale-db'); btn.classList.add('stale-code'); }
       }
     })
     .catch(function() {});
@@ -2624,23 +2607,30 @@ var _loadBar = (function() {
       if (b) { b.style.transition = 'none'; b.style.width = '0%'; }
       if (w) w.classList.add('active');
       _setRollerPct(_key, '0%');
-      // Simulate: fast to 30%, slow crawl to 82%
+      // Asymptotic crawl toward 96% — always moving, never plateaus, tiny jump to 100% on done
       _sim = setInterval(function() {
-        var step = _cur < 30 ? 3.5 : _cur < 60 ? 1.2 : _cur < 78 ? 0.5 : 0.15;
-        if (_cur < 82) { _cur = Math.min(_cur + step, 82); _setRaw(_cur); }
+        var remaining = 96 - _cur;
+        var step = Math.max(0.18, remaining * (_cur < 40 ? 0.12 : _cur < 70 ? 0.07 : 0.035));
+        if (_cur < 96) { _cur = Math.min(_cur + step, 96); _setRaw(_cur); }
       }, 80);
     },
     set: function(v) {
       if (v <= _cur) return;
       clearInterval(_sim);
       var b = _bar();
-      if (b) b.style.transition = 'width 0.4s ease';
+      if (b) b.style.transition = 'width 0.35s ease';
       _setRaw(v);
+      // Resume asymptotic crawl from new position
+      _sim = setInterval(function() {
+        var remaining = 96 - _cur;
+        var step = Math.max(0.18, remaining * 0.04);
+        if (_cur < 96) { _cur = Math.min(_cur + step, 96); _setRaw(_cur); }
+      }, 80);
     },
     done: function() {
       clearInterval(_sim);
       var b = _bar(), w = _wrap();
-      if (b) { b.style.transition = 'width 0.2s ease'; b.style.width = '100%'; }
+      if (b) { b.style.transition = 'width 0.25s ease'; b.style.width = '100%'; }
       _setRollerPct(_key, null);
       _key = null;
       setTimeout(function() {
@@ -2765,17 +2755,13 @@ function _reloadGeneral() {
       }
       if (data.startsWith('__DONE__')) {
         es.close();
-        btn.classList.remove('running', 'stale'); btn.disabled = false;
+        btn.classList.remove('running', 'stale-db', 'stale-code'); btn.disabled = false;
         fetch('/api/general/' + _currentKey + '/invalidate', {method: 'POST'})
           .then(function() { return window._monthNav ? window._monthNav.refresh(_currentKey) : null; })
           .then(function() {
             _regenProg.done(true);
             _markGenerating(_currentKey, false);
             _hideGeneratingOverlay();
-            ['stale-tag-db','stale-tag-code'].forEach(function(id) {
-              var el = document.getElementById(id);
-              if (el) el.classList.remove('shown');
-            });
           })
           .catch(function() {
             _regenProg.done(false);
@@ -2826,7 +2812,7 @@ function _reloadCategory(slug) {
       if (data.startsWith('__DONE__')) {
         es.close();
         appendLog('✓ הניתוח הסתיים — מרענן...', 'done');
-        btn.classList.remove('running', 'stale'); btn.disabled = false;
+        btn.classList.remove('running', 'stale-db', 'stale-code'); btn.disabled = false;
         hideLogFloat(1000);
         setTimeout(function() { location.reload(); }, 1200);
         return;
@@ -2853,8 +2839,10 @@ function _checkStale() {
     fetch('/api/stale/cat/' + slug)
       .then(function(r) { return r.json(); })
       .then(function(d) {
-        if (d.stale) btn.classList.add('stale');
-        else         btn.classList.remove('stale');
+        if (btn) {
+          btn.classList.toggle('stale-db', !!d.stale);
+          if (!d.stale) btn.classList.remove('stale-code');
+        }
       })
       .catch(function() {});
   } else if (_currentKey) {
@@ -2862,15 +2850,12 @@ function _checkStale() {
       .then(function(r) { return r.json(); })
       .then(function(d) {
         var item = document.querySelector('#roller-track .cm-item[data-key="' + _currentKey + '"]');
-        var dbTag = document.getElementById('stale-tag-db');
         if (d.stale) {
-          btn.classList.add('stale');
+          if (btn) { btn.classList.remove('stale-code'); btn.classList.add('stale-db'); }
           if (item) item.classList.add('stale');
-          if (dbTag) dbTag.classList.add('shown');
         } else {
-          btn.classList.remove('stale');
+          if (btn) { btn.classList.remove('stale-db', 'stale-code'); }
           if (item) item.classList.remove('stale');
-          if (dbTag) dbTag.classList.remove('shown');
         }
       })
       .catch(function() {});
@@ -5795,6 +5780,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     opts = opts || {};
     return fetch('/api/general/' + key + '/data')
       .then(function(r) {
+        _loadBar.set(55);
         return r.json().then(function(d) {
           if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
           return d;
@@ -5802,9 +5788,11 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       })
       .then(function(d) {
         if (d.error) throw new Error(d.error);
+        _loadBar.set(72);
         _cacheSet(key, d);
         _yyyy_mm = key;
         _renderDynamicData(d);
+        _loadBar.set(92);
         return d;
       });
   }
@@ -5836,12 +5824,8 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       fetch('/api/stale/' + _yyyy_mm)
         .then(function(r) { return r.json(); })
         .then(function(d) {
-          if (d.stale) {
-            var btn = document.getElementById('reload-btn');
-            var tag = document.getElementById('stale-tag-db');
-            if (btn) btn.classList.add('stale');
-            if (tag) tag.classList.add('shown');
-          }
+          var btn = document.getElementById('reload-btn');
+          if (btn && d.stale) { btn.classList.remove('stale-code'); btn.classList.add('stale-db'); }
         })
         .catch(function() {});
       return;
@@ -5875,13 +5859,9 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       document.querySelectorAll('#roller-track .cm-item').forEach(function(el) {
         el.classList.toggle('active', el.dataset.key === key);
       });
-      // Dismiss stale tags
-      ['stale-tag-db','stale-tag-code'].forEach(function(id) {
-        var el = document.getElementById(id);
-        if (el) el.classList.remove('shown');
-      });
+      // Clear stale state on navigate
       var btn = document.getElementById('reload-btn');
-      if (btn) btn.classList.remove('stale');
+      if (btn) btn.classList.remove('stale-db', 'stale-code');
 
       var cached = _cacheGet(key);
 
@@ -5896,9 +5876,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
           fetch('/api/stale/' + key)
             .then(function(r) { return r.json(); })
             .then(function(d) {
-              if (btn) btn.classList.toggle('stale', !!d.stale);
-              var dbTag = document.getElementById('stale-tag-db');
-              if (dbTag) dbTag.classList.toggle('shown', !!d.stale);
+              if (btn && d.stale) { btn.classList.remove('stale-code'); btn.classList.add('stale-db'); }
             })
             .catch(function() {});
         } else if (_generatingMonths[key]) {
@@ -5907,12 +5885,14 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         } else {
           _loadBar.start();
           fetch('/api/general/' + key + '/data')
-            .then(function(r) { return r.json(); })
+            .then(function(r) { _loadBar.set(55); return r.json(); })
             .then(function(d) {
               if (d.error) throw new Error(d.error);
+              _loadBar.set(72);
               _cacheSet(key, d);
               _yyyy_mm = key;
               _renderDynamicData(d);
+              _loadBar.set(92);
               _loadBar.done();
               _fadeIn(els);
             })

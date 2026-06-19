@@ -83,139 +83,111 @@ def compute_all_balances(db) -> list:
 
 # ── Transaction suggestions ────────────────────────────────────────────────────
 
-def _spotify_pg_conn():
-    """Return a psycopg2 DictCursor-backed connection for Spotify queries."""
-    import psycopg2, psycopg2.extras
-    raw = psycopg2.connect(os.environ['DATABASE_URL'])
-    raw.autocommit = False
-
-    class _Conn:
-        def __init__(self, c):
-            self._c = c
-        def execute(self, sql, params=()):
-            cur = self._c.cursor(cursor_factory=psycopg2.extras.DictCursor)
-            cur.execute(sql.replace('?', '%s'), params)
-            return cur
-        def close(self):
-            self._c.close()
-
-    return _Conn(raw)
-
-
-def get_charge_suggestions(db_path: str = None) -> list:
+def get_charge_suggestions(db) -> list:
     """
     Find outgoing transactions whose Name contains 'spotify' (case-insensitive)
     from both BankTransactions and CardTransactions, excluding months that already
     have a confirmed SpotifyMonthlyCharge.
+    db: DataBase instance (already initialised, tables ensured).
     Returns list of {tx_id, date, name, amount, month, source}.
     """
-    conn = _spotify_pg_conn()
-    try:
-        confirmed_months = {
-            r[0] for r in conn.execute(
-                "SELECT Month FROM SpotifyMonthlyCharge WHERE Confirmed = 1"
-            ).fetchall()
-        }
+    confirmed_months = {
+        r[0] for r in db.cursor.execute(
+            "SELECT Month FROM SpotifyMonthlyCharge WHERE Confirmed = 1"
+        ).fetchall()
+    }
 
-        candidates = []
+    candidates = []
 
-        for row in conn.execute("""
-            SELECT ID, Date, Name, Out AS amount
-            FROM BankTransactions
-            WHERE LOWER(Name) LIKE '%spotify%' AND Out > 0
-            ORDER BY Date DESC LIMIT 24
-        """).fetchall():
-            month = (row['Date'] or '')[:7]
-            if month and month not in confirmed_months:
-                candidates.append({
-                    'tx_id':  row['ID'],
-                    'date':   row['Date'],
-                    'name':   row['Name'],
-                    'amount': float(row['amount'] or 0),
-                    'month':  month,
-                    'source': 'BankTransactions',
-                })
+    # r: (ID[0], Date[1], Name[2], Out[3])
+    for row in db.cursor.execute("""
+        SELECT ID, Date, Name, "Out"
+        FROM BankTransactions
+        WHERE LOWER(Name) LIKE '%spotify%' AND "Out" > 0
+        ORDER BY Date DESC LIMIT 24
+    """).fetchall():
+        month = (row[1] or '')[:7]
+        if month and month not in confirmed_months:
+            candidates.append({
+                'tx_id':  row[0],
+                'date':   row[1],
+                'name':   row[2],
+                'amount': float(row[3] or 0),
+                'month':  month,
+                'source': 'BankTransactions',
+            })
 
-        for row in conn.execute("""
-            SELECT ID, Executed_Date AS date, Name, Charge_Value AS amount
-            FROM CardTransactions
-            WHERE LOWER(Name) LIKE '%spotify%' AND Charge_Value > 0
-            ORDER BY date DESC LIMIT 24
-        """).fetchall():
-            month = (row['date'] or '')[:7]
-            if month and month not in confirmed_months:
-                candidates.append({
-                    'tx_id':  row['ID'],
-                    'date':   row['date'],
-                    'name':   row['Name'],
-                    'amount': float(row['amount'] or 0),
-                    'month':  month,
-                    'source': 'CardTransactions',
-                })
+    # r: (ID[0], Executed_Date[1], Name[2], Charge_Value[3])
+    for row in db.cursor.execute("""
+        SELECT ID, Executed_Date, Name, Charge_Value
+        FROM CardTransactions
+        WHERE LOWER(Name) LIKE '%spotify%' AND Charge_Value > 0
+        ORDER BY Executed_Date DESC LIMIT 24
+    """).fetchall():
+        month = (row[1] or '')[:7]
+        if month and month not in confirmed_months:
+            candidates.append({
+                'tx_id':  row[0],
+                'date':   row[1],
+                'name':   row[2],
+                'amount': float(row[3] or 0),
+                'month':  month,
+                'source': 'CardTransactions',
+            })
 
-        # Keep highest-amount candidate per month
-        by_month = {}
-        for c in candidates:
-            m = c['month']
-            if m not in by_month or c['amount'] > by_month[m]['amount']:
-                by_month[m] = c
+    by_month = {}
+    for c in candidates:
+        m = c['month']
+        if m not in by_month or c['amount'] > by_month[m]['amount']:
+            by_month[m] = c
 
-        return sorted(by_month.values(), key=lambda x: x['month'], reverse=True)
-    finally:
-        conn.close()
+    return sorted(by_month.values(), key=lambda x: x['month'], reverse=True)
 
 
-def get_unmatched_payments(db_path: str = None) -> list:
+def get_unmatched_payments(db) -> list:
     """
     Return income transactions that look like Spotify family-member reimbursements
     and have not yet been assigned to any SpotifyMemberPayment.
-
-    Matches BankTransactions (income side) where the transaction name, description,
-    or category contains 'spotify' (case-insensitive).  Card transactions are
-    excluded here because card charges are outgoing costs, not incoming payments.
+    db: DataBase instance (already initialised, tables ensured).
     """
-    conn = _spotify_pg_conn()
-    try:
-        assigned = {
-            r[0] for r in conn.execute(
-                "SELECT TX_ID FROM SpotifyMemberPayments WHERE TX_ID IS NOT NULL"
-            ).fetchall()
-        }
-        dismissed = {
-            r[0] for r in conn.execute(
-                "SELECT TX_ID FROM SpotifyDismissedPayments"
-            ).fetchall()
-        }
-        excluded = assigned | dismissed
+    assigned = {
+        r[0] for r in db.cursor.execute(
+            "SELECT TX_ID FROM SpotifyMemberPayments WHERE TX_ID IS NOT NULL"
+        ).fetchall()
+    }
+    dismissed = {
+        r[0] for r in db.cursor.execute(
+            "SELECT TX_ID FROM SpotifyDismissedPayments"
+        ).fetchall()
+    }
+    excluded = assigned | dismissed
 
-        results = []
+    results = []
+    # r: (ID[0], Date[1], Name[2], Income[3], Description[4], Category[5])
+    for row in db.cursor.execute("""
+        SELECT ID, Date, Name, Income, Description, Category
+        FROM BankTransactions
+        WHERE Income > 0
+          AND (
+            LOWER(Name)        LIKE '%spotify%'
+            OR LOWER(Description) LIKE '%spotify%'
+            OR LOWER(Category)    LIKE '%spotify%'
+          )
+        ORDER BY Date DESC LIMIT 200
+    """).fetchall():
+        if row[0] not in excluded:
+            results.append({
+                'id':          row[0],
+                'date':        row[1],
+                'name':        row[2],
+                'amount':      float(row[3] or 0),
+                'description': row[4] or '',
+                'source':      'BankTransactions',
+                'category':    row[5] or '',
+            })
 
-        for row in conn.execute("""
-            SELECT ID, Date, Name, Income AS amount, Description, Category
-            FROM BankTransactions
-            WHERE Income > 0
-              AND (
-                LOWER(Name)        LIKE '%spotify%'
-                OR LOWER(Description) LIKE '%spotify%'
-                OR LOWER(Category)    LIKE '%spotify%'
-              )
-            ORDER BY Date DESC LIMIT 200
-        """).fetchall():
-            if row['ID'] not in excluded:
-                results.append({
-                    'id':          row['ID'],
-                    'date':        row['Date'],
-                    'name':        row['Name'],
-                    'description': row['Description'] or '',
-                    'amount':      float(row['amount'] or 0),
-                    'source':      'BankTransactions',
-                    'category':    row['Category'] or '',
-                })
-
-        results.sort(key=lambda x: x['date'] or '', reverse=True)
-        return results
-    finally:
-        conn.close()
+    results.sort(key=lambda x: x['date'] or '', reverse=True)
+    return results
 
 
 # ── PDF generation ─────────────────────────────────────────────────────────────

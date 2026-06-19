@@ -399,6 +399,29 @@ body {
 }
 @media (max-width: 768px) { #regen-progress-panel { display: none; } }
 
+/* ── Universal page-load / regen progress bar ───────────── */
+#page-load-bar-wrap {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 10000;
+  height: 3px; pointer-events: none;
+  opacity: 0; transition: opacity 0.2s ease;
+}
+#page-load-bar-wrap.active { opacity: 1; }
+#page-load-bar {
+  height: 100%; width: 0%;
+  background: linear-gradient(90deg, var(--teal) 0%, #2dd4bf 100%);
+  border-radius: 0 2px 2px 0;
+  transition: width 0.35s ease;
+  box-shadow: 0 0 10px rgba(30,157,139,0.7), 0 0 3px rgba(30,157,139,0.5);
+}
+#page-load-pct {
+  position: fixed; top: 8px; right: 12px; z-index: 10001;
+  font-size: 0.7em; font-weight: 700; color: var(--teal);
+  background: rgba(255,255,255,0.92); padding: 2px 7px; border-radius: 6px;
+  pointer-events: none; opacity: 0; transition: opacity 0.2s ease;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.1);
+}
+#page-load-pct.active { opacity: 1; }
+
 /* ── Month-switch loading overlay (SPA navigation) ────── */
 #month-nav-overlay {
   display: none; position: fixed; inset: 0; z-index: 9990;
@@ -1777,6 +1800,12 @@ body {
 </head>
 <body>
 
+<!-- Universal page-load progress bar -->
+<div id="page-load-bar-wrap">
+  <div id="page-load-bar"></div>
+  <div id="page-load-pct"></div>
+</div>
+
 <!-- Hamburger -->
 <button class="ham-btn" id="ham-btn" onclick="toggleNav()" aria-label="תפריט">
   <svg width="18" height="14" viewBox="0 0 18 14" fill="none">
@@ -2569,6 +2598,52 @@ function reloadCurrent() {
   }
 }
 
+// ── Universal page-load progress bar controller ────────────
+var _loadBar = (function() {
+  var _sim = null, _cur = 0;
+  function _el()  { return document.getElementById('page-load-bar'); }
+  function _wrap(){ return document.getElementById('page-load-bar-wrap'); }
+  function _pct() { return document.getElementById('page-load-pct'); }
+  function _setRaw(v) {
+    _cur = v;
+    var b = _el(), p = _pct();
+    if (b) b.style.width = v + '%';
+    if (p) p.textContent = Math.round(v) + '%';
+  }
+  return {
+    start: function() {
+      clearInterval(_sim);
+      _cur = 0;
+      var b = _el(), w = _wrap(), p = _pct();
+      if (b) { b.style.transition = 'none'; b.style.width = '0%'; }
+      if (w) w.classList.add('active');
+      if (p) p.classList.add('active');
+      // Simulate: fast to 30%, slow crawl to 82%
+      _sim = setInterval(function() {
+        var step = _cur < 30 ? 3.5 : _cur < 60 ? 1.2 : _cur < 78 ? 0.5 : 0.15;
+        if (_cur < 82) { _cur = Math.min(_cur + step, 82); _setRaw(_cur); }
+      }, 80);
+    },
+    set: function(v) {
+      if (v <= _cur) return;
+      clearInterval(_sim);
+      var b = _el();
+      if (b) b.style.transition = 'width 0.4s ease';
+      _setRaw(v);
+    },
+    done: function() {
+      clearInterval(_sim);
+      var b = _el(), w = _wrap(), p = _pct();
+      if (b) { b.style.transition = 'width 0.2s ease'; b.style.width = '100%'; }
+      setTimeout(function() {
+        if (w) w.classList.remove('active');
+        if (p) p.classList.remove('active');
+        setTimeout(function() { if (b) { b.style.transition = 'none'; b.style.width = '0%'; } }, 250);
+      }, 350);
+    }
+  };
+})();
+
 // ── Regeneration progress controller ──────────────────────
 var _regenProg = {
   _val: 0, _timer: null,
@@ -2582,10 +2657,12 @@ var _regenProg = {
       self._val = Math.min(88, self._val + remaining * 0.05);
       self._set(Math.round(self._val));
     }, 600);
+    _loadBar.start();
   },
   done: function(success) {
     clearInterval(this._timer); this._timer = null;
     this._set(100, success ? '✓ הושלם!' : '✗ שגיאה');
+    _loadBar.done();
     var panel = document.getElementById('regen-progress-panel');
     setTimeout(function() {
       if (panel) panel.classList.remove('visible');
@@ -2604,6 +2681,7 @@ var _regenProg = {
     var genPct = document.getElementById('gen-ov-pct');
     if (genBar) genBar.style.width = pct + '%';
     if (genPct) genPct.textContent = pct + '%';
+    _loadBar.set(pct);
   }
 };
 
@@ -5765,8 +5843,11 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       return;
     }
     _showSkeletons();
+    _loadBar.start();
     _fetchAndRender(_yyyy_mm)
+      .then(function() { _loadBar.done(); })
       .catch(function(err) {
+        _loadBar.done();
         var kr = document.getElementById('kpi-row');
         if (kr) kr.innerHTML =
           '<div style="color:#e74c3c;padding:20px 0">שגיאה בטעינת נתונים: ' + _esc(String(err)) + '</div>';
@@ -5805,6 +5886,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         if (cached) {
           _yyyy_mm = key;
           _renderDynamicData(cached);
+          _loadBar.start(); _loadBar.done();
           _fadeIn(els);
           // Background stale check
           fetch('/api/stale/' + key)
@@ -5818,6 +5900,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         } else if (_generatingMonths[key]) {
           _showGeneratingOverlay(_regenProg._val || 0);
         } else {
+          _loadBar.start();
           fetch('/api/general/' + key + '/data')
             .then(function(r) { return r.json(); })
             .then(function(d) {
@@ -5825,9 +5908,11 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
               _cacheSet(key, d);
               _yyyy_mm = key;
               _renderDynamicData(d);
+              _loadBar.done();
               _fadeIn(els);
             })
             .catch(function(err) {
+              _loadBar.done();
               _fadeIn(els);
               console.error('Month navigation error:', err);
               if (typeof toggleDebugPanel === 'function') toggleDebugPanel();

@@ -2687,6 +2687,7 @@ var _regenProg = {
 
 // ── Generating-month tracking ──────────────────────────────
 var _generatingMonths = {};   // key → true while SSE running
+var _regenCompletedAt = 0;   // Date.now() of last successful regen — suppresses false stale for 15s
 
 function _markGenerating(key, on) {
   var item = document.querySelector('#roller-track .cm-item[data-key="' + key + '"]');
@@ -2756,9 +2757,11 @@ function _reloadGeneral() {
       if (data.startsWith('__DONE__')) {
         es.close();
         btn.classList.remove('running', 'stale-db', 'stale-code'); btn.disabled = false;
+        _regenCompletedAt = Date.now();
         fetch('/api/general/' + _currentKey + '/invalidate', {method: 'POST'})
           .then(function() { return window._monthNav ? window._monthNav.refresh(_currentKey) : null; })
           .then(function() {
+            _regenCompletedAt = Date.now();
             _regenProg.done(true);
             _markGenerating(_currentKey, false);
             _hideGeneratingOverlay();
@@ -2831,6 +2834,7 @@ function _reloadCategory(slug) {
 }
 
 function _checkStale() {
+  if (Date.now() - _regenCompletedAt < 15000) return; // grace window after successful regen
   var btn  = document.getElementById('reload-btn');
   var path = window.location.pathname;
 

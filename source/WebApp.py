@@ -421,29 +421,19 @@ def invalidate_monthly_cache(yyyy_mm):
 @app.route('/accounts')
 def accounts_page():
     """Redirect to the latest monthly page with ?panel=accounts."""
-    if os.path.isdir(GENERAL_ANALYSIS_DIR):
-        files = sorted(
-            f for f in os.listdir(GENERAL_ANALYSIS_DIR)
-            if _re.match(r'^\d{4}_\d{2}\.html$', f)
-        )
-        if files:
-            latest_key = files[-1].replace('.html', '')
-            return redirect(f'/general/{latest_key}?panel=accounts')
-    return redirect('/?panel=accounts')
+    latest_key = _get_latest_yyyy_mm()
+    if latest_key:
+        return redirect(f'/general/{latest_key}?panel=accounts')
+    return redirect('/')
 
 
 @app.route('/housing')
 def housing_page():
     """Redirect to the latest monthly page with ?panel=housing."""
-    if os.path.isdir(GENERAL_ANALYSIS_DIR):
-        files = sorted(
-            f for f in os.listdir(GENERAL_ANALYSIS_DIR)
-            if _re.match(r'^\d{4}_\d{2}\.html$', f)
-        )
-        if files:
-            latest_key = files[-1].replace('.html', '')
-            return redirect(f'/general/{latest_key}?panel=housing')
-    return redirect('/?panel=housing')
+    latest_key = _get_latest_yyyy_mm()
+    if latest_key:
+        return redirect(f'/general/{latest_key}?panel=housing')
+    return redirect('/')
 
 
 @app.route('/search')
@@ -744,6 +734,36 @@ def general_list():
                     'month':     month,
                     'generated': _dt.fromtimestamp(mtime).strftime('%d/%m/%Y %H:%M'),
                 })
+    # DB fallback — no HTML files on Vercel (API-first architecture)
+    if not result:
+        try:
+            if os.getenv('DATABASE_URL'):
+                conn = _pg_conn()
+                try:
+                    rows = conn.execute(
+                        "SELECT DISTINCT LEFT(CAST(Date AS TEXT), 7) as ym"
+                        " FROM BankTransactions WHERE Date IS NOT NULL ORDER BY ym"
+                    ).fetchall()
+                finally:
+                    conn.close()
+            else:
+                from database import DataBase
+                rows = DataBase().cursor.execute(
+                    "SELECT DISTINCT substr(Date, 1, 7) as ym"
+                    " FROM BankTransactions WHERE Date IS NOT NULL ORDER BY ym"
+                ).fetchall()
+            for row in rows:
+                ym = str(row[0])  # e.g. '2026-05'
+                if len(ym) == 7 and ym[4] == '-':
+                    year, month = int(ym[:4]), int(ym[5:])
+                    result.append({
+                        'key':       f'{year:04d}_{month:02d}',
+                        'year':      year,
+                        'month':     month,
+                        'generated': None,
+                    })
+        except Exception:
+            pass
     return jsonify(result)
 
 
@@ -1401,6 +1421,42 @@ def _pg_conn():
     raw = psycopg2.connect(os.environ['DATABASE_URL'], connect_timeout=10)
     raw.autocommit = False
     return _PGConn(raw)
+
+
+def _get_latest_yyyy_mm():
+    """Return the latest month key (e.g. '2026_05') that has data in the DB.
+
+    First checks the filesystem (HTML files in GENERAL_ANALYSIS_DIR), then
+    falls back to a MAX(Date) query so this works on Vercel where the output
+    directory is always empty.
+    """
+    from datetime import datetime as _dt
+    # Filesystem check (works locally)
+    if os.path.isdir(GENERAL_ANALYSIS_DIR):
+        files = sorted(
+            f for f in os.listdir(GENERAL_ANALYSIS_DIR)
+            if _re.match(r'^\d{4}_\d{2}\.html$', f)
+        )
+        if files:
+            return files[-1].replace('.html', '')
+    # DB fallback (works on Vercel / API-first)
+    try:
+        if os.getenv('DATABASE_URL'):
+            conn = _pg_conn()
+            try:
+                row = conn.execute("SELECT MAX(Date) FROM BankTransactions").fetchone()
+            finally:
+                conn.close()
+        else:
+            from database import DataBase
+            row = DataBase().cursor.execute("SELECT MAX(Date) FROM BankTransactions").fetchone()
+        if row and row[0]:
+            d_str = str(row[0])[:10]
+            d = _dt.strptime(d_str, '%Y-%m-%d')
+            return f'{d.year:04d}_{d.month:02d}'
+    except Exception:
+        pass
+    return None
 
 
 def _gym_db():
@@ -3636,39 +3692,46 @@ def api_bills_suggestions():
         linked_bank = {r[1] for r in already if r[0] == 'BankTransactions'}
         linked_card = {r[1] for r in already if r[0] == 'CardTransactions'}
 
+        # Filter out dismissed names upfront
+        active_names = [n for n in linked_names if n not in dismissed]
+        if not active_names:
+            return jsonify({'ok': True, 'suggestions': []})
+
+        # Fetch all matching rows in 2 queries (IN clause) instead of N×2 loops
+        ph = ','.join(['?'] * len(active_names))
+        bank_rows = conn.execute(
+            f"SELECT ID, Date, Name, Out, Income FROM BankTransactions"
+            f" WHERE Name IN ({ph}) ORDER BY Date DESC",
+            tuple(active_names)
+        ).fetchall()
+        card_rows = conn.execute(
+            f"SELECT ID, Executed_Date, Name, Transaction_Value FROM CardTransactions"
+            f" WHERE Name IN ({ph}) ORDER BY Executed_Date DESC",
+            tuple(active_names)
+        ).fetchall()
+
         suggestions = []
         seen = set()
-        for name in linked_names:
-            if name in dismissed:
+        for r in bank_rows:
+            if r[0] in linked_bank or ('B', r[0]) in seen:
                 continue
-            for r in conn.execute(
-                "SELECT ID, Date, Name, Out, Income FROM BankTransactions WHERE Name=? ORDER BY Date DESC LIMIT 30",
-                (name,)
-            ).fetchall():
-                key = ('B', r[0])
-                if r[0] in linked_bank or key in seen:
-                    continue
-                seen.add(key)
-                suggestions.append({
-                    'table': 'BankTransactions', 'id': r[0],
-                    'date': (r[1] or '')[:10], 'name': r[2] or '',
-                    'amount': float(r[3] or 0) or float(r[4] or 0),
-                    'matched_name': name,
-                })
-            for r in conn.execute(
-                "SELECT ID, Executed_Date, Name, Transaction_Value FROM CardTransactions WHERE Name=? ORDER BY Executed_Date DESC LIMIT 30",
-                (name,)
-            ).fetchall():
-                key = ('C', r[0])
-                if r[0] in linked_card or key in seen:
-                    continue
-                seen.add(key)
-                suggestions.append({
-                    'table': 'CardTransactions', 'id': r[0],
-                    'date': (r[1] or '')[:10], 'name': r[2] or '',
-                    'amount': abs(float(r[3] or 0)),
-                    'matched_name': name,
-                })
+            seen.add(('B', r[0]))
+            suggestions.append({
+                'table': 'BankTransactions', 'id': r[0],
+                'date': (r[1] or '')[:10], 'name': r[2] or '',
+                'amount': float(r[3] or 0) or float(r[4] or 0),
+                'matched_name': r[2] or '',
+            })
+        for r in card_rows:
+            if r[0] in linked_card or ('C', r[0]) in seen:
+                continue
+            seen.add(('C', r[0]))
+            suggestions.append({
+                'table': 'CardTransactions', 'id': r[0],
+                'date': (r[1] or '')[:10], 'name': r[2] or '',
+                'amount': abs(float(r[3] or 0)),
+                'matched_name': r[2] or '',
+            })
         suggestions.sort(key=lambda x: x['date'], reverse=True)
         return jsonify({'ok': True, 'suggestions': suggestions[:100]})
     except Exception as e:

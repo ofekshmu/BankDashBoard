@@ -679,7 +679,7 @@ body.resize-end    { cursor: ew-resize !important; }
   z-index: 9999;
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
-  gap: 18px;
+  gap: 14px;
 }
 #bills-loader .spinner {
   width: 48px; height: 48px;
@@ -690,6 +690,15 @@ body.resize-end    { cursor: ew-resize !important; }
 }
 #bills-loader .loader-label {
   font-size: .9rem; color: var(--text-muted); font-weight: 500;
+}
+#bills-loader .loader-bar-wrap {
+  width: 180px; height: 4px;
+  background: var(--border); border-radius: 4px; overflow: hidden;
+}
+#bills-loader .loader-bar {
+  height: 100%; width: 0%;
+  background: var(--teal); border-radius: 4px;
+  transition: width .35s ease;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -773,7 +782,8 @@ body.resize-end    { cursor: ew-resize !important; }
 
 <div id="bills-loader">
   <div class="spinner"></div>
-  <div class="loader-label">טוען נתונים…</div>
+  <div class="loader-label" id="bills-loader-label">טוען סוגי חשבונות…</div>
+  <div class="loader-bar-wrap"><div class="loader-bar" id="bills-loader-bar"></div></div>
 </div>
 
 <!-- Fixed hamburger (top-right, matches the rest of the app) -->
@@ -1238,8 +1248,21 @@ const barHandlesPlugin = {
 // ─────────────────────────────────────────────────────────────
 // Init
 // ─────────────────────────────────────────────────────────────
+function _setLoaderProgress(pct, label) {
+  const bar = document.getElementById('bills-loader-bar');
+  const lbl = document.getElementById('bills-loader-label');
+  if (bar) bar.style.width = pct + '%';
+  if (lbl && label) lbl.textContent = label;
+}
+
 async function init() {
-  await Promise.all([loadTypes(), loadEntries()]);
+  _setLoaderProgress(10, 'טוען סוגי חשבונות…');
+  await Promise.all([
+    loadTypes().then(() => _setLoaderProgress(50, 'טוען רשומות…')),
+    loadEntries(),
+  ]);
+  _setLoaderProgress(100, 'מוכן');
+  await new Promise(r => setTimeout(r, 150));
   const loader = document.getElementById('bills-loader');
   if (loader) loader.style.display = 'none';
   loadSuggestions();

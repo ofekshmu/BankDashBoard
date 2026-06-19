@@ -3944,7 +3944,7 @@ def api_spotify_dismiss_payment(tx_id):
     from database import DataBase
     db = DataBase()
     try:
-        db.dismiss_spotify_payment(tx_id)
+        db.dismiss_spotify_unmatched(tx_id)
         return jsonify({'ok': True})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)})

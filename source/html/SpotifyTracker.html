@@ -866,13 +866,27 @@ function openModal(id){
 
 // ── Init ───────────────────────────────────────────────────────
 function init(){
-  Promise.all([
-    fetch('/api/spotify/members').then(function(r){ return r.json(); }),
-    fetch('/api/spotify/charges').then(function(r){ return r.json(); }),
-    fetch('/api/spotify/balance').then(function(r){ return r.json(); }),
-    fetch('/api/spotify/unmatched').then(function(r){ return r.json(); }),
-    fetch('/api/spotify/charges/suggestions').then(function(r){ return r.json(); })
-  ]).then(function(results){
+  var APIS = [
+    {url: '/api/spotify/members',             label: 'members'},
+    {url: '/api/spotify/charges',             label: 'charges'},
+    {url: '/api/spotify/balance',             label: 'balance'},
+    {url: '/api/spotify/unmatched',           label: 'unmatched'},
+    {url: '/api/spotify/charges/suggestions', label: 'suggestions'},
+  ];
+  Promise.all(APIS.map(function(a){
+    return fetch(a.url).then(function(r){ return r.json(); })
+      .then(function(d){
+        if (d && d.ok === false) {
+          console.error('Spotify API ' + a.label + ' error:', d.error);
+        }
+        return d;
+      });
+  })).then(function(results){
+    var errors = APIS.map(function(a, i){
+      var d = results[i];
+      return (d && d.ok === false) ? (a.label + ': ' + (d.error || 'שגיאה')) : null;
+    }).filter(Boolean);
+
     state.members     = (results[0] && results[0].members)      || [];
     state.charges     = (results[1] && results[1].charges)      || [];
     var balList       = (results[2] && results[2].balances)      || [];
@@ -881,14 +895,24 @@ function init(){
     state.unmatched   = (results[3] && results[3].transactions)  || [];
     state.suggestions = (results[4] && results[4].suggestions)   || [];
 
+    if (errors.length) {
+      var errEl = document.getElementById('overviewLoader');
+      errEl.innerHTML = '<div style="color:var(--red);font-size:.85em;padding:12px 0">' +
+        '⚠ שגיאה בטעינת נתונים:<br><code style="font-size:.8em">' +
+        errors.map(function(e){ return e.replace(/</g,'&lt;'); }).join('<br>') + '</code></div>';
+      errEl.style.display = 'block';
+      // Still render whatever we have
+    }
+
     renderSummaryBar();
     renderOverview();
 
-    document.getElementById('overviewLoader').style.display = 'none';
+    document.getElementById('overviewLoader').style.display = errors.length ? 'block' : 'none';
     document.getElementById('overviewContent').style.display = 'block';
   }).catch(function(err){
     console.error('init error', err);
-    document.getElementById('overviewLoader').innerHTML = '<div style="color:var(--red);font-size:.9em">שגיאה בטעינת נתונים</div>';
+    document.getElementById('overviewLoader').innerHTML =
+      '<div style="color:var(--red);font-size:.9em">שגיאה בטעינת נתונים: ' + String(err) + '</div>';
   });
 }
 

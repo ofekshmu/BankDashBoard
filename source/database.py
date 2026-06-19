@@ -2480,6 +2480,11 @@ class DataBase:
                 Dismissed    INTEGER DEFAULT 0
             )
         """)
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS SpotifyDismissedPayments (
+                TX_ID INTEGER PRIMARY KEY
+            )
+        """)
         self.connection.commit()
 
     def get_spotify_members(self) -> list:
@@ -2578,6 +2583,14 @@ class DataBase:
     def dismiss_spotify_payment(self, tx_id: int) -> None:
         self.cursor.execute(
             "UPDATE SpotifyMemberPayments SET Dismissed=1 WHERE TX_ID=%s",
+            (int(tx_id),)
+        )
+        self.connection.commit()
+
+    def dismiss_spotify_unmatched(self, tx_id: int) -> None:
+        """Dismiss an unmatched Spotify transaction so it no longer appears in the list."""
+        self.cursor.execute(
+            "INSERT INTO SpotifyDismissedPayments (TX_ID) VALUES (%s) ON CONFLICT DO NOTHING",
             (int(tx_id),)
         )
         self.connection.commit()

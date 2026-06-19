@@ -3784,15 +3784,15 @@ def spotify_page():
 @app.route('/api/spotify/members', methods=['GET', 'POST'])
 def api_spotify_members():
     from database import DataBase
-    db = DataBase()
-    db.ensure_spotify_tables()
-    if request.method == 'GET':
-        return jsonify({'ok': True, 'members': db.get_spotify_members()})
-    body = request.get_json(force=True) or {}
-    name = (body.get('name') or '').strip()
-    if not name:
-        return jsonify({'ok': False, 'error': 'name required'})
     try:
+        db = DataBase()
+        db.ensure_spotify_tables()
+        if request.method == 'GET':
+            return jsonify({'ok': True, 'members': db.get_spotify_members()})
+        body = request.get_json(force=True) or {}
+        name = (body.get('name') or '').strip()
+        if not name:
+            return jsonify({'ok': False, 'error': 'name required'})
         mid = db.add_spotify_member(name, is_exempt=int(body.get('is_exempt', 0)))
         return jsonify({'ok': True, 'id': mid})
     except Exception as e:
@@ -3802,16 +3802,13 @@ def api_spotify_members():
 @app.route('/api/spotify/members/<int:member_id>', methods=['PUT', 'DELETE'])
 def api_spotify_member(member_id):
     from database import DataBase
-    db = DataBase()
-    db.ensure_spotify_tables()
-    if request.method == 'DELETE':
-        try:
+    try:
+        db = DataBase()
+        db.ensure_spotify_tables()
+        if request.method == 'DELETE':
             db.delete_spotify_member(member_id)
             return jsonify({'ok': True})
-        except Exception as e:
-            return jsonify({'ok': False, 'error': str(e)})
-    body = request.get_json(force=True) or {}
-    try:
+        body = request.get_json(force=True) or {}
         db.update_spotify_member(
             member_id,
             name=body.get('name', '').strip(),
@@ -3826,12 +3823,12 @@ def api_spotify_member(member_id):
 @app.route('/api/spotify/charges', methods=['GET', 'POST'])
 def api_spotify_charges():
     from database import DataBase
-    db = DataBase()
-    db.ensure_spotify_tables()
-    if request.method == 'GET':
-        return jsonify({'ok': True, 'charges': db.get_spotify_charges()})
-    body = request.get_json(force=True) or {}
     try:
+        db = DataBase()
+        db.ensure_spotify_tables()
+        if request.method == 'GET':
+            return jsonify({'ok': True, 'charges': db.get_spotify_charges()})
+        body = request.get_json(force=True) or {}
         members = db.get_spotify_members()
         active_count = sum(1 for m in members if m['is_active'])
         month = body.get('month', '')
@@ -3857,10 +3854,10 @@ def api_spotify_charges():
 @app.route('/api/spotify/charges/<int:charge_id>', methods=['PUT'])
 def api_spotify_charge(charge_id):
     from database import DataBase
-    db = DataBase()
-    db.ensure_spotify_tables()
-    body = request.get_json(force=True) or {}
     try:
+        db = DataBase()
+        db.ensure_spotify_tables()
+        body = request.get_json(force=True) or {}
         db.update_spotify_charge(
             charge_id,
             total_amount=float(body.get('total_amount', 0)),
@@ -3878,8 +3875,8 @@ def api_spotify_charge_suggestions():
     _sys.path.insert(0, _HERE)
     from SpotifyTracker import get_charge_suggestions
     from database import DataBase
-    DataBase().ensure_spotify_tables()
     try:
+        DataBase().ensure_spotify_tables()
         suggestions = get_charge_suggestions(_DB_PATH)
         return jsonify({'ok': True, 'suggestions': suggestions})
     except Exception as e:
@@ -3889,13 +3886,13 @@ def api_spotify_charge_suggestions():
 @app.route('/api/spotify/payments', methods=['GET', 'POST'])
 def api_spotify_payments():
     from database import DataBase
-    db = DataBase()
-    db.ensure_spotify_tables()
-    if request.method == 'GET':
-        member_id = request.args.get('member_id', type=int)
-        return jsonify({'ok': True, 'payments': db.get_spotify_payments(member_id)})
-    body = request.get_json(force=True) or {}
     try:
+        db = DataBase()
+        db.ensure_spotify_tables()
+        if request.method == 'GET':
+            member_id = request.args.get('member_id', type=int)
+            return jsonify({'ok': True, 'payments': db.get_spotify_payments(member_id)})
+        body = request.get_json(force=True) or {}
         tx_id = body.get('tx_id')
         if tx_id is not None:
             if int(tx_id) in db.get_spotify_assigned_tx_ids():
@@ -3917,9 +3914,9 @@ def api_spotify_payments():
 @app.route('/api/spotify/payments/assigned-tx-ids')
 def api_spotify_assigned_tx_ids():
     from database import DataBase
-    db = DataBase()
-    db.ensure_spotify_tables()
     try:
+        db = DataBase()
+        db.ensure_spotify_tables()
         return jsonify({'ok': True, 'tx_ids': list(db.get_spotify_assigned_tx_ids())})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e), 'tx_ids': []})
@@ -3928,9 +3925,9 @@ def api_spotify_assigned_tx_ids():
 @app.route('/api/spotify/payments/<int:payment_id>', methods=['DELETE'])
 def api_spotify_payment(payment_id):
     from database import DataBase
-    db = DataBase()
-    db.ensure_spotify_tables()
     try:
+        db = DataBase()
+        db.ensure_spotify_tables()
         db.delete_spotify_payment(payment_id)
         return jsonify({'ok': True})
     except Exception as e:
@@ -3943,8 +3940,8 @@ def api_spotify_unmatched():
     _sys.path.insert(0, _HERE)
     from SpotifyTracker import get_unmatched_payments
     from database import DataBase
-    DataBase().ensure_spotify_tables()
     try:
+        DataBase().ensure_spotify_tables()
         return jsonify({'ok': True, 'transactions': get_unmatched_payments(_DB_PATH)})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)})

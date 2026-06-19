@@ -4381,14 +4381,43 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     if (el) el.innerHTML = skel3;
   }
 
-  // ── KPI helper ─────────────────────────────────────────────────────────
-  function _kpiCard(label, value, isPos, isHero, dotColor, subtitle, extraCls) {
+  // ── Tooltip markup helper ─────────────────────────────────────────────
+  function _tipHtml(text) {
+    if (!text) return '';
+    return '<span class="kpi-info-wrap"><span class="kpi-info-icon">i</span>' +
+           '<span class="kpi-tooltip">' + _esc(text) + '</span></span>';
+  }
+
+  // ── KPI tooltips (matching Python _TT dict) ────────────────────────────
+  var _KPI_TT = {
+    'הכנסה נטו (חודש)':
+      'סך ההכנסות לחשבון הבנקאי בניכוי סך ההוצאות — אינו כולל השקעות/חיסכון.\n' +
+      'כולל גם תזרים מזומן (הכנסות מזומן בניכוי הוצאות מזומן).',
+    'יתרה':
+      'יתרת הבנק הנוכחית (לפי קובץ הבנק).',
+    'יתרה חודשית':
+      'יתרת הבנק בסוף החודש הנבחר — הרשומה האחרונה בקובץ הבנק לאותו חודש.\n' +
+      'השינוי (▲/▼) מציג את ההפרש הכולל בין כלל ההכנסות לכלל ההוצאות באותו חודש.',
+    'הפקדה לחיסכון/השקעה':
+      'כסף שהועבר מהחשבון הראשי לחשבונות חיסכון/השקעה.\n' +
+      'אינו נחשב הוצאה — הכסף עדיין שייך לך.',
+    'משיכה מחסכון':
+      'כסף שחזר מחשבונות חיסכון/השקעה לחשבון הראשי.\n' +
+      'אינו נחשב הכנסה — הכסף היה שייך לך גם קודם.'
+  };
+
+  // ── KPI card helper ────────────────────────────────────────────────────
+  function _kpiCard(label, value, isPos, isHero, dotColor, subtitle, extraCls, valColor) {
     var cls = isHero
       ? ('kpi-card hero' + (isPos ? '' : ' neg-hero'))
       : ('kpi-card' + (extraCls ? ' ' + extraCls : ''));
+    var valStyle = valColor ? ' style="color:' + valColor + '"' : '';
     return '<div class="' + cls + '">' +
-      '<div class="kpi-label"><span class="kpi-dot" style="background:' + (dotColor || '#9aa3bb') + '"></span>' + _esc(label) + '</div>' +
-      '<div class="kpi-value ' + (isPos ? 'pos' : 'neg') + '">' + _fmt(value) + '</div>' +
+      '<div class="kpi-label">' +
+        '<span class="kpi-dot" style="background:' + (dotColor || '#9aa3bb') + '"></span>' +
+        _esc(label) + _tipHtml(_KPI_TT[label]) +
+      '</div>' +
+      '<div class="kpi-value ' + (isPos ? 'pos' : 'neg') + '"' + valStyle + '>' + _fmt(value) + '</div>' +
       (subtitle ? '<div class="kpi-subtitle">' + subtitle + '</div>' : '') +
     '</div>';
   }
@@ -4400,21 +4429,21 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     var kr2 = document.getElementById('kpi-row-2');
     if (!kr) return;
 
-    var netIncome = k.overall_net_income || 0;
-    var balance   = k.month_end_balance  || 0;
-    var delta     = k.balance_delta      || 0;
-    var invOut    = k.investments_total_out || 0;
-    var invIn     = k.investments_total_in  || 0;
-
+    var netIncome  = k.overall_net_income || 0;
+    var balance    = k.month_end_balance  || 0;
+    var delta      = k.balance_delta      || 0;
+    var invOut     = k.investments_total_out || 0;
+    var invIn      = k.investments_total_in  || 0;
     var monthlyBal = k.monthly_balance || 0;
+
     kr.innerHTML =
-      _kpiCard('הכנסה נטו (חודש)', netIncome, netIncome >= 0, true, '#1e9d8b',
-        'ממוצע: ' + _fmt(k.overall_net_mean)) +
+      _kpiCard('הכנסה נטו (חודש)', netIncome, netIncome >= 0, true, '#f0b429') +
       _kpiCard('יתרה', monthlyBal, monthlyBal >= 0, false, '#1e9d8b',
         k.balance_date ? _esc(k.balance_date) : '') +
       '<div class="kpi-card kpi-balance-card">' +
         '<div class="kpi-label"><span class="kpi-dot" style="background:#1e9d8b"></span>יתרה חודשית' +
-        (k.balance_date ? ' (' + _esc(k.balance_date) + ')' : '') + '</div>' +
+        _tipHtml(_KPI_TT['יתרה חודשית']) +
+        '</div>' +
         '<div class="kpi-value ' + (balance >= 0 ? 'pos' : 'neg') + '">' +
           Math.round(balance).toLocaleString('he-IL') + '₪</div>' +
         '<div class="kpi-balance-delta ' + (delta >= 0 ? 'pos' : 'neg') + '">' +
@@ -4424,8 +4453,9 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
 
     if (kr2) {
       kr2.innerHTML =
-        _kpiCard('הפקדה לחיסכון/השקעה', invOut, false, false, '#D4A017', '', invOut === 0 ? 'muted' : '') +
-        _kpiCard('משיכה מחסכון', invIn, true, false, '#E8900C', '', invIn === 0 ? 'muted' : '');
+        _kpiCard('הפקדה לחיסכון/השקעה', invOut, false, false, '#D4A017', '', '',
+          invOut !== 0 ? '#D4A017' : null) +
+        _kpiCard('משיכה מחסכון', invIn, true, false, '#E8900C');
     }
   }
 
@@ -4458,6 +4488,13 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   var _PAL_SPEND = ['#ef9a9a','#ffcc80','#ffe082','#a5d6a7','#80cbc4','#90caf9','#ce93d8','#f48fb1'];
   var _PAL_EARN  = ['#a5d6a7','#80cbc4','#90caf9','#ce93d8','#ffe082','#ffcc80','#ef9a9a','#f48fb1'];
 
+  var _CHART_TT = {
+    'הוצאות לפי קטגוריה':            'פירוט ההוצאות מכרטיסי האשראי לפי קטגוריה לחודש הנבחר.',
+    'הכנסות לחשבון לפי קטגוריה':     'פירוט ההכנסות לחשבון הבנק לפי קטגוריה לחודש הנבחר.',
+    'הכנסות/הוצאות במזומן':          'סיכום עסקאות המזומן שתועדו ידנית לחודש הנבחר.',
+    'כרטיסי אשראי — התפלגות הוצאות': 'חלוקת ההוצאות לפי כרטיס אשראי לחודש הנבחר.'
+  };
+
   function _buildDonutCard(container, canvasId, title, catData, palette) {
     var labels = Object.keys(catData);
     var values = labels.map(function(k) { return catData[k]; });
@@ -4469,7 +4506,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     card.className = 'chart-card';
     var ttl = document.createElement('div');
     ttl.className = 'chart-card-title';
-    ttl.textContent = title;
+    ttl.innerHTML = _esc(title) + _tipHtml(_CHART_TT[title] || '');
     card.appendChild(ttl);
 
     var wrap = document.createElement('div');

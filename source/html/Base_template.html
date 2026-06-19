@@ -1873,11 +1873,6 @@ body {
     <span class="reload-btn-icon">&#8635;</span><span class="reload-btn-label">חשב מחדש</span>
   </button>
 
-  <!-- Server-stale warning banner -->
-  <div id="server-stale-banner" class="server-stale-banner">
-    <span>⚠ קבצי מקור השתנו מאז הפעלת השרת — הפעל מחדש כדי לראות את השינויים האחרונים.</span>
-    <button onclick="document.getElementById('server-stale-banner').style.display='none'" title="סגור">✕</button>
-  </div>
 
   <!-- Organizer missing-file alerts (injected by Python) -->
   <div id="organizer-alerts"></div>
@@ -2168,8 +2163,6 @@ function showPanel(name, btn) {
     .then(function(r) { return r.json(); })
     .then(function(d) {
       if (d.stale) {
-        var b = document.getElementById('server-stale-banner');
-        if (b) b.style.display = 'flex';
         var tag = document.getElementById('stale-tag-code');
         if (tag) tag.classList.add('shown');
         var btn = document.getElementById('reload-btn');

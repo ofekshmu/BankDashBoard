@@ -323,8 +323,9 @@ body {
   height: 0; overflow: hidden; opacity: 0;
   transition: opacity 0.2s, height 0.2s;
 }
-.cm-item.generating .cm-gen-pct { opacity: 1; height: 1.1em; margin-top: 2px; }
-.cm-item.gen-done .cm-gen-pct   { opacity: 1; height: 1.1em; margin-top: 2px; color: #22c55e; }
+.cm-item.generating .cm-gen-pct,
+.cm-item.loading    .cm-gen-pct { opacity: 1; height: 1.1em; margin-top: 2px; }
+.cm-item.gen-done   .cm-gen-pct { opacity: 1; height: 1.1em; margin-top: 2px; color: #22c55e; }
 
 /* Done glow on roller item */
 @keyframes _genDoneGlow {
@@ -433,15 +434,6 @@ body {
   transition: width 0.35s ease;
   box-shadow: 0 0 10px rgba(30,157,139,0.7), 0 0 3px rgba(30,157,139,0.5);
 }
-#page-load-pct {
-  position: fixed; top: 8px; right: 12px; z-index: 10001;
-  font-size: 0.7em; font-weight: 700; color: var(--teal);
-  background: rgba(255,255,255,0.92); padding: 2px 7px; border-radius: 6px;
-  pointer-events: none; opacity: 0; transition: opacity 0.2s ease;
-  box-shadow: 0 1px 6px rgba(0,0,0,0.1);
-}
-#page-load-pct.active { opacity: 1; }
-
 /* ── Month-switch loading overlay (SPA navigation) ────── */
 #month-nav-overlay {
   display: none; position: fixed; inset: 0; z-index: 9990;
@@ -1805,7 +1797,6 @@ body {
 <!-- Universal page-load progress bar -->
 <div id="page-load-bar-wrap">
   <div id="page-load-bar"></div>
-  <div id="page-load-pct"></div>
 </div>
 
 <!-- Hamburger -->
@@ -2598,24 +2589,46 @@ function reloadCurrent() {
 
 // ── Universal page-load progress bar controller ────────────
 var _loadBar = (function() {
-  var _sim = null, _cur = 0;
-  function _el()  { return document.getElementById('page-load-bar'); }
-  function _wrap(){ return document.getElementById('page-load-bar-wrap'); }
-  function _pct() { return document.getElementById('page-load-pct'); }
+  var _sim = null, _cur = 0, _key = null;
+
+  function _bar()  { return document.getElementById('page-load-bar'); }
+  function _wrap() { return document.getElementById('page-load-bar-wrap'); }
+
+  function _rollerItem(key) {
+    return key ? document.querySelector('#roller-track .cm-item[data-key="' + key + '"]') : null;
+  }
+
+  function _setRollerPct(key, text) {
+    var item = _rollerItem(key);
+    if (!item) return;
+    // Don't touch items already managed by the generating flow
+    if (item.classList.contains('generating') || item.classList.contains('gen-done')) return;
+    var p = item.querySelector('.cm-gen-pct');
+    if (text !== null) {
+      item.classList.add('loading');
+      if (p) p.textContent = text;
+    } else {
+      item.classList.remove('loading');
+      if (p) p.textContent = '';
+    }
+  }
+
   function _setRaw(v) {
     _cur = v;
-    var b = _el(), p = _pct();
+    var b = _bar();
     if (b) b.style.width = v + '%';
-    if (p) p.textContent = Math.round(v) + '%';
+    _setRollerPct(_key, Math.round(v) + '%');
   }
+
   return {
     start: function() {
       clearInterval(_sim);
       _cur = 0;
-      var b = _el(), w = _wrap(), p = _pct();
+      _key = _currentKey || null;
+      var b = _bar(), w = _wrap();
       if (b) { b.style.transition = 'none'; b.style.width = '0%'; }
       if (w) w.classList.add('active');
-      if (p) p.classList.add('active');
+      _setRollerPct(_key, '0%');
       // Simulate: fast to 30%, slow crawl to 82%
       _sim = setInterval(function() {
         var step = _cur < 30 ? 3.5 : _cur < 60 ? 1.2 : _cur < 78 ? 0.5 : 0.15;
@@ -2625,17 +2638,18 @@ var _loadBar = (function() {
     set: function(v) {
       if (v <= _cur) return;
       clearInterval(_sim);
-      var b = _el();
+      var b = _bar();
       if (b) b.style.transition = 'width 0.4s ease';
       _setRaw(v);
     },
     done: function() {
       clearInterval(_sim);
-      var b = _el(), w = _wrap(), p = _pct();
+      var b = _bar(), w = _wrap();
       if (b) { b.style.transition = 'width 0.2s ease'; b.style.width = '100%'; }
+      _setRollerPct(_key, null);
+      _key = null;
       setTimeout(function() {
         if (w) w.classList.remove('active');
-        if (p) p.classList.remove('active');
         setTimeout(function() { if (b) { b.style.transition = 'none'; b.style.width = '0%'; } }, 250);
       }, 350);
     }

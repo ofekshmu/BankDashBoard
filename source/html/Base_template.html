@@ -182,14 +182,6 @@ body {
   .main { padding: 0 12px 80px; }
 }
 
-/* ── Page header ─────────────────────────────────────────── */
-.page-header {
-  display: flex; justify-content: space-between; align-items: center;
-  margin-bottom: 20px; flex-wrap: wrap; gap: 10px;
-  padding-top: 26px;
-  padding-right: 62px; /* clear fixed ham-btn */
-}
-.page-header h1 { font-size: 1.85em; font-weight: 700; color: var(--navy); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .month-badge {
   background: var(--teal); color: #fff;
   padding: 6px 18px; border-radius: 20px;
@@ -315,16 +307,14 @@ body {
   letter-spacing: 0.03em;
 }
 
-/* ── Header right area (generated label only now) ─────────── */
-.page-header-right {
-  display: flex; align-items: center; gap: 10px; flex-shrink: 0;
-}
-.generated-row {
-  display: flex; align-items: center; gap: 8px; flex-shrink: 0;
-}
-.generated-label {
-  font-size: 0.72em; color: var(--text-muted);
-  white-space: nowrap;
+/* Generating spinner on roller item */
+.cm-item.generating .cm-dot {
+  background: transparent !important;
+  border: 2px solid rgba(30,157,139,0.3);
+  border-top-color: var(--teal);
+  border-radius: 50%;
+  width: 8px !important; height: 8px !important;
+  animation: _reloadSpin 0.75s linear infinite;
 }
 
 /* ── Regeneration FAB (always fixed, both desktop + mobile) ── */
@@ -345,31 +335,33 @@ body {
   50%       { box-shadow: 0 4px 18px rgba(30,157,139,0.45), 0 0 0 8px rgba(30,157,139,0); }
 }
 .reload-btn.stale { animation: _reloadGlow 1.6s ease-in-out infinite; }
+.reload-btn-icon { font-size: 1.6em; line-height: 1; display: flex; align-items: center; }
 @media (max-width: 768px) {
   .reload-btn { width: 52px; padding: 0; border-radius: 50%; justify-content: center; }
   .reload-btn-label { display: none; }
 }
 
-/* ── Stale tags — float above FAB ────────────────────────── */
+/* ── Stale indicators — small icon dots above FAB ────────── */
 #regen-stale-tags {
   position: fixed; bottom: 84px; right: 18px; z-index: 999;
-  display: flex; flex-direction: column; align-items: flex-end; gap: 6px;
+  display: flex; flex-direction: column; align-items: flex-end; gap: 5px;
   pointer-events: none;
 }
 .stale-tag {
   pointer-events: auto;
-  display: flex; align-items: center; gap: 5px;
+  width: 30px; height: 30px;
+  display: flex; align-items: center; justify-content: center;
   background: #fff4e1; border: 1.5px solid #f0ad4e;
-  border-radius: 20px; padding: 4px 12px;
-  font-size: .75em; font-weight: 600; color: #7a4f00;
-  cursor: pointer; white-space: nowrap;
-  opacity: 0; transform: translateX(12px);
+  border-radius: 50%; font-size: 1em; line-height: 1;
+  cursor: pointer;
+  opacity: 0; transform: scale(0.5) translateX(8px);
   transition: opacity 0.25s ease, transform 0.25s ease, background 0.15s;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
 }
-.stale-tag.shown { opacity: 1; transform: translateX(0); }
-.stale-tag:hover { background: #f0ad4e; color: #fff; }
-.stale-tag.code { background: #fff0f0; border-color: #e74c3c; color: #7a0000; }
-.stale-tag.code:hover { background: #e74c3c; color: #fff; }
+.stale-tag.shown { opacity: 1; transform: scale(1) translateX(0); }
+.stale-tag:hover { background: #f0ad4e; }
+.stale-tag.code { background: #fff0f0; border-color: #e74c3c; }
+.stale-tag.code:hover { background: #e74c3c; }
 
 /* ── Regeneration progress panel (slides left from FAB) ───── */
 #regen-progress-panel {
@@ -410,6 +402,25 @@ body {
   animation: _reloadSpin .7s linear infinite;
 }
 @keyframes _reloadSpin { to { transform: rotate(360deg); } }
+
+/* ── Generating-month overlay (shows while SSE in progress) ─ */
+#generating-overlay {
+  display: none; flex-direction: column; align-items: center; justify-content: center;
+  gap: 18px; padding: 60px 24px; text-align: center;
+}
+#generating-overlay.visible { display: flex; }
+.gen-ov-spinner {
+  width: 48px; height: 48px; border-radius: 50%;
+  border: 4px solid rgba(30,157,139,0.2); border-top-color: var(--teal);
+  animation: _reloadSpin 0.75s linear infinite;
+}
+.gen-ov-label { font-size: 1.1em; font-weight: 600; color: var(--navy); }
+.gen-ov-bar-wrap {
+  width: 220px; height: 6px; background: rgba(30,157,139,0.15);
+  border-radius: 6px; overflow: hidden;
+}
+.gen-ov-bar { height: 100%; background: var(--teal); width: 0%; border-radius: 6px; transition: width 0.5s ease; }
+.gen-ov-pct { font-size: 0.85em; color: var(--text-muted); font-weight: 600; }
 
 /* ── KPI row ─────────────────────────────────────────────── */
 .kpi-row {
@@ -1844,22 +1855,13 @@ body {
     <div class="roller-track" id="roller-track"></div>
   </div>
 
-  <div class="page-header">
-    <div class="page-header-right">
-      <h1>ניתוח חודשי</h1>
-    </div>
-    <div class="generated-row">
-      <span class="generated-label" id="generated-label"></span>
-    </div>
-  </div>
-
   <!-- Month-switch SPA loading overlay -->
   <div id="month-nav-overlay"><div class="mnav-spinner"></div></div>
 
   <!-- Regeneration FAB: stale tags + progress panel + button -->
   <div id="regen-stale-tags">
-    <span class="stale-tag" id="stale-tag-db" onclick="reloadCurrent()" title="לחץ לחישוב מחדש">⚡ נתונים עודכנו</span>
-    <span class="stale-tag code" id="stale-tag-code" onclick="reloadCurrent()" title="קוד עודכן">⚠ קוד עודכן</span>
+    <span class="stale-tag" id="stale-tag-db" onclick="reloadCurrent()" title="נתונים עודכנו — לחץ לחישוב מחדש">⚡</span>
+    <span class="stale-tag code" id="stale-tag-code" onclick="reloadCurrent()" title="קוד עודכן — לחץ לחישוב מחדש">⚠</span>
   </div>
   <div id="regen-progress-panel">
     <div class="regen-prog-inner">
@@ -1868,7 +1870,7 @@ body {
     </div>
   </div>
   <button class="reload-btn" id="reload-btn" onclick="reloadCurrent()" title="חשב מחדש">
-    &#8635; <span class="reload-btn-label">חשב מחדש</span>
+    <span class="reload-btn-icon">&#8635;</span><span class="reload-btn-label">חשב מחדש</span>
   </button>
 
   <!-- Server-stale warning banner -->
@@ -1879,6 +1881,14 @@ body {
 
   <!-- Organizer missing-file alerts (injected by Python) -->
   <div id="organizer-alerts"></div>
+
+  <!-- Generating-month overlay -->
+  <div id="generating-overlay">
+    <div class="gen-ov-spinner"></div>
+    <div class="gen-ov-label" id="gen-ov-label">מחשב נתונים…</div>
+    <div class="gen-ov-bar-wrap"><div class="gen-ov-bar" id="gen-ov-bar"></div></div>
+    <div class="gen-ov-pct" id="gen-ov-pct">0%</div>
+  </div>
 
   <!-- KPI rows (injected by Python) -->
   <div class="kpi-row"  id="kpi-row"></div>
@@ -2116,8 +2126,6 @@ function showPanel(name, btn) {
   if (!panel) return;
   panel.classList.add('active');
   if (btn) btn.classList.add('active');
-  var h1 = document.querySelector('.page-header h1');
-  if (h1 && _PANEL_TITLES[name]) h1.textContent = _PANEL_TITLES[name];
   _applyPanelUI(name);
   var url = new URL(window.location.href);
   var nonMonthly = ['housing', 'accounts'];
@@ -2132,8 +2140,6 @@ function showPanel(name, btn) {
   if (panel && document.getElementById('panel-' + panel)) {
     document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
     document.getElementById('panel-' + panel).classList.add('active');
-    var h1 = document.querySelector('.page-header h1');
-    if (h1 && _PANEL_TITLES[panel]) h1.textContent = _PANEL_TITLES[panel];
     _applyPanelUI(panel);
     // Mark the matching nav item active
     var navBtn = document.getElementById('nav-' + panel);
@@ -2519,11 +2525,6 @@ function _buildRoller(list) {
   _applyDistanceClasses();
   _centerActive(false);
 
-  // Update generated label
-  var genLabel = document.getElementById('generated-label');
-  if (genLabel && document.body.dataset && document.body.dataset.generated) {
-    genLabel.textContent = 'נוצר: ' + document.body.dataset.generated;
-  }
 }
 
 function _applyDistanceClasses() {
@@ -2597,8 +2598,48 @@ var _regenProg = {
     var lbl  = document.getElementById('regen-prog-label');
     if (fill) fill.style.width = pct + '%';
     if (lbl)  lbl.textContent = label || ('מחשב… ' + pct + '%');
+    var genBar = document.getElementById('gen-ov-bar');
+    var genPct = document.getElementById('gen-ov-pct');
+    if (genBar) genBar.style.width = pct + '%';
+    if (genPct) genPct.textContent = pct + '%';
   }
 };
+
+// ── Generating-month tracking ──────────────────────────────
+var _generatingMonths = {};   // key → true while SSE running
+
+function _markGenerating(key, on) {
+  if (on) {
+    _generatingMonths[key] = true;
+  } else {
+    delete _generatingMonths[key];
+  }
+  var item = document.querySelector('#roller-track .cm-item[data-key="' + key + '"]');
+  if (item) item.classList.toggle('generating', !!on);
+}
+
+function _showGeneratingOverlay(pct) {
+  var ov = document.getElementById('generating-overlay');
+  var bar = document.getElementById('gen-ov-bar');
+  var pctEl = document.getElementById('gen-ov-pct');
+  if (ov) { ov.classList.add('visible'); }
+  if (bar) bar.style.width = (pct || 0) + '%';
+  if (pctEl) pctEl.textContent = (pct || 0) + '%';
+  // Hide normal KPI rows while generating
+  ['kpi-row','kpi-row-2','panel-overview','panel-accounts','panel-housing'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+}
+
+function _hideGeneratingOverlay() {
+  var ov = document.getElementById('generating-overlay');
+  if (ov) ov.classList.remove('visible');
+  ['kpi-row','kpi-row-2','panel-overview','panel-accounts','panel-housing'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) { el.style.display = ''; el.style.opacity = '1'; el.style.transition = 'opacity 0.22s'; }
+  });
+}
 
 function _reloadGeneral() {
   if (!_currentKey) return;
@@ -2609,6 +2650,8 @@ function _reloadGeneral() {
   var dateStr = year + '-' + (month < 10 ? '0' + month : '' + month) + '-01';
 
   btn.classList.add('running'); btn.disabled = true;
+  _markGenerating(_currentKey, true);
+  if (_yyyy_mm === _currentKey) _showGeneratingOverlay(0);
   _regenProg.start();
 
   fetch('/api/analysis', {
@@ -2643,6 +2686,8 @@ function _reloadGeneral() {
           .then(function() { return window._monthNav ? window._monthNav.refresh(_currentKey) : null; })
           .then(function() {
             _regenProg.done(true);
+            _markGenerating(_currentKey, false);
+            _hideGeneratingOverlay();
             ['stale-tag-db','stale-tag-code'].forEach(function(id) {
               var el = document.getElementById(id);
               if (el) el.classList.remove('shown');
@@ -2661,12 +2706,16 @@ function _reloadGeneral() {
         es.close();
         appendLog('✗ שגיאה בניתוח', 'err');
         btn.classList.remove('running'); btn.disabled = false;
+        _markGenerating(_currentKey, false);
+        _hideGeneratingOverlay();
         _regenProg.done(false); return;
       }
       appendLog(data);
     };
     es.onerror = function() {
       es.close(); btn.classList.remove('running'); btn.disabled = false;
+      _markGenerating(_currentKey, false);
+      _hideGeneratingOverlay();
       _regenProg.done(false);
     };
   });
@@ -5640,10 +5689,6 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   function _renderDynamicData(data) {
     var ml = data.month_label || '';
     document.title = 'ניתוח חודשי — ' + ml;
-    var h1 = document.querySelector('.page-header h1');
-    if (h1 && ml) h1.textContent = ml;
-    var genLabel = document.getElementById('generated-label');
-    if (genLabel && data.generated_at) genLabel.textContent = 'נוצר: ' + data.generated_at;
     [_renderKpi, _renderOverviewCharts, _renderTransactions, _renderPayments,
      _renderAlerts, _renderOrganizerAlerts, _renderAccountsTable, _renderAccountsChart, _renderHousing]
     .forEach(function(fn) {
@@ -5684,7 +5729,10 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   var _FADE_ELS = ['kpi-row','kpi-row-2','panel-overview','panel-accounts','panel-housing'];
   function _fadeOut(cb) {
     var els = _FADE_ELS.map(function(id) { return document.getElementById(id); }).filter(Boolean);
-    els.forEach(function(el) { el.style.transition = 'opacity 0.14s'; el.style.opacity = '0'; });
+    els.forEach(function(el) {
+      el.style.display = '';  // clear any display:none set by generating overlay
+      el.style.transition = 'opacity 0.14s'; el.style.opacity = '0';
+    });
     setTimeout(function() { cb(els); }, 150);
   }
   function _fadeIn(els) {
@@ -5765,6 +5813,8 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
               if (dbTag) dbTag.classList.toggle('shown', !!d.stale);
             })
             .catch(function() {});
+        } else if (_generatingMonths[key]) {
+          _showGeneratingOverlay(_regenProg._val || 0);
         } else {
           fetch('/api/general/' + key + '/data')
             .then(function(r) { return r.json(); })

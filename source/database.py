@@ -132,6 +132,7 @@ def check_for_empty_df(func):
 class DataBase:
 
     __instance = None
+    __spotify_tables_ready = False
     connection: psycopg2.extensions.connection
     cursor: psycopg2.extensions.cursor
 
@@ -2448,7 +2449,9 @@ class DataBase:
     # ── Spotify Tracker ────────────────────────────────────────────────────────
 
     def ensure_spotify_tables(self) -> None:
-        """Create Spotify tables if they don't exist yet."""
+        """Create Spotify tables if they don't exist yet (idempotent, runs at most once per process)."""
+        if DataBase.__spotify_tables_ready:
+            return
         self.cursor.execute("""
             CREATE TABLE IF NOT EXISTS SpotifyMembers (
                 ID             SERIAL  PRIMARY KEY,
@@ -2486,6 +2489,7 @@ class DataBase:
             )
         """)
         self.connection.commit()
+        DataBase.__spotify_tables_ready = True
 
     def get_spotify_members(self) -> list:
         rows = self.cursor.execute(

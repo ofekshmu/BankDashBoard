@@ -397,41 +397,6 @@ body {
   border-radius: 4px; transition: width 0.6s ease;
 }
 @media (max-width: 768px) { #regen-progress-panel { display: none; } }
-  display: none;
-}
-.reload-btn:hover { background: var(--teal); color: #fff; }
-.reload-btn.running { opacity: 0.6; cursor: wait; }
-@keyframes _reloadGlow {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(30,157,139,0.55); }
-  50%       { box-shadow: 0 0 0 7px rgba(30,157,139,0); }
-}
-.reload-btn.stale {
-  border-color: var(--teal);
-  animation: _reloadGlow 1.6s ease-in-out infinite;
-}
-.server-stale-banner {
-  display: none; align-items: center; gap: 10px; flex-wrap: wrap;
-  background: #fff8e1; border: 1.5px solid #f9a825; border-radius: 10px;
-  padding: 10px 16px; margin-bottom: 14px;
-  color: #6d4c00; font-size: .82em; font-weight: 600;
-}
-.server-stale-banner span { flex: 1; }
-.server-stale-banner button {
-  background: none; border: none; color: #6d4c00; cursor: pointer;
-  font-size: 1.1em; line-height: 1; padding: 0 2px; opacity: .7;
-}
-.server-stale-banner button:hover { opacity: 1; }
-
-/* ── Stale / cache indicators ──────────────────────────── */
-.stale-tag {
-  display: none; align-items: center; gap: 5px;
-  background: #fff4e1; border: 1.5px solid #f0ad4e; border-radius: 20px;
-  padding: 3px 10px; font-size: .75em; font-weight: 600; color: #7a4f00;
-  cursor: pointer; white-space: nowrap; vertical-align: middle;
-}
-.stale-tag:hover { background: #f0ad4e; color: #fff; }
-.stale-tag.code  { background: #fff0f0; border-color: #e74c3c; color: #7a0000; }
-.stale-tag.code:hover { background: #e74c3c; color: #fff; }
 
 /* ── Month-switch loading overlay (SPA navigation) ────── */
 #month-nav-overlay {
@@ -5801,7 +5766,6 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
             })
             .catch(function() {});
         } else {
-          _showNavOverlay();
           fetch('/api/general/' + key + '/data')
             .then(function(r) { return r.json(); })
             .then(function(d) {
@@ -5809,11 +5773,9 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
               _cacheSet(key, d);
               _yyyy_mm = key;
               _renderDynamicData(d);
-              _hideNavOverlay();
               _fadeIn(els);
             })
             .catch(function(err) {
-              _hideNavOverlay();
               _fadeIn(els);
               console.error('Month navigation error:', err);
               if (typeof toggleDebugPanel === 'function') toggleDebugPanel();

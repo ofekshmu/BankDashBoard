@@ -3785,6 +3785,7 @@ def spotify_page():
 def api_spotify_members():
     from database import DataBase
     db = DataBase()
+    db.ensure_spotify_tables()
     if request.method == 'GET':
         return jsonify({'ok': True, 'members': db.get_spotify_members()})
     body = request.get_json(force=True) or {}
@@ -3802,6 +3803,7 @@ def api_spotify_members():
 def api_spotify_member(member_id):
     from database import DataBase
     db = DataBase()
+    db.ensure_spotify_tables()
     if request.method == 'DELETE':
         try:
             db.delete_spotify_member(member_id)
@@ -3825,6 +3827,7 @@ def api_spotify_member(member_id):
 def api_spotify_charges():
     from database import DataBase
     db = DataBase()
+    db.ensure_spotify_tables()
     if request.method == 'GET':
         return jsonify({'ok': True, 'charges': db.get_spotify_charges()})
     body = request.get_json(force=True) or {}
@@ -3855,6 +3858,7 @@ def api_spotify_charges():
 def api_spotify_charge(charge_id):
     from database import DataBase
     db = DataBase()
+    db.ensure_spotify_tables()
     body = request.get_json(force=True) or {}
     try:
         db.update_spotify_charge(
@@ -3873,6 +3877,8 @@ def api_spotify_charge_suggestions():
     import sys as _sys
     _sys.path.insert(0, _HERE)
     from SpotifyTracker import get_charge_suggestions
+    from database import DataBase
+    DataBase().ensure_spotify_tables()
     try:
         suggestions = get_charge_suggestions(_DB_PATH)
         return jsonify({'ok': True, 'suggestions': suggestions})
@@ -3884,6 +3890,7 @@ def api_spotify_charge_suggestions():
 def api_spotify_payments():
     from database import DataBase
     db = DataBase()
+    db.ensure_spotify_tables()
     if request.method == 'GET':
         member_id = request.args.get('member_id', type=int)
         return jsonify({'ok': True, 'payments': db.get_spotify_payments(member_id)})
@@ -3911,6 +3918,7 @@ def api_spotify_payments():
 def api_spotify_assigned_tx_ids():
     from database import DataBase
     db = DataBase()
+    db.ensure_spotify_tables()
     try:
         return jsonify({'ok': True, 'tx_ids': list(db.get_spotify_assigned_tx_ids())})
     except Exception as e:
@@ -3921,6 +3929,7 @@ def api_spotify_assigned_tx_ids():
 def api_spotify_payment(payment_id):
     from database import DataBase
     db = DataBase()
+    db.ensure_spotify_tables()
     try:
         db.delete_spotify_payment(payment_id)
         return jsonify({'ok': True})
@@ -3933,6 +3942,8 @@ def api_spotify_unmatched():
     import sys as _sys
     _sys.path.insert(0, _HERE)
     from SpotifyTracker import get_unmatched_payments
+    from database import DataBase
+    DataBase().ensure_spotify_tables()
     try:
         return jsonify({'ok': True, 'transactions': get_unmatched_payments(_DB_PATH)})
     except Exception as e:
@@ -3958,6 +3969,7 @@ def api_spotify_balance():
     from SpotifyTracker import compute_all_balances
     try:
         db = DataBase()
+        db.ensure_spotify_tables()
         return jsonify({'ok': True, 'balances': compute_all_balances(db)})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)})
@@ -3979,6 +3991,7 @@ def api_spotify_report():
             return jsonify({'ok': False, 'error': 'invalid member_id'}), 400
     try:
         db = DataBase()
+        db.ensure_spotify_tables()
         pdf_bytes = generate_pdf_report(member_ids, db)
         from flask import Response
         return Response(

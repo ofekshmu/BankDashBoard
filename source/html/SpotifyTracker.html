@@ -865,6 +865,24 @@ function openModal(id){
 }
 
 // ── Init ───────────────────────────────────────────────────────
+function _spotifyFetch(url, label) {
+  return fetch(url).then(function(r) {
+    var ct = r.headers.get('content-type') || '';
+    if (!ct.includes('application/json')) {
+      return r.text().then(function(text) {
+        console.error('Spotify API ' + label + ' returned non-JSON (HTTP ' + r.status + '):', text.slice(0, 300));
+        return {ok: false, error: 'HTTP ' + r.status + ' — server returned non-JSON (see console)'};
+      });
+    }
+    return r.json();
+  }).then(function(d) {
+    if (d && d.ok === false) {
+      console.error('Spotify API ' + label + ' error:', d.error);
+    }
+    return d;
+  });
+}
+
 function init(){
   var APIS = [
     {url: '/api/spotify/members',             label: 'members'},
@@ -874,13 +892,7 @@ function init(){
     {url: '/api/spotify/charges/suggestions', label: 'suggestions'},
   ];
   Promise.all(APIS.map(function(a){
-    return fetch(a.url).then(function(r){ return r.json(); })
-      .then(function(d){
-        if (d && d.ok === false) {
-          console.error('Spotify API ' + a.label + ' error:', d.error);
-        }
-        return d;
-      });
+    return _spotifyFetch(a.url, a.label);
   })).then(function(results){
     var errors = APIS.map(function(a, i){
       var d = results[i];
@@ -901,18 +913,20 @@ function init(){
         '⚠ שגיאה בטעינת נתונים:<br><code style="font-size:.8em">' +
         errors.map(function(e){ return e.replace(/</g,'&lt;'); }).join('<br>') + '</code></div>';
       errEl.style.display = 'block';
-      // Still render whatever we have
     }
 
     renderSummaryBar();
     renderOverview();
 
-    document.getElementById('overviewLoader').style.display = errors.length ? 'block' : 'none';
+    if (!errors.length) {
+      document.getElementById('overviewLoader').style.display = 'none';
+    }
     document.getElementById('overviewContent').style.display = 'block';
   }).catch(function(err){
     console.error('init error', err);
     document.getElementById('overviewLoader').innerHTML =
       '<div style="color:var(--red);font-size:.9em">שגיאה בטעינת נתונים: ' + String(err) + '</div>';
+    document.getElementById('overviewLoader').style.display = 'block';
   });
 }
 

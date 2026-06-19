@@ -307,25 +307,20 @@ body {
   letter-spacing: 0.03em;
 }
 
-/* Generating spinner on roller item */
-.cm-item.generating .cm-dot {
-  background: transparent !important;
-  border: 2px solid rgba(30,157,139,0.3);
-  border-top-color: var(--teal);
-  border-radius: 50%;
-  width: 8px !important; height: 8px !important;
-  animation: _reloadSpin 0.75s linear infinite;
-}
+/* Generating spinner on roller item — dot hidden, pct takes its place */
 .cm-item.generating .cm-label { color: var(--teal); }
+.cm-item.generating .cm-dot,
+.cm-item.loading    .cm-dot { display: none !important; }
 .cm-gen-pct {
   font-size: 0.6em; font-weight: 700; color: var(--teal);
   display: block; text-align: center; line-height: 1;
   height: 0; overflow: hidden; opacity: 0;
   transition: opacity 0.2s, height 0.2s;
+  margin-top: 5px; /* same offset as .cm-dot margin-top so it lands in the same spot */
 }
 .cm-item.generating .cm-gen-pct,
-.cm-item.loading    .cm-gen-pct { opacity: 1; height: 1.1em; margin-top: 2px; }
-.cm-item.gen-done   .cm-gen-pct { opacity: 1; height: 1.1em; margin-top: 2px; color: #22c55e; }
+.cm-item.loading    .cm-gen-pct { opacity: 1; height: 1.1em; }
+.cm-item.gen-done   .cm-gen-pct { opacity: 1; height: 1.1em; color: #22c55e; }
 
 /* Done glow on roller item */
 @keyframes _genDoneGlow {

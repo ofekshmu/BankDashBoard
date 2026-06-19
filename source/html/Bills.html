@@ -691,6 +691,9 @@ body.resize-end    { cursor: ew-resize !important; }
 #bills-loader .loader-label {
   font-size: .9rem; color: var(--text-muted); font-weight: 500;
 }
+#bills-loader .loader-bar-row {
+  display: flex; align-items: center; gap: 8px;
+}
 #bills-loader .loader-bar-wrap {
   width: 180px; height: 4px;
   background: var(--border); border-radius: 4px; overflow: hidden;
@@ -700,7 +703,52 @@ body.resize-end    { cursor: ew-resize !important; }
   background: var(--teal); border-radius: 4px;
   transition: width .35s ease;
 }
+#bills-loader .loader-pct {
+  font-size: .75rem; font-weight: 700; color: var(--teal); min-width: 2.8em; text-align: left;
+}
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Debug logger ─────────────────────────────────────────────── */
+#bills-log-btn {
+  position: fixed; bottom: 22px; left: 18px; z-index: 8000;
+  width: 38px; height: 38px;
+  background: var(--white); border: 1.5px solid var(--border);
+  border-radius: 50%; cursor: pointer; font-size: 1.05em;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,.10);
+  color: var(--text-muted);
+  transition: background .15s, color .15s, border-color .15s;
+}
+#bills-log-btn.has-errors { border-color: var(--red); color: var(--red); }
+#bills-log-btn:hover { background: var(--teal-light); color: var(--teal); border-color: var(--teal); }
+#bills-log-panel {
+  position: fixed; bottom: 68px; left: 18px; z-index: 8001;
+  width: min(420px, 94vw); max-height: 280px;
+  background: #1a1a2e; border: 1px solid #333; border-radius: 10px;
+  display: none; flex-direction: column; overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0,0,0,.35);
+  font-family: monospace;
+}
+#bills-log-panel.open { display: flex; }
+#bills-log-panel-hdr {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 12px; background: #0d0d1e; border-bottom: 1px solid #333;
+  font-size: .72rem; color: #aaa;
+}
+#bills-log-panel-hdr button {
+  background: none; border: none; color: #666; cursor: pointer; font-size: .85em; padding: 2px 6px;
+}
+#bills-log-panel-hdr button:hover { color: #fff; }
+#bills-log-feed {
+  flex: 1; overflow-y: auto; padding: 8px 12px;
+  display: flex; flex-direction: column; gap: 3px;
+}
+.bills-log-row {
+  font-size: .68rem; line-height: 1.4; white-space: pre-wrap; word-break: break-all;
+}
+.bills-log-row.err { color: #ff6b6b; }
+.bills-log-row.warn { color: #ffd166; }
+.bills-log-row.info { color: #6bcb77; }
 
 /* ── Mobile Responsive Design ──────────────────────────────────────────────── */
 @media (max-width: 768px) {
@@ -783,7 +831,23 @@ body.resize-end    { cursor: ew-resize !important; }
 <div id="bills-loader">
   <div class="spinner"></div>
   <div class="loader-label" id="bills-loader-label">טוען סוגי חשבונות…</div>
-  <div class="loader-bar-wrap"><div class="loader-bar" id="bills-loader-bar"></div></div>
+  <div class="loader-bar-row">
+    <div class="loader-bar-wrap"><div class="loader-bar" id="bills-loader-bar"></div></div>
+    <span class="loader-pct" id="bills-loader-pct">0%</span>
+  </div>
+</div>
+
+<!-- Debug logger -->
+<button id="bills-log-btn" onclick="toggleBillsLog()" title="לוג שגיאות">🐛</button>
+<div id="bills-log-panel">
+  <div id="bills-log-panel-hdr">
+    <span>לוג שגיאות</span>
+    <div>
+      <button onclick="document.getElementById('bills-log-feed').innerHTML=''">נקה</button>
+      <button onclick="toggleBillsLog()">✕</button>
+    </div>
+  </div>
+  <div id="bills-log-feed"></div>
 </div>
 
 <!-- Fixed hamburger (top-right, matches the rest of the app) -->
@@ -1248,26 +1312,58 @@ const barHandlesPlugin = {
 // ─────────────────────────────────────────────────────────────
 // Init
 // ─────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+// Debug logger
+// ─────────────────────────────────────────────────────────────
+function _billsLog(msg, level) {
+  level = level || 'info';
+  const feed = document.getElementById('bills-log-feed');
+  if (!feed) return;
+  const row = document.createElement('div');
+  row.className = 'bills-log-row ' + level;
+  const ts = new Date().toLocaleTimeString('he-IL');
+  row.textContent = '[' + ts + '] ' + msg;
+  feed.appendChild(row);
+  feed.scrollTop = feed.scrollHeight;
+  if (level === 'err') {
+    const btn = document.getElementById('bills-log-btn');
+    if (btn) btn.classList.add('has-errors');
+  }
+}
+function toggleBillsLog() {
+  const p = document.getElementById('bills-log-panel');
+  if (p) p.classList.toggle('open');
+}
+
 function _setLoaderProgress(pct, label) {
   const bar = document.getElementById('bills-loader-bar');
   const lbl = document.getElementById('bills-loader-label');
+  const pctEl = document.getElementById('bills-loader-pct');
   if (bar) bar.style.width = pct + '%';
   if (lbl && label) lbl.textContent = label;
+  if (pctEl) pctEl.textContent = Math.round(pct) + '%';
 }
 
 async function init() {
-  _setLoaderProgress(10, 'טוען סוגי חשבונות…');
-  await Promise.all([
-    loadTypes().then(() => _setLoaderProgress(50, 'טוען רשומות…')),
-    loadEntries(),
-  ]);
-  _setLoaderProgress(100, 'מוכן');
-  await new Promise(r => setTimeout(r, 150));
-  const loader = document.getElementById('bills-loader');
-  if (loader) loader.style.display = 'none';
-  loadSuggestions();
-  initDrag();
-  initTouch();
+  try {
+    _setLoaderProgress(10, 'טוען סוגי חשבונות…');
+    await Promise.all([
+      loadTypes().then(() => _setLoaderProgress(50, 'טוען רשומות…')),
+      loadEntries(),
+    ]);
+    _setLoaderProgress(100, 'מוכן');
+    await new Promise(r => setTimeout(r, 150));
+    const loader = document.getElementById('bills-loader');
+    if (loader) loader.style.display = 'none';
+    loadSuggestions();
+    initDrag();
+    initTouch();
+  } catch (err) {
+    _billsLog('init failed: ' + String(err), 'err');
+    const loader = document.getElementById('bills-loader');
+    if (loader) loader.style.display = 'none';
+    document.getElementById('bills-log-panel').classList.add('open');
+  }
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -1277,7 +1373,18 @@ async function api(method, url, body) {
   const opts = { method, headers: {'Content-Type':'application/json'} };
   if (body) opts.body = JSON.stringify(body);
   const r = await fetch(url, opts);
-  return r.json();
+  const ct = r.headers.get('content-type') || '';
+  if (!ct.includes('application/json')) {
+    const text = await r.text();
+    const msg = method + ' ' + url + ' → HTTP ' + r.status + ' (non-JSON): ' + text.slice(0, 200);
+    _billsLog(msg, 'err');
+    throw new Error('Server returned non-JSON response for ' + url);
+  }
+  const data = await r.json();
+  if (data && data.ok === false) {
+    _billsLog(method + ' ' + url + ' → error: ' + (data.error || 'unknown'), 'err');
+  }
+  return data;
 }
 
 // ─────────────────────────────────────────────────────────────

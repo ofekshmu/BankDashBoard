@@ -3564,15 +3564,15 @@ def bills_page():
 @app.route('/api/bills/types', methods=['GET', 'POST'])
 def api_bills_types():
     from database import DataBase
-    db = DataBase()
-    if request.method == 'GET':
-        return jsonify({'ok': True, 'types': db.get_bill_types()})
-    body = request.get_json(force=True) or {}
-    name  = (body.get('name')  or '').strip()
-    color = (body.get('color') or '#1e9d8b').strip()
-    if not name:
-        return jsonify({'ok': False, 'error': 'Name required'})
     try:
+        db = DataBase()
+        if request.method == 'GET':
+            return jsonify({'ok': True, 'types': db.get_bill_types()})
+        body = request.get_json(force=True) or {}
+        name  = (body.get('name')  or '').strip()
+        color = (body.get('color') or '#1e9d8b').strip()
+        if not name:
+            return jsonify({'ok': False, 'error': 'Name required'})
         group = (body.get('group') or '').strip()
         tid = db.add_bill_type(name, color, group)
         db.commit_changes()
@@ -3584,21 +3584,18 @@ def api_bills_types():
 @app.route('/api/bills/types/<int:type_id>', methods=['PUT', 'DELETE'])
 def api_bills_type(type_id):
     from database import DataBase
-    db = DataBase()
-    if request.method == 'PUT':
-        body  = request.get_json(force=True) or {}
-        name  = (body.get('name')  or '').strip()
-        color = (body.get('color') or '#1e9d8b').strip()
-        group = (body.get('group') or '').strip()
-        if not name:
-            return jsonify({'ok': False, 'error': 'Name required'})
-        try:
+    try:
+        db = DataBase()
+        if request.method == 'PUT':
+            body  = request.get_json(force=True) or {}
+            name  = (body.get('name')  or '').strip()
+            color = (body.get('color') or '#1e9d8b').strip()
+            group = (body.get('group') or '').strip()
+            if not name:
+                return jsonify({'ok': False, 'error': 'Name required'})
             db.update_bill_type(type_id, name, color, group)
             db.commit_changes()
             return jsonify({'ok': True})
-        except Exception as e:
-            return jsonify({'ok': False, 'error': str(e)})
-    try:
         db.delete_bill_type(type_id)
         db.commit_changes()
         return jsonify({'ok': True})
@@ -3609,9 +3606,12 @@ def api_bills_type(type_id):
 @app.route('/api/bills/entries', methods=['GET', 'POST'])
 def api_bills_entries():
     from database import DataBase
-    db = DataBase()
-    if request.method == 'GET':
-        return jsonify({'ok': True, 'entries': db.get_bill_entries()})
+    try:
+        db = DataBase()
+        if request.method == 'GET':
+            return jsonify({'ok': True, 'entries': db.get_bill_entries()})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
     body = request.get_json(force=True) or {}
     try:
         overlap = db.check_bill_entry_overlap(
@@ -3638,7 +3638,10 @@ def api_bills_entries():
 @app.route('/api/bills/entries/<int:entry_id>', methods=['PUT', 'DELETE'])
 def api_bills_entry(entry_id):
     from database import DataBase
-    db = DataBase()
+    try:
+        db = DataBase()
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
     if request.method == 'DELETE':
         try:
             db.delete_bill_entry(entry_id)
@@ -3871,11 +3874,11 @@ def api_spotify_charge(charge_id):
 
 @app.route('/api/spotify/charges/suggestions')
 def api_spotify_charge_suggestions():
-    import sys as _sys
-    _sys.path.insert(0, _HERE)
-    from SpotifyTracker import get_charge_suggestions
-    from database import DataBase
     try:
+        import sys as _sys
+        _sys.path.insert(0, _HERE)
+        from SpotifyTracker import get_charge_suggestions
+        from database import DataBase
         DataBase().ensure_spotify_tables()
         suggestions = get_charge_suggestions(_DB_PATH)
         return jsonify({'ok': True, 'suggestions': suggestions})
@@ -3936,11 +3939,11 @@ def api_spotify_payment(payment_id):
 
 @app.route('/api/spotify/unmatched')
 def api_spotify_unmatched():
-    import sys as _sys
-    _sys.path.insert(0, _HERE)
-    from SpotifyTracker import get_unmatched_payments
-    from database import DataBase
     try:
+        import sys as _sys
+        _sys.path.insert(0, _HERE)
+        from SpotifyTracker import get_unmatched_payments
+        from database import DataBase
         DataBase().ensure_spotify_tables()
         return jsonify({'ok': True, 'transactions': get_unmatched_payments(_DB_PATH)})
     except Exception as e:
@@ -3960,11 +3963,11 @@ def api_spotify_dismiss_payment(tx_id):
 
 @app.route('/api/spotify/balance')
 def api_spotify_balance():
-    import sys as _sys
-    _sys.path.insert(0, _HERE)
-    from database import DataBase
-    from SpotifyTracker import compute_all_balances
     try:
+        import sys as _sys
+        _sys.path.insert(0, _HERE)
+        from database import DataBase
+        from SpotifyTracker import compute_all_balances
         db = DataBase()
         db.ensure_spotify_tables()
         return jsonify({'ok': True, 'balances': compute_all_balances(db)})

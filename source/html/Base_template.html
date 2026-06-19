@@ -316,6 +316,26 @@ body {
   width: 8px !important; height: 8px !important;
   animation: _reloadSpin 0.75s linear infinite;
 }
+.cm-item.generating .cm-label { color: var(--teal); }
+.cm-gen-pct {
+  font-size: 0.6em; font-weight: 700; color: var(--teal);
+  display: block; text-align: center; line-height: 1;
+  height: 0; overflow: hidden; opacity: 0;
+  transition: opacity 0.2s, height 0.2s;
+}
+.cm-item.generating .cm-gen-pct { opacity: 1; height: 1.1em; margin-top: 2px; }
+.cm-item.gen-done .cm-gen-pct   { opacity: 1; height: 1.1em; margin-top: 2px; color: #22c55e; }
+
+/* Done glow on roller item */
+@keyframes _genDoneGlow {
+  0%,100% { box-shadow: inset 0 0 0 1.5px rgba(34,197,94,0.5), 0 0 8px 3px rgba(34,197,94,0.35); }
+  50%     { box-shadow: inset 0 0 0 1.5px rgba(34,197,94,0.9), 0 0 16px 6px rgba(34,197,94,0.2); }
+}
+.cm-item.gen-done {
+  background: rgba(34,197,94,0.08) !important;
+  animation: _genDoneGlow 1.2s ease-in-out 3;
+}
+.cm-item.gen-done .cm-dot { background: #22c55e !important; }
 
 /* ── Regeneration FAB (always fixed, both desktop + mobile) ── */
 .reload-btn {
@@ -435,24 +455,6 @@ body {
 }
 @keyframes _reloadSpin { to { transform: rotate(360deg); } }
 
-/* ── Generating-month overlay (shows while SSE in progress) ─ */
-#generating-overlay {
-  display: none; flex-direction: column; align-items: center; justify-content: center;
-  gap: 18px; padding: 60px 24px; text-align: center;
-}
-#generating-overlay.visible { display: flex; }
-.gen-ov-spinner {
-  width: 48px; height: 48px; border-radius: 50%;
-  border: 4px solid rgba(30,157,139,0.2); border-top-color: var(--teal);
-  animation: _reloadSpin 0.75s linear infinite;
-}
-.gen-ov-label { font-size: 1.1em; font-weight: 600; color: var(--navy); }
-.gen-ov-bar-wrap {
-  width: 220px; height: 6px; background: rgba(30,157,139,0.15);
-  border-radius: 6px; overflow: hidden;
-}
-.gen-ov-bar { height: 100%; background: var(--teal); width: 0%; border-radius: 6px; transition: width 0.5s ease; }
-.gen-ov-pct { font-size: 0.85em; color: var(--text-muted); font-weight: 600; }
 
 /* ── KPI row ─────────────────────────────────────────────── */
 .kpi-row {
@@ -1915,14 +1917,6 @@ body {
   <!-- Organizer missing-file alerts (injected by Python) -->
   <div id="organizer-alerts"></div>
 
-  <!-- Generating-month overlay -->
-  <div id="generating-overlay">
-    <div class="gen-ov-spinner"></div>
-    <div class="gen-ov-label" id="gen-ov-label">מחשב נתונים…</div>
-    <div class="gen-ov-bar-wrap"><div class="gen-ov-bar" id="gen-ov-bar"></div></div>
-    <div class="gen-ov-pct" id="gen-ov-pct">0%</div>
-  </div>
-
   <!-- KPI rows (injected by Python) -->
   <div class="kpi-row"  id="kpi-row"></div>
   <div class="kpi-row-2" id="kpi-row-2"></div>
@@ -2474,8 +2468,12 @@ function _buildRoller(list) {
     var dot = document.createElement('span');
     dot.className = 'cm-dot';
 
+    var genPct = document.createElement('span');
+    genPct.className = 'cm-gen-pct';
+
     item.appendChild(lbl);
     item.appendChild(dot);
+    item.appendChild(genPct);
 
     if (m.future) {
       var tag = document.createElement('span');
@@ -2677,11 +2675,14 @@ var _regenProg = {
     var lbl  = document.getElementById('regen-prog-label');
     if (fill) fill.style.width = pct + '%';
     if (lbl)  lbl.textContent = label || ('מחשב… ' + pct + '%');
-    var genBar = document.getElementById('gen-ov-bar');
-    var genPct = document.getElementById('gen-ov-pct');
-    if (genBar) genBar.style.width = pct + '%';
-    if (genPct) genPct.textContent = pct + '%';
-    _loadBar.set(pct);
+    // Update roller item percentage for the generating month
+    var gKey = Object.keys(_generatingMonths)[0];
+    if (gKey) {
+      var ri = document.querySelector('#roller-track .cm-item[data-key="' + gKey + '"]');
+      if (ri) { var rp = ri.querySelector('.cm-gen-pct'); if (rp && !label) rp.textContent = pct + '%'; }
+    }
+    // Drive top bar only when we're on the generating page
+    if (gKey && gKey === _currentKey) _loadBar.set(pct);
   }
 };
 
@@ -2689,35 +2690,29 @@ var _regenProg = {
 var _generatingMonths = {};   // key → true while SSE running
 
 function _markGenerating(key, on) {
+  var item = document.querySelector('#roller-track .cm-item[data-key="' + key + '"]');
   if (on) {
     _generatingMonths[key] = true;
+    if (item) { item.classList.add('generating'); item.classList.remove('gen-done'); }
   } else {
     delete _generatingMonths[key];
+    if (item) {
+      item.classList.remove('generating');
+      var pctEl = item.querySelector('.cm-gen-pct');
+      if (pctEl) pctEl.textContent = '✓';
+      item.classList.add('gen-done');
+      setTimeout(function() {
+        item.classList.remove('gen-done');
+        if (pctEl) pctEl.textContent = '';
+      }, 3600);
+    }
   }
-  var item = document.querySelector('#roller-track .cm-item[data-key="' + key + '"]');
-  if (item) item.classList.toggle('generating', !!on);
-}
-
-function _showGeneratingOverlay(pct) {
-  var ov = document.getElementById('generating-overlay');
-  var bar = document.getElementById('gen-ov-bar');
-  var pctEl = document.getElementById('gen-ov-pct');
-  if (ov) { ov.classList.add('visible'); }
-  if (bar) bar.style.width = (pct || 0) + '%';
-  if (pctEl) pctEl.textContent = (pct || 0) + '%';
-  // Hide normal KPI rows while generating
-  ['kpi-row','kpi-row-2','panel-overview','panel-accounts','panel-housing'].forEach(function(id) {
-    var el = document.getElementById(id);
-    if (el) el.style.display = 'none';
-  });
 }
 
 function _hideGeneratingOverlay() {
-  var ov = document.getElementById('generating-overlay');
-  if (ov) ov.classList.remove('visible');
   ['kpi-row','kpi-row-2','panel-overview','panel-accounts','panel-housing'].forEach(function(id) {
     var el = document.getElementById(id);
-    if (el) { el.style.display = ''; el.style.opacity = '1'; el.style.transition = 'opacity 0.22s'; }
+    if (el) { el.style.display = ''; el.style.opacity = '1'; }
   });
 }
 
@@ -2731,7 +2726,7 @@ function _reloadGeneral() {
 
   btn.classList.add('running'); btn.disabled = true;
   _markGenerating(_currentKey, true);
-  if (_yyyy_mm === _currentKey) _showGeneratingOverlay(0);
+  if (typeof window._showSkeletons === 'function') window._showSkeletons();
   _regenProg.start();
 
   fetch('/api/analysis', {
@@ -5898,7 +5893,8 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
             })
             .catch(function() {});
         } else if (_generatingMonths[key]) {
-          _showGeneratingOverlay(_regenProg._val || 0);
+          _showSkeletons();
+          _fadeIn(els);
         } else {
           _loadBar.start();
           fetch('/api/general/' + key + '/data')
@@ -5927,6 +5923,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     }
   };
 
+  window._showSkeletons = _showSkeletons;
   document.addEventListener('DOMContentLoaded', _initDynamicPage);
 })();
 </script>

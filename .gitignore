@@ -36,6 +36,9 @@ package.json
 package-lock.json
 screenshot*.mjs
 *_sections.mjs
+*_shot.mjs
+check_*.mjs
+panel_*.mjs
 
 # Personal information — only categories.json is tracked (safe); rest are sensitive
 personal information/personal_config.json

@@ -287,13 +287,13 @@ class Parser():
             case Sortion_Method.BY_NAME_SERIAL:
                 # Search for a serial number - a number larger than 4 digits
                 # Since we want to ignore an year (4 digits), in case present
-                srch_result = re.search("\d{5,}", name)
+                srch_result = re.search(r"\d{5,}", name)
                 if srch_result is None:
                     utils.log(f"There was a problem parsing the Serial from File {name}.", "error")
                 return srch_result.group()[1:]
             case Sortion_Method.BY_NAME_DATE:
                 try:
-                    isra_Card_2026 = "\d{4}_(\d{2}_\d{4})"
+                    isra_Card_2026 = r"\d{4}_(\d{2}_\d{4})"
                     result_lst = re.findall(isra_Card_2026 + r"|" + r"(\d{1,2}_\d{1,2}_\d{4})|(\d{1,2}_\d{4})|(\d{2}\.\d{2}\.\d{2})", name)
                 except Exception as e:
                     utils.log(f"The file named {utils.name_he(name)} is of unknown date format.", "error")

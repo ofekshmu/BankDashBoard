@@ -4643,7 +4643,7 @@ function sortTxns(col) {{
 
 // ── Transaction search ────────────────────────────────────
 function _parseTxnAmt(text) {{
-  text = (text || '').trim().replace('₪','').replace(/\s/g,'');
+  text = (text || '').trim().replace('₪','').replace(/\\s/g,'');
   if (!text || text === '\u2014') return 0;
   if (text.startsWith('(') && text.endsWith(')'))
     return -(parseFloat(text.slice(1,-1).replace(/,/g,'')) || 0);

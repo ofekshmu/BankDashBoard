@@ -5464,8 +5464,10 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     _showSkeletons();
     fetch('/api/general/' + _yyyy_mm + '/data')
       .then(function(r) {
-        if (!r.ok) throw new Error('HTTP ' + r.status);
-        return r.json();
+        return r.json().then(function(d) {
+          if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
+          return d;
+        });
       })
       .then(function(d) {
         if (d.error) throw new Error(d.error);
@@ -5474,7 +5476,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       .catch(function(err) {
         var kr = document.getElementById('kpi-row');
         if (kr) kr.innerHTML =
-          '<div style="color:#e74c3c;padding:20px">שגיאה בטעינת נתונים: ' + _esc(String(err)) + '</div>';
+          '<div style="color:#e74c3c;padding:20px 0">שגיאה בטעינת נתונים: ' + _esc(String(err)) + '</div>';
         console.error('Dynamic page load error:', err);
       });
   }

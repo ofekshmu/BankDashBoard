@@ -14,7 +14,7 @@ class Exporter:
         return DataBase().get_all_transactions_since(since_d)
 
     def add_sheet(self, sheet_name: str, bank_df: pd.DataFrame, card_df: pd.DataFrame,
-                  excel_name : str = "Exported_data", excel_path : str = "Outputs\Exported_data") -> None:
+                  excel_name : str = "Exported_data", excel_path : str = "Outputs\\Exported_data") -> None:
         """
         
         """

@@ -2697,6 +2697,11 @@ var _loadBar = (function() {
       if (b) { b.style.transition = 'width 0.35s ease'; b.style.width = _cur + '%'; }
       if (w) w.classList.add('active');
       _setRollerPct(_key, Math.round(_cur) + '%');
+      // Gentle crawl so bar appears alive while waiting for the next SSE milestone
+      var cap = Math.min(_cur + 3, 96);
+      _sim = setInterval(function() {
+        if (_cur < cap) { _cur = Math.min(_cur + 0.1, cap); _setRaw(_cur); }
+      }, 80);
     },
     done: function() {
       clearInterval(_sim);
@@ -2713,66 +2718,74 @@ var _loadBar = (function() {
 })();
 
 // ── Regeneration progress controller ──────────────────────
+// Single source of truth: _regenPctMap[key] — updated by SSE milestones and the crawl timer.
+// _regenProg._val mirrors _regenPctMap[_currentKey] so legacy call-sites still work.
 var _regenProg = {
   _val: 0, _timer: null,
-  // fromPct: optional starting percentage when reconnecting mid-regen after a page reload
   start: function(fromPct) {
     var self = this;
     var initVal = (fromPct != null && fromPct > 0) ? Math.min(fromPct, 98) : 0;
-    self._val = initVal; self._set(initVal);
+    if (_currentKey) _regenPctMap[_currentKey] = initVal;
+    self._val = initVal;
     var panel = document.getElementById('regen-progress-panel');
     if (panel) panel.classList.add('visible');
     clearInterval(self._timer);
-    // Slow crawl so real log hints always arrive before the simulation overtakes them.
-    // Cap at 99 so bar/carousel stay live even after the last milestone fires at 97%.
+    // Crawl the currently-viewed generating page's map value toward 99.
+    // Non-current-key months only advance via SSE milestones (no simulated crawl).
     self._timer = setInterval(function() {
       var cap = 99;
-      if (self._val < cap) {
-        var rate = self._val < 85 ? 0.02 : 0.005;
-        var remaining = cap - self._val;
-        self._val = Math.min(cap, self._val + Math.max(0.5, remaining * rate));
-        self._set(Math.round(self._val));
+      var crawlKey = _currentKey;
+      if (crawlKey && _generatingMonths[crawlKey]) {
+        var cur = (_regenPctMap[crawlKey] != null) ? _regenPctMap[crawlKey] : self._val;
+        if (cur < cap) {
+          var rate = cur < 85 ? 0.02 : 0.005;
+          var remaining = cap - cur;
+          cur = Math.min(cap, cur + Math.max(0.5, remaining * rate));
+          _regenPctMap[crawlKey] = cur;
+          try { sessionStorage.setItem('_regen_pct_' + crawlKey, String(Math.round(cur))); } catch(_e) {}
+          self._val = Math.round(cur);
+        }
       }
+      if (Object.keys(_generatingMonths).length > 0) self._set(self._val);
     }, 600);
-    // Resume the top bar at the same position rather than resetting to 0
-    if (initVal > 0) { _loadBar.start(); _loadBar.set(initVal); } else { _loadBar.start(); }
+    _loadBar.start();
+    if (initVal > 0) _loadBar.set(initVal);
   },
   done: function(success) {
     clearInterval(this._timer); this._timer = null;
     this._set(100, success ? '✓ הושלם!' : '✗ שגיאה');
     _loadBar.done();
     var panel = document.getElementById('regen-progress-panel');
+    setTimeout(function() { if (panel) panel.classList.remove('visible'); }, 1800);
     setTimeout(function() {
-      if (panel) panel.classList.remove('visible');
-    }, 1800);
-    setTimeout(function() {
-      document.getElementById('regen-prog-fill') &&
-        (document.getElementById('regen-prog-fill').style.width = '0%');
+      var f = document.getElementById('regen-prog-fill');
+      if (f) f.style.width = '0%';
     }, 2200);
   },
+  // All UI elements derive from _regenPctMap[k] — pct is only a fallback.
   _set: function(pct, label) {
+    var panelPct = (_currentKey && _regenPctMap[_currentKey] != null)
+      ? Math.round(_regenPctMap[_currentKey]) : pct;
     var fill = document.getElementById('regen-prog-fill');
     var lbl  = document.getElementById('regen-prog-label');
-    if (fill) fill.style.width = pct + '%';
-    if (lbl)  lbl.textContent = label || ('מחשב… ' + pct + '%');
-    // Update roller item percentage for the generating month
-    var gKey = Object.keys(_generatingMonths)[0];
-    if (gKey) {
-      var ri = document.querySelector('#roller-track .cm-item[data-key="' + gKey + '"]');
-      if (ri) {
-        ri.classList.add('generating'); ri.classList.remove('gen-done'); // re-apply if DOM was rebuilt
-        var rp = ri.querySelector('.cm-gen-pct'); if (rp && !label) rp.textContent = pct + '%';
+    if (fill) fill.style.width = panelPct + '%';
+    if (lbl)  lbl.textContent = label || ('מחשב… ' + panelPct + '%');
+    Object.keys(_generatingMonths).forEach(function(k) {
+      var ri = document.querySelector('#roller-track .cm-item[data-key="' + k + '"]');
+      if (!ri) return;
+      ri.classList.add('generating'); ri.classList.remove('gen-done');
+      if (!label) {
+        var rp = ri.querySelector('.cm-gen-pct');
+        if (rp) rp.textContent = Math.round(_regenPctMap[k] != null ? _regenPctMap[k] : pct) + '%';
       }
-      // Persist progress so reconnects after a page reload start from the right position
-      if (!label) { try { sessionStorage.setItem('_regen_pct_' + gKey, String(pct)); } catch(_e) {} }
-    }
-    // Drive top bar only when we're on the generating page
-    if (gKey && gKey === _currentKey) _loadBar.set(pct);
+    });
+    if (_currentKey && _generatingMonths[_currentKey]) _loadBar.set(panelPct);
   }
 };
 
 // ── Generating-month tracking ──────────────────────────────
 var _generatingMonths = {};   // key → true while SSE running
+var _regenPctMap = {};        // key → last-known regen progress % for per-key bar resume
 var _regenCompletedAt = 0;   // Date.now() of last successful regen — suppresses false stale for 15s
 
 function _markGenerating(key, on) {
@@ -2783,6 +2796,7 @@ function _markGenerating(key, on) {
     if (item) { item.classList.add('generating'); item.classList.remove('gen-done'); }
   } else {
     delete _generatingMonths[key];
+    delete _regenPctMap[key];
     try { sessionStorage.removeItem('_regen_' + key); } catch(_e) {}
     try { sessionStorage.removeItem('_regen_pct_' + key); } catch(_e) {}
     if (item) {
@@ -2842,18 +2856,25 @@ function _listenToRegenSSE(regenKey, btn) {
       return;
     }
     var _lc = data.toLowerCase();
+    var _keyPct = _regenPctMap[regenKey] || 0;  // per-key gate — not the shared _val
     for (var _mi = 0; _mi < _REGEN_MILESTONES.length; _mi++) {
-      if (_lc.indexOf(_REGEN_MILESTONES[_mi][0]) !== -1 && _REGEN_MILESTONES[_mi][1] > _regenProg._val) {
-        _regenProg._val = _REGEN_MILESTONES[_mi][1];
-        _regenProg._set(_REGEN_MILESTONES[_mi][1]);
+      if (_lc.indexOf(_REGEN_MILESTONES[_mi][0]) !== -1 && _REGEN_MILESTONES[_mi][1] > _keyPct) {
+        var _mPct = _REGEN_MILESTONES[_mi][1];
+        _regenPctMap[regenKey] = _mPct;
+        if (regenKey === _currentKey) _regenProg._val = _mPct;
+        try { sessionStorage.setItem('_regen_pct_' + regenKey, String(_mPct)); } catch(_e) {}
+        _regenProg._set(_mPct);
         break;
       }
     }
     var pctMatch = data.match(/\b(\d{1,3})\s*%/);
     if (pctMatch) {
       var hint = parseInt(pctMatch[1], 10);
-      if (hint > _regenProg._val && hint < 95) {
-        _regenProg._val = hint; _regenProg._set(hint);
+      if (hint > (_regenPctMap[regenKey] || 0) && hint < 95) {
+        _regenPctMap[regenKey] = hint;
+        if (regenKey === _currentKey) _regenProg._val = hint;
+        try { sessionStorage.setItem('_regen_pct_' + regenKey, String(hint)); } catch(_e) {}
+        _regenProg._set(hint);
       }
     }
     if (data.startsWith('__DONE__')) {
@@ -2920,12 +2941,12 @@ function _listenToRegenSSE(regenKey, btn) {
 function _reloadGeneral() {
   if (!_currentKey) return;
   var regenKey = _currentKey;
-  // Guard: if this key is already being generated (within-SPA), just reconnect
+  // Guard: if this key is already being generated (within-SPA), just reconnect SSE —
+  // do NOT call _regenProg.start() again as that would reset the in-progress map value.
   if (_generatingMonths[regenKey]) {
     var _btn0 = document.getElementById('reload-btn');
     if (_btn0 && !_btn0.disabled) {
       _btn0.classList.add('running'); _btn0.disabled = true;
-      _regenProg.start();
       _listenToRegenSSE(regenKey, _btn0);
     }
     return;
@@ -6155,7 +6176,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         } else if (_generatingMonths[key]) {
           // Regen in progress — show skeletons and resume the progress bar at current regen %
           _showSkeletons();
-          _loadBar.resume(_regenProg._val);
+          _loadBar.resume(_regenPctMap[key] || _regenProg._val || 0);
           _fadeIn(els);
           // Reconnect SSE in case it dropped when the user navigated away
           var _rBtn = document.getElementById('reload-btn');

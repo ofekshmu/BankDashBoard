@@ -399,9 +399,6 @@ def monthly_data_api(yyyy_mm):
         return jsonify({'error': 'Invalid month number'}), 400
     cached = _monthly_data_cache.get(yyyy_mm)
     if cached:
-        # Mark progress complete (final 10 pts for end-to-end delivery)
-        _regen_tracker.update(yyyy_mm, 10)
-        _regen_tracker.done(yyyy_mm)
         return jsonify(cached['data'])
     year  = int(yyyy_mm[:4])
     try:
@@ -410,9 +407,6 @@ def monthly_data_api(yyyy_mm):
         from AppManager import AppManager
         payload = AppManager(skip_parser=True).general_analysis(t=t, data_only=True)
         _monthly_data_cache[yyyy_mm] = {'ts': _time.time(), 'data': payload}
-        # Mark progress complete (final 10 pts for end-to-end delivery)
-        _regen_tracker.update(yyyy_mm, 10)
-        _regen_tracker.done(yyyy_mm)
         return jsonify(payload)
     except Exception as e:
         import traceback
@@ -2024,6 +2018,8 @@ def run_analysis():
             if os.path.exists(html_path):
                 _save_manifest(html_path, deps, db_mtime)
             _monthly_data_cache.pop(key, None)
+            _regen_tracker.update(key, 10)  # final 10 pts: cache cleared, ready for fetch
+            _regen_tracker.done(key)
 
             _log_queue.put(f'__DONE__:{key}')
 
@@ -2089,6 +2085,8 @@ def run_analysis_stream():
             if os.path.exists(html_path):
                 _save_manifest(html_path, deps, db_mtime)
             _monthly_data_cache.pop(key, None)
+            _regen_tracker.update(key, 10)  # final 10 pts: cache cleared, ready for fetch
+            _regen_tracker.done(key)
             local_q.put(f'__DONE__:{key}')
         except Exception as exc:
             import traceback

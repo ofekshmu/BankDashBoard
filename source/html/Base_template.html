@@ -2828,7 +2828,13 @@ var _regenProg = {
     Object.keys(_generatingMonths).forEach(function(k) {
       var ri = document.querySelector('#roller-track .cm-item[data-key="' + k + '"]');
       if (!ri) return;
-      ri.classList.add('generating'); ri.classList.remove('gen-done');
+      if (_regenQueue.indexOf(k) >= 0) {
+        // Queued-in-background — keep amber queued style and #N label, don't touch text
+        ri.classList.remove('generating', 'gen-done');
+        ri.classList.add('gen-queued');
+        return;
+      }
+      ri.classList.add('generating'); ri.classList.remove('gen-done', 'gen-queued');
       if (!label) {
         var rp = ri.querySelector('.cm-gen-pct');
         if (rp) rp.textContent = Math.round(_regenPctMap[k] != null ? _regenPctMap[k] : pct) + '%';

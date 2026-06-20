@@ -345,17 +345,17 @@ body {
   gap: 0;
 }
 
-/* ── FAB button — layout now handled by the group ─────────────── */
+/* ── FAB button — sits on top of the sliding panel ────────────── */
 .reload-btn {
+  position: relative; z-index: 2;
   height: 52px; padding: 0 22px;
   background: var(--teal); color: #fff; border: none;
   border-radius: 26px; font-size: .85em; font-weight: 700;
   cursor: pointer; display: flex; align-items: center; gap: 8px;
   box-shadow: 0 4px 18px rgba(30,157,139,0.45);
   white-space: nowrap; flex-shrink: 0;
-  transition: box-shadow 0.2s, opacity 0.2s, border-radius 0.35s;
+  transition: box-shadow 0.2s, opacity 0.2s;
 }
-#regen-progress-panel.visible + .reload-btn { border-radius: 0 26px 26px 0; }
 .reload-btn:hover { box-shadow: 0 6px 24px rgba(30,157,139,0.65); }
 .reload-btn.running { opacity: 0.65; cursor: wait; }
 
@@ -388,12 +388,12 @@ body {
   .regen-fab-group { bottom: 14px; right: 14px; }
   .reload-btn { width: 52px; padding: 0; border-radius: 50%; justify-content: center; }
   .reload-btn-label { display: none; }
-  #regen-progress-panel.visible + .reload-btn { border-radius: 50%; }
 }
 
-/* ── Regeneration progress panel — slides out left from button ── */
+/* ── Regeneration progress panel — slides out from behind button ── */
 #regen-progress-panel {
-  max-width: 0; height: 52px; overflow: hidden;
+  position: absolute; right: 0; top: 0; bottom: 0; z-index: 1;
+  max-width: 0; overflow: hidden;
   background: rgba(30,157,139,0.14);
   border: 1px solid rgba(30,157,139,0.28);
   border-right: none;
@@ -420,7 +420,8 @@ body {
   border-radius: 4px; transition: width 0.6s ease;
 }
 @media (max-width: 768px) {
-  #regen-progress-panel { height: 44px; border-radius: 22px 0 0 22px; }
+  /* Panel is shorter than the circular button — center it vertically */
+  #regen-progress-panel { height: 44px; top: 50%; bottom: auto; transform: translateY(-50%); border-radius: 22px 0 0 22px; }
   .regen-prog-inner { width: 155px; padding: 0 10px 0 16px; font-size: .74em; }
 }
 
@@ -2849,9 +2850,23 @@ function _reloadGeneral() {
           .then(function() { return window._monthNav ? window._monthNav.refresh(regenKey) : null; })
           .then(function() {
             _regenCompletedAt = Date.now();
-            _regenProg.done(true);
             _markGenerating(regenKey, false);
-            _hideGeneratingOverlay();
+            if (regenKey === _currentKey) {
+              // Still on the regen page — fetch and render the new data before completing
+              _regenProg._set(99, 'טוען נתונים…');
+              return _fetchAndRender(regenKey)
+                .then(function() {
+                  _regenProg.done(true);
+                  _hideGeneratingOverlay();
+                })
+                .catch(function() {
+                  _regenProg.done(false);
+                  _hideGeneratingOverlay();
+                });
+            } else {
+              _regenProg.done(true);
+              _hideGeneratingOverlay();
+            }
           })
           .catch(function() {
             _regenProg.done(false);

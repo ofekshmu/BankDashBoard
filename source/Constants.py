@@ -49,10 +49,10 @@ class Paths:
     VERIFIED_FOLDER =   f"Verified_{INPUT_FOLDER}"
     UPDATE_FOLDER =     "to_update"                                     # Used for the update process
     
-    PERSONAL_CONFIG =   'Personal Information/personal_config.json'     # Personal configuration file
-    CATEGORY_JSON =     'Personal Information/categories.json'          # Categories JSON file (holds all different categories)
+    PERSONAL_CONFIG =   'personal information/personal_config.json'     # Personal configuration file
+    CATEGORY_JSON =     'personal information/categories.json'          # Categories JSON file (holds all different categories)
     AUTO_TAGGER_JSON =  'personal information/auto_tagger.json'         # Holds setting fro auto tagging different transactions
-    Currency_JSON =     'Personal Information/currency.json'            # Holds used currencies in the cash table
+    Currency_JSON =     'personal information/currency.json'            # Holds used currencies in the cash table
 
     #EXTENSION_1 = '.xls'    # Excel file extension                      # Extension type 1 for parsing
     #EXTENSION_2 = '.csv'    # CSV file extension                        # Extension type 2 for parsing      
@@ -61,6 +61,16 @@ class Paths:
     #GENERAL_INFO_GRAPH =                "C:/Users/ofeks/Desktop/BankProject/Outputs/General_info.png"
     #GENERAL_INFO_USER_DEFINED_GRAPH =   "C:/Users/ofeks/Desktop/BankProject/Outputs/General_info_user_defined.png"
     CARD_DIST_PIE_GRAPH =               "C:/Users/ofeks/OneDrive/Ofek/BankProject/Outputs/Card_Distribution.png"
+
+    # Mortgage analysis charts
+    MORTGAGE_BALANCE_GRAPH    = r"C:\Users\ofeks\OneDrive\Ofek\BankProject\Outputs\Mortgage_Balance.png"
+    MORTGAGE_BREAKDOWN_GRAPH  = r"C:\Users\ofeks\OneDrive\Ofek\BankProject\Outputs\Mortgage_Breakdown.png"
+    MORTGAGE_CASHFLOW_GRAPH   = r"C:\Users\ofeks\OneDrive\Ofek\BankProject\Outputs\Mortgage_Cashflow.png"
+    MORTGAGE_PIE_GRAPH        = r"C:\Users\ofeks\OneDrive\Ofek\BankProject\Outputs\Mortgage_Pie.png"
+
+
+    #HTML's Names/Paths:
+    ORGANIZER_TABLE_NAME = "C:\\Users\\ofeks\\OneDrive\\Ofek\\BankProject\\source\\html\\Organizer_Table.html"
 
 class ReservedNames:
     """
@@ -71,8 +81,9 @@ class ReservedNames:
 
     EXCLUDED_CATEGORY = "Excluded"
     FILLER_CATEGORY = "Filler"
+    CASH_FILLER_CATEGORY = "cash_filler"
 
-    
+    CC_CHARGE_CATEGORY_NAME = "אשראי"
 
 class Local:
 
@@ -127,7 +138,7 @@ class GeneralPlot:
                                "בילויים",
                                "בריאות וכושר",
                                "חשבונות",
-                               "חתונות",
+                               "חתונות ואירועים",
                                "מתנות",
                                "מצרכים",
                                "השכלה ולימודים"]

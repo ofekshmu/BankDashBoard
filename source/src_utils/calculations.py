@@ -31,21 +31,6 @@ class SimpleMath:
         return f"[{card}] {name}- {-amount}"
 
     @staticmethod
-    def gas_info() -> list:
-        """
-        Returns a tupple containing the date, bussines name, amount of all 'Gas' related transactions.
-        The dates are all in Datetime format.
-        """
-        word_lst = ['דור אלון ממר"צ', "דור אלון צריפין", "תחנת דלק בני ברית", "דלק BULL אשדוד", "דלק נמל אשדוד"]
-        raw_data = DataBase().get_gas_related(word_lst)
-        res = []
-        for t in raw_data:
-            new_tuple = (datetime.strptime(t[0], '%Y-%m-%d %H:%M:%S'), t[1], -t[2])
-            res.append(new_tuple)
-
-        return res
-
-    @staticmethod
     def cat_info(df: pd.DataFrame) -> dict:
         """
         Input:
@@ -84,7 +69,7 @@ class SimpleMath:
                 "Maximum Amount":   f'{abs(max)}₪'}
 
     @staticmethod
-    def get_monthly_shifted(shift: int = 5, category=None, business=None) -> Tuple[list[int], list[int], list[int]]:
+    def get_monthly_shifted(shift: int = 5, category=None, business=None, start_delta=None) -> Tuple[list[int], list[int], list[int], list[int]]:
         """
         The function receives as input the number of months to calculate from this current
         one backwards shift. And returns three lists contatining The monthly spendings and earnings of the last @shift
@@ -99,10 +84,14 @@ class SimpleMath:
         from Constants import INVESTMENT_CATEGORY
 
         current_date = datetime.now()
-        initial_delta = 0 if GENERAL_PLOT.SHOW_CURRENT_MONTH else 1
+        if start_delta is not None:
+            initial_delta = start_delta
+        else:
+            initial_delta = 0 if GENERAL_PLOT.SHOW_CURRENT_MONTH else 1
         spendings_lst = []
         spendings_net_lst = []
         earnings_lst = []
+        earnings_net_lst = []
 
         for i in range(initial_delta, shift):
             calculated_date = current_date - pd.DateOffset(months=i)
@@ -128,11 +117,13 @@ class SimpleMath:
             spendings_lst.append(df_i['Final_Value'][(df_i['Final_Value'] < 0)].sum())
             spendings_net_lst.append(df_i['Final_Value'][(df_i['Final_Value'] < 0) & (df_i['Category'] != INVESTMENT_CATEGORY)].sum())
             earnings_lst.append(df_i['Final_Value'][(df_i['Final_Value'] > 0)].sum())
+            earnings_net_lst.append(df_i['Final_Value'][(df_i['Final_Value'] > 0) & (df_i['Category'] != INVESTMENT_CATEGORY)].sum())
             
         # data is returned backwards to fit the plot_general function.
         return spendings_lst, \
                 spendings_net_lst, \
-                earnings_lst
+                earnings_lst, \
+                earnings_net_lst
 
     @staticmethod
     def general_info(data):
@@ -204,14 +195,15 @@ class SimpleMath:
             """
 
             cond_different_values = row['Charge_Value'] != row['Transaction_Value']
-            cond_string_pattern = 'תשלום' in row['Extra_Info'] and 'מתוך' in row['Extra_Info']
-            cond_different_dates = row['Charge_Date'] != row['Executed_Date']
+            _extra = row['Extra_Info']
+            cond_string_pattern = bool(_extra) and 'תשלום' in _extra and 'מתוך' in _extra
+            cond_different_dates = pd.to_datetime(row['Charge_Date']) != pd.to_datetime(row['Executed_Date'])
             cond_smaller_charge_value = row['Charge_Value'] > row['Transaction_Value']
 
             # Safeguard - in case the transaction is not a payment but still fits the pattern
-            # if this if triggers, conditions should be changed accordingly
+            # if this triggers, conditions should be changed accordingly
             if cond_string_pattern and not (cond_different_values and cond_different_dates and cond_smaller_charge_value):
-                utils.log(f"Warning: The following transaction might be wrongfully recognized:\n{row}", "error")
+                utils.log(f"Warning: The following transaction might be wrongfully recognized:\n{row}", "warning")
 
             return cond_different_values & cond_string_pattern & cond_different_dates & cond_smaller_charge_value
 
@@ -352,7 +344,7 @@ class SimpleMath:
         if general_analysis:
             df = df[df['Relevance']]
         else:
-            # Drop excluded transactions
+            # Drop excluded transactions only
             df = df[df['Transaction_Type'] != Trans_Type.excluded]
 
         return df   

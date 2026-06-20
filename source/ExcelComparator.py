@@ -14,7 +14,7 @@ def get_date(str):
     import re
 
     txt = "The rain in Spain"
-    return re.search("\w{1,2}_\w{1,2}_\w{4}", str).group()
+    return re.search(r"\w{1,2}_\w{1,2}_\w{4}", str).group()
 
 def cell(row: int, col: int, sheet: Sheet) -> Union[str, None]:
     '''

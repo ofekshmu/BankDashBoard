@@ -352,6 +352,11 @@ body {
 .cm-item.loading    .cm-gen-pct { opacity: 1; height: 1.1em; }
 .cm-item.gen-done   .cm-gen-pct { opacity: 1; height: 1.1em; color: #22c55e; }
 
+/* Queued-for-background-regen roller item */
+.cm-item.gen-queued .cm-label { color: #f59e0b; }
+.cm-item.gen-queued .cm-dot   { display: none !important; }
+.cm-item.gen-queued .cm-gen-pct { opacity: 1; height: 1.1em; color: #f59e0b; }
+
 /* Done glow on roller item */
 @keyframes _genDoneGlow {
   0%,100% { box-shadow: inset 0 0 0 1.5px rgba(34,197,94,0.5), 0 0 8px 3px rgba(34,197,94,0.35); }
@@ -359,7 +364,7 @@ body {
 }
 .cm-item.gen-done {
   background: rgba(34,197,94,0.08) !important;
-  animation: _genDoneGlow 1.2s ease-in-out 3;
+  animation: _genDoneGlow 1.2s ease-in-out 4;
 }
 .cm-item.gen-done .cm-dot { background: #22c55e !important; }
 
@@ -2542,8 +2547,28 @@ function _buildRoller(list) {
     }
 
     item.addEventListener('click', function() {
-      if (m.future || m.key === _currentKey) return;
+      if (m.future) return;
       var self = this;
+
+      // If a regen is actively running, queue this month instead of navigating.
+      var _anyActive = Object.keys(_generatingMonths).some(function(k) {
+        return _regenQueue.indexOf(k) < 0;
+      });
+      if (_anyActive || _regenQueue.length > 0) {
+        if (m.key === _currentKey) return;  // already on the generating page
+        // Already in queue or generating — do nothing (click on gen-done is OK to navigate).
+        if (_generatingMonths[m.key] || _regenQueue.indexOf(m.key) >= 0) return;
+        // Add to background queue
+        _regenQueue.push(m.key);
+        _markGenerating(m.key, true);
+        _markQueued(m.key);
+        self.classList.add('tapped');
+        self.addEventListener('animationend', function() { self.classList.remove('tapped'); }, { once: true });
+        return;
+      }
+
+      // No regen running — navigate normally.
+      if (m.key === _currentKey) return;
       self.classList.add('tapped');
       self.addEventListener('animationend', function() { self.classList.remove('tapped'); }, { once: true });
       var alreadyCentered = (_viewCenterIdx === i);
@@ -2677,8 +2702,8 @@ var _loadBar = (function() {
   function _setRollerPct(key, text) {
     var item = _rollerItem(key);
     if (!item) return;
-    // Don't touch items already managed by the generating flow
-    if (item.classList.contains('generating') || item.classList.contains('gen-done')) return;
+    // Don't touch items already managed by the generating/queued flow
+    if (item.classList.contains('generating') || item.classList.contains('gen-done') || item.classList.contains('gen-queued')) return;
     var p = item.querySelector('.cm-gen-pct');
     if (text !== null) {
       item.classList.add('loading');
@@ -2817,8 +2842,13 @@ var _regenProg = {
 var _generatingMonths = {};   // key → true while regenerating (or waiting in queue)
 var _regenPctMap = {};        // key → last-known regen progress % (set by server poll)
 var _regenPollTimers = {};    // key → setInterval handle for /api/regen-progress/<key> polling
-var _waitingMonths = {};      // key → true when queued behind another running month (409 case)
+var _regenQueue = [];         // ordered list of keys waiting to generate in background
 var _openSSE = {};            // key → EventSource (tracks open SSE to prevent competing connections)
+// Null-safe btn proxy — passed to _listenToRegenSSE for background (non-current-page) regens
+var _nullBtn = (function() {
+  var _cl = { add: function() {}, remove: function() {}, contains: function() { return false; } };
+  return { classList: _cl, get disabled() { return false; }, set disabled(_v) {} };
+}());
 var _regenCompletedAt = 0;   // Date.now() of last successful regen — suppresses false stale for 15s
 
 function _markGenerating(key, on) {
@@ -2844,6 +2874,58 @@ function _markGenerating(key, on) {
       }, 3600);
     }
   }
+}
+
+// Update carousel item to show queue position (amber colour, no dot).
+function _markQueued(key) {
+  var item = document.querySelector('#roller-track .cm-item[data-key="' + key + '"]');
+  if (!item) return;
+  item.classList.add('gen-queued');
+  var pctEl = item.querySelector('.cm-gen-pct');
+  if (pctEl) {
+    var pos = _regenQueue.indexOf(key) + 1;
+    pctEl.textContent = '#' + pos;
+  }
+}
+
+// Start generating a month that was just popped from the background queue.
+function _startBackgroundRegen(key) {
+  // Transition carousel item from queued (amber) to generating (teal)
+  var item = document.querySelector('#roller-track .cm-item[data-key="' + key + '"]');
+  if (item) item.classList.remove('gen-queued');
+  var parts = key.split('_');
+  var yr = parseInt(parts[0], 10), mo = parseInt(parts[1], 10);
+  var dateStr = yr + '-' + (mo < 10 ? '0' + mo : '' + mo) + '-01';
+  fetch('/api/analysis', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({month: 'pick', date: dateStr})
+  }).then(function(r) {
+    if (r && r.ok) {
+      var btn = (key === _currentKey) ? (document.getElementById('reload-btn') || _nullBtn) : _nullBtn;
+      if (key === _currentKey && btn !== _nullBtn) { btn.classList.add('running'); btn.disabled = true; }
+      _listenToRegenSSE(key, btn);
+    } else if (r && r.status === 409) {
+      // Unexpected race — push back to front and retry shortly
+      if (_regenQueue.indexOf(key) < 0) _regenQueue.unshift(key);
+      _markQueued(key);
+    } else {
+      _markGenerating(key, false);
+    }
+  }).catch(function() { _markGenerating(key, false); });
+}
+
+// Pop the next key from _regenQueue and start it, updating queue-position labels.
+function _popRegenQueue() {
+  if (_regenQueue.length === 0) return;
+  var nextKey = _regenQueue.shift();
+  // Refresh position labels for remaining items
+  _regenQueue.forEach(function(k, idx) {
+    var ri = document.querySelector('#roller-track .cm-item[data-key="' + k + '"]');
+    var rp = ri && ri.querySelector('.cm-gen-pct');
+    if (rp) rp.textContent = '#' + (idx + 1);
+  });
+  _startBackgroundRegen(nextKey);
 }
 
 function _hideGeneratingOverlay() {
@@ -2914,31 +2996,18 @@ function _listenToRegenSSE(regenKey, btn) {
           if (regenKey === _currentKey) {
             _regenProg._set(99, 'טוען נתונים…');
             return _fetchAndRender(regenKey)
-              .then(function() { _regenProg.done(true); _hideGeneratingOverlay(); })
+              .then(function() {
+                _regenProg.done(true); _hideGeneratingOverlay();
+                // Start next queued month (if any) in background
+                _popRegenQueue();
+              })
               .catch(function() { _regenProg.done(false); _hideGeneratingOverlay(); });
           } else {
-            // A non-current month finished — check if current page was queued waiting for it.
-            var _wasWaiting = _currentKey && _waitingMonths[_currentKey];
-            // Clean up all waiting months (server is now free).
-            Object.keys(_waitingMonths).forEach(function(wk) {
-              delete _waitingMonths[wk];
-              if (wk !== _currentKey) _markGenerating(wk, false);
-            });
-            if (_wasWaiting) {
-              // Auto-start the current page's regen now that the server is free.
-              var _wBtn = document.getElementById('reload-btn');
-              var _wParts = _currentKey.split('_');
-              var _wYr = parseInt(_wParts[0], 10), _wMo = parseInt(_wParts[1], 10);
-              var _wDate = _wYr + '-' + (_wMo < 10 ? '0' + _wMo : '' + _wMo) + '-01';
-              fetch('/api/analysis', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({month: 'pick', date: _wDate})
-              }).then(function(r3) {
-                if (r3 && r3.ok) _listenToRegenSSE(_currentKey, _wBtn);
-              }).catch(function() {});
-            } else {
-              if (!_otherRegen) _regenProg.done(true);
+            // Background month finished — start next in queue (if any), else mark done.
+            if (_regenQueue.length > 0) {
+              _popRegenQueue();
+            } else if (!_otherRegen) {
+              _regenProg.done(true);
             }
             _hideGeneratingOverlay();
           }
@@ -2987,10 +3056,11 @@ function _reloadGeneral() {
   // Guard: if this key is already being generated (within-SPA), just reconnect SSE —
   // do NOT call _regenProg.start() again as that would reset the in-progress map value.
   if (_generatingMonths[regenKey]) {
-    // Already tracked — either actually generating or waiting in queue behind another month.
-    if (!_waitingMonths[regenKey]) {
+    // Already tracked — either actively generating or queued in background.
+    if (_regenQueue.indexOf(regenKey) < 0 && !_openSSE[regenKey]) {
+      // Actively generating but SSE dropped — reconnect.
       var _btn0 = document.getElementById('reload-btn');
-      if (_btn0 && !_openSSE[regenKey]) {
+      if (_btn0) {
         if (!_btn0.disabled) { _btn0.classList.add('running'); _btn0.disabled = true; }
         _listenToRegenSSE(regenKey, _btn0);
       }
@@ -3016,9 +3086,9 @@ function _reloadGeneral() {
     if (r.ok) {
       _listenToRegenSSE(regenKey, btn);
     } else if (r.status === 409) {
-      // Another regen is running — queue this month. __DONE__ handler will auto-retry.
-      // Do NOT open a competing SSE connection (would steal messages from the running month).
-      _waitingMonths[regenKey] = true;
+      // Another regen is running — add to queue; __DONE__ handler will auto-start via _popRegenQueue.
+      if (_regenQueue.indexOf(regenKey) < 0) _regenQueue.push(regenKey);
+      _markQueued(regenKey);
     } else {
       btn.classList.remove('running'); btn.disabled = false;
       _markGenerating(regenKey, false);
@@ -6141,14 +6211,28 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
           if (_currentKey !== initKey) return;
           var _btn = document.getElementById('reload-btn');
           if (r2.status === 409) {
-            // Another month is already running — queue this page; do NOT open a competing SSE.
-            // The running month's __DONE__ handler will auto-start this one when the server is free.
+            // Another month is running. Add this page to the queue; don't open a competing SSE.
+            // If an existing SSE (from the running month) is open it will pop the queue on __DONE__.
+            // Otherwise open a one-shot waiting SSE to detect when the server becomes free.
             _markGenerating(initKey, true);
-            _waitingMonths[initKey] = true;
+            if (_regenQueue.indexOf(initKey) < 0) _regenQueue.push(initKey);
+            _markQueued(initKey);
             var _savedPct = 0;
             try { var _s = sessionStorage.getItem('_regen_pct_' + initKey); if (_s) _savedPct = parseInt(_s, 10) || 0; } catch(_e) {}
             if (_btn) { _btn.classList.add('running'); _btn.disabled = true; }
             _regenProg.start(_savedPct);
+            if (Object.keys(_openSSE).length === 0) {
+              // Fresh context (e.g. direct URL nav) — open a single SSE to detect completion.
+              var _waitES = new EventSource('/api/logs');
+              _waitES.onmessage = function(evt) {
+                if (!evt.data) return;
+                if (evt.data.startsWith('__DONE__') || evt.data === '__ERROR__') {
+                  _waitES.close();
+                  _popRegenQueue();
+                }
+              };
+              _waitES.onerror = function() { _waitES.close(); };
+            }
           } else if (r2.ok) {
             // Page was missing — fresh regen just started
             _markGenerating(initKey, true);
@@ -6223,18 +6307,17 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
             .catch(function() {});
 
         } else if (_generatingMonths[key]) {
-          // Month is tracked (generating or waiting in queue) — show progress state.
+          // Month is tracked (generating or queued) — show skeletons and progress.
           _showSkeletons();
           _loadBar.resume(_regenPctMap[key] || _regenProg._val || 0);
           _fadeIn(els);
           var _rBtn = document.getElementById('reload-btn');
           if (_rBtn) {
             if (!_rBtn.disabled) { _rBtn.classList.add('running'); _rBtn.disabled = true; }
-            if (_waitingMonths[key]) {
-              // Waiting in queue — just show progress panel, no SSE to reconnect to.
-              _regenProg.start(_regenPctMap[key] || 0);
-            } else if (!_openSSE[key]) {
-              // Actually generating but SSE dropped — reconnect.
+            // Always show the panel so user sees live progress on this page.
+            _regenProg.start(_regenPctMap[key] || 0);
+            // Reconnect SSE only if actually generating (not queued) and connection dropped.
+            if (_regenQueue.indexOf(key) < 0 && !_openSSE[key]) {
               _listenToRegenSSE(key, _rBtn);
             }
           }

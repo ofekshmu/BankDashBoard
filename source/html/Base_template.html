@@ -333,16 +333,11 @@ body {
 }
 .cm-item.gen-done .cm-dot { background: #22c55e !important; }
 
-/* ── Regeneration FAB group (fixed wrapper for panel + button) ── */
+/* ── Regeneration FAB group (fixed wrapper — panel slides from behind button) ── */
 .regen-fab-group {
   position: fixed;
   bottom: 22px; right: 18px;
   z-index: 999;
-  display: flex;
-  flex-direction: row;   /* panel left, button right */
-  align-items: center;
-  direction: ltr;        /* override page RTL so flex order is predictable */
-  gap: 0;
 }
 
 /* ── FAB button — sits on top of the sliding panel ────────────── */
@@ -390,21 +385,32 @@ body {
   .reload-btn-label { display: none; }
 }
 
-/* ── Regeneration progress panel — slides out from behind button ── */
+/* ── Regeneration progress panel — slides out from behind button ──
+   right edge anchored at button's midpoint (--btn-half set by JS).
+   justify-content:flex-end keeps inner content right-aligned so text
+   only appears once the panel clears the button's left edge.          */
 #regen-progress-panel {
-  position: absolute; right: 0; top: 0; bottom: 0; z-index: 1;
+  position: absolute;
+  right: var(--btn-half, 65px); top: 0; bottom: 0; z-index: 1;
   max-width: 0; overflow: hidden;
   background: rgba(30,157,139,0.14);
   border: 1px solid rgba(30,157,139,0.28);
   border-right: none;
   border-radius: 26px 0 0 26px;
-  display: flex; align-items: center;
+  display: flex; align-items: center; justify-content: flex-end;
+  direction: ltr;
   opacity: 0;
   transition: max-width 0.38s cubic-bezier(0.4,0,0.2,1), opacity 0.2s ease;
 }
-#regen-progress-panel.visible { max-width: 230px; opacity: 1; }
+#regen-progress-panel.visible {
+  max-width: calc(var(--btn-half, 65px) + 210px);
+  opacity: 1;
+}
 .regen-prog-inner {
-  width: 210px; padding: 0 14px 0 22px;
+  /* width = hidden (btn-half behind button) + visible (210px to left of button) */
+  width: calc(var(--btn-half, 65px) + 210px);
+  padding: 0 calc(var(--btn-half, 65px) + 14px) 0 22px;
+  box-sizing: border-box;
   color: #0a4a40;
   font-size: .78em; direction: rtl;
   display: flex; flex-direction: column; gap: 7px;
@@ -420,9 +426,20 @@ body {
   border-radius: 4px; transition: width 0.6s ease;
 }
 @media (max-width: 768px) {
-  /* Panel is shorter than the circular button — center it vertically */
-  #regen-progress-panel { height: 44px; top: 50%; bottom: auto; transform: translateY(-50%); border-radius: 22px 0 0 22px; }
-  .regen-prog-inner { width: 155px; padding: 0 10px 0 16px; font-size: .74em; }
+  /* Panel shorter than circular button — center vertically; use mobile btn-half (~26px) */
+  #regen-progress-panel {
+    height: 44px; top: 50%; bottom: auto; transform: translateY(-50%);
+    border-radius: 22px 0 0 22px;
+    max-width: 0;
+  }
+  #regen-progress-panel.visible {
+    max-width: calc(var(--btn-half, 26px) + 155px);
+  }
+  .regen-prog-inner {
+    width: calc(var(--btn-half, 26px) + 155px);
+    padding: 0 calc(var(--btn-half, 26px) + 10px) 0 16px;
+    font-size: .74em;
+  }
 }
 
 /* ── Universal page-load / regen progress bar ───────────── */
@@ -2767,9 +2784,105 @@ function _hideGeneratingOverlay() {
   });
 }
 
+// SSE milestones shared by both fresh starts and 409-reconnects
+var _REGEN_MILESTONES = [
+  ['witdrawals check',          5],
+  ['withdrawals check',         5],
+  ['constants validation',      8],
+  ['format validation',        11],
+  ['validation passed',        14],
+  ['processing card',          18],
+  ['processing bank',          23],
+  ['linear plots',             28],
+  ['cash flow',                34],
+  ['spending pie',             40],
+  ['earnings pie',             46],
+  ['investments pie',          53],
+  ['general bar plot',         59],
+  ['user defined bar',         65],
+  ['card distribution',        71],
+  ['payments data',            77],
+  ['smart alert detection',    83],
+  ['alert(s) generated',       87],
+  ['mortgage analysis',        90],
+  ['organizer status',         94],
+  ['html report',              97],
+];
+
+// Attach SSE listener to a running /api/logs stream for regenKey.
+// Called both on a fresh 200 start AND when 409 is returned (reconnect case).
+function _listenToRegenSSE(regenKey, btn) {
+  var es = new EventSource('/api/logs');
+  es.onmessage = function(evt) {
+    var data = evt.data;
+    if (!data || data === '__CONNECTED__') return;
+    if (data.startsWith('__PROMPT_CC__:')) {
+      try { showCCPrompt(JSON.parse(data.slice(14))); } catch(_e) {}
+      return;
+    }
+    var _lc = data.toLowerCase();
+    for (var _mi = 0; _mi < _REGEN_MILESTONES.length; _mi++) {
+      if (_lc.indexOf(_REGEN_MILESTONES[_mi][0]) !== -1 && _REGEN_MILESTONES[_mi][1] > _regenProg._val) {
+        _regenProg._val = _REGEN_MILESTONES[_mi][1];
+        _regenProg._set(_REGEN_MILESTONES[_mi][1]);
+        break;
+      }
+    }
+    var pctMatch = data.match(/\b(\d{1,3})\s*%/);
+    if (pctMatch) {
+      var hint = parseInt(pctMatch[1], 10);
+      if (hint > _regenProg._val && hint < 95) {
+        _regenProg._val = hint; _regenProg._set(hint);
+      }
+    }
+    if (data.startsWith('__DONE__')) {
+      es.close();
+      btn.classList.remove('running', 'stale-db', 'stale-code'); btn.disabled = false;
+      _regenCompletedAt = Date.now();
+      fetch('/api/general/' + regenKey + '/invalidate', {method: 'POST'})
+        .then(function() { return window._monthNav ? window._monthNav.refresh(regenKey) : null; })
+        .then(function() {
+          _regenCompletedAt = Date.now();
+          _markGenerating(regenKey, false);
+          if (regenKey === _currentKey) {
+            _regenProg._set(99, 'טוען נתונים…');
+            return _fetchAndRender(regenKey)
+              .then(function() { _regenProg.done(true); _hideGeneratingOverlay(); })
+              .catch(function() { _regenProg.done(false); _hideGeneratingOverlay(); });
+          } else {
+            _regenProg.done(true);
+            _hideGeneratingOverlay();
+          }
+        })
+        .catch(function() {
+          _regenProg.done(false);
+          var _curPanel = new URLSearchParams(window.location.search).get('panel') || '';
+          setTimeout(function() {
+            location.href = '/general/' + regenKey + (_curPanel ? '?panel=' + _curPanel : '');
+          }, 300);
+        });
+      return;
+    }
+    if (data === '__ERROR__') {
+      es.close();
+      appendLog('✗ שגיאה בניתוח', 'err');
+      btn.classList.remove('running'); btn.disabled = false;
+      _markGenerating(regenKey, false);
+      _hideGeneratingOverlay();
+      _regenProg.done(false); return;
+    }
+    appendLog(data);
+  };
+  es.onerror = function() {
+    es.close(); btn.classList.remove('running'); btn.disabled = false;
+    _markGenerating(regenKey, false);
+    _hideGeneratingOverlay();
+    _regenProg.done(false);
+  };
+}
+
 function _reloadGeneral() {
   if (!_currentKey) return;
-  // Capture key now — _currentKey may change if the user navigates away during regen
   var regenKey = _currentKey;
   var btn = document.getElementById('reload-btn');
   var parts = regenKey.split('_');
@@ -2787,112 +2900,19 @@ function _reloadGeneral() {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ month: 'pick', date: dateStr })
   }).then(function(r) {
-    if (r.status === 409) {
+    // 409 = analysis already running (e.g. user navigated away mid-regen and came back)
+    // Reconnect to the log stream to resume tracking instead of showing an error
+    if (r.status === 409 || r.ok) {
+      _listenToRegenSSE(regenKey, btn);
+    } else {
       btn.classList.remove('running'); btn.disabled = false;
-      _regenProg.done(false); return;
-    }
-    var es = new EventSource('/api/logs');
-    es.onmessage = function(evt) {
-      var data = evt.data;
-      if (!data || data === '__CONNECTED__') return;
-      if (data.startsWith('__PROMPT_CC__:')) {
-        try { showCCPrompt(JSON.parse(data.slice(14))); } catch(_e) {}
-        return;
-      }
-      // Map known log keywords → calibrated milestones so the bar tracks real work
-      var _lc = data.toLowerCase();
-      var _MILESTONES = [
-        // Early validation steps (happen before any chart generation)
-        ['witdrawals check',          5],   // "Witdrawals Check Executed" (codebase typo)
-        ['withdrawals check',         5],
-        ['constants validation',      8],
-        ['format validation',        11],
-        ['validation passed',        14],   // "Bank Transactions validation passed!"
-        ['processing card',          18],
-        ['processing bank',          23],
-        // Chart generation steps
-        ['linear plots',             28],
-        ['cash flow',                34],   // "generating cash flow data..."
-        ['spending pie',             40],
-        ['earnings pie',             46],
-        ['investments pie',          53],
-        ['general bar plot',         59],
-        ['user defined bar',         65],
-        ['card distribution',        71],
-        ['payments data',            77],
-        // Alerts, extras, final
-        ['smart alert detection',    83],
-        ['alert(s) generated',       87],
-        ['mortgage analysis',        90],
-        ['organizer status',         94],
-        ['html report',              97],
-      ];
-      for (var _mi = 0; _mi < _MILESTONES.length; _mi++) {
-        if (_lc.indexOf(_MILESTONES[_mi][0]) !== -1 && _MILESTONES[_mi][1] > _regenProg._val) {
-          _regenProg._val = _MILESTONES[_mi][1];
-          _regenProg._set(_MILESTONES[_mi][1]);
-          break;
-        }
-      }
-      // Also honour explicit % hints in log messages (e.g. from organizer pages)
-      var pctMatch = data.match(/\b(\d{1,3})\s*%/);
-      if (pctMatch) {
-        var hint = parseInt(pctMatch[1], 10);
-        if (hint > _regenProg._val && hint < 95) {
-          _regenProg._val = hint; _regenProg._set(hint);
-        }
-      }
-      if (data.startsWith('__DONE__')) {
-        es.close();
-        btn.classList.remove('running', 'stale-db', 'stale-code'); btn.disabled = false;
-        _regenCompletedAt = Date.now();
-        fetch('/api/general/' + regenKey + '/invalidate', {method: 'POST'})
-          .then(function() { return window._monthNav ? window._monthNav.refresh(regenKey) : null; })
-          .then(function() {
-            _regenCompletedAt = Date.now();
-            _markGenerating(regenKey, false);
-            if (regenKey === _currentKey) {
-              // Still on the regen page — fetch and render the new data before completing
-              _regenProg._set(99, 'טוען נתונים…');
-              return _fetchAndRender(regenKey)
-                .then(function() {
-                  _regenProg.done(true);
-                  _hideGeneratingOverlay();
-                })
-                .catch(function() {
-                  _regenProg.done(false);
-                  _hideGeneratingOverlay();
-                });
-            } else {
-              _regenProg.done(true);
-              _hideGeneratingOverlay();
-            }
-          })
-          .catch(function() {
-            _regenProg.done(false);
-            var _curPanel = new URLSearchParams(window.location.search).get('panel') || '';
-            setTimeout(function() {
-              location.href = '/general/' + regenKey + (_curPanel ? '?panel=' + _curPanel : '');
-            }, 300);
-          });
-        return;
-      }
-      if (data === '__ERROR__') {
-        es.close();
-        appendLog('✗ שגיאה בניתוח', 'err');
-        btn.classList.remove('running'); btn.disabled = false;
-        _markGenerating(regenKey, false);
-        _hideGeneratingOverlay();
-        _regenProg.done(false); return;
-      }
-      appendLog(data);
-    };
-    es.onerror = function() {
-      es.close(); btn.classList.remove('running'); btn.disabled = false;
       _markGenerating(regenKey, false);
-      _hideGeneratingOverlay();
       _regenProg.done(false);
-    };
+    }
+  }).catch(function() {
+    btn.classList.remove('running'); btn.disabled = false;
+    _markGenerating(regenKey, false);
+    _regenProg.done(false);
   });
 }
 
@@ -6070,6 +6090,15 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
 
   window._showSkeletons = _showSkeletons;
   document.addEventListener('DOMContentLoaded', _initDynamicPage);
+
+  // Set --btn-half CSS var so the progress panel anchors at button center
+  function _updatePanelAnchor() {
+    var btn = document.getElementById('reload-btn');
+    var grp = btn && btn.parentElement;
+    if (btn && grp) grp.style.setProperty('--btn-half', Math.round(btn.offsetWidth / 2) + 'px');
+  }
+  document.addEventListener('DOMContentLoaded', _updatePanelAnchor);
+  window.addEventListener('resize', _updatePanelAnchor);
 })();
 </script>
 

@@ -1015,7 +1015,7 @@ class AppManager:
         if category is None and business is None:
             webbrowser.open(r'source\html\Category_output.html')
 
-    def general_analysis(self, t=None, data_only=False):
+    def general_analysis(self, t=None, data_only=False, page_id=None):
         from datetime import datetime
         if t is None:
             # -----
@@ -1037,8 +1037,18 @@ class AppManager:
                 case _:
                     utils.log("Unreachable point reached...", "error")
 
+        # Point-based progress tracking (only active when page_id is provided by WebApp).
+        try:
+            import regen_tracker as _rt_mod
+        except ImportError:
+            _rt_mod = None
+
+        def _rp(pts):
+            if _rt_mod and page_id and not data_only:
+                _rt_mod.update(page_id, pts)
+
         data = {}
-        
+
         # Add linear plots data
         def get_accounts_data() -> tuple:
             """Get historical balance data for all accounts.
@@ -1130,14 +1140,17 @@ class AppManager:
         # Get accounts data — הון עצמי will be added after mortgage section
         utils.log("Generating linear plots for all accounts...", "system")
         accounts_data, accounts_raw_meta = get_accounts_data()
+        _rp(5)   # accounts data: 5 pts
         # NOTE: plot_linear_plots_graph is called later, after הון עצמי is added
-        
+
         transactions_df = AppManagerUtils.retrieve_and_initialize_data(t)
+        _rp(10)  # card + bank queries + process_prices: 10 pts
 
         # ---- Card validation data ----
-    
+
         card_validation_df = utils.card_charge_validation(transactions_df, t)
         utils.log(card_validation_df.to_markdown(), "debug")
+        _rp(5)   # card charge validation: 5 pts
 
         # --------------------------- Cash Flow ---------------------------
         utils.log("generating cash flow data...", "system")
@@ -1207,6 +1220,8 @@ class AppManager:
         except Exception as _auto_e:
             utils.log(f"auto account points failed: {_auto_e}", "warning")
 
+        _rp(7)   # cash flow (get_cash_transactions + accumulate + history + auto-points): 7 pts
+
         def handle_spendings_pie_plot():
             color_pallete = sns.light_palette("#f66b85", n_colors=10, reverse=True)
             cash_flow_row = {"Name": "מזומן", "Category": "מזומן", "Description/Charge_Currency": None , "Final_Value": cash_information_data['Monthly Spent Cash']}
@@ -1219,6 +1234,7 @@ class AppManager:
 
         utils.log("Generating spending pie charts...", "system")
         high_std_spendings = handle_spendings_pie_plot()
+        _rp(5)   # spendings pie: 5 pts
 
         # Capture spendings data for interactive chart (exclude investments — shown in their own donut)
         _sp_df = transactions_df[(transactions_df['Final_Value'] < 0) & (transactions_df['Category'] != INVESTMENT_CATEGORY)].copy()
@@ -1236,6 +1252,7 @@ class AppManager:
 
         utils.log("Generating earnings pie charts...", "system")
         high_std_earnings = handle_earnings_pie_plot()
+        _rp(5)   # earnings pie: 5 pts
 
         # Capture earnings data for interactive chart (account income only — cash handled by cash chart)
         _ea_df = transactions_df[(transactions_df['Final_Value'] > 0) & (transactions_df['Category'] != INVESTMENT_CATEGORY)].copy()
@@ -1248,6 +1265,7 @@ class AppManager:
             Graphics.plot_transactions_pie_chart(_inv_df, "Investments", GOLDEN_COLOR_PALLETE)
         except Exception:
             pass
+        _rp(3)   # investments pie: 3 pts
 
         # Capture investments data for bar chart + transaction list
         if not _inv_df.empty:
@@ -1347,6 +1365,7 @@ class AppManager:
         # Recompute mean from the cash-adjusted net values
         if data['general_net']:
             data['overall_net_mean'] = round(sum(data['general_net']) / len(data['general_net']), 2)
+        _rp(8)   # general bar plot + monthly data: 8 pts
 
         # ----- User defined
         utils.log("Generating user defined bar plot...", "system")
@@ -1360,6 +1379,7 @@ class AppManager:
                               title_ext='User_defined',
                               user_spendings_sum = user_spendings_sum,
                               user_earnings_sum = user_earnings_sum)
+        _rp(5)   # user-defined bar plot: 5 pts
         # ----- Cards
         utils.log("Generating card distribution plot...", "system")
         card_ids = DataBase().get_card_ids() + ['Bank']
@@ -1369,6 +1389,7 @@ class AppManager:
         card_color_dict['Cash'] = "#ECCD1F"
 
         Graphics.card_distribution(card_color_dict, card_validation_df)
+        _rp(3)   # card distribution: 3 pts
 
         # Capture card distribution data for interactive chart
         if not card_validation_df.empty:
@@ -1388,7 +1409,7 @@ class AppManager:
         payment_filtered_df = transactions_df[transactions_df['Transaction_Type'] == Trans_Type.payment]
         payments_df = utils.extract_payments_data(payment_filtered_df)
         Graphics.generate_payment_pie_graphs(payments_df)
-
+        _rp(3)   # payment pie graphs: 3 pts
 
         # ---------------- General calculations ----------------
         # monthly_cash_balance = cash_information_data['Monthly Earned Cash'] + \
@@ -1442,6 +1463,7 @@ class AppManager:
         _bal_history.reverse()  # oldest → newest
         data['balance_history'] = _bal_history[-7:]   # 6 spans = 7 points
         data['balance_delta']   = round(float(data['net income']), 2)
+        _rp(4)   # general calculations + balance: 4 pts
 
         # ---- Smart Alerts ----
         # Collect the last 6 months of processed transaction DataFrames to
@@ -1472,6 +1494,8 @@ class AppManager:
             # Alert detection must never crash the main analysis flow
             utils.log(f"Smart alert detection failed (non-critical): {exc}", "warning")
             alerts = []
+
+        _rp(7)   # smart alerts: 7 pts
 
         # ---- Mortgage analysis ----
         utils.log("Generating mortgage analysis...", "system")
@@ -1658,6 +1682,7 @@ class AppManager:
         }
 
         # Accounts chart is now rendered as interactive Chart.js in the HTML — no PNG needed
+        _rp(10)  # mortgage analysis: 10 pts
 
         utils.log("Checking organizer status for missing files...", "system")
         try:
@@ -1665,6 +1690,7 @@ class AppManager:
         except Exception as _oe:
             utils.log(f"Organizer alerts skipped: {_oe}", "warning")
             org_alerts = []
+        _rp(2)   # organizer alerts check: 2 pts
 
         if data_only:
             return self._build_data_payload(
@@ -1690,6 +1716,7 @@ class AppManager:
                             mortgage_data=mortgage_data,
                             accounts_meta=accounts_raw_meta,
                             organizer_alerts=org_alerts or None)
+        _rp(8)   # HTML report generated: 8 pts → total 90 from analysis side
         import os as _os
         if not _os.environ.get('BANKAPP_WEB'):
             webbrowser.open(r'source\html\output.html')

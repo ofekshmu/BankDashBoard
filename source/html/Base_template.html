@@ -2718,36 +2718,30 @@ var _loadBar = (function() {
 })();
 
 // ── Regeneration progress controller ──────────────────────
-// Single source of truth: _regenPctMap[key] — updated by SSE milestones and the crawl timer.
-// _regenProg._val mirrors _regenPctMap[_currentKey] so legacy call-sites still work.
+// Single source of truth: _regenPctMap[key] — updated by server polling every 1.5 s.
+// _regenProg._val smoothly interpolates toward _regenPctMap[_currentKey] for animation.
 var _regenProg = {
   _val: 0, _timer: null,
   start: function(fromPct) {
     var self = this;
     var initVal = (fromPct != null && fromPct > 0) ? Math.min(fromPct, 98) : 0;
-    if (_currentKey) _regenPctMap[_currentKey] = initVal;
+    if (_currentKey) _regenPctMap[_currentKey] = Math.max(_regenPctMap[_currentKey] || 0, initVal);
     self._val = initVal;
     var panel = document.getElementById('regen-progress-panel');
     if (panel) panel.classList.add('visible');
     clearInterval(self._timer);
-    // Crawl the currently-viewed generating page's map value toward 99.
-    // Non-current-key months only advance via SSE milestones (no simulated crawl).
+    // Smooth display: animate _val toward the polled target (_regenPctMap[currentKey]).
+    // The poll (every 1.5 s) sets the target; this timer fills the visual gap between polls.
     self._timer = setInterval(function() {
-      var cap = 99;
       var crawlKey = _currentKey;
       if (crawlKey && _generatingMonths[crawlKey]) {
-        var cur = (_regenPctMap[crawlKey] != null) ? _regenPctMap[crawlKey] : self._val;
-        if (cur < cap) {
-          var rate = cur < 85 ? 0.02 : 0.005;
-          var remaining = cap - cur;
-          cur = Math.min(cap, cur + Math.max(0.5, remaining * rate));
-          _regenPctMap[crawlKey] = cur;
-          try { sessionStorage.setItem('_regen_pct_' + crawlKey, String(Math.round(cur))); } catch(_e) {}
-          self._val = Math.round(cur);
+        var target = (_regenPctMap[crawlKey] != null) ? _regenPctMap[crawlKey] : self._val;
+        if (self._val < target) {
+          self._val = Math.min(self._val + 0.4, target);
         }
       }
       if (Object.keys(_generatingMonths).length > 0) self._set(self._val);
-    }, 600);
+    }, 200);
     _loadBar.start();
     if (initVal > 0) _loadBar.set(initVal);
   },
@@ -2784,8 +2778,9 @@ var _regenProg = {
 };
 
 // ── Generating-month tracking ──────────────────────────────
-var _generatingMonths = {};   // key → true while SSE running
-var _regenPctMap = {};        // key → last-known regen progress % for per-key bar resume
+var _generatingMonths = {};   // key → true while regenerating
+var _regenPctMap = {};        // key → last-known regen progress % (set by server poll)
+var _regenPollTimers = {};    // key → setInterval handle for /api/regen-progress/<key> polling
 var _regenCompletedAt = 0;   // Date.now() of last successful regen — suppresses false stale for 15s
 
 function _markGenerating(key, on) {
@@ -2797,6 +2792,7 @@ function _markGenerating(key, on) {
   } else {
     delete _generatingMonths[key];
     delete _regenPctMap[key];
+    _stopRegenPoll(key);
     try { sessionStorage.removeItem('_regen_' + key); } catch(_e) {}
     try { sessionStorage.removeItem('_regen_pct_' + key); } catch(_e) {}
     if (item) {
@@ -2819,34 +2815,39 @@ function _hideGeneratingOverlay() {
   });
 }
 
-// SSE milestones shared by both fresh starts and 409-reconnects
-var _REGEN_MILESTONES = [
-  ['witdrawals check',          5],
-  ['withdrawals check',         5],
-  ['constants validation',      8],
-  ['format validation',        11],
-  ['validation passed',        14],
-  ['processing card',          18],
-  ['processing bank',          23],
-  ['linear plots',             28],
-  ['cash flow',                34],
-  ['spending pie',             40],
-  ['earnings pie',             46],
-  ['investments pie',          53],
-  ['general bar plot',         59],
-  ['user defined bar',         65],
-  ['card distribution',        71],
-  ['payments data',            77],
-  ['smart alert detection',    83],
-  ['alert(s) generated',       87],
-  ['mortgage analysis',        90],
-  ['organizer status',         94],
-  ['html report',              97],
-];
+// ── Server-side progress polling (replaces SSE milestone string-matching) ──────
+// Each generating key is polled at GET /api/regen-progress/<key> every 1.5 s.
+// The server returns {pct: int, done: bool} based on points earned in general_analysis().
+function _stopRegenPoll(regenKey) {
+  if (_regenPollTimers[regenKey]) {
+    clearInterval(_regenPollTimers[regenKey]);
+    delete _regenPollTimers[regenKey];
+  }
+}
+
+function _startRegenPoll(regenKey) {
+  _stopRegenPoll(regenKey);  // clear any stale timer for this key
+  _regenPollTimers[regenKey] = setInterval(function() {
+    if (!_generatingMonths[regenKey]) { _stopRegenPoll(regenKey); return; }
+    fetch('/api/regen-progress/' + regenKey)
+      .then(function(r) { return r.ok ? r.json() : null; })
+      .then(function(d) {
+        if (!d || d.pct == null) return;
+        // Only advance, never regress
+        if (d.pct > (_regenPctMap[regenKey] || 0)) {
+          _regenPctMap[regenKey] = d.pct;
+          if (regenKey === _currentKey) _regenProg._val = Math.min(_regenProg._val, d.pct);
+          _regenProg._set(d.pct);
+        }
+      })
+      .catch(function() { /* network blip — keep polling */ });
+  }, 1500);
+}
 
 // Attach SSE listener to a running /api/logs stream for regenKey.
 // Called both on a fresh 200 start AND when 409 is returned (reconnect case).
 function _listenToRegenSSE(regenKey, btn) {
+  _startRegenPoll(regenKey);  // begin polling server-side progress for this key
   var es = new EventSource('/api/logs');
   es.onmessage = function(evt) {
     var data = evt.data;
@@ -2855,30 +2856,9 @@ function _listenToRegenSSE(regenKey, btn) {
       try { showCCPrompt(JSON.parse(data.slice(14))); } catch(_e) {}
       return;
     }
-    var _lc = data.toLowerCase();
-    var _keyPct = _regenPctMap[regenKey] || 0;  // per-key gate — not the shared _val
-    for (var _mi = 0; _mi < _REGEN_MILESTONES.length; _mi++) {
-      if (_lc.indexOf(_REGEN_MILESTONES[_mi][0]) !== -1 && _REGEN_MILESTONES[_mi][1] > _keyPct) {
-        var _mPct = _REGEN_MILESTONES[_mi][1];
-        _regenPctMap[regenKey] = _mPct;
-        if (regenKey === _currentKey) _regenProg._val = _mPct;
-        try { sessionStorage.setItem('_regen_pct_' + regenKey, String(_mPct)); } catch(_e) {}
-        _regenProg._set(_mPct);
-        break;
-      }
-    }
-    var pctMatch = data.match(/\b(\d{1,3})\s*%/);
-    if (pctMatch) {
-      var hint = parseInt(pctMatch[1], 10);
-      if (hint > (_regenPctMap[regenKey] || 0) && hint < 95) {
-        _regenPctMap[regenKey] = hint;
-        if (regenKey === _currentKey) _regenProg._val = hint;
-        try { sessionStorage.setItem('_regen_pct_' + regenKey, String(hint)); } catch(_e) {}
-        _regenProg._set(hint);
-      }
-    }
     if (data.startsWith('__DONE__')) {
       es.close();
+      _stopRegenPoll(regenKey);
       _regenCompletedAt = Date.now();
       fetch('/api/general/' + regenKey + '/invalidate', {method: 'POST'})
         .then(function() { return window._monthNav ? window._monthNav.refresh(regenKey) : null; })
@@ -2914,6 +2894,7 @@ function _listenToRegenSSE(regenKey, btn) {
     }
     if (data === '__ERROR__') {
       es.close();
+      _stopRegenPoll(regenKey);
       appendLog('✗ שגיאה בניתוח', 'err');
       _markGenerating(regenKey, false);
       _hideGeneratingOverlay();
@@ -2927,7 +2908,9 @@ function _listenToRegenSSE(regenKey, btn) {
     appendLog(data);
   };
   es.onerror = function() {
-    es.close(); btn.classList.remove('running'); btn.disabled = false;
+    es.close();
+    _stopRegenPoll(regenKey);
+    btn.classList.remove('running'); btn.disabled = false;
     if (regenKey === _currentKey) {
       // Real failure on the active page — surface the error
       _markGenerating(regenKey, false);

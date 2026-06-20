@@ -26,6 +26,7 @@ import builtins as _builtins
 
 import re as _re
 from flask import Flask, Response, request, jsonify, send_file, redirect
+import regen_tracker as _regen_tracker
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 _HERE                  = os.path.dirname(os.path.abspath(__file__))
@@ -398,6 +399,9 @@ def monthly_data_api(yyyy_mm):
         return jsonify({'error': 'Invalid month number'}), 400
     cached = _monthly_data_cache.get(yyyy_mm)
     if cached:
+        # Mark progress complete (final 10 pts for end-to-end delivery)
+        _regen_tracker.update(yyyy_mm, 10)
+        _regen_tracker.done(yyyy_mm)
         return jsonify(cached['data'])
     year  = int(yyyy_mm[:4])
     try:
@@ -406,6 +410,9 @@ def monthly_data_api(yyyy_mm):
         from AppManager import AppManager
         payload = AppManager(skip_parser=True).general_analysis(t=t, data_only=True)
         _monthly_data_cache[yyyy_mm] = {'ts': _time.time(), 'data': payload}
+        # Mark progress complete (final 10 pts for end-to-end delivery)
+        _regen_tracker.update(yyyy_mm, 10)
+        _regen_tracker.done(yyyy_mm)
         return jsonify(payload)
     except Exception as e:
         import traceback
@@ -416,6 +423,18 @@ def monthly_data_api(yyyy_mm):
 def invalidate_monthly_cache(yyyy_mm):
     _monthly_data_cache.pop(yyyy_mm, None)
     return jsonify({'ok': True})
+
+
+@app.route('/api/regen-progress/<yyyy_mm>')
+def regen_progress_api(yyyy_mm):
+    """Return {pct: int, done: bool} for a currently-regenerating month."""
+    if not _re.match(r'^\d{4}_\d{2}$', yyyy_mm):
+        return jsonify({'error': 'Invalid month format'}), 400
+    p = _regen_tracker.get(yyyy_mm)
+    if p is None:
+        return jsonify({'pct': None, 'done': False})
+    pct = int(p['earned'] / p['total'] * 100) if p['total'] else 100
+    return jsonify({'pct': pct, 'done': bool(p['done'])})
 
 
 @app.route('/accounts')
@@ -1994,11 +2013,13 @@ def run_analysis():
             else:
                 t = datetime.now()
 
+            key = t.strftime('%Y_%m')
+            _regen_tracker.init(key)
+
             deps, db_mtime = _capture_deps_and_run(
-                lambda: AppManager(skip_parser=True).general_analysis(t=t)
+                lambda: AppManager(skip_parser=True).general_analysis(t=t, page_id=key)
             )
 
-            key       = t.strftime('%Y_%m')
             html_path = os.path.join(GENERAL_ANALYSIS_DIR, f'{key}.html')
             if os.path.exists(html_path):
                 _save_manifest(html_path, deps, db_mtime)
@@ -2058,10 +2079,12 @@ def run_analysis_stream():
             else:
                 t = datetime.now()
 
-            deps, db_mtime = _capture_deps_and_run(
-                lambda: AppManager(skip_parser=True).general_analysis(t=t)
-            )
             key = t.strftime('%Y_%m')
+            _regen_tracker.init(key)
+
+            deps, db_mtime = _capture_deps_and_run(
+                lambda: AppManager(skip_parser=True).general_analysis(t=t, page_id=key)
+            )
             html_path = os.path.join(GENERAL_ANALYSIS_DIR, f'{key}.html')
             if os.path.exists(html_path):
                 _save_manifest(html_path, deps, db_mtime)

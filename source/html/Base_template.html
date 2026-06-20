@@ -272,6 +272,9 @@ body {
 .cm-item.dist-1 { opacity: 0.68; transform: scale(0.94); }
 .cm-item.active { opacity: 1;    transform: scale(1.08); cursor: default; background: rgba(30,157,139,0.08); }
 .cm-item.active:hover { background: rgba(30,157,139,0.16); filter: brightness(1.03); }
+/* Generating item stays visible at full scale regardless of roller distance */
+.cm-item.generating { opacity: 0.88; transform: scale(1); }
+.cm-item.active.generating { opacity: 1; transform: scale(1.08); }
 
 .cm-label {
   font-size: 0.82em;
@@ -2756,7 +2759,10 @@ var _regenProg = {
     var gKey = Object.keys(_generatingMonths)[0];
     if (gKey) {
       var ri = document.querySelector('#roller-track .cm-item[data-key="' + gKey + '"]');
-      if (ri) { var rp = ri.querySelector('.cm-gen-pct'); if (rp && !label) rp.textContent = pct + '%'; }
+      if (ri) {
+        ri.classList.add('generating'); ri.classList.remove('gen-done'); // re-apply if DOM was rebuilt
+        var rp = ri.querySelector('.cm-gen-pct'); if (rp && !label) rp.textContent = pct + '%';
+      }
       // Persist progress so reconnects after a page reload start from the right position
       if (!label) { try { sessionStorage.setItem('_regen_pct_' + gKey, String(pct)); } catch(_e) {} }
     }
@@ -2890,9 +2896,13 @@ function _listenToRegenSSE(regenKey, btn) {
   };
   es.onerror = function() {
     es.close(); btn.classList.remove('running'); btn.disabled = false;
-    _markGenerating(regenKey, false);
-    _hideGeneratingOverlay();
-    _regenProg.done(false);
+    if (regenKey === _currentKey) {
+      // Real failure on the active page — surface the error
+      _markGenerating(regenKey, false);
+      _hideGeneratingOverlay();
+      _regenProg.done(false);
+    }
+    // If user navigated away, preserve _generatingMonths so navigate-back can reconnect
   };
 }
 
@@ -6128,6 +6138,12 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
           _showSkeletons();
           _loadBar.resume(_regenProg._val);
           _fadeIn(els);
+          // Reconnect SSE in case it dropped when the user navigated away
+          var _rBtn = document.getElementById('reload-btn');
+          if (_rBtn && !_rBtn.disabled) {
+            _rBtn.classList.add('running'); _rBtn.disabled = true;
+            _listenToRegenSSE(key, _rBtn);
+          }
 
         } else if (_pendingFetches[key]) {
           // Fetch already in-flight — attach to it instead of starting a new one
@@ -6148,8 +6164,12 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
             .then(function() { if (key === _currentKey) _loadBar.done(); })
             .catch(function(err) {
               _loadBar.done();
-              console.error('Month navigation error:', err);
-              if (typeof toggleDebugPanel === 'function') toggleDebugPanel();
+              // Month not generated yet — auto-trigger regen instead of showing a static prompt
+              var _rBtn = document.getElementById('reload-btn');
+              if (_rBtn && !_rBtn.disabled) {
+                _rBtn.click();
+              }
+              console.error('Month navigation error (auto-regen triggered):', err);
             });
         }
       });

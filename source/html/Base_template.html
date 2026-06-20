@@ -353,8 +353,9 @@ body {
   cursor: pointer; display: flex; align-items: center; gap: 8px;
   box-shadow: 0 4px 18px rgba(30,157,139,0.45);
   white-space: nowrap; flex-shrink: 0;
-  transition: box-shadow 0.2s, opacity 0.2s;
+  transition: box-shadow 0.2s, opacity 0.2s, border-radius 0.35s;
 }
+#regen-progress-panel.visible + .reload-btn { border-radius: 0 26px 26px 0; }
 .reload-btn:hover { box-shadow: 0 6px 24px rgba(30,157,139,0.65); }
 .reload-btn.running { opacity: 0.65; cursor: wait; }
 
@@ -387,6 +388,7 @@ body {
   .regen-fab-group { bottom: 14px; right: 14px; }
   .reload-btn { width: 52px; padding: 0; border-radius: 50%; justify-content: center; }
   .reload-btn-label { display: none; }
+  #regen-progress-panel.visible + .reload-btn { border-radius: 50%; }
 }
 
 /* ── Regeneration progress panel — slides out left from button ── */
@@ -397,9 +399,10 @@ body {
   border-right: none;
   border-radius: 26px 0 0 26px;
   display: flex; align-items: center;
-  transition: max-width 0.38s cubic-bezier(0.4,0,0.2,1);
+  opacity: 0;
+  transition: max-width 0.38s cubic-bezier(0.4,0,0.2,1), opacity 0.2s ease;
 }
-#regen-progress-panel.visible { max-width: 230px; }
+#regen-progress-panel.visible { max-width: 230px; opacity: 1; }
 .regen-prog-inner {
   width: 210px; padding: 0 14px 0 22px;
   color: #0a4a40;
@@ -2690,11 +2693,14 @@ var _regenProg = {
     var panel = document.getElementById('regen-progress-panel');
     if (panel) panel.classList.add('visible');
     clearInterval(self._timer);
-    // Slow crawl so real log hints always arrive before the simulation overtakes them
+    // Slow crawl so real log hints always arrive before the simulation overtakes them.
+    // Cap at 99 so bar/carousel stay live even after the last milestone fires at 97%.
     self._timer = setInterval(function() {
-      if (self._val < 90) {
-        var remaining = 90 - self._val;
-        self._val = Math.min(90, self._val + Math.max(0.1, remaining * 0.02));
+      var cap = 99;
+      if (self._val < cap) {
+        var rate = self._val < 85 ? 0.02 : 0.005;
+        var remaining = cap - self._val;
+        self._val = Math.min(cap, self._val + Math.max(0.5, remaining * rate));
         self._set(Math.round(self._val));
       }
     }, 600);

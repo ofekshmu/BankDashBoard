@@ -2550,19 +2550,24 @@ function _buildRoller(list) {
       if (m.future) return;
       var self = this;
 
-      // If a regen is actively running, queue this month instead of navigating.
+      if (m.key === _currentKey) return;
+      // Already in queue — don't navigate or double-queue; just tap feedback.
+      if (_regenQueue.indexOf(m.key) >= 0) {
+        self.classList.add('tapped');
+        self.addEventListener('animationend', function() { self.classList.remove('tapped'); }, { once: true });
+        return;
+      }
+
+      // If a regen is actively running, decide: queue or navigate?
       var _anyActive = Object.keys(_generatingMonths).some(function(k) {
         return _regenQueue.indexOf(k) < 0;
       });
       if (_anyActive || _regenQueue.length > 0) {
-        if (m.key === _currentKey) return;
-        // Already in queue or actively generating — do nothing.
-        if (_generatingMonths[m.key] || _regenQueue.indexOf(m.key) >= 0) return;
-        // Month already has data — navigate normally; no regen needed.
-        if (_cacheGet(m.key)) {
-          // fall through to the normal navigate block below
+        // Generating month (not queued) or cached month — navigate normally.
+        if (_generatingMonths[m.key] || _cacheGet(m.key)) {
+          // fall through to navigate below
         } else {
-          // No cached data — this month would need regen; add to queue.
+          // No data, not generating — add to background queue.
           _regenQueue.push(m.key);
           _markGenerating(m.key, true);
           _markQueued(m.key);
@@ -2571,9 +2576,6 @@ function _buildRoller(list) {
           return;
         }
       }
-
-      // No regen running — navigate normally.
-      if (m.key === _currentKey) return;
       self.classList.add('tapped');
       self.addEventListener('animationend', function() { self.classList.remove('tapped'); }, { once: true });
       var alreadyCentered = (_viewCenterIdx === i);
@@ -3052,12 +3054,23 @@ function _listenToRegenSSE(regenKey, btn) {
     _stopRegenPoll(regenKey);
     btn.classList.remove('running'); btn.disabled = false;
     if (regenKey === _currentKey) {
-      // Real failure on the active page — surface the error
+      // Active page — surface the error
       _markGenerating(regenKey, false);
       _hideGeneratingOverlay();
       _regenProg.done(false);
+    } else {
+      // Background regen SSE dropped — clear silently so carousel doesn't lock up.
+      // If the server is still generating, navigating back will re-trigger via 409.
+      delete _generatingMonths[regenKey];
+      delete _regenPctMap[regenKey];
+      var _errItem = document.querySelector('#roller-track .cm-item[data-key="' + regenKey + '"]');
+      if (_errItem) {
+        _errItem.classList.remove('generating', 'gen-queued', 'gen-done');
+        var _errPct = _errItem.querySelector('.cm-gen-pct');
+        if (_errPct) { _errPct.textContent = ''; _errPct.style.opacity = ''; _errPct.style.height = ''; }
+      }
+      if (_regenQueue.length > 0) _popRegenQueue();
     }
-    // If user navigated away, preserve _generatingMonths so navigate-back can reconnect
   };
 }
 

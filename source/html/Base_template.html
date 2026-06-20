@@ -333,15 +333,26 @@ body {
 }
 .cm-item.gen-done .cm-dot { background: #22c55e !important; }
 
-/* ── Regeneration FAB (always fixed, both desktop + mobile) ── */
+/* ── Regeneration FAB group (fixed wrapper for panel + button) ── */
+.regen-fab-group {
+  position: fixed;
+  bottom: 22px; right: 18px;
+  z-index: 999;
+  display: flex;
+  flex-direction: row;   /* panel left, button right */
+  align-items: center;
+  direction: ltr;        /* override page RTL so flex order is predictable */
+  gap: 0;
+}
+
+/* ── FAB button — layout now handled by the group ─────────────── */
 .reload-btn {
-  position: fixed; bottom: 22px; right: 18px; z-index: 999;
   height: 52px; padding: 0 22px;
   background: var(--teal); color: #fff; border: none;
   border-radius: 26px; font-size: .85em; font-weight: 700;
   cursor: pointer; display: flex; align-items: center; gap: 8px;
   box-shadow: 0 4px 18px rgba(30,157,139,0.45);
-  white-space: nowrap;
+  white-space: nowrap; flex-shrink: 0;
   transition: box-shadow 0.2s, opacity 0.2s;
 }
 .reload-btn:hover { box-shadow: 0 6px 24px rgba(30,157,139,0.65); }
@@ -359,7 +370,7 @@ body {
 }
 .reload-btn.stale-db:hover { box-shadow: 0 6px 24px rgba(240,173,78,0.75); }
 
-/* Stale: code changed → red pulse (overrides amber) */
+/* Stale: code changed → red pulse */
 @keyframes _reloadGlowRed {
   0%, 100% { box-shadow: 0 4px 18px rgba(231,76,60,0.55), 0 0 0 0   rgba(231,76,60,0.45); }
   50%       { box-shadow: 0 4px 18px rgba(231,76,60,0.55), 0 0 0 10px rgba(231,76,60,0); }
@@ -373,51 +384,41 @@ body {
 
 .reload-btn-icon { font-size: 1.6em; line-height: 1; display: flex; align-items: center; }
 @media (max-width: 768px) {
+  .regen-fab-group { bottom: 14px; right: 14px; }
   .reload-btn { width: 52px; padding: 0; border-radius: 50%; justify-content: center; }
   .reload-btn-label { display: none; }
 }
 
-/* ── Regeneration progress panel (floats above the FAB) ─── */
+/* ── Regeneration progress panel — slides out left from button ── */
 #regen-progress-panel {
-  position: fixed;
-  bottom: 84px;   /* FAB bottom(22) + height(52) + gap(10) */
-  right: 14px;
-  z-index: 997;
-  background: transparent;
-  opacity: 0;
-  transform: translateY(6px);
-  pointer-events: none;
-  transition: opacity 0.3s ease, transform 0.3s ease;
+  max-width: 0; height: 52px; overflow: hidden;
+  background: rgba(30,157,139,0.14);
+  border: 1px solid rgba(30,157,139,0.28);
+  border-right: none;
+  border-radius: 26px 0 0 26px;
+  display: flex; align-items: center;
+  transition: max-width 0.38s cubic-bezier(0.4,0,0.2,1);
 }
-#regen-progress-panel.visible {
-  opacity: 1;
-  transform: translateY(0);
-  pointer-events: auto;
-}
+#regen-progress-panel.visible { max-width: 230px; }
 .regen-prog-inner {
-  background: rgba(15,22,45,0.88);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border-radius: 14px;
-  padding: 10px 16px;
-  min-width: 160px;
-  color: #fff; font-size: .78em;
+  width: 210px; padding: 0 14px 0 22px;
+  color: #0a4a40;
+  font-size: .78em; direction: rtl;
   display: flex; flex-direction: column; gap: 7px;
   white-space: nowrap;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.30);
 }
-#regen-prog-label { font-weight: 600; letter-spacing: .01em; }
+#regen-prog-label { font-weight: 700; letter-spacing: .01em; }
 .regen-prog-track {
-  height: 4px; background: rgba(255,255,255,0.2);
+  height: 4px; background: rgba(30,157,139,0.22);
   border-radius: 4px; overflow: hidden;
 }
 .regen-prog-fill {
   height: 100%; background: var(--teal); width: 0%;
   border-radius: 4px; transition: width 0.6s ease;
 }
-/* Mobile: panel is already positioned above the FAB — keep visible */
 @media (max-width: 768px) {
-  #regen-progress-panel { right: 10px; }
+  #regen-progress-panel { height: 44px; border-radius: 22px 0 0 22px; }
+  .regen-prog-inner { width: 155px; padding: 0 10px 0 16px; font-size: .74em; }
 }
 
 /* ── Universal page-load / regen progress bar ───────────── */
@@ -1889,16 +1890,18 @@ body {
   <!-- Month-switch SPA loading overlay -->
   <div id="month-nav-overlay"><div class="mnav-spinner"></div></div>
 
-  <!-- Regeneration FAB: progress panel + button -->
-  <div id="regen-progress-panel">
-    <div class="regen-prog-inner">
-      <span id="regen-prog-label">מחשב…</span>
-      <div class="regen-prog-track"><div class="regen-prog-fill" id="regen-prog-fill"></div></div>
+  <!-- Regeneration FAB: panel slides left from button -->
+  <div class="regen-fab-group">
+    <div id="regen-progress-panel">
+      <div class="regen-prog-inner">
+        <span id="regen-prog-label">מחשב…</span>
+        <div class="regen-prog-track"><div class="regen-prog-fill" id="regen-prog-fill"></div></div>
+      </div>
     </div>
+    <button class="reload-btn" id="reload-btn" onclick="reloadCurrent()" title="חשב מחדש">
+      <span class="reload-btn-icon">&#8635;</span><span class="reload-btn-label">חשב מחדש</span>
+    </button>
   </div>
-  <button class="reload-btn" id="reload-btn" onclick="reloadCurrent()" title="חשב מחדש">
-    <span class="reload-btn-icon">&#8635;</span><span class="reload-btn-label">חשב מחדש</span>
-  </button>
 
 
   <!-- Organizer missing-file alerts (injected by Python) -->
@@ -2789,21 +2792,33 @@ function _reloadGeneral() {
         try { showCCPrompt(JSON.parse(data.slice(14))); } catch(_e) {}
         return;
       }
-      // Map known log keywords → progress milestones so the bar tracks real work
+      // Map known log keywords → calibrated milestones so the bar tracks real work
       var _lc = data.toLowerCase();
       var _MILESTONES = [
-        ['cash flow data',          15],
-        ['linear plots',            25],
-        ['spending pie',            35],
-        ['earnings pie',            44],
-        ['investments pie',         52],
-        ['general bar plot',        60],
-        ['user defined bar',        67],
-        ['card distribution',       73],
-        ['payments data',           79],
-        ['smart alert',             86],
-        ['mortgage',                91],
-        ['html report',             95],
+        // Early validation steps (happen before any chart generation)
+        ['witdrawals check',          5],   // "Witdrawals Check Executed" (codebase typo)
+        ['withdrawals check',         5],
+        ['constants validation',      8],
+        ['format validation',        11],
+        ['validation passed',        14],   // "Bank Transactions validation passed!"
+        ['processing card',          18],
+        ['processing bank',          23],
+        // Chart generation steps
+        ['linear plots',             28],
+        ['cash flow',                34],   // "generating cash flow data..."
+        ['spending pie',             40],
+        ['earnings pie',             46],
+        ['investments pie',          53],
+        ['general bar plot',         59],
+        ['user defined bar',         65],
+        ['card distribution',        71],
+        ['payments data',            77],
+        // Alerts, extras, final
+        ['smart alert detection',    83],
+        ['alert(s) generated',       87],
+        ['mortgage analysis',        90],
+        ['organizer status',         94],
+        ['html report',              97],
       ];
       for (var _mi = 0; _mi < _MILESTONES.length; _mi++) {
         if (_lc.indexOf(_MILESTONES[_mi][0]) !== -1 && _MILESTONES[_mi][1] > _regenProg._val) {

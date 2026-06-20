@@ -2767,9 +2767,11 @@ function _markGenerating(key, on) {
   var item = document.querySelector('#roller-track .cm-item[data-key="' + key + '"]');
   if (on) {
     _generatingMonths[key] = true;
+    try { sessionStorage.setItem('_regen_' + key, String(Date.now())); } catch(_e) {}
     if (item) { item.classList.add('generating'); item.classList.remove('gen-done'); }
   } else {
     delete _generatingMonths[key];
+    try { sessionStorage.removeItem('_regen_' + key); } catch(_e) {}
     if (item) {
       item.classList.remove('generating');
       var pctEl = item.querySelector('.cm-gen-pct');
@@ -2890,6 +2892,16 @@ function _listenToRegenSSE(regenKey, btn) {
 function _reloadGeneral() {
   if (!_currentKey) return;
   var regenKey = _currentKey;
+  // Guard: if this key is already being generated (within-SPA), just reconnect
+  if (_generatingMonths[regenKey]) {
+    var _btn0 = document.getElementById('reload-btn');
+    if (_btn0 && !_btn0.disabled) {
+      _btn0.classList.add('running'); _btn0.disabled = true;
+      _regenProg.start();
+      _listenToRegenSSE(regenKey, _btn0);
+    }
+    return;
+  }
   var btn = document.getElementById('reload-btn');
   var parts = regenKey.split('_');
   var year  = parseInt(parts[0], 10);
@@ -6010,15 +6022,55 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     }
     _showSkeletons();
     _loadBar.start();
+
+    // If sessionStorage shows a recent regen for this key, pre-populate _generatingMonths
+    // so that if _fetchAndRender fails we know to reconnect rather than show an error.
+    (function() {
+      try {
+        var _ts = sessionStorage.getItem('_regen_' + initKey);
+        if (_ts && (Date.now() - parseInt(_ts, 10)) < 600000) {
+          _generatingMonths[initKey] = true;
+        }
+      } catch(_e) {}
+    })();
+
     _fetchAndRender(initKey)
       .then(function() { if (_currentKey === initKey) _loadBar.done(); })
       .catch(function(err) {
-        if (_currentKey === initKey) _loadBar.done();
-        var kr = document.getElementById('kpi-row');
-        if (kr) kr.innerHTML =
-          '<div style="color:#e74c3c;padding:20px 0">שגיאה בטעינת נתונים: ' + _esc(String(err)) + '</div>';
-        console.error('Dynamic page load error:', err);
-        if (typeof toggleDebugPanel === 'function') setTimeout(toggleDebugPanel, 400);
+        if (_currentKey !== initKey) return;  // user navigated away — don't touch the UI
+        // Data not available. Check server: is a regen already running (or start one if page missing)?
+        var _parts = initKey.split('_');
+        var _yr = parseInt(_parts[0], 10), _mo = parseInt(_parts[1], 10);
+        var _dateStr = _yr + '-' + (_mo < 10 ? '0' + _mo : '' + _mo) + '-01';
+        fetch('/api/analysis', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({month: 'pick', date: _dateStr})
+        }).then(function(r2) {
+          if (_currentKey !== initKey) return;
+          var _btn = document.getElementById('reload-btn');
+          if (r2.status === 409 || r2.ok) {
+            // 409 = already running → reconnect;  200 = page missing, just started → attach
+            _markGenerating(initKey, true);
+            if (_btn) { _btn.classList.add('running'); _btn.disabled = true; }
+            _regenProg.start();
+            _listenToRegenSSE(initKey, _btn);
+          } else {
+            _loadBar.done();
+            var _kr = document.getElementById('kpi-row');
+            if (_kr) _kr.innerHTML =
+              '<div style="color:#e74c3c;padding:20px 0">שגיאה בטעינת נתונים: ' + _esc(String(err)) + '</div>';
+            console.error('Dynamic page load error:', err);
+            if (typeof toggleDebugPanel === 'function') setTimeout(toggleDebugPanel, 400);
+          }
+        }).catch(function() {
+          if (_currentKey !== initKey) return;
+          _loadBar.done();
+          var _kr = document.getElementById('kpi-row');
+          if (_kr) _kr.innerHTML =
+            '<div style="color:#e74c3c;padding:20px 0">שגיאה בטעינת נתונים: ' + _esc(String(err)) + '</div>';
+          console.error('Dynamic page load error:', err);
+        });
       });
   }
 

@@ -377,21 +377,34 @@ body {
   .reload-btn-label { display: none; }
 }
 
-/* ── Regeneration progress panel (slides left from FAB) ───── */
+/* ── Regeneration progress panel (floats above the FAB) ─── */
 #regen-progress-panel {
-  position: fixed; bottom: 22px; right: 80px; z-index: 997;
-  height: 52px; max-width: 0; overflow: hidden;
-  background: var(--navy); border-radius: 26px 0 0 26px;
-  display: flex; align-items: center;
-  box-shadow: -4px 4px 20px rgba(0,0,0,0.18);
-  transition: max-width 0.35s cubic-bezier(0.4,0,0.2,1);
+  position: fixed;
+  bottom: 84px;   /* FAB bottom(22) + height(52) + gap(10) */
+  right: 14px;
+  z-index: 997;
+  background: transparent;
+  opacity: 0;
+  transform: translateY(6px);
+  pointer-events: none;
+  transition: opacity 0.3s ease, transform 0.3s ease;
 }
-#regen-progress-panel.visible { max-width: 230px; }
+#regen-progress-panel.visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
 .regen-prog-inner {
-  width: 210px; padding: 0 18px 0 22px;
+  background: rgba(15,22,45,0.88);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: 14px;
+  padding: 10px 16px;
+  min-width: 160px;
   color: #fff; font-size: .78em;
   display: flex; flex-direction: column; gap: 7px;
   white-space: nowrap;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.30);
 }
 #regen-prog-label { font-weight: 600; letter-spacing: .01em; }
 .regen-prog-track {
@@ -402,7 +415,10 @@ body {
   height: 100%; background: var(--teal); width: 0%;
   border-radius: 4px; transition: width 0.6s ease;
 }
-@media (max-width: 768px) { #regen-progress-panel { display: none; } }
+/* Mobile: panel is already positioned above the FAB — keep visible */
+@media (max-width: 768px) {
+  #regen-progress-panel { right: 10px; }
+}
 
 /* ── Universal page-load / regen progress bar ───────────── */
 #page-load-bar-wrap {
@@ -2773,7 +2789,30 @@ function _reloadGeneral() {
         try { showCCPrompt(JSON.parse(data.slice(14))); } catch(_e) {}
         return;
       }
-      // Try to nudge progress from percentage hints in log messages
+      // Map known log keywords → progress milestones so the bar tracks real work
+      var _lc = data.toLowerCase();
+      var _MILESTONES = [
+        ['cash flow data',          15],
+        ['linear plots',            25],
+        ['spending pie',            35],
+        ['earnings pie',            44],
+        ['investments pie',         52],
+        ['general bar plot',        60],
+        ['user defined bar',        67],
+        ['card distribution',       73],
+        ['payments data',           79],
+        ['smart alert',             86],
+        ['mortgage',                91],
+        ['html report',             95],
+      ];
+      for (var _mi = 0; _mi < _MILESTONES.length; _mi++) {
+        if (_lc.indexOf(_MILESTONES[_mi][0]) !== -1 && _MILESTONES[_mi][1] > _regenProg._val) {
+          _regenProg._val = _MILESTONES[_mi][1];
+          _regenProg._set(_MILESTONES[_mi][1]);
+          break;
+        }
+      }
+      // Also honour explicit % hints in log messages (e.g. from organizer pages)
       var pctMatch = data.match(/\b(\d{1,3})\s*%/);
       if (pctMatch) {
         var hint = parseInt(pctMatch[1], 10);
@@ -5937,10 +5976,11 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       var btn = document.getElementById('reload-btn');
       if (btn) btn.classList.remove('stale-db', 'stale-code');
 
-      var cached = _cacheGet(key);
-
       // Always fade out first, then render/fetch
       _fadeOut(function(els) {
+        // Re-evaluate cache INSIDE the callback — the 150ms fadeOut delay means an
+        // in-flight fetch may have completed and populated the cache by the time we get here.
+        var cached = _cacheGet(key);
         if (cached) {
           _yyyy_mm = key;
           _renderDynamicData(cached);

@@ -2798,11 +2798,14 @@ var _regenProg = {
     var panel = document.getElementById('regen-progress-panel');
     if (panel) panel.classList.add('visible');
     clearInterval(self._timer);
-    // Smooth display: animate _val toward the polled target (_regenPctMap[currentKey]).
-    // The poll (every 1.5 s) sets the target; this timer fills the visual gap between polls.
+    // Smooth display: animate _val toward the polled target of the actively generating month.
+    // Works across navigation — when current page isn't the generating one, we find the active key.
     self._timer = setInterval(function() {
-      var crawlKey = _currentKey;
-      if (crawlKey && _generatingMonths[crawlKey]) {
+      // Prefer current page if it's actively generating; otherwise find any active background key
+      var crawlKey = (_currentKey && _generatingMonths[_currentKey] && _regenQueue.indexOf(_currentKey) < 0)
+        ? _currentKey
+        : (Object.keys(_generatingMonths).find(function(k) { return _regenQueue.indexOf(k) < 0; }) || null);
+      if (crawlKey) {
         var target = (_regenPctMap[crawlKey] != null) ? _regenPctMap[crawlKey] : self._val;
         if (self._val < target) {
           self._val = Math.min(self._val + 0.4, target);
@@ -2826,8 +2829,12 @@ var _regenProg = {
   },
   // All UI elements derive from _regenPctMap[k] — pct is only a fallback.
   _set: function(pct, label) {
-    var panelPct = (_currentKey && _regenPctMap[_currentKey] != null)
-      ? Math.round(_regenPctMap[_currentKey]) : pct;
+    // Find the active key: current page if generating, else any active background key
+    var _activeKey = (_currentKey && _generatingMonths[_currentKey] && _regenQueue.indexOf(_currentKey) < 0)
+      ? _currentKey
+      : (Object.keys(_generatingMonths).find(function(k) { return _regenQueue.indexOf(k) < 0; }) || null);
+    var panelPct = (_activeKey && _regenPctMap[_activeKey] != null)
+      ? Math.round(_regenPctMap[_activeKey]) : pct;
     var fill = document.getElementById('regen-prog-fill');
     var lbl  = document.getElementById('regen-prog-label');
     if (fill) fill.style.width = panelPct + '%';
@@ -2847,7 +2854,7 @@ var _regenProg = {
         if (rp) rp.textContent = Math.round(_regenPctMap[k] != null ? _regenPctMap[k] : pct) + '%';
       }
     });
-    if (_currentKey && _generatingMonths[_currentKey]) _loadBar.set(panelPct);
+    if (_activeKey) _loadBar.set(panelPct);
   }
 };
 
@@ -6306,12 +6313,14 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
 
       // Always fade out first, then render/fetch
       _fadeOut(function(els) {
-        // Hide bottom progress panel when navigating to a page that isn't being regenerated;
-        // show it (or keep it) when navigating back to the generating page.
+        // Keep progress panel visible as long as any month is actively generating (not queued).
         var _progPanel = document.getElementById('regen-progress-panel');
         if (_progPanel) {
-          if (_generatingMonths[key]) _progPanel.classList.add('visible');
-          else                        _progPanel.classList.remove('visible');
+          var _anyActiveRegen = Object.keys(_generatingMonths).some(function(k) {
+            return _regenQueue.indexOf(k) < 0;
+          });
+          if (_anyActiveRegen) _progPanel.classList.add('visible');
+          else                 _progPanel.classList.remove('visible');
         }
 
         // Re-evaluate cache INSIDE the callback — the 150ms fadeOut delay means an

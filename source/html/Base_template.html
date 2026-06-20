@@ -2858,20 +2858,27 @@ function _listenToRegenSSE(regenKey, btn) {
     }
     if (data.startsWith('__DONE__')) {
       es.close();
-      btn.classList.remove('running', 'stale-db', 'stale-code'); btn.disabled = false;
       _regenCompletedAt = Date.now();
       fetch('/api/general/' + regenKey + '/invalidate', {method: 'POST'})
         .then(function() { return window._monthNav ? window._monthNav.refresh(regenKey) : null; })
         .then(function() {
           _regenCompletedAt = Date.now();
           _markGenerating(regenKey, false);
+          // Only reset button + progress if no other month is still regenerating
+          var _otherRegen = Object.keys(_generatingMonths).length > 0;
+          if (!_otherRegen) {
+            btn.classList.remove('running', 'stale-db', 'stale-code'); btn.disabled = false;
+          }
           if (regenKey === _currentKey) {
             _regenProg._set(99, 'טוען נתונים…');
             return _fetchAndRender(regenKey)
               .then(function() { _regenProg.done(true); _hideGeneratingOverlay(); })
               .catch(function() { _regenProg.done(false); _hideGeneratingOverlay(); });
           } else {
-            _regenProg.done(true);
+            // Don't stop the progress controller if another month is currently regenerating
+            if (!_otherRegen) {
+              _regenProg.done(true);
+            }
             _hideGeneratingOverlay();
           }
         })
@@ -2887,10 +2894,14 @@ function _listenToRegenSSE(regenKey, btn) {
     if (data === '__ERROR__') {
       es.close();
       appendLog('✗ שגיאה בניתוח', 'err');
-      btn.classList.remove('running'); btn.disabled = false;
       _markGenerating(regenKey, false);
       _hideGeneratingOverlay();
-      _regenProg.done(false); return;
+      // Only reset button + progress if no other month is still regenerating
+      if (Object.keys(_generatingMonths).length === 0) {
+        btn.classList.remove('running'); btn.disabled = false;
+        _regenProg.done(false);
+      }
+      return;
     }
     appendLog(data);
   };
@@ -6117,6 +6128,14 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
 
       // Always fade out first, then render/fetch
       _fadeOut(function(els) {
+        // Hide bottom progress panel when navigating to a page that isn't being regenerated;
+        // show it (or keep it) when navigating back to the generating page.
+        var _progPanel = document.getElementById('regen-progress-panel');
+        if (_progPanel) {
+          if (_generatingMonths[key]) _progPanel.classList.add('visible');
+          else                        _progPanel.classList.remove('visible');
+        }
+
         // Re-evaluate cache INSIDE the callback — the 150ms fadeOut delay means an
         // in-flight fetch may have completed and populated the cache by the time we get here.
         var cached = _cacheGet(key);
@@ -6164,11 +6183,9 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
             .then(function() { if (key === _currentKey) _loadBar.done(); })
             .catch(function(err) {
               _loadBar.done();
-              // Month not generated yet — auto-trigger regen instead of showing a static prompt
-              var _rBtn = document.getElementById('reload-btn');
-              if (_rBtn && !_rBtn.disabled) {
-                _rBtn.click();
-              }
+              // Month not generated yet — call _reloadGeneral() directly (bypasses disabled-button
+              // guard so auto-regen works even when another month's regen is still running)
+              if (key === _currentKey) _reloadGeneral();
               console.error('Month navigation error (auto-regen triggered):', err);
             });
         }

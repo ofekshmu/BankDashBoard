@@ -1799,7 +1799,7 @@ body {
     <button class="sidebar-close-btn" onclick="closeNav()" aria-label="סגור תפריט">✕</button>
   </div>
   <div class="sidebar-scroll">
-    <button class="nav-item" id="nav-overview" onclick="showPanel('overview',this);closeNav()">ניתוח חודשי</button>
+    <button class="nav-item" id="nav-overview" onclick="_navToMonthly(this);closeNav()">ניתוח חודשי</button>
     <div class="nav-sep"></div>
     <button class="nav-item" id="nav-accounts" onclick="showPanel('accounts',this);closeNav()">חשבונות</button>
     <a class="nav-item" href="/housing">דיור</a>
@@ -2131,6 +2131,19 @@ function showPanel(name, btn) {
   else { url.searchParams.delete('panel'); }
   window.history.replaceState({}, '', url.toString());
 }
+// ── Smart nav to monthly analysis (from any page) ─────────
+function _navToMonthly(btn) {
+  // If panel-overview exists we're on the monthly analysis SPA — just switch panels
+  if (document.getElementById('panel-overview')) {
+    showPanel('overview', btn);
+    return;
+  }
+  // Navigate to last visited month, falling back to root
+  var lastKey = null;
+  try { lastKey = localStorage.getItem('lv_month'); } catch(_) {}
+  window.location.href = lastKey ? '/general/' + lastKey : '/';
+}
+
 // ── Auto-open panel from URL param ────────────────────────
 (function() {
   var params = new URLSearchParams(window.location.search);
@@ -2620,12 +2633,21 @@ var _loadBar = (function() {
       var b = _bar();
       if (b) b.style.transition = 'width 0.35s ease';
       _setRaw(v);
-      // Resume asymptotic crawl from new position
+      // Simulate only 4 % ahead of the set point so future set() hints are never skipped
+      var cap = Math.min(v + 4, 96);
       _sim = setInterval(function() {
-        var remaining = 96 - _cur;
-        var step = Math.max(0.18, remaining * 0.04);
-        if (_cur < 96) { _cur = Math.min(_cur + step, 96); _setRaw(_cur); }
+        if (_cur < cap) { _cur = Math.min(_cur + 0.15, cap); _setRaw(_cur); }
       }, 80);
+    },
+    // Resume displaying the bar at a known value (e.g. when navigating back to a loading page)
+    resume: function(v) {
+      clearInterval(_sim);
+      _key = _currentKey || null;
+      _cur = v || 0;
+      var b = _bar(), w = _wrap();
+      if (b) { b.style.transition = 'width 0.35s ease'; b.style.width = _cur + '%'; }
+      if (w) w.classList.add('active');
+      _setRollerPct(_key, Math.round(_cur) + '%');
     },
     done: function() {
       clearInterval(_sim);
@@ -2649,10 +2671,13 @@ var _regenProg = {
     var panel = document.getElementById('regen-progress-panel');
     if (panel) panel.classList.add('visible');
     clearInterval(self._timer);
+    // Slow crawl so real log hints always arrive before the simulation overtakes them
     self._timer = setInterval(function() {
-      var remaining = 88 - self._val;
-      self._val = Math.min(88, self._val + remaining * 0.05);
-      self._set(Math.round(self._val));
+      if (self._val < 90) {
+        var remaining = 90 - self._val;
+        self._val = Math.min(90, self._val + Math.max(0.1, remaining * 0.02));
+        self._set(Math.round(self._val));
+      }
     }, 600);
     _loadBar.start();
   },
@@ -2718,14 +2743,16 @@ function _hideGeneratingOverlay() {
 
 function _reloadGeneral() {
   if (!_currentKey) return;
+  // Capture key now — _currentKey may change if the user navigates away during regen
+  var regenKey = _currentKey;
   var btn = document.getElementById('reload-btn');
-  var parts = _currentKey.split('_');
+  var parts = regenKey.split('_');
   var year  = parseInt(parts[0], 10);
   var month = parseInt(parts[1], 10);
   var dateStr = year + '-' + (month < 10 ? '0' + month : '' + month) + '-01';
 
   btn.classList.add('running'); btn.disabled = true;
-  _markGenerating(_currentKey, true);
+  _markGenerating(regenKey, true);
   if (typeof window._showSkeletons === 'function') window._showSkeletons();
   _regenProg.start();
 
@@ -2758,19 +2785,19 @@ function _reloadGeneral() {
         es.close();
         btn.classList.remove('running', 'stale-db', 'stale-code'); btn.disabled = false;
         _regenCompletedAt = Date.now();
-        fetch('/api/general/' + _currentKey + '/invalidate', {method: 'POST'})
-          .then(function() { return window._monthNav ? window._monthNav.refresh(_currentKey) : null; })
+        fetch('/api/general/' + regenKey + '/invalidate', {method: 'POST'})
+          .then(function() { return window._monthNav ? window._monthNav.refresh(regenKey) : null; })
           .then(function() {
             _regenCompletedAt = Date.now();
             _regenProg.done(true);
-            _markGenerating(_currentKey, false);
+            _markGenerating(regenKey, false);
             _hideGeneratingOverlay();
           })
           .catch(function() {
             _regenProg.done(false);
             var _curPanel = new URLSearchParams(window.location.search).get('panel') || '';
             setTimeout(function() {
-              location.href = '/general/' + _currentKey + (_curPanel ? '?panel=' + _curPanel : '');
+              location.href = '/general/' + regenKey + (_curPanel ? '?panel=' + _curPanel : '');
             }, 300);
           });
         return;
@@ -2779,7 +2806,7 @@ function _reloadGeneral() {
         es.close();
         appendLog('✗ שגיאה בניתוח', 'err');
         btn.classList.remove('running'); btn.disabled = false;
-        _markGenerating(_currentKey, false);
+        _markGenerating(regenKey, false);
         _hideGeneratingOverlay();
         _regenProg.done(false); return;
       }
@@ -2787,7 +2814,7 @@ function _reloadGeneral() {
     };
     es.onerror = function() {
       es.close(); btn.classList.remove('running'); btn.disabled = false;
-      _markGenerating(_currentKey, false);
+      _markGenerating(regenKey, false);
       _hideGeneratingOverlay();
       _regenProg.done(false);
     };
@@ -4585,9 +4612,12 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   0%   { background-position: 200% 0; }
   100% { background-position: -200% 0; }
 }
-.skel-kpi   { height: 90px; margin: 6px; }
-.skel-chart { height: 260px; margin: 8px 0; }
-.skel-row   { height: 48px; margin: 4px 0; border-radius: 8px; }
+.skel-kpi        { height: 90px; margin: 6px; }
+.skel-chart      { height: 260px; margin: 8px 0; }
+.skel-row        { height: 48px; margin: 4px 0; border-radius: 8px; }
+.skel-chart-sm   { height: 180px; margin: 8px 0; }
+/* Skeleton chart-card: respects the existing chart-card padding/shadow */
+.chart-card.skel-card { box-shadow: none; border: none; padding: 0; }
 </style>
 
 <script>
@@ -4608,6 +4638,9 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     var s = Math.abs(v).toLocaleString('he-IL', {minimumFractionDigits: d, maximumFractionDigits: d}) + '₪';
     return v < 0 ? '-' + s : s;
   }
+
+  // ── In-flight fetch tracker (key → Promise) — prevents duplicate fetches ─
+  var _pendingFetches = {};
 
   // ── Client-side data cache (sessionStorage, 1-hour TTL) ───────────────
   var _CACHE_PFX = 'gd_';
@@ -4642,12 +4675,31 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     var kr  = document.getElementById('kpi-row');
     var kr2 = document.getElementById('kpi-row-2');
     var skel3 = '<div class="skel-card skel-row"></div><div class="skel-card skel-row"></div><div class="skel-card skel-row"></div>';
+    var skel5 = skel3 + '<div class="skel-card skel-row"></div><div class="skel-card skel-row"></div>';
     if (kr)  kr.innerHTML  = '<div class="skel-card skel-kpi"></div><div class="skel-card skel-kpi"></div><div class="skel-card skel-kpi"></div>';
     if (kr2) kr2.innerHTML = '<div class="skel-card skel-kpi"></div><div class="skel-card skel-kpi"></div>';
+
     var sl = document.getElementById('spendings-list');
     var el = document.getElementById('earnings-list');
-    if (sl) sl.innerHTML = skel3;
-    if (el) el.innerHTML = skel3;
+    if (sl) sl.innerHTML = skel5;
+    if (el) el.innerHTML = skel5;
+
+    // Charts grid — 3 shimmer chart cards
+    var charts = document.getElementById('overview-charts');
+    if (charts) charts.innerHTML =
+      '<div class="skel-card skel-chart" style="border-radius:12px"></div>' +
+      '<div class="skel-card skel-chart" style="border-radius:12px"></div>' +
+      '<div class="skel-card skel-chart" style="border-radius:12px"></div>';
+
+    // Payments grid
+    var pg = document.getElementById('tx-payments-grid');
+    if (pg) pg.innerHTML =
+      '<div class="skel-card skel-chart-sm" style="border-radius:12px"></div>' +
+      '<div class="skel-card skel-chart-sm" style="border-radius:12px"></div>';
+
+    // Accounts table
+    var acct = document.getElementById('accounts-table');
+    if (acct) acct.innerHTML = skel3;
   }
 
   // ── Tooltip markup helper ─────────────────────────────────────────────
@@ -5780,11 +5832,13 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   }
 
   // ── Core fetch + render ───────────────────────────────────────────────
-  function _fetchAndRender(key, opts) {
-    opts = opts || {};
-    return fetch('/api/general/' + key + '/data')
+  function _fetchAndRender(key) {
+    // Reuse an in-flight request for the same key rather than duplicating it
+    if (_pendingFetches[key]) return _pendingFetches[key];
+
+    var p = fetch('/api/general/' + key + '/data')
       .then(function(r) {
-        _loadBar.set(55);
+        if (key === _currentKey) _loadBar.set(55);
         return r.json().then(function(d) {
           if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
           return d;
@@ -5792,13 +5846,25 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       })
       .then(function(d) {
         if (d.error) throw new Error(d.error);
-        _loadBar.set(72);
+        // Always cache — even if user navigated away, they can come back
         _cacheSet(key, d);
-        _yyyy_mm = key;
-        _renderDynamicData(d);
-        _loadBar.set(92);
+        // Only render + update UI when this key is still the active page
+        if (key === _currentKey) {
+          _loadBar.set(72);
+          _yyyy_mm = key;
+          _renderDynamicData(d);
+          _loadBar.set(92);
+        }
+        delete _pendingFetches[key];
         return d;
+      })
+      .catch(function(err) {
+        delete _pendingFetches[key];
+        throw err;
       });
+
+    _pendingFetches[key] = p;
+    return p;
   }
 
   // ── Content fade helper ───────────────────────────────────────────────
@@ -5822,10 +5888,11 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
 
   // ── Init on page load ─────────────────────────────────────────────────
   function _initDynamicPage() {
-    var cached = _cacheGet(_yyyy_mm);
+    var initKey = _yyyy_mm;
+    var cached = _cacheGet(initKey);
     if (cached) {
       _renderDynamicData(cached);
-      fetch('/api/stale/' + _yyyy_mm)
+      fetch('/api/stale/' + initKey)
         .then(function(r) { return r.json(); })
         .then(function(d) {
           var btn = document.getElementById('reload-btn');
@@ -5836,10 +5903,10 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     }
     _showSkeletons();
     _loadBar.start();
-    _fetchAndRender(_yyyy_mm)
-      .then(function() { _loadBar.done(); })
+    _fetchAndRender(initKey)
+      .then(function() { if (_currentKey === initKey) _loadBar.done(); })
       .catch(function(err) {
-        _loadBar.done();
+        if (_currentKey === initKey) _loadBar.done();
         var kr = document.getElementById('kpi-row');
         if (kr) kr.innerHTML =
           '<div style="color:#e74c3c;padding:20px 0">שגיאה בטעינת נתונים: ' + _esc(String(err)) + '</div>';
@@ -5853,6 +5920,9 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     navigate: function(key, skipPush) {
       if (!key) return;
       _currentKey = key;
+      // Persist so _navToMonthly can route back from other pages
+      try { localStorage.setItem('lv_month', key); } catch(_) {}
+
       if (!skipPush) {
         var url = '/general/' + key;
         var panel = new URLSearchParams(window.location.search).get('panel') || '';
@@ -5883,26 +5953,32 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
               if (btn && d.stale) { btn.classList.remove('stale-code'); btn.classList.add('stale-db'); }
             })
             .catch(function() {});
+
         } else if (_generatingMonths[key]) {
+          // Regen in progress — show skeletons and resume the progress bar at current regen %
+          _showSkeletons();
+          _loadBar.resume(_regenProg._val);
+          _fadeIn(els);
+
+        } else if (_pendingFetches[key]) {
+          // Fetch already in-flight — attach to it instead of starting a new one
+          _showSkeletons();
+          _loadBar.start();
+          _fadeIn(els);
+          // _fetchAndRender will render when the promise resolves (key === _currentKey guard inside)
+          _pendingFetches[key]
+            .then(function() { if (key === _currentKey) _loadBar.done(); })
+            .catch(function() { _loadBar.done(); });
+
+        } else {
+          // Start new fetch — show skeletons immediately so the page isn't empty
+          _loadBar.start();
           _showSkeletons();
           _fadeIn(els);
-        } else {
-          _loadBar.start();
-          fetch('/api/general/' + key + '/data')
-            .then(function(r) { _loadBar.set(55); return r.json(); })
-            .then(function(d) {
-              if (d.error) throw new Error(d.error);
-              _loadBar.set(72);
-              _cacheSet(key, d);
-              _yyyy_mm = key;
-              _renderDynamicData(d);
-              _loadBar.set(92);
-              _loadBar.done();
-              _fadeIn(els);
-            })
+          _fetchAndRender(key)
+            .then(function() { if (key === _currentKey) _loadBar.done(); })
             .catch(function(err) {
               _loadBar.done();
-              _fadeIn(els);
               console.error('Month navigation error:', err);
               if (typeof toggleDebugPanel === 'function') toggleDebugPanel();
             });

@@ -2814,9 +2814,11 @@ var _regenProg = {
 };
 
 // ── Generating-month tracking ──────────────────────────────
-var _generatingMonths = {};   // key → true while regenerating
+var _generatingMonths = {};   // key → true while regenerating (or waiting in queue)
 var _regenPctMap = {};        // key → last-known regen progress % (set by server poll)
 var _regenPollTimers = {};    // key → setInterval handle for /api/regen-progress/<key> polling
+var _waitingMonths = {};      // key → true when queued behind another running month (409 case)
+var _openSSE = {};            // key → EventSource (tracks open SSE to prevent competing connections)
 var _regenCompletedAt = 0;   // Date.now() of last successful regen — suppresses false stale for 15s
 
 function _markGenerating(key, on) {
@@ -2883,8 +2885,11 @@ function _startRegenPoll(regenKey) {
 // Attach SSE listener to a running /api/logs stream for regenKey.
 // Called both on a fresh 200 start AND when 409 is returned (reconnect case).
 function _listenToRegenSSE(regenKey, btn) {
+  // Close any stale SSE for this key before opening a fresh one (prevents queue-stealing)
+  if (_openSSE[regenKey]) { _openSSE[regenKey].close(); delete _openSSE[regenKey]; }
   _startRegenPoll(regenKey);  // begin polling server-side progress for this key
   var es = new EventSource('/api/logs');
+  _openSSE[regenKey] = es;
   es.onmessage = function(evt) {
     var data = evt.data;
     if (!data || data === '__CONNECTED__') return;
@@ -2893,7 +2898,7 @@ function _listenToRegenSSE(regenKey, btn) {
       return;
     }
     if (data.startsWith('__DONE__')) {
-      es.close();
+      es.close(); delete _openSSE[regenKey];
       _stopRegenPoll(regenKey);
       _regenCompletedAt = Date.now();
       fetch('/api/general/' + regenKey + '/invalidate', {method: 'POST'})
@@ -2912,9 +2917,28 @@ function _listenToRegenSSE(regenKey, btn) {
               .then(function() { _regenProg.done(true); _hideGeneratingOverlay(); })
               .catch(function() { _regenProg.done(false); _hideGeneratingOverlay(); });
           } else {
-            // Don't stop the progress controller if another month is currently regenerating
-            if (!_otherRegen) {
-              _regenProg.done(true);
+            // A non-current month finished — check if current page was queued waiting for it.
+            var _wasWaiting = _currentKey && _waitingMonths[_currentKey];
+            // Clean up all waiting months (server is now free).
+            Object.keys(_waitingMonths).forEach(function(wk) {
+              delete _waitingMonths[wk];
+              if (wk !== _currentKey) _markGenerating(wk, false);
+            });
+            if (_wasWaiting) {
+              // Auto-start the current page's regen now that the server is free.
+              var _wBtn = document.getElementById('reload-btn');
+              var _wParts = _currentKey.split('_');
+              var _wYr = parseInt(_wParts[0], 10), _wMo = parseInt(_wParts[1], 10);
+              var _wDate = _wYr + '-' + (_wMo < 10 ? '0' + _wMo : '' + _wMo) + '-01';
+              fetch('/api/analysis', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({month: 'pick', date: _wDate})
+              }).then(function(r3) {
+                if (r3 && r3.ok) _listenToRegenSSE(_currentKey, _wBtn);
+              }).catch(function() {});
+            } else {
+              if (!_otherRegen) _regenProg.done(true);
             }
             _hideGeneratingOverlay();
           }
@@ -2929,7 +2953,7 @@ function _listenToRegenSSE(regenKey, btn) {
       return;
     }
     if (data === '__ERROR__') {
-      es.close();
+      es.close(); delete _openSSE[regenKey];
       _stopRegenPoll(regenKey);
       appendLog('✗ שגיאה בניתוח', 'err');
       _markGenerating(regenKey, false);
@@ -2944,7 +2968,7 @@ function _listenToRegenSSE(regenKey, btn) {
     appendLog(data);
   };
   es.onerror = function() {
-    es.close();
+    es.close(); delete _openSSE[regenKey];
     _stopRegenPoll(regenKey);
     btn.classList.remove('running'); btn.disabled = false;
     if (regenKey === _currentKey) {
@@ -2963,10 +2987,13 @@ function _reloadGeneral() {
   // Guard: if this key is already being generated (within-SPA), just reconnect SSE —
   // do NOT call _regenProg.start() again as that would reset the in-progress map value.
   if (_generatingMonths[regenKey]) {
-    var _btn0 = document.getElementById('reload-btn');
-    if (_btn0 && !_btn0.disabled) {
-      _btn0.classList.add('running'); _btn0.disabled = true;
-      _listenToRegenSSE(regenKey, _btn0);
+    // Already tracked — either actually generating or waiting in queue behind another month.
+    if (!_waitingMonths[regenKey]) {
+      var _btn0 = document.getElementById('reload-btn');
+      if (_btn0 && !_openSSE[regenKey]) {
+        if (!_btn0.disabled) { _btn0.classList.add('running'); _btn0.disabled = true; }
+        _listenToRegenSSE(regenKey, _btn0);
+      }
     }
     return;
   }
@@ -2986,10 +3013,12 @@ function _reloadGeneral() {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ month: 'pick', date: dateStr })
   }).then(function(r) {
-    // 409 = analysis already running (e.g. user navigated away mid-regen and came back)
-    // Reconnect to the log stream to resume tracking instead of showing an error
-    if (r.status === 409 || r.ok) {
+    if (r.ok) {
       _listenToRegenSSE(regenKey, btn);
+    } else if (r.status === 409) {
+      // Another regen is running — queue this month. __DONE__ handler will auto-retry.
+      // Do NOT open a competing SSE connection (would steal messages from the running month).
+      _waitingMonths[regenKey] = true;
     } else {
       btn.classList.remove('running'); btn.disabled = false;
       _markGenerating(regenKey, false);
@@ -6112,13 +6141,14 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
           if (_currentKey !== initKey) return;
           var _btn = document.getElementById('reload-btn');
           if (r2.status === 409) {
-            // Server already generating — reconnect and restore last-known progress
+            // Another month is already running — queue this page; do NOT open a competing SSE.
+            // The running month's __DONE__ handler will auto-start this one when the server is free.
             _markGenerating(initKey, true);
+            _waitingMonths[initKey] = true;
             var _savedPct = 0;
             try { var _s = sessionStorage.getItem('_regen_pct_' + initKey); if (_s) _savedPct = parseInt(_s, 10) || 0; } catch(_e) {}
             if (_btn) { _btn.classList.add('running'); _btn.disabled = true; }
             _regenProg.start(_savedPct);
-            _listenToRegenSSE(initKey, _btn);
           } else if (r2.ok) {
             // Page was missing — fresh regen just started
             _markGenerating(initKey, true);
@@ -6193,15 +6223,20 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
             .catch(function() {});
 
         } else if (_generatingMonths[key]) {
-          // Regen in progress — show skeletons and resume the progress bar at current regen %
+          // Month is tracked (generating or waiting in queue) — show progress state.
           _showSkeletons();
           _loadBar.resume(_regenPctMap[key] || _regenProg._val || 0);
           _fadeIn(els);
-          // Reconnect SSE in case it dropped when the user navigated away
           var _rBtn = document.getElementById('reload-btn');
-          if (_rBtn && !_rBtn.disabled) {
-            _rBtn.classList.add('running'); _rBtn.disabled = true;
-            _listenToRegenSSE(key, _rBtn);
+          if (_rBtn) {
+            if (!_rBtn.disabled) { _rBtn.classList.add('running'); _rBtn.disabled = true; }
+            if (_waitingMonths[key]) {
+              // Waiting in queue — just show progress panel, no SSE to reconnect to.
+              _regenProg.start(_regenPctMap[key] || 0);
+            } else if (!_openSSE[key]) {
+              // Actually generating but SSE dropped — reconnect.
+              _listenToRegenSSE(key, _rBtn);
+            }
           }
 
         } else if (_pendingFetches[key]) {

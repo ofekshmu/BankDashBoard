@@ -231,6 +231,33 @@ body {
 .month-roller::before { left: 0;  background: linear-gradient(to right, var(--bg) 30%, transparent); }
 .month-roller::after  { right: 0; background: linear-gradient(to left,  var(--bg) 30%, transparent); }
 
+.roller-return-btn {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 4;
+  background: var(--teal);
+  color: #fff;
+  border: none;
+  border-radius: 16px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease, background 0.15s;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(30,157,139,0.35);
+}
+.roller-return-btn.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+.roller-return-btn:hover { background: #178a7a; transform: translateY(-50%) scale(1.04); }
+.roller-return-btn:active { background: #136e62; transform: translateY(-50%) scale(0.97); }
+
 .roller-track {
   display: flex;
   align-items: center;
@@ -1915,6 +1942,7 @@ body {
   <!-- Month roller -->
   <div class="month-roller" id="month-roller" style="display:none">
     <div class="roller-track" id="roller-track"></div>
+    <button class="roller-return-btn" id="roller-return-btn" title="חזור לחודש הנוכחי">חודש נוכחי ↩</button>
   </div>
 
   <!-- Month-switch SPA loading overlay -->
@@ -2571,15 +2599,17 @@ function _buildRoller(list) {
       _viewCenterIdx = Math.max(0, Math.min(_rollerItems.length - 1, _viewCenterIdx + delta));
       _positionTrack(true);
       _applyDistanceClasses();
-      // Auto-return to active month after 5 s of inactivity
-      clearTimeout(_rollerIdleTimer);
-      if (_viewCenterIdx !== _activeIdx) {
-        _rollerIdleTimer = setTimeout(function() {
-          _centerActive(true);
-          _applyDistanceClasses();
-        }, 5000);
-      }
     }, { passive: false });
+  }
+
+  // Wire up the return-to-current button once
+  var retBtn = document.getElementById('roller-return-btn');
+  if (retBtn && !retBtn._bound) {
+    retBtn._bound = true;
+    retBtn.addEventListener('click', function() {
+      _centerActive(true);
+      _applyDistanceClasses();
+    });
   }
 
   _applyDistanceClasses();
@@ -2597,6 +2627,12 @@ function _applyDistanceClasses() {
     else if (dist === 2) el.classList.add('dist-2');
     // dist >= 3 → default (lowest opacity) from CSS
   });
+  // Show return-to-current button when the active month is not centred
+  var retBtn = document.getElementById('roller-return-btn');
+  if (retBtn) {
+    if (_viewCenterIdx !== _activeIdx) retBtn.classList.add('visible');
+    else retBtn.classList.remove('visible');
+  }
 }
 
 // Position the track so _viewCenterIdx is physically centred in the roller

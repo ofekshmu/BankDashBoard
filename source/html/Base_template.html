@@ -470,16 +470,12 @@ body {
 @keyframes _reloadSpin { to { transform: rotate(360deg); } }
 
 
-/* ── KPI row ─────────────────────────────────────────────── */
+/* ── KPI row — hero left, הפקדה/משיכה stacked right ─────────── */
 .kpi-row {
   display: grid;
-  grid-template-columns: 2fr 1fr 1fr;
+  grid-template-columns: 2fr 1fr;
   gap: 14px;
   margin-bottom: 22px;
-}
-/* Responsive: collapse on narrow screens */
-@media (max-width: 900px) {
-  .kpi-row { grid-template-columns: 2fr 1fr; }
 }
 @media (max-width: 700px) {
   .kpi-row { grid-template-columns: 1fr; }
@@ -4771,7 +4767,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     var kr2 = document.getElementById('kpi-row-2');
     var skel3 = '<div class="skel-card skel-row"></div><div class="skel-card skel-row"></div><div class="skel-card skel-row"></div>';
     var skel5 = skel3 + '<div class="skel-card skel-row"></div><div class="skel-card skel-row"></div>';
-    if (kr)  kr.innerHTML  = '<div class="skel-card skel-kpi"></div><div class="skel-card skel-kpi"></div><div class="skel-card skel-kpi"></div>';
+    if (kr)  kr.innerHTML  = '<div class="skel-card skel-kpi" style="grid-row:span 2"></div><div class="skel-card skel-kpi"></div><div class="skel-card skel-kpi"></div>';
     if (kr2) kr2.innerHTML = '<div class="skel-card skel-kpi"></div><div class="skel-card skel-kpi"></div>';
 
     var sl = document.getElementById('spendings-list');
@@ -4854,26 +4850,28 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     var invIn      = k.investments_total_in  || 0;
     var monthlyBal = k.monthly_balance || 0;
 
+    // kpi-row: hero (spans 2 grid rows) + הפקדה and משיכה stacked in right column
     kr.innerHTML =
       _kpiCard('Overall Net Income', netIncome, netIncome >= 0, true, '#f0b429') +
-      _kpiCard('Balance', monthlyBal, monthlyBal >= 0, false, '#1e9d8b',
-        k.balance_date ? _esc(k.balance_date) : '') +
-      '<div class="kpi-card kpi-balance-card">' +
-        '<div class="kpi-label"><span class="kpi-dot" style="background:#1e9d8b"></span>יתרה חודשית' +
-        _tipHtml(_KPI_TT['יתרה חודשית']) +
-        '</div>' +
-        '<div class="kpi-value ' + (balance >= 0 ? 'pos' : 'neg') + '">' +
-          Math.round(balance).toLocaleString('he-IL') + '₪</div>' +
-        '<div class="kpi-balance-delta ' + (delta >= 0 ? 'pos' : 'neg') + '">' +
-          (delta >= 0 ? '▲' : '▼') + ' ' + Math.abs(Math.round(delta)).toLocaleString('he-IL') + '₪ החודש' +
-        '</div>' +
-      '</div>';
+      _kpiCard('הפקדה לחיסכון/השקעה', invOut, false, false, '#D4A017', '', '',
+        invOut !== 0 ? '#D4A017' : null) +
+      _kpiCard('משיכה מחסכון', invIn, true, false, '#E8900C');
 
+    // kpi-row-2: balance cards (moved from kpi-row)
     if (kr2) {
       kr2.innerHTML =
-        _kpiCard('הפקדה לחיסכון/השקעה', invOut, false, false, '#D4A017', '', '',
-          invOut !== 0 ? '#D4A017' : null) +
-        _kpiCard('משיכה מחסכון', invIn, true, false, '#E8900C');
+        _kpiCard('Balance', monthlyBal, monthlyBal >= 0, false, '#1e9d8b',
+          k.balance_date ? _esc(k.balance_date) : '') +
+        '<div class="kpi-card kpi-balance-card">' +
+          '<div class="kpi-label"><span class="kpi-dot" style="background:#1e9d8b"></span>יתרה חודשית' +
+          _tipHtml(_KPI_TT['יתרה חודשית']) +
+          '</div>' +
+          '<div class="kpi-value ' + (balance >= 0 ? 'pos' : 'neg') + '">' +
+            Math.round(balance).toLocaleString('he-IL') + '₪</div>' +
+          '<div class="kpi-balance-delta ' + (delta >= 0 ? 'pos' : 'neg') + '">' +
+            (delta >= 0 ? '▲' : '▼') + ' ' + Math.abs(Math.round(delta)).toLocaleString('he-IL') + '₪ החודש' +
+          '</div>' +
+        '</div>';
     }
   }
 

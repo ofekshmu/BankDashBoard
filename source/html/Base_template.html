@@ -2555,16 +2555,21 @@ function _buildRoller(list) {
         return _regenQueue.indexOf(k) < 0;
       });
       if (_anyActive || _regenQueue.length > 0) {
-        if (m.key === _currentKey) return;  // already on the generating page
-        // Already in queue or generating — do nothing (click on gen-done is OK to navigate).
+        if (m.key === _currentKey) return;
+        // Already in queue or actively generating — do nothing.
         if (_generatingMonths[m.key] || _regenQueue.indexOf(m.key) >= 0) return;
-        // Add to background queue
-        _regenQueue.push(m.key);
-        _markGenerating(m.key, true);
-        _markQueued(m.key);
-        self.classList.add('tapped');
-        self.addEventListener('animationend', function() { self.classList.remove('tapped'); }, { once: true });
-        return;
+        // Month already has data — navigate normally; no regen needed.
+        if (_cacheGet(m.key)) {
+          // fall through to the normal navigate block below
+        } else {
+          // No cached data — this month would need regen; add to queue.
+          _regenQueue.push(m.key);
+          _markGenerating(m.key, true);
+          _markQueued(m.key);
+          self.classList.add('tapped');
+          self.addEventListener('animationend', function() { self.classList.remove('tapped'); }, { once: true });
+          return;
+        }
       }
 
       // No regen running — navigate normally.

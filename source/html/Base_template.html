@@ -525,7 +525,11 @@ body {
   display: inline-block; margin-left: 7px; flex-shrink: 0;
 }
 .kpi-label { font-size: 0.76em; color: var(--text-muted); display: flex; align-items: center; font-weight: 500; }
-.kpi-value { font-size: 1.55em; font-weight: 700; color: var(--navy); line-height: 1.1; }
+.kpi-value { font-size: 1.55em; font-weight: 700; color: var(--navy); line-height: 1.1; white-space: nowrap; }
+.kpi-value.kpi-val-sm { font-size: 1.2em; }
+.kpi-value.kpi-val-xs { font-size: 0.95em; }
+.kpi-card.hero .kpi-value.kpi-val-sm { font-size: 1.75em; }
+.kpi-card.hero .kpi-value.kpi-val-xs { font-size: 1.45em; }
 .kpi-sublabel { font-size: 0.68em; color: var(--text-muted); margin-top: 4px; }
 
 /* ── KPI info icon + tooltip ─────────────────────────────── */
@@ -4730,8 +4734,9 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   }
   function _fmt(n, decimals) {
     if (n == null) return '—';
-    var d = decimals != null ? decimals : 2;
     var v = Number(n);
+    // Only show decimal places when explicitly requested OR when the value has non-zero fraction
+    var d = decimals != null ? decimals : (v % 1 !== 0 ? 2 : 0);
     var s = Math.abs(v).toLocaleString('he-IL', {minimumFractionDigits: d, maximumFractionDigits: d}) + '₪';
     return v < 0 ? '-' + s : s;
   }
@@ -4831,13 +4836,16 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     var cls = isHero
       ? ('kpi-card hero' + (isPos ? '' : ' neg-hero'))
       : ('kpi-card' + (extraCls ? ' ' + extraCls : ''));
+    var formatted = _fmt(value);
+    // Shrink font for long numbers so they don't wrap to a second line
+    var lenCls = formatted.length >= 11 ? ' kpi-val-xs' : formatted.length >= 8 ? ' kpi-val-sm' : '';
     var valStyle = valColor ? ' style="color:' + valColor + '"' : '';
     return '<div class="' + cls + '">' +
       '<div class="kpi-label">' +
         '<span class="kpi-dot" style="background:' + (dotColor || '#9aa3bb') + '"></span>' +
         _esc(label) + _tipHtml(_KPI_TT[label]) +
       '</div>' +
-      '<div class="kpi-value ' + (isPos ? 'pos' : 'neg') + '"' + valStyle + '>' + _fmt(value) + '</div>' +
+      '<div class="kpi-value ' + (isPos ? 'pos' : 'neg') + lenCls + '"' + valStyle + '>' + formatted + '</div>' +
       (subtitle ? '<div class="kpi-subtitle">' + subtitle + '</div>' : '') +
     '</div>';
   }

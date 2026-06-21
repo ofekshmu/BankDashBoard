@@ -422,8 +422,11 @@ def monthly_data_api(yyyy_mm):
             monthly_payload = monthly_cached['data']
 
         if not global_cached:
-            global_payload = am.get_global_data(t=t)
-            _global_data_cache['global'] = {'ts': _time.time(), 'data': global_payload}
+            try:
+                global_payload = am.get_global_data(t=t)
+                _global_data_cache['global'] = {'ts': _time.time(), 'data': global_payload}
+            except Exception:
+                global_payload = {}
         else:
             global_payload = global_cached['data']
 
@@ -2063,8 +2066,16 @@ def run_analysis():
             result = AppManager(skip_parser=True).monthly_analysis(t=t, page_id=key)
             _monthly_data_cache[key] = {'ts': _time.time(), 'data': result}
             _ps.mark_generated(key)
-            _regen_tracker.done(key)
 
+            # Pre-warm global cache so the data endpoint returns instantly after __DONE__
+            if 'global' not in _global_data_cache:
+                try:
+                    _gp = AppManager(skip_parser=True).get_global_data(t=t)
+                    _global_data_cache['global'] = {'ts': _time.time(), 'data': _gp}
+                except Exception:
+                    pass
+
+            _regen_tracker.done(key)
             _log_queue.put(f'__DONE__:{key}')
 
         except Exception as exc:

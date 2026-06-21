@@ -415,6 +415,7 @@ body {
 .reload-btn.stale-code:hover { box-shadow: 0 6px 24px rgba(231,76,60,0.75); }
 
 .reload-btn-icon { font-size: 1.6em; line-height: 1; display: flex; align-items: center; }
+.reload-btn.running .reload-btn-icon { display: none; }
 
 /* Percentage inside the regen button (shown only while running) */
 .reload-btn-pct {
@@ -451,6 +452,7 @@ body {
    justify-content:flex-end keeps inner content right-aligned so text
    only appears once the panel clears the button's left edge.          */
 #regen-progress-panel {
+  display: none !important;
   position: absolute;
   right: var(--btn-half, 65px); top: 0; bottom: 0; z-index: 1;
   max-width: 0; overflow: hidden;
@@ -2820,8 +2822,6 @@ var _regenProg = {
     var initVal = (fromPct != null && fromPct > 0) ? Math.min(fromPct, 98) : 0;
     if (_currentKey) _regenPctMap[_currentKey] = Math.max(_regenPctMap[_currentKey] || 0, initVal);
     self._val = initVal;
-    var panel = document.getElementById('regen-progress-panel');
-    if (panel) panel.classList.add('visible');
     clearInterval(self._timer);
     // Smooth display: animate _val toward the polled target of the actively generating month.
     // Works across navigation — when current page isn't the generating one, we find the active key.
@@ -2843,14 +2843,14 @@ var _regenProg = {
   },
   done: function(success) {
     clearInterval(this._timer); this._timer = null;
+    if (success) _updateRegenButtonPct(100);
     this._set(100, success ? '✓ הושלם!' : '✗ שגיאה');
     _loadBar.done();
-    var panel = document.getElementById('regen-progress-panel');
-    setTimeout(function() { if (panel) panel.classList.remove('visible'); }, 1800);
     setTimeout(function() {
-      var f = document.getElementById('regen-prog-fill');
-      if (f) f.style.width = '0%';
-    }, 2200);
+      var b = document.getElementById('reload-btn');
+      if (b) b.classList.remove('stale-db', 'stale-code');
+      _updateReloadBtnGlobalState();
+    }, success ? 1800 : 300);
   },
   // All UI elements derive from _regenPctMap[k] — pct is only a fallback.
   _set: function(pct, label) {
@@ -2905,7 +2905,7 @@ function _updateReloadBtnGlobalState() {
   btn.disabled = anyActivelyGenerating;
   if (anyActivelyGenerating) {
     btn.classList.add('running');
-  } else if (!(_currentKey && _generatingMonths[_currentKey])) {
+  } else if (!(_currentKey && _generatingMonths[_currentKey]) && !_regenProg._timer) {
     btn.classList.remove('running');
     var pctEl = document.getElementById('reload-btn-pct');
     if (pctEl) pctEl.textContent = '';
@@ -3087,11 +3087,7 @@ function _listenToRegenSSE(regenKey, btn) {
       es.close(); delete _openSSE[regenKey];
       _regenCompletedAt = Date.now();
       _markGenerating(regenKey, false);
-      // Only reset button + progress if no other month is still regenerating
       var _otherRegen = Object.keys(_generatingMonths).length > 0;
-      if (!_otherRegen) {
-        btn.classList.remove('running', 'stale-db', 'stale-code'); btn.disabled = false;
-      }
       _updateReloadBtnGlobalState();
       if (regenKey === _currentKey) {
         _regenProg._set(99, 'טוען נתונים…');
@@ -6308,22 +6304,25 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       })
       .catch(function(err) {
         if (_currentKey !== initKey) return;  // user navigated away — don't touch the UI
-        // Data not available. Ask server: is a regen already running, or should we start one?
+        // Data not available — eagerly enter running state (same as _reloadGeneral flow)
+        var _btn = document.getElementById('reload-btn');
         var _parts = initKey.split('_');
         var _yr = parseInt(_parts[0], 10), _mo = parseInt(_parts[1], 10);
         var _dateStr = _yr + '-' + (_mo < 10 ? '0' + _mo : '' + _mo) + '-01';
+        _markGenerating(initKey, true);
+        if (_btn) { _btn.classList.add('running'); _btn.disabled = true; }
+        _regenProg.start();
+        _updateReloadBtnGlobalState();
         fetch('/api/analysis', {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({month: 'pick', date: _dateStr})
         }).then(function(r2) {
           if (_currentKey !== initKey) return;
-          var _btn = document.getElementById('reload-btn');
           if (r2.status === 409) {
-            // Another month is running. Add this page to the queue; don't open a competing SSE.
+            // Another month is running — keep eager state, transition to queue mode.
             // If an existing SSE (from the running month) is open it will pop the queue on __DONE__.
             // Otherwise open a one-shot waiting SSE to detect when the server becomes free.
-            _markGenerating(initKey, true);
             if (_regenQueue.indexOf(initKey) < 0) _regenQueue.push(initKey);
             _markQueued(initKey);
             _showQueueOverlay(_regenQueue.indexOf(initKey) + 1);
@@ -6349,12 +6348,12 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
               _waitES.onerror = function() { _waitES.close(); };
             }
           } else if (r2.ok) {
-            // Page was missing — fresh regen just started
-            _markGenerating(initKey, true);
-            if (_btn) { _btn.classList.add('running'); _btn.disabled = true; }
-            _regenProg.start();
+            // Fresh regen started — eager state already set, just connect SSE
             _listenToRegenSSE(initKey, _btn);
           } else {
+            // Server error — undo eager state and show error
+            _markGenerating(initKey, false);
+            _regenProg.done(false);
             _loadBar.done();
             var _kr = document.getElementById('kpi-row');
             if (_kr) _kr.innerHTML =
@@ -6364,6 +6363,8 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
           }
         }).catch(function() {
           if (_currentKey !== initKey) return;
+          _markGenerating(initKey, false);
+          _regenProg.done(false);
           _loadBar.done();
           var _kr = document.getElementById('kpi-row');
           if (_kr) _kr.innerHTML =

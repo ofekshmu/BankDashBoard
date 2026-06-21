@@ -2833,10 +2833,14 @@ var _regenProg = {
       if (crawlKey) {
         var target = (_regenPctMap[crawlKey] != null) ? _regenPctMap[crawlKey] : self._val;
         if (self._val < target) {
-          self._val = Math.min(self._val + 0.4, target);
+          var gap = target - self._val;
+          self._val = Math.min(self._val + Math.max(1.0, gap * 0.15), target);
         }
       }
-      if (Object.keys(_generatingMonths).length > 0) self._set(self._val);
+      if (Object.keys(_generatingMonths).length > 0) {
+        self._set(self._val);
+        _updateRegenButtonPct(Math.round(self._val));
+      }
     }, 200);
     _loadBar.start();
     if (initVal > 0) _loadBar.set(initVal);
@@ -3069,13 +3073,9 @@ function _listenToRegenSSE(regenKey, btn) {
       var pct = parseInt(data.slice(13), 10);
       if (!isNaN(pct)) {
         if (pct > (_regenPctMap[regenKey] || 0)) _regenPctMap[regenKey] = pct;
-        if (regenKey === _currentKey) {
-          _regenProg._val = Math.min(_regenProg._val, _regenPctMap[regenKey]);
-          _regenProg._set(_regenPctMap[regenKey]);
-        } else {
-          _regenProg._set(_regenPctMap[regenKey]);
-        }
-        _updateRegenButtonPct(_regenPctMap[regenKey]);
+        // _val stays at current crawl position; crawl timer will animate toward new target
+        _regenProg._set(_regenPctMap[regenKey]);
+        // Button % is driven exclusively by the crawl timer to avoid jump-then-backward artifacts
       }
       return;
     }
@@ -6336,7 +6336,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
                   var _pct = parseInt(evt.data.slice(13), 10);
                   if (!isNaN(_pct)) {
                     var _ak = Object.keys(_generatingMonths).find(function(k) { return _regenQueue.indexOf(k) < 0; });
-                    if (_ak) { if (_pct > (_regenPctMap[_ak] || 0)) _regenPctMap[_ak] = _pct; _regenProg._set(_pct); }
+                    if (_ak) { if (_pct > (_regenPctMap[_ak] || 0)) _regenPctMap[_ak] = _pct; }
                   }
                   return;
                 }

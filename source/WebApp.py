@@ -408,29 +408,23 @@ def monthly_data_api(yyyy_mm):
         payload.update(global_cached['data'])
         return jsonify(payload)
 
+    if not monthly_cached:
+        # Data has never been generated — fail fast so the client starts a regen with SSE progress
+        return jsonify({'error': 'no_data', 'status': 'none'}), 404
+
+    # Monthly data is cached but global isn't — compute global only (one-time, fast-ish)
     year = int(yyyy_mm[:4])
     try:
         from datetime import datetime as _dt2
         t = _dt2(year, month_num, 1)
         from AppManager import AppManager
         am = AppManager(skip_parser=True)
-
-        if not monthly_cached:
-            monthly_payload = am.monthly_analysis(t=t)
-            _monthly_data_cache[yyyy_mm] = {'ts': _time.time(), 'data': monthly_payload}
-        else:
-            monthly_payload = monthly_cached['data']
-
-        if not global_cached:
-            try:
-                global_payload = am.get_global_data(t=t)
-                _global_data_cache['global'] = {'ts': _time.time(), 'data': global_payload}
-            except Exception:
-                global_payload = {}
-        else:
-            global_payload = global_cached['data']
-
-        payload = dict(monthly_payload)
+        try:
+            global_payload = am.get_global_data(t=t)
+            _global_data_cache['global'] = {'ts': _time.time(), 'data': global_payload}
+        except Exception:
+            global_payload = {}
+        payload = dict(monthly_cached['data'])
         payload.update(global_payload)
         return jsonify(payload)
     except Exception as e:

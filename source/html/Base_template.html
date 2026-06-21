@@ -2989,7 +2989,7 @@ function _startBackgroundRegen(key) {
         // Transition from queue overlay to active regen UI
         _hideQueueOverlay();
         _showSkeletons();
-        if (btn !== _nullBtn) { btn.classList.add('running'); btn.disabled = true; }
+        if (btn !== _nullBtn) { btn.classList.add('running'); btn.disabled = true; btn.classList.remove('stale-db', 'stale-code'); }
         _regenProg.start(_regenPctMap[key] || 0);
       }
       _listenToRegenSSE(key, btn);
@@ -3165,7 +3165,7 @@ function _reloadGeneral() {
   var month = parseInt(parts[1], 10);
   var dateStr = year + '-' + (month < 10 ? '0' + month : '' + month) + '-01';
 
-  btn.classList.add('running'); btn.disabled = true;
+  btn.classList.add('running'); btn.disabled = true; btn.classList.remove('stale-db', 'stale-code');
   _markGenerating(regenKey, true);
   _updateReloadBtnGlobalState();
   if (typeof window._showSkeletons === 'function') window._showSkeletons();
@@ -6310,7 +6310,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         var _yr = parseInt(_parts[0], 10), _mo = parseInt(_parts[1], 10);
         var _dateStr = _yr + '-' + (_mo < 10 ? '0' + _mo : '' + _mo) + '-01';
         _markGenerating(initKey, true);
-        if (_btn) { _btn.classList.add('running'); _btn.disabled = true; }
+        if (_btn) { _btn.classList.add('running'); _btn.disabled = true; _btn.classList.remove('stale-db', 'stale-code'); }
         _regenProg.start();
         _updateReloadBtnGlobalState();
         fetch('/api/analysis', {

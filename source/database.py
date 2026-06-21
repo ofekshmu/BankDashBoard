@@ -1947,6 +1947,11 @@ class DataBase:
 
     def commit_changes(self) -> None:
         self.connection.commit()
+        try:
+            import page_status as _ps
+            _ps.mark_db_changed()
+        except Exception:
+            pass
 
     def get_monthly_bank_balances(self, from_date: datetime = None) -> pd.DataFrame:
         """

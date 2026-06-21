@@ -62,6 +62,7 @@ FILES_HTML             = os.path.join(_HERE, 'html', 'Files.html')
 # must click the manual button.  A new deployment resets this set (fresh process).
 _session_auto_triggered: set = set()
 _monthly_data_cache: dict = {}
+_global_data_cache: dict = {}   # keyed by yyyy_mm (most-recent) or 'global'
 
 def _make_slug(type_: str, name: str) -> str:
     """type_ = 'cat' | 'biz'"""
@@ -263,8 +264,9 @@ def _is_stale_manifest(html_path: str) -> bool:
 
 
 # ── Analysis state ────────────────────────────────────────────────────────────
-_analysis_running = False
-_analysis_lock    = threading.Lock()
+_analysis_running  = False
+_analysis_lock     = threading.Lock()
+_active_regen_key: str | None = None   # which month key is currently regenerating
 
 # ── Credit-card confirmation prompt (analysis thread ↔ browser) ───────────────
 _cc_prompt_event  = threading.Event()
@@ -397,16 +399,36 @@ def monthly_data_api(yyyy_mm):
     month_num = int(yyyy_mm[5:7])
     if not (1 <= month_num <= 12):
         return jsonify({'error': 'Invalid month number'}), 400
-    cached = _monthly_data_cache.get(yyyy_mm)
-    if cached:
-        return jsonify(cached['data'])
-    year  = int(yyyy_mm[:4])
+
+    monthly_cached = _monthly_data_cache.get(yyyy_mm)
+    global_cached  = _global_data_cache.get('global')
+
+    if monthly_cached and global_cached:
+        payload = dict(monthly_cached['data'])
+        payload.update(global_cached['data'])
+        return jsonify(payload)
+
+    year = int(yyyy_mm[:4])
     try:
         from datetime import datetime as _dt2
         t = _dt2(year, month_num, 1)
         from AppManager import AppManager
-        payload = AppManager(skip_parser=True).general_analysis(t=t, data_only=True)
-        _monthly_data_cache[yyyy_mm] = {'ts': _time.time(), 'data': payload}
+        am = AppManager(skip_parser=True)
+
+        if not monthly_cached:
+            monthly_payload = am.monthly_analysis(t=t)
+            _monthly_data_cache[yyyy_mm] = {'ts': _time.time(), 'data': monthly_payload}
+        else:
+            monthly_payload = monthly_cached['data']
+
+        if not global_cached:
+            global_payload = am.get_global_data(t=t)
+            _global_data_cache['global'] = {'ts': _time.time(), 'data': global_payload}
+        else:
+            global_payload = global_cached['data']
+
+        payload = dict(monthly_payload)
+        payload.update(global_payload)
         return jsonify(payload)
     except Exception as e:
         import traceback
@@ -416,6 +438,7 @@ def monthly_data_api(yyyy_mm):
 @app.route('/api/general/<yyyy_mm>/invalidate', methods=['POST'])
 def invalidate_monthly_cache(yyyy_mm):
     _monthly_data_cache.pop(yyyy_mm, None)
+    _global_data_cache.pop('global', None)
     return jsonify({'ok': True})
 
 
@@ -732,51 +755,52 @@ def search_categories():
 @app.route('/api/general/list')
 def general_list():
     from datetime import datetime as _dt
+    import page_status as _ps
     result = []
-    if os.path.isdir(GENERAL_ANALYSIS_DIR):
+    # Build list from DB (always authoritative)
+    try:
+        if os.getenv('DATABASE_URL'):
+            conn = _pg_conn()
+            try:
+                rows = conn.execute(
+                    "SELECT DISTINCT LEFT(CAST(Date AS TEXT), 7) as ym"
+                    " FROM BankTransactions WHERE Date IS NOT NULL ORDER BY ym"
+                ).fetchall()
+            finally:
+                conn.close()
+        else:
+            from database import DataBase
+            rows = DataBase().cursor.execute(
+                "SELECT DISTINCT substr(Date, 1, 7) as ym"
+                " FROM BankTransactions WHERE Date IS NOT NULL ORDER BY ym"
+            ).fetchall()
+        for row in rows:
+            ym = str(row[0])  # e.g. '2026-05'
+            if len(ym) == 7 and ym[4] == '-':
+                year, month = int(ym[:4]), int(ym[5:])
+                key = f'{year:04d}_{month:02d}'
+                result.append({
+                    'key':    key,
+                    'year':   year,
+                    'month':  month,
+                    'status': _ps.get_status(key),
+                })
+    except Exception:
+        pass
+    # Fallback to HTML files on disk if DB query fails
+    if not result and os.path.isdir(GENERAL_ANALYSIS_DIR):
         for fname in sorted(os.listdir(GENERAL_ANALYSIS_DIR)):
             m = _re.match(r'^(\d{4})_(\d{2})\.html$', fname)
             if m:
                 year  = int(m.group(1))
                 month = int(m.group(2))
-                fpath = os.path.join(GENERAL_ANALYSIS_DIR, fname)
-                mtime = os.path.getmtime(fpath)
+                key   = f'{year:04d}_{month:02d}'
                 result.append({
-                    'key':       f'{year:04d}_{month:02d}',
-                    'year':      year,
-                    'month':     month,
-                    'generated': _dt.fromtimestamp(mtime).strftime('%d/%m/%Y %H:%M'),
+                    'key':    key,
+                    'year':   year,
+                    'month':  month,
+                    'status': _ps.get_status(key),
                 })
-    # DB fallback — no HTML files on Vercel (API-first architecture)
-    if not result:
-        try:
-            if os.getenv('DATABASE_URL'):
-                conn = _pg_conn()
-                try:
-                    rows = conn.execute(
-                        "SELECT DISTINCT LEFT(CAST(Date AS TEXT), 7) as ym"
-                        " FROM BankTransactions WHERE Date IS NOT NULL ORDER BY ym"
-                    ).fetchall()
-                finally:
-                    conn.close()
-            else:
-                from database import DataBase
-                rows = DataBase().cursor.execute(
-                    "SELECT DISTINCT substr(Date, 1, 7) as ym"
-                    " FROM BankTransactions WHERE Date IS NOT NULL ORDER BY ym"
-                ).fetchall()
-            for row in rows:
-                ym = str(row[0])  # e.g. '2026-05'
-                if len(ym) == 7 and ym[4] == '-':
-                    year, month = int(ym[:4]), int(ym[5:])
-                    result.append({
-                        'key':       f'{year:04d}_{month:02d}',
-                        'year':      year,
-                        'month':     month,
-                        'generated': None,
-                    })
-        except Exception:
-            pass
     return jsonify(result)
 
 
@@ -1889,15 +1913,44 @@ def version():
 @app.route('/api/stale-all')
 def stale_all():
     """Return {key: bool} stale status for every generated monthly page."""
-    result = {}
-    if not os.path.isdir(GENERAL_ANALYSIS_DIR):
-        return jsonify(result)
-    for fname in os.listdir(GENERAL_ANALYSIS_DIR):
-        m = _re.match(r'^(\d{4}_\d{2})\.html$', fname)
-        if m:
-            key = m.group(1)
-            result[key] = _is_stale_manifest(os.path.join(GENERAL_ANALYSIS_DIR, fname))
-    return jsonify(result)
+    import page_status as _ps
+    statuses = _ps.get_all()
+    return jsonify({k: (v != 'fresh') for k, v in statuses.items()})
+
+
+@app.route('/api/pages/status')
+def pages_status():
+    """Return {yyyy_mm: 'none'|'fresh'|'stale'} for all tracked months."""
+    import page_status as _ps
+    return jsonify(_ps.get_all())
+
+
+@app.route('/api/global/data')
+def global_data_api():
+    """Return accounts + mortgage data (cached; not tied to a specific month)."""
+    import time as _time
+    cached = _global_data_cache.get('global')
+    if cached:
+        return jsonify(cached['data'])
+    try:
+        from datetime import datetime as _dt2
+        from AppManager import AppManager
+        t = _dt2.now()
+        payload = AppManager(skip_parser=True).get_global_data(t=t)
+        _global_data_cache['global'] = {'ts': _time.time(), 'data': payload}
+        return jsonify(payload)
+    except Exception as e:
+        import traceback
+        return jsonify({'error': str(e), 'trace': traceback.format_exc()}), 500
+
+
+@app.route('/api/regen/status')
+def regen_status():
+    """Return current regen state for frontend button/overlay restore on load."""
+    return jsonify({
+        'active_key':  _active_regen_key,
+        'any_active':  _analysis_running,
+    })
 
 
 def _max_source_mtime() -> float:
@@ -1958,19 +2011,14 @@ def check_stale_category(slug):
 def check_stale(yyyy_mm):
     if not _re.match(r'^\d{4}_\d{2}$', yyyy_mm):
         return jsonify({'stale': False})
-    cached = _monthly_data_cache.get(yyyy_mm)
-    if cached:
-        import time as _time
-        return jsonify({'stale': _max_source_mtime() > cached['ts']})
-    html_path = os.path.join(GENERAL_ANALYSIS_DIR, f'{yyyy_mm}.html')
-    if not os.path.exists(html_path):
-        return jsonify({'stale': True})
-    return jsonify({'stale': _is_stale_manifest(html_path)})
+    import page_status as _ps
+    status = _ps.get_status(yyyy_mm)
+    return jsonify({'stale': status != 'fresh'})
 
 
 @app.route('/api/analysis', methods=['POST'])
 def run_analysis():
-    global _analysis_running
+    global _analysis_running, _active_regen_key
 
     with _analysis_lock:
         if _analysis_running:
@@ -1989,15 +2037,15 @@ def run_analysis():
     date_str  = body.get('date', '')            # 'YYYY-MM-DD' when month='pick'
 
     def _worker():
-        global _analysis_running
+        global _analysis_running, _active_regen_key
+        key = None
         try:
             from AppManager import AppManager
             from datetime import datetime
             from dateutil.relativedelta import relativedelta
             from src_utils.utils import utils as _utils
+            import page_status as _ps
 
-            # Install web-mode CC prompt hook so card_charge_validation shows a
-            # browser popup instead of blocking on stdin.
             _utils._cc_confirm_hook = _web_cc_confirm
 
             if month_sel == 'last':
@@ -2008,17 +2056,13 @@ def run_analysis():
                 t = datetime.now()
 
             key = t.strftime('%Y_%m')
+            _active_regen_key = key
             _regen_tracker.init(key)
+            _regen_tracker.set_callback(key, lambda pct: _log_queue.put(f'__PROGRESS__:{pct}'))
 
-            deps, db_mtime = _capture_deps_and_run(
-                lambda: AppManager(skip_parser=True).general_analysis(t=t, page_id=key)
-            )
-
-            html_path = os.path.join(GENERAL_ANALYSIS_DIR, f'{key}.html')
-            if os.path.exists(html_path):
-                _save_manifest(html_path, deps, db_mtime)
-            _monthly_data_cache.pop(key, None)
-            _regen_tracker.update(key, 10)  # final 10 pts: cache cleared, ready for fetch
+            result = AppManager(skip_parser=True).monthly_analysis(t=t, page_id=key)
+            _monthly_data_cache[key] = {'ts': _time.time(), 'data': result}
+            _ps.mark_generated(key)
             _regen_tracker.done(key)
 
             _log_queue.put(f'__DONE__:{key}')
@@ -2031,6 +2075,9 @@ def run_analysis():
         finally:
             with _analysis_lock:
                 _analysis_running = False
+                _active_regen_key = None
+            if key:
+                _regen_tracker.clear_callback(key)
             try:
                 from src_utils.utils import utils as _utils
                 _utils._cc_confirm_hook = None
@@ -2043,8 +2090,8 @@ def run_analysis():
 
 @app.route('/api/analysis-stream')
 def run_analysis_stream():
-    """SSE endpoint: runs general analysis inline so thread + stream share the same invocation."""
-    global _analysis_running
+    """SSE endpoint: runs monthly analysis inline so thread + stream share the same invocation."""
+    global _analysis_running, _active_regen_key
     month_sel = request.args.get('month', 'current')
     date_str  = request.args.get('date', '')
 
@@ -2059,13 +2106,15 @@ def run_analysis_stream():
     local_q: queue.Queue = queue.Queue()
 
     def _worker():
-        global _analysis_running
+        global _analysis_running, _active_regen_key
         _thread_log_queue.queue = local_q
+        key = None
         try:
             from AppManager import AppManager
             from datetime import datetime
             from dateutil.relativedelta import relativedelta
             from src_utils.utils import utils as _utils
+            import page_status as _ps
             _utils._cc_confirm_hook = _web_cc_confirm
 
             if month_sel == 'last':
@@ -2076,16 +2125,13 @@ def run_analysis_stream():
                 t = datetime.now()
 
             key = t.strftime('%Y_%m')
+            _active_regen_key = key
             _regen_tracker.init(key)
+            _regen_tracker.set_callback(key, lambda pct: local_q.put(f'__PROGRESS__:{pct}'))
 
-            deps, db_mtime = _capture_deps_and_run(
-                lambda: AppManager(skip_parser=True).general_analysis(t=t, page_id=key)
-            )
-            html_path = os.path.join(GENERAL_ANALYSIS_DIR, f'{key}.html')
-            if os.path.exists(html_path):
-                _save_manifest(html_path, deps, db_mtime)
-            _monthly_data_cache.pop(key, None)
-            _regen_tracker.update(key, 10)  # final 10 pts: cache cleared, ready for fetch
+            result = AppManager(skip_parser=True).monthly_analysis(t=t, page_id=key)
+            _monthly_data_cache[key] = {'ts': _time.time(), 'data': result}
+            _ps.mark_generated(key)
             _regen_tracker.done(key)
             local_q.put(f'__DONE__:{key}')
         except Exception as exc:
@@ -2095,6 +2141,9 @@ def run_analysis_stream():
         finally:
             with _analysis_lock:
                 _analysis_running = False
+                _active_regen_key = None
+            if key:
+                _regen_tracker.clear_callback(key)
             try:
                 from src_utils.utils import utils as _utils
                 _utils._cc_confirm_hook = None

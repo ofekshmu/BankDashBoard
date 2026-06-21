@@ -177,6 +177,7 @@ body {
   flex: 1;
   padding: 0 28px 60px;
   min-width: 0;
+  position: relative;
 }
 @media (max-width: 600px) {
   .main { padding: 0 12px 80px; }
@@ -323,9 +324,9 @@ body {
   background: #d0d4e0;
   transition: background 0.3s, width 0.3s, height 0.3s;
 }
-.cm-item.has-file .cm-dot { background: var(--teal); }
-.cm-item.has-file.stale .cm-dot { background: var(--amber); }
-.cm-item.active.has-file .cm-dot { width: 7px; height: 7px; }
+.cm-item.status-fresh .cm-dot { background: #22c55e; }
+.cm-item.status-stale .cm-dot { background: #f59e0b; }
+.cm-item.active.status-fresh .cm-dot { width: 7px; height: 7px; }
 
 /* Future months — not yet available */
 .cm-item.future { cursor: not-allowed; }
@@ -414,6 +415,31 @@ body {
 .reload-btn.stale-code:hover { box-shadow: 0 6px 24px rgba(231,76,60,0.75); }
 
 .reload-btn-icon { font-size: 1.6em; line-height: 1; display: flex; align-items: center; }
+
+/* Percentage inside the regen button (shown only while running) */
+.reload-btn-pct {
+  font-size: 0.65em; font-weight: 700; color: rgba(255,255,255,0.9);
+  display: none; line-height: 1; margin-top: 2px; letter-spacing: 0.02em;
+}
+.reload-btn.running .reload-btn-pct { display: block; }
+
+/* Queue overlay: shown when the current page is waiting in regen queue */
+#regen-queue-overlay {
+  display: none; position: absolute; left: 0; right: 0; top: 0; bottom: 0; z-index: 50;
+  flex-direction: column; align-items: center; justify-content: center;
+  gap: 18px; background: rgba(244,246,249,0.96); border-radius: var(--radius);
+  text-align: center; padding: 40px 24px; pointer-events: auto;
+}
+#regen-queue-overlay.visible { display: flex; }
+.rq-spinner {
+  width: 44px; height: 44px; border-radius: 50%;
+  border: 3.5px solid #e0e0e0; border-top-color: var(--teal);
+  animation: _rqSpin 0.85s linear infinite;
+}
+@keyframes _rqSpin { to { transform: rotate(360deg); } }
+.rq-title { font-size: 1.05em; font-weight: 700; color: var(--navy); }
+.rq-pos   { font-size: 0.85em; color: var(--teal); font-weight: 600; }
+.rq-hint  { font-size: 0.78em; color: var(--text-muted); }
 @media (max-width: 768px) {
   .regen-fab-group { bottom: 14px; right: 14px; }
   .reload-btn { width: 52px; padding: 0; border-radius: 50%; justify-content: center; }
@@ -1963,9 +1989,17 @@ body {
     </div>
     <button class="reload-btn" id="reload-btn" onclick="reloadCurrent()" title="חשב מחדש">
       <span class="reload-btn-icon">&#8635;</span><span class="reload-btn-label">חשב מחדש</span>
+      <span class="reload-btn-pct" id="reload-btn-pct"></span>
     </button>
   </div>
 
+  <!-- Queue waiting overlay: shown when page is waiting for active regen to finish -->
+  <div id="regen-queue-overlay">
+    <div class="rq-spinner"></div>
+    <p class="rq-title">ממתין לרנדור פעיל…</p>
+    <p id="rq-pos-label" class="rq-pos"></p>
+    <p class="rq-hint">ניתן לנווט לדף אחר</p>
+  </div>
 
   <!-- Organizer missing-file alerts (injected by Python) -->
   <div id="organizer-alerts"></div>
@@ -2493,8 +2527,8 @@ function _monthLabel(year, month) {
 }
 
 function _buildRoller(list) {
-  var hasFile = {};
-  list.forEach(function(m) { hasFile[m.key] = true; });
+  var statusMap = {};
+  list.forEach(function(m) { statusMap[m.key] = m.status || 'none'; });
 
   // Build a wide window: 36 months of history + 6 months forward from today
   var now = new Date();
@@ -2508,7 +2542,7 @@ function _buildRoller(list) {
     var k = _dateToKey(d);
     var isFuture = k > todayMonthKey;
     months.push({ key: k, year: d.getFullYear(), month: d.getMonth() + 1,
-                  hasFile: !!hasFile[k], future: isFuture });
+                  status: statusMap[k] || 'none', future: isFuture });
     d = new Date(d.getFullYear(), d.getMonth() + 1, 1);
   }
   _rollerItems = months;
@@ -2522,7 +2556,8 @@ function _buildRoller(list) {
 
   months.forEach(function(m, i) {
     var item = document.createElement('div');
-    item.className = 'cm-item' + (m.hasFile ? ' has-file' : '') + (m.future ? ' future' : '');
+    var statusCls = m.status === 'fresh' ? ' status-fresh' : m.status === 'stale' ? ' status-stale' : '';
+    item.className = 'cm-item' + statusCls + (m.future ? ' future' : '');
     item.dataset.key = m.key;
 
     var lbl = document.createElement('span');
@@ -2609,17 +2644,7 @@ function _buildRoller(list) {
     }
   }
 
-  // Colour dots: green = up-to-date, yellow = stale
-  fetch('/api/stale-all')
-    .then(function(r) { return r.json(); })
-    .then(function(map) {
-      document.querySelectorAll('#roller-track .cm-item[data-key]').forEach(function(el) {
-        var k = el.dataset.key;
-        if (map[k] === true)  el.classList.add('stale');
-        else                  el.classList.remove('stale');
-      });
-    })
-    .catch(function() {});
+  // Status dots (fresh/stale/none) are applied above from /api/general/list status field.
 
   // Attach wheel listener once
   if (roller && !roller._wheelBound) {
@@ -2871,6 +2896,40 @@ var _nullBtn = (function() {
 }());
 var _regenCompletedAt = 0;   // Date.now() of last successful regen — suppresses false stale for 15s
 
+function _updateReloadBtnGlobalState() {
+  var btn = document.getElementById('reload-btn');
+  if (!btn) return;
+  var anyActivelyGenerating = Object.keys(_generatingMonths).some(function(k) {
+    return _regenQueue.indexOf(k) < 0;
+  });
+  btn.disabled = anyActivelyGenerating;
+  if (anyActivelyGenerating) {
+    btn.classList.add('running');
+  } else if (!(_currentKey && _generatingMonths[_currentKey])) {
+    btn.classList.remove('running');
+    var pctEl = document.getElementById('reload-btn-pct');
+    if (pctEl) pctEl.textContent = '';
+  }
+}
+
+function _updateRegenButtonPct(pct) {
+  var el = document.getElementById('reload-btn-pct');
+  if (el) el.textContent = pct + '%';
+}
+
+function _showQueueOverlay(pos) {
+  var overlay = document.getElementById('regen-queue-overlay');
+  if (!overlay) return;
+  var posLabel = document.getElementById('rq-pos-label');
+  if (posLabel) posLabel.textContent = pos > 0 ? 'מיקום בתור: #' + pos : '';
+  overlay.classList.add('visible');
+}
+
+function _hideQueueOverlay() {
+  var overlay = document.getElementById('regen-queue-overlay');
+  if (overlay) overlay.classList.remove('visible');
+}
+
 function _markGenerating(key, on) {
   var item = document.querySelector('#roller-track .cm-item[data-key="' + key + '"]');
   if (on) {
@@ -2883,8 +2942,10 @@ function _markGenerating(key, on) {
     _stopRegenPoll(key);
     try { sessionStorage.removeItem('_regen_' + key); } catch(_e) {}
     try { sessionStorage.removeItem('_regen_pct_' + key); } catch(_e) {}
+    _hideQueueOverlay();
     if (item) {
-      item.classList.remove('generating');
+      item.classList.remove('generating', 'status-stale', 'status-none');
+      item.classList.add('status-fresh');
       var pctEl = item.querySelector('.cm-gen-pct');
       if (pctEl) pctEl.textContent = '✓';
       item.classList.add('gen-done');
@@ -2894,6 +2955,7 @@ function _markGenerating(key, on) {
       }, 3600);
     }
   }
+  _updateReloadBtnGlobalState();
 }
 
 // Update carousel item to show queue position (amber colour, no dot).
@@ -2923,12 +2985,20 @@ function _startBackgroundRegen(key) {
   }).then(function(r) {
     if (r && r.ok) {
       var btn = (key === _currentKey) ? (document.getElementById('reload-btn') || _nullBtn) : _nullBtn;
-      if (key === _currentKey && btn !== _nullBtn) { btn.classList.add('running'); btn.disabled = true; }
+      if (key === _currentKey) {
+        // Transition from queue overlay to active regen UI
+        _hideQueueOverlay();
+        _showSkeletons();
+        if (btn !== _nullBtn) { btn.classList.add('running'); btn.disabled = true; }
+        _regenProg.start(_regenPctMap[key] || 0);
+      }
       _listenToRegenSSE(key, btn);
+      _updateReloadBtnGlobalState();
     } else if (r && r.status === 409) {
       // Unexpected race — push back to front and retry shortly
       if (_regenQueue.indexOf(key) < 0) _regenQueue.unshift(key);
       _markQueued(key);
+      if (key === _currentKey) _showQueueOverlay(_regenQueue.indexOf(key) + 1);
     } else {
       _markGenerating(key, false);
     }
@@ -2939,11 +3009,12 @@ function _startBackgroundRegen(key) {
 function _popRegenQueue() {
   if (_regenQueue.length === 0) return;
   var nextKey = _regenQueue.shift();
-  // Refresh position labels for remaining items
+  // Refresh position labels for remaining items (carousel + overlay if current page is queued)
   _regenQueue.forEach(function(k, idx) {
     var ri = document.querySelector('#roller-track .cm-item[data-key="' + k + '"]');
     var rp = ri && ri.querySelector('.cm-gen-pct');
     if (rp) rp.textContent = '#' + (idx + 1);
+    if (k === _currentKey) _showQueueOverlay(idx + 1);
   });
   _startBackgroundRegen(nextKey);
 }
@@ -2989,85 +3060,78 @@ function _startRegenPoll(regenKey) {
 function _listenToRegenSSE(regenKey, btn) {
   // Close any stale SSE for this key before opening a fresh one (prevents queue-stealing)
   if (_openSSE[regenKey]) { _openSSE[regenKey].close(); delete _openSSE[regenKey]; }
-  _startRegenPoll(regenKey);  // begin polling server-side progress for this key
   var es = new EventSource('/api/logs');
   _openSSE[regenKey] = es;
   es.onmessage = function(evt) {
     var data = evt.data;
     if (!data || data === '__CONNECTED__') return;
+    if (data.startsWith('__PROGRESS__:')) {
+      var pct = parseInt(data.slice(13), 10);
+      if (!isNaN(pct)) {
+        if (pct > (_regenPctMap[regenKey] || 0)) _regenPctMap[regenKey] = pct;
+        if (regenKey === _currentKey) {
+          _regenProg._val = Math.min(_regenProg._val, _regenPctMap[regenKey]);
+          _regenProg._set(_regenPctMap[regenKey]);
+        } else {
+          _regenProg._set(_regenPctMap[regenKey]);
+        }
+        _updateRegenButtonPct(_regenPctMap[regenKey]);
+      }
+      return;
+    }
     if (data.startsWith('__PROMPT_CC__:')) {
       try { showCCPrompt(JSON.parse(data.slice(14))); } catch(_e) {}
       return;
     }
     if (data.startsWith('__DONE__')) {
       es.close(); delete _openSSE[regenKey];
-      _stopRegenPoll(regenKey);
       _regenCompletedAt = Date.now();
-      fetch('/api/general/' + regenKey + '/invalidate', {method: 'POST'})
-        .then(function() { return window._monthNav ? window._monthNav.refresh(regenKey) : null; })
-        .then(function() {
-          _regenCompletedAt = Date.now();
-          _markGenerating(regenKey, false);
-          // Only reset button + progress if no other month is still regenerating
-          var _otherRegen = Object.keys(_generatingMonths).length > 0;
-          if (!_otherRegen) {
-            btn.classList.remove('running', 'stale-db', 'stale-code'); btn.disabled = false;
-          }
-          if (regenKey === _currentKey) {
-            _regenProg._set(99, 'טוען נתונים…');
-            return _fetchAndRender(regenKey)
-              .then(function() {
-                _regenProg.done(true); _hideGeneratingOverlay();
-                // Start next queued month (if any) in background
-                _popRegenQueue();
-              })
-              .catch(function() { _regenProg.done(false); _hideGeneratingOverlay(); });
-          } else {
-            // Background month finished — start next in queue (if any), else mark done.
-            if (_regenQueue.length > 0) {
-              _popRegenQueue();
-            } else if (!_otherRegen) {
-              _regenProg.done(true);
-            }
-            _hideGeneratingOverlay();
-          }
-        })
-        .catch(function() {
-          _regenProg.done(false);
-          var _curPanel = new URLSearchParams(window.location.search).get('panel') || '';
-          setTimeout(function() {
-            location.href = '/general/' + regenKey + (_curPanel ? '?panel=' + _curPanel : '');
-          }, 300);
-        });
+      _markGenerating(regenKey, false);
+      // Only reset button + progress if no other month is still regenerating
+      var _otherRegen = Object.keys(_generatingMonths).length > 0;
+      if (!_otherRegen) {
+        btn.classList.remove('running', 'stale-db', 'stale-code'); btn.disabled = false;
+      }
+      _updateReloadBtnGlobalState();
+      if (regenKey === _currentKey) {
+        _regenProg._set(99, 'טוען נתונים…');
+        _fetchAndRender(regenKey)
+          .then(function() {
+            _regenProg.done(true); _hideGeneratingOverlay();
+            _popRegenQueue();
+          })
+          .catch(function() { _regenProg.done(false); _hideGeneratingOverlay(); });
+      } else {
+        if (_regenQueue.length > 0) {
+          _popRegenQueue();
+        } else if (!_otherRegen) {
+          _regenProg.done(true);
+        }
+        _hideGeneratingOverlay();
+      }
       return;
     }
     if (data === '__ERROR__') {
       es.close(); delete _openSSE[regenKey];
-      _stopRegenPoll(regenKey);
       appendLog('✗ שגיאה בניתוח', 'err');
       _markGenerating(regenKey, false);
       _hideGeneratingOverlay();
-      // Only reset button + progress if no other month is still regenerating
       if (Object.keys(_generatingMonths).length === 0) {
         btn.classList.remove('running'); btn.disabled = false;
         _regenProg.done(false);
       }
+      _updateReloadBtnGlobalState();
       return;
     }
     appendLog(data);
   };
   es.onerror = function() {
     es.close(); delete _openSSE[regenKey];
-    _stopRegenPoll(regenKey);
-    btn.classList.remove('running'); btn.disabled = false;
     if (regenKey === _currentKey) {
-      // Active page — surface the error
       _markGenerating(regenKey, false);
       _hideGeneratingOverlay();
       _regenProg.done(false);
     } else {
-      // Background regen SSE dropped — clear silently so carousel doesn't lock up.
-      // If the server is still generating, navigating back will re-trigger via 409.
       delete _generatingMonths[regenKey];
       delete _regenPctMap[regenKey];
       var _errItem = document.querySelector('#roller-track .cm-item[data-key="' + regenKey + '"]');
@@ -3078,6 +3142,7 @@ function _listenToRegenSSE(regenKey, btn) {
       }
       if (_regenQueue.length > 0) _popRegenQueue();
     }
+    _updateReloadBtnGlobalState();
   };
 }
 
@@ -3106,6 +3171,7 @@ function _reloadGeneral() {
 
   btn.classList.add('running'); btn.disabled = true;
   _markGenerating(regenKey, true);
+  _updateReloadBtnGlobalState();
   if (typeof window._showSkeletons === 'function') window._showSkeletons();
   _regenProg.start();
 
@@ -3120,15 +3186,17 @@ function _reloadGeneral() {
       // Another regen is running — add to queue; __DONE__ handler will auto-start via _popRegenQueue.
       if (_regenQueue.indexOf(regenKey) < 0) _regenQueue.push(regenKey);
       _markQueued(regenKey);
+      _showQueueOverlay(_regenQueue.indexOf(regenKey) + 1);
+      _updateReloadBtnGlobalState();
     } else {
-      btn.classList.remove('running'); btn.disabled = false;
       _markGenerating(regenKey, false);
       _regenProg.done(false);
+      _updateReloadBtnGlobalState();
     }
   }).catch(function() {
-    btn.classList.remove('running'); btn.disabled = false;
     _markGenerating(regenKey, false);
     _regenProg.done(false);
+    _updateReloadBtnGlobalState();
   });
 }
 
@@ -3243,6 +3311,16 @@ _initMonthNav();
     .then(function(d) {
       var badge = document.getElementById('app-version-badge');
       if (badge && d.version) { badge.textContent = 'v' + d.version; }
+    })
+    .catch(function() {});
+  // Restore regen button disabled state if a regen is already in progress server-side
+  fetch('/api/regen/status')
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d.any_active) {
+        var btn = document.getElementById('reload-btn');
+        if (btn) { btn.classList.add('running'); btn.disabled = true; }
+      }
     })
     .catch(function() {});
 })();
@@ -6248,15 +6326,21 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
             _markGenerating(initKey, true);
             if (_regenQueue.indexOf(initKey) < 0) _regenQueue.push(initKey);
             _markQueued(initKey);
-            var _savedPct = 0;
-            try { var _s = sessionStorage.getItem('_regen_pct_' + initKey); if (_s) _savedPct = parseInt(_s, 10) || 0; } catch(_e) {}
-            if (_btn) { _btn.classList.add('running'); _btn.disabled = true; }
-            _regenProg.start(_savedPct);
+            _showQueueOverlay(_regenQueue.indexOf(initKey) + 1);
+            _updateReloadBtnGlobalState();
             if (Object.keys(_openSSE).length === 0) {
               // Fresh context (e.g. direct URL nav) — open a single SSE to detect completion.
               var _waitES = new EventSource('/api/logs');
               _waitES.onmessage = function(evt) {
                 if (!evt.data) return;
+                if (evt.data.startsWith('__PROGRESS__:')) {
+                  var _pct = parseInt(evt.data.slice(13), 10);
+                  if (!isNaN(_pct)) {
+                    var _ak = Object.keys(_generatingMonths).find(function(k) { return _regenQueue.indexOf(k) < 0; });
+                    if (_ak) { if (_pct > (_regenPctMap[_ak] || 0)) _regenPctMap[_ak] = _pct; _regenProg._set(_pct); }
+                  }
+                  return;
+                }
                 if (evt.data.startsWith('__DONE__') || evt.data === '__ERROR__') {
                   _waitES.close();
                   _popRegenQueue();
@@ -6312,6 +6396,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       if (btn) btn.classList.remove('stale-db', 'stale-code');
 
       // Always fade out first, then render/fetch
+      _hideQueueOverlay();
       _fadeOut(function(els) {
         // Keep progress panel visible as long as any month is actively generating (not queued).
         var _progPanel = document.getElementById('regen-progress-panel');
@@ -6340,18 +6425,21 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
             .catch(function() {});
 
         } else if (_generatingMonths[key]) {
-          // Month is tracked (generating or queued) — show skeletons and progress.
-          _showSkeletons();
-          _loadBar.resume(_regenPctMap[key] || _regenProg._val || 0);
+          // Month is tracked (generating or queued) — show appropriate UI.
           _fadeIn(els);
           var _rBtn = document.getElementById('reload-btn');
-          if (_rBtn) {
-            if (!_rBtn.disabled) { _rBtn.classList.add('running'); _rBtn.disabled = true; }
-            // Always show the panel so user sees live progress on this page.
-            _regenProg.start(_regenPctMap[key] || 0);
-            // Reconnect SSE only if actually generating (not queued) and connection dropped.
-            if (_regenQueue.indexOf(key) < 0 && !_openSSE[key]) {
-              _listenToRegenSSE(key, _rBtn);
+          if (_regenQueue.indexOf(key) >= 0) {
+            // Page is queued — show the waiting overlay instead of skeletons
+            _showQueueOverlay(_regenQueue.indexOf(key) + 1);
+            _updateReloadBtnGlobalState();
+          } else {
+            // Actively generating — show skeletons and reconnect SSE if dropped
+            _showSkeletons();
+            _loadBar.resume(_regenPctMap[key] || _regenProg._val || 0);
+            if (_rBtn) {
+              if (!_rBtn.disabled) { _rBtn.classList.add('running'); _rBtn.disabled = true; }
+              _regenProg.start(_regenPctMap[key] || 0);
+              if (!_openSSE[key]) _listenToRegenSSE(key, _rBtn);
             }
           }
 

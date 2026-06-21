@@ -412,9 +412,12 @@ def monthly_data_api(yyyy_mm):
         # Data has never been generated — fail fast so the client starts a regen with SSE progress
         return jsonify({'error': 'no_data', 'status': 'none'}), 404
 
-    # Monthly data is cached but global isn't — compute global only (one-time, fast-ish)
-    year = int(yyyy_mm[:4])
+    # Monthly data is cached but global isn't — try to compute global, fall back gracefully.
+    # Never return 500 when monthly data is available; accounts/mortgage panels stay empty
+    # if global data can't be computed, but the rest of the page renders correctly.
+    global_payload = {}
     try:
+        year = int(yyyy_mm[:4])
         from datetime import datetime as _dt2
         t = _dt2(year, month_num, 1)
         from AppManager import AppManager
@@ -423,13 +426,12 @@ def monthly_data_api(yyyy_mm):
             global_payload = am.get_global_data(t=t)
             _global_data_cache['global'] = {'ts': _time.time(), 'data': global_payload}
         except Exception:
-            global_payload = {}
-        payload = dict(monthly_cached['data'])
-        payload.update(global_payload)
-        return jsonify(payload)
-    except Exception as e:
-        import traceback
-        return jsonify({'error': str(e), 'trace': traceback.format_exc()}), 500
+            pass
+    except Exception:
+        pass
+    payload = dict(monthly_cached['data'])
+    payload.update(global_payload)
+    return jsonify(payload)
 
 
 @app.route('/api/general/<yyyy_mm>/invalidate', methods=['POST'])
@@ -2137,6 +2139,15 @@ def run_analysis_stream():
             result = AppManager(skip_parser=True).monthly_analysis(t=t, page_id=key)
             _monthly_data_cache[key] = {'ts': _time.time(), 'data': result}
             _ps.mark_generated(key)
+
+            # Pre-warm global cache so the data endpoint returns instantly after __DONE__
+            if 'global' not in _global_data_cache:
+                try:
+                    _gp = AppManager(skip_parser=True).get_global_data(t=t)
+                    _global_data_cache['global'] = {'ts': _time.time(), 'data': _gp}
+                except Exception:
+                    pass
+
             _regen_tracker.done(key)
             local_q.put(f'__DONE__:{key}')
         except Exception as exc:

@@ -3091,12 +3091,22 @@ function _listenToRegenSSE(regenKey, btn) {
       _updateReloadBtnGlobalState();
       if (regenKey === _currentKey) {
         _regenProg._set(99, 'טוען נתונים…');
+        // Retry once after 1.5 s if the first attempt fails (e.g. transient server issue)
         _fetchAndRender(regenKey)
           .then(function() {
             _regenProg.done(true); _hideGeneratingOverlay();
             _popRegenQueue();
           })
-          .catch(function() { _regenProg.done(false); _hideGeneratingOverlay(); });
+          .catch(function() {
+            setTimeout(function() {
+              _fetchAndRender(regenKey)
+                .then(function() {
+                  _regenProg.done(true); _hideGeneratingOverlay();
+                  _popRegenQueue();
+                })
+                .catch(function() { _regenProg.done(false); _hideGeneratingOverlay(); });
+            }, 1500);
+          });
       } else {
         if (_regenQueue.length > 0) {
           _popRegenQueue();

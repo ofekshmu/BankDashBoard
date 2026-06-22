@@ -2808,25 +2808,23 @@ var _regenProg = {
       _updateReloadBtnGlobalState();
     }, success ? 1800 : 300);
   },
-  // All UI elements derive from _regenPctMap[k] — pct is only a fallback.
   _set: function(pct, label) {
-    var _activeKey = (_currentKey && _generatingMonths[_currentKey]) ? _currentKey : null;
-    var panelPct = (_activeKey && _regenPctMap[_activeKey] != null)
-      ? Math.round(_regenPctMap[_activeKey]) : pct;
+    var displayPct = Math.round(pct);
     var fill = document.getElementById('regen-prog-fill');
     var lbl  = document.getElementById('regen-prog-label');
-    if (fill) fill.style.width = panelPct + '%';
-    if (lbl)  lbl.textContent = label || ('מחשב… ' + panelPct + '%');
+    if (fill) fill.style.width = displayPct + '%';
+    if (lbl)  lbl.textContent = label || ('מחשב… ' + displayPct + '%');
+    var _activeKey = (_currentKey && _generatingMonths[_currentKey]) ? _currentKey : null;
     if (_activeKey) {
       var ri = document.querySelector('#roller-track .cm-item[data-key="' + _activeKey + '"]');
       if (ri) {
         ri.classList.add('generating'); ri.classList.remove('gen-done', 'gen-queued');
         if (!label) {
           var rp = ri.querySelector('.cm-gen-pct');
-          if (rp) rp.textContent = panelPct + '%';
+          if (rp) rp.textContent = displayPct + '%';
         }
       }
-      _loadBar.set(panelPct);
+      _loadBar.set(displayPct);
     }
   }
 };

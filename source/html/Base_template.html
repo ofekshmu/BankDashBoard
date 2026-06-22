@@ -3332,6 +3332,30 @@ _initMonthNav();
 })();
 
 // ── Debug log panel ───────────────────────────────────────
+// Route browser console.error / console.warn into the debug feed so all JS
+// errors are visible without opening DevTools.
+(function() {
+  function _writeToDebugFeed(level, args) {
+    var feed = document.getElementById('debug-feed');
+    if (!feed) return;
+    var parts = [];
+    for (var i = 0; i < args.length; i++) {
+      var a = args[i];
+      parts.push(a instanceof Error ? (a.message + (a.stack ? '\n' + a.stack : '')) : String(a));
+    }
+    var line = document.createElement('div');
+    line.className = 'debug-line ' + (level === 'error' ? 'err' : 'warn');
+    line.textContent = '[' + level + '] ' + parts.join(' ');
+    feed.appendChild(line);
+    feed.scrollTop = feed.scrollHeight;
+    while (feed.children.length > 600) feed.removeChild(feed.firstChild);
+  }
+  var _ce = console.error.bind(console);
+  var _cw = console.warn.bind(console);
+  console.error = function() { _ce.apply(console, arguments); _writeToDebugFeed('error', arguments); };
+  console.warn  = function() { _cw.apply(console, arguments);  _writeToDebugFeed('warn',  arguments); };
+})();
+
 var _dbgEs = null;
 
 function toggleDebugPanel() {
@@ -6489,6 +6513,10 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   };
 
   window._showSkeletons = _showSkeletons;
+  // Expose _fetchAndRender globally so _listenToRegenSSE (defined before this IIFE)
+  // can call it after __DONE__. Without this, the call throws ReferenceError and
+  // the page never renders after regen.
+  window._fetchAndRender = _fetchAndRender;
   document.addEventListener('DOMContentLoaded', _initDynamicPage);
 
   // Set --btn-half CSS var so the progress panel anchors at button center

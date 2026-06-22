@@ -411,24 +411,34 @@ def monthly_data_api(yyyy_mm):
         return jsonify(payload), 200, _no_cache
 
     if not monthly_cached:
-        # Data has never been generated — fail fast so the client starts a regen with SSE progress
-        return jsonify({'error': 'no_data', 'status': 'none'}), 404, _no_cache
+        # Cache cold — could be a different Vercel instance that missed the regen worker's write.
+        # Try computing on-demand from the DB. If the month has never been generated (no DB rows),
+        # AppManager will raise → we return no_data so the client triggers the regen UI.
+        try:
+            from datetime import datetime as _dt2
+            from AppManager import AppManager
+            _t = _dt2(int(yyyy_mm[:4]), month_num, 1)
+            _am = AppManager(skip_parser=True)
+            monthly_payload = _am.monthly_analysis(t=_t)
+            _monthly_data_cache[yyyy_mm] = {'ts': _time.time(), 'data': monthly_payload}
+            monthly_cached = {'data': monthly_payload}
+        except Exception:
+            return jsonify({'error': 'no_data', 'status': 'none'}), 404, _no_cache
 
-    # Monthly data is cached but global isn't — try to compute global, fall back gracefully.
-    # Never return 500 when monthly data is available; accounts/mortgage panels stay empty
-    # if global data can't be computed, but the rest of the page renders correctly.
+    # monthly_cached is guaranteed set here.
+    # Fill in global data; fall back to empty dict so monthly data still renders.
+    if global_cached:
+        payload = dict(monthly_cached['data'])
+        payload.update(global_cached['data'])
+        return jsonify(payload), 200, _no_cache
+
     global_payload = {}
     try:
-        year = int(yyyy_mm[:4])
         from datetime import datetime as _dt2
-        t = _dt2(year, month_num, 1)
         from AppManager import AppManager
-        am = AppManager(skip_parser=True)
-        try:
-            global_payload = am.get_global_data(t=t)
-            _global_data_cache['global'] = {'ts': _time.time(), 'data': global_payload}
-        except Exception:
-            pass
+        _t = _dt2(int(yyyy_mm[:4]), month_num, 1)
+        global_payload = AppManager(skip_parser=True).get_global_data(t=_t)
+        _global_data_cache['global'] = {'ts': _time.time(), 'data': global_payload}
     except Exception:
         pass
     payload = dict(monthly_cached['data'])

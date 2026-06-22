@@ -2981,26 +2981,23 @@ function _listenToRegenSSE(regenKey, btn) {
       _updateReloadBtnGlobalState();
       if (regenKey === _currentKey) {
         _regenProg._set(99, 'טוען נתונים…');
-        // Retry once after 1.5 s if the first attempt fails (e.g. transient server issue)
-        _fetchAndRender(regenKey)
-          .then(function() {
-            console.log('[regen] _fetchAndRender succeeded for', regenKey, '— page rendered');
-            _regenProg.done(true); _hideGeneratingOverlay();
-          })
-          .catch(function(e) {
-            console.error('[regen] _fetchAndRender failed (attempt 1) for', regenKey, e);
-            setTimeout(function() {
-              _fetchAndRender(regenKey)
-                .then(function() {
-                  console.log('[regen] _fetchAndRender succeeded (retry) for', regenKey);
-                  _regenProg.done(true); _hideGeneratingOverlay();
-                })
-                .catch(function(e2) {
-                  console.error('[regen] _fetchAndRender failed (attempt 2) for', regenKey, e2);
-                  _regenProg.done(false); _hideGeneratingOverlay();
-                });
-            }, 1500);
-          });
+        // Retry up to 5× with exponential backoff: server may need to recompute on-demand
+        // (Vercel cross-instance cold-cache case) which can take several seconds.
+        (function _retryFetch(attempt, delay) {
+          _fetchAndRender(regenKey)
+            .then(function() {
+              console.log('[regen] _fetchAndRender ok (attempt ' + attempt + ') for', regenKey);
+              _regenProg.done(true); _hideGeneratingOverlay();
+            })
+            .catch(function(e) {
+              console.error('[regen] _fetchAndRender failed (attempt ' + attempt + ') for', regenKey, (e && e.message) || e);
+              if (attempt < 5) {
+                setTimeout(function() { _retryFetch(attempt + 1, Math.min(delay * 2, 8000)); }, delay);
+              } else {
+                _regenProg.done(false); _hideGeneratingOverlay();
+              }
+            });
+        })(1, 600);
       } else {
         if (!_otherRegen) _regenProg.done(true);
         _hideGeneratingOverlay();

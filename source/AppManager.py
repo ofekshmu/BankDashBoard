@@ -31,21 +31,16 @@ try:
 except Exception as _e:
     _constants_validation = str(_e)
 
+# Log validation errors once at import time — not on every AppManager instantiation
+if isinstance(_formats_validation, str):
+    utils.log(f'Format validation error: {_formats_validation}', 'error')
+if isinstance(_constants_validation, str):
+    utils.log(f'Constants validation error: {_constants_validation}', 'error')
+
 
 class AppManager:
 
     def __init__(self, skip_parser=False):
-        # Log cached static validation results (no recomputation)
-        if isinstance(_constants_validation, str):
-            utils.log(_constants_validation, 'error')
-        else:
-            utils.log(f'Constants validation result: {_constants_validation}', 'system')
-
-        if isinstance(_formats_validation, str):
-            utils.log(_formats_validation, 'error')
-        else:
-            utils.log(f'Format validation result: {_formats_validation}', 'system')
-
         result, log, df = utils.handle_withdrawals()
         if result:
             utils.log(f"{log}", 'system')

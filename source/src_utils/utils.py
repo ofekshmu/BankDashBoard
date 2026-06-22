@@ -5274,7 +5274,7 @@ document.addEventListener('DOMContentLoaded', _initTxnFooter);
         # Remove unnecessary columns
         card_withdrawals_df = card_withdrawals_df[['ID', 'CardID', 'Executed_Date', 'Transaction_Value']]
 
-        total_matched_transactions_df = pd.DataFrame()
+        _matched_frames = []
 
         for _, row in card_withdrawals_df.iterrows():
             # extract all the keys represting card numbers in the Transaction Names dictionary for each format dictionary
@@ -5332,9 +5332,9 @@ document.addEventListener('DOMContentLoaded', _initTxnFooter);
                 DataBase().set_description('CardTransactions', int(row['ID']),f"Matched with Bank Transaction ID: {matched_transactions_df['ID'].iloc[0]}")
                 DataBase().set_description('BankTransactions', int(matched_transactions_df['ID'].iloc[0]), f"Matched with Card Transaction ID: {int(row['ID'])}")
                 DataBase().commit_changes()
-                total_matched_transactions_df = pd.concat([total_matched_transactions_df, matched_transactions_df], ignore_index=True)
+                _matched_frames.append(matched_transactions_df)
 
-
+        total_matched_transactions_df = pd.concat(_matched_frames, ignore_index=True) if _matched_frames else pd.DataFrame()
         if total_matched_transactions_df.empty:
             return True, "Witdrawals Check Executed, None found", total_matched_transactions_df
         else:

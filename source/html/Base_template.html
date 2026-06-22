@@ -2950,7 +2950,10 @@ function _startRegenPoll(regenKey) {
 
 // Attach SSE listener to a running /api/logs stream for regenKey.
 // Called both on a fresh 200 start AND when 409 is returned (reconnect case).
-function _listenToRegenSSE(regenKey, btn) {
+// streamUrl: when provided, use that SSE endpoint (e.g. /api/analysis-stream?...)
+//            which runs worker + stream in the same Vercel invocation.
+//            Omit (or pass null) for reconnects, which fall back to /api/logs.
+function _listenToRegenSSE(regenKey, btn, streamUrl) {
   // Close any stale SSE for this key before opening a fresh one (prevents queue-stealing)
   if (_openSSE[regenKey]) { _openSSE[regenKey].close(); delete _openSSE[regenKey]; }
   // Auto-open the debug panel so logs are visible without requiring the user to hunt for the FAB
@@ -2958,7 +2961,7 @@ function _listenToRegenSSE(regenKey, btn) {
   if (_dbg && !_dbg.classList.contains('open')) {
     if (typeof toggleDebugPanel === 'function') toggleDebugPanel();
   }
-  var es = new EventSource('/api/logs');
+  var es = new EventSource(streamUrl || '/api/logs');
   _openSSE[regenKey] = es;
   es.onmessage = function(evt) {
     var data = evt.data;
@@ -2975,6 +2978,14 @@ function _listenToRegenSSE(regenKey, btn) {
     }
     if (data.startsWith('__PROMPT_CC__:')) {
       try { showCCPrompt(JSON.parse(data.slice(14))); } catch(_e) {}
+      return;
+    }
+    // /api/analysis-stream returns __ERROR__:busy when another regen is already running
+    if (data === '__ERROR__:busy') {
+      es.close(); delete _openSSE[regenKey];
+      _markGenerating(regenKey, false);
+      _regenProg.done(false);
+      _updateReloadBtnGlobalState();
       return;
     }
     if (data.startsWith('__DONE__')) {
@@ -3077,28 +3088,10 @@ function _reloadGeneral() {
   if (typeof window._showSkeletons === 'function') window._showSkeletons();
   _regenProg.start();
 
-  fetch('/api/analysis', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ month: 'pick', date: dateStr })
-  }).then(function(r) {
-    if (r.ok) {
-      _listenToRegenSSE(regenKey, btn);
-    } else if (r.status === 409) {
-      // Another regen is already running — undo state and show error.
-      _markGenerating(regenKey, false);
-      _regenProg.done(false);
-      _updateReloadBtnGlobalState();
-    } else {
-      _markGenerating(regenKey, false);
-      _regenProg.done(false);
-      _updateReloadBtnGlobalState();
-    }
-  }).catch(function() {
-    _markGenerating(regenKey, false);
-    _regenProg.done(false);
-    _updateReloadBtnGlobalState();
-  });
+  // Use the single-invocation streaming endpoint so the worker and SSE share the same
+  // Vercel function instance — avoids the cross-instance log-miss problem with /api/logs.
+  var _streamUrl = '/api/analysis-stream?month=pick&date=' + encodeURIComponent(dateStr);
+  _listenToRegenSSE(regenKey, btn, _streamUrl);
 }
 
 function _reloadCategory(slug) {
@@ -6294,43 +6287,9 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         if (_btn) { _btn.classList.add('running'); _btn.disabled = true; _btn.classList.remove('stale-db', 'stale-code'); }
         _regenProg.start();
         _updateReloadBtnGlobalState();
-        fetch('/api/analysis', {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({month: 'pick', date: _dateStr})
-        }).then(function(r2) {
-          if (_currentKey !== initKey) return;
-          if (r2.status === 409) {
-            // Another regen is already running — undo eager state and show error.
-            _markGenerating(initKey, false);
-            _regenProg.done(false);
-            _loadBar.done();
-            _updateReloadBtnGlobalState();
-          } else if (r2.ok) {
-            // Fresh regen started — eager state already set, just connect SSE
-            console.log('[regen] POST /api/analysis 200 — SSE starting for', initKey);
-            _listenToRegenSSE(initKey, _btn);
-          } else {
-            // Server error — undo eager state and show error
-            _markGenerating(initKey, false);
-            _regenProg.done(false);
-            _loadBar.done();
-            var _kr = document.getElementById('kpi-row');
-            if (_kr) _kr.innerHTML =
-              '<div style="color:#e74c3c;padding:20px 0">שגיאה בטעינת נתונים: ' + _esc(String(err)) + '</div>';
-            console.error('Dynamic page load error:', err);
-            if (typeof toggleDebugPanel === 'function') setTimeout(toggleDebugPanel, 400);
-          }
-        }).catch(function() {
-          if (_currentKey !== initKey) return;
-          _markGenerating(initKey, false);
-          _regenProg.done(false);
-          _loadBar.done();
-          var _kr = document.getElementById('kpi-row');
-          if (_kr) _kr.innerHTML =
-            '<div style="color:#e74c3c;padding:20px 0">שגיאה בטעינת נתונים: ' + _esc(String(err)) + '</div>';
-          console.error('Dynamic page load error:', err);
-        });
+        // Single-invocation stream: worker + SSE share the same Vercel function instance
+        var _streamUrl = '/api/analysis-stream?month=pick&date=' + encodeURIComponent(_dateStr);
+        _listenToRegenSSE(initKey, _btn, _streamUrl);
       });
   }
 

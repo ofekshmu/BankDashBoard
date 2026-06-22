@@ -403,14 +403,16 @@ def monthly_data_api(yyyy_mm):
     monthly_cached = _monthly_data_cache.get(yyyy_mm)
     global_cached  = _global_data_cache.get('global')
 
+    _no_cache = {'Cache-Control': 'no-store'}
+
     if monthly_cached and global_cached:
         payload = dict(monthly_cached['data'])
         payload.update(global_cached['data'])
-        return jsonify(payload)
+        return jsonify(payload), 200, _no_cache
 
     if not monthly_cached:
         # Data has never been generated — fail fast so the client starts a regen with SSE progress
-        return jsonify({'error': 'no_data', 'status': 'none'}), 404
+        return jsonify({'error': 'no_data', 'status': 'none'}), 404, _no_cache
 
     # Monthly data is cached but global isn't — try to compute global, fall back gracefully.
     # Never return 500 when monthly data is available; accounts/mortgage panels stay empty
@@ -431,7 +433,7 @@ def monthly_data_api(yyyy_mm):
         pass
     payload = dict(monthly_cached['data'])
     payload.update(global_payload)
-    return jsonify(payload)
+    return jsonify(payload), 200, _no_cache
 
 
 @app.route('/api/general/<yyyy_mm>/invalidate', methods=['POST'])

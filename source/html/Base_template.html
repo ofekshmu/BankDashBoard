@@ -6237,7 +6237,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     // Reuse an in-flight request for the same key rather than duplicating it
     if (_pendingFetches[key]) return _pendingFetches[key];
 
-    var p = fetch('/api/general/' + key + '/data')
+    var p = fetch('/api/general/' + key + '/data', {cache: 'no-store'})
       .then(function(r) {
         if (key === _currentKey) _loadBar.set(55);
         return r.json().then(function(d) {

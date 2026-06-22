@@ -18,34 +18,53 @@ import numpy as np
 import seaborn as sns
 from Exporter import Exporter
 
+# validate_formats and validate_constants inspect static code/config only (Formats.py,
+# categories.json). Run once at import time so each AppManager() instantiation during
+# regen skips the tqdm loops entirely.
+try:
+    _formats_validation = utils.validate_formats()
+except Exception as _e:
+    _formats_validation = str(_e)
+
+try:
+    _constants_validation = utils.validate_constants()
+except Exception as _e:
+    _constants_validation = str(_e)
+
+
 class AppManager:
 
     def __init__(self, skip_parser=False):
-        res = utils.validate_formats()
-        res2 = utils.validate_constants()
-
-        result, log, df = utils.handle_withdrawals()
-        if result:
-            utils.log(f"{log}", 'system')
-            if not df.empty:
-                utils.log(f"Matched Withdrawals:\n{utils.df_to_markdown(df)}")
+        # Log cached static validation results (no recomputation)
+        if isinstance(_constants_validation, str):
+            utils.log(_constants_validation, 'error')
         else:
-            utils.log(f"Withdrawals handling failed: {log}", 'error')
+            utils.log(f'Constants validation result: {_constants_validation}', 'system')
 
-        if type(res2) == str:
-            utils.log(res2, 'error')
+        if isinstance(_formats_validation, str):
+            utils.log(_formats_validation, 'error')
         else:
-            utils.log(f'Constants validation result: {res2}', 'system')
+            utils.log(f'Format validation result: {_formats_validation}', 'system')
 
-        if type(res) == str:
-            utils.log(res, 'error')
-        else:
-            utils.log(f'Format validation result: {res}', 'system')
+        # DB-dependent calls — suppress connection errors so regen continues
+        try:
+            result, log, df = utils.handle_withdrawals()
+            if result:
+                utils.log(f"{log}", 'system')
+                if not df.empty:
+                    utils.log(f"Matched Withdrawals:\n{utils.df_to_markdown(df)}")
+            else:
+                utils.log(f"Withdrawals handling failed: {log}", 'error')
+        except Exception as _e:
+            utils.log(f"Withdrawals handling skipped (DB unavailable): {_e}", 'warning')
 
-        if utils.validate_BankTransactions():
-            utils.log("Bank Transactions validation passed!")
-        else:
-            utils.log("Bank Format Vlidation Failed!", 'warning')
+        try:
+            if utils.validate_BankTransactions():
+                utils.log("Bank Transactions validation passed!")
+            else:
+                utils.log("Bank Transactions validation failed!", 'warning')
+        except Exception as _e:
+            utils.log(f"Bank Transactions validation skipped (DB unavailable): {_e}", 'warning')
 
         if not skip_parser:
             self.parser = Parser()

@@ -73,8 +73,17 @@ class _ChainableCursor:
                 self._conn.rollback()
             except Exception:
                 pass
-        self._c = self._conn.cursor()
-        self._c.execute(sql, params)
+        try:
+            self._c = self._conn.cursor()
+            self._c.execute(sql, params)
+        except psycopg2.OperationalError:
+            # Neon (and other cloud Postgres) closes idle SSL connections
+            # server-side without updating psycopg2's connection.closed flag.
+            # Force a fresh connection and retry the query once.
+            DataBase._connect()
+            self._conn = DataBase._DataBase__instance.connection
+            self._c = self._conn.cursor()
+            self._c.execute(sql, params)
         return self
 
     def fetchall(self):     return self._c.fetchall() if self._c else []

@@ -2939,9 +2939,9 @@ function _listenToRegenSSE(regenKey, btn) {
       var pct = parseInt(data.slice(13), 10);
       if (!isNaN(pct)) {
         if (pct > (_regenPctMap[regenKey] || 0)) _regenPctMap[regenKey] = pct;
-        // _val stays at current crawl position; crawl timer will animate toward new target
-        _regenProg._set(_regenPctMap[regenKey]);
-        // Button % is driven exclusively by the crawl timer to avoid jump-then-backward artifacts
+        // Crawl timer reads _regenPctMap and animates _val toward it — no direct _set() call here.
+        // Calling _set() here would jump the fill bar to the SSE value while _val stays at 0,
+        // then the next timer tick pulls _val back up from low, causing the spike-then-restart.
       }
       return;
     }

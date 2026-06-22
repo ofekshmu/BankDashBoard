@@ -46,25 +46,18 @@ class AppManager:
         else:
             utils.log(f'Format validation result: {_formats_validation}', 'system')
 
-        # DB-dependent calls — suppress connection errors so regen continues
-        try:
-            result, log, df = utils.handle_withdrawals()
-            if result:
-                utils.log(f"{log}", 'system')
-                if not df.empty:
-                    utils.log(f"Matched Withdrawals:\n{utils.df_to_markdown(df)}")
-            else:
-                utils.log(f"Withdrawals handling failed: {log}", 'error')
-        except Exception as _e:
-            utils.log(f"Withdrawals handling skipped (DB unavailable): {_e}", 'warning')
+        result, log, df = utils.handle_withdrawals()
+        if result:
+            utils.log(f"{log}", 'system')
+            if not df.empty:
+                utils.log(f"Matched Withdrawals:\n{utils.df_to_markdown(df)}")
+        else:
+            utils.log(f"Withdrawals handling failed: {log}", 'error')
 
-        try:
-            if utils.validate_BankTransactions():
-                utils.log("Bank Transactions validation passed!")
-            else:
-                utils.log("Bank Transactions validation failed!", 'warning')
-        except Exception as _e:
-            utils.log(f"Bank Transactions validation skipped (DB unavailable): {_e}", 'warning')
+        if utils.validate_BankTransactions():
+            utils.log("Bank Transactions validation passed!")
+        else:
+            utils.log("Bank Transactions validation failed!", 'warning')
 
         if not skip_parser:
             self.parser = Parser()

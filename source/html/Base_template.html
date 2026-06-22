@@ -2953,6 +2953,11 @@ function _startRegenPoll(regenKey) {
 function _listenToRegenSSE(regenKey, btn) {
   // Close any stale SSE for this key before opening a fresh one (prevents queue-stealing)
   if (_openSSE[regenKey]) { _openSSE[regenKey].close(); delete _openSSE[regenKey]; }
+  // Auto-open the debug panel so logs are visible without requiring the user to hunt for the FAB
+  var _dbg = document.getElementById('debug-panel');
+  if (_dbg && !_dbg.classList.contains('open')) {
+    if (typeof toggleDebugPanel === 'function') toggleDebugPanel();
+  }
   var es = new EventSource('/api/logs');
   _openSSE[regenKey] = es;
   es.onmessage = function(evt) {

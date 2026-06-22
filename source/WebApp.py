@@ -13,11 +13,6 @@ GET  /api/stale-all         return {yyyy_mm: bool, ...} for all pages
 
 import os
 import sys
-import warnings
-
-# Vendored seaborn 0.12.2 uses a deprecated pandas option; suppress at startup
-# since the vendored copy cannot be modified directly.
-warnings.filterwarnings('ignore', message='use_inf_as_na option is deprecated', category=FutureWarning)
 
 # Ensure source/ siblings (AppManager, database, etc.) are importable whether
 # this module is loaded via app.py or directly as a Vercel serverless function.

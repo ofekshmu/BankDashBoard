@@ -6561,10 +6561,10 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   };
 
   window._showSkeletons = _showSkeletons;
-  // Expose _fetchAndRender globally so _listenToRegenSSE (defined before this IIFE)
-  // can call it after __DONE__. Without this, the call throws ReferenceError and
-  // the page never renders after regen.
+  // Expose IIFE-internal functions that are called from global-scope code defined
+  // before this script block. Without these, the caller gets ReferenceError.
   window._fetchAndRender = _fetchAndRender;
+  window._cacheGet       = _cacheGet;
   document.addEventListener('DOMContentLoaded', _initDynamicPage);
 
   // Set --btn-half CSS var so the progress panel anchors at button center

@@ -424,23 +424,6 @@ body {
 }
 .reload-btn.running .reload-btn-pct { display: block; }
 
-/* Queue overlay: shown when the current page is waiting in regen queue */
-#regen-queue-overlay {
-  display: none; position: absolute; left: 0; right: 0; top: 0; bottom: 0; z-index: 50;
-  flex-direction: column; align-items: center; justify-content: center;
-  gap: 18px; background: rgba(244,246,249,0.96); border-radius: var(--radius);
-  text-align: center; padding: 40px 24px; pointer-events: auto;
-}
-#regen-queue-overlay.visible { display: flex; }
-.rq-spinner {
-  width: 44px; height: 44px; border-radius: 50%;
-  border: 3.5px solid #e0e0e0; border-top-color: var(--teal);
-  animation: _rqSpin 0.85s linear infinite;
-}
-@keyframes _rqSpin { to { transform: rotate(360deg); } }
-.rq-title { font-size: 1.05em; font-weight: 700; color: var(--navy); }
-.rq-pos   { font-size: 0.85em; color: var(--teal); font-weight: 600; }
-.rq-hint  { font-size: 0.78em; color: var(--text-muted); }
 @media (max-width: 768px) {
   .regen-fab-group { bottom: 14px; right: 14px; }
   .reload-btn { width: 52px; padding: 0; border-radius: 50%; justify-content: center; }
@@ -1995,14 +1978,6 @@ body {
     </button>
   </div>
 
-  <!-- Queue waiting overlay: shown when page is waiting for active regen to finish -->
-  <div id="regen-queue-overlay">
-    <div class="rq-spinner"></div>
-    <p class="rq-title">ממתין לרנדור פעיל…</p>
-    <p id="rq-pos-label" class="rq-pos"></p>
-    <p class="rq-hint">ניתן לנווט לדף אחר</p>
-  </div>
-
   <!-- Organizer missing-file alerts (injected by Python) -->
   <div id="organizer-alerts"></div>
 
@@ -2588,30 +2563,11 @@ function _buildRoller(list) {
       var self = this;
 
       if (m.key === _currentKey) return;
-      // Already in queue — don't navigate or double-queue; just tap feedback.
-      if (_regenQueue.indexOf(m.key) >= 0) {
+      // Lock navigation while any regen is active — just give tap feedback.
+      if (Object.keys(_generatingMonths).length > 0) {
         self.classList.add('tapped');
         self.addEventListener('animationend', function() { self.classList.remove('tapped'); }, { once: true });
         return;
-      }
-
-      // If a regen is actively running, decide: queue or navigate?
-      var _anyActive = Object.keys(_generatingMonths).some(function(k) {
-        return _regenQueue.indexOf(k) < 0;
-      });
-      if (_anyActive || _regenQueue.length > 0) {
-        // Generating month (not queued) or cached month — navigate normally.
-        if (_generatingMonths[m.key] || _cacheGet(m.key)) {
-          // fall through to navigate below
-        } else {
-          // No data, not generating — add to background queue.
-          _regenQueue.push(m.key);
-          _markGenerating(m.key, true);
-          _markQueued(m.key);
-          self.classList.add('tapped');
-          self.addEventListener('animationend', function() { self.classList.remove('tapped'); }, { once: true });
-          return;
-        }
       }
       self.classList.add('tapped');
       self.addEventListener('animationend', function() { self.classList.remove('tapped'); }, { once: true });
@@ -2826,18 +2782,13 @@ var _regenProg = {
     // Smooth display: animate _val toward the polled target of the actively generating month.
     // Works across navigation — when current page isn't the generating one, we find the active key.
     self._timer = setInterval(function() {
-      // Prefer current page if it's actively generating; otherwise find any active background key
-      var crawlKey = (_currentKey && _generatingMonths[_currentKey] && _regenQueue.indexOf(_currentKey) < 0)
-        ? _currentKey
-        : (Object.keys(_generatingMonths).find(function(k) { return _regenQueue.indexOf(k) < 0; }) || null);
+      var crawlKey = (_currentKey && _generatingMonths[_currentKey]) ? _currentKey : null;
       if (crawlKey) {
         var target = (_regenPctMap[crawlKey] != null) ? _regenPctMap[crawlKey] : self._val;
         if (self._val < target) {
           var gap = target - self._val;
           self._val = Math.min(self._val + Math.max(1.0, gap * 0.15), target);
         }
-      }
-      if (Object.keys(_generatingMonths).length > 0) {
         self._set(self._val);
         _updateRegenButtonPct(Math.round(self._val));
       }
@@ -2858,32 +2809,24 @@ var _regenProg = {
   },
   // All UI elements derive from _regenPctMap[k] — pct is only a fallback.
   _set: function(pct, label) {
-    // Find the active key: current page if generating, else any active background key
-    var _activeKey = (_currentKey && _generatingMonths[_currentKey] && _regenQueue.indexOf(_currentKey) < 0)
-      ? _currentKey
-      : (Object.keys(_generatingMonths).find(function(k) { return _regenQueue.indexOf(k) < 0; }) || null);
+    var _activeKey = (_currentKey && _generatingMonths[_currentKey]) ? _currentKey : null;
     var panelPct = (_activeKey && _regenPctMap[_activeKey] != null)
       ? Math.round(_regenPctMap[_activeKey]) : pct;
     var fill = document.getElementById('regen-prog-fill');
     var lbl  = document.getElementById('regen-prog-label');
     if (fill) fill.style.width = panelPct + '%';
     if (lbl)  lbl.textContent = label || ('מחשב… ' + panelPct + '%');
-    Object.keys(_generatingMonths).forEach(function(k) {
-      var ri = document.querySelector('#roller-track .cm-item[data-key="' + k + '"]');
-      if (!ri) return;
-      if (_regenQueue.indexOf(k) >= 0) {
-        // Queued-in-background — keep amber queued style and #N label, don't touch text
-        ri.classList.remove('generating', 'gen-done');
-        ri.classList.add('gen-queued');
-        return;
+    if (_activeKey) {
+      var ri = document.querySelector('#roller-track .cm-item[data-key="' + _activeKey + '"]');
+      if (ri) {
+        ri.classList.add('generating'); ri.classList.remove('gen-done', 'gen-queued');
+        if (!label) {
+          var rp = ri.querySelector('.cm-gen-pct');
+          if (rp) rp.textContent = panelPct + '%';
+        }
       }
-      ri.classList.add('generating'); ri.classList.remove('gen-done', 'gen-queued');
-      if (!label) {
-        var rp = ri.querySelector('.cm-gen-pct');
-        if (rp) rp.textContent = Math.round(_regenPctMap[k] != null ? _regenPctMap[k] : pct) + '%';
-      }
-    });
-    if (_activeKey) _loadBar.set(panelPct);
+      _loadBar.set(panelPct);
+    }
   }
 };
 
@@ -2891,7 +2834,6 @@ var _regenProg = {
 var _generatingMonths = {};   // key → true while regenerating (or waiting in queue)
 var _regenPctMap = {};        // key → last-known regen progress % (set by server poll)
 var _regenPollTimers = {};    // key → setInterval handle for /api/regen-progress/<key> polling
-var _regenQueue = [];         // ordered list of keys waiting to generate in background
 var _openSSE = {};            // key → EventSource (tracks open SSE to prevent competing connections)
 // Null-safe btn proxy — passed to _listenToRegenSSE for background (non-current-page) regens
 var _nullBtn = (function() {
@@ -2903,13 +2845,11 @@ var _regenCompletedAt = 0;   // Date.now() of last successful regen — suppress
 function _updateReloadBtnGlobalState() {
   var btn = document.getElementById('reload-btn');
   if (!btn) return;
-  var anyActivelyGenerating = Object.keys(_generatingMonths).some(function(k) {
-    return _regenQueue.indexOf(k) < 0;
-  });
-  btn.disabled = anyActivelyGenerating;
-  if (anyActivelyGenerating) {
+  var anyGenerating = Object.keys(_generatingMonths).length > 0;
+  btn.disabled = anyGenerating;
+  if (anyGenerating) {
     btn.classList.add('running');
-  } else if (!(_currentKey && _generatingMonths[_currentKey]) && !_regenProg._timer) {
+  } else if (!_regenProg._timer) {
     btn.classList.remove('running');
     var pctEl = document.getElementById('reload-btn-pct');
     if (pctEl) pctEl.textContent = '';
@@ -2919,19 +2859,6 @@ function _updateReloadBtnGlobalState() {
 function _updateRegenButtonPct(pct) {
   var el = document.getElementById('reload-btn-pct');
   if (el) el.textContent = pct + '%';
-}
-
-function _showQueueOverlay(pos) {
-  var overlay = document.getElementById('regen-queue-overlay');
-  if (!overlay) return;
-  var posLabel = document.getElementById('rq-pos-label');
-  if (posLabel) posLabel.textContent = pos > 0 ? 'מיקום בתור: #' + pos : '';
-  overlay.classList.add('visible');
-}
-
-function _hideQueueOverlay() {
-  var overlay = document.getElementById('regen-queue-overlay');
-  if (overlay) overlay.classList.remove('visible');
 }
 
 function _markGenerating(key, on) {
@@ -2946,7 +2873,6 @@ function _markGenerating(key, on) {
     _stopRegenPoll(key);
     try { sessionStorage.removeItem('_regen_' + key); } catch(_e) {}
     try { sessionStorage.removeItem('_regen_pct_' + key); } catch(_e) {}
-    _hideQueueOverlay();
     if (item) {
       item.classList.remove('generating', 'status-stale', 'status-none');
       item.classList.add('status-fresh');
@@ -2960,67 +2886,6 @@ function _markGenerating(key, on) {
     }
   }
   _updateReloadBtnGlobalState();
-}
-
-// Update carousel item to show queue position (amber colour, no dot).
-function _markQueued(key) {
-  var item = document.querySelector('#roller-track .cm-item[data-key="' + key + '"]');
-  if (!item) return;
-  item.classList.add('gen-queued');
-  var pctEl = item.querySelector('.cm-gen-pct');
-  if (pctEl) {
-    var pos = _regenQueue.indexOf(key) + 1;
-    pctEl.textContent = '#' + pos;
-  }
-}
-
-// Start generating a month that was just popped from the background queue.
-function _startBackgroundRegen(key) {
-  // Transition carousel item from queued (amber) to generating (teal)
-  var item = document.querySelector('#roller-track .cm-item[data-key="' + key + '"]');
-  if (item) item.classList.remove('gen-queued');
-  var parts = key.split('_');
-  var yr = parseInt(parts[0], 10), mo = parseInt(parts[1], 10);
-  var dateStr = yr + '-' + (mo < 10 ? '0' + mo : '' + mo) + '-01';
-  fetch('/api/analysis', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({month: 'pick', date: dateStr})
-  }).then(function(r) {
-    if (r && r.ok) {
-      var btn = (key === _currentKey) ? (document.getElementById('reload-btn') || _nullBtn) : _nullBtn;
-      if (key === _currentKey) {
-        // Transition from queue overlay to active regen UI
-        _hideQueueOverlay();
-        _showSkeletons();
-        if (btn !== _nullBtn) { btn.classList.add('running'); btn.disabled = true; btn.classList.remove('stale-db', 'stale-code'); }
-        _regenProg.start(_regenPctMap[key] || 0);
-      }
-      _listenToRegenSSE(key, btn);
-      _updateReloadBtnGlobalState();
-    } else if (r && r.status === 409) {
-      // Unexpected race — push back to front and retry shortly
-      if (_regenQueue.indexOf(key) < 0) _regenQueue.unshift(key);
-      _markQueued(key);
-      if (key === _currentKey) _showQueueOverlay(_regenQueue.indexOf(key) + 1);
-    } else {
-      _markGenerating(key, false);
-    }
-  }).catch(function() { _markGenerating(key, false); });
-}
-
-// Pop the next key from _regenQueue and start it, updating queue-position labels.
-function _popRegenQueue() {
-  if (_regenQueue.length === 0) return;
-  var nextKey = _regenQueue.shift();
-  // Refresh position labels for remaining items (carousel + overlay if current page is queued)
-  _regenQueue.forEach(function(k, idx) {
-    var ri = document.querySelector('#roller-track .cm-item[data-key="' + k + '"]');
-    var rp = ri && ri.querySelector('.cm-gen-pct');
-    if (rp) rp.textContent = '#' + (idx + 1);
-    if (k === _currentKey) _showQueueOverlay(idx + 1);
-  });
-  _startBackgroundRegen(nextKey);
 }
 
 function _hideGeneratingOverlay() {
@@ -3097,7 +2962,6 @@ function _listenToRegenSSE(regenKey, btn) {
           .then(function() {
             console.log('[regen] _fetchAndRender succeeded for', regenKey, '— page rendered');
             _regenProg.done(true); _hideGeneratingOverlay();
-            _popRegenQueue();
           })
           .catch(function(e) {
             console.error('[regen] _fetchAndRender failed (attempt 1) for', regenKey, e);
@@ -3106,7 +2970,6 @@ function _listenToRegenSSE(regenKey, btn) {
                 .then(function() {
                   console.log('[regen] _fetchAndRender succeeded (retry) for', regenKey);
                   _regenProg.done(true); _hideGeneratingOverlay();
-                  _popRegenQueue();
                 })
                 .catch(function(e2) {
                   console.error('[regen] _fetchAndRender failed (attempt 2) for', regenKey, e2);
@@ -3115,11 +2978,7 @@ function _listenToRegenSSE(regenKey, btn) {
             }, 1500);
           });
       } else {
-        if (_regenQueue.length > 0) {
-          _popRegenQueue();
-        } else if (!_otherRegen) {
-          _regenProg.done(true);
-        }
+        if (!_otherRegen) _regenProg.done(true);
         _hideGeneratingOverlay();
       }
       return;
@@ -3159,7 +3018,6 @@ function _listenToRegenSSE(regenKey, btn) {
         var _errPct = _errItem.querySelector('.cm-gen-pct');
         if (_errPct) { _errPct.textContent = ''; _errPct.style.opacity = ''; _errPct.style.height = ''; }
       }
-      if (_regenQueue.length > 0) _popRegenQueue();
     }
     _updateReloadBtnGlobalState();
   };
@@ -3171,9 +3029,8 @@ function _reloadGeneral() {
   // Guard: if this key is already being generated (within-SPA), just reconnect SSE —
   // do NOT call _regenProg.start() again as that would reset the in-progress map value.
   if (_generatingMonths[regenKey]) {
-    // Already tracked — either actively generating or queued in background.
-    if (_regenQueue.indexOf(regenKey) < 0 && !_openSSE[regenKey]) {
-      // Actively generating but SSE dropped — reconnect.
+    // Already generating — if SSE dropped, reconnect.
+    if (!_openSSE[regenKey]) {
       var _btn0 = document.getElementById('reload-btn');
       if (_btn0) {
         if (!_btn0.disabled) { _btn0.classList.add('running'); _btn0.disabled = true; }
@@ -3202,10 +3059,9 @@ function _reloadGeneral() {
     if (r.ok) {
       _listenToRegenSSE(regenKey, btn);
     } else if (r.status === 409) {
-      // Another regen is running — add to queue; __DONE__ handler will auto-start via _popRegenQueue.
-      if (_regenQueue.indexOf(regenKey) < 0) _regenQueue.push(regenKey);
-      _markQueued(regenKey);
-      _showQueueOverlay(_regenQueue.indexOf(regenKey) + 1);
+      // Another regen is already running — undo state and show error.
+      _markGenerating(regenKey, false);
+      _regenProg.done(false);
       _updateReloadBtnGlobalState();
     } else {
       _markGenerating(regenKey, false);
@@ -6401,33 +6257,11 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         }).then(function(r2) {
           if (_currentKey !== initKey) return;
           if (r2.status === 409) {
-            // Another month is running — keep eager state, transition to queue mode.
-            // If an existing SSE (from the running month) is open it will pop the queue on __DONE__.
-            // Otherwise open a one-shot waiting SSE to detect when the server becomes free.
-            if (_regenQueue.indexOf(initKey) < 0) _regenQueue.push(initKey);
-            _markQueued(initKey);
-            _showQueueOverlay(_regenQueue.indexOf(initKey) + 1);
+            // Another regen is already running — undo eager state and show error.
+            _markGenerating(initKey, false);
+            _regenProg.done(false);
+            _loadBar.done();
             _updateReloadBtnGlobalState();
-            if (Object.keys(_openSSE).length === 0) {
-              // Fresh context (e.g. direct URL nav) — open a single SSE to detect completion.
-              var _waitES = new EventSource('/api/logs');
-              _waitES.onmessage = function(evt) {
-                if (!evt.data) return;
-                if (evt.data.startsWith('__PROGRESS__:')) {
-                  var _pct = parseInt(evt.data.slice(13), 10);
-                  if (!isNaN(_pct)) {
-                    var _ak = Object.keys(_generatingMonths).find(function(k) { return _regenQueue.indexOf(k) < 0; });
-                    if (_ak) { if (_pct > (_regenPctMap[_ak] || 0)) _regenPctMap[_ak] = _pct; }
-                  }
-                  return;
-                }
-                if (evt.data.startsWith('__DONE__') || evt.data === '__ERROR__') {
-                  _waitES.close();
-                  _popRegenQueue();
-                }
-              };
-              _waitES.onerror = function() { _waitES.close(); };
-            }
           } else if (r2.ok) {
             // Fresh regen started — eager state already set, just connect SSE
             console.log('[regen] POST /api/analysis 200 — SSE starting for', initKey);
@@ -6479,18 +6313,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       if (btn) btn.classList.remove('stale-db', 'stale-code');
 
       // Always fade out first, then render/fetch
-      _hideQueueOverlay();
       _fadeOut(function(els) {
-        // Keep progress panel visible as long as any month is actively generating (not queued).
-        var _progPanel = document.getElementById('regen-progress-panel');
-        if (_progPanel) {
-          var _anyActiveRegen = Object.keys(_generatingMonths).some(function(k) {
-            return _regenQueue.indexOf(k) < 0;
-          });
-          if (_anyActiveRegen) _progPanel.classList.add('visible');
-          else                 _progPanel.classList.remove('visible');
-        }
-
         // Re-evaluate cache INSIDE the callback — the 150ms fadeOut delay means an
         // in-flight fetch may have completed and populated the cache by the time we get here.
         var cached = _cacheGet(key);
@@ -6508,22 +6331,15 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
             .catch(function() {});
 
         } else if (_generatingMonths[key]) {
-          // Month is tracked (generating or queued) — show appropriate UI.
+          // Actively generating — show skeletons and reconnect SSE if dropped
           _fadeIn(els);
           var _rBtn = document.getElementById('reload-btn');
-          if (_regenQueue.indexOf(key) >= 0) {
-            // Page is queued — show the waiting overlay instead of skeletons
-            _showQueueOverlay(_regenQueue.indexOf(key) + 1);
-            _updateReloadBtnGlobalState();
-          } else {
-            // Actively generating — show skeletons and reconnect SSE if dropped
-            _showSkeletons();
-            _loadBar.resume(_regenPctMap[key] || _regenProg._val || 0);
-            if (_rBtn) {
-              if (!_rBtn.disabled) { _rBtn.classList.add('running'); _rBtn.disabled = true; }
-              _regenProg.start(_regenPctMap[key] || 0);
-              if (!_openSSE[key]) _listenToRegenSSE(key, _rBtn);
-            }
+          _showSkeletons();
+          _loadBar.resume(_regenPctMap[key] || _regenProg._val || 0);
+          if (_rBtn) {
+            if (!_rBtn.disabled) { _rBtn.classList.add('running'); _rBtn.disabled = true; }
+            _regenProg.start(_regenPctMap[key] || 0);
+            if (!_openSSE[key]) _listenToRegenSSE(key, _rBtn);
           }
 
         } else if (_pendingFetches[key]) {

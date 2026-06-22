@@ -3163,9 +3163,10 @@ window.addEventListener('popstate', function(e) {
     var m = window.location.pathname.match(/\/general\/(\d{4}_\d{2})/);
     key = m && m[1];
   }
-  if (key && window._monthNav) {
-    window._monthNav.navigate(key, true /* skipPush */);
-  }
+  if (!key || !window._monthNav) return;
+  // Lock back/forward navigation during active regen (same rule as carousel)
+  if (Object.keys(_generatingMonths).length > 0) return;
+  window._monthNav.navigate(key, true /* skipPush */);
 });
 
 // Always init the month roller (doesn't depend on server being active)
@@ -6361,10 +6362,14 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
             .then(function() { if (key === _currentKey) _loadBar.done(); })
             .catch(function(err) {
               _loadBar.done();
-              // Month not generated yet — call _reloadGeneral() directly (bypasses disabled-button
-              // guard so auto-regen works even when another month's regen is still running)
-              if (key === _currentKey) _reloadGeneral();
-              console.error('Month navigation error (auto-regen triggered):', err);
+              if (key !== _currentKey) return;
+              if (err && err.message === 'no_data') {
+                // Month has no data yet — auto-trigger regen
+                console.log('[nav] No data for', key, '— auto-regen triggered');
+                _reloadGeneral();
+              } else {
+                console.error('[nav] Fetch error for', key, ':', err);
+              }
             });
         }
       });

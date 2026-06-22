@@ -2439,6 +2439,16 @@ function appendLog(msg, cls) {
   }
   _lf_msg_count++;
   _lfSetProgress(Math.min(90, Math.round(_lf_msg_count / _LF_EST_TOTAL * 100)), null);
+  var feed = document.getElementById('debug-feed');
+  if (feed && msg) {
+    var _dl = document.createElement('div');
+    var _cls = _classifyLog(msg);
+    _dl.className = 'debug-line' + (_cls ? ' ' + _cls : '');
+    _dl.textContent = '[regen] ' + msg;
+    feed.appendChild(_dl);
+    feed.scrollTop = feed.scrollHeight;
+    while (feed.children.length > 800) feed.removeChild(feed.firstChild);
+  }
 }
 
 function _classifyLog(msg) {
@@ -2777,18 +2787,22 @@ var _regenProg = {
   start: function(fromPct) {
     var self = this;
     var initVal = (fromPct != null && fromPct > 0) ? Math.min(fromPct, 98) : 0;
-    if (_currentKey) _regenPctMap[_currentKey] = Math.max(_regenPctMap[_currentKey] || 0, initVal);
+    // Only pre-seed the map with a non-zero value — leave null until first SSE when initVal=0
+    if (_currentKey && initVal > 0) _regenPctMap[_currentKey] = Math.max(_regenPctMap[_currentKey] || 0, initVal);
     self._val = initVal;
     clearInterval(self._timer);
-    // Smooth display: animate _val toward the polled target of the actively generating month.
-    // Works across navigation — when current page isn't the generating one, we find the active key.
+    // Smooth display: animate _val toward the SSE target of the actively generating month.
+    // When no SSE has arrived yet (map is null), slowly crawl to 5% so the button shows activity.
     self._timer = setInterval(function() {
       var crawlKey = (_currentKey && _generatingMonths[_currentKey]) ? _currentKey : null;
       if (crawlKey) {
-        var target = (_regenPctMap[crawlKey] != null) ? _regenPctMap[crawlKey] : self._val;
-        if (self._val < target) {
-          var gap = target - self._val;
-          self._val = Math.min(self._val + Math.max(1.0, gap * 0.15), target);
+        var sseVal = _regenPctMap[crawlKey];
+        if (sseVal != null && sseVal > self._val) {
+          var gap = sseVal - self._val;
+          self._val = Math.min(self._val + Math.max(1.0, gap * 0.15), sseVal);
+        } else if (sseVal == null && self._val < 5) {
+          // No SSE yet — gently advance so button shows "1%", "2%"… instead of frozen "0%"
+          self._val = Math.min(self._val + 0.4, 5);
         }
         self._set(self._val);
         _updateRegenButtonPct(Math.round(self._val));

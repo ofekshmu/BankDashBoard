@@ -2281,11 +2281,10 @@ class DataBase:
             card_df = pd.DataFrame(data=card_data, columns=[d[0] for d in self.cursor.description])
             all_data.append(card_df)
 
-        if all_data:
-            combined_df = pd.concat(all_data, ignore_index=True)
-            return combined_df
-        else:
-            return pd.DataFrame()  # Return empty DataFrame if no valid tables provided
+        non_empty = [df for df in all_data if not df.empty]
+        if non_empty:
+            return pd.concat(non_empty, ignore_index=True)
+        return pd.DataFrame()
         
     def fix_column_date_format(self, table_name: str, column_name: str) -> pd.DataFrame:
         """

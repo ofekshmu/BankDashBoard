@@ -3332,8 +3332,8 @@ _initMonthNav();
 })();
 
 // ── Debug log panel ───────────────────────────────────────
-// Route browser console.error / console.warn into the debug feed so all JS
-// errors are visible without opening DevTools.
+// Route ALL browser console output + uncaught errors into the debug feed so
+// everything is visible without opening DevTools.
 (function() {
   function _writeToDebugFeed(level, args) {
     var feed = document.getElementById('debug-feed');
@@ -3341,19 +3341,52 @@ _initMonthNav();
     var parts = [];
     for (var i = 0; i < args.length; i++) {
       var a = args[i];
-      parts.push(a instanceof Error ? (a.message + (a.stack ? '\n' + a.stack : '')) : String(a));
+      if (a instanceof Error) {
+        parts.push(a.message + (a.stack ? '\n' + a.stack : ''));
+      } else if (a !== null && typeof a === 'object') {
+        try { parts.push(JSON.stringify(a)); } catch(_) { parts.push(String(a)); }
+      } else {
+        parts.push(String(a));
+      }
     }
     var line = document.createElement('div');
-    line.className = 'debug-line ' + (level === 'error' ? 'err' : 'warn');
+    var cls = 'debug-line';
+    if (level === 'error') cls += ' err';
+    else if (level === 'warn') cls += ' warn';
+    line.className = cls;
     line.textContent = '[' + level + '] ' + parts.join(' ');
     feed.appendChild(line);
     feed.scrollTop = feed.scrollHeight;
-    while (feed.children.length > 600) feed.removeChild(feed.firstChild);
+    while (feed.children.length > 800) feed.removeChild(feed.firstChild);
   }
+
+  // Capture originals before overriding
+  var _cl = console.log.bind(console);
+  var _ci = console.info.bind(console);
   var _ce = console.error.bind(console);
   var _cw = console.warn.bind(console);
+
+  console.log   = function() { _cl.apply(console, arguments); _writeToDebugFeed('log',   arguments); };
+  console.info  = function() { _ci.apply(console, arguments); _writeToDebugFeed('info',  arguments); };
   console.error = function() { _ce.apply(console, arguments); _writeToDebugFeed('error', arguments); };
-  console.warn  = function() { _cw.apply(console, arguments);  _writeToDebugFeed('warn',  arguments); };
+  console.warn  = function() { _cw.apply(console, arguments); _writeToDebugFeed('warn',  arguments); };
+
+  // Uncaught synchronous errors (e.g. ReferenceError, TypeError)
+  window.onerror = function(msg, src, line, col, err) {
+    var text = err ? (err.message + (err.stack ? '\n' + err.stack : '')) : String(msg);
+    if (src) text += ' (' + src.replace(location.origin, '') + ':' + line + ':' + col + ')';
+    _writeToDebugFeed('error', [text]);
+    return false; // don't suppress default browser handling
+  };
+
+  // Unhandled promise rejections
+  window.addEventListener('unhandledrejection', function(evt) {
+    var reason = evt.reason;
+    var text = reason instanceof Error
+      ? (reason.message + (reason.stack ? '\n' + reason.stack : ''))
+      : String(reason);
+    _writeToDebugFeed('error', ['[unhandledrejection] ' + text]);
+  });
 })();
 
 var _dbgEs = null;

@@ -56,4 +56,7 @@ class AppManagerUtils:
 
         proceessed_bank_transactions_df = proceessed_bank_transactions_df.rename(columns={'Date': 'Executed_Date'})
         
-        return pd.concat([proceessed_bank_transactions_df, proceessed_card_transactions_df], ignore_index=True)
+        import warnings as _w
+        with _w.catch_warnings():
+            _w.simplefilter('ignore', FutureWarning)
+            return pd.concat([proceessed_bank_transactions_df, proceessed_card_transactions_df], ignore_index=True)

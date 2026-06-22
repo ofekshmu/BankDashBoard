@@ -2283,7 +2283,12 @@ class DataBase:
 
         non_empty = [df for df in all_data if not df.empty]
         if non_empty:
-            return pd.concat(non_empty, ignore_index=True)
+            import warnings as _w
+            with _w.catch_warnings():
+                # Bank and card tables have intentionally different schemas; columns missing
+                # from one table are all-NA in those rows after concat — this is correct.
+                _w.simplefilter('ignore', FutureWarning)
+                return pd.concat(non_empty, ignore_index=True)
         return pd.DataFrame()
         
     def fix_column_date_format(self, table_name: str, column_name: str) -> pd.DataFrame:

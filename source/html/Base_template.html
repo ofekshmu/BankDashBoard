@@ -496,9 +496,9 @@ body {
 }
 #page-load-bar-wrap.active { opacity: 1; }
 #page-load-bar {
-  height: 100%; width: 0%;
-  background: linear-gradient(90deg, var(--teal) 0%, #2dd4bf 100%);
-  border-radius: 0 2px 2px 0;
+  position: absolute; right: 0; top: 0; height: 100%; width: 0%;
+  background: linear-gradient(270deg, var(--teal) 0%, #2dd4bf 100%);
+  border-radius: 2px 0 0 2px;
   transition: width 0.35s ease;
   box-shadow: 0 0 10px rgba(30,157,139,0.7), 0 0 3px rgba(30,157,139,0.5);
 }
@@ -2808,8 +2808,9 @@ var _regenProg = {
         _updateRegenButtonPct(Math.round(self._val));
       }
     }, 200);
-    _loadBar.start();
-    if (initVal > 0) _loadBar.set(initVal);
+    // When resuming mid-regen (initVal > 0), avoid resetting the bar to 0% before jumping back.
+    if (initVal > 0) _loadBar.resume(initVal);
+    else _loadBar.start();
   },
   done: function(success) {
     clearInterval(this._timer); this._timer = null;
@@ -6368,10 +6369,9 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
           _fadeIn(els);
           var _rBtn = document.getElementById('reload-btn');
           _showSkeletons();
-          _loadBar.resume(_regenPctMap[key] || _regenProg._val || 0);
           if (_rBtn) {
             if (!_rBtn.disabled) { _rBtn.classList.add('running'); _rBtn.disabled = true; }
-            _regenProg.start(_regenPctMap[key] || 0);
+            _regenProg.start(_regenPctMap[key] || 0);  // resume() called internally when pct > 0
             if (!_openSSE[key]) _listenToRegenSSE(key, _rBtn);
           }
 

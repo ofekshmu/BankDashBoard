@@ -1918,6 +1918,7 @@ body {
   <div class="debug-hdr">
     <span>▸ app logs</span>
     <div class="debug-hdr-btns">
+      <button onclick="copyDebugPanel()" id="debug-copy-btn">copy</button>
       <button onclick="clearDebugPanel()">clear</button>
       <button onclick="toggleDebugPanel()">✕</button>
     </div>
@@ -3269,6 +3270,23 @@ function toggleDebugPanel() {
 
 function clearDebugPanel() {
   document.getElementById('debug-feed').innerHTML = '';
+}
+
+function copyDebugPanel() {
+  var feed = document.getElementById('debug-feed');
+  var text = Array.from(feed.children).map(function(el) { return el.textContent; }).join('\n');
+  navigator.clipboard.writeText(text).then(function() {
+    var btn = document.getElementById('debug-copy-btn');
+    if (btn) { btn.textContent = 'copied!'; setTimeout(function() { btn.textContent = 'copy'; }, 1500); }
+  }).catch(function() {
+    // Fallback for environments without clipboard API
+    var ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select(); document.execCommand('copy');
+    document.body.removeChild(ta);
+    var btn = document.getElementById('debug-copy-btn');
+    if (btn) { btn.textContent = 'copied!'; setTimeout(function() { btn.textContent = 'copy'; }, 1500); }
+  });
 }
 
 function _startDebugStream() {

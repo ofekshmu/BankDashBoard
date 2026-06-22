@@ -3085,6 +3085,7 @@ function _listenToRegenSSE(regenKey, btn) {
     }
     if (data.startsWith('__DONE__')) {
       es.close(); delete _openSSE[regenKey];
+      console.log('[regen] __DONE__ received for', regenKey, '— calling _fetchAndRender');
       _regenCompletedAt = Date.now();
       _markGenerating(regenKey, false);
       var _otherRegen = Object.keys(_generatingMonths).length > 0;
@@ -3094,17 +3095,23 @@ function _listenToRegenSSE(regenKey, btn) {
         // Retry once after 1.5 s if the first attempt fails (e.g. transient server issue)
         _fetchAndRender(regenKey)
           .then(function() {
+            console.log('[regen] _fetchAndRender succeeded for', regenKey, '— page rendered');
             _regenProg.done(true); _hideGeneratingOverlay();
             _popRegenQueue();
           })
-          .catch(function() {
+          .catch(function(e) {
+            console.error('[regen] _fetchAndRender failed (attempt 1) for', regenKey, e);
             setTimeout(function() {
               _fetchAndRender(regenKey)
                 .then(function() {
+                  console.log('[regen] _fetchAndRender succeeded (retry) for', regenKey);
                   _regenProg.done(true); _hideGeneratingOverlay();
                   _popRegenQueue();
                 })
-                .catch(function() { _regenProg.done(false); _hideGeneratingOverlay(); });
+                .catch(function(e2) {
+                  console.error('[regen] _fetchAndRender failed (attempt 2) for', regenKey, e2);
+                  _regenProg.done(false); _hideGeneratingOverlay();
+                });
             }, 1500);
           });
       } else {
@@ -3119,6 +3126,7 @@ function _listenToRegenSSE(regenKey, btn) {
     }
     if (data === '__ERROR__') {
       es.close(); delete _openSSE[regenKey];
+      console.error('[regen] __ERROR__ received for', regenKey, '— check debug panel for details');
       appendLog('✗ שגיאה בניתוח', 'err');
       _markGenerating(regenKey, false);
       _hideGeneratingOverlay();
@@ -3127,6 +3135,11 @@ function _listenToRegenSSE(regenKey, btn) {
         _regenProg.done(false);
       }
       _updateReloadBtnGlobalState();
+      // Auto-open debug panel so the user can see the backend error without hunting for the FAB
+      var _dbgPanel = document.getElementById('debug-panel');
+      if (_dbgPanel && !_dbgPanel.classList.contains('open')) {
+        setTimeout(function() { if (typeof toggleDebugPanel === 'function') toggleDebugPanel(); }, 300);
+      }
       return;
     }
     appendLog(data);
@@ -3402,6 +3415,7 @@ function clearDebugPanel() {
 }
 
 function _startDebugStream() {
+  if (_dbgEs) return;   // already connected — don't duplicate
   _dbgEs = new EventSource('/api/debug-logs');
   _dbgEs.onmessage = function(e) {
     if (!e.data || !e.data.trim()) return;
@@ -3419,12 +3433,11 @@ function _startDebugStream() {
   };
   _dbgEs.onerror = function() {
     if (_dbgEs) { _dbgEs.close(); _dbgEs = null; }
-    var panel = document.getElementById('debug-panel');
-    if (panel && panel.classList.contains('open')) {
-      setTimeout(_startDebugStream, 3000);
-    }
+    setTimeout(_startDebugStream, 4000);  // always reconnect, not just when panel is open
   };
 }
+// Start streaming backend logs as soon as the page is interactive — no FAB click needed.
+document.addEventListener('DOMContentLoaded', function() { _startDebugStream(); });
 
 // ── Account manager modal ─────────────────────────────────
 function openAcctModal() {
@@ -6372,6 +6385,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       .catch(function(err) {
         if (_currentKey !== initKey) return;  // user navigated away — don't touch the UI
         // Data not available — eagerly enter running state (same as _reloadGeneral flow)
+        console.log('[regen] No cached data for', initKey, '— starting regen. err:', String(err));
         var _btn = document.getElementById('reload-btn');
         var _parts = initKey.split('_');
         var _yr = parseInt(_parts[0], 10), _mo = parseInt(_parts[1], 10);
@@ -6416,6 +6430,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
             }
           } else if (r2.ok) {
             // Fresh regen started — eager state already set, just connect SSE
+            console.log('[regen] POST /api/analysis 200 — SSE starting for', initKey);
             _listenToRegenSSE(initKey, _btn);
           } else {
             // Server error — undo eager state and show error

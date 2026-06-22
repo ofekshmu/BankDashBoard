@@ -295,7 +295,15 @@ body {
   30%  { filter: brightness(0.82); }
   100% { filter: brightness(1); }
 }
+@keyframes cmShake {
+  0%,100% { transform: translateX(0); }
+  20%      { transform: translateX(-5px); }
+  40%      { transform: translateX(5px); }
+  60%      { transform: translateX(-4px); }
+  80%      { transform: translateX(3px); }
+}
 .cm-item.tapped { animation: cmTap 0.28s ease; }
+.cm-item.shake  { animation: cmShake 0.35s ease; }
 .cm-item.dist-2 { opacity: 0.45; transform: scale(0.88); }
 .cm-item.dist-1 { opacity: 0.68; transform: scale(0.94); }
 .cm-item.active { opacity: 1;    transform: scale(1.08); cursor: default; background: rgba(30,157,139,0.08); }
@@ -2574,10 +2582,10 @@ function _buildRoller(list) {
       var self = this;
 
       if (m.key === _currentKey) return;
-      // Lock navigation while any regen is active — just give tap feedback.
+      // Lock navigation while any regen is active — shake to signal unavailable.
       if (Object.keys(_generatingMonths).length > 0) {
-        self.classList.add('tapped');
-        self.addEventListener('animationend', function() { self.classList.remove('tapped'); }, { once: true });
+        self.classList.add('shake');
+        self.addEventListener('animationend', function() { self.classList.remove('shake'); }, { once: true });
         return;
       }
       self.classList.add('tapped');

@@ -2859,6 +2859,7 @@ var _generatingMonths = {};   // key → true while regenerating (or waiting in 
 var _regenPctMap = {};        // key → last-known regen progress % (set by server poll)
 var _regenPollTimers = {};    // key → setInterval handle for /api/regen-progress/<key> polling
 var _openSSE = {};            // key → EventSource (tracks open SSE to prevent competing connections)
+var _busyRetryTimers = {};    // key → setInterval handle for "server busy, waiting to retry" polls
 // Null-safe btn proxy — passed to _listenToRegenSSE for background (non-current-page) regens
 var _nullBtn = (function() {
   var _cl = { add: function() {}, remove: function() {}, contains: function() { return false; } };
@@ -2980,12 +2981,48 @@ function _listenToRegenSSE(regenKey, btn, streamUrl) {
       try { showCCPrompt(JSON.parse(data.slice(14))); } catch(_e) {}
       return;
     }
-    // /api/analysis-stream returns __ERROR__:busy when another regen is already running
+    // /api/analysis-stream returns __ERROR__:busy when another regen is already running.
+    // Instead of silently giving up, mark the item as queued and auto-retry when free.
     if (data === '__ERROR__:busy') {
       es.close(); delete _openSSE[regenKey];
-      _markGenerating(regenKey, false);
+      // Clean up tracking state without the gen-done visual flash that _markGenerating(false) triggers.
+      delete _generatingMonths[regenKey];
+      delete _regenPctMap[regenKey];
+      _stopRegenPoll(regenKey);
+      try { sessionStorage.removeItem('_regen_' + regenKey); } catch(_e) {}
+      // Show yellow "queued" indicator on the carousel item
+      var _busyItem = document.querySelector('#roller-track .cm-item[data-key="' + regenKey + '"]');
+      if (_busyItem) {
+        _busyItem.classList.remove('generating', 'gen-done');
+        _busyItem.classList.add('gen-queued');
+        var _busyPct = _busyItem.querySelector('.cm-gen-pct');
+        if (_busyPct) _busyPct.textContent = 'ממתין…';
+      }
       _regenProg.done(false);
+      if (regenKey === _currentKey) {
+        if (btn) { btn.disabled = false; btn.classList.remove('running'); }
+        appendLog('⏳ שרת עסוק — ינסה שוב אוטומטית…');
+      }
       _updateReloadBtnGlobalState();
+      // Cancel any previous retry timer for this key, then start a fresh one
+      if (_busyRetryTimers[regenKey]) { clearInterval(_busyRetryTimers[regenKey]); }
+      _busyRetryTimers[regenKey] = setInterval(function() {
+        fetch('/api/regen/status')
+          .then(function(r) { return r.json(); })
+          .then(function(st) {
+            if (!st.any_active) {
+              clearInterval(_busyRetryTimers[regenKey]);
+              delete _busyRetryTimers[regenKey];
+              if (_busyItem) {
+                _busyItem.classList.remove('gen-queued');
+                var _p = _busyItem.querySelector('.cm-gen-pct');
+                if (_p) _p.textContent = '';
+              }
+              if (regenKey === _currentKey) _reloadGeneral();
+            }
+          })
+          .catch(function() { /* network blip — keep polling */ });
+      }, 2000);
       return;
     }
     if (data.startsWith('__DONE__')) {

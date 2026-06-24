@@ -5602,12 +5602,27 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         invIn2  = invIn2.slice(-_n3);
       }
 
-      // Format "2025_11" → "נוב׳ '25" for readable x-axis ticks
-      var _HE_MO = ['','ינו׳','פבר׳','מרצ׳','אפר׳','מאי','יונ׳','יול׳','אוג׳','ספט׳','אוק׳','נוב׳','דצמ׳'];
+      // Format server month strings to short Hebrew labels, e.g. "May 2026" → "מאי '26"
+      // Server returns "Month YYYY" (English), but also handle "YYYY_MM" as fallback.
+      var _EN_TO_HE = {
+        'Jan':'ינו׳','Feb':'פבר׳','Mar':'מרצ׳','Apr':'אפר׳','May':'מאי',
+        'Jun':'יונ׳','Jul':'יול׳','Aug':'אוג׳','Sep':'ספט׳','Oct':'אוק׳',
+        'Nov':'נוב׳','Dec':'דצמ׳'
+      };
+      var _HE_MO_IDX = ['','ינו׳','פבר׳','מרצ׳','אפר׳','מאי','יונ׳','יול׳','אוג׳','ספט׳','אוק׳','נוב׳','דצמ׳'];
       var monthLabels = months.map(function(m) {
-        var p = (m || '').split('_');
-        if (p.length < 2) return m;
-        return (_HE_MO[parseInt(p[1], 10)] || p[1]) + " '" + String(p[0]).slice(2);
+        var s = (m || '').trim();
+        // "May 2026" format
+        var sp = s.split(' ');
+        if (sp.length === 2 && _EN_TO_HE[sp[0]]) {
+          return _EN_TO_HE[sp[0]] + " '" + String(sp[1]).slice(2);
+        }
+        // "2025_11" format (fallback)
+        var us = s.split('_');
+        if (us.length === 2) {
+          return (_HE_MO_IDX[parseInt(us[1], 10)] || us[1]) + " '" + String(us[0]).slice(2);
+        }
+        return s;
       });
 
       var genCard = document.createElement('div');

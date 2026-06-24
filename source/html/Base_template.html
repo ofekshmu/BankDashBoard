@@ -5589,9 +5589,10 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       var mean    = ch.overall_net_mean || 0;
       var _IB = 'rgba(255,183,77,0.85)', _ID = '#ffb74d';
 
-      var isMob = window.matchMedia('(max-width:768px)').matches;
-      if (isMob) {
-        // Mobile: show only the 3 most recent months for clarity
+      var isMob     = window.matchMedia('(max-width:768px)').matches;
+      var isMobData = window.matchMedia('(max-width:500px)').matches;
+      if (isMobData) {
+        // Phone-width only: limit to 3 most recent months for clarity
         var _n3 = 3;
         months  = months.slice(-_n3);
         sp2     = sp2.slice(-_n3);

@@ -2990,13 +2990,15 @@ function _listenToRegenSSE(regenKey, btn, streamUrl) {
       delete _regenPctMap[regenKey];
       _stopRegenPoll(regenKey);
       try { sessionStorage.removeItem('_regen_' + regenKey); } catch(_e) {}
-      // Show yellow "queued" indicator on the carousel item
+      // Show yellow "queued" indicator on the carousel item and shake to signal conflict
       var _busyItem = document.querySelector('#roller-track .cm-item[data-key="' + regenKey + '"]');
       if (_busyItem) {
         _busyItem.classList.remove('generating', 'gen-done');
         _busyItem.classList.add('gen-queued');
         var _busyPct = _busyItem.querySelector('.cm-gen-pct');
         if (_busyPct) _busyPct.textContent = 'ממתין…';
+        _busyItem.classList.add('shake');
+        _busyItem.addEventListener('animationend', function() { _busyItem.classList.remove('shake'); }, { once: true });
       }
       _regenProg.done(false);
       // Keep the button in "waiting" state so the user can see something is pending
@@ -3020,9 +3022,13 @@ function _listenToRegenSSE(regenKey, btn, streamUrl) {
               clearInterval(_busyRetryTimers[regenKey]);
               delete _busyRetryTimers[regenKey];
               if (_busyItem) {
+                // Removing gen-queued triggers the existing CSS transitions:
+                // .cm-label color fades (0.35s) and .cm-gen-pct opacity/height fade (0.2s).
                 _busyItem.classList.remove('gen-queued');
-                var _p = _busyItem.querySelector('.cm-gen-pct');
-                if (_p) _p.textContent = '';
+                setTimeout(function() {
+                  var _p = _busyItem.querySelector('.cm-gen-pct');
+                  if (_p) _p.textContent = '';
+                }, 350);
               }
               // Reset button label before retrying
               if (regenKey === _currentKey && btn) {

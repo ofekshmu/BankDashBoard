@@ -3296,8 +3296,20 @@ Please Make sure that none of the following formats have their 'Identifications 
 
             dt = datetime.strptime(row["Date"], "%B, %Y")
             if dt not in _month_cache:
-                processed_df = AppManagerUtils.retrieve_and_initialize_data(dt, std_out=False)
-                _month_cache[dt] = utils.card_charge_validation(processed_df, dt)
+                # Use card_sum() directly — this is the original pre-refactor approach.
+                # process_prices(general_analysis=True) drops some transactions the bank
+                # still charges (e.g. same-month refunds), making the sums never match.
+                from database import DataBase as _DBv
+                from Constants import ReservedNames as _RNv
+                raw_df = _DBv().card_sum(dt)
+                if not raw_df.empty and 'Category' in raw_df.columns:
+                    raw_df = raw_df[raw_df['Category'] != _RNv.WHITDRAWAL_CATEGORY]
+                    raw_df = raw_df[raw_df['Category'] != _RNv.EXCLUDED_CATEGORY]
+                # card_charge_validation expects a negative Final_Value for spending
+                if not raw_df.empty:
+                    raw_df = raw_df.copy()
+                    raw_df['Final_Value'] = -raw_df['Out/Transaction_value']
+                _month_cache[dt] = utils.card_charge_validation(raw_df, dt)
             test_df = _month_cache[dt]
             status_series = test_df.loc[test_df['CardID'] == card_number, 'Status']
 

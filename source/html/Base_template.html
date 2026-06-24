@@ -598,9 +598,9 @@ body {
   border-radius: 50%;
   background: #c5cad8;
   color: #fff;
-  font-size: 9px;
-  font-style: italic;
-  font-weight: 800;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 700;
   cursor: help;
   display: inline-flex;
   align-items: center;
@@ -1868,6 +1868,9 @@ body {
 }
 .cat-pills-toggle-btn:hover { background:var(--teal); color:#fff; }
 .cat-pill.pills-hidden { display:none; }
+.kpi-dimmed { background: #f2f3f5 !important; }
+.kpi-dimmed .kpi-label { color: #b0b5c1; }
+.kpi-dimmed .kpi-value { color: #b0b5c1 !important; }
 
 </style>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
@@ -2374,6 +2377,7 @@ function sortTx(listId, mode) {
 
 // ── Build category pills + initial totals ─────────────────
 (function buildPillsAndTotals() {
+  var PILL_THRESHOLD = 5;
   ['spendings-list', 'earnings-list'].forEach(function(listId) {
     var cats = {};
     document.querySelectorAll('#' + listId + ' .cat').forEach(function(el) {
@@ -2382,13 +2386,29 @@ function sortTx(listId, mode) {
     });
     var pillsContainer = document.getElementById(listId.replace('-list', '-cats'));
     if (pillsContainer) {
-      Object.keys(cats).sort(function(a,b){ return cats[b]-cats[a]; }).forEach(function(cat) {
+      var sortedCats = Object.keys(cats).sort(function(a,b){ return cats[b]-cats[a]; });
+      sortedCats.forEach(function(cat, idx) {
         var pill = document.createElement('button');
-        pill.className = 'cat-pill';
+        pill.className = 'cat-pill' + (idx >= PILL_THRESHOLD ? ' pills-hidden' : '');
         pill.textContent = cat + ' (' + cats[cat] + ')';
         pill.onclick = function() { filterByCat(listId, cat, pill); };
         pillsContainer.appendChild(pill);
       });
+      if (sortedCats.length > PILL_THRESHOLD) {
+        var extra = sortedCats.length - PILL_THRESHOLD;
+        var tog = document.createElement('button');
+        tog.className = 'cat-pills-toggle-btn';
+        tog.textContent = 'הצג עוד (' + extra + ')';
+        var expanded = false;
+        tog.onclick = function() {
+          expanded = !expanded;
+          pillsContainer.querySelectorAll('.cat-pill').forEach(function(p, idx) {
+            if (idx >= PILL_THRESHOLD) p.classList.toggle('pills-hidden', !expanded);
+          });
+          tog.textContent = expanded ? 'הסתר' : 'הצג עוד (' + extra + ')';
+        };
+        pillsContainer.appendChild(tog);
+      }
     }
     updateTotal(listId);
   });
@@ -5274,7 +5294,8 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         '</div>' +
         _kpiCard('הפקדה לחיסכון/השקעה', invOut, false, false, '#D4A017', '', '',
           invOut !== 0 ? '#D4A017' : null) +
-        _kpiCard('משיכה מחסכון', invIn, true, false, '#E8900C') +
+        _kpiCard('משיכה מחסכון', invIn, true, false,
+          invIn === 0 ? '#bbb' : '#E8900C', '', invIn === 0 ? 'kpi-dimmed' : '', invIn === 0 ? '#b0b5c1' : '') +
       '</div>';
 
     if (kr2) kr2.innerHTML = '';
@@ -5306,7 +5327,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     }
   };
 
-  var _PAL_SPEND = ['#ef9a9a','#ffcc80','#ffe082','#a5d6a7','#80cbc4','#90caf9','#ce93d8','#f48fb1'];
+  var _PAL_SPEND = ['#e53935','#ff7043','#ffa726','#f06292','#e91e63','#ff5722','#ab47bc','#d81b60'];
   var _PAL_EARN  = ['#a5d6a7','#80cbc4','#90caf9','#ce93d8','#ffe082','#ffcc80','#ef9a9a','#f48fb1'];
 
   var _CHART_TT = {
@@ -5588,6 +5609,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       var _gAllInvIn   = (ch.general_investments_in  || []).slice().reverse();
       var _gMean       = ch.overall_net_mean || 0;
       var _gContainer  = document.createElement('div');
+      _gContainer.style.cssText = 'grid-column:1/-1;';
       grid.appendChild(_gContainer);
 
       function _buildGeneralChart() {
@@ -5934,13 +5956,30 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       var pillsCont = document.getElementById(listId.replace('-list', '-cats'));
       if (pillsCont) {
         pillsCont.innerHTML = '';
-        Object.keys(cats).sort(function(a, b) { return cats[b] - cats[a]; }).forEach(function(cat) {
+        var _PILL_SHOW = 5;
+        var sortedCats = Object.keys(cats).sort(function(a, b) { return cats[b] - cats[a]; });
+        sortedCats.forEach(function(cat, idx) {
           var pill = document.createElement('button');
-          pill.className = 'cat-pill';
+          pill.className = 'cat-pill' + (idx >= _PILL_SHOW ? ' pills-hidden' : '');
           pill.textContent = cat + ' (' + cats[cat] + ')';
           pill.onclick = function() { if (typeof filterByCat === 'function') filterByCat(listId, cat, pill); };
           pillsCont.appendChild(pill);
         });
+        if (sortedCats.length > _PILL_SHOW) {
+          var _extra = sortedCats.length - _PILL_SHOW;
+          var _tog = document.createElement('button');
+          _tog.className = 'cat-pills-toggle-btn';
+          _tog.textContent = '+ ' + _extra + ' עוד';
+          var _togOpen = false;
+          _tog.onclick = function() {
+            _togOpen = !_togOpen;
+            pillsCont.querySelectorAll('.cat-pill').forEach(function(p, i) {
+              if (i >= _PILL_SHOW) p.classList.toggle('pills-hidden', !_togOpen);
+            });
+            _tog.textContent = _togOpen ? '▲ פחות' : ('+ ' + _extra + ' עוד');
+          };
+          pillsCont.appendChild(_tog);
+        }
       }
       if (typeof updateTotal === 'function') updateTotal(listId);
     }

@@ -5580,27 +5580,39 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
 
     // ── General bar+line chart (full-width) ──
     if (ch.general_months && ch.general_months.length) {
-      var months  = (ch.general_months         || []).slice().reverse();
-      var sp2     = (ch.general_spendings       || []).slice().reverse();
-      var ea2     = (ch.general_earnings        || []).slice().reverse();
-      var net2    = (ch.general_net             || []).slice().reverse();
-      var invOut2 = (ch.general_investments_out || []).slice().reverse();
-      var invIn2  = (ch.general_investments_in  || []).slice().reverse();
-      var mean    = ch.overall_net_mean || 0;
-      var _IB = 'rgba(255,183,77,0.85)', _ID = '#ffb74d';
+      var _gAllMonths  = (ch.general_months         || []).slice().reverse();
+      var _gAllSp      = (ch.general_spendings       || []).slice().reverse();
+      var _gAllEa      = (ch.general_earnings        || []).slice().reverse();
+      var _gAllNet     = (ch.general_net             || []).slice().reverse();
+      var _gAllInvOut  = (ch.general_investments_out || []).slice().reverse();
+      var _gAllInvIn   = (ch.general_investments_in  || []).slice().reverse();
+      var _gMean       = ch.overall_net_mean || 0;
+      var _gContainer  = document.createElement('div');
+      grid.appendChild(_gContainer);
 
-      var isMob     = window.matchMedia('(max-width:768px)').matches;
-      var isMobData = window.matchMedia('(max-width:500px)').matches;
-      if (isMobData) {
-        // Phone-width only: limit to 3 most recent months for clarity
-        var _n3 = 3;
-        months  = months.slice(-_n3);
-        sp2     = sp2.slice(-_n3);
-        ea2     = ea2.slice(-_n3);
-        net2    = net2.slice(-_n3);
-        invOut2 = invOut2.slice(-_n3);
-        invIn2  = invIn2.slice(-_n3);
-      }
+      function _buildGeneralChart() {
+        _destroyChart('chart-general-bar'); // destroy before canvas is removed from DOM
+        _gContainer.innerHTML = '';
+        var isMob     = window.matchMedia('(max-width:768px)').matches;
+        var isMobData = window.matchMedia('(max-width:500px)').matches;
+        var months  = _gAllMonths.slice();
+        var sp2     = _gAllSp.slice();
+        var ea2     = _gAllEa.slice();
+        var net2    = _gAllNet.slice();
+        var invOut2 = _gAllInvOut.slice();
+        var invIn2  = _gAllInvIn.slice();
+        var mean    = _gMean;
+        var _IB = 'rgba(255,183,77,0.85)', _ID = '#ffb74d';
+
+        if (isMobData) {
+          var _n3 = 3;
+          months  = months.slice(-_n3);
+          sp2     = sp2.slice(-_n3);
+          ea2     = ea2.slice(-_n3);
+          net2    = net2.slice(-_n3);
+          invOut2 = invOut2.slice(-_n3);
+          invIn2  = invIn2.slice(-_n3);
+        }
 
       // Format server month strings to short Hebrew labels, e.g. "May 2026" → "מאי '26"
       // Server returns "Month YYYY" (English), but also handle "YYYY_MM" as fallback.
@@ -5727,7 +5739,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         genLegend.appendChild(item);
       });
       genCard.appendChild(genLegend);
-      grid.appendChild(genCard);
+      _gContainer.appendChild(genCard);
 
       requestAnimationFrame(function() {
         _destroyChart('chart-general-bar');
@@ -5753,6 +5765,15 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
           }
         });
       });
+      } // end _buildGeneralChart
+
+      _buildGeneralChart();
+
+      var _mqA = window.matchMedia('(max-width:768px)');
+      var _mqB = window.matchMedia('(max-width:500px)');
+      function _onGenBpChange() { _buildGeneralChart(); }
+      try { _mqA.addEventListener('change', _onGenBpChange); } catch(e) { _mqA.addListener(_onGenBpChange); }
+      try { _mqB.addEventListener('change', _onGenBpChange); } catch(e) { _mqB.addListener(_onGenBpChange); }
     }
 
     // ── Card distribution chart (full-width) ──

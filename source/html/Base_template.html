@@ -2582,12 +2582,6 @@ function _buildRoller(list) {
       var self = this;
 
       if (m.key === _currentKey) return;
-      // Lock navigation while any regen is active — shake to signal unavailable.
-      if (Object.keys(_generatingMonths).length > 0) {
-        self.classList.add('shake');
-        self.addEventListener('animationend', function() { self.classList.remove('shake'); }, { once: true });
-        return;
-      }
       self.classList.add('tapped');
       self.addEventListener('animationend', function() { self.classList.remove('tapped'); }, { once: true });
       var alreadyCentered = (_viewCenterIdx === i);
@@ -3240,8 +3234,6 @@ window.addEventListener('popstate', function(e) {
     key = m && m[1];
   }
   if (!key || !window._monthNav) return;
-  // Lock back/forward navigation during active regen (same rule as carousel)
-  if (Object.keys(_generatingMonths).length > 0) return;
   window._monthNav.navigate(key, true /* skipPush */);
 });
 

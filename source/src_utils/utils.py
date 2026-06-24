@@ -3296,11 +3296,7 @@ Please Make sure that none of the following formats have their 'Identifications 
 
             dt = datetime.strptime(row["Date"], "%B, %Y")
             if dt not in _month_cache:
-                # general_analysis=False: keep ALL card transactions executed this month
-                # (installment rows from past purchases have Relevance=False under
-                # general_analysis=True and get dropped, making the sum too low to match
-                # the bank's CC charge — causing spurious "Not Verified" results).
-                processed_df = AppManagerUtils.retrieve_and_initialize_data(dt, std_out=False, general_analysis=False)
+                processed_df = AppManagerUtils.retrieve_and_initialize_data(dt, std_out=False)
                 _month_cache[dt] = utils.card_charge_validation(processed_df, dt)
             test_df = _month_cache[dt]
             status_series = test_df.loc[test_df['CardID'] == card_number, 'Status']
@@ -5196,20 +5192,6 @@ document.addEventListener('DOMContentLoaded', _initTxnFooter);
         # included in the card-charge sum used for verification.
         if 'Category' in wip_df.columns:
             wip_df = wip_df[wip_df['Category'] != ReservedNames.WHITDRAWAL_CATEGORY]
-
-        # Exclude same-month direct-debit card transactions (Charge_Date == analysis month).
-        # These are debited immediately from the bank in month M and do NOT appear in the
-        # monthly CC charge in month M+1 that we match against.
-        # (process_prices with general_analysis=True excluded these via the excluded branch,
-        # but general_analysis=False, which we now use to keep installments, passes them through.)
-        if 'Charge_Date' in wip_df.columns and 'TableName' in wip_df.columns:
-            _cd = pd.to_datetime(wip_df['Charge_Date'], errors='coerce')
-            _direct_debit = (
-                (_cd.dt.month == date.month) &
-                (_cd.dt.year == date.year) &
-                (wip_df['TableName'] == 'CardTransactions')
-            )
-            wip_df = wip_df[~_direct_debit]
 
         # Define the nan values for all bank transaction to a valid value: "Bank" for easier use
         wip_df['CardID'] = wip_df.apply(lambda row: 'Bank' if row['TableName'] == 'BankTransactions' else row['CardID'], axis=1)

@@ -2999,9 +2999,15 @@ function _listenToRegenSSE(regenKey, btn, streamUrl) {
         if (_busyPct) _busyPct.textContent = 'ממתין…';
       }
       _regenProg.done(false);
-      if (regenKey === _currentKey) {
-        if (btn) { btn.disabled = false; btn.classList.remove('running'); }
-        appendLog('⏳ שרת עסוק — ינסה שוב אוטומטית…');
+      // Keep the button in "waiting" state so the user can see something is pending
+      if (regenKey === _currentKey && btn) {
+        btn.classList.add('running'); btn.disabled = true;
+        var _busyLbl = btn.querySelector('.reload-btn-label');
+        var _busyIco = btn.querySelector('.reload-btn-icon');
+        if (_busyLbl) _busyLbl.textContent = 'ממתין…';
+        if (_busyIco) _busyIco.textContent = '⏳';
+        var _btnPct = document.getElementById('reload-btn-pct');
+        if (_btnPct) _btnPct.textContent = '';
       }
       _updateReloadBtnGlobalState();
       // Cancel any previous retry timer for this key, then start a fresh one
@@ -3017,6 +3023,14 @@ function _listenToRegenSSE(regenKey, btn, streamUrl) {
                 _busyItem.classList.remove('gen-queued');
                 var _p = _busyItem.querySelector('.cm-gen-pct');
                 if (_p) _p.textContent = '';
+              }
+              // Reset button label before retrying
+              if (regenKey === _currentKey && btn) {
+                var _lbl = btn.querySelector('.reload-btn-label');
+                var _ico = btn.querySelector('.reload-btn-icon');
+                if (_lbl) _lbl.textContent = 'חשב מחדש';
+                if (_ico) _ico.textContent = '↻';
+                btn.disabled = false; btn.classList.remove('running');
               }
               if (regenKey === _currentKey) _reloadGeneral();
             }

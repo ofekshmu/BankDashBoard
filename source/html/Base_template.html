@@ -5079,30 +5079,69 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   });
 })();
 
-/* ── Month roller touch swipe ─────────────────────────────── */
+/* ── Month roller touch swipe (fluid, pixel-tracking + momentum) ── */
 (function() {
   var roller = document.getElementById('month-roller');
-  var track = document.getElementById('roller-track');
+  var track  = document.getElementById('roller-track');
   if (!roller || !track) return;
-  var startX = 0, startIdx = 0, dragging = false, moved = false;
+
+  var startX = 0, startOffset = 0, dragging = false, moved = false;
+  var lastX = 0, lastT = 0, velX = 0;
+
+  function _readOffset() {
+    var m = track.style.transform.match(/translateX\((-?[\d.]+)px\)/);
+    return m ? parseFloat(m[1]) : 0;
+  }
+
   roller.addEventListener('pointerdown', function(e) {
     if (e.pointerType === 'mouse') return;
-    startX = e.clientX; startIdx = typeof _viewCenterIdx !== 'undefined' ? _viewCenterIdx : 0;
-    dragging = true; moved = false; roller.setPointerCapture(e.pointerId);
+    e.preventDefault();
+    startX = lastX = e.clientX; lastT = Date.now(); velX = 0;
+    startOffset = _readOffset();
+    dragging = true; moved = false;
+    roller.setPointerCapture(e.pointerId);
+    track.style.transition = 'none';   // freeze any ongoing snap animation
+    void track.offsetWidth;            // force reflow
   }, { passive: false });
+
   roller.addEventListener('pointermove', function(e) {
     if (!dragging) return;
-    var dx = startX - e.clientX;
-    if (Math.abs(dx) > 4) moved = true;
-    var IW = typeof _ITEM_W !== 'undefined' ? _ITEM_W : 130;
-    var maxIdx = (typeof _rollerItems !== 'undefined' ? _rollerItems.length : 43) - 1;
-    _viewCenterIdx = Math.max(0, Math.min(maxIdx, Math.round(startIdx + dx / IW)));
-    _positionTrack(false);
+    var dx = e.clientX - startX;
+    if (Math.abs(dx) > 3) moved = true;
+
+    var now = Date.now(), dt = now - lastT;
+    if (dt > 0) velX = (e.clientX - lastX) / dt;   // px/ms
+    lastX = e.clientX; lastT = now;
+
+    var IW     = typeof _ITEM_W      !== 'undefined' ? _ITEM_W              : 130;
+    var nItems = typeof _rollerItems !== 'undefined' ? _rollerItems.length  : 43;
+    var maxOff = roller.offsetWidth / 2 - IW / 2;
+    var minOff = roller.offsetWidth / 2 - (nItems - 1) * IW - IW / 2;
+    var raw    = startOffset + dx;
+    // Rubber-band resistance past the edges
+    var off = raw > maxOff ? maxOff + (raw - maxOff) * 0.25
+            : raw < minOff ? minOff + (raw - minOff) * 0.25
+            : raw;
+    track.style.transform = 'translateX(' + off + 'px)';
   }, { passive: false });
+
   roller.addEventListener('pointerup', function() {
     if (!dragging) return; dragging = false;
-    if (!moved) return; _positionTrack(true); _applyDistanceClasses();
+    if (!moved) return;
+    var IW     = typeof _ITEM_W      !== 'undefined' ? _ITEM_W             : 130;
+    var nItems = typeof _rollerItems !== 'undefined' ? _rollerItems.length : 43;
+    // Project with 180 ms of momentum for a natural flick
+    var projected = _readOffset() + velX * 180;
+    var idx = (roller.offsetWidth / 2 - IW / 2 - projected) / IW;
+    _viewCenterIdx = Math.max(0, Math.min(nItems - 1, Math.round(idx)));
+    _positionTrack(true); _applyDistanceClasses();
   }, { passive: false });
+
+  roller.addEventListener('pointercancel', function() {
+    if (!dragging) return; dragging = false;
+    _positionTrack(true);   // snap back to last valid position
+  });
+
   roller.addEventListener('click', function(e) {
     if (moved) { moved = false; e.stopImmediatePropagation(); }
   }, true);

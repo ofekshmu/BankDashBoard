@@ -3161,6 +3161,75 @@ function _reloadGeneral() {
   _listenToRegenSSE(regenKey, btn, _streamUrl);
 }
 
+// Show "ממתין…" queued state for `key` without going through _reloadGeneral().
+// Used when another month is already generating — avoids resetting the active regen's
+// progress bar via _regenProg.start(). Polls /api/regen/status every 2 s and calls
+// _reloadGeneral() once the server is free.
+function _queueNavRegen(key) {
+  if (_generatingMonths[key]) return; // already generating — don't interfere
+
+  var btn = document.getElementById('reload-btn');
+
+  // Apply queued visual state to the carousel item
+  var _qItem = document.querySelector('#roller-track .cm-item[data-key="' + key + '"]');
+  if (_qItem) {
+    _qItem.classList.remove('generating', 'gen-done');
+    _qItem.classList.add('gen-queued');
+    var _qPct = _qItem.querySelector('.cm-gen-pct');
+    if (_qPct) _qPct.textContent = 'ממתין…';
+    if (!_busyRetryTimers[key]) { // only shake on first queue, not on re-navigate
+      _qItem.classList.add('shake');
+      setTimeout(function() { _qItem.classList.remove('shake'); }, 600);
+    }
+  }
+
+  // Show waiting state on button while this is the visible page
+  if (key === _currentKey && btn) {
+    btn.classList.add('running'); btn.disabled = true;
+    var _lbl = btn.querySelector('.reload-btn-label');
+    var _ico = btn.querySelector('.reload-btn-icon');
+    if (_lbl) _lbl.textContent = 'ממתין…';
+    if (_ico) _ico.textContent = '⏳';
+  }
+
+  // If a poll timer is already running for this key, the UI update above is enough
+  if (_busyRetryTimers[key]) return;
+
+  // Poll until the server reports no active regen, then trigger regen for this key
+  var _qHandle = setInterval(function() {
+    fetch('/api/regen/status')
+      .then(function(r) { return r.json(); })
+      .then(function(st) {
+        if (!st.any_active) {
+          clearInterval(_qHandle);
+          delete _busyRetryTimers[key];
+          // Remove queued visual state
+          var _item = document.querySelector('#roller-track .cm-item[data-key="' + key + '"]');
+          if (_item) {
+            _item.classList.remove('gen-queued');
+            setTimeout(function() {
+              var _p = _item.querySelector('.cm-gen-pct');
+              if (_p) _p.textContent = '';
+            }, 400);
+          }
+          // Only regen if this is still the current page
+          if (key === _currentKey) {
+            if (btn) {
+              var _lbl2 = btn.querySelector('.reload-btn-label');
+              var _ico2 = btn.querySelector('.reload-btn-icon');
+              if (_lbl2) _lbl2.textContent = 'חשב מחדש';
+              if (_ico2) _ico2.textContent = '↻';
+              btn.disabled = false; btn.classList.remove('running');
+            }
+            _reloadGeneral();
+          }
+        }
+      })
+      .catch(function() { /* network blip — keep polling */ });
+  }, 2000);
+  _busyRetryTimers[key] = _qHandle;
+}
+
 function _reloadCategory(slug) {
   var btn   = document.getElementById('reload-btn');
   var type_ = slug.startsWith('biz_') ? 'business' : 'category';
@@ -6433,6 +6502,12 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
                 if (_errorMonths[key]) {
                   // Previous regen attempt failed — don't loop; let user retry via button
                   console.log('[nav] No data for', key, '— previous regen failed, not auto-retriggering');
+                } else if (Object.keys(_generatingMonths).length > 0 || _busyRetryTimers[key]) {
+                  // Another regen is in progress, or this key is already queued —
+                  // show "ממתין…" state directly without calling _reloadGeneral() (which
+                  // would reset the active regen's progress bar via _regenProg.start()).
+                  console.log('[nav] No data for', key, '— another regen active, queuing without server round-trip');
+                  _queueNavRegen(key);
                 } else {
                   console.log('[nav] No data for', key, '— auto-regen triggered');
                   _reloadGeneral();

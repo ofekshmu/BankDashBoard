@@ -126,12 +126,12 @@ body {
 .nav-restart-btn:disabled{opacity:.5;cursor:default}
 .app-version-badge{margin-top:8px;text-align:center;font-size:.72em;color:var(--text-muted);letter-spacing:.03em;opacity:.7;user-select:none;}
 /* ── Debug log panel ─────────────────────────────────────── */
-.debug-fab{position:fixed;bottom:88px;right:18px;width:42px;height:42px;border-radius:50%;background:var(--navy);color:#fff;font-size:.72em;font-family:monospace;font-weight:700;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,0.3);z-index:997;letter-spacing:-.5px;}
+.debug-fab{position:fixed;bottom:82px;right:18px;width:42px;height:42px;border-radius:50%;background:var(--navy);color:#fff;font-size:.72em;font-family:monospace;font-weight:700;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,0.3);z-index:997;letter-spacing:-.5px;}
 .debug-fab:hover{filter:brightness(1.2);}
-@media(max-width:768px){.debug-fab{bottom:154px;right:18px;}}
-.debug-panel{position:fixed;bottom:140px;right:16px;width:480px;max-width:calc(100vw - 32px);height:340px;background:#12121f;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.55);z-index:996;display:none;flex-direction:column;overflow:hidden;font-family:monospace;}
+@media(max-width:768px){.debug-fab{bottom:74px;right:18px;}}
+.debug-panel{position:fixed;bottom:132px;right:16px;width:480px;max-width:calc(100vw - 32px);height:340px;background:#12121f;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.55);z-index:996;display:none;flex-direction:column;overflow:hidden;font-family:monospace;}
 .debug-panel.open{display:flex;}
-@media(max-width:768px){.debug-panel{bottom:204px;right:8px;left:8px;width:auto;}}
+@media(max-width:768px){.debug-panel{bottom:124px;right:8px;left:8px;width:auto;}}
 .debug-hdr{display:flex;align-items:center;justify-content:space-between;padding:7px 12px;background:#0a0a18;color:#7ec8e3;font-size:.7em;font-weight:700;letter-spacing:.06em;flex-shrink:0;border-bottom:1px solid #222;}
 .debug-hdr-btns{display:flex;gap:5px;}
 .debug-hdr-btns button{background:none;border:1px solid #333;color:#888;border-radius:4px;padding:2px 8px;font-size:.9em;cursor:pointer;font-family:monospace;}
@@ -218,6 +218,7 @@ body {
   margin-bottom: 14px;
   background: var(--bg);
   box-shadow: 0 2px 8px rgba(0,0,0,.06);
+  touch-action: pan-y;
 }
 /* Fade left/right edges */
 .month-roller::before,

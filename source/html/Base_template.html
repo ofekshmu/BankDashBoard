@@ -5589,8 +5589,9 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       var mean    = ch.overall_net_mean || 0;
       var _IB = 'rgba(255,183,77,0.85)', _ID = '#ffb74d';
 
-      var isMob   = window.matchMedia('(max-width:768px)').matches;
+      var isMob = window.matchMedia('(max-width:768px)').matches;
       if (isMob) {
+        // Mobile: show only the 3 most recent months for clarity
         var _n3 = 3;
         months  = months.slice(-_n3);
         sp2     = sp2.slice(-_n3);
@@ -5600,10 +5601,18 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         invIn2  = invIn2.slice(-_n3);
       }
 
+      // Format "2025_11" → "נוב׳ '25" for readable x-axis ticks
+      var _HE_MO = ['','ינו׳','פבר׳','מרצ׳','אפר׳','מאי','יונ׳','יול׳','אוג׳','ספט׳','אוק׳','נוב׳','דצמ׳'];
+      var monthLabels = months.map(function(m) {
+        var p = (m || '').split('_');
+        if (p.length < 2) return m;
+        return (_HE_MO[parseInt(p[1], 10)] || p[1]) + " '" + String(p[0]).slice(2);
+      });
+
       var genCard = document.createElement('div');
       genCard.className = 'chart-card full-width';
 
-      // KPI banner (4 metrics above chart)
+      // KPI banner — 4 metrics; 2×2 grid on mobile to prevent overflow
       var totalIncome  = Math.round(ea2.reduce(function(a,b){return a+b;},0) + invIn2.reduce(function(a,b){return a+b;},0));
       var totalOutcome = Math.round(sp2.reduce(function(a,b){return a+b;},0) + invOut2.reduce(function(a,b){return a+b;},0));
       var totalInvNet  = Math.round(invOut2.reduce(function(a,b){return a+b;},0) - invIn2.reduce(function(a,b){return a+b;},0));
@@ -5614,15 +5623,26 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         { lbl:'סה"כ השקעות נטו',   val:totalInvNet, clr:'#e8a020' }
       ];
       var banner = document.createElement('div');
-      banner.style.cssText = 'display:flex;align-items:stretch;gap:0;padding:4px 0 14px;border-bottom:1.5px solid #eef0f6;margin-bottom:12px;';
+      if (isMob) {
+        banner.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;padding:4px 0 14px;border-bottom:1.5px solid #eef0f6;margin-bottom:12px;';
+      } else {
+        banner.style.cssText = 'display:flex;align-items:stretch;gap:0;padding:4px 0 14px;border-bottom:1.5px solid #eef0f6;margin-bottom:12px;';
+      }
       kpiItems.forEach(function(ki, i) {
         var cell = document.createElement('div');
-        cell.style.cssText = 'flex:1;text-align:center;padding:6px 10px;direction:rtl;' + (i < kpiItems.length-1 ? 'border-left:1.5px solid #eef0f6;' : '');
+        if (isMob) {
+          // Top row (i<2) gets a bottom divider; left column (i%2===0, RTL) gets a left border
+          cell.style.cssText = 'text-align:center;padding:8px 10px;direction:rtl;' +
+            (i < 2 ? 'border-bottom:1.5px solid #eef0f6;' : '') +
+            (i % 2 === 0 ? 'border-left:1.5px solid #eef0f6;' : '');
+        } else {
+          cell.style.cssText = 'flex:1;text-align:center;padding:6px 10px;direction:rtl;' + (i < kpiItems.length-1 ? 'border-left:1.5px solid #eef0f6;' : '');
+        }
         var lbl = document.createElement('div');
         lbl.style.cssText = 'font-size:0.72em;font-weight:600;color:#888;margin-bottom:3px;';
         lbl.textContent = ki.lbl;
         var val = document.createElement('div');
-        val.style.cssText = 'font-size:1.15em;font-weight:800;color:' + ki.clr + ';';
+        val.style.cssText = 'font-size:1.15em;font-weight:800;color:' + ki.clr + ';white-space:nowrap;';
         val.textContent = (ki.val < 0 ? '-' : '') + Math.abs(Math.round(ki.val)).toLocaleString('he-IL') + '₪';
         cell.appendChild(lbl); cell.appendChild(val);
         banner.appendChild(cell);
@@ -5642,13 +5662,62 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       genCanvas.style.cssText = 'width:100%;height:100%;';
       genWrap.appendChild(genCanvas);
       genCard.appendChild(genWrap);
+
+      // Custom legend — coloured rectangles only; label text slides in on hover / tap
+      var _genLegendDefs = [
+        { label:'הוצאות',             color:'#ef5350', dashed:false },
+        { label:'השקעות/חיסכון',     color:_ID,       dashed:false },
+        { label:'הכנסות',             color:'#43a047', dashed:false },
+        { label:'נטו (ללא השקעות)', color:'#1e9d8b', dashed:false },
+        { label:'ממוצע נטו',         color:'rgba(30,157,139,0.55)', dashed:true }
+      ];
+      var genLegend = document.createElement('div');
+      genLegend.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px;padding:10px 0 2px;justify-content:center;';
+      _genLegendDefs.forEach(function(ds) {
+        var item = document.createElement('div');
+        item.style.cssText = 'position:relative;display:inline-flex;align-items:center;gap:5px;cursor:pointer;';
+
+        var box = document.createElement('span');
+        if (ds.dashed) {
+          box.style.cssText = 'display:inline-block;width:26px;height:12px;border-radius:2px;flex-shrink:0;' +
+            'background:repeating-linear-gradient(90deg,' + ds.color + ' 0,' + ds.color + ' 5px,transparent 5px,transparent 10px);';
+        } else {
+          box.style.cssText = 'display:inline-block;width:26px;height:12px;border-radius:2px;background:' + ds.color + ';flex-shrink:0;';
+        }
+
+        var txt = document.createElement('span');
+        txt.style.cssText = 'font-size:11px;color:var(--navy);white-space:nowrap;overflow:hidden;max-width:0;opacity:0;' +
+          'transition:max-width 0.25s ease,opacity 0.2s ease;';
+        txt.textContent = ds.label;
+
+        item.appendChild(box);
+        item.appendChild(txt);
+
+        var _lt = null;
+        function _showTxt() { clearTimeout(_lt); txt.style.maxWidth = '160px'; txt.style.opacity = '1'; }
+        function _hideTxt() { txt.style.maxWidth = '0'; txt.style.opacity = '0'; }
+
+        if (isMob) {
+          item.addEventListener('click', function() {
+            clearTimeout(_lt);
+            if (txt.style.opacity === '1') { _hideTxt(); }
+            else { _showTxt(); _lt = setTimeout(_hideTxt, 5000); }
+          });
+        } else {
+          item.addEventListener('mouseenter', _showTxt);
+          item.addEventListener('mouseleave', _hideTxt);
+        }
+
+        genLegend.appendChild(item);
+      });
+      genCard.appendChild(genLegend);
       grid.appendChild(genCard);
 
       requestAnimationFrame(function() {
         _destroyChart('chart-general-bar');
         new Chart(genCanvas, {
           data: {
-            labels: months,
+            labels: monthLabels,
             datasets: [
               { type:'bar',  label:'הוצאות',           data: sp2,     backgroundColor:'rgba(239,154,154,0.80)', borderColor:'#ef5350', borderWidth:1, order:2, stack:'sp' },
               { type:'bar',  label:'השקעות/חיסכון',  data: invOut2, backgroundColor:_IB, borderColor:_ID, borderWidth:1, order:2, stack:'sp' },
@@ -5660,10 +5729,10 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
           },
           options: {
             responsive: true, maintainAspectRatio: false,
-            plugins: { legend: { position:'bottom', labels:{ font:{ size:11 } } } },
+            plugins: { legend: { display: false } },
             scales: {
-              x: { ticks:{ maxTicksLimit:8, maxRotation:30 } },
-              y: { ticks:{ callback: function(v) { return v.toLocaleString('he-IL'); } } }
+              x: { ticks: { maxRotation: 45, minRotation: 30 } },
+              y: { ticks: { callback: function(v) { return v.toLocaleString('he-IL'); } } }
             }
           }
         });

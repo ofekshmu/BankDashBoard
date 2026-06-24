@@ -2013,6 +2013,10 @@ class AppManager:
         transactions_df = AppManagerUtils.retrieve_and_initialize_data(t)
         _rp(15)   # card + bank queries + process_prices
 
+        if transactions_df.empty:
+            utils.log("No transaction data found for this month — nothing to analyse.", "warning")
+            raise ValueError("No transaction data for this month.")
+
         card_validation_df = utils.card_charge_validation(transactions_df, t)
         utils.log(card_validation_df.to_markdown(), "debug")
         _rp(8)    # card charge validation

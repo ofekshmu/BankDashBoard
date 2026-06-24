@@ -2854,6 +2854,7 @@ var _regenPctMap = {};        // key → last-known regen progress % (set by ser
 var _regenPollTimers = {};    // key → setInterval handle for /api/regen-progress/<key> polling
 var _openSSE = {};            // key → EventSource (tracks open SSE to prevent competing connections)
 var _busyRetryTimers = {};    // key → setInterval handle for "server busy, waiting to retry" polls
+var _errorMonths   = {};    // key → true after __ERROR__ — suppresses auto-regen on re-navigate
 // Null-safe btn proxy — passed to _listenToRegenSSE for background (non-current-page) regens
 var _nullBtn = (function() {
   var _cl = { add: function() {}, remove: function() {}, contains: function() { return false; } };
@@ -3008,12 +3009,12 @@ function _listenToRegenSSE(regenKey, btn, streamUrl) {
       _updateReloadBtnGlobalState();
       // Cancel any previous retry timer for this key, then start a fresh one
       if (_busyRetryTimers[regenKey]) { clearInterval(_busyRetryTimers[regenKey]); }
-      _busyRetryTimers[regenKey] = setInterval(function() {
+      var _busyHandle = setInterval(function() {
         fetch('/api/regen/status')
           .then(function(r) { return r.json(); })
           .then(function(st) {
             if (!st.any_active) {
-              clearInterval(_busyRetryTimers[regenKey]);
+              clearInterval(_busyHandle);  // direct handle — survives object replacement
               delete _busyRetryTimers[regenKey];
               if (_busyItem) {
                 // Removing gen-queued triggers the existing CSS transitions:
@@ -3037,6 +3038,7 @@ function _listenToRegenSSE(regenKey, btn, streamUrl) {
           })
           .catch(function() { /* network blip — keep polling */ });
       }, 2000);
+      _busyRetryTimers[regenKey] = _busyHandle;
       return;
     }
     if (data.startsWith('__DONE__')) {
@@ -3075,7 +3077,20 @@ function _listenToRegenSSE(regenKey, btn, streamUrl) {
       es.close(); delete _openSSE[regenKey];
       console.error('[regen] __ERROR__ received for', regenKey, '— check debug panel for details');
       appendLog('✗ שגיאה בניתוח', 'err');
-      _markGenerating(regenKey, false);
+      // Track so navigate path doesn't auto-retrigger regen (user can still click manually)
+      _errorMonths[regenKey] = true;
+      // Manual cleanup — do NOT call _markGenerating(false) which incorrectly adds status-fresh/gen-done
+      delete _generatingMonths[regenKey];
+      delete _regenPctMap[regenKey];
+      _stopRegenPoll(regenKey);
+      try { sessionStorage.removeItem('_regen_' + regenKey); } catch(_e) {}
+      try { sessionStorage.removeItem('_regen_pct_' + regenKey); } catch(_e) {}
+      var _errItem = document.querySelector('#roller-track .cm-item[data-key="' + regenKey + '"]');
+      if (_errItem) {
+        _errItem.classList.remove('generating', 'gen-done', 'gen-queued');
+        var _errPct = _errItem.querySelector('.cm-gen-pct');
+        if (_errPct) { _errPct.textContent = ''; }
+      }
       _hideGeneratingOverlay();
       if (Object.keys(_generatingMonths).length === 0) {
         btn.classList.remove('running'); btn.disabled = false;
@@ -3114,6 +3129,7 @@ function _listenToRegenSSE(regenKey, btn, streamUrl) {
 function _reloadGeneral() {
   if (!_currentKey) return;
   var regenKey = _currentKey;
+  delete _errorMonths[regenKey]; // clear so manual retries are always allowed
   // Guard: if this key is already being generated (within-SPA), just reconnect SSE —
   // do NOT call _regenProg.start() again as that would reset the in-progress map value.
   if (_generatingMonths[regenKey]) {
@@ -6414,9 +6430,13 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
               _loadBar.done();
               if (key !== _currentKey) return;
               if (err && err.message === 'no_data') {
-                // Month has no data yet — auto-trigger regen
-                console.log('[nav] No data for', key, '— auto-regen triggered');
-                _reloadGeneral();
+                if (_errorMonths[key]) {
+                  // Previous regen attempt failed — don't loop; let user retry via button
+                  console.log('[nav] No data for', key, '— previous regen failed, not auto-retriggering');
+                } else {
+                  console.log('[nav] No data for', key, '— auto-regen triggered');
+                  _reloadGeneral();
+                }
               } else {
                 console.error('[nav] Fetch error for', key, ':', err);
               }

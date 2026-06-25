@@ -1447,8 +1447,33 @@ class DataBase:
                                    AND 
                                    TO_CHAR(Charge_Date::timestamp, 'YYYY') = %s
 
-                            """, (m_i, m_ip1, m_ip1, m_ip1, m_im1, m_ip1, y_ip1, )).fetchall() # TODO can this be simplified for just the transactions at the set charge date?
-        
+                            """, (m_i, m_ip1, m_ip1, m_ip1, m_im1, m_ip1, y_ip1, )).fetchall()
+
+        return pd.DataFrame(data, columns=[d[0] for d in self.cursor.description])
+
+    def get_cards_by_charge_date(self, month: int, year: int):
+        """
+        Returns ALL CardTransactions whose Charge_Date falls in the given month/year,
+        regardless of Executed_Date. This is the complete set of transactions the bank
+        will include in a charge for that month — even old installments from many months ago.
+        Used by card_charge_validation in the organizer to match card sums against bank debits.
+        """
+        m = '0' + str(month) if month < 10 else str(month)
+        y = str(year)
+        data = self.cursor.execute("""
+            SELECT 'CardTransactions' AS "TableName",
+                   CardID,
+                   Executed_Date AS "Date/Executed_Date",
+                   Charge_Date AS "Value_Date/Charge_Date",
+                   Charge_Value AS "Income/Charge_Value",
+                   Charge_Currency AS "Description/Charge_Currency",
+                   Value_Currency AS "Reserved/Value_Currency",
+                   Transaction_Value AS "Out/Transaction_value",
+                   Category
+            FROM CardTransactions
+            WHERE TO_CHAR(Charge_Date::timestamp, 'MM') = %s
+              AND TO_CHAR(Charge_Date::timestamp, 'YYYY') = %s
+        """, (m, y)).fetchall()
         return pd.DataFrame(data, columns=[d[0] for d in self.cursor.description])
 
     def get_Bank_Transactions(self, month: int, year: int):

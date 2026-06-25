@@ -3296,12 +3296,14 @@ Please Make sure that none of the following formats have their 'Identifications 
 
             dt = datetime.strptime(row["Date"], "%B, %Y")
             if dt not in _month_cache:
-                # Use card_sum() directly — this is the original pre-refactor approach.
-                # process_prices(general_analysis=True) drops some transactions the bank
-                # still charges (e.g. same-month refunds), making the sums never match.
+                # Query ALL CardTransactions by Charge_Date = next month, with no
+                # executed-date constraint.  This picks up old installments (e.g. an
+                # Oct purchase charging in June) that card_sum() would miss because
+                # it only looks at Executed_Date ∈ {M-1, M, M+1}.
                 from database import DataBase as _DBv
                 from Constants import ReservedNames as _RNv
-                raw_df = _DBv().card_sum(dt)
+                next_dt = utils.next_month(dt)
+                raw_df = _DBv().get_cards_by_charge_date(next_dt.month, next_dt.year)
                 if not raw_df.empty and 'Category' in raw_df.columns:
                     raw_df = raw_df[raw_df['Category'] != _RNv.WHITDRAWAL_CATEGORY]
                     raw_df = raw_df[raw_df['Category'] != _RNv.EXCLUDED_CATEGORY]
@@ -3309,7 +3311,10 @@ Please Make sure that none of the following formats have their 'Identifications 
                 if not raw_df.empty:
                     raw_df = raw_df.copy()
                     raw_df['Final_Value'] = -raw_df['Out/Transaction_value']
-                _month_cache[dt] = utils.card_charge_validation(raw_df, dt)
+                # Small tolerance (20 NIS) absorbs minor gaps from INT truncation or
+                # rarely-missing individual installment rows without hiding real mismatches.
+                # interactive=False: skip the CC-category dialog — we only need Status.
+                _month_cache[dt] = utils.card_charge_validation(raw_df, dt, tolerance=20, interactive=False)
             test_df = _month_cache[dt]
             status_series = test_df.loc[test_df['CardID'] == card_number, 'Status']
 
@@ -5175,7 +5180,7 @@ document.addEventListener('DOMContentLoaded', _initTxnFooter);
 
 
     @staticmethod
-    def card_charge_validation(processed_df: pd.DataFrame, date: datetime) -> pd.DataFrame:
+    def card_charge_validation(processed_df: pd.DataFrame, date: datetime, tolerance: float = 0, interactive: bool = True) -> pd.DataFrame:
         """
         @prama processed_df: The function will receive the processed monthly transactions data frame.  
         @param date: monthly date inserted by the user, the date will be used to query the bank transactions in the following month.
@@ -5222,9 +5227,14 @@ document.addEventListener('DOMContentLoaded', _initTxnFooter);
                 card_charge_sum = abs(round(row_card['Final_Value'], 2))
                 card_id = row_card['CardID']
                 possible_bank_transaction_match =  round(row_bank['Out'], 2)
-                if card_charge_sum == possible_bank_transaction_match:
+                if abs(card_charge_sum - possible_bank_transaction_match) <= tolerance:
                     wip_df.loc[wip_df['CardID'] == card_id, 'Status'] = True
                     if row_bank['Category'] == CC_CHARGE_CATEGORY_NAME:
+                        break
+
+                    # In non-interactive mode (organizer read_present_table) skip the
+                    # category-update dialog — we only need the Status, not the DB write.
+                    if not interactive:
                         break
 
                     hook = utils._cc_confirm_hook

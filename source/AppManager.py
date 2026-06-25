@@ -1155,7 +1155,7 @@ class AppManager:
 
         # ---- Card validation data ----
 
-        card_validation_df = utils.card_charge_validation(transactions_df, t)
+        card_validation_df = utils.card_charge_validation(utils.get_card_charge_df(t), t, tolerance=20)
         utils.log(card_validation_df.to_markdown(), "debug")
         _rp(5)   # card charge validation: 5 pts
 
@@ -2017,8 +2017,8 @@ class AppManager:
             utils.log("No transaction data found for this month — nothing to analyse.", "warning")
             raise ValueError("No transaction data for this month.")
 
-        card_validation_df = utils.card_charge_validation(transactions_df, t)
-        utils.log(card_validation_df.to_markdown(), "debug")
+        _card_raw = utils.get_card_charge_df(t)
+        card_validation_df = utils.card_charge_validation(_card_raw, t, tolerance=20)
         _rp(8)    # card charge validation
 
         utils.log("generating cash flow data...", "system")

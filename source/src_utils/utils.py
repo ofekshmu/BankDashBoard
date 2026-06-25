@@ -3296,24 +3296,7 @@ Please Make sure that none of the following formats have their 'Identifications 
 
             dt = datetime.strptime(row["Date"], "%B, %Y")
             if dt not in _month_cache:
-                # Query ALL CardTransactions by Charge_Date = next month, with no
-                # executed-date constraint.  This picks up old installments (e.g. an
-                # Oct purchase charging in June) that card_sum() would miss because
-                # it only looks at Executed_Date ∈ {M-1, M, M+1}.
-                from database import DataBase as _DBv
-                from Constants import ReservedNames as _RNv
-                next_dt = utils.next_month(dt)
-                raw_df = _DBv().get_cards_by_charge_date(next_dt.month, next_dt.year)
-                if not raw_df.empty and 'Category' in raw_df.columns:
-                    raw_df = raw_df[raw_df['Category'] != _RNv.WHITDRAWAL_CATEGORY]
-                    raw_df = raw_df[raw_df['Category'] != _RNv.EXCLUDED_CATEGORY]
-                # card_charge_validation expects a negative Final_Value for spending
-                if not raw_df.empty:
-                    raw_df = raw_df.copy()
-                    raw_df['Final_Value'] = -raw_df['Out/Transaction_value']
-                # Small tolerance (20 NIS) absorbs minor gaps from INT truncation or
-                # rarely-missing individual installment rows without hiding real mismatches.
-                # interactive=False: skip the CC-category dialog — we only need Status.
+                raw_df = utils.get_card_charge_df(dt)
                 _month_cache[dt] = utils.card_charge_validation(raw_df, dt, tolerance=20, interactive=False)
             test_df = _month_cache[dt]
             status_series = test_df.loc[test_df['CardID'] == card_number, 'Status']
@@ -5178,6 +5161,26 @@ document.addEventListener('DOMContentLoaded', _initTxnFooter);
         except Exception as e:
             utils.log(f"Error processing date: {date_str}\nError: {str(e)}", "error")
 
+
+    @staticmethod
+    def get_card_charge_df(date: datetime) -> pd.DataFrame:
+        """
+        Returns a DataFrame of CardTransactions for the month AFTER date, ready for
+        card_charge_validation.  Fetches ALL rows by Charge_Date (no executed-date
+        constraint) so old installments are included, filters withdrawal/excluded
+        categories, and negates Transaction_Value into Final_Value (spending is negative).
+        """
+        from database import DataBase as _DB
+        from Constants import ReservedNames as _RN
+        next_dt = utils.next_month(date)
+        df = _DB().get_cards_by_charge_date(next_dt.month, next_dt.year)
+        if not df.empty and 'Category' in df.columns:
+            df = df[df['Category'] != _RN.WHITDRAWAL_CATEGORY]
+            df = df[df['Category'] != _RN.EXCLUDED_CATEGORY]
+        if not df.empty:
+            df = df.copy()
+            df['Final_Value'] = -df['Out/Transaction_value']
+        return df
 
     @staticmethod
     def card_charge_validation(processed_df: pd.DataFrame, date: datetime, tolerance: float = 0, interactive: bool = True) -> pd.DataFrame:

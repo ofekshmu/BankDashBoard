@@ -1277,6 +1277,7 @@ class AppManager:
             data['investments_items']     = []
 
         # ----- General
+        utils.log("Querying 12-month history...", "system")
         spendings_sum, spendings_sum_overall_inc, earnings_sum, earnings_net_sum = SimpleMath.get_monthly_shifted(shift=13, start_delta=1)
 
         # Capture general chart data for interactive chart — always 12 full months, never the current partial month
@@ -2034,6 +2035,7 @@ class AppManager:
             data['investments_net']       = 0.0
             data['investments_items']     = []
 
+        utils.log("Querying 12-month history...", "system")
         spendings_sum, spendings_sum_overall_inc, earnings_sum, earnings_net_sum = \
             SimpleMath.get_monthly_shifted(shift=13, start_delta=1)
         _gen_delta = 1

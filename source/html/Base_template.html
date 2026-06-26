@@ -1685,6 +1685,8 @@ body {
   margin-right: auto;
 }
 .acct-manage-btn:hover { opacity: 0.85; }
+.acct-manage-btn--regen { background: var(--navy); }
+.acct-manage-btn--regen:disabled { opacity: 0.5; cursor: default; }
 
 /* ── Account manager modal ───────────────────────────────── */
 .acct-modal-overlay {
@@ -2089,7 +2091,10 @@ body {
     <div class="card" id="accounts-table-card">
       <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;">
         יתרות חשבונות
-        <button class="acct-manage-btn" onclick="openAcctModal()">+ הוסף / נהל</button>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button id="acct-regen-btn" class="acct-manage-btn acct-manage-btn--regen" onclick="_loadAccountsData(true)" title="רענן נתוני חשבונות">רענן</button>
+          <button class="acct-manage-btn" onclick="openAcctModal()">+ הוסף / נהל</button>
+        </div>
       </div>
       <div class="acct-wrap" id="accounts-table"></div>
     </div>
@@ -2295,7 +2300,7 @@ function _navToMonthly(btn) {
       setTimeout(function() {
         if (typeof _loadFxAndEnrich === 'function') _loadFxAndEnrich();
         if (typeof _loadCashPie === 'function') _loadCashPie();
-        if (typeof _updateCashInTrendChart === 'function') _updateCashInTrendChart();
+        if (typeof _loadAccountsData === 'function') _loadAccountsData(false);
       }, 0);
     }
   }
@@ -3736,7 +3741,7 @@ function acctSetStatus(id, msg, type) {
 // ── Currency overlay on accounts table ───────────────────────
 var _fxRates = null;
 var _acctCurrencies = null;
-var _lastRenderData = null;
+var _accountsPageData = null;  // cached payload from /api/accounts/data
 function _loadFxAndEnrich() {
   if (_fxRates) { _enrichAcctTable(); return; }
   fetch('/api/accounts/rates')
@@ -3773,13 +3778,38 @@ showPanel = function(name, btn) {
   _origShowPanel(name, btn);
   if (name === 'accounts') {
     _loadFxAndEnrich(); _loadCashPie();
-    requestAnimationFrame(function() {
-      if (_lastRenderData) _renderAccountsChart(_lastRenderData);
-      _cashTrendLoaded = false;
-      _updateCashInTrendChart();
-    });
+    _loadAccountsData(false);
   }
 };
+
+function _loadAccountsData(forceRegen) {
+  var url    = forceRegen ? '/api/accounts/regenerate' : '/api/accounts/data';
+  var method = forceRegen ? 'POST' : 'GET';
+  var btn    = document.getElementById('acct-regen-btn');
+  var tbl    = document.getElementById('accounts-table');
+  var chart  = document.getElementById('accounts-chart');
+
+  if (btn) { btn.disabled = true; btn.textContent = '...'; }
+  if (tbl && !_accountsPageData) tbl.innerHTML = '<div style="padding:20px;color:#aaa;text-align:center">טוען...</div>';
+
+  fetch(url, { method: method, cache: 'no-store' })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (!d.ok) throw new Error(d.error || 'failed');
+      _accountsPageData = d;
+      requestAnimationFrame(function() {
+        _renderAccountsTable(d);
+        _renderAccountsChart(d);
+        _cashTrendLoaded = false;
+        _updateCashInTrendChart();
+      });
+      if (btn) { btn.disabled = false; btn.textContent = 'רענן'; }
+    })
+    .catch(function(err) {
+      if (tbl) tbl.innerHTML = '<div style="padding:20px;color:#e74c3c;text-align:center">שגיאה בטעינת נתונים</div>';
+      if (btn) { btn.disabled = false; btn.textContent = 'רענן'; }
+    });
+}
 
 // ── Cash-by-currency donut chart ─────────────────────────────
 var _cashPieLoaded = false;
@@ -6665,11 +6695,10 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
 
   // ── Main render orchestrator ───────────────────────────────────────────
   function _renderDynamicData(data) {
-    _lastRenderData = data;
     var ml = data.month_label || '';
     document.title = 'ניתוח חודשי — ' + ml;
     [_renderKpi, _renderOverviewCharts, _renderTransactions, _renderPayments,
-     _renderAlerts, _renderOrganizerAlerts, _renderAccountsTable, _renderAccountsChart, _renderHousing]
+     _renderAlerts, _renderOrganizerAlerts, _renderHousing]
     .forEach(function(fn) {
       try { fn(data); } catch(e) { console.error(fn.name + ' failed:', e); }
     });

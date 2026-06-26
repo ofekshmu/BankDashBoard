@@ -63,6 +63,41 @@ FILES_HTML             = os.path.join(_HERE, 'html', 'Files.html')
 _session_auto_triggered: set = set()
 _monthly_data_cache: dict = {}
 _global_data_cache: dict = {}   # keyed by yyyy_mm (most-recent) or 'global'
+_accounts_cache: dict = {}      # {'data': {...}} in-memory cache for accounts panel
+
+_ACCOUNTS_JSON = os.path.join(os.path.dirname(__file__), '..', 'Outputs', 'accounts_data.json')
+
+
+def _load_accounts_disk():
+    try:
+        if os.path.exists(_ACCOUNTS_JSON):
+            with open(_ACCOUNTS_JSON, 'r', encoding='utf-8') as _f:
+                return _json.load(_f)
+    except Exception:
+        pass
+    return None
+
+
+def _compute_accounts():
+    """Run get_global_data, persist accounts portion to disk, return it."""
+    from datetime import datetime as _dt_a
+    from AppManager import AppManager as _AM_a
+    gp = _AM_a(skip_parser=True).get_global_data(t=_dt_a.now())
+    payload = {
+        'accounts':      gp.get('accounts', {}),
+        'accounts_meta': gp.get('accounts_meta', {}),
+    }
+    # Also warm global cache so mortgage is available for monthly pages
+    _global_data_cache['global'] = {'ts': _time.time(), 'data': gp}
+    # Persist to disk
+    try:
+        os.makedirs(os.path.dirname(_ACCOUNTS_JSON), exist_ok=True)
+        with open(_ACCOUNTS_JSON, 'w', encoding='utf-8') as _f:
+            _json.dump(payload, _f, ensure_ascii=False)
+    except Exception:
+        pass
+    _accounts_cache['data'] = payload
+    return payload
 
 def _make_slug(type_: str, name: str) -> str:
     """type_ = 'cat' | 'biz'"""
@@ -405,9 +440,10 @@ def monthly_data_api(yyyy_mm):
 
     _no_cache = {'Cache-Control': 'no-store'}
 
+    _ACCT_KEYS = {'accounts', 'accounts_meta'}
     if monthly_cached and global_cached:
         payload = dict(monthly_cached['data'])
-        payload.update(global_cached['data'])
+        payload.update({k: v for k, v in global_cached['data'].items() if k not in _ACCT_KEYS})
         return jsonify(payload), 200, _no_cache
 
     if not monthly_cached:
@@ -426,10 +462,10 @@ def monthly_data_api(yyyy_mm):
             return jsonify({'error': 'no_data', 'status': 'none'}), 404, _no_cache
 
     # monthly_cached is guaranteed set here.
-    # Fill in global data; fall back to empty dict so monthly data still renders.
+    # Fill in global data (mortgage only — accounts served via /api/accounts/data).
     if global_cached:
         payload = dict(monthly_cached['data'])
-        payload.update(global_cached['data'])
+        payload.update({k: v for k, v in global_cached['data'].items() if k not in _ACCT_KEYS})
         return jsonify(payload), 200, _no_cache
 
     global_payload = {}
@@ -442,7 +478,7 @@ def monthly_data_api(yyyy_mm):
     except Exception:
         pass
     payload = dict(monthly_cached['data'])
-    payload.update(global_payload)
+    payload.update({k: v for k, v in global_payload.items() if k not in _ACCT_KEYS})
     return jsonify(payload), 200, _no_cache
 
 
@@ -1760,6 +1796,40 @@ def _cash_balance_map():
     except Exception:
         pass
     return totals
+
+
+@app.route('/api/accounts/data')
+def accounts_data_api():
+    """Serve cached accounts+meta payload for the חשבונות panel."""
+    _no_cache = {'Cache-Control': 'no-store'}
+    if _accounts_cache.get('data'):
+        return jsonify({**_accounts_cache['data'], 'ok': True, 'cached': True}), 200, _no_cache
+    disk = _load_accounts_disk()
+    if disk:
+        _accounts_cache['data'] = disk
+        return jsonify({**disk, 'ok': True, 'cached': True}), 200, _no_cache
+    try:
+        data = _compute_accounts()
+        return jsonify({**data, 'ok': True, 'cached': False}), 200, _no_cache
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500, _no_cache
+
+
+@app.route('/api/accounts/regenerate', methods=['POST'])
+def accounts_regenerate():
+    """Invalidate accounts cache and recompute."""
+    _no_cache = {'Cache-Control': 'no-store'}
+    _accounts_cache.clear()
+    try:
+        if os.path.exists(_ACCOUNTS_JSON):
+            os.remove(_ACCOUNTS_JSON)
+    except Exception:
+        pass
+    try:
+        data = _compute_accounts()
+        return jsonify({**data, 'ok': True}), 200, _no_cache
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500, _no_cache
 
 
 @app.route('/api/cash/transaction', methods=['POST'])

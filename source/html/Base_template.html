@@ -2901,6 +2901,7 @@ var _generatingMonths = {};   // key → true while regenerating (or waiting in 
 var _regenPctMap = {};        // key → last-known regen progress % (set by server poll)
 var _regenPollTimers = {};    // key → setInterval handle for /api/regen-progress/<key> polling
 var _openSSE = {};            // key → EventSource (tracks open SSE to prevent competing connections)
+var _regenActive = false;     // true while a regen SSE is streaming — suppresses debug-stream duplicates
 var _busyRetryTimers = {};    // key → setInterval handle for "server busy, waiting to retry" polls
 var _errorMonths   = {};    // key → true after __ERROR__ — suppresses auto-regen on re-navigate
 // Null-safe btn proxy — passed to _listenToRegenSSE for background (non-current-page) regens
@@ -3007,6 +3008,7 @@ function _listenToRegenSSE(regenKey, btn, streamUrl) {
   }
   var es = new EventSource(streamUrl || '/api/logs');
   _openSSE[regenKey] = es;
+  _regenActive = true;
   es.onmessage = function(evt) {
     var data = evt.data;
     if (!data || data === '__CONNECTED__') return;
@@ -3090,7 +3092,7 @@ function _listenToRegenSSE(regenKey, btn, streamUrl) {
       return;
     }
     if (data.startsWith('__DONE__')) {
-      es.close(); delete _openSSE[regenKey];
+      es.close(); delete _openSSE[regenKey]; _regenActive = false;
       console.log('[regen] __DONE__ received for', regenKey, '— calling _fetchAndRender');
       _regenCompletedAt = Date.now();
       _markGenerating(regenKey, false);
@@ -3122,7 +3124,7 @@ function _listenToRegenSSE(regenKey, btn, streamUrl) {
       return;
     }
     if (data === '__ERROR__') {
-      es.close(); delete _openSSE[regenKey];
+      es.close(); delete _openSSE[regenKey]; _regenActive = false;
       console.error('[regen] __ERROR__ received for', regenKey, '— check debug panel for details');
       appendLog('✗ שגיאה בניתוח', 'err');
       // Track so navigate path doesn't auto-retrigger regen (user can still click manually)
@@ -3155,7 +3157,7 @@ function _listenToRegenSSE(regenKey, btn, streamUrl) {
     appendLog(data);
   };
   es.onerror = function() {
-    es.close(); delete _openSSE[regenKey];
+    es.close(); delete _openSSE[regenKey]; _regenActive = false;
     if (regenKey === _currentKey) {
       _markGenerating(regenKey, false);
       _hideGeneratingOverlay();
@@ -3494,6 +3496,7 @@ function _startDebugStream() {
   _dbgEs = new EventSource('/api/debug-logs');
   _dbgEs.onmessage = function(e) {
     if (!e.data || !e.data.trim()) return;
+    if (_regenActive) return; // regen SSE already shows these — skip duplicates
     var feed = document.getElementById('debug-feed');
     var line = document.createElement('div');
     line.className = 'debug-line';

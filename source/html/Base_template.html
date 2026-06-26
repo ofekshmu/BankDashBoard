@@ -6480,7 +6480,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     // Keep only the last 3 months of data
     if (allDates.length > 0) {
       var maxD = new Date(allDates[allDates.length - 1]);
-      maxD.setMonth(maxD.getMonth() - 3);
+      maxD.setMonth(maxD.getMonth() - 2);
       var cutoff = maxD.toISOString().slice(0, 10);
       allDates = allDates.filter(function(d) { return d >= cutoff; });
     }

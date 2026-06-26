@@ -2096,7 +2096,7 @@ body {
     <div class="card" id="accounts-chart-card">
       <div class="card-title">מגמת יתרות</div>
       <div class="acct-chart-toolbar" id="acct-chart-toolbar"></div>
-      <div id="accounts-chart" style="position:relative;height:420px;"></div>
+      <div id="accounts-chart" style="position:relative;height:300px;"></div>
     </div>
     <div class="card" id="cash-pie-card">
       <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
@@ -6525,7 +6525,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     if (oldLegend) oldLegend.remove();
     var acctLegend = document.createElement('div');
     acctLegend.className = 'acct-chart-legend';
-    acctLegend.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px 14px;padding:10px 0 2px;justify-content:center;';
+    acctLegend.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px 14px;padding:6px 0 2px;justify-content:center;';
     var isMobAcct = window.innerWidth < 768;
     legendDefs.forEach(function(ds) {
       var item = document.createElement('div');

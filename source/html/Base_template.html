@@ -6478,15 +6478,17 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     var cutoff = '';
     if (allDatesRaw.length > 0) {
       var maxD = new Date(allDatesRaw[allDatesRaw.length - 1]);
-      maxD.setMonth(maxD.getMonth() - 2);
+      maxD.setMonth(maxD.getMonth() - 3);
       cutoff = maxD.toISOString().slice(0, 10);
     }
 
     var palette  = ['#1e9d8b','#7b61ff','#f0ad4e','#e74c3c','#36a2eb','#4bc0c0','#f66b85','#9966ff'];
+    var isMobChart = window.innerWidth < 768;
     var datasets = [];
     var legendDefs = [];
     var colorIdx = 0;
     Object.keys(data.accounts).forEach(function(name) {
+      if (isMobChart && name === 'Total') return;
       var pts = (data.accounts[name] || []).filter(function(p) { return !cutoff || p[0] >= cutoff; });
       if (!pts.length) return;
       var color = name === 'Total' ? '#1e2a4a' : palette[colorIdx++ % palette.length];

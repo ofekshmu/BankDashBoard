@@ -6477,94 +6477,46 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     }
     _destroyChart('acct-chart-canvas');
 
-    // Compute cutoff: 2 months before the latest data point
-    var allDatesRaw = [];
+    var dateSet = {}, allDates = [];
     Object.keys(data.accounts).forEach(function(name) {
-      (data.accounts[name] || []).forEach(function(p) { allDatesRaw.push(p[0]); });
+      (data.accounts[name] || []).forEach(function(p) {
+        if (!dateSet[p[0]]) { dateSet[p[0]] = true; allDates.push(p[0]); }
+      });
     });
-    allDatesRaw.sort();
-    var cutoff = '';
-    if (allDatesRaw.length > 0) {
-      var maxD = new Date(allDatesRaw[allDatesRaw.length - 1]);
-      maxD.setMonth(maxD.getMonth() - 3);
-      cutoff = maxD.toISOString().slice(0, 10);
-    }
+    allDates.sort();
+    var step   = Math.max(1, Math.floor(allDates.length / 24));
+    var labels = allDates.filter(function(_, i) { return i % step === 0; });
 
     var palette  = ['#1e9d8b','#7b61ff','#f0ad4e','#e74c3c','#36a2eb','#4bc0c0','#f66b85','#9966ff'];
-    var isMobChart = window.innerWidth < 768;
     var datasets = [];
-    var legendDefs = [];
     var colorIdx = 0;
     Object.keys(data.accounts).forEach(function(name) {
-      if (isMobChart && name === 'Total') return;
-      var pts = (data.accounts[name] || []).filter(function(p) { return !cutoff || p[0] >= cutoff; });
+      var pts = data.accounts[name] || [];
       if (!pts.length) return;
-      var color = name === 'Total' ? '#1e2a4a' : palette[colorIdx++ % palette.length];
+      var indexed = {};
+      pts.forEach(function(p) { indexed[p[0]] = p[1]; });
+      var color = name === 'Total' ? '#333' : palette[colorIdx++ % palette.length];
       datasets.push({
         label: name,
-        data: pts.map(function(p) { return { x: new Date(p[0]).getTime(), y: p[1] }; }),
+        data: labels.map(function(d) { return indexed[d] != null ? indexed[d] : null; }),
         borderColor: color, backgroundColor: 'transparent',
         borderWidth: name === 'Total' ? 2.5 : 1.5, spanGaps: true,
-        pointRadius: 4, pointHitRadius: 16, tension: 0.3
+        pointRadius: 2, tension: 0.3
       });
-      legendDefs.push({ label: name, color: color });
     });
 
     new Chart(canvas, {
       type: 'line',
-      data: { datasets: datasets },
+      data: { labels: labels, datasets: datasets },
       options: {
         responsive: true, maintainAspectRatio: false,
-        interaction: { mode: 'nearest', axis: 'x', intersect: false },
-        plugins: { legend: { display: false } },
+        plugins: { legend: { position:'bottom', labels:{ font:{ size:11 } } } },
         scales: {
-          x: {
-            type: 'linear',
-            ticks: {
-              maxTicksLimit: 8, maxRotation: 30,
-              callback: function(v) {
-                var d = new Date(v);
-                return ('0'+d.getDate()).slice(-2)+'/'+('0'+(d.getMonth()+1)).slice(-2);
-              }
-            }
-          },
-          y: { ticks: { callback: function(v) { return v.toLocaleString('he-IL'); } } }
+          x: { ticks:{ maxTicksLimit:12, maxRotation:30 } },
+          y: { ticks:{ callback: function(v) { return v.toLocaleString('he-IL'); } } }
         }
       }
     });
-
-    // Custom rectangle-only legend (label slides in on hover/tap)
-    var oldLegend = wrap.parentNode.querySelector('.acct-chart-legend');
-    if (oldLegend) oldLegend.remove();
-    var acctLegend = document.createElement('div');
-    acctLegend.className = 'acct-chart-legend';
-    acctLegend.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px 14px;padding:6px 0 2px;justify-content:center;';
-    var isMobAcct = window.innerWidth < 768;
-    legendDefs.forEach(function(ds) {
-      var item = document.createElement('div');
-      item.style.cssText = 'display:inline-flex;align-items:center;gap:5px;cursor:default;';
-      var box = document.createElement('span');
-      box.style.cssText = 'display:inline-block;width:26px;height:12px;border-radius:2px;background:' + ds.color + ';flex-shrink:0;';
-      var txt = document.createElement('span');
-      txt.style.cssText = 'font-size:11px;color:var(--navy);white-space:nowrap;overflow:hidden;max-width:0;opacity:0;' +
-        'transition:max-width .25s ease,opacity .2s ease;';
-      txt.textContent = ds.label;
-      item.appendChild(box);
-      item.appendChild(txt);
-      var _lt = null;
-      if (isMobAcct) {
-        item.addEventListener('click', function() {
-          clearTimeout(_lt);
-          if (txt.style.opacity === '1') { txt.style.maxWidth='0'; txt.style.opacity='0'; }
-          else { txt.style.maxWidth='160px'; txt.style.opacity='1'; _lt=setTimeout(function(){ txt.style.maxWidth='0'; txt.style.opacity='0'; },5000); }
-        });
-      } else {
-        item.addEventListener('mouseenter', function() { txt.style.maxWidth='160px'; txt.style.opacity='1'; });
-        item.addEventListener('mouseleave', function() { txt.style.maxWidth='0'; txt.style.opacity='0'; });
-      }
-      acctLegend.appendChild(item);
-    });
-    wrap.parentNode.appendChild(acctLegend);
   }
 
   // ── Housing / Mortgage ─────────────────────────────────────────────────

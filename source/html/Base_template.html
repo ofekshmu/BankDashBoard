@@ -6914,8 +6914,10 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   window._showSkeletons = _showSkeletons;
   // Expose IIFE-internal functions that are called from global-scope code defined
   // before this script block. Without these, the caller gets ReferenceError.
-  window._fetchAndRender = _fetchAndRender;
-  window._cacheGet       = _cacheGet;
+  window._fetchAndRender      = _fetchAndRender;
+  window._cacheGet            = _cacheGet;
+  window._renderAccountsTable = _renderAccountsTable;
+  window._renderAccountsChart = _renderAccountsChart;
   document.addEventListener('DOMContentLoaded', _initDynamicPage);
 
   // Set --btn-half CSS var so the progress panel anchors at button center

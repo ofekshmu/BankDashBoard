@@ -3,7 +3,7 @@ from Card import Card
 from Bank import Bank
 from Context import Context
 from Constants import Local, Paths
-from Constants import INVESTMENT_CATEGORY, GOLDEN_COLOR_PALLETE, GeneralPlot, Trans_Type, CC_CHARGE_CATEGORY_NAME
+from Constants import INVESTMENT_CATEGORY, GOLDEN_COLOR_PALLETE, Trans_Type, CC_CHARGE_CATEGORY_NAME
 from src_utils.utils import utils
 from database import DataBase
 from front.Graphics import Graphics
@@ -1317,8 +1317,7 @@ class AppManager:
         Graphics.plot_general(spendings_sum,
                               spendings_sum_overall_inc,
                               earnings_sum,
-                              lp_Overall_income=True,
-                              lp_user_defined=False)
+                              lp_Overall_income=True)
 
         # Capture general chart data for interactive chart — always 12 full months, never the current partial month
         _gen_delta = 1
@@ -1374,19 +1373,6 @@ class AppManager:
             data['overall_net_mean'] = round(sum(data['general_net']) / len(data['general_net']), 2)
         _rp(8)   # general bar plot + monthly data: 8 pts
 
-        # ----- User defined
-        utils.log("Generating user defined bar plot...", "system")
-        user_spendings_sum, _, user_earnings_sum, _user_earnings_net = SimpleMath.get_monthly_shifted(shift=13, start_delta=1, category= GeneralPlot.USER_DEFINED_CATEGORIES)
-
-        Graphics.plot_general(user_spendings_sum,
-                              spendings_sum_overall_inc,
-                              user_earnings_sum,
-                              lp_Overall_income=False,
-                              lp_user_defined=True,
-                              title_ext='User_defined',
-                              user_spendings_sum = user_spendings_sum,
-                              user_earnings_sum = user_earnings_sum)
-        _rp(5)   # user-defined bar plot: 5 pts
         # ----- Cards
         utils.log("Generating card distribution plot...", "system")
         card_ids = DataBase().get_card_ids() + ['Bank']
@@ -2134,7 +2120,7 @@ class AppManager:
         spendings_sum, spendings_sum_overall_inc, earnings_sum, earnings_net_sum = \
             SimpleMath.get_monthly_shifted(shift=13, start_delta=1)
         Graphics.plot_general(spendings_sum, spendings_sum_overall_inc, earnings_sum,
-                              lp_Overall_income=True, lp_user_defined=False)
+                              lp_Overall_income=True)
         _gen_delta = 1
         data['general_months'] = [
             (datetime.now() - pd.DateOffset(months=i + _gen_delta)).strftime('%b %Y')
@@ -2184,17 +2170,6 @@ class AppManager:
         if data['general_net']:
             data['overall_net_mean'] = round(sum(data['general_net']) / len(data['general_net']), 2)
         _rp(12)   # general bar + data
-
-        utils.log("Generating user defined bar plot...", "system")
-        user_spendings_sum, _, user_earnings_sum, _user_earnings_net = \
-            SimpleMath.get_monthly_shifted(shift=13, start_delta=1,
-                                           category=GeneralPlot.USER_DEFINED_CATEGORIES)
-        Graphics.plot_general(user_spendings_sum, spendings_sum_overall_inc, user_earnings_sum,
-                              lp_Overall_income=False, lp_user_defined=True,
-                              title_ext='User_defined',
-                              user_spendings_sum=user_spendings_sum,
-                              user_earnings_sum=user_earnings_sum)
-        _rp(6)    # user-defined bar
 
         utils.log("Generating card distribution plot...", "system")
         card_ids = DataBase().get_card_ids() + ['Bank']

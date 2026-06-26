@@ -3063,23 +3063,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     @staticmethod
     def validate_constants() -> Union[str, bool]:
-        """
-        check if all the category values under USER_DEFINED_CATEGORIES exist in the categories.json file.
-        """
-        from Constants import GeneralPlot
-
-        # Read the categories from the JSON file
-        try:
-            with open(Paths.CATEGORY_JSON, encoding='utf-8') as file:
-                categories = json.load(file)
-        except FileNotFoundError:
-            return True  # file not present on this environment — skip validation
-        # Check if all user-defined categories exist in the JSON file
-        for category in GeneralPlot.USER_DEFINED_CATEGORIES:
-            if category not in categories:
-                return f"Category '{category}' not found in categories.json - Check (USER_DEFINED_CATEGORIES) in Constants.py"
-
-
         return True
 
     @staticmethod

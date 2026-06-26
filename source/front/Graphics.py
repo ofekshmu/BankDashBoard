@@ -135,36 +135,32 @@ class Graphics:
         return outliers_list
 
     @staticmethod
-    def plot_general(spendings: list, 
+    def plot_general(spendings: list,
                      spendings_overall: list,
                      earnings: list,
                      topic: str = "",
                      title_ext: str = "",
                      lp_Overall_income: bool = True,
-                     lp_user_defined: bool = False,
-                     user_spendings_sum: list = [],
-                     user_earnings_sum: list = [],
                      fig_size=(14, 8)):
         """
         Plot general financial statistics showing spendings, earnings and overall income.
-        
+
         Args:
             spendings (list): Monthly spending values
             spendings_overall (list): Monthly net income values across all accounts
             earnings (list): Monthly earning values
             title_ext (str, optional): Extension for output filename. Defaults to "".
             fig_size (tuple, optional): Figure dimensions. Defaults to (14, 8).
-        
+
         Saves:
             PNG file at 'Outputs/General_info{title_ext}.png'
         """
         # Constants
         COLORS = {
             'spendings': "#f66b85",
-            'investments': "#DAA520", 
+            'investments': "#DAA520",
             'earnings': "#4fba89",
             'net_income': "#58063f",
-            'user_defined': "#99303f"
         }
         FONT_SIZES = {
             'title': 18,
@@ -210,14 +206,6 @@ class Graphics:
                                         "Overall Income": [x + y for x, y in zip(earnings, spendings_overall_option)]
                                     })
 
-            # user defined plot
-            if lp_user_defined:
-                data["user_defined_df"] = pd.DataFrame({
-                                            "Months": months, 
-                                            "Overall Income": [x + y for x, y in zip(user_earnings_sum, user_spendings_sum)]
-                                        })
-            
-
             data["base_df"] = pd.melt(base_df, id_vars=["Months"], var_name="Category", value_name="Amount")
             data["invest_df"] = pd.melt(invest_df, id_vars=["Months"], var_name="Category", value_name="Amount")
             
@@ -258,25 +246,16 @@ class Graphics:
                     data=data["base_df"][::-1], ax=ax, 
                     palette=[COLORS['earnings'], COLORS['spendings']])
         
-        if not lp_user_defined:
-            sns.barplot(x="Months", y="Amount", hue="Category", 
-                        data=data["invest_df"][::-1], ax=ax,
-                        palette=[COLORS['earnings'], COLORS['investments']])
-            
+        sns.barplot(x="Months", y="Amount", hue="Category",
+                    data=data["invest_df"][::-1], ax=ax,
+                    palette=[COLORS['earnings'], COLORS['investments']])
+
         if lp_Overall_income:
             sns.lineplot(x="Months", y="Overall Income", 
                         data=data["overall_df"], ax=ax,
                         color=COLORS['net_income'],
                         marker='o', linestyle='--')
             add_value_annotations(ax, data["overall_df"], COLORS['net_income'])
-        
-        if lp_user_defined:
-            sns.lineplot(x="Months", y="Overall Income", 
-                        data=data["user_defined_df"], ax=ax,
-                        color=COLORS['user_defined'],
-                        marker='o', linestyle='--')
-
-            add_value_annotations(ax, data["user_defined_df"], COLORS['user_defined'])
 
         # Styling
         ax.legend(handles=create_legend_handles())

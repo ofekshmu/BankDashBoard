@@ -114,12 +114,6 @@ tbody tr:hover .org-td-date{background:#f8fffd !important}
   </div>
 </nav>
 
-<div class="loading-overlay" id="loading-overlay">
-  <div class="loading-spinner"></div>
-  <div class="loading-text">מחדש נתונים…</div>
-  <div class="loading-pct" id="loading-pct">0%</div>
-</div>
-
 <div class="main">
   <div class="page-header">
     <h1>ארגונית קבצים</h1>
@@ -141,10 +135,7 @@ tbody tr:hover .org-td-date{background:#f8fffd !important}
   </div>
 
   <div class="table-section">
-    <div class="table-toolbar">
-      <button class="regen-btn" id="regen-btn" onclick="regenerate()"><span class="regen-icon">&#8635;</span> חשב מחדש</button>
-    </div>
-    <div class="table-scroll">
+        <div class="table-scroll">
       <table>
         <thead><tr><th class="org-th org-th-date">תאריך</th><th class="org-th">Leumi-Max | 1121</th><th class="org-th">Isra-Card | 4046</th><th class="org-th">American-Express | 1565</th><th class="org-th">Isra-Card | 2922</th><th class="org-th">BeinLeumi-Bank | Not_Relevant</th><th class="org-th">BeinLeumi-Bank-Date-Range | Not_Relevant</th><th class="org-th">Cal | 3843</th><th class="org-th">Cal | 4437</th><th class="org-th">Isra-Card-2026 | 2922</th><th class="org-th">Isra-Card-2026 | 4046</th><th class="org-th">Cal | 7329</th></tr></thead>
         <tbody><tr><td class="org-td org-td-date">November, 2023</td><td class="org-td org-cell-yellow"><span class="org-cell-label">⚠ לא מאומת</span><span class="org-cell-date">2024-02-04</span></td><td class="org-td org-cell-green"><span class="org-cell-label">✓ מאומת</span><span class="org-cell-date">2024-02-02</span></td><td class="org-td org-cell-red">nan</td><td class="org-td org-cell-red">nan</td><td class="org-td org-cell-red">nan</td><td class="org-td org-cell-red">nan</td><td class="org-td org-cell-red">nan</td><td class="org-td org-cell-red">nan</td><td class="org-td org-cell-gray"><span class="org-cell-label">N/A</span></td><td class="org-td org-cell-gray"><span class="org-cell-label">N/A</span></td><td class="org-td org-cell-red">nan</td></tr>
@@ -198,26 +189,26 @@ fetch('/api/version').then(function(r){return r.json();}).then(function(d){var b
 })();
 function regenerate() {
   var btn = document.getElementById('regen-btn');
-  var overlay = document.getElementById('loading-overlay');
-  var pct = document.getElementById('loading-pct');
+  var pct = document.getElementById('regen-pct');
   btn.disabled = true;
-  btn.classList.add('spinning');
+  btn.classList.add('running');
   pct.textContent = '0%';
-  overlay.classList.add('active');
   var es = new EventSource('/api/organizer/regenerate');
   es.onmessage = function(e) {
-    if (e.data === 'done') {
-      es.close(); location.reload();
-    } else if (e.data === 'error') {
-      es.close(); location.reload();
-    } else {
-      var p = parseInt(e.data);
-      if (!isNaN(p)) pct.textContent = p + '%';
-    }
+    if (e.data === 'done') { es.close(); location.reload(); }
+    else if (e.data === 'error') { es.close(); location.reload(); }
+    else { var p = parseInt(e.data); if (!isNaN(p)) pct.textContent = p + '%'; }
   };
   es.onerror = function() { es.close(); location.reload(); };
 }
 </script>
+<div class="org-regen-fab">
+  <button class="org-regen-btn" id="regen-btn" onclick="regenerate()" title="חשב מחדש">
+    <span class="org-regen-icon">&#8635;</span>
+    <span class="org-regen-label">חשב מחדש</span>
+    <span class="org-regen-pct" id="regen-pct"></span>
+  </button>
+</div>
 <button class="debug-fab" id="debug-fab" onclick="toggleDebugPanel()" title="App logs">&lt;/&gt;</button>
 <div class="debug-panel" id="debug-panel">
   <div class="debug-hdr"><span>&#9658; app logs</span><div class="debug-hdr-btns"><button onclick="copyDebugPanel()">copy</button><button onclick="clearDebugPanel()">clear</button><button onclick="toggleDebugPanel()">&#x2715;</button></div></div>

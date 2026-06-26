@@ -2759,6 +2759,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--na
 .ld-green{background:#22c55e}.ld-yellow{background:#f59e0b}.ld-red{background:#ef4444}
 .ld-blue{background:#3b82f6}.ld-blue2{background:#93c5fd}.ld-gray{background:#9ca3af}
 .table-section{background:var(--white);border-radius:var(--radius);border:1px solid var(--border);overflow:hidden}
+.table-toolbar{display:flex;justify-content:flex-end;padding:10px 14px;border-bottom:1px solid var(--border)}
 .table-scroll{overflow-x:auto}
 table{border-collapse:collapse;width:100%;white-space:nowrap}
 .org-th{background:var(--navy);color:#fff;padding:13px 14px;text-align:center;font-size:.79em;font-weight:600;letter-spacing:.3px;position:sticky;top:0;z-index:10}
@@ -2821,10 +2822,7 @@ tbody tr:hover .org-td-date{background:#f8fffd !important}
 <div class="main">
   <div class="page-header">
     <h1>ארגונית קבצים</h1>
-    <div class="generated-row">
-      <span class="generated-label" id="generated-label"></span>
-      <button class="regen-btn" id="regen-btn" onclick="regenerate()"><span class="regen-icon">&#8635;</span> חשב מחדש</button>
-    </div>
+    <span class="generated-label" id="generated-label"></span>
   </div>
 
   <div class="legend-card">
@@ -2842,6 +2840,9 @@ tbody tr:hover .org-td-date{background:#f8fffd !important}
   </div>
 
   <div class="table-section">
+    <div class="table-toolbar">
+      <button class="regen-btn" id="regen-btn" onclick="regenerate()"><span class="regen-icon">&#8635;</span> חשב מחדש</button>
+    </div>
     <div class="table-scroll">
       <table>
         <thead><tr><!--TH_CELLS--></tr></thead>

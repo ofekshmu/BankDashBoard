@@ -1897,7 +1897,6 @@ body {
 
 </style>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
 <link rel="stylesheet" href="/design-system.css">
 </head>
@@ -6493,7 +6492,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       var color = name === 'Total' ? '#1e2a4a' : palette[colorIdx++ % palette.length];
       datasets.push({
         label: name,
-        data: pts.map(function(p) { return { x: p[0], y: p[1] }; }),
+        data: pts.map(function(p) { return { x: new Date(p[0]).getTime(), y: p[1] }; }),
         borderColor: color, backgroundColor: 'transparent',
         borderWidth: name === 'Total' ? 2.5 : 1.5, spanGaps: true,
         pointRadius: 4, pointHitRadius: 16, tension: 0.3
@@ -6510,9 +6509,14 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         plugins: { legend: { display: false } },
         scales: {
           x: {
-            type: 'time',
-            time: { unit: 'day', displayFormats: { day: 'dd/MM' } },
-            ticks: { maxTicksLimit: 12, maxRotation: 30 }
+            type: 'linear',
+            ticks: {
+              maxTicksLimit: 8, maxRotation: 30,
+              callback: function(v) {
+                var d = new Date(v);
+                return ('0'+d.getDate()).slice(-2)+'/'+('0'+(d.getMonth()+1)).slice(-2);
+              }
+            }
           },
           y: { ticks: { callback: function(v) { return v.toLocaleString('he-IL'); } } }
         }

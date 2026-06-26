@@ -3857,132 +3857,128 @@ function _loadCashPie() {
   var wrap = document.getElementById('cash-pie-inner');
   if (!wrap) return;
 
-  function doRender(rates) {
-    fetch('/api/accounts/cash-by-currency')
-      .then(function(r) { return r.json(); })
-      .then(function(data) {
-        if (!data.ok) {
-          wrap.innerHTML = '<div class="cash-pie-empty"><div class="cash-empty-icon">⚠</div>שגיאה בטעינה</div>';
-          return;
-        }
-        var all  = data.data || [];
-        var rows = all.filter(function(r) { return r.balance > 0; });
+  function doRender(data, rates) {
+    if (!data || !data.ok) {
+      wrap.innerHTML = '<div class="cash-pie-empty"><div class="cash-empty-icon">⚠</div>שגיאה בטעינה</div>';
+      return;
+    }
+    var all  = data.data || [];
+    var rows = all.filter(function(r) { return r.balance > 0; });
 
-        if (!rows.length) {
-          var balStr = all.map(function(r) { return r.symbol + r.balance.toLocaleString('he-IL'); }).join(' | ');
-          wrap.innerHTML =
-            '<div class="cash-pie-empty">' +
-              '<div class="cash-empty-icon">💵</div>' +
-              'אין יתרת מזומן חיובית' +
-              (balStr ? '<div class="cash-empty-sub">יתרה כוללת: ' + balStr + '</div>' : '') +
-            '</div>';
-          return;
-        }
+    if (!rows.length) {
+      var balStr = all.map(function(r) { return r.symbol + r.balance.toLocaleString('he-IL'); }).join(' | ');
+      wrap.innerHTML =
+        '<div class="cash-pie-empty">' +
+          '<div class="cash-empty-icon">💵</div>' +
+          'אין יתרת מזומן חיובית' +
+          (balStr ? '<div class="cash-empty-sub">יתרה כוללת: ' + balStr + '</div>' : '') +
+        '</div>';
+      return;
+    }
 
-        // Convert each balance to ILS using live rates
-        rows.forEach(function(r) {
-          var rate = (rates && rates[r.currency]) || 1.0;
-          r.rate   = rate;
-          r.ils    = Math.round(r.balance * rate);
-        });
-        var ilsTotal = rows.reduce(function(s, r) { return s + r.ils; }, 0);
+    // Convert each balance to ILS using live rates
+    rows.forEach(function(r) {
+      var rate = (rates && rates[r.currency]) || 1.0;
+      r.rate   = rate;
+      r.ils    = Math.round(r.balance * rate);
+    });
+    var ilsTotal = rows.reduce(function(s, r) { return s + r.ils; }, 0);
 
-        var colors = _PIE_PALETTE.slice(0, rows.length);
+    var colors = _PIE_PALETTE.slice(0, rows.length);
 
-        // KPI cards — one per currency
-        var kpiCards = rows.map(function(r, i) {
-          var pct     = ilsTotal > 0 ? (r.ils / ilsTotal * 100).toFixed(1) : '0.0';
-          var origStr = r.currency !== 'ILS'
-            ? r.symbol + Math.round(r.balance).toLocaleString('he-IL')
-            : '';
-          var rateStr = '';
-          if (r.currency !== 'ILS' && r.rate) {
-            var rev = 1 / r.rate;
-            var revStr = rev > 100 ? Math.round(rev).toString()
-                       : rev > 10  ? rev.toFixed(1)
-                       : rev.toFixed(3);
-            rateStr = '₪1 = ' + r.symbol + revStr;
-          }
-          return '<div class="cash-kpi-card" style="border-top:3px solid ' + colors[i] + '">' +
-            '<div class="cash-kpi-cur">' + r.currency + '</div>' +
-            (origStr ? '<div class="cash-kpi-orig">' + origStr + '</div>' : '') +
-            '<div class="cash-kpi-ils">₪' + r.ils.toLocaleString('he-IL') + '</div>' +
-            (rateStr ? '<div class="cash-kpi-rate">' + rateStr + '</div>' : '') +
-            '<div class="cash-kpi-pct">' + pct + '%</div>' +
-          '</div>';
-        }).join('');
+    // KPI cards — one per currency
+    var kpiCards = rows.map(function(r, i) {
+      var pct     = ilsTotal > 0 ? (r.ils / ilsTotal * 100).toFixed(1) : '0.0';
+      var origStr = r.currency !== 'ILS'
+        ? r.symbol + Math.round(r.balance).toLocaleString('he-IL')
+        : '';
+      var rateStr = '';
+      if (r.currency !== 'ILS' && r.rate) {
+        var rev = 1 / r.rate;
+        var revStr = rev > 100 ? Math.round(rev).toString()
+                   : rev > 10  ? rev.toFixed(1)
+                   : rev.toFixed(3);
+        rateStr = '₪1 = ' + r.symbol + revStr;
+      }
+      return '<div class="cash-kpi-card" style="border-top:3px solid ' + colors[i] + '">' +
+        '<div class="cash-kpi-cur">' + r.currency + '</div>' +
+        (origStr ? '<div class="cash-kpi-orig">' + origStr + '</div>' : '') +
+        '<div class="cash-kpi-ils">₪' + r.ils.toLocaleString('he-IL') + '</div>' +
+        (rateStr ? '<div class="cash-kpi-rate">' + rateStr + '</div>' : '') +
+        '<div class="cash-kpi-pct">' + pct + '%</div>' +
+      '</div>';
+    }).join('');
 
-        wrap.innerHTML =
-          '<div class="cash-pie-layout">' +
-            '<div class="cash-pie-canvas-wrap">' +
-              '<canvas id="cash-donut-canvas"></canvas>' +
-              '<div class="cash-pie-center">' +
-                '<div class="cash-pie-total">₪' + ilsTotal.toLocaleString('he-IL') + '</div>' +
-                '<div class="cash-pie-sublabel">סה"כ מזומן</div>' +
-              '</div>' +
-            '</div>' +
+    wrap.innerHTML =
+      '<div class="cash-pie-layout">' +
+        '<div class="cash-pie-canvas-wrap">' +
+          '<canvas id="cash-donut-canvas"></canvas>' +
+          '<div class="cash-pie-center">' +
+            '<div class="cash-pie-total">₪' + ilsTotal.toLocaleString('he-IL') + '</div>' +
+            '<div class="cash-pie-sublabel">סה"כ מזומן</div>' +
           '</div>' +
-          '<div class="cash-kpi-row">' + kpiCards + '</div>';
+        '</div>' +
+      '</div>' +
+      '<div class="cash-kpi-row">' + kpiCards + '</div>';
 
-        // Update the Cash balance cell in the accounts table
-        _updateCashAcctRow(ilsTotal);
+    _updateCashAcctRow(ilsTotal);
 
-        var canvas = document.getElementById('cash-donut-canvas');
-        if (!canvas || typeof Chart === 'undefined') return;
-        _cashPieChart = new Chart(canvas.getContext('2d'), {
-          type: 'doughnut',
-          data: {
-            labels: rows.map(function(r) { return r.currency; }),
-            datasets: [{
-              data:            rows.map(function(r) { return r.ils; }),
-              backgroundColor: colors,
-              borderWidth:     0,
-              hoverOffset:     8,
-            }]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            cutout: '70%',
-            layout: { padding: 10 },   /* room for hoverOffset so arcs don't clip at canvas edge */
-            plugins: {
-              legend: { display: false },
-              tooltip: {
-                rtl: true,
-                callbacks: {
-                  label: function(ctx) {
-                    var r   = rows[ctx.dataIndex];
-                    var pct = ilsTotal > 0 ? (ctx.parsed / ilsTotal * 100).toFixed(1) : '0.0';
-                    var orig = r.symbol + Math.round(r.balance).toLocaleString('he-IL');
-                    var ils  = '₪' + ctx.parsed.toLocaleString('he-IL');
-                    return r.currency + ': ' + orig +
-                      (r.currency !== 'ILS' ? ' ≈ ' + ils : '') +
-                      ' (' + pct + '%)';
-                  }
-                }
+    var canvas = document.getElementById('cash-donut-canvas');
+    if (!canvas || typeof Chart === 'undefined') return;
+    _cashPieChart = new Chart(canvas.getContext('2d'), {
+      type: 'doughnut',
+      data: {
+        labels: rows.map(function(r) { return r.currency; }),
+        datasets: [{
+          data:            rows.map(function(r) { return r.ils; }),
+          backgroundColor: colors,
+          borderWidth:     0,
+          hoverOffset:     8,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '70%',
+        layout: { padding: 10 },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            rtl: true,
+            callbacks: {
+              label: function(ctx) {
+                var r   = rows[ctx.dataIndex];
+                var pct = ilsTotal > 0 ? (ctx.parsed / ilsTotal * 100).toFixed(1) : '0.0';
+                var orig = r.symbol + Math.round(r.balance).toLocaleString('he-IL');
+                var ils  = '₪' + ctx.parsed.toLocaleString('he-IL');
+                return r.currency + ': ' + orig +
+                  (r.currency !== 'ILS' ? ' ≈ ' + ils : '') +
+                  ' (' + pct + '%)';
               }
             }
           }
-        });
-      })
-      .catch(function() {
-        var w = document.getElementById('cash-pie-inner');
-        if (w) w.innerHTML = '<div class="cash-pie-empty">שגיאת טעינה</div>';
-      });
+        }
+      }
+    });
   }
 
-  // Use already-loaded rates; otherwise fetch them first
-  if (_fxRates) {
-    doRender(_fxRates);
-  } else {
-    fetch('/api/accounts/rates')
-      .then(function(r) { return r.json(); })
-      .then(function(d) {
-        if (!_fxRates) { _fxRates = d.rates || {}; _acctCurrencies = d.currencies || {}; }
-        doRender(_fxRates);
-      })
-      .catch(function() { doRender({}); });
-  }
+  // Fire cash data and rates in parallel — rates never block rendering
+  var ratesProm = _fxRates
+    ? Promise.resolve(_fxRates)
+    : fetch('/api/accounts/rates')
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (!_fxRates) { _fxRates = d.rates || {}; _acctCurrencies = d.currencies || {}; }
+          return _fxRates;
+        })
+        .catch(function() { return _fxRates || {}; });
+
+  Promise.all([
+    fetch('/api/accounts/cash-by-currency').then(function(r) { return r.json(); }).catch(function() { return {ok: false}; }),
+    ratesProm,
+  ]).then(function(results) {
+    doRender(results[0], results[1]);
+  });
 }
 
 // ── Cash monthly history in מגמת יתרות chart ──────────────────

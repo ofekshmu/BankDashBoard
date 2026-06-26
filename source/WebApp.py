@@ -1608,30 +1608,35 @@ def _run_acct_migrations():
         pass
 
 
-# ── Exchange-rate cache (refreshed once per hour) ─────────────────────────────
-_fx_cache   = {}   # {'USD': 3.72, 'EUR': 4.01, ...}  (rate TO ILS)
-_fx_fetched = 0.0  # epoch seconds
+# ── Exchange-rate cache (background refresh, never blocks a request) ──────────
+_fx_cache   = {'ILS': 1.0, 'USD': 3.72, 'EUR': 4.01, 'JPY': 0.025}  # always valid
+_fx_fetched = 0.0  # epoch seconds of last successful remote fetch (0 = only fallback)
 
 def _get_fx_rates():
-    """Return a dict of currency→ILS rates, cached for 1 hour."""
+    """Return cached rates instantly — never blocks."""
+    return _fx_cache
+
+def _fx_refresh_loop():
+    """Background daemon: fetch fresh rates every hour, update cache on success."""
     import time, urllib.request, json as _json
     global _fx_cache, _fx_fetched
-    if _fx_cache and (time.time() - _fx_fetched) < 3600:
-        return _fx_cache
-    try:
-        url = 'https://api.exchangerate-api.com/v4/latest/ILS'
-        with urllib.request.urlopen(url, timeout=4) as resp:
-            data = _json.loads(resp.read())
-        # data['rates'] maps ILS→X, we want X→ILS
-        ils_to_x = data.get('rates', {})
-        _fx_cache = {cur: 1.0 / rate for cur, rate in ils_to_x.items() if rate}
-        _fx_cache['ILS'] = 1.0
-        _fx_fetched = time.time()
-    except Exception:
-        # Fallback hardcoded approximate rates
-        _fx_cache = {'ILS': 1.0, 'USD': 3.72, 'EUR': 4.01, 'JPY': 0.025}
-        _fx_fetched = time.time()
-    return _fx_cache
+    while True:
+        try:
+            url = 'https://api.exchangerate-api.com/v4/latest/ILS'
+            with urllib.request.urlopen(url, timeout=10) as resp:
+                data = _json.loads(resp.read())
+            ils_to_x = data.get('rates', {})
+            if ils_to_x:
+                new_cache = {cur: 1.0 / rate for cur, rate in ils_to_x.items() if rate}
+                new_cache['ILS'] = 1.0
+                _fx_cache   = new_cache
+                _fx_fetched = time.time()
+        except Exception:
+            pass  # keep whatever cache we already have
+        time.sleep(3600)
+
+import threading as _threading
+_threading.Thread(target=_fx_refresh_loop, daemon=True, name='fx-refresh').start()
 
 
 @app.route('/api/accounts/names')

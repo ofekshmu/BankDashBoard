@@ -91,16 +91,16 @@ class Local:
     CHARGE_DAY = 2
 
     Colors = [
-        "#E6CCFF",  # Soft Lavender (darker and more saturated than original Lavender)
-        "#D0FFD0",  # Pale Mint (a bit more green and slightly darker than Honeydew)
-        "#FFD7BA",  # Light Apricot (warmer and more distinct than Linen)
-        "#FFEDCC",  # Pale Peach (warmer than SeaShell)
-        "#C8F7FF",  # Pale Sky Blue (darker and slightly more saturated than Light Cyan)
-        "#FFD0D0",  # Light Coral (slightly darker than Misty Rose)
-        "#F0E68C",  # Khaki (keeping the original Khaki for contrast)
-        "#F5DCB7",  # Light Khaki (more yellowish than Beige)
-        "#DAD0FF",  # Light Lavender (more distinct from the first lavender variant)
-        "#FFDAB3"   # Soft Peach (more distinct and warmer than Moccasin)
+        "#6B8FAF",  # Dusty Blue
+        "#7BA07A",  # Sage Green
+        "#AE8C6B",  # Warm Sand
+        "#A07878",  # Dusty Rose
+        "#8878A0",  # Soft Lavender
+        "#60A0A0",  # Muted Teal
+        "#A09060",  # Olive Gold
+        "#7890A0",  # Slate
+        "#A07890",  # Mauve
+        "#789060",  # Moss Green
     ]
 
     gentle_blue = ['#BFD7EA',

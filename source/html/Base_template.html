@@ -633,7 +633,8 @@ body {
   pointer-events: none;
   box-shadow: var(--shadow-md);
 }
-.kpi-info-wrap:hover .kpi-tooltip { visibility: visible; opacity: 1; }
+.kpi-info-wrap:hover .kpi-tooltip,
+.kpi-tooltip.tip-mobile-open { visibility: visible; opacity: 1; }
 .kpi-value.pos { color: var(--teal); }
 .kpi-value.neg { color: var(--red); }
 .kpi-balance-card .kpi-value { font-size: 1.5em; }
@@ -4941,36 +4942,23 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
 </script>
 
 <script>
-// Auto-position kpi tooltips to prevent viewport clipping
+// kpi-tooltip: desktop auto-position + mobile fixed-position tap handler
 (function() {
   var PAD = 10;
+
+  // ── Desktop: reposition on hover ──────────────────────────────────────────
   document.addEventListener('mouseenter', function(e) {
     var wrap = e.target.closest && e.target.closest('.kpi-info-wrap');
     if (!wrap) return;
     var tip = wrap.querySelector('.kpi-tooltip');
     if (!tip) return;
-    // Reset previous adjustments so we measure from default position
-    tip.style.left = '';
-    tip.style.right = '';
-    tip.style.transform = '';
-    // Read position while still visibility:hidden (layout is calculated)
+    tip.style.left = ''; tip.style.right = ''; tip.style.transform = '';
     var rect = tip.getBoundingClientRect();
     var vw = window.innerWidth;
-    if (rect.right > vw - PAD) {
-      // Overflows right edge — anchor right edge to icon right
-      tip.style.right = '0';
-      tip.style.left = 'auto';
-    } else if (rect.left < PAD) {
-      // Overflows left edge — anchor left edge to icon left
-      tip.style.left = '0';
-      tip.style.right = 'auto';
-    }
-    // Also guard top edge: if tooltip goes above viewport, flip below icon
+    if (rect.right > vw - PAD) { tip.style.right = '0'; tip.style.left = 'auto'; }
+    else if (rect.left < PAD)   { tip.style.left  = '0'; tip.style.right = 'auto'; }
     var rect2 = tip.getBoundingClientRect();
-    if (rect2.top < PAD) {
-      tip.style.bottom = 'auto';
-      tip.style.top = 'calc(100% + 8px)';
-    }
+    if (rect2.top < PAD) { tip.style.bottom = 'auto'; tip.style.top = 'calc(100% + 8px)'; }
   }, true);
 
   document.addEventListener('mouseleave', function(e) {
@@ -4978,12 +4966,62 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     if (!wrap) return;
     var tip = wrap.querySelector('.kpi-tooltip');
     if (!tip) return;
-    tip.style.left = '';
-    tip.style.right = '';
-    tip.style.transform = '';
-    tip.style.top = '';
-    tip.style.bottom = '';
+    tip.style.left = ''; tip.style.right = ''; tip.style.transform = '';
+    tip.style.top = ''; tip.style.bottom = '';
   }, true);
+
+  // ── Mobile: tap to open as fixed overlay, tap elsewhere to close ──────────
+  function _closeMobileTips() {
+    document.querySelectorAll('.kpi-tooltip.tip-mobile-open').forEach(function(t) {
+      t.classList.remove('tip-mobile-open');
+      t.style.cssText = '';
+    });
+  }
+
+  document.addEventListener('touchstart', function(e) {
+    var icon = e.target.closest && e.target.closest('.kpi-info-icon');
+    if (!icon) { _closeMobileTips(); return; }
+    var wrap = icon.closest('.kpi-info-wrap');
+    var tip  = wrap && wrap.querySelector('.kpi-tooltip');
+    if (!tip) return;
+    e.preventDefault();
+
+    var isOpen = tip.classList.contains('tip-mobile-open');
+    _closeMobileTips();
+    if (isOpen) return; // tap again to close
+
+    var vw  = window.innerWidth;
+    var vh  = window.innerHeight;
+    var tipW = Math.min(300, vw - 24);
+    var iconR = icon.getBoundingClientRect();
+
+    // Prefer above icon; flip below if not enough room
+    var spaceAbove = iconR.top - PAD;
+    var useBelow   = spaceAbove < 130;
+
+    tip.style.position   = 'fixed';
+    tip.style.zIndex     = '9999';
+    tip.style.width      = tipW + 'px';
+    tip.style.maxWidth   = tipW + 'px';
+    tip.style.whiteSpace = 'pre-line';
+    tip.style.pointerEvents = 'auto';
+
+    if (useBelow) {
+      tip.style.top    = (iconR.bottom + 8) + 'px';
+      tip.style.bottom = 'auto';
+    } else {
+      tip.style.top    = 'auto';
+      tip.style.bottom = (vh - iconR.top + 8) + 'px';
+    }
+
+    // Horizontal: align to right edge of icon, clamp to viewport
+    var rightEdge = vw - iconR.right;
+    rightEdge = Math.max(PAD, Math.min(rightEdge, vw - tipW - PAD));
+    tip.style.right = rightEdge + 'px';
+    tip.style.left  = 'auto';
+
+    tip.classList.add('tip-mobile-open');
+  }, { passive: false, capture: true });
 })();
 </script>
 
@@ -5376,7 +5414,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     'השקעות / חיסכון':          'פעולות העברה בין החשבון הראשי לחשבונות חיסכון/השקעה באותו חודש.',
     'הכנסות/הוצאות במזומן':     'תזרים מזומנים פיזי בלבד — אינו כולל תשלומי כרטיס או העברות בנקאיות.',
     'מידע כללי':                 'עמודות: הוצאות חודשיות (אדום) + השקעות/חיסכון (זהב). קו: הכנסות חודשיות (ירוק). ממוצע כולל 13 חודשים.',
-    'התפלגות כרטיסי אשראי':     'חלוקת ההוצאות לפי כרטיס אשראי לחודש הנבחר.'
+    'התפלגות':     'חלוקת ההוצאות לפי כרטיס אשראי לחודש הנבחר.'
   };
 
   function _buildDonutCard(container, canvasId, title, catData, palette) {
@@ -5846,7 +5884,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       cdCard.style.marginTop = '16px';
       var cdTtl = document.createElement('div');
       cdTtl.className = 'chart-card-title';
-      cdTtl.innerHTML = 'התפלגות כרטיסי אשראי' + _tipHtml(_CHART_TT['התפלגות כרטיסי אשראי'] || '');
+      cdTtl.innerHTML = 'התפלגות' + _tipHtml(_CHART_TT['התפלגות'] || '');
       cdCard.appendChild(cdTtl);
       var cdKeys = Object.keys(cd);
       if (cdKeys.length) {
@@ -5868,16 +5906,16 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         // Info panel below the bar — fades in/out
         var _cdInfo = document.createElement('div');
         _cdInfo.style.cssText = 'direction:rtl;text-align:right;font-size:13px;line-height:1.8;'
-          +'color:var(--navy);min-height:28px;opacity:0;transition:opacity .22s ease;padding:4px 2px 0;';
+          +'color:var(--navy);opacity:0;transition:opacity .22s ease;padding:4px 2px 0;';
 
         var _infoSwitchTimer = null;
-        var _touchHideTimer = null;
+        var _activeSeg = null, _activeSegLbl = null, _activeSegKey = null;
 
         function _showInfo(k, item, pct, status) {
-          var name = k === 'Bank' ? '🏦 בנק' : ('כרטיס ' + k);
-          var stLine = status === null ? '' : ('&nbsp;&nbsp;' + (status ? '✅ מאומת' : '⚠ לא מאומת'));
-          _cdInfo.innerHTML = '<strong>' + name + '</strong>' + stLine
-            + '&nbsp;&nbsp;₪' + Math.round(item.amount).toLocaleString('he-IL')
+          var fmt = item.format ? ('<strong>' + item.format + '</strong>&nbsp;&nbsp;') : '';
+          var stLine = status === null ? '' : ((status ? '✅ מאומת' : '⚠ לא מאומת') + '&nbsp;&nbsp;');
+          _cdInfo.innerHTML = fmt + stLine
+            + '₪' + Math.round(item.amount).toLocaleString('he-IL')
             + '&nbsp;&nbsp;<span style="color:var(--text-muted)">' + pct.toFixed(1) + '%</span>';
           _cdInfo.style.transition = 'opacity .2s ease';
           _cdInfo.style.opacity = '1';
@@ -5924,14 +5962,32 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
           }
 
           var segLbl = document.createElement('span');
-          segLbl.textContent = '₪' + Math.round(item.amount).toLocaleString('he-IL');
+          segLbl.textContent = k === 'Bank' ? 'Bank' : k;
           segLbl.style.cssText = 'color:rgba(255,255,255,0.92);font-size:11px;font-weight:600;'
             +'white-space:nowrap;opacity:0;transition:opacity .18s ease;pointer-events:none;'
             +'text-shadow:0 1px 3px rgba(0,0,0,.4);';
           seg.appendChild(segLbl);
 
-          function _segActivate() {
-            if (_touchHideTimer) { clearTimeout(_touchHideTimer); _touchHideTimer = null; }
+          seg.style.cursor = 'pointer';
+          seg.addEventListener('click', function(e) {
+            e.stopPropagation();
+            if (_activeSegKey === k) {
+              // Click same segment again → deactivate
+              seg.style.boxShadow = '';
+              segLbl.style.opacity = '0';
+              seg.style.flexBasis = origBasis;
+              _activeSeg = null; _activeSegLbl = null; _activeSegKey = null;
+              _hideInfo();
+              return;
+            }
+            // Deactivate previous segment
+            if (_activeSeg) {
+              _activeSeg.style.boxShadow = '';
+              _activeSegLbl.style.opacity = '0';
+              _activeSeg.style.flexBasis = _activeSeg._origBasis;
+            }
+            // Activate this segment
+            _activeSeg = seg; _activeSegLbl = segLbl; _activeSegKey = k;
             seg.style.boxShadow = 'inset 0 0 0 9999px rgba(0,0,0,0.13)';
             segLbl.style.opacity = '1';
             requestAnimationFrame(function() {
@@ -5942,40 +5998,27 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
               }
             });
             _switchInfo(k, item, pct, status);
-          }
-          function _segDeactivate() {
-            seg.style.boxShadow = '';
-            segLbl.style.opacity = '0';
-            seg.style.flexBasis = origBasis;
-          }
-
-          seg.addEventListener('mouseenter', _segActivate);
-          seg.addEventListener('mouseleave', _segDeactivate);
-
-          seg.addEventListener('touchstart', function(e) {
-            e.preventDefault();
-            _segActivate();
-          }, { passive: false });
-          seg.addEventListener('touchend', function() {
-            _segDeactivate();
-            _touchHideTimer = setTimeout(function() {
-              _hideInfo();
-              _touchHideTimer = null;
-            }, 2200);
-          });
-          seg.addEventListener('touchcancel', function() {
-            _segDeactivate();
-            _hideInfo();
           });
 
+          seg._origBasis = origBasis;
           bar.appendChild(seg);
         });
 
-        // Fade out info when mouse leaves the whole bar (desktop)
-        bar.addEventListener('mouseleave', function() { _hideInfo(); });
+        // Click anywhere outside the bar resets active segment
+        document.addEventListener('click', function() {
+          if (_activeSeg) {
+            _activeSeg.style.boxShadow = '';
+            _activeSegLbl.style.opacity = '0';
+            _activeSeg.style.flexBasis = _activeSeg._origBasis;
+            _activeSeg = null; _activeSegLbl = null; _activeSegKey = null;
+          }
+          _hideInfo();
+        });
 
         cdCard.appendChild(bar);
         cdCard.appendChild(_cdInfo);
+
+
 
       } else {
         var cdEmpty = document.createElement('div');

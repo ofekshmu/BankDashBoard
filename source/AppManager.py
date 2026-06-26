@@ -1399,12 +1399,16 @@ class AppManager:
         _rp(3)   # card distribution: 3 pts
 
         # Capture card distribution data for interactive chart
+        _FMT_DISPLAY = {'American-Express': 'American Express', 'Isra-Card': 'Mastercard',
+                        'Isra-Card-2026': 'Mastercard', 'Cal': 'Cal', 'Leumi-Max': 'Max'}
+        _card_fmt = {k: _FMT_DISPLAY.get(v, v) for k, v in DataBase().get_card_formats().items()}
         if not card_validation_df.empty:
             data['card_dist'] = {
                 str(row['CardID']): {
                     'amount':  round(float(abs(row['Final_Value'])), 2),
                     'status':  bool(row['Status']),
                     'color':   card_color_dict.get(str(row['CardID']), '#b0bec5'),
+                    'format':  _card_fmt.get(str(row['CardID']), ''),
                 }
                 for _, row in card_validation_df.iterrows()
             }
@@ -1422,6 +1426,7 @@ class AppManager:
                     'amount': _bank_total,
                     'status': None,
                     'color':  card_color_dict.get('Bank', '#b0bec5'),
+                    'format': 'Bank Leumi',
                 }
 
         # ----- Payment PIE Graphs
@@ -1976,6 +1981,7 @@ class AppManager:
                                                'amount': _safe(v.get('amount')),
                                                'status': None if v.get('status') is None else bool(v.get('status')),
                                                'color':  str(v.get('color', '')),
+                                               'format': str(v.get('format', '')),
                                             } for k, v in data.get('card_dist', {}).items()},
                 'general_months':          data.get('general_months', []),
                 'general_spendings':       [_safe(v) for v in data.get('general_spendings', [])],
@@ -2198,12 +2204,16 @@ class AppManager:
         Graphics.card_distribution(card_color_dict, card_validation_df)
         _rp(5)    # card distribution
 
+        _FMT_DISPLAY = {'American-Express': 'American Express', 'Isra-Card': 'Mastercard',
+                        'Isra-Card-2026': 'Mastercard', 'Cal': 'Cal', 'Leumi-Max': 'Max'}
+        _card_fmt = {k: _FMT_DISPLAY.get(v, v) for k, v in DataBase().get_card_formats().items()}
         if not card_validation_df.empty:
             data['card_dist'] = {
                 str(row['CardID']): {
                     'amount': round(float(abs(row['Final_Value'])), 2),
                     'status': bool(row['Status']),
                     'color':  card_color_dict.get(str(row['CardID']), '#b0bec5'),
+                    'format': _card_fmt.get(str(row['CardID']), ''),
                 }
                 for _, row in card_validation_df.iterrows()
             }
@@ -2221,6 +2231,7 @@ class AppManager:
                     'amount': _bank_total,
                     'status': None,
                     'color':  card_color_dict.get('Bank', '#b0bec5'),
+                    'format': 'Bank Leumi',
                 }
 
         utils.log("Generating Payments data...", "system")
@@ -2681,7 +2692,8 @@ class AppManager:
                 'investments_items':       data.get('investments_items', []),
                 'card_dist':               {str(k): {'amount': _safe(v.get('amount')),
                                                       'status': None if v.get('status') is None else bool(v.get('status')),
-                                                      'color':  str(v.get('color', ''))}
+                                                      'color':  str(v.get('color', '')),
+                                                      'format': str(v.get('format', ''))}
                                             for k, v in data.get('card_dist', {}).items()},
                 'general_months':          data.get('general_months', []),
                 'general_spendings':       [_safe(v) for v in data.get('general_spendings', [])],

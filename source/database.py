@@ -1500,6 +1500,13 @@ class DataBase:
         data = self.cursor.execute(""" SELECT CardID FROM Card""").fetchall()
         return [x[0] for x in data]
 
+    def get_card_formats(self) -> dict:
+        """Returns {card_id: format_name} from the File table (card files only)."""
+        rows = self.cursor.execute(
+            "SELECT DISTINCT TRIM(Card_Number), TRIM(Format) FROM File"
+        ).fetchall()
+        return {row[0]: row[1] for row in rows if row[0] and row[1]}
+
     def execute_query(self, query: str) -> bool:
         try:
             self.cursor.execute(query)

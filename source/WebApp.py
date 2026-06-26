@@ -1784,11 +1784,22 @@ def accounts_delete_entry(entry_id):
         return jsonify({'ok': False, 'error': str(e)})
 
 
+_cash_pie_cache = None  # invalidated whenever a cash write succeeds
+
+def _invalidate_cash_cache():
+    global _cash_pie_cache
+    _cash_pie_cache = None
+
+
 @app.route('/api/accounts/cash-by-currency')
 def cash_by_currency():
     """Return current cash balance per currency, matching accumulate_cash_Balance():
        cash on hand = bank withdrawals (Out) + CashTransactions (Amount)
     """
+    global _cash_pie_cache
+    if _cash_pie_cache is not None:
+        return jsonify({'ok': True, 'data': _cash_pie_cache, 'cached': True})
+
     import re as _re2
     try:
         _SYM = {'ILS': '₪', 'USD': '$', 'EUR': '€', 'GBP': '£', 'JPY': '¥'}
@@ -1819,6 +1830,7 @@ def cash_by_currency():
             }
             for code, bal in sorted(totals.items(), key=lambda x: -abs(x[1]))
         ]
+        _cash_pie_cache = result
         return jsonify({'ok': True, 'data': result})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)})
@@ -1896,6 +1908,7 @@ def cash_add_transaction():
         db = _DB()
         db.insert_Cash_Transaction(name, exec_date, amount, currency, category, desc)
         db.commit_changes()
+        _invalidate_cash_cache()
         return jsonify({'ok': True})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)})
@@ -2011,6 +2024,8 @@ def cash_reconcile():
             created += 1
             details.append({'currency': code, 'gap': gap})
         db.commit_changes()
+        if created:
+            _invalidate_cash_cache()
         return jsonify({'ok': True, 'created': created, 'details': details})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)})

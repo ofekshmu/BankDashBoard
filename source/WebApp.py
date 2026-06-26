@@ -13,6 +13,7 @@ GET  /api/stale-all         return {yyyy_mm: bool, ...} for all pages
 
 import os
 import sys
+import threading as _threading
 
 # Ensure source/ siblings (AppManager, database, etc.) are importable whether
 # this module is loaded via app.py or directly as a Vercel serverless function.
@@ -1474,9 +1475,10 @@ GYM_HTML = os.path.join(_HERE, 'html', 'Gym.html')
 class _PGConn:
     """Thin wrapper around psycopg2 connection that mimics sqlite3's conn.execute() API."""
 
-    def __init__(self, raw_conn):
+    def __init__(self, raw_conn, pool=None):
         import psycopg2.extras
         self._conn = raw_conn
+        self._pool = pool
         self._factory = psycopg2.extras.DictCursor
 
     def _sql(self, sql):
@@ -1492,19 +1494,58 @@ class _PGConn:
 
     def commit(self):   self._conn.commit()
     def rollback(self): self._conn.rollback()
-    def close(self):    self._conn.close()
+
+    def close(self):
+        if self._pool is None:
+            self._conn.close()
+            return
+        broken = bool(self._conn.closed)
+        if not broken:
+            try:
+                self._conn.rollback()  # reset any open transaction before returning
+            except Exception:
+                broken = True
+        try:
+            self._pool.putconn(self._conn, close=broken)
+        except Exception:
+            try: self._conn.close()
+            except Exception: pass
 
     def cursor(self):
         import psycopg2.extras
         return self._conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
 
+# ── Persistent Postgres connection pool ───────────────────────────────────────
+_pg_pool      = None
+_pg_pool_lock = _threading.Lock()
+
+def _get_pg_pool():
+    global _pg_pool
+    if _pg_pool is not None:
+        return _pg_pool
+    with _pg_pool_lock:
+        if _pg_pool is None:
+            import psycopg2.pool
+            _pg_pool = psycopg2.pool.ThreadedConnectionPool(
+                minconn=1, maxconn=5,
+                dsn=os.environ.get('DATABASE_URL', ''),
+                connect_timeout=10,
+            )
+    return _pg_pool
+
+
 def _pg_conn():
-    """Return a _PGConn wrapper connected to the PostgreSQL database."""
+    """Return a _PGConn backed by a pooled connection — no new TCP handshake per request."""
     import psycopg2
-    raw = psycopg2.connect(os.environ['DATABASE_URL'], connect_timeout=10)
+    pool = _get_pg_pool()
+    raw  = pool.getconn()
+    if raw.closed:
+        # Stale slot — discard and open a fresh one
+        pool.putconn(raw, close=True)
+        raw = pool.getconn()
     raw.autocommit = False
-    return _PGConn(raw)
+    return _PGConn(raw, pool=pool)
 
 
 def _get_latest_yyyy_mm():
@@ -1635,7 +1676,6 @@ def _fx_refresh_loop():
             pass  # keep whatever cache we already have
         time.sleep(3600)
 
-import threading as _threading
 _threading.Thread(target=_fx_refresh_loop, daemon=True, name='fx-refresh').start()
 
 

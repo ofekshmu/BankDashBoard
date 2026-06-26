@@ -3800,12 +3800,10 @@ function _loadAccountsData(forceRegen) {
     .then(function(d) {
       if (!d.ok) throw new Error(d.error || 'failed');
       _accountsPageData = d;
-      requestAnimationFrame(function() {
-        _renderAccountsTable(d);
-        _renderAccountsChart(d);
-        _cashTrendLoaded = false;
-        _updateCashInTrendChart();
-      });
+      _renderAccountsTable(d);
+      _renderAccountsChart(d);
+      _cashTrendLoaded = false;
+      _updateCashInTrendChart();
       if (btn) { btn.disabled = false; btn.textContent = 'רענן'; }
     })
     .catch(function(err) {

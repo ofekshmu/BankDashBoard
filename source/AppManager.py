@@ -3,7 +3,7 @@ from Card import Card
 from Bank import Bank
 from Context import Context
 from Constants import Local, Paths
-from Constants import INVESTMENT_CATEGORY, GOLDEN_COLOR_PALLETE, GeneralPlot, Trans_Type
+from Constants import INVESTMENT_CATEGORY, GOLDEN_COLOR_PALLETE, GeneralPlot, Trans_Type, CC_CHARGE_CATEGORY_NAME
 from src_utils.utils import utils
 from database import DataBase
 from front.Graphics import Graphics
@@ -1411,6 +1411,19 @@ class AppManager:
         else:
             data['card_dist'] = {}
 
+        # Add Bank bar: total CC charges debited from bank account in the billing month
+        _next = utils.next_month(t)
+        _bank_tx = DataBase().get_Bank_Transactions(_next.month, _next.year)
+        if not _bank_tx.empty and 'Category' in _bank_tx.columns:
+            _cc_rows = _bank_tx[_bank_tx['Category'] == CC_CHARGE_CATEGORY_NAME]
+            _bank_total = round(float(abs(_cc_rows['Out'].sum())), 2)
+            if _bank_total > 0:
+                data['card_dist']['Bank'] = {
+                    'amount': _bank_total,
+                    'status': None,
+                    'color':  card_color_dict.get('Bank', '#b0bec5'),
+                }
+
         # ----- Payment PIE Graphs
         utils.log("Generating Payments data...", "system")
         payment_filtered_df = transactions_df[transactions_df['Transaction_Type'] == Trans_Type.payment]
@@ -1961,7 +1974,7 @@ class AppManager:
                 'investments_items':       data.get('investments_items', []),
                 'card_dist':               {str(k): {
                                                'amount': _safe(v.get('amount')),
-                                               'status': bool(v.get('status')),
+                                               'status': None if v.get('status') is None else bool(v.get('status')),
                                                'color':  str(v.get('color', '')),
                                             } for k, v in data.get('card_dist', {}).items()},
                 'general_months':          data.get('general_months', []),
@@ -2196,6 +2209,19 @@ class AppManager:
             }
         else:
             data['card_dist'] = {}
+
+        # Add Bank bar: total CC charges debited from bank account in the billing month
+        _next = utils.next_month(t)
+        _bank_tx = DataBase().get_Bank_Transactions(_next.month, _next.year)
+        if not _bank_tx.empty and 'Category' in _bank_tx.columns:
+            _cc_rows = _bank_tx[_bank_tx['Category'] == CC_CHARGE_CATEGORY_NAME]
+            _bank_total = round(float(abs(_cc_rows['Out'].sum())), 2)
+            if _bank_total > 0:
+                data['card_dist']['Bank'] = {
+                    'amount': _bank_total,
+                    'status': None,
+                    'color':  card_color_dict.get('Bank', '#b0bec5'),
+                }
 
         utils.log("Generating Payments data...", "system")
         payment_filtered_df = transactions_df[transactions_df['Transaction_Type'] == Trans_Type.payment]
@@ -2654,7 +2680,7 @@ class AppManager:
                 'earnings_by_cat':         {str(k): _safe(v) for k, v in data.get('earnings_by_cat', {}).items()},
                 'investments_items':       data.get('investments_items', []),
                 'card_dist':               {str(k): {'amount': _safe(v.get('amount')),
-                                                      'status': bool(v.get('status')),
+                                                      'status': None if v.get('status') is None else bool(v.get('status')),
                                                       'color':  str(v.get('color', ''))}
                                             for k, v in data.get('card_dist', {}).items()},
                 'general_months':          data.get('general_months', []),

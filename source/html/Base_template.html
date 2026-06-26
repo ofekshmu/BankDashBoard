@@ -5894,8 +5894,10 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
               plugins:{
                 legend:{ display:false },
                 tooltip:{ rtl:true, callbacks:{ label:function(ctx) {
+                  var lbl = cdLabels[ctx.dataIndex];
                   var st = cdStatus[ctx.dataIndex];
-                  return '₪'+Math.round(ctx.parsed.y).toLocaleString('he-IL') + (st ? ' ✅ מאומת' : ' ⚠ לא מאומת');
+                  var suffix = lbl === 'Bank' ? ' 🏦 בנק' : (st ? ' ✅ מאומת' : ' ⚠ לא מאומת');
+                  return '₪'+Math.round(ctx.parsed.y).toLocaleString('he-IL') + suffix;
                 }}}
               },
               scales:{

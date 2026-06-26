@@ -91,16 +91,16 @@ class Local:
     CHARGE_DAY = 2
 
     Colors = [
-        "#6B8FAF",  # Dusty Blue
-        "#7BA07A",  # Sage Green
-        "#AE8C6B",  # Warm Sand
-        "#A07878",  # Dusty Rose
-        "#8878A0",  # Soft Lavender
-        "#60A0A0",  # Muted Teal
-        "#A09060",  # Olive Gold
-        "#7890A0",  # Slate
-        "#A07890",  # Mauve
-        "#789060",  # Moss Green
+        "#26547C",  # Steel Blue
+        "#EF476F",  # Coral Red
+        "#FFD166",  # Golden Yellow
+        "#06D6A0",  # Mint Green
+        "#FCFCFC",  # Near White
+        "#118AB2",  # Sky Blue
+        "#FF9F1C",  # Amber
+        "#9B5DE5",  # Soft Purple
+        "#F15BB5",  # Hot Pink
+        "#00BBF9",  # Cyan
     ]
 
     gentle_blue = ['#BFD7EA',

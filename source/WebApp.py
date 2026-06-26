@@ -2745,6 +2745,18 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--na
 .org-regen-pct{font-size:.65em;font-weight:700;color:rgba(255,255,255,.9);display:none;line-height:1;margin-top:2px;letter-spacing:.02em}
 .org-regen-btn.running .org-regen-pct{display:block}
 @media(max-width:768px){.org-regen-fab{bottom:14px;right:14px}.org-regen-btn{width:52px;padding:0;border-radius:50%;justify-content:center}.org-regen-label{display:none}}
+.debug-fab{position:fixed;bottom:88px;right:18px;width:42px;height:42px;border-radius:50%;background:#1e2a4a;color:#fff;font-size:.72em;font-family:monospace;font-weight:700;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.3);z-index:997;letter-spacing:-.5px}
+.debug-fab:hover{filter:brightness(1.2)}
+.debug-panel{position:fixed;bottom:138px;right:16px;width:480px;max-width:calc(100vw - 32px);height:340px;background:#12121f;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.55);z-index:996;display:none;flex-direction:column;overflow:hidden;font-family:monospace}
+.debug-panel.open{display:flex}
+.debug-hdr{display:flex;align-items:center;justify-content:space-between;padding:7px 12px;background:#0a0a18;color:#7ec8e3;font-size:.7em;font-weight:700;letter-spacing:.06em;flex-shrink:0;border-bottom:1px solid #222}
+.debug-hdr-btns{display:flex;gap:5px}
+.debug-hdr-btns button{background:none;border:1px solid #333;color:#888;border-radius:4px;padding:2px 8px;font-size:.9em;cursor:pointer;font-family:monospace}
+.debug-hdr-btns button:hover{background:#1e1e2e;color:#eee}
+.debug-feed{flex:1;overflow-y:auto;padding:6px 10px;font-size:.68em;line-height:1.55;color:#c8d8e4}
+.debug-line{white-space:pre-wrap;word-break:break-all;padding:1px 0;border-bottom:1px solid #1a1a2a}
+.debug-line.err{color:#ff6b6b}
+.debug-line.warn{color:#ffa94d}
 .legend-card{background:var(--white);border-radius:14px;box-shadow:0 2px 16px rgba(0,0,0,.08),0 0 0 1px rgba(0,0,0,.04);padding:20px 26px;margin-bottom:24px}
 .legend-title{font-size:.7em;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.9px;margin-bottom:16px}
 .legend-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:10px 36px}
@@ -2809,8 +2821,6 @@ tbody tr:hover .org-td-date{background:#f8fffd !important}
   </div>
 </nav>
 
-<div class="loading-overlay" id="loading-overlay">
-  <div class="loading-spinner"></div>
   <div class="loading-text">מחדש נתונים\u2026</div>
   <div class="loading-pct" id="loading-pct">0%</div>
 </div>
@@ -2836,9 +2846,6 @@ tbody tr:hover .org-td-date{background:#f8fffd !important}
   </div>
 
   <div class="table-section">
-    <div class="table-toolbar">
-      <button class="regen-btn" id="regen-btn" onclick="regenerate()"><span class="regen-icon">&#8635;</span> חשב מחדש</button>
-    </div>
     <div class="table-scroll">
       <table>
         <thead><tr><!--TH_CELLS--></tr></thead>
@@ -2862,26 +2869,58 @@ fetch('/api/version').then(function(r){return r.json();}).then(function(d){var b
 })();
 function regenerate() {
   var btn = document.getElementById('regen-btn');
-  var overlay = document.getElementById('loading-overlay');
-  var pct = document.getElementById('loading-pct');
+  var pct = document.getElementById('regen-pct');
   btn.disabled = true;
-  btn.classList.add('spinning');
+  btn.classList.add('running');
   pct.textContent = '0%';
-  overlay.classList.add('active');
   var es = new EventSource('/api/organizer/regenerate');
   es.onmessage = function(e) {
-    if (e.data === 'done') {
-      es.close(); location.reload();
-    } else if (e.data === 'error') {
-      es.close(); location.reload();
-    } else {
-      var p = parseInt(e.data);
-      if (!isNaN(p)) pct.textContent = p + '%';
-    }
+    if (e.data === 'done') { es.close(); location.reload(); }
+    else if (e.data === 'error') { es.close(); location.reload(); }
+    else { var p = parseInt(e.data); if (!isNaN(p)) pct.textContent = p + '%'; }
   };
   es.onerror = function() { es.close(); location.reload(); };
 }
+var _dbgEs = null;
+function toggleDebugPanel() {
+  var p = document.getElementById('debug-panel');
+  if (!p) return;
+  var open = p.classList.toggle('open');
+  if (open && !_dbgEs) {
+    _dbgEs = new EventSource('/api/logs');
+    _dbgEs.onmessage = function(e) {
+      var feed = document.getElementById('debug-feed');
+      if (!feed) return;
+      var d = document.createElement('div');
+      d.className = 'debug-line' + (e.data.match(/error|Error|ERROR/) ? ' err' : e.data.match(/warn|Warn|WARN/) ? ' warn' : '');
+      d.textContent = e.data;
+      feed.appendChild(d);
+      feed.scrollTop = feed.scrollHeight;
+    };
+  }
+}
+function clearDebugPanel() { var f=document.getElementById('debug-feed'); if(f) f.innerHTML=''; }
+function copyDebugPanel() { var f=document.getElementById('debug-feed'); if(f) navigator.clipboard.writeText(f.innerText).catch(function(){}); }
 </script>
+<div class="org-regen-fab">
+  <button class="org-regen-btn" id="regen-btn" onclick="regenerate()" title="חשב מחדש">
+    <span class="org-regen-icon">&#8635;</span>
+    <span class="org-regen-label">חשב מחדש</span>
+    <span class="org-regen-pct" id="regen-pct"></span>
+  </button>
+</div>
+<button class="debug-fab" id="debug-fab" onclick="toggleDebugPanel()" title="App logs">&lt;/&gt;</button>
+<div class="debug-panel" id="debug-panel">
+  <div class="debug-hdr">
+    <span>APP LOGS</span>
+    <div class="debug-hdr-btns">
+      <button onclick="clearDebugPanel()">clear</button>
+      <button onclick="copyDebugPanel()">copy</button>
+      <button onclick="toggleDebugPanel()">&#x2715;</button>
+    </div>
+  </div>
+  <div class="debug-feed" id="debug-feed"></div>
+</div>
 </body>
 </html>"""
 

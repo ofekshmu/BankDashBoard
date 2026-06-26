@@ -609,6 +609,18 @@ body {
   .main { padding: 56px 12px 80px !important; }
   .page-header { padding-right: 0 !important; }
 }
+.debug-fab{position:fixed;bottom:22px;right:18px;width:42px;height:42px;border-radius:50%;background:#1e2a4a;color:#fff;font-size:.72em;font-family:monospace;font-weight:700;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.3);z-index:997;letter-spacing:-.5px}
+.debug-fab:hover{filter:brightness(1.2)}
+.debug-panel{position:fixed;bottom:72px;right:16px;width:480px;max-width:calc(100vw - 32px);height:340px;background:#12121f;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.55);z-index:996;display:none;flex-direction:column;overflow:hidden;font-family:monospace}
+.debug-panel.open{display:flex}
+.debug-hdr{display:flex;align-items:center;justify-content:space-between;padding:7px 12px;background:#0a0a18;color:#7ec8e3;font-size:.7em;font-weight:700;letter-spacing:.06em;flex-shrink:0;border-bottom:1px solid #222}
+.debug-hdr-btns{display:flex;gap:5px}
+.debug-hdr-btns button{background:none;border:1px solid #333;color:#888;border-radius:4px;padding:2px 8px;font-size:.9em;cursor:pointer;font-family:monospace}
+.debug-hdr-btns button:hover{background:#1e1e2e;color:#eee}
+.debug-feed{flex:1;overflow-y:auto;padding:6px 10px;font-size:.68em;line-height:1.55;color:#c8d8e4}
+.debug-line{white-space:pre-wrap;word-break:break-all;padding:1px 0;border-bottom:1px solid #1a1a2a}
+.debug-line.err{color:#ff6b6b}
+.debug-line.warn{color:#ffa94d}
 </style>
 <link rel="stylesheet" href="/design-system.css">
 </head>
@@ -1295,6 +1307,17 @@ function toast(msg, type) {
   area.appendChild(el);
   setTimeout(() => el.remove(), 3500);
 }
+</script>
+<button class="debug-fab" id="debug-fab" onclick="toggleDebugPanel()" title="App logs">&lt;/&gt;</button>
+<div class="debug-panel" id="debug-panel">
+  <div class="debug-hdr"><span>&#9658; app logs</span><div class="debug-hdr-btns"><button onclick="copyDebugPanel()">copy</button><button onclick="clearDebugPanel()">clear</button><button onclick="toggleDebugPanel()">&#x2715;</button></div></div>
+  <div class="debug-feed" id="debug-feed"></div>
+</div>
+<script>
+var _dbgEs=null;
+function toggleDebugPanel(){var p=document.getElementById('debug-panel');var open=p.classList.toggle('open');if(open&&!_dbgEs){_dbgEs=new EventSource('/api/logs');_dbgEs.onmessage=function(e){var f=document.getElementById('debug-feed');if(!f)return;var d=document.createElement('div');d.className='debug-line'+(e.data.toLowerCase().indexOf('error')>=0?' err':e.data.toLowerCase().indexOf('warn')>=0?' warn':'');d.textContent=e.data;f.appendChild(d);f.scrollTop=f.scrollHeight};_dbgEs.onerror=function(){_dbgEs.close();_dbgEs=null}}}
+function clearDebugPanel(){document.getElementById('debug-feed').innerHTML=''}
+function copyDebugPanel(){var f=document.getElementById('debug-feed');navigator.clipboard.writeText(Array.from(f.children).map(function(e){return e.textContent}).join('\n')).catch(function(){})}
 </script>
 </body>
 </html>

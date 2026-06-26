@@ -1,4 +1,4 @@
-"""
+﻿"""
 Flask web server — replaces terminal menu interaction.
 
 Routes
@@ -2736,18 +2736,15 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--na
 .main{margin-right:0;flex:1;padding:72px 32px 60px;min-width:0;overflow-x:hidden}
 .page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px}
 .page-header h1{font-size:1.7em;font-weight:700}
-.regen-btn{display:inline-flex;align-items:center;gap:6px;padding:5px 14px;border:1.5px solid var(--teal);border-radius:20px;background:var(--white);color:var(--teal);font-size:.78em;font-weight:600;cursor:pointer;transition:background .15s,color .15s;white-space:nowrap}
-.regen-btn:hover{background:var(--teal);color:#fff}
-.regen-btn:disabled{opacity:.5;cursor:not-allowed}
-@keyframes _regenGlow{0%,100%{box-shadow:0 0 0 0 rgba(30,157,139,.55)}50%{box-shadow:0 0 0 7px rgba(30,157,139,0)}}
-.regen-icon{font-size:1.05em;display:inline-block}
-.regen-btn.spinning .regen-icon{animation:spin .8s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
-.loading-overlay{display:none;position:fixed;inset:0;background:rgba(255,255,255,.9);z-index:900;flex-direction:column;align-items:center;justify-content:center;gap:16px}
-.loading-overlay.active{display:flex}
-.loading-spinner{width:46px;height:46px;border:4px solid var(--border);border-top-color:var(--teal);border-radius:50%;animation:spin .8s linear infinite}
-.loading-text{font-size:.95em;font-weight:600;color:var(--navy)}
-.loading-pct{font-size:1.6em;font-weight:700;color:var(--teal);min-width:4ch;text-align:center}
+.org-regen-fab{position:fixed;bottom:22px;right:18px;z-index:500}
+.org-regen-btn{height:52px;padding:0 22px;background:var(--teal);color:#fff;border:none;border-radius:26px;font-size:.85em;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px;box-shadow:0 4px 18px rgba(30,157,139,.45);white-space:nowrap;transition:box-shadow .2s,opacity .2s}
+.org-regen-btn:hover{box-shadow:0 6px 24px rgba(30,157,139,.65)}
+.org-regen-btn:disabled{opacity:.65;cursor:wait}
+.org-regen-icon{font-size:1.6em;line-height:1;display:flex;align-items:center}
+.org-regen-btn.running .org-regen-icon{display:none}
+.org-regen-pct{font-size:.65em;font-weight:700;color:rgba(255,255,255,.9);display:none;line-height:1;margin-top:2px;letter-spacing:.02em}
+.org-regen-btn.running .org-regen-pct{display:block}
+@media(max-width:768px){.org-regen-fab{bottom:14px;right:14px}.org-regen-btn{width:52px;padding:0;border-radius:50%;justify-content:center}.org-regen-label{display:none}}
 .legend-card{background:var(--white);border-radius:14px;box-shadow:0 2px 16px rgba(0,0,0,.08),0 0 0 1px rgba(0,0,0,.04);padding:20px 26px;margin-bottom:24px}
 .legend-title{font-size:.7em;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.9px;margin-bottom:16px}
 .legend-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:10px 36px}
@@ -2759,7 +2756,6 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--na
 .ld-green{background:#22c55e}.ld-yellow{background:#f59e0b}.ld-red{background:#ef4444}
 .ld-blue{background:#3b82f6}.ld-blue2{background:#93c5fd}.ld-gray{background:#9ca3af}
 .table-section{background:var(--white);border-radius:var(--radius);border:1px solid var(--border);overflow:hidden}
-.table-toolbar{display:flex;justify-content:flex-end;padding:10px 14px;border-bottom:1px solid var(--border)}
 .table-scroll{overflow-x:auto}
 table{border-collapse:collapse;width:100%;white-space:nowrap}
 .org-th{background:var(--navy);color:#fff;padding:13px 14px;text-align:center;font-size:.79em;font-weight:600;letter-spacing:.3px;position:sticky;top:0;z-index:10}

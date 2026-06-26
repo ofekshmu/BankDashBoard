@@ -3255,7 +3255,7 @@ Please Make sure that none of the following formats have their 'Identifications 
         # The following line, converts the column, from string value dates, to date object of the following format: example: "November, 2023"
         # Because the date represent the Charge date of the transactions, one month is taken back to represent the month
         # the trasnactions were taken in.
-        file_df['Date'] = file_df['Date'].apply(lambda x: (datetime.strptime(x, "%Y-%m-%d %H:%M:%S" )  - relativedelta(months=1)).strftime("%B, %Y"))
+        file_df['Date'] = pd.to_datetime(file_df['Date']).apply(lambda x: (x - relativedelta(months=1)).strftime("%B, %Y"))
 
         indexes = file_df['Date'].unique().tolist()
         # columns = file_df['Format'].unique().tolist()

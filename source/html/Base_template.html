@@ -1897,6 +1897,7 @@ body {
 
 </style>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
 <link rel="stylesheet" href="/design-system.css">
 </head>
@@ -6469,53 +6470,51 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     }
     _destroyChart('acct-chart-canvas');
 
-    var dateSet = {}, allDates = [];
+    // Compute cutoff: 2 months before the latest data point
+    var allDatesRaw = [];
     Object.keys(data.accounts).forEach(function(name) {
-      (data.accounts[name] || []).forEach(function(p) {
-        if (!dateSet[p[0]]) { dateSet[p[0]] = true; allDates.push(p[0]); }
-      });
+      (data.accounts[name] || []).forEach(function(p) { allDatesRaw.push(p[0]); });
     });
-    allDates.sort();
-
-    // Keep only the last 3 months of data
-    if (allDates.length > 0) {
-      var maxD = new Date(allDates[allDates.length - 1]);
+    allDatesRaw.sort();
+    var cutoff = '';
+    if (allDatesRaw.length > 0) {
+      var maxD = new Date(allDatesRaw[allDatesRaw.length - 1]);
       maxD.setMonth(maxD.getMonth() - 2);
-      var cutoff = maxD.toISOString().slice(0, 10);
-      allDates = allDates.filter(function(d) { return d >= cutoff; });
+      cutoff = maxD.toISOString().slice(0, 10);
     }
-
-    var labels = allDates;
 
     var palette  = ['#1e9d8b','#7b61ff','#f0ad4e','#e74c3c','#36a2eb','#4bc0c0','#f66b85','#9966ff'];
     var datasets = [];
     var legendDefs = [];
     var colorIdx = 0;
     Object.keys(data.accounts).forEach(function(name) {
-      var pts = data.accounts[name] || [];
+      var pts = (data.accounts[name] || []).filter(function(p) { return !cutoff || p[0] >= cutoff; });
       if (!pts.length) return;
-      var indexed = {};
-      pts.forEach(function(p) { indexed[p[0]] = p[1]; });
       var color = name === 'Total' ? '#1e2a4a' : palette[colorIdx++ % palette.length];
       datasets.push({
         label: name,
-        data: labels.map(function(d) { return indexed[d] != null ? indexed[d] : null; }),
+        data: pts.map(function(p) { return { x: p[0], y: p[1] }; }),
         borderColor: color, backgroundColor: 'transparent',
         borderWidth: name === 'Total' ? 2.5 : 1.5, spanGaps: true,
-        pointRadius: 2, tension: 0.3
+        pointRadius: 4, pointHitRadius: 16, tension: 0.3
       });
       legendDefs.push({ label: name, color: color });
     });
 
     new Chart(canvas, {
       type: 'line',
-      data: { labels: labels, datasets: datasets },
+      data: { datasets: datasets },
       options: {
         responsive: true, maintainAspectRatio: false,
+        interaction: { mode: 'nearest', axis: 'x', intersect: false },
         plugins: { legend: { display: false } },
         scales: {
-          x: { ticks:{ maxTicksLimit:12, maxRotation:30 } },
-          y: { ticks:{ callback: function(v) { return v.toLocaleString('he-IL'); } } }
+          x: {
+            type: 'time',
+            time: { unit: 'day', displayFormats: { day: 'dd/MM' } },
+            ticks: { maxTicksLimit: 12, maxRotation: 30 }
+          },
+          y: { ticks: { callback: function(v) { return v.toLocaleString('he-IL'); } } }
         }
       }
     });

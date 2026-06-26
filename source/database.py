@@ -2322,7 +2322,55 @@ class DataBase:
                 _w.simplefilter('ignore', FutureWarning)
                 return pd.concat(non_empty, ignore_index=True)
         return pd.DataFrame()
-        
+
+    def query_bulk_transactions(self, lookback_months: int = 13):
+        """Fetch BankTransactions and CardTransactions for the last N months in two queries.
+        Returns (bank_df, card_df) with date columns pre-parsed as datetime.
+        Replaces N×query_monthly_transactions calls in get_monthly_shifted.
+        """
+        from datetime import datetime as _dt
+        import pandas as pd
+
+        start_str = (_dt.now() - pd.DateOffset(months=lookback_months)).strftime('%Y-%m-%d')
+
+        bank_data = self.cursor.execute("""
+            SELECT *, 'BankTransactions' AS TableName
+            FROM BankTransactions
+            WHERE TO_CHAR(Date::timestamp, 'YYYY-MM-DD') >= %s
+        """, (start_str,)).fetchall()
+        bank_df = pd.DataFrame(
+            data=bank_data,
+            columns=[d[0] for d in self.cursor.description]
+        ) if bank_data else pd.DataFrame()
+
+        card_data = self.cursor.execute("""
+            SELECT *, 'CardTransactions' AS TableName
+            FROM CardTransactions
+            WHERE TO_CHAR(Executed_Date::timestamp, 'YYYY-MM-DD') >= %s
+        """, (start_str,)).fetchall()
+        card_df = pd.DataFrame(
+            data=card_data,
+            columns=[d[0] for d in self.cursor.description]
+        ) if card_data else pd.DataFrame()
+
+        # Pre-parse date columns once so per-month filtering is just integer comparison
+        if not bank_df.empty and 'Date' in bank_df.columns:
+            bank_df['_date'] = pd.to_datetime(bank_df['Date'], errors='coerce')
+            bank_df['_m'] = bank_df['_date'].dt.month
+            bank_df['_y'] = bank_df['_date'].dt.year
+
+        if not card_df.empty:
+            if 'Executed_Date' in card_df.columns:
+                card_df['_exec'] = pd.to_datetime(card_df['Executed_Date'], errors='coerce')
+                card_df['_em']   = card_df['_exec'].dt.month
+                card_df['_ey']   = card_df['_exec'].dt.year
+            if 'Charge_Date' in card_df.columns:
+                card_df['_chg']  = pd.to_datetime(card_df['Charge_Date'], errors='coerce')
+                card_df['_cm']   = card_df['_chg'].dt.month
+                card_df['_cy']   = card_df['_chg'].dt.year
+
+        return bank_df, card_df
+
     def fix_column_date_format(self, table_name: str, column_name: str) -> pd.DataFrame:
         """
         The function will fix the date format in the specified column of the specified table using the date_ready function.

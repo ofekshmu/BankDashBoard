@@ -88,42 +88,62 @@ class SimpleMath:
             initial_delta = start_delta
         else:
             initial_delta = 0 if GENERAL_PLOT.SHOW_CURRENT_MONTH else 1
-        spendings_lst = []
-        spendings_net_lst = []
-        earnings_lst = []
-        earnings_net_lst = []
 
+        spendings_lst     = []
+        spendings_net_lst = []
+        earnings_lst      = []
+        earnings_net_lst  = []
+
+        # Fast path: single bulk query when no category/business filter is active.
+        # Replaces N×query_monthly_transactions (24 SQL round-trips) with 2 queries.
+        use_bulk = (category is None and business is None)
+        if use_bulk:
+            try:
+                bank_bulk, card_bulk = DataBase().query_bulk_transactions(lookback_months=shift + 1)
+                bank_has_dates = not bank_bulk.empty and '_m' in bank_bulk.columns
+                card_has_dates = not card_bulk.empty and '_em' in card_bulk.columns
+            except Exception:
+                use_bulk = False
+
+        import warnings as _w
         for i in range(initial_delta, shift):
             calculated_date = current_date - pd.DateOffset(months=i)
-            df_i = SimpleMath.process_prices(
-                        DataBase().query_monthly_transactions(date=calculated_date,
-                                                              tables=['BankTransactions','CardTransactions']),
-                        date=calculated_date)
-            
-            if category is not None:
-                if isinstance(category, str):
-                    category = [category]
-                df_i = df_i[df_i['Category'].isin(category)]
+            m, y = calculated_date.month, calculated_date.year
+            next_d  = calculated_date + pd.DateOffset(months=1)
+            nm, ny  = next_d.month, next_d.year
 
-            if business is not None:
-                if isinstance(business, str):
-                    business = [business]
-                df_i = df_i[df_i['Name'].isin(business)]
-
-            # if df_i.empty:
-            #     utils.log("test", 'system')
-
+            if use_bulk:
+                # Slice the pre-fetched bulk data by month — no DB I/O
+                parts = []
+                if bank_has_dates:
+                    parts.append(bank_bulk[(bank_bulk['_m'] == m) & (bank_bulk['_y'] == y)]
+                                 .drop(columns=['_date', '_m', '_y'], errors='ignore'))
+                if card_has_dates:
+                    cmask = (
+                        ((card_bulk['_em'] == m)  & (card_bulk['_ey'] == y)) |
+                        ((card_bulk['_cm'] == nm) & (card_bulk['_cy'] == ny))
+                    )
+                    parts.append(card_bulk[cmask]
+                                 .drop(columns=['_exec', '_em', '_ey', '_chg', '_cm', '_cy'], errors='ignore'))
+                if parts:
+                    with _w.catch_warnings():
+                        _w.simplefilter('ignore')
+                        month_df = pd.concat(parts, ignore_index=True)
+                else:
+                    month_df = pd.DataFrame()
+                df_i = SimpleMath.process_prices(month_df, date=calculated_date)
+            else:
+                df_i = SimpleMath.process_prices(
+                    DataBase().query_monthly_transactions(
+                        date=calculated_date, tables=['BankTransactions', 'CardTransactions']),
+                    date=calculated_date)
 
             spendings_lst.append(df_i['Final_Value'][(df_i['Final_Value'] < 0)].sum())
             spendings_net_lst.append(df_i['Final_Value'][(df_i['Final_Value'] < 0) & (df_i['Category'] != INVESTMENT_CATEGORY)].sum())
             earnings_lst.append(df_i['Final_Value'][(df_i['Final_Value'] > 0)].sum())
             earnings_net_lst.append(df_i['Final_Value'][(df_i['Final_Value'] > 0) & (df_i['Category'] != INVESTMENT_CATEGORY)].sum())
-            
-        # data is returned backwards to fit the plot_general function.
-        return spendings_lst, \
-                spendings_net_lst, \
-                earnings_lst, \
-                earnings_net_lst
+
+        return spendings_lst, spendings_net_lst, earnings_lst, earnings_net_lst
 
     @staticmethod
     def general_info(data):

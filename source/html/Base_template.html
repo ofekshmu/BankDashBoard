@@ -1635,8 +1635,8 @@ body {
 /* ── Accounts table — mobile horizontal scroll ───────────── */
 @media (max-width: 700px) {
   .acct-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  .acct-wrap table { min-width: 480px; }
-  .acct-detail-cell { display: none; }
+  /* Wide enough to show all 7 columns without squishing */
+  .acct-wrap table { min-width: 620px; }
 }
 /* ── Accounts panel — narrow mobile layout ───────────────── */
 @media (max-width: 620px) {

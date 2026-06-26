@@ -3736,6 +3736,7 @@ function acctSetStatus(id, msg, type) {
 // ── Currency overlay on accounts table ───────────────────────
 var _fxRates = null;
 var _acctCurrencies = null;
+var _lastRenderData = null;
 function _loadFxAndEnrich() {
   if (_fxRates) { _enrichAcctTable(); return; }
   fetch('/api/accounts/rates')
@@ -3770,7 +3771,14 @@ function _enrichAcctTable() {
 var _origShowPanel = showPanel;
 showPanel = function(name, btn) {
   _origShowPanel(name, btn);
-  if (name === 'accounts') { _loadFxAndEnrich(); _loadCashPie(); _updateCashInTrendChart(); }
+  if (name === 'accounts') {
+    _loadFxAndEnrich(); _loadCashPie();
+    requestAnimationFrame(function() {
+      if (_lastRenderData) _renderAccountsChart(_lastRenderData);
+      _cashTrendLoaded = false;
+      _updateCashInTrendChart();
+    });
+  }
 };
 
 // ── Cash-by-currency donut chart ─────────────────────────────
@@ -6671,6 +6679,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
 
   // ── Main render orchestrator ───────────────────────────────────────────
   function _renderDynamicData(data) {
+    _lastRenderData = data;
     var ml = data.month_label || '';
     document.title = 'ניתוח חודשי — ' + ml;
     [_renderKpi, _renderOverviewCharts, _renderTransactions, _renderPayments,

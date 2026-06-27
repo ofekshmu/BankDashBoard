@@ -798,11 +798,13 @@ body {
 .txn-footer-sum.pos { color: var(--teal); }
 
 .hs-regen-btn {
-  float: left; background: none; border: 1px solid var(--border);
-  border-radius: 6px; padding: 3px 10px; cursor: pointer;
-  font-size: 0.82em; color: var(--text-muted); line-height: 1.5;
+  float: left; background: var(--navy); color: #fff;
+  border: none; border-radius: var(--radius-sm);
+  padding: 5px 13px; cursor: pointer;
+  font-size: 0.78em; font-weight: 700;
+  transition: opacity 0.15s;
 }
-.hs-regen-btn:hover { background: var(--bg); color: var(--navy); }
+.hs-regen-btn:hover { opacity: 0.85; }
 .hs-regen-btn:disabled { opacity: 0.5; cursor: default; }
 
 .housing-cf-kpis {

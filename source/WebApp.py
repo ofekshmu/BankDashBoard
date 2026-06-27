@@ -3255,7 +3255,6 @@ def _build_organizer_page(progress_callback=None):
             "FROM BankTransactions ORDER BY Date ASC, ID DESC"
         ).fetchall()
         _vbal = None
-        _txn_since_resync = 0  # transactions applied since last balance checkpoint
         for _vr in _val_rows:
             _vid, _vdate, _vout, _vinc, _vbs, _vname, _vsrc = _vr
             _vout_f = float(_vout or 0)
@@ -3272,14 +3271,12 @@ def _build_organizer_page(progress_callback=None):
             if _vbal is None:
                 if _has_vbs:
                     _vbal = _vsb
-                    _txn_since_resync = 0
             else:
                 _vbal += _vinc_f - _vout_f
-                _txn_since_resync += 1
                 if _has_vbs:
-                    # each INT-rounded tx can drift at most ±0.5; N txs → max N×0.5 drift
-                    _tol = _txn_since_resync * 0.5 + 0.01
-                    if abs(_vbal - _vsb) > _tol:
+                    # diff is exact; Out/Income stored as INT so rounding noise ≤ 0.5 per tx.
+                    # 3 ₪ threshold filters noise while any real missing tx is far larger.
+                    if abs(_vbal - _vsb) > 3:
                         _det = {'calc': round(_vbal, 2), 'stored': round(_vsb, 2),
                                 'diff': round(_vsb - _vbal, 2),
                                 'id': _vid, 'date': _vdate_s,
@@ -3294,7 +3291,6 @@ def _build_organizer_page(progress_callback=None):
                                          'prev_income': _prev_row_info['income']})
                         _mismatch_details.setdefault(_vym, []).append(_det)
                     _vbal = _vsb  # resync; isolates each mismatch to its month
-                    _txn_since_resync = 0
             _prev_row_info = {'id': _vid, 'date': _vdate_s,
                               'name': str(_vname or ''), 'file': _vsrc_bn,
                               'out': _vout_f, 'income': _vinc_f}

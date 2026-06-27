@@ -827,6 +827,21 @@ body {
   .housing-balance-row { grid-template-columns: 1fr; }
   .housing-3col-row { grid-template-columns: 1fr 1fr; }
 
+  /* Prevent KPI cards from overflowing their grid cell */
+  .housing-2col-row .kpi-card,
+  .housing-3col-row .kpi-card { min-width: 0; overflow: hidden; }
+
+  /* Scale down KPI values so numbers fit on narrow cards */
+  #panel-housing .kpi-value {
+    font-size: 1.1em;
+    word-break: break-word;
+    overflow-wrap: break-word;
+  }
+  #panel-housing .kpi-sublabel { font-size: 0.72em; }
+  #panel-housing .kpi-label    { font-size: 0.8em; }
+
+  .housing-balance-row .kpi-card .kpi-value { font-size: 1.5em; }
+
   .equity-dual-row { flex-direction: column; }
   .equity-dual-col:first-child {
     border-left: none;
@@ -835,8 +850,6 @@ body {
     margin-bottom: 14px;
   }
   .equity-dual-col { padding: 0; }
-
-  .housing-balance-row .kpi-card .kpi-value { font-size: 1.6em; }
 
   .housing-txn table,
   .milestone-table {
@@ -6862,28 +6875,49 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       var cfCanvas = document.getElementById('housing-cf-canvas');
       if (cfCanvas) {
         var isProj = cf.is_proj || [];
-        var absPayments = cf.payments.map(function(v) { return Math.abs(v || 0); });
-        var netData = cf.months.map(function(_, i) { return (cf.rentals[i] || 0) - absPayments[i]; });
+
+        // Filter to actual (non-projected) months only
+        var actualIdx = [];
+        cf.months.forEach(function(_, i) { if (!isProj[i]) actualIdx.push(i); });
+
+        var cfLabels   = actualIdx.map(function(i) { return cf.months[i]; });
+        var cfPayments = actualIdx.map(function(i) { return Math.abs(cf.payments[i] || 0); });
+        var cfRentals  = actualIdx.map(function(i) { return cf.rentals[i] || 0; });
+        var cfNet      = actualIdx.map(function(i) { return cfRentals[actualIdx.indexOf(i)] - cfPayments[actualIdx.indexOf(i)]; });
+        // Simpler net calculation using already-built arrays
+        cfNet = cfLabels.map(function(_, j) { return cfRentals[j] - cfPayments[j]; });
+
+        // On mobile, limit to last 4 months; desktop shows up to 12
+        var isMobile = window.innerWidth <= 700;
+        var maxShow  = isMobile ? 4 : 12;
+        if (cfLabels.length > maxShow) {
+          var start = cfLabels.length - maxShow;
+          cfLabels   = cfLabels.slice(start);
+          cfPayments = cfPayments.slice(start);
+          cfRentals  = cfRentals.slice(start);
+          cfNet      = cfNet.slice(start);
+        }
+
         new Chart(cfCanvas, {
           type: 'bar',
           data: {
-            labels: cf.months,
+            labels: cfLabels,
             datasets: [
               {
                 label: 'הוצאות',
-                data: absPayments,
-                backgroundColor: cf.months.map(function(_, i) { return isProj[i] ? 'rgba(246,107,133,0.45)' : 'rgba(246,107,133,0.82)'; }),
+                data: cfPayments,
+                backgroundColor: 'rgba(246,107,133,0.82)',
                 order: 2
               },
               {
                 label: 'הכנסות',
-                data: cf.rentals,
-                backgroundColor: cf.months.map(function(_, i) { return isProj[i] ? 'rgba(30,157,139,0.45)' : 'rgba(30,157,139,0.82)'; }),
+                data: cfRentals,
+                backgroundColor: 'rgba(30,157,139,0.82)',
                 order: 2
               },
               {
                 label: 'נטו',
-                data: netData,
+                data: cfNet,
                 type: 'line',
                 borderColor: '#1e2a4a',
                 backgroundColor: 'transparent',
@@ -6898,7 +6932,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
             responsive: true,
             maintainAspectRatio: false,
             scales: {
-              x: { ticks: { maxTicksLimit: 12, maxRotation: 30 } },
+              x: { ticks: { maxRotation: 30 } },
               y: { ticks: { callback: function(v) { return v.toLocaleString('he-IL'); } } }
             }
           }

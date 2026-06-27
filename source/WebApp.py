@@ -2743,6 +2743,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--na
 .main{margin-right:0;flex:1;padding:72px 32px 60px;min-width:0;overflow-x:hidden}
 .page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px}
 .page-header h1{font-size:1.7em;font-weight:700}
+.generated-label{font-size:.72em;color:var(--text-muted);white-space:nowrap}
 .org-regen-fab{position:fixed;bottom:22px;right:18px;z-index:500}
 .org-regen-btn{height:52px;padding:0 22px;background:var(--teal);color:#fff;border:none;border-radius:26px;font-size:.85em;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px;box-shadow:0 4px 18px rgba(30,157,139,.45);white-space:nowrap;transition:box-shadow .2s,opacity .2s}
 .org-regen-btn:hover{box-shadow:0 6px 24px rgba(30,157,139,.65)}
@@ -2764,37 +2765,54 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--na
 .debug-line{white-space:pre-wrap;word-break:break-all;padding:1px 0;border-bottom:1px solid #1a1a2a}
 .debug-line.err{color:#ff6b6b}
 .debug-line.warn{color:#ffa94d}
-.legend-card{background:var(--white);border-radius:14px;box-shadow:0 2px 16px rgba(0,0,0,.08),0 0 0 1px rgba(0,0,0,.04);padding:20px 26px;margin-bottom:24px}
-.legend-title{font-size:.7em;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.9px;margin-bottom:16px}
-.legend-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:10px 36px}
-.legend-item{display:flex;align-items:flex-start;gap:9px;font-size:.83em;line-height:1.5}
-.legend-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;margin-top:4px}
-.legend-label{font-weight:700;color:var(--navy);white-space:nowrap;margin-left:2px}
-.legend-sep{color:var(--text-muted);margin:0 1px}
-.legend-desc{color:var(--text-muted)}
+/* Alert panel */
+.alert-panel{background:var(--white);border-radius:var(--radius);padding:20px 24px;margin-bottom:22px;box-shadow:0 2px 12px rgba(0,0,0,.07)}
+.alert-section-title{font-size:.7em;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px}
+.alert-chips{display:flex;flex-wrap:wrap;gap:7px}
+.alert-chip{display:inline-flex;align-items:center;gap:5px;padding:4px 11px;border-radius:20px;font-size:.77em;font-weight:600;cursor:default}
+.chip-red{background:#fef2f2;color:#991b1b;border:1px solid #fecaca}
+.chip-yellow{background:#fefce8;color:#854d0e;border:1px solid #fde68a}
+.chip-blue{background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe}
+.chip-blue2{background:#f0f9ff;color:#0c4a6e;border:1px solid #bae6fd}
+.all-good{display:flex;align-items:center;gap:10px;color:#166534;font-weight:700;font-size:.95em}
+.all-good-icon{font-size:1.3em}
+.all-good-sub{font-size:.8em;color:var(--text-muted);font-weight:400;margin-right:4px}
+.older-toggle{background:none;border:none;color:var(--teal);font-size:.78em;font-weight:600;cursor:pointer;padding:10px 0 0;display:block;text-align:right}
+.older-toggle:hover{text-decoration:underline}
+.older-section{display:none;margin-top:12px;padding-top:12px;border-top:1px dashed var(--border)}
+.older-section.open{display:block}
+/* Heatmap */
+.heatmap-section{background:var(--white);border-radius:var(--radius);padding:20px 24px;box-shadow:0 2px 12px rgba(0,0,0,.07);overflow-x:auto}
+.hm-table{border-collapse:separate;border-spacing:3px}
+.hm-th-wrap{height:90px;vertical-align:bottom;padding-bottom:4px;text-align:center}
+.hm-th{writing-mode:vertical-rl;transform:rotate(180deg);font-size:.67em;font-weight:600;color:var(--navy);white-space:nowrap;display:inline-block}
+.hm-label{text-align:right;padding-right:12px;font-size:.71em;color:var(--text-muted);font-weight:500;white-space:nowrap;vertical-align:middle}
+.hm-label.recent{color:var(--navy);font-weight:700}
+.hm-cell{width:20px;height:20px;border-radius:4px;position:relative;cursor:crosshair}
+.hm-green{background:#22c55e}
+.hm-yellow{background:#f59e0b}
+.hm-red{background:#ef4444}
+.hm-blue{background:#3b82f6}
+.hm-blue2{background:#93c5fd}
+.hm-gray{background:#e5e7eb}
+.hm-cell.has-problem::after{content:'';position:absolute;top:2px;left:2px;width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.85)}
+.hm-divider-row td{border-top:2px solid var(--border);padding-top:5px}
+.hm-tooltip{position:fixed;background:#1e2a4a;color:#e8edf5;padding:8px 12px;border-radius:9px;font-size:.72em;line-height:1.6;pointer-events:none;z-index:9999;display:none;max-width:230px;box-shadow:0 4px 20px rgba(0,0,0,.4)}
+.hm-tip-label{font-weight:700;font-size:1.05em;margin-bottom:2px}
+.hm-tip-status{opacity:.85}
+.hm-tip-date{opacity:.6;font-size:.9em}
+/* Legend collapsible */
+.legend-toggle{background:none;border:none;color:var(--text-muted);font-size:.72em;cursor:pointer;padding:0;margin-top:16px;display:flex;align-items:center;gap:4px}
+.legend-toggle:hover{color:var(--navy)}
+.legend-body{display:none;margin-top:12px}
+.legend-body.open{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:8px 32px}
+.legend-item{display:flex;align-items:center;gap:8px;font-size:.78em}
+.legend-dot{width:10px;height:10px;border-radius:3px;flex-shrink:0}
 .ld-green{background:#22c55e}.ld-yellow{background:#f59e0b}.ld-red{background:#ef4444}
-.ld-blue{background:#3b82f6}.ld-blue2{background:#93c5fd}.ld-gray{background:#9ca3af}
-.table-section{background:var(--white);border-radius:var(--radius);border:1px solid var(--border);overflow:hidden}
-.table-scroll{overflow-x:auto}
-table{border-collapse:collapse;width:100%;white-space:nowrap}
-.org-th{background:var(--navy);color:#fff;padding:13px 14px;text-align:center;font-size:.79em;font-weight:600;letter-spacing:.3px;position:sticky;top:0;z-index:10}
-.org-th-date{text-align:right;min-width:150px;position:sticky;right:0;z-index:11;border-left:2px solid rgba(255,255,255,.15)}
-.org-td{padding:10px 12px;text-align:center;font-size:.81em;border-bottom:1px solid var(--border);vertical-align:middle;min-width:130px}
-.org-td-date{font-weight:600;color:var(--teal);text-align:right;background:var(--white) !important;position:sticky;right:0;z-index:5;border-left:2px solid var(--border);padding-right:14px}
-tbody tr:hover .org-td{background:rgba(30,157,139,.04) !important}
-tbody tr:hover .org-td-date{background:#f8fffd !important}
-.org-cell-green{background:#f0fdf4 !important;color:#166534}
-.org-cell-yellow{background:#fefce8 !important;color:#854d0e}
-.org-cell-red{background:#fef2f2 !important;color:#991b1b}
-.org-cell-blue-miss{background:#eff6ff !important;color:#1e40af;font-size:.78em;padding:8px 10px !important;text-align:right}
-.org-cell-blue-mis2{background:#f0f9ff !important;color:#0c4a6e;font-size:.78em;padding:8px 10px !important;text-align:right}
-.org-cell-gray{background:#f9fafb !important;color:#9ca3af;font-style:italic}
-.org-cell-label{font-size:.78em;font-weight:700;display:block}
-.org-badge-bank{color:#0369a1}
-.org-cell-date{font-size:.76em;color:#6b7280;display:block;margin-top:2px}
-.org-match-detail{display:flex;flex-direction:column;gap:1px;margin-top:4px;font-size:.75em;opacity:.85}
-.generated-row{display:flex;align-items:center;gap:8px;flex-shrink:0}
-.generated-label{font-size:.72em;color:var(--text-muted);white-space:nowrap}
+.ld-blue{background:#3b82f6}.ld-blue2{background:#93c5fd}.ld-gray{background:#e5e7eb}
+.legend-label{font-weight:600;color:var(--navy);white-space:nowrap}
+.legend-sep{color:var(--text-muted);margin:0 2px}
+.legend-desc{color:var(--text-muted)}
 </style>
 </head>
 <body data-generated="<!--GENERATED_DATE-->">
@@ -2835,33 +2853,32 @@ tbody tr:hover .org-td-date{background:#f8fffd !important}
   </div>
 </nav>
 
+<div id="hm-tooltip" class="hm-tooltip"></div>
+
 <div class="main">
   <div class="page-header">
     <h1>ארגונית קבצים</h1>
     <span class="generated-label" id="generated-label"></span>
   </div>
 
-  <div class="legend-card">
-    <div class="legend-title">מקרא</div>
-    <div class="legend-grid">
-      <div class="legend-item"><span class="legend-dot ld-green"></span><span class="legend-label">מאומת</span><span class="legend-sep">&mdash;</span><span class="legend-desc">הקובץ עובד ועסקאות הכרטיס התאימו לחיוב בבנק</span></div>
-      <div class="legend-item"><span class="legend-dot ld-green"></span><span class="legend-label">Bank</span><span class="legend-sep">&mdash;</span><span class="legend-desc">קובץ חשבון בנק נרשם (אימות לא רלוונטי)</span></div>
-      <div class="legend-item"><span class="legend-dot ld-yellow"></span><span class="legend-label">לא מאומת</span><span class="legend-sep">&mdash;</span><span class="legend-desc">הקובץ עובד אך לא נמצא חיוב תואם בבנק</span></div>
-      <div class="legend-item"><span class="legend-dot ld-yellow"></span><span class="legend-label">ללא עסקות</span><span class="legend-sep">&mdash;</span><span class="legend-desc">הקובץ נרשם אך לא היו עסקות לכרטיס בחודש זה</span></div>
-      <div class="legend-item"><span class="legend-dot ld-red"></span><span class="legend-label">חסר קובץ</span><span class="legend-sep">&mdash;</span><span class="legend-desc">לא נמצא קובץ לפורמט ולכרטיס בתאריך זה</span></div>
-      <div class="legend-item"><span class="legend-dot ld-blue"></span><span class="legend-label">קובץ חסר + עסקה</span><span class="legend-sep">&mdash;</span><span class="legend-desc">נמצאה עסקה לא מתויגת תואמת אך ללא קובץ</span></div>
-      <div class="legend-item"><span class="legend-dot ld-blue2"></span><span class="legend-label">אי-התאמת ערך</span><span class="legend-sep">&mdash;</span><span class="legend-desc">נמצאה עסקה תואמת אך הסכום שונה</span></div>
-      <div class="legend-item"><span class="legend-dot ld-gray"></span><span class="legend-label">לא זמין</span><span class="legend-sep">&mdash;</span><span class="legend-desc">הפורמט אינו תקף לתאריך זה</span></div>
+  <div class="alert-panel">
+    <!--ALERT_CONTENT-->
+    <button class="legend-toggle" onclick="toggleLegend(this)">▸ מקרא</button>
+    <div class="legend-body" id="legend-body">
+      <div class="legend-item"><span class="legend-dot ld-green"></span><span class="legend-label">מאומת / Bank</span><span class="legend-sep">&mdash;</span><span class="legend-desc">קובץ תקין ומאומת</span></div>
+      <div class="legend-item"><span class="legend-dot ld-yellow"></span><span class="legend-label">לא מאומת / ללא עסקות</span><span class="legend-sep">&mdash;</span><span class="legend-desc">קובץ קיים אך לא מאומת</span></div>
+      <div class="legend-item"><span class="legend-dot ld-red"></span><span class="legend-label">חסר קובץ</span><span class="legend-sep">&mdash;</span><span class="legend-desc">לא נמצא קובץ לתאריך זה</span></div>
+      <div class="legend-item"><span class="legend-dot ld-blue"></span><span class="legend-label">קובץ חסר + עסקה</span><span class="legend-sep">&mdash;</span><span class="legend-desc">נמצאה עסקה לא מתויגת ללא קובץ</span></div>
+      <div class="legend-item"><span class="legend-dot ld-blue2"></span><span class="legend-label">אי-התאמת ערך</span><span class="legend-sep">&mdash;</span><span class="legend-desc">סכום לא תואם</span></div>
+      <div class="legend-item"><span class="legend-dot ld-gray"></span><span class="legend-label">לא זמין</span><span class="legend-sep">&mdash;</span><span class="legend-desc">פורמט לא תקף לתאריך</span></div>
     </div>
   </div>
 
-  <div class="table-section">
-    <div class="table-scroll">
-      <table>
-        <thead><tr><!--TH_CELLS--></tr></thead>
-        <tbody><!--ROWS_HTML--></tbody>
-      </table>
-    </div>
+  <div class="heatmap-section">
+    <table class="hm-table">
+      <thead><!--HM_HEADER--></thead>
+      <tbody><!--HM_ROWS--></tbody>
+    </table>
   </div>
 </div>
 
@@ -2875,7 +2892,7 @@ fetch('/api/version').then(function(r){return r.json();}).then(function(d){var b
 (function(){
   var genLabel = document.getElementById('generated-label');
   if (genLabel && document.body.dataset.generated)
-    genLabel.textContent = '\u05e0\u05d5\u05e6\u05e8: ' + document.body.dataset.generated;
+    genLabel.textContent = 'נוצר: ' + document.body.dataset.generated;
 })();
 function regenerate() {
   var btn = document.getElementById('regen-btn');
@@ -2911,6 +2928,42 @@ function toggleDebugPanel() {
 }
 function clearDebugPanel() { var f=document.getElementById('debug-feed'); if(f) f.innerHTML=''; }
 function copyDebugPanel() { var f=document.getElementById('debug-feed'); if(f) navigator.clipboard.writeText(f.innerText).catch(function(){}); }
+function toggleOlder() {
+  var s = document.getElementById('older-section');
+  var b = document.getElementById('older-btn');
+  if (!s) return;
+  s.classList.toggle('open');
+  b.textContent = s.classList.contains('open') ? '▾ הסתר בעיות ישנות' : '▸ הצג בעיות ישנות';
+}
+function toggleLegend(btn) {
+  var b = document.getElementById('legend-body');
+  if (!b) return;
+  b.classList.toggle('open');
+  btn.textContent = b.classList.contains('open') ? '▾ מקרא' : '▸ מקרא';
+}
+(function(){
+  var tip = document.getElementById('hm-tooltip');
+  if (!tip) return;
+  document.querySelectorAll('.hm-cell[data-tip]').forEach(function(c) {
+    c.addEventListener('mouseenter', function(e) {
+      var parts = c.dataset.tip.split('|');
+      tip.innerHTML = '<div class="hm-tip-label">' + (parts[0]||'') + '</div>'
+        + '<div class="hm-tip-status">' + (parts[1]||'') + '</div>'
+        + (parts[2] ? '<div class="hm-tip-date">' + parts[2] + '</div>' : '');
+      tip.style.display = 'block';
+      moveTip(e);
+    });
+    c.addEventListener('mousemove', moveTip);
+    c.addEventListener('mouseleave', function() { tip.style.display = 'none'; });
+  });
+  function moveTip(e) {
+    var x = e.clientX + 14, y = e.clientY - 10;
+    if (x + 230 > window.innerWidth) x = e.clientX - 244;
+    if (y + 80 > window.innerHeight) y = e.clientY - 90;
+    tip.style.left = x + 'px';
+    tip.style.top = y + 'px';
+  }
+})();
 </script>
 <div class="org-regen-fab">
   <button class="org-regen-btn" id="regen-btn" onclick="regenerate()" title="חשב מחדש">
@@ -2933,6 +2986,7 @@ function copyDebugPanel() { var f=document.getElementById('debug-feed'); if(f) n
 </div>
 </body>
 </html>"""
+
 
 
 def _organizer_splash() -> str:
@@ -3016,13 +3070,97 @@ def _build_organizer_page(progress_callback=None):
 
     cols = list(df.columns)
 
-    th_cells = '<th class="org-th org-th-date">תאריך</th>'
-    for col in cols:
-        th_cells += f'<th class="org-th">{_esc(col)}</th>'
+    # ── helpers ──────────────────────────────────────────────────────────────
+    def _abbrev(col):
+        parts = col.split(' | ')
+        fmt, card = (parts[0], parts[1]) if len(parts) == 2 else (col, '')
+        if card in ('Not_Relevant',):
+            return 'Bank Range' if 'Date-Range' in fmt else 'Bank'
+        c4 = card[-4:] if len(card) >= 4 else card
+        if 'Leumi-Max'        in fmt: return f'Max {c4}'
+        if 'American-Express' in fmt: return f'Amex {c4}'
+        if 'Isra-Card-2026'   in fmt: return f'Isra26 {c4}'
+        if 'Isra-Card'        in fmt: return f'Isra {c4}'
+        if 'BeinLeumi-Bank'   in fmt: return f'Bank {c4}'
+        if 'Cal'              in fmt: return f'Cal {c4}'
+        return f'{fmt.split("-")[0][:5]} {c4}'
 
-    rows_html = ''
+    def _classify(idx, col, value, status, is_date, card_num_col, date_str, cell_key):
+        """Return (hm_class, status_label, is_problem, severity, tip_str)"""
+        if 'Isra-Card-2026' in col:
+            try:
+                yr = str(idx).split(', ')[-1]
+                if yr.isdigit() and int(yr) < 2026:
+                    return 'hm-gray', 'N/A', False, 0, ''
+            except Exception:
+                pass
+        if cell_key in untagged_cells:
+            m = untagged_cells[cell_key]
+            m_type = m[3] if len(m) > 3 else 'missing'
+            m_name = str(m[2]) if len(m) > 2 and m[2] else '?'
+            m_val  = str(m[1]) if len(m) > 1 and m[1] else '?'
+            m_date = str(m[0])[:10] if m[0] else '?'
+            if m_type == 'missing':
+                tip = f'{_abbrev(col)}|⚠ חסר ({m_name} ₪{m_val})|{m_date}'
+                return 'hm-blue', '⚠ חסר', True, 3, tip
+            else:
+                tip = f'{_abbrev(col)}|⚠ אי-התאמה ({m_name} ₪{m_val})|{m_date}'
+                return 'hm-blue2', '⚠ אי-התאמה', True, 2, tip
+        if card_num_col == BANK_CARD_NUMBER and is_date:
+            tip = f'{_abbrev(col)}|✓ Bank|{date_str}'
+            return 'hm-green', 'Bank', False, 0, tip
+        if status == 'Verified':
+            tip = f'{_abbrev(col)}|✓ מאומת|{date_str}'
+            return 'hm-green', '✓ מאומת', False, 0, tip
+        if status == 'Not Verified' and card_num_col != BANK_CARD_NUMBER:
+            tip = f'{_abbrev(col)}|⚠ לא מאומת|{date_str or "-"}'
+            return 'hm-yellow', '⚠ לא מאומת', True, 2, tip
+        if is_date and status != 'Not Verified':
+            tip = f'{_abbrev(col)}|— ללא עסקאות|{date_str}'
+            return 'hm-yellow', '— ללא עסקאות', True, 1, tip
+        tip = f'{_abbrev(col)}|✗ חסר קובץ|-'
+        return 'hm-red', '✗ חסר קובץ', True, 3, tip
+
+    # ── recency ───────────────────────────────────────────────────────────────
+    from datetime import datetime as _dt2
+    try:
+        from dateutil.relativedelta import relativedelta as _rd
+    except ImportError:
+        class _rd:
+            def __init__(self, months=0): self._m = months
+            def __rsub__(self, other):
+                import calendar
+                m = other.month - self._m
+                y = other.year + (m - 1) // 12
+                m = (m - 1) % 12 + 1
+                d = min(other.day, calendar.monthrange(y, m)[1])
+                return other.replace(year=y, month=m, day=d)
+
+    index_dates = {}
     for idx in df.index:
-        tds = f'<td class="org-td org-td-date">{_esc(str(idx))}</td>'
+        try:
+            index_dates[idx] = _dt2.strptime(str(idx), '%B, %Y')
+        except Exception:
+            index_dates[idx] = None
+
+    valid_dates = [d for d in index_dates.values() if d]
+    recent_cutoff = (max(valid_dates) - _rd(months=5)) if valid_dates else None
+
+    # ── build chips + heatmap in one pass (reversed = recent first) ───────────
+    CHIP_CLS = {'hm-red': 'chip-red', 'hm-yellow': 'chip-yellow',
+                'hm-blue': 'chip-blue', 'hm-blue2': 'chip-blue2'}
+
+    recent_chips = []   # [(severity, html)]
+    older_chips  = []
+    hm_row_parts = []   # [(is_recent, row_html)]
+
+    index_list = list(df.index)
+    for idx in reversed(index_list):
+        idx_date = index_dates.get(idx)
+        is_recent = bool(idx_date and recent_cutoff and idx_date >= recent_cutoff)
+        lbl_cls = 'hm-label recent' if is_recent else 'hm-label'
+        cells_html = f'<td class="{lbl_cls}">{_esc(str(idx))}</td>'
+
         for col in cols:
             value    = df.at[idx, col]
             status   = color_coded_df.at[idx, col] if idx in color_coded_df.index and col in color_coded_df.columns else None
@@ -3031,63 +3169,76 @@ def _build_organizer_page(progress_callback=None):
             date_str = str(value)[:10] if is_date and isinstance(value, str) else (str(value) if value is not None else '')
             cell_key = (idx, col)
 
-            is_invalid = False
-            if 'Isra-Card-2026' in col:
-                try:
-                    yr = str(idx).split(', ')[-1]
-                    if yr.isdigit() and int(yr) < 2026:
-                        is_invalid = True
-                except Exception:
-                    pass
+            hm_cls, lbl, is_problem, sev, tip = _classify(idx, col, value, status, is_date, card_num_col, date_str, cell_key)
+            prob_cls = ' has-problem' if is_problem else ''
+            safe_tip = tip.replace('"', '&quot;') if tip else ''
+            cells_html += f'<td><div class="hm-cell {hm_cls}{prob_cls}" data-tip="{safe_tip}"></div></td>'
 
-            if is_invalid:
-                tds += '<td class="org-td org-cell-gray"><span class="org-cell-label">N/A</span></td>'
-            elif cell_key in untagged_cells:
-                m      = untagged_cells[cell_key]
-                m_type = m[3] if len(m) > 3 else 'missing'
-                m_name = _esc(str(m[2])) if len(m) > 2 and m[2] else '?'
-                m_val  = _esc(str(m[1])) if len(m) > 1 and m[1] else '?'
-                m_date = str(m[0])[:10]  if m[0] else '?'
-                detail = (f'<div class="org-match-detail">'
-                          f'<span>{m_name}</span><span>\u20aa{m_val}</span><span>{m_date}</span>'
-                          f'</div>')
-                if m_type == 'missing':
-                    tds += f'<td class="org-td org-cell-blue-miss"><b>\u26a0 חסר</b>{detail}</td>'
+            if is_problem:
+                abbrev = _abbrev(col)
+                chip_cls = CHIP_CLS.get(hm_cls, 'chip-red')
+                icon = '✗' if hm_cls == 'hm-red' else '⚠'
+                chip_html = (f'<span class="alert-chip {chip_cls}" title="{_esc(tip.replace("|"," — "))}">'
+                             f'{icon} {_esc(abbrev)} — {_esc(str(idx))}</span>')
+                if is_recent:
+                    recent_chips.append((sev, chip_html))
                 else:
-                    tds += f'<td class="org-td org-cell-blue-mis2"><b>\u26a0 אי-התאמה</b>{detail}</td>'
-            elif card_num_col == BANK_CARD_NUMBER and is_date:
-                tds += (f'<td class="org-td org-cell-green">'
-                        f'<span class="org-cell-label org-badge-bank">Bank</span>'
-                        f'<span class="org-cell-date">{_esc(date_str)}</span></td>')
-            elif status == 'Verified':
-                tds += (f'<td class="org-td org-cell-green">'
-                        f'<span class="org-cell-label">\u2713 מאומת</span>'
-                        f'<span class="org-cell-date">{_esc(date_str)}</span></td>')
-            elif status == 'Not Verified' and card_num_col != BANK_CARD_NUMBER:
-                tds += (f'<td class="org-td org-cell-yellow">'
-                        f'<span class="org-cell-label">\u26a0 לא מאומת</span>'
-                        f'<span class="org-cell-date">{_esc(date_str)}</span></td>')
-            elif is_date and status != 'Not Verified':
-                tds += (f'<td class="org-td org-cell-yellow">'
-                        f'<span class="org-cell-label">\u2014 ללא עסקות</span>'
-                        f'<span class="org-cell-date">{_esc(date_str)}</span></td>')
-            else:
-                disp = date_str if date_str and date_str != 'None' else ''
-                _cell_val = _esc(disp) if disp else '\u2014'
-                tds += f'<td class="org-td org-cell-red">{_cell_val}</td>'
+                    older_chips.append((sev, chip_html))
 
-        rows_html += f'<tr>{tds}</tr>\n'
+        hm_row_parts.append((is_recent, f'<tr>{cells_html}</tr>'))
+
+    # sort chips by severity desc
+    recent_chips.sort(key=lambda x: -x[0])
+    older_chips.sort(key=lambda x: -x[0])
+
+    # ── alert content ─────────────────────────────────────────────────────────
+    if not recent_chips and not older_chips:
+        alert_content = ('<div class="all-good"><span class="all-good-icon">✓</span>'
+                         'הכל תקין — כל הקבצים מאומתים'
+                         '<span class="all-good-sub">(עדכון: <!--GENERATED_DATE-->)</span></div>')
+    else:
+        recent_html = ''.join(h for _, h in recent_chips)
+        older_html  = ''.join(h for _, h in older_chips)
+        alert_content = ''
+        if recent_chips:
+            alert_content += (f'<div class="alert-section-title">בעיות אחרונות (6 חודשים)</div>'
+                              f'<div class="alert-chips">{recent_html}</div>')
+        else:
+            alert_content += ('<div class="all-good" style="margin-bottom:8px"><span class="all-good-icon">✓</span>'
+                              'אין בעיות בחודשים האחרונים</div>')
+        if older_chips:
+            alert_content += (f'<button class="older-toggle" id="older-btn" onclick="toggleOlder()">'
+                              f'▸ הצג בעיות ישנות</button>'
+                              f'<div class="older-section" id="older-section">'
+                              f'<div class="alert-chips">{older_html}</div></div>')
+
+    # ── heatmap header ────────────────────────────────────────────────────────
+    hm_header = '<tr><th></th>'
+    for col in cols:
+        hm_header += f'<th class="hm-th-wrap"><div class="hm-th">{_esc(_abbrev(col))}</div></th>'
+    hm_header += '</tr>'
+
+    # ── heatmap rows (add divider between recent and older) ───────────────────
+    hm_rows = ''
+    prev_recent = None
+    for is_recent, row_html in hm_row_parts:
+        if prev_recent and not is_recent:
+            row_html = row_html.replace('<tr>', '<tr class="hm-divider-row">', 1)
+        hm_rows += row_html + '\n'
+        prev_recent = is_recent
 
     from datetime import datetime as _now
     html = _ORGANIZER_HTML \
-        .replace('<!--TH_CELLS-->', th_cells) \
-        .replace('<!--ROWS_HTML-->', rows_html) \
+        .replace('<!--ALERT_CONTENT-->', alert_content) \
+        .replace('<!--HM_HEADER-->', hm_header) \
+        .replace('<!--HM_ROWS-->', hm_rows) \
         .replace('<!--GENERATED_DATE-->', _now.now().strftime('%d/%m/%Y %H:%M'))
 
     with open(ORGANIZER_HTML, 'w', encoding='utf-8') as _f:
         _f.write(html)
 
     return html
+
 
 
 @app.route('/organizer')
@@ -4550,3 +4701,7 @@ def start(port: int = 5050, open_browser: bool = True):
     if open_browser:
         threading.Timer(1.2, lambda: webbrowser.open(f'http://localhost:{port}')).start()
     app.run(host='127.0.0.1', port=port, threaded=True, debug=False, use_reloader=False)
+
+
+if __name__ == '__main__':
+    start(open_browser=False)

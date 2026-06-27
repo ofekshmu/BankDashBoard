@@ -3246,6 +3246,7 @@ def _build_organizer_page(progress_callback=None):
         pass
 
     # run sequential balance validation to detect months with missing transactions
+    # balance is recorded once per day (last tx of the day); all txs in between accumulate
     _mismatch_details = {}  # 'YYYY-MM' → list of mismatch detail dicts
     try:
         from database import DataBase as _DB_val
@@ -3253,8 +3254,9 @@ def _build_organizer_page(progress_callback=None):
             "SELECT ID, Date, Out, Income, Balance, Name, Source_file "
             "FROM BankTransactions ORDER BY Date ASC, ID DESC"
         ).fetchall()
-        _vbal = None
-        _last_balance_row = None  # last row that had a stored balance (the real arithmetic anchor)
+        _vbal = None        # running balance since last checkpoint
+        _anchor = None      # last row that had a stored balance
+        _span = []          # rows between anchor and current (no stored balance)
         for _vr in _val_rows:
             _vid, _vdate, _vout, _vinc, _vbs, _vname, _vsrc = _vr
             _vout_f = float(_vout or 0)
@@ -3268,36 +3270,30 @@ def _build_organizer_page(progress_callback=None):
             _vdate_s = str(_vdate)[:10]
             _vym = str(_vdate)[:7]
             _vsrc_bn = (_vsrc or '').replace('\\', '/').split('/')[-1]
+            _row = {'id': _vid, 'date': _vdate_s, 'name': str(_vname or ''),
+                    'file': _vsrc_bn, 'out': _vout_f, 'income': _vinc_f}
             if _vbal is None:
                 if _has_vbs:
                     _vbal = _vsb
-                    _last_balance_row = {'id': _vid, 'date': _vdate_s,
-                                         'name': str(_vname or ''), 'file': _vsrc_bn,
-                                         'out': _vout_f, 'income': _vinc_f,
-                                         'balance': round(_vsb, 2)}
+                    _anchor = {**_row, 'balance': _vsb}
+                    _span = []
             else:
                 _vbal += _vinc_f - _vout_f
                 if _has_vbs:
                     if abs(_vbal - _vsb) > 0.01:
-                        _det = {'calc': round(_vbal, 2), 'stored': round(_vsb, 2),
-                                'diff': round(_vsb - _vbal, 2),
-                                'id': _vid, 'date': _vdate_s,
-                                'name': str(_vname or ''), 'file': _vsrc_bn,
-                                'out': _vout_f, 'income': _vinc_f}
-                        if _last_balance_row:
-                            _det.update({'prev_id': _last_balance_row['id'],
-                                         'prev_date': _last_balance_row['date'],
-                                         'prev_name': _last_balance_row['name'],
-                                         'prev_file': _last_balance_row['file'],
-                                         'prev_out': _last_balance_row['out'],
-                                         'prev_income': _last_balance_row['income'],
-                                         'prev_balance': _last_balance_row['balance']})
-                        _mismatch_details.setdefault(_vym, []).append(_det)
-                    _vbal = _vsb  # resync
-                    _last_balance_row = {'id': _vid, 'date': _vdate_s,
-                                         'name': str(_vname or ''), 'file': _vsrc_bn,
-                                         'out': _vout_f, 'income': _vinc_f,
-                                         'balance': round(_vsb, 2)}
+                        _mismatch_details.setdefault(_vym, []).append({
+                            'anchor': _anchor,
+                            'span':   _span[:],
+                            'current': {**_row, 'balance': _vsb},
+                            'calc':   _vbal,
+                            'stored': _vsb,
+                            'diff':   _vsb - _vbal,
+                        })
+                    _vbal = _vsb
+                    _anchor = {**_row, 'balance': _vsb}
+                    _span = []
+                else:
+                    _span.append(_row)
     except Exception:
         pass
     _mismatch_months = set(_mismatch_details.keys())
@@ -3391,14 +3387,17 @@ def _build_organizer_page(progress_callback=None):
                 'font-size:.82em;direction:rtl;text-align:right}'
                 '#bt-detail.open{display:block}'
                 '.btd-title{color:#f59e0b;font-weight:700;margin-bottom:8px;font-size:.95em}'
-                '.btd-row{margin:5px 0;color:#cbd5e1;line-height:1.5}'
+                '.btd-row{margin:3px 0;color:#cbd5e1;line-height:1.6}'
                 '.btd-row b{color:#e2e8f0}'
                 '.btd-val{font-family:monospace;color:#fbbf24}'
-                '.btd-sep{border:none;border-top:1px solid #2d3748;margin:10px 0}'
+                '.btd-lbl{color:#94a3b8;font-size:.85em;margin:8px 0 2px}'
+                '.btd-span-row{margin:2px 0 2px 1.2em;color:#94a3b8}'
+                '.btd-span-row .btd-val{color:#cbd5e1}'
+                '.btd-calc{margin-top:8px;padding-top:6px;border-top:1px solid #2d3748}'
+                '.btd-sep{border:none;border-top:1px solid #374151;margin:12px 0}'
                 '.btd-close{float:left;cursor:pointer;color:#64748b;font-size:1.1em;background:none;'
                 'border:none;padding:0;line-height:1}'
                 '.btd-close:hover{color:#94a3b8}'
-                '.btd-hint{color:#64748b;font-size:.88em;margin-top:4px}'
                 '</style>'
                 '<div id="bt-detail" dir="rtl">'
                 '<button class="btd-close" onclick="this.parentElement.classList.remove(\'open\')">✕</button>'
@@ -3406,7 +3405,16 @@ def _build_organizer_page(progress_callback=None):
                 '</div>'
                 f'<script>(function(){{'
                 f'var DATA={_md_json};'
-                'function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}'
+                'function esc(s){{return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}}'
+                'function famt(r){{return r.income>0?"+ "+r.income.toFixed(2):r.out>0?"- "+r.out.toFixed(2):"0";}}'
+                'function frow(r,cls){{'
+                'var s=\'<div class="\'+cls+\'"><b>\'+esc(r.name)+\'</b>\';'
+                's+=\' &nbsp;|&nbsp; \'+famt(r);'
+                'if(r.balance!==undefined)s+=\' &nbsp;|&nbsp; יתרה: <span class="btd-val">\'+r.balance.toFixed(2)+\'</span>\';'
+                's+=\' &nbsp;|&nbsp; ID: <span class="btd-val">\'+r.id+\'</span>\';'
+                's+=\' &nbsp;|&nbsp; \'+esc(r.date);'
+                's+=\' &nbsp;|&nbsp; <span class="btd-val">\'+esc(r.file)+\'</span></div>\';'
+                'return s;}}'
                 'document.querySelectorAll(".bt-cell.warn").forEach(function(el){'
                 'el.style.cursor="pointer";'
                 'el.addEventListener("click",function(){'
@@ -3414,34 +3422,24 @@ def _build_organizer_page(progress_callback=None):
                 'var items=DATA[ym]||[];'
                 'if(!items.length)return;'
                 'var h=\'<div class="btd-title">⚠ אי-התאמה בבנק לאומי — \'+esc(ym)+\'</div>\';'
-                'h+=\'<div class="btd-hint">הפרש בין העסקה האחרונה עם יתרה ידועה לבין העסקה עם אי-ההתאמה:</div>\';'
                 'items.forEach(function(m,i){'
                 'if(i>0)h+=\'<hr class="btd-sep">\';'
-                'if(m.prev_id!==undefined){'
-                'var pamt=(m.prev_income>0?\'+ \'+m.prev_income:m.prev_out>0?\'- \'+m.prev_out:\'0\');'
-                'var pbal=(m.prev_balance!==null&&m.prev_balance!==undefined?\'<span class="btd-val">\'+m.prev_balance+\'</span>\':\'—\');'
-                'h+=\'<div class="btd-row">🔹 עסקה קודמת: <b>\'+esc(m.prev_name)+\'</b>\';'
-                'h+=\' &nbsp;|&nbsp; סכום: <span class="btd-val">\'+pamt+\'</span>\';'
-                'h+=\' &nbsp;|&nbsp; יתרה: \'+pbal+\'\';'
-                'h+=\' &nbsp;|&nbsp; מזהה: <span class="btd-val">\'+m.prev_id+\'</span>\';'
-                'h+=\' &nbsp;|&nbsp; תאריך: <span class="btd-val">\'+esc(m.prev_date)+\'</span>\';'
-                'h+=\' &nbsp;|&nbsp; קובץ: <span class="btd-val">\'+esc(m.prev_file)+\'</span></div>\';'
+                'h+=\'<div class="btd-lbl">⚓ עוגן (יתרה ידועה אחרונה):</div>\';'
+                'h+=frow(m.anchor,"btd-row");'
+                'if(m.span&&m.span.length){'
+                'h+=\'<div class="btd-lbl">עסקאות ביניים (\'+m.span.length+\'):</div>\';'
+                'm.span.forEach(function(r){h+=frow(r,"btd-span-row");});'
                 '}'
-                'var amt=(m.income>0?\'+ \'+m.income:m.out>0?\'- \'+m.out:\'0\');'
-                'h+=\'<div class="btd-row">🔸 עסקה עם אי-התאמה: <b>\'+esc(m.name)+\'</b>\';'
-                'h+=\' &nbsp;|&nbsp; סכום: <span class="btd-val">\'+amt+\'</span>\';'
-                'h+=\' &nbsp;|&nbsp; יתרה: <span class="btd-val">\'+m.stored+\'</span>\';'
-                'h+=\' &nbsp;|&nbsp; מזהה: <span class="btd-val">\'+m.id+\'</span>\';'
-                'h+=\' &nbsp;|&nbsp; תאריך: <span class="btd-val">\'+esc(m.date)+\'</span>\';'
-                'h+=\' &nbsp;|&nbsp; קובץ: <span class="btd-val">\'+esc(m.file)+\'</span></div>\';'
-                'h+=\'<div class="btd-row">יתרה מחושבת: <span class="btd-val">\'+m.calc+\'</span>\';'
-                'h+=\' &nbsp;&nbsp; יתרה רשומה: <span class="btd-val">\'+m.stored+\'</span>\';'
-                'h+=\' &nbsp;&nbsp; הפרש: <span class="btd-val">\'+m.diff+\'</span></div>\';'
+                'h+=\'<div class="btd-lbl">🔸 עסקה עם אי-התאמה:</div>\';'
+                'h+=frow(m.current,"btd-row");'
+                'h+=\'<div class="btd-calc">יתרה מחושבת: <span class="btd-val">\'+m.calc.toFixed(2)+\'</span>\';'
+                'h+=\' &nbsp;&nbsp; יתרה רשומה: <span class="btd-val">\'+m.stored.toFixed(2)+\'</span>\';'
+                'h+=\' &nbsp;&nbsp; הפרש: <span class="btd-val">\'+m.diff.toFixed(2)+\'</span></div>\';'
                 '});'
                 'document.getElementById("bt-detail-body").innerHTML=h;'
                 'var panel=document.getElementById("bt-detail");'
                 'panel.classList.add("open");'
-                'panel.scrollIntoView({behavior:"smooth",block:"nearest"});'
+                'panel.scrollIntoView({{behavior:"smooth",block:"nearest"}});'
                 '});'
                 '});'
                 f'}})();</script>'

@@ -847,12 +847,24 @@ body {
 
   /* Scale down KPI values so numbers fit on narrow cards */
   #panel-housing .kpi-value {
-    font-size: 1.1em;
-    word-break: break-word;
+    font-size: 1.05em;
+    word-break: break-all;
     overflow-wrap: break-word;
   }
   #panel-housing .kpi-sublabel { font-size: 0.72em; }
   #panel-housing .kpi-label    { font-size: 0.8em; }
+
+  /* 2-col cards need extra shrinkage — values can be 7+ digit sums.
+     Must use #panel-housing prefix to beat #panel-housing .kpi-value specificity. */
+  #panel-housing .housing-2col-row .kpi-card .kpi-value { font-size: 0.78em; }
+  #panel-housing .housing-2col-row .kpi-card .kpi-label { font-size: 0.75em; }
+
+  /* Stack equity bar breakdown labels into single column so they don't overflow */
+  #panel-housing .housing-2col-row .equity-bar-labels-4 {
+    grid-template-columns: 1fr;
+    font-size: 0.58em;
+    gap: 1px;
+  }
 
   .housing-balance-row .kpi-card .kpi-value { font-size: 1.5em; }
 

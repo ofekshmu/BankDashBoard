@@ -358,6 +358,7 @@ class SimpleMath:
             return df
         
         df[['Executed_Date', 'Final_Value', 'Transaction_Type', 'Relevance']]  = df.apply(classify_and_handle, axis=1)
+        df['Final_Value'] = pd.to_numeric(df['Final_Value'], errors='coerce')
         
         utils.log(f"Processed transactions for given date {date} are:\n{utils.df_to_markdown(df)}","debug")      
         

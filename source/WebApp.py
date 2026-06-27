@@ -3283,17 +3283,21 @@ def _build_organizer_page(progress_callback=None):
                         _det = {'calc': round(_vbal, 2), 'stored': round(_vsb, 2),
                                 'diff': round(_vsb - _vbal, 2),
                                 'id': _vid, 'date': _vdate_s,
-                                'name': str(_vname or ''), 'file': _vsrc_bn}
+                                'name': str(_vname or ''), 'file': _vsrc_bn,
+                                'out': _vout_f, 'income': _vinc_f}
                         if _prev_row_info:
                             _det.update({'prev_id': _prev_row_info['id'],
                                          'prev_date': _prev_row_info['date'],
                                          'prev_name': _prev_row_info['name'],
-                                         'prev_file': _prev_row_info['file']})
+                                         'prev_file': _prev_row_info['file'],
+                                         'prev_out': _prev_row_info['out'],
+                                         'prev_income': _prev_row_info['income']})
                         _mismatch_details.setdefault(_vym, []).append(_det)
                     _vbal = _vsb  # resync; isolates each mismatch to its month
                     _txn_since_resync = 0
             _prev_row_info = {'id': _vid, 'date': _vdate_s,
-                              'name': str(_vname or ''), 'file': _vsrc_bn}
+                              'name': str(_vname or ''), 'file': _vsrc_bn,
+                              'out': _vout_f, 'income': _vinc_f}
     except Exception:
         pass
     _mismatch_months = set(_mismatch_details.keys())
@@ -3414,12 +3418,16 @@ def _build_organizer_page(progress_callback=None):
                 'items.forEach(function(m,i){'
                 'if(i>0)h+=\'<hr class="btd-sep">\';'
                 'if(m.prev_id!==undefined){'
+                'var pamt=(m.prev_income>0?\'+ \'+m.prev_income:m.prev_out>0?\'- \'+m.prev_out:\'0\');'
                 'h+=\'<div class="btd-row">🔹 עסקה קודמת: <b>\'+esc(m.prev_name)+\'</b>\';'
+                'h+=\' &nbsp;|&nbsp; סכום: <span class="btd-val">\'+pamt+\'</span>\';'
                 'h+=\' &nbsp;|&nbsp; מזהה: <span class="btd-val">\'+m.prev_id+\'</span>\';'
                 'h+=\' &nbsp;|&nbsp; תאריך: <span class="btd-val">\'+esc(m.prev_date)+\'</span>\';'
                 'h+=\' &nbsp;|&nbsp; קובץ: <span class="btd-val">\'+esc(m.prev_file)+\'</span></div>\';'
                 '}'
+                'var amt=(m.income>0?\'+ \'+m.income:m.out>0?\'- \'+m.out:\'0\');'
                 'h+=\'<div class="btd-row">🔸 עסקה עם אי-התאמה: <b>\'+esc(m.name)+\'</b>\';'
+                'h+=\' &nbsp;|&nbsp; סכום: <span class="btd-val">\'+amt+\'</span>\';'
                 'h+=\' &nbsp;|&nbsp; מזהה: <span class="btd-val">\'+m.id+\'</span>\';'
                 'h+=\' &nbsp;|&nbsp; תאריך: <span class="btd-val">\'+esc(m.date)+\'</span>\';'
                 'h+=\' &nbsp;|&nbsp; קובץ: <span class="btd-val">\'+esc(m.file)+\'</span></div>\';'

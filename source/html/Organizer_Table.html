@@ -94,6 +94,19 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--na
 .hm-tip-label{font-weight:700;font-size:1.05em;margin-bottom:2px}
 .hm-tip-status{opacity:.85}
 .hm-tip-date{opacity:.6;font-size:.9em}
+/* Bank coverage timeline */
+.bank-timeline{background:var(--white);border-radius:var(--radius);padding:20px 24px;margin-bottom:22px;box-shadow:0 2px 12px rgba(0,0,0,.07)}
+.bt-title{font-size:.7em;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:14px}
+.bt-chart{overflow-x:auto;padding-bottom:4px}
+.bt-track{display:flex;align-items:center;gap:8px;margin-bottom:4px;min-width:max-content}
+.bt-track-lbl{width:76px;flex-shrink:0;font-size:.72em;font-weight:600;color:var(--navy);text-align:right;white-space:nowrap}
+.bt-cells{display:flex;gap:2px}
+.bt-cell{width:14px;height:22px;border-radius:3px;flex-shrink:0;cursor:crosshair}
+.bt-cell.covered{background:var(--teal)}
+.bt-cell.gap{background:#ef4444}
+.bt-cell.na{background:#e5e7eb;opacity:.4}
+.bt-lbl-cell{width:14px;height:18px;flex-shrink:0;font-size:.55em;color:var(--text-muted);position:relative;overflow:visible}
+.bt-lbl-cell span{position:absolute;left:50%;transform:translateX(-50%);white-space:nowrap;top:4px}
 /* Legend collapsible */
 .legend-toggle{background:none;border:none;color:var(--text-muted);font-size:.72em;cursor:pointer;padding:0;margin-top:16px;display:flex;align-items:center;gap:4px}
 .legend-toggle:hover{color:var(--navy)}
@@ -108,7 +121,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--na
 .legend-desc{color:var(--text-muted)}
 </style>
 </head>
-<body data-generated="27/06/2026 11:19">
+<body data-generated="27/06/2026 11:36">
 <button class="ham-btn" id="ham-btn" onclick="toggleNav()" aria-label="תפריט">
   <svg width="18" height="14" viewBox="0 0 18 14" fill="none">
     <rect width="18" height="2" rx="1" fill="currentColor"/>
@@ -166,6 +179,8 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--na
       <div class="legend-item"><span class="legend-dot ld-gray"></span><span class="legend-label">לא זמין</span><span class="legend-sep">&mdash;</span><span class="legend-desc">פורמט לא תקף לתאריך</span></div>
     </div>
   </div>
+
+  <div class="bank-timeline"><div class="bt-title">כיסוי קבצי בנק</div><div class="bt-chart"><div class="bt-track"><span class="bt-track-lbl"></span><div class="bt-cells"><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"><span>2024</span></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"><span>2025</span></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"><span>2026</span></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div></div></div><div class="bt-track"><span class="bt-track-lbl">Bank</span><div class="bt-cells"><div class="bt-cell na" data-tip="Bank|— אין נתונים|November, 2023"></div><div class="bt-cell na" data-tip="Bank|— אין נתונים|December, 2023"></div><div class="bt-cell na" data-tip="Bank|— אין נתונים|January, 2024"></div><div class="bt-cell na" data-tip="Bank|— אין נתונים|February, 2024"></div><div class="bt-cell na" data-tip="Bank|— אין נתונים|March, 2024"></div><div class="bt-cell na" data-tip="Bank|— אין נתונים|April, 2024"></div><div class="bt-cell na" data-tip="Bank|— אין נתונים|May, 2024"></div><div class="bt-cell na" data-tip="Bank|— אין נתונים|June, 2024"></div><div class="bt-cell na" data-tip="Bank|— אין נתונים|July, 2024"></div><div class="bt-cell na" data-tip="Bank|— אין נתונים|August, 2024"></div><div class="bt-cell na" data-tip="Bank|— אין נתונים|September, 2024"></div><div class="bt-cell na" data-tip="Bank|— אין נתונים|October, 2024"></div><div class="bt-cell na" data-tip="Bank|— אין נתונים|November, 2024"></div><div class="bt-cell na" data-tip="Bank|— אין נתונים|December, 2024"></div><div class="bt-cell na" data-tip="Bank|— אין נתונים|January, 2025"></div><div class="bt-cell na" data-tip="Bank|— אין נתונים|February, 2025"></div><div class="bt-cell na" data-tip="Bank|— אין נתונים|March, 2025"></div><div class="bt-cell na" data-tip="Bank|— אין נתונים|April, 2025"></div><div class="bt-cell na" data-tip="Bank|— אין נתונים|May, 2025"></div><div class="bt-cell na" data-tip="Bank|— אין נתונים|June, 2025"></div><div class="bt-cell na" data-tip="Bank|— אין נתונים|July, 2025"></div><div class="bt-cell na" data-tip="Bank|— אין נתונים|August, 2025"></div><div class="bt-cell na" data-tip="Bank|— אין נתונים|September, 2025"></div><div class="bt-cell na" data-tip="Bank|— אין נתונים|October, 2025"></div><div class="bt-cell na" data-tip="Bank|— אין נתונים|November, 2025"></div><div class="bt-cell na" data-tip="Bank|— אין נתונים|December, 2025"></div><div class="bt-cell na" data-tip="Bank|— אין נתונים|January, 2026"></div><div class="bt-cell na" data-tip="Bank|— אין נתונים|February, 2026"></div><div class="bt-cell na" data-tip="Bank|— אין נתונים|March, 2026"></div><div class="bt-cell na" data-tip="Bank|— אין נתונים|April, 2026"></div><div class="bt-cell na" data-tip="Bank|— אין נתונים|May, 2026"></div></div></div><div class="bt-track"><span class="bt-track-lbl">Bank Range</span><div class="bt-cells"><div class="bt-cell na" data-tip="Bank Range|— אין נתונים|November, 2023"></div><div class="bt-cell na" data-tip="Bank Range|— אין נתונים|December, 2023"></div><div class="bt-cell na" data-tip="Bank Range|— אין נתונים|January, 2024"></div><div class="bt-cell na" data-tip="Bank Range|— אין נתונים|February, 2024"></div><div class="bt-cell na" data-tip="Bank Range|— אין נתונים|March, 2024"></div><div class="bt-cell na" data-tip="Bank Range|— אין נתונים|April, 2024"></div><div class="bt-cell na" data-tip="Bank Range|— אין נתונים|May, 2024"></div><div class="bt-cell na" data-tip="Bank Range|— אין נתונים|June, 2024"></div><div class="bt-cell na" data-tip="Bank Range|— אין נתונים|July, 2024"></div><div class="bt-cell na" data-tip="Bank Range|— אין נתונים|August, 2024"></div><div class="bt-cell na" data-tip="Bank Range|— אין נתונים|September, 2024"></div><div class="bt-cell na" data-tip="Bank Range|— אין נתונים|October, 2024"></div><div class="bt-cell na" data-tip="Bank Range|— אין נתונים|November, 2024"></div><div class="bt-cell na" data-tip="Bank Range|— אין נתונים|December, 2024"></div><div class="bt-cell na" data-tip="Bank Range|— אין נתונים|January, 2025"></div><div class="bt-cell na" data-tip="Bank Range|— אין נתונים|February, 2025"></div><div class="bt-cell na" data-tip="Bank Range|— אין נתונים|March, 2025"></div><div class="bt-cell na" data-tip="Bank Range|— אין נתונים|April, 2025"></div><div class="bt-cell na" data-tip="Bank Range|— אין נתונים|May, 2025"></div><div class="bt-cell na" data-tip="Bank Range|— אין נתונים|June, 2025"></div><div class="bt-cell na" data-tip="Bank Range|— אין נתונים|July, 2025"></div><div class="bt-cell na" data-tip="Bank Range|— אין נתונים|August, 2025"></div><div class="bt-cell na" data-tip="Bank Range|— אין נתונים|September, 2025"></div><div class="bt-cell na" data-tip="Bank Range|— אין נתונים|October, 2025"></div><div class="bt-cell na" data-tip="Bank Range|— אין נתונים|November, 2025"></div><div class="bt-cell na" data-tip="Bank Range|— אין נתונים|December, 2025"></div><div class="bt-cell na" data-tip="Bank Range|— אין נתונים|January, 2026"></div><div class="bt-cell na" data-tip="Bank Range|— אין נתונים|February, 2026"></div><div class="bt-cell na" data-tip="Bank Range|— אין נתונים|March, 2026"></div><div class="bt-cell na" data-tip="Bank Range|— אין נתונים|April, 2026"></div><div class="bt-cell na" data-tip="Bank Range|— אין נתונים|May, 2026"></div></div></div></div></div>
 
   <div class="heatmap-section">
     <table class="hm-table">
@@ -268,7 +283,7 @@ function toggleLegend(btn) {
 (function(){
   var tip = document.getElementById('hm-tooltip');
   if (!tip) return;
-  document.querySelectorAll('.hm-cell[data-tip]').forEach(function(c) {
+  document.querySelectorAll('.hm-cell[data-tip], .bt-cell[data-tip]').forEach(function(c) {
     c.addEventListener('mouseenter', function(e) {
       var parts = c.dataset.tip.split('|');
       tip.innerHTML = '<div class="hm-tip-label">' + (parts[0]||'') + '</div>'

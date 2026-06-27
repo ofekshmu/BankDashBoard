@@ -2801,6 +2801,19 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--na
 .hm-tip-label{font-weight:700;font-size:1.05em;margin-bottom:2px}
 .hm-tip-status{opacity:.85}
 .hm-tip-date{opacity:.6;font-size:.9em}
+/* Bank coverage timeline */
+.bank-timeline{background:var(--white);border-radius:var(--radius);padding:20px 24px;margin-bottom:22px;box-shadow:0 2px 12px rgba(0,0,0,.07)}
+.bt-title{font-size:.7em;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:14px}
+.bt-chart{overflow-x:auto;padding-bottom:4px}
+.bt-track{display:flex;align-items:center;gap:8px;margin-bottom:4px;min-width:max-content}
+.bt-track-lbl{width:76px;flex-shrink:0;font-size:.72em;font-weight:600;color:var(--navy);text-align:right;white-space:nowrap}
+.bt-cells{display:flex;gap:2px}
+.bt-cell{width:14px;height:22px;border-radius:3px;flex-shrink:0;cursor:crosshair}
+.bt-cell.covered{background:var(--teal)}
+.bt-cell.gap{background:#ef4444}
+.bt-cell.na{background:#e5e7eb;opacity:.4}
+.bt-lbl-cell{width:14px;height:18px;flex-shrink:0;font-size:.55em;color:var(--text-muted);position:relative;overflow:visible}
+.bt-lbl-cell span{position:absolute;left:50%;transform:translateX(-50%);white-space:nowrap;top:4px}
 /* Legend collapsible */
 .legend-toggle{background:none;border:none;color:var(--text-muted);font-size:.72em;cursor:pointer;padding:0;margin-top:16px;display:flex;align-items:center;gap:4px}
 .legend-toggle:hover{color:var(--navy)}
@@ -2874,6 +2887,8 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--na
     </div>
   </div>
 
+  <!--BANK_TIMELINE-->
+
   <div class="heatmap-section">
     <table class="hm-table">
       <thead><!--HM_HEADER--></thead>
@@ -2944,7 +2959,7 @@ function toggleLegend(btn) {
 (function(){
   var tip = document.getElementById('hm-tooltip');
   if (!tip) return;
-  document.querySelectorAll('.hm-cell[data-tip]').forEach(function(c) {
+  document.querySelectorAll('.hm-cell[data-tip], .bt-cell[data-tip]').forEach(function(c) {
     c.addEventListener('mouseenter', function(e) {
       var parts = c.dataset.tip.split('|');
       tip.innerHTML = '<div class="hm-tip-label">' + (parts[0]||'') + '</div>'
@@ -3191,6 +3206,74 @@ def _build_organizer_page(progress_callback=None):
     recent_chips.sort(key=lambda x: -x[0])
     older_chips.sort(key=lambda x: -x[0])
 
+    # ── bank coverage timeline ────────────────────────────────────────────────
+    bank_cols = [(c, _abbrev(c)) for c in cols if c.split(' | ')[-1] == BANK_CARD_NUMBER]
+    chrono_months = index_list  # oldest → newest (df.index sorted ascending)
+
+    # which months have at least one non-bank card file (used to classify gaps)
+    months_with_card_data = set()
+    for _bidx in chrono_months:
+        for _bcol in cols:
+            if _bcol.split(' | ')[-1] == BANK_CARD_NUMBER:
+                continue
+            _bval = df.at[_bidx, _bcol] if _bidx in df.index and _bcol in df.columns else None
+            if isinstance(_bval, str) and ('-' in _bval or '/' in _bval):
+                months_with_card_data.add(_bidx)
+                break
+
+    bank_timeline_html = ''
+    if bank_cols:
+        # label row: show year at every January boundary
+        lbl_cells = ''
+        for _idx in chrono_months:
+            try:
+                _m = _dt2.strptime(str(_idx), '%B, %Y')
+                lbl_cells += (f'<div class="bt-lbl-cell"><span>{_m.year}</span></div>'
+                              if _m.month == 1 else '<div class="bt-lbl-cell"></div>')
+            except Exception:
+                lbl_cells += '<div class="bt-lbl-cell"></div>'
+
+        tracks_html = ''
+        for _bcol, _blabel in bank_cols:
+            cells_html = ''
+            for _idx in chrono_months:
+                _val = df.at[_idx, _bcol] if _idx in df.index and _bcol in df.columns else None
+                _covered = isinstance(_val, str) and ('-' in _val or '/' in _val)
+                _has_card = _idx in months_with_card_data
+                if _covered:
+                    _cls = 'bt-cell covered'
+                    _tip = f'{_esc(_blabel)}|✓ מכוסה|{_esc(str(_idx))}'
+                elif _has_card:
+                    _cls = 'bt-cell gap'
+                    _tip = f'{_esc(_blabel)}|✗ ללא כיסוי|{_esc(str(_idx))}'
+                    # add to alert chips if recent
+                    _idate = index_dates.get(_idx)
+                    if _idate and recent_cutoff and _idate >= recent_cutoff:
+                        _chip = (f'<span class="alert-chip chip-red">'
+                                 f'✗ {_esc(_blabel)} בנק — {_esc(str(_idx))}</span>')
+                        recent_chips.append((4, _chip))
+                else:
+                    _cls = 'bt-cell na'
+                    _tip = f'{_esc(_blabel)}|— אין נתונים|{_esc(str(_idx))}'
+                cells_html += f'<div class="{_cls}" data-tip="{_tip}"></div>'
+            tracks_html += (f'<div class="bt-track">'
+                            f'<span class="bt-track-lbl">{_esc(_blabel)}</span>'
+                            f'<div class="bt-cells">{cells_html}</div>'
+                            f'</div>')
+
+        # re-sort chips after adding bank gaps
+        recent_chips.sort(key=lambda x: -x[0])
+
+        bank_timeline_html = (
+            f'<div class="bank-timeline">'
+            f'<div class="bt-title">כיסוי קבצי בנק</div>'
+            f'<div class="bt-chart">'
+            f'<div class="bt-track"><span class="bt-track-lbl"></span>'
+            f'<div class="bt-cells">{lbl_cells}</div></div>'
+            f'{tracks_html}'
+            f'</div></div>'
+        )
+
     # ── alert content ─────────────────────────────────────────────────────────
     if not recent_chips and not older_chips:
         alert_content = ('<div class="all-good"><span class="all-good-icon">✓</span>'
@@ -3230,6 +3313,7 @@ def _build_organizer_page(progress_callback=None):
     from datetime import datetime as _now
     html = _ORGANIZER_HTML \
         .replace('<!--ALERT_CONTENT-->', alert_content) \
+        .replace('<!--BANK_TIMELINE-->', bank_timeline_html) \
         .replace('<!--HM_HEADER-->', hm_header) \
         .replace('<!--HM_ROWS-->', hm_rows) \
         .replace('<!--GENERATED_DATE-->', _now.now().strftime('%d/%m/%Y %H:%M'))

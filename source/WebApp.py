@@ -2789,7 +2789,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--na
 .hm-label{text-align:right;padding-right:12px;font-size:.71em;color:var(--text-muted);font-weight:500;white-space:nowrap;vertical-align:middle}
 .hm-label.recent{color:var(--navy);font-weight:700}
 .hm-cell{width:20px;height:20px;border-radius:4px;position:relative;cursor:crosshair}
-.hm-green{background:#22c55e}
+.hm-green{background:var(--teal)}
 .hm-yellow{background:#f59e0b}
 .hm-red{background:#ef4444}
 .hm-blue2{background:#93c5fd}

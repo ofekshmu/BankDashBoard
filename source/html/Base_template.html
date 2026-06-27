@@ -551,6 +551,10 @@ body {
   display: flex; flex-direction: column; gap: 7px;
   transition: transform 0.18s, box-shadow 0.18s;
 }
+#panel-housing .kpi-card {
+  border: 1px solid #dde2ef;
+  box-shadow: 0 2px 8px rgba(30,42,74,0.13);
+}
 .kpi-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
 
 /* Hero card — Overall Net Income */
@@ -812,8 +816,8 @@ body {
 
 /* ── Housing: mobile responsive ─────────────────────────── */
 @media (max-width: 700px) {
-  .housing-2col-row,
-  .housing-3col-row { grid-template-columns: 1fr; }
+  .housing-balance-row { grid-template-columns: 1fr; }
+  .housing-3col-row { grid-template-columns: 1fr 1fr; }
 
   .equity-dual-row { flex-direction: column; }
   .equity-dual-col:first-child {
@@ -6716,7 +6720,6 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     // ── Build HTML ─────────────────────────────────────────────────────────
     var html = '<div class="card">' +
       '<div class="card-title">ניהול משכנתא / נכס</div>' +
-      sliderHtml +
       _row2(
         _kpiCard('יתרת משכנתא', _n(curBal), '#e74c3c', null, null, 'הקרן שנותרה לתשלום על המשכנתא.'),
         equityCard, 'housing-balance-row'
@@ -6726,6 +6729,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         _kpiCard('עליית ערך חודשית', '+' + _n(moAppr), '#1e9d8b', defRate.toFixed(1) + '%/שנה', 'hs-monthly-appr'),
         _kpiCard('שווי שוק משוער', _n(aptAppr), '#5b8dee', defRate.toFixed(1) + '% × ' + yrs.toFixed(1) + ' שנים', 'hs-appr-price')
       ) +
+      sliderHtml +
       '<div class="housing-full-row">' +
         _kpiCard(pmtLabel, _n(m.total_monthly_payment, 2), '#e74c3c', 'תשלום משכנתא') +
       '</div>' +
@@ -6821,63 +6825,55 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
 
     if (typeof Chart === 'undefined') return;
 
-    // ── Balance history chart ──────────────────────────────────────────────
-    if (m.chart_balance && m.chart_balance.months) {
-      var cb = m.chart_balance;
-      var balWrap = document.createElement('div');
-      balWrap.className = 'card'; balWrap.style.marginTop = '16px';
-      balWrap.innerHTML = '<div class="card-title">יתרת משכנתא לאורך זמן</div><div style="position:relative;height:220px"><canvas id="housing-bal-canvas"></canvas></div>';
-      panel.appendChild(balWrap);
-      new Chart(document.getElementById('housing-bal-canvas'), {
-        type: 'line',
-        data: {
-          labels: cb.months,
-          datasets: [{ label:'יתרה', data: cb.total, borderColor:'#1e9d8b', backgroundColor:'rgba(30,157,139,0.1)', fill:true, tension:0.2, pointRadius:2 }]
-        },
-        options: { responsive:true, maintainAspectRatio:false,
-                   scales: { x:{ ticks:{maxTicksLimit:12,maxRotation:30} }, y:{ ticks:{callback:function(v){return v.toLocaleString('he-IL');}} } } }
-      });
-    }
-
-    // ── Breakdown chart (interest vs principal) ────────────────────────────
-    if (m.chart_breakdown && m.chart_breakdown.months) {
-      var bd = m.chart_breakdown;
-      var bdWrap = document.createElement('div');
-      bdWrap.className = 'card'; bdWrap.style.marginTop = '16px';
-      bdWrap.innerHTML = '<div class="card-title">פילוח תשלום: ריבית מול קרן</div><div style="position:relative;height:220px"><canvas id="housing-bd-canvas"></canvas></div>';
-      panel.appendChild(bdWrap);
-      new Chart(document.getElementById('housing-bd-canvas'), {
-        type: 'bar',
-        data: {
-          labels: bd.months,
-          datasets: [
-            { label:'ריבית',    data: bd.interest,  backgroundColor:'rgba(246,107,133,0.75)', stack:'s' },
-            { label:'קרן',      data: bd.principal, backgroundColor:'rgba(30,157,139,0.75)',  stack:'s' }
-          ]
-        },
-        options: { responsive:true, maintainAspectRatio:false,
-                   scales: { x:{stacked:true,ticks:{maxTicksLimit:12,maxRotation:30}}, y:{stacked:true} } }
-      });
-    }
-
-    // ── Cashflow chart (payments vs rental income) ─────────────────────────
-    if (m.chart_cashflow) {
+    // ── Spending vs Earning chart ──────────────────────────────────────────
+    if (m.chart_cashflow && m.chart_cashflow.months) {
       var cf = m.chart_cashflow;
       var cfWrap = document.createElement('div');
       cfWrap.className = 'card'; cfWrap.style.marginTop = '16px';
-      cfWrap.innerHTML = '<div class="card-title">תזרים תשלומים</div><div style="position:relative;height:220px"><canvas id="housing-cf-canvas"></canvas></div>';
+      var chartTitle = 'הוצאות מול הכנסות — ' + _esc(m.mortgage_category || 'שלום שבאזי');
+      cfWrap.innerHTML = '<div class="card-title">' + chartTitle + '</div><div style="position:relative;height:260px"><canvas id="housing-cf-canvas"></canvas></div>';
       panel.appendChild(cfWrap);
+      var isProj = cf.is_proj || [];
+      var absPayments = cf.payments.map(function(v) { return Math.abs(v || 0); });
+      var netData = cf.months.map(function(_, i) { return (cf.rentals[i] || 0) + (cf.payments[i] || 0); });
       new Chart(document.getElementById('housing-cf-canvas'), {
         type: 'bar',
         data: {
           labels: cf.months,
           datasets: [
-            { label:'תשלום משכנתא', data: cf.payments, backgroundColor:'rgba(246,107,133,0.7)' },
-            { label:'שכר דירה',     data: cf.rentals,  backgroundColor:'rgba(79,186,137,0.7)'  }
+            {
+              label: 'הוצאות',
+              data: absPayments,
+              backgroundColor: cf.months.map(function(_, i) { return isProj[i] ? 'rgba(246,107,133,0.35)' : 'rgba(246,107,133,0.8)'; }),
+              order: 2
+            },
+            {
+              label: 'הכנסות',
+              data: cf.rentals,
+              backgroundColor: cf.months.map(function(_, i) { return isProj[i] ? 'rgba(30,157,139,0.35)' : 'rgba(30,157,139,0.8)'; }),
+              order: 2
+            },
+            {
+              label: 'נטו',
+              data: netData,
+              type: 'line',
+              borderColor: '#1e2a4a',
+              backgroundColor: 'transparent',
+              borderWidth: 2,
+              pointRadius: 3,
+              tension: 0.2,
+              order: 1
+            }
           ]
         },
-        options: { responsive:true, maintainAspectRatio:false,
-                   scales: { x:{ ticks:{maxTicksLimit:12,maxRotation:30} } } }
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: { ticks: { maxTicksLimit: 12, maxRotation: 30 } },
+            y: { ticks: { callback: function(v) { return v.toLocaleString('he-IL'); } } }
+          }
+        }
       });
     }
   }

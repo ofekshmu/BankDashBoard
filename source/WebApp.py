@@ -3260,8 +3260,8 @@ def _build_organizer_page(progress_callback=None):
             _vout_f = float(_vout or 0)
             _vinc_f = float(_vinc or 0)
             try:
-                _vsb = float(_vbs)
-                _has_vbs = True
+                _vsb = float(str(_vbs).replace(',', '').strip()) if _vbs is not None else None
+                _has_vbs = _vsb is not None and _vsb == _vsb  # excludes NaN
             except (TypeError, ValueError):
                 _has_vbs = False
                 _vsb = None
@@ -3274,7 +3274,7 @@ def _build_organizer_page(progress_callback=None):
             else:
                 _vbal += _vinc_f - _vout_f
                 if _has_vbs:
-                    if abs(_vbal - _vsb) > 0.01:
+                    if abs(_vbal - _vsb) > 1.5:  # INT rounding of Out/Income can drift ±0.5 per tx
                         _det = {'calc': round(_vbal, 2), 'stored': round(_vsb, 2),
                                 'diff': round(_vsb - _vbal, 2),
                                 'id': _vid, 'date': _vdate_s,

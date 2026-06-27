@@ -3286,12 +3286,14 @@ def _build_organizer_page(progress_callback=None):
                                          'prev_name': _prev_row_info['name'],
                                          'prev_file': _prev_row_info['file'],
                                          'prev_out': _prev_row_info['out'],
-                                         'prev_income': _prev_row_info['income']})
+                                         'prev_income': _prev_row_info['income'],
+                                         'prev_balance': _prev_row_info['balance']})
                         _mismatch_details.setdefault(_vym, []).append(_det)
                     _vbal = _vsb  # resync; isolates each mismatch to its month
             _prev_row_info = {'id': _vid, 'date': _vdate_s,
                               'name': str(_vname or ''), 'file': _vsrc_bn,
-                              'out': _vout_f, 'income': _vinc_f}
+                              'out': _vout_f, 'income': _vinc_f,
+                              'balance': round(_vsb, 2) if _has_vbs else None}
     except Exception:
         pass
     _mismatch_months = set(_mismatch_details.keys())
@@ -3413,8 +3415,10 @@ def _build_organizer_page(progress_callback=None):
                 'if(i>0)h+=\'<hr class="btd-sep">\';'
                 'if(m.prev_id!==undefined){'
                 'var pamt=(m.prev_income>0?\'+ \'+m.prev_income:m.prev_out>0?\'- \'+m.prev_out:\'0\');'
+                'var pbal=(m.prev_balance!==null&&m.prev_balance!==undefined?\'<span class="btd-val">\'+m.prev_balance+\'</span>\':\'—\');'
                 'h+=\'<div class="btd-row">🔹 עסקה קודמת: <b>\'+esc(m.prev_name)+\'</b>\';'
                 'h+=\' &nbsp;|&nbsp; סכום: <span class="btd-val">\'+pamt+\'</span>\';'
+                'h+=\' &nbsp;|&nbsp; יתרה: \'+pbal+\'\';'
                 'h+=\' &nbsp;|&nbsp; מזהה: <span class="btd-val">\'+m.prev_id+\'</span>\';'
                 'h+=\' &nbsp;|&nbsp; תאריך: <span class="btd-val">\'+esc(m.prev_date)+\'</span>\';'
                 'h+=\' &nbsp;|&nbsp; קובץ: <span class="btd-val">\'+esc(m.prev_file)+\'</span></div>\';'
@@ -3422,6 +3426,7 @@ def _build_organizer_page(progress_callback=None):
                 'var amt=(m.income>0?\'+ \'+m.income:m.out>0?\'- \'+m.out:\'0\');'
                 'h+=\'<div class="btd-row">🔸 עסקה עם אי-התאמה: <b>\'+esc(m.name)+\'</b>\';'
                 'h+=\' &nbsp;|&nbsp; סכום: <span class="btd-val">\'+amt+\'</span>\';'
+                'h+=\' &nbsp;|&nbsp; יתרה: <span class="btd-val">\'+m.stored+\'</span>\';'
                 'h+=\' &nbsp;|&nbsp; מזהה: <span class="btd-val">\'+m.id+\'</span>\';'
                 'h+=\' &nbsp;|&nbsp; תאריך: <span class="btd-val">\'+esc(m.date)+\'</span>\';'
                 'h+=\' &nbsp;|&nbsp; קובץ: <span class="btd-val">\'+esc(m.file)+\'</span></div>\';'

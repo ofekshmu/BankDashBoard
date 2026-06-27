@@ -3206,11 +3206,10 @@ def _build_organizer_page(progress_callback=None):
     recent_chips.sort(key=lambda x: -x[0])
     older_chips.sort(key=lambda x: -x[0])
 
-    # ── bank coverage timeline ────────────────────────────────────────────────
-    bank_cols = [(c, _abbrev(c)) for c in cols if c.split(' | ')[-1] == BANK_CARD_NUMBER]
-    chrono_months = index_list  # oldest → newest (df.index sorted ascending)
+    # ── bank coverage timeline (from BankTransactions) ───────────────────────
+    chrono_months = index_list  # oldest → newest
 
-    # which months have at least one non-bank card file (used to classify gaps)
+    # months that have at least one non-bank card file (gap detection)
     months_with_card_data = set()
     for _bidx in chrono_months:
         for _bcol in cols:
@@ -3221,9 +3220,24 @@ def _build_organizer_page(progress_callback=None):
                 months_with_card_data.add(_bidx)
                 break
 
+    # query actual bank coverage from BankTransactions table
+    _bank_covered = {}  # 'YYYY-MM' → source_file_basename
+    try:
+        from database import DataBase as _DB_bt
+        _bt_rows = _DB_bt().cursor.execute(
+            "SELECT TO_CHAR(Date, 'YYYY-MM') AS ym, MAX(TRIM(Source_file)) AS sf "
+            "FROM BankTransactions GROUP BY TO_CHAR(Date, 'YYYY-MM') ORDER BY ym"
+        ).fetchall()
+        for _r in _bt_rows:
+            _ym, _sf = _r[0], (_r[1] or '')
+            _bn = _sf.replace('\\', '/').split('/')[-1]
+            _bank_covered[_ym] = _bn
+    except Exception:
+        pass
+
     bank_timeline_html = ''
-    if bank_cols:
-        # label row: show year at every January boundary
+    if chrono_months:
+        # year-label row
         lbl_cells = ''
         for _idx in chrono_months:
             try:
@@ -3233,45 +3247,44 @@ def _build_organizer_page(progress_callback=None):
             except Exception:
                 lbl_cells += '<div class="bt-lbl-cell"></div>'
 
-        tracks_html = ''
-        for _bcol, _blabel in bank_cols:
-            cells_html = ''
-            for _idx in chrono_months:
-                _val = df.at[_idx, _bcol] if _idx in df.index and _bcol in df.columns else None
-                _covered = isinstance(_val, str) and ('-' in _val or '/' in _val)
-                _has_card = _idx in months_with_card_data
-                if _covered:
-                    _cls = 'bt-cell covered'
-                    _tip = f'{_esc(_blabel)}|✓ מכוסה|{_esc(str(_idx))}'
-                elif _has_card:
-                    _cls = 'bt-cell gap'
-                    _tip = f'{_esc(_blabel)}|✗ ללא כיסוי|{_esc(str(_idx))}'
-                    # add to alert chips if recent
-                    _idate = index_dates.get(_idx)
-                    if _idate and recent_cutoff and _idate >= recent_cutoff:
-                        _chip = (f'<span class="alert-chip chip-red">'
-                                 f'✗ {_esc(_blabel)} בנק — {_esc(str(_idx))}</span>')
-                        recent_chips.append((4, _chip))
-                else:
-                    _cls = 'bt-cell na'
-                    _tip = f'{_esc(_blabel)}|— אין נתונים|{_esc(str(_idx))}'
-                cells_html += f'<div class="{_cls}" data-tip="{_tip}"></div>'
-            tracks_html += (f'<div class="bt-track">'
-                            f'<span class="bt-track-lbl">{_esc(_blabel)}</span>'
-                            f'<div class="bt-cells">{cells_html}</div>'
-                            f'</div>')
+        cells_html = ''
+        for _idx in chrono_months:
+            try:
+                _ym = _dt2.strptime(str(_idx), '%B, %Y').strftime('%Y-%m')
+            except Exception:
+                _ym = ''
+            _covered = _ym in _bank_covered
+            _has_card = _idx in months_with_card_data
+            if _covered:
+                _bn = _bank_covered[_ym]
+                _tip = f'בנק לאומי|✓ מכוסה — {_esc(_bn[:35])}|{_esc(str(_idx))}'
+                _cls = 'bt-cell covered'
+            elif _has_card:
+                _tip = f'בנק לאומי|✗ ללא כיסוי בנק|{_esc(str(_idx))}'
+                _cls = 'bt-cell gap'
+                _idate = index_dates.get(_idx)
+                if _idate and recent_cutoff and _idate >= recent_cutoff:
+                    _chip = (f'<span class="alert-chip chip-red">'
+                             f'✗ בנק לאומי — {_esc(str(_idx))}</span>')
+                    recent_chips.append((4, _chip))
+            else:
+                _tip = f'בנק לאומי|— אין עסקאות|{_esc(str(_idx))}'
+                _cls = 'bt-cell na'
+            cells_html += f'<div class="{_cls}" data-tip="{_tip}"></div>'
 
         # re-sort chips after adding bank gaps
         recent_chips.sort(key=lambda x: -x[0])
 
         bank_timeline_html = (
             f'<div class="bank-timeline">'
-            f'<div class="bt-title">כיסוי קבצי בנק</div>'
+            f'<div class="bt-title">כיסוי בנק לאומי</div>'
             f'<div class="bt-chart">'
             f'<div class="bt-track"><span class="bt-track-lbl"></span>'
             f'<div class="bt-cells">{lbl_cells}</div></div>'
-            f'{tracks_html}'
-            f'</div></div>'
+            f'<div class="bt-track">'
+            f'<span class="bt-track-lbl">עסקאות</span>'
+            f'<div class="bt-cells">{cells_html}</div>'
+            f'</div></div></div>'
         )
 
     # ── alert content ─────────────────────────────────────────────────────────

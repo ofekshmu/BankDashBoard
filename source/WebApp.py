@@ -3247,7 +3247,6 @@ def _build_organizer_page(progress_callback=None):
 
     # run sequential balance validation to detect months with missing transactions
     _mismatch_details = {}  # 'YYYY-MM' → list of mismatch detail dicts
-    _prev_row_info = None
     try:
         from database import DataBase as _DB_val
         _val_rows = _DB_val().cursor.execute(
@@ -3255,6 +3254,7 @@ def _build_organizer_page(progress_callback=None):
             "FROM BankTransactions ORDER BY Date ASC, ID DESC"
         ).fetchall()
         _vbal = None
+        _last_balance_row = None  # last row that had a stored balance (the real arithmetic anchor)
         for _vr in _val_rows:
             _vid, _vdate, _vout, _vinc, _vbs, _vname, _vsrc = _vr
             _vout_f = float(_vout or 0)
@@ -3271,29 +3271,33 @@ def _build_organizer_page(progress_callback=None):
             if _vbal is None:
                 if _has_vbs:
                     _vbal = _vsb
+                    _last_balance_row = {'id': _vid, 'date': _vdate_s,
+                                         'name': str(_vname or ''), 'file': _vsrc_bn,
+                                         'out': _vout_f, 'income': _vinc_f,
+                                         'balance': round(_vsb, 2)}
             else:
                 _vbal += _vinc_f - _vout_f
                 if _has_vbs:
-                    if abs(_vbal - _vsb) > 0.01:  # 0.01 accounts for float repr of integer TEXT values
+                    if abs(_vbal - _vsb) > 0.01:
                         _det = {'calc': round(_vbal, 2), 'stored': round(_vsb, 2),
                                 'diff': round(_vsb - _vbal, 2),
                                 'id': _vid, 'date': _vdate_s,
                                 'name': str(_vname or ''), 'file': _vsrc_bn,
                                 'out': _vout_f, 'income': _vinc_f}
-                        if _prev_row_info:
-                            _det.update({'prev_id': _prev_row_info['id'],
-                                         'prev_date': _prev_row_info['date'],
-                                         'prev_name': _prev_row_info['name'],
-                                         'prev_file': _prev_row_info['file'],
-                                         'prev_out': _prev_row_info['out'],
-                                         'prev_income': _prev_row_info['income'],
-                                         'prev_balance': _prev_row_info['balance']})
+                        if _last_balance_row:
+                            _det.update({'prev_id': _last_balance_row['id'],
+                                         'prev_date': _last_balance_row['date'],
+                                         'prev_name': _last_balance_row['name'],
+                                         'prev_file': _last_balance_row['file'],
+                                         'prev_out': _last_balance_row['out'],
+                                         'prev_income': _last_balance_row['income'],
+                                         'prev_balance': _last_balance_row['balance']})
                         _mismatch_details.setdefault(_vym, []).append(_det)
-                    _vbal = _vsb  # resync; isolates each mismatch to its month
-            _prev_row_info = {'id': _vid, 'date': _vdate_s,
-                              'name': str(_vname or ''), 'file': _vsrc_bn,
-                              'out': _vout_f, 'income': _vinc_f,
-                              'balance': round(_vsb, 2) if _has_vbs else None}
+                    _vbal = _vsb  # resync
+                    _last_balance_row = {'id': _vid, 'date': _vdate_s,
+                                         'name': str(_vname or ''), 'file': _vsrc_bn,
+                                         'out': _vout_f, 'income': _vinc_f,
+                                         'balance': round(_vsb, 2)}
     except Exception:
         pass
     _mismatch_months = set(_mismatch_details.keys())
@@ -3410,7 +3414,7 @@ def _build_organizer_page(progress_callback=None):
                 'var items=DATA[ym]||[];'
                 'if(!items.length)return;'
                 'var h=\'<div class="btd-title">⚠ אי-התאמה בבנק לאומי — \'+esc(ym)+\'</div>\';'
-                'h+=\'<div class="btd-hint">הפרש עשוי להצביע על עסקה חסרה בין שתי השורות הבאות:</div>\';'
+                'h+=\'<div class="btd-hint">הפרש בין העסקה האחרונה עם יתרה ידועה לבין העסקה עם אי-ההתאמה:</div>\';'
                 'items.forEach(function(m,i){'
                 'if(i>0)h+=\'<hr class="btd-sep">\';'
                 'if(m.prev_id!==undefined){'

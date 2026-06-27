@@ -2792,9 +2792,9 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--na
 .hm-green{background:#22c55e}
 .hm-yellow{background:#f59e0b}
 .hm-red{background:#ef4444}
-.hm-blue{background:#3b82f6}
 .hm-blue2{background:#93c5fd}
 .hm-gray{background:#e5e7eb}
+.hm-darkgray{background:#9ca3af}
 .hm-cell.has-problem::after{content:'';position:absolute;top:2px;left:2px;width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.85)}
 .hm-divider-row td{border-top:2px solid var(--border);padding-top:5px}
 .hm-tooltip{position:fixed;background:#1e2a4a;color:#e8edf5;padding:8px 12px;border-radius:9px;font-size:.72em;line-height:1.6;pointer-events:none;z-index:9999;display:none;max-width:230px;box-shadow:0 4px 20px rgba(0,0,0,.4)}
@@ -2809,7 +2809,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--na
 .legend-item{display:flex;align-items:center;gap:8px;font-size:.78em}
 .legend-dot{width:10px;height:10px;border-radius:3px;flex-shrink:0}
 .ld-green{background:#22c55e}.ld-yellow{background:#f59e0b}.ld-red{background:#ef4444}
-.ld-blue{background:#3b82f6}.ld-blue2{background:#93c5fd}.ld-gray{background:#e5e7eb}
+.ld-blue2{background:#93c5fd}.ld-gray{background:#e5e7eb}.ld-darkgray{background:#9ca3af}
 .legend-label{font-weight:600;color:var(--navy);white-space:nowrap}
 .legend-sep{color:var(--text-muted);margin:0 2px}
 .legend-desc{color:var(--text-muted)}
@@ -2867,9 +2867,9 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--na
     <div class="legend-body" id="legend-body">
       <div class="legend-item"><span class="legend-dot ld-green"></span><span class="legend-label">מאומת / Bank</span><span class="legend-sep">&mdash;</span><span class="legend-desc">קובץ תקין ומאומת</span></div>
       <div class="legend-item"><span class="legend-dot ld-yellow"></span><span class="legend-label">לא מאומת / ללא עסקות</span><span class="legend-sep">&mdash;</span><span class="legend-desc">קובץ קיים אך לא מאומת</span></div>
-      <div class="legend-item"><span class="legend-dot ld-red"></span><span class="legend-label">חסר קובץ</span><span class="legend-sep">&mdash;</span><span class="legend-desc">לא נמצא קובץ לתאריך זה</span></div>
-      <div class="legend-item"><span class="legend-dot ld-blue"></span><span class="legend-label">קובץ חסר + עסקה</span><span class="legend-sep">&mdash;</span><span class="legend-desc">נמצאה עסקה לא מתויגת ללא קובץ</span></div>
-      <div class="legend-item"><span class="legend-dot ld-blue2"></span><span class="legend-label">אי-התאמת ערך</span><span class="legend-sep">&mdash;</span><span class="legend-desc">סכום לא תואם</span></div>
+      <div class="legend-item"><span class="legend-dot ld-red"></span><span class="legend-label">קובץ חסר — עם עסקה</span><span class="legend-sep">&mdash;</span><span class="legend-desc">קובץ נדרש (נמצאה עסקה), אך לא נמצא</span></div>
+      <div class="legend-item"><span class="legend-dot ld-blue2"></span><span class="legend-label">אי-התאמת ערך</span><span class="legend-sep">&mdash;</span><span class="legend-desc">סכום לא תואם לקובץ</span></div>
+      <div class="legend-item"><span class="legend-dot ld-darkgray"></span><span class="legend-label">לא רשום</span><span class="legend-sep">&mdash;</span><span class="legend-desc">לא רשום לתקופה זו, אין צורך בקובץ</span></div>
       <div class="legend-item"><span class="legend-dot ld-gray"></span><span class="legend-label">לא זמין</span><span class="legend-sep">&mdash;</span><span class="legend-desc">פורמט לא תקף לתאריך</span></div>
     </div>
   </div>
@@ -3101,8 +3101,8 @@ def _build_organizer_page(progress_callback=None):
             m_val  = str(m[1]) if len(m) > 1 and m[1] else '?'
             m_date = str(m[0])[:10] if m[0] else '?'
             if m_type == 'missing':
-                tip = f'{_abbrev(col)}|⚠ חסר ({m_name} ₪{m_val})|{m_date}'
-                return 'hm-blue', '⚠ חסר', True, 3, tip
+                tip = f'{_abbrev(col)}|✗ קובץ חסר ({m_name} ₪{m_val})|{m_date}'
+                return 'hm-red', '✗ קובץ חסר', True, 3, tip
             else:
                 tip = f'{_abbrev(col)}|⚠ אי-התאמה ({m_name} ₪{m_val})|{m_date}'
                 return 'hm-blue2', '⚠ אי-התאמה', True, 2, tip
@@ -3118,8 +3118,8 @@ def _build_organizer_page(progress_callback=None):
         if is_date and status != 'Not Verified':
             tip = f'{_abbrev(col)}|— ללא עסקאות|{date_str}'
             return 'hm-yellow', '— ללא עסקאות', True, 1, tip
-        tip = f'{_abbrev(col)}|✗ חסר קובץ|-'
-        return 'hm-red', '✗ חסר קובץ', True, 3, tip
+        tip = f'{_abbrev(col)}|— לא רשום|-'
+        return 'hm-darkgray', '— לא רשום', False, 0, tip
 
     # ── recency ───────────────────────────────────────────────────────────────
     from datetime import datetime as _dt2
@@ -3148,7 +3148,7 @@ def _build_organizer_page(progress_callback=None):
 
     # ── build chips + heatmap in one pass (reversed = recent first) ───────────
     CHIP_CLS = {'hm-red': 'chip-red', 'hm-yellow': 'chip-yellow',
-                'hm-blue': 'chip-blue', 'hm-blue2': 'chip-blue2'}
+                'hm-blue2': 'chip-blue2'}
 
     recent_chips = []   # [(severity, html)]
     older_chips  = []

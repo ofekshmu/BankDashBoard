@@ -3274,9 +3274,7 @@ def _build_organizer_page(progress_callback=None):
             else:
                 _vbal += _vinc_f - _vout_f
                 if _has_vbs:
-                    # diff is exact; Out/Income stored as INT so rounding noise ≤ 0.5 per tx.
-                    # 3 ₪ threshold filters noise while any real missing tx is far larger.
-                    if abs(_vbal - _vsb) > 3:
+                    if abs(_vbal - _vsb) > 0.01:  # 0.01 accounts for float repr of integer TEXT values
                         _det = {'calc': round(_vbal, 2), 'stored': round(_vsb, 2),
                                 'diff': round(_vsb - _vbal, 2),
                                 'id': _vid, 'date': _vdate_s,

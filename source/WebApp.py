@@ -2810,6 +2810,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--na
 .bt-cells{display:flex;gap:2px}
 .bt-cell{width:14px;height:22px;border-radius:3px;flex-shrink:0;cursor:crosshair}
 .bt-cell.covered{background:var(--teal)}
+.bt-cell.warn{background:#f59e0b}
 .bt-cell.gap{background:#ef4444}
 .bt-cell.na{background:#e5e7eb;opacity:.4}
 .bt-lbl-cell{width:14px;height:18px;flex-shrink:0;font-size:.55em;color:var(--text-muted);position:relative;overflow:visible}
@@ -3244,6 +3245,34 @@ def _build_organizer_page(progress_callback=None):
     except Exception:
         pass
 
+    # run sequential balance validation to detect months with missing transactions
+    _mismatch_months = set()  # 'YYYY-MM' where balance check fails
+    try:
+        from database import DataBase as _DB_val
+        _val_rows = _DB_val().cursor.execute(
+            "SELECT ID, Date, Out, Income, Balance "
+            "FROM BankTransactions ORDER BY Date ASC, ID DESC"
+        ).fetchall()
+        _vbal = None
+        for _vr in _val_rows:
+            _vid, _vdate, _vout, _vinc, _vbs = _vr
+            _vout_f = float(_vout or 0)
+            _vinc_f = float(_vinc or 0)
+            _has_vbs = isinstance(_vbs, (int, float))
+            if _vbal is None:
+                if _has_vbs:
+                    _vbal = float(_vbs)
+            else:
+                _vbal += _vinc_f - _vout_f
+                if _has_vbs:
+                    _vsb = float(_vbs)
+                    if abs(_vbal - _vsb) > 0.01:
+                        _vym = str(_vdate)[:7]  # 'YYYY-MM'
+                        _mismatch_months.add(_vym)
+                    _vbal = _vsb  # resync to stored value; isolates each mismatch to its month
+    except Exception:
+        pass
+
     bank_timeline_html = ''
     if chrono_months:
         # year-label row
@@ -3266,8 +3295,17 @@ def _build_organizer_page(progress_callback=None):
             _has_card = _idx in months_with_card_data
             if _covered:
                 _bn = _bank_covered[_ym]
-                _tip = f'בנק לאומי|✓ מכוסה — {_esc(_bn[:35])}|{_esc(str(_idx))}'
-                _cls = 'bt-cell covered'
+                if _ym in _mismatch_months:
+                    _tip = f'בנק לאומי|⚠ חוסר עסקאות אפשרי — {_esc(_bn[:35])}|{_esc(str(_idx))}'
+                    _cls = 'bt-cell warn'
+                    _idate = index_dates.get(_idx)
+                    if _idate and recent_cutoff and _idate >= recent_cutoff:
+                        _chip = (f'<span class="alert-chip chip-yellow">'
+                                 f'⚠ אי-התאמה בנקאית — {_esc(str(_idx))}</span>')
+                        recent_chips.append((3, _chip))
+                else:
+                    _tip = f'בנק לאומי|✓ מכוסה — {_esc(_bn[:35])}|{_esc(str(_idx))}'
+                    _cls = 'bt-cell covered'
             elif _has_card:
                 _tip = f'בנק לאומי|✗ ללא כיסוי בנק|{_esc(str(_idx))}'
                 _cls = 'bt-cell gap'
@@ -3290,6 +3328,8 @@ def _build_organizer_page(progress_callback=None):
             'הגרף מציג כיסוי לפי <b>עסקאות</b> שנמצאות בטבלת BankTransactions.<br><br>'
             '<b style="color:#22c55e">&#x2713; ירוק</b> — ייבאת קובץ בנק (FibiSave*.xls) '
             'לחודש זה; העמודה מציגה את שם הקובץ.<br>'
+            '<b style="color:#f59e0b">&#x26A0; כתום</b> — יש עסקאות בנק אך '
+            'נמצאה אי-התאמה בולנס — ייתכן שחסרות עסקאות.<br>'
             '<b style="color:#ef4444">&#x2717; אדום</b> — יש נתוני כרטיסים לחודש אך '
             'אין עסקאות בנק — קובץ לא יובא.<br>'
             '<b style="color:#9ca3af">&#x2014; אפור</b> — אין נתונים כלל לחודש זה.<br><br>'

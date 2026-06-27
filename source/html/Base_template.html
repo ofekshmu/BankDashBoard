@@ -805,6 +805,20 @@ body {
 .hs-regen-btn:hover { background: var(--bg); color: var(--navy); }
 .hs-regen-btn:disabled { opacity: 0.5; cursor: default; }
 
+.housing-cf-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.cf-kpi { text-align: center; padding: 6px 4px; }
+.cf-kpi-label { font-size: 0.72em; color: var(--text-muted); margin-bottom: 5px; line-height: 1.3; }
+.cf-kpi-value { font-size: 1.05em; font-weight: 700; color: var(--navy); }
+.cf-kpi-value.pos { color: #1e9d8b; }
+.cf-kpi-value.neg { color: #e74c3c; }
+
 .housing-alert-banner {
   background: #fff5f5; border: 1.5px solid #e74c3c; border-radius: var(--radius);
   color: #c0392b; font-weight: 600; font-size: 0.9em;
@@ -859,6 +873,8 @@ body {
   }
 
   .rate-control-top { flex-direction: column; align-items: flex-start; gap: 6px; }
+  .housing-cf-kpis { grid-template-columns: repeat(2, 1fr); }
+  .cf-kpi-value { font-size: 0.92em; }
 }
 
 /* ── Panels ──────────────────────────────────────────────── */
@@ -6791,7 +6807,13 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       if (cf0.months && cf0.months.length) {
         var cfTitle = 'הוצאות מול הכנסות — ' + _esc(m.mortgage_category || 'שלום שבאזי');
         html += '<div class="card" style="margin-top:16px"><div class="card-title">' + cfTitle + '</div>' +
-          '<div style="position:relative;height:260px"><canvas id="housing-cf-canvas"></canvas></div></div>';
+          '<div style="position:relative;height:260px"><canvas id="housing-cf-canvas"></canvas></div>' +
+          '<div class="housing-cf-kpis">' +
+            '<div class="cf-kpi"><div class="cf-kpi-label">ממוצע הכנסה חודשית</div><div class="cf-kpi-value pos" id="cfk-avg-inc">—</div></div>' +
+            '<div class="cf-kpi"><div class="cf-kpi-label">ממוצע הוצאה חודשית</div><div class="cf-kpi-value neg" id="cfk-avg-out">—</div></div>' +
+            '<div class="cf-kpi"><div class="cf-kpi-label">סה״כ הכנסות בתקופה</div><div class="cf-kpi-value pos" id="cfk-tot-inc">—</div></div>' +
+            '<div class="cf-kpi"><div class="cf-kpi-label">סה״כ הוצאות בתקופה</div><div class="cf-kpi-value neg" id="cfk-tot-out">—</div></div>' +
+          '</div></div>';
       } else {
         html += '<div class="card" style="margin-top:16px"><div class="card-title">הוצאות מול הכנסות</div>' +
           '<div style="padding:24px;text-align:center;color:#aaa">אין נתוני עסקאות להצגה</div></div>';
@@ -6897,6 +6919,19 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
           cfRentals  = cfRentals.slice(start);
           cfNet      = cfNet.slice(start);
         }
+
+        // ── Chart KPIs (reflect the same period shown in the chart) ──────
+        var cfTotInc = cfRentals.reduce(function(s, v) { return s + v; }, 0);
+        var cfTotOut = cfPayments.reduce(function(s, v) { return s + v; }, 0);
+        var cfN      = cfLabels.length || 1;
+        var _setKpi  = function(id, val, decimals) {
+          var el = document.getElementById(id);
+          if (el) el.textContent = _n(val, decimals || 0);
+        };
+        _setKpi('cfk-avg-inc', cfTotInc / cfN);
+        _setKpi('cfk-avg-out', cfTotOut / cfN);
+        _setKpi('cfk-tot-inc', cfTotInc);
+        _setKpi('cfk-tot-out', cfTotOut);
 
         new Chart(cfCanvas, {
           type: 'bar',

@@ -797,6 +797,14 @@ body {
 .txn-footer-sum.neg { color: var(--red); }
 .txn-footer-sum.pos { color: var(--teal); }
 
+.hs-regen-btn {
+  float: left; background: none; border: 1px solid var(--border);
+  border-radius: 6px; padding: 3px 10px; cursor: pointer;
+  font-size: 0.82em; color: var(--text-muted); line-height: 1.5;
+}
+.hs-regen-btn:hover { background: var(--bg); color: var(--navy); }
+.hs-regen-btn:disabled { opacity: 0.5; cursor: default; }
+
 .housing-alert-banner {
   background: #fff5f5; border: 1.5px solid #e74c3c; border-radius: var(--radius);
   color: #c0392b; font-weight: 600; font-size: 0.9em;
@@ -6719,7 +6727,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
 
     // ── Build HTML ─────────────────────────────────────────────────────────
     var html = '<div class="card">' +
-      '<div class="card-title">ניהול משכנתא / נכס</div>' +
+      '<div class="card-title">ניהול משכנתא / נכס<button id="hs-regen-btn" class="hs-regen-btn" title="רענן נתונים">↺ רענן</button></div>' +
       _row2(
         _kpiCard('יתרת משכנתא', _n(curBal), '#e74c3c', null, null, 'הקרן שנותרה לתשלום על המשכנתא.'),
         equityCard, 'housing-balance-row'
@@ -6762,6 +6770,19 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
           return '<tr><td>' + _n(ms.threshold) + '</td><td>' + dStr + '</td><td>' + ms.years_from_start + '</td></tr>';
         }).join('') +
         '</tbody></table></div>';
+    }
+
+    // ── Spending vs Earning chart (canvas placeholder — init after innerHTML) ─
+    if (m.chart_cashflow) {
+      var cf0 = m.chart_cashflow;
+      if (cf0.months && cf0.months.length) {
+        var cfTitle = 'הוצאות מול הכנסות — ' + _esc(m.mortgage_category || 'שלום שבאזי');
+        html += '<div class="card" style="margin-top:16px"><div class="card-title">' + cfTitle + '</div>' +
+          '<div style="position:relative;height:260px"><canvas id="housing-cf-canvas"></canvas></div></div>';
+      } else {
+        html += '<div class="card" style="margin-top:16px"><div class="card-title">הוצאות מול הכנסות</div>' +
+          '<div style="padding:24px;text-align:center;color:#aaa">אין נתוני עסקאות להצגה</div></div>';
+      }
     }
 
     // ── Transactions ───────────────────────────────────────────────────────
@@ -6823,58 +6844,66 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       });
     }
 
-    if (typeof Chart === 'undefined') return;
-
-    // ── Spending vs Earning chart ──────────────────────────────────────────
-    if (m.chart_cashflow && m.chart_cashflow.months) {
-      var cf = m.chart_cashflow;
-      var cfWrap = document.createElement('div');
-      cfWrap.className = 'card'; cfWrap.style.marginTop = '16px';
-      var chartTitle = 'הוצאות מול הכנסות — ' + _esc(m.mortgage_category || 'שלום שבאזי');
-      cfWrap.innerHTML = '<div class="card-title">' + chartTitle + '</div><div style="position:relative;height:260px"><canvas id="housing-cf-canvas"></canvas></div>';
-      panel.appendChild(cfWrap);
-      var isProj = cf.is_proj || [];
-      var absPayments = cf.payments.map(function(v) { return Math.abs(v || 0); });
-      var netData = cf.months.map(function(_, i) { return (cf.rentals[i] || 0) + (cf.payments[i] || 0); });
-      new Chart(document.getElementById('housing-cf-canvas'), {
-        type: 'bar',
-        data: {
-          labels: cf.months,
-          datasets: [
-            {
-              label: 'הוצאות',
-              data: absPayments,
-              backgroundColor: cf.months.map(function(_, i) { return isProj[i] ? 'rgba(246,107,133,0.35)' : 'rgba(246,107,133,0.8)'; }),
-              order: 2
-            },
-            {
-              label: 'הכנסות',
-              data: cf.rentals,
-              backgroundColor: cf.months.map(function(_, i) { return isProj[i] ? 'rgba(30,157,139,0.35)' : 'rgba(30,157,139,0.8)'; }),
-              order: 2
-            },
-            {
-              label: 'נטו',
-              data: netData,
-              type: 'line',
-              borderColor: '#1e2a4a',
-              backgroundColor: 'transparent',
-              borderWidth: 2,
-              pointRadius: 3,
-              tension: 0.2,
-              order: 1
-            }
-          ]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          scales: {
-            x: { ticks: { maxTicksLimit: 12, maxRotation: 30 } },
-            y: { ticks: { callback: function(v) { return v.toLocaleString('he-IL'); } } }
-          }
-        }
+    // ── Regen button ──────────────────────────────────────────────────────
+    var regenBtn = document.getElementById('hs-regen-btn');
+    if (regenBtn) {
+      regenBtn.addEventListener('click', function() {
+        var btn = this;
+        btn.disabled = true; btn.textContent = 'מחשב...';
+        fetch('/api/general/' + _yyyy_mm + '/invalidate', { method: 'POST' })
+          .then(function() { window.location.reload(); })
+          .catch(function() { btn.disabled = false; btn.textContent = '↺ רענן'; });
       });
+    }
+
+    // ── Spending vs Earning chart (canvas already in DOM via html string) ──
+    if (typeof Chart !== 'undefined' && m.chart_cashflow && m.chart_cashflow.months && m.chart_cashflow.months.length) {
+      var cf = m.chart_cashflow;
+      var cfCanvas = document.getElementById('housing-cf-canvas');
+      if (cfCanvas) {
+        var isProj = cf.is_proj || [];
+        var absPayments = cf.payments.map(function(v) { return Math.abs(v || 0); });
+        var netData = cf.months.map(function(_, i) { return (cf.rentals[i] || 0) - absPayments[i]; });
+        new Chart(cfCanvas, {
+          type: 'bar',
+          data: {
+            labels: cf.months,
+            datasets: [
+              {
+                label: 'הוצאות',
+                data: absPayments,
+                backgroundColor: cf.months.map(function(_, i) { return isProj[i] ? 'rgba(246,107,133,0.45)' : 'rgba(246,107,133,0.82)'; }),
+                order: 2
+              },
+              {
+                label: 'הכנסות',
+                data: cf.rentals,
+                backgroundColor: cf.months.map(function(_, i) { return isProj[i] ? 'rgba(30,157,139,0.45)' : 'rgba(30,157,139,0.82)'; }),
+                order: 2
+              },
+              {
+                label: 'נטו',
+                data: netData,
+                type: 'line',
+                borderColor: '#1e2a4a',
+                backgroundColor: 'transparent',
+                borderWidth: 2,
+                pointRadius: 3,
+                tension: 0.2,
+                order: 1
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              x: { ticks: { maxTicksLimit: 12, maxRotation: 30 } },
+              y: { ticks: { callback: function(v) { return v.toLocaleString('he-IL'); } } }
+            }
+          }
+        });
+      }
     }
   }
 

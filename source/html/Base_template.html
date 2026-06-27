@@ -6590,51 +6590,243 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       return;
     }
 
-    // KPI row 1: property and mortgage summary
-    var kpiHtml = '<div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:16px">';
-    [
-      ['apartment_price',       'מחיר דירה'],
-      ['apartment_appreciated', 'שווי נוכחי'],
-      ['equity_appreciated',    'הון עצמי (עם עליית ערך)'],
-      ['current_balance',       'יתרת משכנתא'],
-      ['total_monthly_payment', 'תשלום חודשי'],
-      ['rental_income',         'שכר דירה'],
-      ['net_monthly_cost',      'עלות נטו חודשית'],
-      ['alltime_out',           'סה"כ שולם (היסטוריה)'],
-      ['alltime_income',        'סה"כ הכנסות שכירות']
-    ].forEach(function(kv) {
-      var v = m[kv[0]];
-      if (v != null) {
-        kpiHtml += '<div class="kpi-card" style="min-width:160px">' +
-          '<div class="kpi-label">' + _esc(kv[1]) + '</div>' +
-          '<div class="kpi-value" style="font-size:1.1em">' + _fmt(v) + '</div></div>';
-      }
-    });
-    kpiHtml += '</div>';
-
-    var txns   = m.housing_transactions || [];
-    var txHtml = '';
-    if (txns.length) {
-      txHtml = '<div class="card" style="margin-top:16px"><div class="card-title">עסקאות נכס</div>' +
-        '<table style="width:100%;border-collapse:collapse;font-size:.85em">' +
-        '<thead><tr><th>תאריך</th><th>שם</th><th>יציאה</th><th>כניסה</th></tr></thead><tbody>' +
-        txns.slice(-30).map(function(tx) {
-          return '<tr><td>' + _esc(tx.date) + '</td><td>' + _esc(tx.name) + '</td>' +
-            '<td style="color:#e74c3c">' + (tx.out    ? _fmt(tx.out)    : '') + '</td>' +
-            '<td style="color:#1e9d8b">' + (tx.income ? _fmt(tx.income) : '') + '</td></tr>';
-        }).join('') + '</tbody></table></div>';
+    // ── Helpers ────────────────────────────────────────────────────────────
+    function _n(v, decimals) {
+      if (v == null) return '—';
+      var n = parseFloat(v);
+      return n.toLocaleString('he-IL', { minimumFractionDigits: decimals || 0, maximumFractionDigits: decimals || 0 }) + '₪';
     }
-    panel.innerHTML =
-      '<div class="card"><div class="card-title">ניהול משכנתא / נכס</div>' + kpiHtml + '</div>' + txHtml;
+    function _pct(v) { return (v >= 0 ? '+' : '') + parseFloat(v).toFixed(1) + '%'; }
+
+    function _kpiCard(label, valueHtml, color, sublabel, id, infoTip) {
+      var tip = infoTip ? '<span class="kpi-info-wrap"><span class="kpi-info-icon">i</span><span class="kpi-tooltip">' + _esc(infoTip) + '</span></span>' : '';
+      var sub = sublabel ? '<div class="kpi-sublabel">' + _esc(sublabel) + '</div>' : '';
+      return '<div class="kpi-card">' +
+        '<div class="kpi-label">' + _esc(label) + tip + '</div>' +
+        '<div class="kpi-value"' + (id ? ' id="' + id + '"' : '') + (color ? ' style="color:' + color + '"' : '') + '>' + valueHtml + '</div>' +
+        sub + '</div>';
+    }
+    function _section(title) {
+      return '<div class="housing-section-title">' + _esc(title) + '</div>';
+    }
+    function _row2(a, b, extra) {
+      return '<div class="housing-2col-row' + (extra ? ' ' + extra : '') + '">' + a + b + '</div>';
+    }
+    function _row3(a, b, c) {
+      return '<div class="housing-3col-row">' + a + b + c + '</div>';
+    }
+
+    // ── Derived values ─────────────────────────────────────────────────────
+    var aptPrice   = m.apartment_price        || 0;
+    var curBal     = m.current_balance        || 0;
+    var aptAppr    = m.apartment_appreciated  || aptPrice;
+    var eqAppr     = m.equity_appreciated     || 0;
+    var initPay    = m.initial_apartment_payment || 0;
+    var mortOrig   = m.mortgage_amount        || 0;
+    var allInc     = m.alltime_income         || 0;
+    var allOut     = m.alltime_out            || 0;
+    var allMort    = m.alltime_mortgage_payments || 0;
+    var netInv     = m.net_invested           || 0;
+    var defRate    = m.default_rate           || 5;
+    var yrs        = m.years_elapsed          || 0;
+    var moAppr     = m.monthly_appreciation   || 0;
+    var totRet     = m.total_return_pct       || 0;
+    var annRet     = m.annual_return_pct      || 0;
+    var principalPaid = mortOrig - curBal;
+    var apprGain   = aptAppr - aptPrice;
+    var eqWithInc  = eqAppr + allInc;
+    var saleProceed = eqAppr;
+    var totalBack  = saleProceed + allInc;
+    var profitVal  = totalBack - netInv;
+    var atOther    = Math.max(allOut - allMort - initPay, 0);
+
+    // ── Rate slider ────────────────────────────────────────────────────────
+    var sliderHtml =
+      '<div class="kpi-card housing-rate-control">' +
+        '<div class="rate-control-top">' +
+          '<div class="rate-label">שיעור עליית ערך שנתי</div>' +
+          '<span class="rate-value-display" id="hs-rate-display">' + defRate.toFixed(1) + '%</span>' +
+        '</div>' +
+        '<input type="range" id="hs-rate-slider" class="rate-slider" min="0" max="20" step="0.5" value="' + defRate + '">' +
+        '<div class="rate-hint">ברירת מחדל ' + defRate.toFixed(1) + '% | גרור לשינוי</div>' +
+      '</div>';
+
+    // ── Equity bar (4 segments) ────────────────────────────────────────────
+    var eqTotal  = Math.max(eqWithInc, 1);
+    var peqDown  = Math.max(initPay       / eqTotal * 100, 0);
+    var peqPrin  = Math.max(principalPaid / eqTotal * 100, 0);
+    var peqAppr  = Math.max(apprGain      / eqTotal * 100, 0);
+    var peqInc   = Math.max(allInc        / eqTotal * 100, 0);
+
+    var C_DOWN = '#81c784', C_PRIN = '#4db6ac', C_APPR = '#64b5f6', C_INC = '#aed581';
+
+    var equityCard =
+      '<div class="kpi-card">' +
+        '<div class="kpi-label">הון עצמי<span class="kpi-info-wrap"><span class="kpi-info-icon">i</span>' +
+          '<span class="kpi-tooltip">הון עצמי = מקדמה + קרן שנפרעה + עליית ערך + הכנסות\n' +
+          '  מקדמה: ' + _n(initPay) + '\n  קרן שנפרעה: ' + _n(principalPaid) + '\n  עליית ערך: ' + _n(apprGain) + '\n  הכנסות: ' + _n(allInc) + '\n  = סה״כ: ' + _n(eqWithInc) + '</span></span></div>' +
+        '<div class="kpi-value" id="hs-equity" style="color:#1e9d8b">' + _n(eqWithInc) + '</div>' +
+        '<div class="kpi-sublabel">כולל עליית ערך והכנסות</div>' +
+        '<div class="equity-bar-wrap">' +
+          '<div class="equity-bar">' +
+            '<div class="equity-bar-seg" id="hs-bar-down" style="width:' + peqDown.toFixed(1) + '%;background:' + C_DOWN + '" title="מקדמה ' + _n(initPay) + '"></div>' +
+            '<div class="equity-bar-seg" id="hs-bar-prin" style="width:' + peqPrin.toFixed(1) + '%;background:' + C_PRIN + '" title="קרן שנפרעה ' + _n(principalPaid) + '"></div>' +
+            '<div class="equity-bar-seg" id="hs-bar-appr" style="width:' + peqAppr.toFixed(1) + '%;background:' + C_APPR + '" title="עליית ערך ' + _n(apprGain) + '"></div>' +
+            '<div class="equity-bar-seg" id="hs-bar-inc"  style="width:' + peqInc.toFixed(1)  + '%;background:' + C_INC  + '" title="הכנסות ' + _n(allInc) + '"></div>' +
+          '</div>' +
+          '<div class="equity-bar-labels-4">' +
+            '<span id="hs-lbl-down" style="color:' + C_DOWN + '">● מקדמה ' + _n(initPay) + '</span>' +
+            '<span id="hs-lbl-prin" style="color:' + C_PRIN + '">● קרן שנפרעה ' + _n(principalPaid) + '</span>' +
+            '<span id="hs-lbl-appr" style="color:' + C_APPR + '">● עליית ערך ' + _n(apprGain) + '</span>' +
+            '<span id="hs-lbl-inc"  style="color:' + C_INC  + '">● הכנסות ' + _n(allInc) + '</span>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+
+    // ── Spending breakdown bar ─────────────────────────────────────────────
+    var SC_MORT = '#e57373', SC_INIT = '#ef9a9a', SC_OTHER = '#ffb74d';
+    var spMort  = allOut > 0 ? allMort  / allOut * 100 : 0;
+    var spInit  = allOut > 0 ? initPay  / allOut * 100 : 0;
+    var spOther = allOut > 0 ? atOther  / allOut * 100 : 0;
+
+    var spendCard =
+      '<div class="kpi-card">' +
+        '<div class="kpi-label">סה״כ הוצאות<span class="kpi-info-wrap"><span class="kpi-info-icon">i</span>' +
+          '<span class="kpi-tooltip">תשלומי משכנתא: ' + _n(allMort) + '\nתשלום ראשוני: ' + _n(initPay) + '\nהוצאות אחרות: ' + _n(atOther) + '</span></span></div>' +
+        '<div class="kpi-value" style="color:#e74c3c">' + _n(allOut, 2) + '</div>' +
+        '<div class="equity-bar-wrap">' +
+          '<div class="equity-bar">' +
+            '<div class="equity-bar-seg" style="width:' + spMort.toFixed(1)  + '%;background:' + SC_MORT  + '" title="תשלומי משכנתא ' + _n(allMort) + '"></div>' +
+            '<div class="equity-bar-seg" style="width:' + spInit.toFixed(1)  + '%;background:' + SC_INIT  + '" title="תשלום ראשוני ' + _n(initPay) + '"></div>' +
+            '<div class="equity-bar-seg" style="width:' + spOther.toFixed(1) + '%;background:' + SC_OTHER + '" title="הוצאות אחרות ' + _n(atOther) + '"></div>' +
+          '</div>' +
+          '<div class="equity-bar-labels-4">' +
+            '<span style="color:' + SC_MORT  + '">● משכנתא ' + _n(allMort)  + '</span>' +
+            '<span style="color:' + SC_INIT  + '">● ראשוני ' + _n(initPay)  + '</span>' +
+            '<span style="color:' + SC_OTHER + '">● אחר '     + _n(atOther)  + '</span>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+
+    // ── Return info tooltip ────────────────────────────────────────────────
+    var retColor  = totRet >= 0 ? '#1e9d8b' : '#e74c3c';
+    var retInfo   = 'חישוב רווח ממכירה:\n  שווי שוק: ' + _n(aptAppr) + '\n  יתרת משכנתא: ' + _n(-curBal) + '\n  = הון עצמי: ' + _n(saleProceed) + '\n  + הכנסות: ' + _n(allInc) + '\n  סה״כ תקבולים: ' + _n(totalBack) + '\n  − הוצאות: ' + _n(-netInv) + '\n  = רווח נקי: ' + _n(profitVal);
+    var pmtLabel  = m.payment_found ? 'תשלום חודשי (בפועל)' : 'תשלום חודשי (משוער)';
+
+    // ── Build HTML ─────────────────────────────────────────────────────────
+    var html = '<div class="card">' +
+      '<div class="card-title">ניהול משכנתא / נכס</div>' +
+      sliderHtml +
+      _row2(
+        _kpiCard('יתרת משכנתא', _n(curBal), '#e74c3c', null, null, 'הקרן שנותרה לתשלום על המשכנתא.'),
+        equityCard, 'housing-balance-row'
+      ) +
+      _row3(
+        _kpiCard('מחיר רכישה', _n(aptPrice), '#1a3a5c', null, null, 'מחיר הרכישה המקורי של הדירה.'),
+        _kpiCard('עליית ערך חודשית', '+' + _n(moAppr), '#1e9d8b', defRate.toFixed(1) + '%/שנה', 'hs-monthly-appr'),
+        _kpiCard('שווי שוק משוער', _n(aptAppr), '#5b8dee', defRate.toFixed(1) + '% × ' + yrs.toFixed(1) + ' שנים', 'hs-appr-price')
+      ) +
+      '<div class="housing-full-row">' +
+        _kpiCard(pmtLabel, _n(m.total_monthly_payment, 2), '#e74c3c', 'תשלום משכנתא') +
+      '</div>' +
+      _row2(
+        _kpiCard('תשואה כוללת ממכירה', _pct(totRet), retColor, 'רווח נקי: ' + (profitVal >= 0 ? '+' : '') + _n(profitVal), 'hs-total-return', retInfo),
+        _kpiCard('תשואה שנתית', _pct(annRet), retColor, 'על פני ' + yrs.toFixed(1) + ' שנים', 'hs-annual-return')
+      ) +
+      _section('סיכום חודש נוכחי') +
+      _row2(
+        _kpiCard('הוצאות החודש', _n(m.month_out, 2), '#e74c3c'),
+        _kpiCard('הכנסות החודש', _n(m.month_income, 2), '#1e9d8b')
+      ) +
+      _section('סיכום כולל — כל הזמנים') +
+      _row2(spendCard, _kpiCard('סה״כ הכנסות', _n(allInc, 2), '#1e9d8b')) +
+      '</div>';
+
+    // ── Rent-missing alert ─────────────────────────────────────────────────
+    if (!m.rent_found) {
+      html += '<div class="housing-alert-banner">⚠️ לא נמצאה הכנסת שכירות לחודש זה — יש לבדוק אם התשלום התקבל.</div>';
+    }
+
+    // ── Milestones ─────────────────────────────────────────────────────────
+    var milestones = m.milestones || [];
+    if (milestones.length) {
+      html += '<div class="housing-milestones card"><div class="card-title">אבני דרך — יתרה משוערת</div>' +
+        '<table class="milestone-table"><thead><tr><th>יתרת מטרה</th><th>חודש משוער</th><th>שנים מהתחלה</th></tr></thead><tbody>' +
+        milestones.map(function(ms) {
+          var d = new Date(ms.date);
+          var dStr = isNaN(d) ? String(ms.date) : (String(d.getMonth()+1).padStart(2,'0') + '/' + d.getFullYear());
+          return '<tr><td>' + _n(ms.threshold) + '</td><td>' + dStr + '</td><td>' + ms.years_from_start + '</td></tr>';
+        }).join('') +
+        '</tbody></table></div>';
+    }
+
+    // ── Transactions ───────────────────────────────────────────────────────
+    var txns = m.housing_transactions || [];
+    if (txns.length) {
+      var totalOut = 0, totalIn = 0;
+      txns.forEach(function(tx) { totalOut += tx.out || 0; totalIn += tx.income || 0; });
+      html += '<div class="housing-txn-table card">' +
+        '<div class="housing-txn-hdr"><div class="card-title">' + _esc(m.mortgage_category || 'עסקאות נכס') + '</div>' +
+        '<div class="panel-count">' + txns.length + ' עסקאות</div></div>' +
+        '<table class="milestone-table housing-txn"><thead><tr><th>תאריך</th><th>שם</th><th>הוצאה</th><th>הכנסה</th></tr></thead><tbody>' +
+        txns.map(function(tx) {
+          var d = String(tx.date || '').slice(0, 10);
+          return '<tr><td>' + d + '</td><td>' + _esc(tx.name || '') + '</td>' +
+            '<td style="color:#e74c3c">' + (tx.out    ? _n(tx.out, 2)    : '') + '</td>' +
+            '<td style="color:#1e9d8b">' + (tx.income ? _n(tx.income, 2) : '') + '</td></tr>';
+        }).join('') +
+        '</tbody></table>' +
+        '<div class="txn-footer"><span>סה״כ</span>' +
+        '<span><span class="txn-footer-sum neg">' + _n(totalOut, 2) + '</span> / <span class="txn-footer-sum pos">' + _n(totalIn, 2) + '</span></span>' +
+        '</div></div>';
+    }
+
+    panel.innerHTML = html;
+
+    // ── Rate slider interactivity ──────────────────────────────────────────
+    var slider = document.getElementById('hs-rate-slider');
+    if (slider) {
+      slider.addEventListener('input', function() {
+        var rate = parseFloat(this.value);
+        document.getElementById('hs-rate-display').textContent = rate.toFixed(1) + '%';
+        var newAppr    = aptPrice * Math.pow(1 + rate / 100, yrs);
+        var newMoAppr  = aptPrice * (Math.pow(1 + rate / 100, 1/12) - 1);
+        var newEqAppr  = newAppr - curBal;
+        var newEqWInc  = newEqAppr + allInc;
+        var newApprG   = newAppr - aptPrice;
+        var newProfit  = (newEqAppr + allInc) - netInv;
+        var newTotRet  = netInv > 0 ? newProfit / netInv * 100 : 0;
+        var newAnnRet  = yrs > 0 ? (Math.pow(1 + newTotRet / 100, 1 / yrs) - 1) * 100 : 0;
+        var col        = newTotRet >= 0 ? '#1e9d8b' : '#e74c3c';
+
+        var elAppr = document.getElementById('hs-appr-price');
+        if (elAppr) { elAppr.textContent = _n(newAppr); elAppr.nextElementSibling && (elAppr.nextElementSibling.textContent = rate.toFixed(1) + '% × ' + yrs.toFixed(1) + ' שנים'); }
+        var elMo = document.getElementById('hs-monthly-appr');
+        if (elMo) { elMo.textContent = '+' + _n(newMoAppr); }
+        var elEq = document.getElementById('hs-equity');
+        if (elEq) elEq.textContent = _n(newEqWInc);
+        var elRet = document.getElementById('hs-total-return');
+        if (elRet) { elRet.textContent = _pct(newTotRet); elRet.style.color = col; }
+        var elAnn = document.getElementById('hs-annual-return');
+        if (elAnn) { elAnn.textContent = _pct(newAnnRet); elAnn.style.color = col; }
+
+        // Update equity bar segments
+        var newEqT  = Math.max(newEqWInc, 1);
+        var setBar  = function(id, pct) { var el = document.getElementById(id); if (el) el.style.width = Math.max(pct,0).toFixed(1) + '%'; };
+        setBar('hs-bar-appr', newApprG    / newEqT * 100);
+        var elLblAppr = document.getElementById('hs-lbl-appr');
+        if (elLblAppr) elLblAppr.textContent = '● עליית ערך ' + _n(newApprG);
+      });
+    }
 
     if (typeof Chart === 'undefined') return;
 
-    // Balance history chart
+    // ── Balance history chart ──────────────────────────────────────────────
     if (m.chart_balance && m.chart_balance.months) {
       var cb = m.chart_balance;
       var balWrap = document.createElement('div');
       balWrap.className = 'card'; balWrap.style.marginTop = '16px';
-      balWrap.innerHTML = '<div class="card-title">יתרת משכנתא לאורך זמן</div><canvas id="housing-bal-canvas" style="height:220px"></canvas>';
+      balWrap.innerHTML = '<div class="card-title">יתרת משכנתא לאורך זמן</div><div style="position:relative;height:220px"><canvas id="housing-bal-canvas"></canvas></div>';
       panel.appendChild(balWrap);
       new Chart(document.getElementById('housing-bal-canvas'), {
         type: 'line',
@@ -6647,12 +6839,12 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       });
     }
 
-    // Breakdown chart (interest vs principal)
+    // ── Breakdown chart (interest vs principal) ────────────────────────────
     if (m.chart_breakdown && m.chart_breakdown.months) {
       var bd = m.chart_breakdown;
       var bdWrap = document.createElement('div');
       bdWrap.className = 'card'; bdWrap.style.marginTop = '16px';
-      bdWrap.innerHTML = '<div class="card-title">פילוח תשלום: ריבית מול קרן</div><canvas id="housing-bd-canvas" style="height:220px"></canvas>';
+      bdWrap.innerHTML = '<div class="card-title">פילוח תשלום: ריבית מול קרן</div><div style="position:relative;height:220px"><canvas id="housing-bd-canvas"></canvas></div>';
       panel.appendChild(bdWrap);
       new Chart(document.getElementById('housing-bd-canvas'), {
         type: 'bar',
@@ -6668,12 +6860,12 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       });
     }
 
-    // Cashflow chart (payments vs rental income)
+    // ── Cashflow chart (payments vs rental income) ─────────────────────────
     if (m.chart_cashflow) {
       var cf = m.chart_cashflow;
       var cfWrap = document.createElement('div');
       cfWrap.className = 'card'; cfWrap.style.marginTop = '16px';
-      cfWrap.innerHTML = '<div class="card-title">תזרים תשלומים</div><canvas id="housing-cf-canvas" style="height:220px"></canvas>';
+      cfWrap.innerHTML = '<div class="card-title">תזרים תשלומים</div><div style="position:relative;height:220px"><canvas id="housing-cf-canvas"></canvas></div>';
       panel.appendChild(cfWrap);
       new Chart(document.getElementById('housing-cf-canvas'), {
         type: 'bar',

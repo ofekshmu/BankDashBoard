@@ -6806,7 +6806,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         var elEq = document.getElementById('hs-equity');
         if (elEq) elEq.textContent = _n(newEqWInc);
         var elRet = document.getElementById('hs-total-return');
-        if (elRet) { elRet.textContent = _pct(newTotRet); elRet.style.color = col; }
+        if (elRet) { elRet.textContent = _pct(newTotRet); elRet.style.color = col; elRet.nextElementSibling && (elRet.nextElementSibling.textContent = 'רווח נקי: ' + (newProfit >= 0 ? '+' : '') + _n(newProfit)); }
         var elAnn = document.getElementById('hs-annual-return');
         if (elAnn) { elAnn.textContent = _pct(newAnnRet); elAnn.style.color = col; }
 

@@ -2814,6 +2814,13 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--na
 .bt-cell.na{background:#e5e7eb;opacity:.4}
 .bt-lbl-cell{width:14px;height:18px;flex-shrink:0;font-size:.55em;color:var(--text-muted);position:relative;overflow:visible}
 .bt-lbl-cell span{position:absolute;left:50%;transform:translateX(-50%);white-space:nowrap;top:4px}
+.bt-title-row{display:flex;align-items:center;gap:8px;margin-bottom:14px}
+.bt-title-row .bt-title{margin-bottom:0}
+.bt-info-btn{width:17px;height:17px;border-radius:50%;background:var(--text-muted);color:#fff;font-size:.65em;font-weight:700;border:none;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;line-height:1;position:relative}
+.bt-info-btn:hover{background:var(--navy)}
+.bt-info-popup{display:none;position:absolute;top:22px;right:0;background:#1e2a4a;color:#e8edf5;padding:13px 15px;border-radius:10px;font-size:.74em;line-height:1.7;z-index:1001;width:270px;box-shadow:0 6px 24px rgba(0,0,0,.45);white-space:normal;font-weight:400;text-align:right;cursor:default}
+.bt-info-btn:hover .bt-info-popup,.bt-info-popup:hover{display:block}
+.bt-info-popup b{color:#7ec8e3}
 /* Legend collapsible */
 .legend-toggle{background:none;border:none;color:var(--text-muted);font-size:.72em;cursor:pointer;padding:0;margin-top:16px;display:flex;align-items:center;gap:4px}
 .legend-toggle:hover{color:var(--navy)}
@@ -3084,6 +3091,8 @@ def _build_organizer_page(progress_callback=None):
         pass
 
     cols = list(df.columns)
+    # heatmap excludes bank columns (they have their own timeline)
+    hm_cols = [c for c in cols if c.split(' | ')[-1] != BANK_CARD_NUMBER]
 
     # ── helpers ──────────────────────────────────────────────────────────────
     def _abbrev(col):
@@ -3176,7 +3185,7 @@ def _build_organizer_page(progress_callback=None):
         lbl_cls = 'hm-label recent' if is_recent else 'hm-label'
         cells_html = f'<td class="{lbl_cls}">{_esc(str(idx))}</td>'
 
-        for col in cols:
+        for col in hm_cols:
             value    = df.at[idx, col]
             status   = color_coded_df.at[idx, col] if idx in color_coded_df.index and col in color_coded_df.columns else None
             is_date  = isinstance(value, str) and ('-' in value or '/' in value)
@@ -3275,9 +3284,25 @@ def _build_organizer_page(progress_callback=None):
         # re-sort chips after adding bank gaps
         recent_chips.sort(key=lambda x: -x[0])
 
+        _info_popup = (
+            '<div class="bt-info-popup">'
+            '<b>כיצד מחושב הכיסוי?</b><br>'
+            'הגרף מציג כיסוי לפי <b>עסקאות</b> שנמצאות בטבלת BankTransactions.<br><br>'
+            '<b style="color:#22c55e">&#x2713; ירוק</b> — ייבאת קובץ בנק (FibiSave*.xls) '
+            'לחודש זה; העמודה מציגה את שם הקובץ.<br>'
+            '<b style="color:#ef4444">&#x2717; אדום</b> — יש נתוני כרטיסים לחודש אך '
+            'אין עסקאות בנק — קובץ לא יובא.<br>'
+            '<b style="color:#9ca3af">&#x2014; אפור</b> — אין נתונים כלל לחודש זה.<br><br>'
+            'עמודות ה-Bank וה-Bank Range הוסרו מהטבלה המרכזית כי לא היו מיוצגות שם כראוי '
+            '— הגרף הזה מחליף אותן.'
+            '</div>'
+        )
         bank_timeline_html = (
             f'<div class="bank-timeline">'
-            f'<div class="bt-title">כיסוי בנק לאומי</div>'
+            f'<div class="bt-title-row">'
+            f'<span class="bt-title">כיסוי בנק לאומי</span>'
+            f'<button class="bt-info-btn" tabindex="-1">i{_info_popup}</button>'
+            f'</div>'
             f'<div class="bt-chart">'
             f'<div class="bt-track"><span class="bt-track-lbl"></span>'
             f'<div class="bt-cells">{lbl_cells}</div></div>'
@@ -3310,7 +3335,7 @@ def _build_organizer_page(progress_callback=None):
 
     # ── heatmap header ────────────────────────────────────────────────────────
     hm_header = '<tr><th></th>'
-    for col in cols:
+    for col in hm_cols:
         hm_header += f'<th class="hm-th-wrap"><div class="hm-th">{_esc(_abbrev(col))}</div></th>'
     hm_header += '</tr>'
 

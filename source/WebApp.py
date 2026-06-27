@@ -3246,32 +3246,51 @@ def _build_organizer_page(progress_callback=None):
         pass
 
     # run sequential balance validation to detect months with missing transactions
-    _mismatch_months = set()  # 'YYYY-MM' where balance check fails
+    _mismatch_details = {}  # 'YYYY-MM' → list of mismatch detail dicts
+    _prev_row_info = None
     try:
         from database import DataBase as _DB_val
         _val_rows = _DB_val().cursor.execute(
-            "SELECT ID, Date, Out, Income, Balance "
+            "SELECT ID, Date, Out, Income, Balance, Name, Source_file "
             "FROM BankTransactions ORDER BY Date ASC, ID DESC"
         ).fetchall()
         _vbal = None
         for _vr in _val_rows:
-            _vid, _vdate, _vout, _vinc, _vbs = _vr
+            _vid, _vdate, _vout, _vinc, _vbs, _vname, _vsrc = _vr
             _vout_f = float(_vout or 0)
             _vinc_f = float(_vinc or 0)
-            _has_vbs = isinstance(_vbs, (int, float))
+            try:
+                _vsb = float(_vbs)
+                _has_vbs = True
+            except (TypeError, ValueError):
+                _has_vbs = False
+                _vsb = None
+            _vdate_s = str(_vdate)[:10]
+            _vym = str(_vdate)[:7]
+            _vsrc_bn = (_vsrc or '').replace('\\', '/').split('/')[-1]
             if _vbal is None:
                 if _has_vbs:
-                    _vbal = float(_vbs)
+                    _vbal = _vsb
             else:
                 _vbal += _vinc_f - _vout_f
                 if _has_vbs:
-                    _vsb = float(_vbs)
                     if abs(_vbal - _vsb) > 0.01:
-                        _vym = str(_vdate)[:7]  # 'YYYY-MM'
-                        _mismatch_months.add(_vym)
-                    _vbal = _vsb  # resync to stored value; isolates each mismatch to its month
+                        _det = {'calc': round(_vbal, 2), 'stored': round(_vsb, 2),
+                                'diff': round(_vsb - _vbal, 2),
+                                'id': _vid, 'date': _vdate_s,
+                                'name': str(_vname or ''), 'file': _vsrc_bn}
+                        if _prev_row_info:
+                            _det.update({'prev_id': _prev_row_info['id'],
+                                         'prev_date': _prev_row_info['date'],
+                                         'prev_name': _prev_row_info['name'],
+                                         'prev_file': _prev_row_info['file']})
+                        _mismatch_details.setdefault(_vym, []).append(_det)
+                    _vbal = _vsb  # resync; isolates each mismatch to its month
+            _prev_row_info = {'id': _vid, 'date': _vdate_s,
+                              'name': str(_vname or ''), 'file': _vsrc_bn}
     except Exception:
         pass
+    _mismatch_months = set(_mismatch_details.keys())
 
     bank_timeline_html = ''
     if chrono_months:
@@ -3317,7 +3336,8 @@ def _build_organizer_page(progress_callback=None):
             else:
                 _tip = f'בנק לאומי|— אין עסקאות|{_esc(str(_idx))}'
                 _cls = 'bt-cell na'
-            cells_html += f'<div class="{_cls}" data-tip="{_tip}"></div>'
+            _dm = f' data-month="{_ym}"' if _cls == 'bt-cell warn' else ''
+            cells_html += f'<div class="{_cls}" data-tip="{_tip}"{_dm}></div>'
 
         # re-sort chips after adding bank gaps
         recent_chips.sort(key=lambda x: -x[0])
@@ -3351,6 +3371,64 @@ def _build_organizer_page(progress_callback=None):
             f'<div class="bt-cells">{cells_html}</div>'
             f'</div></div></div>'
         )
+        if _mismatch_details:
+            import json as _json
+            _md_json = _json.dumps(_mismatch_details, ensure_ascii=False, default=str)
+            bank_timeline_html += (
+                '<style>'
+                '#bt-detail{margin-top:10px;padding:14px 16px;background:#1a2540;'
+                'border-radius:8px;border-left:3px solid #f59e0b;display:none;'
+                'font-size:.82em;direction:rtl;text-align:right}'
+                '#bt-detail.open{display:block}'
+                '.btd-title{color:#f59e0b;font-weight:700;margin-bottom:8px;font-size:.95em}'
+                '.btd-row{margin:5px 0;color:#cbd5e1;line-height:1.5}'
+                '.btd-row b{color:#e2e8f0}'
+                '.btd-val{font-family:monospace;color:#fbbf24}'
+                '.btd-sep{border:none;border-top:1px solid #2d3748;margin:10px 0}'
+                '.btd-close{float:left;cursor:pointer;color:#64748b;font-size:1.1em;background:none;'
+                'border:none;padding:0;line-height:1}'
+                '.btd-close:hover{color:#94a3b8}'
+                '.btd-hint{color:#64748b;font-size:.88em;margin-top:4px}'
+                '</style>'
+                '<div id="bt-detail" dir="rtl">'
+                '<button class="btd-close" onclick="this.parentElement.classList.remove(\'open\')">✕</button>'
+                '<div id="bt-detail-body"></div>'
+                '</div>'
+                f'<script>(function(){{'
+                f'var DATA={_md_json};'
+                'function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}'
+                'document.querySelectorAll(".bt-cell.warn").forEach(function(el){'
+                'el.style.cursor="pointer";'
+                'el.addEventListener("click",function(){'
+                'var ym=el.getAttribute("data-month");'
+                'var items=DATA[ym]||[];'
+                'if(!items.length)return;'
+                'var h=\'<div class="btd-title">⚠ אי-התאמה בבנק לאומי — \'+esc(ym)+\'</div>\';'
+                'h+=\'<div class="btd-hint">הפרש עשוי להצביע על עסקה חסרה בין שתי השורות הבאות:</div>\';'
+                'items.forEach(function(m,i){'
+                'if(i>0)h+=\'<hr class="btd-sep">\';'
+                'if(m.prev_id!==undefined){'
+                'h+=\'<div class="btd-row">🔹 עסקה קודמת: <b>\'+esc(m.prev_name)+\'</b>\';'
+                'h+=\' &nbsp;|&nbsp; מזהה: <span class="btd-val">\'+m.prev_id+\'</span>\';'
+                'h+=\' &nbsp;|&nbsp; תאריך: <span class="btd-val">\'+esc(m.prev_date)+\'</span>\';'
+                'h+=\' &nbsp;|&nbsp; קובץ: <span class="btd-val">\'+esc(m.prev_file)+\'</span></div>\';'
+                '}'
+                'h+=\'<div class="btd-row">🔸 עסקה עם אי-התאמה: <b>\'+esc(m.name)+\'</b>\';'
+                'h+=\' &nbsp;|&nbsp; מזהה: <span class="btd-val">\'+m.id+\'</span>\';'
+                'h+=\' &nbsp;|&nbsp; תאריך: <span class="btd-val">\'+esc(m.date)+\'</span>\';'
+                'h+=\' &nbsp;|&nbsp; קובץ: <span class="btd-val">\'+esc(m.file)+\'</span></div>\';'
+                'h+=\'<div class="btd-row">יתרה מחושבת: <span class="btd-val">\'+m.calc+\'</span>\';'
+                'h+=\' &nbsp;&nbsp; יתרה רשומה: <span class="btd-val">\'+m.stored+\'</span>\';'
+                'h+=\' &nbsp;&nbsp; הפרש: <span class="btd-val">\'+m.diff+\'</span></div>\';'
+                '});'
+                'document.getElementById("bt-detail-body").innerHTML=h;'
+                'var panel=document.getElementById("bt-detail");'
+                'panel.classList.add("open");'
+                'panel.scrollIntoView({behavior:"smooth",block:"nearest"});'
+                '});'
+                '});'
+                f'}})();</script>'
+            )
 
     # ── alert content ─────────────────────────────────────────────────────────
     if not recent_chips and not older_chips:

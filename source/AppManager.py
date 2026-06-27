@@ -1830,7 +1830,13 @@ class AppManager:
                     else:
                         result[k] = []
                 elif isinstance(v, dict):
-                    result[k] = {str(kk): _safe(vv) for kk, vv in v.items()}
+                    inner = {}
+                    for kk, vv in v.items():
+                        if isinstance(vv, (list, tuple)):
+                            inner[str(kk)] = [_safe(x) for x in vv]
+                        else:
+                            inner[str(kk)] = _safe(vv)
+                    result[k] = inner
                 elif isinstance(v, (list, tuple)):
                     result[k] = [_safe(x) for x in v]
                 else:
@@ -2658,7 +2664,13 @@ class AppManager:
                     else:
                         result[k] = []
                 elif isinstance(v, dict):
-                    result[k] = {str(kk): _safe(vv) for kk, vv in v.items()}
+                    inner = {}
+                    for kk, vv in v.items():
+                        if isinstance(vv, (list, tuple)):
+                            inner[str(kk)] = [_safe(x) for x in vv]
+                        else:
+                            inner[str(kk)] = _safe(vv)
+                    result[k] = inner
                 elif isinstance(v, (list, tuple)):
                     result[k] = [_safe(x) for x in v]
                 else:

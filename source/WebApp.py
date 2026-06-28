@@ -65,6 +65,7 @@ _session_auto_triggered: set = set()
 _monthly_data_cache: dict = {}
 _global_data_cache: dict = {}   # keyed by yyyy_mm (most-recent) or 'global'
 _accounts_cache: dict = {}      # {'data': {...}} in-memory cache for accounts panel
+_housing_cache: dict = {}       # {'ts': float, 'data': dict} in-memory cache for housing panel
 
 _ACCOUNTS_JSON = os.path.join(os.path.dirname(__file__), '..', 'Outputs', 'accounts_data.json')
 
@@ -2083,6 +2084,32 @@ def global_data_api():
     except Exception as e:
         import traceback
         return jsonify({'error': str(e), 'trace': traceback.format_exc()}), 500
+
+
+@app.route('/api/housing/data')
+def housing_data_api():
+    """Return housing/mortgage data always computed for today's date (not month-specific)."""
+    import time as _time
+    cached = _housing_cache.get('data')
+    if cached and (_time.time() - cached['ts']) < 1800:
+        return jsonify(cached['data'])
+    try:
+        from datetime import datetime as _dt
+        from AppManager import AppManager
+        payload = AppManager(skip_parser=True).get_global_data(t=_dt.now())
+        data = {'mortgage': payload.get('mortgage', {})}
+        _housing_cache['data'] = {'ts': _time.time(), 'data': data}
+        return jsonify(data)
+    except Exception as e:
+        import traceback
+        return jsonify({'error': str(e), 'trace': traceback.format_exc()}), 500
+
+
+@app.route('/api/housing/invalidate', methods=['POST'])
+def housing_invalidate():
+    """Clear the housing data cache so the next GET recomputes from scratch."""
+    _housing_cache.clear()
+    return jsonify({'ok': True})
 
 
 @app.route('/api/regen/status')

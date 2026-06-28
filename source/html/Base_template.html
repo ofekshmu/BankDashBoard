@@ -554,7 +554,11 @@ body {
 #panel-housing .kpi-card {
   border: 1px solid #dde2ef;
   box-shadow: 0 2px 8px rgba(30,42,74,0.13);
+  text-align: center;
+  align-items: center;
 }
+#panel-housing .kpi-label { justify-content: center; }
+#panel-housing .kpi-value { white-space: normal; overflow-wrap: break-word; word-break: break-word; }
 .kpi-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
 
 /* Hero card — Overall Net Income */
@@ -797,15 +801,6 @@ body {
 .txn-footer-sum.neg { color: var(--red); }
 .txn-footer-sum.pos { color: var(--teal); }
 
-.hs-regen-btn {
-  float: left; background: var(--navy); color: #fff;
-  border: none; border-radius: var(--radius-sm);
-  padding: 5px 13px; cursor: pointer;
-  font-size: 0.78em; font-weight: 700;
-  transition: opacity 0.15s;
-}
-.hs-regen-btn:hover { opacity: 0.85; }
-.hs-regen-btn:disabled { opacity: 0.5; cursor: default; }
 
 .housing-cf-kpis {
   display: grid;
@@ -2070,6 +2065,13 @@ body {
     </button>
   </div>
 
+  <!-- Housing FAB: shown only when housing panel is active -->
+  <div class="regen-fab-group" id="housing-regen-fab" style="display:none">
+    <button class="reload-btn" id="housing-reload-btn" onclick="_regenHousing()" title="רענן נתוני דיור">
+      <span class="reload-btn-icon">&#8635;</span><span class="reload-btn-label">רענן דיור</span>
+    </button>
+  </div>
+
   <!-- Organizer missing-file alerts (injected by Python) -->
   <div id="organizer-alerts"></div>
 
@@ -2293,6 +2295,7 @@ var _PANEL_TITLES = { overview: 'ניתוח חודשי', accounts: 'חשבונו
 var _MONTHLY_PANELS = { overview: true };
 function _applyPanelUI(name) {
   var isMonthly = !!_MONTHLY_PANELS[name];
+  var isHousing = name === 'housing';
   var kpiRow  = document.getElementById('kpi-row');
   var kpiRow2 = document.getElementById('kpi-row-2');
   if (kpiRow)  kpiRow.style.display  = isMonthly ? '' : 'none';
@@ -2304,6 +2307,8 @@ function _applyPanelUI(name) {
     var _mob = window.matchMedia('(max-width:768px)').matches;
     reloadBtn.style.display = isMonthly ? (_mob ? 'flex' : '') : 'none';
   }
+  var housingFab = document.getElementById('housing-regen-fab');
+  if (housingFab) housingFab.style.display = isHousing ? '' : 'none';
 }
 function showPanel(name, btn) {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
@@ -2318,6 +2323,7 @@ function showPanel(name, btn) {
   if (nonMonthly.indexOf(name) !== -1) { url.searchParams.set('panel', name); }
   else { url.searchParams.delete('panel'); }
   window.history.replaceState({}, '', url.toString());
+  if (name === 'housing' && typeof _loadHousingPanel === 'function') _loadHousingPanel(false);
 }
 // ── Smart nav to monthly analysis (from any page) ─────────
 function _navToMonthly(btn) {
@@ -2347,7 +2353,7 @@ function _navToMonthly(btn) {
       navBtn = document.querySelector('.nav-item[href="/' + panel + '"]');
     }
     if (navBtn) navBtn.classList.add('active');
-    // Load live data for accounts panel when opened via URL.
+    // Load live data for accounts/housing panels when opened via URL.
     // Use setTimeout(0) — DOMContentLoaded has already fired at this point
     // and the showPanel override (which calls these) is defined later in the
     // same script block, so we need to defer until the full script finishes.
@@ -2356,6 +2362,11 @@ function _navToMonthly(btn) {
         if (typeof _loadFxAndEnrich === 'function') _loadFxAndEnrich();
         if (typeof _loadCashPie === 'function') _loadCashPie();
         if (typeof _loadAccountsData === 'function') _loadAccountsData(false);
+      }, 0);
+    }
+    if (panel === 'housing') {
+      setTimeout(function() {
+        if (typeof _loadHousingPanel === 'function') _loadHousingPanel(false);
       }, 0);
     }
   }
@@ -6636,6 +6647,50 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   }
 
   // ── Housing / Mortgage ─────────────────────────────────────────────────
+  var _HS_CACHE_KEY = 'hs_v1';
+  var _HS_CACHE_TTL = 30 * 60 * 1000; // 30 min
+
+  function _loadHousingPanel(force) {
+    if (!force) {
+      try {
+        var raw = sessionStorage.getItem(_HS_CACHE_KEY);
+        if (raw) {
+          var obj = JSON.parse(raw);
+          if (obj && obj.ts && (Date.now() - obj.ts) < _HS_CACHE_TTL) {
+            _renderHousing(obj.data);
+            return;
+          }
+        }
+      } catch (_) {}
+    }
+    var panel = document.getElementById('panel-housing');
+    if (panel) panel.innerHTML = '<div style="padding:40px;text-align:center;color:#aaa">טוען נתוני דיור…</div>';
+    fetch('/api/housing/data', {cache: 'no-store'})
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        try { sessionStorage.setItem(_HS_CACHE_KEY, JSON.stringify({ts: Date.now(), data: d})); } catch (_) {}
+        _renderHousing(d);
+        var btn = document.getElementById('housing-reload-btn');
+        if (btn) btn.classList.remove('running');
+      })
+      .catch(function(e) {
+        console.error('Housing data load failed:', e);
+        var btn = document.getElementById('housing-reload-btn');
+        if (btn) btn.classList.remove('running');
+      });
+  }
+
+  function _regenHousing() {
+    var btn = document.getElementById('housing-reload-btn');
+    if (btn) btn.classList.add('running');
+    try { sessionStorage.removeItem(_HS_CACHE_KEY); } catch (_) {}
+    fetch('/api/housing/invalidate', {method: 'POST'})
+      .then(function() { _loadHousingPanel(true); })
+      .catch(function() {
+        if (btn) btn.classList.remove('running');
+      });
+  }
+
   function _renderHousing(data) {
     var panel = document.getElementById('panel-housing');
     if (!panel) return;
@@ -6770,7 +6825,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
 
     // ── Build HTML ─────────────────────────────────────────────────────────
     var html = '<div class="card">' +
-      '<div class="card-title">ניהול משכנתא / נכס<button id="hs-regen-btn" class="hs-regen-btn" title="רענן נתונים">↺ רענן</button></div>' +
+      '<div class="card-title">ניהול משכנתא / נכס</div>' +
       _row2(
         _kpiCard('יתרת משכנתא', _n(curBal), '#e74c3c', null, null, 'הקרן שנותרה לתשלום על המשכנתא.'),
         equityCard, 'housing-balance-row'
@@ -6893,18 +6948,6 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       });
     }
 
-    // ── Regen button ──────────────────────────────────────────────────────
-    var regenBtn = document.getElementById('hs-regen-btn');
-    if (regenBtn) {
-      regenBtn.addEventListener('click', function() {
-        var btn = this;
-        btn.disabled = true; btn.textContent = 'מחשב...';
-        fetch('/api/general/' + _yyyy_mm + '/invalidate', { method: 'POST' })
-          .then(function() { window.location.reload(); })
-          .catch(function() { btn.disabled = false; btn.textContent = '↺ רענן'; });
-      });
-    }
-
     // ── Spending vs Earning chart (canvas already in DOM via html string) ──
     if (typeof Chart !== 'undefined' && m.chart_cashflow && m.chart_cashflow.months && m.chart_cashflow.months.length) {
       var cf = m.chart_cashflow;
@@ -6995,7 +7038,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     var ml = data.month_label || '';
     document.title = 'ניתוח חודשי — ' + ml;
     [_renderKpi, _renderOverviewCharts, _renderTransactions, _renderPayments,
-     _renderAlerts, _renderOrganizerAlerts, _renderHousing]
+     _renderAlerts, _renderOrganizerAlerts]
     .forEach(function(fn) {
       try { fn(data); } catch(e) { console.error(fn.name + ' failed:', e); }
     });
@@ -7215,6 +7258,8 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   window._cacheGet            = _cacheGet;
   window._renderAccountsTable = _renderAccountsTable;
   window._renderAccountsChart = _renderAccountsChart;
+  window._loadHousingPanel    = _loadHousingPanel;
+  window._regenHousing        = _regenHousing;
   document.addEventListener('DOMContentLoaded', _initDynamicPage);
 
   // Set --btn-half CSS var so the progress panel anchors at button center

@@ -558,7 +558,10 @@ body {
   align-items: center;
 }
 #panel-housing .kpi-label { justify-content: center; }
-#panel-housing .kpi-value { white-space: normal; overflow-wrap: break-word; word-break: break-word; }
+#panel-housing .kpi-value { white-space: nowrap; }
+#panel-housing .kpi-value.kpi-val-sm  { font-size: 1.15em !important; }
+#panel-housing .kpi-value.kpi-val-xs  { font-size: 0.92em !important; }
+#panel-housing .kpi-value.kpi-val-xxs { font-size: 0.76em !important; }
 .kpi-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
 
 /* Hero card — Overall Net Income */
@@ -6664,7 +6667,9 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       } catch (_) {}
     }
     var panel = document.getElementById('panel-housing');
-    if (panel) panel.innerHTML = '<div style="padding:40px;text-align:center;color:#aaa">טוען נתוני דיור…</div>';
+    if (panel && !panel.querySelector('.card')) {
+      panel.innerHTML = '<div style="padding:40px;text-align:center;color:#aaa">טוען נתוני דיור…</div>';
+    }
     fetch('/api/housing/data', {cache: 'no-store'})
       .then(function(r) { return r.json(); })
       .then(function(d) {
@@ -6711,9 +6716,11 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     function _kpiCard(label, valueHtml, color, sublabel, id, infoTip) {
       var tip = infoTip ? '<span class="kpi-info-wrap"><span class="kpi-info-icon">i</span><span class="kpi-tooltip">' + _esc(infoTip) + '</span></span>' : '';
       var sub = sublabel ? '<div class="kpi-sublabel">' + _esc(sublabel) + '</div>' : '';
+      var txtLen = valueHtml.replace(/<[^>]*>/g, '').length;
+      var szCls = txtLen >= 13 ? ' kpi-val-xxs' : txtLen >= 10 ? ' kpi-val-xs' : txtLen >= 8 ? ' kpi-val-sm' : '';
       return '<div class="kpi-card">' +
         '<div class="kpi-label">' + _esc(label) + tip + '</div>' +
-        '<div class="kpi-value"' + (id ? ' id="' + id + '"' : '') + (color ? ' style="color:' + color + '"' : '') + '>' + valueHtml + '</div>' +
+        '<div class="kpi-value' + szCls + '"' + (id ? ' id="' + id + '"' : '') + (color ? ' style="color:' + color + '"' : '') + '>' + valueHtml + '</div>' +
         sub + '</div>';
     }
     function _section(title) {
@@ -6966,9 +6973,9 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         // Simpler net calculation using already-built arrays
         cfNet = cfLabels.map(function(_, j) { return cfRentals[j] - cfPayments[j]; });
 
-        // On mobile, limit to last 4 months; desktop shows up to 12
+        // On mobile, limit to last 3 months; desktop shows up to 12
         var isMobile = window.innerWidth <= 700;
-        var maxShow  = isMobile ? 4 : 12;
+        var maxShow  = isMobile ? 3 : 12;
         if (cfLabels.length > maxShow) {
           var start = cfLabels.length - maxShow;
           cfLabels   = cfLabels.slice(start);

@@ -2359,9 +2359,9 @@ function _navToMonthly(btn) {
       }, 0);
     }
     if (panel === 'housing') {
-      setTimeout(function() {
+      document.addEventListener('DOMContentLoaded', function() {
         if (typeof _loadHousingPanel === 'function') _loadHousingPanel(false);
-      }, 0);
+      });
     }
   }
 })();

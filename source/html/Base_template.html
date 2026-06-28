@@ -720,6 +720,7 @@ body {
 
 /* Equity breakdown bar */
 .equity-bar-wrap { margin-top: 14px; }
+.hs-equity-bar-full { margin: 8px 0 14px; }
 .equity-bar {
   display: flex;
   height: 10px;
@@ -6779,19 +6780,21 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
           '  מקדמה: ' + _n(initPay) + '\n  קרן שנפרעה: ' + _n(principalPaid) + '\n  עליית ערך: ' + _n(apprGain) + '\n  הכנסות: ' + _n(allInc) + '\n  = סה״כ: ' + _n(eqWithInc) + '</span></span></div>' +
         '<div class="kpi-value" id="hs-equity" style="color:#1e9d8b">' + _n(eqWithInc) + '</div>' +
         '<div class="kpi-sublabel">כולל עליית ערך והכנסות</div>' +
-        '<div class="equity-bar-wrap">' +
-          '<div class="equity-bar">' +
-            '<div class="equity-bar-seg" id="hs-bar-down" style="width:' + peqDown.toFixed(1) + '%;background:' + C_DOWN + '" title="מקדמה ' + _n(initPay) + '"></div>' +
-            '<div class="equity-bar-seg" id="hs-bar-prin" style="width:' + peqPrin.toFixed(1) + '%;background:' + C_PRIN + '" title="קרן שנפרעה ' + _n(principalPaid) + '"></div>' +
-            '<div class="equity-bar-seg" id="hs-bar-appr" style="width:' + peqAppr.toFixed(1) + '%;background:' + C_APPR + '" title="עליית ערך ' + _n(apprGain) + '"></div>' +
-            '<div class="equity-bar-seg" id="hs-bar-inc"  style="width:' + peqInc.toFixed(1)  + '%;background:' + C_INC  + '" title="הכנסות ' + _n(allInc) + '"></div>' +
-          '</div>' +
-          '<div class="equity-bar-labels-4">' +
-            '<span id="hs-lbl-down" style="color:' + C_DOWN + '">● מקדמה ' + _n(initPay) + '</span>' +
-            '<span id="hs-lbl-prin" style="color:' + C_PRIN + '">● קרן שנפרעה ' + _n(principalPaid) + '</span>' +
-            '<span id="hs-lbl-appr" style="color:' + C_APPR + '">● עליית ערך ' + _n(apprGain) + '</span>' +
-            '<span id="hs-lbl-inc"  style="color:' + C_INC  + '">● הכנסות ' + _n(allInc) + '</span>' +
-          '</div>' +
+      '</div>';
+
+    var equityBarHtml =
+      '<div class="equity-bar-wrap hs-equity-bar-full">' +
+        '<div class="equity-bar" style="direction:rtl">' +
+          '<div class="equity-bar-seg" id="hs-bar-down" style="width:' + peqDown.toFixed(1) + '%;background:' + C_DOWN + '" title="מקדמה ' + _n(initPay) + '"></div>' +
+          '<div class="equity-bar-seg" id="hs-bar-prin" style="width:' + peqPrin.toFixed(1) + '%;background:' + C_PRIN + '" title="קרן שנפרעה ' + _n(principalPaid) + '"></div>' +
+          '<div class="equity-bar-seg" id="hs-bar-appr" style="width:' + peqAppr.toFixed(1) + '%;background:' + C_APPR + '" title="עליית ערך ' + _n(apprGain) + '"></div>' +
+          '<div class="equity-bar-seg" id="hs-bar-inc"  style="width:' + peqInc.toFixed(1)  + '%;background:' + C_INC  + '" title="הכנסות ' + _n(allInc) + '"></div>' +
+        '</div>' +
+        '<div class="equity-bar-labels-4" style="direction:rtl">' +
+          '<span id="hs-lbl-down" style="color:' + C_DOWN + '">● מקדמה ' + _n(initPay) + '</span>' +
+          '<span id="hs-lbl-prin" style="color:' + C_PRIN + '">● קרן שנפרעה ' + _n(principalPaid) + '</span>' +
+          '<span id="hs-lbl-appr" style="color:' + C_APPR + '">● עליית ערך ' + _n(apprGain) + '</span>' +
+          '<span id="hs-lbl-inc"  style="color:' + C_INC  + '">● הכנסות ' + _n(allInc) + '</span>' +
         '</div>' +
       '</div>';
 
@@ -6832,6 +6835,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         _kpiCard('יתרת משכנתא', _n(curBal), '#e74c3c', null, null, 'הקרן שנותרה לתשלום על המשכנתא.'),
         equityCard, 'housing-balance-row'
       ) +
+      equityBarHtml +
       _row3(
         _kpiCard('מחיר רכישה', _n(aptPrice), '#1a3a5c', null, null, 'מחיר הרכישה המקורי של הדירה.'),
         _kpiCard('עליית ערך חודשית', '+' + _n(moAppr), '#1e9d8b', defRate.toFixed(1) + '%/שנה', 'hs-monthly-appr'),

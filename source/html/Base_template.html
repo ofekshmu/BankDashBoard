@@ -559,9 +559,6 @@ body {
 }
 #panel-housing .kpi-label { justify-content: center; }
 #panel-housing .kpi-value { white-space: nowrap; }
-#panel-housing .kpi-value.kpi-val-sm  { font-size: 1.15em !important; }
-#panel-housing .kpi-value.kpi-val-xs  { font-size: 0.92em !important; }
-#panel-housing .kpi-value.kpi-val-xxs { font-size: 0.76em !important; }
 .kpi-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
 
 /* Hero card — Overall Net Income */
@@ -845,19 +842,13 @@ body {
   .housing-2col-row .kpi-card,
   .housing-3col-row .kpi-card { min-width: 0; overflow: hidden; }
 
-  /* Scale down KPI values so numbers fit on narrow cards */
-  #panel-housing .kpi-value {
-    font-size: 1.05em;
-    word-break: break-all;
-    overflow-wrap: break-word;
-  }
+  /* Scale down KPI values on mobile */
+  #panel-housing .kpi-value { font-size: 1.05em; }
   #panel-housing .kpi-sublabel { font-size: 0.72em; }
   #panel-housing .kpi-label    { font-size: 0.8em; }
 
-  /* 2-col cards need extra shrinkage — values can be 7+ digit sums.
-     Must use #panel-housing prefix to beat #panel-housing .kpi-value specificity. */
-  #panel-housing .housing-2col-row .kpi-card .kpi-value { font-size: 0.78em; }
-  #panel-housing .housing-2col-row .kpi-card .kpi-label { font-size: 0.75em; }
+  /* When a 2-col row contains a full-width card, stack all cards vertically */
+  .housing-2col-row:has(.hs-fullwidth) { grid-template-columns: 1fr; }
 
   /* Stack equity bar breakdown labels into single column so they don't overflow */
   #panel-housing .housing-2col-row .equity-bar-labels-4 {
@@ -6717,10 +6708,10 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       var tip = infoTip ? '<span class="kpi-info-wrap"><span class="kpi-info-icon">i</span><span class="kpi-tooltip">' + _esc(infoTip) + '</span></span>' : '';
       var sub = sublabel ? '<div class="kpi-sublabel">' + _esc(sublabel) + '</div>' : '';
       var txtLen = valueHtml.replace(/<[^>]*>/g, '').length;
-      var szCls = txtLen >= 13 ? ' kpi-val-xxs' : txtLen >= 10 ? ' kpi-val-xs' : txtLen >= 8 ? ' kpi-val-sm' : '';
-      return '<div class="kpi-card">' +
+      var cardCls = txtLen >= 10 ? ' hs-fullwidth' : '';
+      return '<div class="kpi-card' + cardCls + '">' +
         '<div class="kpi-label">' + _esc(label) + tip + '</div>' +
-        '<div class="kpi-value' + szCls + '"' + (id ? ' id="' + id + '"' : '') + (color ? ' style="color:' + color + '"' : '') + '>' + valueHtml + '</div>' +
+        '<div class="kpi-value"' + (id ? ' id="' + id + '"' : '') + (color ? ' style="color:' + color + '"' : '') + '>' + valueHtml + '</div>' +
         sub + '</div>';
     }
     function _section(title) {

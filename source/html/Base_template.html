@@ -2931,6 +2931,10 @@ var _regenProg = {
       var b = document.getElementById('reload-btn');
       if (b) b.classList.remove('stale-db', 'stale-code');
       _updateReloadBtnGlobalState();
+      // Re-apply panel UI so reload-btn visibility is correct for the active panel
+      var activeEl = document.querySelector('.panel.active');
+      var activeName = activeEl ? activeEl.id.replace('panel-', '') : 'overview';
+      if (typeof _applyPanelUI === 'function') _applyPanelUI(activeName);
     }, success ? 1800 : 300);
   },
   // All UI elements derive from _regenPctMap[k] — pct is only a fallback.
@@ -7141,9 +7145,11 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         var _yr = parseInt(_parts[0], 10), _mo = parseInt(_parts[1], 10);
         var _dateStr = _yr + '-' + (_mo < 10 ? '0' + _mo : '' + _mo) + '-01';
         _markGenerating(initKey, true);
-        if (_btn) { _btn.classList.add('running'); _btn.disabled = true; _btn.classList.remove('stale-db', 'stale-code'); }
+        // Show reload-btn regardless of active panel so the progress % is visible during regen
+        if (_btn) { _btn.style.display = ''; _btn.classList.add('running'); _btn.disabled = true; _btn.classList.remove('stale-db', 'stale-code'); }
         _regenProg.start();
         _updateReloadBtnGlobalState();
+        if (typeof showLogFloat === 'function') showLogFloat('מחשב מחדש ניתוח…');
         // Single-invocation stream: worker + SSE share the same Vercel function instance
         var _streamUrl = '/api/analysis-stream?month=pick&date=' + encodeURIComponent(_dateStr);
         _listenToRegenSSE(initKey, _btn, _streamUrl);

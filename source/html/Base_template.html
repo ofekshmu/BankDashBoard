@@ -383,6 +383,7 @@ body {
   position: fixed;
   bottom: 22px; right: 18px;
   z-index: 999;
+  isolation: isolate;
 }
 
 /* ── FAB button — sits on top of the sliding panel ────────────── */
@@ -398,6 +399,7 @@ body {
 }
 .reload-btn:hover { box-shadow: 0 6px 24px rgba(30,157,139,0.65); }
 .reload-btn.running { opacity: 0.65; cursor: wait; }
+#housing-reload-btn { width: 52px; padding: 0; border-radius: 50%; justify-content: center; }
 
 /* Stale: DB changed → amber pulse */
 @keyframes _reloadGlowAmber {
@@ -720,7 +722,18 @@ body {
 
 /* Equity breakdown bar */
 .equity-bar-wrap { margin-top: 14px; }
-.hs-equity-bar-full { margin: 8px 0 14px; }
+#panel-housing .kpi-card.hs-full-col { overflow: hidden; }
+#panel-housing .kpi-card .equity-bar-wrap {
+  align-self: stretch;
+  margin-left: -20px;
+  margin-right: -20px;
+}
+/* Non-balance-row full-col cards have 20px padding; -20px margin would flush to border. Use -12px to leave ~8px gap. */
+#panel-housing .housing-2col-row:not(.housing-balance-row) .kpi-card.hs-full-col .equity-bar-wrap {
+  margin-left: -12px;
+  margin-right: -12px;
+}
+.hs-full-col { grid-column: 1 / -1; }
 .equity-bar {
   display: flex;
   height: 10px;
@@ -731,9 +744,9 @@ body {
 }
 .equity-bar-eq  { background: #1e9d8b; transition: width 0.35s ease; border-radius: 6px 0 0 6px; }
 .equity-bar-mtg { background: #e74c3c; transition: width 0.35s ease; border-radius: 0 6px 6px 0; flex: 1; }
-.equity-bar-seg { height: 100%; transition: width 0.35s ease; min-width: 0; }
-.equity-bar-seg:first-child { border-radius: 6px 0 0 6px; }
-.equity-bar-seg:last-child  { border-radius: 0 6px 6px 0; }
+.equity-bar-seg { height: 100%; transition: width 0.35s ease; min-width: 0; border-radius: 3px; }
+.equity-bar-seg:first-child { border-radius: 4px 3px 3px 4px; }
+.equity-bar-seg:last-child  { border-radius: 3px 4px 4px 3px; }
 .equity-bar-labels {
   display: flex;
   justify-content: space-between;
@@ -1680,15 +1693,74 @@ body {
 /* ── Accounts table — mobile horizontal scroll ───────────── */
 @media (max-width: 700px) {
   .acct-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  /* Wide enough to show all 7 columns without squishing */
   .acct-wrap table { min-width: 620px; }
 }
 /* ── Accounts panel — narrow mobile layout ───────────────── */
 @media (max-width: 620px) {
-  /* Table stays scrollable (inherits from 700px rule); names never truncate */
-  #accounts-table td:nth-child(1) { white-space: nowrap; }
   #accounts-chart-card canvas { height: 280px !important; }
 }
+/* ── Accounts KPI cards ──────────────────────────────────── */
+.acct-cards-wrap { padding: 0; }
+.acct-cards-section { margin-bottom: 10px; }
+.acct-cards-group-label {
+  font-size: 0.78em; font-weight: 700; letter-spacing: 0.04em;
+  color: #5a6a8a; text-transform: uppercase;
+  padding: 10px 4px 6px; border-bottom: 1px solid var(--border);
+  margin-bottom: 8px;
+}
+.acct-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+}
+@media (max-width: 520px) {
+  .acct-cards-grid { grid-template-columns: 1fr; }
+}
+.acct-card {
+  background: #fff; border: 1px solid var(--border);
+  border-radius: 10px; padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 4px;
+  transition: box-shadow 0.15s;
+}
+.acct-card:hover { box-shadow: 0 2px 10px rgba(30,42,74,0.09); }
+.acct-card.acct-card-stale { background: #fffde7; border-color: #ffe082; }
+.acct-card.acct-card-virtual { background: #f0faf7; border-color: #b2dfdb; }
+.acct-card-header {
+  display: flex; align-items: flex-start;
+  justify-content: space-between; gap: 8px;
+}
+.acct-card-name {
+  font-size: 0.82em; font-weight: 700; color: var(--navy);
+  line-height: 1.3; flex: 1;
+}
+.acct-card-stale .acct-card-name::before { content: "⚠ "; color: #f0b429; font-size: 0.85em; }
+.acct-card-virtual .acct-card-name::after { content: " ✦"; color: var(--teal); font-size: 0.75em; }
+.acct-card-value {
+  font-size: 1.2em; font-weight: 700; color: var(--navy);
+  direction: ltr; text-align: right;
+}
+.acct-card-changes {
+  display: flex; gap: 10px; flex-wrap: wrap; margin-top: 2px;
+}
+.acct-card-change-item { display: flex; flex-direction: column; gap: 1px; }
+.acct-card-change-label { font-size: 0.68em; color: #888; }
+.acct-card-change-val { font-size: 0.8em; font-weight: 600; }
+.acct-card-date { font-size: 0.68em; color: #aaa; margin-top: 2px; }
+.acct-cards-subtotal {
+  font-size: 0.82em; font-weight: 700; color: var(--navy);
+  text-align: left; direction: ltr;
+  padding: 6px 2px 2px; border-top: 1px solid var(--border);
+  margin-top: 4px;
+}
+.acct-cards-subtotal-label { float: right; direction: rtl; font-weight: 600; color: #5a6a8a; }
+.acct-cards-total {
+  background: #f8fafc; border: 2px solid var(--border);
+  border-radius: 10px; padding: 12px 16px;
+  display: flex; justify-content: space-between; align-items: center;
+  margin-top: 10px;
+}
+.acct-cards-total-label { font-size: 0.9em; font-weight: 700; color: var(--navy); }
+.acct-cards-total-value { font-size: 1.25em; font-weight: 700; color: var(--navy); direction: ltr; }
 /* Sparkline SVG */
 .acct-spark { display: block; overflow: visible; }
 /* Toggle button */
@@ -1725,6 +1797,7 @@ body {
   padding: 5px 13px;
   background: var(--teal); color: #fff;
   border: none; border-radius: var(--radius-sm);
+  white-space: nowrap;
   font-size: 0.78em; font-weight: 700; cursor: pointer;
   transition: opacity 0.15s;
   margin-right: auto;
@@ -2060,10 +2133,19 @@ body {
     </button>
   </div>
 
+  <!-- Accounts FAB: shown only when accounts panel is active -->
+  <div class="regen-fab-group" id="accounts-regen-fab" style="display:none">
+    <button class="reload-btn" id="accounts-reload-btn" onclick="_loadAccountsData(true)" title="רענן נתוני חשבונות">
+      <span class="reload-btn-icon">&#8635;</span>
+      <span class="reload-btn-pct" id="accounts-reload-btn-pct"></span>
+    </button>
+  </div>
+
   <!-- Housing FAB: shown only when housing panel is active -->
   <div class="regen-fab-group" id="housing-regen-fab" style="display:none">
     <button class="reload-btn" id="housing-reload-btn" onclick="_regenHousing()" title="רענן נתוני דיור">
-      <span class="reload-btn-icon">&#8635;</span><span class="reload-btn-label">רענן דיור</span>
+      <span class="reload-btn-icon">&#8635;</span>
+      <span class="reload-btn-pct" id="housing-reload-btn-pct"></span>
     </button>
   </div>
 
@@ -2141,12 +2223,9 @@ body {
   <!-- ── Panel: Accounts ──────────────────────────────────── -->
   <div id="panel-accounts" class="panel">
     <div class="card" id="accounts-table-card">
-      <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;">
-        יתרות חשבונות
-        <div style="display:flex;gap:8px;align-items:center;">
-          <button id="acct-regen-btn" class="acct-manage-btn acct-manage-btn--regen" onclick="_loadAccountsData(true)" title="רענן נתוני חשבונות">רענן</button>
-          <button class="acct-manage-btn" onclick="openAcctModal()">+ הוסף / נהל</button>
-        </div>
+      <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+        <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">יתרות חשבונות</span>
+        <button class="acct-manage-btn" style="flex-shrink:0;" onclick="openAcctModal()">+ הוסף / נהל</button>
       </div>
       <div class="acct-wrap" id="accounts-table"></div>
     </div>
@@ -2302,6 +2381,8 @@ function _applyPanelUI(name) {
     var _mob = window.matchMedia('(max-width:768px)').matches;
     reloadBtn.style.display = isMonthly ? (_mob ? 'flex' : '') : 'none';
   }
+  var accountsFab = document.getElementById('accounts-regen-fab');
+  if (accountsFab) accountsFab.style.display = (name === 'accounts') ? '' : 'none';
   var housingFab = document.getElementById('housing-regen-fab');
   if (housingFab) housingFab.style.display = isHousing ? '' : 'none';
 }
@@ -3658,56 +3739,47 @@ function acctDateToggle() {
 function _acctOptimisticTableUpdate(name, value, currency) {
   var sym = {ILS: '₪', USD: '$', EUR: '€', JPY: '¥'};
   var s = sym[currency] || currency;
+  // Find the card for this account by name text
+  var nameEls = Array.from(document.querySelectorAll('#accounts-table .acct-card-name'));
+  var card = null;
+  nameEls.forEach(function(el) { if (el.textContent.trim() === name) card = el.closest('.acct-card'); });
+  if (!card) return;
+
+  var valEl = card.querySelector('.acct-card-value');
+  if (!valEl) return;
+  var oldILSText = valEl.textContent.replace(/[^\d.-]/g, '');
+  var rate    = (currency !== 'ILS' && _fxRates) ? (_fxRates[currency] || 1) : 1;
+  var newILS  = value * rate;
+  var oldILS  = parseFloat(oldILSText) || 0;
+  var delta   = newILS - oldILS;
+
   var displayVal = currency === 'ILS'
-    ? value.toLocaleString('he-IL', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + '₪'
-    : s + value.toLocaleString('he-IL', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-  var trs = Array.from(document.querySelectorAll('#accounts-table tr'));
-  var delta = null;
-  trs.forEach(function(row) {
-    var cells = row.querySelectorAll('td');
-    if (cells.length > 1 && cells[0].textContent.trim() === name) {
-      var oldNum = parseFloat(cells[1].textContent.replace(/[^\d.-]/g, '')) || 0;
-      // For non-ILS accounts the table shows raw foreign value; compute ILS delta
-      var rate    = (currency !== 'ILS' && _fxRates) ? (_fxRates[currency] || 1) : 1;
-      var newILS  = value * rate;
-      var oldILS  = currency === 'ILS' ? oldNum : oldNum * rate;
-      delta = newILS - oldILS;
-      cells[1].textContent = displayVal;
-      row.style.transition = 'background .25s';
-      row.style.background = 'var(--teal-light)';
-      setTimeout(function() { row.style.background = ''; }, 900);
+    ? Math.round(value).toLocaleString('he-IL') + '₪'
+    : s + Number(value).toFixed(2) + ' (' + Math.round(newILS).toLocaleString('he-IL') + '₪)';
+  valEl.innerHTML = displayVal;
+
+  card.style.transition = 'background .25s';
+  card.style.background = 'var(--teal-light, #e0f7f5)';
+  setTimeout(function() { card.style.background = ''; }, 900);
+
+  if (Math.abs(delta) < 0.01) return;
+
+  // Update group subtotal
+  var section = card.closest('.acct-cards-section');
+  if (section) {
+    var subEl = section.querySelector('.acct-cards-subtotal');
+    if (subEl) {
+      var labelEl = subEl.querySelector('.acct-cards-subtotal-label');
+      var labelHtml = labelEl ? labelEl.outerHTML : '';
+      var sOld = parseFloat(subEl.textContent.replace(/[^\d.-]/g, '')) || 0;
+      subEl.innerHTML = labelHtml + Math.round(sOld + delta).toLocaleString('he-IL') + '₪';
     }
-  });
-  // Propagate delta only to this account's group subtotal + the grand total
-  if (delta !== null && Math.abs(delta) > 0.01) {
-    var matchIdx = trs.findIndex(function(r) {
-      var c = r.querySelectorAll('td');
-      return c.length > 1 && c[0].textContent.trim() === name;
-    });
-    // Update the first acct-subtotal row after the matched row (before the next group header)
-    if (matchIdx !== -1) {
-      var subtotalDone = false;
-      for (var j = matchIdx + 1; j < trs.length; j++) {
-        if (trs[j].classList.contains('acct-group-header')) break;
-        if (trs[j].classList.contains('acct-subtotal') && !subtotalDone) {
-          var sc = trs[j].querySelectorAll('td');
-          if (sc.length >= 2) {
-            var sOld = parseFloat(sc[1].textContent.replace(/[^\d.-]/g, '')) || 0;
-            sc[1].textContent = Math.round(sOld + delta).toLocaleString('he-IL') + '₪';
-          }
-          subtotalDone = true;
-        }
-      }
-    }
-    // Always update the grand total row
-    trs.forEach(function(row) {
-      if (!row.classList.contains('acct-total')) return;
-      var c = row.querySelectorAll('td');
-      if (c.length >= 2) {
-        var old = parseFloat(c[1].textContent.replace(/[^\d.-]/g, '')) || 0;
-        c[1].textContent = Math.round(old + delta).toLocaleString('he-IL') + '₪';
-      }
-    });
+  }
+  // Update grand total
+  var totalValEl = document.querySelector('#accounts-table .acct-cards-total-value');
+  if (totalValEl) {
+    var tOld = parseFloat(totalValEl.textContent.replace(/[^\d.-]/g, '')) || 0;
+    totalValEl.textContent = Math.round(tOld + delta).toLocaleString('he-IL') + '₪';
   }
 }
 
@@ -3851,16 +3923,12 @@ showPanel = function(name, btn) {
 };
 
 function _loadAccountsData(forceRegen) {
-  var url    = forceRegen ? '/api/accounts/regenerate' : '/api/accounts/data';
-  var method = forceRegen ? 'POST' : 'GET';
-  var btn    = document.getElementById('acct-regen-btn');
-  var tbl    = document.getElementById('accounts-table');
-  var chart  = document.getElementById('accounts-chart');
-
-  if (btn) { btn.disabled = true; btn.textContent = '...'; }
+  if (forceRegen) { _regenAccountsStream(); return; }
+  var btn = document.getElementById('accounts-reload-btn');
+  var tbl = document.getElementById('accounts-table');
+  if (btn) { btn.disabled = true; btn.classList.add('running'); }
   if (tbl && !_accountsPageData) tbl.innerHTML = '<div style="padding:20px;color:#aaa;text-align:center">טוען...</div>';
-
-  fetch(url, { method: method, cache: 'no-store' })
+  fetch('/api/accounts/data', { cache: 'no-store' })
     .then(function(r) { return r.json(); })
     .then(function(d) {
       if (!d.ok) throw new Error(d.error || 'failed');
@@ -3869,12 +3937,44 @@ function _loadAccountsData(forceRegen) {
       _renderAccountsChart(d);
       _cashTrendLoaded = false;
       _updateCashInTrendChart();
-      if (btn) { btn.disabled = false; btn.textContent = 'רענן'; }
+      if (btn) { btn.disabled = false; btn.classList.remove('running'); }
     })
-    .catch(function(err) {
+    .catch(function() {
       if (tbl) tbl.innerHTML = '<div style="padding:20px;color:#e74c3c;text-align:center">שגיאה בטעינת נתונים</div>';
-      if (btn) { btn.disabled = false; btn.textContent = 'רענן'; }
+      if (btn) { btn.disabled = false; btn.classList.remove('running'); }
     });
+}
+
+function _regenAccountsStream() {
+  var btn   = document.getElementById('accounts-reload-btn');
+  var pctEl = document.getElementById('accounts-reload-btn-pct');
+  if (btn)   { btn.classList.add('running'); btn.disabled = true; }
+  if (pctEl) pctEl.textContent = '0%';
+
+  var es = new EventSource('/api/accounts/regen-stream');
+
+  function _cleanup() {
+    es.close();
+    if (pctEl) pctEl.textContent = '';
+    if (btn)   { btn.classList.remove('running'); btn.disabled = false; }
+    _loadAccountsData(false);
+  }
+
+  es.onmessage = function(e) {
+    var msg = e.data;
+    if (!msg || msg === '__CONNECTED__') return;
+    if (msg.startsWith('__ACCT_PROG__:')) {
+      var rest = msg.slice('__ACCT_PROG__:'.length);
+      var colon = rest.indexOf(':');
+      var pct = colon >= 0 ? parseInt(rest.slice(0, colon), 10) : parseInt(rest, 10);
+      if (!isNaN(pct) && pctEl) pctEl.textContent = pct + '%';
+      return;
+    }
+    if (msg === '__DONE__') { _cleanup(); return; }
+    if (msg.startsWith('__ERROR__')) { _cleanup(); return; }
+  };
+
+  es.onerror = function() { _cleanup(); };
 }
 
 // ── Cash-by-currency donut chart ─────────────────────────────
@@ -6503,55 +6603,72 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       };
     });
 
-    // Build HTML
-    var hdr = '<thead><tr>' +
-      '<th>חשבון</th><th>יתרה</th><th class="acct-rate-cell">שער ILS/X</th>' +
-      '<th>שינוי</th><th>שינוי/שנה</th><th>עדכון אחרון</th><th>מגמה</th>' +
-      '</tr></thead>';
-    var bodyRows = '';
+    // Build KPI cards
+    var html = '<div class="acct-cards-wrap">';
 
     _GROUP_ORDER.forEach(function(grp) {
       var grpAccts = Object.keys(rich).filter(function(n){return rich[n].group===grp;});
       if (!grpAccts.length) return;
-      bodyRows += '<tr class="acct-group-header"><td colspan="7">'+_esc(grp)+'</td></tr>';
+      html += '<div class="acct-cards-section">';
+      html += '<div class="acct-cards-group-label">'+_esc(grp)+'</div>';
+      html += '<div class="acct-cards-grid">';
       var grpTotal = 0;
       grpAccts.forEach(function(name) {
         var r = rich[name];
         grpTotal += r.value;
-        var cls = 'acct-row';
-        if (_VIRTUAL[name]) cls += ' acct-virtual';
-        if (r.stale) cls += ' acct-stale';
+        var cardCls = 'acct-card';
+        if (_VIRTUAL[name]) cardCls += ' acct-card-virtual';
+        if (r.stale)        cardCls += ' acct-card-stale';
         var sym = _CUR_SYM[r.cur] || r.cur;
         var valDisplay = (r.cur !== 'ILS' && r.rawVal != null)
-          ? sym + Number(r.rawVal).toFixed(2) + ' ('+Math.round(r.value).toLocaleString('he-IL')+'₪)'
+          ? sym + Number(r.rawVal).toFixed(2) + '<br><span style="font-size:0.72em;font-weight:500;color:#666">('+Math.round(r.value).toLocaleString('he-IL')+'₪)</span>'
           : Math.round(r.value).toLocaleString('he-IL') + '₪';
-        var rateDisplay = (r.currencies.length === 2 && r.rate && r.rateCur)
-          ? Number(r.rate).toFixed(r.rateCur === 'JPY' ? 3 : 2) : '—';
-        var ch = _changeCell(r.value, r.prev);
+        var ch  = _changeCell(r.value, r.prev);
         var ych = r.yearPrev != null ? _changeCell(r.value, r.yearPrev) : {txt:'—', cls:'acct-change-neu'};
-        var dateStr = r.lastDateStr || '';
-        var spark = _sparkline(r.pts);
-        bodyRows += '<tr class="'+cls+'">' +
-          '<td>'+_esc(name)+'</td>' +
-          '<td style="direction:ltr;text-align:left">'+valDisplay+'</td>' +
-          '<td class="acct-rate-cell">'+rateDisplay+'</td>' +
-          '<td class="'+ch.cls+'">'+ch.txt+'</td>' +
-          '<td class="'+ych.cls+'">'+ych.txt+'</td>' +
-          '<td class="acct-detail-cell">'+_esc(dateStr)+'</td>' +
-          '<td>'+spark+'</td>' +
-          '</tr>';
+        var spark = _sparkline(r.pts, 12, 56, 22);
+        html += '<div class="'+cardCls+'">';
+        html +=   '<div class="acct-card-header">';
+        html +=     '<span class="acct-card-name">'+_esc(name)+'</span>';
+        html +=     spark;
+        html +=   '</div>';
+        html +=   '<div class="acct-card-value">'+valDisplay+'</div>';
+        html +=   '<div class="acct-card-changes">';
+        html +=     '<div class="acct-card-change-item">';
+        html +=       '<span class="acct-card-change-label">שינוי</span>';
+        html +=       '<span class="acct-card-change-val '+ch.cls+'">'+ch.txt+'</span>';
+        html +=     '</div>';
+        html +=     '<div class="acct-card-change-item">';
+        html +=       '<span class="acct-card-change-label">שנה</span>';
+        html +=       '<span class="acct-card-change-val '+ych.cls+'">'+ych.txt+'</span>';
+        html +=     '</div>';
+        if (r.currencies.length === 2 && r.rate && r.rateCur) {
+          html +=   '<div class="acct-card-change-item">';
+          html +=     '<span class="acct-card-change-label">שער '+_esc(r.rateCur)+'</span>';
+          html +=     '<span class="acct-card-change-val acct-change-neu">'+Number(r.rate).toFixed(r.rateCur === 'JPY' ? 3 : 2)+'</span>';
+          html +=   '</div>';
+        }
+        html +=   '</div>';
+        html +=   '<div class="acct-card-date">עדכון: '+_esc(r.lastDateStr || '')+'</div>';
+        html += '</div>';
       });
-      bodyRows += '<tr class="acct-subtotal"><td colspan="6">סה"כ '+_esc(grp)+'</td>' +
-                  '<td style="direction:ltr;text-align:left;font-weight:700">'+Math.round(grpTotal).toLocaleString('he-IL')+'₪</td></tr>';
+      html += '</div>'; // grid
+      html += '<div class="acct-cards-subtotal">';
+      html +=   '<span class="acct-cards-subtotal-label">סה"כ '+_esc(grp)+'</span>';
+      html +=   Math.round(grpTotal).toLocaleString('he-IL')+'₪';
+      html += '</div>';
+      html += '</div>'; // section
     });
 
     // Grand total
     var totalPts  = data.accounts['Total'] || [];
     var totalLast = totalPts.length ? totalPts[totalPts.length - 1][1] : 0;
-    bodyRows += '<tr class="acct-total"><td colspan="6">סה"כ</td>' +
-                '<td style="direction:ltr;text-align:left;font-weight:700">'+Math.round(totalLast).toLocaleString('he-IL')+'₪</td></tr>';
+    html += '<div class="acct-cards-total">';
+    html +=   '<span class="acct-cards-total-label">סה"כ כולל</span>';
+    html +=   '<span class="acct-cards-total-value">'+Math.round(totalLast).toLocaleString('he-IL')+'₪</span>';
+    html += '</div>';
+    html += '</div>'; // wrap
 
-    wrap.innerHTML = '<table>'+hdr+'<tbody>'+bodyRows+'</tbody></table>';
+    wrap.innerHTML = html;
   }
 
   // ── Accounts Chart ─────────────────────────────────────────────────────
@@ -6661,35 +6778,56 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
           }
         }
       } catch (_) {}
+      // No valid session cache — use SSE stream so FAB shows progress
+      _regenHousing();
+      return;
     }
-    var panel = document.getElementById('panel-housing');
-    if (panel && !panel.querySelector('.card')) {
-      panel.innerHTML = '<div style="padding:40px;text-align:center;color:#aaa">טוען נתוני דיור…</div>';
-    }
+    // force=true: called after SSE stream completes; fetch fresh data and cache it
     fetch('/api/housing/data', {cache: 'no-store'})
       .then(function(r) { return r.json(); })
       .then(function(d) {
         try { sessionStorage.setItem(_HS_CACHE_KEY, JSON.stringify({ts: Date.now(), data: d})); } catch (_) {}
         _renderHousing(d);
-        var btn = document.getElementById('housing-reload-btn');
-        if (btn) btn.classList.remove('running');
       })
       .catch(function(e) {
         console.error('Housing data load failed:', e);
-        var btn = document.getElementById('housing-reload-btn');
-        if (btn) btn.classList.remove('running');
       });
   }
 
   function _regenHousing() {
     var btn = document.getElementById('housing-reload-btn');
-    if (btn) btn.classList.add('running');
+    var pctEl = document.getElementById('housing-reload-btn-pct');
+    if (btn) { btn.classList.add('running'); btn.disabled = true; }
+    if (pctEl) pctEl.textContent = '0%';
     try { sessionStorage.removeItem(_HS_CACHE_KEY); } catch (_) {}
-    fetch('/api/housing/invalidate', {method: 'POST'})
-      .then(function() { _loadHousingPanel(true); })
-      .catch(function() {
-        if (btn) btn.classList.remove('running');
-      });
+
+    var es = new EventSource('/api/housing/regen-stream');
+
+    function _cleanup() {
+      es.close();
+      if (pctEl) pctEl.textContent = '';
+      if (btn) { btn.classList.remove('running'); btn.disabled = false; }
+      _loadHousingPanel(true);
+    }
+
+    es.onmessage = function(e) {
+      var msg = e.data;
+      if (!msg || msg === '') return;
+      if (msg === '__CONNECTED__') return;
+
+      if (msg.startsWith('__HOUSING_PROG__:')) {
+        var rest = msg.slice('__HOUSING_PROG__:'.length);
+        var colon = rest.indexOf(':');
+        var pct = colon >= 0 ? parseInt(rest.slice(0, colon), 10) : parseInt(rest, 10);
+        if (!isNaN(pct) && pctEl) pctEl.textContent = pct + '%';
+        return;
+      }
+
+      if (msg === '__DONE__') { _cleanup(); return; }
+      if (msg.startsWith('__ERROR__')) { _cleanup(); return; }
+    };
+
+    es.onerror = function() { _cleanup(); };
   }
 
   function _renderHousing(data) {
@@ -6774,27 +6912,25 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     var C_DOWN = '#81c784', C_PRIN = '#4db6ac', C_APPR = '#64b5f6', C_INC = '#aed581';
 
     var equityCard =
-      '<div class="kpi-card">' +
+      '<div class="kpi-card hs-full-col">' +
         '<div class="kpi-label">הון עצמי<span class="kpi-info-wrap"><span class="kpi-info-icon">i</span>' +
           '<span class="kpi-tooltip">הון עצמי = מקדמה + קרן שנפרעה + עליית ערך + הכנסות\n' +
           '  מקדמה: ' + _n(initPay) + '\n  קרן שנפרעה: ' + _n(principalPaid) + '\n  עליית ערך: ' + _n(apprGain) + '\n  הכנסות: ' + _n(allInc) + '\n  = סה״כ: ' + _n(eqWithInc) + '</span></span></div>' +
         '<div class="kpi-value" id="hs-equity" style="color:#1e9d8b">' + _n(eqWithInc) + '</div>' +
         '<div class="kpi-sublabel">כולל עליית ערך והכנסות</div>' +
-      '</div>';
-
-    var equityBarHtml =
-      '<div class="equity-bar-wrap hs-equity-bar-full">' +
-        '<div class="equity-bar" style="direction:rtl">' +
-          '<div class="equity-bar-seg" id="hs-bar-down" style="width:' + peqDown.toFixed(1) + '%;background:' + C_DOWN + '" title="מקדמה ' + _n(initPay) + '"></div>' +
-          '<div class="equity-bar-seg" id="hs-bar-prin" style="width:' + peqPrin.toFixed(1) + '%;background:' + C_PRIN + '" title="קרן שנפרעה ' + _n(principalPaid) + '"></div>' +
-          '<div class="equity-bar-seg" id="hs-bar-appr" style="width:' + peqAppr.toFixed(1) + '%;background:' + C_APPR + '" title="עליית ערך ' + _n(apprGain) + '"></div>' +
-          '<div class="equity-bar-seg" id="hs-bar-inc"  style="width:' + peqInc.toFixed(1)  + '%;background:' + C_INC  + '" title="הכנסות ' + _n(allInc) + '"></div>' +
-        '</div>' +
-        '<div class="equity-bar-labels-4" style="direction:rtl">' +
-          '<span id="hs-lbl-down" style="color:' + C_DOWN + '">● מקדמה ' + _n(initPay) + '</span>' +
-          '<span id="hs-lbl-prin" style="color:' + C_PRIN + '">● קרן שנפרעה ' + _n(principalPaid) + '</span>' +
-          '<span id="hs-lbl-appr" style="color:' + C_APPR + '">● עליית ערך ' + _n(apprGain) + '</span>' +
-          '<span id="hs-lbl-inc"  style="color:' + C_INC  + '">● הכנסות ' + _n(allInc) + '</span>' +
+        '<div class="equity-bar-wrap" style="margin-top:12px">' +
+          '<div class="equity-bar" style="direction:rtl;height:14px">' +
+            '<div class="equity-bar-seg" id="hs-bar-down" style="width:' + peqDown.toFixed(1) + '%;background:' + C_DOWN + '" title="מקדמה ' + _n(initPay) + '"></div>' +
+            '<div class="equity-bar-seg" id="hs-bar-prin" style="width:' + peqPrin.toFixed(1) + '%;background:' + C_PRIN + '" title="קרן שנפרעה ' + _n(principalPaid) + '"></div>' +
+            '<div class="equity-bar-seg" id="hs-bar-appr" style="width:' + peqAppr.toFixed(1) + '%;background:' + C_APPR + '" title="עליית ערך ' + _n(apprGain) + '"></div>' +
+            '<div class="equity-bar-seg" id="hs-bar-inc"  style="width:' + peqInc.toFixed(1)  + '%;background:' + C_INC  + '" title="הכנסות ' + _n(allInc) + '"></div>' +
+          '</div>' +
+          '<div class="equity-bar-labels-4" style="direction:rtl">' +
+            '<span id="hs-lbl-down" style="color:' + C_DOWN + '">● מקדמה ' + _n(initPay) + '</span>' +
+            '<span id="hs-lbl-prin" style="color:' + C_PRIN + '">● קרן שנפרעה ' + _n(principalPaid) + '</span>' +
+            '<span id="hs-lbl-appr" style="color:' + C_APPR + '">● עליית ערך ' + _n(apprGain) + '</span>' +
+            '<span id="hs-lbl-inc"  style="color:' + C_INC  + '">● הכנסות ' + _n(allInc) + '</span>' +
+          '</div>' +
         '</div>' +
       '</div>';
 
@@ -6805,7 +6941,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     var spOther = allOut > 0 ? atOther  / allOut * 100 : 0;
 
     var spendCard =
-      '<div class="kpi-card">' +
+      '<div class="kpi-card hs-full-col">' +
         '<div class="kpi-label">סה״כ הוצאות<span class="kpi-info-wrap"><span class="kpi-info-icon">i</span>' +
           '<span class="kpi-tooltip">תשלומי משכנתא: ' + _n(allMort) + '\nתשלום ראשוני: ' + _n(initPay) + '\nהוצאות אחרות: ' + _n(atOther) + '</span></span></div>' +
         '<div class="kpi-value" style="color:#e74c3c">' + _n(allOut, 2) + '</div>' +
@@ -6835,7 +6971,6 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         _kpiCard('יתרת משכנתא', _n(curBal), '#e74c3c', null, null, 'הקרן שנותרה לתשלום על המשכנתא.'),
         equityCard, 'housing-balance-row'
       ) +
-      equityBarHtml +
       _row3(
         _kpiCard('מחיר רכישה', _n(aptPrice), '#1a3a5c', null, null, 'מחיר הרכישה המקורי של הדירה.'),
         _kpiCard('עליית ערך חודשית', '+' + _n(moAppr), '#1e9d8b', defRate.toFixed(1) + '%/שנה', 'hs-monthly-appr'),

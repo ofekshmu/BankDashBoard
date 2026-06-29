@@ -128,28 +128,59 @@ body {
 
 /* ── In-page types strip ─────────────────────────────────── */
 .types-strip-bar {
-  display: flex; align-items: center; gap: 6px;
-  padding: 8px 14px; flex-wrap: wrap;
+  display: flex; align-items: center; gap: 4px;
+  padding: 6px 14px; flex-wrap: wrap;
   border-bottom: 1px solid var(--border);
   background: var(--white);
 }
+.chip-group-section { display: contents; }
+.chip-group-label {
+  font-size: 0.65em; font-weight: 700; letter-spacing: 0.05em;
+  color: #8a97b0; text-transform: uppercase;
+  padding: 0 4px; white-space: nowrap;
+  align-self: center;
+}
+.chip-group-sep {
+  display: block; width: 1px; height: 16px;
+  background: var(--border); margin: 0 2px; align-self: center;
+  flex-shrink: 0;
+}
 .type-chip {
-  display: flex; align-items: center; gap: 5px;
-  padding: 4px 10px; border-radius: 20px;
+  display: flex; align-items: center; gap: 3px;
+  padding: 2px 7px !important; border-radius: 4px;
   background: var(--bg); border: 1.5px solid var(--border);
-  cursor: pointer; font-size: 0.8em; font-weight: 600;
+  cursor: pointer; font-size: 0.73em !important; font-weight: 600;
   color: var(--navy); transition: border-color .12s, background .12s;
+  line-height: 1.6; width: auto !important; min-height: unset !important;
+  margin-bottom: 0 !important;
 }
 .type-chip:hover { border-color: var(--teal); background: var(--teal-light); color: var(--teal); }
-.type-chip-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.type-chip-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
 .types-strip-add {
-  padding: 4px 10px; border-radius: 20px;
+  padding: 2px 7px !important; border-radius: 4px;
   background: none; border: 1.5px dashed var(--border);
-  cursor: pointer; font-size: 0.8em; font-weight: 600;
+  cursor: pointer; font-size: 0.73em !important; font-weight: 600;
   color: var(--text-muted); font-family: inherit;
-  transition: border-color .12s, color .12s;
+  transition: border-color .12s, color .12s; line-height: 1.6;
+  width: auto !important; min-height: unset !important; margin-bottom: 0 !important;
 }
 .types-strip-add:hover { border-color: var(--teal); color: var(--teal); }
+/* ── Range preset pills ──────────────────────────────────── */
+.range-presets {
+  display: flex; gap: 4px; align-items: center;
+  padding: 5px 14px; border-bottom: 1px solid var(--border);
+  background: var(--white); flex-wrap: wrap;
+}
+.range-preset-btn {
+  padding: 4px 10px !important; border-radius: 6px;
+  border: 1.5px solid var(--border); background: var(--bg);
+  cursor: pointer; font-size: 0.78em !important; font-weight: 600;
+  color: var(--navy); font-family: inherit;
+  transition: all .12s; flex-shrink: 0;
+  width: auto !important; min-height: unset !important; margin-bottom: 0 !important;
+}
+.range-preset-btn:hover,
+.range-preset-btn.active { border-color: var(--teal); background: var(--teal); color: #fff; }
 
 /* ── KPI group dividers ──────────────────────────────────── */
 .type-kpi-group + .type-kpi-group { border-top: 2px solid var(--border); }
@@ -914,6 +945,15 @@ body.resize-end    { cursor: ew-resize !important; }
       </div>
       <!-- In-page bill types strip -->
       <div class="types-strip-bar" id="types-list"></div>
+      <!-- Date range presets -->
+      <div class="range-presets" id="range-presets">
+        <button class="range-preset-btn" id="preset-3"  onclick="setPreset(3)">3M</button>
+        <button class="range-preset-btn" id="preset-6"  onclick="setPreset(6)">6M</button>
+        <button class="range-preset-btn" id="preset-12" onclick="setPreset(12)">שנה</button>
+        <button class="range-preset-btn" id="preset-all" onclick="setPreset(0)">הכל</button>
+        <span class="spacer"></span>
+        <span class="range-info" id="range-info" style="font-size:0.75em;color:var(--text-muted)"></span>
+      </div>
       <div class="chart-controls">
         <div class="year-nav">
           <button class="nav-arrow" onclick="shiftView(-6)" title="6 חודשים אחורה">‹‹</button>
@@ -922,9 +962,6 @@ body.resize-end    { cursor: ew-resize !important; }
           <button class="nav-arrow" onclick="shiftView(1)" title="חודש קדימה">›</button>
           <button class="nav-arrow" onclick="shiftView(6)" title="6 חודשים קדימה">››</button>
         </div>
-        <button class="btn btn-ghost btn-xs" onclick="fitView()">הצג הכל</button>
-        <span class="spacer"></span>
-        <span class="range-info" id="range-info"></span>
       </div>
       <div class="chart-wrap" id="chart-wrap">
         <div id="chart-sizer" style="position:relative;width:100%">
@@ -1436,13 +1473,29 @@ function renderTypes() {
   const list = document.getElementById('types-list');
   if (!list) return;
 
-  const chip = t => `
-    <button class="type-chip" onclick="openEditTypeModal(${t.id})" title="לחץ לעריכה">
-      <span class="type-chip-dot" style="background:${t.color}"></span>
-      ${esc(t.name)}
-    </button>`;
+  const chip = t =>
+    `<button class="type-chip" onclick="openEditTypeModal(${t.id})" title="לחץ לעריכה">` +
+    `<span class="type-chip-dot" style="background:${t.color}"></span>${esc(t.name)}</button>`;
 
-  let html = billTypes.map(chip).join('');
+  // Group types by .group field
+  const groups = {};
+  const noGroup = [];
+  billTypes.forEach(t => {
+    if (t.group) { (groups[t.group] = groups[t.group] || []).push(t); }
+    else noGroup.push(t);
+  });
+
+  let html = '';
+  const groupNames = Object.keys(groups);
+  groupNames.forEach((gName, gi) => {
+    if (gi > 0) html += '<span class="chip-group-sep"></span>';
+    html += `<span class="chip-group-label">${esc(gName)}</span>`;
+    html += groups[gName].map(chip).join('');
+  });
+  if (noGroup.length) {
+    if (groupNames.length) html += '<span class="chip-group-sep"></span>';
+    html += noGroup.map(chip).join('');
+  }
   html += `<button class="types-strip-add" onclick="openAddTypeModal()">+ הוסף סוג</button>`;
   list.innerHTML = html;
 
@@ -1452,6 +1505,43 @@ function renderTypes() {
     const existing = [...new Set(billTypes.map(t => t.group).filter(Boolean))];
     dl.innerHTML = existing.map(g => `<option value="${esc(g)}">`).join('');
   }
+}
+
+// ── Range preset buttons ──────────────────────────────────
+let _activePreset = null;
+
+function setPreset(months) {
+  _activePreset = months || 0;
+  ['3','6','12','all'].forEach(k => {
+    const b = document.getElementById('preset-' + k);
+    if (b) b.classList.remove('active');
+  });
+  if (months === 0) {
+    const b = document.getElementById('preset-all');
+    if (b) b.classList.add('active');
+    fitView();
+  } else {
+    const b = document.getElementById('preset-' + months);
+    if (b) b.classList.add('active');
+    // End = latest data month, start = months back
+    const b2 = computeViewBounds();
+    const end = b2.end;
+    const start = monthAdd(end, -months);
+    viewStart = start < b2.start ? b2.start : start;
+    viewEnd   = end;
+    renderChart(); renderStatsBar(); renderTypeKpiBar(); renderKpiBanner();
+  }
+  _updatePresetLabel();
+}
+
+function _updatePresetLabel() {
+  // Clear active state when view is manually shifted away from a preset
+  // (called from shiftView / onDragEnd)
+  _activePreset = null;
+  ['3','6','12','all'].forEach(k => {
+    const b = document.getElementById('preset-' + k);
+    if (b) b.classList.remove('active');
+  });
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -1793,6 +1883,7 @@ function shiftView(months) {
   ensureView();
   viewStart = monthAdd(viewStart, months);
   viewEnd   = monthAdd(viewEnd, months);
+  _updatePresetLabel();
   renderChart();
   renderStatsBar();
   renderTypeKpiBar();

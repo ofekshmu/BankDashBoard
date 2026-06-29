@@ -150,6 +150,14 @@ class DataBase:
         """Create a fresh connection and attach it to the singleton instance."""
         cls.__instance.connection = psycopg2.connect(os.environ['DATABASE_URL'])
         cls.__instance.connection.autocommit = False
+        # Return numeric/decimal columns as float instead of decimal.Decimal so
+        # existing arithmetic (Decimal + float) doesn't raise TypeError.
+        _DEC2FLOAT = psycopg2.extensions.new_type(
+            psycopg2.extensions.DECIMAL.values,
+            'DEC2FLOAT',
+            lambda v, c: float(v) if v is not None else None,
+        )
+        psycopg2.extensions.register_type(_DEC2FLOAT, cls.__instance.connection)
         cls.__instance.cursor = _ChainableCursor(cls.__instance.connection)
 
     def __new__(cls):
@@ -2414,6 +2422,9 @@ class DataBase:
                 BillGroup TEXT
             )
         """)
+        self.cursor.execute(
+            "ALTER TABLE BillTypes ADD COLUMN IF NOT EXISTS BillGroup TEXT"
+        )
         self.cursor.execute("""
             CREATE TABLE IF NOT EXISTS BillEntries (
                 ID                SERIAL   PRIMARY KEY,
@@ -2435,9 +2446,10 @@ class DataBase:
         self.connection.commit()
 
     def get_bill_types(self) -> list:
-        rows = self.cursor.execute(
-            "SELECT ID, Name, Color, BillGroup FROM BillTypes ORDER BY Name"
-        ).fetchall()
+        c = self.connection.cursor()
+        c.execute("SELECT ID, Name, Color, BillGroup FROM BillTypes ORDER BY Name")
+        rows = c.fetchall()
+        c.close()
         return [{'id': r[0], 'name': r[1], 'color': r[2], 'group': r[3] or ''} for r in rows]
 
     def add_bill_type(self, name: str, color: str, group: str = '') -> int:
@@ -2457,11 +2469,14 @@ class DataBase:
         self.cursor.execute("DELETE FROM BillTypes WHERE ID=%s", (type_id,))
 
     def get_bill_entries(self) -> list:
-        rows = self.cursor.execute("""
+        c = self.connection.cursor()
+        c.execute("""
             SELECT ID, BillType_ID, Start_Month, End_Month,
                    Transaction_Table, Transaction_ID, Amount, Note, Is_Filler
             FROM BillEntries ORDER BY Start_Month DESC
-        """).fetchall()
+        """)
+        rows = c.fetchall()
+        c.close()
         return [
             {
                 'id': r[0], 'bill_type_id': r[1],
@@ -2489,7 +2504,10 @@ class DataBase:
             params.append(exclude_id)
         else:
             sql = sql.format(exclude="")
-        row = self.cursor.execute(sql, params).fetchone()
+        c = self.connection.cursor()
+        c.execute(sql, params)
+        row = c.fetchone()
+        c.close()
         if row:
             return f"חפיפה עם רשומה קיימת (ID={row[0]})"
         return ''

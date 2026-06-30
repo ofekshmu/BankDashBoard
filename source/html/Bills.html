@@ -1408,11 +1408,20 @@ async function loadEntries() {
 
 async function loadSuggestions() {
   document.getElementById('sug-list').innerHTML = '<div class="sug-empty">טוען…</div>';
-  const r = await api('GET', '/api/bills/suggestions');
-  if (r.ok) {
-    renderSuggestions(r.suggestions);
-    // Re-render chart so canvas height accounts for the now-visible suggestions panel
-    requestAnimationFrame(() => renderChart());
+  try {
+    const r = await api('GET', '/api/bills/suggestions');
+    if (r.ok) {
+      renderSuggestions(r.suggestions);
+      requestAnimationFrame(() => renderChart());
+    } else {
+      document.getElementById('sug-list').innerHTML =
+        '<div class="sug-empty" style="color:var(--red)">שגיאה בטעינה — לחץ רענן לניסיון חוזר</div>';
+      _billsLog('suggestions error: ' + (r.error || 'unknown'), 'err');
+    }
+  } catch (e) {
+    document.getElementById('sug-list').innerHTML =
+      '<div class="sug-empty" style="color:var(--red)">שגיאת רשת — לחץ רענן</div>';
+    _billsLog('suggestions fetch failed: ' + String(e), 'err');
   }
 }
 

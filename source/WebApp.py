@@ -80,11 +80,12 @@ def _load_accounts_disk():
     return None
 
 
-def _compute_accounts():
+def _compute_accounts(progress_callback=None):
     """Run get_global_data, persist accounts portion to disk, return it."""
     from datetime import datetime as _dt_a
     from AppManager import AppManager as _AM_a
-    gp = _AM_a(skip_parser=True).get_global_data(t=_dt_a.now())
+    _pc = progress_callback if callable(progress_callback) else None
+    gp = _AM_a(skip_parser=True).get_global_data(t=_dt_a.now(), progress_callback=_pc)
     payload = {
         'accounts':      gp.get('accounts', {}),
         'accounts_meta': gp.get('accounts_meta', {}),
@@ -1716,6 +1717,7 @@ def accounts_add_status():
             conn.commit()
         finally:
             conn.close()
+        _compute_accounts()
         return jsonify({'ok': True})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)})
@@ -1888,6 +1890,42 @@ def accounts_regenerate():
         return jsonify({**data, 'ok': True}), 200, _no_cache
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 500, _no_cache
+
+
+@app.route('/api/accounts/regen-stream')
+def accounts_regen_stream():
+    """SSE endpoint: recomputes accounts data with progress events."""
+    _accounts_cache.clear()
+    local_q: queue.Queue = queue.Queue()
+
+    def _worker():
+        def _pc(pct, msg=''):
+            local_q.put(f'__ACCT_PROG__:{pct}:{msg}')
+        try:
+            _compute_accounts(progress_callback=_pc)
+            local_q.put('__DONE__')
+        except Exception as exc:
+            import traceback
+            _log_error(exc, traceback.format_exc())
+            local_q.put('__ERROR__')
+
+    threading.Thread(target=_worker, daemon=True, name='acct-regen-worker').start()
+
+    def _generate():
+        yield 'data: __CONNECTED__\n\n'
+        while True:
+            try:
+                msg = local_q.get(timeout=25)
+            except queue.Empty:
+                yield 'data: \n\n'
+                continue
+            safe = msg.replace('\r\n', '↵').replace('\n', '↵').replace('\r', '↵')
+            yield f'data: {safe}\n\n'
+            if msg == '__DONE__' or msg.startswith('__ERROR__'):
+                break
+
+    return Response(_generate(), mimetype='text/event-stream',
+                    headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'})
 
 
 @app.route('/api/cash/transaction', methods=['POST'])
@@ -2110,6 +2148,45 @@ def housing_invalidate():
     """Clear the housing data cache so the next GET recomputes from scratch."""
     _housing_cache.clear()
     return jsonify({'ok': True})
+
+
+@app.route('/api/housing/regen-stream')
+def housing_regen_stream():
+    """SSE endpoint: recomputes housing/mortgage data with progress events."""
+    _housing_cache.clear()
+    local_q: queue.Queue = queue.Queue()
+
+    def _worker():
+        def _pc(pct, msg=''):
+            local_q.put(f'__HOUSING_PROG__:{pct}:{msg}')
+        try:
+            from datetime import datetime as _dt
+            from AppManager import AppManager
+            data = AppManager(skip_parser=True).get_global_data(t=_dt.now(), progress_callback=_pc)
+            _housing_cache['data'] = {'ts': _time.time(), 'data': data}
+            local_q.put('__DONE__')
+        except Exception as exc:
+            import traceback
+            _log_error(exc, traceback.format_exc())
+            local_q.put('__ERROR__')
+
+    threading.Thread(target=_worker, daemon=True, name='housing-regen-worker').start()
+
+    def _generate():
+        yield 'data: __CONNECTED__\n\n'
+        while True:
+            try:
+                msg = local_q.get(timeout=25)
+            except queue.Empty:
+                yield 'data: \n\n'
+                continue
+            safe = msg.replace('\r\n', '↵').replace('\n', '↵').replace('\r', '↵')
+            yield f'data: {safe}\n\n'
+            if msg == '__DONE__' or msg.startswith('__ERROR__'):
+                break
+
+    return Response(_generate(), mimetype='text/event-stream',
+                    headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'})
 
 
 @app.route('/api/regen/status')
@@ -4437,7 +4514,7 @@ def api_bills_suggestions():
             seen.add(('B', r[0]))
             suggestions.append({
                 'table': 'BankTransactions', 'id': r[0],
-                'date': (r[1] or '')[:10], 'name': r[2] or '',
+                'date': str(r[1] or '')[:10], 'name': r[2] or '',
                 'amount': float(r[3] or 0) or float(r[4] or 0),
                 'matched_name': r[2] or '',
             })
@@ -4447,7 +4524,7 @@ def api_bills_suggestions():
             seen.add(('C', r[0]))
             suggestions.append({
                 'table': 'CardTransactions', 'id': r[0],
-                'date': (r[1] or '')[:10], 'name': r[2] or '',
+                'date': str(r[1] or '')[:10], 'name': r[2] or '',
                 'amount': abs(float(r[3] or 0)),
                 'matched_name': r[2] or '',
             })

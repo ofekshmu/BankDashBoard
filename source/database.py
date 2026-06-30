@@ -2440,7 +2440,7 @@ class DataBase:
         """)
         self.cursor.execute("""
             CREATE TABLE IF NOT EXISTS BillSuggestionsDismissed (
-                Name TEXT PRIMARY KEY
+                name TEXT PRIMARY KEY
             )
         """)
         self.connection.commit()
@@ -2554,14 +2554,32 @@ class DataBase:
         self.cursor.execute("DELETE FROM BillEntries WHERE ID=%s", (entry_id,))
 
     def get_bill_suggestions_dismissed(self) -> set:
-        rows = self.cursor.execute(
-            "SELECT Name FROM BillSuggestionsDismissed"
-        ).fetchall()
-        return {r[0] for r in rows}
+        try:
+            c = self.connection.cursor()
+            c.execute("SELECT name FROM BillSuggestionsDismissed")
+            rows = c.fetchall()
+            c.close()
+            return {r[0] for r in rows}
+        except Exception:
+            # Table exists with a wrong column name (e.g. case-sensitive "Name").
+            # Recreate it with the correct lowercase column and return empty set.
+            try:
+                self.connection.rollback()
+            except Exception:
+                pass
+            try:
+                self.cursor.execute("DROP TABLE IF EXISTS BillSuggestionsDismissed")
+                self.cursor.execute(
+                    "CREATE TABLE BillSuggestionsDismissed (name TEXT PRIMARY KEY)"
+                )
+                self.connection.commit()
+            except Exception:
+                pass
+            return set()
 
     def dismiss_bill_suggestion(self, name: str) -> None:
         self.cursor.execute(
-            "INSERT INTO BillSuggestionsDismissed (Name) VALUES (%s) ON CONFLICT DO NOTHING",
+            "INSERT INTO BillSuggestionsDismissed (name) VALUES (%s) ON CONFLICT DO NOTHING",
             (name,)
         )
 

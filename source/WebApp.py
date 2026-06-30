@@ -3701,7 +3701,7 @@ _AT_PATH = os.path.join(_PROJECT_DIR, 'personal information', 'auto_tagger.json'
 def _read_at() -> dict:
     import json as _j
     if os.path.exists(_AT_PATH):
-        with open(_AT_PATH, encoding='utf-8') as _f:
+        with open(_AT_PATH, encoding='utf-8-sig') as _f:
             return _j.load(_f)
     return {}
 
@@ -3799,7 +3799,7 @@ def tagger_categories():
     import json as _json
     try:
         cats_path = os.path.join(_PROJECT_DIR, 'Personal Information', 'categories.json')
-        with open(cats_path, encoding='utf-8') as f:
+        with open(cats_path, encoding='utf-8-sig') as f:
             cats = _json.load(f)
         db = None
         try:
@@ -3824,7 +3824,7 @@ def tagger_categories_add():
         return jsonify({'ok': False, 'error': 'missing name'})
     try:
         cats_path = os.path.join(_PROJECT_DIR, 'Personal Information', 'categories.json')
-        with open(cats_path, encoding='utf-8') as f:
+        with open(cats_path, encoding='utf-8-sig') as f:
             cats = _json.load(f)
         if name in cats:
             return jsonify({'ok': False, 'error': 'category already exists'})
@@ -3868,7 +3868,7 @@ def tagger_rules_remap():
         return jsonify({'ok': False, 'error': 'missing fields'})
     cats_path = os.path.join(_PROJECT_DIR, 'Personal Information', 'categories.json')
     try:
-        with open(cats_path, encoding='utf-8') as f:
+        with open(cats_path, encoding='utf-8-sig') as f:
             cats = _json.load(f)
         if new_cat not in cats:
             return jsonify({'ok': False, 'error': 'category not found'})
@@ -4166,19 +4166,19 @@ def files_db_list():
         files = []
         total_tx = 0
         for r in rows:
-            card = r['Card_Number']
-            if not card or card.lower() in ('not_relevant', 'none', ''):
+            card = r['card_number']
+            if not card or str(card).lower() in ('not_relevant', 'none', ''):
                 card = None
             files.append({
-                'name':             r['File_Name'],
-                'format':           r['Format'],
+                'name':             r['file_name'],
+                'format':           r['format'],
                 'card':             card,
-                'date':             (r['Date'] or '')[:10],
-                'new_transactions': r['New_Transactions'] or 0,
-                'transaction_count': r['Transaction_count'] or 0,
-                'last_update':      (r['Last_update'] or '')[:10],
+                'date':             str(r['date'] or '')[:10],
+                'new_transactions': r['new_transactions'] or 0,
+                'transaction_count': r['transaction_count'] or 0,
+                'last_update':      str(r['last_update'] or '')[:10],
             })
-            total_tx += r['Transaction_count'] or 0
+            total_tx += r['transaction_count'] or 0
 
         return jsonify({'ok': True, 'files': files, 'total_transactions': total_tx})
     except Exception as e:
@@ -4201,27 +4201,28 @@ def tx_split_info():
             ).fetchone()
             if not row:
                 conn.close(); return jsonify({'ok': False, 'error': 'not found'})
-            amount = float(row['Income'] or 0) - float(row['Out'] or 0)
-            orig = {'id': row['ID'], 'name': row['Name'], 'category': row['Category'] or '',
-                    'description': row['Description'] or '', 'amount': amount, 'date': (row['Date'] or '')[:10]}
+            amount = float(row['income'] or 0) - float(row['out'] or 0)
+            orig = {'id': row['id'], 'name': row['name'], 'category': row['category'] or '',
+                    'description': row['description'] or '', 'amount': amount,
+                    'date': str(row['date'] or '')[:10]}
         else:
             row = conn.execute(
                 'SELECT ID, Name, Category, Description, Transaction_Value, Executed_Date FROM CardTransactions WHERE ID=%s', (oid,)
             ).fetchone()
             if not row:
                 conn.close(); return jsonify({'ok': False, 'error': 'not found'})
-            orig = {'id': row['ID'], 'name': row['Name'], 'category': row['Category'] or '',
-                    'description': row['Description'] or '',
-                    'amount': float(row['Transaction_Value'] or 0),
-                    'date': (row['Executed_Date'] or '')[:10]}
+            orig = {'id': row['id'], 'name': row['name'], 'category': row['category'] or '',
+                    'description': row['description'] or '',
+                    'amount': float(row['transaction_value'] or 0),
+                    'date': str(row['executed_date'] or '')[:10]}
         # Fetch splits
         splits_rows = conn.execute(
             'SELECT ID, Amount, Description, Category FROM TransactionSplits WHERE Original_Table=%s AND Original_ID=%s ORDER BY ID',
             (tbl, oid)
         ).fetchall()
         conn.close()
-        splits = [{'id': r['ID'], 'amount': float(r['Amount']),
-                   'description': r['Description'] or '', 'category': r['Category']} for r in splits_rows]
+        splits = [{'id': r['id'], 'amount': float(r['amount']),
+                   'description': r['description'] or '', 'category': r['category']} for r in splits_rows]
         return jsonify({'ok': True, 'original': orig, 'splits': splits})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)})

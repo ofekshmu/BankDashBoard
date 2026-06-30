@@ -1541,7 +1541,7 @@ async function tagRow(key) {
   const descInp     = document.getElementById(`desc-${key}`);
   const description = descInp ? descInp.value.trim() : '';
 
-  if (!category || !_categories.find(c => c.name === category)) {
+  if (!category || (!_categories.find(c => c.name === category) && category !== 'Excluded')) {
     showToast('בחר קטגוריה תקינה', 'error');
     return;
   }

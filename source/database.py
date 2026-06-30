@@ -2740,3 +2740,238 @@ class DataBase:
         )
         self.connection.commit()
 
+    # ── Tagger UI helpers ─────────────────────────────────────────────────────
+
+    def get_untagged_recent(self, limit: int = 2000) -> list:
+        bank = self.cursor.execute("""
+            SELECT ID, Name, Date, Out, Income
+            FROM BankTransactions
+            WHERE Category = 'NotCategorized'
+            ORDER BY ID DESC LIMIT %s
+        """, (limit,)).fetchall()
+        card = self.cursor.execute("""
+            SELECT ID, Name, Executed_Date, Charge_Date, Charge_Value,
+                   Transaction_Value, Charge_Currency, Value_Currency, CardID
+            FROM CardTransactions
+            WHERE Category = 'NotCategorized'
+            ORDER BY ID DESC LIMIT %s
+        """, (limit,)).fetchall()
+        result = []
+        for r in bank:
+            result.append({
+                'table_name': 'BankTransactions', 'id': r[0], 'name': r[1] or '',
+                'exec_date': str(r[2] or '')[:10], 'charge_date': str(r[2] or '')[:10],
+                'charge_value': float(r[3]) if r[3] is not None else None,
+                'transaction_value': float(r[4]) if r[4] is not None else None,
+                'currency': 'ILS', 'value_currency': 'ILS', 'card_id': None,
+            })
+        for r in card:
+            result.append({
+                'table_name': 'CardTransactions', 'id': r[0], 'name': r[1] or '',
+                'exec_date': str(r[2] or '')[:10], 'charge_date': str(r[3] or '')[:10],
+                'charge_value': float(r[4]) if r[4] is not None else None,
+                'transaction_value': float(r[5]) if r[5] is not None else None,
+                'currency': r[6] or 'ILS', 'value_currency': r[7] or 'ILS', 'card_id': r[8],
+            })
+        result.sort(key=lambda x: x.get('exec_date') or '', reverse=True)
+        return result[:limit]
+
+    def count_untagged_total(self) -> int:
+        b = self.cursor.execute(
+            "SELECT COUNT(*) FROM BankTransactions WHERE Category='NotCategorized'"
+        ).fetchone()[0] or 0
+        c = self.cursor.execute(
+            "SELECT COUNT(*) FROM CardTransactions WHERE Category='NotCategorized'"
+        ).fetchone()[0] or 0
+        return b + c
+
+    def get_recently_tagged(self, limit: int = 30) -> list:
+        bank = self.cursor.execute("""
+            SELECT ID, Name, Date, Out, Income, Category, Reserved
+            FROM BankTransactions
+            WHERE Category IS NOT NULL AND Category != 'NotCategorized'
+            ORDER BY ID DESC LIMIT %s
+        """, (limit,)).fetchall()
+        card = self.cursor.execute("""
+            SELECT ID, Name, Executed_Date, Charge_Value, Transaction_Value,
+                   Charge_Currency, Value_Currency, CardID, Category, Reserved
+            FROM CardTransactions
+            WHERE Category IS NOT NULL AND Category != 'NotCategorized'
+            ORDER BY ID DESC LIMIT %s
+        """, (limit,)).fetchall()
+        result = []
+        for r in bank:
+            result.append({
+                'table_name': 'BankTransactions', 'id': r[0], 'name': r[1] or '',
+                'exec_date': str(r[2] or '')[:10], 'charge_date': str(r[2] or '')[:10],
+                'charge_value': float(r[3]) if r[3] is not None else None,
+                'transaction_value': float(r[4]) if r[4] is not None else None,
+                'currency': 'ILS', 'value_currency': 'ILS', 'card_id': None,
+                'category': r[5] or '', 'reserved': r[6],
+            })
+        for r in card:
+            result.append({
+                'table_name': 'CardTransactions', 'id': r[0], 'name': r[1] or '',
+                'exec_date': str(r[2] or '')[:10], 'charge_date': str(r[2] or '')[:10],
+                'charge_value': float(r[3]) if r[3] is not None else None,
+                'transaction_value': float(r[4]) if r[4] is not None else None,
+                'currency': r[5] or 'ILS', 'value_currency': r[6] or 'ILS',
+                'card_id': r[7], 'category': r[8] or '', 'reserved': r[9],
+            })
+        result.sort(key=lambda x: x.get('id') or 0, reverse=True)
+        return result[:limit]
+
+    def get_high_value_untagged(self, threshold: float = 500) -> list:
+        bank = self.cursor.execute("""
+            SELECT ID, Name, Date, Out, Income
+            FROM BankTransactions
+            WHERE Category = 'NotCategorized'
+              AND (COALESCE(Out,0) >= %s OR COALESCE(Income,0) >= %s)
+            ORDER BY GREATEST(COALESCE(Out,0), COALESCE(Income,0)) DESC
+        """, (threshold, threshold)).fetchall()
+        card = self.cursor.execute("""
+            SELECT ID, Name, Executed_Date, Charge_Date, Charge_Value,
+                   Transaction_Value, Charge_Currency, Value_Currency, CardID
+            FROM CardTransactions
+            WHERE Category = 'NotCategorized'
+              AND (COALESCE(Charge_Value,0) >= %s OR COALESCE(Transaction_Value,0) >= %s)
+            ORDER BY GREATEST(COALESCE(Charge_Value,0), COALESCE(Transaction_Value,0)) DESC
+        """, (threshold, threshold)).fetchall()
+        result = []
+        for r in bank:
+            result.append({
+                'table_name': 'BankTransactions', 'id': r[0], 'name': r[1] or '',
+                'exec_date': str(r[2] or '')[:10], 'charge_date': str(r[2] or '')[:10],
+                'charge_value': float(r[3]) if r[3] is not None else None,
+                'transaction_value': float(r[4]) if r[4] is not None else None,
+                'currency': 'ILS', 'value_currency': 'ILS', 'card_id': None,
+            })
+        for r in card:
+            result.append({
+                'table_name': 'CardTransactions', 'id': r[0], 'name': r[1] or '',
+                'exec_date': str(r[2] or '')[:10], 'charge_date': str(r[3] or '')[:10],
+                'charge_value': float(r[4]) if r[4] is not None else None,
+                'transaction_value': float(r[5]) if r[5] is not None else None,
+                'currency': r[6] or 'ILS', 'value_currency': r[7] or 'ILS', 'card_id': r[8],
+            })
+        return result
+
+    def count_category_usages(self) -> dict:
+        rows = self.cursor.execute("""
+            SELECT Category, COUNT(*) FROM (
+                SELECT Category FROM BankTransactions
+                WHERE Category IS NOT NULL AND Category != 'NotCategorized'
+                UNION ALL
+                SELECT Category FROM CardTransactions
+                WHERE Category IS NOT NULL AND Category != 'NotCategorized'
+            ) t GROUP BY Category
+        """).fetchall()
+        return {r[0]: r[1] for r in rows}
+
+    def count_auto_tagged_per_name(self) -> dict:
+        rows = self.cursor.execute("""
+            SELECT Name, COUNT(*) FROM (
+                SELECT Name FROM BankTransactions WHERE Reserved = 1
+                UNION ALL
+                SELECT Name FROM CardTransactions WHERE Reserved = 1
+            ) t GROUP BY Name
+        """).fetchall()
+        return {r[0]: r[1] for r in rows}
+
+    def search_tagged(self, q: str) -> list:
+        try:
+            id_val = int(q)
+            bank = self.cursor.execute("""
+                SELECT ID, Name, Date, Out, Income, Category, Reserved
+                FROM BankTransactions WHERE ID = %s
+            """, (id_val,)).fetchall()
+            card = self.cursor.execute("""
+                SELECT ID, Name, Executed_Date, Charge_Value, Transaction_Value,
+                       Charge_Currency, Value_Currency, CardID, Category, Reserved
+                FROM CardTransactions WHERE ID = %s
+            """, (id_val,)).fetchall()
+        except ValueError:
+            pat = '%' + q.lower() + '%'
+            bank = self.cursor.execute("""
+                SELECT ID, Name, Date, Out, Income, Category, Reserved
+                FROM BankTransactions
+                WHERE Category IS NOT NULL AND Category != 'NotCategorized'
+                  AND LOWER(Name) LIKE %s
+                ORDER BY ID DESC LIMIT 50
+            """, (pat,)).fetchall()
+            card = self.cursor.execute("""
+                SELECT ID, Name, Executed_Date, Charge_Value, Transaction_Value,
+                       Charge_Currency, Value_Currency, CardID, Category, Reserved
+                FROM CardTransactions
+                WHERE Category IS NOT NULL AND Category != 'NotCategorized'
+                  AND LOWER(Name) LIKE %s
+                ORDER BY ID DESC LIMIT 50
+            """, (pat,)).fetchall()
+        result = []
+        for r in bank:
+            result.append({
+                'table_name': 'BankTransactions', 'id': r[0], 'name': r[1] or '',
+                'exec_date': str(r[2] or '')[:10], 'charge_date': str(r[2] or '')[:10],
+                'charge_value': float(r[3]) if r[3] is not None else None,
+                'transaction_value': float(r[4]) if r[4] is not None else None,
+                'currency': 'ILS', 'value_currency': 'ILS', 'card_id': None,
+                'category': r[5] or '', 'reserved': r[6],
+            })
+        for r in card:
+            result.append({
+                'table_name': 'CardTransactions', 'id': r[0], 'name': r[1] or '',
+                'exec_date': str(r[2] or '')[:10], 'charge_date': str(r[2] or '')[:10],
+                'charge_value': float(r[3]) if r[3] is not None else None,
+                'transaction_value': float(r[4]) if r[4] is not None else None,
+                'currency': r[5] or 'ILS', 'value_currency': r[6] or 'ILS',
+                'card_id': r[7], 'category': r[8] or '', 'reserved': r[9],
+            })
+        return result
+
+    def set_category_ui(self, table: str, id_: int, category: str, is_auto: bool = False) -> None:
+        reserved = 1 if is_auto else 0
+        self.cursor.execute(
+            f"UPDATE {table} SET Category=%s, Reserved=%s WHERE ID=%s",
+            (category, reserved, int(id_))
+        )
+        self.connection.commit()
+
+    def remap_auto_tagged(self, name: str, new_category: str) -> int:
+        updated = 0
+        for tbl in ('BankTransactions', 'CardTransactions'):
+            self.cursor.execute(
+                f"UPDATE {tbl} SET Category=%s WHERE Name=%s AND Reserved=1",
+                (new_category, name)
+            )
+            updated += self.cursor.rowcount
+        self.connection.commit()
+        return updated
+
+    def get_splits_for_transaction(self, table: str, tx_id: int) -> list:
+        rows = self.cursor.execute("""
+            SELECT ID, Amount, Description, Category
+            FROM TransactionSplits WHERE Original_Table=%s AND Original_ID=%s ORDER BY ID
+        """, (table, int(tx_id))).fetchall()
+        return [{'split_id': r[0], 'amount': float(r[1]),
+                 'description': r[2] or '', 'category': r[3]} for r in rows]
+
+    def create_splits(self, table: str, tx_id: int, splits: list) -> list:
+        ids = []
+        for s in splits:
+            self.cursor.execute("""
+                INSERT INTO TransactionSplits (Original_Table, Original_ID, Amount, Description, Category)
+                VALUES (%s, %s, %s, %s, %s) RETURNING ID
+            """, (table, int(tx_id), float(s['amount']), s.get('description', ''), s['category']))
+            ids.append(self.cursor.fetchone()[0])
+        return ids
+
+    def revert_splits(self, table: str, tx_id: int) -> int:
+        self.cursor.execute(
+            "DELETE FROM TransactionSplits WHERE Original_Table=%s AND Original_ID=%s",
+            (table, int(tx_id))
+        )
+        return self.cursor.rowcount
+
+    def commit_changes(self) -> None:
+        self.connection.commit()
+

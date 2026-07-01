@@ -3229,6 +3229,7 @@ async function submitEdit() {
     closeModal('modal-edit');
     editAttachTx = null;
     await loadEntries();
+    loadSuggestions();
   } else {
     setStatus(st, 'err', r.error || 'שגיאה');
   }

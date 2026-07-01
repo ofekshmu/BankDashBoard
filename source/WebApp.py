@@ -4447,7 +4447,7 @@ def api_bills_entry(entry_id):
     try:
         # Need the bill_type_id of this entry to check overlap
         row = db.cursor.execute(
-            "SELECT BillType_ID FROM BillEntries WHERE ID=?", (entry_id,)
+            "SELECT BillType_ID FROM BillEntries WHERE ID=%s", (entry_id,)
         ).fetchone()
         if row:
             overlap = db.check_bill_entry_overlap(

@@ -958,19 +958,19 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:#f4f6f9;color:#1e2a4a;d
     <button class="sidebar-close-btn" onclick="closeNav()" aria-label="סגור תפריט">✕</button>
   </div>
   <div class="sidebar-scroll">
-    <a class="nav-item" href="/">ניתוח חודשי</a>
-    <a class="nav-item" href="/">עסקאות</a>
+    <a class="nav-item" href="/monthly" onclick="try{{var k=localStorage.getItem('lv_month');if(k){{event.preventDefault();location.href='/general/'+k;}}}}catch(_){{}}">ניתוח חודשי</a>
     <div class="nav-sep"></div>
     <a class="nav-item" href="/accounts">חשבונות</a>
     <a class="nav-item" href="/housing">דיור</a>
     <a class="nav-item" href="/organizer">ארגונית</a>
+    <a class="nav-item" href="/bills">מעקב חשבונות</a>
     <a class="nav-item active" href="/categories">ניתוח קטגוריאלי</a>
     <a class="nav-item" href="/search">חיפוש</a>
+    <a class="nav-item" href="/spotify">Spotify Tracker</a>
+    <a class="nav-item" href="/gym">💪 Gym Tracker</a>
     <div class="nav-sep"></div>
     <a class="nav-item" href="/tagger">תייגן</a>
     <a class="nav-item" href="/files">קבצים</a>
-    <div class="nav-sep"></div>
-    <a class="nav-item" href="/gym">💪 Gym Tracker</a>
   </div>
   <div class="sidebar-footer" style="padding:12px 16px;border-top:1px solid #eef0f6;flex-shrink:0">
     <div id="app-version-badge-1" style="text-align:center;font-size:.7em;color:#b0bec5;margin-bottom:8px;letter-spacing:.03em;">v—</div>

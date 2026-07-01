@@ -3218,6 +3218,9 @@ async function submitEdit() {
     body.amount            = Math.abs(editAttachTx.amount);
     body.is_filler         = false;
   } else {
+    // Preserve the entry's current is_filler — setting an expected amount must
+    // not change the bar style; only a real transaction match should do that.
+    if (entry) body.is_filler = entry.is_filler;
     const expAmtEl = document.getElementById('edit-expected-amount');
     if (expAmtEl && expAmtEl.closest('#edit-attach-tx-wrap') && !expAmtEl.closest('#edit-attach-tx-wrap').classList.contains('hidden')) {
       const v = parseFloat(expAmtEl.value);

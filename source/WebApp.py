@@ -967,7 +967,7 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:#f4f6f9;color:#1e2a4a;d
     <a class="nav-item active" href="/categories">ניתוח קטגוריאלי</a>
     <a class="nav-item" href="/search">חיפוש</a>
     <a class="nav-item" href="/spotify">Spotify Tracker</a>
-    <a class="nav-item" href="/gym">💪 Gym Tracker</a>
+    <a class="nav-item" href="/gym">Gym Tracker</a>
     <div class="nav-sep"></div>
     <a class="nav-item" href="/tagger">תייגן</a>
     <a class="nav-item" href="/files">קבצים</a>
@@ -2973,7 +2973,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--na
     <a class="nav-item" href="/categories">ניתוח קטגוריאלי</a>
     <a class="nav-item" href="/search">חיפוש</a>
     <a class="nav-item" href="/spotify">Spotify Tracker</a>
-    <a class="nav-item" href="/gym">💪 Gym Tracker</a>
+    <a class="nav-item" href="/gym">Gym Tracker</a>
     <div class="nav-sep"></div>
     <a class="nav-item" href="/tagger">תייגן</a>
     <a class="nav-item" href="/files">קבצים</a>

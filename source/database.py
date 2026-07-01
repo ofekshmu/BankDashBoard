@@ -2487,19 +2487,66 @@ class DataBase:
     def get_bill_entries(self) -> list:
         c = self.connection.cursor()
         c.execute("""
-            SELECT ID, BillType_ID, Start_Month, End_Month,
-                   Transaction_Table, Transaction_ID, Amount, Note, Is_Filler
-            FROM BillEntries ORDER BY Start_Month DESC
+            SELECT
+                e.id, e.billtype_id, e.start_month, e.end_month,
+                e.transaction_table, e.transaction_id, e.amount, e.note, e.is_filler,
+                CASE WHEN e.transaction_table='BankTransactions' THEN b.name
+                     WHEN e.transaction_table='CardTransactions' THEN cc.name
+                END AS tx_name,
+                CASE WHEN e.transaction_table='BankTransactions' THEN CAST(b.date AS text)
+                     WHEN e.transaction_table='CardTransactions' THEN CAST(cc.executed_date AS text)
+                END AS tx_date,
+                CAST(b.value_date AS text)   AS tx_value_date,
+                CAST(cc.charge_date AS text) AS tx_charge_date,
+                cc.charge_value              AS tx_charge_value,
+                cc.charge_currency           AS tx_charge_currency,
+                CASE WHEN e.transaction_table='BankTransactions' THEN (b.income - b.out)
+                     WHEN e.transaction_table='CardTransactions' THEN cc.transaction_value
+                END AS tx_amount,
+                CASE WHEN e.transaction_table='BankTransactions' THEN b.category
+                     WHEN e.transaction_table='CardTransactions' THEN cc.category
+                END AS tx_category,
+                b.ref          AS tx_ref,
+                cc.cardid      AS tx_card_id,
+                b.balance      AS tx_balance,
+                CASE WHEN e.transaction_table='BankTransactions' THEN b.description
+                     WHEN e.transaction_table='CardTransactions' THEN cc.description
+                END AS tx_description,
+                CASE WHEN e.transaction_table='BankTransactions' THEN b.extra_info
+                     WHEN e.transaction_table='CardTransactions' THEN cc.extra_info
+                END AS tx_extra_info
+            FROM BillEntries e
+            LEFT JOIN BankTransactions b
+                ON e.transaction_table='BankTransactions' AND e.transaction_id=b.id
+            LEFT JOIN CardTransactions cc
+                ON e.transaction_table='CardTransactions' AND e.transaction_id=cc.id
+            ORDER BY e.start_month DESC
         """)
         rows = c.fetchall()
         c.close()
+        def _f(v):
+            try: return float(v) if v is not None else None
+            except: return None
         return [
             {
                 'id': r[0], 'bill_type_id': r[1],
                 'start_month': r[2], 'end_month': r[3],
                 'transaction_table': r[4], 'transaction_id': r[5],
-                'amount': float(r[6]) if r[6] is not None else None,
+                'amount':             _f(r[6]),
                 'note': r[7] or '', 'is_filler': bool(r[8]),
+                'tx_name':            r[9],
+                'tx_date':            str(r[10])[:10] if r[10] else None,
+                'tx_value_date':      str(r[11])[:10] if r[11] else None,
+                'tx_charge_date':     str(r[12])[:10] if r[12] else None,
+                'tx_charge_value':    _f(r[13]),
+                'tx_charge_currency': r[14],
+                'tx_amount':          _f(r[15]),
+                'tx_category':        r[16],
+                'tx_ref':             r[17],
+                'tx_card_id':         r[18],
+                'tx_balance':         _f(r[19]),
+                'tx_description':     r[20],
+                'tx_extra_info':      r[21],
             }
             for r in rows
         ]

@@ -1091,8 +1091,14 @@ body.resize-end    { cursor: ew-resize !important; }
     <!-- Filler: attach transaction -->
     <div class="field hidden" id="edit-attach-tx-wrap">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:2px 0 6px">
-        <span style="font-size:0.79em;font-weight:600;color:var(--text-sub)">מילוי ריק</span>
+        <span style="font-size:0.79em;font-weight:600;color:var(--text-sub)">ללא עסקה מקושרת</span>
         <button class="btn btn-ghost btn-xs" onclick="toggleEditAttachTx()" id="edit-attach-tx-btn">+ קשר עסקה</button>
+      </div>
+      <!-- Expected amount for unmatched entries -->
+      <div style="display:flex;align-items:center;gap:8px;padding:4px 0 6px" id="edit-expected-amt-row">
+        <label style="font-size:0.82em;color:var(--text-muted);white-space:nowrap;margin:0">סכום משוער:</label>
+        <input id="edit-expected-amount" type="number" min="0" step="0.01" placeholder="לא הוגדר"
+               style="width:110px;padding:4px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:0.9em;background:var(--bg-card,#fff);color:var(--navy)">
       </div>
       <div id="edit-attach-search-wrap" class="hidden">
         <div class="tx-search-wrap">
@@ -2361,7 +2367,7 @@ function openEditModal(eid) {
     else { extraWrap.style.display = 'none'; }
   } else {
     txSection.classList.add('hidden');
-    // Filler entry: show attach-tx section
+    // Unmatched entry: show attach-tx section + expected amount
     const attachWrap = document.getElementById('edit-attach-tx-wrap');
     if (attachWrap) {
       attachWrap.classList.remove('hidden');
@@ -2369,6 +2375,8 @@ function openEditModal(eid) {
       document.getElementById('edit-attach-tx-btn').textContent = '+ קשר עסקה';
       clearEditAttach();
     }
+    const expAmt = document.getElementById('edit-expected-amount');
+    if (expAmt) expAmt.value = entry.amount != null ? entry.amount : '';
   }
 
   document.getElementById('edit-status').className = 'inline-status';
@@ -3030,6 +3038,9 @@ function selectEditAttach(tx) {
   editAttachTx = tx;
   document.getElementById('edit-attach-tx-inp').value = '';
   document.getElementById('edit-attach-results').classList.add('hidden');
+  // Hide expected-amount row — real amount comes from the transaction
+  const expRow = document.getElementById('edit-expected-amt-row');
+  if (expRow) expRow.style.display = 'none';
   const sel = document.getElementById('edit-attach-selected');
   sel.classList.remove('hidden');
   const isCard = tx.source !== 'bank';
@@ -3046,6 +3057,8 @@ function clearEditAttach() {
   document.getElementById('edit-attach-selected').classList.add('hidden');
   document.getElementById('edit-attach-tx-inp').value = '';
   document.getElementById('edit-attach-results').classList.add('hidden');
+  const expRow = document.getElementById('edit-expected-amt-row');
+  if (expRow) expRow.style.display = '';
 }
 function positionResults(inputId, boxId) {
   const inp  = document.getElementById(inputId);
@@ -3158,6 +3171,12 @@ async function submitEdit() {
     body.transaction_id    = editAttachTx.tx_id;
     body.amount            = Math.abs(editAttachTx.amount);
     body.is_filler         = false;
+  } else {
+    const expAmtEl = document.getElementById('edit-expected-amount');
+    if (expAmtEl && expAmtEl.closest('#edit-attach-tx-wrap') && !expAmtEl.closest('#edit-attach-tx-wrap').classList.contains('hidden')) {
+      const v = parseFloat(expAmtEl.value);
+      body.amount = isNaN(v) ? null : v;
+    }
   }
   const r = await api('PUT', `/api/bills/entries/${id}`, body);
   if (r.ok) {

@@ -1101,6 +1101,12 @@ body.resize-end    { cursor: ew-resize !important; }
                style="width:110px;padding:4px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:0.9em;background:var(--bg-card,#fff);color:var(--navy)">
       </div>
       <div id="edit-attach-search-wrap" class="hidden">
+        <!-- Quick-pick: suggestions already loaded on the page -->
+        <div id="edit-attach-quick" style="margin-bottom:10px">
+          <div style="font-size:0.75em;font-weight:600;color:var(--text-muted);margin-bottom:5px">עסקאות מוצעות</div>
+          <div id="edit-attach-quick-list" style="max-height:180px;overflow-y:auto;display:flex;flex-direction:column;gap:3px"></div>
+          <div id="edit-attach-quick-empty" style="display:none;font-size:0.8em;color:var(--text-muted);padding:4px 0">אין עסקאות מוצעות</div>
+        </div>
         <div class="tx-search-wrap">
           <input id="edit-attach-tx-inp" type="text" placeholder="חפש עסקה לקישור…" autocomplete="off"
                  oninput="onEditAttachSearch(this.value)" onfocus="onEditAttachFocus()">
@@ -1271,6 +1277,7 @@ let viewEnd   = null;
 // Selected transaction for add-entry modal
 let selectedTx     = null;   // {tx_id, date, name, amount, source}
 let editAttachTx   = null;   // tx being attached to a filler entry in edit modal
+let sugItems       = [];     // cache of last-loaded suggestion objects
 let txSearchTimer  = null;
 
 // Duplicate transaction tracking
@@ -2717,6 +2724,7 @@ async function onDragEnd(e) {
 // Suggestions
 // ─────────────────────────────────────────────────────────────
 function renderSuggestions(items) {
+  sugItems = items;   // cache for quick-pick in edit modal
   const list  = document.getElementById('sug-list');
   const badge = document.getElementById('sug-badge');
   const navDot = document.getElementById('nav-bills-dot');
@@ -3001,11 +3009,49 @@ function openAddEntryModal() {
 }
 
 // ── Edit modal: attach TX to filler ──────────────────────────
+function _pickSug(idx) {
+  const it = sugItems[idx];
+  if (!it) return;
+  selectEditAttach({
+    source: it.table === 'BankTransactions' ? 'bank' : 'card',
+    tx_id:  it.id,
+    name:   it.name,
+    date:   it.date,
+    amount: it.amount,
+  });
+}
+function _renderEditSugList() {
+  const list  = document.getElementById('edit-attach-quick-list');
+  const empty = document.getElementById('edit-attach-quick-empty');
+  if (!list) return;
+  if (!sugItems.length) {
+    list.innerHTML = '';
+    if (empty) empty.style.display = '';
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+  list.innerHTML = sugItems.map((it, idx) => {
+    const isCard = it.table !== 'BankTransactions';
+    const badgeBg = isCard ? 'var(--amber)' : 'var(--teal)';
+    const badgeTxt = isCard ? 'כרטיס' : 'בנק';
+    return `<div style="display:flex;align-items:center;gap:6px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:0.82em;background:var(--bg-card,#fff)">
+      <span style="font-size:0.68em;font-weight:700;padding:1px 5px;border-radius:3px;background:${badgeBg};color:#fff;flex-shrink:0">${badgeTxt}</span>
+      <span style="color:var(--text-muted);flex-shrink:0;white-space:nowrap">${it.date}</span>
+      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600">${esc(it.name)}</span>
+      <span style="color:var(--red);font-weight:700;flex-shrink:0">₪${Math.abs(it.amount).toLocaleString('he-IL',{maximumFractionDigits:0})}</span>
+      <button class="btn btn-primary btn-xs" style="flex-shrink:0" onclick="_pickSug(${idx})">קשר</button>
+    </div>`;
+  }).join('');
+}
 function toggleEditAttachTx() {
   const wrap = document.getElementById('edit-attach-search-wrap');
   const isOpen = !wrap.classList.contains('hidden');
   wrap.classList.toggle('hidden', isOpen);
-  if (isOpen) { clearEditAttach(); }
+  if (isOpen) {
+    clearEditAttach();
+  } else {
+    _renderEditSugList();
+  }
   document.getElementById('edit-attach-tx-btn').textContent = isOpen ? '+ קשר עסקה' : '✕ בטל';
 }
 function onEditAttachFocus() { positionResults('edit-attach-tx-inp', 'edit-attach-results'); }

@@ -99,18 +99,18 @@ def get_charge_suggestions(db) -> list:
 
     candidates = []
 
-    # r: (ID[0], Date[1], Name[2], Out[3])
+    # r: (ID[0], Date[1], Name[2], out[3])
     for row in db.cursor.execute("""
-        SELECT ID, Date, Name, "Out"
+        SELECT ID, Date, Name, out
         FROM BankTransactions
-        WHERE LOWER(Name) LIKE '%spotify%' AND "Out" > 0
+        WHERE LOWER(Name) LIKE %s AND out > 0
         ORDER BY Date DESC LIMIT 24
-    """).fetchall():
-        month = (row[1] or '')[:7]
+    """, ('%spotify%',)).fetchall():
+        month = str(row[1] or '')[:7]
         if month and month not in confirmed_months:
             candidates.append({
                 'tx_id':  row[0],
-                'date':   row[1],
+                'date':   str(row[1]) if row[1] else None,
                 'name':   row[2],
                 'amount': float(row[3] or 0),
                 'month':  month,
@@ -121,14 +121,14 @@ def get_charge_suggestions(db) -> list:
     for row in db.cursor.execute("""
         SELECT ID, Executed_Date, Name, Charge_Value
         FROM CardTransactions
-        WHERE LOWER(Name) LIKE '%spotify%' AND Charge_Value > 0
+        WHERE LOWER(Name) LIKE %s AND Charge_Value > 0
         ORDER BY Executed_Date DESC LIMIT 24
-    """).fetchall():
-        month = (row[1] or '')[:7]
+    """, ('%spotify%',)).fetchall():
+        month = str(row[1] or '')[:7]
         if month and month not in confirmed_months:
             candidates.append({
                 'tx_id':  row[0],
-                'date':   row[1],
+                'date':   str(row[1]) if row[1] else None,
                 'name':   row[2],
                 'amount': float(row[3] or 0),
                 'month':  month,
@@ -169,16 +169,16 @@ def get_unmatched_payments(db) -> list:
         FROM BankTransactions
         WHERE Income > 0
           AND (
-            LOWER(Name)        LIKE '%spotify%'
-            OR LOWER(Description) LIKE '%spotify%'
-            OR LOWER(Category)    LIKE '%spotify%'
+            LOWER(Name)        LIKE %s
+            OR LOWER(Description) LIKE %s
+            OR LOWER(Category)    LIKE %s
           )
         ORDER BY Date DESC LIMIT 200
-    """).fetchall():
+    """, ('%spotify%', '%spotify%', '%spotify%')).fetchall():
         if row[0] not in excluded:
             results.append({
                 'id':          row[0],
-                'date':        row[1],
+                'date':        str(row[1]) if row[1] else None,
                 'name':        row[2],
                 'amount':      float(row[3] or 0),
                 'description': row[4] or '',

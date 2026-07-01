@@ -575,6 +575,7 @@ def search_transactions():
     q_source   = (request.args.get('source')   or 'all').strip()  # 'bank' | 'card' | 'all'
 
     results = []
+    conn = None
     try:
         conn = _pg_conn()
 
@@ -585,10 +586,10 @@ def search_transactions():
             for r in conn.execute(
                 "SELECT Original_ID, Original_Table FROM TransactionSplits"
             ).fetchall():
-                if r['Original_Table'] == 'BankTransactions':
-                    split_ids_bank.add(r['Original_ID'])
+                if r['original_table'] == 'BankTransactions':
+                    split_ids_bank.add(r['original_id'])
                 else:
-                    split_ids_card.add(r['Original_ID'])
+                    split_ids_card.add(r['original_id'])
 
         # ── BankTransactions ──────────────────────────────────────────
         bank_where = []
@@ -630,21 +631,21 @@ def search_transactions():
         bank_sql += " ORDER BY Date DESC LIMIT 2000"
 
         for row in (conn.execute(bank_sql, bank_params) if q_source != 'card' else []):
-            amount = float(row['Income'] or 0) - float(row['Out'] or 0)
+            amount = float(row['income'] or 0) - float(row['out'] or 0)
             if q_min is not None and abs(amount) < q_min:
                 continue
             if q_max is not None and abs(amount) > q_max:
                 continue
-            is_split = row['ID'] in split_ids_bank
+            is_split = row['id'] in split_ids_bank
             if q_split == 'split'    and not is_split: continue
             if q_split == 'nonsplit' and     is_split: continue
             results.append({
-                'tx_id':       row['ID'],
-                'date':        (row['Date'] or '')[:10],
-                'name':        row['Name'] or '',
-                'category':    row['Category'] or '',
+                'tx_id':       row['id'],
+                'date':        str(row['date'])[:10] if row['date'] else '',
+                'name':        row['name'] or '',
+                'category':    row['category'] or '',
                 'amount':      amount,
-                'description': row['Description'] or '',
+                'description': row['description'] or '',
                 'source':      'bank',
                 'card_id':     None,
                 'is_split':    is_split,
@@ -690,42 +691,49 @@ def search_transactions():
         card_sql += " ORDER BY Executed_Date DESC LIMIT 2000"
 
         for row in (conn.execute(card_sql, card_params) if q_source != 'bank' else []):
-            amount = -float(row['Transaction_Value'] or 0)  # negate: positive charge → negative (expense)
+            amount = -float(row['transaction_value'] or 0)  # negate: positive charge → negative (expense)
             if q_min is not None and abs(amount) < q_min:
                 continue
             if q_max is not None and abs(amount) > q_max:
                 continue
-            is_split = row['ID'] in split_ids_card
+            is_split = row['id'] in split_ids_card
             if q_split == 'split'    and not is_split: continue
             if q_split == 'nonsplit' and     is_split: continue
             results.append({
-                'tx_id':       row['ID'],
-                'date':        (row['Executed_Date'] or '')[:10],
-                'name':        row['Name'] or '',
-                'category':    row['Category'] or '',
+                'tx_id':       row['id'],
+                'date':        str(row['executed_date'])[:10] if row['executed_date'] else '',
+                'name':        row['name'] or '',
+                'category':    row['category'] or '',
                 'amount':      amount,
-                'description': row['Description'] or '',
+                'description': row['description'] or '',
                 'source':      'card',
-                'card_id':     row['CardID'],
+                'card_id':     row['cardid'],
                 'is_split':    is_split,
             })
 
-        conn.close()
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e), 'results': []}), 500
+    finally:
+        if conn:
+            try: conn.close()
+            except Exception: pass
 
     # ── Apply splits: hide originals, surface split rows ─────────────────────
+    split_conn = None
     try:
         split_conn = _pg_conn()
         split_rows_db = split_conn.execute(
             'SELECT ID, Original_Table, Original_ID, Amount, Description, Category FROM TransactionSplits'
         ).fetchall()
-        split_conn.close()
     except Exception:
         split_rows_db = []
+    finally:
+        if split_conn:
+            try: split_conn.close()
+            except Exception: pass
 
     if split_rows_db:
-        split_orig_keys = set((r['Original_Table'], r['Original_ID']) for r in split_rows_db)
+        split_orig_keys = set((r['original_table'], r['original_id']) for r in split_rows_db)
         # Remove split originals from results
         results = [r for r in results
                    if not (('bank' if r['source'] == 'bank' else 'card') == 'bank'
@@ -735,10 +743,11 @@ def search_transactions():
         # Add split rows (using original row metadata)
         orig_meta_cache = {}
         for split_r in split_rows_db:
-            orig_table = split_r['Original_Table']
-            orig_id    = split_r['Original_ID']
+            orig_table = split_r['original_table']
+            orig_id    = split_r['original_id']
             key        = (orig_table, orig_id)
             if key not in orig_meta_cache:
+                c2 = None
                 try:
                     c2 = _pg_conn()
                     if orig_table == 'BankTransactions':
@@ -746,25 +755,28 @@ def search_transactions():
                             'SELECT Name, Date FROM BankTransactions WHERE ID=%s', (orig_id,)
                         ).fetchone()
                         orig_meta_cache[key] = {
-                            'name': meta['Name'] if meta else '', 'source': 'bank',
-                            'date': (meta['Date'] or '')[:10] if meta else '', 'card_id': None,
+                            'name': meta['name'] if meta else '', 'source': 'bank',
+                            'date': str(meta['date'])[:10] if meta and meta['date'] else '', 'card_id': None,
                         }
                     else:
                         meta = c2.execute(
                             'SELECT Name, Executed_Date, CardID FROM CardTransactions WHERE ID=%s', (orig_id,)
                         ).fetchone()
                         orig_meta_cache[key] = {
-                            'name': meta['Name'] if meta else '', 'source': 'card',
-                            'date': (meta['Executed_Date'] or '')[:10] if meta else '',
-                            'card_id': meta['CardID'] if meta else None,
+                            'name': meta['name'] if meta else '', 'source': 'card',
+                            'date': str(meta['executed_date'])[:10] if meta and meta['executed_date'] else '',
+                            'card_id': meta['cardid'] if meta else None,
                         }
-                    c2.close()
                 except Exception:
                     orig_meta_cache[key] = {'name': '', 'source': 'bank', 'date': '', 'card_id': None}
+                finally:
+                    if c2:
+                        try: c2.close()
+                        except Exception: pass
 
             meta = orig_meta_cache[key]
             # Apply all filters to split rows (date, keyword, category, type, amount)
-            amount = float(split_r['Amount'])
+            amount = float(split_r['amount'])
             if q_from and meta['date'] and meta['date'] < q_from: continue
             if q_to   and meta['date'] and meta['date'] > q_to:   continue
             if q_type == 'income' and amount <= 0: continue
@@ -772,20 +784,20 @@ def search_transactions():
             if q_min is not None and abs(amount) < q_min: continue
             if q_max is not None and abs(amount) > q_max: continue
             if q_keyword:
-                hay = (meta['name'] + ' ' + (split_r['Description'] or '')).lower()
+                hay = (meta['name'] + ' ' + (split_r['description'] or '')).lower()
                 if q_keyword.lower() not in hay: continue
-            if q_category and split_r['Category'] != q_category: continue
+            if q_category and split_r['category'] != q_category: continue
             results.append({
-                'tx_id':       split_r['ID'],
+                'tx_id':       split_r['id'],
                 'date':        meta['date'],
                 'name':        meta['name'],
-                'category':    split_r['Category'],
+                'category':    split_r['category'],
                 'amount':      amount,
-                'description': split_r['Description'] or '',
+                'description': split_r['description'] or '',
                 'source':      meta['source'],
                 'card_id':     meta['card_id'],
                 'is_split':    True,
-                'split_id':    split_r['ID'],
+                'split_id':    split_r['id'],
                 'orig_id':     orig_id,
                 'orig_table':  orig_table,
             })
@@ -798,6 +810,7 @@ def search_transactions():
 @app.route('/api/search/categories')
 def search_categories():
     """Return distinct category names for the search filter dropdown."""
+    conn = None
     try:
         conn = _pg_conn()
         cats = set()
@@ -805,10 +818,13 @@ def search_categories():
             cats.add(row[0])
         for row in conn.execute("SELECT DISTINCT Category FROM CardTransactions WHERE Category IS NOT NULL AND Category != ''"):
             cats.add(row[0])
-        conn.close()
         return jsonify({'categories': sorted(cats)})
     except Exception as e:
         return jsonify({'categories': [], 'error': str(e)})
+    finally:
+        if conn:
+            try: conn.close()
+            except Exception: pass
 
 
 @app.route('/api/general/list')
@@ -1539,7 +1555,7 @@ def _get_pg_pool():
         if _pg_pool is None:
             import psycopg2.pool
             _pg_pool = psycopg2.pool.ThreadedConnectionPool(
-                minconn=1, maxconn=5,
+                minconn=1, maxconn=10,
                 dsn=os.environ.get('DATABASE_URL', ''),
                 connect_timeout=10,
             )

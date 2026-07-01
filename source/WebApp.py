@@ -504,6 +504,15 @@ def regen_progress_api(yyyy_mm):
     return jsonify({'pct': pct, 'done': bool(p['done'])})
 
 
+@app.route('/monthly')
+def monthly_page():
+    """Redirect to the most recent monthly analysis page (used by sidebar nav)."""
+    latest_key = _get_latest_yyyy_mm()
+    if latest_key:
+        return redirect(f'/general/{latest_key}')
+    return redirect('/')
+
+
 @app.route('/accounts')
 def accounts_page():
     """Redirect to the latest monthly page with ?panel=accounts."""

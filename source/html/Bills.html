@@ -863,7 +863,7 @@ body.resize-end    { cursor: ew-resize !important; }
     <button class="sidebar-close-btn" onclick="closeNav()" aria-label="סגור תפריט">✕</button>
   </div>
   <div class="sidebar-scroll">
-    <a class="nav-item" href="/">ניתוח חודשי</a>
+    <a class="nav-item" href="/monthly" onclick="try{var k=localStorage.getItem('lv_month');if(k){event.preventDefault();location.href='/general/'+k;}}catch(_){}">ניתוח חודשי</a>
     <div class="nav-sep"></div>
     <a class="nav-item" href="/accounts">חשבונות</a>
     <a class="nav-item" href="/housing">דיור</a>

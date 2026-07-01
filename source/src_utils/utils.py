@@ -4167,15 +4167,16 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;
     <button class="sidebar-close-btn" onclick="closeNav()">✕</button>
   </div>
   <div class="sidebar-scroll">
-    <a class="nav-item" href="/">ניתוח חודשי</a>
-    <a class="nav-item" href="/">עסקאות</a>
+    <a class="nav-item" href="/monthly" onclick="try{{var k=localStorage.getItem('lv_month');if(k){{event.preventDefault();location.href='/general/'+k;}}}}catch(_){{}}">ניתוח חודשי</a>
     <div class="nav-sep"></div>
     <a class="nav-item" href="/accounts">חשבונות</a>
     <a class="nav-item" href="/housing">דיור</a>
     <a class="nav-item" href="/organizer">ארגונית</a>
+    <a class="nav-item" href="/bills">מעקב חשבונות</a>
     <a class="nav-item active" href="/categories">ניתוח קטגוריאלי</a>
     <a class="nav-item" href="/search">חיפוש</a>
     <a class="nav-item" href="/spotify">Spotify Tracker</a>
+    <a class="nav-item" href="/gym">💪 Gym Tracker</a>
     <div class="nav-sep"></div>
     <a class="nav-item" href="/tagger">תייגן</a>
     <a class="nav-item" href="/files">קבצים</a>

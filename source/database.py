@@ -1,4 +1,5 @@
 import os
+import threading
 import psycopg2
 from dotenv import load_dotenv
 
@@ -59,10 +60,25 @@ class _ChainableCursor:
     Creates a new underlying psycopg2 cursor on every execute() call so that
     a failed query (which puts the transaction in an error state) never leaves
     the shared cursor in a broken state for subsequent queries.
+
+    The active cursor is kept in thread-local storage. The DataBase instance
+    (and this wrapper) is a process-wide singleton shared across Flask's
+    worker threads (threaded=True); without thread-local storage, concurrent
+    requests race on the single shared `_c` attribute — one thread's execute()
+    can overwrite another's cursor before it fetches, raising
+    "no results to fetch".
     """
     def __init__(self, conn):
         self._conn = conn
-        self._c = None
+        self._local = threading.local()
+
+    @property
+    def _c(self):
+        return getattr(self._local, 'c', None)
+
+    @_c.setter
+    def _c(self, value):
+        self._local.c = value
 
     def execute(self, sql, params=()):
         # If a prior query left the connection in an aborted transaction, roll

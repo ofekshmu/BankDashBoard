@@ -135,15 +135,20 @@ body {
 }
 .chip-group-section {
   display: inline-flex; flex-direction: column; align-items: flex-start; gap: 4px;
-  padding: 2px 10px 2px 0; margin-right: 6px;
-  border-right: 2px solid var(--border);
+  padding: 2px 12px 2px 0; margin-right: 8px;
+  border-right: 3px solid var(--grp-color, var(--border));
 }
 .chip-group-section:last-of-type { border-right: none; margin-right: 0; }
+.chip-group-label-row {
+  display: flex; align-items: center; gap: 4px; flex-wrap: nowrap;
+}
+.chip-grp-dot {
+  width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+}
 .chip-group-label {
-  font-size: 0.6em; font-weight: 700; letter-spacing: 0.07em;
-  color: var(--teal); text-transform: uppercase;
-  background: rgba(30,157,139,0.12); border: 1px solid rgba(30,157,139,0.3);
-  padding: 1px 6px; border-radius: 3px; white-space: nowrap;
+  font-size: 0.62em; font-weight: 800; letter-spacing: 0.07em;
+  color: var(--grp-color, var(--teal)); text-transform: uppercase;
+  padding: 0; white-space: nowrap;
 }
 .chip-group-chips { display: flex; flex-wrap: wrap; gap: 4px; }
 .chip-group-sep { display: none; }
@@ -185,7 +190,7 @@ body {
 .range-preset-btn.active { border-color: var(--teal); background: var(--teal); color: #fff; }
 
 /* ── KPI group dividers ──────────────────────────────────── */
-.type-kpi-group + .type-kpi-group { border-top: 2px solid var(--border); }
+.type-kpi-group + .type-kpi-group { border-top: 3px solid var(--grp-color, var(--border)); padding-top: 14px; }
 
 /* ── KPI info tooltip ────────────────────────────────────── */
 .kpi-info {
@@ -339,10 +344,19 @@ body {
 /* ── Per-type KPI cards grid ─────────────────────────────── */
 .type-kpi-bar { background: transparent; padding: 12px 16px 16px; }
 .type-kpi-section-hdr {
-  padding: 4px 4px 10px;
-  font-size: 0.67em; font-weight: 700;
+  display: flex; align-items: center; gap: 8px;
+  padding: 4px 12px 10px 4px;
+  border-right: 4px solid var(--grp-color, var(--teal));
+  font-size: 0.67em; font-weight: 800;
   letter-spacing: 0.08em; text-transform: uppercase;
-  color: var(--text-muted);
+  color: var(--grp-color, var(--text-muted));
+}
+.kpi-grp-swatches {
+  display: flex; gap: 3px; align-items: center; flex-shrink: 0;
+}
+.kpi-grp-swatch {
+  width: 9px; height: 9px; border-radius: 2px; flex-shrink: 0;
+  box-shadow: 0 1px 3px rgba(0,0,0,.18);
 }
 .type-kpi-cards {
   display: grid;
@@ -1449,9 +1463,14 @@ function renderTypes() {
   let html = '';
   if (hasGroups) {
     groupNames.forEach(gName => {
-      html += `<div class="chip-group-section">`;
-      html += `<span class="chip-group-label">${esc(gName)}</span>`;
-      html += `<div class="chip-group-chips">${groups[gName].map(chip).join('')}</div>`;
+      const grpTypes = groups[gName];
+      const grpColor = grpTypes[0]?.color || 'var(--teal)';
+      const dots = grpTypes.map(t =>
+        `<span class="chip-grp-dot" style="background:${t.color}"></span>`
+      ).join('');
+      html += `<div class="chip-group-section" style="--grp-color:${grpColor}">`;
+      html += `<div class="chip-group-label-row">${dots}<span class="chip-group-label">${esc(gName)}</span></div>`;
+      html += `<div class="chip-group-chips">${grpTypes.map(chip).join('')}</div>`;
       html += `</div>`;
     });
     if (noGroup.length) {
@@ -1687,9 +1706,13 @@ function renderTypeKpiBar() {
 
   let html = '';
   for (const [gName, types] of Object.entries(groupMap)) {
+    const grpColor = types[0]?.color || 'var(--teal)';
+    const swatches = types.map(t =>
+      `<span class="kpi-grp-swatch" style="background:${t.color}"></span>`
+    ).join('');
     html += `
-      <div class="type-kpi-group">
-        <div class="type-kpi-section-hdr">${esc(gName)}</div>
+      <div class="type-kpi-group" style="--grp-color:${grpColor}">
+        <div class="type-kpi-section-hdr"><div class="kpi-grp-swatches">${swatches}</div>${esc(gName)}</div>
         <div class="type-kpi-cards">${types.map(kpiCard).join('')}</div>
       </div>`;
   }

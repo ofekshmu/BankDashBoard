@@ -3995,6 +3995,9 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;
 .nav-item:hover::before{{background:var(--teal)}}
 .nav-item.active{{color:#b8c0d0;cursor:default;pointer-events:none}}
 .nav-sep{{height:1px;background:var(--border);margin:8px 16px}}
+.nav-restart-btn{{width:100%;padding:8px 12px;border:1.5px dashed var(--border);border-radius:8px;background:none;color:var(--text-sub);font-size:.78em;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:7px;justify-content:center;transition:background .15s,color .15s,border-color .15s}}
+.nav-restart-btn:hover{{background:#fff3f3;color:#e53935;border-color:#e53935}}
+.nav-restart-btn:disabled{{opacity:.5;cursor:default}}
 /* Back button — fixed top-left, bold arrow only */
 .back-btn{{position:fixed;top:18px;left:18px;width:42px;height:42px;padding:0;background:var(--white);border:1.5px solid var(--border);border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:400;box-shadow:var(--shadow-sm);color:var(--text-sub);font-size:1.25em;font-weight:900;text-decoration:none;transition:background .15s,color .15s,border-color .15s;line-height:1}}
 .back-btn:hover{{background:var(--teal-light);border-color:var(--teal);color:var(--teal)}}
@@ -4180,6 +4183,13 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;
     <div class="nav-sep"></div>
     <a class="nav-item" href="/tagger">תייגן</a>
     <a class="nav-item" href="/files">קבצים</a>
+  </div>
+  <div class="sidebar-footer" style="padding:12px 16px;border-top:1px solid var(--border);flex-shrink:0">
+    <button class="nav-restart-btn" onclick="restartServer(this)">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
+      הפעל שרת מחדש
+    </button>
+    <div id="app-version-badge-2" style="margin-top:8px;text-align:center;font-size:.72em;color:var(--text-sub);letter-spacing:.03em;opacity:.7;user-select:none">v—</div>
   </div>
 </nav>
 
@@ -4687,6 +4697,12 @@ document.addEventListener('DOMContentLoaded', _initTxnFooter);
     }})
     .catch(function() {{}});
 }})();
+fetch('/api/version').then(function(r){{return r.json();}}).then(function(d){{var b=document.getElementById('app-version-badge-2');if(b&&d.version)b.textContent='v'+d.version;}}).catch(function(){{}});
+function restartServer(btn){{
+  btn.disabled=true;
+  btn.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg> מפעיל מחדש…';
+  fetch('/api/restart',{{method:'POST'}}).catch(function(){{}}).finally(function(){{setTimeout(function(){{btn.disabled=false;btn.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg> הפעל שרת מחדש';}},3000);}});
+}}
 </script>
 </body>
 </html>'''

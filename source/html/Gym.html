@@ -125,8 +125,7 @@ td.pos{color:var(--teal);font-weight:600}td.neg{color:var(--red);font-weight:600
 .nav-item::before{content:'';position:absolute;right:0;top:22%;height:56%;width:3px;border-radius:3px 0 0 3px;background:transparent;transition:background .1s}
 .nav-item:hover{background:var(--teal-light);color:var(--teal)}
 .nav-item:hover::before{background:var(--teal)}
-.nav-item.active{background:var(--teal-light);color:var(--teal);font-weight:700;pointer-events:none}
-.nav-item.active::before{background:var(--teal)}
+.nav-item.active{color:#b8c0d0;cursor:default;pointer-events:none}
 .nav-sep{height:1px;background:var(--border);margin:8px 16px}
 
 /* ── Responsive ── */
@@ -191,6 +190,7 @@ td.pos{color:var(--teal);font-weight:600}td.neg{color:var(--red);font-weight:600
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
       הפעל שרת מחדש
     </button>
+    <div id="app-version-badge-2" style="margin-top:8px;text-align:center;font-size:.72em;color:var(--muted);letter-spacing:.03em;opacity:.7;user-select:none">v—</div>
   </div>
 </nav>
 
@@ -530,6 +530,7 @@ function closeNav() {
 function toggleNav() {
   document.getElementById('sidebar').classList.contains('open') ? closeNav() : openNav();
 }
+fetch('/api/version').then(function(r){return r.json();}).then(function(d){var b=document.getElementById('app-version-badge-2');if(b&&d.version)b.textContent='v'+d.version;}).catch(function(){});
 async function restartServer(btn) {
   btn.disabled = true;
   btn.textContent = 'מפעיל...';

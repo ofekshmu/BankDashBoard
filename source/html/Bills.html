@@ -1045,6 +1045,13 @@ body.resize-end    { cursor: ew-resize !important; }
       <div id="tx-sel-desc-wrap" style="font-size:0.78em;color:var(--text-muted);font-style:italic"></div>
     </div>
 
+    <!-- Expected amount when no transaction is linked -->
+    <div id="entry-expected-amt-row" style="display:flex;align-items:center;gap:8px;padding:4px 0 6px">
+      <label style="font-size:0.82em;color:var(--text-muted);white-space:nowrap;margin:0">סכום משוער:</label>
+      <input id="entry-expected-amount" type="number" min="0" step="0.01" placeholder="לא הוגדר"
+             style="width:110px;padding:4px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:0.9em;background:var(--bg-card,#fff);color:var(--navy)">
+    </div>
+
     <div class="field-row">
       <div class="field">
         <label>מחודש</label>
@@ -2999,6 +3006,10 @@ function openAddEntryModal() {
   document.getElementById('tx-results').classList.add('hidden');
   document.getElementById('tx-selected').classList.add('hidden');
   document.getElementById('filler-note').value = '';
+  const entryExpAmt = document.getElementById('entry-expected-amount');
+  if (entryExpAmt) { entryExpAmt.value = ''; }
+  const entryExpRow = document.getElementById('entry-expected-amt-row');
+  if (entryExpRow) entryExpRow.style.display = '';
 
   const t = todayYM();
   document.getElementById('entry-start').value = t;
@@ -3183,6 +3194,11 @@ async function submitEntry() {
     body.is_filler         = false;
   } else {
     body.is_filler = true;
+    const expAmtEl = document.getElementById('entry-expected-amount');
+    if (expAmtEl) {
+      const v = parseFloat(expAmtEl.value);
+      body.amount = isNaN(v) ? null : v;
+    }
   }
 
   const r = await api('POST', '/api/bills/entries', body);
@@ -3329,6 +3345,8 @@ function selectTx(tx) {
   }
 
   document.getElementById('tx-selected').classList.remove('hidden');
+  const entryExpRow = document.getElementById('entry-expected-amt-row');
+  if (entryExpRow) entryExpRow.style.display = 'none';
 
   // Auto-set month from tx date
   const m = (tx.date || '').slice(0, 7);
@@ -3341,6 +3359,8 @@ function selectTx(tx) {
 function clearTxSelection() {
   selectedTx = null;
   document.getElementById('tx-selected').classList.add('hidden');
+  const entryExpRow = document.getElementById('entry-expected-amt-row');
+  if (entryExpRow) entryExpRow.style.display = '';
 }
 
 // ─────────────────────────────────────────────────────────────

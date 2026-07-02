@@ -2211,7 +2211,7 @@ class AppManager:
             t, data, spendings_df, earnings_df, payments_df,
             monthly_balance, card_color_dict, cash_information_data, alerts, org_alerts)
 
-    def get_global_data(self, t):
+    def get_global_data(self, t, progress_callback=None):
         """Compute accounts-history and mortgage data (not month-specific).
 
         Returns a dict with 'accounts', 'accounts_meta', and 'mortgage' keys ready
@@ -2221,7 +2221,10 @@ class AppManager:
         if t is None:
             t = datetime.now()
 
+        _pc = progress_callback if callable(progress_callback) else (lambda pct, msg='': None)
+
         # ── Accounts ──────────────────────────────────────────────────────────
+        _pc(5, 'Loading bank account data…')
         def get_accounts_data():
             accounts_data = {}
             accounts_raw_meta = {}
@@ -2283,6 +2286,7 @@ class AppManager:
             return accounts_data, accounts_raw_meta
 
         accounts_data, accounts_raw_meta = get_accounts_data()
+        _pc(35, 'Account data loaded ✓')
 
         try:
             _cash_history = utils.cash_monthly_history()
@@ -2290,8 +2294,10 @@ class AppManager:
             _cash_history = []
         accounts_data['Cash'] = _cash_history if _cash_history else [
             (datetime.now(), utils.accumulate_cash_Balance())]
+        _pc(42, 'Cash history loaded ✓')
 
         # ── Mortgage ─────────────────────────────────────────────────────────
+        _pc(48, 'Loading mortgage amortization schedule…')
         from src_utils.mortgage import (
             full_schedule, months_elapsed_and_balance, milestone_schedule,
             actual_payments, actual_rental_income, current_month_data,
@@ -2302,12 +2308,14 @@ class AppManager:
         )
         from dateutil.relativedelta import relativedelta as _rdelta
         _mort_totals, _mort_per_track = full_schedule()
+        _pc(60, 'Amortization schedule computed ✓')
         _today_date  = t.date() if hasattr(t, "date") else datetime.now().date()
         _n_months, _cur_balance = months_elapsed_and_balance(_mort_totals, _today_date)
         _actual_pays   = actual_payments()
         _actual_rental = actual_rental_income()
         _this_month    = current_month_data(t.year, t.month)
         _alltime       = alltime_category_data()
+        _pc(68, 'Payments & rental income loaded ✓')
         _step = 3
         _chart_months      = [str(d)[:7] for d in _mort_totals['month'].iloc[::_step]]
         _chart_bal_total   = [round(float(v)) for v in _mort_totals['total_balance'].iloc[::_step]]
@@ -2321,6 +2329,7 @@ class AppManager:
                 "track_type": str(_tg_r["track_type"].iloc[0]),
             }
         _housing_txns = DataBase().get_all_category_transactions(MORTGAGE_CATEGORY)
+        _pc(74, 'Housing transactions loaded ✓')
         _ht_cf = _housing_txns.copy()
         _ht_cf['_m'] = pd.to_datetime(_ht_cf['Date']).dt.strftime('%Y-%m')
         _ht_monthly = (_ht_cf.groupby('_m').agg(_out=('Out', 'sum'), _inc=('Income', 'sum'))
@@ -2385,6 +2394,7 @@ class AppManager:
             return _sums
 
         accounts_data['Total'] = _recompute_total(accounts_data)
+        _pc(84, 'Equity history computed ✓')
 
         _net_invested   = _alltime["alltime_out"]
         _sale_profit    = _equity_appreciated + _alltime["alltime_income"] - _net_invested
@@ -2437,7 +2447,10 @@ class AppManager:
                 "rentals": _cf_rentals, "is_proj": _cf_is_proj, "today": _today_key,
             },
         }
-        return self._build_global_payload(accounts_data, accounts_raw_meta, mortgage_data)
+        _pc(92, 'Building response payload…')
+        result = self._build_global_payload(accounts_data, accounts_raw_meta, mortgage_data)
+        _pc(98, 'Done ✓')
+        return result
 
     def _build_monthly_payload(self, t, data, spendings_df, earnings_df, payments_df,
                                monthly_balance, card_color_dict, cash_information_data,

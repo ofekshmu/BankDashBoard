@@ -567,6 +567,23 @@ body.resize-end    { cursor: ew-resize !important; }
 .stats-kpi-val   { font-size: 1.05em; font-weight: 700; color: var(--navy); }
 .stats-kpi-val.accent { color: var(--teal); font-size: 1.2em; }
 
+/* ── Mid-month toggle ────────────────────────────────────── */
+.date-mid-wrap { display: flex; gap: 6px; align-items: stretch; }
+.date-mid-wrap input { flex: 1; min-width: 0; }
+.mid-toggle {
+  padding: 5px 10px;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  background: var(--white);
+  color: var(--text-muted);
+  font-size: 0.76em; font-weight: 600;
+  cursor: pointer; font-family: inherit;
+  transition: border-color .12s, background .12s, color .12s;
+  flex-shrink: 0; white-space: nowrap;
+}
+.mid-toggle:hover:not(.active) { border-color: var(--teal); color: var(--teal); }
+.mid-toggle.active { border-color: var(--teal); background: var(--teal); color: #fff; }
+
 /* ── Modals ──────────────────────────────────────────────── */
 .overlay {
   position: fixed; inset: 0;
@@ -1048,11 +1065,17 @@ body.resize-end    { cursor: ew-resize !important; }
     <div class="field-row">
       <div class="field">
         <label>מחודש</label>
-        <input id="entry-start" type="month">
+        <div class="date-mid-wrap">
+          <input id="entry-start" type="month">
+          <button type="button" class="mid-toggle" id="entry-start-mid" onclick="toggleMid('entry-start-mid')">אמצע</button>
+        </div>
       </div>
       <div class="field">
         <label>עד חודש</label>
-        <input id="entry-end" type="month">
+        <div class="date-mid-wrap">
+          <input id="entry-end" type="month">
+          <button type="button" class="mid-toggle" id="entry-end-mid" onclick="toggleMid('entry-end-mid')">אמצע</button>
+        </div>
       </div>
     </div>
 
@@ -1161,11 +1184,17 @@ body.resize-end    { cursor: ew-resize !important; }
     <div class="field-row">
       <div class="field">
         <label>מחודש</label>
-        <input id="edit-start" type="month">
+        <div class="date-mid-wrap">
+          <input id="edit-start" type="month">
+          <button type="button" class="mid-toggle" id="edit-start-mid" onclick="toggleMid('edit-start-mid')">אמצע</button>
+        </div>
       </div>
       <div class="field">
         <label>עד חודש</label>
-        <input id="edit-end" type="month">
+        <div class="date-mid-wrap">
+          <input id="edit-end" type="month">
+          <button type="button" class="mid-toggle" id="edit-end-mid" onclick="toggleMid('edit-end-mid')">אמצע</button>
+        </div>
       </div>
     </div>
 
@@ -2301,8 +2330,8 @@ function openEditModal(eid) {
   editAttachTx = null;
 
   document.getElementById('edit-entry-id').value = entry.id;
-  document.getElementById('edit-start').value    = entry.start_month;
-  document.getElementById('edit-end').value      = entry.end_month;
+  setMidToggle('edit-start', 'edit-start-mid', entry.start_month || '');
+  setMidToggle('edit-end',   'edit-end-mid',   entry.end_month   || '');
   document.getElementById('edit-note').value     = entry.note || '';
 
   // Bill type dot + name
@@ -2704,6 +2733,7 @@ async function onDragEnd(e) {
 
   const r = await api('PUT', `/api/bills/entries/${entry.id}`, {
     start_month: newStartM, end_month: newEndM, note: entry.note,
+    is_filler: entry.is_filler,
   });
   if (r.ok) {
     entry.start_month = newStartM;
@@ -3003,6 +3033,8 @@ function openAddEntryModal() {
   if (entryExpAmt) { entryExpAmt.value = ''; }
   const entryExpRow = document.getElementById('entry-expected-amt-row');
   if (entryExpRow) entryExpRow.style.display = '';
+  document.getElementById('entry-start-mid')?.classList.remove('active');
+  document.getElementById('entry-end-mid')?.classList.remove('active');
 
   const t = todayYM();
   document.getElementById('entry-start').value = t;
@@ -3047,6 +3079,26 @@ function _renderEditSugList() {
     </div>`;
   }).join('');
 }
+// ─────────────────────────────────────────────────────────────
+// Mid-month toggle helpers
+// ─────────────────────────────────────────────────────────────
+function toggleMid(btnId) {
+  const btn = document.getElementById(btnId);
+  if (btn) btn.classList.toggle('active');
+}
+function getMonthWithMid(inputId, midBtnId) {
+  const val = document.getElementById(inputId)?.value || '';
+  if (!val) return val;
+  return document.getElementById(midBtnId)?.classList.contains('active') ? val + '-15' : val;
+}
+function setMidToggle(inputId, midBtnId, monthStr) {
+  const isMid = monthStr && monthStr.length > 7;
+  const inp = document.getElementById(inputId);
+  const btn = document.getElementById(midBtnId);
+  if (inp) inp.value = monthStr ? monthStr.slice(0, 7) : '';
+  if (btn) btn.classList.toggle('active', !!isMid);
+}
+
 function toggleEditAttachTx() {
   const wrap = document.getElementById('edit-attach-search-wrap');
   const isOpen = !wrap.classList.contains('hidden');
@@ -3166,13 +3218,13 @@ function clientOverlapCheck(typeId, start, end, excludeId) {
 
 async function submitEntry() {
   const typeId = parseInt(document.getElementById('entry-type-sel').value);
-  const start  = document.getElementById('entry-start').value;
-  const end    = document.getElementById('entry-end').value;
+  const start  = getMonthWithMid('entry-start', 'entry-start-mid');
+  const end    = getMonthWithMid('entry-end',   'entry-end-mid');
   const st     = document.getElementById('entry-status');
 
   if (!typeId) { setStatus(st, 'err', 'נא לבחור סוג חשבון'); return; }
   if (!start || !end) { setStatus(st, 'err', 'נא לבחור תאריכים'); return; }
-  if (start > end) { setStatus(st, 'err', 'תאריך התחלה לאחר הסיום'); return; }
+  if (normS(start) > normE(end)) { setStatus(st, 'err', 'תאריך התחלה לאחר הסיום'); return; }
   const overlapErr = clientOverlapCheck(typeId, start, end);
   if (overlapErr) { setStatus(st, 'err', overlapErr); return; }
 
@@ -3209,12 +3261,12 @@ async function submitEntry() {
 // ─────────────────────────────────────────────────────────────
 async function submitEdit() {
   const id    = parseInt(document.getElementById('edit-entry-id').value);
-  const start = document.getElementById('edit-start').value;
-  const end   = document.getElementById('edit-end').value;
+  const start = getMonthWithMid('edit-start', 'edit-start-mid');
+  const end   = getMonthWithMid('edit-end',   'edit-end-mid');
   const note  = document.getElementById('edit-note').value;
   const st    = document.getElementById('edit-status');
   if (!start || !end) { setStatus(st, 'err', 'נא לבחור תאריכים'); return; }
-  if (start > end) { setStatus(st, 'err', 'תאריך התחלה לאחר הסיום'); return; }
+  if (normS(start) > normE(end)) { setStatus(st, 'err', 'תאריך התחלה לאחר הסיום'); return; }
   const entry = billEntries.find(e => e.id === id);
   if (entry) {
     const overlapErr = clientOverlapCheck(entry.bill_type_id, start, end, id);
@@ -3341,11 +3393,13 @@ function selectTx(tx) {
   const entryExpRow = document.getElementById('entry-expected-amt-row');
   if (entryExpRow) entryExpRow.style.display = 'none';
 
-  // Auto-set month from tx date
+  // Auto-set month from tx date (clear mid-month toggles — tx has a real date)
   const m = (tx.date || '').slice(0, 7);
   if (m) {
     document.getElementById('entry-start').value = m;
     document.getElementById('entry-end').value   = m;
+    document.getElementById('entry-start-mid')?.classList.remove('active');
+    document.getElementById('entry-end-mid')?.classList.remove('active');
   }
 }
 

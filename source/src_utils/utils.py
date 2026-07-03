@@ -5240,18 +5240,13 @@ function restartServer(btn){{
                     if not interactive:
                         break
 
-                    hook = utils._cc_confirm_hook
-                    if hook is not None:
-                        approved = hook(row_bank.to_dict())
-                    else:
-                        approved = utils.template_menu(['No', 'Yes'], f"App found this transaction to be a credit card:\n\
-                                        {row_bank}\n Do you Agree?")
-                    if approved:
-                        DataBase().set_category('BankTransactions', row_bank['ID'], CC_CHARGE_CATEGORY_NAME)
-                        DataBase().commit_changes()
-                        break
-                    else:
-                        utils.log('ignored...', 'system')
+                    # The amount/tolerance match above is already the approval criterion —
+                    # auto-tag as אשראי instead of blocking on a confirmation prompt.
+                    DataBase().set_category('BankTransactions', row_bank['ID'], CC_CHARGE_CATEGORY_NAME)
+                    DataBase().commit_changes()
+                    tx_date = str(row_bank.get('Date', ''))[:10]
+                    utils.log(f"[CC-AUTO-APPROVED] {row_bank.get('Name', '')} • ₪{card_charge_sum:,.2f} • {tx_date} סווג כאשראי", 'system')
+                    break
         
         if Settings.DEBUG:
             for index, row in wip_df.iterrows():

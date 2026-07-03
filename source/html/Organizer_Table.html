@@ -280,7 +280,11 @@ function _startDebugStream() {
     setTimeout(_startDebugStream, 4000);
   };
 }
-document.addEventListener('DOMContentLoaded', function() { _startDebugStream(); });
+// Delayed: /api/debug-logs never returns (true SSE stream); starting it at
+// the same instant as the page's real data fetches can starve them of a
+// serverless execution slot. Server buffers logs regardless of client
+// connection, so delaying costs no history.
+document.addEventListener('DOMContentLoaded', function() { setTimeout(_startDebugStream, 3000); });
 function clearDebugPanel() { var f=document.getElementById('debug-feed'); if(f) f.innerHTML=''; }
 function copyDebugPanel() { var f=document.getElementById('debug-feed'); if(f) navigator.clipboard.writeText(f.innerText).catch(function(){}); }
 function toggleOlder() {

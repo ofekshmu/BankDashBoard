@@ -3688,7 +3688,11 @@ function _startDebugStream() {
   };
 }
 // Start streaming backend logs as soon as the page is interactive — no FAB click needed.
-document.addEventListener('DOMContentLoaded', function() { _startDebugStream(); });
+// Delayed: /api/debug-logs never returns (true SSE stream); starting it at
+// the same instant as the page's real data fetches can starve them of a
+// serverless execution slot. Server buffers logs regardless of client
+// connection, so delaying costs no history.
+document.addEventListener('DOMContentLoaded', function() { setTimeout(_startDebugStream, 3000); });
 
 // ── Account manager modal ─────────────────────────────────
 function openAcctModal() {

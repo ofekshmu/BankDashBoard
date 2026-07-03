@@ -5371,7 +5371,28 @@ function restartServer(btn){{
             return True, "Witdrawals Check Executed, None found", total_matched_transactions_df
         else:
             return True, "All withdrawals matched successfully", total_matched_transactions_df
-        
+
+    @staticmethod
+    def handle_direct_bank_withdrawals() -> None:
+        """
+        Tags direct (no-card) bank withdrawals — cash pulled straight from a
+        branch machine (e.g. "סניפומט") — as category="withdrawal". These never
+        have a matching "משיכת מזומנים" row in CardTransactions, so
+        handle_withdrawals()'s card<->bank matching never finds them.
+
+        Not retroactive: only rows dated from the start of the current calendar
+        month onward are considered, so historical data (including rows the user
+        may have already manually re-categorized) is left untouched.
+        """
+        from database import DataBase
+        from Constants import ReservedNames
+
+        keywords = ['סניפומט']  # scope: this pattern only, for now
+        month_start = datetime(datetime.now().year, datetime.now().month, 1)
+
+        count = DataBase().tag_direct_bank_withdrawals(month_start, keywords, ReservedNames.WHITDRAWAL_CATEGORY)
+        if count:
+            utils.log(f"Tagged {count} direct bank withdrawal(s) (סניפומט) as 'withdrawal'", 'system')
 
     @staticmethod
     def exclude_transaction() -> None:

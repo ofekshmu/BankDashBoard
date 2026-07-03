@@ -4137,6 +4137,7 @@ def files_insert():
 
             if success:
                 utils.handle_withdrawals()
+                utils.handle_direct_bank_withdrawals()
                 utils.tagger_refresh()
 
             _log_queue.put(f'__DONE__:{filename}' if success else '__ERROR__')
@@ -4206,6 +4207,7 @@ def files_insert_all():
 
             if any(r['ok'] for r in results):
                 utils.handle_withdrawals()
+                utils.handle_direct_bank_withdrawals()
                 utils.tagger_refresh()
 
             return jsonify({'ok': True, 'results': results})

@@ -47,6 +47,7 @@ class AppManager:
                 utils.log(f"Matched Withdrawals:\n{utils.df_to_markdown(df)}")
         else:
             utils.log(f"Withdrawals handling failed: {log}", 'error')
+        utils.handle_direct_bank_withdrawals()
 
         if utils.validate_BankTransactions():
             utils.log("Bank Transactions validation passed!")

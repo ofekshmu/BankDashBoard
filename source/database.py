@@ -1379,6 +1379,33 @@ class DataBase:
             case _:
                 utils.log(f"Bad input {table_name} in 'set_category' in DataBase class", "error")
 
+    def tag_direct_bank_withdrawals(self, since_date, keywords: list, category: str) -> int:
+        """
+        Tag BankTransactions rows that are themselves direct (no-card) cash
+        withdrawals — e.g. a branch machine ("סניפומט") withdrawal, which never
+        has a matching "משיכת מזומנים" row in CardTransactions and so is invisible
+        to the card<->bank withdrawal matcher.
+
+        Only touches rows dated on/after @since_date (not retroactive) that are
+        still NotCategorized, have money actually leaving the account (Out > 0),
+        and whose Name contains one of @keywords. Returns the number tagged.
+        """
+        if not keywords:
+            return 0
+        name_conditions = ' OR '.join(['Name ILIKE %s'] * len(keywords))
+        params = [category, since_date] + [f'%{kw}%' for kw in keywords]
+        self.cursor.execute(f"""
+            UPDATE BankTransactions
+            SET Category = %s, Tagged_At = CURRENT_TIMESTAMP
+            WHERE Category = 'NotCategorized'
+              AND Out > 0
+              AND Date >= %s
+              AND ({name_conditions})
+        """, params)
+        count = self.cursor.rowcount
+        self.commit_changes()
+        return count
+
     @validate_table_name
     def set_description(self, table_name: str, id: int, description: str):
         """

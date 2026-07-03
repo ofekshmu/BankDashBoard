@@ -1011,7 +1011,7 @@ let _untaggedItems = [];
 let _highvalItems  = [];
 let _taggedItems   = [];
 let _taggedFilter       = 'all';   // 'all' | 'manual' | 'auto'
-let _untaggedCardFilter = null;    // null = all, 'BANK' = bank only, otherwise card_id string
+let _untaggedFilters = new Set();  // empty = all; can hold 'BANK' and/or card_id strings together
 let _untaggedSort = { col: null, dir: -1 };  // col: null|'date'|'price'; dir: 1 asc, -1 desc
 let _autoRefreshTimer = null;
 // Guard against concurrent loads / stale retry chains
@@ -1086,17 +1086,16 @@ function renderUntagged() {
   const el = document.getElementById('untagged-list');
   _cleanupLiftedDropdowns(el);
 
-  let items = _untaggedCardFilter === 'BANK'
-    ? _untaggedItems.filter(tx => tx.table_name === 'BankTransactions')
-    : _untaggedCardFilter
-    ? _untaggedItems.filter(tx => tx.table_name === 'CardTransactions' && String(tx.card_id) === _untaggedCardFilter)
-    : _untaggedItems;
+  let items = _untaggedFilters.size === 0
+    ? _untaggedItems
+    : _untaggedItems.filter(tx =>
+        (_untaggedFilters.has('BANK') && tx.table_name === 'BankTransactions') ||
+        (tx.table_name === 'CardTransactions' && _untaggedFilters.has(String(tx.card_id)))
+      );
 
   if (!items.length) {
-    const emptyMsg = _untaggedCardFilter === 'BANK'
-      ? 'אין עסקאות בנק ללא תיוג'
-      : _untaggedCardFilter
-      ? `אין עסקאות ללא תיוג לכרטיס ${esc(_untaggedCardFilter)}`
+    const emptyMsg = _untaggedFilters.size
+      ? `אין עסקאות ללא תיוג בסינון הנוכחי`
       : 'כל העסקאות מתויגות!';
     el.innerHTML = `<div class="empty-state"><div class="emoji">🎉</div>${emptyMsg}</div>`;
     return;
@@ -1149,27 +1148,33 @@ function buildCardFilterBar() {
 
   if (!hasBank && cardIds.length < 2) {
     bar.style.display = 'none';
-    _untaggedCardFilter = null;
+    _untaggedFilters.clear();
     return;
   }
 
   bar.style.display = '';
   bar.innerHTML =
     `<span style="font-size:.78em;color:var(--text-muted);flex-shrink:0">סינון:</span>` +
-    `<button class="filter-btn active" id="ucf-all" onclick="setUntaggedCardFilter(null)">הכל</button>` +
-    (hasBank ? `<button class="filter-btn" id="ucf-BANK" onclick="setUntaggedCardFilter('BANK')">🏦 בנק</button>` : '') +
+    `<button class="filter-btn${_untaggedFilters.size === 0 ? ' active' : ''}" id="ucf-all" onclick="setUntaggedCardFilter(null)">הכל</button>` +
+    (hasBank ? `<button class="filter-btn${_untaggedFilters.has('BANK') ? ' active' : ''}" data-filter-key="BANK" onclick="setUntaggedCardFilter('BANK')">🏦 בנק</button>` : '') +
     cardIds.map(id =>
-      `<button class="filter-btn" id="ucf-${CSS.escape(id)}" onclick="setUntaggedCardFilter('${esc(id)}')">💳 ${esc(id)}</button>`
+      `<button class="filter-btn${_untaggedFilters.has(id) ? ' active' : ''}" data-filter-key="${esc(id)}" onclick="setUntaggedCardFilter('${esc(id)}')">💳 ${esc(id)}</button>`
     ).join('');
 }
 
-function setUntaggedCardFilter(cardId) {
-  _untaggedCardFilter = cardId;
-  document.querySelectorAll('#untagged-card-filter-bar .filter-btn').forEach(b => b.classList.remove('active'));
-  const activeBtn = cardId
-    ? document.getElementById('ucf-' + CSS.escape(cardId))
-    : document.getElementById('ucf-all');
-  if (activeBtn) activeBtn.classList.add('active');
+function setUntaggedCardFilter(key) {
+  if (key === null) {
+    _untaggedFilters.clear();
+  } else if (_untaggedFilters.has(key)) {
+    _untaggedFilters.delete(key);
+  } else {
+    _untaggedFilters.add(key);
+  }
+  const allBtn = document.getElementById('ucf-all');
+  if (allBtn) allBtn.classList.toggle('active', _untaggedFilters.size === 0);
+  document.querySelectorAll('#untagged-card-filter-bar .filter-btn[data-filter-key]').forEach(b => {
+    b.classList.toggle('active', _untaggedFilters.has(b.dataset.filterKey));
+  });
   renderUntagged();
 }
 

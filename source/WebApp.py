@@ -1623,33 +1623,37 @@ def _get_latest_yyyy_mm():
 def _gym_db():
     """Return a _PGConn connection with gym tables guaranteed to exist."""
     conn = _pg_conn()
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS GymParticipants (
-            id             SERIAL PRIMARY KEY,
-            name           TEXT    NOT NULL,
-            is_active      INTEGER DEFAULT 1,
-            insertion_date TEXT    NOT NULL
-        )
-    """)
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS GymSessions (
-            id             SERIAL PRIMARY KEY,
-            date           TEXT    NOT NULL,
-            product_price  REAL    NOT NULL,
-            payer_id       INTEGER NOT NULL REFERENCES GymParticipants(id),
-            notes          TEXT,
-            insertion_date TEXT    NOT NULL
-        )
-    """)
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS GymSessionParticipants (
-            session_id     INTEGER REFERENCES GymSessions(id),
-            participant_id INTEGER REFERENCES GymParticipants(id),
-            PRIMARY KEY (session_id, participant_id)
-        )
-    """)
-    conn.commit()
-    return conn
+    try:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS GymParticipants (
+                id             SERIAL PRIMARY KEY,
+                name           TEXT    NOT NULL,
+                is_active      INTEGER DEFAULT 1,
+                insertion_date TEXT    NOT NULL
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS GymSessions (
+                id             SERIAL PRIMARY KEY,
+                date           TEXT    NOT NULL,
+                product_price  REAL    NOT NULL,
+                payer_id       INTEGER NOT NULL REFERENCES GymParticipants(id),
+                notes          TEXT,
+                insertion_date TEXT    NOT NULL
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS GymSessionParticipants (
+                session_id     INTEGER REFERENCES GymSessions(id),
+                participant_id INTEGER REFERENCES GymParticipants(id),
+                PRIMARY KEY (session_id, participant_id)
+            )
+        """)
+        conn.commit()
+        return conn
+    except Exception:
+        conn.close()
+        raise
 
 
 def _acct_db():
@@ -1829,6 +1833,7 @@ def cash_by_currency():
         return jsonify({'ok': True, 'data': _cash_pie_cache, 'cached': True})
 
     import re as _re2
+    conn = None
     try:
         _SYM = {'ILS': '₪', 'USD': '$', 'EUR': '€', 'GBP': '£', 'JPY': '¥'}
         totals = {}   # currency_code → running balance
@@ -1848,8 +1853,6 @@ def cash_by_currency():
             code = m.group(1) if m else (cur_raw or 'ILS')
             totals[code] = totals.get(code, 0) + float(amount or 0)
 
-        conn.close()
-
         result = [
             {
                 'currency': code,
@@ -1862,6 +1865,9 @@ def cash_by_currency():
         return jsonify({'ok': True, 'data': result})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)})
+    finally:
+        if conn is not None:
+            conn.close()
 
 
 def _cash_balance_map():
@@ -1869,6 +1875,7 @@ def _cash_balance_map():
     Shared by cash_by_currency() and cash_reconcile()."""
     import re as _re2
     totals = {}
+    conn = None
     try:
         conn = _pg_conn()
         bank_out = conn.execute("SELECT SUM(Out) FROM BankTransactions WHERE Category = 'withdrawal'").fetchone()[0] or 0
@@ -1877,9 +1884,11 @@ def _cash_balance_map():
             m    = _re2.match(r'([A-Z]+)', (cur_raw or '').strip())
             code = m.group(1) if m else (cur_raw or 'ILS')
             totals[code] = totals.get(code, 0) + float(amount or 0)
-        conn.close()
     except Exception:
         pass
+    finally:
+        if conn is not None:
+            conn.close()
     return totals
 
 
@@ -1981,6 +1990,7 @@ def cash_add_transaction():
 @app.route('/api/cash/monthly-history')
 def cash_monthly_history_api():
     """Return accumulated cash balance (ILS) sampled at the first of each month."""
+    conn = None
     try:
         import re as _re2, urllib.request as _ureq, json as _json_fx
         from datetime import date as _date, datetime as _dt
@@ -2017,8 +2027,6 @@ def cash_monthly_history_api():
             except Exception:
                 pass
 
-        conn.close()
-
         if not events:
             return jsonify({'ok': True, 'data': []})
 
@@ -2053,6 +2061,9 @@ def cash_monthly_history_api():
         return jsonify({'ok': True, 'data': result})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)})
+    finally:
+        if conn is not None:
+            conn.close()
 
 
 @app.route('/api/cash/reconcile', methods=['POST'])
@@ -3960,13 +3971,16 @@ def files_scan():
         # Pre-load all known filenames from the DB so we don't rely solely on
         # the parser (which can't open locked files).
         _db_known = {}   # fname -> format
+        _conn = None
         try:
             _conn = _pg_conn()
             for _row in _conn.execute("SELECT File_Name, Format FROM File"):
                 _db_known[_row[0]] = _row[1]
-            _conn.close()
         except Exception:
             pass
+        finally:
+            if _conn is not None:
+                _conn.close()
 
         if os.path.isdir(_INPUT_FOLDER):
             for fname in sorted(os.listdir(_INPUT_FOLDER)):
@@ -4225,6 +4239,7 @@ def tx_split_info():
     oid = request.args.get('id', type=int)
     if tbl not in ('BankTransactions', 'CardTransactions') or oid is None:
         return jsonify({'ok': False, 'error': 'invalid table or id'})
+    conn = None
     try:
         conn = _pg_conn()
         # Fetch original row
@@ -4233,7 +4248,7 @@ def tx_split_info():
                 'SELECT ID, Name, Category, Description, Out, Income, Date FROM BankTransactions WHERE ID=%s', (oid,)
             ).fetchone()
             if not row:
-                conn.close(); return jsonify({'ok': False, 'error': 'not found'})
+                return jsonify({'ok': False, 'error': 'not found'})
             amount = float(row['income'] or 0) - float(row['out'] or 0)
             orig = {'id': row['id'], 'name': row['name'], 'category': row['category'] or '',
                     'description': row['description'] or '', 'amount': amount,
@@ -4243,7 +4258,7 @@ def tx_split_info():
                 'SELECT ID, Name, Category, Description, Transaction_Value, Executed_Date FROM CardTransactions WHERE ID=%s', (oid,)
             ).fetchone()
             if not row:
-                conn.close(); return jsonify({'ok': False, 'error': 'not found'})
+                return jsonify({'ok': False, 'error': 'not found'})
             orig = {'id': row['id'], 'name': row['name'], 'category': row['category'] or '',
                     'description': row['description'] or '',
                     'amount': float(row['transaction_value'] or 0),
@@ -4253,12 +4268,14 @@ def tx_split_info():
             'SELECT ID, Amount, Description, Category FROM TransactionSplits WHERE Original_Table=%s AND Original_ID=%s ORDER BY ID',
             (tbl, oid)
         ).fetchall()
-        conn.close()
         splits = [{'id': r['id'], 'amount': float(r['amount']),
                    'description': r['description'] or '', 'category': r['category']} for r in splits_rows]
         return jsonify({'ok': True, 'original': orig, 'splits': splits})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)})
+    finally:
+        if conn is not None:
+            conn.close()
 
 
 def _regen_month_for_tx(tbl: str, tx_id: int) -> None:
@@ -4266,11 +4283,11 @@ def _regen_month_for_tx(tbl: str, tx_id: int) -> None:
     Background helper: look up the transaction date, then regenerate the
     monthly HTML so split changes are reflected on the next page load.
     """
+    conn = None
     try:
         col  = 'Date' if tbl == 'BankTransactions' else 'Executed_Date'
         conn = _pg_conn()
         row  = conn.execute(f'SELECT {col} FROM {tbl} WHERE ID=%s', (tx_id,)).fetchone()
-        conn.close()
         if not row or not row[0]:
             return
         from datetime import datetime as _dt2
@@ -4279,6 +4296,9 @@ def _regen_month_for_tx(tbl: str, tx_id: int) -> None:
         _AM(skip_parser=True).general_analysis(t=t)
     except Exception as _e:
         print(f'[split regen] {_e}')
+    finally:
+        if conn is not None:
+            conn.close()
 
 
 @app.route('/api/transactions/split', methods=['POST'])

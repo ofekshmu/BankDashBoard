@@ -882,6 +882,11 @@ body {
     </div>
     <div class="section-body" id="sec-untagged-body">
       <div class="filter-bar" id="untagged-card-filter-bar" style="display:none"></div>
+      <div class="filter-bar" id="untagged-sort-bar">
+        <span style="font-size:.78em;color:var(--text-muted);flex-shrink:0">מיין:</span>
+        <button class="filter-btn" id="usort-date" onclick="setUntaggedSort('date')">תאריך<span id="usort-date-arrow"></span></button>
+        <button class="filter-btn" id="usort-price" onclick="setUntaggedSort('price')">סכום<span id="usort-price-arrow"></span></button>
+      </div>
       <div class="tx-list" id="untagged-list">
         <div class="skeleton-row"></div>
         <div class="skeleton-row"></div>
@@ -1006,7 +1011,8 @@ let _untaggedItems = [];
 let _highvalItems  = [];
 let _taggedItems   = [];
 let _taggedFilter       = 'all';   // 'all' | 'manual' | 'auto'
-let _untaggedCardFilter = null;    // null = all cards, otherwise card_id string
+let _untaggedCardFilter = null;    // null = all, 'BANK' = bank only, otherwise card_id string
+let _untaggedSort = { col: null, dir: -1 };  // col: null|'date'|'price'; dir: 1 asc, -1 desc
 let _autoRefreshTimer = null;
 // Guard against concurrent loads / stale retry chains
 let _loading    = { untagged: false, highval: false, tagged: false };
@@ -1080,16 +1086,37 @@ function renderUntagged() {
   const el = document.getElementById('untagged-list');
   _cleanupLiftedDropdowns(el);
 
-  const items = _untaggedCardFilter
+  let items = _untaggedCardFilter === 'BANK'
+    ? _untaggedItems.filter(tx => tx.table_name === 'BankTransactions')
+    : _untaggedCardFilter
     ? _untaggedItems.filter(tx => tx.table_name === 'CardTransactions' && String(tx.card_id) === _untaggedCardFilter)
     : _untaggedItems;
 
   if (!items.length) {
-    el.innerHTML = _untaggedCardFilter
-      ? `<div class="empty-state"><div class="emoji">🎉</div>אין עסקאות ללא תיוג לכרטיס ${esc(_untaggedCardFilter)}</div>`
-      : `<div class="empty-state"><div class="emoji">🎉</div>כל העסקאות מתויגות!</div>`;
+    const emptyMsg = _untaggedCardFilter === 'BANK'
+      ? 'אין עסקאות בנק ללא תיוג'
+      : _untaggedCardFilter
+      ? `אין עסקאות ללא תיוג לכרטיס ${esc(_untaggedCardFilter)}`
+      : 'כל העסקאות מתויגות!';
+    el.innerHTML = `<div class="empty-state"><div class="emoji">🎉</div>${emptyMsg}</div>`;
     return;
   }
+
+  if (_untaggedSort.col) {
+    const dir = _untaggedSort.dir;
+    items = items.slice().sort((a, b) => {
+      let va, vb;
+      if (_untaggedSort.col === 'date') {
+        va = a.exec_date ? new Date(a.exec_date).getTime() : 0;
+        vb = b.exec_date ? new Date(b.exec_date).getTime() : 0;
+      } else {
+        va = Math.abs(a.charge_value ?? a.transaction_value ?? 0);
+        vb = Math.abs(b.charge_value ?? b.transaction_value ?? 0);
+      }
+      return (va - vb) * dir;
+    });
+  }
+
   const cutoff = new Date();
   cutoff.setMonth(cutoff.getMonth() - 3);
 
@@ -1098,7 +1125,9 @@ function renderUntagged() {
   for (let i = 0; i < items.length; i++) {
     const tx = items[i];
     const execDate = tx.exec_date ? new Date(tx.exec_date) : null;
-    if (!separatorInserted && execDate && execDate < cutoff) {
+    // The "old transactions" separator only makes sense in the default chronological
+    // order — skip it when a custom sort is active.
+    if (!_untaggedSort.col && !separatorInserted && execDate && execDate < cutoff) {
       html += `<div class="old-tx-separator">עסקאות ישנות</div>`;
       separatorInserted = true;
     }
@@ -1111,13 +1140,14 @@ function buildCardFilterBar() {
   const bar = document.getElementById('untagged-card-filter-bar');
   if (!bar) return;
 
+  const hasBank = _untaggedItems.some(tx => tx.table_name === 'BankTransactions');
   const cardIds = [...new Set(
     _untaggedItems
       .filter(tx => tx.table_name === 'CardTransactions' && tx.card_id)
       .map(tx => String(tx.card_id))
   )].sort();
 
-  if (cardIds.length < 2) {
+  if (!hasBank && cardIds.length < 2) {
     bar.style.display = 'none';
     _untaggedCardFilter = null;
     return;
@@ -1125,10 +1155,11 @@ function buildCardFilterBar() {
 
   bar.style.display = '';
   bar.innerHTML =
-    `<span style="font-size:.78em;color:var(--text-muted);flex-shrink:0">כרטיס:</span>` +
+    `<span style="font-size:.78em;color:var(--text-muted);flex-shrink:0">סינון:</span>` +
     `<button class="filter-btn active" id="ucf-all" onclick="setUntaggedCardFilter(null)">הכל</button>` +
+    (hasBank ? `<button class="filter-btn" id="ucf-BANK" onclick="setUntaggedCardFilter('BANK')">🏦 בנק</button>` : '') +
     cardIds.map(id =>
-      `<button class="filter-btn" id="ucf-${CSS.escape(id)}" onclick="setUntaggedCardFilter('${esc(id)}')">${esc(id)}</button>`
+      `<button class="filter-btn" id="ucf-${CSS.escape(id)}" onclick="setUntaggedCardFilter('${esc(id)}')">💳 ${esc(id)}</button>`
     ).join('');
 }
 
@@ -1139,6 +1170,20 @@ function setUntaggedCardFilter(cardId) {
     ? document.getElementById('ucf-' + CSS.escape(cardId))
     : document.getElementById('ucf-all');
   if (activeBtn) activeBtn.classList.add('active');
+  renderUntagged();
+}
+
+function setUntaggedSort(col) {
+  if (_untaggedSort.col === col) {
+    _untaggedSort.dir *= -1;
+  } else {
+    _untaggedSort.col = col;
+    _untaggedSort.dir = -1;
+  }
+  document.getElementById('usort-date-arrow').textContent  = _untaggedSort.col === 'date'  ? (_untaggedSort.dir === 1 ? ' ↑' : ' ↓') : '';
+  document.getElementById('usort-price-arrow').textContent = _untaggedSort.col === 'price' ? (_untaggedSort.dir === 1 ? ' ↑' : ' ↓') : '';
+  document.getElementById('usort-date').classList.toggle('active', _untaggedSort.col === 'date');
+  document.getElementById('usort-price').classList.toggle('active', _untaggedSort.col === 'price');
   renderUntagged();
 }
 

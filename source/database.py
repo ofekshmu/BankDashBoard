@@ -498,6 +498,17 @@ class DataBase:
                              'file_name': file_name})
         return True
 
+    def set_transaction_count(self, file_name: str, format_name: str, card_number: str, count: int) -> bool:
+        """Update Transaction_count once the real row count is known (see insert_file placeholder)."""
+        self.cursor.execute("""UPDATE File
+                               SET Transaction_count = %(count)s
+                               WHERE File_Name = %(file_name)s AND Format = %(format_name)s AND Card_Number = %(card_number)s""",
+                            {'count': count,
+                             'file_name': file_name,
+                             'format_name': format_name,
+                             'card_number': card_number})
+        return True
+
     @try_catch
     def is_card_exists(self, cardID: str) -> bool:
         ans = self.cursor.execute("""

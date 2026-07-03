@@ -18,8 +18,11 @@ class Bank(File):
         self.data: table1 and table2 data in a 2d array
         self.date: the date specified in the file
         '''
-        valid_rows = super().parse()
-
+        # The File row must exist before parse() can insert TableMeta rows for it
+        # (TableMeta.File_Name/Format/Card_Number has a foreign key onto File).
+        # Transaction_count isn't known until parsing finishes, so insert a
+        # placeholder now and correct it below.
+        file_date = datetime.strptime(datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "%Y-%m-%d %H:%M:%S")
         DataBase().insert_file(self.name,
                                self.format_name,
                                self.card_number,
@@ -27,9 +30,13 @@ class Bank(File):
                                # complicity in futute analysis
                                # TODO: The used date should be a date defining the month associated with the file, but
                                # the Bank files are not associated with a specific month.. should find a solution for this..
-                               datetime.strptime(datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "%Y-%m-%d %H:%M:%S"),
+                               file_date,
                                -1,
-                               valid_rows)
+                               -1)
+
+        valid_rows = super().parse()
+
+        DataBase().set_transaction_count(self.name, self.format_name, self.card_number, valid_rows)
         return True
 
     def clean(self):

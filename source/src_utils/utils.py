@@ -2919,7 +2919,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     @staticmethod
     def amount_ready(value) -> int:
-        if value == ' ':
+        if value is None:
+            return 0
+        if isinstance(value, str) and value.strip() == '':
             return 0
         return value
 

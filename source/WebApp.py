@@ -1680,6 +1680,21 @@ def _run_acct_migrations():
         pass
 
 
+def _run_tagger_migrations():
+    """One-time DDL migrations for tag-timestamp tracking. Called once at startup."""
+    try:
+        conn = _pg_conn()
+        for tbl in ('BankTransactions', 'CardTransactions'):
+            try:
+                conn.execute(f"ALTER TABLE {tbl} ADD COLUMN IF NOT EXISTS Tagged_At TIMESTAMP")
+                conn.commit()
+            except Exception:
+                conn.rollback()
+        conn.close()
+    except Exception:
+        pass
+
+
 # ── Exchange-rate cache (background refresh, never blocks a request) ──────────
 _fx_cache   = {'ILS': 1.0, 'USD': 3.72, 'EUR': 4.01, 'JPY': 0.025}  # always valid
 _fx_fetched = 0.0  # epoch seconds of last successful remote fetch (0 = only fallback)
@@ -5123,6 +5138,7 @@ def start(port: int = 5050, open_browser: bool = True):
     import webbrowser
     os.environ['BANKAPP_WEB'] = '1'
     _run_acct_migrations()
+    _run_tagger_migrations()
     if open_browser:
         threading.Timer(1.2, lambda: webbrowser.open(f'http://localhost:{port}')).start()
     app.run(host='127.0.0.1', port=port, threaded=True, debug=False, use_reloader=False)

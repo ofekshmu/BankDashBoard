@@ -1367,13 +1367,13 @@ class DataBase:
             case "CardTransactions":
                 self.cursor.execute("""
                                     UPDATE CardTransactions
-                                    SET Category = %s
+                                    SET Category = %s, Tagged_At = CURRENT_TIMESTAMP
                                     WHERE ID = %s
                                     """, (category, id,))
             case "BankTransactions":
                 self.cursor.execute("""
                                     UPDATE BankTransactions
-                                    SET Category = %s
+                                    SET Category = %s, Tagged_At = CURRENT_TIMESTAMP
                                     WHERE ID = %s
                                     """, (category, id,))
             case _:
@@ -2861,17 +2861,17 @@ class DataBase:
 
     def get_recently_tagged(self, limit: int = 30) -> list:
         bank = self.cursor.execute("""
-            SELECT ID, Name, Date, Out, Income, Category, Reserved
+            SELECT ID, Name, Date, Out, Income, Category, Reserved, Tagged_At
             FROM BankTransactions
             WHERE Category IS NOT NULL AND Category != 'NotCategorized'
-            ORDER BY ID DESC LIMIT %s
+            ORDER BY Tagged_At DESC NULLS LAST, ID DESC LIMIT %s
         """, (limit,)).fetchall()
         card = self.cursor.execute("""
             SELECT ID, Name, Executed_Date, Charge_Value, Transaction_Value,
-                   Charge_Currency, Value_Currency, CardID, Category, Reserved
+                   Charge_Currency, Value_Currency, CardID, Category, Reserved, Tagged_At
             FROM CardTransactions
             WHERE Category IS NOT NULL AND Category != 'NotCategorized'
-            ORDER BY ID DESC LIMIT %s
+            ORDER BY Tagged_At DESC NULLS LAST, ID DESC LIMIT %s
         """, (limit,)).fetchall()
         result = []
         for r in bank:
@@ -2881,7 +2881,7 @@ class DataBase:
                 'charge_value': float(r[3]) if r[3] is not None else None,
                 'transaction_value': float(r[4]) if r[4] is not None else None,
                 'currency': 'ILS', 'value_currency': 'ILS', 'card_id': None,
-                'category': r[5] or '', 'reserved': r[6],
+                'category': r[5] or '', 'reserved': r[6], 'tagged_at': r[7],
             })
         for r in card:
             result.append({
@@ -2890,9 +2890,13 @@ class DataBase:
                 'charge_value': float(r[3]) if r[3] is not None else None,
                 'transaction_value': float(r[4]) if r[4] is not None else None,
                 'currency': r[5] or 'ILS', 'value_currency': r[6] or 'ILS',
-                'card_id': r[7], 'category': r[8] or '', 'reserved': r[9],
+                'card_id': r[7], 'category': r[8] or '', 'reserved': r[9], 'tagged_at': r[10],
             })
-        result.sort(key=lambda x: x.get('id') or 0, reverse=True)
+        # Sort by tagged time (most recent first); rows never re-tagged since the
+        # Tagged_At column was added fall back to ID so they still land in a
+        # sensible (insertion) order instead of all clumping at the bottom.
+        _min_dt = datetime.min
+        result.sort(key=lambda x: (x.get('tagged_at') or _min_dt, x.get('id') or 0), reverse=True)
         return result[:limit]
 
     def get_high_value_untagged(self, threshold: float = 500) -> list:
@@ -3005,7 +3009,7 @@ class DataBase:
     def set_category_ui(self, table: str, id_: int, category: str, is_auto: bool = False) -> None:
         reserved = 1 if is_auto else 0
         self.cursor.execute(
-            f"UPDATE {table} SET Category=%s, Reserved=%s WHERE ID=%s",
+            f"UPDATE {table} SET Category=%s, Reserved=%s, Tagged_At=CURRENT_TIMESTAMP WHERE ID=%s",
             (category, reserved, int(id_))
         )
         self.connection.commit()

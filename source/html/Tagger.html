@@ -683,12 +683,15 @@ body {
 .split-sum-error{border-color:var(--red) !important}
 
 @media (max-width: 600px) {
-  /* Clear the fixed hamburger button (top:18px, 42px tall → bottom edge
-     at 60px) with real breathing room before any page content starts.
+  /* Raise the header to sit at the same height as the fixed hamburger
+     button (top:18px, 42px tall) instead of dropping below it — the
+     page-header's own padding-right (60px) already keeps its content
+     clear of the button horizontally, so no vertical clearance is
+     needed here too.
      Specificity bumped (body .main) to beat design-system.css's own
      `.main { padding: 0 ... !important }` mobile override, which is
      loaded after this block and would otherwise win the tie. */
-  body .main { padding: 78px 12px 80px !important; }
+  body .main { padding: 20px 12px 80px !important; }
   .page-header { padding-right: 60px !important; }
 }
 

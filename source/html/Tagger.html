@@ -683,8 +683,13 @@ body {
 .split-sum-error{border-color:var(--red) !important}
 
 @media (max-width: 600px) {
-  .main { padding: 56px 12px 80px !important; }
-  .page-header { padding-right: 0 !important; }
+  /* Clear the fixed hamburger button (top:18px, 42px tall → bottom edge
+     at 60px) with real breathing room before any page content starts.
+     Specificity bumped (body .main) to beat design-system.css's own
+     `.main { padding: 0 ... !important }` mobile override, which is
+     loaded after this block and would otherwise win the tie. */
+  body .main { padding: 78px 12px 80px !important; }
+  .page-header { padding-right: 60px !important; }
 }
 
 /* ── Tagger mobile layout ─────────────────────────────────── */
@@ -721,17 +726,13 @@ body {
   .header-badge { font-size: .74em; padding: 3px 10px; }
   .page-header .btn { margin-right: 0 !important; font-size: .74em; padding: 6px 10px; }
 
-  /* Filter bar (card/date/sort/tagged toggles) scrolls horizontally
-     instead of wrapping onto multiple lines */
+  /* Filter bar (card/date/sort/tagged toggles): wrap onto as many lines
+     as needed so every filter is visible without horizontal scrolling */
   .filter-bar {
-    overflow-x: auto;
-    flex-wrap: nowrap;
-    -webkit-overflow-scrolling: touch;
+    flex-wrap: wrap;
     padding: 10px 12px 8px;
-    scrollbar-width: none;
   }
-  .filter-bar::-webkit-scrollbar { display: none; }
-  .filter-btn { flex-shrink: 0; font-size: .74em; padding: 4px 11px; }
+  .filter-btn { font-size: .74em; padding: 4px 11px; }
 
   .rules-filter-bar, .search-bar { padding: 10px 12px; }
 

@@ -5380,15 +5380,18 @@ function restartServer(btn){{
         have a matching "משיכת מזומנים" row in CardTransactions, so
         handle_withdrawals()'s card<->bank matching never finds them.
 
-        Not retroactive: only rows dated from the start of the current calendar
-        month onward are considered, so historical data (including rows the user
-        may have already manually re-categorized) is left untouched.
+        Not fully retroactive: only rows dated from the start of the previous
+        calendar month onward are considered (a rolling 2-month window), so
+        older historical data (including rows the user may have already
+        manually re-categorized) is left untouched.
         """
         from database import DataBase
         from Constants import ReservedNames
+        from dateutil.relativedelta import relativedelta
 
         keywords = ['סניפומט']  # scope: this pattern only, for now
-        month_start = datetime(datetime.now().year, datetime.now().month, 1)
+        today = datetime.now()
+        month_start = datetime(today.year, today.month, 1) - relativedelta(months=1)
 
         count = DataBase().tag_direct_bank_withdrawals(month_start, keywords, ReservedNames.WHITDRAWAL_CATEGORY)
         if count:

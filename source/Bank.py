@@ -53,9 +53,9 @@ class Bank(File):
                                                        Value_Date=row[1],
                                                        Name=row[2],
                                                        Ref=row[3],
-                                                       Out=row[4],
-                                                       Income=row[5],
-                                                       Balance=row[6],
+                                                       Out=utils.amount_ready(row[4]),
+                                                       Income=utils.amount_ready(row[5]),
+                                                       Balance=utils.amount_ready(row[6]),
                                                        Source_file=self.name,
                                                        Extra_Info=f"Info: {row[7]} | Note: {row[8]}")
                 case "BeinLeumi-Bank":
@@ -65,10 +65,10 @@ class Bank(File):
                                                         Ref=row[3],
                                                         Out=utils.amount_ready(row[5]),
                                                         Income=utils.amount_ready(row[4]),
-                                                        Balance=row[7],
+                                                        Balance=utils.amount_ready(row[7]),
                                                         Source_file=self.name,
                                                         Extra_Info=f"Info: {row[1]}")
-                    
+
                 case "BeinLeumi-Bank-Date-Range":
                     DataBase().insert_bank_transaction(Date=row[7],
                                                         Value_Date=row[1],
@@ -76,9 +76,9 @@ class Bank(File):
                                                         Ref=row[5],
                                                         Out=utils.amount_ready(row[3]),
                                                         Income=utils.amount_ready(row[2]),
-                                                        Balance=row[0],
+                                                        Balance=utils.amount_ready(row[0]),
                                                         Source_file=self.name,
-                                                        Extra_Info=f"Info: {row[6]}") 
+                                                        Extra_Info=f"Info: {row[6]}")
 
                 case _:
                     utils.log("Format not supported for insertion into db class.Bank -> insert", "error")

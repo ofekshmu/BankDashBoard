@@ -2438,7 +2438,9 @@ async function retagSearchRow(key) {
 </div>
 <script>
 var _dbgEs=null;
-function toggleDebugPanel(){var p=document.getElementById('debug-panel');var open=p.classList.toggle('open');if(open&&!_dbgEs){_dbgEs=new EventSource('/api/logs');_dbgEs.onmessage=function(e){var f=document.getElementById('debug-feed');if(!f)return;var d=document.createElement('div');d.className='debug-line'+(e.data.toLowerCase().indexOf('error')>=0?' err':e.data.toLowerCase().indexOf('warn')>=0?' warn':'');d.textContent=e.data;f.appendChild(d);f.scrollTop=f.scrollHeight};_dbgEs.onerror=function(){_dbgEs.close();_dbgEs=null}}}
+function toggleDebugPanel(){var p=document.getElementById('debug-panel');var open=p.classList.toggle('open');if(open&&!_dbgEs)_startDebugStream()}
+function _startDebugStream(){if(_dbgEs)return;_dbgEs=new EventSource('/api/debug-logs');_dbgEs.onmessage=function(e){if(!e.data||!e.data.trim())return;var f=document.getElementById('debug-feed');if(!f)return;var d=document.createElement('div');d.className='debug-line'+(e.data.toLowerCase().indexOf('error')>=0?' err':e.data.toLowerCase().indexOf('warn')>=0?' warn':'');d.textContent=e.data;f.appendChild(d);f.scrollTop=f.scrollHeight};_dbgEs.onerror=function(){if(_dbgEs){_dbgEs.close();_dbgEs=null}setTimeout(_startDebugStream,4000)}}
+document.addEventListener('DOMContentLoaded',function(){_startDebugStream()});
 function clearDebugPanel(){document.getElementById('debug-feed').innerHTML=''}
 function copyDebugPanel(){var f=document.getElementById('debug-feed');navigator.clipboard.writeText(Array.from(f.children).map(function(e){return e.textContent}).join('\n')).catch(function(){})}
 </script>

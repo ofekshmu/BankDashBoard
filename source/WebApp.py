@@ -3076,19 +3076,27 @@ function toggleDebugPanel() {
   var p = document.getElementById('debug-panel');
   if (!p) return;
   var open = p.classList.toggle('open');
-  if (open && !_dbgEs) {
-    _dbgEs = new EventSource('/api/logs');
-    _dbgEs.onmessage = function(e) {
-      var feed = document.getElementById('debug-feed');
-      if (!feed) return;
-      var d = document.createElement('div');
-      d.className = 'debug-line' + (e.data.match(/error|Error|ERROR/) ? ' err' : e.data.match(/warn|Warn|WARN/) ? ' warn' : '');
-      d.textContent = e.data;
-      feed.appendChild(d);
-      feed.scrollTop = feed.scrollHeight;
-    };
-  }
+  if (open && !_dbgEs) _startDebugStream();
 }
+function _startDebugStream() {
+  if (_dbgEs) return;
+  _dbgEs = new EventSource('/api/debug-logs');
+  _dbgEs.onmessage = function(e) {
+    if (!e.data || !e.data.trim()) return;
+    var feed = document.getElementById('debug-feed');
+    if (!feed) return;
+    var d = document.createElement('div');
+    d.className = 'debug-line' + (e.data.match(/error|Error|ERROR/) ? ' err' : e.data.match(/warn|Warn|WARN/) ? ' warn' : '');
+    d.textContent = e.data;
+    feed.appendChild(d);
+    feed.scrollTop = feed.scrollHeight;
+  };
+  _dbgEs.onerror = function() {
+    if (_dbgEs) { _dbgEs.close(); _dbgEs = null; }
+    setTimeout(_startDebugStream, 4000);
+  };
+}
+document.addEventListener('DOMContentLoaded', function() { _startDebugStream(); });
 function clearDebugPanel() { var f=document.getElementById('debug-feed'); if(f) f.innerHTML=''; }
 function copyDebugPanel() { var f=document.getElementById('debug-feed'); if(f) navigator.clipboard.writeText(f.innerText).catch(function(){}); }
 function toggleOlder() {

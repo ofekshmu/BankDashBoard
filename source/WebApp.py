@@ -4167,11 +4167,16 @@ def files_upload():
     if not f or not f.filename:
         return jsonify({'ok': False, 'error': 'no file'})
     fname = os.path.basename(f.filename)
+    # Strip characters invalid on Windows/most filesystems; keep Hebrew/Unicode intact
+    fname = _re.sub(r'[<>:"|?*\x00-\x1f]', '_', fname).strip(' .')
     if not fname:
         return jsonify({'ok': False, 'error': 'invalid filename'})
-    os.makedirs(_INPUT_FOLDER, exist_ok=True)
-    dest = os.path.join(_INPUT_FOLDER, fname)
-    f.save(dest)
+    try:
+        os.makedirs(_INPUT_FOLDER, exist_ok=True)
+        dest = os.path.join(_INPUT_FOLDER, fname)
+        f.save(dest)
+    except OSError as e:
+        return jsonify({'ok': False, 'error': f'שגיאה בשמירת הקובץ: {e}'})
     return jsonify({'ok': True, 'filename': fname})
 
 

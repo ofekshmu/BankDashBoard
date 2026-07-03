@@ -3874,6 +3874,22 @@ def tagger_categories():
         return jsonify({'ok': False, 'error': str(e)})
 
 
+@app.route('/api/tagger/card-colors')
+def tagger_card_colors():
+    """Return {card_id: hex_color}, matching the same palette assignment used
+    for card_color_dict in the monthly/general analysis charts, so a card's
+    color stays consistent across the whole app."""
+    try:
+        from database import DataBase
+        from Constants import Local
+        card_ids = DataBase().get_card_ids()
+        color_list = Local.Colors[:len(card_ids)]
+        colors = {str(cid): color for cid, color in zip(card_ids, color_list)}
+        return jsonify({'ok': True, 'colors': colors})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
 @app.route('/api/tagger/categories/add', methods=['POST'])
 def tagger_categories_add():
     import json as _json

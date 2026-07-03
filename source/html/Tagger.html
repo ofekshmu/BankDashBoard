@@ -236,9 +236,10 @@ body {
   display: flex; align-items: center; justify-content: center;
   font-size: 1em;
   margin-top: 6px;
+  color: #fff; font-weight: 700;
 }
-.tx-type-pill.card { background: #eef2ff; }
-.tx-type-pill.bank { background: #fef3e2; }
+.tx-type-pill.card { font-size: .62em; letter-spacing: .2px; }
+.tx-type-pill.bank { background: var(--navy); }
 
 /* Wrapper that stacks info + actions on top, then description below */
 .tx-body {
@@ -1034,7 +1035,7 @@ let _lastInteraction = Date.now();
 
 // ── Boot ───────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  loadCategories().then(() => {
+  Promise.all([loadCategories(), loadCardColors()]).then(() => {
     loadUntagged();
     loadHighValue();
     loadTagged();
@@ -1058,6 +1059,24 @@ async function loadCategories() {
   if (!res || !res.ok) return;
   const data = await res.json();
   if (data.ok) _categories = data.categories;
+}
+
+// ── Card colors (same palette as monthly-analysis charts) ───────
+let _cardColors = {};
+async function loadCardColors() {
+  const res = await fetch('/api/tagger/card-colors').catch(() => null);
+  if (!res || !res.ok) return;
+  const data = await res.json().catch(() => null);
+  if (data && data.ok) _cardColors = data.colors || {};
+}
+
+function typePillHtml(tx) {
+  if (tx.table_name === 'CardTransactions') {
+    const cardId = String(tx.card_id ?? '');
+    const color  = _cardColors[cardId] || '#8a95b0';
+    return `<div class="tx-type-pill card" style="background:${esc(color)}">${esc(cardId)}</div>`;
+  }
+  return `<div class="tx-type-pill bank">B</div>`;
 }
 
 // ── Untagged list ──────────────────────────────────────────────
@@ -1221,8 +1240,6 @@ function setUntaggedSort(col) {
 
 function buildUntaggedRow(tx, idx) {
   const isCard = tx.table_name === 'CardTransactions';
-  const icon   = isCard ? '💳' : '🏦';
-  const cls    = isCard ? 'card' : 'bank';
   const name   = esc(tx.name || '—');
   const execD  = fmtDate(tx.exec_date);
   const charD  = fmtDate(tx.charge_date);
@@ -1250,7 +1267,7 @@ function buildUntaggedRow(tx, idx) {
   return `
 <div class="tx-row" id="row-${esc(key)}" data-key="${esc(key)}"
      data-table="${esc(tx.table_name)}" data-id="${tx.id}" data-name="${esc(tx.name || '')}">
-  <div class="tx-type-pill ${cls}">${icon}</div>
+  ${typePillHtml(tx)}
   <div class="tx-body">
     <div class="tx-top">
       <div class="tx-info">
@@ -1328,8 +1345,6 @@ function renderHighValue() {
 
 function buildHighValRow(tx, idx) {
   const isCard = tx.table_name === 'CardTransactions';
-  const icon   = isCard ? '💳' : '🏦';
-  const cls    = isCard ? 'card' : 'bank';
   const name   = esc(tx.name || '—');
   const execD  = fmtDate(tx.exec_date);
   const key    = `hv_${tx.table_name}__${tx.id}`;
@@ -1352,7 +1367,7 @@ function buildHighValRow(tx, idx) {
   return `
 <div class="tx-row" id="row-${esc(key)}" data-key="${esc(key)}"
      data-table="${esc(tx.table_name)}" data-id="${tx.id}" data-name="${esc(tx.name || '')}">
-  <div class="tx-type-pill ${cls}">${icon}</div>
+  ${typePillHtml(tx)}
   <div class="tx-body">
     <div class="tx-top">
       <div class="tx-info">
@@ -1450,8 +1465,6 @@ function renderTagged() {
 
 function buildTaggedRow(tx) {
   const isCard  = tx.table_name === 'CardTransactions';
-  const icon    = isCard ? '💳' : '🏦';
-  const cls     = isCard ? 'card' : 'bank';
   const name    = esc(tx.name || '—');
   const execD   = fmtDate(tx.exec_date);
   const auto    = _isAuto(tx);
@@ -1471,7 +1484,7 @@ function buildTaggedRow(tx) {
 
   return `
 <div class="tx-row is-tagged">
-  <div class="tx-type-pill ${cls}">${icon}</div>
+  ${typePillHtml(tx)}
   <div class="tx-info">
     <div class="tx-name">${name}</div>
     <div class="tx-meta">${metaHtml}</div>
@@ -1705,7 +1718,13 @@ async function _doTagAll(name, category) {
     body: JSON.stringify({ name, category })
   }).catch(() => null);
   const data = res ? await res.json().catch(() => null) : null;
-  const count = data?.tagged ?? 0;
+  if (!data || !data.ok) {
+    // Don't remove anything locally — the server-side tag never actually happened,
+    // so the row would just reappear on the next page load anyway.
+    showToast('שגיאה בתיוג', 'error');
+    return;
+  }
+  const count = data.tagged ?? 0;
   const msg = count > 1
     ? `${count} עסקאות תויגו כ-"${category}"`
     : `תויג: "${category}"`;
@@ -1758,7 +1777,7 @@ function setRowLoading(key, on) {
 
 async function refreshAll() {
   animateRefreshBar();
-  await loadCategories();
+  await Promise.all([loadCategories(), loadCardColors()]);
   await Promise.all([loadUntagged(), loadHighValue(), loadTagged()]);
 }
 
@@ -2023,8 +2042,6 @@ async function searchTagged() {
 
 function buildSearchResultRow(tx) {
   const isCard      = tx.table_name === 'CardTransactions';
-  const icon        = isCard ? '💳' : '🏦';
-  const cls         = isCard ? 'card' : 'bank';
   const name        = esc(tx.name || '—');
   const execD       = fmtDate(tx.exec_date);
   const key         = `sr_${tx.table_name}__${tx.id}`;
@@ -2048,7 +2065,7 @@ function buildSearchResultRow(tx) {
   return `
 <div class="tx-row is-tagged" id="row-${esc(key)}" data-key="${esc(key)}"
      data-table="${esc(tx.table_name)}" data-id="${tx.id}">
-  <div class="tx-type-pill ${cls}">${icon}</div>
+  ${typePillHtml(tx)}
   <div class="tx-body">
     <div class="tx-top">
       <div class="tx-info">

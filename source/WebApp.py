@@ -3933,8 +3933,12 @@ def tagger_search_tagged():
 
 # ── Files routes ──────────────────────────────────────────────────────────────
 
-_INPUT_FOLDER   = os.path.join(_PROJECT_DIR, 'ShmuelFamiliy_Inputs')
-_VERIFIED_FOLDER = os.path.join(_PROJECT_DIR, 'Verified_ShmuelFamiliy_Inputs')
+if os.getenv('VERCEL'):  # Vercel: /var/task is read-only; use /tmp
+    _INPUT_FOLDER    = '/tmp/ShmuelFamiliy_Inputs'
+    _VERIFIED_FOLDER = '/tmp/Verified_ShmuelFamiliy_Inputs'
+else:
+    _INPUT_FOLDER    = os.path.join(_PROJECT_DIR, 'ShmuelFamiliy_Inputs')
+    _VERIFIED_FOLDER = os.path.join(_PROJECT_DIR, 'Verified_ShmuelFamiliy_Inputs')
 _INSERT_LOCK = threading.Lock()  # prevent concurrent parses
 
 

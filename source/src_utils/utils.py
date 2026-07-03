@@ -2926,6 +2926,18 @@ document.addEventListener('DOMContentLoaded', function() {
         return value
 
     @staticmethod
+    def balance_ready(value):
+        """A blank Balance cell means the bank didn't print a running balance on this
+        row (it only does so periodically) — not that the balance is zero. Return
+        None/NULL so callers like get_latest_Balance()'s `WHERE Balance IS NOT NULL`
+        correctly skip rows with no real balance reading."""
+        if value is None:
+            return None
+        if isinstance(value, str) and value.strip() == '':
+            return None
+        return value
+
+    @staticmethod
     def move_file_to_directory(file_path, destination_directory, create_dst: bool = True):
         try:
             # Check if the file exists

@@ -55,7 +55,7 @@ class Bank(File):
                                                        Ref=row[3],
                                                        Out=utils.amount_ready(row[4]),
                                                        Income=utils.amount_ready(row[5]),
-                                                       Balance=utils.amount_ready(row[6]),
+                                                       Balance=utils.balance_ready(row[6]),
                                                        Source_file=self.name,
                                                        Extra_Info=f"Info: {row[7]} | Note: {row[8]}")
                 case "BeinLeumi-Bank":
@@ -65,7 +65,7 @@ class Bank(File):
                                                         Ref=row[3],
                                                         Out=utils.amount_ready(row[5]),
                                                         Income=utils.amount_ready(row[4]),
-                                                        Balance=utils.amount_ready(row[7]),
+                                                        Balance=utils.balance_ready(row[7]),
                                                         Source_file=self.name,
                                                         Extra_Info=f"Info: {row[1]}")
 
@@ -76,7 +76,7 @@ class Bank(File):
                                                         Ref=row[5],
                                                         Out=utils.amount_ready(row[3]),
                                                         Income=utils.amount_ready(row[2]),
-                                                        Balance=utils.amount_ready(row[0]),
+                                                        Balance=utils.balance_ready(row[0]),
                                                         Source_file=self.name,
                                                         Extra_Info=f"Info: {row[6]}")
 

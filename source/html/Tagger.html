@@ -682,70 +682,6 @@ body {
 .split-lock-fail{animation:lockFail .55s ease-out forwards;border-color:var(--red) !important}
 .split-sum-error{border-color:var(--red) !important}
 
-/* ── Mobile Responsive Design ──────────────────────────────────────────────── */
-@media (max-width: 768px) {
-    body {
-        padding: 10px;
-        font-size: 14px;
-    }
-
-    .container, .main-content {
-        padding: 10px;
-        margin: 0;
-    }
-
-    table {
-        font-size: 12px;
-        display: block;
-        overflow-x: auto;
-    }
-
-    th, td {
-        padding: 8px;
-    }
-
-    button, input, select {
-        padding: 12px;
-        font-size: 16px;
-        min-height: 44px;
-    }
-
-    .header, .sidebar, .navigation {
-        display: block;
-        width: 100%;
-    }
-
-    h1, h2, h3 {
-        font-size: 18px;
-        margin-bottom: 15px;
-    }
-}
-
-@media (max-width: 480px) {
-    body {
-        padding: 5px;
-        font-size: 12px;
-    }
-
-    table {
-        font-size: 10px;
-    }
-
-    th, td {
-        padding: 5px;
-    }
-
-    button, input, select {
-        width: 100%;
-        padding: 12px;
-        font-size: 16px;
-        margin-bottom: 10px;
-    }
-
-    h1, h2 {
-        font-size: 16px;
-    }
-}
 @media (max-width: 600px) {
   .main { padding: 56px 12px 80px !important; }
   .page-header { padding-right: 0 !important; }
@@ -766,20 +702,66 @@ body {
   .cat-wrap { width: 100%; flex: 1 1 auto; }
   .cat-input { width: 100%; }
 
-  /* Buttons stay compact but don't overflow */
-  .btn { font-size: .8em; padding: 6px 10px; }
-  .btn-icon { width: 30px; height: 30px; }
+  /* 16px minimum on text inputs stops iOS Safari from zooming in on focus */
+  .cat-input, .desc-input, .rules-filter-input, .search-input, .modal-input { font-size: 16px; }
 
-  /* Filter bar scrolls horizontally instead of wrapping */
+  /* Buttons: smaller, tighter, more elegant on touch screens */
+  .btn { font-size: .78em; padding: 7px 12px; border-radius: 9px; gap: 4px; }
+  .btn-icon { width: 30px; height: 30px; border-radius: 8px; }
+  .tg-split-btn { font-size: .72em; padding: 5px 9px; border-radius: 7px; }
+  .btn-tag-all { font-size: .7em; padding: 5px 9px; }
+
+  /* Page header: wrap into a tidy stack instead of overflowing */
+  .page-header {
+    flex-wrap: wrap;
+    gap: 8px 10px;
+    margin-bottom: 20px;
+  }
+  .page-header h1 { font-size: 1.35em; flex: 1 1 auto; }
+  .header-badge { font-size: .74em; padding: 3px 10px; }
+  .page-header .btn { margin-right: 0 !important; font-size: .74em; padding: 6px 10px; }
+
+  /* Filter bar (card/date/sort/tagged toggles) scrolls horizontally
+     instead of wrapping onto multiple lines */
   .filter-bar {
     overflow-x: auto;
     flex-wrap: nowrap;
     -webkit-overflow-scrolling: touch;
-    padding-bottom: 8px;
+    padding: 10px 12px 8px;
     scrollbar-width: none;
   }
   .filter-bar::-webkit-scrollbar { display: none; }
-  .filter-btn { flex-shrink: 0; }
+  .filter-btn { flex-shrink: 0; font-size: .74em; padding: 4px 11px; }
+
+  .rules-filter-bar, .search-bar { padding: 10px 12px; }
+
+  /* Rules list: stack name / count / category select instead of one cramped row */
+  .rule-row {
+    flex-wrap: wrap;
+    padding: 10px 12px;
+    gap: 6px 10px;
+  }
+  .rule-name { flex: 1 1 100%; white-space: normal; }
+  .rule-count { order: 3; }
+  .rule-cat-select { flex: 1 1 auto; min-width: 0; order: 2; font-size: .8em; }
+
+  /* Search bar: keep the "search" button from shrinking its label */
+  .search-bar .btn { flex-shrink: 0; }
+
+  /* Split modal: fixed pixel grid columns don't fit narrow screens —
+     reflow into two rows (desc+remove, then amount+category) instead
+     of cramming 5 columns into one */
+  .s-modal { padding: 20px 16px; }
+  .s-editor-header, .s-editor-row {
+    grid-template-columns: 16px 1fr 26px;
+    grid-template-areas: "num desc remove" ". amt cat";
+    row-gap: 5px;
+  }
+  .s-editor-header > :nth-child(1), .s-editor-row > :nth-child(1) { grid-area: num; }
+  .s-editor-header > :nth-child(2), .s-editor-row > :nth-child(2) { grid-area: desc; }
+  .s-editor-header > :nth-child(3), .s-editor-row > :nth-child(3) { grid-area: amt; }
+  .s-editor-header > :nth-child(4), .s-editor-row > :nth-child(4) { grid-area: cat; }
+  .s-editor-header > :nth-child(5), .s-editor-row > :nth-child(5) { grid-area: remove; }
 }
 .debug-fab{position:fixed;bottom:22px;right:18px;width:42px;height:42px;border-radius:50%;background:#1e2a4a;color:#fff;font-size:.72em;font-family:monospace;font-weight:700;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.3);z-index:997;letter-spacing:-.5px}
 .debug-fab:hover{filter:brightness(1.2)}
@@ -1514,14 +1496,25 @@ window.addEventListener('resize', function() {
 }, { passive: true });
 
 // ── Autocomplete logic ─────────────────────────────────────────
+// Resolves free-typed text to the canonical stored category name,
+// matching case-insensitively so small typing differences (casing,
+// stray spaces) still line up with an existing category.
+function resolveCategory(q) {
+  q = (q || '').trim();
+  if (!q) return null;
+  if (q.toLowerCase() === 'excluded') return 'Excluded';
+  const hit = _categories.find(c => c.name.toLowerCase() === q.toLowerCase());
+  return hit ? hit.name : null;
+}
+
 function onCatInput(inp, key) {
   _touchInteraction();
-  const q   = inp.value.trim();
-  const btn = document.getElementById(`btn-${key}`);
-  const exact = _categories.find(c => c.name === q) || q === 'Excluded';
-  inp.classList.toggle('valid', !!exact);
-  inp.classList.toggle('invalid', q.length > 0 && !exact);
-  if (btn) btn.disabled = !exact;
+  const q     = inp.value.trim();
+  const btn   = document.getElementById(`btn-${key}`);
+  const match = resolveCategory(q);
+  inp.classList.toggle('valid', !!match);
+  inp.classList.toggle('invalid', q.length > 0 && !match);
+  if (btn) btn.disabled = !match;
   renderDropdown(inp, key, q);
 }
 
@@ -1533,11 +1526,13 @@ function openDropdown(inp, key) {
   if (dd && dd.parentNode !== document.body) document.body.appendChild(dd);
   if (dd) {
     const r = inp.getBoundingClientRect();
+    const ddWidth = Math.min(220, window.innerWidth - 8);
+    const left = Math.min(Math.max(4, r.right - ddWidth), window.innerWidth - ddWidth - 4);
     Object.assign(dd.style, {
       position: 'fixed',
       top:   (r.bottom + 2) + 'px',
-      left:  Math.max(4, r.right - 220) + 'px',
-      width: '220px',
+      left:  left + 'px',
+      width: ddWidth + 'px',
       right: 'auto'
     });
   }
@@ -1550,10 +1545,16 @@ function renderDropdown(inp, key, q) {
   const lower = q.toLowerCase();
   let matches = _categories;
   if (q) {
-    matches = _categories.filter(c =>
-      c.name.toLowerCase().includes(lower) ||
-      c.name.includes(q)
-    );
+    // Rank so the best match (starts-with, then shortest) lands first —
+    // that's the one auto-highlighted for quick Tab/Enter selection.
+    matches = _categories
+      .filter(c => c.name.toLowerCase().includes(lower))
+      .sort((a, b) => {
+        const aStarts = a.name.toLowerCase().startsWith(lower) ? 0 : 1;
+        const bStarts = b.name.toLowerCase().startsWith(lower) ? 0 : 1;
+        if (aStarts !== bStarts) return aStarts - bStarts;
+        return a.name.length - b.name.length;
+      });
   }
   const showExcluded = !q || 'excluded'.includes(lower);
   const allMatches = showExcluded
@@ -1561,7 +1562,7 @@ function renderDropdown(inp, key, q) {
     : matches;
   if (!allMatches.length) { dd.classList.remove('open'); return; }
   dd.innerHTML = allMatches.slice(0, 13).map((c, i) =>
-    `<div class="cat-opt" data-val="${esc(c.name)}"
+    `<div class="cat-opt${q && i === 0 ? ' focused' : ''}" data-val="${esc(c.name)}"
           onMouseDown="pickCategory('${esc(key)}','${esc(c.name)}')"
           id="opt-${esc(key)}-${i}">
        <span>${esc(c.name)}</span>
@@ -1611,7 +1612,10 @@ function onCatKey(e, inp, key) {
     if (opts[idx]) opts[idx].classList.add('focused');
   } else if (e.key === 'Enter') {
     e.preventDefault();
-    if (focused) {
+    // If the highlighted suggestion is already what's typed (auto-matched),
+    // submit right away; otherwise complete the text first so the user can
+    // confirm the match before a second Enter tags it.
+    if (focused && focused.dataset.val.toLowerCase() !== inp.value.trim().toLowerCase()) {
       pickCategory(key, focused.dataset.val);
     } else {
       tagRow(key);
@@ -1633,14 +1637,15 @@ async function tagRow(key) {
   const id       = parseInt(row.dataset.id);
   const name     = row.dataset.name;
   const inp         = document.getElementById(`inp-${key}`);
-  const category    = inp ? inp.value.trim() : '';
+  const category    = resolveCategory(inp ? inp.value : '');
   const descInp     = document.getElementById(`desc-${key}`);
   const description = descInp ? descInp.value.trim() : '';
 
-  if (!category || (!_categories.find(c => c.name === category) && category !== 'Excluded')) {
+  if (!category) {
     showToast('בחר קטגוריה תקינה', 'error');
     return;
   }
+  if (inp) inp.value = category;
 
   setRowLoading(key, true);
 
@@ -2443,14 +2448,15 @@ async function retagSearchRow(key) {
   const table    = row.dataset.table;
   const id       = parseInt(row.dataset.id);
   const inp      = document.getElementById(`inp-${key}`);
-  const category = inp ? inp.value.trim() : '';
+  const category = resolveCategory(inp ? inp.value : '');
   const descInp  = document.getElementById(`desc-${key}`);
   const newDesc  = descInp ? descInp.value.trim() : '';
 
-  if (!category || (!_categories.find(c => c.name === category) && category !== 'Excluded')) {
+  if (!category) {
     showToast('בחר קטגוריה תקינה', 'error');
     return;
   }
+  if (inp) inp.value = category;
 
   setRowLoading(key, true);
 

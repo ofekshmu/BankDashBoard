@@ -527,6 +527,17 @@ body {
   user-select: none;
 }
 
+.month-separator {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 20px 4px;
+  color: var(--teal);
+  font-size: .78em; font-weight: 700;
+  user-select: none;
+}
+.month-separator::before, .month-separator::after {
+  content: ''; flex: 1; height: 1px; background: var(--teal); opacity: .3;
+}
+
 /* ── Description input ───────────────────────────────────────── */
 .desc-input {
   flex: 1;
@@ -1013,7 +1024,6 @@ let _taggedItems   = [];
 let _taggedFilter       = 'all';   // 'all' | 'manual' | 'auto'
 let _untaggedFilters = new Set();  // empty = all; can hold 'BANK' and/or card_id strings together
 let _untaggedSort = { col: null, dir: -1 };  // col: null|'date'|'price'; dir: 1 asc, -1 desc
-let _autoRefreshTimer = null;
 // Guard against concurrent loads / stale retry chains
 let _loading    = { untagged: false, highval: false, tagged: false };
 let _retryTimer = { untagged: null,  highval: null,  tagged: null  };
@@ -1021,7 +1031,6 @@ let _retryCount = { untagged: 0,     highval: 0,     tagged: 0     };
 const MAX_AUTO_RETRIES  = 3;
 const FETCH_TIMEOUT_MS  = 12000;
 let _lastInteraction = Date.now();
-const AUTO_REFRESH_DELAY = 5000;   // 5 s idle → refresh
 
 // ── Boot ───────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
@@ -1119,20 +1128,38 @@ function renderUntagged() {
   const cutoff = new Date();
   cutoff.setMonth(cutoff.getMonth() - 3);
 
+  // Both the old-tx separator and the month dividers assume the list is in
+  // chronological order — true by default and when sorted by date, but not
+  // when sorted by price.
+  const chronological = _untaggedSort.col !== 'price';
+
   let html = '';
   let separatorInserted = false;
+  let lastMonthKey = null;
   for (let i = 0; i < items.length; i++) {
     const tx = items[i];
     const execDate = tx.exec_date ? new Date(tx.exec_date) : null;
-    // The "old transactions" separator only makes sense in the default chronological
-    // order — skip it when a custom sort is active.
-    if (!_untaggedSort.col && !separatorInserted && execDate && execDate < cutoff) {
+    if (chronological && !separatorInserted && execDate && execDate < cutoff) {
       html += `<div class="old-tx-separator">עסקאות ישנות</div>`;
       separatorInserted = true;
+    }
+    if (chronological && execDate) {
+      const mKey = monthKey(execDate);
+      if (mKey !== lastMonthKey) {
+        html += `<div class="month-separator">${monthLabel(execDate)}</div>`;
+        lastMonthKey = mKey;
+      }
     }
     html += buildUntaggedRow(tx, i);
   }
   el.innerHTML = html;
+}
+
+function monthKey(d) {
+  return `${d.getFullYear()}-${d.getMonth()}`;
+}
+function monthLabel(d) {
+  return d.toLocaleDateString('he-IL', { month: 'long', year: 'numeric' });
 }
 
 function buildCardFilterBar() {
@@ -1286,6 +1313,11 @@ async function loadHighValue(manual = false) {
   }
   _retryCount.highval = 0;
   _highvalItems = data.items;
+  renderHighValue();
+}
+
+function renderHighValue() {
+  const el = document.getElementById('highval-list');
   document.getElementById('sec-highval-count').textContent = _highvalItems.length;
   if (!_highvalItems.length) {
     el.innerHTML = `<div class="empty-state"><div class="emoji">✨</div>אין עסקאות גבוהות ללא תיוג</div>`;
@@ -1662,8 +1694,8 @@ async function confirmTagAll(key, name, category, yes) {
       body: JSON.stringify({ name, rule: 'No Match' })
     }).catch(() => {});
     showToast(`תויג: "${category}"`, 'success');
+    exitRow(key);
   }
-  exitRow(key);
 }
 
 async function _doTagAll(name, category) {
@@ -1678,13 +1710,38 @@ async function _doTagAll(name, category) {
     ? `${count} עסקאות תויגו כ-"${category}"`
     : `תויג: "${category}"`;
   showToast(msg, 'success');
+  _exitAllByName(name);
 }
 
+// ── Local-only updates after tagging — no network refetch of the lists ──
 function exitRow(key) {
   const row = document.querySelector(`[data-key="${key}"]`);
   if (row) row.classList.add('exiting');
-  _lastInteraction = Date.now();
-  setTimeout(scheduleAutoRefresh, 400);
+  const [table, idStr] = key.split('__');
+  const id = parseInt(idStr, 10);
+  setTimeout(() => {
+    _removeFromLocalState(tx => tx.table_name === table && tx.id === id);
+  }, 350);
+}
+
+function _exitAllByName(name) {
+  document.querySelectorAll('.tx-row').forEach(r => {
+    if (r.dataset.name === name) r.classList.add('exiting');
+  });
+  setTimeout(() => {
+    _removeFromLocalState(tx => tx.name === name);
+  }, 350);
+}
+
+function _removeFromLocalState(predicate) {
+  _untaggedItems = _untaggedItems.filter(tx => !predicate(tx));
+  _highvalItems  = _highvalItems.filter(tx => !predicate(tx));
+  document.getElementById('sec-untagged-count').textContent = _untaggedItems.length;
+  document.getElementById('untagged-count-badge').textContent = `${_untaggedItems.length} ללא תיוג`;
+  buildCardFilterBar();
+  renderUntagged();
+  renderHighValue();
+  loadTagged();  // small targeted refetch — just the recently-tagged section, not everything
 }
 
 function setRowLoading(key, on) {
@@ -1697,19 +1754,6 @@ function setRowLoading(key, on) {
     btn.disabled = false;
     btn.innerHTML = 'תייג';
   }
-}
-
-// ── Auto-refresh after idle ────────────────────────────────────
-function scheduleAutoRefresh() {
-  if (_autoRefreshTimer) clearTimeout(_autoRefreshTimer);
-  _autoRefreshTimer = setTimeout(() => {
-    const idle = Date.now() - _lastInteraction;
-    if (idle >= AUTO_REFRESH_DELAY - 200) {
-      refreshAll();
-    } else {
-      scheduleAutoRefresh();
-    }
-  }, AUTO_REFRESH_DELAY);
 }
 
 async function refreshAll() {

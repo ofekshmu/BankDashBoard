@@ -1131,8 +1131,10 @@ function _fmtLabel(fmt) { return _FMT_LABEL[fmt] || fmt; }
 
 async function loadDbFiles() {
   _dbLoaded = true;
+  const _ctrl = new AbortController();
+  const _timeout = setTimeout(() => _ctrl.abort(), 20000);
   try {
-    const res  = await fetch('/api/files/db-files');
+    const res  = await fetch('/api/files/db-files', {signal: _ctrl.signal});
     const data = await res.json();
     if (!data.ok) throw new Error(data.error || 'שגיאה');
     _dbFiles = data.files || [];
@@ -1167,8 +1169,14 @@ async function loadDbFiles() {
 
     renderDbTable();
   } catch (e) {
+    _dbLoaded = false;  // allow retry — don't get stuck until a full page reload
+    const msg = e.name === 'AbortError' ? 'תם הזמן הקצוב לטעינה' : e.message;
     document.getElementById('db-files-body').innerHTML =
-      `<div class="db-no-results">⚠ שגיאה בטעינה: ${esc(e.message)}</div>`;
+      `<div class="db-no-results">⚠ שגיאה בטעינה: ${esc(msg)}
+         <button onclick="loadDbFiles()" style="margin-inline-start:8px">נסה שוב</button>
+       </div>`;
+  } finally {
+    clearTimeout(_timeout);
   }
 }
 

@@ -4183,6 +4183,7 @@ def files_upload():
 @app.route('/api/files/db-files')
 def files_db_list():
     """Return all rows from the File table (files already in the database)."""
+    conn = None
     try:
         conn = _pg_conn()
         rows = conn.execute('''
@@ -4191,7 +4192,6 @@ def files_db_list():
             FROM File
             ORDER BY Date DESC, Last_update DESC
         ''').fetchall()
-        conn.close()
 
         files = []
         total_tx = 0
@@ -4213,6 +4213,9 @@ def files_db_list():
         return jsonify({'ok': True, 'files': files, 'total_transactions': total_tx})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)})
+    finally:
+        if conn is not None:
+            conn.close()
 
 
 @app.route('/api/transactions/split-info')

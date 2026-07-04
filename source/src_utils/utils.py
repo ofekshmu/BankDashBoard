@@ -1303,7 +1303,7 @@ class utils:
             if has_desc:
                 span_p = tag("span", class_="tx-primary")
                 span_p.string = str(raw_desc).strip()
-                span_s = tag("span", class_="tx-secondary")
+                span_s = tag("span", class_="tx-id")
                 span_s.string = name_str
                 h3.append(span_p)
                 h3.append(span_s)
@@ -4748,7 +4748,7 @@ function restartServer(btn){{
             _f.write(html)
 
         if slug:
-            _cat_dir = '/tmp/category_analysis' if _os.getenv('DATABASE_URL') else _os.path.join(_proj, 'Outputs', 'category_analysis')
+            _cat_dir = '/tmp/category_analysis' if _os.getenv('VERCEL') else _os.path.join(_proj, 'Outputs', 'category_analysis')
             _os.makedirs(_cat_dir, exist_ok=True)
             with open(_os.path.join(_cat_dir, f'{slug}.html'), 'w', encoding='utf-8') as _f:
                 _f.write(html)

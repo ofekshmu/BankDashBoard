@@ -5298,7 +5298,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     _pendingRow = row;
     var _t = function(sel) { var el = row.querySelector(sel); return el ? el.textContent.trim() : ''; };
     var primary   = _t('.tx-primary');
-    var secondary = _t('.tx-secondary');
+    var secondary = _t('.tx-id');
     var txId      = '#' + (row.getAttribute('data-value') || '');
     var amount    = _t('.date');
     var cat       = _t('.cat');
@@ -5334,37 +5334,41 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   };
 })();
 
-/* ── Desktop: transaction-ID slide-in panel ────────────────── */
+/* ── Desktop: transaction-ID slide-in reveal (inline on the row) ── */
 (function() {
   var style = document.createElement('style');
   style.textContent =
-    '.tx-id-panel{position:fixed;top:50%;right:0;transform:translate(100%,-50%);' +
-      'width:250px;max-width:calc(100vw - 32px);background:#1e2a4a;color:#fff;' +
-      'border-radius:12px 0 0 12px;padding:16px 20px;box-shadow:-4px 4px 24px rgba(0,0,0,.25);' +
-      'z-index:1200;opacity:0;transition:transform .35s ease,opacity .35s ease;pointer-events:none;direction:rtl}' +
-    '.tx-id-panel.open{transform:translate(0,-50%);opacity:1}' +
-    '.tx-id-panel .tip-lbl{font-size:.72em;color:#9fb0d0;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px}' +
-    '.tx-id-panel .tip-name{font-size:.85em;color:#dbe4f5;margin-bottom:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
-    '.tx-id-panel .tip-id{font-size:1.3em;font-weight:700;font-family:monospace}';
+    '.num{position:relative;overflow:hidden}' +
+    '.tx-id-chip{position:absolute;top:0;right:0;height:100%;display:flex;align-items:center;' +
+      'padding:0 14px;gap:8px;background:#1e2a4a;color:#fff;' +
+      'font-family:monospace;font-weight:700;font-size:.82em;white-space:nowrap;' +
+      'transform:translateX(100%);opacity:0;' +
+      'transition:transform .35s ease,opacity .35s ease;pointer-events:none;z-index:5}' +
+    '.tx-id-chip.open{transform:translateX(0);opacity:1}' +
+    '.tx-id-chip .chip-lbl{font-family:\'Segoe UI\',Arial,sans-serif;font-weight:600;font-size:.85em;color:#9fb0d0}';
   document.head.appendChild(style);
 
-  var panel = document.createElement('div');
-  panel.className = 'tx-id-panel';
-  panel.innerHTML =
-    '<div class="tip-lbl">מזהה עסקה</div>' +
-    '<div class="tip-name" id="tip-name"></div>' +
-    '<div class="tip-id" id="tip-id"></div>';
-  document.body.appendChild(panel);
-
-  var hideTimer = null;
+  var activeChip = null, hideTimer = null;
   window._showTxIdPanel = function(row) {
-    var id   = row.getAttribute('data-value') || '';
-    var name = ((row.querySelector('.tx-primary') || {}).textContent || '').trim();
-    document.getElementById('tip-id').textContent   = '#' + id;
-    document.getElementById('tip-name').textContent = name;
-    panel.classList.add('open');
     if (hideTimer) clearTimeout(hideTimer);
-    hideTimer = setTimeout(function() { panel.classList.remove('open'); }, 10000);
+    if (activeChip && activeChip.parentNode) activeChip.parentNode.removeChild(activeChip);
+
+    var id = row.getAttribute('data-value') || '';
+    var chip = document.createElement('span');
+    chip.className = 'tx-id-chip';
+    chip.innerHTML = '<span class="chip-lbl">מזהה עסקה</span><span>#' + id + '</span>';
+    row.appendChild(chip);
+    activeChip = chip;
+    void chip.offsetWidth; // force reflow so the transition runs
+    setTimeout(function() { chip.classList.add('open'); }, 0);
+
+    hideTimer = setTimeout(function() {
+      chip.classList.remove('open');
+      setTimeout(function() {
+        if (chip.parentNode) chip.parentNode.removeChild(chip);
+        if (activeChip === chip) activeChip = null;
+      }, 400);
+    }, 10000);
   };
 })();
 
@@ -6337,7 +6341,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
                  ? String(row.desc).trim() : '';
       if (desc) {
         h3.innerHTML = '<span class="tx-primary">' + _esc(desc) + '</span>' +
-                       '<span class="tx-secondary">' + _esc(name) + '</span>';
+                       '<span class="tx-id">' + _esc(name) + '</span>';
       } else {
         h3.innerHTML = '<span class="tx-primary">' + _esc(name) + '</span>';
       }

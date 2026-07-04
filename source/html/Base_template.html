@@ -5387,7 +5387,13 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     var h3        = row.querySelector('h3');
     var colorBox  = row.querySelector('.color-box');
     var barColor  = colorBox ? getComputedStyle(colorBox).backgroundColor : '#888';
-    var h3Width   = h3 ? Math.ceil(h3.getBoundingClientRect().width) : 120;
+    // Distance from the row's right edge (where the chip is anchored) to h3's
+    // *left* edge — covers the column-gap between the color-box and the text
+    // column too, so no sliver of long text is ever left peeking out.
+    var coverDistance = 120;
+    if (h3 && colorBox) {
+      coverDistance = Math.ceil(colorBox.getBoundingClientRect().right - h3.getBoundingClientRect().left);
+    }
     var closedW   = BAR_W;
     var hideTimer = null, fadeTimer = null, collapsed = false;
 
@@ -5404,7 +5410,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     var idEl  = chip.querySelector('.tic-idwrap');
     var btnEl = chip.querySelector('.tic-split');
     var btnWidth = btnEl.getBoundingClientRect().width;
-    var openW = BAR_W + Math.max(h3Width, ID_W + GAP + btnWidth);
+    var openW = Math.max(coverDistance, BAR_W + ID_W + GAP + btnWidth);
 
     btnEl.addEventListener('click', function(e) {
       e.stopPropagation();

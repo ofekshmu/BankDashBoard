@@ -5185,67 +5185,49 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
 (function() {
   var PAD = 10;
 
-  // ── Desktop: reposition on hover ──────────────────────────────────────────
-  document.addEventListener('mouseenter', function(e) {
-    var wrap = e.target.closest && e.target.closest('.kpi-info-wrap');
-    if (!wrap) return;
-    var tip = wrap.querySelector('.kpi-tooltip');
-    if (!tip) return;
-    tip.style.left = ''; tip.style.right = ''; tip.style.transform = '';
-    var rect = tip.getBoundingClientRect();
-    var vw = window.innerWidth;
-    if (rect.right > vw - PAD) { tip.style.right = '0'; tip.style.left = 'auto'; }
-    else if (rect.left < PAD)   { tip.style.left  = '0'; tip.style.right = 'auto'; }
-    var rect2 = tip.getBoundingClientRect();
-    if (rect2.top < PAD) { tip.style.bottom = 'auto'; tip.style.top = 'calc(100% + 8px)'; }
-  }, true);
-
-  document.addEventListener('mouseleave', function(e) {
-    var wrap = e.target.closest && e.target.closest('.kpi-info-wrap');
-    if (!wrap) return;
-    var tip = wrap.querySelector('.kpi-tooltip');
-    if (!tip) return;
-    tip.style.left = ''; tip.style.right = ''; tip.style.transform = '';
-    tip.style.top = ''; tip.style.bottom = '';
-  }, true);
-
-  // ── Mobile: tap to open as fixed overlay, tap elsewhere to close ──────────
-  function _closeMobileTips() {
-    document.querySelectorAll('.kpi-tooltip.tip-mobile-open').forEach(function(t) {
-      t.classList.remove('tip-mobile-open');
-      t.style.cssText = '';
-    });
+  // Move the tooltip to <body> for the duration it's shown, and leave a
+  // comment marker behind so it can be put back exactly where it came from.
+  // This is what actually guarantees "always on top": position:fixed alone
+  // isn't enough — an ancestor with ANY transform (even the housing panel's
+  // subtle slide-in transform) becomes the containing block for fixed
+  // descendants instead of the viewport, and an ancestor with overflow:hidden
+  // (e.g. the equity-bar cards) clips it outright. Detaching to <body> escapes
+  // both problems at once, regardless of where in the page the icon lives.
+  function _detach(wrap) {
+    var tip = wrap._kpiTip;
+    if (!tip) {
+      tip = wrap.querySelector('.kpi-tooltip');
+      if (!tip) return null;
+      wrap._kpiTip = tip;
+      tip._homeMarker = document.createComment('');
+      wrap.insertBefore(tip._homeMarker, tip);
+    }
+    if (tip.parentNode !== document.body) document.body.appendChild(tip);
+    return tip;
   }
 
-  document.addEventListener('touchstart', function(e) {
-    var icon = e.target.closest && e.target.closest('.kpi-info-icon');
-    if (!icon) { _closeMobileTips(); return; }
-    var wrap = icon.closest('.kpi-info-wrap');
-    var tip  = wrap && wrap.querySelector('.kpi-tooltip');
+  function _reattach(wrap) {
+    var tip = wrap._kpiTip;
     if (!tip) return;
-    e.preventDefault();
+    tip.style.cssText = '';
+    tip.classList.remove('tip-mobile-open');
+    if (tip._homeMarker && tip._homeMarker.parentNode) {
+      tip._homeMarker.parentNode.insertBefore(tip, tip._homeMarker);
+    }
+  }
 
-    var isOpen = tip.classList.contains('tip-mobile-open');
-    _closeMobileTips();
-    if (isOpen) return; // tap again to close
-
-    var vw  = window.innerWidth;
-    var vh  = window.innerHeight;
-    var tipW = Math.min(300, vw - 24);
+  function _place(tip, icon, tipW) {
+    var vw = window.innerWidth, vh = window.innerHeight;
     var iconR = icon.getBoundingClientRect();
+    tipW = tipW || Math.min(300, vw - 2 * PAD);
 
-    // Prefer above icon; flip below if not enough room
+    tip.style.position = 'fixed';
+    tip.style.zIndex   = '9999';
+    tip.style.width    = tipW + 'px';
+    tip.style.maxWidth = tipW + 'px';
+
     var spaceAbove = iconR.top - PAD;
-    var useBelow   = spaceAbove < 130;
-
-    tip.style.position   = 'fixed';
-    tip.style.zIndex     = '9999';
-    tip.style.width      = tipW + 'px';
-    tip.style.maxWidth   = tipW + 'px';
-    tip.style.whiteSpace = 'pre-line';
-    tip.style.pointerEvents = 'auto';
-
-    if (useBelow) {
+    if (spaceAbove < 130) {
       tip.style.top    = (iconR.bottom + 8) + 'px';
       tip.style.bottom = 'auto';
     } else {
@@ -5253,12 +5235,57 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       tip.style.bottom = (vh - iconR.top + 8) + 'px';
     }
 
-    // Horizontal: align to right edge of icon, clamp to viewport
     var rightEdge = vw - iconR.right;
     rightEdge = Math.max(PAD, Math.min(rightEdge, vw - tipW - PAD));
     tip.style.right = rightEdge + 'px';
     tip.style.left  = 'auto';
+  }
 
+  // ── Desktop: reposition on hover ──────────────────────────────────────────
+  document.addEventListener('mouseenter', function(e) {
+    var wrap = e.target.closest && e.target.closest('.kpi-info-wrap');
+    if (!wrap) return;
+    var icon = wrap.querySelector('.kpi-info-icon');
+    var tip  = _detach(wrap);
+    if (!tip || !icon) return;
+    _place(tip, icon);
+    tip.style.visibility = 'visible';
+    tip.style.opacity    = '1';
+  }, true);
+
+  document.addEventListener('mouseleave', function(e) {
+    var wrap = e.target.closest && e.target.closest('.kpi-info-wrap');
+    if (!wrap) return;
+    _reattach(wrap);
+  }, true);
+
+  // ── Mobile: tap to open as fixed overlay, tap elsewhere to close ──────────
+  var _openWrap = null;
+  function _closeMobileTips() {
+    if (_openWrap) { _reattach(_openWrap); _openWrap = null; }
+  }
+
+  document.addEventListener('touchstart', function(e) {
+    var icon = e.target.closest && e.target.closest('.kpi-info-icon');
+    if (!icon) { _closeMobileTips(); return; }
+    var wrap = icon.closest('.kpi-info-wrap');
+    if (!wrap) return;
+    e.preventDefault();
+
+    var wasOpen = _openWrap === wrap;
+    _closeMobileTips();
+    if (wasOpen) return; // tap again to close
+
+    var tip = _detach(wrap);
+    if (!tip) return;
+    _openWrap = wrap;
+
+    var vw = window.innerWidth;
+    _place(tip, icon, Math.min(300, vw - 24));
+    tip.style.whiteSpace    = 'pre-line';
+    tip.style.pointerEvents = 'auto';
+    tip.style.visibility    = 'visible';
+    tip.style.opacity       = '1';
     tip.classList.add('tip-mobile-open');
   }, { passive: false, capture: true });
 })();

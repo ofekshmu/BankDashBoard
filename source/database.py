@@ -2592,14 +2592,21 @@ class DataBase:
     def check_bill_entry_overlap(
         self, bill_type_id: int, start_month: str, end_month: str, exclude_id: int = None
     ) -> str:
+        # Mirrors the client's clientOverlapCheck() exactly: "YYYY-MM" is padded to a
+        # whole-month span ("-01".."-31") and mid-month markers ("YYYY-MM-15") are left
+        # as-is, then compared with STRICT inequalities so entries that merely touch at
+        # a month boundary or at the same mid-month point are not treated as overlapping.
+        norm_start = start_month if len(start_month) > 7 else start_month + '-01'
+        norm_end   = end_month   if len(end_month)   > 7 else end_month   + '-31'
         sql = """
             SELECT ID FROM BillEntries
             WHERE BillType_ID = %s
-              AND Start_Month <= %s AND End_Month >= %s
+              AND (CASE WHEN LENGTH(Start_Month) = 7 THEN Start_Month || '-01' ELSE Start_Month END) < %s
+              AND (CASE WHEN LENGTH(End_Month)   = 7 THEN End_Month   || '-31' ELSE End_Month   END) > %s
               {exclude}
             LIMIT 1
         """
-        params = [bill_type_id, end_month, start_month]
+        params = [bill_type_id, norm_end, norm_start]
         if exclude_id is not None:
             sql = sql.format(exclude="AND ID <> %s")
             params.append(exclude_id)

@@ -5374,12 +5374,14 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     '.tx-id-chip .tic-split:hover{background:var(--teal,#1e9d8b);color:#fff}';
   document.head.appendChild(style);
 
-  var activeChip = null, hideTimer = null, fadeTimer = null;
+  var activeChip = null;
 
   window._showTxIdPanel = function(row, onExpire, onSplit) {
-    if (hideTimer) clearTimeout(hideTimer);
-    if (fadeTimer) clearTimeout(fadeTimer);
-    if (activeChip && activeChip.parentNode) activeChip.parentNode.removeChild(activeChip);
+    // Close out whatever was previously open — smoothly, on its own timers,
+    // never a hard yank (each chip owns its own timers, so this can't
+    // collide with the new chip we're about to build).
+    if (activeChip && activeChip._collapse) activeChip._collapse();
+    activeChip = null;
 
     var id        = row.getAttribute('data-value') || '';
     var h3        = row.querySelector('h3');
@@ -5387,6 +5389,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     var barColor  = colorBox ? getComputedStyle(colorBox).backgroundColor : '#888';
     var h3Width   = h3 ? Math.ceil(h3.getBoundingClientRect().width) : 120;
     var closedW   = BAR_W;
+    var hideTimer = null, fadeTimer = null, collapsed = false;
 
     var chip = document.createElement('span');
     chip.className = 'tx-id-chip';
@@ -5410,15 +5413,21 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     });
 
     function _collapse() {
+      if (collapsed) return;
+      collapsed = true;
       if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
       if (fadeTimer) { clearTimeout(fadeTimer); fadeTimer = null; }
+      // Let the text/button fully fade out *before* the bar rolls back —
+      // otherwise the shrinking width clips them mid-fade and it flickers.
       idEl.classList.remove('show');
       btnEl.classList.remove('show');
-      chip.style.width = closedW + 'px';
       setTimeout(function() {
-        if (chip.parentNode) chip.parentNode.removeChild(chip);
-        if (activeChip === chip) activeChip = null;
-      }, 400);
+        chip.style.width = closedW + 'px';
+        setTimeout(function() {
+          if (chip.parentNode) chip.parentNode.removeChild(chip);
+          if (activeChip === chip) activeChip = null;
+        }, 400);
+      }, 300);
     }
     chip._collapse = _collapse;
 

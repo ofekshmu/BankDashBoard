@@ -1247,7 +1247,7 @@ class AppManager:
             data['investments_net']       = round(float(_inv_df['Final_Value'].sum()), 2)
             _inv_items = []
             for _, _row in _inv_df.sort_values('Executed_Date').iterrows():
-                _desc = _row.get('Description/Charge_Currency')
+                _desc = _row.get('Description')
                 _has_desc = (_desc is not None and
                              not (isinstance(_desc, float) and pd.isna(_desc)) and
                              str(_desc).strip() and
@@ -1712,7 +1712,7 @@ class AppManager:
                     'category': str(row.get('Category', '')),
                     'amount':   _safe(row.get('Final_Value')),
                     'date':     date_str,
-                    'desc':     str(row.get('Description/Charge_Currency', '') or ''),
+                    'desc':     str(row.get('Description', '') or ''),
                     'card':     str(row.get('CardID', '') or ''),
                     'table':    str(row.get('TableName', '') or ''),
                     'is_cash':  False,
@@ -2012,7 +2012,7 @@ class AppManager:
             data['investments_net']       = round(float(_inv_df['Final_Value'].sum()), 2)
             _inv_items = []
             for _, _row in _inv_df.sort_values('Executed_Date').iterrows():
-                _desc = _row.get('Description/Charge_Currency')
+                _desc = _row.get('Description')
                 _has_desc = (_desc is not None and
                              not (isinstance(_desc, float) and pd.isna(_desc)) and
                              str(_desc).strip() and
@@ -2473,7 +2473,7 @@ class AppManager:
                 return {
                     'id': _safe(row.get('ID')), 'name': str(row.get('Name', '')),
                     'category': str(row.get('Category', '')), 'amount': _safe(row.get('Final_Value')),
-                    'date': date_str, 'desc': str(row.get('Description/Charge_Currency', '') or ''),
+                    'date': date_str, 'desc': str(row.get('Description', '') or ''),
                     'card': str(row.get('CardID', '') or ''), 'table': str(row.get('TableName', '') or ''),
                     'is_cash': False,
                 }

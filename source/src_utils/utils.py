@@ -1315,9 +1315,6 @@ class utils:
                 badge = tag("span", class_="split-badge")
                 badge.string = "✂ פיצול"
                 h3.append(badge)
-            span_id = tag("span", class_="tx-id")
-            span_id.string = f"#{item['ID']}"
-            h3.append(span_id)
             _manual_cash_flag = item.get('_manual_cash')
             if _manual_cash_flag is True:
                 mc_badge = tag("span", class_="manual-cash-badge")
@@ -3942,13 +3939,13 @@ Please Make sure that none of the following formats have their 'Identifications 
                     if c_raw and c_raw not in ('nan', '', str(row.get('Date', ''))):
                         charge_html = f'<span class="td-charge">חיוב {_parse_date(c_raw)}</span>'
 
-                cat_td = f'<td class="td-cat">{cat}</td>' if _show_cat_col else ''
+                cat_td = f'<td class="td-cat" data-label="קטגוריה">{cat}</td>' if _show_cat_col else ''
                 txn_rows += (
                     f'<tr>'
-                    f'<td class="td-id">{txn_id}</td>'
-                    f'<td class="td-date">{date_str}{date_badge}{charge_html}</td>'
-                    f'<td class="td-name">{name}</td>'
-                    f'<td class="td-val {vcls}">{vstr}</td>'
+                    f'<td class="td-id" data-label="מזהה">{txn_id}</td>'
+                    f'<td class="td-date" data-label="תאריך">{date_str}{date_badge}{charge_html}</td>'
+                    f'<td class="td-name" data-label="שם">{name}</td>'
+                    f'<td class="td-val {vcls}" data-label="סכום">{vstr}</td>'
                     f'{cat_td}</tr>\n'
                 )
 
@@ -4163,6 +4160,27 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;
 .log-ind.active{{background:#1e9d8b;animation:pulse 1s infinite}}
 .log-ind.error{{background:var(--red)}}
 @keyframes pulse{{0%,100%{{opacity:1}}50%{{opacity:.4}}}}
+
+/* ── Mobile compatibility ──────────────────────────────────── */
+@media(max-width:600px){{
+  .main{{padding:56px 14px 70px !important}}
+  .page-header{{gap:8px}}
+  .page-header h1{{font-size:1.3em}}
+  .kpi-grid{{grid-template-columns:1fr 1fr;gap:8px}}
+  .kpi-card{{padding:12px 14px 10px}}
+  .kpi-value{{font-size:clamp(1.05em,5.5vw,1.3em)}}
+  .chart-card,.panel{{padding:14px}}
+  .chart-wrap{{height:190px}}
+  .txn-table thead{{display:none}}
+  .txn-table,.txn-table tbody,.txn-table tr,.txn-table td{{display:block;width:100%}}
+  .txn-table tr{{background:var(--white);border:1px solid var(--border);border-radius:10px;
+    margin-bottom:10px;padding:10px 12px;box-shadow:var(--shadow-sm)}}
+  .txn-table td{{border-bottom:none;padding:4px 0;display:flex;justify-content:space-between;
+    align-items:center;gap:10px;text-align:left;max-width:none;white-space:normal}}
+  .txn-table td::before{{content:attr(data-label);font-size:.7em;font-weight:600;
+    color:var(--text-muted);text-transform:uppercase;letter-spacing:.3px;flex-shrink:0;margin-left:8px}}
+  .txn-table-wrap{{overflow-x:visible;max-height:60vh}}
+}}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 </head>
@@ -4193,7 +4211,6 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;
     <a class="nav-item active" href="/categories">ניתוח קטגוריאלי</a>
     <a class="nav-item" href="/search">חיפוש</a>
     <a class="nav-item" href="/spotify">Spotify Tracker</a>
-    <a class="nav-item" href="/gym">Gym Tracker</a>
     <div class="nav-sep"></div>
     <a class="nav-item" href="/tagger">תייגן</a>
     <a class="nav-item" href="/files">קבצים</a>

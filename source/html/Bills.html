@@ -896,7 +896,6 @@ body.resize-end    { cursor: ew-resize !important; }
     <a class="nav-item" href="/categories">ניתוח קטגוריאלי</a>
     <a class="nav-item" href="/search">חיפוש</a>
     <a class="nav-item" href="/spotify">Spotify Tracker</a>
-    <a class="nav-item" href="/gym">Gym Tracker</a>
     <div class="nav-sep"></div>
     <a class="nav-item" href="/tagger">תייגן</a>
     <a class="nav-item" href="/files">קבצים</a>
@@ -2461,6 +2460,9 @@ function initTouch() {
   const canvas = document.getElementById('bills-chart');
   if (!canvas) return;
   let ts = null;
+  let tapCandidate = null;
+  const TAP_MOVE_PX = 10;
+  const TAP_MAX_MS  = 400;
 
   function pinchDist(touches) {
     const dx = touches[0].clientX - touches[1].clientX;
@@ -2477,6 +2479,7 @@ function initTouch() {
   canvas.addEventListener('touchstart', function(e) {
     if (e.touches.length === 1) {
       ts = { type: 'pan', x0: e.touches[0].clientX, vs0: viewStart, ve0: viewEnd };
+      tapCandidate = { x0: e.touches[0].clientX, y0: e.touches[0].clientY, time0: Date.now() };
     } else if (e.touches.length === 2) {
       ts = {
         type: 'pinch',
@@ -2485,11 +2488,18 @@ function initTouch() {
         vs0: viewStart, ve0: viewEnd,
         len0: monthDiff(viewStart, viewEnd)
       };
+      tapCandidate = null;
     }
     e.preventDefault();
   }, { passive: false });
 
   canvas.addEventListener('touchmove', function(e) {
+    if (tapCandidate) {
+      const t = e.touches[0];
+      if (t && (Math.abs(t.clientX - tapCandidate.x0) > TAP_MOVE_PX || Math.abs(t.clientY - tapCandidate.y0) > TAP_MOVE_PX)) {
+        tapCandidate = null;
+      }
+    }
     if (!ts || !chart) { e.preventDefault(); return; }
     e.preventDefault();
     const xScale = chart.scales.x;
@@ -2519,7 +2529,17 @@ function initTouch() {
     }
   }, { passive: false });
 
-  canvas.addEventListener('touchend', function() { ts = null; });
+  canvas.addEventListener('touchend', function(e) {
+    ts = null;
+    if (tapCandidate && (Date.now() - tapCandidate.time0) < TAP_MAX_MS) {
+      const el = getBarAt(e);
+      if (el) {
+        const dp = chart.data.datasets[el.datasetIndex].data[el.index];
+        if (dp._eid) openEditModal(dp._eid);
+      }
+    }
+    tapCandidate = null;
+  });
 }
 
 function onDragStart(e) {

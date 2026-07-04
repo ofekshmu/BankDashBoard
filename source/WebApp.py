@@ -983,7 +983,6 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:#f4f6f9;color:#1e2a4a;d
     <a class="nav-item active" href="/categories">ניתוח קטגוריאלי</a>
     <a class="nav-item" href="/search">חיפוש</a>
     <a class="nav-item" href="/spotify">Spotify Tracker</a>
-    <a class="nav-item" href="/gym">Gym Tracker</a>
     <div class="nav-sep"></div>
     <a class="nav-item" href="/tagger">תייגן</a>
     <a class="nav-item" href="/files">קבצים</a>
@@ -1496,8 +1495,6 @@ if os.getenv('VERCEL'):
     os.makedirs(GENERAL_ANALYSIS_DIR, exist_ok=True)
     os.makedirs(CATEGORY_ANALYSIS_DIR, exist_ok=True)
 
-GYM_HTML = os.path.join(_HERE, 'html', 'Gym.html')
-
 
 class _PGConn:
     """Thin wrapper around psycopg2 connection that mimics sqlite3's conn.execute() API."""
@@ -1618,42 +1615,6 @@ def _get_latest_yyyy_mm():
         _log.getLogger(__name__).warning('_get_latest_yyyy_mm DB query failed: %s', _e)
 
     return None
-
-
-def _gym_db():
-    """Return a _PGConn connection with gym tables guaranteed to exist."""
-    conn = _pg_conn()
-    try:
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS GymParticipants (
-                id             SERIAL PRIMARY KEY,
-                name           TEXT    NOT NULL,
-                is_active      INTEGER DEFAULT 1,
-                insertion_date TEXT    NOT NULL
-            )
-        """)
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS GymSessions (
-                id             SERIAL PRIMARY KEY,
-                date           TEXT    NOT NULL,
-                product_price  REAL    NOT NULL,
-                payer_id       INTEGER NOT NULL REFERENCES GymParticipants(id),
-                notes          TEXT,
-                insertion_date TEXT    NOT NULL
-            )
-        """)
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS GymSessionParticipants (
-                session_id     INTEGER REFERENCES GymSessions(id),
-                participant_id INTEGER REFERENCES GymParticipants(id),
-                PRIMARY KEY (session_id, participant_id)
-            )
-        """)
-        conn.commit()
-        return conn
-    except Exception:
-        conn.close()
-        raise
 
 
 def _acct_db():
@@ -3015,7 +2976,6 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--na
     <a class="nav-item" href="/categories">ניתוח קטגוריאלי</a>
     <a class="nav-item" href="/search">חיפוש</a>
     <a class="nav-item" href="/spotify">Spotify Tracker</a>
-    <a class="nav-item" href="/gym">Gym Tracker</a>
     <div class="nav-sep"></div>
     <a class="nav-item" href="/tagger">תייגן</a>
     <a class="nav-item" href="/files">קבצים</a>
@@ -4886,211 +4846,6 @@ def api_spotify_report():
         )
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)})
-
-
-# ── Gym Expense Splitter ──────────────────────────────────────────────────────
-
-@app.route('/gym')
-def gym_page():
-    if os.path.exists(GYM_HTML):
-        return send_file(GYM_HTML)
-    return 'Gym page not found', 404
-
-
-@app.route('/api/gym/participants', methods=['GET'])
-def api_gym_participants():
-    conn = _gym_db()
-    try:
-        rows = conn.execute(
-            "SELECT id, name, is_active FROM GymParticipants ORDER BY name"
-        ).fetchall()
-        return jsonify({'ok': True, 'participants': [
-            {'id': r[0], 'name': r[1], 'is_active': bool(r[2])} for r in rows
-        ]})
-    except Exception as e:
-        return jsonify({'ok': False, 'error': str(e)})
-    finally:
-        conn.close()
-
-
-@app.route('/api/gym/participants', methods=['POST'])
-def api_gym_add_participant():
-    body = request.get_json(force=True)
-    name = (body.get('name') or '').strip()
-    if not name:
-        return jsonify({'ok': False, 'error': 'name is required'})
-    from datetime import datetime as _dt
-    conn = _gym_db()
-    try:
-        cur = conn.execute(
-            "INSERT INTO GymParticipants(name, is_active, insertion_date) VALUES(%s,1,%s) RETURNING id",
-            (name, _dt.now().strftime('%Y-%m-%d'))
-        )
-        pid = cur.fetchone()[0]
-        conn.commit()
-        return jsonify({'ok': True, 'id': pid})
-    except Exception as e:
-        return jsonify({'ok': False, 'error': str(e)})
-    finally:
-        conn.close()
-
-
-@app.route('/api/gym/participants/<int:pid>', methods=['PATCH'])
-def api_gym_update_participant(pid):
-    body = request.get_json(force=True)
-    conn = _gym_db()
-    try:
-        if 'name' in body:
-            new_name = body['name'].strip()
-            if not new_name:
-                return jsonify({'ok': False, 'error': 'name cannot be empty'})
-            conn.execute("UPDATE GymParticipants SET name=? WHERE id=?",
-                         (new_name, pid))
-        if 'is_active' in body:
-            conn.execute("UPDATE GymParticipants SET is_active=? WHERE id=?",
-                         (1 if body['is_active'] else 0, pid))
-        conn.commit()
-        return jsonify({'ok': True})
-    except Exception as e:
-        return jsonify({'ok': False, 'error': str(e)})
-    finally:
-        conn.close()
-
-
-@app.route('/api/gym/participants/<int:pid>', methods=['DELETE'])
-def api_gym_delete_participant(pid):
-    conn = _gym_db()
-    try:
-        # Remove from sessions first to satisfy FK constraints
-        conn.execute("DELETE FROM GymSessionParticipants WHERE participant_id=?", (pid,))
-        conn.execute("DELETE FROM GymParticipants WHERE id=?", (pid,))
-        conn.commit()
-        return jsonify({'ok': True})
-    except Exception as e:
-        return jsonify({'ok': False, 'error': str(e)})
-    finally:
-        conn.close()
-
-
-@app.route('/api/gym/summary', methods=['GET'])
-def api_gym_summary():
-    conn = _gym_db()
-    try:
-        # debt summary per person
-        debts = conn.execute("""
-            SELECT
-                p.id, p.name, p.is_active,
-                COALESCE(SUM(CASE WHEN s.payer_id = p.id
-                    THEN (cnt.c - 1) * s.product_price ELSE 0 END), 0) AS fronted,
-                COALESCE(SUM(CASE WHEN s.payer_id != p.id
-                    THEN s.product_price ELSE 0 END), 0) AS owed,
-                COALESCE(SUM(CASE WHEN s.payer_id = p.id
-                    THEN (cnt.c - 1) * s.product_price
-                    ELSE -s.product_price END), 0) AS net,
-                COALESCE(SUM(CASE WHEN s.payer_id = p.id
-                    THEN s.product_price * cnt.c ELSE 0 END), 0) AS total_paid,
-                COUNT(DISTINCT gsp.session_id) AS sessions
-            FROM GymParticipants p
-            LEFT JOIN GymSessionParticipants gsp ON gsp.participant_id = p.id
-            LEFT JOIN GymSessions s ON s.id = gsp.session_id
-            LEFT JOIN (SELECT session_id, COUNT(*) c FROM GymSessionParticipants GROUP BY session_id) cnt
-                ON cnt.session_id = s.id
-            GROUP BY p.id, p.name, p.is_active
-            ORDER BY net ASC
-        """).fetchall()
-
-        # session history
-        sessions_raw = conn.execute("""
-            SELECT s.id, s.date, s.product_price, p.name AS payer, s.notes,
-                   (SELECT COUNT(*) FROM GymSessionParticipants WHERE session_id=s.id) AS cnt
-            FROM GymSessions s
-            JOIN GymParticipants p ON p.id = s.payer_id
-            ORDER BY s.date DESC, s.id DESC
-            LIMIT 50
-        """).fetchall()
-
-        sessions = []
-        for row in sessions_raw:
-            parts = conn.execute("""
-                SELECT p.name FROM GymSessionParticipants gsp
-                JOIN GymParticipants p ON p.id = gsp.participant_id
-                WHERE gsp.session_id = ?
-            """, (row[0],)).fetchall()
-            sessions.append({
-                'id': row[0], 'date': row[1], 'price': row[2],
-                'payer': row[3], 'notes': row[4] or '',
-                'count': row[5], 'total': round(row[2] * row[5], 2),
-                'attendees': [r[0] for r in parts],
-            })
-
-        last_price = conn.execute(
-            "SELECT product_price FROM GymSessions ORDER BY id DESC LIMIT 1"
-        ).fetchone()
-
-        return jsonify({
-            'ok': True,
-            'debts': [{'id': r[0], 'name': r[1], 'is_active': bool(r[2]),
-                        'fronted': round(r[3], 2), 'owed': round(r[4], 2),
-                        'net': round(r[5], 2), 'total_paid': round(r[6], 2),
-                        'sessions': r[7]} for r in debts],
-            'sessions': sessions,
-            'last_price': last_price[0] if last_price else 25.0,
-        })
-    except Exception as e:
-        return jsonify({'ok': False, 'error': str(e)})
-    finally:
-        conn.close()
-
-
-@app.route('/api/gym/sessions', methods=['POST'])
-def api_gym_add_session():
-    body = request.get_json(force=True)
-    from datetime import datetime as _dt, date as _date
-    date_str  = (body.get('date') or _date.today().isoformat()).strip()
-    price     = float(body.get('price', 25.0))
-    payer_id  = int(body.get('payer_id', 0))
-    attendees = [int(x) for x in body.get('attendees', [])]
-    notes     = (body.get('notes') or '').strip()
-    if not attendees or not payer_id:
-        return jsonify({'ok': False, 'error': 'payer_id and attendees are required'})
-    if price <= 0:
-        return jsonify({'ok': False, 'error': 'price must be positive'})
-    # Payer must be an attendee for the debt formula to balance correctly
-    if payer_id not in attendees:
-        attendees = [payer_id] + attendees
-    conn = _gym_db()
-    try:
-        cur = conn.execute(
-            "INSERT INTO GymSessions(date, product_price, payer_id, notes, insertion_date) VALUES(%s,%s,%s,%s,%s) RETURNING id",
-            (date_str, price, payer_id, notes, _dt.now().strftime('%Y-%m-%d %H:%M:%S'))
-        )
-        sid = cur.fetchone()[0]
-        for pid in attendees:
-            conn.execute(
-                "INSERT INTO GymSessionParticipants(session_id, participant_id) VALUES(%s,%s) ON CONFLICT DO NOTHING",
-                (sid, pid)
-            )
-        conn.commit()
-        return jsonify({'ok': True, 'session_id': sid})
-    except Exception as e:
-        conn.rollback()
-        return jsonify({'ok': False, 'error': str(e)})
-    finally:
-        conn.close()
-
-
-@app.route('/api/gym/sessions/<int:sid>', methods=['DELETE'])
-def api_gym_delete_session(sid):
-    conn = _gym_db()
-    try:
-        conn.execute("DELETE FROM GymSessionParticipants WHERE session_id=?", (sid,))
-        conn.execute("DELETE FROM GymSessions WHERE id=?", (sid,))
-        conn.commit()
-        return jsonify({'ok': True})
-    except Exception as e:
-        return jsonify({'ok': False, 'error': str(e)})
-    finally:
-        conn.close()
 
 
 @app.route('/admin/upload-db', methods=['GET', 'POST'])

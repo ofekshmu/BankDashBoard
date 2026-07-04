@@ -2056,7 +2056,6 @@ body {
     <a class="nav-item" href="/categories">ניתוח קטגוריאלי</a>
     <a class="nav-item" href="/search">חיפוש</a>
     <a class="nav-item" href="/spotify">Spotify Tracker</a>
-    <a class="nav-item" href="/gym">Gym Tracker</a>
     <div class="nav-sep"></div>
     <a class="nav-item" href="/tagger">תייגן</a>
     <a class="nav-item" href="/files">קבצים</a>
@@ -5300,7 +5299,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     var _t = function(sel) { var el = row.querySelector(sel); return el ? el.textContent.trim() : ''; };
     var primary   = _t('.tx-primary');
     var secondary = _t('.tx-secondary');
-    var txId      = _t('.tx-id');
+    var txId      = '#' + (row.getAttribute('data-value') || '');
     var amount    = _t('.date');
     var cat       = _t('.cat');
     var date      = _t('.element4');
@@ -5330,7 +5329,42 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   });
   var _origClick = window._handleTxClick;
   window._handleTxClick = function(row) {
-    if (window.matchMedia('(max-width: 768px)').matches) { openDetail(row); } else { if (_origClick) _origClick(row); }
+    if (window.matchMedia('(max-width: 768px)').matches) { openDetail(row); }
+    else { _showTxIdPanel(row); if (_origClick) _origClick(row); }
+  };
+})();
+
+/* ── Desktop: transaction-ID slide-in panel ────────────────── */
+(function() {
+  var style = document.createElement('style');
+  style.textContent =
+    '.tx-id-panel{position:fixed;top:50%;right:0;transform:translate(100%,-50%);' +
+      'width:250px;max-width:calc(100vw - 32px);background:#1e2a4a;color:#fff;' +
+      'border-radius:12px 0 0 12px;padding:16px 20px;box-shadow:-4px 4px 24px rgba(0,0,0,.25);' +
+      'z-index:1200;opacity:0;transition:transform .35s ease,opacity .35s ease;pointer-events:none;direction:rtl}' +
+    '.tx-id-panel.open{transform:translate(0,-50%);opacity:1}' +
+    '.tx-id-panel .tip-lbl{font-size:.72em;color:#9fb0d0;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px}' +
+    '.tx-id-panel .tip-name{font-size:.85em;color:#dbe4f5;margin-bottom:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
+    '.tx-id-panel .tip-id{font-size:1.3em;font-weight:700;font-family:monospace}';
+  document.head.appendChild(style);
+
+  var panel = document.createElement('div');
+  panel.className = 'tx-id-panel';
+  panel.innerHTML =
+    '<div class="tip-lbl">מזהה עסקה</div>' +
+    '<div class="tip-name" id="tip-name"></div>' +
+    '<div class="tip-id" id="tip-id"></div>';
+  document.body.appendChild(panel);
+
+  var hideTimer = null;
+  window._showTxIdPanel = function(row) {
+    var id   = row.getAttribute('data-value') || '';
+    var name = ((row.querySelector('.tx-primary') || {}).textContent || '').trim();
+    document.getElementById('tip-id').textContent   = '#' + id;
+    document.getElementById('tip-name').textContent = name;
+    panel.classList.add('open');
+    if (hideTimer) clearTimeout(hideTimer);
+    hideTimer = setTimeout(function() { panel.classList.remove('open'); }, 10000);
   };
 })();
 
@@ -6307,7 +6341,6 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       } else {
         h3.innerHTML = '<span class="tx-primary">' + _esc(name) + '</span>';
       }
-      h3.innerHTML += '<span class="tx-id">#' + _esc(row.id) + '</span>';
       div.appendChild(h3);
 
       var pAmt = document.createElement('p');

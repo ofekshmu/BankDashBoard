@@ -70,8 +70,7 @@ class AppManager:
                                              'Export Excel',
                                              'Insert other account status',
                                              'Advanced Search',
-                                             'Debug value mismatch',
-                                             'Gym Expense Splitter'],
+                                             'Debug value mismatch'],
                                              msg='Hello Ofek! What would you like to do today?',
                                              exit=True,
                                              col_space=33):
@@ -106,9 +105,6 @@ class AppManager:
                     self.advanced_search()
                 case 12:
                     self.debug_value_mismatch()
-                case 13:
-                    from GymSplitter import GymSplitter
-                    GymSplitter().menu()
                 case _:
                     utils.log("Please insert a valid number.",'system')
 

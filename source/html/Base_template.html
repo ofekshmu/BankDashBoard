@@ -5328,9 +5328,19 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     var row = _pendingRow; closeDetail(); if (row) _handleTxClick(row);
   });
   var _origClick = window._handleTxClick;
+  var _revealedRow = null;
   window._handleTxClick = function(row) {
-    if (window.matchMedia('(max-width: 768px)').matches) { openDetail(row); }
-    else { _showTxIdPanel(row); if (_origClick) _origClick(row); }
+    if (window.matchMedia('(max-width: 768px)').matches) { openDetail(row); return; }
+    if (_revealedRow === row) {
+      // Second click on an already-revealed row → offer to split.
+      _revealedRow = null;
+      if (window._hideTxIdPanel) window._hideTxIdPanel();
+      if (_origClick) _origClick(row);
+    } else {
+      // First click (or a different row) → just reveal its ID.
+      _revealedRow = row;
+      _showTxIdPanel(row, function() { _revealedRow = null; });
+    }
   };
 })();
 
@@ -5339,24 +5349,33 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   var style = document.createElement('style');
   style.textContent =
     '.num{position:relative;overflow:hidden}' +
-    '.tx-id-chip{position:absolute;top:0;right:0;height:100%;display:flex;align-items:center;' +
-      'padding:0 14px;gap:8px;background:#1e2a4a;color:#fff;' +
-      'font-family:monospace;font-weight:700;font-size:.82em;white-space:nowrap;' +
-      'transform:translateX(100%);opacity:0;' +
-      'transition:transform .35s ease,opacity .35s ease;pointer-events:none;z-index:5}' +
+    '.tx-id-chip{position:absolute;top:0;right:0;height:100%;display:flex;flex-direction:row;' +
+      'direction:ltr;transform:translateX(100%);opacity:0;' +
+      'transition:transform .4s ease,opacity .3s ease;pointer-events:none;z-index:5}' +
     '.tx-id-chip.open{transform:translateX(0);opacity:1}' +
-    '.tx-id-chip .chip-lbl{font-family:\'Segoe UI\',Arial,sans-serif;font-weight:600;font-size:.85em;color:#9fb0d0}';
+    '.tx-id-chip .tic-bar{height:100%;flex-shrink:0}' +
+    '.tx-id-chip .tic-idwrap{height:100%;width:92px;flex-shrink:0;background:#fff;' +
+      'display:flex;align-items:center;justify-content:center;' +
+      'font-family:monospace;font-weight:700;font-size:.85em;color:#1e2a4a}';
   document.head.appendChild(style);
 
   var activeChip = null, hideTimer = null;
-  window._showTxIdPanel = function(row) {
+
+  window._showTxIdPanel = function(row, onExpire) {
     if (hideTimer) clearTimeout(hideTimer);
     if (activeChip && activeChip.parentNode) activeChip.parentNode.removeChild(activeChip);
 
-    var id = row.getAttribute('data-value') || '';
+    var id       = row.getAttribute('data-value') || '';
+    var h3       = row.querySelector('h3');
+    var colorBox = row.querySelector('.color-box');
+    var barColor = colorBox ? getComputedStyle(colorBox).backgroundColor : '#888';
+    var barWidth = h3 ? Math.ceil(h3.getBoundingClientRect().width) : 120;
+
     var chip = document.createElement('span');
     chip.className = 'tx-id-chip';
-    chip.innerHTML = '<span class="chip-lbl">מזהה עסקה</span><span>#' + id + '</span>';
+    chip.innerHTML =
+      '<span class="tic-bar" style="background:' + barColor + ';width:' + barWidth + 'px"></span>' +
+      '<span class="tic-idwrap">#' + id + '</span>';
     row.appendChild(chip);
     activeChip = chip;
     void chip.offsetWidth; // force reflow so the transition runs
@@ -5368,7 +5387,18 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         if (chip.parentNode) chip.parentNode.removeChild(chip);
         if (activeChip === chip) activeChip = null;
       }, 400);
+      if (onExpire) onExpire();
     }, 10000);
+  };
+
+  window._hideTxIdPanel = function() {
+    if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+    if (activeChip) {
+      var c = activeChip;
+      c.classList.remove('open');
+      setTimeout(function() { if (c.parentNode) c.parentNode.removeChild(c); }, 400);
+      activeChip = null;
+    }
   };
 })();
 

@@ -363,24 +363,24 @@ body {
   padding: 14px 20px; border-bottom: 1px solid var(--border);
 }
 .db-fmt-btn {
-  display: flex; align-items: center; gap: 8px;
+  display: inline-flex; align-items: center; gap: 6px;
   border: 1.5px solid var(--border); border-radius: var(--radius-sm);
-  padding: 7px 13px; cursor: pointer;
+  padding: 5px 10px; cursor: pointer;
   background: var(--white); transition: all .15s;
   text-align: right; font-family: inherit;
-  min-width: 0;
+  min-width: 0; width: auto; flex: 0 0 auto;
 }
 .db-fmt-btn:hover  { border-color: currentColor; box-shadow: 0 2px 8px rgba(0,0,0,.07); }
 .db-fmt-btn.active { box-shadow: 0 2px 10px rgba(0,0,0,.10); }
 .db-fmt-dot {
-  width: 8px; height: 8px; border-radius: 50%;
+  width: 7px; height: 7px; border-radius: 50%;
   flex-shrink: 0; background: currentColor; opacity: .7;
 }
-.db-fmt-name { font-size: .8em; font-weight: 600; white-space: nowrap; }
+.db-fmt-name { font-size: .74em; font-weight: 600; white-space: nowrap; }
 .db-fmt-cnt  {
-  font-size: .75em; font-weight: 700; opacity: .75;
+  font-size: .68em; font-weight: 700; opacity: .75;
   background: rgba(0,0,0,.06); border-radius: 20px;
-  padding: 1px 7px; white-space: nowrap; font-variant-numeric: tabular-nums;
+  padding: 1px 6px; white-space: nowrap; font-variant-numeric: tabular-nums;
 }
 /* "All" button */
 .db-fmt-btn.fmt-all { color: var(--text-sub); }
@@ -541,75 +541,35 @@ body {
   to   { transform: translateY(0); }
 }
 
-/* ── Mobile Responsive Design ──────────────────────────────────────────────── */
-@media (max-width: 768px) {
-    body {
-        padding: 10px;
-        font-size: 14px;
-    }
-
-    .container, .main-content {
-        padding: 10px;
-        margin: 0;
-    }
-
-    table {
-        font-size: 12px;
-        display: block;
-        overflow-x: auto;
-    }
-
-    th, td {
-        padding: 8px;
-    }
-
-    button, input, select {
-        padding: 12px;
-        font-size: 16px;
-        min-height: 44px;
-    }
-
-    .header, .sidebar, .navigation {
-        display: block;
-        width: 100%;
-    }
-
-    h1, h2, h3 {
-        font-size: 18px;
-        margin-bottom: 15px;
-    }
-}
-
-@media (max-width: 480px) {
-    body {
-        padding: 5px;
-        font-size: 12px;
-    }
-
-    table {
-        font-size: 10px;
-    }
-
-    th, td {
-        padding: 5px;
-    }
-
-    button, input, select {
-        width: 100%;
-        padding: 12px;
-        font-size: 16px;
-        margin-bottom: 10px;
-    }
-
-    h1, h2 {
-        font-size: 16px;
-    }
-}
 @media (max-width: 600px) {
-  .main { padding: 56px 12px 80px !important; }
-  .page-header { padding-right: 0 !important; }
+  /* Align the title with the fixed hamburger button (top:18px, 42px tall)
+     instead of letting it run under it. Specificity bumped (body .main)
+     to beat design-system.css's own `.main { padding: 0 ... !important }`
+     mobile override, which is loaded after this block and would
+     otherwise win the tie. */
+  body .main { padding: 24px 12px 80px !important; }
+  .page-header { padding-right: 60px !important; }
+
+  /* Format filter pills: tighter on touch screens */
+  .db-fmt-grid { padding: 10px 12px; gap: 6px; }
+  .db-fmt-btn  { padding: 4px 9px; gap: 5px; }
+  .db-fmt-name { font-size: .72em; }
+  .db-fmt-cnt  { font-size: .66em; padding: 1px 5px; }
+  .db-fmt-dot  { width: 6px; height: 6px; }
+
+  /* 16px minimum on text inputs stops iOS Safari from zooming in on focus */
+  .db-search { font-size: 16px; }
 }
-.debug-fab{position:fixed;bottom:22px;right:18px;width:42px;height:42px;border-radius:50%;background:#1e2a4a;color:#fff;font-size:.72em;font-family:monospace;font-weight:700;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.3);z-index:997;letter-spacing:-.5px}
+/* Regen-style floating refresh button, matching the organizer page's
+   recalculate FAB. Stacked above the debug FAB so they don't collide. */
+.files-regen-fab{position:fixed;bottom:22px;right:18px;z-index:500}
+.files-regen-btn{height:52px;padding:0 22px;background:var(--teal);color:#fff;border:none;border-radius:26px;font-size:.85em;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px;box-shadow:0 4px 18px rgba(30,157,139,.45);white-space:nowrap;transition:box-shadow .2s,opacity .2s;font-family:inherit}
+.files-regen-btn:hover{box-shadow:0 6px 24px rgba(30,157,139,.65)}
+.files-regen-btn:disabled{opacity:.65;cursor:wait}
+.files-regen-icon{font-size:1.3em;line-height:1;display:flex;align-items:center}
+@media(max-width:768px){.files-regen-fab{bottom:14px;right:14px}.files-regen-btn{width:52px;padding:0;border-radius:50%;justify-content:center}.files-regen-label{display:none}}
+
+.debug-fab{position:fixed;bottom:88px;right:18px;width:42px;height:42px;border-radius:50%;background:#1e2a4a;color:#fff;font-size:.72em;font-family:monospace;font-weight:700;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.3);z-index:997;letter-spacing:-.5px}
 .debug-fab:hover{filter:brightness(1.2)}
 .debug-panel{position:fixed;bottom:72px;right:16px;width:480px;max-width:calc(100vw - 32px);height:340px;background:#12121f;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.55);z-index:996;display:none;flex-direction:column;overflow:hidden;font-family:monospace}
 .debug-panel.open{display:flex}
@@ -684,10 +644,7 @@ body {
 <main class="main">
 
   <div class="page-header">
-    <h1>📁 קבצי נתונים</h1>
-    <button class="btn btn-ghost" onclick="scanFiles()" id="scan-btn">
-      🔄 רענן
-    </button>
+    <h1>קבצי נתונים</h1>
     <button class="btn btn-primary" onclick="insertAll()" id="insert-all-btn" style="display:none">
       ▶ עבד את כולם
     </button>
@@ -705,24 +662,6 @@ body {
     <div class="upload-icon">📂</div>
     <div class="upload-lbl">גרור קבצים לכאן, או לחץ לבחירה</div>
     <div class="upload-sub">תבניות נתמכות: Isra-Card, Isra-Card-2026, American-Express, Cal, BeinLeumi-Bank, Leumi-Max</div>
-  </div>
-
-  <!-- ── Section: All files ──────────────────────────────────── -->
-  <div class="section" id="sec-files">
-    <div class="section-header" onclick="toggleSection('sec-files')">
-      <div class="section-title">
-        📁 קבצים בתיקיית הקלט
-        <span class="section-count" id="files-count">–</span>
-      </div>
-      <span class="section-chevron">▲</span>
-    </div>
-    <div class="section-body" id="sec-files-body">
-      <div class="file-list" id="files-list">
-        <div class="skeleton-row"></div>
-        <div class="skeleton-row"></div>
-        <div class="skeleton-row"></div>
-      </div>
-    </div>
   </div>
 
   <!-- ── Section: DB files ────────────────────────────────────── -->
@@ -774,6 +713,24 @@ body {
         </div>
       </div>
 
+    </div>
+  </div>
+
+  <!-- ── Section: All files ──────────────────────────────────── -->
+  <div class="section" id="sec-files">
+    <div class="section-header" onclick="toggleSection('sec-files')">
+      <div class="section-title">
+        📁 קבצים בתיקיית הקלט
+        <span class="section-count" id="files-count">–</span>
+      </div>
+      <span class="section-chevron">▲</span>
+    </div>
+    <div class="section-body" id="sec-files-body">
+      <div class="file-list" id="files-list">
+        <div class="skeleton-row"></div>
+        <div class="skeleton-row"></div>
+        <div class="skeleton-row"></div>
+      </div>
     </div>
   </div>
 
@@ -1105,7 +1062,7 @@ function onDrop(e) {
 let _dbLoaded = false;
 let _dbFiles  = [];
 let _dbSort   = { col: 'date', dir: -1 };
-let _dbFmt    = null;
+let _dbFmt    = new Set();  // empty = all formats; otherwise one or more selected formats
 
 const _FMT_CLASS = {
   'BeinLeumi-Bank':            'fmt-bank',
@@ -1182,9 +1139,16 @@ async function loadDbFiles() {
 }
 
 function setDbFmt(el, fmt) {
-  _dbFmt = fmt || null;
-  document.querySelectorAll('#db-fmt-grid .db-fmt-btn').forEach(p => p.classList.remove('active'));
-  el.classList.add('active');
+  if (!fmt) {
+    _dbFmt.clear();
+  } else if (_dbFmt.has(fmt)) {
+    _dbFmt.delete(fmt);
+  } else {
+    _dbFmt.add(fmt);
+  }
+  document.querySelectorAll('#db-fmt-grid .db-fmt-btn').forEach(p => {
+    p.classList.toggle('active', p.dataset.fmt ? _dbFmt.has(p.dataset.fmt) : _dbFmt.size === 0);
+  });
   renderDbTable();
 }
 
@@ -1200,7 +1164,7 @@ function renderDbTable() {
   const col = _dbSort.col;
 
   let rows = _dbFiles.filter(f => {
-    if (_dbFmt && f.format !== _dbFmt) return false;
+    if (_dbFmt.size && !_dbFmt.has(f.format)) return false;
     if (q && !f.name.toLowerCase().includes(q)) return false;
     return true;
   });
@@ -1318,6 +1282,12 @@ function toast(msg, type) {
   setTimeout(() => el.remove(), 3500);
 }
 </script>
+<div class="files-regen-fab">
+  <button class="files-regen-btn" id="scan-btn" onclick="scanFiles()" title="רענן">
+    <span class="files-regen-icon">&#8635;</span>
+    <span class="files-regen-label">רענן</span>
+  </button>
+</div>
 <button class="debug-fab" id="debug-fab" onclick="toggleDebugPanel()" title="App logs">&lt;/&gt;</button>
 <div class="debug-panel" id="debug-panel">
   <div class="debug-hdr"><span>&#9658; app logs</span><div class="debug-hdr-btns"><button onclick="copyDebugPanel()">copy</button><button onclick="clearDebugPanel()">clear</button><button onclick="toggleDebugPanel()">&#x2715;</button></div></div>

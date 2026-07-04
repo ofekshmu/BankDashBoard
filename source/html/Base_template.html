@@ -5332,38 +5332,53 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   window._handleTxClick = function(row) {
     if (window.matchMedia('(max-width: 768px)').matches) { openDetail(row); return; }
     if (_revealedRow === row) {
-      // Second click on an already-revealed row → offer to split.
+      // Second click on an already-revealed row → close it back up.
       _revealedRow = null;
       if (window._hideTxIdPanel) window._hideTxIdPanel();
-      if (_origClick) _origClick(row);
     } else {
-      // First click (or a different row) → just reveal its ID.
+      // First click (or a different row) → reveal its ID + split button.
       _revealedRow = row;
-      _showTxIdPanel(row, function() { _revealedRow = null; });
+      _showTxIdPanel(
+        row,
+        function() { _revealedRow = null; },              // auto-expired
+        function() { _revealedRow = null; if (_origClick) _origClick(row); }  // split button clicked
+      );
     }
   };
 })();
 
 /* ── Desktop: transaction-ID reveal — bar rolls a white blanket left ── */
 (function() {
-  var BAR_W = 6;   // matches the real .color-box width — the bar never resizes
+  var BAR_W = 6, BAR_H = 34;   // matches the real .color-box exactly — never resizes
   var ID_W  = 92;
+  var GAP   = 8;
 
   var style = document.createElement('style');
   style.textContent =
     '.num{position:relative;overflow:hidden}' +
     '.tx-id-chip{position:absolute;top:0;right:0;height:100%;background:#fff;' +
-      'overflow:hidden;transition:width .4s ease;pointer-events:none;z-index:5}' +
-    '.tx-id-chip .tic-bar{position:absolute;top:0;left:0;height:100%;width:' + BAR_W + 'px}' +
+      'overflow:hidden;transition:width .4s ease;z-index:5}' +
+    '.tx-id-chip .tic-bar{position:absolute;top:50%;left:0;width:' + BAR_W + 'px;height:' + BAR_H + 'px;' +
+      'border-radius:4px;transform:translateY(-50%);pointer-events:none}' +
     '.tx-id-chip .tic-idwrap{position:absolute;top:0;left:' + BAR_W + 'px;height:100%;width:' + ID_W + 'px;' +
       'display:flex;align-items:center;justify-content:center;' +
-      'font-family:monospace;font-weight:700;font-size:.85em;color:#1e2a4a}';
+      'font-family:monospace;font-weight:700;font-size:.85em;color:#1e2a4a;' +
+      'opacity:0;transition:opacity .3s ease;pointer-events:none}' +
+    '.tx-id-chip .tic-idwrap.show{opacity:1}' +
+    '.tx-id-chip .tic-split{position:absolute;top:50%;left:' + (BAR_W + ID_W + GAP) + 'px;' +
+      'transform:translateY(-50%);padding:0 14px;height:28px;border:1.5px solid var(--teal,#1e9d8b);' +
+      'border-radius:14px;background:#fff;color:var(--teal,#1e9d8b);font-size:.78em;font-weight:600;' +
+      'white-space:nowrap;cursor:pointer;opacity:0;transition:opacity .3s ease,background .15s,color .15s;' +
+      'pointer-events:none;font-family:inherit}' +
+    '.tx-id-chip .tic-split.show{opacity:1;pointer-events:auto}' +
+    '.tx-id-chip .tic-split:hover{background:var(--teal,#1e9d8b);color:#fff}';
   document.head.appendChild(style);
 
-  var activeChip = null, hideTimer = null;
+  var activeChip = null, hideTimer = null, fadeTimer = null;
 
-  window._showTxIdPanel = function(row, onExpire) {
+  window._showTxIdPanel = function(row, onExpire, onSplit) {
     if (hideTimer) clearTimeout(hideTimer);
+    if (fadeTimer) clearTimeout(fadeTimer);
     if (activeChip && activeChip.parentNode) activeChip.parentNode.removeChild(activeChip);
 
     var id        = row.getAttribute('data-value') || '';
@@ -5371,36 +5386,60 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     var colorBox  = row.querySelector('.color-box');
     var barColor  = colorBox ? getComputedStyle(colorBox).backgroundColor : '#888';
     var h3Width   = h3 ? Math.ceil(h3.getBoundingClientRect().width) : 120;
-    var closedW   = BAR_W + ID_W;
-    var openW     = closedW + h3Width;
+    var closedW   = BAR_W;
 
     var chip = document.createElement('span');
     chip.className = 'tx-id-chip';
     chip.style.width = closedW + 'px';
     chip.innerHTML =
       '<span class="tic-bar" style="background:' + barColor + '"></span>' +
-      '<span class="tic-idwrap">#' + id + '</span>';
+      '<span class="tic-idwrap">#' + id + '</span>' +
+      '<button type="button" class="tic-split">פיצול</button>';
     row.appendChild(chip);
     activeChip = chip;
-    void chip.offsetWidth; // force reflow so the transition runs
-    setTimeout(function() { chip.style.width = openW + 'px'; }, 0);
 
-    hideTimer = setTimeout(function() {
+    var idEl  = chip.querySelector('.tic-idwrap');
+    var btnEl = chip.querySelector('.tic-split');
+    var btnWidth = btnEl.getBoundingClientRect().width;
+    var openW = BAR_W + Math.max(h3Width, ID_W + GAP + btnWidth);
+
+    btnEl.addEventListener('click', function(e) {
+      e.stopPropagation();
+      _collapse();
+      if (onSplit) onSplit();
+    });
+
+    function _collapse() {
+      if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+      if (fadeTimer) { clearTimeout(fadeTimer); fadeTimer = null; }
+      idEl.classList.remove('show');
+      btnEl.classList.remove('show');
       chip.style.width = closedW + 'px';
       setTimeout(function() {
         if (chip.parentNode) chip.parentNode.removeChild(chip);
         if (activeChip === chip) activeChip = null;
       }, 400);
+    }
+    chip._collapse = _collapse;
+
+    void chip.offsetWidth; // force reflow so the transition runs
+    setTimeout(function() {
+      chip.style.width = openW + 'px';
+      fadeTimer = setTimeout(function() {
+        idEl.classList.add('show');
+        btnEl.classList.add('show');
+      }, 150);
+    }, 0);
+
+    hideTimer = setTimeout(function() {
+      _collapse();
       if (onExpire) onExpire();
     }, 10000);
   };
 
   window._hideTxIdPanel = function() {
-    if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
-    if (activeChip) {
-      var c = activeChip;
-      c.style.width = (BAR_W + ID_W) + 'px';
-      setTimeout(function() { if (c.parentNode) c.parentNode.removeChild(c); }, 400);
+    if (activeChip && activeChip._collapse) {
+      activeChip._collapse();
       activeChip = null;
     }
   };

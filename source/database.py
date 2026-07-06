@@ -2570,13 +2570,25 @@ class DataBase:
                 CASE WHEN e.secondary_transaction_table='BankTransactions' THEN CAST(sb.date AS text)
                      WHEN e.secondary_transaction_table='CardTransactions' THEN CAST(scc.executed_date AS text)
                 END AS sec_tx_date,
+                CAST(sb.value_date AS text)   AS sec_tx_value_date,
+                CAST(scc.charge_date AS text) AS sec_tx_charge_date,
+                scc.charge_value               AS sec_tx_charge_value,
+                scc.charge_currency            AS sec_tx_charge_currency,
                 CASE WHEN e.secondary_transaction_table='BankTransactions' THEN (sb.income - sb.out)
                      WHEN e.secondary_transaction_table='CardTransactions' THEN scc.transaction_value
                 END AS sec_tx_amount,
                 CASE WHEN e.secondary_transaction_table='BankTransactions' THEN sb.category
                      WHEN e.secondary_transaction_table='CardTransactions' THEN scc.category
                 END AS sec_tx_category,
-                scc.cardid AS sec_tx_card_id
+                sb.ref         AS sec_tx_ref,
+                scc.cardid     AS sec_tx_card_id,
+                sb.balance     AS sec_tx_balance,
+                CASE WHEN e.secondary_transaction_table='BankTransactions' THEN sb.description
+                     WHEN e.secondary_transaction_table='CardTransactions' THEN scc.description
+                END AS sec_tx_description,
+                CASE WHEN e.secondary_transaction_table='BankTransactions' THEN sb.extra_info
+                     WHEN e.secondary_transaction_table='CardTransactions' THEN scc.extra_info
+                END AS sec_tx_extra_info
             FROM BillEntries e
             LEFT JOIN BankTransactions b
                 ON e.transaction_table='BankTransactions' AND e.transaction_id=b.id
@@ -2617,9 +2629,17 @@ class DataBase:
                 'secondary_transaction_id':    r[23],
                 'sec_tx_name':                 r[24],
                 'sec_tx_date':                 str(r[25])[:10] if r[25] else None,
-                'sec_tx_amount':               _f(r[26]),
-                'sec_tx_category':             r[27],
-                'sec_tx_card_id':              r[28],
+                'sec_tx_value_date':           str(r[26])[:10] if r[26] else None,
+                'sec_tx_charge_date':          str(r[27])[:10] if r[27] else None,
+                'sec_tx_charge_value':         _f(r[28]),
+                'sec_tx_charge_currency':      r[29],
+                'sec_tx_amount':               _f(r[30]),
+                'sec_tx_category':             r[31],
+                'sec_tx_ref':                  r[32],
+                'sec_tx_card_id':              r[33],
+                'sec_tx_balance':              _f(r[34]),
+                'sec_tx_description':          r[35],
+                'sec_tx_extra_info':           r[36],
             }
             for r in rows
         ]

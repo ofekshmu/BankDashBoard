@@ -245,6 +245,13 @@ body {
 .btn-danger:hover { background: var(--red); color: #fff; border-color: var(--red); }
 .btn-sm { padding: 4px 9px; font-size: 0.75em; }
 .btn-xs { padding: 3px 7px; font-size: 0.72em; }
+.tx-detach-link {
+  background: none; border: none; padding: 2px 4px;
+  font-size: 0.72em; font-weight: 600; color: var(--red);
+  cursor: pointer; font-family: inherit; opacity: 0.8;
+  transition: opacity 0.15s;
+}
+.tx-detach-link:hover { opacity: 1; text-decoration: underline; }
 
 /* ── Main body split ─────────────────────────────────────── */
 .body-wrap {
@@ -1159,7 +1166,7 @@ body.resize-end    { cursor: ew-resize !important; }
     <div class="field" id="edit-tx-section">
       <div style="display:flex;align-items:center;justify-content:space-between">
         <label style="margin:0">עסקה מקושרת</label>
-        <button type="button" class="btn btn-ghost btn-xs" id="edit-tx-detach-btn" onclick="detachEditTx()" style="color:var(--red);border-color:var(--red)">✕ הסר עסקה</button>
+        <button type="button" class="tx-detach-link" id="edit-tx-detach-btn" onclick="detachEditTx()">✕ הסר</button>
       </div>
       <div class="tx-selected" style="pointer-events:none;flex-direction:column;align-items:stretch;gap:7px">
         <!-- Row 1: source badge + name -->
@@ -1218,6 +1225,21 @@ body.resize-end    { cursor: ew-resize !important; }
       <button class="btn btn-danger btn-sm" style="margin-left:auto" onclick="deleteEditEntry()">מחק רשומה</button>
       <button class="btn btn-ghost" onclick="closeModal('modal-edit')">ביטול</button>
       <button class="btn btn-primary" onclick="submitEdit()">שמור</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MODAL: generic confirm dialog (reusable)
+     ═══════════════════════════════════════════════════════════ -->
+<div class="overlay hidden" id="modal-confirm" style="z-index:1100">
+  <div class="modal" style="max-width:330px">
+    <button class="modal-close" onclick="closeModal('modal-confirm')">✕</button>
+    <h2 class="modal-title" id="confirm-title">אישור פעולה</h2>
+    <p id="confirm-message" style="font-size:0.86em;color:var(--text-sub);line-height:1.6;margin:2px 0 18px"></p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-confirm')">ביטול</button>
+      <button class="btn btn-danger" id="confirm-action-btn"></button>
     </div>
   </div>
 </div>
@@ -2431,12 +2453,18 @@ function openEditModal(eid) {
   openModal('modal-edit');
 }
 
-async function detachEditTx() {
+function detachEditTx() {
   const id    = parseInt(document.getElementById('edit-entry-id').value);
   const entry = billEntries.find(e => e.id === id);
   if (!entry) return;
-  if (!confirm('להסיר את העסקה המקושרת? הרשומה תחזור להיות מילוי ריק וניתן יהיה לבחור עסקה אחרת.')) return;
+  openConfirm(
+    'הרשומה תחזור להיות מילוי ריק וניתן יהיה לבחור עסקה אחרת במקומה.',
+    () => _doDetachEditTx(id, entry),
+    { title: 'הסרת עסקה מקושרת', confirmLabel: 'הסר עסקה' }
+  );
+}
 
+async function _doDetachEditTx(id, entry) {
   const r = await api('PUT', `/api/bills/entries/${id}`, {
     start_month:       entry.start_month,
     end_month:         entry.end_month,
@@ -3522,6 +3550,18 @@ function clearTxSelection() {
 // ─────────────────────────────────────────────────────────────
 function openModal(id)  { document.getElementById(id).classList.remove('hidden'); }
 function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+// Generic confirm dialog — replaces native confirm() with an in-app modal
+// that matches the rest of the UI. onConfirm runs only if the user accepts.
+function openConfirm(message, onConfirm, opts) {
+  opts = opts || {};
+  document.getElementById('confirm-title').textContent   = opts.title || 'אישור פעולה';
+  document.getElementById('confirm-message').textContent = message;
+  const btn = document.getElementById('confirm-action-btn');
+  btn.textContent = opts.confirmLabel || 'אישור';
+  btn.onclick = function() { closeModal('modal-confirm'); onConfirm(); };
+  openModal('modal-confirm');
+}
 
 function setStatus(el, type, msg) {
   el.className = 'inline-status ' + type;

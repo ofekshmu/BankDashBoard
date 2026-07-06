@@ -4593,6 +4593,9 @@ def api_bills_suggestions():
 
         already = conn.execute(
             "SELECT Transaction_Table, Transaction_ID FROM BillEntries WHERE Transaction_Table IS NOT NULL"
+            " UNION ALL "
+            "SELECT Secondary_Transaction_Table, Secondary_Transaction_ID FROM BillEntries"
+            " WHERE Secondary_Transaction_ID IS NOT NULL"
         ).fetchall()
         linked_bank = {r[1] for r in already if r[0] == 'BankTransactions'}
         linked_card = {r[1] for r in already if r[0] == 'CardTransactions'}

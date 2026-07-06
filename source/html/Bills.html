@@ -2865,8 +2865,45 @@ async function submitSugAdd() {
 
   if (!typeId || !start || !end) { setStatus(st, 'err', 'נא למלא את כל השדות'); return; }
   if (start > end) { setStatus(st, 'err', 'תאריך התחלה לאחר הסיום'); return; }
-  const overlapErrS = clientOverlapCheck(typeId, start, end);
-  if (overlapErrS) {
+
+  const txTable = table === 'BankTransactions' ? 'BankTransactions' : 'CardTransactions';
+  const conflict = findOverlapEntry(typeId, start, end);
+
+  if (conflict && !conflict.transaction_id) {
+    // The existing entry for this period is still an unfilled filler —
+    // attach this transaction to it instead of trying to add a duplicate
+    // (which would always collide with itself on save). If there happen to
+    // be OTHER still-unfilled duplicate fillers for this exact slot (e.g.
+    // from a duplicate import), they'd still collide with the update below —
+    // clean those up first since they carry no real data of their own.
+    const dupes = billEntries.filter(e =>
+      e.bill_type_id === typeId && e.id !== conflict.id && !e.transaction_id &&
+      normS(e.start_month) < normE(end) && normE(e.end_month) > normS(start)
+    );
+    for (const dupe of dupes) {
+      await api('DELETE', `/api/bills/entries/${dupe.id}`);
+    }
+
+    const r = await api('PUT', `/api/bills/entries/${conflict.id}`, {
+      start_month:       conflict.start_month,
+      end_month:         conflict.end_month,
+      note:              conflict.note || '',
+      transaction_table: txTable,
+      transaction_id:    txId,
+      is_filler:         false,
+    });
+    if (r.ok) {
+      closeModal('modal-sug-add');
+      await loadEntries();
+      loadSuggestions();
+    } else {
+      setStatus(st, 'err', r.error || 'שגיאה');
+    }
+    return;
+  }
+
+  if (conflict) {
+    // Genuine conflict — the existing entry already has a real transaction linked.
     closeModal('modal-sug-add');
     const rowEl = document.getElementById(`sug-${table}-${txId}`);
     if (rowEl) {
@@ -2882,7 +2919,7 @@ async function submitSugAdd() {
     bill_type_id:      typeId,
     start_month:       start,
     end_month:         end,
-    transaction_table: table === 'BankTransactions' ? 'BankTransactions' : 'CardTransactions',
+    transaction_table: txTable,
     transaction_id:    txId,
     is_filler:         false,
   });
@@ -3223,14 +3260,18 @@ function populateTypeSelect(selId) {
 
 // Returns an error string if [start,end] overlaps any existing entry of typeId,
 // optionally excluding one entry (by ID) for edit checks.
-function clientOverlapCheck(typeId, start, end, excludeId) {
+function findOverlapEntry(typeId, start, end, excludeId) {
   const s1 = normS(start), e1 = normE(end);
-  const conflict = billEntries.find(e =>
+  return billEntries.find(e =>
     e.bill_type_id === typeId &&
     e.id !== excludeId &&
     normS(e.start_month) < e1 &&
     normE(e.end_month)   > s1
-  );
+  ) || null;
+}
+
+function clientOverlapCheck(typeId, start, end, excludeId) {
+  const conflict = findOverlapEntry(typeId, start, end, excludeId);
   if (!conflict) return null;
   const type = billTypes.find(t => t.id === typeId);
   return `חפיפה עם רשומה קיימת של "${type ? type.name : ''}" (${conflict.start_month} – ${conflict.end_month})`;

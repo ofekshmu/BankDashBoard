@@ -518,15 +518,18 @@ body.resize-end    { cursor: ew-resize !important; }
   padding: 4px 12px;
 }
 .sug-item {
-  display: flex; align-items: center; gap: 10px;
+  display: flex; flex-direction: column; gap: 3px;
   padding: 7px 4px;
   border-bottom: 1px solid var(--border);
 }
 .sug-item:last-child { border-bottom: none; }
+.sug-row-main { display: flex; align-items: center; gap: 10px; }
 .sug-date  { font-size: 0.76em; color: var(--text-muted); min-width: 72px; flex-shrink: 0; }
 .sug-name  { flex: 1; font-size: 0.84em; font-weight: 600; }
 .sug-amt   { font-size: 0.82em; color: var(--text-sub); min-width: 65px; text-align: left; flex-shrink: 0; }
 .sug-acts  { display: flex; gap: 5px; flex-shrink: 0; }
+.sug-rec   { font-size: 0.72em; color: var(--text-muted); }
+.sug-rec b { color: var(--navy); font-weight: 600; }
 .sug-empty {
   text-align: center; color: var(--text-muted);
   font-size: 0.82em; padding: 18px;
@@ -2944,22 +2947,34 @@ function renderSuggestions(items) {
   badge.style.display = 'inline-flex';
   if (navDot) navDot.style.display = '';
   if (applyBtn) applyBtn.style.display = '';
-  list.innerHTML = items.map(it => `
+  list.innerHTML = items.map(it => {
+    const matchedEntry = billEntries.find(e => e.tx_name === it.matched_name);
+    const type = matchedEntry ? billTypes.find(t => t.id === matchedEntry.bill_type_id) : null;
+    const txMonth  = (it.date || '').slice(0, 7);
+    const monthDisp = txMonth ? txMonth.split('-').reverse().join('/') : '';
+    const recLine = type
+      ? `<div class="sug-rec">מומלץ עבור: <b>${esc(type.group || '')}</b>${type.group ? ' · ' : ''}<b>${esc(type.name)}</b> · ${monthDisp}</div>`
+      : '';
+    return `
     <div class="sug-item" id="sug-${it.table}-${it.id}">
-      <span class="sug-date">${it.date}</span>
-      <span class="sug-name">${esc(it.name)}</span>
-      <span class="sug-amt">₪${Math.abs(it.amount).toLocaleString('he-IL',{maximumFractionDigits:0})}</span>
-      <div class="sug-acts">
-        <button class="btn btn-primary btn-xs"
-          onclick="openSugAdd('${it.table}','${it.id}','${esc(it.name)}','${it.date}','${it.amount}','${esc(it.matched_name)}')">
-          + הוסף כחשבון
-        </button>
-        <button class="btn btn-ghost btn-xs"
-          onclick="dismissSuggestion('${esc(it.name)}','${it.table}-${it.id}')">
-          לא חשבון
-        </button>
+      <div class="sug-row-main">
+        <span class="sug-date">${it.date}</span>
+        <span class="sug-name">${esc(it.name)}</span>
+        <span class="sug-amt">₪${Math.abs(it.amount).toLocaleString('he-IL',{maximumFractionDigits:0})}</span>
+        <div class="sug-acts">
+          <button class="btn btn-primary btn-xs"
+            onclick="openSugAdd('${it.table}','${it.id}','${esc(it.name)}','${it.date}','${it.amount}','${esc(it.matched_name)}')">
+            + הוסף כחשבון
+          </button>
+          <button class="btn btn-ghost btn-xs"
+            onclick="dismissSuggestion('${esc(it.name)}','${it.table}-${it.id}')">
+            לא חשבון
+          </button>
+        </div>
       </div>
-    </div>`).join('');
+      ${recLine}
+    </div>`;
+  }).join('');
 }
 
 async function dismissSuggestion(name, elemId) {

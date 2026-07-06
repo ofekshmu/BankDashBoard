@@ -253,6 +253,22 @@ body {
 }
 .tx-detach-link:hover { opacity: 1; text-decoration: underline; }
 
+/* ── Small info icon + tooltip (escapes any modal's overflow via <body>) ── */
+.info-icon-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0;
+  background: #c5cad8; color: #fff; font-size: 10px; font-style: normal;
+  font-weight: 700; cursor: help; user-select: none;
+}
+.info-icon-btn:hover { background: var(--navy); }
+#info-tooltip-shared {
+  position: fixed; z-index: 2000; background: var(--navy); color: #fff;
+  padding: 9px 13px; border-radius: 9px; font-size: 12px; line-height: 1.6;
+  max-width: 260px; box-shadow: var(--shadow-md); direction: rtl; text-align: right;
+  opacity: 0; visibility: hidden; transition: opacity 0.15s; pointer-events: none;
+}
+#info-tooltip-shared.open { opacity: 1; visibility: visible; }
+
 /* ── Main body split ─────────────────────────────────────── */
 .body-wrap {
   display: flex;
@@ -1196,6 +1212,48 @@ body.resize-end    { cursor: ew-resize !important; }
       </div>
     </div>
 
+    <!-- Secondary transaction — only relevant once a primary is linked -->
+    <div class="field hidden" id="edit-sec-tx-section">
+      <div style="display:flex;align-items:center;gap:6px">
+        <label style="margin:0">עסקה משנית</label>
+        <span class="info-icon-btn" data-tip="עסקה נוספת שאינה כפופה לחוקי ההתאמה של העסקה הראשית — לדוגמה, תשלום שהוחזר אליך על ידי מישהו אחר עבור אותו חשבון. ניתן להוסיף רק לאחר שכבר קיימת עסקה ראשית מקושרת.">i</span>
+      </div>
+
+      <!-- shown when no secondary is attached yet -->
+      <div id="edit-sec-add-wrap">
+        <button type="button" class="btn btn-ghost btn-xs" onclick="toggleEditSecTx()" id="edit-sec-tx-btn">+ הוסף עסקה משנית</button>
+        <div id="edit-sec-search-wrap" class="hidden" style="margin-top:8px">
+          <input id="edit-sec-tx-inp" type="text" placeholder="חפש עסקה לקישור…" autocomplete="off"
+                 oninput="onEditSecSearch(this.value)" onfocus="onEditSecFocus()">
+          <div class="tx-results hidden" id="edit-sec-results"></div>
+          <div class="tx-selected hidden" id="edit-sec-selected" style="margin-top:6px;flex-direction:column;gap:5px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <span id="edit-sec-badge" style="font-size:0.7em;font-weight:700;padding:2px 6px;border-radius:4px;flex-shrink:0"></span>
+              <span id="edit-sec-name" style="font-weight:700;flex:1;font-size:0.9em"></span>
+              <button class="clear" onclick="clearEditSecAttach()">✕</button>
+            </div>
+            <div style="display:flex;gap:14px;font-size:0.8em">
+              <span><span style="color:var(--text-muted)">תאריך: </span><span id="edit-sec-date" style="font-weight:600"></span></span>
+              <span><span style="color:var(--text-muted)">סכום: </span><span id="edit-sec-amt" style="font-weight:600;color:var(--red)"></span></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- shown when a secondary is already attached (saved) -->
+      <div class="tx-selected hidden" id="edit-sec-display" style="flex-direction:column;align-items:stretch;gap:5px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span id="edit-sec-disp-badge" style="font-size:0.7em;font-weight:700;padding:2px 6px;border-radius:4px;flex-shrink:0"></span>
+          <span id="edit-sec-disp-name" style="font-weight:700;flex:1;font-size:0.9em"></span>
+          <button type="button" class="tx-detach-link" onclick="detachEditSecTx()">✕ הסר</button>
+        </div>
+        <div style="display:flex;gap:14px;font-size:0.8em">
+          <span><span style="color:var(--text-muted)">תאריך: </span><span id="edit-sec-disp-date" style="font-weight:600"></span></span>
+          <span><span style="color:var(--text-muted)">סכום: </span><span id="edit-sec-disp-amt" style="font-weight:600;color:var(--red)"></span></span>
+        </div>
+      </div>
+    </div>
+
     <!-- Dates -->
     <div class="field-row">
       <div class="field">
@@ -1337,6 +1395,7 @@ let viewEnd   = null;
 // Selected transaction for add-entry modal
 let selectedTx     = null;   // {tx_id, date, name, amount, source}
 let editAttachTx   = null;   // tx being attached to a filler entry in edit modal
+let editSecondaryTx = null;  // secondary tx staged for the currently-open edit entry
 let sugItems       = [];     // cache of last-loaded suggestion objects
 let txSearchTimer  = null;
 
@@ -2435,6 +2494,32 @@ function openEditModal(eid) {
     const extraWrap = document.getElementById('edit-tx-extra-wrap');
     if (entry.tx_extra_info) { extraWrap.style.display = ''; extraWrap.textContent = entry.tx_extra_info; }
     else { extraWrap.style.display = 'none'; }
+
+    // Secondary transaction — only ever offered once a primary exists.
+    const secSection = document.getElementById('edit-sec-tx-section');
+    secSection.classList.remove('hidden');
+    editSecondaryTx = null;
+    document.getElementById('edit-sec-search-wrap').classList.add('hidden');
+    document.getElementById('edit-sec-tx-btn').textContent = '+ הוסף עסקה משנית';
+    clearEditSecAttach();
+    const secAddWrap = document.getElementById('edit-sec-add-wrap');
+    const secDisplay = document.getElementById('edit-sec-display');
+    if (entry.secondary_transaction_id) {
+      secAddWrap.classList.add('hidden');
+      secDisplay.classList.remove('hidden');
+      const secIsCard = entry.secondary_transaction_table === 'CardTransactions';
+      const secBadge = document.getElementById('edit-sec-disp-badge');
+      secBadge.textContent = secIsCard ? 'כרטיס' : 'בנק';
+      secBadge.style.background = secIsCard ? 'var(--amber)' : 'var(--teal)';
+      secBadge.style.color = '#fff';
+      document.getElementById('edit-sec-disp-name').textContent = entry.sec_tx_name || `#${entry.secondary_transaction_id}`;
+      document.getElementById('edit-sec-disp-date').textContent = entry.sec_tx_date || '—';
+      document.getElementById('edit-sec-disp-amt').textContent  =
+        entry.sec_tx_amount != null ? '₪' + Math.abs(entry.sec_tx_amount).toLocaleString('he-IL', {maximumFractionDigits: 0}) : '—';
+    } else {
+      secAddWrap.classList.remove('hidden');
+      secDisplay.classList.add('hidden');
+    }
   } else {
     txSection.classList.add('hidden');
     // Unmatched entry: show attach-tx section + expected amount
@@ -2447,6 +2532,9 @@ function openEditModal(eid) {
     }
     const expAmt = document.getElementById('edit-expected-amount');
     if (expAmt) expAmt.value = entry.amount != null ? entry.amount : '';
+    // No primary transaction → secondary is never applicable.
+    document.getElementById('edit-sec-tx-section').classList.add('hidden');
+    editSecondaryTx = null;
   }
 
   document.getElementById('edit-status').className = 'inline-status';
@@ -3288,6 +3376,95 @@ function clearEditAttach() {
   const expRow = document.getElementById('edit-expected-amt-row');
   if (expRow) expRow.style.display = '';
 }
+
+// ── Secondary transaction (edit modal) ───────────────────────────
+// No date/overlap rules apply here — the only rule is enforced by
+// openEditModal only ever showing this section when a primary tx exists.
+function toggleEditSecTx() {
+  const wrap = document.getElementById('edit-sec-search-wrap');
+  const isOpen = !wrap.classList.contains('hidden');
+  wrap.classList.toggle('hidden', isOpen);
+  if (isOpen) clearEditSecAttach();
+  document.getElementById('edit-sec-tx-btn').textContent = isOpen ? '+ הוסף עסקה משנית' : '✕ בטל';
+}
+function onEditSecFocus() { positionResults('edit-sec-tx-inp', 'edit-sec-results'); }
+function onEditSecSearch(val) {
+  clearTimeout(txSearchTimer);
+  const q = val.trim();
+  if (!q) { document.getElementById('edit-sec-results').classList.add('hidden'); return; }
+  positionResults('edit-sec-tx-inp', 'edit-sec-results');
+  txSearchTimer = setTimeout(() => doEditSecSearch(q), 250);
+}
+async function doEditSecSearch(q) {
+  try {
+    const d = await (await fetch(`/api/search/transactions?keyword=${encodeURIComponent(q)}`)).json();
+    showEditSecResults(d.results || []);
+  } catch(e) { showEditSecResults([]); }
+}
+function showEditSecResults(items) {
+  const box = document.getElementById('edit-sec-results');
+  if (!items.length) { box.classList.add('hidden'); return; }
+  positionResults('edit-sec-tx-inp', 'edit-sec-results');
+  box.classList.remove('hidden');
+  box.innerHTML = items.slice(0, 60).map(it => `
+    <div class="tx-row${it.bill_matched ? ' matched' : ''}" onclick="selectEditSecTx(${JSON.stringify(it).replace(/"/g,'&quot;')})">
+      <span class="tx-row-date">${it.date}</span>
+      <span class="tx-row-name">${esc(it.name)}</span>
+      ${it.bill_matched ? '<span class="tx-row-matched-badge">מותאם</span>' : ''}
+      <span class="tx-row-amt">₪${Math.abs(it.amount).toLocaleString('he-IL',{maximumFractionDigits:0})}</span>
+    </div>`).join('');
+}
+function selectEditSecTx(tx) {
+  if (tx.bill_matched) {
+    setStatus(document.getElementById('edit-status'), 'err', 'עסקה זו כבר משויכת לרשומה אחרת ולא ניתן לבחור אותה שוב');
+    return;
+  }
+  editSecondaryTx = tx;
+  document.getElementById('edit-sec-tx-inp').value = '';
+  document.getElementById('edit-sec-results').classList.add('hidden');
+  const sel = document.getElementById('edit-sec-selected');
+  sel.classList.remove('hidden');
+  const isCard = tx.source !== 'bank';
+  const badge = document.getElementById('edit-sec-badge');
+  badge.textContent = isCard ? 'כרטיס' : 'בנק';
+  badge.style.background = isCard ? 'var(--amber)' : 'var(--teal)';
+  badge.style.color = '#fff';
+  document.getElementById('edit-sec-name').textContent = tx.name;
+  document.getElementById('edit-sec-date').textContent = tx.date;
+  document.getElementById('edit-sec-amt').textContent  = '₪' + Math.abs(tx.amount).toLocaleString('he-IL',{maximumFractionDigits:0});
+}
+function clearEditSecAttach() {
+  editSecondaryTx = null;
+  document.getElementById('edit-sec-selected').classList.add('hidden');
+  document.getElementById('edit-sec-tx-inp').value = '';
+  document.getElementById('edit-sec-results').classList.add('hidden');
+}
+function detachEditSecTx() {
+  const id    = parseInt(document.getElementById('edit-entry-id').value);
+  const entry = billEntries.find(e => e.id === id);
+  if (!entry) return;
+  openConfirm(
+    'העסקה המשנית תוסר מהרשומה. ניתן יהיה לבחור עסקה משנית אחרת בהמשך.',
+    () => _doDetachEditSecTx(id, entry),
+    { title: 'הסרת עסקה משנית', confirmLabel: 'הסר עסקה' }
+  );
+}
+async function _doDetachEditSecTx(id, entry) {
+  const r = await api('PUT', `/api/bills/entries/${id}`, {
+    start_month:                 entry.start_month,
+    end_month:                   entry.end_month,
+    note:                        entry.note || '',
+    secondary_transaction_table: null,
+    secondary_transaction_id:    null,
+  });
+  if (!r.ok) {
+    setStatus(document.getElementById('edit-status'), 'err', r.error || 'שגיאה');
+    return;
+  }
+  await loadEntries();
+  openEditModal(id);
+}
+
 function positionResults(inputId, boxId) {
   const inp  = document.getElementById(inputId);
   const box  = document.getElementById(boxId);
@@ -3418,10 +3595,17 @@ async function submitEdit() {
       body.amount = isNaN(v) ? null : v;
     }
   }
+  // Secondary transaction — only ever staged when a primary already existed
+  // (the UI never offers it otherwise), so it's safe to send unconditionally.
+  if (editSecondaryTx) {
+    body.secondary_transaction_table = editSecondaryTx.source === 'bank' ? 'BankTransactions' : 'CardTransactions';
+    body.secondary_transaction_id    = editSecondaryTx.tx_id;
+  }
   const r = await api('PUT', `/api/bills/entries/${id}`, body);
   if (r.ok) {
     closeModal('modal-edit');
     editAttachTx = null;
+    editSecondaryTx = null;
     await loadEntries();
     loadSuggestions();
   } else {
@@ -3562,6 +3746,56 @@ function openConfirm(message, onConfirm, opts) {
   btn.onclick = function() { closeModal('modal-confirm'); onConfirm(); };
   openModal('modal-confirm');
 }
+
+// Shared info-icon tooltip: any element with class="info-icon-btn" and a
+// data-tip attribute gets a hover (desktop) / tap (mobile) tooltip. Positioned
+// as position:fixed on a single element re-parented to <body>, so it always
+// renders on top and is never clipped by a modal's own overflow:auto.
+(function() {
+  var PAD = 10;
+  var tip = document.createElement('div');
+  tip.id = 'info-tooltip-shared';
+  document.body.appendChild(tip);
+  var openForIcon = null;
+
+  function place(icon) {
+    tip.textContent = icon.getAttribute('data-tip') || '';
+    tip.style.maxWidth = Math.min(260, window.innerWidth - 2 * PAD) + 'px';
+    var r = icon.getBoundingClientRect();
+    var tipW = tip.offsetWidth || 220;
+    var left = Math.max(PAD, Math.min(r.left - tipW / 2 + r.width / 2, window.innerWidth - tipW - PAD));
+    tip.style.left = left + 'px';
+    var spaceAbove = r.top - PAD;
+    if (spaceAbove < 90) {
+      tip.style.top = (r.bottom + 8) + 'px'; tip.style.bottom = 'auto';
+    } else {
+      tip.style.top = 'auto'; tip.style.bottom = (window.innerHeight - r.top + 8) + 'px';
+    }
+  }
+
+  document.addEventListener('mouseenter', function(e) {
+    var icon = e.target.closest && e.target.closest('.info-icon-btn');
+    if (!icon) return;
+    place(icon);
+    tip.classList.add('open');
+  }, true);
+  document.addEventListener('mouseleave', function(e) {
+    var icon = e.target.closest && e.target.closest('.info-icon-btn');
+    if (!icon) return;
+    tip.classList.remove('open');
+  }, true);
+  document.addEventListener('touchstart', function(e) {
+    var icon = e.target.closest && e.target.closest('.info-icon-btn');
+    if (!icon) { tip.classList.remove('open'); openForIcon = null; return; }
+    e.preventDefault();
+    var wasOpen = openForIcon === icon;
+    tip.classList.remove('open'); openForIcon = null;
+    if (wasOpen) return;
+    place(icon);
+    tip.classList.add('open');
+    openForIcon = icon;
+  }, { passive: false, capture: true });
+})();
 
 function setStatus(el, type, msg) {
   el.className = 'inline-status ' + type;

@@ -810,6 +810,9 @@ def search_transactions():
         try:
             linked_rows = bill_conn.execute(
                 "SELECT Transaction_Table, Transaction_ID FROM BillEntries WHERE Transaction_ID IS NOT NULL"
+                " UNION ALL "
+                "SELECT Secondary_Transaction_Table, Secondary_Transaction_ID FROM BillEntries"
+                " WHERE Secondary_Transaction_ID IS NOT NULL"
             ).fetchall()
         finally:
             bill_conn.close()
@@ -4517,7 +4520,8 @@ def api_bills_entry(entry_id):
     body = request.get_json(force=True) or {}
     try:
         current = db.cursor.execute(
-            "SELECT BillType_ID, Transaction_Table, Transaction_ID, Amount, Note "
+            "SELECT BillType_ID, Transaction_Table, Transaction_ID, Amount, Note, "
+            "Secondary_Transaction_Table, Secondary_Transaction_ID "
             "FROM BillEntries WHERE ID=%s", (entry_id,)
         ).fetchone()
         if not current:
@@ -4530,6 +4534,13 @@ def api_bills_entry(entry_id):
         transaction_id    = body['transaction_id']    if 'transaction_id'    in body else current[2]
         amount            = body['amount']            if 'amount'            in body else current[3]
         note              = body['note']              if 'note'             in body else current[4]
+        sec_table = body['secondary_transaction_table'] if 'secondary_transaction_table' in body else current[5]
+        sec_id    = body['secondary_transaction_id']    if 'secondary_transaction_id'    in body else current[6]
+        # The only rule for the secondary transaction: it can't exist without a
+        # primary one. If the primary is being cleared (or was never set),
+        # silently drop the secondary too rather than erroring out.
+        if transaction_id is None:
+            sec_table, sec_id = None, None
         # is_filler is derived here, never trusted from the client — a bar is
         # only ever "real" (colored) when it actually has a matched
         # transaction; setting a price/note alone can't flip it.
@@ -4550,6 +4561,8 @@ def api_bills_entry(entry_id):
             transaction_id    = transaction_id,
             amount            = amount,
             is_filler         = is_filler,
+            secondary_transaction_table = sec_table,
+            secondary_transaction_id    = sec_id,
         )
         db.commit_changes()
         return jsonify({'ok': True})

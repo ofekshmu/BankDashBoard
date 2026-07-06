@@ -2492,6 +2492,16 @@ class DataBase:
                 Is_Filler         INTEGER  DEFAULT 0
             )
         """)
+        # Secondary transaction — a second, unrelated transaction attached to the
+        # same entry (e.g. a bill paid by the house owner and reimbursed by the
+        # resident). It carries none of the primary's date/overlap rules; the
+        # only rule is that it can only be set once a primary transaction exists.
+        self.cursor.execute(
+            "ALTER TABLE BillEntries ADD COLUMN IF NOT EXISTS Secondary_Transaction_Table TEXT"
+        )
+        self.cursor.execute(
+            "ALTER TABLE BillEntries ADD COLUMN IF NOT EXISTS Secondary_Transaction_ID INTEGER"
+        )
         self.cursor.execute("""
             CREATE TABLE IF NOT EXISTS BillSuggestionsDismissed (
                 name TEXT PRIMARY KEY
@@ -2552,12 +2562,30 @@ class DataBase:
                 END AS tx_description,
                 CASE WHEN e.transaction_table='BankTransactions' THEN b.extra_info
                      WHEN e.transaction_table='CardTransactions' THEN cc.extra_info
-                END AS tx_extra_info
+                END AS tx_extra_info,
+                e.secondary_transaction_table, e.secondary_transaction_id,
+                CASE WHEN e.secondary_transaction_table='BankTransactions' THEN sb.name
+                     WHEN e.secondary_transaction_table='CardTransactions' THEN scc.name
+                END AS sec_tx_name,
+                CASE WHEN e.secondary_transaction_table='BankTransactions' THEN CAST(sb.date AS text)
+                     WHEN e.secondary_transaction_table='CardTransactions' THEN CAST(scc.executed_date AS text)
+                END AS sec_tx_date,
+                CASE WHEN e.secondary_transaction_table='BankTransactions' THEN (sb.income - sb.out)
+                     WHEN e.secondary_transaction_table='CardTransactions' THEN scc.transaction_value
+                END AS sec_tx_amount,
+                CASE WHEN e.secondary_transaction_table='BankTransactions' THEN sb.category
+                     WHEN e.secondary_transaction_table='CardTransactions' THEN scc.category
+                END AS sec_tx_category,
+                scc.cardid AS sec_tx_card_id
             FROM BillEntries e
             LEFT JOIN BankTransactions b
                 ON e.transaction_table='BankTransactions' AND e.transaction_id=b.id
             LEFT JOIN CardTransactions cc
                 ON e.transaction_table='CardTransactions' AND e.transaction_id=cc.id
+            LEFT JOIN BankTransactions sb
+                ON e.secondary_transaction_table='BankTransactions' AND e.secondary_transaction_id=sb.id
+            LEFT JOIN CardTransactions scc
+                ON e.secondary_transaction_table='CardTransactions' AND e.secondary_transaction_id=scc.id
             ORDER BY e.start_month DESC
         """)
         rows = c.fetchall()
@@ -2585,6 +2613,13 @@ class DataBase:
                 'tx_balance':         _f(r[19]),
                 'tx_description':     r[20],
                 'tx_extra_info':      r[21],
+                'secondary_transaction_table': r[22],
+                'secondary_transaction_id':    r[23],
+                'sec_tx_name':                 r[24],
+                'sec_tx_date':                 str(r[25])[:10] if r[25] else None,
+                'sec_tx_amount':               _f(r[26]),
+                'sec_tx_category':             r[27],
+                'sec_tx_card_id':              r[28],
             }
             for r in rows
         ]
@@ -2643,18 +2678,21 @@ class DataBase:
         self, entry_id: int, start_month: str, end_month: str,
         note=None, transaction_table=None, transaction_id=None,
         amount=None, is_filler=None,
+        secondary_transaction_table=None, secondary_transaction_id=None,
     ) -> None:
         self.cursor.execute("""
             UPDATE BillEntries SET
                 Start_Month=%s, End_Month=%s, Note=%s,
                 Transaction_Table=%s, Transaction_ID=%s,
-                Amount=%s, Is_Filler=%s
+                Amount=%s, Is_Filler=%s,
+                Secondary_Transaction_Table=%s, Secondary_Transaction_ID=%s
             WHERE ID=%s
         """, (
             start_month, end_month, note or None,
             transaction_table, transaction_id,
             float(amount) if amount is not None else None,
             int(is_filler) if is_filler is not None else 0,
+            secondary_transaction_table, secondary_transaction_id,
             entry_id,
         ))
 

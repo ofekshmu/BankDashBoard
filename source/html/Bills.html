@@ -1647,7 +1647,7 @@ function renderStatsBar() {
 
   const cards = allGroups.map(({ name, types }) => {
     const typeIds  = new Set(types.map(t => t.id));
-    const entries  = billEntries.filter(e => typeIds.has(e.bill_type_id) && !e.is_filler && inCurrentView(e));
+    const entries  = billEntries.filter(e => typeIds.has(e.bill_type_id) && !!e.transaction_id && inCurrentView(e));
     // effective amount: prefer stored Amount, fall back to tx_amount from the linked transaction
     const withAmt  = entries.filter(e => (e.amount ?? e.tx_amount) != null);
 
@@ -1717,7 +1717,7 @@ function renderTypeKpiBar() {
   let _firstCard = true;
 
   const kpiCard = type => {
-    const entries    = billEntries.filter(e => e.bill_type_id === type.id && !e.is_filler && inCurrentView(e));
+    const entries    = billEntries.filter(e => e.bill_type_id === type.id && !!e.transaction_id && inCurrentView(e));
     // effective amount: prefer stored Amount, fall back to tx_amount from linked transaction
     const withAmt    = entries.filter(e => (e.amount ?? e.tx_amount) != null);
     const amounts    = withAmt.map(e => Math.abs(e.amount ?? e.tx_amount));
@@ -2000,7 +2000,10 @@ function renderChart() {
   const datasets = [];
 
   billTypes.forEach(type => {
-    const entries = billEntries.filter(e => e.bill_type_id === type.id && !e.is_filler);
+    // A bar is only ever "real" (colored) when it actually has a matched
+    // transaction — is_filler alone isn't trusted here, transaction_id is
+    // the ground truth (the server derives is_filler from it anyway).
+    const entries = billEntries.filter(e => e.bill_type_id === type.id && !!e.transaction_id);
     if (!entries.length) return;
     const hex = type.color;
     const DUP_BG  = 'rgba(220,38,38,0.65)';
@@ -2023,7 +2026,7 @@ function renderChart() {
   });
 
   // Filler entries
-  const fillers = billEntries.filter(e => e.is_filler);
+  const fillers = billEntries.filter(e => !e.transaction_id);
   if (fillers.length) {
     const fillerData = fillers.map(e => {
       const type = billTypes.find(t => t.id === e.bill_type_id);

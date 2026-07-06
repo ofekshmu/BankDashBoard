@@ -4482,6 +4482,8 @@ def api_bills_entries():
         )
         if overlap:
             return jsonify({'ok': False, 'error': overlap})
+        # is_filler is derived, never trusted from the client — a bar is only
+        # ever "real" (colored) once it actually has a matched transaction.
         eid = db.add_bill_entry(
             bill_type_id      = int(body['bill_type_id']),
             start_month       = body['start_month'],
@@ -4490,7 +4492,7 @@ def api_bills_entries():
             transaction_id    = body.get('transaction_id'),
             amount            = body.get('amount'),
             note              = body.get('note', ''),
-            is_filler         = bool(body.get('is_filler', False)),
+            is_filler         = body.get('transaction_id') is None,
         )
         db.commit_changes()
         return jsonify({'ok': True, 'id': eid})
@@ -4514,25 +4516,40 @@ def api_bills_entry(entry_id):
             return jsonify({'ok': False, 'error': str(e)})
     body = request.get_json(force=True) or {}
     try:
-        # Need the bill_type_id of this entry to check overlap
-        row = db.cursor.execute(
-            "SELECT BillType_ID FROM BillEntries WHERE ID=%s", (entry_id,)
+        current = db.cursor.execute(
+            "SELECT BillType_ID, Transaction_Table, Transaction_ID, Amount, Note "
+            "FROM BillEntries WHERE ID=%s", (entry_id,)
         ).fetchone()
-        if row:
-            overlap = db.check_bill_entry_overlap(
-                row[0], body['start_month'], body['end_month'], exclude_id=entry_id
-            )
-            if overlap:
-                return jsonify({'ok': False, 'error': overlap})
+        if not current:
+            return jsonify({'ok': False, 'error': 'רשומה לא נמצאה'})
+
+        # A field's absence from the request body means "leave it alone", not
+        # "clear it" — editing just the note or dragging the dates must not
+        # silently detach an already-linked transaction (and its amount).
+        transaction_table = body['transaction_table'] if 'transaction_table' in body else current[1]
+        transaction_id    = body['transaction_id']    if 'transaction_id'    in body else current[2]
+        amount            = body['amount']            if 'amount'            in body else current[3]
+        note              = body['note']              if 'note'             in body else current[4]
+        # is_filler is derived here, never trusted from the client — a bar is
+        # only ever "real" (colored) when it actually has a matched
+        # transaction; setting a price/note alone can't flip it.
+        is_filler = transaction_id is None
+
+        overlap = db.check_bill_entry_overlap(
+            current[0], body['start_month'], body['end_month'], exclude_id=entry_id
+        )
+        if overlap:
+            return jsonify({'ok': False, 'error': overlap})
+
         db.update_bill_entry(
             entry_id,
             start_month       = body['start_month'],
             end_month         = body['end_month'],
-            note              = body.get('note'),
-            transaction_table = body.get('transaction_table'),
-            transaction_id    = body.get('transaction_id'),
-            amount            = body.get('amount'),
-            is_filler         = body.get('is_filler'),
+            note              = note,
+            transaction_table = transaction_table,
+            transaction_id    = transaction_id,
+            amount            = amount,
+            is_filler         = is_filler,
         )
         db.commit_changes()
         return jsonify({'ok': True})

@@ -667,6 +667,13 @@ body.resize-end    { cursor: ew-resize !important; }
 .tx-row-date { color: var(--text-muted); min-width: 82px; flex-shrink: 0; font-size: 0.85em; }
 .tx-row-name { flex: 1; font-weight: 600; }
 .tx-row-amt  { color: var(--teal); font-weight: 700; flex-shrink: 0; }
+.tx-row.matched { cursor: not-allowed; opacity: .65; }
+.tx-row.matched:hover { background: none; }
+.tx-row-matched-badge {
+  flex-shrink: 0; font-size: .68em; font-weight: 700;
+  color: #fff; background: var(--red); border-radius: 4px;
+  padding: 2px 7px; letter-spacing: .2px;
+}
 .tx-selected {
   padding: 7px 11px;
   background: var(--teal-light); border: 1.5px solid var(--teal);
@@ -3187,13 +3194,18 @@ function showEditAttachResults(items) {
   positionResults('edit-attach-tx-inp', 'edit-attach-results');
   box.classList.remove('hidden');
   box.innerHTML = items.slice(0, 60).map(it => `
-    <div class="tx-row" onclick="selectEditAttach(${JSON.stringify(it).replace(/"/g,'&quot;')})">
+    <div class="tx-row${it.bill_matched ? ' matched' : ''}" onclick="selectEditAttach(${JSON.stringify(it).replace(/"/g,'&quot;')})">
       <span class="tx-row-date">${it.date}</span>
       <span class="tx-row-name">${esc(it.name)}</span>
+      ${it.bill_matched ? '<span class="tx-row-matched-badge">מותאם</span>' : ''}
       <span class="tx-row-amt">₪${Math.abs(it.amount).toLocaleString('he-IL',{maximumFractionDigits:0})}</span>
     </div>`).join('');
 }
 function selectEditAttach(tx) {
+  if (tx.bill_matched) {
+    setStatus(document.getElementById('edit-status'), 'err', 'עסקה זו כבר משויכת לרשומה אחרת ולא ניתן לבחור אותה שוב');
+    return;
+  }
   editAttachTx = tx;
   document.getElementById('edit-attach-tx-inp').value = '';
   document.getElementById('edit-attach-results').classList.add('hidden');
@@ -3403,14 +3415,19 @@ function showTxResults(items) {
   positionTxResults();
   box.classList.remove('hidden');
   box.innerHTML = items.slice(0, 60).map(it => `
-    <div class="tx-row" onclick="selectTx(${JSON.stringify(it).replace(/"/g,'&quot;')})">
+    <div class="tx-row${it.bill_matched ? ' matched' : ''}" onclick="selectTx(${JSON.stringify(it).replace(/"/g,'&quot;')})">
       <span class="tx-row-date">${it.date}</span>
       <span class="tx-row-name">${esc(it.name)}</span>
+      ${it.bill_matched ? '<span class="tx-row-matched-badge">מותאם</span>' : ''}
       <span class="tx-row-amt">₪${Math.abs(it.amount).toLocaleString('he-IL',{maximumFractionDigits:0})}</span>
     </div>`).join('');
 }
 
 function selectTx(tx) {
+  if (tx.bill_matched) {
+    setStatus(document.getElementById('entry-status'), 'err', 'עסקה זו כבר משויכת לרשומה אחרת ולא ניתן לבחור אותה שוב');
+    return;
+  }
   selectedTx = tx;
   document.getElementById('tx-results').classList.add('hidden');
   document.getElementById('tx-search-inp').value = '';

@@ -802,6 +802,26 @@ def search_transactions():
                 'orig_table':  orig_table,
             })
 
+    # Flag transactions already linked to a bill entry — the bills-page transaction
+    # pickers use this to mark them "Matched" and block re-selecting them, so the
+    # same real transaction can't end up linked to two different bill entries.
+    try:
+        bill_conn = _pg_conn()
+        try:
+            linked_rows = bill_conn.execute(
+                "SELECT Transaction_Table, Transaction_ID FROM BillEntries WHERE Transaction_ID IS NOT NULL"
+            ).fetchall()
+        finally:
+            bill_conn.close()
+        linked_bank_ids = {r[1] for r in linked_rows if r[0] == 'BankTransactions'}
+        linked_card_ids = {r[1] for r in linked_rows if r[0] == 'CardTransactions'}
+        for r in results:
+            r['bill_matched'] = (r['tx_id'] in linked_bank_ids if r['source'] == 'bank'
+                                  else r['tx_id'] in linked_card_ids)
+    except Exception:
+        for r in results:
+            r['bill_matched'] = False
+
     # Sort combined results by date desc
     results.sort(key=lambda x: x['date'] or '', reverse=True)
     return jsonify({'ok': True, 'results': results[:500]})

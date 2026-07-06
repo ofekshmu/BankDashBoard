@@ -1157,7 +1157,10 @@ body.resize-end    { cursor: ew-resize !important; }
 
     <!-- Linked transaction -->
     <div class="field" id="edit-tx-section">
-      <label>עסקה מקושרת</label>
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <label style="margin:0">עסקה מקושרת</label>
+        <button type="button" class="btn btn-ghost btn-xs" id="edit-tx-detach-btn" onclick="detachEditTx()" style="color:var(--red);border-color:var(--red)">✕ הסר עסקה</button>
+      </div>
       <div class="tx-selected" style="pointer-events:none;flex-direction:column;align-items:stretch;gap:7px">
         <!-- Row 1: source badge + name -->
         <div style="display:flex;align-items:center;gap:8px">
@@ -2426,6 +2429,29 @@ function openEditModal(eid) {
 
   document.getElementById('edit-status').className = 'inline-status';
   openModal('modal-edit');
+}
+
+async function detachEditTx() {
+  const id    = parseInt(document.getElementById('edit-entry-id').value);
+  const entry = billEntries.find(e => e.id === id);
+  if (!entry) return;
+  if (!confirm('להסיר את העסקה המקושרת? הרשומה תחזור להיות מילוי ריק וניתן יהיה לבחור עסקה אחרת.')) return;
+
+  const r = await api('PUT', `/api/bills/entries/${id}`, {
+    start_month:       entry.start_month,
+    end_month:         entry.end_month,
+    note:              entry.note || '',
+    transaction_table: null,
+    transaction_id:    null,
+  });
+  if (!r.ok) {
+    setStatus(document.getElementById('edit-status'), 'err', r.error || 'שגיאה');
+    return;
+  }
+  await loadEntries();
+  renderChart(); renderStatsBar(); renderTypeKpiBar(); renderKpiBanner();
+  loadSuggestions();
+  openEditModal(id); // refresh the modal so it shows the attach-search UI again
 }
 
 async function deleteEditEntry() {

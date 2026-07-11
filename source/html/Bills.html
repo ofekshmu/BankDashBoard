@@ -2657,7 +2657,16 @@ async function barMenuDelete() {
 // ─────────────────────────────────────────────────────────────
 function getBarAt(event) {
   if (!chart) return null;
-  const els = chart.getElementsAtEventForMode(event, 'nearest', { intersect: true }, false);
+  let evt = event;
+  // touchend carries no usable position on the event itself — by the time it
+  // fires, event.touches is empty (finger already lifted) and TouchEvent has
+  // no clientX/clientY of its own, so Chart.js can't resolve a canvas position
+  // and silently matches nothing. Pull the coordinates from changedTouches instead.
+  if (event.type === 'touchend' && event.changedTouches && event.changedTouches.length) {
+    const t = event.changedTouches[0];
+    evt = { type: 'click', clientX: t.clientX, clientY: t.clientY };
+  }
+  const els = chart.getElementsAtEventForMode(evt, 'nearest', { intersect: true }, false);
   return els.length ? els[0] : null;
 }
 

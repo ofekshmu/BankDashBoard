@@ -989,6 +989,7 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:#f4f6f9;color:#1e2a4a;d
 .cat-search:focus{{border-color:#1e9d8b;box-shadow:0 0 0 3px rgba(30,157,139,.12)}}
 .search-count{{font-size:.78em;color:#888;white-space:nowrap;flex-shrink:0}}
 .no-results{{text-align:center;padding:40px;color:#aaa;font-size:.9em;display:none}}
+.cat-item.generating{{opacity:.55;pointer-events:none}}
 </style>
 </head>
 <body>
@@ -1039,10 +1040,26 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:#f4f6f9;color:#1e2a4a;d
 {_log_float_html()}
 <script>
 {_log_float_js()}
-// Intercept clicks on not-yet-generated items: run the analysis inline via a
-// popup on this page (log-float + the same debug-fab/panel every other page
-// uses) instead of navigating away to a separate loading page. Already-
-// generated items fall through to the normal <a href> navigation.
+// Intercept clicks on not-yet-generated items: run the analysis inline
+// instead of navigating away to a separate loading page. Progress is
+// surfaced through the app's single main logger window (the same
+// debug-fab/debug-panel + /api/debug-logs stream every other page uses —
+// print() output from the analysis is already tee'd there automatically),
+// not a bespoke popup. Already-generated items fall through to the normal
+// <a href> navigation.
+function openDebugPanel() {{
+  var panel = document.getElementById('debug-panel');
+  if (panel && !panel.classList.contains('open')) toggleDebugPanel();
+}}
+function _dbgLine(text, cls) {{
+  var feed = document.getElementById('debug-feed');
+  if (!feed) return;
+  var el = document.createElement('div');
+  el.className = 'debug-line' + (cls ? ' ' + cls : '');
+  el.textContent = text;
+  feed.appendChild(el);
+  feed.scrollTop = feed.scrollHeight;
+}}
 var _catStreamSlug = null;
 function handleCatClick(event, el) {{
   if (el.dataset.has === '1') return true;
@@ -1050,43 +1067,42 @@ function handleCatClick(event, el) {{
   if (_catStreamSlug) return false;  // a regen is already running client-side
   var slug = el.dataset.slug, type = el.dataset.type, name = el.dataset.name;
   _catStreamSlug = slug;
-  showLogFloat('מנתח: ' + name + '…');
+  el.classList.add('generating');
+  openDebugPanel();
+  _dbgLine('▸ מריץ ניתוח: ' + name + '…');
   var qs = '?slug=' + encodeURIComponent(slug) + '&type=' + encodeURIComponent(type) + '&name=' + encodeURIComponent(name);
   var es = new EventSource('/api/category/stream' + qs);
+  function _stop() {{ clearTimeout(tid); es.close(); _catStreamSlug = null; el.classList.remove('generating'); }}
   var tid = setTimeout(function() {{
     if (es.readyState !== EventSource.CLOSED) {{
-      es.close(); _catStreamSlug = null;
-      appendLog('✗ תם הזמן — נסה שוב', 'err');
-      hideLogFloat(3000);
+      _stop();
+      _dbgLine('✗ תם הזמן — נסה שוב', 'err');
     }}
   }}, 300000);
   es.onmessage = function(e) {{
     if (!e.data || e.data === '__CONNECTED__') return;
     if (e.data === '__ERROR__:busy') {{
-      clearTimeout(tid); es.close(); _catStreamSlug = null;
-      appendLog('✗ ניתוח אחר כבר רץ — נסה שוב בעוד רגע', 'err');
-      hideLogFloat(3000);
+      _stop();
+      _dbgLine('✗ ניתוח אחר כבר רץ — נסה שוב בעוד רגע', 'err');
       return;
     }}
     if (e.data.indexOf('__DONE__') === 0) {{
-      clearTimeout(tid); es.close(); _catStreamSlug = null;
-      appendLog('✓ הניתוח הסתיים — טוען…', 'done');
-      hideLogFloat(900);
-      setTimeout(function() {{ location.href = '/category/' + slug; }}, 1100);
+      _stop();
+      _dbgLine('✓ הניתוח הסתיים — טוען…', 'ok');
+      setTimeout(function() {{ location.href = '/category/' + slug; }}, 400);
       return;
     }}
     if (e.data === '__ERROR__') {{
-      clearTimeout(tid); es.close(); _catStreamSlug = null;
-      appendLog('✗ שגיאה בניתוח — פרטים בלוג', 'err');
-      hideLogFloat(3000);
+      _stop();
+      _dbgLine('✗ שגיאה בניתוח — פרטים למעלה', 'err');
       return;
     }}
-    appendLog(e.data);
+    // regular progress lines already arrive via /api/debug-logs (same tee as
+    // every other page) — no need to duplicate them here.
   }};
   es.onerror = function() {{
-    clearTimeout(tid); es.close(); _catStreamSlug = null;
-    appendLog('✗ החיבור נותק', 'err');
-    hideLogFloat(3000);
+    _stop();
+    _dbgLine('✗ החיבור נותק', 'err');
   }};
   return false;
 }}

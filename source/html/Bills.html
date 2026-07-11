@@ -709,6 +709,23 @@ body.resize-end    { cursor: ew-resize !important; }
 .tx-selected .clear { margin-right: auto; background: none; border: none; cursor: pointer; color: var(--text-muted); }
 .tx-selected .clear:hover { color: var(--red); }
 
+/* Symmetrical 2-column detail grid for the matched-transaction display */
+.tx-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 16px;
+  font-size: 0.8em;
+}
+.tx-detail-item { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; min-width: 0; }
+.tx-detail-label { color: var(--text-muted); flex-shrink: 0; }
+.tx-detail-value {
+  font-weight: 600; text-align: left; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.tx-detail-text {
+  grid-column: 1 / -1; color: var(--text-muted); font-size: 0.98em;
+}
+
 /* color palette */
 .color-row { display: flex; gap: 7px; flex-wrap: wrap; align-items: center; }
 .c-opt {
@@ -827,11 +844,15 @@ body.resize-end    { cursor: ew-resize !important; }
         padding: 8px;
     }
 
-    button:not(.btn):not(.modal-close):not(.mid-toggle):not(.tx-detach-link):not(.info-icon-btn), input, select {
+    input, select {
         padding: 12px;
         font-size: 16px;
         min-height: 44px;
     }
+
+    .date-mid-wrap { height: 44px; }
+    .date-mid-wrap input { min-height: 0; height: 100%; }
+    .mid-toggle { min-height: 0; height: 100%; }
 
     .header, .sidebar, .navigation {
         display: block;
@@ -858,7 +879,7 @@ body.resize-end    { cursor: ew-resize !important; }
         padding: 5px;
     }
 
-    button:not(.btn):not(.modal-close):not(.mid-toggle):not(.tx-detach-link):not(.info-icon-btn), input, select {
+    input, select {
         width: 100%;
         padding: 12px;
         font-size: 16px;
@@ -1193,25 +1214,20 @@ body.resize-end    { cursor: ew-resize !important; }
           <span id="edit-tx-source" style="font-size:0.7em;font-weight:700;padding:2px 7px;border-radius:4px;flex-shrink:0"></span>
           <span id="edit-tx-name" style="font-weight:700;flex:1;font-size:0.92em"></span>
         </div>
-        <!-- Row 2: date / value-date / amount -->
-        <div style="display:flex;gap:14px;font-size:0.8em;flex-wrap:wrap">
-          <span id="edit-tx-date-wrap"><span style="color:var(--text-muted)">תאריך: </span><span id="edit-tx-date" style="font-weight:600"></span></span>
-          <span id="edit-tx-vdate-wrap"><span style="color:var(--text-muted)">ערך: </span><span id="edit-tx-vdate" style="font-weight:600"></span></span>
-          <span id="edit-tx-cdate-wrap"><span style="color:var(--text-muted)">חיוב: </span><span id="edit-tx-cdate" style="font-weight:600"></span></span>
-          <span id="edit-tx-amt-wrap"><span style="color:var(--text-muted)">סכום: </span><span id="edit-tx-amt" style="font-weight:600;color:var(--red)"></span></span>
-          <span id="edit-tx-charge-wrap"><span style="color:var(--text-muted)">חיוב: </span><span id="edit-tx-charge" style="font-weight:600"></span></span>
+        <!-- Detail grid: date / value-date / charge-date / amount / charge / category / ref / card / balance -->
+        <div class="tx-detail-grid">
+          <div class="tx-detail-item" id="edit-tx-date-wrap"><span class="tx-detail-label">תאריך</span><span class="tx-detail-value" id="edit-tx-date"></span></div>
+          <div class="tx-detail-item" id="edit-tx-vdate-wrap"><span class="tx-detail-label">ערך</span><span class="tx-detail-value" id="edit-tx-vdate"></span></div>
+          <div class="tx-detail-item" id="edit-tx-cdate-wrap"><span class="tx-detail-label">חיוב</span><span class="tx-detail-value" id="edit-tx-cdate"></span></div>
+          <div class="tx-detail-item" id="edit-tx-amt-wrap"><span class="tx-detail-label">סכום</span><span class="tx-detail-value" id="edit-tx-amt" style="color:var(--red)"></span></div>
+          <div class="tx-detail-item" id="edit-tx-charge-wrap"><span class="tx-detail-label">חיוב</span><span class="tx-detail-value" id="edit-tx-charge"></span></div>
+          <div class="tx-detail-item" id="edit-tx-cat-wrap"><span class="tx-detail-label">קטגוריה</span><span class="tx-detail-value" id="edit-tx-cat"></span></div>
+          <div class="tx-detail-item" id="edit-tx-ref-wrap"><span class="tx-detail-label">אסמכתא</span><span class="tx-detail-value" id="edit-tx-ref"></span></div>
+          <div class="tx-detail-item" id="edit-tx-card-wrap"><span class="tx-detail-label">כרטיס</span><span class="tx-detail-value" id="edit-tx-card"></span></div>
+          <div class="tx-detail-item" id="edit-tx-bal-wrap"><span class="tx-detail-label">יתרה</span><span class="tx-detail-value" id="edit-tx-bal"></span></div>
+          <div class="tx-detail-text" id="edit-tx-desc-wrap" style="font-style:italic"><span id="edit-tx-desc"></span></div>
+          <div class="tx-detail-text" id="edit-tx-extra-wrap"><span id="edit-tx-extra"></span></div>
         </div>
-        <!-- Row 3: category / ref / card / balance -->
-        <div style="display:flex;gap:14px;font-size:0.8em;flex-wrap:wrap">
-          <span id="edit-tx-cat-wrap"><span style="color:var(--text-muted)">קטגוריה: </span><span id="edit-tx-cat" style="font-weight:600"></span></span>
-          <span id="edit-tx-ref-wrap"><span style="color:var(--text-muted)">אסמכתא: </span><span id="edit-tx-ref" style="font-weight:600"></span></span>
-          <span id="edit-tx-card-wrap"><span style="color:var(--text-muted)">כרטיס: </span><span id="edit-tx-card" style="font-weight:600"></span></span>
-          <span id="edit-tx-bal-wrap"><span style="color:var(--text-muted)">יתרה: </span><span id="edit-tx-bal" style="font-weight:600"></span></span>
-        </div>
-        <!-- Row 4: description -->
-        <div id="edit-tx-desc-wrap" style="font-size:0.78em;color:var(--text-muted);font-style:italic"></div>
-        <!-- Row 5: extra info -->
-        <div id="edit-tx-extra-wrap" style="font-size:0.78em;color:var(--text-muted)"></div>
       </div>
     </div>
 
@@ -1257,25 +1273,20 @@ body.resize-end    { cursor: ew-resize !important; }
           <span id="edit-sec-disp-name" style="font-weight:700;flex:1;font-size:0.9em"></span>
           <button type="button" class="tx-detach-link" style="pointer-events:auto" onclick="detachEditSecTx()">✕ הסר</button>
         </div>
-        <!-- Row 2: date / value-date / amount / charge -->
-        <div style="display:flex;gap:14px;font-size:0.8em;flex-wrap:wrap">
-          <span id="edit-sec-disp-date-wrap"><span style="color:var(--text-muted)">תאריך: </span><span id="edit-sec-disp-date" style="font-weight:600"></span></span>
-          <span id="edit-sec-disp-vdate-wrap"><span style="color:var(--text-muted)">ערך: </span><span id="edit-sec-disp-vdate" style="font-weight:600"></span></span>
-          <span id="edit-sec-disp-cdate-wrap"><span style="color:var(--text-muted)">חיוב: </span><span id="edit-sec-disp-cdate" style="font-weight:600"></span></span>
-          <span id="edit-sec-disp-amt-wrap"><span style="color:var(--text-muted)">סכום: </span><span id="edit-sec-disp-amt" style="font-weight:600;color:var(--red)"></span></span>
-          <span id="edit-sec-disp-charge-wrap"><span style="color:var(--text-muted)">חיוב: </span><span id="edit-sec-disp-charge" style="font-weight:600"></span></span>
+        <!-- Detail grid: date / value-date / charge-date / amount / charge / category / ref / card / balance -->
+        <div class="tx-detail-grid">
+          <div class="tx-detail-item" id="edit-sec-disp-date-wrap"><span class="tx-detail-label">תאריך</span><span class="tx-detail-value" id="edit-sec-disp-date"></span></div>
+          <div class="tx-detail-item" id="edit-sec-disp-vdate-wrap"><span class="tx-detail-label">ערך</span><span class="tx-detail-value" id="edit-sec-disp-vdate"></span></div>
+          <div class="tx-detail-item" id="edit-sec-disp-cdate-wrap"><span class="tx-detail-label">חיוב</span><span class="tx-detail-value" id="edit-sec-disp-cdate"></span></div>
+          <div class="tx-detail-item" id="edit-sec-disp-amt-wrap"><span class="tx-detail-label">סכום</span><span class="tx-detail-value" id="edit-sec-disp-amt" style="color:var(--red)"></span></div>
+          <div class="tx-detail-item" id="edit-sec-disp-charge-wrap"><span class="tx-detail-label">חיוב</span><span class="tx-detail-value" id="edit-sec-disp-charge"></span></div>
+          <div class="tx-detail-item" id="edit-sec-disp-cat-wrap"><span class="tx-detail-label">קטגוריה</span><span class="tx-detail-value" id="edit-sec-disp-cat"></span></div>
+          <div class="tx-detail-item" id="edit-sec-disp-ref-wrap"><span class="tx-detail-label">אסמכתא</span><span class="tx-detail-value" id="edit-sec-disp-ref"></span></div>
+          <div class="tx-detail-item" id="edit-sec-disp-card-wrap"><span class="tx-detail-label">כרטיס</span><span class="tx-detail-value" id="edit-sec-disp-card"></span></div>
+          <div class="tx-detail-item" id="edit-sec-disp-bal-wrap"><span class="tx-detail-label">יתרה</span><span class="tx-detail-value" id="edit-sec-disp-bal"></span></div>
+          <div class="tx-detail-text" id="edit-sec-disp-desc-wrap" style="font-style:italic"><span id="edit-sec-disp-desc"></span></div>
+          <div class="tx-detail-text" id="edit-sec-disp-extra-wrap"><span id="edit-sec-disp-extra"></span></div>
         </div>
-        <!-- Row 3: category / ref / card / balance -->
-        <div style="display:flex;gap:14px;font-size:0.8em;flex-wrap:wrap">
-          <span id="edit-sec-disp-cat-wrap"><span style="color:var(--text-muted)">קטגוריה: </span><span id="edit-sec-disp-cat" style="font-weight:600"></span></span>
-          <span id="edit-sec-disp-ref-wrap"><span style="color:var(--text-muted)">אסמכתא: </span><span id="edit-sec-disp-ref" style="font-weight:600"></span></span>
-          <span id="edit-sec-disp-card-wrap"><span style="color:var(--text-muted)">כרטיס: </span><span id="edit-sec-disp-card" style="font-weight:600"></span></span>
-          <span id="edit-sec-disp-bal-wrap"><span style="color:var(--text-muted)">יתרה: </span><span id="edit-sec-disp-bal" style="font-weight:600"></span></span>
-        </div>
-        <!-- Row 4: description -->
-        <div id="edit-sec-disp-desc-wrap" style="font-size:0.78em;color:var(--text-muted);font-style:italic"></div>
-        <!-- Row 5: extra info -->
-        <div id="edit-sec-disp-extra-wrap" style="font-size:0.78em;color:var(--text-muted)"></div>
       </div>
     </div>
 
@@ -2455,7 +2466,8 @@ function openEditModal(eid) {
   // Bill type dot + name
   const dot = document.getElementById('edit-type-dot');
   dot.style.background = type ? type.color : '#ccc';
-  document.getElementById('edit-type-name').textContent = type ? type.name : '—';
+  document.getElementById('edit-type-name').textContent =
+    type ? (type.group ? `${type.group} : ${type.name}` : type.name) : '—';
 
   // Linked transaction — show whenever a transaction_id is stored
   const txSection = document.getElementById('edit-tx-section');
@@ -2512,13 +2524,8 @@ function openEditModal(eid) {
     } else { balWrap.style.display = 'none'; }
 
     // Description + extra info
-    const descWrap = document.getElementById('edit-tx-desc-wrap');
-    if (entry.tx_description) { descWrap.style.display = ''; descWrap.textContent = entry.tx_description; }
-    else { descWrap.style.display = 'none'; }
-
-    const extraWrap = document.getElementById('edit-tx-extra-wrap');
-    if (entry.tx_extra_info) { extraWrap.style.display = ''; extraWrap.textContent = entry.tx_extra_info; }
-    else { extraWrap.style.display = 'none'; }
+    setWrap('edit-tx-desc-wrap',  'edit-tx-desc',  entry.tx_description);
+    setWrap('edit-tx-extra-wrap', 'edit-tx-extra', entry.tx_extra_info);
 
     // Secondary transaction — only ever offered once a primary exists.
     const secSection = document.getElementById('edit-sec-tx-section');
@@ -2569,13 +2576,8 @@ function openEditModal(eid) {
           '₪' + entry.sec_tx_balance.toLocaleString('he-IL', {maximumFractionDigits: 0});
       } else { secBalWrap.style.display = 'none'; }
 
-      const secDescWrap = document.getElementById('edit-sec-disp-desc-wrap');
-      if (entry.sec_tx_description) { secDescWrap.style.display = ''; secDescWrap.textContent = entry.sec_tx_description; }
-      else { secDescWrap.style.display = 'none'; }
-
-      const secExtraWrap = document.getElementById('edit-sec-disp-extra-wrap');
-      if (entry.sec_tx_extra_info) { secExtraWrap.style.display = ''; secExtraWrap.textContent = entry.sec_tx_extra_info; }
-      else { secExtraWrap.style.display = 'none'; }
+      setWrap('edit-sec-disp-desc-wrap',  'edit-sec-disp-desc',  entry.sec_tx_description);
+      setWrap('edit-sec-disp-extra-wrap', 'edit-sec-disp-extra', entry.sec_tx_extra_info);
     } else {
       secAddWrap.classList.remove('hidden');
       secDisplay.classList.add('hidden');

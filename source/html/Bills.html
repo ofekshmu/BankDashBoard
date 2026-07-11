@@ -375,6 +375,14 @@ body {
   letter-spacing: 0; text-transform: none;
   color: var(--navy);
 }
+/* Group-KPI card header sits directly in .bills-card (no wrapping .type-kpi-bar
+   padding), so it needs its own inset — matches the .sug-header convention
+   used by the other cards on this page. */
+#stats-bar-card > .type-kpi-section-hdr {
+  padding: 9px 16px 7px;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.85em;
+}
 .kpi-grp-swatches {
   display: flex; gap: 3px; align-items: center; flex-shrink: 0;
 }

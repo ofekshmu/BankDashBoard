@@ -911,6 +911,7 @@ def categories_page():
 
     def _item_html(name, type_, slug):
         from urllib.parse import quote as _quote
+        from html import escape as _esc
         fpath = os.path.join(CATEGORY_ANALYSIS_DIR, f'{slug}.html')
         has   = os.path.exists(fpath)
         dot   = f'<span style="width:8px;height:8px;border-radius:50%;background:{"#1e9d8b" if has else "#ccc"};display:inline-block;margin-left:8px;flex-shrink:0"></span>'
@@ -919,8 +920,15 @@ def categories_page():
         # Include original name as query-param so serve_category can pass it to
         # the auto-trigger without losing special chars like " and /
         name_qs = _quote(name, safe='')
+        name_attr = _esc(name, quote=True)
+        # data-has drives handleCatClick: generated items navigate straight through
+        # (href stays as a working fallback for no-JS / middle-click-new-tab); items
+        # that still need generating are intercepted and run inline via a popup on
+        # this page instead of redirecting to a separate loading page.
         return (
-            f'<a href="/category/{slug}?name={name_qs}" class="cat-item" data-name="{name}"'
+            f'<a href="/category/{slug}?name={name_qs}" class="cat-item" data-name="{name_attr}"'
+            f' data-slug="{slug}" data-type="{type_}" data-has="{1 if has else 0}"'
+            f' onclick="return handleCatClick(event, this)"'
             f' style="display:flex;align-items:center;padding:12px 16px;'
             f'background:#fff;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.06);'
             f'text-decoration:none;color:#1e2a4a;transition:box-shadow .18s,transform .18s;'
@@ -946,6 +954,7 @@ def categories_page():
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>ניתוח קטגוריות</title>
+{_log_float_style()}
 <style>
 *{{box-sizing:border-box;margin:0;padding:0}}
 body{{font-family:'Segoe UI',Arial,sans-serif;background:#f4f6f9;color:#1e2a4a;direction:rtl;display:flex;min-height:100vh}}
@@ -1027,7 +1036,60 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:#f4f6f9;color:#1e2a4a;d
   <div class="grid" id="cat-grid">{items_html}</div>
   <div class="no-results" id="no-results">לא נמצאו תוצאות תואמות</div>
 </div>
+{_log_float_html()}
 <script>
+{_log_float_js()}
+// Intercept clicks on not-yet-generated items: run the analysis inline via a
+// popup on this page (log-float + the same debug-fab/panel every other page
+// uses) instead of navigating away to a separate loading page. Already-
+// generated items fall through to the normal <a href> navigation.
+var _catStreamSlug = null;
+function handleCatClick(event, el) {{
+  if (el.dataset.has === '1') return true;
+  event.preventDefault();
+  if (_catStreamSlug) return false;  // a regen is already running client-side
+  var slug = el.dataset.slug, type = el.dataset.type, name = el.dataset.name;
+  _catStreamSlug = slug;
+  showLogFloat('מנתח: ' + name + '…');
+  var qs = '?slug=' + encodeURIComponent(slug) + '&type=' + encodeURIComponent(type) + '&name=' + encodeURIComponent(name);
+  var es = new EventSource('/api/category/stream' + qs);
+  var tid = setTimeout(function() {{
+    if (es.readyState !== EventSource.CLOSED) {{
+      es.close(); _catStreamSlug = null;
+      appendLog('✗ תם הזמן — נסה שוב', 'err');
+      hideLogFloat(3000);
+    }}
+  }}, 300000);
+  es.onmessage = function(e) {{
+    if (!e.data || e.data === '__CONNECTED__') return;
+    if (e.data === '__ERROR__:busy') {{
+      clearTimeout(tid); es.close(); _catStreamSlug = null;
+      appendLog('✗ ניתוח אחר כבר רץ — נסה שוב בעוד רגע', 'err');
+      hideLogFloat(3000);
+      return;
+    }}
+    if (e.data.indexOf('__DONE__') === 0) {{
+      clearTimeout(tid); es.close(); _catStreamSlug = null;
+      appendLog('✓ הניתוח הסתיים — טוען…', 'done');
+      hideLogFloat(900);
+      setTimeout(function() {{ location.href = '/category/' + slug; }}, 1100);
+      return;
+    }}
+    if (e.data === '__ERROR__') {{
+      clearTimeout(tid); es.close(); _catStreamSlug = null;
+      appendLog('✗ שגיאה בניתוח — פרטים בלוג', 'err');
+      hideLogFloat(3000);
+      return;
+    }}
+    appendLog(e.data);
+  }};
+  es.onerror = function() {{
+    clearTimeout(tid); es.close(); _catStreamSlug = null;
+    appendLog('✗ החיבור נותק', 'err');
+    hideLogFloat(3000);
+  }};
+  return false;
+}}
 function restartServer(btn){{btn.disabled=true;btn.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg> מפעיל מחדש…';fetch('/api/restart',{{method:'POST'}}).catch(function(){{}}).finally(function(){{var t=setInterval(function(){{fetch('/').then(function(r){{if(r.ok){{clearInterval(t);location.reload();}}}}).catch(function(){{}});}},800);}});}}
 function openNav(){{var s=document.getElementById('sidebar'),o=document.getElementById('nav-overlay'),b=document.getElementById('ham-btn');s.classList.add('open');o.classList.add('open');b.classList.add('open');}}
 function closeNav(){{var s=document.getElementById('sidebar'),o=document.getElementById('nav-overlay'),b=document.getElementById('ham-btn');s.classList.remove('open');o.classList.remove('open');b.classList.remove('open');}}
@@ -1467,6 +1529,12 @@ def _not_generated_category_html(slug: str, name: str = '') -> str:
     }}, 300000);
     es.onmessage = function(e) {{
       if (!e.data || e.data === '__CONNECTED__') return;
+      if (e.data === '__ERROR__:busy') {{
+        clearTimeout(_tid); es.close();
+        appendLog('✗ ניתוח אחר כבר רץ — נסה שוב בעוד רגע', 'err');
+        hideLogFloat(3000);
+        return;
+      }}
       if (e.data.startsWith('__DONE__')) {{
         clearTimeout(_tid); es.close();
         appendLog('✓ הניתוח הסתיים — טוען…', 'done');
@@ -1481,6 +1549,11 @@ def _not_generated_category_html(slug: str, name: str = '') -> str:
         return;
       }}
       appendLog(e.data);
+    }};
+    es.onerror = function() {{
+      clearTimeout(_tid); es.close();
+      appendLog('✗ החיבור נותק', 'err');
+      hideLogFloat(3000);
     }};
   }})();
 </script>

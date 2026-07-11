@@ -936,7 +936,7 @@ def categories_page():
             f' onmouseout="this.style.transform=\'\';this.style.boxShadow=\'0 2px 8px rgba(0,0,0,.06)\'">'
             f'{dot}'
             f'<span style="flex:1;font-weight:600;font-size:.9em">{name}</span>'
-            f'<span style="font-size:.7em;font-weight:700;color:#fff;background:{badge_color};'
+            f'<span class="cat-item-badge" style="font-size:.7em;font-weight:700;color:#fff;background:{badge_color};'
             f'padding:2px 8px;border-radius:10px">{label}</span>'
             f'</a>'
         )
@@ -989,7 +989,14 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:#f4f6f9;color:#1e2a4a;d
 .cat-search:focus{{border-color:#1e9d8b;box-shadow:0 0 0 3px rgba(30,157,139,.12)}}
 .search-count{{font-size:.78em;color:#888;white-space:nowrap;flex-shrink:0}}
 .no-results{{text-align:center;padding:40px;color:#aaa;font-size:.9em;display:none}}
-.cat-item.generating{{opacity:.55;pointer-events:none}}
+.cat-item.generating{{opacity:1;pointer-events:none}}
+.cat-item-progress{{display:flex;align-items:center;gap:7px;flex:1;min-width:0}}
+.cip-spinner{{width:13px;height:13px;border:2px solid #d8f3dc;border-top-color:#1e9d8b;
+  border-radius:50%;flex-shrink:0;animation:cip-spin .7s linear infinite}}
+@keyframes cip-spin{{to{{transform:rotate(360deg)}}}}
+.cip-bar-track{{flex:1;height:6px;background:#eef0f6;border-radius:3px;overflow:hidden;min-width:0}}
+.cip-bar-fill{{height:100%;width:0%;background:#1e9d8b;border-radius:3px;transition:width .3s ease}}
+.cip-pct{{font-size:.72em;font-weight:700;color:#1e9d8b;min-width:2.8em;text-align:left;flex-shrink:0}}
 </style>
 </head>
 <body>
@@ -1060,6 +1067,26 @@ function _dbgLine(text, cls) {{
   feed.appendChild(el);
   feed.scrollTop = feed.scrollHeight;
 }}
+function _catProgressShow(el) {{
+  var badge = el.querySelector('.cat-item-badge');
+  if (badge) badge.style.display = 'none';
+  var prog = document.createElement('div');
+  prog.className = 'cat-item-progress';
+  prog.innerHTML = '<span class="cip-spinner"></span><div class="cip-bar-track"><div class="cip-bar-fill"></div></div><span class="cip-pct">0%</span>';
+  el.appendChild(prog);
+}}
+function _catProgressSet(el, pct) {{
+  var fill = el.querySelector('.cip-bar-fill');
+  var pctEl = el.querySelector('.cip-pct');
+  if (fill) fill.style.width = pct + '%';
+  if (pctEl) pctEl.textContent = pct + '%';
+}}
+function _catProgressHide(el) {{
+  var prog = el.querySelector('.cat-item-progress');
+  if (prog) prog.remove();
+  var badge = el.querySelector('.cat-item-badge');
+  if (badge) badge.style.display = '';
+}}
 var _catStreamSlug = null;
 function handleCatClick(event, el) {{
   if (el.dataset.has === '1') return true;
@@ -1068,11 +1095,15 @@ function handleCatClick(event, el) {{
   var slug = el.dataset.slug, type = el.dataset.type, name = el.dataset.name;
   _catStreamSlug = slug;
   el.classList.add('generating');
+  _catProgressShow(el);
   openDebugPanel();
   _dbgLine('▸ מריץ ניתוח: ' + name + '…');
   var qs = '?slug=' + encodeURIComponent(slug) + '&type=' + encodeURIComponent(type) + '&name=' + encodeURIComponent(name);
   var es = new EventSource('/api/category/stream' + qs);
-  function _stop() {{ clearTimeout(tid); es.close(); _catStreamSlug = null; el.classList.remove('generating'); }}
+  function _stop() {{
+    clearTimeout(tid); es.close(); _catStreamSlug = null;
+    el.classList.remove('generating'); _catProgressHide(el);
+  }}
   var tid = setTimeout(function() {{
     if (es.readyState !== EventSource.CLOSED) {{
       _stop();
@@ -1081,20 +1112,24 @@ function handleCatClick(event, el) {{
   }}, 300000);
   es.onmessage = function(e) {{
     if (!e.data || e.data === '__CONNECTED__') return;
-    if (e.data === '__ERROR__:busy') {{
-      _stop();
-      _dbgLine('✗ ניתוח אחר כבר רץ — נסה שוב בעוד רגע', 'err');
+    if (e.data.indexOf('__PROGRESS__:') === 0) {{
+      var pct = parseInt(e.data.slice('__PROGRESS__:'.length), 10);
+      if (!isNaN(pct)) _catProgressSet(el, pct);
       return;
     }}
     if (e.data.indexOf('__DONE__') === 0) {{
+      _catProgressSet(el, 100);
       _stop();
       _dbgLine('✓ הניתוח הסתיים — טוען…', 'ok');
       setTimeout(function() {{ location.href = '/category/' + slug; }}, 400);
       return;
     }}
-    if (e.data === '__ERROR__') {{
+    if (e.data.indexOf('__ERROR__') === 0) {{
       _stop();
-      _dbgLine('✗ שגיאה בניתוח — פרטים למעלה', 'err');
+      var msg = e.data === '__ERROR__:busy' ? 'ניתוח אחר כבר רץ — נסה שוב בעוד רגע'
+        : e.data.length > '__ERROR__:'.length ? e.data.slice('__ERROR__:'.length)
+        : 'שגיאה בניתוח — פרטים למעלה';
+      _dbgLine('✗ ' + msg, 'err');
       return;
     }}
     // regular progress lines already arrive via /api/debug-logs (same tee as
@@ -1256,6 +1291,8 @@ def run_category_stream():
         name = client_name or (slug[len(prefix):].replace('_', ' ') if slug.startswith(prefix) else slug)
 
     local_q: queue.Queue = queue.Queue()
+    _regen_tracker.init(slug)
+    _regen_tracker.set_callback(slug, lambda pct: local_q.put(f'__PROGRESS__:{pct}'))
 
     def _worker():
         global _analysis_running
@@ -1264,21 +1301,27 @@ def run_category_stream():
             from AppManager import AppManager
             def _do():
                 if type_val == 'category':
-                    AppManager(skip_parser=True).category_analysis(category=name)
+                    AppManager(skip_parser=True).category_analysis(category=name, page_id=slug)
                 else:
-                    AppManager(skip_parser=True).category_analysis(business=name)
+                    AppManager(skip_parser=True).category_analysis(business=name, page_id=slug)
             deps, db_mtime = _capture_deps_and_run(_do)
             html_path = os.path.join(CATEGORY_ANALYSIS_DIR, f'{slug}.html')
             if os.path.exists(html_path):
                 _save_manifest(html_path, deps, db_mtime)
+            _regen_tracker.done(slug)
             local_q.put(f'__DONE__:{slug}')
         except Exception as exc:
             import traceback
             _log_error(exc, traceback.format_exc())
-            local_q.put('__ERROR__')
+            # Carry the exception summary on the message itself so the client can
+            # show something useful immediately, instead of relying on the
+            # separate /api/debug-logs stream (a different SSE connection) to have
+            # already delivered the full traceback by the time this arrives.
+            local_q.put(f'__ERROR__:{type(exc).__name__}: {str(exc)[:200]}')
         finally:
             with _analysis_lock:
                 _analysis_running = False
+            _regen_tracker.clear_callback(slug)
 
     threading.Thread(target=_worker, daemon=True, name='cat-stream-worker').start()
 
@@ -1292,7 +1335,7 @@ def run_category_stream():
                 continue
             safe = msg.replace('\r\n', '↵').replace('\n', '↵').replace('\r', '↵')
             yield f'data: {safe}\n\n'
-            if msg.startswith('__DONE__') or msg == '__ERROR__':
+            if msg.startswith('__DONE__') or msg.startswith('__ERROR__'):
                 break
 
     return Response(
@@ -1545,10 +1588,9 @@ def _not_generated_category_html(slug: str, name: str = '') -> str:
     }}, 300000);
     es.onmessage = function(e) {{
       if (!e.data || e.data === '__CONNECTED__') return;
-      if (e.data === '__ERROR__:busy') {{
-        clearTimeout(_tid); es.close();
-        appendLog('✗ ניתוח אחר כבר רץ — נסה שוב בעוד רגע', 'err');
-        hideLogFloat(3000);
+      if (e.data.indexOf('__PROGRESS__:') === 0) {{
+        var pct = parseInt(e.data.slice('__PROGRESS__:'.length), 10);
+        if (!isNaN(pct)) document.getElementById('lf-title').textContent = 'מנתח קטגוריה… ' + pct + '%';
         return;
       }}
       if (e.data.startsWith('__DONE__')) {{
@@ -1558,9 +1600,12 @@ def _not_generated_category_html(slug: str, name: str = '') -> str:
         setTimeout(function() {{ location.href = '/category/' + {slug_js}; }}, 1100);
         return;
       }}
-      if (e.data === '__ERROR__') {{
+      if (e.data.indexOf('__ERROR__') === 0) {{
         clearTimeout(_tid); es.close();
-        appendLog('✗ שגיאה בניתוח', 'err');
+        var msg = e.data === '__ERROR__:busy' ? 'ניתוח אחר כבר רץ — נסה שוב בעוד רגע'
+          : e.data.length > '__ERROR__:'.length ? e.data.slice('__ERROR__:'.length)
+          : 'שגיאה בניתוח';
+        appendLog('✗ ' + msg, 'err');
         hideLogFloat(3000);
         return;
       }}

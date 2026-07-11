@@ -759,7 +759,16 @@ class AppManager:
             case _:
                 utils.log("Unreachable point reached...", "error")
 
-    def category_analysis(self, category=None, business=None):
+    def category_analysis(self, category=None, business=None, page_id=None):
+        # Point-based progress tracking (only active when page_id is provided by WebApp).
+        try:
+            import regen_tracker as _rt_mod
+        except ImportError:
+            _rt_mod = None
+
+        def _rp(pts):
+            if _rt_mod and page_id:
+                _rt_mod.update(page_id, pts)
 
         name_for_analysis = ""
         category_for_analysis = ""
@@ -906,6 +915,7 @@ class AppManager:
             utils.log("Unreachable point reached...", "error")
 
         Graphics.plot_general(spendings_sum, spendings_sum_overall_inc, earnings_sum, title_ext='Category_analysis', topic = name_for_analysis, fig_size=(8, 5))
+        _rp(25)   # shifted monthly totals + general chart
         # --------------------------
 
         # Monthly chart data for Chart.js
@@ -938,7 +948,7 @@ class AppManager:
 
         df_bank_transactions = SimpleMath.process_prices(_bank_raw, general_analysis=False)
         df_card_transactions = SimpleMath.process_prices(_card_raw, general_analysis=False)
-        
+        _rp(35)   # bank + card transaction queries and processing
 
         if df_card_transactions.empty:
             utils.log("No card transactions found for the selected month.", "warning")
@@ -999,6 +1009,7 @@ class AppManager:
         _df_earn  = analisys_data[analisys_data['Final_Value'] > 0][[_group_col, 'Final_Value']].copy()
         spending_pie_data = _build_pie(_df_spend)
         earning_pie_data  = _build_pie(_df_earn)
+        _rp(15)   # stats + pie chart data assembly
 
         utils.create_html_name_analysis({"subtitle": "Specific Analysis",
                                          "Category/business name": category_for_analysis if case == 1 else name_for_analysis,
@@ -1015,6 +1026,7 @@ class AppManager:
                                          "spending_pie_data": spending_pie_data,
                                          "earning_pie_data":  earning_pie_data,
                                          "transactions": analisys_data})
+        _rp(20)   # HTML written to disk
         if category is None and business is None:
             webbrowser.open(r'source\html\Category_output.html')
 

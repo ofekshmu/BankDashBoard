@@ -1456,6 +1456,7 @@ function buildTaggedRow(tx) {
   const auto    = _isAuto(tx);
   const catCls  = auto ? 'cat-label auto' : 'cat-label';
   const srcLbl  = auto ? 'אוטומטי' : 'ידני';
+  const key     = `rt_${tx.table_name}__${tx.id}`;
 
   let metaHtml = `<span>תאריך: <span class="val">${execD}</span></span>`;
   if (isCard) {
@@ -1469,15 +1470,34 @@ function buildTaggedRow(tx) {
   }
 
   return `
-<div class="tx-row is-tagged">
+<div class="tx-row is-tagged" id="row-${esc(key)}" data-key="${esc(key)}"
+     data-table="${esc(tx.table_name)}" data-id="${tx.id}">
   ${typePillHtml(tx)}
-  <div class="tx-info">
-    <div class="tx-name">${name}</div>
-    <div class="tx-meta">${metaHtml}</div>
-  </div>
-  <div class="tx-actions" style="gap:6px">
-    <span class="${catCls}">${esc(tx.category || '')}</span>
-    <span class="source-flag">${srcLbl}</span>
+  <div class="tx-body">
+    <div class="tx-top">
+      <div class="tx-info">
+        <div class="tx-name">${name}</div>
+        <div class="tx-meta">${metaHtml}</div>
+      </div>
+      <div class="tx-actions">
+        <span class="${catCls}" id="cat-badge-${esc(key)}">${esc(tx.category || '')}</span>
+        <span class="source-flag">${srcLbl}</span>
+        <div class="cat-wrap">
+          <input class="cat-input" type="text"
+                 placeholder="קטגוריה חדשה…"
+                 autocomplete="off"
+                 onInput="onCatInput(this,'${esc(key)}')"
+                 onFocus="openDropdown(this,'${esc(key)}')"
+                 onBlur="scheduleClose(this,'${esc(key)}')"
+                 onKeyDown="onCatKey(event,this,'${esc(key)}')"
+                 id="inp-${esc(key)}"
+                 data-key="${esc(key)}"/>
+          <div class="cat-dropdown" id="dd-${esc(key)}"></div>
+        </div>
+        <button class="btn btn-primary" onclick="retagSearchRow('${esc(key)}')"
+                disabled id="btn-${esc(key)}">שנה</button>
+      </div>
+    </div>
   </div>
 </div>`;
 }
@@ -1730,7 +1750,7 @@ async function _doTagAll(name, category) {
   if (!data || !data.ok) {
     // Don't remove anything locally — the server-side tag never actually happened,
     // so the row would just reappear on the next page load anyway.
-    showToast('שגיאה בתיוג', 'error');
+    showToast(data && data.error ? `שגיאה בתיוג: ${data.error}` : 'שגיאה בתיוג', 'error');
     return;
   }
   const count = data.tagged ?? 0;

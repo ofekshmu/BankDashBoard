@@ -3872,18 +3872,18 @@ def tagger_high_value():
         return jsonify({'ok': False, 'error': str(e)})
 
 
-_AT_PATH = os.path.join(_PROJECT_DIR, 'personal information', 'auto_tagger.json')
-
 def _read_at() -> dict:
     import json as _j
-    if os.path.exists(_AT_PATH):
-        with open(_AT_PATH, encoding='utf-8-sig') as _f:
+    from Constants import Paths as _Paths
+    if os.path.exists(_Paths.AUTO_TAGGER_JSON):
+        with open(_Paths.AUTO_TAGGER_JSON, encoding='utf-8-sig') as _f:
             return _j.load(_f)
     return {}
 
 def _write_at(d: dict):
     import json as _j
-    with open(_AT_PATH, 'w', encoding='utf-8') as _f:
+    from Constants import Paths as _Paths
+    with open(_Paths.AUTO_TAGGER_JSON, 'w', encoding='utf-8') as _f:
         _j.dump(d, _f, ensure_ascii=False)
 
 

@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>חיובים חוזרים</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  --teal:       #1e9d8b;
+  --teal-light: #e8f7f5;
+  --teal-dark:  #178878;
+  --navy:       #1e2a4a;
+  --bg:         #f4f6f9;
+  --white:      #ffffff;
+  --border:     #eef0f6;
+  --text-muted: #888;
+  --text-sub:   #555;
+  --red:        #e74c3c;
+  --amber:      #f0b429;
+  --green:      #2ecc71;
+  --shadow-sm:  0 2px 10px rgba(0,0,0,.06);
+  --radius:     14px;
+  --radius-sm:  8px;
+}
+*,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Segoe UI', Arial, sans-serif;
+  background: var(--bg);
+  min-height: 100vh;
+  direction: rtl;
+  color: var(--navy);
+  font-size: 14px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Hamburger + slide-in nav (copied verbatim from SpotifyTracker.html) ── */
+.ham-btn {
+  position: fixed; top: 18px; right: 18px;
+  width: 42px; height: 42px;
+  background: var(--white); border: 1.5px solid var(--border);
+  border-radius: 10px; display: flex; align-items: center; justify-content: center;
+  cursor: pointer; color: var(--navy); z-index: 400;
+  box-shadow: 0 2px 10px rgba(0,0,0,.06);
+  transition: background .15s, color .15s, border-color .15s;
+}
+.ham-btn:hover { background: var(--teal-light); color: var(--teal); }
+.nav-overlay {
+  position: fixed; inset: 0;
+  background: rgba(15,22,45,.26);
+  z-index: 1000; opacity: 0; pointer-events: none;
+  transition: opacity .22s ease;
+}
+.nav-overlay.open { opacity: 1; pointer-events: all; }
+.sidebar {
+  position: fixed; top: 0; right: 0;
+  height: 100vh; width: 230px;
+  background: var(--white); z-index: 1002;
+  transform: translate3d(100%, 0, 0);
+  transition: transform .22s cubic-bezier(.4,0,.2,1);
+  will-change: transform;
+  box-shadow: -4px 0 24px rgba(0,0,0,.09);
+  display: flex; flex-direction: column;
+}
+.sidebar.open { transform: translate3d(0, 0, 0); }
+.sidebar-header {
+  display: flex; align-items: center;
+  padding: 20px 20px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.sidebar-app-name { font-size: .95em; font-weight: 700; color: var(--navy); }
+.sidebar-close-btn {
+  margin-right: auto; background: none; border: none;
+  cursor: pointer; font-size: 1.1em; color: var(--text-sub);
+  line-height: 1; padding: 4px 6px; border-radius: 6px;
+  transition: background .12s, color .12s;
+}
+.sidebar-close-btn:hover { background: var(--teal-light); color: var(--teal); }
+.sidebar-scroll { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 8px 0 16px; }
+.sidebar-footer { padding: 12px 16px; border-top: 1px solid var(--border); flex-shrink: 0; }
+.nav-restart-btn {
+  width: 100%; padding: 8px 12px;
+  border: 1.5px dashed var(--border); border-radius: 8px;
+  background: none; color: var(--text-muted);
+  font-size: .78em; font-weight: 600; cursor: pointer;
+  font-family: inherit; display: flex; align-items: center;
+  gap: 7px; justify-content: center;
+  transition: background .15s, color .15s, border-color .15s;
+}
+.nav-restart-btn:hover { background: #fff3f3; color: #e53935; border-color: #e53935; }
+.nav-restart-btn:disabled { opacity: .5; cursor: default; }
+.nav-item {
+  display: flex; align-items: center; padding: 10px 20px;
+  text-decoration: none; color: var(--text-sub);
+  font-size: .875em; font-weight: 500;
+  transition: background .1s, color .1s;
+  cursor: pointer; border: none; background: none;
+  width: 100%; text-align: right;
+  position: relative; letter-spacing: .1px; font-family: inherit;
+}
+.nav-item::before {
+  content: ''; position: absolute; right: 0; top: 22%; height: 56%;
+  width: 3px; border-radius: 3px 0 0 3px;
+  background: transparent; transition: background .1s;
+}
+.nav-item:hover { background: var(--teal-light); color: var(--teal); }
+.nav-item:hover::before { background: var(--teal); }
+.nav-item.active { color: #b8c0d0; cursor: default; pointer-events: none; }
+.nav-sep { height: 1px; background: var(--border); margin: 8px 16px; }
+
+/* ── Page layout ──────────────────────────────────────────── */
+.main{margin-right:0;flex:1;padding:0 28px 90px;min-width:0}
+.page-header{display:flex;align-items:center;margin-bottom:24px;padding-top:26px;gap:12px;padding-right:62px}
+.page-header h1{font-size:1.85em;font-weight:700;color:var(--navy)}
+
+/* KPI row */
+.kpi-row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:20px}
+.kpi-card{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow-sm);padding:16px 20px;flex:1;min-width:160px}
+.kpi-label{font-size:.78em;color:var(--text-muted);margin-bottom:6px}
+.kpi-value{font-size:1.5em;font-weight:700;color:var(--navy);direction:ltr;text-align:right}
+
+/* Attention section */
+.attn-card{background:#fff8ed;border:1px solid #fde3b0;border-radius:var(--radius);padding:14px 18px;margin-bottom:20px}
+.attn-title{font-size:.85em;font-weight:700;color:#a86a00;margin-bottom:8px}
+.attn-item{font-size:.85em;color:#7a5200;padding:4px 0;cursor:pointer}
+.attn-item:hover{text-decoration:underline}
+
+/* Trend chart */
+.trend-card{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow-sm);padding:18px 22px;margin-bottom:20px}
+.trend-card h3{font-size:.95em;font-weight:700;margin-bottom:12px}
+.trend-chart-wrap{position:relative;height:220px;overflow-x:auto}
+
+/* Search/sort bar */
+.rc-toolbar{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.rc-search{flex:1;min-width:180px;padding:10px 14px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:.9em;font-family:inherit;direction:rtl}
+.rc-sort{padding:10px 14px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:.85em;font-family:inherit;background:var(--white)}
+
+/* Group cards */
+.rc-cards{display:flex;flex-direction:column;gap:10px}
+.rc-card{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow-sm);padding:16px 20px}
+.rc-card-top{display:flex;flex-wrap:wrap;align-items:center;gap:10px;cursor:pointer}
+.rc-card-name{font-weight:700;flex:1;min-width:0}
+.rc-card-cat{background:var(--teal-light);color:var(--teal);border-radius:12px;padding:2px 10px;font-size:.75em;font-weight:600;white-space:nowrap}
+.rc-card-amount{font-weight:700;font-size:1.1em;direction:ltr;white-space:nowrap}
+.rc-status{font-size:.72em;font-weight:700;border-radius:12px;padding:2px 10px;white-space:nowrap}
+.rc-status.active{background:#e8f7f5;color:var(--teal)}
+.rc-status.changed{background:#fff3e0;color:var(--amber)}
+.rc-status.stopped{background:#fdecea;color:var(--red)}
+.rc-next{font-size:.75em;color:var(--text-muted);white-space:nowrap}
+
+/* Timeline strip — kept LTR regardless of page RTL */
+.rc-timeline{display:flex;gap:3px;direction:ltr;overflow-x:auto;padding:10px 0}
+.rc-tl-seg{width:22px;height:22px;border-radius:5px;flex-shrink:0}
+.rc-tl-seg.paid{background:var(--green)}
+.rc-tl-seg.changed{background:var(--amber)}
+.rc-tl-seg.missing{background:var(--red)}
+.rc-tl-seg.before_start{background:var(--border)}
+
+/* Expanded detail */
+.rc-detail{display:none;margin-top:14px;padding-top:14px;border-top:1px solid var(--border)}
+.rc-detail.open{display:block}
+.rc-stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+.rc-stat{background:var(--bg);border-radius:var(--radius-sm);padding:10px 12px}
+.rc-stat-label{font-size:.7em;color:var(--text-muted)}
+.rc-stat-value{font-size:1em;font-weight:700;direction:ltr;text-align:right}
+.rc-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.rc-btn{padding:7px 16px;border-radius:var(--radius-sm);border:1.5px solid var(--border);background:var(--white);font-size:.82em;cursor:pointer;font-family:inherit}
+.rc-btn:hover{background:var(--teal-light);border-color:var(--teal);color:var(--teal)}
+.rc-btn.danger:hover{background:#fdecea;border-color:var(--red);color:var(--red)}
+
+/* Hidden groups toggle */
+.rc-hidden-toggle{font-size:.82em;color:var(--text-muted);cursor:pointer;margin-top:12px;text-align:center}
+.rc-hidden-toggle:hover{color:var(--teal)}
+
+/* Regen button — mirrors Organizer's org-regen-btn exactly */
+.rc-regen-fab{position:fixed;bottom:22px;right:18px;z-index:500}
+.rc-regen-btn{height:52px;padding:0 22px;background:var(--teal);color:#fff;border:none;border-radius:26px;font-size:.85em;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px;box-shadow:0 4px 18px rgba(30,157,139,.45);white-space:nowrap;transition:box-shadow .2s,opacity .2s}
+.rc-regen-btn:hover{box-shadow:0 6px 24px rgba(30,157,139,.65)}
+.rc-regen-btn:disabled{opacity:.65;cursor:wait}
+.rc-regen-icon{font-size:1.6em;line-height:1;display:flex;align-items:center}
+.rc-regen-btn.running .rc-regen-icon{display:none}
+.rc-regen-pct{font-size:.65em;font-weight:700;color:rgba(255,255,255,.9);display:none;line-height:1;margin-top:2px}
+.rc-regen-btn.running .rc-regen-pct{display:block}
+
+@media(max-width:768px){
+  .rc-regen-fab{bottom:14px;right:14px}
+  .rc-regen-btn{width:52px;padding:0;border-radius:50%;justify-content:center}
+  .rc-regen-label{display:none}
+}
+@media(max-width:600px){
+  .main{padding:0 12px 90px !important}
+  .page-header{padding-top:72px;padding-right:0 !important}
+  .kpi-row{flex-direction:column}
+  .rc-stats-grid{grid-template-columns:1fr 1fr}
+  .rc-card-top{flex-wrap:wrap}
+  .rc-card-amount{order:1}
+  .trend-chart-wrap{overflow-x:auto}
+}
+</style>
+<link rel="stylesheet" href="/design-system.css">
+</head>
+<body>
+
+<div class="nav-overlay" id="nav-overlay" onclick="toggleNav()"></div>
+
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <span class="sidebar-app-name">ניהול כספים</span>
+    <button class="sidebar-close-btn" onclick="closeNav()" aria-label="סגור תפריט">✕</button>
+  </div>
+  <div class="sidebar-scroll">
+    <a class="nav-item" href="/monthly" onclick="try{var k=localStorage.getItem('lv_month');if(k){event.preventDefault();location.href='/general/'+k;}}catch(_){}">ניתוח חודשי</a>
+    <div class="nav-sep"></div>
+    <a class="nav-item" href="/accounts">חשבונות</a>
+    <a class="nav-item" href="/housing">דיור</a>
+    <a class="nav-item" href="/organizer">ארגונית</a>
+    <a class="nav-item" href="/bills">מעקב חשבונות</a>
+    <a class="nav-item" href="/categories">ניתוח קטגוריאלי</a>
+    <a class="nav-item" href="/search">חיפוש</a>
+    <a class="nav-item" href="/spotify">Spotify Tracker</a>
+    <a class="nav-item active" href="/recurring">חיובים חוזרים</a>
+    <div class="nav-sep"></div>
+    <a class="nav-item" href="/tagger">תייגן</a>
+    <a class="nav-item" href="/files">קבצים</a>
+  </div>
+  <div class="sidebar-footer">
+    <button class="nav-restart-btn" onclick="restartServer(this)">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
+      הפעל שרת מחדש
+    </button>
+    <div id="app-version-badge-2" style="margin-top:8px;text-align:center;font-size:.72em;color:var(--text-muted);letter-spacing:.03em;opacity:.7;user-select:none">v—</div>
+  </div>
+</nav>
+
+<button class="ham-btn" id="ham-btn" onclick="toggleNav()" aria-label="תפריט">
+  <svg width="18" height="14" viewBox="0 0 18 14" fill="none">
+    <rect width="18" height="2" rx="1" fill="currentColor"/>
+    <rect y="6" width="18" height="2" rx="1" fill="currentColor"/>
+    <rect y="12" width="18" height="2" rx="1" fill="currentColor"/>
+  </svg>
+</button>
+
+<div class="main">
+  <div class="page-header"><h1>חיובים חוזרים</h1></div>
+
+  <div class="kpi-row">
+    <div class="kpi-card"><div class="kpi-label">סה"כ חיוב חודשי חוזר</div><div class="kpi-value" id="kpi-total">—</div></div>
+    <div class="kpi-card"><div class="kpi-label">חיובים חוזרים פעילים</div><div class="kpi-value" id="kpi-count">—</div></div>
+    <div class="kpi-card"><div class="kpi-label">טעונים תשומת לב</div><div class="kpi-value" id="kpi-attn">—</div></div>
+  </div>
+
+  <div class="attn-card" id="attn-card" style="display:none">
+    <div class="attn-title">⚠ טעונים תשומת לב</div>
+    <div id="attn-list"></div>
+  </div>
+
+  <div class="trend-card">
+    <h3>מגמת חיובים חוזרים — 12 חודשים אחרונים</h3>
+    <div class="trend-chart-wrap"><canvas id="trend-chart"></canvas></div>
+  </div>
+
+  <div class="rc-toolbar">
+    <input class="rc-search" id="rc-search" type="text" placeholder="חיפוש לפי שם…" oninput="renderCards()"/>
+    <select class="rc-sort" id="rc-sort" onchange="renderCards()">
+      <option value="amount-desc">סכום (גבוה לנמוך)</option>
+      <option value="amount-asc">סכום (נמוך לגבוה)</option>
+      <option value="name">שם</option>
+      <option value="status">סטטוס</option>
+    </select>
+  </div>
+
+  <div class="rc-cards" id="rc-cards"></div>
+  <div class="rc-hidden-toggle" id="rc-hidden-toggle" onclick="toggleHiddenGroups()">קבוצות מוסתרות (<span id="rc-hidden-count">0</span>)</div>
+  <div class="rc-cards" id="rc-hidden-cards" style="display:none;margin-top:10px"></div>
+</div>
+
+<div class="rc-regen-fab">
+  <button class="rc-regen-btn" id="regen-btn" onclick="regenerate()" title="חשב מחדש">
+    <span class="rc-regen-icon">&#8635;</span>
+    <span class="rc-regen-label">חשב מחדש</span>
+    <span class="rc-regen-pct" id="regen-pct"></span>
+  </button>
+</div>
+
+<script>
+var RC_DATA = __RC_DATA_JSON__;   // replaced server-side at generation time
+var state = { groups: RC_DATA.groups, hidden: RC_DATA.hidden_groups, kpis: RC_DATA.kpis, trend: RC_DATA.trend };
+
+// ── Nav ──────────────────────────────────────────────────────────
+fetch('/api/version').then(function(r){return r.json();}).then(function(d){var b=document.getElementById('app-version-badge-2');if(b&&d.version)b.textContent='v'+d.version;}).catch(function(){});
+function restartServer(btn) {
+  btn.disabled = true;
+  var spinSvg = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>';
+  btn.innerHTML = spinSvg + ' מפעיל מחדש…';
+  fetch('/api/restart', {method:'POST'}).catch(function(){}).finally(function(){
+    var t = setInterval(function(){
+      fetch('/').then(function(r){ if(r.ok){ clearInterval(t); location.reload(); } }).catch(function(){});
+    }, 800);
+  });
+}
+function openNav(){
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('nav-overlay').classList.add('open');
+  document.getElementById('ham-btn').classList.add('open');
+}
+function closeNav(){
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('nav-overlay').classList.remove('open');
+  document.getElementById('ham-btn').classList.remove('open');
+}
+function toggleNav(){
+  document.getElementById('sidebar').classList.contains('open') ? closeNav() : openNav();
+}
+document.addEventListener('keydown', function(e){ if(e.key==='Escape') closeNav(); });
+
+// ── Helpers ──────────────────────────────────────────────────────
+function fmt(n) {
+  var isPos = n >= 0;
+  return (isPos?'+':'') + Math.abs(n).toLocaleString('he-IL',{minimumFractionDigits:2,maximumFractionDigits:2}) + '₪';
+}
+function esc(s){ if(!s) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function statusOf(g) {
+  if (g.possibly_stopped) return 'stopped';
+  if (g.amount_changed) return 'changed';
+  return 'active';
+}
+function statusLabel(s) {
+  return s === 'stopped' ? 'נראה שהופסק' : (s === 'changed' ? 'הסכום השתנה' : 'פעיל');
+}
+
+function renderKpis() {
+  document.getElementById('kpi-total').textContent = fmt(state.kpis.total_monthly);
+  document.getElementById('kpi-count').textContent = state.groups.length;
+  var attnCount = state.groups.filter(function(g){ return g.possibly_stopped || g.amount_changed; }).length;
+  document.getElementById('kpi-attn').textContent = attnCount;
+
+  var attnCard = document.getElementById('attn-card');
+  var attnList = document.getElementById('attn-list');
+  var flagged = state.groups.filter(function(g){ return g.possibly_stopped || g.amount_changed; });
+  if (flagged.length) {
+    attnCard.style.display = '';
+    attnList.innerHTML = flagged.map(function(g) {
+      return '<div class="attn-item" onclick="scrollToGroup(\'' + g.group_key + '\')">' +
+             esc(g.name) + ' — ' + (g.possibly_stopped ? 'נראה שהופסק' : 'הסכום השתנה') + '</div>';
+    }).join('');
+  } else {
+    attnCard.style.display = 'none';
+  }
+}
+
+function scrollToGroup(key) {
+  var el = document.getElementById('card-' + key);
+  if (el) { el.scrollIntoView({behavior:'smooth', block:'center'}); toggleDetail(key, true); }
+}
+
+function renderTimeline(timeline) {
+  return '<div class="rc-timeline">' + timeline.map(function(t) {
+    return '<div class="rc-tl-seg ' + t.status + '" title="' + t.month + '"></div>';
+  }).join('') + '</div>';
+}
+
+function toggleDetail(key, forceOpen) {
+  var el = document.getElementById('detail-' + key);
+  if (!el) return;
+  if (forceOpen) el.classList.add('open');
+  else el.classList.toggle('open');
+}
+
+function getSortedFilteredGroups() {
+  var q = document.getElementById('rc-search').value.trim().toLowerCase();
+  var sort = document.getElementById('rc-sort').value;
+  var list = state.groups.filter(function(g) { return !q || g.name.toLowerCase().indexOf(q) !== -1; });
+  if (sort === 'amount-desc') list.sort(function(a,b){ return b.current_amount - a.current_amount; });
+  else if (sort === 'amount-asc') list.sort(function(a,b){ return a.current_amount - b.current_amount; });
+  else if (sort === 'name') list.sort(function(a,b){ return a.name.localeCompare(b.name); });
+  else if (sort === 'status') list.sort(function(a,b){ return (b.possibly_stopped||b.amount_changed?1:0) - (a.possibly_stopped||a.amount_changed?1:0); });
+  return list;
+}
+
+function cardHtml(g) {
+  var status = statusOf(g);
+  var occRows = g.occurrences.map(function(o) {
+    return '<div style="display:flex;justify-content:space-between;font-size:.82em;padding:4px 0;border-bottom:1px solid var(--border)">' +
+      '<span>' + o.month + '</span><span style="direction:ltr">' + fmt(o.amount) + '</span>' +
+      '<button class="rc-btn danger" style="padding:2px 8px" onclick="excludeTx(\'' + g.group_key + '\',\'' + o.table + '\',' + o.id + ')">✕ הסר</button>' +
+    '</div>';
+  }).join('');
+  return '<div class="rc-card" id="card-' + g.group_key + '">' +
+    '<div class="rc-card-top" onclick="toggleDetail(\'' + g.group_key + '\')">' +
+      '<span class="rc-card-name">' + esc(g.name) + '</span>' +
+      '<span class="rc-card-cat">' + esc(g.category) + '</span>' +
+      '<span class="rc-status ' + status + '">' + statusLabel(status) + '</span>' +
+      '<span class="rc-next">הבא: ' + g.next_expected + '</span>' +
+      '<span class="rc-card-amount">' + fmt(g.current_amount) + '</span>' +
+    '</div>' +
+    renderTimeline(g.timeline) +
+    '<div class="rc-detail" id="detail-' + g.group_key + '">' +
+      '<div class="rc-stats-grid">' +
+        '<div class="rc-stat"><div class="rc-stat-label">ממוצע</div><div class="rc-stat-value">' + fmt(g.average_amount) + '</div></div>' +
+        '<div class="rc-stat"><div class="rc-stat-label">סה"כ שולם</div><div class="rc-stat-value">' + fmt(g.total_spent) + '</div></div>' +
+        '<div class="rc-stat"><div class="rc-stat-label">מס\' תשלומים</div><div class="rc-stat-value">' + g.occurrence_count + '</div></div>' +
+        '<div class="rc-stat"><div class="rc-stat-label">תשלום ראשון</div><div class="rc-stat-value">' + g.first_payment_date + '</div></div>' +
+        '<div class="rc-stat"><div class="rc-stat-label">תשלום אחרון</div><div class="rc-stat-value">' + g.last_payment_date + '</div></div>' +
+        '<div class="rc-stat"><div class="rc-stat-label">טווח</div><div class="rc-stat-value">' + fmt(g.min_amount) + ' – ' + fmt(g.max_amount) + '</div></div>' +
+      '</div>' +
+      occRows +
+      '<div class="rc-actions">' +
+        '<button class="rc-btn" onclick="openTagPrompt(\'' + g.group_key + '\')">תייג קטגוריה…</button>' +
+        '<button class="rc-btn" onclick="openMergePrompt(\'' + g.group_key + '\')">מזג עם…</button>' +
+        '<button class="rc-btn danger" onclick="dismissGroup(\'' + g.group_key + '\')">התעלם</button>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+}
+
+function renderCards() {
+  var list = getSortedFilteredGroups();
+  document.getElementById('rc-cards').innerHTML = list.map(cardHtml).join('') ||
+    '<div class="rc-card" style="text-align:center;color:var(--text-muted)">לא נמצאו חיובים חוזרים</div>';
+  document.getElementById('rc-hidden-count').textContent = state.hidden.length;
+  document.getElementById('rc-hidden-cards').innerHTML = state.hidden.map(function(g) {
+    return '<div class="rc-card"><div class="rc-card-top">' +
+      '<span class="rc-card-name">' + esc(g.name) + '</span>' +
+      '<button class="rc-btn" onclick="restoreGroup(\'' + g.group_key + '\')">שחזר</button>' +
+    '</div></div>';
+  }).join('');
+}
+
+function toggleHiddenGroups() {
+  var el = document.getElementById('rc-hidden-cards');
+  el.style.display = el.style.display === 'none' ? '' : 'none';
+}
+
+function renderTrendChart() {
+  var ctx = document.getElementById('trend-chart');
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: state.trend.map(function(t){ return t.month; }),
+      datasets: [{ label: 'סה"כ חיובים חוזרים', data: state.trend.map(function(t){ return t.total; }),
+                   backgroundColor: '#1e9d8b' }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, scales: { x: { reverse: true } } }
+  });
+}
+
+// ── Actions ──────────────────────────────────────────────────────
+function dismissGroup(key) {
+  fetch('/api/recurring/groups/' + encodeURIComponent(key) + '/dismiss', {method:'POST'})
+    .then(function(r){return r.json();}).then(function(){ regenerate(); });
+}
+function restoreGroup(key) {
+  fetch('/api/recurring/groups/' + encodeURIComponent(key) + '/restore', {method:'POST'})
+    .then(function(r){return r.json();}).then(function(){ regenerate(); });
+}
+function excludeTx(key, table, txId) {
+  fetch('/api/recurring/groups/' + encodeURIComponent(key) + '/exclude-tx', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({table:table, tx_id:txId})
+  }).then(function(r){return r.json();}).then(function(){ regenerate(); });
+}
+function openTagPrompt(key) {
+  var cat = prompt('קטגוריה לתיוג:');
+  if (!cat) return;
+  fetch('/api/recurring/groups/' + encodeURIComponent(key) + '/tag', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({category:cat})
+  }).then(function(r){return r.json();}).then(function(res){
+    if (res.ok) alert('תויגו ' + res.tagged + ' עסקאות'); else alert('שגיאה: ' + res.error);
+  });
+}
+function openMergePrompt(key) {
+  var target = prompt('מפתח הקבוצה למיזוג לתוכה:');
+  if (!target) return;
+  fetch('/api/recurring/groups/merge', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({secondary_key:key, primary_key:target})
+  }).then(function(r){return r.json();}).then(function(){ regenerate(); });
+}
+
+function regenerate() {
+  var btn = document.getElementById('regen-btn');
+  var pct = document.getElementById('regen-pct');
+  btn.disabled = true; btn.classList.add('running'); pct.textContent = '0%';
+  var es = new EventSource('/api/recurring/regenerate');
+  es.onmessage = function(e) {
+    if (e.data === 'done') { es.close(); location.reload(); }
+    else if (e.data.indexOf('error') === 0) { es.close(); location.reload(); }
+    else { var p = parseInt(e.data); if (!isNaN(p)) pct.textContent = p + '%'; }
+  };
+  es.onerror = function() { es.close(); location.reload(); };
+}
+
+renderKpis();
+renderCards();
+renderTrendChart();
+</script>
+</body>
+</html>

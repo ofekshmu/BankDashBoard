@@ -51,9 +51,11 @@ ORGANIZER_HTML         = os.path.join(_HERE, 'html', 'Organizer_Table.html')
 if os.getenv('VERCEL'):  # Vercel: /var/task is read-only; use /tmp
     GENERAL_ANALYSIS_DIR  = '/tmp/general_analysis'
     CATEGORY_ANALYSIS_DIR = '/tmp/category_analysis'
+    RECURRING_HTML        = '/tmp/recurring_charges.html'
 else:
     GENERAL_ANALYSIS_DIR  = os.path.join(_PROJECT_DIR, 'Outputs', 'general_analysis')
     CATEGORY_ANALYSIS_DIR = os.path.join(_PROJECT_DIR, 'Outputs', 'category_analysis')
+    RECURRING_HTML        = os.path.join(_PROJECT_DIR, 'Outputs', 'recurring_charges.html')
 TAGGER_HTML            = os.path.join(_HERE, 'html', 'Tagger.html')
 FILES_HTML             = os.path.join(_HERE, 'html', 'Files.html')
 
@@ -264,6 +266,91 @@ def _save_manifest(html_path: str, deps: dict, db_mtime: float):
             _json.dump(manifest, _f)
     except Exception:
         pass
+
+
+def _render_recurring_html(groups: list) -> str:
+    """Serialize computed groups into the RecurringCharges.html template."""
+    from datetime import date as _d
+
+    def _default(o):
+        if isinstance(o, _d):
+            return o.isoformat()
+        raise TypeError(f'not JSON serializable: {o!r}')
+
+    total_monthly = sum(g['current_amount'] for g in groups)
+
+    from database import DataBase
+    db = DataBase()
+    db.ensure_recurring_tables()
+    dismissed_keys = db.get_recurring_dismissed()
+
+    # Re-fetch dismissed groups' display info: since they're excluded from
+    # get_recurring_groups(), recompute the full candidate set without the
+    # dismissed-filter to list them for the "hidden groups" restore UI.
+    from RecurringCharges import (
+        fetch_candidate_transactions, cluster_transactions, build_group_from_cluster
+    )
+    all_transactions = fetch_candidate_transactions(db)
+    all_clusters = cluster_transactions(all_transactions)
+    hidden_groups = []
+    for c in all_clusters:
+        if c['norm_key'] not in dismissed_keys:
+            continue
+        g = build_group_from_cluster(c, today=_d.today())
+        if g:
+            hidden_groups.append({'group_key': g['group_key'], 'name': g['name']})
+
+    # 12-month trend: total recurring spend per month across all active groups
+    trend_totals = {}
+    for g in groups:
+        for occ in g['occurrences']:
+            trend_totals[occ['month']] = trend_totals.get(occ['month'], 0) + occ['amount']
+    trend_months = sorted(trend_totals.keys())[-12:]
+    trend = [{'month': m, 'total': round(trend_totals[m], 2)} for m in trend_months]
+
+    data = {
+        'groups': groups,
+        'hidden_groups': hidden_groups,
+        'kpis': {'total_monthly': round(total_monthly, 2)},
+        'trend': trend,
+    }
+    data_json = _json.dumps(data, default=_default, ensure_ascii=False)
+
+    html_path = os.path.join(_HERE, 'html', 'RecurringCharges.html')
+    with open(html_path, encoding='utf-8') as f:
+        template = f.read()
+    return template.replace('__RC_DATA_JSON__', data_json)
+
+
+def _not_generated_recurring_html() -> str:
+    return f"""<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>חיובים חוזרים</title>
+{_log_float_style()}
+</head>
+<body>
+  <div class="box">
+    <div class="badge">חיובים חוזרים</div>
+    <h2>מנתח חיובים חוזרים</h2>
+    <p>מריץ ניתוח ראשוני — זה עשוי לקחת מספר שניות…</p>
+  </div>
+  {_log_float_html()}
+  <script>
+{_log_float_js()}
+    showLogFloat('מנתח חיובים חוזרים…');
+    var es = new EventSource('/api/recurring/regenerate');
+    es.onmessage = function(e) {{
+      if (e.data === 'done') {{ es.close(); location.reload(); }}
+      else if (e.data.indexOf('error') === 0) {{ es.close(); appendLog('✗ שגיאה — ' + e.data, 'err'); }}
+      else if (!isNaN(parseInt(e.data))) {{ appendLog('התקדמות: ' + e.data + '%'); }}
+    }};
+    es.onerror = function() {{ es.close(); appendLog('✗ החיבור נותק', 'err'); }};
+  </script>
+</body>
+</html>"""
 
 
 def _is_stale_manifest(html_path: str) -> bool:
@@ -4794,6 +4881,148 @@ def api_bills_suggestions_dismiss():
         db.dismiss_bill_suggestion(name)
         db.commit_changes()
         return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+# ── Recurring Charges routes ──────────────────────────────────────────────────
+
+@app.route('/recurring')
+def recurring_page():
+    if os.path.exists(RECURRING_HTML):
+        return send_file(RECURRING_HTML)
+    return _not_generated_recurring_html()
+
+
+@app.route('/api/recurring/regenerate')
+def recurring_regenerate():
+    import queue as _q
+    from database import DataBase
+    pq = _q.Queue()
+
+    def _run():
+        try:
+            db = DataBase()
+            db.ensure_recurring_tables()
+            pq.put(10)
+
+            from RecurringCharges import get_recurring_groups
+            groups = get_recurring_groups(db)
+            pq.put(60)
+
+            html = _render_recurring_html(groups)
+            os.makedirs(os.path.dirname(RECURRING_HTML), exist_ok=True)
+            with open(RECURRING_HTML, 'w', encoding='utf-8') as f:
+                f.write(html)
+            pq.put(90)
+
+            _save_manifest(RECURRING_HTML, {}, 0.0)
+            pq.put('done')
+        except Exception as exc:
+            import traceback
+            _log_error(exc, traceback.format_exc())
+            pq.put(f'error:{exc}')
+
+    threading.Thread(target=_run, daemon=True).start()
+
+    def _generate():
+        while True:
+            val = pq.get()
+            if val == 'done':
+                yield 'data: 100\n\n'
+                yield 'data: done\n\n'
+                break
+            elif isinstance(val, str) and val.startswith('error:'):
+                yield f'data: {val}\n\n'
+                break
+            else:
+                yield f'data: {val}\n\n'
+
+    return Response(
+        _generate(),
+        mimetype='text/event-stream',
+        headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'},
+    )
+
+
+@app.route('/api/recurring/groups/<path:group_key>/dismiss', methods=['POST'])
+def recurring_dismiss(group_key):
+    from database import DataBase
+    try:
+        db = DataBase()
+        db.ensure_recurring_tables()
+        db.dismiss_recurring_group(group_key)
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/recurring/groups/<path:group_key>/restore', methods=['POST'])
+def recurring_restore(group_key):
+    from database import DataBase
+    try:
+        db = DataBase()
+        db.ensure_recurring_tables()
+        db.restore_recurring_group(group_key)
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/recurring/groups/merge', methods=['POST'])
+def recurring_merge():
+    from database import DataBase
+    try:
+        body = request.get_json(force=True) or {}
+        secondary_key = (body.get('secondary_key') or '').strip()
+        primary_key = (body.get('primary_key') or '').strip()
+        if not secondary_key or not primary_key:
+            return jsonify({'ok': False, 'error': 'missing keys'})
+        db = DataBase()
+        db.ensure_recurring_tables()
+        db.add_recurring_merge(secondary_key, primary_key)
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/recurring/groups/<path:group_key>/exclude-tx', methods=['POST'])
+def recurring_exclude_tx(group_key):
+    from database import DataBase
+    try:
+        body = request.get_json(force=True) or {}
+        table = (body.get('table') or '').strip()
+        tx_id = body.get('tx_id')
+        if table not in ('BankTransactions', 'CardTransactions') or tx_id is None:
+            return jsonify({'ok': False, 'error': 'invalid table/tx_id'})
+        db = DataBase()
+        db.ensure_recurring_tables()
+        db.exclude_recurring_tx(table, int(tx_id))
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/recurring/groups/<path:group_key>/tag', methods=['POST'])
+def recurring_tag(group_key):
+    from database import DataBase
+    try:
+        body = request.get_json(force=True) or {}
+        category = (body.get('category') or '').strip()
+        if not category:
+            return jsonify({'ok': False, 'error': 'missing category'})
+        db = DataBase()
+        db.ensure_recurring_tables()
+        from RecurringCharges import get_recurring_groups
+        groups = get_recurring_groups(db)
+        match = next((g for g in groups if g['group_key'] == group_key), None)
+        if not match:
+            return jsonify({'ok': False, 'error': 'group not found — try regenerating first'})
+        count = 0
+        for occ in match['occurrences']:
+            db.set_category_ui(occ['table'], occ['id'], category, is_auto=False)
+            count += 1
+        return jsonify({'ok': True, 'tagged': count})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)})
 

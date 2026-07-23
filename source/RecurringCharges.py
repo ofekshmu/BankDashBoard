@@ -16,10 +16,34 @@ SIMILARITY_THRESHOLD = 0.82
 AMOUNT_CHANGE_THRESHOLD = 0.15
 MIN_STREAK_MONTHS = 3
 
-# Categories excluded from recurring-charge candidacy: reserved
-# withdrawal/excluded categories, plus housing (already tracked on the
-# Housing page).
-EXCLUDED_CATEGORIES = {'withdrawal', 'Excluded', 'שכירות', 'דירת קבלן'}
+
+def _excluded_categories() -> set:
+    """Categories excluded from recurring-charge candidacy: reserved
+    withdrawal/excluded categories (Constants.ReservedNames), plus housing/
+    mortgage (already tracked on the Housing page — the real housing
+    category is the property's own address string, e.g. MORTGAGE_CATEGORY
+    in src_utils/mortgage.py, not a generic "Rent" label)."""
+    cats = set()
+    try:
+        from Constants import ReservedNames
+        cats.add(ReservedNames.WHITDRAWAL_CATEGORY)
+        cats.add(ReservedNames.EXCLUDED_CATEGORY)
+    except Exception:
+        cats.update({'withdrawal', 'Excluded'})
+    try:
+        from src_utils.mortgage import MORTGAGE_CATEGORY
+        cats.add(MORTGAGE_CATEGORY)
+    except Exception:
+        pass
+    # "דירת קבלן" (contractor's apartment — a new-build property paid off in
+    # installments) and "שכירות" (rent) are additional housing categories also
+    # tracked on the Housing page, separate from MORTGAGE_CATEGORY.
+    cats.add('דירת קבלן')
+    cats.add('שכירות')
+    return cats
+
+
+EXCLUDED_CATEGORIES = _excluded_categories()
 
 
 # ── Name normalization + clustering ────────────────────────────────────────────

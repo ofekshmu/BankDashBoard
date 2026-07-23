@@ -158,6 +158,7 @@ class DataBase:
 
     __instance = None
     __spotify_tables_ready = False
+    __recurring_tables_ready = False
     connection: psycopg2.extensions.connection
     cursor: psycopg2.extensions.cursor
 
@@ -2797,6 +2798,80 @@ class DataBase:
         )
         self.connection.commit()
         DataBase.__spotify_tables_ready = True
+
+    def ensure_recurring_tables(self) -> None:
+        """Create Recurring Charges override tables if they don't exist yet."""
+        if DataBase.__recurring_tables_ready:
+            return
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS RecurringDismissed (
+                Group_Key    TEXT      PRIMARY KEY,
+                Dismissed_At TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS RecurringMerges (
+                ID            SERIAL    PRIMARY KEY,
+                Secondary_Key TEXT      NOT NULL,
+                Primary_Key   TEXT      NOT NULL,
+                Created_At    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS RecurringExcludedTransactions (
+                Table_Name   TEXT      NOT NULL,
+                TX_ID        INTEGER   NOT NULL,
+                Excluded_At  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (Table_Name, TX_ID)
+            )
+        """)
+        self.connection.commit()
+        DataBase.__recurring_tables_ready = True
+
+    def get_recurring_dismissed(self) -> set:
+        rows = self.cursor.execute("SELECT Group_Key FROM RecurringDismissed").fetchall()
+        return {r[0] for r in rows}
+
+    def dismiss_recurring_group(self, group_key: str) -> None:
+        self.cursor.execute(
+            "INSERT INTO RecurringDismissed (Group_Key) VALUES (%s) ON CONFLICT DO NOTHING",
+            (group_key,)
+        )
+        self.connection.commit()
+
+    def restore_recurring_group(self, group_key: str) -> None:
+        self.cursor.execute("DELETE FROM RecurringDismissed WHERE Group_Key=%s", (group_key,))
+        self.connection.commit()
+
+    def get_recurring_merges(self) -> dict:
+        """Returns {secondary_key: primary_key}."""
+        rows = self.cursor.execute("SELECT Secondary_Key, Primary_Key FROM RecurringMerges").fetchall()
+        return {r[0]: r[1] for r in rows}
+
+    def add_recurring_merge(self, secondary_key: str, primary_key: str) -> None:
+        self.cursor.execute(
+            "DELETE FROM RecurringMerges WHERE Secondary_Key=%s", (secondary_key,)
+        )
+        self.cursor.execute(
+            "INSERT INTO RecurringMerges (Secondary_Key, Primary_Key) VALUES (%s, %s)",
+            (secondary_key, primary_key)
+        )
+        self.connection.commit()
+
+    def get_recurring_excluded_tx(self) -> set:
+        """Returns a set of (table_name, tx_id) tuples."""
+        rows = self.cursor.execute(
+            "SELECT Table_Name, TX_ID FROM RecurringExcludedTransactions"
+        ).fetchall()
+        return {(r[0], r[1]) for r in rows}
+
+    def exclude_recurring_tx(self, table_name: str, tx_id: int) -> None:
+        self.cursor.execute(
+            "INSERT INTO RecurringExcludedTransactions (Table_Name, TX_ID) VALUES (%s, %s) "
+            "ON CONFLICT DO NOTHING",
+            (table_name, int(tx_id))
+        )
+        self.connection.commit()
 
     def get_spotify_members(self) -> list:
         rows = self.cursor.execute(

@@ -215,7 +215,7 @@ body {
   border-bottom: 1px solid var(--border);
   transition: background .15s, opacity .3s, transform .35s, max-height .35s;
   animation: fadeSlideIn .22s ease;
-  max-height: 300px;
+  max-height: none;
   overflow: visible;
   position: relative;
   z-index: 1;
@@ -273,6 +273,15 @@ body {
 .tx-meta .val.neg { color: var(--red); }
 .tx-meta .val.pos { color: var(--green); }
 
+/* Per-entry field columns — untagged / high-value / search-results lists only */
+#untagged-list .tx-meta,
+#highval-list .tx-meta,
+#search-tagged-list .tx-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 6px 16px;
+}
+
 .tx-actions {
   display: flex; align-items: center; gap: 8px;
   flex-shrink: 0;
@@ -322,7 +331,7 @@ body {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow-md);
-  z-index: 100;
+  z-index: 600;
   max-height: 220px; overflow-y: auto;
   display: none;
 }
@@ -388,6 +397,7 @@ body {
 .tx-row.is-tagged .cat-label.auto {
   background: #eef2ff; color: #5c7cfa;
 }
+.tx-row.is-tagged { cursor: pointer; }
 .source-flag {
   font-size: .7em; color: var(--text-muted);
   border: 1px solid var(--border);
@@ -633,8 +643,8 @@ body {
 ::-webkit-scrollbar-thumb { background: #cdd4e0; border-radius: 3px; }
 
 /* ── Split feature ───────────────────────────────────────────── */
-.tg-split-btn{background:none;border:1.5px solid var(--border);border-radius:6px;padding:4px 10px;font-size:.75em;color:#7b1fa2;cursor:pointer;font-family:inherit;transition:background .12s,border-color .12s;white-space:nowrap;flex-shrink:0}
-.tg-split-btn:hover{background:#ede7f6;border-color:#9c27b0}
+.tg-split-btn{background:#fff;border:1.5px solid #9575cd;border-radius:8px;padding:5.5px 12.5px;font-size:.82em;font-weight:600;color:#7e57c2;cursor:pointer;font-family:inherit;transition:background .12s;white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;gap:5px}
+.tg-split-btn:hover{background:#f3effc}
 .cash-cur-dropdown{display:none;background:#fff;border:1.5px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:9999;max-height:220px;overflow-y:auto}
 .cash-cur-dropdown.open{display:block}
 .cash-cur-search{padding:8px 12px;border:none;border-bottom:1.5px solid var(--border);font-size:.84em;width:100%;box-sizing:border-box;outline:none;color:var(--navy);position:sticky;top:0;background:#fff;font-family:inherit}
@@ -705,6 +715,13 @@ body {
   .tx-top { flex-direction: column; align-items: stretch; gap: 6px; }
   .tx-info { min-width: 0; }
 
+  /* One field per line instead of a multi-column grid */
+  #untagged-list .tx-meta,
+  #highval-list .tx-meta,
+  #search-tagged-list .tx-meta {
+    grid-template-columns: 1fr;
+  }
+
   /* Actions row: category input shares the row with the תייג/פצל
      buttons instead of forcing them onto a second line */
   .tx-actions { flex-wrap: wrap; gap: 6px; flex-shrink: 1; align-items: stretch; }
@@ -717,7 +734,7 @@ body {
   /* Buttons: smaller, tighter, more elegant on touch screens */
   .btn { font-size: .78em; padding: 7px 12px; border-radius: 9px; gap: 4px; }
   .btn-icon { width: 30px; height: 30px; border-radius: 8px; }
-  .tg-split-btn { font-size: .72em; padding: 5px 9px; border-radius: 7px; }
+  .tg-split-btn { font-size: .78em; padding: 5.5px 10.5px; border-radius: 9px; }
   .btn-tag-all { font-size: .7em; padding: 5px 9px; }
 
   /* Page header: wrap into a tidy stack instead of overflowing */
@@ -851,6 +868,43 @@ body {
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal()">ביטול</button>
       <button class="btn btn-primary" onclick="submitNewCategory()">הוסף</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit tag: category picker (step 1) -->
+<div class="modal-overlay" id="edit-tag-modal-overlay">
+  <div class="modal-box">
+    <div class="modal-title">🔄 שינוי קטגוריה</div>
+    <div id="edit-tag-name" style="font-weight:600;margin-bottom:4px;font-size:.92em;color:var(--navy);"></div>
+    <div id="edit-tag-current" style="font-size:.82em;color:var(--text-muted);margin-bottom:14px;"></div>
+    <div class="cat-wrap" style="width:100%;margin-bottom:14px;">
+      <input class="cat-input" type="text" placeholder="קטגוריה…" autocomplete="off"
+             onInput="onCatInput(this,'edit-tag')"
+             onFocus="openDropdown(this,'edit-tag')"
+             onBlur="scheduleClose(this,'edit-tag')"
+             onKeyDown="onCatKey(event,this,'edit-tag')"
+             id="inp-edit-tag" data-key="edit-tag"/>
+      <div class="cat-dropdown" id="dd-edit-tag"></div>
+    </div>
+    <div class="modal-msg" id="edit-tag-msg"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeEditTagModal()">ביטול</button>
+      <button class="btn btn-primary" id="btn-edit-tag" onclick="editTagSave()" disabled>המשך</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit tag: confirmation (step 2) -->
+<div class="modal-overlay" id="edit-tag-confirm-overlay">
+  <div class="modal-box">
+    <div class="modal-title">🔄 אישור שינוי קטגוריה</div>
+    <div id="edit-tag-confirm-name" style="font-weight:600;margin-bottom:8px;font-size:.92em;color:var(--navy);"></div>
+    <div id="edit-tag-confirm-arrow" style="font-size:.9em;color:var(--text-sub);margin-bottom:18px;"></div>
+    <div class="modal-msg" id="edit-tag-confirm-msg"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="backToEditTagPicker()">חזרה</button>
+      <button class="btn btn-primary" id="edit-tag-confirm-btn" onclick="confirmEditTag()">אשר שינוי</button>
     </div>
   </div>
 </div>
@@ -1231,23 +1285,29 @@ function buildUntaggedRow(tx, idx) {
   const charD  = fmtDate(tx.charge_date);
   const key    = `${tx.table_name}__${tx.id}`;
 
-  let metaHtml = `<span>תאריך ביצוע: <span class="val">${execD}</span></span>`;
-  if (charD !== execD) metaHtml += `<span>תאריך חיוב: <span class="val">${charD}</span></span>`;
-
+  let metaHtml = '';
   if (isCard) {
-    // Card: show both values + card number
+    // Card: show value(s) first, then dates (card number already shown on the pill)
     const chgVal = fmtMoney(tx.charge_value, tx.currency);
     const txVal  = fmtMoney(tx.transaction_value, tx.value_currency || 'ILS');
-    if (tx.charge_value      != null) metaHtml += `<span>ע. עסקה: <span class="val ${tx.charge_value < 0 ? 'pos' : 'neg'}">${chgVal}</span></span>`;
-    if (tx.transaction_value != null) metaHtml += `<span>ע. חיוב: <span class="val ${tx.transaction_value < 0 ? 'pos' : 'neg'}">${txVal}</span></span>`;
-    if (tx.card_id) metaHtml += `<span>כרטיס: <span class="val">${esc(String(tx.card_id))}</span></span>`;
+    const cls    = tx.charge_value < 0 ? 'pos' : 'neg';
+    if (tx.charge_value != null && tx.transaction_value != null && chgVal === txVal) {
+      metaHtml += `<span>ע. עסקה/ע. חיוב: <span class="val ${cls}">${chgVal}</span></span>`;
+    } else {
+      if (tx.charge_value      != null) metaHtml += `<span>ע. עסקה: <span class="val ${cls}">${chgVal}</span></span>`;
+      if (tx.transaction_value != null) metaHtml += `<span>ע. חיוב: <span class="val ${tx.transaction_value < 0 ? 'pos' : 'neg'}">${txVal}</span></span>`;
+    }
+    metaHtml += `<span>תאריך ביצוע: <span class="val">${execD}</span></span>`;
+    if (charD !== execD) metaHtml += `<span>תאריך חיוב: <span class="val">${charD}</span></span>`;
   } else {
-    // Bank: single value with direction label
+    // Bank: single value with direction label, shown first
     const hasOut  = tx.charge_value      != null && tx.charge_value      > 0;
     const hasIn   = tx.transaction_value != null && tx.transaction_value > 0;
     if (hasOut)       metaHtml += `<span>הוצאה: <span class="val neg">${fmtMoney(tx.charge_value, 'ILS')}</span></span>`;
     else if (hasIn)   metaHtml += `<span>הכנסה: <span class="val pos">${fmtMoney(tx.transaction_value, 'ILS')}</span></span>`;
     else if (tx.charge_value != null) metaHtml += `<span>סכום: <span class="val">${fmtMoney(tx.charge_value, 'ILS')}</span></span>`;
+    metaHtml += `<span>תאריך ביצוע: <span class="val">${execD}</span></span>`;
+    if (charD !== execD) metaHtml += `<span>תאריך חיוב: <span class="val">${charD}</span></span>`;
   }
 
   return `
@@ -1276,11 +1336,11 @@ function buildUntaggedRow(tx, idx) {
         <button class="btn btn-primary" onclick="tagRow('${esc(key)}')" disabled id="btn-${esc(key)}">
           תייג
         </button>
-        <button class="tg-split-btn" onclick="tgOpenSplit(event,'${esc(tx.table_name)}',${tx.id},'${esc(tx.name||'')}',${Math.abs(tx.charge_value ?? tx.transaction_value ?? 0)},'${esc(tx.exec_date||'')}')">✂️ פצל</button>
+        <button class="tg-split-btn" onclick="tgOpenSplit(event,'${esc(tx.table_name)}',${tx.id},'${esc(tx.name||'')}',${Math.abs(tx.charge_value ?? tx.transaction_value ?? 0)},'${esc(tx.exec_date||'')}')">פצל</button>
       </div>
     </div>
     <div class="tx-desc-row">
-      <span class="tx-desc-label">📝 הערה:</span>
+      <span class="tx-desc-label">הערה:</span>
       <input class="desc-input" type="text"
              placeholder="תיאור (אופציונלי)…"
              autocomplete="off"
@@ -1336,18 +1396,24 @@ function buildHighValRow(tx, idx) {
   const key    = `hv_${tx.table_name}__${tx.id}`;
   const bigVal = Math.max(Math.abs(tx.charge_value || 0), Math.abs(tx.transaction_value || 0));
 
-  let metaHtml = `<span>תאריך: <span class="val">${execD}</span></span>`;
+  let metaHtml = '';
   if (isCard) {
     const chgVal = fmtMoney(tx.charge_value, tx.currency);
     const txVal  = fmtMoney(tx.transaction_value, tx.value_currency || 'ILS');
-    if (tx.charge_value      != null) metaHtml += `<span>ע. עסקה: <span class="val ${tx.charge_value < 0 ? 'pos' : 'neg'}">${chgVal}</span></span>`;
-    if (tx.transaction_value != null) metaHtml += `<span>ע. חיוב: <span class="val ${tx.transaction_value < 0 ? 'pos' : 'neg'}">${txVal}</span></span>`;
-    if (tx.card_id) metaHtml += `<span>כרטיס: <span class="val">${esc(String(tx.card_id))}</span></span>`;
+    const cls    = tx.charge_value < 0 ? 'pos' : 'neg';
+    if (tx.charge_value != null && tx.transaction_value != null && chgVal === txVal) {
+      metaHtml += `<span>ע. עסקה/ע. חיוב: <span class="val ${cls}">${chgVal}</span></span>`;
+    } else {
+      if (tx.charge_value      != null) metaHtml += `<span>ע. עסקה: <span class="val ${cls}">${chgVal}</span></span>`;
+      if (tx.transaction_value != null) metaHtml += `<span>ע. חיוב: <span class="val ${tx.transaction_value < 0 ? 'pos' : 'neg'}">${txVal}</span></span>`;
+    }
+    metaHtml += `<span>תאריך: <span class="val">${execD}</span></span>`;
   } else {
     const hasOut = tx.charge_value      != null && tx.charge_value      > 0;
     const hasIn  = tx.transaction_value != null && tx.transaction_value > 0;
     if (hasOut)      metaHtml += `<span>הוצאה: <span class="val neg">${fmtMoney(tx.charge_value, 'ILS')}</span></span>`;
     else if (hasIn)  metaHtml += `<span>הכנסה: <span class="val pos">${fmtMoney(tx.transaction_value, 'ILS')}</span></span>`;
+    metaHtml += `<span>תאריך: <span class="val">${execD}</span></span>`;
   }
 
   return `
@@ -1377,11 +1443,11 @@ function buildHighValRow(tx, idx) {
         <button class="btn btn-primary" onclick="tagRow('${esc(key)}')" disabled id="btn-${esc(key)}">
           תייג
         </button>
-        <button class="tg-split-btn" onclick="tgOpenSplit(event,'${esc(tx.table_name)}',${tx.id},'${esc(tx.name||'')}',${Math.abs(tx.charge_value ?? tx.transaction_value ?? 0)},'${esc(tx.exec_date||'')}')">✂️ פצל</button>
+        <button class="tg-split-btn" onclick="tgOpenSplit(event,'${esc(tx.table_name)}',${tx.id},'${esc(tx.name||'')}',${Math.abs(tx.charge_value ?? tx.transaction_value ?? 0)},'${esc(tx.exec_date||'')}')">פצל</button>
       </div>
     </div>
     <div class="tx-desc-row">
-      <span class="tx-desc-label">📝 הערה:</span>
+      <span class="tx-desc-label">הערה:</span>
       <input class="desc-input" type="text"
              placeholder="תיאור (אופציונלי)…"
              autocomplete="off"
@@ -1457,19 +1523,29 @@ function buildTaggedRow(tx) {
   const catCls  = auto ? 'cat-label auto' : 'cat-label';
   const srcLbl  = auto ? 'אוטומטי' : 'ידני';
 
-  let metaHtml = `<span>תאריך: <span class="val">${execD}</span></span>`;
+  let metaHtml = '';
   if (isCard) {
-    if (tx.charge_value      != null) metaHtml += `<span>ע. עסקה: <span class="val ${tx.charge_value < 0 ? 'pos' : 'neg'}">${fmtMoney(tx.charge_value, tx.currency)}</span></span>`;
-    if (tx.transaction_value != null) metaHtml += `<span>ע. חיוב: <span class="val ${tx.transaction_value < 0 ? 'pos' : 'neg'}">${fmtMoney(tx.transaction_value, tx.value_currency || 'ILS')}</span></span>`;
+    const chgVal = fmtMoney(tx.charge_value, tx.currency);
+    const txVal  = fmtMoney(tx.transaction_value, tx.value_currency || 'ILS');
+    const cls    = tx.charge_value < 0 ? 'pos' : 'neg';
+    if (tx.charge_value != null && tx.transaction_value != null && chgVal === txVal) {
+      metaHtml += `<span>ע. עסקה/ע. חיוב: <span class="val ${cls}">${chgVal}</span></span>`;
+    } else {
+      if (tx.charge_value      != null) metaHtml += `<span>ע. עסקה: <span class="val ${cls}">${chgVal}</span></span>`;
+      if (tx.transaction_value != null) metaHtml += `<span>ע. חיוב: <span class="val ${tx.transaction_value < 0 ? 'pos' : 'neg'}">${txVal}</span></span>`;
+    }
   } else {
     const hasOut = tx.charge_value      != null && tx.charge_value      > 0;
     const hasIn  = tx.transaction_value != null && tx.transaction_value > 0;
     if (hasOut)      metaHtml += `<span>הוצאה: <span class="val neg">${fmtMoney(tx.charge_value, 'ILS')}</span></span>`;
     else if (hasIn)  metaHtml += `<span>הכנסה: <span class="val pos">${fmtMoney(tx.transaction_value, 'ILS')}</span></span>`;
   }
+  metaHtml += `<span>תאריך: <span class="val">${execD}</span></span>`;
 
   return `
-<div class="tx-row is-tagged">
+<div class="tx-row is-tagged" data-table="${esc(tx.table_name)}" data-id="${tx.id}"
+     data-name="${esc(tx.name || '')}" data-category="${esc(tx.category || '')}"
+     onclick="openEditTagModal(this)">
   ${typePillHtml(tx)}
   <div class="tx-info">
     <div class="tx-name">${name}</div>
@@ -1481,6 +1557,106 @@ function buildTaggedRow(tx) {
   </div>
 </div>`;
 }
+
+// ── Edit tag modal (change category of an already-tagged row) ───
+let _editTagPending = null;  // { table, id, name, oldCat, newCat }
+
+function openEditTagModal(rowEl) {
+  const table  = rowEl.dataset.table;
+  const id     = parseInt(rowEl.dataset.id);
+  const name   = rowEl.dataset.name;
+  const oldCat = rowEl.dataset.category;
+
+  _editTagPending = { table, id, name, oldCat, newCat: null };
+
+  document.getElementById('edit-tag-name').textContent    = name || '—';
+  document.getElementById('edit-tag-current').textContent = `קטגוריה נוכחית: ${oldCat || '—'}`;
+  document.getElementById('edit-tag-msg').textContent     = '';
+
+  const inp = document.getElementById('inp-edit-tag');
+  inp.value = oldCat || '';
+  inp.classList.toggle('valid', !!resolveCategory(oldCat));
+  inp.classList.remove('invalid');
+  document.getElementById('btn-edit-tag').disabled = !resolveCategory(oldCat);
+
+  document.getElementById('edit-tag-modal-overlay').classList.add('open');
+}
+
+function closeEditTagModal() {
+  document.getElementById('edit-tag-modal-overlay').classList.remove('open');
+  const dd = document.getElementById('dd-edit-tag');
+  if (dd) dd.classList.remove('open');
+  _editTagPending = null;
+}
+
+function editTagSave() {
+  if (!_editTagPending) return;
+  const inp    = document.getElementById('inp-edit-tag');
+  const newCat = resolveCategory(inp.value);
+  if (!newCat) {
+    document.getElementById('edit-tag-msg').textContent = 'בחר קטגוריה תקינה';
+    return;
+  }
+  if (newCat === _editTagPending.oldCat) {
+    closeEditTagModal();
+    return;
+  }
+  _editTagPending.newCat = newCat;
+  document.getElementById('edit-tag-modal-overlay').classList.remove('open');
+  document.getElementById('edit-tag-confirm-name').textContent =
+    `לשנות את הקטגוריה של "${_editTagPending.name}"`;
+  document.getElementById('edit-tag-confirm-arrow').textContent =
+    `מ־"${_editTagPending.oldCat}" ל־"${newCat}"?`;
+  document.getElementById('edit-tag-confirm-msg').textContent = '';
+  document.getElementById('edit-tag-confirm-btn').disabled    = false;
+  document.getElementById('edit-tag-confirm-btn').innerHTML   = 'אשר שינוי';
+  document.getElementById('edit-tag-confirm-overlay').classList.add('open');
+}
+
+function backToEditTagPicker() {
+  document.getElementById('edit-tag-confirm-overlay').classList.remove('open');
+  document.getElementById('edit-tag-modal-overlay').classList.add('open');
+}
+
+async function confirmEditTag() {
+  if (!_editTagPending) return;
+  const { table, id, name, oldCat, newCat } = _editTagPending;
+  const btn = document.getElementById('edit-tag-confirm-btn');
+  btn.disabled  = true;
+  btn.innerHTML = '<span class="spinner"></span>';
+  document.getElementById('edit-tag-confirm-msg').textContent = '';
+
+  const res  = await fetch('/api/tagger/tag', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ table, id, category: newCat, auto: false })
+  }).catch(() => null);
+  const data = res ? await res.json().catch(() => null) : null;
+
+  if (!data || !data.ok) {
+    document.getElementById('edit-tag-confirm-msg').textContent =
+      (data && data.error) ? data.error : 'שגיאה בעדכון';
+    btn.disabled  = false;
+    btn.innerHTML = 'אשר שינוי';
+    return;
+  }
+
+  const item = _taggedItems.find(tx => tx.table_name === table && tx.id === id);
+  if (item) { item.category = newCat; item.reserved = 0; }
+  renderTagged();
+
+  document.getElementById('edit-tag-confirm-overlay').classList.remove('open');
+  _editTagPending = null;
+  showToast(`הקטגוריה עודכנה ל-"${newCat}"`, 'success');
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  const confirmOpen = document.getElementById('edit-tag-confirm-overlay').classList.contains('open');
+  const pickerOpen  = document.getElementById('edit-tag-modal-overlay').classList.contains('open');
+  if (confirmOpen) document.getElementById('edit-tag-confirm-overlay').classList.remove('open');
+  else if (pickerOpen) closeEditTagModal();
+});
 
 // ── Dropdown lift helpers ──────────────────────────────────────
 function _cleanupLiftedDropdowns(container) {
@@ -1742,9 +1918,18 @@ async function _doTagAll(name, category) {
 }
 
 // ── Local-only updates after tagging — no network refetch of the lists ──
+// .tx-row has no fixed max-height (so normal content never bleeds into the
+// next row) — the collapse-on-exit animation instead needs its starting
+// height captured explicitly, right before the 0 transition kicks in.
+function _collapseRow(row) {
+  row.style.maxHeight = row.scrollHeight + 'px';
+  row.offsetHeight;  // force reflow so the browser registers the starting height
+  row.classList.add('exiting');
+}
+
 function exitRow(key) {
   const row = document.querySelector(`[data-key="${key}"]`);
-  if (row) row.classList.add('exiting');
+  if (row) _collapseRow(row);
   const [table, idStr] = key.split('__');
   const id = parseInt(idStr, 10);
   setTimeout(() => {
@@ -1754,7 +1939,7 @@ function exitRow(key) {
 
 function _exitAllByName(name) {
   document.querySelectorAll('.tx-row').forEach(r => {
-    if (r.dataset.name === name) r.classList.add('exiting');
+    if (r.dataset.name === name) _collapseRow(r);
   });
   setTimeout(() => {
     _removeFromLocalState(tx => tx.name === name);
@@ -2058,18 +2243,26 @@ function buildSearchResultRow(tx) {
   const catCls      = auto ? 'cat-label auto' : 'cat-label';
   const existingDesc = (tx.description || '').trim();
 
-  // ID is first = rightmost in RTL layout
-  let metaHtml = `<span>ID: <span class="val">${tx.id}</span></span>`;
-  metaHtml += `<span>תאריך: <span class="val">${execD}</span></span>`;
+  // Value shown first (top field), then date, then ID
+  let metaHtml = '';
   if (isCard) {
-    if (tx.charge_value      != null) metaHtml += `<span>ע. עסקה: <span class="val ${tx.charge_value < 0 ? 'pos' : 'neg'}">${fmtMoney(tx.charge_value, tx.currency)}</span></span>`;
-    if (tx.transaction_value != null) metaHtml += `<span>ע. חיוב: <span class="val ${tx.transaction_value < 0 ? 'pos' : 'neg'}">${fmtMoney(tx.transaction_value, tx.value_currency || 'ILS')}</span></span>`;
+    const chgVal = fmtMoney(tx.charge_value, tx.currency);
+    const txVal  = fmtMoney(tx.transaction_value, tx.value_currency || 'ILS');
+    const cls    = tx.charge_value < 0 ? 'pos' : 'neg';
+    if (tx.charge_value != null && tx.transaction_value != null && chgVal === txVal) {
+      metaHtml += `<span>ע. עסקה/ע. חיוב: <span class="val ${cls}">${chgVal}</span></span>`;
+    } else {
+      if (tx.charge_value      != null) metaHtml += `<span>ע. עסקה: <span class="val ${cls}">${chgVal}</span></span>`;
+      if (tx.transaction_value != null) metaHtml += `<span>ע. חיוב: <span class="val ${tx.transaction_value < 0 ? 'pos' : 'neg'}">${txVal}</span></span>`;
+    }
   } else {
     const hasOut = tx.charge_value      != null && tx.charge_value      > 0;
     const hasIn  = tx.transaction_value != null && tx.transaction_value > 0;
     if (hasOut)     metaHtml += `<span>הוצאה: <span class="val neg">${fmtMoney(tx.charge_value, 'ILS')}</span></span>`;
     else if (hasIn) metaHtml += `<span>הכנסה: <span class="val pos">${fmtMoney(tx.transaction_value, 'ILS')}</span></span>`;
   }
+  metaHtml += `<span>תאריך: <span class="val">${execD}</span></span>`;
+  metaHtml += `<span>ID: <span class="val">${tx.id}</span></span>`;
 
   return `
 <div class="tx-row is-tagged" id="row-${esc(key)}" data-key="${esc(key)}"
@@ -2103,7 +2296,7 @@ function buildSearchResultRow(tx) {
       </div>
     </div>
     <div class="tx-desc-row">
-      <span class="tx-desc-label">📝 הערה:</span>
+      <span class="tx-desc-label">הערה:</span>
       <input class="desc-input" type="text"
              placeholder="תיאור (אופציונלי)…"
              value="${esc(existingDesc)}"

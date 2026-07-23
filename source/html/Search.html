@@ -164,12 +164,12 @@ input[type="date"].field-input{padding:0 10px;appearance:none;-webkit-appearance
 
 /* Result cards */
 .cards-list{display:flex;flex-direction:column;gap:10px}
-.result-card{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow-sm);padding:18px 22px;display:flex;align-items:flex-start;gap:16px;cursor:default;transition:box-shadow .16s,transform .14s;animation:_cardIn .22s ease both}
+.result-card{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow-sm);padding:18px 22px;display:flex;flex-wrap:wrap;align-items:flex-start;gap:16px;cursor:default;transition:box-shadow .16s,transform .14s;animation:_cardIn .22s ease both}
 .result-card:hover{box-shadow:var(--shadow-md);transform:translateY(-1px)}
 
 /* Card left: amount block */
 .rc-amount-block{flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;min-width:110px}
-.rc-amount{font-size:1.25em;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.rc-amount{font-size:1.25em;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap;direction:ltr}
 .rc-amount.pos{color:var(--green)}
 .rc-amount.neg{color:var(--red)}
 .rc-source-badge{margin-top:4px;font-size:.72em;font-weight:600;padding:2px 9px;border-radius:12px;white-space:nowrap}
@@ -187,6 +187,7 @@ input[type="date"].field-input{padding:0 10px;appearance:none;-webkit-appearance
 .rc-details-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .rc-detail{font-size:.78em;color:var(--text-muted);display:flex;align-items:center;gap:3px;white-space:nowrap}
 .rc-detail-label{font-weight:600;color:var(--text-sub)}
+.rc-id-row{flex-basis:100%;margin-top:6px;padding-top:6px;border-top:1px solid var(--border)}
 
 /* No results */
 .no-results{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow-sm);text-align:center;padding:60px 28px;color:var(--text-muted)}
@@ -271,9 +272,11 @@ body { overflow-x: hidden; }
   /* Results table scrollable */
   #results-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
-  /* Result cards adapt */
-  .rc-row { flex-wrap: wrap; gap: 6px; }
-  .rc-amount-block { min-width: unset; width: 100%; align-items: flex-start; }
+  /* Result cards adapt: stack the amount block under the body instead of
+     squeezing both into one non-wrapping flex row (was causing overlap) */
+  .result-card { flex-wrap: wrap; gap: 6px; }
+  .rc-body { width: 100%; }
+  .rc-amount-block { min-width: unset; width: 100%; flex-direction: row; align-items: center; justify-content: space-between; }
 
   /* Modal cap */
   .s-modal { max-width: calc(100vw - 24px) !important; padding: 18px 16px !important; }
@@ -672,7 +675,7 @@ function renderCards(rows){
     var amtCls  = isPos ? 'pos' : 'neg';
     var amtStr  = (isPos?'+':'') + r.amount.toLocaleString('he-IL',{minimumFractionDigits:2,maximumFractionDigits:2}) + '₪';
     var srcCls  = r.source==='card' ? 'card' : 'bank';
-    var srcLbl  = r.source==='card' ? 'אשראי 💳' : 'בנק 🏦';
+    var srcLbl  = r.source==='card' ? 'אשראי' : 'בנק';
     var catHtml = r.category ? '<span class="rc-cat">'+esc(r.category)+'</span>' : '';
     var cardHtml= r.card_id  ? '<span class="rc-detail"><span class="rc-detail-label">כרטיס</span> '+esc(String(r.card_id))+'</span>' : '';
     var idHtml  = r.tx_id!=null ? '<span class="rc-detail"><span class="rc-detail-label">ID</span> '+r.tx_id+'</span>' : '';
@@ -705,15 +708,16 @@ function renderCards(rows){
           splitBadge +
         '</div>' +
         '<div class="rc-meta-row">'+
-          '<span class="rc-date">📅 '+(r.date||'—')+'</span>' +
+          '<span class="rc-date">'+(r.date||'—')+'</span>' +
           catHtml +
         '</div>' +
-        (cardHtml||idHtml ? '<div class="rc-details-row">'+idHtml+cardHtml+'</div>' : '') +
+        (cardHtml ? '<div class="rc-details-row">'+cardHtml+'</div>' : '') +
       '</div>' +
       '<div class="rc-amount-block">' +
         '<span class="rc-amount '+amtCls+'">'+amtStr+'</span>' +
         '<span class="rc-source-badge '+srcCls+'">'+srcLbl+'</span>' +
       '</div>' +
+      (idHtml ? '<div class="rc-id-row">'+idHtml+'</div>' : '') +
     '</div>';
   });
   html += '</div>';

@@ -1209,7 +1209,7 @@ function renderUnmatchedTable(){
     tr.innerHTML = '<td>' + fmtDate(tx.date || tx.transaction_date) + '</td>'
       + '<td class="amount-neg">' + fmt(tx.amount) + '</td>'
       + '<td style="color:var(--text-muted);font-size:.8em">#' + tx.id + '</td>'
-      + '<td style="font-size:.85em">' + escHtml(tx.name || '—') + '</td>'
+      + '<td style="font-size:.85em">' + escHtml(tx.name || '—') + (tx.source === 'split' ? ' <span style="font-size:.72em;color:var(--teal);font-weight:600">פיצול</span>' : '') + '</td>'
       + '<td style="font-size:.85em;color:var(--text-muted)">' + escHtml(tx.description || '—') + '</td>'
       + '<td><select class="assign-sel" onchange="quickAssign(this,' + tx.id + ')">' + memberOptions + '</select></td>'
       + '<td><button class="btn btn-ghost btn-xs" style="color:var(--text-muted);white-space:nowrap" onclick="dismissUnmatched(' + tx.id + ',this)">לא רלוונטי ✕</button></td>';
@@ -1246,7 +1246,7 @@ function quickAssign(sel, txId){
       amount: tx.amount,
       payment_date: (tx.date || tx.transaction_date || '').slice(0,10),
       tx_id: txId,
-      tx_source: 'bank',
+      tx_source: tx.source === 'split' ? 'split' : 'bank',
       note: 'שויך מרשימת לא משויכים'
     })
   }).then(function(r){ return r.json(); })

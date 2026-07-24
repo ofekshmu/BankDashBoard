@@ -169,6 +169,22 @@ body {
 .rc-btn{padding:7px 16px;border-radius:var(--radius-sm);border:1.5px solid var(--border);background:var(--white);font-size:.82em;cursor:pointer;font-family:inherit}
 .rc-btn:hover{background:var(--teal-light);border-color:var(--teal);color:var(--teal)}
 .rc-btn.danger:hover{background:#fdecea;border-color:var(--red);color:var(--red)}
+.rc-btn-primary{padding:7px 16px;border-radius:var(--radius-sm);border:none;background:var(--teal);color:#fff;font-size:.82em;font-weight:600;cursor:pointer;font-family:inherit}
+.rc-btn-primary:hover{background:var(--teal-dark)}
+.rc-btn-primary:disabled{opacity:.5;cursor:default}
+
+/* In-page modal (dropdown-only, no free text) — mirrors SpotifyTracker.html's modal-backdrop/modal */
+.rc-modal-backdrop{position:fixed;inset:0;background:rgba(15,22,45,.38);z-index:600;display:none;align-items:center;justify-content:center}
+.rc-modal-backdrop.open{display:flex}
+.rc-modal{background:var(--white);border-radius:var(--radius);box-shadow:0 16px 48px rgba(0,0,0,.18);padding:28px 28px 24px;width:420px;max-width:calc(100vw - 32px);direction:rtl;position:relative}
+.rc-modal-title{font-size:1.05em;font-weight:700;margin-bottom:18px}
+.rc-modal-close{position:absolute;top:16px;left:18px;background:none;border:none;cursor:pointer;font-size:1.1em;color:var(--text-muted);padding:4px 6px;border-radius:6px;transition:background .12s,color .12s}
+.rc-modal-close:hover{background:var(--teal-light);color:var(--teal)}
+.rc-field-label{font-size:.72em;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;display:block}
+.rc-field-select{width:100%;padding:9px 13px;box-sizing:border-box;height:38px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:.88em;color:var(--navy);background:var(--white);outline:none;font-family:inherit;direction:rtl;cursor:pointer}
+.rc-field-select:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(30,157,139,.12)}
+.rc-modal-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:20px}
+.rc-modal-hint{font-size:.78em;color:var(--text-muted);margin-top:8px}
 
 /* Hidden groups toggle */
 .rc-hidden-toggle{font-size:.82em;color:var(--text-muted);cursor:pointer;margin-top:12px;text-align:center}
@@ -285,6 +301,20 @@ body {
   </button>
 </div>
 
+<div class="rc-modal-backdrop" id="rc-action-modal" onclick="if(event.target===this) closeActionModal()">
+  <div class="rc-modal">
+    <button class="rc-modal-close" onclick="closeActionModal()">✕</button>
+    <div class="rc-modal-title" id="rc-modal-title"></div>
+    <label class="rc-field-label" id="rc-modal-label"></label>
+    <select class="rc-field-select" id="rc-modal-select"></select>
+    <div class="rc-modal-hint" id="rc-modal-hint" style="display:none"></div>
+    <div class="rc-modal-footer">
+      <button class="rc-btn" onclick="closeActionModal()">ביטול</button>
+      <button class="rc-btn-primary" id="rc-modal-confirm-btn" onclick="confirmActionModal()">אישור</button>
+    </div>
+  </div>
+</div>
+
 <script>
 var RC_DATA = __RC_DATA_JSON__;   // replaced server-side at generation time
 var state = { groups: RC_DATA.groups, hidden: RC_DATA.hidden_groups, kpis: RC_DATA.kpis, trend: RC_DATA.trend };
@@ -314,7 +344,7 @@ function closeNav(){
 function toggleNav(){
   document.getElementById('sidebar').classList.contains('open') ? closeNav() : openNav();
 }
-document.addEventListener('keydown', function(e){ if(e.key==='Escape') closeNav(); });
+document.addEventListener('keydown', function(e){ if(e.key==='Escape'){ closeNav(); closeActionModal(); } });
 
 // ── Helpers ──────────────────────────────────────────────────────
 function fmt(n) {
@@ -463,23 +493,97 @@ function excludeTx(key, table, txId) {
     body: JSON.stringify({table:table, tx_id:txId})
   }).then(function(r){return r.json();}).then(function(){ regenerate(); });
 }
-function openTagPrompt(key) {
-  var cat = prompt('קטגוריה לתיוג:');
-  if (!cat) return;
-  fetch('/api/recurring/groups/' + encodeURIComponent(key) + '/tag', {
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({category:cat})
-  }).then(function(r){return r.json();}).then(function(res){
-    if (res.ok) alert('תויגו ' + res.tagged + ' עסקאות'); else alert('שגיאה: ' + res.error);
-  });
+// ── Action modal (dropdown-only — no free text) ───────────────────
+var _rcModalMode = null;    // 'tag' | 'merge'
+var _rcModalGroupKey = null;
+var _rcCategoriesCache = null;
+
+function _rcLoadCategories(cb) {
+  if (_rcCategoriesCache !== null) { cb(_rcCategoriesCache); return; }
+  fetch('/api/search/categories').then(function(r){ return r.json(); }).then(function(d){
+    var cats = d.categories || [];
+    if (cats.length) _rcCategoriesCache = cats;   // only cache a successful, non-empty result
+    cb(cats);
+  }).catch(function(){ cb([]); });   // transient failure — don't cache, allow retry next time
 }
+
+function openTagPrompt(key) {
+  _rcModalMode = 'tag';
+  _rcModalGroupKey = key;
+  document.getElementById('rc-modal-title').textContent = 'תייג קטגוריה';
+  document.getElementById('rc-modal-label').textContent = 'קטגוריה';
+  document.getElementById('rc-modal-hint').style.display = 'none';
+  var sel = document.getElementById('rc-modal-select');
+  sel.innerHTML = '<option value="">טוען…</option>';
+  var confirmBtn = document.getElementById('rc-modal-confirm-btn');
+  confirmBtn.disabled = true;
+  _rcLoadCategories(function(cats) {
+    if (!cats.length) {
+      sel.innerHTML = '<option value="">אין קטגוריות זמינות</option>';
+      return;
+    }
+    var group = state.groups.find(function(g){ return g.group_key === key; });
+    sel.innerHTML = cats.map(function(c){
+      var selected = group && c === group.category ? ' selected' : '';
+      return '<option value="' + esc(c) + '"' + selected + '>' + esc(c) + '</option>';
+    }).join('');
+    confirmBtn.disabled = false;
+  });
+  openActionModal();
+}
+
 function openMergePrompt(key) {
-  var target = prompt('מפתח הקבוצה למיזוג לתוכה:');
-  if (!target) return;
-  fetch('/api/recurring/groups/merge', {
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({secondary_key:key, primary_key:target})
-  }).then(function(r){return r.json();}).then(function(){ regenerate(); });
+  _rcModalMode = 'merge';
+  _rcModalGroupKey = key;
+  document.getElementById('rc-modal-title').textContent = 'מזג עם קבוצה אחרת';
+  document.getElementById('rc-modal-label').textContent = 'מזג לתוך';
+  document.getElementById('rc-modal-hint').textContent = 'ההיסטוריה של הקבוצה הנוכחית תועבר אל הקבוצה שנבחרה, וזו תוסתר.';
+  document.getElementById('rc-modal-hint').style.display = '';
+  var others = state.groups.filter(function(g){ return g.group_key !== key; });
+  var sel = document.getElementById('rc-modal-select');
+  var confirmBtn = document.getElementById('rc-modal-confirm-btn');
+  if (!others.length) {
+    sel.innerHTML = '<option value="">אין קבוצות אחרות למיזוג</option>';
+    confirmBtn.disabled = true;
+  } else {
+    sel.innerHTML = others.map(function(g){
+      return '<option value="' + esc(g.group_key) + '">' + esc(g.name) + ' (' + esc(g.category) + ')</option>';
+    }).join('');
+    confirmBtn.disabled = false;
+  }
+  openActionModal();
+}
+
+function openActionModal() {
+  document.getElementById('rc-action-modal').classList.add('open');
+}
+function closeActionModal() {
+  document.getElementById('rc-action-modal').classList.remove('open');
+  _rcModalMode = null;
+  _rcModalGroupKey = null;
+}
+
+function confirmActionModal() {
+  var value = document.getElementById('rc-modal-select').value;
+  if (!value) return;
+  var key = _rcModalGroupKey;
+  var mode = _rcModalMode;
+  closeActionModal();
+
+  if (mode === 'tag') {
+    fetch('/api/recurring/groups/' + encodeURIComponent(key) + '/tag', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({category:value})
+    }).then(function(r){return r.json();}).then(function(res){
+      if (res.ok) regenerate();
+      else alert('שגיאה: ' + res.error);
+    });
+  } else if (mode === 'merge') {
+    fetch('/api/recurring/groups/merge', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({secondary_key:key, primary_key:value})
+    }).then(function(r){return r.json();}).then(function(){ regenerate(); });
+  }
 }
 
 function regenerate() {

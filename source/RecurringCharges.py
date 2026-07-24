@@ -24,6 +24,8 @@ MAX_CHANGED_FRACTION = 0.40   # if more than this fraction of occurrences show
                               # spending at the same business, not a fixed bill
 MAX_RUN_COUNT = 3             # more than this many separate appear/gap/reappear
                               # cycles is too fragmented to be a real recurring bill
+MAX_MONTHS_SINCE_LAST_OCCURRENCE = 6   # a bill not seen in more than this many
+                                        # months is no longer considered recurring
 
 
 def _excluded_categories() -> set:
@@ -170,6 +172,10 @@ def build_group_from_cluster(cluster: dict, today: _date) -> dict:
         than MAX_RUN_COUNT separate appear/gap/reappear runs, the pattern is
         too sporadic to be a real recurring bill (e.g. a plant nursery you
         buy from now and then, not a fixed monthly charge).
+      - Rule 4 (stale): if the last occurrence is more than
+        MAX_MONTHS_SINCE_LAST_OCCURRENCE months before the most recently
+        completed calendar month, it's no longer a *current* recurring bill
+        even if it clearly was one in the past.
     """
     members = cluster['members']
     by_month = {}
@@ -230,7 +236,13 @@ def build_group_from_cluster(cluster: dict, today: _date) -> dict:
 
     last_month = distinct_months[-1]
     last_complete = _last_complete_month_key(today)
-    possibly_stopped = _months_apart(last_month, last_complete) > 0
+    months_since_last = _months_apart(last_month, last_complete)
+    possibly_stopped = months_since_last > 0
+
+    # Rule 4: hasn't been seen in too long — no longer a *current* recurring
+    # bill, even if it clearly was one in the past.
+    if months_since_last > MAX_MONTHS_SINCE_LAST_OCCURRENCE:
+        return None
 
     # day-of-month mode, for next-expected estimate — only over the
     # (Rule-1-filtered) months that actually count toward this group
@@ -320,10 +332,16 @@ def fetch_candidate_transactions(db, months_back: int = 13) -> list:
     this function did) produced wildly inflated amounts for foreign-currency
     transactions, e.g. a JPY hotel charge showing as if it were that many ILS.
 
+    Also excludes rows classified as Trans_Type.payment (an installment
+    payment on a single larger purchase, e.g. "תשלום 2 מתוך 6") — these are
+    one purchase spread over several charges, already shown as their own
+    payment series in the monthly analysis, not a recurring bill.
+
     Returns list of dicts: table, id, date, name, amount, category.
     """
     import pandas as pd
     from src_utils.calculations import SimpleMath
+    from Constants import Trans_Type
 
     cutoff = _date.today().replace(day=1) - _timedelta(days=months_back * 31)
     excluded_tx = db.get_recurring_excluded_tx()
@@ -346,6 +364,8 @@ def fetch_candidate_transactions(db, months_back: int = 13) -> list:
             final_value = row.get('Final_Value')
             if final_value is None or pd.isna(final_value) or final_value >= 0:
                 continue  # only expenses — Final_Value is signed, negative = spending
+            if row.get('Transaction_Type') == Trans_Type.payment:
+                continue  # installment payment on one purchase, not a recurring bill
             tx_date = _to_plain_date(row['Date'])
             if tx_date < cutoff:
                 continue

@@ -167,6 +167,36 @@ def test_build_group_flags_possibly_stopped():
     print("PASS: build_group_from_cluster flags possibly_stopped")
 
 
+def test_build_group_rejects_stale_bill():
+    # Last occurrence was March 2026; today is December 2026 — 8 months
+    # since the last complete month with an occurrence, well past the
+    # 6-month cutoff. No longer a *current* recurring bill.
+    members = [
+        {'table': 'CardTransactions', 'id': 1, 'date': date(2026, 1, 5), 'name': 'OLDGYM', 'amount': 150.0, 'category': 'בריאות וכושר'},
+        {'table': 'CardTransactions', 'id': 2, 'date': date(2026, 2, 5), 'name': 'OLDGYM', 'amount': 150.0, 'category': 'בריאות וכושר'},
+        {'table': 'CardTransactions', 'id': 3, 'date': date(2026, 3, 5), 'name': 'OLDGYM', 'amount': 150.0, 'category': 'בריאות וכושר'},
+    ]
+    cluster = {'norm_key': 'oldgym', 'members': members}
+    group = build_group_from_cluster(cluster, today=date(2026, 12, 15))
+    assert group is None, "a bill not seen in more than 6 months should no longer count as recurring"
+    print("PASS: build_group_from_cluster rejects stale bill")
+
+
+def test_build_group_keeps_bill_within_six_months():
+    # Last occurrence was March 2026; today is September 2026 — exactly 5
+    # months since the last complete month with an occurrence (August),
+    # still within the 6-month cutoff.
+    members = [
+        {'table': 'CardTransactions', 'id': 1, 'date': date(2026, 1, 5), 'name': 'RECENTGYM', 'amount': 150.0, 'category': 'בריאות וכושר'},
+        {'table': 'CardTransactions', 'id': 2, 'date': date(2026, 2, 5), 'name': 'RECENTGYM', 'amount': 150.0, 'category': 'בריאות וכושר'},
+        {'table': 'CardTransactions', 'id': 3, 'date': date(2026, 3, 5), 'name': 'RECENTGYM', 'amount': 150.0, 'category': 'בריאות וכושר'},
+    ]
+    cluster = {'norm_key': 'recentgym', 'members': members}
+    group = build_group_from_cluster(cluster, today=date(2026, 9, 15))
+    assert group is not None, "a bill last seen 5 months ago should still count as recurring"
+    print("PASS: build_group_from_cluster keeps bill within six months")
+
+
 def test_build_group_flags_amount_changed():
     members = [
         {'table': 'CardTransactions', 'id': 1, 'date': date(2026, 1, 5), 'name': 'INTERNET', 'amount': 100.0, 'category': 'חשבון אינטרנט'},
@@ -304,6 +334,45 @@ def test_get_recurring_groups_end_to_end():
     print("PASS: get_recurring_groups end-to-end")
 
 
+def test_get_recurring_groups_excludes_installment_payments():
+    db = DataBase()
+    db.ensure_recurring_tables()
+
+    # Use a real existing CardID (CardTransactions.CardID has a FK to Card).
+    card_id_row = db.cursor.execute('SELECT CardID FROM Card LIMIT 1').fetchone()
+    assert card_id_row is not None, "test requires at least one row in Card"
+    card_id = card_id_row[0]
+
+    test_name = 'RC_TEST_INSTALLMENT_PURCHASE'
+    ids = []
+    try:
+        # 3 months of a classic installment pattern: "תשלום N מתוך 6", charge
+        # value (total) > transaction value (per-installment), charge date a
+        # month after executed date — matches is_payment_transaction() in
+        # calculations.py exactly.
+        for i, (y, m) in enumerate([(2099, 1), (2099, 2), (2099, 3)], start=1):
+            executed = date(y, m, 10)
+            charged = date(y, m + 1, 3) if m < 12 else date(y + 1, 1, 3)
+            row = db.cursor.execute("""
+                INSERT INTO CardTransactions
+                    (CardID, Name, Executed_Date, Charge_Date, Charge_Value,
+                     Transaction_Value, Source_file, Category, Extra_Info)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING ID
+            """, (card_id, test_name, executed, charged, 600.0, 100.0,
+                  'RC_TEST', 'מוצרי חשמל', f'תשלום {i} מתוך 6')).fetchone()
+            ids.append(row[0])
+        db.connection.commit()
+
+        groups = get_recurring_groups(db, today=date(2099, 5, 15))
+        match = next((g for g in groups if g['name'] == test_name), None)
+        assert match is None, "installment-payment transactions must not be detected as a recurring bill"
+        print("PASS: get_recurring_groups excludes installment payments")
+    finally:
+        if ids:
+            db.cursor.execute("DELETE FROM CardTransactions WHERE ID = ANY(%s)", (ids,))
+            db.connection.commit()
+
+
 if __name__ == '__main__':
     test_recurring_tables_exist()
     test_dismiss_restore_roundtrip()
@@ -317,6 +386,8 @@ if __name__ == '__main__':
     test_build_group_from_cluster_qualifies_and_stats()
     test_build_group_from_cluster_rejects_short_history()
     test_build_group_flags_possibly_stopped()
+    test_build_group_rejects_stale_bill()
+    test_build_group_keeps_bill_within_six_months()
     test_build_group_flags_amount_changed()
     test_build_group_drops_occurrence_beyond_amount_ceiling()
     test_build_group_rejects_too_many_changed()
@@ -324,4 +395,5 @@ if __name__ == '__main__':
     test_build_group_keeps_single_clean_price_rise()
     test_build_timeline_marks_paid_missing_and_before_start()
     test_get_recurring_groups_end_to_end()
+    test_get_recurring_groups_excludes_installment_payments()
     print("\nAll tests passed")

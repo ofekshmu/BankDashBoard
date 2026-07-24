@@ -25,11 +25,12 @@ def _excluded_categories() -> set:
     in src_utils/mortgage.py, not a generic "Rent" label)."""
     cats = set()
     try:
-        from Constants import ReservedNames
+        from Constants import ReservedNames, CC_CHARGE_CATEGORY_NAME
         cats.add(ReservedNames.WHITDRAWAL_CATEGORY)
         cats.add(ReservedNames.EXCLUDED_CATEGORY)
+        cats.add(CC_CHARGE_CATEGORY_NAME)  # "אשראי" — never a recurring-billing candidate
     except Exception:
-        cats.update({'withdrawal', 'Excluded'})
+        cats.update({'withdrawal', 'Excluded', 'אשראי'})
     try:
         from src_utils.mortgage import MORTGAGE_CATEGORY
         cats.add(MORTGAGE_CATEGORY)

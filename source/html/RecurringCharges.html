@@ -200,6 +200,20 @@ body {
 .rc-hidden-toggle{font-size:.82em;color:var(--text-muted);cursor:pointer;margin-top:12px;text-align:center}
 .rc-hidden-toggle:hover{color:var(--teal)}
 
+/* Skeleton loading state — shown in place of real content on first-ever
+   load while the initial regen runs, instead of swapping to a different page */
+@keyframes rcShimmer{0%,100%{opacity:.55}50%{opacity:1}}
+.rc-skel{background:var(--border);border-radius:var(--radius-sm);animation:rcShimmer 1.3s ease-in-out infinite}
+.rc-skel-kpi-row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:20px}
+.rc-skel-kpi{height:74px;border-radius:var(--radius);flex:1;min-width:160px}
+.rc-skel-trend{height:220px;border-radius:var(--radius);margin-bottom:20px}
+.rc-skel-card{height:96px;border-radius:var(--radius);margin-bottom:10px}
+.rc-loading-banner{display:flex;align-items:center;gap:10px;background:var(--teal-light);color:var(--teal-dark);border-radius:var(--radius-sm);padding:10px 16px;margin-bottom:16px;font-size:.85em;font-weight:600}
+.rc-loading-banner .rc-spin{width:14px;height:14px;border-radius:50%;border:2px solid rgba(30,157,139,.3);border-top-color:var(--teal);animation:rcSpin .7s linear infinite;flex-shrink:0}
+@keyframes rcSpin{to{transform:rotate(360deg)}}
+.rc-error-banner{display:none;align-items:center;gap:10px;background:#fdecea;color:#a33;border-radius:var(--radius-sm);padding:10px 16px;margin-bottom:16px;font-size:.85em;font-weight:600}
+.rc-error-banner.show{display:flex}
+
 /* Regen button — mirrors Organizer's org-regen-btn exactly */
 .rc-regen-fab{position:fixed;bottom:22px;right:18px;z-index:500}
 .rc-regen-btn{height:52px;padding:0 22px;background:var(--teal);color:#fff;border:none;border-radius:26px;font-size:.85em;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px;box-shadow:0 4px 18px rgba(30,157,139,.45);white-space:nowrap;transition:box-shadow .2s,opacity .2s}
@@ -272,35 +286,58 @@ body {
 <div class="main">
   <div class="page-header"><h1>חיובים חוזרים</h1></div>
 
-  <div class="kpi-row">
-    <div class="kpi-card"><div class="kpi-label">סה"כ חיוב חודשי חוזר</div><div class="kpi-value" id="kpi-total">—</div></div>
-    <div class="kpi-card"><div class="kpi-label">חיובים חוזרים פעילים</div><div class="kpi-value" id="kpi-count">—</div></div>
-    <div class="kpi-card"><div class="kpi-label">טעונים תשומת לב</div><div class="kpi-value" id="kpi-attn">—</div></div>
+  <div class="rc-loading-banner" id="rc-loading-banner" style="display:none">
+    <span class="rc-spin"></span>
+    <span id="rc-loading-text">מריץ ניתוח ראשוני…</span>
+  </div>
+  <div class="rc-error-banner" id="rc-error-banner">
+    <span>⚠</span>
+    <span id="rc-error-text"></span>
   </div>
 
-  <div class="attn-card" id="attn-card" style="display:none">
-    <div class="attn-title">⚠ טעונים תשומת לב</div>
-    <div id="attn-list"></div>
+  <div id="rc-skeleton" style="display:none">
+    <div class="rc-skel-kpi-row">
+      <div class="rc-skel rc-skel-kpi"></div>
+      <div class="rc-skel rc-skel-kpi"></div>
+      <div class="rc-skel rc-skel-kpi"></div>
+    </div>
+    <div class="rc-skel rc-skel-trend"></div>
+    <div class="rc-skel rc-skel-card"></div>
+    <div class="rc-skel rc-skel-card"></div>
+    <div class="rc-skel rc-skel-card"></div>
   </div>
 
-  <div class="trend-card">
-    <h3>מגמת חיובים חוזרים — 12 חודשים אחרונים</h3>
-    <div class="trend-chart-wrap"><canvas id="trend-chart"></canvas></div>
-  </div>
+  <div id="rc-real-content">
+    <div class="kpi-row">
+      <div class="kpi-card"><div class="kpi-label">סה"כ חיוב חודשי חוזר</div><div class="kpi-value" id="kpi-total">—</div></div>
+      <div class="kpi-card"><div class="kpi-label">חיובים חוזרים פעילים</div><div class="kpi-value" id="kpi-count">—</div></div>
+      <div class="kpi-card"><div class="kpi-label">טעונים תשומת לב</div><div class="kpi-value" id="kpi-attn">—</div></div>
+    </div>
 
-  <div class="rc-toolbar">
-    <input class="rc-search" id="rc-search" type="text" placeholder="חיפוש לפי שם…" oninput="renderCards()"/>
-    <select class="rc-sort" id="rc-sort" onchange="renderCards()">
-      <option value="amount-desc">סכום (גבוה לנמוך)</option>
-      <option value="amount-asc">סכום (נמוך לגבוה)</option>
-      <option value="name">שם</option>
-      <option value="status">סטטוס</option>
-    </select>
-  </div>
+    <div class="attn-card" id="attn-card" style="display:none">
+      <div class="attn-title">⚠ טעונים תשומת לב</div>
+      <div id="attn-list"></div>
+    </div>
 
-  <div class="rc-cards" id="rc-cards"></div>
-  <div class="rc-hidden-toggle" id="rc-hidden-toggle" onclick="toggleHiddenGroups()">קבוצות מוסתרות (<span id="rc-hidden-count">0</span>)</div>
-  <div class="rc-cards" id="rc-hidden-cards" style="display:none;margin-top:10px"></div>
+    <div class="trend-card">
+      <h3>מגמת חיובים חוזרים — 12 חודשים אחרונים</h3>
+      <div class="trend-chart-wrap"><canvas id="trend-chart"></canvas></div>
+    </div>
+
+    <div class="rc-toolbar">
+      <input class="rc-search" id="rc-search" type="text" placeholder="חיפוש לפי שם…" oninput="renderCards()"/>
+      <select class="rc-sort" id="rc-sort" onchange="renderCards()">
+        <option value="amount-desc">סכום (גבוה לנמוך)</option>
+        <option value="amount-asc">סכום (נמוך לגבוה)</option>
+        <option value="name">שם</option>
+        <option value="status">סטטוס</option>
+      </select>
+    </div>
+
+    <div class="rc-cards" id="rc-cards"></div>
+    <div class="rc-hidden-toggle" id="rc-hidden-toggle" onclick="toggleHiddenGroups()">קבוצות מוסתרות (<span id="rc-hidden-count">0</span>)</div>
+    <div class="rc-cards" id="rc-hidden-cards" style="display:none;margin-top:10px"></div>
+  </div>
 </div>
 
 <div class="rc-regen-fab">
@@ -332,8 +369,10 @@ body {
 </div>
 
 <script>
-var RC_DATA = __RC_DATA_JSON__;   // replaced server-side at generation time
-var state = { groups: RC_DATA.groups, hidden: RC_DATA.hidden_groups, kpis: RC_DATA.kpis, trend: RC_DATA.trend };
+var RC_DATA = __RC_DATA_JSON__;   // replaced server-side at generation time; null if never generated yet
+var state = RC_DATA
+  ? { groups: RC_DATA.groups, hidden: RC_DATA.hidden_groups, kpis: RC_DATA.kpis, trend: RC_DATA.trend }
+  : { groups: [], hidden: [], kpis: {total_monthly: 0}, trend: [] };
 
 // ── Nav ──────────────────────────────────────────────────────────
 fetch('/api/version').then(function(r){return r.json();}).then(function(d){var b=document.getElementById('app-version-badge-2');if(b&&d.version)b.textContent='v'+d.version;}).catch(function(){});
@@ -481,9 +520,11 @@ function toggleHiddenGroups() {
   el.style.display = el.style.display === 'none' ? '' : 'none';
 }
 
+var _rcChart = null;
 function renderTrendChart() {
   var ctx = document.getElementById('trend-chart');
-  new Chart(ctx, {
+  if (_rcChart) { _rcChart.destroy(); _rcChart = null; }
+  _rcChart = new Chart(ctx, {
     type: 'bar',
     data: {
       labels: state.trend.map(function(t){ return t.month; }),
@@ -496,8 +537,19 @@ function renderTrendChart() {
 
 // ── Actions ──────────────────────────────────────────────────────
 function dismissGroup(key) {
+  // Persist the dismissal for the next real regen, but update the current
+  // view instantly (no auto-regen) — the choice is already known locally.
   fetch('/api/recurring/groups/' + encodeURIComponent(key) + '/dismiss', {method:'POST'})
-    .then(function(r){return r.json();}).then(function(){ regenerate(); });
+    .then(function(r){return r.json();}).then(function(res){
+      if (!res.ok) { alert('שגיאה: ' + res.error); return; }
+      var idx = state.groups.findIndex(function(g){ return g.group_key === key; });
+      if (idx !== -1) {
+        var removed = state.groups.splice(idx, 1)[0];
+        state.hidden.push({group_key: removed.group_key, name: removed.name});
+        renderKpis();
+        renderCards();
+      }
+    });
 }
 function restoreGroup(key) {
   fetch('/api/recurring/groups/' + encodeURIComponent(key) + '/restore', {method:'POST'})
@@ -648,22 +700,92 @@ function confirmActionModal() {
   }
 }
 
+// ── Loading state (skeleton shown in place of a separate "not generated
+//    yet" page — same shell throughout, updates in place, never reloads) ──
+function _rcShowSkeleton() {
+  document.getElementById('rc-skeleton').style.display = '';
+  document.getElementById('rc-real-content').style.display = 'none';
+}
+function _rcHideSkeleton() {
+  document.getElementById('rc-skeleton').style.display = 'none';
+  document.getElementById('rc-real-content').style.display = '';
+}
+function _rcShowLoadingBanner(text) {
+  document.getElementById('rc-loading-text').textContent = text || 'מריץ ניתוח…';
+  document.getElementById('rc-loading-banner').style.display = 'flex';
+}
+function _rcHideLoadingBanner() {
+  document.getElementById('rc-loading-banner').style.display = 'none';
+}
+function _rcShowError(msg) {
+  document.getElementById('rc-error-text').textContent = msg;
+  document.getElementById('rc-error-banner').classList.add('show');
+}
+function _rcHideError() {
+  document.getElementById('rc-error-banner').classList.remove('show');
+}
+
+function _rcApplyFreshData(data) {
+  state = { groups: data.groups, hidden: data.hidden_groups, kpis: data.kpis, trend: data.trend };
+  _rcHideSkeleton();
+  _rcHideLoadingBanner();
+  _rcHideError();
+  renderKpis();
+  renderCards();
+  renderTrendChart();
+}
+
 function regenerate() {
   var btn = document.getElementById('regen-btn');
   var pct = document.getElementById('regen-pct');
+  _rcHideError();
   btn.disabled = true; btn.classList.add('running'); pct.textContent = '0%';
   var es = new EventSource('/api/recurring/regenerate');
   es.onmessage = function(e) {
-    if (e.data === 'done') { es.close(); location.reload(); }
-    else if (e.data.indexOf('error') === 0) { es.close(); location.reload(); }
-    else { var p = parseInt(e.data); if (!isNaN(p)) pct.textContent = p + '%'; }
+    if (e.data === 'done') {
+      es.close();
+      fetch('/api/recurring/data').then(function(r){ return r.json(); }).then(function(data){
+        _rcApplyFreshData(data);
+        btn.disabled = false; btn.classList.remove('running'); pct.textContent = '';
+      }).catch(function(){
+        btn.disabled = false; btn.classList.remove('running'); pct.textContent = '';
+        _rcHideLoadingBanner();
+        _rcShowError('החישוב הסתיים אך טעינת התוצאות נכשלה — נסה לרענן שוב');
+      });
+    } else if (e.data.indexOf('error') === 0) {
+      es.close();
+      btn.disabled = false; btn.classList.remove('running'); pct.textContent = '';
+      _rcHideLoadingBanner();
+      _rcShowError('שגיאה בחישוב — ' + e.data);
+    } else {
+      var p = parseInt(e.data);
+      if (!isNaN(p)) {
+        pct.textContent = p + '%';
+        _rcShowLoadingBanner('מריץ ניתוח… ' + p + '%');
+      }
+    }
   };
-  es.onerror = function() { es.close(); location.reload(); };
+  es.onerror = function() {
+    es.close();
+    btn.disabled = false; btn.classList.remove('running'); pct.textContent = '';
+    _rcHideLoadingBanner();
+    _rcShowError('החיבור נותק — נסה ללחוץ על כפתור הרענון שוב');
+  };
 }
 
-renderKpis();
-renderCards();
-renderTrendChart();
+if (RC_DATA) {
+  renderKpis();
+  renderCards();
+  renderTrendChart();
+} else {
+  // Never generated yet — show the skeleton in place of real content and
+  // auto-start the same regen flow the button uses. No separate page, no
+  // reload once it finishes: regenerate() fetches fresh data and renders
+  // it into this same page shell.
+  _rcShowSkeleton();
+  _rcShowLoadingBanner('מריץ ניתוח ראשוני — זה עשוי לקחת מספר שניות…');
+  regenerate();
+}
 </script>
 </body>
 </html>

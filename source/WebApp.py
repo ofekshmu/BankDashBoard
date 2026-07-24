@@ -52,10 +52,12 @@ if os.getenv('VERCEL'):  # Vercel: /var/task is read-only; use /tmp
     GENERAL_ANALYSIS_DIR  = '/tmp/general_analysis'
     CATEGORY_ANALYSIS_DIR = '/tmp/category_analysis'
     RECURRING_HTML        = '/tmp/recurring_charges.html'
+    RECURRING_DATA_JSON   = '/tmp/recurring_charges_data.json'
 else:
     GENERAL_ANALYSIS_DIR  = os.path.join(_PROJECT_DIR, 'Outputs', 'general_analysis')
     CATEGORY_ANALYSIS_DIR = os.path.join(_PROJECT_DIR, 'Outputs', 'category_analysis')
     RECURRING_HTML        = os.path.join(_PROJECT_DIR, 'Outputs', 'recurring_charges.html')
+    RECURRING_DATA_JSON   = os.path.join(_PROJECT_DIR, 'Outputs', 'recurring_charges_data.json')
 TAGGER_HTML            = os.path.join(_HERE, 'html', 'Tagger.html')
 FILES_HTML             = os.path.join(_HERE, 'html', 'Files.html')
 
@@ -268,19 +270,13 @@ def _save_manifest(html_path: str, deps: dict, db_mtime: float):
         pass
 
 
-def _render_recurring_html(groups: list) -> str:
-    """Serialize computed groups into the RecurringCharges.html template."""
+def _build_recurring_data(db, groups: list) -> dict:
+    """Build the JSON-serializable data payload (groups/hidden/kpis/trend)
+    shared by both the cached-HTML render and the /api/recurring/data endpoint."""
     from datetime import date as _d
-
-    def _default(o):
-        if isinstance(o, _d):
-            return o.isoformat()
-        raise TypeError(f'not JSON serializable: {o!r}')
 
     total_monthly = sum(g['current_amount'] for g in groups)
 
-    from database import DataBase
-    db = DataBase()
     db.ensure_recurring_tables()
     dismissed_keys = db.get_recurring_dismissed()
 
@@ -308,49 +304,33 @@ def _render_recurring_html(groups: list) -> str:
     trend_months = sorted(trend_totals.keys())[-12:]
     trend = [{'month': m, 'total': round(trend_totals[m], 2)} for m in trend_months]
 
-    data = {
+    return {
         'groups': groups,
         'hidden_groups': hidden_groups,
         'kpis': {'total_monthly': round(total_monthly, 2)},
         'trend': trend,
     }
-    data_json = _json.dumps(data, default=_default, ensure_ascii=False)
 
+
+def _recurring_data_json(data: dict) -> str:
+    from datetime import date as _d
+
+    def _default(o):
+        if isinstance(o, _d):
+            return o.isoformat()
+        raise TypeError(f'not JSON serializable: {o!r}')
+
+    return _json.dumps(data, default=_default, ensure_ascii=False)
+
+
+def _render_recurring_html(data_json: str) -> str:
+    """Render the RecurringCharges.html template with a given JSON data blob
+    (either real computed data, or the literal string 'null' for the initial
+    loading state — same page shell either way, never a separate screen)."""
     html_path = os.path.join(_HERE, 'html', 'RecurringCharges.html')
     with open(html_path, encoding='utf-8') as f:
         template = f.read()
     return template.replace('__RC_DATA_JSON__', data_json)
-
-
-def _not_generated_recurring_html() -> str:
-    return f"""<!DOCTYPE html>
-<html lang="he" dir="rtl">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>חיובים חוזרים</title>
-{_log_float_style()}
-</head>
-<body>
-  <div class="box">
-    <div class="badge">חיובים חוזרים</div>
-    <h2>מנתח חיובים חוזרים</h2>
-    <p>מריץ ניתוח ראשוני — זה עשוי לקחת מספר שניות…</p>
-  </div>
-  {_log_float_html()}
-  <script>
-{_log_float_js()}
-    showLogFloat('מנתח חיובים חוזרים…');
-    var es = new EventSource('/api/recurring/regenerate');
-    es.onmessage = function(e) {{
-      if (e.data === 'done') {{ es.close(); location.reload(); }}
-      else if (e.data.indexOf('error') === 0) {{ es.close(); appendLog('✗ שגיאה — ' + e.data, 'err'); }}
-      else if (!isNaN(parseInt(e.data))) {{ appendLog('התקדמות: ' + e.data + '%'); }}
-    }};
-    es.onerror = function() {{ es.close(); appendLog('✗ החיבור נותק', 'err'); }};
-  </script>
-</body>
-</html>"""
 
 
 def _is_stale_manifest(html_path: str) -> bool:
@@ -4891,7 +4871,33 @@ def api_bills_suggestions_dismiss():
 def recurring_page():
     if os.path.exists(RECURRING_HTML):
         return send_file(RECURRING_HTML)
-    return _not_generated_recurring_html()
+    # No cache yet — serve the SAME page shell with no data embedded (RC_DATA
+    # = null). The page's own JS shows animated skeleton placeholders and
+    # auto-starts the regen SSE stream itself; there is no separate "loading"
+    # screen and no redirect/reload once it's done.
+    return _render_recurring_html('null')
+
+
+@app.route('/api/recurring/data')
+def recurring_data():
+    """Return the cached data payload (groups/hidden/kpis/trend) as JSON,
+    without regenerating. Used by the frontend to refresh in place after a
+    regen completes, instead of a full page reload."""
+    try:
+        if os.path.exists(RECURRING_DATA_JSON):
+            with open(RECURRING_DATA_JSON, encoding='utf-8') as f:
+                return Response(f.read(), mimetype='application/json')
+        # Fallback: nothing cached yet — compute fresh (rare; regen normally
+        # writes this file before the SSE stream reports 'done').
+        from database import DataBase
+        db = DataBase()
+        db.ensure_recurring_tables()
+        from RecurringCharges import get_recurring_groups
+        groups = get_recurring_groups(db)
+        data = _build_recurring_data(db, groups)
+        return Response(_recurring_data_json(data), mimetype='application/json')
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
 
 
 @app.route('/api/recurring/regenerate')
@@ -4908,12 +4914,18 @@ def recurring_regenerate():
 
             from RecurringCharges import get_recurring_groups
             groups = get_recurring_groups(db)
-            pq.put(60)
+            pq.put(50)
 
-            html = _render_recurring_html(groups)
+            data = _build_recurring_data(db, groups)
+            data_json = _recurring_data_json(data)
+            pq.put(70)
+
+            html = _render_recurring_html(data_json)
             os.makedirs(os.path.dirname(RECURRING_HTML), exist_ok=True)
             with open(RECURRING_HTML, 'w', encoding='utf-8') as f:
                 f.write(html)
+            with open(RECURRING_DATA_JSON, 'w', encoding='utf-8') as f:
+                f.write(data_json)
             pq.put(90)
 
             _save_manifest(RECURRING_HTML, {}, 0.0)

@@ -368,6 +368,18 @@ body {
   </div>
 </div>
 
+<div class="rc-modal-backdrop" id="rc-confirm-modal" onclick="if(event.target===this) _rcCloseConfirm()">
+  <div class="rc-modal" style="width:360px">
+    <button class="rc-modal-close" onclick="_rcCloseConfirm()">✕</button>
+    <div class="rc-modal-title" id="rc-confirm-title"></div>
+    <div id="rc-confirm-msg" style="font-size:.9em;color:var(--text-sub);line-height:1.5"></div>
+    <div class="rc-modal-footer">
+      <button class="rc-btn" onclick="_rcCloseConfirm()">ביטול</button>
+      <button class="rc-btn-primary" id="rc-confirm-yes-btn">אישור</button>
+    </div>
+  </div>
+</div>
+
 <script>
 var RC_DATA = __RC_DATA_JSON__;   // replaced server-side at generation time; null if never generated yet
 var state = RC_DATA
@@ -399,7 +411,7 @@ function closeNav(){
 function toggleNav(){
   document.getElementById('sidebar').classList.contains('open') ? closeNav() : openNav();
 }
-document.addEventListener('keydown', function(e){ if(e.key==='Escape'){ closeNav(); closeActionModal(); } });
+document.addEventListener('keydown', function(e){ if(e.key==='Escape'){ closeNav(); closeActionModal(); _rcCloseConfirm(); } });
 
 // ── Helpers ──────────────────────────────────────────────────────
 function fmt(n) {
@@ -471,7 +483,7 @@ function cardHtml(g) {
   var occRows = g.occurrences.map(function(o) {
     return '<div style="display:flex;justify-content:space-between;font-size:.82em;padding:4px 0;border-bottom:1px solid var(--border)">' +
       '<span>' + o.month + '</span><span style="direction:ltr">' + fmt(o.amount) + '</span>' +
-      '<button class="rc-btn danger" style="padding:2px 8px" onclick="excludeTx(\'' + g.group_key + '\',\'' + o.table + '\',' + o.id + ')">✕ הסר</button>' +
+      '<button class="rc-btn danger" style="padding:2px 8px" onclick="excludeTx(\'' + g.group_key + '\',\'' + o.table + '\',' + o.id + ',\'' + o.month + '\',\'' + fmt(o.amount).replace(/'/g,"") + '\')">✕ הסר</button>' +
     '</div>';
   }).join('');
   return '<div class="rc-card" id="card-' + g.group_key + '">' +
@@ -535,31 +547,55 @@ function renderTrendChart() {
   });
 }
 
+// ── Confirmation modal — used before every one-click action ───────
+function _rcConfirm(title, message, onConfirm) {
+  document.getElementById('rc-confirm-title').textContent = title;
+  document.getElementById('rc-confirm-msg').textContent = message;
+  var yesBtn = document.getElementById('rc-confirm-yes-btn');
+  var freshYesBtn = yesBtn.cloneNode(true);   // strip any previously-bound listener
+  yesBtn.parentNode.replaceChild(freshYesBtn, yesBtn);
+  freshYesBtn.addEventListener('click', function() { _rcCloseConfirm(); onConfirm(); });
+  document.getElementById('rc-confirm-modal').classList.add('open');
+}
+function _rcCloseConfirm() {
+  document.getElementById('rc-confirm-modal').classList.remove('open');
+}
+
 // ── Actions ──────────────────────────────────────────────────────
 function dismissGroup(key) {
-  // Persist the dismissal for the next real regen, but update the current
-  // view instantly (no auto-regen) — the choice is already known locally.
-  fetch('/api/recurring/groups/' + encodeURIComponent(key) + '/dismiss', {method:'POST'})
-    .then(function(r){return r.json();}).then(function(res){
-      if (!res.ok) { alert('שגיאה: ' + res.error); return; }
-      var idx = state.groups.findIndex(function(g){ return g.group_key === key; });
-      if (idx !== -1) {
-        var removed = state.groups.splice(idx, 1)[0];
-        state.hidden.push({group_key: removed.group_key, name: removed.name});
-        renderKpis();
-        renderCards();
-      }
-    });
+  var g = state.groups.find(function(x){ return x.group_key === key; });
+  var name = g ? g.name : key;
+  _rcConfirm('התעלמות מחיוב חוזר', 'להתעלם מ"' + name + '"? ניתן לשחזר בכל עת מרשימת הקבוצות המוסתרות.', function() {
+    // Persist the dismissal for the next real regen, but update the current
+    // view instantly (no auto-regen) — the choice is already known locally.
+    fetch('/api/recurring/groups/' + encodeURIComponent(key) + '/dismiss', {method:'POST'})
+      .then(function(r){return r.json();}).then(function(res){
+        if (!res.ok) { alert('שגיאה: ' + res.error); return; }
+        var idx = state.groups.findIndex(function(x){ return x.group_key === key; });
+        if (idx !== -1) {
+          var removed = state.groups.splice(idx, 1)[0];
+          state.hidden.push({group_key: removed.group_key, name: removed.name});
+          renderKpis();
+          renderCards();
+        }
+      });
+  });
 }
 function restoreGroup(key) {
-  fetch('/api/recurring/groups/' + encodeURIComponent(key) + '/restore', {method:'POST'})
-    .then(function(r){return r.json();}).then(function(){ regenerate(); });
+  var g = state.hidden.find(function(x){ return x.group_key === key; });
+  var name = g ? g.name : key;
+  _rcConfirm('שחזור חיוב חוזר', 'לשחזר את "' + name + '" לרשימת החיובים החוזרים הפעילים?', function() {
+    fetch('/api/recurring/groups/' + encodeURIComponent(key) + '/restore', {method:'POST'})
+      .then(function(r){return r.json();}).then(function(){ regenerate(); });
+  });
 }
-function excludeTx(key, table, txId) {
-  fetch('/api/recurring/groups/' + encodeURIComponent(key) + '/exclude-tx', {
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({table:table, tx_id:txId})
-  }).then(function(r){return r.json();}).then(function(){ regenerate(); });
+function excludeTx(key, table, txId, monthStr, amountStr) {
+  _rcConfirm('הסרת עסקה מהקבוצה', 'להסיר את העסקה מ-' + monthStr + ' (' + amountStr + ') מהקבוצה? הפעולה תשפיע על החישוב בהרצה הבאה.', function() {
+    fetch('/api/recurring/groups/' + encodeURIComponent(key) + '/exclude-tx', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({table:table, tx_id:txId})
+    }).then(function(r){return r.json();}).then(function(){ regenerate(); });
+  });
 }
 // ── Action modal (dropdown-only — no free text) ───────────────────
 var _rcModalMode = null;    // 'tag' | 'merge'

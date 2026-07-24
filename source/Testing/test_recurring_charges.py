@@ -325,6 +325,8 @@ def test_get_recurring_groups_end_to_end():
     assert match is not None, "expected the test streaming charge to be detected as recurring"
     assert match['occurrence_count'] == 3
     assert len(match['timeline']) == 12
+    assert match['merged_from'] == [], "an un-merged group should report no merge sources"
+    assert all(o['name'] == test_name for o in match['occurrences']), "each occurrence should carry its own original transaction name"
 
     # Cleanup
     db.cursor.execute(
@@ -332,6 +334,55 @@ def test_get_recurring_groups_end_to_end():
     )
     db.connection.commit()
     print("PASS: get_recurring_groups end-to-end")
+
+
+def test_get_recurring_groups_tracks_merge_source_and_per_occurrence_names():
+    db = DataBase()
+    db.ensure_recurring_tables()
+
+    name_a = 'RC_TEST_CELLCOM_OLD_BILL_DESCRIPTOR'
+    name_b = 'RC_TEST_DIFFERENT_PROVIDER_NAME_XYZ'
+    ids = []
+    try:
+        # Same real-world scenario as the Cellcom case: a bill whose bank
+        # descriptor changed name partway through, so it fuzzy-clusters as
+        # two separate groups until manually merged.
+        for (y, m) in [(2099, 1), (2099, 2), (2099, 3)]:
+            row = db.cursor.execute("""
+                INSERT INTO BankTransactions (Date, Name, Out, Income, Source_file, Category)
+                VALUES (%s, %s, %s, %s, %s, %s) RETURNING ID
+            """, (date(y, m, 16), name_a, 100.0, 0, 'RC_TEST', 'חשבון אינטרנט')).fetchone()
+            ids.append(row[0])
+        for (y, m) in [(2099, 4), (2099, 5), (2099, 6)]:
+            row = db.cursor.execute("""
+                INSERT INTO BankTransactions (Date, Name, Out, Income, Source_file, Category)
+                VALUES (%s, %s, %s, %s, %s, %s) RETURNING ID
+            """, (date(y, m, 16), name_b, 89.0, 0, 'RC_TEST', 'חשבונות')).fetchone()
+            ids.append(row[0])
+        db.connection.commit()
+
+        key_a = normalize_name(name_a)
+        key_b = normalize_name(name_b)
+
+        groups_before = get_recurring_groups(db, today=date(2099, 7, 15))
+        names_before = {g['name'] for g in groups_before if g['group_key'] in (key_a, key_b)}
+        assert names_before == {name_a, name_b}, "before merging, the two descriptors should be separate groups"
+
+        db.add_recurring_merge(key_a, key_b)
+        groups_after = get_recurring_groups(db, today=date(2099, 7, 15))
+        merged = next((g for g in groups_after if g['group_key'] == key_b), None)
+        assert merged is not None
+        assert not any(g['group_key'] == key_a for g in groups_after), "the merged-away secondary should no longer appear on its own"
+        assert merged['merged_from'] == [name_a]
+        assert merged['occurrence_count'] == 6
+        occ_names = {o['name'] for o in merged['occurrences']}
+        assert occ_names == {name_a, name_b}, "occurrences should preserve which original name each transaction came from"
+        print("PASS: get_recurring_groups tracks merge source and per-occurrence names")
+    finally:
+        db.cursor.execute("DELETE FROM RecurringMerges WHERE Secondary_Key=%s", (normalize_name(name_a),))
+        if ids:
+            db.cursor.execute("DELETE FROM BankTransactions WHERE ID = ANY(%s)", (ids,))
+        db.connection.commit()
 
 
 def test_get_recurring_groups_excludes_installment_payments():
@@ -441,6 +492,7 @@ if __name__ == '__main__':
     test_build_group_keeps_single_clean_price_rise()
     test_build_timeline_marks_paid_missing_and_before_start()
     test_get_recurring_groups_end_to_end()
+    test_get_recurring_groups_tracks_merge_source_and_per_occurrence_names()
     test_get_recurring_groups_excludes_installment_payments()
     test_apply_history_tracking_detects_introduced_and_removed()
     print("\nAll tests passed")

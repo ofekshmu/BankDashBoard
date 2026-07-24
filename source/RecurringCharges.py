@@ -227,6 +227,7 @@ def build_group_from_cluster(cluster: dict, today: _date) -> dict:
             'amount': tx['amount'],
             'table': tx['table'],
             'id': tx['id'],
+            'name': tx['name'],
             'status': 'changed' if deviates else 'paid',
         })
 
@@ -396,13 +397,19 @@ def get_recurring_groups(db, today: _date = None) -> list:
     transactions = fetch_candidate_transactions(db)
     clusters = cluster_transactions(transactions)
 
-    # Apply manual merges: fold secondary cluster's members into primary's.
+    # Apply manual merges: fold secondary cluster's members into primary's,
+    # remembering each secondary's own display name so the merged group can
+    # show "merged with X" and, per-occurrence, which original name a given
+    # transaction actually came from.
     merges = db.get_recurring_merges()  # {secondary_key: primary_key}
     by_key = {c['norm_key']: c for c in clusters}
+    merged_from_names = {}  # primary_key -> [secondary display names]
     for secondary_key, primary_key in merges.items():
         sec = by_key.get(secondary_key)
         prim = by_key.get(primary_key)
         if sec and prim and sec is not prim:
+            sec_name = max(sec['members'], key=lambda m: m['date'])['name']
+            merged_from_names.setdefault(primary_key, []).append(sec_name)
             prim['members'].extend(sec['members'])
             clusters.remove(sec)
             del by_key[secondary_key]
@@ -418,6 +425,7 @@ def get_recurring_groups(db, today: _date = None) -> list:
         group['timeline'] = build_timeline(
             group['occurrences'], group['first_payment_date'], today=today
         )
+        group['merged_from'] = merged_from_names.get(cluster['norm_key'], [])
         groups.append(group)
 
     groups.sort(key=lambda g: g['current_amount'], reverse=True)

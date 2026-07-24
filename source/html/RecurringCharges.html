@@ -436,7 +436,10 @@ document.addEventListener('keydown', function(e){ if(e.key==='Escape'){ closeNav
 // ── Helpers ──────────────────────────────────────────────────────
 function fmt(n) {
   var isPos = n >= 0;
-  return (isPos?'+':'') + Math.abs(n).toLocaleString('he-IL',{minimumFractionDigits:2,maximumFractionDigits:2}) + '₪';
+  var abs = Math.abs(n);
+  var isWhole = Math.round(abs * 100) % 100 === 0;   // round to nearest cent first — avoids float noise like 39.900000000000006
+  var opts = isWhole ? {minimumFractionDigits:0, maximumFractionDigits:0} : {minimumFractionDigits:2, maximumFractionDigits:2};
+  return (isPos?'+':'') + abs.toLocaleString('he-IL', opts) + '₪';
 }
 function esc(s){ if(!s) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 

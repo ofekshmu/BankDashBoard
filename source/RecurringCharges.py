@@ -15,6 +15,15 @@ from difflib import SequenceMatcher
 SIMILARITY_THRESHOLD = 0.82
 AMOUNT_CHANGE_THRESHOLD = 0.15
 MIN_STREAK_MONTHS = 3
+MAX_AMOUNT_DEVIATION = 0.50   # an occurrence deviating more than this from the
+                              # group's median likely belongs to a different
+                              # bill entirely (or isn't a fixed bill at all) —
+                              # dropped from the group rather than merely flagged
+MAX_CHANGED_FRACTION = 0.40   # if more than this fraction of occurrences show
+                              # "amount changed", it reads as general repeat
+                              # spending at the same business, not a fixed bill
+MAX_RUN_COUNT = 3             # more than this many separate appear/gap/reappear
+                              # cycles is too fragmented to be a real recurring bill
 
 
 def _excluded_categories() -> set:
@@ -111,23 +120,30 @@ def _last_complete_month_key(today: _date) -> str:
     return month_key(prev_month_last_day)
 
 
-def find_longest_run(months_sorted: list) -> list:
+def find_all_runs(months_sorted: list) -> list:
     """months_sorted: sorted list of distinct 'YYYY-MM' strings.
-    Returns the longest run of consecutive months anywhere in the list."""
+    Returns every run of consecutive months, in order (each a list of month keys)."""
     if not months_sorted:
         return []
-    best_run = [months_sorted[0]]
+    runs = []
     cur_run = [months_sorted[0]]
     for i in range(1, len(months_sorted)):
         if _months_apart(months_sorted[i - 1], months_sorted[i]) == 1:
             cur_run.append(months_sorted[i])
         else:
-            if len(cur_run) > len(best_run):
-                best_run = cur_run
+            runs.append(cur_run)
             cur_run = [months_sorted[i]]
-    if len(cur_run) > len(best_run):
-        best_run = cur_run
-    return best_run
+    runs.append(cur_run)
+    return runs
+
+
+def find_longest_run(months_sorted: list) -> list:
+    """months_sorted: sorted list of distinct 'YYYY-MM' strings.
+    Returns the longest run of consecutive months anywhere in the list."""
+    runs = find_all_runs(months_sorted)
+    if not runs:
+        return []
+    return max(runs, key=len)
 
 
 # ── Group stats + alerts ────────────────────────────────────────────────────────
@@ -135,8 +151,25 @@ def find_longest_run(months_sorted: list) -> list:
 def build_group_from_cluster(cluster: dict, today: _date) -> dict:
     """
     Given a cluster (from cluster_transactions), compute whether it qualifies
-    as a recurring group (longest run >= MIN_STREAK_MONTHS), and if so return
-    its full stats/occurrence/alert payload. Returns None if it doesn't qualify.
+    as a recurring group, and if so return its full stats/occurrence/alert
+    payload. Returns None if it doesn't qualify.
+
+    Qualification, beyond the basic 3-consecutive-month streak, also weeds out
+    clusters that read as general repeat spending at the same business rather
+    than a fixed recurring bill:
+      - Rule 1 (amount ceiling): an occurrence deviating more than
+        MAX_AMOUNT_DEVIATION from the group's median is dropped from the
+        group entirely — it likely belongs to a different bill, or isn't a
+        fixed bill at all (e.g. a one-off larger purchase at a business you
+        also pay a smaller fixed amount to monthly).
+      - Rule 2 (too many changed): if more than MAX_CHANGED_FRACTION of the
+        remaining occurrences still show an "amount changed" deviation
+        (AMOUNT_CHANGE_THRESHOLD), the amounts are too unstable to be a fixed
+        bill (a single clean price rise stays well under this fraction).
+      - Rule 3 (too fragmented): if the remaining occurrences break into more
+        than MAX_RUN_COUNT separate appear/gap/reappear runs, the pattern is
+        too sporadic to be a real recurring bill (e.g. a plant nursery you
+        buy from now and then, not a fixed monthly charge).
     """
     members = cluster['members']
     by_month = {}
@@ -147,20 +180,41 @@ def build_group_from_cluster(cluster: dict, today: _date) -> dict:
             by_month[mk] = m
 
     distinct_months = sorted(by_month.keys())
+    if len(distinct_months) < MIN_STREAK_MONTHS:
+        return None
+
+    # Rule 1: drop occurrences that deviate too wildly from the group's median.
+    raw_amounts = [by_month[mk]['amount'] for mk in distinct_months]
+    raw_median = statistics.median(raw_amounts)
+    if raw_median > 0:
+        distinct_months = [
+            mk for mk in distinct_months
+            if abs(by_month[mk]['amount'] - raw_median) / raw_median <= MAX_AMOUNT_DEVIATION
+        ]
+    if len(distinct_months) < MIN_STREAK_MONTHS:
+        return None
+
     longest_run = find_longest_run(distinct_months)
     if len(longest_run) < MIN_STREAK_MONTHS:
+        return None
+
+    # Rule 3: too many separate appear/gap/reappear cycles.
+    if len(find_all_runs(distinct_months)) > MAX_RUN_COUNT:
         return None
 
     amounts = [by_month[mk]['amount'] for mk in distinct_months]
     median_amount = statistics.median(amounts)
 
     occurrences = []
+    changed_count = 0
     for mk in distinct_months:
         tx = by_month[mk]
         deviates = (
             median_amount > 0
             and abs(tx['amount'] - median_amount) / median_amount > AMOUNT_CHANGE_THRESHOLD
         )
+        if deviates:
+            changed_count += 1
         occurrences.append({
             'month': mk,
             'date': tx['date'],
@@ -170,12 +224,17 @@ def build_group_from_cluster(cluster: dict, today: _date) -> dict:
             'status': 'changed' if deviates else 'paid',
         })
 
+    # Rule 2: too many "amount changed" months relative to group size.
+    if changed_count / len(occurrences) > MAX_CHANGED_FRACTION:
+        return None
+
     last_month = distinct_months[-1]
     last_complete = _last_complete_month_key(today)
     possibly_stopped = _months_apart(last_month, last_complete) > 0
 
-    # day-of-month mode, for next-expected estimate
-    days = [m['date'].day for m in by_month.values()]
+    # day-of-month mode, for next-expected estimate — only over the
+    # (Rule-1-filtered) months that actually count toward this group
+    days = [by_month[mk]['date'].day for mk in distinct_months]
     day_mode = statistics.mode(days)
     next_month_date = _parse_month_key(last_complete)
     next_month_num = next_month_date.month + 1

@@ -180,6 +180,82 @@ def test_build_group_flags_amount_changed():
     print("PASS: build_group_from_cluster flags amount_changed")
 
 
+def test_build_group_drops_occurrence_beyond_amount_ceiling():
+    # One occurrence is wildly larger (>50% above the median of the rest) —
+    # it should be dropped from the group entirely rather than merely flagged.
+    members = [
+        {'table': 'BankTransactions', 'id': 1, 'date': date(2026, 1, 5), 'name': 'NURSERY', 'amount': 180.0, 'category': 'רהיטים ובית'},
+        {'table': 'BankTransactions', 'id': 2, 'date': date(2026, 2, 5), 'name': 'NURSERY', 'amount': 190.0, 'category': 'רהיטים ובית'},
+        {'table': 'BankTransactions', 'id': 3, 'date': date(2026, 3, 5), 'name': 'NURSERY', 'amount': 170.0, 'category': 'רהיטים ובית'},
+        {'table': 'BankTransactions', 'id': 4, 'date': date(2026, 4, 5), 'name': 'NURSERY', 'amount': 600.0, 'category': 'רהיטים ובית'},
+    ]
+    cluster = {'norm_key': 'nursery', 'members': members}
+    group = build_group_from_cluster(cluster, today=date(2026, 5, 15))
+    assert group is not None
+    months_present = [o['month'] for o in group['occurrences']]
+    assert '2026-04' not in months_present, "the 600.0 outlier should have been dropped, not just flagged"
+    assert group['occurrence_count'] == 3
+    print("PASS: build_group_from_cluster drops occurrence beyond amount ceiling")
+
+
+def test_build_group_rejects_too_many_changed():
+    # 3 out of 5 occurrences deviate from the median by more than
+    # AMOUNT_CHANGE_THRESHOLD (15%) but each individually stays under the 50%
+    # hard ceiling — too unstable to be a fixed bill, not just "one price rise".
+    members = [
+        {'table': 'BankTransactions', 'id': 1, 'date': date(2026, 1, 5), 'name': 'MARKET', 'amount': 100.0, 'category': 'מצרכים'},
+        {'table': 'BankTransactions', 'id': 2, 'date': date(2026, 2, 5), 'name': 'MARKET', 'amount': 140.0, 'category': 'מצרכים'},
+        {'table': 'BankTransactions', 'id': 3, 'date': date(2026, 3, 5), 'name': 'MARKET', 'amount': 60.0, 'category': 'מצרכים'},
+        {'table': 'BankTransactions', 'id': 4, 'date': date(2026, 4, 5), 'name': 'MARKET', 'amount': 130.0, 'category': 'מצרכים'},
+        {'table': 'BankTransactions', 'id': 5, 'date': date(2026, 5, 5), 'name': 'MARKET', 'amount': 100.0, 'category': 'מצרכים'},
+    ]
+    cluster = {'norm_key': 'market', 'members': members}
+    group = build_group_from_cluster(cluster, today=date(2026, 6, 15))
+    assert group is None, "too many changed-amount months should disqualify the group"
+    print("PASS: build_group_from_cluster rejects too many changed months")
+
+
+def test_build_group_rejects_too_fragmented():
+    # Mirrors the real "משתלת על הדרך" pattern: several short runs separated
+    # by gaps, plus one occurrence far above the rest (dropped by the amount
+    # ceiling), leaving 4 separate runs — too sporadic to be a fixed bill.
+    members = [
+        {'table': 'BankTransactions', 'id': 1, 'date': date(2025, 8, 21), 'name': 'NURSERY', 'amount': 328.0, 'category': 'רהיטים ובית'},
+        {'table': 'BankTransactions', 'id': 2, 'date': date(2025, 10, 29), 'name': 'NURSERY', 'amount': 170.0, 'category': 'רהיטים ובית'},
+        {'table': 'BankTransactions', 'id': 3, 'date': date(2025, 11, 16), 'name': 'NURSERY', 'amount': 138.0, 'category': 'רהיטים ובית'},
+        {'table': 'BankTransactions', 'id': 4, 'date': date(2025, 12, 14), 'name': 'NURSERY', 'amount': 211.0, 'category': 'רהיטים ובית'},
+        {'table': 'BankTransactions', 'id': 5, 'date': date(2026, 2, 24), 'name': 'NURSERY', 'amount': 98.0,  'category': 'רהיטים ובית'},
+        {'table': 'BankTransactions', 'id': 6, 'date': date(2026, 4, 28), 'name': 'NURSERY', 'amount': 168.0, 'category': 'רהיטים ובית'},
+        {'table': 'BankTransactions', 'id': 7, 'date': date(2026, 5, 29), 'name': 'NURSERY', 'amount': 306.0, 'category': 'רהיטים ובית'},
+        {'table': 'BankTransactions', 'id': 8, 'date': date(2026, 6, 14), 'name': 'NURSERY', 'amount': 190.0, 'category': 'רהיטים ובית'},
+    ]
+    cluster = {'norm_key': 'nursery2', 'members': members}
+    group = build_group_from_cluster(cluster, today=date(2026, 7, 24))
+    assert group is None, "too many separate appear/gap/reappear runs should disqualify the group"
+    print("PASS: build_group_from_cluster rejects too fragmented pattern")
+
+
+def test_build_group_keeps_single_clean_price_rise():
+    # A real fixed bill with exactly one price rise partway through — must
+    # NOT be disqualified by the amount-stability rules.
+    members = []
+    tx_id = 1
+    for month in (6, 7, 8):
+        members.append({'table': 'CardTransactions', 'id': tx_id, 'date': date(2025, month, 22), 'name': 'SPOTIFYIL', 'amount': 36.0, 'category': 'תחביבים ופנאי'})
+        tx_id += 1
+    for month in (9, 10, 11, 12):
+        members.append({'table': 'CardTransactions', 'id': tx_id, 'date': date(2025, month, 22), 'name': 'SPOTIFYIL', 'amount': 44.0, 'category': 'תחביבים ופנאי'})
+        tx_id += 1
+    for month in (1, 2, 3, 4, 6):
+        members.append({'table': 'CardTransactions', 'id': tx_id, 'date': date(2026, month, 22), 'name': 'SPOTIFYIL', 'amount': 44.0, 'category': 'תחביבים ופנאי'})
+        tx_id += 1
+    cluster = {'norm_key': 'spotifyil', 'members': members}
+    group = build_group_from_cluster(cluster, today=date(2026, 7, 24))
+    assert group is not None, "a single clean price rise must not disqualify a real recurring bill"
+    assert group['occurrence_count'] == 12
+    print("PASS: build_group_from_cluster keeps a single clean price rise")
+
+
 def test_build_timeline_marks_paid_missing_and_before_start():
     occurrences = [
         {'month': '2026-02', 'status': 'paid'},
@@ -242,6 +318,10 @@ if __name__ == '__main__':
     test_build_group_from_cluster_rejects_short_history()
     test_build_group_flags_possibly_stopped()
     test_build_group_flags_amount_changed()
+    test_build_group_drops_occurrence_beyond_amount_ceiling()
+    test_build_group_rejects_too_many_changed()
+    test_build_group_rejects_too_fragmented()
+    test_build_group_keeps_single_clean_price_rise()
     test_build_timeline_marks_paid_missing_and_before_start()
     test_get_recurring_groups_end_to_end()
     print("\nAll tests passed")

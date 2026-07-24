@@ -9,7 +9,7 @@ from database import DataBase
 from RecurringCharges import (
     normalize_name, cluster_transactions,
     month_key, find_longest_run, build_group_from_cluster,
-    build_timeline, get_recurring_groups,
+    build_timeline, get_recurring_groups, apply_history_tracking,
 )
 
 
@@ -373,6 +373,52 @@ def test_get_recurring_groups_excludes_installment_payments():
             db.connection.commit()
 
 
+def test_apply_history_tracking_detects_introduced_and_removed():
+    db = DataBase()
+    db.ensure_recurring_tables()
+    test_key = 'rc_test_history_bill'
+    test_name = 'RC_TEST_HISTORY_BILL'
+    seed_key = 'rc_test_history_seed'
+
+    db.cursor.execute("DELETE FROM RecurringHistory WHERE Group_Key IN (%s,%s)", (test_key, seed_key))
+    db.connection.commit()
+
+    fake_group = {
+        'group_key': test_key, 'name': test_name,
+        'first_payment_date': date(2099, 1, 5), 'last_payment_date': date(2099, 3, 5),
+    }
+    try:
+        # Seed an unrelated pre-existing entry so this run is never a cold
+        # start (a cold start intentionally suppresses "introduced" alerts),
+        # regardless of whether the real app has regenerated with this code
+        # yet — the test must not depend on execution order.
+        db.upsert_recurring_history(seed_key, 'RC_TEST_HISTORY_SEED', '2020-01', '2020-01')
+        db.connection.commit()
+
+        result = apply_history_tracking(db, [fake_group], today=date(2099, 4, 15))
+        intro_keys = [a['group_key'] for a in result['introduced']]
+        assert test_key in intro_keys, "a group_key never seen before should be flagged as introduced"
+        intro_entry = next(a for a in result['introduced'] if a['group_key'] == test_key)
+        assert intro_entry['month'] == '2099-01'
+
+        # Now simulate it disappearing (group no longer in the current list) —
+        # still within 12 months of its last-seen month, should be "removed".
+        result2 = apply_history_tracking(db, [], today=date(2099, 6, 15))
+        removed_keys = [a['group_key'] for a in result2['removed']]
+        assert test_key in removed_keys, "a previously-tracked group missing from the current list should be flagged as removed"
+        removed_entry = next(a for a in result2['removed'] if a['group_key'] == test_key)
+        assert removed_entry['month'] == '2099-03'
+
+        # More than 12 months later, it should age out of the removed alert.
+        result3 = apply_history_tracking(db, [], today=date(2101, 1, 15))
+        removed_keys3 = [a['group_key'] for a in result3['removed']]
+        assert test_key not in removed_keys3, "a removal older than 12 months should no longer be alerted"
+        print("PASS: apply_history_tracking detects introduced and removed")
+    finally:
+        db.cursor.execute("DELETE FROM RecurringHistory WHERE Group_Key IN (%s,%s)", (test_key, seed_key))
+        db.connection.commit()
+
+
 if __name__ == '__main__':
     test_recurring_tables_exist()
     test_dismiss_restore_roundtrip()
@@ -396,4 +442,5 @@ if __name__ == '__main__':
     test_build_timeline_marks_paid_missing_and_before_start()
     test_get_recurring_groups_end_to_end()
     test_get_recurring_groups_excludes_installment_payments()
+    test_apply_history_tracking_detects_introduced_and_removed()
     print("\nAll tests passed")

@@ -126,6 +126,14 @@ body {
 .attn-title{font-size:.85em;font-weight:700;color:#a86a00;margin-bottom:8px}
 .attn-item{font-size:.85em;color:#7a5200;padding:4px 0;cursor:pointer}
 .attn-item:hover{text-decoration:underline}
+.attn-card.intro{background:var(--teal-light);border-color:#a9e0d8}
+.attn-card.intro .attn-title{color:var(--teal-dark)}
+.attn-card.intro .attn-item{color:var(--teal-dark);cursor:default}
+.attn-card.intro .attn-item:hover{text-decoration:none}
+.attn-card.removed{background:#f4f6f9;border-color:var(--border)}
+.attn-card.removed .attn-title{color:var(--text-sub)}
+.attn-card.removed .attn-item{color:var(--text-sub);cursor:default}
+.attn-card.removed .attn-item:hover{text-decoration:none}
 
 /* Trend chart */
 .trend-card{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow-sm);padding:18px 22px;margin-bottom:20px}
@@ -143,12 +151,15 @@ body {
 .rc-card-top{display:flex;flex-wrap:wrap;align-items:center;gap:10px;cursor:pointer}
 .rc-card-name{font-weight:700;flex:1;min-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rc-card-cat{background:var(--teal-light);color:var(--teal);border-radius:12px;padding:2px 10px;font-size:.75em;font-weight:600;white-space:nowrap}
-.rc-card-amount{font-weight:700;font-size:1.1em;direction:ltr;white-space:nowrap}
 .rc-status{font-size:.72em;font-weight:700;border-radius:12px;padding:2px 10px;white-space:nowrap}
 .rc-status.active{background:#e8f7f5;color:var(--teal)}
 .rc-status.changed{background:#fff3e0;color:var(--amber)}
 .rc-status.stopped{background:#fdecea;color:var(--red)}
 .rc-next{font-size:.75em;color:var(--text-muted);white-space:nowrap}
+/* Amount always sits on its own row below the other fields — those vary in
+   length, and keeping the amount inline made its position jump around */
+.rc-card-amount-row{margin-top:8px;text-align:left;cursor:pointer}
+.rc-card-amount{font-weight:700;font-size:1.1em;direction:ltr;white-space:nowrap}
 
 /* Timeline strip — kept LTR regardless of page RTL */
 .rc-timeline{display:flex;gap:3px;direction:ltr;overflow-x:auto;padding:10px 0}
@@ -236,7 +247,6 @@ body {
   .rc-stats-grid{grid-template-columns:1fr 1fr}
   .rc-card-top{flex-wrap:wrap}
   .rc-card-name{flex-basis:100%;white-space:normal}
-  .rc-card-amount{order:1}
   .trend-chart-wrap{overflow-x:auto}
 }
 </style>
@@ -319,6 +329,16 @@ body {
       <div id="attn-list"></div>
     </div>
 
+    <div class="attn-card intro" id="intro-card" style="display:none">
+      <div class="attn-title">✚ חיובים חוזרים חדשים בשנה האחרונה</div>
+      <div id="intro-list"></div>
+    </div>
+
+    <div class="attn-card removed" id="removed-card" style="display:none">
+      <div class="attn-title">✕ חיובים חוזרים שהופסקו אוטומטית בשנה האחרונה</div>
+      <div id="removed-list"></div>
+    </div>
+
     <div class="trend-card">
       <h3>מגמת חיובים חוזרים — 12 חודשים אחרונים</h3>
       <div class="trend-chart-wrap"><canvas id="trend-chart"></canvas></div>
@@ -383,8 +403,8 @@ body {
 <script>
 var RC_DATA = __RC_DATA_JSON__;   // replaced server-side at generation time; null if never generated yet
 var state = RC_DATA
-  ? { groups: RC_DATA.groups, hidden: RC_DATA.hidden_groups, kpis: RC_DATA.kpis, trend: RC_DATA.trend }
-  : { groups: [], hidden: [], kpis: {total_monthly: 0}, trend: [] };
+  ? { groups: RC_DATA.groups, hidden: RC_DATA.hidden_groups, kpis: RC_DATA.kpis, trend: RC_DATA.trend, historyAlerts: RC_DATA.history_alerts || {introduced:[], removed:[]} }
+  : { groups: [], hidden: [], kpis: {total_monthly: 0}, trend: [], historyAlerts: {introduced:[], removed:[]} };
 
 // ── Nav ──────────────────────────────────────────────────────────
 fetch('/api/version').then(function(r){return r.json();}).then(function(d){var b=document.getElementById('app-version-badge-2');if(b&&d.version)b.textContent='v'+d.version;}).catch(function(){});
@@ -447,6 +467,32 @@ function renderKpis() {
   } else {
     attnCard.style.display = 'none';
   }
+
+  var introCard = document.getElementById('intro-card');
+  var introList = document.getElementById('intro-list');
+  var introduced = (state.historyAlerts && state.historyAlerts.introduced) || [];
+  if (introduced.length) {
+    introCard.style.display = '';
+    introList.innerHTML = introduced.map(function(a) {
+      var clickable = state.groups.some(function(g){ return g.group_key === a.group_key; });
+      return '<div class="attn-item"' + (clickable ? ' style="cursor:pointer" onclick="scrollToGroup(\'' + a.group_key + '\')"' : '') + '>' +
+             esc(a.name) + ' — נוסף כחיוב חוזר בחודש ' + a.month + '</div>';
+    }).join('');
+  } else {
+    introCard.style.display = 'none';
+  }
+
+  var removedCard = document.getElementById('removed-card');
+  var removedList = document.getElementById('removed-list');
+  var removed = (state.historyAlerts && state.historyAlerts.removed) || [];
+  if (removed.length) {
+    removedCard.style.display = '';
+    removedList.innerHTML = removed.map(function(a) {
+      return '<div class="attn-item">' + esc(a.name) + ' — הופסק אוטומטית אחרי חודש ' + a.month + '</div>';
+    }).join('');
+  } else {
+    removedCard.style.display = 'none';
+  }
 }
 
 function scrollToGroup(key) {
@@ -467,10 +513,62 @@ function toggleDetail(key, forceOpen) {
   else el.classList.toggle('open');
 }
 
+// ── Fuzzy search — finds similar recurring bills even with typos/partial
+//    text, not just an exact substring match ──
+function _rcLevenshtein(a, b) {
+  var m = a.length, n = b.length;
+  if (m === 0) return n;
+  if (n === 0) return m;
+  var prev = new Array(n + 1), cur = new Array(n + 1);
+  for (var j = 0; j <= n; j++) prev[j] = j;
+  for (var i = 1; i <= m; i++) {
+    cur[0] = i;
+    for (j = 1; j <= n; j++) {
+      var cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost);
+    }
+    var tmp = prev; prev = cur; cur = tmp;
+  }
+  return prev[n];
+}
+function _rcFuzzyScore(query, text) {
+  query = (query || '').toLowerCase();
+  text = (text || '').toLowerCase();
+  if (!query) return 1;
+  if (!text) return 0;
+  if (text.indexOf(query) !== -1) return 1;   // exact substring — best match
+  // Slide a query-sized window across the text and take the best (lowest
+  // edit-distance) match, so partial words / typos anywhere in the name
+  // still surface a good score instead of only a leading-substring match.
+  var best = 0;
+  var winLen = Math.max(query.length, 3);
+  for (var i = 0; i <= Math.max(0, text.length - 1); i++) {
+    var window = text.substr(i, winLen);
+    if (!window) break;
+    var dist = _rcLevenshtein(query, window);
+    var score = 1 - dist / Math.max(query.length, window.length);
+    if (score > best) best = score;
+  }
+  return best;
+}
+var RC_SEARCH_MIN_SCORE = 0.45;
+
 function getSortedFilteredGroups() {
-  var q = document.getElementById('rc-search').value.trim().toLowerCase();
+  var q = document.getElementById('rc-search').value.trim();
   var sort = document.getElementById('rc-sort').value;
-  var list = state.groups.filter(function(g) { return !q || g.name.toLowerCase().indexOf(q) !== -1; });
+
+  if (q) {
+    // While actively searching, rank by relevance first — the best/most
+    // similar matches (name or category) rise to the top regardless of
+    // the sort dropdown, which still applies once the search is cleared.
+    return state.groups
+      .map(function(g) { return { g: g, score: Math.max(_rcFuzzyScore(q, g.name), _rcFuzzyScore(q, g.category)) }; })
+      .filter(function(x) { return x.score >= RC_SEARCH_MIN_SCORE; })
+      .sort(function(a, b) { return b.score - a.score; })
+      .map(function(x) { return x.g; });
+  }
+
+  var list = state.groups.slice();
   if (sort === 'amount-desc') list.sort(function(a,b){ return b.current_amount - a.current_amount; });
   else if (sort === 'amount-asc') list.sort(function(a,b){ return a.current_amount - b.current_amount; });
   else if (sort === 'name') list.sort(function(a,b){ return a.name.localeCompare(b.name); });
@@ -492,6 +590,8 @@ function cardHtml(g) {
       '<span class="rc-card-cat">' + esc(g.category) + '</span>' +
       '<span class="rc-status ' + status + '">' + statusLabel(status) + '</span>' +
       '<span class="rc-next">הבא: ' + g.next_expected + '</span>' +
+    '</div>' +
+    '<div class="rc-card-amount-row" onclick="toggleDetail(\'' + g.group_key + '\')">' +
       '<span class="rc-card-amount">' + fmt(g.current_amount) + '</span>' +
     '</div>' +
     renderTimeline(g.timeline) +
@@ -762,7 +862,7 @@ function _rcHideError() {
 }
 
 function _rcApplyFreshData(data) {
-  state = { groups: data.groups, hidden: data.hidden_groups, kpis: data.kpis, trend: data.trend };
+  state = { groups: data.groups, hidden: data.hidden_groups, kpis: data.kpis, trend: data.trend, historyAlerts: data.history_alerts || {introduced:[], removed:[]} };
   _rcHideSkeleton();
   _rcHideLoadingBanner();
   _rcHideError();

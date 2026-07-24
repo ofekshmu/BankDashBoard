@@ -270,9 +270,12 @@ def _save_manifest(html_path: str, deps: dict, db_mtime: float):
         pass
 
 
-def _build_recurring_data(db, groups: list) -> dict:
+def _build_recurring_data(db, groups: list, history_alerts: dict = None) -> dict:
     """Build the JSON-serializable data payload (groups/hidden/kpis/trend)
-    shared by both the cached-HTML render and the /api/recurring/data endpoint."""
+    shared by both the cached-HTML render and the /api/recurring/data endpoint.
+    history_alerts, if given, is {'introduced': [...], 'removed': [...]} from
+    RecurringCharges.apply_history_tracking() — only computed during a real
+    regen, so callers that skip regen (rare fallbacks) get an empty default."""
     from datetime import date as _d
 
     total_monthly = sum(g['current_amount'] for g in groups)
@@ -309,6 +312,7 @@ def _build_recurring_data(db, groups: list) -> dict:
         'hidden_groups': hidden_groups,
         'kpis': {'total_monthly': round(total_monthly, 2)},
         'trend': trend,
+        'history_alerts': history_alerts or {'introduced': [], 'removed': []},
     }
 
 
@@ -4869,8 +4873,12 @@ def api_bills_suggestions_dismiss():
 
 @app.route('/recurring')
 def recurring_page():
-    if os.path.exists(RECURRING_HTML):
-        return send_file(RECURRING_HTML)
+    from database import DataBase
+    db = DataBase()
+    db.ensure_recurring_tables()
+    cached = db.get_recurring_cache()
+    if cached:
+        return Response(cached['html'], mimetype='text/html')
     # No cache yet — serve the SAME page shell with no data embedded (RC_DATA
     # = null). The page's own JS shows animated skeleton placeholders and
     # auto-starts the regen SSE stream itself; there is no separate "loading"
@@ -4884,14 +4892,14 @@ def recurring_data():
     without regenerating. Used by the frontend to refresh in place after a
     regen completes, instead of a full page reload."""
     try:
-        if os.path.exists(RECURRING_DATA_JSON):
-            with open(RECURRING_DATA_JSON, encoding='utf-8') as f:
-                return Response(f.read(), mimetype='application/json')
-        # Fallback: nothing cached yet — compute fresh (rare; regen normally
-        # writes this file before the SSE stream reports 'done').
         from database import DataBase
         db = DataBase()
         db.ensure_recurring_tables()
+        cached = db.get_recurring_cache()
+        if cached:
+            return Response(cached['data_json'], mimetype='application/json')
+        # Fallback: nothing cached yet — compute fresh (rare; regen normally
+        # writes the cache before the SSE stream reports 'done').
         from RecurringCharges import get_recurring_groups
         groups = get_recurring_groups(db)
         data = _build_recurring_data(db, groups)
@@ -4912,23 +4920,32 @@ def recurring_regenerate():
             db.ensure_recurring_tables()
             pq.put(10)
 
-            from RecurringCharges import get_recurring_groups
+            from RecurringCharges import get_recurring_groups, apply_history_tracking
             groups = get_recurring_groups(db)
+            pq.put(40)
+
+            history_alerts = apply_history_tracking(db, groups)
             pq.put(50)
 
-            data = _build_recurring_data(db, groups)
+            data = _build_recurring_data(db, groups, history_alerts)
             data_json = _recurring_data_json(data)
             pq.put(70)
 
             html = _render_recurring_html(data_json)
-            os.makedirs(os.path.dirname(RECURRING_HTML), exist_ok=True)
-            with open(RECURRING_HTML, 'w', encoding='utf-8') as f:
-                f.write(html)
-            with open(RECURRING_DATA_JSON, 'w', encoding='utf-8') as f:
-                f.write(data_json)
+            # Postgres is the authoritative cache — persists across Vercel
+            # serverless cold starts, unlike /tmp. The local HTML/JSON files
+            # are also written for local-dev convenience/inspection only.
+            db.save_recurring_cache(html, data_json)
+            try:
+                os.makedirs(os.path.dirname(RECURRING_HTML), exist_ok=True)
+                with open(RECURRING_HTML, 'w', encoding='utf-8') as f:
+                    f.write(html)
+                with open(RECURRING_DATA_JSON, 'w', encoding='utf-8') as f:
+                    f.write(data_json)
+                _save_manifest(RECURRING_HTML, {}, 0.0)
+            except Exception:
+                pass  # local file cache is best-effort only
             pq.put(90)
-
-            _save_manifest(RECURRING_HTML, {}, 0.0)
             pq.put('done')
         except Exception as exc:
             import traceback

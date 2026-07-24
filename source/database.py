@@ -2825,8 +2825,74 @@ class DataBase:
                 PRIMARY KEY (Table_Name, TX_ID)
             )
         """)
+        # Cache lives in Postgres (not just the /tmp HTML file) so a fresh
+        # Vercel serverless instance — whose /tmp is not guaranteed to
+        # persist across invocations — doesn't see "no data yet" and
+        # auto-regenerate on every single page load.
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS RecurringCache (
+                ID           INTEGER   PRIMARY KEY DEFAULT 1,
+                Html         TEXT      NOT NULL,
+                Data_Json    TEXT      NOT NULL,
+                Generated_At TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                CHECK (ID = 1)
+            )
+        """)
+        # Tracks every group_key ever seen qualifying as recurring, across
+        # regens, so we can tell "genuinely newly introduced" apart from
+        # "was already recurring" and detect bills that silently stopped
+        # qualifying (Last_Seen_Month keeps whatever month it was last
+        # confirmed recurring in, even after it drops out of the live set).
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS RecurringHistory (
+                Group_Key       TEXT      PRIMARY KEY,
+                Name            TEXT      NOT NULL,
+                First_Seen_Month TEXT     NOT NULL,
+                Last_Seen_Month  TEXT     NOT NULL,
+                Updated_At       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
         self.connection.commit()
         DataBase.__recurring_tables_ready = True
+
+    def get_recurring_cache(self):
+        """Returns {'html': str, 'data_json': str, 'generated_at': datetime} or None."""
+        row = self.cursor.execute(
+            "SELECT Html, Data_Json, Generated_At FROM RecurringCache WHERE ID=1"
+        ).fetchone()
+        if not row:
+            return None
+        return {'html': row[0], 'data_json': row[1], 'generated_at': row[2]}
+
+    def save_recurring_cache(self, html: str, data_json: str) -> None:
+        self.cursor.execute("""
+            INSERT INTO RecurringCache (ID, Html, Data_Json, Generated_At)
+            VALUES (1, %s, %s, CURRENT_TIMESTAMP)
+            ON CONFLICT (ID) DO UPDATE SET Html=%s, Data_Json=%s, Generated_At=CURRENT_TIMESTAMP
+        """, (html, data_json, html, data_json))
+        self.connection.commit()
+
+    def get_recurring_history(self) -> dict:
+        """Returns {group_key: {'name', 'first_seen_month', 'last_seen_month'}}."""
+        rows = self.cursor.execute(
+            "SELECT Group_Key, Name, First_Seen_Month, Last_Seen_Month FROM RecurringHistory"
+        ).fetchall()
+        return {
+            r[0]: {'name': r[1], 'first_seen_month': r[2], 'last_seen_month': r[3]}
+            for r in rows
+        }
+
+    def upsert_recurring_history(self, group_key: str, name: str,
+                                  first_seen_month: str, last_seen_month: str) -> None:
+        """Insert a new history row, or update Name/Last_Seen_Month for an
+        existing one (First_Seen_Month never changes once recorded). Does not
+        commit — caller commits once after the whole batch."""
+        self.cursor.execute("""
+            INSERT INTO RecurringHistory (Group_Key, Name, First_Seen_Month, Last_Seen_Month)
+            VALUES (%s, %s, %s, %s)
+            ON CONFLICT (Group_Key) DO UPDATE SET
+                Name=%s, Last_Seen_Month=%s, Updated_At=CURRENT_TIMESTAMP
+        """, (group_key, name, first_seen_month, last_seen_month, name, last_seen_month))
 
     def get_recurring_dismissed(self) -> set:
         rows = self.cursor.execute("SELECT Group_Key FROM RecurringDismissed").fetchall()

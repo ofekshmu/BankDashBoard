@@ -422,3 +422,55 @@ def get_recurring_groups(db, today: _date = None) -> list:
 
     groups.sort(key=lambda g: g['current_amount'], reverse=True)
     return groups
+
+
+ALERT_WINDOW_MONTHS = 12   # "in the last year" for introduced/removed alerts
+
+
+def apply_history_tracking(db, groups: list, today: _date = None) -> dict:
+    """
+    Compares the currently-qualifying groups against RecurringHistory (every
+    group_key ever seen recurring across past regens) to find bills that were
+    genuinely newly introduced or that silently stopped qualifying, both
+    within the last ALERT_WINDOW_MONTHS months. Updates RecurringHistory to
+    reflect the current state as a side effect.
+
+    Returns {'introduced': [{group_key, name, month}], 'removed': [{group_key, name, month}]}.
+
+    A group's own first_payment_date can't be used directly to detect
+    "newly introduced", since fetch_candidate_transactions only looks back
+    ~13 months from today — a bill that's been recurring for years would
+    still show a first_payment_date near the edge of that window, and would
+    incorrectly look "new" every single regen. RecurringHistory instead
+    records the first regen that ever saw each group qualify, which stays
+    fixed once written.
+    """
+    if today is None:
+        today = _date.today()
+
+    history = db.get_recurring_history()
+    was_cold_start = len(history) == 0   # first-ever regen: seed silently, no alerts
+
+    current_keys = set()
+    introduced = []
+    for g in groups:
+        key = g['group_key']
+        current_keys.add(key)
+        last_seen_month = month_key(g['last_payment_date'])
+        if key not in history:
+            first_seen_month = month_key(g['first_payment_date'])
+            db.upsert_recurring_history(key, g['name'], first_seen_month, last_seen_month)
+            if not was_cold_start:
+                introduced.append({'group_key': key, 'name': g['name'], 'month': first_seen_month})
+        else:
+            db.upsert_recurring_history(key, g['name'], history[key]['first_seen_month'], last_seen_month)
+    db.connection.commit()
+
+    removed = []
+    for key, rec in history.items():
+        if key in current_keys:
+            continue
+        if _months_apart(rec['last_seen_month'], month_key(today)) <= ALERT_WINDOW_MONTHS:
+            removed.append({'group_key': key, 'name': rec['name'], 'month': rec['last_seen_month']})
+
+    return {'introduced': introduced, 'removed': removed}

@@ -233,46 +233,72 @@ def build_timeline(occurrences: list, first_payment_date: _date, today: _date) -
 
 # ── Candidate pool + DB orchestration ───────────────────────────────────────────
 
+def _to_plain_date(value):
+    """Normalize a DB date value (date, datetime, pandas Timestamp, or string) to datetime.date."""
+    import datetime as _dt_mod
+    if isinstance(value, _dt_mod.datetime):
+        return value.date()
+    if isinstance(value, _dt_mod.date):
+        return value
+    import pandas as pd
+    return pd.to_datetime(value).date()
+
+
 def fetch_candidate_transactions(db, months_back: int = 13) -> list:
     """
-    Pull expense transactions (bank Out>0, card Charge_Value>0) from the last
-    `months_back` months, excluding withdrawal/excluded/housing categories and
-    anything in RecurringExcludedTransactions.
+    Pull expense transactions from the last `months_back` months, excluding
+    withdrawal/excluded/housing categories and anything in
+    RecurringExcludedTransactions.
+
+    Uses the same Final_Value pipeline as the rest of the app (splits applied,
+    then SimpleMath.process_prices) rather than reading the raw Out/Charge_Value
+    columns directly — process_prices converts foreign-currency card charges to
+    their ILS value (Charge_Value is the original foreign-currency amount;
+    Transaction_Value/Final_Value is the ILS-converted one) and drops card-side
+    aggregate "אשראי" rows so bank-side and card-side amounts are never
+    double-counted. Reading Charge_Value directly (as an earlier version of
+    this function did) produced wildly inflated amounts for foreign-currency
+    transactions, e.g. a JPY hotel charge showing as if it were that many ILS.
+
     Returns list of dicts: table, id, date, name, amount, category.
     """
+    import pandas as pd
+    from src_utils.calculations import SimpleMath
+
     cutoff = _date.today().replace(day=1) - _timedelta(days=months_back * 31)
     excluded_tx = db.get_recurring_excluded_tx()
 
-    results = []
-    for row in db.cursor.execute("""
-        SELECT ID, Date, Name, Out, Category
-        FROM BankTransactions
-        WHERE Out > 0 AND Date >= %s
-    """, (cutoff,)).fetchall():
-        tx_id, tx_date, name, amount, category = row
-        if ('BankTransactions', tx_id) in excluded_tx:
-            continue
-        if (category or '') in EXCLUDED_CATEGORIES:
-            continue
-        results.append({
-            'table': 'BankTransactions', 'id': tx_id, 'date': tx_date,
-            'name': name, 'amount': float(amount or 0), 'category': category or '',
-        })
+    bank_df = db.get_transactions('BankTransactions', category_filter=None, name_filter=None)
+    bank_df = db.apply_splits_to_df(bank_df)
+    bank_df = SimpleMath.process_prices(bank_df, general_analysis=False)
 
-    for row in db.cursor.execute("""
-        SELECT ID, Executed_Date, Name, Charge_Value, Category
-        FROM CardTransactions
-        WHERE Charge_Value > 0 AND Executed_Date >= %s
-    """, (cutoff,)).fetchall():
-        tx_id, tx_date, name, amount, category = row
-        if ('CardTransactions', tx_id) in excluded_tx:
+    card_df = db.get_transactions('CardTransactions', category_filter=None, name_filter=None)
+    card_df = db.apply_splits_to_df(card_df)
+    card_df = SimpleMath.process_prices(card_df, general_analysis=False)
+    if not card_df.empty:
+        card_df = card_df.rename(columns={'Executed_Date': 'Date'})
+
+    results = []
+    for df, table_name in ((bank_df, 'BankTransactions'), (card_df, 'CardTransactions')):
+        if df.empty or 'Final_Value' not in df.columns:
             continue
-        if (category or '') in EXCLUDED_CATEGORIES:
-            continue
-        results.append({
-            'table': 'CardTransactions', 'id': tx_id, 'date': tx_date,
-            'name': name, 'amount': float(amount or 0), 'category': category or '',
-        })
+        for _, row in df.iterrows():
+            final_value = row.get('Final_Value')
+            if final_value is None or pd.isna(final_value) or final_value >= 0:
+                continue  # only expenses — Final_Value is signed, negative = spending
+            tx_date = _to_plain_date(row['Date'])
+            if tx_date < cutoff:
+                continue
+            tx_id = int(row['ID'])
+            if (table_name, tx_id) in excluded_tx:
+                continue
+            category = row.get('Category') or ''
+            if category in EXCLUDED_CATEGORIES:
+                continue
+            results.append({
+                'table': table_name, 'id': tx_id, 'date': tx_date,
+                'name': row['Name'], 'amount': abs(float(final_value)), 'category': category,
+            })
 
     return results
 

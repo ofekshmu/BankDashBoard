@@ -181,10 +181,20 @@ body {
 .rc-modal-close{position:absolute;top:16px;left:18px;background:none;border:none;cursor:pointer;font-size:1.1em;color:var(--text-muted);padding:4px 6px;border-radius:6px;transition:background .12s,color .12s}
 .rc-modal-close:hover{background:var(--teal-light);color:var(--teal)}
 .rc-field-label{font-size:.72em;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;display:block}
-.rc-field-select{width:100%;padding:9px 13px;box-sizing:border-box;height:38px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:.88em;color:var(--navy);background:var(--white);outline:none;font-family:inherit;direction:rtl;cursor:pointer}
-.rc-field-select:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(30,157,139,.12)}
 .rc-modal-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:20px}
 .rc-modal-hint{font-size:.78em;color:var(--text-muted);margin-top:8px}
+
+/* Searchable dropdown (used inside the modal instead of a plain <select>) */
+.rc-dd-wrap{position:relative}
+.rc-dd-btn{width:100%;padding:9px 13px;box-sizing:border-box;height:38px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:.88em;color:var(--navy);background:var(--white);outline:none;font-family:inherit;text-align:right;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rc-dd-btn:disabled{opacity:.6;cursor:default;color:var(--text-muted)}
+.rc-dd-btn:focus,.rc-dd-wrap.open .rc-dd-btn{border-color:var(--teal);box-shadow:0 0 0 3px rgba(30,157,139,.12)}
+.rc-dd-menu{display:none;position:absolute;top:100%;right:0;left:0;margin-top:4px;background:var(--white);border:1.5px solid var(--border);border-radius:var(--radius-sm);box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:50;max-height:220px;overflow-y:auto}
+.rc-dd-wrap.open .rc-dd-menu{display:block}
+.rc-dd-search{padding:8px 12px;border:none;border-bottom:1.5px solid var(--border);font-size:.84em;width:100%;box-sizing:border-box;outline:none;color:var(--navy);position:sticky;top:0;background:var(--white);font-family:inherit;direction:rtl}
+.rc-dd-option{padding:7px 14px;cursor:pointer;font-size:.83em;color:var(--navy)}
+.rc-dd-option:hover,.rc-dd-option.active{background:var(--teal-light)}
+.rc-dd-empty{padding:7px 14px;font-size:.83em;color:var(--text-muted);cursor:default}
 
 /* Hidden groups toggle */
 .rc-hidden-toggle{font-size:.82em;color:var(--text-muted);cursor:pointer;margin-top:12px;text-align:center}
@@ -306,7 +316,13 @@ body {
     <button class="rc-modal-close" onclick="closeActionModal()">✕</button>
     <div class="rc-modal-title" id="rc-modal-title"></div>
     <label class="rc-field-label" id="rc-modal-label"></label>
-    <select class="rc-field-select" id="rc-modal-select"></select>
+    <div class="rc-dd-wrap" id="rc-dd-wrap">
+      <button type="button" class="rc-dd-btn" id="rc-dd-btn" onclick="_rcToggleDd(event)">בחר…</button>
+      <div class="rc-dd-menu" id="rc-dd-menu">
+        <input class="rc-dd-search" id="rc-dd-search" type="text" placeholder="חיפוש…" oninput="_rcFilterDd(this.value)">
+        <div id="rc-dd-options"></div>
+      </div>
+    </div>
     <div class="rc-modal-hint" id="rc-modal-hint" style="display:none"></div>
     <div class="rc-modal-footer">
       <button class="rc-btn" onclick="closeActionModal()">ביטול</button>
@@ -507,27 +523,77 @@ function _rcLoadCategories(cb) {
   }).catch(function(){ cb([]); });   // transient failure — don't cache, allow retry next time
 }
 
+// ── Searchable dropdown (replaces plain <select> so results can be
+//    filtered by typing — used for both the tag and merge pickers) ──
+var _rcDdItems = [];      // [{value, label}]
+var _rcDdSelected = null; // currently chosen value, or null
+
+function _rcSetDdItems(items, placeholder) {
+  _rcDdItems = items;
+  _rcDdSelected = null;
+  document.getElementById('rc-dd-btn').textContent = placeholder || 'בחר…';
+  document.getElementById('rc-dd-btn').disabled = !items.length;
+  document.getElementById('rc-modal-confirm-btn').disabled = true;
+}
+
+function _rcRenderDdOptions(filter) {
+  var q = (filter || '').trim().toLowerCase();
+  var box = document.getElementById('rc-dd-options');
+  var items = _rcDdItems.filter(function(it){ return !q || it.label.toLowerCase().indexOf(q) !== -1; });
+  box.innerHTML = items.length
+    ? items.map(function(it){
+        return '<div class="rc-dd-option' + (it.value === _rcDdSelected ? ' active' : '') + '" data-value="' + esc(it.value) + '">' + esc(it.label) + '</div>';
+      }).join('')
+    : '<div class="rc-dd-empty">אין תוצאות</div>';
+}
+
+function _rcOpenDd() {
+  if (!_rcDdItems.length) return;
+  document.getElementById('rc-dd-wrap').classList.add('open');
+  var search = document.getElementById('rc-dd-search');
+  search.value = '';
+  _rcRenderDdOptions('');
+  search.focus();
+}
+function _rcCloseDd() {
+  document.getElementById('rc-dd-wrap').classList.remove('open');
+}
+function _rcToggleDd(e) {
+  if (e) e.stopPropagation();
+  document.getElementById('rc-dd-wrap').classList.contains('open') ? _rcCloseDd() : _rcOpenDd();
+}
+function _rcFilterDd(q) { _rcRenderDdOptions(q); }
+function _rcSelectDd(value, label) {
+  _rcDdSelected = value;
+  document.getElementById('rc-dd-btn').textContent = label;
+  document.getElementById('rc-modal-confirm-btn').disabled = false;
+  _rcCloseDd();
+}
+document.addEventListener('mousedown', function(e) {
+  var opt = e.target.closest ? e.target.closest('.rc-dd-option[data-value]') : null;
+  if (opt) {
+    e.preventDefault();
+    var val = opt.getAttribute('data-value');
+    var item = _rcDdItems.find(function(it){ return it.value === val; });
+    if (item) _rcSelectDd(item.value, item.label);
+    return;
+  }
+  if (!e.target.closest('#rc-dd-wrap')) _rcCloseDd();
+});
+
 function openTagPrompt(key) {
   _rcModalMode = 'tag';
   _rcModalGroupKey = key;
   document.getElementById('rc-modal-title').textContent = 'תייג קטגוריה';
   document.getElementById('rc-modal-label').textContent = 'קטגוריה';
   document.getElementById('rc-modal-hint').style.display = 'none';
-  var sel = document.getElementById('rc-modal-select');
-  sel.innerHTML = '<option value="">טוען…</option>';
-  var confirmBtn = document.getElementById('rc-modal-confirm-btn');
-  confirmBtn.disabled = true;
+  _rcSetDdItems([], 'טוען…');
   _rcLoadCategories(function(cats) {
-    if (!cats.length) {
-      sel.innerHTML = '<option value="">אין קטגוריות זמינות</option>';
-      return;
-    }
+    if (!cats.length) { _rcSetDdItems([], 'אין קטגוריות זמינות'); return; }
     var group = state.groups.find(function(g){ return g.group_key === key; });
-    sel.innerHTML = cats.map(function(c){
-      var selected = group && c === group.category ? ' selected' : '';
-      return '<option value="' + esc(c) + '"' + selected + '>' + esc(c) + '</option>';
-    }).join('');
-    confirmBtn.disabled = false;
+    var items = cats.map(function(c){ return {value: c, label: c}; });
+    _rcSetDdItems(items, 'בחר קטגוריה…');
+    if (group && cats.indexOf(group.category) !== -1) _rcSelectDd(group.category, group.category);
   });
   openActionModal();
 }
@@ -540,16 +606,11 @@ function openMergePrompt(key) {
   document.getElementById('rc-modal-hint').textContent = 'ההיסטוריה של הקבוצה הנוכחית תועבר אל הקבוצה שנבחרה, וזו תוסתר.';
   document.getElementById('rc-modal-hint').style.display = '';
   var others = state.groups.filter(function(g){ return g.group_key !== key; });
-  var sel = document.getElementById('rc-modal-select');
-  var confirmBtn = document.getElementById('rc-modal-confirm-btn');
   if (!others.length) {
-    sel.innerHTML = '<option value="">אין קבוצות אחרות למיזוג</option>';
-    confirmBtn.disabled = true;
+    _rcSetDdItems([], 'אין קבוצות אחרות למיזוג');
   } else {
-    sel.innerHTML = others.map(function(g){
-      return '<option value="' + esc(g.group_key) + '">' + esc(g.name) + ' (' + esc(g.category) + ')</option>';
-    }).join('');
-    confirmBtn.disabled = false;
+    var items = others.map(function(g){ return {value: g.group_key, label: g.name + ' (' + g.category + ')'}; });
+    _rcSetDdItems(items, 'בחר קבוצה…');
   }
   openActionModal();
 }
@@ -559,12 +620,13 @@ function openActionModal() {
 }
 function closeActionModal() {
   document.getElementById('rc-action-modal').classList.remove('open');
+  _rcCloseDd();
   _rcModalMode = null;
   _rcModalGroupKey = null;
 }
 
 function confirmActionModal() {
-  var value = document.getElementById('rc-modal-select').value;
+  var value = _rcDdSelected;
   if (!value) return;
   var key = _rcModalGroupKey;
   var mode = _rcModalMode;

@@ -2881,6 +2881,16 @@ class DataBase:
                 Updated_At TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        # A user-made-up display name for a bill — purely a page-local label
+        # overlay, never touches the underlying transaction Name column, so
+        # it has no effect anywhere outside this page (search, tagger, etc.).
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS RecurringDisplayNames (
+                Group_Key   TEXT      PRIMARY KEY,
+                Custom_Name TEXT      NOT NULL,
+                Updated_At  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
         self.connection.commit()
         DataBase.__recurring_tables_ready = True
 
@@ -3011,6 +3021,25 @@ class DataBase:
             INSERT INTO RecurringFolderAssignments (Group_Key, Folder_Id) VALUES (%s, %s)
             ON CONFLICT (Group_Key) DO UPDATE SET Folder_Id=%s, Updated_At=CURRENT_TIMESTAMP
         """, (group_key, int(folder_id), int(folder_id)))
+        self.connection.commit()
+
+    def get_recurring_display_names(self) -> dict:
+        """Returns {group_key: custom_name} — only bills the user has
+        given a made-up display name have a row here."""
+        rows = self.cursor.execute(
+            "SELECT Group_Key, Custom_Name FROM RecurringDisplayNames"
+        ).fetchall()
+        return {r[0]: r[1] for r in rows}
+
+    def set_recurring_display_name(self, group_key: str, name: str) -> None:
+        self.cursor.execute("""
+            INSERT INTO RecurringDisplayNames (Group_Key, Custom_Name) VALUES (%s, %s)
+            ON CONFLICT (Group_Key) DO UPDATE SET Custom_Name=%s, Updated_At=CURRENT_TIMESTAMP
+        """, (group_key, name, name))
+        self.connection.commit()
+
+    def clear_recurring_display_name(self, group_key: str) -> None:
+        self.cursor.execute("DELETE FROM RecurringDisplayNames WHERE Group_Key=%s", (group_key,))
         self.connection.commit()
 
     def get_spotify_members(self) -> list:

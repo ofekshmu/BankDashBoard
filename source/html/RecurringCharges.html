@@ -453,6 +453,22 @@ body {
   </div>
 </div>
 
+<div class="rc-modal-backdrop" id="rc-rename-modal" onclick="if(event.target===this) _rcCloseRenameModal()">
+  <div class="rc-modal" style="width:360px">
+    <button class="rc-modal-close" onclick="_rcCloseRenameModal()">✕</button>
+    <div class="rc-modal-title">שינוי שם תצוגה</div>
+    <label class="rc-field-label">שם מותאם אישית</label>
+    <input class="rc-search" id="rc-rename-input" type="text" placeholder="לדוגמה: נטפליקס" style="width:100%" onkeydown="if(event.key==='Enter') _rcSubmitRenameModal()">
+    <div class="rc-modal-hint">השם ישמש לתצוגה בעמוד זה בלבד ולא ישנה דבר בעסקאות עצמן.</div>
+    <div class="rc-modal-hint" id="rc-rename-error" style="display:none;color:var(--red)"></div>
+    <div class="rc-modal-footer">
+      <button class="rc-btn" id="rc-rename-reset-btn" style="display:none" onclick="_rcResetRenameModal()">אפס לשם שזוהה</button>
+      <button class="rc-btn" onclick="_rcCloseRenameModal()">ביטול</button>
+      <button class="rc-btn-primary" onclick="_rcSubmitRenameModal()">שמור</button>
+    </div>
+  </div>
+</div>
+
 <script>
 var RC_DATA = __RC_DATA_JSON__;   // replaced server-side at generation time; null if never generated yet
 var state = RC_DATA
@@ -464,6 +480,10 @@ var state = RC_DATA
 state.folders = [];
 state.folderAssignments = {};
 state.collapsedFolders = {};
+// User-made-up display names — also fetched separately (see
+// _rcLoadDisplayNames), same reasoning as folders: purely a label overlay,
+// never touches the underlying transaction Name column.
+state.displayNames = {};
 
 // ── Nav ──────────────────────────────────────────────────────────
 fetch('/api/version').then(function(r){return r.json();}).then(function(d){var b=document.getElementById('app-version-badge-2');if(b&&d.version)b.textContent='v'+d.version;}).catch(function(){});
@@ -505,6 +525,13 @@ function fmtDate(d) {
   var parts = String(d || '').split('-');
   return parts.length === 3 ? (parts[2] + '/' + parts[1] + '/' + parts[0]) : (d || '');
 }
+function displayNameForKey(key, fallbackName) {
+  var custom = state.displayNames[key];
+  return custom || fallbackName;
+}
+function displayNameFor(g) {
+  return displayNameForKey(g.group_key, g.name);
+}
 
 function statusOf(g) {
   if (g.possibly_stopped) return 'stopped';
@@ -530,7 +557,7 @@ function renderKpis() {
       var cls = g.possibly_stopped ? 'stopped' : 'changed';
       var text = g.possibly_stopped ? 'נראה שהופסק' : 'הסכום השתנה';
       return '<div class="attn-item" onclick="scrollToGroup(\'' + g.group_key + '\')">' +
-             '<div class="attn-item-name">' + esc(g.name) + '</div>' +
+             '<div class="attn-item-name">' + esc(displayNameFor(g)) + '</div>' +
              '<div class="attn-item-status ' + cls + '">' + text + '</div>' +
            '</div>';
     }).join('');
@@ -546,7 +573,7 @@ function renderKpis() {
     introList.innerHTML = introduced.map(function(a) {
       var clickable = state.groups.some(function(g){ return g.group_key === a.group_key; });
       return '<div class="attn-item"' + (clickable ? ' style="cursor:pointer" onclick="scrollToGroup(\'' + a.group_key + '\')"' : '') + '>' +
-             '<div class="attn-item-name">' + esc(a.name) + '</div>' +
+             '<div class="attn-item-name">' + esc(displayNameForKey(a.group_key, a.name)) + '</div>' +
              '<div class="attn-item-status introduced">נוסף כחיוב חוזר בחודש ' + a.month + '</div>' +
            '</div>';
     }).join('');
@@ -561,7 +588,7 @@ function renderKpis() {
     removedCard.style.display = '';
     removedList.innerHTML = removed.map(function(a) {
       return '<div class="attn-item">' +
-             '<div class="attn-item-name">' + esc(a.name) + '</div>' +
+             '<div class="attn-item-name">' + esc(displayNameForKey(a.group_key, a.name)) + '</div>' +
              '<div class="attn-item-status removed">הופסק אוטומטית אחרי חודש ' + a.month + '</div>' +
            '</div>';
     }).join('');
@@ -637,7 +664,7 @@ function getSortedFilteredGroups() {
     // similar matches (name or category) rise to the top regardless of
     // the sort dropdown, which still applies once the search is cleared.
     return state.groups
-      .map(function(g) { return { g: g, score: Math.max(_rcFuzzyScore(q, g.name), _rcFuzzyScore(q, g.category)) }; })
+      .map(function(g) { return { g: g, score: Math.max(_rcFuzzyScore(q, displayNameFor(g)), _rcFuzzyScore(q, g.category)) }; })
       .filter(function(x) { return x.score >= RC_SEARCH_MIN_SCORE; })
       .sort(function(a, b) { return b.score - a.score; })
       .map(function(x) { return x.g; });
@@ -646,7 +673,7 @@ function getSortedFilteredGroups() {
   var list = state.groups.slice();
   if (sort === 'amount-desc') list.sort(function(a,b){ return b.current_amount - a.current_amount; });
   else if (sort === 'amount-asc') list.sort(function(a,b){ return a.current_amount - b.current_amount; });
-  else if (sort === 'name') list.sort(function(a,b){ return a.name.localeCompare(b.name); });
+  else if (sort === 'name') list.sort(function(a,b){ return displayNameFor(a).localeCompare(displayNameFor(b)); });
   else if (sort === 'status') list.sort(function(a,b){ return (b.possibly_stopped||b.amount_changed?1:0) - (a.possibly_stopped||a.amount_changed?1:0); });
   return list;
 }
@@ -674,9 +701,11 @@ function cardHtml(g) {
   var nextHtml = status !== 'stopped'
     ? '<span class="rc-next">הבא: ' + g.next_expected + '</span>'
     : '';
+  var displayName = displayNameFor(g);
+  var isRenamed = displayName !== g.name;
   return '<div class="rc-card" id="card-' + g.group_key + '">' +
     '<div class="rc-card-top" onclick="toggleDetail(\'' + g.group_key + '\')">' +
-      '<span class="rc-card-name">' + esc(g.name) + '</span>' +
+      '<span class="rc-card-name"' + (isRenamed ? ' title="שם מקורי: ' + esc(g.name) + '"' : '') + '>' + esc(displayName) + '</span>' +
       '<span class="rc-card-cat">' + esc(g.category) + '</span>' +
       mergedBadge +
       '<span class="rc-status ' + status + '">' + statusLabel(status) + '</span>' +
@@ -697,6 +726,7 @@ function cardHtml(g) {
       '</div>' +
       occRows +
       '<div class="rc-actions">' +
+        '<button class="rc-btn" onclick="openRenameModal(\'' + g.group_key + '\')">ערוך שם…</button>' +
         '<button class="rc-btn" onclick="openFolderAssignPrompt(\'' + g.group_key + '\')">העבר לקבוצה…</button>' +
         '<button class="rc-btn" onclick="openMergePrompt(\'' + g.group_key + '\')">מזג עם…</button>' +
         '<button class="rc-btn danger" onclick="dismissGroup(\'' + g.group_key + '\')">התעלם</button>' +
@@ -762,7 +792,7 @@ function renderCards() {
   document.getElementById('rc-hidden-count').textContent = state.hidden.length;
   document.getElementById('rc-hidden-cards').innerHTML = state.hidden.map(function(g) {
     return '<div class="rc-card"><div class="rc-card-top">' +
-      '<span class="rc-card-name">' + esc(g.name) + '</span>' +
+      '<span class="rc-card-name">' + esc(displayNameForKey(g.group_key, g.name)) + '</span>' +
       '<button class="rc-btn" onclick="restoreGroup(\'' + g.group_key + '\')">שחזר</button>' +
     '</div></div>';
   }).join('');
@@ -820,7 +850,7 @@ function _rcCloseConfirm() {
 // ── Actions ──────────────────────────────────────────────────────
 function dismissGroup(key) {
   var g = state.groups.find(function(x){ return x.group_key === key; });
-  var name = g ? g.name : key;
+  var name = g ? displayNameFor(g) : key;
   _rcConfirm('התעלמות מחיוב חוזר', 'להתעלם מ"' + name + '"? ניתן לשחזר בכל עת מרשימת הקבוצות המוסתרות.', function() {
     // Persist the dismissal for the next real regen, but update the current
     // view instantly (no auto-regen) — the choice is already known locally.
@@ -839,7 +869,7 @@ function dismissGroup(key) {
 }
 function restoreGroup(key) {
   var g = state.hidden.find(function(x){ return x.group_key === key; });
-  var name = g ? g.name : key;
+  var name = g ? displayNameForKey(g.group_key, g.name) : key;
   _rcConfirm('שחזור חיוב חוזר', 'לשחזר את "' + name + '" לרשימת החיובים החוזרים הפעילים?', function() {
     fetch('/api/recurring/groups/' + encodeURIComponent(key) + '/restore', {method:'POST'})
       .then(function(r){return r.json();}).then(function(){ regenerate(); });
@@ -945,7 +975,7 @@ function openMergePrompt(key) {
   if (!others.length) {
     _rcSetDdItems([], 'אין קבוצות אחרות למיזוג');
   } else {
-    var items = others.map(function(g){ return {value: g.group_key, label: g.name + ' (' + g.category + ')'}; });
+    var items = others.map(function(g){ return {value: g.group_key, label: displayNameFor(g) + ' (' + g.category + ')'}; });
     _rcSetDdItems(items, 'בחר קבוצה…');
   }
   openActionModal();
@@ -1047,6 +1077,61 @@ function deleteFolder(folderId, name) {
   });
 }
 
+// ── Display-name override — a made-up label for this page only, free text
+//    intentionally allowed since it isn't a controlled vocabulary ──────────
+var _rcRenameTargetKey = null;
+
+function _rcLoadDisplayNames(cb) {
+  fetch('/api/recurring/display-names').then(function(r){ return r.json(); }).then(function(d){
+    if (d.ok) { state.displayNames = d.display_names; }
+    if (cb) cb();
+  }).catch(function(){ if (cb) cb(); });
+}
+
+function openRenameModal(key) {
+  _rcRenameTargetKey = key;
+  var g = state.groups.find(function(x){ return x.group_key === key; });
+  var current = g ? displayNameFor(g) : (state.displayNames[key] || '');
+  var hasOverride = !!state.displayNames[key];
+  var input = document.getElementById('rc-rename-input');
+  input.value = current;
+  document.getElementById('rc-rename-error').style.display = 'none';
+  document.getElementById('rc-rename-reset-btn').style.display = hasOverride ? '' : 'none';
+  document.getElementById('rc-rename-modal').classList.add('open');
+  input.focus();
+  input.select();
+}
+function _rcCloseRenameModal() {
+  document.getElementById('rc-rename-modal').classList.remove('open');
+  _rcRenameTargetKey = null;
+}
+function _rcSubmitRenameModal() {
+  var name = document.getElementById('rc-rename-input').value.trim();
+  var errEl = document.getElementById('rc-rename-error');
+  if (!name) { errEl.textContent = 'יש להזין שם'; errEl.style.display = ''; return; }
+  var key = _rcRenameTargetKey;
+  fetch('/api/recurring/groups/' + encodeURIComponent(key) + '/display-name', {
+    method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name:name})
+  }).then(function(r){ return r.json(); }).then(function(res){
+    if (!res.ok) { errEl.textContent = res.error || 'שגיאה'; errEl.style.display = ''; return; }
+    state.displayNames[key] = name;
+    _rcCloseRenameModal();
+    renderKpis();
+    renderCards();
+  });
+}
+function _rcResetRenameModal() {
+  var key = _rcRenameTargetKey;
+  fetch('/api/recurring/groups/' + encodeURIComponent(key) + '/display-name', {method:'DELETE'})
+    .then(function(r){ return r.json(); }).then(function(res){
+      if (!res.ok) { alert('שגיאה: ' + res.error); return; }
+      delete state.displayNames[key];
+      _rcCloseRenameModal();
+      renderKpis();
+      renderCards();
+    });
+}
+
 // ── Loading state (skeleton shown in place of a separate "not generated
 //    yet" page — same shell throughout, updates in place, never reloads) ──
 function _rcShowSkeleton() {
@@ -1128,19 +1213,21 @@ function regenerate() {
 }
 
 _rcLoadFolders(function() {
-  if (RC_DATA) {
-    renderKpis();
-    renderCards();
-    renderTrendChart();
-  } else {
-    // Never generated yet — show the skeleton in place of real content and
-    // auto-start the same regen flow the button uses. No separate page, no
-    // reload once it finishes: regenerate() fetches fresh data and renders
-    // it into this same page shell.
-    _rcShowSkeleton();
-    _rcShowLoadingBanner('מריץ ניתוח ראשוני — זה עשוי לקחת מספר שניות…');
-    regenerate();
-  }
+  _rcLoadDisplayNames(function() {
+    if (RC_DATA) {
+      renderKpis();
+      renderCards();
+      renderTrendChart();
+    } else {
+      // Never generated yet — show the skeleton in place of real content and
+      // auto-start the same regen flow the button uses. No separate page, no
+      // reload once it finishes: regenerate() fetches fresh data and renders
+      // it into this same page shell.
+      _rcShowSkeleton();
+      _rcShowLoadingBanner('מריץ ניתוח ראשוני — זה עשוי לקחת מספר שניות…');
+      regenerate();
+    }
+  });
 });
 </script>
 </body>

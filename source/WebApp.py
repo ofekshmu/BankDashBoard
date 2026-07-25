@@ -5132,6 +5132,49 @@ def recurring_assign_folder(group_key):
         return jsonify({'ok': False, 'error': str(e)})
 
 
+@app.route('/api/recurring/display-names', methods=['GET'])
+def recurring_display_names_list():
+    """Returns every user-made-up display name — fetched independently of the
+    detection cache, same as folders, so renaming a bill never needs a regen."""
+    from database import DataBase
+    try:
+        db = DataBase()
+        db.ensure_recurring_tables()
+        return jsonify({'ok': True, 'display_names': db.get_recurring_display_names()})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/recurring/groups/<path:group_key>/display-name', methods=['POST'])
+def recurring_set_display_name(group_key):
+    from database import DataBase
+    try:
+        group_key = _normalize_group_key(group_key)
+        body = request.get_json(force=True) or {}
+        name = (body.get('name') or '').strip()
+        if not name:
+            return jsonify({'ok': False, 'error': 'שם נדרש'})
+        db = DataBase()
+        db.ensure_recurring_tables()
+        db.set_recurring_display_name(group_key, name)
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/recurring/groups/<path:group_key>/display-name', methods=['DELETE'])
+def recurring_clear_display_name(group_key):
+    from database import DataBase
+    try:
+        group_key = _normalize_group_key(group_key)
+        db = DataBase()
+        db.ensure_recurring_tables()
+        db.clear_recurring_display_name(group_key)
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
 SPOTIFY_HTML = os.path.join(_HERE, 'html', 'SpotifyTracker.html')
 
 # ── Spotify Tracker routes ─────────────────────────────────────────────────────

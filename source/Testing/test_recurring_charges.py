@@ -56,6 +56,26 @@ def test_merge_roundtrip():
     print("PASS: merge round-trip")
 
 
+def test_display_name_roundtrip():
+    db = DataBase()
+    db.ensure_recurring_tables()
+    key = 'RC_TEST_display_name_key'
+    db.cursor.execute("DELETE FROM RecurringDisplayNames WHERE Group_Key=%s", (key,))
+    db.connection.commit()
+
+    assert key not in db.get_recurring_display_names()
+    db.set_recurring_display_name(key, 'RC_TEST_CUSTOM_NAME')
+    assert db.get_recurring_display_names()[key] == 'RC_TEST_CUSTOM_NAME'
+
+    # setting again overwrites rather than erroring (user editing twice)
+    db.set_recurring_display_name(key, 'RC_TEST_CUSTOM_NAME_2')
+    assert db.get_recurring_display_names()[key] == 'RC_TEST_CUSTOM_NAME_2'
+
+    db.clear_recurring_display_name(key)
+    assert key not in db.get_recurring_display_names()
+    print("PASS: display name round-trip")
+
+
 def test_exclude_tx_roundtrip():
     db = DataBase()
     db.ensure_recurring_tables()
@@ -519,6 +539,7 @@ if __name__ == '__main__':
     test_recurring_tables_exist()
     test_dismiss_restore_roundtrip()
     test_merge_roundtrip()
+    test_display_name_roundtrip()
     test_exclude_tx_roundtrip()
     test_normalize_name()
     test_cluster_transactions_groups_similar_names()

@@ -453,6 +453,22 @@ body {
   </div>
 </div>
 
+<div class="rc-modal-backdrop" id="rc-rename-modal" onclick="if(event.target===this) _rcCloseRenameModal()">
+  <div class="rc-modal" style="width:360px">
+    <button class="rc-modal-close" onclick="_rcCloseRenameModal()">✕</button>
+    <div class="rc-modal-title">שינוי שם תצוגה</div>
+    <label class="rc-field-label">שם מותאם אישית</label>
+    <input class="rc-search" id="rc-rename-input" type="text" placeholder="לדוגמה: נטפליקס" style="width:100%" onkeydown="if(event.key==='Enter') _rcSubmitRenameModal()">
+    <div class="rc-modal-hint">השם ישמש לתצוגה בעמוד זה בלבד ולא ישנה דבר בעסקאות עצמן.</div>
+    <div class="rc-modal-hint" id="rc-rename-error" style="display:none;color:var(--red)"></div>
+    <div class="rc-modal-footer">
+      <button class="rc-btn" id="rc-rename-reset-btn" style="display:none" onclick="_rcResetRenameModal()">אפס לשם שזוהה</button>
+      <button class="rc-btn" onclick="_rcCloseRenameModal()">ביטול</button>
+      <button class="rc-btn-primary" onclick="_rcSubmitRenameModal()">שמור</button>
+    </div>
+  </div>
+</div>
+
 <script>
 var RC_DATA = {"groups": [{"group_key": "פסיפיק רכב ותחב", "name": "פסיפיק רכב ותחב", "category": "רכב", "current_amount": 2288.74, "occurrence_count": 11, "average_amount": 2189.73, "total_spent": 24087.02, "min_amount": 1379.6, "max_amount": 2295.42, "first_payment_date": "2025-07-30", "last_payment_date": "2026-06-30", "possibly_stopped": false, "amount_changed": true, "next_expected": "2026-07-30", "occurrences": [{"month": "2025-07", "date": "2025-07-30", "amount": 1379.6, "table": "BankTransactions", "id": 467, "name": "פסיפיק רכב ותחב", "status": "changed"}, {"month": "2025-08", "date": "2025-08-31", "amount": 2259.85, "table": "BankTransactions", "id": 491, "name": "פסיפיק רכב ותחב", "status": "paid"}, {"month": "2025-09", "date": "2025-09-30", "amount": 2275.41, "table": "BankTransactions", "id": 509, "name": "פסיפיק רכב ותחב", "status": "paid"}, {"month": "2025-10", "date": "2025-10-30", "amount": 2262.07, "table": "BankTransactions", "id": 541, "name": "פסיפיק רכב ותחב", "status": "paid"}, {"month": "2025-11", "date": "2025-11-30", "amount": 2273.2, "table": "BankTransactions", "id": 562, "name": "פסיפיק רכב ותחב", "status": "paid"}, {"month": "2025-12", "date": "2025-12-30", "amount": 2262.07, "table": "BankTransactions", "id": 570, "name": "פסיפיק רכב ותחב", "status": "paid"}, {"month": "2026-01", "date": "2026-01-30", "amount": 2262.07, "table": "BankTransactions", "id": 599, "name": "פסיפיק רכב ותחב", "status": "paid"}, {"month": "2026-03", "date": "2026-03-30", "amount": 2259.85, "table": "BankTransactions", "id": 639, "name": "פסיפיק רכב ותחב", "status": "paid"}, {"month": "2026-04", "date": "2026-04-30", "amount": 2268.74, "table": "BankTransactions", "id": 670, "name": "פסיפיק רכב ותחב", "status": "paid"}, {"month": "2026-05", "date": "2026-05-31", "amount": 2295.42, "table": "BankTransactions", "id": 683, "name": "פסיפיק רכב ותחב", "status": "paid"}, {"month": "2026-06", "date": "2026-06-30", "amount": 2288.74, "table": "BankTransactions", "id": 718, "name": "פסיפיק רכב ותחב", "status": "paid"}], "timeline": [{"month": "2025-07", "status": "changed"}, {"month": "2025-08", "status": "paid"}, {"month": "2025-09", "status": "paid"}, {"month": "2025-10", "status": "paid"}, {"month": "2025-11", "status": "paid"}, {"month": "2025-12", "status": "paid"}, {"month": "2026-01", "status": "paid"}, {"month": "2026-02", "status": "missing"}, {"month": "2026-03", "status": "paid"}, {"month": "2026-04", "status": "paid"}, {"month": "2026-05", "status": "paid"}, {"month": "2026-06", "status": "paid"}], "merged_from": []}, {"group_key": "הלוואה תשלום קרן", "name": "108 הלוואה - תשלום קרן", "category": "הלוואה", "current_amount": 1000.0, "occurrence_count": 14, "average_amount": 1000.0, "total_spent": 14000.0, "min_amount": 1000.0, "max_amount": 1000.0, "first_payment_date": "2025-06-01", "last_payment_date": "2026-07-01", "possibly_stopped": false, "amount_changed": false, "next_expected": "2026-07-01", "occurrences": [{"month": "2025-06", "date": "2025-06-01", "amount": 1000.0, "table": "BankTransactions", "id": 441, "name": "108 הלוואה - תשלום קרן", "status": "paid"}, {"month": "2025-07", "date": "2025-07-01", "amount": 1000.0, "table": "BankTransactions", "id": 416, "name": "108 הלוואה - תשלום קרן", "status": "paid"}, {"month": "2025-08", "date": "2025-08-01", "amount": 1000.0, "table": "BankTransactions", "id": 460, "name": "108 הלוואה - תשלום קרן", "status": "paid"}, {"month": "2025-09", "date": "2025-09-01", "amount": 1000.0, "table": "BankTransactions", "id": 485, "name": "108 הלוואה - תשלום קרן", "status": "paid"}, {"month": "2025-10", "date": "2025-10-03", "amount": 1000.0, "table": "BankTransactions", "id": 498, "name": "108 הלוואה - תשלום קרן", "status": "paid"}, {"month": "2025-11", "date": "2025-11-02", "amount": 1000.0, "table": "BankTransactions", "id": 529, "name": "108 הלוואה - תשלום קרן", "status": "paid"}, {"month": "2025-12", "date": "2025-12-01", "amount": 1000.0, "table": "BankTransactions", "id": 556, "name": "108 הלוואה - תשלום קרן", "status": "paid"}, {"month": "2026-01", "date": "2026-01-01", "amount": 1000.0, "table": "BankTransactions", "id": 563, "name": "108 הלוואה - תשלום קרן", "status": "paid"}, {"month": "2026-02", "date": "2026-02-01", "amount": 1000.0, "table": "BankTransactions", "id": 594, "name": "108 הלוואה - תשלום קרן", "status": "paid"}, {"month": "2026-03", "date": "2026-03-01", "amount": 1000.0, "table": "BankTransactions", "id": 616, "name": "108 הלוואה - תשלום קרן", "status": "paid"}, {"month": "2026-04", "date": "2026-04-01", "amount": 1000.0, "table": "BankTransactions", "id": 631, "name": "108 הלוואה - תשלום קרן", "status": "paid"}, {"month": "2026-05", "date": "2026-05-01", "amount": 1000.0, "table": "BankTransactions", "id": 665, "name": "108 הלוואה - תשלום קרן", "status": "paid"}, {"month": "2026-06", "date": "2026-06-01", "amount": 1000.0, "table": "BankTransactions", "id": 678, "name": "108 הלוואה - תשלום קרן", "status": "paid"}, {"month": "2026-07", "date": "2026-07-01", "amount": 1000.0, "table": "BankTransactions", "id": 708, "name": "108 הלוואה - תשלום קרן", "status": "paid"}], "timeline": [{"month": "2025-07", "status": "paid"}, {"month": "2025-08", "status": "paid"}, {"month": "2025-09", "status": "paid"}, {"month": "2025-10", "status": "paid"}, {"month": "2025-11", "status": "paid"}, {"month": "2025-12", "status": "paid"}, {"month": "2026-01", "status": "paid"}, {"month": "2026-02", "status": "paid"}, {"month": "2026-03", "status": "paid"}, {"month": "2026-04", "status": "paid"}, {"month": "2026-05", "status": "paid"}, {"month": "2026-06", "status": "paid"}], "merged_from": []}, {"group_key": "אנליסט קופ ג מנותבת", "name": "אנליסט קופ\"ג -מנותבת", "category": "השקעה/חיסכון", "current_amount": 1000.0, "occurrence_count": 11, "average_amount": 1000.0, "total_spent": 11000.0, "min_amount": 1000.0, "max_amount": 1000.0, "first_payment_date": "2025-06-16", "last_payment_date": "2026-04-15", "possibly_stopped": true, "amount_changed": false, "next_expected": "2026-07-16", "occurrences": [{"month": "2025-06", "date": "2025-06-16", "amount": 1000.0, "table": "BankTransactions", "id": 430, "name": "אנליסט קופ\"ג -מנותבת", "status": "paid"}, {"month": "2025-07", "date": "2025-07-16", "amount": 1000.0, "table": "BankTransactions", "id": 474, "name": "אנליסט קופ\"ג -מנותבת", "status": "paid"}, {"month": "2025-08", "date": "2025-08-18", "amount": 1000.0, "table": "BankTransactions", "id": 495, "name": "אנליסט קופ\"ג -מנותבת", "status": "paid"}, {"month": "2025-09", "date": "2025-09-16", "amount": 1000.0, "table": "BankTransactions", "id": 512, "name": "אנליסט קופ\"ג -מנותבת", "status": "paid"}, {"month": "2025-10", "date": "2025-10-16", "amount": 1000.0, "table": "BankTransactions", "id": 548, "name": "אנליסט קופ\"ג -מנותבת", "status": "paid"}, {"month": "2025-11", "date": "2025-11-17", "amount": 1000.0, "table": "BankTransactions", "id": 520, "name": "אנליסט קופ\"ג -מנותבת", "status": "paid"}, {"month": "2025-12", "date": "2025-12-16", "amount": 1000.0, "table": "BankTransactions", "id": 575, "name": "אנליסט קופ\"ג -מנותבת", "status": "paid"}, {"month": "2026-01", "date": "2026-01-18", "amount": 1000.0, "table": "BankTransactions", "id": 602, "name": "אנליסט קופ\"ג -מנותבת", "status": "paid"}, {"month": "2026-02", "date": "2026-02-16", "amount": 1000.0, "table": "BankTransactions", "id": 584, "name": "אנליסט קופ\"ג -מנותבת", "status": "paid"}, {"month": "2026-03", "date": "2026-03-15", "amount": 1000.0, "table": "BankTransactions", "id": 645, "name": "אנליסט קופ\"ג -מנותבת", "status": "paid"}, {"month": "2026-04", "date": "2026-04-15", "amount": 1000.0, "table": "BankTransactions", "id": 650, "name": "אנליסט קופ\"ג -מנותבת", "status": "paid"}], "timeline": [{"month": "2025-07", "status": "paid"}, {"month": "2025-08", "status": "paid"}, {"month": "2025-09", "status": "paid"}, {"month": "2025-10", "status": "paid"}, {"month": "2025-11", "status": "paid"}, {"month": "2025-12", "status": "paid"}, {"month": "2026-01", "status": "paid"}, {"month": "2026-02", "status": "paid"}, {"month": "2026-03", "status": "paid"}, {"month": "2026-04", "status": "paid"}, {"month": "2026-05", "status": "missing"}, {"month": "2026-06", "status": "missing"}], "merged_from": []}, {"group_key": "יפנולוגי המרכז ללימו", "name": "יפנולוגי-המרכז ללימו", "category": "השכלה ולימודים", "current_amount": 530.0, "occurrence_count": 10, "average_amount": 530.0, "total_spent": 5300.0, "min_amount": 530.0, "max_amount": 530.0, "first_payment_date": "2025-06-01", "last_payment_date": "2026-06-01", "possibly_stopped": false, "amount_changed": false, "next_expected": "2026-07-01", "occurrences": [{"month": "2025-06", "date": "2025-06-01", "amount": 530.0, "table": "CardTransactions", "id": 1284, "name": "יפנולוגי-המרכז ללימו", "status": "paid"}, {"month": "2025-07", "date": "2025-07-01", "amount": 530.0, "table": "CardTransactions", "id": 1422, "name": "יפנולוגי-המרכז ללימו", "status": "paid"}, {"month": "2025-08", "date": "2025-08-01", "amount": 530.0, "table": "CardTransactions", "id": 1457, "name": "יפנולוגי-המרכז ללימו", "status": "paid"}, {"month": "2025-09", "date": "2025-09-01", "amount": 530.0, "table": "CardTransactions", "id": 1549, "name": "יפנולוגי-המרכז ללימו", "status": "paid"}, {"month": "2026-01", "date": "2026-01-05", "amount": 530.0, "table": "CardTransactions", "id": 1997, "name": "יפנולוגי-המרכז ללימו", "status": "paid"}, {"month": "2026-02", "date": "2026-02-01", "amount": 530.0, "table": "CardTransactions", "id": 2025, "name": "יפנולוגי-המרכז ללימו", "status": "paid"}, {"month": "2026-03", "date": "2026-03-01", "amount": 530.0, "table": "CardTransactions", "id": 2133, "name": "יפנולוגי-המרכז ללימו", "status": "paid"}, {"month": "2026-04", "date": "2026-04-01", "amount": 530.0, "table": "CardTransactions", "id": 2187, "name": "יפנולוגי-המרכז ללימו", "status": "paid"}, {"month": "2026-05", "date": "2026-05-01", "amount": 530.0, "table": "CardTransactions", "id": 2274, "name": "יפנולוגי-המרכז ללימו", "status": "paid"}, {"month": "2026-06", "date": "2026-06-01", "amount": 530.0, "table": "CardTransactions", "id": 2342, "name": "יפנולוגי-המרכז ללימו", "status": "paid"}], "timeline": [{"month": "2025-07", "status": "paid"}, {"month": "2025-08", "status": "paid"}, {"month": "2025-09", "status": "paid"}, {"month": "2025-10", "status": "missing"}, {"month": "2025-11", "status": "missing"}, {"month": "2025-12", "status": "missing"}, {"month": "2026-01", "status": "paid"}, {"month": "2026-02", "status": "paid"}, {"month": "2026-03", "status": "paid"}, {"month": "2026-04", "status": "paid"}, {"month": "2026-05", "status": "paid"}, {"month": "2026-06", "status": "paid"}], "merged_from": []}, {"group_key": "my dream", "name": "MY DREAM", "category": "בריאות וכושר", "current_amount": 405.0, "occurrence_count": 12, "average_amount": 405.0, "total_spent": 4860.0, "min_amount": 405.0, "max_amount": 405.0, "first_payment_date": "2025-05-26", "last_payment_date": "2026-06-14", "possibly_stopped": false, "amount_changed": false, "next_expected": "2026-07-26", "occurrences": [{"month": "2025-05", "date": "2025-05-26", "amount": 405.0, "table": "CardTransactions", "id": 1243, "name": "MY DREAM", "status": "paid"}, {"month": "2025-06", "date": "2025-06-26", "amount": 405.0, "table": "CardTransactions", "id": 1350, "name": "MY DREAM", "status": "paid"}, {"month": "2025-07", "date": "2025-07-26", "amount": 405.0, "table": "CardTransactions", "id": 1444, "name": "MY DREAM", "status": "paid"}, {"month": "2025-08", "date": "2025-08-26", "amount": 405.0, "table": "CardTransactions", "id": 1483, "name": "MY DREAM", "status": "paid"}, {"month": "2025-09", "date": "2025-09-26", "amount": 405.0, "table": "CardTransactions", "id": 1625, "name": "MY DREAM", "status": "paid"}, {"month": "2025-10", "date": "2025-10-26", "amount": 405.0, "table": "CardTransactions", "id": 1655, "name": "MY DREAM", "status": "paid"}, {"month": "2025-11", "date": "2025-11-26", "amount": 405.0, "table": "CardTransactions", "id": 1808, "name": "MY DREAM", "status": "paid"}, {"month": "2025-12", "date": "2025-12-26", "amount": 405.0, "table": "CardTransactions", "id": 1912, "name": "MY DREAM", "status": "paid"}, {"month": "2026-01", "date": "2026-01-26", "amount": 405.0, "table": "CardTransactions", "id": 2005, "name": "MY DREAM", "status": "paid"}, {"month": "2026-04", "date": "2026-04-14", "amount": 405.0, "table": "CardTransactions", "id": 2203, "name": "MY DREAM", "status": "paid"}, {"month": "2026-05", "date": "2026-05-14", "amount": 405.0, "table": "CardTransactions", "id": 2295, "name": "MY DREAM", "status": "paid"}, {"month": "2026-06", "date": "2026-06-14", "amount": 405.0, "table": "CardTransactions", "id": 2324, "name": "MY DREAM", "status": "paid"}], "timeline": [{"month": "2025-07", "status": "paid"}, {"month": "2025-08", "status": "paid"}, {"month": "2025-09", "status": "paid"}, {"month": "2025-10", "status": "paid"}, {"month": "2025-11", "status": "paid"}, {"month": "2025-12", "status": "paid"}, {"month": "2026-01", "status": "paid"}, {"month": "2026-02", "status": "missing"}, {"month": "2026-03", "status": "missing"}, {"month": "2026-04", "status": "paid"}, {"month": "2026-05", "status": "paid"}, {"month": "2026-06", "status": "paid"}], "merged_from": []}, {"group_key": "סלקום ישראל בע מ", "name": "סלקום ישראל בע\"מ", "category": "חשבונות", "current_amount": 89.0, "occurrence_count": 13, "average_amount": 98.15, "total_spent": 1276.0, "min_amount": 89.0, "max_amount": 100.0, "first_payment_date": "2025-06-16", "last_payment_date": "2026-06-16", "possibly_stopped": false, "amount_changed": false, "next_expected": "2026-07-16", "occurrences": [{"month": "2025-06", "date": "2025-06-16", "amount": 100.0, "table": "CardTransactions", "id": 1313, "name": "חשבון לשרותי סלקום", "status": "paid"}, {"month": "2025-07", "date": "2025-07-16", "amount": 100.0, "table": "CardTransactions", "id": 1384, "name": "חשבון לשרותי סלקום", "status": "paid"}, {"month": "2025-08", "date": "2025-08-16", "amount": 100.0, "table": "CardTransactions", "id": 1520, "name": "חשבון לשרותי סלקום", "status": "paid"}, {"month": "2025-09", "date": "2025-09-16", "amount": 100.0, "table": "CardTransactions", "id": 1583, "name": "חשבון לשרותי סלקום", "status": "paid"}, {"month": "2025-10", "date": "2025-10-16", "amount": 100.0, "table": "CardTransactions", "id": 1692, "name": "חשבון לשרותי סלקום", "status": "paid"}, {"month": "2025-11", "date": "2025-11-16", "amount": 100.0, "table": "CardTransactions", "id": 1731, "name": "חשבון לשרותי סלקום", "status": "paid"}, {"month": "2025-12", "date": "2025-12-16", "amount": 100.0, "table": "CardTransactions", "id": 1867, "name": "חשבון לשרותי סלקום", "status": "paid"}, {"month": "2026-01", "date": "2026-01-16", "amount": 100.0, "table": "CardTransactions", "id": 1930, "name": "חשבון לשרותי סלקום", "status": "paid"}, {"month": "2026-02", "date": "2026-02-16", "amount": 100.0, "table": "CardTransactions", "id": 2029, "name": "חשבון לשרותי סלקום", "status": "paid"}, {"month": "2026-03", "date": "2026-03-16", "amount": 100.0, "table": "CardTransactions", "id": 2109, "name": "חשבון לשרותי סלקום", "status": "paid"}, {"month": "2026-04", "date": "2026-04-16", "amount": 98.0, "table": "CardTransactions", "id": 2160, "name": "סלקום ישראל בע\"מ", "status": "paid"}, {"month": "2026-05", "date": "2026-05-16", "amount": 89.0, "table": "CardTransactions", "id": 2234, "name": "סלקום ישראל בע\"מ", "status": "paid"}, {"month": "2026-06", "date": "2026-06-16", "amount": 89.0, "table": "CardTransactions", "id": 2361, "name": "סלקום ישראל בע\"מ", "status": "paid"}], "timeline": [{"month": "2025-07", "status": "paid"}, {"month": "2025-08", "status": "paid"}, {"month": "2025-09", "status": "paid"}, {"month": "2025-10", "status": "paid"}, {"month": "2025-11", "status": "paid"}, {"month": "2025-12", "status": "paid"}, {"month": "2026-01", "status": "paid"}, {"month": "2026-02", "status": "paid"}, {"month": "2026-03", "status": "paid"}, {"month": "2026-04", "status": "paid"}, {"month": "2026-05", "status": "paid"}, {"month": "2026-06", "status": "paid"}], "merged_from": ["חשבון לשרותי סלקום"]}, {"group_key": "openai chatgpt subscr", "name": "OPENAI *CHATGPT SUBSCR", "category": "מנויים", "current_amount": 64.0, "occurrence_count": 3, "average_amount": 63.67, "total_spent": 191.0, "min_amount": 63.0, "max_amount": 64.0, "first_payment_date": "2026-01-30", "last_payment_date": "2026-03-30", "possibly_stopped": true, "amount_changed": false, "next_expected": "2026-07-30", "occurrences": [{"month": "2026-01", "date": "2026-01-30", "amount": 64.0, "table": "CardTransactions", "id": 2001, "name": "OPENAI *CHATGPT SUBSCR", "status": "paid"}, {"month": "2026-02", "date": "2026-02-28", "amount": 63.0, "table": "CardTransactions", "id": 2066, "name": "OPENAI *CHATGPT SUBSCR", "status": "paid"}, {"month": "2026-03", "date": "2026-03-30", "amount": 64.0, "table": "CardTransactions", "id": 2079, "name": "OPENAI *CHATGPT SUBSCR", "status": "paid"}], "timeline": [{"month": "2025-07", "status": "before_start"}, {"month": "2025-08", "status": "before_start"}, {"month": "2025-09", "status": "before_start"}, {"month": "2025-10", "status": "before_start"}, {"month": "2025-11", "status": "before_start"}, {"month": "2025-12", "status": "before_start"}, {"month": "2026-01", "status": "paid"}, {"month": "2026-02", "status": "paid"}, {"month": "2026-03", "status": "paid"}, {"month": "2026-04", "status": "missing"}, {"month": "2026-05", "status": "missing"}, {"month": "2026-06", "status": "missing"}], "merged_from": []}, {"group_key": "spotifyil", "name": "SPOTIFYIL", "category": "תחביבים ופנאי", "current_amount": 44.0, "occurrence_count": 12, "average_amount": 42.0, "total_spent": 504.0, "min_amount": 36.0, "max_amount": 44.0, "first_payment_date": "2025-06-22", "last_payment_date": "2026-06-22", "possibly_stopped": false, "amount_changed": true, "next_expected": "2026-07-22", "occurrences": [{"month": "2025-06", "date": "2025-06-22", "amount": 36.0, "table": "CardTransactions", "id": 1336, "name": "SPOTIFYIL", "status": "changed"}, {"month": "2025-07", "date": "2025-07-22", "amount": 36.0, "table": "CardTransactions", "id": 1418, "name": "SPOTIFYIL", "status": "changed"}, {"month": "2025-08", "date": "2025-08-22", "amount": 36.0, "table": "CardTransactions", "id": 1543, "name": "SPOTIFYIL", "status": "changed"}, {"month": "2025-09", "date": "2025-09-22", "amount": 44.0, "table": "CardTransactions", "id": 1602, "name": "SPOTIFYIL", "status": "paid"}, {"month": "2025-10", "date": "2025-10-22", "amount": 44.0, "table": "CardTransactions", "id": 1716, "name": "SPOTIFYIL", "status": "paid"}, {"month": "2025-11", "date": "2025-11-22", "amount": 44.0, "table": "CardTransactions", "id": 1774, "name": "SPOTIFYIL", "status": "paid"}, {"month": "2025-12", "date": "2025-12-22", "amount": 44.0, "table": "CardTransactions", "id": 1892, "name": "SPOTIFYIL", "status": "paid"}, {"month": "2026-01", "date": "2026-01-22", "amount": 44.0, "table": "CardTransactions", "id": 1950, "name": "SPOTIFYIL", "status": "paid"}, {"month": "2026-02", "date": "2026-02-22", "amount": 44.0, "table": "CardTransactions", "id": 2063, "name": "SPOTIFYIL", "status": "paid"}, {"month": "2026-03", "date": "2026-03-22", "amount": 44.0, "table": "CardTransactions", "id": 2131, "name": "SPOTIFYIL", "status": "paid"}, {"month": "2026-04", "date": "2026-04-22", "amount": 44.0, "table": "CardTransactions", "id": 2182, "name": "SPOTIFYIL", "status": "paid"}, {"month": "2026-06", "date": "2026-06-22", "amount": 44.0, "table": "CardTransactions", "id": 2384, "name": "SPOTIFYIL", "status": "paid"}], "timeline": [{"month": "2025-07", "status": "changed"}, {"month": "2025-08", "status": "changed"}, {"month": "2025-09", "status": "paid"}, {"month": "2025-10", "status": "paid"}, {"month": "2025-11", "status": "paid"}, {"month": "2025-12", "status": "paid"}, {"month": "2026-01", "status": "paid"}, {"month": "2026-02", "status": "paid"}, {"month": "2026-03", "status": "paid"}, {"month": "2026-04", "status": "paid"}, {"month": "2026-05", "status": "missing"}, {"month": "2026-06", "status": "paid"}], "merged_from": []}, {"group_key": "paypal netflix com", "name": "PAYPAL *NETFLIX COM", "category": "מנויים", "current_amount": 33.0, "occurrence_count": 12, "average_amount": 32.92, "total_spent": 395.0, "min_amount": 32.0, "max_amount": 33.0, "first_payment_date": "2025-07-21", "last_payment_date": "2026-06-21", "possibly_stopped": false, "amount_changed": false, "next_expected": "2026-07-21", "occurrences": [{"month": "2025-07", "date": "2025-07-21", "amount": 33.0, "table": "CardTransactions", "id": 1428, "name": "PAYPAL  NETFLIX COM", "status": "paid"}, {"month": "2025-08", "date": "2025-08-21", "amount": 33.0, "table": "CardTransactions", "id": 1460, "name": "PAYPAL  NETFLIX COM", "status": "paid"}, {"month": "2025-09", "date": "2025-09-21", "amount": 33.0, "table": "CardTransactions", "id": 1557, "name": "PAYPAL  NETFLIX COM", "status": "paid"}, {"month": "2025-10", "date": "2025-10-21", "amount": 33.0, "table": "CardTransactions", "id": 1677, "name": "PAYPAL  NETFLIX COM", "status": "paid"}, {"month": "2025-11", "date": "2025-11-21", "amount": 33.0, "table": "CardTransactions", "id": 1838, "name": "PAYPAL  NETFLIX COM", "status": "paid"}, {"month": "2025-12", "date": "2025-12-21", "amount": 33.0, "table": "CardTransactions", "id": 1848, "name": "PAYPAL  NETFLIX COM", "status": "paid"}, {"month": "2026-01", "date": "2026-01-21", "amount": 33.0, "table": "CardTransactions", "id": 1993, "name": "PAYPAL *NETFLIX COM", "status": "paid"}, {"month": "2026-02", "date": "2026-02-21", "amount": 33.0, "table": "CardTransactions", "id": 2024, "name": "PAYPAL *NETFLIX COM", "status": "paid"}, {"month": "2026-03", "date": "2026-03-21", "amount": 33.0, "table": "CardTransactions", "id": 2132, "name": "PAYPAL *NETFLIX COM", "status": "paid"}, {"month": "2026-04", "date": "2026-04-21", "amount": 33.0, "table": "CardTransactions", "id": 2184, "name": "PAYPAL *NETFLIX COM", "status": "paid"}, {"month": "2026-05", "date": "2026-05-21", "amount": 32.0, "table": "CardTransactions", "id": 2271, "name": "PAYPAL *NETFLIX COM", "status": "paid"}, {"month": "2026-06", "date": "2026-06-21", "amount": 33.0, "table": "CardTransactions", "id": 2338, "name": "PAYPAL *NETFLIX COM", "status": "paid"}], "timeline": [{"month": "2025-07", "status": "paid"}, {"month": "2025-08", "status": "paid"}, {"month": "2025-09", "status": "paid"}, {"month": "2025-10", "status": "paid"}, {"month": "2025-11", "status": "paid"}, {"month": "2025-12", "status": "paid"}, {"month": "2026-01", "status": "paid"}, {"month": "2026-02", "status": "paid"}, {"month": "2026-03", "status": "paid"}, {"month": "2026-04", "status": "paid"}, {"month": "2026-05", "status": "paid"}, {"month": "2026-06", "status": "paid"}], "merged_from": []}, {"group_key": "הראל בטוח", "name": "הראל בטוח", "category": "ביטוח בריאות", "current_amount": 29.78, "occurrence_count": 14, "average_amount": 29.48, "total_spent": 412.68, "min_amount": 29.21, "max_amount": 29.87, "first_payment_date": "2025-06-05", "last_payment_date": "2026-07-05", "possibly_stopped": false, "amount_changed": false, "next_expected": "2026-07-05", "occurrences": [{"month": "2025-06", "date": "2025-06-05", "amount": 29.3, "table": "BankTransactions", "id": 436, "name": "הראל בטוח", "status": "paid"}, {"month": "2025-07", "date": "2025-07-06", "amount": 29.21, "table": "BankTransactions", "id": 478, "name": "הראל בטוח", "status": "paid"}, {"month": "2025-08", "date": "2025-08-05", "amount": 29.3, "table": "BankTransactions", "id": 453, "name": "הראל בטוח", "status": "paid"}, {"month": "2025-09", "date": "2025-09-07", "amount": 29.41, "table": "BankTransactions", "id": 518, "name": "הראל בטוח", "status": "paid"}, {"month": "2025-10", "date": "2025-10-05", "amount": 29.61, "table": "BankTransactions", "id": 497, "name": "הראל בטוח", "status": "paid"}, {"month": "2025-11", "date": "2025-11-05", "amount": 29.44, "table": "BankTransactions", "id": 528, "name": "הראל בטוח", "status": "paid"}, {"month": "2025-12", "date": "2025-12-04", "amount": 29.58, "table": "BankTransactions", "id": 580, "name": "הראל בטוח", "status": "paid"}, {"month": "2026-01", "date": "2026-01-05", "amount": 29.44, "table": "BankTransactions", "id": 606, "name": "הראל בטוח", "status": "paid"}, {"month": "2026-02", "date": "2026-02-05", "amount": 29.44, "table": "BankTransactions", "id": 588, "name": "הראל בטוח", "status": "paid"}, {"month": "2026-03", "date": "2026-03-05", "amount": 29.36, "table": "BankTransactions", "id": 622, "name": "הראל בטוח", "status": "paid"}, {"month": "2026-04", "date": "2026-04-07", "amount": 29.41, "table": "BankTransactions", "id": 659, "name": "הראל בטוח", "status": "paid"}, {"month": "2026-05", "date": "2026-05-05", "amount": 29.53, "table": "BankTransactions", "id": 699, "name": "הראל בטוח", "status": "paid"}, {"month": "2026-06", "date": "2026-06-07", "amount": 29.87, "table": "BankTransactions", "id": 732, "name": "הראל בטוח", "status": "paid"}, {"month": "2026-07", "date": "2026-07-05", "amount": 29.78, "table": "BankTransactions", "id": 742, "name": "הראל בטוח", "status": "paid"}], "timeline": [{"month": "2025-07", "status": "paid"}, {"month": "2025-08", "status": "paid"}, {"month": "2025-09", "status": "paid"}, {"month": "2025-10", "status": "paid"}, {"month": "2025-11", "status": "paid"}, {"month": "2025-12", "status": "paid"}, {"month": "2026-01", "status": "paid"}, {"month": "2026-02", "status": "paid"}, {"month": "2026-03", "status": "paid"}, {"month": "2026-04", "status": "paid"}, {"month": "2026-05", "status": "paid"}, {"month": "2026-06", "status": "paid"}], "merged_from": []}, {"group_key": "wanikani japanese la", "name": "WANIKANI JAPANESE LA", "category": "השכלה ולימודים", "current_amount": 27.0, "occurrence_count": 13, "average_amount": 29.0, "total_spent": 377.0, "min_amount": 26.0, "max_amount": 32.0, "first_payment_date": "2025-06-20", "last_payment_date": "2026-06-20", "possibly_stopped": false, "amount_changed": false, "next_expected": "2026-07-20", "occurrences": [{"month": "2025-06", "date": "2025-06-20", "amount": 32.0, "table": "CardTransactions", "id": 1335, "name": "WANIKANI JAPANESE LA", "status": "paid"}, {"month": "2025-07", "date": "2025-07-20", "amount": 30.0, "table": "CardTransactions", "id": 1417, "name": "WANIKANI JAPANESE LA", "status": "paid"}, {"month": "2025-08", "date": "2025-08-20", "amount": 31.0, "table": "CardTransactions", "id": 1542, "name": "WANIKANI JAPANESE LA", "status": "paid"}, {"month": "2025-09", "date": "2025-09-20", "amount": 30.0, "table": "CardTransactions", "id": 1601, "name": "WANIKANI JAPANESE LA", "status": "paid"}, {"month": "2025-10", "date": "2025-10-20", "amount": 30.0, "table": "CardTransactions", "id": 1715, "name": "WANIKANI JAPANESE LA", "status": "paid"}, {"month": "2025-11", "date": "2025-11-20", "amount": 30.0, "table": "CardTransactions", "id": 1773, "name": "WANIKANI JAPANESE LA", "status": "paid"}, {"month": "2025-12", "date": "2025-12-20", "amount": 29.0, "table": "CardTransactions", "id": 1890, "name": "WANIKANI JAPANESE LA", "status": "paid"}, {"month": "2026-01", "date": "2026-01-20", "amount": 29.0, "table": "CardTransactions", "id": 1949, "name": "WANIKANI JAPANESE LA", "status": "paid"}, {"month": "2026-02", "date": "2026-02-20", "amount": 28.0, "table": "CardTransactions", "id": 2062, "name": "WANIKANI JAPANESE LA", "status": "paid"}, {"month": "2026-03", "date": "2026-03-20", "amount": 28.0, "table": "CardTransactions", "id": 2130, "name": "WANIKANI JAPANESE LA", "status": "paid"}, {"month": "2026-04", "date": "2026-04-20", "amount": 27.0, "table": "CardTransactions", "id": 2181, "name": "WANIKANI JAPANESE LA", "status": "paid"}, {"month": "2026-05", "date": "2026-05-20", "amount": 26.0, "table": "CardTransactions", "id": 2269, "name": "WANIKANI JAPANESE LA", "status": "paid"}, {"month": "2026-06", "date": "2026-06-20", "amount": 27.0, "table": "CardTransactions", "id": 2383, "name": "WANIKANI JAPANESE LA", "status": "paid"}], "timeline": [{"month": "2025-07", "status": "paid"}, {"month": "2025-08", "status": "paid"}, {"month": "2025-09", "status": "paid"}, {"month": "2025-10", "status": "paid"}, {"month": "2025-11", "status": "paid"}, {"month": "2025-12", "status": "paid"}, {"month": "2026-01", "status": "paid"}, {"month": "2026-02", "status": "paid"}, {"month": "2026-03", "status": "paid"}, {"month": "2026-04", "status": "paid"}, {"month": "2026-05", "status": "paid"}, {"month": "2026-06", "status": "paid"}], "merged_from": []}, {"group_key": "google travelspend", "name": "GOOGLE  TRAVELSPEND", "category": "מנויים", "current_amount": 17.0, "occurrence_count": 5, "average_amount": 17.0, "total_spent": 85.0, "min_amount": 17.0, "max_amount": 17.0, "first_payment_date": "2025-11-01", "last_payment_date": "2026-03-01", "possibly_stopped": true, "amount_changed": false, "next_expected": "2026-07-01", "occurrences": [{"month": "2025-11", "date": "2025-11-01", "amount": 17.0, "table": "CardTransactions", "id": 1757, "name": "GOOGLE  TRAVELSPEND", "status": "paid"}, {"month": "2025-12", "date": "2025-12-01", "amount": 17.0, "table": "CardTransactions", "id": 1885, "name": "GOOGLE  TRAVELSPEND", "status": "paid"}, {"month": "2026-01", "date": "2026-01-01", "amount": 17.0, "table": "CardTransactions", "id": 1946, "name": "GOOGLE  TRAVELSPEND", "status": "paid"}, {"month": "2026-02", "date": "2026-02-01", "amount": 17.0, "table": "CardTransactions", "id": 2039, "name": "GOOGLE  TRAVELSPEND", "status": "paid"}, {"month": "2026-03", "date": "2026-03-01", "amount": 17.0, "table": "CardTransactions", "id": 2128, "name": "GOOGLE  TRAVELSPEND", "status": "paid"}], "timeline": [{"month": "2025-07", "status": "before_start"}, {"month": "2025-08", "status": "before_start"}, {"month": "2025-09", "status": "before_start"}, {"month": "2025-10", "status": "before_start"}, {"month": "2025-11", "status": "paid"}, {"month": "2025-12", "status": "paid"}, {"month": "2026-01", "status": "paid"}, {"month": "2026-02", "status": "paid"}, {"month": "2026-03", "status": "paid"}, {"month": "2026-04", "status": "missing"}, {"month": "2026-05", "status": "missing"}, {"month": "2026-06", "status": "missing"}], "merged_from": []}, {"group_key": "google google one", "name": "GOOGLE  GOOGLE ONE", "category": "מנויים", "current_amount": 8.0, "occurrence_count": 12, "average_amount": 8.0, "total_spent": 96.0, "min_amount": 8.0, "max_amount": 8.0, "first_payment_date": "2025-06-01", "last_payment_date": "2026-05-01", "possibly_stopped": true, "amount_changed": false, "next_expected": "2026-07-01", "occurrences": [{"month": "2025-06", "date": "2025-06-01", "amount": 8.0, "table": "CardTransactions", "id": 1332, "name": "GOOGLE  GOOGLE ONE", "status": "paid"}, {"month": "2025-07", "date": "2025-07-01", "amount": 8.0, "table": "CardTransactions", "id": 1413, "name": "GOOGLE  GOOGLE ONE", "status": "paid"}, {"month": "2025-08", "date": "2025-08-01", "amount": 8.0, "table": "CardTransactions", "id": 1420, "name": "GOOGLE  GOOGLE ONE", "status": "paid"}, {"month": "2025-09", "date": "2025-09-01", "amount": 8.0, "table": "CardTransactions", "id": 1600, "name": "GOOGLE  GOOGLE ONE", "status": "paid"}, {"month": "2025-10", "date": "2025-10-01", "amount": 8.0, "table": "CardTransactions", "id": 1714, "name": "GOOGLE  GOOGLE ONE", "status": "paid"}, {"month": "2025-11", "date": "2025-11-01", "amount": 8.0, "table": "CardTransactions", "id": 1758, "name": "GOOGLE  GOOGLE ONE", "status": "paid"}, {"month": "2025-12", "date": "2025-12-01", "amount": 8.0, "table": "CardTransactions", "id": 1886, "name": "GOOGLE  GOOGLE ONE", "status": "paid"}, {"month": "2026-01", "date": "2026-01-01", "amount": 8.0, "table": "CardTransactions", "id": 1947, "name": "GOOGLE  GOOGLE ONE", "status": "paid"}, {"month": "2026-02", "date": "2026-02-01", "amount": 8.0, "table": "CardTransactions", "id": 2041, "name": "GOOGLE  GOOGLE ONE", "status": "paid"}, {"month": "2026-03", "date": "2026-03-01", "amount": 8.0, "table": "CardTransactions", "id": 2129, "name": "GOOGLE  GOOGLE ONE", "status": "paid"}, {"month": "2026-04", "date": "2026-04-01", "amount": 8.0, "table": "CardTransactions", "id": 2179, "name": "GOOGLE  GOOGLE ONE", "status": "paid"}, {"month": "2026-05", "date": "2026-05-01", "amount": 8.0, "table": "CardTransactions", "id": 2267, "name": "GOOGLE  GOOGLE ONE", "status": "paid"}], "timeline": [{"month": "2025-07", "status": "paid"}, {"month": "2025-08", "status": "paid"}, {"month": "2025-09", "status": "paid"}, {"month": "2025-10", "status": "paid"}, {"month": "2025-11", "status": "paid"}, {"month": "2025-12", "status": "paid"}, {"month": "2026-01", "status": "paid"}, {"month": "2026-02", "status": "paid"}, {"month": "2026-03", "status": "paid"}, {"month": "2026-04", "status": "paid"}, {"month": "2026-05", "status": "paid"}, {"month": "2026-06", "status": "missing"}], "merged_from": []}], "hidden_groups": [{"group_key": "טיב טעם רשתות ראשל צ", "name": "טיב טעם רשתות ראשל\"צ"}, {"group_key": "העברה בbit", "name": "העברה בBIT"}, {"group_key": "wolt israel", "name": "WOLT ISRAEL"}], "kpis": {"total_monthly": 5535.52}, "trend": [{"month": "2025-08", "total": 5432.15}, {"month": "2025-09", "total": 5454.82}, {"month": "2025-10", "total": 4911.68}, {"month": "2025-11", "total": 4939.64}, {"month": "2025-12", "total": 4927.65}, {"month": "2026-01", "total": 5521.51}, {"month": "2026-02", "total": 2852.44}, {"month": "2026-03", "total": 5113.21}, {"month": "2026-04", "total": 5443.15}, {"month": "2026-05", "total": 4414.95}, {"month": "2026-06", "total": 4446.61}, {"month": "2026-07", "total": 1029.78}], "history_alerts": {"introduced": [], "removed": [{"group_key": "wolt israel", "name": "WOLT ISRAEL", "month": "2026-06"}, {"group_key": "טיב טעם רשתות ראשל צ", "name": "טיב טעם רשתות ראשל\"צ", "month": "2025-12"}, {"group_key": "העברה בbit", "name": "העברה בBIT", "month": "2026-04"}]}};   // replaced server-side at generation time; null if never generated yet
 var state = RC_DATA
@@ -464,6 +480,10 @@ var state = RC_DATA
 state.folders = [];
 state.folderAssignments = {};
 state.collapsedFolders = {};
+// User-made-up display names — also fetched separately (see
+// _rcLoadDisplayNames), same reasoning as folders: purely a label overlay,
+// never touches the underlying transaction Name column.
+state.displayNames = {};
 
 // ── Nav ──────────────────────────────────────────────────────────
 fetch('/api/version').then(function(r){return r.json();}).then(function(d){var b=document.getElementById('app-version-badge-2');if(b&&d.version)b.textContent='v'+d.version;}).catch(function(){});
@@ -505,6 +525,13 @@ function fmtDate(d) {
   var parts = String(d || '').split('-');
   return parts.length === 3 ? (parts[2] + '/' + parts[1] + '/' + parts[0]) : (d || '');
 }
+function displayNameForKey(key, fallbackName) {
+  var custom = state.displayNames[key];
+  return custom || fallbackName;
+}
+function displayNameFor(g) {
+  return displayNameForKey(g.group_key, g.name);
+}
 
 function statusOf(g) {
   if (g.possibly_stopped) return 'stopped';
@@ -530,7 +557,7 @@ function renderKpis() {
       var cls = g.possibly_stopped ? 'stopped' : 'changed';
       var text = g.possibly_stopped ? 'נראה שהופסק' : 'הסכום השתנה';
       return '<div class="attn-item" onclick="scrollToGroup(\'' + g.group_key + '\')">' +
-             '<div class="attn-item-name">' + esc(g.name) + '</div>' +
+             '<div class="attn-item-name">' + esc(displayNameFor(g)) + '</div>' +
              '<div class="attn-item-status ' + cls + '">' + text + '</div>' +
            '</div>';
     }).join('');
@@ -546,7 +573,7 @@ function renderKpis() {
     introList.innerHTML = introduced.map(function(a) {
       var clickable = state.groups.some(function(g){ return g.group_key === a.group_key; });
       return '<div class="attn-item"' + (clickable ? ' style="cursor:pointer" onclick="scrollToGroup(\'' + a.group_key + '\')"' : '') + '>' +
-             '<div class="attn-item-name">' + esc(a.name) + '</div>' +
+             '<div class="attn-item-name">' + esc(displayNameForKey(a.group_key, a.name)) + '</div>' +
              '<div class="attn-item-status introduced">נוסף כחיוב חוזר בחודש ' + a.month + '</div>' +
            '</div>';
     }).join('');
@@ -561,7 +588,7 @@ function renderKpis() {
     removedCard.style.display = '';
     removedList.innerHTML = removed.map(function(a) {
       return '<div class="attn-item">' +
-             '<div class="attn-item-name">' + esc(a.name) + '</div>' +
+             '<div class="attn-item-name">' + esc(displayNameForKey(a.group_key, a.name)) + '</div>' +
              '<div class="attn-item-status removed">הופסק אוטומטית אחרי חודש ' + a.month + '</div>' +
            '</div>';
     }).join('');
@@ -637,7 +664,7 @@ function getSortedFilteredGroups() {
     // similar matches (name or category) rise to the top regardless of
     // the sort dropdown, which still applies once the search is cleared.
     return state.groups
-      .map(function(g) { return { g: g, score: Math.max(_rcFuzzyScore(q, g.name), _rcFuzzyScore(q, g.category)) }; })
+      .map(function(g) { return { g: g, score: Math.max(_rcFuzzyScore(q, displayNameFor(g)), _rcFuzzyScore(q, g.category)) }; })
       .filter(function(x) { return x.score >= RC_SEARCH_MIN_SCORE; })
       .sort(function(a, b) { return b.score - a.score; })
       .map(function(x) { return x.g; });
@@ -646,7 +673,7 @@ function getSortedFilteredGroups() {
   var list = state.groups.slice();
   if (sort === 'amount-desc') list.sort(function(a,b){ return b.current_amount - a.current_amount; });
   else if (sort === 'amount-asc') list.sort(function(a,b){ return a.current_amount - b.current_amount; });
-  else if (sort === 'name') list.sort(function(a,b){ return a.name.localeCompare(b.name); });
+  else if (sort === 'name') list.sort(function(a,b){ return displayNameFor(a).localeCompare(displayNameFor(b)); });
   else if (sort === 'status') list.sort(function(a,b){ return (b.possibly_stopped||b.amount_changed?1:0) - (a.possibly_stopped||a.amount_changed?1:0); });
   return list;
 }
@@ -674,9 +701,11 @@ function cardHtml(g) {
   var nextHtml = status !== 'stopped'
     ? '<span class="rc-next">הבא: ' + g.next_expected + '</span>'
     : '';
+  var displayName = displayNameFor(g);
+  var isRenamed = displayName !== g.name;
   return '<div class="rc-card" id="card-' + g.group_key + '">' +
     '<div class="rc-card-top" onclick="toggleDetail(\'' + g.group_key + '\')">' +
-      '<span class="rc-card-name">' + esc(g.name) + '</span>' +
+      '<span class="rc-card-name"' + (isRenamed ? ' title="שם מקורי: ' + esc(g.name) + '"' : '') + '>' + esc(displayName) + '</span>' +
       '<span class="rc-card-cat">' + esc(g.category) + '</span>' +
       mergedBadge +
       '<span class="rc-status ' + status + '">' + statusLabel(status) + '</span>' +
@@ -697,6 +726,7 @@ function cardHtml(g) {
       '</div>' +
       occRows +
       '<div class="rc-actions">' +
+        '<button class="rc-btn" onclick="openRenameModal(\'' + g.group_key + '\')">ערוך שם…</button>' +
         '<button class="rc-btn" onclick="openFolderAssignPrompt(\'' + g.group_key + '\')">העבר לקבוצה…</button>' +
         '<button class="rc-btn" onclick="openMergePrompt(\'' + g.group_key + '\')">מזג עם…</button>' +
         '<button class="rc-btn danger" onclick="dismissGroup(\'' + g.group_key + '\')">התעלם</button>' +
@@ -762,7 +792,7 @@ function renderCards() {
   document.getElementById('rc-hidden-count').textContent = state.hidden.length;
   document.getElementById('rc-hidden-cards').innerHTML = state.hidden.map(function(g) {
     return '<div class="rc-card"><div class="rc-card-top">' +
-      '<span class="rc-card-name">' + esc(g.name) + '</span>' +
+      '<span class="rc-card-name">' + esc(displayNameForKey(g.group_key, g.name)) + '</span>' +
       '<button class="rc-btn" onclick="restoreGroup(\'' + g.group_key + '\')">שחזר</button>' +
     '</div></div>';
   }).join('');
@@ -820,7 +850,7 @@ function _rcCloseConfirm() {
 // ── Actions ──────────────────────────────────────────────────────
 function dismissGroup(key) {
   var g = state.groups.find(function(x){ return x.group_key === key; });
-  var name = g ? g.name : key;
+  var name = g ? displayNameFor(g) : key;
   _rcConfirm('התעלמות מחיוב חוזר', 'להתעלם מ"' + name + '"? ניתן לשחזר בכל עת מרשימת הקבוצות המוסתרות.', function() {
     // Persist the dismissal for the next real regen, but update the current
     // view instantly (no auto-regen) — the choice is already known locally.
@@ -839,7 +869,7 @@ function dismissGroup(key) {
 }
 function restoreGroup(key) {
   var g = state.hidden.find(function(x){ return x.group_key === key; });
-  var name = g ? g.name : key;
+  var name = g ? displayNameForKey(g.group_key, g.name) : key;
   _rcConfirm('שחזור חיוב חוזר', 'לשחזר את "' + name + '" לרשימת החיובים החוזרים הפעילים?', function() {
     fetch('/api/recurring/groups/' + encodeURIComponent(key) + '/restore', {method:'POST'})
       .then(function(r){return r.json();}).then(function(){ regenerate(); });
@@ -945,7 +975,7 @@ function openMergePrompt(key) {
   if (!others.length) {
     _rcSetDdItems([], 'אין קבוצות אחרות למיזוג');
   } else {
-    var items = others.map(function(g){ return {value: g.group_key, label: g.name + ' (' + g.category + ')'}; });
+    var items = others.map(function(g){ return {value: g.group_key, label: displayNameFor(g) + ' (' + g.category + ')'}; });
     _rcSetDdItems(items, 'בחר קבוצה…');
   }
   openActionModal();
@@ -1047,6 +1077,61 @@ function deleteFolder(folderId, name) {
   });
 }
 
+// ── Display-name override — a made-up label for this page only, free text
+//    intentionally allowed since it isn't a controlled vocabulary ──────────
+var _rcRenameTargetKey = null;
+
+function _rcLoadDisplayNames(cb) {
+  fetch('/api/recurring/display-names').then(function(r){ return r.json(); }).then(function(d){
+    if (d.ok) { state.displayNames = d.display_names; }
+    if (cb) cb();
+  }).catch(function(){ if (cb) cb(); });
+}
+
+function openRenameModal(key) {
+  _rcRenameTargetKey = key;
+  var g = state.groups.find(function(x){ return x.group_key === key; });
+  var current = g ? displayNameFor(g) : (state.displayNames[key] || '');
+  var hasOverride = !!state.displayNames[key];
+  var input = document.getElementById('rc-rename-input');
+  input.value = current;
+  document.getElementById('rc-rename-error').style.display = 'none';
+  document.getElementById('rc-rename-reset-btn').style.display = hasOverride ? '' : 'none';
+  document.getElementById('rc-rename-modal').classList.add('open');
+  input.focus();
+  input.select();
+}
+function _rcCloseRenameModal() {
+  document.getElementById('rc-rename-modal').classList.remove('open');
+  _rcRenameTargetKey = null;
+}
+function _rcSubmitRenameModal() {
+  var name = document.getElementById('rc-rename-input').value.trim();
+  var errEl = document.getElementById('rc-rename-error');
+  if (!name) { errEl.textContent = 'יש להזין שם'; errEl.style.display = ''; return; }
+  var key = _rcRenameTargetKey;
+  fetch('/api/recurring/groups/' + encodeURIComponent(key) + '/display-name', {
+    method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name:name})
+  }).then(function(r){ return r.json(); }).then(function(res){
+    if (!res.ok) { errEl.textContent = res.error || 'שגיאה'; errEl.style.display = ''; return; }
+    state.displayNames[key] = name;
+    _rcCloseRenameModal();
+    renderKpis();
+    renderCards();
+  });
+}
+function _rcResetRenameModal() {
+  var key = _rcRenameTargetKey;
+  fetch('/api/recurring/groups/' + encodeURIComponent(key) + '/display-name', {method:'DELETE'})
+    .then(function(r){ return r.json(); }).then(function(res){
+      if (!res.ok) { alert('שגיאה: ' + res.error); return; }
+      delete state.displayNames[key];
+      _rcCloseRenameModal();
+      renderKpis();
+      renderCards();
+    });
+}
+
 // ── Loading state (skeleton shown in place of a separate "not generated
 //    yet" page — same shell throughout, updates in place, never reloads) ──
 function _rcShowSkeleton() {
@@ -1128,19 +1213,21 @@ function regenerate() {
 }
 
 _rcLoadFolders(function() {
-  if (RC_DATA) {
-    renderKpis();
-    renderCards();
-    renderTrendChart();
-  } else {
-    // Never generated yet — show the skeleton in place of real content and
-    // auto-start the same regen flow the button uses. No separate page, no
-    // reload once it finishes: regenerate() fetches fresh data and renders
-    // it into this same page shell.
-    _rcShowSkeleton();
-    _rcShowLoadingBanner('מריץ ניתוח ראשוני — זה עשוי לקחת מספר שניות…');
-    regenerate();
-  }
+  _rcLoadDisplayNames(function() {
+    if (RC_DATA) {
+      renderKpis();
+      renderCards();
+      renderTrendChart();
+    } else {
+      // Never generated yet — show the skeleton in place of real content and
+      // auto-start the same regen flow the button uses. No separate page, no
+      // reload once it finishes: regenerate() fetches fresh data and renders
+      // it into this same page shell.
+      _rcShowSkeleton();
+      _rcShowLoadingBanner('מריץ ניתוח ראשוני — זה עשוי לקחת מספר שניות…');
+      regenerate();
+    }
+  });
 });
 </script>
 </body>

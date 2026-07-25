@@ -24,6 +24,7 @@ import threading
 import time as _time
 import json as _json
 import builtins as _builtins
+import urllib.parse
 
 import re as _re
 from flask import Flask, Response, request, jsonify, send_file, redirect
@@ -4974,10 +4975,29 @@ def recurring_regenerate():
     )
 
 
+def _normalize_group_key(group_key: str) -> str:
+    """Defensively URL-decode a <path:group_key> segment that may have
+    arrived still percent-encoded. Werkzeug's dev server always hands routes
+    an already-decoded PATH_INFO, but some serverless WSGI environments
+    (observed in production) don't decode it first — so a Hebrew group_key
+    like 'משיכת שיק' arrived here as the literal string '%D7%9E%D7%A9...'
+    and got persisted as garbage that could never match a real group_key
+    again, silently breaking dismiss/restore/folder-assign every time.
+    Decoding an already-plain string is a no-op, so this is safe everywhere."""
+    if '%' not in group_key:
+        return group_key
+    try:
+        decoded = urllib.parse.unquote(group_key)
+        return decoded if decoded != group_key else group_key
+    except Exception:
+        return group_key
+
+
 @app.route('/api/recurring/groups/<path:group_key>/dismiss', methods=['POST'])
 def recurring_dismiss(group_key):
     from database import DataBase
     try:
+        group_key = _normalize_group_key(group_key)
         db = DataBase()
         db.ensure_recurring_tables()
         db.dismiss_recurring_group(group_key)
@@ -4990,6 +5010,7 @@ def recurring_dismiss(group_key):
 def recurring_restore(group_key):
     from database import DataBase
     try:
+        group_key = _normalize_group_key(group_key)
         db = DataBase()
         db.ensure_recurring_tables()
         db.restore_recurring_group(group_key)
@@ -5098,6 +5119,7 @@ def recurring_folders_delete(folder_id):
 def recurring_assign_folder(group_key):
     from database import DataBase
     try:
+        group_key = _normalize_group_key(group_key)
         body = request.get_json(force=True) or {}
         folder_id = body.get('folder_id')
         if folder_id is None:

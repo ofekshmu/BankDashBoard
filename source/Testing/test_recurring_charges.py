@@ -470,6 +470,51 @@ def test_apply_history_tracking_detects_introduced_and_removed():
         db.connection.commit()
 
 
+def test_apply_history_tracking_treats_merged_bill_as_continuous():
+    """A manually-merged pair (e.g. a bank descriptor rename) is one
+    continuing bill, not one stopping and another starting — merging them
+    should suppress both the "removed" alert for the old name and the
+    "introduced" alert for the new one."""
+    db = DataBase()
+    db.ensure_recurring_tables()
+    secondary_key = 'rc_test_merge_hist_secondary'
+    primary_key = 'rc_test_merge_hist_primary'
+
+    db.cursor.execute("DELETE FROM RecurringHistory WHERE Group_Key IN (%s,%s)", (secondary_key, primary_key))
+    db.cursor.execute("DELETE FROM RecurringMerges WHERE Secondary_Key=%s", (secondary_key,))
+    db.connection.commit()
+
+    try:
+        # Bill A ("secondary") was already tracked and stopped appearing in March.
+        db.upsert_recurring_history(secondary_key, 'RC_TEST_MERGE_HIST_OLD_NAME', '2099-01', '2099-03')
+        db.connection.commit()
+        # Bill B ("primary") has no history of its own yet — it only just
+        # started appearing in April, under a merge the user just created.
+        db.add_recurring_merge(secondary_key, primary_key)
+
+        fake_group = {
+            'group_key': primary_key, 'name': 'RC_TEST_MERGE_HIST_NEW_NAME',
+            'first_payment_date': date(2099, 4, 5), 'last_payment_date': date(2099, 4, 20),
+        }
+        result = apply_history_tracking(db, [fake_group], today=date(2099, 4, 25))
+
+        intro_keys = [a['group_key'] for a in result['introduced']]
+        assert primary_key not in intro_keys, "a merge-continued bill under its new key should not look newly introduced"
+
+        removed_keys = [a['group_key'] for a in result['removed']]
+        assert secondary_key not in removed_keys, "a merged-away key should not be flagged as removed — it didn't stop, it continues under the primary key"
+
+        # The primary's recorded start should be pulled back to the secondary's
+        # earlier start, so the merge is reflected as one continuous bill.
+        history = db.get_recurring_history()
+        assert history[primary_key]['first_seen_month'] == '2099-01'
+        print("PASS: apply_history_tracking treats a merged bill as continuous")
+    finally:
+        db.cursor.execute("DELETE FROM RecurringHistory WHERE Group_Key IN (%s,%s)", (secondary_key, primary_key))
+        db.cursor.execute("DELETE FROM RecurringMerges WHERE Secondary_Key=%s", (secondary_key,))
+        db.connection.commit()
+
+
 if __name__ == '__main__':
     test_recurring_tables_exist()
     test_dismiss_restore_roundtrip()
@@ -495,4 +540,5 @@ if __name__ == '__main__':
     test_get_recurring_groups_tracks_merge_source_and_per_occurrence_names()
     test_get_recurring_groups_excludes_installment_payments()
     test_apply_history_tracking_detects_introduced_and_removed()
+    test_apply_history_tracking_treats_merged_bill_as_continuous()
     print("\nAll tests passed")

@@ -452,12 +452,33 @@ def apply_history_tracking(db, groups: list, today: _date = None) -> dict:
     incorrectly look "new" every single regen. RecurringHistory instead
     records the first regen that ever saw each group qualify, which stays
     fixed once written.
+
+    A manually-merged group (RecurringMerges) is a single continuing bill
+    under a new name, not two bills — one stopping and another starting. So:
+      - a merge's secondary_key is never flagged "removed" (its bill didn't
+        stop, its identity now lives under primary_key), and
+      - if the secondary had its own history but the primary doesn't yet (or
+        started later), the primary's First_Seen_Month is pulled back to the
+        secondary's, so the rename itself doesn't look "introduced" either.
     """
     if today is None:
         today = _date.today()
 
     history = db.get_recurring_history()
     was_cold_start = len(history) == 0   # first-ever regen: seed silently, no alerts
+
+    merges = db.get_recurring_merges()   # {secondary_key: primary_key}
+    merged_away_keys = set(merges.keys())
+    for secondary_key, primary_key in merges.items():
+        sec_hist = history.get(secondary_key)
+        if not sec_hist:
+            continue
+        prim_hist = history.get(primary_key)
+        if prim_hist:
+            if sec_hist['first_seen_month'] < prim_hist['first_seen_month']:
+                prim_hist['first_seen_month'] = sec_hist['first_seen_month']
+        else:
+            history[primary_key] = dict(sec_hist)
 
     current_keys = set()
     introduced = []
@@ -478,6 +499,8 @@ def apply_history_tracking(db, groups: list, today: _date = None) -> dict:
     for key, rec in history.items():
         if key in current_keys:
             continue
+        if key in merged_away_keys:
+            continue   # folded into another group's identity, not actually stopped
         if _months_apart(rec['last_seen_month'], month_key(today)) <= ALERT_WINDOW_MONTHS:
             removed.append({'group_key': key, 'name': rec['name'], 'month': rec['last_seen_month']})
 

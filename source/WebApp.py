@@ -5032,26 +5032,80 @@ def recurring_exclude_tx(group_key):
         return jsonify({'ok': False, 'error': str(e)})
 
 
-@app.route('/api/recurring/groups/<path:group_key>/tag', methods=['POST'])
-def recurring_tag(group_key):
+@app.route('/api/recurring/folders', methods=['GET'])
+def recurring_folders_list():
+    """Returns folders + assignments — fetched independently of the
+    detection cache so moving a bill between folders never needs a regen
+    and a stale cached page still reflects the current organization."""
+    from database import DataBase
+    try:
+        db = DataBase()
+        db.ensure_recurring_tables()
+        return jsonify({
+            'ok': True,
+            'folders': db.get_recurring_folders(),
+            'assignments': db.get_recurring_folder_assignments(),
+        })
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/recurring/folders', methods=['POST'])
+def recurring_folders_create():
     from database import DataBase
     try:
         body = request.get_json(force=True) or {}
-        category = (body.get('category') or '').strip()
-        if not category:
-            return jsonify({'ok': False, 'error': 'missing category'})
+        name = (body.get('name') or '').strip()
+        if not name:
+            return jsonify({'ok': False, 'error': 'שם קבוצה נדרש'})
         db = DataBase()
         db.ensure_recurring_tables()
-        from RecurringCharges import get_recurring_groups
-        groups = get_recurring_groups(db)
-        match = next((g for g in groups if g['group_key'] == group_key), None)
-        if not match:
-            return jsonify({'ok': False, 'error': 'group not found — try regenerating first'})
-        count = 0
-        for occ in match['occurrences']:
-            db.set_category_ui(occ['table'], occ['id'], category, is_auto=False)
-            count += 1
-        return jsonify({'ok': True, 'tagged': count})
+        folder_id = db.create_recurring_folder(name)
+        return jsonify({'ok': True, 'id': folder_id})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': 'קבוצה בשם זה כבר קיימת' if 'unique' in str(e).lower() else str(e)})
+
+
+@app.route('/api/recurring/folders/<int:folder_id>/rename', methods=['POST'])
+def recurring_folders_rename(folder_id):
+    from database import DataBase
+    try:
+        body = request.get_json(force=True) or {}
+        name = (body.get('name') or '').strip()
+        if not name:
+            return jsonify({'ok': False, 'error': 'שם קבוצה נדרש'})
+        db = DataBase()
+        db.ensure_recurring_tables()
+        db.rename_recurring_folder(folder_id, name)
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': 'קבוצה בשם זה כבר קיימת' if 'unique' in str(e).lower() else str(e)})
+
+
+@app.route('/api/recurring/folders/<int:folder_id>/delete', methods=['POST'])
+def recurring_folders_delete(folder_id):
+    from database import DataBase
+    try:
+        db = DataBase()
+        db.ensure_recurring_tables()
+        db.delete_recurring_folder(folder_id)
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/recurring/groups/<path:group_key>/assign-folder', methods=['POST'])
+def recurring_assign_folder(group_key):
+    from database import DataBase
+    try:
+        body = request.get_json(force=True) or {}
+        folder_id = body.get('folder_id')
+        if folder_id is None:
+            return jsonify({'ok': False, 'error': 'missing folder_id'})
+        db = DataBase()
+        db.ensure_recurring_tables()
+        db.set_recurring_folder_assignment(group_key, int(folder_id))
+        return jsonify({'ok': True})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)})
 

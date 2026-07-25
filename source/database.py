@@ -2852,6 +2852,35 @@ class DataBase:
                 Updated_At       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        # User-organized folders (purely organizational — independent of the
+        # detection algorithm/cache, so moving a bill between folders never
+        # needs a regen). Every bill not explicitly assigned lives in the
+        # default folder, resolved at read time from the absence of a row in
+        # RecurringFolderAssignments rather than written eagerly for every bill.
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS RecurringFolders (
+                ID         SERIAL    PRIMARY KEY,
+                Name       TEXT      NOT NULL UNIQUE,
+                Is_Default BOOLEAN   NOT NULL DEFAULT FALSE,
+                Sort_Order INTEGER   NOT NULL DEFAULT 0,
+                Created_At TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        self.cursor.execute("""
+            INSERT INTO RecurringFolders (Name, Is_Default, Sort_Order)
+            SELECT 'כללי', TRUE, 0
+            WHERE NOT EXISTS (SELECT 1 FROM RecurringFolders WHERE Is_Default = TRUE)
+        """)
+        # Assignments cascade-delete with their folder — deleting a
+        # non-default folder simply drops these rows, and the affected bills
+        # fall back to the default folder automatically at read time.
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS RecurringFolderAssignments (
+                Group_Key  TEXT      PRIMARY KEY,
+                Folder_Id  INTEGER   NOT NULL REFERENCES RecurringFolders(ID) ON DELETE CASCADE,
+                Updated_At TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
         self.connection.commit()
         DataBase.__recurring_tables_ready = True
 
@@ -2937,6 +2966,51 @@ class DataBase:
             "ON CONFLICT DO NOTHING",
             (table_name, int(tx_id))
         )
+        self.connection.commit()
+
+    def get_recurring_folders(self) -> list:
+        """Returns [{'id', 'name', 'is_default', 'sort_order'}, ...] ordered for display."""
+        rows = self.cursor.execute(
+            "SELECT ID, Name, Is_Default, Sort_Order FROM RecurringFolders ORDER BY Is_Default, Sort_Order, ID"
+        ).fetchall()
+        return [{'id': r[0], 'name': r[1], 'is_default': bool(r[2]), 'sort_order': r[3]} for r in rows]
+
+    def create_recurring_folder(self, name: str) -> int:
+        row = self.cursor.execute(
+            "INSERT INTO RecurringFolders (Name) VALUES (%s) RETURNING ID", (name,)
+        ).fetchone()
+        self.connection.commit()
+        return row[0]
+
+    def rename_recurring_folder(self, folder_id: int, name: str) -> None:
+        self.cursor.execute(
+            "UPDATE RecurringFolders SET Name=%s WHERE ID=%s AND Is_Default=FALSE",
+            (name, int(folder_id))
+        )
+        self.connection.commit()
+
+    def delete_recurring_folder(self, folder_id: int) -> None:
+        """Deletes a non-default folder. Bills assigned to it fall back to the
+        default folder automatically — their RecurringFolderAssignments row
+        cascade-deletes with the folder, and "no row" reads as default."""
+        self.cursor.execute(
+            "DELETE FROM RecurringFolders WHERE ID=%s AND Is_Default=FALSE", (int(folder_id),)
+        )
+        self.connection.commit()
+
+    def get_recurring_folder_assignments(self) -> dict:
+        """Returns {group_key: folder_id} — only bills explicitly moved out of
+        the default folder have a row here."""
+        rows = self.cursor.execute(
+            "SELECT Group_Key, Folder_Id FROM RecurringFolderAssignments"
+        ).fetchall()
+        return {r[0]: r[1] for r in rows}
+
+    def set_recurring_folder_assignment(self, group_key: str, folder_id: int) -> None:
+        self.cursor.execute("""
+            INSERT INTO RecurringFolderAssignments (Group_Key, Folder_Id) VALUES (%s, %s)
+            ON CONFLICT (Group_Key) DO UPDATE SET Folder_Id=%s, Updated_At=CURRENT_TIMESTAMP
+        """, (group_key, int(folder_id), int(folder_id)))
         self.connection.commit()
 
     def get_spotify_members(self) -> list:

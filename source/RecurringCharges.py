@@ -443,7 +443,14 @@ def apply_history_tracking(db, groups: list, today: _date = None) -> dict:
     within the last ALERT_WINDOW_MONTHS months. Updates RecurringHistory to
     reflect the current state as a side effect.
 
-    Returns {'introduced': [{group_key, name, month}], 'removed': [{group_key, name, month}]}.
+    Returns {'introduced': [...], 'removed': [...], 'status_changed': [...]}:
+      - introduced/removed: [{group_key, name, month}]
+      - status_changed: [{group_key, name, status}] — 'changed' or 'stopped' —
+        only for groups whose status just transitioned since the last regen
+        (including a brand-new group whose very first appearance is already
+        flagged). A group sitting in the same 'changed'/'stopped' status
+        across many regens is intentionally NOT re-included every time —
+        that's the whole point: surface a status change once, not forever.
 
     A group's own first_payment_date can't be used directly to detect
     "newly introduced", since fetch_candidate_transactions only looks back
@@ -482,17 +489,25 @@ def apply_history_tracking(db, groups: list, today: _date = None) -> dict:
 
     current_keys = set()
     introduced = []
+    status_changed = []
     for g in groups:
         key = g['group_key']
         current_keys.add(key)
         last_seen_month = month_key(g['last_payment_date'])
+        current_status = 'stopped' if g.get('possibly_stopped') else ('changed' if g.get('amount_changed') else 'active')
+
         if key not in history:
             first_seen_month = month_key(g['first_payment_date'])
-            db.upsert_recurring_history(key, g['name'], first_seen_month, last_seen_month)
+            db.upsert_recurring_history(key, g['name'], first_seen_month, last_seen_month, current_status)
             if not was_cold_start:
                 introduced.append({'group_key': key, 'name': g['name'], 'month': first_seen_month})
+                if current_status != 'active':
+                    status_changed.append({'group_key': key, 'name': g['name'], 'status': current_status})
         else:
-            db.upsert_recurring_history(key, g['name'], history[key]['first_seen_month'], last_seen_month)
+            previous_status = history[key].get('last_status')
+            if not was_cold_start and current_status != 'active' and current_status != previous_status:
+                status_changed.append({'group_key': key, 'name': g['name'], 'status': current_status})
+            db.upsert_recurring_history(key, g['name'], history[key]['first_seen_month'], last_seen_month, current_status)
     db.connection.commit()
 
     removed = []
@@ -504,4 +519,4 @@ def apply_history_tracking(db, groups: list, today: _date = None) -> dict:
         if _months_apart(rec['last_seen_month'], month_key(today)) <= ALERT_WINDOW_MONTHS:
             removed.append({'group_key': key, 'name': rec['name'], 'month': rec['last_seen_month']})
 
-    return {'introduced': introduced, 'removed': removed}
+    return {'introduced': introduced, 'removed': removed, 'status_changed': status_changed}

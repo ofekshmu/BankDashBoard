@@ -274,9 +274,10 @@ def _save_manifest(html_path: str, deps: dict, db_mtime: float):
 def _build_recurring_data(db, groups: list, history_alerts: dict = None) -> dict:
     """Build the JSON-serializable data payload (groups/hidden/kpis/trend)
     shared by both the cached-HTML render and the /api/recurring/data endpoint.
-    history_alerts, if given, is {'introduced': [...], 'removed': [...]} from
-    RecurringCharges.apply_history_tracking() — only computed during a real
-    regen, so callers that skip regen (rare fallbacks) get an empty default."""
+    history_alerts, if given, is {'introduced': [...], 'removed': [...],
+    'status_changed': [...]} from RecurringCharges.apply_history_tracking() —
+    only computed during a real regen, so callers that skip regen (rare
+    fallbacks) get an empty default."""
     from datetime import date as _d
 
     total_monthly = sum(g['current_amount'] for g in groups)
@@ -313,7 +314,7 @@ def _build_recurring_data(db, groups: list, history_alerts: dict = None) -> dict
         'hidden_groups': hidden_groups,
         'kpis': {'total_monthly': round(total_monthly, 2)},
         'trend': trend,
-        'history_alerts': history_alerts or {'introduced': [], 'removed': []},
+        'history_alerts': history_alerts or {'introduced': [], 'removed': [], 'status_changed': []},
     }
 
 

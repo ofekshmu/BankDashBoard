@@ -2852,6 +2852,15 @@ class DataBase:
                 Updated_At       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        # Last_Status ('active'/'changed'/'stopped' as of the last regen) —
+        # added after the table already existed in some deployments, hence
+        # the separate defensive ALTER rather than folding it into the
+        # CREATE TABLE above. Lets us detect a bill *newly* turning
+        # yellow/red (status changed since last regen) instead of
+        # re-alerting on every regen for as long as it stays flagged.
+        self.cursor.execute("""
+            ALTER TABLE RecurringHistory ADD COLUMN IF NOT EXISTS Last_Status TEXT
+        """)
         # User-organized folders (purely organizational — independent of the
         # detection algorithm/cache, so moving a bill between folders never
         # needs a regen). Every bill not explicitly assigned lives in the
@@ -2912,26 +2921,34 @@ class DataBase:
         self.connection.commit()
 
     def get_recurring_history(self) -> dict:
-        """Returns {group_key: {'name', 'first_seen_month', 'last_seen_month'}}."""
+        """Returns {group_key: {'name', 'first_seen_month', 'last_seen_month', 'last_status'}}.
+        last_status is None for rows written before this column existed, or
+        for any group never yet processed by apply_history_tracking's status
+        tracking (treated as "no baseline to compare against" there)."""
         rows = self.cursor.execute(
-            "SELECT Group_Key, Name, First_Seen_Month, Last_Seen_Month FROM RecurringHistory"
+            "SELECT Group_Key, Name, First_Seen_Month, Last_Seen_Month, Last_Status FROM RecurringHistory"
         ).fetchall()
         return {
-            r[0]: {'name': r[1], 'first_seen_month': r[2], 'last_seen_month': r[3]}
+            r[0]: {'name': r[1], 'first_seen_month': r[2], 'last_seen_month': r[3], 'last_status': r[4]}
             for r in rows
         }
 
     def upsert_recurring_history(self, group_key: str, name: str,
-                                  first_seen_month: str, last_seen_month: str) -> None:
-        """Insert a new history row, or update Name/Last_Seen_Month for an
-        existing one (First_Seen_Month never changes once recorded). Does not
-        commit — caller commits once after the whole batch."""
+                                  first_seen_month: str, last_seen_month: str,
+                                  last_status: str = None) -> None:
+        """Insert a new history row, or update Name/Last_Seen_Month (and
+        Last_Status, when given) for an existing one (First_Seen_Month never
+        changes once recorded). Does not commit — caller commits once after
+        the whole batch."""
         self.cursor.execute("""
-            INSERT INTO RecurringHistory (Group_Key, Name, First_Seen_Month, Last_Seen_Month)
-            VALUES (%s, %s, %s, %s)
+            INSERT INTO RecurringHistory (Group_Key, Name, First_Seen_Month, Last_Seen_Month, Last_Status)
+            VALUES (%s, %s, %s, %s, %s)
             ON CONFLICT (Group_Key) DO UPDATE SET
-                Name=%s, Last_Seen_Month=%s, Updated_At=CURRENT_TIMESTAMP
-        """, (group_key, name, first_seen_month, last_seen_month, name, last_seen_month))
+                Name=%s, Last_Seen_Month=%s,
+                Last_Status=COALESCE(%s, RecurringHistory.Last_Status),
+                Updated_At=CURRENT_TIMESTAMP
+        """, (group_key, name, first_seen_month, last_seen_month, last_status,
+              name, last_seen_month, last_status))
 
     def get_recurring_dismissed(self) -> set:
         rows = self.cursor.execute("SELECT Group_Key FROM RecurringDismissed").fetchall()

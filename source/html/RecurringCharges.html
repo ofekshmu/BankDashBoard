@@ -472,8 +472,8 @@ body {
 <script>
 var RC_DATA = __RC_DATA_JSON__;   // replaced server-side at generation time; null if never generated yet
 var state = RC_DATA
-  ? { groups: RC_DATA.groups, hidden: RC_DATA.hidden_groups, kpis: RC_DATA.kpis, trend: RC_DATA.trend, historyAlerts: RC_DATA.history_alerts || {introduced:[], removed:[]} }
-  : { groups: [], hidden: [], kpis: {total_monthly: 0}, trend: [], historyAlerts: {introduced:[], removed:[]} };
+  ? { groups: RC_DATA.groups, hidden: RC_DATA.hidden_groups, kpis: RC_DATA.kpis, trend: RC_DATA.trend, historyAlerts: RC_DATA.history_alerts || {introduced:[], removed:[], status_changed:[]} }
+  : { groups: [], hidden: [], kpis: {total_monthly: 0}, trend: [], historyAlerts: {introduced:[], removed:[], status_changed:[]} };
 // Folder organization is fetched separately from the detection cache (see
 // _rcLoadFolders) — it's a purely organizational overlay, so moving a bill
 // between folders never needs a regen and survives a stale cached page.
@@ -545,19 +545,23 @@ function statusLabel(s) {
 function renderKpis() {
   document.getElementById('kpi-total').textContent = fmt(state.kpis.total_monthly);
   document.getElementById('kpi-count').textContent = state.groups.length;
-  var attnCount = state.groups.filter(function(g){ return g.possibly_stopped || g.amount_changed; }).length;
-  document.getElementById('kpi-attn').textContent = attnCount;
+
+  // Only bills whose status *just* turned yellow/red since the last regen —
+  // one flagged for months on end isn't re-shown every time, to keep this
+  // list a signal of what's new, not a standing list of everything imperfect.
+  var statusChanged = (state.historyAlerts && state.historyAlerts.status_changed) || [];
+  document.getElementById('kpi-attn').textContent = statusChanged.length;
 
   var attnCard = document.getElementById('attn-card');
   var attnList = document.getElementById('attn-list');
-  var flagged = state.groups.filter(function(g){ return g.possibly_stopped || g.amount_changed; });
-  if (flagged.length) {
+  if (statusChanged.length) {
     attnCard.style.display = '';
-    attnList.innerHTML = flagged.map(function(g) {
-      var cls = g.possibly_stopped ? 'stopped' : 'changed';
-      var text = g.possibly_stopped ? 'נראה שהופסק' : 'הסכום השתנה';
-      return '<div class="attn-item" onclick="scrollToGroup(\'' + g.group_key + '\')">' +
-             '<div class="attn-item-name">' + esc(displayNameFor(g)) + '</div>' +
+    attnList.innerHTML = statusChanged.map(function(a) {
+      var cls = a.status;   // 'stopped' or 'changed'
+      var text = a.status === 'stopped' ? 'נראה שהופסק' : 'הסכום השתנה';
+      var clickable = state.groups.some(function(g){ return g.group_key === a.group_key; });
+      return '<div class="attn-item"' + (clickable ? ' style="cursor:pointer" onclick="scrollToGroup(\'' + a.group_key + '\')"' : '') + '>' +
+             '<div class="attn-item-name">' + esc(displayNameForKey(a.group_key, a.name)) + '</div>' +
              '<div class="attn-item-status ' + cls + '">' + text + '</div>' +
            '</div>';
     }).join('');
@@ -1165,7 +1169,7 @@ function _rcApplyFreshData(data) {
   state.hidden = data.hidden_groups;
   state.kpis = data.kpis;
   state.trend = data.trend;
-  state.historyAlerts = data.history_alerts || {introduced:[], removed:[]};
+  state.historyAlerts = data.history_alerts || {introduced:[], removed:[], status_changed:[]};
   _rcHideSkeleton();
   _rcHideLoadingBanner();
   _rcHideError();

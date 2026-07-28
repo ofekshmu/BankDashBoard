@@ -490,6 +490,57 @@ def test_apply_history_tracking_detects_introduced_and_removed():
         db.connection.commit()
 
 
+def test_apply_history_tracking_status_changed_only_on_transition():
+    """The top attention alerts should only surface a bill the *moment* it
+    turns yellow/red — re-running with the same status every regen must not
+    keep re-alerting on it forever (that's the noise this feature removes)."""
+    db = DataBase()
+    db.ensure_recurring_tables()
+    test_key = 'rc_test_status_change_bill'
+    test_name = 'RC_TEST_STATUS_CHANGE_BILL'
+    seed_key = 'rc_test_status_change_seed'
+
+    db.cursor.execute("DELETE FROM RecurringHistory WHERE Group_Key IN (%s,%s)", (test_key, seed_key))
+    db.connection.commit()
+
+    def group(possibly_stopped=False, amount_changed=False):
+        return {
+            'group_key': test_key, 'name': test_name,
+            'first_payment_date': date(2099, 1, 5), 'last_payment_date': date(2099, 3, 5),
+            'possibly_stopped': possibly_stopped, 'amount_changed': amount_changed,
+        }
+
+    try:
+        # Not a cold start, so the first appearance is eligible to alert.
+        db.upsert_recurring_history(seed_key, 'RC_TEST_STATUS_CHANGE_SEED', '2020-01', '2020-01')
+        db.connection.commit()
+
+        # First seen already amount_changed ("yellow") — should alert once.
+        r1 = apply_history_tracking(db, [group(amount_changed=True)], today=date(2099, 4, 15))
+        changed_keys = [a['group_key'] for a in r1['status_changed']]
+        assert test_key in changed_keys, "a bill's first-ever appearance already flagged should alert"
+        assert next(a for a in r1['status_changed'] if a['group_key'] == test_key)['status'] == 'changed'
+
+        # Still amount_changed next regen — same status, must NOT re-alert.
+        r2 = apply_history_tracking(db, [group(amount_changed=True)], today=date(2099, 5, 15))
+        assert test_key not in [a['group_key'] for a in r2['status_changed']], \
+            "an unchanged status must not be re-alerted every regen"
+
+        # Recovers to active — no alert for becoming active again.
+        r3 = apply_history_tracking(db, [group()], today=date(2099, 6, 15))
+        assert test_key not in [a['group_key'] for a in r3['status_changed']]
+
+        # Escalates straight to possibly_stopped ("red") — a fresh transition, alert again.
+        r4 = apply_history_tracking(db, [group(possibly_stopped=True)], today=date(2099, 7, 15))
+        changed_keys4 = [a['group_key'] for a in r4['status_changed']]
+        assert test_key in changed_keys4, "transitioning back into a flagged status should alert again"
+        assert next(a for a in r4['status_changed'] if a['group_key'] == test_key)['status'] == 'stopped'
+        print("PASS: apply_history_tracking only alerts status_changed on transition")
+    finally:
+        db.cursor.execute("DELETE FROM RecurringHistory WHERE Group_Key IN (%s,%s)", (test_key, seed_key))
+        db.connection.commit()
+
+
 def test_apply_history_tracking_treats_merged_bill_as_continuous():
     """A manually-merged pair (e.g. a bank descriptor rename) is one
     continuing bill, not one stopping and another starting — merging them
@@ -561,5 +612,6 @@ if __name__ == '__main__':
     test_get_recurring_groups_tracks_merge_source_and_per_occurrence_names()
     test_get_recurring_groups_excludes_installment_payments()
     test_apply_history_tracking_detects_introduced_and_removed()
+    test_apply_history_tracking_status_changed_only_on_transition()
     test_apply_history_tracking_treats_merged_bill_as_continuous()
     print("\nAll tests passed")

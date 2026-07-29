@@ -8,6 +8,7 @@ from datetime import datetime
 import pandas as pd
 
 import WebApp
+from database import DataBase
 from src_utils.calculations import SimpleMath
 
 
@@ -72,9 +73,80 @@ def test_process_prices_handles_multi_row_dataframe():
     print("PASS: process_prices handles a multi-row DataFrame")
 
 
+def test_get_monthly_shifted_filters_by_category():
+    """Regression test: get_monthly_shifted(category=...) used to accept the
+    category/business filter only to pick the bulk-vs-per-month query path,
+    but never actually filtered the per-month dataframe before summing — a
+    category's chart silently showed the overall household totals across
+    every category instead of just its own (a ₪150 category showing a
+    ₪50,000 bar). Insert two categories with very different amounts in the
+    current month and confirm each is reported separately."""
+    db = DataBase()
+    small_cat = 'RC_TEST_SMALL_CATEGORY'
+    big_cat = 'RC_TEST_BIG_CATEGORY'
+    this_month = datetime.now().replace(day=1)
+    ids = []
+    try:
+        row = db.cursor.execute("""
+            INSERT INTO BankTransactions (Date, Name, Out, Income, Source_file, Category)
+            VALUES (%s, %s, %s, %s, %s, %s) RETURNING ID
+        """, (this_month.date(), 'RC_TEST_SMALL_BIZ', 50.0, 0, 'RC_TEST', small_cat)).fetchone()
+        ids.append(row[0])
+        row = db.cursor.execute("""
+            INSERT INTO BankTransactions (Date, Name, Out, Income, Source_file, Category)
+            VALUES (%s, %s, %s, %s, %s, %s) RETURNING ID
+        """, (this_month.date(), 'RC_TEST_BIG_BIZ', 50000.0, 0, 'RC_TEST', big_cat)).fetchone()
+        ids.append(row[0])
+        db.connection.commit()
+
+        small_spendings, _, _, _ = SimpleMath.get_monthly_shifted(shift=1, start_delta=0, category=small_cat, business=None)
+        big_spendings, _, _, _ = SimpleMath.get_monthly_shifted(shift=1, start_delta=0, category=big_cat, business=None)
+
+        assert small_spendings[0] == -50.0, \
+            f"category filter leaked other categories' amounts in: {small_spendings[0]}"
+        assert big_spendings[0] == -50000.0, \
+            f"category filter leaked other categories' amounts in: {big_spendings[0]}"
+        print("PASS: get_monthly_shifted filters by category")
+    finally:
+        if ids:
+            db.cursor.execute("DELETE FROM BankTransactions WHERE ID = ANY(%s)", (ids,))
+            db.connection.commit()
+
+
+def test_get_monthly_shifted_filters_by_business():
+    db = DataBase()
+    biz_a = 'RC_TEST_BUSINESS_A'
+    biz_b = 'RC_TEST_BUSINESS_B'
+    this_month = datetime.now().replace(day=1)
+    ids = []
+    try:
+        row = db.cursor.execute("""
+            INSERT INTO BankTransactions (Date, Name, Out, Income, Source_file, Category)
+            VALUES (%s, %s, %s, %s, %s, %s) RETURNING ID
+        """, (this_month.date(), biz_a, 75.0, 0, 'RC_TEST', 'RC_TEST_CAT')).fetchone()
+        ids.append(row[0])
+        row = db.cursor.execute("""
+            INSERT INTO BankTransactions (Date, Name, Out, Income, Source_file, Category)
+            VALUES (%s, %s, %s, %s, %s, %s) RETURNING ID
+        """, (this_month.date(), biz_b, 8000.0, 0, 'RC_TEST', 'RC_TEST_CAT')).fetchone()
+        ids.append(row[0])
+        db.connection.commit()
+
+        a_spendings, _, _, _ = SimpleMath.get_monthly_shifted(shift=1, start_delta=0, category=None, business=biz_a)
+        assert a_spendings[0] == -75.0, \
+            f"business filter leaked another business's amount in: {a_spendings[0]}"
+        print("PASS: get_monthly_shifted filters by business")
+    finally:
+        if ids:
+            db.cursor.execute("DELETE FROM BankTransactions WHERE ID = ANY(%s)", (ids,))
+            db.connection.commit()
+
+
 if __name__ == '__main__':
     test_build_slug_map_resolves_collisions()
     test_build_slug_map_no_collision_passthrough()
     test_process_prices_handles_single_row_dataframe()
     test_process_prices_handles_multi_row_dataframe()
+    test_get_monthly_shifted_filters_by_category()
+    test_get_monthly_shifted_filters_by_business()
     print("\nAll tests passed")

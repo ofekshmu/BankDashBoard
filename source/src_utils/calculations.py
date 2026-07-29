@@ -138,6 +138,15 @@ class SimpleMath:
                         date=calculated_date, tables=['BankTransactions', 'CardTransactions']),
                     date=calculated_date)
 
+            # category/business were only ever used above to pick the bulk vs.
+            # per-month query path — df_i itself was never actually filtered
+            # down to them, so a category's chart silently showed the overall
+            # monthly totals across every category instead of just its own.
+            if category is not None:
+                df_i = df_i[df_i['Category'] == category]
+            elif business is not None:
+                df_i = df_i[df_i['Name'] == business]
+
             spendings_lst.append(df_i['Final_Value'][(df_i['Final_Value'] < 0)].sum())
             spendings_net_lst.append(df_i['Final_Value'][(df_i['Final_Value'] < 0) & (df_i['Category'] != INVESTMENT_CATEGORY)].sum())
             earnings_lst.append(df_i['Final_Value'][(df_i['Final_Value'] > 0)].sum())

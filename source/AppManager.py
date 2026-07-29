@@ -795,11 +795,22 @@ class AppManager:
                 case _:
                     utils.log("Unreachable point reached...", "error")
 
-        # Slug for web integration
-        import re as _re_cat
-        _raw_name = category_for_analysis if case == 1 else name_for_analysis
-        _slug_name = _re_cat.sub(r'[^\w\u0590-\u05FF]', '_', _raw_name).strip('_')
-        _slug = ('cat_' if case == 1 else 'biz_') + _slug_name
+        # Slug for web integration \u2014 the output HTML file is named after this.
+        # WebApp.py always passes page_id, computed by its own
+        # collision-aware _build_slug_map (two distinct names can otherwise
+        # strip down to the same slug, e.g. "PAYPAL *NETFLIX COM" and
+        # "PAYPAL  NETFLIX COM" both -> "biz_PAYPAL__NETFLIX_COM"). Recomputing
+        # a plain slug here instead of using page_id would silently write both
+        # businesses' analyses to the same file, clobbering one with the
+        # other \u2014 always defer to page_id when the web app supplied one; the
+        # naive local fallback only matters for direct CLI invocation.
+        if page_id:
+            _slug = page_id
+        else:
+            import re as _re_cat
+            _raw_name = category_for_analysis if case == 1 else name_for_analysis
+            _slug_name = _re_cat.sub(r'[^\w\u0590-\u05FF]', '_', _raw_name).strip('_')
+            _slug = ('cat_' if case == 1 else 'biz_') + _slug_name
 
         def get_monthly_average(data: pd.DataFrame) -> float:
             """
@@ -857,10 +868,10 @@ class AppManager:
                 float - the active monthly average
                 float - the active monthly standard deviation
             """
-            data['Date'] = pd.to_datetime(data['Date'], format="%Y-%m-%d %H:%M:%S").apply(lambda x: x.strftime('%Y-%m'))
+            data['Date'] = pd.to_datetime(data['Date']).apply(lambda x: x.strftime('%Y-%m'))
             data = data.groupby('Date').sum(numeric_only=True)
-            return data['Final_Value'].mean() , data['Final_Value'].std()        
-       
+            return data['Final_Value'].mean() , data['Final_Value'].std()
+
         def yearly_average(data: pd.DataFrame) -> tuple[float, float]:
             """
             return the active yearly average and standard deviation of the given data frame.
@@ -871,7 +882,7 @@ class AppManager:
                 float - the active yearly average
                 float - the active yearly standard deviation
             """
-            data['Date'] = pd.to_datetime(data['Date'], format="%Y-%m-%d %H:%M:%S").apply(lambda x: x.strftime('%Y'))
+            data['Date'] = pd.to_datetime(data['Date']).apply(lambda x: x.strftime('%Y'))
             data = data.groupby('Date').sum(numeric_only=True)
             return data['Final_Value'].mean() , data['Final_Value'].std()                
         

@@ -357,7 +357,11 @@ class SimpleMath:
             df['Transaction_Type'] = pd.Series(dtype='object')
             return df
         
-        df[['Executed_Date', 'Final_Value', 'Transaction_Type', 'Relevance']]  = df.apply(classify_and_handle, axis=1)
+        # result_type='expand' forces a proper (row x 4) frame regardless of
+        # row count — without it, pandas' apply(axis=1) misbehaves when df has
+        # exactly one row (a very common case for one-off businesses), raising
+        # "Columns must be same length as key" instead of assigning correctly.
+        df[['Executed_Date', 'Final_Value', 'Transaction_Type', 'Relevance']]  = df.apply(classify_and_handle, axis=1, result_type='expand')
         df['Final_Value'] = pd.to_numeric(df['Final_Value'], errors='coerce')
         
         utils.log(f"Processed transactions for given date {date} are:\n{utils.df_to_markdown(df)}","debug")      

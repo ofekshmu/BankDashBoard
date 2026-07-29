@@ -113,6 +113,37 @@ def _make_slug(type_: str, name: str) -> str:
     safe = _re2.sub(r'[^\w\u0590-\u05FF]', '_', name).strip('_')
     return f"{type_}_{safe}"
 
+
+def _build_slug_map(names, type_: str) -> dict:
+    """Returns {name: slug}, resolving collisions where two distinct names
+    strip down to the same slug (e.g. 'PAYPAL *NETFLIX COM' and
+    'PAYPAL  NETFLIX COM' both punctuation-strip to 'PAYPAL__NETFLIX_COM') by
+    appending a short stable hash to every name sharing a base slug.
+
+    Without this, the two names would silently share one generated HTML
+    file and one manifest/regen_tracker entry \u2014 whichever got generated
+    first "wins" the shared slug, and the other business/category's card
+    on /categories would show as already generated (same file path) despite
+    never having its own analysis actually run, or a regen for one would
+    resolve to the other's name via the old first-match reverse lookup.
+    The hash (not a sort-order index) keeps each name's slug stable even as
+    other names are added/removed, so a previously-generated file for a
+    disambiguated name is never orphaned by an unrelated data change."""
+    import hashlib
+    groups = {}
+    for name in names:
+        groups.setdefault(_make_slug(type_, name), []).append(name)
+    result = {}
+    for base, group_names in groups.items():
+        if len(set(group_names)) <= 1:
+            for n in group_names:
+                result[n] = base
+        else:
+            for n in group_names:
+                h = hashlib.md5(n.encode('utf-8')).hexdigest()[:6]
+                result[n] = f'{base}_{h}'
+    return result
+
 # ── Log capture via stdout tee ────────────────────────────────────────────────
 _log_queue: queue.Queue = queue.Queue()
 # Per-thread queue: when set, print/log output from that thread goes here instead
@@ -1015,10 +1046,12 @@ def categories_page():
         )
 
     items_html = ''
+    cat_slugs = _build_slug_map(cats, 'cat')
+    biz_slugs = _build_slug_map(bizs, 'biz')
     for c in sorted(cats):
-        items_html += _item_html(c, 'category', _make_slug('cat', c))
+        items_html += _item_html(c, 'category', cat_slugs[c])
     for b in sorted(bizs):
-        items_html += _item_html(b, 'business', _make_slug('biz', b))
+        items_html += _item_html(b, 'business', biz_slugs[b])
     total = len(cats) + len(bizs)
 
     return f'''<!DOCTYPE html>
@@ -1255,9 +1288,11 @@ def category_list():
     from datetime import datetime as _dt
     cats = DataBase().get_all_category_names() or []
     bizs = DataBase().get_all_business_names() or []
+    cat_slugs = _build_slug_map(cats, 'cat')
+    biz_slugs = _build_slug_map(bizs, 'biz')
     result = []
     for name in sorted(cats):
-        slug  = _make_slug('cat', name)
+        slug  = cat_slugs[name]
         fpath = os.path.join(CATEGORY_ANALYSIS_DIR, f'{slug}.html')
         has   = os.path.exists(fpath)
         result.append({
@@ -1265,7 +1300,7 @@ def category_list():
             'generated': _dt.fromtimestamp(os.path.getmtime(fpath)).strftime('%d/%m/%Y %H:%M') if has else None
         })
     for name in sorted(bizs):
-        slug  = _make_slug('biz', name)
+        slug  = biz_slugs[name]
         fpath = os.path.join(CATEGORY_ANALYSIS_DIR, f'{slug}.html')
         has   = os.path.exists(fpath)
         result.append({
@@ -1292,20 +1327,27 @@ def run_category():
     slug = body.get('slug', '')
     type_ = body.get('type', 'category')  # 'category' | 'business'
 
-    # Derive name: prefer explicit name from client, then verify against the real DB list.
-    # The slug→name fallback is lossy (special chars like " and / become spaces), so we
-    # cross-check against all known names and pick an exact slug match if found.
-    prefix = 'cat_' if type_ == 'category' else 'biz_'
+    # Derive name: the client always sends the exact name it clicked (from that
+    # item's own data-name attribute), so it's authoritative — trust it first.
+    # Only when it's missing do we fall back to reversing the slug, using the
+    # same collision-aware map categories_page built the slug from in the
+    # first place (a plain first-match search would resolve two names that
+    # share a slug — e.g. "PAYPAL *NETFLIX COM" vs "PAYPAL  NETFLIX COM" — to
+    # whichever happened to come first, silently running analysis for the
+    # wrong business).
+    prefix_type = 'cat' if type_ == 'category' else 'biz'
+    prefix = f'{prefix_type}_'
     client_name = (body.get('name') or '').strip()
-    try:
-        from database import DataBase as _DB
-        all_names = (_DB().get_all_category_names() if type_ == 'category'
-                     else _DB().get_all_business_names()) or []
-        # Find the name whose slug matches exactly
-        matched = next((n for n in all_names if _make_slug(prefix.rstrip('_'), n) == slug), None)
-        name = matched or client_name or (slug[len(prefix):].replace('_', ' ') if slug.startswith(prefix) else slug)
-    except Exception:
-        name = client_name or (slug[len(prefix):].replace('_', ' ') if slug.startswith(prefix) else slug)
+    name = client_name
+    if not name:
+        try:
+            from database import DataBase as _DB
+            all_names = (_DB().get_all_category_names() if type_ == 'category'
+                         else _DB().get_all_business_names()) or []
+            inverse = {v: k for k, v in _build_slug_map(all_names, prefix_type).items()}
+            name = inverse.get(slug) or (slug[len(prefix):].replace('_', ' ') if slug.startswith(prefix) else slug)
+        except Exception:
+            name = slug[len(prefix):].replace('_', ' ') if slug.startswith(prefix) else slug
 
     def _worker():
         global _analysis_running
@@ -1353,15 +1395,24 @@ def run_category_stream():
                             headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'})
         _analysis_running = True
 
-    prefix = 'cat_' if type_val == 'category' else 'biz_'
-    try:
-        from database import DataBase as _DB
-        all_names = (_DB().get_all_category_names() if type_val == 'category'
-                     else _DB().get_all_business_names()) or []
-        matched = next((n for n in all_names if _make_slug(prefix.rstrip('_'), n) == slug), None)
-        name = matched or client_name or (slug[len(prefix):].replace('_', ' ') if slug.startswith(prefix) else slug)
-    except Exception:
-        name = client_name or (slug[len(prefix):].replace('_', ' ') if slug.startswith(prefix) else slug)
+    # See run_category()'s comment: client_name is authoritative (it's the
+    # exact name that item's card was rendered with); the slug-reversal is
+    # only a fallback for a request with no name, and must use the same
+    # collision-aware map the slug was built from, or two names sharing a
+    # base slug resolve to whichever comes first — silently running the
+    # wrong business's analysis.
+    prefix_type = 'cat' if type_val == 'category' else 'biz'
+    prefix = f'{prefix_type}_'
+    name = client_name
+    if not name:
+        try:
+            from database import DataBase as _DB
+            all_names = (_DB().get_all_category_names() if type_val == 'category'
+                         else _DB().get_all_business_names()) or []
+            inverse = {v: k for k, v in _build_slug_map(all_names, prefix_type).items()}
+            name = inverse.get(slug) or (slug[len(prefix):].replace('_', ' ') if slug.startswith(prefix) else slug)
+        except Exception:
+            name = slug[len(prefix):].replace('_', ' ') if slug.startswith(prefix) else slug
 
     local_q: queue.Queue = queue.Queue()
     _regen_tracker.init(slug)

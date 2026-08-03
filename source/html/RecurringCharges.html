@@ -145,6 +145,15 @@ body {
 .trend-card h3{font-size:.95em;font-weight:700;margin-bottom:12px}
 .trend-chart-wrap{position:relative;height:220px;overflow-x:auto}
 
+/* Active-bills pie card */
+.rc-pie-card{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow-sm);padding:18px 22px;margin-bottom:20px;display:flex;align-items:center;gap:26px;flex-wrap:wrap}
+.rc-pie-card h3{font-size:.95em;font-weight:700;margin-bottom:12px}
+.rc-pie-chart-wrap{position:relative;width:200px;height:200px;flex-shrink:0}
+.rc-pie-empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--text-muted);font-size:.85em;padding:20px}
+.rc-pie-stats{display:flex;gap:14px;flex:1;flex-wrap:wrap;min-width:220px}
+.rc-pie-stats .kpi-card{margin:0}
+@media (max-width: 640px){ .rc-pie-card{flex-direction:column} .rc-pie-chart-wrap{width:180px;height:180px} }
+
 /* Search/sort bar */
 .rc-toolbar{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap}
 .rc-search{flex:1;min-width:180px;padding:10px 14px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:.9em;font-family:inherit;direction:rtl}
@@ -251,6 +260,7 @@ body {
 .rc-skel{background:var(--border);border-radius:var(--radius-sm);animation:rcShimmer 1.3s ease-in-out infinite}
 .rc-skel-kpi-row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:20px}
 .rc-skel-kpi{height:74px;border-radius:var(--radius);flex:1;min-width:160px}
+.rc-skel-pie{height:200px;border-radius:var(--radius);margin-bottom:20px}
 .rc-skel-trend{height:220px;border-radius:var(--radius);margin-bottom:20px}
 .rc-skel-card{height:96px;border-radius:var(--radius);margin-bottom:10px}
 .rc-loading-banner{display:flex;align-items:center;gap:10px;background:var(--teal-light);color:var(--teal-dark);border-radius:var(--radius-sm);padding:10px 16px;margin-bottom:16px;font-size:.85em;font-weight:600}
@@ -344,6 +354,7 @@ body {
   </div>
 
   <div id="rc-skeleton" style="display:none">
+    <div class="rc-skel rc-skel-pie"></div>
     <div class="rc-skel-kpi-row">
       <div class="rc-skel rc-skel-kpi"></div>
       <div class="rc-skel rc-skel-kpi"></div>
@@ -356,6 +367,18 @@ body {
   </div>
 
   <div id="rc-real-content">
+    <div class="rc-pie-card">
+      <div class="rc-pie-chart-wrap">
+        <canvas id="rc-pie-chart"></canvas>
+        <div class="rc-pie-empty" id="rc-pie-empty" style="display:none">אין עדיין חיובים חוזרים פעילים (חייבים להופיע ב-2 החודשים האחרונים ברצף)</div>
+      </div>
+      <div class="rc-pie-stats">
+        <div class="kpi-card"><div class="kpi-label">סה"כ חיובים חוזרים פעילים</div><div class="kpi-value" id="pie-stat-total">—</div></div>
+        <div class="kpi-card"><div class="kpi-label">נותר לתשלום החודש</div><div class="kpi-value" id="pie-stat-left">—</div></div>
+        <div class="kpi-card"><div class="kpi-label">שולם החודש</div><div class="kpi-value" id="pie-stat-paid">—</div></div>
+      </div>
+    </div>
+
     <div class="kpi-row">
       <div class="kpi-card"><div class="kpi-label">סה"כ חיוב חודשי חוזר</div><div class="kpi-value" id="kpi-total">—</div></div>
       <div class="kpi-card"><div class="kpi-label">חיובים חוזרים פעילים</div><div class="kpi-value" id="kpi-count">—</div></div>
@@ -837,6 +860,123 @@ function renderTrendChart() {
   });
 }
 
+// ── Active-bills pie chart ──────────────────────────────────────────
+// Recomputed against the *real* current date on every page view (this
+// function runs at script-load time regardless of when the underlying
+// state.groups snapshot was last regenerated) — so "paid this month" and
+// the active-streak window always reflect today, while the cards/trend/KPIs
+// above only change when the user clicks Regen. See CLAUDE.md.
+function _rcPad2(n) { return n < 10 ? '0' + n : '' + n; }
+function _rcMonthKey(y, m) { return y + '-' + _rcPad2(m); }
+function _rcAddMonths(y, m, delta) {
+  var idx = (y * 12 + (m - 1)) + delta;
+  return { y: Math.floor(idx / 12), m: (idx % 12) + 1 };
+}
+function _rcLastDayOfMonth(y, m) { return new Date(y, m, 0).getDate(); } // m is 1-based
+
+// A bill only counts as "active" for the pie if it was paid on-time (not
+// changed/missing) in *each* of the two most recently completed calendar
+// months, judged against today — a bill whose streak just broke drops out
+// immediately rather than lingering from a stale cache.
+function _rcActiveBillsForPie() {
+  var now = new Date();
+  var curY = now.getFullYear(), curM = now.getMonth() + 1;
+  var prev1 = _rcAddMonths(curY, curM, -1);
+  var prev2 = _rcAddMonths(curY, curM, -2);
+  var last2Keys = [_rcMonthKey(prev2.y, prev2.m), _rcMonthKey(prev1.y, prev1.m)];
+  var curKey = _rcMonthKey(curY, curM);
+  var nextM = _rcAddMonths(curY, curM, 1);
+
+  var result = [];
+  state.groups.forEach(function(g) {
+    var occByMonth = {};
+    g.occurrences.forEach(function(o) { occByMonth[o.month] = o; });
+    var isActive = last2Keys.every(function(mk) {
+      var o = occByMonth[mk];
+      return o && o.status === 'paid';
+    });
+    if (!isActive) return;
+
+    var thisMonthOcc = occByMonth[curKey];
+    var paidThisMonth = !!thisMonthOcc;
+    var amount = paidThisMonth ? thisMonthOcc.amount : g.current_amount;
+
+    // Predicted next payment date, for bills already paid this month —
+    // day-of-month taken from the most recent occurrence, projected onto
+    // next month (clamped to that month's real length).
+    var lastOcc = g.occurrences[g.occurrences.length - 1];
+    var lastDay = parseInt(String(lastOcc.date).split('-')[2], 10);
+    var predictedDay = Math.min(lastDay, _rcLastDayOfMonth(nextM.y, nextM.m));
+    var predictedDate = nextM.y + '-' + _rcPad2(nextM.m) + '-' + _rcPad2(predictedDay);
+
+    result.push({
+      name: displayNameFor(g),
+      amount: amount,
+      paidThisMonth: paidThisMonth,
+      predictedDate: predictedDate,
+    });
+  });
+  return result;
+}
+
+var _rcPieChart = null;
+var _RC_PIE_PALETTE = ['#1e9d8b', '#f0b429', '#3498db', '#9b59b6', '#e67e22', '#16a085', '#8e44ad', '#c0392b', '#2980b9', '#f39c12', '#27ae60', '#d35400'];
+var _RC_PIE_PAID_COLOR = '#c7cbd4';
+
+function renderPieChart() {
+  var bills = _rcActiveBillsForPie();
+  var total = bills.reduce(function(s, b) { return s + b.amount; }, 0);
+  var paid = bills.filter(function(b) { return b.paidThisMonth; }).reduce(function(s, b) { return s + b.amount; }, 0);
+  var left = total - paid;
+
+  document.getElementById('pie-stat-total').textContent = fmt(total);
+  document.getElementById('pie-stat-left').textContent = fmt(left);
+  document.getElementById('pie-stat-paid').textContent = fmt(paid);
+
+  var emptyEl = document.getElementById('rc-pie-empty');
+  var ctx = document.getElementById('rc-pie-chart');
+  if (_rcPieChart) { _rcPieChart.destroy(); _rcPieChart = null; }
+
+  if (!bills.length) {
+    emptyEl.style.display = 'flex';
+    ctx.style.display = 'none';
+    return;
+  }
+  emptyEl.style.display = 'none';
+  ctx.style.display = '';
+
+  var colorIdx = 0;
+  var colors = bills.map(function(b) {
+    return b.paidThisMonth ? _RC_PIE_PAID_COLOR : _RC_PIE_PALETTE[(colorIdx++) % _RC_PIE_PALETTE.length];
+  });
+
+  _rcPieChart = new Chart(ctx, {
+    type: 'pie',
+    data: {
+      labels: bills.map(function(b) { return b.name; }),
+      datasets: [{ data: bills.map(function(b) { return b.amount; }), backgroundColor: colors, borderWidth: 1, borderColor: '#fff' }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: function(item) {
+              var b = bills[item.dataIndex];
+              if (b.paidThisMonth) {
+                return 'שולם החודש — התשלום הבא צפוי ב-' + fmtDate(b.predictedDate);
+              }
+              var pct = total > 0 ? (b.amount / total * 100) : 0;
+              return fmt(b.amount) + ' (' + pct.toFixed(1) + '%)';
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
 // ── Confirmation modal — used before every one-click action ───────
 function _rcConfirm(title, message, onConfirm) {
   document.getElementById('rc-confirm-title').textContent = title;
@@ -1176,6 +1316,7 @@ function _rcApplyFreshData(data) {
   renderKpis();
   renderCards();
   renderTrendChart();
+  renderPieChart();
 }
 
 function regenerate() {
@@ -1222,6 +1363,7 @@ _rcLoadFolders(function() {
       renderKpis();
       renderCards();
       renderTrendChart();
+      renderPieChart();
     } else {
       // Never generated yet — show the skeleton in place of real content and
       // auto-start the same regen flow the button uses. No separate page, no

@@ -30,10 +30,15 @@ MAX_MONTHS_SINCE_LAST_OCCURRENCE = 6   # a bill not seen in more than this many
 
 def _excluded_categories() -> set:
     """Categories excluded from recurring-charge candidacy: reserved
-    withdrawal/excluded categories (Constants.ReservedNames), plus housing/
-    mortgage (already tracked on the Housing page — the real housing
-    category is the property's own address string, e.g. MORTGAGE_CATEGORY
-    in src_utils/mortgage.py, not a generic "Rent" label)."""
+    withdrawal/excluded categories (Constants.ReservedNames), plus the owned
+    property's mortgage (already tracked on the Housing page — the real
+    housing category is the property's own address string, e.g.
+    MORTGAGE_CATEGORY in src_utils/mortgage.py, not a generic "Rent" label).
+
+    "שכירות" (rent the user pays as a tenant) is deliberately NOT excluded —
+    unlike MORTGAGE_CATEGORY, nothing else in the app tracks it, so filtering
+    it out here would hide a real recurring bill with no other page to see
+    it on."""
     cats = set()
     try:
         from Constants import ReservedNames, CC_CHARGE_CATEGORY_NAME
@@ -48,10 +53,9 @@ def _excluded_categories() -> set:
     except Exception:
         pass
     # "דירת קבלן" (contractor's apartment — a new-build property paid off in
-    # installments) and "שכירות" (rent) are additional housing categories also
-    # tracked on the Housing page, separate from MORTGAGE_CATEGORY.
+    # installments) is an additional housing category also tracked on the
+    # Housing page, separate from MORTGAGE_CATEGORY.
     cats.add('דירת קבלן')
-    cats.add('שכירות')
     return cats
 
 

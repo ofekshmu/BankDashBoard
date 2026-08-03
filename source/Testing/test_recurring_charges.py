@@ -10,6 +10,7 @@ from RecurringCharges import (
     normalize_name, cluster_transactions,
     month_key, find_longest_run, build_group_from_cluster,
     build_timeline, get_recurring_groups, apply_history_tracking,
+    EXCLUDED_CATEGORIES,
 )
 
 
@@ -127,6 +128,36 @@ def test_cluster_transactions_keeps_unrelated_separate():
     clusters = cluster_transactions(txs)
     assert len(clusters) == 2
     print("PASS: cluster_transactions keeps unrelated separate")
+
+
+def test_excluded_categories_does_not_exclude_rent():
+    # "שכירות" (rent the user pays) has no other page tracking it, unlike
+    # MORTGAGE_CATEGORY — excluding it here would hide a real recurring bill.
+    assert 'שכירות' not in EXCLUDED_CATEGORIES
+    # "דירת קבלן" and the reserved withdrawal/excluded/CC-charge categories
+    # remain excluded — they're either tracked elsewhere or never billing candidates.
+    assert 'דירת קבלן' in EXCLUDED_CATEGORIES
+    assert 'withdrawal' in EXCLUDED_CATEGORIES
+    assert 'Excluded' in EXCLUDED_CATEGORIES
+    print("PASS: EXCLUDED_CATEGORIES does not exclude rent")
+
+
+def test_rent_paid_by_check_clusters_and_qualifies():
+    # Each month's check clears with a different serial number embedded in
+    # the name — normalize_name strips digits, so these should still cluster
+    # into a single recurring bill despite the changing number.
+    txs = [
+        {'table': 'BankTransactions', 'id': 1, 'date': date(2026, 1, 1), 'name': 'משיכת שיק 003211', 'amount': 4500.0, 'category': 'שכירות'},
+        {'table': 'BankTransactions', 'id': 2, 'date': date(2026, 2, 1), 'name': 'משיכת שיק 004532', 'amount': 4500.0, 'category': 'שכירות'},
+        {'table': 'BankTransactions', 'id': 3, 'date': date(2026, 3, 1), 'name': 'משיכת שיק 005678', 'amount': 4500.0, 'category': 'שכירות'},
+    ]
+    clusters = cluster_transactions(txs)
+    assert len(clusters) == 1, f"expected the 3 rent checks to cluster together, got {len(clusters)} clusters"
+    group = build_group_from_cluster(clusters[0], today=date(2026, 4, 15))
+    assert group is not None, "3-month rent-check streak should qualify as a recurring group"
+    assert group['occurrence_count'] == 3
+    assert group['current_amount'] == 4500.0
+    print("PASS: rent paid by check (changing serial number) clusters and qualifies")
 
 
 def test_month_key():

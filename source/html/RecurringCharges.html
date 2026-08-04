@@ -148,11 +148,12 @@ body {
 /* Active-bills pie card */
 .rc-pie-card{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow-sm);padding:18px 22px;margin-bottom:20px;display:flex;align-items:center;gap:26px;flex-wrap:wrap}
 .rc-pie-card h3{font-size:.95em;font-weight:700;margin-bottom:12px}
-.rc-pie-chart-wrap{position:relative;width:200px;height:200px;flex-shrink:0}
+.rc-pie-chart-wrap{position:relative;width:220px;height:220px;flex-shrink:0;overflow:visible}
 .rc-pie-empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--text-muted);font-size:.85em;padding:20px}
+.rc-pie-tooltip{position:absolute;top:0;left:0;transform:translate(-50%,-100%);opacity:0;pointer-events:none;transition:opacity .1s ease;background:#1f2430;color:#fff;padding:8px 12px;border-radius:8px;font-size:.78em;line-height:1.5;white-space:nowrap;z-index:50;direction:rtl;text-align:right;box-shadow:0 6px 18px rgba(0,0,0,.28)}
 .rc-pie-stats{display:flex;gap:14px;flex:1;flex-wrap:wrap;min-width:220px}
 .rc-pie-stats .kpi-card{margin:0}
-@media (max-width: 640px){ .rc-pie-card{flex-direction:column} .rc-pie-chart-wrap{width:180px;height:180px} }
+@media (max-width: 640px){ .rc-pie-card{flex-direction:column} .rc-pie-chart-wrap{width:200px;height:200px} }
 
 /* Search/sort bar */
 .rc-toolbar{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap}
@@ -371,6 +372,7 @@ body {
       <div class="rc-pie-chart-wrap">
         <canvas id="rc-pie-chart"></canvas>
         <div class="rc-pie-empty" id="rc-pie-empty" style="display:none">אין עדיין חיובים חוזרים פעילים (חייבים להופיע ב-2 החודשים האחרונים ברצף)</div>
+        <div class="rc-pie-tooltip" id="rc-pie-tooltip"></div>
       </div>
       <div class="rc-pie-stats">
         <div class="kpi-card"><div class="kpi-label">סה"כ חיובים חוזרים פעילים</div><div class="kpi-value" id="pie-stat-total">—</div></div>
@@ -874,28 +876,44 @@ function _rcAddMonths(y, m, delta) {
 }
 function _rcLastDayOfMonth(y, m) { return new Date(y, m, 0).getDate(); } // m is 1-based
 
-// A bill only counts as "active" for the pie if it was paid on-time (not
-// changed/missing) in *each* of the two most recently completed calendar
-// months, judged against today — a bill whose streak just broke drops out
-// immediately rather than lingering from a stale cache.
+// A group counts as "active" for the pie if its last occurrence is no more
+// than 1 month behind the freshest occurrence seen across ALL groups (not
+// behind the real wall-clock date — this app is fed by periodic bank-file
+// imports, not a live feed, so every group's last occurrence normally trails
+// today's real date by an irregular amount that has nothing to do with
+// whether the bill is still active; anchoring to the *data's own* recency
+// ceiling instead absorbs that import lag uniformly). A group trailing the
+// data ceiling by more than 1 month reads as genuinely stopped (e.g. an old
+// subscription with no charge in 6 months), not merely "not imported yet" —
+// exactly the gap this was added to catch. "Paid this month" / "pending" /
+// "owed" below still compares against the real date, since that's
+// specifically about the current partial calendar month.
+function _rcMonthsBetween(aKey, bKey) {
+  var a = aKey.split('-'), b = bKey.split('-');
+  return (parseInt(b[0], 10) * 12 + parseInt(b[1], 10)) - (parseInt(a[0], 10) * 12 + parseInt(a[1], 10));
+}
 function _rcActiveBillsForPie() {
   var now = new Date();
   var curY = now.getFullYear(), curM = now.getMonth() + 1;
-  var prev1 = _rcAddMonths(curY, curM, -1);
-  var prev2 = _rcAddMonths(curY, curM, -2);
-  var last2Keys = [_rcMonthKey(prev2.y, prev2.m), _rcMonthKey(prev1.y, prev1.m)];
+  var todayDay = now.getDate();
   var curKey = _rcMonthKey(curY, curM);
   var nextM = _rcAddMonths(curY, curM, 1);
 
+  var dataCeiling = null;
+  state.groups.forEach(function(g) {
+    if (!g.occurrences.length) return;
+    var lastMonth = g.occurrences[g.occurrences.length - 1].month;
+    if (!dataCeiling || lastMonth > dataCeiling) dataCeiling = lastMonth;
+  });
+
   var result = [];
   state.groups.forEach(function(g) {
+    if (!g.occurrences.length) return;
+    var lastOcc = g.occurrences[g.occurrences.length - 1];
+    if (dataCeiling && _rcMonthsBetween(lastOcc.month, dataCeiling) > 1) return;
+
     var occByMonth = {};
     g.occurrences.forEach(function(o) { occByMonth[o.month] = o; });
-    var isActive = last2Keys.every(function(mk) {
-      var o = occByMonth[mk];
-      return o && o.status === 'paid';
-    });
-    if (!isActive) return;
 
     var thisMonthOcc = occByMonth[curKey];
     var paidThisMonth = !!thisMonthOcc;
@@ -904,24 +922,77 @@ function _rcActiveBillsForPie() {
     // Predicted next payment date, for bills already paid this month —
     // day-of-month taken from the most recent occurrence, projected onto
     // next month (clamped to that month's real length).
-    var lastOcc = g.occurrences[g.occurrences.length - 1];
     var lastDay = parseInt(String(lastOcc.date).split('-')[2], 10);
     var predictedDay = Math.min(lastDay, _rcLastDayOfMonth(nextM.y, nextM.m));
     var predictedDate = nextM.y + '-' + _rcPad2(nextM.m) + '-' + _rcPad2(predictedDay);
+
+    // Not charged yet this month — but that doesn't necessarily mean it's
+    // overdue. If today hasn't reached this bill's usual charge day yet
+    // (taken from its last known occurrence), there's simply no data to
+    // expect yet: mark it "pending" (gray) rather than "owed" (colored), and
+    // compute this month's assumed charge date for the tooltip.
+    var pendingThisMonth = false;
+    var expectedDate = null;
+    if (!paidThisMonth) {
+      var usualDay = Math.min(lastDay, _rcLastDayOfMonth(curY, curM));
+      pendingThisMonth = todayDay < usualDay;
+      if (pendingThisMonth) {
+        expectedDate = curY + '-' + _rcPad2(curM) + '-' + _rcPad2(usualDay);
+      }
+    }
 
     result.push({
       name: displayNameFor(g),
       amount: amount,
       paidThisMonth: paidThisMonth,
+      pendingThisMonth: pendingThisMonth,
       predictedDate: predictedDate,
+      expectedDate: expectedDate,
     });
   });
   return result;
 }
 
 var _rcPieChart = null;
-var _RC_PIE_PALETTE = ['#1e9d8b', '#f0b429', '#3498db', '#9b59b6', '#e67e22', '#16a085', '#8e44ad', '#c0392b', '#2980b9', '#f39c12', '#27ae60', '#d35400'];
-var _RC_PIE_PAID_COLOR = '#c7cbd4';
+// Green = paid this month — matches "שולם החודש". Gray = pending (not due
+// yet, simply no data to expect). Amber = owed (already past its usual
+// charge day and still not paid) — a warning tone, distinct from both.
+var _RC_PIE_PAID_COLOR = '#27ae60';
+var _RC_PIE_OWED_COLOR = '#d9822b';
+var _RC_PIE_PENDING_COLOR = '#9aa1ad';
+
+// Custom HTML tooltip instead of Chart.js's canvas-drawn default — the
+// canvas is small (220x220) and a canvas-drawn tooltip is clipped to the
+// canvas's own pixel bounds, so it visibly cut off or collided with the pie
+// itself near the edges. A real positioned DOM element has no such limit
+// (it can render outside the wrap/card entirely) and lets us set RTL text
+// direction properly instead of fighting Chart.js's own canvas text
+// direction, and skip drawing a color swatch entirely (rather than fighting
+// the displayColors option).
+function _rcPieTooltipHandler(context) {
+  var tooltipEl = document.getElementById('rc-pie-tooltip');
+  if (!tooltipEl) return;
+  var tooltipModel = context.tooltip;
+  if (!tooltipModel || tooltipModel.opacity === 0) {
+    tooltipEl.style.opacity = 0;
+    return;
+  }
+  tooltipEl.innerHTML = '';
+  (tooltipModel.title || []).forEach(function(t) {
+    var titleEl = document.createElement('div');
+    titleEl.style.fontWeight = '700';
+    titleEl.textContent = t;
+    tooltipEl.appendChild(titleEl);
+  });
+  (tooltipModel.body || []).forEach(function(b) {
+    var lineEl = document.createElement('div');
+    lineEl.textContent = b.lines.join(' ');
+    tooltipEl.appendChild(lineEl);
+  });
+  tooltipEl.style.opacity = 1;
+  tooltipEl.style.left = tooltipModel.caretX + 'px';
+  tooltipEl.style.top = (tooltipModel.caretY - 10) + 'px';
+}
 
 function renderPieChart() {
   var bills = _rcActiveBillsForPie();
@@ -945,9 +1016,10 @@ function renderPieChart() {
   emptyEl.style.display = 'none';
   ctx.style.display = '';
 
-  var colorIdx = 0;
   var colors = bills.map(function(b) {
-    return b.paidThisMonth ? _RC_PIE_PAID_COLOR : _RC_PIE_PALETTE[(colorIdx++) % _RC_PIE_PALETTE.length];
+    if (b.paidThisMonth) return _RC_PIE_PAID_COLOR;
+    if (b.pendingThisMonth) return _RC_PIE_PENDING_COLOR;
+    return _RC_PIE_OWED_COLOR;
   });
 
   _rcPieChart = new Chart(ctx, {
@@ -958,17 +1030,23 @@ function renderPieChart() {
     },
     options: {
       responsive: true, maintainAspectRatio: false,
+      layout: { padding: 24 },
       plugins: {
         legend: { display: false },
         tooltip: {
+          enabled: false,
+          external: _rcPieTooltipHandler,
           callbacks: {
             label: function(item) {
               var b = bills[item.dataIndex];
-              if (b.paidThisMonth) {
-                return 'שולם החודש — התשלום הבא צפוי ב-' + fmtDate(b.predictedDate);
-              }
               var pct = total > 0 ? (b.amount / total * 100) : 0;
-              return fmt(b.amount) + ' (' + pct.toFixed(1) + '%)';
+              if (b.paidThisMonth) {
+                return 'שולם החודש (' + fmt(b.amount) + ') — התשלום הבא צפוי ב-' + fmtDate(b.predictedDate);
+              }
+              if (b.pendingThisMonth) {
+                return 'חיוב צפוי ב-' + fmtDate(b.expectedDate) + ' (' + fmt(b.amount) + ')';
+              }
+              return 'טרם שולם, עבר המועד הרגיל — ' + fmt(b.amount) + ' (' + pct.toFixed(1) + '%)';
             }
           }
         }

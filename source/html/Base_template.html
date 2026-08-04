@@ -5801,6 +5801,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
 
   var _PAL_SPEND = ['#e53935','#ff7043','#ffa726','#f06292','#e91e63','#ff5722','#ab47bc','#d81b60'];
   var _PAL_EARN  = ['#a5d6a7','#80cbc4','#90caf9','#ce93d8','#ffe082','#ffcc80','#ef9a9a','#f48fb1'];
+  var _PAL_CASH  = ['#4d9de0','#3498db','#2980b9','#5dade2','#85c1e9','#1abc9c','#48c9b0','#76d7c4'];
 
   var _CHART_TT = {
     'הוצאות לפי קטגוריה':      'פילוח ההוצאות מהחשבון הבנקאי לפי קטגוריה.',
@@ -5935,6 +5936,13 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     if (ch.earnings_by_cat && Object.keys(ch.earnings_by_cat).length) {
       _buildDonutCard(grid, 'chart-earnings-donut', 'הכנסות לחשבון לפי קטגוריה',
                       ch.earnings_by_cat, _PAL_EARN);
+    }
+    // ── Cash-wallet spending donut — separate from the bank donut above:
+    // money spent in cash never touched the bank account this month, so it's
+    // tracked as its own pool rather than merged into spendings_by_cat. ──
+    if (ch.cash_by_cat && Object.keys(ch.cash_by_cat).length) {
+      _buildDonutCard(grid, 'chart-cash-cat-donut', 'הוצאות מזומן לפי קטגוריה',
+                      ch.cash_by_cat, _PAL_CASH);
     }
 
     // ── Investments bar + tx list ──

@@ -1246,12 +1246,20 @@ class AppManager:
 
         _rp(7)   # cash flow (get_cash_transactions + accumulate + history + auto-points): 7 pts
 
-        # Capture spendings data for interactive chart (exclude investments — shown in their own donut)
+        # Capture spendings data for interactive chart (exclude investments — shown in their own
+        # donut). Bank-account outflows only — an ATM withdrawal is real bank spending (it left
+        # the bank balance) so it correctly stays in here as its own category. Cash purchases are
+        # NOT merged in: that money left the wallet, not the bank, and is shown separately below.
         _sp_df = transactions_df[(transactions_df['Final_Value'] < 0) & (transactions_df['Category'] != INVESTMENT_CATEGORY)].copy()
-        _sp_cash = {"Name": "מזומן", "Category": "מזומן", "Final_Value": cash_information_data['Monthly Spent Cash']}
-        _sp_df = pd.concat([_sp_df, pd.DataFrame([_sp_cash])], ignore_index=True)
         _sp_grouped = _sp_df.groupby("Category")['Final_Value'].sum().abs()
         data['spendings_by_cat'] = {str(k): round(float(v), 2) for k, v in _sp_grouped.items() if v > 0}
+
+        # Cash-wallet spending by category (mirrors spendings_by_cat but for money that left the
+        # wallet, not the bank) — mct_df's positive rows are ATM withdrawals (cash coming IN to
+        # the wallet), so only negative rows are real cash purchases.
+        _cash_spend_df = mct_df[mct_df['Amount'] < 0] if not mct_df.empty else mct_df
+        _cash_grouped = _cash_spend_df.groupby("Category")['Amount'].sum().abs() if not _cash_spend_df.empty else {}
+        data['cash_by_cat'] = {str(k): round(float(v), 2) for k, v in _cash_grouped.items() if v > 0}
 
         # Capture earnings data for interactive chart (account income only — cash handled by cash chart)
         _ea_df = transactions_df[(transactions_df['Final_Value'] > 0) & (transactions_df['Category'] != INVESTMENT_CATEGORY)].copy()
@@ -1939,6 +1947,7 @@ class AppManager:
             'charts': {
                 'spendings_by_cat':        {str(k): _safe(v) for k, v in data.get('spendings_by_cat', {}).items()},
                 'earnings_by_cat':         {str(k): _safe(v) for k, v in data.get('earnings_by_cat', {}).items()},
+                'cash_by_cat':             {str(k): _safe(v) for k, v in data.get('cash_by_cat', {}).items()},
                 'investments_items':       data.get('investments_items', []),
                 'card_dist':               {str(k): {
                                                'amount': _safe(v.get('amount')),
@@ -2013,13 +2022,19 @@ class AppManager:
         }
         _rp(10)   # cash flow
 
+        # Bank-account outflows only — an ATM withdrawal is real bank spending (it left the bank
+        # balance) so it correctly stays in here as its own category. Cash purchases are NOT
+        # merged in: that money left the wallet, not the bank, and is shown separately below.
         _sp_df = transactions_df[(transactions_df['Final_Value'] < 0) &
                                  (transactions_df['Category'] != INVESTMENT_CATEGORY)].copy()
-        _sp_cash = {"Name": "מזומן", "Category": "מזומן",
-                    "Final_Value": cash_information_data['Monthly Spent Cash']}
-        _sp_df = pd.concat([_sp_df, pd.DataFrame([_sp_cash])], ignore_index=True)
         _sp_grouped = _sp_df.groupby("Category")['Final_Value'].sum().abs()
         data['spendings_by_cat'] = {str(k): round(float(v), 2) for k, v in _sp_grouped.items() if v > 0}
+
+        # Cash-wallet spending by category — mct_df's positive rows are ATM withdrawals (cash
+        # coming IN to the wallet), so only negative rows are real cash purchases.
+        _cash_spend_df = mct_df[mct_df['Amount'] < 0] if not mct_df.empty else mct_df
+        _cash_grouped = _cash_spend_df.groupby("Category")['Amount'].sum().abs() if not _cash_spend_df.empty else {}
+        data['cash_by_cat'] = {str(k): round(float(v), 2) for k, v in _cash_grouped.items() if v > 0}
 
         _ea_df = transactions_df[(transactions_df['Final_Value'] > 0) &
                                  (transactions_df['Category'] != INVESTMENT_CATEGORY)].copy()
@@ -2615,6 +2630,7 @@ class AppManager:
             'charts': {
                 'spendings_by_cat':        {str(k): _safe(v) for k, v in data.get('spendings_by_cat', {}).items()},
                 'earnings_by_cat':         {str(k): _safe(v) for k, v in data.get('earnings_by_cat', {}).items()},
+                'cash_by_cat':             {str(k): _safe(v) for k, v in data.get('cash_by_cat', {}).items()},
                 'investments_items':       data.get('investments_items', []),
                 'card_dist':               {str(k): {'amount': _safe(v.get('amount')),
                                                       'status': None if v.get('status') is None else bool(v.get('status')),

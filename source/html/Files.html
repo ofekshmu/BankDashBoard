@@ -793,6 +793,7 @@ async function scanFiles() {
     _unrecognized = data.unrecognized || [];
 
     renderFiles();
+    loadDbFiles();   // the input-folder scan and the DB-files table can both change together (e.g. a file just got inserted and moved out of the input folder) — keep them in sync on every manual refresh
   } catch (e) {
     showError('files-list', e.message);
     toast('שגיאה בסריקה: ' + e.message, 'err');

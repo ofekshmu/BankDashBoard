@@ -1,8 +1,16 @@
 {
+  "services": {
+    "web": {
+      "root": ".",
+      "entrypoint": "source/WebApp.py"
+    }
+  },
   "rewrites": [
     {
-      "source": "/:path((?!source/WebApp\\.py).*)",
-      "destination": "/source/WebApp.py/:path"
+      "source": "/(.*)",
+      "destination": {
+        "service": "web"
+      }
     }
   ]
 }

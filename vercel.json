@@ -1,8 +1,8 @@
 {
   "rewrites": [
     {
-      "source": "^/(?!source/WebApp\\.py)(.*)$",
-      "destination": "/source/WebApp.py/$1"
+      "source": "/:path((?!source/WebApp\\.py).*)",
+      "destination": "/source/WebApp.py/:path"
     }
   ]
 }

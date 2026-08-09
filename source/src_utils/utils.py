@@ -4792,10 +4792,13 @@ function restartServer(btn){{
         _this   = _os.path.abspath(__file__)
         _src    = _os.path.dirname(_os.path.dirname(_this))   # source/
         _proj   = _os.path.dirname(_src)                       # BankProject/
-        _html_out = _os.path.join(_src, 'html', 'Category_output.html')
 
-        with open(_html_out, 'w', encoding='utf-8') as _f:
-            _f.write(html)
+        if not _os.getenv('VERCEL'):
+            # Local-only convenience copy opened by AppManager's CLI
+            # (webbrowser.open) — source/html is read-only on Vercel.
+            _html_out = _os.path.join(_src, 'html', 'Category_output.html')
+            with open(_html_out, 'w', encoding='utf-8') as _f:
+                _f.write(html)
 
         if slug:
             _cat_dir = '/tmp/category_analysis' if _os.getenv('VERCEL') else _os.path.join(_proj, 'Outputs', 'category_analysis')

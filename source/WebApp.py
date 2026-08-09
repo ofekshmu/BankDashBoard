@@ -1798,6 +1798,7 @@ if os.getenv('VERCEL'):
     GENERAL_ANALYSIS_DIR  = '/tmp/general_analysis'
     CATEGORY_ANALYSIS_DIR = '/tmp/category_analysis'
     OUTPUT_HTML           = '/tmp/output.html'
+    ORGANIZER_HTML        = '/tmp/Organizer_Table.html'
     os.makedirs(GENERAL_ANALYSIS_DIR, exist_ok=True)
     os.makedirs(CATEGORY_ANALYSIS_DIR, exist_ok=True)
 

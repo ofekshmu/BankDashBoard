@@ -501,6 +501,30 @@ def serve_favicon_ico():
     return serve_favicon_svg()
 
 
+@app.route('/apple-touch-icon.png')
+@app.route('/apple-touch-icon-precomposed.png')
+def serve_apple_touch_icon():
+    png_path = os.path.join(_HERE, 'html', 'logo.png')
+    return send_file(png_path, mimetype='image/png')
+
+
+@app.route('/manifest.json')
+def serve_manifest():
+    manifest = {
+        'name': 'BankDash',
+        'short_name': 'BankDash',
+        'start_url': '/',
+        'display': 'standalone',
+        'background_color': '#f4f6f9',
+        'theme_color': '#1e2a4a',
+        'icons': [
+            {'src': '/favicon.svg', 'sizes': 'any', 'type': 'image/svg+xml'},
+            {'src': '/apple-touch-icon.png', 'sizes': '256x256', 'type': 'image/png'},
+        ],
+    }
+    return jsonify(manifest)
+
+
 @app.route('/design-system.css')
 def serve_design_system():
     css_path = os.path.join(_HERE, 'html', 'design-system.css')

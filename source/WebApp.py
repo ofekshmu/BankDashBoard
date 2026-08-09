@@ -2409,6 +2409,23 @@ def version():
     return jsonify({'version': v})
 
 
+@app.route('/api/_debug_echo/<path:slug>')
+def _debug_echo(slug):
+    """Temporary diagnostic: report exactly what the server receives for a
+    path param and a query param, as both raw text and hex bytes, so we can
+    see precisely how Vercel's routing is (or isn't) percent-decoding
+    non-ASCII values. Remove once the category-name garbling bug is found."""
+    name_raw = request.args.get('name', '')
+    return jsonify({
+        'slug_raw': slug,
+        'slug_hex': slug.encode('utf-8', errors='replace').hex(),
+        'name_raw': name_raw,
+        'name_hex': name_raw.encode('utf-8', errors='replace').hex(),
+        'name_normalized': _normalize_percent_encoded(name_raw),
+        'full_query_string': request.query_string.decode('utf-8', errors='replace'),
+    })
+
+
 @app.route('/api/stale-all')
 def stale_all():
     """Return {key: bool} stale status for every generated monthly page."""

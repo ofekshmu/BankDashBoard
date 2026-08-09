@@ -534,6 +534,7 @@ def serve_design_system():
 @app.route('/outputs/<path:filename>')
 def serve_outputs(filename):
     """Serve static files from the Outputs directory (e.g. mortgage PNGs)."""
+    filename = _normalize_percent_encoded(filename)
     outputs_dir = os.path.join(_PROJECT_DIR, 'Outputs')
     file_path = os.path.join(outputs_dir, filename)
     if not os.path.abspath(file_path).startswith(os.path.abspath(outputs_dir)):
@@ -1298,6 +1299,12 @@ function filterCats(q) {{
 
 @app.route('/category/<path:slug>')
 def serve_category(slug):
+    # <path:slug> arrives still percent-encoded on Vercel (path params, unlike
+    # query-string args, aren't decoded there) — undecoded, a Hebrew slug like
+    # 'cat_ביטוחים' shows up as the literal 'cat_%D7%91%D7%99...', which then
+    # misses the cache-file lookup below and falls through to auto-regen with
+    # this garbled text used as the fallback name, corrupting the whole page.
+    slug = _normalize_percent_encoded(slug)
     html_path = os.path.join(CATEGORY_ANALYSIS_DIR, f'{slug}.html')
     if os.path.exists(html_path):
         return send_file(html_path)
@@ -2407,23 +2414,6 @@ def version():
     except Exception:
         v = '—'
     return jsonify({'version': v})
-
-
-@app.route('/api/_debug_echo/<path:slug>')
-def _debug_echo(slug):
-    """Temporary diagnostic: report exactly what the server receives for a
-    path param and a query param, as both raw text and hex bytes, so we can
-    see precisely how Vercel's routing is (or isn't) percent-decoding
-    non-ASCII values. Remove once the category-name garbling bug is found."""
-    name_raw = request.args.get('name', '')
-    return jsonify({
-        'slug_raw': slug,
-        'slug_hex': slug.encode('utf-8', errors='replace').hex(),
-        'name_raw': name_raw,
-        'name_hex': name_raw.encode('utf-8', errors='replace').hex(),
-        'name_normalized': _normalize_percent_encoded(name_raw),
-        'full_query_string': request.query_string.decode('utf-8', errors='replace'),
-    })
 
 
 @app.route('/api/stale-all')

@@ -1303,7 +1303,7 @@ def serve_category(slug):
         return send_file(html_path)
     # Auto-trigger generation — pass original name (from query param) so special
     # chars (חו"ל, השקעה/חיסכון) are preserved in the analysis request
-    name = request.args.get('name', '')
+    name = _normalize_percent_encoded(request.args.get('name', ''))
     return _not_generated_category_html(slug, name=name)
 
 
@@ -1362,7 +1362,7 @@ def run_category():
     # wrong business).
     prefix_type = 'cat' if type_ == 'category' else 'biz'
     prefix = f'{prefix_type}_'
-    client_name = (body.get('name') or '').strip()
+    client_name = _normalize_percent_encoded((body.get('name') or '').strip())
     name = client_name
     if not name:
         try:
@@ -1410,7 +1410,7 @@ def run_category_stream():
     global _analysis_running
     slug        = request.args.get('slug', '')
     type_val    = request.args.get('type', 'category')
-    client_name = (request.args.get('name') or '').strip()
+    client_name = _normalize_percent_encoded((request.args.get('name') or '').strip())
 
     with _analysis_lock:
         if _analysis_running:
@@ -5054,22 +5054,27 @@ def recurring_regenerate():
     )
 
 
-def _normalize_group_key(group_key: str) -> str:
-    """Defensively URL-decode a <path:group_key> segment that may have
-    arrived still percent-encoded. Werkzeug's dev server always hands routes
-    an already-decoded PATH_INFO, but some serverless WSGI environments
-    (observed in production) don't decode it first — so a Hebrew group_key
-    like 'משיכת שיק' arrived here as the literal string '%D7%9E%D7%A9...'
-    and got persisted as garbage that could never match a real group_key
-    again, silently breaking dismiss/restore/folder-assign every time.
+def _normalize_percent_encoded(value: str) -> str:
+    """Defensively URL-decode a path segment or query-string value that may
+    have arrived still percent-encoded. Werkzeug's dev server always hands
+    routes/args already-decoded, but some serverless WSGI environments
+    (observed in production, including Vercel's Services model) don't decode
+    first — so a Hebrew value like 'משיכת שיק' or 'מצרכים' arrived here as
+    the literal string '%D7%9E%D7%A9...' and got persisted as garbage
+    (breaking dismiss/restore/folder-assign, or baking the garbled text into
+    a generated category/business report with zero matching transactions).
     Decoding an already-plain string is a no-op, so this is safe everywhere."""
-    if '%' not in group_key:
-        return group_key
+    if '%' not in value:
+        return value
     try:
-        decoded = urllib.parse.unquote(group_key)
-        return decoded if decoded != group_key else group_key
+        decoded = urllib.parse.unquote(value)
+        return decoded if decoded != value else value
     except Exception:
-        return group_key
+        return value
+
+
+def _normalize_group_key(group_key: str) -> str:
+    return _normalize_percent_encoded(group_key)
 
 
 @app.route('/api/recurring/groups/<path:group_key>/dismiss', methods=['POST'])

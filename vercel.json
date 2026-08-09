@@ -1,6 +1,5 @@
 {
   "rewrites": [
-    { "source": "/",      "destination": "/source/WebApp.py" },
-    { "source": "/(.*)", "destination": "/source/WebApp.py/$1" }
+    { "source": "^/(?!source/WebApp\\.py)(.*)$", "destination": "/source/WebApp.py/$1" }
   ]
 }

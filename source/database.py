@@ -1302,7 +1302,9 @@ class DataBase:
                                     WHERE Category = 'NotCategorized'
                                     ORDER BY ID DESC
                                 """).fetchall()
-            return res, [d[0] for d in self.cursor.description]
+            desc = [d[0] for d in self.cursor.description]
+            self.connection.commit()
+            return res, desc
         elif table == "CardTransactions":
             res = self.cursor.execute("""
                                     SELECT
@@ -1320,7 +1322,9 @@ class DataBase:
                                     WHERE Category = 'NotCategorized'
                                     ORDER BY ID DESC
                                 """).fetchall()
-            return res, [d[0] for d in self.cursor.description]
+            desc = [d[0] for d in self.cursor.description]
+            self.connection.commit()
+            return res, desc
         else:
             res1 = self.cursor.execute("""
                                     SELECT
@@ -1357,7 +1361,9 @@ class DataBase:
             # Sortion order is made for better handling of tagging
             # x[2] is the location of the Date
             sorted_list = sorted(res1 + res2, key=lambda x: x[2], reverse=True)
-            return sorted_list, [d[0] for d in self.cursor.description]
+            desc = [d[0] for d in self.cursor.description]
+            self.connection.commit()
+            return sorted_list, desc
 
     @validate_table_name
     def set_category(self, table_name: str, id: int, category: str):
@@ -3201,6 +3207,10 @@ class DataBase:
                 'currency': r[6] or 'ILS', 'value_currency': r[7] or 'ILS', 'card_id': r[8],
             })
         result.sort(key=lambda x: x.get('exec_date') or '', reverse=True)
+        # Read-only, but the shared connection has autocommit off — without this,
+        # the transaction sits idle after we return, Neon eventually kills it, and
+        # the next unrelated request (e.g. a tag UPDATE) fails on the dead connection.
+        self.connection.commit()
         return result[:limit]
 
     def count_untagged_total(self) -> int:
@@ -3210,6 +3220,7 @@ class DataBase:
         c = self.cursor.execute(
             "SELECT COUNT(*) FROM CardTransactions WHERE Category='NotCategorized'"
         ).fetchone()[0] or 0
+        self.connection.commit()
         return b + c
 
     def get_recently_tagged(self, limit: int = 30) -> list:
@@ -3250,6 +3261,7 @@ class DataBase:
         # sensible (insertion) order instead of all clumping at the bottom.
         _min_dt = datetime.min
         result.sort(key=lambda x: (x.get('tagged_at') or _min_dt, x.get('id') or 0), reverse=True)
+        self.connection.commit()
         return result[:limit]
 
     def get_high_value_untagged(self, threshold: float = 500) -> list:
@@ -3285,6 +3297,7 @@ class DataBase:
                 'transaction_value': float(r[5]) if r[5] is not None else None,
                 'currency': r[6] or 'ILS', 'value_currency': r[7] or 'ILS', 'card_id': r[8],
             })
+        self.connection.commit()
         return result
 
     def count_category_usages(self) -> dict:
@@ -3297,6 +3310,7 @@ class DataBase:
                 WHERE Category IS NOT NULL AND Category != 'NotCategorized'
             ) t GROUP BY Category
         """).fetchall()
+        self.connection.commit()
         return {r[0]: r[1] for r in rows}
 
     def count_auto_tagged_per_name(self) -> dict:
@@ -3307,6 +3321,7 @@ class DataBase:
                 SELECT Name FROM CardTransactions WHERE Reserved = 1
             ) t GROUP BY Name
         """).fetchall()
+        self.connection.commit()
         return {r[0]: r[1] for r in rows}
 
     def search_tagged(self, q: str) -> list:
@@ -3357,6 +3372,7 @@ class DataBase:
                 'currency': r[5] or 'ILS', 'value_currency': r[6] or 'ILS',
                 'card_id': r[7], 'category': r[8] or '', 'reserved': r[9],
             })
+        self.connection.commit()
         return result
 
     def set_category_ui(self, table: str, id_: int, category: str, is_auto: bool = False) -> None:

@@ -4030,6 +4030,18 @@ def tagger_high_value():
         return jsonify({'ok': False, 'error': str(e)})
 
 
+@app.route('/api/tagger/auto-tag', methods=['POST'])
+def tagger_auto_tag():
+    """Manually trigger the same auto_tagger.json rule pass that normally runs
+    after a file import, and report back what (if anything) got tagged."""
+    from src_utils.utils import utils as _utils
+    try:
+        tagged = _utils.tagger_refresh()
+        return jsonify({'ok': True, 'tagged': tagged})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
 _AT_PATH = os.path.join(_PROJECT_DIR, 'personal information', 'auto_tagger.json')
 
 def _read_at() -> dict:

@@ -919,6 +919,9 @@ body {
     <button class="btn btn-ghost" onclick="openModal()" style="margin-right:auto">
       ➕ קטגוריה חדשה
     </button>
+    <button class="btn btn-ghost" id="auto-tag-btn" onclick="runAutoTag()">
+      🏷️ תיוג אוטומטי
+    </button>
     <button class="btn btn-ghost" onclick="refreshAll()">
       🔄 רענן
     </button>
@@ -1976,6 +1979,54 @@ async function refreshAll() {
   await Promise.all([loadUntagged(), loadHighValue(), loadTagged()]);
 }
 
+// ── Auto-tag (runs the auto_tagger.json rule pass on demand) ───────
+async function runAutoTag() {
+  const btn = document.getElementById('auto-tag-btn');
+  btn.disabled = true;
+  const origHtml = btn.innerHTML;
+  btn.innerHTML = '<span class="spinner"></span> מתייג…';
+
+  const res  = await fetch('/api/tagger/auto-tag', { method: 'POST' }).catch(() => null);
+  const data = res ? await res.json().catch(() => null) : null;
+
+  btn.disabled = false;
+  btn.innerHTML = origHtml;
+
+  if (!data || !data.ok) {
+    showToast('שגיאה בתיוג אוטומטי', 'error');
+    return;
+  }
+
+  const tagged = data.tagged || [];
+  showAutoTagModal(tagged);
+  if (tagged.length) {
+    await Promise.all([loadUntagged(), loadHighValue(), loadTagged()]);
+  }
+}
+
+function showAutoTagModal(tagged) {
+  const title = document.getElementById('tg-autotag-title');
+  const body  = document.getElementById('tg-autotag-body');
+
+  if (!tagged.length) {
+    title.textContent = '🏷️ תיוג אוטומטי';
+    body.innerHTML = '<div style="color:var(--text-muted);padding:8px 0">לא נמצאו עסקאות לתיוג אוטומטי.</div>';
+  } else {
+    title.textContent = `🏷️ ${tagged.length} עסקאות תויגו`;
+    body.innerHTML = tagged.map(t => `
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;
+        padding:8px 0;border-bottom:1px solid var(--border)">
+        <span style="font-weight:600;font-size:.88em">${esc(t.name)}</span>
+        <span class="cat-item-badge" style="font-size:.72em;font-weight:700;color:#fff;
+          background:var(--teal);padding:2px 9px;border-radius:10px;flex-shrink:0">${esc(t.category)}</span>
+      </div>`).join('');
+  }
+  document.getElementById('tg-autotag-overlay').classList.add('open');
+}
+function closeAutoTagModal() {
+  document.getElementById('tg-autotag-overlay').classList.remove('open');
+}
+
 function animateRefreshBar() {
   const bar = document.getElementById('refresh-bar');
   bar.style.transition = 'none'; bar.style.width = '0%';
@@ -2743,6 +2794,18 @@ async function retagSearchRow(key) {
       <button class="s-btn-danger" onclick="tgSubmitRevert()">בטל פיצול ↩</button>
     </div>
     <div class="s-status" id="tg-revert-status"></div>
+  </div>
+</div>
+
+<!-- ═══ Auto-tag result modal ═══ -->
+<div class="s-modal-overlay" id="tg-autotag-overlay" onclick="if(event.target===this)closeAutoTagModal()">
+  <div class="s-modal">
+    <button class="s-modal-close" onclick="closeAutoTagModal()">✕</button>
+    <div class="s-modal-title" id="tg-autotag-title">🏷️ תיוג אוטומטי</div>
+    <div id="tg-autotag-body"></div>
+    <div class="s-modal-actions">
+      <button class="s-btn-cancel" onclick="closeAutoTagModal()">סגור</button>
+    </div>
   </div>
 </div>
 

@@ -4857,14 +4857,16 @@ function restartServer(btn){{
         return at_dict[name]
 
     @staticmethod
-    def tagger_refresh() -> None:
+    def tagger_refresh() -> list:
         """
         The function uses the json config file, in order to try and auto tag transactions
-        with no category tagging.
+        with no category tagging. Returns the list of transactions that were tagged
+        (each a dict with name/table/id/category), empty if none matched.
         """
         from database import DataBase
 
         dirty_bit = False
+        tagged = []
         logs = "\n\n ----- The following transactions have been tagged: -----\n\n"
         lst, desc = DataBase().get_untagged()
         untagged_transactions_df = pd.DataFrame(lst, columns=desc)
@@ -4875,6 +4877,10 @@ function restartServer(btn){{
             if res is not None:
                 dirty_bit = True
                 DataBase().set_category(table_name=row['TableName'], id=row['ID'], category=res)
+                tagged.append({
+                    'name': row['Name'], 'table': row['TableName'],
+                    'id': int(row['ID']), 'category': res,
+                })
                 logs += f"transaction {utils.heb_conversion(row['Name'])} ({row['TableName']}) ({row['ID']}) was tagged to {utils.heb_conversion(res)}\n"
 
         if dirty_bit:
@@ -4882,6 +4888,13 @@ function restartServer(btn){{
             DataBase().commit_changes()
         else:
             utils.log('No transactions were Auto tagged...', 'system')
+            # get_untagged() above already commits its own read, but set_category()
+            # calls (if any partial state was left by a prior failed run) shouldn't
+            # linger either — release defensively so this call never leaves the
+            # shared connection idle-in-transaction.
+            DataBase().connection.commit()
+
+        return tagged
 
     @staticmethod
     def match_BeinLeumi_headers(table: list[list]) -> list[list]:

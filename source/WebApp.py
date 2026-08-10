@@ -4055,6 +4055,8 @@ def tagger_auto_tag():
         tagged = _utils.tagger_refresh()
         return jsonify({'ok': True, 'tagged': tagged})
     except Exception as e:
+        import traceback
+        print(f'[tagger] auto-tag pass failed: {e}\n{traceback.format_exc()}')
         return jsonify({'ok': False, 'error': str(e)})
 
 
@@ -4095,6 +4097,8 @@ def tagger_tag():
             DataBase().set_transaction_description(description, table, int(id_))
         return jsonify({'ok': True})
     except Exception as e:
+        import traceback
+        print(f'[tagger] tag failed for {table}#{id_} -> "{cat}": {e}\n{traceback.format_exc()}')
         return jsonify({'ok': False, 'error': str(e)})
 
 
@@ -4121,6 +4125,8 @@ def tagger_tag_all_by_name():
         _write_at(at)
         return jsonify({'ok': True, 'tagged': count})
     except Exception as e:
+        import traceback
+        print(f'[tagger] tag-all-by-name failed for "{name}" -> "{cat}": {e}\n{traceback.format_exc()}')
         return jsonify({'ok': False, 'error': str(e)})
 
 

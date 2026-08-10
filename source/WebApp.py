@@ -1941,6 +1941,16 @@ def _run_acct_migrations():
     try:
         conn = _pg_conn()
         try:
+            # ALTER TABLE needs an ACCESS EXCLUSIVE lock. If some other
+            # connection is sitting idle-in-transaction (a read-only handler
+            # elsewhere in the app that never committed) this would otherwise
+            # queue indefinitely — and Postgres then queues every *other*
+            # connection's ordinary queries on this table behind it too,
+            # stalling the whole app. Fail fast instead of cascading.
+            conn.execute("SET lock_timeout = '3s'")
+        except Exception:
+            pass
+        try:
             conn.execute("ALTER TABLE OtherAccountStatus ADD COLUMN IF NOT EXISTS Currency TEXT NOT NULL DEFAULT 'ILS'")
             conn.commit()
         except Exception:
@@ -1959,6 +1969,12 @@ def _run_tagger_migrations():
     """One-time DDL migrations for tag-timestamp tracking. Called once at startup."""
     try:
         conn = _pg_conn()
+        try:
+            # See _run_acct_migrations — avoid queueing behind (and then
+            # blocking behind us) a lingering idle-in-transaction connection.
+            conn.execute("SET lock_timeout = '3s'")
+        except Exception:
+            pass
         for tbl in ('BankTransactions', 'CardTransactions'):
             try:
                 conn.execute(f"ALTER TABLE {tbl} ADD COLUMN IF NOT EXISTS Tagged_At TIMESTAMP")

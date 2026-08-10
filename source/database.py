@@ -178,6 +178,7 @@ class DataBase:
         cls.__instance.cursor = _ChainableCursor(cls.__instance.connection)
 
     def __new__(cls):
+        needs_probe = False
         if cls.__instance is None:
             cls.__instance = super().__new__(cls)
             cls._connect()
@@ -192,6 +193,33 @@ class DataBase:
             except Exception:
                 cls._connect()
         elif cls.__instance.connection.closed:
+            pass  # handled by the block below (kept separate: it also recreates tables)
+        else:
+            needs_probe = True
+
+        if needs_probe:
+            # A connection reaching here isn't locally known to be dead, but many
+            # read-only DataBase methods leave the shared connection idle-in-
+            # transaction (or plain idle) after they return, and Neon kills
+            # idle/idle-in-transaction connections server-side to allow
+            # scale-to-zero — psycopg2's local .closed flag doesn't reflect that
+            # until an operation is actually attempted and fails. Left unchecked,
+            # that first failing operation is whatever unrelated route happens to
+            # run next, surfacing as a generic, hard-to-explain error there.
+            # Probe explicitly so a server-killed connection is replaced
+            # transparently instead of failing whatever call happens to be next.
+            try:
+                probe = cls.__instance.connection.cursor()
+                probe.execute("SELECT 1")
+                probe.close()
+            except Exception:
+                try:
+                    cls.__instance.connection.rollback()
+                except Exception:
+                    pass
+                cls._connect()
+
+        if cls.__instance.connection.closed:
             # Connection dropped (e.g. Neon idle timeout) — reconnect transparently.
             cls._connect()
             cls.__instance.cursor.execute("""

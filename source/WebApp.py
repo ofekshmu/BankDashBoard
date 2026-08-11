@@ -4060,7 +4060,19 @@ def tagger_auto_tag():
         return jsonify({'ok': False, 'error': str(e)})
 
 
-_AT_PATH = os.path.join(_PROJECT_DIR, 'personal information', 'auto_tagger.json')
+# The project dir is read-only on Vercel (/var/task) — writes must go to the
+# /tmp copy set up earlier (see the `if os.getenv('VERCEL')` block above),
+# same as _Paths.AUTO_TAGGER_JSON. Writing to the raw project-dir path here
+# raised "OSError: [Errno 30] Read-only file system" on every tag-all-by-name
+# / save-rule / remap call in production — the single-transaction tag it
+# follows had already committed by then, so the DB write silently succeeded
+# while the request still came back as a failure.
+_AT_PATH = os.path.join(_TMP_PERSONAL, 'auto_tagger.json') if os.getenv('VERCEL') \
+    else os.path.join(_PROJECT_DIR, 'personal information', 'auto_tagger.json')
+
+# Same read-only-on-Vercel reasoning as _AT_PATH above, for categories.json.
+_CATEGORIES_JSON_PATH = os.path.join(_TMP_PERSONAL, 'categories.json') if os.getenv('VERCEL') \
+    else os.path.join(_PROJECT_DIR, 'personal information', 'categories.json')
 
 def _read_at() -> dict:
     import json as _j
@@ -4166,7 +4178,7 @@ def tagger_save_rule():
 def tagger_categories():
     import json as _json
     try:
-        cats_path = os.path.join(_PROJECT_DIR, 'personal information', 'categories.json')
+        cats_path = _CATEGORIES_JSON_PATH
         with open(cats_path, encoding='utf-8-sig') as f:
             cats = _json.load(f)
         db = None
@@ -4207,7 +4219,7 @@ def tagger_categories_add():
     if not name:
         return jsonify({'ok': False, 'error': 'missing name'})
     try:
-        cats_path = os.path.join(_PROJECT_DIR, 'personal information', 'categories.json')
+        cats_path = _CATEGORIES_JSON_PATH
         with open(cats_path, encoding='utf-8-sig') as f:
             cats = _json.load(f)
         if name in cats:
@@ -4250,7 +4262,7 @@ def tagger_rules_remap():
     new_cat = (body.get('new_category') or '').strip()
     if not name or not new_cat:
         return jsonify({'ok': False, 'error': 'missing fields'})
-    cats_path = os.path.join(_PROJECT_DIR, 'personal information', 'categories.json')
+    cats_path = _CATEGORIES_JSON_PATH
     try:
         with open(cats_path, encoding='utf-8-sig') as f:
             cats = _json.load(f)

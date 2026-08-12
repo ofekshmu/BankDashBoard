@@ -2036,6 +2036,18 @@ class AppManager:
         _cash_grouped = _cash_spend_df.groupby("Category")['Amount'].sum().abs() if not _cash_spend_df.empty else {}
         data['cash_by_cat'] = {str(k): round(float(v), 2) for k, v in _cash_grouped.items() if v > 0}
 
+        # Per-transaction cash flow — every row in mct_df (income and expense alike) as its
+        # own item, for the single merged cash donut (one slice per transaction, not per category).
+        data['cash_items'] = [
+            {
+                'name':     str(r['Name']),
+                'category': str(r['Category']),
+                'amount':   round(float(r['Amount']), 2),
+                'date':     r['Execution_Date'].strftime('%Y-%m-%d') if pd.notna(r['Execution_Date']) else None,
+            }
+            for _, r in mct_df.iterrows()
+        ] if not mct_df.empty else []
+
         _ea_df = transactions_df[(transactions_df['Final_Value'] > 0) &
                                  (transactions_df['Category'] != INVESTMENT_CATEGORY)].copy()
         _ea_grouped = _ea_df.groupby("Category")['Final_Value'].sum()
@@ -2631,6 +2643,7 @@ class AppManager:
                 'spendings_by_cat':        {str(k): _safe(v) for k, v in data.get('spendings_by_cat', {}).items()},
                 'earnings_by_cat':         {str(k): _safe(v) for k, v in data.get('earnings_by_cat', {}).items()},
                 'cash_by_cat':             {str(k): _safe(v) for k, v in data.get('cash_by_cat', {}).items()},
+                'cash_items':              data.get('cash_items', []),
                 'investments_items':       data.get('investments_items', []),
                 'card_dist':               {str(k): {'amount': _safe(v.get('amount')),
                                                       'status': None if v.get('status') is None else bool(v.get('status')),

@@ -5806,13 +5806,14 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
 
   var _PAL_SPEND = ['#e53935','#ff7043','#ffa726','#f06292','#e91e63','#ff5722','#ab47bc','#d81b60'];
   var _PAL_EARN  = ['#a5d6a7','#80cbc4','#90caf9','#ce93d8','#ffe082','#ffcc80','#ef9a9a','#f48fb1'];
-  var _PAL_CASH  = ['#4d9de0','#3498db','#2980b9','#5dade2','#85c1e9','#1abc9c','#48c9b0','#76d7c4'];
+  var _CASH_IN_COLOR  = '#4caf50';
+  var _CASH_OUT_COLOR = '#e53935';
 
   var _CHART_TT = {
     'הוצאות לפי קטגוריה':      'פילוח ההוצאות מהחשבון הבנקאי לפי קטגוריה.',
     'הכנסות לחשבון לפי קטגוריה': 'פילוח ההכנסות שהתקבלו לחשבון הבנק לפי קטגוריה לחודש שנבחר.',
     'השקעות / חיסכון':          'פעולות העברה בין החשבון הראשי לחשבונות חיסכון/השקעה באותו חודש.',
-    'הכנסות/הוצאות במזומן':     'תזרים מזומנים פיזי בלבד — אינו כולל תשלומי כרטיס או העברות בנקאיות.',
+    'הכנסות/הוצאות במזומן':     'תזרים מזומנים פיזי בלבד — אינו כולל תשלומי כרטיס או העברות בנקאיות. כל עסקה מוצגת כפרוסה נפרדת: ירוק = הכנסה, אדום = הוצאה.',
     'מידע כללי':                 'עמודות: הוצאות חודשיות (אדום) + השקעות/חיסכון (זהב). קו: הכנסות חודשיות (ירוק). ממוצע כולל 13 חודשים.',
     'התפלגות':     'חלוקת ההוצאות לפי כרטיס אשראי לחודש הנבחר.'
   };
@@ -5923,6 +5924,118 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     });
   }
 
+  // ── Cash donut: one slice per transaction (not per category) — green for
+  // income, red for expense. Category/value/percentage surface in the
+  // tooltip and the collapsible detail list below, never on the slice
+  // itself. ──────────────────────────────────────────────────────────────
+  function _buildCashTxDonutCard(container, canvasId, title, items) {
+    if (!items || !items.length) return;
+    var values = items.map(function(it) { return Math.abs(Number(it.amount) || 0); });
+    var colors = items.map(function(it) { return (Number(it.amount) || 0) >= 0 ? _CASH_IN_COLOR : _CASH_OUT_COLOR; });
+    var total  = values.reduce(function(a, b) { return a + b; }, 0) || 1;
+
+    var card = document.createElement('div');
+    card.className = 'chart-card';
+    var ttl = document.createElement('div');
+    ttl.className = 'chart-card-title';
+    ttl.innerHTML = _esc(title) + _tipHtml(_CHART_TT[title] || '');
+    card.appendChild(ttl);
+
+    var wrap = document.createElement('div');
+    wrap.className = 'donut-chart-wrap';
+    wrap.style.cssText = 'position:relative;height:320px;';
+    var canvas = document.createElement('canvas');
+    canvas.id = canvasId;
+    canvas.style.cssText = 'width:100%;height:100%;';
+    wrap.appendChild(canvas);
+    card.appendChild(wrap);
+
+    var gridId   = canvasId + '-legend';
+    var toggleId = canvasId + '-toggle';
+    var toggle = document.createElement('div');
+    toggle.className = 'cat-legend-toggle';
+    toggle.id = toggleId;
+    toggle.innerHTML = '<span class="cat-toggle-label">פירוט עסקאות</span>' +
+                       '<span class="cat-toggle-chevron">▾</span>';
+    toggle.onclick = function() {
+      var g = document.getElementById(gridId), t = document.getElementById(toggleId);
+      var open = g.classList.contains('open');
+      g.classList.toggle('open', !open);
+      t.querySelector('.cat-toggle-chevron').style.transform = open ? '' : 'rotate(180deg)';
+    };
+    card.appendChild(toggle);
+
+    var lgrid = document.createElement('div');
+    lgrid.className = 'cat-legend-grid';
+    lgrid.id = gridId;
+    var order = items.map(function(_, i) { return i; })
+                     .sort(function(a, b) { return values[b] - values[a]; });
+    order.forEach(function(idx) {
+      var it  = items[idx];
+      var val = values[idx];
+      var pct = (val / total * 100).toFixed(0);
+      var row = document.createElement('div');
+      row.className = 'cat-legend-row';
+      row.dataset.cid = canvasId;
+      row.dataset.idx = String(idx);
+      row.innerHTML =
+        '<span class="cat-dot" style="background:' + colors[idx] + '"></span>' +
+        '<span class="cat-name">' + _esc(it.name || '') + ' · ' + _esc(it.category || '') + '</span>' +
+        '<span class="cat-val">₪' + Math.round(val).toLocaleString('he-IL') + ' (' + pct + '%)</span>';
+      lgrid.appendChild(row);
+    });
+    card.appendChild(lgrid);
+    container.appendChild(card);
+
+    requestAnimationFrame(function() {
+      _destroyChart(canvasId);
+      var inst = new Chart(canvas, {
+        type: 'doughnut',
+        data: {
+          labels: items.map(function(it) { return it.name || ''; }),
+          datasets: [{ data: values, backgroundColor: colors,
+                       borderWidth: 1, borderColor: '#fff', hoverOffset: 8 }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false, cutout: '68%',
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              rtl: true,
+              callbacks: {
+                label: function(ctx) {
+                  var it = items[ctx.dataIndex];
+                  var v  = ctx.parsed, ch2 = ctx.chart;
+                  var vis = ctx.dataset.data.reduce(function(a, b, j) {
+                    return ch2.getDataVisibility(j) ? a + b : a;
+                  }, 0);
+                  var pct = vis ? (v / vis * 100).toFixed(1) : 0;
+                  return (it.name || '') + ': ₪' + Math.round(v).toLocaleString('he-IL') +
+                         ' (' + pct + '%) · ' + (it.category || '');
+                }
+              }
+            }
+          }
+        },
+        plugins: [_DONUT_CENTER_PLUGIN]
+      });
+      canvas._chartInst = inst;
+      lgrid.querySelectorAll('.cat-legend-row').forEach(function(row) {
+        var idx = +row.dataset.idx;
+        row.addEventListener('click', function() {
+          inst.toggleDataVisibility(idx); inst.update();
+          row.style.opacity = inst.getDataVisibility(idx) ? '1' : '0.35';
+        });
+        row.addEventListener('mouseenter', function() {
+          inst.tooltip.setActiveElements([{datasetIndex: 0, index: idx}], {x: 0, y: 0}); inst.update();
+        });
+        row.addEventListener('mouseleave', function() {
+          inst.tooltip.setActiveElements([], {x: 0, y: 0}); inst.update();
+        });
+      });
+    });
+  }
+
   // ── Overview charts ────────────────────────────────────────────────────
   function _renderOverviewCharts(data) {
     var grid = document.getElementById('overview-charts');
@@ -5942,14 +6055,6 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       _buildDonutCard(grid, 'chart-earnings-donut', 'הכנסות לחשבון לפי קטגוריה',
                       ch.earnings_by_cat, _PAL_EARN);
     }
-    // ── Cash-wallet spending donut — separate from the bank donut above:
-    // money spent in cash never touched the bank account this month, so it's
-    // tracked as its own pool rather than merged into spendings_by_cat. ──
-    if (ch.cash_by_cat && Object.keys(ch.cash_by_cat).length) {
-      _buildDonutCard(grid, 'chart-cash-cat-donut', 'הוצאות מזומן לפי קטגוריה',
-                      ch.cash_by_cat, _PAL_CASH);
-    }
-
     // ── Investments bar + tx list ──
     (function() {
       var invCard = document.createElement('div');
@@ -6059,16 +6164,11 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       grid.appendChild(invCard);
     })();
 
-    // ── Cash donut (income vs expense) ──
+    // ── Cash donut — one slice per cash transaction (income + expense together) ──
     (function() {
-      var cashEarned = Math.abs(ch.cash_earned || 0);
-      var cashSpent  = Math.abs(ch.cash_spent  || 0);
-      if (cashEarned + cashSpent > 0) {
-        var cashData = {};
-        cashData['הכנסה  ₪' + Math.round(cashEarned).toLocaleString('he-IL')] = cashEarned;
-        cashData['הוצאה  ₪' + Math.round(cashSpent).toLocaleString('he-IL')]  = cashSpent;
-        _buildDonutCard(grid, 'chart-cash-donut', 'הכנסות/הוצאות במזומן',
-                        cashData, ['#a5d6a7', '#ef9a9a']);
+      var cashItems = ch.cash_items || [];
+      if (cashItems.length) {
+        _buildCashTxDonutCard(grid, 'chart-cash-donut', 'הכנסות/הוצאות במזומן', cashItems);
       } else {
         var cashCard = document.createElement('div');
         cashCard.className = 'chart-card';

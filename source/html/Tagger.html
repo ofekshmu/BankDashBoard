@@ -894,7 +894,15 @@ body {
 <div class="modal-overlay" id="rename-cat-modal-overlay">
   <div class="modal-box">
     <div class="modal-title">✏️ ערוך שם קטגוריה</div>
-    <select class="modal-input" id="rename-cat-select"></select>
+    <div class="cat-wrap" style="width:100%;margin-bottom:14px;">
+      <input class="cat-input" type="text" placeholder="הקלד לחיפוש קטגוריה…" autocomplete="off"
+             onInput="onCatInput(this,'rename-cat')"
+             onFocus="openDropdown(this,'rename-cat')"
+             onBlur="scheduleClose(this,'rename-cat')"
+             onKeyDown="onCatKey(event,this,'rename-cat')"
+             id="inp-rename-cat" data-key="rename-cat"/>
+      <div class="cat-dropdown" id="dd-rename-cat"></div>
+    </div>
     <input class="modal-input" id="rename-cat-input" type="text" placeholder="שם חדש…" autocomplete="off"/>
     <div class="modal-msg" id="rename-cat-msg"></div>
     <div class="modal-actions">
@@ -1758,6 +1766,32 @@ function renderDropdown(inp, key, q) {
   const dd = document.getElementById(`dd-${key}`);
   if (!dd) return;
   const lower = q.toLowerCase();
+  // The rename-category picker must never offer a reserved/system category
+  // (the server blocks them anyway, but they shouldn't be selectable at all)
+  // and has no "Excluded" special-case since that's one of the reserved ones.
+  if (key === 'rename-cat') {
+    const pool = _categories.filter(c => !_RESERVED_CATEGORIES.includes(c.name));
+    const matches = q
+      ? pool.filter(c => c.name.toLowerCase().includes(lower))
+            .sort((a, b) => {
+              const aStarts = a.name.toLowerCase().startsWith(lower) ? 0 : 1;
+              const bStarts = b.name.toLowerCase().startsWith(lower) ? 0 : 1;
+              if (aStarts !== bStarts) return aStarts - bStarts;
+              return a.name.length - b.name.length;
+            })
+      : pool;
+    if (!matches.length) { dd.classList.remove('open'); return; }
+    dd.innerHTML = matches.slice(0, 13).map((c, i) =>
+      `<div class="cat-opt${q && i === 0 ? ' focused' : ''}" data-val="${esc(c.name)}"
+            onMouseDown="pickCategory('${esc(key)}','${esc(c.name)}')"
+            id="opt-${esc(key)}-${i}">
+         <span>${esc(c.name)}</span>
+         <span class="usage-badge">${c.count != null ? c.count : ''}</span>
+       </div>`
+    ).join('');
+    dd.classList.add('open');
+    return;
+  }
   let matches = _categories;
   if (q) {
     // Rank so the best match (starts-with, then shortest) lands first —
@@ -2121,21 +2155,21 @@ document.addEventListener('click', e => {
 // this is just so we don't even offer them in the dropdown; the server is
 // the real enforcement point.
 const _RESERVED_CATEGORIES = ['NotCategorized', 'Excluded', 'Filler', 'cash_filler', 'withdrawal', 'אשראי', 'השקעה/חיסכון'];
+function resolveRenameCategory(q) {
+  q = (q || '').trim();
+  if (!q) return null;
+  const hit = _categories.find(c => !_RESERVED_CATEGORIES.includes(c.name) && c.name.toLowerCase() === q.toLowerCase());
+  return hit ? hit.name : null;
+}
 async function openRenameCategoryModal() {
   await loadCategories();
-  const sel = document.getElementById('rename-cat-select');
-  sel.innerHTML = '';
-  _categories
-    .filter(c => !_RESERVED_CATEGORIES.includes(c.name))
-    .sort((a, b) => a.name.localeCompare(b.name, 'he'))
-    .forEach(c => {
-      const o = document.createElement('option');
-      o.value = c.name; o.textContent = c.name;
-      sel.appendChild(o);
-    });
+  const inp = document.getElementById('inp-rename-cat');
+  inp.value = '';
+  inp.classList.remove('valid', 'invalid');
   document.getElementById('rename-cat-input').value = '';
   document.getElementById('rename-cat-msg').textContent = '';
   document.getElementById('rename-cat-modal-overlay').classList.add('open');
+  setTimeout(() => inp.focus(), 150);
 }
 function closeRenameCategoryModal() {
   document.getElementById('rename-cat-modal-overlay').classList.remove('open');
@@ -2143,7 +2177,7 @@ function closeRenameCategoryModal() {
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeRenameCategoryModal(); });
 
 async function submitRenameCategory() {
-  const oldName = document.getElementById('rename-cat-select').value;
+  const oldName = resolveRenameCategory(document.getElementById('inp-rename-cat').value);
   const newName = document.getElementById('rename-cat-input').value.trim();
   const msgEl = document.getElementById('rename-cat-msg');
   msgEl.textContent = '';

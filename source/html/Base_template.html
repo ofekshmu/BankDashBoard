@@ -1734,6 +1734,10 @@ body {
 .acct-card:hover { box-shadow: 0 2px 10px rgba(30,42,74,0.09); }
 .acct-card.acct-card-stale { background: #fffde7; border-color: #ffe082; }
 .acct-card.acct-card-virtual { background: #f0faf7; border-color: #b2dfdb; }
+.acct-card-clickable { cursor: pointer; }
+.acct-card-clickable:hover { border-color: var(--teal); box-shadow: 0 2px 10px rgba(30,157,139,0.16); }
+.acct-card-clickable:active { transform: scale(0.98); }
+.acct-card-clickable:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
 .acct-card-header {
   display: flex; align-items: flex-start;
   justify-content: space-between; gap: 8px;
@@ -2273,6 +2277,7 @@ body {
 
     <!-- Step: menu -->
     <div class="acct-modal-step active" id="acct-step-menu">
+      <button class="acct-modal-menu-btn" onclick="acctStartNewAccount()">+ חשבון חדש</button>
       <button class="acct-modal-menu-btn" onclick="acctShowStep('add-status')">הוסף יתרה לחשבון</button>
       <button class="acct-modal-menu-btn danger" onclick="acctShowStep('del-account')">מחק חשבון</button>
       <button class="acct-modal-menu-btn danger" onclick="acctShowStep('del-entry')">מחק רשומה לפי ID</button>
@@ -2280,7 +2285,7 @@ body {
 
     <!-- Step: add status -->
     <div class="acct-modal-step" id="acct-step-add-status">
-      <div>
+      <div id="acct-sel-name-wrap">
         <div class="acct-modal-label">חשבון</div>
         <select class="acct-modal-select" id="acct-sel-name" onchange="acctNameChanged()"></select>
       </div>
@@ -2347,6 +2352,47 @@ body {
       <div class="acct-modal-status" id="acct-status-del-entry"></div>
     </div>
 
+  </div>
+</div>
+
+<!-- ── Quick add-status popup (tap an account card) ────────── -->
+<div class="acct-modal-overlay" id="acct-quickadd-overlay" onclick="if(event.target===this)closeAcctQuickAdd()">
+  <div class="acct-modal">
+    <div class="acct-modal-header">
+      <span class="acct-modal-title" id="acct-quickadd-title">הוסף יתרה</span>
+      <button class="acct-modal-close" onclick="closeAcctQuickAdd()">✕</button>
+    </div>
+    <div class="acct-modal-step active">
+      <div>
+        <div class="acct-modal-label">תאריך</div>
+        <div style="display:flex;gap:14px;margin-bottom:6px">
+          <label style="font-size:0.86em;cursor:pointer;display:flex;align-items:center;gap:5px">
+            <input type="radio" name="acct-qa-date-radio" value="today" checked onchange="acctQuickAddDateToggle()"> היום
+          </label>
+          <label style="font-size:0.86em;cursor:pointer;display:flex;align-items:center;gap:5px">
+            <input type="radio" name="acct-qa-date-radio" value="custom" onchange="acctQuickAddDateToggle()"> תאריך אחר
+          </label>
+        </div>
+        <input class="acct-modal-input" id="acct-qa-date-input" type="date" style="display:none">
+      </div>
+      <div>
+        <div class="acct-modal-label">יתרה</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input class="acct-modal-input" id="acct-qa-value-input" type="number" placeholder="0" style="flex:1">
+          <select class="acct-modal-select" id="acct-qa-currency-input" style="width:80px;flex-shrink:0">
+            <option value="ILS">₪ ILS</option>
+            <option value="USD">$ USD</option>
+            <option value="EUR">€ EUR</option>
+            <option value="JPY">¥ JPY</option>
+          </select>
+        </div>
+      </div>
+      <div class="acct-modal-row">
+        <button class="acct-modal-submit" onclick="acctQuickAddSubmit()">הוסף</button>
+        <button class="acct-modal-back" onclick="closeAcctQuickAdd()">ביטול</button>
+      </div>
+      <div class="acct-modal-status" id="acct-qa-status"></div>
+    </div>
   </div>
 </div>
 
@@ -3712,9 +3758,41 @@ function acctShowStep(name) {
     s.classList.remove('active');
   });
   document.getElementById('acct-step-' + name).classList.add('active');
-  if (name === 'add-status') acctLoadNames();
+  if (name === 'add-status') {
+    document.getElementById('acct-sel-name-wrap').style.display = '';
+    acctLoadNames();
+  }
   if (name === 'del-account') acctLoadDelNames();
   if (name === 'del-entry')   acctLoadEntries();
+}
+// "+ חשבון חדש" menu entry — jumps straight to the add-status form with the
+// account dropdown skipped entirely, since we already know it's a new one.
+function acctStartNewAccount() {
+  document.getElementById('acct-modal-overlay').classList.add('open');
+  document.querySelectorAll('.acct-modal-step').forEach(function(s) {
+    s.classList.remove('active');
+  });
+  document.getElementById('acct-step-add-status').classList.add('active');
+  fetch('/api/accounts/names')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var sel = document.getElementById('acct-sel-name');
+      sel.innerHTML = '';
+      (data.names || []).forEach(function(n) {
+        var o = document.createElement('option');
+        o.value = n; o.textContent = n;
+        sel.appendChild(o);
+      });
+      var newOpt = document.createElement('option');
+      newOpt.value = '__new__'; newOpt.textContent = '+ חשבון חדש…';
+      sel.appendChild(newOpt);
+      sel.value = '__new__';
+      document.getElementById('acct-sel-name-wrap').style.display = 'none';
+      acctNameChanged();
+      var input = document.getElementById('acct-new-name-input');
+      input.value = '';
+      setTimeout(function() { input.focus(); }, 100);
+    });
 }
 function acctLoadNames() {
   fetch('/api/accounts/names')
@@ -3769,6 +3847,59 @@ function acctDateToggle() {
   var custom = document.querySelector('input[name="acct-date-radio"][value="custom"]').checked;
   document.getElementById('acct-date-input').style.display = custom ? 'block' : 'none';
 }
+
+// ── Quick add-status popup (tap an account card) ────────────────
+var _acctQuickAddName = null;
+function openAcctQuickAdd(name) {
+  _acctQuickAddName = name;
+  document.getElementById('acct-quickadd-title').textContent = 'הוסף יתרה — ' + name;
+  document.querySelector('input[name="acct-qa-date-radio"][value="today"]').checked = true;
+  document.getElementById('acct-qa-date-input').style.display = 'none';
+  document.getElementById('acct-qa-date-input').value = '';
+  document.getElementById('acct-qa-value-input').value = '';
+  acctSetStatus('acct-qa-status', '', '');
+  document.getElementById('acct-quickadd-overlay').classList.add('open');
+  setTimeout(function() { document.getElementById('acct-qa-value-input').focus(); }, 100);
+}
+function closeAcctQuickAdd() {
+  document.getElementById('acct-quickadd-overlay').classList.remove('open');
+}
+function acctQuickAddDateToggle() {
+  var custom = document.querySelector('input[name="acct-qa-date-radio"][value="custom"]').checked;
+  document.getElementById('acct-qa-date-input').style.display = custom ? 'block' : 'none';
+}
+function acctQuickAddSubmit() {
+  var name = _acctQuickAddName;
+  if (!name) return;
+  var dateRadio = document.querySelector('input[name="acct-qa-date-radio"]:checked').value;
+  var date = dateRadio === 'today'
+    ? new Date().toISOString().slice(0, 10)
+    : document.getElementById('acct-qa-date-input').value;
+  if (!date) { acctSetStatus('acct-qa-status', 'יש לבחור תאריך', 'err'); return; }
+  var value    = parseFloat(document.getElementById('acct-qa-value-input').value);
+  var currency = document.getElementById('acct-qa-currency-input').value || 'ILS';
+  if (isNaN(value)) { acctSetStatus('acct-qa-status', 'יתרה לא תקינה', 'err'); return; }
+
+  _acctOptimisticTableUpdate(name, value, currency);
+  _acctOptimisticChartUpdate(name, date, value, currency);
+  acctSetStatus('acct-qa-status', 'שומר…', 'ok');
+
+  fetch('/api/accounts/status', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({name: name, date: date, value: value, currency: currency})
+  }).then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d.ok) {
+        acctSetStatus('acct-qa-status', 'נוסף בהצלחה ✓', 'ok');
+        setTimeout(closeAcctQuickAdd, 700);
+      } else {
+        acctSetStatus('acct-qa-status', d.error || 'שגיאה', 'err');
+        if (typeof _enrichAcctTable === 'function') _enrichAcctTable();
+      }
+    }).catch(function() { acctSetStatus('acct-qa-status', 'שגיאת רשת', 'err'); });
+}
+
 // ── Optimistic update helpers ─────────────────────────────────
 
 // Update the balance cell in the accounts table for the matching row.
@@ -6917,7 +7048,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       grpAccts.forEach(function(name) {
         var r = rich[name];
         grpTotal += r.value;
-        var cardCls = 'acct-card';
+        var cardCls = 'acct-card acct-card-clickable';
         if (_VIRTUAL[name]) cardCls += ' acct-card-virtual';
         if (r.stale)        cardCls += ' acct-card-stale';
         var sym = _CUR_SYM[r.cur] || r.cur;
@@ -6927,7 +7058,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         var ch  = _changeCell(r.value, r.prev);
         var ych = r.yearPrev != null ? _changeCell(r.value, r.yearPrev) : {txt:'—', cls:'acct-change-neu'};
         var spark = _sparkline(r.pts, 12, 56, 22);
-        html += '<div class="'+cardCls+'">';
+        html += '<div class="'+cardCls+'" data-name="'+_esc(name)+'" role="button" tabindex="0" title="הוסף יתרה ל'+_esc(name)+'">';
         html +=   '<div class="acct-card-header">';
         html +=     '<span class="acct-card-name">'+_esc(name)+'</span>';
         html +=     spark;
@@ -6970,6 +7101,19 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     html += '</div>'; // wrap
 
     wrap.innerHTML = html;
+
+    if (!wrap._acctClickBound) {
+      wrap._acctClickBound = true;
+      wrap.addEventListener('click', function(e) {
+        var card = e.target.closest('.acct-card-clickable');
+        if (card) openAcctQuickAdd(card.dataset.name);
+      });
+      wrap.addEventListener('keydown', function(e) {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        var card = e.target.closest('.acct-card-clickable');
+        if (card) { e.preventDefault(); openAcctQuickAdd(card.dataset.name); }
+      });
+    }
   }
 
   // ── Accounts Chart ─────────────────────────────────────────────────────

@@ -7048,9 +7048,15 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       grpAccts.forEach(function(name) {
         var r = rich[name];
         grpTotal += r.value;
-        var cardCls = 'acct-card acct-card-clickable';
+        // נדל"ן accounts (property values) are derived/virtual, not something
+        // the user tracks by hand — never make them clickable for a status add.
+        var editable = grp !== 'נדל"ן';
+        var cardCls = 'acct-card' + (editable ? ' acct-card-clickable' : '');
         if (_VIRTUAL[name]) cardCls += ' acct-card-virtual';
         if (r.stale)        cardCls += ' acct-card-stale';
+        var cardAttrs = editable
+          ? ' data-name="'+_esc(name)+'" role="button" tabindex="0" title="הוסף יתרה ל'+_esc(name)+'"'
+          : '';
         var sym = _CUR_SYM[r.cur] || r.cur;
         var valDisplay = (r.cur !== 'ILS' && r.rawVal != null)
           ? sym + Number(r.rawVal).toFixed(2) + '<br><span style="font-size:0.72em;font-weight:500;color:#666">('+Math.round(r.value).toLocaleString('he-IL')+'₪)</span>'
@@ -7058,7 +7064,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         var ch  = _changeCell(r.value, r.prev);
         var ych = r.yearPrev != null ? _changeCell(r.value, r.yearPrev) : {txt:'—', cls:'acct-change-neu'};
         var spark = _sparkline(r.pts, 12, 56, 22);
-        html += '<div class="'+cardCls+'" data-name="'+_esc(name)+'" role="button" tabindex="0" title="הוסף יתרה ל'+_esc(name)+'">';
+        html += '<div class="'+cardCls+'"'+cardAttrs+'>';
         html +=   '<div class="acct-card-header">';
         html +=     '<span class="acct-card-name">'+_esc(name)+'</span>';
         html +=     spark;

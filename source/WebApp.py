@@ -72,7 +72,16 @@ _global_data_cache: dict = {}   # keyed by yyyy_mm (most-recent) or 'global'
 _accounts_cache: dict = {}      # {'data': {...}} in-memory cache for accounts panel
 _housing_cache: dict = {}       # {'ts': float, 'data': dict} in-memory cache for housing panel
 
-_ACCOUNTS_JSON = os.path.join(os.path.dirname(__file__), '..', 'Outputs', 'accounts_data.json')
+# The project dir is read-only on Vercel — writes here silently no-op (see the
+# try/except in _compute_accounts below), which used to mean the accounts
+# cache file could never advance past whatever snapshot happened to be
+# committed to git, permanently masking real account updates that had
+# already saved correctly to the database. Redirect to /tmp on Vercel, same
+# fix already applied to _AT_PATH / _CATEGORIES_JSON_PATH / _DB_PATH. A cold
+# instance with no /tmp copy yet now falls through to a fresh DB read
+# instead of silently serving a stale bundled file.
+_ACCOUNTS_JSON = '/tmp/accounts_data.json' if os.getenv('VERCEL') \
+    else os.path.join(os.path.dirname(__file__), '..', 'Outputs', 'accounts_data.json')
 
 
 def _load_accounts_disk():

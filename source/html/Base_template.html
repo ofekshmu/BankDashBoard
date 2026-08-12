@@ -5794,9 +5794,10 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       var total = chart.data.datasets[0].data.reduce(function(a, b, i) {
         return chart.getDataVisibility(i) ? a + b : a;
       }, 0);
+      var opts = (chart.options.plugins && chart.options.plugins.dynCenterText) || {};
       ctx.save();
       ctx.font = 'bold 15px Segoe UI,Arial,sans-serif';
-      ctx.fillStyle = '#1e2a4a';
+      ctx.fillStyle = opts.color || '#1e2a4a';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText('₪' + Math.round(total).toLocaleString('he-IL'), cx, cy);
@@ -5806,8 +5807,10 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
 
   var _PAL_SPEND = ['#e53935','#ff7043','#ffa726','#f06292','#e91e63','#ff5722','#ab47bc','#d81b60'];
   var _PAL_EARN  = ['#a5d6a7','#80cbc4','#90caf9','#ce93d8','#ffe082','#ffcc80','#ef9a9a','#f48fb1'];
-  var _CASH_IN_COLOR  = '#4caf50';
-  var _CASH_OUT_COLOR = '#e53935';
+  var _CASH_IN_COLOR   = '#a5d6a7';  // gentle green — matches the app's existing earnings palette
+  var _CASH_OUT_COLOR  = '#ef9a9a';  // gentle red — matches the app's existing earnings palette
+  var _CASH_NET_POS    = '#2ecc71';  // center-total text when net cash this month is >= 0
+  var _CASH_NET_NEG    = '#e74c3c';  // center-total text when net cash this month is negative
 
   var _CHART_TT = {
     'הוצאות לפי קטגוריה':      'פילוח ההוצאות מהחשבון הבנקאי לפי קטגוריה.',
@@ -5932,7 +5935,8 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     if (!items || !items.length) return;
     var values = items.map(function(it) { return Math.abs(Number(it.amount) || 0); });
     var colors = items.map(function(it) { return (Number(it.amount) || 0) >= 0 ? _CASH_IN_COLOR : _CASH_OUT_COLOR; });
-    var total  = values.reduce(function(a, b) { return a + b; }, 0) || 1;
+    var net = items.reduce(function(a, it) { return a + (Number(it.amount) || 0); }, 0);
+    var netColor = net < 0 ? _CASH_NET_NEG : _CASH_NET_POS;
 
     var card = document.createElement('div');
     card.className = 'chart-card';
@@ -5973,15 +5977,14 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     order.forEach(function(idx) {
       var it  = items[idx];
       var val = values[idx];
-      var pct = (val / total * 100).toFixed(0);
       var row = document.createElement('div');
       row.className = 'cat-legend-row';
       row.dataset.cid = canvasId;
       row.dataset.idx = String(idx);
       row.innerHTML =
         '<span class="cat-dot" style="background:' + colors[idx] + '"></span>' +
-        '<span class="cat-name">' + _esc(it.name || '') + ' · ' + _esc(it.category || '') + '</span>' +
-        '<span class="cat-val">₪' + Math.round(val).toLocaleString('he-IL') + ' (' + pct + '%)</span>';
+        '<span class="cat-name">' + _esc(it.name || '') + '</span>' +
+        '<span class="cat-val">₪' + Math.round(val).toLocaleString('he-IL') + '</span>';
       lgrid.appendChild(row);
     });
     card.appendChild(lgrid);
@@ -6000,6 +6003,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
           responsive: true, maintainAspectRatio: false, cutout: '68%',
           plugins: {
             legend: { display: false },
+            dynCenterText: { color: netColor },
             tooltip: {
               rtl: true,
               callbacks: {

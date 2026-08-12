@@ -4241,6 +4241,91 @@ def tagger_categories_add():
         return jsonify({'ok': False, 'error': str(e)})
 
 
+@app.route('/api/tagger/categories/rename', methods=['POST'])
+def tagger_categories_rename():
+    """Rename a category everywhere: every transaction table, categories.json,
+    any auto_tagger.json rule pointing at it, and the stale cached analysis
+    page for its old slug. Reserved category names the app's own logic
+    depends on (NotCategorized, credit-card-charge, investment, withdrawal,
+    excluded, filler) can't be renamed — doing so would silently break the
+    string comparisons that drive that logic elsewhere in the app."""
+    import json as _json
+    from Constants import ReservedNames, INVESTMENT_CATEGORY
+    from database import DataBase
+
+    RESERVED = {
+        'NotCategorized',
+        ReservedNames.EXCLUDED_CATEGORY,
+        ReservedNames.FILLER_CATEGORY,
+        ReservedNames.CASH_FILLER_CATEGORY,
+        ReservedNames.WHITDRAWAL_CATEGORY,
+        ReservedNames.CC_CHARGE_CATEGORY_NAME,
+        INVESTMENT_CATEGORY,
+    }
+
+    body = request.get_json() or {}
+    old  = (body.get('old') or '').strip()
+    new  = (body.get('new') or '').strip()
+    if not old or not new:
+        return jsonify({'ok': False, 'error': 'missing fields'})
+    if old == new:
+        return jsonify({'ok': False, 'error': 'השם החדש זהה לשם הקיים'})
+    if old in RESERVED or new in RESERVED:
+        return jsonify({'ok': False, 'error': 'לא ניתן לשנות שם לקטגוריה זו'})
+
+    cats_path = _CATEGORIES_JSON_PATH
+    try:
+        with open(cats_path, encoding='utf-8-sig') as f:
+            cats = _json.load(f)
+        if old not in cats:
+            return jsonify({'ok': False, 'error': 'הקטגוריה לא נמצאה'})
+        if new in cats:
+            return jsonify({'ok': False, 'error': 'שם הקטגוריה כבר קיים'})
+
+        # Slug of the OLD name, computed against the list that still contains
+        # it, so a name that only collides with another via slugification
+        # still resolves to the exact cached file that's actually on disk.
+        old_slug = _build_slug_map(cats, 'cat').get(old) or _make_slug('cat', old)
+
+        # 1. Every table that stores a Category value.
+        counts = DataBase().replace_category(frm=old, to=new)
+        DataBase().commit_changes()
+
+        # 2. Master category list.
+        cats = [new if c == old else c for c in cats]
+        with open(cats_path, 'w', encoding='utf-8') as f:
+            _json.dump(cats, f, ensure_ascii=False, indent=2)
+
+        # 3. Auto-tag rules pointing at the old name.
+        at = _read_at()
+        remapped_rules = 0
+        for rule_name, rule_cat in list(at.items()):
+            if rule_cat == old:
+                at[rule_name] = new
+                remapped_rules += 1
+        if remapped_rules:
+            _write_at(at)
+
+        # 4. Stale cached analysis page for the old name/slug.
+        for ext in ('.html', '.manifest.json'):
+            stale = os.path.join(CATEGORY_ANALYSIS_DIR, old_slug + ext)
+            try:
+                if os.path.exists(stale):
+                    os.remove(stale)
+            except Exception:
+                pass
+
+        # 5. Cached monthly/global payloads still keyed by the old name.
+        _monthly_data_cache.clear()
+        _global_data_cache.clear()
+
+        return jsonify({'ok': True, 'counts': counts, 'rules_remapped': remapped_rules})
+    except Exception as e:
+        import traceback
+        print(f'[tagger] category rename failed "{old}" -> "{new}": {e}\n{traceback.format_exc()}')
+        return jsonify({'ok': False, 'error': str(e)})
+
+
 @app.route('/api/tagger/rules')
 def tagger_rules():
     """Return all auto_tagger.json entries that map to a real category (not null/No Match),

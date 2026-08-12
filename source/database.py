@@ -2012,22 +2012,26 @@ class DataBase:
         utils.log(f"Before: {prev}")
         utils.log(f"After: {after}")        
 
-    def replace_category(self, frm: str, to: str):
+    def replace_category(self, frm: str, to: str) -> dict:
         """
         The function receives 2 categories, an existing category to change
         and another category (could be a new category or an existing one) to change to.
-        the number of affected rows in each table is printed.
+        Updates every table that stores a Category value. Returns a dict of
+        {table_name: rows_affected} and also logs it, same as before.
         """
-        for table_name in ['BankTransactions', 'CardTransactions']:
-            
+        counts = {}
+        for table_name in ['BankTransactions', 'CardTransactions', 'CashTransactions', 'TransactionSplits']:
+
             self.cursor.execute(f"""
                     UPDATE {table_name}
                     SET category = %s
                     WHERE category = %s
                 """, (to, frm,))
-            
+
             rows_affected = self.cursor.rowcount
+            counts[table_name] = rows_affected
             utils.log(f"Rows updated in {table_name}: {rows_affected}", 'system')
+        return counts
     
     def delete_transactions(self, ids: Tuple[list[str], str]):
         """

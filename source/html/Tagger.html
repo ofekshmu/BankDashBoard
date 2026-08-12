@@ -422,6 +422,23 @@ body {
   z-index: 999;
 }
 
+/* ── Toolbar hamburger menu ──────────────────────────────────── */
+.tg-menu-dropdown {
+  display: none; position: absolute; top: calc(100% + 6px); left: 0;
+  background: var(--white); border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm); box-shadow: 0 10px 30px rgba(0,0,0,.14);
+  min-width: 190px; z-index: 400; overflow: hidden;
+}
+.tg-menu-dropdown.open { display: block; }
+.tg-menu-item {
+  display: block; width: 100%; padding: 10px 14px;
+  background: none; border: none; text-align: right;
+  font-size: .88em; font-family: inherit; color: var(--navy);
+  cursor: pointer; white-space: nowrap;
+}
+.tg-menu-item:hover { background: var(--teal-light); }
+.tg-menu-item + .tg-menu-item { border-top: 1px solid var(--border); }
+
 /* ── Add category modal ──────────────────────────────────────── */
 .modal-overlay {
   position: fixed; inset: 0;
@@ -873,6 +890,20 @@ body {
   </div>
 </div>
 
+<!-- Rename category modal -->
+<div class="modal-overlay" id="rename-cat-modal-overlay">
+  <div class="modal-box">
+    <div class="modal-title">✏️ ערוך שם קטגוריה</div>
+    <select class="modal-input" id="rename-cat-select"></select>
+    <input class="modal-input" id="rename-cat-input" type="text" placeholder="שם חדש…" autocomplete="off"/>
+    <div class="modal-msg" id="rename-cat-msg"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeRenameCategoryModal()">ביטול</button>
+      <button class="btn btn-primary" onclick="submitRenameCategory()">שמור</button>
+    </div>
+  </div>
+</div>
+
 <!-- Edit tag: category picker (step 1) -->
 <div class="modal-overlay" id="edit-tag-modal-overlay">
   <div class="modal-box">
@@ -916,15 +947,15 @@ body {
   <div class="page-header">
     <h1>🏷 תייגן עסקאות</h1>
     <span class="header-badge" id="untagged-count-badge">טוען…</span>
-    <button class="btn btn-ghost" onclick="openModal()" style="margin-right:auto">
-      ➕ קטגוריה חדשה
-    </button>
-    <button class="btn btn-ghost" id="auto-tag-btn" onclick="runAutoTag()">
-      🏷️ תיוג אוטומטי
-    </button>
-    <button class="btn btn-ghost" onclick="refreshAll()">
-      🔄 רענן
-    </button>
+    <div class="tg-menu-wrap" id="tg-menu-wrap" style="margin-right:auto;position:relative">
+      <button class="btn btn-ghost" id="tg-menu-btn" onclick="toggleTgMenu()" aria-label="תפריט פעולות">☰</button>
+      <div class="tg-menu-dropdown" id="tg-menu-dropdown">
+        <button class="tg-menu-item" onclick="closeTgMenu();refreshAll()">🔄 רענן</button>
+        <button class="tg-menu-item" id="auto-tag-btn" onclick="closeTgMenu();runAutoTag()">🏷️ תיוג אוטומטי</button>
+        <button class="tg-menu-item" onclick="closeTgMenu();openModal()">➕ קטגוריה חדשה</button>
+        <button class="tg-menu-item" onclick="closeTgMenu();openRenameCategoryModal()">✏️ ערוך שם קטגוריה</button>
+      </div>
+    </div>
   </div>
 
   <!-- ── Section 1: Untagged ───────────────────────────────── -->
@@ -2070,6 +2101,68 @@ async function submitNewCategory() {
   } else {
     document.getElementById('modal-msg').textContent =
       (data && data.error) ? data.error : 'שגיאה';
+  }
+}
+
+// ── Toolbar hamburger menu ───────────────────────────────────────
+function toggleTgMenu() {
+  document.getElementById('tg-menu-dropdown').classList.toggle('open');
+}
+function closeTgMenu() {
+  document.getElementById('tg-menu-dropdown').classList.remove('open');
+}
+document.addEventListener('click', e => {
+  const wrap = document.getElementById('tg-menu-wrap');
+  if (wrap && !wrap.contains(e.target)) closeTgMenu();
+});
+
+// ── Rename category modal ────────────────────────────────────────
+// Kept in sync with the server's RESERVED set in tagger_categories_rename —
+// this is just so we don't even offer them in the dropdown; the server is
+// the real enforcement point.
+const _RESERVED_CATEGORIES = ['NotCategorized', 'Excluded', 'Filler', 'cash_filler', 'withdrawal', 'אשראי', 'השקעה/חיסכון'];
+async function openRenameCategoryModal() {
+  await loadCategories();
+  const sel = document.getElementById('rename-cat-select');
+  sel.innerHTML = '';
+  _categories
+    .filter(c => !_RESERVED_CATEGORIES.includes(c.name))
+    .sort((a, b) => a.name.localeCompare(b.name, 'he'))
+    .forEach(c => {
+      const o = document.createElement('option');
+      o.value = c.name; o.textContent = c.name;
+      sel.appendChild(o);
+    });
+  document.getElementById('rename-cat-input').value = '';
+  document.getElementById('rename-cat-msg').textContent = '';
+  document.getElementById('rename-cat-modal-overlay').classList.add('open');
+}
+function closeRenameCategoryModal() {
+  document.getElementById('rename-cat-modal-overlay').classList.remove('open');
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeRenameCategoryModal(); });
+
+async function submitRenameCategory() {
+  const oldName = document.getElementById('rename-cat-select').value;
+  const newName = document.getElementById('rename-cat-input').value.trim();
+  const msgEl = document.getElementById('rename-cat-msg');
+  msgEl.textContent = '';
+  if (!oldName) { msgEl.textContent = 'בחר קטגוריה'; return; }
+  if (!newName) { msgEl.textContent = 'הזן שם חדש'; return; }
+  if (newName === oldName) { msgEl.textContent = 'השם החדש זהה לשם הקיים'; return; }
+
+  const res = await fetch('/api/tagger/categories/rename', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({old: oldName, new: newName})
+  }).catch(() => null);
+  const data = res ? await res.json().catch(() => null) : null;
+  if (data && data.ok) {
+    closeRenameCategoryModal();
+    showToast(`"${oldName}" שונה ל-"${newName}"`, 'success');
+    await Promise.all([loadCategories(), loadUntagged(), loadHighValue(), loadTagged()]);
+  } else {
+    msgEl.textContent = (data && data.error) ? data.error : 'שגיאה';
   }
 }
 

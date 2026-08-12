@@ -5934,6 +5934,11 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       ctx.fillStyle = opts.color || '#1e2a4a';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
+      // Canvas text direction inherits the page's RTL by default, which lets
+      // the browser's bidi algorithm reorder the leading "-" to the visual
+      // right of the number. Force LTR so the sign always renders on the
+      // left, same reading order as every other currency amount in the app.
+      ctx.direction = 'ltr';
       var sign = total < 0 ? '-' : '';
       ctx.fillText(sign + '₪' + Math.round(Math.abs(total)).toLocaleString('he-IL'), cx, cy);
       ctx.restore();

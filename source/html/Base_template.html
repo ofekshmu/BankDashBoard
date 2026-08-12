@@ -5922,16 +5922,20 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       if (chart.config.type !== 'doughnut') return;
       var ctx = chart.ctx, ca = chart.chartArea;
       var cx  = (ca.left + ca.right) / 2, cy = (ca.top + ca.bottom) / 2;
-      var total = chart.data.datasets[0].data.reduce(function(a, b, i) {
+      var opts = (chart.options.plugins && chart.options.plugins.dynCenterText) || {};
+      // Default: sum of visible slice magnitudes. A chart can override with an
+      // explicit signed total (e.g. the cash donut passes net income-minus-
+      // expense instead of total flow volume) via options.plugins.dynCenterText.value.
+      var total = (typeof opts.value === 'number') ? opts.value : chart.data.datasets[0].data.reduce(function(a, b, i) {
         return chart.getDataVisibility(i) ? a + b : a;
       }, 0);
-      var opts = (chart.options.plugins && chart.options.plugins.dynCenterText) || {};
       ctx.save();
       ctx.font = 'bold 15px Segoe UI,Arial,sans-serif';
       ctx.fillStyle = opts.color || '#1e2a4a';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText('₪' + Math.round(total).toLocaleString('he-IL'), cx, cy);
+      var sign = total < 0 ? '-' : '';
+      ctx.fillText(sign + '₪' + Math.round(Math.abs(total)).toLocaleString('he-IL'), cx, cy);
       ctx.restore();
     }
   };
@@ -6134,7 +6138,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
           responsive: true, maintainAspectRatio: false, cutout: '68%',
           plugins: {
             legend: { display: false },
-            dynCenterText: { color: netColor },
+            dynCenterText: { color: netColor, value: net },
             tooltip: {
               rtl: true,
               callbacks: {

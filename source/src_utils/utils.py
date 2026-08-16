@@ -1935,6 +1935,52 @@ class utils:
                 row.append(card_b)
                 housing_panel.append(row)
 
+            # ── Quick-reference info card (copy-to-clipboard) ───────────
+            try:
+                _apt_info = json.load(open(Paths.PERSONAL_CONFIG, encoding='utf-8')).get('apartment_info', {})
+            except FileNotFoundError:
+                _apt_info = {}
+
+            _APT_INFO_FIELDS = [
+                ("water_meter_number", "מספר מונה מים"),
+                ("electricity_meter_number", "מספר מונה חשמל"),
+                ("arnona_number", "מספר נכס"),
+            ]
+
+            info_card = tag("div", class_="kpi-card hs-full-col apartment-info-card")
+            info_hdr  = tag("div", class_="apartment-info-header")
+            info_ttl  = tag("div", class_="kpi-label")
+            info_ttl.string = "מספרים לשימוש טלפוני"
+            copy_btn  = tag("button", class_="apartment-info-copy-btn")
+            copy_btn["type"] = "button"
+            copy_btn["id"] = "apt-info-copy-btn"
+            copy_btn["title"] = "העתק ללוח"
+            copy_btn["onclick"] = "copyApartmentInfo()"
+            copy_btn.append(bs4.BeautifulSoup(
+                '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" '
+                'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+                '<rect x="9" y="9" width="12" height="12" rx="2"/>'
+                '<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>'
+                '</svg>', 'html.parser'
+            ))
+            info_hdr.append(info_ttl)
+            info_hdr.append(copy_btn)
+            info_card.append(info_hdr)
+
+            info_rows = tag("div", class_="apartment-info-rows", id="apartment-info-rows")
+            for _key, _label in _APT_INFO_FIELDS:
+                _row = tag("div", class_="apartment-info-row")
+                _lbl_sp = tag("span", class_="ai-label")
+                _lbl_sp.string = _label
+                _val_sp = tag("span", class_="ai-value")
+                _val_sp.string = str(_apt_info.get(_key) or "—")
+                _row.append(_lbl_sp)
+                _row.append(_val_sp)
+                info_rows.append(_row)
+            info_card.append(info_rows)
+
+            housing_panel.append(info_card)
+
             # ── Rate slider control card ───────────────────────────────
             rate_card = tag("div", class_="kpi-card housing-rate-control")
             rate_top  = tag("div", class_="rate-control-top")

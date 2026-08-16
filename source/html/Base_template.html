@@ -713,6 +713,41 @@ body {
   padding-right: 4px;
 }
 
+/* Apartment quick-reference info card (copy-to-clipboard) */
+.apartment-info-card { align-items: stretch; text-align: right; margin-bottom: 16px; }
+.apartment-info-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+.apartment-info-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px; height: 30px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--white);
+  color: var(--navy);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, transform 0.15s;
+}
+.apartment-info-copy-btn:hover { background: var(--teal); color: #fff; border-color: var(--teal); }
+.apartment-info-copy-btn.copied { background: var(--teal); color: #fff; border-color: var(--teal); transform: scale(0.94); }
+.apartment-info-rows { width: 100%; margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+.apartment-info-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.85em;
+  padding: 6px 2px;
+  border-bottom: 1px solid var(--border);
+}
+.apartment-info-row:last-child { border-bottom: none; }
+.ai-label { color: var(--text-muted); }
+.ai-value { color: var(--navy); font-weight: 700; direction: ltr; }
+
 /* Dual side-by-side KPIs inside equity card */
 .equity-dual-row {
   display: flex;
@@ -3695,6 +3730,29 @@ function toggleDebugPanel() {
 
 function clearDebugPanel() {
   document.getElementById('debug-feed').innerHTML = '';
+}
+
+function copyApartmentInfo() {
+  var rows = document.querySelectorAll('#apartment-info-rows .apartment-info-row');
+  var text = Array.from(rows).map(function(row) {
+    var label = row.querySelector('.ai-label').textContent;
+    var value = row.querySelector('.ai-value').textContent;
+    return label + ': ' + value;
+  }).join('\n');
+  var btn = document.getElementById('apt-info-copy-btn');
+  function _flashCopied() {
+    if (!btn) return;
+    btn.classList.add('copied');
+    setTimeout(function() { btn.classList.remove('copied'); }, 1200);
+  }
+  navigator.clipboard.writeText(text).then(_flashCopied).catch(function() {
+    // Fallback for environments without clipboard API
+    var ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select(); document.execCommand('copy');
+    document.body.removeChild(ta);
+    _flashCopied();
+  });
 }
 
 function copyDebugPanel() {

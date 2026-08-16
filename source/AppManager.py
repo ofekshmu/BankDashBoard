@@ -2448,7 +2448,14 @@ class AppManager:
         _total_ret_pct  = round(_sale_profit / _net_invested * 100, 1) if _net_invested > 0 else 0
         _annual_ret_pct = round(((1 + _total_ret_pct / 100) ** (12 / max(_n_months, 1)) - 1) * 100, 1)
 
+        try:
+            import json as _json_apt
+            _apartment_info = _json_apt.load(open(Paths.PERSONAL_CONFIG, encoding='utf-8')).get('apartment_info', {})
+        except FileNotFoundError:
+            _apartment_info = {}
+
         mortgage_data = {
+            "apartment_info":            _apartment_info,
             "apartment_price":           APARTMENT_PRICE,
             "apartment_appreciated":     _appreciated_price,
             "equity":                    _equity_base,

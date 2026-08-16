@@ -714,7 +714,7 @@ body {
 }
 
 /* Apartment quick-reference info card (copy-to-clipboard) */
-.apartment-info-card { align-items: stretch; text-align: right; margin-bottom: 16px; }
+#panel-housing .apartment-info-card { align-items: stretch; text-align: right; margin-bottom: 16px; }
 .apartment-info-header {
   display: flex;
   align-items: center;
@@ -747,6 +747,7 @@ body {
 .apartment-info-row:last-child { border-bottom: none; }
 .ai-label { color: var(--text-muted); }
 .ai-value { color: var(--navy); font-weight: 700; direction: ltr; }
+.kpi-card-placeholder { display: none; }
 
 /* Dual side-by-side KPIs inside equity card */
 .equity-dual-row {
@@ -7482,13 +7483,39 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     var retInfo   = 'חישוב רווח ממכירה:\n  שווי שוק: ' + _n(aptAppr) + '\n  יתרת משכנתא: ' + _n(-curBal) + '\n  = הון עצמי: ' + _n(saleProceed) + '\n  + הכנסות: ' + _n(allInc) + '\n  סה״כ תקבולים: ' + _n(totalBack) + '\n  − הוצאות: ' + _n(-netInv) + '\n  = רווח נקי: ' + _n(profitVal);
     var pmtLabel  = m.payment_found ? 'תשלום חודשי (בפועל)' : 'תשלום חודשי (משוער)';
 
+    // ── Apartment quick-reference info (copy-to-clipboard) ──────────────────
+    var aptInfo = m.apartment_info || {};
+    var aptInfoFields = [
+      ['water_meter_number', 'מספר מונה מים'],
+      ['electricity_meter_number', 'מספר מונה חשמל'],
+      ['arnona_number', 'מספר נכס']
+    ];
+    var aptInfoRows = aptInfoFields.map(function(f) {
+      var val = aptInfo[f[0]];
+      return '<div class="apartment-info-row"><span class="ai-label">' + _esc(f[1]) + '</span>' +
+        '<span class="ai-value">' + _esc(val ? String(val) : '—') + '</span></div>';
+    }).join('');
+    var aptInfoCard =
+      '<div class="kpi-card apartment-info-card">' +
+        '<div class="apartment-info-header">' +
+          '<div class="kpi-label">מספרים לשימוש טלפוני</div>' +
+          '<button type="button" class="apartment-info-copy-btn" id="apt-info-copy-btn" title="העתק ללוח" onclick="copyApartmentInfo()">' +
+            '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+              '<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>' +
+            '</svg>' +
+          '</button>' +
+        '</div>' +
+        '<div class="apartment-info-rows" id="apartment-info-rows">' + aptInfoRows + '</div>' +
+      '</div>';
+
     // ── Build HTML ─────────────────────────────────────────────────────────
     var html = '<div class="card">' +
       '<div class="card-title">ניהול משכנתא / נכס</div>' +
       _row2(
         _kpiCard('יתרת משכנתא', _n(curBal), '#e74c3c', null, null, 'הקרן שנותרה לתשלום על המשכנתא.'),
-        equityCard, 'housing-balance-row'
+        aptInfoCard, 'housing-balance-row'
       ) +
+      _row2(equityCard, '<div class="kpi-card-placeholder"></div>', 'housing-balance-row') +
       _row3(
         _kpiCard('מחיר רכישה', _n(aptPrice), '#1a3a5c', null, null, 'מחיר הרכישה המקורי של הדירה.'),
         _kpiCard('עליית ערך חודשית', '+' + _n(moAppr), '#1e9d8b', defRate.toFixed(1) + '%/שנה', 'hs-monthly-appr'),

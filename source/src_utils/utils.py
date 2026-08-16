@@ -1947,7 +1947,7 @@ class utils:
                 ("arnona_number", "מספר נכס"),
             ]
 
-            info_card = tag("div", class_="kpi-card hs-full-col apartment-info-card")
+            info_card = tag("div", class_="kpi-card apartment-info-card")
             info_hdr  = tag("div", class_="apartment-info-header")
             info_ttl  = tag("div", class_="kpi-label")
             info_ttl.string = "מספרים לשימוש טלפוני"
@@ -1978,8 +1978,6 @@ class utils:
                 _row.append(_val_sp)
                 info_rows.append(_row)
             info_card.append(info_rows)
-
-            housing_panel.append(info_card)
 
             # ── Rate slider control card ───────────────────────────────
             rate_card = tag("div", class_="kpi-card housing-rate-control")
@@ -2132,9 +2130,10 @@ class utils:
             _row2(
                 _h_kpi("יתרת משכנתא", f"{cur_bal:,.0f}\u20aa", "#e74c3c",
                        info="הקרן שנותרה לתשלום על המשכנתא.\nמחושב לפי לוח סילוקין תיאורטי."),
-                equity_card,
+                info_card,
                 "housing-balance-row"
             )
+            _row2(equity_card, tag("div", class_="kpi-card-placeholder"), "housing-balance-row")
 
             # ── Rate slider (appears below balance cards) ──────────────
             housing_panel.append(rate_card)

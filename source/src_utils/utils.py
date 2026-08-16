@@ -1942,9 +1942,11 @@ class utils:
                 _apt_info = {}
 
             _APT_INFO_FIELDS = [
+                ("property_address", "כתובת הנכס"),
                 ("water_meter_number", "מספר מונה מים"),
                 ("electricity_meter_number", "מספר מונה חשמל"),
                 ("arnona_number", "מספר נכס"),
+                ("water_bill_property_number", "מס' נכס בחשבון המים"),
             ]
 
             info_card = tag("div", class_="kpi-card apartment-info-card")
@@ -1972,7 +1974,8 @@ class utils:
                 _row = tag("div", class_="apartment-info-row")
                 _lbl_sp = tag("span", class_="ai-label")
                 _lbl_sp.string = _label
-                _val_sp = tag("span", class_="ai-value")
+                _val_cls = "ai-value ai-value-rtl" if _key == "property_address" else "ai-value"
+                _val_sp = tag("span", class_=_val_cls)
                 _val_sp.string = str(_apt_info.get(_key) or "—")
                 _row.append(_lbl_sp)
                 _row.append(_val_sp)

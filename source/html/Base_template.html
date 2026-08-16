@@ -747,6 +747,7 @@ body {
 .apartment-info-row:last-child { border-bottom: none; }
 .ai-label { color: var(--text-muted); }
 .ai-value { color: var(--navy); font-weight: 700; direction: ltr; }
+.ai-value.ai-value-rtl { direction: rtl; }
 .kpi-card-placeholder { display: none; }
 
 /* Dual side-by-side KPIs inside equity card */
@@ -7486,14 +7487,17 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     // ── Apartment quick-reference info (copy-to-clipboard) ──────────────────
     var aptInfo = m.apartment_info || {};
     var aptInfoFields = [
+      ['property_address', 'כתובת הנכס'],
       ['water_meter_number', 'מספר מונה מים'],
       ['electricity_meter_number', 'מספר מונה חשמל'],
-      ['arnona_number', 'מספר נכס']
+      ['arnona_number', 'מספר נכס'],
+      ['water_bill_property_number', "מס' נכס בחשבון המים"]
     ];
     var aptInfoRows = aptInfoFields.map(function(f) {
       var val = aptInfo[f[0]];
+      var valCls = f[0] === 'property_address' ? 'ai-value ai-value-rtl' : 'ai-value';
       return '<div class="apartment-info-row"><span class="ai-label">' + _esc(f[1]) + '</span>' +
-        '<span class="ai-value">' + _esc(val ? String(val) : '—') + '</span></div>';
+        '<span class="' + valCls + '">' + _esc(val ? String(val) : '—') + '</span></div>';
     }).join('');
     var aptInfoCard =
       '<div class="kpi-card apartment-info-card">' +

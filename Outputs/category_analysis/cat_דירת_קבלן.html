@@ -213,7 +213,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;
 </style>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 </head>
-<body data-slug="cat_דירת_קבלן" data-generated="11/07/2026 19:20" data-type="category" data-name="דירת קבלן">
+<body data-slug="cat_דירת_קבלן" data-generated="29/07/2026 08:43" data-type="category" data-name="דירת קבלן">
 
 <!-- Hamburger -->
 <button class="ham-btn" id="ham-btn" onclick="toggleNav()" aria-label="תפריט">
@@ -277,7 +277,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;
       <span class="type-badge">קטגוריה</span>
     </div>
     <div class="page-header-right">
-      <span class="generated-label" id="generated-label">נוצר: 11/07/2026 19:20</span>
+      <span class="generated-label" id="generated-label">נוצר: 29/07/2026 08:43</span>
       <button class="reload-btn" id="reload-btn" onclick="reloadCurrent()">&#8635; חשב מחדש</button>
     </div>
   </div>
@@ -286,7 +286,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;
   <div class="kpi-grid">
     <div class="kpi-card">
       <div class="kpi-label"><span class="kpi-dot" style="background:#1e9d8b"></span>ממוצע חודשי</div>
-      <div class="kpi-value neg">(2,500) ₪</div>
+      <div class="kpi-value neg">(10,000) ₪</div>
       <div class="kpi-sublabel">על פני כל הזמן</div>
     </div>
     <div class="kpi-card">
@@ -296,12 +296,12 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;
     </div>
     <div class="kpi-card">
       <div class="kpi-label"><span class="kpi-dot" style="background:#9b59b6"></span>סטיית תקן חודשית</div>
-      <div class="kpi-value">—</div>
-      <div class="kpi-sublabel">אין מספיק נתונים</div>
+      <div class="kpi-value">7,071 ₪</div>
+      <div class="kpi-sublabel">על פני 2 חודשים</div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label"><span class="kpi-dot" style="background:#e74c3c"></span>סה"כ הוצאות</div>
-      <div class="kpi-value neg">(5,000) ₪</div>
+      <div class="kpi-value neg">(20,000) ₪</div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label"><span class="kpi-dot" style="background:#2ecc71"></span>סה"כ הכנסות</div>
@@ -310,19 +310,19 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;
   </div>
 
   <!-- Charts -->
-  <div class="charts-1col">
+  <div class="charts-2col">
     <div class="chart-card">
       <div class="chart-card-title">הוצאות והכנסות — 6 חודשים אחרונים</div>
       <div class="chart-wrap"><canvas id="monthly-chart"></canvas></div>
     </div>
-    
+    <div class="pie-col"><div class="chart-card"><div class="chart-card-title">פילוג הוצאות<span class="chart-card-sub">לפי עסק</span></div><div class="chart-wrap"><canvas id="pie-spend"></canvas></div></div></div>
   </div>
 
   <!-- Transactions panel -->
   <div class="panel">
     <div class="panel-header">
       עסקאות
-      <span class="panel-count" id="panel-count">1 עסקאות</span>
+      <span class="panel-count" id="panel-count">2 עסקאות</span>
     </div>
     <div class="txn-search-wrap">
       <input class="txn-search" id="txn-search" type="text" placeholder="חיפוש עסקה..." oninput="filterTxns(this.value)">
@@ -337,6 +337,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;
           
         </tr></thead>
         <tbody>
+<tr><td class="td-id" data-label="מזהה">737</td><td class="td-date" data-label="תאריך">08/07/2026<span class="td-date-badge td-bank">בנק</span></td><td class="td-name" data-label="שם">העברה מהחשבון</td><td class="td-val neg" data-label="סכום">(15,000) ₪</td></tr>
 <tr><td class="td-id" data-label="מזהה">2340</td><td class="td-date" data-label="תאריך">10/06/2026<span class="td-date-badge td-card">אשראי</span><span class="td-charge">חיוב 02/07/2026</span></td><td class="td-name" data-label="שם">פעימה ראשונה - ליווי</td><td class="td-val neg" data-label="סכום">(5,000) ₪</td></tr>
         </tbody>
       </table>
@@ -370,8 +371,8 @@ function toggleNav() {
 document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeNav(); });
 
 // ── Embedded data ──────────────────────────────────────────
-const MONTHLY_DATA   = [{"month": "02/2026", "spending": 28269.43, "income": 29208.57}, {"month": "03/2026", "spending": 24590.73, "income": 44340.0}, {"month": "04/2026", "spending": 55663.95, "income": 31085.63}, {"month": "05/2026", "spending": 38144.61, "income": 45079.81}, {"month": "06/2026", "spending": 45931.95, "income": 58114.65}, {"month": "07/2026", "spending": 5740.08, "income": 4971.3}];
-const SPEND_PIE_DATA = [{"name": "קבוצת בר סרוסי השקעו", "value": 5000.0}];
+const MONTHLY_DATA   = [{"month": "02/2026", "spending": 28269.43, "income": 29208.57}, {"month": "03/2026", "spending": 24590.73, "income": 44340.0}, {"month": "04/2026", "spending": 55663.95, "income": 31085.63}, {"month": "05/2026", "spending": 38144.61, "income": 45079.81}, {"month": "06/2026", "spending": 45931.95, "income": 58114.65}, {"month": "07/2026", "spending": 28784.32, "income": 28855.54}];
+const SPEND_PIE_DATA = [{"name": "העברה מהחשבון", "value": 15000.0}, {"name": "קבוצת בר סרוסי השקעו", "value": 5000.0}];
 const EARN_PIE_DATA  = [];
 const SLUG           = "cat_דירת_קבלן";
 const TYPE           = "category";

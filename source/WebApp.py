@@ -445,6 +445,17 @@ app = Flask(__name__)
 app.config['JSON_AS_ASCII'] = False
 
 
+@app.teardown_request
+def _release_db_connection(exc):
+    """Return this request's pooled DB connection so the next request
+    (handled by a different thread) can reuse it instead of reconnecting."""
+    try:
+        from database import DataBase
+        DataBase.release_thread_connection()
+    except Exception:
+        pass
+
+
 @app.route('/api/auth/verify', methods=['POST'])
 def api_auth_verify():
     """Check password against ADMIN_PASSWORD / DASHBOARD_PASSWORD env var."""

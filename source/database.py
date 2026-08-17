@@ -1,6 +1,7 @@
 import os
 import threading
 import psycopg2
+import psycopg2.pool
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -68,8 +69,9 @@ class _ChainableCursor:
     can overwrite another's cursor before it fetches, raising
     "no results to fetch".
     """
-    def __init__(self, conn):
+    def __init__(self, conn, owner):
         self._conn = conn
+        self._owner = owner
         self._local = threading.local()
 
     @property
@@ -95,9 +97,9 @@ class _ChainableCursor:
         except psycopg2.OperationalError:
             # Neon (and other cloud Postgres) closes idle SSL connections
             # server-side without updating psycopg2's connection.closed flag.
-            # Force a fresh connection and retry the query once.
-            DataBase._connect()
-            self._conn = DataBase._DataBase__instance.connection
+            # Force a fresh connection (for this thread only) and retry once.
+            self._owner._connect_thread()
+            self._conn = self._owner.connection
             self._c = self._conn.cursor()
             self._c.execute(sql, params)
         return self
@@ -159,14 +161,49 @@ class DataBase:
     __instance = None
     __spotify_tables_ready = False
     __recurring_tables_ready = False
-    connection: psycopg2.extensions.connection
-    cursor: psycopg2.extensions.cursor
+    __bootstrap_lock = threading.Lock()
+    __tables_bootstrapped = False
+    __pool = None
+    __pool_lock = threading.Lock()
 
     @classmethod
-    def _connect(cls):
-        """Create a fresh connection and attach it to the singleton instance."""
-        cls.__instance.connection = psycopg2.connect(os.environ['DATABASE_URL'])
-        cls.__instance.connection.autocommit = False
+    def _get_pool(cls):
+        """Lazily create the process-wide connection pool.
+
+        A single shared connection serialized every concurrent request behind
+        it (measured: 5 parallel API calls each taking 900ms-1.4s instead of
+        running concurrently) because psycopg2/libpq can only process one
+        query at a time per connection. A plain "one connection per OS
+        thread" fix doesn't work either: Flask's dev server (threaded=True)
+        spawns a brand-new thread per request, so thread-local caching would
+        force every single request to pay a fresh TCP+SSL handshake to Neon
+        (measured ~550ms) instead of reusing a warm connection.
+        A connection pool solves both: requests borrow an already-open
+        connection (fast, no handshake) and concurrent requests get distinct
+        connections (no serialization), up to maxconn.
+        """
+        if cls.__pool is None:
+            with cls.__pool_lock:
+                if cls.__pool is None:
+                    # minconn is pre-created eagerly here (outside any
+                    # per-request lock); getconn() only opens a fresh
+                    # connection on-demand — while holding the pool's
+                    # internal lock — once minconn connections are all
+                    # checked out. A low minconn meant a cold concurrent
+                    # burst (e.g. this app's pages firing several parallel
+                    # fetches on load) mostly serialized on that lock anyway,
+                    # each paying a full connect() while blocking the rest.
+                    # minconn=6 covers the app's largest known burst (the
+                    # Spotify page's 5 parallel fetches) with headroom.
+                    cls.__pool = psycopg2.pool.ThreadedConnectionPool(
+                        6, 10, os.environ['DATABASE_URL']
+                    )
+        return cls.__pool
+
+    def _connect_thread(self):
+        """Borrow a connection from the pool for the CURRENT thread."""
+        conn = DataBase._get_pool().getconn()
+        conn.autocommit = False
         # Return numeric/decimal columns as float instead of decimal.Decimal so
         # existing arithmetic (Decimal + float) doesn't raise TypeError.
         _DEC2FLOAT = psycopg2.extensions.new_type(
@@ -174,32 +211,64 @@ class DataBase:
             'DEC2FLOAT',
             lambda v, c: float(v) if v is not None else None,
         )
-        psycopg2.extensions.register_type(_DEC2FLOAT, cls.__instance.connection)
-        cls.__instance.cursor = _ChainableCursor(cls.__instance.connection)
+        psycopg2.extensions.register_type(_DEC2FLOAT, conn)
+        self._local.connection = conn
+        self._local.cursor = _ChainableCursor(conn, self)
+
+    @classmethod
+    def release_thread_connection(cls):
+        """Return this thread's borrowed connection to the pool.
+
+        Call at the end of each request (e.g. via Flask's teardown_request)
+        so the next request — handled by a different OS thread — can reuse
+        it instead of opening a brand-new connection.
+        """
+        inst = cls.__instance
+        if inst is None or not hasattr(inst, '_local'):
+            return
+        conn = getattr(inst._local, 'connection', None)
+        if conn is None:
+            return
+        inst._local.connection = None
+        inst._local.cursor = None
+        try:
+            DataBase._get_pool().putconn(conn, close=conn.closed)
+        except Exception:
+            pass
+
+    @property
+    def connection(self):
+        return getattr(self._local, 'connection', None)
+
+    @property
+    def cursor(self):
+        return getattr(self._local, 'cursor', None)
 
     def __new__(cls):
-        needs_probe = False
         if cls.__instance is None:
             cls.__instance = super().__new__(cls)
-            cls._connect()
-        elif not hasattr(cls.__instance, 'connection') or cls.__instance.connection is None:
-            # _connect() failed on a prior call — retry
-            cls._connect()
-        elif cls.__instance.connection.get_transaction_status() == psycopg2.extensions.TRANSACTION_STATUS_INERROR:
-            # Previous request left the shared connection in an aborted-transaction
-            # state.  Roll back to recover without a full reconnect.
+            cls.__instance._local = threading.local()
+        self = cls.__instance
+
+        needs_probe = False
+        conn = self.connection
+        if conn is None:
+            self._connect_thread()
+        elif conn.get_transaction_status() == psycopg2.extensions.TRANSACTION_STATUS_INERROR:
+            # Previous request left this thread's connection in an aborted-
+            # transaction state. Roll back to recover without a full reconnect.
             try:
-                cls.__instance.connection.rollback()
+                conn.rollback()
             except Exception:
-                cls._connect()
-        elif cls.__instance.connection.closed:
+                self._connect_thread()
+        elif conn.closed:
             pass  # handled by the block below (kept separate: it also recreates tables)
         else:
             needs_probe = True
 
         if needs_probe:
             # A connection reaching here isn't locally known to be dead, but many
-            # read-only DataBase methods leave the shared connection idle-in-
+            # read-only DataBase methods leave the connection idle-in-
             # transaction (or plain idle) after they return, and Neon kills
             # idle/idle-in-transaction connections server-side to allow
             # scale-to-zero — psycopg2's local .closed flag doesn't reflect that
@@ -209,25 +278,40 @@ class DataBase:
             # Probe explicitly so a server-killed connection is replaced
             # transparently instead of failing whatever call happens to be next.
             try:
-                probe = cls.__instance.connection.cursor()
+                probe = self.connection.cursor()
                 probe.execute("SELECT 1")
                 probe.close()
             except Exception:
                 try:
-                    cls.__instance.connection.rollback()
+                    self.connection.rollback()
                 except Exception:
                     pass
-                cls._connect()
+                self._connect_thread()
 
-        if cls.__instance.connection.closed:
+        if self.connection.closed:
             # Connection dropped (e.g. Neon idle timeout) — reconnect transparently.
-            cls._connect()
-            cls.__instance.cursor.execute("""
+            self._connect_thread()
+
+        with DataBase.__bootstrap_lock:
+            if not DataBase.__tables_bootstrapped:
+                self._bootstrap_tables()
+                DataBase.__tables_bootstrapped = True
+
+        return cls.__instance
+
+    def _bootstrap_tables(self):
+        """Create the base tables if they don't exist yet. Runs at most once
+        per process (guarded by __bootstrap_lock/__tables_bootstrapped), not
+        on every reconnect — table creation is idempotent but each statement
+        is a network round-trip, so re-running it per thread/reconnect would
+        add needless latency."""
+        if True:
+            self.cursor.execute("""
                 CREATE TABLE IF NOT EXISTS Card (
                 CardID          CHAR(4)     PRIMARY KEY,
                 description     TEXT
                 );""")
-            cls.__instance.cursor.execute("""
+            self.cursor.execute("""
                 CREATE TABLE IF NOT EXISTS File (
                 File_Name           CHAR        NOT NULL,
                 Format              CHAR        NOT NULL,
@@ -240,7 +324,7 @@ class DataBase:
                 );""") # Should also add card as primary key for 2 holders of the same format, trying to upload
                 # a file for the same month for 2 different cards
 
-            cls.__instance.cursor.execute("""
+            self.cursor.execute("""
                 CREATE TABLE IF NOT EXISTS CashTransactions (
                 ID                  SERIAL          PRIMARY KEY,
                 Name                CHAR            NOT NULL    ,
@@ -252,7 +336,7 @@ class DataBase:
                 Description         CHAR                                                                       
                 );""")
             
-            cls.__instance.cursor.execute("""
+            self.cursor.execute("""
                 CREATE TABLE IF NOT EXISTS TableMeta (
                 ID                  SERIAL          PRIMARY KEY,
                 File_Name           CHAR            NOT NULL    ,
@@ -265,7 +349,7 @@ class DataBase:
                 FOREIGN KEY(File_Name, Format, Card_Number)    REFERENCES File(File_Name, Format, Card_Number)
                 );""")
 
-            cls.__instance.cursor.execute("""
+            self.cursor.execute("""
                 CREATE TABLE IF NOT EXISTS BankTransactions (
                 ID                  SERIAL      PRIMARY KEY,
                 Date                DATE        NOT NULL    ,
@@ -282,7 +366,7 @@ class DataBase:
                 Reserved            INT
                 );""")
 
-            cls.__instance.cursor.execute("""
+            self.cursor.execute("""
                 CREATE TABLE IF NOT EXISTS CardTransactions (
                 ID                  SERIAL      PRIMARY KEY,
                 CardID              CHAR        NOT NULL    ,
@@ -301,7 +385,7 @@ class DataBase:
                 FOREIGN KEY(CardID)         REFERENCES Card(CardID)
                 );""")
 
-            cls.__instance.cursor.execute("""
+            self.cursor.execute("""
                 CREATE TABLE IF NOT EXISTS DevisionTransactions (
                 ID                  SERIAL          PRIMARY KEY,
                 DevisionOfBank      INT             NOT NULL    ,
@@ -317,14 +401,14 @@ class DataBase:
                 );""")
             # Charge value - The initial value/ The total sum of payments of the transaction.
             # Transaction value - The actual amount credited for
-            cls.__instance.cursor.execute("""
+            self.cursor.execute("""
                 CREATE TABLE IF NOT EXISTS BillTypes (
                     ID        SERIAL  PRIMARY KEY,
                     Name      TEXT    NOT NULL,
                     Color     TEXT    NOT NULL DEFAULT '#1e9d8b',
                     BillGroup TEXT
                 )""")
-            cls.__instance.cursor.execute("""
+            self.cursor.execute("""
                 CREATE TABLE IF NOT EXISTS BillEntries (
                     ID                SERIAL   PRIMARY KEY,
                     BillType_ID       INTEGER  NOT NULL REFERENCES BillTypes(ID) ON DELETE CASCADE,
@@ -336,11 +420,11 @@ class DataBase:
                     Note              TEXT,
                     Is_Filler         INTEGER  DEFAULT 0
                 )""")
-            cls.__instance.cursor.execute("""
+            self.cursor.execute("""
                 CREATE TABLE IF NOT EXISTS BillSuggestionsDismissed (
                     Name TEXT PRIMARY KEY
                 )""")
-            cls.__instance.cursor.execute("""
+            self.cursor.execute("""
                 CREATE TABLE IF NOT EXISTS SpotifyMembers (
                     ID             SERIAL  PRIMARY KEY,
                     Name           TEXT    NOT NULL,
@@ -348,7 +432,7 @@ class DataBase:
                     Is_Active      INTEGER DEFAULT 1,
                     Insertion_Date TEXT    NOT NULL
                 )""")
-            cls.__instance.cursor.execute("""
+            self.cursor.execute("""
                 CREATE TABLE IF NOT EXISTS SpotifyMonthlyCharge (
                     ID           SERIAL  PRIMARY KEY,
                     Month        TEXT    NOT NULL,
@@ -357,7 +441,7 @@ class DataBase:
                     TX_ID        INTEGER,
                     Confirmed    INTEGER DEFAULT 1
                 )""")
-            cls.__instance.cursor.execute("""
+            self.cursor.execute("""
                 CREATE TABLE IF NOT EXISTS SpotifyMemberPayments (
                     ID           SERIAL  PRIMARY KEY,
                     Member_ID    INTEGER NOT NULL REFERENCES SpotifyMembers(ID) ON DELETE CASCADE,
@@ -368,9 +452,9 @@ class DataBase:
                     Note         TEXT,
                     Dismissed    INTEGER DEFAULT 0
                 )""")
-            cls.__instance.connection.commit()
+            self.connection.commit()
 
-        return cls.__instance
+
 
     def insert_bank_transaction(self,
                                 Date: datetime,
@@ -615,7 +699,11 @@ class DataBase:
         '''
         Close The connection to the database.
         '''
-        self.connection.close()
+        conn = self.connection
+        self._local.connection = None
+        self._local.cursor = None
+        if conn is not None:
+            DataBase._get_pool().putconn(conn, close=True)
         DataBase.__instance = None
 
     # TODO: this function is currently not being used anywhere.

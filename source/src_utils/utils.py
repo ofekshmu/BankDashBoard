@@ -1947,6 +1947,7 @@ class utils:
                 ("electricity_meter_number", "מספר מונה חשמל"),
                 ("arnona_number", "מספר נכס"),
                 ("water_bill_property_number", "מס' נכס בחשבון המים"),
+                ("electricity_contract_number", "חוזה חשמל עדכני (אוגוסט 2026)"),
             ]
 
             info_card = tag("div", class_="kpi-card apartment-info-card")

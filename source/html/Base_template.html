@@ -7491,7 +7491,8 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       ['water_meter_number', 'מספר מונה מים'],
       ['electricity_meter_number', 'מספר מונה חשמל'],
       ['arnona_number', 'מספר נכס'],
-      ['water_bill_property_number', "מס' נכס בחשבון המים"]
+      ['water_bill_property_number', "מס' נכס בחשבון המים"],
+      ['electricity_contract_number', 'חוזה חשמל עדכני (אוגוסט 2026)']
     ];
     var aptInfoRows = aptInfoFields.map(function(f) {
       var val = aptInfo[f[0]];

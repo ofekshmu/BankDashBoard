@@ -7727,6 +7727,8 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   }
 
   var _tlPxPerDay = 6;
+  var _tlWindowMouseMove = null;
+  var _tlWindowMouseUp = null;
 
   function _tlDayMs() { return 24 * 60 * 60 * 1000; }
 
@@ -7787,6 +7789,10 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   function _tlWireDrag() {
     var wrap = document.getElementById('tl-axis-wrap');
     if (!wrap) return;
+
+    if (_tlWindowMouseMove) window.removeEventListener('mousemove', _tlWindowMouseMove);
+    if (_tlWindowMouseUp) window.removeEventListener('mouseup', _tlWindowMouseUp);
+
     var isDown = false, startX = 0, startScroll = 0;
     wrap.addEventListener('mousedown', function(e) {
       isDown = true;
@@ -7794,14 +7800,16 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       startX = e.pageX;
       startScroll = wrap.scrollLeft;
     });
-    window.addEventListener('mouseup', function() {
+    _tlWindowMouseUp = function() {
       isDown = false;
       wrap.classList.remove('dragging');
-    });
-    window.addEventListener('mousemove', function(e) {
+    };
+    _tlWindowMouseMove = function(e) {
       if (!isDown) return;
       wrap.scrollLeft = startScroll - (e.pageX - startX);
-    });
+    };
+    window.addEventListener('mouseup', _tlWindowMouseUp);
+    window.addEventListener('mousemove', _tlWindowMouseMove);
     wrap.addEventListener('wheel', function(e) {
       if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
         wrap.scrollLeft += e.deltaY;

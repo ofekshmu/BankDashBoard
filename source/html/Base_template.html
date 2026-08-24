@@ -7827,6 +7827,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
     }
     var columns = {};
+    var hasMarkers = false;
     (events || []).forEach(function(ev) {
       var d = new Date(ev.event_date);
       if (isNaN(d)) return;
@@ -7840,6 +7841,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       columns[col].forEach(function(item, stackIdx) {
         var ev = item.ev;
         var bubbleBottom = 16 + stackIdx * 46;
+        hasMarkers = true;
         html +=
           '<div class="tl-marker" style="right:' + item.rightPx + 'px" onclick="_tlOpenEditModal(' + ev.id + ')">' +
             '<div class="tl-dot" style="background:' + ev.color + '"></div>' +
@@ -7850,7 +7852,10 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       });
     });
 
-    scroll.innerHTML = html || '<div class="tl-empty">אין אירועים עדיין — לחצו על "הוסף אירוע"</div>';
+    if (!hasMarkers) {
+      html += '<div class="tl-empty">אין אירועים עדיין — לחצו על "הוסף אירוע"</div>';
+    }
+    scroll.innerHTML = html;
 
     scroll.onclick = function(e) {
       if (e.target.closest('.tl-marker')) return;

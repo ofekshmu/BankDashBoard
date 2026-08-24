@@ -7667,7 +7667,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       tl.style.display = '';
       if (bOv) bOv.classList.remove('active');
       if (bTl) bTl.classList.add('active');
-      if (!skipFetch || !_timelineEvents) {
+      if (!_timelineEvents) {
         _loadTimelineTab();
       } else {
         _renderTimeline(_timelineEvents);

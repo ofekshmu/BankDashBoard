@@ -5013,6 +5013,94 @@ def api_bills_entry(entry_id):
         return jsonify({'ok': False, 'error': str(e)})
 
 
+# ── Timeline (housing panel) routes ─────────────────────────────────────────
+
+@app.route('/api/timeline/events', methods=['GET', 'POST'])
+def api_timeline_events():
+    from database import DataBase
+    try:
+        db = DataBase()
+        db.ensure_timeline_tables()
+        if request.method == 'GET':
+            return jsonify({'ok': True, 'events': db.get_timeline_events()})
+        body  = request.get_json(force=True) or {}
+        name  = (body.get('name') or '').strip()
+        date  = (body.get('event_date') or '').strip()
+        color = (body.get('color') or '#1e9d8b').strip()
+        desc  = (body.get('description') or '').strip()
+        if not name:
+            return jsonify({'ok': False, 'error': 'Name required'})
+        if not date:
+            return jsonify({'ok': False, 'error': 'Date required'})
+        eid = db.add_timeline_event(name, date, desc, color)
+        db.commit_changes()
+        return jsonify({'ok': True, 'id': eid})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/timeline/events/<int:event_id>', methods=['PUT', 'DELETE'])
+def api_timeline_event(event_id):
+    from database import DataBase
+    try:
+        db = DataBase()
+        db.ensure_timeline_tables()
+        if request.method == 'PUT':
+            body  = request.get_json(force=True) or {}
+            name  = (body.get('name') or '').strip()
+            date  = (body.get('event_date') or '').strip()
+            color = (body.get('color') or '#1e9d8b').strip()
+            desc  = (body.get('description') or '').strip()
+            if not name:
+                return jsonify({'ok': False, 'error': 'Name required'})
+            if not date:
+                return jsonify({'ok': False, 'error': 'Date required'})
+            db.update_timeline_event(event_id, name, date, desc, color)
+            db.commit_changes()
+            return jsonify({'ok': True})
+        db.delete_timeline_event(event_id)
+        db.commit_changes()
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/timeline/events/<int:event_id>/transactions', methods=['POST'])
+def api_timeline_event_add_transaction(event_id):
+    from database import DataBase
+    try:
+        db = DataBase()
+        db.ensure_timeline_tables()
+        body  = request.get_json(force=True) or {}
+        table = (body.get('transaction_table') or '').strip()
+        tx_id = body.get('transaction_id')
+        note  = (body.get('note') or '').strip()
+        if table not in ('BankTransactions', 'CardTransactions') or tx_id is None:
+            return jsonify({'ok': False, 'error': 'Invalid transaction reference'})
+        link_id = db.add_timeline_link(event_id, table, int(tx_id), note)
+        db.commit_changes()
+        return jsonify({'ok': True, 'link_id': link_id})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/timeline/events/<int:event_id>/transactions/<int:link_id>', methods=['PUT', 'DELETE'])
+def api_timeline_event_transaction(event_id, link_id):
+    from database import DataBase
+    try:
+        db = DataBase()
+        if request.method == 'PUT':
+            body = request.get_json(force=True) or {}
+            db.update_timeline_link_note(link_id, (body.get('note') or '').strip())
+            db.commit_changes()
+            return jsonify({'ok': True})
+        db.delete_timeline_link(link_id)
+        db.commit_changes()
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
 @app.route('/api/bills/suggestions')
 def api_bills_suggestions():
     conn = _pg_conn()

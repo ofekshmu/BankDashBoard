@@ -7944,6 +7944,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   var _tlEditingId     = null;
   var _tlSelectedColor = TL_COLORS[0];
   var _tlPendingLinks  = [];
+  var _tlSubmitting    = false;
 
   function _tlBuildModal() {
     if (document.getElementById('tl-overlay')) {
@@ -8035,6 +8036,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   }
 
   async function _tlSubmitEvent() {
+    if (_tlSubmitting) return;
     var name = document.getElementById('tl-name-inp').value.trim();
     var date = document.getElementById('tl-date-inp').value;
     var desc = document.getElementById('tl-desc-inp').value.trim();
@@ -8048,18 +8050,32 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     var method = 'POST';
     if (_tlModalMode === 'edit') { url += '/' + _tlEditingId; method = 'PUT'; }
 
-    var resp = await fetch(url, { method: method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    var r = await resp.json();
-    if (!r.ok) { st.className = 'tl-status err'; st.textContent = r.error || 'שגיאה'; return; }
+    _tlSubmitting = true;
+    var saveBtn = document.querySelector('#tl-overlay .tl-btn-primary');
+    if (saveBtn) saveBtn.disabled = true;
+    try {
+      var resp = await fetch(url, { method: method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      var r = await resp.json();
+      if (!r.ok) { st.className = 'tl-status err'; st.textContent = r.error || 'שגיאה'; return; }
 
-    _tlCloseModal();
-    await _loadTimelineTab();
+      _tlCloseModal();
+      await _loadTimelineTab();
+    } finally {
+      _tlSubmitting = false;
+      if (saveBtn) saveBtn.disabled = false;
+    }
   }
 
   async function _tlDeleteEvent() {
     if (!_tlEditingId) return;
     if (!confirm('למחוק את האירוע? הפעולה לא הפיכה.')) return;
-    await fetch('/api/timeline/events/' + _tlEditingId, { method: 'DELETE' });
+    var st = document.getElementById('tl-status');
+    var resp = await fetch('/api/timeline/events/' + _tlEditingId, { method: 'DELETE' });
+    var r = await resp.json();
+    if (!r.ok) {
+      if (st) { st.className = 'tl-status err'; st.textContent = r.error || 'שגיאה במחיקה'; }
+      return;
+    }
     _tlCloseModal();
     await _loadTimelineTab();
   }

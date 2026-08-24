@@ -1016,6 +1016,39 @@ body {
 }
 .tl-field input:focus, .tl-field textarea:focus { outline:none; border-color:var(--teal); }
 .tl-field textarea { resize:vertical; min-height:56px; }
+.tl-date-btn {
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
+  padding:8px 11px; border:1.5px solid var(--border); border-radius:7px;
+  font-size:0.87em; font-family:inherit; color:var(--navy); background:var(--white);
+  cursor:pointer; text-align:right; width:100%;
+}
+.tl-date-btn:hover { border-color:var(--teal); }
+.tl-date-btn-icon { opacity:.6; font-size:0.95em; }
+.tl-cal-wrap { position:relative; }
+.tl-cal-dropdown {
+  position:absolute; z-index:10; top:calc(100% + 4px); right:0;
+  width:260px; background:var(--white); border:1.5px solid var(--teal);
+  border-radius:10px; box-shadow:var(--shadow-md); padding:10px;
+}
+.tl-cal-dropdown.hidden { display:none; }
+.tl-cal-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+.tl-cal-nav-btn {
+  width:26px; height:26px; border-radius:6px; border:1px solid var(--border);
+  background:var(--white); cursor:pointer; font-weight:700; color:var(--navy);
+  display:flex; align-items:center; justify-content:center;
+}
+.tl-cal-nav-btn:hover { border-color:var(--teal); color:var(--teal); }
+.tl-cal-title { font-size:0.85em; font-weight:700; color:var(--navy); }
+.tl-cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; }
+.tl-cal-dow { font-size:0.68em; font-weight:700; color:var(--text-muted); text-align:center; padding:3px 0; }
+.tl-cal-day {
+  font-size:0.8em; text-align:center; padding:6px 0; border-radius:6px;
+  cursor:pointer; color:var(--navy); background:none; border:none; font-family:inherit;
+}
+.tl-cal-day:hover { background:var(--teal-light); }
+.tl-cal-day.tl-cal-day-muted { color:var(--text-muted); opacity:.45; }
+.tl-cal-day.tl-cal-day-today { font-weight:700; text-decoration:underline; }
+.tl-cal-day.tl-cal-day-sel { background:var(--teal); color:#fff; font-weight:700; }
 .tl-color-row { display:flex; gap:6px; flex-wrap:wrap; }
 .tl-c-opt { width:22px; height:22px; border-radius:50%; border:2.5px solid transparent; cursor:pointer; transition:transform .1s; }
 .tl-c-opt:hover { transform:scale(1.15); }
@@ -7990,7 +8023,17 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         '<button class="tl-modal-close" onclick="_tlCloseModal()">✕</button>' +
         '<h2 class="tl-modal-title" id="tl-modal-title">הוסף אירוע</h2>' +
         '<div class="tl-field"><label>שם האירוע</label><input id="tl-name-inp" type="text" maxlength="80" placeholder="למשל: תשלום מקדמה"></div>' +
-        '<div class="tl-field"><label>תאריך</label><input id="tl-date-inp" type="date"></div>' +
+        '<div class="tl-field">' +
+          '<label>תאריך</label>' +
+          '<div class="tl-cal-wrap">' +
+            '<input id="tl-date-inp" type="date" style="display:none">' +
+            '<button type="button" class="tl-date-btn" id="tl-date-btn" onclick="_tlCalToggle()">' +
+              '<span id="tl-date-btn-text">בחר תאריך</span>' +
+              '<span class="tl-date-btn-icon">📅</span>' +
+            '</button>' +
+            '<div class="tl-cal-dropdown hidden" id="tl-cal-dropdown"></div>' +
+          '</div>' +
+        '</div>' +
         '<div class="tl-field"><label>תיאור (אופציונלי)</label><textarea id="tl-desc-inp" placeholder="פרטים נוספים…"></textarea></div>' +
         '<div class="tl-field"><label>צבע</label><div class="tl-color-row" id="tl-color-row"></div></div>' +
         '<div class="tl-field">' +
@@ -8011,6 +8054,121 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     document.body.appendChild(div);
     _tlRenderColorRow();
   }
+
+  var _tlCalViewYear  = null;
+  var _tlCalViewMonth = null; // 0-11
+
+  var TL_MONTH_NAMES = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+  var TL_DOW_NAMES = ['א','ב','ג','ד','ה','ו','ש'];
+
+  function _tlFmtLocalDate(y, m, d) {
+    // Local (not UTC) YYYY-MM-DD — Date#toISOString() converts to UTC and
+    // shifts the date backward a full day in positive-offset timezones
+    // (e.g. Israel, UTC+3) when built from a local midnight, so it must
+    // not be used for calendar day strings.
+    var mm = String(m + 1).padStart(2, '0');
+    var dd = String(d).padStart(2, '0');
+    return y + '-' + mm + '-' + dd;
+  }
+
+  function _tlSetDateValue(dateStr) {
+    var inp = document.getElementById('tl-date-inp');
+    if (inp) inp.value = dateStr;
+    var btnText = document.getElementById('tl-date-btn-text');
+    if (btnText) btnText.textContent = dateStr || 'בחר תאריך';
+    if (dateStr) {
+      var d = new Date(dateStr);
+      if (!isNaN(d)) {
+        _tlCalViewYear = d.getFullYear();
+        _tlCalViewMonth = d.getMonth();
+      }
+    }
+  }
+
+  function _tlCalToggle() {
+    var dd = document.getElementById('tl-cal-dropdown');
+    if (!dd) return;
+    if (dd.classList.contains('hidden')) {
+      var inp = document.getElementById('tl-date-inp');
+      var base = (inp && inp.value) ? new Date(inp.value) : new Date();
+      if (isNaN(base)) base = new Date();
+      _tlCalViewYear = base.getFullYear();
+      _tlCalViewMonth = base.getMonth();
+      _tlRenderCalendar();
+      dd.classList.remove('hidden');
+    } else {
+      dd.classList.add('hidden');
+    }
+  }
+
+  function _tlCalPrevMonth() {
+    _tlCalViewMonth--;
+    if (_tlCalViewMonth < 0) { _tlCalViewMonth = 11; _tlCalViewYear--; }
+    _tlRenderCalendar();
+  }
+
+  function _tlCalNextMonth() {
+    _tlCalViewMonth++;
+    if (_tlCalViewMonth > 11) { _tlCalViewMonth = 0; _tlCalViewYear++; }
+    _tlRenderCalendar();
+  }
+
+  function _tlRenderCalendar() {
+    var dd = document.getElementById('tl-cal-dropdown');
+    if (!dd) return;
+    var inp = document.getElementById('tl-date-inp');
+    var selected = inp && inp.value ? inp.value : '';
+    var today = new Date();
+    var todayStr = _tlFmtLocalDate(today.getFullYear(), today.getMonth(), today.getDate());
+
+    var firstOfMonth = new Date(_tlCalViewYear, _tlCalViewMonth, 1);
+    var startDow = firstOfMonth.getDay(); // 0=Sunday
+    var daysInMonth = new Date(_tlCalViewYear, _tlCalViewMonth + 1, 0).getDate();
+    var daysInPrevMonth = new Date(_tlCalViewYear, _tlCalViewMonth, 0).getDate();
+
+    var html = '<div class="tl-cal-header">' +
+      '<button type="button" class="tl-cal-nav-btn" onclick="_tlCalNextMonth()">›</button>' +
+      '<span class="tl-cal-title">' + TL_MONTH_NAMES[_tlCalViewMonth] + ' ' + _tlCalViewYear + '</span>' +
+      '<button type="button" class="tl-cal-nav-btn" onclick="_tlCalPrevMonth()">‹</button>' +
+      '</div>' +
+      '<div class="tl-cal-grid">';
+
+    TL_DOW_NAMES.forEach(function(n) { html += '<div class="tl-cal-dow">' + n + '</div>'; });
+
+    var cell, cellStr, cls;
+    for (cell = 0; cell < startDow; cell++) {
+      var pd = daysInPrevMonth - startDow + cell + 1;
+      html += '<button type="button" class="tl-cal-day tl-cal-day-muted" disabled>' + pd + '</button>';
+    }
+    for (var day = 1; day <= daysInMonth; day++) {
+      cellStr = _tlFmtLocalDate(_tlCalViewYear, _tlCalViewMonth, day);
+      cls = 'tl-cal-day';
+      if (cellStr === todayStr) cls += ' tl-cal-day-today';
+      if (cellStr === selected) cls += ' tl-cal-day-sel';
+      html += '<button type="button" class="' + cls + '" onclick="_tlCalPick(\'' + cellStr + '\')">' + day + '</button>';
+    }
+    var totalCells = startDow + daysInMonth;
+    var trailing = (7 - (totalCells % 7)) % 7;
+    for (cell = 1; cell <= trailing; cell++) {
+      html += '<button type="button" class="tl-cal-day tl-cal-day-muted" disabled>' + cell + '</button>';
+    }
+    html += '</div>';
+    dd.innerHTML = html;
+  }
+
+  function _tlCalPick(dateStr) {
+    _tlSetDateValue(dateStr);
+    var dd = document.getElementById('tl-cal-dropdown');
+    if (dd) dd.classList.add('hidden');
+  }
+
+  document.addEventListener('click', function(e) {
+    var dd = document.getElementById('tl-cal-dropdown');
+    var btn = document.getElementById('tl-date-btn');
+    if (!dd || dd.classList.contains('hidden')) return;
+    if (dd.contains(e.target) || (btn && btn.contains(e.target))) return;
+    dd.classList.add('hidden');
+  });
 
   function _tlRenderColorRow() {
     var row = document.getElementById('tl-color-row');
@@ -8038,13 +8196,15 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     _tlSelectedColor = TL_COLORS[0];
     _tlBuildModal();
     document.getElementById('tl-name-inp').value = '';
-    document.getElementById('tl-date-inp').value = prefillDate || new Date().toISOString().slice(0, 10);
+    _tlSetDateValue(prefillDate || new Date().toISOString().slice(0, 10));
     document.getElementById('tl-desc-inp').value = '';
     document.getElementById('tl-modal-title').textContent = 'הוסף אירוע';
     document.getElementById('tl-delete-btn').style.display = 'none';
     document.getElementById('tl-status').textContent = '';
     _tlRenderLinkList();
     document.getElementById('tl-overlay').classList.remove('hidden');
+    var _ddInit = document.getElementById('tl-cal-dropdown');
+    if (_ddInit) _ddInit.classList.add('hidden');
     setTimeout(function() {
       var inp = document.getElementById('tl-name-inp');
       if (inp) inp.focus();
@@ -8065,13 +8225,15 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     });
     _tlBuildModal();
     document.getElementById('tl-name-inp').value = ev.name;
-    document.getElementById('tl-date-inp').value = ev.event_date;
+    _tlSetDateValue(ev.event_date);
     document.getElementById('tl-desc-inp').value = ev.description || '';
     document.getElementById('tl-modal-title').textContent = 'ערוך אירוע';
     document.getElementById('tl-delete-btn').style.display = '';
     document.getElementById('tl-status').textContent = '';
     _tlRenderLinkList();
     document.getElementById('tl-overlay').classList.remove('hidden');
+    var _ddInit = document.getElementById('tl-cal-dropdown');
+    if (_ddInit) _ddInit.classList.add('hidden');
   }
 
   async function _tlSubmitEvent() {
@@ -8502,6 +8664,10 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   window._tlRemoveLink      = _tlRemoveLink;
   window._tlUpdateLinkNote  = _tlUpdateLinkNote;
   window._tlSelectTx        = _tlSelectTx;
+  window._tlCalToggle    = _tlCalToggle;
+  window._tlCalPrevMonth = _tlCalPrevMonth;
+  window._tlCalNextMonth = _tlCalNextMonth;
+  window._tlCalPick      = _tlCalPick;
   document.addEventListener('DOMContentLoaded', _initDynamicPage);
 
   // Set --btn-half CSS var so the progress panel anchors at button center

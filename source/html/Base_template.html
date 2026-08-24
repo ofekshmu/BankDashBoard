@@ -913,7 +913,17 @@ body {
 .hs-subtab-btn:hover { border-color:var(--teal); color:var(--teal); }
 .hs-subtab-btn.active { background:var(--teal); border-color:var(--teal); color:#fff; }
 
-/* ── Timeline widget ──────────────────────────────────────────── */
+/* ── Housing panel sub-tabs ───────────────────────────────────── */
+.hs-subtabs { display:flex; gap:8px; margin-bottom:14px; margin-top:56px; }
+.hs-subtab-btn {
+  padding:7px 16px; border-radius:20px; border:1.5px solid var(--border);
+  background:var(--white); color:var(--text-sub); font-family:inherit;
+  font-size:0.85em; font-weight:600; cursor:pointer; transition:all .12s;
+}
+.hs-subtab-btn:hover { border-color:var(--teal); color:var(--teal); }
+.hs-subtab-btn.active { background:var(--teal); border-color:var(--teal); color:#fff; }
+
+/* ── Timeline widget (vertical) ──────────────────────────────────── */
 .tl-toolbar { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; flex-wrap:wrap; }
 .tl-toolbar-left { display:flex; align-items:center; gap:8px; }
 .tl-zoom-btn {
@@ -929,19 +939,19 @@ body {
 .tl-add-btn:hover { background:var(--teal-dark); }
 
 .tl-axis-wrap {
-  position:relative; overflow-x:auto; overflow-y:hidden; height:220px;
+  position:relative; overflow-y:auto; overflow-x:hidden; height:560px;
   border:1.5px solid var(--border); border-radius:10px; background:var(--white);
-  cursor:grab;
+  -webkit-overflow-scrolling:touch; touch-action:pan-y;
 }
-.tl-axis-wrap.dragging { cursor:grabbing; user-select:none; }
-.tl-axis-scroll { position:relative; height:100%; }
-.tl-baseline { position:absolute; top:50%; right:0; left:0; height:2px; background:var(--border); }
-.tl-tick { position:absolute; top:calc(50% - 4px); width:1px; height:8px; background:var(--text-muted); }
-.tl-tick-label { position:absolute; top:calc(50% + 10px); font-size:0.72em; color:var(--text-muted); white-space:nowrap; transform:translateX(50%); }
+.tl-axis-scroll { position:relative; width:100%; }
+.tl-baseline { position:absolute; top:0; bottom:0; right:50%; width:3px; margin-right:-1.5px; background:var(--navy); opacity:.18; border-radius:2px; }
+.tl-tick { position:absolute; right:calc(50% - 8px); width:16px; height:2px; background:var(--text-muted); }
+.tl-tick-label { position:absolute; right:calc(50% + 12px); font-size:0.72em; font-weight:700; color:var(--text-muted); white-space:nowrap; transform:translateY(-50%); }
 .tl-empty { text-align:center; color:var(--text-muted); padding:60px 20px; }
 
 @media (max-width:700px) {
-  .tl-axis-wrap { height:170px; }
+  .hs-subtabs { margin-top:48px; }
+  .tl-axis-wrap { height:440px; }
   .tl-tick-label { font-size:0.65em; }
 }
 
@@ -951,26 +961,42 @@ body {
 .tl-switch-knob { position:absolute; top:2px; right:2px; width:16px; height:16px; border-radius:50%; background:#fff; transition:right .15s; box-shadow:0 1px 2px rgba(0,0,0,.2); }
 .tl-switch.on .tl-switch-knob { right:18px; }
 
-.tl-marker { position:absolute; top:50%; transform:translate(50%, -50%); }
-.tl-dot { width:10px; height:10px; border-radius:50%; border:2px solid #fff; box-shadow:0 0 0 1px rgba(0,0,0,.15); cursor:pointer; }
+.tl-marker { position:absolute; }
+.tl-marker.tl-side-right { right:50%; margin-right:14px; }
+.tl-marker.tl-side-left { left:50%; margin-left:14px; }
+.tl-dot {
+  position:absolute; top:0; width:14px; height:14px; border-radius:50%;
+  border:3px solid #fff; box-shadow:0 0 0 2px rgba(0,0,0,.22); cursor:pointer;
+  transform:translateY(-50%);
+}
+.tl-marker.tl-side-right .tl-dot { right:-21px; }
+.tl-marker.tl-side-left .tl-dot { left:-21px; }
 .tl-bubble {
-  position:absolute; bottom:16px; right:50%; transform:translateX(50%);
-  min-width:70px; max-width:180px; padding:6px 10px; border-radius:9px; color:#fff;
-  font-size:0.76em; font-weight:600; cursor:pointer; box-shadow:var(--shadow-md);
+  position:relative; top:0; transform:translateY(-50%);
+  min-width:90px; max-width:190px; padding:7px 11px; border-radius:9px; color:#fff;
+  font-size:0.78em; font-weight:700; cursor:pointer; box-shadow:0 3px 10px rgba(0,0,0,.25);
   transition:opacity .12s, transform .12s;
   background:var(--bubble-color, var(--teal));
 }
+.tl-marker.tl-side-right .tl-bubble { margin-right:14px; }
+.tl-marker.tl-side-left .tl-bubble { margin-left:14px; }
 .tl-bubble::after {
-  content:''; position:absolute; top:100%; right:50%; transform:translateX(50%);
-  border:5px solid transparent; border-top-color:var(--bubble-color, var(--teal));
+  content:''; position:absolute; top:50%; margin-top:-5px;
+  border:5px solid transparent;
 }
-.tl-bubble-date { font-weight:400; opacity:.85; font-size:0.9em; }
-.tl-axis-wrap.tl-minimize-mode .tl-marker:not(:hover) .tl-bubble { opacity:0; pointer-events:none; transform:translateX(50%) scale(.6); }
-.tl-axis-wrap.tl-minimize-mode .tl-marker:not(:hover) .tl-dot { width:8px; height:8px; }
-.tl-axis-wrap.tl-minimize-mode .tl-marker:hover .tl-dot { width:12px; height:12px; }
+.tl-marker.tl-side-right .tl-bubble::after { right:100%; border-right-color:var(--bubble-color, var(--teal)); }
+.tl-marker.tl-side-left .tl-bubble::after { left:100%; border-left-color:var(--bubble-color, var(--teal)); }
+.tl-bubble-date { font-weight:500; opacity:.85; font-size:0.9em; }
+.tl-axis-wrap.tl-minimize-mode .tl-marker:not(:hover) .tl-bubble { opacity:0; pointer-events:none; transform:translateY(-50%) scale(.6); }
+.tl-axis-wrap.tl-minimize-mode .tl-marker:not(:hover) .tl-dot { width:10px; height:10px; }
+.tl-axis-wrap.tl-minimize-mode .tl-marker:hover .tl-dot { width:16px; height:16px; }
 
 @media (max-width:700px) {
-  .tl-bubble { font-size:0.7em; max-width:130px; }
+  .tl-bubble { font-size:0.72em; max-width:140px; padding:6px 9px; }
+  .tl-marker.tl-side-right { margin-right:10px; }
+  .tl-marker.tl-side-left { margin-left:10px; }
+  .tl-marker.tl-side-right .tl-dot { right:-17px; }
+  .tl-marker.tl-side-left .tl-dot { left:-17px; }
 }
 
 /* ── Timeline event modal ─────────────────────────────────────── */
@@ -7810,8 +7836,6 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
 
   var _tlPxPerDay = 6;
   var _tlMinimizeMode = (localStorage.getItem('tl_minimize_mode') !== '0');
-  var _tlWindowMouseMove = null;
-  var _tlWindowMouseUp = null;
 
   function _tlDayMs() { return 24 * 60 * 60 * 1000; }
 
@@ -7835,7 +7859,6 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         '<div class="tl-axis-scroll" id="tl-axis-scroll"></div>' +
       '</div>';
     _tlDrawAxis(events);
-    _tlWireDrag();
   }
 
   function _tlZoom(factor) {
@@ -7867,16 +7890,20 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     maxD = new Date(maxD.getTime() + 30 * _tlDayMs());
 
     var totalDays = Math.max(1, Math.round((maxD - minD) / _tlDayMs()));
-    var widthPx = totalDays * _tlPxPerDay;
-    scroll.style.width = widthPx + 'px';
+    var heightPx = totalDays * _tlPxPerDay;
+    scroll.style.height = heightPx + 'px';
+
+    function _tlTopForDate(d) {
+      // top = 0 is the most recent (maxD); further down = further back in time.
+      return ((maxD - d) / _tlDayMs()) * _tlPxPerDay;
+    }
 
     var html = '<div class="tl-baseline"></div>';
     var cursor = new Date(minD.getFullYear(), minD.getMonth(), 1);
     while (cursor <= maxD) {
-      var offsetDays = (cursor - minD) / _tlDayMs();
-      var rightPx = offsetDays * _tlPxPerDay;
-      html += '<div class="tl-tick" style="right:' + rightPx + 'px"></div>';
-      html += '<div class="tl-tick-label" style="right:' + rightPx + 'px">' +
+      var topPx = _tlTopForDate(cursor);
+      html += '<div class="tl-tick" style="top:' + topPx + 'px"></div>';
+      html += '<div class="tl-tick-label" style="top:' + topPx + 'px">' +
         (cursor.getMonth() + 1) + '/' + cursor.getFullYear() + '</div>';
       cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
     }
@@ -7914,44 +7941,12 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     scroll.onclick = function(e) {
       if (e.target.closest('.tl-marker')) return;
       var rect = scroll.getBoundingClientRect();
-      var xFromRight = rect.right - e.clientX;
-      var days = Math.round(xFromRight / _tlPxPerDay);
-      var clickedDate = new Date(minD.getTime() + days * _tlDayMs());
+      var yFromTop = e.clientY - rect.top;
+      var days = Math.round(yFromTop / _tlPxPerDay);
+      var clickedDate = new Date(maxD.getTime() - days * _tlDayMs());
       if (isNaN(clickedDate)) return;
       _tlOpenAddModal(clickedDate.toISOString().slice(0, 10));
     };
-  }
-
-  function _tlWireDrag() {
-    var wrap = document.getElementById('tl-axis-wrap');
-    if (!wrap) return;
-
-    if (_tlWindowMouseMove) window.removeEventListener('mousemove', _tlWindowMouseMove);
-    if (_tlWindowMouseUp) window.removeEventListener('mouseup', _tlWindowMouseUp);
-
-    var isDown = false, startX = 0, startScroll = 0;
-    wrap.addEventListener('mousedown', function(e) {
-      isDown = true;
-      wrap.classList.add('dragging');
-      startX = e.pageX;
-      startScroll = wrap.scrollLeft;
-    });
-    _tlWindowMouseUp = function() {
-      isDown = false;
-      wrap.classList.remove('dragging');
-    };
-    _tlWindowMouseMove = function(e) {
-      if (!isDown) return;
-      wrap.scrollLeft = startScroll - (e.pageX - startX);
-    };
-    window.addEventListener('mouseup', _tlWindowMouseUp);
-    window.addEventListener('mousemove', _tlWindowMouseMove);
-    wrap.addEventListener('wheel', function(e) {
-      if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
-        wrap.scrollLeft += e.deltaY;
-        e.preventDefault();
-      }
-    }, { passive: false });
   }
 
   var TL_COLORS = ['#1e9d8b','#3b82f6','#f59e0b','#ef4444','#10b981',

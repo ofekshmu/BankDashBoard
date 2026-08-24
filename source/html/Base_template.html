@@ -903,6 +903,16 @@ body {
   .cf-kpi-value { font-size: 0.92em; }
 }
 
+/* ── Housing panel sub-tabs ───────────────────────────────────── */
+.hs-subtabs { display:flex; gap:8px; margin-bottom:14px; }
+.hs-subtab-btn {
+  padding:7px 16px; border-radius:20px; border:1.5px solid var(--border);
+  background:var(--white); color:var(--text-sub); font-family:inherit;
+  font-size:0.85em; font-weight:600; cursor:pointer; transition:all .12s;
+}
+.hs-subtab-btn:hover { border-color:var(--teal); color:var(--teal); }
+.hs-subtab-btn.active { background:var(--teal); border-color:var(--teal); color:#fff; }
+
 /* ── Panels ──────────────────────────────────────────────── */
 .panel { display: none; animation: fadein 0.22s ease; }
 .panel.active { display: block; }
@@ -7225,6 +7235,8 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   // ── Housing / Mortgage ─────────────────────────────────────────────────
   var _HS_CACHE_KEY = 'hs_v1';
   var _HS_CACHE_TTL = 30 * 60 * 1000; // 30 min
+  var _housingActiveTab = 'overview';
+  var _timelineEvents   = null;
 
   function _loadHousingPanel(force) {
     if (!force) {
@@ -7511,7 +7523,13 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         '</div></div>';
     }
 
-    panel.innerHTML = html;
+    panel.innerHTML =
+      '<div class="hs-subtabs">' +
+        '<button class="hs-subtab-btn active" id="hs-subtab-overview" onclick="_switchHousingTab(\'overview\')">סקירה כללית</button>' +
+        '<button class="hs-subtab-btn" id="hs-subtab-timeline" onclick="_switchHousingTab(\'timeline\')">ציר זמן</button>' +
+      '</div>' +
+      '<div id="housing-overview">' + html + '</div>' +
+      '<div id="housing-timeline" style="display:none"></div>';
 
     // ── Rate slider interactivity ──────────────────────────────────────────
     var slider = document.getElementById('hs-rate-slider');
@@ -7632,6 +7650,53 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         });
       }
     }
+
+    _switchHousingTab(_housingActiveTab, true);
+  }
+
+  // ── Housing panel sub-tabs ──────────────────────────────────────────────
+  function _switchHousingTab(tab, skipFetch) {
+    _housingActiveTab = tab;
+    var ov  = document.getElementById('housing-overview');
+    var tl  = document.getElementById('housing-timeline');
+    var bOv = document.getElementById('hs-subtab-overview');
+    var bTl = document.getElementById('hs-subtab-timeline');
+    if (!ov || !tl) return;
+    if (tab === 'timeline') {
+      ov.style.display = 'none';
+      tl.style.display = '';
+      if (bOv) bOv.classList.remove('active');
+      if (bTl) bTl.classList.add('active');
+      if (!skipFetch || !_timelineEvents) {
+        _loadTimelineTab();
+      } else {
+        _renderTimeline(_timelineEvents);
+      }
+    } else {
+      tl.style.display = 'none';
+      ov.style.display = '';
+      if (bTl) bTl.classList.remove('active');
+      if (bOv) bOv.classList.add('active');
+    }
+  }
+
+  async function _loadTimelineTab() {
+    var tl = document.getElementById('housing-timeline');
+    if (!tl) return;
+    tl.innerHTML = '<div class="tl-empty">טוען…</div>';
+    try {
+      var r = await fetch('/api/timeline/events');
+      var d = await r.json();
+      _timelineEvents = d.events || [];
+    } catch (e) {
+      _timelineEvents = [];
+    }
+    _renderTimeline(_timelineEvents);
+  }
+
+  function _renderTimeline(events) {
+    var tl = document.getElementById('housing-timeline');
+    if (tl) tl.innerHTML = '<div class="tl-empty">ציר הזמן ייבנה במשימה הבאה</div>';
   }
 
   // ── Main render orchestrator ───────────────────────────────────────────
@@ -7863,6 +7928,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   window._renderAccountsChart = _renderAccountsChart;
   window._loadHousingPanel    = _loadHousingPanel;
   window._regenHousing        = _regenHousing;
+  window._switchHousingTab    = _switchHousingTab;
   document.addEventListener('DOMContentLoaded', _initDynamicPage);
 
   // Set --btn-half CSS var so the progress panel anchors at button center

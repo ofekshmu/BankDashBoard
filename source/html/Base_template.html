@@ -937,6 +937,14 @@ body {
 .tl-baseline { position:absolute; top:0; bottom:0; right:50%; width:3px; margin-right:-1.5px; background:var(--navy); opacity:.18; border-radius:2px; }
 .tl-tick { position:absolute; right:calc(50% - 8px); width:16px; height:2px; background:var(--text-muted); }
 .tl-tick-label { position:absolute; right:calc(50% + 12px); font-size:0.72em; font-weight:700; color:var(--text-muted); white-space:nowrap; transform:translateY(-50%); }
+.tl-year-line { position:absolute; right:0; left:0; height:14px; margin-top:-7px; }
+.tl-year-line svg { display:block; width:100%; height:100%; }
+.tl-year-label {
+  position:absolute; right:8px; margin-top:-9px;
+  font-size:0.78em; font-weight:800; color:var(--navy);
+  background:var(--white); padding:1px 8px; border-radius:6px;
+  box-shadow:0 1px 3px rgba(0,0,0,.15);
+}
 .tl-empty { text-align:center; color:var(--text-muted); padding:60px 20px; }
 
 @media (max-width:700px) {
@@ -7865,6 +7873,19 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     if (wrap) wrap.classList.toggle('tl-minimize-mode', _tlMinimizeMode);
   }
 
+  function _tlJaggedLineSVG() {
+    var pts = [];
+    var segments = 40;
+    for (var i = 0; i <= segments; i++) {
+      var x = (i / segments) * 100;
+      var y = (i % 2 === 0) ? 3 : 11;
+      pts.push(x + ',' + y);
+    }
+    return '<svg viewBox="0 0 100 14" preserveAspectRatio="none">' +
+      '<polyline points="' + pts.join(' ') + '" fill="none" stroke="var(--navy)" stroke-width="1.5" opacity="0.35" vector-effect="non-scaling-stroke"></polyline>' +
+      '</svg>';
+  }
+
   function _tlDrawAxis(events) {
     var scroll = document.getElementById('tl-axis-scroll');
     if (!scroll) return;
@@ -7896,6 +7917,15 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       html += '<div class="tl-tick-label" style="top:' + topPx + 'px">' +
         (cursor.getMonth() + 1) + '/' + cursor.getFullYear() + '</div>';
       cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
+    }
+
+    var yearCursor = new Date(minD.getFullYear(), 0, 1);
+    if (yearCursor < minD) yearCursor = new Date(minD.getFullYear() + 1, 0, 1);
+    while (yearCursor <= maxD) {
+      var yearTop = _tlTopForDate(yearCursor);
+      html += '<div class="tl-year-line" style="top:' + yearTop + 'px">' + _tlJaggedLineSVG() + '</div>';
+      html += '<div class="tl-year-label" style="top:' + yearTop + 'px">' + yearCursor.getFullYear() + '</div>';
+      yearCursor = new Date(yearCursor.getFullYear() + 1, 0, 1);
     }
     var TL_SLOT_H = 64; // px reserved per marker on its side, enough for a 2-line bubble
 

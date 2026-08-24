@@ -913,6 +913,38 @@ body {
 .hs-subtab-btn:hover { border-color:var(--teal); color:var(--teal); }
 .hs-subtab-btn.active { background:var(--teal); border-color:var(--teal); color:#fff; }
 
+/* ── Timeline widget ──────────────────────────────────────────── */
+.tl-toolbar { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; flex-wrap:wrap; }
+.tl-toolbar-left { display:flex; align-items:center; gap:8px; }
+.tl-zoom-btn {
+  width:30px; height:30px; border-radius:8px; border:1.5px solid var(--border);
+  background:var(--white); color:var(--navy); font-size:1.1em; font-weight:700;
+  cursor:pointer; display:flex; align-items:center; justify-content:center;
+}
+.tl-zoom-btn:hover { border-color:var(--teal); color:var(--teal); }
+.tl-add-btn {
+  padding:7px 14px; border-radius:8px; border:none; background:var(--teal); color:#fff;
+  font-family:inherit; font-size:0.85em; font-weight:700; cursor:pointer;
+}
+.tl-add-btn:hover { background:var(--teal-dark); }
+
+.tl-axis-wrap {
+  position:relative; overflow-x:auto; overflow-y:hidden; height:220px;
+  border:1.5px solid var(--border); border-radius:10px; background:var(--white);
+  cursor:grab;
+}
+.tl-axis-wrap.dragging { cursor:grabbing; user-select:none; }
+.tl-axis-scroll { position:relative; height:100%; }
+.tl-baseline { position:absolute; top:50%; right:0; left:0; height:2px; background:var(--border); }
+.tl-tick { position:absolute; top:calc(50% - 4px); width:1px; height:8px; background:var(--text-muted); }
+.tl-tick-label { position:absolute; top:calc(50% + 10px); font-size:0.72em; color:var(--text-muted); white-space:nowrap; transform:translateX(50%); }
+.tl-empty { text-align:center; color:var(--text-muted); padding:60px 20px; }
+
+@media (max-width:700px) {
+  .tl-axis-wrap { height:170px; }
+  .tl-tick-label { font-size:0.65em; }
+}
+
 /* ── Panels ──────────────────────────────────────────────── */
 .panel { display: none; animation: fadein 0.22s ease; }
 .panel.active { display: block; }
@@ -7694,9 +7726,88 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     _renderTimeline(_timelineEvents);
   }
 
+  var _tlPxPerDay = 6;
+
+  function _tlDayMs() { return 24 * 60 * 60 * 1000; }
+
   function _renderTimeline(events) {
     var tl = document.getElementById('housing-timeline');
-    if (tl) tl.innerHTML = '<div class="tl-empty">ציר הזמן ייבנה במשימה הבאה</div>';
+    if (!tl) return;
+    tl.innerHTML =
+      '<div class="tl-toolbar">' +
+        '<div class="tl-toolbar-left">' +
+          '<button class="tl-zoom-btn" onclick="_tlZoom(1.4)">+</button>' +
+          '<button class="tl-zoom-btn" onclick="_tlZoom(0.714)">−</button>' +
+        '</div>' +
+        '<button class="tl-add-btn" onclick="alert(\'ייווסף במשימה 6\')">+ הוסף אירוע</button>' +
+      '</div>' +
+      '<div class="tl-axis-wrap" id="tl-axis-wrap">' +
+        '<div class="tl-axis-scroll" id="tl-axis-scroll"></div>' +
+      '</div>';
+    _tlDrawAxis(events);
+    _tlWireDrag();
+  }
+
+  function _tlZoom(factor) {
+    _tlPxPerDay = Math.max(1.5, Math.min(80, _tlPxPerDay * factor));
+    _tlDrawAxis(_timelineEvents || []);
+  }
+
+  function _tlDrawAxis(events) {
+    var scroll = document.getElementById('tl-axis-scroll');
+    if (!scroll) return;
+
+    var today = new Date();
+    var dates = (events || [])
+      .map(function(e) { return new Date(e.event_date); })
+      .filter(function(d) { return !isNaN(d); });
+    dates.push(today);
+    var minD = new Date(Math.min.apply(null, dates.map(function(d) { return d.getTime(); })));
+    var maxD = new Date(Math.max.apply(null, dates.map(function(d) { return d.getTime(); })));
+    minD = new Date(minD.getTime() - 30 * _tlDayMs());
+    maxD = new Date(maxD.getTime() + 30 * _tlDayMs());
+
+    var totalDays = Math.max(1, Math.round((maxD - minD) / _tlDayMs()));
+    var widthPx = totalDays * _tlPxPerDay;
+    scroll.style.width = widthPx + 'px';
+
+    var html = '<div class="tl-baseline"></div>';
+    var cursor = new Date(minD.getFullYear(), minD.getMonth(), 1);
+    while (cursor <= maxD) {
+      var offsetDays = (cursor - minD) / _tlDayMs();
+      var rightPx = offsetDays * _tlPxPerDay;
+      html += '<div class="tl-tick" style="right:' + rightPx + 'px"></div>';
+      html += '<div class="tl-tick-label" style="right:' + rightPx + 'px">' +
+        (cursor.getMonth() + 1) + '/' + cursor.getFullYear() + '</div>';
+      cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
+    }
+    scroll.innerHTML = html;
+  }
+
+  function _tlWireDrag() {
+    var wrap = document.getElementById('tl-axis-wrap');
+    if (!wrap) return;
+    var isDown = false, startX = 0, startScroll = 0;
+    wrap.addEventListener('mousedown', function(e) {
+      isDown = true;
+      wrap.classList.add('dragging');
+      startX = e.pageX;
+      startScroll = wrap.scrollLeft;
+    });
+    window.addEventListener('mouseup', function() {
+      isDown = false;
+      wrap.classList.remove('dragging');
+    });
+    window.addEventListener('mousemove', function(e) {
+      if (!isDown) return;
+      wrap.scrollLeft = startScroll - (e.pageX - startX);
+    });
+    wrap.addEventListener('wheel', function(e) {
+      if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+        wrap.scrollLeft += e.deltaY;
+        e.preventDefault();
+      }
+    }, { passive: false });
   }
 
   // ── Main render orchestrator ───────────────────────────────────────────
@@ -7929,6 +8040,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   window._loadHousingPanel    = _loadHousingPanel;
   window._regenHousing        = _regenHousing;
   window._switchHousingTab    = _switchHousingTab;
+  window._tlZoom               = _tlZoom;
   document.addEventListener('DOMContentLoaded', _initDynamicPage);
 
   // Set --btn-half CSS var so the progress panel anchors at button center

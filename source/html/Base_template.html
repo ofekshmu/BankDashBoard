@@ -904,7 +904,13 @@ body {
 }
 
 /* ── Housing panel sub-tabs ───────────────────────────────────── */
-.hs-subtabs { display:flex; gap:8px; margin-bottom:14px; margin-top:64px; }
+.hs-subtabs {
+  position:fixed; top:18px; right:70px; z-index:401;
+  display:flex; gap:6px; margin:0;
+  background:var(--white); padding:4px; border-radius:24px;
+  border:1.5px solid var(--border); box-shadow:var(--shadow-sm);
+}
+#housing-overview, #housing-timeline { margin-top:64px; }
 .hs-subtab-btn {
   padding:7px 16px; border-radius:20px; border:1.5px solid var(--border);
   background:var(--white); color:var(--text-sub); font-family:inherit;
@@ -948,7 +954,9 @@ body {
 .tl-empty { text-align:center; color:var(--text-muted); padding:60px 20px; }
 
 @media (max-width:700px) {
-  .hs-subtabs { margin-top:60px; }
+  .hs-subtabs { right:62px; gap:4px; padding:3px; }
+  .hs-subtab-btn { padding:6px 11px; font-size:0.78em; }
+  #housing-overview, #housing-timeline { margin-top:60px; }
   .tl-axis-wrap { height:440px; }
   .tl-tick-label { font-size:0.65em; }
 }

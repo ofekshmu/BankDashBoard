@@ -7844,8 +7844,8 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         hasMarkers = true;
         html +=
           '<div class="tl-marker" style="right:' + item.rightPx + 'px" onclick="_tlOpenEditModal(' + ev.id + ')">' +
-            '<div class="tl-dot" style="background:' + ev.color + '"></div>' +
-            '<div class="tl-bubble" style="--bubble-color:' + ev.color + ';bottom:' + bubbleBottom + 'px">' +
+            '<div class="tl-dot" style="background:' + _esc(ev.color) + '"></div>' +
+            '<div class="tl-bubble" style="--bubble-color:' + _esc(ev.color) + ';bottom:' + bubbleBottom + 'px">' +
               _esc(ev.name) + '<div class="tl-bubble-date">' + ev.event_date + '</div>' +
             '</div>' +
           '</div>';

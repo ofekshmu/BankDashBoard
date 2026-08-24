@@ -973,6 +973,44 @@ body {
   .tl-bubble { font-size:0.7em; max-width:130px; }
 }
 
+/* ── Timeline event modal ─────────────────────────────────────── */
+.tl-overlay { position:fixed; inset:0; background:rgba(15,22,45,.45); z-index:700; display:flex; align-items:center; justify-content:center; }
+.tl-overlay.hidden { display:none; }
+.tl-modal {
+  background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow-md);
+  width:min(480px, 94vw); max-height:90vh; overflow-y:auto; padding:20px 22px 18px;
+  display:flex; flex-direction:column; gap:13px; position:relative;
+}
+.tl-modal-close { position:absolute; top:12px; left:14px; background:none; border:none; font-size:1.15em; cursor:pointer; color:var(--text-muted); }
+.tl-modal-close:hover { color:var(--red); }
+.tl-modal-title { font-size:1em; font-weight:700; padding-left:18px; }
+.tl-field { display:flex; flex-direction:column; gap:4px; }
+.tl-field label { font-size:0.78em; font-weight:600; color:var(--text-sub); }
+.tl-field input, .tl-field textarea {
+  padding:7px 10px; border:1.5px solid var(--border); border-radius:7px;
+  font-size:0.87em; font-family:inherit; color:var(--navy); background:var(--white);
+}
+.tl-field input:focus, .tl-field textarea:focus { outline:none; border-color:var(--teal); }
+.tl-field textarea { resize:vertical; min-height:56px; }
+.tl-color-row { display:flex; gap:6px; flex-wrap:wrap; }
+.tl-c-opt { width:22px; height:22px; border-radius:50%; border:2.5px solid transparent; cursor:pointer; transition:transform .1s; }
+.tl-c-opt:hover { transform:scale(1.15); }
+.tl-c-opt.sel { border-color:var(--navy); }
+.tl-btn {
+  padding:8px 16px; border-radius:8px; border:1.5px solid var(--border);
+  background:var(--white); color:var(--text-sub); font-family:inherit;
+  font-size:0.85em; font-weight:600; cursor:pointer;
+}
+.tl-btn:hover { border-color:var(--teal); color:var(--teal); }
+.tl-btn-primary { background:var(--teal); border-color:var(--teal); color:#fff; }
+.tl-btn-primary:hover { background:var(--teal-dark); color:#fff; }
+.tl-btn-danger { color:var(--red); border-color:transparent; background:none; }
+.tl-btn-danger:hover { text-decoration:underline; }
+.tl-modal-actions { display:flex; gap:8px; justify-content:space-between; margin-top:2px; }
+.tl-modal-actions-right { display:flex; gap:8px; }
+.tl-status { font-size:0.8em; min-height:1em; }
+.tl-status.err { color:var(--red); }
+
 /* ── Panels ──────────────────────────────────────────────── */
 .panel { display: none; animation: fadein 0.22s ease; }
 .panel.active { display: block; }
@@ -7775,7 +7813,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
             '<span>הקטן בריחוף</span>' +
           '</div>' +
         '</div>' +
-        '<button class="tl-add-btn" onclick="alert(\'ייווסף במשימה 6\')">+ הוסף אירוע</button>' +
+        '<button class="tl-add-btn" onclick="_tlOpenAddModal(null)">+ הוסף אירוע</button>' +
       '</div>' +
       '<div class="tl-axis-wrap' + (_tlMinimizeMode ? ' tl-minimize-mode' : '') + '" id="tl-axis-wrap">' +
         '<div class="tl-axis-scroll" id="tl-axis-scroll"></div>' +
@@ -7898,6 +7936,132 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         e.preventDefault();
       }
     }, { passive: false });
+  }
+
+  var TL_COLORS = ['#1e9d8b','#3b82f6','#f59e0b','#ef4444','#10b981',
+                    '#8b5cf6','#f97316','#06b6d4','#e879f9','#84cc16'];
+  var _tlModalMode     = 'add';
+  var _tlEditingId     = null;
+  var _tlSelectedColor = TL_COLORS[0];
+  var _tlPendingLinks  = [];
+
+  function _tlBuildModal() {
+    if (document.getElementById('tl-overlay')) {
+      _tlRenderColorRow();
+      return;
+    }
+    var div = document.createElement('div');
+    div.className = 'tl-overlay hidden';
+    div.id = 'tl-overlay';
+    div.innerHTML =
+      '<div class="tl-modal">' +
+        '<button class="tl-modal-close" onclick="_tlCloseModal()">✕</button>' +
+        '<h2 class="tl-modal-title" id="tl-modal-title">הוסף אירוע</h2>' +
+        '<div class="tl-field"><label>שם האירוע</label><input id="tl-name-inp" type="text" maxlength="80" placeholder="למשל: תשלום מקדמה"></div>' +
+        '<div class="tl-field"><label>תאריך</label><input id="tl-date-inp" type="date"></div>' +
+        '<div class="tl-field"><label>תיאור (אופציונלי)</label><textarea id="tl-desc-inp" placeholder="פרטים נוספים…"></textarea></div>' +
+        '<div class="tl-field"><label>צבע</label><div class="tl-color-row" id="tl-color-row"></div></div>' +
+        '<div class="tl-status" id="tl-status"></div>' +
+        '<div class="tl-modal-actions">' +
+          '<button class="tl-btn tl-btn-danger" onclick="_tlDeleteEvent()" id="tl-delete-btn" style="display:none">מחק אירוע</button>' +
+          '<div class="tl-modal-actions-right">' +
+            '<button class="tl-btn" onclick="_tlCloseModal()">ביטול</button>' +
+            '<button class="tl-btn tl-btn-primary" onclick="_tlSubmitEvent()">שמור</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(div);
+    _tlRenderColorRow();
+  }
+
+  function _tlRenderColorRow() {
+    var row = document.getElementById('tl-color-row');
+    if (!row) return;
+    row.innerHTML = TL_COLORS.map(function(c) {
+      return '<div class="tl-c-opt' + (c === _tlSelectedColor ? ' sel' : '') + '" style="background:' + c + '" data-color="' + c + '" onclick="_tlSelectColor(this)"></div>';
+    }).join('');
+  }
+
+  function _tlSelectColor(el) {
+    document.querySelectorAll('#tl-color-row .tl-c-opt').forEach(function(e) { e.classList.remove('sel'); });
+    el.classList.add('sel');
+    _tlSelectedColor = el.dataset.color;
+  }
+
+  function _tlCloseModal() {
+    var ov = document.getElementById('tl-overlay');
+    if (ov) ov.classList.add('hidden');
+  }
+
+  function _tlOpenAddModal(prefillDate) {
+    _tlModalMode = 'add';
+    _tlEditingId = null;
+    _tlPendingLinks = [];
+    _tlSelectedColor = TL_COLORS[0];
+    _tlBuildModal();
+    document.getElementById('tl-name-inp').value = '';
+    document.getElementById('tl-date-inp').value = prefillDate || new Date().toISOString().slice(0, 10);
+    document.getElementById('tl-desc-inp').value = '';
+    document.getElementById('tl-modal-title').textContent = 'הוסף אירוע';
+    document.getElementById('tl-delete-btn').style.display = 'none';
+    document.getElementById('tl-status').textContent = '';
+    document.getElementById('tl-overlay').classList.remove('hidden');
+    setTimeout(function() {
+      var inp = document.getElementById('tl-name-inp');
+      if (inp) inp.focus();
+    }, 60);
+  }
+
+  function _tlOpenEditModal(eventId) {
+    var ev = (_timelineEvents || []).find(function(e) { return e.id === eventId; });
+    if (!ev) return;
+    _tlModalMode = 'edit';
+    _tlEditingId = eventId;
+    _tlSelectedColor = ev.color;
+    _tlPendingLinks = (ev.transactions || []).map(function(t) {
+      return {
+        link_id: t.link_id, transaction_table: t.transaction_table, transaction_id: t.transaction_id,
+        note: t.note, tx_name: t.tx_name, tx_date: t.tx_date, tx_amount: t.tx_amount,
+      };
+    });
+    _tlBuildModal();
+    document.getElementById('tl-name-inp').value = ev.name;
+    document.getElementById('tl-date-inp').value = ev.event_date;
+    document.getElementById('tl-desc-inp').value = ev.description || '';
+    document.getElementById('tl-modal-title').textContent = 'ערוך אירוע';
+    document.getElementById('tl-delete-btn').style.display = '';
+    document.getElementById('tl-status').textContent = '';
+    document.getElementById('tl-overlay').classList.remove('hidden');
+  }
+
+  async function _tlSubmitEvent() {
+    var name = document.getElementById('tl-name-inp').value.trim();
+    var date = document.getElementById('tl-date-inp').value;
+    var desc = document.getElementById('tl-desc-inp').value.trim();
+    var st = document.getElementById('tl-status');
+    st.className = 'tl-status';
+    if (!name) { st.className = 'tl-status err'; st.textContent = 'נא להזין שם אירוע'; return; }
+    if (!date) { st.className = 'tl-status err'; st.textContent = 'נא לבחור תאריך'; return; }
+
+    var body = { name: name, event_date: date, description: desc, color: _tlSelectedColor };
+    var url = '/api/timeline/events';
+    var method = 'POST';
+    if (_tlModalMode === 'edit') { url += '/' + _tlEditingId; method = 'PUT'; }
+
+    var resp = await fetch(url, { method: method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    var r = await resp.json();
+    if (!r.ok) { st.className = 'tl-status err'; st.textContent = r.error || 'שגיאה'; return; }
+
+    _tlCloseModal();
+    await _loadTimelineTab();
+  }
+
+  async function _tlDeleteEvent() {
+    if (!_tlEditingId) return;
+    if (!confirm('למחוק את האירוע? הפעולה לא הפיכה.')) return;
+    await fetch('/api/timeline/events/' + _tlEditingId, { method: 'DELETE' });
+    _tlCloseModal();
+    await _loadTimelineTab();
   }
 
   // ── Main render orchestrator ───────────────────────────────────────────
@@ -8132,6 +8296,12 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   window._switchHousingTab    = _switchHousingTab;
   window._tlZoom               = _tlZoom;
   window._tlToggleMinimize     = _tlToggleMinimize;
+  window._tlOpenAddModal  = _tlOpenAddModal;
+  window._tlOpenEditModal = _tlOpenEditModal;
+  window._tlSelectColor   = _tlSelectColor;
+  window._tlCloseModal    = _tlCloseModal;
+  window._tlSubmitEvent   = _tlSubmitEvent;
+  window._tlDeleteEvent   = _tlDeleteEvent;
   document.addEventListener('DOMContentLoaded', _initDynamicPage);
 
   // Set --btn-half CSS var so the progress panel anchors at button center

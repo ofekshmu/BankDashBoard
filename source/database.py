@@ -2876,6 +2876,117 @@ class DataBase:
             (name,)
         )
 
+    # ── Timeline events (housing panel) ─────────────────────────────────────
+
+    def ensure_timeline_tables(self) -> None:
+        """Create TimelineEvents and TimelineEventTransactions if absent."""
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS TimelineEvents (
+                ID          SERIAL    PRIMARY KEY,
+                Name        TEXT      NOT NULL,
+                Event_Date  DATE      NOT NULL,
+                Description TEXT,
+                Color       TEXT      NOT NULL DEFAULT '#1e9d8b',
+                Created_At  TIMESTAMP DEFAULT now()
+            )
+        """)
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS TimelineEventTransactions (
+                ID                SERIAL  PRIMARY KEY,
+                Event_ID          INTEGER NOT NULL REFERENCES TimelineEvents(ID) ON DELETE CASCADE,
+                Transaction_Table TEXT    NOT NULL,
+                Transaction_ID    INTEGER NOT NULL,
+                Note              TEXT
+            )
+        """)
+        self.connection.commit()
+
+    def get_timeline_events(self) -> list:
+        c = self.connection.cursor()
+        c.execute("""
+            SELECT ID, Name, Event_Date, Description, Color
+            FROM TimelineEvents
+            ORDER BY Event_Date ASC, ID ASC
+        """)
+        events = {}
+        order = []
+        for r in c.fetchall():
+            events[r[0]] = {
+                'id': r[0],
+                'name': r[1],
+                'event_date': str(r[2])[:10] if r[2] else None,
+                'description': r[3] or '',
+                'color': r[4] or '#1e9d8b',
+                'transactions': [],
+            }
+            order.append(r[0])
+        c.execute("""
+            SELECT
+                l.ID, l.Event_ID, l.Transaction_Table, l.Transaction_ID, l.Note,
+                CASE WHEN l.Transaction_Table='BankTransactions' THEN b.name
+                     WHEN l.Transaction_Table='CardTransactions' THEN cc.name
+                END AS tx_name,
+                CASE WHEN l.Transaction_Table='BankTransactions' THEN CAST(b.date AS text)
+                     WHEN l.Transaction_Table='CardTransactions' THEN CAST(cc.executed_date AS text)
+                END AS tx_date,
+                CASE WHEN l.Transaction_Table='BankTransactions' THEN (b.income - b.out)
+                     WHEN l.Transaction_Table='CardTransactions' THEN cc.transaction_value
+                END AS tx_amount
+            FROM TimelineEventTransactions l
+            LEFT JOIN BankTransactions b
+                ON l.Transaction_Table='BankTransactions' AND l.Transaction_ID=b.id
+            LEFT JOIN CardTransactions cc
+                ON l.Transaction_Table='CardTransactions' AND l.Transaction_ID=cc.id
+            ORDER BY l.ID ASC
+        """)
+        for r in c.fetchall():
+            ev = events.get(r[1])
+            if ev is None:
+                continue
+            ev['transactions'].append({
+                'link_id': r[0],
+                'transaction_table': r[2],
+                'transaction_id': r[3],
+                'note': r[4] or '',
+                'tx_name': r[5],
+                'tx_date': str(r[6])[:10] if r[6] else None,
+                'tx_amount': float(r[7]) if r[7] is not None else None,
+            })
+        c.close()
+        return [events[eid] for eid in order]
+
+    def add_timeline_event(self, name: str, event_date: str, description: str = '', color: str = '#1e9d8b') -> int:
+        row = self.cursor.execute("""
+            INSERT INTO TimelineEvents (Name, Event_Date, Description, Color)
+            VALUES (%s, %s, %s, %s) RETURNING ID
+        """, (name, event_date, description or None, color)).fetchone()
+        return row[0]
+
+    def update_timeline_event(self, event_id: int, name: str, event_date: str, description: str = '', color: str = '#1e9d8b') -> None:
+        self.cursor.execute("""
+            UPDATE TimelineEvents SET Name=%s, Event_Date=%s, Description=%s, Color=%s
+            WHERE ID=%s
+        """, (name, event_date, description or None, color, event_id))
+
+    def delete_timeline_event(self, event_id: int) -> None:
+        self.cursor.execute("DELETE FROM TimelineEvents WHERE ID=%s", (event_id,))
+
+    def add_timeline_link(self, event_id: int, transaction_table: str, transaction_id: int, note: str = '') -> int:
+        row = self.cursor.execute("""
+            INSERT INTO TimelineEventTransactions (Event_ID, Transaction_Table, Transaction_ID, Note)
+            VALUES (%s, %s, %s, %s) RETURNING ID
+        """, (event_id, transaction_table, transaction_id, note or None)).fetchone()
+        return row[0]
+
+    def update_timeline_link_note(self, link_id: int, note: str = '') -> None:
+        self.cursor.execute(
+            "UPDATE TimelineEventTransactions SET Note=%s WHERE ID=%s",
+            (note or None, link_id)
+        )
+
+    def delete_timeline_link(self, link_id: int) -> None:
+        self.cursor.execute("DELETE FROM TimelineEventTransactions WHERE ID=%s", (link_id,))
+
     # ── Spotify Tracker ────────────────────────────────────────────────────────
 
     def ensure_spotify_tables(self) -> None:

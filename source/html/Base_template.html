@@ -945,6 +945,34 @@ body {
   .tl-tick-label { font-size:0.65em; }
 }
 
+.tl-toggle-wrap { display:flex; align-items:center; gap:7px; font-size:0.8em; color:var(--text-sub); }
+.tl-switch { position:relative; width:36px; height:20px; border-radius:12px; background:var(--border); cursor:pointer; transition:background .15s; flex-shrink:0; }
+.tl-switch.on { background:var(--teal); }
+.tl-switch-knob { position:absolute; top:2px; right:2px; width:16px; height:16px; border-radius:50%; background:#fff; transition:right .15s; box-shadow:0 1px 2px rgba(0,0,0,.2); }
+.tl-switch.on .tl-switch-knob { right:18px; }
+
+.tl-marker { position:absolute; top:50%; transform:translate(50%, -50%); }
+.tl-dot { width:10px; height:10px; border-radius:50%; border:2px solid #fff; box-shadow:0 0 0 1px rgba(0,0,0,.15); cursor:pointer; }
+.tl-bubble {
+  position:absolute; bottom:16px; right:50%; transform:translateX(50%);
+  min-width:70px; max-width:180px; padding:6px 10px; border-radius:9px; color:#fff;
+  font-size:0.76em; font-weight:600; cursor:pointer; box-shadow:var(--shadow-md);
+  transition:opacity .12s, transform .12s;
+  background:var(--bubble-color, var(--teal));
+}
+.tl-bubble::after {
+  content:''; position:absolute; top:100%; right:50%; transform:translateX(50%);
+  border:5px solid transparent; border-top-color:var(--bubble-color, var(--teal));
+}
+.tl-bubble-date { font-weight:400; opacity:.85; font-size:0.9em; }
+.tl-axis-wrap.tl-minimize-mode .tl-marker:not(:hover) .tl-bubble { opacity:0; pointer-events:none; transform:translateX(50%) scale(.6); }
+.tl-axis-wrap.tl-minimize-mode .tl-marker:not(:hover) .tl-dot { width:8px; height:8px; }
+.tl-axis-wrap.tl-minimize-mode .tl-marker:hover .tl-dot { width:12px; height:12px; }
+
+@media (max-width:700px) {
+  .tl-bubble { font-size:0.7em; max-width:130px; }
+}
+
 /* ── Panels ──────────────────────────────────────────────── */
 .panel { display: none; animation: fadein 0.22s ease; }
 .panel.active { display: block; }
@@ -7727,6 +7755,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   }
 
   var _tlPxPerDay = 6;
+  var _tlMinimizeMode = (localStorage.getItem('tl_minimize_mode') !== '0');
   var _tlWindowMouseMove = null;
   var _tlWindowMouseUp = null;
 
@@ -7740,10 +7769,15 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         '<div class="tl-toolbar-left">' +
           '<button class="tl-zoom-btn" onclick="_tlZoom(1.4)">+</button>' +
           '<button class="tl-zoom-btn" onclick="_tlZoom(0.714)">−</button>' +
+          '<div class="tl-toggle-wrap">' +
+            '<span>הצג תמיד</span>' +
+            '<div class="tl-switch' + (_tlMinimizeMode ? ' on' : '') + '" id="tl-minimize-switch" onclick="_tlToggleMinimize()"><div class="tl-switch-knob"></div></div>' +
+            '<span>הקטן בריחוף</span>' +
+          '</div>' +
         '</div>' +
         '<button class="tl-add-btn" onclick="alert(\'ייווסף במשימה 6\')">+ הוסף אירוע</button>' +
       '</div>' +
-      '<div class="tl-axis-wrap" id="tl-axis-wrap">' +
+      '<div class="tl-axis-wrap' + (_tlMinimizeMode ? ' tl-minimize-mode' : '') + '" id="tl-axis-wrap">' +
         '<div class="tl-axis-scroll" id="tl-axis-scroll"></div>' +
       '</div>';
     _tlDrawAxis(events);
@@ -7753,6 +7787,15 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   function _tlZoom(factor) {
     _tlPxPerDay = Math.max(1.5, Math.min(80, _tlPxPerDay * factor));
     _tlDrawAxis(_timelineEvents || []);
+  }
+
+  function _tlToggleMinimize() {
+    _tlMinimizeMode = !_tlMinimizeMode;
+    localStorage.setItem('tl_minimize_mode', _tlMinimizeMode ? '1' : '0');
+    var sw = document.getElementById('tl-minimize-switch');
+    var wrap = document.getElementById('tl-axis-wrap');
+    if (sw) sw.classList.toggle('on', _tlMinimizeMode);
+    if (wrap) wrap.classList.toggle('tl-minimize-mode', _tlMinimizeMode);
   }
 
   function _tlDrawAxis(events) {
@@ -7783,7 +7826,41 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         (cursor.getMonth() + 1) + '/' + cursor.getFullYear() + '</div>';
       cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
     }
-    scroll.innerHTML = html;
+    var columns = {};
+    (events || []).forEach(function(ev) {
+      var d = new Date(ev.event_date);
+      if (isNaN(d)) return;
+      var offsetDays = (d - minD) / _tlDayMs();
+      var rightPx = Math.round(offsetDays * _tlPxPerDay);
+      var col = Math.round(rightPx / 24);
+      if (!columns[col]) columns[col] = [];
+      columns[col].push({ ev: ev, rightPx: rightPx });
+    });
+    Object.keys(columns).forEach(function(col) {
+      columns[col].forEach(function(item, stackIdx) {
+        var ev = item.ev;
+        var bubbleBottom = 16 + stackIdx * 46;
+        html +=
+          '<div class="tl-marker" style="right:' + item.rightPx + 'px" onclick="_tlOpenEditModal(' + ev.id + ')">' +
+            '<div class="tl-dot" style="background:' + ev.color + '"></div>' +
+            '<div class="tl-bubble" style="--bubble-color:' + ev.color + ';bottom:' + bubbleBottom + 'px">' +
+              _esc(ev.name) + '<div class="tl-bubble-date">' + ev.event_date + '</div>' +
+            '</div>' +
+          '</div>';
+      });
+    });
+
+    scroll.innerHTML = html || '<div class="tl-empty">אין אירועים עדיין — לחצו על "הוסף אירוע"</div>';
+
+    scroll.onclick = function(e) {
+      if (e.target.closest('.tl-marker')) return;
+      var rect = scroll.getBoundingClientRect();
+      var xFromRight = rect.right - e.clientX;
+      var days = Math.round(xFromRight / _tlPxPerDay);
+      var clickedDate = new Date(minD.getTime() + days * _tlDayMs());
+      if (isNaN(clickedDate)) return;
+      _tlOpenAddModal(clickedDate.toISOString().slice(0, 10));
+    };
   }
 
   function _tlWireDrag() {
@@ -8049,6 +8126,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   window._regenHousing        = _regenHousing;
   window._switchHousingTab    = _switchHousingTab;
   window._tlZoom               = _tlZoom;
+  window._tlToggleMinimize     = _tlToggleMinimize;
   document.addEventListener('DOMContentLoaded', _initDynamicPage);
 
   // Set --btn-half CSS var so the progress panel anchors at button center

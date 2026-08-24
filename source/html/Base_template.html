@@ -8087,27 +8087,45 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         ? ((_timelineEvents || []).find(function(e) { return e.id === eventId; }) || {}).transactions || []
         : [];
       var keptLinkIds = _tlPendingLinks.filter(function(l) { return l.link_id; }).map(function(l) { return l.link_id; });
+      var syncFailures = [];
 
-      for (var i = 0; i < existing.length; i++) {
-        if (keptLinkIds.indexOf(existing[i].link_id) === -1) {
-          await fetch('/api/timeline/events/' + eventId + '/transactions/' + existing[i].link_id, { method: 'DELETE' });
-        }
-      }
-      for (var j = 0; j < _tlPendingLinks.length; j++) {
-        var l = _tlPendingLinks[j];
-        if (l.link_id) {
-          var orig = existing.find(function(e) { return e.link_id === l.link_id; });
-          if (orig && (orig.note || '') !== (l.note || '')) {
-            await fetch('/api/timeline/events/' + eventId + '/transactions/' + l.link_id, {
-              method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ note: l.note }),
-            });
+      try {
+        for (var i = 0; i < existing.length; i++) {
+          if (keptLinkIds.indexOf(existing[i].link_id) === -1) {
+            var delResp = await fetch('/api/timeline/events/' + eventId + '/transactions/' + existing[i].link_id, { method: 'DELETE' });
+            var delR = await delResp.json();
+            if (!delR.ok) syncFailures.push(delR.error || 'שגיאה במחיקת עסקה מקושרת');
           }
-          continue;
         }
-        await fetch('/api/timeline/events/' + eventId + '/transactions', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ transaction_table: l.transaction_table, transaction_id: l.transaction_id, note: l.note }),
-        });
+        for (var j = 0; j < _tlPendingLinks.length; j++) {
+          var l = _tlPendingLinks[j];
+          if (l.link_id) {
+            var orig = existing.find(function(e) { return e.link_id === l.link_id; });
+            if (orig && (orig.note || '') !== (l.note || '')) {
+              var putResp = await fetch('/api/timeline/events/' + eventId + '/transactions/' + l.link_id, {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ note: l.note }),
+              });
+              var putR = await putResp.json();
+              if (!putR.ok) syncFailures.push(putR.error || 'שגיאה בעדכון הערה');
+            }
+            continue;
+          }
+          var postResp = await fetch('/api/timeline/events/' + eventId + '/transactions', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ transaction_table: l.transaction_table, transaction_id: l.transaction_id, note: l.note }),
+          });
+          var postR = await postResp.json();
+          if (!postR.ok) syncFailures.push(postR.error || 'שגיאה בקישור עסקה');
+        }
+      } catch (syncErr) {
+        syncFailures.push('שגיאת רשת בסנכרון עסקאות מקושרות');
+      }
+
+      if (syncFailures.length) {
+        st.className = 'tl-status err';
+        st.textContent = syncFailures.join('; ');
+        await _loadTimelineTab();
+        return;
       }
 
       _tlCloseModal();

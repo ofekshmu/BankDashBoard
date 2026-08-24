@@ -7897,30 +7897,30 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         (cursor.getMonth() + 1) + '/' + cursor.getFullYear() + '</div>';
       cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
     }
-    var columns = {};
-    var hasMarkers = false;
-    (events || []).forEach(function(ev) {
-      var d = new Date(ev.event_date);
-      if (isNaN(d)) return;
-      var offsetDays = (d - minD) / _tlDayMs();
-      var rightPx = Math.round(offsetDays * _tlPxPerDay);
-      var col = Math.round(rightPx / 24);
-      if (!columns[col]) columns[col] = [];
-      columns[col].push({ ev: ev, rightPx: rightPx });
-    });
-    Object.keys(columns).forEach(function(col) {
-      columns[col].forEach(function(item, stackIdx) {
-        var ev = item.ev;
-        var bubbleBottom = 16 + stackIdx * 46;
-        hasMarkers = true;
-        html +=
-          '<div class="tl-marker" style="right:' + item.rightPx + 'px" onclick="_tlOpenEditModal(' + ev.id + ')">' +
-            '<div class="tl-dot" style="background:' + _esc(ev.color) + '"></div>' +
-            '<div class="tl-bubble" style="--bubble-color:' + _esc(ev.color) + ';bottom:' + bubbleBottom + 'px">' +
-              _esc(ev.name) + '<div class="tl-bubble-date">' + ev.event_date + '</div>' +
-            '</div>' +
-          '</div>';
-      });
+    var TL_SLOT_H = 64; // px reserved per marker on its side, enough for a 2-line bubble
+
+    var sortedEvents = (events || [])
+      .map(function(ev) { return { ev: ev, d: new Date(ev.event_date) }; })
+      .filter(function(item) { return !isNaN(item.d); })
+      .sort(function(a, b) { return b.d - a.d; }); // newest (top) first
+
+    var hasMarkers = sortedEvents.length > 0;
+    var sideBottom = { left: -Infinity, right: -Infinity }; // next available top-px per side
+
+    sortedEvents.forEach(function(item) {
+      var ev = item.ev;
+      var idealTop = _tlTopForDate(item.d);
+      var side = sideBottom.left <= sideBottom.right ? 'left' : 'right';
+      var placedTop = Math.max(idealTop, sideBottom[side]);
+      sideBottom[side] = placedTop + TL_SLOT_H;
+
+      html +=
+        '<div class="tl-marker tl-side-' + side + '" style="top:' + placedTop + 'px" onclick="_tlOpenEditModal(' + ev.id + ')">' +
+          '<div class="tl-dot" style="background:' + _esc(ev.color) + '"></div>' +
+          '<div class="tl-bubble" style="--bubble-color:' + _esc(ev.color) + '">' +
+            _esc(ev.name) + '<div class="tl-bubble-date">' + ev.event_date + '</div>' +
+          '</div>' +
+        '</div>';
     });
 
     if (!hasMarkers) {

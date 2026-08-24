@@ -1010,6 +1010,22 @@ body {
 .tl-modal-actions-right { display:flex; gap:8px; }
 .tl-status { font-size:0.8em; min-height:1em; }
 .tl-status.err { color:var(--red); }
+.tl-link-list { display:flex; flex-direction:column; gap:6px; margin-top:6px; }
+.tl-link-row-wrap { display:flex; flex-direction:column; gap:4px; }
+.tl-link-row { display:flex; align-items:center; gap:8px; padding:6px 9px; background:var(--teal-light); border-radius:7px; font-size:0.8em; }
+.tl-link-row-name { font-weight:600; flex:1; }
+.tl-link-row-date { color:var(--text-muted); flex-shrink:0; }
+.tl-link-remove { background:none; border:none; color:var(--text-muted); cursor:pointer; flex-shrink:0; font-size:1em; }
+.tl-link-remove:hover { color:var(--red); }
+.tl-link-row-note {
+  width:100%; padding:5px 8px; border:1px solid var(--border); border-radius:6px;
+  font-size:0.85em; font-family:inherit; box-sizing:border-box;
+}
+.tl-tx-search-results { max-height:180px; overflow-y:auto; border:1.5px solid var(--teal); border-radius:8px; margin-top:4px; }
+.tl-tx-search-results.hidden { display:none; }
+.tl-tx-search-row { padding:7px 10px; cursor:pointer; display:flex; gap:10px; font-size:0.82em; border-bottom:1px solid var(--border); }
+.tl-tx-search-row:last-child { border-bottom:none; }
+.tl-tx-search-row:hover { background:var(--teal-light); }
 
 /* ── Panels ──────────────────────────────────────────────── */
 .panel { display: none; animation: fadein 0.22s ease; }
@@ -7962,6 +7978,12 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         '<div class="tl-field"><label>תאריך</label><input id="tl-date-inp" type="date"></div>' +
         '<div class="tl-field"><label>תיאור (אופציונלי)</label><textarea id="tl-desc-inp" placeholder="פרטים נוספים…"></textarea></div>' +
         '<div class="tl-field"><label>צבע</label><div class="tl-color-row" id="tl-color-row"></div></div>' +
+        '<div class="tl-field">' +
+          '<label>קשר עסקאות (אופציונלי)</label>' +
+          '<input id="tl-tx-search-inp" type="text" placeholder="חפש עסקה בסביבת התאריך…" oninput="_tlSearchTx(this.value)">' +
+          '<div class="tl-tx-search-results hidden" id="tl-tx-search-results"></div>' +
+          '<div class="tl-link-list" id="tl-link-list"></div>' +
+        '</div>' +
         '<div class="tl-status" id="tl-status"></div>' +
         '<div class="tl-modal-actions">' +
           '<button class="tl-btn tl-btn-danger" onclick="_tlDeleteEvent()" id="tl-delete-btn" style="display:none">מחק אירוע</button>' +
@@ -8006,6 +8028,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     document.getElementById('tl-modal-title').textContent = 'הוסף אירוע';
     document.getElementById('tl-delete-btn').style.display = 'none';
     document.getElementById('tl-status').textContent = '';
+    _tlRenderLinkList();
     document.getElementById('tl-overlay').classList.remove('hidden');
     setTimeout(function() {
       var inp = document.getElementById('tl-name-inp');
@@ -8032,6 +8055,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     document.getElementById('tl-modal-title').textContent = 'ערוך אירוע';
     document.getElementById('tl-delete-btn').style.display = '';
     document.getElementById('tl-status').textContent = '';
+    _tlRenderLinkList();
     document.getElementById('tl-overlay').classList.remove('hidden');
   }
 
@@ -8058,6 +8082,34 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       var r = await resp.json();
       if (!r.ok) { st.className = 'tl-status err'; st.textContent = r.error || 'שגיאה'; return; }
 
+      var eventId = _tlModalMode === 'edit' ? _tlEditingId : r.id;
+      var existing = _tlModalMode === 'edit'
+        ? ((_timelineEvents || []).find(function(e) { return e.id === eventId; }) || {}).transactions || []
+        : [];
+      var keptLinkIds = _tlPendingLinks.filter(function(l) { return l.link_id; }).map(function(l) { return l.link_id; });
+
+      for (var i = 0; i < existing.length; i++) {
+        if (keptLinkIds.indexOf(existing[i].link_id) === -1) {
+          await fetch('/api/timeline/events/' + eventId + '/transactions/' + existing[i].link_id, { method: 'DELETE' });
+        }
+      }
+      for (var j = 0; j < _tlPendingLinks.length; j++) {
+        var l = _tlPendingLinks[j];
+        if (l.link_id) {
+          var orig = existing.find(function(e) { return e.link_id === l.link_id; });
+          if (orig && (orig.note || '') !== (l.note || '')) {
+            await fetch('/api/timeline/events/' + eventId + '/transactions/' + l.link_id, {
+              method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ note: l.note }),
+            });
+          }
+          continue;
+        }
+        await fetch('/api/timeline/events/' + eventId + '/transactions', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ transaction_table: l.transaction_table, transaction_id: l.transaction_id, note: l.note }),
+        });
+      }
+
       _tlCloseModal();
       await _loadTimelineTab();
     } finally {
@@ -8078,6 +8130,89 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     }
     _tlCloseModal();
     await _loadTimelineTab();
+  }
+
+  var _tlTxSearchTimer = null;
+  var _tlLastSearchResults = [];
+
+  function _tlRenderLinkList() {
+    var list = document.getElementById('tl-link-list');
+    if (!list) return;
+    if (!_tlPendingLinks.length) { list.innerHTML = ''; return; }
+    list.innerHTML = _tlPendingLinks.map(function(l, idx) {
+      return '<div class="tl-link-row-wrap">' +
+        '<div class="tl-link-row">' +
+          '<span class="tl-link-row-name">' + _esc(l.tx_name || '') + '</span>' +
+          '<span class="tl-link-row-date">' + (l.tx_date || '') + '</span>' +
+          '<button class="tl-link-remove" onclick="_tlRemoveLink(' + idx + ')">✕</button>' +
+        '</div>' +
+        '<input class="tl-link-row-note" placeholder="הערה על העסקה הזו…" value="' + _esc(l.note || '') + '" oninput="_tlUpdateLinkNote(' + idx + ',this.value)">' +
+      '</div>';
+    }).join('');
+  }
+
+  function _tlUpdateLinkNote(idx, val) {
+    if (_tlPendingLinks[idx]) _tlPendingLinks[idx].note = val;
+  }
+
+  function _tlRemoveLink(idx) {
+    _tlPendingLinks.splice(idx, 1);
+    _tlRenderLinkList();
+  }
+
+  function _tlSearchTx(val) {
+    clearTimeout(_tlTxSearchTimer);
+    var q = val.trim();
+    var box = document.getElementById('tl-tx-search-results');
+    if (!q) { box.classList.add('hidden'); return; }
+    _tlTxSearchTimer = setTimeout(function() { _tlDoSearchTx(q); }, 250);
+  }
+
+  async function _tlDoSearchTx(q) {
+    var dateInp = document.getElementById('tl-date-inp');
+    var centerDate = dateInp && dateInp.value ? new Date(dateInp.value) : new Date();
+    var from = new Date(centerDate.getTime() - 30 * _tlDayMs());
+    var to = new Date(centerDate.getTime() + 30 * _tlDayMs());
+    var url = '/api/search/transactions?keyword=' + encodeURIComponent(q) +
+      '&from=' + from.toISOString().slice(0, 10) + '&to=' + to.toISOString().slice(0, 10);
+    try {
+      var r = await fetch(url);
+      var d = await r.json();
+      _tlShowTxResults(d.results || []);
+    } catch (e) {
+      _tlShowTxResults([]);
+    }
+  }
+
+  function _tlShowTxResults(items) {
+    var box = document.getElementById('tl-tx-search-results');
+    var already = _tlPendingLinks.map(function(l) { return l.transaction_table + ':' + l.transaction_id; });
+    items = items.filter(function(it) {
+      var table = it.source === 'card' ? 'CardTransactions' : 'BankTransactions';
+      return already.indexOf(table + ':' + it.tx_id) === -1;
+    });
+    _tlLastSearchResults = items;
+    if (!items.length) { box.classList.add('hidden'); return; }
+    box.classList.remove('hidden');
+    box.innerHTML = items.slice(0, 30).map(function(it, i) {
+      return '<div class="tl-tx-search-row" onclick="_tlSelectTx(' + i + ')">' +
+        '<span>' + it.date + '</span>' +
+        '<span style="flex:1;font-weight:600">' + _esc(it.name) + '</span>' +
+        '<span>₪' + Math.abs(it.amount).toLocaleString('he-IL', { maximumFractionDigits: 0 }) + '</span>' +
+      '</div>';
+    }).join('');
+  }
+
+  function _tlSelectTx(idx) {
+    var it = _tlLastSearchResults[idx];
+    if (!it) return;
+    _tlPendingLinks.push({
+      transaction_table: it.source === 'card' ? 'CardTransactions' : 'BankTransactions',
+      transaction_id: it.tx_id, note: '', tx_name: it.name, tx_date: it.date, tx_amount: it.amount,
+    });
+    document.getElementById('tl-tx-search-inp').value = '';
+    document.getElementById('tl-tx-search-results').classList.add('hidden');
+    _tlRenderLinkList();
   }
 
   // ── Main render orchestrator ───────────────────────────────────────────
@@ -8318,6 +8453,10 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   window._tlCloseModal    = _tlCloseModal;
   window._tlSubmitEvent   = _tlSubmitEvent;
   window._tlDeleteEvent   = _tlDeleteEvent;
+  window._tlSearchTx        = _tlSearchTx;
+  window._tlRemoveLink      = _tlRemoveLink;
+  window._tlUpdateLinkNote  = _tlUpdateLinkNote;
+  window._tlSelectTx        = _tlSelectTx;
   document.addEventListener('DOMContentLoaded', _initDynamicPage);
 
   // Set --btn-half CSS var so the progress panel anchors at button center

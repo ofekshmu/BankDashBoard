@@ -951,6 +951,12 @@ body {
 @keyframes tlGlowPulse { 0%,100% { opacity:.55; } 50% { opacity:1; } }
 .tl-axis-scroll { position:relative; width:100%; }
 .tl-baseline { position:absolute; top:0; bottom:0; right:50%; width:3px; margin-right:-1.5px; background:var(--navy); opacity:.18; border-radius:2px; }
+.tl-baseline::before {
+  content:''; position:absolute; top:-9px; left:50%; transform:translateX(-50%);
+  width:0; height:0;
+  border-left:6px solid transparent; border-right:6px solid transparent;
+  border-bottom:9px solid var(--navy); opacity:.55;
+}
 .tl-tick { position:absolute; right:calc(50% - 8px); width:16px; height:2px; background:var(--text-muted); }
 .tl-tick-label { position:absolute; right:calc(50% + 12px); font-size:0.72em; font-weight:700; color:var(--text-muted); white-space:nowrap; transform:translateY(-50%); }
 .tl-year-line { position:absolute; right:0; left:0; height:14px; margin-top:-7px; }

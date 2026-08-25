@@ -1047,7 +1047,7 @@ body {
 .tl-date-btn-icon { opacity:.6; font-size:0.95em; }
 .tl-cal-wrap { position:relative; }
 .tl-cal-dropdown {
-  position:absolute; z-index:10; top:calc(100% + 4px); right:0;
+  position:fixed; z-index:750;
   width:260px; background:var(--white); border:1.5px solid var(--teal);
   border-radius:10px; box-shadow:var(--shadow-md); padding:10px;
 }
@@ -1060,6 +1060,12 @@ body {
 }
 .tl-cal-nav-btn:hover { border-color:var(--teal); color:var(--teal); }
 .tl-cal-title { font-size:0.85em; font-weight:700; color:var(--navy); }
+.tl-cal-today-row { display:flex; justify-content:center; margin-bottom:6px; }
+.tl-cal-today-btn {
+  font-size:0.72em; font-weight:700; color:var(--teal); background:var(--teal-light);
+  border:none; border-radius:14px; padding:4px 14px; cursor:pointer; font-family:inherit;
+}
+.tl-cal-today-btn:hover { background:var(--teal); color:#fff; }
 .tl-cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; }
 .tl-cal-dow { font-size:0.68em; font-weight:700; color:var(--text-muted); text-align:center; padding:3px 0; }
 .tl-cal-day {
@@ -8141,7 +8147,8 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
 
   function _tlCalToggle() {
     var dd = document.getElementById('tl-cal-dropdown');
-    if (!dd) return;
+    var btn = document.getElementById('tl-date-btn');
+    if (!dd || !btn) return;
     if (dd.classList.contains('hidden')) {
       var inp = document.getElementById('tl-date-inp');
       var base = (inp && inp.value) ? new Date(inp.value) : new Date();
@@ -8149,6 +8156,10 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       _tlCalViewYear = base.getFullYear();
       _tlCalViewMonth = base.getMonth();
       _tlRenderCalendar();
+      var rect = btn.getBoundingClientRect();
+      dd.style.top = (rect.bottom + 4) + 'px';
+      dd.style.right = (window.innerWidth - rect.right) + 'px';
+      dd.style.left = 'auto';
       dd.classList.remove('hidden');
     } else {
       dd.classList.add('hidden');
@@ -8180,7 +8191,8 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     var daysInMonth = new Date(_tlCalViewYear, _tlCalViewMonth + 1, 0).getDate();
     var daysInPrevMonth = new Date(_tlCalViewYear, _tlCalViewMonth, 0).getDate();
 
-    var html = '<div class="tl-cal-header">' +
+    var html = '<div class="tl-cal-today-row"><button type="button" class="tl-cal-today-btn" onclick="_tlCalGoToday()">היום</button></div>' +
+      '<div class="tl-cal-header">' +
       '<button type="button" class="tl-cal-nav-btn" onclick="_tlCalNextMonth()">›</button>' +
       '<span class="tl-cal-title">' + TL_MONTH_NAMES[_tlCalViewMonth] + ' ' + _tlCalViewYear + '</span>' +
       '<button type="button" class="tl-cal-nav-btn" onclick="_tlCalPrevMonth()">‹</button>' +
@@ -8214,6 +8226,11 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     _tlSetDateValue(dateStr);
     var dd = document.getElementById('tl-cal-dropdown');
     if (dd) dd.classList.add('hidden');
+  }
+
+  function _tlCalGoToday() {
+    var d = new Date();
+    _tlCalPick(_tlFmtLocalDate(d.getFullYear(), d.getMonth(), d.getDate()));
   }
 
   document.addEventListener('click', function(e) {
@@ -8784,6 +8801,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   window._tlCalPrevMonth = _tlCalPrevMonth;
   window._tlCalNextMonth = _tlCalNextMonth;
   window._tlCalPick      = _tlCalPick;
+  window._tlCalGoToday   = _tlCalGoToday;
   document.addEventListener('DOMContentLoaded', _initDynamicPage);
 
   // Set --btn-half CSS var so the progress panel anchors at button center

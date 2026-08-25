@@ -7975,6 +7975,8 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
 
     var totalDays = Math.max(1, Math.round((maxD - minD) / _tlDayMs()));
     var heightPx = totalDays * _tlPxPerDay;
+    var wrapEl = document.getElementById('tl-axis-wrap');
+    if (wrapEl && wrapEl.clientHeight > heightPx) heightPx = wrapEl.clientHeight;
     scroll.style.height = heightPx + 'px';
 
     function _tlTopForDate(d) {

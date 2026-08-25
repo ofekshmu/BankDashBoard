@@ -938,7 +938,17 @@ body {
   position:relative; overflow-y:auto; overflow-x:hidden; height:560px;
   border:1.5px solid var(--border); border-radius:10px; background:var(--white);
   -webkit-overflow-scrolling:touch; touch-action:pan-y;
+  scrollbar-width:none; -ms-overflow-style:none;
 }
+.tl-axis-wrap::-webkit-scrollbar { display:none; }
+.tl-scroll-glow {
+  position:absolute; right:0; left:0; height:34px; pointer-events:none;
+  z-index:5; opacity:0; transition:opacity .2s;
+}
+.tl-scroll-glow-top { top:0; background:linear-gradient(to bottom, rgba(30,157,139,.35), transparent); }
+.tl-scroll-glow-bottom { bottom:0; background:linear-gradient(to top, rgba(30,157,139,.35), transparent); }
+.tl-scroll-glow.show { opacity:1; animation:tlGlowPulse 1.6s ease-in-out infinite; }
+@keyframes tlGlowPulse { 0%,100% { opacity:.55; } 50% { opacity:1; } }
 .tl-axis-scroll { position:relative; width:100%; }
 .tl-baseline { position:absolute; top:0; bottom:0; right:50%; width:3px; margin-right:-1.5px; background:var(--navy); opacity:.18; border-radius:2px; }
 .tl-tick { position:absolute; right:calc(50% - 8px); width:16px; height:2px; background:var(--text-muted); }
@@ -7896,13 +7906,17 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       '</div>' +
       '<div class="tl-axis-wrap' + (_tlMinimizeMode ? ' tl-minimize-mode' : '') + '" id="tl-axis-wrap">' +
         '<div class="tl-axis-scroll" id="tl-axis-scroll"></div>' +
+        '<div class="tl-scroll-glow tl-scroll-glow-top" id="tl-scroll-glow-top"></div>' +
+        '<div class="tl-scroll-glow tl-scroll-glow-bottom" id="tl-scroll-glow-bottom"></div>' +
       '</div>';
     _tlDrawAxis(events);
+    _tlWireScrollGlow();
   }
 
   function _tlZoom(factor) {
     _tlPxPerDay = Math.max(1.5, Math.min(80, _tlPxPerDay * factor));
     _tlDrawAxis(_timelineEvents || []);
+    _tlUpdateScrollGlow();
   }
 
   function _tlToggleMinimize() {
@@ -8008,6 +8022,22 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       if (isNaN(clickedDate)) return;
       _tlOpenAddModal(_tlFmtLocalDate(clickedDate.getFullYear(), clickedDate.getMonth(), clickedDate.getDate()));
     };
+  }
+
+  function _tlUpdateScrollGlow() {
+    var wrap = document.getElementById('tl-axis-wrap');
+    var top = document.getElementById('tl-scroll-glow-top');
+    var bottom = document.getElementById('tl-scroll-glow-bottom');
+    if (!wrap || !top || !bottom) return;
+    top.classList.toggle('show', wrap.scrollTop > 4);
+    bottom.classList.toggle('show', wrap.scrollTop + wrap.clientHeight < wrap.scrollHeight - 4);
+  }
+
+  function _tlWireScrollGlow() {
+    var wrap = document.getElementById('tl-axis-wrap');
+    if (!wrap) return;
+    wrap.addEventListener('scroll', _tlUpdateScrollGlow);
+    _tlUpdateScrollGlow();
   }
 
   var TL_COLORS = ['#1e9d8b','#3b82f6','#f59e0b','#ef4444','#10b981',

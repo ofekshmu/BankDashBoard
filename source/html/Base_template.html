@@ -1000,6 +1000,9 @@ body {
   content:''; position:absolute; top:50%; margin-top:-5px;
   border:5px solid transparent;
 }
+/* Cross-matched intentionally: a side-right bubble sits to the right of its dot,
+   so its arrow must point left (back toward the dot) via border-left-color, and
+   vice versa for side-left -- do not "correct" this back to right<->right. */
 .tl-marker.tl-side-right .tl-bubble::after { left:100%; border-left-color:var(--bubble-color, var(--teal)); }
 .tl-marker.tl-side-left .tl-bubble::after { right:100%; border-right-color:var(--bubble-color, var(--teal)); }
 .tl-bubble-date { font-weight:500; opacity:.85; font-size:0.9em; }

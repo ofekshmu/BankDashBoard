@@ -1099,6 +1099,15 @@ body {
   width:100%; padding:5px 8px; border:1px solid var(--border); border-radius:6px;
   font-size:0.85em; font-family:inherit; box-sizing:border-box;
 }
+.tl-view-content { display:flex; flex-direction:column; gap:12px; }
+.tl-view-row { display:flex; flex-direction:column; gap:2px; }
+.tl-view-label { font-size:0.74em; font-weight:600; color:var(--text-sub); }
+.tl-view-value { font-size:0.92em; color:var(--navy); }
+.tl-view-color-dot { display:inline-block; width:14px; height:14px; border-radius:50%; vertical-align:middle; margin-left:6px; }
+.tl-view-tx-row { display:flex; flex-direction:column; gap:2px; padding:8px 10px; background:var(--teal-light); border-radius:7px; font-size:0.85em; }
+.tl-view-tx-name-row { display:flex; justify-content:space-between; gap:8px; font-weight:600; }
+.tl-view-tx-note { color:var(--text-muted); font-style:italic; font-size:0.9em; }
+.tl-view-empty { color:var(--text-muted); font-size:0.85em; }
 .tl-tx-search-results { max-height:180px; overflow-y:auto; border:1.5px solid var(--teal); border-radius:8px; margin-top:4px; }
 .tl-tx-search-results.hidden { display:none; }
 .tl-tx-search-row { padding:7px 10px; cursor:pointer; display:flex; gap:10px; font-size:0.82em; border-bottom:1px solid var(--border); }
@@ -8003,7 +8012,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       sideBottom[side] = placedTop + TL_SLOT_H;
 
       html +=
-        '<div class="tl-marker tl-side-' + side + '" style="top:' + placedTop + 'px" onclick="_tlOpenEditModal(' + ev.id + ')">' +
+        '<div class="tl-marker tl-side-' + side + '" style="top:' + placedTop + 'px" onclick="_tlOpenViewModal(' + ev.id + ')">' +
           '<div class="tl-dot" style="background:' + _esc(ev.color) + '"></div>' +
           '<div class="tl-bubble" style="--bubble-color:' + _esc(ev.color) + '">' +
             _esc(ev.name) + '<div class="tl-bubble-date">' + ev.event_date + '</div>' +
@@ -8060,35 +8069,39 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     div.className = 'tl-overlay hidden';
     div.id = 'tl-overlay';
     div.innerHTML =
-      '<div class="tl-modal">' +
+      '<div class="tl-modal" id="tl-modal">' +
         '<button class="tl-modal-close" onclick="_tlCloseModal()">✕</button>' +
         '<h2 class="tl-modal-title" id="tl-modal-title">הוסף אירוע</h2>' +
-        '<div class="tl-field"><label>שם האירוע</label><input id="tl-name-inp" type="text" maxlength="80" placeholder="למשל: תשלום מקדמה"></div>' +
-        '<div class="tl-field">' +
-          '<label>תאריך</label>' +
-          '<div class="tl-cal-wrap">' +
-            '<input id="tl-date-inp" type="date" style="display:none">' +
-            '<button type="button" class="tl-date-btn" id="tl-date-btn" onclick="_tlCalToggle()">' +
-              '<span id="tl-date-btn-text">בחר תאריך</span>' +
-              '<span class="tl-date-btn-icon">📅</span>' +
-            '</button>' +
-            '<div class="tl-cal-dropdown hidden" id="tl-cal-dropdown"></div>' +
+        '<div class="tl-view-content" id="tl-view-content" style="display:none"></div>' +
+        '<div id="tl-edit-fields">' +
+          '<div class="tl-field"><label>שם האירוע</label><input id="tl-name-inp" type="text" maxlength="80" placeholder="למשל: תשלום מקדמה"></div>' +
+          '<div class="tl-field">' +
+            '<label>תאריך</label>' +
+            '<div class="tl-cal-wrap">' +
+              '<input id="tl-date-inp" type="date" style="display:none">' +
+              '<button type="button" class="tl-date-btn" id="tl-date-btn" onclick="_tlCalToggle()">' +
+                '<span id="tl-date-btn-text">בחר תאריך</span>' +
+                '<span class="tl-date-btn-icon">📅</span>' +
+              '</button>' +
+              '<div class="tl-cal-dropdown hidden" id="tl-cal-dropdown"></div>' +
+            '</div>' +
           '</div>' +
-        '</div>' +
-        '<div class="tl-field"><label>תיאור (אופציונלי)</label><textarea id="tl-desc-inp" placeholder="פרטים נוספים…"></textarea></div>' +
-        '<div class="tl-field"><label>צבע</label><div class="tl-color-row" id="tl-color-row"></div></div>' +
-        '<div class="tl-field">' +
-          '<label>קשר עסקאות (אופציונלי)</label>' +
-          '<input id="tl-tx-search-inp" type="text" placeholder="חפש עסקה בסביבת התאריך…" oninput="_tlSearchTx(this.value)">' +
-          '<div class="tl-tx-search-results hidden" id="tl-tx-search-results"></div>' +
-          '<div class="tl-link-list" id="tl-link-list"></div>' +
+          '<div class="tl-field"><label>תיאור (אופציונלי)</label><textarea id="tl-desc-inp" placeholder="פרטים נוספים…"></textarea></div>' +
+          '<div class="tl-field"><label>צבע</label><div class="tl-color-row" id="tl-color-row"></div></div>' +
+          '<div class="tl-field">' +
+            '<label>קשר עסקאות (אופציונלי)</label>' +
+            '<input id="tl-tx-search-inp" type="text" placeholder="חפש עסקה בסביבת התאריך…" oninput="_tlSearchTx(this.value)">' +
+            '<div class="tl-tx-search-results hidden" id="tl-tx-search-results"></div>' +
+            '<div class="tl-link-list" id="tl-link-list"></div>' +
+          '</div>' +
         '</div>' +
         '<div class="tl-status" id="tl-status"></div>' +
         '<div class="tl-modal-actions">' +
           '<button class="tl-btn tl-btn-danger" onclick="_tlDeleteEvent()" id="tl-delete-btn" style="display:none">מחק אירוע</button>' +
           '<div class="tl-modal-actions-right">' +
-            '<button class="tl-btn" onclick="_tlCloseModal()">ביטול</button>' +
-            '<button class="tl-btn tl-btn-primary" onclick="_tlSubmitEvent()">שמור</button>' +
+            '<button class="tl-btn tl-btn-primary" onclick="_tlSwitchToEditMode()" id="tl-view-edit-btn" style="display:none">ערוך</button>' +
+            '<button class="tl-btn" onclick="_tlCloseModal()" id="tl-cancel-btn">ביטול</button>' +
+            '<button class="tl-btn tl-btn-primary" onclick="_tlSubmitEvent()" id="tl-save-btn">שמור</button>' +
           '</div>' +
         '</div>' +
       '</div>';
@@ -8240,6 +8253,11 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     _tlSetDateValue(prefillDate || (function() { var d = new Date(); return _tlFmtLocalDate(d.getFullYear(), d.getMonth(), d.getDate()); })());
     document.getElementById('tl-desc-inp').value = '';
     document.getElementById('tl-modal-title').textContent = 'הוסף אירוע';
+    document.getElementById('tl-view-content').style.display = 'none';
+    document.getElementById('tl-edit-fields').style.display = '';
+    document.getElementById('tl-view-edit-btn').style.display = 'none';
+    document.getElementById('tl-cancel-btn').style.display = '';
+    document.getElementById('tl-save-btn').style.display = '';
     document.getElementById('tl-delete-btn').style.display = 'none';
     document.getElementById('tl-status').textContent = '';
     _tlRenderLinkList();
@@ -8250,6 +8268,55 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       var inp = document.getElementById('tl-name-inp');
       if (inp) inp.focus();
     }, 60);
+  }
+
+  function _tlOpenViewModal(eventId) {
+    var ev = (_timelineEvents || []).find(function(e) { return e.id === eventId; });
+    if (!ev) return;
+    _tlEditingId = eventId;
+    _tlBuildModal();
+    document.getElementById('tl-modal-title').textContent = 'פרטי אירוע';
+    _tlRenderViewContent(ev);
+    document.getElementById('tl-view-content').style.display = '';
+    document.getElementById('tl-edit-fields').style.display = 'none';
+    document.getElementById('tl-status').textContent = '';
+    document.getElementById('tl-delete-btn').style.display = 'none';
+    document.getElementById('tl-cancel-btn').style.display = 'none';
+    document.getElementById('tl-save-btn').style.display = 'none';
+    document.getElementById('tl-view-edit-btn').style.display = '';
+    document.getElementById('tl-overlay').classList.remove('hidden');
+    var _ddInit = document.getElementById('tl-cal-dropdown');
+    if (_ddInit) _ddInit.classList.add('hidden');
+  }
+
+  function _tlRenderViewContent(ev) {
+    var el = document.getElementById('tl-view-content');
+    if (!el) return;
+    var txns = ev.transactions || [];
+    var txHtml = txns.length
+      ? txns.map(function(t) {
+          return '<div class="tl-view-tx-row">' +
+            '<div class="tl-view-tx-name-row"><span>' + _esc(t.tx_name || '') + '</span><span>' + (t.tx_date || '') + '</span></div>' +
+            (t.note ? '<div class="tl-view-tx-note">' + _esc(t.note) + '</div>' : '') +
+          '</div>';
+        }).join('')
+      : '<div class="tl-view-empty">אין עסקאות מקושרות</div>';
+
+    el.innerHTML =
+      '<div class="tl-view-row">' +
+        '<span class="tl-view-label">שם האירוע</span>' +
+        '<span class="tl-view-value"><span class="tl-view-color-dot" style="background:' + _esc(ev.color) + '"></span>' + _esc(ev.name) + '</span>' +
+      '</div>' +
+      '<div class="tl-view-row"><span class="tl-view-label">תאריך</span><span class="tl-view-value">' + (ev.event_date || '') + '</span></div>' +
+      (ev.description
+        ? '<div class="tl-view-row"><span class="tl-view-label">תיאור</span><span class="tl-view-value">' + _esc(ev.description) + '</span></div>'
+        : '') +
+      '<div class="tl-view-row"><span class="tl-view-label">עסקאות מקושרות</span>' + txHtml + '</div>';
+  }
+
+  function _tlSwitchToEditMode() {
+    if (_tlEditingId == null) return;
+    _tlOpenEditModal(_tlEditingId);
   }
 
   function _tlOpenEditModal(eventId) {
@@ -8269,6 +8336,11 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     _tlSetDateValue(ev.event_date);
     document.getElementById('tl-desc-inp').value = ev.description || '';
     document.getElementById('tl-modal-title').textContent = 'ערוך אירוע';
+    document.getElementById('tl-view-content').style.display = 'none';
+    document.getElementById('tl-edit-fields').style.display = '';
+    document.getElementById('tl-view-edit-btn').style.display = 'none';
+    document.getElementById('tl-cancel-btn').style.display = '';
+    document.getElementById('tl-save-btn').style.display = '';
     document.getElementById('tl-delete-btn').style.display = '';
     document.getElementById('tl-status').textContent = '';
     _tlRenderLinkList();
@@ -8698,6 +8770,8 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   window._tlToggleMinimize     = _tlToggleMinimize;
   window._tlOpenAddModal  = _tlOpenAddModal;
   window._tlOpenEditModal = _tlOpenEditModal;
+  window._tlOpenViewModal    = _tlOpenViewModal;
+  window._tlSwitchToEditMode = _tlSwitchToEditMode;
   window._tlSelectColor   = _tlSelectColor;
   window._tlCloseModal    = _tlCloseModal;
   window._tlSubmitEvent   = _tlSubmitEvent;

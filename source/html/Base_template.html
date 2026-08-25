@@ -941,14 +941,23 @@ body {
   scrollbar-width:none; -ms-overflow-style:none;
 }
 .tl-axis-wrap::-webkit-scrollbar { display:none; }
-.tl-scroll-glow {
-  position:absolute; right:0; left:0; height:34px; pointer-events:none;
-  z-index:5; opacity:0; transition:opacity .2s;
+.tl-scroll-arrow-wrap { position:sticky; height:0; z-index:6; pointer-events:none; }
+.tl-scroll-arrow-wrap.tl-arrow-top { top:0; }
+.tl-scroll-arrow-wrap.tl-arrow-bottom { bottom:0; }
+.tl-scroll-arrow {
+  position:absolute; left:10px; width:24px; height:24px; border-radius:50%;
+  background:var(--white); box-shadow:0 2px 8px rgba(0,0,0,.16);
+  display:flex; align-items:center; justify-content:center;
+  color:var(--teal); font-size:0.75em; line-height:1;
+  opacity:0; transition:opacity .2s;
 }
-.tl-scroll-glow-top { top:0; background:linear-gradient(to bottom, rgba(30,157,139,.35), transparent); }
-.tl-scroll-glow-bottom { bottom:0; background:linear-gradient(to top, rgba(30,157,139,.35), transparent); }
-.tl-scroll-glow.show { opacity:1; animation:tlGlowPulse 1.6s ease-in-out infinite; }
-@keyframes tlGlowPulse { 0%,100% { opacity:.55; } 50% { opacity:1; } }
+.tl-scroll-arrow-wrap.tl-arrow-top .tl-scroll-arrow { top:8px; }
+.tl-scroll-arrow-wrap.tl-arrow-bottom .tl-scroll-arrow { bottom:8px; }
+.tl-scroll-arrow.show { opacity:.85; }
+.tl-scroll-arrow-wrap.tl-arrow-top .tl-scroll-arrow.show { animation:tlArrowPulseUp 1.8s ease-in-out infinite; }
+.tl-scroll-arrow-wrap.tl-arrow-bottom .tl-scroll-arrow.show { animation:tlArrowPulseDown 1.8s ease-in-out infinite; }
+@keyframes tlArrowPulseUp { 0%,100% { opacity:.5; transform:translateY(0); } 50% { opacity:1; transform:translateY(-3px); } }
+@keyframes tlArrowPulseDown { 0%,100% { opacity:.5; transform:translateY(0); } 50% { opacity:1; transform:translateY(3px); } }
 .tl-axis-scroll { position:relative; width:100%; }
 .tl-baseline { position:absolute; top:0; bottom:0; right:50%; width:3px; margin-right:-1.5px; background:var(--navy); opacity:.18; border-radius:2px; }
 .tl-baseline::before {
@@ -7929,18 +7938,18 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         '<button class="tl-add-btn" onclick="_tlOpenAddModal(null)">+ הוסף אירוע</button>' +
       '</div>' +
       '<div class="tl-axis-wrap' + (_tlMinimizeMode ? ' tl-minimize-mode' : '') + '" id="tl-axis-wrap">' +
+        '<div class="tl-scroll-arrow-wrap tl-arrow-top"><div class="tl-scroll-arrow" id="tl-scroll-arrow-top">▲</div></div>' +
         '<div class="tl-axis-scroll" id="tl-axis-scroll"></div>' +
-        '<div class="tl-scroll-glow tl-scroll-glow-top" id="tl-scroll-glow-top"></div>' +
-        '<div class="tl-scroll-glow tl-scroll-glow-bottom" id="tl-scroll-glow-bottom"></div>' +
+        '<div class="tl-scroll-arrow-wrap tl-arrow-bottom"><div class="tl-scroll-arrow" id="tl-scroll-arrow-bottom">▼</div></div>' +
       '</div>';
     _tlDrawAxis(events);
-    _tlWireScrollGlow();
+    _tlWireScrollArrows();
   }
 
   function _tlZoom(factor) {
     _tlPxPerDay = Math.max(1.5, Math.min(80, _tlPxPerDay * factor));
     _tlDrawAxis(_timelineEvents || []);
-    _tlUpdateScrollGlow();
+    _tlUpdateScrollArrows();
   }
 
   function _tlToggleMinimize() {
@@ -7990,10 +7999,13 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       return ((maxD - d) / _tlDayMs()) * _tlPxPerDay;
     }
 
+    var maxTickTop = 0; // month/year ticks can start before minD (aligned to month boundaries), overflowing past heightPx
+
     var html = '<div class="tl-baseline"></div>';
     var cursor = new Date(minD.getFullYear(), minD.getMonth(), 1);
     while (cursor <= maxD) {
       var topPx = _tlTopForDate(cursor);
+      if (topPx > maxTickTop) maxTickTop = topPx;
       html += '<div class="tl-tick" style="top:' + topPx + 'px"></div>';
       html += '<div class="tl-tick-label" style="top:' + topPx + 'px">' +
         (cursor.getMonth() + 1) + '/' + cursor.getFullYear() + '</div>';
@@ -8039,6 +8051,16 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     }
     scroll.innerHTML = html;
 
+    // Crowded marker stacks (each reserves TL_SLOT_H sequentially on its side)
+    // and month-aligned ticks (which can start before minD) can push content
+    // below the date-derived heightPx. Expand the scroll container to cover
+    // that overflow so the sticky bottom arrow (and scrollHeight in general)
+    // stays in sync with the real content end.
+    var neededHeight = Math.max(heightPx, sideBottom.left, sideBottom.right, maxTickTop);
+    if (neededHeight > heightPx) {
+      scroll.style.height = neededHeight + 'px';
+    }
+
     scroll.onclick = function(e) {
       if (e.target.closest('.tl-marker')) return;
       var rect = scroll.getBoundingClientRect();
@@ -8050,20 +8072,20 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     };
   }
 
-  function _tlUpdateScrollGlow() {
+  function _tlUpdateScrollArrows() {
     var wrap = document.getElementById('tl-axis-wrap');
-    var top = document.getElementById('tl-scroll-glow-top');
-    var bottom = document.getElementById('tl-scroll-glow-bottom');
+    var top = document.getElementById('tl-scroll-arrow-top');
+    var bottom = document.getElementById('tl-scroll-arrow-bottom');
     if (!wrap || !top || !bottom) return;
     top.classList.toggle('show', wrap.scrollTop > 4);
     bottom.classList.toggle('show', wrap.scrollTop + wrap.clientHeight < wrap.scrollHeight - 4);
   }
 
-  function _tlWireScrollGlow() {
+  function _tlWireScrollArrows() {
     var wrap = document.getElementById('tl-axis-wrap');
     if (!wrap) return;
-    wrap.addEventListener('scroll', _tlUpdateScrollGlow);
-    _tlUpdateScrollGlow();
+    wrap.addEventListener('scroll', _tlUpdateScrollArrows);
+    _tlUpdateScrollArrows();
   }
 
   var TL_COLORS = ['#1e9d8b','#3b82f6','#f59e0b','#ef4444','#10b981',

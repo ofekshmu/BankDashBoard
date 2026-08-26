@@ -5032,14 +5032,14 @@ def api_timeline_events():
         color    = (body.get('color') or '#1e9d8b').strip()
         desc     = (body.get('description') or '').strip()
         category = (body.get('category') or '').strip()
-        if category and category not in ('mortgage', 'general'):
-            return jsonify({'ok': False, 'error': 'Invalid category'})
-        if not category:
-            category = 'general'
         if not name:
             return jsonify({'ok': False, 'error': 'Name required'})
         if not date:
             return jsonify({'ok': False, 'error': 'Date required'})
+        if category and category not in ('mortgage', 'general'):
+            return jsonify({'ok': False, 'error': 'Invalid category'})
+        if not category:
+            category = 'general'
         eid = db.add_timeline_event(name, date, desc, color, category)
         db.commit_changes()
         return jsonify({'ok': True, 'id': eid})

@@ -5032,7 +5032,9 @@ def api_timeline_events():
         color    = (body.get('color') or '#1e9d8b').strip()
         desc     = (body.get('description') or '').strip()
         category = (body.get('category') or '').strip()
-        if category not in ('mortgage', 'general'):
+        if category and category not in ('mortgage', 'general'):
+            return jsonify({'ok': False, 'error': 'Invalid category'})
+        if not category:
             category = 'general'
         if not name:
             return jsonify({'ok': False, 'error': 'Name required'})

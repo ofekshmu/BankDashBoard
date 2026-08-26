@@ -5022,17 +5022,23 @@ def api_timeline_events():
         db = DataBase()
         db.ensure_timeline_tables()
         if request.method == 'GET':
-            return jsonify({'ok': True, 'events': db.get_timeline_events()})
-        body  = request.get_json(force=True) or {}
-        name  = (body.get('name') or '').strip()
-        date  = (body.get('event_date') or '').strip()
-        color = (body.get('color') or '#1e9d8b').strip()
-        desc  = (body.get('description') or '').strip()
+            category = (request.args.get('category') or '').strip()
+            if category not in ('mortgage', 'general'):
+                category = None
+            return jsonify({'ok': True, 'events': db.get_timeline_events(category=category)})
+        body     = request.get_json(force=True) or {}
+        name     = (body.get('name') or '').strip()
+        date     = (body.get('event_date') or '').strip()
+        color    = (body.get('color') or '#1e9d8b').strip()
+        desc     = (body.get('description') or '').strip()
+        category = (body.get('category') or '').strip()
+        if category not in ('mortgage', 'general'):
+            category = 'general'
         if not name:
             return jsonify({'ok': False, 'error': 'Name required'})
         if not date:
             return jsonify({'ok': False, 'error': 'Date required'})
-        eid = db.add_timeline_event(name, date, desc, color)
+        eid = db.add_timeline_event(name, date, desc, color, category)
         db.commit_changes()
         return jsonify({'ok': True, 'id': eid})
     except Exception as e:

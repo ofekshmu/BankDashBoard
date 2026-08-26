@@ -2890,6 +2890,9 @@ class DataBase:
                 Created_At  TIMESTAMP DEFAULT now()
             )
         """)
+        self.cursor.execute(
+            "ALTER TABLE TimelineEvents ADD COLUMN IF NOT EXISTS Category TEXT NOT NULL DEFAULT 'mortgage'"
+        )
         self.cursor.execute("""
             CREATE TABLE IF NOT EXISTS TimelineEventTransactions (
                 ID                SERIAL  PRIMARY KEY,
@@ -2901,13 +2904,21 @@ class DataBase:
         """)
         self.connection.commit()
 
-    def get_timeline_events(self) -> list:
+    def get_timeline_events(self, category: str = None) -> list:
         c = self.connection.cursor()
-        c.execute("""
-            SELECT ID, Name, Event_Date, Description, Color
-            FROM TimelineEvents
-            ORDER BY Event_Date ASC, ID ASC
-        """)
+        if category:
+            c.execute("""
+                SELECT ID, Name, Event_Date, Description, Color, Category
+                FROM TimelineEvents
+                WHERE Category = %s
+                ORDER BY Event_Date ASC, ID ASC
+            """, (category,))
+        else:
+            c.execute("""
+                SELECT ID, Name, Event_Date, Description, Color, Category
+                FROM TimelineEvents
+                ORDER BY Event_Date ASC, ID ASC
+            """)
         events = {}
         order = []
         for r in c.fetchall():
@@ -2917,6 +2928,7 @@ class DataBase:
                 'event_date': str(r[2])[:10] if r[2] else None,
                 'description': r[3] or '',
                 'color': r[4] or '#1e9d8b',
+                'category': r[5],
                 'transactions': [],
             }
             order.append(r[0])
@@ -2955,11 +2967,11 @@ class DataBase:
         c.close()
         return [events[eid] for eid in order]
 
-    def add_timeline_event(self, name: str, event_date: str, description: str = '', color: str = '#1e9d8b') -> int:
+    def add_timeline_event(self, name: str, event_date: str, description: str = '', color: str = '#1e9d8b', category: str = 'general') -> int:
         row = self.cursor.execute("""
-            INSERT INTO TimelineEvents (Name, Event_Date, Description, Color)
-            VALUES (%s, %s, %s, %s) RETURNING ID
-        """, (name, event_date, description or None, color)).fetchone()
+            INSERT INTO TimelineEvents (Name, Event_Date, Description, Color, Category)
+            VALUES (%s, %s, %s, %s, %s) RETURNING ID
+        """, (name, event_date, description or None, color, category)).fetchone()
         return row[0]
 
     def update_timeline_event(self, event_id: int, name: str, event_date: str, description: str = '', color: str = '#1e9d8b') -> None:

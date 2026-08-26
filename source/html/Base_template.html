@@ -7915,13 +7915,20 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   }
 
   function _tlEventsUrl() {
+    // Always fetch the full unfiltered set — category filtering for the
+    // general scope happens client-side against _tlAllEvents so switching
+    // filters never re-hits the network or tears down the rendered axis.
     if (_tlActiveScope === 'mortgage') return '/api/timeline/events?category=mortgage';
-    if (_tlCategoryFilter && _tlCategoryFilter !== 'all') return '/api/timeline/events?category=' + _tlCategoryFilter;
     return '/api/timeline/events';
   }
 
   function _tlFilterBtnHtml(value, label) {
     return '<button class="hs-subtab-btn' + (_tlCategoryFilter === value ? ' active' : '') + '" onclick="_tlSetCategoryFilter(\'' + value + '\')">' + label + '</button>';
+  }
+
+  function _tlApplyCategoryFilter(events) {
+    if (!_tlCategoryFilter || _tlCategoryFilter === 'all') return events || [];
+    return (events || []).filter(function(e) { return e.category === _tlCategoryFilter; });
   }
 
   function _loadGeneralTimelinePanel() {
@@ -7938,35 +7945,67 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         '</div>' +
         '<div id="panel-timeline-content"></div>';
     }
-    _timelineEvents = null;
+    _tlAllEvents = null;
     _loadTimelineTab();
   }
 
   function _tlSetCategoryFilter(filter) {
+    if (_tlCategoryFilter === filter) return;
     _tlCategoryFilter = filter;
     var row = document.getElementById('tl-filter-row');
     if (row) {
-      row.innerHTML =
-        _tlFilterBtnHtml('all', 'הכל') +
-        _tlFilterBtnHtml('mortgage', 'משכנתא') +
-        _tlFilterBtnHtml('general', 'כללי');
+      var btns = row.querySelectorAll('.hs-subtab-btn');
+      var order = ['all', 'mortgage', 'general'];
+      for (var i = 0; i < btns.length; i++) {
+        btns[i].classList.toggle('active', order[i] === filter);
+      }
     }
-    _timelineEvents = null;
-    _loadTimelineTab();
+    // _tlAllEvents is already loaded for the general scope — filter and
+    // redraw in place instead of refetching/rebuilding the whole panel.
+    if (_tlAllEvents) {
+      _tlFadeRedraw(_tlApplyCategoryFilter(_tlAllEvents));
+    } else {
+      _loadTimelineTab();
+    }
+  }
+
+  function _tlFadeRedraw(events) {
+    _timelineEvents = events;
+    var scroll = document.getElementById('tl-axis-scroll');
+    if (!scroll) { _tlDrawAxis(events); _tlWireScrollArrows(); return; }
+    var savedTop = scroll.scrollTop;
+    scroll.style.transition = 'opacity 0.12s ease';
+    scroll.style.opacity = '0';
+    setTimeout(function() {
+      _tlDrawAxis(events);
+      _tlWireScrollArrows();
+      var freshScroll = document.getElementById('tl-axis-scroll');
+      if (freshScroll) {
+        freshScroll.scrollTop = savedTop;
+        freshScroll.style.transition = 'opacity 0.18s ease';
+        freshScroll.style.opacity = '1';
+      }
+    }, 120);
   }
 
   async function _loadTimelineTab() {
     var tl = document.getElementById(_tlContainerId);
     if (!tl) return;
-    tl.innerHTML = '<div class="tl-empty">טוען…</div>';
+    var isFirstLoad = !tl.querySelector('#tl-axis-scroll');
+    if (isFirstLoad) tl.innerHTML = '<div class="tl-empty">טוען…</div>';
     try {
       var r = await fetch(_tlEventsUrl());
       var d = await r.json();
-      _timelineEvents = d.events || [];
+      var events = d.events || [];
     } catch (e) {
-      _timelineEvents = [];
+      events = [];
     }
-    _renderTimeline(_timelineEvents);
+    if (_tlActiveScope === 'general') {
+      _tlAllEvents = events;
+      events = _tlApplyCategoryFilter(events);
+    }
+    _timelineEvents = events;
+    _renderTimeline(events);
   }
 
   var _tlPxPerDay = 6;
@@ -7974,6 +8013,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   var _tlContainerId = 'housing-timeline';
   var _tlActiveScope = 'mortgage'; // 'mortgage' | 'general' — which UI surface is driving the shared engine
   var _tlCategoryFilter = 'all';   // only meaningful when _tlActiveScope === 'general': 'all' | 'mortgage' | 'general'
+  var _tlAllEvents = null;         // unfiltered cache for the general scope, so filter switches never refetch
 
   function _tlDayMs() { return 24 * 60 * 60 * 1000; }
 

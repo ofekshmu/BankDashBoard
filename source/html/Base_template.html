@@ -7889,6 +7889,8 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       tl.style.display = '';
       if (bOv) bOv.classList.remove('active');
       if (bTl) bTl.classList.add('active');
+      _tlContainerId = 'housing-timeline';
+      _tlActiveScope = 'mortgage';
       if (!_timelineEvents) {
         _loadTimelineTab();
       } else {
@@ -7902,12 +7904,18 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     }
   }
 
+  function _tlEventsUrl() {
+    if (_tlActiveScope === 'mortgage') return '/api/timeline/events?category=mortgage';
+    if (_tlCategoryFilter && _tlCategoryFilter !== 'all') return '/api/timeline/events?category=' + _tlCategoryFilter;
+    return '/api/timeline/events';
+  }
+
   async function _loadTimelineTab() {
-    var tl = document.getElementById('housing-timeline');
+    var tl = document.getElementById(_tlContainerId);
     if (!tl) return;
     tl.innerHTML = '<div class="tl-empty">טוען…</div>';
     try {
-      var r = await fetch('/api/timeline/events');
+      var r = await fetch(_tlEventsUrl());
       var d = await r.json();
       _timelineEvents = d.events || [];
     } catch (e) {
@@ -7918,11 +7926,14 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
 
   var _tlPxPerDay = 6;
   var _tlMinimizeMode = (localStorage.getItem('tl_minimize_mode') !== '0');
+  var _tlContainerId = 'housing-timeline';
+  var _tlActiveScope = 'mortgage'; // 'mortgage' | 'general' — which UI surface is driving the shared engine
+  var _tlCategoryFilter = 'all';   // only meaningful when _tlActiveScope === 'general': 'all' | 'mortgage' | 'general'
 
   function _tlDayMs() { return 24 * 60 * 60 * 1000; }
 
   function _renderTimeline(events) {
-    var tl = document.getElementById('housing-timeline');
+    var tl = document.getElementById(_tlContainerId);
     if (!tl) return;
     tl.innerHTML =
       '<div class="tl-toolbar">' +
@@ -8406,7 +8417,10 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     if (!name) { st.className = 'tl-status err'; st.textContent = 'נא להזין שם אירוע'; return; }
     if (!date) { st.className = 'tl-status err'; st.textContent = 'נא לבחור תאריך'; return; }
 
-    var body = { name: name, event_date: date, description: desc, color: _tlSelectedColor };
+    var body = {
+      name: name, event_date: date, description: desc, color: _tlSelectedColor,
+      category: _tlActiveScope === 'mortgage' ? 'mortgage' : 'general',
+    };
     var url = '/api/timeline/events';
     var method = 'POST';
     if (_tlModalMode === 'edit') { url += '/' + _tlEditingId; method = 'PUT'; }

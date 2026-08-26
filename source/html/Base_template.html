@@ -960,7 +960,7 @@ body {
 @keyframes tlArrowPulseUp { 0%,100% { opacity:.5; transform:translateY(0); } 50% { opacity:1; transform:translateY(-3px); } }
 @keyframes tlArrowPulseDown { 0%,100% { opacity:.5; transform:translateY(0); } 50% { opacity:1; transform:translateY(3px); } }
 .tl-axis-scroll { position:relative; width:100%; }
-.tl-baseline { position:absolute; top:0; bottom:0; right:50%; width:3px; margin-right:-1.5px; background:var(--navy); opacity:.18; border-radius:2px; }
+.tl-baseline { position:absolute; top:14px; bottom:0; right:50%; width:3px; margin-right:-1.5px; background:var(--navy); opacity:.18; border-radius:2px; }
 .tl-baseline::before {
   content:''; position:absolute; top:-9px; left:50%; transform:translateX(-50%);
   width:0; height:0;
@@ -8057,7 +8057,9 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       '</svg>';
   }
 
-  var TL_SLOT_H = 64; // px reserved per marker on its side, enough for a 2-line bubble
+  var TL_SLOT_H = 64;   // px reserved per marker on its side, enough for a 2-line bubble
+  var TL_TOP_PAD = 14;  // px of clearance above the baseline's start so its arrowhead tip
+                         // renders fully inside the box instead of being clipped at the edge
 
   function _tlMarkerHtml(ev, top, side) {
     return '<div class="tl-marker tl-side-' + side + '" data-ev-id="' + ev.id + '" style="top:' + top + 'px" onclick="_tlOpenViewModal(' + ev.id + ')">' +
@@ -8078,7 +8080,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
 
     var sideBottom = { left: -Infinity, right: -Infinity }; // next available top-px per side
     var items = sortedEvents.map(function(item) {
-      var idealTop = ((maxD - item.d) / _tlDayMs()) * _tlPxPerDay;
+      var idealTop = TL_TOP_PAD + ((maxD - item.d) / _tlDayMs()) * _tlPxPerDay;
       var side = sideBottom.left <= sideBottom.right ? 'left' : 'right';
       var placedTop = Math.max(idealTop, sideBottom[side]);
       sideBottom[side] = placedTop + TL_SLOT_H;
@@ -8107,14 +8109,15 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     _tlRangeMaxD = maxD;
 
     var totalDays = Math.max(1, Math.round((maxD - minD) / _tlDayMs()));
-    var heightPx = totalDays * _tlPxPerDay;
+    var heightPx = TL_TOP_PAD + totalDays * _tlPxPerDay;
     var wrapEl = document.getElementById('tl-axis-wrap');
     if (wrapEl && wrapEl.clientHeight > heightPx) heightPx = wrapEl.clientHeight;
     scroll.style.height = heightPx + 'px';
 
     function _tlTopForDate(d) {
-      // top = 0 is the most recent (maxD); further down = further back in time.
-      return ((maxD - d) / _tlDayMs()) * _tlPxPerDay;
+      // top = TL_TOP_PAD is the most recent (maxD); further down = further back in time.
+      // The pad keeps the baseline's arrowhead tip clear of the box edge instead of clipped by it.
+      return TL_TOP_PAD + ((maxD - d) / _tlDayMs()) * _tlPxPerDay;
     }
 
     var maxTickTop = 0; // month/year ticks can start before minD (aligned to month boundaries), overflowing past heightPx
@@ -8156,16 +8159,6 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     if (neededHeight > heightPx) {
       scroll.style.height = neededHeight + 'px';
     }
-
-    scroll.onclick = function(e) {
-      if (e.target.closest('.tl-marker')) return;
-      var rect = scroll.getBoundingClientRect();
-      var yFromTop = e.clientY - rect.top;
-      var days = Math.round(yFromTop / _tlPxPerDay);
-      var clickedDate = new Date(maxD.getTime() - days * _tlDayMs());
-      if (isNaN(clickedDate)) return;
-      _tlOpenAddModal(_tlFmtLocalDate(clickedDate.getFullYear(), clickedDate.getMonth(), clickedDate.getDate()));
-    };
   }
 
   // Filter switches keep the axis (ticks/baseline/range) untouched and only

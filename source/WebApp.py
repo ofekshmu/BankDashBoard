@@ -5032,7 +5032,9 @@ def api_timeline_events():
         db.ensure_timeline_tables()
         if request.method == 'GET':
             category = (request.args.get('category') or '').strip()
-            if category not in ('mortgage', 'general'):
+            if category and category not in ('mortgage', 'general'):
+                return jsonify({'ok': False, 'error': 'Invalid category'})
+            if not category:
                 category = None
             return jsonify({'ok': True, 'events': db.get_timeline_events(category=category)})
         body     = request.get_json(force=True) or {}

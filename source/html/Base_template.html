@@ -910,7 +910,7 @@ body {
   background:var(--white); padding:4px; border-radius:24px;
   border:1.5px solid var(--border); box-shadow:var(--shadow-sm);
 }
-#housing-overview, #housing-timeline { margin-top:64px; }
+#housing-overview, #housing-timeline, #panel-timeline { margin-top:64px; }
 .hs-subtab-btn {
   padding:7px 16px; border-radius:20px; border:1.5px solid var(--border);
   background:var(--white); color:var(--text-sub); font-family:inherit;
@@ -918,6 +918,7 @@ body {
 }
 .hs-subtab-btn:hover { border-color:var(--teal); color:var(--teal); }
 .hs-subtab-btn.active { background:var(--teal); border-color:var(--teal); color:#fff; }
+.tl-filter-row { display:flex; gap:8px; margin-bottom:14px; }
 
 /* ── Timeline widget (vertical) ──────────────────────────────────── */
 .tl-toolbar { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; flex-wrap:wrap; }
@@ -981,7 +982,7 @@ body {
 @media (max-width:700px) {
   .hs-subtabs { right:62px; gap:4px; padding:3px; }
   .hs-subtab-btn { padding:6px 11px; font-size:0.78em; }
-  #housing-overview, #housing-timeline { margin-top:60px; }
+  #housing-overview, #housing-timeline, #panel-timeline { margin-top:60px; }
   .tl-axis-wrap { height:440px; }
   .tl-tick-label { font-size:0.65em; }
 }
@@ -2292,6 +2293,7 @@ body {
     <div class="nav-sep"></div>
     <button class="nav-item" id="nav-accounts" onclick="showPanel('accounts',this);closeNav()">חשבונות</button>
     <a class="nav-item" href="/housing">דיור</a>
+    <a class="nav-item" href="/timeline">ציר זמן</a>
     <a class="nav-item" href="/organizer">ארגונית</a>
     <a class="nav-item" href="/bills" id="nav-bills-link">מעקב חשבונות<span class="nav-alert-dot" id="nav-bills-dot" style="display:none"></span></a>
     <a class="nav-item" href="/categories">ניתוח קטגוריאלי</a>
@@ -2496,6 +2498,7 @@ body {
 
   <!-- ── Panel: Housing / Mortgage ─────────────────────────── -->
   <div id="panel-housing" class="panel"></div>
+  <div id="panel-timeline" class="panel"></div>
 
 </div><!-- /.main -->
 
@@ -2654,7 +2657,7 @@ function toggleNav() {
   document.getElementById('sidebar').classList.contains('open') ? closeNav() : openNav();
 }
 // ── Panel navigation ──────────────────────────────────────
-var _PANEL_TITLES = { overview: 'ניתוח חודשי', accounts: 'חשבונות', housing: 'ניהול נכס' };
+var _PANEL_TITLES = { overview: 'ניתוח חודשי', accounts: 'חשבונות', housing: 'ניהול נכס', timeline: 'ציר זמן' };
 // Panels that show the month roller and monthly KPI cards
 var _MONTHLY_PANELS = { overview: true };
 function _applyPanelUI(name) {
@@ -2685,11 +2688,12 @@ function showPanel(name, btn) {
   if (btn) btn.classList.add('active');
   _applyPanelUI(name);
   var url = new URL(window.location.href);
-  var nonMonthly = ['housing', 'accounts'];
+  var nonMonthly = ['housing', 'accounts', 'timeline'];
   if (nonMonthly.indexOf(name) !== -1) { url.searchParams.set('panel', name); }
   else { url.searchParams.delete('panel'); }
   window.history.replaceState({}, '', url.toString());
   if (name === 'housing' && typeof _loadHousingPanel === 'function') _loadHousingPanel(false);
+  if (name === 'timeline' && typeof _loadGeneralTimelinePanel === 'function') _loadGeneralTimelinePanel();
 }
 // ── Smart nav to monthly analysis (from any page) ─────────
 function _navToMonthly(btn) {
@@ -2729,6 +2733,11 @@ function _navToMonthly(btn) {
         if (typeof _loadCashPie === 'function') _loadCashPie();
         if (typeof _loadAccountsData === 'function') _loadAccountsData(false);
       }, 0);
+    }
+    if (panel === 'timeline') {
+      document.addEventListener('DOMContentLoaded', function() {
+        if (typeof _loadGeneralTimelinePanel === 'function') _loadGeneralTimelinePanel();
+      });
     }
     if (panel === 'housing') {
       document.addEventListener('DOMContentLoaded', function() {
@@ -7910,6 +7919,41 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     return '/api/timeline/events';
   }
 
+  function _tlFilterBtnHtml(value, label) {
+    return '<button class="hs-subtab-btn' + (_tlCategoryFilter === value ? ' active' : '') + '" onclick="_tlSetCategoryFilter(\'' + value + '\')">' + label + '</button>';
+  }
+
+  function _loadGeneralTimelinePanel() {
+    _tlContainerId = 'panel-timeline-content';
+    _tlActiveScope = 'general';
+    var panel = document.getElementById('panel-timeline');
+    if (!panel) return;
+    if (!document.getElementById('panel-timeline-content')) {
+      panel.innerHTML =
+        '<div class="tl-filter-row" id="tl-filter-row">' +
+          _tlFilterBtnHtml('all', 'הכל') +
+          _tlFilterBtnHtml('mortgage', 'משכנתא') +
+          _tlFilterBtnHtml('general', 'כללי') +
+        '</div>' +
+        '<div id="panel-timeline-content"></div>';
+    }
+    _timelineEvents = null;
+    _loadTimelineTab();
+  }
+
+  function _tlSetCategoryFilter(filter) {
+    _tlCategoryFilter = filter;
+    var row = document.getElementById('tl-filter-row');
+    if (row) {
+      row.innerHTML =
+        _tlFilterBtnHtml('all', 'הכל') +
+        _tlFilterBtnHtml('mortgage', 'משכנתא') +
+        _tlFilterBtnHtml('general', 'כללי');
+    }
+    _timelineEvents = null;
+    _loadTimelineTab();
+  }
+
   async function _loadTimelineTab() {
     var tl = document.getElementById(_tlContainerId);
     if (!tl) return;
@@ -8825,6 +8869,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   window._renderAccountsTable = _renderAccountsTable;
   window._renderAccountsChart = _renderAccountsChart;
   window._loadHousingPanel    = _loadHousingPanel;
+  window._loadGeneralTimelinePanel = _loadGeneralTimelinePanel;
   window._regenHousing        = _regenHousing;
   window._switchHousingTab    = _switchHousingTab;
   window._tlZoom               = _tlZoom;
@@ -8846,6 +8891,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   window._tlCalNextMonth = _tlCalNextMonth;
   window._tlCalPick      = _tlCalPick;
   window._tlCalGoToday   = _tlCalGoToday;
+  window._tlSetCategoryFilter = _tlSetCategoryFilter;
   document.addEventListener('DOMContentLoaded', _initDynamicPage);
 
   // Set --btn-half CSS var so the progress panel anchors at button center

@@ -680,6 +680,15 @@ def housing_page():
     return redirect('/')
 
 
+@app.route('/timeline')
+def general_timeline_page():
+    """Redirect to the latest monthly page with ?panel=timeline."""
+    latest_key = _get_latest_yyyy_mm()
+    if latest_key:
+        return redirect(f'/general/{latest_key}?panel=timeline')
+    return redirect('/')
+
+
 @app.route('/search')
 def search_page():
     """Serve the transaction search page."""

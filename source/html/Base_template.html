@@ -7898,9 +7898,10 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       tl.style.display = '';
       if (bOv) bOv.classList.remove('active');
       if (bTl) bTl.classList.add('active');
+      var wasMortgageScope = (_tlActiveScope === 'mortgage' && _tlContainerId === 'housing-timeline');
       _tlContainerId = 'housing-timeline';
       _tlActiveScope = 'mortgage';
-      if (!_timelineEvents) {
+      if (!_timelineEvents || !wasMortgageScope) {
         _loadTimelineTab();
       } else {
         _renderTimeline(_timelineEvents);

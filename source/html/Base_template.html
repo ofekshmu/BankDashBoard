@@ -124,7 +124,11 @@ body {
   flex-shrink: 0;
 }
 .sidebar-app-name { font-size: .95em; font-weight: 700; color: var(--navy); }
-.sidebar-scroll { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 8px 0 16px; }
+.sidebar-scroll {
+  flex: 1; overflow-y: auto; overflow-x: hidden; padding: 8px 0 16px;
+  scrollbar-width: none; -ms-overflow-style: none;
+}
+.sidebar-scroll::-webkit-scrollbar { display: none; }
 .sidebar-footer{padding:12px 16px;border-top:1px solid var(--border);flex-shrink:0}
 .nav-restart-btn{width:100%;padding:8px 12px;border:1.5px dashed var(--border);border-radius:8px;background:none;color:var(--text-muted);font-size:.78em;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:7px;justify-content:center;transition:background .15s,color .15s,border-color .15s}
 .nav-restart-btn:hover{background:#fff3f3;color:#e53935;border-color:#e53935}

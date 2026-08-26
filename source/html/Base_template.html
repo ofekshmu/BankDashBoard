@@ -993,7 +993,8 @@ body {
 .tl-switch-knob { position:absolute; top:2px; right:2px; width:16px; height:16px; border-radius:50%; background:#fff; transition:right .15s; box-shadow:0 1px 2px rgba(0,0,0,.2); }
 .tl-switch.on .tl-switch-knob { right:18px; }
 
-.tl-marker { position:absolute; }
+.tl-marker { position:absolute; transition: top .25s ease, opacity .2s ease, transform .2s ease; }
+.tl-marker-enter, .tl-marker-exit { opacity:0; transform:scale(.4); }
 .tl-marker.tl-side-right { right:50%; margin-right:14px; }
 .tl-marker.tl-side-left { left:50%; margin-left:14px; }
 .tl-dot {
@@ -7961,31 +7962,15 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       }
     }
     // _tlAllEvents is already loaded for the general scope — filter and
-    // redraw in place instead of refetching/rebuilding the whole panel.
+    // pop the affected markers in/out in place instead of refetching or
+    // rebuilding the whole axis.
     if (_tlAllEvents) {
-      _tlFadeRedraw(_tlApplyCategoryFilter(_tlAllEvents));
+      var filtered = _tlApplyCategoryFilter(_tlAllEvents);
+      _timelineEvents = filtered;
+      _tlRedrawMarkers(filtered);
     } else {
       _loadTimelineTab();
     }
-  }
-
-  function _tlFadeRedraw(events) {
-    _timelineEvents = events;
-    var scroll = document.getElementById('tl-axis-scroll');
-    if (!scroll) { _tlDrawAxis(events); _tlWireScrollArrows(); return; }
-    var savedTop = scroll.scrollTop;
-    scroll.style.transition = 'opacity 0.12s ease';
-    scroll.style.opacity = '0';
-    setTimeout(function() {
-      _tlDrawAxis(events);
-      _tlWireScrollArrows();
-      var freshScroll = document.getElementById('tl-axis-scroll');
-      if (freshScroll) {
-        freshScroll.scrollTop = savedTop;
-        freshScroll.style.transition = 'opacity 0.18s ease';
-        freshScroll.style.opacity = '1';
-      }
-    }, 120);
   }
 
   async function _loadTimelineTab() {
@@ -8014,6 +7999,8 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   var _tlActiveScope = 'mortgage'; // 'mortgage' | 'general' — which UI surface is driving the shared engine
   var _tlCategoryFilter = 'all';   // only meaningful when _tlActiveScope === 'general': 'all' | 'mortgage' | 'general'
   var _tlAllEvents = null;         // unfiltered cache for the general scope, so filter switches never refetch
+  var _tlRangeMinD = null;         // axis date range from the last full _tlDrawAxis — reused by marker-only redraws
+  var _tlRangeMaxD = null;
 
   function _tlDayMs() { return 24 * 60 * 60 * 1000; }
 
@@ -8070,12 +8057,45 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       '</svg>';
   }
 
+  var TL_SLOT_H = 64; // px reserved per marker on its side, enough for a 2-line bubble
+
+  function _tlMarkerHtml(ev, top, side) {
+    return '<div class="tl-marker tl-side-' + side + '" data-ev-id="' + ev.id + '" style="top:' + top + 'px" onclick="_tlOpenViewModal(' + ev.id + ')">' +
+        '<div class="tl-dot" style="background:' + _esc(ev.color) + '"></div>' +
+        '<div class="tl-bubble" style="--bubble-color:' + _esc(ev.color) + '">' +
+          _esc(ev.name) + '<div class="tl-bubble-date">' + ev.event_date + '</div>' +
+        '</div>' +
+      '</div>';
+  }
+
+  // Packs events onto left/right slots relative to a fixed maxD reference so
+  // markers common to two filtered sets land on the same top offset.
+  function _tlPlaceMarkers(events, maxD) {
+    var sortedEvents = (events || [])
+      .map(function(ev) { return { ev: ev, d: new Date(ev.event_date) }; })
+      .filter(function(item) { return !isNaN(item.d); })
+      .sort(function(a, b) { return b.d - a.d; }); // newest (top) first
+
+    var sideBottom = { left: -Infinity, right: -Infinity }; // next available top-px per side
+    var items = sortedEvents.map(function(item) {
+      var idealTop = ((maxD - item.d) / _tlDayMs()) * _tlPxPerDay;
+      var side = sideBottom.left <= sideBottom.right ? 'left' : 'right';
+      var placedTop = Math.max(idealTop, sideBottom[side]);
+      sideBottom[side] = placedTop + TL_SLOT_H;
+      return { ev: item.ev, top: placedTop, side: side };
+    });
+    return { items: items, sideBottom: sideBottom };
+  }
+
   function _tlDrawAxis(events) {
     var scroll = document.getElementById('tl-axis-scroll');
     if (!scroll) return;
 
+    // Range comes from the full (unfiltered) event set for the general scope
+    // so switching filters never moves the ticks/baseline — only the markers.
+    var rangeSource = (_tlActiveScope === 'general' && _tlAllEvents) ? _tlAllEvents : events;
     var today = new Date();
-    var dates = (events || [])
+    var dates = (rangeSource || [])
       .map(function(e) { return new Date(e.event_date); })
       .filter(function(d) { return !isNaN(d); });
     dates.push(today);
@@ -8083,6 +8103,8 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     var maxD = new Date(Math.max.apply(null, dates.map(function(d) { return d.getTime(); })));
     minD = new Date(minD.getTime() - 30 * _tlDayMs());
     maxD = new Date(maxD.getTime() + 30 * _tlDayMs());
+    _tlRangeMinD = minD;
+    _tlRangeMaxD = maxD;
 
     var totalDays = Math.max(1, Math.round((maxD - minD) / _tlDayMs()));
     var heightPx = totalDays * _tlPxPerDay;
@@ -8116,35 +8138,13 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       html += '<div class="tl-year-label" style="top:' + yearTop + 'px">' + yearCursor.getFullYear() + '</div>';
       yearCursor = new Date(yearCursor.getFullYear() + 1, 0, 1);
     }
-    var TL_SLOT_H = 64; // px reserved per marker on its side, enough for a 2-line bubble
 
-    var sortedEvents = (events || [])
-      .map(function(ev) { return { ev: ev, d: new Date(ev.event_date) }; })
-      .filter(function(item) { return !isNaN(item.d); })
-      .sort(function(a, b) { return b.d - a.d; }); // newest (top) first
-
-    var hasMarkers = sortedEvents.length > 0;
-    var sideBottom = { left: -Infinity, right: -Infinity }; // next available top-px per side
-
-    sortedEvents.forEach(function(item) {
-      var ev = item.ev;
-      var idealTop = _tlTopForDate(item.d);
-      var side = sideBottom.left <= sideBottom.right ? 'left' : 'right';
-      var placedTop = Math.max(idealTop, sideBottom[side]);
-      sideBottom[side] = placedTop + TL_SLOT_H;
-
-      html +=
-        '<div class="tl-marker tl-side-' + side + '" style="top:' + placedTop + 'px" onclick="_tlOpenViewModal(' + ev.id + ')">' +
-          '<div class="tl-dot" style="background:' + _esc(ev.color) + '"></div>' +
-          '<div class="tl-bubble" style="--bubble-color:' + _esc(ev.color) + '">' +
-            _esc(ev.name) + '<div class="tl-bubble-date">' + ev.event_date + '</div>' +
-          '</div>' +
-        '</div>';
-    });
-
-    if (!hasMarkers) {
-      html += '<div class="tl-empty">אין אירועים עדיין — לחצו על "הוסף אירוע"</div>';
+    var placed = _tlPlaceMarkers(events, maxD);
+    var markersHtml = placed.items.map(function(it) { return _tlMarkerHtml(it.ev, it.top, it.side); }).join('');
+    if (!placed.items.length) {
+      markersHtml = '<div class="tl-empty" id="tl-markers-empty">אין אירועים עדיין — לחצו על "הוסף אירוע"</div>';
     }
+    html += '<div id="tl-markers">' + markersHtml + '</div>';
     scroll.innerHTML = html;
 
     // Crowded marker stacks (each reserves TL_SLOT_H sequentially on its side)
@@ -8152,7 +8152,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     // below the date-derived heightPx. Expand the scroll container to cover
     // that overflow so the sticky bottom arrow (and scrollHeight in general)
     // stays in sync with the real content end.
-    var neededHeight = Math.max(heightPx, sideBottom.left, sideBottom.right, maxTickTop);
+    var neededHeight = Math.max(heightPx, placed.sideBottom.left, placed.sideBottom.right, maxTickTop);
     if (neededHeight > heightPx) {
       scroll.style.height = neededHeight + 'px';
     }
@@ -8166,6 +8166,76 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       if (isNaN(clickedDate)) return;
       _tlOpenAddModal(_tlFmtLocalDate(clickedDate.getFullYear(), clickedDate.getMonth(), clickedDate.getDate()));
     };
+  }
+
+  // Filter switches keep the axis (ticks/baseline/range) untouched and only
+  // pop the markers that entered/left the filtered set, sliding the rest to
+  // their repacked position instead of rebuilding the whole timeline.
+  function _tlRedrawMarkers(events) {
+    var markersEl = document.getElementById('tl-markers');
+    if (!markersEl || _tlRangeMaxD == null) {
+      _tlDrawAxis(events);
+      _tlWireScrollArrows();
+      return;
+    }
+    var placed = _tlPlaceMarkers(events, _tlRangeMaxD);
+    var newMap = {};
+    placed.items.forEach(function(it) { newMap[it.ev.id] = it; });
+
+    var oldEls = markersEl.querySelectorAll('.tl-marker[data-ev-id]');
+    var oldMap = {};
+    for (var i = 0; i < oldEls.length; i++) {
+      oldMap[oldEls[i].getAttribute('data-ev-id')] = oldEls[i];
+    }
+
+    for (var j = 0; j < oldEls.length; j++) {
+      (function(el) {
+        var id = el.getAttribute('data-ev-id');
+        if (newMap[id]) return;
+        el.classList.add('tl-marker-exit');
+        var done = false;
+        var remove = function() {
+          if (done) return;
+          done = true;
+          if (el.parentNode) el.parentNode.removeChild(el);
+        };
+        el.addEventListener('transitionend', remove, { once: true });
+        setTimeout(remove, 260); // safety net if transitionend never fires
+      })(oldEls[j]);
+    }
+
+    placed.items.forEach(function(it) {
+      var id = String(it.ev.id);
+      var el = oldMap[id];
+      if (el) {
+        el.classList.remove('tl-side-left', 'tl-side-right');
+        el.classList.add('tl-side-' + it.side);
+        el.style.top = it.top + 'px';
+      } else {
+        markersEl.insertAdjacentHTML('beforeend', _tlMarkerHtml(it.ev, it.top, it.side));
+        var freshEl = markersEl.querySelector('.tl-marker[data-ev-id="' + id + '"]');
+        if (freshEl) {
+          freshEl.classList.add('tl-marker-enter');
+          void freshEl.offsetWidth; // force reflow so the enter class's start-state applies before we remove it
+          requestAnimationFrame(function() { freshEl.classList.remove('tl-marker-enter'); });
+        }
+      }
+    });
+
+    var emptyEl = document.getElementById('tl-markers-empty');
+    if (!placed.items.length && !emptyEl) {
+      markersEl.insertAdjacentHTML('beforeend', '<div class="tl-empty" id="tl-markers-empty">אין אירועים עדיין — לחצו על "הוסף אירוע"</div>');
+    } else if (placed.items.length && emptyEl) {
+      emptyEl.remove();
+    }
+
+    var scroll = document.getElementById('tl-axis-scroll');
+    if (scroll) {
+      var curHeight = parseFloat(scroll.style.height) || 0;
+      var neededHeight = Math.max(curHeight, placed.sideBottom.left, placed.sideBottom.right);
+      if (neededHeight > curHeight) scroll.style.height = neededHeight + 'px';
+      _tlUpdateScrollArrows();
+    }
   }
 
   function _tlUpdateScrollArrows() {

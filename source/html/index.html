@@ -65,6 +65,12 @@
       display: flex; align-items: center; justify-content: center;
       font-size: 16px; color: #fff;
     }
+    .nav-version-badge {
+      font-size: .68rem; font-weight: 600; color: var(--muted);
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 20px; padding: 2px 8px; letter-spacing: .02em;
+      user-select: none;
+    }
     .nav-links {
       display: flex; gap: 28px; list-style: none;
     }
@@ -383,6 +389,7 @@
   <a class="nav-logo" href="/">
     <img src="/favicon.svg" alt="BankDash" style="width:32px;height:32px;border-radius:8px;">
     BankDash
+    <span class="nav-version-badge" id="nav-version-badge">v—</span>
   </a>
   <ul class="nav-links">
     <li><a href="#features">Features</a></li>
@@ -548,6 +555,8 @@
 </div>
 
 <script>
+fetch('/api/version').then(function(r){return r.json();}).then(function(d){var b=document.getElementById('nav-version-badge');if(b&&d.version)b.textContent='v'+d.version;}).catch(function(){});
+
 /* ───── Auth helpers ─────────────────────────────── */
 const SESSION_KEY  = 'bankdash_session';
 const SESSION_DAYS = 7;

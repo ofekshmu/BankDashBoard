@@ -2974,11 +2974,11 @@ class DataBase:
         """, (name, event_date, description or None, color, category)).fetchone()
         return row[0]
 
-    def update_timeline_event(self, event_id: int, name: str, event_date: str, description: str = '', color: str = '#1e9d8b') -> None:
+    def update_timeline_event(self, event_id: int, name: str, event_date: str, description: str = '', color: str = '#1e9d8b', category: str = 'general') -> None:
         self.cursor.execute("""
-            UPDATE TimelineEvents SET Name=%s, Event_Date=%s, Description=%s, Color=%s
+            UPDATE TimelineEvents SET Name=%s, Event_Date=%s, Description=%s, Color=%s, Category=%s
             WHERE ID=%s
-        """, (name, event_date, description or None, color, event_id))
+        """, (name, event_date, description or None, color, category, event_id))
 
     def delete_timeline_event(self, event_id: int) -> None:
         self.cursor.execute("DELETE FROM TimelineEvents WHERE ID=%s", (event_id,))

@@ -1097,10 +1097,16 @@ body {
 .tl-cal-day.tl-cal-day-muted { color:var(--text-muted); opacity:.45; }
 .tl-cal-day.tl-cal-day-today { font-weight:700; text-decoration:underline; }
 .tl-cal-day.tl-cal-day-sel { background:var(--teal); color:#fff; font-weight:700; }
-.tl-color-row { display:flex; gap:6px; flex-wrap:wrap; }
-.tl-c-opt { width:22px; height:22px; border-radius:50%; border:2.5px solid transparent; cursor:pointer; transition:transform .1s; }
-.tl-c-opt:hover { transform:scale(1.15); }
-.tl-c-opt.sel { border-color:var(--navy); }
+.tl-type-toggle {
+  display:flex; align-items:center; gap:8px; width:fit-content;
+  border:none; border-radius:8px; padding:9px 18px;
+  color:#fff; font-family:inherit; font-size:.85em; font-weight:700;
+  cursor:pointer; transition:background .15s ease, transform .08s ease;
+}
+.tl-type-toggle:hover { filter:brightness(1.06); }
+.tl-type-toggle:active { transform:scale(.96); }
+.tl-type-toggle-dot { width:9px; height:9px; border-radius:50%; background:rgba(255,255,255,.85); flex-shrink:0; }
+.tl-type-toggle-hint { font-size:.82em; font-weight:500; opacity:.75; }
 .tl-btn {
   padding:8px 16px; border-radius:8px; border:1.5px solid var(--border);
   background:var(--white); color:var(--text-sub); font-family:inherit;
@@ -8251,17 +8257,17 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     _tlUpdateScrollArrows();
   }
 
-  var TL_COLORS = ['#1e9d8b','#3b82f6','#f59e0b','#ef4444','#10b981',
-                    '#8b5cf6','#f97316','#06b6d4','#e879f9','#84cc16'];
-  var _tlModalMode     = 'add';
-  var _tlEditingId     = null;
-  var _tlSelectedColor = TL_COLORS[0];
-  var _tlPendingLinks  = [];
-  var _tlSubmitting    = false;
+  var TL_TYPE_COLORS = { mortgage: '#3b82f6', general: '#f59e0b' }; // blue = mortgage, amber = general
+  var TL_TYPE_LABELS = { mortgage: 'משכנתא', general: 'כללי' };
+  var _tlModalMode       = 'add';
+  var _tlEditingId       = null;
+  var _tlEditingCategory = 'general';
+  var _tlPendingLinks    = [];
+  var _tlSubmitting      = false;
 
   function _tlBuildModal() {
     if (document.getElementById('tl-overlay')) {
-      _tlRenderColorRow();
+      _tlRenderTypeToggle();
       return;
     }
     var div = document.createElement('div');
@@ -8286,7 +8292,13 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
             '</div>' +
           '</div>' +
           '<div class="tl-field"><label>תיאור (אופציונלי)</label><textarea id="tl-desc-inp" placeholder="פרטים נוספים…"></textarea></div>' +
-          '<div class="tl-field"><label>צבע</label><div class="tl-color-row" id="tl-color-row"></div></div>' +
+          '<div class="tl-field">' +
+            '<label>סוג אירוע</label>' +
+            '<button type="button" class="tl-type-toggle" id="tl-type-toggle" onclick="_tlToggleCategory()">' +
+              '<span class="tl-type-toggle-dot"></span><span id="tl-type-toggle-label"></span>' +
+            '</button>' +
+            '<div class="tl-type-toggle-hint">לחיצה מחליפה בין משכנתא לכללי</div>' +
+          '</div>' +
           '<div class="tl-field">' +
             '<label>קשר עסקאות (אופציונלי)</label>' +
             '<input id="tl-tx-search-inp" type="text" placeholder="חפש עסקה בסביבת התאריך…" oninput="_tlSearchTx(this.value)">' +
@@ -8305,7 +8317,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         '</div>' +
       '</div>';
     document.body.appendChild(div);
-    _tlRenderColorRow();
+    _tlRenderTypeToggle();
   }
 
   var _tlCalViewYear  = null;
@@ -8434,18 +8446,17 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     dd.classList.add('hidden');
   });
 
-  function _tlRenderColorRow() {
-    var row = document.getElementById('tl-color-row');
-    if (!row) return;
-    row.innerHTML = TL_COLORS.map(function(c) {
-      return '<div class="tl-c-opt' + (c === _tlSelectedColor ? ' sel' : '') + '" style="background:' + c + '" data-color="' + c + '" onclick="_tlSelectColor(this)"></div>';
-    }).join('');
+  function _tlRenderTypeToggle() {
+    var btn = document.getElementById('tl-type-toggle');
+    var label = document.getElementById('tl-type-toggle-label');
+    if (!btn || !label) return;
+    btn.style.background = TL_TYPE_COLORS[_tlEditingCategory];
+    label.textContent = TL_TYPE_LABELS[_tlEditingCategory];
   }
 
-  function _tlSelectColor(el) {
-    document.querySelectorAll('#tl-color-row .tl-c-opt').forEach(function(e) { e.classList.remove('sel'); });
-    el.classList.add('sel');
-    _tlSelectedColor = el.dataset.color;
+  function _tlToggleCategory() {
+    _tlEditingCategory = _tlEditingCategory === 'mortgage' ? 'general' : 'mortgage';
+    _tlRenderTypeToggle();
   }
 
   function _tlCloseModal() {
@@ -8457,11 +8468,12 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     _tlModalMode = 'add';
     _tlEditingId = null;
     _tlPendingLinks = [];
-    _tlSelectedColor = TL_COLORS[0];
+    _tlEditingCategory = _tlActiveScope === 'mortgage' ? 'mortgage' : 'general';
     _tlBuildModal();
     document.getElementById('tl-name-inp').value = '';
     _tlSetDateValue(prefillDate || (function() { var d = new Date(); return _tlFmtLocalDate(d.getFullYear(), d.getMonth(), d.getDate()); })());
     document.getElementById('tl-desc-inp').value = '';
+    _tlRenderTypeToggle();
     document.getElementById('tl-modal-title').textContent = 'הוסף אירוע';
     document.getElementById('tl-view-content').style.display = 'none';
     document.getElementById('tl-edit-fields').style.display = '';
@@ -8534,7 +8546,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     if (!ev) return;
     _tlModalMode = 'edit';
     _tlEditingId = eventId;
-    _tlSelectedColor = ev.color;
+    _tlEditingCategory = (ev.category === 'mortgage') ? 'mortgage' : 'general';
     _tlPendingLinks = (ev.transactions || []).map(function(t) {
       return {
         link_id: t.link_id, transaction_table: t.transaction_table, transaction_id: t.transaction_id,
@@ -8545,6 +8557,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     document.getElementById('tl-name-inp').value = ev.name;
     _tlSetDateValue(ev.event_date);
     document.getElementById('tl-desc-inp').value = ev.description || '';
+    _tlRenderTypeToggle();
     document.getElementById('tl-modal-title').textContent = 'ערוך אירוע';
     document.getElementById('tl-view-content').style.display = 'none';
     document.getElementById('tl-edit-fields').style.display = '';
@@ -8570,8 +8583,9 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     if (!date) { st.className = 'tl-status err'; st.textContent = 'נא לבחור תאריך'; return; }
 
     var body = {
-      name: name, event_date: date, description: desc, color: _tlSelectedColor,
-      category: _tlActiveScope === 'mortgage' ? 'mortgage' : 'general',
+      name: name, event_date: date, description: desc,
+      color: TL_TYPE_COLORS[_tlEditingCategory],
+      category: _tlEditingCategory,
     };
     var url = '/api/timeline/events';
     var method = 'POST';
@@ -8986,7 +9000,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   window._tlOpenEditModal = _tlOpenEditModal;
   window._tlOpenViewModal    = _tlOpenViewModal;
   window._tlSwitchToEditMode = _tlSwitchToEditMode;
-  window._tlSelectColor   = _tlSelectColor;
+  window._tlToggleCategory = _tlToggleCategory;
   window._tlCloseModal    = _tlCloseModal;
   window._tlSubmitEvent   = _tlSubmitEvent;
   window._tlDeleteEvent   = _tlDeleteEvent;

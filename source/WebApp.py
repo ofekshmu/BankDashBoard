@@ -5065,16 +5065,21 @@ def api_timeline_event(event_id):
         db = DataBase()
         db.ensure_timeline_tables()
         if request.method == 'PUT':
-            body  = request.get_json(force=True) or {}
-            name  = (body.get('name') or '').strip()
-            date  = (body.get('event_date') or '').strip()
-            color = (body.get('color') or '#1e9d8b').strip()
-            desc  = (body.get('description') or '').strip()
+            body     = request.get_json(force=True) or {}
+            name     = (body.get('name') or '').strip()
+            date     = (body.get('event_date') or '').strip()
+            color    = (body.get('color') or '#1e9d8b').strip()
+            desc     = (body.get('description') or '').strip()
+            category = (body.get('category') or '').strip()
             if not name:
                 return jsonify({'ok': False, 'error': 'Name required'})
             if not date:
                 return jsonify({'ok': False, 'error': 'Date required'})
-            db.update_timeline_event(event_id, name, date, desc, color)
+            if category and category not in ('mortgage', 'general'):
+                return jsonify({'ok': False, 'error': 'Invalid category'})
+            if not category:
+                category = 'general'
+            db.update_timeline_event(event_id, name, date, desc, color, category)
             db.commit_changes()
             return jsonify({'ok': True})
         db.delete_timeline_event(event_id)

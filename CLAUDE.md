@@ -2,7 +2,7 @@
 
 ## What this app is
 
-A personal finance dashboard that parses raw Excel files downloaded from Bank Leumi, stores them in a local SQLite database, and serves a Flask web app with monthly analysis, category breakdowns, a file organizer, and cash tracking.
+A personal finance dashboard that parses raw Excel files downloaded from Bank Leumi, stores them in a PostgreSQL database (Neon, via psycopg2), and serves a Flask web app with monthly analysis, category breakdowns, a file organizer, and cash tracking.
 
 ---
 
@@ -12,7 +12,7 @@ A personal finance dashboard that parses raw Excel files downloaded from Bank Le
 source/
   WebApp.py          — Flask app, all routes, HTML generation helpers
   AppManager.py      — CLI entry point, orchestrates parsing → DB → analysis
-  database.py        — DataBase singleton (SQLite via sqlite3)
+  database.py        — DataBase singleton (PostgreSQL via psycopg2, Neon-hosted)
   Constants.py       — All enums and reserved string constants
   src_utils/
     utils.py         — Core logic: generate_html, card_charge_validation,
@@ -166,4 +166,4 @@ Always develop on `features-and-fixes` (or a named feature branch), not on `clau
 
 ## Deployment
 
-The app runs on Vercel (serverless). Entry point: `source/WebApp.py`. The database is SQLite; the Vercel path differs from local — see `fill_missing.py` and `database.py` for path resolution. Do not hardcode local Windows paths (e.g. `C:\\Users\\ofeks\\...`).
+The app runs on Vercel (serverless). Entry point: `source/WebApp.py`. The database is PostgreSQL (Neon), connected via `psycopg2.connect(os.environ['DATABASE_URL'])` in `database.py` — the same `DATABASE_URL` is used both locally (loaded from `.env`) and on Vercel, there is no SQLite fallback. Generated-file output paths (e.g. `Outputs/general_analysis`, `Outputs/category_analysis`) still differ between local and Vercel — those branch on `os.getenv('VERCEL')`, not on `DATABASE_URL` (a similarly-named check based on `DATABASE_URL` presence is a known latent bug in a few spots in `utils.py` — `DATABASE_URL` no longer implies "running on Vercel" now that it's required locally too). `fill_missing.py` is a one-off SQLite→Postgres gap-filler used during the migration, not part of the live path-resolution logic. Do not hardcode local Windows paths (e.g. `C:\\Users\\ofeks\\...`).

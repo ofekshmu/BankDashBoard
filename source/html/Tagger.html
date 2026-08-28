@@ -215,7 +215,7 @@ body {
   border-bottom: 1px solid var(--border);
   transition: background .15s, opacity .3s, transform .35s, max-height .35s;
   animation: fadeSlideIn .22s ease;
-  max-height: 300px;
+  max-height: none;
   overflow: visible;
   position: relative;
   z-index: 1;
@@ -236,9 +236,10 @@ body {
   display: flex; align-items: center; justify-content: center;
   font-size: 1em;
   margin-top: 6px;
+  color: #fff; font-weight: 700;
 }
-.tx-type-pill.card { background: #eef2ff; }
-.tx-type-pill.bank { background: #fef3e2; }
+.tx-type-pill.card { font-size: .62em; letter-spacing: .2px; }
+.tx-type-pill.bank { background: var(--navy); }
 
 /* Wrapper that stacks info + actions on top, then description below */
 .tx-body {
@@ -271,6 +272,15 @@ body {
 .tx-meta .val { color: var(--navy); font-weight: 600; }
 .tx-meta .val.neg { color: var(--red); }
 .tx-meta .val.pos { color: var(--green); }
+
+/* Per-entry field columns — untagged / high-value / search-results lists only */
+#untagged-list .tx-meta,
+#highval-list .tx-meta,
+#search-tagged-list .tx-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 6px 16px;
+}
 
 .tx-actions {
   display: flex; align-items: center; gap: 8px;
@@ -321,7 +331,7 @@ body {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow-md);
-  z-index: 100;
+  z-index: 600;
   max-height: 220px; overflow-y: auto;
   display: none;
 }
@@ -387,6 +397,7 @@ body {
 .tx-row.is-tagged .cat-label.auto {
   background: #eef2ff; color: #5c7cfa;
 }
+.tx-row.is-tagged { cursor: pointer; }
 .source-flag {
   font-size: .7em; color: var(--text-muted);
   border: 1px solid var(--border);
@@ -410,6 +421,23 @@ body {
   top: 0; right: 0; left: 0;
   z-index: 999;
 }
+
+/* ── Toolbar hamburger menu ──────────────────────────────────── */
+.tg-menu-dropdown {
+  display: none; position: absolute; top: calc(100% + 6px); left: 0;
+  background: var(--white); border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm); box-shadow: 0 10px 30px rgba(0,0,0,.14);
+  min-width: 190px; z-index: 400; overflow: hidden;
+}
+.tg-menu-dropdown.open { display: block; }
+.tg-menu-item {
+  display: block; width: 100%; padding: 10px 14px;
+  background: none; border: none; text-align: right;
+  font-size: .88em; font-family: inherit; color: var(--navy);
+  cursor: pointer; white-space: nowrap;
+}
+.tg-menu-item:hover { background: var(--teal-light); }
+.tg-menu-item + .tg-menu-item { border-top: 1px solid var(--border); }
 
 /* ── Add category modal ──────────────────────────────────────── */
 .modal-overlay {
@@ -527,6 +555,17 @@ body {
   user-select: none;
 }
 
+.month-separator {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 20px 4px;
+  color: var(--teal);
+  font-size: .78em; font-weight: 700;
+  user-select: none;
+}
+.month-separator::before, .month-separator::after {
+  content: ''; flex: 1; height: 1px; background: var(--teal); opacity: .3;
+}
+
 /* ── Description input ───────────────────────────────────────── */
 .desc-input {
   flex: 1;
@@ -621,8 +660,8 @@ body {
 ::-webkit-scrollbar-thumb { background: #cdd4e0; border-radius: 3px; }
 
 /* ── Split feature ───────────────────────────────────────────── */
-.tg-split-btn{background:none;border:1.5px solid var(--border);border-radius:6px;padding:4px 10px;font-size:.75em;color:#7b1fa2;cursor:pointer;font-family:inherit;transition:background .12s,border-color .12s;white-space:nowrap;flex-shrink:0}
-.tg-split-btn:hover{background:#ede7f6;border-color:#9c27b0}
+.tg-split-btn{background:#fff;border:1.5px solid #9575cd;border-radius:8px;padding:5.5px 12.5px;font-size:.82em;font-weight:600;color:#7e57c2;cursor:pointer;font-family:inherit;transition:background .12s;white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;gap:5px}
+.tg-split-btn:hover{background:#f3effc}
 .cash-cur-dropdown{display:none;background:#fff;border:1.5px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:9999;max-height:220px;overflow-y:auto}
 .cash-cur-dropdown.open{display:block}
 .cash-cur-search{padding:8px 12px;border:none;border-bottom:1.5px solid var(--border);font-size:.84em;width:100%;box-sizing:border-box;outline:none;color:var(--navy);position:sticky;top:0;background:#fff;font-family:inherit}
@@ -670,73 +709,17 @@ body {
 .split-lock-fail{animation:lockFail .55s ease-out forwards;border-color:var(--red) !important}
 .split-sum-error{border-color:var(--red) !important}
 
-/* ── Mobile Responsive Design ──────────────────────────────────────────────── */
-@media (max-width: 768px) {
-    body {
-        padding: 10px;
-        font-size: 14px;
-    }
-
-    .container, .main-content {
-        padding: 10px;
-        margin: 0;
-    }
-
-    table {
-        font-size: 12px;
-        display: block;
-        overflow-x: auto;
-    }
-
-    th, td {
-        padding: 8px;
-    }
-
-    button, input, select {
-        padding: 12px;
-        font-size: 16px;
-        min-height: 44px;
-    }
-
-    .header, .sidebar, .navigation {
-        display: block;
-        width: 100%;
-    }
-
-    h1, h2, h3 {
-        font-size: 18px;
-        margin-bottom: 15px;
-    }
-}
-
-@media (max-width: 480px) {
-    body {
-        padding: 5px;
-        font-size: 12px;
-    }
-
-    table {
-        font-size: 10px;
-    }
-
-    th, td {
-        padding: 5px;
-    }
-
-    button, input, select {
-        width: 100%;
-        padding: 12px;
-        font-size: 16px;
-        margin-bottom: 10px;
-    }
-
-    h1, h2 {
-        font-size: 16px;
-    }
-}
 @media (max-width: 600px) {
-  .main { padding: 56px 12px 80px !important; }
-  .page-header { padding-right: 0 !important; }
+  /* Raise the header to sit at the same height as the fixed hamburger
+     button (top:18px, 42px tall) instead of dropping below it — the
+     page-header's own padding-right (60px) already keeps its content
+     clear of the button horizontally, so no vertical clearance is
+     needed here too.
+     Specificity bumped (body .main) to beat design-system.css's own
+     `.main { padding: 0 ... !important }` mobile override, which is
+     loaded after this block and would otherwise win the tie. */
+  body .main { padding: 24px 12px 80px !important; }
+  .page-header { padding-right: 60px !important; }
 }
 
 /* ── Tagger mobile layout ─────────────────────────────────── */
@@ -749,25 +732,75 @@ body {
   .tx-top { flex-direction: column; align-items: stretch; gap: 6px; }
   .tx-info { min-width: 0; }
 
-  /* Actions row: category input + buttons wrapping */
-  .tx-actions { flex-wrap: wrap; gap: 6px; flex-shrink: 1; }
-  .cat-wrap { width: 100%; flex: 1 1 auto; }
-  .cat-input { width: 100%; }
-
-  /* Buttons stay compact but don't overflow */
-  .btn { font-size: .8em; padding: 6px 10px; }
-  .btn-icon { width: 30px; height: 30px; }
-
-  /* Filter bar scrolls horizontally instead of wrapping */
-  .filter-bar {
-    overflow-x: auto;
-    flex-wrap: nowrap;
-    -webkit-overflow-scrolling: touch;
-    padding-bottom: 8px;
-    scrollbar-width: none;
+  /* One field per line instead of a multi-column grid */
+  #untagged-list .tx-meta,
+  #highval-list .tx-meta,
+  #search-tagged-list .tx-meta {
+    grid-template-columns: 1fr;
   }
-  .filter-bar::-webkit-scrollbar { display: none; }
-  .filter-btn { flex-shrink: 0; }
+
+  /* Actions row: category input shares the row with the תייג/פצל
+     buttons instead of forcing them onto a second line */
+  .tx-actions { flex-wrap: wrap; gap: 6px; flex-shrink: 1; align-items: stretch; }
+  .cat-wrap { flex: 1 1 100px; min-width: 90px; }
+  .cat-input { width: 100%; height: 100%; }
+
+  /* 16px minimum on text inputs stops iOS Safari from zooming in on focus */
+  .cat-input, .desc-input, .rules-filter-input, .search-input, .modal-input { font-size: 16px; }
+
+  /* Buttons: smaller, tighter, more elegant on touch screens */
+  .btn { font-size: .78em; padding: 7px 12px; border-radius: 9px; gap: 4px; }
+  .btn-icon { width: 30px; height: 30px; border-radius: 8px; }
+  .tg-split-btn { font-size: .78em; padding: 5.5px 10.5px; border-radius: 9px; }
+  .btn-tag-all { font-size: .7em; padding: 5px 9px; }
+
+  /* Page header: wrap into a tidy stack instead of overflowing */
+  .page-header {
+    flex-wrap: wrap;
+    gap: 8px 10px;
+    margin-bottom: 20px;
+  }
+  .page-header h1 { font-size: 1.35em; flex: 1 1 auto; }
+  .header-badge { font-size: .74em; padding: 3px 10px; }
+  .page-header .btn { margin-right: 0 !important; font-size: .74em; padding: 6px 10px; }
+
+  /* Filter bar (card/date/sort/tagged toggles): wrap onto as many lines
+     as needed so every filter is visible without horizontal scrolling */
+  .filter-bar {
+    flex-wrap: wrap;
+    padding: 10px 12px 8px;
+  }
+  .filter-btn { font-size: .74em; padding: 4px 11px; }
+
+  .rules-filter-bar, .search-bar { padding: 10px 12px; }
+
+  /* Rules list: stack name / count / category select instead of one cramped row */
+  .rule-row {
+    flex-wrap: wrap;
+    padding: 10px 12px;
+    gap: 6px 10px;
+  }
+  .rule-name { flex: 1 1 100%; white-space: normal; }
+  .rule-count { order: 3; }
+  .rule-cat-select { flex: 1 1 auto; min-width: 0; order: 2; font-size: .8em; }
+
+  /* Search bar: keep the "search" button from shrinking its label */
+  .search-bar .btn { flex-shrink: 0; }
+
+  /* Split modal: fixed pixel grid columns don't fit narrow screens —
+     reflow into two rows (desc+remove, then amount+category) instead
+     of cramming 5 columns into one */
+  .s-modal { padding: 20px 16px; }
+  .s-editor-header, .s-editor-row {
+    grid-template-columns: 16px 1fr 26px;
+    grid-template-areas: "num desc remove" ". amt cat";
+    row-gap: 5px;
+  }
+  .s-editor-header > :nth-child(1), .s-editor-row > :nth-child(1) { grid-area: num; }
+  .s-editor-header > :nth-child(2), .s-editor-row > :nth-child(2) { grid-area: desc; }
+  .s-editor-header > :nth-child(3), .s-editor-row > :nth-child(3) { grid-area: amt; }
+  .s-editor-header > :nth-child(4), .s-editor-row > :nth-child(4) { grid-area: cat; }
+  .s-editor-header > :nth-child(5), .s-editor-row > :nth-child(5) { grid-area: remove; }
 }
 .debug-fab{position:fixed;bottom:22px;right:18px;width:42px;height:42px;border-radius:50%;background:#1e2a4a;color:#fff;font-size:.72em;font-family:monospace;font-weight:700;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.3);z-index:997;letter-spacing:-.5px}
 .debug-fab:hover{filter:brightness(1.2)}
@@ -800,8 +833,7 @@ body {
     <button class="sidebar-close-btn" onclick="closeNav()" aria-label="סגור תפריט">✕</button>
   </div>
   <div class="sidebar-scroll">
-    <a class="nav-item" href="/">ניתוח חודשי</a>
-    <a class="nav-item" href="/">עסקאות</a>
+    <a class="nav-item" href="/monthly" onclick="try{var k=localStorage.getItem('lv_month');if(k){event.preventDefault();location.href='/general/'+k;}}catch(_){}">ניתוח חודשי</a>
     <div class="nav-sep"></div>
     <a class="nav-item" href="/accounts">חשבונות</a>
     <a class="nav-item" href="/housing">דיור</a>
@@ -810,7 +842,7 @@ body {
     <a class="nav-item" href="/categories">ניתוח קטגוריאלי</a>
     <a class="nav-item" href="/search">חיפוש</a>
     <a class="nav-item" href="/spotify">Spotify Tracker</a>
-    <a class="nav-item" href="/gym">💪 Gym Tracker</a>
+    <a class="nav-item" href="/recurring">חיובים חוזרים</a>
     <div class="nav-sep"></div>
     <a class="nav-item active" href="/tagger">תייגן</a>
     <a class="nav-item" href="/files">קבצים</a>
@@ -820,6 +852,7 @@ body {
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
       הפעל שרת מחדש
     </button>
+    <div id="app-version-badge-2" style="margin-top:8px;text-align:center;font-size:.72em;color:var(--text-muted);letter-spacing:.03em;opacity:.7;user-select:none">v—</div>
   </div>
 </nav>
 
@@ -857,18 +890,80 @@ body {
   </div>
 </div>
 
+<!-- Rename category modal -->
+<div class="modal-overlay" id="rename-cat-modal-overlay">
+  <div class="modal-box">
+    <div class="modal-title">✏️ ערוך שם קטגוריה</div>
+    <div class="cat-wrap" style="width:100%;margin-bottom:14px;">
+      <input class="cat-input" type="text" placeholder="הקלד לחיפוש קטגוריה…" autocomplete="off"
+             onInput="onCatInput(this,'rename-cat')"
+             onFocus="openDropdown(this,'rename-cat')"
+             onBlur="scheduleClose(this,'rename-cat')"
+             onKeyDown="onCatKey(event,this,'rename-cat')"
+             id="inp-rename-cat" data-key="rename-cat"/>
+      <div class="cat-dropdown" id="dd-rename-cat"></div>
+    </div>
+    <input class="modal-input" id="rename-cat-input" type="text" placeholder="שם חדש…" autocomplete="off"/>
+    <div class="modal-msg" id="rename-cat-msg"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeRenameCategoryModal()">ביטול</button>
+      <button class="btn btn-primary" onclick="submitRenameCategory()">שמור</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit tag: category picker (step 1) -->
+<div class="modal-overlay" id="edit-tag-modal-overlay">
+  <div class="modal-box">
+    <div class="modal-title">🔄 שינוי קטגוריה</div>
+    <div id="edit-tag-name" style="font-weight:600;margin-bottom:4px;font-size:.92em;color:var(--navy);"></div>
+    <div id="edit-tag-current" style="font-size:.82em;color:var(--text-muted);margin-bottom:14px;"></div>
+    <div class="cat-wrap" style="width:100%;margin-bottom:14px;">
+      <input class="cat-input" type="text" placeholder="קטגוריה…" autocomplete="off"
+             onInput="onCatInput(this,'edit-tag')"
+             onFocus="openDropdown(this,'edit-tag')"
+             onBlur="scheduleClose(this,'edit-tag')"
+             onKeyDown="onCatKey(event,this,'edit-tag')"
+             id="inp-edit-tag" data-key="edit-tag"/>
+      <div class="cat-dropdown" id="dd-edit-tag"></div>
+    </div>
+    <div class="modal-msg" id="edit-tag-msg"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeEditTagModal()">ביטול</button>
+      <button class="btn btn-primary" id="btn-edit-tag" onclick="editTagSave()" disabled>המשך</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit tag: confirmation (step 2) -->
+<div class="modal-overlay" id="edit-tag-confirm-overlay">
+  <div class="modal-box">
+    <div class="modal-title">🔄 אישור שינוי קטגוריה</div>
+    <div id="edit-tag-confirm-name" style="font-weight:600;margin-bottom:8px;font-size:.92em;color:var(--navy);"></div>
+    <div id="edit-tag-confirm-arrow" style="font-size:.9em;color:var(--text-sub);margin-bottom:18px;"></div>
+    <div class="modal-msg" id="edit-tag-confirm-msg"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="backToEditTagPicker()">חזרה</button>
+      <button class="btn btn-primary" id="edit-tag-confirm-btn" onclick="confirmEditTag()">אשר שינוי</button>
+    </div>
+  </div>
+</div>
+
 <!-- Main content -->
 <main class="main">
 
   <div class="page-header">
     <h1>🏷 תייגן עסקאות</h1>
     <span class="header-badge" id="untagged-count-badge">טוען…</span>
-    <button class="btn btn-ghost" onclick="openModal()" style="margin-right:auto">
-      ➕ קטגוריה חדשה
-    </button>
-    <button class="btn btn-ghost" onclick="refreshAll()">
-      🔄 רענן
-    </button>
+    <div class="tg-menu-wrap" id="tg-menu-wrap" style="margin-right:auto;position:relative">
+      <button class="btn btn-ghost" id="tg-menu-btn" onclick="toggleTgMenu()" aria-label="תפריט פעולות">☰</button>
+      <div class="tg-menu-dropdown" id="tg-menu-dropdown">
+        <button class="tg-menu-item" onclick="closeTgMenu();refreshAll()">🔄 רענן</button>
+        <button class="tg-menu-item" id="auto-tag-btn" onclick="closeTgMenu();runAutoTag()">🏷️ תיוג אוטומטי</button>
+        <button class="tg-menu-item" onclick="closeTgMenu();openModal()">➕ קטגוריה חדשה</button>
+        <button class="tg-menu-item" onclick="closeTgMenu();openRenameCategoryModal()">✏️ ערוך שם קטגוריה</button>
+      </div>
+    </div>
   </div>
 
   <!-- ── Section 1: Untagged ───────────────────────────────── -->
@@ -882,6 +977,11 @@ body {
     </div>
     <div class="section-body" id="sec-untagged-body">
       <div class="filter-bar" id="untagged-card-filter-bar" style="display:none"></div>
+      <div class="filter-bar" id="untagged-sort-bar">
+        <span style="font-size:.78em;color:var(--text-muted);flex-shrink:0">מיין:</span>
+        <button class="filter-btn" id="usort-date" onclick="setUntaggedSort('date')">תאריך<span id="usort-date-arrow"></span></button>
+        <button class="filter-btn" id="usort-price" onclick="setUntaggedSort('price')">סכום<span id="usort-price-arrow"></span></button>
+      </div>
       <div class="tx-list" id="untagged-list">
         <div class="skeleton-row"></div>
         <div class="skeleton-row"></div>
@@ -975,6 +1075,7 @@ body {
 </main>
 
 <script>
+fetch('/api/version').then(function(r){return r.json();}).then(function(d){var b=document.getElementById('app-version-badge-2');if(b&&d.version)b.textContent='v'+d.version;}).catch(function(){});
 function restartServer(btn) {
   btn.disabled = true;
   btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg> מפעיל מחדש…';
@@ -1005,8 +1106,8 @@ let _untaggedItems = [];
 let _highvalItems  = [];
 let _taggedItems   = [];
 let _taggedFilter       = 'all';   // 'all' | 'manual' | 'auto'
-let _untaggedCardFilter = null;    // null = all cards, otherwise card_id string
-let _autoRefreshTimer = null;
+let _untaggedFilters = new Set();  // empty = all; can hold 'BANK' and/or card_id strings together
+let _untaggedSort = { col: null, dir: -1 };  // col: null|'date'|'price'; dir: 1 asc, -1 desc
 // Guard against concurrent loads / stale retry chains
 let _loading    = { untagged: false, highval: false, tagged: false };
 let _retryTimer = { untagged: null,  highval: null,  tagged: null  };
@@ -1014,11 +1115,10 @@ let _retryCount = { untagged: 0,     highval: 0,     tagged: 0     };
 const MAX_AUTO_RETRIES  = 3;
 const FETCH_TIMEOUT_MS  = 12000;
 let _lastInteraction = Date.now();
-const AUTO_REFRESH_DELAY = 5000;   // 5 s idle → refresh
 
 // ── Boot ───────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  loadCategories().then(() => {
+  Promise.all([loadCategories(), loadCardColors()]).then(() => {
     loadUntagged();
     loadHighValue();
     loadTagged();
@@ -1042,6 +1142,24 @@ async function loadCategories() {
   if (!res || !res.ok) return;
   const data = await res.json();
   if (data.ok) _categories = data.categories;
+}
+
+// ── Card colors (same palette as monthly-analysis charts) ───────
+let _cardColors = {};
+async function loadCardColors() {
+  const res = await fetch('/api/tagger/card-colors').catch(() => null);
+  if (!res || !res.ok) return;
+  const data = await res.json().catch(() => null);
+  if (data && data.ok) _cardColors = data.colors || {};
+}
+
+function typePillHtml(tx) {
+  if (tx.table_name === 'CardTransactions') {
+    const cardId = String(tx.card_id ?? '');
+    const color  = _cardColors[cardId] || '#8a95b0';
+    return `<div class="tx-type-pill card" style="background:${esc(color)}">${esc(cardId)}</div>`;
+  }
+  return `<div class="tx-type-pill bank">B</div>`;
 }
 
 // ── Untagged list ──────────────────────────────────────────────
@@ -1079,100 +1197,166 @@ function renderUntagged() {
   const el = document.getElementById('untagged-list');
   _cleanupLiftedDropdowns(el);
 
-  const items = _untaggedCardFilter
-    ? _untaggedItems.filter(tx => tx.table_name === 'CardTransactions' && String(tx.card_id) === _untaggedCardFilter)
-    : _untaggedItems;
+  let items = _untaggedFilters.size === 0
+    ? _untaggedItems
+    : _untaggedItems.filter(tx =>
+        (_untaggedFilters.has('BANK') && tx.table_name === 'BankTransactions') ||
+        (tx.table_name === 'CardTransactions' && _untaggedFilters.has(String(tx.card_id)))
+      );
 
   if (!items.length) {
-    el.innerHTML = _untaggedCardFilter
-      ? `<div class="empty-state"><div class="emoji">🎉</div>אין עסקאות ללא תיוג לכרטיס ${esc(_untaggedCardFilter)}</div>`
-      : `<div class="empty-state"><div class="emoji">🎉</div>כל העסקאות מתויגות!</div>`;
+    const emptyMsg = _untaggedFilters.size
+      ? `אין עסקאות ללא תיוג בסינון הנוכחי`
+      : 'כל העסקאות מתויגות!';
+    el.innerHTML = `<div class="empty-state"><div class="emoji">🎉</div>${emptyMsg}</div>`;
     return;
   }
+
+  if (_untaggedSort.col) {
+    const dir = _untaggedSort.dir;
+    items = items.slice().sort((a, b) => {
+      let va, vb;
+      if (_untaggedSort.col === 'date') {
+        va = a.exec_date ? new Date(a.exec_date).getTime() : 0;
+        vb = b.exec_date ? new Date(b.exec_date).getTime() : 0;
+      } else {
+        va = Math.abs(a.charge_value ?? a.transaction_value ?? 0);
+        vb = Math.abs(b.charge_value ?? b.transaction_value ?? 0);
+      }
+      return (va - vb) * dir;
+    });
+  }
+
   const cutoff = new Date();
   cutoff.setMonth(cutoff.getMonth() - 3);
 
+  // Both the old-tx separator and the month dividers assume the list is in
+  // chronological order — true by default and when sorted by date, but not
+  // when sorted by price.
+  const chronological = _untaggedSort.col !== 'price';
+
   let html = '';
   let separatorInserted = false;
+  let lastMonthKey = null;
   for (let i = 0; i < items.length; i++) {
     const tx = items[i];
     const execDate = tx.exec_date ? new Date(tx.exec_date) : null;
-    if (!separatorInserted && execDate && execDate < cutoff) {
+    if (chronological && !separatorInserted && execDate && execDate < cutoff) {
       html += `<div class="old-tx-separator">עסקאות ישנות</div>`;
       separatorInserted = true;
+    }
+    if (chronological && execDate) {
+      const mKey = monthKey(execDate);
+      if (mKey !== lastMonthKey) {
+        html += `<div class="month-separator">${monthLabel(execDate)}</div>`;
+        lastMonthKey = mKey;
+      }
     }
     html += buildUntaggedRow(tx, i);
   }
   el.innerHTML = html;
 }
 
+function monthKey(d) {
+  return `${d.getFullYear()}-${d.getMonth()}`;
+}
+function monthLabel(d) {
+  return d.toLocaleDateString('he-IL', { month: 'long', year: 'numeric' });
+}
+
 function buildCardFilterBar() {
   const bar = document.getElementById('untagged-card-filter-bar');
   if (!bar) return;
 
+  const hasBank = _untaggedItems.some(tx => tx.table_name === 'BankTransactions');
   const cardIds = [...new Set(
     _untaggedItems
       .filter(tx => tx.table_name === 'CardTransactions' && tx.card_id)
       .map(tx => String(tx.card_id))
   )].sort();
 
-  if (cardIds.length < 2) {
+  if (!hasBank && cardIds.length < 2) {
     bar.style.display = 'none';
-    _untaggedCardFilter = null;
+    _untaggedFilters.clear();
     return;
   }
 
   bar.style.display = '';
   bar.innerHTML =
-    `<span style="font-size:.78em;color:var(--text-muted);flex-shrink:0">כרטיס:</span>` +
-    `<button class="filter-btn active" id="ucf-all" onclick="setUntaggedCardFilter(null)">הכל</button>` +
+    `<span style="font-size:.78em;color:var(--text-muted);flex-shrink:0">סינון:</span>` +
+    `<button class="filter-btn${_untaggedFilters.size === 0 ? ' active' : ''}" id="ucf-all" onclick="setUntaggedCardFilter(null)">הכל</button>` +
+    (hasBank ? `<button class="filter-btn${_untaggedFilters.has('BANK') ? ' active' : ''}" data-filter-key="BANK" onclick="setUntaggedCardFilter('BANK')">🏦 בנק</button>` : '') +
     cardIds.map(id =>
-      `<button class="filter-btn" id="ucf-${CSS.escape(id)}" onclick="setUntaggedCardFilter('${esc(id)}')">${esc(id)}</button>`
+      `<button class="filter-btn${_untaggedFilters.has(id) ? ' active' : ''}" data-filter-key="${esc(id)}" onclick="setUntaggedCardFilter('${esc(id)}')">💳 ${esc(id)}</button>`
     ).join('');
 }
 
-function setUntaggedCardFilter(cardId) {
-  _untaggedCardFilter = cardId;
-  document.querySelectorAll('#untagged-card-filter-bar .filter-btn').forEach(b => b.classList.remove('active'));
-  const activeBtn = cardId
-    ? document.getElementById('ucf-' + CSS.escape(cardId))
-    : document.getElementById('ucf-all');
-  if (activeBtn) activeBtn.classList.add('active');
+function setUntaggedCardFilter(key) {
+  if (key === null) {
+    _untaggedFilters.clear();
+  } else if (_untaggedFilters.has(key)) {
+    _untaggedFilters.delete(key);
+  } else {
+    _untaggedFilters.add(key);
+  }
+  const allBtn = document.getElementById('ucf-all');
+  if (allBtn) allBtn.classList.toggle('active', _untaggedFilters.size === 0);
+  document.querySelectorAll('#untagged-card-filter-bar .filter-btn[data-filter-key]').forEach(b => {
+    b.classList.toggle('active', _untaggedFilters.has(b.dataset.filterKey));
+  });
+  renderUntagged();
+}
+
+function setUntaggedSort(col) {
+  if (_untaggedSort.col === col) {
+    _untaggedSort.dir *= -1;
+  } else {
+    _untaggedSort.col = col;
+    _untaggedSort.dir = -1;
+  }
+  document.getElementById('usort-date-arrow').textContent  = _untaggedSort.col === 'date'  ? (_untaggedSort.dir === 1 ? ' ↑' : ' ↓') : '';
+  document.getElementById('usort-price-arrow').textContent = _untaggedSort.col === 'price' ? (_untaggedSort.dir === 1 ? ' ↑' : ' ↓') : '';
+  document.getElementById('usort-date').classList.toggle('active', _untaggedSort.col === 'date');
+  document.getElementById('usort-price').classList.toggle('active', _untaggedSort.col === 'price');
   renderUntagged();
 }
 
 function buildUntaggedRow(tx, idx) {
   const isCard = tx.table_name === 'CardTransactions';
-  const icon   = isCard ? '💳' : '🏦';
-  const cls    = isCard ? 'card' : 'bank';
   const name   = esc(tx.name || '—');
   const execD  = fmtDate(tx.exec_date);
   const charD  = fmtDate(tx.charge_date);
   const key    = `${tx.table_name}__${tx.id}`;
 
-  let metaHtml = `<span>תאריך ביצוע: <span class="val">${execD}</span></span>`;
-  if (charD !== execD) metaHtml += `<span>תאריך חיוב: <span class="val">${charD}</span></span>`;
-
+  let metaHtml = '';
   if (isCard) {
-    // Card: show both values + card number
+    // Card: show value(s) first, then dates (card number already shown on the pill)
     const chgVal = fmtMoney(tx.charge_value, tx.currency);
     const txVal  = fmtMoney(tx.transaction_value, tx.value_currency || 'ILS');
-    if (tx.charge_value      != null) metaHtml += `<span>ע. עסקה: <span class="val ${tx.charge_value < 0 ? 'pos' : 'neg'}">${chgVal}</span></span>`;
-    if (tx.transaction_value != null) metaHtml += `<span>ע. חיוב: <span class="val ${tx.transaction_value < 0 ? 'pos' : 'neg'}">${txVal}</span></span>`;
-    if (tx.card_id) metaHtml += `<span>כרטיס: <span class="val">${esc(String(tx.card_id))}</span></span>`;
+    const cls    = tx.charge_value < 0 ? 'pos' : 'neg';
+    if (tx.charge_value != null && tx.transaction_value != null && chgVal === txVal) {
+      metaHtml += `<span>ע. עסקה/ע. חיוב: <span class="val ${cls}">${chgVal}</span></span>`;
+    } else {
+      if (tx.charge_value      != null) metaHtml += `<span>ע. עסקה: <span class="val ${cls}">${chgVal}</span></span>`;
+      if (tx.transaction_value != null) metaHtml += `<span>ע. חיוב: <span class="val ${tx.transaction_value < 0 ? 'pos' : 'neg'}">${txVal}</span></span>`;
+    }
+    metaHtml += `<span>תאריך ביצוע: <span class="val">${execD}</span></span>`;
+    if (charD !== execD) metaHtml += `<span>תאריך חיוב: <span class="val">${charD}</span></span>`;
   } else {
-    // Bank: single value with direction label
+    // Bank: single value with direction label, shown first
     const hasOut  = tx.charge_value      != null && tx.charge_value      > 0;
     const hasIn   = tx.transaction_value != null && tx.transaction_value > 0;
     if (hasOut)       metaHtml += `<span>הוצאה: <span class="val neg">${fmtMoney(tx.charge_value, 'ILS')}</span></span>`;
     else if (hasIn)   metaHtml += `<span>הכנסה: <span class="val pos">${fmtMoney(tx.transaction_value, 'ILS')}</span></span>`;
     else if (tx.charge_value != null) metaHtml += `<span>סכום: <span class="val">${fmtMoney(tx.charge_value, 'ILS')}</span></span>`;
+    metaHtml += `<span>תאריך ביצוע: <span class="val">${execD}</span></span>`;
+    if (charD !== execD) metaHtml += `<span>תאריך חיוב: <span class="val">${charD}</span></span>`;
   }
 
   return `
 <div class="tx-row" id="row-${esc(key)}" data-key="${esc(key)}"
      data-table="${esc(tx.table_name)}" data-id="${tx.id}" data-name="${esc(tx.name || '')}">
-  <div class="tx-type-pill ${cls}">${icon}</div>
+  ${typePillHtml(tx)}
   <div class="tx-body">
     <div class="tx-top">
       <div class="tx-info">
@@ -1195,11 +1379,11 @@ function buildUntaggedRow(tx, idx) {
         <button class="btn btn-primary" onclick="tagRow('${esc(key)}')" disabled id="btn-${esc(key)}">
           תייג
         </button>
-        <button class="tg-split-btn" onclick="tgOpenSplit(event,'${esc(tx.table_name)}',${tx.id},'${esc(tx.name||'')}',${Math.abs(tx.charge_value ?? tx.transaction_value ?? 0)},'${esc(tx.exec_date||'')}')">✂️ פצל</button>
+        <button class="tg-split-btn" onclick="tgOpenSplit(event,'${esc(tx.table_name)}',${tx.id},'${esc(tx.name||'')}',${Math.abs(tx.charge_value ?? tx.transaction_value ?? 0)},'${esc(tx.exec_date||'')}')">פצל</button>
       </div>
     </div>
     <div class="tx-desc-row">
-      <span class="tx-desc-label">📝 הערה:</span>
+      <span class="tx-desc-label">הערה:</span>
       <input class="desc-input" type="text"
              placeholder="תיאור (אופציונלי)…"
              autocomplete="off"
@@ -1235,6 +1419,11 @@ async function loadHighValue(manual = false) {
   }
   _retryCount.highval = 0;
   _highvalItems = data.items;
+  renderHighValue();
+}
+
+function renderHighValue() {
+  const el = document.getElementById('highval-list');
   document.getElementById('sec-highval-count').textContent = _highvalItems.length;
   if (!_highvalItems.length) {
     el.innerHTML = `<div class="empty-state"><div class="emoji">✨</div>אין עסקאות גבוהות ללא תיוג</div>`;
@@ -1245,31 +1434,35 @@ async function loadHighValue(manual = false) {
 
 function buildHighValRow(tx, idx) {
   const isCard = tx.table_name === 'CardTransactions';
-  const icon   = isCard ? '💳' : '🏦';
-  const cls    = isCard ? 'card' : 'bank';
   const name   = esc(tx.name || '—');
   const execD  = fmtDate(tx.exec_date);
   const key    = `hv_${tx.table_name}__${tx.id}`;
   const bigVal = Math.max(Math.abs(tx.charge_value || 0), Math.abs(tx.transaction_value || 0));
 
-  let metaHtml = `<span>תאריך: <span class="val">${execD}</span></span>`;
+  let metaHtml = '';
   if (isCard) {
     const chgVal = fmtMoney(tx.charge_value, tx.currency);
     const txVal  = fmtMoney(tx.transaction_value, tx.value_currency || 'ILS');
-    if (tx.charge_value      != null) metaHtml += `<span>ע. עסקה: <span class="val ${tx.charge_value < 0 ? 'pos' : 'neg'}">${chgVal}</span></span>`;
-    if (tx.transaction_value != null) metaHtml += `<span>ע. חיוב: <span class="val ${tx.transaction_value < 0 ? 'pos' : 'neg'}">${txVal}</span></span>`;
-    if (tx.card_id) metaHtml += `<span>כרטיס: <span class="val">${esc(String(tx.card_id))}</span></span>`;
+    const cls    = tx.charge_value < 0 ? 'pos' : 'neg';
+    if (tx.charge_value != null && tx.transaction_value != null && chgVal === txVal) {
+      metaHtml += `<span>ע. עסקה/ע. חיוב: <span class="val ${cls}">${chgVal}</span></span>`;
+    } else {
+      if (tx.charge_value      != null) metaHtml += `<span>ע. עסקה: <span class="val ${cls}">${chgVal}</span></span>`;
+      if (tx.transaction_value != null) metaHtml += `<span>ע. חיוב: <span class="val ${tx.transaction_value < 0 ? 'pos' : 'neg'}">${txVal}</span></span>`;
+    }
+    metaHtml += `<span>תאריך: <span class="val">${execD}</span></span>`;
   } else {
     const hasOut = tx.charge_value      != null && tx.charge_value      > 0;
     const hasIn  = tx.transaction_value != null && tx.transaction_value > 0;
     if (hasOut)      metaHtml += `<span>הוצאה: <span class="val neg">${fmtMoney(tx.charge_value, 'ILS')}</span></span>`;
     else if (hasIn)  metaHtml += `<span>הכנסה: <span class="val pos">${fmtMoney(tx.transaction_value, 'ILS')}</span></span>`;
+    metaHtml += `<span>תאריך: <span class="val">${execD}</span></span>`;
   }
 
   return `
 <div class="tx-row" id="row-${esc(key)}" data-key="${esc(key)}"
      data-table="${esc(tx.table_name)}" data-id="${tx.id}" data-name="${esc(tx.name || '')}">
-  <div class="tx-type-pill ${cls}">${icon}</div>
+  ${typePillHtml(tx)}
   <div class="tx-body">
     <div class="tx-top">
       <div class="tx-info">
@@ -1293,11 +1486,11 @@ function buildHighValRow(tx, idx) {
         <button class="btn btn-primary" onclick="tagRow('${esc(key)}')" disabled id="btn-${esc(key)}">
           תייג
         </button>
-        <button class="tg-split-btn" onclick="tgOpenSplit(event,'${esc(tx.table_name)}',${tx.id},'${esc(tx.name||'')}',${Math.abs(tx.charge_value ?? tx.transaction_value ?? 0)},'${esc(tx.exec_date||'')}')">✂️ פצל</button>
+        <button class="tg-split-btn" onclick="tgOpenSplit(event,'${esc(tx.table_name)}',${tx.id},'${esc(tx.name||'')}',${Math.abs(tx.charge_value ?? tx.transaction_value ?? 0)},'${esc(tx.exec_date||'')}')">פצל</button>
       </div>
     </div>
     <div class="tx-desc-row">
-      <span class="tx-desc-label">📝 הערה:</span>
+      <span class="tx-desc-label">הערה:</span>
       <input class="desc-input" type="text"
              placeholder="תיאור (אופציונלי)…"
              autocomplete="off"
@@ -1367,28 +1560,36 @@ function renderTagged() {
 
 function buildTaggedRow(tx) {
   const isCard  = tx.table_name === 'CardTransactions';
-  const icon    = isCard ? '💳' : '🏦';
-  const cls     = isCard ? 'card' : 'bank';
   const name    = esc(tx.name || '—');
   const execD   = fmtDate(tx.exec_date);
   const auto    = _isAuto(tx);
   const catCls  = auto ? 'cat-label auto' : 'cat-label';
   const srcLbl  = auto ? 'אוטומטי' : 'ידני';
 
-  let metaHtml = `<span>תאריך: <span class="val">${execD}</span></span>`;
+  let metaHtml = '';
   if (isCard) {
-    if (tx.charge_value      != null) metaHtml += `<span>ע. עסקה: <span class="val ${tx.charge_value < 0 ? 'pos' : 'neg'}">${fmtMoney(tx.charge_value, tx.currency)}</span></span>`;
-    if (tx.transaction_value != null) metaHtml += `<span>ע. חיוב: <span class="val ${tx.transaction_value < 0 ? 'pos' : 'neg'}">${fmtMoney(tx.transaction_value, tx.value_currency || 'ILS')}</span></span>`;
+    const chgVal = fmtMoney(tx.charge_value, tx.currency);
+    const txVal  = fmtMoney(tx.transaction_value, tx.value_currency || 'ILS');
+    const cls    = tx.charge_value < 0 ? 'pos' : 'neg';
+    if (tx.charge_value != null && tx.transaction_value != null && chgVal === txVal) {
+      metaHtml += `<span>ע. עסקה/ע. חיוב: <span class="val ${cls}">${chgVal}</span></span>`;
+    } else {
+      if (tx.charge_value      != null) metaHtml += `<span>ע. עסקה: <span class="val ${cls}">${chgVal}</span></span>`;
+      if (tx.transaction_value != null) metaHtml += `<span>ע. חיוב: <span class="val ${tx.transaction_value < 0 ? 'pos' : 'neg'}">${txVal}</span></span>`;
+    }
   } else {
     const hasOut = tx.charge_value      != null && tx.charge_value      > 0;
     const hasIn  = tx.transaction_value != null && tx.transaction_value > 0;
     if (hasOut)      metaHtml += `<span>הוצאה: <span class="val neg">${fmtMoney(tx.charge_value, 'ILS')}</span></span>`;
     else if (hasIn)  metaHtml += `<span>הכנסה: <span class="val pos">${fmtMoney(tx.transaction_value, 'ILS')}</span></span>`;
   }
+  metaHtml += `<span>תאריך: <span class="val">${execD}</span></span>`;
 
   return `
-<div class="tx-row is-tagged">
-  <div class="tx-type-pill ${cls}">${icon}</div>
+<div class="tx-row is-tagged" data-table="${esc(tx.table_name)}" data-id="${tx.id}"
+     data-name="${esc(tx.name || '')}" data-category="${esc(tx.category || '')}"
+     onclick="openEditTagModal(this)">
+  ${typePillHtml(tx)}
   <div class="tx-info">
     <div class="tx-name">${name}</div>
     <div class="tx-meta">${metaHtml}</div>
@@ -1399,6 +1600,106 @@ function buildTaggedRow(tx) {
   </div>
 </div>`;
 }
+
+// ── Edit tag modal (change category of an already-tagged row) ───
+let _editTagPending = null;  // { table, id, name, oldCat, newCat }
+
+function openEditTagModal(rowEl) {
+  const table  = rowEl.dataset.table;
+  const id     = parseInt(rowEl.dataset.id);
+  const name   = rowEl.dataset.name;
+  const oldCat = rowEl.dataset.category;
+
+  _editTagPending = { table, id, name, oldCat, newCat: null };
+
+  document.getElementById('edit-tag-name').textContent    = name || '—';
+  document.getElementById('edit-tag-current').textContent = `קטגוריה נוכחית: ${oldCat || '—'}`;
+  document.getElementById('edit-tag-msg').textContent     = '';
+
+  const inp = document.getElementById('inp-edit-tag');
+  inp.value = oldCat || '';
+  inp.classList.toggle('valid', !!resolveCategory(oldCat));
+  inp.classList.remove('invalid');
+  document.getElementById('btn-edit-tag').disabled = !resolveCategory(oldCat);
+
+  document.getElementById('edit-tag-modal-overlay').classList.add('open');
+}
+
+function closeEditTagModal() {
+  document.getElementById('edit-tag-modal-overlay').classList.remove('open');
+  const dd = document.getElementById('dd-edit-tag');
+  if (dd) dd.classList.remove('open');
+  _editTagPending = null;
+}
+
+function editTagSave() {
+  if (!_editTagPending) return;
+  const inp    = document.getElementById('inp-edit-tag');
+  const newCat = resolveCategory(inp.value);
+  if (!newCat) {
+    document.getElementById('edit-tag-msg').textContent = 'בחר קטגוריה תקינה';
+    return;
+  }
+  if (newCat === _editTagPending.oldCat) {
+    closeEditTagModal();
+    return;
+  }
+  _editTagPending.newCat = newCat;
+  document.getElementById('edit-tag-modal-overlay').classList.remove('open');
+  document.getElementById('edit-tag-confirm-name').textContent =
+    `לשנות את הקטגוריה של "${_editTagPending.name}"`;
+  document.getElementById('edit-tag-confirm-arrow').textContent =
+    `מ־"${_editTagPending.oldCat}" ל־"${newCat}"?`;
+  document.getElementById('edit-tag-confirm-msg').textContent = '';
+  document.getElementById('edit-tag-confirm-btn').disabled    = false;
+  document.getElementById('edit-tag-confirm-btn').innerHTML   = 'אשר שינוי';
+  document.getElementById('edit-tag-confirm-overlay').classList.add('open');
+}
+
+function backToEditTagPicker() {
+  document.getElementById('edit-tag-confirm-overlay').classList.remove('open');
+  document.getElementById('edit-tag-modal-overlay').classList.add('open');
+}
+
+async function confirmEditTag() {
+  if (!_editTagPending) return;
+  const { table, id, name, oldCat, newCat } = _editTagPending;
+  const btn = document.getElementById('edit-tag-confirm-btn');
+  btn.disabled  = true;
+  btn.innerHTML = '<span class="spinner"></span>';
+  document.getElementById('edit-tag-confirm-msg').textContent = '';
+
+  const res  = await fetch('/api/tagger/tag', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ table, id, category: newCat, auto: false })
+  }).catch(() => null);
+  const data = res ? await res.json().catch(() => null) : null;
+
+  if (!data || !data.ok) {
+    document.getElementById('edit-tag-confirm-msg').textContent =
+      (data && data.error) ? data.error : 'שגיאה בעדכון';
+    btn.disabled  = false;
+    btn.innerHTML = 'אשר שינוי';
+    return;
+  }
+
+  const item = _taggedItems.find(tx => tx.table_name === table && tx.id === id);
+  if (item) { item.category = newCat; item.reserved = 0; }
+  renderTagged();
+
+  document.getElementById('edit-tag-confirm-overlay').classList.remove('open');
+  _editTagPending = null;
+  showToast(`הקטגוריה עודכנה ל-"${newCat}"`, 'success');
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  const confirmOpen = document.getElementById('edit-tag-confirm-overlay').classList.contains('open');
+  const pickerOpen  = document.getElementById('edit-tag-modal-overlay').classList.contains('open');
+  if (confirmOpen) document.getElementById('edit-tag-confirm-overlay').classList.remove('open');
+  else if (pickerOpen) closeEditTagModal();
+});
 
 // ── Dropdown lift helpers ──────────────────────────────────────
 function _cleanupLiftedDropdowns(container) {
@@ -1418,14 +1719,25 @@ window.addEventListener('resize', function() {
 }, { passive: true });
 
 // ── Autocomplete logic ─────────────────────────────────────────
+// Resolves free-typed text to the canonical stored category name,
+// matching case-insensitively so small typing differences (casing,
+// stray spaces) still line up with an existing category.
+function resolveCategory(q) {
+  q = (q || '').trim();
+  if (!q) return null;
+  if (q.toLowerCase() === 'excluded') return 'Excluded';
+  const hit = _categories.find(c => c.name.toLowerCase() === q.toLowerCase());
+  return hit ? hit.name : null;
+}
+
 function onCatInput(inp, key) {
   _touchInteraction();
-  const q   = inp.value.trim();
-  const btn = document.getElementById(`btn-${key}`);
-  const exact = _categories.find(c => c.name === q) || q === 'Excluded';
-  inp.classList.toggle('valid', !!exact);
-  inp.classList.toggle('invalid', q.length > 0 && !exact);
-  if (btn) btn.disabled = !exact;
+  const q     = inp.value.trim();
+  const btn   = document.getElementById(`btn-${key}`);
+  const match = resolveCategory(q);
+  inp.classList.toggle('valid', !!match);
+  inp.classList.toggle('invalid', q.length > 0 && !match);
+  if (btn) btn.disabled = !match;
   renderDropdown(inp, key, q);
 }
 
@@ -1437,11 +1749,13 @@ function openDropdown(inp, key) {
   if (dd && dd.parentNode !== document.body) document.body.appendChild(dd);
   if (dd) {
     const r = inp.getBoundingClientRect();
+    const ddWidth = Math.min(220, window.innerWidth - 8);
+    const left = Math.min(Math.max(4, r.right - ddWidth), window.innerWidth - ddWidth - 4);
     Object.assign(dd.style, {
       position: 'fixed',
       top:   (r.bottom + 2) + 'px',
-      left:  Math.max(4, r.right - 220) + 'px',
-      width: '220px',
+      left:  left + 'px',
+      width: ddWidth + 'px',
       right: 'auto'
     });
   }
@@ -1452,12 +1766,44 @@ function renderDropdown(inp, key, q) {
   const dd = document.getElementById(`dd-${key}`);
   if (!dd) return;
   const lower = q.toLowerCase();
+  // The rename-category picker must never offer a reserved/system category
+  // (the server blocks them anyway, but they shouldn't be selectable at all)
+  // and has no "Excluded" special-case since that's one of the reserved ones.
+  if (key === 'rename-cat') {
+    const pool = _categories.filter(c => !_RESERVED_CATEGORIES.includes(c.name));
+    const matches = q
+      ? pool.filter(c => c.name.toLowerCase().includes(lower))
+            .sort((a, b) => {
+              const aStarts = a.name.toLowerCase().startsWith(lower) ? 0 : 1;
+              const bStarts = b.name.toLowerCase().startsWith(lower) ? 0 : 1;
+              if (aStarts !== bStarts) return aStarts - bStarts;
+              return a.name.length - b.name.length;
+            })
+      : pool;
+    if (!matches.length) { dd.classList.remove('open'); return; }
+    dd.innerHTML = matches.slice(0, 13).map((c, i) =>
+      `<div class="cat-opt${q && i === 0 ? ' focused' : ''}" data-val="${esc(c.name)}"
+            onMouseDown="pickCategory('${esc(key)}','${esc(c.name)}')"
+            id="opt-${esc(key)}-${i}">
+         <span>${esc(c.name)}</span>
+         <span class="usage-badge">${c.count != null ? c.count : ''}</span>
+       </div>`
+    ).join('');
+    dd.classList.add('open');
+    return;
+  }
   let matches = _categories;
   if (q) {
-    matches = _categories.filter(c =>
-      c.name.toLowerCase().includes(lower) ||
-      c.name.includes(q)
-    );
+    // Rank so the best match (starts-with, then shortest) lands first —
+    // that's the one auto-highlighted for quick Tab/Enter selection.
+    matches = _categories
+      .filter(c => c.name.toLowerCase().includes(lower))
+      .sort((a, b) => {
+        const aStarts = a.name.toLowerCase().startsWith(lower) ? 0 : 1;
+        const bStarts = b.name.toLowerCase().startsWith(lower) ? 0 : 1;
+        if (aStarts !== bStarts) return aStarts - bStarts;
+        return a.name.length - b.name.length;
+      });
   }
   const showExcluded = !q || 'excluded'.includes(lower);
   const allMatches = showExcluded
@@ -1465,7 +1811,7 @@ function renderDropdown(inp, key, q) {
     : matches;
   if (!allMatches.length) { dd.classList.remove('open'); return; }
   dd.innerHTML = allMatches.slice(0, 13).map((c, i) =>
-    `<div class="cat-opt" data-val="${esc(c.name)}"
+    `<div class="cat-opt${q && i === 0 ? ' focused' : ''}" data-val="${esc(c.name)}"
           onMouseDown="pickCategory('${esc(key)}','${esc(c.name)}')"
           id="opt-${esc(key)}-${i}">
        <span>${esc(c.name)}</span>
@@ -1515,7 +1861,10 @@ function onCatKey(e, inp, key) {
     if (opts[idx]) opts[idx].classList.add('focused');
   } else if (e.key === 'Enter') {
     e.preventDefault();
-    if (focused) {
+    // If the highlighted suggestion is already what's typed (auto-matched),
+    // submit right away; otherwise complete the text first so the user can
+    // confirm the match before a second Enter tags it.
+    if (focused && focused.dataset.val.toLowerCase() !== inp.value.trim().toLowerCase()) {
       pickCategory(key, focused.dataset.val);
     } else {
       tagRow(key);
@@ -1537,14 +1886,15 @@ async function tagRow(key) {
   const id       = parseInt(row.dataset.id);
   const name     = row.dataset.name;
   const inp         = document.getElementById(`inp-${key}`);
-  const category    = inp ? inp.value.trim() : '';
+  const category    = resolveCategory(inp ? inp.value : '');
   const descInp     = document.getElementById(`desc-${key}`);
   const description = descInp ? descInp.value.trim() : '';
 
-  if (!category || (!_categories.find(c => c.name === category) && category !== 'Excluded')) {
+  if (!category) {
     showToast('בחר קטגוריה תקינה', 'error');
     return;
   }
+  if (inp) inp.value = category;
 
   setRowLoading(key, true);
 
@@ -1611,8 +1961,8 @@ async function confirmTagAll(key, name, category, yes) {
       body: JSON.stringify({ name, rule: 'No Match' })
     }).catch(() => {});
     showToast(`תויג: "${category}"`, 'success');
+    exitRow(key);
   }
-  exitRow(key);
 }
 
 async function _doTagAll(name, category) {
@@ -1622,18 +1972,58 @@ async function _doTagAll(name, category) {
     body: JSON.stringify({ name, category })
   }).catch(() => null);
   const data = res ? await res.json().catch(() => null) : null;
-  const count = data?.tagged ?? 0;
+  if (!data || !data.ok) {
+    // Don't remove anything locally — the server-side tag never actually happened,
+    // so the row would just reappear on the next page load anyway.
+    showToast('שגיאה בתיוג', 'error');
+    return;
+  }
+  const count = data.tagged ?? 0;
   const msg = count > 1
     ? `${count} עסקאות תויגו כ-"${category}"`
     : `תויג: "${category}"`;
   showToast(msg, 'success');
+  _exitAllByName(name);
+}
+
+// ── Local-only updates after tagging — no network refetch of the lists ──
+// .tx-row has no fixed max-height (so normal content never bleeds into the
+// next row) — the collapse-on-exit animation instead needs its starting
+// height captured explicitly, right before the 0 transition kicks in.
+function _collapseRow(row) {
+  row.style.maxHeight = row.scrollHeight + 'px';
+  row.offsetHeight;  // force reflow so the browser registers the starting height
+  row.classList.add('exiting');
 }
 
 function exitRow(key) {
   const row = document.querySelector(`[data-key="${key}"]`);
-  if (row) row.classList.add('exiting');
-  _lastInteraction = Date.now();
-  setTimeout(scheduleAutoRefresh, 400);
+  if (row) _collapseRow(row);
+  const [table, idStr] = key.split('__');
+  const id = parseInt(idStr, 10);
+  setTimeout(() => {
+    _removeFromLocalState(tx => tx.table_name === table && tx.id === id);
+  }, 350);
+}
+
+function _exitAllByName(name) {
+  document.querySelectorAll('.tx-row').forEach(r => {
+    if (r.dataset.name === name) _collapseRow(r);
+  });
+  setTimeout(() => {
+    _removeFromLocalState(tx => tx.name === name);
+  }, 350);
+}
+
+function _removeFromLocalState(predicate) {
+  _untaggedItems = _untaggedItems.filter(tx => !predicate(tx));
+  _highvalItems  = _highvalItems.filter(tx => !predicate(tx));
+  document.getElementById('sec-untagged-count').textContent = _untaggedItems.length;
+  document.getElementById('untagged-count-badge').textContent = `${_untaggedItems.length} ללא תיוג`;
+  buildCardFilterBar();
+  renderUntagged();
+  renderHighValue();
+  loadTagged();  // small targeted refetch — just the recently-tagged section, not everything
 }
 
 function setRowLoading(key, on) {
@@ -1648,23 +2038,58 @@ function setRowLoading(key, on) {
   }
 }
 
-// ── Auto-refresh after idle ────────────────────────────────────
-function scheduleAutoRefresh() {
-  if (_autoRefreshTimer) clearTimeout(_autoRefreshTimer);
-  _autoRefreshTimer = setTimeout(() => {
-    const idle = Date.now() - _lastInteraction;
-    if (idle >= AUTO_REFRESH_DELAY - 200) {
-      refreshAll();
-    } else {
-      scheduleAutoRefresh();
-    }
-  }, AUTO_REFRESH_DELAY);
-}
-
 async function refreshAll() {
   animateRefreshBar();
-  await loadCategories();
+  await Promise.all([loadCategories(), loadCardColors()]);
   await Promise.all([loadUntagged(), loadHighValue(), loadTagged()]);
+}
+
+// ── Auto-tag (runs the auto_tagger.json rule pass on demand) ───────
+async function runAutoTag() {
+  const btn = document.getElementById('auto-tag-btn');
+  btn.disabled = true;
+  const origHtml = btn.innerHTML;
+  btn.innerHTML = '<span class="spinner"></span> מתייג…';
+
+  const res  = await fetch('/api/tagger/auto-tag', { method: 'POST' }).catch(() => null);
+  const data = res ? await res.json().catch(() => null) : null;
+
+  btn.disabled = false;
+  btn.innerHTML = origHtml;
+
+  if (!data || !data.ok) {
+    showToast('שגיאה בתיוג אוטומטי', 'error');
+    return;
+  }
+
+  const tagged = data.tagged || [];
+  showAutoTagModal(tagged);
+  if (tagged.length) {
+    await Promise.all([loadUntagged(), loadHighValue(), loadTagged()]);
+  }
+}
+
+function showAutoTagModal(tagged) {
+  const title = document.getElementById('tg-autotag-title');
+  const body  = document.getElementById('tg-autotag-body');
+
+  if (!tagged.length) {
+    title.textContent = '🏷️ תיוג אוטומטי';
+    body.innerHTML = '<div style="color:var(--text-muted);padding:8px 0">לא נמצאו עסקאות לתיוג אוטומטי.</div>';
+  } else {
+    title.textContent = `🏷️ ${tagged.length} עסקאות תויגו`;
+    body.innerHTML = tagged.map(t => `
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;
+        padding:8px 0;border-bottom:1px solid var(--border)">
+        <span style="font-weight:600;font-size:.88em">${esc(t.name)}</span>
+        <span class="cat-item-badge" style="font-size:.72em;font-weight:700;color:#fff;
+          background:var(--teal);padding:2px 9px;border-radius:10px;flex-shrink:0">${esc(t.category)}</span>
+      </div>`).join('');
+  }
+  document.getElementById('tg-autotag-overlay').classList.add('open');
+}
+function closeAutoTagModal() {
+  document.getElementById('tg-autotag-overlay').classList.remove('open');
 }
 
 function animateRefreshBar() {
@@ -1710,6 +2135,68 @@ async function submitNewCategory() {
   } else {
     document.getElementById('modal-msg').textContent =
       (data && data.error) ? data.error : 'שגיאה';
+  }
+}
+
+// ── Toolbar hamburger menu ───────────────────────────────────────
+function toggleTgMenu() {
+  document.getElementById('tg-menu-dropdown').classList.toggle('open');
+}
+function closeTgMenu() {
+  document.getElementById('tg-menu-dropdown').classList.remove('open');
+}
+document.addEventListener('click', e => {
+  const wrap = document.getElementById('tg-menu-wrap');
+  if (wrap && !wrap.contains(e.target)) closeTgMenu();
+});
+
+// ── Rename category modal ────────────────────────────────────────
+// Kept in sync with the server's RESERVED set in tagger_categories_rename —
+// this is just so we don't even offer them in the dropdown; the server is
+// the real enforcement point.
+const _RESERVED_CATEGORIES = ['NotCategorized', 'Excluded', 'Filler', 'cash_filler', 'withdrawal', 'אשראי', 'השקעה/חיסכון'];
+function resolveRenameCategory(q) {
+  q = (q || '').trim();
+  if (!q) return null;
+  const hit = _categories.find(c => !_RESERVED_CATEGORIES.includes(c.name) && c.name.toLowerCase() === q.toLowerCase());
+  return hit ? hit.name : null;
+}
+async function openRenameCategoryModal() {
+  await loadCategories();
+  const inp = document.getElementById('inp-rename-cat');
+  inp.value = '';
+  inp.classList.remove('valid', 'invalid');
+  document.getElementById('rename-cat-input').value = '';
+  document.getElementById('rename-cat-msg').textContent = '';
+  document.getElementById('rename-cat-modal-overlay').classList.add('open');
+  setTimeout(() => inp.focus(), 150);
+}
+function closeRenameCategoryModal() {
+  document.getElementById('rename-cat-modal-overlay').classList.remove('open');
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeRenameCategoryModal(); });
+
+async function submitRenameCategory() {
+  const oldName = resolveRenameCategory(document.getElementById('inp-rename-cat').value);
+  const newName = document.getElementById('rename-cat-input').value.trim();
+  const msgEl = document.getElementById('rename-cat-msg');
+  msgEl.textContent = '';
+  if (!oldName) { msgEl.textContent = 'בחר קטגוריה'; return; }
+  if (!newName) { msgEl.textContent = 'הזן שם חדש'; return; }
+  if (newName === oldName) { msgEl.textContent = 'השם החדש זהה לשם הקיים'; return; }
+
+  const res = await fetch('/api/tagger/categories/rename', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({old: oldName, new: newName})
+  }).catch(() => null);
+  const data = res ? await res.json().catch(() => null) : null;
+  if (data && data.ok) {
+    closeRenameCategoryModal();
+    showToast(`"${oldName}" שונה ל-"${newName}"`, 'success');
+    await Promise.all([loadCategories(), loadUntagged(), loadHighValue(), loadTagged()]);
+  } else {
+    msgEl.textContent = (data && data.error) ? data.error : 'שגיאה';
   }
 }
 
@@ -1928,8 +2415,6 @@ async function searchTagged() {
 
 function buildSearchResultRow(tx) {
   const isCard      = tx.table_name === 'CardTransactions';
-  const icon        = isCard ? '💳' : '🏦';
-  const cls         = isCard ? 'card' : 'bank';
   const name        = esc(tx.name || '—');
   const execD       = fmtDate(tx.exec_date);
   const key         = `sr_${tx.table_name}__${tx.id}`;
@@ -1937,23 +2422,31 @@ function buildSearchResultRow(tx) {
   const catCls      = auto ? 'cat-label auto' : 'cat-label';
   const existingDesc = (tx.description || '').trim();
 
-  // ID is first = rightmost in RTL layout
-  let metaHtml = `<span>ID: <span class="val">${tx.id}</span></span>`;
-  metaHtml += `<span>תאריך: <span class="val">${execD}</span></span>`;
+  // Value shown first (top field), then date, then ID
+  let metaHtml = '';
   if (isCard) {
-    if (tx.charge_value      != null) metaHtml += `<span>ע. עסקה: <span class="val ${tx.charge_value < 0 ? 'pos' : 'neg'}">${fmtMoney(tx.charge_value, tx.currency)}</span></span>`;
-    if (tx.transaction_value != null) metaHtml += `<span>ע. חיוב: <span class="val ${tx.transaction_value < 0 ? 'pos' : 'neg'}">${fmtMoney(tx.transaction_value, tx.value_currency || 'ILS')}</span></span>`;
+    const chgVal = fmtMoney(tx.charge_value, tx.currency);
+    const txVal  = fmtMoney(tx.transaction_value, tx.value_currency || 'ILS');
+    const cls    = tx.charge_value < 0 ? 'pos' : 'neg';
+    if (tx.charge_value != null && tx.transaction_value != null && chgVal === txVal) {
+      metaHtml += `<span>ע. עסקה/ע. חיוב: <span class="val ${cls}">${chgVal}</span></span>`;
+    } else {
+      if (tx.charge_value      != null) metaHtml += `<span>ע. עסקה: <span class="val ${cls}">${chgVal}</span></span>`;
+      if (tx.transaction_value != null) metaHtml += `<span>ע. חיוב: <span class="val ${tx.transaction_value < 0 ? 'pos' : 'neg'}">${txVal}</span></span>`;
+    }
   } else {
     const hasOut = tx.charge_value      != null && tx.charge_value      > 0;
     const hasIn  = tx.transaction_value != null && tx.transaction_value > 0;
     if (hasOut)     metaHtml += `<span>הוצאה: <span class="val neg">${fmtMoney(tx.charge_value, 'ILS')}</span></span>`;
     else if (hasIn) metaHtml += `<span>הכנסה: <span class="val pos">${fmtMoney(tx.transaction_value, 'ILS')}</span></span>`;
   }
+  metaHtml += `<span>תאריך: <span class="val">${execD}</span></span>`;
+  metaHtml += `<span>ID: <span class="val">${tx.id}</span></span>`;
 
   return `
 <div class="tx-row is-tagged" id="row-${esc(key)}" data-key="${esc(key)}"
      data-table="${esc(tx.table_name)}" data-id="${tx.id}">
-  <div class="tx-type-pill ${cls}">${icon}</div>
+  ${typePillHtml(tx)}
   <div class="tx-body">
     <div class="tx-top">
       <div class="tx-info">
@@ -1982,7 +2475,7 @@ function buildSearchResultRow(tx) {
       </div>
     </div>
     <div class="tx-desc-row">
-      <span class="tx-desc-label">📝 הערה:</span>
+      <span class="tx-desc-label">הערה:</span>
       <input class="desc-input" type="text"
              placeholder="תיאור (אופציונלי)…"
              value="${esc(existingDesc)}"
@@ -2331,14 +2824,15 @@ async function retagSearchRow(key) {
   const table    = row.dataset.table;
   const id       = parseInt(row.dataset.id);
   const inp      = document.getElementById(`inp-${key}`);
-  const category = inp ? inp.value.trim() : '';
+  const category = resolveCategory(inp ? inp.value : '');
   const descInp  = document.getElementById(`desc-${key}`);
   const newDesc  = descInp ? descInp.value.trim() : '';
 
-  if (!category || (!_categories.find(c => c.name === category) && category !== 'Excluded')) {
+  if (!category) {
     showToast('בחר קטגוריה תקינה', 'error');
     return;
   }
+  if (inp) inp.value = category;
 
   setRowLoading(key, true);
 
@@ -2430,6 +2924,18 @@ async function retagSearchRow(key) {
   </div>
 </div>
 
+<!-- ═══ Auto-tag result modal ═══ -->
+<div class="s-modal-overlay" id="tg-autotag-overlay" onclick="if(event.target===this)closeAutoTagModal()">
+  <div class="s-modal">
+    <button class="s-modal-close" onclick="closeAutoTagModal()">✕</button>
+    <div class="s-modal-title" id="tg-autotag-title">🏷️ תיוג אוטומטי</div>
+    <div id="tg-autotag-body"></div>
+    <div class="s-modal-actions">
+      <button class="s-btn-cancel" onclick="closeAutoTagModal()">סגור</button>
+    </div>
+  </div>
+</div>
+
 <button class="debug-fab" id="debug-fab" onclick="toggleDebugPanel()" title="App logs">&lt;/&gt;</button>
 <div class="debug-panel" id="debug-panel">
   <div class="debug-hdr"><span>&#9658; app logs</span><div class="debug-hdr-btns"><button onclick="copyDebugPanel()">copy</button><button onclick="clearDebugPanel()">clear</button><button onclick="toggleDebugPanel()">&#x2715;</button></div></div>
@@ -2437,7 +2943,15 @@ async function retagSearchRow(key) {
 </div>
 <script>
 var _dbgEs=null;
-function toggleDebugPanel(){var p=document.getElementById('debug-panel');var open=p.classList.toggle('open');if(open&&!_dbgEs){_dbgEs=new EventSource('/api/logs');_dbgEs.onmessage=function(e){var f=document.getElementById('debug-feed');if(!f)return;var d=document.createElement('div');d.className='debug-line'+(e.data.toLowerCase().indexOf('error')>=0?' err':e.data.toLowerCase().indexOf('warn')>=0?' warn':'');d.textContent=e.data;f.appendChild(d);f.scrollTop=f.scrollHeight};_dbgEs.onerror=function(){_dbgEs.close();_dbgEs=null}}}
+function toggleDebugPanel(){var p=document.getElementById('debug-panel');var open=p.classList.toggle('open');if(open&&!_dbgEs)_startDebugStream()}
+function _startDebugStream(){if(_dbgEs)return;_dbgEs=new EventSource('/api/debug-logs');_dbgEs.onmessage=function(e){if(!e.data||!e.data.trim())return;var f=document.getElementById('debug-feed');if(!f)return;var d=document.createElement('div');d.className='debug-line'+(e.data.toLowerCase().indexOf('error')>=0?' err':e.data.toLowerCase().indexOf('warn')>=0?' warn':'');d.textContent=e.data;f.appendChild(d);f.scrollTop=f.scrollHeight};_dbgEs.onerror=function(){if(_dbgEs){_dbgEs.close();_dbgEs=null}setTimeout(_startDebugStream,4000)}}
+// Delayed: /api/debug-logs never returns (true SSE stream), so starting it
+// at the same instant as the page's real data fetches can starve them of a
+// serverless execution slot until Vercel kills the stream's invocation —
+// looking like the page's own data silently failing to load. The server
+// buffers log lines regardless of client connection, so delaying costs no
+// history.
+document.addEventListener('DOMContentLoaded',function(){setTimeout(_startDebugStream,3000)});
 function clearDebugPanel(){document.getElementById('debug-feed').innerHTML=''}
 function copyDebugPanel(){var f=document.getElementById('debug-feed');navigator.clipboard.writeText(Array.from(f.children).map(function(e){return e.textContent}).join('\n')).catch(function(){})}
 </script>

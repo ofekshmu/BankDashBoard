@@ -103,17 +103,22 @@ The value parsed is {parsed_text}", "error")
         if check_duplicate():
             utils.log(f"File {self.name} was already inserted to the database.", "error")
 
-        valid_rows = super().parse()
-
-
+        # The File row must exist before parse() can insert TableMeta rows for it
+        # (TableMeta.File_Name/Format/Card_Number has a foreign key onto File).
+        # Transaction_count isn't known until parsing finishes, so insert a
+        # placeholder now and correct it below.
         DataBase().insert_file(self.name,
                                self.format_name,
                                self.card_number,
                                parsed_date,
                                -1,                    # Value is changed after the cleaning process
-                               valid_rows)
+                               -1)
 
-        return True    
+        valid_rows = super().parse()
+
+        DataBase().set_transaction_count(self.name, self.format_name, self.card_number, valid_rows)
+
+        return True
     
 
     def clean(self):

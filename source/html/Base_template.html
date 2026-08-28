@@ -6,6 +6,11 @@
 <title id="page-title">Dashboard</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="alternate icon" href="/favicon.ico">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="BankDash">
+<meta name="theme-color" content="#1e2a4a">
 <script>
 (function(){
   var p=window.location.pathname;
@@ -119,13 +124,21 @@ body {
   flex-shrink: 0;
 }
 .sidebar-app-name { font-size: .95em; font-weight: 700; color: var(--navy); }
-.sidebar-scroll { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 8px 0 16px; }
+.sidebar-scroll {
+  flex: 1; overflow-y: auto; overflow-x: hidden; padding: 8px 0 16px;
+  scrollbar-width: none; -ms-overflow-style: none;
+}
+.sidebar-scroll::-webkit-scrollbar { display: none; }
 .sidebar-footer{padding:12px 16px;border-top:1px solid var(--border);flex-shrink:0}
 .nav-restart-btn{width:100%;padding:8px 12px;border:1.5px dashed var(--border);border-radius:8px;background:none;color:var(--text-muted);font-size:.78em;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:7px;justify-content:center;transition:background .15s,color .15s,border-color .15s}
 .nav-restart-btn:hover{background:#fff3f3;color:#e53935;border-color:#e53935}
 .nav-restart-btn:disabled{opacity:.5;cursor:default}
 .app-version-badge{margin-top:8px;text-align:center;font-size:.72em;color:var(--text-muted);letter-spacing:.03em;opacity:.7;user-select:none;}
 /* ── Debug log panel ─────────────────────────────────────── */
+/* ── Auto-approval toast (credit-card charge match) ────────── */
+#cc-toast-stack{position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:10001;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none;}
+.cc-toast{background:var(--teal);color:#fff;padding:10px 18px;border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.25);font-size:.86em;font-weight:600;max-width:90vw;text-align:center;opacity:0;transform:translateY(-12px);transition:opacity .25s ease,transform .25s ease;}
+.cc-toast.show{opacity:1;transform:translateY(0);}
 .debug-fab{position:fixed;bottom:82px;right:18px;width:42px;height:42px;border-radius:50%;background:var(--navy);color:#fff;font-size:.72em;font-family:monospace;font-weight:700;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,0.3);z-index:997;letter-spacing:-.5px;}
 .debug-fab:hover{filter:brightness(1.2);}
 @media(max-width:768px){.debug-fab{bottom:74px;right:18px;}}
@@ -894,10 +907,250 @@ body {
   .cf-kpi-value { font-size: 0.92em; }
 }
 
+/* ── Housing panel sub-tabs ───────────────────────────────────── */
+.hs-subtabs {
+  position:fixed; top:18px; right:70px; z-index:401;
+  display:flex; gap:6px; margin:0;
+  background:var(--white); padding:4px; border-radius:24px;
+  border:1.5px solid var(--border); box-shadow:var(--shadow-sm);
+}
+#housing-overview, #housing-timeline, #panel-timeline { margin-top:64px; }
+.hs-subtab-btn {
+  padding:7px 16px; border-radius:20px; border:1.5px solid var(--border);
+  background:var(--white); color:var(--text-sub); font-family:inherit;
+  font-size:0.85em; font-weight:600; cursor:pointer; transition:all .12s;
+}
+.hs-subtab-btn:hover { border-color:var(--teal); color:var(--teal); }
+.hs-subtab-btn.active { background:var(--teal); border-color:var(--teal); color:#fff; }
+.tl-filter-row { display:flex; gap:8px; margin-bottom:14px; }
+
+/* ── Timeline widget (vertical) ──────────────────────────────────── */
+.tl-toolbar { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; flex-wrap:wrap; }
+.tl-toolbar-left { display:flex; align-items:center; gap:8px; }
+.tl-zoom-btn {
+  width:30px; height:30px; border-radius:8px; border:1.5px solid var(--border);
+  background:var(--white); color:var(--navy); font-size:1.1em; font-weight:700;
+  cursor:pointer; display:flex; align-items:center; justify-content:center;
+}
+.tl-zoom-btn:hover { border-color:var(--teal); color:var(--teal); }
+.tl-add-btn {
+  padding:7px 14px; border-radius:8px; border:none; background:var(--teal); color:#fff;
+  font-family:inherit; font-size:0.85em; font-weight:700; cursor:pointer;
+}
+.tl-add-btn:hover { background:var(--teal-dark); }
+
+.tl-axis-wrap {
+  position:relative; overflow-y:auto; overflow-x:hidden; height:560px;
+  border:1.5px solid var(--border); border-radius:10px; background:var(--white);
+  -webkit-overflow-scrolling:touch; touch-action:pan-y;
+  scrollbar-width:none; -ms-overflow-style:none;
+}
+.tl-axis-wrap::-webkit-scrollbar { display:none; }
+.tl-scroll-arrow-wrap { position:sticky; height:0; z-index:6; pointer-events:none; }
+.tl-scroll-arrow-wrap.tl-arrow-top { top:0; }
+.tl-scroll-arrow-wrap.tl-arrow-bottom { bottom:0; }
+.tl-scroll-arrow {
+  position:absolute; left:10px; width:24px; height:24px; border-radius:50%;
+  background:var(--white); box-shadow:0 2px 8px rgba(0,0,0,.16);
+  display:flex; align-items:center; justify-content:center;
+  color:var(--teal); font-size:0.75em; line-height:1;
+  opacity:0; transition:opacity .2s;
+}
+.tl-scroll-arrow-wrap.tl-arrow-top .tl-scroll-arrow { top:8px; }
+.tl-scroll-arrow-wrap.tl-arrow-bottom .tl-scroll-arrow { bottom:8px; }
+.tl-scroll-arrow.show { opacity:.85; }
+.tl-scroll-arrow-wrap.tl-arrow-top .tl-scroll-arrow.show { animation:tlArrowPulseUp 1.8s ease-in-out infinite; }
+.tl-scroll-arrow-wrap.tl-arrow-bottom .tl-scroll-arrow.show { animation:tlArrowPulseDown 1.8s ease-in-out infinite; }
+@keyframes tlArrowPulseUp { 0%,100% { opacity:.5; transform:translateY(0); } 50% { opacity:1; transform:translateY(-3px); } }
+@keyframes tlArrowPulseDown { 0%,100% { opacity:.5; transform:translateY(0); } 50% { opacity:1; transform:translateY(3px); } }
+.tl-axis-scroll { position:relative; width:100%; }
+.tl-baseline { position:absolute; top:14px; bottom:0; right:50%; width:3px; margin-right:-1.5px; background:var(--navy); opacity:.18; border-radius:2px; }
+.tl-baseline::before {
+  content:''; position:absolute; top:-9px; left:50%; transform:translateX(-50%);
+  width:0; height:0;
+  border-left:6px solid transparent; border-right:6px solid transparent;
+  border-bottom:9px solid var(--navy); opacity:.55;
+}
+.tl-tick { position:absolute; right:calc(50% - 8px); width:16px; height:2px; background:var(--text-muted); }
+.tl-tick-label { position:absolute; right:calc(50% + 12px); font-size:0.72em; font-weight:700; color:var(--text-muted); white-space:nowrap; transform:translateY(-50%); }
+.tl-year-line { position:absolute; right:0; left:0; height:14px; margin-top:-7px; }
+.tl-year-line svg { display:block; width:100%; height:100%; }
+.tl-year-label {
+  position:absolute; right:8px; margin-top:-9px;
+  font-size:0.78em; font-weight:800; color:var(--navy);
+  background:var(--white); padding:1px 8px; border-radius:6px;
+  box-shadow:0 1px 3px rgba(0,0,0,.15);
+}
+.tl-empty { text-align:center; color:var(--text-muted); padding:60px 20px; }
+
+@media (max-width:700px) {
+  .hs-subtabs { right:62px; gap:4px; padding:3px; }
+  .hs-subtab-btn { padding:6px 11px; font-size:0.78em; }
+  #housing-overview, #housing-timeline, #panel-timeline { margin-top:60px; }
+  .tl-axis-wrap { height:440px; }
+  .tl-tick-label { font-size:0.65em; }
+}
+
+.tl-toggle-wrap { display:flex; align-items:center; gap:7px; font-size:0.8em; color:var(--text-sub); }
+.tl-switch { position:relative; width:36px; height:20px; border-radius:12px; background:var(--border); cursor:pointer; transition:background .15s; flex-shrink:0; }
+.tl-switch.on { background:var(--teal); }
+.tl-switch-knob { position:absolute; top:2px; right:2px; width:16px; height:16px; border-radius:50%; background:#fff; transition:right .15s; box-shadow:0 1px 2px rgba(0,0,0,.2); }
+.tl-switch.on .tl-switch-knob { right:18px; }
+
+.tl-marker { position:absolute; transition: top .25s ease, opacity .2s ease, transform .2s ease; }
+.tl-marker-enter, .tl-marker-exit { opacity:0; transform:scale(.4); }
+.tl-marker.tl-side-right { right:50%; margin-right:14px; }
+.tl-marker.tl-side-left { left:50%; margin-left:14px; }
+.tl-dot {
+  position:absolute; top:0; width:14px; height:14px; border-radius:50%;
+  border:3px solid #fff; box-shadow:0 0 0 2px rgba(0,0,0,.22); cursor:pointer;
+  transform:translateY(-50%);
+}
+.tl-marker.tl-side-right .tl-dot { right:-21px; }
+.tl-marker.tl-side-left .tl-dot { left:-21px; }
+.tl-bubble {
+  position:relative; top:0; transform:translateY(-50%);
+  min-width:90px; max-width:190px; padding:7px 11px; border-radius:9px; color:#fff;
+  font-size:0.78em; font-weight:700; cursor:pointer; box-shadow:0 3px 10px rgba(0,0,0,.25);
+  transition:opacity .12s, transform .12s;
+  background:var(--bubble-color, var(--teal));
+}
+.tl-marker.tl-side-right .tl-bubble { margin-right:14px; }
+.tl-marker.tl-side-left .tl-bubble { margin-left:14px; }
+.tl-bubble::after {
+  content:''; position:absolute; top:50%; margin-top:-5px;
+  border:5px solid transparent;
+}
+/* Cross-matched intentionally: a side-right bubble sits to the right of its dot,
+   so its arrow must point left (back toward the dot) via border-left-color, and
+   vice versa for side-left -- do not "correct" this back to right<->right. */
+.tl-marker.tl-side-right .tl-bubble::after { left:100%; border-left-color:var(--bubble-color, var(--teal)); }
+.tl-marker.tl-side-left .tl-bubble::after { right:100%; border-right-color:var(--bubble-color, var(--teal)); }
+.tl-bubble-date { font-weight:500; opacity:.85; font-size:0.9em; }
+.tl-axis-wrap.tl-minimize-mode .tl-marker:not(:hover) .tl-bubble { opacity:0; pointer-events:none; transform:translateY(-50%) scale(.6); }
+.tl-axis-wrap.tl-minimize-mode .tl-marker:not(:hover) .tl-dot { transform:translateY(-50%) scale(0.72); }
+.tl-axis-wrap.tl-minimize-mode .tl-marker:hover .tl-dot { transform:translateY(-50%) scale(1.15); }
+
+@media (max-width:700px) {
+  .tl-bubble { font-size:0.72em; max-width:140px; padding:6px 9px; }
+  .tl-marker.tl-side-right { margin-right:10px; }
+  .tl-marker.tl-side-left { margin-left:10px; }
+  .tl-marker.tl-side-right .tl-dot { right:-17px; }
+  .tl-marker.tl-side-left .tl-dot { left:-17px; }
+}
+
+/* ── Timeline event modal ─────────────────────────────────────── */
+.tl-overlay { position:fixed; inset:0; background:rgba(15,22,45,.45); z-index:700; display:flex; align-items:center; justify-content:center; }
+.tl-overlay.hidden { display:none; }
+.tl-modal {
+  background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow-md);
+  width:min(480px, 94vw); max-height:90vh; overflow-y:auto; padding:20px 22px 18px;
+  display:flex; flex-direction:column; gap:13px; position:relative;
+}
+.tl-modal-close { position:absolute; top:12px; left:14px; background:none; border:none; font-size:1.15em; cursor:pointer; color:var(--text-muted); }
+.tl-modal-close:hover { color:var(--red); }
+.tl-modal-title { font-size:1em; font-weight:700; padding-left:18px; }
+.tl-field { display:flex; flex-direction:column; gap:4px; }
+.tl-field label { font-size:0.78em; font-weight:600; color:var(--text-sub); }
+.tl-field input, .tl-field textarea {
+  padding:7px 10px; border:1.5px solid var(--border); border-radius:7px;
+  font-size:0.87em; font-family:inherit; color:var(--navy); background:var(--white);
+}
+.tl-field input:focus, .tl-field textarea:focus { outline:none; border-color:var(--teal); }
+.tl-field textarea { resize:vertical; min-height:56px; }
+.tl-date-btn {
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
+  padding:8px 11px; border:1.5px solid var(--border); border-radius:7px;
+  font-size:0.87em; font-family:inherit; color:var(--navy); background:var(--white);
+  cursor:pointer; text-align:right; width:100%;
+}
+.tl-date-btn:hover { border-color:var(--teal); }
+.tl-date-btn-icon { opacity:.6; font-size:0.95em; }
+.tl-cal-wrap { position:relative; }
+.tl-cal-dropdown {
+  position:fixed; z-index:750;
+  width:260px; background:var(--white); border:1.5px solid var(--teal);
+  border-radius:10px; box-shadow:var(--shadow-md); padding:10px;
+}
+.tl-cal-dropdown.hidden { display:none; }
+.tl-cal-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+.tl-cal-nav-btn {
+  width:26px; height:26px; border-radius:6px; border:1px solid var(--border);
+  background:var(--white); cursor:pointer; font-weight:700; color:var(--navy);
+  display:flex; align-items:center; justify-content:center;
+}
+.tl-cal-nav-btn:hover { border-color:var(--teal); color:var(--teal); }
+.tl-cal-title { font-size:0.85em; font-weight:700; color:var(--navy); }
+.tl-cal-today-row { display:flex; justify-content:center; margin-bottom:6px; }
+.tl-cal-today-btn {
+  font-size:0.72em; font-weight:700; color:var(--teal); background:var(--teal-light);
+  border:none; border-radius:14px; padding:4px 14px; cursor:pointer; font-family:inherit;
+}
+.tl-cal-today-btn:hover { background:var(--teal); color:#fff; }
+.tl-cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; }
+.tl-cal-dow { font-size:0.68em; font-weight:700; color:var(--text-muted); text-align:center; padding:3px 0; }
+.tl-cal-day {
+  font-size:0.8em; text-align:center; padding:6px 0; border-radius:6px;
+  cursor:pointer; color:var(--navy); background:none; border:none; font-family:inherit;
+}
+.tl-cal-day:hover { background:var(--teal-light); }
+.tl-cal-day.tl-cal-day-muted { color:var(--text-muted); opacity:.45; }
+.tl-cal-day.tl-cal-day-today { font-weight:700; text-decoration:underline; }
+.tl-cal-day.tl-cal-day-sel { background:var(--teal); color:#fff; font-weight:700; }
+.tl-type-toggle {
+  display:flex; align-items:center; gap:8px; width:fit-content;
+  border:none; border-radius:8px; padding:9px 18px;
+  color:#fff; font-family:inherit; font-size:.85em; font-weight:700;
+  cursor:pointer; transition:background .15s ease, transform .08s ease;
+}
+.tl-type-toggle:hover { filter:brightness(1.06); }
+.tl-type-toggle:active { transform:scale(.96); }
+.tl-type-toggle-dot { width:9px; height:9px; border-radius:50%; background:rgba(255,255,255,.85); flex-shrink:0; }
+.tl-type-toggle-hint { font-size:.82em; font-weight:500; opacity:.75; }
+.tl-btn {
+  padding:8px 16px; border-radius:8px; border:1.5px solid var(--border);
+  background:var(--white); color:var(--text-sub); font-family:inherit;
+  font-size:0.85em; font-weight:600; cursor:pointer;
+}
+.tl-btn:hover { border-color:var(--teal); color:var(--teal); }
+.tl-btn-primary { background:var(--teal); border-color:var(--teal); color:#fff; }
+.tl-btn-primary:hover { background:var(--teal-dark); color:#fff; }
+.tl-btn-danger { color:var(--red); border-color:transparent; background:none; }
+.tl-btn-danger:hover { text-decoration:underline; }
+.tl-modal-actions { display:flex; gap:8px; justify-content:space-between; margin-top:2px; }
+.tl-modal-actions-right { display:flex; gap:8px; }
+.tl-status { font-size:0.8em; min-height:1em; }
+.tl-status.err { color:var(--red); }
+.tl-link-list { display:flex; flex-direction:column; gap:6px; margin-top:6px; }
+.tl-link-row-wrap { display:flex; flex-direction:column; gap:4px; }
+.tl-link-row { display:flex; align-items:center; gap:8px; padding:6px 9px; background:var(--teal-light); border-radius:7px; font-size:0.8em; }
+.tl-link-row-name { font-weight:600; flex:1; }
+.tl-link-row-date { color:var(--text-muted); flex-shrink:0; }
+.tl-link-remove { background:none; border:none; color:var(--text-muted); cursor:pointer; flex-shrink:0; font-size:1em; }
+.tl-link-remove:hover { color:var(--red); }
+.tl-link-row-note {
+  width:100%; padding:5px 8px; border:1px solid var(--border); border-radius:6px;
+  font-size:0.85em; font-family:inherit; box-sizing:border-box;
+}
+.tl-view-content { display:flex; flex-direction:column; gap:12px; }
+.tl-view-row { display:flex; flex-direction:column; gap:2px; }
+.tl-view-label { font-size:0.74em; font-weight:600; color:var(--text-sub); }
+.tl-view-value { font-size:0.92em; color:var(--navy); }
+.tl-view-color-dot { display:inline-block; width:14px; height:14px; border-radius:50%; vertical-align:middle; margin-left:6px; }
+.tl-view-tx-row { display:flex; flex-direction:column; gap:2px; padding:8px 10px; background:var(--teal-light); border-radius:7px; font-size:0.85em; }
+.tl-view-tx-name-row { display:flex; justify-content:space-between; gap:8px; font-weight:600; }
+.tl-view-tx-note { color:var(--text-muted); font-style:italic; font-size:0.9em; }
+.tl-view-empty { color:var(--text-muted); font-size:0.85em; }
+.tl-tx-search-results { max-height:180px; overflow-y:auto; border:1.5px solid var(--teal); border-radius:8px; margin-top:4px; }
+.tl-tx-search-results.hidden { display:none; }
+.tl-tx-search-row { padding:7px 10px; cursor:pointer; display:flex; gap:10px; font-size:0.82em; border-bottom:1px solid var(--border); }
+.tl-tx-search-row:last-child { border-bottom:none; }
+.tl-tx-search-row:hover { background:var(--teal-light); }
+
 /* ── Panels ──────────────────────────────────────────────── */
 .panel { display: none; animation: fadein 0.22s ease; }
 .panel.active { display: block; }
-@keyframes fadein { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:none; } }
+@keyframes fadein { from { opacity:0; } to { opacity:1; } }
 
 /* ── Card ────────────────────────────────────────────────── */
 .card {
@@ -1336,7 +1589,7 @@ body {
   padding: 1px 6px; margin-right: 5px; vertical-align: middle;
   white-space: nowrap; flex-shrink: 0;
 }
-.num .tx-id { font-size: .60em; color: #c5ccd8; font-family: monospace; margin-top: 1px; white-space: nowrap; }
+.num .tx-id { font-size: .60em; color: #c5ccd8; margin-top: 1px; white-space: nowrap; }
 .manual-cash-badge {
   display: block; font-size: .55em; font-weight: 700;
   background: #e8f7f5; color: #1e9d8b; border: 1px solid #b2dfdb; border-radius: 6px;
@@ -1725,6 +1978,10 @@ body {
 .acct-card:hover { box-shadow: 0 2px 10px rgba(30,42,74,0.09); }
 .acct-card.acct-card-stale { background: #fffde7; border-color: #ffe082; }
 .acct-card.acct-card-virtual { background: #f0faf7; border-color: #b2dfdb; }
+.acct-card-clickable { cursor: pointer; }
+.acct-card-clickable:hover { border-color: var(--teal); box-shadow: 0 2px 10px rgba(30,157,139,0.16); }
+.acct-card-clickable:active { transform: scale(0.98); }
+.acct-card-clickable:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
 .acct-card-header {
   display: flex; align-items: flex-start;
   justify-content: space-between; gap: 8px;
@@ -2047,12 +2304,13 @@ body {
     <div class="nav-sep"></div>
     <button class="nav-item" id="nav-accounts" onclick="showPanel('accounts',this);closeNav()">חשבונות</button>
     <a class="nav-item" href="/housing">דיור</a>
+    <a class="nav-item" href="/timeline">ציר זמן</a>
     <a class="nav-item" href="/organizer">ארגונית</a>
     <a class="nav-item" href="/bills" id="nav-bills-link">מעקב חשבונות<span class="nav-alert-dot" id="nav-bills-dot" style="display:none"></span></a>
     <a class="nav-item" href="/categories">ניתוח קטגוריאלי</a>
     <a class="nav-item" href="/search">חיפוש</a>
     <a class="nav-item" href="/spotify">Spotify Tracker</a>
-    <a class="nav-item" href="/gym">💪 Gym Tracker</a>
+    <a class="nav-item" href="/recurring">חיובים חוזרים</a>
     <div class="nav-sep"></div>
     <a class="nav-item" href="/tagger">תייגן</a>
     <a class="nav-item" href="/files">קבצים</a>
@@ -2065,6 +2323,9 @@ body {
     <div class="app-version-badge" id="app-version-badge">v—</div>
   </div>
 </nav>
+
+<!-- ── Auto-approval toast stack ──────────────────────────── -->
+<div id="cc-toast-stack"></div>
 
 <!-- ── Debug log FAB + panel ─────────────────────────────── -->
 <button class="debug-fab" id="debug-fab" onclick="toggleDebugPanel()" title="App logs">&lt;/&gt;</button>
@@ -2248,6 +2509,7 @@ body {
 
   <!-- ── Panel: Housing / Mortgage ─────────────────────────── -->
   <div id="panel-housing" class="panel"></div>
+  <div id="panel-timeline" class="panel"></div>
 
 </div><!-- /.main -->
 
@@ -2261,6 +2523,7 @@ body {
 
     <!-- Step: menu -->
     <div class="acct-modal-step active" id="acct-step-menu">
+      <button class="acct-modal-menu-btn" onclick="acctStartNewAccount()">+ חשבון חדש</button>
       <button class="acct-modal-menu-btn" onclick="acctShowStep('add-status')">הוסף יתרה לחשבון</button>
       <button class="acct-modal-menu-btn danger" onclick="acctShowStep('del-account')">מחק חשבון</button>
       <button class="acct-modal-menu-btn danger" onclick="acctShowStep('del-entry')">מחק רשומה לפי ID</button>
@@ -2268,7 +2531,7 @@ body {
 
     <!-- Step: add status -->
     <div class="acct-modal-step" id="acct-step-add-status">
-      <div>
+      <div id="acct-sel-name-wrap">
         <div class="acct-modal-label">חשבון</div>
         <select class="acct-modal-select" id="acct-sel-name" onchange="acctNameChanged()"></select>
       </div>
@@ -2338,6 +2601,47 @@ body {
   </div>
 </div>
 
+<!-- ── Quick add-status popup (tap an account card) ────────── -->
+<div class="acct-modal-overlay" id="acct-quickadd-overlay" onclick="if(event.target===this)closeAcctQuickAdd()">
+  <div class="acct-modal">
+    <div class="acct-modal-header">
+      <span class="acct-modal-title" id="acct-quickadd-title">הוסף יתרה</span>
+      <button class="acct-modal-close" onclick="closeAcctQuickAdd()">✕</button>
+    </div>
+    <div class="acct-modal-step active">
+      <div>
+        <div class="acct-modal-label">תאריך</div>
+        <div style="display:flex;gap:14px;margin-bottom:6px">
+          <label style="font-size:0.86em;cursor:pointer;display:flex;align-items:center;gap:5px">
+            <input type="radio" name="acct-qa-date-radio" value="today" checked onchange="acctQuickAddDateToggle()"> היום
+          </label>
+          <label style="font-size:0.86em;cursor:pointer;display:flex;align-items:center;gap:5px">
+            <input type="radio" name="acct-qa-date-radio" value="custom" onchange="acctQuickAddDateToggle()"> תאריך אחר
+          </label>
+        </div>
+        <input class="acct-modal-input" id="acct-qa-date-input" type="date" style="display:none">
+      </div>
+      <div>
+        <div class="acct-modal-label">יתרה</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input class="acct-modal-input" id="acct-qa-value-input" type="number" placeholder="0" style="flex:1">
+          <select class="acct-modal-select" id="acct-qa-currency-input" style="width:80px;flex-shrink:0">
+            <option value="ILS">₪ ILS</option>
+            <option value="USD">$ USD</option>
+            <option value="EUR">€ EUR</option>
+            <option value="JPY">¥ JPY</option>
+          </select>
+        </div>
+      </div>
+      <div class="acct-modal-row">
+        <button class="acct-modal-submit" onclick="acctQuickAddSubmit()">הוסף</button>
+        <button class="acct-modal-back" onclick="closeAcctQuickAdd()">ביטול</button>
+      </div>
+      <div class="acct-modal-status" id="acct-qa-status"></div>
+    </div>
+  </div>
+</div>
+
 <!-- ── Scripts ───────────────────────────────────────────── -->
 <script>
 // ── Hamburger sidebar ────────────────────────────────────
@@ -2364,7 +2668,7 @@ function toggleNav() {
   document.getElementById('sidebar').classList.contains('open') ? closeNav() : openNav();
 }
 // ── Panel navigation ──────────────────────────────────────
-var _PANEL_TITLES = { overview: 'ניתוח חודשי', accounts: 'חשבונות', housing: 'ניהול נכס' };
+var _PANEL_TITLES = { overview: 'ניתוח חודשי', accounts: 'חשבונות', housing: 'ניהול נכס', timeline: 'ציר זמן' };
 // Panels that show the month roller and monthly KPI cards
 var _MONTHLY_PANELS = { overview: true };
 function _applyPanelUI(name) {
@@ -2395,11 +2699,12 @@ function showPanel(name, btn) {
   if (btn) btn.classList.add('active');
   _applyPanelUI(name);
   var url = new URL(window.location.href);
-  var nonMonthly = ['housing', 'accounts'];
+  var nonMonthly = ['housing', 'accounts', 'timeline'];
   if (nonMonthly.indexOf(name) !== -1) { url.searchParams.set('panel', name); }
   else { url.searchParams.delete('panel'); }
   window.history.replaceState({}, '', url.toString());
   if (name === 'housing' && typeof _loadHousingPanel === 'function') _loadHousingPanel(false);
+  if (name === 'timeline' && typeof _loadGeneralTimelinePanel === 'function') _loadGeneralTimelinePanel();
 }
 // ── Smart nav to monthly analysis (from any page) ─────────
 function _navToMonthly(btn) {
@@ -2439,6 +2744,11 @@ function _navToMonthly(btn) {
         if (typeof _loadCashPie === 'function') _loadCashPie();
         if (typeof _loadAccountsData === 'function') _loadAccountsData(false);
       }, 0);
+    }
+    if (panel === 'timeline') {
+      document.addEventListener('DOMContentLoaded', function() {
+        if (typeof _loadGeneralTimelinePanel === 'function') _loadGeneralTimelinePanel();
+      });
     }
     if (panel === 'housing') {
       document.addEventListener('DOMContentLoaded', function() {
@@ -3300,6 +3610,7 @@ function _listenToRegenSSE(regenKey, btn, streamUrl) {
       }
       return;
     }
+    _checkCCApprovalToast(data);
     appendLog(data);
   };
   es.onerror = function() {
@@ -3459,6 +3770,7 @@ function _reloadCategory(slug) {
         hideLogFloat(3000);
         return;
       }
+      _checkCCApprovalToast(data);
       appendLog(data);
     };
     es.onerror = function() { es.close(); btn.classList.remove('running'); btn.disabled = false; hideLogFloat(0); };
@@ -3608,6 +3920,23 @@ _initMonthNav();
   });
 })();
 
+// ── Auto-approval toast (credit-card charge match) ──────────
+function _checkCCApprovalToast(text) {
+  if (!text || text.indexOf('[CC-AUTO-APPROVED]') === -1) return;
+  var msg = text.replace('[CC-AUTO-APPROVED]', '').trim();
+  var stack = document.getElementById('cc-toast-stack');
+  if (!stack) return;
+  var el = document.createElement('div');
+  el.className = 'cc-toast';
+  el.textContent = '✓ ' + msg;
+  stack.appendChild(el);
+  requestAnimationFrame(function() { el.classList.add('show'); });
+  setTimeout(function() {
+    el.classList.remove('show');
+    setTimeout(function() { el.remove(); }, 300);
+  }, 5000);
+}
+
 var _dbgEs = null;
 
 function toggleDebugPanel() {
@@ -3642,7 +3971,8 @@ function _startDebugStream() {
   _dbgEs = new EventSource('/api/debug-logs');
   _dbgEs.onmessage = function(e) {
     if (!e.data || !e.data.trim()) return;
-    if (_regenActive) return; // regen SSE already shows these — skip duplicates
+    if (_regenActive) return; // regen SSE already shows (and toasts for) these — skip duplicates
+    _checkCCApprovalToast(e.data);
     var feed = document.getElementById('debug-feed');
     var line = document.createElement('div');
     line.className = 'debug-line';
@@ -3661,7 +3991,11 @@ function _startDebugStream() {
   };
 }
 // Start streaming backend logs as soon as the page is interactive — no FAB click needed.
-document.addEventListener('DOMContentLoaded', function() { _startDebugStream(); });
+// Delayed: /api/debug-logs never returns (true SSE stream); starting it at
+// the same instant as the page's real data fetches can starve them of a
+// serverless execution slot. Server buffers logs regardless of client
+// connection, so delaying costs no history.
+document.addEventListener('DOMContentLoaded', function() { setTimeout(_startDebugStream, 3000); });
 
 // ── Account manager modal ─────────────────────────────────
 function openAcctModal() {
@@ -3676,9 +4010,41 @@ function acctShowStep(name) {
     s.classList.remove('active');
   });
   document.getElementById('acct-step-' + name).classList.add('active');
-  if (name === 'add-status') acctLoadNames();
+  if (name === 'add-status') {
+    document.getElementById('acct-sel-name-wrap').style.display = '';
+    acctLoadNames();
+  }
   if (name === 'del-account') acctLoadDelNames();
   if (name === 'del-entry')   acctLoadEntries();
+}
+// "+ חשבון חדש" menu entry — jumps straight to the add-status form with the
+// account dropdown skipped entirely, since we already know it's a new one.
+function acctStartNewAccount() {
+  document.getElementById('acct-modal-overlay').classList.add('open');
+  document.querySelectorAll('.acct-modal-step').forEach(function(s) {
+    s.classList.remove('active');
+  });
+  document.getElementById('acct-step-add-status').classList.add('active');
+  fetch('/api/accounts/names')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var sel = document.getElementById('acct-sel-name');
+      sel.innerHTML = '';
+      (data.names || []).forEach(function(n) {
+        var o = document.createElement('option');
+        o.value = n; o.textContent = n;
+        sel.appendChild(o);
+      });
+      var newOpt = document.createElement('option');
+      newOpt.value = '__new__'; newOpt.textContent = '+ חשבון חדש…';
+      sel.appendChild(newOpt);
+      sel.value = '__new__';
+      document.getElementById('acct-sel-name-wrap').style.display = 'none';
+      acctNameChanged();
+      var input = document.getElementById('acct-new-name-input');
+      input.value = '';
+      setTimeout(function() { input.focus(); }, 100);
+    });
 }
 function acctLoadNames() {
   fetch('/api/accounts/names')
@@ -3733,6 +4099,59 @@ function acctDateToggle() {
   var custom = document.querySelector('input[name="acct-date-radio"][value="custom"]').checked;
   document.getElementById('acct-date-input').style.display = custom ? 'block' : 'none';
 }
+
+// ── Quick add-status popup (tap an account card) ────────────────
+var _acctQuickAddName = null;
+function openAcctQuickAdd(name) {
+  _acctQuickAddName = name;
+  document.getElementById('acct-quickadd-title').textContent = 'הוסף יתרה — ' + name;
+  document.querySelector('input[name="acct-qa-date-radio"][value="today"]').checked = true;
+  document.getElementById('acct-qa-date-input').style.display = 'none';
+  document.getElementById('acct-qa-date-input').value = '';
+  document.getElementById('acct-qa-value-input').value = '';
+  acctSetStatus('acct-qa-status', '', '');
+  document.getElementById('acct-quickadd-overlay').classList.add('open');
+  setTimeout(function() { document.getElementById('acct-qa-value-input').focus(); }, 100);
+}
+function closeAcctQuickAdd() {
+  document.getElementById('acct-quickadd-overlay').classList.remove('open');
+}
+function acctQuickAddDateToggle() {
+  var custom = document.querySelector('input[name="acct-qa-date-radio"][value="custom"]').checked;
+  document.getElementById('acct-qa-date-input').style.display = custom ? 'block' : 'none';
+}
+function acctQuickAddSubmit() {
+  var name = _acctQuickAddName;
+  if (!name) return;
+  var dateRadio = document.querySelector('input[name="acct-qa-date-radio"]:checked').value;
+  var date = dateRadio === 'today'
+    ? new Date().toISOString().slice(0, 10)
+    : document.getElementById('acct-qa-date-input').value;
+  if (!date) { acctSetStatus('acct-qa-status', 'יש לבחור תאריך', 'err'); return; }
+  var value    = parseFloat(document.getElementById('acct-qa-value-input').value);
+  var currency = document.getElementById('acct-qa-currency-input').value || 'ILS';
+  if (isNaN(value)) { acctSetStatus('acct-qa-status', 'יתרה לא תקינה', 'err'); return; }
+
+  _acctOptimisticTableUpdate(name, value, currency);
+  _acctOptimisticChartUpdate(name, date, value, currency);
+  acctSetStatus('acct-qa-status', 'שומר…', 'ok');
+
+  fetch('/api/accounts/status', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({name: name, date: date, value: value, currency: currency})
+  }).then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d.ok) {
+        acctSetStatus('acct-qa-status', 'נוסף בהצלחה ✓', 'ok');
+        setTimeout(closeAcctQuickAdd, 700);
+      } else {
+        acctSetStatus('acct-qa-status', d.error || 'שגיאה', 'err');
+        if (typeof _enrichAcctTable === 'function') _enrichAcctTable();
+      }
+    }).catch(function() { acctSetStatus('acct-qa-status', 'שגיאת רשת', 'err'); });
+}
+
 // ── Optimistic update helpers ─────────────────────────────────
 
 // Update the balance cell in the accounts table for the matching row.
@@ -5155,67 +5574,49 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
 (function() {
   var PAD = 10;
 
-  // ── Desktop: reposition on hover ──────────────────────────────────────────
-  document.addEventListener('mouseenter', function(e) {
-    var wrap = e.target.closest && e.target.closest('.kpi-info-wrap');
-    if (!wrap) return;
-    var tip = wrap.querySelector('.kpi-tooltip');
-    if (!tip) return;
-    tip.style.left = ''; tip.style.right = ''; tip.style.transform = '';
-    var rect = tip.getBoundingClientRect();
-    var vw = window.innerWidth;
-    if (rect.right > vw - PAD) { tip.style.right = '0'; tip.style.left = 'auto'; }
-    else if (rect.left < PAD)   { tip.style.left  = '0'; tip.style.right = 'auto'; }
-    var rect2 = tip.getBoundingClientRect();
-    if (rect2.top < PAD) { tip.style.bottom = 'auto'; tip.style.top = 'calc(100% + 8px)'; }
-  }, true);
-
-  document.addEventListener('mouseleave', function(e) {
-    var wrap = e.target.closest && e.target.closest('.kpi-info-wrap');
-    if (!wrap) return;
-    var tip = wrap.querySelector('.kpi-tooltip');
-    if (!tip) return;
-    tip.style.left = ''; tip.style.right = ''; tip.style.transform = '';
-    tip.style.top = ''; tip.style.bottom = '';
-  }, true);
-
-  // ── Mobile: tap to open as fixed overlay, tap elsewhere to close ──────────
-  function _closeMobileTips() {
-    document.querySelectorAll('.kpi-tooltip.tip-mobile-open').forEach(function(t) {
-      t.classList.remove('tip-mobile-open');
-      t.style.cssText = '';
-    });
+  // Move the tooltip to <body> for the duration it's shown, and leave a
+  // comment marker behind so it can be put back exactly where it came from.
+  // This is what actually guarantees "always on top": position:fixed alone
+  // isn't enough — an ancestor with ANY transform (even the housing panel's
+  // subtle slide-in transform) becomes the containing block for fixed
+  // descendants instead of the viewport, and an ancestor with overflow:hidden
+  // (e.g. the equity-bar cards) clips it outright. Detaching to <body> escapes
+  // both problems at once, regardless of where in the page the icon lives.
+  function _detach(wrap) {
+    var tip = wrap._kpiTip;
+    if (!tip) {
+      tip = wrap.querySelector('.kpi-tooltip');
+      if (!tip) return null;
+      wrap._kpiTip = tip;
+      tip._homeMarker = document.createComment('');
+      wrap.insertBefore(tip._homeMarker, tip);
+    }
+    if (tip.parentNode !== document.body) document.body.appendChild(tip);
+    return tip;
   }
 
-  document.addEventListener('touchstart', function(e) {
-    var icon = e.target.closest && e.target.closest('.kpi-info-icon');
-    if (!icon) { _closeMobileTips(); return; }
-    var wrap = icon.closest('.kpi-info-wrap');
-    var tip  = wrap && wrap.querySelector('.kpi-tooltip');
+  function _reattach(wrap) {
+    var tip = wrap._kpiTip;
     if (!tip) return;
-    e.preventDefault();
+    tip.style.cssText = '';
+    tip.classList.remove('tip-mobile-open');
+    if (tip._homeMarker && tip._homeMarker.parentNode) {
+      tip._homeMarker.parentNode.insertBefore(tip, tip._homeMarker);
+    }
+  }
 
-    var isOpen = tip.classList.contains('tip-mobile-open');
-    _closeMobileTips();
-    if (isOpen) return; // tap again to close
-
-    var vw  = window.innerWidth;
-    var vh  = window.innerHeight;
-    var tipW = Math.min(300, vw - 24);
+  function _place(tip, icon, tipW) {
+    var vw = window.innerWidth, vh = window.innerHeight;
     var iconR = icon.getBoundingClientRect();
+    tipW = tipW || Math.min(300, vw - 2 * PAD);
 
-    // Prefer above icon; flip below if not enough room
+    tip.style.position = 'fixed';
+    tip.style.zIndex   = '9999';
+    tip.style.width    = tipW + 'px';
+    tip.style.maxWidth = tipW + 'px';
+
     var spaceAbove = iconR.top - PAD;
-    var useBelow   = spaceAbove < 130;
-
-    tip.style.position   = 'fixed';
-    tip.style.zIndex     = '9999';
-    tip.style.width      = tipW + 'px';
-    tip.style.maxWidth   = tipW + 'px';
-    tip.style.whiteSpace = 'pre-line';
-    tip.style.pointerEvents = 'auto';
-
-    if (useBelow) {
+    if (spaceAbove < 130) {
       tip.style.top    = (iconR.bottom + 8) + 'px';
       tip.style.bottom = 'auto';
     } else {
@@ -5223,12 +5624,57 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       tip.style.bottom = (vh - iconR.top + 8) + 'px';
     }
 
-    // Horizontal: align to right edge of icon, clamp to viewport
     var rightEdge = vw - iconR.right;
     rightEdge = Math.max(PAD, Math.min(rightEdge, vw - tipW - PAD));
     tip.style.right = rightEdge + 'px';
     tip.style.left  = 'auto';
+  }
 
+  // ── Desktop: reposition on hover ──────────────────────────────────────────
+  document.addEventListener('mouseenter', function(e) {
+    var wrap = e.target.closest && e.target.closest('.kpi-info-wrap');
+    if (!wrap) return;
+    var icon = wrap.querySelector('.kpi-info-icon');
+    var tip  = _detach(wrap);
+    if (!tip || !icon) return;
+    _place(tip, icon);
+    tip.style.visibility = 'visible';
+    tip.style.opacity    = '1';
+  }, true);
+
+  document.addEventListener('mouseleave', function(e) {
+    var wrap = e.target.closest && e.target.closest('.kpi-info-wrap');
+    if (!wrap) return;
+    _reattach(wrap);
+  }, true);
+
+  // ── Mobile: tap to open as fixed overlay, tap elsewhere to close ──────────
+  var _openWrap = null;
+  function _closeMobileTips() {
+    if (_openWrap) { _reattach(_openWrap); _openWrap = null; }
+  }
+
+  document.addEventListener('touchstart', function(e) {
+    var icon = e.target.closest && e.target.closest('.kpi-info-icon');
+    if (!icon) { _closeMobileTips(); return; }
+    var wrap = icon.closest('.kpi-info-wrap');
+    if (!wrap) return;
+    e.preventDefault();
+
+    var wasOpen = _openWrap === wrap;
+    _closeMobileTips();
+    if (wasOpen) return; // tap again to close
+
+    var tip = _detach(wrap);
+    if (!tip) return;
+    _openWrap = wrap;
+
+    var vw = window.innerWidth;
+    _place(tip, icon, Math.min(300, vw - 24));
+    tip.style.whiteSpace    = 'pre-line';
+    tip.style.pointerEvents = 'auto';
+    tip.style.visibility    = 'visible';
+    tip.style.opacity       = '1';
     tip.classList.add('tip-mobile-open');
   }, { passive: false, capture: true });
 })();
@@ -5268,8 +5714,8 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     _pendingRow = row;
     var _t = function(sel) { var el = row.querySelector(sel); return el ? el.textContent.trim() : ''; };
     var primary   = _t('.tx-primary');
-    var secondary = _t('.tx-secondary');
-    var txId      = _t('.tx-id');
+    var secondary = _t('.tx-id');
+    var txId      = '#' + (row.getAttribute('data-value') || '');
     var amount    = _t('.date');
     var cat       = _t('.cat');
     var date      = _t('.element4');
@@ -5298,8 +5744,135 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     var row = _pendingRow; closeDetail(); if (row) _handleTxClick(row);
   });
   var _origClick = window._handleTxClick;
+  var _revealedRow = null;
   window._handleTxClick = function(row) {
-    if (window.matchMedia('(max-width: 768px)').matches) { openDetail(row); } else { if (_origClick) _origClick(row); }
+    if (window.matchMedia('(max-width: 768px)').matches) { openDetail(row); return; }
+    if (_revealedRow === row) {
+      // Second click on an already-revealed row → close it back up.
+      _revealedRow = null;
+      if (window._hideTxIdPanel) window._hideTxIdPanel();
+    } else {
+      // First click (or a different row) → reveal its ID + split button.
+      _revealedRow = row;
+      _showTxIdPanel(
+        row,
+        function() { _revealedRow = null; },              // auto-expired
+        function() { _revealedRow = null; if (_origClick) _origClick(row); }  // split button clicked
+      );
+    }
+  };
+})();
+
+/* ── Desktop: transaction-ID reveal — bar rolls a white blanket left ── */
+(function() {
+  var BAR_W = 6, BAR_H = 34;   // matches the real .color-box exactly — never resizes
+  var ID_W  = 92;
+  var GAP   = 8;
+
+  var style = document.createElement('style');
+  style.textContent =
+    '.num{position:relative;overflow:hidden}' +
+    '.tx-id-chip{position:absolute;top:0;right:4px;height:100%;background:#fff;' +
+      'overflow:hidden;transition:width .4s ease;z-index:5}' +
+    '.tx-id-chip .tic-bar{position:absolute;top:50%;left:0;width:' + BAR_W + 'px;height:' + BAR_H + 'px;' +
+      'border-radius:4px;transform:translateY(-50%);pointer-events:none}' +
+    '.tx-id-chip .tic-idwrap{position:absolute;top:0;left:' + BAR_W + 'px;height:100%;width:' + ID_W + 'px;' +
+      'display:flex;align-items:center;justify-content:center;' +
+      'font-family:monospace;font-weight:700;font-size:.85em;color:#1e2a4a;' +
+      'opacity:0;transition:opacity .3s ease;pointer-events:none}' +
+    '.tx-id-chip .tic-idwrap.show{opacity:1}' +
+    '.tx-id-chip .tic-split{position:absolute;top:50%;left:' + (BAR_W + ID_W + GAP) + 'px;' +
+      'transform:translateY(-50%);padding:0 14px;height:28px;border:1.5px solid var(--teal,#1e9d8b);' +
+      'border-radius:14px;background:#fff;color:var(--teal,#1e9d8b);font-size:.78em;font-weight:600;' +
+      'white-space:nowrap;cursor:pointer;opacity:0;transition:opacity .3s ease,background .15s,color .15s;' +
+      'pointer-events:none;font-family:inherit}' +
+    '.tx-id-chip .tic-split.show{opacity:1;pointer-events:auto}' +
+    '.tx-id-chip .tic-split:hover{background:var(--teal,#1e9d8b);color:#fff}';
+  document.head.appendChild(style);
+
+  var activeChip = null;
+
+  window._showTxIdPanel = function(row, onExpire, onSplit) {
+    // Close out whatever was previously open — smoothly, on its own timers,
+    // never a hard yank (each chip owns its own timers, so this can't
+    // collide with the new chip we're about to build).
+    if (activeChip && activeChip._collapse) activeChip._collapse();
+    activeChip = null;
+
+    var id        = row.getAttribute('data-value') || '';
+    var h3        = row.querySelector('h3');
+    var colorBox  = row.querySelector('.color-box');
+    var barColor  = colorBox ? getComputedStyle(colorBox).backgroundColor : '#888';
+    // Distance from the row's right edge (where the chip is anchored) to h3's
+    // *left* edge — covers the column-gap between the color-box and the text
+    // column too, so no sliver of long text is ever left peeking out.
+    var coverDistance = 120;
+    if (h3 && colorBox) {
+      coverDistance = Math.ceil(colorBox.getBoundingClientRect().right - h3.getBoundingClientRect().left);
+    }
+    var closedW   = BAR_W;
+    var hideTimer = null, fadeTimer = null, collapsed = false;
+
+    var chip = document.createElement('span');
+    chip.className = 'tx-id-chip';
+    chip.style.width = closedW + 'px';
+    chip.innerHTML =
+      '<span class="tic-bar" style="background:' + barColor + '"></span>' +
+      '<span class="tic-idwrap">#' + id + '</span>' +
+      '<button type="button" class="tic-split">פיצול</button>';
+    row.appendChild(chip);
+    activeChip = chip;
+
+    var idEl  = chip.querySelector('.tic-idwrap');
+    var btnEl = chip.querySelector('.tic-split');
+    var btnWidth = btnEl.getBoundingClientRect().width;
+    var openW = Math.max(coverDistance, BAR_W + ID_W + GAP + btnWidth);
+
+    btnEl.addEventListener('click', function(e) {
+      e.stopPropagation();
+      _collapse();
+      if (onSplit) onSplit();
+    });
+
+    function _collapse() {
+      if (collapsed) return;
+      collapsed = true;
+      if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+      if (fadeTimer) { clearTimeout(fadeTimer); fadeTimer = null; }
+      // Let the text/button fully fade out *before* the bar rolls back —
+      // otherwise the shrinking width clips them mid-fade and it flickers.
+      idEl.classList.remove('show');
+      btnEl.classList.remove('show');
+      setTimeout(function() {
+        chip.style.width = closedW + 'px';
+        setTimeout(function() {
+          if (chip.parentNode) chip.parentNode.removeChild(chip);
+          if (activeChip === chip) activeChip = null;
+        }, 400);
+      }, 300);
+    }
+    chip._collapse = _collapse;
+
+    void chip.offsetWidth; // force reflow so the transition runs
+    setTimeout(function() {
+      chip.style.width = openW + 'px';
+      fadeTimer = setTimeout(function() {
+        idEl.classList.add('show');
+        btnEl.classList.add('show');
+      }, 150);
+    }, 0);
+
+    hideTimer = setTimeout(function() {
+      _collapse();
+      if (onExpire) onExpire();
+    }, 10000);
+  };
+
+  window._hideTxIdPanel = function() {
+    if (activeChip && activeChip._collapse) {
+      activeChip._collapse();
+      activeChip = null;
+    }
   };
 })();
 
@@ -5601,27 +6174,41 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       if (chart.config.type !== 'doughnut') return;
       var ctx = chart.ctx, ca = chart.chartArea;
       var cx  = (ca.left + ca.right) / 2, cy = (ca.top + ca.bottom) / 2;
-      var total = chart.data.datasets[0].data.reduce(function(a, b, i) {
+      var opts = (chart.options.plugins && chart.options.plugins.dynCenterText) || {};
+      // Default: sum of visible slice magnitudes. A chart can override with an
+      // explicit signed total (e.g. the cash donut passes net income-minus-
+      // expense instead of total flow volume) via options.plugins.dynCenterText.value.
+      var total = (typeof opts.value === 'number') ? opts.value : chart.data.datasets[0].data.reduce(function(a, b, i) {
         return chart.getDataVisibility(i) ? a + b : a;
       }, 0);
       ctx.save();
       ctx.font = 'bold 15px Segoe UI,Arial,sans-serif';
-      ctx.fillStyle = '#1e2a4a';
+      ctx.fillStyle = opts.color || '#1e2a4a';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText('₪' + Math.round(total).toLocaleString('he-IL'), cx, cy);
+      // Canvas text direction inherits the page's RTL by default, which lets
+      // the browser's bidi algorithm reorder the leading "-" to the visual
+      // right of the number. Force LTR so the sign always renders on the
+      // left, same reading order as every other currency amount in the app.
+      ctx.direction = 'ltr';
+      var sign = total < 0 ? '-' : '';
+      ctx.fillText(sign + '₪' + Math.round(Math.abs(total)).toLocaleString('he-IL'), cx, cy);
       ctx.restore();
     }
   };
 
   var _PAL_SPEND = ['#e53935','#ff7043','#ffa726','#f06292','#e91e63','#ff5722','#ab47bc','#d81b60'];
   var _PAL_EARN  = ['#a5d6a7','#80cbc4','#90caf9','#ce93d8','#ffe082','#ffcc80','#ef9a9a','#f48fb1'];
+  var _CASH_IN_COLOR   = '#a5d6a7';  // gentle green — matches the app's existing earnings palette
+  var _CASH_OUT_COLOR  = '#ef9a9a';  // gentle red — matches the app's existing earnings palette
+  var _CASH_NET_POS    = '#2ecc71';  // center-total text when net cash this month is >= 0
+  var _CASH_NET_NEG    = '#e74c3c';  // center-total text when net cash this month is negative
 
   var _CHART_TT = {
     'הוצאות לפי קטגוריה':      'פילוח ההוצאות מהחשבון הבנקאי לפי קטגוריה.',
     'הכנסות לחשבון לפי קטגוריה': 'פילוח ההכנסות שהתקבלו לחשבון הבנק לפי קטגוריה לחודש שנבחר.',
     'השקעות / חיסכון':          'פעולות העברה בין החשבון הראשי לחשבונות חיסכון/השקעה באותו חודש.',
-    'הכנסות/הוצאות במזומן':     'תזרים מזומנים פיזי בלבד — אינו כולל תשלומי כרטיס או העברות בנקאיות.',
+    'הכנסות/הוצאות במזומן':     'תזרים מזומנים פיזי בלבד — אינו כולל תשלומי כרטיס או העברות בנקאיות. כל עסקה מוצגת כפרוסה נפרדת: ירוק = הכנסה, אדום = הוצאה.',
     'מידע כללי':                 'עמודות: הוצאות חודשיות (אדום) + השקעות/חיסכון (זהב). קו: הכנסות חודשיות (ירוק). ממוצע כולל 13 חודשים.',
     'התפלגות':     'חלוקת ההוצאות לפי כרטיס אשראי לחודש הנבחר.'
   };
@@ -5732,6 +6319,119 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     });
   }
 
+  // ── Cash donut: one slice per transaction (not per category) — green for
+  // income, red for expense. Category/value/percentage surface in the
+  // tooltip and the collapsible detail list below, never on the slice
+  // itself. ──────────────────────────────────────────────────────────────
+  function _buildCashTxDonutCard(container, canvasId, title, items) {
+    if (!items || !items.length) return;
+    var values = items.map(function(it) { return Math.abs(Number(it.amount) || 0); });
+    var colors = items.map(function(it) { return (Number(it.amount) || 0) >= 0 ? _CASH_IN_COLOR : _CASH_OUT_COLOR; });
+    var net = items.reduce(function(a, it) { return a + (Number(it.amount) || 0); }, 0);
+    var netColor = net < 0 ? _CASH_NET_NEG : _CASH_NET_POS;
+
+    var card = document.createElement('div');
+    card.className = 'chart-card';
+    var ttl = document.createElement('div');
+    ttl.className = 'chart-card-title';
+    ttl.innerHTML = _esc(title) + _tipHtml(_CHART_TT[title] || '');
+    card.appendChild(ttl);
+
+    var wrap = document.createElement('div');
+    wrap.className = 'donut-chart-wrap';
+    wrap.style.cssText = 'position:relative;height:320px;';
+    var canvas = document.createElement('canvas');
+    canvas.id = canvasId;
+    canvas.style.cssText = 'width:100%;height:100%;';
+    wrap.appendChild(canvas);
+    card.appendChild(wrap);
+
+    var gridId   = canvasId + '-legend';
+    var toggleId = canvasId + '-toggle';
+    var toggle = document.createElement('div');
+    toggle.className = 'cat-legend-toggle';
+    toggle.id = toggleId;
+    toggle.innerHTML = '<span class="cat-toggle-label">פירוט עסקאות</span>' +
+                       '<span class="cat-toggle-chevron">▾</span>';
+    toggle.onclick = function() {
+      var g = document.getElementById(gridId), t = document.getElementById(toggleId);
+      var open = g.classList.contains('open');
+      g.classList.toggle('open', !open);
+      t.querySelector('.cat-toggle-chevron').style.transform = open ? '' : 'rotate(180deg)';
+    };
+    card.appendChild(toggle);
+
+    var lgrid = document.createElement('div');
+    lgrid.className = 'cat-legend-grid';
+    lgrid.id = gridId;
+    var order = items.map(function(_, i) { return i; })
+                     .sort(function(a, b) { return values[b] - values[a]; });
+    order.forEach(function(idx) {
+      var it  = items[idx];
+      var val = values[idx];
+      var row = document.createElement('div');
+      row.className = 'cat-legend-row';
+      row.dataset.cid = canvasId;
+      row.dataset.idx = String(idx);
+      row.innerHTML =
+        '<span class="cat-dot" style="background:' + colors[idx] + '"></span>' +
+        '<span class="cat-name">' + _esc(it.name || '') + '</span>' +
+        '<span class="cat-val">₪' + Math.round(val).toLocaleString('he-IL') + '</span>';
+      lgrid.appendChild(row);
+    });
+    card.appendChild(lgrid);
+    container.appendChild(card);
+
+    requestAnimationFrame(function() {
+      _destroyChart(canvasId);
+      var inst = new Chart(canvas, {
+        type: 'doughnut',
+        data: {
+          labels: items.map(function(it) { return it.name || ''; }),
+          datasets: [{ data: values, backgroundColor: colors,
+                       borderWidth: 1, borderColor: '#fff', hoverOffset: 8 }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false, cutout: '68%',
+          plugins: {
+            legend: { display: false },
+            dynCenterText: { color: netColor, value: net },
+            tooltip: {
+              rtl: true,
+              callbacks: {
+                label: function(ctx) {
+                  var it = items[ctx.dataIndex];
+                  var v  = ctx.parsed, ch2 = ctx.chart;
+                  var vis = ctx.dataset.data.reduce(function(a, b, j) {
+                    return ch2.getDataVisibility(j) ? a + b : a;
+                  }, 0);
+                  var pct = vis ? (v / vis * 100).toFixed(1) : 0;
+                  return (it.name || '') + ': ₪' + Math.round(v).toLocaleString('he-IL') +
+                         ' (' + pct + '%) · ' + (it.category || '');
+                }
+              }
+            }
+          }
+        },
+        plugins: [_DONUT_CENTER_PLUGIN]
+      });
+      canvas._chartInst = inst;
+      lgrid.querySelectorAll('.cat-legend-row').forEach(function(row) {
+        var idx = +row.dataset.idx;
+        row.addEventListener('click', function() {
+          inst.toggleDataVisibility(idx); inst.update();
+          row.style.opacity = inst.getDataVisibility(idx) ? '1' : '0.35';
+        });
+        row.addEventListener('mouseenter', function() {
+          inst.tooltip.setActiveElements([{datasetIndex: 0, index: idx}], {x: 0, y: 0}); inst.update();
+        });
+        row.addEventListener('mouseleave', function() {
+          inst.tooltip.setActiveElements([], {x: 0, y: 0}); inst.update();
+        });
+      });
+    });
+  }
+
   // ── Overview charts ────────────────────────────────────────────────────
   function _renderOverviewCharts(data) {
     var grid = document.getElementById('overview-charts');
@@ -5751,7 +6451,6 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       _buildDonutCard(grid, 'chart-earnings-donut', 'הכנסות לחשבון לפי קטגוריה',
                       ch.earnings_by_cat, _PAL_EARN);
     }
-
     // ── Investments bar + tx list ──
     (function() {
       var invCard = document.createElement('div');
@@ -5861,16 +6560,11 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       grid.appendChild(invCard);
     })();
 
-    // ── Cash donut (income vs expense) ──
+    // ── Cash donut — one slice per cash transaction (income + expense together) ──
     (function() {
-      var cashEarned = Math.abs(ch.cash_earned || 0);
-      var cashSpent  = Math.abs(ch.cash_spent  || 0);
-      if (cashEarned + cashSpent > 0) {
-        var cashData = {};
-        cashData['הכנסה  ₪' + Math.round(cashEarned).toLocaleString('he-IL')] = cashEarned;
-        cashData['הוצאה  ₪' + Math.round(cashSpent).toLocaleString('he-IL')]  = cashSpent;
-        _buildDonutCard(grid, 'chart-cash-donut', 'הכנסות/הוצאות במזומן',
-                        cashData, ['#a5d6a7', '#ef9a9a']);
+      var cashItems = ch.cash_items || [];
+      if (cashItems.length) {
+        _buildCashTxDonutCard(grid, 'chart-cash-donut', 'הכנסות/הוצאות במזומן', cashItems);
       } else {
         var cashCard = document.createElement('div');
         cashCard.className = 'chart-card';
@@ -6272,11 +6966,10 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
                  ? String(row.desc).trim() : '';
       if (desc) {
         h3.innerHTML = '<span class="tx-primary">' + _esc(desc) + '</span>' +
-                       '<span class="tx-secondary">' + _esc(name) + '</span>';
+                       '<span class="tx-id">' + _esc(name) + '</span>';
       } else {
         h3.innerHTML = '<span class="tx-primary">' + _esc(name) + '</span>';
       }
-      h3.innerHTML += '<span class="tx-id">#' + _esc(row.id) + '</span>';
       div.appendChild(h3);
 
       var pAmt = document.createElement('p');
@@ -6616,9 +7309,15 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       grpAccts.forEach(function(name) {
         var r = rich[name];
         grpTotal += r.value;
-        var cardCls = 'acct-card';
+        // נדל"ן accounts (property values) are derived/virtual, not something
+        // the user tracks by hand — never make them clickable for a status add.
+        var editable = grp !== 'נדל"ן';
+        var cardCls = 'acct-card' + (editable ? ' acct-card-clickable' : '');
         if (_VIRTUAL[name]) cardCls += ' acct-card-virtual';
         if (r.stale)        cardCls += ' acct-card-stale';
+        var cardAttrs = editable
+          ? ' data-name="'+_esc(name)+'" role="button" tabindex="0" title="הוסף יתרה ל'+_esc(name)+'"'
+          : '';
         var sym = _CUR_SYM[r.cur] || r.cur;
         var valDisplay = (r.cur !== 'ILS' && r.rawVal != null)
           ? sym + Number(r.rawVal).toFixed(2) + '<br><span style="font-size:0.72em;font-weight:500;color:#666">('+Math.round(r.value).toLocaleString('he-IL')+'₪)</span>'
@@ -6626,7 +7325,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         var ch  = _changeCell(r.value, r.prev);
         var ych = r.yearPrev != null ? _changeCell(r.value, r.yearPrev) : {txt:'—', cls:'acct-change-neu'};
         var spark = _sparkline(r.pts, 12, 56, 22);
-        html += '<div class="'+cardCls+'">';
+        html += '<div class="'+cardCls+'"'+cardAttrs+'>';
         html +=   '<div class="acct-card-header">';
         html +=     '<span class="acct-card-name">'+_esc(name)+'</span>';
         html +=     spark;
@@ -6669,6 +7368,19 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     html += '</div>'; // wrap
 
     wrap.innerHTML = html;
+
+    if (!wrap._acctClickBound) {
+      wrap._acctClickBound = true;
+      wrap.addEventListener('click', function(e) {
+        var card = e.target.closest('.acct-card-clickable');
+        if (card) openAcctQuickAdd(card.dataset.name);
+      });
+      wrap.addEventListener('keydown', function(e) {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        var card = e.target.closest('.acct-card-clickable');
+        if (card) { e.preventDefault(); openAcctQuickAdd(card.dataset.name); }
+      });
+    }
   }
 
   // ── Accounts Chart ─────────────────────────────────────────────────────
@@ -6765,6 +7477,8 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   // ── Housing / Mortgage ─────────────────────────────────────────────────
   var _HS_CACHE_KEY = 'hs_v1';
   var _HS_CACHE_TTL = 30 * 60 * 1000; // 30 min
+  var _housingActiveTab = 'overview';
+  var _timelineEvents   = null;
 
   function _loadHousingPanel(force) {
     if (!force) {
@@ -7051,7 +7765,13 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         '</div></div>';
     }
 
-    panel.innerHTML = html;
+    panel.innerHTML =
+      '<div class="hs-subtabs">' +
+        '<button class="hs-subtab-btn active" id="hs-subtab-overview" onclick="_switchHousingTab(\'overview\')">סקירה כללית</button>' +
+        '<button class="hs-subtab-btn" id="hs-subtab-timeline" onclick="_switchHousingTab(\'timeline\')">ציר זמן</button>' +
+      '</div>' +
+      '<div id="housing-overview">' + html + '</div>' +
+      '<div id="housing-timeline" style="display:none"></div>';
 
     // ── Rate slider interactivity ──────────────────────────────────────────
     var slider = document.getElementById('hs-rate-slider');
@@ -7172,6 +7892,875 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         });
       }
     }
+
+    _switchHousingTab(_housingActiveTab, true);
+  }
+
+  // ── Housing panel sub-tabs ──────────────────────────────────────────────
+  function _switchHousingTab(tab, skipFetch) {
+    _housingActiveTab = tab;
+    var ov  = document.getElementById('housing-overview');
+    var tl  = document.getElementById('housing-timeline');
+    var bOv = document.getElementById('hs-subtab-overview');
+    var bTl = document.getElementById('hs-subtab-timeline');
+    if (!ov || !tl) return;
+    if (tab === 'timeline') {
+      ov.style.display = 'none';
+      tl.style.display = '';
+      if (bOv) bOv.classList.remove('active');
+      if (bTl) bTl.classList.add('active');
+      var wasMortgageScope = (_tlActiveScope === 'mortgage' && _tlContainerId === 'housing-timeline');
+      _tlContainerId = 'housing-timeline';
+      _tlActiveScope = 'mortgage';
+      if (!_timelineEvents || !wasMortgageScope) {
+        _loadTimelineTab();
+      } else {
+        _renderTimeline(_timelineEvents);
+      }
+    } else {
+      tl.style.display = 'none';
+      ov.style.display = '';
+      if (bTl) bTl.classList.remove('active');
+      if (bOv) bOv.classList.add('active');
+    }
+  }
+
+  function _tlEventsUrl() {
+    // Always fetch the full unfiltered set — category filtering for the
+    // general scope happens client-side against _tlAllEvents so switching
+    // filters never re-hits the network or tears down the rendered axis.
+    if (_tlActiveScope === 'mortgage') return '/api/timeline/events?category=mortgage';
+    return '/api/timeline/events';
+  }
+
+  function _tlFilterBtnHtml(value, label) {
+    return '<button class="hs-subtab-btn' + (_tlCategoryFilter === value ? ' active' : '') + '" onclick="_tlSetCategoryFilter(\'' + value + '\')">' + label + '</button>';
+  }
+
+  function _tlApplyCategoryFilter(events) {
+    if (!_tlCategoryFilter || _tlCategoryFilter === 'all') return events || [];
+    return (events || []).filter(function(e) { return e.category === _tlCategoryFilter; });
+  }
+
+  function _loadGeneralTimelinePanel() {
+    _tlContainerId = 'panel-timeline-content';
+    _tlActiveScope = 'general';
+    var panel = document.getElementById('panel-timeline');
+    if (!panel) return;
+    if (!document.getElementById('panel-timeline-content')) {
+      panel.innerHTML =
+        '<div class="tl-filter-row" id="tl-filter-row">' +
+          _tlFilterBtnHtml('all', 'הכל') +
+          _tlFilterBtnHtml('mortgage', 'משכנתא') +
+          _tlFilterBtnHtml('general', 'כללי') +
+        '</div>' +
+        '<div id="panel-timeline-content"></div>';
+    }
+    _tlAllEvents = null;
+    _loadTimelineTab();
+  }
+
+  function _tlSetCategoryFilter(filter) {
+    if (_tlCategoryFilter === filter) return;
+    _tlCategoryFilter = filter;
+    var row = document.getElementById('tl-filter-row');
+    if (row) {
+      var btns = row.querySelectorAll('.hs-subtab-btn');
+      var order = ['all', 'mortgage', 'general'];
+      for (var i = 0; i < btns.length; i++) {
+        btns[i].classList.toggle('active', order[i] === filter);
+      }
+    }
+    // _tlAllEvents is already loaded for the general scope — filter and
+    // pop the affected markers in/out in place instead of refetching or
+    // rebuilding the whole axis.
+    if (_tlAllEvents) {
+      var filtered = _tlApplyCategoryFilter(_tlAllEvents);
+      _timelineEvents = filtered;
+      _tlRedrawMarkers(filtered);
+    } else {
+      _loadTimelineTab();
+    }
+  }
+
+  async function _loadTimelineTab() {
+    var tl = document.getElementById(_tlContainerId);
+    if (!tl) return;
+    var isFirstLoad = !tl.querySelector('#tl-axis-scroll');
+    if (isFirstLoad) tl.innerHTML = '<div class="tl-empty">טוען…</div>';
+    try {
+      var r = await fetch(_tlEventsUrl());
+      var d = await r.json();
+      var events = d.events || [];
+    } catch (e) {
+      events = [];
+    }
+    if (_tlActiveScope === 'general') {
+      _tlAllEvents = events;
+      events = _tlApplyCategoryFilter(events);
+    }
+    _timelineEvents = events;
+    _renderTimeline(events);
+  }
+
+  var _tlPxPerDay = 6;
+  var _tlMinimizeMode = (localStorage.getItem('tl_minimize_mode') !== '0');
+  var _tlContainerId = 'housing-timeline';
+  var _tlActiveScope = 'mortgage'; // 'mortgage' | 'general' — which UI surface is driving the shared engine
+  var _tlCategoryFilter = 'all';   // only meaningful when _tlActiveScope === 'general': 'all' | 'mortgage' | 'general'
+  var _tlAllEvents = null;         // unfiltered cache for the general scope, so filter switches never refetch
+  var _tlRangeMinD = null;         // axis date range from the last full _tlDrawAxis — reused by marker-only redraws
+  var _tlRangeMaxD = null;
+
+  function _tlDayMs() { return 24 * 60 * 60 * 1000; }
+
+  function _renderTimeline(events) {
+    var tl = document.getElementById(_tlContainerId);
+    if (!tl) return;
+    tl.innerHTML =
+      '<div class="tl-toolbar">' +
+        '<div class="tl-toolbar-left">' +
+          '<button class="tl-zoom-btn" onclick="_tlZoom(1.4)">+</button>' +
+          '<button class="tl-zoom-btn" onclick="_tlZoom(0.714)">−</button>' +
+          '<div class="tl-toggle-wrap">' +
+            '<span>הצג תמיד</span>' +
+            '<div class="tl-switch' + (_tlMinimizeMode ? ' on' : '') + '" id="tl-minimize-switch" onclick="_tlToggleMinimize()"><div class="tl-switch-knob"></div></div>' +
+            '<span>הקטן בריחוף</span>' +
+          '</div>' +
+        '</div>' +
+        '<button class="tl-add-btn" onclick="_tlOpenAddModal(null)">+ הוסף אירוע</button>' +
+      '</div>' +
+      '<div class="tl-axis-wrap' + (_tlMinimizeMode ? ' tl-minimize-mode' : '') + '" id="tl-axis-wrap">' +
+        '<div class="tl-scroll-arrow-wrap tl-arrow-top"><div class="tl-scroll-arrow" id="tl-scroll-arrow-top">▲</div></div>' +
+        '<div class="tl-axis-scroll" id="tl-axis-scroll"></div>' +
+        '<div class="tl-scroll-arrow-wrap tl-arrow-bottom"><div class="tl-scroll-arrow" id="tl-scroll-arrow-bottom">▼</div></div>' +
+      '</div>';
+    _tlDrawAxis(events);
+    _tlWireScrollArrows();
+  }
+
+  function _tlZoom(factor) {
+    _tlPxPerDay = Math.max(1.5, Math.min(80, _tlPxPerDay * factor));
+    _tlDrawAxis(_timelineEvents || []);
+    _tlUpdateScrollArrows();
+  }
+
+  function _tlToggleMinimize() {
+    _tlMinimizeMode = !_tlMinimizeMode;
+    localStorage.setItem('tl_minimize_mode', _tlMinimizeMode ? '1' : '0');
+    var sw = document.getElementById('tl-minimize-switch');
+    var wrap = document.getElementById('tl-axis-wrap');
+    if (sw) sw.classList.toggle('on', _tlMinimizeMode);
+    if (wrap) wrap.classList.toggle('tl-minimize-mode', _tlMinimizeMode);
+  }
+
+  function _tlJaggedLineSVG() {
+    var pts = [];
+    var segments = 40;
+    for (var i = 0; i <= segments; i++) {
+      var x = (i / segments) * 100;
+      var y = (i % 2 === 0) ? 3 : 11;
+      pts.push(x + ',' + y);
+    }
+    return '<svg viewBox="0 0 100 14" preserveAspectRatio="none">' +
+      '<polyline points="' + pts.join(' ') + '" fill="none" stroke="var(--navy)" stroke-width="1.5" opacity="0.35" vector-effect="non-scaling-stroke"></polyline>' +
+      '</svg>';
+  }
+
+  var TL_SLOT_H = 64;   // px reserved per marker on its side, enough for a 2-line bubble
+  var TL_TOP_PAD = 14;  // px of clearance above the baseline's start so its arrowhead tip
+                         // renders fully inside the box instead of being clipped at the edge
+
+  function _tlMarkerHtml(ev, top, side) {
+    return '<div class="tl-marker tl-side-' + side + '" data-ev-id="' + ev.id + '" style="top:' + top + 'px" onclick="_tlOpenViewModal(' + ev.id + ')">' +
+        '<div class="tl-dot" style="background:' + _esc(ev.color) + '"></div>' +
+        '<div class="tl-bubble" style="--bubble-color:' + _esc(ev.color) + '">' +
+          _esc(ev.name) + '<div class="tl-bubble-date">' + ev.event_date + '</div>' +
+        '</div>' +
+      '</div>';
+  }
+
+  // Packs events onto left/right slots relative to a fixed maxD reference so
+  // markers common to two filtered sets land on the same top offset.
+  function _tlPlaceMarkers(events, maxD) {
+    var sortedEvents = (events || [])
+      .map(function(ev) { return { ev: ev, d: new Date(ev.event_date) }; })
+      .filter(function(item) { return !isNaN(item.d); })
+      .sort(function(a, b) { return b.d - a.d; }); // newest (top) first
+
+    var sideBottom = { left: -Infinity, right: -Infinity }; // next available top-px per side
+    var items = sortedEvents.map(function(item) {
+      var idealTop = TL_TOP_PAD + ((maxD - item.d) / _tlDayMs()) * _tlPxPerDay;
+      var side = sideBottom.left <= sideBottom.right ? 'left' : 'right';
+      var placedTop = Math.max(idealTop, sideBottom[side]);
+      sideBottom[side] = placedTop + TL_SLOT_H;
+      return { ev: item.ev, top: placedTop, side: side };
+    });
+    return { items: items, sideBottom: sideBottom };
+  }
+
+  function _tlDrawAxis(events) {
+    var scroll = document.getElementById('tl-axis-scroll');
+    if (!scroll) return;
+
+    // Range comes from the full (unfiltered) event set for the general scope
+    // so switching filters never moves the ticks/baseline — only the markers.
+    var rangeSource = (_tlActiveScope === 'general' && _tlAllEvents) ? _tlAllEvents : events;
+    var today = new Date();
+    var dates = (rangeSource || [])
+      .map(function(e) { return new Date(e.event_date); })
+      .filter(function(d) { return !isNaN(d); });
+    dates.push(today);
+    var minD = new Date(Math.min.apply(null, dates.map(function(d) { return d.getTime(); })));
+    var maxD = new Date(Math.max.apply(null, dates.map(function(d) { return d.getTime(); })));
+    minD = new Date(minD.getTime() - 30 * _tlDayMs());
+    maxD = new Date(maxD.getTime() + 30 * _tlDayMs());
+    _tlRangeMinD = minD;
+    _tlRangeMaxD = maxD;
+
+    var totalDays = Math.max(1, Math.round((maxD - minD) / _tlDayMs()));
+    var heightPx = TL_TOP_PAD + totalDays * _tlPxPerDay;
+    var wrapEl = document.getElementById('tl-axis-wrap');
+    if (wrapEl && wrapEl.clientHeight > heightPx) heightPx = wrapEl.clientHeight;
+    scroll.style.height = heightPx + 'px';
+
+    function _tlTopForDate(d) {
+      // top = TL_TOP_PAD is the most recent (maxD); further down = further back in time.
+      // The pad keeps the baseline's arrowhead tip clear of the box edge instead of clipped by it.
+      return TL_TOP_PAD + ((maxD - d) / _tlDayMs()) * _tlPxPerDay;
+    }
+
+    var maxTickTop = 0; // month/year ticks can start before minD (aligned to month boundaries), overflowing past heightPx
+
+    var html = '<div class="tl-baseline"></div>';
+    var cursor = new Date(minD.getFullYear(), minD.getMonth(), 1);
+    while (cursor <= maxD) {
+      var topPx = _tlTopForDate(cursor);
+      if (topPx > maxTickTop) maxTickTop = topPx;
+      html += '<div class="tl-tick" style="top:' + topPx + 'px"></div>';
+      html += '<div class="tl-tick-label" style="top:' + topPx + 'px">' +
+        (cursor.getMonth() + 1) + '/' + cursor.getFullYear() + '</div>';
+      cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
+    }
+
+    var yearCursor = new Date(minD.getFullYear(), 0, 1);
+    if (yearCursor < minD) yearCursor = new Date(minD.getFullYear() + 1, 0, 1);
+    while (yearCursor <= maxD) {
+      var yearTop = _tlTopForDate(yearCursor);
+      html += '<div class="tl-year-line" style="top:' + yearTop + 'px">' + _tlJaggedLineSVG() + '</div>';
+      html += '<div class="tl-year-label" style="top:' + yearTop + 'px">' + yearCursor.getFullYear() + '</div>';
+      yearCursor = new Date(yearCursor.getFullYear() + 1, 0, 1);
+    }
+
+    var placed = _tlPlaceMarkers(events, maxD);
+    var markersHtml = placed.items.map(function(it) { return _tlMarkerHtml(it.ev, it.top, it.side); }).join('');
+    if (!placed.items.length) {
+      markersHtml = '<div class="tl-empty" id="tl-markers-empty">אין אירועים עדיין — לחצו על "הוסף אירוע"</div>';
+    }
+    html += '<div id="tl-markers">' + markersHtml + '</div>';
+    scroll.innerHTML = html;
+
+    // Crowded marker stacks (each reserves TL_SLOT_H sequentially on its side)
+    // and month-aligned ticks (which can start before minD) can push content
+    // below the date-derived heightPx. Expand the scroll container to cover
+    // that overflow so the sticky bottom arrow (and scrollHeight in general)
+    // stays in sync with the real content end.
+    var neededHeight = Math.max(heightPx, placed.sideBottom.left, placed.sideBottom.right, maxTickTop);
+    if (neededHeight > heightPx) {
+      scroll.style.height = neededHeight + 'px';
+    }
+  }
+
+  // Filter switches keep the axis (ticks/baseline/range) untouched and only
+  // pop the markers that entered/left the filtered set, sliding the rest to
+  // their repacked position instead of rebuilding the whole timeline.
+  function _tlRedrawMarkers(events) {
+    var markersEl = document.getElementById('tl-markers');
+    if (!markersEl || _tlRangeMaxD == null) {
+      _tlDrawAxis(events);
+      _tlWireScrollArrows();
+      return;
+    }
+    var placed = _tlPlaceMarkers(events, _tlRangeMaxD);
+    var newMap = {};
+    placed.items.forEach(function(it) { newMap[it.ev.id] = it; });
+
+    var oldEls = markersEl.querySelectorAll('.tl-marker[data-ev-id]');
+    var oldMap = {};
+    for (var i = 0; i < oldEls.length; i++) {
+      oldMap[oldEls[i].getAttribute('data-ev-id')] = oldEls[i];
+    }
+
+    for (var j = 0; j < oldEls.length; j++) {
+      (function(el) {
+        var id = el.getAttribute('data-ev-id');
+        if (newMap[id]) return;
+        el.classList.add('tl-marker-exit');
+        var done = false;
+        var remove = function() {
+          if (done) return;
+          done = true;
+          if (el.parentNode) el.parentNode.removeChild(el);
+        };
+        el.addEventListener('transitionend', remove, { once: true });
+        setTimeout(remove, 260); // safety net if transitionend never fires
+      })(oldEls[j]);
+    }
+
+    placed.items.forEach(function(it) {
+      var id = String(it.ev.id);
+      var el = oldMap[id];
+      if (el) {
+        el.classList.remove('tl-side-left', 'tl-side-right');
+        el.classList.add('tl-side-' + it.side);
+        el.style.top = it.top + 'px';
+      } else {
+        markersEl.insertAdjacentHTML('beforeend', _tlMarkerHtml(it.ev, it.top, it.side));
+        var freshEl = markersEl.querySelector('.tl-marker[data-ev-id="' + id + '"]');
+        if (freshEl) {
+          freshEl.classList.add('tl-marker-enter');
+          void freshEl.offsetWidth; // force reflow so the enter class's start-state applies before we remove it
+          requestAnimationFrame(function() { freshEl.classList.remove('tl-marker-enter'); });
+        }
+      }
+    });
+
+    var emptyEl = document.getElementById('tl-markers-empty');
+    if (!placed.items.length && !emptyEl) {
+      markersEl.insertAdjacentHTML('beforeend', '<div class="tl-empty" id="tl-markers-empty">אין אירועים עדיין — לחצו על "הוסף אירוע"</div>');
+    } else if (placed.items.length && emptyEl) {
+      emptyEl.remove();
+    }
+
+    var scroll = document.getElementById('tl-axis-scroll');
+    if (scroll) {
+      var curHeight = parseFloat(scroll.style.height) || 0;
+      var neededHeight = Math.max(curHeight, placed.sideBottom.left, placed.sideBottom.right);
+      if (neededHeight > curHeight) scroll.style.height = neededHeight + 'px';
+      _tlUpdateScrollArrows();
+    }
+  }
+
+  function _tlUpdateScrollArrows() {
+    var wrap = document.getElementById('tl-axis-wrap');
+    var top = document.getElementById('tl-scroll-arrow-top');
+    var bottom = document.getElementById('tl-scroll-arrow-bottom');
+    if (!wrap || !top || !bottom) return;
+    top.classList.toggle('show', wrap.scrollTop > 4);
+    bottom.classList.toggle('show', wrap.scrollTop + wrap.clientHeight < wrap.scrollHeight - 4);
+  }
+
+  function _tlWireScrollArrows() {
+    var wrap = document.getElementById('tl-axis-wrap');
+    if (!wrap) return;
+    wrap.addEventListener('scroll', _tlUpdateScrollArrows);
+    _tlUpdateScrollArrows();
+  }
+
+  var TL_TYPE_COLORS = { mortgage: '#3b82f6', general: '#f59e0b' }; // blue = mortgage, amber = general
+  var TL_TYPE_LABELS = { mortgage: 'משכנתא', general: 'כללי' };
+  var _tlModalMode       = 'add';
+  var _tlEditingId       = null;
+  var _tlEditingCategory = 'general';
+  var _tlPendingLinks    = [];
+  var _tlSubmitting      = false;
+
+  function _tlBuildModal() {
+    if (document.getElementById('tl-overlay')) {
+      _tlRenderTypeToggle();
+      return;
+    }
+    var div = document.createElement('div');
+    div.className = 'tl-overlay hidden';
+    div.id = 'tl-overlay';
+    div.innerHTML =
+      '<div class="tl-modal" id="tl-modal">' +
+        '<button class="tl-modal-close" onclick="_tlCloseModal()">✕</button>' +
+        '<h2 class="tl-modal-title" id="tl-modal-title">הוסף אירוע</h2>' +
+        '<div class="tl-view-content" id="tl-view-content" style="display:none"></div>' +
+        '<div id="tl-edit-fields">' +
+          '<div class="tl-field"><label>שם האירוע</label><input id="tl-name-inp" type="text" maxlength="80" placeholder="למשל: תשלום מקדמה"></div>' +
+          '<div class="tl-field">' +
+            '<label>תאריך</label>' +
+            '<div class="tl-cal-wrap">' +
+              '<input id="tl-date-inp" type="date" style="display:none">' +
+              '<button type="button" class="tl-date-btn" id="tl-date-btn" onclick="_tlCalToggle()">' +
+                '<span id="tl-date-btn-text">בחר תאריך</span>' +
+                '<span class="tl-date-btn-icon">📅</span>' +
+              '</button>' +
+              '<div class="tl-cal-dropdown hidden" id="tl-cal-dropdown"></div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="tl-field"><label>תיאור (אופציונלי)</label><textarea id="tl-desc-inp" placeholder="פרטים נוספים…"></textarea></div>' +
+          '<div class="tl-field">' +
+            '<label>סוג אירוע</label>' +
+            '<button type="button" class="tl-type-toggle" id="tl-type-toggle" onclick="_tlToggleCategory()">' +
+              '<span class="tl-type-toggle-dot"></span><span id="tl-type-toggle-label"></span>' +
+            '</button>' +
+            '<div class="tl-type-toggle-hint">לחיצה מחליפה בין משכנתא לכללי</div>' +
+          '</div>' +
+          '<div class="tl-field">' +
+            '<label>קשר עסקאות (אופציונלי)</label>' +
+            '<input id="tl-tx-search-inp" type="text" placeholder="חפש עסקה בסביבת התאריך…" oninput="_tlSearchTx(this.value)">' +
+            '<div class="tl-tx-search-results hidden" id="tl-tx-search-results"></div>' +
+            '<div class="tl-link-list" id="tl-link-list"></div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="tl-status" id="tl-status"></div>' +
+        '<div class="tl-modal-actions">' +
+          '<button class="tl-btn tl-btn-danger" onclick="_tlDeleteEvent()" id="tl-delete-btn" style="display:none">מחק אירוע</button>' +
+          '<div class="tl-modal-actions-right">' +
+            '<button class="tl-btn tl-btn-primary" onclick="_tlSwitchToEditMode()" id="tl-view-edit-btn" style="display:none">ערוך</button>' +
+            '<button class="tl-btn" onclick="_tlCloseModal()" id="tl-cancel-btn">ביטול</button>' +
+            '<button class="tl-btn tl-btn-primary" onclick="_tlSubmitEvent()" id="tl-save-btn">שמור</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(div);
+    _tlRenderTypeToggle();
+  }
+
+  var _tlCalViewYear  = null;
+  var _tlCalViewMonth = null; // 0-11
+
+  var TL_MONTH_NAMES = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+  var TL_DOW_NAMES = ['א','ב','ג','ד','ה','ו','ש'];
+
+  function _tlFmtLocalDate(y, m, d) {
+    // Local (not UTC) YYYY-MM-DD — Date#toISOString() converts to UTC and
+    // shifts the date backward a full day in positive-offset timezones
+    // (e.g. Israel, UTC+3) when built from a local midnight, so it must
+    // not be used for calendar day strings.
+    var mm = String(m + 1).padStart(2, '0');
+    var dd = String(d).padStart(2, '0');
+    return y + '-' + mm + '-' + dd;
+  }
+
+  function _tlSetDateValue(dateStr) {
+    var inp = document.getElementById('tl-date-inp');
+    if (inp) inp.value = dateStr;
+    var btnText = document.getElementById('tl-date-btn-text');
+    if (btnText) btnText.textContent = dateStr || 'בחר תאריך';
+    if (dateStr) {
+      var d = new Date(dateStr);
+      if (!isNaN(d)) {
+        _tlCalViewYear = d.getFullYear();
+        _tlCalViewMonth = d.getMonth();
+      }
+    }
+  }
+
+  function _tlCalToggle() {
+    var dd = document.getElementById('tl-cal-dropdown');
+    var btn = document.getElementById('tl-date-btn');
+    if (!dd || !btn) return;
+    if (dd.classList.contains('hidden')) {
+      var inp = document.getElementById('tl-date-inp');
+      var base = (inp && inp.value) ? new Date(inp.value) : new Date();
+      if (isNaN(base)) base = new Date();
+      _tlCalViewYear = base.getFullYear();
+      _tlCalViewMonth = base.getMonth();
+      _tlRenderCalendar();
+      var rect = btn.getBoundingClientRect();
+      dd.style.top = (rect.bottom + 4) + 'px';
+      dd.style.right = (window.innerWidth - rect.right) + 'px';
+      dd.style.left = 'auto';
+      dd.classList.remove('hidden');
+    } else {
+      dd.classList.add('hidden');
+    }
+  }
+
+  function _tlCalPrevMonth() {
+    _tlCalViewMonth--;
+    if (_tlCalViewMonth < 0) { _tlCalViewMonth = 11; _tlCalViewYear--; }
+    _tlRenderCalendar();
+  }
+
+  function _tlCalNextMonth() {
+    _tlCalViewMonth++;
+    if (_tlCalViewMonth > 11) { _tlCalViewMonth = 0; _tlCalViewYear++; }
+    _tlRenderCalendar();
+  }
+
+  function _tlRenderCalendar() {
+    var dd = document.getElementById('tl-cal-dropdown');
+    if (!dd) return;
+    var inp = document.getElementById('tl-date-inp');
+    var selected = inp && inp.value ? inp.value : '';
+    var today = new Date();
+    var todayStr = _tlFmtLocalDate(today.getFullYear(), today.getMonth(), today.getDate());
+
+    var firstOfMonth = new Date(_tlCalViewYear, _tlCalViewMonth, 1);
+    var startDow = firstOfMonth.getDay(); // 0=Sunday
+    var daysInMonth = new Date(_tlCalViewYear, _tlCalViewMonth + 1, 0).getDate();
+    var daysInPrevMonth = new Date(_tlCalViewYear, _tlCalViewMonth, 0).getDate();
+
+    var html = '<div class="tl-cal-today-row"><button type="button" class="tl-cal-today-btn" onclick="_tlCalGoToday()">היום</button></div>' +
+      '<div class="tl-cal-header">' +
+      '<button type="button" class="tl-cal-nav-btn" onclick="_tlCalNextMonth()">›</button>' +
+      '<span class="tl-cal-title">' + TL_MONTH_NAMES[_tlCalViewMonth] + ' ' + _tlCalViewYear + '</span>' +
+      '<button type="button" class="tl-cal-nav-btn" onclick="_tlCalPrevMonth()">‹</button>' +
+      '</div>' +
+      '<div class="tl-cal-grid">';
+
+    TL_DOW_NAMES.forEach(function(n) { html += '<div class="tl-cal-dow">' + n + '</div>'; });
+
+    var cell, cellStr, cls;
+    for (cell = 0; cell < startDow; cell++) {
+      var pd = daysInPrevMonth - startDow + cell + 1;
+      html += '<button type="button" class="tl-cal-day tl-cal-day-muted" disabled>' + pd + '</button>';
+    }
+    for (var day = 1; day <= daysInMonth; day++) {
+      cellStr = _tlFmtLocalDate(_tlCalViewYear, _tlCalViewMonth, day);
+      cls = 'tl-cal-day';
+      if (cellStr === todayStr) cls += ' tl-cal-day-today';
+      if (cellStr === selected) cls += ' tl-cal-day-sel';
+      html += '<button type="button" class="' + cls + '" onclick="_tlCalPick(\'' + cellStr + '\')">' + day + '</button>';
+    }
+    var totalCells = startDow + daysInMonth;
+    var trailing = (7 - (totalCells % 7)) % 7;
+    for (cell = 1; cell <= trailing; cell++) {
+      html += '<button type="button" class="tl-cal-day tl-cal-day-muted" disabled>' + cell + '</button>';
+    }
+    html += '</div>';
+    dd.innerHTML = html;
+  }
+
+  function _tlCalPick(dateStr) {
+    _tlSetDateValue(dateStr);
+    var dd = document.getElementById('tl-cal-dropdown');
+    if (dd) dd.classList.add('hidden');
+  }
+
+  function _tlCalGoToday() {
+    var d = new Date();
+    _tlCalPick(_tlFmtLocalDate(d.getFullYear(), d.getMonth(), d.getDate()));
+  }
+
+  document.addEventListener('click', function(e) {
+    var dd = document.getElementById('tl-cal-dropdown');
+    var btn = document.getElementById('tl-date-btn');
+    if (!dd || dd.classList.contains('hidden')) return;
+    if (dd.contains(e.target) || (btn && btn.contains(e.target))) return;
+    dd.classList.add('hidden');
+  });
+
+  function _tlRenderTypeToggle() {
+    var btn = document.getElementById('tl-type-toggle');
+    var label = document.getElementById('tl-type-toggle-label');
+    if (!btn || !label) return;
+    btn.style.background = TL_TYPE_COLORS[_tlEditingCategory];
+    label.textContent = TL_TYPE_LABELS[_tlEditingCategory];
+  }
+
+  function _tlToggleCategory() {
+    _tlEditingCategory = _tlEditingCategory === 'mortgage' ? 'general' : 'mortgage';
+    _tlRenderTypeToggle();
+  }
+
+  function _tlCloseModal() {
+    var ov = document.getElementById('tl-overlay');
+    if (ov) ov.classList.add('hidden');
+  }
+
+  function _tlOpenAddModal(prefillDate) {
+    _tlModalMode = 'add';
+    _tlEditingId = null;
+    _tlPendingLinks = [];
+    _tlEditingCategory = _tlActiveScope === 'mortgage' ? 'mortgage' : 'general';
+    _tlBuildModal();
+    document.getElementById('tl-name-inp').value = '';
+    _tlSetDateValue(prefillDate || (function() { var d = new Date(); return _tlFmtLocalDate(d.getFullYear(), d.getMonth(), d.getDate()); })());
+    document.getElementById('tl-desc-inp').value = '';
+    _tlRenderTypeToggle();
+    document.getElementById('tl-modal-title').textContent = 'הוסף אירוע';
+    document.getElementById('tl-view-content').style.display = 'none';
+    document.getElementById('tl-edit-fields').style.display = '';
+    document.getElementById('tl-view-edit-btn').style.display = 'none';
+    document.getElementById('tl-cancel-btn').style.display = '';
+    document.getElementById('tl-save-btn').style.display = '';
+    document.getElementById('tl-delete-btn').style.display = 'none';
+    document.getElementById('tl-status').textContent = '';
+    _tlRenderLinkList();
+    document.getElementById('tl-overlay').classList.remove('hidden');
+    var _ddInit = document.getElementById('tl-cal-dropdown');
+    if (_ddInit) _ddInit.classList.add('hidden');
+    setTimeout(function() {
+      var inp = document.getElementById('tl-name-inp');
+      if (inp) inp.focus();
+    }, 60);
+  }
+
+  function _tlOpenViewModal(eventId) {
+    var ev = (_timelineEvents || []).find(function(e) { return e.id === eventId; });
+    if (!ev) return;
+    _tlEditingId = eventId;
+    _tlBuildModal();
+    document.getElementById('tl-modal-title').textContent = 'פרטי אירוע';
+    _tlRenderViewContent(ev);
+    document.getElementById('tl-view-content').style.display = '';
+    document.getElementById('tl-edit-fields').style.display = 'none';
+    document.getElementById('tl-status').textContent = '';
+    document.getElementById('tl-delete-btn').style.display = 'none';
+    document.getElementById('tl-cancel-btn').style.display = 'none';
+    document.getElementById('tl-save-btn').style.display = 'none';
+    document.getElementById('tl-view-edit-btn').style.display = '';
+    document.getElementById('tl-overlay').classList.remove('hidden');
+    var _ddInit = document.getElementById('tl-cal-dropdown');
+    if (_ddInit) _ddInit.classList.add('hidden');
+  }
+
+  function _tlRenderViewContent(ev) {
+    var el = document.getElementById('tl-view-content');
+    if (!el) return;
+    var txns = ev.transactions || [];
+    var txHtml = txns.length
+      ? txns.map(function(t) {
+          return '<div class="tl-view-tx-row">' +
+            '<div class="tl-view-tx-name-row"><span>' + _esc(t.tx_name || '') + '</span><span>' + (t.tx_date || '') + '</span></div>' +
+            (t.note ? '<div class="tl-view-tx-note">' + _esc(t.note) + '</div>' : '') +
+          '</div>';
+        }).join('')
+      : '<div class="tl-view-empty">אין עסקאות מקושרות</div>';
+
+    el.innerHTML =
+      '<div class="tl-view-row">' +
+        '<span class="tl-view-label">שם האירוע</span>' +
+        '<span class="tl-view-value"><span class="tl-view-color-dot" style="background:' + _esc(ev.color) + '"></span>' + _esc(ev.name) + '</span>' +
+      '</div>' +
+      '<div class="tl-view-row"><span class="tl-view-label">תאריך</span><span class="tl-view-value">' + (ev.event_date || '') + '</span></div>' +
+      (ev.description
+        ? '<div class="tl-view-row"><span class="tl-view-label">תיאור</span><span class="tl-view-value">' + _esc(ev.description) + '</span></div>'
+        : '') +
+      '<div class="tl-view-row"><span class="tl-view-label">עסקאות מקושרות</span>' + txHtml + '</div>';
+  }
+
+  function _tlSwitchToEditMode() {
+    if (_tlEditingId == null) return;
+    _tlOpenEditModal(_tlEditingId);
+  }
+
+  function _tlOpenEditModal(eventId) {
+    var ev = (_timelineEvents || []).find(function(e) { return e.id === eventId; });
+    if (!ev) return;
+    _tlModalMode = 'edit';
+    _tlEditingId = eventId;
+    _tlEditingCategory = (ev.category === 'mortgage') ? 'mortgage' : 'general';
+    _tlPendingLinks = (ev.transactions || []).map(function(t) {
+      return {
+        link_id: t.link_id, transaction_table: t.transaction_table, transaction_id: t.transaction_id,
+        note: t.note, tx_name: t.tx_name, tx_date: t.tx_date, tx_amount: t.tx_amount,
+      };
+    });
+    _tlBuildModal();
+    document.getElementById('tl-name-inp').value = ev.name;
+    _tlSetDateValue(ev.event_date);
+    document.getElementById('tl-desc-inp').value = ev.description || '';
+    _tlRenderTypeToggle();
+    document.getElementById('tl-modal-title').textContent = 'ערוך אירוע';
+    document.getElementById('tl-view-content').style.display = 'none';
+    document.getElementById('tl-edit-fields').style.display = '';
+    document.getElementById('tl-view-edit-btn').style.display = 'none';
+    document.getElementById('tl-cancel-btn').style.display = '';
+    document.getElementById('tl-save-btn').style.display = '';
+    document.getElementById('tl-delete-btn').style.display = '';
+    document.getElementById('tl-status').textContent = '';
+    _tlRenderLinkList();
+    document.getElementById('tl-overlay').classList.remove('hidden');
+    var _ddInit = document.getElementById('tl-cal-dropdown');
+    if (_ddInit) _ddInit.classList.add('hidden');
+  }
+
+  async function _tlSubmitEvent() {
+    if (_tlSubmitting) return;
+    var name = document.getElementById('tl-name-inp').value.trim();
+    var date = document.getElementById('tl-date-inp').value;
+    var desc = document.getElementById('tl-desc-inp').value.trim();
+    var st = document.getElementById('tl-status');
+    st.className = 'tl-status';
+    if (!name) { st.className = 'tl-status err'; st.textContent = 'נא להזין שם אירוע'; return; }
+    if (!date) { st.className = 'tl-status err'; st.textContent = 'נא לבחור תאריך'; return; }
+
+    var body = {
+      name: name, event_date: date, description: desc,
+      color: TL_TYPE_COLORS[_tlEditingCategory],
+      category: _tlEditingCategory,
+    };
+    var url = '/api/timeline/events';
+    var method = 'POST';
+    if (_tlModalMode === 'edit') { url += '/' + _tlEditingId; method = 'PUT'; }
+
+    _tlSubmitting = true;
+    var saveBtn = document.querySelector('#tl-overlay .tl-btn-primary');
+    if (saveBtn) saveBtn.disabled = true;
+    try {
+      var resp, r;
+      try {
+        resp = await fetch(url, { method: method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        r = await resp.json();
+        if (!r.ok) { st.className = 'tl-status err'; st.textContent = r.error || 'שגיאה'; return; }
+      } catch (saveErr) {
+        st.className = 'tl-status err';
+        st.textContent = 'שגיאת רשת — נסה שוב';
+        return;
+      }
+
+      var eventId = _tlModalMode === 'edit' ? _tlEditingId : r.id;
+      var existing = _tlModalMode === 'edit'
+        ? ((_timelineEvents || []).find(function(e) { return e.id === eventId; }) || {}).transactions || []
+        : [];
+      var keptLinkIds = _tlPendingLinks.filter(function(l) { return l.link_id; }).map(function(l) { return l.link_id; });
+      var syncFailures = [];
+
+      try {
+        for (var i = 0; i < existing.length; i++) {
+          if (keptLinkIds.indexOf(existing[i].link_id) === -1) {
+            var delResp = await fetch('/api/timeline/events/' + eventId + '/transactions/' + existing[i].link_id, { method: 'DELETE' });
+            var delR = await delResp.json();
+            if (!delR.ok) syncFailures.push(delR.error || 'שגיאה במחיקת עסקה מקושרת');
+          }
+        }
+        for (var j = 0; j < _tlPendingLinks.length; j++) {
+          var l = _tlPendingLinks[j];
+          if (l.link_id) {
+            var orig = existing.find(function(e) { return e.link_id === l.link_id; });
+            if (orig && (orig.note || '') !== (l.note || '')) {
+              var putResp = await fetch('/api/timeline/events/' + eventId + '/transactions/' + l.link_id, {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ note: l.note }),
+              });
+              var putR = await putResp.json();
+              if (!putR.ok) syncFailures.push(putR.error || 'שגיאה בעדכון הערה');
+            }
+            continue;
+          }
+          var postResp = await fetch('/api/timeline/events/' + eventId + '/transactions', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ transaction_table: l.transaction_table, transaction_id: l.transaction_id, note: l.note }),
+          });
+          var postR = await postResp.json();
+          if (!postR.ok) syncFailures.push(postR.error || 'שגיאה בקישור עסקה');
+        }
+      } catch (syncErr) {
+        syncFailures.push('שגיאת רשת בסנכרון עסקאות מקושרות');
+      }
+
+      if (syncFailures.length) {
+        st.className = 'tl-status err';
+        st.textContent = syncFailures.join('; ');
+        await _loadTimelineTab();
+        return;
+      }
+
+      _tlCloseModal();
+      await _loadTimelineTab();
+    } finally {
+      _tlSubmitting = false;
+      if (saveBtn) saveBtn.disabled = false;
+    }
+  }
+
+  async function _tlDeleteEvent() {
+    if (!_tlEditingId) return;
+    if (!confirm('למחוק את האירוע? הפעולה לא הפיכה.')) return;
+    var st = document.getElementById('tl-status');
+    try {
+      var resp = await fetch('/api/timeline/events/' + _tlEditingId, { method: 'DELETE' });
+      var r = await resp.json();
+      if (!r.ok) {
+        if (st) { st.className = 'tl-status err'; st.textContent = r.error || 'שגיאה במחיקה'; }
+        return;
+      }
+    } catch (e) {
+      if (st) { st.className = 'tl-status err'; st.textContent = 'שגיאת רשת — נסה שוב'; }
+      return;
+    }
+    _tlCloseModal();
+    await _loadTimelineTab();
+  }
+
+  var _tlTxSearchTimer = null;
+  var _tlLastSearchResults = [];
+
+  function _tlRenderLinkList() {
+    var list = document.getElementById('tl-link-list');
+    if (!list) return;
+    if (!_tlPendingLinks.length) { list.innerHTML = ''; return; }
+    list.innerHTML = _tlPendingLinks.map(function(l, idx) {
+      return '<div class="tl-link-row-wrap">' +
+        '<div class="tl-link-row">' +
+          '<span class="tl-link-row-name">' + _esc(l.tx_name || '') + '</span>' +
+          '<span class="tl-link-row-date">' + (l.tx_date || '') + '</span>' +
+          '<button class="tl-link-remove" onclick="_tlRemoveLink(' + idx + ')">✕</button>' +
+        '</div>' +
+        '<input class="tl-link-row-note" placeholder="הערה על העסקה הזו…" value="' + _esc(l.note || '') + '" oninput="_tlUpdateLinkNote(' + idx + ',this.value)">' +
+      '</div>';
+    }).join('');
+  }
+
+  function _tlUpdateLinkNote(idx, val) {
+    if (_tlPendingLinks[idx]) _tlPendingLinks[idx].note = val;
+  }
+
+  function _tlRemoveLink(idx) {
+    _tlPendingLinks.splice(idx, 1);
+    _tlRenderLinkList();
+  }
+
+  function _tlSearchTx(val) {
+    clearTimeout(_tlTxSearchTimer);
+    var q = val.trim();
+    var box = document.getElementById('tl-tx-search-results');
+    if (!q) { box.classList.add('hidden'); return; }
+    _tlTxSearchTimer = setTimeout(function() { _tlDoSearchTx(q); }, 250);
+  }
+
+  async function _tlDoSearchTx(q) {
+    var dateInp = document.getElementById('tl-date-inp');
+    var centerDate = dateInp && dateInp.value ? new Date(dateInp.value) : new Date();
+    var from = new Date(centerDate.getTime() - 30 * _tlDayMs());
+    var to = new Date(centerDate.getTime() + 30 * _tlDayMs());
+    var url = '/api/search/transactions?keyword=' + encodeURIComponent(q) +
+      '&from=' + _tlFmtLocalDate(from.getFullYear(), from.getMonth(), from.getDate()) +
+      '&to=' + _tlFmtLocalDate(to.getFullYear(), to.getMonth(), to.getDate());
+    try {
+      var r = await fetch(url);
+      var d = await r.json();
+      _tlShowTxResults(d.results || []);
+    } catch (e) {
+      _tlShowTxResults([]);
+    }
+  }
+
+  function _tlShowTxResults(items) {
+    var box = document.getElementById('tl-tx-search-results');
+    var already = _tlPendingLinks.map(function(l) { return l.transaction_table + ':' + l.transaction_id; });
+    items = items.filter(function(it) {
+      var table = it.source === 'card' ? 'CardTransactions' : 'BankTransactions';
+      return already.indexOf(table + ':' + it.tx_id) === -1;
+    });
+    _tlLastSearchResults = items;
+    if (!items.length) { box.classList.add('hidden'); return; }
+    box.classList.remove('hidden');
+    box.innerHTML = items.slice(0, 30).map(function(it, i) {
+      return '<div class="tl-tx-search-row" onclick="_tlSelectTx(' + i + ')">' +
+        '<span>' + it.date + '</span>' +
+        '<span style="flex:1;font-weight:600">' + _esc(it.name) + '</span>' +
+        '<span>₪' + Math.abs(it.amount).toLocaleString('he-IL', { maximumFractionDigits: 0 }) + '</span>' +
+      '</div>';
+    }).join('');
+  }
+
+  function _tlSelectTx(idx) {
+    var it = _tlLastSearchResults[idx];
+    if (!it) return;
+    _tlPendingLinks.push({
+      transaction_table: it.source === 'card' ? 'CardTransactions' : 'BankTransactions',
+      transaction_id: it.tx_id, note: '', tx_name: it.name, tx_date: it.date, tx_amount: it.amount,
+    });
+    document.getElementById('tl-tx-search-inp').value = '';
+    document.getElementById('tl-tx-search-results').classList.add('hidden');
+    _tlRenderLinkList();
   }
 
   // ── Main render orchestrator ───────────────────────────────────────────
@@ -7402,7 +8991,29 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   window._renderAccountsTable = _renderAccountsTable;
   window._renderAccountsChart = _renderAccountsChart;
   window._loadHousingPanel    = _loadHousingPanel;
+  window._loadGeneralTimelinePanel = _loadGeneralTimelinePanel;
   window._regenHousing        = _regenHousing;
+  window._switchHousingTab    = _switchHousingTab;
+  window._tlZoom               = _tlZoom;
+  window._tlToggleMinimize     = _tlToggleMinimize;
+  window._tlOpenAddModal  = _tlOpenAddModal;
+  window._tlOpenEditModal = _tlOpenEditModal;
+  window._tlOpenViewModal    = _tlOpenViewModal;
+  window._tlSwitchToEditMode = _tlSwitchToEditMode;
+  window._tlToggleCategory = _tlToggleCategory;
+  window._tlCloseModal    = _tlCloseModal;
+  window._tlSubmitEvent   = _tlSubmitEvent;
+  window._tlDeleteEvent   = _tlDeleteEvent;
+  window._tlSearchTx        = _tlSearchTx;
+  window._tlRemoveLink      = _tlRemoveLink;
+  window._tlUpdateLinkNote  = _tlUpdateLinkNote;
+  window._tlSelectTx        = _tlSelectTx;
+  window._tlCalToggle    = _tlCalToggle;
+  window._tlCalPrevMonth = _tlCalPrevMonth;
+  window._tlCalNextMonth = _tlCalNextMonth;
+  window._tlCalPick      = _tlCalPick;
+  window._tlCalGoToday   = _tlCalGoToday;
+  window._tlSetCategoryFilter = _tlSetCategoryFilter;
   document.addEventListener('DOMContentLoaded', _initDynamicPage);
 
   // Set --btn-half CSS var so the progress panel anchors at button center

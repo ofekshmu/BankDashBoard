@@ -455,7 +455,8 @@ input[type="date"].field-input { padding: 0 10px; appearance: none; -webkit-appe
     <button class="sidebar-close-btn" onclick="closeNav()" aria-label="סגור תפריט">✕</button>
   </div>
   <div class="sidebar-scroll">
-    <a class="nav-item" href="/">ניתוח חודשי</a>
+    <a class="nav-item" href="/monthly" onclick="try{var k=localStorage.getItem('lv_month');if(k){event.preventDefault();location.href='/general/'+k;}}catch(_){}">ניתוח חודשי</a>
+    <div class="nav-sep"></div>
     <a class="nav-item" href="/accounts">חשבונות</a>
     <a class="nav-item" href="/housing">דיור</a>
     <a class="nav-item" href="/organizer">ארגונית</a>
@@ -463,7 +464,7 @@ input[type="date"].field-input { padding: 0 10px; appearance: none; -webkit-appe
     <a class="nav-item" href="/categories">ניתוח קטגוריאלי</a>
     <a class="nav-item" href="/search">חיפוש</a>
     <a class="nav-item active" href="/spotify">Spotify Tracker</a>
-    <a class="nav-item" href="/gym">💪 Gym Tracker</a>
+    <a class="nav-item" href="/recurring">חיובים חוזרים</a>
     <div class="nav-sep"></div>
     <a class="nav-item" href="/tagger">תייגן</a>
     <a class="nav-item" href="/files">קבצים</a>
@@ -473,6 +474,7 @@ input[type="date"].field-input { padding: 0 10px; appearance: none; -webkit-appe
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
       הפעל שרת מחדש
     </button>
+    <div id="app-version-badge-2" style="margin-top:8px;text-align:center;font-size:.72em;color:var(--text-muted);letter-spacing:.03em;opacity:.7;user-select:none">v—</div>
   </div>
 </nav>
 
@@ -805,6 +807,7 @@ var state = {
 };
 
 // ── Nav ────────────────────────────────────────────────────────
+fetch('/api/version').then(function(r){return r.json();}).then(function(d){var b=document.getElementById('app-version-badge-2');if(b&&d.version)b.textContent='v'+d.version;}).catch(function(){});
 function restartServer(btn) {
   btn.disabled = true;
   var spinSvg = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>';
@@ -1207,7 +1210,7 @@ function renderUnmatchedTable(){
     tr.innerHTML = '<td>' + fmtDate(tx.date || tx.transaction_date) + '</td>'
       + '<td class="amount-neg">' + fmt(tx.amount) + '</td>'
       + '<td style="color:var(--text-muted);font-size:.8em">#' + tx.id + '</td>'
-      + '<td style="font-size:.85em">' + escHtml(tx.name || '—') + '</td>'
+      + '<td style="font-size:.85em">' + escHtml(tx.name || '—') + (tx.source === 'split' ? ' <span style="font-size:.72em;color:var(--teal);font-weight:600">פיצול</span>' : '') + '</td>'
       + '<td style="font-size:.85em;color:var(--text-muted)">' + escHtml(tx.description || '—') + '</td>'
       + '<td><select class="assign-sel" onchange="quickAssign(this,' + tx.id + ')">' + memberOptions + '</select></td>'
       + '<td><button class="btn btn-ghost btn-xs" style="color:var(--text-muted);white-space:nowrap" onclick="dismissUnmatched(' + tx.id + ',this)">לא רלוונטי ✕</button></td>';
@@ -1244,7 +1247,7 @@ function quickAssign(sel, txId){
       amount: tx.amount,
       payment_date: (tx.date || tx.transaction_date || '').slice(0,10),
       tx_id: txId,
-      tx_source: 'bank',
+      tx_source: tx.source === 'split' ? 'split' : 'bank',
       note: 'שויך מרשימת לא משויכים'
     })
   }).then(function(r){ return r.json(); })
@@ -1764,7 +1767,13 @@ init();
 </div>
 <script>
 var _dbgEs=null;
-function toggleDebugPanel(){var p=document.getElementById('debug-panel');var open=p.classList.toggle('open');if(open&&!_dbgEs){_dbgEs=new EventSource('/api/logs');_dbgEs.onmessage=function(e){var f=document.getElementById('debug-feed');if(!f)return;var d=document.createElement('div');d.className='debug-line'+(e.data.toLowerCase().indexOf('error')>=0?' err':e.data.toLowerCase().indexOf('warn')>=0?' warn':'');d.textContent=e.data;f.appendChild(d);f.scrollTop=f.scrollHeight};_dbgEs.onerror=function(){_dbgEs.close();_dbgEs=null}}}
+function toggleDebugPanel(){var p=document.getElementById('debug-panel');var open=p.classList.toggle('open');if(open&&!_dbgEs)_startDebugStream()}
+function _startDebugStream(){if(_dbgEs)return;_dbgEs=new EventSource('/api/debug-logs');_dbgEs.onmessage=function(e){if(!e.data||!e.data.trim())return;var f=document.getElementById('debug-feed');if(!f)return;var d=document.createElement('div');d.className='debug-line'+(e.data.toLowerCase().indexOf('error')>=0?' err':e.data.toLowerCase().indexOf('warn')>=0?' warn':'');d.textContent=e.data;f.appendChild(d);f.scrollTop=f.scrollHeight};_dbgEs.onerror=function(){if(_dbgEs){_dbgEs.close();_dbgEs=null}setTimeout(_startDebugStream,4000)}}
+// Delayed: /api/debug-logs never returns (true SSE stream); starting it at
+// the same instant as the page's real data fetches can starve them of a
+// serverless execution slot. Server buffers logs regardless of client
+// connection, so delaying costs no history.
+document.addEventListener('DOMContentLoaded',function(){setTimeout(_startDebugStream,3000)});
 function clearDebugPanel(){document.getElementById('debug-feed').innerHTML=''}
 function copyDebugPanel(){var f=document.getElementById('debug-feed');navigator.clipboard.writeText(Array.from(f.children).map(function(e){return e.textContent}).join('\n')).catch(function(){})}
 </script>

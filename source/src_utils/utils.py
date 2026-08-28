@@ -1303,7 +1303,7 @@ class utils:
             if has_desc:
                 span_p = tag("span", class_="tx-primary")
                 span_p.string = str(raw_desc).strip()
-                span_s = tag("span", class_="tx-secondary")
+                span_s = tag("span", class_="tx-id")
                 span_s.string = name_str
                 h3.append(span_p)
                 h3.append(span_s)
@@ -1315,9 +1315,6 @@ class utils:
                 badge = tag("span", class_="split-badge")
                 badge.string = "✂ פיצול"
                 h3.append(badge)
-            span_id = tag("span", class_="tx-id")
-            span_id.string = f"#{item['ID']}"
-            h3.append(span_id)
             _manual_cash_flag = item.get('_manual_cash')
             if _manual_cash_flag is True:
                 mc_badge = tag("span", class_="manual-cash-badge")
@@ -2919,8 +2916,22 @@ document.addEventListener('DOMContentLoaded', function() {
 
     @staticmethod
     def amount_ready(value) -> int:
-        if value == ' ':
+        if value is None:
             return 0
+        if isinstance(value, str) and value.strip() == '':
+            return 0
+        return value
+
+    @staticmethod
+    def balance_ready(value):
+        """A blank Balance cell means the bank didn't print a running balance on this
+        row (it only does so periodically) — not that the balance is zero. Return
+        None/NULL so callers like get_latest_Balance()'s `WHERE Balance IS NOT NULL`
+        correctly skip rows with no real balance reading."""
+        if value is None:
+            return None
+        if isinstance(value, str) and value.strip() == '':
+            return None
         return value
 
     @staticmethod
@@ -3928,13 +3939,13 @@ Please Make sure that none of the following formats have their 'Identifications 
                     if c_raw and c_raw not in ('nan', '', str(row.get('Date', ''))):
                         charge_html = f'<span class="td-charge">חיוב {_parse_date(c_raw)}</span>'
 
-                cat_td = f'<td class="td-cat">{cat}</td>' if _show_cat_col else ''
+                cat_td = f'<td class="td-cat" data-label="קטגוריה">{cat}</td>' if _show_cat_col else ''
                 txn_rows += (
                     f'<tr>'
-                    f'<td class="td-id">{txn_id}</td>'
-                    f'<td class="td-date">{date_str}{date_badge}{charge_html}</td>'
-                    f'<td class="td-name">{name}</td>'
-                    f'<td class="td-val {vcls}">{vstr}</td>'
+                    f'<td class="td-id" data-label="מזהה">{txn_id}</td>'
+                    f'<td class="td-date" data-label="תאריך">{date_str}{date_badge}{charge_html}</td>'
+                    f'<td class="td-name" data-label="שם">{name}</td>'
+                    f'<td class="td-val {vcls}" data-label="סכום">{vstr}</td>'
                     f'{cat_td}</tr>\n'
                 )
 
@@ -3995,6 +4006,9 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;
 .nav-item:hover::before{{background:var(--teal)}}
 .nav-item.active{{color:#b8c0d0;cursor:default;pointer-events:none}}
 .nav-sep{{height:1px;background:var(--border);margin:8px 16px}}
+.nav-restart-btn{{width:100%;padding:8px 12px;border:1.5px dashed var(--border);border-radius:8px;background:none;color:var(--text-sub);font-size:.78em;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:7px;justify-content:center;transition:background .15s,color .15s,border-color .15s}}
+.nav-restart-btn:hover{{background:#fff3f3;color:#e53935;border-color:#e53935}}
+.nav-restart-btn:disabled{{opacity:.5;cursor:default}}
 /* Back button — fixed top-left, bold arrow only */
 .back-btn{{position:fixed;top:18px;left:18px;width:42px;height:42px;padding:0;background:var(--white);border:1.5px solid var(--border);border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:400;box-shadow:var(--shadow-sm);color:var(--text-sub);font-size:1.25em;font-weight:900;text-decoration:none;transition:background .15s,color .15s,border-color .15s;line-height:1}}
 .back-btn:hover{{background:var(--teal-light);border-color:var(--teal);color:var(--teal)}}
@@ -4044,11 +4058,24 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;
   padding:3px 12px;border-radius:14px;font-size:.72em;font-weight:600;margin-right:10px}}
 .page-header-right{{display:flex;align-items:center;gap:10px;flex-shrink:0}}
 .generated-label{{font-size:.72em;color:var(--text-muted);white-space:nowrap}}
-.reload-btn{{padding:5px 14px;border:1.5px solid var(--teal);border-radius:20px;
-  background:var(--white);color:var(--teal);font-size:.78em;font-weight:600;
-  cursor:pointer;transition:background .15s,color .15s;white-space:nowrap;display:none}}
-.reload-btn:hover{{background:var(--teal);color:#fff}}
-.reload-btn.running{{opacity:.6;cursor:wait}}
+/* Regen button — fixed FAB, matches the Recurring Charges / Organizer regen button */
+.regen-fab{{position:fixed;bottom:22px;right:18px;z-index:500;display:none}}
+.regen-btn{{height:52px;padding:0 22px;background:var(--teal);color:#fff;border:none;
+  border-radius:26px;font-size:.85em;font-weight:700;cursor:pointer;display:flex;
+  align-items:center;gap:8px;box-shadow:0 4px 18px rgba(30,157,139,.45);white-space:nowrap;
+  transition:box-shadow .2s,opacity .2s;font-family:inherit}}
+.regen-btn:hover{{box-shadow:0 6px 24px rgba(30,157,139,.65)}}
+.regen-btn:disabled{{opacity:.65;cursor:wait}}
+.regen-icon{{font-size:1.6em;line-height:1;display:flex;align-items:center}}
+.regen-btn.running .regen-icon{{display:none}}
+.regen-pct{{font-size:.65em;font-weight:700;color:rgba(255,255,255,.9);display:none;
+  line-height:1;margin-top:2px}}
+.regen-btn.running .regen-pct{{display:block}}
+@media(max-width:768px){{
+  .regen-fab{{bottom:14px;right:14px}}
+  .regen-btn{{width:52px;padding:0;border-radius:50%;justify-content:center}}
+  .regen-label{{display:none}}
+}}
 
 /* KPI grid */
 .kpi-grid{{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:22px}}
@@ -4131,21 +4158,50 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;
 .txn-footer-sum.neg{{color:var(--red)}}
 .txn-footer-sum.pos{{color:var(--teal)}}
 
-/* Log drawer */
-.log-drawer{{position:fixed;bottom:0;left:0;right:0;background:var(--navy);
-  z-index:300;max-height:220px;display:flex;flex-direction:column;
-  transition:transform .3s ease;transform:translateY(calc(100% - 36px))}}
-.log-drawer.expanded{{transform:translateY(0)}}
-.log-drawer-header{{display:flex;align-items:center;gap:8px;padding:8px 16px;
-  cursor:pointer;flex-shrink:0}}
-.log-drawer-title{{font-size:.8em;color:#aaa;font-weight:600;flex:1}}
-.log-drawer-toggle{{color:#aaa;font-size:.75em}}
-.log-drawer-body{{overflow-y:auto;flex:1;padding:6px 16px 10px;font-size:.75em;
-  color:#cdd;font-family:monospace;line-height:1.6}}
-.log-ind{{width:8px;height:8px;border-radius:50%;background:#555;flex-shrink:0}}
-.log-ind.active{{background:#1e9d8b;animation:pulse 1s infinite}}
-.log-ind.error{{background:var(--red)}}
-@keyframes pulse{{0%,100%{{opacity:1}}50%{{opacity:.4}}}}
+/* Log float — same floating-panel language as the not-yet-generated splash
+   page's shared log panel (WebApp._log_float_style), reimplemented here with
+   this page's own CSS vars since this page has its own full layout/body
+   rules that would conflict with importing that helper's <style> wholesale. */
+.log-float{{position:fixed;bottom:86px;right:18px;width:320px;
+  max-width:calc(100vw - 32px);background:var(--white);border:1px solid var(--teal-light);
+  border-radius:var(--radius-sm);padding:0;opacity:0;pointer-events:none;
+  transform:translateY(16px);transition:opacity .3s,transform .3s;
+  z-index:499;box-shadow:var(--shadow-md)}}
+.log-float.visible{{opacity:1;pointer-events:auto;transform:translateY(0)}}
+.lf-header{{padding:8px 12px;background:var(--teal-light);
+  border-radius:var(--radius-sm) var(--radius-sm) 0 0;display:flex;align-items:center;gap:6px}}
+.lf-title{{font-size:.72em;font-weight:600;color:#178878;letter-spacing:.03em}}
+.lf-feed{{display:flex;flex-direction:column;max-height:160px;overflow-y:auto;gap:1px;
+  padding:8px 12px;scrollbar-width:thin}}
+.lf-feed::-webkit-scrollbar{{width:3px}}
+.lf-feed::-webkit-scrollbar-thumb{{background:var(--teal-light);border-radius:2px}}
+.lf-line{{font-size:.74em;font-family:'Consolas','Courier New',monospace;padding:1px 0;
+  white-space:pre-wrap;word-break:break-word;line-height:1.55;color:var(--navy);
+  direction:ltr;text-align:left}}
+.lf-line.warn{{color:var(--amber)}}
+.lf-line.err{{color:var(--red)}}
+.lf-line.done{{color:#178878;font-weight:600}}
+
+/* ── Mobile compatibility ──────────────────────────────────── */
+@media(max-width:600px){{
+  .main{{padding:56px 14px 70px !important}}
+  .page-header{{gap:8px}}
+  .page-header h1{{font-size:1.3em}}
+  .kpi-grid{{grid-template-columns:1fr 1fr;gap:8px}}
+  .kpi-card{{padding:12px 14px 10px}}
+  .kpi-value{{font-size:clamp(1.05em,5.5vw,1.3em)}}
+  .chart-card,.panel{{padding:14px}}
+  .chart-wrap{{height:190px}}
+  .txn-table thead{{display:none}}
+  .txn-table,.txn-table tbody,.txn-table tr,.txn-table td{{display:block;width:100%}}
+  .txn-table tr{{background:var(--white);border:1px solid var(--border);border-radius:10px;
+    margin-bottom:10px;padding:10px 12px;box-shadow:var(--shadow-sm)}}
+  .txn-table td{{border-bottom:none;padding:4px 0;display:flex;justify-content:space-between;
+    align-items:center;gap:10px;text-align:left;max-width:none;white-space:normal}}
+  .txn-table td::before{{content:attr(data-label);font-size:.7em;font-weight:600;
+    color:var(--text-muted);text-transform:uppercase;letter-spacing:.3px;flex-shrink:0;margin-left:8px}}
+  .txn-table-wrap{{overflow-x:visible;max-height:60vh}}
+}}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 </head>
@@ -4167,29 +4223,44 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;
     <button class="sidebar-close-btn" onclick="closeNav()">✕</button>
   </div>
   <div class="sidebar-scroll">
-    <a class="nav-item" href="/">ניתוח חודשי</a>
-    <a class="nav-item" href="/">עסקאות</a>
+    <a class="nav-item" href="/monthly" onclick="try{{var k=localStorage.getItem('lv_month');if(k){{event.preventDefault();location.href='/general/'+k;}}}}catch(_){{}}">ניתוח חודשי</a>
     <div class="nav-sep"></div>
     <a class="nav-item" href="/accounts">חשבונות</a>
     <a class="nav-item" href="/housing">דיור</a>
     <a class="nav-item" href="/organizer">ארגונית</a>
+    <a class="nav-item" href="/bills">מעקב חשבונות</a>
     <a class="nav-item active" href="/categories">ניתוח קטגוריאלי</a>
     <a class="nav-item" href="/search">חיפוש</a>
     <a class="nav-item" href="/spotify">Spotify Tracker</a>
+    <a class="nav-item" href="/recurring">חיובים חוזרים</a>
     <div class="nav-sep"></div>
     <a class="nav-item" href="/tagger">תייגן</a>
     <a class="nav-item" href="/files">קבצים</a>
   </div>
+  <div class="sidebar-footer" style="padding:12px 16px;border-top:1px solid var(--border);flex-shrink:0">
+    <button class="nav-restart-btn" onclick="restartServer(this)">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
+      הפעל שרת מחדש
+    </button>
+    <div id="app-version-badge-2" style="margin-top:8px;text-align:center;font-size:.72em;color:var(--text-sub);letter-spacing:.03em;opacity:.7;user-select:none">v—</div>
+  </div>
 </nav>
 
-<!-- Log drawer -->
-<div class="log-drawer" id="log-drawer">
-  <div class="log-drawer-header" onclick="toggleLogDrawer()">
-    <span class="log-ind" id="log-ind"></span>
-    <span class="log-drawer-title">לוג מערכת</span>
-    <span class="log-drawer-toggle">▲</span>
+<!-- Log float — shown while regenerating, matches the app-wide regen log panel -->
+<div class="log-float" id="log-float">
+  <div class="lf-header">
+    <span class="lf-title" id="lf-title">מריץ ניתוח…</span>
   </div>
-  <div class="log-drawer-body" id="log-body"></div>
+  <div class="lf-feed" id="lf-feed"></div>
+</div>
+
+<!-- Regen button — fixed FAB, matches the Recurring Charges / Organizer regen button -->
+<div class="regen-fab" id="regen-fab">
+  <button class="regen-btn" id="reload-btn" onclick="reloadCurrent()" title="חשב מחדש">
+    <span class="regen-icon">&#8635;</span>
+    <span class="regen-label">חשב מחדש</span>
+    <span class="regen-pct" id="regen-pct"></span>
+  </button>
 </div>
 
 <!-- Main -->
@@ -4207,7 +4278,6 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;
     </div>
     <div class="page-header-right">
       <span class="generated-label" id="generated-label">נוצר: {generated}</span>
-      <button class="reload-btn" id="reload-btn" onclick="reloadCurrent()">&#8635; חשב מחדש</button>
     </div>
   </div>
 
@@ -4520,52 +4590,75 @@ function _centerActive(animate) {{
 
 window.addEventListener('resize', function() {{ _viewIdx = _activeIdx; _centerActive(false); }});
 
-// ── Reload current ────────────────────────────────────────
+// ── Reload current — same SSE endpoint + progress protocol as the
+//    /categories listing page and the not-yet-generated splash, so this
+//    page's regen behaves and looks identical to the rest of the app ──────
 function reloadCurrent() {{
   var btn = document.getElementById('reload-btn');
-  btn.classList.add('running'); btn.disabled = true;
-  var drawer = document.getElementById('log-drawer');
-  if (!drawer.classList.contains('expanded')) toggleLogDrawer();
-  document.getElementById('log-body').innerHTML = '';
-  setLogInd('active');
+  var pct = document.getElementById('regen-pct');
+  btn.classList.add('running'); btn.disabled = true; pct.textContent = '0%';
+  showLogFloat('מריץ ניתוח…');
 
-  fetch('/api/category/run', {{
-    method: 'POST',
-    headers: {{'Content-Type': 'application/json'}},
-    body: JSON.stringify({{slug: SLUG, type: TYPE, name: NAME}})
-  }}).then(function(r) {{
-    if (r.status === 409) {{ btn.classList.remove('running'); btn.disabled = false; return; }}
-    var es = new EventSource('/api/logs');
-    es.onmessage = function(evt) {{
-      var d = evt.data;
-      if (!d || d === '__CONNECTED__') return;
-      if (d.startsWith('__DONE__')) {{
-        es.close(); setLogInd('');
-        btn.classList.remove('running'); btn.disabled = false;
-        setTimeout(function() {{ location.reload(); }}, 600);
-        return;
-      }}
-      if (d === '__ERROR__') {{ es.close(); setLogInd('error'); btn.classList.remove('running'); btn.disabled = false; return; }}
-      appendLog(d);
-    }};
-    es.onerror = function() {{ es.close(); btn.classList.remove('running'); btn.disabled = false; }};
-  }});
+  var qs = '?slug=' + encodeURIComponent(SLUG) + '&type=' + encodeURIComponent(TYPE) + '&name=' + encodeURIComponent(NAME);
+  var es = new EventSource('/api/category/stream' + qs);
+  es.onmessage = function(evt) {{
+    var d = evt.data;
+    if (!d || d === '__CONNECTED__') return;
+    if (d.indexOf('__PROGRESS__:') === 0) {{
+      var p = parseInt(d.slice('__PROGRESS__:'.length), 10);
+      if (!isNaN(p)) {{ pct.textContent = p + '%'; document.getElementById('lf-title').textContent = 'מריץ ניתוח… ' + p + '%'; }}
+      return;
+    }}
+    if (d.indexOf('__DONE__') === 0) {{
+      es.close();
+      appendLog('✓ הניתוח הסתיים — טוען…', 'done');
+      btn.classList.remove('running'); btn.disabled = false; pct.textContent = '';
+      hideLogFloat(900);
+      setTimeout(function() {{ location.reload(); }}, 1100);
+      return;
+    }}
+    if (d.indexOf('__ERROR__') === 0) {{
+      es.close();
+      var msg = d === '__ERROR__:busy' ? 'ניתוח אחר כבר רץ — נסה שוב בעוד רגע'
+        : d.length > '__ERROR__:'.length ? d.slice('__ERROR__:'.length) : 'שגיאה בניתוח';
+      appendLog('✗ ' + msg, 'err');
+      btn.classList.remove('running'); btn.disabled = false; pct.textContent = '';
+      hideLogFloat(3000);
+      return;
+    }}
+    appendLog(d);
+  }};
+  es.onerror = function() {{
+    es.close();
+    appendLog('✗ החיבור נותק', 'err');
+    btn.classList.remove('running'); btn.disabled = false; pct.textContent = '';
+    hideLogFloat(3000);
+  }};
 }}
 
-// ── Log helpers ───────────────────────────────────────────
-function toggleLogDrawer() {{
-  document.getElementById('log-drawer').classList.toggle('expanded');
+// ── Log float helpers — same API as the shared not-yet-generated splash
+//    page's log panel (WebApp._log_float_js), reimplemented locally since
+//    this page's script isn't assembled from that shared Python helper ────
+var _LF_MAX = 80;
+function showLogFloat(title) {{
+  document.getElementById('lf-feed').innerHTML = '';
+  document.getElementById('lf-title').textContent = title || 'מריץ ניתוח…';
+  document.getElementById('log-float').classList.add('visible');
 }}
-function setLogInd(state) {{
-  var el = document.getElementById('log-ind');
-  el.className = 'log-ind' + (state ? ' ' + state : '');
+function hideLogFloat(delay) {{
+  setTimeout(function() {{
+    document.getElementById('log-float').classList.remove('visible');
+  }}, delay || 0);
 }}
-function appendLog(msg) {{
-  var body = document.getElementById('log-body');
-  var line = document.createElement('div');
-  line.textContent = msg;
-  body.appendChild(line);
-  body.scrollTop = body.scrollHeight;
+function appendLog(text, cls) {{
+  var feed = document.getElementById('lf-feed');
+  if (!feed) return;
+  var el = document.createElement('div');
+  el.className = 'lf-line' + (cls ? ' ' + cls : '');
+  el.textContent = text;
+  feed.appendChild(el);
+  while (feed.children.length > _LF_MAX) feed.removeChild(feed.firstChild);
+  feed.scrollTop = feed.scrollHeight;
 }}
 
 // ── Transaction sort ──────────────────────────────────────
@@ -4677,8 +4770,7 @@ document.addEventListener('DOMContentLoaded', _initTxnFooter);
   fetch('/api/status', {{method: 'GET'}})
     .then(function(r) {{ return r.json(); }})
     .then(function() {{
-      document.getElementById('reload-btn').style.display = 'inline-block';
-      var _lt = document.getElementById('log-toggle-btn'); if (_lt) _lt.style.display = '';
+      document.getElementById('regen-fab').style.display = 'block';
       fetch('/api/category/list')
         .then(function(r) {{ return r.json(); }})
         .then(function(list) {{ _buildRoller(list); }})
@@ -4686,6 +4778,12 @@ document.addEventListener('DOMContentLoaded', _initTxnFooter);
     }})
     .catch(function() {{}});
 }})();
+fetch('/api/version').then(function(r){{return r.json();}}).then(function(d){{var b=document.getElementById('app-version-badge-2');if(b&&d.version)b.textContent='v'+d.version;}}).catch(function(){{}});
+function restartServer(btn){{
+  btn.disabled=true;
+  btn.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg> מפעיל מחדש…';
+  fetch('/api/restart',{{method:'POST'}}).catch(function(){{}}).finally(function(){{setTimeout(function(){{btn.disabled=false;btn.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg> הפעל שרת מחדש';}},3000);}});
+}}
 </script>
 </body>
 </html>'''
@@ -4694,13 +4792,16 @@ document.addEventListener('DOMContentLoaded', _initTxnFooter);
         _this   = _os.path.abspath(__file__)
         _src    = _os.path.dirname(_os.path.dirname(_this))   # source/
         _proj   = _os.path.dirname(_src)                       # BankProject/
-        _html_out = _os.path.join(_src, 'html', 'Category_output.html')
 
-        with open(_html_out, 'w', encoding='utf-8') as _f:
-            _f.write(html)
+        if not _os.getenv('VERCEL'):
+            # Local-only convenience copy opened by AppManager's CLI
+            # (webbrowser.open) — source/html is read-only on Vercel.
+            _html_out = _os.path.join(_src, 'html', 'Category_output.html')
+            with open(_html_out, 'w', encoding='utf-8') as _f:
+                _f.write(html)
 
         if slug:
-            _cat_dir = '/tmp/category_analysis' if _os.getenv('DATABASE_URL') else _os.path.join(_proj, 'Outputs', 'category_analysis')
+            _cat_dir = '/tmp/category_analysis' if _os.getenv('VERCEL') else _os.path.join(_proj, 'Outputs', 'category_analysis')
             _os.makedirs(_cat_dir, exist_ok=True)
             with open(_os.path.join(_cat_dir, f'{slug}.html'), 'w', encoding='utf-8') as _f:
                 _f.write(html)
@@ -4756,14 +4857,16 @@ document.addEventListener('DOMContentLoaded', _initTxnFooter);
         return at_dict[name]
 
     @staticmethod
-    def tagger_refresh() -> None:
+    def tagger_refresh() -> list:
         """
         The function uses the json config file, in order to try and auto tag transactions
-        with no category tagging.
+        with no category tagging. Returns the list of transactions that were tagged
+        (each a dict with name/table/id/category), empty if none matched.
         """
         from database import DataBase
 
         dirty_bit = False
+        tagged = []
         logs = "\n\n ----- The following transactions have been tagged: -----\n\n"
         lst, desc = DataBase().get_untagged()
         untagged_transactions_df = pd.DataFrame(lst, columns=desc)
@@ -4774,6 +4877,10 @@ document.addEventListener('DOMContentLoaded', _initTxnFooter);
             if res is not None:
                 dirty_bit = True
                 DataBase().set_category(table_name=row['TableName'], id=row['ID'], category=res)
+                tagged.append({
+                    'name': row['Name'], 'table': row['TableName'],
+                    'id': int(row['ID']), 'category': res,
+                })
                 logs += f"transaction {utils.heb_conversion(row['Name'])} ({row['TableName']}) ({row['ID']}) was tagged to {utils.heb_conversion(res)}\n"
 
         if dirty_bit:
@@ -4781,6 +4888,13 @@ document.addEventListener('DOMContentLoaded', _initTxnFooter);
             DataBase().commit_changes()
         else:
             utils.log('No transactions were Auto tagged...', 'system')
+            # get_untagged() above already commits its own read, but set_category()
+            # calls (if any partial state was left by a prior failed run) shouldn't
+            # linger either — release defensively so this call never leaves the
+            # shared connection idle-in-transaction.
+            DataBase().connection.commit()
+
+        return tagged
 
     @staticmethod
     def match_BeinLeumi_headers(table: list[list]) -> list[list]:
@@ -5221,18 +5335,13 @@ document.addEventListener('DOMContentLoaded', _initTxnFooter);
                     if not interactive:
                         break
 
-                    hook = utils._cc_confirm_hook
-                    if hook is not None:
-                        approved = hook(row_bank.to_dict())
-                    else:
-                        approved = utils.template_menu(['No', 'Yes'], f"App found this transaction to be a credit card:\n\
-                                        {row_bank}\n Do you Agree?")
-                    if approved:
-                        DataBase().set_category('BankTransactions', row_bank['ID'], CC_CHARGE_CATEGORY_NAME)
-                        DataBase().commit_changes()
-                        break
-                    else:
-                        utils.log('ignored...', 'system')
+                    # The amount/tolerance match above is already the approval criterion —
+                    # auto-tag as אשראי instead of blocking on a confirmation prompt.
+                    DataBase().set_category('BankTransactions', row_bank['ID'], CC_CHARGE_CATEGORY_NAME)
+                    DataBase().commit_changes()
+                    tx_date = str(row_bank.get('Date', ''))[:10]
+                    utils.log(f"[CC-AUTO-APPROVED] {row_bank.get('Name', '')} • ₪{card_charge_sum:,.2f} • {tx_date} סווג כאשראי", 'system')
+                    break
         
         if Settings.DEBUG:
             for index, row in wip_df.iterrows():
@@ -5345,7 +5454,31 @@ document.addEventListener('DOMContentLoaded', _initTxnFooter);
             return True, "Witdrawals Check Executed, None found", total_matched_transactions_df
         else:
             return True, "All withdrawals matched successfully", total_matched_transactions_df
-        
+
+    @staticmethod
+    def handle_direct_bank_withdrawals() -> None:
+        """
+        Tags direct (no-card) bank withdrawals — cash pulled straight from a
+        branch machine (e.g. "סניפומט") — as category="withdrawal". These never
+        have a matching "משיכת מזומנים" row in CardTransactions, so
+        handle_withdrawals()'s card<->bank matching never finds them.
+
+        Not fully retroactive: only rows dated from the start of the previous
+        calendar month onward are considered (a rolling 2-month window), so
+        older historical data (including rows the user may have already
+        manually re-categorized) is left untouched.
+        """
+        from database import DataBase
+        from Constants import ReservedNames
+        from dateutil.relativedelta import relativedelta
+
+        keywords = ['סניפומט']  # scope: this pattern only, for now
+        today = datetime.now()
+        month_start = datetime(today.year, today.month, 1) - relativedelta(months=1)
+
+        count = DataBase().tag_direct_bank_withdrawals(month_start, keywords, ReservedNames.WHITDRAWAL_CATEGORY)
+        if count:
+            utils.log(f"Tagged {count} direct bank withdrawal(s) (סניפומט) as 'withdrawal'", 'system')
 
     @staticmethod
     def exclude_transaction() -> None:

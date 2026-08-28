@@ -47,6 +47,7 @@ class AppManager:
                 utils.log(f"Matched Withdrawals:\n{utils.df_to_markdown(df)}")
         else:
             utils.log(f"Withdrawals handling failed: {log}", 'error')
+        utils.handle_direct_bank_withdrawals()
 
         if utils.validate_BankTransactions():
             utils.log("Bank Transactions validation passed!")
@@ -69,8 +70,7 @@ class AppManager:
                                              'Export Excel',
                                              'Insert other account status',
                                              'Advanced Search',
-                                             'Debug value mismatch',
-                                             'Gym Expense Splitter'],
+                                             'Debug value mismatch'],
                                              msg='Hello Ofek! What would you like to do today?',
                                              exit=True,
                                              col_space=33):
@@ -105,9 +105,6 @@ class AppManager:
                     self.advanced_search()
                 case 12:
                     self.debug_value_mismatch()
-                case 13:
-                    from GymSplitter import GymSplitter
-                    GymSplitter().menu()
                 case _:
                     utils.log("Please insert a valid number.",'system')
 
@@ -762,7 +759,16 @@ class AppManager:
             case _:
                 utils.log("Unreachable point reached...", "error")
 
-    def category_analysis(self, category=None, business=None):
+    def category_analysis(self, category=None, business=None, page_id=None):
+        # Point-based progress tracking (only active when page_id is provided by WebApp).
+        try:
+            import regen_tracker as _rt_mod
+        except ImportError:
+            _rt_mod = None
+
+        def _rp(pts):
+            if _rt_mod and page_id:
+                _rt_mod.update(page_id, pts)
 
         name_for_analysis = ""
         category_for_analysis = ""
@@ -789,11 +795,22 @@ class AppManager:
                 case _:
                     utils.log("Unreachable point reached...", "error")
 
-        # Slug for web integration
-        import re as _re_cat
-        _raw_name = category_for_analysis if case == 1 else name_for_analysis
-        _slug_name = _re_cat.sub(r'[^\w\u0590-\u05FF]', '_', _raw_name).strip('_')
-        _slug = ('cat_' if case == 1 else 'biz_') + _slug_name
+        # Slug for web integration \u2014 the output HTML file is named after this.
+        # WebApp.py always passes page_id, computed by its own
+        # collision-aware _build_slug_map (two distinct names can otherwise
+        # strip down to the same slug, e.g. "PAYPAL *NETFLIX COM" and
+        # "PAYPAL  NETFLIX COM" both -> "biz_PAYPAL__NETFLIX_COM"). Recomputing
+        # a plain slug here instead of using page_id would silently write both
+        # businesses' analyses to the same file, clobbering one with the
+        # other \u2014 always defer to page_id when the web app supplied one; the
+        # naive local fallback only matters for direct CLI invocation.
+        if page_id:
+            _slug = page_id
+        else:
+            import re as _re_cat
+            _raw_name = category_for_analysis if case == 1 else name_for_analysis
+            _slug_name = _re_cat.sub(r'[^\w\u0590-\u05FF]', '_', _raw_name).strip('_')
+            _slug = ('cat_' if case == 1 else 'biz_') + _slug_name
 
         def get_monthly_average(data: pd.DataFrame) -> float:
             """
@@ -851,10 +868,10 @@ class AppManager:
                 float - the active monthly average
                 float - the active monthly standard deviation
             """
-            data['Date'] = pd.to_datetime(data['Date'], format="%Y-%m-%d %H:%M:%S").apply(lambda x: x.strftime('%Y-%m'))
+            data['Date'] = pd.to_datetime(data['Date']).apply(lambda x: x.strftime('%Y-%m'))
             data = data.groupby('Date').sum(numeric_only=True)
-            return data['Final_Value'].mean() , data['Final_Value'].std()        
-       
+            return data['Final_Value'].mean() , data['Final_Value'].std()
+
         def yearly_average(data: pd.DataFrame) -> tuple[float, float]:
             """
             return the active yearly average and standard deviation of the given data frame.
@@ -865,7 +882,7 @@ class AppManager:
                 float - the active yearly average
                 float - the active yearly standard deviation
             """
-            data['Date'] = pd.to_datetime(data['Date'], format="%Y-%m-%d %H:%M:%S").apply(lambda x: x.strftime('%Y'))
+            data['Date'] = pd.to_datetime(data['Date']).apply(lambda x: x.strftime('%Y'))
             data = data.groupby('Date').sum(numeric_only=True)
             return data['Final_Value'].mean() , data['Final_Value'].std()                
         
@@ -909,6 +926,7 @@ class AppManager:
             utils.log("Unreachable point reached...", "error")
 
         Graphics.plot_general(spendings_sum, spendings_sum_overall_inc, earnings_sum, title_ext='Category_analysis', topic = name_for_analysis, fig_size=(8, 5))
+        _rp(25)   # shifted monthly totals + general chart
         # --------------------------
 
         # Monthly chart data for Chart.js
@@ -941,7 +959,7 @@ class AppManager:
 
         df_bank_transactions = SimpleMath.process_prices(_bank_raw, general_analysis=False)
         df_card_transactions = SimpleMath.process_prices(_card_raw, general_analysis=False)
-        
+        _rp(35)   # bank + card transaction queries and processing
 
         if df_card_transactions.empty:
             utils.log("No card transactions found for the selected month.", "warning")
@@ -1002,6 +1020,7 @@ class AppManager:
         _df_earn  = analisys_data[analisys_data['Final_Value'] > 0][[_group_col, 'Final_Value']].copy()
         spending_pie_data = _build_pie(_df_spend)
         earning_pie_data  = _build_pie(_df_earn)
+        _rp(15)   # stats + pie chart data assembly
 
         utils.create_html_name_analysis({"subtitle": "Specific Analysis",
                                          "Category/business name": category_for_analysis if case == 1 else name_for_analysis,
@@ -1018,6 +1037,7 @@ class AppManager:
                                          "spending_pie_data": spending_pie_data,
                                          "earning_pie_data":  earning_pie_data,
                                          "transactions": analisys_data})
+        _rp(20)   # HTML written to disk
         if category is None and business is None:
             webbrowser.open(r'source\html\Category_output.html')
 
@@ -1226,12 +1246,20 @@ class AppManager:
 
         _rp(7)   # cash flow (get_cash_transactions + accumulate + history + auto-points): 7 pts
 
-        # Capture spendings data for interactive chart (exclude investments — shown in their own donut)
+        # Capture spendings data for interactive chart (exclude investments — shown in their own
+        # donut). Bank-account outflows only — an ATM withdrawal is real bank spending (it left
+        # the bank balance) so it correctly stays in here as its own category. Cash purchases are
+        # NOT merged in: that money left the wallet, not the bank, and is shown separately below.
         _sp_df = transactions_df[(transactions_df['Final_Value'] < 0) & (transactions_df['Category'] != INVESTMENT_CATEGORY)].copy()
-        _sp_cash = {"Name": "מזומן", "Category": "מזומן", "Final_Value": cash_information_data['Monthly Spent Cash']}
-        _sp_df = pd.concat([_sp_df, pd.DataFrame([_sp_cash])], ignore_index=True)
         _sp_grouped = _sp_df.groupby("Category")['Final_Value'].sum().abs()
         data['spendings_by_cat'] = {str(k): round(float(v), 2) for k, v in _sp_grouped.items() if v > 0}
+
+        # Cash-wallet spending by category (mirrors spendings_by_cat but for money that left the
+        # wallet, not the bank) — mct_df's positive rows are ATM withdrawals (cash coming IN to
+        # the wallet), so only negative rows are real cash purchases.
+        _cash_spend_df = mct_df[mct_df['Amount'] < 0] if not mct_df.empty else mct_df
+        _cash_grouped = _cash_spend_df.groupby("Category")['Amount'].sum().abs() if not _cash_spend_df.empty else {}
+        data['cash_by_cat'] = {str(k): round(float(v), 2) for k, v in _cash_grouped.items() if v > 0}
 
         # Capture earnings data for interactive chart (account income only — cash handled by cash chart)
         _ea_df = transactions_df[(transactions_df['Final_Value'] > 0) & (transactions_df['Category'] != INVESTMENT_CATEGORY)].copy()
@@ -1250,7 +1278,7 @@ class AppManager:
             data['investments_net']       = round(float(_inv_df['Final_Value'].sum()), 2)
             _inv_items = []
             for _, _row in _inv_df.sort_values('Executed_Date').iterrows():
-                _desc = _row.get('Description/Charge_Currency')
+                _desc = _row.get('Description')
                 _has_desc = (_desc is not None and
                              not (isinstance(_desc, float) and pd.isna(_desc)) and
                              str(_desc).strip() and
@@ -1715,7 +1743,7 @@ class AppManager:
                     'category': str(row.get('Category', '')),
                     'amount':   _safe(row.get('Final_Value')),
                     'date':     date_str,
-                    'desc':     str(row.get('Description/Charge_Currency', '') or ''),
+                    'desc':     str(row.get('Description', '') or ''),
                     'card':     str(row.get('CardID', '') or ''),
                     'table':    str(row.get('TableName', '') or ''),
                     'is_cash':  False,
@@ -1919,6 +1947,7 @@ class AppManager:
             'charts': {
                 'spendings_by_cat':        {str(k): _safe(v) for k, v in data.get('spendings_by_cat', {}).items()},
                 'earnings_by_cat':         {str(k): _safe(v) for k, v in data.get('earnings_by_cat', {}).items()},
+                'cash_by_cat':             {str(k): _safe(v) for k, v in data.get('cash_by_cat', {}).items()},
                 'investments_items':       data.get('investments_items', []),
                 'card_dist':               {str(k): {
                                                'amount': _safe(v.get('amount')),
@@ -1993,13 +2022,31 @@ class AppManager:
         }
         _rp(10)   # cash flow
 
+        # Bank-account outflows only — an ATM withdrawal is real bank spending (it left the bank
+        # balance) so it correctly stays in here as its own category. Cash purchases are NOT
+        # merged in: that money left the wallet, not the bank, and is shown separately below.
         _sp_df = transactions_df[(transactions_df['Final_Value'] < 0) &
                                  (transactions_df['Category'] != INVESTMENT_CATEGORY)].copy()
-        _sp_cash = {"Name": "מזומן", "Category": "מזומן",
-                    "Final_Value": cash_information_data['Monthly Spent Cash']}
-        _sp_df = pd.concat([_sp_df, pd.DataFrame([_sp_cash])], ignore_index=True)
         _sp_grouped = _sp_df.groupby("Category")['Final_Value'].sum().abs()
         data['spendings_by_cat'] = {str(k): round(float(v), 2) for k, v in _sp_grouped.items() if v > 0}
+
+        # Cash-wallet spending by category — mct_df's positive rows are ATM withdrawals (cash
+        # coming IN to the wallet), so only negative rows are real cash purchases.
+        _cash_spend_df = mct_df[mct_df['Amount'] < 0] if not mct_df.empty else mct_df
+        _cash_grouped = _cash_spend_df.groupby("Category")['Amount'].sum().abs() if not _cash_spend_df.empty else {}
+        data['cash_by_cat'] = {str(k): round(float(v), 2) for k, v in _cash_grouped.items() if v > 0}
+
+        # Per-transaction cash flow — every row in mct_df (income and expense alike) as its
+        # own item, for the single merged cash donut (one slice per transaction, not per category).
+        data['cash_items'] = [
+            {
+                'name':     str(r['Name']),
+                'category': str(r['Category']),
+                'amount':   round(float(r['Amount']), 2),
+                'date':     r['Execution_Date'].strftime('%Y-%m-%d') if pd.notna(r['Execution_Date']) else None,
+            }
+            for _, r in mct_df.iterrows()
+        ] if not mct_df.empty else []
 
         _ea_df = transactions_df[(transactions_df['Final_Value'] > 0) &
                                  (transactions_df['Category'] != INVESTMENT_CATEGORY)].copy()
@@ -2015,7 +2062,7 @@ class AppManager:
             data['investments_net']       = round(float(_inv_df['Final_Value'].sum()), 2)
             _inv_items = []
             for _, _row in _inv_df.sort_values('Executed_Date').iterrows():
-                _desc = _row.get('Description/Charge_Currency')
+                _desc = _row.get('Description')
                 _has_desc = (_desc is not None and
                              not (isinstance(_desc, float) and pd.isna(_desc)) and
                              str(_desc).strip() and
@@ -2211,7 +2258,7 @@ class AppManager:
             t, data, spendings_df, earnings_df, payments_df,
             monthly_balance, card_color_dict, cash_information_data, alerts, org_alerts)
 
-    def get_global_data(self, t):
+    def get_global_data(self, t, progress_callback=None):
         """Compute accounts-history and mortgage data (not month-specific).
 
         Returns a dict with 'accounts', 'accounts_meta', and 'mortgage' keys ready
@@ -2221,7 +2268,10 @@ class AppManager:
         if t is None:
             t = datetime.now()
 
+        _pc = progress_callback if callable(progress_callback) else (lambda pct, msg='': None)
+
         # ── Accounts ──────────────────────────────────────────────────────────
+        _pc(5, 'Loading bank account data…')
         def get_accounts_data():
             accounts_data = {}
             accounts_raw_meta = {}
@@ -2283,6 +2333,7 @@ class AppManager:
             return accounts_data, accounts_raw_meta
 
         accounts_data, accounts_raw_meta = get_accounts_data()
+        _pc(35, 'Account data loaded ✓')
 
         try:
             _cash_history = utils.cash_monthly_history()
@@ -2290,8 +2341,10 @@ class AppManager:
             _cash_history = []
         accounts_data['Cash'] = _cash_history if _cash_history else [
             (datetime.now(), utils.accumulate_cash_Balance())]
+        _pc(42, 'Cash history loaded ✓')
 
         # ── Mortgage ─────────────────────────────────────────────────────────
+        _pc(48, 'Loading mortgage amortization schedule…')
         from src_utils.mortgage import (
             full_schedule, months_elapsed_and_balance, milestone_schedule,
             actual_payments, actual_rental_income, current_month_data,
@@ -2302,12 +2355,14 @@ class AppManager:
         )
         from dateutil.relativedelta import relativedelta as _rdelta
         _mort_totals, _mort_per_track = full_schedule()
+        _pc(60, 'Amortization schedule computed ✓')
         _today_date  = t.date() if hasattr(t, "date") else datetime.now().date()
         _n_months, _cur_balance = months_elapsed_and_balance(_mort_totals, _today_date)
         _actual_pays   = actual_payments()
         _actual_rental = actual_rental_income()
         _this_month    = current_month_data(t.year, t.month)
         _alltime       = alltime_category_data()
+        _pc(68, 'Payments & rental income loaded ✓')
         _step = 3
         _chart_months      = [str(d)[:7] for d in _mort_totals['month'].iloc[::_step]]
         _chart_bal_total   = [round(float(v)) for v in _mort_totals['total_balance'].iloc[::_step]]
@@ -2321,6 +2376,7 @@ class AppManager:
                 "track_type": str(_tg_r["track_type"].iloc[0]),
             }
         _housing_txns = DataBase().get_all_category_transactions(MORTGAGE_CATEGORY)
+        _pc(74, 'Housing transactions loaded ✓')
         _ht_cf = _housing_txns.copy()
         _ht_cf['_m'] = pd.to_datetime(_ht_cf['Date']).dt.strftime('%Y-%m')
         _ht_monthly = (_ht_cf.groupby('_m').agg(_out=('Out', 'sum'), _inc=('Income', 'sum'))
@@ -2385,6 +2441,7 @@ class AppManager:
             return _sums
 
         accounts_data['Total'] = _recompute_total(accounts_data)
+        _pc(84, 'Equity history computed ✓')
 
         _net_invested   = _alltime["alltime_out"]
         _sale_profit    = _equity_appreciated + _alltime["alltime_income"] - _net_invested
@@ -2437,7 +2494,10 @@ class AppManager:
                 "rentals": _cf_rentals, "is_proj": _cf_is_proj, "today": _today_key,
             },
         }
-        return self._build_global_payload(accounts_data, accounts_raw_meta, mortgage_data)
+        _pc(92, 'Building response payload…')
+        result = self._build_global_payload(accounts_data, accounts_raw_meta, mortgage_data)
+        _pc(98, 'Done ✓')
+        return result
 
     def _build_monthly_payload(self, t, data, spendings_df, earnings_df, payments_df,
                                monthly_balance, card_color_dict, cash_information_data,
@@ -2463,7 +2523,7 @@ class AppManager:
                 return {
                     'id': _safe(row.get('ID')), 'name': str(row.get('Name', '')),
                     'category': str(row.get('Category', '')), 'amount': _safe(row.get('Final_Value')),
-                    'date': date_str, 'desc': str(row.get('Description/Charge_Currency', '') or ''),
+                    'date': date_str, 'desc': str(row.get('Description', '') or ''),
                     'card': str(row.get('CardID', '') or ''), 'table': str(row.get('TableName', '') or ''),
                     'is_cash': False,
                 }
@@ -2582,6 +2642,8 @@ class AppManager:
             'charts': {
                 'spendings_by_cat':        {str(k): _safe(v) for k, v in data.get('spendings_by_cat', {}).items()},
                 'earnings_by_cat':         {str(k): _safe(v) for k, v in data.get('earnings_by_cat', {}).items()},
+                'cash_by_cat':             {str(k): _safe(v) for k, v in data.get('cash_by_cat', {}).items()},
+                'cash_items':              data.get('cash_items', []),
                 'investments_items':       data.get('investments_items', []),
                 'card_dist':               {str(k): {'amount': _safe(v.get('amount')),
                                                       'status': None if v.get('status') is None else bool(v.get('status')),

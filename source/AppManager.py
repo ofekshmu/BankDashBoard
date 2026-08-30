@@ -2377,6 +2377,27 @@ class AppManager:
             }
         _housing_txns = DataBase().get_all_category_transactions(MORTGAGE_CATEGORY)
         _pc(74, 'Housing transactions loaded ✓')
+
+        def _build_housing_pie(df: pd.DataFrame, value_col: str, top_n: int = 8) -> list:
+            """Group all-time housing-category transactions by business Name for a
+            pie chart, bucketing everything past top_n into an 'אחר' slice — same
+            shape as the per-business pie built in AppManager.category_analysis."""
+            if df.empty or value_col not in df.columns:
+                return []
+            grouped = (df[df[value_col] > 0][['Name', value_col]]
+                       .groupby('Name')[value_col].sum()
+                       .sort_values(ascending=False))
+            items = [{'name': str(n), 'value': round(float(v), 2)} for n, v in grouped.items() if v > 0]
+            if len(items) > top_n:
+                _others = sum(x['value'] for x in items[top_n:])
+                items = items[:top_n]
+                if _others > 0:
+                    items.append({'name': 'אחר', 'value': round(_others, 2)})
+            return items
+
+        _housing_spend_pie = _build_housing_pie(_housing_txns, 'Out')
+        _housing_earn_pie  = _build_housing_pie(_housing_txns, 'Income')
+
         _ht_cf = _housing_txns.copy()
         _ht_cf['_m'] = pd.to_datetime(_ht_cf['Date']).dt.strftime('%Y-%m')
         _ht_monthly = (_ht_cf.groupby('_m').agg(_out=('Out', 'sum'), _inc=('Income', 'sum'))
@@ -2480,6 +2501,8 @@ class AppManager:
             "milestones":               milestone_schedule(_mort_totals),
             "mortgage_category":        MORTGAGE_CATEGORY,
             "housing_transactions":     _housing_txns,
+            "spending_pie_data":        _housing_spend_pie,
+            "earning_pie_data":         _housing_earn_pie,
             "first_payment_date":       FIRST_PAYMENT.strftime('%Y-%m-%d'),
             "chart_balance": {
                 "months": _chart_months, "total": _chart_bal_total,
@@ -2718,7 +2741,10 @@ class AppManager:
                                      for _, row in v.iterrows()]
                     else:
                         result[k] = []
-                elif k == 'milestones':
+                elif k in ('milestones', 'spending_pie_data', 'earning_pie_data'):
+                    # Already plain list[dict] (or a DataFrame for milestones) —
+                    # pass through as-is; running list items through _safe()
+                    # here would stringify each dict instead of serializing it.
                     if hasattr(v, 'to_dict'):
                         result[k] = v.to_dict(orient='records')
                     elif isinstance(v, list):

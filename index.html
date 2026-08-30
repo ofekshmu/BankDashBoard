@@ -688,6 +688,7 @@
 
   function signOut() {
     localStorage.removeItem(SESSION_KEY);
+    fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
     syncAuthUI();
     toast('Signed out', 'ok');
   }

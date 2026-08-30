@@ -27,7 +27,9 @@ import builtins as _builtins
 import urllib.parse
 
 import re as _re
-from flask import Flask, Response, request, jsonify, send_file, redirect
+import secrets as _secrets
+from datetime import timedelta as _timedelta
+from flask import Flask, Response, request, jsonify, send_file, redirect, session
 import regen_tracker as _regen_tracker
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
@@ -444,6 +446,45 @@ def _web_cc_confirm(row_bank_dict: dict) -> bool:
 app = Flask(__name__)
 app.config['JSON_AS_ASCII'] = False
 
+# Session signing key — falls back to a process-local random key so sessions
+# still work without FLASK_SECRET_KEY set, at the cost of invalidating all
+# sessions on restart (acceptable for this single-user app; setting
+# FLASK_SECRET_KEY in .env avoids that).
+app.secret_key = os.environ.get('FLASK_SECRET_KEY')
+if not app.secret_key:
+    print("WARNING: FLASK_SECRET_KEY not set — using a random per-process key; "
+          "logins won't survive a server restart until it's set in .env.", file=sys.stderr)
+    app.secret_key = _secrets.token_hex(32)
+app.config['PERMANENT_SESSION_LIFETIME'] = _timedelta(days=7)
+
+# Paths reachable without a valid session — the landing page itself, the
+# password-check endpoint it calls, and cosmetic static assets that carry no
+# personal/financial data. Every other route (page or API) requires auth.
+_PUBLIC_PATHS = {
+    '/', '/favicon.ico', '/favicon.svg',
+    '/apple-touch-icon.png', '/apple-touch-icon-precomposed.png',
+    '/manifest.json', '/design-system.css',
+    '/api/auth/verify', '/api/version',
+}
+
+
+@app.before_request
+def _require_auth():
+    """Gate every route behind the landing-page password.
+
+    Previously only the client-side JS on index.html enforced this (via
+    localStorage), so navigating straight to e.g. /housing or /api/... bypassed
+    the password entirely. This makes the server the source of truth.
+    """
+    path = request.path
+    if path in _PUBLIC_PATHS or path.startswith('/static/'):
+        return None
+    if session.get('authenticated'):
+        return None
+    if path.startswith('/api/'):
+        return jsonify({'ok': False, 'error': 'unauthorized'}), 401
+    return redirect('/')
+
 
 @app.teardown_request
 def _release_db_connection(exc):
@@ -464,7 +505,17 @@ def api_auth_verify():
     pw       = str(body.get('password', ''))
     expected = os.environ.get('ADMIN_PASSWORD') or os.environ.get('DASHBOARD_PASSWORD', 'ofek')
     ok = hmac.compare_digest(pw, expected)
+    if ok:
+        session.permanent = True
+        session['authenticated'] = True
     return jsonify({'ok': ok})
+
+
+@app.route('/api/auth/logout', methods=['POST'])
+def api_auth_logout():
+    """Clear the server-side session (client also clears its localStorage flag)."""
+    session.clear()
+    return jsonify({'ok': True})
 
 
 @app.errorhandler(404)

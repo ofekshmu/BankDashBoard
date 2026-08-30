@@ -700,6 +700,35 @@ body {
   margin-bottom: 16px;
 }
 
+/* ── Housing: business breakdown pies ───────────────────── */
+.chart-card-sub {
+  font-size: .78em; font-weight: 500; color: var(--text-muted);
+  margin-inline-start: 6px;
+}
+.chart-wrap { position: relative; height: 210px; margin-bottom: 12px; }
+.hs-pie-legend { display: flex; flex-direction: column; gap: 3px; }
+.hs-pie-legend-row {
+  display: grid; grid-template-columns: 10px 1fr auto auto;
+  align-items: center; gap: 8px;
+  padding: 6px 8px; border-radius: var(--radius-sm);
+  background: var(--bg); font-size: .82em;
+}
+.hs-pie-legend-row:hover { background: var(--teal-light); }
+.hs-pie-legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.hs-pie-legend-name {
+  color: var(--navy); font-weight: 600;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.hs-pie-legend-val {
+  color: var(--text-sub); font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.hs-pie-legend-pct {
+  font-size: .85em; color: var(--text-muted); background: var(--white);
+  border-radius: 10px; padding: 1px 7px; white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.hs-pie-empty { padding: 20px 8px; text-align: center; color: var(--text-muted); font-size: .85em; }
+
 /* Balance row — larger cards */
 .housing-balance-row .kpi-card {
   padding: 24px 28px;
@@ -863,6 +892,7 @@ body {
 /* ── Housing: mobile responsive ─────────────────────────── */
 @media (max-width: 700px) {
   .housing-balance-row { grid-template-columns: 1fr; }
+  .housing-pie-row { grid-template-columns: 1fr; }
   .housing-3col-row { grid-template-columns: 1fr 1fr; }
 
   /* Prevent KPI cards from overflowing their grid cell */
@@ -7744,6 +7774,44 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       }
     }
 
+    // ── Spend/earn breakdown by business — 2 pies + legend list ─────────────
+    var spendPieItems  = m.spending_pie_data || [];
+    var earnPieItems   = m.earning_pie_data  || [];
+    var SPEND_PIE_COLORS = ['#e74c3c','#f0b429','#e67e22','#c0392b','#d35400','#e91e63','#9c27b0','#ff5722','#95a5a6'];
+    var EARN_PIE_COLORS  = ['#1e9d8b','#3498db','#2ecc71','#1abc9c','#27ae60','#2980b9','#16a085','#8e44ad','#95a5a6'];
+
+    function _pieLegendList(items, colors) {
+      if (!items.length) return '<div class="hs-pie-empty">אין נתונים</div>';
+      var total = items.reduce(function(s, d) { return s + d.value; }, 0);
+      return '<div class="hs-pie-legend">' + items.map(function(d, i) {
+        var pct = total > 0 ? (d.value / total * 100).toFixed(1) : '0.0';
+        return '<div class="hs-pie-legend-row">' +
+          '<span class="hs-pie-legend-dot" style="background:' + colors[i % colors.length] + '"></span>' +
+          '<span class="hs-pie-legend-name">' + _esc(d.name) + '</span>' +
+          '<span class="hs-pie-legend-val">' + _n(d.value, 0) + '</span>' +
+          '<span class="hs-pie-legend-pct">' + pct + '%</span>' +
+        '</div>';
+      }).join('') + '</div>';
+    }
+
+    function _pieCard(title, canvasId, items, colors) {
+      var canvasHtml = items.length >= 2
+        ? '<div class="chart-wrap"><canvas id="' + canvasId + '"></canvas></div>'
+        : '';
+      return '<div class="chart-card">' +
+        '<div class="chart-card-title">' + _esc(title) + '<span class="chart-card-sub">לפי עסק</span></div>' +
+        canvasHtml + _pieLegendList(items, colors) +
+      '</div>';
+    }
+
+    if (spendPieItems.length || earnPieItems.length) {
+      html += _row2(
+        _pieCard('פילוג הוצאות', 'housing-pie-spend', spendPieItems, SPEND_PIE_COLORS),
+        _pieCard('פילוג הכנסות', 'housing-pie-earn', earnPieItems, EARN_PIE_COLORS),
+        'housing-pie-row'
+      );
+    }
+
     // ── Transactions ───────────────────────────────────────────────────────
     var txns = m.housing_transactions || [];
     if (txns.length) {
@@ -7891,6 +7959,46 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
           }
         });
       }
+    }
+
+    // ── Business-breakdown doughnuts (canvases already in DOM via html string) ─
+    if (typeof Chart !== 'undefined') {
+      var _makeHousingPie = function(canvasId, items, colors) {
+        if (items.length < 2) return;
+        var ctx = document.getElementById(canvasId);
+        if (!ctx) return;
+        new Chart(ctx, {
+          type: 'doughnut',
+          data: {
+            labels: items.map(function(d) { return d.name; }),
+            datasets: [{
+              data: items.map(function(d) { return d.value; }),
+              backgroundColor: colors.slice(0, items.length),
+              borderWidth: 2,
+              borderColor: '#fff'
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                rtl: true,
+                callbacks: {
+                  label: function(c) {
+                    var total = c.dataset.data.reduce(function(a, b) { return a + b; }, 0);
+                    var pct = total > 0 ? (c.parsed / total * 100).toFixed(1) : 0;
+                    return ' ' + c.parsed.toLocaleString('he-IL') + ' ₪ (' + pct + '%)';
+                  }
+                }
+              }
+            }
+          }
+        });
+      };
+      _makeHousingPie('housing-pie-spend', spendPieItems, SPEND_PIE_COLORS);
+      _makeHousingPie('housing-pie-earn', earnPieItems, EARN_PIE_COLORS);
     }
 
     _switchHousingTab(_housingActiveTab, true);

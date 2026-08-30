@@ -576,6 +576,7 @@ function saveSession() {
 
 function clearSession() {
   localStorage.removeItem(SESSION_KEY);
+  fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
 }
 
 function updateAuthUI() {

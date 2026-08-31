@@ -70,6 +70,12 @@
       font-size: 1.05rem;
       box-shadow: 0 4px 12px rgba(42,157,92,.3);
     }
+    .nav-version-badge {
+      font-size: .68rem; font-weight: 600; color: var(--gray-500);
+      background: var(--gray-100); border: 1px solid var(--gray-300);
+      border-radius: 20px; padding: 2px 8px; letter-spacing: .02em;
+      user-select: none;
+    }
     .nav-links {
       display: flex; align-items: center; gap: 2rem;
       margin-left: auto; margin-right: 2rem; list-style: none;
@@ -422,6 +428,7 @@
   <a href="#" class="nav-logo" aria-label="BankDash home">
     <div class="nav-logo-icon">💰</div>
     <span>BankDash</span>
+    <span class="nav-version-badge" id="nav-version-badge">v—</span>
   </a>
   <ul class="nav-links" aria-label="Main navigation">
     <li><a href="#features">Features</a></li>
@@ -653,6 +660,8 @@
      SCRIPTS
 ════════════════════════════════════════════ -->
 <script>
+  fetch('/api/version').then(function(r){return r.json();}).then(function(d){var b=document.getElementById('nav-version-badge');if(b&&d.version)b.textContent='v'+d.version;}).catch(function(){});
+
   /* ── CONSTANTS ──────────────────────────────── */
   const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const SESSION_KEY  = 'bankdash_auth';

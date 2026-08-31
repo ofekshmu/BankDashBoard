@@ -553,7 +553,6 @@ def index():
     # Check project-root index.html first (landing page with auth)
     for candidate in [
         os.path.join(_PROJECT_DIR, 'index.html'),
-        os.path.join(_HERE, 'html', 'index.html'),
         '/var/task/index.html',
     ]:
         try:

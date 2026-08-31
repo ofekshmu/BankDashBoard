@@ -464,7 +464,7 @@ _PUBLIC_PATHS = {
     '/', '/favicon.ico', '/favicon.svg',
     '/apple-touch-icon.png', '/apple-touch-icon-precomposed.png',
     '/manifest.json', '/design-system.css',
-    '/api/auth/verify', '/api/version',
+    '/api/auth/verify', '/api/auth/check', '/api/version',
 }
 
 
@@ -483,7 +483,16 @@ def _require_auth():
         return None
     if path.startswith('/api/'):
         return jsonify({'ok': False, 'error': 'unauthorized'}), 401
-    return redirect('/')
+    # Page request with no valid server session. The landing page's own
+    # client-side check (localStorage flag) can disagree with the server —
+    # e.g. after a restart regenerates the signing key — which otherwise looks
+    # like an unexplained bounce from "/" straight back to "/". Hand the landing
+    # page enough context to auto-open the password modal and forward the user
+    # to where they were headed once they sign in.
+    _dest = request.path
+    if request.query_string:
+        _dest += '?' + request.query_string.decode('latin-1')
+    return redirect('/?auth=required&next=' + urllib.parse.quote(_dest, safe=''))
 
 
 @app.teardown_request
@@ -516,6 +525,18 @@ def api_auth_logout():
     """Clear the server-side session (client also clears its localStorage flag)."""
     session.clear()
     return jsonify({'ok': True})
+
+
+@app.route('/api/auth/check')
+def api_auth_check():
+    """Report whether this browser's session is authenticated server-side.
+
+    The landing page calls this on load to reconcile its localStorage flag with
+    the real session — the two drift apart whenever the signing key changes
+    (every restart, when FLASK_SECRET_KEY is unset) and a stale localStorage
+    flag would otherwise send month links bouncing back to the landing page.
+    """
+    return jsonify({'authenticated': bool(session.get('authenticated'))})
 
 
 @app.errorhandler(404)

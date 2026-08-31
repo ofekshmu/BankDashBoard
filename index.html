@@ -844,9 +844,42 @@
     }, 3000);
   }
 
+  /* ── RECONCILE CLIENT ⇄ SERVER AUTH ─────────── */
+  async function reconcileAuth() {
+    /* The server session is the source of truth (WebApp.py before_request).
+       Our localStorage flag can outlive it — the dev server regenerates its
+       signing key on every restart unless FLASK_SECRET_KEY is set — so when the
+       server disagrees, drop the flag. Otherwise month links navigate to
+       /general/... , the server rejects it, and the user bounces back here with
+       no explanation. */
+    let serverOk = false;
+    try {
+      const r = await fetch('/api/auth/check', { headers: { 'Accept': 'application/json' } });
+      serverOk = r.ok && (await r.json()).authenticated === true;
+    } catch { return; }  /* network hiccup — leave local state untouched */
+    if (!serverOk && isSignedIn()) {
+      localStorage.removeItem(SESSION_KEY);
+      syncAuthUI();
+    }
+  }
+
   /* ── INIT ───────────────────────────────────── */
-  buildCarousel();
-  syncAuthUI();
+  (function init() {
+    const params  = new URLSearchParams(location.search);
+    const rawNext = params.get('next') || '';
+    /* only same-origin absolute paths — never "//host" or "https://…" */
+    if (/^\/(?!\/)/.test(rawNext)) _pendingUrl = rawNext;
+
+    buildCarousel();
+    syncAuthUI();
+    reconcileAuth();
+
+    if (params.get('auth') === 'required') {
+      openModal(_pendingUrl || null);
+      /* tidy the URL so a refresh doesn't re-pop the modal */
+      history.replaceState(null, '', location.pathname);
+    }
+  })();
 </script>
 </body>
 </html>

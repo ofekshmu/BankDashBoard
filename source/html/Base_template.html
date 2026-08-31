@@ -8553,13 +8553,17 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     _tlCalPick(_tlFmtLocalDate(d.getFullYear(), d.getMonth(), d.getDate()));
   }
 
+  // Capture phase, not bubble: the month-nav buttons re-render the calendar
+  // (dd.innerHTML = …) inside their own onclick, which detaches e.target before
+  // a bubble-phase listener would see it — dd.contains(e.target) would then be
+  // false and this would wrongly close the picker on every ‹ / › click.
   document.addEventListener('click', function(e) {
     var dd = document.getElementById('tl-cal-dropdown');
     var btn = document.getElementById('tl-date-btn');
     if (!dd || dd.classList.contains('hidden')) return;
     if (dd.contains(e.target) || (btn && btn.contains(e.target))) return;
     dd.classList.add('hidden');
-  });
+  }, true);
 
   function _tlRenderTypeToggle() {
     var btn = document.getElementById('tl-type-toggle');

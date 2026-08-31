@@ -75,6 +75,23 @@ An ATM withdrawal creates **two rows**:
 
 ---
 
+## Housing (`/housing`) page — `process_prices` is inconsistently applied
+
+Every housing-page number ultimately comes from one of these calls inside `AppManager.get_global_data()` (the function behind `/api/housing/data`, `AppManager.py` ~line 2357-2398):
+
+| Data (rendered as) | Source | Runs `process_prices`? | Includes `CardTransactions`? |
+|---|---|---|---|
+| Balance/equity/milestones | `mortgage.full_schedule()` — pure amortization math | n/a (no DB) | n/a |
+| `actual_payments()` | `database.get_mortgage_payments()` — raw SQL on `BankTransactions` | No | No |
+| `actual_rental_income()` | `database.get_housing_income()` — raw SQL on `BankTransactions` | No | No |
+| "This month" KPIs (`current_month_data()`: payment/rental/net/month_out/month_income) | raw SQL directly on `BankTransactions` | No | No |
+| All-time KPIs (`alltime_category_data()`: alltime_out/alltime_income) | `get_housing_spending()` + `get_housing_income()` | Card slice only (`get_housing_spending`) | Card slice only |
+| Transactions table **and** the spend/earn business-breakdown pies (`spending_pie_data`/`earning_pie_data`) | `database.get_all_category_transactions()` | Card slice only | Yes |
+
+So most bank-sourced housing numbers bypass `process_prices` entirely (raw `Out`/`Income` from `BankTransactions`), and only the two functions that also pull in `CardTransactions` (`get_housing_spending`, `get_all_category_transactions`) run that card slice through it — because `process_prices`'s payment/flowing/payback logic only exists on the `TableName == 'CardTransactions'` branch (`calculations.py`'s `classify_and_handle`); bank rows just get folded into a signed `Final_Value` with no magnitude change. This means **card-sourced housing transactions never appear in `current_month_data()`, `actual_payments()`, or `actual_rental_income()`** — only in the transactions table and the pies. This asymmetry predates the pie feature (added in a Claude session, commit `4eaad87` on `Dev/GeneralFeatures`) and was not introduced by it; it was flagged to the user and left as-is by their choice, pending a decision on whether bank-only is intentional for mortgage/rent tracking.
+
+---
+
 ## Organizer page regeneration — progress bar
 
 `/api/organizer/regenerate` streams numeric progress to the client.

@@ -953,6 +953,14 @@ body {
 .hs-subtab-btn:hover { border-color:var(--teal); color:var(--teal); }
 .hs-subtab-btn.active { background:var(--teal); border-color:var(--teal); color:#fff; }
 .tl-filter-row { display:flex; gap:8px; margin-bottom:14px; }
+/* Category filter chips: unselected = coloured text only, selected = full colour fill */
+.tl-cf { background:transparent; border-color:transparent; color:var(--text-sub); }
+.tl-cf[data-cat="mortgage"] { color:#3b82f6; }
+.tl-cf[data-cat="general"] { color:#f59e0b; }
+.tl-cf:hover { border-color:currentColor; color:currentColor; }
+.tl-cf[data-cat="all"].active { background:var(--navy); border-color:var(--navy); color:#fff; }
+.tl-cf[data-cat="mortgage"].active { background:#3b82f6; border-color:#3b82f6; color:#fff; }
+.tl-cf[data-cat="general"].active { background:#f59e0b; border-color:#f59e0b; color:#fff; }
 
 /* ── Timeline widget (vertical) ──────────────────────────────────── */
 .tl-toolbar { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; flex-wrap:wrap; }
@@ -1080,8 +1088,10 @@ body {
 .tl-modal-close { position:absolute; top:12px; left:14px; background:none; border:none; font-size:1.15em; cursor:pointer; color:var(--text-muted); }
 .tl-modal-close:hover { color:var(--red); }
 .tl-modal-title { font-size:1em; font-weight:700; padding-left:18px; }
-.tl-field { display:flex; flex-direction:column; gap:4px; }
+#tl-edit-fields { display:flex; flex-direction:column; gap:18px; }
+.tl-field { display:flex; flex-direction:column; gap:5px; }
 .tl-field label { font-size:0.78em; font-weight:600; color:var(--text-sub); }
+.tl-field label .tl-req { color:var(--red); font-weight:700; margin-right:2px; }
 .tl-field input, .tl-field textarea {
   padding:7px 10px; border:1.5px solid var(--border); border-radius:7px;
   font-size:0.87em; font-family:inherit; color:var(--navy); background:var(--white);
@@ -1128,15 +1138,13 @@ body {
 .tl-cal-day.tl-cal-day-today { font-weight:700; text-decoration:underline; }
 .tl-cal-day.tl-cal-day-sel { background:var(--teal); color:#fff; font-weight:700; }
 .tl-type-toggle {
-  display:flex; align-items:center; gap:8px; width:fit-content;
-  border:none; border-radius:8px; padding:9px 18px;
-  color:#fff; font-family:inherit; font-size:.85em; font-weight:700;
+  display:inline-flex; align-items:center; justify-content:center; width:fit-content;
+  border:none; border-radius:7px; padding:6px 13px;
+  color:#fff; font-family:inherit; font-size:.8em; font-weight:600;
   cursor:pointer; transition:background .15s ease, transform .08s ease;
 }
 .tl-type-toggle:hover { filter:brightness(1.06); }
 .tl-type-toggle:active { transform:scale(.96); }
-.tl-type-toggle-dot { width:9px; height:9px; border-radius:50%; background:rgba(255,255,255,.85); flex-shrink:0; }
-.tl-type-toggle-hint { font-size:.82em; font-weight:500; opacity:.75; }
 .tl-btn {
   padding:8px 16px; border-radius:8px; border:1.5px solid var(--border);
   background:var(--white); color:var(--text-sub); font-family:inherit;
@@ -8042,7 +8050,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   }
 
   function _tlFilterBtnHtml(value, label) {
-    return '<button class="hs-subtab-btn' + (_tlCategoryFilter === value ? ' active' : '') + '" onclick="_tlSetCategoryFilter(\'' + value + '\')">' + label + '</button>';
+    return '<button class="hs-subtab-btn tl-cf' + (_tlCategoryFilter === value ? ' active' : '') + '" data-cat="' + value + '" onclick="_tlSetCategoryFilter(\'' + value + '\')">' + label + '</button>';
   }
 
   function _tlApplyCategoryFilter(events) {
@@ -8059,7 +8067,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       panel.innerHTML =
         '<div class="tl-filter-row" id="tl-filter-row">' +
           _tlFilterBtnHtml('all', 'הכל') +
-          _tlFilterBtnHtml('mortgage', 'משכנתא') +
+          _tlFilterBtnHtml('mortgage', 'שבזי') +
           _tlFilterBtnHtml('general', 'כללי') +
         '</div>' +
         '<div id="panel-timeline-content"></div>';
@@ -8366,7 +8374,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   }
 
   var TL_TYPE_COLORS = { mortgage: '#3b82f6', general: '#f59e0b' }; // blue = mortgage, amber = general
-  var TL_TYPE_LABELS = { mortgage: 'משכנתא', general: 'כללי' };
+  var TL_TYPE_LABELS = { mortgage: 'שבזי', general: 'כללי' };
   var _tlModalMode       = 'add';
   var _tlEditingId       = null;
   var _tlEditingCategory = 'general';
@@ -8387,9 +8395,9 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         '<h2 class="tl-modal-title" id="tl-modal-title">הוסף אירוע</h2>' +
         '<div class="tl-view-content" id="tl-view-content" style="display:none"></div>' +
         '<div id="tl-edit-fields">' +
-          '<div class="tl-field"><label>שם האירוע</label><input id="tl-name-inp" type="text" maxlength="80" placeholder="למשל: תשלום מקדמה"></div>' +
+          '<div class="tl-field"><label>שם האירוע <span class="tl-req">*</span></label><input id="tl-name-inp" type="text" maxlength="80" placeholder="למשל: תשלום מקדמה"></div>' +
           '<div class="tl-field">' +
-            '<label>תאריך</label>' +
+            '<label>תאריך <span class="tl-req">*</span></label>' +
             '<div class="tl-cal-wrap">' +
               '<input id="tl-date-inp" type="date" style="display:none">' +
               '<button type="button" class="tl-date-btn" id="tl-date-btn" onclick="_tlCalToggle()">' +
@@ -8399,16 +8407,15 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
               '<div class="tl-cal-dropdown hidden" id="tl-cal-dropdown"></div>' +
             '</div>' +
           '</div>' +
-          '<div class="tl-field"><label>תיאור (אופציונלי)</label><textarea id="tl-desc-inp" placeholder="פרטים נוספים…"></textarea></div>' +
+          '<div class="tl-field"><label>תיאור</label><textarea id="tl-desc-inp" placeholder="פרטים נוספים…"></textarea></div>' +
           '<div class="tl-field">' +
             '<label>סוג אירוע</label>' +
             '<button type="button" class="tl-type-toggle" id="tl-type-toggle" onclick="_tlToggleCategory()">' +
-              '<span class="tl-type-toggle-dot"></span><span id="tl-type-toggle-label"></span>' +
+              '<span id="tl-type-toggle-label"></span>' +
             '</button>' +
-            '<div class="tl-type-toggle-hint">לחיצה מחליפה בין משכנתא לכללי</div>' +
           '</div>' +
           '<div class="tl-field">' +
-            '<label>קשר עסקאות (אופציונלי)</label>' +
+            '<label>קשר עסקאות</label>' +
             '<input id="tl-tx-search-inp" type="text" placeholder="חפש עסקה בסביבת התאריך…" oninput="_tlSearchTx(this.value)">' +
             '<div class="tl-tx-search-results hidden" id="tl-tx-search-results"></div>' +
             '<div class="tl-link-list" id="tl-link-list"></div>' +

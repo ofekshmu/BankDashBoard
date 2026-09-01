@@ -2406,6 +2406,17 @@ body {
   </div>
 </div>
 
+<!-- ── No transaction data modal ────────────────────────── -->
+<div id="no-data-modal-overlay" class="cc-modal-overlay" style="display:none">
+  <div class="cc-modal">
+    <div class="cc-modal-title">⚠️ אין נתונים לחודש זה</div>
+    <div class="cc-modal-body" id="no-data-modal-body">לא נמצאו נתוני עסקאות עבור החודש שנבחר. יש להעלות את הקבצים הרלוונטיים לפני שניתן להציג ניתוח.</div>
+    <div class="cc-modal-btns">
+      <button class="cc-btn cc-btn-yes" onclick="goToLandingPage()">חזרה למסך הבית</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── Main ──────────────────────────────────────────────── -->
 <div class="main">
 
@@ -3060,6 +3071,27 @@ function _monthLabel(year, month) {
   return n[month - 1] + ' ' + year;
 }
 
+// ── No-data modal: shown when a month has no transaction data to analyse ──
+function showNoDataModal(key) {
+  var overlay = document.getElementById('no-data-modal-overlay');
+  var body = document.getElementById('no-data-modal-body');
+  if (body && key) {
+    var d = _keyToDate(key);
+    var label = _monthLabel(d.getFullYear(), d.getMonth() + 1);
+    body.textContent = 'לא נמצאו נתוני עסקאות עבור ' + label + '. יש להעלות את קבצי הבנק/כרטיס האשראי עבור חודש זה כדי לצפות בניתוח.';
+  }
+  if (overlay) overlay.style.display = 'flex';
+}
+
+function hideNoDataModal() {
+  var overlay = document.getElementById('no-data-modal-overlay');
+  if (overlay) overlay.style.display = 'none';
+}
+
+function goToLandingPage() {
+  window.location.href = '/';
+}
+
 function _buildRoller(list) {
   var statusMap = {};
   list.forEach(function(m) { statusMap[m.key] = m.status || 'none'; });
@@ -3617,10 +3649,17 @@ function _listenToRegenSSE(regenKey, btn, streamUrl) {
       }
       return;
     }
-    if (data === '__ERROR__') {
+    if (data === '__ERROR__' || data.indexOf('__ERROR__:no_data:') === 0) {
+      var _isNoData = data.indexOf('__ERROR__:no_data:') === 0;
       es.close(); delete _openSSE[regenKey]; _regenActive = false;
-      console.error('[regen] __ERROR__ received for', regenKey, '— check debug panel for details');
-      appendLog('✗ שגיאה בניתוח', 'err');
+      if (_isNoData) {
+        console.log('[regen] __ERROR__:no_data received for', regenKey);
+        appendLog('✗ אין נתוני עסקאות לחודש זה', 'warn');
+        showNoDataModal(regenKey);
+      } else {
+        console.error('[regen] __ERROR__ received for', regenKey, '— check debug panel for details');
+        appendLog('✗ שגיאה בניתוח', 'err');
+      }
       // Track so navigate path doesn't auto-retrigger regen (user can still click manually)
       _errorMonths[regenKey] = true;
       // Manual cleanup — do NOT call _markGenerating(false) which incorrectly adds status-fresh/gen-done
@@ -3641,10 +3680,12 @@ function _listenToRegenSSE(regenKey, btn, streamUrl) {
         _regenProg.done(false);
       }
       _updateReloadBtnGlobalState();
-      // Auto-open debug panel so the user can see the backend error without hunting for the FAB
-      var _dbgPanel = document.getElementById('debug-panel');
-      if (_dbgPanel && !_dbgPanel.classList.contains('open')) {
-        setTimeout(function() { if (typeof toggleDebugPanel === 'function') toggleDebugPanel(); }, 300);
+      if (!_isNoData) {
+        // Auto-open debug panel so the user can see the backend error without hunting for the FAB
+        var _dbgPanel = document.getElementById('debug-panel');
+        if (_dbgPanel && !_dbgPanel.classList.contains('open')) {
+          setTimeout(function() { if (typeof toggleDebugPanel === 'function') toggleDebugPanel(); }, 300);
+        }
       }
       return;
     }

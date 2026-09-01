@@ -17,6 +17,11 @@ from os import listdir
 import numpy as np
 from Exporter import Exporter
 
+
+class NoTransactionDataError(ValueError):
+    """Raised when a month has no card/bank transaction data to analyse."""
+    pass
+
 # validate_formats and validate_constants inspect static code/config only (Formats.py,
 # categories.json). Run once at import time so each AppManager() instantiation during
 # regen skips the tqdm loops entirely.
@@ -2006,7 +2011,7 @@ class AppManager:
 
         if transactions_df.empty:
             utils.log("No transaction data found for this month — nothing to analyse.", "warning")
-            raise ValueError("No transaction data for this month.")
+            raise NoTransactionDataError("No transaction data for this month.")
 
         _card_raw = utils.get_card_charge_df(t)
         card_validation_df = utils.card_charge_validation(_card_raw, t, tolerance=20)

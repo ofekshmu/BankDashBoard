@@ -2727,7 +2727,7 @@ def run_analysis():
         global _analysis_running, _active_regen_key
         key = None
         try:
-            from AppManager import AppManager
+            from AppManager import AppManager, NoTransactionDataError
             from datetime import datetime
             from dateutil.relativedelta import relativedelta
             from src_utils.utils import utils as _utils
@@ -2761,6 +2761,9 @@ def run_analysis():
 
             _regen_tracker.done(key)
             _log_queue.put(f'__DONE__:{key}')
+
+        except NoTransactionDataError:
+            _log_queue.put(f'__ERROR__:no_data:{key}')
 
         except Exception as exc:
             import traceback
@@ -2805,7 +2808,7 @@ def run_analysis_stream():
         _thread_log_queue.queue = local_q
         key = None
         try:
-            from AppManager import AppManager
+            from AppManager import AppManager, NoTransactionDataError
             from datetime import datetime
             from dateutil.relativedelta import relativedelta
             from src_utils.utils import utils as _utils
@@ -2838,6 +2841,8 @@ def run_analysis_stream():
 
             _regen_tracker.done(key)
             local_q.put(f'__DONE__:{key}')
+        except NoTransactionDataError:
+            local_q.put(f'__ERROR__:no_data:{key}')
         except Exception as exc:
             import traceback
             _log_error(exc, traceback.format_exc())

@@ -2897,7 +2897,7 @@ def log_stream():
             safe = msg.replace('\r\n', '↵').replace('\n', '↵').replace('\r', '↵')
             yield f"data: {safe}\n\n"
 
-            if msg.startswith('__DONE__') or msg == '__ERROR__':
+            if msg.startswith('__DONE__') or msg.startswith('__ERROR__'):
                 break
 
     return Response(
@@ -4625,7 +4625,7 @@ def files_insert():
                     f'{f}: {r}' for f, r in reasons if r != 'matched'
                 ) or 'לא ניתן לאבחן'
                 utils.log(f'קובץ לא מזוהה: {filename} — {details}', 'error')
-                _log_queue.put('__ERROR__')
+                _log_queue.put(f'__ERROR__:קובץ לא מזוהה — {details}')
                 return
 
             fmt_data   = Formats.FORMATS[fmt]
@@ -4640,7 +4640,7 @@ def files_insert():
                 context.setFile(Card(filename, fmt_data))
             else:
                 utils.log('סוג קובץ לא נתמך', 'error')
-                _log_queue.put('__ERROR__')
+                _log_queue.put('__ERROR__:סוג קובץ לא נתמך')
                 return
 
             Context.counter += 1
@@ -4651,12 +4651,12 @@ def files_insert():
                 utils.handle_direct_bank_withdrawals()
                 utils.tagger_refresh()
 
-            _log_queue.put(f'__DONE__:{filename}' if success else '__ERROR__')
+            _log_queue.put(f'__DONE__:{filename}' if success else '__ERROR__:העיבוד נכשל')
 
         except Exception as e:
             import traceback
             _log_error(e, traceback.format_exc())
-            _log_queue.put('__ERROR__')
+            _log_queue.put(f'__ERROR__:{str(e)[:200] or type(e).__name__}')
         finally:
             _bt.input = _orig_input
             _INSERT_LOCK.release()
@@ -5025,6 +5025,9 @@ def api_bills_entries():
             note              = body.get('note', ''),
             is_filler         = body.get('transaction_id') is None,
         )
+        if eid is None:
+            # A concurrent request already created an entry for this exact span.
+            return jsonify({'ok': False, 'error': 'רשומה עם אותו טווח חודשים כבר קיימת'})
         db.commit_changes()
         return jsonify({'ok': True, 'id': eid})
     except Exception as e:
@@ -5049,7 +5052,7 @@ def api_bills_entry(entry_id):
     try:
         current = db.cursor.execute(
             "SELECT BillType_ID, Transaction_Table, Transaction_ID, Amount, Note, "
-            "Secondary_Transaction_Table, Secondary_Transaction_ID "
+            "Secondary_Transaction_Table, Secondary_Transaction_ID, Start_Month, End_Month "
             "FROM BillEntries WHERE ID=%s", (entry_id,)
         ).fetchone()
         if not current:
@@ -5074,11 +5077,18 @@ def api_bills_entry(entry_id):
         # transaction; setting a price/note alone can't flip it.
         is_filler = transaction_id is None
 
-        overlap = db.check_bill_entry_overlap(
-            current[0], body['start_month'], body['end_month'], exclude_id=entry_id
-        )
-        if overlap:
-            return jsonify({'ok': False, 'error': overlap})
+        # Only re-check neighbour overlap when the entry is actually being moved.
+        # If Start/End month are unchanged, the entry already legitimately holds
+        # that span — linking/unlinking a transaction or editing note/amount
+        # must not be blocked by some other entry that already overlaps it.
+        span_unchanged = (str(body['start_month']) == str(current[7])
+                          and str(body['end_month']) == str(current[8]))
+        if not span_unchanged:
+            overlap = db.check_bill_entry_overlap(
+                current[0], body['start_month'], body['end_month'], exclude_id=entry_id
+            )
+            if overlap:
+                return jsonify({'ok': False, 'error': overlap})
 
         db.update_bill_entry(
             entry_id,

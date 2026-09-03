@@ -1396,13 +1396,25 @@ body.resize-end    { cursor: ew-resize !important; }
     <div class="field-row">
       <div class="field">
         <label>מחודש</label>
-        <input id="sug-start" type="month">
+        <div class="date-mid-wrap">
+          <input id="sug-start" type="month">
+          <button type="button" class="mid-toggle" id="sug-start-mid" onclick="toggleMid('sug-start-mid')">אמצע</button>
+        </div>
       </div>
       <div class="field">
         <label>עד חודש</label>
-        <input id="sug-end" type="month">
+        <div class="date-mid-wrap">
+          <input id="sug-end" type="month">
+          <button type="button" class="mid-toggle" id="sug-end-mid" onclick="toggleMid('sug-end-mid')">אמצע</button>
+        </div>
       </div>
     </div>
+
+    <div class="field">
+      <label>הערה (אופציונלי)</label>
+      <textarea id="sug-note" placeholder="הערה…"></textarea>
+    </div>
+
     <div class="inline-status" id="sug-add-status"></div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal('modal-sug-add')">ביטול</button>
@@ -1439,6 +1451,8 @@ let editAttachTx   = null;   // tx being attached to a filler entry in edit moda
 let editSecondaryTx = null;  // secondary tx staged for the currently-open edit entry
 let sugItems       = [];     // cache of last-loaded suggestion objects
 let txSearchTimer  = null;
+let _entrySaving   = false;   // reentrancy guard: blocks a double-submit from
+                             // racing two "add entry" POSTs past the overlap check
 
 // Duplicate transaction tracking
 let dupEntryIds = new Set();  // entry IDs whose transaction is used by >1 entry
@@ -3036,11 +3050,11 @@ function renderSuggestions(items) {
         <span class="sug-amt">₪${Math.abs(it.amount).toLocaleString('he-IL',{maximumFractionDigits:0})}</span>
         <div class="sug-acts">
           <button class="btn btn-primary btn-xs"
-            onclick="openSugAdd('${it.table}','${it.id}','${esc(it.name)}','${it.date}','${it.amount}','${esc(it.matched_name)}')">
+            onclick="openSugAdd(${aq(it.table)},${aq(it.id)},${aq(it.name)},${aq(it.date)},${aq(it.amount)},${aq(it.matched_name)})">
             + הוסף כחשבון
           </button>
           <button class="btn btn-ghost btn-xs"
-            onclick="dismissSuggestion('${esc(it.name)}','${it.table}-${it.id}')">
+            onclick="dismissSuggestion(${aq(it.name)},${aq(it.table + '-' + it.id)})">
             לא חשבון
           </button>
         </div>
@@ -3075,10 +3089,12 @@ function openSugAdd(table, id, name, date, amount, matchedName) {
   document.getElementById('sug-disp-amt').textContent  =
     '₪' + Math.abs(parseFloat(amount)).toLocaleString('he-IL', {maximumFractionDigits:0});
 
-  // Pre-set months from tx date
+  // Pre-set months from tx date; both mid-month toggles start cleared
+  // (a transaction date carries no half-month part).
   const txMonth = (date || '').slice(0, 7);
-  document.getElementById('sug-start').value = txMonth;
-  document.getElementById('sug-end').value   = txMonth;
+  setMidToggle('sug-start', 'sug-start-mid', txMonth);
+  setMidToggle('sug-end',   'sug-end-mid',   txMonth);
+  document.getElementById('sug-note').value = '';
 
   populateTypeSelect('sug-type-sel');
 
@@ -3095,16 +3111,20 @@ function openSugAdd(table, id, name, date, amount, matchedName) {
 }
 
 async function submitSugAdd() {
+  if (_entrySaving) return;
+  _entrySaving = true;
+  try {
   const table  = document.getElementById('sug-tx-table').value;
   const txId   = parseInt(document.getElementById('sug-tx-id').value);
   const txName = document.getElementById('sug-tx-name').value;
   const typeId = parseInt(document.getElementById('sug-type-sel').value);
-  const start  = document.getElementById('sug-start').value;
-  const end    = document.getElementById('sug-end').value;
+  const start  = getMonthWithMid('sug-start', 'sug-start-mid');
+  const end    = getMonthWithMid('sug-end',   'sug-end-mid');
+  const note   = document.getElementById('sug-note').value.trim();
   const st     = document.getElementById('sug-add-status');
 
   if (!typeId || !start || !end) { setStatus(st, 'err', 'נא למלא את כל השדות'); return; }
-  if (start > end) { setStatus(st, 'err', 'תאריך התחלה לאחר הסיום'); return; }
+  if (normS(start) > normE(end)) { setStatus(st, 'err', 'תאריך התחלה לאחר הסיום'); return; }
 
   const txTable = table === 'BankTransactions' ? 'BankTransactions' : 'CardTransactions';
   const conflict = findOverlapEntry(typeId, start, end);
@@ -3127,7 +3147,7 @@ async function submitSugAdd() {
     const r = await api('PUT', `/api/bills/entries/${conflict.id}`, {
       start_month:       conflict.start_month,
       end_month:         conflict.end_month,
-      note:              conflict.note || '',
+      note:              note || conflict.note || '',
       transaction_table: txTable,
       transaction_id:    txId,
       is_filler:         false,
@@ -3159,6 +3179,7 @@ async function submitSugAdd() {
     bill_type_id:      typeId,
     start_month:       start,
     end_month:         end,
+    note:              note,
     transaction_table: txTable,
     transaction_id:    txId,
     is_filler:         false,
@@ -3169,6 +3190,9 @@ async function submitSugAdd() {
     loadSuggestions();
   } else {
     setStatus(st, 'err', r.error || 'שגיאה');
+  }
+  } finally {
+    _entrySaving = false;
   }
 }
 
@@ -3647,42 +3671,48 @@ function clientOverlapCheck(typeId, start, end, excludeId) {
 }
 
 async function submitEntry() {
-  const typeId = parseInt(document.getElementById('entry-type-sel').value);
-  const start  = getMonthWithMid('entry-start', 'entry-start-mid');
-  const end    = getMonthWithMid('entry-end',   'entry-end-mid');
-  const st     = document.getElementById('entry-status');
+  if (_entrySaving) return;
+  _entrySaving = true;
+  try {
+    const typeId = parseInt(document.getElementById('entry-type-sel').value);
+    const start  = getMonthWithMid('entry-start', 'entry-start-mid');
+    const end    = getMonthWithMid('entry-end',   'entry-end-mid');
+    const st     = document.getElementById('entry-status');
 
-  if (!typeId) { setStatus(st, 'err', 'נא לבחור סוג חשבון'); return; }
-  if (!start || !end) { setStatus(st, 'err', 'נא לבחור תאריכים'); return; }
-  if (normS(start) > normE(end)) { setStatus(st, 'err', 'תאריך התחלה לאחר הסיום'); return; }
-  const overlapErr = clientOverlapCheck(typeId, start, end);
-  if (overlapErr) { setStatus(st, 'err', overlapErr); return; }
+    if (!typeId) { setStatus(st, 'err', 'נא לבחור סוג חשבון'); return; }
+    if (!start || !end) { setStatus(st, 'err', 'נא לבחור תאריכים'); return; }
+    if (normS(start) > normE(end)) { setStatus(st, 'err', 'תאריך התחלה לאחר הסיום'); return; }
+    const overlapErr = clientOverlapCheck(typeId, start, end);
+    if (overlapErr) { setStatus(st, 'err', overlapErr); return; }
 
-  const body = {
-    bill_type_id: typeId, start_month: start, end_month: end,
-    note: document.getElementById('filler-note').value.trim(),
-  };
-  if (selectedTx) {
-    body.transaction_table = selectedTx.source === 'bank' ? 'BankTransactions' : 'CardTransactions';
-    body.transaction_id    = selectedTx.tx_id;
-    body.amount            = Math.abs(selectedTx.amount);
-    body.is_filler         = false;
-  } else {
-    body.is_filler = true;
-    const expAmtEl = document.getElementById('entry-expected-amount');
-    if (expAmtEl) {
-      const v = parseFloat(expAmtEl.value);
-      body.amount = isNaN(v) ? null : v;
+    const body = {
+      bill_type_id: typeId, start_month: start, end_month: end,
+      note: document.getElementById('filler-note').value.trim(),
+    };
+    if (selectedTx) {
+      body.transaction_table = selectedTx.source === 'bank' ? 'BankTransactions' : 'CardTransactions';
+      body.transaction_id    = selectedTx.tx_id;
+      body.amount            = Math.abs(selectedTx.amount);
+      body.is_filler         = false;
+    } else {
+      body.is_filler = true;
+      const expAmtEl = document.getElementById('entry-expected-amount');
+      if (expAmtEl) {
+        const v = parseFloat(expAmtEl.value);
+        body.amount = isNaN(v) ? null : v;
+      }
     }
-  }
 
-  const r = await api('POST', '/api/bills/entries', body);
-  if (r.ok) {
-    closeModal('modal-entry');
-    await loadEntries();
-    loadSuggestions();
-  } else {
-    setStatus(st, 'err', r.error || 'שגיאה');
+    const r = await api('POST', '/api/bills/entries', body);
+    if (r.ok) {
+      closeModal('modal-entry');
+      await loadEntries();
+      loadSuggestions();
+    } else {
+      setStatus(st, 'err', r.error || 'שגיאה');
+    }
+  } finally {
+    _entrySaving = false;
   }
 }
 
@@ -3699,8 +3729,15 @@ async function submitEdit() {
   if (normS(start) > normE(end)) { setStatus(st, 'err', 'תאריך התחלה לאחר הסיום'); return; }
   const entry = billEntries.find(e => e.id === id);
   if (entry) {
-    const overlapErr = clientOverlapCheck(entry.bill_type_id, start, end, id);
-    if (overlapErr) { setStatus(st, 'err', overlapErr); return; }
+    // Only guard against neighbour overlap when the entry is actually being
+    // moved. If the span is unchanged, attaching/detaching a transaction or
+    // editing note/amount must not be blocked by some other entry (e.g. a
+    // leftover duplicate filler) that already overlaps this same span.
+    const spanChanged = start !== entry.start_month || end !== entry.end_month;
+    if (spanChanged) {
+      const overlapErr = clientOverlapCheck(entry.bill_type_id, start, end, id);
+      if (overlapErr) { setStatus(st, 'err', overlapErr); return; }
+    }
   }
   const body = { start_month: start, end_month: end, note };
   if (editAttachTx) {
@@ -3931,6 +3968,15 @@ function esc(s) {
     .replace(/</g,'&lt;')
     .replace(/>/g,'&gt;')
     .replace(/"/g,'&quot;');
+}
+
+// Encode a value as a complete JS string literal that is safe to drop into a
+// double-quoted inline on* attribute. JSON.stringify handles ' \ newlines etc.;
+// swapping the wrapping/inner " for &quot; keeps the HTML attribute intact
+// (browser decodes it back to " before the JS parses). Same trick as the
+// JSON.stringify(it).replace(/"/g,'&quot;') calls used for tx-row handlers.
+function aq(s) {
+  return JSON.stringify(String(s ?? '')).replace(/"/g,'&quot;');
 }
 
 // Close modals on overlay click

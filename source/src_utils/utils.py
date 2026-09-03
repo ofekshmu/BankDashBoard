@@ -4809,52 +4809,59 @@ function restartServer(btn){{
     @staticmethod
     def auto_tagger(name: str, category: str = None) -> str:
         """
-        The function is responsible for editing the json config file depending on the inputs.
-        The function receives:
-        a Bussines name, and a category name.
-        In case category was not inserted, or specified as None, json file will be updated with
-        name: None
-        In case both were given, and not None, the pair will be appended or changed depending on
-        the current status of the keys on the dictionary.
+        Read or update the auto-tag rule for a business name in the JSON config.
 
-        The function returns the category that is currently associated with the given name, after the update.
+        The name is matched after stripping surrounding whitespace, so lookups
+        stay in sync with the web tagger endpoints (which also strip the name).
 
+        category is None  -> READ ONLY. Returns the rule currently associated
+            with the name (a category string, "No Match", or None when the name
+            has no rule / an unresolved rule). It never creates an entry and
+            never writes the file. A lookup must have no side effects: the
+            previous behaviour stamped every looked-up-but-unknown name into the
+            file as ``name: null``, so a single auto-tag pass would fill the
+            config with dead null rules for every still-untagged transaction.
+
+        category given    -> upserts name -> category and returns the rule in
+            effect afterwards. If the name already maps to a different real
+            category or to "No Match", the change is confirmed interactively
+            before being applied.
         """
+        key = (name or '').strip()
+
         if os.path.exists(Paths.AUTO_TAGGER_JSON):
             with open(Paths.AUTO_TAGGER_JSON, 'r', encoding='utf-8') as f:
                 at_dict = json.load(f)
-
         else:
             at_dict = {}
 
+        # Pure read — no entry creation, no file write.
         if category is None:
-            if name not in at_dict:
-                at_dict[name] = None
-        else:
-            if name in at_dict:
-                match at_dict[name]:
-                    case None:
-                        at_dict[name] = category
-                    case "No Match":
-                        msg =f"The name {name} is already matched with a 'No Match' string. \
-                            but you are trying to change it to {category}, do you aprrove?"
-                        if utils.template_menu(['no', 'yes'], msg):
-                            at_dict[name] = category
-                    case _:
-                        msg =f"The name {name} is already matched with the category \
-                            {utils.heb_conversion(dict_at[name])} but you are trying \
-                            to change it to {category}, do you aprrove?"
-                        if utils.template_menu(['no', 'yes'], msg):
-                            at_dict[name] = category
-            else:
-                at_dict[name] = category
+            return at_dict.get(key)
 
+        if key in at_dict:
+            match at_dict[key]:
+                case None:
+                    at_dict[key] = category
+                case "No Match":
+                    msg =f"The name {name} is already matched with a 'No Match' string. \
+                        but you are trying to change it to {category}, do you aprrove?"
+                    if utils.template_menu(['no', 'yes'], msg):
+                        at_dict[key] = category
+                case _:
+                    msg =f"The name {name} is already matched with the category \
+                        {utils.heb_conversion(at_dict[key])} but you are trying \
+                        to change it to {category}, do you aprrove?"
+                    if utils.template_menu(['no', 'yes'], msg):
+                        at_dict[key] = category
+        else:
+            at_dict[key] = category
 
         with open(Paths.AUTO_TAGGER_JSON, 'w', encoding='utf-8') as f:
             json.dump(at_dict, f, ensure_ascii=False)
         #utils.log(f"The following key:value pair has been updated in auto_tagger.json to -> {utils.heb_conversion(name)} : {category}",'system')
 
-        return at_dict[name]
+        return at_dict[key]
 
     @staticmethod
     def tagger_refresh() -> list:

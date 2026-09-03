@@ -2636,6 +2636,36 @@ class DataBase:
         """)
         self.connection.commit()
 
+        # A check-then-insert race in the "add bill entry" path (no lock, no DB
+        # constraint) could store two identical entries for the same bill-type
+        # month span — both then block each other from ever being filled. Drop
+        # the empty duplicates (keep the lowest ID, never touch one that already
+        # carries a transaction) and enforce span-uniqueness at the DB so it
+        # can't recur.
+        self.cursor.execute("""
+            DELETE FROM BillEntries a
+            USING BillEntries b
+            WHERE a.BillType_ID = b.BillType_ID
+              AND a.Start_Month = b.Start_Month
+              AND a.End_Month   = b.End_Month
+              AND a.ID <> b.ID
+              AND a.Transaction_ID IS NULL
+              AND a.Secondary_Transaction_ID IS NULL
+              AND (b.Transaction_ID IS NOT NULL OR b.ID < a.ID)
+        """)
+        self.connection.commit()
+        try:
+            self.cursor.execute("""
+                CREATE UNIQUE INDEX IF NOT EXISTS ux_billentries_span
+                ON BillEntries (BillType_ID, Start_Month, End_Month)
+            """)
+            self.connection.commit()
+        except Exception:
+            # Only reachable if duplicates remain that BOTH carry a transaction —
+            # can't be auto-resolved. Leave the index off rather than break
+            # bill-table setup for everything else.
+            self.connection.rollback()
+
     def get_bill_types(self) -> list:
         c = self.connection.cursor()
         c.execute("SELECT ID, Name, Color, BillGroup FROM BillTypes ORDER BY Name")
@@ -2807,11 +2837,16 @@ class DataBase:
         transaction_table=None, transaction_id=None, amount=None,
         note: str = '', is_filler: bool = False,
     ) -> int:
+        # ON CONFLICT closes the check-then-insert race window: if a concurrent
+        # request already inserted the same (bill type, span) between the
+        # caller's overlap check and here, this insert is a no-op and returns
+        # no row. Caller must treat a None return as "duplicate, rejected".
         row = self.cursor.execute("""
             INSERT INTO BillEntries
                 (BillType_ID, Start_Month, End_Month, Transaction_Table,
                  Transaction_ID, Amount, Note, Is_Filler)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (BillType_ID, Start_Month, End_Month) DO NOTHING
             RETURNING ID
         """, (
             bill_type_id, start_month, end_month,
@@ -2819,7 +2854,7 @@ class DataBase:
             float(amount) if amount is not None else None,
             note or None, int(is_filler),
         )).fetchone()
-        return row[0]
+        return row[0] if row else None
 
     def update_bill_entry(
         self, entry_id: int, start_month: str, end_month: str,

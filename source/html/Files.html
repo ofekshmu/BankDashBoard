@@ -337,6 +337,51 @@ body {
 .toast.ok  { background: #2e7d32; }
 .toast.err { background: var(--red); }
 
+/* ── Process-all summary modal ────────────────────────────────── */
+.summary-overlay {
+  position: fixed; inset: 0; z-index: 10000;
+  background: rgba(30,42,74,.45);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+  opacity: 0; pointer-events: none; transition: opacity .18s ease;
+}
+.summary-overlay.open { opacity: 1; pointer-events: auto; }
+.summary-modal {
+  background: var(--white); border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+  width: min(460px, 100%); max-height: 80vh;
+  display: flex; flex-direction: column;
+  animation: fadeIn .18s ease;
+}
+.summary-title {
+  font-size: 1.05em; font-weight: 700; color: var(--navy);
+  padding: 18px 22px 12px; border-bottom: 1px solid var(--border);
+}
+.summary-body { padding: 16px 22px; overflow-y: auto; }
+.summary-headline {
+  font-size: .95em; font-weight: 700; color: var(--green);
+  margin-bottom: 6px;
+}
+.summary-headline.has-fail { color: var(--navy); }
+.summary-sec-title {
+  font-size: .78em; font-weight: 700; margin: 12px 0 5px;
+  text-transform: none; letter-spacing: .02em;
+}
+.summary-sec-title.err { color: var(--red); }
+.summary-sec-title.ok  { color: var(--text-muted); }
+.summary-list { list-style: none; display: flex; flex-direction: column; gap: 4px; }
+.summary-list li {
+  display: flex; flex-direction: column; gap: 2px;
+  font-size: .84em; padding: 5px 8px;
+  background: var(--bg); border-radius: var(--radius-sm);
+}
+.summary-file   { font-weight: 600; color: var(--navy); word-break: break-all; }
+.summary-reason { font-size: .92em; color: var(--red); }
+.summary-actions {
+  padding: 12px 22px 18px; display: flex; justify-content: flex-end;
+  border-top: 1px solid var(--border);
+}
+
 /* ── DB-files section ─────────────────────────────────────────── */
 
 /* KPI row */
@@ -635,6 +680,17 @@ body {
   <div class="lf-feed" id="lf-feed"></div>
 </div>
 
+<!-- Process-all summary modal -->
+<div class="summary-overlay" id="summary-overlay">
+  <div class="summary-modal">
+    <div class="summary-title">עיבוד קבצים הושלם</div>
+    <div class="summary-body" id="summary-body"></div>
+    <div class="summary-actions">
+      <button class="btn btn-primary" onclick="closeProcessSummary()">אישור</button>
+    </div>
+  </div>
+</div>
+
 <!-- Hidden file input -->
 <input type="file" id="file-upload-input" multiple
   accept=".xls,.xlsx,.csv"
@@ -890,80 +946,94 @@ function _classifyLog(msg) {
   return '';
 }
 
+// ── Process one file ──────────────────────────────────────────
+// Runs a single file through /api/files/insert with its live log stream,
+// flips that file's row button to ✓/✗, and resolves to {filename, ok, reason}.
+// Never rejects — a failure is reported through the resolved object.
+function _processOneFile(filename) {
+  return new Promise((resolve) => {
+    const btn = document.getElementById('pbtn-' + CSS.escape(filename));
+    if (btn) {
+      btn.classList.remove('done', 'failed');
+      btn.classList.add('parsing');
+      btn.innerHTML = '<span class="spin-icon"></span> מעבד…';
+      btn.disabled  = true;
+    }
+
+    // Point the floating log panel at this file
+    document.getElementById('lf-feed').innerHTML = '';
+    document.getElementById('lf-title').textContent = filename;
+    const sp = document.getElementById('lf-spinner');
+    if (sp) sp.className = 'lf-spinner';
+    document.getElementById('log-float').classList.add('visible');
+
+    let lastErr = '';
+    let settled = false;
+    const es = new EventSource('/api/logs');
+
+    function finish(ok, reason) {
+      if (settled) return;
+      settled = true;
+      es.close();
+      if (ok) {
+        if (btn) { btn.classList.remove('parsing'); btn.classList.add('done'); btn.innerHTML = '✓ הוכנס'; }
+        appendLog('✓ הקובץ הוכנס בהצלחה', 'done');
+        if (sp) sp.className = 'lf-spinner done';
+      } else {
+        if (btn) { btn.classList.remove('parsing'); btn.classList.add('failed'); btn.innerHTML = '✗ שגיאה'; btn.disabled = false; }
+        appendLog('✗ ' + (reason || 'שגיאה בעיבוד הקובץ'), 'err');
+        if (sp) sp.className = 'lf-spinner error';
+      }
+      resolve({ filename: filename, ok: ok, reason: ok ? '' : (reason || lastErr || 'שגיאה לא ידועה') });
+    }
+
+    es.onmessage = function(evt) {
+      const data = evt.data;
+      if (!data || data === '__CONNECTED__') return;
+      if (data.indexOf('__DONE__') === 0) { finish(true); return; }
+      if (data.indexOf('__ERROR__') === 0) {
+        finish(false, data.length > '__ERROR__:'.length ? data.slice('__ERROR__:'.length) : '');
+        return;
+      }
+      if (_classifyLog(data) === 'err') lastErr = data.replace('[ERROR]', '').trim();
+      appendLog(data);
+    };
+    es.onerror = function() { finish(false, 'שגיאת חיבור לזרם הלוג'); };
+
+    // Retry the POST a few times if the insert lock is still held by the
+    // previous file's worker (its lock release trails the __DONE__ signal).
+    let attempt = 0;
+    (function post() {
+      attempt++;
+      fetch('/api/files/insert', {
+        method:  'POST',
+        headers: {'Content-Type': 'application/json'},
+        body:    JSON.stringify({ filename: filename }),
+      }).then(r => r.json()).then(data => {
+        if (data && data.ok === false) {
+          const busy = (data.error || '').indexOf('כבר מתבצע') !== -1;
+          if (busy && attempt < 5) { setTimeout(post, 400); return; }
+          finish(false, data.error || 'כישלון');
+        }
+        // otherwise the worker is running — the SSE handler resolves it
+      }).catch(e => finish(false, 'שגיאת רשת: ' + e.message));
+    })();
+  });
+}
+
 // ── Insert single file ─────────────────────────────────────────
 async function insertFile(filename) {
   if (_parsing) { toast('כבר מתבצע עיבוד', 'err'); return; }
   _parsing = true;
-
-  const btnId = 'pbtn-' + CSS.escape(filename);
-  const btn   = document.getElementById(btnId);
-  if (btn) {
-    btn.classList.add('parsing');
-    btn.innerHTML = '<span class="spin-icon"></span> מעבד…';
-    btn.disabled  = true;
-  }
-
-  showLogFloat('מעבד קובץ…');
-
-  // Open SSE stream before POST so no messages are missed
-  const es = new EventSource('/api/logs');
-
-  function _onDone(success) {
-    es.close();
-    _parsing = false;
-    if (success) {
-      if (btn) { btn.classList.remove('parsing'); btn.classList.add('done'); btn.innerHTML = '✓ הוכנס'; }
-      appendLog('✓ הקובץ הוכנס בהצלחה', 'done');
-      var sp = document.getElementById('lf-spinner');
-      if (sp) sp.className = 'lf-spinner done';
-      toast(`✅ ${filename} הוכנס בהצלחה`, 'ok');
-      hideLogFloat(2000);
-      setTimeout(scanFiles, 1200);
-    } else {
-      if (btn) { btn.classList.remove('parsing'); btn.classList.add('failed'); btn.innerHTML = '✗ שגיאה'; btn.disabled = false; }
-      appendLog('✗ שגיאה בעיבוד הקובץ', 'err');
-      var sp = document.getElementById('lf-spinner');
-      if (sp) sp.className = 'lf-spinner error';
-      toast('שגיאה בעיבוד הקובץ', 'err');
-      hideLogFloat(3500);
-    }
-  }
-
-  es.onmessage = function(evt) {
-    const data = evt.data;
-    if (!data || data === '__CONNECTED__') return;
-    if (data.startsWith('__DONE__')) { _onDone(true);  return; }
-    if (data === '__ERROR__')        { _onDone(false); return; }
-    appendLog(data);
-  };
-  es.onerror = function() { _onDone(false); };
-
-  try {
-    const res  = await fetch('/api/files/insert', {
-      method:  'POST',
-      headers: {'Content-Type': 'application/json'},
-      body:    JSON.stringify({filename}),
-    });
-    const data = await res.json();
-
-    if (data.ok === false) {
-      // Immediate failure (e.g. busy lock) before worker even started
-      es.close();
-      _parsing = false;
-      if (btn) { btn.classList.remove('parsing'); btn.classList.add('failed'); btn.innerHTML = '✗ שגיאה'; btn.disabled = false; }
-      appendLog('[ERROR] ' + (data.error || 'כישלון'), 'err');
-      var sp = document.getElementById('lf-spinner');
-      if (sp) sp.className = 'lf-spinner error';
-      toast('שגיאה: ' + (data.error || 'כישלון לא ידוע'), 'err');
-      hideLogFloat(3500);
-    }
-    // otherwise worker is running — SSE onmessage handles the rest
-  } catch (e) {
-    es.close();
-    _parsing = false;
-    if (btn) { btn.classList.remove('parsing'); btn.classList.add('failed'); btn.innerHTML = '✗ שגיאה'; btn.disabled = false; }
-    toast('שגיאת רשת: ' + e.message, 'err');
-    hideLogFloat(0);
+  const r = await _processOneFile(filename);
+  _parsing = false;
+  if (r.ok) {
+    toast(`✅ ${filename} הוכנס בהצלחה`, 'ok');
+    hideLogFloat(2000);
+    setTimeout(scanFiles, 1200);
+  } else {
+    toast('שגיאה בעיבוד הקובץ: ' + r.reason, 'err');
+    hideLogFloat(3500);
   }
 }
 
@@ -976,42 +1046,60 @@ async function insertAll() {
   _parsing = true;
   const allBtn = document.getElementById('insert-all-btn');
   allBtn.disabled  = true;
-  allBtn.innerHTML = '<span class="spin-icon"></span> מעבד…';
 
-  // Mark all new file buttons as parsing
+  // Mark every new-file button as queued
   newOnes.forEach(f => {
     const btn = document.getElementById('pbtn-' + CSS.escape(f.name));
     if (btn) {
+      btn.classList.remove('done', 'failed');
       btn.classList.add('parsing');
       btn.innerHTML = '<span class="spin-icon"></span>';
       btn.disabled  = true;
     }
   });
 
-  try {
-    const res  = await fetch('/api/files/insert-all', {method:'POST'});
-    const data = await res.json();
-
-    if (data.ok) {
-      const results = data.results || [];
-      let ok = 0, fail = 0;
-      results.forEach(r => r.ok ? ok++ : fail++);
-      toast(
-        ok   > 0 ? `✅ ${ok} קבצים הוכנסו בהצלחה` + (fail > 0 ? ` · ${fail} נכשלו` : '') :
-        fail > 0 ? `שגיאה: ${fail} קבצים נכשלו` : 'אין קבצים חדשים',
-        ok > 0 && fail === 0 ? 'ok' : fail > 0 ? 'err' : undefined
-      );
-      setTimeout(scanFiles, 1200);
-    } else {
-      toast('שגיאה: ' + (data.error || 'כישלון'), 'err');
-    }
-  } catch (e) {
-    toast('שגיאת רשת: ' + e.message, 'err');
-  } finally {
-    _parsing = false;
-    allBtn.disabled  = false;
-    allBtn.innerHTML = '▶ עבד את כולם';
+  const results = [];
+  for (let i = 0; i < newOnes.length; i++) {
+    allBtn.innerHTML = `<span class="spin-icon"></span> מעבד ${i + 1}/${newOnes.length}…`;
+    results.push(await _processOneFile(newOnes[i].name));
   }
+
+  _parsing = false;
+  allBtn.disabled  = false;
+  allBtn.innerHTML = '▶ עבד את כולם';
+  hideLogFloat(600);
+  showProcessSummary(results);
+}
+
+// ── Process-all summary modal ─────────────────────────────────
+function showProcessSummary(results) {
+  const total    = results.length;
+  const okList   = results.filter(r => r.ok);
+  const failList = results.filter(r => !r.ok);
+
+  let html = `<div class="summary-headline${failList.length ? ' has-fail' : ''}">` +
+    `${okList.length} מתוך ${total} קבצים עובדו בהצלחה</div>`;
+
+  if (failList.length) {
+    html += `<div class="summary-sec-title err">נכשלו (${failList.length}):</div>` +
+      '<ul class="summary-list">' + failList.map(r =>
+        `<li><span class="summary-file">✗ ${esc(r.filename)}</span>` +
+        `<span class="summary-reason">${esc(r.reason || 'שגיאה לא ידועה')}</span></li>`
+      ).join('') + '</ul>';
+  }
+  if (okList.length) {
+    html += `<div class="summary-sec-title ok">הוכנסו (${okList.length}):</div>` +
+      '<ul class="summary-list">' + okList.map(r =>
+        `<li><span class="summary-file">✓ ${esc(r.filename)}</span></li>`
+      ).join('') + '</ul>';
+  }
+
+  document.getElementById('summary-body').innerHTML = html;
+  document.getElementById('summary-overlay').classList.add('open');
+}
+function closeProcessSummary() {
+  document.getElementById('summary-overlay').classList.remove('open');
+  scanFiles();   // back to the folder listing
 }
 
 // ── Upload ──────────────────────────────────────────────────────

@@ -1953,16 +1953,24 @@ function showTagAllPrompt(key, name, category) {
 async function confirmTagAll(key, name, category, yes) {
   if (yes) {
     await _doTagAll(name, category);
-  } else {
-    // Save "No Match" so we never ask again for this name
-    fetch('/api/tagger/save-rule', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ name, rule: 'No Match' })
-    }).catch(() => {});
-    showToast(`תויג: "${category}"`, 'success');
-    exitRow(key);
+    return;
   }
+  // "No" — persist a "No Match" rule so this name is never asked about again.
+  // This write must be awaited and verified: if it is silently dropped (the
+  // old fire-and-forget call), the name stays ruleless and every later
+  // transaction with the same name re-triggers this exact prompt.
+  const res  = await fetch('/api/tagger/save-rule', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ name, rule: 'No Match' })
+  }).catch(() => null);
+  const data = res ? await res.json().catch(() => null) : null;
+  if (!data || !data.ok) {
+    showToast('התיוג נשמר, אך שמירת הכלל נכשלה — ייתכן שתופיע שוב בקשה עבור שם זה', 'error');
+  } else {
+    showToast(`תויג: "${category}"`, 'success');
+  }
+  exitRow(key);
 }
 
 async function _doTagAll(name, category) {

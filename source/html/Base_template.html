@@ -4051,7 +4051,12 @@ function _startDebugStream() {
   _dbgEs.onmessage = function(e) {
     if (!e.data || !e.data.trim()) return;
     if (_regenActive) return; // regen SSE already shows (and toasts for) these — skip duplicates
-    _checkCCApprovalToast(e.data);
+    // NOTE: no _checkCCApprovalToast here. /api/debug-logs replays the server's
+    // rolling buffer on every connect (this stream auto-starts on page load),
+    // so calling it here re-popped the "charge matched" toast from a PAST
+    // monthly regen on unrelated pages (e.g. the accounts panel). The CC toast
+    // is fired only from the live regen SSE handlers; this stream just feeds
+    // the debug panel.
     var feed = document.getElementById('debug-feed');
     var line = document.createElement('div');
     line.className = 'debug-line';

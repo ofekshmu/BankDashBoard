@@ -1976,6 +1976,48 @@ class DataBase:
         df['Date'] = pd.to_datetime(df['Date'])
         return df
 
+    def upsert_auto_account_status(self, account_name: str, year: int, month: int,
+                                   status_date: str, value: float) -> None:
+        """Keep exactly one auto-generated balance point for (account, year, month).
+
+        Used by general_analysis() to backfill 'Main Bank' (from the bank file)
+        and 'Cash' (from cash history) so the accounts panel stays current
+        without manual entry — including the in-progress current month, which is
+        refreshed on every run.
+
+        - A manual entry for that month always wins: if any non-auto row exists
+          for (account, year, month), this does nothing.
+        - Otherwise the month's single Source='auto' row is updated in place, or
+          inserted if absent.
+
+        Auto rows are hidden from the manage-entries UI
+        (WHERE Source IS NULL OR Source != 'auto'). Caller commits.
+        """
+        has_manual = self.cursor.execute(
+            "SELECT 1 FROM OtherAccountStatus "
+            "WHERE AccountName = %s "
+            "  AND CAST(EXTRACT(YEAR  FROM StatusDate) AS INTEGER) = %s "
+            "  AND CAST(EXTRACT(MONTH FROM StatusDate) AS INTEGER) = %s "
+            "  AND (Source IS NULL OR Source <> 'auto') LIMIT 1",
+            (account_name, year, month)
+        ).fetchone()
+        if has_manual:
+            return
+        updated = self.cursor.execute(
+            "UPDATE OtherAccountStatus SET StatusDate = %s, Value = %s "
+            "WHERE AccountName = %s AND Source = 'auto' "
+            "  AND CAST(EXTRACT(YEAR  FROM StatusDate) AS INTEGER) = %s "
+            "  AND CAST(EXTRACT(MONTH FROM StatusDate) AS INTEGER) = %s",
+            (status_date, float(value), account_name, year, month)
+        ).rowcount
+        if not updated:
+            self.cursor.execute(
+                "INSERT INTO OtherAccountStatus "
+                "(AccountName, StatusDate, Value, TransactionID, Currency, Source) "
+                "VALUES (%s, %s, %s, %s, %s, %s)",
+                (account_name, status_date, float(value), None, 'ILS', 'auto')
+            )
+
     def get_all_account_names(self) -> list[str]:
         """
         Get list of all accounts from OtherAccountStatus table

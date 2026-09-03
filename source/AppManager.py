@@ -1209,11 +1209,6 @@ class AppManager:
         try:
             import calendar as _cal
             _db_auto = DataBase()
-            _existing_entries = _db_auto.cursor.execute(
-                "SELECT AccountName, CAST(strftime('%Y', StatusDate) AS INTEGER), CAST(strftime('%m', StatusDate) AS INTEGER) FROM OtherAccountStatus"
-            ).fetchall()
-            _existing_set = set((_r[0], _r[1], _r[2]) for _r in _existing_entries)
-
             _today = datetime.now()
 
             # Build month-end cash balances from history:
@@ -1225,7 +1220,10 @@ class AppManager:
                     _py = _dt_pt.year if _dt_pt.month > 1 else _dt_pt.year - 1
                     _cash_end_by_ym[(_py, _pm)] = _bal_pt
 
-            for _i in range(1, 14):
+            # _i == 0 is the in-progress current month — refreshed every run so the
+            # panel matches the latest monthly analysis; older months are backfilled
+            # once. upsert_auto_account_status() leaves any manual entry untouched.
+            for _i in range(0, 14):
                 _m = _today.month - _i
                 _y = _today.year
                 while _m <= 0:
@@ -1233,21 +1231,21 @@ class AppManager:
                     _y -= 1
                 _last_day = f"{_y}-{_m:02d}-{_cal.monthrange(_y, _m)[1]}"
 
-                # Main Bank
-                if ('Main Bank', _y, _m) not in _existing_set:
-                    _bal = DataBase().get_balance_for_month(_y, _m)
-                    if _bal is not None:
-                        _db_auto.insert_auto_account_status('Main Bank', _last_day, float(_bal))
-                        _existing_set.add(('Main Bank', _y, _m))
+                _bal = DataBase().get_balance_for_month(_y, _m)
+                if _bal is not None:
+                    _db_auto.upsert_auto_account_status('Main Bank', _y, _m, _last_day, float(_bal))
 
-                # Cash
-                if ('Cash', _y, _m) not in _existing_set and (_y, _m) in _cash_end_by_ym:
-                    _db_auto.insert_auto_account_status('Cash', _last_day, float(_cash_end_by_ym[(_y, _m)]))
-                    _existing_set.add(('Cash', _y, _m))
+                if (_y, _m) in _cash_end_by_ym:
+                    _db_auto.upsert_auto_account_status('Cash', _y, _m, _last_day, float(_cash_end_by_ym[(_y, _m)]))
 
             _db_auto.commit_changes()
         except Exception as _auto_e:
-            utils.log(f"auto account points failed: {_auto_e}", "warning")
+            import traceback as _tb_auto
+            # This block silently no-op'd for months after the Postgres migration
+            # (SQLite strftime() in the query, plus a missing DB method) and the
+            # accounts panel's Main Bank froze at the last manual entry. Log loud
+            # so a regression here is visible, not buried.
+            utils.log(f"auto account points failed: {_auto_e!r}\n{_tb_auto.format_exc()}", "error")
 
         _rp(7)   # cash flow (get_cash_transactions + accumulate + history + auto-points): 7 pts
 

@@ -4427,11 +4427,7 @@ showPanel = function(name, btn) {
 
 function _applyAccountsPayload(d) {
   _accountsPageData = d;
-  _renderAccountsTable(d);
-  // _renderAccountsTable draws the Cash row from the accounts series (ILS-net,
-  // no foreign cash). Re-assert the cash-pie total so the top figure keeps
-  // matching the "סה"כ מזומן" total at the bottom.
-  if (_cashIlsTotal != null) _updateCashAcctRow(_cashIlsTotal);
+  _renderAccountsTable(d);   // adopts _cashIlsTotal for the Cash card + totals itself
   _renderAccountsChart(d);
   _cashTrendLoaded = false;
   _updateCashInTrendChart();
@@ -4531,44 +4527,11 @@ function _regenAccountsStream() {
 // ── Cash-by-currency donut chart ─────────────────────────────
 var _cashPieLoaded = false;
 var _cashPieChart  = null;
-// Last cash-pie total (all currencies → ILS). The accounts-table "Cash" row is
-// kept equal to this so the figure at the top matches the "סה"כ מזומן" total in
-// the pie at the bottom, and survives table re-renders (initial load races the
-// pie fetch; the background revalidation re-renders the table on its own).
+// Last cash-by-currency total (all currencies → ILS), i.e. the "סה"כ מזומן"
+// figure shown in the pie. _renderAccountsTable reads this so the Cash card /
+// כללי subtotal / grand total at the top match the pie total at the bottom.
 var _cashIlsTotal  = null;
 var _PIE_PALETTE   = ['#1e9d8b','#4d9de0','#e85d04','#9b59b6','#f0b429','#2ecc71','#e74c3c','#b0bec5'];
-
-// Update the Cash row + כללי subtotal + grand total in the accounts table
-function _updateCashAcctRow(ilsTotal) {
-  var trs = Array.from(document.querySelectorAll('#accounts-table tr'));
-  var delta = null;
-
-  // 1. Update Cash balance cell and record delta
-  trs.forEach(function(row) {
-    var cells = row.querySelectorAll('td');
-    if (cells.length > 1 && cells[0].textContent.trim() === 'Cash') {
-      var oldVal = parseFloat(cells[1].textContent.replace(/[^\d.-]/g, '')) || 0;
-      var newStr = Math.round(ilsTotal).toLocaleString('he-IL') + '₪';
-      cells[1].textContent = newStr;
-      delta = ilsTotal - oldVal;
-    }
-  });
-
-  if (delta === null || Math.abs(delta) < 0.5) return;
-
-  // 2. Update כללי subtotal and grand total by adding the delta
-  trs.forEach(function(row) {
-    var cells = row.querySelectorAll('td');
-    if (!cells.length) return;
-    var isSubtotal = row.classList.contains('acct-subtotal');
-    var isTotal    = row.classList.contains('acct-total');
-    if ((isSubtotal || isTotal) && cells.length > 1) {
-      var text = cells[1].textContent;
-      var oldVal = parseFloat(text.replace(/[^\d.-]/g, '')) || 0;
-      cells[1].textContent = Math.round(oldVal + delta).toLocaleString('he-IL') + '₪';
-    }
-  });
-}
 
 function _loadCashPie() {
   if (_cashPieLoaded) return;
@@ -4641,7 +4604,9 @@ function _loadCashPie() {
       '<div class="cash-kpi-row">' + kpiCards + '</div>';
 
     _cashIlsTotal = ilsTotal;
-    _updateCashAcctRow(ilsTotal);
+    // The accounts table usually renders before this fetch resolves — re-render
+    // it so the Cash card / כללי subtotal / grand total pick up this total.
+    if (_accountsPageData && typeof _renderAccountsTable === 'function') _renderAccountsTable(_accountsPageData);
 
     var canvas = document.getElementById('cash-donut-canvas');
     if (!canvas || typeof Chart === 'undefined') return;
@@ -7434,6 +7399,20 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       };
     });
 
+    // Cash: the accounts series is ILS-net and drops the withdrawal-tagged
+    // entry, so its last point (~₪4k) disagrees with the "סה"כ מזומן" total in
+    // the cash-by-currency pie (~₪8k). Use the pie total (all currencies → ILS)
+    // for the Cash card, the כללי subtotal and the grand total so the figure at
+    // the top matches the one at the bottom. _loadCashPie re-renders this table
+    // once it has the value.
+    var _cashDelta = 0;
+    if (_cashIlsTotal != null && rich['Cash']) {
+      _cashDelta = _cashIlsTotal - rich['Cash'].value;
+      rich['Cash'].value    = _cashIlsTotal;
+      rich['Cash'].prev     = null;
+      rich['Cash'].yearPrev = null;
+    }
+
     // Build KPI cards
     var html = '<div class="acct-cards-wrap">';
 
@@ -7496,9 +7475,9 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       html += '</div>'; // section
     });
 
-    // Grand total
+    // Grand total (server Total series still has the old ILS-net Cash — shift it)
     var totalPts  = data.accounts['Total'] || [];
-    var totalLast = totalPts.length ? totalPts[totalPts.length - 1][1] : 0;
+    var totalLast = (totalPts.length ? totalPts[totalPts.length - 1][1] : 0) + _cashDelta;
     html += '<div class="acct-cards-total">';
     html +=   '<span class="acct-cards-total-label">סה"כ כולל</span>';
     html +=   '<span class="acct-cards-total-value">'+Math.round(totalLast).toLocaleString('he-IL')+'₪</span>';

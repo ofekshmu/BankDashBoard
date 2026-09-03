@@ -4428,6 +4428,10 @@ showPanel = function(name, btn) {
 function _applyAccountsPayload(d) {
   _accountsPageData = d;
   _renderAccountsTable(d);
+  // _renderAccountsTable draws the Cash row from the accounts series (ILS-net,
+  // no foreign cash). Re-assert the cash-pie total so the top figure keeps
+  // matching the "סה"כ מזומן" total at the bottom.
+  if (_cashIlsTotal != null) _updateCashAcctRow(_cashIlsTotal);
   _renderAccountsChart(d);
   _cashTrendLoaded = false;
   _updateCashInTrendChart();
@@ -4527,6 +4531,11 @@ function _regenAccountsStream() {
 // ── Cash-by-currency donut chart ─────────────────────────────
 var _cashPieLoaded = false;
 var _cashPieChart  = null;
+// Last cash-pie total (all currencies → ILS). The accounts-table "Cash" row is
+// kept equal to this so the figure at the top matches the "סה"כ מזומן" total in
+// the pie at the bottom, and survives table re-renders (initial load races the
+// pie fetch; the background revalidation re-renders the table on its own).
+var _cashIlsTotal  = null;
 var _PIE_PALETTE   = ['#1e9d8b','#4d9de0','#e85d04','#9b59b6','#f0b429','#2ecc71','#e74c3c','#b0bec5'];
 
 // Update the Cash row + כללי subtotal + grand total in the accounts table
@@ -4631,6 +4640,7 @@ function _loadCashPie() {
       '</div>' +
       '<div class="cash-kpi-row">' + kpiCards + '</div>';
 
+    _cashIlsTotal = ilsTotal;
     _updateCashAcctRow(ilsTotal);
 
     var canvas = document.getElementById('cash-donut-canvas');

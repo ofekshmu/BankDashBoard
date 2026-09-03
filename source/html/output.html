@@ -10867,7 +10867,54 @@ showPanel = function(name, btn) {
   }
 };
 
-function _loadAccountsData(forceRegen) {
+function _applyAccountsPayload(d) {
+  _accountsPageData = d;
+  _renderAccountsTable(d);
+  _renderAccountsChart(d);
+  _cashTrendLoaded = false;
+  _updateCashInTrendChart();
+}
+
+function _accountsPayloadSig(d) {
+  if (!d) return '';
+  try { return JSON.stringify([d.accounts || null, d.accounts_meta || null]); }
+  catch (e) { return ''; }
+}
+
+// Background revalidation: the fast path above serves a cache; this re-derives
+// the panel from the database and silently swaps it in if anything changed
+// (e.g. an account added on another server process), so the user never waits.
+function _revalidateAccountsData() {
+  fetch('/api/accounts/data?fresh=1', { cache: 'no-store' })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (!d || !d.ok) return;
+      if (_accountsPayloadSig(d) === _accountsPayloadSig(_accountsPageData)) return;
+      _applyAccountsPayload(d);
+      _flashAccountsUpdated();
+    })
+    .catch(function() {});
+}
+
+function _flashAccountsUpdated() {
+  var host = document.getElementById('accounts-table');
+  var p = host && host.parentNode;
+  if (!p) return;
+  var n = document.getElementById('accounts-updated-note');
+  if (!n) {
+    n = document.createElement('div');
+    n.id = 'accounts-updated-note';
+    n.textContent = '✓ עודכן';
+    n.style.cssText = 'position:absolute;top:6px;left:6px;background:#1e9d8b;color:#fff;font-size:.72em;font-weight:700;padding:3px 9px;border-radius:10px;opacity:0;transition:opacity .25s;z-index:5;pointer-events:none';
+    if (getComputedStyle(p).position === 'static') p.style.position = 'relative';
+    p.appendChild(n);
+  }
+  n.style.opacity = '1';
+  clearTimeout(n._t);
+  n._t = setTimeout(function() { n.style.opacity = '0'; }, 2500);
+}
+
+function _loadAccountsData(forceRegen, skipRevalidate) {
   if (forceRegen) { _regenAccountsStream(); return; }
   var btn = document.getElementById('accounts-reload-btn');
   var tbl = document.getElementById('accounts-table');
@@ -10877,12 +10924,9 @@ function _loadAccountsData(forceRegen) {
     .then(function(r) { return r.json(); })
     .then(function(d) {
       if (!d.ok) throw new Error(d.error || 'failed');
-      _accountsPageData = d;
-      _renderAccountsTable(d);
-      _renderAccountsChart(d);
-      _cashTrendLoaded = false;
-      _updateCashInTrendChart();
+      _applyAccountsPayload(d);
       if (btn) { btn.disabled = false; btn.classList.remove('running'); }
+      if (!skipRevalidate) _revalidateAccountsData();
     })
     .catch(function() {
       if (tbl) tbl.innerHTML = '<div style="padding:20px;color:#e74c3c;text-align:center">שגיאה בטעינת נתונים</div>';
@@ -10902,7 +10946,7 @@ function _regenAccountsStream() {
     es.close();
     if (pctEl) pctEl.textContent = '';
     if (btn)   { btn.classList.remove('running'); btn.disabled = false; }
-    _loadAccountsData(false);
+    _loadAccountsData(false, true);   // just recomputed — no need to revalidate again
   }
 
   es.onmessage = function(e) {

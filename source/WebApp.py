@@ -96,6 +96,27 @@ def _load_accounts_disk():
     return None
 
 
+def _accounts_disk_mtime():
+    try:
+        return os.path.getmtime(_ACCOUNTS_JSON)
+    except OSError:
+        return 0.0
+
+
+def _accounts_cached_payload():
+    """The in-memory accounts payload, transparently refreshed from disk when
+    another process (or an out-of-band write) has produced a newer
+    accounts_data.json. Without this, a process that never handled the mutation
+    keeps serving its own stale snapshot forever."""
+    disk_mtime = _accounts_disk_mtime()
+    if disk_mtime and disk_mtime > _accounts_cache.get('mtime', 0.0):
+        disk = _load_accounts_disk()
+        if disk:
+            _accounts_cache['data'] = disk
+            _accounts_cache['mtime'] = disk_mtime
+    return _accounts_cache.get('data')
+
+
 def _compute_accounts(progress_callback=None):
     """Run get_global_data, persist accounts portion to disk, return it."""
     from datetime import datetime as _dt_a
@@ -116,6 +137,7 @@ def _compute_accounts(progress_callback=None):
     except Exception:
         pass
     _accounts_cache['data'] = payload
+    _accounts_cache['mtime'] = _accounts_disk_mtime()
     return payload
 
 def _make_slug(type_: str, name: str) -> str:
@@ -2300,14 +2322,25 @@ def _cash_balance_map():
 
 @app.route('/api/accounts/data')
 def accounts_data_api():
-    """Serve cached accounts+meta payload for the חשבונות panel."""
+    """Serve the accounts+meta payload for the חשבונות panel.
+
+    Default: instant — the cached payload (in-memory, auto-refreshed from disk
+    when another process wrote a newer one).
+    ?fresh=1: re-derive from the database (used by the client to revalidate in
+    the background so the panel never blocks on a full recompute)."""
     _no_cache = {'Cache-Control': 'no-store'}
-    if _accounts_cache.get('data'):
-        return jsonify({**_accounts_cache['data'], 'ok': True, 'cached': True}), 200, _no_cache
-    disk = _load_accounts_disk()
-    if disk:
-        _accounts_cache['data'] = disk
-        return jsonify({**disk, 'ok': True, 'cached': True}), 200, _no_cache
+    want_fresh = request.args.get('fresh') in ('1', 'true', 'yes')
+
+    if want_fresh:
+        try:
+            data = _compute_accounts()
+            return jsonify({**data, 'ok': True, 'cached': False}), 200, _no_cache
+        except Exception as e:
+            return jsonify({'ok': False, 'error': str(e)}), 500, _no_cache
+
+    cached = _accounts_cached_payload()
+    if cached:
+        return jsonify({**cached, 'ok': True, 'cached': True}), 200, _no_cache
     try:
         data = _compute_accounts()
         return jsonify({**data, 'ok': True, 'cached': False}), 200, _no_cache

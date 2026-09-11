@@ -366,6 +366,16 @@ class SimpleMath:
             df['Transaction_Type'] = pd.Series(dtype='object')
             return df
         
+        # Preserve the transaction's true original execution date before
+        # classify_and_handle overwrites 'Executed_Date' with the charge date
+        # for installment payments — otherwise there is no way to later show
+        # the user when an installment purchase actually happened. Only card
+        # rows have an 'Executed_Date' column at this point (bank rows still
+        # use 'Date', renamed to 'Executed_Date' only after this function
+        # returns) — bank transactions never classify as payments anyway.
+        if 'Executed_Date' in df.columns:
+            df['Original_Executed_Date'] = df['Executed_Date']
+
         # result_type='expand' forces a proper (row x 4) frame regardless of
         # row count — without it, pandas' apply(axis=1) misbehaves when df has
         # exactly one row (a very common case for one-off businesses), raising

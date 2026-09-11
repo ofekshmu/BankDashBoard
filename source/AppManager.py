@@ -11,6 +11,7 @@ from src_utils.calculations import SimpleMath
 from src_utils.ExcelReader import ExcelManager
 from src_utils.AppManagerUtils import AppManagerUtils
 import webbrowser
+import re
 from Configurations.Formats import Formats, Context_class
 import pandas as pd
 from os import listdir
@@ -21,6 +22,10 @@ from Exporter import Exporter
 class NoTransactionDataError(ValueError):
     """Raised when a month has no card/bank transaction data to analyse."""
     pass
+
+# Matches the installment marker Card.py writes into Extra_Info, e.g.
+# "Info: (תשלום 2  מתוך 5)" — used to surface "payment 2 of 5" in the UI.
+_PAYMENT_INFO_RE = re.compile(r'תשלום\s*(\d+)\s*מתוך\s*(\d+)')
 
 # validate_formats and validate_constants inspect static code/config only (Formats.py,
 # categories.json). Run once at import time so each AppManager() instantiation during
@@ -1747,12 +1752,22 @@ class AppManager:
                     date_str = pd.to_datetime(str(row['Executed_Date'])).strftime('%d/%m/%Y')
                 except Exception:
                     date_str = str(row.get('Executed_Date', ''))
+                _orig_raw = row.get('Original_Executed_Date')
+                try:
+                    orig_date_str = (pd.to_datetime(str(_orig_raw)).strftime('%d/%m/%Y')
+                                      if _orig_raw not in (None, '') and str(_orig_raw) != 'NaT' else '')
+                except Exception:
+                    orig_date_str = ''
+                _pm = _PAYMENT_INFO_RE.search(str(row.get('Extra_Info') or ''))
                 return {
                     'id':       _safe(row.get('ID')),
                     'name':     str(row.get('Name', '')),
                     'category': str(row.get('Category', '')),
                     'amount':   _safe(row.get('Final_Value')),
                     'date':     date_str,
+                    'orig_date': orig_date_str if orig_date_str != date_str else '',
+                    'payment_num':   int(_pm.group(1)) if _pm else None,
+                    'payment_total': int(_pm.group(2)) if _pm else None,
                     'desc':     str(row.get('Description', '') or ''),
                     'card':     str(row.get('CardID', '') or ''),
                     'table':    str(row.get('TableName', '') or ''),
@@ -2560,10 +2575,20 @@ class AppManager:
                     date_str = pd.to_datetime(str(row['Executed_Date'])).strftime('%d/%m/%Y')
                 except Exception:
                     date_str = str(row.get('Executed_Date', ''))
+                _orig_raw = row.get('Original_Executed_Date')
+                try:
+                    orig_date_str = (pd.to_datetime(str(_orig_raw)).strftime('%d/%m/%Y')
+                                      if _orig_raw not in (None, '') and str(_orig_raw) != 'NaT' else '')
+                except Exception:
+                    orig_date_str = ''
+                _pm = _PAYMENT_INFO_RE.search(str(row.get('Extra_Info') or ''))
                 return {
                     'id': _safe(row.get('ID')), 'name': str(row.get('Name', '')),
                     'category': str(row.get('Category', '')), 'amount': _safe(row.get('Final_Value')),
-                    'date': date_str, 'desc': str(row.get('Description', '') or ''),
+                    'date': date_str, 'orig_date': orig_date_str if orig_date_str != date_str else '',
+                    'payment_num': int(_pm.group(1)) if _pm else None,
+                    'payment_total': int(_pm.group(2)) if _pm else None,
+                    'desc': str(row.get('Description', '') or ''),
                     'card': str(row.get('CardID', '') or ''), 'table': str(row.get('TableName', '') or ''),
                     'is_cash': False,
                 }

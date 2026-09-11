@@ -1622,6 +1622,7 @@ body {
   gap: 10px;
   padding: 9px 4px; border-bottom: 1px solid #f5f6fa;
   transition: background 0.12s;
+  position: relative;
 }
 .num:hover { background: #f8fafc; border-radius: var(--radius-sm); }
 .num.hidden { display: none; }
@@ -1663,10 +1664,11 @@ body {
 }
 .num .tx-id { font-size: .60em; color: #c5ccd8; margin-top: 1px; white-space: nowrap; }
 .tx-payment-badge {
-  display: inline-block; font-size: .58em; font-weight: 700;
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  font-size: .58em; font-weight: 700;
   background: #e3f2fd; color: #1565c0; border-radius: 6px;
-  padding: 1px 6px; margin-right: 5px; vertical-align: middle;
-  white-space: nowrap; flex-shrink: 0;
+  padding: 2px 7px; white-space: nowrap; box-shadow: 0 1px 3px rgba(0,0,0,.12);
+  pointer-events: none; z-index: 1;
 }
 .manual-cash-badge {
   display: block; font-size: .55em; font-weight: 700;
@@ -5854,6 +5856,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       '<div class="tx-detail-rows">' +
         '<div class="tx-detail-row"><span class="tx-detail-lbl">תאריך</span><span class="tx-detail-val" id="tx-ddate"></span></div>' +
         '<div class="tx-detail-row" id="tx-dorig-row" style="display:none"><span class="tx-detail-lbl">תאריך ביצוע מקורי</span><span class="tx-detail-val" id="tx-dorig"></span></div>' +
+        '<div class="tx-detail-row" id="tx-dpay-row" style="display:none"><span class="tx-detail-lbl">תשלום</span><span class="tx-detail-val" id="tx-dpay"></span></div>' +
         '<div class="tx-detail-row"><span class="tx-detail-lbl">קטגוריה</span><span class="tx-detail-val tx-detail-chip" id="tx-dcat"></span></div>' +
         '<div class="tx-detail-row"><span class="tx-detail-lbl">חשבון</span><span class="tx-detail-val" id="tx-dacct"></span></div>' +
         '<div class="tx-detail-row tx-detail-row-desc" id="tx-ddesc-row" style="display:none"><span class="tx-detail-lbl">תיאור</span><span class="tx-detail-val" id="tx-ddesc"></span></div>' +
@@ -5875,6 +5878,8 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     var primary   = row.getAttribute('data-name') || _t('.tx-primary');
     var desc      = row.getAttribute('data-desc') || '';
     var origDate  = row.getAttribute('data-orig-date') || '';
+    var payNum    = row.getAttribute('data-payment-num') || '';
+    var payTotal  = row.getAttribute('data-payment-total') || '';
     var txId      = '#' + (row.getAttribute('data-value') || '');
     var amount    = _t('.date');
     var cat       = _t('.cat');
@@ -5889,6 +5894,9 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     var descRow = document.getElementById('tx-ddesc-row');
     document.getElementById('tx-ddesc').textContent = desc;
     descRow.style.display = desc ? '' : 'none';
+    var payRow = document.getElementById('tx-dpay-row');
+    document.getElementById('tx-dpay').textContent = (payNum && payTotal) ? (payNum + ' מתוך ' + payTotal) : '';
+    payRow.style.display = (payNum && payTotal) ? '' : 'none';
     var origRow = document.getElementById('tx-dorig-row');
     document.getElementById('tx-dorig').textContent = origDate;
     origRow.style.display = origDate ? '' : 'none';
@@ -7132,15 +7140,24 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       div.dataset.name = name;
       div.dataset.desc = desc;
       div.dataset.origDate = row.orig_date || '';
-      var paymentBadge = (row.payment_num && row.payment_total)
-        ? '<span class="tx-payment-badge">תשלום ' + row.payment_num + '/' + row.payment_total + '</span>' : '';
+      div.dataset.paymentNum   = row.payment_num   || '';
+      div.dataset.paymentTotal = row.payment_total || '';
       if (desc) {
         h3.innerHTML = '<span class="tx-primary">' + _esc(desc) + '</span>' +
-                       '<span class="tx-id">' + _esc(name) + '</span>' + paymentBadge;
+                       '<span class="tx-id">' + _esc(name) + '</span>';
       } else {
-        h3.innerHTML = '<span class="tx-primary">' + _esc(name) + '</span>' + paymentBadge;
+        h3.innerHTML = '<span class="tx-primary">' + _esc(name) + '</span>';
       }
       div.appendChild(h3);
+
+      // Placed as its own row-centered element (not tucked under the name)
+      // so it reads as metadata about the whole entry, not the name text.
+      if (row.payment_num && row.payment_total) {
+        var payBadge = document.createElement('span');
+        payBadge.className = 'tx-payment-badge';
+        payBadge.textContent = 'תשלום ' + row.payment_num + '/' + row.payment_total;
+        div.appendChild(payBadge);
+      }
 
       var pAmt = document.createElement('p');
       pAmt.className = 'date';

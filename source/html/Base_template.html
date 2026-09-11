@@ -2325,6 +2325,8 @@ body {
 .tx-detail-amount.income { color:var(--green); }
 .tx-detail-rows { display:flex; flex-direction:column; gap:9px; margin-bottom:18px; }
 .tx-detail-row { display:flex; justify-content:space-between; align-items:center; font-size:0.855em; }
+.tx-detail-row-desc { flex-direction:column; align-items:stretch; gap:4px; }
+.tx-detail-row-desc .tx-detail-val { white-space:normal; word-break:break-word; font-weight:500; color:var(--text-sub); }
 .tx-detail-lbl { color:var(--text-muted); font-weight:500; }
 .tx-detail-val { font-weight:600; color:var(--navy); }
 .tx-detail-chip { background:#f0f2f8; border-radius:10px; padding:3px 10px; }
@@ -5525,6 +5527,8 @@ function _applyDomSplit(origId, tbl, splits) {
     row.setAttribute('data-orig-id',  String(origId));
     var primaryText = s.description || _splitTx.name;
     var showSecondary = s.description && s.description !== _splitTx.name;
+    row.setAttribute('data-name', _splitTx.name || '');
+    row.setAttribute('data-desc', showSecondary ? s.description : '');
     row.innerHTML =
       '<div class="color-box" style="' + (colorStyle || '') + '"></div>' +
       '<h3>' +
@@ -5846,6 +5850,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         '<div class="tx-detail-row"><span class="tx-detail-lbl">תאריך</span><span class="tx-detail-val" id="tx-ddate"></span></div>' +
         '<div class="tx-detail-row"><span class="tx-detail-lbl">קטגוריה</span><span class="tx-detail-val tx-detail-chip" id="tx-dcat"></span></div>' +
         '<div class="tx-detail-row"><span class="tx-detail-lbl">חשבון</span><span class="tx-detail-val" id="tx-dacct"></span></div>' +
+        '<div class="tx-detail-row tx-detail-row-desc" id="tx-ddesc-row" style="display:none"><span class="tx-detail-lbl">תיאור</span><span class="tx-detail-val" id="tx-ddesc"></span></div>' +
       '</div>' +
       '<div class="tx-detail-actions">' +
         '<button class="tx-detail-split-btn" id="tx-dsplit">✂ פיצול עסקה</button>' +
@@ -5857,8 +5862,12 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   function openDetail(row) {
     _pendingRow = row;
     var _t = function(sel) { var el = row.querySelector(sel); return el ? el.textContent.trim() : ''; };
-    var primary   = _t('.tx-primary');
-    var secondary = _t('.tx-id');
+    // Prefer the raw name/description carried on the row itself — the row's
+    // own .tx-primary/.tx-id text is sometimes swapped (description shown as
+    // the primary label, name demoted to a small secondary line) for compact
+    // display in the list, which would otherwise mix up which is which here.
+    var primary   = row.getAttribute('data-name') || _t('.tx-primary');
+    var desc      = row.getAttribute('data-desc') || '';
     var txId      = '#' + (row.getAttribute('data-value') || '');
     var amount    = _t('.date');
     var cat       = _t('.cat');
@@ -5869,8 +5878,10 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     var isIncome = !!row.closest('#earnings-list');
     document.getElementById('tx-dc').style.backgroundColor = colorBg;
     document.getElementById('tx-dp').textContent = primary;
-    var secEl = document.getElementById('tx-ds');
-    secEl.textContent = secondary; secEl.style.display = secondary ? '' : 'none';
+    document.getElementById('tx-ds').style.display = 'none';
+    var descRow = document.getElementById('tx-ddesc-row');
+    document.getElementById('tx-ddesc').textContent = desc;
+    descRow.style.display = desc ? '' : 'none';
     document.getElementById('tx-di').textContent = txId;
     var amtEl = document.getElementById('tx-da');
     amtEl.textContent = amount;
@@ -7108,6 +7119,8 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       var name = String(row.name || '');
       var desc = (row.desc && String(row.desc).trim() && String(row.desc).trim() !== name)
                  ? String(row.desc).trim() : '';
+      div.dataset.name = name;
+      div.dataset.desc = desc;
       if (desc) {
         h3.innerHTML = '<span class="tx-primary">' + _esc(desc) + '</span>' +
                        '<span class="tx-id">' + _esc(name) + '</span>';

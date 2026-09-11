@@ -1179,6 +1179,15 @@ body {
 .tl-view-tx-name-row { display:flex; justify-content:space-between; gap:8px; font-weight:600; }
 .tl-view-tx-note { color:var(--text-muted); font-style:italic; font-size:0.9em; }
 .tl-view-empty { color:var(--text-muted); font-size:0.85em; }
+.tl-tx-search-wrap { position:relative; }
+.tl-tx-search-wrap input { width:100%; box-sizing:border-box; padding-left:30px; }
+.tl-tx-search-spinner {
+  position:absolute; left:9px; top:50%; margin-top:-7px; width:14px; height:14px;
+  border:2px solid var(--border); border-top-color:var(--teal); border-radius:50%;
+  animation:tl-tx-spin .7s linear infinite;
+}
+.tl-tx-search-spinner.hidden { display:none; }
+@keyframes tl-tx-spin { to { transform:rotate(360deg); } }
 .tl-tx-search-results { max-height:220px; overflow-y:auto; border:1.5px solid var(--teal); border-radius:8px; margin-top:4px; }
 .tl-tx-search-results.hidden { display:none; }
 .tl-tx-search-row {
@@ -8524,7 +8533,10 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
           '</div>' +
           '<div class="tl-field">' +
             '<label>קשר עסקאות</label>' +
-            '<input id="tl-tx-search-inp" type="text" placeholder="חפש לפי שם או תיאור העסקה…" oninput="_tlSearchTx(this.value)">' +
+            '<div class="tl-tx-search-wrap">' +
+              '<input id="tl-tx-search-inp" type="text" placeholder="חפש לפי שם או תיאור העסקה…" oninput="_tlSearchTx(this.value)">' +
+              '<span class="tl-tx-search-spinner hidden" id="tl-tx-search-spinner"></span>' +
+            '</div>' +
             '<div class="tl-tx-search-results hidden" id="tl-tx-search-results"></div>' +
             '<div class="tl-link-list" id="tl-link-list"></div>' +
           '</div>' +
@@ -8946,27 +8958,54 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     clearTimeout(_tlTxSearchTimer);
     var q = val.trim();
     var box = document.getElementById('tl-tx-search-results');
-    if (!q) { _tlTxSearchSeq++; box.classList.add('hidden'); return; }
+    if (!q) { _tlTxSearchSeq++; _tlSetTxSearchLoading(false); box.classList.add('hidden'); return; }
     _tlTxSearchTimer = setTimeout(function() { _tlDoSearchTx(q); }, 250);
   }
 
-  async function _tlDoSearchTx(q) {
-    // Search by name/description across ALL transactions, not just a window
-    // around the event's date — a bill often posts days or weeks off from the
-    // event it's tied to, and silently excluding those results (returning
-    // zero matches with no indication why) is what made this feel broken.
-    // The event's date is still used to rank the likeliest match first.
-    var seq = ++_tlTxSearchSeq;
+  function _tlSetTxSearchLoading(on) {
+    var sp = document.getElementById('tl-tx-search-spinner');
+    if (sp) sp.classList.toggle('hidden', !on);
+  }
+
+  async function _tlFetchTxResults(q, from, to) {
     var url = '/api/search/transactions?keyword=' + encodeURIComponent(q);
-    var results = [];
+    if (from) url += '&from=' + from;
+    if (to)   url += '&to=' + to;
     try {
       var r = await fetch(url);
       var d = await r.json();
-      results = d.results || [];
+      return d.results || [];
     } catch (e) {
-      results = [];
+      return [];
     }
+  }
+
+  async function _tlDoSearchTx(q) {
+    var seq = ++_tlTxSearchSeq;
+    _tlSetTxSearchLoading(true);
+
+    // First pass: a one-month radius around the event's date. Most matches
+    // are near it, and scoping the query keeps typeahead fast instead of
+    // scanning the full transaction history on every keystroke.
+    var dateInp = document.getElementById('tl-date-inp');
+    var centerDate = dateInp && dateInp.value ? new Date(dateInp.value) : new Date();
+    var from = new Date(centerDate.getTime() - 30 * _tlDayMs());
+    var to   = new Date(centerDate.getTime() + 30 * _tlDayMs());
+    var fromStr = _tlFmtLocalDate(from.getFullYear(), from.getMonth(), from.getDate());
+    var toStr   = _tlFmtLocalDate(to.getFullYear(), to.getMonth(), to.getDate());
+
+    var results = await _tlFetchTxResults(q, fromStr, toStr);
     if (seq !== _tlTxSearchSeq) return; // a newer query superseded this one
+
+    // Fallback: nothing within a month of the event — the bill may have
+    // posted much earlier/later, so search the full history rather than
+    // silently reporting "no matches" (the earlier bug this replaced).
+    if (!results.length) {
+      results = await _tlFetchTxResults(q, null, null);
+      if (seq !== _tlTxSearchSeq) return;
+    }
+
+    _tlSetTxSearchLoading(false);
     _tlShowTxResults(results);
   }
 

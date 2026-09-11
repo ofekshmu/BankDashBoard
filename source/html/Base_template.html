@@ -1179,11 +1179,24 @@ body {
 .tl-view-tx-name-row { display:flex; justify-content:space-between; gap:8px; font-weight:600; }
 .tl-view-tx-note { color:var(--text-muted); font-style:italic; font-size:0.9em; }
 .tl-view-empty { color:var(--text-muted); font-size:0.85em; }
-.tl-tx-search-results { max-height:180px; overflow-y:auto; border:1.5px solid var(--teal); border-radius:8px; margin-top:4px; }
+.tl-tx-search-results { max-height:220px; overflow-y:auto; border:1.5px solid var(--teal); border-radius:8px; margin-top:4px; }
 .tl-tx-search-results.hidden { display:none; }
-.tl-tx-search-row { padding:7px 10px; cursor:pointer; display:flex; gap:10px; font-size:0.82em; border-bottom:1px solid var(--border); }
+.tl-tx-search-row {
+  padding:8px 10px; cursor:pointer; display:flex; flex-direction:column; gap:3px;
+  font-size:0.82em; border-bottom:1px solid var(--border);
+}
 .tl-tx-search-row:last-child { border-bottom:none; }
 .tl-tx-search-row:hover { background:var(--teal-light); }
+.tl-tx-search-row-top { display:flex; align-items:center; gap:8px; min-width:0; }
+.tl-tx-search-name { font-weight:600; color:var(--navy); flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.tl-tx-search-cat {
+  flex-shrink:0; font-size:0.82em; font-weight:600; color:var(--teal);
+  background:var(--teal-light); border-radius:10px; padding:1px 8px;
+}
+.tl-tx-search-row-bottom { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.tl-tx-search-date { color:var(--text-muted); font-size:0.9em; }
+.tl-tx-search-amount-pos { color:#27ae60; font-weight:700; font-variant-numeric:tabular-nums; }
+.tl-tx-search-amount-neg { color:var(--red); font-weight:700; font-variant-numeric:tabular-nums; }
 
 /* ── Panels ──────────────────────────────────────────────── */
 .panel { display: none; animation: fadein 0.22s ease; }
@@ -8511,7 +8524,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
           '</div>' +
           '<div class="tl-field">' +
             '<label>קשר עסקאות</label>' +
-            '<input id="tl-tx-search-inp" type="text" placeholder="חפש עסקה בסביבת התאריך…" oninput="_tlSearchTx(this.value)">' +
+            '<input id="tl-tx-search-inp" type="text" placeholder="חפש לפי שם או תיאור העסקה…" oninput="_tlSearchTx(this.value)">' +
             '<div class="tl-tx-search-results hidden" id="tl-tx-search-results"></div>' +
             '<div class="tl-link-list" id="tl-link-list"></div>' +
           '</div>' +
@@ -8930,13 +8943,12 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   }
 
   async function _tlDoSearchTx(q) {
-    var dateInp = document.getElementById('tl-date-inp');
-    var centerDate = dateInp && dateInp.value ? new Date(dateInp.value) : new Date();
-    var from = new Date(centerDate.getTime() - 30 * _tlDayMs());
-    var to = new Date(centerDate.getTime() + 30 * _tlDayMs());
-    var url = '/api/search/transactions?keyword=' + encodeURIComponent(q) +
-      '&from=' + _tlFmtLocalDate(from.getFullYear(), from.getMonth(), from.getDate()) +
-      '&to=' + _tlFmtLocalDate(to.getFullYear(), to.getMonth(), to.getDate());
+    // Search by name/description across ALL transactions, not just a window
+    // around the event's date — a bill often posts days or weeks off from the
+    // event it's tied to, and silently excluding those results (returning
+    // zero matches with no indication why) is what made this feel broken.
+    // The event's date is still used to rank the likeliest match first.
+    var url = '/api/search/transactions?keyword=' + encodeURIComponent(q);
     try {
       var r = await fetch(url);
       var d = await r.json();
@@ -8953,14 +8965,30 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       var table = it.source === 'card' ? 'CardTransactions' : 'BankTransactions';
       return already.indexOf(table + ':' + it.tx_id) === -1;
     });
+
+    var dateInp = document.getElementById('tl-date-inp');
+    var centerDate = dateInp && dateInp.value ? new Date(dateInp.value) : new Date();
+    items = items.slice().sort(function(a, b) {
+      return Math.abs(new Date(a.date) - centerDate) - Math.abs(new Date(b.date) - centerDate);
+    });
+
     _tlLastSearchResults = items;
     if (!items.length) { box.classList.add('hidden'); return; }
     box.classList.remove('hidden');
     box.innerHTML = items.slice(0, 30).map(function(it, i) {
+      var isIncome = it.amount > 0;
+      var sign = isIncome ? '+' : '−';
+      var amountCls = isIncome ? 'tl-tx-search-amount-pos' : 'tl-tx-search-amount-neg';
+      var amountTxt = sign + '₪' + Math.abs(it.amount).toLocaleString('he-IL', { maximumFractionDigits: 0 });
       return '<div class="tl-tx-search-row" onclick="_tlSelectTx(' + i + ')">' +
-        '<span>' + it.date + '</span>' +
-        '<span style="flex:1;font-weight:600">' + _esc(it.name) + '</span>' +
-        '<span>₪' + Math.abs(it.amount).toLocaleString('he-IL', { maximumFractionDigits: 0 }) + '</span>' +
+        '<div class="tl-tx-search-row-top">' +
+          '<span class="tl-tx-search-name">' + _esc(it.name) + '</span>' +
+          (it.category ? '<span class="tl-tx-search-cat">' + _esc(it.category) + '</span>' : '') +
+        '</div>' +
+        '<div class="tl-tx-search-row-bottom">' +
+          '<span class="tl-tx-search-date">' + it.date + '</span>' +
+          '<span class="' + amountCls + '">' + amountTxt + '</span>' +
+        '</div>' +
       '</div>';
     }).join('');
   }

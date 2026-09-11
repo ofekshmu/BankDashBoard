@@ -8934,11 +8934,19 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     _tlRenderLinkList();
   }
 
+  // Guards against out-of-order responses: on a slower/mobile connection two
+  // requests can be in flight at once (e.g. autocorrect fires two input
+  // events close together), and if the older, narrower query's response
+  // lands AFTER the newer one it would overwrite the just-shown results with
+  // fewer/none — reading as the dropdown "opening and instantly closing".
+  // Only the response for the most recently issued query is ever applied.
+  var _tlTxSearchSeq = 0;
+
   function _tlSearchTx(val) {
     clearTimeout(_tlTxSearchTimer);
     var q = val.trim();
     var box = document.getElementById('tl-tx-search-results');
-    if (!q) { box.classList.add('hidden'); return; }
+    if (!q) { _tlTxSearchSeq++; box.classList.add('hidden'); return; }
     _tlTxSearchTimer = setTimeout(function() { _tlDoSearchTx(q); }, 250);
   }
 
@@ -8948,14 +8956,18 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     // event it's tied to, and silently excluding those results (returning
     // zero matches with no indication why) is what made this feel broken.
     // The event's date is still used to rank the likeliest match first.
+    var seq = ++_tlTxSearchSeq;
     var url = '/api/search/transactions?keyword=' + encodeURIComponent(q);
+    var results = [];
     try {
       var r = await fetch(url);
       var d = await r.json();
-      _tlShowTxResults(d.results || []);
+      results = d.results || [];
     } catch (e) {
-      _tlShowTxResults([]);
+      results = [];
     }
+    if (seq !== _tlTxSearchSeq) return; // a newer query superseded this one
+    _tlShowTxResults(results);
   }
 
   function _tlShowTxResults(items) {

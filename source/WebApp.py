@@ -850,9 +850,15 @@ def search_transactions():
             bank_where.append("ID = ?")
             bank_params.append(q_id)
         if q_keyword:
-            bank_where.append("(Name LIKE ? OR Description LIKE ? OR Extra_Info LIKE ?)")
-            like = f'%{q_keyword}%'
-            bank_params += [like, like, like]
+            # Each whitespace-separated token must appear SOMEWHERE in Name /
+            # Description / Extra_Info (independently, any field, any order) —
+            # not just as one contiguous substring of the whole query — so
+            # "netflix paypal" still matches "PAYPAL *NETFLIX COM" and a name
+            # split across Name/Description still matches on either half.
+            for tok in q_keyword.split():
+                bank_where.append("(Name LIKE ? OR Description LIKE ? OR Extra_Info LIKE ?)")
+                like = f'%{tok}%'
+                bank_params += [like, like, like]
         if q_category:
             bank_where.append("Category = ?")
             bank_params.append(q_category)
@@ -910,9 +916,10 @@ def search_transactions():
             card_where.append("ID = ?")
             card_params.append(q_id)
         if q_keyword:
-            card_where.append("(Name LIKE ? OR Description LIKE ? OR Extra_Info LIKE ?)")
-            like = f'%{q_keyword}%'
-            card_params += [like, like, like]
+            for tok in q_keyword.split():
+                card_where.append("(Name LIKE ? OR Description LIKE ? OR Extra_Info LIKE ?)")
+                like = f'%{tok}%'
+                card_params += [like, like, like]
         if q_category:
             card_where.append("Category = ?")
             card_params.append(q_category)

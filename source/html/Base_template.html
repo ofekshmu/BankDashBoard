@@ -1181,6 +1181,8 @@ body {
 .tl-view-empty { color:var(--text-muted); font-size:0.85em; }
 .tl-tx-search-wrap { position:relative; }
 .tl-tx-search-wrap input { width:100%; box-sizing:border-box; padding-left:30px; }
+.tl-tx-search-wrap input.tl-tx-search-empty { border-color:var(--red); }
+.tl-tx-search-wrap input.tl-tx-search-empty:focus { border-color:var(--red); }
 .tl-tx-search-spinner {
   position:absolute; left:9px; top:50%; margin-top:-7px; width:14px; height:14px;
   border:2px solid var(--border); border-top-color:var(--teal); border-radius:50%;
@@ -8958,13 +8960,21 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     clearTimeout(_tlTxSearchTimer);
     var q = val.trim();
     var box = document.getElementById('tl-tx-search-results');
-    if (!q) { _tlTxSearchSeq++; _tlSetTxSearchLoading(false); box.classList.add('hidden'); return; }
+    if (!q) {
+      _tlTxSearchSeq++; _tlSetTxSearchLoading(false); _tlSetTxSearchNoResults(false);
+      box.classList.add('hidden'); return;
+    }
     _tlTxSearchTimer = setTimeout(function() { _tlDoSearchTx(q); }, 250);
   }
 
   function _tlSetTxSearchLoading(on) {
     var sp = document.getElementById('tl-tx-search-spinner');
     if (sp) sp.classList.toggle('hidden', !on);
+  }
+
+  function _tlSetTxSearchNoResults(on) {
+    var inp = document.getElementById('tl-tx-search-inp');
+    if (inp) inp.classList.toggle('tl-tx-search-empty', !!on);
   }
 
   async function _tlFetchTxResults(q, from, to) {
@@ -9024,6 +9034,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     });
 
     _tlLastSearchResults = items;
+    _tlSetTxSearchNoResults(!items.length);
     if (!items.length) { box.classList.add('hidden'); return; }
     box.classList.remove('hidden');
     box.innerHTML = items.slice(0, 30).map(function(it, i) {
@@ -9053,6 +9064,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     });
     document.getElementById('tl-tx-search-inp').value = '';
     document.getElementById('tl-tx-search-results').classList.add('hidden');
+    _tlSetTxSearchNoResults(false);
     _tlRenderLinkList();
   }
 

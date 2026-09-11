@@ -1120,6 +1120,13 @@ class AppManager:
             # Get other accounts data (values stored in original currency, convert to ILS)
             other_accounts_df = DataBase().get_account_entries_with_dates()
             for account in other_accounts_df['AccountName'].unique():
+                # 'Main Bank' already got its live, always-current history from bank_df
+                # above. OtherAccountStatus also carries a 'Main Bank' auto-backfill row
+                # (written by the auto-generation block below) that is only refreshed
+                # when general_analysis() runs — letting it through here would overwrite
+                # the live value with that stale snapshot.
+                if account == 'Main Bank':
+                    continue
                 account_df = other_accounts_df[other_accounts_df['AccountName'] == account].sort_values('Date')
                 # Build ILS-converted history (for totals / charts)
                 entries = []
@@ -2300,6 +2307,12 @@ class AppManager:
 
             other_accounts_df = DataBase().get_account_entries_with_dates()
             for account in other_accounts_df['AccountName'].unique():
+                # See the matching skip in general_analysis()'s get_accounts_data():
+                # the 'Main Bank' auto-backfill row in OtherAccountStatus is stale
+                # relative to the live bank_df value set above, so it must not
+                # overwrite it here.
+                if account == 'Main Bank':
+                    continue
                 account_df = other_accounts_df[other_accounts_df['AccountName'] == account].sort_values('Date')
                 entries = []
                 for _, row in account_df.iterrows():

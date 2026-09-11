@@ -4229,6 +4229,9 @@ function acctQuickAddSubmit() {
       if (d.ok) {
         acctSetStatus('acct-qa-status', 'נוסף בהצלחה ✓', 'ok');
         setTimeout(closeAcctQuickAdd, 700);
+        // Server already recomputed the accounts payload on save — pull the
+        // fresh 'stale' flags/totals in now instead of waiting for a refresh.
+        _loadAccountsData(false, true);
       } else {
         acctSetStatus('acct-qa-status', d.error || 'שגיאה', 'err');
         if (typeof _enrichAcctTable === 'function') _enrichAcctTable();
@@ -4336,6 +4339,10 @@ function acctSubmitStatus() {
         acctSetStatus('acct-status-add', 'נוסף בהצלחה ✓', 'ok');
         document.getElementById('acct-value-input').value = '';
         acctLoadNames();
+        // The server already recomputed the accounts payload (fresh 'stale'
+        // flags, totals, etc.) when saving the status — pull it in now so the
+        // panel reflects it without waiting for a page refresh.
+        _loadAccountsData(false, true);
       } else {
         acctSetStatus('acct-status-add', d.error || 'שגיאה', 'err');
         if (typeof _enrichAcctTable === 'function') _enrichAcctTable();
@@ -8183,10 +8190,19 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     if (!tl) return;
     var isFirstLoad = !tl.querySelector('#tl-axis-scroll');
     if (isFirstLoad) tl.innerHTML = '<div class="tl-empty">טוען…</div>';
+    var events = [];
     try {
       var r = await fetch(_tlEventsUrl());
       var d = await r.json();
-      var events = d.events || [];
+      // A 401 (session lost — e.g. a serverless cold start invalidated the
+      // login cookie) still parses as valid JSON with no 'events' key, which
+      // used to fall through to an empty timeline with no indication why.
+      // Surface it instead of silently pretending there are no events.
+      if (r.status === 401 || d.ok === false) {
+        tl.innerHTML = '<div class="tl-empty">ההתחברות פגה — <a href="/" onclick="location.reload();return false;">יש להתחבר מחדש</a></div>';
+        return;
+      }
+      events = d.events || [];
     } catch (e) {
       events = [];
     }

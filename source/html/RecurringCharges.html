@@ -998,7 +998,12 @@ function renderPieChart() {
   var bills = _rcActiveBillsForPie();
   var total = bills.reduce(function(s, b) { return s + b.amount; }, 0);
   var paid = bills.filter(function(b) { return b.paidThisMonth; }).reduce(function(s, b) { return s + b.amount; }, 0);
-  var left = total - paid;
+  // "Left to pay" is forward-looking: only bills whose usual charge day hasn't
+  // arrived yet (pendingThisMonth). A bill whose day already passed without a
+  // matched transaction ("owed", shown amber in the pie) has fallen out of the
+  // expected-this-month window and should no longer count as still left —
+  // it's flagged separately as overdue, not folded into what's still coming.
+  var left = bills.filter(function(b) { return b.pendingThisMonth; }).reduce(function(s, b) { return s + b.amount; }, 0);
 
   document.getElementById('pie-stat-total').textContent = fmt(total);
   document.getElementById('pie-stat-left').textContent = fmt(left);

@@ -3019,7 +3019,11 @@ class DataBase:
                      WHEN l.Transaction_Table='CardTransactions' THEN CAST(cc.executed_date AS text)
                 END AS tx_date,
                 CASE WHEN l.Transaction_Table='BankTransactions' THEN (b.income - b.out)
-                     WHEN l.Transaction_Table='CardTransactions' THEN cc.transaction_value
+                     -- CardTransactions.Transaction_Value is positive for a charge
+                     -- (expense) — negate it to match the app-wide sign convention
+                     -- (negative = expense, positive = income) used everywhere else,
+                     -- e.g. /api/search/transactions and Final_Value.
+                     WHEN l.Transaction_Table='CardTransactions' THEN -cc.transaction_value
                 END AS tx_amount
             FROM TimelineEventTransactions l
             LEFT JOIN BankTransactions b

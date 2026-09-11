@@ -1852,10 +1852,11 @@ class AppManager:
                         txns = []
                         for _, row in v.iterrows():
                             txns.append({
-                                'date':   str(row.get('Date', '')),
-                                'name':   str(row.get('Name', '')),
-                                'out':    _safe(row.get('Out', 0)),
-                                'income': _safe(row.get('Income', 0)),
+                                'date':        str(row.get('Date', '')),
+                                'name':        str(row.get('Name', '')),
+                                'out':         _safe(row.get('Out', 0)),
+                                'income':      _safe(row.get('Income', 0)),
+                                'description': str(row.get('Description', '') or ''),
                             })
                         result[k] = txns
                     else:
@@ -2753,7 +2754,8 @@ class AppManager:
                 if k == 'housing_transactions':
                     if hasattr(v, 'to_dict'):
                         result[k] = [{'date': str(row.get('Date', '')), 'name': str(row.get('Name', '')),
-                                      'out': _safe(row.get('Out', 0)), 'income': _safe(row.get('Income', 0))}
+                                      'out': _safe(row.get('Out', 0)), 'income': _safe(row.get('Income', 0)),
+                                      'description': str(row.get('Description', '') or '')}
                                      for _, row in v.iterrows()]
                     else:
                         result[k] = []

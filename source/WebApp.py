@@ -856,14 +856,14 @@ def search_transactions():
             # "netflix paypal" still matches "PAYPAL *NETFLIX COM" and a name
             # split across Name/Description still matches on either half.
             for tok in q_keyword.split():
-                bank_where.append("(Name LIKE ? OR Description LIKE ? OR Extra_Info LIKE ?)")
+                bank_where.append("(Name ILIKE ? OR Description ILIKE ? OR Extra_Info ILIKE ?)")
                 like = f'%{tok}%'
                 bank_params += [like, like, like]
         if q_category:
             bank_where.append("Category = ?")
             bank_params.append(q_category)
         if q_business:
-            bank_where.append("Name LIKE ?")
+            bank_where.append("Name ILIKE ?")
             bank_params.append(f'%{q_business}%')
         if q_from:
             bank_where.append("Date >= ?")
@@ -917,14 +917,14 @@ def search_transactions():
             card_params.append(q_id)
         if q_keyword:
             for tok in q_keyword.split():
-                card_where.append("(Name LIKE ? OR Description LIKE ? OR Extra_Info LIKE ?)")
+                card_where.append("(Name ILIKE ? OR Description ILIKE ? OR Extra_Info ILIKE ?)")
                 like = f'%{tok}%'
                 card_params += [like, like, like]
         if q_category:
             card_where.append("Category = ?")
             card_params.append(q_category)
         if q_business:
-            card_where.append("Name LIKE ?")
+            card_where.append("Name ILIKE ?")
             card_params.append(f'%{q_business}%')
         if q_from:
             card_where.append("Executed_Date >= ?")

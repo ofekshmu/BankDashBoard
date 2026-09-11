@@ -841,6 +841,15 @@ body {
 .panel-count { font-size: 0.9em; color: var(--navy); font-weight: 600; }
 .housing-txn tbody tr:nth-child(even) { background: #f8fafc; }
 .housing-txn td, .housing-txn th { font-size: 0.82em; padding: 7px 12px; }
+.housing-txn-name-cell { cursor: pointer; }
+.housing-txn-name-cell:hover { color: var(--teal); text-decoration: underline dotted; }
+.housing-txn-name-cell.housing-txn-shake { animation: housing-txn-shake .4s ease; }
+@keyframes housing-txn-shake {
+  10%, 90% { transform: translateX(-1px); }
+  20%, 80% { transform: translateX(2px); }
+  30%, 50%, 70% { transform: translateX(-4px); }
+  40%, 60% { transform: translateX(4px); }
+}
 .txn-search-wrap { margin-bottom: 12px; }
 .txn-search {
   width: 100%; padding: 8px 14px;
@@ -1178,6 +1187,7 @@ body {
 .tl-view-tx-row { display:flex; flex-direction:column; gap:2px; padding:8px 10px; background:var(--teal-light); border-radius:7px; font-size:0.85em; }
 .tl-view-tx-name-row { display:flex; justify-content:space-between; gap:8px; font-weight:600; }
 .tl-view-tx-note { color:var(--text-muted); font-style:italic; font-size:0.9em; }
+.tl-view-tx-date { color:var(--text-muted); font-size:0.85em; }
 .tl-view-empty { color:var(--text-muted); font-size:0.85em; }
 .tl-tx-search-wrap { position:relative; }
 .tl-tx-search-wrap input { width:100%; box-sizing:border-box; padding-left:30px; }
@@ -7941,7 +7951,10 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         '<table class="milestone-table housing-txn"><thead><tr><th>תאריך</th><th>שם</th><th>הוצאה</th><th>הכנסה</th></tr></thead><tbody>' +
         txns.map(function(tx) {
           var d = String(tx.date || '').slice(0, 10);
-          return '<tr><td>' + d + '</td><td>' + _esc(tx.name || '') + '</td>' +
+          var name = tx.name || '';
+          var desc = tx.description || '';
+          return '<tr><td>' + d + '</td>' +
+            '<td class="housing-txn-name-cell" data-name="' + _esc(name) + '" data-desc="' + _esc(desc) + '" data-showing="name" onclick="_hsToggleTxName(this)">' + _esc(name) + '</td>' +
             '<td style="color:#e74c3c">' + (tx.out    ? _n(tx.out, 2)    : '') + '</td>' +
             '<td style="color:#1e9d8b">' + (tx.income ? _n(tx.income, 2) : '') + '</td></tr>';
         }).join('') +
@@ -8120,6 +8133,23 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     }
 
     _switchHousingTab(_housingActiveTab, true);
+  }
+
+  // Click a housing-transaction row's name cell to flip it between the
+  // transaction's name and its description, and back on the next click. A
+  // transaction with no description has nothing to flip to, so it shakes in
+  // place instead as a "nothing here" cue rather than silently doing nothing.
+  function _hsToggleTxName(el) {
+    var desc = el.getAttribute('data-desc') || '';
+    if (!desc.trim()) {
+      el.classList.remove('housing-txn-shake');
+      void el.offsetWidth; // restart the animation if clicked again quickly
+      el.classList.add('housing-txn-shake');
+      return;
+    }
+    var showingName = el.getAttribute('data-showing') !== 'desc';
+    el.setAttribute('data-showing', showingName ? 'desc' : 'name');
+    el.textContent = showingName ? desc : (el.getAttribute('data-name') || '');
   }
 
   // ── Housing panel sub-tabs ──────────────────────────────────────────────
@@ -8758,8 +8788,16 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     var txns = ev.transactions || [];
     var txHtml = txns.length
       ? txns.map(function(t) {
+          var amtHtml = '';
+          if (t.tx_amount !== null && t.tx_amount !== undefined) {
+            var isIncome = t.tx_amount > 0;
+            var cls = isIncome ? 'tl-tx-search-amount-pos' : 'tl-tx-search-amount-neg';
+            var sign = isIncome ? '+' : '−';
+            amtHtml = '<span class="' + cls + '">' + sign + '₪' + Math.abs(t.tx_amount).toLocaleString('he-IL', { maximumFractionDigits: 0 }) + '</span>';
+          }
           return '<div class="tl-view-tx-row">' +
-            '<div class="tl-view-tx-name-row"><span>' + _esc(t.tx_name || '') + '</span><span>' + (t.tx_date || '') + '</span></div>' +
+            '<div class="tl-view-tx-name-row"><span>' + _esc(t.tx_name || '') + '</span>' + amtHtml + '</div>' +
+            '<div class="tl-view-tx-date">' + (t.tx_date || '') + '</div>' +
             (t.note ? '<div class="tl-view-tx-note">' + _esc(t.note) + '</div>' : '') +
           '</div>';
         }).join('')
@@ -9299,6 +9337,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   window._loadGeneralTimelinePanel = _loadGeneralTimelinePanel;
   window._regenHousing        = _regenHousing;
   window._switchHousingTab    = _switchHousingTab;
+  window._hsToggleTxName      = _hsToggleTxName;
   window._tlZoom               = _tlZoom;
   window._tlToggleMinimize     = _tlToggleMinimize;
   window._tlOpenAddModal  = _tlOpenAddModal;

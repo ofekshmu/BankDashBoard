@@ -112,9 +112,8 @@ body {
 
 /* ── Page layout ──────────────────────────────────────────── */
 .main{margin-right:0;flex:1;padding:0 28px 90px;min-width:0}
-.page-header{display:flex;align-items:baseline;margin-bottom:24px;padding-top:26px;gap:12px;padding-right:62px}
+.page-header{display:flex;align-items:center;margin-bottom:24px;padding-top:26px;gap:12px;padding-right:62px}
 .page-header h1{font-size:1.85em;font-weight:700;color:var(--navy)}
-.rc-analysis-month{font-size:.85em;font-weight:600;color:var(--text-muted);background:var(--bg);border-radius:12px;padding:3px 12px}
 
 /* KPI row */
 .kpi-row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:20px}
@@ -361,7 +360,7 @@ body {
 </button>
 
 <div class="main">
-  <div class="page-header"><h1>חיובים חוזרים</h1><span class="rc-analysis-month" id="rc-analysis-month"></span></div>
+  <div class="page-header"><h1>חיובים חוזרים</h1></div>
 
   <div class="rc-loading-banner" id="rc-loading-banner" style="display:none">
     <span class="rc-spin"></span>
@@ -1477,18 +1476,6 @@ function _rcApplyFreshData(data) {
   renderPieChart();
 }
 
-var _RC_HEBREW_MONTHS = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
-
-function _rcShowAnalysisMonth() {
-  // "שולם/נותר לתשלום החודש" are evaluated against the viewer's own current
-  // month (see _rcActiveBillsForPie) — surfacing it here lets a wrong/stale
-  // assumption (browser clock off, or a regen from a while ago) be spotted
-  // at a glance instead of only showing up as unexplained KPI numbers.
-  var now = new Date();
-  var el = document.getElementById('rc-analysis-month');
-  if (el) el.textContent = 'חודש נוכחי: ' + _RC_HEBREW_MONTHS[now.getMonth()] + ' ' + now.getFullYear();
-}
-
 function _rcCheckStaleness() {
   fetch('/api/recurring/staleness').then(function(r) { return r.json(); }).then(function(d) {
     var btn = document.getElementById('regen-btn');
@@ -1538,8 +1525,6 @@ function regenerate() {
     _rcShowError('החיבור נותק — נסה ללחוץ על כפתור הרענון שוב');
   };
 }
-
-_rcShowAnalysisMonth();
 
 _rcLoadFolders(function() {
   _rcLoadDisplayNames(function() {

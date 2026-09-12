@@ -5362,6 +5362,30 @@ def recurring_page():
     return _render_recurring_html('null')
 
 
+@app.route('/api/recurring/staleness')
+def recurring_staleness():
+    """Whether the cached recurring-charges page predates the last file
+    import or tag edit — the page never auto-refreshes on its own (the
+    regen button is manual), so without this the user has no way to know
+    new data is waiting to be picked up."""
+    from database import DataBase
+    try:
+        db = DataBase()
+        db.ensure_recurring_tables()
+        cached = db.get_recurring_cache()
+        last_change = db.get_last_data_change()
+        if not cached or not last_change:
+            return jsonify({'ok': True, 'stale': False})
+        stale = last_change > cached['generated_at']
+        return jsonify({
+            'ok': True, 'stale': stale,
+            'generated_at': str(cached['generated_at']),
+            'last_change': str(last_change),
+        })
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
 @app.route('/api/recurring/data')
 def recurring_data():
     """Return the cached data payload (groups/hidden/kpis/trend) as JSON,

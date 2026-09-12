@@ -3250,6 +3250,23 @@ class DataBase:
         """, (html, data_json, html, data_json))
         self.connection.commit()
 
+    def get_last_data_change(self):
+        """Latest known "the underlying data changed" timestamp: the newest
+        File.Last_update (a file import) or transaction Tagged_At (a
+        category/tag edit), whichever is more recent. Used to tell whether a
+        cached page (recurring charges, etc.) was generated before or after
+        the data it reflects last changed — the basis for a staleness
+        indicator on manual-regen pages, since none of them auto-detect this
+        on their own otherwise."""
+        row = self.cursor.execute("""
+            SELECT GREATEST(
+                COALESCE((SELECT MAX(Last_update) FROM File), '1970-01-01'::date)::timestamp,
+                COALESCE((SELECT MAX(Tagged_At) FROM BankTransactions), '1970-01-01'::timestamp),
+                COALESCE((SELECT MAX(Tagged_At) FROM CardTransactions), '1970-01-01'::timestamp)
+            )
+        """).fetchone()
+        return row[0] if row else None
+
     def get_recurring_history(self) -> dict:
         """Returns {group_key: {'name', 'first_seen_month', 'last_seen_month', 'last_status'}}.
         last_status is None for rows written before this column existed, or

@@ -6762,9 +6762,57 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       var _gAllInvOut  = (ch.general_investments_out || []).slice().reverse();
       var _gAllInvIn   = (ch.general_investments_in  || []).slice().reverse();
       var _gMean       = ch.overall_net_mean || 0;
+      var _gCurMonth   = ch.general_current_month || '';
+      var _gCurSp      = ch.general_current_spendings       || 0;
+      var _gCurEa      = ch.general_current_earnings        || 0;
+      var _gCurNet     = ch.general_current_net             || 0;
+      var _gCurInvOut  = ch.general_current_investments_out || 0;
+      var _gCurInvIn   = ch.general_current_investments_in  || 0;
+      var _showCurrentMonth = true;
+      var _mobOffset = 0;
+
+      // ── Current-month preview switch ──
+      var _gSwStyle = document.createElement('style');
+      _gSwStyle.textContent =
+        '.gen-cm-switch{position:relative;display:inline-block;width:38px;height:22px;flex-shrink:0;}' +
+        '.gen-cm-switch input{opacity:0;width:0;height:0;position:absolute;}' +
+        '.gen-cm-slider{position:absolute;inset:0;background:#ccd2de;border-radius:22px;transition:.2s;cursor:pointer;}' +
+        '.gen-cm-slider:before{content:"";position:absolute;height:16px;width:16px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.2s;box-shadow:0 1px 2px rgba(0,0,0,.25);}' +
+        '.gen-cm-switch input:checked + .gen-cm-slider{background:var(--teal,#1e9d8b);}' +
+        '.gen-cm-switch input:checked + .gen-cm-slider:before{transform:translateX(16px);}';
+      document.head.appendChild(_gSwStyle);
+
+      var _gSwitchWrap = document.createElement('div');
+      _gSwitchWrap.style.cssText = 'display:flex;align-items:center;justify-content:flex-end;gap:8px;' +
+        'grid-column:1/-1;direction:rtl;padding:0 2px 6px;';
+      var _gSwLabel = document.createElement('span');
+      _gSwLabel.style.cssText = 'font-size:12px;color:var(--text-muted,#888);font-weight:600;';
+      _gSwLabel.textContent = 'כולל את החודש הנוכחי' + (_gCurMonth ? ' (' + _gCurMonth + ')' : '');
+      var _gSwLbl = document.createElement('label');
+      _gSwLbl.className = 'gen-cm-switch';
+      var _gSwInput = document.createElement('input');
+      _gSwInput.type = 'checkbox';
+      _gSwInput.checked = _showCurrentMonth;
+      var _gSwSlider = document.createElement('span');
+      _gSwSlider.className = 'gen-cm-slider';
+      _gSwLbl.appendChild(_gSwInput);
+      _gSwLbl.appendChild(_gSwSlider);
+      _gSwitchWrap.appendChild(_gSwLabel);
+      _gSwitchWrap.appendChild(_gSwLbl);
+      if (!_gCurMonth) { _gSwitchWrap.style.display = 'none'; }
+      grid.appendChild(_gSwitchWrap);
+
       var _gContainer  = document.createElement('div');
       _gContainer.style.cssText = 'grid-column:1/-1;';
       grid.appendChild(_gContainer);
+
+      _gSwInput.addEventListener('change', function() {
+        _showCurrentMonth = _gSwInput.checked;
+        _mobOffset = 0;
+        _buildGeneralChart();
+      });
+
+      var _gMaxOffset = 0; // recomputed on each build; read by the mobile arrow buttons
 
       function _buildGeneralChart() {
         _destroyChart('chart-general-bar'); // destroy before canvas is removed from DOM
@@ -6777,17 +6825,32 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         var net2    = _gAllNet.slice();
         var invOut2 = _gAllInvOut.slice();
         var invIn2  = _gAllInvIn.slice();
+        if (_showCurrentMonth && _gCurMonth) {
+          months.push(_gCurMonth);
+          sp2.push(_gCurSp);
+          ea2.push(_gCurEa);
+          net2.push(_gCurNet);
+          invOut2.push(_gCurInvOut);
+          invIn2.push(_gCurInvIn);
+        }
         var mean    = _gMean;
         var _IB = 'rgba(255,183,77,0.85)', _ID = '#ffb74d';
 
+        var _n3 = 3;
+        var _fullLen = months.length;
+        _gMaxOffset = Math.max(0, _fullLen - _n3);
+        if (_mobOffset > _gMaxOffset) _mobOffset = _gMaxOffset;
+        if (_mobOffset < 0) _mobOffset = 0;
+
         if (isMobData) {
-          var _n3 = 3;
-          months  = months.slice(-_n3);
-          sp2     = sp2.slice(-_n3);
-          ea2     = ea2.slice(-_n3);
-          net2    = net2.slice(-_n3);
-          invOut2 = invOut2.slice(-_n3);
-          invIn2  = invIn2.slice(-_n3);
+          var _end   = _fullLen - _mobOffset;
+          var _start = Math.max(0, _end - _n3);
+          months  = months.slice(_start, _end);
+          sp2     = sp2.slice(_start, _end);
+          ea2     = ea2.slice(_start, _end);
+          net2    = net2.slice(_start, _end);
+          invOut2 = invOut2.slice(_start, _end);
+          invIn2  = invIn2.slice(_start, _end);
         }
 
       // Format server month strings to short Hebrew labels, e.g. "May 2026" → "מאי '26"
@@ -6865,6 +6928,31 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       genCanvas.id = 'chart-general-bar';
       genCanvas.style.cssText = 'width:100%;height:100%;';
       genWrap.appendChild(genCanvas);
+
+      // Mobile-only paging arrows — step back/forward one month at a time through
+      // the full month set (up to 12 completed months, 13 if the current month is shown).
+      if (isMobData && _fullLen > _n3) {
+        var _mkGenArrow = function(side, dir) {
+          var btn = document.createElement('button');
+          btn.type = 'button';
+          btn.setAttribute('aria-label', dir === 'older' ? 'חודשים קודמים' : 'חודשים מאוחרים יותר');
+          var isDisabled = dir === 'older' ? (_mobOffset >= _gMaxOffset) : (_mobOffset <= 0);
+          btn.style.cssText = 'position:absolute;top:50%;' + side + ':2px;transform:translateY(-50%);' +
+            'width:30px;height:30px;border-radius:50%;border:1px solid var(--border,#d0d6e8);' +
+            'background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.12);font-size:16px;line-height:1;' +
+            'color:var(--navy,#1e2a4a);cursor:pointer;z-index:5;display:flex;align-items:center;justify-content:center;' +
+            (isDisabled ? 'opacity:.35;pointer-events:none;' : '');
+          btn.textContent = dir === 'older' ? '‹' : '›';
+          btn.addEventListener('click', function() {
+            _mobOffset += (dir === 'older' ? 1 : -1);
+            _buildGeneralChart();
+          });
+          return btn;
+        };
+        genWrap.appendChild(_mkGenArrow('left',  'older'));
+        genWrap.appendChild(_mkGenArrow('right', 'newer'));
+      }
+
       genCard.appendChild(genWrap);
 
       // Custom legend — coloured rectangles only; label text slides in on hover / tap
@@ -6947,7 +7035,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
 
       var _mqA = window.matchMedia('(max-width:768px)');
       var _mqB = window.matchMedia('(max-width:500px)');
-      function _onGenBpChange() { _buildGeneralChart(); }
+      function _onGenBpChange() { _mobOffset = 0; _buildGeneralChart(); }
       try { _mqA.addEventListener('change', _onGenBpChange); } catch(e) { _mqA.addListener(_onGenBpChange); }
       try { _mqB.addEventListener('change', _onGenBpChange); } catch(e) { _mqB.addListener(_onGenBpChange); }
     }

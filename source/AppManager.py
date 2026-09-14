@@ -1321,22 +1321,31 @@ class AppManager:
 
         # ----- General
         utils.log("Querying 12-month history...", "system")
-        spendings_sum, spendings_sum_overall_inc, earnings_sum, earnings_net_sum = SimpleMath.get_monthly_shifted(shift=13, start_delta=1)
+        # index 0 = current in-progress month, indices 1..12 = the 12 completed months
+        spendings_sum, spendings_sum_overall_inc, earnings_sum, earnings_net_sum = SimpleMath.get_monthly_shifted(shift=13, start_delta=0)
 
-        # Capture general chart data for interactive chart — always 12 full months, never the current partial month
+        # Capture general chart data for interactive chart — always the 12 full completed months
         _gen_delta = 1
         data['general_months'] = [
             (datetime.now() - pd.DateOffset(months=i + _gen_delta)).strftime('%b %Y')
             for i in range(12)
         ]
         # Split spendings into pure-spend (no investments) and investments portion
-        data['general_spendings']         = [round(float(abs(v)), 2) for v in spendings_sum_overall_inc]
+        data['general_spendings']         = [round(float(abs(v)), 2) for v in spendings_sum_overall_inc[1:]]
         data['general_investments_out']   = [round(float(abs(s) - abs(n)), 2)
-                                             for s, n in zip(spendings_sum, spendings_sum_overall_inc)]
+                                             for s, n in zip(spendings_sum[1:], spendings_sum_overall_inc[1:])]
         data['general_investments_in']    = [round(float(max(0.0, e - en)), 2)
-                                             for e, en in zip(earnings_sum, earnings_net_sum)]
-        data['general_earnings']          = [round(float(v), 2) for v in earnings_net_sum]
-        data['general_net']               = [round(float(e + s), 2) for e, s in zip(earnings_net_sum, spendings_sum_overall_inc)]
+                                             for e, en in zip(earnings_sum[1:], earnings_net_sum[1:])]
+        data['general_earnings']          = [round(float(v), 2) for v in earnings_net_sum[1:]]
+        data['general_net']               = [round(float(e + s), 2) for e, s in zip(earnings_net_sum[1:], spendings_sum_overall_inc[1:])]
+
+        # Current in-progress month — kept separate so the client can opt in/out of previewing it
+        data['general_current_month']           = datetime.now().strftime('%b %Y')
+        data['general_current_spendings']       = round(float(abs(spendings_sum_overall_inc[0])), 2)
+        data['general_current_investments_out'] = round(float(abs(spendings_sum[0]) - abs(spendings_sum_overall_inc[0])), 2)
+        data['general_current_investments_in']  = round(float(max(0.0, earnings_sum[0] - earnings_net_sum[0])), 2)
+        data['general_current_earnings']        = round(float(earnings_net_sum[0]), 2)
+        data['general_current_net']             = round(float(earnings_net_sum[0] + spendings_sum_overall_inc[0]), 2)
 
         # Add cash net per month so the net line matches the KPI (ATM withdrawals are not losses).
         # Must mirror utils.get_cash_transactions: manual CashTransactions + bank withdrawal entries.
@@ -1371,8 +1380,14 @@ class AppManager:
                 data['general_net'][_gi] = round(
                     data['general_net'][_gi] + float(_cash_by_ym.get(_key, 0.0)), 2
                 )
+            _cur_dt = datetime.now()
+            _cur_key = f"{_cur_dt.year}-{_cur_dt.month}"
+            data['general_current_net'] = round(
+                data['general_current_net'] + float(_cash_by_ym.get(_cur_key, 0.0)), 2
+            )
 
-        # Recompute mean from the cash-adjusted net values
+        # Recompute mean from the cash-adjusted net values (12 completed months only —
+        # the in-progress current month stays out of the average since it's partial)
         if data['general_net']:
             data['overall_net_mean'] = round(sum(data['general_net']) / len(data['general_net']), 2)
         _rp(8)   # general bar plot + monthly data: 8 pts
@@ -1988,6 +2003,12 @@ class AppManager:
                 'general_investments_out': [_safe(v) for v in data.get('general_investments_out', [])],
                 'general_investments_in':  [_safe(v) for v in data.get('general_investments_in', [])],
                 'overall_net_mean':        _safe(data.get('overall_net_mean', 0)),
+                'general_current_month':           data.get('general_current_month', ''),
+                'general_current_spendings':       _safe(data.get('general_current_spendings', 0)),
+                'general_current_investments_out': _safe(data.get('general_current_investments_out', 0)),
+                'general_current_investments_in':  _safe(data.get('general_current_investments_in', 0)),
+                'general_current_earnings':        _safe(data.get('general_current_earnings', 0)),
+                'general_current_net':             _safe(data.get('general_current_net', 0)),
                 'cash_earned':             _safe(cash_information_data.get('Monthly Earned Cash', 0)),
                 'cash_spent':              _safe(cash_information_data.get('Monthly Spent Cash', 0)),
             },
@@ -2115,21 +2136,30 @@ class AppManager:
             data['investments_items']     = []
 
         utils.log("Querying 12-month history...", "system")
+        # index 0 = current in-progress month, indices 1..12 = the 12 completed months
         spendings_sum, spendings_sum_overall_inc, earnings_sum, earnings_net_sum = \
-            SimpleMath.get_monthly_shifted(shift=13, start_delta=1)
+            SimpleMath.get_monthly_shifted(shift=13, start_delta=0)
         _gen_delta = 1
         data['general_months'] = [
             (datetime.now() - pd.DateOffset(months=i + _gen_delta)).strftime('%b %Y')
             for i in range(12)
         ]
-        data['general_spendings']         = [round(float(abs(v)), 2) for v in spendings_sum_overall_inc]
+        data['general_spendings']         = [round(float(abs(v)), 2) for v in spendings_sum_overall_inc[1:]]
         data['general_investments_out']   = [round(float(abs(s) - abs(n)), 2)
-                                             for s, n in zip(spendings_sum, spendings_sum_overall_inc)]
+                                             for s, n in zip(spendings_sum[1:], spendings_sum_overall_inc[1:])]
         data['general_investments_in']    = [round(float(max(0.0, e - en)), 2)
-                                             for e, en in zip(earnings_sum, earnings_net_sum)]
-        data['general_earnings']          = [round(float(v), 2) for v in earnings_net_sum]
+                                             for e, en in zip(earnings_sum[1:], earnings_net_sum[1:])]
+        data['general_earnings']          = [round(float(v), 2) for v in earnings_net_sum[1:]]
         data['general_net']               = [round(float(e + s), 2)
-                                             for e, s in zip(earnings_net_sum, spendings_sum_overall_inc)]
+                                             for e, s in zip(earnings_net_sum[1:], spendings_sum_overall_inc[1:])]
+
+        # Current in-progress month — kept separate so the client can opt in/out of previewing it
+        data['general_current_month']           = datetime.now().strftime('%b %Y')
+        data['general_current_spendings']       = round(float(abs(spendings_sum_overall_inc[0])), 2)
+        data['general_current_investments_out'] = round(float(abs(spendings_sum[0]) - abs(spendings_sum_overall_inc[0])), 2)
+        data['general_current_investments_in']  = round(float(max(0.0, earnings_sum[0] - earnings_net_sum[0])), 2)
+        data['general_current_earnings']        = round(float(earnings_net_sum[0]), 2)
+        data['general_current_net']             = round(float(earnings_net_sum[0] + spendings_sum_overall_inc[0]), 2)
 
         from Constants import ReservedNames
         _manual_cash = DataBase().get_Cash_Transactions()
@@ -2162,7 +2192,14 @@ class AppManager:
                 _key = f"{_mdt.year}-{_mdt.month}"
                 data['general_net'][_gi] = round(
                     data['general_net'][_gi] + float(_cash_by_ym.get(_key, 0.0)), 2)
+            _cur_dt = datetime.now()
+            _cur_key = f"{_cur_dt.year}-{_cur_dt.month}"
+            data['general_current_net'] = round(
+                data['general_current_net'] + float(_cash_by_ym.get(_cur_key, 0.0)), 2
+            )
 
+        # Recompute mean from the cash-adjusted net values (12 completed months only —
+        # the in-progress current month stays out of the average since it's partial)
         if data['general_net']:
             data['overall_net_mean'] = round(sum(data['general_net']) / len(data['general_net']), 2)
         _rp(12)   # general bar + data
@@ -2722,6 +2759,12 @@ class AppManager:
                 'general_investments_out': [_safe(v) for v in data.get('general_investments_out', [])],
                 'general_investments_in':  [_safe(v) for v in data.get('general_investments_in', [])],
                 'overall_net_mean':        _safe(data.get('overall_net_mean', 0)),
+                'general_current_month':           data.get('general_current_month', ''),
+                'general_current_spendings':       _safe(data.get('general_current_spendings', 0)),
+                'general_current_investments_out': _safe(data.get('general_current_investments_out', 0)),
+                'general_current_investments_in':  _safe(data.get('general_current_investments_in', 0)),
+                'general_current_earnings':        _safe(data.get('general_current_earnings', 0)),
+                'general_current_net':             _safe(data.get('general_current_net', 0)),
                 'cash_earned':             _safe(cash_information_data.get('Monthly Earned Cash', 0)),
                 'cash_spent':              _safe(cash_information_data.get('Monthly Spent Cash', 0)),
             },

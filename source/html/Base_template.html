@@ -6955,7 +6955,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
 
       var genCanvas = null;      // desktop: single responsive canvas
       var plotCanvas = null;     // mobile: wide canvas holding every month, panned via CSS
-      var axisGutter = null, gridLayer = null, plotViewport = null;
+      var axisGutter = null, gridLayer = null, plotViewport = null, plotInner = null;
 
       // Mobile-only paging arrows — step back/forward one month at a time through
       // the full month set (up to 12 completed months, 13 counting the current one).
@@ -6995,12 +6995,20 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
 
         plotViewport = document.createElement('div');
         plotViewport.style.cssText = 'position:absolute;top:0;bottom:0;overflow:hidden;';
+        // plotInner is the canvas's actual DOM parent and is sized to the FULL wide width.
+        // Chart.js's own resize() clamps a canvas to its immediate container's real size
+        // (getMaximumSize), so the canvas can never be wider than plotInner — panning is
+        // done by transforming plotInner itself, one level out from the canvas, not the
+        // canvas directly.
+        plotInner = document.createElement('div');
+        plotInner.style.cssText = 'position:absolute;top:0;left:0;height:100%;';
         plotCanvas = document.createElement('canvas');
         plotCanvas.id = 'chart-general-bar';
         plotCanvas.style.cssText = 'display:block;';
-        plotViewport.appendChild(plotCanvas);
+        plotInner.appendChild(plotCanvas);
+        plotViewport.appendChild(plotInner);
         genWrap.appendChild(plotViewport);
-        _gChartCanvasEl = plotCanvas;
+        _gChartCanvasEl = plotInner;
 
         if (_fullLen > _n3) {
           _gOlderBtn = _mkGenArrow('right', 'older');
@@ -7081,11 +7089,18 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
 
       if (isMobData) {
         // Builds (or rebuilds) the wide panning chart from the container's CURRENT real
-        // size. Called once up front, retried via rAF for a moment if the container isn't
-        // laid out yet (e.g. mid fade-in transition — a single one-shot measurement can
+        // size. Called once up front, retried for a moment if the container isn't laid
+        // out yet (e.g. mid fade-in transition — a single one-shot measurement can
         // otherwise race and end up building an invisible, near-zero-width canvas), and
         // called again later by the ResizeObserver below whenever the size genuinely
         // changes (orientation change, content reflow, etc.).
+        //
+        // Deliberately setTimeout, not requestAnimationFrame: rAF (and ResizeObserver
+        // notifications) are suspended outright while the document isn't the active,
+        // rendered tab — e.g. mid-load if the browser hasn't painted this tab yet — which
+        // would otherwise silently strand the chart at Chart.js's 300x150 default forever.
+        // clientWidth/clientHeight force a synchronous layout regardless, so a plain timer
+        // measures just as accurately without that risk.
         var _rebuildRetries = 0;
         var _rebuildPlotCanvas = function() {
           var totalWrapWidth  = genWrap.clientWidth;
@@ -7094,7 +7109,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
           // or the canvas ends up sized/positioned for content that's clipped away.
           var totalWrapHeight = genWrap.clientHeight || 340;
           if (totalWrapWidth < 80) {
-            if (_rebuildRetries++ < 30) requestAnimationFrame(_rebuildPlotCanvas);
+            if (_rebuildRetries++ < 40) setTimeout(_rebuildPlotCanvas, 50);
             return;
           }
 
@@ -7118,7 +7133,11 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
 
           // Establish the real height up front — Chart.js's tick generation depends on
           // it — before reading the y-axis's layout. Width here is a placeholder, refined
-          // below once the axis gutter's width is known.
+          // below once the axis gutter's width is known. Chart.js's resize() clamps the
+          // canvas to its immediate parent's actual size (getMaximumSize), so plotInner
+          // must be explicitly sized to whatever width we want the canvas to become —
+          // setting it on the canvas itself would just get overridden back down.
+          plotInner.style.width = totalWrapWidth + 'px';
           chartInst.resize(totalWrapWidth, totalWrapHeight);
 
           // Read the y-axis's own computed layout/ticks, then hide it on-canvas and
@@ -7152,7 +7171,9 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
           plotViewport.style.right = '0';
           var plotViewportWidth = Math.max(1, totalWrapWidth - axisW);
           _gSlotWidth = plotViewportWidth / _n3;
-          chartInst.resize(_gSlotWidth * _fullLen, totalWrapHeight);
+          var wideWidth = _gSlotWidth * _fullLen;
+          plotInner.style.width = wideWidth + 'px';
+          chartInst.resize(wideWidth, totalWrapHeight);
 
           // The width-only resize above shouldn't move the y-pixel mapping (height is
           // unchanged), but re-read it defensively rather than trust that guarantee.
@@ -7161,14 +7182,14 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
           Array.from(gridLayer.children).forEach(function(el, i) { el.style.top = tickPixels[i] + 'px'; });
 
           _gBaseShift = Math.max(0, _fullLen - _n3) * _gSlotWidth;
-          plotCanvas.style.transition = 'none';
-          plotCanvas.style.transform  = 'translateX(' + (_mobOffset * _gSlotWidth - _gBaseShift) + 'px)';
+          plotInner.style.transition = 'none';
+          plotInner.style.transform  = 'translateX(' + (_mobOffset * _gSlotWidth - _gBaseShift) + 'px)';
 
           // Now that the axis width is known, keep the "newer" arrow clear of it.
           if (_gNewerBtn) { _gNewerBtn.style.left = (axisW + 4) + 'px'; }
         };
 
-        requestAnimationFrame(_rebuildPlotCanvas);
+        setTimeout(_rebuildPlotCanvas, 0);
 
         if (typeof ResizeObserver !== 'undefined') {
           var _gResizeT2 = null;

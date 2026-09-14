@@ -6773,6 +6773,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       var _gMaxOffset = 0;      // recomputed on each build; read by the mobile arrow buttons
       var _gOlderBtn = null, _gNewerBtn = null, _gChartCanvasEl = null;
       var _gSlotWidth = 0, _gBaseShift = 0; // pixel geometry for the mobile panning canvas
+      var _gResizeObs = null; // re-measures the panning canvas once the container's real size settles
       var _n3 = 3;
       var _IB = 'rgba(255,183,77,0.85)', _ID = '#ffb74d';
 
@@ -6862,6 +6863,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
 
       function _buildGeneralChart() {
         _destroyChart('chart-general-bar'); // destroy before canvas is removed from DOM
+        if (_gResizeObs) { _gResizeObs.disconnect(); _gResizeObs = null; }
         _gContainer.innerHTML = '';
         var isMob     = window.matchMedia('(max-width:768px)').matches;
         var isMobData = window.matchMedia('(max-width:500px)').matches;
@@ -7078,12 +7080,24 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       };
 
       if (isMobData) {
-        requestAnimationFrame(function() {
+        // Builds (or rebuilds) the wide panning chart from the container's CURRENT real
+        // size. Called once up front, retried via rAF for a moment if the container isn't
+        // laid out yet (e.g. mid fade-in transition — a single one-shot measurement can
+        // otherwise race and end up building an invisible, near-zero-width canvas), and
+        // called again later by the ResizeObserver below whenever the size genuinely
+        // changes (orientation change, content reflow, etc.).
+        var _rebuildRetries = 0;
+        var _rebuildPlotCanvas = function() {
           var totalWrapWidth  = genWrap.clientWidth;
           // #chart-general-wrap gets a forced height on mobile (see the ≤768px media
           // query) — read the real rendered height rather than assuming any fixed value,
           // or the canvas ends up sized/positioned for content that's clipped away.
           var totalWrapHeight = genWrap.clientHeight || 340;
+          if (totalWrapWidth < 80) {
+            if (_rebuildRetries++ < 30) requestAnimationFrame(_rebuildPlotCanvas);
+            return;
+          }
+
           _destroyChart('chart-general-bar');
           var monthLabelsFull = _gFormatLabels(eff.months);
           var chartInst = new Chart(plotCanvas, {
@@ -7152,7 +7166,18 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
 
           // Now that the axis width is known, keep the "newer" arrow clear of it.
           if (_gNewerBtn) { _gNewerBtn.style.left = (axisW + 4) + 'px'; }
-        });
+        };
+
+        requestAnimationFrame(_rebuildPlotCanvas);
+
+        if (typeof ResizeObserver !== 'undefined') {
+          var _gResizeT2 = null;
+          _gResizeObs = new ResizeObserver(function() {
+            clearTimeout(_gResizeT2);
+            _gResizeT2 = setTimeout(_rebuildPlotCanvas, 60);
+          });
+          _gResizeObs.observe(genWrap);
+        }
       } else {
         requestAnimationFrame(function() {
           _destroyChart('chart-general-bar');

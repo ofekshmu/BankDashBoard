@@ -6995,7 +6995,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         plotViewport.style.cssText = 'position:absolute;top:0;bottom:0;overflow:hidden;';
         plotCanvas = document.createElement('canvas');
         plotCanvas.id = 'chart-general-bar';
-        plotCanvas.style.cssText = 'display:block;height:340px;';
+        plotCanvas.style.cssText = 'display:block;';
         plotViewport.appendChild(plotCanvas);
         genWrap.appendChild(plotViewport);
         _gChartCanvasEl = plotCanvas;
@@ -7079,7 +7079,11 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
 
       if (isMobData) {
         requestAnimationFrame(function() {
-          var totalWrapWidth = genWrap.clientWidth;
+          var totalWrapWidth  = genWrap.clientWidth;
+          // #chart-general-wrap gets a forced height on mobile (see the ≤768px media
+          // query) — read the real rendered height rather than assuming any fixed value,
+          // or the canvas ends up sized/positioned for content that's clipped away.
+          var totalWrapHeight = genWrap.clientHeight || 340;
           _destroyChart('chart-general-bar');
           var monthLabelsFull = _gFormatLabels(eff.months);
           var chartInst = new Chart(plotCanvas, {
@@ -7097,6 +7101,11 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
               }
             }
           });
+
+          // Establish the real height up front — Chart.js's tick generation depends on
+          // it — before reading the y-axis's layout. Width here is a placeholder, refined
+          // below once the axis gutter's width is known.
+          chartInst.resize(totalWrapWidth, totalWrapHeight);
 
           // Read the y-axis's own computed layout/ticks, then hide it on-canvas and
           // mirror those ticks as plain, never-redrawn DOM labels instead.
@@ -7129,7 +7138,13 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
           plotViewport.style.right = '0';
           var plotViewportWidth = Math.max(1, totalWrapWidth - axisW);
           _gSlotWidth = plotViewportWidth / _n3;
-          chartInst.resize(_gSlotWidth * _fullLen, 340);
+          chartInst.resize(_gSlotWidth * _fullLen, totalWrapHeight);
+
+          // The width-only resize above shouldn't move the y-pixel mapping (height is
+          // unchanged), but re-read it defensively rather than trust that guarantee.
+          tickPixels = yTicks.map(function(t) { return chartInst.scales.y.getPixelForValue(t.value); });
+          Array.from(axisGutter.children).forEach(function(el, i) { el.style.top = tickPixels[i] + 'px'; });
+          Array.from(gridLayer.children).forEach(function(el, i) { el.style.top = tickPixels[i] + 'px'; });
 
           _gBaseShift = Math.max(0, _fullLen - _n3) * _gSlotWidth;
           plotCanvas.style.transition = 'none';

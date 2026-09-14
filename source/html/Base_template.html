@@ -6768,10 +6768,15 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       var _gCurNet     = ch.general_current_net             || 0;
       var _gCurInvOut  = ch.general_current_investments_out || 0;
       var _gCurInvIn   = ch.general_current_investments_in  || 0;
-      var _showCurrentMonth = true;
+      var _showCurrentMonth = true; // desktop-only preference; mobile always shows it (paging reaches it anyway)
       var _mobOffset = 0;
+      var _gMaxOffset = 0;      // recomputed on each build; read by the mobile arrow buttons
+      var _gOlderBtn = null, _gNewerBtn = null, _gChartCanvasEl = null;
+      var _gPagingLock = false; // ignore arrow clicks mid-slide
+      var _n3 = 3;
+      var _IB = 'rgba(255,183,77,0.85)', _ID = '#ffb74d';
 
-      // ── Current-month preview switch ──
+      // ── Current-month preview switch (desktop only) ──
       var _gSwStyle = document.createElement('style');
       _gSwStyle.textContent =
         '.gen-cm-switch{position:relative;display:inline-block;width:38px;height:22px;flex-shrink:0;}' +
@@ -6799,7 +6804,6 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       _gSwLbl.appendChild(_gSwSlider);
       _gSwitchWrap.appendChild(_gSwLabel);
       _gSwitchWrap.appendChild(_gSwLbl);
-      if (!_gCurMonth) { _gSwitchWrap.style.display = 'none'; }
       grid.appendChild(_gSwitchWrap);
 
       var _gContainer  = document.createElement('div');
@@ -6812,31 +6816,64 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         _buildGeneralChart();
       });
 
-      var _gMaxOffset = 0; // recomputed on each build; read by the mobile arrow buttons
+      // Format server month strings to short Hebrew labels, e.g. "May 2026" → "מאי '26"
+      // Server returns "Month YYYY" (English), but also handle "YYYY_MM" as fallback.
+      var _EN_TO_HE = {
+        'Jan':'ינו׳','Feb':'פבר׳','Mar':'מרצ׳','Apr':'אפר׳','May':'מאי',
+        'Jun':'יונ׳','Jul':'יול׳','Aug':'אוג׳','Sep':'ספט׳','Oct':'אוק׳',
+        'Nov':'נוב׳','Dec':'דצמ׳'
+      };
+      var _HE_MO_IDX = ['','ינו׳','פבר׳','מרצ׳','אפר׳','מאי','יונ׳','יול׳','אוג׳','ספט׳','אוק׳','נוב׳','דצמ׳'];
+      function _gFormatLabels(months) {
+        return months.map(function(m) {
+          var s = (m || '').trim();
+          // "May 2026" format
+          var sp = s.split(' ');
+          if (sp.length === 2 && _EN_TO_HE[sp[0]]) {
+            return _EN_TO_HE[sp[0]] + " '" + String(sp[1]).slice(2);
+          }
+          // "2025_11" format (fallback)
+          var us = s.split('_');
+          if (us.length === 2) {
+            return (_HE_MO_IDX[parseInt(us[1], 10)] || us[1]) + " '" + String(us[0]).slice(2);
+          }
+          return s;
+        });
+      }
+
+      function _gFmtKpi(v) {
+        return (v < 0 ? '-' : '') + Math.abs(Math.round(v)).toLocaleString('he-IL') + '₪';
+      }
+
+      // Base series (12 completed months), optionally extended with the current in-progress month.
+      function _gEffectiveSeries(effShowCurrent) {
+        var months  = _gAllMonths.slice();
+        var sp      = _gAllSp.slice();
+        var ea      = _gAllEa.slice();
+        var net     = _gAllNet.slice();
+        var invOut  = _gAllInvOut.slice();
+        var invIn   = _gAllInvIn.slice();
+        if (effShowCurrent && _gCurMonth) {
+          months.push(_gCurMonth); sp.push(_gCurSp); ea.push(_gCurEa);
+          net.push(_gCurNet); invOut.push(_gCurInvOut); invIn.push(_gCurInvIn);
+        }
+        return { months:months, sp:sp, ea:ea, net:net, invOut:invOut, invIn:invIn };
+      }
 
       function _buildGeneralChart() {
         _destroyChart('chart-general-bar'); // destroy before canvas is removed from DOM
         _gContainer.innerHTML = '';
         var isMob     = window.matchMedia('(max-width:768px)').matches;
         var isMobData = window.matchMedia('(max-width:500px)').matches;
-        var months  = _gAllMonths.slice();
-        var sp2     = _gAllSp.slice();
-        var ea2     = _gAllEa.slice();
-        var net2    = _gAllNet.slice();
-        var invOut2 = _gAllInvOut.slice();
-        var invIn2  = _gAllInvIn.slice();
-        if (_showCurrentMonth && _gCurMonth) {
-          months.push(_gCurMonth);
-          sp2.push(_gCurSp);
-          ea2.push(_gCurEa);
-          net2.push(_gCurNet);
-          invOut2.push(_gCurInvOut);
-          invIn2.push(_gCurInvIn);
-        }
-        var mean    = _gMean;
-        var _IB = 'rgba(255,183,77,0.85)', _ID = '#ffb74d';
 
-        var _n3 = 3;
+        // On mobile the toggle is hidden — the current month is always reachable via paging.
+        _gSwitchWrap.style.display = (isMob || !_gCurMonth) ? 'none' : 'flex';
+        var effShowCurrent = isMob ? true : _showCurrentMonth;
+
+        var eff = _gEffectiveSeries(effShowCurrent);
+        var months  = eff.months, sp2 = eff.sp, ea2 = eff.ea, net2 = eff.net,
+            invOut2 = eff.invOut, invIn2 = eff.invIn;
+
         var _fullLen = months.length;
         _gMaxOffset = Math.max(0, _fullLen - _n3);
         if (_mobOffset > _gMaxOffset) _mobOffset = _gMaxOffset;
@@ -6853,28 +6890,13 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
           invIn2  = invIn2.slice(_start, _end);
         }
 
-      // Format server month strings to short Hebrew labels, e.g. "May 2026" → "מאי '26"
-      // Server returns "Month YYYY" (English), but also handle "YYYY_MM" as fallback.
-      var _EN_TO_HE = {
-        'Jan':'ינו׳','Feb':'פבר׳','Mar':'מרצ׳','Apr':'אפר׳','May':'מאי',
-        'Jun':'יונ׳','Jul':'יול׳','Aug':'אוג׳','Sep':'ספט׳','Oct':'אוק׳',
-        'Nov':'נוב׳','Dec':'דצמ׳'
-      };
-      var _HE_MO_IDX = ['','ינו׳','פבר׳','מרצ׳','אפר׳','מאי','יונ׳','יול׳','אוג׳','ספט׳','אוק׳','נוב׳','דצמ׳'];
-      var monthLabels = months.map(function(m) {
-        var s = (m || '').trim();
-        // "May 2026" format
-        var sp = s.split(' ');
-        if (sp.length === 2 && _EN_TO_HE[sp[0]]) {
-          return _EN_TO_HE[sp[0]] + " '" + String(sp[1]).slice(2);
-        }
-        // "2025_11" format (fallback)
-        var us = s.split('_');
-        if (us.length === 2) {
-          return (_HE_MO_IDX[parseInt(us[1], 10)] || us[1]) + " '" + String(us[0]).slice(2);
-        }
-        return s;
-      });
+        // Average net — over the visible window when it's paged down to 3 months or
+        // fewer, otherwise the fixed 12-completed-month average from the server.
+        var mean = isMobData
+          ? (net2.length ? net2.reduce(function(a,b){return a+b;},0) / net2.length : 0)
+          : _gMean;
+
+        var monthLabels = _gFormatLabels(months);
 
       var genCard = document.createElement('div');
       genCard.className = 'chart-card full-width';
@@ -6909,8 +6931,9 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         lbl.style.cssText = 'font-size:0.72em;font-weight:600;color:#888;margin-bottom:3px;';
         lbl.textContent = ki.lbl;
         var val = document.createElement('div');
+        val.id = 'gen-kpi-val-' + i;
         val.style.cssText = 'font-size:1.15em;font-weight:800;color:' + ki.clr + ';white-space:nowrap;';
-        val.textContent = (ki.val < 0 ? '-' : '') + Math.abs(Math.round(ki.val)).toLocaleString('he-IL') + '₪';
+        val.textContent = _gFmtKpi(ki.val);
         cell.appendChild(lbl); cell.appendChild(val);
         banner.appendChild(cell);
       });
@@ -6923,14 +6946,19 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
 
       var genWrap = document.createElement('div');
       genWrap.id = 'chart-general-wrap';
-      genWrap.style.cssText = 'position:relative;height:340px;';
+      genWrap.style.cssText = 'position:relative;height:340px;overflow:hidden;';
       var genCanvas = document.createElement('canvas');
       genCanvas.id = 'chart-general-bar';
       genCanvas.style.cssText = 'width:100%;height:100%;';
       genWrap.appendChild(genCanvas);
+      _gChartCanvasEl = genCanvas;
 
       // Mobile-only paging arrows — step back/forward one month at a time through
-      // the full month set (up to 12 completed months, 13 if the current month is shown).
+      // the full month set (up to 12 completed months, 13 counting the current one).
+      // Arrows point inward: the "older" control sits on the right (‹, pulling earlier
+      // months in from the left) and "newer" sits on the left (›, pulling later months
+      // in from the right).
+      _gOlderBtn = null; _gNewerBtn = null;
       if (isMobData && _fullLen > _n3) {
         var _mkGenArrow = function(side, dir) {
           var btn = document.createElement('button');
@@ -6944,13 +6972,15 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
             (isDisabled ? 'opacity:.35;pointer-events:none;' : '');
           btn.textContent = dir === 'older' ? '‹' : '›';
           btn.addEventListener('click', function() {
-            _mobOffset += (dir === 'older' ? 1 : -1);
-            _buildGeneralChart();
+            if (_gPagingLock) return;
+            _pageGeneralChart(dir);
           });
           return btn;
         };
-        genWrap.appendChild(_mkGenArrow('left',  'older'));
-        genWrap.appendChild(_mkGenArrow('right', 'newer'));
+        _gOlderBtn = _mkGenArrow('right', 'older');
+        _gNewerBtn = _mkGenArrow('left',  'newer');
+        genWrap.appendChild(_gOlderBtn);
+        genWrap.appendChild(_gNewerBtn);
       }
 
       genCard.appendChild(genWrap);
@@ -7030,6 +7060,78 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         });
       });
       } // end _buildGeneralChart
+
+      // Paging (arrow clicks only): update data + KPIs in place with a sideways slide,
+      // instead of rebuilding the card and replaying the bars'-growing-from-zero animation.
+      function _pageGeneralChart(dir) {
+        var eff = _gEffectiveSeries(true); // mobile always includes the current month
+        var _fullLen = eff.months.length;
+        _gMaxOffset = Math.max(0, _fullLen - _n3);
+        var newOffset = _mobOffset + (dir === 'older' ? 1 : -1);
+        if (newOffset < 0) newOffset = 0;
+        if (newOffset > _gMaxOffset) newOffset = _gMaxOffset;
+        if (newOffset === _mobOffset) return;
+        _mobOffset = newOffset;
+
+        var _end = _fullLen - _mobOffset, _start = Math.max(0, _end - _n3);
+        var months  = eff.months.slice(_start, _end);
+        var sp2     = eff.sp.slice(_start, _end);
+        var ea2     = eff.ea.slice(_start, _end);
+        var net2    = eff.net.slice(_start, _end);
+        var invOut2 = eff.invOut.slice(_start, _end);
+        var invIn2  = eff.invIn.slice(_start, _end);
+        var monthLabels = _gFormatLabels(months);
+        var mean = net2.length ? net2.reduce(function(a,b){return a+b;},0) / net2.length : 0;
+
+        var totalIncome  = Math.round(ea2.reduce(function(a,b){return a+b;},0) + invIn2.reduce(function(a,b){return a+b;},0));
+        var totalOutcome = Math.round(sp2.reduce(function(a,b){return a+b;},0) + invOut2.reduce(function(a,b){return a+b;},0));
+        var totalInvNet  = Math.round(invOut2.reduce(function(a,b){return a+b;},0) - invIn2.reduce(function(a,b){return a+b;},0));
+
+        var meanEl = document.getElementById('gen-kpi-val-0');
+        if (meanEl) { meanEl.textContent = _gFmtKpi(mean); meanEl.style.color = mean >= 0 ? '#1e9d8b' : '#e74c3c'; }
+        var incEl = document.getElementById('gen-kpi-val-1'); if (incEl) incEl.textContent = _gFmtKpi(totalIncome);
+        var outEl = document.getElementById('gen-kpi-val-2'); if (outEl) outEl.textContent = _gFmtKpi(totalOutcome);
+        var invEl = document.getElementById('gen-kpi-val-3'); if (invEl) invEl.textContent = _gFmtKpi(totalInvNet);
+
+        if (_gOlderBtn) {
+          var olderDisabled = _mobOffset >= _gMaxOffset;
+          _gOlderBtn.style.opacity = olderDisabled ? '.35' : '';
+          _gOlderBtn.style.pointerEvents = olderDisabled ? 'none' : '';
+        }
+        if (_gNewerBtn) {
+          var newerDisabled = _mobOffset <= 0;
+          _gNewerBtn.style.opacity = newerDisabled ? '.35' : '';
+          _gNewerBtn.style.pointerEvents = newerDisabled ? 'none' : '';
+        }
+
+        // Slide the bars sideways: exit off-screen, swap the data with animation off,
+        // snap to the opposite edge, then slide back in.
+        var canvas = _gChartCanvasEl;
+        var exitX  = dir === 'older' ? '100%'  : '-100%';
+        var enterX = dir === 'older' ? '-100%' : '100%';
+        _gPagingLock = true;
+        canvas.style.transition = 'transform .22s ease';
+        canvas.style.transform  = 'translateX(' + exitX + ')';
+        setTimeout(function() {
+          var chartInst = Chart.getChart('chart-general-bar');
+          if (chartInst) {
+            chartInst.data.labels = monthLabels;
+            chartInst.data.datasets[0].data = sp2;
+            chartInst.data.datasets[1].data = invOut2;
+            chartInst.data.datasets[2].data = ea2;
+            chartInst.data.datasets[3].data = invIn2;
+            chartInst.data.datasets[4].data = net2;
+            chartInst.data.datasets[5].data = months.map(function() { return mean; });
+            chartInst.update('none');
+          }
+          canvas.style.transition = 'none';
+          canvas.style.transform  = 'translateX(' + enterX + ')';
+          void canvas.offsetWidth; // force reflow so the next transition actually animates
+          canvas.style.transition = 'transform .22s ease';
+          canvas.style.transform  = 'translateX(0)';
+          setTimeout(function() { _gPagingLock = false; }, 220);
+        }, 220);
+      }
 
       _buildGeneralChart();
 

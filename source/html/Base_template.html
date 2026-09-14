@@ -6772,7 +6772,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       var _mobOffset = 0;
       var _gMaxOffset = 0;      // recomputed on each build; read by the mobile arrow buttons
       var _gOlderBtn = null, _gNewerBtn = null, _gChartCanvasEl = null;
-      var _gPagingLock = false; // ignore arrow clicks mid-slide
+      var _gSlotWidth = 0, _gBaseShift = 0; // pixel geometry for the mobile panning canvas
       var _n3 = 3;
       var _IB = 'rgba(255,183,77,0.85)', _ID = '#ffb74d';
 
@@ -6871,40 +6871,43 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         var effShowCurrent = isMob ? true : _showCurrentMonth;
 
         var eff = _gEffectiveSeries(effShowCurrent);
-        var months  = eff.months, sp2 = eff.sp, ea2 = eff.ea, net2 = eff.net,
-            invOut2 = eff.invOut, invIn2 = eff.invIn;
-
-        var _fullLen = months.length;
+        var _fullLen = eff.months.length;
         _gMaxOffset = Math.max(0, _fullLen - _n3);
         if (_mobOffset > _gMaxOffset) _mobOffset = _gMaxOffset;
         if (_mobOffset < 0) _mobOffset = 0;
 
+        // KPI figures reflect whatever is currently visible: every month on desktop,
+        // just the paged 3-month window on mobile (the chart itself always holds every
+        // month — mobile only ever pans a wide canvas, never re-renders it).
+        var kpiMonths = eff.months, kpiSp = eff.sp, kpiEa = eff.ea, kpiNet = eff.net,
+            kpiInvOut = eff.invOut, kpiInvIn = eff.invIn;
         if (isMobData) {
           var _end   = _fullLen - _mobOffset;
           var _start = Math.max(0, _end - _n3);
-          months  = months.slice(_start, _end);
-          sp2     = sp2.slice(_start, _end);
-          ea2     = ea2.slice(_start, _end);
-          net2    = net2.slice(_start, _end);
-          invOut2 = invOut2.slice(_start, _end);
-          invIn2  = invIn2.slice(_start, _end);
+          kpiMonths = eff.months.slice(_start, _end);
+          kpiSp     = eff.sp.slice(_start, _end);
+          kpiEa     = eff.ea.slice(_start, _end);
+          kpiNet    = eff.net.slice(_start, _end);
+          kpiInvOut = eff.invOut.slice(_start, _end);
+          kpiInvIn  = eff.invIn.slice(_start, _end);
         }
 
         // Average net — over the visible window when it's paged down to 3 months or
-        // fewer, otherwise the fixed 12-completed-month average from the server.
+        // fewer, otherwise the fixed 12-completed-month average from the server. (The
+        // dashed "ממוצע נטו" reference line drawn on the mobile chart itself stays at
+        // the fixed long-run average — it's a stable benchmark, not something that
+        // should jump every time the visible window changes.)
         var mean = isMobData
-          ? (net2.length ? net2.reduce(function(a,b){return a+b;},0) / net2.length : 0)
+          ? (kpiNet.length ? kpiNet.reduce(function(a,b){return a+b;},0) / kpiNet.length : 0)
           : _gMean;
-
-        var monthLabels = _gFormatLabels(months);
 
       var genCard = document.createElement('div');
       genCard.className = 'chart-card full-width';
 
       // KPI banner — 4 metrics; 2×2 grid on mobile to prevent overflow
-      var totalIncome  = Math.round(ea2.reduce(function(a,b){return a+b;},0) + invIn2.reduce(function(a,b){return a+b;},0));
-      var totalOutcome = Math.round(sp2.reduce(function(a,b){return a+b;},0) + invOut2.reduce(function(a,b){return a+b;},0));
-      var totalInvNet  = Math.round(invOut2.reduce(function(a,b){return a+b;},0) - invIn2.reduce(function(a,b){return a+b;},0));
+      var totalIncome  = Math.round(kpiEa.reduce(function(a,b){return a+b;},0) + kpiInvIn.reduce(function(a,b){return a+b;},0));
+      var totalOutcome = Math.round(kpiSp.reduce(function(a,b){return a+b;},0) + kpiInvOut.reduce(function(a,b){return a+b;},0));
+      var totalInvNet  = Math.round(kpiInvOut.reduce(function(a,b){return a+b;},0) - kpiInvIn.reduce(function(a,b){return a+b;},0));
       var kpiItems = [
         { lbl:'ממוצע נטו חודשי',   val:mean,        clr: mean >= 0 ? '#1e9d8b' : '#e74c3c' },
         { lbl:'סה"כ הכנסות',        val:totalIncome, clr:'#43a047' },
@@ -6947,11 +6950,10 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       var genWrap = document.createElement('div');
       genWrap.id = 'chart-general-wrap';
       genWrap.style.cssText = 'position:relative;height:340px;overflow:hidden;';
-      var genCanvas = document.createElement('canvas');
-      genCanvas.id = 'chart-general-bar';
-      genCanvas.style.cssText = 'width:100%;height:100%;';
-      genWrap.appendChild(genCanvas);
-      _gChartCanvasEl = genCanvas;
+
+      var genCanvas = null;      // desktop: single responsive canvas
+      var plotCanvas = null;     // mobile: wide canvas holding every month, panned via CSS
+      var axisGutter = null, gridLayer = null, plotViewport = null;
 
       // Mobile-only paging arrows — step back/forward one month at a time through
       // the full month set (up to 12 completed months, 13 counting the current one).
@@ -6959,28 +6961,57 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       // months in from the left) and "newer" sits on the left (›, pulling later months
       // in from the right).
       _gOlderBtn = null; _gNewerBtn = null;
-      if (isMobData && _fullLen > _n3) {
-        var _mkGenArrow = function(side, dir) {
-          var btn = document.createElement('button');
-          btn.type = 'button';
-          btn.setAttribute('aria-label', dir === 'older' ? 'חודשים קודמים' : 'חודשים מאוחרים יותר');
-          var isDisabled = dir === 'older' ? (_mobOffset >= _gMaxOffset) : (_mobOffset <= 0);
-          btn.style.cssText = 'position:absolute;top:50%;' + side + ':2px;transform:translateY(-50%);' +
-            'width:30px;height:30px;border-radius:50%;border:1px solid var(--border,#d0d6e8);' +
-            'background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.12);font-size:16px;line-height:1;' +
-            'color:var(--navy,#1e2a4a);cursor:pointer;z-index:5;display:flex;align-items:center;justify-content:center;' +
-            (isDisabled ? 'opacity:.35;pointer-events:none;' : '');
-          btn.textContent = dir === 'older' ? '‹' : '›';
-          btn.addEventListener('click', function() {
-            if (_gPagingLock) return;
-            _pageGeneralChart(dir);
-          });
-          return btn;
-        };
-        _gOlderBtn = _mkGenArrow('right', 'older');
-        _gNewerBtn = _mkGenArrow('left',  'newer');
-        genWrap.appendChild(_gOlderBtn);
-        genWrap.appendChild(_gNewerBtn);
+      var _mkGenArrow = function(side, dir) {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.setAttribute('aria-label', dir === 'older' ? 'חודשים קודמים' : 'חודשים מאוחרים יותר');
+        var isDisabled = dir === 'older' ? (_mobOffset >= _gMaxOffset) : (_mobOffset <= 0);
+        btn.style.cssText = 'position:absolute;top:50%;' + side + ':2px;transform:translateY(-50%);' +
+          'width:30px;height:30px;border-radius:50%;border:1px solid var(--border,#d0d6e8);' +
+          'background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.12);font-size:16px;line-height:1;' +
+          'color:var(--navy,#1e2a4a);cursor:pointer;z-index:5;display:flex;align-items:center;justify-content:center;' +
+          (isDisabled ? 'opacity:.35;pointer-events:none;' : '');
+        btn.textContent = dir === 'older' ? '‹' : '›';
+        btn.addEventListener('click', function() { _pageGeneralChart(dir); });
+        return btn;
+      };
+
+      if (isMobData) {
+        // Two-layer render: a static Y-axis (plain DOM labels, copied once from Chart.js's
+        // own computed scale) plus a wide canvas holding every month's bars, clipped to a
+        // 3-month viewport and panned sideways with a CSS transform. The axis is never
+        // touched again while paging — only the canvas slides — because Chart.js redraws
+        // the whole canvas (axis included) on every data update, which is exactly the
+        // "axis pops back to the same place" effect this replaces.
+        axisGutter = document.createElement('div');
+        axisGutter.style.cssText = 'position:absolute;left:0;top:0;bottom:0;z-index:3;background:#fff;pointer-events:none;';
+        genWrap.appendChild(axisGutter);
+
+        gridLayer = document.createElement('div');
+        gridLayer.style.cssText = 'position:absolute;top:0;bottom:0;z-index:1;pointer-events:none;';
+        genWrap.appendChild(gridLayer);
+
+        plotViewport = document.createElement('div');
+        plotViewport.style.cssText = 'position:absolute;top:0;bottom:0;overflow:hidden;';
+        plotCanvas = document.createElement('canvas');
+        plotCanvas.id = 'chart-general-bar';
+        plotCanvas.style.cssText = 'display:block;height:340px;';
+        plotViewport.appendChild(plotCanvas);
+        genWrap.appendChild(plotViewport);
+        _gChartCanvasEl = plotCanvas;
+
+        if (_fullLen > _n3) {
+          _gOlderBtn = _mkGenArrow('right', 'older');
+          _gNewerBtn = _mkGenArrow('left',  'newer');
+          genWrap.appendChild(_gOlderBtn);
+          genWrap.appendChild(_gNewerBtn);
+        }
+      } else {
+        genCanvas = document.createElement('canvas');
+        genCanvas.id = 'chart-general-bar';
+        genCanvas.style.cssText = 'width:100%;height:100%;';
+        genWrap.appendChild(genCanvas);
+        _gChartCanvasEl = null;
       }
 
       genCard.appendChild(genWrap);
@@ -7035,34 +7066,104 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       genCard.appendChild(genLegend);
       _gContainer.appendChild(genCard);
 
-      requestAnimationFrame(function() {
-        _destroyChart('chart-general-bar');
-        new Chart(genCanvas, {
-          data: {
-            labels: monthLabels,
-            datasets: [
-              { type:'bar',  label:'הוצאות',           data: sp2,     backgroundColor:'rgba(239,154,154,0.80)', borderColor:'#ef5350', borderWidth:1, order:2, stack:'sp' },
-              { type:'bar',  label:'השקעות/חיסכון',  data: invOut2, backgroundColor:_IB, borderColor:_ID, borderWidth:1, order:2, stack:'sp' },
-              { type:'bar',  label:'הכנסות',            data: ea2,     backgroundColor:'rgba(165,214,167,0.75)', borderColor:'#43a047', borderWidth:1, order:2, stack:'ea' },
-              { type:'bar',  label:'',                  data: invIn2,  backgroundColor:_IB, borderColor:_ID, borderWidth:1, order:2, stack:'ea' },
-              { type:'line', label:'נטו (ללא השקעות)', data: net2, borderColor:'#1e9d8b', backgroundColor:'rgba(30,157,139,0.08)', pointRadius:5, pointHoverRadius:8, tension:0.35, fill:true, borderWidth:2, order:1 },
-              { type:'line', label:'ממוצע נטו', data: months.map(function() { return mean; }), borderColor:'rgba(30,157,139,0.35)', borderDash:[5,5], backgroundColor:'transparent', pointRadius:0, borderWidth:1.5, order:1 }
-            ]
-          },
-          options: {
-            responsive: true, maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: {
-              x: { ticks: { maxRotation: 45, minRotation: 30 } },
-              y: { ticks: { callback: function(v) { return v.toLocaleString('he-IL'); } } }
+      var _genDatasetsFor = function(sp, invOut, ea, invIn, net, meanLine) {
+        return [
+          { type:'bar',  label:'הוצאות',           data: sp,     backgroundColor:'rgba(239,154,154,0.80)', borderColor:'#ef5350', borderWidth:1, order:2, stack:'sp' },
+          { type:'bar',  label:'השקעות/חיסכון',  data: invOut, backgroundColor:_IB, borderColor:_ID, borderWidth:1, order:2, stack:'sp' },
+          { type:'bar',  label:'הכנסות',            data: ea,     backgroundColor:'rgba(165,214,167,0.75)', borderColor:'#43a047', borderWidth:1, order:2, stack:'ea' },
+          { type:'bar',  label:'',                  data: invIn,  backgroundColor:_IB, borderColor:_ID, borderWidth:1, order:2, stack:'ea' },
+          { type:'line', label:'נטו (ללא השקעות)', data: net, borderColor:'#1e9d8b', backgroundColor:'rgba(30,157,139,0.08)', pointRadius:5, pointHoverRadius:8, tension:0.35, fill:true, borderWidth:2, order:1 },
+          { type:'line', label:'ממוצע נטו', data: meanLine, borderColor:'rgba(30,157,139,0.35)', borderDash:[5,5], backgroundColor:'transparent', pointRadius:0, borderWidth:1.5, order:1 }
+        ];
+      };
+
+      if (isMobData) {
+        requestAnimationFrame(function() {
+          var totalWrapWidth = genWrap.clientWidth;
+          _destroyChart('chart-general-bar');
+          var monthLabelsFull = _gFormatLabels(eff.months);
+          var chartInst = new Chart(plotCanvas, {
+            data: {
+              labels: monthLabelsFull,
+              datasets: _genDatasetsFor(eff.sp, eff.invOut, eff.ea, eff.invIn, eff.net,
+                eff.months.map(function() { return _gMean; }))
+            },
+            options: {
+              responsive: false, maintainAspectRatio: false, animation: false,
+              plugins: { legend: { display: false } },
+              scales: {
+                x: { ticks: { maxRotation: 45, minRotation: 30 } },
+                y: { ticks: { callback: function(v) { return v.toLocaleString('he-IL'); } } }
+              }
             }
-          }
+          });
+
+          // Read the y-axis's own computed layout/ticks, then hide it on-canvas and
+          // mirror those ticks as plain, never-redrawn DOM labels instead.
+          var axisW = Math.ceil(chartInst.scales.y.width || 46);
+          var yTicks = chartInst.scales.y.ticks.slice();
+          chartInst.options.scales.y.display = false;
+          chartInst.update('none');
+          var tickPixels = yTicks.map(function(t) { return chartInst.scales.y.getPixelForValue(t.value); });
+
+          axisGutter.style.width = axisW + 'px';
+          axisGutter.innerHTML = '';
+          yTicks.forEach(function(t, i) {
+            var d = document.createElement('div');
+            d.style.cssText = 'position:absolute;right:6px;transform:translateY(-50%);' +
+              'font-size:11px;color:#666;white-space:nowrap;top:' + tickPixels[i] + 'px;';
+            d.textContent = (t.label !== undefined ? t.label : String(t.value));
+            axisGutter.appendChild(d);
+          });
+
+          gridLayer.style.left  = axisW + 'px';
+          gridLayer.style.right = '0';
+          gridLayer.innerHTML = '';
+          tickPixels.forEach(function(py) {
+            var line = document.createElement('div');
+            line.style.cssText = 'position:absolute;left:0;right:0;height:1px;background:rgba(0,0,0,.06);top:' + py + 'px;';
+            gridLayer.appendChild(line);
+          });
+
+          plotViewport.style.left  = axisW + 'px';
+          plotViewport.style.right = '0';
+          var plotViewportWidth = Math.max(1, totalWrapWidth - axisW);
+          _gSlotWidth = plotViewportWidth / _n3;
+          chartInst.resize(_gSlotWidth * _fullLen, 340);
+
+          _gBaseShift = Math.max(0, _fullLen - _n3) * _gSlotWidth;
+          plotCanvas.style.transition = 'none';
+          plotCanvas.style.transform  = 'translateX(' + (_mobOffset * _gSlotWidth - _gBaseShift) + 'px)';
+
+          // Now that the axis width is known, keep the "newer" arrow clear of it.
+          if (_gNewerBtn) { _gNewerBtn.style.left = (axisW + 4) + 'px'; }
         });
-      });
+      } else {
+        requestAnimationFrame(function() {
+          _destroyChart('chart-general-bar');
+          new Chart(genCanvas, {
+            data: {
+              labels: _gFormatLabels(eff.months),
+              datasets: _genDatasetsFor(eff.sp, eff.invOut, eff.ea, eff.invIn, eff.net,
+                eff.months.map(function() { return mean; }))
+            },
+            options: {
+              responsive: true, maintainAspectRatio: false,
+              plugins: { legend: { display: false } },
+              scales: {
+                x: { ticks: { maxRotation: 45, minRotation: 30 } },
+                y: { ticks: { callback: function(v) { return v.toLocaleString('he-IL'); } } }
+              }
+            }
+          });
+        });
+      }
       } // end _buildGeneralChart
 
-      // Paging (arrow clicks only): update data + KPIs in place with a sideways slide,
-      // instead of rebuilding the card and replaying the bars'-growing-from-zero animation.
+      // Paging (arrow clicks only): a pure CSS pan of the pre-rendered wide canvas by
+      // exactly one month-slot, plus a cheap DOM update of the KPI numbers and arrow
+      // states. The chart itself is never touched — nothing pops or redraws, and the
+      // (already-static) y-axis is completely unaffected.
       function _pageGeneralChart(dir) {
         var eff = _gEffectiveSeries(true); // mobile always includes the current month
         var _fullLen = eff.months.length;
@@ -7074,18 +7175,14 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         _mobOffset = newOffset;
 
         var _end = _fullLen - _mobOffset, _start = Math.max(0, _end - _n3);
-        var months  = eff.months.slice(_start, _end);
-        var sp2     = eff.sp.slice(_start, _end);
-        var ea2     = eff.ea.slice(_start, _end);
-        var net2    = eff.net.slice(_start, _end);
-        var invOut2 = eff.invOut.slice(_start, _end);
-        var invIn2  = eff.invIn.slice(_start, _end);
-        var monthLabels = _gFormatLabels(months);
-        var mean = net2.length ? net2.reduce(function(a,b){return a+b;},0) / net2.length : 0;
+        var kpiSp = eff.sp.slice(_start, _end), kpiEa = eff.ea.slice(_start, _end),
+            kpiNet = eff.net.slice(_start, _end), kpiInvOut = eff.invOut.slice(_start, _end),
+            kpiInvIn = eff.invIn.slice(_start, _end);
+        var mean = kpiNet.length ? kpiNet.reduce(function(a,b){return a+b;},0) / kpiNet.length : 0;
 
-        var totalIncome  = Math.round(ea2.reduce(function(a,b){return a+b;},0) + invIn2.reduce(function(a,b){return a+b;},0));
-        var totalOutcome = Math.round(sp2.reduce(function(a,b){return a+b;},0) + invOut2.reduce(function(a,b){return a+b;},0));
-        var totalInvNet  = Math.round(invOut2.reduce(function(a,b){return a+b;},0) - invIn2.reduce(function(a,b){return a+b;},0));
+        var totalIncome  = Math.round(kpiEa.reduce(function(a,b){return a+b;},0) + kpiInvIn.reduce(function(a,b){return a+b;},0));
+        var totalOutcome = Math.round(kpiSp.reduce(function(a,b){return a+b;},0) + kpiInvOut.reduce(function(a,b){return a+b;},0));
+        var totalInvNet  = Math.round(kpiInvOut.reduce(function(a,b){return a+b;},0) - kpiInvIn.reduce(function(a,b){return a+b;},0));
 
         var meanEl = document.getElementById('gen-kpi-val-0');
         if (meanEl) { meanEl.textContent = _gFmtKpi(mean); meanEl.style.color = mean >= 0 ? '#1e9d8b' : '#e74c3c'; }
@@ -7104,33 +7201,10 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
           _gNewerBtn.style.pointerEvents = newerDisabled ? 'none' : '';
         }
 
-        // Slide the bars sideways: exit off-screen, swap the data with animation off,
-        // snap to the opposite edge, then slide back in.
-        var canvas = _gChartCanvasEl;
-        var exitX  = dir === 'older' ? '100%'  : '-100%';
-        var enterX = dir === 'older' ? '-100%' : '100%';
-        _gPagingLock = true;
-        canvas.style.transition = 'transform .22s ease';
-        canvas.style.transform  = 'translateX(' + exitX + ')';
-        setTimeout(function() {
-          var chartInst = Chart.getChart('chart-general-bar');
-          if (chartInst) {
-            chartInst.data.labels = monthLabels;
-            chartInst.data.datasets[0].data = sp2;
-            chartInst.data.datasets[1].data = invOut2;
-            chartInst.data.datasets[2].data = ea2;
-            chartInst.data.datasets[3].data = invIn2;
-            chartInst.data.datasets[4].data = net2;
-            chartInst.data.datasets[5].data = months.map(function() { return mean; });
-            chartInst.update('none');
-          }
-          canvas.style.transition = 'none';
-          canvas.style.transform  = 'translateX(' + enterX + ')';
-          void canvas.offsetWidth; // force reflow so the next transition actually animates
-          canvas.style.transition = 'transform .22s ease';
-          canvas.style.transform  = 'translateX(0)';
-          setTimeout(function() { _gPagingLock = false; }, 220);
-        }, 220);
+        if (_gChartCanvasEl && _gSlotWidth) {
+          _gChartCanvasEl.style.transition = 'transform .3s ease';
+          _gChartCanvasEl.style.transform  = 'translateX(' + (_mobOffset * _gSlotWidth - _gBaseShift) + 'px)';
+        }
       }
 
       _buildGeneralChart();
@@ -7140,6 +7214,17 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       function _onGenBpChange() { _mobOffset = 0; _buildGeneralChart(); }
       try { _mqA.addEventListener('change', _onGenBpChange); } catch(e) { _mqA.addListener(_onGenBpChange); }
       try { _mqB.addEventListener('change', _onGenBpChange); } catch(e) { _mqB.addListener(_onGenBpChange); }
+
+      // Plain resize (e.g. rotation) within the mobile bucket won't cross either media
+      // query above, but the panning canvas has a fixed pixel width computed from the
+      // viewport at build time — re-measure it so the geometry stays correct.
+      var _gResizeT = null;
+      window.addEventListener('resize', function() {
+        clearTimeout(_gResizeT);
+        _gResizeT = setTimeout(function() {
+          if (window.matchMedia('(max-width:500px)').matches) { _buildGeneralChart(); }
+        }, 150);
+      });
     }
 
     // ── Card distribution — horizontal segmented bar ──

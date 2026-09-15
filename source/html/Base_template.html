@@ -6962,18 +6962,29 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       // Arrows point inward: the "older" control sits on the right (‹, pulling earlier
       // months in from the left) and "newer" sits on the left (›, pulling later months
       // in from the right).
+      //
+      // The tap target (button) is roomy for phones, but the visible dot inside it is
+      // small and pinned to the button's outer edge — so the control reads light and
+      // sits at the true edge of the chart instead of visually sitting on top of a bar,
+      // while the extra invisible padding (extending inward, toward the bars) still
+      // gives a comfortable, forgiving touch area.
       _gOlderBtn = null; _gNewerBtn = null;
       var _mkGenArrow = function(side, dir) {
         var btn = document.createElement('button');
         btn.type = 'button';
         btn.setAttribute('aria-label', dir === 'older' ? 'חודשים קודמים' : 'חודשים מאוחרים יותר');
         var isDisabled = dir === 'older' ? (_mobOffset >= _gMaxOffset) : (_mobOffset <= 0);
-        btn.style.cssText = 'position:absolute;top:50%;' + side + ':2px;transform:translateY(-50%);' +
-          'width:30px;height:30px;border-radius:50%;border:1px solid var(--border,#d0d6e8);' +
-          'background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.12);font-size:16px;line-height:1;' +
-          'color:var(--navy,#1e2a4a);cursor:pointer;z-index:5;display:flex;align-items:center;justify-content:center;' +
+        var edgeAlign = dir === 'older' ? 'flex-end' : 'flex-start'; // hug the true edge, not the button's center
+        btn.style.cssText = 'position:absolute;top:50%;' + side + ':0;transform:translateY(-50%);' +
+          'width:44px;height:44px;padding:0;border:none;background:transparent;cursor:pointer;' +
+          'z-index:5;display:flex;align-items:center;justify-content:' + edgeAlign + ';' +
           (isDisabled ? 'opacity:.35;pointer-events:none;' : '');
-        btn.textContent = dir === 'older' ? '‹' : '›';
+        var dot = document.createElement('span');
+        dot.style.cssText = 'width:20px;height:20px;flex-shrink:0;border-radius:50%;' +
+          'border:1px solid var(--border,#d0d6e8);background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.12);' +
+          'font-size:12px;line-height:1;color:var(--navy,#1e2a4a);display:flex;align-items:center;justify-content:center;';
+        dot.textContent = dir === 'older' ? '‹' : '›';
+        btn.appendChild(dot);
         btn.addEventListener('click', function() { _pageGeneralChart(dir); });
         return btn;
       };
@@ -7031,8 +7042,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         { label:'הוצאות',             color:'#ef5350', dashed:false },
         { label:'השקעות/חיסכון',     color:_ID,       dashed:false },
         { label:'הכנסות',             color:'#43a047', dashed:false },
-        { label:'נטו (ללא השקעות)', color:'#1e9d8b', dashed:false },
-        { label:'ממוצע נטו',         color:'rgba(30,157,139,0.55)', dashed:true }
+        { label:'נטו (ללא השקעות)', color:'#1e9d8b', dashed:false }
       ];
       var genLegend = document.createElement('div');
       genLegend.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px;padding:10px 0 2px;justify-content:center;';
@@ -7185,8 +7195,9 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
           plotInner.style.transition = 'none';
           plotInner.style.transform  = 'translateX(' + (_mobOffset * _gSlotWidth - _gBaseShift) + 'px)';
 
-          // Now that the axis width is known, keep the "newer" arrow clear of it.
-          if (_gNewerBtn) { _gNewerBtn.style.left = (axisW + 4) + 'px'; }
+          // Now that the axis width is known, anchor the "newer" arrow right at the
+          // plot area's edge (its dot is aligned to the button's own inner/start edge).
+          if (_gNewerBtn) { _gNewerBtn.style.left = axisW + 'px'; }
         };
 
         setTimeout(_rebuildPlotCanvas, 0);

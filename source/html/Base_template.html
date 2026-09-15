@@ -6774,6 +6774,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       var _gOlderBtn = null, _gNewerBtn = null, _gChartCanvasEl = null;
       var _gSlotWidth = 0, _gBaseShift = 0; // pixel geometry for the mobile panning canvas
       var _gResizeObs = null; // re-measures the panning canvas once the container's real size settles
+      var _gTooltipEl = null; // HTML tooltip for the mobile chart — see _mobileTooltipHandler below
       var _n3 = 3;
       var _IB = 'rgba(255,183,77,0.85)', _ID = '#ffb74d';
 
@@ -6864,6 +6865,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       function _buildGeneralChart() {
         _destroyChart('chart-general-bar'); // destroy before canvas is removed from DOM
         if (_gResizeObs) { _gResizeObs.disconnect(); _gResizeObs = null; }
+        if (_gTooltipEl) { _gTooltipEl.remove(); _gTooltipEl = null; }
         _gContainer.innerHTML = '';
         var isMob     = window.matchMedia('(max-width:768px)').matches;
         var isMobData = window.matchMedia('(max-width:500px)').matches;
@@ -7097,6 +7099,53 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         ];
       };
 
+      // The mobile chart's own canvas-drawn tooltip gets clipped by plotViewport's
+      // overflow:hidden whenever it would render near (or past) the panning viewport's
+      // edge — Chart.js positions/sizes it using the full wide canvas as available space,
+      // not the narrow visible window, so it doesn't know to stay clear of that boundary.
+      // Replace it with a plain HTML tooltip appended to <body> with position:fixed, so
+      // it's never inside any clipping container and always paints above everything else.
+      var _mobileTooltipHandler = function(context) {
+        var tooltipModel = context.tooltip;
+        if (!_gTooltipEl) {
+          _gTooltipEl = document.createElement('div');
+          _gTooltipEl.style.cssText = 'position:fixed;pointer-events:none;z-index:9999;' +
+            'background:rgba(255,255,255,0.98);border:1px solid var(--border,#d0d6e8);' +
+            'border-radius:8px;padding:8px 12px;font-size:12px;color:#111;' +
+            'box-shadow:0 2px 10px rgba(0,0,0,.18);direction:rtl;white-space:nowrap;';
+          document.body.appendChild(_gTooltipEl);
+        }
+        if (tooltipModel.opacity === 0) {
+          _gTooltipEl.style.opacity = '0';
+          return;
+        }
+        var html = '';
+        (tooltipModel.title || []).forEach(function(t) {
+          html += '<div style="font-weight:700;font-size:11px;color:#666;margin-bottom:3px;">' + t + '</div>';
+        });
+        (tooltipModel.body || []).forEach(function(b, i) {
+          var colors = tooltipModel.labelColors[i] || {};
+          b.lines.forEach(function(line) {
+            html += '<div style="display:flex;align-items:center;gap:6px;">' +
+              '<span style="display:inline-block;width:8px;height:8px;border-radius:2px;' +
+              'background:' + (colors.backgroundColor || '#ccc') + ';border:1px solid ' +
+              (colors.borderColor || '#999') + ';"></span><span>' + line + '</span></div>';
+          });
+        });
+        _gTooltipEl.innerHTML = html;
+        _gTooltipEl.style.opacity = '1';
+
+        var canvasRect = context.chart.canvas.getBoundingClientRect();
+        var x = canvasRect.left + tooltipModel.caretX;
+        var y = canvasRect.top + tooltipModel.caretY;
+        var elW = _gTooltipEl.offsetWidth;
+        var elH = _gTooltipEl.offsetHeight;
+        var left = Math.max(4, Math.min(x - elW / 2, window.innerWidth - elW - 4));
+        var top  = Math.max(4, y - elH - 10);
+        _gTooltipEl.style.left = left + 'px';
+        _gTooltipEl.style.top  = top + 'px';
+      };
+
       if (isMobData) {
         // Builds (or rebuilds) the wide panning chart from the container's CURRENT real
         // size. Called once up front, retried for a moment if the container isn't laid
@@ -7133,7 +7182,10 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
             },
             options: {
               responsive: false, maintainAspectRatio: false, animation: false,
-              plugins: { legend: { display: false } },
+              plugins: {
+                legend: { display: false },
+                tooltip: { enabled: false, external: _mobileTooltipHandler }
+              },
               scales: {
                 x: { ticks: { maxRotation: 45, minRotation: 30 } },
                 y: { ticks: { callback: function(v) { return v.toLocaleString('he-IL'); } } }
@@ -7237,6 +7289,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       // states. The chart itself is never touched — nothing pops or redraws, and the
       // (already-static) y-axis is completely unaffected.
       function _pageGeneralChart(dir) {
+        if (_gTooltipEl) { _gTooltipEl.style.opacity = '0'; } // the bar it pointed at just moved
         var eff = _gEffectiveSeries(true); // mobile always includes the current month
         var _fullLen = eff.months.length;
         _gMaxOffset = Math.max(0, _fullLen - _n3);

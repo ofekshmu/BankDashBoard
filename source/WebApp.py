@@ -403,6 +403,17 @@ def _render_recurring_html(data_json: str) -> str:
     return template.replace('__RC_DATA_JSON__', data_json)
 
 
+def _render_card_analysis_html(data_json: str) -> str:
+    """Render the CardAnalysis.html template with a given JSON data blob
+    (the literal string 'null' for the page shell — the page's own JS fetches
+    /api/card-analysis/data itself and renders in place, so a slow or
+    unavailable DB never blocks the page from rendering)."""
+    html_path = os.path.join(_HERE, 'html', 'CardAnalysis.html')
+    with open(html_path, encoding='utf-8') as f:
+        template = f.read()
+    return template.replace('__CARD_ANALYSIS_DATA_JSON__', data_json)
+
+
 def _is_stale_manifest(html_path: str) -> bool:
     """True if any dependency recorded in the manifest has changed since generation.
 
@@ -1283,6 +1294,7 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:#f4f6f9;color:#1e2a4a;d
     <a class="nav-item active" href="/categories">ניתוח קטגוריאלי</a>
     <a class="nav-item" href="/search">חיפוש</a>
     <a class="nav-item" href="/spotify">Spotify Tracker</a>
+    <a class="nav-item" href="/card-analysis">ניתוח כרטיסים</a>
     <a class="nav-item" href="/recurring">חיובים חוזרים</a>
     <div class="nav-sep"></div>
     <a class="nav-item" href="/tagger">תייגן</a>
@@ -3451,6 +3463,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--na
     <a class="nav-item" href="/categories">ניתוח קטגוריאלי</a>
     <a class="nav-item" href="/search">חיפוש</a>
     <a class="nav-item" href="/spotify">Spotify Tracker</a>
+    <a class="nav-item" href="/card-analysis">ניתוח כרטיסים</a>
     <a class="nav-item" href="/recurring">חיובים חוזרים</a>
     <div class="nav-sep"></div>
     <a class="nav-item" href="/tagger">תייגן</a>
@@ -5340,6 +5353,63 @@ def api_bills_suggestions_dismiss():
         db = DataBase()
         db.dismiss_bill_suggestion(name)
         db.commit_changes()
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+# ── Card Analysis routes ────────────────────────────────────────────────────
+
+@app.route('/card-analysis')
+def card_analysis_page():
+    # Page shell only, RC_DATA-null style (see recurring_page) — the DB call
+    # happens client-side via /api/card-analysis/data so a slow/unavailable
+    # DB never blocks the page itself from rendering.
+    return _render_card_analysis_html('null')
+
+
+@app.route('/api/card-analysis/data')
+def card_analysis_data():
+    from database import DataBase
+    from CardAnalysis import get_card_analysis_data
+    try:
+        db = DataBase()
+        db.ensure_card_limits_table()
+        month = (request.args.get('month') or '').strip() or None
+        data = get_card_analysis_data(db, month)
+        return jsonify({'ok': True, **data})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+@app.route('/api/card-analysis/limits/<card_id>', methods=['POST'])
+def card_analysis_set_limit(card_id):
+    from database import DataBase
+    try:
+        card_id = _normalize_percent_encoded(card_id)
+        body = request.get_json(force=True) or {}
+        amount = body.get('amount')
+        if amount is None:
+            return jsonify({'ok': False, 'error': 'amount נדרש'})
+        amount = float(amount)
+        if amount <= 0:
+            return jsonify({'ok': False, 'error': 'הסכום חייב להיות חיובי'})
+        db = DataBase()
+        db.ensure_card_limits_table()
+        db.set_card_limit(card_id, amount)
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/card-analysis/limits/<card_id>', methods=['DELETE'])
+def card_analysis_clear_limit(card_id):
+    from database import DataBase
+    try:
+        card_id = _normalize_percent_encoded(card_id)
+        db = DataBase()
+        db.ensure_card_limits_table()
+        db.clear_card_limit(card_id)
         return jsonify({'ok': True})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)})

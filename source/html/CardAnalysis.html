@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ניתוח כרטיסים</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  --teal:       #1e9d8b;
+  --teal-light: #e8f7f5;
+  --teal-dark:  #178878;
+  --navy:       #1e2a4a;
+  --bg:         #f4f6f9;
+  --white:      #ffffff;
+  --border:     #eef0f6;
+  --text-muted: #888;
+  --text-sub:   #555;
+  --red:        #e74c3c;
+  --amber:      #f0b429;
+  --green:      #2ecc71;
+  --gray:       #9ca3af;
+  --shadow-sm:  0 2px 10px rgba(0,0,0,.06);
+  --radius:     14px;
+  --radius-sm:  8px;
+}
+*,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Segoe UI', Arial, sans-serif;
+  background: var(--bg);
+  min-height: 100vh;
+  direction: rtl;
+  color: var(--navy);
+  font-size: 14px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Hamburger + slide-in nav (copied verbatim from RecurringCharges.html) ── */
+.ham-btn {
+  position: fixed; top: 18px; right: 18px;
+  width: 42px; height: 42px;
+  background: var(--white); border: 1.5px solid var(--border);
+  border-radius: 10px; display: flex; align-items: center; justify-content: center;
+  cursor: pointer; color: var(--navy); z-index: 400;
+  box-shadow: 0 2px 10px rgba(0,0,0,.06);
+  transition: background .15s, color .15s, border-color .15s;
+}
+.ham-btn:hover { background: var(--teal-light); color: var(--teal); }
+.nav-overlay {
+  position: fixed; inset: 0;
+  background: rgba(15,22,45,.26);
+  z-index: 1000; opacity: 0; pointer-events: none;
+  transition: opacity .22s ease;
+}
+.nav-overlay.open { opacity: 1; pointer-events: all; }
+.sidebar {
+  position: fixed; top: 0; right: 0;
+  height: 100vh; width: 230px;
+  background: var(--white); z-index: 1002;
+  transform: translate3d(100%, 0, 0);
+  transition: transform .22s cubic-bezier(.4,0,.2,1);
+  will-change: transform;
+  box-shadow: -4px 0 24px rgba(0,0,0,.09);
+  display: flex; flex-direction: column;
+}
+.sidebar.open { transform: translate3d(0, 0, 0); }
+.sidebar-header {
+  display: flex; align-items: center;
+  padding: 20px 20px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.sidebar-app-name { font-size: .95em; font-weight: 700; color: var(--navy); }
+.sidebar-close-btn {
+  margin-right: auto; background: none; border: none;
+  cursor: pointer; font-size: 1.1em; color: var(--text-sub);
+  line-height: 1; padding: 4px 6px; border-radius: 6px;
+  transition: background .12s, color .12s;
+}
+.sidebar-close-btn:hover { background: var(--teal-light); color: var(--teal); }
+.sidebar-scroll { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 8px 0 16px; }
+.sidebar-footer { padding: 12px 16px; border-top: 1px solid var(--border); flex-shrink: 0; }
+.nav-restart-btn {
+  width: 100%; padding: 8px 12px;
+  border: 1.5px dashed var(--border); border-radius: 8px;
+  background: none; color: var(--text-muted);
+  font-size: .78em; font-weight: 600; cursor: pointer;
+  font-family: inherit; display: flex; align-items: center;
+  gap: 7px; justify-content: center;
+  transition: background .15s, color .15s, border-color .15s;
+}
+.nav-restart-btn:hover { background: #fff3f3; color: #e53935; border-color: #e53935; }
+.nav-restart-btn:disabled { opacity: .5; cursor: default; }
+.nav-item {
+  display: flex; align-items: center; padding: 10px 20px;
+  text-decoration: none; color: var(--text-sub);
+  font-size: .875em; font-weight: 500;
+  transition: background .1s, color .1s;
+  cursor: pointer; border: none; background: none;
+  width: 100%; text-align: right;
+  position: relative; letter-spacing: .1px; font-family: inherit;
+}
+.nav-item::before {
+  content: ''; position: absolute; right: 0; top: 22%; height: 56%;
+  width: 3px; border-radius: 3px 0 0 3px;
+  background: transparent; transition: background .1s;
+}
+.nav-item:hover { background: var(--teal-light); color: var(--teal); }
+.nav-item:hover::before { background: var(--teal); }
+.nav-item.active { color: #b8c0d0; cursor: default; pointer-events: none; }
+.nav-sep { height: 1px; background: var(--border); margin: 8px 16px; }
+
+/* ── Page layout ──────────────────────────────────────────── */
+.main{margin-right:0;flex:1;padding:0 28px 90px;min-width:0}
+.page-header{display:flex;flex-direction:column;margin-bottom:18px;padding-top:26px;gap:4px;padding-right:62px}
+.page-header h1{font-size:1.85em;font-weight:700;color:var(--navy)}
+.page-header .sub{font-size:.8em;color:var(--text-muted)}
+
+.hidden{display:none !important}
+
+/* Error banner */
+.ca-error-banner{display:none;align-items:center;gap:10px;background:#fdecea;border:1px solid #f6c6c1;color:#c0392b;border-radius:var(--radius-sm);padding:12px 16px;margin-bottom:16px;font-size:.88em}
+.ca-empty{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow-sm);padding:30px 20px;text-align:center;color:var(--text-muted);font-size:.9em}
+
+/* Skeleton */
+.ca-skel{background:linear-gradient(90deg,#eef0f6 25%,#f6f7fa 37%,#eef0f6 63%);background-size:400% 100%;animation:ca-shimmer 1.4s ease infinite;border-radius:var(--radius)}
+@keyframes ca-shimmer{0%{background-position:100% 0}100%{background-position:0 0}}
+.ca-skel-hero{height:220px;margin-bottom:16px}
+.ca-skel-strip{height:44px;margin-bottom:16px}
+.ca-skel-chart{height:220px;margin-bottom:16px}
+.ca-skel-row{height:52px;margin-bottom:8px}
+
+/* Month strip — native horizontal scroll-snap, swipeable on touch for free */
+.ca-month-strip{display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x proximity;padding:4px 2px 12px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.ca-month-strip::-webkit-scrollbar{display:none}
+.ca-month-chip{scroll-snap-align:center;flex-shrink:0;padding:8px 16px;border-radius:20px;background:var(--white);border:1.5px solid var(--border);font-size:.82em;font-weight:600;color:var(--text-sub);cursor:pointer;white-space:nowrap;transition:background .15s,color .15s,border-color .15s}
+.ca-month-chip:hover{border-color:var(--teal);color:var(--teal)}
+.ca-month-chip.active{background:var(--navy);border-color:var(--navy);color:#fff}
+.ca-month-chip.open-chip::after{content:' •';color:var(--amber)}
+.ca-month-chip.active.open-chip::after{color:#ffd166}
+
+/* Card hero carousel — real pointer-drag swipe, matches the reference app */
+.ca-hero-wrap{position:relative;margin-bottom:8px}
+/* direction:ltr here is deliberate — it isolates the carousel's own layout
+   from the page's dir="rtl", so flex items sit left-to-right (panel 0 at
+   x=0%, panel 1 at x=100%, ...) and translateX(-index*panelWidth) lands on
+   the right panel. Without it, RTL flex reverses child order and the
+   transform math points off-screen. Panel content re-declares dir="rtl". */
+.ca-hero-viewport{overflow:hidden;border-radius:var(--radius);direction:ltr}
+.ca-hero-track{display:flex;will-change:transform}
+.ca-hero-panel{flex:0 0 100%;max-width:100%;box-sizing:border-box;padding:22px 22px 20px;background:var(--white);box-shadow:var(--shadow-sm);border-radius:var(--radius);min-height:150px;direction:rtl}
+.ca-hero-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.ca-hero-card-id{display:flex;align-items:center;gap:8px}
+.ca-hero-swatch{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+.ca-hero-card-name{font-weight:700;font-size:1.05em;color:var(--navy)}
+.ca-hero-card-sub{font-size:.8em;color:var(--text-muted);margin-top:2px;margin-right:20px}
+.ca-status-badge{font-size:.72em;font-weight:700;border-radius:12px;padding:3px 11px;white-space:nowrap;flex-shrink:0}
+.ca-status-badge.verified{background:#e8f7f5;color:var(--teal)}
+.ca-status-badge.not_verified{background:#fff3e0;color:var(--amber)}
+.ca-status-badge.not_found{background:#eceff3;color:#6b7280}
+.ca-status-badge.open{background:#eaf2fb;color:#2f6fb0}
+.ca-hero-amount{font-size:2.1em;font-weight:700;color:var(--navy);margin-top:16px;direction:ltr;text-align:left}
+.ca-hero-amount-label{font-size:.72em;color:var(--text-muted);margin-top:2px}
+.ca-hero-limit-row{margin-top:14px}
+.ca-hero-limit-track{height:8px;border-radius:6px;background:var(--bg);overflow:hidden}
+.ca-hero-limit-fill{height:100%;border-radius:6px;background:var(--teal);transition:width .25s ease}
+.ca-hero-limit-text{display:flex;justify-content:space-between;margin-top:6px;font-size:.76em;color:var(--text-muted)}
+.ca-hero-next{margin-top:14px;background:var(--bg);border-radius:var(--radius-sm);padding:9px 13px;font-size:.8em;color:var(--text-sub);display:flex;align-items:center;gap:6px}
+.ca-hero-limit-set{margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.ca-hero-limit-set input{width:110px;padding:7px 10px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:.82em;font-family:inherit;direction:ltr;text-align:left}
+.ca-btn{padding:6px 14px;border-radius:var(--radius-sm);border:1.5px solid var(--border);background:var(--white);font-size:.78em;cursor:pointer;font-family:inherit}
+.ca-btn:hover{background:var(--teal-light);border-color:var(--teal);color:var(--teal)}
+.ca-btn-primary{padding:6px 14px;border-radius:var(--radius-sm);border:none;background:var(--teal);color:#fff;font-size:.78em;font-weight:600;cursor:pointer;font-family:inherit}
+.ca-btn-primary:hover{background:var(--teal-dark)}
+.ca-hero-edit-link{font-size:.76em;color:var(--text-muted);cursor:pointer;text-decoration:underline;background:none;border:none;font-family:inherit;padding:0}
+.ca-hero-edit-link:hover{color:var(--teal)}
+
+.ca-hero-arrow{position:absolute;top:50%;transform:translateY(-50%);width:32px;height:32px;border-radius:50%;background:var(--white);border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:var(--shadow-sm);z-index:5;color:var(--text-sub);font-size:.9em}
+.ca-hero-arrow:hover{border-color:var(--teal);color:var(--teal)}
+.ca-hero-arrow.left{left:-6px}
+.ca-hero-arrow.right{right:-6px}
+.ca-hero-arrow:disabled{opacity:.3;cursor:default}
+
+.ca-dots{display:flex;justify-content:center;gap:6px;margin-top:12px}
+.ca-dot{width:7px;height:7px;border-radius:50%;background:var(--border);cursor:pointer;transition:background .15s,transform .15s;border:none;padding:0}
+.ca-dot.active{background:var(--teal);transform:scale(1.35)}
+
+/* Trend chart */
+.trend-card{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow-sm);padding:18px 22px;margin-bottom:20px}
+.trend-card h3{font-size:.95em;font-weight:700;margin-bottom:12px}
+.trend-chart-wrap{position:relative;height:220px}
+
+/* All-cards status list */
+.ca-status-list{display:flex;flex-direction:column;gap:8px}
+.ca-status-row{display:flex;align-items:center;gap:10px;background:var(--white);border-radius:var(--radius-sm);box-shadow:var(--shadow-sm);padding:12px 16px;flex-wrap:wrap}
+.ca-status-swatch{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.ca-status-name{font-weight:600;flex:1;min-width:100px}
+.ca-status-amount{direction:ltr;font-weight:700;color:var(--text-sub);white-space:nowrap}
+
+@media (max-width: 640px) {
+  .main{padding:0 14px 90px}
+  .page-header{padding-right:56px}
+  .ca-hero-amount{font-size:1.7em}
+}
+</style>
+<link rel="stylesheet" href="/design-system.css">
+</head>
+<body>
+
+<div class="nav-overlay" id="nav-overlay" onclick="toggleNav()"></div>
+
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <span class="sidebar-app-name">ניהול כספים</span>
+    <button class="sidebar-close-btn" onclick="closeNav()" aria-label="סגור תפריט">✕</button>
+  </div>
+  <div class="sidebar-scroll">
+    <a class="nav-item" href="/monthly" onclick="try{var k=localStorage.getItem('lv_month');if(k){event.preventDefault();location.href='/general/'+k;}}catch(_){}">ניתוח חודשי</a>
+    <div class="nav-sep"></div>
+    <a class="nav-item" href="/accounts">חשבונות</a>
+    <a class="nav-item" href="/housing">דיור</a>
+    <a class="nav-item" href="/organizer">ארגונית</a>
+    <a class="nav-item" href="/bills">מעקב חשבונות</a>
+    <a class="nav-item" href="/categories">ניתוח קטגוריאלי</a>
+    <a class="nav-item" href="/search">חיפוש</a>
+    <a class="nav-item" href="/spotify">Spotify Tracker</a>
+    <a class="nav-item active" href="/card-analysis">ניתוח כרטיסים</a>
+    <a class="nav-item" href="/recurring">חיובים חוזרים</a>
+    <div class="nav-sep"></div>
+    <a class="nav-item" href="/tagger">תייגן</a>
+    <a class="nav-item" href="/files">קבצים</a>
+  </div>
+  <div class="sidebar-footer">
+    <button class="nav-restart-btn" onclick="restartServer(this)">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
+      הפעל שרת מחדש
+    </button>
+    <div id="app-version-badge-2" style="margin-top:8px;text-align:center;font-size:.72em;color:var(--text-muted);letter-spacing:.03em;opacity:.7;user-select:none">v—</div>
+  </div>
+</nav>
+
+<button class="ham-btn" id="ham-btn" onclick="toggleNav()" aria-label="תפריט">
+  <svg width="18" height="14" viewBox="0 0 18 14" fill="none">
+    <rect width="18" height="2" rx="1" fill="currentColor"/>
+    <rect y="6" width="18" height="2" rx="1" fill="currentColor"/>
+    <rect y="12" width="18" height="2" rx="1" fill="currentColor"/>
+  </svg>
+</button>
+
+<div class="main">
+  <div class="page-header">
+    <h1>חיובי כרטיסים חודשיים</h1>
+    <span class="sub">הסכומים מוצגים לפי תאריך החיוב בפועל בבנק — לא לפי תאריך הביצוע</span>
+  </div>
+
+  <div class="ca-error-banner" id="ca-error-banner">
+    <span>⚠</span>
+    <span id="ca-error-text"></span>
+  </div>
+
+  <div id="ca-skeleton">
+    <div class="ca-skel ca-skel-strip"></div>
+    <div class="ca-skel ca-skel-hero"></div>
+    <div class="ca-skel ca-skel-chart"></div>
+    <div class="ca-skel ca-skel-row"></div>
+    <div class="ca-skel ca-skel-row"></div>
+  </div>
+
+  <div id="ca-content" class="hidden">
+    <div class="ca-month-strip" id="ca-month-strip"></div>
+
+    <div id="ca-empty" class="ca-empty hidden">לא נמצאו כרטיסים במערכת. ייבאו קובץ כרטיס כדי להתחיל.</div>
+
+    <div id="ca-hero-section">
+      <div class="ca-hero-wrap">
+        <button class="ca-hero-arrow left" id="ca-hero-next" aria-label="הכרטיס הבא" onclick="stepCard(1)">‹</button>
+        <button class="ca-hero-arrow right" id="ca-hero-prev" aria-label="הכרטיס הקודם" onclick="stepCard(-1)">›</button>
+        <div class="ca-hero-viewport" id="ca-hero-viewport">
+          <div class="ca-hero-track" id="ca-hero-track"></div>
+        </div>
+      </div>
+      <div class="ca-dots" id="ca-dots"></div>
+    </div>
+
+    <div class="trend-card">
+      <h3>סך החיובים בכל הכרטיסים — 6 חודשים אחרונים</h3>
+      <div class="trend-chart-wrap"><canvas id="ca-trend-chart"></canvas></div>
+    </div>
+
+    <div class="ca-status-list" id="ca-status-list"></div>
+  </div>
+</div>
+
+<script>
+var CARD_ANALYSIS_DATA = __CARD_ANALYSIS_DATA_JSON__;   // replaced server-side; always null — the page fetches its own data
+
+// ── Nav ──────────────────────────────────────────────────────────
+fetch('/api/version').then(function(r){return r.json();}).then(function(d){var b=document.getElementById('app-version-badge-2');if(b&&d.version)b.textContent='v'+d.version;}).catch(function(){});
+function restartServer(btn) {
+  btn.disabled = true;
+  var spinSvg = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>';
+  btn.innerHTML = spinSvg + ' מפעיל מחדש…';
+  fetch('/api/restart', {method:'POST'}).catch(function(){}).finally(function(){
+    var t = setInterval(function(){
+      fetch('/').then(function(r){ if(r.ok){ clearInterval(t); location.reload(); } }).catch(function(){});
+    }, 800);
+  });
+}
+function openNav(){
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('nav-overlay').classList.add('open');
+  document.getElementById('ham-btn').classList.add('open');
+}
+function closeNav(){
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('nav-overlay').classList.remove('open');
+  document.getElementById('ham-btn').classList.remove('open');
+}
+function toggleNav(){
+  document.getElementById('sidebar').classList.contains('open') ? closeNav() : openNav();
+}
+document.addEventListener('keydown', function(e){ if(e.key==='Escape'){ closeNav(); } });
+
+// ── Helpers ──────────────────────────────────────────────────────
+function fmt(n) {
+  var abs = Math.abs(n || 0);
+  var isWhole = Math.round(abs * 100) % 100 === 0;
+  var opts = isWhole ? {minimumFractionDigits:0, maximumFractionDigits:0} : {minimumFractionDigits:2, maximumFractionDigits:2};
+  return abs.toLocaleString('he-IL', opts) + '₪';
+}
+function esc(s){ if(!s) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+var STATUS_LABEL = {verified:'✓ מאומת', not_verified:'⚠ לא מאומת', not_found:'— לא רשום', open:'לא סופי'};
+var HE_MONTHS = ['ינו','פבר','מרץ','אפר','מאי','יונ','יול','אוג','ספט','אוק','נוב','דצמ'];
+
+function monthLabel(key) {
+  var parts = key.split('-'); var y = parts[0].slice(2); var m = parseInt(parts[1], 10) - 1;
+  return HE_MONTHS[m] + "' " + y;
+}
+function addMonths(key, n) {
+  var parts = key.split('-'); var y = parseInt(parts[0], 10); var m = parseInt(parts[1], 10) - 1 + n;
+  y += Math.floor(m / 12); m = ((m % 12) + 12) % 12;
+  return y + '-' + String(m + 1).padStart(2, '0');
+}
+function todayKey() {
+  var d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+}
+// Mirrors CardAnalysis.py's Local.CHARGE_DAY-based _is_month_open — a
+// month's charge already posted once CHARGE_DAY has passed within it, so
+// "this calendar month" is usually already closed by the time it's viewed.
+var CHARGE_DAY = 2;
+function isMonthOpen(key) {
+  var parts = key.split('-'); var y = parseInt(parts[0], 10); var m = parseInt(parts[1], 10);
+  var billing = new Date(y, m - 1, CHARGE_DAY);
+  var today = new Date(); today.setHours(0, 0, 0, 0);
+  return today < billing;
+}
+function currentOpenMonthKey() {
+  var k = todayKey();
+  return isMonthOpen(k) ? k : addMonths(k, 1);
+}
+
+// ── State ──────────────────────────────────────────────────────
+var state = { month: currentOpenMonthKey(), cards: [], trend: [], cardIndex: 0 };
+var hero = { dragging:false, startX:0, startOffset:0, currentOffset:0, panelWidth:0, pointerId:null };
+var trendChart = null;
+
+function loadMonth(monthKey) {
+  state.month = monthKey;
+  fetch('/api/card-analysis/data?month=' + encodeURIComponent(monthKey)).then(function(r){ return r.json(); }).then(function(d){
+    if (!d.ok) { showError(d.error || 'שגיאה בטעינת הנתונים'); return; }
+    hideError();
+    state.month = d.month;
+    state.cards = d.cards || [];
+    state.trend = d.trend || [];
+    state.isOpen = d.is_open;
+    state.nextChargeDate = d.next_charge_date;
+    state.daysUntilCharge = d.days_until_charge;
+    if (state.cardIndex >= state.cards.length) state.cardIndex = 0;
+    render();
+  }).catch(function(e){ showError(String(e)); });
+}
+
+function showError(msg) {
+  document.getElementById('ca-error-text').textContent = msg;
+  document.getElementById('ca-error-banner').style.display = 'flex';
+  document.getElementById('ca-skeleton').classList.add('hidden');
+}
+function hideError() {
+  document.getElementById('ca-error-banner').style.display = 'none';
+}
+
+// ── Render ──────────────────────────────────────────────────────
+function render() {
+  document.getElementById('ca-skeleton').classList.add('hidden');
+  document.getElementById('ca-content').classList.remove('hidden');
+
+  renderMonthStrip();
+
+  var empty = document.getElementById('ca-empty');
+  var heroSection = document.getElementById('ca-hero-section');
+  if (state.cards.length === 0) {
+    empty.classList.remove('hidden');
+    heroSection.classList.add('hidden');
+    document.getElementById('ca-status-list').innerHTML = '';
+  } else {
+    empty.classList.add('hidden');
+    heroSection.classList.remove('hidden');
+    renderHero();
+    renderStatusList();
+  }
+  renderTrend();
+}
+
+function renderMonthStrip() {
+  var strip = document.getElementById('ca-month-strip');
+  var keys = [];
+  for (var i = -11; i <= 1; i++) keys.push(addMonths(todayKey(), i));
+  if (keys.indexOf(state.month) === -1) keys.push(state.month);
+  keys.sort();
+  strip.innerHTML = keys.map(function(k){
+    var isActive = k === state.month;
+    var isOpenChip = isMonthOpen(k);
+    return '<div class="ca-month-chip' + (isActive?' active':'') + (isOpenChip?' open-chip':'') + '" data-key="' + k + '" onclick="loadMonth(\'' + k + '\')">' + monthLabel(k) + '</div>';
+  }).join('');
+  var activeChip = strip.querySelector('.ca-month-chip.active');
+  if (activeChip) activeChip.scrollIntoView({inline: 'center', block: 'nearest'});
+}
+
+function renderHero() {
+  var track = document.getElementById('ca-hero-track');
+  track.innerHTML = state.cards.map(heroPanelHtml).join('');
+  var dots = document.getElementById('ca-dots');
+  dots.innerHTML = state.cards.map(function(c, i){
+    return '<button class="ca-dot' + (i===state.cardIndex?' active':'') + '" onclick="goToCard(' + i + ')" aria-label="כרטיס ' + (i+1) + '"></button>';
+  }).join('');
+  document.getElementById('ca-hero-prev').disabled = state.cardIndex === 0;
+  document.getElementById('ca-hero-next').disabled = state.cardIndex === state.cards.length - 1;
+  measureAndPosition(false);
+}
+
+function heroPanelHtml(c) {
+  var badge = '<span class="ca-status-badge ' + c.status + '">' + STATUS_LABEL[c.status] + '</span>';
+  var limitHtml = '';
+  if (state.isOpen) {
+    if (c.credit_limit) {
+      var pct = c.credit_limit > 0 ? Math.min(100, Math.max(0, (c.current_charge / c.credit_limit) * 100)) : 0;
+      limitHtml = '' +
+        '<div class="ca-hero-limit-row">' +
+          '<div class="ca-hero-limit-track"><div class="ca-hero-limit-fill" style="width:' + pct + '%"></div></div>' +
+          '<div class="ca-hero-limit-text"><span>יתרה פנויה: ' + fmt(c.available_balance) + '</span><span>מתוך ' + fmt(c.credit_limit) + ' &nbsp; <button class="ca-hero-edit-link" onclick="toggleLimitEdit(\'' + c.card_id + '\')">ערוך</button></span></div>' +
+        '</div>' +
+        limitEditRowHtml(c);
+    } else {
+      limitHtml = '<div class="ca-hero-limit-set" id="ca-limit-set-' + c.card_id + '" style="display:none">' +
+          '<input type="number" min="1" step="1" placeholder="מסגרת אשראי ₪" id="ca-limit-input-' + c.card_id + '">' +
+          '<button class="ca-btn-primary" onclick="saveLimit(\'' + c.card_id + '\')">שמור</button>' +
+        '</div>' +
+        '<button class="ca-hero-edit-link" style="margin-top:12px" onclick="toggleLimitEdit(\'' + c.card_id + '\')">+ הגדר מסגרת אשראי</button>';
+    }
+    if (state.nextChargeDate) {
+      limitHtml += '<div class="ca-hero-next">📅 חיוב קרוב בעוד ' + state.daysUntilCharge + ' ימים, בתאריך ' + state.nextChargeDate.split('-').reverse().join('.') + '</div>';
+    }
+  }
+  return '' +
+    '<div class="ca-hero-panel">' +
+      '<div class="ca-hero-top">' +
+        '<div>' +
+          '<div class="ca-hero-card-id"><span class="ca-hero-swatch" style="background:' + c.color + '"></span><span class="ca-hero-card-name">' + esc(c.network || 'כרטיס') + ' • ' + esc(c.card_id) + '</span></div>' +
+          '<div class="ca-hero-card-sub">חיוב ל' + monthLabel(state.month) + '</div>' +
+        '</div>' +
+        badge +
+      '</div>' +
+      '<div class="ca-hero-amount">' + fmt(c.current_charge) + '</div>' +
+      '<div class="ca-hero-amount-label">סכום החיוב בפועל</div>' +
+      limitHtml +
+    '</div>';
+}
+
+function limitEditRowHtml(c) {
+  return '<div class="ca-hero-limit-set" id="ca-limit-set-' + c.card_id + '" style="display:none">' +
+      '<input type="number" min="1" step="1" value="' + c.credit_limit + '" id="ca-limit-input-' + c.card_id + '">' +
+      '<button class="ca-btn-primary" onclick="saveLimit(\'' + c.card_id + '\')">שמור</button>' +
+      '<button class="ca-btn" onclick="clearLimit(\'' + c.card_id + '\')">בטל מסגרת</button>' +
+    '</div>';
+}
+
+function toggleLimitEdit(cardId) {
+  var row = document.getElementById('ca-limit-set-' + cardId);
+  if (row) row.style.display = row.style.display === 'none' ? 'flex' : 'none';
+}
+
+function saveLimit(cardId) {
+  var input = document.getElementById('ca-limit-input-' + cardId);
+  var amount = parseFloat(input.value);
+  if (!amount || amount <= 0) { input.focus(); return; }
+  fetch('/api/card-analysis/limits/' + encodeURIComponent(cardId), {
+    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({amount: amount})
+  }).then(function(r){ return r.json(); }).then(function(d){
+    if (d.ok) { loadMonth(state.month); } else { showError(d.error || 'שגיאה בשמירה'); }
+  }).catch(function(e){ showError(String(e)); });
+}
+
+function clearLimit(cardId) {
+  fetch('/api/card-analysis/limits/' + encodeURIComponent(cardId), {method: 'DELETE'})
+    .then(function(r){ return r.json(); }).then(function(d){
+      if (d.ok) { loadMonth(state.month); } else { showError(d.error || 'שגיאה במחיקה'); }
+    }).catch(function(e){ showError(String(e)); });
+}
+
+function renderStatusList() {
+  var list = document.getElementById('ca-status-list');
+  list.innerHTML = state.cards.map(function(c, i){
+    return '<div class="ca-status-row" onclick="goToCard(' + i + ')" style="cursor:pointer">' +
+        '<span class="ca-status-swatch" style="background:' + c.color + '"></span>' +
+        '<span class="ca-status-name">' + esc(c.network || 'כרטיס') + ' • ' + esc(c.card_id) + '</span>' +
+        '<span class="ca-status-amount">' + fmt(c.current_charge) + '</span>' +
+        '<span class="ca-status-badge ' + c.status + '">' + STATUS_LABEL[c.status] + '</span>' +
+      '</div>';
+  }).join('');
+}
+
+function renderTrend() {
+  var ctx = document.getElementById('ca-trend-chart');
+  if (!ctx || !window.Chart) return;
+  var labels = state.trend.map(function(t){ return monthLabel(t.month); });
+  var values = state.trend.map(function(t){ return t.total; });
+  var colors = state.trend.map(function(t){ return t.is_open ? 'rgba(240,177,41,.55)' : 'rgba(30,157,139,.75)'; });
+  if (trendChart) trendChart.destroy();
+  trendChart = new Chart(ctx, {
+    type: 'bar',
+    data: { labels: labels, datasets: [{ data: values, backgroundColor: colors, borderRadius: 6, maxBarThickness: 46 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { rtl: true, callbacks: { label: function(ctx){
+        var isOpen = state.trend[ctx.dataIndex].is_open;
+        return fmt(ctx.parsed.y) + (isOpen ? ' (לא סופי)' : '');
+      } } } },
+      scales: { y: { beginAtZero: true, ticks: { callback: function(v){ return fmt(v); } } } },
+    },
+  });
+}
+
+// ── Card carousel swipe (pointer drag) ──────────────────────────
+function measureAndPosition(animate) {
+  var viewport = document.getElementById('ca-hero-viewport');
+  hero.panelWidth = viewport.clientWidth;
+  positionTrack(animate);
+}
+function positionTrack(animate) {
+  var track = document.getElementById('ca-hero-track');
+  var x = -state.cardIndex * hero.panelWidth;
+  track.style.transition = animate ? 'transform .28s ease' : 'none';
+  track.style.transform = 'translateX(' + x + 'px)';
+}
+function goToCard(i) {
+  state.cardIndex = Math.max(0, Math.min(state.cards.length - 1, i));
+  var dots = document.querySelectorAll('.ca-dot');
+  dots.forEach(function(d, idx){ d.classList.toggle('active', idx === state.cardIndex); });
+  document.getElementById('ca-hero-prev').disabled = state.cardIndex === 0;
+  document.getElementById('ca-hero-next').disabled = state.cardIndex === state.cards.length - 1;
+  positionTrack(true);
+}
+function stepCard(dir) { goToCard(state.cardIndex + dir); }
+
+(function setupHeroDrag(){
+  var viewport = document.getElementById('ca-hero-viewport');
+  var DRAG_THRESHOLD = 6;   // px of movement before a pointerdown commits to a drag
+  viewport.addEventListener('pointerdown', function(e){
+    if (state.cards.length < 2) return;
+    // Not yet a drag — just a candidate. Capturing the pointer here
+    // unconditionally would suppress the native click on any button/input
+    // inside the panel (edit link, save, status row...), since a captured
+    // pointer's click event never reaches its original target. Only commit
+    // once real movement is seen, in pointermove below.
+    hero.pending = true; hero.dragging = false;
+    hero.startX = e.clientX; hero.pointerId = e.pointerId;
+    hero.startOffset = -state.cardIndex * hero.panelWidth;
+  });
+  viewport.addEventListener('pointermove', function(e){
+    if (!hero.pending && !hero.dragging) return;
+    var dx = e.clientX - hero.startX;
+    if (!hero.dragging) {
+      if (Math.abs(dx) < DRAG_THRESHOLD) return;
+      hero.dragging = true;
+      viewport.setPointerCapture(e.pointerId);
+      document.getElementById('ca-hero-track').style.transition = 'none';
+    }
+    var raw = hero.startOffset + dx;
+    var min = -(state.cards.length - 1) * hero.panelWidth, max = 0;
+    if (raw > max) raw = max + (raw - max) * 0.3;
+    if (raw < min) raw = min + (raw - min) * 0.3;
+    document.getElementById('ca-hero-track').style.transform = 'translateX(' + raw + 'px)';
+    hero.currentOffset = raw;
+  });
+  function endDrag(e){
+    hero.pending = false;
+    if (!hero.dragging) return;   // never crossed the threshold — a tap, not a drag; let its click fire normally
+    hero.dragging = false;
+    var dx = hero.currentOffset - hero.startOffset;
+    var threshold = hero.panelWidth * 0.18;
+    var newIndex = state.cardIndex;
+    if (dx < -threshold) newIndex = state.cardIndex + 1;
+    else if (dx > threshold) newIndex = state.cardIndex - 1;
+    goToCard(newIndex);
+  }
+  viewport.addEventListener('pointerup', endDrag);
+  viewport.addEventListener('pointercancel', endDrag);
+  window.addEventListener('resize', function(){ measureAndPosition(false); });
+})();
+
+loadMonth(state.month);
+</script>
+</body>
+</html>

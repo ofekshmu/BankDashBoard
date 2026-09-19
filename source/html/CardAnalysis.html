@@ -132,7 +132,7 @@ body {
 .ca-progress-pct{font-size:.8em;color:var(--text-muted);direction:ltr}
 .ca-progress-bar-track{height:8px;border-radius:6px;background:var(--bg);overflow:hidden}
 .ca-progress-bar-fill{height:100%;width:0%;background:var(--teal);border-radius:6px;transition:width .3s ease}
-.ca-progress-log{margin-top:16px;display:flex;flex-direction:column;gap:7px;max-height:170px;overflow-y:auto}
+.ca-progress-log{margin-top:16px;display:flex;flex-direction:column;gap:7px}
 .ca-progress-log-line{font-size:.8em;color:var(--text-muted);display:flex;align-items:center;gap:8px;opacity:0;animation:ca-log-in .25s ease forwards}
 .ca-progress-log-line .dot{width:6px;height:6px;border-radius:50%;background:var(--teal);flex-shrink:0}
 @keyframes ca-log-in{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
@@ -395,9 +395,21 @@ var state = { month: currentOpenMonthKey(), cards: [], trend: [], cardIndex: 0 }
 var hero = { dragging:false, startX:0, startOffset:0, currentOffset:0, panelWidth:0, pointerId:null };
 var trendChart = null;
 var progressSource = null;
+// Per-session cache of months already built once, so re-visiting a month
+// (e.g. paging back and forth) is instant instead of re-running the whole
+// progress pipeline. Invalidated for the current month only when a credit
+// limit is saved/cleared, since that changes what that month displays.
+var monthCache = {};
 
 function loadMonth(monthKey) {
   state.month = monthKey;
+
+  if (monthCache[monthKey]) {
+    setActiveChip(monthKey);
+    applyData(monthCache[monthKey]);
+    return;
+  }
+
   markMonthLoading(monthKey);
   showProgressPanel();
 
@@ -424,6 +436,7 @@ function loadMonth(monthKey) {
       // One last, honest step: the payload is in hand, this call itself is
       // what builds the DOM — logging it right before doing exactly that.
       updateProgress(100, 'בונה ממשק…');
+      monthCache[msg.payload.month] = msg.payload;
       applyData(msg.payload);
     }
   };
@@ -465,8 +478,17 @@ function updateProgress(pct, label) {
     line.className = 'ca-progress-log-line';
     line.innerHTML = '<span class="dot"></span><span>' + esc(label) + '</span>';
     log.appendChild(line);
-    log.scrollTop = log.scrollHeight;
+    // No inner scrollbar on this block by design (it grows to fit its
+    // content) — if that growth pushes the newest line off the bottom of
+    // the viewport, scroll the PAGE to keep it visible instead.
+    line.scrollIntoView({behavior: 'smooth', block: 'nearest'});
   }
+}
+
+function setActiveChip(key) {
+  document.querySelectorAll('.ca-month-chip').forEach(function(c){
+    c.classList.toggle('active', c.dataset.key === key);
+  });
 }
 
 function markMonthLoading(key) {
@@ -647,14 +669,17 @@ function saveLimit(cardId) {
   fetch('/api/card-analysis/limits/' + encodeURIComponent(cardId), {
     method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({amount: amount})
   }).then(function(r){ return r.json(); }).then(function(d){
-    if (d.ok) { loadMonth(state.month); } else { showError(d.error || 'שגיאה בשמירה'); }
+    // Invalidate: the cached month's available_balance/limit fields are
+    // now stale — without this, loadMonth would just replay the cache and
+    // the save would silently appear to do nothing.
+    if (d.ok) { delete monthCache[state.month]; loadMonth(state.month); } else { showError(d.error || 'שגיאה בשמירה'); }
   }).catch(function(e){ showError(String(e)); });
 }
 
 function clearLimit(cardId) {
   fetch('/api/card-analysis/limits/' + encodeURIComponent(cardId), {method: 'DELETE'})
     .then(function(r){ return r.json(); }).then(function(d){
-      if (d.ok) { loadMonth(state.month); } else { showError(d.error || 'שגיאה במחיקה'); }
+      if (d.ok) { delete monthCache[state.month]; loadMonth(state.month); } else { showError(d.error || 'שגיאה במחיקה'); }
     }).catch(function(e){ showError(String(e)); });
 }
 

@@ -169,7 +169,6 @@ body {
 .ca-status-badge.not_found{background:#eceff3;color:#6b7280}
 .ca-status-badge.open{background:#eaf2fb;color:#2f6fb0}
 .ca-hero-amount{font-size:2.1em;font-weight:700;color:var(--navy);margin-top:16px;direction:ltr;text-align:left}
-.ca-hero-amount-label{font-size:.72em;color:var(--text-muted);margin-top:2px}
 .ca-hero-limit-row{margin-top:14px}
 .ca-hero-limit-track{height:8px;border-radius:6px;background:var(--bg);overflow:hidden}
 .ca-hero-limit-fill{height:100%;border-radius:6px;background:var(--teal);transition:width .25s ease}
@@ -187,7 +186,7 @@ body {
 /* Per-card mini trend chart — slides with its panel since it lives inside it */
 .ca-card-chart-wrap{margin-top:16px;padding-top:14px;border-top:1px solid var(--border)}
 .ca-card-chart-label{font-size:.7em;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px}
-.ca-card-chart-canvas-wrap{height:60px;position:relative}
+.ca-card-chart-canvas-wrap{height:86px;position:relative}
 
 .ca-hero-arrow{position:absolute;top:50%;transform:translateY(-50%);width:32px;height:32px;border-radius:50%;background:var(--white);border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:var(--shadow-sm);z-index:5;color:var(--text-sub);font-size:.9em}
 .ca-hero-arrow:hover{border-color:var(--teal);color:var(--teal)}
@@ -500,11 +499,35 @@ function heroPanelHtml(c) {
         badge +
       '</div>' +
       '<div class="ca-hero-amount">' + fmt(c.current_charge) + '</div>' +
-      '<div class="ca-hero-amount-label">סכום החיוב בפועל</div>' +
       limitHtml +
       chartHtml +
     '</div>';
 }
+
+// Chart.js has no built-in "value above each bar" label — drawing our own
+// avoids pulling in the chartjs-plugin-datalabels CDN as a second external
+// dependency (this sandbox's network policy already blocks one CDN; no
+// reason to risk a second point of failure for something this small).
+var barValueLabelPlugin = {
+  id: 'barValueLabel',
+  afterDatasetsDraw: function(chart) {
+    var ctx = chart.ctx;
+    chart.data.datasets.forEach(function(dataset, i){
+      var meta = chart.getDatasetMeta(i);
+      meta.data.forEach(function(bar, index){
+        var value = dataset.data[index];
+        if (!value) return;   // skip zero/empty months to reduce clutter
+        ctx.save();
+        ctx.fillStyle = '#555';
+        ctx.font = "600 9px 'Segoe UI', Arial, sans-serif";
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.fillText(fmt(value), bar.x, bar.y - 3);
+        ctx.restore();
+      });
+    });
+  },
+};
 
 var cardCharts = {};
 function renderCardCharts() {
@@ -519,10 +542,15 @@ function renderCardCharts() {
     cardCharts[c.card_id] = new Chart(ctx, {
       type: 'bar',
       data: { labels: labels, datasets: [{ data: values, backgroundColor: c.color, borderRadius: 4, maxBarThickness: 24 }] },
+      plugins: [barValueLabelPlugin],
       options: {
         responsive: true, maintainAspectRatio: false,
+        layout: { padding: { top: 16 } },
         plugins: { legend: { display: false }, tooltip: { rtl: true, callbacks: { label: function(ctx2){ return fmt(ctx2.parsed.y); } } } },
-        scales: { x: { display: false }, y: { display: false, beginAtZero: true } },
+        scales: {
+          x: { grid: { display: false }, ticks: { font: { size: 9 }, color: '#888', maxRotation: 0, autoSkipPadding: 4 } },
+          y: { display: false, beginAtZero: true },
+        },
       },
     });
   });

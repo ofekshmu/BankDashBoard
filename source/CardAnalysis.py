@@ -14,13 +14,17 @@ shows the spending month instead. get_card_charge_df/card_charge_validation
 internally shift by next_month(), so to query billing month M we pass
 date = M - 1 month.
 """
+import calendar
 from datetime import datetime, date as _date
 from dateutil.relativedelta import relativedelta
+import pandas as pd
 
 from Constants import Local, CC_CHARGE_CATEGORY_NAME
 from src_utils.utils import utils
 
 TREND_MONTHS_DEFAULT = 6
+EXPECTED_DATE_LOOKBACK_MONTHS = 12
+CHARGE_TOLERANCE = 20
 
 # Mirrors AppManager.py's own inline dict (no shared constant exists for
 # this) — issuer/format -> the network name shown to the user.
@@ -67,9 +71,10 @@ def get_available_cards(db) -> list:
 
 
 def _month_totals(db, month_start: datetime, cache: dict) -> dict:
-    """{'charges': {CardID: {'amount', 'verified'}}, 'bank_total': float} for
-    one billing month — memoized per call to get_card_analysis_data since the
-    requested month and the trend window commonly overlap."""
+    """{'charges': {CardID: {'amount', 'verified', 'charge_date'?}}, 'bank_total': float}
+    for one billing month — memoized per call to get_card_analysis_data since
+    the requested month, the trend window, and each card's expected-charge-date
+    lookback all commonly revisit the same months."""
     key = f'{month_start.year:04d}-{month_start.month:02d}'
     if key in cache:
         return cache[key]
@@ -81,7 +86,7 @@ def _month_totals(db, month_start: datetime, cache: dict) -> dict:
     if not raw_df.empty:
         # interactive=False: read-only — never let a page view silently
         # auto-tag a BankTransactions row as an "אשראי" charge as a side effect.
-        validation_df = utils.card_charge_validation(raw_df, query_date, tolerance=20, interactive=False)
+        validation_df = utils.card_charge_validation(raw_df, query_date, tolerance=CHARGE_TOLERANCE, interactive=False)
         if not validation_df.empty:
             charges = {
                 str(row['CardID']): {'amount': abs(float(row['Final_Value'])), 'verified': bool(row['Status'])}
@@ -92,22 +97,50 @@ def _month_totals(db, month_start: datetime, cache: dict) -> dict:
     next_dt = utils.next_month(query_date)
     bank_tx = db.get_Bank_Transactions(next_dt.month, next_dt.year)
     bank_total = 0.0
+    cc_rows = pd.DataFrame()
     if not bank_tx.empty and 'Category' in bank_tx.columns:
         cc_rows = bank_tx[bank_tx['Category'] == CC_CHARGE_CATEGORY_NAME]
         if not cc_rows.empty:
             bank_total = abs(float(cc_rows['Out'].sum()))
+
+    # For a verified card, recover the actual bank-side transaction date —
+    # card_charge_validation already matched it by amount/tolerance but only
+    # returns the boolean Status, not which row it matched. Re-applying the
+    # same amount/tolerance match against the same cc_rows here is cheap
+    # (already fetched) and avoids touching the shared utils.py function.
+    if not cc_rows.empty:
+        for info in charges.values():
+            if not info['verified']:
+                continue
+            match = cc_rows[(cc_rows['Out'].abs() - info['amount']).abs() <= CHARGE_TOLERANCE]
+            if not match.empty:
+                info['charge_date'] = pd.to_datetime(match.iloc[0]['Date']).date()
 
     result = {'charges': charges, 'bank_total': bank_total}
     cache[key] = result
     return result
 
 
+def _expected_charge_date(db, card_id: str, open_month_start: datetime, cache: dict) -> _date:
+    """The date this card's charge is expected to post in open_month_start,
+    inferred from the day-of-month of the most recent billing month in which
+    this specific card was actually verified against the bank statement.
+    None ("unknown") if it was never verified within the lookback window."""
+    for i in range(1, EXPECTED_DATE_LOOKBACK_MONTHS + 1):
+        m = open_month_start - relativedelta(months=i)
+        totals = _month_totals(db, m, cache)
+        info = totals['charges'].get(card_id)
+        if info and info.get('verified') and info.get('charge_date'):
+            day = info['charge_date'].day
+            last_day_of_month = calendar.monthrange(open_month_start.year, open_month_start.month)[1]
+            return _date(open_month_start.year, open_month_start.month, min(day, last_day_of_month))
+    return None
+
+
 def _month_overview(db, month_start: datetime, cards_meta: list, cache: dict) -> dict:
     is_open = _is_month_open(month_start)
     totals = _month_totals(db, month_start, cache)
     charges = totals['charges']
-
-    billing_date = _billing_date_for(month_start)
     today = _date.today()
 
     cards = []
@@ -116,8 +149,10 @@ def _month_overview(db, month_start: datetime, cards_meta: list, cache: dict) ->
         info = charges.get(cid)
         amount = info['amount'] if info else 0.0
 
+        expected_charge_date = None
         if is_open:
             status = 'open'
+            expected_charge_date = _expected_charge_date(db, cid, month_start, cache)
         elif info is None:
             status = 'not_found'
         elif info['verified']:
@@ -137,6 +172,8 @@ def _month_overview(db, month_start: datetime, cards_meta: list, cache: dict) ->
             'current_charge': round(amount, 2),
             'status': status,
             'available_balance': available_balance,
+            'expected_charge_date': expected_charge_date.isoformat() if expected_charge_date else None,
+            'days_until_charge': (expected_charge_date - today).days if expected_charge_date else None,
         })
 
     total_charge = totals['bank_total'] if totals['bank_total'] > 0 else round(sum(c['current_charge'] for c in cards), 2)
@@ -144,32 +181,36 @@ def _month_overview(db, month_start: datetime, cards_meta: list, cache: dict) ->
     return {
         'month': f'{month_start.year:04d}-{month_start.month:02d}',
         'is_open': is_open,
-        'next_charge_date': billing_date.isoformat() if is_open else None,
-        'days_until_charge': (billing_date - today).days if is_open else None,
         'cards': cards,
         'total_charge': round(total_charge, 2),
     }
 
 
-def _trend(db, end_month: datetime, months_back: int, cache: dict) -> list:
+def _trend(db, end_month: datetime, months_back: int, cache: dict):
     """Total (all-cards) charge per billing month for the last `months_back`
-    months ending at end_month, for the multi-month bar chart."""
+    months ending at end_month (for the summary bar chart), plus the same
+    per-card breakdown (for each card's own mini trend) — built from the same
+    _month_totals calls, so this costs nothing beyond the total trend already
+    being computed."""
     trend = []
+    per_card = {}
+    month_keys = []
     for i in range(months_back - 1, -1, -1):
         m = end_month - relativedelta(months=i)
         totals = _month_totals(db, m, cache)
         total = totals['bank_total'] if totals['bank_total'] > 0 else sum(v['amount'] for v in totals['charges'].values())
-        trend.append({
-            'month': f'{m.year:04d}-{m.month:02d}',
-            'total': round(total, 2),
-            'is_open': _is_month_open(m),
-        })
-    return trend
+        key = f'{m.year:04d}-{m.month:02d}'
+        month_keys.append(key)
+        trend.append({'month': key, 'total': round(total, 2), 'is_open': _is_month_open(m)})
+        for cid, info in totals['charges'].items():
+            per_card.setdefault(cid, {})[key] = round(info['amount'], 2)
+    return trend, per_card, month_keys
 
 
 def get_card_analysis_data(db, month_key: str = None) -> dict:
     """Full payload for the Card Analysis page: available cards, the
-    requested billing month's per-card breakdown, and a trailing trend.
+    requested billing month's per-card breakdown (each with its own trend),
+    and the all-cards trend.
 
     @param db: DataBase instance (caller ensures ensure_card_limits_table() first)
     @param month_key: 'YYYY-MM' billing month to view; defaults to the
@@ -184,6 +225,9 @@ def get_card_analysis_data(db, month_key: str = None) -> dict:
     cards_meta = get_available_cards(db)
     cache = {}
     overview = _month_overview(db, month_start, cards_meta, cache)
-    overview['trend'] = _trend(db, month_start, TREND_MONTHS_DEFAULT, cache)
-    overview['cards_meta'] = cards_meta
+    trend, per_card_trend, trend_month_keys = _trend(db, month_start, TREND_MONTHS_DEFAULT, cache)
+    overview['trend'] = trend
+    for c in overview['cards']:
+        series = per_card_trend.get(c['card_id'], {})
+        c['trend'] = [{'month': mk, 'amount': series.get(mk, 0.0)} for mk in trend_month_keys]
     return overview

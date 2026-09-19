@@ -139,6 +139,10 @@ body {
 .ca-month-chip.active{background:var(--navy);border-color:var(--navy);color:#fff}
 .ca-month-chip.open-chip::after{content:' •';color:var(--amber)}
 .ca-month-chip.active.open-chip::after{color:#ffd166}
+/* Loading spinner uses ::before (::after is already the open-chip dot) */
+.ca-month-chip.loading{padding-right:26px;position:relative;pointer-events:none}
+.ca-month-chip.loading::before{content:'';position:absolute;right:9px;top:50%;margin-top:-6px;width:12px;height:12px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:ca-chip-spin .6s linear infinite}
+@keyframes ca-chip-spin{to{transform:rotate(360deg)}}
 
 /* Card hero carousel — real pointer-drag swipe, matches the reference app */
 .ca-hero-wrap{position:relative;margin-bottom:8px}
@@ -147,9 +151,13 @@ body {
    x=0%, panel 1 at x=100%, ...) and translateX(-index*panelWidth) lands on
    the right panel. Without it, RTL flex reverses child order and the
    transform math points off-screen. Panel content re-declares dir="rtl". */
-.ca-hero-viewport{overflow:hidden;border-radius:var(--radius);direction:ltr}
+/* touch-action:pan-y is required for the drag handlers below to receive
+   pointermove on touch devices — without it, mobile browsers treat a
+   horizontal finger drag here as an ambiguous gesture and may withhold or
+   cancel the pointer sequence in favor of their own scroll/nav handling. */
+.ca-hero-viewport{overflow:hidden;border-radius:var(--radius);direction:ltr;touch-action:pan-y}
 .ca-hero-track{display:flex;will-change:transform}
-.ca-hero-panel{flex:0 0 100%;max-width:100%;box-sizing:border-box;padding:22px 22px 20px;background:var(--white);box-shadow:var(--shadow-sm);border-radius:var(--radius);min-height:150px;direction:rtl}
+.ca-hero-panel{flex:0 0 100%;max-width:100%;box-sizing:border-box;padding:22px 22px 20px;background:var(--white);box-shadow:0 10px 28px rgba(30,42,74,.14),0 2px 8px rgba(30,42,74,.08);border-radius:var(--radius);border-top:4px solid var(--teal);min-height:150px;direction:rtl}
 .ca-hero-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
 .ca-hero-card-id{display:flex;align-items:center;gap:8px}
 .ca-hero-swatch{width:12px;height:12px;border-radius:50%;flex-shrink:0}
@@ -176,6 +184,11 @@ body {
 .ca-hero-edit-link{font-size:.76em;color:var(--text-muted);cursor:pointer;text-decoration:underline;background:none;border:none;font-family:inherit;padding:0}
 .ca-hero-edit-link:hover{color:var(--teal)}
 
+/* Per-card mini trend chart — slides with its panel since it lives inside it */
+.ca-card-chart-wrap{margin-top:16px;padding-top:14px;border-top:1px solid var(--border)}
+.ca-card-chart-label{font-size:.7em;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px}
+.ca-card-chart-canvas-wrap{height:60px;position:relative}
+
 .ca-hero-arrow{position:absolute;top:50%;transform:translateY(-50%);width:32px;height:32px;border-radius:50%;background:var(--white);border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:var(--shadow-sm);z-index:5;color:var(--text-sub);font-size:.9em}
 .ca-hero-arrow:hover{border-color:var(--teal);color:var(--teal)}
 .ca-hero-arrow.left{left:-6px}
@@ -197,6 +210,11 @@ body {
 .ca-status-swatch{width:10px;height:10px;border-radius:50%;flex-shrink:0}
 .ca-status-name{font-weight:600;flex:1;min-width:100px}
 .ca-status-amount{direction:ltr;font-weight:700;color:var(--text-sub);white-space:nowrap}
+.ca-status-collapse-toggle{display:flex;align-items:center;gap:6px;padding:10px 16px;background:var(--bg);border-radius:var(--radius-sm);font-size:.8em;color:var(--text-muted);cursor:pointer;font-weight:600;transition:color .12s}
+.ca-status-collapse-toggle:hover{color:var(--teal)}
+.ca-status-collapse-chevron{display:inline-block;transition:transform .15s;font-size:.85em}
+.ca-status-collapse-toggle.open .ca-status-collapse-chevron{transform:rotate(180deg)}
+.ca-status-collapse-body{display:flex;flex-direction:column;gap:8px;margin-top:8px}
 
 @media (max-width: 640px) {
   .main{padding:0 14px 90px}
@@ -274,8 +292,8 @@ body {
 
     <div id="ca-hero-section">
       <div class="ca-hero-wrap">
-        <button class="ca-hero-arrow left" id="ca-hero-next" aria-label="הכרטיס הבא" onclick="stepCard(1)">‹</button>
-        <button class="ca-hero-arrow right" id="ca-hero-prev" aria-label="הכרטיס הקודם" onclick="stepCard(-1)">›</button>
+        <button class="ca-hero-arrow left" id="ca-hero-prev" aria-label="הכרטיס הקודם" onclick="stepCard(-1)">‹</button>
+        <button class="ca-hero-arrow right" id="ca-hero-next" aria-label="הכרטיס הבא" onclick="stepCard(1)">›</button>
         <div class="ca-hero-viewport" id="ca-hero-viewport">
           <div class="ca-hero-track" id="ca-hero-track"></div>
         </div>
@@ -368,6 +386,7 @@ var trendChart = null;
 
 function loadMonth(monthKey) {
   state.month = monthKey;
+  markMonthLoading(monthKey);
   fetch('/api/card-analysis/data?month=' + encodeURIComponent(monthKey)).then(function(r){ return r.json(); }).then(function(d){
     if (!d.ok) { showError(d.error || 'שגיאה בטעינת הנתונים'); return; }
     hideError();
@@ -375,11 +394,18 @@ function loadMonth(monthKey) {
     state.cards = d.cards || [];
     state.trend = d.trend || [];
     state.isOpen = d.is_open;
-    state.nextChargeDate = d.next_charge_date;
-    state.daysUntilCharge = d.days_until_charge;
     if (state.cardIndex >= state.cards.length) state.cardIndex = 0;
     render();
   }).catch(function(e){ showError(String(e)); });
+}
+
+function markMonthLoading(key) {
+  var chips = document.querySelectorAll('.ca-month-chip');
+  chips.forEach(function(c){
+    var isTarget = c.dataset.key === key;
+    c.classList.toggle('active', isTarget);
+    c.classList.toggle('loading', isTarget);
+  });
 }
 
 function showError(msg) {
@@ -438,6 +464,7 @@ function renderHero() {
   document.getElementById('ca-hero-prev').disabled = state.cardIndex === 0;
   document.getElementById('ca-hero-next').disabled = state.cardIndex === state.cards.length - 1;
   measureAndPosition(false);
+  renderCardCharts();
 }
 
 function heroPanelHtml(c) {
@@ -452,19 +479,19 @@ function heroPanelHtml(c) {
           '<div class="ca-hero-limit-text"><span>יתרה פנויה: ' + fmt(c.available_balance) + '</span><span>מתוך ' + fmt(c.credit_limit) + ' &nbsp; <button class="ca-hero-edit-link" onclick="toggleLimitEdit(\'' + c.card_id + '\')">ערוך</button></span></div>' +
         '</div>' +
         limitEditRowHtml(c);
-    } else {
-      limitHtml = '<div class="ca-hero-limit-set" id="ca-limit-set-' + c.card_id + '" style="display:none">' +
-          '<input type="number" min="1" step="1" placeholder="מסגרת אשראי ₪" id="ca-limit-input-' + c.card_id + '">' +
-          '<button class="ca-btn-primary" onclick="saveLimit(\'' + c.card_id + '\')">שמור</button>' +
-        '</div>' +
-        '<button class="ca-hero-edit-link" style="margin-top:12px" onclick="toggleLimitEdit(\'' + c.card_id + '\')">+ הגדר מסגרת אשראי</button>';
     }
-    if (state.nextChargeDate) {
-      limitHtml += '<div class="ca-hero-next">📅 חיוב קרוב בעוד ' + state.daysUntilCharge + ' ימים, בתאריך ' + state.nextChargeDate.split('-').reverse().join('.') + '</div>';
-    }
+    var chargeLine = c.expected_charge_date
+      ? '📅 חיוב צפוי בעוד ' + c.days_until_charge + ' ימים, בתאריך ' + c.expected_charge_date.split('-').reverse().join('.')
+      : '📅 תאריך חיוב צפוי: לא ידוע';
+    limitHtml += '<div class="ca-hero-next">' + chargeLine + '</div>';
   }
+  var chartHtml = '' +
+    '<div class="ca-card-chart-wrap">' +
+      '<div class="ca-card-chart-label">מגמה חודשית</div>' +
+      '<div class="ca-card-chart-canvas-wrap"><canvas id="ca-card-chart-' + c.card_id + '"></canvas></div>' +
+    '</div>';
   return '' +
-    '<div class="ca-hero-panel">' +
+    '<div class="ca-hero-panel" style="border-top-color:' + c.color + '">' +
       '<div class="ca-hero-top">' +
         '<div>' +
           '<div class="ca-hero-card-id"><span class="ca-hero-swatch" style="background:' + c.color + '"></span><span class="ca-hero-card-name">' + esc(c.network || 'כרטיס') + ' • ' + esc(c.card_id) + '</span></div>' +
@@ -475,7 +502,30 @@ function heroPanelHtml(c) {
       '<div class="ca-hero-amount">' + fmt(c.current_charge) + '</div>' +
       '<div class="ca-hero-amount-label">סכום החיוב בפועל</div>' +
       limitHtml +
+      chartHtml +
     '</div>';
+}
+
+var cardCharts = {};
+function renderCardCharts() {
+  Object.keys(cardCharts).forEach(function(k){ cardCharts[k].destroy(); });
+  cardCharts = {};
+  if (!window.Chart) return;
+  state.cards.forEach(function(c){
+    var ctx = document.getElementById('ca-card-chart-' + c.card_id);
+    if (!ctx) return;
+    var labels = c.trend.map(function(t){ return monthLabel(t.month); });
+    var values = c.trend.map(function(t){ return t.amount; });
+    cardCharts[c.card_id] = new Chart(ctx, {
+      type: 'bar',
+      data: { labels: labels, datasets: [{ data: values, backgroundColor: c.color, borderRadius: 4, maxBarThickness: 24 }] },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { rtl: true, callbacks: { label: function(ctx2){ return fmt(ctx2.parsed.y); } } } },
+        scales: { x: { display: false }, y: { display: false, beginAtZero: true } },
+      },
+    });
+  });
 }
 
 function limitEditRowHtml(c) {
@@ -509,16 +559,50 @@ function clearLimit(cardId) {
     }).catch(function(e){ showError(String(e)); });
 }
 
+function statusTier(c) {
+  // 0: confirmed data (verified), 1: unconfirmed but real data (not_verified,
+  // or an open cycle already showing a charge), 2: nothing to show at all —
+  // grouped under the collapsed "no data" section.
+  if (c.status === 'verified') return 0;
+  if (c.status === 'not_verified') return 1;
+  if (c.status === 'open') return c.current_charge > 0 ? 1 : 2;
+  return 2; // not_found
+}
+
+function statusRowHtml(c) {
+  var idx = state.cards.indexOf(c);
+  return '<div class="ca-status-row" onclick="goToCard(' + idx + ')" style="cursor:pointer">' +
+      '<span class="ca-status-swatch" style="background:' + c.color + '"></span>' +
+      '<span class="ca-status-name">' + esc(c.network || 'כרטיס') + ' • ' + esc(c.card_id) + '</span>' +
+      '<span class="ca-status-amount">' + fmt(c.current_charge) + '</span>' +
+      '<span class="ca-status-badge ' + c.status + '">' + STATUS_LABEL[c.status] + '</span>' +
+    '</div>';
+}
+
 function renderStatusList() {
   var list = document.getElementById('ca-status-list');
-  list.innerHTML = state.cards.map(function(c, i){
-    return '<div class="ca-status-row" onclick="goToCard(' + i + ')" style="cursor:pointer">' +
-        '<span class="ca-status-swatch" style="background:' + c.color + '"></span>' +
-        '<span class="ca-status-name">' + esc(c.network || 'כרטיס') + ' • ' + esc(c.card_id) + '</span>' +
-        '<span class="ca-status-amount">' + fmt(c.current_charge) + '</span>' +
-        '<span class="ca-status-badge ' + c.status + '">' + STATUS_LABEL[c.status] + '</span>' +
-      '</div>';
-  }).join('');
+  var sorted = state.cards.slice().sort(function(a, b){
+    var ta = statusTier(a), tb = statusTier(b);
+    if (ta !== tb) return ta - tb;
+    return b.current_charge - a.current_charge;
+  });
+  var shown = sorted.filter(function(c){ return statusTier(c) < 2; });
+  var collapsed = sorted.filter(function(c){ return statusTier(c) === 2; });
+
+  var html = shown.map(statusRowHtml).join('');
+  if (collapsed.length) {
+    html += '' +
+      '<div class="ca-status-collapse-toggle" id="ca-collapse-toggle" onclick="toggleNoDataCollapse()">' +
+        '<span class="ca-status-collapse-chevron">▾</span><span>' + collapsed.length + ' כרטיסים ללא נתונים החודש</span>' +
+      '</div>' +
+      '<div class="ca-status-collapse-body hidden" id="ca-collapse-body">' + collapsed.map(statusRowHtml).join('') + '</div>';
+  }
+  list.innerHTML = html;
+}
+
+function toggleNoDataCollapse() {
+  document.getElementById('ca-collapse-body').classList.toggle('hidden');
+  document.getElementById('ca-collapse-toggle').classList.toggle('open');
 }
 
 function renderTrend() {

@@ -1288,7 +1288,7 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:#f4f6f9;color:#1e2a4a;d
     <a class="nav-item" href="/monthly" onclick="try{{var k=localStorage.getItem('lv_month');if(k){{event.preventDefault();location.href='/general/'+k;}}}}catch(_){{}}">ניתוח חודשי</a>
     <div class="nav-sep"></div>
     <a class="nav-item" href="/accounts">חשבונות</a>
-    <a class="nav-item" href="/card-analysis">ניתוח כרטיסים</a>
+    <a class="nav-item" href="/card-analysis">כרטיסים</a>
     <a class="nav-item" href="/housing">דיור</a>
     <a class="nav-item" href="/organizer">ארגונית</a>
     <a class="nav-item" href="/bills">מעקב חשבונות</a>
@@ -3457,7 +3457,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--na
     <a class="nav-item" href="/">ניתוח חודשי</a>
     <div class="nav-sep"></div>
     <a class="nav-item" href="/accounts">חשבונות</a>
-    <a class="nav-item" href="/card-analysis">ניתוח כרטיסים</a>
+    <a class="nav-item" href="/card-analysis">כרטיסים</a>
     <a class="nav-item" href="/housing">דיור</a>
     <a class="nav-item active" href="/organizer">ארגונית</a>
     <a class="nav-item" href="/bills">מעקב חשבונות</a>

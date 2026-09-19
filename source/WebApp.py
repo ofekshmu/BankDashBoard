@@ -5382,6 +5382,50 @@ def card_analysis_data():
         return jsonify({'ok': False, 'error': str(e)}), 500
 
 
+@app.route('/api/card-analysis/progress')
+def card_analysis_progress():
+    """SSE variant of /api/card-analysis/data — streams real progress ticks
+    from get_card_analysis_data's own progress_callback (one per pipeline
+    stage, plus one per card verified) instead of returning the finished
+    payload in one shot, then carries that same payload in the final 'done'
+    message so the page never needs a second request."""
+    import queue as _q
+    from database import DataBase
+    month = (request.args.get('month') or '').strip() or None
+    pq = _q.Queue()
+
+    def _run():
+        try:
+            db = DataBase()
+            db.ensure_card_limits_table()
+
+            def _report(pct, label):
+                pq.put({'progress': pct, 'label': label})
+
+            from CardAnalysis import get_card_analysis_data
+            data = get_card_analysis_data(db, month, progress_callback=_report)
+            pq.put({'progress': 100, 'label': 'הושלם', 'done': True, 'payload': data})
+        except Exception as exc:
+            import traceback
+            _log_error(exc, traceback.format_exc())
+            pq.put({'error': str(exc)})
+
+    threading.Thread(target=_run, daemon=True).start()
+
+    def _generate():
+        while True:
+            val = pq.get()
+            yield f'data: {_json.dumps(val, ensure_ascii=False)}\n\n'
+            if val.get('done') or val.get('error'):
+                break
+
+    return Response(
+        _generate(),
+        mimetype='text/event-stream',
+        headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'},
+    )
+
+
 @app.route('/api/card-analysis/limits/<card_id>', methods=['POST'])
 def card_analysis_set_limit(card_id):
     from database import DataBase

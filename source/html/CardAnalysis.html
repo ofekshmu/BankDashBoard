@@ -123,13 +123,19 @@ body {
 .ca-error-banner{display:none;align-items:center;gap:10px;background:#fdecea;border:1px solid #f6c6c1;color:#c0392b;border-radius:var(--radius-sm);padding:12px 16px;margin-bottom:16px;font-size:.88em}
 .ca-empty{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow-sm);padding:30px 20px;text-align:center;color:var(--text-muted);font-size:.9em}
 
-/* Skeleton */
-.ca-skel{background:linear-gradient(90deg,#eef0f6 25%,#f6f7fa 37%,#eef0f6 63%);background-size:400% 100%;animation:ca-shimmer 1.4s ease infinite;border-radius:var(--radius)}
-@keyframes ca-shimmer{0%{background-position:100% 0}100%{background-position:0 0}}
-.ca-skel-hero{height:220px;margin-bottom:16px}
-.ca-skel-strip{height:44px;margin-bottom:16px}
-.ca-skel-chart{height:220px;margin-bottom:16px}
-.ca-skel-row{height:52px;margin-bottom:8px}
+/* Loading progress panel — replaces the old static shimmer with real,
+   backend-driven progress (see /api/card-analysis/progress) so the user can
+   see what's actually happening instead of a generic placeholder. */
+.ca-progress-card{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow-sm);padding:22px}
+.ca-progress-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.ca-progress-label{font-size:.88em;font-weight:600;color:var(--navy)}
+.ca-progress-pct{font-size:.8em;color:var(--text-muted);direction:ltr}
+.ca-progress-bar-track{height:8px;border-radius:6px;background:var(--bg);overflow:hidden}
+.ca-progress-bar-fill{height:100%;width:0%;background:var(--teal);border-radius:6px;transition:width .3s ease}
+.ca-progress-log{margin-top:16px;display:flex;flex-direction:column;gap:7px;max-height:170px;overflow-y:auto}
+.ca-progress-log-line{font-size:.8em;color:var(--text-muted);display:flex;align-items:center;gap:8px;opacity:0;animation:ca-log-in .25s ease forwards}
+.ca-progress-log-line .dot{width:6px;height:6px;border-radius:50%;background:var(--teal);flex-shrink:0}
+@keyframes ca-log-in{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
 
 /* Month strip — native horizontal scroll-snap, swipeable on touch for free */
 .ca-month-strip{display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x proximity;padding:4px 2px 12px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
@@ -276,17 +282,23 @@ body {
     <span id="ca-error-text"></span>
   </div>
 
+  <!-- Persistent across loading states — stays visible (with its own
+       per-chip loading spinner) while the progress panel below runs, so
+       switching months never hides the very control that was just used. -->
+  <div class="ca-month-strip" id="ca-month-strip"></div>
+
   <div id="ca-skeleton">
-    <div class="ca-skel ca-skel-strip"></div>
-    <div class="ca-skel ca-skel-hero"></div>
-    <div class="ca-skel ca-skel-chart"></div>
-    <div class="ca-skel ca-skel-row"></div>
-    <div class="ca-skel ca-skel-row"></div>
+    <div class="ca-progress-card">
+      <div class="ca-progress-top">
+        <span class="ca-progress-label" id="ca-progress-current-label">טוען…</span>
+        <span class="ca-progress-pct" id="ca-progress-pct">0%</span>
+      </div>
+      <div class="ca-progress-bar-track"><div class="ca-progress-bar-fill" id="ca-progress-fill"></div></div>
+      <div class="ca-progress-log" id="ca-progress-log"></div>
+    </div>
   </div>
 
   <div id="ca-content" class="hidden">
-    <div class="ca-month-strip" id="ca-month-strip"></div>
-
     <div id="ca-empty" class="ca-empty hidden">לא נמצאו כרטיסים במערכת. ייבאו קובץ כרטיס כדי להתחיל.</div>
 
     <div id="ca-hero-section">
@@ -382,20 +394,79 @@ function currentOpenMonthKey() {
 var state = { month: currentOpenMonthKey(), cards: [], trend: [], cardIndex: 0 };
 var hero = { dragging:false, startX:0, startOffset:0, currentOffset:0, panelWidth:0, pointerId:null };
 var trendChart = null;
+var progressSource = null;
 
 function loadMonth(monthKey) {
   state.month = monthKey;
   markMonthLoading(monthKey);
-  fetch('/api/card-analysis/data?month=' + encodeURIComponent(monthKey)).then(function(r){ return r.json(); }).then(function(d){
-    if (!d.ok) { showError(d.error || 'שגיאה בטעינת הנתונים'); return; }
-    hideError();
-    state.month = d.month;
-    state.cards = d.cards || [];
-    state.trend = d.trend || [];
-    state.isOpen = d.is_open;
-    if (state.cardIndex >= state.cards.length) state.cardIndex = 0;
-    render();
-  }).catch(function(e){ showError(String(e)); });
+  showProgressPanel();
+
+  if (progressSource) { progressSource.close(); }
+  var es = new EventSource('/api/card-analysis/progress?month=' + encodeURIComponent(monthKey));
+  progressSource = es;
+
+  es.onmessage = function(ev) {
+    var msg;
+    try { msg = JSON.parse(ev.data); } catch (e) { return; }
+
+    if (msg.error) {
+      es.close();
+      if (progressSource === es) progressSource = null;
+      showError(msg.error);
+      return;
+    }
+
+    updateProgress(msg.progress, msg.label);
+
+    if (msg.done) {
+      es.close();
+      if (progressSource === es) progressSource = null;
+      // One last, honest step: the payload is in hand, this call itself is
+      // what builds the DOM — logging it right before doing exactly that.
+      updateProgress(100, 'בונה ממשק…');
+      applyData(msg.payload);
+    }
+  };
+  es.onerror = function() {
+    es.close();
+    if (progressSource === es) progressSource = null;
+    showError('שגיאה בחיבור לשרת');
+  };
+}
+
+function applyData(d) {
+  hideError();
+  state.month = d.month;
+  state.cards = d.cards || [];
+  state.trend = d.trend || [];
+  state.isOpen = d.is_open;
+  if (state.cardIndex >= state.cards.length) state.cardIndex = 0;
+  render();
+}
+
+function showProgressPanel() {
+  document.getElementById('ca-content').classList.add('hidden');
+  document.getElementById('ca-skeleton').classList.remove('hidden');
+  document.getElementById('ca-progress-log').innerHTML = '';
+  updateProgress(0, null);
+}
+
+function updateProgress(pct, label) {
+  var fill = document.getElementById('ca-progress-fill');
+  var pctEl = document.getElementById('ca-progress-pct');
+  if (fill) fill.style.width = pct + '%';
+  if (pctEl) pctEl.textContent = pct + '%';
+  if (!label) return;
+  var curLabel = document.getElementById('ca-progress-current-label');
+  if (curLabel) curLabel.textContent = label;
+  var log = document.getElementById('ca-progress-log');
+  if (log) {
+    var line = document.createElement('div');
+    line.className = 'ca-progress-log-line';
+    line.innerHTML = '<span class="dot"></span><span>' + esc(label) + '</span>';
+    log.appendChild(line);
+    log.scrollTop = log.scrollHeight;
+  }
 }
 
 function markMonthLoading(key) {
@@ -722,6 +793,7 @@ function stepCard(dir) { goToCard(state.cardIndex + dir); }
   window.addEventListener('resize', function(){ measureAndPosition(false); });
 })();
 
+renderMonthStrip();   // shows the month picker immediately, before the first load even starts
 loadMonth(state.month);
 </script>
 </body>

@@ -137,21 +137,28 @@ def _expected_charge_date(db, card_id: str, open_month_start: datetime, cache: d
     return None
 
 
-def _month_overview(db, month_start: datetime, cards_meta: list, cache: dict) -> dict:
+def _month_overview(db, month_start: datetime, cards_meta: list, cache: dict, progress_callback=None) -> dict:
     is_open = _is_month_open(month_start)
     totals = _month_totals(db, month_start, cache)
     charges = totals['charges']
     today = _date.today()
 
+    n = len(cards_meta)
     cards = []
-    for meta in cards_meta:
+    for i, meta in enumerate(cards_meta):
         cid = meta['card_id']
         info = charges.get(cid)
         amount = info['amount'] if info else 0.0
 
+        if progress_callback and n:
+            progress_callback(20 + round((i + 1) / n * 50), f'מאמת חיוב לכרטיס {cid}…')
+
         expected_charge_date = None
         if is_open:
             status = 'open'
+            # The genuinely variable-cost step: an unverified card walks up to
+            # EXPECTED_DATE_LOOKBACK_MONTHS backward looking for its last
+            # verified occurrence — everything else here is a cheap dict lookup.
             expected_charge_date = _expected_charge_date(db, cid, month_start, cache)
         elif info is None:
             status = 'not_found'
@@ -207,7 +214,7 @@ def _trend(db, end_month: datetime, months_back: int, cache: dict):
     return trend, per_card, month_keys
 
 
-def get_card_analysis_data(db, month_key: str = None) -> dict:
+def get_card_analysis_data(db, month_key: str = None, progress_callback=None) -> dict:
     """Full payload for the Card Analysis page: available cards, the
     requested billing month's per-card breakdown (each with its own trend),
     and the all-cards trend.
@@ -215,19 +222,34 @@ def get_card_analysis_data(db, month_key: str = None) -> dict:
     @param db: DataBase instance (caller ensures ensure_card_limits_table() first)
     @param month_key: 'YYYY-MM' billing month to view; defaults to the
            current billing month (today's date)
+    @param progress_callback: optional callable(pct: int, label: str) invoked
+           at each real stage of the computation below — driven by actual
+           work done (e.g. one tick per card verified), not a simulated
+           animation, so it stays honest if the underlying DB is slow.
     """
+    def _report(pct, label):
+        if progress_callback:
+            progress_callback(pct, label)
+
     if month_key:
         year, month = (int(x) for x in month_key.split('-'))
         month_start = datetime(year, month, 1)
     else:
         month_start = _month_start(_date.today())
 
+    _report(5, 'טוען רשימת כרטיסים…')
     cards_meta = get_available_cards(db)
+
+    _report(15, 'שולף עסקאות כרטיסים ותנועות בנק…')
     cache = {}
-    overview = _month_overview(db, month_start, cards_meta, cache)
+    overview = _month_overview(db, month_start, cards_meta, cache, progress_callback=_report)
+
+    _report(75, 'בונה מגמה של 6 חודשים אחרונים…')
     trend, per_card_trend, trend_month_keys = _trend(db, month_start, TREND_MONTHS_DEFAULT, cache)
     overview['trend'] = trend
     for c in overview['cards']:
         series = per_card_trend.get(c['card_id'], {})
         c['trend'] = [{'month': mk, 'amount': series.get(mk, 0.0)} for mk in trend_month_keys]
+
+    _report(95, 'מארגן תוצאה…')
     return overview

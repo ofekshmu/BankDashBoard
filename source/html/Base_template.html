@@ -966,10 +966,12 @@ body {
 .tl-cf { background:transparent; border-color:transparent; color:var(--text-sub); }
 .tl-cf[data-cat="mortgage"] { color:#3b82f6; }
 .tl-cf[data-cat="general"] { color:#f59e0b; }
+.tl-cf[data-cat="eliana"] { color:#a855f7; }
 .tl-cf:hover { border-color:currentColor; color:currentColor; }
 .tl-cf[data-cat="all"].active { background:var(--navy); border-color:var(--navy); color:#fff; }
 .tl-cf[data-cat="mortgage"].active { background:#3b82f6; border-color:#3b82f6; color:#fff; }
 .tl-cf[data-cat="general"].active { background:#f59e0b; border-color:#f59e0b; color:#fff; }
+.tl-cf[data-cat="eliana"].active { background:#a855f7; border-color:#a855f7; color:#fff; }
 
 /* ── Timeline widget (vertical) ──────────────────────────────────── */
 .tl-toolbar { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; flex-wrap:wrap; }
@@ -8652,6 +8654,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
           _tlFilterBtnHtml('all', 'הכל') +
           _tlFilterBtnHtml('mortgage', 'שבזי') +
           _tlFilterBtnHtml('general', 'כללי') +
+          _tlFilterBtnHtml('eliana', 'אליאנה') +
         '</div>' +
         '<div id="panel-timeline-content"></div>';
     }
@@ -8665,7 +8668,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     var row = document.getElementById('tl-filter-row');
     if (row) {
       var btns = row.querySelectorAll('.hs-subtab-btn');
-      var order = ['all', 'mortgage', 'general'];
+      var order = ['all', 'mortgage', 'general', 'eliana'];
       for (var i = 0; i < btns.length; i++) {
         btns[i].classList.toggle('active', order[i] === filter);
       }
@@ -8715,7 +8718,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   var _tlMinimizeMode = (localStorage.getItem('tl_minimize_mode') !== '0');
   var _tlContainerId = 'housing-timeline';
   var _tlActiveScope = 'mortgage'; // 'mortgage' | 'general' — which UI surface is driving the shared engine
-  var _tlCategoryFilter = 'all';   // only meaningful when _tlActiveScope === 'general': 'all' | 'mortgage' | 'general'
+  var _tlCategoryFilter = 'all';   // only meaningful when _tlActiveScope === 'general': 'all' | 'mortgage' | 'general' | 'eliana'
   var _tlAllEvents = null;         // unfiltered cache for the general scope, so filter switches never refetch
   var _tlRangeMinD = null;         // axis date range from the last full _tlDrawAxis — reused by marker-only redraws
   var _tlRangeMaxD = null;
@@ -8965,8 +8968,9 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     _tlUpdateScrollArrows();
   }
 
-  var TL_TYPE_COLORS = { mortgage: '#3b82f6', general: '#f59e0b' }; // blue = mortgage, amber = general
-  var TL_TYPE_LABELS = { mortgage: 'שבזי', general: 'כללי' };
+  var TL_TYPE_COLORS = { mortgage: '#3b82f6', general: '#f59e0b', eliana: '#a855f7' }; // blue = mortgage, amber = general, purple = eliana
+  var TL_TYPE_LABELS = { mortgage: 'שבזי', general: 'כללי', eliana: 'אליאנה' };
+  var TL_TYPE_ORDER  = ['mortgage', 'general', 'eliana']; // click order of the category toggle in the modal
   var _tlModalMode       = 'add';
   var _tlEditingId       = null;
   var _tlEditingCategory = 'general';
@@ -9169,7 +9173,8 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   }
 
   function _tlToggleCategory() {
-    _tlEditingCategory = _tlEditingCategory === 'mortgage' ? 'general' : 'mortgage';
+    var i = TL_TYPE_ORDER.indexOf(_tlEditingCategory);
+    _tlEditingCategory = TL_TYPE_ORDER[(i + 1) % TL_TYPE_ORDER.length];
     _tlRenderTypeToggle();
   }
 
@@ -9268,7 +9273,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     if (!ev) return;
     _tlModalMode = 'edit';
     _tlEditingId = eventId;
-    _tlEditingCategory = (ev.category === 'mortgage') ? 'mortgage' : 'general';
+    _tlEditingCategory = TL_TYPE_COLORS[ev.category] ? ev.category : 'general';
     _tlPendingLinks = (ev.transactions || []).map(function(t) {
       return {
         link_id: t.link_id, transaction_table: t.transaction_table, transaction_id: t.transaction_id,

@@ -5150,6 +5150,8 @@ def api_bills_entry(entry_id):
 
 # ── Timeline (housing panel) routes ─────────────────────────────────────────
 
+TIMELINE_CATEGORIES = ('mortgage', 'general', 'eliana')
+
 @app.route('/api/timeline/events', methods=['GET', 'POST'])
 def api_timeline_events():
     from database import DataBase
@@ -5158,7 +5160,7 @@ def api_timeline_events():
         db.ensure_timeline_tables()
         if request.method == 'GET':
             category = (request.args.get('category') or '').strip()
-            if category and category not in ('mortgage', 'general'):
+            if category and category not in TIMELINE_CATEGORIES:
                 return jsonify({'ok': False, 'error': 'Invalid category'})
             if not category:
                 category = None
@@ -5173,7 +5175,7 @@ def api_timeline_events():
             return jsonify({'ok': False, 'error': 'Name required'})
         if not date:
             return jsonify({'ok': False, 'error': 'Date required'})
-        if category and category not in ('mortgage', 'general'):
+        if category and category not in TIMELINE_CATEGORIES:
             return jsonify({'ok': False, 'error': 'Invalid category'})
         if not category:
             category = 'general'
@@ -5201,7 +5203,7 @@ def api_timeline_event(event_id):
                 return jsonify({'ok': False, 'error': 'Name required'})
             if not date:
                 return jsonify({'ok': False, 'error': 'Date required'})
-            if category and category not in ('mortgage', 'general'):
+            if category and category not in TIMELINE_CATEGORIES:
                 return jsonify({'ok': False, 'error': 'Invalid category'})
             if not category:
                 category = 'general'

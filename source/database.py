@@ -161,6 +161,7 @@ class DataBase:
     __instance = None
     __spotify_tables_ready = False
     __recurring_tables_ready = False
+    __card_limits_ready = False
     __bootstrap_lock = threading.Lock()
     __tables_bootstrapped = False
     __pool = None
@@ -3266,6 +3267,44 @@ class DataBase:
             )
         """).fetchone()
         return row[0] if row else None
+
+    # ── Card Analysis ────────────────────────────────────────────────────────
+
+    def ensure_card_limits_table(self) -> None:
+        """Create the CardLimits table if absent. One row per card the user
+        has set a credit limit for — no other table in the schema tracks
+        this, so a card with no row here simply has no "available balance"
+        figure shown on the Card Analysis page."""
+        if DataBase.__card_limits_ready:
+            return
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS CardLimits (
+                CardID       TEXT      PRIMARY KEY,
+                Credit_Limit NUMERIC   NOT NULL,
+                Updated_At   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        self.connection.commit()
+        DataBase.__card_limits_ready = True
+
+    def get_card_limits(self) -> dict:
+        """Returns {CardID: credit_limit} — only cards the user has set a
+        limit for have a row here."""
+        rows = self.cursor.execute(
+            "SELECT CardID, Credit_Limit FROM CardLimits"
+        ).fetchall()
+        return {r[0]: float(r[1]) for r in rows}
+
+    def set_card_limit(self, card_id: str, amount: float) -> None:
+        self.cursor.execute("""
+            INSERT INTO CardLimits (CardID, Credit_Limit) VALUES (%s, %s)
+            ON CONFLICT (CardID) DO UPDATE SET Credit_Limit=%s, Updated_At=CURRENT_TIMESTAMP
+        """, (card_id, amount, amount))
+        self.connection.commit()
+
+    def clear_card_limit(self, card_id: str) -> None:
+        self.cursor.execute("DELETE FROM CardLimits WHERE CardID=%s", (card_id,))
+        self.connection.commit()
 
     def get_recurring_history(self) -> dict:
         """Returns {group_key: {'name', 'first_seen_month', 'last_seen_month', 'last_status'}}.

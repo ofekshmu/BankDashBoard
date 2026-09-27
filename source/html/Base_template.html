@@ -963,15 +963,30 @@ body {
 .hs-subtab-btn.active { background:var(--teal); border-color:var(--teal); color:#fff; }
 .tl-filter-row { display:flex; gap:8px; margin-bottom:14px; }
 /* Category filter chips: unselected = coloured text only, selected = full colour fill */
-.tl-cf { background:transparent; border-color:transparent; color:var(--text-sub); }
-.tl-cf[data-cat="mortgage"] { color:#3b82f6; }
-.tl-cf[data-cat="general"] { color:#f59e0b; }
-.tl-cf[data-cat="eliana"] { color:#a855f7; }
+/* Each chip carries its category colour in --cf (set inline from the DB). */
+.tl-cf { background:transparent; border-color:transparent; color:var(--cf, var(--text-sub)); }
 .tl-cf:hover { border-color:currentColor; color:currentColor; }
-.tl-cf[data-cat="all"].active { background:var(--navy); border-color:var(--navy); color:#fff; }
-.tl-cf[data-cat="mortgage"].active { background:#3b82f6; border-color:#3b82f6; color:#fff; }
-.tl-cf[data-cat="general"].active { background:#f59e0b; border-color:#f59e0b; color:#fff; }
-.tl-cf[data-cat="eliana"].active { background:#a855f7; border-color:#a855f7; color:#fff; }
+.tl-cf.active { background:var(--cf, var(--navy)); border-color:var(--cf, var(--navy)); color:#fff; }
+.tl-cf[data-cat="all"] { --cf:var(--navy); }
+.tl-filter-row { flex-wrap:wrap; align-items:center; }
+.tl-cat-manage-btn { margin-inline-start:auto; background:transparent; border:1px dashed var(--border); color:var(--text-sub); }
+.tl-cat-manage-btn:hover { border-color:var(--teal); color:var(--teal); }
+/* Manage-categories modal */
+.tl-cm-section { display:flex; flex-direction:column; gap:8px; }
+.tl-cm-section h3 { margin:6px 0 0; font-size:0.85em; color:var(--navy); }
+.tl-cm-add-row { display:flex; gap:8px; align-items:center; }
+.tl-cm-add-row input { flex:1; min-width:0; padding:8px 10px; border:1px solid var(--border); border-radius:8px; font:inherit; }
+.tl-cm-add-row input:focus { outline:none; border-color:var(--teal); }
+.tl-cm-row { display:flex; align-items:center; gap:10px; padding:8px 10px; border:1px solid var(--border); border-radius:8px; background:var(--white); }
+.tl-cm-dot { width:14px; height:14px; border-radius:50%; flex-shrink:0; }
+.tl-cm-name { flex:1; min-width:0; font-weight:600; color:var(--navy); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.tl-cm-meta { font-size:0.75em; color:var(--text-muted); white-space:nowrap; }
+.tl-cm-lock { font-size:0.8em; color:var(--text-muted); }
+.tl-cm-del { background:none; border:none; cursor:pointer; font-size:1em; padding:2px 4px; border-radius:6px; }
+.tl-cm-del:hover { background:rgba(239,68,68,.1); }
+.tl-cm-restore { font-size:0.78em; padding:4px 10px; }
+.tl-cm-empty { color:var(--text-muted); font-size:0.82em; }
+.tl-cm-deleted .tl-cm-row { background:#f8fafc; }
 
 /* ── Timeline widget (vertical) ──────────────────────────────────── */
 .tl-toolbar { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; flex-wrap:wrap; }
@@ -8635,8 +8650,19 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     return '/api/timeline/events';
   }
 
-  function _tlFilterBtnHtml(value, label) {
-    return '<button class="hs-subtab-btn tl-cf' + (_tlCategoryFilter === value ? ' active' : '') + '" data-cat="' + value + '" onclick="_tlSetCategoryFilter(\'' + value + '\')">' + label + '</button>';
+  function _tlFilterBtnHtml(value, label, color) {
+    var style = color ? ' style="--cf:' + _esc(color) + '"' : '';
+    return '<button class="hs-subtab-btn tl-cf' + (_tlCategoryFilter === value ? ' active' : '') + '" data-cat="' + _esc(value) + '"' + style + ' onclick="_tlSetCategoryFilter(\'' + _esc(value) + '\')">' + _esc(label) + '</button>';
+  }
+
+  function _tlRenderFilterRow() {
+    var row = document.getElementById('tl-filter-row');
+    if (!row) return;
+    // A deleted category can't stay selected.
+    if (_tlCategoryFilter !== 'all' && !TL_TYPE_COLORS[_tlCategoryFilter]) _tlCategoryFilter = 'all';
+    row.innerHTML = _tlFilterBtnHtml('all', 'הכל') +
+      TL_TYPE_ORDER.map(function(k) { return _tlFilterBtnHtml(k, TL_TYPE_LABELS[k], TL_TYPE_COLORS[k]); }).join('') +
+      '<button class="hs-subtab-btn tl-cat-manage-btn" onclick="_tlOpenCategoryManager()">⚙ קטגוריות</button>';
   }
 
   function _tlApplyCategoryFilter(events) {
@@ -8651,14 +8677,10 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     if (!panel) return;
     if (!document.getElementById('panel-timeline-content')) {
       panel.innerHTML =
-        '<div class="tl-filter-row" id="tl-filter-row">' +
-          _tlFilterBtnHtml('all', 'הכל') +
-          _tlFilterBtnHtml('mortgage', 'שבזי') +
-          _tlFilterBtnHtml('general', 'כללי') +
-          _tlFilterBtnHtml('eliana', 'אליאנה') +
-        '</div>' +
+        '<div class="tl-filter-row" id="tl-filter-row"></div>' +
         '<div id="panel-timeline-content"></div>';
     }
+    _tlRenderFilterRow();
     _tlAllEvents = null;
     _loadTimelineTab();
   }
@@ -8668,10 +8690,9 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     _tlCategoryFilter = filter;
     var row = document.getElementById('tl-filter-row');
     if (row) {
-      var btns = row.querySelectorAll('.hs-subtab-btn');
-      var order = ['all', 'mortgage', 'general', 'eliana'];
+      var btns = row.querySelectorAll('.tl-cf');
       for (var i = 0; i < btns.length; i++) {
-        btns[i].classList.toggle('active', order[i] === filter);
+        btns[i].classList.toggle('active', btns[i].getAttribute('data-cat') === filter);
       }
     }
     // _tlAllEvents is already loaded for the general scope — filter and
@@ -8692,6 +8713,10 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     var isFirstLoad = !tl.querySelector('#tl-axis-scroll');
     if (isFirstLoad) tl.innerHTML = '<div class="tl-empty">טוען…</div>';
     var events = [];
+    if (!_tlCategoriesLoaded) {
+      await _tlLoadCategories();
+      _tlRenderFilterRow();
+    }
     try {
       var r = await fetch(_tlEventsUrl());
       var d = await r.json();
@@ -8719,7 +8744,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   var _tlMinimizeMode = (localStorage.getItem('tl_minimize_mode') !== '0');
   var _tlContainerId = 'housing-timeline';
   var _tlActiveScope = 'mortgage'; // 'mortgage' | 'general' — which UI surface is driving the shared engine
-  var _tlCategoryFilter = 'all';   // only meaningful when _tlActiveScope === 'general': 'all' | 'mortgage' | 'general' | 'eliana'
+  var _tlCategoryFilter = 'all';   // only meaningful when _tlActiveScope === 'general': 'all' or a category key
   var _tlAllEvents = null;         // unfiltered cache for the general scope, so filter switches never refetch
   var _tlRangeMinD = null;         // axis date range from the last full _tlDrawAxis — reused by marker-only redraws
   var _tlRangeMaxD = null;
@@ -8969,9 +8994,35 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     _tlUpdateScrollArrows();
   }
 
-  var TL_TYPE_COLORS = { mortgage: '#3b82f6', general: '#f59e0b', eliana: '#a855f7' }; // blue = mortgage, amber = general, purple = eliana
+  // Active timeline categories, rebuilt from /api/timeline/categories by
+  // _tlSetCategories. The literals are only a fallback until that loads.
+  var TL_TYPE_COLORS = { mortgage: '#3b82f6', general: '#f59e0b', eliana: '#a855f7' };
   var TL_TYPE_LABELS = { mortgage: 'שבזי', general: 'כללי', eliana: 'אליאנה' };
-  var TL_TYPE_ORDER  = ['mortgage', 'general', 'eliana']; // click order of the category toggle in the modal
+  var TL_TYPE_ORDER  = ['mortgage', 'general', 'eliana']; // chip order + click order of the modal's category toggle
+  var _tlCategoriesLoaded = false;
+
+  function _tlSetCategories(list) {
+    TL_TYPE_COLORS = {}; TL_TYPE_LABELS = {}; TL_TYPE_ORDER = [];
+    (list || []).forEach(function(c) {
+      TL_TYPE_COLORS[c.key] = c.color;
+      TL_TYPE_LABELS[c.key] = c.label;
+      TL_TYPE_ORDER.push(c.key);
+    });
+  }
+
+  async function _tlLoadCategories() {
+    try {
+      var r = await fetch('/api/timeline/categories');
+      var d = await r.json();
+      if (d.ok && d.categories && d.categories.length) {
+        _tlSetCategories(d.categories);
+        _tlCategoriesLoaded = true;
+      }
+      return d;
+    } catch (e) {
+      return null;
+    }
+  }
   var _tlModalMode       = 'add';
   var _tlEditingId       = null;
   var _tlEditingCategory = 'general';
@@ -9188,7 +9239,10 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     _tlModalMode = 'add';
     _tlEditingId = null;
     _tlPendingLinks = [];
-    _tlEditingCategory = _tlActiveScope === 'mortgage' ? 'mortgage' : 'general';
+    // Default to the category currently being viewed; 'all' (or the housing
+    // panel's mortgage-only scope) falls back to its natural default.
+    if (_tlActiveScope === 'mortgage') _tlEditingCategory = 'mortgage';
+    else _tlEditingCategory = TL_TYPE_COLORS[_tlCategoryFilter] ? _tlCategoryFilter : 'general';
     _tlBuildModal();
     document.getElementById('tl-name-inp').value = '';
     _tlSetDateValue(prefillDate || (function() { var d = new Date(); return _tlFmtLocalDate(d.getFullYear(), d.getMonth(), d.getDate()); })());
@@ -9390,7 +9444,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
 
   async function _tlDeleteEvent() {
     if (!_tlEditingId) return;
-    if (!confirm('למחוק את האירוע? הפעולה לא הפיכה.')) return;
+    if (!confirm('למחוק את האירוע?\nניתן לשחזר אותו מתוך ⚙ קטגוריות ← פריטים שנמחקו.')) return;
     var st = document.getElementById('tl-status');
     try {
       var resp = await fetch('/api/timeline/events/' + _tlEditingId, { method: 'DELETE' });
@@ -9405,6 +9459,168 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     }
     _tlCloseModal();
     await _loadTimelineTab();
+  }
+
+  // ── Category manager (add / soft-delete / restore) ─────────────────
+  var _tlCmBusy = false;
+
+  function _tlCloseCategoryManager() {
+    var ov = document.getElementById('tl-cat-overlay');
+    if (ov) ov.classList.add('hidden');
+  }
+
+  function _tlOpenCategoryManager() {
+    var ov = document.getElementById('tl-cat-overlay');
+    if (!ov) {
+      ov = document.createElement('div');
+      ov.className = 'tl-overlay hidden';
+      ov.id = 'tl-cat-overlay';
+      ov.addEventListener('click', function(e) { if (e.target === ov) _tlCloseCategoryManager(); });
+      ov.innerHTML =
+        '<div class="tl-modal">' +
+          '<button class="tl-modal-close" onclick="_tlCloseCategoryManager()">✕</button>' +
+          '<h2 class="tl-modal-title">ניהול קטגוריות</h2>' +
+          '<div class="tl-cm-section">' +
+            '<h3>קטגוריה חדשה</h3>' +
+            '<div class="tl-cm-add-row">' +
+              '<span class="tl-cm-dot" id="tl-cm-next-dot" title="הצבע שייבחר"></span>' +
+              '<input id="tl-cm-new-inp" type="text" maxlength="30" placeholder="שם הקטגוריה" onkeydown="if(event.key===\'Enter\')_tlCreateCategory()">' +
+              '<button class="tl-btn tl-btn-primary" id="tl-cm-add-btn" onclick="_tlCreateCategory()">צור</button>' +
+            '</div>' +
+          '</div>' +
+          '<div class="tl-cm-section"><h3>קטגוריות פעילות</h3><div class="tl-cm-section" id="tl-cm-active"></div></div>' +
+          '<div class="tl-cm-section tl-cm-deleted"><h3>פריטים שנמחקו</h3><div class="tl-cm-section" id="tl-cm-deleted"></div></div>' +
+          '<div class="tl-status" id="tl-cm-status"></div>' +
+        '</div>';
+      document.body.appendChild(ov);
+    }
+    document.getElementById('tl-cm-new-inp').value = '';
+    _tlCmStatus('');
+    ov.classList.remove('hidden');
+    _tlRefreshCategoryManager();
+  }
+
+  function _tlCmStatus(msg, isErr) {
+    var st = document.getElementById('tl-cm-status');
+    if (!st) return;
+    st.className = 'tl-status' + (isErr ? ' err' : '');
+    st.textContent = msg || '';
+  }
+
+  async function _tlRefreshCategoryManager() {
+    var activeEl = document.getElementById('tl-cm-active');
+    var delEl = document.getElementById('tl-cm-deleted');
+    if (!activeEl || !delEl) return;
+    var cats, deleted;
+    try {
+      var r1 = await fetch('/api/timeline/categories'), d1 = await r1.json();
+      var r2 = await fetch('/api/timeline/deleted'), d2 = await r2.json();
+      if (!d1.ok || !d2.ok) { _tlCmStatus(d1.error || d2.error || 'שגיאה בטעינה', true); return; }
+      cats = d1.categories || [];
+      deleted = d2;
+      var dot = document.getElementById('tl-cm-next-dot');
+      if (dot) dot.style.background = d1.next_color || '#1e9d8b';
+    } catch (e) {
+      _tlCmStatus('שגיאת רשת — נסה שוב', true);
+      return;
+    }
+    activeEl.innerHTML = cats.map(function(c) {
+      var action = c.protected
+        ? '<span class="tl-cm-lock" title="קטגוריה מובנית — לא ניתן למחוק">🔒</span>'
+        : '<button class="tl-cm-del" title="מחק קטגוריה" onclick="_tlDeleteCategory(\'' + _esc(c.key) + '\')">🗑</button>';
+      return '<div class="tl-cm-row">' +
+        '<span class="tl-cm-dot" style="background:' + _esc(c.color) + '"></span>' +
+        '<span class="tl-cm-name">' + _esc(c.label) + '</span>' +
+        '<span class="tl-cm-meta">' + c.event_count + ' אירועים</span>' + action +
+      '</div>';
+    }).join('');
+
+    var delCats = deleted.categories || [], delEvents = deleted.events || [];
+    if (!delCats.length && !delEvents.length) {
+      delEl.innerHTML = '<div class="tl-cm-empty">אין פריטים שנמחקו</div>';
+      return;
+    }
+    delEl.innerHTML =
+      delCats.map(function(c) {
+        return '<div class="tl-cm-row">' +
+          '<span class="tl-cm-dot" style="background:' + _esc(c.color) + '"></span>' +
+          '<span class="tl-cm-name">קטגוריה: ' + _esc(c.label) + '</span>' +
+          '<span class="tl-cm-meta">' + c.event_count + ' אירועים</span>' +
+          '<button class="tl-btn tl-cm-restore" onclick="_tlRestoreCategory(\'' + _esc(c.key) + '\')">שחזר</button>' +
+        '</div>';
+      }).join('') +
+      delEvents.map(function(ev) {
+        return '<div class="tl-cm-row">' +
+          '<span class="tl-cm-dot" style="background:' + _esc(ev.category_color) + '" title="' + _esc(ev.category_label) + '"></span>' +
+          '<span class="tl-cm-name">' + _esc(ev.name) + '</span>' +
+          '<span class="tl-cm-meta">' + _esc(ev.event_date || '') + ' · ' + _esc(ev.category_label) + '</span>' +
+          '<button class="tl-btn tl-cm-restore" onclick="_tlRestoreEvent(' + ev.id + ')">שחזר</button>' +
+        '</div>';
+      }).join('');
+  }
+
+  // After any category/event change: reload the category list, chips and timeline.
+  async function _tlAfterCategoryChange() {
+    await _tlLoadCategories();
+    _tlRenderFilterRow();
+    _tlAllEvents = null;
+    await _loadTimelineTab();
+    await _tlRefreshCategoryManager();
+  }
+
+  async function _tlCmCall(url, method, body) {
+    if (_tlCmBusy) return null;
+    _tlCmBusy = true;
+    try {
+      var opts = { method: method, headers: { 'Content-Type': 'application/json' } };
+      if (body) opts.body = JSON.stringify(body);
+      var r = await fetch(url, opts), d = await r.json();
+      if (!d.ok) { _tlCmStatus(d.error || 'שגיאה', true); return null; }
+      return d;
+    } catch (e) {
+      _tlCmStatus('שגיאת רשת — נסה שוב', true);
+      return null;
+    } finally {
+      _tlCmBusy = false;
+    }
+  }
+
+  async function _tlCreateCategory() {
+    var inp = document.getElementById('tl-cm-new-inp');
+    var label = (inp.value || '').trim();
+    if (!label) { _tlCmStatus('נא להזין שם קטגוריה', true); return; }
+    var d = await _tlCmCall('/api/timeline/categories', 'POST', { label: label });
+    if (!d) return;
+    inp.value = '';
+    _tlCmStatus('הקטגוריה "' + label + '" נוצרה');
+    await _tlAfterCategoryChange();
+  }
+
+  async function _tlDeleteCategory(key) {
+    var label = TL_TYPE_LABELS[key] || key;
+    var n = (_tlAllEvents || _timelineEvents || []).filter(function(e) { return e.category === key; }).length;
+    var msg = 'למחוק את הקטגוריה "' + label + '"?\n\n' +
+      (n ? n + ' אירועים בקטגוריה זו יוסתרו מציר הזמן.\n' : '') +
+      'הנתונים לא יימחקו ממסד הנתונים — ניתן לשחזר את הקטגוריה בכל עת מתוך "פריטים שנמחקו".';
+    if (!confirm(msg)) return;
+    var d = await _tlCmCall('/api/timeline/categories/' + encodeURIComponent(key), 'DELETE');
+    if (!d) return;
+    _tlCmStatus('הקטגוריה "' + label + '" נמחקה');
+    await _tlAfterCategoryChange();
+  }
+
+  async function _tlRestoreCategory(key) {
+    var d = await _tlCmCall('/api/timeline/categories/' + encodeURIComponent(key) + '/restore', 'POST');
+    if (!d) return;
+    _tlCmStatus('הקטגוריה שוחזרה');
+    await _tlAfterCategoryChange();
+  }
+
+  async function _tlRestoreEvent(id) {
+    var d = await _tlCmCall('/api/timeline/events/' + id + '/restore', 'POST');
+    if (!d) return;
+    _tlCmStatus('האירוע שוחזר');
+    await _tlAfterCategoryChange();
   }
 
   var _tlTxSearchTimer = null;

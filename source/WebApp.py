@@ -5163,7 +5163,124 @@ def api_bills_entry(entry_id):
 
 # ── Timeline (housing panel) routes ─────────────────────────────────────────
 
-TIMELINE_CATEGORIES = ('mortgage', 'general', 'eliana')
+# Palette for new timeline categories — picked to sit alongside the seeded
+# blue/amber/purple and the app's teal/navy. Once exhausted, _tl_pick_color
+# generates further hues on the same saturation/lightness band.
+TIMELINE_COLOR_PALETTE = (
+    '#1e9d8b', '#ec4899', '#10b981', '#0ea5e9',
+    '#f97316', '#6366f1', '#84cc16', '#ef4444',
+)
+
+
+def _tl_pick_color(used_colors):
+    import colorsys
+    used = {c.lower() for c in used_colors}
+    for c in TIMELINE_COLOR_PALETTE:
+        if c not in used:
+            return c
+    # Golden-angle hue walk keeps generated colours well apart.
+    for i in range(1, 360):
+        h = (i * 137.508) % 360 / 360.0
+        r, g, b = colorsys.hls_to_rgb(h, 0.55, 0.70)
+        c = '#%02x%02x%02x' % (int(r * 255), int(g * 255), int(b * 255))
+        if c not in used:
+            return c
+    return '#1e9d8b'
+
+
+def _tl_next_color(db):
+    return _tl_pick_color(c['color'] for c in db.get_timeline_categories())
+
+
+@app.route('/api/timeline/categories', methods=['GET', 'POST'])
+def api_timeline_categories():
+    from database import DataBase
+    try:
+        db = DataBase()
+        db.ensure_timeline_tables()
+        if request.method == 'GET':
+            include_deleted = request.args.get('include_deleted') == '1'
+            return jsonify({
+                'ok': True,
+                'categories': db.get_timeline_categories(include_deleted=include_deleted),
+                'next_color': _tl_next_color(db),
+            })
+        body  = request.get_json(force=True) or {}
+        label = (body.get('label') or '').strip()
+        if not label:
+            return jsonify({'ok': False, 'error': 'נא להזין שם קטגוריה'})
+        if len(label) > 30:
+            return jsonify({'ok': False, 'error': 'שם הקטגוריה ארוך מדי'})
+        for c in db.get_timeline_categories(include_deleted=True):
+            if c['label'] == label:
+                if c['deleted']:
+                    return jsonify({'ok': False, 'error': 'קטגוריה בשם זה נמחקה — ניתן לשחזר אותה ברשימת הפריטים שנמחקו'})
+                return jsonify({'ok': False, 'error': 'קטגוריה בשם זה כבר קיימת'})
+        key = 'cat_' + _secrets.token_hex(4)
+        color = _tl_next_color(db)
+        db.add_timeline_category(key, label, color)
+        db.commit_changes()
+        return jsonify({'ok': True, 'key': key, 'color': color})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/timeline/categories/<key>', methods=['DELETE'])
+def api_timeline_category_delete(key):
+    from database import DataBase
+    try:
+        db = DataBase()
+        db.ensure_timeline_tables()
+        if key in db.TIMELINE_PROTECTED_CATEGORIES:
+            return jsonify({'ok': False, 'error': 'לא ניתן למחוק קטגוריה זו'})
+        if not db.timeline_category_exists(key):
+            return jsonify({'ok': False, 'error': 'קטגוריה לא נמצאה'})
+        db.delete_timeline_category(key)
+        db.commit_changes()
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/timeline/categories/<key>/restore', methods=['POST'])
+def api_timeline_category_restore(key):
+    from database import DataBase
+    try:
+        db = DataBase()
+        db.ensure_timeline_tables()
+        if not db.timeline_category_exists(key, active_only=False):
+            return jsonify({'ok': False, 'error': 'קטגוריה לא נמצאה'})
+        db.restore_timeline_category(key)
+        db.commit_changes()
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/timeline/deleted', methods=['GET'])
+def api_timeline_deleted():
+    from database import DataBase
+    try:
+        db = DataBase()
+        db.ensure_timeline_tables()
+        cats = [c for c in db.get_timeline_categories(include_deleted=True) if c['deleted']]
+        return jsonify({'ok': True, 'categories': cats, 'events': db.get_deleted_timeline_events()})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/timeline/events/<int:event_id>/restore', methods=['POST'])
+def api_timeline_event_restore(event_id):
+    from database import DataBase
+    try:
+        db = DataBase()
+        db.ensure_timeline_tables()
+        db.restore_timeline_event(event_id)
+        db.commit_changes()
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
 
 @app.route('/api/timeline/events', methods=['GET', 'POST'])
 def api_timeline_events():
@@ -5173,7 +5290,7 @@ def api_timeline_events():
         db.ensure_timeline_tables()
         if request.method == 'GET':
             category = (request.args.get('category') or '').strip()
-            if category and category not in TIMELINE_CATEGORIES:
+            if category and not db.timeline_category_exists(category):
                 return jsonify({'ok': False, 'error': 'Invalid category'})
             if not category:
                 category = None
@@ -5188,7 +5305,7 @@ def api_timeline_events():
             return jsonify({'ok': False, 'error': 'Name required'})
         if not date:
             return jsonify({'ok': False, 'error': 'Date required'})
-        if category and category not in TIMELINE_CATEGORIES:
+        if category and not db.timeline_category_exists(category):
             return jsonify({'ok': False, 'error': 'Invalid category'})
         if not category:
             category = 'general'
@@ -5216,7 +5333,7 @@ def api_timeline_event(event_id):
                 return jsonify({'ok': False, 'error': 'Name required'})
             if not date:
                 return jsonify({'ok': False, 'error': 'Date required'})
-            if category and category not in TIMELINE_CATEGORIES:
+            if category and not db.timeline_category_exists(category):
                 return jsonify({'ok': False, 'error': 'Invalid category'})
             if not category:
                 category = 'general'

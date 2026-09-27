@@ -2980,22 +2980,131 @@ class DataBase:
                 Note              TEXT
             )
         """)
+        # Soft delete: rows are never removed, Deleted_At hides them and a
+        # restore just clears it again.
+        self.cursor.execute(
+            "ALTER TABLE TimelineEvents ADD COLUMN IF NOT EXISTS Deleted_At TIMESTAMP"
+        )
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS TimelineCategories (
+                Key         TEXT      PRIMARY KEY,
+                Label       TEXT      NOT NULL,
+                Color       TEXT      NOT NULL,
+                Sort_Order  INTEGER   NOT NULL DEFAULT 0,
+                Deleted_At  TIMESTAMP,
+                Created_At  TIMESTAMP DEFAULT now()
+            )
+        """)
+        for key, label, color, order in self.TIMELINE_SEED_CATEGORIES:
+            self.cursor.execute("""
+                INSERT INTO TimelineCategories (Key, Label, Color, Sort_Order)
+                VALUES (%s, %s, %s, %s) ON CONFLICT (Key) DO NOTHING
+            """, (key, label, color, order))
         self.connection.commit()
+
+    # Built-in categories seeded on first run. mortgage/general are protected:
+    # the housing tab is pinned to 'mortgage' and 'general' is the add-event
+    # fallback when the "all" filter is selected.
+    TIMELINE_SEED_CATEGORIES = (
+        ('mortgage', 'שבזי',   '#3b82f6', 1),
+        ('general',  'כללי',   '#f59e0b', 2),
+        ('eliana',   'אליאנה', '#a855f7', 3),
+    )
+    TIMELINE_PROTECTED_CATEGORIES = ('mortgage', 'general')
+
+    def get_timeline_categories(self, include_deleted: bool = False) -> list:
+        c = self.connection.cursor()
+        c.execute("""
+            SELECT c.Key, c.Label, c.Color, c.Sort_Order, c.Deleted_At,
+                   (SELECT COUNT(*) FROM TimelineEvents e
+                     WHERE e.Category = c.Key AND e.Deleted_At IS NULL)
+            FROM TimelineCategories c
+            ORDER BY c.Sort_Order ASC, c.Created_At ASC
+        """)
+        rows = c.fetchall()
+        c.close()
+        out = []
+        for r in rows:
+            if r[4] is not None and not include_deleted:
+                continue
+            out.append({
+                'key': r[0], 'label': r[1], 'color': r[2], 'sort_order': r[3],
+                'deleted': r[4] is not None,
+                'deleted_at': str(r[4])[:16] if r[4] else None,
+                'event_count': int(r[5] or 0),
+                'protected': r[0] in self.TIMELINE_PROTECTED_CATEGORIES,
+            })
+        return out
+
+    def timeline_category_exists(self, key: str, active_only: bool = True) -> bool:
+        c = self.connection.cursor()
+        sql = "SELECT 1 FROM TimelineCategories WHERE Key=%s"
+        if active_only:
+            sql += " AND Deleted_At IS NULL"
+        c.execute(sql, (key,))
+        found = c.fetchone() is not None
+        c.close()
+        return found
+
+    def add_timeline_category(self, key: str, label: str, color: str) -> None:
+        self.cursor.execute("""
+            INSERT INTO TimelineCategories (Key, Label, Color, Sort_Order)
+            VALUES (%s, %s, %s, (SELECT COALESCE(MAX(Sort_Order), 0) + 1 FROM TimelineCategories))
+        """, (key, label, color))
+
+    def delete_timeline_category(self, key: str) -> None:
+        self.cursor.execute(
+            "UPDATE TimelineCategories SET Deleted_At=now() WHERE Key=%s AND Deleted_At IS NULL", (key,)
+        )
+
+    def restore_timeline_category(self, key: str) -> None:
+        self.cursor.execute("UPDATE TimelineCategories SET Deleted_At=NULL WHERE Key=%s", (key,))
+
+    def get_deleted_timeline_events(self) -> list:
+        """Events deleted individually (not ones only hidden by a deleted category)."""
+        c = self.connection.cursor()
+        c.execute("""
+            SELECT e.ID, e.Name, e.Event_Date, e.Category, e.Deleted_At, c.Label, c.Color
+            FROM TimelineEvents e
+            LEFT JOIN TimelineCategories c ON c.Key = e.Category
+            WHERE e.Deleted_At IS NOT NULL
+            ORDER BY e.Deleted_At DESC
+        """)
+        rows = c.fetchall()
+        c.close()
+        return [{
+            'id': r[0], 'name': r[1],
+            'event_date': str(r[2])[:10] if r[2] else None,
+            'category': r[3], 'deleted_at': str(r[4])[:16] if r[4] else None,
+            'category_label': r[5] or r[3], 'category_color': r[6] or '#94a3b8',
+        } for r in rows]
+
+    def restore_timeline_event(self, event_id: int) -> None:
+        """Restore an event, and its category too if that was deleted."""
+        self.cursor.execute("UPDATE TimelineEvents SET Deleted_At=NULL WHERE ID=%s", (event_id,))
+        self.cursor.execute("""
+            UPDATE TimelineCategories SET Deleted_At=NULL
+            WHERE Key = (SELECT Category FROM TimelineEvents WHERE ID=%s)
+        """, (event_id,))
 
     def get_timeline_events(self, category: str = None) -> list:
         c = self.connection.cursor()
         if category:
             c.execute("""
-                SELECT ID, Name, Event_Date, Description, Color, Category
-                FROM TimelineEvents
-                WHERE Category = %s
-                ORDER BY Event_Date ASC, ID ASC
+                SELECT e.ID, e.Name, e.Event_Date, e.Description, e.Color, e.Category
+                FROM TimelineEvents e
+                LEFT JOIN TimelineCategories tc ON tc.Key = e.Category
+                WHERE e.Deleted_At IS NULL AND tc.Deleted_At IS NULL
+                  AND e.Category = %s
+                ORDER BY e.Event_Date ASC, e.ID ASC
             """, (category,))
         else:
             c.execute("""
-                SELECT ID, Name, Event_Date, Description, Color, Category
-                FROM TimelineEvents
-                ORDER BY Event_Date ASC, ID ASC
+                SELECT e.ID, e.Name, e.Event_Date, e.Description, e.Color, e.Category
+                FROM TimelineEvents e
+                LEFT JOIN TimelineCategories tc ON tc.Key = e.Category
+                WHERE e.Deleted_At IS NULL AND tc.Deleted_At IS NULL
+                ORDER BY e.Event_Date ASC, e.ID ASC
             """)
         events = {}
         order = []
@@ -3063,7 +3172,10 @@ class DataBase:
         """, (name, event_date, description or None, color, category, event_id))
 
     def delete_timeline_event(self, event_id: int) -> None:
-        self.cursor.execute("DELETE FROM TimelineEvents WHERE ID=%s", (event_id,))
+        # Soft delete — kept in the DB so it can be restored.
+        self.cursor.execute(
+            "UPDATE TimelineEvents SET Deleted_At=now() WHERE ID=%s AND Deleted_At IS NULL", (event_id,)
+        )
 
     def add_timeline_link(self, event_id: int, transaction_table: str, transaction_id: int, note: str = '') -> int:
         row = self.cursor.execute("""

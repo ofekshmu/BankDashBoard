@@ -991,12 +991,6 @@ body {
 /* ── Timeline widget (vertical) ──────────────────────────────────── */
 .tl-toolbar { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; flex-wrap:wrap; }
 .tl-toolbar-left { display:flex; align-items:center; gap:8px; }
-.tl-zoom-btn {
-  width:30px; height:30px; border-radius:8px; border:1.5px solid var(--border);
-  background:var(--white); color:var(--navy); font-size:1.1em; font-weight:700;
-  cursor:pointer; display:flex; align-items:center; justify-content:center;
-}
-.tl-zoom-btn:hover { border-color:var(--teal); color:var(--teal); }
 .tl-add-btn {
   padding:7px 14px; border-radius:8px; border:none; background:var(--teal); color:#fff;
   font-family:inherit; font-size:0.85em; font-weight:700; cursor:pointer;
@@ -8757,8 +8751,6 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     tl.innerHTML =
       '<div class="tl-toolbar">' +
         '<div class="tl-toolbar-left">' +
-          '<button class="tl-zoom-btn" onclick="_tlZoom(1.4)">+</button>' +
-          '<button class="tl-zoom-btn" onclick="_tlZoom(0.714)">−</button>' +
           '<div class="tl-toggle-wrap">' +
             '<span>הצג תמיד</span>' +
             '<div class="tl-switch' + (_tlMinimizeMode ? ' on' : '') + '" id="tl-minimize-switch" onclick="_tlToggleMinimize()"><div class="tl-switch-knob"></div></div>' +
@@ -8776,10 +8768,70 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     _tlWireScrollArrows();
   }
 
-  function _tlZoom(factor) {
-    _tlPxPerDay = Math.max(1.5, Math.min(80, _tlPxPerDay * factor));
+  // Zoom by `factor`, keeping the date under clientY (default: the middle of
+  // the visible area) at the same screen position. Event positions are
+  // linear in _tlPxPerDay (TL_TOP_PAD + days * _tlPxPerDay), so the anchor
+  // date's new offset can be computed directly.
+  function _tlZoomAt(factor, clientY) {
+    var oldPx = _tlPxPerDay;
+    var newPx = Math.max(1.5, Math.min(80, oldPx * factor));
+    if (newPx === oldPx) return;
+    var wrap = document.getElementById('tl-axis-wrap');
+    var anchorY = 0, contentY = 0;
+    if (wrap) {
+      var rect = wrap.getBoundingClientRect();
+      anchorY = (clientY == null) ? wrap.clientHeight / 2 : clientY - rect.top;
+      contentY = wrap.scrollTop + anchorY;
+    }
+    _tlPxPerDay = newPx;
     _tlDrawAxis(_timelineEvents || []);
+    if (wrap) {
+      var days = Math.max(0, (contentY - TL_TOP_PAD) / oldPx);
+      wrap.scrollTop = Math.max(0, TL_TOP_PAD + days * newPx - anchorY);
+    }
     _tlUpdateScrollArrows();
+  }
+
+  // Pinch-to-zoom: trackpad pinch arrives as wheel+ctrlKey (as does
+  // Ctrl+mouse wheel); touch screens use a two-finger pinch. A plain wheel
+  // or one-finger drag still scrolls. Redraws are batched per frame.
+  function _tlWireZoomGestures(wrap) {
+    var pending = 1, pendingY = null, raf = 0;
+    function queue(f, y) {
+      pending *= f; pendingY = y;
+      if (raf) return;
+      raf = requestAnimationFrame(function() {
+        raf = 0;
+        var f2 = pending; pending = 1;
+        _tlZoomAt(f2, pendingY);
+      });
+    }
+    wrap.addEventListener('wheel', function(e) {
+      if (!e.ctrlKey) return;
+      e.preventDefault();
+      var d = Math.max(-50, Math.min(50, e.deltaY));
+      queue(Math.exp(-d * 0.01), e.clientY);
+    }, { passive: false });
+
+    var pinchDist = 0;
+    function dist(t) {
+      return Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+    }
+    wrap.addEventListener('touchstart', function(e) {
+      if (e.touches.length === 2) pinchDist = dist(e.touches);
+    }, { passive: true });
+    wrap.addEventListener('touchmove', function(e) {
+      if (e.touches.length !== 2 || !pinchDist) return;
+      e.preventDefault();
+      var d = dist(e.touches);
+      if (d > 0) {
+        queue(d / pinchDist, (e.touches[0].clientY + e.touches[1].clientY) / 2);
+        pinchDist = d;
+      }
+    }, { passive: false });
+    wrap.addEventListener('touchend', function(e) {
+      if (e.touches.length < 2) pinchDist = 0;
+    });
   }
 
   function _tlToggleMinimize() {
@@ -8991,6 +9043,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     var wrap = document.getElementById('tl-axis-wrap');
     if (!wrap) return;
     wrap.addEventListener('scroll', _tlUpdateScrollArrows);
+    _tlWireZoomGestures(wrap);
     _tlUpdateScrollArrows();
   }
 
@@ -10003,7 +10056,6 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   window._regenHousing        = _regenHousing;
   window._switchHousingTab    = _switchHousingTab;
   window._hsToggleTxName      = _hsToggleTxName;
-  window._tlZoom               = _tlZoom;
   window._tlToggleMinimize     = _tlToggleMinimize;
   window._tlOpenAddModal  = _tlOpenAddModal;
   window._tlOpenEditModal = _tlOpenEditModal;
@@ -10023,6 +10075,12 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   window._tlCalPick      = _tlCalPick;
   window._tlCalGoToday   = _tlCalGoToday;
   window._tlSetCategoryFilter = _tlSetCategoryFilter;
+  window._tlOpenCategoryManager  = _tlOpenCategoryManager;
+  window._tlCloseCategoryManager = _tlCloseCategoryManager;
+  window._tlCreateCategory       = _tlCreateCategory;
+  window._tlDeleteCategory       = _tlDeleteCategory;
+  window._tlRestoreCategory      = _tlRestoreCategory;
+  window._tlRestoreEvent         = _tlRestoreEvent;
   document.addEventListener('DOMContentLoaded', _initDynamicPage);
 
   // Set --btn-half CSS var so the progress panel anchors at button center

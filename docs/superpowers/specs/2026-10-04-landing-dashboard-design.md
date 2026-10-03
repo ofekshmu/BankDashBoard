@@ -45,9 +45,13 @@ menu item, each with a short description and (where agreed) a small piece of liv
   (worth a look), red (act now), grey (no data).
 - **One headline KPI** in large type (the block's main number or short value) with a
   one-line caption under it.
-- Up to **3 small detail lines** (e.g. the names behind the number). No paragraphs.
+- Up to **3 small detail lines** (e.g. the names behind the number). Bills block is the
+  exception at **5 detail lines** (all 5 bill types with their average). No paragraphs.
 - Description-only blocks: icon + title + one-line description, rendered as compact tiles.
-- Whole card is a link to the page; some blocks add one extra control (month picker).
+- Whole card is a link to the page wrapped in a stretched `<a class="card-link">`; some
+  blocks add one extra control (month picker) **outside** the link.
+- Numbers inside RTL captions/details are wrapped in `<span dir="ltr">` for correct
+  positioning; numeric KPIs are LTR but right-aligned in the block.
 - Loading: skeleton shimmer in the status area. Error: "לא זמין כרגע" on that block only
   (other blocks unaffected). Blocks without live data show description only.
 
@@ -62,7 +66,7 @@ Headline KPI per block (large number) → caption → details:
 | כרטיסים | number of cards active this month | "כרטיסים פעילים החודש" | card label + month total, top 3 |
 | דיור | annual return (%) | "תשואה שנתית (5% עליית ערך)" | total return on sale %, net profit ₪ |
 | ציר זמן | last created event's title | "האירוע האחרון שנוצר" | its date |
-| מעקב חשבונות | sum of the 5 averages (₪/month) | "ממוצע חודשי — 5 החשבונות הנפוצים" | top 3 of the 5 with their average |
+| מעקב חשבונות | sum of the 5 averages (₪/month) | "ממוצע חודשי — 5 החשבונות הנפוצים" | all 5 types with their average (5 lines) |
 | Spotify | total owed (₪) | "חובות פתוחים" | members in debt + amount (≤3, "+N" if more) |
 | מעקב עציצים | plants needing water today+overdue | "עציצים להשקיה" | overdue count, auto pending confirmation |
 | חיובים חוזרים | next expected charge amount (₪) | name + "ב-<date>" | — |
@@ -98,8 +102,15 @@ avoid duplicate routes). Every route is behind the existing `_require_auth` gate
 
 - `GET /api/landing/<block>` for `block` in
   `monthly, accounts, cards, housing, timeline, bills, spotify, plants, recurring, tagger, files`
-  → `{ok: true, dot: 'green'|'amber'|'red'|'grey'|null, facts: [...], extra: {...}}`
-  (block-specific `facts`; `extra` for the monthly month list). Unknown block → 404.
+  → `{ok: true, dot: 'green'|'amber'|'red'|'grey'|null, kpi: str, caption: str, details: [str, ...], extra: {...}}`
+  (block-specific details and captions; `extra` for the monthly month list). Unknown block → 404.
+  Response headers: `Cache-Control: no-store`.
+- Failure responses: `{ok: false, error: 'לא זמין כרגע'}` with HTTP 500. Not cached; each request
+  re-fetches.
+- Monthly block reads months straight from `BankTransactions` via `DataBase` (not from
+  `general_list`, which silently falls back to disk files on pool exhaustion).
+- Accounts block uses `_cash_balance_map(strict=True)` so DB errors surface as an unavailable
+  block instead of returning a wrong total.
 - Each block's computation lives in `source/landing_service.py` as one function per block,
   reusing existing functions (no duplicated business logic). Each is wrapped so a failure
   returns `{ok: false, error}` for that block only.
@@ -107,9 +118,9 @@ avoid duplicate routes). Every route is behind the existing `_require_auth` gate
   are instant; invalidated naturally by TTL.
 
 ## Error handling
-- Block endpoint exception → `{ok:false}` + logged with traceback; the block shows
-  "לא זמין כרגע".
-- Missing data (e.g. no current-month data yet) → `dot: 'grey'` with a short neutral fact.
+- Block endpoint exception → `{ok:false, error: 'לא זמין כרגע'}` + HTTP 500 + logged with
+  traceback; the block shows "לא זמין כרגע". Not cached.
+- Missing data (e.g. no current-month data yet) → `dot: 'grey'` with a short neutral detail.
 
 ## Testing
 - `tests/test_landing_service.py`: each block function against small fakes/stubs of its

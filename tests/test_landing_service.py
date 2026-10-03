@@ -121,3 +121,93 @@ def test_housing_block():
     assert b['details'] == ['תשואה כוללת במכירה +31.0%', 'רווח נקי 220,000₪']
     assert ls.build_housing(dict(m, annual_return_pct=-2))['dot'] == 'red'
     assert ls.build_housing({})['dot'] == 'grey'
+
+
+# ── timeline ───────────────────────────────────────────────────────────────
+def test_timeline():
+    b = ls.build_timeline({'name': 'חתונה', 'event_date': '2026-11-02', 'created_at': datetime(2026, 10, 1)})
+    assert b['kpi'] == 'חתונה' and b['caption'] == 'האירוע האחרון שנוצר' and b['details'] == ['02.11.26']
+    assert ls.build_timeline(None)['dot'] == 'grey'
+
+
+# ── bills ──────────────────────────────────────────────────────────────────
+BILL_ROWS = [
+    (1, 'חשמל', '2026-01', '2026-02', 600),     # 2 months → 300/month
+    (1, 'חשמל', '2026-03', '2026-04', 400),     # avg over 4 months = 250
+    (1, 'חשמל', '2026-05', None, 250),          # single month → total 1250 / 5 = 250
+    (2, 'מים', '2026-01', '2026-02', 200),
+    (2, 'מים', '2026-03', '2026-04', 100),      # 300 / 4 = 75
+    (3, 'ארנונה', '2026-01', '2026-01', 500),
+    (4, 'גז', '2026-01', '2026-01', 50),
+    (5, 'אינטרנט', '2026-01', '2026-01', 100),
+    (6, 'ועד', '2026-01', '2026-01', 30),
+    (7, 'סלולר', '2026-01', '2026-01', 60),
+]
+
+
+def test_bill_averages_top5_by_entry_count():
+    avgs = ls.bill_averages(BILL_ROWS)
+    assert avgs[0] == ('חשמל', 250) and avgs[1] == ('מים', 75)
+    assert len(avgs) == 5                     # top 5 types by entry count (ties → name)
+
+
+def test_bills_block_shows_all_five():
+    b = ls.build_bills(BILL_ROWS)
+    assert b['caption'] == 'ממוצע חודשי — 5 החשבונות הנפוצים'
+    assert len(b['details']) == 5 and b['details'][0] == 'חשמל · 250₪'
+    assert b['kpi'] == ls.money(sum(a for _, a in ls.bill_averages(BILL_ROWS)))
+    assert ls.build_bills([])['dot'] == 'grey'
+
+
+# ── spotify ────────────────────────────────────────────────────────────────
+def test_spotify_only_debtors():
+    b = ls.build_spotify([{'name': 'דנה', 'balance': -30}, {'name': 'יוסי', 'balance': 20},
+                          {'name': 'רון', 'balance': -60}])
+    assert b['kpi'] == '90₪' and b['caption'] == 'חובות פתוחים' and b['dot'] == 'amber'
+    assert b['details'] == ['רון · 60₪', 'דנה · 30₪']
+
+
+def test_spotify_caps_and_no_debt():
+    many = [{'name': f'm{i}', 'balance': -10 - i} for i in range(5)]
+    assert ls.build_spotify(many)['details'][-1] == '+3 נוספים'
+    b = ls.build_spotify([{'name': 'יוסי', 'balance': 0}])
+    assert b['kpi'] == '0₪' and b['dot'] == 'green' and b['details'] == ['אין חובות']
+
+
+# ── plants ─────────────────────────────────────────────────────────────────
+def test_plants():
+    b = ls.build_plants({'due_today': 2, 'overdue': 1, 'auto_pending_confirm': 3})
+    assert b['kpi'] == '3' and b['caption'] == 'עציצים להשקיה' and b['dot'] == 'red'
+    assert b['details'] == ['1 באיחור', '3 השקיות אוטומטיות ממתינות לאישור']
+    assert ls.build_plants({'due_today': 0, 'overdue': 0, 'auto_pending_confirm': 1})['dot'] == 'amber'
+    assert ls.build_plants({'due_today': 0, 'overdue': 0, 'auto_pending_confirm': 0})['dot'] == 'green'
+
+
+# ── recurring ──────────────────────────────────────────────────────────────
+def test_recurring_next_upcoming_non_stopped():
+    groups = [{'name': 'נטפליקס', 'current_amount': 55, 'next_expected': '2026-10-09', 'possibly_stopped': False},
+              {'name': 'חדר כושר', 'current_amount': 199, 'next_expected': '2026-10-05', 'possibly_stopped': True},
+              {'name': 'ביטוח', 'current_amount': 310.4, 'next_expected': date(2026, 10, 6), 'possibly_stopped': False},
+              {'name': 'ישן', 'current_amount': 10, 'next_expected': '2026-09-01', 'possibly_stopped': False}]
+    b = ls.build_recurring(groups, TODAY)
+    assert b['kpi'] == '310₪' and b['caption'] == 'ביטוח · ב-06.10.26'
+    assert ls.build_recurring([], TODAY)['dot'] == 'grey'
+
+
+# ── tagger ─────────────────────────────────────────────────────────────────
+def test_tagger():
+    tx = {'name': 'שופרסל', 'exec_date': '2026-10-02', 'charge_value': 212.5,
+          'transaction_value': 300, 'category': 'סופר'}
+    b = ls.build_tagger(tx)
+    assert b['kpi'] == '212₪' and b['caption'] == 'שופרסל' and b['details'] == ['סופר · 02.10.26']
+    assert ls.build_tagger(dict(tx, charge_value=None))['kpi'] == '300₪'
+    assert ls.build_tagger(None)['dot'] == 'grey'
+
+
+# ── files ──────────────────────────────────────────────────────────────────
+def test_files():
+    b = ls.build_files({'file_name': 'leumi_10.xlsx', 'format': 'Leumi Bank',
+                        'date': '2026-10-01', 'last_update': datetime(2026, 10, 3, 9)})
+    assert b['kpi'] == '03.10.26' and b['caption'] == 'קובץ אחרון'
+    assert b['details'] == ['leumi_10.xlsx', 'Leumi Bank']
+    assert ls.build_files(None)['dot'] == 'grey'

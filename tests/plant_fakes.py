@@ -14,6 +14,7 @@ class FakePlantStore:
         self.rooms = {i + 1: {'id': i + 1, 'name': n, 'sort_order': i, 'deleted_at': None}
                       for i, n in enumerate(DEFAULT_ROOMS)}
         self.configs = {}
+        self.photos = {}            # pid -> (mime, bytes, updated_at)
 
     def ensure(self):
         pass
@@ -103,6 +104,19 @@ class FakePlantStore:
 
     def soft_delete_config(self, cid):
         self.configs[cid]['deleted_at'] = datetime.now()
+
+    def set_photo(self, pid, mime, data):
+        self.photos[pid] = (mime, bytes(data), datetime.now())
+
+    def get_photo(self, pid):
+        p = self.photos.get(pid)
+        return (p[0], p[1]) if p else None
+
+    def delete_photo(self, pid):
+        self.photos.pop(pid, None)
+
+    def photo_versions(self, ids):
+        return {pid: p[2] for pid, p in self.photos.items() if pid in ids}
 
     def last_materialized_days(self, ids):
         out = {}

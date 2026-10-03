@@ -279,6 +279,14 @@ input[type="date"].field-input { padding: 0 10px; appearance: none; -webkit-appe
 .pt-unsaved { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; background: #fff8e6; border: 1.5px solid var(--amber); border-radius: 10px; padding: 10px 12px; margin: 22px 0 14px; font-size: .85em; font-weight: 600; color: #7a5600; }
 .pt-unsaved span { flex: 1 0 100%; }
 .pt-pcard.pending { opacity: .65; pointer-events: none; }
+.pt-photo { border-radius: 28%; object-fit: cover; display: block; flex-shrink: 0; background: var(--bg); }
+.pt-care { font-size: .8em; color: var(--text-sub); background: #f3f8f1; border-radius: 10px; padding: 7px 10px; }
+.pt-care summary { cursor: pointer; font-weight: 600; color: #3d6b35; list-style: none; }
+.pt-care summary::-webkit-details-marker { display: none; }
+.pt-care summary::after { content: ' ▾'; color: var(--text-muted); }
+.pt-care[open] summary::after { content: ' ▴'; }
+.pt-care-body { margin-top: 6px; line-height: 1.7; }
+.pt-care-inline { margin-top: 8px; }
 .pt-prompt { position: fixed; bottom: 76px; left: 50%; transform: translateX(-50%); z-index: 2000; display: none; align-items: center; flex-wrap: wrap; gap: 8px; max-width: calc(100vw - 32px); background: var(--white); border: 1.5px solid var(--teal); border-radius: 12px; padding: 10px 14px; box-shadow: var(--shadow-md); font-size: .85em; }
 .pt-prompt.show { display: flex; }
 .pt-prompt span { flex: 1 1 220px; }
@@ -578,6 +586,24 @@ function plantIcon(type, color, name, size){
     '<g fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">' + (GLYPHS[type] || GLYPHS.sprout) + '</g>' +
     '<circle cx="40" cy="40" r="7" fill="#fff"/>' +
     '<text x="40" y="43.5" text-anchor="middle" font-size="10" font-weight="700" font-family="Segoe UI, Arial" fill="' + esc(color) + '">' + initial + '</text></svg>';
+}
+
+// The plant's photo when it has one (a local preview first, while it uploads), else its drawn icon.
+function plantBadge(p, size){
+  var src = p.photo_local || (p.photo && p.id > 0 ? '/api/plants/' + p.id + '/photo?v=' + p.photo : null);
+  if (src) return '<img class="pt-photo" src="' + esc(src) + '" width="' + size + '" height="' + size + '" alt="' + esc(p.name) + '" loading="lazy">';
+  return plantIcon(p.plant_type, p.color, p.name, size);
+}
+
+// ── Care notes, per plant type (Israeli conditions) ─────────────
+var CARE = {"cactus": {"s": "שמש מלאה · השקיה נדירה", "l": "כמה שיותר שמש; מרפסת דרומית מושלמת", "w": "רק כשהאדמה יבשה לגמרי; בחורף פעם בחודש או פחות", "f": "מצע לקקטוסים עם ניקוז מצוין; דשן לסוקולנטים פעמיים בקיץ", "x": "בסיס רך או כהה = ריקבון מהשקיית יתר"}, "monstera": {"s": "אור בהיר לא ישיר · להשקות כשהעליון יבש", "l": "אור בהיר ומפוזר; שמש צהריים ישירה שורפת עלים", "w": "כש-3–5 ס\"מ עליונים יבשים; בחורף בתדירות נמוכה יותר", "f": "מצע אוורירי (פרלייט/קליפות); דשן כל 3–4 שבועות באביב-קיץ", "x": "עלים מצהיבים = לרוב השקיית יתר; ניגוב אבק מהעלים עוזר"}, "fern": {"s": "צל חלקי · אדמה לחה תמיד", "l": "אור עקיף, בלי שמש ישירה", "w": "לשמור לחה אך לא בוצית; לא לתת להתייבש לגמרי", "f": "מצע עשיר; דשן מדולל פעם בחודש בעונת הצמיחה", "x": "קצוות חומים ופריכים = אוויר יבש או התייבשות"}, "succulent": {"s": "אור חזק · להשקות רק כשיבש לגמרי", "l": "שמש בוקר או אור חזק; צמח מתארך ודליל = חסר אור", "w": "השקיה עמוקה ואז לחכות לייבוש מלא; בחורף מעט מאוד", "f": "מצע לסוקולנטים ועציץ עם חור ניקוז", "x": "עלים שקופים ורכים = יותר מדי מים; עלים מקומטים = צמא"}, "herb": {"s": "שמש · השקיה סדירה", "l": "4–6 שעות שמש ביום", "w": "כשהשכבה העליונה מתייבשת", "f": "מצע מנוקז; דשן קל פעם בחודש", "x": "קטיף קבוע מעודד צמיחה צפופה"}, "flower": {"s": "שמש · השקיה סדירה · הסרת פרחים נבולים", "l": "לפחות שמש בוקר", "w": "לחות מתונה, יותר בקיץ", "f": "דשן לפריחה כל 2–3 שבועות בעונה", "x": "הסרת פרחים נבולים מאריכה את הפריחה"}, "tree": {"s": "אור טוב · השקיה עמוקה ומרווחת", "l": "אור בהיר; לסובב את העציץ מדי פעם לצמיחה ישרה", "w": "השקיה עמוקה כשהשכבה העליונה יבשה", "f": "דשן כל חודש באביב-קיץ", "x": "נשירת עלים פתאומית = שינוי מיקום או טמפרטורה"}, "sprout": {"s": "אור בהיר · לחות אחידה", "l": "אור בהיר בלי שמש צהריים חזקה", "w": "לשמור לחה באופן אחיד", "f": "מצע קל; בלי דשן בשבועות הראשונים", "x": "גבעול ארוך ודק = חסר אור"}, "kalanchoe": {"s": "אור חזק · מעט מים", "l": "אור חזק או שמש בוקר", "w": "רק כשהאדמה יבשה – זה סוקולנט", "f": "מצע מנוקז; אחרי הפריחה לגזום את גבעולי הפרחים", "x": "כדי לפרוח שוב צריכה לילות ארוכים וחשוכים בסתיו"}, "geranium": {"s": "שמש מלאה · לתת להתייבש מעט", "l": "6 שעות שמש ומעלה", "w": "כשהשכבה העליונה יבשה; לא אוהב רגליים רטובות", "f": "דשן לפריחה כל שבועיים בעונה", "x": "עלים מצהיבים = יותר מדי מים; להסיר פרחים נבולים"}, "petunia": {"s": "שמש מלאה · השקיה תכופה בקיץ", "l": "שמש מלאה", "w": "עציץ קטן מתייבש מהר – לבדוק כל יום-יומיים בקיץ", "f": "דשן לפריחה פעם בשבוע", "x": "לגזום ענפים מתארכים באמצע הקיץ לחידוש הפריחה"}, "adansonii": {"s": "אור בהיר לא ישיר · לחות", "l": "אור מפוזר; שמש ישירה מצהיבה עלים", "w": "כשהשכבה העליונה יבשה", "f": "מצע אוורירי; תמיכה לטיפוס עוזרת לעלים גדולים", "x": "אוהבת לחות אוויר – לרסס או להחזיק ליד צמחים אחרים"}, "orchid": {"s": "אור בהיר · להשקות כשהמצע כמעט יבש", "l": "אור בהיר, מעט שמש בוקר", "w": "השקיה ואז ניקוז מלא – אסור שמים יעמדו בתחתית", "f": "מצע קליפות; דשן לסחלבים בחצי ריכוז", "x": "קנים רכים או שחורים = ריקבון מהשקיית יתר"}, "oregano": {"s": "שמש מלאה · מעדיף יבש", "l": "שמש מלאה", "w": "כשהאדמה כמעט יבשה", "f": "בלי הרבה דשן – זה מחזק את הטעם", "x": "השקיית יתר מחלישה את הריח ומרקיבה שורשים"}, "rosemary": {"s": "שמש מלאה · לתת להתייבש", "l": "כמה שיותר שמש", "w": "כשהשכבה העליונה יבשה היטב", "f": "מצע מנוקז מאוד, אפשר עם חול", "x": "רגיש מאוד להשקיית יתר; קצוות משחירים = רטיבות"}, "basil": {"s": "שמש · מים סדירים", "l": "6 שעות שמש", "w": "לא לתת להתייבש לגמרי בקיץ", "f": "דשן קל כל 2–3 שבועות", "x": "לקטוף את ניצני הפרחים כדי להאריך את חיי הצמח"}, "chives": {"s": "שמש · אדמה לחה", "l": "שמש או חצי צל", "w": "לשמור לחה במידה", "f": "דשן קל אחרי קציר", "x": "לקצוץ כ-3 ס\"מ מעל הבסיס לצמיחה מחודשת; קצוות צהובים = צמא"}, "thyme": {"s": "שמש מלאה · יבש", "l": "שמש מלאה", "w": "רק כשהאדמה יבשה", "f": "מצע דל ומנוקז", "x": "לגזום קלות אחרי פריחה כדי שלא יתעצה"}, "pentas": {"s": "שמש · השקיה סדירה", "l": "שמש מלאה עד חלקית", "w": "לשמור לחה במידה, יותר בחום", "f": "דשן לפריחה כל שבועיים", "x": "להסיר אשכולות נבולים; אוהב חום, רגיש לקור"}, "angelonia": {"s": "שמש מלאה · עמידה לחום", "l": "שמש מלאה", "w": "כשהשכבה העליונה מתייבשת", "f": "דשן לפריחה כל 2–3 שבועות", "x": "לגזום בשליש אחרי גל פריחה לפריחה חוזרת"}, "zz": {"s": "כמעט כל אור · השקיה נדירה", "l": "אור בינוני עד בהיר; מסתדר גם עם מעט אור", "w": "רק כשהאדמה יבשה לגמרי – הפקעות אוגרות מים", "f": "דשן מדולל פעמיים-שלוש בשנה", "x": "השקיית יתר מרקיבה את הפקעות – הטעות הנפוצה"}, "birdsnest": {"s": "אור עקיף · לחות", "l": "אור עקיף, בלי שמש ישירה", "w": "להשקות סביב השושנה ולא לתוך המרכז", "f": "דשן מדולל פעם בחודש בקיץ", "x": "לא לגעת בעלים הצעירים במרכז – הם עדינים"}, "philodendron": {"s": "אור עקיף · להשקות כשהעליון יבש", "l": "אור בהיר לא ישיר", "w": "כש-2–3 ס\"מ עליונים יבשים", "f": "דשן חודשי באביב-קיץ", "x": "עלים קטנים וחיוורים = חסר אור"}, "snake": {"s": "כל אור · השקיה נדירה", "l": "מאור נמוך ועד שמש חלקית", "w": "כל 2–4 שבועות, בחורף פחות", "f": "מצע לסוקולנטים", "x": "הטעות הנפוצה: השקיית יתר – עלים רכים בבסיס"}, "spiky": {"s": "אור בהיר · להשקות כשהעליון יבש", "l": "אור בהיר; שמש אחר-צהריים חזקה שורפת", "w": "כש-2–3 ס\"מ עליונים יבשים", "f": "דשן חודשי בקיץ", "x": "קצוות חומים = מלחים במי הברז או אוויר יבש"}, "strap": {"s": "שמש · השקיה סדירה בעונת הצמיחה", "l": "שמש מלאה עד חלקית", "w": "לשמור לחה במידה באביב-קיץ", "f": "דשן כל 3–4 שבועות בעונה", "x": "להסיר עלים יבשים מהבסיס"}, "conifer": {"s": "שמש · לא לתת להתייבש", "l": "שמש מלאה", "w": "בעציץ מתייבש מהר – לבדוק לעיתים קרובות בקיץ", "f": "דשן אביבי אחד מספיק", "x": "השחמה פנימית = התייבשות; מחטניים לא מתאוששים מהתייבשות מלאה"}, "shrub": {"s": "אור טוב · השקיה סדירה", "l": "שמש בוקר או אור בהיר", "w": "כשהשכבה העליונה מתייבשת", "f": "דשן חודשי בעונת הצמיחה", "x": "גיזום קל מעודד צמיחה צפופה"}};
+function careBody(type){
+  var c = CARE[type];
+  return c ? '☀️ ' + esc(c.l) + '<br>💧 ' + esc(c.w) + '<br>🌱 ' + esc(c.f) + '<br>⚠️ ' + esc(c.x) : '';
+}
+function careHtml(type){
+  var c = CARE[type];
+  return c ? '<details class="pt-care"><summary>🌿 ' + esc(c.s) + '</summary><div class="pt-care-body">' + careBody(type) + '</div></details>' : '';
 }
 
 // ── Data + once-a-day cache ────────────────────────────────────
@@ -880,11 +906,11 @@ function plantRowHtml(p, days){
            : p.status === 'auto' ? '<span class="pt-pill auto">' + last + '</span>'
            : '<span class="pt-pill ok">' + last + '</span>';
   return '<div class="pt-pcard' + (p.id < 0 ? ' pending' : '') + '">' +
-    '<button class="pt-plant" onclick="openPlantModal(' + p.id + ')" title="עריכת עציץ">' + plantIcon(p.plant_type, p.color, p.name, 44) +
+    '<button class="pt-plant" onclick="openPlantModal(' + p.id + ')" title="עריכת עציץ">' + plantBadge(p, 44) +
       '<div><div class="pt-plant-name">' + esc(p.name) + '</div>' +
       '<div class="pt-plant-meta">' + mode + (room ? ' · ' + esc(room.name) : '') + '</div></div>' + pill + '</button>' +
     '<div class="pt-cells">' + days.map(function(day){ return cellHtml(p, day); }).join('') + '</div>' +
-    plantTipsHtml(p.id) + '</div>';
+    plantTipsHtml(p.id) + (suggOpen ? careHtml(p.plant_type) : '') + '</div>';
 }
 
 // ── Rooms: filter chips + grouping ─────────────────────────────
@@ -957,7 +983,7 @@ function renderDay(){
       '<button onclick="deleteEvent(' + e.id + ')" title="מחיקה" aria-label="מחיקה">✕</button></div>';
   }).join('') : '<div class="pt-plant-meta">אין אירועים ביום זה</div>';
   document.getElementById('day-body').innerHTML =
-    '<div class="modal-title" style="display:flex;align-items:center;gap:10px">' + plantIcon(p.plant_type, p.color, p.name, 34) +
+    '<div class="modal-title" style="display:flex;align-items:center;gap:10px">' + plantBadge(p, 34) +
       '<span>' + esc(p.name) + ' · ' + fmtDay(day) + '</span></div>' +
     confirmBtn +
     '<div class="field-row"><span class="field-label">מצב אדמה</span><div class="pt-seg">' + soil + '</div></div>' +
@@ -1025,7 +1051,8 @@ function deleteEvent(id){
 var editCtx = null, editOrig = null;
 function plantSnapshot(e){
   return e ? JSON.stringify([String(e.name).trim(), e.plant_type, e.color, e.irrigation_mode, String(e.interval_days),
-                             e.room_id, e.irrigation_mode === 'auto' ? e.config_id : null]) : '';
+                             e.room_id, e.irrigation_mode === 'auto' ? e.config_id : null,
+                             e.id ? '' : !!e.photo_local]) : '';   // a new plant's chosen photo is part of the unsaved form
 }
 function plantDirty(){ return !!editCtx && plantSnapshot(editCtx) !== editOrig; }
 function pmDirty(){ setDirtyClass('pm-save', plantDirty()); }
@@ -1035,10 +1062,11 @@ function openPlantModal(pid){
   editCtx = p
     ? {id: p.id, name: p.name, plant_type: p.plant_type, color: p.color, irrigation_mode: p.irrigation_mode,
        interval_days: p.interval_days, auto_time: p.auto_time || '07:00', room_id: p.room_id,
-       config_id: p.config_id}
+       config_id: p.config_id, photo: p.photo, photo_local: p.photo_local || null}
     : {id: null, name: '', plant_type: 'monstera', color: PALETTE[(state ? state.plants.length : 0) % PALETTE.length],
        irrigation_mode: 'manual', interval_days: 3, auto_time: '07:00',
-       room_id: /^\d+$/.test(roomFilter) ? Number(roomFilter) : null, config_id: null};  // default: the room being viewed
+       room_id: /^\d+$/.test(roomFilter) ? Number(roomFilter) : null, config_id: null,  // default: the room being viewed
+       photo: null, photo_local: null};
   editOrig = plantSnapshot(editCtx);
   renderPlantModal();
   openModal('plant-modal');
@@ -1060,13 +1088,20 @@ function renderPlantModal(){
   var modes = '<button class="' + (e.irrigation_mode === 'manual' ? 'on' : '') + '" onclick="pmSet(\'irrigation_mode\',\'manual\')">ידנית</button>' +
               '<button class="' + (e.irrigation_mode === 'auto' ? 'on' : '') + '" onclick="pmSet(\'irrigation_mode\',\'auto\')">אוטומטית</button>';
   document.getElementById('plant-body').innerHTML =
-    '<div class="modal-title" style="display:flex;align-items:center;gap:10px">' + plantIcon(e.plant_type, e.color, e.name, 40) +
+    '<div class="modal-title" style="display:flex;align-items:center;gap:10px">' + plantBadge(e, 40) +
       '<span>' + (e.id ? 'עריכת עציץ' : 'עציץ חדש') + '</span></div>' +
     '<div class="field-row"><label class="field-label" for="pm-name">שם</label>' +
       '<input class="field-input" id="pm-name" maxlength="40" value="' + esc(e.name) + '" oninput="editCtx.name=this.value;pmDirty()"></div>' +
     '<div class="field-row"><label class="field-label" for="pm-room">חדר</label>' +
       '<select class="field-input" id="pm-room" onchange="editCtx.room_id = this.value ? Number(this.value) : null;pmDirty()">' + rooms + '</select></div>' +
-    '<div class="field-row"><span class="field-label">סוג (קובע את הסמל)</span><div class="pt-types">' + types + '</div></div>' +
+    '<div class="field-row"><span class="field-label">📷 תמונה</span><div class="pt-inline">' +
+      '<label class="btn btn-ghost btn-sm">' + (e.photo || e.photo_local ? 'החלפת תמונה' : 'העלאת תמונה') +
+        '<input type="file" accept="image/*" hidden onchange="pickPhoto(this)"></label>' +
+      (e.photo || e.photo_local ? '<button class="btn btn-ghost btn-sm" onclick="removePhoto()">הסרה</button>' : '') +
+      '<span class="pt-plant-meta">' + (e.id ? 'התמונה מחליפה את הסמל' : 'התמונה תישמר עם העציץ') + '</span></div></div>' +
+    '<div class="field-row"><span class="field-label">סוג (קובע את הסמל ואת טיפ הטיפול)</span><div class="pt-types">' + types + '</div>' +
+      (CARE[e.plant_type] ? '<div class="pt-care pt-care-inline"><b>🌿 ' + esc(CARE[e.plant_type].s) + '</b><div class="pt-care-body">' + careBody(e.plant_type) + '</div></div>' : '') +
+    '</div>' +
     '<div class="field-row"><span class="field-label">צבע</span><div class="pt-colors">' + colors + '</div></div>' +
     '<div class="field-row"><span class="field-label">השקיה</span><div class="pt-seg">' + modes + '</div></div>' +
     (e.irrigation_mode === 'auto'
@@ -1109,18 +1144,66 @@ function savePlant(){
       p.status = localStatus(p);
     }, 'העציץ עודכן');
   } else {
+    var photo = e.photo_local;
     mutate('POST', '/api/plants', body, function(st){
       var id = tempSeq--;
       st.plants.push({id: id, name: body.name, plant_type: body.plant_type, color: body.color, irrigation_mode: body.irrigation_mode,
                       interval_days: auto ? 3 : interval, auto_time: null, season_ack: null, created_at: st.today,
                       last_water: null, days_since_water: 0, status: auto ? 'auto' : 'ok',
-                      room_id: body.room_id, config_id: auto ? body.config_id : null});
+                      room_id: body.room_id, config_id: auto ? body.config_id : null, photo: null, photo_local: photo});
       rowOf(st, id, st.today);
-    }, 'העציץ נוסף');
+    }, 'העציץ נוסף').then(function(d){ if (d && photo) uploadPhoto(d.created_id, photo); });
   }
   editCtx = null;
   closeModal('plant-modal');
   return true;
+}
+// Centre-crop to a square and shrink to a small JPEG before upload (a phone photo becomes ~30-50 KB).
+function resizeImage(file, size){
+  return new Promise(function(resolve, reject){
+    var url = URL.createObjectURL(file), img = new Image();
+    img.onload = function(){
+      var side = Math.min(img.naturalWidth, img.naturalHeight), c = document.createElement('canvas');
+      c.width = c.height = size;
+      c.getContext('2d').drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side, 0, 0, size, size);
+      URL.revokeObjectURL(url);
+      var q = 0.85, out = c.toDataURL('image/jpeg', q);
+      while (out.length > 380000 && q > 0.45) { q -= 0.1; out = c.toDataURL('image/jpeg', q); }
+      resolve(out);
+    };
+    img.onerror = function(){ URL.revokeObjectURL(url); reject(new Error('לא ניתן לקרוא את התמונה')); };
+    img.src = url;
+  });
+}
+function pickPhoto(input){
+  var file = input.files && input.files[0];
+  input.value = '';
+  if (!file || !editCtx) return;
+  resizeImage(file, 320).then(function(data){
+    if (!editCtx) return;
+    editCtx.photo_local = data;
+    if (editCtx.id) uploadPhoto(editCtx.id, data);   // an existing plant: save right away
+    renderPlantModal();
+    pmDirty();
+  }).catch(function(e){ toast(e.message, true); });
+}
+function uploadPhoto(pid, data){
+  mutate('PUT', '/api/plants/' + pid + '/photo', {data: data}, function(st){
+    var p = findIn(st.plants, pid);
+    if (p) p.photo_local = data;
+  }, 'התמונה נשמרה');
+}
+function removePhoto(){
+  var e = editCtx;
+  if (!e) return;
+  if (!e.id) { e.photo_local = null; renderPlantModal(); pmDirty(); return; }
+  if (!confirm('להסיר את התמונה ולחזור לסמל?')) return;
+  e.photo = null; e.photo_local = null;
+  mutate('DELETE', '/api/plants/' + e.id + '/photo', {}, function(st){
+    var p = findIn(st.plants, e.id);
+    if (p) { p.photo = null; p.photo_local = null; }
+  }, 'התמונה הוסרה');
+  renderPlantModal();
 }
 function deletePlant(){
   var e = editCtx;
@@ -1139,7 +1222,7 @@ function deletePlant(){
 var deletedPlants = [];
 function renderDeletedList(){
   document.getElementById('deleted-body').innerHTML = deletedPlants.length ? deletedPlants.map(function(p){
-    return '<div class="pt-restore-row">' + plantIcon(p.plant_type, p.color, p.name, 30) + '<span>' + esc(p.name) + '</span>' +
+    return '<div class="pt-restore-row">' + plantBadge(p, 30) + '<span>' + esc(p.name) + '</span>' +
       '<button class="btn btn-ghost btn-sm" onclick="restorePlant(' + p.id + ')">שחזור</button></div>';
   }).join('') : '<div class="pt-plant-meta">אין עציצים שנמחקו</div>';
 }
@@ -1179,7 +1262,7 @@ function renderDead(){
     return '<button class="' + (c.cause === k ? 'on' : '') + '" onclick="deadSet(\'cause\',\'' + k + '\')">' + CAUSE_LABELS[k] + '</button>';
   }).join('');
   document.getElementById('dead-body').innerHTML =
-    '<div class="modal-title" style="display:flex;align-items:center;gap:10px">' + plantIcon(p.plant_type, p.color, p.name, 36) +
+    '<div class="modal-title" style="display:flex;align-items:center;gap:10px">' + plantBadge(p, 36) +
       '<span>🥀 ' + esc(p.name) + ' — העברה לארכיון</span></div>' +
     '<div class="field-row"><label class="field-label" for="dead-date">תאריך</label>' +
       '<input class="field-input" type="date" id="dead-date" value="' + c.died_at + '" min="' + p.created_at + '" max="' + TODAY + '" ' +
@@ -1212,7 +1295,7 @@ function fmtDate(iso){ var d = parseDay(iso); return d.getDate() + '/' + (d.getM
 function fmtLifespan(n){ return n < 60 ? n + ' ימים' : n < 730 ? Math.round(n / 30.4) + ' חודשים' : (n / 365).toFixed(1) + ' שנים'; }
 function renderArchiveList(){
   document.getElementById('archive-body').innerHTML = archivePlants.length ? archivePlants.map(function(p){
-    return '<div class="pt-arch-row">' + plantIcon(p.plant_type, p.color, p.name, 36) +
+    return '<div class="pt-arch-row">' + plantBadge(p, 36) +
       '<div><div class="pt-cfg-name">' + esc(p.name) + '</div>' +
       '<div class="pt-plant-meta">🥀 ' + fmtDate(p.died_at) + ' · חי ' + fmtLifespan(p.lifespan_days) +
         ' · ' + CAUSE_LABELS[p.cause || 'unknown'] + (p.waterings != null ? ' · ' + p.waterings + ' השקיות' : '') + '</div>' +
@@ -1315,7 +1398,7 @@ function renderConfigEditor(){
   var plants = state.plants.filter(function(p){ return p.id > 0; }).map(function(p){
     var other = p.config_id != null && p.config_id !== c.id ? configById(p.config_id) : null;
     return '<label><input type="checkbox"' + (c.plant_ids.indexOf(p.id) >= 0 ? ' checked' : '') +
-      ' onchange="cfgTogglePlant(' + p.id + ', this.checked)">' + plantIcon(p.plant_type, p.color, p.name, 24) + esc(p.name) +
+      ' onchange="cfgTogglePlant(' + p.id + ', this.checked)">' + plantBadge(p, 24) + esc(p.name) +
       (other ? '<small>כעת: ' + esc(other.name) + '</small>' : '') + '</label>';
   }).join('');
   document.getElementById('configs-body').innerHTML =

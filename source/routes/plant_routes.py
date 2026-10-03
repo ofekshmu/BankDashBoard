@@ -7,7 +7,7 @@ import logging
 import os
 from datetime import date, datetime, timezone
 
-from flask import Blueprint, jsonify, request, send_file
+from flask import Blueprint, Response, jsonify, request, send_file
 
 import plant_service as svc
 
@@ -154,6 +154,23 @@ def api_plant_room(rid):
 @plants_bp.route('/api/plants/rooms/<int:rid>/restore', methods=['POST'])
 def api_plant_room_restore(rid):
     return _respond(lambda s, t: svc.restore_room(s, rid))
+
+
+@plants_bp.route('/api/plants/<int:pid>/photo', methods=['GET', 'PUT', 'DELETE'])
+def api_plant_photo(pid):
+    if request.method == 'PUT':
+        return _respond(lambda s, t: svc.set_photo(s, pid, _body()))
+    if request.method == 'DELETE':
+        return _respond(lambda s, t: svc.remove_photo(s, pid))
+    try:
+        mime, data = svc.get_photo(get_store(), pid)
+    except svc.PlantError as e:
+        return jsonify({'ok': False, 'error': str(e)}), e.status
+    except Exception as e:
+        logger.exception('plant tracker request failed: %s %s', request.method, request.path)
+        return jsonify({'ok': False, 'error': str(e)}), 500
+    # The page requests ?v=<photo version>, so a cached copy is valid until the photo changes.
+    return Response(data, mimetype=mime, headers={'Cache-Control': 'private, max-age=31536000, immutable'})
 
 
 @plants_bp.route('/api/plants/<int:pid>/dead', methods=['POST'])

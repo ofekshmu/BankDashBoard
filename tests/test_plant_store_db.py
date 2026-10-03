@@ -103,3 +103,16 @@ def test_configs_roundtrip(store):
     store.update_plant(pid, {'config_id': None})
     store.soft_delete_config(cid)
     assert cid in [x['id'] for x in store.list_configs(deleted=True)]
+
+
+def test_photo_roundtrip(store):
+    pid = store.add_plant({'name': '__plant_test__', 'plant_type': 'herb', 'color': '#1e9d8b',
+                           'irrigation_mode': 'manual', 'interval_days': 3, 'created_at': date(2026, 10, 1)})
+    jpeg = bytes([0xFF, 0xD8, 0xFF, 0xE0]) + bytes(range(256)) * 4
+    store.set_photo(pid, 'image/jpeg', jpeg)
+    assert store.get_photo(pid) == ('image/jpeg', jpeg)
+    v1 = store.photo_versions([pid])[pid]
+    store.set_photo(pid, 'image/png', bytes([0x89]) + b'PNG' + bytes(20))
+    assert store.get_photo(pid)[0] == 'image/png' and store.photo_versions([pid])[pid] >= v1
+    store.delete_photo(pid)
+    assert store.get_photo(pid) is None and store.photo_versions([pid]) == {}

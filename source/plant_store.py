@@ -3,6 +3,7 @@
 The only module with plant SQL. `autocommit=False` lets tests run inside a
 transaction they roll back.
 """
+import psycopg2
 
 # Seeded into an empty PlantRooms table, in this display order.
 DEFAULT_ROOMS = ('סלון', 'מטבח', 'חדר שינה', 'חדר עבודה', 'מרפסת', 'אמבטיה')
@@ -115,6 +116,15 @@ class PlantStore:
         """)
         self._q("ALTER TABLE Plants ADD COLUMN IF NOT EXISTS Config_ID INTEGER REFERENCES IrrigationConfigs(ID)")
         self._q("ALTER TABLE IrrigationConfigs ADD COLUMN IF NOT EXISTS Start_Date DATE")
+        # One photo per plant, kept in the DB (Vercel has no persistent disk); already resized by the page.
+        self._q("""
+            CREATE TABLE IF NOT EXISTS PlantPhotos (
+                Plant_ID   INTEGER   PRIMARY KEY REFERENCES Plants(ID) ON DELETE CASCADE,
+                Mime       TEXT      NOT NULL,
+                Data       BYTEA     NOT NULL,
+                Updated_At TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
         # A dead plant is archived: off the main page, history kept, revivable.
         self._q("ALTER TABLE Plants ADD COLUMN IF NOT EXISTS Died_At DATE")
         self._q("ALTER TABLE Plants ADD COLUMN IF NOT EXISTS Death_Cause TEXT")
@@ -251,6 +261,28 @@ class PlantStore:
     def soft_delete_config(self, cid):
         self._q('UPDATE IrrigationConfigs SET Deleted_At=CURRENT_TIMESTAMP WHERE ID=%s', (cid,))
         self._commit()
+
+    # ── Photos ──────────────────────────────────────────────────────────────
+    def set_photo(self, pid, mime, data):
+        self._q('INSERT INTO PlantPhotos (Plant_ID, Mime, Data, Updated_At) VALUES (%s, %s, %s, CURRENT_TIMESTAMP) '
+                'ON CONFLICT (Plant_ID) DO UPDATE SET Mime=EXCLUDED.Mime, Data=EXCLUDED.Data, '
+                'Updated_At=CURRENT_TIMESTAMP', (pid, mime, psycopg2.Binary(data)))
+        self._commit()
+
+    def get_photo(self, pid):
+        r = self._q('SELECT Mime, Data FROM PlantPhotos WHERE Plant_ID=%s', (pid,)).fetchone()
+        return (r[0], bytes(r[1])) if r else None
+
+    def delete_photo(self, pid):
+        self._q('DELETE FROM PlantPhotos WHERE Plant_ID=%s', (pid,))
+        self._commit()
+
+    def photo_versions(self, ids):
+        """{plant_id: last-update time} for plants that have a photo (no image data)."""
+        if not ids:
+            return {}
+        rows = self._q('SELECT Plant_ID, Updated_At FROM PlantPhotos WHERE Plant_ID = ANY(%s)', (list(ids),)).fetchall()
+        return {r[0]: r[1] for r in rows}
 
     # ── Days ────────────────────────────────────────────────────────────────
     def last_materialized_days(self, ids):

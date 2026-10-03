@@ -233,3 +233,31 @@ def test_config_start_date_and_realign_route(client):
     d = client.post(f'/api/plants/configs/{cid}/realign', json={'today': TODAY}).get_json()
     assert d['ok'] and 'realigned' in d
     assert client.post('/api/plants/configs/999/realign', json={'today': TODAY}).status_code == 404
+
+
+# ── Plant photos ───────────────────────────────────────────────────────────
+def test_photo_routes(client):
+    import base64
+    _create(client, irrigation_mode='manual')
+    jpeg = b'\xff\xd8\xff\xe0' + b'\x01' * 40
+    assert client.get('/api/plants/1/photo').status_code == 404
+    d = client.put('/api/plants/1/photo', json={'today': TODAY,
+                   'data': 'data:image/jpeg;base64,' + base64.b64encode(jpeg).decode()}).get_json()
+    v = d['plants'][0]['photo']
+    assert d['ok'] and v
+    r = client.get(f'/api/plants/1/photo?v={v}')
+    assert r.status_code == 200 and r.mimetype == 'image/jpeg' and r.data == jpeg
+    assert 'max-age' in r.headers.get('Cache-Control', '')
+    assert client.put('/api/plants/1/photo', json={'today': TODAY, 'data': 'x'}).status_code == 400
+    d = client.delete('/api/plants/1/photo', json={'today': TODAY}).get_json()
+    assert d['plants'][0]['photo'] is None
+
+
+def test_every_plant_type_has_a_care_note(client):
+    import json
+    import re
+    from src_utils.plant_logic import PLANT_TYPES
+    html = client.get('/plants').get_data(as_text=True)
+    care = json.loads(re.search(r'var CARE = (\{.*?\});\s*$', html, re.M).group(1))
+    for t in PLANT_TYPES:
+        assert t in care and all(care[t].get(k) for k in ('s', 'l', 'w', 'f', 'x')), f'no care note for {t}'

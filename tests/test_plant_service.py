@@ -588,3 +588,60 @@ def test_realign_unknown_config_is_404():
     with pytest.raises(svc.PlantError) as e:
         svc.realign_config(s, 999, T)
     assert e.value.status == 404
+
+
+# ── Plant photos ───────────────────────────────────────────────────────────
+import base64 as _b64
+
+JPEG = b'\xff\xd8\xff\xe0' + b'\x00' * 64          # JPEG magic + filler
+PNG = b'\x89PNG\r\n\x1a\n' + b'\x00' * 64
+
+
+def _data_url(mime, raw):
+    return f'data:{mime};base64,' + _b64.b64encode(raw).decode()
+
+
+def test_set_photo_and_payload_version():
+    s = FakePlantStore()
+    pid = _mk(s)
+    assert svc.build_payload(s, T)['plants'][0]['photo'] is None
+    svc.set_photo(s, pid, {'data': _data_url('image/jpeg', JPEG)})
+    v1 = svc.build_payload(s, T)['plants'][0]['photo']
+    assert v1
+    assert svc.get_photo(s, pid) == ('image/jpeg', JPEG)
+    svc.set_photo(s, pid, {'data': _data_url('image/png', PNG)})       # replace
+    assert svc.get_photo(s, pid) == ('image/png', PNG)
+
+
+def test_photo_validation():
+    s = FakePlantStore()
+    pid = _mk(s)
+    for bad in ({}, {'data': 'not a data url'}, {'data': _data_url('image/gif', b'GIF89a' + b'0' * 10)},
+                {'data': 'data:image/jpeg;base64,@@@'}, {'data': _data_url('image/jpeg', PNG)},
+                {'data': _data_url('image/jpeg', b'\xff\xd8\xff' + b'0' * (svc.MAX_PHOTO_BYTES + 1))}):
+        with pytest.raises(svc.PlantError) as e:
+            svc.set_photo(s, pid, bad)
+        assert e.value.status == 400
+    with pytest.raises(svc.PlantError) as e:
+        svc.set_photo(s, 999, {'data': _data_url('image/jpeg', JPEG)})
+    assert e.value.status == 404
+
+
+def test_remove_photo_and_missing_photo():
+    s = FakePlantStore()
+    pid = _mk(s)
+    with pytest.raises(svc.PlantError) as e:
+        svc.get_photo(s, pid)
+    assert e.value.status == 404
+    svc.set_photo(s, pid, {'data': _data_url('image/jpeg', JPEG)})
+    svc.remove_photo(s, pid)
+    assert svc.build_payload(s, T)['plants'][0]['photo'] is None
+
+
+def test_archived_plant_keeps_photo():
+    s = FakePlantStore()
+    pid = _mk(s)
+    svc.set_photo(s, pid, {'data': _data_url('image/jpeg', JPEG)})
+    svc.mark_dead(s, pid, {}, T)
+    assert svc.archive(s)[0]['photo']
+    assert svc.get_photo(s, pid)[0] == 'image/jpeg'

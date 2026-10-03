@@ -3,6 +3,8 @@
 Every public mutator raises PlantError (status 400/404) on bad input; the routes
 turn that into {ok: False, error}. `today` is always the client's local date.
 """
+import base64
+import binascii
 import re
 from datetime import date, datetime, time, timedelta
 
@@ -201,10 +203,12 @@ def revive(store, pid):
 def archive(store):
     """Dead plants, newest death first, with lifespan and watering history."""
     active_rooms = _active_room_ids(store)
+    dead = store.list_dead_plants()
+    photos = store.photo_versions([p['id'] for p in dead])
     out = []
-    for p in store.list_dead_plants():
+    for p in dead:
         water = store.water_dates(p['id'])
-        item = _plant_json(p, max(water) if water else None, active_rooms=active_rooms)
+        item = _plant_json(p, max(water) if water else None, active_rooms=active_rooms, photo=photos.get(p['id']))
         item.update({'died_at': p['died_at'].isoformat(), 'cause': p['death_cause'], 'note': p['death_note'],
                      'lifespan_days': (p['died_at'] - p['created_at']).days, 'waterings': len(water)})
         out.append(item)
@@ -213,7 +217,51 @@ def archive(store):
 
 def deleted_plants(store):
     active = _active_room_ids(store)
-    return [_plant_json(p, active_rooms=active) for p in store.list_plants(deleted=True)]
+    plants = store.list_plants(deleted=True)
+    photos = store.photo_versions([p['id'] for p in plants])
+    return [_plant_json(p, active_rooms=active, photo=photos.get(p['id'])) for p in plants]
+
+
+# ── Photos ─────────────────────────────────────────────────────────────────
+# The page crops/resizes to a small JPEG before upload; the server still checks type, size and content.
+MAX_PHOTO_BYTES = 300_000
+_PHOTO_MAGIC = {'image/jpeg': (b'\xff\xd8\xff',), 'image/png': (b'\x89PNG\r\n\x1a\n',), 'image/webp': (b'RIFF',)}
+_DATA_URL = re.compile(r'^data:(image/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=\s]+)$')
+
+
+def set_photo(store, pid, body):
+    _require_plant(store, pid)
+    m = _DATA_URL.match(str(body.get('data') or ''))
+    if not m:
+        raise PlantError('קובץ תמונה לא נתמך (JPEG / PNG / WebP)')
+    mime = m.group(1)
+    try:
+        raw = base64.b64decode(m.group(2), validate=False)
+    except (binascii.Error, ValueError):
+        raise PlantError('קובץ תמונה פגום')
+    if not raw or len(raw) > MAX_PHOTO_BYTES:
+        raise PlantError('התמונה גדולה מדי')
+    if not raw.startswith(_PHOTO_MAGIC[mime]) or (mime == 'image/webp' and raw[8:12] != b'WEBP'):
+        raise PlantError('קובץ תמונה פגום')
+    store.set_photo(pid, mime, raw)
+
+
+def remove_photo(store, pid):
+    _require_plant(store, pid)
+    store.delete_photo(pid)
+
+
+def get_photo(store, pid):
+    """(mime, bytes) for any existing plant — archived plants keep showing their photo."""
+    p = store.get_plant(pid)
+    photo = store.get_photo(pid) if p else None
+    if not photo:
+        raise PlantError('אין תמונה', 404)
+    return photo
+
+
+def _photo_version(updated_at):
+    return str(int(updated_at.timestamp() * 1000)) if updated_at else None
 
 
 # ── Rooms ──────────────────────────────────────────────────────────────────
@@ -523,7 +571,7 @@ def materialize(store, today):
     store.insert_days(rows)
 
 
-def _plant_json(p, last_water=None, since=None, status=None, active_rooms=(), cfg=None):
+def _plant_json(p, last_water=None, since=None, status=None, active_rooms=(), cfg=None, photo=None):
     room_id = p.get('room_id')
     return {'id': p['id'], 'name': p['name'], 'plant_type': p['plant_type'], 'color': p['color'],
             'irrigation_mode': p['irrigation_mode'], 'interval_days': p['interval_days'],
@@ -533,7 +581,8 @@ def _plant_json(p, last_water=None, since=None, status=None, active_rooms=(), cf
             'days_since_water': since, 'status': status,
             # a plant in a deleted room shows as unassigned until the room is restored
             'room_id': room_id if room_id in active_rooms else None,
-            'config_id': cfg['id'] if cfg else None}
+            'config_id': cfg['id'] if cfg else None,
+            'photo': _photo_version(photo)}
 
 
 def _day_json(r):
@@ -558,6 +607,7 @@ def build_payload(store, today):
     active_rooms = {r['id'] for r in rooms}
     configs = store.list_configs()
     configs_by_id = {c['id']: c for c in configs}
+    photos = store.photo_versions(ids)
     out, suggestions = [], []
     for p in plants:
         le = lasts.get(p['id'], {})
@@ -565,7 +615,7 @@ def build_payload(store, today):
         if p['irrigation_mode'] == 'auto':
             status = 'auto'  # no due/overdue for plants watered by their own system
         cfg = _plant_config(p, configs_by_id)
-        out.append(_plant_json(p, le.get('water'), since, status, active_rooms, cfg))
+        out.append(_plant_json(p, le.get('water'), since, status, active_rooms, cfg, photos.get(p['id'])))
         sugg_plant = dict(p, config_name=cfg['name']) if cfg else p
         suggestions.extend(build_suggestions(sugg_plant, days.get(p['id'], []), le, today))
     suggestions.sort(key=lambda s: _LEVEL_ORDER[s['level']])

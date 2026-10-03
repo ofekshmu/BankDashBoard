@@ -274,6 +274,11 @@ input[type="date"].field-input { padding: 0 10px; appearance: none; -webkit-appe
 .pt-toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--navy); color: #fff; padding: 10px 18px; border-radius: 10px; font-size: .85em; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 2000; max-width: calc(100vw - 32px); }
 .pt-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 .pt-toast.err { background: var(--red); }
+.pt-toast.ok { background: var(--teal-dark); }
+.btn.dirty { background: var(--amber); border-color: var(--amber); color: var(--navy); box-shadow: 0 0 0 3px rgba(240,180,41,.25); }
+.pt-unsaved { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; background: #fff8e6; border: 1.5px solid var(--amber); border-radius: 10px; padding: 10px 12px; margin: 22px 0 14px; font-size: .85em; font-weight: 600; color: #7a5600; }
+.pt-unsaved span { flex: 1 0 100%; }
+.pt-pcard.pending { opacity: .65; pointer-events: none; }
 .pt-restore-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: .88em; }
 .pt-restore-row span { flex: 1; }
 .pt-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
@@ -387,19 +392,19 @@ input[type="date"].field-input { padding: 0 10px; appearance: none; -webkit-appe
 <div class="modal-backdrop" id="day-modal" onclick="if(event.target===this)closeModal('day-modal')">
   <div class="modal"><button class="modal-close-btn" onclick="closeModal('day-modal')" aria-label="סגור">✕</button><div id="day-body"></div></div>
 </div>
-<div class="modal-backdrop" id="plant-modal" onclick="if(event.target===this)closeModal('plant-modal')">
-  <div class="modal"><button class="modal-close-btn" onclick="closeModal('plant-modal')" aria-label="סגור">✕</button><div id="plant-body"></div></div>
+<div class="modal-backdrop" id="plant-modal" onclick="if(event.target===this)requestLeave('plant-modal')">
+  <div class="modal"><button class="modal-close-btn" onclick="requestLeave('plant-modal')" aria-label="סגור">✕</button><div id="plant-body"></div></div>
 </div>
 <div class="modal-backdrop" id="deleted-modal" onclick="if(event.target===this)closeModal('deleted-modal')">
   <div class="modal"><button class="modal-close-btn" onclick="closeModal('deleted-modal')" aria-label="סגור">✕</button>
     <div class="modal-title">עציצים שנמחקו</div><div id="deleted-body"></div></div>
 </div>
-<div class="modal-backdrop" id="configs-modal" onclick="if(event.target===this)closeModal('configs-modal')">
-  <div class="modal"><button class="modal-close-btn" onclick="closeModal('configs-modal')" aria-label="סגור">✕</button>
+<div class="modal-backdrop" id="configs-modal" onclick="if(event.target===this)requestLeave('configs-modal')">
+  <div class="modal"><button class="modal-close-btn" onclick="requestLeave('configs-modal')" aria-label="סגור">✕</button>
     <div id="configs-body"></div></div>
 </div>
-<div class="modal-backdrop" id="rooms-modal" onclick="if(event.target===this)closeModal('rooms-modal')">
-  <div class="modal"><button class="modal-close-btn" onclick="closeModal('rooms-modal')" aria-label="סגור">✕</button>
+<div class="modal-backdrop" id="rooms-modal" onclick="if(event.target===this)requestLeave('rooms-modal')">
+  <div class="modal"><button class="modal-close-btn" onclick="requestLeave('rooms-modal')" aria-label="סגור">✕</button>
     <div class="modal-title">חדרים</div><div id="rooms-body"></div></div>
 </div>
 <button class="pt-fab" id="pt-fab" onclick="toggleSugg()" style="display:none" aria-pressed="true">💡 המלצות <b id="pt-fab-count">0</b></button>
@@ -526,12 +531,18 @@ function fmtDay(s){ var d = parseDay(s); return 'יום ' + WEEKDAYS[d.getDay()]
 function toast(msg, isErr){
   var t = document.getElementById('pt-toast');
   t.textContent = msg;
-  t.className = 'pt-toast show' + (isErr ? ' err' : '');
+  t.className = 'pt-toast show ' + (isErr ? 'err' : 'ok');
   clearTimeout(toast._t);
   toast._t = setTimeout(function(){ t.className = 'pt-toast'; }, 2600);
 }
-function closeAllModals(){ document.querySelectorAll('.modal-backdrop').forEach(function(m){ m.classList.remove('open'); }); }
-function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+// Esc: every open popup closes, but an edit popup with unsaved changes asks first.
+function closeAllModals(){ document.querySelectorAll('.modal-backdrop.open').forEach(function(m){ requestLeave(m.id); }); }
+function closeModal(id){
+  var m = document.getElementById(id);
+  m.classList.remove('open');
+  var bar = m.querySelector('.pt-unsaved');
+  if (bar) bar.remove();
+}
 function openModal(id){ document.getElementById(id).classList.add('open'); }
 function isOpen(id){ return document.getElementById(id).classList.contains('open'); }
 
@@ -557,8 +568,8 @@ function readCache(){
 }
 function writeCache(p){ try { localStorage.setItem(CACHE_KEY, JSON.stringify({date: TODAY, payload: p})); } catch (_) {} }
 
-// Resolves to the response on success, null on failure (after showing a toast).
-function api(method, url, body){
+// POST/PUT/DELETE/GET one request; resolves to the JSON payload, rejects with the server's message.
+function send(method, url, body){
   // A tab left visible past midnight must send the new date, not the one it loaded with.
   var now = localDate(new Date());
   if (now !== TODAY) TODAY = now;
@@ -566,14 +577,131 @@ function api(method, url, body){
   if (method === 'GET') url += (url.indexOf('?') < 0 ? '?' : '&') + 'today=' + TODAY;
   else opts.body = JSON.stringify(Object.assign({today: TODAY}, body || {}));
   return fetch(url, opts)
-    .then(function(r){ return r.json(); })
-    .then(function(d){
-      if (!d.ok) throw new Error(d.error || 'שגיאה');
-      if (d.plants && d.summary) { state = d; writeCache(d); render(); }
-      return d;
-    })
+    .then(function(r){ return r.json().catch(function(){ return {ok: false, error: 'שגיאת שרת'}; }); })
+    .then(function(d){ if (!d.ok) throw new Error(d.error || 'שגיאה'); return d; });
+}
+function adopt(d){ if (d && d.plants && d.summary) { state = d; writeCache(d); render(); } }
+// Reads (and the initial load): resolves to the response, or null after an error toast.
+function api(method, url, body){
+  return send(method, url, body).then(function(d){ adopt(d); return d; })
     .catch(function(e){ toast(e.message || 'שגיאת רשת', true); return null; });
 }
+
+// ── Optimistic writes ──────────────────────────────────────────
+// The page changes the moment you click; the request follows in the background, one at a time
+// in click order. When the last queued request answers, the server's full payload replaces the
+// local guess (bringing summary and suggestions up to date) and a small "✓" message appears.
+// A failure shows "✗ …" and reloads the real state, so nothing unsaved stays on screen.
+var writeQueue = Promise.resolve(), pendingWrites = 0, tempSeq = -1;
+function mutate(method, url, body, optimistic, okMsg){
+  if (optimistic) {
+    try { optimistic(state); } catch (e) { console.error(e); }
+    recountSummary(state);
+    render();
+  }
+  pendingWrites++;
+  var req = writeQueue.then(function(){ return send(method, url, body); });
+  writeQueue = req.then(function(){}, function(){});
+  return req.then(function(d){
+    pendingWrites--;
+    if (!pendingWrites) adopt(d);
+    toast('✓ ' + (okMsg || 'נשמר'));
+    return d;
+  }, function(e){
+    pendingWrites--;
+    toast('✗ לא נשמר — ' + (e.message || 'שגיאת רשת'), true);
+    writeQueue = writeQueue.then(refresh);
+    return null;
+  });
+}
+function stillSaving(id){
+  if (id < 0) { toast('רגע — עדיין נשמר…'); return true; }
+  return false;
+}
+function findIn(list, id){ for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i]; return null; }
+function rowOf(st, pid, day){
+  var rows = st.days[String(pid)] || (st.days[String(pid)] = []);
+  for (var i = 0; i < rows.length; i++) if (rows[i].day === day) return rows[i];
+  var r = {day: day, soil_status: null, watered: false, auto_expected: false, auto_confirmed: false};
+  rows.push(r);
+  rows.sort(function(a, b){ return a.day < b.day ? -1 : 1; });
+  return r;
+}
+function daysBetween(a, b){ return Math.round((parseDay(b) - parseDay(a)) / 864e5); }
+function localStatus(p){
+  if (p.irrigation_mode === 'auto') return 'auto';
+  return p.days_since_water > p.interval_days ? 'overdue' : p.days_since_water === p.interval_days ? 'due' : 'ok';
+}
+function addEventLocal(st, pid, type, at, source, note){
+  (st.events[String(pid)] || (st.events[String(pid)] = []))
+    .push({id: tempSeq--, event_type: type, event_at: at, source: source || 'manual', note: note || null});
+}
+function markWatered(st, pid, day){
+  rowOf(st, pid, day).watered = true;
+  var p = findIn(st.plants, pid);
+  if (p && (!p.last_water || p.last_water < day)) {
+    p.last_water = day;
+    p.days_since_water = daysBetween(day, st.today);
+    p.status = localStatus(p);
+  }
+}
+function dropSuggestions(st, pid, kinds){
+  st.suggestions = st.suggestions.filter(function(x){ return !(x.plant_id === pid && (!kinds || kinds.indexOf(x.kind) >= 0)); });
+}
+// Same counts the server computes, so the header moves with the click too.
+function recountSummary(st){
+  var auto = {};
+  st.plants.forEach(function(p){ if (p.irrigation_mode === 'auto') auto[p.id] = true; });
+  var pending = 0;
+  Object.keys(st.days).forEach(function(pid){
+    if (!auto[pid]) return;
+    st.days[pid].forEach(function(r){ if (r.day <= st.today && r.auto_expected && !r.auto_confirmed && !r.watered) pending++; });
+  });
+  st.summary = {
+    due_today: st.plants.filter(function(p){ return p.status === 'due'; }).length,
+    overdue: st.plants.filter(function(p){ return p.status === 'overdue'; }).length,
+    auto_pending_confirm: pending
+  };
+}
+
+// ── Unsaved-changes guard for edit popups ──────────────────────
+// Each guarded popup says whether it has unsaved edits, how to save them all, and how to drop them.
+var GUARDS = {
+  'plant-modal':   {dirty: function(){ return plantDirty(); }, save: function(){ return savePlant(); }, discard: function(){ editCtx = null; }},
+  'configs-modal': {dirty: function(){ return cfgDirty(); },   save: function(){ return saveConfig(); }, discard: function(){ cfgCtx = null; }},
+  'rooms-modal':   {dirty: function(){ return roomsDirty(); }, save: function(){ return saveAllRooms(); }, discard: function(){}}
+};
+// Leave a popup (close it, or go back inside it); with unsaved edits, ask first.
+function requestLeave(id, leave){
+  leave = leave || function(){ closeModal(id); };
+  var g = GUARDS[id];
+  if (g && isOpen(id) && g.dirty()) { showUnsaved(id, leave); return; }
+  leave();
+}
+function showUnsaved(id, leave){
+  var box = document.getElementById(id).querySelector('.modal');
+  var bar = box.querySelector('.pt-unsaved');
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.className = 'pt-unsaved';
+    bar.setAttribute('role', 'alert');
+    box.insertBefore(bar, box.children[1] || null);
+  }
+  bar.innerHTML = '<span>יש שינויים שלא נשמרו</span>' +
+    '<button class="btn btn-primary btn-xs" data-a="save">שמור הכל</button>' +
+    '<button class="btn btn-ghost btn-xs" data-a="discard">סגור בלי לשמור</button>' +
+    '<button class="btn btn-ghost btn-xs" data-a="stay">המשך לערוך</button>';
+  bar.onclick = function(ev){
+    var a = ev.target.getAttribute('data-a');
+    if (!a) return;
+    bar.remove();
+    if (a === 'save') { if (GUARDS[id].save() !== false) leave(); }
+    else if (a === 'discard') { GUARDS[id].discard(); leave(); }
+  };
+  box.scrollTop = 0;
+}
+function setDirtyClass(btnId, on){ var b = document.getElementById(btnId); if (b) b.classList.toggle('dirty', !!on); }
+
 function refresh(){
   return api('GET', '/api/plants').then(function(d){
     if (!d && !state) document.getElementById('pt-rows').innerHTML = '<div class="pt-empty">שגיאה בטעינת הנתונים</div>';
@@ -603,6 +731,9 @@ function render(){
   renderRooms();
   renderRows();
   if (dayCtx && isOpen('day-modal')) renderDay();
+  if (isOpen('rooms-modal')) renderRoomsManager();
+  if (isOpen('configs-modal') && !cfgCtx) renderConfigList();
+  if (isOpen('deleted-modal')) renderDeletedList();
 }
 
 function renderSummary(){
@@ -617,8 +748,15 @@ function renderSummary(){
 function waterAllDue(){
   var n = state.summary.due_today + state.summary.overdue;
   if (!n || !confirm('לסמן השקה עכשיו ל-' + n + ' עציצים?')) return;
-  api('POST', '/api/plants/water-due', {event_at: localDateTime(new Date())})
-    .then(function(d){ if (d) toast('סומנה השקה ל-' + d.watered_count + ' עציצים'); });
+  var at = localDateTime(new Date());
+  mutate('POST', '/api/plants/water-due', {event_at: at}, function(st){
+    st.plants.forEach(function(p){
+      if (p.status !== 'due' && p.status !== 'overdue') return;
+      addEventLocal(st, p.id, 'water', at);
+      markWatered(st, p.id, at.slice(0, 10));
+      dropSuggestions(st, p.id, ['overdue']);
+    });
+  }, 'סומנה השקה ל-' + n + ' עציצים');
 }
 
 var suggOpen = true;
@@ -656,21 +794,38 @@ function plantTipsHtml(pid){
 }
 function applySuggestion(i){
   var s = state.suggestions[i], a = s.action, pid = s.plant_id, now = localDateTime(new Date());
+  if (stillSaving(pid)) return;
   if (a.type === 'set_interval') {
     var body = {interval_days: a.value};
     if (a.season_key) body.season_ack = a.season_key;
-    api('PUT', '/api/plants/' + pid, body).then(function(d){ if (d) toast('המרווח עודכן'); });
+    mutate('PUT', '/api/plants/' + pid, body, function(st){
+      var p = findIn(st.plants, pid);
+      p.interval_days = a.value;
+      p.status = localStatus(p);
+      dropSuggestions(st, pid, ['dries_fast', 'overwater', 'seasonal']);
+    }, 'המרווח עודכן');
   } else if (a.type === 'water_now') {
-    api('POST', '/api/plants/' + pid + '/events', {event_type: 'water', event_at: now}).then(function(d){ if (d) toast('סומנה השקה'); });
+    mutate('POST', '/api/plants/' + pid + '/events', {event_type: 'water', event_at: now}, function(st){
+      addEventLocal(st, pid, 'water', now);
+      markWatered(st, pid, now.slice(0, 10));
+      dropSuggestions(st, pid, ['overdue']);
+    }, 'סומנה השקה');
   } else if (a.type === 'fertilize_now') {
-    api('POST', '/api/plants/' + pid + '/events', {event_type: 'fertilize', event_at: now}).then(function(d){ if (d) toast('סומן דישון'); });
+    mutate('POST', '/api/plants/' + pid + '/events', {event_type: 'fertilize', event_at: now}, function(st){
+      addEventLocal(st, pid, 'fertilize', now);
+      dropSuggestions(st, pid, ['fertilize']);
+    }, 'סומן דישון');
   } else if (a.type === 'confirm_auto') {
-    api('POST', '/api/plants/' + pid + '/confirm-auto', {day: a.day}).then(function(d){ if (d) toast('ההשקה אושרה'); });
+    mutate('POST', '/api/plants/' + pid + '/confirm-auto', {day: a.day}, function(st){ confirmLocal(st, pid, a.day); },
+           'ההשקה אושרה');
   } else if (a.type === 'set_soil') {
     openDay(pid, TODAY);
   }
 }
-function dismissSeason(pid){ api('POST', '/api/plants/' + pid + '/dismiss-season', {}); }
+function dismissSeason(pid){
+  if (stillSaving(pid)) return;
+  mutate('POST', '/api/plants/' + pid + '/dismiss-season', {}, function(st){ dropSuggestions(st, pid, ['seasonal']); }, 'ההמלצה הוסתרה');
+}
 
 function renderRows(){
   var el = document.getElementById('pt-rows');
@@ -697,7 +852,7 @@ function plantRowHtml(p, days){
            : p.status === 'due' ? '<span class="pt-pill due">להשקות היום</span>'
            : p.status === 'auto' ? '<span class="pt-pill auto">' + last + '</span>'
            : '<span class="pt-pill ok">' + last + '</span>';
-  return '<div class="pt-pcard">' +
+  return '<div class="pt-pcard' + (p.id < 0 ? ' pending' : '') + '">' +
     '<button class="pt-plant" onclick="openPlantModal(' + p.id + ')" title="עריכת עציץ">' + plantIcon(p.plant_type, p.color, p.name, 44) +
       '<div><div class="pt-plant-name">' + esc(p.name) + '</div>' +
       '<div class="pt-plant-meta">' + mode + (room ? ' · ' + esc(room.name) : '') + '</div></div>' + pill + '</button>' +
@@ -789,27 +944,66 @@ function renderDay(){
     '<div class="field-row"><span class="field-label">אירועים ביום זה</span><div class="pt-evlist">' + list + '</div></div>';
 }
 function eventAt(){ return document.getElementById('day-at').value; }
-function setSoil(k){ api('PUT', '/api/plants/' + dayCtx.pid + '/soil', {day: dayCtx.day, soil_status: k}); }
+function setSoil(k){
+  var pid = dayCtx.pid, day = dayCtx.day;
+  mutate('PUT', '/api/plants/' + pid + '/soil', {day: day, soil_status: k}, function(st){
+    rowOf(st, pid, day).soil_status = k;
+    if (k) dropSuggestions(st, pid, ['no_soil']);
+  }, 'מצב האדמה עודכן');
+}
 function addWater(){
-  api('POST', '/api/plants/' + dayCtx.pid + '/events', {event_type: 'water', event_at: eventAt()})
-    .then(function(d){ if (d) toast('סומנה השקה'); });
+  var pid = dayCtx.pid, at = eventAt();
+  mutate('POST', '/api/plants/' + pid + '/events', {event_type: 'water', event_at: at}, function(st){
+    addEventLocal(st, pid, 'water', at);
+    markWatered(st, pid, at.slice(0, 10));
+    dropSuggestions(st, pid, ['overdue']);
+  }, 'סומנה השקה');
 }
 function addOtherEvent(){
-  api('POST', '/api/plants/' + dayCtx.pid + '/events', {
-    event_type: document.getElementById('day-ev-type').value,
-    event_at: eventAt(),
-    note: document.getElementById('day-ev-note').value
-  }).then(function(d){ if (d) toast('האירוע נוסף'); });
+  var pid = dayCtx.pid, at = eventAt(), type = document.getElementById('day-ev-type').value,
+      note = document.getElementById('day-ev-note').value;
+  mutate('POST', '/api/plants/' + pid + '/events', {event_type: type, event_at: at, note: note}, function(st){
+    addEventLocal(st, pid, type, at, 'manual', note.trim());
+    if (type === 'fertilize') dropSuggestions(st, pid, ['fertilize']);
+  }, 'האירוע נוסף');
+}
+function confirmLocal(st, pid, day){
+  var p = findIn(st.plants, pid), r = rowOf(st, pid, day);
+  r.auto_confirmed = true;
+  addEventLocal(st, pid, 'water', day + 'T' + ((configById(p && p.config_id) || {}).time || (p && p.auto_time) || '07:00'), 'auto_confirmed');
+  markWatered(st, pid, day);
+  dropSuggestions(st, pid, ['auto_unconfirmed']);
 }
 function confirmAuto(){
-  api('POST', '/api/plants/' + dayCtx.pid + '/confirm-auto', {day: dayCtx.day})
-    .then(function(d){ if (d) toast('ההשקה אושרה'); });
+  var pid = dayCtx.pid, day = dayCtx.day;
+  mutate('POST', '/api/plants/' + pid + '/confirm-auto', {day: day}, function(st){ confirmLocal(st, pid, day); }, 'ההשקה אושרה');
 }
-function deleteEvent(id){ if (confirm('למחוק את האירוע?')) api('DELETE', '/api/plants/events/' + id, {}); }
+function deleteEvent(id){
+  if (stillSaving(id) || !confirm('למחוק את האירוע?')) return;
+  mutate('DELETE', '/api/plants/events/' + id, {}, function(st){
+    Object.keys(st.events).forEach(function(pid){
+      var e = findIn(st.events[pid], id);
+      if (!e) return;
+      st.events[pid] = st.events[pid].filter(function(x){ return x.id !== id; });
+      var day = e.event_at.slice(0, 10);
+      var stillWatered = st.events[pid].some(function(x){ return x.event_type === 'water' && x.event_at.slice(0, 10) === day; });
+      var r = rowOf(st, Number(pid), day);
+      if (e.event_type === 'water' && !stillWatered) r.watered = false;
+      if (e.source === 'auto_confirmed') r.auto_confirmed = false;
+    });
+  }, 'האירוע נמחק');
+}
 
 // ── Plant add / edit ───────────────────────────────────────────
-var editCtx = null;
+var editCtx = null, editOrig = null;
+function plantSnapshot(e){
+  return e ? JSON.stringify([String(e.name).trim(), e.plant_type, e.color, e.irrigation_mode, String(e.interval_days),
+                             e.room_id, e.irrigation_mode === 'auto' ? e.config_id : null]) : '';
+}
+function plantDirty(){ return !!editCtx && plantSnapshot(editCtx) !== editOrig; }
+function pmDirty(){ setDirtyClass('pm-save', plantDirty()); }
 function openPlantModal(pid){
+  if (pid && stillSaving(pid)) return;
   var p = pid ? plantById(pid) : null;
   editCtx = p
     ? {id: p.id, name: p.name, plant_type: p.plant_type, color: p.color, irrigation_mode: p.irrigation_mode,
@@ -818,6 +1012,7 @@ function openPlantModal(pid){
     : {id: null, name: '', plant_type: 'monstera', color: PALETTE[(state ? state.plants.length : 0) % PALETTE.length],
        irrigation_mode: 'manual', interval_days: 3, auto_time: '07:00',
        room_id: /^\d+$/.test(roomFilter) ? Number(roomFilter) : null, config_id: null};  // default: the room being viewed
+  editOrig = plantSnapshot(editCtx);
   renderPlantModal();
   openModal('plant-modal');
   setTimeout(function(){ var n = document.getElementById('pm-name'); if (n) n.focus(); }, 50);
@@ -841,63 +1036,100 @@ function renderPlantModal(){
     '<div class="modal-title" style="display:flex;align-items:center;gap:10px">' + plantIcon(e.plant_type, e.color, e.name, 40) +
       '<span>' + (e.id ? 'עריכת עציץ' : 'עציץ חדש') + '</span></div>' +
     '<div class="field-row"><label class="field-label" for="pm-name">שם</label>' +
-      '<input class="field-input" id="pm-name" maxlength="40" value="' + esc(e.name) + '" oninput="editCtx.name=this.value"></div>' +
+      '<input class="field-input" id="pm-name" maxlength="40" value="' + esc(e.name) + '" oninput="editCtx.name=this.value;pmDirty()"></div>' +
     '<div class="field-row"><label class="field-label" for="pm-room">חדר</label>' +
-      '<select class="field-input" id="pm-room" onchange="editCtx.room_id = this.value ? Number(this.value) : null">' + rooms + '</select></div>' +
+      '<select class="field-input" id="pm-room" onchange="editCtx.room_id = this.value ? Number(this.value) : null;pmDirty()">' + rooms + '</select></div>' +
     '<div class="field-row"><span class="field-label">סוג (קובע את הסמל)</span><div class="pt-types">' + types + '</div></div>' +
     '<div class="field-row"><span class="field-label">צבע</span><div class="pt-colors">' + colors + '</div></div>' +
     '<div class="field-row"><span class="field-label">השקיה</span><div class="pt-seg">' + modes + '</div></div>' +
     (e.irrigation_mode === 'auto'
       ? '<div class="field-row"><label class="field-label" for="pm-config">תוכנית השקיה</label>' +
           ((state.configs || []).length
-            ? '<select class="field-input" id="pm-config" onchange="editCtx.config_id = this.value ? Number(this.value) : null">' +
+            ? '<select class="field-input" id="pm-config" onchange="editCtx.config_id = this.value ? Number(this.value) : null;pmDirty()">' +
                 '<option value="">בחרו תוכנית…</option>' + state.configs.map(function(c){
                   return '<option value="' + c.id + '"' + (e.config_id === c.id ? ' selected' : '') + '>' +
                     esc(c.name) + ' · ' + scheduleText(c) + '</option>';
                 }).join('') + '</select>'
             : '<div class="pt-plant-meta">אין עדיין תוכניות השקיה.</div>') +
-          '<button class="btn btn-ghost btn-xs" style="margin-top:6px" onclick="closeModal(\'plant-modal\');editConfig(null)">+ תוכנית חדשה</button></div>'
+          '<button class="btn btn-ghost btn-xs" style="margin-top:6px" onclick="requestLeave(\'plant-modal\', function(){ closeModal(\'plant-modal\'); editConfig(null); })">+ תוכנית חדשה</button></div>'
       : '<div class="field-row"><label class="field-label" for="pm-interval">כל כמה ימים</label>' +
-          '<input class="field-input" type="number" min="1" max="60" id="pm-interval" value="' + e.interval_days + '" oninput="editCtx.interval_days=this.value"></div>') +
+          '<input class="field-input" type="number" min="1" max="60" id="pm-interval" value="' + e.interval_days + '" oninput="editCtx.interval_days=this.value;pmDirty()"></div>') +
     '<div class="modal-footer">' +
       (e.id ? '<button class="btn btn-danger" style="margin-left:auto" onclick="deletePlant()">מחיקה</button>' : '') +
-      '<button class="btn btn-ghost" onclick="closeModal(\'plant-modal\')">ביטול</button>' +
-      '<button class="btn btn-primary" onclick="savePlant()">שמירה</button></div>';
+      '<button class="btn btn-ghost" onclick="requestLeave(\'plant-modal\')">ביטול</button>' +
+      '<button id="pm-save" class="btn btn-primary' + (plantDirty() ? ' dirty' : '') + '" onclick="savePlant()">שמירה</button></div>';
 }
+// Returns false when the form is invalid (the popup then stays open).
 function savePlant(){
   var e = editCtx;
+  if (!e) return true;
+  var interval = parseInt(e.interval_days, 10);
   var body = {name: String(e.name).trim(), plant_type: e.plant_type, color: e.color,
-              irrigation_mode: e.irrigation_mode, interval_days: parseInt(e.interval_days, 10),
-              room_id: e.room_id};
+              irrigation_mode: e.irrigation_mode, interval_days: interval, room_id: e.room_id};
+  if (!body.name) { toast('יש להזין שם', true); return false; }
   if (e.irrigation_mode === 'auto') {
-    if (e.config_id == null) { toast('בחרו תוכנית השקיה', true); return; }
+    if (e.config_id == null) { toast('בחרו תוכנית השקיה', true); return false; }
     body.config_id = e.config_id;
+  } else if (!(interval >= 1 && interval <= 60)) { toast('מרווח השקיה חייב להיות 1-60 ימים', true); return false; }
+  var auto = e.irrigation_mode === 'auto';
+  if (e.id) {
+    mutate('PUT', '/api/plants/' + e.id, body, function(st){
+      var p = findIn(st.plants, e.id);
+      Object.assign(p, {name: body.name, plant_type: body.plant_type, color: body.color, irrigation_mode: body.irrigation_mode,
+                        interval_days: auto ? p.interval_days : interval, room_id: body.room_id,
+                        config_id: auto ? body.config_id : null});
+      p.status = localStatus(p);
+    }, 'העציץ עודכן');
+  } else {
+    mutate('POST', '/api/plants', body, function(st){
+      var id = tempSeq--;
+      st.plants.push({id: id, name: body.name, plant_type: body.plant_type, color: body.color, irrigation_mode: body.irrigation_mode,
+                      interval_days: auto ? 3 : interval, auto_time: null, season_ack: null, created_at: st.today,
+                      last_water: null, days_since_water: 0, status: auto ? 'auto' : 'ok',
+                      room_id: body.room_id, config_id: auto ? body.config_id : null});
+      rowOf(st, id, st.today);
+    }, 'העציץ נוסף');
   }
-  if (!body.name) { toast('יש להזין שם', true); return; }
-  var req = e.id ? api('PUT', '/api/plants/' + e.id, body) : api('POST', '/api/plants', body);
-  req.then(function(d){ if (d) { closeModal('plant-modal'); toast(e.id ? 'העציץ עודכן' : 'העציץ נוסף'); } });
+  editCtx = null;
+  closeModal('plant-modal');
+  return true;
 }
 function deletePlant(){
   var e = editCtx;
   if (!confirm('למחוק את "' + e.name + '"? אפשר לשחזר מתוך "נמחקו".')) return;
-  api('DELETE', '/api/plants/' + e.id, {}).then(function(d){ if (d) { closeModal('plant-modal'); toast('העציץ נמחק'); } });
+  var gone = plantById(e.id);
+  mutate('DELETE', '/api/plants/' + e.id, {}, function(st){
+    st.plants = st.plants.filter(function(p){ return p.id !== e.id; });
+    dropSuggestions(st, e.id);
+    if (gone) deletedPlants.unshift(gone);
+  }, 'העציץ נמחק');
+  editCtx = null;
+  closeModal('plant-modal');
 }
 
 // ── Deleted / restore ──────────────────────────────────────────
+var deletedPlants = [];
+function renderDeletedList(){
+  document.getElementById('deleted-body').innerHTML = deletedPlants.length ? deletedPlants.map(function(p){
+    return '<div class="pt-restore-row">' + plantIcon(p.plant_type, p.color, p.name, 30) + '<span>' + esc(p.name) + '</span>' +
+      '<button class="btn btn-ghost btn-sm" onclick="restorePlant(' + p.id + ')">שחזור</button></div>';
+  }).join('') : '<div class="pt-plant-meta">אין עציצים שנמחקו</div>';
+}
 function openDeleted(){
-  var body = document.getElementById('deleted-body');
-  body.innerHTML = '<div class="pt-plant-meta">טוען…</div>';
+  renderDeletedList();
   openModal('deleted-modal');
   fetch('/api/plants/deleted').then(function(r){ return r.json(); }).then(function(d){
     if (!d.ok) throw new Error(d.error);
-    body.innerHTML = d.plants.length ? d.plants.map(function(p){
-      return '<div class="pt-restore-row">' + plantIcon(p.plant_type, p.color, p.name, 30) + '<span>' + esc(p.name) + '</span>' +
-        '<button class="btn btn-ghost btn-sm" onclick="restorePlant(' + p.id + ')">שחזור</button></div>';
-    }).join('') : '<div class="pt-plant-meta">אין עציצים שנמחקו</div>';
+    deletedPlants = d.plants;
+    renderDeletedList();
   }).catch(function(e){ toast(e.message || 'שגיאה', true); });
 }
 function restorePlant(id){
-  api('POST', '/api/plants/' + id + '/restore', {}).then(function(d){ if (d) { toast('העציץ שוחזר'); openDeleted(); } });
+  var p = findIn(deletedPlants, id);
+  mutate('POST', '/api/plants/' + id + '/restore', {}, function(st){
+    deletedPlants = deletedPlants.filter(function(x){ return x.id !== id; });
+    if (p && !findIn(st.plants, id)) st.plants.push(p);
+  }, 'העציץ שוחזר');
 }
 
 // ── Irrigation configs ─────────────────────────────────────────
@@ -909,27 +1141,39 @@ function scheduleText(c){
     : 'כל ' + c.interval_days + ' ימים';
   return when + ' ' + esc(c.time);
 }
-var cfgCtx = null;
-function openConfigs(){
-  cfgCtx = null;
+function countOn(cid){ return state.plants.filter(function(p){ return p.irrigation_mode === 'auto' && p.config_id === cid; }).length; }
+var cfgCtx = null, cfgOrig = null;
+function cfgSnapshot(c){
+  return c ? JSON.stringify([String(c.name).trim(), c.style, c.style === 'interval' ? String(c.interval_days) : '',
+                             c.style === 'weekdays' ? c.weekdays.slice().sort() : [], c.time, c.plant_ids.slice().sort()]) : '';
+}
+function cfgDirty(){ return !!cfgCtx && cfgSnapshot(cfgCtx) !== cfgOrig; }
+function cfgMarkDirty(){ setDirtyClass('cfg-save', cfgDirty()); }
+function renderConfigList(){
   var list = state.configs || [];
   document.getElementById('configs-body').innerHTML =
     '<div class="modal-title">תוכניות השקיה</div>' +
     (list.length ? list.map(function(c){
       return '<div class="pt-cfg-row"><div><div class="pt-cfg-name">' + esc(c.name) + '</div>' +
-        '<div class="pt-plant-meta">' + scheduleText(c) + ' · ' + c.plant_count + ' עציצים</div></div>' +
+        '<div class="pt-plant-meta">' + scheduleText(c) + ' · ' + countOn(c.id) + ' עציצים</div></div>' +
         '<button class="btn btn-ghost btn-sm" onclick="editConfig(' + c.id + ')">עריכה</button>' +
         '<button class="btn btn-ghost btn-sm" onclick="deleteConfig(' + c.id + ')" title="מחיקה" aria-label="מחיקה">✕</button></div>';
     }).join('') : '<div class="pt-plant-meta">עוד אין תוכניות. תוכנית אחת יכולה לשמש עציצים רבים.</div>') +
     '<div class="modal-footer"><button class="btn btn-primary" onclick="editConfig(null)">+ תוכנית חדשה</button></div>';
+}
+function openConfigs(){
+  cfgCtx = null;
+  renderConfigList();
   openModal('configs-modal');
 }
 function editConfig(id){
+  if (id != null && stillSaving(id)) return;
   var c = id != null ? configById(id) : null;
   cfgCtx = c
     ? {id: c.id, name: c.name, style: c.style, interval_days: c.interval_days || 2, weekdays: c.weekdays.slice(), time: c.time,
        plant_ids: state.plants.filter(function(p){ return p.config_id === c.id; }).map(function(p){ return p.id; })}
     : {id: null, name: '', style: 'interval', interval_days: 2, weekdays: [], time: '07:00', plant_ids: []};
+  cfgOrig = cfgSnapshot(cfgCtx);
   renderConfigEditor();
   openModal('configs-modal');
 }
@@ -942,17 +1186,18 @@ function cfgToggleDay(d){
 function cfgTogglePlant(pid, on){
   cfgCtx.plant_ids = cfgCtx.plant_ids.filter(function(x){ return x !== pid; });
   if (on) cfgCtx.plant_ids.push(pid);
+  cfgMarkDirty();
 }
 function renderConfigEditor(){
   var c = cfgCtx;
   var styles = '<button class="' + (c.style === 'interval' ? 'on' : '') + '" onclick="cfgSet(\'style\',\'interval\')">כל כמה ימים</button>' +
                '<button class="' + (c.style === 'weekdays' ? 'on' : '') + '" onclick="cfgSet(\'style\',\'weekdays\')">ימים בשבוע</button>';
   var when = c.style === 'interval'
-    ? '<input class="field-input" type="number" min="1" max="60" id="cfg-interval" value="' + c.interval_days + '" oninput="cfgCtx.interval_days=this.value">'
+    ? '<input class="field-input" type="number" min="1" max="60" id="cfg-interval" value="' + c.interval_days + '" oninput="cfgCtx.interval_days=this.value;cfgMarkDirty()">'
     : '<div class="pt-days">' + DAY_LETTERS.map(function(l, d){
         return '<button class="' + (c.weekdays.indexOf(d) >= 0 ? 'on' : '') + '" onclick="cfgToggleDay(' + d + ')">' + l + '</button>';
       }).join('') + '</div>';
-  var plants = state.plants.map(function(p){
+  var plants = state.plants.filter(function(p){ return p.id > 0; }).map(function(p){
     var other = p.config_id != null && p.config_id !== c.id ? configById(p.config_id) : null;
     return '<label><input type="checkbox"' + (c.plant_ids.indexOf(p.id) >= 0 ? ' checked' : '') +
       ' onchange="cfgTogglePlant(' + p.id + ', this.checked)">' + plantIcon(p.plant_type, p.color, p.name, 24) + esc(p.name) +
@@ -961,72 +1206,159 @@ function renderConfigEditor(){
   document.getElementById('configs-body').innerHTML =
     '<div class="modal-title">' + (c.id ? 'עריכת תוכנית' : 'תוכנית השקיה חדשה') + '</div>' +
     '<div class="field-row"><label class="field-label" for="cfg-name">שם</label>' +
-      '<input class="field-input" id="cfg-name" maxlength="30" placeholder="טפטפת מרפסת" value="' + esc(c.name) + '" oninput="cfgCtx.name=this.value"></div>' +
+      '<input class="field-input" id="cfg-name" maxlength="30" placeholder="טפטפת מרפסת" value="' + esc(c.name) + '" oninput="cfgCtx.name=this.value;cfgMarkDirty()"></div>' +
     '<div class="field-row"><span class="field-label">מתי</span><div class="pt-seg">' + styles + '</div></div>' +
     '<div class="field-row">' + when + '</div>' +
     '<div class="field-row"><label class="field-label" for="cfg-time">שעה</label>' +
-      '<input class="field-input" type="time" id="cfg-time" value="' + esc(c.time) + '" oninput="cfgCtx.time=this.value"></div>' +
+      '<input class="field-input" type="time" id="cfg-time" value="' + esc(c.time) + '" oninput="cfgCtx.time=this.value;cfgMarkDirty()"></div>' +
     '<div class="field-row"><span class="field-label">עציצים בתוכנית (יעברו להשקיה אוטומטית)</span>' +
       '<div class="pt-pick">' + (plants || '<div class="pt-plant-meta">אין עציצים</div>') + '</div></div>' +
-    '<div class="modal-footer"><button class="btn btn-ghost" onclick="openConfigs()">חזרה</button>' +
-      '<button class="btn btn-primary" onclick="saveConfig()">שמירה</button></div>';
+    '<div class="modal-footer"><button class="btn btn-ghost" onclick="requestLeave(\'configs-modal\', openConfigs)">חזרה</button>' +
+      '<button id="cfg-save" class="btn btn-primary' + (cfgDirty() ? ' dirty' : '') + '" onclick="saveConfig()">שמירה</button></div>';
 }
+// Returns false when the form is invalid (the popup then stays open).
 function saveConfig(){
   var c = cfgCtx;
-  var body = {name: String(c.name).trim(), style: c.style, time: c.time, plant_ids: c.plant_ids};
-  if (c.style === 'interval') body.interval_days = parseInt(c.interval_days, 10); else body.weekdays = c.weekdays;
-  if (!body.name) { toast('יש להזין שם לתוכנית', true); return; }
-  var req = c.id ? api('PUT', '/api/plants/configs/' + c.id, body) : api('POST', '/api/plants/configs', body);
-  req.then(function(d){ if (d) { toast(c.id ? 'התוכנית עודכנה' : 'התוכנית נוצרה'); openConfigs(); } });
+  if (!c) return true;
+  var body = {name: String(c.name).trim(), style: c.style, time: c.time, plant_ids: c.plant_ids.slice()};
+  if (!body.name) { toast('יש להזין שם לתוכנית', true); return false; }
+  if ((state.configs || []).some(function(x){ return x.name === body.name && x.id !== c.id; })) { toast('קיימת כבר תוכנית בשם זה', true); return false; }
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(body.time || '')) { toast('שעת השקיה לא תקינה', true); return false; }
+  if (c.style === 'interval') {
+    body.interval_days = parseInt(c.interval_days, 10);
+    if (!(body.interval_days >= 1 && body.interval_days <= 60)) { toast('מרווח השקיה חייב להיות 1-60 ימים', true); return false; }
+  } else {
+    body.weekdays = c.weekdays.slice().sort();
+    if (!body.weekdays.length) { toast('יש לבחור לפחות יום אחד', true); return false; }
+  }
+  function assignLocal(st, cid){
+    st.plants.forEach(function(p){
+      var on = body.plant_ids.indexOf(p.id) >= 0;
+      if (on) { p.irrigation_mode = 'auto'; p.config_id = cid; }
+      else if (p.config_id === cid) { p.irrigation_mode = 'manual'; p.config_id = null; }
+      p.status = localStatus(p);
+    });
+  }
+  var fields = {name: body.name, style: body.style, time: body.time,
+                interval_days: body.style === 'interval' ? body.interval_days : null,
+                weekdays: body.style === 'weekdays' ? body.weekdays : []};
+  if (c.id) {
+    mutate('PUT', '/api/plants/configs/' + c.id, body, function(st){
+      Object.assign(findIn(st.configs, c.id), fields);
+      assignLocal(st, c.id);
+    }, 'התוכנית עודכנה');
+  } else {
+    mutate('POST', '/api/plants/configs', body, function(st){
+      var id = tempSeq--;
+      st.configs.push(Object.assign({id: id, plant_count: body.plant_ids.length}, fields));
+      assignLocal(st, id);
+    }, 'התוכנית נוצרה');
+  }
+  openConfigs();
+  return true;
 }
 function deleteConfig(id){
-  var c = configById(id);
+  if (stillSaving(id)) return;
+  var c = configById(id), used = countOn(id);
+  if (used) { toast('התוכנית בשימוש ב-' + used + ' עציצים — העבירו אותם לתוכנית אחרת או להשקיה ידנית', true); return; }
   if (!confirm('למחוק את התוכנית "' + (c ? c.name : '') + '"?')) return;
-  api('DELETE', '/api/plants/configs/' + id, {}).then(function(d){ if (d) { toast('התוכנית נמחקה'); openConfigs(); } });
+  mutate('DELETE', '/api/plants/configs/' + id, {}, function(st){
+    st.configs = st.configs.filter(function(x){ return x.id !== id; });
+  }, 'התוכנית נמחקה');
 }
 
 // ── Room manager ───────────────────────────────────────────────
+// Rendered from state, so it follows every change instantly; typed-but-unsaved names survive re-renders.
+var deletedRooms = [];
+function roomInputValue(id){ var el = document.getElementById('room-name-' + id); return el ? el.value : null; }
+function newRoomName(){ var el = document.getElementById('room-new'); return el ? el.value.trim() : ''; }
+function dirtyRoomIds(){
+  return (state.rooms || []).filter(function(r){
+    var v = roomInputValue(r.id);
+    return v !== null && v.trim() !== r.name;
+  }).map(function(r){ return r.id; });
+}
+function roomsDirty(){ return isOpen('rooms-modal') && (dirtyRoomIds().length > 0 || newRoomName() !== ''); }
+function roomInput(id){ var r = roomById(id); setDirtyClass('room-save-' + id, !!r && roomInputValue(id).trim() !== r.name); }
+function newRoomInput(){ setDirtyClass('room-add', newRoomName() !== ''); }
+function renderRoomsManager(){
+  var typed = {}, typedNew = (document.getElementById('room-new') || {}).value || '';
+  (state.rooms || []).forEach(function(r){ var v = roomInputValue(r.id); if (v !== null) typed[r.id] = v; });
+  var counts = {};
+  state.plants.forEach(function(p){ if (p.room_id != null) counts[p.room_id] = (counts[p.room_id] || 0) + 1; });
+  document.getElementById('rooms-body').innerHTML =
+    (state.rooms || []).map(function(r){
+      var v = typed.hasOwnProperty(r.id) ? typed[r.id] : r.name, dirty = v.trim() !== r.name, temp = r.id < 0;
+      return '<div class="pt-room-row"><input class="field-input" id="room-name-' + r.id + '" maxlength="30" value="' + esc(v) + '"' +
+          (temp ? ' disabled' : ' oninput="roomInput(' + r.id + ')"') + '>' +
+        '<span class="pt-room-count" title="עציצים בחדר">' + (counts[r.id] || 0) + '</span>' +
+        '<button id="room-save-' + r.id + '" class="btn btn-ghost btn-sm' + (dirty ? ' dirty' : '') + '" onclick="renameRoom(' + r.id + ')"' + (temp ? ' disabled' : '') + '>שמירה</button>' +
+        '<button class="btn btn-ghost btn-sm" onclick="deleteRoom(' + r.id + ')" title="מחיקה" aria-label="מחיקה"' + (temp ? ' disabled' : '') + '>✕</button></div>';
+    }).join('') +
+    '<div class="pt-room-row"><input class="field-input" id="room-new" maxlength="30" placeholder="חדר חדש" value="' + esc(typedNew) + '" oninput="newRoomInput()">' +
+      '<button id="room-add" class="btn btn-primary btn-sm' + (typedNew.trim() ? ' dirty' : '') + '" onclick="addRoom()">+ הוסף</button></div>' +
+    (deletedRooms.length
+      ? '<div class="field-label" style="margin-top:16px">חדרים שנמחקו</div>' + deletedRooms.map(function(r){
+          return '<div class="pt-restore-row"><span>' + esc(r.name) + '</span>' +
+            '<button class="btn btn-ghost btn-sm" onclick="restoreRoom(' + r.id + ')">שחזור</button></div>';
+        }).join('')
+      : '');
+}
 function openRooms(){
   var body = document.getElementById('rooms-body');
-  body.innerHTML = '<div class="pt-plant-meta">טוען…</div>';
+  body.innerHTML = '';   // fresh form: no leftover typing from a discarded session
+  renderRoomsManager();
   openModal('rooms-modal');
   fetch('/api/plants/rooms').then(function(r){ return r.json(); }).then(function(d){
     if (!d.ok) throw new Error(d.error);
-    var counts = {};
-    (state ? state.plants : []).forEach(function(p){ if (p.room_id != null) counts[p.room_id] = (counts[p.room_id] || 0) + 1; });
-    body.innerHTML =
-      d.rooms.map(function(r){
-        return '<div class="pt-room-row"><input class="field-input" id="room-name-' + r.id + '" maxlength="30" value="' + esc(r.name) + '">' +
-          '<span class="pt-room-count" title="עציצים בחדר">' + (counts[r.id] || 0) + '</span>' +
-          '<button class="btn btn-ghost btn-sm" onclick="renameRoom(' + r.id + ')">שמירה</button>' +
-          '<button class="btn btn-ghost btn-sm" onclick="deleteRoom(' + r.id + ')" title="מחיקה" aria-label="מחיקה">✕</button></div>';
-      }).join('') +
-      '<div class="pt-room-row"><input class="field-input" id="room-new" maxlength="30" placeholder="חדר חדש">' +
-        '<button class="btn btn-primary btn-sm" onclick="addRoom()">+ הוסף</button></div>' +
-      (d.deleted.length
-        ? '<div class="field-label" style="margin-top:16px">חדרים שנמחקו</div>' + d.deleted.map(function(r){
-            return '<div class="pt-restore-row"><span>' + esc(r.name) + '</span>' +
-              '<button class="btn btn-ghost btn-sm" onclick="restoreRoom(' + r.id + ')">שחזור</button></div>';
-          }).join('')
-        : '');
+    deletedRooms = d.deleted;
+    if (isOpen('rooms-modal')) renderRoomsManager();
   }).catch(function(e){ toast(e.message || 'שגיאה', true); });
 }
+function roomNameError(name, exceptId){
+  if (!name || name.length > 30) return 'שם חדר חייב להכיל 1-30 תווים';
+  if ((state.rooms || []).some(function(r){ return r.name === name && r.id !== exceptId; })) return 'קיים כבר חדר בשם זה';
+  return '';
+}
 function addRoom(){
-  var name = document.getElementById('room-new').value.trim();
-  if (!name) { toast('יש להזין שם חדר', true); return; }
-  api('POST', '/api/plants/rooms', {name: name}).then(function(d){ if (d) { toast('החדר נוסף'); openRooms(); } });
+  var name = newRoomName(), err = roomNameError(name, null);
+  if (err) { toast(err, true); return false; }
+  document.getElementById('room-new').value = '';
+  mutate('POST', '/api/plants/rooms', {name: name}, function(st){ st.rooms.push({id: tempSeq--, name: name}); }, 'החדר נוסף');
+  return true;
 }
 function renameRoom(id){
-  api('PUT', '/api/plants/rooms/' + id, {name: document.getElementById('room-name-' + id).value})
-    .then(function(d){ if (d) { toast('שם החדר עודכן'); openRooms(); } });
+  if (stillSaving(id)) return true;
+  var r = roomById(id), name = (roomInputValue(id) || '').trim();
+  if (!r || name === r.name) return true;
+  var err = roomNameError(name, id);
+  if (err) { toast(err, true); return false; }
+  mutate('PUT', '/api/plants/rooms/' + id, {name: name}, function(st){ findIn(st.rooms, id).name = name; }, 'שם החדר עודכן');
+  return true;
+}
+function saveAllRooms(){
+  var ok = true;
+  dirtyRoomIds().forEach(function(id){ if (renameRoom(id) === false) ok = false; });
+  if (newRoomName() && addRoom() === false) ok = false;
+  return ok;
 }
 function deleteRoom(id){
+  if (stillSaving(id)) return;
   var r = roomById(id);
   if (!confirm('למחוק את החדר "' + (r ? r.name : '') + '"? העציצים שבו יופיעו תחת "ללא חדר" עד שתשחזרו אותו.')) return;
-  api('DELETE', '/api/plants/rooms/' + id, {}).then(function(d){ if (d) { toast('החדר נמחק'); openRooms(); } });
+  mutate('DELETE', '/api/plants/rooms/' + id, {}, function(st){
+    st.rooms = st.rooms.filter(function(x){ return x.id !== id; });
+    st.plants.forEach(function(p){ if (p.room_id === id) p.room_id = null; });
+    if (r) deletedRooms.unshift({id: r.id, name: r.name});
+  }, 'החדר נמחק');
 }
 function restoreRoom(id){
-  api('POST', '/api/plants/rooms/' + id + '/restore', {}).then(function(d){ if (d) { toast('החדר שוחזר'); openRooms(); } });
+  var r = findIn(deletedRooms, id);
+  if (r && (state.rooms || []).some(function(x){ return x.name === r.name; })) { toast('קיים כבר חדר בשם זה', true); return; }
+  mutate('POST', '/api/plants/rooms/' + id + '/restore', {}, function(st){
+    deletedRooms = deletedRooms.filter(function(x){ return x.id !== id; });
+    if (r) st.rooms.push({id: r.id, name: r.name});
+  }, 'החדר שוחזר');
 }
 
 init();

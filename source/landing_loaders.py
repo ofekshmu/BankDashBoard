@@ -55,7 +55,7 @@ def load_bills(today):
     rows = _db().cursor.execute(
         'SELECT t.ID, t.Name, e.Start_Month, e.End_Month, e.Amount FROM BillEntries e '
         'JOIN BillTypes t ON t.ID = e.BillType_ID '
-        'WHERE NOT COALESCE(e.Is_Filler, FALSE)').fetchall()
+        'WHERE COALESCE(e.Is_Filler, 0) = 0').fetchall()
     return ls.build_bills([tuple(r) for r in rows])
 
 

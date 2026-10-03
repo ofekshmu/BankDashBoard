@@ -53,7 +53,7 @@ def test_timeline_reads_newest_created_event(monkeypatch):
 def test_bills_excludes_fillers(monkeypatch):
     db = use(monkeypatch, FakeDB({'BillEntries': [(1, 'חשמל', '2026-01', '2026-02', 600)]}))
     b = ll.load_bills(TODAY)
-    assert b['kpi'] == '300₪' and 'Is_Filler' in db.cursor.sql[-1]
+    assert b['kpi'] == '300₪' and 'COALESCE(e.Is_Filler, 0) = 0' in db.cursor.sql[-1]
 
 
 def test_files_newest(monkeypatch):

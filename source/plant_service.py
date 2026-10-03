@@ -114,6 +114,8 @@ def update_plant(store, pid, body, today):
     f = _validate_fields(body, partial=True)
     if f.get('irrigation_mode') == 'auto' and not (f.get('auto_time') or p['auto_time']):
         f['auto_time'] = DEFAULT_AUTO_TIME
+    if 'interval_days' in f and f['interval_days'] != p['interval_days']:
+        f['interval_changed_at'] = today  # suggestions only look at history after this day
     store.update_plant(pid, f)
 
 
@@ -197,6 +199,8 @@ def water_due(store, body, today):
     lasts = store.last_event_dates([p['id'] for p in plants], today)
     count = 0
     for p in plants:
+        if p['irrigation_mode'] == 'auto':
+            continue  # watered by its own system; confirmed via confirm_auto
         _, status = plant_status(p, lasts.get(p['id'], {}).get('water'), today)
         if status in ('due', 'overdue'):
             store.add_event(p['id'], 'water', at, 'manual', None)
@@ -250,6 +254,8 @@ def build_payload(store, today):
     for p in plants:
         le = lasts.get(p['id'], {})
         since, status = plant_status(p, le.get('water'), today)
+        if p['irrigation_mode'] == 'auto':
+            status = 'auto'  # no due/overdue for plants watered by their own system
         out.append(_plant_json(p, le.get('water'), since, status))
         suggestions.extend(build_suggestions(p, days.get(p['id'], []), le, today))
     suggestions.sort(key=lambda s: _LEVEL_ORDER[s['level']])

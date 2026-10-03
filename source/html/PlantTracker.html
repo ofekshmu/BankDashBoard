@@ -497,6 +497,9 @@ function writeCache(p){ try { localStorage.setItem(CACHE_KEY, JSON.stringify({da
 
 // Resolves to the response on success, null on failure (after showing a toast).
 function api(method, url, body){
+  // A tab left visible past midnight must send the new date, not the one it loaded with.
+  var now = localDate(new Date());
+  if (now !== TODAY) TODAY = now;
   var opts = {method: method, headers: {'Content-Type': 'application/json'}};
   if (method === 'GET') url += (url.indexOf('?') < 0 ? '?' : '&') + 'today=' + TODAY;
   else opts.body = JSON.stringify(Object.assign({today: TODAY}, body || {}));

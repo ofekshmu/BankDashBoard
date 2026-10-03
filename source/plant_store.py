@@ -5,11 +5,11 @@ transaction they roll back.
 """
 
 _PLANT_COLS = ('ID, Name, Plant_Type, Color, Irrigation_Mode, Interval_Days, '
-               'Auto_Time, Season_Ack, Created_At, Deleted_At')
+               'Auto_Time, Season_Ack, Created_At, Deleted_At, Interval_Changed_At')
 _PLANT_UPDATABLE = {
     'name': 'Name', 'plant_type': 'Plant_Type', 'color': 'Color',
     'irrigation_mode': 'Irrigation_Mode', 'interval_days': 'Interval_Days',
-    'auto_time': 'Auto_Time', 'season_ack': 'Season_Ack',
+    'auto_time': 'Auto_Time', 'season_ack': 'Season_Ack', 'interval_changed_at': 'Interval_Changed_At',
 }
 _DAY_UPDATABLE = {'soil_status': 'Soil_Status', 'watered': 'Watered', 'auto_confirmed': 'Auto_Confirmed'}
 _EVENT_COLS = 'ID, Plant_ID, Event_Type, Event_At, Source, Note'
@@ -18,7 +18,8 @@ _EVENT_COLS = 'ID, Plant_ID, Event_Type, Event_At, Source, Note'
 def _plant(r):
     return {'id': r[0], 'name': r[1], 'plant_type': r[2], 'color': r[3],
             'irrigation_mode': r[4], 'interval_days': r[5], 'auto_time': r[6],
-            'season_ack': r[7], 'created_at': r[8], 'deleted_at': r[9]}
+            'season_ack': r[7], 'created_at': r[8], 'deleted_at': r[9],
+            'interval_changed_at': r[10]}
 
 
 def _event(r):
@@ -58,6 +59,8 @@ class PlantStore:
                 Deleted_At      TIMESTAMP
             )
         """)
+        # Plants already exist in production, so the newer column is added in place.
+        self._q("ALTER TABLE Plants ADD COLUMN IF NOT EXISTS Interval_Changed_At DATE")
         self._q("""
             CREATE TABLE IF NOT EXISTS PlantEvents (
                 ID          SERIAL    PRIMARY KEY,
@@ -189,7 +192,7 @@ class PlantStore:
         if not ids:
             return {}
         rows = self._q(f'SELECT {_EVENT_COLS} FROM PlantEvents '
-                       'WHERE Plant_ID = ANY(%s) AND Event_At::date BETWEEN %s AND %s ORDER BY Event_At',
+                       'WHERE Plant_ID = ANY(%s) AND Event_At::date BETWEEN %s AND %s ORDER BY Event_At, ID',
                        (list(ids), start, end)).fetchall()
         out = {}
         for r in rows:

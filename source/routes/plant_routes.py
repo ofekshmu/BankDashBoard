@@ -3,12 +3,15 @@
 Every mutating endpoint returns the full page payload so the client can
 refresh its once-a-day cache in one round trip.
 """
+import logging
 import os
-from datetime import date
+from datetime import date, datetime, timezone
 
 from flask import Blueprint, jsonify, request, send_file
 
 import plant_service as svc
+
+logger = logging.getLogger(__name__)
 
 plants_bp = Blueprint('plants', __name__)
 
@@ -29,13 +32,28 @@ def _body():
     return request.get_json(silent=True) or {}
 
 
+def _server_today():
+    """The server's UTC date. Module-level so tests can pin it."""
+    return datetime.now(timezone.utc).date()
+
+
 def _today():
-    """The client's local date (query string or JSON body), else the server's."""
+    """The client's local date (query string or JSON body), else the server's UTC date.
+
+    A skewed or crafted client date would materialize rows into the future, so it must be
+    within one day of the server date (the widest real timezone difference).
+    """
     raw = request.args.get('today') or _body().get('today')
+    server = _server_today()
+    if not raw:
+        return server
     try:
-        return date.fromisoformat(raw) if raw else date.today()
+        day = date.fromisoformat(raw)
     except (TypeError, ValueError):
-        return date.today()
+        raise svc.PlantError('תאריך המכשיר שגוי')
+    if abs((day - server).days) > 1:
+        raise svc.PlantError('תאריך המכשיר שגוי')
+    return day
 
 
 def _respond(action=None):
@@ -51,6 +69,7 @@ def _respond(action=None):
     except svc.PlantError as e:
         return jsonify({'ok': False, 'error': str(e)}), e.status
     except Exception as e:
+        logger.exception('plant tracker request failed: %s %s', request.method, request.path)
         return jsonify({'ok': False, 'error': str(e)}), 500
 
 
@@ -85,6 +104,7 @@ def api_plants_deleted():
     try:
         return jsonify({'ok': True, 'plants': svc.deleted_plants(get_store())})
     except Exception as e:
+        logger.exception('plant tracker request failed: %s %s', request.method, request.path)
         return jsonify({'ok': False, 'error': str(e)}), 500
 
 

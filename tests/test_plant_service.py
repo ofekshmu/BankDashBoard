@@ -211,3 +211,87 @@ def test_rejects_days_before_window():
     # 2026-10-01 is the window start (T - 13), should be accepted
     eid = svc.add_event(s, pid, {'event_type': 'water', 'event_at': '2026-10-01T08:00'}, T)
     assert s.events[eid]['event_at'].date() == date(2026, 10, 1)
+
+
+# ── F1: applying a suggested interval must not re-trigger the same suggestion ──
+def _kinds(payload):
+    return [x['kind'] for x in payload['suggestions']]
+
+
+def _suggestion(payload, kind):
+    return [x for x in payload['suggestions'] if x['kind'] == kind][0]
+
+
+def test_update_plant_stamps_interval_changed_at_only_on_a_real_change():
+    s = FakePlantStore()
+    pid = _mk(s)  # interval 3
+    assert s.plants[pid]['interval_changed_at'] is None
+    svc.update_plant(s, pid, {'interval_days': 3, 'name': 'x'}, T)
+    svc.update_plant(s, pid, {'name': 'y'}, T)
+    assert s.plants[pid]['interval_changed_at'] is None
+    svc.update_plant(s, pid, {'interval_days': 5}, T)
+    assert s.plants[pid]['interval_changed_at'] == T
+    svc.update_plant(s, pid, {'interval_changed_at': '2020-01-01'}, date(2026, 10, 15))  # not client-settable
+    assert s.plants[pid]['interval_changed_at'] == T
+
+
+def test_applied_dries_fast_suggestion_does_not_fire_again():
+    s = FakePlantStore()
+    pid = _mk(s)
+    _backdate(s, pid, date(2026, 10, 1))
+    svc.build_payload(s, T)
+    for at in ('2026-10-09T08:00', '2026-10-13T08:00'):
+        svc.add_event(s, pid, {'event_type': 'water', 'event_at': at}, T)
+    for day in ('2026-10-10', '2026-10-14'):  # dry the day after each watering
+        svc.set_soil(s, pid, {'day': day, 'soil_status': 'dry'}, T)
+    suggestion = _suggestion(svc.build_payload(s, T), 'dries_fast')
+    assert suggestion['action']['value'] == 2
+    svc.update_plant(s, pid, {'interval_days': suggestion['action']['value']}, T)
+    assert 'dries_fast' not in _kinds(svc.build_payload(s, T))
+
+
+def test_applied_overwater_suggestion_does_not_fire_again():
+    s = FakePlantStore()
+    pid = _mk(s)
+    _backdate(s, pid, date(2026, 10, 1))
+    svc.build_payload(s, T)
+    svc.add_event(s, pid, {'event_type': 'water', 'event_at': '2026-10-13T08:00'}, T)
+    for day in ('2026-10-12', '2026-10-13', '2026-10-14'):
+        svc.set_soil(s, pid, {'day': day, 'soil_status': 'wet'}, T)
+    suggestion = _suggestion(svc.build_payload(s, T), 'overwater')
+    assert suggestion['action']['value'] == 4
+    svc.update_plant(s, pid, {'interval_days': suggestion['action']['value']}, T)
+    assert 'overwater' not in _kinds(svc.build_payload(s, T))
+
+
+def test_seasonal_not_resuggested_after_interval_change_in_same_season():
+    s = FakePlantStore()
+    july = date(2026, 7, 10)
+    pid = svc.create_plant(s, {'name': 'פיקוס', 'plant_type': 'fern', 'interval_days': 4}, date(2026, 7, 1))
+    assert 'seasonal' in _kinds(svc.build_payload(s, july))
+    svc.update_plant(s, pid, {'interval_days': 5}, july)  # manual change, season never acked
+    assert 'seasonal' not in _kinds(svc.build_payload(s, july))
+    assert 'seasonal' not in _kinds(svc.build_payload(s, date(2026, 7, 11)))
+
+
+# ── F3: auto plants are not "due" / "overdue" and never watered by water-all-due ──
+def test_auto_plant_on_scheduled_day_is_pending_not_due():
+    s = FakePlantStore()
+    pid = svc.create_plant(s, {'name': 'מונסטרה', 'plant_type': 'monstera',
+                               'irrigation_mode': 'auto', 'interval_days': 3}, date(2026, 10, 11))
+    p = svc.build_payload(s, T)  # day 3 after creation is a scheduled auto day
+    assert p['plants'][0]['status'] == 'auto' and p['plants'][0]['days_since_water'] == 3
+    assert p['summary'] == {'due_today': 0, 'overdue': 0, 'auto_pending_confirm': 1}
+    assert 'overdue' not in _kinds(p)
+    svc.update_plant(s, pid, {'irrigation_mode': 'manual'}, T)  # stale pending rows no longer count
+    assert svc.build_payload(s, T)['summary'] == {'due_today': 1, 'overdue': 0, 'auto_pending_confirm': 0}
+
+
+def test_water_due_skips_auto_plants():
+    s = FakePlantStore()
+    manual = _mk(s, name='manual')
+    auto = _mk(s, name='auto', irrigation_mode='auto')
+    _backdate(s, manual, date(2026, 10, 1))
+    _backdate(s, auto, date(2026, 10, 1))
+    n = svc.water_due(s, {'event_at': '2026-10-14T09:00'}, T)
+    assert n == 1 and [e['plant_id'] for e in s.events.values()] == [manual]

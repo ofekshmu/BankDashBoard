@@ -50,6 +50,8 @@ def test_roundtrip(store):
 
     store.update_plant(pid, {'interval_days': 4, 'season_ack': '2026-summer'})
     assert store.get_plant(pid)['interval_days'] == 4
+    store.update_plant(pid, {'interval_changed_at': date(2026, 10, 2)})
+    assert store.get_plant(pid)['interval_changed_at'] == date(2026, 10, 2)
 
     store.soft_delete_plant(pid)
     assert pid not in [x['id'] for x in store.list_plants()]

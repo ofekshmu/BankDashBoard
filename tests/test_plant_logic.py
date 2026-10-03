@@ -71,11 +71,26 @@ def test_timeline_window_is_14_days_ending_today():
     assert len(w) == 14 and w[0] == date(2026, 10, 1) and w[-1] == date(2026, 10, 14)
 
 
+def _unconfirmed(day):
+    return {'day': day, 'auto_expected': True, 'auto_confirmed': False, 'watered': False}
+
+
 def test_build_summary_counts():
-    plants = [{'id': 1, 'status': 'due'}, {'id': 2, 'status': 'overdue'}, {'id': 3, 'status': 'ok'}]
+    plants = [{'id': 1, 'status': 'due', 'irrigation_mode': 'manual'},
+              {'id': 2, 'status': 'overdue', 'irrigation_mode': 'manual'},
+              {'id': 3, 'status': 'auto', 'irrigation_mode': 'auto'}]
     days = {3: [
-        {'day': date(2026, 10, 2), 'auto_expected': True, 'auto_confirmed': False, 'watered': False},
+        _unconfirmed(date(2026, 10, 2)),
         {'day': date(2026, 10, 3), 'auto_expected': True, 'auto_confirmed': True, 'watered': True},
     ]}
     assert build_summary(plants, days, date(2026, 10, 3)) == {
         'due_today': 1, 'overdue': 1, 'auto_pending_confirm': 1}
+
+
+def test_build_summary_pending_counts_only_auto_plants():
+    plants = [{'id': 1, 'status': 'ok', 'irrigation_mode': 'manual'},
+              {'id': 2, 'status': 'auto', 'irrigation_mode': 'auto'}]
+    days = {1: [_unconfirmed(date(2026, 10, 2))],            # plant switched to manual since
+            2: [_unconfirmed(date(2026, 10, 3))],
+            99: [_unconfirmed(date(2026, 10, 3))]}           # plant absent from the list
+    assert build_summary(plants, days, date(2026, 10, 3))['auto_pending_confirm'] == 1

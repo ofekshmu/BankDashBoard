@@ -4,6 +4,7 @@ from datetime import timedelta
 from src_utils.plant_logic import plant_status, season_key
 
 _DAY = timedelta(days=1)
+_MIN_INTERVAL, _MAX_INTERVAL = 1, 60
 
 
 def _sugg(plant, kind, level, text, action=None):
@@ -14,31 +15,45 @@ def _round_half_up(x):
     return int(x + 0.5)
 
 
+def _clamp_interval(n):
+    return max(_MIN_INTERVAL, min(_MAX_INTERVAL, n))
+
+
 def build_suggestions(plant, rows, last_events, today):
     out = []
     name = plant['name']
     interval = plant['interval_days']
     by_day = {r['day']: r for r in rows}
+    # Day history from before the last interval change says nothing about the new interval.
+    since_change = plant.get('interval_changed_at')
 
-    # 1. Overdue
+    def _after_change(d):
+        return since_change is None or d > since_change
+
+    # 1. Overdue — manual plants only (an auto plant is watered by its system)
     since, status = plant_status(plant, last_events.get('water'), today)
-    if status == 'overdue':
+    if plant['irrigation_mode'] == 'manual' and status == 'overdue':
         out.append(_sugg(plant, 'overdue', 'alert',
                          f'{name}: באיחור השקיה של {since - interval} ימים', {'type': 'water_now'}))
 
-    # 2. Soil dry on the watering day or the day after — twice in the window
-    fast = [d for d, r in by_day.items() if r['soil_status'] == 'dry' and (
-        r['watered'] or by_day.get(d - _DAY, {}).get('watered'))]
-    if len(fast) >= 2 and interval > 1:
+    # 2. Soil found dry the day after a watering — twice in the window. Dry on the very day it was
+    #    watered is the normal "check soil, then water" routine and does not count.
+    fast = [d for d, r in by_day.items() if r['soil_status'] == 'dry' and _after_change(d)
+            and _after_change(d - _DAY) and by_day.get(d - _DAY, {}).get('watered')]
+    new = _clamp_interval(interval - 1)
+    if len(fast) >= 2 and new != interval:
         out.append(_sugg(plant, 'dries_fast', 'warn',
-                         f'{name}: האדמה מתייבשת מהר — מומלץ לקצר את המרווח ל-{interval - 1} ימים',
-                         {'type': 'set_interval', 'value': interval - 1}))
+                         f'{name}: האדמה מתייבשת מהר — מומלץ לקצר את המרווח ל-{new} ימים',
+                         {'type': 'set_interval', 'value': new}))
 
     # 3. Wet three days in a row (today and the two before)
-    if all(by_day.get(today - i * _DAY, {}).get('soil_status') == 'wet' for i in range(3)):
+    wet_days = [today - i * _DAY for i in range(3)]
+    new = _clamp_interval(interval + 1)
+    if new != interval and all(_after_change(d) and by_day.get(d, {}).get('soil_status') == 'wet'
+                               for d in wet_days):
         out.append(_sugg(plant, 'overwater', 'warn',
                          f'{name}: האדמה רטובה 3 ימים ברצף — סכנת השקיית יתר, מומלץ להאריך את המרווח',
-                         {'type': 'set_interval', 'value': interval + 1}))
+                         {'type': 'set_interval', 'value': new}))
 
     # 4. Past scheduled auto waterings that were never confirmed
     missed = sorted(d for d, r in by_day.items()
@@ -48,14 +63,16 @@ def build_suggestions(plant, rows, last_events, today):
                          f'{name}: {len(missed)} השקיות אוטומטיות לא אושרו — בדוק את מערכת ההשקיה',
                          {'type': 'confirm_auto', 'day': missed[-1].isoformat()}))
 
-    # 5. Seasonal interval adjustment — once per season (season_ack)
+    # 5. Seasonal interval adjustment — once per season (season_ack), and not after the
+    #    interval was already tuned this season
     key = season_key(today)
-    if key and plant.get('season_ack') != key:
+    tuned_this_season = since_change is not None and season_key(since_change) == key
+    if key and plant.get('season_ack') != key and not tuned_this_season:
         if key.endswith('summer'):
-            new = max(1, _round_half_up(interval * 0.75))
+            new = _clamp_interval(_round_half_up(interval * 0.75))
             text = f'{name}: קיץ — מומלץ להשקות כל {new} ימים במקום {interval}'
         else:
-            new = _round_half_up(interval * 1.25)
+            new = _clamp_interval(_round_half_up(interval * 1.25))
             text = f'{name}: חורף — אפשר להאריך את המרווח ל-{new} ימים'
         if new != interval:
             out.append(_sugg(plant, 'seasonal', 'info', text,

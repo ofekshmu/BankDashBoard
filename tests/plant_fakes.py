@@ -30,11 +30,13 @@ class FakePlantStore:
         self.plants[pid] = {'id': pid, 'name': f['name'], 'plant_type': f['plant_type'],
                             'color': f['color'], 'irrigation_mode': f['irrigation_mode'],
                             'interval_days': f['interval_days'], 'auto_time': f.get('auto_time'),
-                            'season_ack': None, 'created_at': f['created_at'], 'deleted_at': None}
+                            'season_ack': None, 'interval_changed_at': None,
+                            'created_at': f['created_at'], 'deleted_at': None}
         return pid
 
     def update_plant(self, pid, f):
-        for k in ('name', 'plant_type', 'color', 'irrigation_mode', 'interval_days', 'auto_time', 'season_ack'):
+        for k in ('name', 'plant_type', 'color', 'irrigation_mode', 'interval_days', 'auto_time',
+                  'season_ack', 'interval_changed_at'):
             if k in f:
                 self.plants[pid][k] = f[k]
 
@@ -83,7 +85,7 @@ class FakePlantStore:
 
     def get_events(self, ids, start, end):
         out = {}
-        for e in sorted(self.events.values(), key=lambda e: e['event_at']):
+        for e in sorted(self.events.values(), key=lambda e: (e['event_at'], e['id'])):
             if e['plant_id'] in ids and start <= e['event_at'].date() <= end:
                 out.setdefault(e['plant_id'], []).append(dict(e))
         return out

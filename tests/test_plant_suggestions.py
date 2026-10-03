@@ -53,7 +53,7 @@ def test_overdue():
 
 def test_dries_fast_suggests_shorter_interval():
     rows = _rows({0: {'soil_status': 'dry'}, 1: {'watered': True},
-                  5: {'soil_status': 'dry', 'watered': True}})
+                  5: {'soil_status': 'dry'}, 6: {'watered': True}})
     s = build_suggestions(_plant(), rows, WATERED_YESTERDAY, T)
     assert _get(s, 'dries_fast')['action'] == {'type': 'set_interval', 'value': 2}
 
@@ -65,7 +65,7 @@ def test_dries_fast_needs_two_occurrences():
 
 def test_dries_fast_not_below_one_day():
     rows = _rows({0: {'soil_status': 'dry'}, 1: {'watered': True},
-                  5: {'soil_status': 'dry', 'watered': True}})
+                  5: {'soil_status': 'dry'}, 6: {'watered': True}})
     s = build_suggestions(_plant(interval_days=1), rows, {'water': T}, T)
     assert 'dries_fast' not in _kinds(s)
 
@@ -137,3 +137,81 @@ def test_no_soil_data():
     assert _get(s, 'no_soil') == {'plant_id': 1, 'kind': 'no_soil', 'level': 'info',
                                   'text': 'פיקוס: לא עודכן מצב אדמה בשבוע האחרון',
                                   'action': {'type': 'set_soil'}}
+
+
+def test_same_day_dry_and_water_is_not_dries_fast():
+    # "check soil -> dry -> water" on the same day is the normal routine, not a fast-drying signal
+    rows = _rows({0: {'soil_status': 'dry', 'watered': True}, 5: {'soil_status': 'dry', 'watered': True}})
+    assert 'dries_fast' not in _kinds(build_suggestions(_plant(), rows, WATERED_YESTERDAY, T))
+
+
+def test_overdue_not_suggested_for_auto_plant():
+    p = _plant(irrigation_mode='auto', auto_time='07:00')
+    s = build_suggestions(p, _rows(SOIL_TODAY), {'water': T - timedelta(days=9)}, T)
+    assert 'overdue' not in _kinds(s)
+
+
+# ── F1: a suggestion that was applied must not fire again ──────────────────
+DRIES_FAST_ROWS = {0: {'soil_status': 'dry'}, 1: {'watered': True},
+                   5: {'soil_status': 'dry'}, 6: {'watered': True}}
+
+
+def test_dries_fast_ignores_history_before_interval_change():
+    # the 5/6 pair predates the change, so only one qualifying occurrence remains
+    p = _plant(interval_changed_at=T - timedelta(days=3))
+    s = build_suggestions(p, _rows(DRIES_FAST_ROWS), WATERED_YESTERDAY, T)
+    assert 'dries_fast' not in _kinds(s)
+
+
+def test_dries_fast_watered_day_must_also_be_after_interval_change():
+    # dry day 0 is after the change, but its watered day (T-1) equals the change day -> not counted
+    p = _plant(interval_changed_at=T - timedelta(days=1))
+    assert 'dries_fast' not in _kinds(build_suggestions(p, _rows(DRIES_FAST_ROWS), WATERED_YESTERDAY, T))
+
+
+def test_dries_fast_counts_history_after_interval_change():
+    p = _plant(interval_changed_at=T - timedelta(days=7))
+    s = build_suggestions(p, _rows(DRIES_FAST_ROWS), WATERED_YESTERDAY, T)
+    assert _get(s, 'dries_fast')['action']['value'] == 2
+
+
+def test_overwater_requires_all_three_days_after_interval_change():
+    rows = _rows({i: {'soil_status': 'wet'} for i in range(3)})
+    assert 'overwater' not in _kinds(build_suggestions(
+        _plant(interval_changed_at=T - timedelta(days=1)), rows, WATERED_YESTERDAY, T))
+    assert 'overwater' not in _kinds(build_suggestions(
+        _plant(interval_changed_at=T - timedelta(days=2)), rows, WATERED_YESTERDAY, T))
+    assert 'overwater' in _kinds(build_suggestions(
+        _plant(interval_changed_at=T - timedelta(days=3)), rows, WATERED_YESTERDAY, T))
+
+
+def test_overwater_not_suggested_at_max_interval():
+    rows = _rows({i: {'soil_status': 'wet'} for i in range(3)})
+    s = build_suggestions(_plant(interval_days=60), rows, {'water': T - timedelta(days=1)}, T)
+    assert 'overwater' not in _kinds(s)
+
+
+def test_seasonal_skipped_when_interval_already_changed_this_season():
+    t = date(2026, 7, 10)
+    le = {'water': t - timedelta(days=1), 'fertilize': t - timedelta(days=3)}
+    p = _plant(interval_days=4, interval_changed_at=date(2026, 6, 20))
+    assert 'seasonal' not in _kinds(build_suggestions(p, _one_row(t), le, t))
+
+
+def test_seasonal_still_offered_when_interval_changed_in_a_previous_season():
+    t = date(2026, 7, 10)
+    le = {'water': t - timedelta(days=1), 'fertilize': t - timedelta(days=3)}
+    p = _plant(interval_days=4, interval_changed_at=date(2026, 3, 1))
+    assert _get(build_suggestions(p, _one_row(t), le, t), 'seasonal')['action']['value'] == 3
+
+
+def test_seasonal_winter_value_is_clamped_to_60():
+    t = date(2027, 1, 10)
+    s = build_suggestions(_plant(interval_days=50), _one_row(t), {'water': t - timedelta(days=1)}, t)
+    assert _get(s, 'seasonal')['action']['value'] == 60
+
+
+def test_seasonal_skipped_when_clamped_value_equals_interval():
+    t = date(2027, 1, 10)
+    s = build_suggestions(_plant(interval_days=60), _one_row(t), {'water': t - timedelta(days=1)}, t)
+    assert 'seasonal' not in _kinds(s)

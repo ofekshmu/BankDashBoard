@@ -1,3 +1,6 @@
+import logging
+from datetime import date
+
 import pytest
 from flask import Flask
 
@@ -11,6 +14,7 @@ TODAY = '2026-10-14'
 def client(monkeypatch):
     store = FakePlantStore()
     monkeypatch.setattr(plant_routes, 'get_store', lambda: store)
+    monkeypatch.setattr(plant_routes, '_server_today', lambda: date(2026, 10, 14))
     app = Flask(__name__)
     app.register_blueprint(plant_routes.plants_bp)
     c = app.test_client()
@@ -78,10 +82,11 @@ def test_water_due(client):
     assert d['watered_count'] == 1 and d['plants'][0]['status'] == 'ok'
 
 
-def test_dismiss_season_outside_season_is_400(client):
+def test_dismiss_season_outside_season_is_400(client, monkeypatch):
     _create(client)
     r = client.post('/api/plants/1/dismiss-season', json={'today': TODAY})
     assert r.status_code == 400
+    monkeypatch.setattr(plant_routes, '_server_today', lambda: date(2026, 7, 1))
     r = client.post('/api/plants/1/dismiss-season', json={'today': '2026-07-01'})
     assert r.status_code == 200 and r.get_json()['plants'][0]['season_ack'] == '2026-summer'
 
@@ -92,3 +97,57 @@ def test_page_is_served(client):
     assert r.status_code == 200 and 'מעקב עציצים' in html
     assert 'class="nav-item active" href="/plants"' in html
     assert '@SHELL' not in html and '@SIDEBAR@' not in html and '@DEBUG@' not in html
+
+
+# ── F4: the client's `today` is bounded to the server date ± 1 day ──────────
+def test_far_future_today_is_400_and_materializes_nothing(client):
+    r = client.get('/api/plants?today=2026-12-31')
+    assert r.status_code == 400 and r.get_json()['ok'] is False
+    r = client.post('/api/plants', json={'today': '2026-12-31', 'name': 'x', 'plant_type': 'fern'})
+    assert r.status_code == 400
+    assert client.store.days == {} and client.store.plants == {}
+
+
+def test_far_past_today_is_400(client):
+    assert client.get('/api/plants?today=2026-10-01').status_code == 400
+
+
+@pytest.mark.parametrize('raw', ['garbage', '2026-13-45', '14/10/2026'])
+def test_malformed_today_is_400(client, raw):
+    r = client.get(f'/api/plants?today={raw}')
+    assert r.status_code == 400 and r.get_json()['ok'] is False
+    r = client.post('/api/plants', json={'today': raw, 'name': 'x', 'plant_type': 'fern'})
+    assert r.status_code == 400
+
+
+def test_today_within_one_day_of_server_is_accepted(client):
+    r = client.get('/api/plants?today=2026-10-15')   # client ahead (e.g. UTC+14)
+    assert r.status_code == 200 and r.get_json()['today'] == '2026-10-15'
+    r = client.get('/api/plants?today=2026-10-13')   # client behind (e.g. UTC-12)
+    assert r.status_code == 200 and r.get_json()['today'] == '2026-10-13'
+
+
+def test_missing_today_uses_server_date(client):
+    r = client.get('/api/plants')
+    assert r.status_code == 200 and r.get_json()['today'] == TODAY
+
+
+# ── F5: unexpected errors are logged with a traceback before the 500 ────────
+def test_unexpected_error_is_logged_with_traceback(client, monkeypatch, caplog):
+    def boom():
+        raise RuntimeError('db down')
+    monkeypatch.setattr(plant_routes, 'get_store', boom)
+    with caplog.at_level(logging.ERROR):
+        r = client.get(f'/api/plants?today={TODAY}')
+    assert r.status_code == 500 and r.get_json()['ok'] is False
+    assert any(rec.exc_info and rec.exc_info[0] is RuntimeError for rec in caplog.records)
+
+
+def test_deleted_list_error_is_logged_with_traceback(client, monkeypatch, caplog):
+    def boom():
+        raise RuntimeError('db down')
+    monkeypatch.setattr(plant_routes, 'get_store', boom)
+    with caplog.at_level(logging.ERROR):
+        r = client.get('/api/plants/deleted')
+    assert r.status_code == 500 and r.get_json()['ok'] is False
+    assert any(rec.exc_info and rec.exc_info[0] is RuntimeError for rec in caplog.records)

@@ -64,8 +64,12 @@ def timeline_window(today):
 
 
 def build_summary(plants, days_by_plant, today):
+    """Counts for the page header. `plants` entries carry `status` and `irrigation_mode`; auto plants have
+    status 'auto' so they never count as due/overdue, and only auto plants contribute pending confirmations
+    (rows left from before a switch to manual, or of plants not in the list, are ignored)."""
+    auto_ids = {p['id'] for p in plants if p.get('irrigation_mode') == 'auto'}
     pending = sum(
-        1 for rows in days_by_plant.values() for r in rows
+        1 for pid, rows in days_by_plant.items() if pid in auto_ids for r in rows
         if r['day'] <= today and r['auto_expected'] and not r['auto_confirmed'] and not r['watered']
     )
     return {

@@ -279,6 +279,9 @@ input[type="date"].field-input { padding: 0 10px; appearance: none; -webkit-appe
 .pt-unsaved { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; background: #fff8e6; border: 1.5px solid var(--amber); border-radius: 10px; padding: 10px 12px; margin: 22px 0 14px; font-size: .85em; font-weight: 600; color: #7a5600; }
 .pt-unsaved span { flex: 1 0 100%; }
 .pt-pcard.pending { opacity: .65; pointer-events: none; }
+.pt-prompt { position: fixed; bottom: 76px; left: 50%; transform: translateX(-50%); z-index: 2000; display: none; align-items: center; flex-wrap: wrap; gap: 8px; max-width: calc(100vw - 32px); background: var(--white); border: 1.5px solid var(--teal); border-radius: 12px; padding: 10px 14px; box-shadow: var(--shadow-md); font-size: .85em; }
+.pt-prompt.show { display: flex; }
+.pt-prompt span { flex: 1 1 220px; }
 .pt-arch-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
 .pt-arch-row > div { flex: 1; min-width: 0; }
 .pt-arch-row svg { filter: grayscale(.85); opacity: .8; flex-shrink: 0; }
@@ -421,6 +424,7 @@ input[type="date"].field-input { padding: 0 10px; appearance: none; -webkit-appe
   <div class="modal"><button class="modal-close-btn" onclick="closeModal('archive-modal')" aria-label="סגור">✕</button>
     <div class="modal-title">ארכיון — עציצים שמתו</div><div id="archive-body"></div></div>
 </div>
+<div class="pt-prompt" id="pt-prompt" role="alertdialog"></div>
 <div class="pt-toast" id="pt-toast"></div>
 
 <script>
@@ -1244,13 +1248,15 @@ function scheduleText(c){
   var when = c.style === 'weekdays'
     ? c.weekdays.map(function(d){ return DAY_LETTERS[d] + "׳"; }).join(' ')
     : 'כל ' + c.interval_days + ' ימים';
-  return when + ' ' + esc(c.time);
+  return when + ' ' + esc(c.time) + (c.style === 'interval' && c.start_date ? ' · מ-' + fmtShort(c.start_date) : '');
 }
+function fmtShort(iso){ var d = parseDay(iso); return d.getDate() + '/' + (d.getMonth() + 1); }
 function countOn(cid){ return state.plants.filter(function(p){ return p.irrigation_mode === 'auto' && p.config_id === cid; }).length; }
 var cfgCtx = null, cfgOrig = null;
 function cfgSnapshot(c){
   return c ? JSON.stringify([String(c.name).trim(), c.style, c.style === 'interval' ? String(c.interval_days) : '',
-                             c.style === 'weekdays' ? c.weekdays.slice().sort() : [], c.time, c.plant_ids.slice().sort()]) : '';
+                             c.style === 'weekdays' ? c.weekdays.slice().sort() : [], c.time, c.plant_ids.slice().sort(),
+                             c.style === 'interval' ? c.start_date : '']) : '';
 }
 function cfgDirty(){ return !!cfgCtx && cfgSnapshot(cfgCtx) !== cfgOrig; }
 function cfgMarkDirty(){ setDirtyClass('cfg-save', cfgDirty()); }
@@ -1276,8 +1282,9 @@ function editConfig(id){
   var c = id != null ? configById(id) : null;
   cfgCtx = c
     ? {id: c.id, name: c.name, style: c.style, interval_days: c.interval_days || 2, weekdays: c.weekdays.slice(), time: c.time,
+       start_date: c.start_date || '',
        plant_ids: state.plants.filter(function(p){ return p.config_id === c.id; }).map(function(p){ return p.id; })}
-    : {id: null, name: '', style: 'interval', interval_days: 2, weekdays: [], time: '07:00', plant_ids: []};
+    : {id: null, name: '', style: 'interval', interval_days: 2, weekdays: [], time: '07:00', plant_ids: [], start_date: TODAY};
   cfgOrig = cfgSnapshot(cfgCtx);
   renderConfigEditor();
   openModal('configs-modal');
@@ -1298,7 +1305,10 @@ function renderConfigEditor(){
   var styles = '<button class="' + (c.style === 'interval' ? 'on' : '') + '" onclick="cfgSet(\'style\',\'interval\')">כל כמה ימים</button>' +
                '<button class="' + (c.style === 'weekdays' ? 'on' : '') + '" onclick="cfgSet(\'style\',\'weekdays\')">ימים בשבוע</button>';
   var when = c.style === 'interval'
-    ? '<input class="field-input" type="number" min="1" max="60" id="cfg-interval" value="' + c.interval_days + '" oninput="cfgCtx.interval_days=this.value;cfgMarkDirty()">'
+    ? '<input class="field-input" type="number" min="1" max="60" id="cfg-interval" value="' + c.interval_days + '" oninput="cfgCtx.interval_days=this.value;cfgMarkDirty()">' +
+      '<label class="field-label" for="cfg-start" style="margin-top:10px">תאריך התחלה — יום השקיה של הטיימר</label>' +
+      '<input class="field-input" type="date" id="cfg-start" value="' + esc(c.start_date || '') + '" oninput="cfgCtx.start_date=this.value;cfgMarkDirty()">' +
+      (c.start_date ? '' : '<div class="pt-plant-meta" style="white-space:normal">בלי תאריך: הספירה מתחילה מההשקיה האחרונה של כל עציץ.</div>')
     : '<div class="pt-days">' + DAY_LETTERS.map(function(l, d){
         return '<button class="' + (c.weekdays.indexOf(d) >= 0 ? 'on' : '') + '" onclick="cfgToggleDay(' + d + ')">' + l + '</button>';
       }).join('') + '</div>';
@@ -1332,6 +1342,7 @@ function saveConfig(){
   if (c.style === 'interval') {
     body.interval_days = parseInt(c.interval_days, 10);
     if (!(body.interval_days >= 1 && body.interval_days <= 60)) { toast('מרווח השקיה חייב להיות 1-60 ימים', true); return false; }
+    body.start_date = c.start_date || null;
   } else {
     body.weekdays = c.weekdays.slice().sort();
     if (!body.weekdays.length) { toast('יש לבחור לפחות יום אחד', true); return false; }
@@ -1346,21 +1357,54 @@ function saveConfig(){
   }
   var fields = {name: body.name, style: body.style, time: body.time,
                 interval_days: body.style === 'interval' ? body.interval_days : null,
-                weekdays: body.style === 'weekdays' ? body.weekdays : []};
+                weekdays: body.style === 'weekdays' ? body.weekdays : [],
+                start_date: body.style === 'interval' ? body.start_date : null};
+  var req;
   if (c.id) {
-    mutate('PUT', '/api/plants/configs/' + c.id, body, function(st){
+    req = mutate('PUT', '/api/plants/configs/' + c.id, body, function(st){
       Object.assign(findIn(st.configs, c.id), fields);
       assignLocal(st, c.id);
     }, 'התוכנית עודכנה');
   } else {
-    mutate('POST', '/api/plants/configs', body, function(st){
+    req = mutate('POST', '/api/plants/configs', body, function(st){
       var id = tempSeq--;
       st.configs.push(Object.assign({id: id, plant_count: body.plant_ids.length}, fields));
       assignLocal(st, id);
     }, 'התוכנית נוצרה');
   }
+  // Once the plan is saved, offer to bring the timeline's past days in line with it.
+  if (body.plant_ids.length) req.then(function(d){ if (d) askRealign(c.id || d.created_id, body.name); });
   openConfigs();
   return true;
+}
+// Same rule as the server's is_expected_on; null = an older plan without a start date (server decides).
+function expectedOn(cfg, day){
+  if (cfg.style === 'weekdays') return cfg.weekdays.indexOf(parseDay(day).getDay()) >= 0;
+  if (cfg.start_date) { var g = daysBetween(cfg.start_date, day); return g >= 0 && g % cfg.interval_days === 0; }
+  return null;
+}
+function askRealign(cid, name){
+  var el = document.getElementById('pt-prompt');
+  el.innerHTML = '<span>ליישר את 14 הימים האחרונים בציר הזמן לפי "' + esc(name) + '"? ימים שכבר סומנו לא ישתנו.</span>' +
+    '<button class="btn btn-primary btn-xs" id="pt-realign-yes">יישר</button>' +
+    '<button class="btn btn-ghost btn-xs" id="pt-realign-no">לא עכשיו</button>';
+  el.className = 'pt-prompt show';
+  document.getElementById('pt-realign-no').onclick = function(){ el.className = 'pt-prompt'; };
+  document.getElementById('pt-realign-yes').onclick = function(){ el.className = 'pt-prompt'; realignConfig(cid); };
+}
+function realignConfig(cid){
+  mutate('POST', '/api/plants/configs/' + cid + '/realign', {}, function(st){
+    var cfg = findIn(st.configs, cid);
+    if (!cfg) return;
+    st.plants.forEach(function(p){
+      if (p.irrigation_mode !== 'auto' || p.config_id !== cid) return;
+      (st.days[String(p.id)] || []).forEach(function(r){
+        if (r.watered || r.auto_confirmed) return;           // recorded days are past actions — never changed
+        var want = expectedOn(cfg, r.day);
+        if (want !== null) r.auto_expected = want;
+      });
+    });
+  }, 'ציר הזמן יושר לפי התוכנית');
 }
 function deleteConfig(id){
   if (stillSaving(id)) return;

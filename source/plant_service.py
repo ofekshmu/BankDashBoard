@@ -8,7 +8,7 @@ from datetime import date, datetime, time, timedelta
 
 from src_utils.plant_logic import (
     PLANT_TYPES, IRRIGATION_MODES, SOIL_STATUSES, EVENT_TYPES, TIMELINE_DAYS,
-    materialize_rows, plant_status, season_key, timeline_window, build_summary,
+    materialize_rows, plant_status, season_key, timeline_window, build_summary, is_expected_on,
 )
 from src_utils.plant_suggestions import build_suggestions
 
@@ -286,7 +286,7 @@ def _require_config(store, cid, status=404):
     return cfg
 
 
-def _config_fields(store, body, current=None):
+def _config_fields(store, body, current=None, today=None):
     """Validated config fields, normalised so an interval config has no weekdays and vice versa."""
     f = {}
     if 'name' in body or current is None:
@@ -311,6 +311,12 @@ def _config_fields(store, body, current=None):
         if not isinstance(days, list) or not all(isinstance(d, int) and 0 <= d <= 6 for d in days):
             raise PlantError('ימי השקיה לא תקינים')
         f['weekdays'] = sorted(set(days))
+    if 'start_date' in body:
+        raw = body['start_date']
+        try:
+            f['start_date'] = date.fromisoformat(str(raw)) if raw else None
+        except ValueError:
+            raise PlantError('תאריך התחלה לא תקין')
     if 'time' in body or current is None:
         t = body.get('time') or DEFAULT_AUTO_TIME
         if not _HHMM.match(str(t)):
@@ -322,7 +328,10 @@ def _config_fields(store, body, current=None):
         if not isinstance(merged.get('interval_days'), int) or not 1 <= merged['interval_days'] <= 60:
             raise PlantError('מרווח השקיה חייב להיות 1-60 ימים')
         f['interval_days'], f['weekdays'] = merged['interval_days'], []
+        if current is None and not merged.get('start_date'):
+            f['start_date'] = today          # a new "every N days" plan starts today unless told otherwise
     else:
+        f['start_date'] = None               # weekday plans follow the calendar
         if not merged.get('weekdays'):
             raise PlantError('יש לבחור לפחות יום אחד')
         f['interval_days'], f['weekdays'] = None, merged['weekdays']
@@ -351,7 +360,7 @@ def _assign_plants(store, cid, plant_ids):
 
 
 def create_config(store, body, today):
-    cid = store.add_config(_config_fields(store, body))
+    cid = store.add_config(_config_fields(store, body, today=today))
     if 'plant_ids' in body:
         _assign_plants(store, cid, body['plant_ids'])
     return cid
@@ -360,7 +369,7 @@ def create_config(store, body, today):
 def update_config(store, cid, body, today):
     """Changes apply to every plant on the config from the next materialized day on."""
     current = _require_config(store, cid)
-    store.update_config(current['id'], _config_fields(store, body, current))
+    store.update_config(current['id'], _config_fields(store, body, current, today))
     if 'plant_ids' in body:
         _assign_plants(store, current['id'], body['plant_ids'])
 
@@ -376,6 +385,7 @@ def delete_config(store, cid):
 def _config_json(c, plants):
     return {'id': c['id'], 'name': c['name'], 'style': c['style'], 'interval_days': c['interval_days'],
             'weekdays': c['weekdays'] or [], 'time': c['time'],
+            'start_date': c['start_date'].isoformat() if c.get('start_date') else None,
             'plant_count': sum(1 for p in plants if p['irrigation_mode'] == 'auto' and p.get('config_id') == c['id'])}
 
 
@@ -395,7 +405,30 @@ def _schedule(cfg):
     if not cfg:
         return None
     return {'style': cfg['style'], 'interval_days': cfg['interval_days'],
-            'weekdays': cfg['weekdays'] or [], 'time': cfg['time']}
+            'weekdays': cfg['weekdays'] or [], 'time': cfg['time'], 'start_date': cfg.get('start_date')}
+
+
+def realign_config(store, cid, today):
+    """Re-mark the timeline window's expected waterings of a plan's plants to match the plan.
+
+    Days with anything recorded (watered, or an auto watering confirmed) are past actions and are
+    never changed. Returns how many days changed.
+    """
+    cfg = _require_config(store, cid)
+    schedule = _schedule(cfg)
+    plants = _plants_on(store, cfg['id'])
+    days = store.get_days([p['id'] for p in plants], timeline_window(today)[0], today)
+    changed = 0
+    for p in plants:
+        water = set(store.water_dates(p['id']))
+        for r in days.get(p['id'], []):
+            if r['watered'] or r['auto_confirmed']:
+                continue
+            want = is_expected_on(schedule, p, r['day'], water)
+            if bool(r['auto_expected']) != want:
+                store.upsert_day(p['id'], r['day'], auto_expected=want)
+                changed += 1
+    return changed
 
 
 # ── Days / events ──────────────────────────────────────────────────────────

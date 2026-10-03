@@ -550,3 +550,41 @@ def test_dead_plant_leaves_its_config():
     svc.mark_dead(s, pid, {}, T)
     assert svc.build_payload(s, T)['configs'][0]['plant_count'] == 0
     svc.delete_config(s, cid)       # no longer "in use"
+
+
+# ── Config start date + re-align ───────────────────────────────────────────
+def test_new_interval_config_defaults_start_date_to_today():
+    s = FakePlantStore()
+    cid = _cfg(s)
+    assert s.get_config(cid)['start_date'] == T
+    assert svc.build_payload(s, T)['configs'][0]['start_date'] == T.isoformat()
+    wk = _cfg(s, name='w', style='weekdays', weekdays=[1], start_date='2026-10-01')
+    assert s.get_config(wk)['start_date'] is None               # weekday plans don't use one
+    with pytest.raises(svc.PlantError):
+        _cfg(s, name='bad', start_date='not-a-date')
+
+
+def test_realign_marks_rhythm_and_never_touches_recorded_days():
+    s = FakePlantStore()
+    pid = _mk(s)
+    _backdate(s, pid, date(2026, 10, 1))
+    svc.build_payload(s, T)                       # 14 days materialized while the plant was manual
+    # recorded days: a manual watering on 10/11 and a confirmed auto watering on 10/5
+    svc.add_event(s, pid, {'event_type': 'water', 'event_at': '2026-10-11T08:00'}, T)
+    s.days[(pid, date(2026, 10, 5))].update(auto_confirmed=True, watered=True)
+    s.days[(pid, date(2026, 10, 7))]['auto_expected'] = True                    # stale old-rhythm mark
+    # the drip timer has been running every 3 days since 9/29 → 10/2, 10/5, 10/8, 10/11, 10/14
+    cid = _cfg(s, interval_days=3, start_date='2026-09-29', plant_ids=[pid])
+    n = svc.realign_config(s, cid, T)
+    expected = sorted(d.day for (p, d), r in s.days.items() if p == pid and r['auto_expected'])
+    assert expected == [2, 8, 14]                 # 10/5 and 10/11 are recorded → left as they were
+    assert s.days[(pid, date(2026, 10, 5))]['auto_confirmed'] is True and s.days[(pid, date(2026, 10, 5))]['watered']
+    assert s.days[(pid, date(2026, 10, 11))]['watered'] is True
+    assert n == 4                                 # 3 marked + the stale 10/7 cleared
+
+
+def test_realign_unknown_config_is_404():
+    s = FakePlantStore()
+    with pytest.raises(svc.PlantError) as e:
+        svc.realign_config(s, 999, T)
+    assert e.value.status == 404

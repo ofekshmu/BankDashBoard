@@ -197,7 +197,7 @@ def test_configs_crud_flow(client):
                                                  'weekdays': [0, 3], 'time': '07:00', 'plant_ids': [1]}).get_json()
     cid = d['created_id']
     assert d['configs'] == [{'id': cid, 'name': 'טפטפת', 'style': 'weekdays', 'interval_days': None,
-                             'weekdays': [0, 3], 'time': '07:00', 'plant_count': 1}]
+                             'weekdays': [0, 3], 'time': '07:00', 'start_date': None, 'plant_count': 1}]
     assert d['plants'][0]['config_id'] == cid
     assert client.get('/api/plants/configs').get_json()['configs'][0]['id'] == cid
     d = client.put(f'/api/plants/configs/{cid}', json={'today': TODAY, 'time': '08:15'}).get_json()
@@ -221,3 +221,15 @@ def test_dead_archive_revive_flow(client):
     d = client.post('/api/plants/1/revive', json={'today': TODAY}).get_json()
     assert [p['id'] for p in d['plants']] == [1]
     assert client.post('/api/plants/1/revive', json={'today': TODAY}).status_code == 400
+
+
+def test_config_start_date_and_realign_route(client):
+    _create(client, irrigation_mode='manual')
+    d = client.post('/api/plants/configs', json={'today': TODAY, 'name': 'טפטפת', 'style': 'interval',
+                                                 'interval_days': 2, 'start_date': '2026-10-12', 'time': '07:00',
+                                                 'plant_ids': [1]}).get_json()
+    cid = d['created_id']
+    assert d['configs'][0]['start_date'] == '2026-10-12'
+    d = client.post(f'/api/plants/configs/{cid}/realign', json={'today': TODAY}).get_json()
+    assert d['ok'] and 'realigned' in d
+    assert client.post('/api/plants/configs/999/realign', json={'today': TODAY}).status_code == 404

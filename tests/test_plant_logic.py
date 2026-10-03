@@ -1,7 +1,7 @@
 from datetime import date
 
 from src_utils.plant_logic import (
-    materialize_rows, plant_status, season_key, timeline_window, build_summary,
+    materialize_rows, plant_status, season_key, timeline_window, build_summary, is_expected_on,
 )
 
 
@@ -116,3 +116,27 @@ def test_schedule_ignored_for_manual_plants():
     sched = {'style': 'weekdays', 'weekdays': list(range(7)), 'interval_days': None, 'time': '07:00'}
     rows = materialize_rows(_plant(), None, date(2026, 10, 5), set(), sched)
     assert not any(r['auto_expected'] for r in rows)
+
+
+# ── Config start date: a fixed rhythm like a real timer ────────────────────
+def test_interval_schedule_with_start_date_follows_fixed_rhythm():
+    p = _plant(irrigation_mode='auto', created_at=date(2026, 10, 1))
+    sched = {'style': 'interval', 'interval_days': 3, 'weekdays': None, 'time': '07:00',
+             'start_date': date(2026, 9, 29)}            # started before the plant was added
+    rows = materialize_rows(p, None, date(2026, 10, 10), {date(2026, 10, 3)}, sched)
+    # 9/29 + 3k → 10/2, 10/5, 10/8 — a manual watering on 10/3 does not shift it
+    assert [r['day'].day for r in rows if r['auto_expected']] == [2, 5, 8]
+
+
+def test_start_date_in_future_means_nothing_expected_before_it():
+    p = _plant(irrigation_mode='auto')
+    sched = {'style': 'interval', 'interval_days': 2, 'weekdays': None, 'time': '07:00',
+             'start_date': date(2026, 10, 5)}
+    rows = materialize_rows(p, None, date(2026, 10, 8), set(), sched)
+    assert [r['day'].day for r in rows if r['auto_expected']] == [5, 7]
+
+
+def test_is_expected_helper_matches_materialize():
+    sched = {'style': 'weekdays', 'weekdays': [3], 'interval_days': None, 'time': '07:00', 'start_date': None}
+    assert is_expected_on(sched, _plant(irrigation_mode='auto'), date(2026, 10, 14), set()) is True
+    assert is_expected_on(sched, _plant(irrigation_mode='auto'), date(2026, 10, 13), set()) is False

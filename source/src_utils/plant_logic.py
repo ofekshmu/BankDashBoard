@@ -27,7 +27,24 @@ def weekday_index(day):
 def plant_schedule(plant):
     """The schedule an auto plant has without a config: every `interval_days` at `auto_time`."""
     return {'style': 'interval', 'interval_days': plant['interval_days'], 'weekdays': None,
-            'time': plant.get('auto_time')}
+            'time': plant.get('auto_time'), 'start_date': None}
+
+
+def is_expected_on(schedule, plant, day, water_dates):
+    """Whether an automatic watering is scheduled on `day`.
+
+    weekdays: the day's weekday is selected. Every N days with a start date: a fixed rhythm from that
+    date, like a real timer (manual waterings don't shift it). Without a start date (older plans):
+    N days after the plant's last watering before `day`, or after its creation.
+    """
+    if schedule['style'] == 'weekdays':
+        return weekday_index(day) in schedule['weekdays']
+    start = schedule.get('start_date')
+    if start:
+        gap = (day - start).days
+        return gap >= 0 and gap % schedule['interval_days'] == 0
+    anchor = _last_water_before(water_dates, day) or plant['created_at']
+    return is_auto_expected(day, anchor, schedule['interval_days'])
 
 
 def _last_water_before(water_dates, day):
@@ -45,13 +62,7 @@ def materialize_rows(plant, last_day, today, water_dates, schedule=None):
     d = last_day + timedelta(days=1) if last_day else plant['created_at']
     rows = []
     while d <= today:
-        expected = False
-        if plant['irrigation_mode'] == 'auto':
-            if schedule['style'] == 'weekdays':
-                expected = weekday_index(d) in schedule['weekdays']
-            else:
-                anchor = _last_water_before(water_dates, d) or plant['created_at']
-                expected = is_auto_expected(d, anchor, schedule['interval_days'])
+        expected = plant['irrigation_mode'] == 'auto' and is_expected_on(schedule, plant, d, water_dates)
         rows.append({'plant_id': plant['id'], 'day': d, 'soil_status': None,
                      'watered': d in water_dates, 'auto_expected': expected,
                      'auto_confirmed': False})

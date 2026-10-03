@@ -96,6 +96,10 @@ def test_configs_roundtrip(store):
                            'created_at': date(2026, 10, 1), 'config_id': cid})
     assert store.get_plant(pid)['config_id'] == cid
     assert cid in [x['id'] for x in store.list_configs()]
+    store.update_config(cid, {'start_date': date(2026, 9, 29)})
+    assert store.get_config(cid)['start_date'] == date(2026, 9, 29)
+    store.upsert_day(pid, date(2026, 10, 2), auto_expected=True)
+    assert store.get_days([pid], date(2026, 10, 2), date(2026, 10, 2))[pid][0]['auto_expected'] is True
     store.update_plant(pid, {'config_id': None})
     store.soft_delete_config(cid)
     assert cid in [x['id'] for x in store.list_configs(deleted=True)]

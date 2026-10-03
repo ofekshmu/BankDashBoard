@@ -186,6 +186,11 @@ def api_plant_configs():
         return jsonify({'ok': False, 'error': str(e)}), 500
 
 
+@plants_bp.route('/api/plants/configs/<int:cid>/realign', methods=['POST'])
+def api_plant_config_realign(cid):
+    return _respond(lambda s, t: {'realigned': svc.realign_config(s, cid, t)})
+
+
 @plants_bp.route('/api/plants/configs/<int:cid>', methods=['PUT', 'DELETE'])
 def api_plant_config(cid):
     if request.method == 'DELETE':

@@ -17,12 +17,13 @@ _PLANT_UPDATABLE = {
     'room_id': 'Room_ID', 'config_id': 'Config_ID',
     'died_at': 'Died_At', 'death_cause': 'Death_Cause', 'death_note': 'Death_Note',
 }
-_DAY_UPDATABLE = {'soil_status': 'Soil_Status', 'watered': 'Watered', 'auto_confirmed': 'Auto_Confirmed'}
+_DAY_UPDATABLE = {'soil_status': 'Soil_Status', 'watered': 'Watered', 'auto_confirmed': 'Auto_Confirmed',
+                  'auto_expected': 'Auto_Expected'}
 _EVENT_COLS = 'ID, Plant_ID, Event_Type, Event_At, Source, Note'
 _ROOM_COLS = 'ID, Name, Sort_Order, Deleted_At'
-_CONFIG_COLS = 'ID, Name, Style, Interval_Days, Weekdays, Water_Time, Deleted_At'
+_CONFIG_COLS = 'ID, Name, Style, Interval_Days, Weekdays, Water_Time, Deleted_At, Start_Date'
 _CONFIG_UPDATABLE = {'name': 'Name', 'style': 'Style', 'interval_days': 'Interval_Days',
-                     'weekdays': 'Weekdays', 'time': 'Water_Time'}
+                     'weekdays': 'Weekdays', 'time': 'Water_Time', 'start_date': 'Start_Date'}
 
 
 def _plant(r):
@@ -40,7 +41,7 @@ def _room(r):
 def _config(r):
     return {'id': r[0], 'name': r[1], 'style': r[2], 'interval_days': r[3],
             'weekdays': [int(x) for x in r[4].split(',')] if r[4] else [],
-            'time': r[5], 'deleted_at': r[6]}
+            'time': r[5], 'deleted_at': r[6], 'start_date': r[7]}
 
 
 def _weekdays_sql(f):
@@ -113,6 +114,7 @@ class PlantStore:
             )
         """)
         self._q("ALTER TABLE Plants ADD COLUMN IF NOT EXISTS Config_ID INTEGER REFERENCES IrrigationConfigs(ID)")
+        self._q("ALTER TABLE IrrigationConfigs ADD COLUMN IF NOT EXISTS Start_Date DATE")
         # A dead plant is archived: off the main page, history kept, revivable.
         self._q("ALTER TABLE Plants ADD COLUMN IF NOT EXISTS Died_At DATE")
         self._q("ALTER TABLE Plants ADD COLUMN IF NOT EXISTS Death_Cause TEXT")
@@ -230,9 +232,10 @@ class PlantStore:
 
     def add_config(self, f):
         f = _weekdays_sql(f)
-        r = self._q('INSERT INTO IrrigationConfigs (Name, Style, Interval_Days, Weekdays, Water_Time) '
-                    'VALUES (%s, %s, %s, %s, %s) RETURNING ID',
-                    (f['name'], f['style'], f.get('interval_days'), f.get('weekdays'), f['time'])).fetchone()
+        r = self._q('INSERT INTO IrrigationConfigs (Name, Style, Interval_Days, Weekdays, Water_Time, Start_Date) '
+                    'VALUES (%s, %s, %s, %s, %s, %s) RETURNING ID',
+                    (f['name'], f['style'], f.get('interval_days'), f.get('weekdays'), f['time'],
+                     f.get('start_date'))).fetchone()
         self._commit()
         return r[0]
 

@@ -93,11 +93,11 @@ class FakePlantStore:
         cid = max(self.configs, default=0) + 1
         self.configs[cid] = {'id': cid, 'name': f['name'], 'style': f['style'],
                              'interval_days': f.get('interval_days'), 'weekdays': list(f.get('weekdays') or []),
-                             'time': f['time'], 'deleted_at': None}
+                             'time': f['time'], 'deleted_at': None, 'start_date': f.get('start_date')}
         return cid
 
     def update_config(self, cid, f):
-        for k in ('name', 'style', 'interval_days', 'weekdays', 'time'):
+        for k in ('name', 'style', 'interval_days', 'weekdays', 'time', 'start_date'):
             if k in f:
                 self.configs[cid][k] = list(f[k] or []) if k == 'weekdays' else f[k]
 

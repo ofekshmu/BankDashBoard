@@ -1,5 +1,6 @@
 import os
 import threading
+import time
 import psycopg2
 import psycopg2.pool
 from dotenv import load_dotenv
@@ -91,14 +92,21 @@ class _ChainableCursor:
                 self._conn.rollback()
             except Exception:
                 pass
+        # Only a statement that starts a new transaction can be safely replayed on a fresh
+        # connection; mid-transaction, the earlier statements died with the old connection.
+        starts_transaction = (not self._conn.closed and self._conn.get_transaction_status() ==
+                              psycopg2.extensions.TRANSACTION_STATUS_IDLE)
         try:
             self._c = self._conn.cursor()
             self._c.execute(sql, params)
-        except psycopg2.OperationalError:
-            # Neon (and other cloud Postgres) closes idle SSL connections
-            # server-side without updating psycopg2's connection.closed flag.
-            # Force a fresh connection (for this thread only) and retry once.
-            self._owner._connect_thread()
+        except psycopg2.Error as e:
+            # Neon closes idle SSL connections server-side (pooler idle timeout,
+            # compute auto-suspend) without updating psycopg2's state until the
+            # next query fails — as OperationalError ("SSL connection has been
+            # closed unexpectedly") or DatabaseError ("SSL SYSCALL error").
+            if not (starts_transaction and _connection_lost(self._conn, e)):
+                raise
+            self._owner._replace_thread_connection()
             self._conn = self._owner.connection
             self._c = self._conn.cursor()
             self._c.execute(sql, params)
@@ -122,6 +130,26 @@ class _ChainableCursor:
         if self._c is not None:
             return getattr(self._c, name)
         raise AttributeError(name)
+
+
+def _connection_lost(conn, error):
+    """True when `error` means the connection itself is gone (not a bad query).
+
+    A dropped SSL connection doesn't always mark the connection closed and may surface as a plain
+    DatabaseError ("SSL SYSCALL error"), so: an error carrying a SQLSTATE came from a live server
+    (the query was bad); anything else is confirmed with a ping.
+    """
+    if conn.closed:
+        return True
+    if getattr(error, 'pgcode', None):
+        return False
+    try:
+        probe = conn.cursor()
+        probe.execute('SELECT 1')
+        probe.close()
+        return False
+    except psycopg2.Error:
+        return True
 
 
 # ----------------------------------------------------------------------
@@ -196,14 +224,65 @@ class DataBase:
                     # each paying a full connect() while blocking the rest.
                     # minconn=6 covers the app's largest known burst (the
                     # Spotify page's 5 parallel fetches) with headroom.
+                    # TCP keepalives let the OS notice a dropped connection
+                    # quickly instead of hanging on it.
                     cls.__pool = psycopg2.pool.ThreadedConnectionPool(
-                        6, 10, os.environ['DATABASE_URL']
+                        6, 10, os.environ['DATABASE_URL'],
+                        keepalives=1, keepalives_idle=30, keepalives_interval=10, keepalives_count=3,
                     )
         return cls.__pool
 
-    def _connect_thread(self):
-        """Borrow a connection from the pool for the CURRENT thread."""
-        conn = DataBase._get_pool().getconn()
+    # A pooled connection idle longer than this is checked with SELECT 1 before use: Neon drops
+    # idle connections server-side (pooler idle timeout, compute auto-suspend after a few minutes),
+    # and the first query on such a connection fails with "SSL connection has been closed
+    # unexpectedly". Recently used connections skip the check (no extra round-trip).
+    STALE_AFTER_SECONDS = 30
+    __idle_since = {}          # id(connection) -> time.monotonic() when it went back to the pool
+
+    @classmethod
+    def _mark_idle_since(cls, conn, when):
+        cls.__idle_since[id(conn)] = when
+
+    @classmethod
+    def _discard(cls, conn):
+        """Close a dead connection and free its pool slot."""
+        cls.__idle_since.pop(id(conn), None)
+        try:
+            cls._get_pool().putconn(conn, close=True)
+        except Exception:
+            pass
+
+    @classmethod
+    def _checkout(cls, verify_all=False):
+        """Borrow a working connection: stale ones are pinged, dead ones discarded.
+
+        verify_all: ping even recently used connections — after one connection turned out dead, the
+        rest of the pool was likely dropped at the same time (e.g. Neon compute suspend).
+        """
+        pool = cls._get_pool()
+        last_error = None
+        for _ in range(pool.maxconn + 1):      # enough to cycle through every pooled connection
+            conn = pool.getconn()
+            idle_since = cls.__idle_since.pop(id(conn), None)
+            if conn.closed:
+                cls._discard(conn)
+                continue
+            if not verify_all and idle_since is not None and time.monotonic() - idle_since < cls.STALE_AFTER_SECONDS:
+                return conn
+            try:
+                probe = conn.cursor()
+                probe.execute('SELECT 1')
+                probe.close()
+                conn.rollback()
+                return conn
+            except psycopg2.Error as e:
+                last_error = e
+                cls._discard(conn)
+        raise psycopg2.OperationalError(f'no working database connection: {last_error}')
+
+    def _connect_thread(self, verify_all=False):
+        """Borrow a (verified) connection from the pool for the CURRENT thread."""
+        conn = DataBase._checkout(verify_all)
         conn.autocommit = False
         # Return numeric/decimal columns as float instead of decimal.Decimal so
         # existing arithmetic (Decimal + float) doesn't raise TypeError.
@@ -232,10 +311,23 @@ class DataBase:
             return
         inst._local.connection = None
         inst._local.cursor = None
+        if conn.closed:
+            cls._discard(conn)
+            return
+        cls._mark_idle_since(conn, time.monotonic())
         try:
-            DataBase._get_pool().putconn(conn, close=conn.closed)
+            DataBase._get_pool().putconn(conn)
         except Exception:
             pass
+
+    def _replace_thread_connection(self):
+        """Drop this thread's (dead) connection and borrow a working one."""
+        conn = self.connection
+        self._local.connection = None
+        self._local.cursor = None
+        if conn is not None:
+            DataBase._discard(conn)
+        self._connect_thread(verify_all=True)
 
     @property
     def connection(self):
@@ -261,7 +353,7 @@ class DataBase:
             try:
                 conn.rollback()
             except Exception:
-                self._connect_thread()
+                self._replace_thread_connection()
         elif conn.closed:
             pass  # handled by the block below (kept separate: it also recreates tables)
         else:
@@ -287,11 +379,11 @@ class DataBase:
                     self.connection.rollback()
                 except Exception:
                     pass
-                self._connect_thread()
+                self._replace_thread_connection()
 
         if self.connection.closed:
             # Connection dropped (e.g. Neon idle timeout) — reconnect transparently.
-            self._connect_thread()
+            self._replace_thread_connection()
 
         with DataBase.__bootstrap_lock:
             if not DataBase.__tables_bootstrapped:

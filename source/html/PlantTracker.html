@@ -279,6 +279,10 @@ input[type="date"].field-input { padding: 0 10px; appearance: none; -webkit-appe
 .pt-unsaved { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; background: #fff8e6; border: 1.5px solid var(--amber); border-radius: 10px; padding: 10px 12px; margin: 22px 0 14px; font-size: .85em; font-weight: 600; color: #7a5600; }
 .pt-unsaved span { flex: 1 0 100%; }
 .pt-pcard.pending { opacity: .65; pointer-events: none; }
+.pt-arch-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.pt-arch-row > div { flex: 1; min-width: 0; }
+.pt-arch-row svg { filter: grayscale(.85); opacity: .8; flex-shrink: 0; }
+.pt-arch-note { font-size: .78em; color: var(--text-sub); margin-top: 3px; }
 .pt-restore-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: .88em; }
 .pt-restore-row span { flex: 1; }
 .pt-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
@@ -362,6 +366,7 @@ input[type="date"].field-input { padding: 0 10px; appearance: none; -webkit-appe
     <button class="btn btn-ghost btn-sm" onclick="refresh()" title="רענון מהשרת">↻</button>
     <button class="btn btn-ghost btn-sm" onclick="openConfigs()">תוכניות השקיה</button>
     <button class="btn btn-ghost btn-sm" onclick="openRooms()">חדרים</button>
+    <button class="btn btn-ghost btn-sm" onclick="openArchive()">ארכיון</button>
     <button class="btn btn-ghost btn-sm" onclick="openDeleted()">נמחקו</button>
     <button class="btn btn-primary btn-sm" onclick="openPlantModal(null)">+ עציץ חדש</button>
   </div>
@@ -408,6 +413,14 @@ input[type="date"].field-input { padding: 0 10px; appearance: none; -webkit-appe
     <div class="modal-title">חדרים</div><div id="rooms-body"></div></div>
 </div>
 <button class="pt-fab" id="pt-fab" onclick="toggleSugg()" style="display:none" aria-pressed="true">💡 המלצות <b id="pt-fab-count">0</b></button>
+<div class="modal-backdrop" id="dead-modal" onclick="if(event.target===this)requestLeave('dead-modal')">
+  <div class="modal"><button class="modal-close-btn" onclick="requestLeave('dead-modal')" aria-label="סגור">✕</button>
+    <div id="dead-body"></div></div>
+</div>
+<div class="modal-backdrop" id="archive-modal" onclick="if(event.target===this)closeModal('archive-modal')">
+  <div class="modal"><button class="modal-close-btn" onclick="closeModal('archive-modal')" aria-label="סגור">✕</button>
+    <div class="modal-title">ארכיון — עציצים שמתו</div><div id="archive-body"></div></div>
+</div>
 <div class="pt-toast" id="pt-toast"></div>
 
 <script>
@@ -479,6 +492,10 @@ var PLANT_TYPES = [['monstera','מונסטרה'],['fern','שרך'],['cactus','ק
                    ['thyme','טימין'],
                    ['pentas','פנטס'],
                    ['angelonia','אנג\'לוניה'],
+                   ['zz','זמיוקולקס'],
+                   ['birdsnest','אספלניום'],
+                   ['philodendron','פילודנדרון'],
+                   ['snake','סנסיווריה'],
                    ['spiky','עלים דוקרניים'],
                    ['strap','עלים מאורכים'],
                    ['conifer','מחטני'],
@@ -514,7 +531,11 @@ var GLYPHS = {
   spiky:     '<path d="M18 40h12l-1-4h-10z"/><path d="M24 36Q15.7 32.8 9.9 30.9M24 36Q14.7 29.4 8.2 25.4M24 36Q14.9 25.4 8.6 18.9M24 36Q16.8 21.8 11.8 13M24 36Q20 19.2 17.2 8.8M24 36Q24 17.4 24 6M24 36Q28 19.2 30.8 8.8M24 36Q31.2 21.8 36.2 13M24 36Q33.1 25.4 39.4 18.9M24 36Q33.3 29.4 39.8 25.4M24 36Q32.3 32.8 38.1 30.9"/>',
   strap:     '<path d="M16 40h16l-1.5-5h-13z"/><path d="M24 35Q17.3 22.4 11.3 14.6M24 35Q19.8 17.7 16 7.1M24 35Q24 15.8 24 4M24 35Q28.2 17.7 32 7.1M24 35Q30.7 22.4 36.7 14.6"/>',
   conifer:   '<path d="M24 5l-4 8h3l-5 9h3l-6 9h18l-6-9h3l-5-9h3z"/><path d="M24 31v4M19 40h10l-1-5h-8z"/>',
-  shrub:     '<path d="M24 38V12M24 30l-8-10M24 26l8-12M24 22l-6-8M16 20l-3-6M32 14l2-6"/><path d="M16 20l-3 1M24 17l3-2M28 20l3 1M20 25l-3-1M19 16l-3-1"/>'
+  shrub:     '<path d="M24 38V12M24 30l-8-10M24 26l8-12M24 22l-6-8M16 20l-3-6M32 14l2-6"/><path d="M16 20l-3 1M24 17l3-2M28 20l3 1M20 25l-3-1M19 16l-3-1"/>',
+  zz:           '<path d="M16 40h16l-1.5-5h-13z"/><path d="M20 35C19 26 17 18 13 10M24 35V7M28 35C29 26 31 18 35 11"/><ellipse cx="21" cy="11" rx="1.7" ry="3.2" transform="rotate(-45 21 11)"/><ellipse cx="27" cy="11" rx="1.7" ry="3.2" transform="rotate(45 27 11)"/><ellipse cx="21" cy="18" rx="1.7" ry="3.2" transform="rotate(-45 21 18)"/><ellipse cx="27" cy="18" rx="1.7" ry="3.2" transform="rotate(45 27 18)"/><ellipse cx="21" cy="25" rx="1.7" ry="3.2" transform="rotate(-45 21 25)"/><ellipse cx="27" cy="25" rx="1.7" ry="3.2" transform="rotate(45 27 25)"/><ellipse cx="13.5" cy="15.5" rx="1.7" ry="3.2" transform="rotate(-60 13.5 15.5)"/><ellipse cx="17.5" cy="22" rx="1.7" ry="3.2" transform="rotate(-60 17.5 22)"/><ellipse cx="34.5" cy="16.5" rx="1.7" ry="3.2" transform="rotate(60 34.5 16.5)"/><ellipse cx="30.5" cy="23" rx="1.7" ry="3.2" transform="rotate(60 30.5 23)"/>',
+  birdsnest:    '<path d="M16 40h16l-1.5-5h-13z"/><path d="M24 35Q18.8 25.8 9.1 21.6Q14.3 30.8 24 35z"/><path d="M24 35L12.1 24.3"/><path d="M24 35Q21.8 21.7 13.4 11.2Q15.6 24.5 24 35z"/><path d="M24 35L15.5 16"/><path d="M24 35Q27.4 20.5 24 6Q20.6 20.5 24 35z"/><path d="M24 35L24 11.8"/><path d="M24 35Q32.4 24.5 34.6 11.2Q26.2 21.7 24 35z"/><path d="M24 35L32.5 16"/><path d="M24 35Q33.7 30.8 38.9 21.6Q29.2 25.8 24 35z"/><path d="M24 35L35.9 24.3"/>',
+  philodendron: '<path d="M24 40V6"/><path d="M17 30.4c-5.7 -3.8 -8.5 -8.5 -6.6 -12.3c0.9 -2.8 4.8 -3.8 6.6 -0.9c1.9 -2.8 5.7 -1.9 6.6 0.9c1.9 3.8 -0.9 8.5 -6.6 12.3z"/><path d="M31 17.4c-4.8 -3.2 -7.2 -7.2 -5.6 -10.4c0.8 -2.4 4 -3.2 5.6 -0.8c1.6 -2.4 4.8 -1.6 5.6 0.8c1.6 3.2 -0.8 7.2 -5.6 10.4z"/><path d="M24 36c-3-1-5-3-7-5.5M24 22c2-1 4-3 7-4.6M24 30c3 0 5 1 6 3"/>',
+  snake:        '<path d="M16 40h16l-1.5-5h-13z"/><path d="M19 35C17 25 16 16 18 7C20 16 22 25 22 35z"/><path d="M24 35C22.5 23 22.5 12 25 3C27 12 27.5 23 26.5 35z"/><path d="M28 35C30 26 32 18 34 11C34 19 33 27 31 35z"/><path d="M23.4 11h3M23.2 17h3.6M23.2 23h3.6M23.4 29h3"/>'
 };
 
 // ── Helpers ────────────────────────────────────────────────────
@@ -669,7 +690,8 @@ function recountSummary(st){
 var GUARDS = {
   'plant-modal':   {dirty: function(){ return plantDirty(); }, save: function(){ return savePlant(); }, discard: function(){ editCtx = null; }},
   'configs-modal': {dirty: function(){ return cfgDirty(); },   save: function(){ return saveConfig(); }, discard: function(){ cfgCtx = null; }},
-  'rooms-modal':   {dirty: function(){ return roomsDirty(); }, save: function(){ return saveAllRooms(); }, discard: function(){}}
+  'rooms-modal':   {dirty: function(){ return roomsDirty(); }, save: function(){ return saveAllRooms(); }, discard: function(){}},
+  'dead-modal':    {dirty: function(){ return deadDirty(); },  save: function(){ return saveDead(); },   discard: function(){ deadCtx = null; }}
 };
 // Leave a popup (close it, or go back inside it); with unsaved edits, ask first.
 function requestLeave(id, leave){
@@ -734,6 +756,7 @@ function render(){
   if (isOpen('rooms-modal')) renderRoomsManager();
   if (isOpen('configs-modal') && !cfgCtx) renderConfigList();
   if (isOpen('deleted-modal')) renderDeletedList();
+  if (isOpen('archive-modal')) renderArchiveList();
 }
 
 function renderSummary(){
@@ -1055,7 +1078,8 @@ function renderPlantModal(){
       : '<div class="field-row"><label class="field-label" for="pm-interval">כל כמה ימים</label>' +
           '<input class="field-input" type="number" min="1" max="60" id="pm-interval" value="' + e.interval_days + '" oninput="editCtx.interval_days=this.value;pmDirty()"></div>') +
     '<div class="modal-footer">' +
-      (e.id ? '<button class="btn btn-danger" style="margin-left:auto" onclick="deletePlant()">מחיקה</button>' : '') +
+      (e.id ? '<button class="btn btn-danger" onclick="deletePlant()">מחיקה</button>' +
+              '<button class="btn btn-ghost" style="margin-left:auto" onclick="requestLeave(\'plant-modal\', function(){ var id = editCtx.id; closeModal(\'plant-modal\'); openDead(id); })">🥀 סמן כמת</button>' : '') +
       '<button class="btn btn-ghost" onclick="requestLeave(\'plant-modal\')">ביטול</button>' +
       '<button id="pm-save" class="btn btn-primary' + (plantDirty() ? ' dirty' : '') + '" onclick="savePlant()">שמירה</button></div>';
 }
@@ -1130,6 +1154,87 @@ function restorePlant(id){
     deletedPlants = deletedPlants.filter(function(x){ return x.id !== id; });
     if (p && !findIn(st.plants, id)) st.plants.push(p);
   }, 'העציץ שוחזר');
+}
+
+// ── Dead plants → archive ──────────────────────────────────────
+var CAUSE_LABELS = {overwater: 'השקיית יתר', underwater: 'חוסר מים', pests: 'מזיקים', temperature: 'חום / קור', unknown: 'לא ידוע'};
+var deadCtx = null, archivePlants = [];
+function deadDirty(){ return !!deadCtx && (deadCtx.died_at !== TODAY || deadCtx.cause !== 'unknown' || deadCtx.note.trim() !== ''); }
+function deadMarkDirty(){ setDirtyClass('dead-save', deadDirty()); }
+function openDead(pid){
+  if (stillSaving(pid)) return;
+  deadCtx = {id: pid, died_at: TODAY, cause: 'unknown', note: ''};
+  renderDead();
+  openModal('dead-modal');
+}
+function deadSet(k, v){ deadCtx[k] = v; renderDead(); }
+function renderDead(){
+  var c = deadCtx, p = plantById(c.id);
+  if (!p) { closeModal('dead-modal'); deadCtx = null; return; }
+  var causes = Object.keys(CAUSE_LABELS).map(function(k){
+    return '<button class="' + (c.cause === k ? 'on' : '') + '" onclick="deadSet(\'cause\',\'' + k + '\')">' + CAUSE_LABELS[k] + '</button>';
+  }).join('');
+  document.getElementById('dead-body').innerHTML =
+    '<div class="modal-title" style="display:flex;align-items:center;gap:10px">' + plantIcon(p.plant_type, p.color, p.name, 36) +
+      '<span>🥀 ' + esc(p.name) + ' — העברה לארכיון</span></div>' +
+    '<div class="field-row"><label class="field-label" for="dead-date">תאריך</label>' +
+      '<input class="field-input" type="date" id="dead-date" value="' + c.died_at + '" min="' + p.created_at + '" max="' + TODAY + '" ' +
+      'oninput="deadCtx.died_at=this.value;deadMarkDirty()"></div>' +
+    '<div class="field-row"><span class="field-label">סיבה</span><div class="pt-seg">' + causes + '</div></div>' +
+    '<div class="field-row"><label class="field-label" for="dead-note">הערה (לא חובה)</label>' +
+      '<input class="field-input" id="dead-note" maxlength="200" placeholder="מה למדנו?" value="' + esc(c.note) + '" ' +
+      'oninput="deadCtx.note=this.value;deadMarkDirty()"></div>' +
+    '<div class="pt-plant-meta" style="white-space:normal">העציץ יוסר מהדף, ההיסטוריה שלו נשמרת ואפשר להחיות אותו מהארכיון.</div>' +
+    '<div class="modal-footer"><button class="btn btn-ghost" onclick="requestLeave(\'dead-modal\')">ביטול</button>' +
+      '<button id="dead-save" class="btn btn-danger' + (deadDirty() ? ' dirty' : '') + '" onclick="saveDead()">העבר לארכיון</button></div>';
+}
+// Returns false when the form is invalid (the popup then stays open).
+function saveDead(){
+  var c = deadCtx;
+  if (!c) return true;
+  if (!c.died_at || c.died_at > TODAY) { toast('תאריך לא תקין', true); return false; }
+  var p = plantById(c.id), note = c.note.trim();
+  mutate('POST', '/api/plants/' + c.id + '/dead', {died_at: c.died_at, cause: c.cause, note: note}, function(st){
+    st.plants = st.plants.filter(function(x){ return x.id !== c.id; });
+    dropSuggestions(st, c.id);
+    if (p) archivePlants.unshift(Object.assign({}, p, {died_at: c.died_at, cause: c.cause, note: note || null,
+      lifespan_days: daysBetween(p.created_at, c.died_at), waterings: null}));
+  }, (p ? p.name : 'העציץ') + ' הועבר לארכיון');
+  deadCtx = null;
+  closeModal('dead-modal');
+  return true;
+}
+function fmtDate(iso){ var d = parseDay(iso); return d.getDate() + '/' + (d.getMonth() + 1) + '/' + d.getFullYear(); }
+function fmtLifespan(n){ return n < 60 ? n + ' ימים' : n < 730 ? Math.round(n / 30.4) + ' חודשים' : (n / 365).toFixed(1) + ' שנים'; }
+function renderArchiveList(){
+  document.getElementById('archive-body').innerHTML = archivePlants.length ? archivePlants.map(function(p){
+    return '<div class="pt-arch-row">' + plantIcon(p.plant_type, p.color, p.name, 36) +
+      '<div><div class="pt-cfg-name">' + esc(p.name) + '</div>' +
+      '<div class="pt-plant-meta">🥀 ' + fmtDate(p.died_at) + ' · חי ' + fmtLifespan(p.lifespan_days) +
+        ' · ' + CAUSE_LABELS[p.cause || 'unknown'] + (p.waterings != null ? ' · ' + p.waterings + ' השקיות' : '') + '</div>' +
+      (p.note ? '<div class="pt-arch-note">' + esc(p.note) + '</div>' : '') + '</div>' +
+      '<button class="btn btn-ghost btn-sm" onclick="revivePlant(' + p.id + ')">החייאה</button></div>';
+  }).join('') : '<div class="pt-plant-meta">הארכיון ריק 🌱</div>';
+}
+function openArchive(){
+  renderArchiveList();
+  openModal('archive-modal');
+  fetch('/api/plants/archive').then(function(r){ return r.json(); }).then(function(d){
+    if (!d.ok) throw new Error(d.error);
+    archivePlants = d.plants;
+    renderArchiveList();
+  }).catch(function(e){ toast(e.message || 'שגיאה', true); });
+}
+function revivePlant(id){
+  var p = findIn(archivePlants, id);
+  mutate('POST', '/api/plants/' + id + '/revive', {}, function(st){
+    archivePlants = archivePlants.filter(function(x){ return x.id !== id; });
+    if (p && !findIn(st.plants, id)) {
+      var alive = Object.assign({}, p);
+      ['died_at', 'cause', 'note', 'lifespan_days', 'waterings'].forEach(function(k){ delete alive[k]; });
+      st.plants.push(alive);
+    }
+  }, (p ? p.name : 'העציץ') + ' חזר לחיים 🌱');
 }
 
 // ── Irrigation configs ─────────────────────────────────────────

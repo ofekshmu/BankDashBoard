@@ -156,6 +156,25 @@ def api_plant_room_restore(rid):
     return _respond(lambda s, t: svc.restore_room(s, rid))
 
 
+@plants_bp.route('/api/plants/<int:pid>/dead', methods=['POST'])
+def api_plant_dead(pid):
+    return _respond(lambda s, t: svc.mark_dead(s, pid, _body(), t))
+
+
+@plants_bp.route('/api/plants/<int:pid>/revive', methods=['POST'])
+def api_plant_revive(pid):
+    return _respond(lambda s, t: svc.revive(s, pid))
+
+
+@plants_bp.route('/api/plants/archive')
+def api_plants_archive():
+    try:
+        return jsonify({'ok': True, 'plants': svc.archive(get_store())})
+    except Exception as e:
+        logger.exception('plant tracker request failed: %s %s', request.method, request.path)
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
 @plants_bp.route('/api/plants/configs', methods=['GET', 'POST'])
 def api_plant_configs():
     if request.method == 'POST':

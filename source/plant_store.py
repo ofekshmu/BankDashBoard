@@ -8,12 +8,14 @@ transaction they roll back.
 DEFAULT_ROOMS = ('סלון', 'מטבח', 'חדר שינה', 'חדר עבודה', 'מרפסת', 'אמבטיה')
 
 _PLANT_COLS = ('ID, Name, Plant_Type, Color, Irrigation_Mode, Interval_Days, '
-               'Auto_Time, Season_Ack, Created_At, Deleted_At, Interval_Changed_At, Room_ID, Config_ID')
+               'Auto_Time, Season_Ack, Created_At, Deleted_At, Interval_Changed_At, Room_ID, Config_ID, '
+               'Died_At, Death_Cause, Death_Note')
 _PLANT_UPDATABLE = {
     'name': 'Name', 'plant_type': 'Plant_Type', 'color': 'Color',
     'irrigation_mode': 'Irrigation_Mode', 'interval_days': 'Interval_Days',
     'auto_time': 'Auto_Time', 'season_ack': 'Season_Ack', 'interval_changed_at': 'Interval_Changed_At',
     'room_id': 'Room_ID', 'config_id': 'Config_ID',
+    'died_at': 'Died_At', 'death_cause': 'Death_Cause', 'death_note': 'Death_Note',
 }
 _DAY_UPDATABLE = {'soil_status': 'Soil_Status', 'watered': 'Watered', 'auto_confirmed': 'Auto_Confirmed'}
 _EVENT_COLS = 'ID, Plant_ID, Event_Type, Event_At, Source, Note'
@@ -27,7 +29,8 @@ def _plant(r):
     return {'id': r[0], 'name': r[1], 'plant_type': r[2], 'color': r[3],
             'irrigation_mode': r[4], 'interval_days': r[5], 'auto_time': r[6],
             'season_ack': r[7], 'created_at': r[8], 'deleted_at': r[9],
-            'interval_changed_at': r[10], 'room_id': r[11], 'config_id': r[12]}
+            'interval_changed_at': r[10], 'room_id': r[11], 'config_id': r[12],
+            'died_at': r[13], 'death_cause': r[14], 'death_note': r[15]}
 
 
 def _room(r):
@@ -110,6 +113,10 @@ class PlantStore:
             )
         """)
         self._q("ALTER TABLE Plants ADD COLUMN IF NOT EXISTS Config_ID INTEGER REFERENCES IrrigationConfigs(ID)")
+        # A dead plant is archived: off the main page, history kept, revivable.
+        self._q("ALTER TABLE Plants ADD COLUMN IF NOT EXISTS Died_At DATE")
+        self._q("ALTER TABLE Plants ADD COLUMN IF NOT EXISTS Death_Cause TEXT")
+        self._q("ALTER TABLE Plants ADD COLUMN IF NOT EXISTS Death_Note TEXT")
         self._q("""
             CREATE TABLE IF NOT EXISTS PlantEvents (
                 ID          SERIAL    PRIMARY KEY,
@@ -138,8 +145,14 @@ class PlantStore:
 
     # ── Plants ──────────────────────────────────────────────────────────────
     def list_plants(self, deleted=False):
-        cond = 'IS NOT NULL' if deleted else 'IS NULL'
-        rows = self._q(f'SELECT {_PLANT_COLS} FROM Plants WHERE Deleted_At {cond} ORDER BY ID').fetchall()
+        """Living plants, or (deleted=True) soft-deleted ones. Dead plants are in list_dead_plants."""
+        cond = 'Deleted_At IS NOT NULL' if deleted else 'Deleted_At IS NULL AND Died_At IS NULL'
+        rows = self._q(f'SELECT {_PLANT_COLS} FROM Plants WHERE {cond} ORDER BY ID').fetchall()
+        return [_plant(r) for r in rows]
+
+    def list_dead_plants(self):
+        rows = self._q(f'SELECT {_PLANT_COLS} FROM Plants WHERE Deleted_At IS NULL AND Died_At IS NOT NULL '
+                       'ORDER BY Died_At DESC, ID').fetchall()
         return [_plant(r) for r in rows]
 
     def get_plant(self, pid):

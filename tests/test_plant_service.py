@@ -387,7 +387,7 @@ def test_restore_room_with_taken_name_is_rejected():
     assert e.value.status == 404
 
 
-NEW_TYPES = ('kalanchoe', 'geranium', 'petunia', 'adansonii', 'orchid', 'oregano', 'rosemary', 'basil',
+NEW_TYPES = ('zz', 'birdsnest', 'philodendron', 'snake', 'kalanchoe', 'geranium', 'petunia', 'adansonii', 'orchid', 'oregano', 'rosemary', 'basil',
              'chives', 'thyme', 'pentas', 'angelonia', 'spiky', 'strap', 'conifer', 'shrub')
 
 
@@ -490,3 +490,63 @@ def test_config_plant_suggestions_name_the_config():
         svc.set_soil(s, pid, {'day': (T - timedelta(days=i)).isoformat(), 'soil_status': 'wet'}, T)
     sug = [x for x in svc.build_payload(s, T)['suggestions'] if x['kind'] == 'overwater'][0]
     assert sug['action'] is None and 'טפטפת מרפסת' in sug['text']
+
+
+# ── Dead plants → archive ──────────────────────────────────────────────────
+def test_mark_dead_moves_plant_to_archive():
+    s = FakePlantStore()
+    a, b = _mk(s, name='a'), _mk(s, name='b')
+    _backdate(s, a, date(2026, 9, 1))
+    svc.build_payload(s, T)
+    svc.add_event(s, a, {'event_type': 'water', 'event_at': '2026-10-10T08:00'}, T)
+    svc.mark_dead(s, a, {'died_at': '2026-10-12', 'cause': 'overwater', 'note': ' שורשים רקובים '}, T)
+    p = svc.build_payload(s, T)
+    assert [x['id'] for x in p['plants']] == [b]
+    assert all(x['plant_id'] != a for x in p['suggestions'])
+    arch = svc.archive(s)
+    assert len(arch) == 1 and arch[0]['id'] == a
+    assert arch[0]['died_at'] == '2026-10-12' and arch[0]['cause'] == 'overwater' and arch[0]['note'] == 'שורשים רקובים'
+    assert arch[0]['lifespan_days'] == 41 and arch[0]['waterings'] == 1 and arch[0]['last_water'] == '2026-10-10'
+
+
+def test_mark_dead_validates():
+    s = FakePlantStore()
+    pid = _mk(s)
+    for bad in ({'died_at': '2026-10-15'}, {'died_at': 'x'}, {'cause': 'boredom'}, {'note': 'x' * 201}):
+        with pytest.raises(svc.PlantError):
+            svc.mark_dead(s, pid, bad, T)
+    with pytest.raises(svc.PlantError) as e:
+        svc.mark_dead(s, 999, {}, T)
+    assert e.value.status == 404
+
+
+def test_mark_dead_defaults_to_today_unknown_cause():
+    s = FakePlantStore()
+    pid = _mk(s)
+    svc.mark_dead(s, pid, {}, T)
+    arch = svc.archive(s)[0]
+    assert arch['died_at'] == T.isoformat() and arch['cause'] == 'unknown' and arch['note'] is None
+
+
+def test_dead_plant_cannot_be_edited_and_can_be_revived():
+    s = FakePlantStore()
+    pid = _mk(s)
+    svc.mark_dead(s, pid, {}, T)
+    with pytest.raises(svc.PlantError) as e:
+        svc.add_event(s, pid, {'event_type': 'water'}, T)
+    assert e.value.status == 404
+    with pytest.raises(svc.PlantError):
+        svc.mark_dead(s, pid, {}, T)
+    svc.revive(s, pid)
+    assert [x['id'] for x in svc.build_payload(s, T)['plants']] == [pid] and svc.archive(s) == []
+    with pytest.raises(svc.PlantError):
+        svc.revive(s, pid)          # not dead anymore
+
+
+def test_dead_plant_leaves_its_config():
+    s = FakePlantStore()
+    pid = _mk(s)
+    cid = _cfg(s, plant_ids=[pid])
+    svc.mark_dead(s, pid, {}, T)
+    assert svc.build_payload(s, T)['configs'][0]['plant_count'] == 0
+    svc.delete_config(s, cid)       # no longer "in use"

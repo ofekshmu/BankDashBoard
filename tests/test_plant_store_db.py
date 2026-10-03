@@ -64,8 +64,7 @@ def test_roundtrip(store):
 
 
 def test_rooms_roundtrip(store):
-    from plant_store import DEFAULT_ROOMS
-    assert set(DEFAULT_ROOMS) <= {r['name'] for r in store.list_rooms()}
+    # The real DB holds the user's own (renamed/deleted) rooms, so only check what this test creates.
     rid = store.add_room('__room_test__')
     assert store.get_room(rid)['name'] == '__room_test__' and store.list_rooms()[-1]['id'] == rid
     store.rename_room(rid, '__room_test_2__')

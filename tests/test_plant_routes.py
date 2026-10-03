@@ -208,3 +208,16 @@ def test_configs_crud_flow(client):
     d = client.delete(f'/api/plants/configs/{cid}', json={'today': TODAY}).get_json()
     assert d['configs'] == [] and d['plants'][0]['irrigation_mode'] == 'manual'
     assert client.put('/api/plants/configs/999', json={'today': TODAY, 'name': 'x'}).status_code == 404
+
+
+# ── Archive ────────────────────────────────────────────────────────────────
+def test_dead_archive_revive_flow(client):
+    _create(client, irrigation_mode='manual')
+    d = client.post('/api/plants/1/dead', json={'today': TODAY, 'died_at': TODAY, 'cause': 'pests', 'note': 'כנימות'}).get_json()
+    assert d['ok'] and d['plants'] == []
+    a = client.get('/api/plants/archive').get_json()
+    assert a['ok'] and a['plants'][0]['id'] == 1 and a['plants'][0]['cause'] == 'pests'
+    assert client.post('/api/plants/1/dead', json={'today': TODAY}).status_code == 404
+    d = client.post('/api/plants/1/revive', json={'today': TODAY}).get_json()
+    assert [p['id'] for p in d['plants']] == [1]
+    assert client.post('/api/plants/1/revive', json={'today': TODAY}).status_code == 400

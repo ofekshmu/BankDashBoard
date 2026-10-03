@@ -20,7 +20,11 @@ class FakePlantStore:
 
     def list_plants(self, deleted=False):
         return [dict(p) for p in sorted(self.plants.values(), key=lambda p: p['id'])
-                if bool(p['deleted_at']) == deleted]
+                if (bool(p['deleted_at']) if deleted else not p['deleted_at'] and not p['died_at'])]
+
+    def list_dead_plants(self):
+        dead = [p for p in self.plants.values() if not p['deleted_at'] and p['died_at']]
+        return [dict(p) for p in sorted(dead, key=lambda p: (-p['died_at'].toordinal(), p['id']))]
 
     def get_plant(self, pid):
         p = self.plants.get(pid)
@@ -37,12 +41,14 @@ class FakePlantStore:
                             'interval_days': f['interval_days'], 'auto_time': f.get('auto_time'),
                             'season_ack': None, 'interval_changed_at': None,
                             'created_at': f['created_at'], 'deleted_at': None,
-                            'room_id': f.get('room_id'), 'config_id': f.get('config_id')}
+                            'room_id': f.get('room_id'), 'config_id': f.get('config_id'),
+                            'died_at': None, 'death_cause': None, 'death_note': None}
         return pid
 
     def update_plant(self, pid, f):
         for k in ('name', 'plant_type', 'color', 'irrigation_mode', 'interval_days', 'auto_time',
-                  'season_ack', 'interval_changed_at', 'room_id', 'config_id'):
+                  'season_ack', 'interval_changed_at', 'room_id', 'config_id',
+                  'died_at', 'death_cause', 'death_note'):
             if k in f:
                 self.plants[pid][k] = f[k]
 

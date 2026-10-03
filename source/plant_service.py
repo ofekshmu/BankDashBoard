@@ -26,9 +26,13 @@ class PlantError(Exception):
 
 
 # ── Parsing / validation ───────────────────────────────────────────────────
+DEATH_CAUSES = ('overwater', 'underwater', 'pests', 'temperature', 'unknown')
+
+
 def _require_plant(store, pid):
+    """A living plant (deleted and dead plants count as not found)."""
     p = store.get_plant(pid)
-    if not p or p['deleted_at']:
+    if not p or p['deleted_at'] or p.get('died_at'):
         raise PlantError('עציץ לא נמצא', 404)
     return p
 
@@ -164,6 +168,47 @@ def restore_plant(store, pid):
     if not store.get_plant(pid):
         raise PlantError('עציץ לא נמצא', 404)
     store.restore_plant(pid)
+
+
+# ── Dead plants → archive ──────────────────────────────────────────────────
+def mark_dead(store, pid, body, today):
+    _require_plant(store, pid)
+    raw = body.get('died_at')
+    try:
+        died = date.fromisoformat(str(raw)) if raw else today
+    except ValueError:
+        raise PlantError('תאריך לא תקין')
+    if died > today:
+        raise PlantError('לא ניתן לסמן תאריך עתידי')
+    cause = body.get('cause') or 'unknown'
+    if cause not in DEATH_CAUSES:
+        raise PlantError('סיבה לא מוכרת')
+    note = str(body.get('note') or '').strip() or None
+    if note and len(note) > 200:
+        raise PlantError('הערה ארוכה מדי')
+    store.update_plant(pid, {'died_at': died, 'death_cause': cause, 'death_note': note})
+
+
+def revive(store, pid):
+    p = store.get_plant(pid)
+    if not p or p['deleted_at']:
+        raise PlantError('עציץ לא נמצא', 404)
+    if not p.get('died_at'):
+        raise PlantError('העציץ אינו בארכיון')
+    store.update_plant(pid, {'died_at': None, 'death_cause': None, 'death_note': None})
+
+
+def archive(store):
+    """Dead plants, newest death first, with lifespan and watering history."""
+    active_rooms = _active_room_ids(store)
+    out = []
+    for p in store.list_dead_plants():
+        water = store.water_dates(p['id'])
+        item = _plant_json(p, max(water) if water else None, active_rooms=active_rooms)
+        item.update({'died_at': p['died_at'].isoformat(), 'cause': p['death_cause'], 'note': p['death_note'],
+                     'lifespan_days': (p['died_at'] - p['created_at']).days, 'waterings': len(water)})
+        out.append(item)
+    return out
 
 
 def deleted_plants(store):

@@ -2,7 +2,7 @@
 
 ## What this app is
 
-A personal finance dashboard that parses raw Excel files downloaded from Bank Leumi, stores them in a local SQLite database, and serves a Flask web app with monthly analysis, category breakdowns, a file organizer, and cash tracking.
+A personal finance dashboard that parses raw Excel files downloaded from Bank Leumi, stores them in a PostgreSQL database (Neon, via psycopg2), and serves a Flask web app with monthly analysis, category breakdowns, a file organizer, and cash tracking.
 
 ---
 
@@ -12,7 +12,7 @@ A personal finance dashboard that parses raw Excel files downloaded from Bank Le
 source/
   WebApp.py          — Flask app, all routes, HTML generation helpers
   AppManager.py      — CLI entry point, orchestrates parsing → DB → analysis
-  database.py        — DataBase singleton (SQLite via sqlite3)
+  database.py        — DataBase singleton (PostgreSQL via psycopg2, Neon-hosted)
   Constants.py       — All enums and reserved string constants
   src_utils/
     utils.py         — Core logic: generate_html, card_charge_validation,
@@ -72,6 +72,23 @@ An ATM withdrawal creates **two rows**:
 - `utils.card_charge_validation()` — filters `processed_df` by `Category != WHITDRAWAL_CATEGORY` before summing per-card totals (otherwise the card sum inflates and the charge validation fails)
 - `utils.accumulate_cash_Balance()` — filters CashTransactions by `Category != WHITDRAWAL_CATEGORY` (bank-side debit already counted separately)
 - `utils.get_cash_transactions()` — same filter on CashTransactions
+
+---
+
+## Housing (`/housing`) page — `process_prices` is inconsistently applied
+
+Every housing-page number ultimately comes from one of these calls inside `AppManager.get_global_data()` (the function behind `/api/housing/data`, `AppManager.py` ~line 2357-2398):
+
+| Data (rendered as) | Source | Runs `process_prices`? | Includes `CardTransactions`? |
+|---|---|---|---|
+| Balance/equity/milestones | `mortgage.full_schedule()` — pure amortization math | n/a (no DB) | n/a |
+| `actual_payments()` | `database.get_mortgage_payments()` — raw SQL on `BankTransactions` | No | No |
+| `actual_rental_income()` | `database.get_housing_income()` — raw SQL on `BankTransactions` | No | No |
+| "This month" KPIs (`current_month_data()`: payment/rental/net/month_out/month_income) | raw SQL directly on `BankTransactions` | No | No |
+| All-time KPIs (`alltime_category_data()`: alltime_out/alltime_income) | `get_housing_spending()` + `get_housing_income()` | Card slice only (`get_housing_spending`) | Card slice only |
+| Transactions table **and** the spend/earn business-breakdown pies (`spending_pie_data`/`earning_pie_data`) | `database.get_all_category_transactions()` | Card slice only | Yes |
+
+So most bank-sourced housing numbers bypass `process_prices` entirely (raw `Out`/`Income` from `BankTransactions`), and only the two functions that also pull in `CardTransactions` (`get_housing_spending`, `get_all_category_transactions`) run that card slice through it — because `process_prices`'s payment/flowing/payback logic only exists on the `TableName == 'CardTransactions'` branch (`calculations.py`'s `classify_and_handle`); bank rows just get folded into a signed `Final_Value` with no magnitude change. This means **card-sourced housing transactions never appear in `current_month_data()`, `actual_payments()`, or `actual_rental_income()`** — only in the transactions table and the pies. This asymmetry predates the pie feature (added in a Claude session, commit `4eaad87` on `Dev/GeneralFeatures`) and was not introduced by it; it was flagged to the user and left as-is by their choice, pending a decision on whether bank-only is intentional for mortgage/rent tracking.
 
 ---
 
@@ -166,4 +183,4 @@ Always develop on `features-and-fixes` (or a named feature branch), not on `clau
 
 ## Deployment
 
-The app runs on Vercel (serverless). Entry point: `source/WebApp.py`. The database is SQLite; the Vercel path differs from local — see `fill_missing.py` and `database.py` for path resolution. Do not hardcode local Windows paths (e.g. `C:\\Users\\ofeks\\...`).
+The app runs on Vercel (serverless). Entry point: `source/WebApp.py`. The database is PostgreSQL (Neon), connected via `psycopg2.connect(os.environ['DATABASE_URL'])` in `database.py` — the same `DATABASE_URL` is used both locally (loaded from `.env`) and on Vercel, there is no SQLite fallback. Generated-file output paths (e.g. `Outputs/general_analysis`, `Outputs/category_analysis`) still differ between local and Vercel — those branch on `os.getenv('VERCEL')`, not on `DATABASE_URL` (a similarly-named check based on `DATABASE_URL` presence is a known latent bug in a few spots in `utils.py` — `DATABASE_URL` no longer implies "running on Vercel" now that it's required locally too). `fill_missing.py` is a one-off SQLite→Postgres gap-filler used during the migration, not part of the live path-resolution logic. Do not hardcode local Windows paths (e.g. `C:\\Users\\ofeks\\...`).

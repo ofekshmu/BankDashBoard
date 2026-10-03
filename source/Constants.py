@@ -5,6 +5,7 @@
 #
 ########################################################################
 
+import os as _os
 from enum import Enum
 
 BANK_CARD_NUMBER = "Not_Relevant"
@@ -49,10 +50,19 @@ class Paths:
     VERIFIED_FOLDER =   f"Verified_{INPUT_FOLDER}"
     UPDATE_FOLDER =     "to_update"                                     # Used for the update process
     
-    PERSONAL_CONFIG =   'personal information/personal_config.json'     # Personal configuration file
-    CATEGORY_JSON =     'personal information/categories.json'          # Categories JSON file (holds all different categories)
-    AUTO_TAGGER_JSON =  'personal information/auto_tagger.json'         # Holds setting fro auto tagging different transactions
-    Currency_JSON =     'personal information/currency.json'            # Holds used currencies in the cash table
+    # Repo root = parent of the source/ dir this file lives in. The config
+    # paths below are absolute so they resolve to the same file no matter which
+    # directory the process was started from. Previously they were relative and
+    # resolved against os.getcwd(); the web UI and the auto-tag pass could then
+    # read/write different files (e.g. server launched from source/), which made
+    # saved auto-tag rules appear to vanish. On Vercel these four are still
+    # re-pointed to /tmp copies in WebApp.py.
+    _CONFIG_ROOT =      _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+
+    PERSONAL_CONFIG =   _os.path.join(_CONFIG_ROOT, 'personal information', 'personal_config.json')  # Personal configuration file
+    CATEGORY_JSON =     _os.path.join(_CONFIG_ROOT, 'personal information', 'categories.json')       # Categories JSON file (holds all different categories)
+    AUTO_TAGGER_JSON =  _os.path.join(_CONFIG_ROOT, 'personal information', 'auto_tagger.json')      # Holds setting for auto tagging different transactions
+    Currency_JSON =     _os.path.join(_CONFIG_ROOT, 'personal information', 'currency.json')         # Holds used currencies in the cash table
 
     #HTML's Names/Paths:
     ORGANIZER_TABLE_NAME = "C:\\Users\\ofeks\\OneDrive\\Ofek\\BankProject\\source\\html\\Organizer_Table.html"

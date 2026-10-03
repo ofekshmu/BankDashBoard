@@ -5912,6 +5912,10 @@ def recurring_clear_display_name(group_key):
         return jsonify({'ok': False, 'error': str(e)})
 
 
+# ── Plant tracker (מעקב עציצים) — routes live in routes/plant_routes.py ──────
+from routes.plant_routes import plants_bp
+app.register_blueprint(plants_bp)
+
 SPOTIFY_HTML = os.path.join(_HERE, 'html', 'SpotifyTracker.html')
 
 # ── Spotify Tracker routes ─────────────────────────────────────────────────────

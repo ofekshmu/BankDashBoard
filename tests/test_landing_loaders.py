@@ -50,10 +50,17 @@ def test_timeline_reads_newest_created_event(monkeypatch):
     assert ll.load_timeline(TODAY)['dot'] == 'grey'
 
 
-def test_bills_excludes_fillers(monkeypatch):
-    db = use(monkeypatch, FakeDB({'BillEntries': [(1, 'חשמל', '2026-01', '2026-02', 600)]}))
+def test_bills_uses_the_bills_page_entries(monkeypatch):
+    entries = [
+        {'bill_type_id': 1, 'start_month': '2026-01', 'end_month': '2026-02', 'transaction_id': 7,
+         'amount': None, 'tx_amount': -600.0, 'is_filler': False},
+        {'bill_type_id': 1, 'start_month': '2026-03', 'end_month': '2026-03', 'transaction_id': None,
+         'amount': None, 'tx_amount': None, 'is_filler': True},
+    ]
+    use(monkeypatch, FakeDB(get_bill_types=lambda: [{'id': 1, 'name': 'חשמל', 'color': '#000', 'group': ''}],
+                            get_bill_entries=lambda: entries))
     b = ll.load_bills(TODAY)
-    assert b['kpi'] == '300₪' and 'COALESCE(e.Is_Filler, 0) = 0' in db.cursor.sql[-1]
+    assert b['kpi'] == '300₪' and b['details'] == ['חשמל · 300₪']
 
 
 def test_files_newest(monkeypatch):

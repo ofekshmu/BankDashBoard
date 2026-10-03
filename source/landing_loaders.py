@@ -52,11 +52,9 @@ def load_timeline(today):
 
 
 def load_bills(today):
-    rows = _db().cursor.execute(
-        'SELECT t.ID, t.Name, e.Start_Month, e.End_Month, e.Amount FROM BillEntries e '
-        'JOIN BillTypes t ON t.ID = e.BillType_ID '
-        'WHERE COALESCE(e.Is_Filler, 0) = 0').fetchall()
-    return ls.build_bills([tuple(r) for r in rows])
+    """Same entries and types the bills page loads (/api/bills/entries, /api/bills/types)."""
+    db = _db()
+    return ls.build_bills(db.get_bill_types(), db.get_bill_entries())
 
 
 def load_spotify(today):

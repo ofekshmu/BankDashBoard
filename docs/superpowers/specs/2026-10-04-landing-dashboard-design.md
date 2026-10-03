@@ -83,7 +83,7 @@ Data sources and dot rules:
 | 4 | דיור (`/housing`) | **annual return** and **total return on sale** (5% yearly appreciation, as on the page) + net profit | housing `mortgage` payload: `annual_return_pct`, `total_return_pct`, computed profit | green ≥0 · red <0 |
 | 5 | ציר זמן (`/timeline`) | **last created event** (title, its date) | timeline events, newest `Created_At` | — |
 | 6 | ארגונית (`/organizer`) | none (description only) | — | — |
-| 7 | מעקב חשבונות (`/bills`) | **average monthly payment for the 5 most common bill types** | bill entries: top 5 types by entry count; mean amount per month | — |
+| 7 | מעקב חשבונות (`/bills`) | **average monthly payment for the 5 most common bill types** | bill types + entries exactly as `/api/bills/types` + `/api/bills/entries` serve them; per type the bills page's own monthly average (all-time view): entries with a transaction only, `abs(amount ?? tx_amount)`, entries with neither skipped, total ÷ merged half-month span (`calcSpanMonths`); top 5 types by number of counted entries | — |
 | 8 | ניתוח קטגוריאלי (`/categories`) | none | — | — |
 | 9 | חיפוש (`/search`) | none | — | — |
 | 10 | Spotify (`/spotify`) | **only members in debt and how much** (name + amount); "אין חובות" when none | `compute_all_balances` (members with negative balance) | green none · amber ≥1 |

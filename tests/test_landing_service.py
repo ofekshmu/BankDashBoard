@@ -123,6 +123,13 @@ def test_housing_block():
     assert ls.build_housing({})['dot'] == 'grey'
 
 
+def test_housing_missing_default_rate_uses_page_default():
+    m = {'annual_return_pct': 4.21, 'default_rate': None}
+    assert ls.build_housing(m)['caption'] == 'תשואה שנתית (5% עליית ערך)'
+    assert ls.build_housing(dict(m, default_rate=0))['caption'] == 'תשואה שנתית (5% עליית ערך)'   # page: || 5
+    assert ls.build_housing(dict(m, default_rate=3.5))['caption'] == 'תשואה שנתית (3.5% עליית ערך)'
+
+
 # ── timeline ───────────────────────────────────────────────────────────────
 def test_timeline():
     b = ls.build_timeline({'name': 'חתונה', 'event_date': '2026-11-02', 'created_at': datetime(2026, 10, 1)})
@@ -131,32 +138,93 @@ def test_timeline():
 
 
 # ── bills ──────────────────────────────────────────────────────────────────
-BILL_ROWS = [
-    (1, 'חשמל', '2026-01', '2026-02', 600),     # 2 months → 300/month
-    (1, 'חשמל', '2026-03', '2026-04', 400),     # avg over 4 months = 250
-    (1, 'חשמל', '2026-05', None, 250),          # single month → total 1250 / 5 = 250
-    (2, 'מים', '2026-01', '2026-02', 200),
-    (2, 'מים', '2026-03', '2026-04', 100),      # 300 / 4 = 75
-    (3, 'ארנונה', '2026-01', '2026-01', 500),
-    (4, 'גז', '2026-01', '2026-01', 50),
-    (5, 'אינטרנט', '2026-01', '2026-01', 100),
-    (6, 'ועד', '2026-01', '2026-01', 30),
-    (7, 'סלולר', '2026-01', '2026-01', 60),
+# Same rules as the bills page's per-type "ממוצע חודשי" (Bills.html kpiCard):
+# only entries with a transaction_id, abs(amount ?? tx_amount), entries with
+# neither are skipped, total ÷ merged half-month span (calcSpanMonths).
+BILL_TYPES = [{'id': i, 'name': n} for i, n in
+              ((1, 'חשמל'), (2, 'מים'), (3, 'ארנונה'), (4, 'גז'), (5, 'אינטרנט'), (6, 'ועד'), (7, 'סלולר'))]
+
+
+def E(type_id, start, end, amount=None, tx_amount=None, tx=1):
+    return {'bill_type_id': type_id, 'start_month': start, 'end_month': end,
+            'transaction_id': tx, 'amount': amount, 'tx_amount': tx_amount}
+
+
+BILL_ENTRIES = [
+    E(1, '2026-01', '2026-02', 600),
+    E(1, '2026-03', '2026-04', 400),
+    E(1, '2026-05', '2026-05', 250),      # contiguous → 5 months, 1250 / 5 = 250
+    E(2, '2026-01', '2026-02', 200),
+    E(2, '2026-03', '2026-04', 100),      # 300 / 4 = 75
+    E(3, '2026-01', '2026-01', 500),
+    E(4, '2026-01', '2026-01', 50),
+    E(5, '2026-01', '2026-01', 100),
+    E(6, '2026-01', '2026-01', 30),
+    E(7, '2026-01', '2026-01', 60),
 ]
 
 
+def avg_of(entries, types=BILL_TYPES):
+    return dict(ls.bill_averages(types, entries))
+
+
 def test_bill_averages_top5_by_entry_count():
-    avgs = ls.bill_averages(BILL_ROWS)
+    avgs = ls.bill_averages(BILL_TYPES, BILL_ENTRIES)
     assert avgs[0] == ('חשמל', 250) and avgs[1] == ('מים', 75)
-    assert len(avgs) == 5                     # top 5 types by entry count (ties → name)
+    assert len(avgs) == 5                     # top 5 types by counted entries (ties → name)
+
+
+def test_bill_amount_falls_back_to_linked_transaction_amount():
+    # Amount NULL → tx_amount (page: e.amount ?? e.tx_amount); a stored 0 is kept
+    assert avg_of([E(1, '2026-01', '2026-01', None, -300), E(1, '2026-02', '2026-02', 100, -900)]) == {'חשמל': 200}
+    assert avg_of([E(1, '2026-01', '2026-02', 0, -900)]) == {'חשמל': 0}
+
+
+def test_bill_negative_amounts_are_absolute():
+    assert avg_of([E(1, '2026-01', '2026-01', -200), E(1, '2026-02', '2026-02', 100)]) == {'חשמל': 150}
+
+
+def test_bill_entries_without_any_amount_add_no_months():
+    # 600 over Jan–Feb; the amount-less March entry must not stretch the span
+    assert avg_of([E(1, '2026-01', '2026-02', 600), E(1, '2026-03', '2026-03')]) == {'חשמל': 300}
+
+
+def test_bill_entries_without_transaction_are_excluded():
+    assert avg_of([E(1, '2026-01', '2026-01', 100), E(1, '2026-02', '2026-02', 900, tx=None)]) == {'חשמל': 100}
+    assert ls.bill_averages(BILL_TYPES, [E(1, '2026-01', '2026-01', 900, tx=None)]) == []
+
+
+def test_bill_overlapping_entries_merge_their_months():
+    # Jan–Mar ∪ Feb–Apr = 4 months, not 6
+    assert avg_of([E(1, '2026-01', '2026-03', 300), E(1, '2026-02', '2026-04', 100)]) == {'חשמל': 100}
+
+
+def test_bill_gaps_between_entries_are_not_counted():
+    assert avg_of([E(1, '2026-01', '2026-01', 100), E(1, '2026-06', '2026-06', 300)]) == {'חשמל': 200}
+
+
+def test_bill_half_month_boundaries():
+    # mid-Jan → end of Feb = 3 half-months = 1.5 months
+    assert avg_of([E(1, '2026-01-15', '2026-02', 150)]) == {'חשמל': 100}
+    # start of Jan → mid-Jan = 1 half-month = 0.5 months
+    assert avg_of([E(1, '2026-01', '2026-01-15', 50)]) == {'חשמל': 100}
+    # mid-Jan → mid-Mar = 4 half-months = 2 months
+    assert avg_of([E(1, '2026-01-15', '2026-03-15', 400)]) == {'חשמל': 200}
+
+
+def test_bill_span_months_matches_page_helper():
+    assert ls.bill_span_months([]) == 1
+    assert ls.bill_span_months([E(1, '2026-01', '2026-01')]) == 1
+    assert ls.bill_span_months([E(1, '2025-12', '2026-01'), E(1, '2026-01', '2026-03')]) == 4
+    assert ls.bill_span_months([E(1, '2026-01-15', '2026-01-15')]) == 1      # empty interval → 1
 
 
 def test_bills_block_shows_all_five():
-    b = ls.build_bills(BILL_ROWS)
+    b = ls.build_bills(BILL_TYPES, BILL_ENTRIES)
     assert b['caption'] == 'ממוצע חודשי — 5 החשבונות הנפוצים'
     assert len(b['details']) == 5 and b['details'][0] == 'חשמל · 250₪'
-    assert b['kpi'] == ls.money(sum(a for _, a in ls.bill_averages(BILL_ROWS)))
-    assert ls.build_bills([])['dot'] == 'grey'
+    assert b['kpi'] == ls.money(sum(a for _, a in ls.bill_averages(BILL_TYPES, BILL_ENTRIES)))
+    assert ls.build_bills(BILL_TYPES, [])['dot'] == 'grey'
 
 
 # ── spotify ────────────────────────────────────────────────────────────────

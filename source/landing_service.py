@@ -128,7 +128,7 @@ def build_housing(m):
     m = m or {}
     if m.get('annual_return_pct') is None:
         return block('—', 'תשואה שנתית', dot='grey')
-    rate = m.get('default_rate', 5)
+    rate = m.get('default_rate') or 5      # housing page: default_rate || 5
     rate = int(rate) if float(rate).is_integer() else rate
     profit = (m.get('equity_appreciated') or 0) + (m.get('alltime_income') or 0) - (m.get('net_invested') or 0)
     details = [f"תשואה כוללת במכירה {pct(m['total_return_pct'])}" if m.get('total_return_pct') is not None else None,
@@ -148,26 +148,64 @@ def build_timeline(event):
 TOP_BILLS = 5
 
 
-def _months_covered(start, end):
-    s = as_date(f'{start}-01')
-    e = as_date(f'{end or start}-01') or s
-    return max(1, (e.year - s.year) * 12 + e.month - s.month + 1)
+def _half_day(ym):
+    """JS parseInt(ym.slice(8)) || 1 — the day part of 'YYYY-MM' / 'YYYY-MM-15'."""
+    digits = ''
+    for ch in str(ym)[8:]:
+        if not ch.isdigit():
+            break
+        digits += ch
+    return int(digits or 0) or 1
 
 
-def bill_averages(rows):
-    """[(name, average per month)] for the TOP_BILLS types with the most entries."""
+def _half_coords(start, end):
+    """[start, end) in half-month units, exactly like Bills.html calcSpanMonths."""
+    start, end = str(start), str(end or start)
+    s = int(start[:4]) * 24 + (int(start[5:7]) - 1) * 2 + (1 if _half_day(start) >= 15 else 0)
+    e = int(end[:4]) * 24 + (int(end[5:7]) - 1) * 2 + (1 if _half_day(end) >= 15 else 2)
+    return s, e
+
+
+def bill_span_months(entries):
+    """Port of the bills page's calcSpanMonths: merged half-month span, in months."""
+    intervals = sorted(iv for iv in (_half_coords(e['start_month'], e['end_month']) for e in entries or [])
+                       if iv[1] > iv[0])
+    if not intervals:
+        return 1
+    merged = [list(intervals[0])]
+    for s, e in intervals[1:]:
+        if s <= merged[-1][1]:
+            merged[-1][1] = max(merged[-1][1], e)
+        else:
+            merged.append([s, e])
+    return max(sum(e - s for s, e in merged) / 2, 0.5)
+
+
+def _bill_amount(e):
+    """Page rule: e.amount ?? e.tx_amount (a stored 0 is kept)."""
+    return e.get('amount') if e.get('amount') is not None else e.get('tx_amount')
+
+
+def bill_averages(types, entries):
+    """[(name, average per month)] for the TOP_BILLS types with the most counted entries.
+
+    Mirrors the bills page's per-type monthly average (Bills.html kpiCard, all-time
+    view): entries with a transaction_id only, abs(amount ?? tx_amount), entries
+    with neither skipped, total ÷ bill_span_months of the counted entries."""
+    names = {t['id']: t['name'] for t in types or []}
     by_type = {}
-    for type_id, name, start, end, amount in rows or []:
-        t = by_type.setdefault(type_id, {'name': name, 'n': 0, 'total': 0.0, 'months': 0})
-        t['n'] += 1
-        t['total'] += float(amount or 0)
-        t['months'] += _months_covered(start, end)
-    top = sorted(by_type.values(), key=lambda t: (-t['n'], t['name']))[:TOP_BILLS]
-    return [(t['name'], t['total'] / t['months']) for t in top]
+    for e in entries or []:
+        if not e.get('transaction_id') or _bill_amount(e) is None or e.get('bill_type_id') not in names:
+            continue
+        by_type.setdefault(e['bill_type_id'], []).append(e)
+    stats = [(names[tid], len(es), sum(abs(float(_bill_amount(e))) for e in es) / bill_span_months(es))
+             for tid, es in by_type.items()]
+    top = sorted(stats, key=lambda t: (-t[1], t[0]))[:TOP_BILLS]
+    return [(name, avg) for name, _, avg in top]
 
 
-def build_bills(rows):
-    avgs = bill_averages(rows)
+def build_bills(types, entries):
+    avgs = bill_averages(types, entries)
     if not avgs:
         return block('—', 'אין חשבונות', dot='grey')
     return block(money(sum(a for _, a in avgs)), f'ממוצע חודשי — {len(avgs)} החשבונות הנפוצים',

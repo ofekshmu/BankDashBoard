@@ -5938,14 +5938,24 @@ def _landing_monthly(today):
     key = _landing_svc.pick_month(months, today)
     payload = None
     if key:
+        # key comes from months that have BankTransactions, so a non-200 here is a
+        # failure (isolated, uncached 500) — not a grey "no analysis" cached for 5 min.
         data, status = _view_json(monthly_data_api(key))
-        payload = data if status == 200 else None
+        if status != 200:
+            raise RuntimeError((data or {}).get('error') or f'monthly data for {key} failed ({status})')
+        payload = data
     return _landing_svc.build_monthly(months, key, payload)
 
 
 def _landing_accounts(today):
+    import psycopg2
     payload = _accounts_cached_payload() or _compute_accounts()
-    cash_map = _cash_balance_map(strict=True)
+    try:
+        cash_map = _cash_balance_map(strict=True)
+    except (psycopg2.OperationalError, psycopg2.InterfaceError):
+        # Neon drops idle pooled connections; the broken one was discarded by
+        # _PGConn.close(), so one retry gets a live connection.
+        cash_map = _cash_balance_map(strict=True)
     return _landing_svc.build_accounts(payload, cash_map, _get_fx_rates(), today)
 
 

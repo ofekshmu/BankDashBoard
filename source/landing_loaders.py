@@ -92,6 +92,22 @@ def load_files(today):
     return ls.build_files({'file_name': name, 'format': fmt, 'date': d, 'last_update': last_update})
 
 
+def load_month_keys():
+    """Months that have bank data, ascending: [{'key': 'YYYY_MM'}, ...].
+
+    Deliberately does not catch exceptions: a DB failure must surface as the
+    route's isolated (uncached) 500 instead of a silent stale fallback."""
+    rows = _db().cursor.execute(
+        'SELECT DISTINCT LEFT(CAST(Date AS TEXT), 7) FROM BankTransactions '
+        'WHERE Date IS NOT NULL ORDER BY 1').fetchall()
+    keys = []
+    for row in rows:
+        ym = str(row[0])
+        if len(ym) == 7 and ym[4] == '-' and ym[:4].isdigit() and ym[5:].isdigit():
+            keys.append({'key': f'{ym[:4]}_{ym[5:]}'})
+    return keys
+
+
 def register_default_loaders():
     from routes.landing_routes import register_loader
     for name, fn in (('cards', load_cards), ('timeline', load_timeline), ('bills', load_bills),

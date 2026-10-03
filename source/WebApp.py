@@ -2318,7 +2318,7 @@ def cash_by_currency():
             conn.close()
 
 
-def _cash_balance_map():
+def _cash_balance_map(strict=False):
     """Return {currency_code: balance} for the current cash on hand.
     Shared by cash_by_currency() and cash_reconcile()."""
     import re as _re2
@@ -2333,7 +2333,8 @@ def _cash_balance_map():
             code = m.group(1) if m else (cur_raw or 'ILS')
             totals[code] = totals.get(code, 0) + float(amount or 0)
     except Exception:
-        pass
+        if strict:
+            raise
     finally:
         if conn is not None:
             conn.close()
@@ -5921,7 +5922,7 @@ app.register_blueprint(plants_bp)
 # ── Landing dashboard — routes in routes/landing_routes.py, KPI builders in landing_service.py
 from routes.landing_routes import landing_bp, register_loader as _landing_register
 import landing_service as _landing_svc
-from landing_loaders import register_default_loaders as _landing_defaults
+from landing_loaders import register_default_loaders as _landing_defaults, load_month_keys as _landing_month_keys
 app.register_blueprint(landing_bp)
 _landing_defaults()
 
@@ -5933,7 +5934,7 @@ def _view_json(rv):
 
 
 def _landing_monthly(today):
-    months, _ = _view_json(general_list())
+    months = _landing_month_keys()
     key = _landing_svc.pick_month(months, today)
     payload = None
     if key:
@@ -5944,10 +5945,7 @@ def _landing_monthly(today):
 
 def _landing_accounts(today):
     payload = _accounts_cached_payload() or _compute_accounts()
-    try:
-        cash_map = _cash_balance_map()
-    except Exception:
-        cash_map = None
+    cash_map = _cash_balance_map(strict=True)
     return _landing_svc.build_accounts(payload, cash_map, _get_fx_rates(), today)
 
 

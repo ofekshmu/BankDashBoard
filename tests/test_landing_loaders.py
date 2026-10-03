@@ -92,3 +92,28 @@ def test_register_default_loaders(monkeypatch):
     monkeypatch.setattr(lr, 'LOADERS', {})
     ll.register_default_loaders()
     assert set(lr.LOADERS) == {'cards', 'timeline', 'bills', 'spotify', 'plants', 'recurring', 'tagger', 'files'}
+
+
+def test_load_month_keys_sorted_keys_from_bank_transactions(monkeypatch):
+    db = use(monkeypatch, FakeDB({'BankTransactions': [('2026-08',), ('2026-09',)]}))
+    assert ll.load_month_keys() == [{'key': '2026_08'}, {'key': '2026_09'}]
+    assert 'BankTransactions' in db.cursor.sql[0]
+
+
+def test_load_month_keys_skips_malformed_rows(monkeypatch):
+    use(monkeypatch, FakeDB({'BankTransactions': [('2026-08',), ('bad',), ('20260-9',), ('2026/09',), ('abcd-ef',), ('2026-09',)]}))
+    assert ll.load_month_keys() == [{'key': '2026_08'}, {'key': '2026_09'}]
+
+
+def test_load_month_keys_propagates_errors(monkeypatch):
+    class Boom:
+        class cursor:
+            @staticmethod
+            def execute(sql, params=None):
+                raise RuntimeError('db down')
+    use(monkeypatch, Boom())
+    try:
+        ll.load_month_keys()
+        assert False, 'should raise'
+    except RuntimeError:
+        pass

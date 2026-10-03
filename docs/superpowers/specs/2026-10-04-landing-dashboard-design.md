@@ -13,7 +13,7 @@ menu item, each with a short description and (where agreed) a small piece of liv
 | Topic | Decision |
 |---|---|
 | Privacy | `/` shows **only a sign-in popup** to a visitor without a session. The dashboard appears after a successful sign-in. No financial data in the page markup; all status comes from authenticated endpoints. |
-| Layout | Slim header + blocks grid + the existing month strip. The marketing hero and "features" sections (with their sample numbers) are removed. |
+| Layout | **A KPI dashboard**: slim header + a grid of simple KPI blocks — nothing else. All marketing (hero, "features", sample numbers) is removed, and so is the month strip (the monthly block has its own month picker). |
 | Data loading | **Approach A** — one small endpoint per block, each block loads independently, short server-side cache. |
 
 ## Page
@@ -30,26 +30,46 @@ menu item, each with a short description and (where agreed) a small piece of liv
 - The existing `?auth=required&next=…` redirect behaviour is kept: after sign-in the user
   is forwarded to `next` when present.
 
-### Layout
+### Layout — a dashboard, not a marketing page
 - **Header:** greeting by time of day (בוקר טוב / צהריים טובים / ערב טוב / לילה טוב),
   today's date (Hebrew), version badge, התנתקות.
-- **Blocks grid:** `repeat(auto-fill, minmax(260px, 1fr))` — 3–4 columns desktop, 1 on
-  phones; no horizontal scroll at 320/375 px.
-- **Month strip:** the existing "Jump to Any Month" strip, unchanged in behaviour, below
-  the grid.
+- **KPI grid:** `repeat(auto-fill, minmax(240px, 1fr))` — 3–4 columns desktop, 1 on
+  phones; no horizontal scroll at 320/375 px. Blocks with live data come first (in menu
+  order), description-only blocks last, as compact link tiles.
+- Nothing else on the page: the hero, the "features" section and the month strip are removed.
 - Visual language: white cards, 16px radius, light shadow, app palette (navy `#1e2a4a`,
-  teal `#1e9d8b`, bg `#f4f6f9`), RTL Hebrew.
+  teal `#1e9d8b`, bg `#f4f6f9`), RTL Hebrew, tabular numerals for KPI values.
 
-### Block anatomy
-- Icon (inline SVG outline, white-stroke style consistent with the app), title, one-line
-  description.
-- Status area (only for blocks with live data): a colour dot — green (fine), amber (worth a
-  look), red (act now), grey (no data) — plus 1–3 short facts.
+### Block anatomy (simple KPI block)
+- Top row: small icon (inline SVG outline) + title + colour dot — green (fine), amber
+  (worth a look), red (act now), grey (no data).
+- **One headline KPI** in large type (the block's main number or short value) with a
+  one-line caption under it.
+- Up to **3 small detail lines** (e.g. the names behind the number). No paragraphs.
+- Description-only blocks: icon + title + one-line description, rendered as compact tiles.
 - Whole card is a link to the page; some blocks add one extra control (month picker).
 - Loading: skeleton shimmer in the status area. Error: "לא זמין כרגע" on that block only
   (other blocks unaffected). Blocks without live data show description only.
 
 ## Blocks
+
+Headline KPI per block (large number) → caption → details:
+
+| Block | Headline KPI | Caption | Details (≤3 lines) |
+|---|---|---|---|
+| ניתוח חודשי | alerts this month (count) | "התראות ב<month name>" | month picker + פתח |
+| חשבונות | total value of all accounts (₪) | "שווי כל החשבונות" | stale accounts (>30 days) with last-update date |
+| כרטיסים | number of cards active this month | "כרטיסים פעילים החודש" | card label + month total, top 3 |
+| דיור | annual return (%) | "תשואה שנתית (5% עליית ערך)" | total return on sale %, net profit ₪ |
+| ציר זמן | last created event's title | "האירוע האחרון שנוצר" | its date |
+| מעקב חשבונות | sum of the 5 averages (₪/month) | "ממוצע חודשי — 5 החשבונות הנפוצים" | top 3 of the 5 with their average |
+| Spotify | total owed (₪) | "חובות פתוחים" | members in debt + amount (≤3, "+N" if more) |
+| מעקב עציצים | plants needing water today+overdue | "עציצים להשקיה" | overdue count, auto pending confirmation |
+| חיובים חוזרים | next expected charge amount (₪) | name + "ב-<date>" | — |
+| תייגן | last tagged transaction amount (₪) | its name | category, date |
+| קבצים | last updated file's date | "קובץ אחרון" | file name, format/type |
+
+Data sources and dot rules:
 
 | # | Block (link) | Live status | Source (same numbers as the page) | Dot |
 |---|---|---|---|---|

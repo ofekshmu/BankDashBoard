@@ -84,3 +84,11 @@ def test_dismiss_season_outside_season_is_400(client):
     assert r.status_code == 400
     r = client.post('/api/plants/1/dismiss-season', json={'today': '2026-07-01'})
     assert r.status_code == 200 and r.get_json()['plants'][0]['season_ack'] == '2026-summer'
+
+
+def test_page_is_served(client):
+    r = client.get('/plants')
+    html = r.get_data(as_text=True)
+    assert r.status_code == 200 and 'מעקב עציצים' in html
+    assert 'class="nav-item active" href="/plants"' in html
+    assert '@SHELL' not in html and '@SIDEBAR@' not in html and '@DEBUG@' not in html

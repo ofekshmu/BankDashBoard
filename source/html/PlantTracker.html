@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>מעקב עציצים</title>
+<style>
+:root {
+  --teal:       #1e9d8b;
+  --teal-light: #e8f7f5;
+  --teal-dark:  #178878;
+  --teal-glow:  rgba(30,157,139,.28);
+  --navy:       #1e2a4a;
+  --bg:         #f4f6f9;
+  --white:      #ffffff;
+  --border:     #eef0f6;
+  --text-muted: #888;
+  --text-sub:   #555;
+  --red:        #e74c3c;
+  --amber:      #f0b429;
+  --green:      #2ecc71;
+  --shadow-sm:  0 2px 10px rgba(0,0,0,.06);
+  --shadow-md:  0 6px 20px rgba(0,0,0,.10);
+  --radius:     14px;
+  --radius-sm:  8px;
+}
+*,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Segoe UI', Arial, sans-serif;
+  background: var(--bg);
+  min-height: 100vh;
+  direction: rtl;
+  color: var(--navy);
+  font-size: 14px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Hamburger + slide-in nav ─────────────────────────────── */
+.ham-btn {
+  position: fixed; top: 18px; right: 18px;
+  width: 42px; height: 42px;
+  background: var(--white); border: 1.5px solid var(--border);
+  border-radius: 10px; display: flex; align-items: center; justify-content: center;
+  cursor: pointer; color: var(--navy); z-index: 400;
+  box-shadow: 0 2px 10px rgba(0,0,0,.06);
+  transition: background .15s, color .15s, border-color .15s;
+}
+.ham-btn:hover { background: var(--teal-light); color: var(--teal); }
+.nav-overlay {
+  position: fixed; inset: 0;
+  background: rgba(15,22,45,.26);
+  z-index: 1000; opacity: 0; pointer-events: none;
+  transition: opacity .22s ease;
+}
+.nav-overlay.open { opacity: 1; pointer-events: all; }
+.sidebar {
+  position: fixed; top: 0; right: 0;
+  height: 100vh; width: 230px;
+  background: var(--white); z-index: 1002;
+  transform: translate3d(100%, 0, 0);
+  transition: transform .22s cubic-bezier(.4,0,.2,1);
+  will-change: transform;
+  box-shadow: -4px 0 24px rgba(0,0,0,.09);
+  display: flex; flex-direction: column;
+}
+.sidebar.open { transform: translate3d(0, 0, 0); }
+.sidebar-header {
+  display: flex; align-items: center;
+  padding: 20px 20px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.sidebar-app-name { font-size: .95em; font-weight: 700; color: var(--navy); }
+.sidebar-close-btn {
+  margin-right: auto; background: none; border: none;
+  cursor: pointer; font-size: 1.1em; color: var(--text-sub);
+  line-height: 1; padding: 4px 6px; border-radius: 6px;
+  transition: background .12s, color .12s;
+}
+.sidebar-close-btn:hover { background: var(--teal-light); color: var(--teal); }
+.sidebar-scroll { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 8px 0 16px; }
+.sidebar-footer { padding: 12px 16px; border-top: 1px solid var(--border); flex-shrink: 0; }
+.nav-restart-btn {
+  width: 100%; padding: 8px 12px;
+  border: 1.5px dashed var(--border); border-radius: 8px;
+  background: none; color: var(--text-muted);
+  font-size: .78em; font-weight: 600; cursor: pointer;
+  font-family: inherit; display: flex; align-items: center;
+  gap: 7px; justify-content: center;
+  transition: background .15s, color .15s, border-color .15s;
+}
+.nav-restart-btn:hover { background: #fff3f3; color: #e53935; border-color: #e53935; }
+.nav-restart-btn:disabled { opacity: .5; cursor: default; }
+.nav-item {
+  display: flex; align-items: center; padding: 10px 20px;
+  text-decoration: none; color: var(--text-sub);
+  font-size: .875em; font-weight: 500;
+  transition: background .1s, color .1s;
+  cursor: pointer; border: none; background: none;
+  width: 100%; text-align: right;
+  position: relative; letter-spacing: .1px; font-family: inherit;
+}
+.nav-item::before {
+  content: ''; position: absolute; right: 0; top: 22%; height: 56%;
+  width: 3px; border-radius: 3px 0 0 3px;
+  background: transparent; transition: background .1s;
+}
+.nav-item:hover { background: var(--teal-light); color: var(--teal); }
+.nav-item:hover::before { background: var(--teal); }
+.nav-item.active { color: #b8c0d0; cursor: default; pointer-events: none; }
+.nav-sep { height: 1px; background: var(--border); margin: 8px 16px; }
+
+/* ── Page layout ──────────────────────────────────────────── */
+.page-wrap { flex: 1; display: flex; flex-direction: column; padding-bottom: 60px; }
+
+/* ── Page header ──────────────────────────────────────────── */
+.page-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 6px 14px 6px 10px;
+  padding-right: 68px;
+  border-bottom: 1.5px solid var(--border);
+  flex-shrink: 0; background: var(--white);
+}
+.page-title { font-size: 1em; font-weight: 700; }
+.spacer { flex: 1; }
+
+/* ── Buttons ──────────────────────────────────────────────── */
+.btn {
+  padding: 7px 14px; border: none; border-radius: 8px;
+  cursor: pointer; font-size: 0.82em; font-weight: 600;
+  font-family: inherit;
+  transition: background .13s, transform .08s, box-shadow .13s;
+  display: inline-flex; align-items: center; gap: 5px;
+}
+.btn:hover { transform: translateY(-1px); }
+.btn-primary { background: var(--teal); color: #fff; }
+.btn-primary:hover { background: var(--teal-dark); }
+.btn-ghost {
+  background: none; color: var(--navy);
+  border: 1.5px solid var(--border);
+}
+.btn-ghost:hover { border-color: var(--teal); color: var(--teal); background: var(--teal-light); }
+.btn-sm { padding: 5px 11px; font-size: .8em; }
+.btn-xs { padding: 4px 9px; font-size: .77em; }
+.btn-danger { background: var(--red); color: #fff; }
+.btn-danger:hover { background: #c0392b; }
+/* ── Modals ───────────────────────────────────────────────── */
+.modal-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(15,22,45,.38);
+  z-index: 600; display: none;
+  align-items: center; justify-content: center;
+}
+.modal-backdrop.open { display: flex; }
+.modal {
+  background: var(--white); border-radius: var(--radius);
+  box-shadow: 0 16px 48px rgba(0,0,0,.18);
+  padding: 28px 28px 24px;
+  width: 460px; max-width: calc(100vw - 32px);
+  max-height: 90vh; overflow-y: auto;
+  direction: rtl; position: relative;
+}
+.modal-wide { width: 640px; }
+.modal-title { font-size: 1.05em; font-weight: 700; margin-bottom: 20px; }
+.modal-close-btn {
+  position: absolute; top: 16px; left: 18px;
+  background: none; border: none; cursor: pointer;
+  font-size: 1.1em; color: var(--text-muted);
+  padding: 4px 6px; border-radius: 6px;
+  transition: background .12s, color .12s;
+}
+.modal-close-btn:hover { background: var(--teal-light); color: var(--teal); }
+.modal-footer { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+.field-row { margin-bottom: 14px; }
+.field-label {
+  font-size: .72em; font-weight: 700; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: .5px; margin-bottom: 5px; display: block;
+}
+.field-input {
+  width: 100%; padding: 9px 13px; box-sizing: border-box; height: 38px;
+  border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+  font-size: .88em; color: var(--navy); background: var(--white);
+  outline: none; font-family: inherit; direction: rtl;
+  transition: border-color .18s, box-shadow .18s;
+}
+.field-input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(30,157,139,.12); }
+input[type="date"].field-input { padding: 0 10px; appearance: none; -webkit-appearance: none; }
+.debug-fab{position:fixed;bottom:22px;right:18px;width:42px;height:42px;border-radius:50%;background:#1e2a4a;color:#fff;font-size:.72em;font-family:monospace;font-weight:700;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.3);z-index:997;letter-spacing:-.5px}
+.debug-fab:hover{filter:brightness(1.2)}
+.debug-panel{position:fixed;bottom:72px;right:16px;width:480px;max-width:calc(100vw - 32px);height:340px;background:#12121f;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.55);z-index:996;display:none;flex-direction:column;overflow:hidden;font-family:monospace}
+.debug-panel.open{display:flex}
+.debug-hdr{display:flex;align-items:center;justify-content:space-between;padding:7px 12px;background:#0a0a18;color:#7ec8e3;font-size:.7em;font-weight:700;letter-spacing:.06em;flex-shrink:0;border-bottom:1px solid #222}
+.debug-hdr-btns{display:flex;gap:5px}
+.debug-hdr-btns button{background:none;border:1px solid #333;color:#888;border-radius:4px;padding:2px 8px;font-size:.9em;cursor:pointer;font-family:monospace}
+.debug-hdr-btns button:hover{background:#1e1e2e;color:#eee}
+.debug-feed{flex:1;overflow-y:auto;padding:6px 10px;font-size:.68em;line-height:1.55;color:#c8d8e4}
+.debug-line{white-space:pre-wrap;word-break:break-all;padding:1px 0;border-bottom:1px solid #1a1a2a}
+.debug-line.err{color:#ff6b6b}
+.debug-line.warn{color:#ffa94d}
+
+/* ── Plant tracker ─────────────────────────────────────────── */
+.pt-main { width: 100%; max-width: 1100px; margin: 0 auto; padding: 18px 16px 40px; display: flex; flex-direction: column; gap: 16px; }
+.pt-card { background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow-sm); padding: 16px 18px; }
+.pt-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.pt-stat { display: flex; align-items: baseline; gap: 6px; padding: 8px 14px; border-radius: 10px; background: var(--bg); font-size: .85em; color: var(--text-sub); }
+.pt-stat b { font-size: 1.35em; color: var(--navy); }
+.pt-stat.due b { color: var(--teal); }
+.pt-stat.overdue b { color: var(--red); }
+.pt-stat.pending b { color: var(--amber); }
+.pt-legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: .74em; color: var(--text-muted); margin-top: 10px; }
+.pt-legend span { display: inline-flex; align-items: center; gap: 4px; }
+.pt-swatch { width: 12px; height: 6px; border-radius: 3px; display: inline-block; }
+.pt-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+.pt-sugg-head { display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 700; font-size: .9em; user-select: none; }
+.pt-sugg-count { background: var(--teal-light); color: var(--teal); border-radius: 20px; padding: 1px 9px; font-size: .8em; }
+.pt-sugg-list { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.pt-sugg-list.hidden { display: none; }
+.pt-sugg { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 9px 12px; border-radius: 10px; border-right: 4px solid var(--teal); background: var(--teal-light); font-size: .84em; }
+.pt-sugg.warn { border-color: var(--amber); background: #fff8e6; }
+.pt-sugg.alert { border-color: var(--red); background: #fdeeee; }
+.pt-sugg-text { flex: 1; min-width: 180px; }
+.pt-sugg-btns { display: flex; gap: 6px; flex-shrink: 0; }
+.pt-empty { text-align: center; color: var(--text-muted); padding: 40px 10px; font-size: .9em; }
+.pt-rows { display: flex; flex-direction: column; gap: 12px; }
+.pt-row { display: flex; align-items: center; gap: 14px; }
+.pt-plant { display: flex; align-items: center; gap: 10px; width: 230px; flex-shrink: 0; cursor: pointer; border: none; background: none; font-family: inherit; text-align: right; padding: 0; color: inherit; }
+.pt-plant svg { flex-shrink: 0; }
+.pt-plant-name { font-weight: 700; font-size: .92em; }
+.pt-plant-meta { font-size: .72em; color: var(--text-muted); margin-top: 3px; }
+.pt-badge { display: inline-block; padding: 1px 7px; border-radius: 10px; font-weight: 600; background: var(--bg); color: var(--text-sub); }
+.pt-badge.auto { background: #e8f0fb; color: #2f6fb0; }
+.pt-status { font-weight: 700; }
+.pt-status.due { color: var(--teal); }
+.pt-status.overdue { color: var(--red); }
+.pt-cells { display: flex; gap: 4px; overflow-x: auto; flex: 1; min-width: 0; padding-bottom: 4px; }
+.pt-cell { flex: 0 0 auto; width: 44px; height: 66px; border-radius: 9px; border: 1.5px solid var(--border); background: var(--white); display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 4px 0 0; cursor: pointer; font-family: inherit; overflow: hidden; color: var(--navy); }
+.pt-cell:hover { border-color: var(--teal); }
+.pt-cell.today { border-color: var(--teal); box-shadow: 0 0 0 2px var(--teal-glow); }
+.pt-cell.blank { cursor: default; opacity: .35; background: var(--bg); }
+.pt-cell-date { font-size: .62em; color: var(--text-muted); line-height: 1.1; text-align: center; }
+.pt-marks { display: flex; gap: 2px; height: 5px; }
+.pt-mark { width: 5px; height: 5px; border-radius: 50%; }
+.pt-soil { width: 100%; height: 6px; background: #e3e6ec; }
+.pt-soil.dry { background: #d8b47a; }
+.pt-soil.humid { background: #8fd3c7; }
+.pt-soil.wet { background: #2f6fb0; }
+.pt-drop { width: 16px; height: 18px; }
+.pt-drop.watered path { fill: #2f8fd8; stroke: #2f8fd8; }
+.pt-drop.expected path { fill: none; stroke: #2f8fd8; stroke-dasharray: 2 2; }
+.pt-drop.none path { fill: none; stroke: #d5d9e2; }
+.pt-seg { display: flex; gap: 6px; flex-wrap: wrap; }
+.pt-seg button { flex: 1; min-width: 64px; padding: 8px 6px; border-radius: 8px; border: 1.5px solid var(--border); background: var(--white); cursor: pointer; font-family: inherit; font-size: .82em; color: var(--navy); }
+.pt-seg button.on { border-color: var(--teal); background: var(--teal-light); color: var(--teal); font-weight: 700; }
+.pt-types { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.pt-types button { border: 2px solid transparent; border-radius: 12px; background: var(--bg); padding: 6px 2px 4px; cursor: pointer; font-family: inherit; font-size: .7em; color: var(--text-sub); display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.pt-types button.on { border-color: var(--teal); background: var(--teal-light); }
+.pt-colors { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.pt-colors button { width: 26px; height: 26px; border-radius: 50%; border: 3px solid transparent; cursor: pointer; }
+.pt-colors button.on { border-color: var(--navy); }
+.pt-colors input[type="color"] { width: 30px; height: 30px; border: none; background: none; cursor: pointer; padding: 0; }
+.pt-inline { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
+.pt-inline .field-input { flex: 1; min-width: 120px; }
+.pt-evlist { display: flex; flex-direction: column; gap: 6px; }
+.pt-ev { display: flex; align-items: center; gap: 8px; font-size: .82em; padding: 6px 10px; border-radius: 8px; background: var(--bg); }
+.pt-ev span { flex: 1; }
+.pt-ev button { background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 1em; }
+.pt-ev button:hover { color: var(--red); }
+.pt-toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--navy); color: #fff; padding: 10px 18px; border-radius: 10px; font-size: .85em; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 2000; max-width: calc(100vw - 32px); }
+.pt-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.pt-toast.err { background: var(--red); }
+.pt-restore-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: .88em; }
+.pt-restore-row span { flex: 1; }
+@media (max-width: 720px) {
+  .pt-main { padding: 14px 16px 40px; }
+  .pt-row { flex-direction: column; align-items: stretch; gap: 6px; }
+  .pt-plant { width: auto; }
+  .pt-types { grid-template-columns: repeat(4, 1fr); }
+}
+</style>
+<link rel="stylesheet" href="/design-system.css">
+</head>
+<body>
+
+<!-- Nav overlay -->
+<div class="nav-overlay" id="nav-overlay" onclick="toggleNav()"></div>
+
+<!-- Sidebar -->
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <span class="sidebar-app-name">ניהול כספים</span>
+    <button class="sidebar-close-btn" onclick="closeNav()" aria-label="סגור תפריט">✕</button>
+  </div>
+  <div class="sidebar-scroll">
+    <a class="nav-item" href="/monthly" onclick="try{var k=localStorage.getItem('lv_month');if(k){event.preventDefault();location.href='/general/'+k;}}catch(_){}">ניתוח חודשי</a>
+    <div class="nav-sep"></div>
+    <a class="nav-item" href="/accounts">חשבונות</a>
+    <a class="nav-item" href="/card-analysis">כרטיסים</a>
+    <a class="nav-item" href="/housing">דיור</a>
+    <a class="nav-item" href="/organizer">ארגונית</a>
+    <a class="nav-item" href="/bills">מעקב חשבונות</a>
+    <a class="nav-item" href="/categories">ניתוח קטגוריאלי</a>
+    <a class="nav-item" href="/search">חיפוש</a>
+    <a class="nav-item" href="/spotify">Spotify Tracker</a>
+    <a class="nav-item active" href="/plants">מעקב עציצים</a>
+    <a class="nav-item" href="/recurring">חיובים חוזרים</a>
+    <div class="nav-sep"></div>
+    <a class="nav-item" href="/tagger">תייגן</a>
+    <a class="nav-item" href="/files">קבצים</a>
+  </div>
+  <div class="sidebar-footer">
+    <button class="nav-restart-btn" onclick="restartServer(this)">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
+      הפעל שרת מחדש
+    </button>
+    <div id="app-version-badge-2" style="margin-top:8px;text-align:center;font-size:.72em;color:var(--text-muted);letter-spacing:.03em;opacity:.7;user-select:none">v—</div>
+  </div>
+</nav>
+
+<div class="page-wrap">
+  <div class="page-header">
+    <button class="ham-btn" id="ham-btn" onclick="toggleNav()" aria-label="תפריט">
+      <svg width="18" height="14" viewBox="0 0 18 14" fill="none">
+        <rect width="18" height="2" rx="1" fill="currentColor"/>
+        <rect y="6" width="18" height="2" rx="1" fill="currentColor"/>
+        <rect y="12" width="18" height="2" rx="1" fill="currentColor"/>
+      </svg>
+    </button>
+    <span class="page-title">מעקב עציצים</span>
+    <span class="spacer"></span>
+    <button class="btn btn-ghost btn-sm" onclick="refresh()" title="רענון מהשרת">↻</button>
+    <button class="btn btn-ghost btn-sm" onclick="openDeleted()">נמחקו</button>
+    <button class="btn btn-primary btn-sm" onclick="openPlantModal(null)">+ עציץ חדש</button>
+  </div>
+
+  <main class="pt-main">
+    <section class="pt-card">
+      <div class="pt-summary" id="pt-summary"></div>
+      <div class="pt-legend">
+        <span><svg class="pt-drop watered" viewBox="0 0 16 18"><path d="M8 1.5C8 1.5 2.5 8 2.5 11.5a5.5 5.5 0 0 0 11 0C13.5 8 8 1.5 8 1.5z" stroke-width="1.6"/></svg>הושקה</span>
+        <span><svg class="pt-drop expected" viewBox="0 0 16 18"><path d="M8 1.5C8 1.5 2.5 8 2.5 11.5a5.5 5.5 0 0 0 11 0C13.5 8 8 1.5 8 1.5z" stroke-width="1.6"/></svg>אוטומטי — ממתין לאישור</span>
+        <span><i class="pt-swatch" style="background:#d8b47a"></i>יבשה</span>
+        <span><i class="pt-swatch" style="background:#8fd3c7"></i>לחה</span>
+        <span><i class="pt-swatch" style="background:#2f6fb0"></i>רטובה</span>
+        <span><i class="pt-dot" style="background:#d9822b"></i>דישון</span>
+        <span><i class="pt-dot" style="background:#7a5bc4"></i>העברת עציץ</span>
+        <span><i class="pt-dot" style="background:#4f8a3c"></i>גיזום</span>
+        <span><i class="pt-dot" style="background:#c2577a"></i>מזיקים</span>
+      </div>
+    </section>
+
+    <section class="pt-card" id="pt-sugg-card" style="display:none">
+      <div class="pt-sugg-head" onclick="toggleSugg()">
+        <span>💡 המלצות</span><span class="pt-sugg-count" id="pt-sugg-count">0</span>
+        <span class="spacer"></span><span id="pt-sugg-chev">▾</span>
+      </div>
+      <div class="pt-sugg-list" id="pt-sugg-list"></div>
+    </section>
+
+    <section class="pt-card">
+      <div class="pt-rows" id="pt-rows"><div class="pt-empty">טוען…</div></div>
+    </section>
+  </main>
+</div>
+
+<div class="modal-backdrop" id="day-modal" onclick="if(event.target===this)closeModal('day-modal')">
+  <div class="modal"><button class="modal-close-btn" onclick="closeModal('day-modal')" aria-label="סגור">✕</button><div id="day-body"></div></div>
+</div>
+<div class="modal-backdrop" id="plant-modal" onclick="if(event.target===this)closeModal('plant-modal')">
+  <div class="modal"><button class="modal-close-btn" onclick="closeModal('plant-modal')" aria-label="סגור">✕</button><div id="plant-body"></div></div>
+</div>
+<div class="modal-backdrop" id="deleted-modal" onclick="if(event.target===this)closeModal('deleted-modal')">
+  <div class="modal"><button class="modal-close-btn" onclick="closeModal('deleted-modal')" aria-label="סגור">✕</button>
+    <div class="modal-title">עציצים שנמחקו</div><div id="deleted-body"></div></div>
+</div>
+<div class="pt-toast" id="pt-toast"></div>
+
+<script>
+'use strict';
+fetch('/api/version').then(function(r){return r.json();}).then(function(d){var b=document.getElementById('app-version-badge-2');if(b&&d.version)b.textContent='v'+d.version;}).catch(function(){});
+function restartServer(btn) {
+  btn.disabled = true;
+  var spinSvg = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>';
+  btn.innerHTML = spinSvg + ' מאתחל…';
+
+  // Step 1: capture current server's startup timestamp
+  fetch('/api/status', {cache:'no-store'})
+    .then(function(r){ return r.json(); })
+    .then(function(s){ return s.started_at || 0; })
+    .catch(function(){ return 0; })
+    .then(function(oldTs){
+      // Step 2: send restart
+      fetch('/api/restart', {method:'POST'}).catch(function(){});
+      btn.innerHTML = spinSvg + ' מפעיל מחדש…';
+
+      // Step 3: poll until started_at changes (new process) or timeout
+      var deadline = Date.now() + 30000;
+      var t = setInterval(function(){
+        if(Date.now() > deadline){
+          clearInterval(t);
+          btn.disabled = false;
+          btn.innerHTML = spinSvg + ' נסה שוב';
+          return;
+        }
+        fetch('/api/status', {cache:'no-store'})
+          .then(function(r){ return r.json(); })
+          .then(function(s){
+            if(s.started_at && s.started_at !== oldTs){
+              clearInterval(t);
+              location.reload();
+            }
+          })
+          .catch(function(){}); // server still down — keep waiting
+      }, 700);
+    });
+}
+function openNav(){
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('nav-overlay').classList.add('open');
+  document.getElementById('ham-btn').classList.add('open');
+}
+function closeNav(){
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('nav-overlay').classList.remove('open');
+  document.getElementById('ham-btn').classList.remove('open');
+}
+function toggleNav(){
+  document.getElementById('sidebar').classList.contains('open') ? closeNav() : openNav();
+}
+document.addEventListener('keydown', function(e){ if(e.key==='Escape'){ closeNav(); closeAllModals(); } });
+
+// ── Constants ──────────────────────────────────────────────────
+var PLANT_TYPES = [['monstera','מונסטרה'],['fern','שרך'],['cactus','קקטוס'],['succulent','סוקולנט'],
+                   ['herb','תבלין'],['flower','פרח'],['tree','עץ'],['sprout','נבט']];
+var PALETTE = ['#1e9d8b','#2f6fb0','#7a5bc4','#c2577a','#d9822b','#4f8a3c','#b0503a','#3b8f9e'];
+var SOIL_LABELS = {dry: 'יבשה', humid: 'לחה', wet: 'רטובה'};
+var EVENT_LABELS = {water: 'השקיה', fertilize: 'דישון', repot: 'העברת עציץ', prune: 'גיזום', pest: 'טיפול במזיקים'};
+var EVENT_COLORS = {fertilize: '#d9822b', repot: '#7a5bc4', prune: '#4f8a3c', pest: '#c2577a'};
+var ACTION_LABELS = {water_now: 'השקה עכשיו', fertilize_now: 'סמן דישון', confirm_auto: 'אשר השקה', set_soil: 'עדכן אדמה'};
+var WEEKDAYS = ['א','ב','ג','ד','ה','ו','ש'];
+var DROP = '<path d="M8 1.5C8 1.5 2.5 8 2.5 11.5a5.5 5.5 0 0 0 11 0C13.5 8 8 1.5 8 1.5z" stroke-width="1.6"/>';
+var GLYPHS = {
+  cactus:    '<path d="M21 34V14a3 3 0 0 1 6 0v20"/><path d="M21 26h-4a2 2 0 0 1-2-2v-5"/><path d="M27 22h4a2 2 0 0 0 2-2v-4"/><path d="M15 34h18l-2 6H17z"/>',
+  monstera:  '<path d="M24 38C12 34 9 22 14 12c6 2 14 0 18-4 4 10 2 24-8 30z"/><path d="M24 38c-2-10-2-18 2-26"/><path d="M15 21l5 2M16 29l5-1M30 17l-5 3M29 26l-5 1"/>',
+  fern:      '<path d="M14 40C20 30 24 20 32 9"/><path d="M18 34l-5-2M19 31l5 1M21 27l-5-3M22 24l5 0M24 20l-4-4M26 17l5-1M28 13l-2-4"/>',
+  succulent: '<path d="M24 35c-3-4-3-10 0-15 3 5 3 11 0 15z"/><path d="M22 34c-4-2-7-6-7-11 4 1 7 4 8 8"/><path d="M26 34c4-2 7-6 7-11-4 1-7 4-8 8"/><path d="M14 35h20l-2 5H16z"/>',
+  herb:      '<path d="M24 40V14"/><path d="M24 31c-4-1-7-4-8-8 4 0 7 3 8 8z"/><path d="M24 24c4-1 7-4 8-8-4 0-7 3-8 8z"/><path d="M24 17c-2-3-2-6 0-9 2 3 2 6 0 9z"/>',
+  flower:    '<path d="M24 40V24"/><path d="M24 34c-4 0-7-3-8-6 4 0 7 2 8 6z"/><circle cx="24" cy="11.5" r="3.5"/><circle cx="30.5" cy="18" r="3.5"/><circle cx="17.5" cy="18" r="3.5"/><circle cx="24" cy="24.5" r="3.5"/><circle cx="24" cy="18" r="2" fill="#fff"/>',
+  tree:      '<path d="M24 8c-7 0-12 5-12 11 0 5 4 9 9 9h6c5 0 9-4 9-9 0-6-5-11-12-11z"/><path d="M24 28v12M24 34l-4-3M24 32l4-3"/>',
+  sprout:    '<path d="M24 40V24"/><path d="M24 26c0-6-4-10-11-10 0 6 4 10 11 10z"/><path d="M24 22c0-6 4-10 11-10 0 6-4 10-11 10z"/><path d="M14 40h20"/>'
+};
+
+// ── Helpers ────────────────────────────────────────────────────
+function pad(n){ return (n < 10 ? '0' : '') + n; }
+function localDate(d){ return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+function localDateTime(d){ return localDate(d) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes()); }
+function parseDay(s){ var p = s.split('-'); return new Date(+p[0], +p[1] - 1, +p[2]); }
+function esc(s){
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+    return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c];
+  });
+}
+function fmtDay(s){ var d = parseDay(s); return 'יום ' + WEEKDAYS[d.getDay()] + "' " + d.getDate() + '/' + (d.getMonth() + 1); }
+function toast(msg, isErr){
+  var t = document.getElementById('pt-toast');
+  t.textContent = msg;
+  t.className = 'pt-toast show' + (isErr ? ' err' : '');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(function(){ t.className = 'pt-toast'; }, 2600);
+}
+function closeAllModals(){ document.querySelectorAll('.modal-backdrop').forEach(function(m){ m.classList.remove('open'); }); }
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+function openModal(id){ document.getElementById(id).classList.add('open'); }
+function isOpen(id){ return document.getElementById(id).classList.contains('open'); }
+
+function plantIcon(type, color, name, size){
+  var initial = esc(String(name || '?').trim().charAt(0) || '?');
+  return '<svg viewBox="0 0 48 48" width="' + size + '" height="' + size + '" aria-hidden="true">' +
+    '<rect x="1" y="1" width="46" height="46" rx="13" fill="' + esc(color) + '"/>' +
+    '<g fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">' + (GLYPHS[type] || GLYPHS.sprout) + '</g>' +
+    '<circle cx="40" cy="40" r="7" fill="#fff"/>' +
+    '<text x="40" y="43.5" text-anchor="middle" font-size="10" font-weight="700" font-family="Segoe UI, Arial" fill="' + esc(color) + '">' + initial + '</text></svg>';
+}
+
+// ── Data + once-a-day cache ────────────────────────────────────
+var CACHE_KEY = 'plants_cache';
+var TODAY = localDate(new Date());
+var state = null;
+
+function readCache(){
+  try {
+    var c = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
+    return c && c.date === TODAY ? c.payload : null;
+  } catch (_) { return null; }
+}
+function writeCache(p){ try { localStorage.setItem(CACHE_KEY, JSON.stringify({date: TODAY, payload: p})); } catch (_) {} }
+
+// Resolves to the response on success, null on failure (after showing a toast).
+function api(method, url, body){
+  var opts = {method: method, headers: {'Content-Type': 'application/json'}};
+  if (method === 'GET') url += (url.indexOf('?') < 0 ? '?' : '&') + 'today=' + TODAY;
+  else opts.body = JSON.stringify(Object.assign({today: TODAY}, body || {}));
+  return fetch(url, opts)
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (!d.ok) throw new Error(d.error || 'שגיאה');
+      if (d.plants && d.summary) { state = d; writeCache(d); render(); }
+      return d;
+    })
+    .catch(function(e){ toast(e.message || 'שגיאת רשת', true); return null; });
+}
+function refresh(){
+  return api('GET', '/api/plants').then(function(d){
+    if (!d && !state) document.getElementById('pt-rows').innerHTML = '<div class="pt-empty">שגיאה בטעינת הנתונים</div>';
+    return d;
+  });
+}
+function init(){
+  var cached = readCache();
+  if (cached) { state = cached; render(); } else { refresh(); }
+}
+// A tab left open past midnight refreshes when it becomes visible again.
+document.addEventListener('visibilitychange', function(){
+  if (document.visibilityState !== 'visible') return;
+  var now = localDate(new Date());
+  if (now !== TODAY) { TODAY = now; refresh(); }
+});
+
+// ── Lookups ────────────────────────────────────────────────────
+function plantById(id){ for (var i = 0; i < state.plants.length; i++) if (state.plants[i].id === id) return state.plants[i]; return null; }
+function dayRow(pid, day){ var rows = state.days[String(pid)] || []; for (var i = 0; i < rows.length; i++) if (rows[i].day === day) return rows[i]; return null; }
+function dayEvents(pid, day){ return (state.events[String(pid)] || []).filter(function(e){ return e.event_at.slice(0, 10) === day; }); }
+
+// ── Render ─────────────────────────────────────────────────────
+function render(){
+  renderSummary();
+  renderSuggestions();
+  renderRows();
+  if (dayCtx && isOpen('day-modal')) renderDay();
+}
+
+function renderSummary(){
+  var s = state.summary, due = s.due_today + s.overdue;
+  document.getElementById('pt-summary').innerHTML =
+    '<div class="pt-stat due"><b>' + s.due_today + '</b> להשקות היום</div>' +
+    '<div class="pt-stat overdue"><b>' + s.overdue + '</b> באיחור</div>' +
+    '<div class="pt-stat pending"><b>' + s.auto_pending_confirm + '</b> אוטומטי ממתין לאישור</div>' +
+    '<span class="spacer"></span>' +
+    '<button class="btn btn-primary btn-sm" onclick="waterAllDue()"' + (due ? '' : ' disabled') + '>💧 השקה לכל הממתינים (' + due + ')</button>';
+}
+function waterAllDue(){
+  var n = state.summary.due_today + state.summary.overdue;
+  if (!n || !confirm('לסמן השקה עכשיו ל-' + n + ' עציצים?')) return;
+  api('POST', '/api/plants/water-due', {event_at: localDateTime(new Date())})
+    .then(function(d){ if (d) toast('סומנה השקה ל-' + d.watered_count + ' עציצים'); });
+}
+
+var suggOpen = true;
+try { suggOpen = localStorage.getItem('plants_sugg_open') !== '0'; } catch (_) {}
+function toggleSugg(){
+  suggOpen = !suggOpen;
+  try { localStorage.setItem('plants_sugg_open', suggOpen ? '1' : '0'); } catch (_) {}
+  renderSuggestions();
+}
+function renderSuggestions(){
+  var list = state.suggestions;
+  document.getElementById('pt-sugg-card').style.display = list.length ? '' : 'none';
+  document.getElementById('pt-sugg-count').textContent = list.length;
+  document.getElementById('pt-sugg-chev').textContent = suggOpen ? '▾' : '◂';
+  var el = document.getElementById('pt-sugg-list');
+  el.className = 'pt-sugg-list' + (suggOpen ? '' : ' hidden');
+  el.innerHTML = list.map(function(s, i){
+    var a = s.action, btns = '';
+    if (a) {
+      var label = a.type === 'set_interval' ? 'החל (' + a.value + ' ימים)' : ACTION_LABELS[a.type];
+      btns += '<button class="btn btn-primary btn-xs" onclick="applySuggestion(' + i + ')">' + label + '</button>';
+    }
+    if (s.kind === 'seasonal') btns += '<button class="btn btn-ghost btn-xs" onclick="dismissSeason(' + s.plant_id + ')">התעלם</button>';
+    return '<div class="pt-sugg ' + s.level + '"><span class="pt-sugg-text">' + esc(s.text) + '</span><span class="pt-sugg-btns">' + btns + '</span></div>';
+  }).join('');
+}
+function applySuggestion(i){
+  var s = state.suggestions[i], a = s.action, pid = s.plant_id, now = localDateTime(new Date());
+  if (a.type === 'set_interval') {
+    var body = {interval_days: a.value};
+    if (a.season_key) body.season_ack = a.season_key;
+    api('PUT', '/api/plants/' + pid, body).then(function(d){ if (d) toast('המרווח עודכן'); });
+  } else if (a.type === 'water_now') {
+    api('POST', '/api/plants/' + pid + '/events', {event_type: 'water', event_at: now}).then(function(d){ if (d) toast('סומנה השקה'); });
+  } else if (a.type === 'fertilize_now') {
+    api('POST', '/api/plants/' + pid + '/events', {event_type: 'fertilize', event_at: now}).then(function(d){ if (d) toast('סומן דישון'); });
+  } else if (a.type === 'confirm_auto') {
+    api('POST', '/api/plants/' + pid + '/confirm-auto', {day: a.day}).then(function(d){ if (d) toast('ההשקה אושרה'); });
+  } else if (a.type === 'set_soil') {
+    openDay(pid, TODAY);
+  }
+}
+function dismissSeason(pid){ api('POST', '/api/plants/' + pid + '/dismiss-season', {}); }
+
+function renderRows(){
+  var el = document.getElementById('pt-rows');
+  if (!state.plants.length) {
+    el.innerHTML = '<div class="pt-empty">עדיין אין עציצים — לחצו "+ עציץ חדש" כדי להתחיל 🌱</div>';
+    return;
+  }
+  var days = state.window.slice().reverse();  // today first = RTL leading edge
+  el.innerHTML = state.plants.map(function(p){
+    var mode = p.irrigation_mode === 'auto'
+      ? '<span class="pt-badge auto">אוטומטי · כל ' + p.interval_days + ' ימים · ' + esc(p.auto_time || '') + '</span>'
+      : '<span class="pt-badge">ידני · כל ' + p.interval_days + ' ימים</span>';
+    var st = p.status === 'overdue' ? ' <span class="pt-status overdue">באיחור</span>'
+           : p.status === 'due' ? ' <span class="pt-status due">להשקות היום</span>' : '';
+    var last = !p.last_water ? 'טרם הושקה' : p.days_since_water === 0 ? 'הושקה היום' : 'הושקה לפני ' + p.days_since_water + ' ימים';
+    return '<div class="pt-row">' +
+      '<button class="pt-plant" onclick="openPlantModal(' + p.id + ')" title="עריכת עציץ">' + plantIcon(p.plant_type, p.color, p.name, 44) +
+        '<div><div class="pt-plant-name">' + esc(p.name) + '</div><div class="pt-plant-meta">' + mode + '</div>' +
+        '<div class="pt-plant-meta">' + last + st + '</div></div></button>' +
+      '<div class="pt-cells">' + days.map(function(day){ return cellHtml(p, day); }).join('') + '</div></div>';
+  }).join('');
+}
+function cellHtml(p, day){
+  var d = parseDay(day), label = WEEKDAYS[d.getDay()] + ' ' + d.getDate();
+  var r = dayRow(p.id, day);
+  if (!r) return '<div class="pt-cell blank"><span class="pt-cell-date">' + label + '</span></div>';
+  var drop = r.watered ? 'watered' : (r.auto_expected && !r.auto_confirmed ? 'expected' : 'none');
+  var marks = dayEvents(p.id, day).filter(function(e){ return e.event_type !== 'water'; })
+    .map(function(e){ return '<span class="pt-mark" style="background:' + EVENT_COLORS[e.event_type] + '"></span>'; }).join('');
+  var tip = fmtDay(day) + (r.soil_status ? ' · אדמה ' + SOIL_LABELS[r.soil_status] : '') +
+            (r.watered ? ' · הושקה' : drop === 'expected' ? ' · השקה אוטומטית ממתינה לאישור' : '');
+  return '<button class="pt-cell' + (day === state.today ? ' today' : '') + '" title="' + esc(tip) + '" onclick="openDay(' + p.id + ',\'' + day + '\')">' +
+    '<span class="pt-cell-date">' + label + '</span>' +
+    '<svg class="pt-drop ' + drop + '" viewBox="0 0 16 18">' + DROP + '</svg>' +
+    '<span class="pt-marks">' + marks + '</span>' +
+    '<span class="pt-soil ' + (r.soil_status || '') + '"></span></button>';
+}
+
+// ── Day editor ─────────────────────────────────────────────────
+var dayCtx = null;
+function openDay(pid, day){ dayCtx = {pid: pid, day: day}; renderDay(); openModal('day-modal'); }
+function renderDay(){
+  var p = plantById(dayCtx.pid);
+  if (!p) { closeModal('day-modal'); dayCtx = null; return; }
+  var day = dayCtx.day, r = dayRow(p.id, day) || {}, evs = dayEvents(p.id, day);
+  var now = localDateTime(new Date());
+  var defAt = day === TODAY ? now : day + 'T12:00';
+  var soil = ['dry', 'humid', 'wet'].map(function(k){
+    return '<button class="' + (r.soil_status === k ? 'on' : '') + '" onclick="setSoil(\'' + k + '\')">' + SOIL_LABELS[k] + '</button>';
+  }).join('') + '<button class="' + (!r.soil_status ? 'on' : '') + '" onclick="setSoil(null)">לא ידוע</button>';
+  var confirmBtn = (p.irrigation_mode === 'auto' && r.auto_expected && !r.auto_confirmed && !r.watered)
+    ? '<div class="field-row"><button class="btn btn-primary" style="width:100%;justify-content:center" onclick="confirmAuto()">✔ אשר השקה אוטומטית (' + esc(p.auto_time) + ')</button></div>'
+    : '';
+  var types = Object.keys(EVENT_LABELS).filter(function(k){ return k !== 'water'; })
+    .map(function(k){ return '<option value="' + k + '">' + EVENT_LABELS[k] + '</option>'; }).join('');
+  var list = evs.length ? evs.map(function(e){
+    return '<div class="pt-ev"><span>' + EVENT_LABELS[e.event_type] + ' · ' + e.event_at.slice(11, 16) +
+      (e.source === 'auto_confirmed' ? ' (אוטומטי)' : '') + (e.note ? ' — ' + esc(e.note) : '') + '</span>' +
+      '<button onclick="deleteEvent(' + e.id + ')" title="מחיקה" aria-label="מחיקה">✕</button></div>';
+  }).join('') : '<div class="pt-plant-meta">אין אירועים ביום זה</div>';
+  document.getElementById('day-body').innerHTML =
+    '<div class="modal-title" style="display:flex;align-items:center;gap:10px">' + plantIcon(p.plant_type, p.color, p.name, 34) +
+      '<span>' + esc(p.name) + ' · ' + fmtDay(day) + '</span></div>' +
+    confirmBtn +
+    '<div class="field-row"><span class="field-label">מצב אדמה</span><div class="pt-seg">' + soil + '</div></div>' +
+    '<div class="field-row"><label class="field-label" for="day-at">מועד (ברירת מחדל: עכשיו)</label><div class="pt-inline">' +
+      '<input type="datetime-local" class="field-input" id="day-at" value="' + defAt + '" max="' + now + '">' +
+      '<button class="btn btn-primary" onclick="addWater()">💧 סמן השקה</button></div></div>' +
+    '<div class="field-row"><span class="field-label">אירוע נוסף באותו מועד</span><div class="pt-inline">' +
+      '<select class="field-input" id="day-ev-type">' + types + '</select>' +
+      '<input class="field-input" id="day-ev-note" placeholder="הערה (לא חובה)" maxlength="200">' +
+      '<button class="btn btn-ghost" onclick="addOtherEvent()">הוסף</button></div></div>' +
+    '<div class="field-row"><span class="field-label">אירועים ביום זה</span><div class="pt-evlist">' + list + '</div></div>';
+}
+function eventAt(){ return document.getElementById('day-at').value; }
+function setSoil(k){ api('PUT', '/api/plants/' + dayCtx.pid + '/soil', {day: dayCtx.day, soil_status: k}); }
+function addWater(){
+  api('POST', '/api/plants/' + dayCtx.pid + '/events', {event_type: 'water', event_at: eventAt()})
+    .then(function(d){ if (d) toast('סומנה השקה'); });
+}
+function addOtherEvent(){
+  api('POST', '/api/plants/' + dayCtx.pid + '/events', {
+    event_type: document.getElementById('day-ev-type').value,
+    event_at: eventAt(),
+    note: document.getElementById('day-ev-note').value
+  }).then(function(d){ if (d) toast('האירוע נוסף'); });
+}
+function confirmAuto(){
+  api('POST', '/api/plants/' + dayCtx.pid + '/confirm-auto', {day: dayCtx.day})
+    .then(function(d){ if (d) toast('ההשקה אושרה'); });
+}
+function deleteEvent(id){ if (confirm('למחוק את האירוע?')) api('DELETE', '/api/plants/events/' + id, {}); }
+
+// ── Plant add / edit ───────────────────────────────────────────
+var editCtx = null;
+function openPlantModal(pid){
+  var p = pid ? plantById(pid) : null;
+  editCtx = p
+    ? {id: p.id, name: p.name, plant_type: p.plant_type, color: p.color, irrigation_mode: p.irrigation_mode,
+       interval_days: p.interval_days, auto_time: p.auto_time || '07:00'}
+    : {id: null, name: '', plant_type: 'monstera', color: PALETTE[(state ? state.plants.length : 0) % PALETTE.length],
+       irrigation_mode: 'manual', interval_days: 3, auto_time: '07:00'};
+  renderPlantModal();
+  openModal('plant-modal');
+  setTimeout(function(){ var n = document.getElementById('pm-name'); if (n) n.focus(); }, 50);
+}
+function pmSet(k, v){ editCtx[k] = v; renderPlantModal(); }
+function renderPlantModal(){
+  var e = editCtx;
+  var types = PLANT_TYPES.map(function(t){
+    return '<button class="' + (e.plant_type === t[0] ? 'on' : '') + '" onclick="pmSet(\'plant_type\',\'' + t[0] + '\')">' +
+      plantIcon(t[0], e.color, e.name || t[1], 40) + t[1] + '</button>';
+  }).join('');
+  var colors = PALETTE.map(function(c){
+    return '<button class="' + (e.color === c ? 'on' : '') + '" style="background:' + c + '" onclick="pmSet(\'color\',\'' + c + '\')" aria-label="' + c + '"></button>';
+  }).join('') + '<input type="color" value="' + esc(e.color) + '" onchange="pmSet(\'color\', this.value)" title="צבע מותאם">';
+  var modes = '<button class="' + (e.irrigation_mode === 'manual' ? 'on' : '') + '" onclick="pmSet(\'irrigation_mode\',\'manual\')">ידנית</button>' +
+              '<button class="' + (e.irrigation_mode === 'auto' ? 'on' : '') + '" onclick="pmSet(\'irrigation_mode\',\'auto\')">אוטומטית</button>';
+  document.getElementById('plant-body').innerHTML =
+    '<div class="modal-title" style="display:flex;align-items:center;gap:10px">' + plantIcon(e.plant_type, e.color, e.name, 40) +
+      '<span>' + (e.id ? 'עריכת עציץ' : 'עציץ חדש') + '</span></div>' +
+    '<div class="field-row"><label class="field-label" for="pm-name">שם</label>' +
+      '<input class="field-input" id="pm-name" maxlength="40" value="' + esc(e.name) + '" oninput="editCtx.name=this.value"></div>' +
+    '<div class="field-row"><span class="field-label">סוג (קובע את הסמל)</span><div class="pt-types">' + types + '</div></div>' +
+    '<div class="field-row"><span class="field-label">צבע</span><div class="pt-colors">' + colors + '</div></div>' +
+    '<div class="field-row"><span class="field-label">השקיה</span><div class="pt-seg">' + modes + '</div></div>' +
+    '<div class="field-row pt-inline">' +
+      '<div style="flex:1"><label class="field-label" for="pm-interval">כל כמה ימים</label>' +
+        '<input class="field-input" type="number" min="1" max="60" id="pm-interval" value="' + e.interval_days + '" oninput="editCtx.interval_days=this.value"></div>' +
+      (e.irrigation_mode === 'auto'
+        ? '<div style="flex:1"><label class="field-label" for="pm-time">שעת השקה אוטומטית</label>' +
+          '<input class="field-input" type="time" id="pm-time" value="' + esc(e.auto_time) + '" oninput="editCtx.auto_time=this.value"></div>'
+        : '') +
+    '</div>' +
+    '<div class="modal-footer">' +
+      (e.id ? '<button class="btn btn-danger" style="margin-left:auto" onclick="deletePlant()">מחיקה</button>' : '') +
+      '<button class="btn btn-ghost" onclick="closeModal(\'plant-modal\')">ביטול</button>' +
+      '<button class="btn btn-primary" onclick="savePlant()">שמירה</button></div>';
+}
+function savePlant(){
+  var e = editCtx;
+  var body = {name: String(e.name).trim(), plant_type: e.plant_type, color: e.color,
+              irrigation_mode: e.irrigation_mode, interval_days: parseInt(e.interval_days, 10)};
+  if (e.irrigation_mode === 'auto') body.auto_time = e.auto_time;
+  if (!body.name) { toast('יש להזין שם', true); return; }
+  var req = e.id ? api('PUT', '/api/plants/' + e.id, body) : api('POST', '/api/plants', body);
+  req.then(function(d){ if (d) { closeModal('plant-modal'); toast(e.id ? 'העציץ עודכן' : 'העציץ נוסף'); } });
+}
+function deletePlant(){
+  var e = editCtx;
+  if (!confirm('למחוק את "' + e.name + '"? אפשר לשחזר מתוך "נמחקו".')) return;
+  api('DELETE', '/api/plants/' + e.id, {}).then(function(d){ if (d) { closeModal('plant-modal'); toast('העציץ נמחק'); } });
+}
+
+// ── Deleted / restore ──────────────────────────────────────────
+function openDeleted(){
+  var body = document.getElementById('deleted-body');
+  body.innerHTML = '<div class="pt-plant-meta">טוען…</div>';
+  openModal('deleted-modal');
+  fetch('/api/plants/deleted').then(function(r){ return r.json(); }).then(function(d){
+    if (!d.ok) throw new Error(d.error);
+    body.innerHTML = d.plants.length ? d.plants.map(function(p){
+      return '<div class="pt-restore-row">' + plantIcon(p.plant_type, p.color, p.name, 30) + '<span>' + esc(p.name) + '</span>' +
+        '<button class="btn btn-ghost btn-sm" onclick="restorePlant(' + p.id + ')">שחזור</button></div>';
+    }).join('') : '<div class="pt-plant-meta">אין עציצים שנמחקו</div>';
+  }).catch(function(e){ toast(e.message || 'שגיאה', true); });
+}
+function restorePlant(id){
+  api('POST', '/api/plants/' + id + '/restore', {}).then(function(d){ if (d) { toast('העציץ שוחזר'); openDeleted(); } });
+}
+
+init();
+</script>
+
+<button class="debug-fab" id="debug-fab" onclick="toggleDebugPanel()" title="App logs">&lt;/&gt;</button>
+<div class="debug-panel" id="debug-panel">
+  <div class="debug-hdr"><span>&#9658; app logs</span><div class="debug-hdr-btns"><button onclick="copyDebugPanel()">copy</button><button onclick="clearDebugPanel()">clear</button><button onclick="toggleDebugPanel()">&#x2715;</button></div></div>
+  <div class="debug-feed" id="debug-feed"></div>
+</div>
+<script>
+var _dbgEs=null;
+function toggleDebugPanel(){var p=document.getElementById('debug-panel');var open=p.classList.toggle('open');if(open&&!_dbgEs)_startDebugStream()}
+function _startDebugStream(){if(_dbgEs)return;_dbgEs=new EventSource('/api/debug-logs');_dbgEs.onmessage=function(e){if(!e.data||!e.data.trim())return;var f=document.getElementById('debug-feed');if(!f)return;var d=document.createElement('div');d.className='debug-line'+(e.data.toLowerCase().indexOf('error')>=0?' err':e.data.toLowerCase().indexOf('warn')>=0?' warn':'');d.textContent=e.data;f.appendChild(d);f.scrollTop=f.scrollHeight};_dbgEs.onerror=function(){if(_dbgEs){_dbgEs.close();_dbgEs=null}setTimeout(_startDebugStream,4000)}}
+// Delayed: /api/debug-logs never returns (true SSE stream); starting it at
+// the same instant as the page's real data fetches can starve them of a
+// serverless execution slot. Server buffers logs regardless of client
+// connection, so delaying costs no history.
+document.addEventListener('DOMContentLoaded',function(){setTimeout(_startDebugStream,3000)});
+function clearDebugPanel(){document.getElementById('debug-feed').innerHTML=''}
+function copyDebugPanel(){var f=document.getElementById('debug-feed');navigator.clipboard.writeText(Array.from(f.children).map(function(e){return e.textContent}).join('\n')).catch(function(){})}
+</script>
+</body>
+</html>

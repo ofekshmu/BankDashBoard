@@ -71,14 +71,13 @@
             animation:shimmer 1.2s infinite; }
     .skel.s2 { height:12px; width:85%; }
     @keyframes shimmer { to { background-position:-200% 0; } }
-    .month-row { display:flex; gap:8px; margin-top:8px; }
+    .month-row { display:flex; gap:8px; margin-top:8px; position:relative; z-index:1; }
     .month-row select { flex:1; min-width:0; padding:6px 8px; border:1px solid var(--border); border-radius:8px;
                         font:inherit; font-size:13px; background:var(--white); color:var(--navy); }
     .month-row button { padding:6px 12px; border:0; border-radius:8px; background:var(--teal); color:#fff;
                         font:inherit; font-size:13px; cursor:pointer; }
     .card-link { display:flex; flex-direction:column; gap:6px; color:inherit; text-decoration:none; }
     .card-link::after { content:''; position:absolute; inset:0; border-radius:16px; }
-    .month-row { position:relative; z-index:1; }
     .card.tile { flex-direction:row; align-items:center; gap:10px; }
     .card.tile .desc { font-size:12.5px; color:var(--muted); font-weight:400; }
   </style>
@@ -117,6 +116,7 @@
   const SESSION_KEY = 'bankdash_auth';
   const SESSION_TTL = 7 * 24 * 60 * 60 * 1000;
   let _pendingUrl = null;
+  let _fadeTimer = null;   /* gate fade-out; cleared by showGate() so a quick sign-out keeps the gate */
 
   function setLocalFlag(on) {
     try {
@@ -143,6 +143,8 @@
   }
 
   function showGate() {
+    clearTimeout(_fadeTimer);
+    _fadeTimer = null;
     document.getElementById('dash').hidden = true;
     document.getElementById('grid').innerHTML = '';
     const gate = document.getElementById('gate');
@@ -155,7 +157,8 @@
     if (_pendingUrl && _pendingUrl !== '/') { window.location.href = location.origin + _pendingUrl; return; }
     const gate = document.getElementById('gate');
     gate.classList.add('fade');
-    setTimeout(() => { gate.hidden = true; }, 300);
+    clearTimeout(_fadeTimer);
+    _fadeTimer = setTimeout(() => { _fadeTimer = null; gate.hidden = true; }, 300);
     document.getElementById('dash').hidden = false;
     renderDashboard();
   }
@@ -201,7 +204,7 @@
     files:     '<path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5"/>',
   };
   const BLOCKS = [
-    { id: 'monthly',   title: 'ניתוח חודשי',      live: true },
+    { id: 'monthly',   title: 'ניתוח חודשי',      live: true, href: '/monthly' },
     { id: 'accounts',  title: 'חשבונות',          live: true, href: '/accounts' },
     { id: 'cards',     title: 'כרטיסים',          live: true, href: '/card-analysis' },
     { id: 'housing',   title: 'דיור',             live: true, href: '/housing' },
@@ -220,14 +223,20 @@
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
-  /* Escape text and isolate numeric tokens as LTR so signs/units stay on the right side in RTL text. */
-  const NUM_RE = /(?:(?<![\wא-ת])[-+])?\d+(?:[.,]\d+)*[%₪]?/g;
+  /* Escape text and isolate numeric tokens as LTR so signs/units stay on the right side in RTL text.
+     A leading sign belongs to the number only when it doesn't follow a word/Hebrew character
+     ("א-5" is a dash, "רווח -5" is a minus). Checked in code, not with a regex lookbehind:
+     Safari < 16.4 can't parse lookbehind, which would kill this whole script (no sign-in gate). */
+  const NUM_RE = /[-+]?\d+(?:[.,]\d+)*[%₪]?/g;
+  const WORD_CHAR_RE = /[\wא-ת]/;
   function rich(s) {
     s = String(s == null ? '' : s);
     let out = '', last = 0, m;
     NUM_RE.lastIndex = 0;
     while ((m = NUM_RE.exec(s)) !== null) {
-      out += esc(s.slice(last, m.index)) + '<span dir="ltr">' + esc(m[0]) + '</span>';
+      let start = m.index;
+      if ((m[0][0] === '-' || m[0][0] === '+') && start > 0 && WORD_CHAR_RE.test(s[start - 1])) start++;
+      out += esc(s.slice(last, start)) + '<span dir="ltr">' + esc(s.slice(start, m.index + m[0].length)) + '</span>';
       last = m.index + m[0].length;
     }
     return out + esc(s.slice(last));
@@ -287,7 +296,7 @@
 
   function renderMonthPicker(el, extra) {
     const months = extra.months || [];
-    el.querySelector('.card-link').href = extra.current ? '/general/' + extra.current : '#';
+    el.querySelector('.card-link').href = extra.current ? '/general/' + extra.current : '/monthly';
     if (!months.length) return;
     const row = document.createElement('div');
     row.className = 'month-row';
@@ -300,6 +309,12 @@
     });
     el.appendChild(row);
   }
+
+  /* Back/forward cache: a page restored after sign-out (elsewhere or in this tab) must not show the dashboard. */
+  window.addEventListener('pageshow', async e => {
+    if (!e.persisted) return;
+    if (!(await serverAuthenticated())) { setLocalFlag(false); _pendingUrl = null; showGate(); }
+  });
 
   /* ── INIT ── */
   (async function init() {

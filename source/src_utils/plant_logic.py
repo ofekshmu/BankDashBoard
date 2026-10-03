@@ -4,7 +4,7 @@ from datetime import timedelta
 PLANT_TYPES = ('cactus', 'monstera', 'fern', 'succulent', 'herb', 'flower', 'tree', 'sprout',
                # drawn from specific plants' look
                'kalanchoe', 'geranium', 'petunia', 'adansonii', 'orchid', 'oregano', 'rosemary', 'basil',
-               'chives', 'thyme', 'pentas', 'angelonia', 'zz', 'birdsnest', 'philodendron', 'snake',
+               'chives', 'thyme', 'pentas', 'angelonia', 'zz', 'birdsnest', 'philodendron', 'snake', 'scaevola',
                # by shape, for plants whose species isn't known
                'spiky', 'strap', 'conifer', 'shrub')
 IRRIGATION_MODES = ('manual', 'auto')

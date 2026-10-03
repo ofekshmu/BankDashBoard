@@ -271,6 +271,16 @@ input[type="date"].field-input { padding: 0 10px; appearance: none; -webkit-appe
 .pt-toast.err { background: var(--red); }
 .pt-restore-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: .88em; }
 .pt-restore-row span { flex: 1; }
+.pt-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.pt-chips:empty { display: none; }
+.pt-chip { border: 1.5px solid var(--border); background: var(--white); border-radius: 20px; padding: 5px 12px; font-size: .8em; cursor: pointer; font-family: inherit; color: var(--text-sub); display: inline-flex; gap: 6px; align-items: center; }
+.pt-chip b { color: var(--text-muted); font-size: .9em; }
+.pt-chip.on { border-color: var(--teal); background: var(--teal-light); color: var(--teal); font-weight: 700; }
+.pt-room-head { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: .88em; color: var(--navy); padding: 4px 0; border-bottom: 1.5px solid var(--border); margin-top: 6px; }
+.pt-room-head:first-child { margin-top: 0; }
+.pt-room-count { background: var(--bg); color: var(--text-muted); border-radius: 20px; padding: 0 8px; font-size: .85em; font-weight: 600; }
+.pt-room-row { display: flex; gap: 8px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border); }
+.pt-room-row .field-input { flex: 1; min-width: 0; }
 @media (max-width: 720px) {
   .pt-main { padding: 14px 16px 40px; }
   .pt-row { flex-direction: column; align-items: stretch; gap: 6px; }
@@ -329,6 +339,7 @@ input[type="date"].field-input { padding: 0 10px; appearance: none; -webkit-appe
     <span class="page-title">מעקב עציצים</span>
     <span class="spacer"></span>
     <button class="btn btn-ghost btn-sm" onclick="refresh()" title="רענון מהשרת">↻</button>
+    <button class="btn btn-ghost btn-sm" onclick="openRooms()">חדרים</button>
     <button class="btn btn-ghost btn-sm" onclick="openDeleted()">נמחקו</button>
     <button class="btn btn-primary btn-sm" onclick="openPlantModal(null)">+ עציץ חדש</button>
   </div>
@@ -358,6 +369,7 @@ input[type="date"].field-input { padding: 0 10px; appearance: none; -webkit-appe
     </section>
 
     <section class="pt-card">
+      <div class="pt-chips" id="pt-room-chips"></div>
       <div class="pt-rows" id="pt-rows"><div class="pt-empty">טוען…</div></div>
     </section>
   </main>
@@ -372,6 +384,10 @@ input[type="date"].field-input { padding: 0 10px; appearance: none; -webkit-appe
 <div class="modal-backdrop" id="deleted-modal" onclick="if(event.target===this)closeModal('deleted-modal')">
   <div class="modal"><button class="modal-close-btn" onclick="closeModal('deleted-modal')" aria-label="סגור">✕</button>
     <div class="modal-title">עציצים שנמחקו</div><div id="deleted-body"></div></div>
+</div>
+<div class="modal-backdrop" id="rooms-modal" onclick="if(event.target===this)closeModal('rooms-modal')">
+  <div class="modal"><button class="modal-close-btn" onclick="closeModal('rooms-modal')" aria-label="סגור">✕</button>
+    <div class="modal-title">חדרים</div><div id="rooms-body"></div></div>
 </div>
 <div class="pt-toast" id="pt-toast"></div>
 
@@ -483,7 +499,7 @@ function plantIcon(type, color, name, size){
 }
 
 // ── Data + once-a-day cache ────────────────────────────────────
-var CACHE_KEY = 'plants_cache';
+var CACHE_KEY = 'plants_cache_v2';
 var TODAY = localDate(new Date());
 var state = null;
 
@@ -538,6 +554,7 @@ function dayEvents(pid, day){ return (state.events[String(pid)] || []).filter(fu
 function render(){
   renderSummary();
   renderSuggestions();
+  renderRooms();
   renderRows();
   if (dayCtx && isOpen('day-modal')) renderDay();
 }
@@ -607,7 +624,13 @@ function renderRows(){
     return;
   }
   var days = state.window.slice().reverse();  // today first = RTL leading edge
-  el.innerHTML = state.plants.map(function(p){
+  var groups = roomGroups().filter(function(g){ return roomFilter === 'all' || g.key === roomFilter; });
+  el.innerHTML = groups.map(function(g){
+    return '<div class="pt-room-head"><span>' + esc(g.name) + '</span><span class="pt-room-count">' + g.plants.length + '</span></div>' +
+      g.plants.map(function(p){ return plantRowHtml(p, days); }).join('');
+  }).join('');
+}
+function plantRowHtml(p, days){
     var mode = p.irrigation_mode === 'auto'
       ? '<span class="pt-badge auto">אוטומטי · כל ' + p.interval_days + ' ימים · ' + esc(p.auto_time || '') + '</span>'
       : '<span class="pt-badge">ידני · כל ' + p.interval_days + ' ימים</span>';
@@ -619,7 +642,38 @@ function renderRows(){
         '<div><div class="pt-plant-name">' + esc(p.name) + '</div><div class="pt-plant-meta">' + mode + '</div>' +
         '<div class="pt-plant-meta">' + last + st + '</div></div></button>' +
       '<div class="pt-cells">' + days.map(function(day){ return cellHtml(p, day); }).join('') + '</div></div>';
-  }).join('');
+}
+
+// ── Rooms: filter chips + grouping ─────────────────────────────
+var ROOM_FILTER_KEY = 'plants_room_filter';
+var roomFilter = 'all';  // 'all' | 'none' | '<room id>'
+try { roomFilter = localStorage.getItem(ROOM_FILTER_KEY) || 'all'; } catch (_) {}
+function setRoomFilter(v){
+  roomFilter = v;
+  try { localStorage.setItem(ROOM_FILTER_KEY, v); } catch (_) {}
+  renderRooms();
+  renderRows();
+}
+function roomById(id){ var rs = state.rooms || []; for (var i = 0; i < rs.length; i++) if (rs[i].id === id) return rs[i]; return null; }
+// Groups in room order with unassigned plants last; rooms without plants are skipped.
+function roomGroups(){
+  var groups = (state.rooms || []).map(function(r){ return {key: String(r.id), name: r.name, plants: []}; });
+  var none = {key: 'none', name: 'ללא חדר', plants: []};
+  var byKey = {};
+  groups.forEach(function(g){ byKey[g.key] = g; });
+  state.plants.forEach(function(p){ ((p.room_id != null && byKey[String(p.room_id)]) || none).plants.push(p); });
+  return groups.concat([none]).filter(function(g){ return g.plants.length; });
+}
+function renderRooms(){
+  var groups = roomGroups();
+  if (roomFilter !== 'all' && !groups.some(function(g){ return g.key === roomFilter; })) roomFilter = 'all';
+  var chips = [{key: 'all', name: 'הכל', n: state.plants.length}].concat(groups.map(function(g){
+    return {key: g.key, name: g.name, n: g.plants.length};
+  }));
+  document.getElementById('pt-room-chips').innerHTML = state.plants.length ? chips.map(function(c){
+    return '<button class="pt-chip' + (c.key === roomFilter ? ' on' : '') + '" onclick="setRoomFilter(\'' + c.key + '\')">' +
+      esc(c.name) + ' <b>' + c.n + '</b></button>';
+  }).join('') : '';
 }
 function cellHtml(p, day){
   var d = parseDay(day), label = WEEKDAYS[d.getDay()] + ' ' + d.getDate();
@@ -698,9 +752,10 @@ function openPlantModal(pid){
   var p = pid ? plantById(pid) : null;
   editCtx = p
     ? {id: p.id, name: p.name, plant_type: p.plant_type, color: p.color, irrigation_mode: p.irrigation_mode,
-       interval_days: p.interval_days, auto_time: p.auto_time || '07:00'}
+       interval_days: p.interval_days, auto_time: p.auto_time || '07:00', room_id: p.room_id}
     : {id: null, name: '', plant_type: 'monstera', color: PALETTE[(state ? state.plants.length : 0) % PALETTE.length],
-       irrigation_mode: 'manual', interval_days: 3, auto_time: '07:00'};
+       irrigation_mode: 'manual', interval_days: 3, auto_time: '07:00',
+       room_id: /^\d+$/.test(roomFilter) ? Number(roomFilter) : null};  // default: the room being viewed
   renderPlantModal();
   openModal('plant-modal');
   setTimeout(function(){ var n = document.getElementById('pm-name'); if (n) n.focus(); }, 50);
@@ -715,6 +770,9 @@ function renderPlantModal(){
   var colors = PALETTE.map(function(c){
     return '<button class="' + (e.color === c ? 'on' : '') + '" style="background:' + c + '" onclick="pmSet(\'color\',\'' + c + '\')" aria-label="' + c + '"></button>';
   }).join('') + '<input type="color" value="' + esc(e.color) + '" onchange="pmSet(\'color\', this.value)" title="צבע מותאם">';
+  var rooms = '<option value="">ללא חדר</option>' + (state.rooms || []).map(function(r){
+    return '<option value="' + r.id + '"' + (e.room_id === r.id ? ' selected' : '') + '>' + esc(r.name) + '</option>';
+  }).join('');
   var modes = '<button class="' + (e.irrigation_mode === 'manual' ? 'on' : '') + '" onclick="pmSet(\'irrigation_mode\',\'manual\')">ידנית</button>' +
               '<button class="' + (e.irrigation_mode === 'auto' ? 'on' : '') + '" onclick="pmSet(\'irrigation_mode\',\'auto\')">אוטומטית</button>';
   document.getElementById('plant-body').innerHTML =
@@ -722,6 +780,8 @@ function renderPlantModal(){
       '<span>' + (e.id ? 'עריכת עציץ' : 'עציץ חדש') + '</span></div>' +
     '<div class="field-row"><label class="field-label" for="pm-name">שם</label>' +
       '<input class="field-input" id="pm-name" maxlength="40" value="' + esc(e.name) + '" oninput="editCtx.name=this.value"></div>' +
+    '<div class="field-row"><label class="field-label" for="pm-room">חדר</label>' +
+      '<select class="field-input" id="pm-room" onchange="editCtx.room_id = this.value ? Number(this.value) : null">' + rooms + '</select></div>' +
     '<div class="field-row"><span class="field-label">סוג (קובע את הסמל)</span><div class="pt-types">' + types + '</div></div>' +
     '<div class="field-row"><span class="field-label">צבע</span><div class="pt-colors">' + colors + '</div></div>' +
     '<div class="field-row"><span class="field-label">השקיה</span><div class="pt-seg">' + modes + '</div></div>' +
@@ -741,7 +801,8 @@ function renderPlantModal(){
 function savePlant(){
   var e = editCtx;
   var body = {name: String(e.name).trim(), plant_type: e.plant_type, color: e.color,
-              irrigation_mode: e.irrigation_mode, interval_days: parseInt(e.interval_days, 10)};
+              irrigation_mode: e.irrigation_mode, interval_days: parseInt(e.interval_days, 10),
+              room_id: e.room_id};
   if (e.irrigation_mode === 'auto') body.auto_time = e.auto_time;
   if (!body.name) { toast('יש להזין שם', true); return; }
   var req = e.id ? api('PUT', '/api/plants/' + e.id, body) : api('POST', '/api/plants', body);
@@ -768,6 +829,50 @@ function openDeleted(){
 }
 function restorePlant(id){
   api('POST', '/api/plants/' + id + '/restore', {}).then(function(d){ if (d) { toast('העציץ שוחזר'); openDeleted(); } });
+}
+
+// ── Room manager ───────────────────────────────────────────────
+function openRooms(){
+  var body = document.getElementById('rooms-body');
+  body.innerHTML = '<div class="pt-plant-meta">טוען…</div>';
+  openModal('rooms-modal');
+  fetch('/api/plants/rooms').then(function(r){ return r.json(); }).then(function(d){
+    if (!d.ok) throw new Error(d.error);
+    var counts = {};
+    (state ? state.plants : []).forEach(function(p){ if (p.room_id != null) counts[p.room_id] = (counts[p.room_id] || 0) + 1; });
+    body.innerHTML =
+      d.rooms.map(function(r){
+        return '<div class="pt-room-row"><input class="field-input" id="room-name-' + r.id + '" maxlength="30" value="' + esc(r.name) + '">' +
+          '<span class="pt-room-count" title="עציצים בחדר">' + (counts[r.id] || 0) + '</span>' +
+          '<button class="btn btn-ghost btn-sm" onclick="renameRoom(' + r.id + ')">שמירה</button>' +
+          '<button class="btn btn-ghost btn-sm" onclick="deleteRoom(' + r.id + ')" title="מחיקה" aria-label="מחיקה">✕</button></div>';
+      }).join('') +
+      '<div class="pt-room-row"><input class="field-input" id="room-new" maxlength="30" placeholder="חדר חדש">' +
+        '<button class="btn btn-primary btn-sm" onclick="addRoom()">+ הוסף</button></div>' +
+      (d.deleted.length
+        ? '<div class="field-label" style="margin-top:16px">חדרים שנמחקו</div>' + d.deleted.map(function(r){
+            return '<div class="pt-restore-row"><span>' + esc(r.name) + '</span>' +
+              '<button class="btn btn-ghost btn-sm" onclick="restoreRoom(' + r.id + ')">שחזור</button></div>';
+          }).join('')
+        : '');
+  }).catch(function(e){ toast(e.message || 'שגיאה', true); });
+}
+function addRoom(){
+  var name = document.getElementById('room-new').value.trim();
+  if (!name) { toast('יש להזין שם חדר', true); return; }
+  api('POST', '/api/plants/rooms', {name: name}).then(function(d){ if (d) { toast('החדר נוסף'); openRooms(); } });
+}
+function renameRoom(id){
+  api('PUT', '/api/plants/rooms/' + id, {name: document.getElementById('room-name-' + id).value})
+    .then(function(d){ if (d) { toast('שם החדר עודכן'); openRooms(); } });
+}
+function deleteRoom(id){
+  var r = roomById(id);
+  if (!confirm('למחוק את החדר "' + (r ? r.name : '') + '"? העציצים שבו יופיעו תחת "ללא חדר" עד שתשחזרו אותו.')) return;
+  api('DELETE', '/api/plants/rooms/' + id, {}).then(function(d){ if (d) { toast('החדר נמחק'); openRooms(); } });
+}
+function restoreRoom(id){
+  api('POST', '/api/plants/rooms/' + id + '/restore', {}).then(function(d){ if (d) { toast('החדר שוחזר'); openRooms(); } });
 }
 
 init();

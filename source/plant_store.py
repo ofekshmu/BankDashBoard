@@ -1,25 +1,34 @@
-"""PostgreSQL persistence for the plant tracker (Plants / PlantEvents / PlantDays).
+"""PostgreSQL persistence for the plant tracker (Plants / PlantRooms / PlantEvents / PlantDays).
 
 The only module with plant SQL. `autocommit=False` lets tests run inside a
 transaction they roll back.
 """
 
+# Seeded into an empty PlantRooms table, in this display order.
+DEFAULT_ROOMS = ('סלון', 'מטבח', 'חדר שינה', 'חדר עבודה', 'מרפסת', 'אמבטיה')
+
 _PLANT_COLS = ('ID, Name, Plant_Type, Color, Irrigation_Mode, Interval_Days, '
-               'Auto_Time, Season_Ack, Created_At, Deleted_At, Interval_Changed_At')
+               'Auto_Time, Season_Ack, Created_At, Deleted_At, Interval_Changed_At, Room_ID')
 _PLANT_UPDATABLE = {
     'name': 'Name', 'plant_type': 'Plant_Type', 'color': 'Color',
     'irrigation_mode': 'Irrigation_Mode', 'interval_days': 'Interval_Days',
     'auto_time': 'Auto_Time', 'season_ack': 'Season_Ack', 'interval_changed_at': 'Interval_Changed_At',
+    'room_id': 'Room_ID',
 }
 _DAY_UPDATABLE = {'soil_status': 'Soil_Status', 'watered': 'Watered', 'auto_confirmed': 'Auto_Confirmed'}
 _EVENT_COLS = 'ID, Plant_ID, Event_Type, Event_At, Source, Note'
+_ROOM_COLS = 'ID, Name, Sort_Order, Deleted_At'
 
 
 def _plant(r):
     return {'id': r[0], 'name': r[1], 'plant_type': r[2], 'color': r[3],
             'irrigation_mode': r[4], 'interval_days': r[5], 'auto_time': r[6],
             'season_ack': r[7], 'created_at': r[8], 'deleted_at': r[9],
-            'interval_changed_at': r[10]}
+            'interval_changed_at': r[10], 'room_id': r[11]}
+
+
+def _room(r):
+    return {'id': r[0], 'name': r[1], 'sort_order': r[2], 'deleted_at': r[3]}
 
 
 def _event(r):
@@ -59,8 +68,20 @@ class PlantStore:
                 Deleted_At      TIMESTAMP
             )
         """)
-        # Plants already exist in production, so the newer column is added in place.
+        self._q("""
+            CREATE TABLE IF NOT EXISTS PlantRooms (
+                ID         SERIAL    PRIMARY KEY,
+                Name       TEXT      NOT NULL,
+                Sort_Order INTEGER   NOT NULL DEFAULT 0,
+                Deleted_At TIMESTAMP
+            )
+        """)
+        if self._q('SELECT COUNT(*) FROM PlantRooms').fetchone()[0] == 0:
+            for i, name in enumerate(DEFAULT_ROOMS):
+                self._q('INSERT INTO PlantRooms (Name, Sort_Order) VALUES (%s, %s)', (name, i))
+        # Plants already exist in production, so newer columns are added in place.
         self._q("ALTER TABLE Plants ADD COLUMN IF NOT EXISTS Interval_Changed_At DATE")
+        self._q("ALTER TABLE Plants ADD COLUMN IF NOT EXISTS Room_ID INTEGER REFERENCES PlantRooms(ID)")
         self._q("""
             CREATE TABLE IF NOT EXISTS PlantEvents (
                 ID          SERIAL    PRIMARY KEY,
@@ -102,10 +123,10 @@ class PlantStore:
 
     def add_plant(self, f):
         r = self._q(
-            'INSERT INTO Plants (Name, Plant_Type, Color, Irrigation_Mode, Interval_Days, Auto_Time, Created_At) '
-            'VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING ID',
+            'INSERT INTO Plants (Name, Plant_Type, Color, Irrigation_Mode, Interval_Days, Auto_Time, '
+            'Created_At, Room_ID) VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING ID',
             (f['name'], f['plant_type'], f['color'], f['irrigation_mode'],
-             f['interval_days'], f.get('auto_time'), f['created_at'])
+             f['interval_days'], f.get('auto_time'), f['created_at'], f.get('room_id'))
         ).fetchone()
         self._commit()
         return r[0]
@@ -124,6 +145,36 @@ class PlantStore:
 
     def restore_plant(self, pid):
         self._q('UPDATE Plants SET Deleted_At=NULL WHERE ID=%s', (pid,))
+        self._commit()
+
+    # ── Rooms ───────────────────────────────────────────────────────────────
+    def list_rooms(self, deleted=False):
+        cond = 'IS NOT NULL' if deleted else 'IS NULL'
+        rows = self._q(f'SELECT {_ROOM_COLS} FROM PlantRooms WHERE Deleted_At {cond} '
+                       'ORDER BY Sort_Order, ID').fetchall()
+        return [_room(r) for r in rows]
+
+    def get_room(self, rid):
+        r = self._q(f'SELECT {_ROOM_COLS} FROM PlantRooms WHERE ID=%s', (rid,)).fetchone()
+        return _room(r) if r else None
+
+    def add_room(self, name):
+        r = self._q('INSERT INTO PlantRooms (Name, Sort_Order) '
+                    'SELECT %s, COALESCE(MAX(Sort_Order), -1) + 1 FROM PlantRooms RETURNING ID',
+                    (name,)).fetchone()
+        self._commit()
+        return r[0]
+
+    def rename_room(self, rid, name):
+        self._q('UPDATE PlantRooms SET Name=%s WHERE ID=%s', (name, rid))
+        self._commit()
+
+    def soft_delete_room(self, rid):
+        self._q('UPDATE PlantRooms SET Deleted_At=CURRENT_TIMESTAMP WHERE ID=%s', (rid,))
+        self._commit()
+
+    def restore_room(self, rid):
+        self._q('UPDATE PlantRooms SET Deleted_At=NULL WHERE ID=%s', (rid,))
         self._commit()
 
     # ── Days ────────────────────────────────────────────────────────────────

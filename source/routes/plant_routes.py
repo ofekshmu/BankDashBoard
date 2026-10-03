@@ -133,6 +133,29 @@ def api_plant_dismiss_season(pid):
     return _respond(lambda s, t: svc.dismiss_season(s, pid, t))
 
 
+@plants_bp.route('/api/plants/rooms', methods=['GET', 'POST'])
+def api_plant_rooms():
+    if request.method == 'POST':
+        return _respond(lambda s, t: {'created_id': svc.create_room(s, _body())})
+    try:
+        return jsonify(dict(ok=True, **svc.rooms_overview(get_store())))
+    except Exception as e:
+        logger.exception('plant tracker request failed: %s %s', request.method, request.path)
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+@plants_bp.route('/api/plants/rooms/<int:rid>', methods=['PUT', 'DELETE'])
+def api_plant_room(rid):
+    if request.method == 'DELETE':
+        return _respond(lambda s, t: svc.delete_room(s, rid))
+    return _respond(lambda s, t: svc.rename_room(s, rid, _body()))
+
+
+@plants_bp.route('/api/plants/rooms/<int:rid>/restore', methods=['POST'])
+def api_plant_room_restore(rid):
+    return _respond(lambda s, t: svc.restore_room(s, rid))
+
+
 @plants_bp.route('/api/plants/water-due', methods=['POST'])
 def api_plants_water_due():
     return _respond(lambda s, t: {'watered_count': svc.water_due(s, _body(), t)})

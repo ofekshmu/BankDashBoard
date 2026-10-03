@@ -98,9 +98,28 @@ def _validate_fields(body, partial):
     return f
 
 
+def _room_field(store, body, f):
+    """Validate an optional `room_id` from the body into `f` (None = no room)."""
+    if 'room_id' not in body:
+        return
+    raw = body['room_id']
+    if raw in (None, ''):
+        f['room_id'] = None
+        return
+    try:
+        rid = int(raw)
+    except (TypeError, ValueError):
+        raise PlantError('חדר לא קיים')
+    room = store.get_room(rid)
+    if not room or room['deleted_at']:
+        raise PlantError('חדר לא קיים')
+    f['room_id'] = rid
+
+
 # ── Plants ─────────────────────────────────────────────────────────────────
 def create_plant(store, body, today):
     f = _validate_fields(body, partial=False)
+    _room_field(store, body, f)
     f.pop('season_ack', None)
     f.setdefault('color', PALETTE[store.count_plants() % len(PALETTE)])
     if f['irrigation_mode'] == 'auto':
@@ -112,6 +131,7 @@ def create_plant(store, body, today):
 def update_plant(store, pid, body, today):
     p = _require_plant(store, pid)
     f = _validate_fields(body, partial=True)
+    _room_field(store, body, f)
     if f.get('irrigation_mode') == 'auto' and not (f.get('auto_time') or p['auto_time']):
         f['auto_time'] = DEFAULT_AUTO_TIME
     if 'interval_days' in f and f['interval_days'] != p['interval_days']:
@@ -131,7 +151,64 @@ def restore_plant(store, pid):
 
 
 def deleted_plants(store):
-    return [_plant_json(p) for p in store.list_plants(deleted=True)]
+    active = _active_room_ids(store)
+    return [_plant_json(p, active_rooms=active) for p in store.list_plants(deleted=True)]
+
+
+# ── Rooms ──────────────────────────────────────────────────────────────────
+def _require_room(store, rid, active=True):
+    room = store.get_room(rid)
+    if not room or (active and room['deleted_at']):
+        raise PlantError('חדר לא נמצא', 404)
+    return room
+
+
+def _room_name(store, body, exclude_id=None):
+    name = str(body.get('name') or '').strip()
+    if not name or len(name) > 30:
+        raise PlantError('שם חדר חייב להכיל 1-30 תווים')
+    if any(r['name'] == name and r['id'] != exclude_id for r in store.list_rooms()):
+        raise PlantError('קיים כבר חדר בשם זה')
+    return name
+
+
+def _active_room_ids(store):
+    return {r['id'] for r in store.list_rooms()}
+
+
+def create_room(store, body):
+    return store.add_room(_room_name(store, body))
+
+
+def rename_room(store, rid, body):
+    _require_room(store, rid)
+    store.rename_room(rid, _room_name(store, body, exclude_id=rid))
+
+
+def delete_room(store, rid):
+    """Soft delete: its plants show as unassigned until the room is restored."""
+    _require_room(store, rid)
+    store.soft_delete_room(rid)
+
+
+def restore_room(store, rid):
+    room = _require_room(store, rid, active=False)
+    if any(r['name'] == room['name'] for r in store.list_rooms()):
+        raise PlantError('קיים כבר חדר בשם זה')
+    store.restore_room(rid)
+
+
+def deleted_rooms(store):
+    return [_room_json(r) for r in store.list_rooms(deleted=True)]
+
+
+def rooms_overview(store):
+    """Active and soft-deleted rooms, for the room manager."""
+    return {'rooms': [_room_json(r) for r in store.list_rooms()], 'deleted': deleted_rooms(store)}
+
+
+def _room_json(r):
+    return {'id': r['id'], 'name': r['name']}
 
 
 # ── Days / events ──────────────────────────────────────────────────────────
@@ -223,13 +300,16 @@ def materialize(store, today):
     store.insert_days(rows)
 
 
-def _plant_json(p, last_water=None, since=None, status=None):
+def _plant_json(p, last_water=None, since=None, status=None, active_rooms=()):
+    room_id = p.get('room_id')
     return {'id': p['id'], 'name': p['name'], 'plant_type': p['plant_type'], 'color': p['color'],
             'irrigation_mode': p['irrigation_mode'], 'interval_days': p['interval_days'],
             'auto_time': p['auto_time'], 'season_ack': p['season_ack'],
             'created_at': p['created_at'].isoformat(),
             'last_water': last_water.isoformat() if last_water else None,
-            'days_since_water': since, 'status': status}
+            'days_since_water': since, 'status': status,
+            # a plant in a deleted room shows as unassigned until the room is restored
+            'room_id': room_id if room_id in active_rooms else None}
 
 
 def _day_json(r):
@@ -250,13 +330,15 @@ def build_payload(store, today):
     days = store.get_days(ids, window[0], today)
     events = store.get_events(ids, window[0], today)
     lasts = store.last_event_dates(ids, today)
+    rooms = store.list_rooms()
+    active_rooms = {r['id'] for r in rooms}
     out, suggestions = [], []
     for p in plants:
         le = lasts.get(p['id'], {})
         since, status = plant_status(p, le.get('water'), today)
         if p['irrigation_mode'] == 'auto':
             status = 'auto'  # no due/overdue for plants watered by their own system
-        out.append(_plant_json(p, le.get('water'), since, status))
+        out.append(_plant_json(p, le.get('water'), since, status, active_rooms))
         suggestions.extend(build_suggestions(p, days.get(p['id'], []), le, today))
     suggestions.sort(key=lambda s: _LEVEL_ORDER[s['level']])
     return {
@@ -264,6 +346,7 @@ def build_payload(store, today):
         'today': today.isoformat(),
         'window': [d.isoformat() for d in window],
         'plants': out,
+        'rooms': [_room_json(r) for r in rooms],
         'days': {str(pid): [_day_json(r) for r in rows] for pid, rows in days.items()},
         'events': {str(pid): [_event_json(e) for e in evs] for pid, evs in events.items()},
         'suggestions': suggestions,

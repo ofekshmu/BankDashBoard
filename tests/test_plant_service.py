@@ -295,3 +295,93 @@ def test_water_due_skips_auto_plants():
     _backdate(s, auto, date(2026, 10, 1))
     n = svc.water_due(s, {'event_at': '2026-10-14T09:00'}, T)
     assert n == 1 and [e['plant_id'] for e in s.events.values()] == [manual]
+
+
+# ── Rooms ──────────────────────────────────────────────────────────────────
+DEFAULT_ROOM_NAMES = ['סלון', 'מטבח', 'חדר שינה', 'חדר עבודה', 'מרפסת', 'אמבטיה']
+
+
+def _room_id(store, name):
+    return [r['id'] for r in store.list_rooms() if r['name'] == name][0]
+
+
+def test_payload_lists_default_rooms_in_order():
+    s = FakePlantStore()
+    assert [r['name'] for r in svc.build_payload(s, T)['rooms']] == DEFAULT_ROOM_NAMES
+
+
+def test_create_room_validates_name():
+    s = FakePlantStore()
+    rid = svc.create_room(s, {'name': '  חדר ילדים  '})
+    assert s.get_room(rid)['name'] == 'חדר ילדים'
+    for bad in ('', '   ', 'x' * 31, 'סלון', 'חדר ילדים'):
+        with pytest.raises(svc.PlantError) as e:
+            svc.create_room(s, {'name': bad})
+        assert e.value.status == 400
+    assert svc.build_payload(s, T)['rooms'][-1]['name'] == 'חדר ילדים'
+
+
+def test_rename_room():
+    s = FakePlantStore()
+    rid = _room_id(s, 'מרפסת')
+    svc.rename_room(s, rid, {'name': 'מרפסת שירות'})
+    assert s.get_room(rid)['name'] == 'מרפסת שירות'
+    svc.rename_room(s, rid, {'name': 'מרפסת שירות'})  # same name on itself is fine
+    with pytest.raises(svc.PlantError):
+        svc.rename_room(s, rid, {'name': 'סלון'})
+    with pytest.raises(svc.PlantError) as e:
+        svc.rename_room(s, 999, {'name': 'x'})
+    assert e.value.status == 404
+
+
+def test_plant_room_assignment_and_validation():
+    s = FakePlantStore()
+    kitchen = _room_id(s, 'מטבח')
+    pid = _mk(s, room_id=kitchen)
+    assert svc.build_payload(s, T)['plants'][0]['room_id'] == kitchen
+    svc.update_plant(s, pid, {'room_id': None}, T)
+    assert svc.build_payload(s, T)['plants'][0]['room_id'] is None
+    svc.update_plant(s, pid, {'room_id': str(kitchen)}, T)
+    assert s.get_plant(pid)['room_id'] == kitchen
+    for bad in (999, 'abc'):
+        with pytest.raises(svc.PlantError):
+            svc.update_plant(s, pid, {'room_id': bad}, T)
+    with pytest.raises(svc.PlantError):
+        _mk(s, room_id=999)
+
+
+def test_plant_without_room_field_keeps_room_on_update():
+    s = FakePlantStore()
+    kitchen = _room_id(s, 'מטבח')
+    pid = _mk(s, room_id=kitchen)
+    svc.update_plant(s, pid, {'interval_days': 5}, T)
+    assert s.get_plant(pid)['room_id'] == kitchen
+
+
+def test_deleted_room_unassigns_in_payload_and_restore_brings_back():
+    s = FakePlantStore()
+    balcony = _room_id(s, 'מרפסת')
+    pid = _mk(s, room_id=balcony)
+    svc.delete_room(s, balcony)
+    p = svc.build_payload(s, T)
+    assert balcony not in [r['id'] for r in p['rooms']]
+    assert p['plants'][0]['room_id'] is None
+    assert [r['id'] for r in svc.deleted_rooms(s)] == [balcony]
+    with pytest.raises(svc.PlantError):
+        _mk(s, room_id=balcony)  # cannot assign a deleted room
+    svc.restore_room(s, balcony)
+    assert svc.build_payload(s, T)['plants'][0]['room_id'] == balcony
+    assert s.get_plant(pid)['room_id'] == balcony
+
+
+def test_restore_room_with_taken_name_is_rejected():
+    s = FakePlantStore()
+    bath = _room_id(s, 'אמבטיה')
+    svc.delete_room(s, bath)
+    svc.create_room(s, {'name': 'אמבטיה'})
+    with pytest.raises(svc.PlantError) as e:
+        svc.restore_room(s, bath)
+    assert e.value.status == 400
+    with pytest.raises(svc.PlantError) as e:
+        svc.delete_room(s, 999)
+    assert e.value.status == 404

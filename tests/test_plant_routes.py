@@ -151,3 +151,29 @@ def test_deleted_list_error_is_logged_with_traceback(client, monkeypatch, caplog
         r = client.get('/api/plants/deleted')
     assert r.status_code == 500 and r.get_json()['ok'] is False
     assert any(rec.exc_info and rec.exc_info[0] is RuntimeError for rec in caplog.records)
+
+
+# ── Rooms ──────────────────────────────────────────────────────────────────
+def test_rooms_crud_flow(client):
+    d = client.get('/api/plants/rooms').get_json()
+    assert d['ok'] and len(d['rooms']) == 6 and d['deleted'] == []
+    d = client.post('/api/plants/rooms', json={'today': TODAY, 'name': 'חדר ילדים'}).get_json()
+    rid = d['created_id']
+    assert d['rooms'][-1] == {'id': rid, 'name': 'חדר ילדים'}
+    d = client.put(f'/api/plants/rooms/{rid}', json={'today': TODAY, 'name': 'חדר משחקים'}).get_json()
+    assert d['rooms'][-1]['name'] == 'חדר משחקים'
+    _create(client, room_id=rid)
+    d = client.delete(f'/api/plants/rooms/{rid}', json={'today': TODAY}).get_json()
+    assert rid not in [r['id'] for r in d['rooms']] and d['plants'][0]['room_id'] is None
+    assert [r['id'] for r in client.get('/api/plants/rooms').get_json()['deleted']] == [rid]
+    d = client.post(f'/api/plants/rooms/{rid}/restore', json={'today': TODAY}).get_json()
+    assert d['plants'][0]['room_id'] == rid
+
+
+def test_room_errors(client):
+    r = client.post('/api/plants/rooms', json={'today': TODAY, 'name': 'סלון'})
+    assert r.status_code == 400 and r.get_json()['ok'] is False
+    r = client.put('/api/plants/rooms/999', json={'today': TODAY, 'name': 'x'})
+    assert r.status_code == 404
+    r = client.post('/api/plants', json={'today': TODAY, 'name': 'x', 'plant_type': 'fern', 'room_id': 999})
+    assert r.status_code == 400

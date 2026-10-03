@@ -61,3 +61,24 @@ def test_roundtrip(store):
 
     store.delete_event(eid)
     assert store.water_dates(pid) == [] and store.get_event(eid) is None
+
+
+def test_rooms_roundtrip(store):
+    from plant_store import DEFAULT_ROOMS
+    assert set(DEFAULT_ROOMS) <= {r['name'] for r in store.list_rooms()}
+    rid = store.add_room('__room_test__')
+    assert store.get_room(rid)['name'] == '__room_test__' and store.list_rooms()[-1]['id'] == rid
+    store.rename_room(rid, '__room_test_2__')
+    assert store.get_room(rid)['name'] == '__room_test_2__'
+
+    pid = store.add_plant({'name': '__plant_test__', 'plant_type': 'herb', 'color': '#1e9d8b',
+                           'irrigation_mode': 'manual', 'interval_days': 3,
+                           'created_at': date(2026, 10, 1), 'room_id': rid})
+    assert store.get_plant(pid)['room_id'] == rid
+
+    store.soft_delete_room(rid)
+    assert rid in [r['id'] for r in store.list_rooms(deleted=True)]
+    assert rid not in [r['id'] for r in store.list_rooms()]
+    store.restore_room(rid)
+    store.update_plant(pid, {'room_id': None})
+    assert store.get_plant(pid)['room_id'] is None

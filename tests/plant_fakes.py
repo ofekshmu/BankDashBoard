@@ -1,6 +1,8 @@
 """In-memory stand-in for plant_store.PlantStore — same methods and return shapes."""
 from datetime import datetime
 
+from plant_store import DEFAULT_ROOMS
+
 _DAY_KEYS = ('day', 'soil_status', 'watered', 'auto_expected', 'auto_confirmed')
 
 
@@ -9,6 +11,8 @@ class FakePlantStore:
         self.plants, self.days, self.events = {}, {}, {}
         self._next_plant = 1
         self._next_event = 1
+        self.rooms = {i + 1: {'id': i + 1, 'name': n, 'sort_order': i, 'deleted_at': None}
+                      for i, n in enumerate(DEFAULT_ROOMS)}
 
     def ensure(self):
         pass
@@ -31,12 +35,13 @@ class FakePlantStore:
                             'color': f['color'], 'irrigation_mode': f['irrigation_mode'],
                             'interval_days': f['interval_days'], 'auto_time': f.get('auto_time'),
                             'season_ack': None, 'interval_changed_at': None,
-                            'created_at': f['created_at'], 'deleted_at': None}
+                            'created_at': f['created_at'], 'deleted_at': None,
+                            'room_id': f.get('room_id')}
         return pid
 
     def update_plant(self, pid, f):
         for k in ('name', 'plant_type', 'color', 'irrigation_mode', 'interval_days', 'auto_time',
-                  'season_ack', 'interval_changed_at'):
+                  'season_ack', 'interval_changed_at', 'room_id'):
             if k in f:
                 self.plants[pid][k] = f[k]
 
@@ -45,6 +50,29 @@ class FakePlantStore:
 
     def restore_plant(self, pid):
         self.plants[pid]['deleted_at'] = None
+
+    def list_rooms(self, deleted=False):
+        return [dict(r) for r in sorted(self.rooms.values(), key=lambda r: (r['sort_order'], r['id']))
+                if bool(r['deleted_at']) == deleted]
+
+    def get_room(self, rid):
+        r = self.rooms.get(rid)
+        return dict(r) if r else None
+
+    def add_room(self, name):
+        rid = max(self.rooms, default=0) + 1
+        order = max((r['sort_order'] for r in self.rooms.values()), default=-1) + 1
+        self.rooms[rid] = {'id': rid, 'name': name, 'sort_order': order, 'deleted_at': None}
+        return rid
+
+    def rename_room(self, rid, name):
+        self.rooms[rid]['name'] = name
+
+    def soft_delete_room(self, rid):
+        self.rooms[rid]['deleted_at'] = datetime.now()
+
+    def restore_room(self, rid):
+        self.rooms[rid]['deleted_at'] = None
 
     def last_materialized_days(self, ids):
         out = {}

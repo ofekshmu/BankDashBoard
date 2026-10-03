@@ -5918,6 +5918,50 @@ def recurring_clear_display_name(group_key):
 from routes.plant_routes import plants_bp
 app.register_blueprint(plants_bp)
 
+# ── Landing dashboard — routes in routes/landing_routes.py, KPI builders in landing_service.py
+from routes.landing_routes import landing_bp, register_loader as _landing_register
+import landing_service as _landing_svc
+from landing_loaders import register_default_loaders as _landing_defaults
+app.register_blueprint(landing_bp)
+_landing_defaults()
+
+
+def _view_json(rv):
+    """(json, status) from a view's return value: Response or (Response, status[, headers])."""
+    resp, status = (rv[0], rv[1]) if isinstance(rv, tuple) else (rv, rv.status_code)
+    return resp.get_json(), status
+
+
+def _landing_monthly(today):
+    months, _ = _view_json(general_list())
+    key = _landing_svc.pick_month(months, today)
+    payload = None
+    if key:
+        data, status = _view_json(monthly_data_api(key))
+        payload = data if status == 200 else None
+    return _landing_svc.build_monthly(months, key, payload)
+
+
+def _landing_accounts(today):
+    payload = _accounts_cached_payload() or _compute_accounts()
+    try:
+        cash_map = _cash_balance_map()
+    except Exception:
+        cash_map = None
+    return _landing_svc.build_accounts(payload, cash_map, _get_fx_rates(), today)
+
+
+def _landing_housing(today):
+    data, status = _view_json(housing_data_api())
+    if status != 200:
+        raise RuntimeError((data or {}).get('error', 'housing data failed'))
+    return _landing_svc.build_housing(data.get('mortgage'))
+
+
+_landing_register('monthly', _landing_monthly)
+_landing_register('accounts', _landing_accounts)
+_landing_register('housing', _landing_housing)
+
 SPOTIFY_HTML = os.path.join(_HERE, 'html', 'SpotifyTracker.html')
 
 # ── Spotify Tracker routes ─────────────────────────────────────────────────────

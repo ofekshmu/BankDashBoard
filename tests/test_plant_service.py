@@ -385,3 +385,14 @@ def test_restore_room_with_taken_name_is_rejected():
     with pytest.raises(svc.PlantError) as e:
         svc.delete_room(s, 999)
     assert e.value.status == 404
+
+
+NEW_TYPES = ('kalanchoe', 'geranium', 'petunia', 'adansonii', 'orchid', 'oregano', 'rosemary', 'basil',
+             'chives', 'thyme', 'pentas', 'angelonia', 'spiky', 'strap', 'conifer', 'shrub')
+
+
+@pytest.mark.parametrize('plant_type', NEW_TYPES)
+def test_visual_plant_types_are_accepted(plant_type):
+    s = FakePlantStore()
+    pid = _mk(s, plant_type=plant_type)
+    assert s.get_plant(pid)['plant_type'] == plant_type

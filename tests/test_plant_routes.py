@@ -177,3 +177,14 @@ def test_room_errors(client):
     assert r.status_code == 404
     r = client.post('/api/plants', json={'today': TODAY, 'name': 'x', 'plant_type': 'fern', 'room_id': 999})
     assert r.status_code == 400
+
+
+def test_every_plant_type_has_an_icon_and_label_in_the_page(client):
+    import re
+    from src_utils.plant_logic import PLANT_TYPES
+    html = client.get('/plants').get_data(as_text=True)
+    glyphs = re.search(r'var GLYPHS = \{(.*?)\n\};', html, re.S).group(1)
+    labels = re.search(r'var PLANT_TYPES = \[(.*?)\];', html, re.S).group(1)
+    for t in PLANT_TYPES:
+        assert re.search(r'\b' + t + r'\s*:', glyphs), f'no glyph for {t}'
+        assert "['" + t + "'," in labels, f'no picker label for {t}'

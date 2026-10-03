@@ -156,6 +156,24 @@ def api_plant_room_restore(rid):
     return _respond(lambda s, t: svc.restore_room(s, rid))
 
 
+@plants_bp.route('/api/plants/configs', methods=['GET', 'POST'])
+def api_plant_configs():
+    if request.method == 'POST':
+        return _respond(lambda s, t: {'created_id': svc.create_config(s, _body(), t)})
+    try:
+        return jsonify(dict(ok=True, **svc.configs_overview(get_store())))
+    except Exception as e:
+        logger.exception('plant tracker request failed: %s %s', request.method, request.path)
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+@plants_bp.route('/api/plants/configs/<int:cid>', methods=['PUT', 'DELETE'])
+def api_plant_config(cid):
+    if request.method == 'DELETE':
+        return _respond(lambda s, t: svc.delete_config(s, cid))
+    return _respond(lambda s, t: svc.update_config(s, cid, _body(), t))
+
+
 @plants_bp.route('/api/plants/water-due', methods=['POST'])
 def api_plants_water_due():
     return _respond(lambda s, t: {'watered_count': svc.water_due(s, _body(), t)})

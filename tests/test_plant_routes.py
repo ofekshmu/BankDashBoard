@@ -188,3 +188,23 @@ def test_every_plant_type_has_an_icon_and_label_in_the_page(client):
     for t in PLANT_TYPES:
         assert re.search(r'\b' + t + r'\s*:', glyphs), f'no glyph for {t}'
         assert "['" + t + "'," in labels, f'no picker label for {t}'
+
+
+# ── Irrigation configs ─────────────────────────────────────────────────────
+def test_configs_crud_flow(client):
+    _create(client, irrigation_mode='manual')
+    d = client.post('/api/plants/configs', json={'today': TODAY, 'name': 'טפטפת', 'style': 'weekdays',
+                                                 'weekdays': [0, 3], 'time': '07:00', 'plant_ids': [1]}).get_json()
+    cid = d['created_id']
+    assert d['configs'] == [{'id': cid, 'name': 'טפטפת', 'style': 'weekdays', 'interval_days': None,
+                             'weekdays': [0, 3], 'time': '07:00', 'plant_count': 1}]
+    assert d['plants'][0]['config_id'] == cid
+    assert client.get('/api/plants/configs').get_json()['configs'][0]['id'] == cid
+    d = client.put(f'/api/plants/configs/{cid}', json={'today': TODAY, 'time': '08:15'}).get_json()
+    assert d['configs'][0]['time'] == '08:15'
+    r = client.delete(f'/api/plants/configs/{cid}', json={'today': TODAY})
+    assert r.status_code == 400
+    client.put(f'/api/plants/configs/{cid}', json={'today': TODAY, 'plant_ids': []})
+    d = client.delete(f'/api/plants/configs/{cid}', json={'today': TODAY}).get_json()
+    assert d['configs'] == [] and d['plants'][0]['irrigation_mode'] == 'manual'
+    assert client.put('/api/plants/configs/999', json={'today': TODAY, 'name': 'x'}).status_code == 404

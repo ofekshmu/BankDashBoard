@@ -396,3 +396,97 @@ def test_visual_plant_types_are_accepted(plant_type):
     s = FakePlantStore()
     pid = _mk(s, plant_type=plant_type)
     assert s.get_plant(pid)['plant_type'] == plant_type
+
+
+# ── Irrigation configs ─────────────────────────────────────────────────────
+def _cfg(store, **kw):
+    body = {'name': 'טפטפת מרפסת', 'style': 'interval', 'interval_days': 2, 'time': '06:30'}
+    body.update(kw)
+    return svc.create_config(store, body, T)
+
+
+def test_create_config_validates():
+    s = FakePlantStore()
+    _cfg(s)
+    for bad in ({'name': ''}, {'name': 'טפטפת מרפסת'}, {'name': 'x', 'style': 'monthly'},
+                {'name': 'x', 'interval_days': 0}, {'name': 'x', 'style': 'weekdays', 'weekdays': []},
+                {'name': 'x', 'style': 'weekdays', 'weekdays': [7]}, {'name': 'x', 'time': '25:00'}):
+        with pytest.raises(svc.PlantError):
+            _cfg(s, **bad)
+
+
+def test_config_assigns_many_plants_and_reassigns():
+    s = FakePlantStore()
+    a, b, c = _mk(s, name='a'), _mk(s, name='b'), _mk(s, name='c')
+    cid = _cfg(s, plant_ids=[a, b])
+    p = svc.build_payload(s, T)
+    on = {x['id']: x for x in p['plants']}
+    assert on[a]['irrigation_mode'] == 'auto' and on[a]['config_id'] == cid and on[c]['config_id'] is None
+    assert p['configs'][0]['plant_count'] == 2 and p['configs'][0]['time'] == '06:30'
+    svc.update_config(s, cid, {'plant_ids': [b, c]}, T)
+    assert s.get_plant(a)['irrigation_mode'] == 'manual' and s.get_plant(a)['config_id'] is None
+    assert s.get_plant(c)['config_id'] == cid and s.get_plant(c)['irrigation_mode'] == 'auto'
+
+
+def test_config_drives_expected_days_and_confirm_time():
+    s = FakePlantStore()
+    pid = _mk(s)
+    _backdate(s, pid, date(2026, 10, 10))
+    _cfg(s, style='weekdays', weekdays=[3], plant_ids=[pid])   # Wednesdays; 2026-10-14 is a Wednesday
+    svc.build_payload(s, T)
+    assert s.days[(pid, T)]['auto_expected'] is True
+    assert s.days[(pid, date(2026, 10, 13))]['auto_expected'] is False
+    svc.confirm_auto(s, pid, {'day': T.isoformat()}, T)
+    assert [e['event_at'] for e in s.events.values()] == [datetime(2026, 10, 14, 6, 30)]
+
+
+def test_config_edit_does_not_rewrite_history():
+    s = FakePlantStore()
+    pid = _mk(s)
+    _backdate(s, pid, date(2026, 10, 1))
+    cid = _cfg(s, interval_days=2, plant_ids=[pid])
+    svc.build_payload(s, date(2026, 10, 6))
+    before = {d: r['auto_expected'] for (_, d), r in s.days.items()}
+    svc.update_config(s, cid, {'style': 'weekdays', 'weekdays': [0, 1, 2, 3, 4, 5, 6]}, date(2026, 10, 6))
+    svc.build_payload(s, date(2026, 10, 8))
+    assert {d: r['auto_expected'] for (_, d), r in s.days.items() if d <= date(2026, 10, 6)} == before
+    assert s.days[(pid, date(2026, 10, 7))]['auto_expected'] is True
+
+
+def test_plant_config_field():
+    s = FakePlantStore()
+    cid = _cfg(s)
+    pid = _mk(s)
+    svc.update_plant(s, pid, {'config_id': cid}, T)
+    assert s.get_plant(pid)['irrigation_mode'] == 'auto' and s.get_plant(pid)['config_id'] == cid
+    svc.update_plant(s, pid, {'irrigation_mode': 'manual'}, T)
+    assert s.get_plant(pid)['config_id'] is None
+    with pytest.raises(svc.PlantError):
+        svc.update_plant(s, pid, {'config_id': 999}, T)
+
+
+def test_delete_config_in_use_is_rejected():
+    s = FakePlantStore()
+    pid = _mk(s)
+    cid = _cfg(s, plant_ids=[pid])
+    with pytest.raises(svc.PlantError) as e:
+        svc.delete_config(s, cid)
+    assert e.value.status == 400 and '1' in str(e.value)
+    svc.update_config(s, cid, {'plant_ids': []}, T)
+    svc.delete_config(s, cid)
+    assert svc.build_payload(s, T)['configs'] == []
+    with pytest.raises(svc.PlantError) as e:
+        svc.delete_config(s, 999)
+    assert e.value.status == 404
+
+
+def test_config_plant_suggestions_name_the_config():
+    from datetime import timedelta
+    s = FakePlantStore()
+    pid = _mk(s)
+    _cfg(s, plant_ids=[pid])
+    svc.build_payload(s, T)
+    for i in range(3):
+        svc.set_soil(s, pid, {'day': (T - timedelta(days=i)).isoformat(), 'soil_status': 'wet'}, T)
+    sug = [x for x in svc.build_payload(s, T)['suggestions'] if x['kind'] == 'overwater'][0]
+    assert sug['action'] is None and 'טפטפת מרפסת' in sug['text']

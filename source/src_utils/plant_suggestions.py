@@ -26,6 +26,10 @@ def build_suggestions(plant, rows, last_events, today):
     by_day = {r['day']: r for r in rows}
     # Day history from before the last interval change says nothing about the new interval.
     since_change = plant.get('interval_changed_at')
+    # A plant on a shared irrigation config: changing the interval would change every plant on it,
+    # so interval tips point at the config instead of offering a one-click change.
+    config = plant.get('config_name')
+    check_config = f' — בדוק את תוכנית "{config}"' if config else ''
 
     def _after_change(d):
         return since_change is None or d > since_change
@@ -41,7 +45,9 @@ def build_suggestions(plant, rows, last_events, today):
     fast = [d for d, r in by_day.items() if r['soil_status'] == 'dry' and _after_change(d)
             and _after_change(d - _DAY) and by_day.get(d - _DAY, {}).get('watered')]
     new = _clamp_interval(interval - 1)
-    if len(fast) >= 2 and new != interval:
+    if len(fast) >= 2 and config:
+        out.append(_sugg(plant, 'dries_fast', 'warn', f'{name}: האדמה מתייבשת מהר{check_config}'))
+    elif len(fast) >= 2 and new != interval:
         out.append(_sugg(plant, 'dries_fast', 'warn',
                          f'{name}: האדמה מתייבשת מהר — מומלץ לקצר את המרווח ל-{new} ימים',
                          {'type': 'set_interval', 'value': new}))
@@ -49,8 +55,10 @@ def build_suggestions(plant, rows, last_events, today):
     # 3. Wet three days in a row (today and the two before)
     wet_days = [today - i * _DAY for i in range(3)]
     new = _clamp_interval(interval + 1)
-    if new != interval and all(_after_change(d) and by_day.get(d, {}).get('soil_status') == 'wet'
-                               for d in wet_days):
+    wet_streak = all(_after_change(d) and by_day.get(d, {}).get('soil_status') == 'wet' for d in wet_days)
+    if wet_streak and config:
+        out.append(_sugg(plant, 'overwater', 'warn', f'{name}: האדמה רטובה 3 ימים ברצף{check_config}'))
+    elif wet_streak and new != interval:
         out.append(_sugg(plant, 'overwater', 'warn',
                          f'{name}: האדמה רטובה 3 ימים ברצף — סכנת השקיית יתר, מומלץ להאריך את המרווח',
                          {'type': 'set_interval', 'value': new}))
@@ -67,7 +75,7 @@ def build_suggestions(plant, rows, last_events, today):
     #    interval was already tuned this season
     key = season_key(today)
     tuned_this_season = since_change is not None and season_key(since_change) == key
-    if key and plant.get('season_ack') != key and not tuned_this_season:
+    if key and not config and plant.get('season_ack') != key and not tuned_this_season:
         if key.endswith('summer'):
             new = _clamp_interval(_round_half_up(interval * 0.75))
             text = f'{name}: קיץ — מומלץ להשקות כל {new} ימים במקום {interval}'

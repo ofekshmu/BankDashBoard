@@ -13,6 +13,7 @@ class FakePlantStore:
         self._next_event = 1
         self.rooms = {i + 1: {'id': i + 1, 'name': n, 'sort_order': i, 'deleted_at': None}
                       for i, n in enumerate(DEFAULT_ROOMS)}
+        self.configs = {}
 
     def ensure(self):
         pass
@@ -36,12 +37,12 @@ class FakePlantStore:
                             'interval_days': f['interval_days'], 'auto_time': f.get('auto_time'),
                             'season_ack': None, 'interval_changed_at': None,
                             'created_at': f['created_at'], 'deleted_at': None,
-                            'room_id': f.get('room_id')}
+                            'room_id': f.get('room_id'), 'config_id': f.get('config_id')}
         return pid
 
     def update_plant(self, pid, f):
         for k in ('name', 'plant_type', 'color', 'irrigation_mode', 'interval_days', 'auto_time',
-                  'season_ack', 'interval_changed_at', 'room_id'):
+                  'season_ack', 'interval_changed_at', 'room_id', 'config_id'):
             if k in f:
                 self.plants[pid][k] = f[k]
 
@@ -73,6 +74,29 @@ class FakePlantStore:
 
     def restore_room(self, rid):
         self.rooms[rid]['deleted_at'] = None
+
+    def list_configs(self, deleted=False):
+        return [dict(c, weekdays=list(c['weekdays'])) for c in sorted(self.configs.values(), key=lambda c: c['id'])
+                if bool(c['deleted_at']) == deleted]
+
+    def get_config(self, cid):
+        c = self.configs.get(cid)
+        return dict(c, weekdays=list(c['weekdays'])) if c else None
+
+    def add_config(self, f):
+        cid = max(self.configs, default=0) + 1
+        self.configs[cid] = {'id': cid, 'name': f['name'], 'style': f['style'],
+                             'interval_days': f.get('interval_days'), 'weekdays': list(f.get('weekdays') or []),
+                             'time': f['time'], 'deleted_at': None}
+        return cid
+
+    def update_config(self, cid, f):
+        for k in ('name', 'style', 'interval_days', 'weekdays', 'time'):
+            if k in f:
+                self.configs[cid][k] = list(f[k] or []) if k == 'weekdays' else f[k]
+
+    def soft_delete_config(self, cid):
+        self.configs[cid]['deleted_at'] = datetime.now()
 
     def last_materialized_days(self, ids):
         out = {}

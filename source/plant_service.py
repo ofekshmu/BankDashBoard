@@ -117,9 +117,24 @@ def _room_field(store, body, f):
 
 
 # ── Plants ─────────────────────────────────────────────────────────────────
+def _config_field(store, body, f):
+    """Validate an optional `config_id`: a config makes the plant automatic; manual clears it."""
+    if 'config_id' in body:
+        raw = body['config_id']
+        if raw in (None, ''):
+            f['config_id'] = None
+        else:
+            _require_config(store, raw, status=400)
+            f['config_id'] = int(raw)
+            f['irrigation_mode'] = 'auto'
+    if f.get('irrigation_mode') == 'manual':
+        f['config_id'] = None
+
+
 def create_plant(store, body, today):
     f = _validate_fields(body, partial=False)
     _room_field(store, body, f)
+    _config_field(store, body, f)
     f.pop('season_ack', None)
     f.setdefault('color', PALETTE[store.count_plants() % len(PALETTE)])
     if f['irrigation_mode'] == 'auto':
@@ -132,6 +147,7 @@ def update_plant(store, pid, body, today):
     p = _require_plant(store, pid)
     f = _validate_fields(body, partial=True)
     _room_field(store, body, f)
+    _config_field(store, body, f)
     if f.get('irrigation_mode') == 'auto' and not (f.get('auto_time') or p['auto_time']):
         f['auto_time'] = DEFAULT_AUTO_TIME
     if 'interval_days' in f and f['interval_days'] != p['interval_days']:
@@ -211,6 +227,132 @@ def _room_json(r):
     return {'id': r['id'], 'name': r['name']}
 
 
+# ── Irrigation configs (shared schedules for automatic plants) ─────────────
+CONFIG_STYLES = ('interval', 'weekdays')
+
+
+def _require_config(store, cid, status=404):
+    try:
+        cfg = store.get_config(int(cid))
+    except (TypeError, ValueError):
+        cfg = None
+    if not cfg or cfg['deleted_at']:
+        raise PlantError('תוכנית השקיה לא נמצאה', status)
+    return cfg
+
+
+def _config_fields(store, body, current=None):
+    """Validated config fields, normalised so an interval config has no weekdays and vice versa."""
+    f = {}
+    if 'name' in body or current is None:
+        name = str(body.get('name') or '').strip()
+        if not name or len(name) > 30:
+            raise PlantError('שם תוכנית חייב להכיל 1-30 תווים')
+        if any(c['name'] == name and c['id'] != (current or {}).get('id') for c in store.list_configs()):
+            raise PlantError('קיימת כבר תוכנית בשם זה')
+        f['name'] = name
+    if 'style' in body or current is None:
+        style = body.get('style') or 'interval'
+        if style not in CONFIG_STYLES:
+            raise PlantError('סוג תוכנית לא מוכר')
+        f['style'] = style
+    if 'interval_days' in body:
+        try:
+            f['interval_days'] = int(body['interval_days'])
+        except (TypeError, ValueError):
+            raise PlantError('מרווח השקיה לא תקין')
+    if 'weekdays' in body:
+        days = body['weekdays'] or []
+        if not isinstance(days, list) or not all(isinstance(d, int) and 0 <= d <= 6 for d in days):
+            raise PlantError('ימי השקיה לא תקינים')
+        f['weekdays'] = sorted(set(days))
+    if 'time' in body or current is None:
+        t = body.get('time') or DEFAULT_AUTO_TIME
+        if not _HHMM.match(str(t)):
+            raise PlantError('שעת השקיה לא תקינה')
+        f['time'] = t
+
+    merged = dict(current or {}, **f)
+    if merged['style'] == 'interval':
+        if not isinstance(merged.get('interval_days'), int) or not 1 <= merged['interval_days'] <= 60:
+            raise PlantError('מרווח השקיה חייב להיות 1-60 ימים')
+        f['interval_days'], f['weekdays'] = merged['interval_days'], []
+    else:
+        if not merged.get('weekdays'):
+            raise PlantError('יש לבחור לפחות יום אחד')
+        f['interval_days'], f['weekdays'] = None, merged['weekdays']
+    return f
+
+
+def _plants_on(store, cid):
+    return [p for p in store.list_plants() if p['irrigation_mode'] == 'auto' and p.get('config_id') == cid]
+
+
+def _assign_plants(store, cid, plant_ids):
+    """Exactly these plants use the config: they become automatic, others on it go back to manual."""
+    if not isinstance(plant_ids, list):
+        raise PlantError('רשימת עציצים לא תקינה')
+    wanted = set()
+    for pid in plant_ids:
+        try:
+            wanted.add(_require_plant(store, int(pid))['id'])
+        except (TypeError, ValueError):
+            raise PlantError('רשימת עציצים לא תקינה')
+    for p in _plants_on(store, cid):
+        if p['id'] not in wanted:
+            store.update_plant(p['id'], {'irrigation_mode': 'manual', 'config_id': None})
+    for pid in wanted:
+        store.update_plant(pid, {'irrigation_mode': 'auto', 'config_id': cid})
+
+
+def create_config(store, body, today):
+    cid = store.add_config(_config_fields(store, body))
+    if 'plant_ids' in body:
+        _assign_plants(store, cid, body['plant_ids'])
+    return cid
+
+
+def update_config(store, cid, body, today):
+    """Changes apply to every plant on the config from the next materialized day on."""
+    current = _require_config(store, cid)
+    store.update_config(current['id'], _config_fields(store, body, current))
+    if 'plant_ids' in body:
+        _assign_plants(store, current['id'], body['plant_ids'])
+
+
+def delete_config(store, cid):
+    cfg = _require_config(store, cid)
+    in_use = len(_plants_on(store, cfg['id']))
+    if in_use:
+        raise PlantError(f'התוכנית בשימוש ב-{in_use} עציצים — העבירו אותם לתוכנית אחרת או להשקיה ידנית')
+    store.soft_delete_config(cfg['id'])
+
+
+def _config_json(c, plants):
+    return {'id': c['id'], 'name': c['name'], 'style': c['style'], 'interval_days': c['interval_days'],
+            'weekdays': c['weekdays'] or [], 'time': c['time'],
+            'plant_count': sum(1 for p in plants if p['irrigation_mode'] == 'auto' and p.get('config_id') == c['id'])}
+
+
+def configs_overview(store):
+    plants = store.list_plants()
+    return {'configs': [_config_json(c, plants) for c in store.list_configs()]}
+
+
+def _plant_config(p, configs_by_id):
+    """The active config an automatic plant follows, else None (it then uses its own interval)."""
+    if p['irrigation_mode'] != 'auto':
+        return None
+    return configs_by_id.get(p.get('config_id'))
+
+
+def _schedule(cfg):
+    if not cfg:
+        return None
+    return {'style': cfg['style'], 'interval_days': cfg['interval_days'],
+            'weekdays': cfg['weekdays'] or [], 'time': cfg['time']}
+
+
 # ── Days / events ──────────────────────────────────────────────────────────
 def _refresh_watered(store, pid, day):
     store.upsert_day(pid, day, watered=day in set(store.water_dates(pid)))
@@ -257,7 +399,8 @@ def confirm_auto(store, pid, body, today):
     if p['irrigation_mode'] != 'auto':
         raise PlantError('העציץ אינו בהשקיה אוטומטית')
     day = _parse_day(body.get('day'), today)
-    hh, mm = (p['auto_time'] or DEFAULT_AUTO_TIME).split(':')
+    cfg = _plant_config(p, {c['id']: c for c in store.list_configs()})
+    hh, mm = ((cfg or {}).get('time') or p['auto_time'] or DEFAULT_AUTO_TIME).split(':')
     store.add_event(pid, 'water', datetime.combine(day, time(int(hh), int(mm))), 'auto_confirmed', None)
     store.upsert_day(pid, day, watered=True, auto_confirmed=True)
 
@@ -291,16 +434,18 @@ def materialize(store, today):
     """Insert the missing PlantDays rows (through today) for every active plant."""
     plants = store.list_plants()
     lasts = store.last_materialized_days([p['id'] for p in plants])
+    configs = {c['id']: c for c in store.list_configs()}
     rows = []
     for p in plants:
         last = lasts.get(p['id'])
         if last is not None and last >= today:
             continue
-        rows.extend(materialize_rows(p, last, today, set(store.water_dates(p['id']))))
+        rows.extend(materialize_rows(p, last, today, set(store.water_dates(p['id'])),
+                                     _schedule(_plant_config(p, configs))))
     store.insert_days(rows)
 
 
-def _plant_json(p, last_water=None, since=None, status=None, active_rooms=()):
+def _plant_json(p, last_water=None, since=None, status=None, active_rooms=(), cfg=None):
     room_id = p.get('room_id')
     return {'id': p['id'], 'name': p['name'], 'plant_type': p['plant_type'], 'color': p['color'],
             'irrigation_mode': p['irrigation_mode'], 'interval_days': p['interval_days'],
@@ -309,7 +454,8 @@ def _plant_json(p, last_water=None, since=None, status=None, active_rooms=()):
             'last_water': last_water.isoformat() if last_water else None,
             'days_since_water': since, 'status': status,
             # a plant in a deleted room shows as unassigned until the room is restored
-            'room_id': room_id if room_id in active_rooms else None}
+            'room_id': room_id if room_id in active_rooms else None,
+            'config_id': cfg['id'] if cfg else None}
 
 
 def _day_json(r):
@@ -332,14 +478,18 @@ def build_payload(store, today):
     lasts = store.last_event_dates(ids, today)
     rooms = store.list_rooms()
     active_rooms = {r['id'] for r in rooms}
+    configs = store.list_configs()
+    configs_by_id = {c['id']: c for c in configs}
     out, suggestions = [], []
     for p in plants:
         le = lasts.get(p['id'], {})
         since, status = plant_status(p, le.get('water'), today)
         if p['irrigation_mode'] == 'auto':
             status = 'auto'  # no due/overdue for plants watered by their own system
-        out.append(_plant_json(p, le.get('water'), since, status, active_rooms))
-        suggestions.extend(build_suggestions(p, days.get(p['id'], []), le, today))
+        cfg = _plant_config(p, configs_by_id)
+        out.append(_plant_json(p, le.get('water'), since, status, active_rooms, cfg))
+        sugg_plant = dict(p, config_name=cfg['name']) if cfg else p
+        suggestions.extend(build_suggestions(sugg_plant, days.get(p['id'], []), le, today))
     suggestions.sort(key=lambda s: _LEVEL_ORDER[s['level']])
     return {
         'ok': True,
@@ -347,6 +497,7 @@ def build_payload(store, today):
         'window': [d.isoformat() for d in window],
         'plants': out,
         'rooms': [_room_json(r) for r in rooms],
+        'configs': [_config_json(c, plants) for c in configs],
         'days': {str(pid): [_day_json(r) for r in rows] for pid, rows in days.items()},
         'events': {str(pid): [_event_json(e) for e in evs] for pid, evs in events.items()},
         'suggestions': suggestions,

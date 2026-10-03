@@ -8,27 +8,43 @@ transaction they roll back.
 DEFAULT_ROOMS = ('סלון', 'מטבח', 'חדר שינה', 'חדר עבודה', 'מרפסת', 'אמבטיה')
 
 _PLANT_COLS = ('ID, Name, Plant_Type, Color, Irrigation_Mode, Interval_Days, '
-               'Auto_Time, Season_Ack, Created_At, Deleted_At, Interval_Changed_At, Room_ID')
+               'Auto_Time, Season_Ack, Created_At, Deleted_At, Interval_Changed_At, Room_ID, Config_ID')
 _PLANT_UPDATABLE = {
     'name': 'Name', 'plant_type': 'Plant_Type', 'color': 'Color',
     'irrigation_mode': 'Irrigation_Mode', 'interval_days': 'Interval_Days',
     'auto_time': 'Auto_Time', 'season_ack': 'Season_Ack', 'interval_changed_at': 'Interval_Changed_At',
-    'room_id': 'Room_ID',
+    'room_id': 'Room_ID', 'config_id': 'Config_ID',
 }
 _DAY_UPDATABLE = {'soil_status': 'Soil_Status', 'watered': 'Watered', 'auto_confirmed': 'Auto_Confirmed'}
 _EVENT_COLS = 'ID, Plant_ID, Event_Type, Event_At, Source, Note'
 _ROOM_COLS = 'ID, Name, Sort_Order, Deleted_At'
+_CONFIG_COLS = 'ID, Name, Style, Interval_Days, Weekdays, Water_Time, Deleted_At'
+_CONFIG_UPDATABLE = {'name': 'Name', 'style': 'Style', 'interval_days': 'Interval_Days',
+                     'weekdays': 'Weekdays', 'time': 'Water_Time'}
 
 
 def _plant(r):
     return {'id': r[0], 'name': r[1], 'plant_type': r[2], 'color': r[3],
             'irrigation_mode': r[4], 'interval_days': r[5], 'auto_time': r[6],
             'season_ack': r[7], 'created_at': r[8], 'deleted_at': r[9],
-            'interval_changed_at': r[10], 'room_id': r[11]}
+            'interval_changed_at': r[10], 'room_id': r[11], 'config_id': r[12]}
 
 
 def _room(r):
     return {'id': r[0], 'name': r[1], 'sort_order': r[2], 'deleted_at': r[3]}
+
+
+def _config(r):
+    return {'id': r[0], 'name': r[1], 'style': r[2], 'interval_days': r[3],
+            'weekdays': [int(x) for x in r[4].split(',')] if r[4] else [],
+            'time': r[5], 'deleted_at': r[6]}
+
+
+def _weekdays_sql(f):
+    """Weekdays are stored as text, e.g. '0,3' (Sun=0)."""
+    if 'weekdays' in f:
+        f = dict(f, weekdays=','.join(str(d) for d in f['weekdays'] or []) or None)
+    return f
 
 
 def _event(r):
@@ -83,6 +99,18 @@ class PlantStore:
         self._q("ALTER TABLE Plants ADD COLUMN IF NOT EXISTS Interval_Changed_At DATE")
         self._q("ALTER TABLE Plants ADD COLUMN IF NOT EXISTS Room_ID INTEGER REFERENCES PlantRooms(ID)")
         self._q("""
+            CREATE TABLE IF NOT EXISTS IrrigationConfigs (
+                ID            SERIAL    PRIMARY KEY,
+                Name          TEXT      NOT NULL,
+                Style         TEXT      NOT NULL,
+                Interval_Days INTEGER,
+                Weekdays      TEXT,
+                Water_Time    TEXT      NOT NULL,
+                Deleted_At    TIMESTAMP
+            )
+        """)
+        self._q("ALTER TABLE Plants ADD COLUMN IF NOT EXISTS Config_ID INTEGER REFERENCES IrrigationConfigs(ID)")
+        self._q("""
             CREATE TABLE IF NOT EXISTS PlantEvents (
                 ID          SERIAL    PRIMARY KEY,
                 Plant_ID    INTEGER   NOT NULL REFERENCES Plants(ID) ON DELETE CASCADE,
@@ -124,9 +152,9 @@ class PlantStore:
     def add_plant(self, f):
         r = self._q(
             'INSERT INTO Plants (Name, Plant_Type, Color, Irrigation_Mode, Interval_Days, Auto_Time, '
-            'Created_At, Room_ID) VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING ID',
+            'Created_At, Room_ID, Config_ID) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING ID',
             (f['name'], f['plant_type'], f['color'], f['irrigation_mode'],
-             f['interval_days'], f.get('auto_time'), f['created_at'], f.get('room_id'))
+             f['interval_days'], f.get('auto_time'), f['created_at'], f.get('room_id'), f.get('config_id'))
         ).fetchone()
         self._commit()
         return r[0]
@@ -175,6 +203,37 @@ class PlantStore:
 
     def restore_room(self, rid):
         self._q('UPDATE PlantRooms SET Deleted_At=NULL WHERE ID=%s', (rid,))
+        self._commit()
+
+    # ── Irrigation configs ──────────────────────────────────────────────────
+    def list_configs(self, deleted=False):
+        cond = 'IS NOT NULL' if deleted else 'IS NULL'
+        rows = self._q(f'SELECT {_CONFIG_COLS} FROM IrrigationConfigs WHERE Deleted_At {cond} ORDER BY ID').fetchall()
+        return [_config(r) for r in rows]
+
+    def get_config(self, cid):
+        r = self._q(f'SELECT {_CONFIG_COLS} FROM IrrigationConfigs WHERE ID=%s', (cid,)).fetchone()
+        return _config(r) if r else None
+
+    def add_config(self, f):
+        f = _weekdays_sql(f)
+        r = self._q('INSERT INTO IrrigationConfigs (Name, Style, Interval_Days, Weekdays, Water_Time) '
+                    'VALUES (%s, %s, %s, %s, %s) RETURNING ID',
+                    (f['name'], f['style'], f.get('interval_days'), f.get('weekdays'), f['time'])).fetchone()
+        self._commit()
+        return r[0]
+
+    def update_config(self, cid, f):
+        f = _weekdays_sql(f)
+        cols = [(col, f[key]) for key, col in _CONFIG_UPDATABLE.items() if key in f]
+        if not cols:
+            return
+        sets = ', '.join(f'{col}=%s' for col, _ in cols)
+        self._q(f'UPDATE IrrigationConfigs SET {sets} WHERE ID=%s', tuple(v for _, v in cols) + (cid,))
+        self._commit()
+
+    def soft_delete_config(self, cid):
+        self._q('UPDATE IrrigationConfigs SET Deleted_At=CURRENT_TIMESTAMP WHERE ID=%s', (cid,))
         self._commit()
 
     # ── Days ────────────────────────────────────────────────────────────────

@@ -19,23 +19,39 @@ def is_auto_expected(day, anchor, interval_days):
     return gap >= interval_days and gap % interval_days == 0
 
 
+def weekday_index(day):
+    """Sun=0 … Sat=6 (the browser's getDay() order, used for config weekdays)."""
+    return day.isoweekday() % 7
+
+
+def plant_schedule(plant):
+    """The schedule an auto plant has without a config: every `interval_days` at `auto_time`."""
+    return {'style': 'interval', 'interval_days': plant['interval_days'], 'weekdays': None,
+            'time': plant.get('auto_time')}
+
+
 def _last_water_before(water_dates, day):
     prior = [d for d in water_dates if d < day]
     return max(prior) if prior else None
 
 
-def materialize_rows(plant, last_day, today, water_dates):
+def materialize_rows(plant, last_day, today, water_dates, schedule=None):
     """PlantDays rows for every day after `last_day` (or from creation) through `today`.
 
-    Soil status is never carried forward — a new day starts unknown.
+    `schedule` (an irrigation config) decides auto_expected for auto plants; without one the plant's
+    own interval is used. Soil status is never carried forward — a new day starts unknown.
     """
+    schedule = schedule or plant_schedule(plant)
     d = last_day + timedelta(days=1) if last_day else plant['created_at']
     rows = []
     while d <= today:
         expected = False
         if plant['irrigation_mode'] == 'auto':
-            anchor = _last_water_before(water_dates, d) or plant['created_at']
-            expected = is_auto_expected(d, anchor, plant['interval_days'])
+            if schedule['style'] == 'weekdays':
+                expected = weekday_index(d) in schedule['weekdays']
+            else:
+                anchor = _last_water_before(water_dates, d) or plant['created_at']
+                expected = is_auto_expected(d, anchor, schedule['interval_days'])
         rows.append({'plant_id': plant['id'], 'day': d, 'soil_status': None,
                      'watered': d in water_dates, 'auto_expected': expected,
                      'auto_confirmed': False})

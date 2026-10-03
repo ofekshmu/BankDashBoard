@@ -82,3 +82,21 @@ def test_rooms_roundtrip(store):
     store.restore_room(rid)
     store.update_plant(pid, {'room_id': None})
     assert store.get_plant(pid)['room_id'] is None
+
+
+def test_configs_roundtrip(store):
+    cid = store.add_config({'name': '__cfg_test__', 'style': 'weekdays', 'interval_days': None,
+                            'weekdays': [0, 3], 'time': '07:00'})
+    c = store.get_config(cid)
+    assert c['weekdays'] == [0, 3] and c['style'] == 'weekdays' and c['time'] == '07:00'
+    store.update_config(cid, {'style': 'interval', 'interval_days': 2, 'weekdays': []})
+    c = store.get_config(cid)
+    assert c['style'] == 'interval' and c['interval_days'] == 2 and c['weekdays'] == []
+    pid = store.add_plant({'name': '__plant_test__', 'plant_type': 'herb', 'color': '#1e9d8b',
+                           'irrigation_mode': 'auto', 'interval_days': 3,
+                           'created_at': date(2026, 10, 1), 'config_id': cid})
+    assert store.get_plant(pid)['config_id'] == cid
+    assert cid in [x['id'] for x in store.list_configs()]
+    store.update_plant(pid, {'config_id': None})
+    store.soft_delete_config(cid)
+    assert cid in [x['id'] for x in store.list_configs(deleted=True)]

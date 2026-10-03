@@ -215,3 +215,24 @@ def test_seasonal_skipped_when_clamped_value_equals_interval():
     t = date(2027, 1, 10)
     s = build_suggestions(_plant(interval_days=60), _one_row(t), {'water': t - timedelta(days=1)}, t)
     assert 'seasonal' not in _kinds(s)
+
+
+# ── Plants on an irrigation config ─────────────────────────────────────────
+def test_config_plant_overwater_warns_without_interval_action():
+    p = _plant(irrigation_mode='auto', config_name='טפטפת מרפסת')
+    s = build_suggestions(p, _rows({i: {'soil_status': 'wet'} for i in range(3)}), WATERED_YESTERDAY, T)
+    w = _get(s, 'overwater')
+    assert w['action'] is None and 'טפטפת מרפסת' in w['text']
+
+
+def test_config_plant_dries_fast_warns_without_interval_action():
+    p = _plant(irrigation_mode='auto', config_name='טפטפת מרפסת')
+    rows = _rows({0: {'soil_status': 'dry'}, 1: {'watered': True}, 5: {'soil_status': 'dry'}, 6: {'watered': True}})
+    d = _get(build_suggestions(p, rows, WATERED_YESTERDAY, T), 'dries_fast')
+    assert d['action'] is None and 'טפטפת מרפסת' in d['text']
+
+
+def test_no_seasonal_tip_for_config_plants():
+    t = date(2026, 7, 10)
+    p = _plant(irrigation_mode='auto', config_name='טפטפת', interval_days=4)
+    assert 'seasonal' not in _kinds(build_suggestions(p, _one_row(t), {'water': t - timedelta(days=1)}, t))

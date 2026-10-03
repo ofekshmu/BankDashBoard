@@ -94,3 +94,25 @@ def test_build_summary_pending_counts_only_auto_plants():
             2: [_unconfirmed(date(2026, 10, 3))],
             99: [_unconfirmed(date(2026, 10, 3))]}           # plant absent from the list
     assert build_summary(plants, days, date(2026, 10, 3))['auto_pending_confirm'] == 1
+
+
+# ── Irrigation config schedules ────────────────────────────────────────────
+def test_weekday_schedule_expects_selected_weekdays_only():
+    # 2026-10-04 is a Sunday (0); weekdays use Sun=0 … Sat=6
+    p = _plant(irrigation_mode='auto', created_at=date(2026, 10, 4))
+    sched = {'style': 'weekdays', 'weekdays': [0, 2], 'interval_days': None, 'time': '07:00'}
+    rows = materialize_rows(p, None, date(2026, 10, 17), set(), sched)
+    assert [r['day'].day for r in rows if r['auto_expected']] == [4, 6, 11, 13]
+
+
+def test_interval_schedule_from_config_overrides_plant_interval():
+    p = _plant(irrigation_mode='auto', interval_days=3)
+    sched = {'style': 'interval', 'interval_days': 2, 'weekdays': None, 'time': '07:00'}
+    rows = materialize_rows(p, None, date(2026, 10, 6), set(), sched)
+    assert [r['day'].day for r in rows if r['auto_expected']] == [3, 5]
+
+
+def test_schedule_ignored_for_manual_plants():
+    sched = {'style': 'weekdays', 'weekdays': list(range(7)), 'interval_days': None, 'time': '07:00'}
+    rows = materialize_rows(_plant(), None, date(2026, 10, 5), set(), sched)
+    assert not any(r['auto_expected'] for r in rows)

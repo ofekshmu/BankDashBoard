@@ -1,7 +1,9 @@
 """Landing dashboard — one pure builder per KPI block.
 
 Every builder turns raw data (loaded by landing_loaders.py or WebApp.py) into
-{ok, dot, kpi, caption, details, extra}. Nothing here touches the DB, so each
+{ok, dot, kpi, caption, details, attention, extra}. `attention` is a one-line
+summary of what needs a look, set only on amber/red blocks; the landing page
+lists those lines in its attention strip. Nothing here touches the DB, so each
 block is unit-testable with plain dicts and lists.
 """
 from datetime import date, datetime
@@ -45,9 +47,17 @@ def month_label(key):
     return f'{HEB_MONTHS[int(key[5:7]) - 1]} {int(key[:4])}'
 
 
-def block(kpi, caption, details=(), dot=None, extra=None):
+def block(kpi, caption, details=(), dot=None, extra=None, attention=None):
+    """One KPI block. `attention` is kept only when the dot is amber or red."""
     return {'ok': True, 'dot': dot, 'kpi': kpi, 'caption': caption,
-            'details': [d for d in details if d], 'extra': extra or {}}
+            'details': [d for d in details if d],
+            'attention': attention if dot in ('amber', 'red') else None,
+            'extra': extra or {}}
+
+
+def count_text(n, one, many):
+    """Hebrew count phrase: `one` when n == 1, else f'{n} {many}'."""
+    return one if n == 1 else f'{n} {many}'
 
 
 def cap(lines, n=MAX_DETAILS):
@@ -75,7 +85,8 @@ def build_monthly(months, key, payload):
         return block('—', f'אין ניתוח ל{month_label(key)}', dot='grey', extra=extra)
     n = len(payload.get('alerts') or []) + len(payload.get('organizer_alerts') or [])
     dot = 'green' if n == 0 else ('amber' if n <= 2 else 'red')
-    return block(str(n), f'התראות ב{month_label(key)}', dot=dot, extra=extra)
+    return block(str(n), f'התראות ב{month_label(key)}', dot=dot, extra=extra,
+                 attention=f"{count_text(n, 'התראה אחת', 'התראות')} ב{month_label(key)}")
 
 
 # ── Accounts ───────────────────────────────────────────────────────────────
@@ -111,7 +122,8 @@ def build_accounts(payload, cash_map, rates, today):
         return block('—', 'שווי כל החשבונות', dot='grey')
     stale = _stale_accounts(accounts, today)
     details = cap(f'{name} · עודכן {short_date(d)}' for d, name in stale) or ['כל החשבונות מעודכנים']
-    return block(money(total), 'שווי כל החשבונות', details, dot='amber' if stale else 'green')
+    return block(money(total), 'שווי כל החשבונות', details, dot='amber' if stale else 'green',
+                 attention=count_text(len(stale), 'חשבון אחד לא עודכן', 'חשבונות לא עודכנו') + f' מעל {STALE_DAYS} יום')
 
 
 # ── Cards ──────────────────────────────────────────────────────────────────
@@ -134,7 +146,8 @@ def build_housing(m):
     details = [f"תשואה כוללת במכירה {pct(m['total_return_pct'])}" if m.get('total_return_pct') is not None else None,
                f'רווח נקי {money(profit)}']
     return block(pct(m['annual_return_pct']), f'תשואה שנתית ({rate}% עליית ערך)', details,
-                 dot='green' if m['annual_return_pct'] >= 0 else 'red')
+                 dot='green' if m['annual_return_pct'] >= 0 else 'red',
+                 attention=f"תשואה שנתית שלילית {pct(m['annual_return_pct'])}")
 
 
 # ── Timeline ───────────────────────────────────────────────────────────────
@@ -218,7 +231,8 @@ def build_spotify(members):
                      key=lambda m: float(m['balance']))
     owed = -sum(float(m['balance']) for m in debtors)
     details = cap(f"{m['name']} · {money(-float(m['balance']))}" for m in debtors) or ['אין חובות']
-    return block(money(owed), 'חובות פתוחים', details, dot='amber' if debtors else 'green')
+    return block(money(owed), 'חובות פתוחים', details, dot='amber' if debtors else 'green',
+                 attention=count_text(len(debtors), 'חבר אחד בחוב', 'חברים בחוב') + f' · {money(owed)}')
 
 
 # ── Plants ─────────────────────────────────────────────────────────────────
@@ -228,7 +242,12 @@ def build_plants(summary):
     dot = 'red' if overdue else ('amber' if due or pending else 'green')
     details = [f'{overdue} באיחור' if overdue else None,
                f'{pending} השקיות אוטומטיות ממתינות לאישור' if pending else None]
-    return block(str(due + overdue), 'עציצים להשקיה', details, dot=dot)
+    attention = ' · '.join(x for x in (
+        count_text(overdue, 'עציץ אחד באיחור', 'עציצים באיחור') if overdue else None,
+        count_text(due, 'עציץ אחד להשקות היום', 'עציצים להשקות היום') if due else None,
+        count_text(pending, 'השקיה אוטומטית אחת ממתינה לאישור', 'השקיות אוטומטיות ממתינות לאישור') if pending else None,
+    ) if x)
+    return block(str(due + overdue), 'עציצים להשקיה', details, dot=dot, attention=attention)
 
 
 # ── Recurring charges ──────────────────────────────────────────────────────

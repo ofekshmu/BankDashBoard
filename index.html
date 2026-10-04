@@ -43,9 +43,61 @@
     .head-actions { display:flex; align-items:center; gap:10px; }
     #versionBadge { font-size:11px; color:var(--muted); background:var(--white); border:1px solid var(--border);
                     border-radius:999px; padding:3px 9px; direction:ltr; }
-    #signOutBtn { border:1px solid var(--border); background:var(--white); color:var(--navy); border-radius:10px;
-                  padding:7px 12px; font:inherit; font-size:13px; cursor:pointer; }
-    #signOutBtn:hover { border-color:var(--teal); color:var(--teal); }
+    .head-btn { display:inline-flex; align-items:center; gap:6px; border:1px solid var(--border); background:var(--white);
+                color:var(--navy); border-radius:10px; padding:7px 12px; font:inherit; font-size:13px; cursor:pointer; }
+    .head-btn:hover { border-color:var(--teal); color:var(--teal); }
+    .head-btn svg { width:15px; height:15px; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+    .head-btn.on { background:var(--teal); border-color:var(--teal); color:#fff; }
+    #refreshBtn { padding:7px 9px; }
+    #refreshBtn:disabled { cursor:default; color:var(--muted); border-color:var(--border); }
+    #refreshBtn.spin svg { animation:spin .8s linear infinite; }
+    @keyframes spin { to { transform:rotate(-360deg); } }
+
+    /* ── Attention strip ── */
+    .attention { max-width:1200px; margin:0 auto; padding:8px 16px 0; }
+    .att-box { background:var(--white); border-radius:16px; box-shadow:0 1px 3px rgba(30,42,74,.08); padding:12px 14px; }
+    .att-head { font-size:13px; font-weight:700; margin-bottom:6px; }
+    .att-list { display:flex; flex-direction:column; }
+    .att-item { display:flex; align-items:center; gap:10px; min-width:0; padding:7px 4px; border-top:1px solid var(--border);
+                color:inherit; text-decoration:none; font-size:13px; border-radius:8px; }
+    .att-item:first-child { border-top:0; }
+    .att-item:hover { background:var(--bg); }
+    .att-item .att-title { flex:none; font-weight:600; }
+    .att-item .att-text { flex:1; min-width:0; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .att-item .att-go { flex:none; color:var(--teal); font-size:16px; line-height:1; }
+    .att-ok { display:flex; align-items:center; gap:8px; font-size:13px; color:var(--green); font-weight:600; }
+    .att-ok svg { width:16px; height:16px; stroke:currentColor; fill:none; stroke-width:2.4; stroke-linecap:round; stroke-linejoin:round; }
+
+    /* ── Edit (layout) mode ── */
+    .edit-banner { display:flex; align-items:center; gap:10px; flex-wrap:wrap; max-width:1200px; margin:8px auto 0;
+                   padding:10px 14px; border-radius:12px; background:#e6f5f2; color:var(--navy); font-size:13px;
+                   width:calc(100% - 32px); }
+    .edit-banner .grow { flex:1; min-width:180px; }
+    .edit-banner button { border:1px solid var(--teal); background:var(--white); color:var(--teal); border-radius:8px;
+                          padding:5px 12px; font:inherit; font-size:13px; cursor:pointer; }
+    .edit-banner button.primary { background:var(--teal); color:#fff; }
+    .editing .card { cursor:grab; }
+    .editing .card:hover { transform:none; }
+    .editing .card-link { pointer-events:none; }
+    .editing .month-row { display:none; }
+    .card.is-hidden { opacity:.5; border:1px dashed var(--grey); box-shadow:none; }
+    .card.dragging { opacity:.35; }
+    .edit-ctl { display:flex; align-items:center; gap:6px; margin-top:8px; padding-top:8px; border-top:1px dashed var(--border);
+                position:relative; z-index:1; }
+    .edit-ctl .grip { flex:1; color:var(--muted); font-size:12px; user-select:none; }
+    .edit-ctl button { display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px;
+                       border:1px solid var(--border); background:var(--white); color:var(--navy); border-radius:8px;
+                       cursor:pointer; font:inherit; font-size:15px; }
+    .edit-ctl button:hover:not(:disabled) { border-color:var(--teal); color:var(--teal); }
+    .edit-ctl button:disabled { opacity:.35; cursor:default; }
+    .edit-ctl svg { width:16px; height:16px; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+    @media (max-width:480px) {
+      .att-item { align-items:flex-start; flex-wrap:wrap; gap:4px 8px; }
+      .att-item .dot { margin-top:5px; }
+      .att-item .att-text { flex-basis:100%; order:3; white-space:normal; padding-right:17px; }
+      .att-item .att-go { margin-right:auto; }
+    }
+    .grid-empty { grid-column:1 / -1; text-align:center; color:var(--muted); font-size:14px; padding:40px 10px; }
     .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:14px;
             max-width:1200px; margin:0 auto; padding:14px 16px 32px; }
     .card { position:relative; display:flex; flex-direction:column; gap:6px; min-width:0; background:var(--white);
@@ -53,7 +105,7 @@
             text-decoration:none; border:1px solid transparent; transition:border-color .15s, transform .15s; }
     .card:hover { border-color:var(--teal); transform:translateY(-1px); }
     .card-top { display:flex; align-items:center; gap:8px; font-size:14px; font-weight:600; }
-    .card-top svg, .card.tile > svg { flex:none; width:20px; height:20px; stroke:var(--teal); fill:none; stroke-width:1.8;
+    .card-top svg, .tile-link > svg { flex:none; width:20px; height:20px; stroke:var(--teal); fill:none; stroke-width:1.8;
                     stroke-linecap:round; stroke-linejoin:round; }
     .card-top .title { flex:1; min-width:0; }
     .dot { width:9px; height:9px; border-radius:50%; flex:none; }
@@ -76,9 +128,10 @@
                         font:inherit; font-size:13px; background:var(--white); color:var(--navy); }
     .month-row button { padding:6px 12px; border:0; border-radius:8px; background:var(--teal); color:#fff;
                         font:inherit; font-size:13px; cursor:pointer; }
-    .card-link { display:flex; flex-direction:column; gap:6px; color:inherit; text-decoration:none; }
+    .card-link { flex:1; display:flex; flex-direction:column; gap:6px; color:inherit; text-decoration:none; }
+    .updated { margin-top:auto; padding-top:6px; font-size:11px; color:var(--muted); }
     .card-link::after { content:''; position:absolute; inset:0; border-radius:16px; }
-    .card.tile { flex-direction:row; align-items:center; gap:10px; }
+    .tile-link { flex-direction:row; align-items:center; gap:10px; }
     .card.tile .desc { font-size:12.5px; color:var(--muted); font-weight:400; }
   </style>
 </head>
@@ -105,9 +158,17 @@
     </div>
     <div class="head-actions">
       <span id="versionBadge"></span>
-      <button id="signOutBtn" type="button" onclick="signOut()">התנתקות</button>
+      <button id="refreshBtn" class="head-btn" type="button" onclick="refreshAll()" title="רענון נתונים" aria-label="רענון נתונים"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.9-4M4 13a8 8 0 0 0 14.9 4"/><path d="M5 3v4h4M19 21v-4h-4"/></svg></button>
+      <button id="editBtn" class="head-btn" type="button" onclick="toggleEdit()" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span>סידור</span></button>
+      <button id="signOutBtn" class="head-btn" type="button" onclick="signOut()">התנתקות</button>
     </div>
   </header>
+  <div class="edit-banner" id="editBanner" hidden>
+    <span class="grow">גררו בלוק כדי לשנות את הסדר (או השתמשו בחיצים) · העין מסתירה או מציגה בלוק</span>
+    <button type="button" onclick="resetLayout()">איפוס</button>
+    <button type="button" class="primary" onclick="toggleEdit()">סיום</button>
+  </div>
+  <section class="attention" id="attention" hidden aria-live="polite"></section>
   <section class="grid" id="grid"></section>
 </main>
 
@@ -117,6 +178,7 @@
   const SESSION_TTL = 7 * 24 * 60 * 60 * 1000;
   let _pendingUrl = null;
   let _fadeTimer = null;   /* gate fade-out; cleared by showGate() so a quick sign-out keeps the gate */
+  let _gen = 0;            /* bumped on every gate/dashboard switch so late block responses are dropped */
 
   function setLocalFlag(on) {
     try {
@@ -145,8 +207,12 @@
   function showGate() {
     clearTimeout(_fadeTimer);
     _fadeTimer = null;
+    _gen++;
+    resetDashState();
     document.getElementById('dash').hidden = true;
     document.getElementById('grid').innerHTML = '';
+    document.getElementById('attention').hidden = true;
+    document.getElementById('attention').innerHTML = '';
     const gate = document.getElementById('gate');
     gate.hidden = false;
     gate.classList.remove('fade');
@@ -159,6 +225,8 @@
     gate.classList.add('fade');
     clearTimeout(_fadeTimer);
     _fadeTimer = setTimeout(() => { _fadeTimer = null; gate.hidden = true; }, 300);
+    _gen++;
+    resetDashState();
     document.getElementById('dash').hidden = false;
     renderDashboard();
   }
@@ -243,6 +311,47 @@
   }
   function icon(id) { return '<svg viewBox="0 0 24 24" aria-hidden="true">' + ICONS[id] + '</svg>'; }
 
+  const BLOCK_BY_ID = Object.fromEntries(BLOCKS.map(b => [b.id, b]));
+  /* Default order: live blocks first (menu order), description-only tiles last. */
+  const DEFAULT_ORDER = BLOCKS.filter(b => b.live).concat(BLOCKS.filter(b => !b.live)).map(b => b.id);
+  const LAYOUT_KEY = 'landing_layout_v1';
+  const EYE = '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>';
+  const EYE_OFF = '<path d="M3 3l18 18"/><path d="M10.6 5.1A10 10 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3 3.9M6.6 6.6C3.8 8.4 2 12 2 12s3.5 7 10 7a9.6 9.6 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/>';
+
+  let layout = loadLayout();
+  let editing = false;
+  let refreshing = false;
+  let blockData = {};      /* id -> {d, at} on success (at = ms timestamp the server computed it) | {err: true} */
+  let dragId = null;
+
+  /** Saved order/hidden blocks for this browser; unknown ids dropped, new blocks appended in default order. */
+  function loadLayout() {
+    let saved = null;
+    try { saved = JSON.parse(localStorage.getItem(LAYOUT_KEY) || 'null'); } catch (e) {}
+    const known = id => Object.prototype.hasOwnProperty.call(BLOCK_BY_ID, id);
+    const order = (saved && Array.isArray(saved.order) ? saved.order : []).filter((id, i, a) => known(id) && a.indexOf(id) === i);
+    DEFAULT_ORDER.forEach(id => { if (!order.includes(id)) order.push(id); });
+    const hidden = (saved && Array.isArray(saved.hidden) ? saved.hidden : []).filter(known);
+    return { order, hidden };
+  }
+  /** Persist the layout; storage failures (private mode, blocked storage) just keep it for this visit. */
+  function saveLayout() {
+    try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(layout)); } catch (e) {}
+  }
+  function isHidden(id) { return layout.hidden.includes(id); }
+  /** Blocks shown outside edit mode, in layout order. */
+  function visibleIds() { return layout.order.filter(id => !isHidden(id)); }
+  function visibleLiveIds() { return visibleIds().filter(id => BLOCK_BY_ID[id].live); }
+
+  /** Forget per-session dashboard state (on sign-in and sign-out). */
+  function resetDashState() {
+    blockData = {};
+    editing = false;
+    refreshing = false;
+    dragId = null;
+    syncHeadButtons();
+  }
+
   function renderDashboard() {
     const h = new Date().getHours();
     document.getElementById('greeting').textContent =
@@ -252,39 +361,79 @@
     fetch('/api/version').then(r => r.json()).then(d => {
       if (d.version) document.getElementById('versionBadge').textContent = 'v' + d.version;
     }).catch(() => {});
-
-    const grid = document.getElementById('grid');
-    const live = BLOCKS.filter(b => b.live), tiles = BLOCKS.filter(b => !b.live);
-    grid.innerHTML = live.map(b =>
-      '<div class="card" id="blk-' + b.id + '">' +
-        '<a class="card-link" href="' + (b.href || '#') + '">' +
-          '<div class="card-top">' + icon(b.id) + '<span class="title">' + esc(b.title) + '</span><span class="dot"></span></div>' +
-          '<div class="body"><div class="skel"></div><div class="skel s2"></div></div>' +
-        '</a>' +
-      '</div>').join('') +
-      tiles.map(b =>
-      '<a class="card tile" id="blk-' + b.id + '" href="' + b.href + '">' + icon(b.id) +
-        '<div><div class="card-top"><span class="title">' + esc(b.title) + '</span></div>' +
-        '<div class="desc">' + esc(b.desc) + '</div></div>' +
-      '</a>').join('');
-    live.forEach(b => loadBlock(b.id));
+    renderGrid();
+    visibleLiveIds().forEach(id => loadBlock(id, false));
   }
 
-  async function loadBlock(id) {
-    const el = document.getElementById('blk-' + id);
+  /** Card markup for one block; edit controls are added only in edit mode. */
+  function cardHtml(id, pos, count) {
+    const b = BLOCK_BY_ID[id], hid = isHidden(id);
+    const cls = 'card' + (b.live ? '' : ' tile') + (hid ? ' is-hidden' : '');
+    const link = b.live
+      ? '<a class="card-link" href="' + b.href + '">' +
+          '<div class="card-top">' + icon(id) + '<span class="title">' + esc(b.title) + '</span><span class="dot"></span></div>' +
+          '<div class="body"><div class="skel"></div><div class="skel s2"></div></div>' +
+          '<div class="updated"></div>' +
+        '</a>'
+      : '<a class="card-link tile-link" href="' + b.href + '">' + icon(id) +
+          '<div><div class="card-top"><span class="title">' + esc(b.title) + '</span></div>' +
+          '<div class="desc">' + esc(b.desc) + '</div></div>' +
+        '</a>';
+    const ctl = !editing ? '' :
+      '<div class="edit-ctl">' +
+        '<span class="grip" aria-hidden="true">⋮⋮ ' + (hid ? 'מוסתר' : '') + '</span>' +
+        '<button type="button" data-act="prev" aria-label="הזז את ' + esc(b.title) + ' קדימה"' + (pos === 0 ? ' disabled' : '') + '>→</button>' +
+        '<button type="button" data-act="next" aria-label="הזז את ' + esc(b.title) + ' אחורה"' + (pos === count - 1 ? ' disabled' : '') + '>←</button>' +
+        '<button type="button" data-act="toggle" aria-pressed="' + hid + '" aria-label="' + (hid ? 'הצג' : 'הסתר') + ' את ' + esc(b.title) + '">' +
+          '<svg viewBox="0 0 24 24" aria-hidden="true">' + (hid ? EYE_OFF : EYE) + '</svg></button>' +
+      '</div>';
+    return '<div class="' + cls + '" id="blk-' + id + '" data-id="' + id + '"' + (editing ? ' draggable="true"' : '') + '>' + link + ctl + '</div>';
+  }
+
+  /** Rebuild the grid from the layout and paint every block from blockData (no requests). */
+  function renderGrid() {
+    const grid = document.getElementById('grid');
+    const ids = editing ? layout.order : visibleIds();
+    grid.classList.toggle('editing', editing);
+    grid.innerHTML = ids.length ? ids.map((id, i) => cardHtml(id, i, ids.length)).join('')
+      : '<div class="grid-empty">כל הבלוקים מוסתרים — לחצו "סידור" כדי להציג אותם</div>';
+    ids.forEach(id => { if (BLOCK_BY_ID[id].live) paintBlock(id); });
+    renderAttention();
+  }
+
+  /** Fetch one block (fresh=true skips the server cache) and repaint it and the attention strip. */
+  async function loadBlock(id, fresh) {
+    const gen = _gen;
     let d = null;
     try {
-      const r = await fetch('/api/landing/' + id, { headers: { 'Accept': 'application/json' } });
-      if (r.status === 401) { setLocalFlag(false); showGate(); return; }
+      const r = await fetch('/api/landing/' + id + (fresh ? '?fresh=1' : ''), { headers: { 'Accept': 'application/json' } });
+      if (r.status === 401) { if (gen === _gen) { setLocalFlag(false); showGate(); } return; }
       d = await r.json();
     } catch (e) {}
-    if (!el || !el.isConnected) return;
-    const body = el.querySelector('.body'), dot = el.querySelector('.dot');
-    if (!d || !d.ok) {
+    if (gen !== _gen) return;   /* signed out (or back in) meanwhile */
+    blockData[id] = d && d.ok ? { d, at: Date.now() - (Number(d.age) || 0) * 1000 } : { err: true };
+    paintBlock(id);
+    renderAttention();
+  }
+
+  /** Paint a live block's body, dot, month picker and freshness label from blockData. */
+  function paintBlock(id) {
+    const el = document.getElementById('blk-' + id);
+    if (!el) return;
+    const body = el.querySelector('.body'), dot = el.querySelector('.dot'), entry = blockData[id];
+    const oldRow = el.querySelector('.month-row');
+    if (oldRow) oldRow.remove();
+    if (!entry) {
+      if (isHidden(id)) { body.innerHTML = '<div class="err">מוסתר — הנתונים ייטענו כשיוצג</div>'; dot.className = 'dot'; }
+      return;   /* otherwise the skeleton stays until the request returns */
+    }
+    if (entry.err) {
       body.innerHTML = '<div class="err">לא זמין כרגע</div>';
       dot.className = 'dot grey';
+      paintAge(el, id);
       return;
     }
+    const d = entry.d;
     dot.className = d.dot ? 'dot ' + d.dot : 'dot';
     const ltr = /^[-+\d]/.test(d.kpi || '') ? ' kpi-ltr' : '';
     body.innerHTML =
@@ -292,6 +441,7 @@
       '<div class="caption" title="' + esc(d.caption) + '">' + rich(d.caption) + '</div>' +
       ((d.details || []).length ? '<ul class="details">' + d.details.map(x => '<li title="' + esc(x) + '">' + rich(x) + '</li>').join('') + '</ul>' : '');
     if (id === 'monthly') renderMonthPicker(el, d.extra || {});
+    paintAge(el, id);
   }
 
   function renderMonthPicker(el, extra) {
@@ -307,8 +457,157 @@
     row.querySelector('button').addEventListener('click', () => {
       window.location.href = '/general/' + row.querySelector('select').value;
     });
-    el.appendChild(row);
+    el.querySelector('.card-link').after(row);
   }
+
+  /* ── Freshness ── */
+  /** "עודכן ..." text for a timestamp, relative to now. */
+  function ageText(at) {
+    const min = Math.floor(Math.max(0, Date.now() - at) / 60000);
+    if (min < 1) return 'עודכן עכשיו';
+    if (min === 1) return 'עודכן לפני דקה';
+    if (min < 60) return 'עודכן לפני ' + min + ' דק׳';
+    const h = Math.floor(min / 60);
+    return h === 1 ? 'עודכן לפני שעה' : 'עודכן לפני ' + h + ' שעות';
+  }
+  function paintAge(el, id) {
+    const out = el.querySelector('.updated'), entry = blockData[id];
+    if (!out) return;
+    out.textContent = refreshing ? 'מרענן…' : entry && entry.at ? ageText(entry.at) : '';
+  }
+  setInterval(() => {
+    if (document.getElementById('dash').hidden) return;
+    Object.keys(blockData).forEach(id => { const el = document.getElementById('blk-' + id); if (el) paintAge(el, id); });
+  }, 30000);
+
+  /** Reload every visible live block, skipping the server's 5-minute cache. */
+  async function refreshAll() {
+    if (refreshing || editing) return;
+    const gen = _gen, ids = visibleLiveIds();
+    refreshing = true;
+    syncHeadButtons();
+    ids.forEach(id => { const el = document.getElementById('blk-' + id); if (el) paintAge(el, id); });
+    await Promise.all(ids.map(id => loadBlock(id, true)));
+    if (gen !== _gen) return;
+    refreshing = false;
+    syncHeadButtons();
+    ids.forEach(id => { const el = document.getElementById('blk-' + id); if (el) paintAge(el, id); });
+  }
+
+  /* ── Attention strip ── */
+  /** Amber/red blocks (visible ones only) as one line each; "all fine" once every visible block answered. */
+  function renderAttention() {
+    const box = document.getElementById('attention');
+    const ids = visibleLiveIds();
+    if (editing || !ids.length) { box.hidden = true; return; }
+    const rank = { red: 0, amber: 1 };
+    const items = ids.map(id => ({ id, e: blockData[id] }))
+      .filter(x => x.e && x.e.d && x.e.d.attention && rank[x.e.d.dot] !== undefined)
+      .sort((a, b) => rank[a.e.d.dot] - rank[b.e.d.dot] || ids.indexOf(a.id) - ids.indexOf(b.id));
+    if (items.length) {
+      box.innerHTML = '<div class="att-box"><div class="att-head">דורש תשומת לב</div><div class="att-list">' +
+        items.map(({ id, e }) => {
+          const b = BLOCK_BY_ID[id];
+          const href = id === 'monthly' && e.d.extra && e.d.extra.current ? '/general/' + e.d.extra.current : b.href;
+          return '<a class="att-item" href="' + esc(href) + '"><span class="dot ' + e.d.dot + '"></span>' +
+            '<span class="att-title">' + esc(b.title) + '</span><span class="att-text" title="' + esc(e.d.attention) + '">' +
+            rich(e.d.attention) + '</span><span class="att-go" aria-hidden="true">‹</span></a>';
+        }).join('') + '</div></div>';
+      box.hidden = false;
+    } else if (ids.every(id => blockData[id])) {
+      box.innerHTML = '<div class="att-box"><div class="att-ok"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg>' +
+        'הכל תקין — אין דברים שדורשים טיפול</div></div>';
+      box.hidden = false;
+    } else {
+      box.hidden = true;   /* still loading */
+    }
+  }
+
+  /* ── Layout editing ── */
+  function syncHeadButtons() {
+    const editBtn = document.getElementById('editBtn'), refreshBtn = document.getElementById('refreshBtn');
+    editBtn.classList.toggle('on', editing);
+    editBtn.setAttribute('aria-pressed', String(editing));
+    editBtn.querySelector('span').textContent = editing ? 'סיום' : 'סידור';
+    document.getElementById('editBanner').hidden = !editing;
+    refreshBtn.disabled = refreshing || editing;
+    refreshBtn.classList.toggle('spin', refreshing);
+  }
+
+  function toggleEdit() {
+    if (refreshing) return;
+    editing = !editing;
+    syncHeadButtons();
+    renderGrid();
+    if (!editing) visibleLiveIds().filter(id => !blockData[id]).forEach(id => loadBlock(id, false));
+  }
+
+  function resetLayout() {
+    layout = { order: DEFAULT_ORDER.slice(), hidden: [] };
+    saveLayout();
+    renderGrid();
+    if (!editing) return;
+    layout.order.filter(id => BLOCK_BY_ID[id].live && !blockData[id]).forEach(id => loadBlock(id, false));
+  }
+
+  /** Move block `id` by `delta` places in the full order, keeping keyboard focus on the same control. */
+  function moveBlock(id, delta, act) {
+    const i = layout.order.indexOf(id), j = i + delta;
+    if (i < 0 || j < 0 || j >= layout.order.length) return;
+    layout.order.splice(i, 1);
+    layout.order.splice(j, 0, id);
+    saveLayout();
+    renderGrid();
+    const btn = document.querySelector('#blk-' + id + ' [data-act="' + act + '"]');
+    if (btn && !btn.disabled) btn.focus();
+  }
+
+  function toggleHidden(id) {
+    layout.hidden = isHidden(id) ? layout.hidden.filter(x => x !== id) : layout.hidden.concat(id);
+    saveLayout();
+    renderGrid();
+    const btn = document.querySelector('#blk-' + id + ' [data-act="toggle"]');
+    if (btn) btn.focus();
+    if (!isHidden(id) && BLOCK_BY_ID[id].live && !blockData[id]) loadBlock(id, false);
+  }
+
+  (function wireGrid() {
+    const grid = document.getElementById('grid');
+    grid.addEventListener('click', e => {
+      const btn = e.target.closest('[data-act]');
+      if (!editing) return;
+      if (!btn) { if (e.target.closest('a')) e.preventDefault(); return; }
+      const id = btn.closest('.card').dataset.id, act = btn.dataset.act;
+      if (act === 'prev') moveBlock(id, -1, act);
+      else if (act === 'next') moveBlock(id, 1, act);
+      else if (act === 'toggle') toggleHidden(id);
+    });
+    grid.addEventListener('dragstart', e => {
+      const card = editing && e.target.closest && e.target.closest('.card');
+      if (!card) { e.preventDefault(); return; }
+      dragId = card.dataset.id;
+      card.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      try { e.dataTransfer.setData('text/plain', dragId); } catch (err) {}   /* Firefox needs data to start a drag */
+    });
+    grid.addEventListener('dragover', e => {
+      if (!dragId) return;
+      e.preventDefault();
+      const over = e.target.closest('.card'), dragged = document.getElementById('blk-' + dragId);
+      if (!over || !dragged || over === dragged) return;
+      const cards = Array.from(grid.querySelectorAll('.card'));
+      // Moving forward lands after the target, moving back lands before it — works across grid rows.
+      if (cards.indexOf(dragged) < cards.indexOf(over)) over.after(dragged); else over.before(dragged);
+    });
+    grid.addEventListener('drop', e => { if (dragId) e.preventDefault(); });
+    grid.addEventListener('dragend', () => {
+      if (!dragId) return;
+      dragId = null;
+      layout.order = Array.from(grid.querySelectorAll('.card')).map(c => c.dataset.id);
+      saveLayout();
+      renderGrid();   /* refresh the arrows' disabled state */
+    });
+  })();
 
   /* Back/forward cache: a page restored after sign-out (elsewhere or in this tab) must not show the dashboard. */
   window.addEventListener('pageshow', async e => {

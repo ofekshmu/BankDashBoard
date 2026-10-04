@@ -305,6 +305,19 @@ input[type="date"].field-input { padding: 0 10px; appearance: none; -webkit-appe
 .pt-chip.on { border-color: var(--teal); background: var(--teal-light); color: var(--teal); font-weight: 700; }
 .pt-room-head { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: .88em; color: var(--navy); padding: 4px 0; border-bottom: 1.5px solid var(--border); margin-top: 6px; }
 .pt-room-head:first-child { margin-top: 0; }
+.pt-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 12px; }
+.pt-tools[hidden] { display: none; }
+.pt-search { flex: 1 1 220px; min-width: 0; position: relative; }
+.pt-search svg { position: absolute; right: 11px; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; stroke: var(--text-muted); fill: none; stroke-width: 2; stroke-linecap: round; pointer-events: none; }
+.pt-search input { width: 100%; padding: 8px 34px 8px 30px; border: 1.5px solid var(--border); border-radius: 20px; font: inherit; font-size: .85em; color: var(--navy); background: var(--white); outline: none; }
+.pt-search input:focus { border-color: var(--teal); }
+.pt-search input::-webkit-search-cancel-button { display: none; }
+.pt-search-clear { position: absolute; left: 6px; top: 50%; transform: translateY(-50%); width: 22px; height: 22px; border: 0; border-radius: 50%; background: var(--bg); color: var(--text-muted); cursor: pointer; font-size: .75em; line-height: 1; }
+.pt-search-clear[hidden] { display: none; }
+.pt-sort, .pt-group { display: inline-flex; align-items: center; gap: 6px; font-size: .8em; color: var(--text-sub); white-space: nowrap; cursor: pointer; }
+.pt-sort select { padding: 6px 8px; border: 1.5px solid var(--border); border-radius: 10px; font: inherit; color: var(--navy); background: var(--white); cursor: pointer; }
+.pt-group input { accent-color: var(--teal); width: 15px; height: 15px; margin: 0; }
+.pt-result-count { font-size: .78em; color: var(--text-muted); white-space: nowrap; }
 .pt-room-count { background: var(--bg); color: var(--text-muted); border-radius: 20px; padding: 0 8px; font-size: .85em; font-weight: 600; }
 .pt-room-row { display: flex; gap: 8px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border); }
 .pt-room-row .field-input { flex: 1; min-width: 0; }
@@ -401,6 +414,24 @@ input[type="date"].field-input { padding: 0 10px; appearance: none; -webkit-appe
     </section>
 
     <section class="pt-card">
+      <div class="pt-tools" id="pt-tools" hidden>
+        <div class="pt-search">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-5-5"/></svg>
+          <input id="pt-search" type="search" placeholder="חיפוש לפי שם, סוג או חדר" aria-label="חיפוש עציץ" autocomplete="off"
+                 oninput="setSearch(this.value)" onkeydown="if(event.key==='Escape'&&this.value){event.stopPropagation();setSearch('');}">
+          <button class="pt-search-clear" id="pt-search-clear" type="button" onclick="setSearch('');document.getElementById('pt-search').focus()" aria-label="ניקוי חיפוש" hidden>✕</button>
+        </div>
+        <label class="pt-sort">מיון
+          <select id="pt-sort" onchange="setSort(this.value)">
+            <option value="status">לפי דחיפות</option>
+            <option value="last_water">השקיה אחרונה</option>
+            <option value="name">שם</option>
+            <option value="type">סוג</option>
+          </select>
+        </label>
+        <label class="pt-group"><input type="checkbox" id="pt-group" onchange="setGrouped(this.checked)">קיבוץ לפי חדר</label>
+        <span class="pt-result-count" id="pt-result-count" aria-live="polite"></span>
+      </div>
       <div class="pt-chips" id="pt-room-chips"></div>
       <div class="pt-rows" id="pt-rows"><div class="pt-empty">טוען…</div></div>
     </section>
@@ -784,6 +815,7 @@ function dayEvents(pid, day){ return (state.events[String(pid)] || []).filter(fu
 function render(){
   renderSummary();
   renderSuggestions();
+  renderTools();
   renderRooms();
   renderRows();
   if (dayCtx && isOpen('day-modal')) renderDay();
@@ -891,12 +923,104 @@ function renderRows(){
     return;
   }
   var days = state.window.slice().reverse();  // today first = RTL leading edge
-  var groups = roomGroups().filter(function(g){ return roomFilter === 'all' || g.key === roomFilter; });
+  var groups = roomGroups(state.plants.filter(matchesSearch))
+    .filter(function(g){ return roomFilter === 'all' || g.key === roomFilter; });
+  var shown = groups.reduce(function(n, g){ return n + g.plants.length; }, 0);
+  renderResultCount(shown);
+  if (!shown) {
+    el.innerHTML = '<div class="pt-empty">לא נמצאו עציצים' + (searchText ? ' התואמים ל"' + esc(searchText) + '"' : ' בחדר זה') +
+      (searchText ? ' — <button class="btn btn-ghost btn-xs" onclick="setSearch(\'\')">ניקוי חיפוש</button>' : '') + '</div>';
+    return;
+  }
+  if (!grouped) {
+    // one flat list across rooms (the room chips still filter it)
+    groups = [{key: 'flat', name: null, plants: [].concat.apply([], groups.map(function(g){ return g.plants; }))}];
+  }
   el.innerHTML = groups.map(function(g){
-    return '<div class="pt-room-head"><span>' + esc(g.name) + '</span><span class="pt-room-count">' + g.plants.length + '</span></div>' +
-      g.plants.map(function(p){ return plantRowHtml(p, days); }).join('');
+    var head = g.name == null ? '' :
+      '<div class="pt-room-head"><span>' + esc(g.name) + '</span><span class="pt-room-count">' + g.plants.length + '</span></div>';
+    return head + g.plants.slice().sort(comparePlants).map(function(p){ return plantRowHtml(p, days); }).join('');
   }).join('');
 }
+
+// ── Search & sort ──────────────────────────────────────────────
+var SORT_KEY = 'plants_sort', GROUP_KEY = 'plants_grouped';
+var SORTS = ['status', 'last_water', 'name', 'type'];
+var STATUS_RANK = {overdue: 0, due: 1, ok: 2, auto: 3};
+var sortBy = 'status', grouped = true, searchText = '';
+try {
+  sortBy = localStorage.getItem(SORT_KEY) || 'status';
+  grouped = localStorage.getItem(GROUP_KEY) !== '0';
+} catch (_) {}
+if (SORTS.indexOf(sortBy) < 0) sortBy = 'status';
+
+/** Hebrew label of a plant type key (falls back to the key). */
+function typeLabel(type){
+  for (var i = 0; i < PLANT_TYPES.length; i++) if (PLANT_TYPES[i][0] === type) return PLANT_TYPES[i][1];
+  return type || '';
+}
+/** Lower-cased, trimmed text for case-insensitive matching. */
+function normText(s){ return String(s == null ? '' : s).toLowerCase().trim(); }
+/** True when the plant's name, type label or room name contains the search text. */
+function matchesSearch(p){
+  var q = normText(searchText);
+  if (!q) return true;
+  var room = p.room_id != null ? roomById(p.room_id) : null;
+  return [p.name, typeLabel(p.plant_type), room ? room.name : ''].some(function(x){ return normText(x).indexOf(q) >= 0; });
+}
+/** Days past (positive) or before (negative) the plant's interval; never-watered plants count from creation. */
+function urgency(p){ return (p.days_since_water == null ? Infinity : p.days_since_water) - p.interval_days; }
+function byName(a, b){ return a.name.localeCompare(b.name, 'he'); }
+/** Comparator for the chosen sort; ties fall back to the plant name. */
+function comparePlants(a, b){
+  var d = 0;
+  if (sortBy === 'status') {
+    d = (STATUS_RANK[a.status] != null ? STATUS_RANK[a.status] : 9) - (STATUS_RANK[b.status] != null ? STATUS_RANK[b.status] : 9);
+    if (!d && a.status !== 'auto') d = urgency(b) - urgency(a) || 0;
+  } else if (sortBy === 'last_water') {
+    // never watered first, then the longest time since the last watering
+    d = (a.last_water ? 1 : 0) - (b.last_water ? 1 : 0) || (b.days_since_water || 0) - (a.days_since_water || 0);
+  } else if (sortBy === 'type') {
+    d = typeLabel(a.plant_type).localeCompare(typeLabel(b.plant_type), 'he');
+  }
+  return d || byName(a, b);
+}
+function setSearch(v){
+  searchText = v;
+  var input = document.getElementById('pt-search');
+  if (input.value !== v) input.value = v;
+  document.getElementById('pt-search-clear').hidden = !v;
+  renderRows();
+}
+function setSort(v){
+  sortBy = SORTS.indexOf(v) >= 0 ? v : 'status';
+  try { localStorage.setItem(SORT_KEY, sortBy); } catch (_) {}
+  renderRows();
+}
+function setGrouped(on){
+  grouped = !!on;
+  try { localStorage.setItem(GROUP_KEY, grouped ? '1' : '0'); } catch (_) {}
+  renderRows();
+}
+/** Toolbar visibility and control state, kept in sync with the saved choices. */
+function renderTools(){
+  document.getElementById('pt-tools').hidden = !state.plants.length;
+  document.getElementById('pt-sort').value = sortBy;
+  document.getElementById('pt-group').checked = grouped;
+}
+function renderResultCount(shown){
+  var total = state.plants.length, out = document.getElementById('pt-result-count');
+  out.textContent = shown === total ? '' : shown + ' מתוך ' + total;
+}
+// "/" jumps to the search box (unless typing somewhere or a popup is open).
+document.addEventListener('keydown', function(e){
+  if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey) return;
+  var t = e.target, tag = t && t.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (t && t.isContentEditable)) return;
+  if (document.querySelector('.modal-backdrop.open') || document.getElementById('pt-tools').hidden) return;
+  e.preventDefault();
+  document.getElementById('pt-search').focus();
+});
 function plantRowHtml(p, days){
   var cfg = p.config_id != null ? configById(p.config_id) : null;
   var room = p.room_id != null ? roomById(p.room_id) : null;
@@ -929,12 +1053,12 @@ function setRoomFilter(v){
 }
 function roomById(id){ var rs = state.rooms || []; for (var i = 0; i < rs.length; i++) if (rs[i].id === id) return rs[i]; return null; }
 // Groups in room order with unassigned plants last; rooms without plants are skipped.
-function roomGroups(){
+function roomGroups(plants){
   var groups = (state.rooms || []).map(function(r){ return {key: String(r.id), name: r.name, plants: []}; });
   var none = {key: 'none', name: 'ללא חדר', plants: []};
   var byKey = {};
   groups.forEach(function(g){ byKey[g.key] = g; });
-  state.plants.forEach(function(p){ ((p.room_id != null && byKey[String(p.room_id)]) || none).plants.push(p); });
+  (plants || state.plants).forEach(function(p){ ((p.room_id != null && byKey[String(p.room_id)]) || none).plants.push(p); });
   return groups.concat([none]).filter(function(g){ return g.plants.length; });
 }
 function renderRooms(){

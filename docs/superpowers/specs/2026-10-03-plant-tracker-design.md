@@ -175,3 +175,20 @@ coloured rounded badge, with the plant initial in a small corner chip.
 
 ## Versioning
 Feature commit bumps minor: → **1.17.0**.
+
+## Addition — search & sort (v1.27.0)
+
+Client-side only (`PlantTracker.html`), above the room chips; hidden when there are no plants.
+
+- **Search** — matches the plant name, its type's Hebrew label or its room name
+  (case-insensitive substring). `/` focuses the box (not while typing or with a popup open),
+  Esc or ✕ clears it. A "N מתוך M" count shows while anything is filtered; no match →
+  "לא נמצאו עציצים התואמים ל"…"" with a clear button. Not persisted.
+- **Sort** (`localStorage['plants_sort']`):
+  - `status` (default, "לפי דחיפות") — overdue, due, ok, auto; within a status the most days
+    past the interval first (never-watered counts as most urgent); ties by name.
+  - `last_water` — never watered first, then longest since the last watering.
+  - `name` — Hebrew locale order. `type` — by type label, then name.
+- **קיבוץ לפי חדר** (`localStorage['plants_grouped']`, default on) — on: room groups as before,
+  sorted inside each group; off: one flat sorted list. The room chips filter in both modes and
+  keep their all-plants counts while searching.

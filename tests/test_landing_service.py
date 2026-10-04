@@ -31,7 +31,20 @@ def test_cap():
 
 def test_block_shape():
     b = ls.block('3', 'cap', ['x', None, ''], dot='red')
-    assert b == {'ok': True, 'dot': 'red', 'kpi': '3', 'caption': 'cap', 'details': ['x'], 'extra': {}}
+    assert b == {'ok': True, 'dot': 'red', 'kpi': '3', 'caption': 'cap', 'details': ['x'],
+                 'attention': None, 'extra': {}}
+
+
+def test_attention_kept_only_on_amber_and_red():
+    assert ls.block('1', 'c', dot='red', attention='x')['attention'] == 'x'
+    assert ls.block('1', 'c', dot='amber', attention='x')['attention'] == 'x'
+    for dot in ('green', 'grey', None):
+        assert ls.block('1', 'c', dot=dot, attention='x')['attention'] is None
+
+
+def test_count_text():
+    assert ls.count_text(1, 'אחד', 'רבים') == 'אחד'
+    assert ls.count_text(3, 'אחד', 'רבים') == '3 רבים'
 
 
 # ── monthly ────────────────────────────────────────────────────────────────
@@ -279,3 +292,25 @@ def test_files():
     assert b['kpi'] == '03.10.26' and b['caption'] == 'קובץ אחרון'
     assert b['details'] == ['leumi_10.xlsx', 'Leumi Bank']
     assert ls.build_files(None)['dot'] == 'grey'
+
+
+# ── attention lines ────────────────────────────────────────────────────────
+def test_attention_lines_per_block():
+    assert ls.build_monthly(MONTHS, '2026_10', {'alerts': [1, 2, 3]})['attention'] == '3 התראות באוקטובר 2026'
+    assert ls.build_monthly(MONTHS, '2026_10', {'alerts': [1]})['attention'] == 'התראה אחת באוקטובר 2026'
+    assert ls.build_monthly(MONTHS, '2026_10', {'alerts': []})['attention'] is None
+    assert ls.build_accounts(ACCTS, None, {}, TODAY)['attention'] == 'חשבון אחד לא עודכן מעל 30 יום'
+    m = {'annual_return_pct': -2.04, 'default_rate': 5}
+    assert ls.build_housing(m)['attention'] == 'תשואה שנתית שלילית -2.0%'
+    assert ls.build_housing(dict(m, annual_return_pct=3))['attention'] is None
+    debt = [{'name': 'א', 'balance': -30}, {'name': 'ב', 'balance': -20.4}]
+    assert ls.build_spotify(debt)['attention'] == '2 חברים בחוב · 50₪'
+    assert ls.build_spotify([{'name': 'א', 'balance': 5}])['attention'] is None
+
+
+def test_plants_attention_lists_each_nonzero_count():
+    b = ls.build_plants({'due_today': 2, 'overdue': 1, 'auto_pending_confirm': 0})
+    assert b['attention'] == 'עציץ אחד באיחור · 2 עציצים להשקות היום'
+    b = ls.build_plants({'due_today': 0, 'overdue': 0, 'auto_pending_confirm': 3})
+    assert b['attention'] == '3 השקיות אוטומטיות ממתינות לאישור'
+    assert ls.build_plants({'due_today': 0, 'overdue': 0, 'auto_pending_confirm': 0})['attention'] is None

@@ -132,6 +132,44 @@ avoid duplicate routes). Every route is behind the existing `_require_auth` gate
   a forced block failure shows "לא זמין כרגע", no horizontal scroll at 375 px.
 - Real-data smoke (authenticated test client, read-only).
 
+## Additions — v1.27.0
+
+### Attention strip
+- A card between the header and the grid, titled **דורש תשומת לב**, with one line per
+  amber/red block: dot · block title · the block's `attention` text · `‹`. Red first, then
+  amber, each in layout order. Clicking a line opens that block's page (the monthly line opens
+  the block's current month).
+- `attention` is a new field on every block (`landing_service.block(..., attention=)`), kept only
+  when the dot is amber or red, otherwise `null`:
+  monthly "N התראות ב<month>", accounts "N חשבונות לא עודכנו מעל 30 יום", housing
+  "תשואה שנתית שלילית <pct>", Spotify "N חברים בחוב · <total>", plants: overdue / due today /
+  auto pending, each only when non-zero, joined with " · ". Singular forms for 1 (`count_text`).
+- Only visible (not hidden) blocks count. When every visible block has answered and none is
+  flagged, the strip shows "הכל תקין — אין דברים שדורשים טיפול"; while blocks are still loading
+  it stays hidden. Hidden in edit mode. Lines wrap under 480 px.
+
+### Refresh + freshness
+- Every successful `/api/landing/<block>` response carries `age`: whole seconds since the data
+  was computed (the cached copy itself is stored without it).
+- `?fresh=1` skips the cached copy and recomputes; the new result replaces the cache. A failed
+  fresh request is not cached and leaves the previous cached copy in place.
+- Header refresh button (↻) reloads every visible live block with `fresh=1`; it spins and is
+  disabled while running, and the blocks show "מרענן…" in place of their age.
+- Each live block shows "עודכן עכשיו / לפני N דק׳ / לפני N שעות" at its bottom, from
+  `Date.now() - age`, repainted every 30 s.
+
+### Customize layout
+- **סידור** in the header enters edit mode (button turns into **סיום**, a banner explains the
+  controls and offers **איפוס**). In edit mode all blocks are shown, hidden ones dimmed with a
+  dashed border; card links and the month picker are inactive.
+- Per block: drag to reorder (HTML5 drag-and-drop, desktop), → / ← to move one place earlier /
+  later (touch and keyboard; focus stays on the control), and an eye button to hide/show.
+- Saved per browser in `localStorage['landing_layout_v1'] = {order: [ids], hidden: [ids]}`,
+  every access in try/catch. Unknown ids are dropped and blocks added later are appended, so
+  the layout survives new blocks. Default: live blocks in menu order, then the tiles.
+- Hidden blocks are not rendered and not fetched. Showing one again fetches it.
+- If every block is hidden the grid says so and points to **סידור**.
+
 ## Out of scope
 - Live data for ארגונית, ניתוח קטגוריאלי, חיפוש (description only, by decision).
 - Changing any feature page.

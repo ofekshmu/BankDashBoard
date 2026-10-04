@@ -69,3 +69,43 @@ def test_cache_for_ttl_and_failures_not_cached(client, monkeypatch):
 def test_responses_are_not_browser_cached(client):
     lr.register_loader('plants', lambda today: {'ok': True})
     assert client.get('/api/landing/plants').headers['Cache-Control'] == 'no-store'
+
+
+def test_responses_carry_age_since_computed(client, monkeypatch):
+    lr.register_loader('files', lambda today: {'ok': True, 'kpi': 'f'})
+    now = [1000.0]
+    monkeypatch.setattr(lr, '_now', lambda: now[0])
+    assert client.get('/api/landing/files').get_json()['age'] == 0
+    now[0] += 125.7
+    d = client.get('/api/landing/files').get_json()
+    assert d['age'] == 125 and d['kpi'] == 'f'
+    assert 'age' not in lr._cache['files'][1]          # the cached copy stays clean
+
+
+def test_fresh_skips_the_cache_and_restarts_it(client, monkeypatch):
+    calls = []
+    lr.register_loader('spotify', lambda today: calls.append(1) or {'ok': True, 'kpi': str(len(calls))})
+    now = [1000.0]
+    monkeypatch.setattr(lr, '_now', lambda: now[0])
+    assert client.get('/api/landing/spotify').get_json()['kpi'] == '1'
+    now[0] += 60
+    d = client.get('/api/landing/spotify?fresh=1').get_json()
+    assert d['kpi'] == '2' and d['age'] == 0
+    now[0] += 10
+    d = client.get('/api/landing/spotify').get_json()
+    assert d['kpi'] == '2' and d['age'] == 10
+    assert client.get('/api/landing/spotify?fresh=0').get_json()['kpi'] == '2'
+
+
+def test_failed_fresh_request_keeps_the_previous_cached_copy(client, monkeypatch):
+    state = {'fail': False}
+    def loader(today):
+        if state['fail']:
+            raise RuntimeError('db down')
+        return {'ok': True, 'kpi': 'old'}
+    lr.register_loader('recurring', loader)
+    monkeypatch.setattr(lr, '_now', lambda: 1000.0)
+    client.get('/api/landing/recurring')
+    state['fail'] = True
+    assert client.get('/api/landing/recurring?fresh=1').status_code == 500
+    assert client.get('/api/landing/recurring').get_json()['kpi'] == 'old'

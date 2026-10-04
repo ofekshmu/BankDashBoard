@@ -5970,7 +5970,7 @@ def _landing_monthly(today):
         if status != 200:
             raise RuntimeError((data or {}).get('error') or f'monthly data for {key} failed ({status})')
         payload = data
-    return _landing_svc.build_monthly(months, key, payload)
+    return _landing_svc.build_monthly(months, key, payload, today)
 
 
 def _landing_accounts(today):

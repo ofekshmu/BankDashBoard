@@ -9,10 +9,13 @@
   <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <style>
     :root { --navy:#1e2a4a; --teal:#1e9d8b; --bg:#f4f6f9; --white:#fff; --border:#e3e7ee;
-            --muted:#6b7590; --green:#22a06b; --amber:#e8a317; --red:#d64545; --grey:#b7bfcc; }
+            --muted:#6b7590; --green:#22a06b; --amber:#e8a317; --red:#d64545; --grey:#b7bfcc;
+            --teal-light:#e6f5f2; --teal-dark:#167a6c; --invest:#e8a020; }
     * { box-sizing:border-box; margin:0; padding:0; }
     html, body { background:var(--bg); color:var(--navy); font-family:'Heebo',system-ui,sans-serif; }
-    body { min-height:100vh; overflow-x:hidden; }
+    body { min-height:100vh; overflow-x:hidden;
+           background:radial-gradient(900px 380px at 92% -120px, rgba(30,157,139,.16), transparent 70%),
+                      radial-gradient(700px 320px at 0% -60px, rgba(30,42,74,.07), transparent 70%), var(--bg); }
     [hidden] { display:none !important; }
 
     /* ── Gate ── */
@@ -36,26 +39,40 @@
     @keyframes shake { 20%,60%{transform:translateX(-6px)} 40%,80%{transform:translateX(6px)} }
 
     /* ── Dashboard ── */
-    .dash-head { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
-                 max-width:1200px; margin:0 auto; padding:22px 16px 6px; }
+    /* Header band in the app's own colours: sidebar navy flowing into the teal accent */
+    .dash-head { position:relative; overflow:hidden; display:flex; align-items:center; justify-content:space-between;
+                 gap:12px; flex-wrap:wrap; max-width:1168px; width:calc(100% - 32px); margin:16px auto 0;
+                 padding:20px 22px; border-radius:20px; color:#fff;
+                 background:linear-gradient(120deg, #1e2a4a 0%, #1f4a62 55%, #1e9d8b 100%);
+                 box-shadow:0 8px 24px rgba(30,42,74,.18); }
+    .dash-head::before, .dash-head::after { content:''; position:absolute; border-radius:50%; pointer-events:none;
+                 background:rgba(255,255,255,.07); }
+    .dash-head::before { width:220px; height:220px; left:-60px; top:-110px; }
+    .dash-head::after  { width:140px; height:140px; left:140px; bottom:-90px; background:rgba(255,255,255,.05); }
+    .dash-head > * { position:relative; }
     .dash-head h1 { font-size:22px; font-weight:800; }
-    .dash-head .sub { font-size:13px; color:var(--muted); margin-top:2px; }
-    .head-actions { display:flex; align-items:center; gap:10px; }
-    #versionBadge { font-size:11px; color:var(--muted); background:var(--white); border:1px solid var(--border);
-                    border-radius:999px; padding:3px 9px; direction:ltr; }
-    .head-btn { display:inline-flex; align-items:center; gap:6px; border:1px solid var(--border); background:var(--white);
-                color:var(--navy); border-radius:10px; padding:7px 12px; font:inherit; font-size:13px; cursor:pointer; }
-    .head-btn:hover { border-color:var(--teal); color:var(--teal); }
+    .dash-head .sub { font-size:13px; color:rgba(255,255,255,.78); margin-top:2px; }
+    .head-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    #versionBadge { font-size:11px; color:rgba(255,255,255,.85); background:rgba(255,255,255,.12);
+                    border:1px solid rgba(255,255,255,.22); border-radius:999px; padding:3px 9px; direction:ltr; }
+    #versionBadge:empty { display:none; }
+    .head-btn { display:inline-flex; align-items:center; gap:6px; border:1px solid rgba(255,255,255,.28);
+                background:rgba(255,255,255,.12); color:#fff; border-radius:10px; padding:7px 12px; font:inherit;
+                font-size:13px; cursor:pointer; transition:background .15s; }
+    .head-btn:hover { background:rgba(255,255,255,.22); }
     .head-btn svg { width:15px; height:15px; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
-    .head-btn.on { background:var(--teal); border-color:var(--teal); color:#fff; }
+    .head-btn.on { background:#fff; border-color:#fff; color:var(--teal-dark); font-weight:600; }
     #refreshBtn { padding:7px 9px; }
-    #refreshBtn:disabled { cursor:default; color:var(--muted); border-color:var(--border); }
+    #refreshBtn:disabled { cursor:default; opacity:.5; }
     #refreshBtn.spin svg { animation:spin .8s linear infinite; }
     @keyframes spin { to { transform:rotate(-360deg); } }
 
     /* ── Attention strip ── */
     .attention { max-width:1200px; margin:0 auto; padding:8px 16px 0; }
-    .att-box { background:var(--white); border-radius:16px; box-shadow:0 1px 3px rgba(30,42,74,.08); padding:12px 14px; }
+    .att-box { background:var(--white); border-radius:16px; box-shadow:0 1px 3px rgba(30,42,74,.08); padding:12px 14px;
+               border-right:4px solid var(--amber); }
+    .att-box.has-red { border-right-color:var(--red); }
+    .att-box.ok { border-right-color:var(--teal); background:linear-gradient(90deg, #fff 40%, var(--teal-light)); }
     .att-head { font-size:13px; font-weight:700; margin-bottom:6px; }
     .att-list { display:flex; flex-direction:column; }
     .att-item { display:flex; align-items:center; gap:10px; min-width:0; padding:7px 4px; border-top:1px solid var(--border);
@@ -97,16 +114,29 @@
       .att-item .att-text { flex-basis:100%; order:3; white-space:normal; padding-right:17px; }
       .att-item .att-go { margin-right:auto; }
     }
+    /* the monthly block is the tallest (table + month strip): give it two rows so its neighbours don't stretch */
+    @media (min-width:560px) { #blk-monthly { grid-row:span 2; } }
+    #blk-monthly .card-link { flex:none; }          /* the month strip follows the table instead of sinking to the bottom */
     .grid-empty { grid-column:1 / -1; text-align:center; color:var(--muted); font-size:14px; padding:40px 10px; }
     .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:14px;
-            max-width:1200px; margin:0 auto; padding:14px 16px 32px; }
+            max-width:1200px; margin:0 auto; padding:14px 16px 20px; }
     .card { position:relative; display:flex; flex-direction:column; gap:6px; min-width:0; background:var(--white);
             border-radius:16px; padding:16px; box-shadow:0 1px 3px rgba(30,42,74,.08); color:inherit;
-            text-decoration:none; border:1px solid transparent; transition:border-color .15s, transform .15s; }
-    .card:hover { border-color:var(--teal); transform:translateY(-1px); }
+            text-decoration:none; border:1px solid transparent;
+            transition:border-color .15s, transform .15s, box-shadow .15s; }
+    .card:hover { border-color:rgba(30,157,139,.45); transform:translateY(-1px); box-shadow:0 8px 20px rgba(30,157,139,.13); }
+    /* thin status strip along the top edge, coloured like the block's dot */
+    .card:not(.tile)::before { content:''; position:absolute; top:0; right:18px; left:18px; height:3px;
+            border-radius:0 0 3px 3px; background:var(--teal); opacity:.35; }
+    .card[data-dot="green"]::before { background:var(--green); opacity:.8; }
+    .card[data-dot="amber"]::before { background:var(--amber); opacity:1; }
+    .card[data-dot="red"]::before   { background:var(--red); opacity:1; }
+    .card[data-dot="grey"]::before  { background:var(--grey); opacity:.6; }
     .card-top { display:flex; align-items:center; gap:8px; font-size:14px; font-weight:600; }
-    .card-top svg, .tile-link > svg { flex:none; width:20px; height:20px; stroke:var(--teal); fill:none; stroke-width:1.8;
-                    stroke-linecap:round; stroke-linejoin:round; }
+    .ico { flex:none; display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px;
+           border-radius:10px; background:var(--teal-light); }
+    .ico svg { width:18px; height:18px; stroke:var(--teal-dark); fill:none; stroke-width:1.8;
+               stroke-linecap:round; stroke-linejoin:round; }
     .card-top .title { flex:1; min-width:0; }
     .dot { width:9px; height:9px; border-radius:50%; flex:none; }
     .dot.green{background:var(--green)} .dot.amber{background:var(--amber)} .dot.red{background:var(--red)} .dot.grey{background:var(--grey)}
@@ -123,16 +153,48 @@
             animation:shimmer 1.2s infinite; }
     .skel.s2 { height:12px; width:85%; }
     @keyframes shimmer { to { background-position:-200% 0; } }
-    .month-row { display:flex; gap:8px; margin-top:8px; position:relative; z-index:1; }
-    .month-row select { flex:1; min-width:0; padding:6px 8px; border:1px solid var(--border); border-radius:8px;
-                        font:inherit; font-size:13px; background:var(--white); color:var(--navy); }
-    .month-row button { padding:6px 12px; border:0; border-radius:8px; background:var(--teal); color:#fff;
-                        font:inherit; font-size:13px; cursor:pointer; }
+    /* Month picker: a strip of months, swiped by finger or stepped with the mouse wheel / arrow keys */
+    .month-row { display:flex; flex-direction:column; gap:8px; margin-top:8px; position:relative; z-index:1; }
+    .mstrip { display:flex; gap:6px; overflow-x:auto; scroll-snap-type:x mandatory; scrollbar-width:none;
+              overscroll-behavior-x:contain; padding:4px calc(50% - 51px); outline:none; border-radius:12px;
+              background:var(--bg);
+              -webkit-mask-image:linear-gradient(to left, transparent 0, #000 22%, #000 78%, transparent 100%);
+                      mask-image:linear-gradient(to left, transparent 0, #000 22%, #000 78%, transparent 100%); }
+    .mstrip::-webkit-scrollbar { display:none; }
+    .mstrip:focus-visible { box-shadow:0 0 0 2px var(--teal); }
+    .mchip { flex:none; width:102px; scroll-snap-align:center; padding:7px 4px; border:1px solid transparent;
+             border-radius:10px; background:transparent; color:var(--muted); font:inherit; font-size:12.5px;
+             cursor:pointer; white-space:nowrap; transition:background .15s, color .15s; }
+    .mchip:hover { color:var(--navy); }
+    .mchip.sel { background:var(--white); border-color:var(--teal); color:var(--teal-dark); font-weight:700;
+                 box-shadow:0 2px 6px rgba(30,157,139,.18); }
+    .open-month { padding:7px 12px; border:0; border-radius:10px; background:var(--teal); color:#fff;
+                  font:inherit; font-size:13px; font-weight:600; cursor:pointer; }
+    .open-month:hover { background:var(--teal-dark); }
+
+    /* Net income + net investments, previous and current month */
+    .flow { display:grid; grid-template-columns:auto 1fr 1fr; align-items:baseline; gap:4px 10px; margin-top:6px;
+            padding-top:8px; border-top:1px solid var(--border); font-size:12.5px; }
+    .flow .fh { font-size:11px; color:var(--muted); text-align:left; white-space:nowrap; }
+    .flow .fl { color:var(--muted); white-space:nowrap; }
+    .flow .fv { font-weight:700; text-align:left; font-variant-numeric:tabular-nums; white-space:nowrap; }
+    .flow .fv.pos { color:var(--teal-dark); } .flow .fv.neg { color:var(--red); } .flow .fv.inv { color:var(--invest); }
     .card-link { flex:1; display:flex; flex-direction:column; gap:6px; color:inherit; text-decoration:none; }
     .updated { margin-top:auto; padding-top:6px; font-size:11px; color:var(--muted); }
     .card-link::after { content:''; position:absolute; inset:0; border-radius:16px; }
+    /* Blocks without live data: compact shortcut tiles under the KPI grid */
+    .tiles-wrap { max-width:1200px; margin:0 auto; padding:0 16px 32px; }
+    .tiles-head { font-size:12px; font-weight:700; color:var(--muted); margin:0 2px 8px; }
+    .tiles { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:10px; }
+    .card.tile { padding:10px 12px; border-radius:14px; gap:4px; background:linear-gradient(135deg, #fff 55%, var(--teal-light)); }
+    .card.tile .ico { width:28px; height:28px; border-radius:9px; background:#fff; }
+    .card.tile .ico svg { width:16px; height:16px; }
     .tile-link { flex-direction:row; align-items:center; gap:10px; }
-    .card.tile .desc { font-size:12.5px; color:var(--muted); font-weight:400; }
+    .tile-link > div { min-width:0; }
+    .card.tile .card-top { font-size:13px; }
+    .card.tile .desc { font-size:11.5px; color:var(--muted); font-weight:400; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .card.tile .edit-ctl { margin-top:6px; padding-top:6px; }
+    .card.tile .edit-ctl button { width:26px; height:26px; font-size:13px; }
   </style>
 </head>
 <body>
@@ -169,7 +231,13 @@
     <button type="button" class="primary" onclick="toggleEdit()">סיום</button>
   </div>
   <section class="attention" id="attention" hidden aria-live="polite"></section>
-  <section class="grid" id="grid"></section>
+  <div id="blocks">
+    <section class="grid" id="grid"></section>
+    <section class="tiles-wrap" id="tilesWrap" hidden>
+      <div class="tiles-head">קיצורי דרך</div>
+      <div class="tiles" id="tiles"></div>
+    </section>
+  </div>
 </main>
 
 <script>
@@ -309,7 +377,7 @@
     }
     return out + esc(s.slice(last));
   }
-  function icon(id) { return '<svg viewBox="0 0 24 24" aria-hidden="true">' + ICONS[id] + '</svg>'; }
+  function icon(id) { return '<span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true">' + ICONS[id] + '</svg></span>'; }
 
   const BLOCK_BY_ID = Object.fromEntries(BLOCKS.map(b => [b.id, b]));
   /* Default order: live blocks first (menu order), description-only tiles last. */
@@ -342,10 +410,13 @@
   /** Blocks shown outside edit mode, in layout order. */
   function visibleIds() { return layout.order.filter(id => !isHidden(id)); }
   function visibleLiveIds() { return visibleIds().filter(id => BLOCK_BY_ID[id].live); }
+  /** The live blocks or the shortcut tiles of `ids`, keeping their order. */
+  function ofGroup(ids, live) { return ids.filter(id => !!BLOCK_BY_ID[id].live === live); }
 
   /** Forget per-session dashboard state (on sign-in and sign-out). */
   function resetDashState() {
     blockData = {};
+    pickedMonth = null;
     editing = false;
     refreshing = false;
     dragId = null;
@@ -390,14 +461,17 @@
     return '<div class="' + cls + '" id="blk-' + id + '" data-id="' + id + '"' + (editing ? ' draggable="true"' : '') + '>' + link + ctl + '</div>';
   }
 
-  /** Rebuild the grid from the layout and paint every block from blockData (no requests). */
+  /** Rebuild the KPI grid and the shortcut tiles from the layout and paint every block from blockData
+      (no requests). Each group keeps its own order; arrows and drag move a block within its group. */
   function renderGrid() {
-    const grid = document.getElementById('grid');
     const ids = editing ? layout.order : visibleIds();
-    grid.classList.toggle('editing', editing);
-    grid.innerHTML = ids.length ? ids.map((id, i) => cardHtml(id, i, ids.length)).join('')
-      : '<div class="grid-empty">כל הבלוקים מוסתרים — לחצו "סידור" כדי להציג אותם</div>';
-    ids.forEach(id => { if (BLOCK_BY_ID[id].live) paintBlock(id); });
+    const live = ofGroup(ids, true), tiles = ofGroup(ids, false);
+    document.getElementById('blocks').classList.toggle('editing', editing);
+    document.getElementById('grid').innerHTML = live.map((id, i) => cardHtml(id, i, live.length)).join('') ||
+      (tiles.length ? '' : '<div class="grid-empty">כל הבלוקים מוסתרים — לחצו "סידור" כדי להציג אותם</div>');
+    document.getElementById('tiles').innerHTML = tiles.map((id, i) => cardHtml(id, i, tiles.length)).join('');
+    document.getElementById('tilesWrap').hidden = !tiles.length;
+    live.forEach(paintBlock);
     renderAttention();
   }
 
@@ -430,34 +504,122 @@
     if (entry.err) {
       body.innerHTML = '<div class="err">לא זמין כרגע</div>';
       dot.className = 'dot grey';
+      el.dataset.dot = 'grey';
       paintAge(el, id);
       return;
     }
     const d = entry.d;
     dot.className = d.dot ? 'dot ' + d.dot : 'dot';
+    el.dataset.dot = d.dot || '';
     const ltr = /^[-+\d]/.test(d.kpi || '') ? ' kpi-ltr' : '';
     body.innerHTML =
       '<div class="kpi' + ltr + '" title="' + esc(d.kpi) + '">' + esc(d.kpi) + '</div>' +
       '<div class="caption" title="' + esc(d.caption) + '">' + rich(d.caption) + '</div>' +
-      ((d.details || []).length ? '<ul class="details">' + d.details.map(x => '<li title="' + esc(x) + '">' + rich(x) + '</li>').join('') + '</ul>' : '');
+      ((d.details || []).length ? '<ul class="details">' + d.details.map(x => '<li title="' + esc(x) + '">' + rich(x) + '</li>').join('') + '</ul>' : '') +
+      (id === 'monthly' ? flowHtml((d.extra || {}).flow) : '');
     if (id === 'monthly') renderMonthPicker(el, d.extra || {});
     paintAge(el, id);
   }
 
+  /** Shekel amount like the server's money(): thousands separators, sign in front, no decimals. */
+  function shekels(v) {
+    const n = Math.round(Number(v) || 0);
+    return (n < 0 ? '-' : '') + Math.abs(n).toLocaleString('en-US') + '₪';
+  }
+
+  /** Net income and net investments of the previous and the current month (extra.flow), as a small table. */
+  function flowHtml(flow) {
+    if (!flow || !flow.length) return '';
+    const cell = (v, cls) => '<span class="fv ' + cls + '" dir="ltr">' + shekels(v) + '</span>';
+    return '<div class="flow">' +
+      '<span></span>' + flow.map((f, i) => '<span class="fh" title="' + esc(f.label) + (i === flow.length - 1 ? ' — עד היום' : '') + '">' +
+        esc(f.label.split(' ')[0]) + '</span>').join('') +
+      '<span class="fl">נטו</span>' + flow.map(f => cell(f.net, f.net >= 0 ? 'pos' : 'neg')).join('') +
+      '<span class="fl">השקעות נטו</span>' + flow.map(f => cell(f.invest, 'inv')).join('') +
+    '</div>';
+  }
+
+  let pickedMonth = null;   /* month chosen in the picker; survives repaints (refresh) */
+
+  /** Month picker: a strip of months (newest first) instead of a dropdown, plus an "open" button. */
   function renderMonthPicker(el, extra) {
     const months = extra.months || [];
     el.querySelector('.card-link').href = extra.current ? '/general/' + extra.current : '/monthly';
     if (!months.length) return;
     const row = document.createElement('div');
     row.className = 'month-row';
-    row.innerHTML = '<select aria-label="בחירת חודש">' + months.map(m =>
-      '<option value="' + esc(m.key) + '"' + (m.key === extra.current ? ' selected' : '') + '>' + esc(m.label) + '</option>').join('') +
-      '</select><button type="button">פתח</button>';
+    row.innerHTML =
+      '<div class="mstrip" role="listbox" tabindex="0" aria-label="בחירת חודש — החלקה, גלגלת העכבר או חיצים">' +
+        months.map((m, i) => '<button type="button" class="mchip" role="option" tabindex="-1" data-i="' + i + '">' +
+          esc(m.label) + '</button>').join('') +
+      '</div>' +
+      '<button type="button" class="open-month"></button>';
     // The picker lives beside the card link (not inside it), so it can never follow the link.
-    row.querySelector('button').addEventListener('click', () => {
-      window.location.href = '/general/' + row.querySelector('select').value;
-    });
     el.querySelector('.card-link').after(row);
+    const want = months.findIndex(m => m.key === (pickedMonth || extra.current));
+    wireMonthStrip(row, months, want < 0 ? 0 : want);
+  }
+
+  /** Swipe (native scroll + snap), mouse wheel and arrow keys step through the months; the centred
+      month is the selected one. A tap on another month centres it, a tap on the selected one opens it. */
+  function wireMonthStrip(row, months, start) {
+    const strip = row.querySelector('.mstrip'), chips = Array.from(strip.children), open = row.querySelector('.open-month');
+    let sel = -1, settleTimer = null, lastWheel = 0;
+    const go = () => { window.location.href = '/general/' + months[sel].key; };
+
+    function mark(i) {
+      if (i === sel) return;
+      sel = i;
+      pickedMonth = months[i].key;
+      chips.forEach((c, k) => { c.classList.toggle('sel', k === i); c.setAttribute('aria-selected', String(k === i)); });
+      open.textContent = 'פתח את ' + months[i].label;
+    }
+    /** Select month i and scroll it to the middle (relative scrollBy works the same in RTL everywhere). */
+    function select(i, smooth) {
+      i = Math.max(0, Math.min(months.length - 1, i));
+      mark(i);
+      const c = chips[i].getBoundingClientRect(), s = strip.getBoundingClientRect();
+      strip.scrollBy({ left: (c.left + c.width / 2) - (s.left + s.width / 2), behavior: smooth ? 'smooth' : 'auto' });
+    }
+    function nearestToCentre() {
+      const s = strip.getBoundingClientRect(), mid = s.left + s.width / 2;
+      let best = 0, dist = Infinity;
+      chips.forEach((c, k) => {
+        const r = c.getBoundingClientRect(), d = Math.abs(r.left + r.width / 2 - mid);
+        if (d < dist) { dist = d; best = k; }
+      });
+      return best;
+    }
+
+    strip.addEventListener('scroll', () => {          /* finger swipe / trackpad: pick what settles in the middle */
+      clearTimeout(settleTimer);
+      settleTimer = setTimeout(() => mark(nearestToCentre()), 90);
+    }, { passive: true });
+    strip.addEventListener('wheel', e => {             /* vertical wheel steps one month; horizontal scroll stays native */
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+      const next = sel + (e.deltaY > 0 ? 1 : -1);
+      if (next < 0 || next >= months.length) return;   /* at either end the page scrolls as usual */
+      e.preventDefault();
+      const now = Date.now();
+      if (now - lastWheel < 140) return;               /* one step per notch, even on fast trackpads */
+      lastWheel = now;
+      select(next, true);
+    }, { passive: false });
+    strip.addEventListener('keydown', e => {           /* RTL: left = older, right = newer */
+      if (e.key === 'ArrowLeft') { e.preventDefault(); select(sel + 1, true); }
+      else if (e.key === 'ArrowRight') { e.preventDefault(); select(sel - 1, true); }
+      else if (e.key === 'Home') { e.preventDefault(); select(0, true); }
+      else if (e.key === 'End') { e.preventDefault(); select(months.length - 1, true); }
+      else if (e.key === 'Enter') { e.preventDefault(); go(); }
+    });
+    strip.addEventListener('click', e => {
+      const chip = e.target.closest('.mchip');
+      if (!chip) return;
+      const i = Number(chip.dataset.i);
+      if (i === sel) go(); else select(i, true);
+    });
+    open.addEventListener('click', go);
+    select(start, false);
   }
 
   /* ── Freshness ── */
@@ -508,7 +670,8 @@
       .filter(x => x.e && x.e.d && x.e.d.attention && rank[x.e.d.dot] !== undefined)
       .sort((a, b) => rank[a.e.d.dot] - rank[b.e.d.dot] || ids.indexOf(a.id) - ids.indexOf(b.id));
     if (items.length) {
-      box.innerHTML = '<div class="att-box"><div class="att-head">דורש תשומת לב</div><div class="att-list">' +
+      const red = items.some(x => x.e.d.dot === 'red');
+      box.innerHTML = '<div class="att-box' + (red ? ' has-red' : '') + '"><div class="att-head">דורש תשומת לב</div><div class="att-list">' +
         items.map(({ id, e }) => {
           const b = BLOCK_BY_ID[id];
           const href = id === 'monthly' && e.d.extra && e.d.extra.current ? '/general/' + e.d.extra.current : b.href;
@@ -518,7 +681,7 @@
         }).join('') + '</div></div>';
       box.hidden = false;
     } else if (ids.every(id => blockData[id])) {
-      box.innerHTML = '<div class="att-box"><div class="att-ok"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg>' +
+      box.innerHTML = '<div class="att-box ok"><div class="att-ok"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg>' +
         'הכל תקין — אין דברים שדורשים טיפול</div></div>';
       box.hidden = false;
     } else {
@@ -553,12 +716,14 @@
     layout.order.filter(id => BLOCK_BY_ID[id].live && !blockData[id]).forEach(id => loadBlock(id, false));
   }
 
-  /** Move block `id` by `delta` places in the full order, keeping keyboard focus on the same control. */
+  /** Move block `id` by `delta` places within its group (KPI blocks or tiles), keeping keyboard focus. */
   function moveBlock(id, delta, act) {
-    const i = layout.order.indexOf(id), j = i + delta;
-    if (i < 0 || j < 0 || j >= layout.order.length) return;
-    layout.order.splice(i, 1);
-    layout.order.splice(j, 0, id);
+    const live = !!BLOCK_BY_ID[id].live, group = ofGroup(layout.order, live);
+    const i = group.indexOf(id), j = i + delta;
+    if (i < 0 || j < 0 || j >= group.length) return;
+    group.splice(i, 1);
+    group.splice(j, 0, id);
+    layout.order = live ? group.concat(ofGroup(layout.order, false)) : ofGroup(layout.order, true).concat(group);
     saveLayout();
     renderGrid();
     const btn = document.querySelector('#blk-' + id + ' [data-act="' + act + '"]');
@@ -575,7 +740,7 @@
   }
 
   (function wireGrid() {
-    const grid = document.getElementById('grid');
+    const grid = document.getElementById('blocks');   /* KPI grid + shortcut tiles */
     grid.addEventListener('click', e => {
       const btn = e.target.closest('[data-act]');
       if (!editing) return;
@@ -597,8 +762,8 @@
       if (!dragId) return;
       e.preventDefault();
       const over = e.target.closest('.card'), dragged = document.getElementById('blk-' + dragId);
-      if (!over || !dragged || over === dragged) return;
-      const cards = Array.from(grid.querySelectorAll('.card'));
+      if (!over || !dragged || over === dragged || over.parentElement !== dragged.parentElement) return;   /* same group only */
+      const cards = Array.from(dragged.parentElement.querySelectorAll('.card'));
       // Moving forward lands after the target, moving back lands before it — works across grid rows.
       if (cards.indexOf(dragged) < cards.indexOf(over)) over.after(dragged); else over.before(dragged);
     });
@@ -606,7 +771,8 @@
     grid.addEventListener('dragend', () => {
       if (!dragId) return;
       dragId = null;
-      layout.order = Array.from(grid.querySelectorAll('.card')).map(c => c.dataset.id);
+      const domIds = sel => Array.from(document.querySelectorAll(sel + ' .card')).map(c => c.dataset.id);
+      layout.order = domIds('#grid').concat(domIds('#tiles'));
       saveLayout();
       renderGrid();   /* refresh the arrows' disabled state */
     });

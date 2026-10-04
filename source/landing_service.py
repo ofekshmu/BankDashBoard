@@ -76,9 +76,37 @@ def pick_month(months, today):
     return k if k in keys else keys[-1]
 
 
-def build_monthly(months, key, payload):
+def _shift_month(d, back):
+    """'YYYY_MM' of the month `back` months before date `d`."""
+    n = d.year * 12 + d.month - 1 - back
+    return f'{n // 12:04d}_{n % 12 + 1:02d}'
+
+
+def month_flow(payload, today):
+    """Net income and net investment of the previous and the current month, as the monthly page
+    shows them: general_net / general_current_net (cash included) and investments out − in.
+    general_* figures are relative to the real current month, whatever month the payload is for.
+    Returns [previous, current] as {key, label, net, invest}, or [] when the payload lacks them."""
+    p = payload or {}
+    try:
+        prev = {'net': p['general_net'][0],
+                'invest': p['general_investments_out'][0] - p['general_investments_in'][0]}
+        cur = {'net': p['general_current_net'],
+               'invest': p['general_current_investments_out'] - p['general_current_investments_in']}
+    except (KeyError, IndexError, TypeError):
+        return []
+    out = []
+    for back, vals in ((1, prev), (0, cur)):
+        key = _shift_month(today, back)
+        out.append({'key': key, 'label': month_label(key),
+                    'net': round(float(vals['net'] or 0)), 'invest': round(float(vals['invest'] or 0))})
+    return out
+
+
+def build_monthly(months, key, payload, today=None):
     keys = sorted({m['key'] for m in months or [] if m.get('key')}, reverse=True)
-    extra = {'months': [{'key': k, 'label': month_label(k)} for k in keys], 'current': key}
+    extra = {'months': [{'key': k, 'label': month_label(k)} for k in keys], 'current': key,
+             'flow': month_flow(payload, today) if today else []}
     if not key:
         return block('—', 'אין ניתוחים חודשיים', dot='grey', extra=extra)
     if payload is None:

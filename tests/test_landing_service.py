@@ -314,3 +314,29 @@ def test_plants_attention_lists_each_nonzero_count():
     b = ls.build_plants({'due_today': 2, 'overdue': 1, 'auto_today': 4})
     assert b['attention'] == 'עציץ אחד באיחור · 2 עציצים להשקות היום'
     assert ls.build_plants({'due_today': 0, 'overdue': 0, 'auto_today': 3})['attention'] is None
+
+
+# ── monthly: net income + investments of last and current month ────────────
+FLOW_PAYLOAD = {'alerts': [], 'general_net': [5200.4, 3000], 'general_current_net': -812.6,
+                'general_investments_out': [2000, 500], 'general_investments_in': [300, 0],
+                'general_current_investments_out': 1500, 'general_current_investments_in': 0}
+
+
+def test_month_flow_previous_then_current():
+    flow = ls.month_flow(FLOW_PAYLOAD, TODAY)
+    assert flow == [{'key': '2026_09', 'label': 'ספטמבר 2026', 'net': 5200, 'invest': 1700},
+                    {'key': '2026_10', 'label': 'אוקטובר 2026', 'net': -813, 'invest': 1500}]
+
+
+def test_month_flow_crosses_the_year_and_handles_missing_data():
+    flow = ls.month_flow(FLOW_PAYLOAD, date(2026, 1, 15))
+    assert [f['key'] for f in flow] == ['2025_12', '2026_01']
+    assert ls.month_flow({'alerts': []}, TODAY) == []
+    assert ls.month_flow(dict(FLOW_PAYLOAD, general_net=[]), TODAY) == []
+    assert ls.month_flow(None, TODAY) == []
+
+
+def test_monthly_block_carries_the_flow():
+    b = ls.build_monthly(MONTHS, '2026_10', FLOW_PAYLOAD, TODAY)
+    assert [f['net'] for f in b['extra']['flow']] == [5200, -813]
+    assert ls.build_monthly(MONTHS, '2026_10', FLOW_PAYLOAD)['extra']['flow'] == []   # no date → no flow

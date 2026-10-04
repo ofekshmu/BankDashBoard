@@ -173,3 +173,27 @@ avoid duplicate routes). Every route is behind the existing `_require_auth` gate
 ## Out of scope
 - Live data for ארגונית, ניתוח קטגוריאלי, חיפוש (description only, by decision).
 - Changing any feature page.
+
+## Additions — v1.29.0
+
+- **Shortcut tiles:** the description-only blocks (ארגונית, ניתוח קטגוריאלי, חיפוש) render as compact
+  tiles in their own "קיצורי דרך" row under the KPI grid (`#tiles`, `minmax(180px, 1fr)`, ~50 px tall).
+  Layout editing keeps one saved `order` list, but arrows and drag move a block only within its group
+  (KPI blocks or tiles); the saved order is KPI blocks first, then tiles.
+- **Colour:** header band `linear-gradient(120deg, #1e2a4a → #1f4a62 → #1e9d8b)` with white text and
+  translucent buttons; soft teal/navy radial tint on the page background; block icons in a teal-light
+  badge; a 3 px strip on top of each KPI card coloured by its dot (`data-dot`); the attention box has a
+  right border (amber, red when any item is red, teal when all is fine).
+- **Monthly block — net income and net investments:** `extra.flow` = `[previous month, current month]`,
+  each `{key, label, net, invest}`, from the monthly payload exactly as the monthly page's general chart
+  uses it: `net` = `general_net[0]` / `general_current_net` (cash included), `invest` =
+  `general_investments_out − general_investments_in` (index 0 / current). These `general_*` figures are
+  relative to the real current month, whatever month the payload is for. Rendered as a 2×2 table
+  (נטו / השקעות נטו × month); net coloured teal/red by sign, investments in the page's amber `#e8a020`.
+  `landing_service.month_flow(payload, today)`; `build_monthly(..., today)` (no date → empty flow).
+- **Month picker:** the dropdown is replaced by a horizontal strip of months (newest on the right),
+  scroll-snapped so the centred month is the selected one, with a "פתח את <month>" button.
+  Finger swipe = native scroll; a vertical mouse-wheel notch steps one month (past either end the page
+  scrolls normally); ← → Home End step / jump, Enter opens; tapping another month centres it, tapping
+  the selected month opens it. The choice survives a refresh repaint. On ≥560 px the monthly block spans
+  two grid rows so its neighbours keep their natural height.

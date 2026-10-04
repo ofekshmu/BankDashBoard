@@ -1953,12 +1953,17 @@ if os.getenv('VERCEL'):
 
 
 class _PGConn:
-    """Thin wrapper around psycopg2 connection that mimics sqlite3's conn.execute() API."""
+    """Thin wrapper around psycopg2 connection that mimics sqlite3's conn.execute() API.
+
+    A pooled connection goes back to the pool on close(); a wrapper dropped without close()
+    (an exception path that skipped it) returns it when garbage-collected, so it never leaks.
+    """
 
     def __init__(self, raw_conn, pool=None):
         import psycopg2.extras
         self._conn = raw_conn
         self._pool = pool
+        self._returned = False
         self._factory = psycopg2.extras.DictCursor
 
     def _sql(self, sql):
@@ -1976,20 +1981,34 @@ class _PGConn:
     def rollback(self): self._conn.rollback()
 
     def close(self):
+        """Return the connection to the pool (idempotent); a broken one is closed instead."""
         if self._pool is None:
             self._conn.close()
             return
-        broken = bool(self._conn.closed)
-        if not broken:
-            try:
-                self._conn.rollback()  # reset any open transaction before returning
-            except Exception:
-                broken = True
+        if self._returned:
+            return
+        self._returned = True
         try:
-            self._pool.putconn(self._conn, close=broken)
+            broken = bool(self._conn.closed)
+            if not broken:
+                try:
+                    self._conn.rollback()  # reset any open transaction before returning
+                except Exception:
+                    broken = True
+            try:
+                self._pool.putconn(self._conn, close=broken)
+            except Exception:
+                try: self._conn.close()
+                except Exception: pass
+        finally:
+            _pg_slots.release()
+
+    def __del__(self):
+        try:
+            if self._pool is not None and not self._returned:
+                self.close()
         except Exception:
-            try: self._conn.close()
-            except Exception: pass
+            pass
 
     def cursor(self):
         import psycopg2.extras
@@ -1999,6 +2018,11 @@ class _PGConn:
 # ── Persistent Postgres connection pool ───────────────────────────────────────
 _pg_pool      = None
 _pg_pool_lock = _threading.Lock()
+_PG_POOL_MAX  = 10
+_PG_CHECKOUT_TIMEOUT = 30
+# psycopg2's pool raises "connection pool exhausted" as soon as every connection is out; borrowers
+# wait on this semaphore (one permit per borrowed connection) instead of failing.
+_pg_slots     = _threading.BoundedSemaphore(_PG_POOL_MAX)
 
 def _get_pg_pool():
     global _pg_pool
@@ -2008,7 +2032,7 @@ def _get_pg_pool():
         if _pg_pool is None:
             import psycopg2.pool
             _pg_pool = psycopg2.pool.ThreadedConnectionPool(
-                minconn=1, maxconn=10,
+                minconn=1, maxconn=_PG_POOL_MAX,
                 dsn=os.environ.get('DATABASE_URL', ''),
                 connect_timeout=10,
             )
@@ -2016,15 +2040,25 @@ def _get_pg_pool():
 
 
 def _pg_conn():
-    """Return a _PGConn backed by a pooled connection — no new TCP handshake per request."""
+    """Return a _PGConn backed by a pooled connection — no new TCP handshake per request.
+
+    Waits up to _PG_CHECKOUT_TIMEOUT seconds for a free connection when all are in use.
+    """
     import psycopg2
-    pool = _get_pg_pool()
-    raw  = pool.getconn()
-    if raw.closed:
-        # Stale slot — discard and open a fresh one
-        pool.putconn(raw, close=True)
-        raw = pool.getconn()
-    raw.autocommit = False
+    if not _pg_slots.acquire(timeout=_PG_CHECKOUT_TIMEOUT):
+        raise psycopg2.OperationalError(
+            f'all {_PG_POOL_MAX} database connections stayed busy for {_PG_CHECKOUT_TIMEOUT}s')
+    try:
+        pool = _get_pg_pool()
+        raw  = pool.getconn()
+        if raw.closed:
+            # Stale slot — discard and open a fresh one
+            pool.putconn(raw, close=True)
+            raw = pool.getconn()
+        raw.autocommit = False
+    except BaseException:
+        _pg_slots.release()
+        raise
     return _PGConn(raw, pool=pool)
 
 

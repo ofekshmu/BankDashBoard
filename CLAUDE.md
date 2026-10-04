@@ -159,6 +159,26 @@ The canonical auth check endpoint is `POST /api/auth/verify` in `WebApp.py` — 
 
 ---
 
+## Database connection pools — "connection pool exhausted"
+
+There are two psycopg2 pools, each capped at 10 connections: `DataBase` (`database.py`, connections
+borrowed per thread) and `_pg_conn()` (`WebApp.py`, raw-SQL routes). psycopg2's pool **raises
+immediately** when it is full, so both put a `BoundedSemaphore` in front: a borrower waits up to
+30 s for a free connection (`DataBase.CHECKOUT_TIMEOUT` / `_PG_CHECKOUT_TIMEOUT`) instead of failing.
+The landing page alone fires 11 requests at once.
+
+- A `DataBase` connection is returned by `teardown_request` → `release_thread_connection()`. Background
+  threads and streamed-response generators don't pass through teardown; a `_Lease` finalizer returns
+  their connection when the thread ends. A long-lived thread that uses `DataBase` should still call
+  `DataBase.release_thread_connection()` when done, since the lease only fires at thread exit.
+- A `_pg_conn()` connection is returned by `close()` (idempotent); a wrapper dropped without `close()`
+  returns it from `__del__`. Still close it in a `finally`.
+- Every borrowed connection holds exactly one semaphore permit. Never call `getconn`/`putconn`
+  directly; use `_checkout`/`_give_back` (`DataBase`) or `_pg_conn()`/`close()`.
+  `tests/test_db_pool.py` checks the accounting with a fake pool.
+
+---
+
 ## Branch conventions
 
 | Branch | Purpose |

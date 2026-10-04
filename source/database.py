@@ -1,6 +1,7 @@
 import os
 import threading
 import time
+import weakref
 import psycopg2
 import psycopg2.pool
 from dotenv import load_dotenv
@@ -184,6 +185,16 @@ def check_for_empty_df(func):
 # ----------------------------------------------------------------------
 # ----------------------------------------------------------------------
 
+class _Lease:
+    """Marks a pooled connection as borrowed by one thread (kept in that thread's local storage).
+
+    When the thread ends without returning its connection — background workers, streamed responses
+    whose generator runs after teardown_request — its thread-local storage is freed, the lease is
+    collected, and a weakref finalizer hands the connection back to the pool.
+    """
+    __slots__ = ('holder', '__weakref__')
+
+
 class DataBase:
 
     __instance = None
@@ -194,6 +205,12 @@ class DataBase:
     __tables_bootstrapped = False
     __pool = None
     __pool_lock = threading.Lock()
+    POOL_MIN, POOL_MAX = 6, 10
+    # psycopg2's pool raises "connection pool exhausted" the moment every connection is borrowed.
+    # Borrowers wait on this semaphore instead (one permit per borrowed connection), so a burst
+    # larger than the pool — the landing page fires 11 block requests at once — queues briefly.
+    CHECKOUT_TIMEOUT = 30
+    __slots = threading.BoundedSemaphore(POOL_MAX)
 
     @classmethod
     def _get_pool(cls):
@@ -227,7 +244,7 @@ class DataBase:
                     # TCP keepalives let the OS notice a dropped connection
                     # quickly instead of hanging on it.
                     cls.__pool = psycopg2.pool.ThreadedConnectionPool(
-                        6, 10, os.environ['DATABASE_URL'],
+                        cls.POOL_MIN, cls.POOL_MAX, os.environ['DATABASE_URL'],
                         keepalives=1, keepalives_idle=30, keepalives_interval=10, keepalives_count=3,
                     )
         return cls.__pool
@@ -254,11 +271,25 @@ class DataBase:
 
     @classmethod
     def _checkout(cls, verify_all=False):
-        """Borrow a working connection: stale ones are pinged, dead ones discarded.
+        """Borrow a working connection, waiting up to CHECKOUT_TIMEOUT for a free one.
 
-        verify_all: ping even recently used connections — after one connection turned out dead, the
-        rest of the pool was likely dropped at the same time (e.g. Neon compute suspend).
+        Stale connections are pinged and dead ones discarded. verify_all: ping even recently used
+        connections — after one connection turned out dead, the rest of the pool was likely
+        dropped at the same time (e.g. Neon compute suspend). The caller owns one semaphore
+        permit for the returned connection until _give_back().
         """
+        if not cls.__slots.acquire(timeout=cls.CHECKOUT_TIMEOUT):
+            raise psycopg2.OperationalError(
+                f'all {cls.POOL_MAX} database connections stayed busy for {cls.CHECKOUT_TIMEOUT}s')
+        try:
+            return cls._checkout_unlocked(verify_all)
+        except BaseException:
+            cls.__slots.release()
+            raise
+
+    @classmethod
+    def _checkout_unlocked(cls, verify_all):
+        """The pool part of _checkout (the caller already holds a semaphore permit)."""
         pool = cls._get_pool()
         last_error = None
         for _ in range(pool.maxconn + 1):      # enough to cycle through every pooled connection
@@ -280,6 +311,39 @@ class DataBase:
                 cls._discard(conn)
         raise psycopg2.OperationalError(f'no working database connection: {last_error}')
 
+    @classmethod
+    def _give_back(cls, conn, close=False):
+        """Return a borrowed connection to the pool (or close it) and free its semaphore permit."""
+        try:
+            if close or conn.closed:
+                cls._discard(conn)
+            else:
+                cls._mark_idle_since(conn, time.monotonic())
+                try:
+                    cls._get_pool().putconn(conn)
+                except Exception:
+                    pass
+        finally:
+            cls.__slots.release()
+
+    @classmethod
+    def _reclaim(cls, holder):
+        """Lease finalizer: the borrowing thread ended without returning its connection."""
+        conn, holder[0] = holder[0], None
+        if conn is not None:
+            cls._give_back(conn)
+
+    def _take_thread_connection(self):
+        """Detach the current thread's connection (None if it has none) and cancel its lease."""
+        lease = getattr(self._local, 'lease', None)
+        if lease is not None:
+            lease.holder[0] = None
+        conn = getattr(self._local, 'connection', None)
+        self._local.connection = None
+        self._local.cursor = None
+        self._local.lease = None
+        return conn
+
     def _connect_thread(self, verify_all=False):
         """Borrow a (verified) connection from the pool for the CURRENT thread."""
         conn = DataBase._checkout(verify_all)
@@ -292,8 +356,12 @@ class DataBase:
             lambda v, c: float(v) if v is not None else None,
         )
         psycopg2.extensions.register_type(_DEC2FLOAT, conn)
+        lease = _Lease()
+        lease.holder = [conn]     # the finalizer gets the holder, not the lease (or it would never be collected)
+        weakref.finalize(lease, DataBase._reclaim, lease.holder).atexit = False
         self._local.connection = conn
         self._local.cursor = _ChainableCursor(conn, self)
+        self._local.lease = lease
 
     @classmethod
     def release_thread_connection(cls):
@@ -306,27 +374,15 @@ class DataBase:
         inst = cls.__instance
         if inst is None or not hasattr(inst, '_local'):
             return
-        conn = getattr(inst._local, 'connection', None)
-        if conn is None:
-            return
-        inst._local.connection = None
-        inst._local.cursor = None
-        if conn.closed:
-            cls._discard(conn)
-            return
-        cls._mark_idle_since(conn, time.monotonic())
-        try:
-            DataBase._get_pool().putconn(conn)
-        except Exception:
-            pass
+        conn = inst._take_thread_connection()
+        if conn is not None:
+            cls._give_back(conn)
 
     def _replace_thread_connection(self):
         """Drop this thread's (dead) connection and borrow a working one."""
-        conn = self.connection
-        self._local.connection = None
-        self._local.cursor = None
+        conn = self._take_thread_connection()
         if conn is not None:
-            DataBase._discard(conn)
+            DataBase._give_back(conn, close=True)
         self._connect_thread(verify_all=True)
 
     @property
@@ -792,11 +848,9 @@ class DataBase:
         '''
         Close The connection to the database.
         '''
-        conn = self.connection
-        self._local.connection = None
-        self._local.cursor = None
+        conn = self._take_thread_connection()
         if conn is not None:
-            DataBase._get_pool().putconn(conn, close=True)
+            DataBase._give_back(conn, close=True)
         DataBase.__instance = None
 
     # TODO: this function is currently not being used anywhere.

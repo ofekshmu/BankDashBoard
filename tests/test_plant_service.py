@@ -122,23 +122,52 @@ def test_set_soil():
         svc.set_soil(s, pid, {'day': '2026-10-15', 'soil_status': 'dry'}, T)
 
 
-def test_confirm_auto_creates_event_at_auto_time():
+def test_scheduled_auto_days_are_recorded_without_approval():
     s = FakePlantStore()
-    pid = _mk(s, irrigation_mode='auto', auto_time='06:30')
+    pid = _mk(s, irrigation_mode='auto', auto_time='06:30', interval_days=3)
+    _backdate(s, pid, date(2026, 10, 5))
+    p = svc.build_payload(s, T)                     # scheduled: 10/8, 10/11, 10/14 (today counts too)
+    evs = sorted(s.events.values(), key=lambda e: e['event_at'])
+    assert [e['event_at'] for e in evs] == [datetime(2026, 10, d, 6, 30) for d in (8, 11, 14)]
+    assert {e['source'] for e in evs} == {svc.AUTO_SOURCE}
+    assert all(s.days[(pid, date(2026, 10, d))]['watered'] and s.days[(pid, date(2026, 10, d))]['auto_confirmed']
+               for d in (8, 11, 14))
+    assert p['summary'] == {'due_today': 0, 'overdue': 0, 'auto_today': 1}
+    assert p['plants'][0]['last_water'] == '2026-10-14'
     svc.build_payload(s, T)
-    svc.confirm_auto(s, pid, {'day': '2026-10-14'}, T)
-    e = list(s.events.values())[0]
-    assert e['event_at'] == datetime(2026, 10, 14, 6, 30) and e['source'] == 'auto_confirmed'
-    assert s.days[(pid, T)]['auto_confirmed'] and s.days[(pid, T)]['watered']
-    svc.delete_event(s, e['id'])
-    assert not s.days[(pid, T)]['auto_confirmed'] and not s.days[(pid, T)]['watered']
+    assert len(s.events) == 3                       # idempotent
 
 
-def test_confirm_auto_rejected_for_manual():
+def test_auto_recording_uses_plan_time_and_skips_manual_plants():
     s = FakePlantStore()
-    pid = _mk(s)
-    with pytest.raises(svc.PlantError):
-        svc.confirm_auto(s, pid, {'day': '2026-10-14'}, T)
+    auto, manual = _mk(s), _mk(s, name='ידני')
+    _backdate(s, auto, date(2026, 10, 10))
+    _backdate(s, manual, date(2026, 10, 10))
+    _cfg(s, style='weekdays', weekdays=[3], plant_ids=[auto])   # Wednesdays; 2026-10-14 is a Wednesday
+    svc.build_payload(s, T)
+    assert [(e['plant_id'], e['event_at']) for e in s.events.values()] == [(auto, datetime(2026, 10, 14, 6, 30))]
+
+
+def test_deleting_an_auto_watering_skips_the_day_for_good():
+    s = FakePlantStore()
+    pid = _mk(s, irrigation_mode='auto', interval_days=2)
+    _backdate(s, pid, date(2026, 10, 12))
+    svc.build_payload(s, T)
+    e = list(s.events.values())[0]
+    svc.delete_event(s, e['id'])
+    row = s.days[(pid, T)]
+    assert not row['watered'] and not row['auto_confirmed'] and not row['auto_expected']
+    p = svc.build_payload(s, T)
+    assert s.events == {} and p['summary']['auto_today'] == 0
+
+
+def test_days_older_than_the_window_are_not_backfilled():
+    s = FakePlantStore()
+    pid = _mk(s, irrigation_mode='auto', interval_days=2)
+    s.insert_days([{'plant_id': pid, 'day': date(2026, 9, 20), 'soil_status': None, 'watered': False,
+                    'auto_expected': True, 'auto_confirmed': False}])
+    svc.record_auto_waterings(s, T)
+    assert s.events == {}
 
 
 def test_water_due_only_waters_due_plants():
@@ -206,8 +235,6 @@ def test_rejects_days_before_window():
         svc.add_event(s, pid, {'event_type': 'water', 'event_at': '2026-09-30T08:00'}, T)
     with pytest.raises(svc.PlantError):
         svc.set_soil(s, pid, {'day': '2026-09-30', 'soil_status': 'dry'}, T)
-    with pytest.raises(svc.PlantError):
-        svc.confirm_auto(s, pid, {'day': '2026-09-30'}, T)
     # 2026-10-01 is the window start (T - 13), should be accepted
     eid = svc.add_event(s, pid, {'event_type': 'water', 'event_at': '2026-10-01T08:00'}, T)
     assert s.events[eid]['event_at'].date() == date(2026, 10, 1)
@@ -275,16 +302,16 @@ def test_seasonal_not_resuggested_after_interval_change_in_same_season():
 
 
 # ── F3: auto plants are not "due" / "overdue" and never watered by water-all-due ──
-def test_auto_plant_on_scheduled_day_is_pending_not_due():
+def test_auto_plant_on_scheduled_day_is_watered_not_due():
     s = FakePlantStore()
     pid = svc.create_plant(s, {'name': 'מונסטרה', 'plant_type': 'monstera',
                                'irrigation_mode': 'auto', 'interval_days': 3}, date(2026, 10, 11))
-    p = svc.build_payload(s, T)  # day 3 after creation is a scheduled auto day
-    assert p['plants'][0]['status'] == 'auto' and p['plants'][0]['days_since_water'] == 3
-    assert p['summary'] == {'due_today': 0, 'overdue': 0, 'auto_pending_confirm': 1}
+    p = svc.build_payload(s, T)  # day 3 after creation is a scheduled auto day → recorded
+    assert p['plants'][0]['status'] == 'auto' and p['plants'][0]['days_since_water'] == 0
+    assert p['summary'] == {'due_today': 0, 'overdue': 0, 'auto_today': 1}
     assert 'overdue' not in _kinds(p)
-    svc.update_plant(s, pid, {'irrigation_mode': 'manual'}, T)  # stale pending rows no longer count
-    assert svc.build_payload(s, T)['summary'] == {'due_today': 1, 'overdue': 0, 'auto_pending_confirm': 0}
+    svc.update_plant(s, pid, {'irrigation_mode': 'manual'}, T)  # watered today by the schedule
+    assert svc.build_payload(s, T)['summary'] == {'due_today': 0, 'overdue': 0, 'auto_today': 0}
 
 
 def test_water_due_skips_auto_plants():
@@ -428,7 +455,7 @@ def test_config_assigns_many_plants_and_reassigns():
     assert s.get_plant(c)['config_id'] == cid and s.get_plant(c)['irrigation_mode'] == 'auto'
 
 
-def test_config_drives_expected_days_and_confirm_time():
+def test_config_drives_expected_days_and_watering_time():
     s = FakePlantStore()
     pid = _mk(s)
     _backdate(s, pid, date(2026, 10, 10))
@@ -436,7 +463,6 @@ def test_config_drives_expected_days_and_confirm_time():
     svc.build_payload(s, T)
     assert s.days[(pid, T)]['auto_expected'] is True
     assert s.days[(pid, date(2026, 10, 13))]['auto_expected'] is False
-    svc.confirm_auto(s, pid, {'day': T.isoformat()}, T)
     assert [e['event_at'] for e in s.events.values()] == [datetime(2026, 10, 14, 6, 30)]
 
 
@@ -564,23 +590,27 @@ def test_new_interval_config_defaults_start_date_to_today():
         _cfg(s, name='bad', start_date='not-a-date')
 
 
-def test_realign_marks_rhythm_and_never_touches_recorded_days():
+def test_realign_marks_rhythm_and_never_touches_the_users_records():
     s = FakePlantStore()
     pid = _mk(s)
     _backdate(s, pid, date(2026, 10, 1))
     svc.build_payload(s, T)                       # 14 days materialized while the plant was manual
-    # recorded days: a manual watering on 10/11 and a confirmed auto watering on 10/5
+    # the user's records: a manual watering on 10/11 and a by-hand confirmed auto watering on 10/5
     svc.add_event(s, pid, {'event_type': 'water', 'event_at': '2026-10-11T08:00'}, T)
+    s.add_event(pid, 'water', datetime(2026, 10, 5, 7), 'auto_confirmed', None)
     s.days[(pid, date(2026, 10, 5))].update(auto_confirmed=True, watered=True)
-    s.days[(pid, date(2026, 10, 7))]['auto_expected'] = True                    # stale old-rhythm mark
+    # a schedule-recorded watering on the old rhythm's 10/7
+    s.add_event(pid, 'water', datetime(2026, 10, 7, 7), svc.AUTO_SOURCE, None)
+    s.days[(pid, date(2026, 10, 7))].update(auto_expected=True, watered=True, auto_confirmed=True)
     # the drip timer has been running every 3 days since 9/29 → 10/2, 10/5, 10/8, 10/11, 10/14
     cid = _cfg(s, interval_days=3, start_date='2026-09-29', plant_ids=[pid])
     n = svc.realign_config(s, cid, T)
-    expected = sorted(d.day for (p, d), r in s.days.items() if p == pid and r['auto_expected'])
-    assert expected == [2, 8, 14]                 # 10/5 and 10/11 are recorded → left as they were
-    assert s.days[(pid, date(2026, 10, 5))]['auto_confirmed'] is True and s.days[(pid, date(2026, 10, 5))]['watered']
-    assert s.days[(pid, date(2026, 10, 11))]['watered'] is True
-    assert n == 4                                 # 3 marked + the stale 10/7 cleared
+    assert n == 4                                 # 10/2, 10/8, 10/14 marked + 10/7 removed
+    assert not s.days[(pid, date(2026, 10, 7))]['watered']
+    assert s.days[(pid, date(2026, 10, 5))]['auto_confirmed'] and s.days[(pid, date(2026, 10, 11))]['watered']
+    svc.build_payload(s, T)                       # the next load records the newly scheduled days
+    water = sorted((e['event_at'].day, e['source']) for e in s.events.values())
+    assert water == [(2, 'auto'), (5, 'auto_confirmed'), (8, 'auto'), (11, 'manual'), (14, 'auto')]
 
 
 def test_realign_unknown_config_is_404():

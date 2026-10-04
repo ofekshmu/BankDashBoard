@@ -123,11 +123,6 @@ def api_plant_soil(pid):
     return _respond(lambda s, t: svc.set_soil(s, pid, _body(), t))
 
 
-@plants_bp.route('/api/plants/<int:pid>/confirm-auto', methods=['POST'])
-def api_plant_confirm_auto(pid):
-    return _respond(lambda s, t: svc.confirm_auto(s, pid, _body(), t))
-
-
 @plants_bp.route('/api/plants/<int:pid>/dismiss-season', methods=['POST'])
 def api_plant_dismiss_season(pid):
     return _respond(lambda s, t: svc.dismiss_season(s, pid, t))

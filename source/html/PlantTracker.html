@@ -207,7 +207,7 @@ input[type="date"].field-input { padding: 0 10px; appearance: none; -webkit-appe
 .pt-stat b { font-size: 1.35em; color: var(--navy); }
 .pt-stat.due b { color: var(--teal); }
 .pt-stat.overdue b { color: var(--red); }
-.pt-stat.pending b { color: var(--amber); }
+.pt-stat.auto b { color: #2f8fd8; }
 .pt-legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: .74em; color: var(--text-muted); margin-top: 10px; }
 .pt-legend span { display: inline-flex; align-items: center; gap: 4px; }
 .pt-swatch { width: 12px; height: 6px; border-radius: 3px; display: inline-block; }
@@ -246,7 +246,6 @@ input[type="date"].field-input { padding: 0 10px; appearance: none; -webkit-appe
 .pt-soil.wet { background: #2f6fb0; }
 .pt-drop { width: 12px; height: 14px; }
 .pt-drop.watered path { fill: #2f8fd8; stroke: #2f8fd8; }
-.pt-drop.expected path { fill: none; stroke: #2f8fd8; stroke-dasharray: 2 2; }
 .pt-drop.none path { fill: none; stroke: #c9ced8; }
 .pt-tips { display: flex; flex-direction: column; gap: 6px; }
 .pt-tips .pt-sugg { padding: 7px 10px; font-size: .8em; }
@@ -402,7 +401,6 @@ input[type="date"].field-input { padding: 0 10px; appearance: none; -webkit-appe
       <div class="pt-summary" id="pt-summary"></div>
       <div class="pt-legend">
         <span><svg class="pt-drop watered" viewBox="0 0 16 18"><path d="M8 1.5C8 1.5 2.5 8 2.5 11.5a5.5 5.5 0 0 0 11 0C13.5 8 8 1.5 8 1.5z" stroke-width="1.6"/></svg>הושקה</span>
-        <span><svg class="pt-drop expected" viewBox="0 0 16 18"><path d="M8 1.5C8 1.5 2.5 8 2.5 11.5a5.5 5.5 0 0 0 11 0C13.5 8 8 1.5 8 1.5z" stroke-width="1.6"/></svg>אוטומטי — ממתין לאישור</span>
         <span><i class="pt-swatch" style="background:#d8b47a"></i>יבשה</span>
         <span><i class="pt-swatch" style="background:#8fd3c7"></i>לחה</span>
         <span><i class="pt-swatch" style="background:#2f6fb0"></i>רטובה</span>
@@ -550,7 +548,8 @@ var PALETTE = ['#1e9d8b','#2f6fb0','#7a5bc4','#c2577a','#d9822b','#4f8a3c','#b05
 var SOIL_LABELS = {dry: 'יבשה', humid: 'לחה', wet: 'רטובה'};
 var EVENT_LABELS = {water: 'השקיה', fertilize: 'דישון', repot: 'העברת עציץ', prune: 'גיזום', pest: 'טיפול במזיקים'};
 var EVENT_COLORS = {fertilize: '#d9822b', repot: '#7a5bc4', prune: '#4f8a3c', pest: '#c2577a'};
-var ACTION_LABELS = {water_now: 'השקה עכשיו', fertilize_now: 'סמן דישון', confirm_auto: 'אשר השקה', set_soil: 'עדכן אדמה'};
+var ACTION_LABELS = {water_now: 'השקה עכשיו', fertilize_now: 'סמן דישון', set_soil: 'עדכן אדמה'};
+var AUTO_SOURCES = ['auto', 'auto_confirmed'];   // waterings recorded by a plant's irrigation schedule
 var WEEKDAYS = ['א','ב','ג','ד','ה','ו','ש'];
 var DROP = '<path d="M8 1.5C8 1.5 2.5 8 2.5 11.5a5.5 5.5 0 0 0 11 0C13.5 8 8 1.5 8 1.5z" stroke-width="1.6"/>';
 var GLYPHS = {
@@ -744,15 +743,14 @@ function dropSuggestions(st, pid, kinds){
 function recountSummary(st){
   var auto = {};
   st.plants.forEach(function(p){ if (p.irrigation_mode === 'auto') auto[p.id] = true; });
-  var pending = 0;
+  var autoToday = 0;
   Object.keys(st.days).forEach(function(pid){
-    if (!auto[pid]) return;
-    st.days[pid].forEach(function(r){ if (r.day <= st.today && r.auto_expected && !r.auto_confirmed && !r.watered) pending++; });
+    if (auto[pid] && st.days[pid].some(function(r){ return r.day === st.today && r.auto_expected && r.watered; })) autoToday++;
   });
   st.summary = {
     due_today: st.plants.filter(function(p){ return p.status === 'due'; }).length,
     overdue: st.plants.filter(function(p){ return p.status === 'overdue'; }).length,
-    auto_pending_confirm: pending
+    auto_today: autoToday
   };
 }
 
@@ -836,7 +834,7 @@ function renderSummary(){
   document.getElementById('pt-summary').innerHTML =
     '<div class="pt-stat due"><b>' + s.due_today + '</b> להשקות היום</div>' +
     '<div class="pt-stat overdue"><b>' + s.overdue + '</b> באיחור</div>' +
-    '<div class="pt-stat pending"><b>' + s.auto_pending_confirm + '</b> אוטומטי ממתין לאישור</div>' +
+    '<div class="pt-stat auto"><b>' + s.auto_today + '</b> הושקו אוטומטית היום</div>' +
     '<span class="spacer"></span>' +
     '<button class="btn btn-primary btn-sm" onclick="waterAllDue()"' + (due ? '' : ' disabled') + '>💧 השקה לכל הממתינים (' + due + ')</button>';
 }
@@ -909,9 +907,6 @@ function applySuggestion(i){
       addEventLocal(st, pid, 'fertilize', now);
       dropSuggestions(st, pid, ['fertilize']);
     }, 'סומן דישון');
-  } else if (a.type === 'confirm_auto') {
-    mutate('POST', '/api/plants/' + pid + '/confirm-auto', {day: a.day}, function(st){ confirmLocal(st, pid, a.day); },
-           'ההשקה אושרה');
   } else if (a.type === 'set_soil') {
     openDay(pid, TODAY);
   }
@@ -1076,11 +1071,11 @@ function cellHtml(p, day){
   var d = parseDay(day), label = WEEKDAYS[d.getDay()] + '<b>' + d.getDate() + '</b>';
   var r = dayRow(p.id, day);
   if (!r) return '<div class="pt-cell blank"><span class="pt-cell-date">' + label + '</span></div>';
-  var drop = r.watered ? 'watered' : (r.auto_expected && !r.auto_confirmed ? 'expected' : 'none');
+  var drop = r.watered ? 'watered' : 'none';
   var marks = dayEvents(p.id, day).filter(function(e){ return e.event_type !== 'water'; })
     .map(function(e){ return '<span class="pt-mark" style="background:' + EVENT_COLORS[e.event_type] + '"></span>'; }).join('');
   var tip = fmtDay(day) + (r.soil_status ? ' · אדמה ' + SOIL_LABELS[r.soil_status] : '') +
-            (r.watered ? ' · הושקה' : drop === 'expected' ? ' · השקה אוטומטית ממתינה לאישור' : '');
+            (r.watered ? (r.auto_confirmed ? ' · הושקה אוטומטית' : ' · הושקה') : '');
   return '<button class="pt-cell' + (day === state.today ? ' today' : '') + '" title="' + esc(tip) + '" onclick="openDay(' + p.id + ',\'' + day + '\')">' +
     '<span class="pt-cell-date">' + label + '</span>' +
     '<svg class="pt-drop ' + drop + '" viewBox="0 0 16 18">' + DROP + '</svg>' +
@@ -1100,20 +1095,16 @@ function renderDay(){
   var soil = ['dry', 'humid', 'wet'].map(function(k){
     return '<button class="' + (r.soil_status === k ? 'on' : '') + '" onclick="setSoil(\'' + k + '\')">' + SOIL_LABELS[k] + '</button>';
   }).join('') + '<button class="' + (!r.soil_status ? 'on' : '') + '" onclick="setSoil(null)">לא ידוע</button>';
-  var confirmBtn = (p.irrigation_mode === 'auto' && r.auto_expected && !r.auto_confirmed && !r.watered)
-    ? '<div class="field-row"><button class="btn btn-primary" style="width:100%;justify-content:center" onclick="confirmAuto()">✔ אשר השקה אוטומטית (' + esc(p.auto_time) + ')</button></div>'
-    : '';
   var types = Object.keys(EVENT_LABELS).filter(function(k){ return k !== 'water'; })
     .map(function(k){ return '<option value="' + k + '">' + EVENT_LABELS[k] + '</option>'; }).join('');
   var list = evs.length ? evs.map(function(e){
     return '<div class="pt-ev"><span>' + EVENT_LABELS[e.event_type] + ' · ' + e.event_at.slice(11, 16) +
-      (e.source === 'auto_confirmed' ? ' (אוטומטי)' : '') + (e.note ? ' — ' + esc(e.note) : '') + '</span>' +
+      (AUTO_SOURCES.indexOf(e.source) >= 0 ? ' (אוטומטי)' : '') + (e.note ? ' — ' + esc(e.note) : '') + '</span>' +
       '<button onclick="deleteEvent(' + e.id + ')" title="מחיקה" aria-label="מחיקה">✕</button></div>';
   }).join('') : '<div class="pt-plant-meta">אין אירועים ביום זה</div>';
   document.getElementById('day-body').innerHTML =
     '<div class="modal-title" style="display:flex;align-items:center;gap:10px">' + plantBadge(p, 34) +
       '<span>' + esc(p.name) + ' · ' + fmtDay(day) + '</span></div>' +
-    confirmBtn +
     '<div class="field-row"><span class="field-label">מצב אדמה</span><div class="pt-seg">' + soil + '</div></div>' +
     '<div class="field-row"><label class="field-label" for="day-at">מועד (ברירת מחדל: עכשיו)</label><div class="pt-inline">' +
       '<input type="datetime-local" class="field-input" id="day-at" value="' + defAt + '" max="' + now + '">' +
@@ -1148,19 +1139,11 @@ function addOtherEvent(){
     if (type === 'fertilize') dropSuggestions(st, pid, ['fertilize']);
   }, 'האירוע נוסף');
 }
-function confirmLocal(st, pid, day){
-  var p = findIn(st.plants, pid), r = rowOf(st, pid, day);
-  r.auto_confirmed = true;
-  addEventLocal(st, pid, 'water', day + 'T' + ((configById(p && p.config_id) || {}).time || (p && p.auto_time) || '07:00'), 'auto_confirmed');
-  markWatered(st, pid, day);
-  dropSuggestions(st, pid, ['auto_unconfirmed']);
-}
-function confirmAuto(){
-  var pid = dayCtx.pid, day = dayCtx.day;
-  mutate('POST', '/api/plants/' + pid + '/confirm-auto', {day: day}, function(st){ confirmLocal(st, pid, day); }, 'ההשקה אושרה');
-}
 function deleteEvent(id){
-  if (stillSaving(id) || !confirm('למחוק את האירוע?')) return;
+  var ev = null;
+  Object.keys(state.events).forEach(function(pid){ ev = ev || findIn(state.events[pid], id); });
+  var isAuto = ev && AUTO_SOURCES.indexOf(ev.source) >= 0;
+  if (stillSaving(id) || !confirm(isAuto ? 'לבטל את ההשקה האוטומטית של יום זה? היא לא תירשם שוב.' : 'למחוק את האירוע?')) return;
   mutate('DELETE', '/api/plants/events/' + id, {}, function(st){
     Object.keys(st.events).forEach(function(pid){
       var e = findIn(st.events[pid], id);
@@ -1170,9 +1153,9 @@ function deleteEvent(id){
       var stillWatered = st.events[pid].some(function(x){ return x.event_type === 'water' && x.event_at.slice(0, 10) === day; });
       var r = rowOf(st, Number(pid), day);
       if (e.event_type === 'water' && !stillWatered) r.watered = false;
-      if (e.source === 'auto_confirmed') r.auto_confirmed = false;
+      if (AUTO_SOURCES.indexOf(e.source) >= 0) { r.auto_confirmed = false; r.auto_expected = false; }   // skipped day
     });
-  }, 'האירוע נמחק');
+  }, isAuto ? 'ההשקה האוטומטית בוטלה' : 'האירוע נמחק');
 }
 
 // ── Plant add / edit ───────────────────────────────────────────
@@ -1596,7 +1579,7 @@ function expectedOn(cfg, day){
 }
 function askRealign(cid, name){
   var el = document.getElementById('pt-prompt');
-  el.innerHTML = '<span>ליישר את 14 הימים האחרונים בציר הזמן לפי "' + esc(name) + '"? ימים שכבר סומנו לא ישתנו.</span>' +
+  el.innerHTML = '<span>ליישר את 14 הימים האחרונים בציר הזמן לפי "' + esc(name) + '"? השקיות שהזנתם בעצמכם לא ישתנו.</span>' +
     '<button class="btn btn-primary btn-xs" id="pt-realign-yes">יישר</button>' +
     '<button class="btn btn-ghost btn-xs" id="pt-realign-no">לא עכשיו</button>';
   el.className = 'pt-prompt show';
@@ -1609,10 +1592,21 @@ function realignConfig(cid){
     if (!cfg) return;
     st.plants.forEach(function(p){
       if (p.irrigation_mode !== 'auto' || p.config_id !== cid) return;
+      var evs = st.events[String(p.id)] || [];
       (st.days[String(p.id)] || []).forEach(function(r){
-        if (r.watered || r.auto_confirmed) return;           // recorded days are past actions — never changed
+        var water = evs.filter(function(e){ return e.event_type === 'water' && e.event_at.slice(0, 10) === r.day; });
+        if (water.some(function(e){ return e.source !== 'auto'; })) return;   // the user's own record — never changed
         var want = expectedOn(cfg, r.day);
-        if (want !== null) r.auto_expected = want;
+        if (want === null) return;                                            // the server decides
+        if (!want && water.length) {                                          // the plan no longer waters this day
+          st.events[String(p.id)] = evs = evs.filter(function(e){ return water.indexOf(e) < 0; });
+          r.watered = r.auto_confirmed = false;
+        } else if (want && !r.watered) {                                      // recorded right away, like the server
+          addEventLocal(st, p.id, 'water', r.day + 'T' + cfg.time, 'auto');
+          evs = st.events[String(p.id)];
+          r.watered = r.auto_confirmed = true;
+        }
+        r.auto_expected = want;
       });
     });
   }, 'ציר הזמן יושר לפי התוכנית');

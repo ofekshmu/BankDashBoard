@@ -77,22 +77,6 @@ def test_overwatering():
     assert w['level'] == 'warn' and w['action'] == {'type': 'set_interval', 'value': 4}
 
 
-def test_auto_unconfirmed_points_at_latest_missed_day():
-    p = _plant(irrigation_mode='auto', auto_time='07:00')
-    rows = _rows({0: {'soil_status': 'humid'}, 2: {'auto_expected': True},
-                  5: {'auto_expected': True}, 8: {'auto_expected': True,
-                                                  'auto_confirmed': True, 'watered': True}})
-    a = _get(build_suggestions(p, rows, WATERED_YESTERDAY, T), 'auto_unconfirmed')
-    assert '2' in a['text']
-    assert a['action'] == {'type': 'confirm_auto', 'day': (T - timedelta(days=2)).isoformat()}
-
-
-def test_auto_expected_today_is_not_flagged_yet():
-    p = _plant(irrigation_mode='auto', auto_time='07:00')
-    rows = _rows({0: {'soil_status': 'humid', 'auto_expected': True}})
-    assert 'auto_unconfirmed' not in _kinds(build_suggestions(p, rows, WATERED_YESTERDAY, T))
-
-
 def test_seasonal_summer_and_ack():
     t = date(2026, 7, 10)
     le = {'water': t - timedelta(days=1), 'fertilize': t - timedelta(days=3)}

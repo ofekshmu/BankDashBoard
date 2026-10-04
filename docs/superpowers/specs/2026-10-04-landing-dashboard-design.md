@@ -68,7 +68,7 @@ Headline KPI per block (large number) → caption → details:
 | ציר זמן | last created event's title | "האירוע האחרון שנוצר" | its date |
 | מעקב חשבונות | sum of the 5 averages (₪/month) | "ממוצע חודשי — 5 החשבונות הנפוצים" | all 5 types with their average (5 lines) |
 | Spotify | total owed (₪) | "חובות פתוחים" | members in debt + amount (≤3, "+N" if more) |
-| מעקב עציצים | plants needing water today+overdue | "עציצים להשקיה" | overdue count, auto pending confirmation |
+| מעקב עציצים | plants needing water today+overdue | "עציצים להשקיה" | overdue count, plants watered automatically today (v1.28.0) |
 | חיובים חוזרים | next expected charge amount (₪) | name + "ב-<date>" | — |
 | תייגן | last tagged transaction amount (₪) | its name | category, date |
 | קבצים | last updated file's date | "קובץ אחרון" | file name, format/type |
@@ -87,7 +87,7 @@ Data sources and dot rules:
 | 8 | ניתוח קטגוריאלי (`/categories`) | none | — | — |
 | 9 | חיפוש (`/search`) | none | — | — |
 | 10 | Spotify (`/spotify`) | **only members in debt and how much** (name + amount); "אין חובות" when none | `compute_all_balances` (members with negative balance) | green none · amber ≥1 |
-| 11 | מעקב עציצים (`/plants`) | due / overdue plants, auto waterings awaiting confirmation | plants payload `summary` | green all 0 · amber due/pending · red overdue |
+| 11 | מעקב עציצים (`/plants`) | due / overdue plants, automatic waterings today (info) | plants payload `summary` | green none due · amber due · red overdue |
 | 12 | חיובים חוזרים (`/recurring`) | **next upcoming expected charge** (name, date, amount) | recurring data: earliest `next_expected` ≥ today | — |
 | 13 | תייגן (`/tagger`) | **last tagged transaction** (name, amount, category, date) | `get_recently_tagged(limit=1)` | — |
 | 14 | קבצים (`/files`) | **last updated file** (file name, format/type, date) | File table, newest `Last_update` | — |
@@ -143,7 +143,7 @@ avoid duplicate routes). Every route is behind the existing `_require_auth` gate
   when the dot is amber or red, otherwise `null`:
   monthly "N התראות ב<month>", accounts "N חשבונות לא עודכנו מעל 30 יום", housing
   "תשואה שנתית שלילית <pct>", Spotify "N חברים בחוב · <total>", plants: overdue / due today /
-  auto pending, each only when non-zero, joined with " · ". Singular forms for 1 (`count_text`).
+  each only when non-zero (automatic waterings need no action and are not listed), joined with " · ". Singular forms for 1 (`count_text`).
 - Only visible (not hidden) blocks count. When every visible block has answered and none is
   flagged, the strip shows "הכל תקין — אין דברים שדורשים טיפול"; while blocks are still loading
   it stays hidden. Hidden in edit mode. Lines wrap under 480 px.

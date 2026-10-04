@@ -53,17 +53,16 @@ def test_unknown_plant_is_404(client):
     assert r.status_code == 404 and r.get_json()['ok'] is False
 
 
-def test_event_soil_confirm_flow(client):
-    _create(client)
+def test_event_soil_and_auto_watering_flow(client):
+    _create(client)                 # auto, every 2 days, created today → nothing scheduled yet
     d = client.post('/api/plants/1/events', json={'today': TODAY, 'event_type': 'fertilize',
                                                   'event_at': f'{TODAY}T10:00'}).get_json()
     assert d['created_id'] == 1 and d['events']['1'][0]['event_type'] == 'fertilize'
     d = client.put('/api/plants/1/soil', json={'today': TODAY, 'day': TODAY, 'soil_status': 'dry'}).get_json()
     assert d['days']['1'][-1]['soil_status'] == 'dry'
-    d = client.post('/api/plants/1/confirm-auto', json={'today': TODAY, 'day': TODAY}).get_json()
-    assert d['days']['1'][-1]['watered'] and d['days']['1'][-1]['auto_confirmed']
     d = client.delete('/api/plants/events/1', json={'today': TODAY}).get_json()
-    assert [e['event_type'] for e in d['events']['1']] == ['water']
+    assert d['events'] == {}
+    assert client.post('/api/plants/1/confirm-auto', json={'today': TODAY, 'day': TODAY}).status_code in (404, 405)
 
 
 def test_delete_restore_and_deleted_list(client):

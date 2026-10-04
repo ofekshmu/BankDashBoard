@@ -63,15 +63,7 @@ def build_suggestions(plant, rows, last_events, today):
                          f'{name}: האדמה רטובה 3 ימים ברצף — סכנת השקיית יתר, מומלץ להאריך את המרווח',
                          {'type': 'set_interval', 'value': new}))
 
-    # 4. Past scheduled auto waterings that were never confirmed
-    missed = sorted(d for d, r in by_day.items()
-                    if d < today and r['auto_expected'] and not r['auto_confirmed'] and not r['watered'])
-    if plant['irrigation_mode'] == 'auto' and missed:
-        out.append(_sugg(plant, 'auto_unconfirmed', 'warn',
-                         f'{name}: {len(missed)} השקיות אוטומטיות לא אושרו — בדוק את מערכת ההשקיה',
-                         {'type': 'confirm_auto', 'day': missed[-1].isoformat()}))
-
-    # 5. Seasonal interval adjustment — once per season (season_ack), and not after the
+    # 4. Seasonal interval adjustment — once per season (season_ack), and not after the
     #    interval was already tuned this season
     key = season_key(today)
     tuned_this_season = since_change is not None and season_key(since_change) == key
@@ -86,7 +78,7 @@ def build_suggestions(plant, rows, last_events, today):
             out.append(_sugg(plant, 'seasonal', 'info', text,
                              {'type': 'set_interval', 'value': new, 'season_key': key}))
 
-    # 6. Fertilize reminder in growing season (Mar–Sep), plants older than 30 days
+    # 5. Fertilize reminder in growing season (Mar–Sep), plants older than 30 days
     last_fert = last_events.get('fertilize')
     if (3 <= today.month <= 9 and (today - plant['created_at']).days >= 30
             and (last_fert is None or (today - last_fert).days > 30)):
@@ -94,7 +86,7 @@ def build_suggestions(plant, rows, last_events, today):
                          f'{name}: לא דושן ביותר מ-30 יום — עונת גדילה, מומלץ לדשן',
                          {'type': 'fertilize_now'}))
 
-    # 7. No soil status in the last 7 days
+    # 6. No soil status in the last 7 days
     if not any(by_day.get(today - i * _DAY, {}).get('soil_status') for i in range(7)):
         out.append(_sugg(plant, 'no_soil', 'info',
                          f'{name}: לא עודכן מצב אדמה בשבוע האחרון', {'type': 'set_soil'}))

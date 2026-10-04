@@ -237,15 +237,15 @@ def build_spotify(members):
 
 # ── Plants ─────────────────────────────────────────────────────────────────
 def build_plants(summary):
+    """Plants to water today (due + overdue); automatic waterings need no action, so they are info only."""
     s = summary or {}
-    due, overdue, pending = s.get('due_today', 0), s.get('overdue', 0), s.get('auto_pending_confirm', 0)
-    dot = 'red' if overdue else ('amber' if due or pending else 'green')
+    due, overdue, auto = s.get('due_today', 0), s.get('overdue', 0), s.get('auto_today', 0)
+    dot = 'red' if overdue else ('amber' if due else 'green')
     details = [f'{overdue} באיחור' if overdue else None,
-               f'{pending} השקיות אוטומטיות ממתינות לאישור' if pending else None]
+               count_text(auto, 'עציץ אחד הושקה אוטומטית היום', 'עציצים הושקו אוטומטית היום') if auto else None]
     attention = ' · '.join(x for x in (
         count_text(overdue, 'עציץ אחד באיחור', 'עציצים באיחור') if overdue else None,
         count_text(due, 'עציץ אחד להשקות היום', 'עציצים להשקות היום') if due else None,
-        count_text(pending, 'השקיה אוטומטית אחת ממתינה לאישור', 'השקיות אוטומטיות ממתינות לאישור') if pending else None,
     ) if x)
     return block(str(due + overdue), 'עציצים להשקיה', details, dot=dot, attention=attention)
 

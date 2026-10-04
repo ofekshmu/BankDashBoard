@@ -257,11 +257,13 @@ def test_spotify_caps_and_no_debt():
 
 # ── plants ─────────────────────────────────────────────────────────────────
 def test_plants():
-    b = ls.build_plants({'due_today': 2, 'overdue': 1, 'auto_pending_confirm': 3})
+    b = ls.build_plants({'due_today': 2, 'overdue': 1, 'auto_today': 3})
     assert b['kpi'] == '3' and b['caption'] == 'עציצים להשקיה' and b['dot'] == 'red'
-    assert b['details'] == ['1 באיחור', '3 השקיות אוטומטיות ממתינות לאישור']
-    assert ls.build_plants({'due_today': 0, 'overdue': 0, 'auto_pending_confirm': 1})['dot'] == 'amber'
-    assert ls.build_plants({'due_today': 0, 'overdue': 0, 'auto_pending_confirm': 0})['dot'] == 'green'
+    assert b['details'] == ['1 באיחור', '3 עציצים הושקו אוטומטית היום']
+    assert ls.build_plants({'due_today': 1, 'overdue': 0, 'auto_today': 0})['dot'] == 'amber'
+    # automatic waterings need no action: info only, never amber
+    b = ls.build_plants({'due_today': 0, 'overdue': 0, 'auto_today': 1})
+    assert b['dot'] == 'green' and b['details'] == ['עציץ אחד הושקה אוטומטית היום']
 
 
 # ── recurring ──────────────────────────────────────────────────────────────
@@ -309,8 +311,6 @@ def test_attention_lines_per_block():
 
 
 def test_plants_attention_lists_each_nonzero_count():
-    b = ls.build_plants({'due_today': 2, 'overdue': 1, 'auto_pending_confirm': 0})
+    b = ls.build_plants({'due_today': 2, 'overdue': 1, 'auto_today': 4})
     assert b['attention'] == 'עציץ אחד באיחור · 2 עציצים להשקות היום'
-    b = ls.build_plants({'due_today': 0, 'overdue': 0, 'auto_pending_confirm': 3})
-    assert b['attention'] == '3 השקיות אוטומטיות ממתינות לאישור'
-    assert ls.build_plants({'due_today': 0, 'overdue': 0, 'auto_pending_confirm': 0})['attention'] is None
+    assert ls.build_plants({'due_today': 0, 'overdue': 0, 'auto_today': 3})['attention'] is None

@@ -2,6 +2,10 @@
 
 Every public mutator raises PlantError (status 400/404) on bad input; the routes
 turn that into {ok: False, error}. `today` is always the client's local date.
+
+Automatic irrigation needs no approval: every scheduled day up to today is recorded as a
+watering (source AUTO_SOURCE) when the plants are materialized. Deleting such a watering
+marks the day as skipped, so it is not recorded again.
 """
 import base64
 import binascii
@@ -16,6 +20,8 @@ from src_utils.plant_suggestions import build_suggestions
 
 PALETTE = ['#1e9d8b', '#2f6fb0', '#7a5bc4', '#c2577a', '#d9822b', '#4f8a3c', '#b0503a', '#3b8f9e']
 DEFAULT_AUTO_TIME = '07:00'
+AUTO_SOURCE = 'auto'                          # watering recorded by the schedule itself
+AUTO_SOURCES = (AUTO_SOURCE, 'auto_confirmed')  # 'auto_confirmed': confirmed by hand before auto-recording
 _LEVEL_ORDER = {'alert': 0, 'warn': 1, 'info': 2}
 _HHMM = re.compile(r'^([01]\d|2[0-3]):[0-5]\d$')
 _HEX = re.compile(r'^#[0-9a-fA-F]{6}$')
@@ -457,24 +463,43 @@ def _schedule(cfg):
 
 
 def realign_config(store, cid, today):
-    """Re-mark the timeline window's expected waterings of a plan's plants to match the plan.
+    """Re-mark the timeline window's scheduled waterings of a plan's plants to match the plan.
 
-    Days with anything recorded (watered, or an auto watering confirmed) are past actions and are
-    never changed. Returns how many days changed.
+    Waterings the schedule recorded by itself (source AUTO_SOURCE) move with the plan: removed from
+    days the plan no longer waters, and new scheduled days are recorded by the next materialize.
+    Days with a watering the user entered or confirmed are never changed. Returns how many days changed.
     """
     cfg = _require_config(store, cid)
     schedule = _schedule(cfg)
     plants = _plants_on(store, cfg['id'])
-    days = store.get_days([p['id'] for p in plants], timeline_window(today)[0], today)
+    ids = [p['id'] for p in plants]
+    start = timeline_window(today)[0]
+    days = store.get_days(ids, start, today)
+    events = store.get_events(ids, start, today)
     changed = 0
     for p in plants:
         water = set(store.water_dates(p['id']))
+        by_day = {}
+        for e in events.get(p['id'], []):
+            if e['event_type'] == 'water':
+                by_day.setdefault(e['event_at'].date(), []).append(e)
         for r in days.get(p['id'], []):
-            if r['watered'] or r['auto_confirmed']:
-                continue
-            want = is_expected_on(schedule, p, r['day'], water)
-            if bool(r['auto_expected']) != want:
-                store.upsert_day(p['id'], r['day'], auto_expected=want)
+            day, day_water = r['day'], by_day.get(r['day'], [])
+            if any(e['source'] != AUTO_SOURCE for e in day_water):
+                continue                     # the user's own record — never changed
+            want = is_expected_on(schedule, p, day, water)
+            # keep the anchor of plans without a start date in step with the plan's waterings
+            if want:
+                water.add(day)
+            else:
+                water.discard(day)
+            if day_water and not want:       # the plan no longer waters this day
+                for e in day_water:
+                    store.delete_event(e['id'])
+                store.upsert_day(p['id'], day, auto_expected=False, watered=False, auto_confirmed=False)
+                changed += 1
+            elif bool(r['auto_expected']) != want:
+                store.upsert_day(p['id'], day, auto_expected=want)
                 changed += 1
     return changed
 
@@ -507,8 +532,9 @@ def delete_event(store, eid):
     day = e['event_at'].date()
     if e['event_type'] == 'water':
         _refresh_watered(store, e['plant_id'], day)
-    if e['source'] == 'auto_confirmed':
-        store.upsert_day(e['plant_id'], day, auto_confirmed=False)
+    if e['source'] in AUTO_SOURCES:
+        # the scheduled watering did not happen: skip the day so it is not recorded again
+        store.upsert_day(e['plant_id'], day, auto_confirmed=False, auto_expected=False)
 
 
 def set_soil(store, pid, body, today):
@@ -520,15 +546,28 @@ def set_soil(store, pid, body, today):
     store.upsert_day(pid, day, soil_status=soil)
 
 
-def confirm_auto(store, pid, body, today):
-    p = _require_plant(store, pid)
-    if p['irrigation_mode'] != 'auto':
-        raise PlantError('העציץ אינו בהשקיה אוטומטית')
-    day = _parse_day(body.get('day'), today)
-    cfg = _plant_config(p, {c['id']: c for c in store.list_configs()})
-    hh, mm = ((cfg or {}).get('time') or p['auto_time'] or DEFAULT_AUTO_TIME).split(':')
-    store.add_event(pid, 'water', datetime.combine(day, time(int(hh), int(mm))), 'auto_confirmed', None)
-    store.upsert_day(pid, day, watered=True, auto_confirmed=True)
+def record_auto_waterings(store, today):
+    """Record every scheduled, not yet recorded automatic watering in the timeline window.
+
+    Each becomes a `water` event at the plan's time (source AUTO_SOURCE) and marks the day watered.
+    A day is recorded even before its time of day passes — the schedule counts for the whole day.
+    Returns how many waterings were recorded.
+    """
+    plants = [p for p in store.list_plants() if p['irrigation_mode'] == 'auto']
+    if not plants:
+        return 0
+    configs = {c['id']: c for c in store.list_configs()}
+    days = store.get_days([p['id'] for p in plants], timeline_window(today)[0], today)
+    count = 0
+    for p in plants:
+        cfg = _plant_config(p, configs)
+        hh, mm = ((cfg or {}).get('time') or p['auto_time'] or DEFAULT_AUTO_TIME).split(':')
+        for r in days.get(p['id'], []):
+            if r['auto_expected'] and not r['auto_confirmed'] and not r['watered']:
+                store.add_event(p['id'], 'water', datetime.combine(r['day'], time(int(hh), int(mm))), AUTO_SOURCE, None)
+                store.upsert_day(p['id'], r['day'], watered=True, auto_confirmed=True)
+                count += 1
+    return count
 
 
 def dismiss_season(store, pid, today):
@@ -546,7 +585,7 @@ def water_due(store, body, today):
     count = 0
     for p in plants:
         if p['irrigation_mode'] == 'auto':
-            continue  # watered by its own system; confirmed via confirm_auto
+            continue  # watered by its own system (record_auto_waterings)
         _, status = plant_status(p, lasts.get(p['id'], {}).get('water'), today)
         if status in ('due', 'overdue'):
             store.add_event(p['id'], 'water', at, 'manual', None)
@@ -557,7 +596,8 @@ def water_due(store, body, today):
 
 # ── Daily materialization + payload ────────────────────────────────────────
 def materialize(store, today):
-    """Insert the missing PlantDays rows (through today) for every active plant."""
+    """Insert the missing PlantDays rows (through today) for every active plant, then record the
+    automatic waterings they schedule."""
     plants = store.list_plants()
     lasts = store.last_materialized_days([p['id'] for p in plants])
     configs = {c['id']: c for c in store.list_configs()}
@@ -569,6 +609,7 @@ def materialize(store, today):
         rows.extend(materialize_rows(p, last, today, set(store.water_dates(p['id'])),
                                      _schedule(_plant_config(p, configs))))
     store.insert_days(rows)
+    record_auto_waterings(store, today)
 
 
 def _plant_json(p, last_water=None, since=None, status=None, active_rooms=(), cfg=None, photo=None):

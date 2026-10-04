@@ -12,7 +12,7 @@ rule-based care suggestions.
 
 | Topic | Decision |
 |---|---|
-| Auto irrigation | Schedule + confirm: scheduled days appear as *expected*; they count as watered only after the user confirms |
+| Auto irrigation | ~~Schedule + confirm~~ → **automatic since v1.28.0**: every scheduled day is recorded as watered with no approval (see "Automatic irrigation" below) |
 | Plant logo | Generated SVG icon per plant type, on a coloured badge, with the name's initial |
 | Timeline span | Last 14 days |
 | Suggestions | Rule-based (no AI) |
@@ -47,7 +47,7 @@ Created idempotently by `DataBase.ensure_plant_tables()` (same pattern as
 | `plant_id` | INTEGER FK → Plants | |
 | `event_type` | TEXT | `water` / `fertilize` / `repot` / `prune` / `pest` |
 | `event_at` | TIMESTAMP | defaults to now in the UI; editable date + time |
-| `source` | TEXT | `manual` / `auto_confirmed` |
+| `source` | TEXT | `manual` / `auto` (recorded by the schedule, v1.28.0+) / `auto_confirmed` (confirmed by hand, before v1.28.0) |
 | `note` | TEXT NULL | |
 
 ### `PlantDays`
@@ -58,7 +58,7 @@ Created idempotently by `DataBase.ensure_plant_tables()` (same pattern as
 | `soil_status` | TEXT NULL | `dry` / `humid` / `wet` / NULL (unknown) |
 | `watered` | BOOLEAN DEFAULT false | true if any `water` event that day |
 | `auto_expected` | BOOLEAN DEFAULT false | auto plant scheduled to water this day |
-| `auto_confirmed` | BOOLEAN DEFAULT false | user confirmed the scheduled auto watering |
+| `auto_confirmed` | BOOLEAN DEFAULT false | the scheduled auto watering was recorded (automatically since v1.28.0) |
 
 **Invariant:** `PlantDays` history is immutable with respect to schedule changes —
 changing `interval_days`/`auto_time` affects only days not yet materialized
@@ -97,7 +97,6 @@ duplicate-endpoint pitfall. All responses `{ok: bool, ...}`; errors `{ok:false, 
 | `POST /api/plants/<id>/events` | add event `{event_type, event_at?, note?}`; `event_at` defaults to now |
 | `DELETE /api/plants/events/<event_id>` | remove a mistaken event |
 | `PUT /api/plants/<id>/soil` | `{day, soil_status}` |
-| `POST /api/plants/<id>/confirm-auto` | `{day}` → creates `water` event `source=auto_confirmed` at that day's `auto_time` |
 | `POST /api/plants/<id>/dismiss-season` | set `season_ack` to the current season key |
 | `POST /api/plants/water-due` | water every plant currently due/overdue (UI confirms first) |
 
@@ -114,14 +113,14 @@ Rules (v1):
 1. **Overdue** — days since last water > `interval_days` → alert "באיחור של N ימים".
 2. **Dries too fast** — soil `dry` within ≤1 day after watering, twice in 14 days → suggest `interval_days - 1` (min 1).
 3. **Overwatering risk** — soil `wet` 3+ consecutive days → warn, suggest skipping next watering / `interval_days + 1`.
-4. **Auto not confirmed** — `auto_expected` and not `auto_confirmed` for a past day → warn "בדוק את מערכת ההשקיה".
+4. ~~**Auto not confirmed**~~ — removed in v1.28.0 (automatic waterings are recorded without approval).
 5. **Seasonal** — season key = `YYYY-summer` (Jun–Sep) or `YYYY-winter` (Dec–Feb; Dec counts toward the next year's key). If the plant's `season_ack` ≠ current key: summer → suggest `max(1, round(interval_days * 0.75))` (only if it differs); winter → suggest `round(interval_days * 1.25)` (only if it differs). Applying or dismissing sets `season_ack` = current key, so the tip appears once per season.
 6. **Fertilize reminder** — no `fertilize` event in 30 days during Mar–Sep → info.
 7. **No soil data** — no soil status recorded in the last 7 days → info "עדכן מצב אדמה".
 
 ## Today summary
 
-`{due_today, overdue, auto_pending_confirm}` counts, plus the "השקה לכל הממתינים"
+`{due_today, overdue, auto_today}` counts (`auto_today`: automatic plants the schedule watered today; was `auto_pending_confirm` before v1.28.0), plus the "השקה לכל הממתינים"
 button → confirm dialog → `POST /api/plants/water-due`.
 
 ## Front end — `source/html/PlantTracker.html`
@@ -192,3 +191,24 @@ Client-side only (`PlantTracker.html`), above the room chips; hidden when there 
 - **קיבוץ לפי חדר** (`localStorage['plants_grouped']`, default on) — on: room groups as before,
   sorted inside each group; off: one flat sorted list. The room chips filter in both modes and
   keep their all-plants counts while searching.
+
+## Change — automatic irrigation without approval (v1.28.0)
+
+- `plant_service.record_auto_waterings(store, today)` runs at the end of every `materialize`:
+  each automatic plant's scheduled (`auto_expected`), not yet recorded day in the 14-day window,
+  up to and including today, gets a `water` event at the plan's time (config time → plant
+  `auto_time` → 07:00) with `source='auto'`, and the day is marked `watered` + `auto_confirmed`.
+  Today counts for the whole day, even before its time passes. Days older than the window are
+  not backfilled.
+- **Skipping:** deleting an automatic watering (`auto` or legacy `auto_confirmed`) sets the day's
+  `auto_expected` to false, so it is never recorded again. The page asks "לבטל את ההשקה
+  האוטומטית של יום זה? היא לא תירשם שוב."
+- **Realign** (`realign_config`): waterings with `source='auto'` move with the plan (removed from
+  days the plan no longer waters; newly scheduled days are recorded by the next materialize).
+  Days with a watering the user entered (`manual`) or confirmed by hand (`auto_confirmed`) are
+  never changed.
+- Removed: `POST /api/plants/<id>/confirm-auto`, `confirm_auto`, the "auto_unconfirmed"
+  suggestion, the day popup's confirm button, the dashed "ממתין לאישור" drop and its legend item.
+- Summary: the "אוטומטי ממתין לאישור" stat became "N הושקו אוטומטית היום" (`auto_today`).
+- Landing plants block: automatic waterings no longer make it amber; `auto_today` is an info
+  detail line ("N עציצים הושקו אוטומטית היום") and is not part of the attention line.

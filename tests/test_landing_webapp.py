@@ -112,6 +112,39 @@ def test_accounts_other_errors_are_not_retried(monkeypatch, webapp):
     assert calls == [True]
 
 
+# ── Accounts page: the cash total ships with the data (no 723k → 727k jump) ──
+def _accounts_api_json(webapp, path='/api/accounts/data'):
+    with webapp.app.test_request_context(path):
+        resp, status = webapp.accounts_data_api()[:2]
+        return resp.get_json(), status
+
+
+@needs_webapp
+def test_accounts_data_carries_the_cash_ils_total(monkeypatch, webapp):
+    monkeypatch.setattr(webapp, '_accounts_cached_payload', lambda: ACCOUNTS)
+    monkeypatch.setattr(webapp, '_compute_accounts', lambda: ACCOUNTS)
+    monkeypatch.setattr(webapp, '_get_fx_rates', lambda: {'JPY': 0.02})
+    monkeypatch.setattr(webapp, '_cash_balance_map', lambda strict=False: {'ILS': 100, 'JPY': 1000})
+    d, status = _accounts_api_json(webapp)
+    assert status == 200 and d['cash_ils_total'] == 120 and d['accounts'] == ACCOUNTS['accounts']
+    d, status = _accounts_api_json(webapp, '/api/accounts/data?fresh=1')
+    assert status == 200 and d['cash_ils_total'] == 120
+
+
+@needs_webapp
+def test_accounts_data_cash_total_is_null_when_unknown(monkeypatch, webapp):
+    monkeypatch.setattr(webapp, '_accounts_cached_payload', lambda: ACCOUNTS)
+    monkeypatch.setattr(webapp, '_get_fx_rates', lambda: {})                     # rates not loaded yet
+    monkeypatch.setattr(webapp, '_cash_balance_map', lambda strict=False: {'JPY': 1000})
+    assert _accounts_api_json(webapp)[0]['cash_ils_total'] is None
+
+    def down(strict=False):
+        raise RuntimeError('db down')
+    monkeypatch.setattr(webapp, '_cash_balance_map', down)
+    d, status = _accounts_api_json(webapp)
+    assert status == 200 and d['cash_ils_total'] is None                        # the page still loads
+
+
 # ── Monthly: a non-200 analysis is a failure, not "no analysis" ─────────────
 class _Resp:
     def __init__(self, data, status):

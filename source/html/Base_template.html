@@ -4497,7 +4497,7 @@ function _applyAccountsPayload(d) {
 
 function _accountsPayloadSig(d) {
   if (!d) return '';
-  try { return JSON.stringify([d.accounts || null, d.accounts_meta || null]); }
+  try { return JSON.stringify([d.accounts || null, d.accounts_meta || null, d.cash_ils_total]); }
   catch (e) { return ''; }
 }
 
@@ -7900,11 +7900,14 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     // the cash-by-currency pie (~₪8k). Use the pie total (all currencies → ILS)
     // for the Cash card, the כללי subtotal and the grand total so the figure at
     // the top matches the one at the bottom. _loadCashPie re-renders this table
-    // once it has the value.
+    // once it has the value. The server sends the same figure with the data
+    // (cash_ils_total) — prefer it, so the very first render already has the
+    // right grand total instead of jumping by the cash difference later.
     var _cashDelta = 0;
-    if (_cashIlsTotal != null && rich['Cash']) {
-      _cashDelta = _cashIlsTotal - rich['Cash'].value;
-      rich['Cash'].value    = _cashIlsTotal;
+    var _cashTotal = (data.cash_ils_total != null) ? data.cash_ils_total : _cashIlsTotal;
+    if (_cashTotal != null && rich['Cash']) {
+      _cashDelta = _cashTotal - rich['Cash'].value;
+      rich['Cash'].value    = _cashTotal;
       rich['Cash'].prev     = null;
       rich['Cash'].yearPrev = null;
     }

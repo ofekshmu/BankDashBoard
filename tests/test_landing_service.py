@@ -95,6 +95,21 @@ def test_accounts_total_matches_page_cash_adjustment():
     assert ls.accounts_total({}, {}, {}) is None
 
 
+def test_cash_ils_total_matches_the_cash_pie():
+    # pie: positive balances only, each round(balance * rate)
+    assert ls.cash_ils_total({'ILS': 4714, 'EUR': 150, 'JPY': 172000, 'USD': -5},
+                             {'EUR': 3.4482758, 'JPY': 0.0194137, 'USD': 3.7}) == 4714 + 517 + 3339
+    assert ls.cash_ils_total({'ILS': 100}, {}) == 100                     # ILS needs no rate
+
+
+def test_cash_ils_total_is_unknown_without_a_rate_for_a_held_currency():
+    assert ls.cash_ils_total({'ILS': 100, 'JPY': 172000}, {}) is None     # never count ¥ as ₪
+    assert ls.cash_ils_total({'ILS': 100, 'JPY': 0}, {}) == 100           # nothing held, no rate needed
+    assert ls.cash_ils_total(None, {}) is None
+    # unknown total → no cash correction, the server Total stands
+    assert ls.accounts_total(ACCTS['accounts'], {'JPY': 1000}, {}) == 24500
+
+
 TREND_TOTAL = [['2026-06-01', 100.0], ['2026-07-03', 1000.0], ['2026-08-15', 1100.0], ['2026-10-02', 1200.0]]
 
 

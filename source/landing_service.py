@@ -125,13 +125,31 @@ def build_monthly(months, key, payload, today=None):
 
 
 # ── Accounts ───────────────────────────────────────────────────────────────
+def cash_ils_total(cash_map, rates):
+    """Cash on hand in ILS exactly as the accounts page's cash pie ("סה"כ מזומן") sums it:
+    positive balances only, each round(balance × rate). None when the map is missing or a
+    held foreign currency has no rate yet — never count ¥/€ at 1:1."""
+    if cash_map is None:
+        return None
+    total = 0
+    for cur, bal in cash_map.items():
+        bal = float(bal or 0)
+        if bal <= 0:
+            continue
+        rate = 1.0 if cur == 'ILS' else (rates or {}).get(cur)
+        if not rate:
+            return None
+        total += round(bal * float(rate))
+    return total
+
+
 def cash_delta(accounts, cash_map, rates):
     """What the accounts page adds to the Total series: the cash-by-currency total in ILS
     minus the Cash account's last (ILS-only) point. 0 when either side is missing."""
     cash = (accounts or {}).get('Cash') or []
-    if cash_map is None or not cash:
+    ils = cash_ils_total(cash_map, rates)
+    if ils is None or not cash:
         return 0.0
-    ils = sum(round(float(bal) * float((rates or {}).get(cur) or 1.0)) for cur, bal in cash_map.items())
     return ils - float(cash[-1][1] or 0)
 
 

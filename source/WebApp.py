@@ -2368,9 +2368,22 @@ def _cash_balance_map(strict=False):
     return totals
 
 
+def _accounts_cash_ils_total():
+    """Cash on hand in ILS, same sum as the cash pie (landing_service.cash_ils_total), or
+    None when it can't be known right now (DB error, FX rates not loaded yet). Sent with
+    the accounts payload so the page's first render already has the right grand total
+    instead of jumping by the cash difference once the pie loads."""
+    import landing_service
+    try:
+        return landing_service.cash_ils_total(_cash_balance_map(strict=True), _get_fx_rates())
+    except Exception:
+        return None
+
+
 @app.route('/api/accounts/data')
 def accounts_data_api():
-    """Serve the accounts+meta payload for the חשבונות panel.
+    """Serve the accounts+meta payload for the חשבונות panel, plus cash_ils_total
+    (computed per request — cash changes don't touch the accounts cache).
 
     Default: instant — the cached payload (in-memory, auto-refreshed from disk
     when another process wrote a newer one).
@@ -2382,16 +2395,19 @@ def accounts_data_api():
     if want_fresh:
         try:
             data = _compute_accounts()
-            return jsonify({**data, 'ok': True, 'cached': False}), 200, _no_cache
+            return jsonify({**data, 'ok': True, 'cached': False,
+                            'cash_ils_total': _accounts_cash_ils_total()}), 200, _no_cache
         except Exception as e:
             return jsonify({'ok': False, 'error': str(e)}), 500, _no_cache
 
     cached = _accounts_cached_payload()
     if cached:
-        return jsonify({**cached, 'ok': True, 'cached': True}), 200, _no_cache
+        return jsonify({**cached, 'ok': True, 'cached': True,
+                        'cash_ils_total': _accounts_cash_ils_total()}), 200, _no_cache
     try:
         data = _compute_accounts()
-        return jsonify({**data, 'ok': True, 'cached': False}), 200, _no_cache
+        return jsonify({**data, 'ok': True, 'cached': False,
+                        'cash_ils_total': _accounts_cash_ils_total()}), 200, _no_cache
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 500, _no_cache
 

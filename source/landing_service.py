@@ -7,11 +7,13 @@ lists those lines in its attention strip. Nothing here touches the DB, so each
 block is unit-testable with plain dicts and lists.
 """
 from datetime import date, datetime
+from statistics import median
 
 HEB_MONTHS = ('ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני',
               'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר')
 STALE_DAYS = 30          # same threshold as the accounts page (_STALE_DAYS)
 MAX_DETAILS = 3
+TREND_MONTHS = 3         # accounts block sparkline window
 
 
 # ── Formatting ─────────────────────────────────────────────────────────────
@@ -83,15 +85,20 @@ def _shift_month(d, back):
 
 
 def month_flow(payload, today):
-    """Net income and net investment of the previous and the current month, as the monthly page
-    shows them: general_net / general_current_net (cash included) and investments out − in.
-    general_* figures are relative to the real current month, whatever month the payload is for.
-    Returns [previous, current] as {key, label, net, invest}, or [] when the payload lacks them."""
-    p = payload or {}
+    """Income, spending, net income and net investment of the previous and the current month, as
+    the monthly page's general chart shows them: general_earnings / general_spendings (investments
+    excluded), general_net / general_current_net (cash included) and investments out − in.
+    general_* figures live under payload['charts'] and are relative to the real current month,
+    whatever month the payload is for.
+    Returns [previous, current] as {key, label, income, spend, net, invest}, or [] when the
+    payload lacks them."""
+    p = (payload or {}).get('charts') or {}
     try:
-        prev = {'net': p['general_net'][0],
+        prev = {'income': p['general_earnings'][0], 'spend': p['general_spendings'][0],
+                'net': p['general_net'][0],
                 'invest': p['general_investments_out'][0] - p['general_investments_in'][0]}
-        cur = {'net': p['general_current_net'],
+        cur = {'income': p['general_current_earnings'], 'spend': p['general_current_spendings'],
+               'net': p['general_current_net'],
                'invest': p['general_current_investments_out'] - p['general_current_investments_in']}
     except (KeyError, IndexError, TypeError):
         return []
@@ -99,7 +106,7 @@ def month_flow(payload, today):
     for back, vals in ((1, prev), (0, cur)):
         key = _shift_month(today, back)
         out.append({'key': key, 'label': month_label(key),
-                    'net': round(float(vals['net'] or 0)), 'invest': round(float(vals['invest'] or 0))})
+                    **{k: round(float(vals[k] or 0)) for k in ('income', 'spend', 'net', 'invest')}})
     return out
 
 
@@ -118,18 +125,65 @@ def build_monthly(months, key, payload, today=None):
 
 
 # ── Accounts ───────────────────────────────────────────────────────────────
+def cash_delta(accounts, cash_map, rates):
+    """What the accounts page adds to the Total series: the cash-by-currency total in ILS
+    minus the Cash account's last (ILS-only) point. 0 when either side is missing."""
+    cash = (accounts or {}).get('Cash') or []
+    if cash_map is None or not cash:
+        return 0.0
+    ils = sum(round(float(bal) * float((rates or {}).get(cur) or 1.0)) for cur, bal in cash_map.items())
+    return ils - float(cash[-1][1] or 0)
+
+
 def accounts_total(accounts, cash_map, rates):
     """Same figure as the accounts page grand total: the Total series' last point,
     with the Cash account replaced by the cash-by-currency total in ILS."""
     total = (accounts or {}).get('Total') or []
     if not total:
         return None
-    value = float(total[-1][1] or 0)
-    cash = accounts.get('Cash') or []
-    if cash_map is not None and cash:
-        ils = sum(round(float(bal) * float((rates or {}).get(cur) or 1.0)) for cur, bal in cash_map.items())
-        value += ils - float(cash[-1][1] or 0)
-    return value
+    return float(total[-1][1] or 0) + cash_delta(accounts, cash_map, rates)
+
+
+def _months_back(d, n):
+    """Date `n` calendar months before `d`, the day clamped to the target month's length."""
+    m = d.year * 12 + d.month - 1 - n
+    y, mo = m // 12, m % 12 + 1
+    for day in (d.day, 30, 29, 28):
+        try:
+            return date(y, mo, day)
+        except ValueError:
+            continue
+
+
+def _smooth_half_months(window):
+    """[(date, value)] → one point per half-month (1–15, 16–end): the bucket's median at its
+    last date, then a 3-point running median so a one-off spike (e.g. a month-end transfer)
+    doesn't show. The last point stays the real current value."""
+    buckets = {}
+    for d, v in window:
+        buckets.setdefault((d.year, d.month, d.day > 15), []).append((d, v))
+    pts = [(b[-1][0], median(v for _, v in b)) for _, b in sorted(buckets.items())]
+    pts[-1] = window[-1]
+    vals = [v for _, v in pts]
+    smooth = vals[:1] + [median(vals[i - 1:i + 2]) for i in range(1, len(vals) - 1)] + vals[-1:]
+    return [(d, s) for (d, _), s in zip(pts, smooth[:len(pts)])]
+
+
+def accounts_trend(total, delta, today, months=TREND_MONTHS):
+    """The Total series over the last `months` months, smoothed to ~2 points a month and
+    shifted by `delta` (the cash correction) so it ends at the KPI. Starts at the value on
+    the window's first day — the last point on or before it, else the first point inside it.
+    `change` is from the line's first point to the current value.
+    Returns {points: [[date, value]...], change, change_pct} or None with < 2 points."""
+    pts = [(as_date(d), float(v or 0) + delta) for d, v in total or [] if as_date(d)]
+    start = _months_back(today, months)
+    window = [p for p in pts if p[0] <= start][-1:] + [p for p in pts if p[0] > start]
+    line = _smooth_half_months(window) if len(window) >= 2 else []
+    if len(line) < 2:
+        return None
+    first, last = line[0][1], line[-1][1]
+    return {'points': [[d.isoformat(), round(v)] for d, v in line], 'change': round(last - first),
+            'change_pct': round((last - first) / abs(first) * 100, 1) if first else None}
 
 
 def _stale_accounts(accounts, today):
@@ -144,23 +198,28 @@ def _stale_accounts(accounts, today):
 
 
 def build_accounts(payload, cash_map, rates, today):
+    """Grand total as on the accounts page, stale accounts, and a 3-month trend (extra.trend)."""
     accounts = (payload or {}).get('accounts') or {}
     total = accounts_total(accounts, cash_map, rates)
     if total is None:
         return block('—', 'שווי כל החשבונות', dot='grey')
     stale = _stale_accounts(accounts, today)
     details = cap(f'{name} · עודכן {short_date(d)}' for d, name in stale) or ['כל החשבונות מעודכנים']
+    trend = accounts_trend(accounts['Total'], cash_delta(accounts, cash_map, rates), today)
     return block(money(total), 'שווי כל החשבונות', details, dot='amber' if stale else 'green',
+                 extra={'trend': trend},
                  attention=count_text(len(stale), 'חשבון אחד לא עודכן', 'חשבונות לא עודכנו') + f' מעל {STALE_DAYS} יום')
 
 
 # ── Cards ──────────────────────────────────────────────────────────────────
-def build_cards(cards):
+def build_cards(cards, month=None):
+    """Every card with a charge in the card page's month ('YYYY-MM'), largest charge first."""
     active = sorted((c for c in cards or [] if float(c.get('current_charge') or 0) > 0),
                     key=lambda c: -float(c['current_charge']))
     details = [f"{(c.get('network') or '').strip()} ·{c.get('card_id')} · {money(c['current_charge'])}".strip()
-               for c in active[:MAX_DETAILS]]
-    return block(str(len(active)), 'כרטיסים פעילים החודש', details, dot=None if active else 'grey')
+               for c in active]
+    when = f'ב{month_label(month.replace("-", "_"))}' if month else 'החודש'
+    return block(str(len(active)), f'כרטיסים פעילים {when}', details, dot=None if active else 'grey')
 
 
 # ── Housing ────────────────────────────────────────────────────────────────
@@ -254,13 +313,26 @@ def build_bills(types, entries):
 
 
 # ── Spotify ────────────────────────────────────────────────────────────────
+def signed_money(v):
+    """money() with an explicit '+' on positive amounts; zero stays unsigned."""
+    return ('+' if round(float(v or 0)) > 0 else '') + money(v)
+
+
 def build_spotify(members):
-    debtors = sorted((m for m in members or [] if float(m.get('balance') or 0) < 0),
-                     key=lambda m: float(m['balance']))
-    owed = -sum(float(m['balance']) for m in debtors)
-    details = cap(f"{m['name']} · {money(-float(m['balance']))}" for m in debtors) or ['אין חובות']
-    return block(money(owed), 'חובות פתוחים', details, dot='amber' if debtors else 'green',
-                 attention=count_text(len(debtors), 'חבר אחד בחוב', 'חברים בחוב') + f' · {money(owed)}')
+    """Net balance of all participants (green when ≥ 0, red when negative), then every
+    participant's balance, lowest first."""
+    members = sorted(members or [], key=lambda m: float(m.get('balance') or 0))
+    if not members:
+        return block('—', 'אין משתתפים', dot='grey')
+    net = sum(float(m.get('balance') or 0) for m in members)
+    debtors = sum(1 for m in members if float(m.get('balance') or 0) < 0)
+    neg = round(net) < 0
+    details = [f"{m['name']} · {signed_money(m.get('balance'))}" for m in members]
+    # each debtor's line is red, whatever the net (details stay in member order)
+    tones = ['neg' if round(float(m.get('balance') or 0)) < 0 else None for m in members]
+    return block(signed_money(net), 'מאזן נטו של המשתתפים', details, dot='red' if neg else 'green',
+                 extra={'tone': 'neg' if neg else 'pos', 'detail_tones': tones},
+                 attention=f'מאזן שלילי {money(net)} · ' + count_text(debtors, 'חבר אחד בחוב', 'חברים בחוב'))
 
 
 # ── Plants ─────────────────────────────────────────────────────────────────
@@ -279,24 +351,41 @@ def build_plants(summary):
 
 
 # ── Recurring charges ──────────────────────────────────────────────────────
+def _this_month_on(day, today):
+    """`day` of today's month, clamped to the month's length."""
+    last = (date(today.year + today.month // 12, today.month % 12 + 1, 1) - date.resolution).day
+    return today.replace(day=min(day, last))
+
+
 def build_recurring(groups, today):
-    upcoming = [(as_date(g.get('next_expected')), g) for g in groups or [] if not g.get('possibly_stopped')]
-    upcoming = sorted(((d, g) for d, g in upcoming if d and d >= today), key=lambda x: x[0])
+    """Next expected recurring charge this month. The page's cached next_expected is only as
+    fresh as its last regeneration, so only its day of month is used, placed in today's month.
+    Charges whose day already passed are skipped; the rest of the month is summed below."""
+    upcoming = []
+    for g in groups or []:
+        d = as_date(g.get('next_expected'))
+        if d and not g.get('possibly_stopped'):
+            due = _this_month_on(d.day, today)
+            if due >= today:
+                upcoming.append((due, g))
+    upcoming.sort(key=lambda x: x[0])
     if not upcoming:
-        return block('—', 'אין חיובים צפויים', dot='grey')
-    d, g = upcoming[0]
-    return block(money(g.get('current_amount')), f"{g['name']} · ב-{short_date(d)}")
+        return block('—', 'אין חיובים צפויים עוד החודש', dot='grey')
+    (d, g), rest = upcoming[0], upcoming[1:]
+    details = [count_text(len(rest), 'עוד חיוב אחד החודש', 'חיובים נוספים החודש') + ' · ' +
+               money(sum(float(r.get('current_amount') or 0) for _, r in rest))] if rest else []
+    return block(money(g.get('current_amount')), f"{g['name']} · ב-{short_date(d)}", details)
 
 
 # ── Tagger ─────────────────────────────────────────────────────────────────
-def build_tagger(tx):
-    if not tx:
-        return block('—', 'עוד לא תויגו עסקאות', dot='grey')
-    amount = tx.get('charge_value')
-    if amount is None:
-        amount = tx.get('transaction_value')
-    details = [' · '.join(x for x in (tx.get('category'), short_date(tx.get('exec_date'))) if x)]
-    return block(money(amount), tx.get('name') or '', details)
+def build_tagger(untagged, total):
+    """Only what still needs tagging: the untagged count, then the newest untagged
+    transactions as 'name · date' (newest first)."""
+    if not total:
+        return block('0', 'אין עסקאות לתיוג', dot='green')
+    details = [' · '.join(x for x in (tx.get('name'), short_date(tx.get('exec_date'))) if x)
+               for tx in (untagged or [])[:MAX_DETAILS]]
+    return block(str(total), 'עסקאות ממתינות לתיוג', details)
 
 
 # ── Files ──────────────────────────────────────────────────────────────────

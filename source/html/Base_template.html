@@ -123,7 +123,7 @@ body {
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
-.sidebar-app-name { font-size: .95em; font-weight: 700; color: var(--navy); }
+.sidebar-app-name { display:flex;align-items:center;gap:10px;text-decoration:none;font-size: .95em; font-weight: 700; color: var(--navy); }
 .sidebar-scroll {
   flex: 1; overflow-y: auto; overflow-x: hidden; padding: 8px 0 16px;
   scrollbar-width: none; -ms-overflow-style: none;
@@ -2387,8 +2387,7 @@ body {
 <div class="nav-overlay" id="nav-overlay" onclick="toggleNav()"></div>
 <nav class="sidebar" id="sidebar">
   <div class="sidebar-header">
-    <img src="/favicon.svg" alt="BankDash" style="width:28px;height:28px;border-radius:7px;flex-shrink:0;">
-    <span class="sidebar-app-name">ניהול כספים</span>
+    <a class="sidebar-app-name" href="/" title="דף הבית"><img src="/favicon.svg" alt="BankDash" style="width:28px;height:28px;border-radius:7px;flex-shrink:0;">ניהול כספים</a>
     <button class="sidebar-close-btn" onclick="closeNav()" aria-label="סגור תפריט">✕</button>
   </div>
   <div class="sidebar-scroll">

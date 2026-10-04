@@ -76,7 +76,7 @@ body {
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
-.sidebar-app-name { font-size: .95em; font-weight: 700; color: var(--navy); }
+.sidebar-app-name { display:flex;align-items:center;gap:10px;text-decoration:none;font-size: .95em; font-weight: 700; color: var(--navy); }
 .sidebar-close-btn {
   margin-right: auto; background: none; border: none;
   cursor: pointer; font-size: 1.1em; color: #555;
@@ -941,7 +941,7 @@ body.resize-end    { cursor: ew-resize !important; }
 <div class="nav-overlay" id="nav-overlay" onclick="toggleNav()"></div>
 <nav class="sidebar" id="sidebar">
   <div class="sidebar-header">
-    <span class="sidebar-app-name">ניהול כספים</span>
+    <a class="sidebar-app-name" href="/" title="דף הבית">ניהול כספים</a>
     <button class="sidebar-close-btn" onclick="closeNav()" aria-label="סגור תפריט">✕</button>
   </div>
   <div class="sidebar-scroll">

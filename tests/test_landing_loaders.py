@@ -69,11 +69,12 @@ def test_files_newest(monkeypatch):
 
 
 def test_tagger(monkeypatch):
-    use(monkeypatch, FakeDB(get_recently_tagged=lambda limit: [
-        {'name': 'שופרסל', 'charge_value': 10, 'category': 'סופר', 'exec_date': '2026-10-02'}][:limit]))
-    assert ll.load_tagger(TODAY)['caption'] == 'שופרסל'
-    use(monkeypatch, FakeDB(get_recently_tagged=lambda limit: []))
-    assert ll.load_tagger(TODAY)['dot'] == 'grey'
+    untagged = [{'name': 'פז דלק', 'exec_date': '2026-10-04'}, {'name': 'ישן', 'exec_date': '2026-09-01'}]
+    use(monkeypatch, FakeDB(get_untagged_recent=lambda limit: untagged[:limit], count_untagged_total=lambda: 2))
+    b = ll.load_tagger(TODAY)
+    assert b['kpi'] == '2' and b['details'][0] == 'פז דלק · 04.10.26'
+    use(monkeypatch, FakeDB(get_untagged_recent=lambda limit: [], count_untagged_total=lambda: 0))
+    assert ll.load_tagger(TODAY)['dot'] == 'green'
 
 
 def test_recurring_reads_cached_groups(monkeypatch):
@@ -86,11 +87,13 @@ def test_recurring_reads_cached_groups(monkeypatch):
 
 def test_cards_spotify_plants_use_existing_functions(monkeypatch):
     db = use(monkeypatch, FakeDB())
-    monkeypatch.setattr(ll, '_card_data', lambda d: {'cards': [{'card_id': '1', 'network': 'Visa', 'current_charge': 5}]})
+    monkeypatch.setattr(ll, '_card_data', lambda d: {'month': '2026-10',
+                                                     'cards': [{'card_id': '1', 'network': 'Visa', 'current_charge': 5}]})
     monkeypatch.setattr(ll, '_spotify_balances', lambda d: [{'name': 'דנה', 'balance': -30}])
     monkeypatch.setattr(ll, '_plants_summary', lambda today: {'due_today': 1, 'overdue': 0, 'auto_today': 0})
+    assert ll.load_cards(TODAY)['caption'] == 'כרטיסים פעילים באוקטובר 2026'
     assert ll.load_cards(TODAY)['kpi'] == '1' and 'ensure_card_limits_table' in db.ensured
-    assert ll.load_spotify(TODAY)['kpi'] == '30₪' and 'ensure_spotify_tables' in db.ensured
+    assert ll.load_spotify(TODAY)['kpi'] == '-30₪' and 'ensure_spotify_tables' in db.ensured
     assert ll.load_plants(TODAY)['kpi'] == '1'
 
 

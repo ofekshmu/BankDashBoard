@@ -1239,7 +1239,7 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:#f4f6f9;color:#1e2a4a;d
 .sidebar{{position:fixed;top:0;right:0;height:100vh;width:230px;background:#fff;z-index:395;transform:translate3d(100%,0,0);transition:transform .22s cubic-bezier(.4,0,.2,1);will-change:transform;box-shadow:-4px 0 24px rgba(0,0,0,.09);display:flex;flex-direction:column}}
 .sidebar.open{{transform:translate3d(0,0,0)}}
 .sidebar-header{{display:flex;align-items:center;padding:20px 20px 16px;border-bottom:1px solid #eef0f6;flex-shrink:0}}
-.sidebar-app-name{{font-size:.95em;font-weight:700;color:#1e2a4a}}
+.sidebar-app-name{{display:flex;align-items:center;gap:10px;text-decoration:none;font-size:.95em;font-weight:700;color:#1e2a4a}}
 .sidebar-close-btn{{margin-right:auto;background:none;border:none;cursor:pointer;font-size:1.1em;color:#555;line-height:1;padding:4px 6px;border-radius:6px;transition:background .12s,color .12s}}
 .sidebar-close-btn:hover{{background:#e8f7f5;color:#1e9d8b}}
 .sidebar-scroll{{flex:1;overflow-y:auto;overflow-x:hidden;padding:8px 0 16px}}
@@ -1283,7 +1283,7 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:#f4f6f9;color:#1e2a4a;d
 <div class="nav-overlay" id="nav-overlay" onclick="toggleNav()"></div>
 <nav class="sidebar" id="sidebar">
   <div class="sidebar-header">
-    <span class="sidebar-app-name">Menu</span>
+    <a class="sidebar-app-name" href="/" title="דף הבית">Menu</a>
     <button class="sidebar-close-btn" onclick="closeNav()" aria-label="סגור תפריט">✕</button>
   </div>
   <div class="sidebar-scroll">
@@ -3359,7 +3359,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--na
 .sidebar{position:fixed;top:0;right:0;height:100vh;width:230px;background:var(--white);z-index:395;transform:translate3d(100%,0,0);transition:transform .22s cubic-bezier(.4,0,.2,1);will-change:transform;box-shadow:-4px 0 24px rgba(0,0,0,.09);display:flex;flex-direction:column}
 .sidebar.open{transform:translate3d(0,0,0)}
 .sidebar-header{display:flex;align-items:center;padding:20px 20px 16px;border-bottom:1px solid var(--border);flex-shrink:0}
-.sidebar-app-name{font-size:.95em;font-weight:700;color:var(--navy)}
+.sidebar-app-name{display:flex;align-items:center;gap:10px;text-decoration:none;font-size:.95em;font-weight:700;color:var(--navy)}
 .sidebar-close-btn{margin-right:auto;background:none;border:none;cursor:pointer;font-size:1.1em;color:#555;padding:4px 6px;border-radius:6px;transition:background .12s,color .12s}
 .sidebar-close-btn:hover{background:var(--teal-light);color:var(--teal)}
 .sidebar-scroll{flex:1;overflow-y:auto;overflow-x:hidden;padding:8px 0 16px}
@@ -3481,7 +3481,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--na
 <div class="nav-overlay" id="nav-overlay" onclick="toggleNav()"></div>
 <nav class="sidebar" id="sidebar">
   <div class="sidebar-header">
-    <span class="sidebar-app-name">ניהול כספים</span>
+    <a class="sidebar-app-name" href="/" title="דף הבית">ניהול כספים</a>
     <button class="sidebar-close-btn" onclick="closeNav()" aria-label="סגור תפריט">✕</button>
   </div>
   <div class="sidebar-scroll">

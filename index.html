@@ -62,7 +62,31 @@
     .head-btn:hover { background:rgba(255,255,255,.22); }
     .head-btn svg { width:15px; height:15px; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
     .head-btn.on { background:#fff; border-color:#fff; color:var(--teal-dark); font-weight:600; }
-    #refreshBtn { padding:7px 9px; }
+    #refreshBtn, #ham-btn { padding:7px 9px; }
+    .head-title { display:flex; align-items:center; gap:12px; }
+
+    /* ── Slide-in menu (same look as the other pages' sidebar) ── */
+    .nav-overlay { position:fixed; inset:0; background:rgba(15,22,45,.26); z-index:1000; opacity:0;
+                   pointer-events:none; transition:opacity .22s ease; }
+    .nav-overlay.open { opacity:1; pointer-events:all; }
+    .sidebar { position:fixed; top:0; right:0; height:100vh; width:230px; background:var(--white); z-index:1002;
+               transform:translate3d(100%,0,0); visibility:hidden;
+               transition:transform .22s cubic-bezier(.4,0,.2,1), visibility 0s linear .22s;
+               box-shadow:-4px 0 24px rgba(0,0,0,.09); display:flex; flex-direction:column; }
+    .sidebar.open { transform:translate3d(0,0,0); visibility:visible; transition:transform .22s cubic-bezier(.4,0,.2,1); }
+    .sidebar-header { display:flex; align-items:center; padding:20px 20px 16px; border-bottom:1px solid var(--border); flex-shrink:0; }
+    .sidebar-app-name { display:flex; align-items:center; gap:10px; text-decoration:none; font-size:.95em; font-weight:700; color:var(--navy); }
+    .sidebar-close-btn { margin-right:auto; background:none; border:none; cursor:pointer; font-size:1.1em; color:#555;
+                         padding:4px 6px; border-radius:6px; transition:background .12s, color .12s; }
+    .sidebar-close-btn:hover { background:var(--teal-light); color:var(--teal); }
+    .sidebar-scroll { flex:1; overflow-y:auto; padding:8px 0 16px; }
+    .nav-item { display:flex; align-items:center; padding:10px 20px; text-decoration:none; color:var(--navy);
+                font-size:.875em; font-weight:500; position:relative; transition:background .1s, color .1s; }
+    .nav-item::before { content:''; position:absolute; right:0; top:22%; height:56%; width:3px; border-radius:3px 0 0 3px;
+                        background:transparent; transition:background .1s; }
+    .nav-item:hover { background:var(--teal-light); color:var(--teal); }
+    .nav-item:hover::before { background:var(--teal); }
+    .nav-sep { height:1px; background:var(--border); margin:8px 16px; }
     #refreshBtn:disabled { cursor:default; opacity:.5; }
     #refreshBtn.spin svg { animation:spin .8s linear infinite; }
     @keyframes spin { to { transform:rotate(-360deg); } }
@@ -179,6 +203,19 @@
     .flow .fl { color:var(--muted); white-space:nowrap; }
     .flow .fv { font-weight:700; text-align:left; font-variant-numeric:tabular-nums; white-space:nowrap; }
     .flow .fv.pos { color:var(--teal-dark); } .flow .fv.neg { color:var(--red); } .flow .fv.inv { color:var(--invest); }
+    .kpi.kpi-pos { color:var(--green); } .kpi.kpi-neg { color:var(--red); }   /* extra.tone, e.g. Spotify net */
+    .details li.neg { color:var(--red); font-weight:600; }                    /* extra.detail_tones, e.g. debtors */
+    .kpi.kpi-wrap { white-space:normal; overflow:visible; text-overflow:clip; overflow-wrap:anywhere;
+                    font-size:22px; line-height:1.25; }                          /* timeline: full event name */
+    /* Accounts: 3-month sparkline + change rate */
+    .trend { margin-top:8px; --tc:var(--teal-dark); } .trend.down { --tc:var(--red); }
+    .trend svg { display:block; width:100%; height:38px; overflow:visible; }
+    .trend .tl { fill:none; stroke:var(--tc); stroke-width:2; stroke-linejoin:round; stroke-linecap:round; }
+    .trend .ta { fill:var(--tc); opacity:.1; }
+    .trend .te { fill:var(--tc); }
+    .trend .tr { display:flex; justify-content:space-between; align-items:baseline; gap:8px; margin-top:4px; font-size:12px; }
+    .trend .tp { font-weight:700; color:var(--tc); font-variant-numeric:tabular-nums; white-space:nowrap; }
+    .trend .tw { color:var(--muted); white-space:nowrap; }
     .card-link { flex:1; display:flex; flex-direction:column; gap:6px; color:inherit; text-decoration:none; }
     .updated { margin-top:auto; padding-top:6px; font-size:11px; color:var(--muted); }
     .card-link::after { content:''; position:absolute; inset:0; border-radius:16px; }
@@ -214,9 +251,12 @@
 <!-- Dashboard: stays hidden (not just covered) until authenticated -->
 <main id="dash" hidden>
   <header class="dash-head">
-    <div>
-      <h1 id="greeting"></h1>
-      <div class="sub" id="today"></div>
+    <div class="head-title">
+      <button id="ham-btn" class="head-btn" type="button" onclick="toggleNav()" aria-label="תפריט" aria-controls="sidebar" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+      <div>
+        <h1 id="greeting"></h1>
+        <div class="sub" id="today"></div>
+      </div>
     </div>
     <div class="head-actions">
       <span id="versionBadge"></span>
@@ -238,6 +278,32 @@
       <div class="tiles" id="tiles"></div>
     </section>
   </div>
+
+  <!-- Slide-in menu: same links as the other pages' sidebar -->
+  <div class="nav-overlay" id="nav-overlay" onclick="closeNav()"></div>
+  <nav class="sidebar" id="sidebar" aria-label="תפריט">
+    <div class="sidebar-header">
+      <a class="sidebar-app-name" href="/" title="דף הבית"><img src="/favicon.svg" alt="BankDash" style="width:28px;height:28px;border-radius:7px;flex-shrink:0;">ניהול כספים</a>
+      <button class="sidebar-close-btn" type="button" onclick="closeNav()" aria-label="סגור תפריט">✕</button>
+    </div>
+    <div class="sidebar-scroll">
+      <a class="nav-item" href="/monthly" onclick="try{var k=localStorage.getItem('lv_month');if(k){event.preventDefault();location.href='/general/'+k;}}catch(_){}">ניתוח חודשי</a>
+      <div class="nav-sep"></div>
+      <a class="nav-item" href="/accounts">חשבונות</a>
+      <a class="nav-item" href="/card-analysis">כרטיסים</a>
+      <a class="nav-item" href="/housing">דיור</a>
+      <a class="nav-item" href="/organizer">ארגונית</a>
+      <a class="nav-item" href="/bills">מעקב חשבונות</a>
+      <a class="nav-item" href="/categories">ניתוח קטגוריאלי</a>
+      <a class="nav-item" href="/search">חיפוש</a>
+      <a class="nav-item" href="/spotify">Spotify Tracker</a>
+      <a class="nav-item" href="/plants">מעקב עציצים</a>
+      <a class="nav-item" href="/recurring">חיובים חוזרים</a>
+      <div class="nav-sep"></div>
+      <a class="nav-item" href="/tagger">תייגן</a>
+      <a class="nav-item" href="/files">קבצים</a>
+    </div>
+  </nav>
 </main>
 
 <script>
@@ -315,7 +381,19 @@
     err.textContent = 'סיסמה שגויה, נסו שוב';
   }
 
+  /* ── Slide-in menu ── */
+  function setNav(open) {
+    document.getElementById('sidebar').classList.toggle('open', open);
+    document.getElementById('nav-overlay').classList.toggle('open', open);
+    document.getElementById('ham-btn').setAttribute('aria-expanded', String(open));
+  }
+  function openNav() { setNav(true); }
+  function closeNav() { setNav(false); }
+  function toggleNav() { setNav(!document.getElementById('sidebar').classList.contains('open')); }
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeNav(); });
+
   function signOut() {
+    closeNav();
     setLocalFlag(false);
     fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
     _pendingUrl = null;
@@ -512,11 +590,16 @@
     dot.className = d.dot ? 'dot ' + d.dot : 'dot';
     el.dataset.dot = d.dot || '';
     const ltr = /^[-+\d]/.test(d.kpi || '') ? ' kpi-ltr' : '';
+    const tone = { pos: ' kpi-pos', neg: ' kpi-neg' }[(d.extra || {}).tone] || '';
+    const wrap = id === 'timeline' ? ' kpi-wrap' : '';   /* event names show in full */
+    const dTones = (d.extra || {}).detail_tones || [];
     body.innerHTML =
-      '<div class="kpi' + ltr + '" title="' + esc(d.kpi) + '">' + esc(d.kpi) + '</div>' +
+      '<div class="kpi' + ltr + tone + wrap + '" title="' + esc(d.kpi) + '">' + esc(d.kpi) + '</div>' +
       '<div class="caption" title="' + esc(d.caption) + '">' + rich(d.caption) + '</div>' +
-      ((d.details || []).length ? '<ul class="details">' + d.details.map(x => '<li title="' + esc(x) + '">' + rich(x) + '</li>').join('') + '</ul>' : '') +
-      (id === 'monthly' ? flowHtml((d.extra || {}).flow) : '');
+      ((d.details || []).length ? '<ul class="details">' + d.details.map((x, i) =>
+        '<li' + (dTones[i] === 'neg' ? ' class="neg"' : '') + ' title="' + esc(x) + '">' + rich(x) + '</li>').join('') + '</ul>' : '') +
+      (id === 'monthly' ? flowHtml((d.extra || {}).flow) : '') +
+      (id === 'accounts' ? trendHtml((d.extra || {}).trend) : '');
     if (id === 'monthly') renderMonthPicker(el, d.extra || {});
     paintAge(el, id);
   }
@@ -527,6 +610,31 @@
     return (n < 0 ? '-' : '') + Math.abs(n).toLocaleString('en-US') + '₪';
   }
 
+  /** Accounts value over the last 3 months (extra.trend) as a sparkline — x by date, y fitted
+   *  to the range — plus the change since the window start in % and ₪. Green up, red down. */
+  function trendHtml(t) {
+    if (!t || !t.points || t.points.length < 2) return '';
+    const W = 200, H = 38, P = 3;
+    const xs = t.points.map(p => Date.parse(p[0])), ys = t.points.map(p => p[1]);
+    const x0 = xs[0], xr = (xs[xs.length - 1] - x0) || 1;
+    const lo = Math.min(...ys), yr = (Math.max(...ys) - lo) || 1;
+    const pt = t.points.map((p, i) => [((xs[i] - x0) / xr) * W, P + (1 - (ys[i] - lo) / yr) * (H - 2 * P)]);
+    const line = pt.map(q => q[0].toFixed(1) + ',' + q[1].toFixed(1)).join(' ');
+    const end = pt[pt.length - 1];
+    const down = t.change < 0;
+    const pctTxt = t.change_pct == null ? '' : (t.change_pct >= 0 ? '+' : '') + t.change_pct.toFixed(1) + '% ';
+    const amtTxt = (t.change >= 0 ? '+' : '') + shekels(t.change);
+    return '<div class="trend' + (down ? ' down' : '') + '" title="' + esc(t.points[0][0] + ' → ' + t.points[t.points.length - 1][0]) + '">' +
+      '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" dir="ltr" aria-hidden="true">' +
+        '<polygon class="ta" points="0,' + H + ' ' + line + ' ' + W + ',' + H + '"/>' +
+        '<polyline class="tl" points="' + line + '" vector-effect="non-scaling-stroke"/>' +
+        '<circle class="te" cx="' + end[0].toFixed(1) + '" cy="' + end[1].toFixed(1) + '" r="2.5"/>' +
+      '</svg>' +
+      '<div class="tr"><span class="tw">3 חודשים אחרונים</span>' +
+        '<span class="tp" dir="ltr">' + (down ? '▼ ' : '▲ ') + pctTxt + '(' + amtTxt + ')</span></div>' +
+    '</div>';
+  }
+
   /** Net income and net investments of the previous and the current month (extra.flow), as a small table. */
   function flowHtml(flow) {
     if (!flow || !flow.length) return '';
@@ -534,6 +642,8 @@
     return '<div class="flow">' +
       '<span></span>' + flow.map((f, i) => '<span class="fh" title="' + esc(f.label) + (i === flow.length - 1 ? ' — עד היום' : '') + '">' +
         esc(f.label.split(' ')[0]) + '</span>').join('') +
+      '<span class="fl">הכנסות</span>' + flow.map(f => cell(f.income, 'pos')).join('') +
+      '<span class="fl">הוצאות</span>' + flow.map(f => cell(f.spend, 'neg')).join('') +
       '<span class="fl">נטו</span>' + flow.map(f => cell(f.net, f.net >= 0 ? 'pos' : 'neg')).join('') +
       '<span class="fl">השקעות נטו</span>' + flow.map(f => cell(f.invest, 'inv')).join('') +
     '</div>';

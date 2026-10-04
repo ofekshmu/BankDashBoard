@@ -95,6 +95,48 @@ def test_accounts_total_matches_page_cash_adjustment():
     assert ls.accounts_total({}, {}, {}) is None
 
 
+TREND_TOTAL = [['2026-06-01', 100.0], ['2026-07-03', 1000.0], ['2026-08-15', 1100.0], ['2026-10-02', 1200.0]]
+
+
+def test_accounts_trend_last_three_months_from_the_value_at_the_window_start():
+    t = ls.accounts_trend(TREND_TOTAL, 0, date(2026, 10, 4))
+    # window starts 2026-07-04: the 07-03 point is the value then, June is dropped
+    assert t['points'] == [['2026-07-03', 1000], ['2026-08-15', 1100], ['2026-10-02', 1200]]
+    assert t['change'] == 200 and t['change_pct'] == 20.0
+
+
+def test_accounts_trend_is_shifted_by_the_cash_delta_so_it_ends_at_the_kpi():
+    t = ls.accounts_trend(TREND_TOTAL, 100, date(2026, 10, 4))
+    assert t['points'][-1] == ['2026-10-02', 1300] and t['change'] == 200 and t['change_pct'] == 18.2
+
+
+def test_accounts_trend_one_point_per_half_month_and_spikes_smoothed_away():
+    total = [['2026-07-05', 1000.0], ['2026-07-20', 1010.0],
+             ['2026-08-05', 5000.0],                                   # one-off spike
+             ['2026-08-20', 1020.0],
+             ['2026-09-01', 100.0], ['2026-09-02', 1030.0], ['2026-09-03', 1040.0],   # same half-month
+             ['2026-10-03', 1050.0]]
+    t = ls.accounts_trend(total, 0, date(2026, 10, 4))
+    assert [p[1] for p in t['points']] == [1000, 1010, 1020, 1030, 1030, 1050]   # no 5000, no 100
+    assert [p[0] for p in t['points']] == ['2026-07-05', '2026-07-20', '2026-08-05', '2026-08-20',
+                                           '2026-09-03', '2026-10-03']
+    assert t['change'] == 50                                            # line's start → current value
+
+
+def test_accounts_trend_without_history_before_the_window_or_enough_points():
+    t = ls.accounts_trend(TREND_TOTAL[2:], 0, date(2026, 10, 4))
+    assert t['points'][0] == ['2026-08-15', 1100] and t['change_pct'] == 9.1
+    assert ls.accounts_trend(TREND_TOTAL[-1:], 0, date(2026, 10, 4)) is None
+    assert ls.accounts_trend([], 0, date(2026, 10, 4)) is None
+
+
+def test_accounts_block_carries_the_trend():
+    accts = {'accounts': dict(ACCTS['accounts'], Total=TREND_TOTAL)}
+    b = ls.build_accounts(accts, {'ILS': 4100}, {}, date(2026, 10, 4))   # cash delta = 4100 - 4000
+    assert b['kpi'] == '1,300₪' and b['extra']['trend']['points'][-1] == ['2026-10-02', 1300]
+    assert ls.build_accounts(ACCTS, None, {}, TODAY)['extra']['trend']['change'] == 24499
+
+
 def test_accounts_block_lists_stale_accounts():
     b = ls.build_accounts(ACCTS, None, {}, TODAY)
     assert b['kpi'] == '24,500₪' and b['caption'] == 'שווי כל החשבונות'
@@ -109,15 +151,16 @@ def test_accounts_block_all_fresh_and_empty():
 
 
 # ── cards ──────────────────────────────────────────────────────────────────
-def test_cards_counts_active_and_lists_top3():
+def test_cards_counts_active_names_the_month_and_lists_them_all():
     cards = [{'card_id': '1111', 'network': 'Visa', 'current_charge': 100},
              {'card_id': '2222', 'network': 'Max', 'current_charge': 900},
              {'card_id': '3333', 'network': 'Isracard', 'current_charge': 0},
              {'card_id': '4444', 'network': '', 'current_charge': 50},
              {'card_id': '5555', 'network': 'Visa', 'current_charge': 10}]
-    b = ls.build_cards(cards)
-    assert b['kpi'] == '4' and b['caption'] == 'כרטיסים פעילים החודש' and b['dot'] is None
-    assert b['details'] == ['Max ·2222 · 900₪', 'Visa ·1111 · 100₪', '·4444 · 50₪']
+    b = ls.build_cards(cards, '2026-10')
+    assert b['kpi'] == '4' and b['caption'] == 'כרטיסים פעילים באוקטובר 2026' and b['dot'] is None
+    assert b['details'] == ['Max ·2222 · 900₪', 'Visa ·1111 · 100₪', '·4444 · 50₪', 'Visa ·5555 · 10₪']
+    assert ls.build_cards(cards)['caption'] == 'כרטיסים פעילים החודש'   # no month known
 
 
 def test_cards_none_active():
@@ -241,18 +284,28 @@ def test_bills_block_shows_all_five():
 
 
 # ── spotify ────────────────────────────────────────────────────────────────
-def test_spotify_only_debtors():
+def test_spotify_net_balance_red_when_negative_and_lists_everyone():
     b = ls.build_spotify([{'name': 'דנה', 'balance': -30}, {'name': 'יוסי', 'balance': 20},
                           {'name': 'רון', 'balance': -60}])
-    assert b['kpi'] == '90₪' and b['caption'] == 'חובות פתוחים' and b['dot'] == 'amber'
-    assert b['details'] == ['רון · 60₪', 'דנה · 30₪']
+    assert b['kpi'] == '-70₪' and b['caption'] == 'מאזן נטו של המשתתפים'
+    assert b['dot'] == 'red' and b['extra']['tone'] == 'neg'
+    assert b['details'] == ['רון · -60₪', 'דנה · -30₪', 'יוסי · +20₪']   # lowest balance first
 
 
-def test_spotify_caps_and_no_debt():
-    many = [{'name': f'm{i}', 'balance': -10 - i} for i in range(5)]
-    assert ls.build_spotify(many)['details'][-1] == '+3 נוספים'
+def test_spotify_debtors_are_red_even_when_the_net_is_positive():
+    b = ls.build_spotify([{'name': 'דנה', 'balance': -30}, {'name': 'יוסי', 'balance': 80},
+                          {'name': 'רון', 'balance': 0}])
+    assert b['dot'] == 'green' and b['extra']['detail_tones'] == ['neg', None, None]
+
+
+def test_spotify_green_when_net_positive_or_zero_and_lists_all_without_cap():
+    many = [{'name': f'm{i}', 'balance': 10 + i} for i in range(5)] + [{'name': 'x', 'balance': -1}]
+    b = ls.build_spotify(many)
+    assert b['kpi'] == '+59₪' and b['dot'] == 'green' and b['extra']['tone'] == 'pos'
+    assert len(b['details']) == 6 and b['attention'] is None
     b = ls.build_spotify([{'name': 'יוסי', 'balance': 0}])
-    assert b['kpi'] == '0₪' and b['dot'] == 'green' and b['details'] == ['אין חובות']
+    assert b['kpi'] == '0₪' and b['dot'] == 'green' and b['details'] == ['יוסי · 0₪']
+    assert ls.build_spotify([])['dot'] == 'grey'
 
 
 # ── plants ─────────────────────────────────────────────────────────────────
@@ -274,17 +327,43 @@ def test_recurring_next_upcoming_non_stopped():
               {'name': 'ישן', 'current_amount': 10, 'next_expected': '2026-09-01', 'possibly_stopped': False}]
     b = ls.build_recurring(groups, TODAY)
     assert b['kpi'] == '310₪' and b['caption'] == 'ביטוח · ב-06.10.26'
+    assert b['details'] == ['עוד חיוב אחד החודש · 55₪']
     assert ls.build_recurring([], TODAY)['dot'] == 'grey'
 
 
+def test_recurring_uses_this_month_even_when_the_snapshot_dates_are_old():
+    # the page's snapshot was built in August, so every next_expected is in September
+    groups = [{'name': 'ספוטיפיי', 'current_amount': 44, 'next_expected': '2026-09-22', 'possibly_stopped': False},
+              {'name': 'גוגל', 'current_amount': 8, 'next_expected': '2026-09-01', 'possibly_stopped': False},
+              {'name': 'ביטוח', 'current_amount': 66, 'next_expected': '2026-09-28', 'possibly_stopped': False}]
+    b = ls.build_recurring(groups, TODAY)
+    assert b['kpi'] == '44₪' and b['caption'] == 'ספוטיפיי · ב-22.10.26'      # Google's 01.10 already passed
+    assert b['details'] == ['עוד חיוב אחד החודש · 66₪']
+
+
+def test_recurring_clamps_the_day_and_handles_nothing_left_this_month():
+    g = [{'name': 'ארנונה', 'current_amount': 900, 'next_expected': '2026-08-31', 'possibly_stopped': False}]
+    assert ls.build_recurring(g, date(2026, 11, 2))['caption'] == 'ארנונה · ב-30.11.26'
+    b = ls.build_recurring(g, date(2026, 11, 30))
+    assert b['kpi'] == '900₪'                                                  # due today still counts
+    b = ls.build_recurring([dict(g[0], next_expected='2026-09-01')], date(2026, 11, 2))
+    assert b['dot'] == 'grey' and b['caption'] == 'אין חיובים צפויים עוד החודש'
+
+
 # ── tagger ─────────────────────────────────────────────────────────────────
-def test_tagger():
-    tx = {'name': 'שופרסל', 'exec_date': '2026-10-02', 'charge_value': 212.5,
-          'transaction_value': 300, 'category': 'סופר'}
-    b = ls.build_tagger(tx)
-    assert b['kpi'] == '212₪' and b['caption'] == 'שופרסל' and b['details'] == ['סופר · 02.10.26']
-    assert ls.build_tagger(dict(tx, charge_value=None))['kpi'] == '300₪'
-    assert ls.build_tagger(None)['dot'] == 'grey'
+UNTAGGED = [{'name': 'פז דלק', 'exec_date': '2026-10-04'}, {'name': 'העברה בBIT', 'exec_date': '2026-10-01'},
+            {'name': 'שופרסל', 'exec_date': '2026-09-28'}, {'name': 'ישן', 'exec_date': '2026-09-01'}]
+
+
+def test_tagger_shows_only_untagged_count_and_newest_name_and_date():
+    b = ls.build_tagger(UNTAGGED, 57)
+    assert b['kpi'] == '57' and b['caption'] == 'עסקאות ממתינות לתיוג'
+    assert b['details'] == ['פז דלק · 04.10.26', 'העברה בBIT · 01.10.26', 'שופרסל · 28.09.26']
+
+
+def test_tagger_nothing_left_to_tag():
+    b = ls.build_tagger([], 0)
+    assert b['kpi'] == '0' and b['caption'] == 'אין עסקאות לתיוג' and b['dot'] == 'green' and b['details'] == []
 
 
 # ── files ──────────────────────────────────────────────────────────────────
@@ -306,7 +385,7 @@ def test_attention_lines_per_block():
     assert ls.build_housing(m)['attention'] == 'תשואה שנתית שלילית -2.0%'
     assert ls.build_housing(dict(m, annual_return_pct=3))['attention'] is None
     debt = [{'name': 'א', 'balance': -30}, {'name': 'ב', 'balance': -20.4}]
-    assert ls.build_spotify(debt)['attention'] == '2 חברים בחוב · 50₪'
+    assert ls.build_spotify(debt)['attention'] == 'מאזן שלילי -50₪ · 2 חברים בחוב'
     assert ls.build_spotify([{'name': 'א', 'balance': 5}])['attention'] is None
 
 
@@ -317,22 +396,28 @@ def test_plants_attention_lists_each_nonzero_count():
 
 
 # ── monthly: net income + investments of last and current month ────────────
-FLOW_PAYLOAD = {'alerts': [], 'general_net': [5200.4, 3000], 'general_current_net': -812.6,
-                'general_investments_out': [2000, 500], 'general_investments_in': [300, 0],
-                'general_current_investments_out': 1500, 'general_current_investments_in': 0}
+FLOW_CHARTS = {'general_net': [5200.4, 3000], 'general_current_net': -812.6,
+               'general_investments_out': [2000, 500], 'general_investments_in': [300, 0],
+               'general_current_investments_out': 1500, 'general_current_investments_in': 0,
+               'general_earnings': [9000.6, 8000], 'general_spendings': [4100.2, 5000],
+               'general_current_earnings': 1200.2, 'general_current_spendings': 2300.7}
+FLOW_PAYLOAD = {'alerts': [], 'charts': FLOW_CHARTS}   # same shape as /api/monthly/<key>/data
 
 
 def test_month_flow_previous_then_current():
     flow = ls.month_flow(FLOW_PAYLOAD, TODAY)
-    assert flow == [{'key': '2026_09', 'label': 'ספטמבר 2026', 'net': 5200, 'invest': 1700},
-                    {'key': '2026_10', 'label': 'אוקטובר 2026', 'net': -813, 'invest': 1500}]
+    assert flow == [{'key': '2026_09', 'label': 'ספטמבר 2026', 'income': 9001, 'spend': 4100,
+                     'net': 5200, 'invest': 1700},
+                    {'key': '2026_10', 'label': 'אוקטובר 2026', 'income': 1200, 'spend': 2301,
+                     'net': -813, 'invest': 1500}]
 
 
 def test_month_flow_crosses_the_year_and_handles_missing_data():
     flow = ls.month_flow(FLOW_PAYLOAD, date(2026, 1, 15))
     assert [f['key'] for f in flow] == ['2025_12', '2026_01']
     assert ls.month_flow({'alerts': []}, TODAY) == []
-    assert ls.month_flow(dict(FLOW_PAYLOAD, general_net=[]), TODAY) == []
+    assert ls.month_flow({'charts': dict(FLOW_CHARTS, general_net=[])}, TODAY) == []
+    assert ls.month_flow(FLOW_CHARTS, TODAY) == []   # figures at the top level are not read
     assert ls.month_flow(None, TODAY) == []
 
 

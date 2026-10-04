@@ -104,7 +104,7 @@ body {
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
-.sidebar-app-name { font-size: .95em; font-weight: 700; color: var(--navy); }
+.sidebar-app-name { display:flex;align-items:center;gap:10px;text-decoration:none;font-size: .95em; font-weight: 700; color: var(--navy); }
 .sidebar-scroll { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 8px 0 16px; }
 .sidebar-footer{padding:12px 16px;border-top:1px solid var(--border);flex-shrink:0}
 .nav-restart-btn{width:100%;padding:8px 12px;border:1.5px dashed var(--border);border-radius:8px;background:none;color:var(--text-muted);font-size:.78em;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:7px;justify-content:center;transition:background .15s,color .15s,border-color .15s}
@@ -641,7 +641,7 @@ body {
 <div class="nav-overlay" id="nav-overlay" onclick="toggleNav()"></div>
 <nav class="sidebar" id="sidebar">
   <div class="sidebar-header">
-    <span class="sidebar-app-name">ניהול כספים</span>
+    <a class="sidebar-app-name" href="/" title="דף הבית">ניהול כספים</a>
     <button class="sidebar-close-btn" onclick="closeNav()" aria-label="סגור תפריט">✕</button>
   </div>
   <div class="sidebar-scroll">

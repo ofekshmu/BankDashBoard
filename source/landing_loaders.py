@@ -34,7 +34,8 @@ def _plants_summary(today):
 def load_cards(today):
     db = _db()
     db.ensure_card_limits_table()
-    return ls.build_cards(_card_data(db).get('cards'))
+    data = _card_data(db)
+    return ls.build_cards(data.get('cards'), data.get('month'))
 
 
 def load_timeline(today):
@@ -76,8 +77,11 @@ def load_recurring(today):
 
 
 def load_tagger(today):
-    rows = _db().get_recently_tagged(limit=1)
-    return ls.build_tagger(rows[0] if rows else None)
+    """Untagged count and newest untagged transactions, from the Tagger page's own queries.
+    get_untagged_recent takes the newest IDs per table, then sorts by date — a few hundred
+    rows is plenty for the newest dates to be among them."""
+    db = _db()
+    return ls.build_tagger(db.get_untagged_recent(limit=200), db.count_untagged_total())
 
 
 def load_files(today):

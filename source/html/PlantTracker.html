@@ -586,6 +586,12 @@ var GLYPHS = {
 };
 
 // ── Helpers ────────────────────────────────────────────────────
+/** Saved per-browser preference, or `fallback` when missing or storage is unavailable. */
+function prefGet(key, fallback){
+  try { var v = localStorage.getItem(key); return v == null ? fallback : v; } catch (_) { return fallback; }
+}
+/** Save a per-browser preference; storage failures (private mode, blocked storage) are ignored. */
+function prefSet(key, value){ try { localStorage.setItem(key, String(value)); } catch (_) {} }
 function pad(n){ return (n < 10 ? '0' : '') + n; }
 function localDate(d){ return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
 function localDateTime(d){ return localDate(d) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes()); }
@@ -848,11 +854,10 @@ function waterAllDue(){
   }, 'סומנה השקה ל-' + n + ' עציצים');
 }
 
-var suggOpen = true;
-try { suggOpen = localStorage.getItem('plants_sugg_open') !== '0'; } catch (_) {}
+var suggOpen = prefGet('plants_sugg_open', '1') !== '0';
 function toggleSugg(){
   suggOpen = !suggOpen;
-  try { localStorage.setItem('plants_sugg_open', suggOpen ? '1' : '0'); } catch (_) {}
+  prefSet('plants_sugg_open', suggOpen ? '1' : '0');
   renderSuggestions();
   renderRows();
 }
@@ -947,11 +952,7 @@ function renderRows(){
 var SORT_KEY = 'plants_sort', GROUP_KEY = 'plants_grouped';
 var SORTS = ['status', 'last_water', 'name', 'type'];
 var STATUS_RANK = {overdue: 0, due: 1, ok: 2, auto: 3};
-var sortBy = 'status', grouped = true, searchText = '';
-try {
-  sortBy = localStorage.getItem(SORT_KEY) || 'status';
-  grouped = localStorage.getItem(GROUP_KEY) !== '0';
-} catch (_) {}
+var sortBy = prefGet(SORT_KEY, 'status'), grouped = prefGet(GROUP_KEY, '1') !== '0', searchText = '';
 if (SORTS.indexOf(sortBy) < 0) sortBy = 'status';
 
 /** Hebrew label of a plant type key (falls back to the key). */
@@ -994,12 +995,12 @@ function setSearch(v){
 }
 function setSort(v){
   sortBy = SORTS.indexOf(v) >= 0 ? v : 'status';
-  try { localStorage.setItem(SORT_KEY, sortBy); } catch (_) {}
+  prefSet(SORT_KEY, sortBy);
   renderRows();
 }
 function setGrouped(on){
   grouped = !!on;
-  try { localStorage.setItem(GROUP_KEY, grouped ? '1' : '0'); } catch (_) {}
+  prefSet(GROUP_KEY, grouped ? '1' : '0');
   renderRows();
 }
 /** Toolbar visibility and control state, kept in sync with the saved choices. */
@@ -1043,11 +1044,10 @@ function plantRowHtml(p, days){
 
 // ── Rooms: filter chips + grouping ─────────────────────────────
 var ROOM_FILTER_KEY = 'plants_room_filter';
-var roomFilter = 'all';  // 'all' | 'none' | '<room id>'
-try { roomFilter = localStorage.getItem(ROOM_FILTER_KEY) || 'all'; } catch (_) {}
+var roomFilter = prefGet(ROOM_FILTER_KEY, '') || 'all';  // 'all' | 'none' | '<room id>'
 function setRoomFilter(v){
   roomFilter = v;
-  try { localStorage.setItem(ROOM_FILTER_KEY, v); } catch (_) {}
+  prefSet(ROOM_FILTER_KEY, v);
   renderRooms();
   renderRows();
 }

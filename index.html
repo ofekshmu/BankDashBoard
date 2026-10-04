@@ -475,9 +475,12 @@
     if (!out) return;
     out.textContent = refreshing ? 'מרענן…' : entry && entry.at ? ageText(entry.at) : '';
   }
+  /** Repaint the freshness label of every listed block that is on screen. */
+  function paintAges(ids) {
+    ids.forEach(id => { const el = document.getElementById('blk-' + id); if (el) paintAge(el, id); });
+  }
   setInterval(() => {
-    if (document.getElementById('dash').hidden) return;
-    Object.keys(blockData).forEach(id => { const el = document.getElementById('blk-' + id); if (el) paintAge(el, id); });
+    if (!document.getElementById('dash').hidden) paintAges(Object.keys(blockData));
   }, 30000);
 
   /** Reload every visible live block, skipping the server's 5-minute cache. */
@@ -486,12 +489,12 @@
     const gen = _gen, ids = visibleLiveIds();
     refreshing = true;
     syncHeadButtons();
-    ids.forEach(id => { const el = document.getElementById('blk-' + id); if (el) paintAge(el, id); });
+    paintAges(ids);
     await Promise.all(ids.map(id => loadBlock(id, true)));
     if (gen !== _gen) return;
     refreshing = false;
     syncHeadButtons();
-    ids.forEach(id => { const el = document.getElementById('blk-' + id); if (el) paintAge(el, id); });
+    paintAges(ids);
   }
 
   /* ── Attention strip ── */

@@ -146,3 +146,13 @@ def test_monthly_ok_and_no_months(monkeypatch, webapp):
     monkeypatch.setattr(webapp, '_landing_month_keys', lambda: [])
     b = webapp._landing_monthly(TODAY)
     assert b['dot'] == 'grey' and b['caption'] == 'אין ניתוחים חודשיים'
+
+
+@needs_webapp
+def test_landing_page_and_version_are_never_browser_cached(webapp, monkeypatch):
+    c = webapp.app.test_client()
+    r = c.get('/api/version')
+    assert r.status_code == 200 and r.headers['Cache-Control'] == 'no-store'
+    assert r.get_json()['version'] == open(os.path.join(ROOT, 'VERSION')).read().strip()
+    r = c.get('/')
+    assert r.status_code == 200 and r.headers['Cache-Control'] == 'no-store'

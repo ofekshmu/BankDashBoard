@@ -593,7 +593,8 @@ def index():
             p = os.path.abspath(candidate)
             if os.path.isfile(p):
                 with open(p, encoding='utf-8') as f:
-                    return f.read(), 200, {'Content-Type': 'text/html; charset=utf-8'}
+                    # no-store: a browser must never show a stale landing page after an update
+                    return f.read(), 200, {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store'}
         except Exception:
             continue
     # Fallback: redirect to most recent dashboard
@@ -2609,7 +2610,9 @@ def version():
             v = f.read().strip()
     except Exception:
         v = '—'
-    return jsonify({'version': v})
+    resp = jsonify({'version': v})
+    resp.headers['Cache-Control'] = 'no-store'   # the badge must reflect the running code, never a cached reply
+    return resp
 
 
 @app.route('/api/stale-all')

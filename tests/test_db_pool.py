@@ -13,8 +13,8 @@ import psycopg2.extensions
 import psycopg2.pool
 import pytest
 
-import database
 from database import DataBase
+from db_pool import PoolGate
 
 
 class FakeConn:
@@ -73,7 +73,7 @@ def pool(monkeypatch):
     monkeypatch.setattr(DataBase, '_DataBase__pool', None)
     monkeypatch.setattr(DataBase, '_DataBase__instance', None)
     monkeypatch.setattr(DataBase, '_DataBase__tables_bootstrapped', True)
-    monkeypatch.setattr(DataBase, '_DataBase__slots', threading.BoundedSemaphore(DataBase.POOL_MAX))
+    monkeypatch.setattr(DataBase, '_gate', PoolGate(DataBase.POOL_MAX, timeout=30))
     yield lambda: DataBase._get_pool()
     DataBase.release_thread_connection()
 
@@ -121,13 +121,13 @@ def test_explicit_release_then_thread_end_returns_the_connection_once(pool):
     assert _run_threads(3, worker) == []
     gc.collect()
     # an over-release would raise ValueError from the BoundedSemaphore; all permits are free again
-    slots = DataBase._DataBase__slots
+    slots = DataBase._gate._slots
     assert all(slots.acquire(blocking=False) for _ in range(DataBase.POOL_MAX))
     assert not slots.acquire(blocking=False)
 
 
 def test_full_pool_times_out_with_a_clear_error(pool, monkeypatch):
-    monkeypatch.setattr(DataBase, 'CHECKOUT_TIMEOUT', 0.2)
+    DataBase._gate.timeout = 0.2
     hold, done = threading.Event(), threading.Event()
 
     def holder():
@@ -168,7 +168,7 @@ def pg(monkeypatch):
     import WebApp
     fake = FakePool(1, WebApp._PG_POOL_MAX)
     monkeypatch.setattr(WebApp, '_pg_pool', fake)
-    monkeypatch.setattr(WebApp, '_pg_slots', threading.BoundedSemaphore(WebApp._PG_POOL_MAX))
+    monkeypatch.setattr(WebApp, '_pg_gate', PoolGate(WebApp._PG_POOL_MAX, timeout=30))
     return WebApp, fake
 
 
@@ -204,5 +204,21 @@ def test_pg_conn_close_is_idempotent(pg):
     conn.close()                                 # would over-release the BoundedSemaphore
     del conn
     gc.collect()
-    slots = WebApp._pg_slots
+    slots = WebApp._pg_gate._slots
     assert all(slots.acquire(blocking=False) for _ in range(WebApp._PG_POOL_MAX))
+
+
+# ── PoolGate itself ────────────────────────────────────────────────────────
+def test_pool_gate_releases_the_permit_when_getting_the_connection_fails():
+    gate = PoolGate(1, timeout=0.1)
+
+    def failing_connect():
+        raise RuntimeError('connect failed')
+    with pytest.raises(RuntimeError):
+        gate.borrow(failing_connect)
+    assert gate.borrow(lambda: 'conn') == 'conn'          # the permit came back
+    with pytest.raises(psycopg2.OperationalError, match='all 1 database connections stayed busy'):
+        gate.acquire()
+    gate.release()
+    with pytest.raises(ValueError):
+        gate.release()                                     # more releases than acquires

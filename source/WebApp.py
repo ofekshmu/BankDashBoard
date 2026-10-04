@@ -31,6 +31,7 @@ import secrets as _secrets
 from datetime import timedelta as _timedelta
 from flask import Flask, Response, request, jsonify, send_file, redirect, session
 import regen_tracker as _regen_tracker
+from db_pool import PoolGate
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 _HERE                  = os.path.dirname(os.path.abspath(__file__))
@@ -2001,7 +2002,7 @@ class _PGConn:
                 try: self._conn.close()
                 except Exception: pass
         finally:
-            _pg_slots.release()
+            _pg_gate.release()
 
     def __del__(self):
         try:
@@ -2019,10 +2020,7 @@ class _PGConn:
 _pg_pool      = None
 _pg_pool_lock = _threading.Lock()
 _PG_POOL_MAX  = 10
-_PG_CHECKOUT_TIMEOUT = 30
-# psycopg2's pool raises "connection pool exhausted" as soon as every connection is out; borrowers
-# wait on this semaphore (one permit per borrowed connection) instead of failing.
-_pg_slots     = _threading.BoundedSemaphore(_PG_POOL_MAX)
+_pg_gate      = PoolGate(_PG_POOL_MAX, timeout=30)   # borrowers wait for a free connection (db_pool.py)
 
 def _get_pg_pool():
     global _pg_pool
@@ -2042,13 +2040,9 @@ def _get_pg_pool():
 def _pg_conn():
     """Return a _PGConn backed by a pooled connection — no new TCP handshake per request.
 
-    Waits up to _PG_CHECKOUT_TIMEOUT seconds for a free connection when all are in use.
+    Waits (PoolGate) for a free connection when all are in use.
     """
-    import psycopg2
-    if not _pg_slots.acquire(timeout=_PG_CHECKOUT_TIMEOUT):
-        raise psycopg2.OperationalError(
-            f'all {_PG_POOL_MAX} database connections stayed busy for {_PG_CHECKOUT_TIMEOUT}s')
-    try:
+    def _get():
         pool = _get_pg_pool()
         raw  = pool.getconn()
         if raw.closed:
@@ -2056,10 +2050,8 @@ def _pg_conn():
             pool.putconn(raw, close=True)
             raw = pool.getconn()
         raw.autocommit = False
-    except BaseException:
-        _pg_slots.release()
-        raise
-    return _PGConn(raw, pool=pool)
+        return _PGConn(raw, pool=pool)
+    return _pg_gate.borrow(_get)
 
 
 def _get_latest_yyyy_mm():

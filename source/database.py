@@ -5,6 +5,7 @@ import weakref
 import psycopg2
 import psycopg2.pool
 from dotenv import load_dotenv
+from db_pool import PoolGate
 
 load_dotenv()
 from datetime import datetime
@@ -206,11 +207,7 @@ class DataBase:
     __pool = None
     __pool_lock = threading.Lock()
     POOL_MIN, POOL_MAX = 6, 10
-    # psycopg2's pool raises "connection pool exhausted" the moment every connection is borrowed.
-    # Borrowers wait on this semaphore instead (one permit per borrowed connection), so a burst
-    # larger than the pool — the landing page fires 11 block requests at once — queues briefly.
-    CHECKOUT_TIMEOUT = 30
-    __slots = threading.BoundedSemaphore(POOL_MAX)
+    _gate = PoolGate(POOL_MAX, timeout=30)   # borrowers wait for a free connection (db_pool.py)
 
     @classmethod
     def _get_pool(cls):
@@ -271,25 +268,18 @@ class DataBase:
 
     @classmethod
     def _checkout(cls, verify_all=False):
-        """Borrow a working connection, waiting up to CHECKOUT_TIMEOUT for a free one.
+        """Borrow a working connection, waiting (PoolGate) for a free one.
 
         Stale connections are pinged and dead ones discarded. verify_all: ping even recently used
         connections — after one connection turned out dead, the rest of the pool was likely
-        dropped at the same time (e.g. Neon compute suspend). The caller owns one semaphore
-        permit for the returned connection until _give_back().
+        dropped at the same time (e.g. Neon compute suspend). The caller owns one gate permit
+        for the returned connection until _give_back().
         """
-        if not cls.__slots.acquire(timeout=cls.CHECKOUT_TIMEOUT):
-            raise psycopg2.OperationalError(
-                f'all {cls.POOL_MAX} database connections stayed busy for {cls.CHECKOUT_TIMEOUT}s')
-        try:
-            return cls._checkout_unlocked(verify_all)
-        except BaseException:
-            cls.__slots.release()
-            raise
+        return cls._gate.borrow(lambda: cls._checkout_unlocked(verify_all))
 
     @classmethod
     def _checkout_unlocked(cls, verify_all):
-        """The pool part of _checkout (the caller already holds a semaphore permit)."""
+        """The pool part of _checkout (the caller already holds a gate permit)."""
         pool = cls._get_pool()
         last_error = None
         for _ in range(pool.maxconn + 1):      # enough to cycle through every pooled connection
@@ -313,7 +303,7 @@ class DataBase:
 
     @classmethod
     def _give_back(cls, conn, close=False):
-        """Return a borrowed connection to the pool (or close it) and free its semaphore permit."""
+        """Return a borrowed connection to the pool (or close it) and free its gate permit."""
         try:
             if close or conn.closed:
                 cls._discard(conn)
@@ -324,7 +314,7 @@ class DataBase:
                 except Exception:
                     pass
         finally:
-            cls.__slots.release()
+            cls._gate.release()
 
     @classmethod
     def _reclaim(cls, holder):

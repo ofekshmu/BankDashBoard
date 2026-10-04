@@ -163,8 +163,8 @@ The canonical auth check endpoint is `POST /api/auth/verify` in `WebApp.py` — 
 
 There are two psycopg2 pools, each capped at 10 connections: `DataBase` (`database.py`, connections
 borrowed per thread) and `_pg_conn()` (`WebApp.py`, raw-SQL routes). psycopg2's pool **raises
-immediately** when it is full, so both put a `BoundedSemaphore` in front: a borrower waits up to
-30 s for a free connection (`DataBase.CHECKOUT_TIMEOUT` / `_PG_CHECKOUT_TIMEOUT`) instead of failing.
+immediately** when it is full, so both sit behind a `PoolGate` (`source/db_pool.py`,
+`DataBase._gate` / `WebApp._pg_gate`): a borrower waits up to 30 s for a free connection instead of failing.
 The landing page alone fires 11 requests at once.
 
 - A `DataBase` connection is returned by `teardown_request` → `release_thread_connection()`. Background
@@ -173,7 +173,7 @@ The landing page alone fires 11 requests at once.
   `DataBase.release_thread_connection()` when done, since the lease only fires at thread exit.
 - A `_pg_conn()` connection is returned by `close()` (idempotent); a wrapper dropped without `close()`
   returns it from `__del__`. Still close it in a `finally`.
-- Every borrowed connection holds exactly one semaphore permit. Never call `getconn`/`putconn`
+- Every borrowed connection holds exactly one gate permit. Never call `getconn`/`putconn`
   directly; use `_checkout`/`_give_back` (`DataBase`) or `_pg_conn()`/`close()`.
   `tests/test_db_pool.py` checks the accounting with a fake pool.
 

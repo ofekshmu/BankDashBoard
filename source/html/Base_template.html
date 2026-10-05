@@ -1674,12 +1674,18 @@ body {
   white-space: nowrap; flex-shrink: 0;
 }
 .num .tx-id { font-size: .60em; color: #c5ccd8; margin-top: 1px; white-space: nowrap; }
-.tx-payment-badge {
-  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
-  font-size: .58em; font-weight: 700;
-  background: #e3f2fd; color: #1565c0; border-radius: 6px;
-  padding: 2px 7px; white-space: nowrap; box-shadow: 0 1px 3px rgba(0,0,0,.12);
-  pointer-events: none; z-index: 1;
+/* Instalment indicator: a small pie after the name, filled to payment_num / payment_total */
+.num .tx-line { display: flex; align-items: center; gap: 5px; min-width: 0; }
+.num .tx-line .tx-primary { min-width: 0; }
+.tx-pay-ind {
+  flex-shrink: 0; width: 11px; height: 11px; border-radius: 50%;
+  background: conic-gradient(#1565c0 var(--p, 0%), #d6e6fb 0);
+  box-shadow: 0 0 0 1px #1565c0;
+}
+/* the full tag, in the opened row (desktop slide) */
+.tx-pay-tag {
+  font-size: .78em; font-weight: 700; background: #e3f2fd; color: #1565c0;
+  border-radius: 6px; padding: 2px 8px; white-space: nowrap; font-family: inherit;
 }
 .manual-cash-badge {
   display: block; font-size: .55em; font-weight: 700;
@@ -5891,7 +5897,9 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     document.getElementById('tx-ddesc').textContent = desc;
     descRow.style.display = desc ? '' : 'none';
     var payRow = document.getElementById('tx-dpay-row');
-    document.getElementById('tx-dpay').textContent = (payNum && payTotal) ? (payNum + ' מתוך ' + payTotal) : '';
+    var payEl = document.getElementById('tx-dpay');
+    payEl.textContent = (payNum && payTotal) ? ('תשלום ' + payNum + ' מתוך ' + payTotal) : '';
+    payEl.className = 'tx-detail-val tx-pay-tag';
     payRow.style.display = (payNum && payTotal) ? '' : 'none';
     var origRow = document.getElementById('tx-dorig-row');
     document.getElementById('tx-dorig').textContent = origDate;
@@ -5902,7 +5910,15 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     amtEl.className = 'tx-detail-amount' + (isIncome ? ' income' : '');
     document.getElementById('tx-ddate').textContent = date || 'אין מידע';
     document.getElementById('tx-dcat').textContent = cat || '—';
-    document.getElementById('tx-dacct').textContent = tbl === 'BankTransactions' ? 'חשבון בנק' : tbl === 'CardTransactions' ? 'כרטיס אשראי' : 'מזומן';
+    var acctEl = document.getElementById('tx-dacct');
+    acctEl.textContent = tbl === 'BankTransactions' ? 'חשבון בנק' : tbl === 'CardTransactions' ? 'כרטיס אשראי' : 'מזומן';
+    var cardNo = row.getAttribute('data-card') || '';
+    if (cardNo) {   // card number in the card's own colour, like the row's colour bar
+      var cardEl = document.createElement('b');
+      cardEl.textContent = ' ' + cardNo;
+      cardEl.style.cssText = 'color:' + colorBg + ';font-family:monospace;margin-right:4px';
+      acctEl.appendChild(cardEl);
+    }
     document.getElementById('tx-dsplit').style.display = (tbl === 'CashTransactions' || !tbl) ? 'none' : '';
     overlay.classList.add('open');
   }
@@ -5945,10 +5961,15 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       'overflow:hidden;transition:width .4s ease;z-index:5}' +
     '.tx-id-chip .tic-bar{position:absolute;top:50%;left:0;width:' + BAR_W + 'px;height:' + BAR_H + 'px;' +
       'border-radius:4px;transform:translateY(-50%);pointer-events:none}' +
-    '.tx-id-chip .tic-idwrap{position:absolute;top:0;left:' + BAR_W + 'px;height:100%;width:' + ID_W + 'px;' +
-      'display:flex;align-items:center;justify-content:center;' +
-      'font-family:monospace;font-weight:700;font-size:.85em;color:#1e2a4a;' +
+    // ID, card number (in the card's colour) and the instalment tag, side by side; the chip
+    // measures this strip and sizes itself to fit, so nothing is clipped.
+    '.tx-id-chip .tic-idwrap{position:absolute;top:0;left:' + BAR_W + 'px;height:100%;min-width:' + ID_W + 'px;' +
+      'display:flex;align-items:center;justify-content:center;gap:10px;padding:0 10px;box-sizing:border-box;' +
+      'white-space:nowrap;font-size:.85em;color:#1e2a4a;' +
       'opacity:0;transition:opacity .3s ease;pointer-events:none}' +
+    '.tx-id-chip .tic-id{font-family:monospace;font-weight:700}' +
+    '.tx-id-chip .tic-card{font-size:.9em;color:#6b7590}' +
+    '.tx-id-chip .tic-card b{font-family:monospace;font-size:1.08em;margin-right:3px}' +
     '.tx-id-chip .tic-idwrap.show{opacity:1}' +
     '.tx-id-chip .tic-split{position:absolute;top:50%;left:' + (BAR_W + ID_W + GAP) + 'px;' +
       'transform:translateY(-50%);padding:0 14px;height:28px;border:1.5px solid var(--teal,#1e9d8b);' +
@@ -5982,20 +6003,31 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     var closedW   = BAR_W;
     var hideTimer = null, fadeTimer = null, collapsed = false;
 
+    var card     = row.getAttribute('data-card') || '';
+    var payNum   = row.getAttribute('data-payment-num') || '';
+    var payTotal = row.getAttribute('data-payment-total') || '';
+    var _e = function(s) { return String(s).replace(/[&<>"']/g, function(c) { return '&#' + c.charCodeAt(0) + ';'; }); };
+
     var chip = document.createElement('span');
     chip.className = 'tx-id-chip';
     chip.style.width = closedW + 'px';
     chip.innerHTML =
       '<span class="tic-bar" style="background:' + barColor + '"></span>' +
-      '<span class="tic-idwrap">#' + id + '</span>' +
+      '<span class="tic-idwrap">' +
+        '<span class="tic-id">#' + _e(id) + '</span>' +
+        (card ? '<span class="tic-card">כרטיס<b style="color:' + barColor + '">' + _e(card) + '</b></span>' : '') +
+        (payNum && payTotal ? '<span class="tx-pay-tag">תשלום ' + _e(payNum) + ' מתוך ' + _e(payTotal) + '</span>' : '') +
+      '</span>' +
       '<button type="button" class="tic-split">פיצול</button>';
     row.appendChild(chip);
     activeChip = chip;
 
     var idEl  = chip.querySelector('.tic-idwrap');
     var btnEl = chip.querySelector('.tic-split');
+    var infoW = Math.ceil(idEl.getBoundingClientRect().width);
+    btnEl.style.left = (BAR_W + infoW + GAP) + 'px';
     var btnWidth = btnEl.getBoundingClientRect().width;
-    var openW = Math.max(coverDistance, BAR_W + ID_W + GAP + btnWidth);
+    var openW = Math.max(coverDistance, BAR_W + infoW + GAP + btnWidth);
 
     btnEl.addEventListener('click', function(e) {
       e.stopPropagation();
@@ -7538,22 +7570,19 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       div.dataset.origDate = row.orig_date || '';
       div.dataset.paymentNum   = row.payment_num   || '';
       div.dataset.paymentTotal = row.payment_total || '';
-      if (desc) {
-        h3.innerHTML = '<span class="tx-primary">' + _esc(desc) + '</span>' +
-                       '<span class="tx-id">' + _esc(name) + '</span>';
-      } else {
-        h3.innerHTML = '<span class="tx-primary">' + _esc(name) + '</span>';
-      }
-      div.appendChild(h3);
-
-      // Placed as its own row-centered element (not tucked under the name)
-      // so it reads as metadata about the whole entry, not the name text.
+      div.dataset.card = row.table === 'CardTransactions' && row.card ? String(row.card) : '';
+      // Instalments: a small pie right after the name (filled = payments made so far) instead of
+      // a label over the row; the full "תשלום X מתוך Y" shows when the row is opened.
+      var payInd = '';
       if (row.payment_num && row.payment_total) {
-        var payBadge = document.createElement('span');
-        payBadge.className = 'tx-payment-badge';
-        payBadge.textContent = 'תשלום ' + row.payment_num + '/' + row.payment_total;
-        div.appendChild(payBadge);
+        var payPct = Math.max(0, Math.min(100, Number(row.payment_num) / Number(row.payment_total) * 100)) || 0;
+        var payTip = 'תשלום ' + row.payment_num + ' מתוך ' + row.payment_total;
+        payInd = '<span class="tx-pay-ind" style="--p:' + payPct.toFixed(1) + '%" title="' + _esc(payTip) +
+                 '" aria-label="' + _esc(payTip) + '"></span>';
       }
+      var primaryLine = '<span class="tx-line"><span class="tx-primary">' + _esc(desc || name) + '</span>' + payInd + '</span>';
+      h3.innerHTML = primaryLine + (desc ? '<span class="tx-id">' + _esc(name) + '</span>' : '');
+      div.appendChild(h3);
 
       var pAmt = document.createElement('p');
       pAmt.className = 'date';

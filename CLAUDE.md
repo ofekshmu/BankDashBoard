@@ -133,6 +133,16 @@ The log feed (`#lf-feed`) uses `flex-direction:column` with `appendChild` + `scr
 
 ---
 
+## Side menu — one list for every page
+
+The menu links live only in `source/html/nav.js` (served publicly at `/nav.js`). Each page's sidebar
+has an empty `<div class="sidebar-scroll" data-nav="KEY"></div>` followed by `<script src="/nav.js"></script>`;
+`KEY` marks the current page (`""` on the landing page, `monthly-page` on `Base_template.html`, whose first
+two items switch panels via `#nav-overview` / `#nav-accounts`). Add or rename a menu item in `nav.js`
+only — never hard-code `class="nav-item"` links in a page (`tests/test_shared_nav.py` checks this).
+
+---
+
 ## Color palette
 
 | Token | Hex | Used for |

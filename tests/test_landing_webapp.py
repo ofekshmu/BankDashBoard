@@ -169,7 +169,23 @@ def test_monthly_non_200_raises_instead_of_grey_no_analysis(monkeypatch, webapp)
 
 
 @needs_webapp
+def test_monthly_card_misses_alert_and_a_failed_check_does_not_break_the_block(monkeypatch, webapp):
+    monkeypatch.setattr(webapp, '_landing_month_keys', lambda: MONTHS)
+    monkeypatch.setattr(webapp, 'monthly_data_api', lambda key: _Resp({'alerts': []}, 200))
+    monkeypatch.setattr(webapp, '_landing_card_misses', lambda today: [('2026_09', '4603')])
+    b = webapp._landing_monthly(TODAY)
+    assert b['dot'] == 'amber' and b['attention'] == 'חיוב כרטיס לא אומת: 4603 (ספטמבר)'
+
+    def boom(today):
+        raise RuntimeError('db down')
+    monkeypatch.setattr(webapp, '_landing_card_misses', boom)
+    b = webapp._landing_monthly(TODAY)
+    assert b['ok'] and b['dot'] == 'green'
+
+
+@needs_webapp
 def test_monthly_ok_and_no_months(monkeypatch, webapp):
+    monkeypatch.setattr(webapp, '_landing_card_misses', lambda today: [])
     seen = []
     monkeypatch.setattr(webapp, '_landing_month_keys', lambda: MONTHS)
     monkeypatch.setattr(webapp, 'monthly_data_api',

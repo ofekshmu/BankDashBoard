@@ -110,7 +110,19 @@ def month_flow(payload, today):
     return out
 
 
-def build_monthly(months, key, payload, today=None):
+def card_misses_line(misses):
+    """'חיוב כרטיס לא אומת: 4603, 1565 (ספטמבר) · 2922 (יולי)' — newest month first."""
+    by_month = {}
+    for key, card in misses:
+        by_month.setdefault(key, []).append(str(card))
+    return 'חיוב כרטיס לא אומת: ' + ' · '.join(
+        f"{', '.join(cards)} ({HEB_MONTHS[int(key[5:7]) - 1]})" for key, cards in sorted(by_month.items(), reverse=True))
+
+
+def build_monthly(months, key, payload, today=None, card_misses=None):
+    """The analysis month's alert count, plus `card_misses` — [(spending month, card)] whose
+    charge matched no bank debit in the last months (the organizer's red cells): those make
+    the block at least amber and show as a detail line and in the attention strip."""
     keys = sorted({m['key'] for m in months or [] if m.get('key')}, reverse=True)
     extra = {'months': [{'key': k, 'label': month_label(k)} for k in keys], 'current': key,
              'flow': month_flow(payload, today) if today else []}
@@ -120,8 +132,12 @@ def build_monthly(months, key, payload, today=None):
         return block('—', f'אין ניתוח ל{month_label(key)}', dot='grey', extra=extra)
     n = len(payload.get('alerts') or []) + len(payload.get('organizer_alerts') or [])
     dot = 'green' if n == 0 else ('amber' if n <= 2 else 'red')
-    return block(str(n), f'התראות ב{month_label(key)}', dot=dot, extra=extra,
-                 attention=f"{count_text(n, 'התראה אחת', 'התראות')} ב{month_label(key)}")
+    misses = card_misses_line(card_misses) if card_misses else None
+    if misses and dot == 'green':
+        dot = 'amber'
+    attention = ' · '.join(x for x in (
+        f"{count_text(n, 'התראה אחת', 'התראות')} ב{month_label(key)}" if n else None, misses) if x)
+    return block(str(n), f'התראות ב{month_label(key)}', [misses], dot=dot, extra=extra, attention=attention)
 
 
 # ── Accounts ───────────────────────────────────────────────────────────────
@@ -250,9 +266,9 @@ def build_housing(m):
     profit = (m.get('equity_appreciated') or 0) + (m.get('alltime_income') or 0) - (m.get('net_invested') or 0)
     details = [f"תשואה כוללת במכירה {pct(m['total_return_pct'])}" if m.get('total_return_pct') is not None else None,
                f'רווח נקי {money(profit)}']
+    # No attention line: housing never feeds the alert strip (the dot still shows the status)
     return block(pct(m['annual_return_pct']), f'תשואה שנתית ({rate}% עליית ערך)', details,
-                 dot='green' if m['annual_return_pct'] >= 0 else 'red',
-                 attention=f"תשואה שנתית שלילית {pct(m['annual_return_pct'])}")
+                 dot='green' if m['annual_return_pct'] >= 0 else 'red')
 
 
 # ── Timeline ───────────────────────────────────────────────────────────────
@@ -264,6 +280,7 @@ def build_timeline(event):
 
 # ── Bills ──────────────────────────────────────────────────────────────────
 TOP_BILLS = 5
+BILLS_GROUP = 'סיטרמן'   # the bills page's group whose average the landing block shows
 
 
 def _half_day(ym):
@@ -304,13 +321,15 @@ def _bill_amount(e):
     return e.get('amount') if e.get('amount') is not None else e.get('tx_amount')
 
 
-def bill_averages(types, entries):
-    """[(name, average per month)] for the TOP_BILLS types with the most counted entries.
+def bill_averages(types, entries, group=None):
+    """[(name, average per month)] per bill type.
 
+    Without `group`: the TOP_BILLS types with the most counted entries. With `group`: every
+    type of that bill group, largest average first.
     Mirrors the bills page's per-type monthly average (Bills.html kpiCard, all-time
     view): entries with a transaction_id only, abs(amount ?? tx_amount), entries
     with neither skipped, total ÷ bill_span_months of the counted entries."""
-    names = {t['id']: t['name'] for t in types or []}
+    names = {t['id']: t['name'] for t in types or [] if group is None or t.get('group') == group}
     by_type = {}
     for e in entries or []:
         if not e.get('transaction_id') or _bill_amount(e) is None or e.get('bill_type_id') not in names:
@@ -318,16 +337,21 @@ def bill_averages(types, entries):
         by_type.setdefault(e['bill_type_id'], []).append(e)
     stats = [(names[tid], len(es), sum(abs(float(_bill_amount(e))) for e in es) / bill_span_months(es))
              for tid, es in by_type.items()]
+    if group is not None:
+        return [(name, avg) for name, _, avg in sorted(stats, key=lambda t: (-t[2], t[0]))]
     top = sorted(stats, key=lambda t: (-t[1], t[0]))[:TOP_BILLS]
     return [(name, avg) for name, _, avg in top]
 
 
 def build_bills(types, entries):
-    avgs = bill_averages(types, entries)
+    """Monthly bill average of the BILLS_GROUP home: the group total, then a small tile per bill
+    (extra.tiles: name, average, the bill type's colour)."""
+    avgs = bill_averages(types, entries, group=BILLS_GROUP)
     if not avgs:
-        return block('—', 'אין חשבונות', dot='grey')
-    return block(money(sum(a for _, a in avgs)), f'ממוצע חודשי — {len(avgs)} החשבונות הנפוצים',
-                 [f'{name} · {money(a)}' for name, a in avgs])
+        return block('—', f'אין חשבונות ל{BILLS_GROUP}', dot='grey')
+    colors = {t['name']: t.get('color') for t in types or [] if t.get('group') == BILLS_GROUP}
+    tiles = [{'name': name, 'value': money(a), 'color': colors.get(name)} for name, a in avgs]
+    return block(money(sum(a for _, a in avgs)), f'ממוצע חודשי — {BILLS_GROUP}', extra={'tiles': tiles})
 
 
 # ── Spotify ────────────────────────────────────────────────────────────────
@@ -343,14 +367,16 @@ def build_spotify(members):
     if not members:
         return block('—', 'אין משתתפים', dot='grey')
     net = sum(float(m.get('balance') or 0) for m in members)
-    debtors = sum(1 for m in members if float(m.get('balance') or 0) < 0)
+    debtors = [m for m in members if round(float(m.get('balance') or 0)) < 0]
     neg = round(net) < 0
     details = [f"{m['name']} · {signed_money(m.get('balance'))}" for m in members]
     # each debtor's line is red, whatever the net (details stay in member order)
     tones = ['neg' if round(float(m.get('balance') or 0)) < 0 else None for m in members]
-    return block(signed_money(net), 'מאזן נטו של המשתתפים', details, dot='red' if neg else 'green',
+    # alert on every member in debt, even when the net is positive (amber then; red when the net is negative)
+    dot = 'red' if neg else ('amber' if debtors else 'green')
+    return block(signed_money(net), 'מאזן נטו של המשתתפים', details, dot=dot,
                  extra={'tone': 'neg' if neg else 'pos', 'detail_tones': tones},
-                 attention=f'מאזן שלילי {money(net)} · ' + count_text(debtors, 'חבר אחד בחוב', 'חברים בחוב'))
+                 attention='בחוב: ' + ' · '.join(f"{m['name']} {money(-float(m['balance']))}" for m in debtors))
 
 
 # ── Plants ─────────────────────────────────────────────────────────────────

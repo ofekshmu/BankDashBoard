@@ -94,6 +94,40 @@ def load_files(today):
     return ls.build_files({'file_name': name, 'format': fmt, 'date': d, 'last_update': last_update})
 
 
+def _file_rows(db):
+    """[(charge-month date, card number)] from the File table (the organizer's source)."""
+    df = db.get_file_table()
+    return [] if df is None or df.empty else list(zip(df['Date'], df['Card_Number']))
+
+
+def _card_statuses(month_start):
+    """{card: verified?} for one spending month — the organizer table's per-cell check."""
+    from src_utils.utils import utils
+    v = utils.card_charge_validation(utils.get_card_charge_df(month_start), month_start,
+                                     tolerance=20, interactive=False)
+    return {} if v.empty else {str(c): bool(s) for c, s in zip(v['CardID'], v['Status'])}
+
+
+def load_card_validation_misses(today, months=3):
+    """[(spending month 'YYYY_MM', card)] whose charge matched no bank debit, over the last
+    `months` spending months, newest first — the organizer table's red cells. Only cards with
+    a file for that month count (a file is dated by its charge month, one month later)."""
+    from datetime import datetime
+    rows = _file_rows(_db())
+    misses = []
+    for back in range(1, months + 1):
+        n = today.year * 12 + today.month - 1 - back
+        spend = datetime(n // 12, n % 12 + 1, 1)
+        charge = (spend.year + spend.month // 12, spend.month % 12 + 1)
+        cards = {str(card) for d, card in rows
+                 if ls.as_date(d) and (ls.as_date(d).year, ls.as_date(d).month) == charge}
+        if not cards:
+            continue
+        statuses = _card_statuses(spend)
+        misses += [(spend.strftime('%Y_%m'), c) for c in sorted(cards) if statuses.get(c) is False]
+    return misses
+
+
 def load_month_keys():
     """Months that have bank data, ascending: [{'key': 'YYYY_MM'}, ...].
 

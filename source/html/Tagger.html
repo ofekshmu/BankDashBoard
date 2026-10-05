@@ -832,23 +832,7 @@ body {
     <a class="sidebar-app-name" href="/" title="דף הבית">ניהול כספים</a>
     <button class="sidebar-close-btn" onclick="closeNav()" aria-label="סגור תפריט">✕</button>
   </div>
-  <div class="sidebar-scroll">
-    <a class="nav-item" href="/monthly" onclick="try{var k=localStorage.getItem('lv_month');if(k){event.preventDefault();location.href='/general/'+k;}}catch(_){}">ניתוח חודשי</a>
-    <div class="nav-sep"></div>
-    <a class="nav-item" href="/accounts">חשבונות</a>
-    <a class="nav-item" href="/card-analysis">כרטיסים</a>
-    <a class="nav-item" href="/housing">דיור</a>
-    <a class="nav-item" href="/organizer">ארגונית</a>
-    <a class="nav-item" href="/bills">מעקב חשבונות</a>
-    <a class="nav-item" href="/categories">ניתוח קטגוריאלי</a>
-    <a class="nav-item" href="/search">חיפוש</a>
-    <a class="nav-item" href="/spotify">Spotify Tracker</a>
-    <a class="nav-item" href="/plants">מעקב עציצים</a>
-    <a class="nav-item" href="/recurring">חיובים חוזרים</a>
-    <div class="nav-sep"></div>
-    <a class="nav-item active" href="/tagger">תייגן</a>
-    <a class="nav-item" href="/files">קבצים</a>
-  </div>
+  <div class="sidebar-scroll" data-nav="tagger"></div>
   <div class="sidebar-footer">
     <button class="nav-restart-btn" onclick="restartServer(this)">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
@@ -857,6 +841,7 @@ body {
     <div id="app-version-badge-2" style="margin-top:8px;text-align:center;font-size:.72em;color:var(--text-muted);letter-spacing:.03em;opacity:.7;user-select:none">v—</div>
   </div>
 </nav>
+<script src="/nav.js"></script>
 
 <!-- Refresh progress bar -->
 <div class="refresh-bar" id="refresh-bar"></div>

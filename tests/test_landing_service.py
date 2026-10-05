@@ -290,12 +290,24 @@ def test_bill_span_months_matches_page_helper():
     assert ls.bill_span_months([E(1, '2026-01-15', '2026-01-15')]) == 1      # empty interval → 1
 
 
-def test_bills_block_shows_all_five():
-    b = ls.build_bills(BILL_TYPES, BILL_ENTRIES)
-    assert b['caption'] == 'ממוצע חודשי — 5 החשבונות הנפוצים'
-    assert len(b['details']) == 5 and b['details'][0] == 'חשמל · 250₪'
-    assert b['kpi'] == ls.money(sum(a for _, a in ls.bill_averages(BILL_TYPES, BILL_ENTRIES)))
-    assert ls.build_bills(BILL_TYPES, [])['dot'] == 'grey'
+GROUP_TYPES = [dict(t, group='סיטרמן' if t['id'] <= 4 else 'שלום שבזי 7', color=f'#00000{t["id"]}')
+               for t in BILL_TYPES]
+
+
+def test_bill_averages_of_one_group_lists_all_its_types():
+    assert ls.bill_averages(GROUP_TYPES, BILL_ENTRIES, group='סיטרמן') == \
+        [('ארנונה', 500), ('חשמל', 250), ('מים', 75), ('גז', 50)]          # largest average first
+
+
+def test_bills_block_is_the_sitterman_group_total_with_a_tile_per_bill():
+    b = ls.build_bills(GROUP_TYPES, BILL_ENTRIES)
+    assert b['kpi'] == '875₪' and b['caption'] == 'ממוצע חודשי — סיטרמן' and b['details'] == []
+    assert b['extra']['tiles'] == [{'name': 'ארנונה', 'value': '500₪', 'color': '#000003'},
+                                   {'name': 'חשמל', 'value': '250₪', 'color': '#000001'},
+                                   {'name': 'מים', 'value': '75₪', 'color': '#000002'},
+                                   {'name': 'גז', 'value': '50₪', 'color': '#000004'}]
+    assert ls.build_bills(GROUP_TYPES, [])['dot'] == 'grey'
+    assert ls.build_bills(BILL_TYPES, BILL_ENTRIES)['dot'] == 'grey'          # no type in the group
 
 
 # ── spotify ────────────────────────────────────────────────────────────────
@@ -310,14 +322,14 @@ def test_spotify_net_balance_red_when_negative_and_lists_everyone():
 def test_spotify_debtors_are_red_even_when_the_net_is_positive():
     b = ls.build_spotify([{'name': 'דנה', 'balance': -30}, {'name': 'יוסי', 'balance': 80},
                           {'name': 'רון', 'balance': 0}])
-    assert b['dot'] == 'green' and b['extra']['detail_tones'] == ['neg', None, None]
+    assert b['extra']['tone'] == 'pos' and b['extra']['detail_tones'] == ['neg', None, None]
 
 
 def test_spotify_green_when_net_positive_or_zero_and_lists_all_without_cap():
     many = [{'name': f'm{i}', 'balance': 10 + i} for i in range(5)] + [{'name': 'x', 'balance': -1}]
     b = ls.build_spotify(many)
-    assert b['kpi'] == '+59₪' and b['dot'] == 'green' and b['extra']['tone'] == 'pos'
-    assert len(b['details']) == 6 and b['attention'] is None
+    assert b['kpi'] == '+59₪' and b['extra']['tone'] == 'pos'
+    assert len(b['details']) == 6 and b['attention'] == 'בחוב: x 1₪'          # x owes 1
     b = ls.build_spotify([{'name': 'יוסי', 'balance': 0}])
     assert b['kpi'] == '0₪' and b['dot'] == 'green' and b['details'] == ['יוסי · 0₪']
     assert ls.build_spotify([])['dot'] == 'grey'
@@ -396,12 +408,32 @@ def test_attention_lines_per_block():
     assert ls.build_monthly(MONTHS, '2026_10', {'alerts': [1]})['attention'] == 'התראה אחת באוקטובר 2026'
     assert ls.build_monthly(MONTHS, '2026_10', {'alerts': []})['attention'] is None
     assert ls.build_accounts(ACCTS, None, {}, TODAY)['attention'] == 'חשבון אחד לא עודכן מעל 30 יום'
-    m = {'annual_return_pct': -2.04, 'default_rate': 5}
-    assert ls.build_housing(m)['attention'] == 'תשואה שנתית שלילית -2.0%'
-    assert ls.build_housing(dict(m, annual_return_pct=3))['attention'] is None
     debt = [{'name': 'א', 'balance': -30}, {'name': 'ב', 'balance': -20.4}]
-    assert ls.build_spotify(debt)['attention'] == 'מאזן שלילי -50₪ · 2 חברים בחוב'
+    assert ls.build_spotify(debt)['attention'] == 'בחוב: א 30₪ · ב 20₪'
     assert ls.build_spotify([{'name': 'א', 'balance': 5}])['attention'] is None
+
+
+def test_housing_never_raises_an_alert():
+    b = ls.build_housing({'annual_return_pct': -2.04, 'default_rate': 5})
+    assert b['dot'] == 'red' and b['attention'] is None        # the card still shows its status
+
+
+def test_spotify_alerts_on_any_debtor_even_when_the_net_is_positive():
+    b = ls.build_spotify([{'name': 'חנן', 'balance': -32}, {'name': 'מיכה', 'balance': 143}])
+    assert b['kpi'] == '+111₪' and b['extra']['tone'] == 'pos'
+    assert b['dot'] == 'amber' and b['attention'] == 'בחוב: חנן 32₪'
+    assert ls.build_spotify([{'name': 'מיכה', 'balance': 0}])['dot'] == 'green'
+
+
+def test_monthly_alerts_on_unverified_card_charges():
+    misses = [('2026_09', '4603'), ('2026_09', '1565'), ('2026_07', '2922')]
+    b = ls.build_monthly(MONTHS, '2026_10', {'alerts': []}, TODAY, card_misses=misses)
+    line = 'חיוב כרטיס לא אומת: 4603, 1565 (ספטמבר) · 2922 (יולי)'
+    assert b['kpi'] == '0' and b['dot'] == 'amber' and b['details'] == [line] and b['attention'] == line
+    b = ls.build_monthly(MONTHS, '2026_10', {'alerts': [1, 2, 3]}, TODAY, card_misses=misses[:1])
+    assert b['dot'] == 'red' and b['attention'] == '3 התראות באוקטובר 2026 · חיוב כרטיס לא אומת: 4603 (ספטמבר)'
+    b = ls.build_monthly(MONTHS, '2026_10', {'alerts': []}, TODAY, card_misses=[])
+    assert b['dot'] == 'green' and b['details'] == [] and b['attention'] is None
 
 
 def test_plants_attention_lists_each_nonzero_count():

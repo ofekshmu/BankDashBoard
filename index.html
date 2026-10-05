@@ -207,6 +207,12 @@
     .details li.neg { color:var(--red); font-weight:600; }                    /* extra.detail_tones, e.g. debtors */
     .kpi.kpi-wrap { white-space:normal; overflow:visible; text-overflow:clip; overflow-wrap:anywhere;
                     font-size:22px; line-height:1.25; }                          /* timeline: full event name */
+    /* Small KPI boxes inside a block (extra.tiles), e.g. bills per type */
+    .mini-kpis { display:grid; grid-template-columns:repeat(auto-fill, minmax(82px, 1fr)); gap:6px; margin-top:10px; }
+    .mini-kpi { --mk:var(--teal); display:flex; flex-direction:column; gap:2px; min-width:0; padding:7px 9px;
+                background:var(--mk); color:#fff; border-radius:10px; text-shadow:0 1px 1px rgba(0,0,0,.18); }
+    .mini-kpi .mk-name { font-size:11.5px; font-weight:600; opacity:.92; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .mini-kpi .mk-val { font-size:15px; font-weight:700; font-variant-numeric:tabular-nums; text-align:right; }
     /* Accounts: 3-month sparkline + change rate */
     .trend { margin-top:8px; --tc:var(--teal-dark); } .trend.down { --tc:var(--red); }
     .trend svg { display:block; width:100%; height:38px; overflow:visible; }
@@ -220,7 +226,8 @@
     .updated { margin-top:auto; padding-top:6px; font-size:11px; color:var(--muted); }
     .card-link::after { content:''; position:absolute; inset:0; border-radius:16px; }
     /* Blocks without live data: compact shortcut tiles under the KPI grid */
-    .tiles-wrap { max-width:1200px; margin:0 auto; padding:0 16px 32px; }
+    .tiles-wrap { max-width:1200px; margin:0 auto; padding:6px 16px 18px; }
+    #blocks { padding-bottom:14px; }
     .tiles-head { font-size:12px; font-weight:700; color:var(--muted); margin:0 2px 8px; }
     .tiles { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:10px; }
     .card.tile { padding:10px 12px; border-radius:14px; gap:4px; background:linear-gradient(135deg, #fff 55%, var(--teal-light)); }
@@ -271,13 +278,8 @@
     <button type="button" class="primary" onclick="toggleEdit()">סיום</button>
   </div>
   <section class="attention" id="attention" hidden aria-live="polite"></section>
-  <div id="blocks">
-    <section class="grid" id="grid"></section>
-    <section class="tiles-wrap" id="tilesWrap" hidden>
-      <div class="tiles-head">קיצורי דרך</div>
-      <div class="tiles" id="tiles"></div>
-    </section>
-  </div>
+  <!-- KPI grids and shortcut-tile strips, drawn in layout order by renderGrid() -->
+  <div id="blocks"></div>
 
   <!-- Slide-in menu: same links as the other pages' sidebar -->
   <div class="nav-overlay" id="nav-overlay" onclick="closeNav()"></div>
@@ -286,24 +288,9 @@
       <a class="sidebar-app-name" href="/" title="דף הבית"><img src="/favicon.svg" alt="BankDash" style="width:28px;height:28px;border-radius:7px;flex-shrink:0;">ניהול כספים</a>
       <button class="sidebar-close-btn" type="button" onclick="closeNav()" aria-label="סגור תפריט">✕</button>
     </div>
-    <div class="sidebar-scroll">
-      <a class="nav-item" href="/monthly" onclick="try{var k=localStorage.getItem('lv_month');if(k){event.preventDefault();location.href='/general/'+k;}}catch(_){}">ניתוח חודשי</a>
-      <div class="nav-sep"></div>
-      <a class="nav-item" href="/accounts">חשבונות</a>
-      <a class="nav-item" href="/card-analysis">כרטיסים</a>
-      <a class="nav-item" href="/housing">דיור</a>
-      <a class="nav-item" href="/organizer">ארגונית</a>
-      <a class="nav-item" href="/bills">מעקב חשבונות</a>
-      <a class="nav-item" href="/categories">ניתוח קטגוריאלי</a>
-      <a class="nav-item" href="/search">חיפוש</a>
-      <a class="nav-item" href="/spotify">Spotify Tracker</a>
-      <a class="nav-item" href="/plants">מעקב עציצים</a>
-      <a class="nav-item" href="/recurring">חיובים חוזרים</a>
-      <div class="nav-sep"></div>
-      <a class="nav-item" href="/tagger">תייגן</a>
-      <a class="nav-item" href="/files">קבצים</a>
-    </div>
+    <div class="sidebar-scroll" data-nav=""></div>
   </nav>
+  <script src="/nav.js"></script>
 </main>
 
 <script>
@@ -344,7 +331,7 @@
     _gen++;
     resetDashState();
     document.getElementById('dash').hidden = true;
-    document.getElementById('grid').innerHTML = '';
+    document.getElementById('blocks').innerHTML = '';
     document.getElementById('attention').hidden = true;
     document.getElementById('attention').innerHTML = '';
     const gate = document.getElementById('gate');
@@ -539,17 +526,30 @@
     return '<div class="' + cls + '" id="blk-' + id + '" data-id="' + id + '"' + (editing ? ' draggable="true"' : '') + '>' + link + ctl + '</div>';
   }
 
-  /** Rebuild the KPI grid and the shortcut tiles from the layout and paint every block from blockData
-      (no requests). Each group keeps its own order; arrows and drag move a block within its group. */
+  /** Consecutive blocks of the same kind, in order: [{live, ids}]. */
+  function runsOf(ids) {
+    const runs = [];
+    ids.forEach(id => {
+      const live = !!BLOCK_BY_ID[id].live, last = runs[runs.length - 1];
+      if (last && last.live === live) last.ids.push(id); else runs.push({ live, ids: [id] });
+    });
+    return runs;
+  }
+
+  /** Rebuild the dashboard from the layout and paint every block from blockData (no requests).
+      Blocks follow the one layout order: each run of KPI blocks is a grid and each run of shortcut
+      tiles a "קיצורי דרך" strip, so tiles can sit at the top, between KPI blocks or at the bottom.
+      Arrows and drag move a block anywhere in that order. */
   function renderGrid() {
     const ids = editing ? layout.order : visibleIds();
-    const live = ofGroup(ids, true), tiles = ofGroup(ids, false);
-    document.getElementById('blocks').classList.toggle('editing', editing);
-    document.getElementById('grid').innerHTML = live.map((id, i) => cardHtml(id, i, live.length)).join('') ||
-      (tiles.length ? '' : '<div class="grid-empty">כל הבלוקים מוסתרים — לחצו "סידור" כדי להציג אותם</div>');
-    document.getElementById('tiles').innerHTML = tiles.map((id, i) => cardHtml(id, i, tiles.length)).join('');
-    document.getElementById('tilesWrap').hidden = !tiles.length;
-    live.forEach(paintBlock);
+    const host = document.getElementById('blocks');
+    const cards = list => list.map(id => cardHtml(id, ids.indexOf(id), ids.length)).join('');
+    host.classList.toggle('editing', editing);
+    host.innerHTML = runsOf(ids).map(r => r.live
+      ? '<section class="grid">' + cards(r.ids) + '</section>'
+      : '<section class="tiles-wrap"><div class="tiles-head">קיצורי דרך</div><div class="tiles">' + cards(r.ids) + '</div></section>'
+    ).join('') || '<section class="grid"><div class="grid-empty">כל הבלוקים מוסתרים — לחצו "סידור" כדי להציג אותם</div></section>';
+    ofGroup(ids, true).forEach(paintBlock);
     renderAttention();
   }
 
@@ -599,7 +599,8 @@
       ((d.details || []).length ? '<ul class="details">' + d.details.map((x, i) =>
         '<li' + (dTones[i] === 'neg' ? ' class="neg"' : '') + ' title="' + esc(x) + '">' + rich(x) + '</li>').join('') + '</ul>' : '') +
       (id === 'monthly' ? flowHtml((d.extra || {}).flow) : '') +
-      (id === 'accounts' ? trendHtml((d.extra || {}).trend) : '');
+      (id === 'accounts' ? trendHtml((d.extra || {}).trend) : '') +
+      miniKpisHtml((d.extra || {}).tiles);
     if (id === 'monthly') renderMonthPicker(el, d.extra || {});
     paintAge(el, id);
   }
@@ -608,6 +609,16 @@
   function shekels(v) {
     const n = Math.round(Number(v) || 0);
     return (n < 0 ? '-' : '') + Math.abs(n).toLocaleString('en-US') + '₪';
+  }
+
+  /** Small KPI boxes inside a block (extra.tiles: [{name, value, color}]), e.g. one per bill. */
+  function miniKpisHtml(tiles) {
+    if (!tiles || !tiles.length) return '';
+    return '<div class="mini-kpis">' + tiles.map(t =>
+      '<div class="mini-kpi"' + (t.color ? ' style="--mk:' + esc(t.color) + '"' : '') + '>' +
+        '<span class="mk-name" title="' + esc(t.name) + '">' + esc(t.name) + '</span>' +
+        '<span class="mk-val" dir="ltr">' + esc(t.value) + '</span>' +
+      '</div>').join('') + '</div>';
   }
 
   /** Accounts value over the last 3 months (extra.trend) as a sparkline — x by date, y fitted
@@ -826,14 +837,13 @@
     layout.order.filter(id => BLOCK_BY_ID[id].live && !blockData[id]).forEach(id => loadBlock(id, false));
   }
 
-  /** Move block `id` by `delta` places within its group (KPI blocks or tiles), keeping keyboard focus. */
+  /** Move block `id` by `delta` places in the whole layout order (a tile can pass KPI blocks), keeping keyboard focus. */
   function moveBlock(id, delta, act) {
-    const live = !!BLOCK_BY_ID[id].live, group = ofGroup(layout.order, live);
-    const i = group.indexOf(id), j = i + delta;
-    if (i < 0 || j < 0 || j >= group.length) return;
-    group.splice(i, 1);
-    group.splice(j, 0, id);
-    layout.order = live ? group.concat(ofGroup(layout.order, false)) : ofGroup(layout.order, true).concat(group);
+    const order = layout.order.slice(), i = order.indexOf(id), j = i + delta;
+    if (i < 0 || j < 0 || j >= order.length) return;
+    order.splice(i, 1);
+    order.splice(j, 0, id);
+    layout.order = order;
     saveLayout();
     renderGrid();
     const btn = document.querySelector('#blk-' + id + ' [data-act="' + act + '"]');
@@ -872,19 +882,18 @@
       if (!dragId) return;
       e.preventDefault();
       const over = e.target.closest('.card'), dragged = document.getElementById('blk-' + dragId);
-      if (!over || !dragged || over === dragged || over.parentElement !== dragged.parentElement) return;   /* same group only */
-      const cards = Array.from(dragged.parentElement.querySelectorAll('.card'));
-      // Moving forward lands after the target, moving back lands before it — works across grid rows.
+      if (!over || !dragged || over === dragged) return;
+      const cards = Array.from(grid.querySelectorAll('.card'));   /* any block, across grids and tile strips */
+      // Moving forward lands after the target, moving back lands before it — works across rows and sections.
       if (cards.indexOf(dragged) < cards.indexOf(over)) over.after(dragged); else over.before(dragged);
     });
     grid.addEventListener('drop', e => { if (dragId) e.preventDefault(); });
     grid.addEventListener('dragend', () => {
       if (!dragId) return;
       dragId = null;
-      const domIds = sel => Array.from(document.querySelectorAll(sel + ' .card')).map(c => c.dataset.id);
-      layout.order = domIds('#grid').concat(domIds('#tiles'));
+      layout.order = Array.from(grid.querySelectorAll('.card')).map(c => c.dataset.id);
       saveLayout();
-      renderGrid();   /* refresh the arrows' disabled state */
+      renderGrid();   /* regroup into grids / tile strips and refresh the arrows' disabled state */
     });
   })();
 

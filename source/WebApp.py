@@ -497,7 +497,7 @@ app.config['PERMANENT_SESSION_LIFETIME'] = _timedelta(days=7)
 _PUBLIC_PATHS = {
     '/', '/favicon.ico', '/favicon.svg',
     '/apple-touch-icon.png', '/apple-touch-icon-precomposed.png',
-    '/manifest.json', '/design-system.css',
+    '/manifest.json', '/design-system.css', '/nav.js',
     '/api/auth/verify', '/api/auth/check', '/api/version',
 }
 
@@ -617,6 +617,16 @@ def index():
 def serve_favicon_svg():
     svg_path = os.path.join(_HERE, 'html', 'logo.svg')
     return send_file(svg_path, mimetype='image/svg+xml')
+
+
+@app.route('/nav.js')
+def serve_nav_js():
+    """The side-menu links every page renders (source/html/nav.js). Public: the landing page
+    loads it before sign-in, and it holds only page names. Never cached, so a menu change
+    shows on the next page load."""
+    resp = send_file(os.path.join(_HERE, 'html', 'nav.js'), mimetype='text/javascript', max_age=0)
+    resp.headers['Cache-Control'] = 'no-cache'
+    return resp
 
 
 @app.route('/favicon.ico')
@@ -1286,23 +1296,7 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:#f4f6f9;color:#1e2a4a;d
     <a class="sidebar-app-name" href="/" title="דף הבית">Menu</a>
     <button class="sidebar-close-btn" onclick="closeNav()" aria-label="סגור תפריט">✕</button>
   </div>
-  <div class="sidebar-scroll">
-    <a class="nav-item" href="/monthly" onclick="try{{var k=localStorage.getItem('lv_month');if(k){{event.preventDefault();location.href='/general/'+k;}}}}catch(_){{}}">ניתוח חודשי</a>
-    <div class="nav-sep"></div>
-    <a class="nav-item" href="/accounts">חשבונות</a>
-    <a class="nav-item" href="/card-analysis">כרטיסים</a>
-    <a class="nav-item" href="/housing">דיור</a>
-    <a class="nav-item" href="/organizer">ארגונית</a>
-    <a class="nav-item" href="/bills">מעקב חשבונות</a>
-    <a class="nav-item active" href="/categories">ניתוח קטגוריאלי</a>
-    <a class="nav-item" href="/search">חיפוש</a>
-    <a class="nav-item" href="/spotify">Spotify Tracker</a>
-    <a class="nav-item" href="/plants">מעקב עציצים</a>
-    <a class="nav-item" href="/recurring">חיובים חוזרים</a>
-    <div class="nav-sep"></div>
-    <a class="nav-item" href="/tagger">תייגן</a>
-    <a class="nav-item" href="/files">קבצים</a>
-  </div>
+  <div class="sidebar-scroll" data-nav="categories"></div>
   <div class="sidebar-footer" style="padding:12px 16px;border-top:1px solid #eef0f6;flex-shrink:0">
     <div id="app-version-badge-1" style="text-align:center;font-size:.7em;color:#b0bec5;margin-bottom:8px;letter-spacing:.03em;">v—</div>
     <button onclick="restartServer(this)" style="width:100%;padding:8px 12px;border:1.5px dashed #eef0f6;border-radius:8px;background:none;color:#888;font-size:.78em;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:7px;justify-content:center;transition:background .15s,color .15s,border-color .15s" onmouseover="this.style.background='#fff3f3';this.style.color='#e53935';this.style.borderColor='#e53935'" onmouseout="this.style.background='none';this.style.color='#888';this.style.borderColor='#eef0f6'">
@@ -1311,6 +1305,7 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:#f4f6f9;color:#1e2a4a;d
     </button>
   </div>
 </nav>
+<script src="/nav.js"></script>
 <div class="main">
   <div class="page-header"><h1>ניתוח קטגוריות ועסקים</h1></div>
   <div class="search-wrap">
@@ -3500,23 +3495,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--na
     <a class="sidebar-app-name" href="/" title="דף הבית">ניהול כספים</a>
     <button class="sidebar-close-btn" onclick="closeNav()" aria-label="סגור תפריט">✕</button>
   </div>
-  <div class="sidebar-scroll">
-    <a class="nav-item" href="/">ניתוח חודשי</a>
-    <div class="nav-sep"></div>
-    <a class="nav-item" href="/accounts">חשבונות</a>
-    <a class="nav-item" href="/card-analysis">כרטיסים</a>
-    <a class="nav-item" href="/housing">דיור</a>
-    <a class="nav-item active" href="/organizer">ארגונית</a>
-    <a class="nav-item" href="/bills">מעקב חשבונות</a>
-    <a class="nav-item" href="/categories">ניתוח קטגוריאלי</a>
-    <a class="nav-item" href="/search">חיפוש</a>
-    <a class="nav-item" href="/spotify">Spotify Tracker</a>
-    <a class="nav-item" href="/plants">מעקב עציצים</a>
-    <a class="nav-item" href="/recurring">חיובים חוזרים</a>
-    <div class="nav-sep"></div>
-    <a class="nav-item" href="/tagger">תייגן</a>
-    <a class="nav-item" href="/files">קבצים</a>
-  </div>
+  <div class="sidebar-scroll" data-nav="organizer"></div>
   <div class="sidebar-footer">
     <button class="nav-restart-btn" onclick="restartServer(this)">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
@@ -3525,6 +3504,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--na
     <div class="app-version-badge" id="app-version-badge-2">v—</div>
   </div>
 </nav>
+<script src="/nav.js"></script>
 
 <div id="hm-tooltip" class="hm-tooltip"></div>
 
@@ -5635,7 +5615,9 @@ def recurring_page():
     db.ensure_recurring_tables()
     cached = db.get_recurring_cache()
     if cached:
-        return Response(cached['html'], mimetype='text/html')
+        # Cached data, current page shell: template changes (menu, layout) show without a
+        # regeneration. The stored html column is still written for older deployments.
+        return _render_recurring_html(cached['data_json'])
     # No cache yet — serve the SAME page shell with no data embedded (RC_DATA
     # = null). The page's own JS shows animated skeleton placeholders and
     # auto-starts the regen SSE stream itself; there is no separate "loading"
@@ -5968,6 +5950,7 @@ app.register_blueprint(plants_bp)
 from routes.landing_routes import landing_bp, register_loader as _landing_register
 import landing_service as _landing_svc
 from landing_loaders import register_default_loaders as _landing_defaults, load_month_keys as _landing_month_keys
+from landing_loaders import load_card_validation_misses as _landing_card_misses
 app.register_blueprint(landing_bp)
 _landing_defaults()
 
@@ -5989,7 +5972,12 @@ def _landing_monthly(today):
         if status != 200:
             raise RuntimeError((data or {}).get('error') or f'monthly data for {key} failed ({status})')
         payload = data
-    return _landing_svc.build_monthly(months, key, payload, today)
+    try:
+        card_misses = _landing_card_misses(today)
+    except Exception as e:   # the alert is extra; never let it take the monthly block down
+        print(f'[landing] card validation check failed: {e}')
+        card_misses = None
+    return _landing_svc.build_monthly(months, key, payload, today, card_misses=card_misses)
 
 
 def _landing_accounts(today):

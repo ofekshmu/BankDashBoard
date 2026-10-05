@@ -57,10 +57,10 @@ def test_bills_uses_the_bills_page_entries(monkeypatch):
         {'bill_type_id': 1, 'start_month': '2026-03', 'end_month': '2026-03', 'transaction_id': None,
          'amount': None, 'tx_amount': None, 'is_filler': True},
     ]
-    use(monkeypatch, FakeDB(get_bill_types=lambda: [{'id': 1, 'name': 'חשמל', 'color': '#000', 'group': ''}],
+    use(monkeypatch, FakeDB(get_bill_types=lambda: [{'id': 1, 'name': 'חשמל', 'color': '#000', 'group': 'סיטרמן'}],
                             get_bill_entries=lambda: entries))
     b = ll.load_bills(TODAY)
-    assert b['kpi'] == '300₪' and b['details'] == ['חשמל · 300₪']
+    assert b['kpi'] == '300₪' and b['extra']['tiles'] == [{'name': 'חשמל', 'value': '300₪', 'color': '#000'}]
 
 
 def test_files_newest(monkeypatch):
@@ -95,6 +95,21 @@ def test_cards_spotify_plants_use_existing_functions(monkeypatch):
     assert ll.load_cards(TODAY)['kpi'] == '1' and 'ensure_card_limits_table' in db.ensured
     assert ll.load_spotify(TODAY)['kpi'] == '-30₪' and 'ensure_spotify_tables' in db.ensured
     assert ll.load_plants(TODAY)['kpi'] == '1'
+
+
+def test_card_validation_misses_mirror_the_organizer_red_cells(monkeypatch):
+    # files are dated by charge month: an Oct file holds September's charges
+    files = [('2026-10-01', '4603'), ('2026-10-01', '6046'), ('2026-10-04', 'Not_Relevant'),
+             ('2026-09-01', '4603'), ('2026-08-01', '2922'), ('2026-06-01', '9999')]
+    statuses = {'2026_09': {'4603': False, '6046': True, '1111': False},   # 1111: no file → ignored
+                '2026_08': {'4603': True},
+                '2026_07': {'2922': False}}
+    seen = []
+    monkeypatch.setattr(ll, '_file_rows', lambda db: files)
+    monkeypatch.setattr(ll, '_card_statuses', lambda dt: seen.append(dt.strftime('%Y_%m')) or statuses[dt.strftime('%Y_%m')])
+    use(monkeypatch, FakeDB())
+    assert ll.load_card_validation_misses(TODAY) == [('2026_09', '4603'), ('2026_07', '2922')]
+    assert seen == ['2026_09', '2026_08', '2026_07']                  # last 3 spending months only
 
 
 def test_register_default_loaders(monkeypatch):

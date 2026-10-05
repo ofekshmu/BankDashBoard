@@ -94,7 +94,7 @@ def test_page_is_served(client):
     r = client.get('/plants')
     html = r.get_data(as_text=True)
     assert r.status_code == 200 and 'מעקב עציצים' in html
-    assert 'class="nav-item active" href="/plants"' in html
+    assert 'data-nav="plants"' in html and '<script src="/nav.js"></script>' in html   # shared menu
     assert '@SHELL' not in html and '@SIDEBAR@' not in html and '@DEBUG@' not in html
 
 

@@ -2390,24 +2390,7 @@ body {
     <a class="sidebar-app-name" href="/" title="דף הבית"><img src="/favicon.svg" alt="BankDash" style="width:28px;height:28px;border-radius:7px;flex-shrink:0;">ניהול כספים</a>
     <button class="sidebar-close-btn" onclick="closeNav()" aria-label="סגור תפריט">✕</button>
   </div>
-  <div class="sidebar-scroll">
-    <button class="nav-item" id="nav-overview" onclick="_navToMonthly(this);closeNav()">ניתוח חודשי</button>
-    <div class="nav-sep"></div>
-    <button class="nav-item" id="nav-accounts" onclick="showPanel('accounts',this);closeNav()">חשבונות</button>
-    <a class="nav-item" href="/card-analysis">כרטיסים</a>
-    <a class="nav-item" href="/housing">דיור</a>
-    <a class="nav-item" href="/timeline">ציר זמן</a>
-    <a class="nav-item" href="/organizer">ארגונית</a>
-    <a class="nav-item" href="/bills" id="nav-bills-link">מעקב חשבונות<span class="nav-alert-dot" id="nav-bills-dot" style="display:none"></span></a>
-    <a class="nav-item" href="/categories">ניתוח קטגוריאלי</a>
-    <a class="nav-item" href="/search">חיפוש</a>
-    <a class="nav-item" href="/spotify">Spotify Tracker</a>
-    <a class="nav-item" href="/plants">מעקב עציצים</a>
-    <a class="nav-item" href="/recurring">חיובים חוזרים</a>
-    <div class="nav-sep"></div>
-    <a class="nav-item" href="/tagger">תייגן</a>
-    <a class="nav-item" href="/files">קבצים</a>
-  </div>
+  <div class="sidebar-scroll" data-nav="monthly-page"></div>
   <div class="sidebar-footer">
     <button class="nav-restart-btn" onclick="restartServer(this)">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
@@ -2416,6 +2399,7 @@ body {
     <div class="app-version-badge" id="app-version-badge">v—</div>
   </div>
 </nav>
+<script src="/nav.js"></script>
 
 <!-- ── Auto-approval toast stack ──────────────────────────── -->
 <div id="cc-toast-stack"></div>
@@ -7903,13 +7887,13 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     // once it has the value. The server sends the same figure with the data
     // (cash_ils_total) — prefer it, so the very first render already has the
     // right grand total instead of jumping by the cash difference later.
-    var _cashDelta = 0;
-    var _cashTotal = (data.cash_ils_total != null) ? data.cash_ils_total : _cashIlsTotal;
-    if (_cashTotal != null && rich['Cash']) {
-      _cashDelta = _cashTotal - rich['Cash'].value;
-      rich['Cash'].value    = _cashTotal;
+    var _cashDelta = _accountsCashDelta(data);
+    if (_cashDelta != null && rich['Cash']) {
+      rich['Cash'].value   += _cashDelta;
       rich['Cash'].prev     = null;
       rich['Cash'].yearPrev = null;
+    } else {
+      _cashDelta = 0;
     }
 
     // Build KPI cards
@@ -8000,8 +7984,21 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   }
 
   // ── Accounts Chart ─────────────────────────────────────────────────────
+  /** What the grand total adds for cash: the cash-pie total (all currencies → ILS) minus the
+   *  Cash series' last point (ILS only). null while no cash total is known, or when the table
+   *  shows no Cash card (last point 0). Shared by the table and the chart's Total line. */
+  function _accountsCashDelta(data) {
+    var cashTotal = (data.cash_ils_total != null) ? data.cash_ils_total : _cashIlsTotal;
+    var pts = ((data.accounts || {})['Cash'] || []).slice().sort(function(a,b){return a[0]<b[0]?-1:1;});
+    if (cashTotal == null || !pts.length || pts[pts.length-1][1] === 0) return null;
+    return cashTotal - pts[pts.length-1][1];
+  }
+
   function _renderAccountsChart(data) {
     if (typeof Chart === 'undefined' || !data.accounts) return;
+    // The Total line gets the same cash correction as the grand total, shifted as a whole
+    // (like the landing page's trend line) so it ends at that figure without a fake last-day jump.
+    var totalShift = _accountsCashDelta(data) || 0;
     var wrap = document.getElementById('accounts-chart');
     if (!wrap) return;
 
@@ -8031,7 +8028,8 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       var pts = data.accounts[name] || [];
       if (!pts.length) return;
       var indexed = {};
-      pts.forEach(function(p) { indexed[p[0]] = p[1]; });
+      var shift = name === 'Total' ? totalShift : 0;
+      pts.forEach(function(p) { indexed[p[0]] = p[1] == null ? null : p[1] + shift; });
       var color = name === 'Total' ? '#333' : palette[colorIdx++ % palette.length];
       datasets.push({
         label: name,

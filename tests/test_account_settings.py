@@ -25,6 +25,7 @@ pytestmark = pytest.mark.skipif(not _database_url_available(), reason='DATABASE_
 ACCOUNTS = {'accounts': {
     'Old Savings': [['2026-01-01', 500.0], ['2026-09-01', 0.0]],      # closed: last balance 0
     'Main Bank': [['2026-10-01', 20000.0]],
+    'BTB': [['2026-09-11', 131222.0]],
     'Total': [['2026-10-01', 20000.0]],
 }, 'accounts_meta': {}}
 
@@ -64,14 +65,14 @@ def post(client, **body):
 
 
 def test_owner_and_info_are_saved_and_served_with_the_accounts_data(client):
-    status, d = post(client, name='Main Bank', owner='  אופק ', info='חשבון עו"ש\nסניף 902')
+    status, d = post(client, name='BTB', owner='  אופק ', info='חשבון עו"ש\nסניף 902')
     assert status == 200 and d['ok'] and d['settings'] == {'inactive': False, 'owner': 'אופק', 'info': 'חשבון עו"ש\nסניף 902'}
     data = client.get('/api/accounts/data').get_json()
-    assert data['account_settings']['Main Bank']['owner'] == 'אופק'
+    assert data['account_settings']['BTB']['owner'] == 'אופק'
 
 
 def test_an_account_can_go_inactive_only_at_zero_balance(client):
-    status, d = post(client, name='Main Bank', inactive=True)
+    status, d = post(client, name='BTB', inactive=True)
     assert status == 400 and not d['ok'] and FakeSettingsDB.rows == {}
     status, d = post(client, name='Old Savings', inactive=True)
     assert status == 200 and d['settings']['inactive'] is True
@@ -82,9 +83,15 @@ def test_an_account_can_go_inactive_only_at_zero_balance(client):
 def test_unknown_account_and_bad_fields_are_rejected(client):
     assert post(client, name='Nope', owner='x')[0] == 400
     assert post(client, name='', owner='x')[0] == 400
-    assert post(client, name='Main Bank', owner='x' * 61)[0] == 400
-    assert post(client, name='Main Bank', info=5)[0] == 400
-    assert post(client, name='Main Bank')[0] == 400                     # nothing to change
+    assert post(client, name='BTB', owner='x' * 61)[0] == 400
+    assert post(client, name='BTB', info=5)[0] == 400
+    assert post(client, name='BTB')[0] == 400                           # nothing to change
+    assert FakeSettingsDB.rows == {}
+
+
+def test_cash_and_main_bank_take_no_settings(client):
+    assert post(client, name='Main Bank', owner='אופק')[0] == 400
+    assert post(client, name='Cash', info='ארנק')[0] == 400
     assert FakeSettingsDB.rows == {}
 
 

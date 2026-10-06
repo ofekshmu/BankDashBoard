@@ -2051,48 +2051,32 @@ def _pg_conn():
 
 
 def _get_latest_yyyy_mm():
-    """Return the latest month key (e.g. '2026_05') that has data in the DB.
+    """Return the latest month key (e.g. '2026_10') that has bank data.
 
-    Check order: (1) filesystem HTML files, (2) in-memory API cache,
-    (3) DB MAX(Date) query — so this works both locally and on Vercel.
+    The database is the source of truth (the month of MAX(Date) in BankTransactions — the same
+    months the landing page offers). Generated HTML files in GENERAL_ANALYSIS_DIR are leftovers
+    from before monthly pages were served live and can be months old, so they — and the
+    in-memory API cache — are only a fallback when the database can't be read: the newer of the two.
     """
     from datetime import datetime as _dt
     import logging as _log
 
-    # 1. Filesystem (populated locally when HTML output is generated)
-    if os.path.isdir(GENERAL_ANALYSIS_DIR):
-        files = sorted(
-            f for f in os.listdir(GENERAL_ANALYSIS_DIR)
-            if _re.match(r'^\d{4}_\d{2}\.html$', f)
-        )
-        if files:
-            return files[-1].replace('.html', '')
-
-    # 2. In-memory API cache (populated after the first data request)
-    if _monthly_data_cache:
-        return max(_monthly_data_cache.keys())
-
-    # 3. DB query fallback (works on Vercel / API-first)
     try:
-        if os.getenv('DATABASE_URL'):
-            conn = _pg_conn()
-            try:
-                row = conn.execute("SELECT MAX(Date) FROM BankTransactions").fetchone()
-            finally:
-                conn.close()
-        else:
-            from database import DataBase
-            row = DataBase().cursor.execute(
-                "SELECT MAX(Date) FROM BankTransactions"
-            ).fetchone()
+        conn = _pg_conn()
+        try:
+            row = conn.execute("SELECT MAX(Date) FROM BankTransactions").fetchone()
+        finally:
+            conn.close()
         if row and row[0]:
-            d_str = str(row[0])[:10]
-            d = _dt.strptime(d_str, '%Y-%m-%d')
+            d = _dt.strptime(str(row[0])[:10], '%Y-%m-%d')
             return f'{d.year:04d}_{d.month:02d}'
     except Exception as _e:
         _log.getLogger(__name__).warning('_get_latest_yyyy_mm DB query failed: %s', _e)
 
-    return None
+    keys = set(_monthly_data_cache.keys())
+    if os.path.isdir(GENERAL_ANALYSIS_DIR):
+        keys.update(f[:-5] for f in os.listdir(GENERAL_ANALYSIS_DIR) if _re.match(r'^\d{4}_\d{2}\.html$', f))
+    return max(keys) if keys else None
 
 
 def _acct_db():
@@ -2365,6 +2349,7 @@ def _cash_balance_map(strict=False):
     return totals
 
 
+_ACCOUNTS_WITHOUT_SETTINGS = {'Cash', 'Main Bank'}   # everyday accounts: no owner/info/inactive
 _ACCOUNT_OWNER_MAX = 60
 _ACCOUNT_INFO_MAX = 2000
 
@@ -2409,6 +2394,8 @@ def accounts_update_settings():
     accounts = (_accounts_cached_payload() or _compute_accounts()).get('accounts') or {}
     if not name or name == 'Total' or name not in accounts:
         return jsonify({'ok': False, 'error': 'unknown account'}), 400
+    if name in _ACCOUNTS_WITHOUT_SETTINGS:
+        return jsonify({'ok': False, 'error': 'לחשבון הזה אין בעלים, מידע או מצב לא פעיל'}), 400
     fields = {}
     for key, limit in (('owner', _ACCOUNT_OWNER_MAX), ('info', _ACCOUNT_INFO_MAX)):
         if key in body:

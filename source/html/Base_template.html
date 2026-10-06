@@ -2103,6 +2103,7 @@ body {
 /* Owner line, info arrow and panel (AccountSettings) */
 .acct-card-owner { display: flex; align-items: center; gap: 4px; font-size: 0.72em; font-weight: 600; color: #5a6a8a; margin-top: -2px; }
 .acct-card-owner svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2.2; flex-shrink: 0; }
+.acct-card-foot { margin-top: auto; display: flex; flex-direction: column; }   /* pinned to the card's bottom */
 .acct-card-more { display: flex; align-items: center; justify-content: center; width: 100%; height: 16px; margin-top: 4px;
   padding: 0; border: 0; background: none; color: #b0b8cc; cursor: pointer; border-radius: 6px; }
 .acct-card-more:hover, .acct-card-more:focus-visible { color: var(--teal); background: rgba(30,157,139,.08); }
@@ -7997,7 +7998,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         html +=     '<span class="acct-card-name">'+_esc(name)+'</span>';
         html +=     spark;
         html +=   '</div>';
-        if (st.owner) html += '<div class="acct-card-owner" title="בעלים">'+_ACCT_OWNER_ICON+_esc(st.owner)+'</div>';
+        if (st.owner && !_ACCT_NO_SETTINGS[name]) html += '<div class="acct-card-owner" title="בעלים">'+_ACCT_OWNER_ICON+_esc(st.owner)+'</div>';
         html +=   '<div class="acct-card-value">'+valDisplay+'</div>';
         html +=   '<div class="acct-card-changes">';
         html +=     '<div class="acct-card-change-item">';
@@ -8082,6 +8083,8 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   var _acctExpanded = {};        // account name → its info panel is open (kept across re-renders)
   var _acctEditing = null;       // account whose owner/info form is open
   var _acctInactiveOpen = false; // the inactive section is expanded
+  // The user's own everyday accounts: no owner/info/inactive controls (server: _ACCOUNTS_WITHOUT_SETTINGS)
+  var _ACCT_NO_SETTINGS = {'Cash': true, 'Main Bank': true};
   var _ACCT_OWNER_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg>';
 
   /** Inactive only while the balance is 0 — money in an "inactive" account shows it as active. */
@@ -8089,14 +8092,16 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     return !!(settings[name] && settings[name].inactive) && Math.abs(value || 0) < 0.005;
   }
 
-  /** The arrow under a card and, when open, its info text, edit form and "mark inactive" button. */
+  /** Card footer, pinned to the bottom of the card: when open, the info text, edit form and
+   *  "mark inactive" button, then the arrow (always last). None for _ACCT_NO_SETTINGS accounts. */
   function _acctExtraHtml(name, st, value) {
+    if (_ACCT_NO_SETTINGS[name]) return '';
     var open = !!_acctExpanded[name], n = _esc(name);
-    var h = '<button type="button" class="acct-card-more' + (open ? ' open' : '') + '" data-acct-act="more" data-acct="' + n +
+    var arrow = '<button type="button" class="acct-card-more' + (open ? ' open' : '') + '" data-acct-act="more" data-acct="' + n +
             '" aria-expanded="' + open + '" aria-label="' + (open ? 'הסתר פרטים' : 'פרטים נוספים') + ' — ' + n + '">' +
             '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>';
-    if (!open) return h;
-    h += '<div class="acct-card-extra">';
+    if (!open) return '<div class="acct-card-foot">' + arrow + '</div>';
+    var h = '<div class="acct-card-foot"><div class="acct-card-extra">';
     if (_acctEditing === name) {
       h += '<label class="acct-extra-lbl">בעלים<input class="acct-extra-input" data-acct-field="owner" maxlength="60" value="' + _esc(st.owner || '') + '"></label>';
       h += '<label class="acct-extra-lbl">מידע<textarea class="acct-extra-input" data-acct-field="info" maxlength="2000" rows="3">' + _esc(st.info || '') + '</textarea></label>';
@@ -8111,7 +8116,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
              '<button type="button" class="acct-extra-btn" data-acct-act="deactivate" data-acct="' + n + '"' +
                (zero ? '' : ' disabled title="אפשר להפוך חשבון ללא פעיל רק כשהיתרה שלו 0"') + '>סמן כלא פעיל</button></div>';
     }
-    return h + '</div>';
+    return h + '</div>' + arrow + '</div>';
   }
 
   /** POST one account's settings change; on success store it in the page data and re-render. */

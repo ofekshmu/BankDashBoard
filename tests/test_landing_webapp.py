@@ -114,6 +114,15 @@ def test_accounts_other_errors_are_not_retried(monkeypatch, webapp):
 
 # ── Accounts page: the cash total ships with the data (no 723k → 727k jump) ──
 def _accounts_api_json(webapp, path='/api/accounts/data'):
+    webapp_settings = webapp._account_settings
+    webapp._account_settings = lambda: {}   # account settings have their own tests; never read the real DB here
+    try:
+        return _accounts_api_call(webapp, path)
+    finally:
+        webapp._account_settings = webapp_settings
+
+
+def _accounts_api_call(webapp, path):
     with webapp.app.test_request_context(path):
         resp, status = webapp.accounts_data_api()[:2]
         return resp.get_json(), status

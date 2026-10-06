@@ -2100,6 +2100,38 @@ body {
 .acct-card-change-label { font-size: 0.68em; color: #888; }
 .acct-card-change-val { font-size: 0.8em; font-weight: 600; }
 .acct-card-date { font-size: 0.68em; color: #aaa; margin-top: 2px; }
+/* Owner line, info arrow and panel (AccountSettings) */
+.acct-card-owner { display: flex; align-items: center; gap: 4px; font-size: 0.72em; font-weight: 600; color: #5a6a8a; margin-top: -2px; }
+.acct-card-owner svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2.2; flex-shrink: 0; }
+.acct-card-more { display: flex; align-items: center; justify-content: center; width: 100%; height: 16px; margin-top: 4px;
+  padding: 0; border: 0; background: none; color: #b0b8cc; cursor: pointer; border-radius: 6px; }
+.acct-card-more:hover, .acct-card-more:focus-visible { color: var(--teal); background: rgba(30,157,139,.08); }
+.acct-card-more svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; transition: transform .2s; }
+.acct-card-more.open svg { transform: rotate(180deg); }
+.acct-card-extra { border-top: 1px dashed var(--border); margin-top: 4px; padding-top: 8px; display: flex; flex-direction: column; gap: 8px; cursor: default; }
+.acct-extra-info { font-size: 0.78em; color: var(--navy); white-space: pre-wrap; word-break: break-word; line-height: 1.45; }
+.acct-extra-info.muted { color: #aaa; }
+.acct-extra-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.acct-extra-btn { font: inherit; font-size: 0.72em; font-weight: 600; padding: 4px 10px; border-radius: 8px; cursor: pointer;
+  border: 1.5px solid var(--border); background: #fff; color: var(--navy); }
+.acct-extra-btn:hover:not(:disabled) { border-color: var(--teal); color: var(--teal); }
+.acct-extra-btn.primary { background: var(--teal); border-color: var(--teal); color: #fff; }
+.acct-extra-btn:disabled { opacity: .45; cursor: not-allowed; }
+.acct-extra-lbl { display: flex; flex-direction: column; gap: 3px; font-size: 0.7em; font-weight: 600; color: #5a6a8a; }
+.acct-extra-input { font: inherit; font-size: 1.1em; font-weight: 400; color: var(--navy); padding: 5px 8px;
+  border: 1.5px solid var(--border); border-radius: 8px; resize: vertical; }
+.acct-extra-input:focus { outline: none; border-color: var(--teal); }
+/* Inactive accounts: one collapsed section */
+.acct-inactive { margin: 4px 0 10px; border: 1px solid var(--border); border-radius: 12px; background: #fafbfd; }
+.acct-inactive > summary { cursor: pointer; padding: 10px 14px; font-size: 0.82em; font-weight: 700; color: #5a6a8a; }
+.acct-inactive-count { display: inline-block; min-width: 20px; padding: 0 6px; margin-right: 6px; border-radius: 10px;
+  background: #e8ebf2; color: #5a6a8a; font-size: 0.9em; text-align: center; }
+.acct-inactive-list { display: flex; flex-direction: column; padding: 0 10px 10px; gap: 6px; }
+.acct-inactive-row { display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 8px 10px; background: #fff; border: 1px solid var(--border); border-radius: 10px; }
+.acct-inactive-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.acct-inactive-main .acct-card-name { color: #8a94ab; }
+.acct-inactive-info { font-size: 0.72em; color: #8a94ab; white-space: pre-wrap; word-break: break-word; }
 .acct-cards-subtotal {
   font-size: 0.82em; font-weight: 700; color: var(--navy);
   text-align: left; direction: ltr;
@@ -7885,7 +7917,8 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       var last = pts[pts.length-1];
       var lastDate = new Date(last[0]);
       var lastVal  = last[1];
-      if (lastVal === 0) return;
+      // Accounts at 0 are kept: the user marks them inactive from their card, which then moves
+      // them to the collapsed "חשבונות לא פעילים" section (see _acctIsInactive).
       var prev = pts.length >= 2 ? pts[pts.length-2][1] : null;
       var stale = (_today - lastDate) / 86400000 > _STALE_DAYS;
       // Year-ago value
@@ -7925,11 +7958,15 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       _cashDelta = 0;
     }
 
+    // Owner / info / inactive, per account (AccountSettings, sent with the data)
+    var settings = data.account_settings || {};
+    var inactiveNames = Object.keys(rich).filter(function(n) { return _acctIsInactive(settings, n, rich[n].value); });
+
     // Build KPI cards
     var html = '<div class="acct-cards-wrap">';
 
     _GROUP_ORDER.forEach(function(grp) {
-      var grpAccts = Object.keys(rich).filter(function(n){return rich[n].group===grp;});
+      var grpAccts = Object.keys(rich).filter(function(n){return rich[n].group===grp && inactiveNames.indexOf(n) === -1;});
       if (!grpAccts.length) return;
       html += '<div class="acct-cards-section">';
       html += '<div class="acct-cards-group-label">'+_esc(grp)+'</div>';
@@ -7954,11 +7991,13 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         var ch  = _changeCell(r.value, r.prev);
         var ych = r.yearPrev != null ? _changeCell(r.value, r.yearPrev) : {txt:'—', cls:'acct-change-neu'};
         var spark = _sparkline(r.pts, 12, 56, 22);
+        var st = settings[name] || {};
         html += '<div class="'+cardCls+'"'+cardAttrs+'>';
         html +=   '<div class="acct-card-header">';
         html +=     '<span class="acct-card-name">'+_esc(name)+'</span>';
         html +=     spark;
         html +=   '</div>';
+        if (st.owner) html += '<div class="acct-card-owner" title="בעלים">'+_ACCT_OWNER_ICON+_esc(st.owner)+'</div>';
         html +=   '<div class="acct-card-value">'+valDisplay+'</div>';
         html +=   '<div class="acct-card-changes">';
         html +=     '<div class="acct-card-change-item">';
@@ -7977,6 +8016,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         }
         html +=   '</div>';
         html +=   '<div class="acct-card-date">עדכון: '+_esc(r.lastDateStr || '')+'</div>';
+        html +=   _acctExtraHtml(name, st, r.value);
         html += '</div>';
       });
       html += '</div>'; // grid
@@ -7986,6 +8026,25 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       html += '</div>';
       html += '</div>'; // section
     });
+
+    // Inactive accounts: one collapsed section, each with a way back to active
+    if (inactiveNames.length) {
+      html += '<details class="acct-inactive"' + (_acctInactiveOpen ? ' open' : '') + '>';
+      html +=   '<summary>חשבונות לא פעילים <span class="acct-inactive-count">' + inactiveNames.length + '</span></summary>';
+      html +=   '<div class="acct-inactive-list">';
+      inactiveNames.forEach(function(name) {
+        var st = settings[name] || {}, r = rich[name];
+        html += '<div class="acct-inactive-row">';
+        html +=   '<div class="acct-inactive-main"><span class="acct-card-name">' + _esc(name) + '</span>' +
+                    (st.owner ? '<span class="acct-card-owner">' + _ACCT_OWNER_ICON + _esc(st.owner) + '</span>' : '') +
+                    '<span class="acct-card-date">עדכון אחרון: ' + _esc(r.lastDateStr || '') + '</span>' +
+                    (st.info ? '<span class="acct-inactive-info">' + _esc(st.info) + '</span>' : '') + '</div>';
+        html +=   '<button type="button" class="acct-extra-btn" data-acct-act="activate" data-acct="' + _esc(name) + '">הפעל מחדש</button>';
+        html += '</div>';
+      });
+      html +=   '</div>';
+      html += '</details>';
+    }
 
     // Grand total (server Total series still has the old ILS-net Cash — shift it)
     var totalPts  = data.accounts['Total'] || [];
@@ -8001,14 +8060,107 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     if (!wrap._acctClickBound) {
       wrap._acctClickBound = true;
       wrap.addEventListener('click', function(e) {
+        var act = e.target.closest('[data-acct-act]');
+        if (act) { e.stopPropagation(); _acctAction(act.dataset.acctAct, act.dataset.acct, act); return; }
+        if (e.target.closest('.acct-card-extra, .acct-inactive')) return;   // its own controls only
         var card = e.target.closest('.acct-card-clickable');
         if (card) openAcctQuickAdd(card.dataset.name);
       });
       wrap.addEventListener('keydown', function(e) {
         if (e.key !== 'Enter' && e.key !== ' ') return;
+        if (e.target.closest('.acct-card-extra, .acct-card-more, .acct-inactive')) return;   // typing / buttons
         var card = e.target.closest('.acct-card-clickable');
         if (card) { e.preventDefault(); openAcctQuickAdd(card.dataset.name); }
       });
+      wrap.addEventListener('toggle', function(e) {
+        if (e.target.classList && e.target.classList.contains('acct-inactive')) _acctInactiveOpen = e.target.open;
+      }, true);
+    }
+  }
+
+  // ── Account owner / info / inactive (AccountSettings) ─────────────────
+  var _acctExpanded = {};        // account name → its info panel is open (kept across re-renders)
+  var _acctEditing = null;       // account whose owner/info form is open
+  var _acctInactiveOpen = false; // the inactive section is expanded
+  var _ACCT_OWNER_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg>';
+
+  /** Inactive only while the balance is 0 — money in an "inactive" account shows it as active. */
+  function _acctIsInactive(settings, name, value) {
+    return !!(settings[name] && settings[name].inactive) && Math.abs(value || 0) < 0.005;
+  }
+
+  /** The arrow under a card and, when open, its info text, edit form and "mark inactive" button. */
+  function _acctExtraHtml(name, st, value) {
+    var open = !!_acctExpanded[name], n = _esc(name);
+    var h = '<button type="button" class="acct-card-more' + (open ? ' open' : '') + '" data-acct-act="more" data-acct="' + n +
+            '" aria-expanded="' + open + '" aria-label="' + (open ? 'הסתר פרטים' : 'פרטים נוספים') + ' — ' + n + '">' +
+            '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>';
+    if (!open) return h;
+    h += '<div class="acct-card-extra">';
+    if (_acctEditing === name) {
+      h += '<label class="acct-extra-lbl">בעלים<input class="acct-extra-input" data-acct-field="owner" maxlength="60" value="' + _esc(st.owner || '') + '"></label>';
+      h += '<label class="acct-extra-lbl">מידע<textarea class="acct-extra-input" data-acct-field="info" maxlength="2000" rows="3">' + _esc(st.info || '') + '</textarea></label>';
+      h += '<div class="acct-extra-actions">' +
+             '<button type="button" class="acct-extra-btn primary" data-acct-act="save" data-acct="' + n + '">שמור</button>' +
+             '<button type="button" class="acct-extra-btn" data-acct-act="cancel" data-acct="' + n + '">ביטול</button></div>';
+    } else {
+      h += st.info ? '<div class="acct-extra-info">' + _esc(st.info) + '</div>' : '<div class="acct-extra-info muted">אין מידע נוסף</div>';
+      var zero = Math.abs(value || 0) < 0.005;
+      h += '<div class="acct-extra-actions">' +
+             '<button type="button" class="acct-extra-btn" data-acct-act="edit" data-acct="' + n + '">עריכת בעלים ומידע</button>' +
+             '<button type="button" class="acct-extra-btn" data-acct-act="deactivate" data-acct="' + n + '"' +
+               (zero ? '' : ' disabled title="אפשר להפוך חשבון ללא פעיל רק כשהיתרה שלו 0"') + '>סמן כלא פעיל</button></div>';
+    }
+    return h + '</div>';
+  }
+
+  /** POST one account's settings change; on success store it in the page data and re-render. */
+  function _acctSave(name, fields, btn) {
+    if (btn) btn.disabled = true;
+    return fetch('/api/accounts/settings', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(Object.assign({name: name}, fields))
+    }).then(function(r) { return r.json(); }).then(function(d) {
+      if (!d.ok) throw new Error(d.error || 'שמירה נכשלה');
+      var data = _accountsPageData;
+      data.account_settings = data.account_settings || {};
+      data.account_settings[name] = d.settings;
+      return data;
+    }).catch(function(err) {
+      if (btn) btn.disabled = false;
+      alert(err.message || 'שמירה נכשלה');
+      throw err;
+    });
+  }
+
+  function _acctAction(act, name, btn) {
+    var data = _accountsPageData;
+    if (!data) return;
+    if (act === 'more') {
+      _acctExpanded[name] = !_acctExpanded[name];
+      if (!_acctExpanded[name] && _acctEditing === name) _acctEditing = null;
+      _renderAccountsTable(data);
+    } else if (act === 'edit') {
+      _acctEditing = name;
+      _renderAccountsTable(data);
+      var inp = document.querySelector('.acct-card-extra [data-acct-field="owner"]');
+      if (inp) inp.focus();
+    } else if (act === 'cancel') {
+      _acctEditing = null;
+      _renderAccountsTable(data);
+    } else if (act === 'save') {
+      var box = btn.closest('.acct-card-extra');
+      var val = function(f) { var el = box.querySelector('[data-acct-field="' + f + '"]'); return el ? el.value : ''; };
+      _acctSave(name, {owner: val('owner'), info: val('info')}, btn).then(function(d) {
+        _acctEditing = null;
+        _renderAccountsTable(d);
+      }).catch(function() {});
+    } else if (act === 'deactivate' || act === 'activate') {
+      _acctSave(name, {inactive: act === 'deactivate'}, btn).then(function(d) {
+        if (act === 'deactivate') delete _acctExpanded[name];
+        _renderAccountsTable(d);
+        _renderAccountsChart(d);   // inactive accounts leave the trend chart
+      }).catch(function() {});
     }
   }
 
@@ -8053,9 +8205,12 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     var palette  = ['#1e9d8b','#7b61ff','#f0ad4e','#e74c3c','#36a2eb','#4bc0c0','#f66b85','#9966ff'];
     var datasets = [], legendDefs = [];
     var colorIdx = 0;
+    var acctSettings = data.account_settings || {};
     Object.keys(data.accounts).forEach(function(name) {
       var pts = data.accounts[name] || [];
       if (!pts.length) return;
+      var lastPt = pts.slice().sort(function(a,b){return a[0]<b[0]?-1:1;})[pts.length - 1];
+      if (_acctIsInactive(acctSettings, name, lastPt[1])) return;   // inactive accounts leave the chart
       var indexed = {};
       var shift = name === 'Total' ? totalShift : 0;
       pts.forEach(function(p) { indexed[p[0]] = p[1] == null ? null : p[1] + shift; });

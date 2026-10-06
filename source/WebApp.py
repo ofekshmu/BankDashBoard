@@ -2216,6 +2216,8 @@ def accounts_add_status():
             conn.commit()
         finally:
             conn.close()
+        if float(value) != 0:
+            _reactivate_if_inactive(name)   # money in an inactive account makes it active again
         _compute_accounts()
         return jsonify({'ok': True})
     except Exception as e:
@@ -2363,6 +2365,75 @@ def _cash_balance_map(strict=False):
     return totals
 
 
+_ACCOUNT_OWNER_MAX = 60
+_ACCOUNT_INFO_MAX = 2000
+
+
+def _account_settings():
+    """{account name: {inactive, owner, info}} for the accounts page, or {} when it can't be read
+    (the page then shows every account as active with no owner/info instead of failing)."""
+    from database import DataBase
+    try:
+        db = DataBase()
+        db.ensure_account_settings_table()
+        return db.get_account_settings()
+    except Exception as e:
+        print(f'[accounts] settings unavailable: {e}')
+        return {}
+
+
+def _reactivate_if_inactive(name):
+    """Clear the inactive flag of `name` if it is set (called when a non-zero balance is added)."""
+    from database import DataBase
+    try:
+        if _account_settings().get(name, {}).get('inactive'):
+            DataBase().update_account_settings(name, inactive=False)
+    except Exception as e:
+        print(f'[accounts] could not reactivate {name!r}: {e}')
+
+
+def _account_last_balance(accounts, name):
+    """The latest value of an account's series in the accounts payload, or None if unknown."""
+    pts = sorted((accounts or {}).get(name) or [])
+    return float(pts[-1][1] or 0) if pts else None
+
+
+@app.route('/api/accounts/settings', methods=['POST'])
+def accounts_update_settings():
+    """Set an account's owner, info and/or inactive flag.
+
+    Body: {name, owner?, info?, inactive?}. The account must exist in the accounts payload; it can
+    be made inactive only while its latest balance is 0 (reactivating is always allowed)."""
+    body = request.get_json(silent=True) or {}
+    name = (body.get('name') or '').strip() if isinstance(body.get('name'), str) else ''
+    accounts = (_accounts_cached_payload() or _compute_accounts()).get('accounts') or {}
+    if not name or name == 'Total' or name not in accounts:
+        return jsonify({'ok': False, 'error': 'unknown account'}), 400
+    fields = {}
+    for key, limit in (('owner', _ACCOUNT_OWNER_MAX), ('info', _ACCOUNT_INFO_MAX)):
+        if key in body:
+            if not isinstance(body[key], str) or len(body[key].strip()) > limit:
+                return jsonify({'ok': False, 'error': f'{key} must be text up to {limit} characters'}), 400
+            fields[key] = body[key].strip()
+    if 'inactive' in body:
+        if not isinstance(body['inactive'], bool):
+            return jsonify({'ok': False, 'error': 'inactive must be true or false'}), 400
+        if body['inactive'] and abs(_account_last_balance(accounts, name) or 0) >= 0.005:
+            return jsonify({'ok': False, 'error': 'אפשר להפוך חשבון ללא פעיל רק כשהיתרה שלו 0'}), 400
+        fields['inactive'] = body['inactive']
+    if not fields:
+        return jsonify({'ok': False, 'error': 'nothing to change'}), 400
+    from database import DataBase
+    try:
+        db = DataBase()
+        db.ensure_account_settings_table()
+        db.update_account_settings(name, **fields)
+        settings = db.get_account_settings().get(name, {'inactive': False, 'owner': '', 'info': ''})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+    return jsonify({'ok': True, 'settings': settings})
+
+
 def _accounts_cash_ils_total():
     """Cash on hand in ILS, same sum as the cash pie (landing_service.cash_ils_total), or
     None when it can't be known right now (DB error, FX rates not loaded yet). Sent with
@@ -2387,22 +2458,22 @@ def accounts_data_api():
     _no_cache = {'Cache-Control': 'no-store'}
     want_fresh = request.args.get('fresh') in ('1', 'true', 'yes')
 
+    def _live():   # computed per request: cash and account settings change without an accounts recompute
+        return {'cash_ils_total': _accounts_cash_ils_total(), 'account_settings': _account_settings()}
+
     if want_fresh:
         try:
             data = _compute_accounts()
-            return jsonify({**data, 'ok': True, 'cached': False,
-                            'cash_ils_total': _accounts_cash_ils_total()}), 200, _no_cache
+            return jsonify({**data, 'ok': True, 'cached': False, **_live()}), 200, _no_cache
         except Exception as e:
             return jsonify({'ok': False, 'error': str(e)}), 500, _no_cache
 
     cached = _accounts_cached_payload()
     if cached:
-        return jsonify({**cached, 'ok': True, 'cached': True,
-                        'cash_ils_total': _accounts_cash_ils_total()}), 200, _no_cache
+        return jsonify({**cached, 'ok': True, 'cached': True, **_live()}), 200, _no_cache
     try:
         data = _compute_accounts()
-        return jsonify({**data, 'ok': True, 'cached': False,
-                        'cash_ils_total': _accounts_cash_ils_total()}), 200, _no_cache
+        return jsonify({**data, 'ok': True, 'cached': False, **_live()}), 200, _no_cache
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 500, _no_cache
 

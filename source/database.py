@@ -202,6 +202,7 @@ class DataBase:
     __spotify_tables_ready = False
     __recurring_tables_ready = False
     __card_limits_ready = False
+    __account_settings_ready = False
     __bootstrap_lock = threading.Lock()
     __tables_bootstrapped = False
     __pool = None
@@ -3552,6 +3553,48 @@ class DataBase:
 
     def clear_card_limit(self, card_id: str) -> None:
         self.cursor.execute("DELETE FROM CardLimits WHERE CardID=%s", (card_id,))
+        self.connection.commit()
+
+    def ensure_account_settings_table(self) -> None:
+        """Create the AccountSettings table if absent: per-account choices made on the accounts
+        page (inactive flag, owner name, free-text info), keyed by the account name exactly as
+        the accounts payload shows it. An account with no row is active, with no owner or info."""
+        if DataBase.__account_settings_ready:
+            return
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS AccountSettings (
+                AccountName TEXT      PRIMARY KEY,
+                Inactive    BOOLEAN   NOT NULL DEFAULT FALSE,
+                Owner       TEXT,
+                Info        TEXT,
+                Updated_At  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        self.connection.commit()
+        DataBase.__account_settings_ready = True
+
+    def get_account_settings(self) -> dict:
+        """{account name: {'inactive': bool, 'owner': str, 'info': str}} for accounts with a row."""
+        rows = self.cursor.execute(
+            "SELECT AccountName, Inactive, Owner, Info FROM AccountSettings"
+        ).fetchall()
+        self.connection.commit()   # read-only, but don't leave the shared connection idle in a transaction
+        return {r[0]: {'inactive': bool(r[1]), 'owner': r[2] or '', 'info': r[3] or ''} for r in rows}
+
+    def update_account_settings(self, name: str, **fields) -> None:
+        """Upsert the given fields (inactive / owner / info) for one account; others keep their value."""
+        cols = {'inactive': 'Inactive', 'owner': 'Owner', 'info': 'Info'}
+        fields = {k: v for k, v in fields.items() if k in cols}
+        if not fields:
+            return
+        names = [cols[k] for k in fields]
+        values = list(fields.values())
+        sets = ', '.join(f'{c}=EXCLUDED.{c}' for c in names)
+        self.cursor.execute(
+            f"INSERT INTO AccountSettings (AccountName, {', '.join(names)}) "
+            f"VALUES (%s, {', '.join(['%s'] * len(names))}) "
+            f"ON CONFLICT (AccountName) DO UPDATE SET {sets}, Updated_At=CURRENT_TIMESTAMP",
+            [name] + values)
         self.connection.commit()
 
     def get_recurring_history(self) -> dict:

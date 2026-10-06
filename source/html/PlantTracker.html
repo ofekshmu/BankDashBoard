@@ -115,14 +115,38 @@ body {
 .page-wrap { flex: 1; display: flex; flex-direction: column; padding-bottom: 60px; }
 
 /* ── Page header ──────────────────────────────────────────── */
+/* The row lines up with the fixed menu button (top 18px, 42px tall): same height, centred on it. */
 .page-header {
   display: flex; align-items: center; gap: 10px;
-  padding: 6px 14px 6px 10px;
-  padding-right: 68px;
+  min-height: 78px; padding: 18px 18px 18px 18px;
+  padding-right: 72px;
   border-bottom: 1.5px solid var(--border);
   flex-shrink: 0; background: var(--white);
 }
-.page-title { font-size: 1em; font-weight: 700; }
+.page-title { font-size: 1.05em; font-weight: 700; }
+/* Secondary actions: plain text tabs as tall as the menu button, short light grey dividers between
+   them, and a soft rounded highlight on the one under the pointer */
+.pt-toolbar { display: flex; align-items: center; height: 42px; gap: 1px; }
+.tb-btn {
+  position: relative; height: 36px; border: 0; border-radius: 9px; background: none; padding: 0 14px;
+  font: inherit; font-size: .82em; font-weight: 500; color: var(--text-sub); cursor: pointer; white-space: nowrap;
+  transition: background .13s, color .13s;
+}
+.tb-btn + .tb-btn::before {   /* the divider: a short line, centred, between neighbours (RTL: on the right) */
+  content: ''; position: absolute; right: -1px; top: 50%; width: 1px; height: 18px; transform: translateY(-50%);
+  background: #dfe3ea; pointer-events: none;
+}
+.tb-btn:hover { background: #eef1f5; color: var(--navy); }
+.tb-btn:hover::before, .tb-btn:hover + .tb-btn::before { opacity: 0; }   /* no line touching the highlight */
+.tb-btn:focus-visible { outline: 2px solid var(--teal); outline-offset: -2px; }
+.tb-icon { font-size: 1.05em; padding: 0 12px; }
+.tb-add {
+  height: 42px; padding: 0 16px; border: 0; border-radius: 10px; background: var(--teal); color: #fff;
+  font: inherit; font-size: .82em; font-weight: 700; white-space: nowrap; cursor: pointer;
+  box-shadow: 0 2px 10px rgba(30,157,139,.25); transition: background .13s;
+}
+.tb-add:hover { background: var(--teal-dark); }
+.tb-add:focus-visible { outline: 2px solid var(--teal-dark); outline-offset: 2px; }
 .spacer { flex: 1; }
 
 /* ── Buttons ──────────────────────────────────────────────── */
@@ -208,6 +232,14 @@ input[type="date"].field-input { padding: 0 10px; appearance: none; -webkit-appe
 .pt-stat.due b { color: var(--teal); }
 .pt-stat.overdue b { color: var(--red); }
 .pt-stat.auto b { color: #2f8fd8; }
+/* "להשקות היום" doubles as the needs-watering filter: clickable, glowing while plants wait */
+button.pt-stat { border: 1.5px solid transparent; font: inherit; font-size: .85em; cursor: pointer; transition: border-color .15s, background .15s; }
+button.pt-stat:hover { border-color: var(--teal); }
+button.pt-stat:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+.pt-stat.due.glow { border-color: rgba(30,157,139,.55); animation: pt-glow 1.8s ease-in-out infinite; }
+.pt-stat.due.on { background: var(--teal-light); border-color: var(--teal); color: var(--teal); font-weight: 700; }
+@keyframes pt-glow { 0%, 100% { box-shadow: 0 0 0 0 rgba(30,157,139,.0); } 50% { box-shadow: 0 0 0 5px rgba(30,157,139,.22), 0 0 14px rgba(30,157,139,.35); } }
+@media (prefers-reduced-motion: reduce) { .pt-stat.due.glow { animation: none; box-shadow: 0 0 0 3px rgba(30,157,139,.25); } }
 .pt-legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: .74em; color: var(--text-muted); margin-top: 10px; }
 .pt-legend span { display: inline-flex; align-items: center; gap: 4px; }
 .pt-swatch { width: 12px; height: 6px; border-radius: 3px; display: inline-block; }
@@ -275,7 +307,12 @@ input[type="date"].field-input { padding: 0 10px; appearance: none; -webkit-appe
 .pt-toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--navy); color: #fff; padding: 10px 18px; border-radius: 10px; font-size: .85em; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 2000; max-width: calc(100vw - 32px); }
 .pt-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 .pt-toast.err { background: var(--red); }
-.pt-toast.ok { background: var(--teal-dark); }
+.pt-toast.ok { background: var(--teal-dark); font-weight: 600; box-shadow: 0 6px 20px rgba(23,122,108,.35); }
+.pt-toast.pending { background: var(--navy); opacity: .92; }
+.pt-toast.pending::before { content: ''; display: inline-block; width: 10px; height: 10px; margin-left: 8px; vertical-align: -1px;
+  border: 2px solid rgba(255,255,255,.35); border-top-color: #fff; border-radius: 50%; animation: pt-spin .8s linear infinite; }
+@keyframes pt-spin { to { transform: rotate(360deg); } }
+.btn.done { background: var(--teal-dark); border-color: var(--teal-dark); color: #fff; }
 .btn.dirty { background: var(--amber); border-color: var(--amber); color: var(--navy); box-shadow: 0 0 0 3px rgba(240,180,41,.25); }
 .pt-unsaved { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; background: #fff8e6; border: 1.5px solid var(--amber); border-radius: 10px; padding: 10px 12px; margin: 22px 0 14px; font-size: .85em; font-weight: 600; color: #7a5600; }
 .pt-unsaved span { flex: 1 0 100%; }
@@ -332,8 +369,14 @@ input[type="date"].field-input { padding: 0 10px; appearance: none; -webkit-appe
 @media (max-width: 720px) {
   .pt-main { padding: 14px 16px 40px; }
   .pt-rows { grid-template-columns: minmax(0, 1fr); }
-  .page-header { flex-wrap: wrap; row-gap: 6px; }
-  .page-header .btn { white-space: nowrap; }
+  .page-header { flex-wrap: wrap; row-gap: 10px; padding: 18px 16px 12px; }
+  .page-title { margin-right: 56px; line-height: 42px; }          /* only the title row clears the menu button */
+  .page-header .spacer { flex-basis: 100%; height: 0; }            /* toolbar moves under the title, full width */
+  .tb-add { order: 1; margin-right: auto; }                         /* beside the title, at the far edge */
+  .page-header .spacer { order: 2; }
+  .pt-toolbar { order: 3; flex: 1 1 auto; overflow-x: auto; scrollbar-width: none; justify-content: space-between; }
+  .pt-toolbar::-webkit-scrollbar { display: none; }
+  .tb-btn { flex: 1 0 auto; padding: 0 11px; }
   .pt-pcard { padding: 12px; }
   .pt-types { grid-template-columns: repeat(4, 1fr); }
 }
@@ -373,12 +416,14 @@ input[type="date"].field-input { padding: 0 10px; appearance: none; -webkit-appe
     </button>
     <span class="page-title">מעקב עציצים</span>
     <span class="spacer"></span>
-    <button class="btn btn-ghost btn-sm" onclick="refresh()" title="רענון מהשרת">↻</button>
-    <button class="btn btn-ghost btn-sm" onclick="openConfigs()">תוכניות השקיה</button>
-    <button class="btn btn-ghost btn-sm" onclick="openRooms()">חדרים</button>
-    <button class="btn btn-ghost btn-sm" onclick="openArchive()">ארכיון</button>
-    <button class="btn btn-ghost btn-sm" onclick="openDeleted()">נמחקו</button>
-    <button class="btn btn-primary btn-sm" onclick="openPlantModal(null)">+ עציץ חדש</button>
+    <div class="pt-toolbar" role="toolbar" aria-label="פעולות">
+      <button class="tb-btn tb-icon" onclick="refresh()" title="רענון מהשרת" aria-label="רענון מהשרת">↻</button>
+      <button class="tb-btn" onclick="openConfigs()">תוכניות השקיה</button>
+      <button class="tb-btn" onclick="openRooms()">חדרים</button>
+      <button class="tb-btn" onclick="openArchive()">ארכיון</button>
+      <button class="tb-btn" onclick="openDeleted()">נמחקו</button>
+    </div>
+    <button class="tb-add" onclick="openPlantModal(null)">+ עציץ חדש</button>
   </div>
 
   <main class="pt-main">
@@ -586,12 +631,14 @@ function esc(s){
   });
 }
 function fmtDay(s){ var d = parseDay(s); return 'יום ' + WEEKDAYS[d.getDay()] + "' " + d.getDate() + '/' + (d.getMonth() + 1); }
-function toast(msg, isErr){
+/** Bottom message. kind: 'ok' (default) | 'err' | 'pending' — a pending message stays until the next one. */
+function toast(msg, kind){
+  kind = kind === true ? 'err' : (kind || 'ok');
   var t = document.getElementById('pt-toast');
   t.textContent = msg;
-  t.className = 'pt-toast show ' + (isErr ? 'err' : 'ok');
+  t.className = 'pt-toast show ' + kind;
   clearTimeout(toast._t);
-  toast._t = setTimeout(function(){ t.className = 'pt-toast'; }, 2600);
+  if (kind !== 'pending') toast._t = setTimeout(function(){ t.className = 'pt-toast'; }, kind === 'ok' ? 3200 : 4200);
 }
 // Esc: every open popup closes, but an edit popup with unsaved changes asks first.
 function closeAllModals(){ document.querySelectorAll('.modal-backdrop.open').forEach(function(m){ requestLeave(m.id); }); }
@@ -664,9 +711,10 @@ function api(method, url, body){
 }
 
 // ── Optimistic writes ──────────────────────────────────────────
-// The page changes the moment you click; the request follows in the background, one at a time
-// in click order. When the last queued request answers, the server's full payload replaces the
-// local guess (bringing summary and suggestions up to date) and a small "✓" message appears.
+// The page changes the moment you click and a "… · שומר" message shows right away; the request
+// follows in the background, one at a time in click order (the server can take a few seconds).
+// When the last queued request answers, the server's full payload replaces the local guess
+// (bringing summary and suggestions up to date) and a "✓ … · נשמר" message confirms it.
 // A failure shows "✗ …" and reloads the real state, so nothing unsaved stays on screen.
 var writeQueue = Promise.resolve(), pendingWrites = 0, tempSeq = -1;
 function mutate(method, url, body, optimistic, okMsg){
@@ -675,13 +723,14 @@ function mutate(method, url, body, optimistic, okMsg){
     recountSummary(state);
     render();
   }
+  toast((okMsg || 'השינוי') + ' · שומר…', 'pending');
   pendingWrites++;
   var req = writeQueue.then(function(){ return send(method, url, body); });
   writeQueue = req.then(function(){}, function(){});
   return req.then(function(d){
     pendingWrites--;
     if (!pendingWrites) adopt(d);
-    toast('✓ ' + (okMsg || 'נשמר'));
+    toast('✓ ' + (okMsg ? okMsg + ' · נשמר' : 'נשמר'));
     return d;
   }, function(e){
     pendingWrites--;
@@ -816,8 +865,11 @@ function render(){
 
 function renderSummary(){
   var s = state.summary, due = s.due_today + s.overdue;
+  // the "להשקות היום" card is the needs-watering filter (due + overdue); it glows while plants wait
   document.getElementById('pt-summary').innerHTML =
-    '<div class="pt-stat due"><b>' + s.due_today + '</b> להשקות היום</div>' +
+    '<button type="button" class="pt-stat due' + (s.due_today > 0 ? ' glow' : '') + (needsWaterOnly ? ' on' : '') + '"' +
+      ' onclick="setNeedsWater(!needsWaterOnly)" aria-pressed="' + needsWaterOnly + '"' +
+      ' title="' + (needsWaterOnly ? 'הצג את כל העציצים' : 'הצג רק עציצים שצריך להשקות') + '"><b>' + s.due_today + '</b> להשקות היום</button>' +
     '<div class="pt-stat overdue"><b>' + s.overdue + '</b> באיחור</div>' +
     '<div class="pt-stat auto"><b>' + s.auto_today + '</b> הושקו אוטומטית היום</div>' +
     '<span class="spacer"></span>' +
@@ -908,13 +960,15 @@ function renderRows(){
     return;
   }
   var days = state.window.slice().reverse();  // today first = RTL leading edge
-  var groups = roomGroups(state.plants.filter(matchesSearch))
+  var groups = roomGroups(state.plants.filter(function(p){ return matchesSearch(p) && (!needsWaterOnly || needsWater(p)); }))
     .filter(function(g){ return roomFilter === 'all' || g.key === roomFilter; });
   var shown = groups.reduce(function(n, g){ return n + g.plants.length; }, 0);
   renderResultCount(shown);
   if (!shown) {
-    el.innerHTML = '<div class="pt-empty">לא נמצאו עציצים' + (searchText ? ' התואמים ל"' + esc(searchText) + '"' : ' בחדר זה') +
-      (searchText ? ' — <button class="btn btn-ghost btn-xs" onclick="setSearch(\'\')">ניקוי חיפוש</button>' : '') + '</div>';
+    el.innerHTML = needsWaterOnly && !searchText
+      ? '<div class="pt-empty">אין עציצים שצריך להשקות כרגע 🎉 — <button class="btn btn-ghost btn-xs" onclick="setNeedsWater(false)">הצג הכל</button></div>'
+      : '<div class="pt-empty">לא נמצאו עציצים' + (searchText ? ' התואמים ל"' + esc(searchText) + '"' : ' בחדר זה') +
+        (searchText ? ' — <button class="btn btn-ghost btn-xs" onclick="setSearch(\'\')">ניקוי חיפוש</button>' : '') + '</div>';
     return;
   }
   if (!grouped) {
@@ -934,6 +988,16 @@ var SORTS = ['status', 'last_water', 'name', 'type'];
 var STATUS_RANK = {overdue: 0, due: 1, ok: 2, auto: 3};
 var sortBy = prefGet(SORT_KEY, 'status'), grouped = prefGet(GROUP_KEY, '1') !== '0', searchText = '';
 if (SORTS.indexOf(sortBy) < 0) sortBy = 'status';
+var NEEDS_WATER_KEY = 'plants_needs_water';
+var needsWaterOnly = prefGet(NEEDS_WATER_KEY, '0') === '1';
+/** Plants waiting for a manual watering: due today or overdue (automatic plants never are). */
+function needsWater(p){ return p.status === 'due' || p.status === 'overdue'; }
+function setNeedsWater(on){
+  needsWaterOnly = !!on;
+  prefSet(NEEDS_WATER_KEY, needsWaterOnly ? '1' : '0');
+  renderSummary();
+  renderRows();
+}
 
 /** Hebrew label of a plant type key (falls back to the key). */
 function typeLabel(type){
@@ -1093,7 +1157,7 @@ function renderDay(){
     '<div class="field-row"><span class="field-label">מצב אדמה</span><div class="pt-seg">' + soil + '</div></div>' +
     '<div class="field-row"><label class="field-label" for="day-at">מועד (ברירת מחדל: עכשיו)</label><div class="pt-inline">' +
       '<input type="datetime-local" class="field-input" id="day-at" value="' + defAt + '" max="' + now + '">' +
-      '<button class="btn btn-primary" onclick="addWater()">💧 סמן השקה</button></div></div>' +
+      '<button class="btn btn-primary" id="day-water-btn" onclick="addWater()">💧 סמן השקה</button></div></div>' +
     '<div class="field-row"><span class="field-label">אירוע נוסף באותו מועד</span><div class="pt-inline">' +
       '<select class="field-input" id="day-ev-type">' + types + '</select>' +
       '<input class="field-input" id="day-ev-note" placeholder="הערה (לא חובה)" maxlength="200">' +
@@ -1101,6 +1165,18 @@ function renderDay(){
     '<div class="field-row"><span class="field-label">אירועים ביום זה</span><div class="pt-evlist">' + list + '</div></div>';
 }
 function eventAt(){ return document.getElementById('day-at').value; }
+/** Instant click feedback: the button turns green with `text` for a moment (the save goes on in the background). */
+function flashDone(id, text){
+  var b = document.getElementById(id);
+  if (!b) return;
+  var orig = b.innerHTML;
+  b.classList.add('done');
+  b.innerHTML = text;
+  setTimeout(function(){
+    var now = document.getElementById(id);   // a re-render may have replaced it — then it is already fresh
+    if (now === b) { b.classList.remove('done'); b.innerHTML = orig; }
+  }, 1500);
+}
 function setSoil(k){
   var pid = dayCtx.pid, day = dayCtx.day;
   mutate('PUT', '/api/plants/' + pid + '/soil', {day: day, soil_status: k}, function(st){
@@ -1115,6 +1191,7 @@ function addWater(){
     markWatered(st, pid, at.slice(0, 10));
     dropSuggestions(st, pid, ['overdue']);
   }, 'סומנה השקה');
+  flashDone('day-water-btn', '💧 סומנה ✓');
 }
 function addOtherEvent(){
   var pid = dayCtx.pid, at = eventAt(), type = document.getElementById('day-ev-type').value,

@@ -2,6 +2,7 @@ from datetime import date
 
 from src_utils.plant_logic import (
     materialize_rows, plant_status, season_key, timeline_window, build_summary, is_expected_on,
+    soil_checked_status,
 )
 
 
@@ -57,6 +58,23 @@ def test_plant_status():
     assert plant_status(p, date(2026, 10, 10), date(2026, 10, 13)) == (3, 'due')
     assert plant_status(p, date(2026, 10, 10), date(2026, 10, 15)) == (5, 'overdue')
     assert plant_status(p, None, date(2026, 10, 4)) == (3, 'due')  # never watered → counts from creation
+
+
+def test_soil_checked_moist_or_wet_today_means_no_watering_needed_today():
+    wet = {'day': date(2026, 10, 14), 'soil_status': 'wet', 'watered': False}
+    assert soil_checked_status('due', wet) == 'checked'
+    assert soil_checked_status('overdue', dict(wet, soil_status='humid')) == 'checked'
+    assert soil_checked_status('due', dict(wet, soil_status='dry')) == 'due'       # dry → still needs water
+    assert soil_checked_status('due', dict(wet, soil_status=None)) == 'due'
+    assert soil_checked_status('due', None) == 'due'                                # no row for today
+    assert soil_checked_status('ok', wet) == 'ok' and soil_checked_status('auto', wet) == 'auto'
+    assert soil_checked_status('due', dict(wet, watered=True)) == 'due'             # a watering decides, not the soil
+
+
+def test_build_summary_does_not_count_checked_plants():
+    plants = [{'id': 1, 'status': 'checked', 'irrigation_mode': 'manual'},
+              {'id': 2, 'status': 'due', 'irrigation_mode': 'manual'}]
+    assert build_summary(plants, {}, date(2026, 10, 3)) == {'due_today': 1, 'overdue': 0, 'auto_today': 0}
 
 
 def test_season_key():

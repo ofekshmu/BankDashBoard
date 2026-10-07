@@ -15,6 +15,7 @@ from datetime import date, datetime, time, timedelta
 from src_utils.plant_logic import (
     PLANT_TYPES, IRRIGATION_MODES, SOIL_STATUSES, EVENT_TYPES, TIMELINE_DAYS,
     materialize_rows, plant_status, season_key, timeline_window, build_summary, is_expected_on,
+    soil_checked_status,
 )
 from src_utils.plant_suggestions import build_suggestions
 
@@ -581,17 +582,25 @@ def dismiss_season(store, pid, today):
 def water_due(store, body, today):
     at = _parse_event_at(body.get('event_at'), today)
     plants = store.list_plants()
-    lasts = store.last_event_dates([p['id'] for p in plants], today)
+    ids = [p['id'] for p in plants]
+    lasts = store.last_event_dates(ids, today)
+    today_rows = _today_rows(store, ids, today)
     count = 0
     for p in plants:
         if p['irrigation_mode'] == 'auto':
             continue  # watered by its own system (record_auto_waterings)
         _, status = plant_status(p, lasts.get(p['id'], {}).get('water'), today)
+        status = soil_checked_status(status, today_rows.get(p['id']))   # checked moist/wet today: skip
         if status in ('due', 'overdue'):
             store.add_event(p['id'], 'water', at, 'manual', None)
             _refresh_watered(store, p['id'], at.date())
             count += 1
     return count
+
+
+def _today_rows(store, ids, today):
+    """{plant id: today's PlantDays row} for the plants that have one."""
+    return {pid: r for pid, rows in store.get_days(ids, today, today).items() for r in rows if r['day'] == today}
 
 
 # ── Daily materialization + payload ────────────────────────────────────────
@@ -655,6 +664,8 @@ def build_payload(store, today):
         since, status = plant_status(p, le.get('water'), today)
         if p['irrigation_mode'] == 'auto':
             status = 'auto'  # no due/overdue for plants watered by their own system
+        today_row = next((r for r in days.get(p['id'], []) if r['day'] == today), None)
+        status = soil_checked_status(status, today_row)   # checked moist/wet today → not "should water"
         cfg = _plant_config(p, configs_by_id)
         out.append(_plant_json(p, le.get('water'), since, status, active_rooms, cfg, photos.get(p['id'])))
         sugg_plant = dict(p, config_name=cfg['name']) if cfg else p

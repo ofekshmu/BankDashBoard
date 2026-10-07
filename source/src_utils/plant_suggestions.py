@@ -1,7 +1,7 @@
 """Rule-based care suggestions for the plant tracker — pure functions."""
 from datetime import timedelta
 
-from src_utils.plant_logic import plant_status, season_key
+from src_utils.plant_logic import plant_status, season_key, soil_checked_status
 
 _DAY = timedelta(days=1)
 _MIN_INTERVAL, _MAX_INTERVAL = 1, 60
@@ -34,8 +34,10 @@ def build_suggestions(plant, rows, last_events, today):
     def _after_change(d):
         return since_change is None or d > since_change
 
-    # 1. Overdue — manual plants only (an auto plant is watered by its system)
+    # 1. Overdue — manual plants only (an auto plant is watered by its system), and not when the
+    #    soil was checked today and found moist/wet (the user decided it needs no water today)
     since, status = plant_status(plant, last_events.get('water'), today)
+    status = soil_checked_status(status, by_day.get(today))
     if plant['irrigation_mode'] == 'manual' and status == 'overdue':
         out.append(_sugg(plant, 'overdue', 'alert',
                          f'{name}: באיחור השקיה של {since - interval} ימים', {'type': 'water_now'}))

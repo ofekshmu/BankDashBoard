@@ -45,10 +45,16 @@ def test_quiet_plant_has_no_suggestions():
 
 
 def test_overdue():
-    s = build_suggestions(_plant(), _rows(SOIL_TODAY), {'water': T - timedelta(days=5)}, T)
+    s = build_suggestions(_plant(), _rows({0: {'soil_status': 'dry'}}), {'water': T - timedelta(days=5)}, T)
     o = _get(s, 'overdue')
     assert o['level'] == 'alert' and '2' in o['text'] and o['action'] == {'type': 'water_now'}
     assert o['plant_id'] == 1
+
+
+def test_overdue_not_suggested_when_soil_checked_moist_or_wet_today():
+    for soil in ('humid', 'wet'):
+        s = build_suggestions(_plant(), _rows({0: {'soil_status': soil}}), {'water': T - timedelta(days=5)}, T)
+        assert 'overdue' not in _kinds(s)
 
 
 def test_dries_fast_suggests_shorter_interval():

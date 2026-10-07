@@ -226,9 +226,14 @@ input[type="date"].field-input { padding: 0 10px; appearance: none; -webkit-appe
 /* ── Plant tracker ─────────────────────────────────────────── */
 .pt-main { width: 100%; max-width: 1100px; margin: 0 auto; padding: 18px 16px 40px; display: flex; flex-direction: column; gap: 16px; }
 .pt-card { background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow-sm); padding: 16px 18px; }
-.pt-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
-.pt-stat { display: flex; align-items: baseline; gap: 6px; padding: 8px 14px; border-radius: 10px; background: var(--bg); font-size: .85em; color: var(--text-sub); }
-.pt-stat b { font-size: 1.35em; color: var(--navy); }
+/* Summary: three equal tiles across the full width, the water-all button as a full-width row below */
+.pt-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.pt-stat { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-width: 0;
+  min-height: 80px; padding: 12px 8px; border: 1.5px solid transparent; border-radius: 12px; background: var(--bg);
+  font-size: .85em; color: var(--text-sub); text-align: center; line-height: 1.25; }
+.pt-stat b { font-size: 2em; font-weight: 800; line-height: 1.05; color: var(--navy); font-variant-numeric: tabular-nums; }
+.pt-water-all { grid-column: 1 / -1; justify-content: center; width: 100%; padding: 10px 14px; font-size: .86em; border-radius: 10px; }
+.pt-water-all:disabled { opacity: .45; cursor: default; transform: none; }
 .pt-stat.due b { color: var(--teal); }
 .pt-stat.overdue b { color: var(--red); }
 .pt-stat.auto b { color: #2f8fd8; }
@@ -240,7 +245,9 @@ button.pt-stat:focus-visible { outline: 2px solid var(--teal); outline-offset: 2
 .pt-stat.due.on { background: var(--teal-light); border-color: var(--teal); color: var(--teal); font-weight: 700; }
 @keyframes pt-glow { 0%, 100% { box-shadow: 0 0 0 0 rgba(30,157,139,.0); } 50% { box-shadow: 0 0 0 5px rgba(30,157,139,.22), 0 0 14px rgba(30,157,139,.35); } }
 @media (prefers-reduced-motion: reduce) { .pt-stat.due.glow { animation: none; box-shadow: 0 0 0 3px rgba(30,157,139,.25); } }
-.pt-legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: .74em; color: var(--text-muted); margin-top: 10px; }
+.pt-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 14px; font-size: .74em; color: var(--text-muted);
+  margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); }
+.pt-legend[hidden] { display: none; }
 .pt-legend span { display: inline-flex; align-items: center; gap: 4px; }
 .pt-swatch { width: 12px; height: 6px; border-radius: 3px; display: inline-block; }
 .pt-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
@@ -263,12 +270,23 @@ button.pt-stat:focus-visible { outline: 2px solid var(--teal); outline-offset: 2
 .pt-pill.due { background: #fff8e6; color: #9a6b00; }
 .pt-pill.overdue { background: #fdeeee; color: #c0392b; }
 .pt-pill.auto { background: #e8f0fb; color: #2f6fb0; }
-.pt-cells { display: grid; grid-template-columns: repeat(14, minmax(0, 1fr)); gap: 3px; }
-.pt-cell { min-width: 0; height: 58px; border-radius: 8px; border: 1px solid transparent; background: var(--bg); display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 0 0; cursor: pointer; font-family: inherit; overflow: hidden; color: var(--navy); }
+.pt-pill.checked { background: #eef1f6; color: #4d5b78; }   /* soil checked moist/wet today — no watering needed */
+/* 7 days in view, the rest a scroll away (wheel on desktop, swipe on phones); snaps to whole days */
+.pt-cells { --gap: 4px; display: grid; grid-auto-flow: column; grid-auto-columns: calc((100% - 6 * var(--gap)) / 7);
+  gap: var(--gap); overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; overscroll-behavior-x: contain;
+  scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.pt-cells::-webkit-scrollbar { display: none; }
+/* soft fade on an edge that has more days behind it (RTL: today on the right, older days to the left) */
+/* gradients start at the edge they fade: "to right" starts at the left (older days), "to left" at the right (today) */
+.pt-cells.more-older { -webkit-mask-image: linear-gradient(to right, transparent 0, #000 26px); mask-image: linear-gradient(to right, transparent 0, #000 26px); }
+.pt-cells.more-newer { -webkit-mask-image: linear-gradient(to left, transparent 0, #000 26px); mask-image: linear-gradient(to left, transparent 0, #000 26px); }
+.pt-cells.more-older.more-newer { -webkit-mask-image: linear-gradient(to right, transparent 0, #000 26px, #000 calc(100% - 26px), transparent 100%); mask-image: linear-gradient(to right, transparent 0, #000 26px, #000 calc(100% - 26px), transparent 100%); }
+.pt-cell { scroll-snap-align: start; }
+.pt-cell { min-width: 0; height: 62px; border-radius: 8px; border: 1px solid transparent; background: var(--bg); display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 0 0; cursor: pointer; font-family: inherit; overflow: hidden; color: var(--navy); }
 .pt-cell:hover { border-color: var(--teal); }
 .pt-cell.today { background: var(--teal-light); border-color: var(--teal); }
 .pt-cell.blank { cursor: default; opacity: .4; }
-.pt-cell-date { font-size: .62em; color: var(--text-muted); line-height: 1.15; text-align: center; }
+.pt-cell-date { font-size: .68em; color: var(--text-muted); line-height: 1.15; text-align: center; }
 .pt-cell-date b { display: block; font-weight: 600; color: var(--text-sub); }
 .pt-marks { display: flex; gap: 2px; height: 4px; }
 .pt-mark { width: 4px; height: 4px; border-radius: 50%; }
@@ -376,7 +394,9 @@ button.pt-stat:focus-visible { outline: 2px solid var(--teal); outline-offset: 2
   .page-header .spacer { order: 2; }
   .pt-toolbar { order: 3; flex: 1 1 auto; overflow-x: auto; scrollbar-width: none; justify-content: space-between; }
   .pt-toolbar::-webkit-scrollbar { display: none; }
-  .tb-btn { flex: 1 0 auto; padding: 0 11px; }
+  .tb-btn { flex: 1 0 auto; padding: 0 7px; font-size: .78em; }
+  .pt-stat { min-height: 72px; padding: 10px 4px; font-size: .8em; }
+  .pt-stat b { font-size: 1.8em; }
   .pt-pcard { padding: 12px; }
   .pt-types { grid-template-columns: repeat(4, 1fr); }
 }
@@ -429,7 +449,7 @@ button.pt-stat:focus-visible { outline: 2px solid var(--teal); outline-offset: 2
   <main class="pt-main">
     <section class="pt-card">
       <div class="pt-summary" id="pt-summary"></div>
-      <div class="pt-legend">
+      <div class="pt-legend" id="pt-legend">
         <span><svg class="pt-drop watered" viewBox="0 0 16 18"><path d="M8 1.5C8 1.5 2.5 8 2.5 11.5a5.5 5.5 0 0 0 11 0C13.5 8 8 1.5 8 1.5z" stroke-width="1.6"/></svg>הושקה</span>
         <span><i class="pt-swatch" style="background:#d8b47a"></i>יבשה</span>
         <span><i class="pt-swatch" style="background:#8fd3c7"></i>לחה</span>
@@ -452,7 +472,8 @@ button.pt-stat:focus-visible { outline: 2px solid var(--teal); outline-offset: 2
         <label class="pt-sort">מיון
           <select id="pt-sort" onchange="setSort(this.value)">
             <option value="status">לפי דחיפות</option>
-            <option value="last_water">השקיה אחרונה</option>
+            <option value="water_asc">השקיה אחרונה · ישנה קודם</option>
+            <option value="water_desc">השקיה אחרונה · חדשה קודם</option>
             <option value="name">שם</option>
             <option value="type">סוג</option>
           </select>
@@ -755,7 +776,16 @@ function rowOf(st, pid, day){
 function daysBetween(a, b){ return Math.round((parseDay(b) - parseDay(a)) / 864e5); }
 function localStatus(p){
   if (p.irrigation_mode === 'auto') return 'auto';
-  return p.days_since_water > p.interval_days ? 'overdue' : p.days_since_water === p.interval_days ? 'due' : 'ok';
+  var s = p.days_since_water > p.interval_days ? 'overdue' : p.days_since_water === p.interval_days ? 'due' : 'ok';
+  return soilChecked(s, p.id);
+}
+// Mirrors plant_logic.soil_checked_status: soil checked today and found moist/wet, no watering →
+// 'checked' (the user decided it needs no water today), so it stops counting as "should water".
+var CHECKED_SOILS = ['humid', 'wet'];
+function soilChecked(status, pid){
+  if (status !== 'due' && status !== 'overdue') return status;
+  var r = dayRow(pid, state.today);
+  return r && CHECKED_SOILS.indexOf(r.soil_status) >= 0 && !r.watered ? 'checked' : status;
 }
 function addEventLocal(st, pid, type, at, source, note){
   (st.events[String(pid)] || (st.events[String(pid)] = []))
@@ -869,11 +899,10 @@ function renderSummary(){
   document.getElementById('pt-summary').innerHTML =
     '<button type="button" class="pt-stat due' + (s.due_today > 0 ? ' glow' : '') + (needsWaterOnly ? ' on' : '') + '"' +
       ' onclick="setNeedsWater(!needsWaterOnly)" aria-pressed="' + needsWaterOnly + '"' +
-      ' title="' + (needsWaterOnly ? 'הצג את כל העציצים' : 'הצג רק עציצים שצריך להשקות') + '"><b>' + s.due_today + '</b> להשקות היום</button>' +
-    '<div class="pt-stat overdue"><b>' + s.overdue + '</b> באיחור</div>' +
-    '<div class="pt-stat auto"><b>' + s.auto_today + '</b> הושקו אוטומטית היום</div>' +
-    '<span class="spacer"></span>' +
-    '<button class="btn btn-primary btn-sm" onclick="waterAllDue()"' + (due ? '' : ' disabled') + '>💧 השקה לכל הממתינים (' + due + ')</button>';
+      ' title="' + (needsWaterOnly ? 'הצג את כל העציצים' : 'הצג רק עציצים שצריך להשקות') + '"><b>' + s.due_today + '</b><span>להשקות היום</span></button>' +
+    '<div class="pt-stat overdue"><b>' + s.overdue + '</b><span>באיחור</span></div>' +
+    '<div class="pt-stat auto"><b>' + s.auto_today + '</b><span>הושקו אוטומטית היום</span></div>' +
+    '<button class="btn btn-primary pt-water-all" onclick="waterAllDue()"' + (due ? '' : ' disabled') + '>💧 השקה לכל הממתינים (' + due + ')</button>';
 }
 function waterAllDue(){
   var n = state.summary.due_today + state.summary.overdue;
@@ -904,6 +933,7 @@ function renderSuggestions(){
   fab.setAttribute('aria-pressed', suggOpen ? 'true' : 'false');
   fab.setAttribute('aria-label', label);
   fab.title = label;
+  document.getElementById('pt-legend').hidden = !suggOpen;   // the legend comes and goes with the tips
 }
 function plantTipsHtml(pid){
   if (!suggOpen) return '';
@@ -980,14 +1010,68 @@ function renderRows(){
       '<div class="pt-room-head"><span>' + esc(g.name) + '</span><span class="pt-room-count">' + g.plants.length + '</span></div>';
     return head + g.plants.slice().sort(comparePlants).map(function(p){ return plantRowHtml(p, days); }).join('');
   }).join('');
+  restoreDayStrips(el);
 }
+
+// ── Day strips: 7 days in view, scrolled by wheel (desktop) or swipe (phones) ──
+var stripScroll = {};   // plant id → how far its strip is scrolled back (px), kept across re-renders
+/** How far a strip is scrolled away from today (RTL scrollLeft is 0 or negative depending on the browser). */
+function stripOffset(s){ return Math.abs(s.scrollLeft); }
+/** Fade the edges that have more days behind them. */
+function updateStripFades(s){
+  var off = stripOffset(s), max = s.scrollWidth - s.clientWidth;
+  s.classList.toggle('more-newer', off > 3);
+  s.classList.toggle('more-older', off < max - 3);
+}
+function restoreDayStrips(root){
+  root.querySelectorAll('.pt-cells').forEach(function(s){
+    var off = stripScroll[s.getAttribute('data-pid')];
+    if (off) s.scrollLeft = -off;   // RTL: older days are to the left (negative scrollLeft)
+    updateStripFades(s);
+  });
+}
+(function wireDayStrips(){
+  var rows = document.getElementById('pt-rows'), acc = 0;
+  // scroll events don't bubble — listen in the capture phase for every strip
+  rows.addEventListener('scroll', function(e){
+    var s = e.target;
+    if (!s.classList || !s.classList.contains('pt-cells')) return;
+    stripScroll[s.getAttribute('data-pid')] = stripOffset(s);
+    updateStripFades(s);
+  }, true);
+  // a vertical mouse wheel over a strip moves it one day per notch; at either end the page scrolls as usual
+  rows.addEventListener('wheel', function(e){
+    var s = e.target.closest && e.target.closest('.pt-cells');
+    if (!s || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;   // horizontal trackpad swipes scroll natively
+    var older = e.deltaY > 0, off = stripOffset(s), max = s.scrollWidth - s.clientWidth;
+    if ((older && off >= max - 3) || (!older && off <= 3)) return;   // snapping can stop a pixel or two short
+    e.preventDefault();
+    acc += e.deltaY;
+    if (Math.abs(acc) < 40) return;   // trackpads send many tiny deltas; mice ~100 per notch
+    acc = 0;
+    var day = s.firstElementChild ? s.firstElementChild.getBoundingClientRect().width + 4 : s.clientWidth / 7;
+    s.scrollBy({left: older ? -day : day, behavior: 'smooth'});   // RTL: older = leftwards
+  }, {passive: false});
+  window.addEventListener('resize', function(){ document.querySelectorAll('.pt-cells').forEach(updateStripFades); });
+})();
 
 // ── Search & sort ──────────────────────────────────────────────
 var SORT_KEY = 'plants_sort', GROUP_KEY = 'plants_grouped';
-var SORTS = ['status', 'last_water', 'name', 'type'];
-var STATUS_RANK = {overdue: 0, due: 1, ok: 2, auto: 3};
+var SORTS = ['status', 'water_asc', 'water_desc', 'name', 'type'];
+var STATUS_RANK = {overdue: 0, due: 1, checked: 2, ok: 3, auto: 4};
 var sortBy = prefGet(SORT_KEY, 'status'), grouped = prefGet(GROUP_KEY, '1') !== '0', searchText = '';
+if (sortBy === 'last_water') sortBy = 'water_asc';   // the single "last watering" sort before it had two directions
 if (SORTS.indexOf(sortBy) < 0) sortBy = 'status';
+/** When the plant was last watered, as a sortable 'YYYY-MM-DDTHH:MM' ('' = never): the last_water
+ *  day, with the time of that day's latest watering event when it is in the loaded window. */
+function lastWaterKey(p){
+  if (!p.last_water) return '';
+  var t = '00:00';
+  (state.events[String(p.id)] || []).forEach(function(e){
+    if (e.event_type === 'water' && e.event_at.slice(0, 10) === p.last_water && e.event_at.slice(11, 16) > t) t = e.event_at.slice(11, 16);
+  });
+  return p.last_water + 'T' + t;
+}
 var NEEDS_WATER_KEY = 'plants_needs_water';
 var needsWaterOnly = prefGet(NEEDS_WATER_KEY, '0') === '1';
 /** Plants waiting for a manual watering: due today or overdue (automatic plants never are). */
@@ -1022,9 +1106,11 @@ function comparePlants(a, b){
   if (sortBy === 'status') {
     d = (STATUS_RANK[a.status] != null ? STATUS_RANK[a.status] : 9) - (STATUS_RANK[b.status] != null ? STATUS_RANK[b.status] : 9);
     if (!d && a.status !== 'auto') d = urgency(b) - urgency(a) || 0;
-  } else if (sortBy === 'last_water') {
-    // never watered first, then the longest time since the last watering
-    d = (a.last_water ? 1 : 0) - (b.last_water ? 1 : 0) || (b.days_since_water || 0) - (a.days_since_water || 0);
+  } else if (sortBy === 'water_asc' || sortBy === 'water_desc') {
+    // ascending: never watered first, then the oldest watering; descending: the newest watering first
+    var ka = lastWaterKey(a), kb = lastWaterKey(b);
+    d = ka < kb ? -1 : ka > kb ? 1 : 0;
+    if (sortBy === 'water_desc') d = -d;
   } else if (sortBy === 'type') {
     d = typeLabel(a.plant_type).localeCompare(typeLabel(b.plant_type), 'he');
   }
@@ -1076,13 +1162,15 @@ function plantRowHtml(p, days){
            : p.days_since_water === 1 ? 'הושקה אתמול' : 'הושקה לפני ' + p.days_since_water + ' ימים';
   var pill = p.status === 'overdue' ? '<span class="pt-pill overdue">באיחור · ' + last + '</span>'
            : p.status === 'due' ? '<span class="pt-pill due">להשקות היום</span>'
+           : p.status === 'checked' ? '<span class="pt-pill checked" title="' + esc(last) + '">נבדק · אדמה ' +
+               ((dayRow(p.id, state.today) || {}).soil_status === 'wet' ? 'רטובה' : 'לחה') + '</span>'
            : p.status === 'auto' ? '<span class="pt-pill auto">' + last + '</span>'
            : '<span class="pt-pill ok">' + last + '</span>';
   return '<div class="pt-pcard' + (p.id < 0 ? ' pending' : '') + '">' +
     '<button class="pt-plant" onclick="openPlantModal(' + p.id + ')" title="עריכת עציץ">' + plantBadge(p, 44) +
       '<div><div class="pt-plant-name">' + esc(p.name) + '</div>' +
       '<div class="pt-plant-meta">' + mode + (room ? ' · ' + esc(room.name) : '') + '</div></div>' + pill + '</button>' +
-    '<div class="pt-cells">' + days.map(function(day){ return cellHtml(p, day); }).join('') + '</div>' +
+    '<div class="pt-cells" data-pid="' + p.id + '">' + days.map(function(day){ return cellHtml(p, day); }).join('') + '</div>' +
     plantTipsHtml(p.id) + (suggOpen ? careHtml(p.plant_type) : '') + '</div>';
 }
 
@@ -1182,6 +1270,11 @@ function setSoil(k){
   mutate('PUT', '/api/plants/' + pid + '/soil', {day: day, soil_status: k}, function(st){
     rowOf(st, pid, day).soil_status = k;
     if (k) dropSuggestions(st, pid, ['no_soil']);
+    var p = findIn(st.plants, pid);
+    if (p && day === st.today) {   // a moist/wet check today turns "should water" off (and back on)
+      p.status = localStatus(p);
+      if (p.status === 'checked') dropSuggestions(st, pid, ['overdue']);
+    }
   }, 'מצב האדמה עודכן');
 }
 function addWater(){

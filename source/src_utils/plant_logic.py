@@ -80,6 +80,21 @@ def plant_status(plant, last_water, today):
     return since, 'ok'
 
 
+CHECKED_SOILS = ('humid', 'wet')   # soil that, checked today, means "no watering today"
+
+
+def soil_checked_status(status, today_row):
+    """'checked' when a plant that should be watered (due/overdue) had its soil checked today and
+    found moist or wet, without a watering — the user looked and decided it doesn't need water today.
+    Any other status, dry soil, no check, or a watering that day keeps `status` as it is.
+    Tomorrow there is a new day row, so the plant is due/overdue again unless checked again."""
+    if status not in ('due', 'overdue') or not today_row:
+        return status
+    if today_row.get('soil_status') in CHECKED_SOILS and not today_row.get('watered'):
+        return 'checked'
+    return status
+
+
 def season_key(day):
     """'YYYY-summer' for Jun–Sep, 'YYYY-winter' for Dec–Feb (Dec belongs to next year), else None."""
     if 6 <= day.month <= 9:

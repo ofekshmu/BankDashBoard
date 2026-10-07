@@ -179,6 +179,33 @@ def test_water_due_only_waters_due_plants():
     assert n == 1 and [e['plant_id'] for e in s.events.values()] == [a]
 
 
+def test_soil_checked_wet_today_turns_off_the_should_water_status():
+    s = FakePlantStore()
+    pid = _mk(s)
+    _backdate(s, pid, date(2026, 10, 1))                              # overdue
+    svc.build_payload(s, T)
+    svc.set_soil(s, pid, {'day': '2026-10-14', 'soil_status': 'wet'}, T)
+    p = svc.build_payload(s, T)
+    assert p['plants'][0]['status'] == 'checked'
+    assert p['summary']['overdue'] == 0 and p['summary']['due_today'] == 0
+    assert not [x for x in p['suggestions'] if x['kind'] == 'overdue']   # no "water now" tip either
+    svc.set_soil(s, pid, {'day': '2026-10-14', 'soil_status': 'dry'}, T)
+    assert svc.build_payload(s, T)['plants'][0]['status'] == 'overdue'   # dry soil still needs water
+    svc.set_soil(s, pid, {'day': '2026-10-14', 'soil_status': 'humid'}, T)
+    assert svc.build_payload(s, date(2026, 10, 15))['plants'][0]['status'] == 'overdue'   # only for that day
+
+
+def test_water_due_skips_plants_checked_wet_today():
+    s = FakePlantStore()
+    a, b = _mk(s, name='a'), _mk(s, name='b')
+    _backdate(s, a, date(2026, 10, 1))
+    _backdate(s, b, date(2026, 10, 1))
+    svc.build_payload(s, T)
+    svc.set_soil(s, b, {'day': '2026-10-14', 'soil_status': 'humid'}, T)
+    n = svc.water_due(s, {'event_at': '2026-10-14T09:00'}, T)
+    assert n == 1 and [e['plant_id'] for e in s.events.values()] == [a]
+
+
 def test_soft_delete_and_restore():
     s = FakePlantStore()
     pid = _mk(s)

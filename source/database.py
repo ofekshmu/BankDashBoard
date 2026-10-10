@@ -203,6 +203,7 @@ class DataBase:
     __recurring_tables_ready = False
     __card_limits_ready = False
     __account_settings_ready = False
+    __housing_projects_ready = False
     __bootstrap_lock = threading.Lock()
     __tables_bootstrapped = False
     __pool = None
@@ -3580,6 +3581,158 @@ class DataBase:
         ).fetchall()
         self.connection.commit()   # read-only, but don't leave the shared connection idle in a transaction
         return {r[0]: {'inactive': bool(r[1]), 'owner': r[2] or '', 'info': r[3] or ''} for r in rows}
+
+    # ── New-build housing projects (Mona) ──────────────────────────────────
+    _HOUSING_COLS = {'name': 'Name', 'tx_category': 'Tx_Category', 'timeline_category': 'Timeline_Category',
+                     'price': 'Price', 'down_pct': 'Down_Pct', 'contract_date': 'Contract_Date',
+                     'delivery_date': 'Delivery_Date', 'growth_pct': 'Growth_Pct', 'mortgage_pct': 'Mortgage_Pct'}
+
+    def ensure_housing_project_tables(self) -> None:
+        """Create the housing-project tables if absent, and the Mona project with its defaults.
+
+        HousingProjects: one row per project (price, down-payment %, signing/delivery dates, yearly
+        growth %, and which transaction tag holds its payments). HousingTxKinds: the user's choice
+        for a payment — goes into the apartment price, or an extra cost — keyed by project and a
+        transaction key ('BankTransactions:12', 'CardTransactions:7', 'split:3')."""
+        if DataBase.__housing_projects_ready:
+            return
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS HousingProjects (
+                ProjectKey        TEXT      PRIMARY KEY,
+                Name              TEXT      NOT NULL,
+                Tx_Category       TEXT      NOT NULL,
+                Timeline_Category TEXT,
+                Price             NUMERIC,
+                Down_Pct          NUMERIC   NOT NULL DEFAULT 10,
+                Contract_Date     DATE,
+                Delivery_Date     DATE,
+                Growth_Pct        NUMERIC   NOT NULL DEFAULT 3,
+                Updated_At        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        # share of the price the mortgage will cover at delivery (own funds = the rest)
+        self.cursor.execute(
+            "ALTER TABLE HousingProjects ADD COLUMN IF NOT EXISTS Mortgage_Pct NUMERIC NOT NULL DEFAULT 75")
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS HousingTxKinds (
+                ProjectKey TEXT NOT NULL,
+                Tx_Key     TEXT NOT NULL,
+                Kind       TEXT NOT NULL,
+                PRIMARY KEY (ProjectKey, Tx_Key)
+            )
+        """)
+        # Mona's payments were already tagged "דירת קבלן" before the project existed
+        self.cursor.execute("""
+            INSERT INTO HousingProjects (ProjectKey, Name, Tx_Category)
+            VALUES ('mona', 'מונה', 'דירת קבלן') ON CONFLICT (ProjectKey) DO NOTHING
+        """)
+        self.connection.commit()
+        DataBase.__housing_projects_ready = True
+
+    _HOUSING_SELECT = """SELECT ProjectKey, Name, Tx_Category, Timeline_Category, Price, Down_Pct,
+                                Contract_Date, Delivery_Date, Growth_Pct, Mortgage_Pct FROM HousingProjects"""
+
+    @staticmethod
+    def _housing_project_dict(row) -> dict:
+        return {'key': row[0], 'name': row[1], 'tx_category': row[2], 'timeline_category': row[3],
+                'price': float(row[4]) if row[4] is not None else None, 'down_pct': float(row[5]),
+                'contract_date': row[6], 'delivery_date': row[7], 'growth_pct': float(row[8]),
+                'mortgage_pct': float(row[9])}
+
+    def get_housing_project(self, key: str):
+        """The project's settings as a dict (numbers as floats, dates as date objects), or None."""
+        row = self.cursor.execute(self._HOUSING_SELECT + " WHERE ProjectKey = %s", (key,)).fetchone()
+        self.connection.commit()   # read-only: don't leave the shared connection idle in a transaction
+        return self._housing_project_dict(row) if row else None
+
+    def list_housing_projects(self) -> list:
+        """Every project's settings, in creation order of their keys."""
+        rows = self.cursor.execute(self._HOUSING_SELECT + " ORDER BY ProjectKey").fetchall()
+        self.connection.commit()
+        return [self._housing_project_dict(r) for r in rows]
+
+    def update_housing_project(self, key: str, **fields) -> None:
+        """Set the given fields (see _HOUSING_COLS; None clears) of an existing project."""
+        fields = {k: v for k, v in fields.items() if k in self._HOUSING_COLS}
+        if not fields:
+            return
+        sets = ', '.join(f'{self._HOUSING_COLS[k]} = %s' for k in fields)
+        self.cursor.execute(
+            f"UPDATE HousingProjects SET {sets}, Updated_At = CURRENT_TIMESTAMP WHERE ProjectKey = %s",
+            list(fields.values()) + [key])
+        self.connection.commit()
+
+    def get_housing_tx_kinds(self, key: str) -> dict:
+        """{transaction key: kind} the user chose for the project's payments."""
+        rows = self.cursor.execute(
+            "SELECT Tx_Key, Kind FROM HousingTxKinds WHERE ProjectKey = %s", (key,)).fetchall()
+        self.connection.commit()
+        return {r[0]: r[1] for r in rows}
+
+    def set_housing_tx_kind(self, key: str, tx_key: str, kind) -> None:
+        """Remember the user's kind for one payment; None goes back to the automatic one."""
+        if kind is None:
+            self.cursor.execute("DELETE FROM HousingTxKinds WHERE ProjectKey = %s AND Tx_Key = %s", (key, tx_key))
+        else:
+            self.cursor.execute("""
+                INSERT INTO HousingTxKinds (ProjectKey, Tx_Key, Kind) VALUES (%s, %s, %s)
+                ON CONFLICT (ProjectKey, Tx_Key) DO UPDATE SET Kind = EXCLUDED.Kind
+            """, (key, tx_key, kind))
+        self.connection.commit()
+
+    def get_project_transactions(self, category: str) -> list:
+        """Bank and card payments tagged `category` (splits applied), oldest first, as dicts:
+        key, table, id, date, name, description, out, income.
+
+        Card payments go through the same price processing as the housing page's table. `key`
+        identifies the row for the user's per-payment choices; a split row has its own id space,
+        so its key is 'split:<id>'. Only the tagged rows are read (not the whole tables)."""
+        from src_utils.calculations import SimpleMath
+        from datetime import datetime as _dt
+
+        def _as_date(v):
+            return v.date() if isinstance(v, _dt) else v if hasattr(v, 'year') else pd.to_datetime(v).date()
+
+        # an original tagged elsewhere can still have a split row tagged `category`
+        split_origs = {}
+        for s in self.get_all_splits():
+            if s['category'] == category:
+                split_origs.setdefault(s['orig_table'], set()).add(s['orig_id'])
+
+        out = []
+        for table in ('BankTransactions', 'CardTransactions'):
+            raw = self.get_transactions(table, category_filter=category, name_filter=None)
+            ids = split_origs.get(table)
+            if ids:
+                rows = self.cursor.execute(
+                    f"SELECT *, '{table}' AS TableName FROM {table} WHERE ID = ANY(%s)", (sorted(ids),)).fetchall()
+                more = pd.DataFrame(rows, columns=[d[0] for d in self.cursor.description])
+                raw = pd.concat([raw, more], ignore_index=True).drop_duplicates(subset=['ID'])
+            raw = self.apply_splits_to_df(raw)
+            if raw.empty:
+                continue
+            raw = raw[raw['Category'] == category].reset_index(drop=True)
+            if raw.empty:
+                continue
+            is_split = raw['_split_orig_id'].notna() if '_split_orig_id' in raw.columns else pd.Series(False, index=raw.index)
+            if table == 'BankTransactions':
+                for i, r in raw.iterrows():
+                    out.append({'table': table, 'id': int(r['ID']), 'split': bool(is_split[i]),
+                                'date': _as_date(r['Date']), 'name': str(r['Name'] or ''),
+                                'description': str(r.get('Description') or ''),
+                                'out': float(r['Out'] or 0), 'income': float(r['Income'] or 0)})
+            else:
+                proc = SimpleMath.process_prices(raw, date=_dt.now(), general_analysis=False)
+                split_ids = set(raw.loc[is_split, 'ID']) if is_split.any() else set()
+                for _, r in proc.iterrows():
+                    v = float(r['Final_Value'])
+                    out.append({'table': table, 'id': int(r['ID']), 'split': r['ID'] in split_ids,
+                                'date': _as_date(r['Executed_Date']), 'name': str(r['Name'] or ''),
+                                'description': str(r.get('Description') or ''),
+                                'out': abs(v) if v < 0 else 0.0, 'income': v if v > 0 else 0.0})
+        for t in out:
+            t['key'] = f"split:{t['id']}" if t.pop('split') else f"{t['table']}:{t['id']}"
+        return sorted(out, key=lambda t: (t['date'], t['key']))
 
     def update_account_settings(self, name: str, **fields) -> None:
         """Upsert the given fields (inactive / owner / info) for one account; others keep their value."""

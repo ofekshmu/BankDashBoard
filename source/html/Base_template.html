@@ -946,14 +946,102 @@ body {
   .cf-kpi-value { font-size: 0.92em; }
 }
 
-/* ── Housing panel sub-tabs ───────────────────────────────────── */
-.hs-subtabs {
-  position:fixed; top:18px; right:70px; z-index:401;
-  display:flex; gap:6px; margin:0;
-  background:var(--white); padding:4px; border-radius:24px;
-  border:1.5px solid var(--border); box-shadow:var(--shadow-sm);
+/* ── Housing panel menus ──────────────────────────────────────── */
+#panel-timeline { margin-top:64px; }
+/* The apartments are the top tab bar, fixed beside the menu button; סקירה כללית / ציר זמן are the sub-menu
+   under it. Plain text tabs with light dividers (like the plants page header); the active one is bold
+   with a teal underline. */
+.hs-top {
+  position:fixed; top:18px; right:70px; z-index:401; height:42px; display:flex; align-items:stretch;
+  background:var(--white); border:1.5px solid var(--border); border-radius:10px; padding:0 4px;
+  box-shadow:0 2px 10px rgba(0,0,0,.06);
 }
-#housing-overview, #housing-timeline, #panel-timeline { margin-top:64px; }
+.hs-top-btn, .hs-nav-btn {
+  position:relative; border:0; background:none; font:inherit; font-weight:600; color:var(--text-muted);
+  cursor:pointer; white-space:nowrap; transition:color .13s, background .13s;
+}
+.hs-top-btn { margin:4px 0; padding:0 18px; border-radius:8px; font-size:0.92em; }
+.hs-top-btn + .hs-top-btn::before, .hs-nav-btn + .hs-nav-btn::before {   /* the divider between neighbours (RTL: on the right) */
+  content:''; position:absolute; right:-1px; top:50%; width:1px; height:18px; transform:translateY(-50%);
+  background:#dfe3ea; pointer-events:none;
+}
+.hs-top-btn:hover:not(.active), .hs-nav-btn:hover:not(.active) { color:var(--navy); background:#eef1f5; }
+.hs-top-btn:hover::before, .hs-top-btn:hover + .hs-top-btn::before,
+.hs-nav-btn:hover::before, .hs-nav-btn:hover + .hs-nav-btn::before { opacity:0; }
+.hs-top-btn.active, .hs-nav-btn.active { color:var(--navy); font-weight:700; }
+.hs-top-btn.active::after, .hs-nav-btn.active::after {
+  content:''; position:absolute; left:14px; right:14px; bottom:0; height:3px; border-radius:3px 3px 0 0; background:var(--teal);
+}
+.hs-top-btn:focus-visible, .hs-nav-btn:focus-visible { outline:2px solid var(--teal); outline-offset:-2px; }
+.hs-nav {
+  display:flex; align-items:stretch; gap:1px; margin-top:68px; border-bottom:1.5px solid var(--border);
+}
+.hs-nav-btn { padding:10px 20px 13px; font-size:0.9em; border-radius:8px 8px 0 0; }
+.hs-nav-btn.active::after { bottom:-1.5px; }
+/* the content follows the sub-menu */
+#housing-overview, #housing-timeline, #mona-overview, #mona-timeline { margin-top:16px; }
+
+/* ── Mona (new-build apartment) tab ──────────────────────── */
+.ms-status { font-size:0.78em; min-height:1.3em; margin:0 2px 8px; color:var(--text-muted); }
+.ms-status.ok { color:var(--teal); } .ms-status.err { color:var(--red); font-weight:600; }
+.ms-status.pending::before {
+  content:''; display:inline-block; width:9px; height:9px; margin-left:7px; vertical-align:-1px;
+  border:2px solid #c5cad8; border-top-color:var(--teal); border-radius:50%; animation:ms-spin .8s linear infinite;
+}
+@keyframes ms-spin { to { transform:rotate(360deg); } }
+.ms-sub { font-size:0.8em; color:var(--text-muted); margin:-6px 0 14px; }
+.ms-banner {
+  background:#fff8e6; border:1.5px solid #f0b429; color:#8a5a00; border-radius:var(--radius);
+  font-size:0.88em; font-weight:600; padding:12px 18px; margin-bottom:16px;
+}
+.ms-banner a { color:inherit; }
+.ms-progress { height:12px; border-radius:7px; background:#e8ebf2; overflow:hidden; margin:8px 0 6px; align-self:stretch; width:100%; }
+.ms-progress > i { display:block; height:100%; border-radius:7px; background:linear-gradient(90deg,#1e9d8b,#4db6ac); transition:width .3s; }
+.ms-progress-row { display:flex; justify-content:space-between; font-size:0.74em; color:var(--text-muted); width:100%; }
+.ms-note { font-size:0.8em; color:var(--text-sub); line-height:1.6; background:var(--bg); border-radius:10px; padding:10px 14px; margin-bottom:16px; }
+.ms-form { display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:12px; }
+.ms-field label { display:block; font-size:0.74em; font-weight:600; color:var(--text-muted); margin-bottom:4px; }
+.ms-field input {
+  width:100%; box-sizing:border-box; padding:8px 10px; border:1.5px solid var(--border); border-radius:8px;
+  font:inherit; font-size:0.9em; color:var(--navy); background:var(--white); outline:none;
+}
+.ms-field input:focus { border-color:var(--teal); box-shadow:0 0 0 3px var(--teal-light); }
+.ms-form-actions { display:flex; align-items:center; gap:12px; margin-top:14px; flex-wrap:wrap; }
+.ms-btn {
+  padding:9px 22px; border:0; border-radius:9px; background:var(--teal); color:#fff;
+  font:inherit; font-size:0.86em; font-weight:700; cursor:pointer;
+}
+.ms-btn:hover { background:var(--teal-dark); } .ms-btn:disabled { opacity:.5; cursor:default; }
+.ms-btn.ghost { background:none; color:var(--navy); border:1.5px solid var(--border); }
+.ms-btn.ghost:hover { border-color:var(--teal); color:var(--teal); background:var(--teal-light); }
+.ms-form-err { color:var(--red); font-size:0.8em; font-weight:600; }
+.ms-events { display:flex; flex-direction:column; gap:8px; }
+.ms-event { display:flex; gap:10px; align-items:flex-start; padding:9px 12px; background:var(--bg); border-radius:10px; font-size:0.84em; }
+.ms-event i { width:10px; height:10px; border-radius:50%; margin-top:4px; flex-shrink:0; }
+.ms-event b { color:var(--navy); } .ms-event small { display:block; color:var(--text-muted); margin-top:2px; white-space:pre-line; }
+.ms-event .ms-ev-date { margin-right:auto; color:var(--text-muted); white-space:nowrap; font-size:0.9em; }
+.ms-kind {
+  border:0; border-radius:12px; padding:3px 11px; font:inherit; font-size:0.8em; font-weight:700; cursor:pointer; white-space:nowrap;
+}
+.ms-kind.price { background:#e0f4f1; color:#14796c; } .ms-kind.cost { background:#fff0d9; color:#a35f00; }
+.ms-kind.income { background:#e6f4ea; color:#2e7d32; } .ms-kind.refund { background:#e8eefc; color:#2f5bb7; }
+.ms-kind:hover { filter:brightness(.95); } .ms-kind.manual { box-shadow:0 0 0 1.5px currentColor inset; }
+.ms-empty { padding:22px; text-align:center; color:var(--text-muted); font-size:0.88em; }
+.ms-chart { position:relative; height:260px; }
+@media (max-width: 700px) {
+  /* a row of short cards becomes compact one-line items (label + note on the right, amount on the left);
+     a row of long values simply stacks */
+  .housing-3col-row.ms-compact { grid-template-columns:1fr; gap:8px; }
+  #panel-housing .housing-3col-row.ms-compact .kpi-card {
+    display:grid; grid-template-columns:1fr auto; column-gap:12px; row-gap:1px; align-items:center;
+    text-align:right; padding:11px 16px;
+  }
+  #panel-housing .housing-3col-row.ms-compact .kpi-label { grid-column:1; grid-row:1; justify-content:flex-start; }
+  #panel-housing .housing-3col-row.ms-compact .kpi-value { grid-column:2; grid-row:1 / span 2; font-size:1.25em; }
+  #panel-housing .housing-3col-row.ms-compact .kpi-sublabel { grid-column:1; grid-row:2; margin:0; }
+  .housing-3col-row.ms-stack { grid-template-columns:1fr; }
+  .ms-progress-row { flex-direction:column; align-items:center; gap:2px; }
+}
 .hs-subtab-btn {
   padding:7px 16px; border-radius:20px; border:1.5px solid var(--border);
   background:var(--white); color:var(--text-sub); font-family:inherit;
@@ -1042,7 +1130,9 @@ body {
 .tl-empty { text-align:center; color:var(--text-muted); padding:60px 20px; }
 
 @media (max-width:700px) {
-  .hs-subtabs { right:62px; gap:4px; padding:3px; }
+  .hs-top { right:62px; }
+  .hs-top-btn { padding:0 13px; font-size:0.86em; }
+  .hs-nav-btn { padding:10px 14px 13px; font-size:0.86em; }
   .hs-subtab-btn { padding:6px 11px; font-size:0.78em; }
   #housing-overview, #housing-timeline, #panel-timeline { margin-top:60px; }
   .tl-axis-wrap { height:440px; }
@@ -7868,7 +7958,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     var _CUR_SYM = {ILS:'₪', USD:'$', EUR:'€', JPY:'¥'};
     var _STALE_DAYS = 30;
     var _today = new Date();
-    var _VIRTUAL = {'נכס שלום שבזי': true};
+    var _VIRTUAL = {'נכס שלום שבזי': true, 'נכס מונה': true};
     var _GROUP_ORDER = ['כללי','השקעות','נדל"ן'];
     var _INV_KW = ['אלטשולר','אנליסט','Analyst','btb','BTB','השקעות','קופ','גמל','פנסי','ביטוח','Interactive','Brokers'];
 
@@ -8352,7 +8442,9 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     if (!panel) return;
     var m = data.mortgage || {};
     if (!m || !Object.keys(m).length) {
-      panel.innerHTML = '<div class="card" style="padding:30px;text-align:center;color:#aaa">אין נתוני דיור</div>';
+      // the Mona tab does not depend on שבזי's data — keep the property switcher
+      panel.innerHTML = _hsShell('<div class="card" style="padding:30px;text-align:center;color:#aaa">אין נתוני דיור</div>');
+      _switchHousingProperty(_housingProp);
       return;
     }
 
@@ -8609,13 +8701,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         '</div></div>';
     }
 
-    panel.innerHTML =
-      '<div class="hs-subtabs">' +
-        '<button class="hs-subtab-btn active" id="hs-subtab-overview" onclick="_switchHousingTab(\'overview\')">סקירה כללית</button>' +
-        '<button class="hs-subtab-btn" id="hs-subtab-timeline" onclick="_switchHousingTab(\'timeline\')">ציר זמן</button>' +
-      '</div>' +
-      '<div id="housing-overview">' + html + '</div>' +
-      '<div id="housing-timeline" style="display:none"></div>';
+    panel.innerHTML = _hsShell(html);
 
     // ── Rate slider interactivity ──────────────────────────────────────────
     var slider = document.getElementById('hs-rate-slider');
@@ -8777,7 +8863,62 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       _makeHousingPie('housing-pie-earn', earnPieItems, EARN_PIE_COLORS);
     }
 
-    _switchHousingTab(_housingActiveTab, true);
+    _switchHousingProperty(_housingProp);
+  }
+
+  /** The housing panel's frame: the apartments as the top tab bar, then each apartment's sub-menu
+   *  (סקירה כללית / ציר זמן) and its overview/timeline containers (שבזי first, with
+   *  `shabaziOverviewHtml` as its overview). */
+  function _hsShell(shabaziOverviewHtml) {
+    var pill = function(prefix, switchFn) {
+      return '<div class="hs-nav" role="tablist" aria-label="תצוגה">' +
+        '<button class="hs-nav-btn active" role="tab" id="' + prefix + '-subtab-overview" onclick="' + switchFn + '(\'overview\')">סקירה כללית</button>' +
+        '<button class="hs-nav-btn" role="tab" id="' + prefix + '-subtab-timeline" onclick="' + switchFn + '(\'timeline\')">ציר זמן</button>' +
+      '</div>';
+    };
+    return '<div class="hs-top" role="tablist" aria-label="נכס">' +
+        '<button class="hs-top-btn" data-prop="shabazi" role="tab" onclick="_switchHousingProperty(\'shabazi\')">שלום שבזי 7</button>' +
+        '<button class="hs-top-btn" data-prop="mona" role="tab" onclick="_switchHousingProperty(\'mona\')">מונה</button>' +
+      '</div>' +
+      '<div id="hs-prop-shabazi">' + pill('hs', '_switchHousingTab') +
+        '<div id="housing-overview">' + shabaziOverviewHtml + '</div>' +
+        '<div id="housing-timeline" style="display:none"></div>' +
+      '</div>' +
+      '<div id="hs-prop-mona" style="display:none">' + pill('mona', '_switchMonaTab') +
+        '<div id="mona-overview"></div>' +
+        '<div id="mona-timeline" style="display:none"></div>' +
+      '</div>';
+  }
+
+  // The property shown on /housing: 'shabazi' (the existing apartment) or 'mona' (the new-build project)
+  var _housingProp = (function() {
+    try { return localStorage.getItem('hs_prop') === 'mona' ? 'mona' : 'shabazi'; } catch (_) { return 'shabazi'; }
+  })();
+
+  function _switchHousingProperty(prop) {
+    _housingProp = prop === 'mona' ? 'mona' : 'shabazi';
+    try { localStorage.setItem('hs_prop', _housingProp); } catch (_) {}
+    var sh = document.getElementById('hs-prop-shabazi'), mo = document.getElementById('hs-prop-mona');
+    if (!sh || !mo) return;
+    Array.prototype.forEach.call(document.querySelectorAll('.hs-top-btn'), function(b) {
+      var on = b.getAttribute('data-prop') === _housingProp;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    // the timeline engine renders into one container at a time (it uses fixed element ids), so the
+    // property that is not shown gives its timeline up
+    if (_housingProp === 'mona') {
+      sh.style.display = 'none'; mo.style.display = '';
+      var shTl = document.getElementById('housing-timeline');
+      if (shTl && _tlContainerId === 'housing-timeline') shTl.innerHTML = '';
+      _switchMonaTab(_monaSub);
+      if (!_monaData) _loadMonaProject();
+    } else {
+      mo.style.display = 'none'; sh.style.display = '';
+      var moTl = document.getElementById('mona-timeline');
+      if (moTl && _tlContainerId === 'mona-timeline') moTl.innerHTML = '';
+      _switchHousingTab(_housingActiveTab, true);
+    }
   }
 
   // Click a housing-transaction row's name cell to flip it between the
@@ -8795,6 +8936,580 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     var showingName = el.getAttribute('data-showing') !== 'desc';
     el.setAttribute('data-showing', showingName ? 'desc' : 'name');
     el.textContent = showingName ? desc : (el.getAttribute('data-name') || '');
+  }
+
+  // ── Housing: new-build apartment project (Mona) ─────────────────────────
+  // The money model is src_utils/housing_projects.py. The block between the CALC markers mirrors its
+  // sums / derive / expected_mortgage so the numbers follow the growth slider without a round trip;
+  // tests/test_housing_projects_js.py runs this block under node and compares it with the Python.
+  /* MONA-CALC-BEGIN */
+  function monaGrown(price, ratePct, years) {
+    if (price == null) return null;
+    return years > 0 ? price * Math.pow(1 + ratePct / 100, years) : price;
+  }
+  function monaExpectedMortgage(price, ownPct, paid) {
+    if (price == null) return null;
+    return Math.max(price - Math.max(paid, price * ownPct / 100), 0);
+  }
+  function monaSums(txs) {
+    var paid = 0, costs = 0, income = 0, refunds = 0;
+    txs.forEach(function(t) {
+      var out = t.out || 0, inc = t.income || 0;
+      if (t.kind === 'price') paid += out;
+      else if (t.kind === 'cost') costs += out;
+      else if (t.kind === 'refund') refunds += inc;
+      else if (t.kind === 'income') income += inc;
+    });
+    return { paid_price: paid - refunds, extra_costs: costs, income_total: income, refunds: refunds,
+             net_invested: paid + costs - refunds, out_total: paid + costs };
+  }
+  function monaDerive(inp, g) {
+    var price = inp.price, paid = inp.paid_price;
+    var market = price != null ? monaGrown(price, g, inp.years_now) : null;
+    var apprec = market != null ? market - price : 0;
+    var equity = paid + apprec;
+    var profit = equity + inp.income_total - inp.net_invested;
+    var invested = inp.net_invested;
+    var totalRet = invested > 0 ? profit / invested * 100 : null;
+    var years = inp.years_invested, annual = null;
+    if (totalRet != null && years != null && years >= 1 && totalRet > -100) {
+      annual = (Math.pow(1 + totalRet / 100, 1 / years) - 1) * 100;
+    }
+    var atDelivery = (price != null && inp.years_delivery != null) ? monaGrown(price, g, inp.years_delivery) : null;
+    var mortgage = inp.expected_mortgage;
+    return {
+      market_value: market,
+      appreciation: apprec,
+      monthly_appreciation: market != null ? market * (Math.pow(1 + g / 100, 1 / 12) - 1) : 0,
+      equity: equity,
+      remaining_to_pay: price != null ? Math.max(price - paid, 0) : null,
+      profit: profit,
+      total_return_pct: totalRet,
+      annual_return_pct: annual,
+      value_at_delivery: atDelivery,
+      equity_at_delivery: (atDelivery != null && mortgage != null) ? atDelivery - mortgage : null
+    };
+  }
+  /* MONA-CALC-END */
+
+  /** The numbers monaDerive needs, from the project payload (sums follow the payments' current kinds). */
+  function monaInputs(p) {
+    var s = monaSums(p.transactions), st = p.settings, y = p.years;
+    return { price: st.price, paid_price: s.paid_price, extra_costs: s.extra_costs, income_total: s.income_total,
+             net_invested: s.net_invested, years_now: y.years_now, years_delivery: y.years_delivery,
+             years_invested: y.years_invested,
+             expected_mortgage: monaExpectedMortgage(st.price, 100 - st.mortgage_pct, s.paid_price) };
+  }
+
+  var _monaData = null;        // the project payload (settings, payments with their kinds, events, ...)
+  var _monaSub = 'overview';   // 'overview' | 'timeline'
+  var _monaCharts = {};        // Chart.js instances, by name
+  var _monaQueue = Promise.resolve(), _monaPending = 0, _monaStatusTimer = null;
+  var _MS_YEAR_MS = 31557600000;   // 365.25 days
+  var _MS_KIND_LABEL = { price: 'בשווי הדירה', cost: 'הוצאה נלווית', income: 'הכנסה', refund: 'החזר' };
+  var _MS_SOURCE = { contract: 'תאריך חתימה', timeline: 'מציר הזמן', payment: 'מהתשלום הראשון', today: 'היום' };
+
+  function _msN(v, d) {
+    if (v == null || isNaN(v)) return '—';
+    return Number(v).toLocaleString('he-IL', { minimumFractionDigits: d || 0, maximumFractionDigits: d || 0 }) + '₪';
+  }
+  function _msPct(v, d) { return v == null || isNaN(v) ? '—' : (v >= 0 ? '+' : '') + Number(v).toFixed(d == null ? 1 : d) + '%'; }
+  function _msDate(iso) { if (!iso) return '—'; var q = String(iso).slice(0, 10).split('-'); return q[2] + '/' + q[1] + '/' + q[0]; }
+  /** Numbers and signs read left-to-right even inside right-to-left text ("+7,058₪", not "7,058₪+"). */
+  function _msLtr(text) { return '<span dir="ltr">' + _esc(text) + '</span>'; }
+  function _msDay(iso) { return new Date(String(iso).slice(0, 10) + 'T00:00:00'); }
+  function _msKpi(label, value, color, sub, tip) {
+    var t = tip ? '<span class="kpi-info-wrap"><span class="kpi-info-icon">i</span><span class="kpi-tooltip">' + _esc(tip) + '</span></span>' : '';
+    // a long value takes the whole row on phones (same rule as the שבזי cards)
+    return '<div class="kpi-card' + (String(value).length >= 10 ? ' hs-fullwidth' : '') + '"><div class="kpi-label">' + _esc(label) + t + '</div>' +
+      '<div class="kpi-value"' + (color ? ' style="color:' + color + '"' : '') + '>' + _msLtr(value) + '</div>' +
+      (sub ? '<div class="kpi-sublabel">' + _esc(sub) + '</div>' : '') + '</div>';
+  }
+  /** A row of KPI cards. 'compact' keeps 3 short cards side by side on phones, 'stack' puts long ones in one column. */
+  function _msRow(n, cards, mode) {
+    return '<div class="housing-' + n + 'col-row' + (mode ? ' ms-' + mode : '') + '">' + cards.join('') + '</div>';
+  }
+  function _msStatus(text, kind) {
+    var el = document.getElementById('mona-status');
+    if (!el) return;
+    el.textContent = text;
+    el.className = 'ms-status' + (kind ? ' ' + kind : '');
+    clearTimeout(_monaStatusTimer);
+    if (kind === 'ok') _monaStatusTimer = setTimeout(function() { el.textContent = ''; el.className = 'ms-status'; }, 3500);
+  }
+
+  function _loadMonaProject() {
+    var el = document.getElementById('mona-overview');
+    if (el && !_monaData) el.innerHTML = '<div class="card ms-empty">טוען את פרויקט מונה…</div>';
+    return fetch('/api/housing/projects/mona', { cache: 'no-store' })
+      .then(function(r) { return r.json().catch(function() { return { ok: false, error: 'שגיאת שרת' }; }); })
+      .then(function(d) {
+        if (!d.ok) throw new Error(d.error || 'שגיאה בטעינה');
+        _monaData = d.project;
+        if (_housingProp === 'mona' && _monaSub === 'timeline') _switchMonaTab('timeline');
+        else _renderMona();
+      })
+      .catch(function(e) {
+        var box = document.getElementById('mona-overview');
+        if (box) box.innerHTML = '<div class="card ms-empty">' + _esc(e.message || 'שגיאה בטעינה') +
+          ' <button class="ms-btn ghost" onclick="_loadMonaProject()">נסו שוב</button></div>';
+      });
+  }
+
+  function _switchMonaTab(tab) {
+    _monaSub = tab === 'timeline' ? 'timeline' : 'overview';
+    var ov = document.getElementById('mona-overview'), tl = document.getElementById('mona-timeline');
+    var bOv = document.getElementById('mona-subtab-overview'), bTl = document.getElementById('mona-subtab-timeline');
+    if (!ov || !tl) return;
+    if (_monaSub === 'timeline') {
+      ov.style.display = 'none'; tl.style.display = '';
+      if (bOv) bOv.classList.remove('active');
+      if (bTl) bTl.classList.add('active');
+      var cat = _monaData && _monaData.timeline_category;
+      if (!_monaData) { tl.innerHTML = '<div class="tl-empty">טוען…</div>'; _loadMonaProject(); return; }
+      if (!cat) { tl.innerHTML = '<div class="tl-empty">לא נמצאה קטגוריית ציר זמן בשם MONA. אפשר ליצור אחת בעמוד ציר הזמן (⚙ קטגוריות).</div>'; return; }
+      var sh = document.getElementById('housing-timeline');
+      if (sh) sh.innerHTML = '';
+      _tlContainerId = 'mona-timeline'; _tlActiveScope = 'project'; _tlScopeCategory = cat;
+      _loadTimelineTab();
+    } else {
+      var wasTimeline = tl.style.display !== 'none';
+      tl.style.display = 'none'; ov.style.display = '';
+      if (bTl) bTl.classList.remove('active');
+      if (bOv) bOv.classList.add('active');
+      if (wasTimeline && _monaData) _loadMonaProject();   // events may have changed
+    }
+  }
+
+  /** Build the Mona overview frame; the numbers, charts, payments and events are painted into it. */
+  function _renderMona() {
+    var el = document.getElementById('mona-overview'), p = _monaData;
+    if (!el || !p) return;
+    Object.keys(_monaCharts).forEach(function(k) { try { _monaCharts[k].destroy(); } catch (_) {} });
+    _monaCharts = {};
+    var st = p.settings, g = st.growth_pct;
+    var field = function(id, label, type, value, extra) {
+      return '<div class="ms-field"><label for="' + id + '">' + label + '</label><input id="' + id + '" type="' + type + '" value="' +
+        _esc(value == null ? '' : String(value)) + '"' + (extra || '') + '></div>';
+    };
+    el.innerHTML =
+      '<div class="ms-status" id="mona-status" aria-live="polite"></div>' +
+      '<div id="mona-banner"></div>' +
+      '<div class="card">' +
+        '<div class="card-title">' + _esc(p.name) + ' — דירה חדשה מקבלן</div>' +
+        '<div class="ms-sub" id="mona-sub"></div>' +
+        '<div id="mona-kpis-top"></div>' +
+        '<div class="kpi-card housing-rate-control">' +
+          '<div class="rate-control-top"><div class="rate-label">שיעור עליית ערך שנתי</div>' +
+            '<span class="rate-value-display" id="mona-rate-display">' + g.toFixed(1) + '%</span></div>' +
+          '<input type="range" id="mona-rate-slider" class="rate-slider" min="0" max="15" step="0.5" value="' + g + '">' +
+          '<div class="rate-hint">ברירת מחדל 3% · עד 15% | גרור לשינוי — נשמר, ומשפיע גם על שווי הנכס בעמוד החשבונות</div>' +
+        '</div>' +
+        '<div id="mona-numbers"></div>' +
+      '</div>' +
+      '<div class="card" style="margin-top:16px"><div class="card-title">תחזית שווי הדירה</div>' +
+        '<div class="ms-chart"><canvas id="mona-chart-growth"></canvas></div>' +
+        '<div class="ms-empty" id="mona-growth-empty" style="display:none">הזינו מחיר דירה בהגדרות הפרויקט כדי לראות תחזית</div></div>' +
+      '<div class="card" style="margin-top:16px"><div class="card-title">תנועות לפי חודש</div>' +
+        '<div class="ms-chart"><canvas id="mona-chart-cash"></canvas></div>' +
+        '<div class="ms-empty" id="mona-cash-empty" style="display:none">אין עדיין תנועות בפרויקט</div></div>' +
+      '<div class="card" style="margin-top:16px"><div class="card-title">הגדרות הפרויקט</div>' +
+        '<div class="ms-form">' +
+          field('ms-price', 'מחיר הדירה (₪)', 'number', st.price, ' min="0" step="1000" inputmode="numeric"') +
+          field('ms-down', 'מקדמה ראשונית (% מהמחיר)', 'number', st.down_pct, ' min="0" max="100" step="0.5"') +
+          field('ms-mortgage', 'משכנתא בעת מסירה (% מהמחיר)', 'number', st.mortgage_pct, ' min="0" max="100" step="0.5"') +
+          field('ms-contract', 'תאריך חתימה (ריק = לפי ציר הזמן)', 'date', st.contract_date) +
+          field('ms-delivery', 'מסירה צפויה', 'date', st.delivery_date) +
+          field('ms-cat', 'קטגוריית התנועות (בתייגן)', 'text', p.tx_category, ' maxlength="80"') +
+        '</div>' +
+        '<div class="ms-note" style="margin:14px 0 0">התוכנית: המקדמה הראשונית + תשלום נוסף במסירה = ההון העצמי (100% פחות המשכנתא). ' +
+          'למשל מקדמה 10% + עוד 15% במסירה + משכנתא 75%.</div>' +
+        '<div class="ms-form-actions"><button class="ms-btn" id="ms-save" onclick="monaSaveSettings()">שמירה</button>' +
+          '<span class="ms-form-err" id="ms-form-err"></span></div>' +
+      '</div>' +
+      '<div class="card" style="margin-top:16px" id="mona-events"></div>' +
+      '<div class="card housing-txn-table" id="mona-txs"></div>';
+
+    var slider = document.getElementById('mona-rate-slider');
+    slider.addEventListener('input', function() {   // instant: recompute locally while dragging
+      var rate = parseFloat(this.value);
+      _monaData.settings.growth_pct = rate;
+      document.getElementById('mona-rate-display').textContent = rate.toFixed(1) + '%';
+      _monaPaintNumbers();
+      _monaPaintCharts();
+    });
+    slider.addEventListener('change', function() {   // saved once, when released
+      _monaWrite('/api/housing/projects/mona', { growth_pct: parseFloat(this.value) }, 'שיעור עליית הערך');
+    });
+    // the settings form saves itself when a field is left, so a typed value is never lost on refresh
+    ['ms-price', 'ms-down', 'ms-mortgage', 'ms-contract', 'ms-delivery', 'ms-cat'].forEach(function(id) {
+      document.getElementById(id).addEventListener('change', function() { monaSaveSettings(true); });
+    });
+    _monaPaintAll();
+  }
+
+  function _monaPaintAll() {
+    _monaPaintNumbers();
+    _monaPaintCharts();
+    _monaPaintEvents();
+    _monaPaintTxs();
+  }
+
+  /** Everything that depends on the growth rate or on how payments are classified. */
+  function _monaPaintNumbers() {
+    var p = _monaData;
+    if (!p) return;
+    var st = p.settings, g = st.growth_pct, inp = monaInputs(p), d = monaDerive(inp, g), s = monaSums(p.transactions);
+    var years = p.years, stats = p.stats, hasPrice = st.price != null;
+    var byId = function(id) { return document.getElementById(id); };
+
+    byId('mona-banner').innerHTML = hasPrice ? '' :
+      '<div class="ms-banner">הזינו את מחיר הדירה ב«הגדרות הפרויקט» (בהמשך העמוד) כדי לראות שווי שוק, הון עצמי, מימון משוער ותחזית. ' +
+      'עד אז מוצגים רק הסכומים ששולמו.</div>';
+    byId('mona-sub').textContent = 'המחיר מתחיל לעלות ב-' + _msDate(p.growth_start) + ' (' + (_MS_SOURCE[p.growth_start_source] || '') + ')' +
+      ' · מסירה צפויה: ' + (st.delivery_date ? _msDate(st.delivery_date) : 'לא הוגדרה');
+
+    byId('mona-kpis-top').innerHTML = _msRow(2, [
+      _msKpi('מחיר הדירה', hasPrice ? _msN(st.price) : '—', '#1a3a5c',
+             hasPrice ? 'מקדמה ' + st.down_pct + '% = ' + _msN(st.price * st.down_pct / 100) : 'עוד לא הוגדר'),
+      _msKpi('שווי שוק משוער', _msN(d.market_value), '#5b8dee',
+             hasPrice ? g.toFixed(1) + '% × ' + years.years_now.toFixed(1) + ' שנים' : '', 'מחיר הדירה כשהוא גדל בשיעור השנתי מיום תחילת הצמיחה.')
+    ]);
+
+    var nPrice = p.transactions.filter(function(t) { return t.kind === 'price'; }).length;
+    var eqT = Math.max(d.equity, 1);
+    var pPaid = Math.max(s.paid_price / eqT * 100, 0), pAppr = Math.max(d.appreciation / eqT * 100, 0);
+    var C_PAID = '#4db6ac', C_APPR = '#64b5f6';
+    var html = _msRow(3, [
+      _msKpi('שולם לדירה', _msN(s.paid_price), '#1e9d8b', nPrice === 1 ? 'תשלום אחד' : nPrice + ' תשלומים',
+             'תשלומים שנכנסים למחיר הדירה (פחות החזרים), ולכן נספרים בשווי הנכס. אלה הכספים שחוזרים בעת מכירה.'),
+      _msKpi('הוצאות נלוות', _msN(s.extra_costs), '#e67e22', 'לא בשווי הדירה',
+             'דמי ליווי, עו״ד, מיסים וכד׳: כסף שיצא ולא הופך לנכס.'),
+      _msKpi('הכנסות', _msN(s.income_total), '#1e9d8b', 'לא נכס',
+             'הכנסות מהנכס, כמו שכירות. נכללות בתשואה אבל לא בהון העצמי שבעמוד החשבונות.')
+    ], 'compact');
+    html += '<div class="housing-full-row"><div class="kpi-card hs-full-col">' +
+      '<div class="kpi-label">הון עצמי בנכס<span class="kpi-info-wrap"><span class="kpi-info-icon">i</span><span class="kpi-tooltip">' +
+        _esc('הון עצמי = שולם לדירה + עליית ערך\n  שולם לדירה: ' + _msN(s.paid_price) + '\n  עליית ערך: ' + _msN(d.appreciation) +
+             '\n  = ' + _msN(d.equity) + '\nזה הערך שמופיע בעמוד החשבונות כ«' + (p.account_name || 'נכס') + '».') + '</span></span></div>' +
+      '<div class="kpi-value" style="color:#1e9d8b">' + _esc(_msN(d.equity)) + '</div>' +
+      '<div class="kpi-sublabel">מה שבבעלותך בדירה · מופיע בעמוד החשבונות כ«' + _esc(p.account_name || 'נכס') + '»</div>' +
+      '<div class="equity-bar-wrap" style="margin-top:12px"><div class="equity-bar" style="direction:rtl;height:14px">' +
+        '<div class="equity-bar-seg" style="width:' + pPaid.toFixed(1) + '%;background:' + C_PAID + '" title="שולם לדירה ' + _esc(_msN(s.paid_price)) + '"></div>' +
+        '<div class="equity-bar-seg" style="width:' + pAppr.toFixed(1) + '%;background:' + C_APPR + '" title="עליית ערך ' + _esc(_msN(d.appreciation)) + '"></div>' +
+      '</div><div class="equity-bar-labels-4" style="direction:rtl">' +
+        '<span style="color:' + C_PAID + '">● שולם לדירה ' + _esc(_msN(s.paid_price)) + '</span>' +
+        '<span style="color:' + C_APPR + '">● עליית ערך ' + _esc(_msN(d.appreciation)) + '</span></div></div></div></div>';
+
+    if (hasPrice) {
+      var target = st.price * st.down_pct / 100;
+      var prog = target > 0 ? Math.min(s.paid_price / target * 100, 100) : 0;
+      var left = Math.max(target - s.paid_price, 0);
+      html += '<div class="housing-full-row"><div class="kpi-card">' +
+        '<div class="kpi-label">התקדמות המקדמה (' + st.down_pct + '%)</div>' +
+        '<div class="kpi-value" style="color:#1e9d8b">' + prog.toFixed(0) + '%</div>' +
+        '<div class="ms-progress"><i style="width:' + prog.toFixed(1) + '%"></i></div>' +
+        '<div class="ms-progress-row"><span>שולם ' + _esc(_msN(s.paid_price)) + ' מתוך ' + _esc(_msN(target)) + '</span>' +
+        '<span>' + (left > 0 ? 'נותר ' + _esc(_msN(left)) : 'המקדמה שולמה ✓') + '</span></div></div></div>';
+    }
+    if (hasPrice) {
+      // the plan: down payment now + another amount straight up at delivery = own funds; the mortgage covers the rest
+      var ownTotal = st.price * (100 - st.mortgage_pct) / 100, downT = st.price * st.down_pct / 100;
+      var atDelivery = Math.max(ownTotal - downT, 0), ownLeft = Math.max(ownTotal - s.paid_price, 0), mort = inp.expected_mortgage;
+      var C_P = '#4db6ac', C_O = '#ffb74d', C_M = '#90a4ae';
+      var w = function(v) { return Math.max(v / st.price * 100, 0).toFixed(1) + '%'; };
+      html += '<div class="housing-full-row"><div class="kpi-card hs-full-col">' +
+        '<div class="kpi-label">תוכנית המימון בעת מסירה<span class="kpi-info-wrap"><span class="kpi-info-icon">i</span><span class="kpi-tooltip">' +
+          _esc('מקדמה ' + st.down_pct + '% (' + _msN(downT) + ') + תשלום נוסף במסירה ' + (atDelivery / st.price * 100).toFixed(1).replace(/\.0$/, '') + '% (' + _msN(atDelivery) +
+               ') = הון עצמי ' + (100 - st.mortgage_pct) + '% (' + _msN(ownTotal) + ').\nהמשכנתא מכסה את ' + st.mortgage_pct + '% הנותרים (' + _msN(mort) + ').') + '</span></span></div>' +
+        '<div class="kpi-value" style="font-size:1.3em">' + _msLtr((100 - st.mortgage_pct) + '% מהכיס · ' + st.mortgage_pct + '% משכנתא') + '</div>' +
+        '<div class="kpi-sublabel">עוד ' + _esc(_msN(ownLeft)) + ' מהכיס עד לקיחת המשכנתא</div>' +
+        '<div class="equity-bar-wrap" style="margin-top:12px"><div class="equity-bar" style="direction:rtl;height:14px">' +
+          '<div class="equity-bar-seg" style="width:' + w(Math.min(s.paid_price, st.price)) + ';background:' + C_P + '" title="שולם עד היום"></div>' +
+          '<div class="equity-bar-seg" style="width:' + w(ownLeft) + ';background:' + C_O + '" title="עוד מהכיס"></div>' +
+          '<div class="equity-bar-seg" style="width:' + w(mort) + ';background:' + C_M + '" title="משכנתא"></div>' +
+        '</div><div class="equity-bar-labels-4" style="direction:rtl">' +
+          '<span style="color:' + C_P + '">● שולם עד היום ' + _esc(_msN(s.paid_price)) + '</span>' +
+          '<span style="color:' + C_O + '">● עוד מהכיס ' + _esc(_msN(ownLeft)) + '</span>' +
+          '<span style="color:' + C_M + '">● משכנתא ' + _esc(_msN(mort)) + '</span></div></div></div></div>';
+    }
+    html += _msRow(2, [
+      _msKpi('נותר לתשלום על המחיר', _msN(d.remaining_to_pay), '#e74c3c',
+             hasPrice ? 'חוב לקבלן עד המסירה' : '', 'המחיר פחות מה ששולם עד היום (הכיס והמשכנתא יחד).'),
+      _msKpi('משכנתא צפויה', _msN(inp.expected_mortgage), '#e67e22',
+             hasPrice && inp.expected_mortgage != null ? Math.round(inp.expected_mortgage / st.price * 100) + '% מהמחיר' : '',
+             'מה שהמשכנתא תכסה בעת המסירה: ' + st.mortgage_pct + '% מהמחיר, או פחות אם שילמתם יותר מההון העצמי המתוכנן.')
+    ]);
+
+    if (st.delivery_date) {
+      var days = Math.round((_msDay(st.delivery_date) - _msDay(p.today)) / 86400000);
+      var when = days > 0 ? (days > 90 ? 'בעוד כ-' + Math.round(days / 30.4) + ' חודשים' : 'בעוד ' + days + ' ימים')
+               : days === 0 ? 'היום' : 'עברה לפני ' + (-days) + ' ימים';
+      html += _msRow(3, [
+        _msKpi('מסירה צפויה', _msDate(st.delivery_date), '#1a3a5c', when),
+        _msKpi('שווי הדירה בעת מסירה', _msN(d.value_at_delivery), '#5b8dee', hasPrice ? g.toFixed(1) + '% לשנה' : ''),
+        _msKpi('הון עצמי בעת מסירה', _msN(d.equity_at_delivery), '#1e9d8b', 'שווי פחות משכנתא של ' + st.mortgage_pct + '%')
+      ], 'stack');
+    }
+
+    var retColor = d.total_return_pct == null ? '#1a3a5c' : d.total_return_pct >= 0 ? '#1e9d8b' : '#e74c3c';
+    var profitTxt = 'רווח נקי: ' + '‎' + (d.profit >= 0 ? '+' : '') + _msN(d.profit);
+    var retTip = 'רווח ממכירה היום:\n  הון עצמי: ' + _msN(d.equity) + '\n  + הכנסות: ' + _msN(s.income_total) +
+      '\n  − כל מה שהוצא: ' + _msN(-s.net_invested) + '\n  = ' + _msN(d.profit) + '\n(השווי ששולם לדירה חוזר במכירה, לכן הרווח הוא עליית ערך + הכנסות − הוצאות נלוות)';
+    html += '<div class="housing-section-title" style="margin-top:6px">תשואה</div>' + _msRow(2, [
+      _msKpi('תשואה כוללת ממכירה', _msPct(d.total_return_pct), retColor, d.total_return_pct == null ? 'עוד לא הושקע כסף' : profitTxt, retTip),
+      _msKpi('תשואה שנתית', _msPct(d.annual_return_pct), retColor,
+             d.annual_return_pct != null ? 'על פני ' + (years.years_invested || 0).toFixed(1) + ' שנים'
+             : d.total_return_pct == null ? '' : 'נדרשת שנה של היסטוריה לחישוב שנתי')
+    ]);
+
+    var need = Math.max(s.extra_costs - s.income_total, 0);
+    var needGrowth = (hasPrice && need > 0 && years.years_now >= 1) ? (Math.pow((st.price + need) / st.price, 1 / years.years_now) - 1) * 100 : null;
+    var be = need <= 0 ? 'ההכנסות מכסות את ההוצאות הנלוות — אין עליית ערך נדרשת כדי לצאת באפס.'
+      : 'כדי לכסות את ההוצאות הנלוות נדרשת עליית ערך של ' + _msN(need) + (hasPrice ? ' (' + (need / st.price * 100).toFixed(2) + '% מהמחיר)' : '') +
+        (needGrowth != null ? ' — כלומר ' + needGrowth.toFixed(1) + '% בשנה לפי ' + years.years_now.toFixed(1) + ' השנים שחלפו.' : '.');
+    html += '<div class="ms-note"><b>נקודת איזון:</b> ' + _esc(be) + '</div>';
+
+    var items = [
+      ['ממוצע הוצאה חודשית', _msN(stats.avg_monthly_out), 'בין התנועה הראשונה להיום'],
+      ['התשלום הגדול ביותר', stats.largest ? _msN(stats.largest.amount) : '—', stats.largest ? _msDate(stats.largest.date) + ' · ' + stats.largest.name : ''],
+      ['התשלום האחרון', stats.last_out ? _msDate(stats.last_out.date) : '—', stats.last_out ? 'לפני ' + stats.last_out.days_ago + ' ימים · ' + _msN(stats.last_out.amount) : ''],
+      ['מספר תנועות', stats.n_out + ' / ' + stats.n_in, 'הוצאות / הכנסות'],
+      ['עליית ערך חודשית', hasPrice ? '+' + _msN(d.monthly_appreciation) : '—', hasPrice ? g.toFixed(1) + '% לשנה' : ''],
+      ['הוצאות נלוות מהמחיר', hasPrice ? (s.extra_costs / st.price * 100).toFixed(2) + '%' : '—', 'עלות מעבר למחיר הדירה']
+    ];
+    html += '<div class="housing-section-title" style="margin-top:6px">סטטיסטיקות</div><div class="housing-cf-kpis" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));border-top:0;padding-top:0;margin-top:0">' +
+      items.map(function(it) {
+        return '<div class="cf-kpi"><div class="cf-kpi-label">' + _esc(it[0]) + '</div><div class="cf-kpi-value">' + _msLtr(it[1]) +
+          '</div><div class="kpi-sublabel" style="margin-top:2px">' + _esc(it[2]) + '</div></div>';
+      }).join('') + '</div>';
+    byId('mona-numbers').innerHTML = html;
+  }
+
+  /** The growth projection: value over time (linear x = years since growth began, labelled by date),
+   *  what was actually paid in, today and the delivery point. Null without a price. */
+  function monaProjection(p, g) {
+    var st = p.settings;
+    if (st.price == null) return null;
+    var start = _msDay(p.growth_start), today = _msDay(p.today);
+    var yearsOf = function(day) { return (day - start) / _MS_YEAR_MS; };
+    var horizon = 10;
+    if (st.delivery_date) horizon = Math.max(horizon, Math.ceil(yearsOf(_msDay(st.delivery_date))) + 3);
+    var value = [];
+    for (var x = 0; x <= horizon; x += 0.5) value.push({ x: x, y: Math.round(monaGrown(st.price, g, x)) });
+    var paid = [], cum = 0;
+    p.transactions.filter(function(t) { return t.kind === 'price' || t.kind === 'refund'; })
+      .sort(function(a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; })
+      .forEach(function(t) {
+        var tx = yearsOf(_msDay(t.date));
+        paid.push({ x: tx, y: Math.round(cum) });
+        cum += t.kind === 'price' ? t.out : -t.income;
+        paid.push({ x: tx, y: Math.round(cum) });
+      });
+    var nowX = yearsOf(today);
+    paid.push({ x: nowX, y: Math.round(cum) });
+    var del = null;
+    if (st.delivery_date) { var dx = yearsOf(_msDay(st.delivery_date)); del = { x: dx, y: Math.round(monaGrown(st.price, g, dx)) }; }
+    return { start: start, value: value, paid: paid, now: { x: nowX, y: Math.round(monaGrown(st.price, g, nowX)) },
+             delivery: del, minX: Math.min(0, paid[0].x), maxX: horizon };
+  }
+
+  /** Price / cost / income by month from the first payment to the current month. Null without payments. */
+  function monaMonthly(p) {
+    var txs = p.transactions;
+    if (!txs.length) return null;
+    var first = txs.reduce(function(m, t) { return t.date < m ? t.date : m; }, txs[0].date).slice(0, 7);
+    var months = [], y = +first.slice(0, 4), m = +first.slice(5, 7), lastKey = p.today.slice(0, 7);
+    for (;;) {
+      var key = y + '-' + (m < 10 ? '0' : '') + m;
+      months.push(key);
+      if (key >= lastKey) break;
+      if (++m > 12) { m = 1; y++; }
+    }
+    var rows = {};
+    months.forEach(function(k) { rows[k] = { price: 0, cost: 0, inc: 0 }; });
+    txs.forEach(function(t) {
+      var r = rows[t.date.slice(0, 7)];
+      if (!r) return;
+      if (t.kind === 'price') r.price += t.out; else if (t.kind === 'cost') r.cost += t.out;
+      else if (t.kind === 'income' || t.kind === 'refund') r.inc += t.income;
+    });
+    return { labels: months, price: months.map(function(k) { return Math.round(rows[k].price); }),
+             cost: months.map(function(k) { return Math.round(rows[k].cost); }),
+             inc: months.map(function(k) { return Math.round(rows[k].inc); }) };
+  }
+
+  function _monaChart(name, canvasId, config) {
+    var existing = _monaCharts[name];
+    if (existing) {
+      existing.data = config.data;
+      existing.options = config.options;
+      existing.update('none');
+      return;
+    }
+    var cv = document.getElementById(canvasId);
+    if (cv && typeof Chart !== 'undefined') _monaCharts[name] = new Chart(cv, config);
+  }
+  function _monaDropChart(name) {
+    if (_monaCharts[name]) { try { _monaCharts[name].destroy(); } catch (_) {} delete _monaCharts[name]; }
+  }
+
+  function _monaPaintCharts() {
+    var p = _monaData;
+    if (!p || typeof Chart === 'undefined') return;
+    var g = p.settings.growth_pct;
+    var proj = monaProjection(p, g);
+    var gCan = document.getElementById('mona-chart-growth');
+    if (gCan) {
+      gCan.parentNode.style.display = proj ? '' : 'none';
+      document.getElementById('mona-growth-empty').style.display = proj ? 'none' : '';
+    }
+    if (!proj) _monaDropChart('growth');
+    else {
+      var fmtX = function(v) { var dt = new Date(proj.start.getTime() + v * _MS_YEAR_MS); return (dt.getMonth() + 1) + '/' + dt.getFullYear(); };
+      var sets = [
+        { label: 'שווי דירה צפוי', data: proj.value, borderColor: '#5b8dee', backgroundColor: 'rgba(91,141,238,0.12)', fill: true, pointRadius: 0, borderWidth: 2.5, tension: 0.25 },
+        { label: 'שולם בפועל (מצטבר)', data: proj.paid, borderColor: '#1e9d8b', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2.5 },
+        { label: 'היום', data: [proj.now], borderColor: '#e74c3c', backgroundColor: '#e74c3c', pointRadius: 6, showLine: false }
+      ];
+      if (proj.delivery) sets.push({ label: 'מסירה', data: [proj.delivery], borderColor: '#e67e22', backgroundColor: '#e67e22', pointStyle: 'rectRot', pointRadius: 7, showLine: false });
+      _monaChart('growth', 'mona-chart-growth', {
+        type: 'line', data: { datasets: sets },
+        options: {
+          responsive: true, maintainAspectRatio: false, animation: false,
+          plugins: { legend: { rtl: true, labels: { usePointStyle: true } },
+                     tooltip: { rtl: true, callbacks: { title: function(items) { return items.length ? fmtX(items[0].parsed.x) : ''; },
+                                                         label: function(c) { return ' ' + c.dataset.label + ': ' + c.parsed.y.toLocaleString('he-IL') + '₪'; } } } },
+          scales: { x: { type: 'linear', min: Math.floor(proj.minX * 2) / 2, max: proj.maxX, ticks: { maxTicksLimit: 8, callback: fmtX } },
+                    y: { ticks: { callback: function(v) { return v.toLocaleString('he-IL'); } } } }
+        }
+      });
+    }
+    var mo = monaMonthly(p);
+    var cCan = document.getElementById('mona-chart-cash');
+    if (cCan) {
+      cCan.parentNode.style.display = mo ? '' : 'none';
+      document.getElementById('mona-cash-empty').style.display = mo ? 'none' : '';
+    }
+    if (!mo) { _monaDropChart('cash'); return; }
+    _monaChart('cash', 'mona-chart-cash', {
+      type: 'bar',
+      data: { labels: mo.labels, datasets: [
+        { label: 'שולם לדירה', data: mo.price, backgroundColor: 'rgba(30,157,139,0.82)', stack: 'out' },
+        { label: 'הוצאות נלוות', data: mo.cost, backgroundColor: 'rgba(255,167,38,0.88)', stack: 'out' },
+        { label: 'הכנסות והחזרים', data: mo.inc, backgroundColor: 'rgba(100,181,246,0.88)', stack: 'in' }
+      ] },
+      options: {
+        responsive: true, maintainAspectRatio: false, animation: false,
+        plugins: { legend: { rtl: true }, tooltip: { rtl: true } },
+        scales: { x: { stacked: true, ticks: { maxRotation: 30 } },
+                  y: { stacked: true, ticks: { callback: function(v) { return v.toLocaleString('he-IL'); } } } }
+      }
+    });
+  }
+
+  function _monaPaintEvents() {
+    var p = _monaData, el = document.getElementById('mona-events');
+    if (!p || !el) return;
+    var es = p.event_stats, evs = (p.events || []).slice().reverse().slice(0, 6);
+    var line = es.count ? es.count + ' אירועים' + (es.next ? ' · הבא: ' + es.next.name + ' (' + _msDate(es.next.event_date) + ')' : '') : '';
+    el.innerHTML = '<div class="card-title">אירועים בציר הזמן</div>' +
+      (p.timeline_category
+        ? (evs.length
+            ? '<div class="ms-sub">' + _esc(line) + '</div><div class="ms-events">' + evs.map(function(e) {
+                return '<div class="ms-event"><i style="background:' + _esc(e.color || '#ec4899') + '"></i><div><b>' + _esc(e.name) + '</b>' +
+                  (e.description ? '<small>' + _esc(e.description) + '</small>' : '') + '</div><span class="ms-ev-date">' + _msDate(e.event_date) + '</span></div>';
+              }).join('') + '</div>'
+            : '<div class="ms-empty">אין עדיין אירועים בציר הזמן של הפרויקט</div>') +
+          '<div class="ms-form-actions"><button class="ms-btn ghost" onclick="_switchMonaTab(\'timeline\')">פתח את ציר הזמן</button></div>'
+        : '<div class="ms-empty">לא נמצאה קטגוריית ציר זמן בשם MONA. אפשר ליצור אחת בעמוד ציר הזמן (⚙ קטגוריות).</div>');
+  }
+
+  function _monaPaintTxs() {
+    var p = _monaData, el = document.getElementById('mona-txs');
+    if (!p || !el) return;
+    var txs = p.transactions, totalOut = 0, totalIn = 0;
+    txs.forEach(function(t) { totalOut += t.out || 0; totalIn += t.income || 0; });
+    var head = '<div class="housing-txn-hdr"><div class="card-title">תנועות בקטגוריה «' + _esc(p.tx_category) + '»</div>' +
+      '<div class="panel-count">' + txs.length + ' תנועות</div></div>';
+    if (!txs.length) {
+      el.innerHTML = head + '<div class="ms-empty">אין עדיין תנועות בקטגוריה «' + _esc(p.tx_category) + '». ' +
+        'תייגו תשלומים לדירה ב<a href="/tagger">תייגן</a> וייכנסו לכאן אוטומטית.</div>';
+      return;
+    }
+    el.innerHTML = head +
+      '<div class="ms-note" style="margin-top:12px">לחצו על הסוג כדי לשנות: <b>בשווי הדירה</b> נספר כנכס (הון עצמי) וחוזר במכירה; ' +
+      '<b>הוצאה נלווית</b> (ליווי, עו״ד, מיסים) הוא כסף שיצא ואינו נכס. מסגרת בצבע = בחירה ידנית.</div>' +
+      '<div style="overflow-x:auto"><table class="milestone-table housing-txn"><thead><tr><th>תאריך</th><th>שם</th><th>סכום</th><th>סוג</th></tr></thead><tbody>' +
+      txs.map(function(t, i) {
+        var isOut = t.out > 0, amount = isOut ? t.out : t.income;
+        return '<tr><td>' + _msDate(t.date) + '</td>' +
+          '<td class="housing-txn-name-cell" data-name="' + _esc(t.name) + '" data-desc="' + _esc(t.description || '') + '" data-showing="name" onclick="_hsToggleTxName(this)">' + _esc(t.name) + '</td>' +
+          '<td style="color:' + (isOut ? '#e74c3c' : '#1e9d8b') + '">' + _msLtr((isOut ? '−' : '+') + _msN(amount, 2)) + '</td>' +
+          '<td><button class="ms-kind ' + t.kind + (t.kind !== t.auto_kind ? ' manual' : '') + '" onclick="monaToggleKind(' + i + ')" title="' +
+            (t.kind !== t.auto_kind ? 'נבחר ידנית — לחיצה לשינוי' : 'נקבע אוטומטית — לחיצה לשינוי') + '">' + _MS_KIND_LABEL[t.kind] + '</button></td></tr>';
+      }).join('') + '</tbody></table></div>' +
+      '<div class="txn-footer"><span>סה״כ</span><span dir="ltr"><span class="txn-footer-sum neg">' + _msN(totalOut, 2) +
+      '</span> / <span class="txn-footer-sum pos">' + _msN(totalIn, 2) + '</span></span></div>';
+  }
+
+  /** Save to the server one change at a time, in order. The page already shows the change; when the last
+   *  save returns, the server's copy replaces the page's (keeping slider and form values consistent). */
+  function _monaWrite(url, body, what, onDone, keepPageOnError) {
+    _monaPending++;
+    _msStatus('שומר… ' + what, 'pending');
+    _monaQueue = _monaQueue.then(function() {
+      return fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+        .then(function(r) { return r.json().catch(function() { return { ok: false, error: 'שגיאת שרת' }; }); })
+        .catch(function() { return { ok: false, error: 'אין חיבור לשרת' }; });
+    }).then(function(d) {
+      _monaPending--;
+      if (onDone) onDone(d);
+      if (!d.ok) {
+        _msStatus('✗ לא נשמר — ' + (d.error || 'שגיאה'), 'err');
+        // the page already showed the change: bring back the real state — unless nothing was applied
+        // (a settings form), where reloading would wipe the message and what the user typed
+        if (!_monaPending && !keepPageOnError) _loadMonaProject();
+        return;
+      }
+      if (!_monaPending) { _monaData = d.project; _monaPaintAll(); }
+      _msStatus('✓ ' + what + ' · נשמר', 'ok');
+    });
+    return _monaQueue;
+  }
+
+  function monaToggleKind(i) {
+    var t = _monaData && _monaData.transactions[i];
+    if (!t) return;
+    var next = t.out > 0 ? (t.kind === 'price' ? 'cost' : 'price') : (t.kind === 'income' ? 'refund' : 'income');
+    t.kind = next;   // shown at once
+    _monaPaintNumbers();
+    _monaPaintCharts();
+    _monaPaintTxs();
+    _monaWrite('/api/housing/projects/mona/tx-kind', { key: t.key, kind: next === t.auto_kind ? null : next }, 'סוג התנועה');
+  }
+
+  function monaSaveSettings(auto) {
+    var val = function(id) { return document.getElementById(id).value.trim(); };
+    var err = document.getElementById('ms-form-err'), btn = document.getElementById('ms-save');
+    var down = Number(val('ms-down'));
+    if (val('ms-down') === '' || isNaN(down)) { err.textContent = 'אחוז המקדמה לא תקין'; return; }
+    var price = val('ms-price');
+    if (price !== '' && isNaN(Number(price))) { err.textContent = 'מחיר הדירה לא תקין'; return; }
+    var mortgage = Number(val('ms-mortgage'));
+    if (val('ms-mortgage') === '' || isNaN(mortgage)) { err.textContent = 'אחוז המשכנתא לא תקין'; return; }
+    err.textContent = '';
+    btn.disabled = true;
+    _monaWrite('/api/housing/projects/mona', {
+      price: price === '' ? null : Number(price), down_pct: down, mortgage_pct: mortgage,
+      contract_date: val('ms-contract') || null, delivery_date: val('ms-delivery') || null,
+      tx_category: val('ms-cat')
+    }, 'הגדרות הפרויקט', function(d) {
+      btn.disabled = false;
+      if (!d.ok) { err.textContent = d.error || 'שמירה נכשלה'; return; }
+      // the button refills the form from the saved values; an automatic save leaves what is being typed alone
+      if (auto !== true && !_monaPending) { _monaData = d.project; _renderMona(); }
+    }, true);
   }
 
   // ── Housing panel sub-tabs ──────────────────────────────────────────────
@@ -8831,6 +9546,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     // general scope happens client-side against _tlAllEvents so switching
     // filters never re-hits the network or tears down the rendered axis.
     if (_tlActiveScope === 'mortgage') return '/api/timeline/events?category=mortgage';
+    if (_tlActiveScope === 'project' && _tlScopeCategory) return '/api/timeline/events?category=' + encodeURIComponent(_tlScopeCategory);
     return '/api/timeline/events';
   }
 
@@ -8927,7 +9643,8 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   var _tlPxPerDay = 6;
   var _tlMinimizeMode = (localStorage.getItem('tl_minimize_mode') !== '0');
   var _tlContainerId = 'housing-timeline';
-  var _tlActiveScope = 'mortgage'; // 'mortgage' | 'general' — which UI surface is driving the shared engine
+  var _tlActiveScope = 'mortgage'; // 'mortgage' | 'general' | 'project' — which UI surface is driving the shared engine
+  var _tlScopeCategory = null;     // the timeline category key of the housing project tab (scope 'project')
   var _tlCategoryFilter = 'all';   // only meaningful when _tlActiveScope === 'general': 'all' or a category key
   var _tlAllEvents = null;         // unfiltered cache for the general scope, so filter switches never refetch
   var _tlRangeMinD = null;         // axis date range from the last full _tlDrawAxis — reused by marker-only redraws
@@ -9485,6 +10202,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     // Default to the category currently being viewed; 'all' (or the housing
     // panel's mortgage-only scope) falls back to its natural default.
     if (_tlActiveScope === 'mortgage') _tlEditingCategory = 'mortgage';
+    else if (_tlActiveScope === 'project' && TL_TYPE_COLORS[_tlScopeCategory]) _tlEditingCategory = _tlScopeCategory;
     else _tlEditingCategory = TL_TYPE_COLORS[_tlCategoryFilter] ? _tlCategoryFilter : 'general';
     _tlBuildModal();
     document.getElementById('tl-name-inp').value = '';
@@ -10245,6 +10963,11 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   window._loadGeneralTimelinePanel = _loadGeneralTimelinePanel;
   window._regenHousing        = _regenHousing;
   window._switchHousingTab    = _switchHousingTab;
+  window._switchHousingProperty = _switchHousingProperty;
+  window._switchMonaTab       = _switchMonaTab;
+  window._loadMonaProject     = _loadMonaProject;
+  window.monaToggleKind       = monaToggleKind;
+  window.monaSaveSettings     = monaSaveSettings;
   window._hsToggleTxName      = _hsToggleTxName;
   window._tlToggleMinimize     = _tlToggleMinimize;
   window._tlOpenAddModal  = _tlOpenAddModal;

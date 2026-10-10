@@ -271,6 +271,36 @@ def build_housing(m):
                  dot='green' if m['annual_return_pct'] >= 0 else 'red')
 
 
+# ── Mona (new-build apartment) ─────────────────────────────────────────────
+def build_mona(p):
+    """The Mona project block: equity in the apartment (price payments + appreciation) as the KPI, then
+    market value, own money paid vs. the plan, net profit and the delivery countdown / last event.
+    `p` is housing_project_service.project_payload(); no attention line (never feeds the alert strip)."""
+    if not p:
+        return block('—', 'אין פרויקט', dot='grey')
+    m, d, f = p.get('money') or {}, p.get('derived') or {}, p.get('financing') or {}
+    name = p.get('name') or 'מונה'
+    if not p.get('has_price'):
+        return block(money(m.get('net_invested')), f'{name} · הושקע עד כה',
+                     ['הזינו מחיר דירה בעמוד דיור כדי לראות שווי והון עצמי'], dot='grey')
+    delivery = (p.get('delivery') or {}).get('days_left')
+    last = (p.get('event_stats') or {}).get('last')
+    if delivery is not None and delivery >= 0:
+        tail = 'מסירה היום' if delivery == 0 else f'מסירה בעוד {count_text(delivery, "יום", "ימים")}'
+    elif last:
+        tail = f"אירוע אחרון: {last['name']} · {short_date(last.get('event_date'))}"
+    else:
+        tail = None
+    profit = d.get('profit') or 0
+    details = [f"שווי הדירה {money(d.get('market_value'))}",
+               f"שולם {money(m.get('paid_price'))} מתוך הון עצמי {money(f.get('own_total_target'))}",
+               f"רווח נקי {signed_money(profit)}"]
+    if tail:
+        details.append(tail)
+    return block(money(d.get('equity')), f'{name} · הון עצמי בנכס', cap(details, 4),
+                 dot='green' if profit >= 0 else None, extra={'prop': 'mona'})
+
+
 # ── Timeline ───────────────────────────────────────────────────────────────
 def build_timeline(event):
     if not event:

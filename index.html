@@ -393,6 +393,7 @@
     accounts:  '<path d="M3 10l9-6 9 6"/><path d="M5 10v9M19 10v9M9 10v9M15 10v9M3 21h18"/>',
     cards:     '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/>',
     housing:   '<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/>',
+    mona:      '<path d="M4 21V8l8-5 8 5v13"/><path d="M9 21v-5h6v5M9 11h.01M15 11h.01"/><path d="M2 21h20"/>',
     timeline:  '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
     organizer: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
     bills:     '<path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 7h6M9 11h6M9 15h4"/>',
@@ -408,7 +409,8 @@
     { id: 'monthly',   title: 'ניתוח חודשי',      live: true, href: '/monthly' },
     { id: 'accounts',  title: 'חשבונות',          live: true, href: '/accounts' },
     { id: 'cards',     title: 'כרטיסים',          live: true, href: '/card-analysis' },
-    { id: 'housing',   title: 'דיור',             live: true, href: '/housing' },
+    { id: 'housing',   title: 'דיור',             live: true, href: '/housing', prop: 'shabazi' },
+    { id: 'mona',      title: 'מונה',             live: true, href: '/housing', prop: 'mona' },
     { id: 'timeline',  title: 'ציר זמן',          live: true, href: '/timeline' },
     { id: 'organizer', title: 'ארגונית',          desc: 'סידור ותיוג קבצים',          href: '/organizer' },
     { id: 'bills',     title: 'מעקב חשבונות',     live: true, href: '/bills' },
@@ -506,7 +508,7 @@
     const b = BLOCK_BY_ID[id], hid = isHidden(id);
     const cls = 'card' + (b.live ? '' : ' tile') + (hid ? ' is-hidden' : '');
     const link = b.live
-      ? '<a class="card-link" href="' + b.href + '">' +
+      ? '<a class="card-link" href="' + b.href + '"' + (b.prop ? ' data-hs-prop="' + b.prop + '"' : '') + '>' +
           '<div class="card-top">' + icon(id) + '<span class="title">' + esc(b.title) + '</span><span class="dot"></span></div>' +
           '<div class="body"><div class="skel"></div><div class="skel s2"></div></div>' +
           '<div class="updated"></div>' +
@@ -862,6 +864,9 @@
   (function wireGrid() {
     const grid = document.getElementById('blocks');   /* KPI grid + shortcut tiles */
     grid.addEventListener('click', e => {
+      /* the housing page remembers its apartment: open the one this block shows */
+      const hs = e.target.closest('a[data-hs-prop]');
+      if (hs && !editing) { try { localStorage.setItem('hs_prop', hs.dataset.hsProp); } catch (_) {} }
       const btn = e.target.closest('[data-act]');
       if (!editing) return;
       if (!btn) { if (e.target.closest('a')) e.preventDefault(); return; }

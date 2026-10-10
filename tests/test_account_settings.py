@@ -53,6 +53,7 @@ def client(monkeypatch):
     monkeypatch.setattr(WebApp, '_accounts_cached_payload', lambda: ACCOUNTS)
     monkeypatch.setattr(WebApp, '_compute_accounts', lambda *a, **k: ACCOUNTS)
     monkeypatch.setattr(WebApp, '_accounts_cash_ils_total', lambda: None)
+    monkeypatch.setattr(WebApp, '_accounts_with_projects', lambda p: p)   # housing projects have their own tests
     c = WebApp.app.test_client()
     with c.session_transaction() as s:
         s['authenticated'] = True
@@ -114,6 +115,21 @@ def test_a_new_non_zero_balance_reactivates_an_inactive_account(client, monkeypa
     assert r.get_json()['ok'] and FakeSettingsDB.rows['Old Savings']['inactive'] is True    # still 0
     r = client.post('/api/accounts/status', json={'name': 'Old Savings', 'date': '2026-10-06', 'value': 1200})
     assert r.get_json()['ok'] and FakeSettingsDB.rows['Old Savings'] == {'inactive': False, 'owner': 'אופק', 'info': ''}
+
+
+def test_the_new_build_apartment_asset_is_served_and_takes_settings_like_any_account(client, monkeypatch):
+    """Mona's asset is added to the accounts data per request: the accounts page, its Total and the
+    owner/info settings all see it."""
+    import WebApp
+    import src_utils.housing_projects as hp
+    extra = {'נכס מונה': [['2026-07-08', 15000.0], ['2026-10-09', 15000.0]]}
+    monkeypatch.setattr(WebApp, '_accounts_with_projects', lambda p: hp.apply_overlay(p, extra))
+    data = client.get('/api/accounts/data').get_json()
+    assert data['accounts']['נכס מונה'][-1] == ['2026-10-09', 15000.0]
+    assert data['accounts']['Total'][-1] == ['2026-10-09', 35000.0]            # 20,000 + 15,000
+    status, d = post(client, name='נכס מונה', owner='אופק ויובל')
+    assert status == 200 and d['settings']['owner'] == 'אופק ויובל'
+    assert post(client, name='נכס מונה', inactive=True)[0] == 400              # holds money → cannot go inactive
 
 
 def test_accounts_data_still_loads_when_settings_cannot_be_read(client, monkeypatch):

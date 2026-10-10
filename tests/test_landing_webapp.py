@@ -61,6 +61,7 @@ ACCOUNTS = {'accounts': {'Total': [['2026-10-01', 1000.0]]}}
 
 
 def _accounts_env(monkeypatch, webapp, cash_map):
+    monkeypatch.setattr(webapp, '_accounts_with_projects', lambda p: p)   # housing projects have their own tests
     monkeypatch.setattr(webapp, '_accounts_cached_payload', lambda: ACCOUNTS)
     monkeypatch.setattr(webapp, '_get_fx_rates', lambda: {})
     monkeypatch.setattr(webapp, '_cash_balance_map', cash_map)
@@ -114,12 +115,13 @@ def test_accounts_other_errors_are_not_retried(monkeypatch, webapp):
 
 # ── Accounts page: the cash total ships with the data (no 723k → 727k jump) ──
 def _accounts_api_json(webapp, path='/api/accounts/data'):
-    webapp_settings = webapp._account_settings
-    webapp._account_settings = lambda: {}   # account settings have their own tests; never read the real DB here
+    saved = webapp._account_settings, webapp._accounts_with_projects
+    # account settings and housing projects have their own tests; never read the real DB here
+    webapp._account_settings, webapp._accounts_with_projects = (lambda: {}), (lambda p: p)
     try:
         return _accounts_api_call(webapp, path)
     finally:
-        webapp._account_settings = webapp_settings
+        webapp._account_settings, webapp._accounts_with_projects = saved
 
 
 def _accounts_api_call(webapp, path):

@@ -52,6 +52,15 @@ def load_timeline(today):
     return ls.build_timeline({'name': name, 'event_date': event_date, 'created_at': created_at})
 
 
+def load_mona(today):
+    """The Mona apartment project, exactly as the housing page's Mona tab loads it."""
+    import housing_project_service as svc
+    try:
+        return ls.build_mona(svc.project_payload(_db(), 'mona', today))
+    except svc.UnknownProject:
+        return ls.build_mona(None)
+
+
 def load_bills(today):
     """Same entries and types the bills page loads (/api/bills/entries, /api/bills/types)."""
     db = _db()
@@ -146,7 +155,7 @@ def load_month_keys():
 
 def register_default_loaders():
     from routes.landing_routes import register_loader
-    for name, fn in (('cards', load_cards), ('timeline', load_timeline), ('bills', load_bills),
+    for name, fn in (('cards', load_cards), ('timeline', load_timeline), ('mona', load_mona), ('bills', load_bills),
                      ('spotify', load_spotify), ('plants', load_plants), ('recurring', load_recurring),
                      ('tagger', load_tagger), ('files', load_files)):
         register_loader(name, fn)

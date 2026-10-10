@@ -2383,6 +2383,20 @@ def _account_last_balance(accounts, name):
     return float(pts[-1][1] or 0) if pts else None
 
 
+def _accounts_with_projects(payload):
+    """The accounts payload plus the new-build apartments' assets (נכס מונה) and the Total including
+    them. Added per request, not stored in the cached payload, so price/growth/payment edits on the
+    housing page show up on the accounts page at once. Never raises: without them it is `payload`."""
+    import housing_project_service
+    from database import DataBase
+    from datetime import date as _date
+    try:
+        return housing_project_service.overlay_accounts(payload, DataBase(), _date.today())
+    except Exception as e:
+        print(f'[accounts] housing projects unavailable: {e}')
+        return payload
+
+
 @app.route('/api/accounts/settings', methods=['POST'])
 def accounts_update_settings():
     """Set an account's owner, info and/or inactive flag.
@@ -2391,7 +2405,7 @@ def accounts_update_settings():
     be made inactive only while its latest balance is 0 (reactivating is always allowed)."""
     body = request.get_json(silent=True) or {}
     name = (body.get('name') or '').strip() if isinstance(body.get('name'), str) else ''
-    accounts = (_accounts_cached_payload() or _compute_accounts()).get('accounts') or {}
+    accounts = _accounts_with_projects(_accounts_cached_payload() or _compute_accounts()).get('accounts') or {}
     if not name or name == 'Total' or name not in accounts:
         return jsonify({'ok': False, 'error': 'unknown account'}), 400
     if name in _ACCOUNTS_WITHOUT_SETTINGS:
@@ -2450,16 +2464,16 @@ def accounts_data_api():
 
     if want_fresh:
         try:
-            data = _compute_accounts()
+            data = _accounts_with_projects(_compute_accounts())
             return jsonify({**data, 'ok': True, 'cached': False, **_live()}), 200, _no_cache
         except Exception as e:
             return jsonify({'ok': False, 'error': str(e)}), 500, _no_cache
 
     cached = _accounts_cached_payload()
     if cached:
-        return jsonify({**cached, 'ok': True, 'cached': True, **_live()}), 200, _no_cache
+        return jsonify({**_accounts_with_projects(cached), 'ok': True, 'cached': True, **_live()}), 200, _no_cache
     try:
-        data = _compute_accounts()
+        data = _accounts_with_projects(_compute_accounts())
         return jsonify({**data, 'ok': True, 'cached': False, **_live()}), 200, _no_cache
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 500, _no_cache
@@ -6004,6 +6018,10 @@ def recurring_clear_display_name(group_key):
 from routes.plant_routes import plants_bp
 app.register_blueprint(plants_bp)
 
+# ── New-build apartments (Mona) on /housing — routes in routes/housing_project_routes.py
+from routes.housing_project_routes import housing_projects_bp
+app.register_blueprint(housing_projects_bp)
+
 # ── Landing dashboard — routes in routes/landing_routes.py, KPI builders in landing_service.py
 from routes.landing_routes import landing_bp, register_loader as _landing_register
 import landing_service as _landing_svc
@@ -6040,7 +6058,7 @@ def _landing_monthly(today):
 
 def _landing_accounts(today):
     import psycopg2
-    payload = _accounts_cached_payload() or _compute_accounts()
+    payload = _accounts_with_projects(_accounts_cached_payload() or _compute_accounts())
     try:
         cash_map = _cash_balance_map(strict=True)
     except (psycopg2.OperationalError, psycopg2.InterfaceError):

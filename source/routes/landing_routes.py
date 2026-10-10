@@ -16,7 +16,7 @@ from flask import Blueprint, jsonify, request
 logger = logging.getLogger(__name__)
 landing_bp = Blueprint('landing', __name__)
 
-BLOCKS = ('monthly', 'accounts', 'cards', 'housing', 'timeline', 'bills',
+BLOCKS = ('monthly', 'accounts', 'cards', 'housing', 'mona', 'timeline', 'bills',
           'spotify', 'plants', 'recurring', 'tagger', 'files')
 CACHE_TTL = 300
 LOADERS = {}

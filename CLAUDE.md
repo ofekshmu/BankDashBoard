@@ -143,6 +143,37 @@ only — never hard-code `class="nav-item"` links in a page (`tests/test_shared_
 
 ---
 
+## New-build apartment projects (Mona) — `/housing` tab + the "נכס מונה" asset
+
+A second property next to שבזי on the housing page. Code: `source/src_utils/housing_projects.py` (pure money model),
+`source/housing_project_service.py` (loading/validation over a `db`), `source/routes/housing_project_routes.py`
+(`/api/housing/projects/<key>`), DB tables `HousingProjects` + `HousingTxKinds` (`database.py`, created on first use,
+Mona seeded). Tests: `tests/test_housing_project*.py`, `tests/test_housing_projects_js.py`.
+
+- **Payments** come from the bank/card transactions tagged with the project's tag (default **"דירת קבלן"**, editable in the tab);
+  the timeline is the category labelled MONA (found by label, then remembered).
+- **Every payment has a kind:** `price` (goes into the apartment price → builds equity, comes back on a sale), `cost` (fees/taxes:
+  spent, never an asset), `income` (rent etc.: not an asset), `refund`. Defaults come from `classify_kind` (fee-like words such as
+  ליווי / עו"ד → cost); the user flips any payment on the page (`HousingTxKinds`, key `Table:id` or `split:id`).
+- **Financing plan (settings):** `down_pct` (initial payment, default 10 %) and `mortgage_pct` (share the mortgage covers at
+  delivery, default 75 %). Own money before the loan = 100 − `mortgage_pct` (25 % = the 10 % now + another 15 % at delivery);
+  `expected_mortgage` = price − max(paid so far, that share). `down_pct` may not exceed the own-money share.
+- **Equity (the asset) = price payments − refunds + appreciation of the whole price**; growth is 0–15 %/yr (default 3, saved).
+  Annual return is shown only after a year of history.
+- **Accounts page:** the asset is added per request by `WebApp._accounts_with_projects` (not stored in the cached accounts
+  payload, so edits show at once) and the Total series is shifted by it (`housing_projects.apply_overlay`).
+  `Total` therefore already includes it wherever `/api/accounts/data` or `_landing_accounts` is used.
+- **The page recomputes the money numbers in JS while the slider moves** (block between `MONA-CALC-BEGIN/END` in
+  `Base_template.html`); `tests/test_housing_projects_js.py` runs it under node against the Python — change both together.
+- The shared timeline engine got a `'project'` scope (`_tlScopeCategory`) so the tab can show/add events in its own category.
+- **Landing block `mona`** (`landing_service.build_mona`, `landing_loaders.load_mona`): KPI = equity; its link carries `data-hs-prop`
+  so `/housing` opens the Mona tab (the דיור block sets `shabazi`).
+- **Settings form autosaves** on field `change` (no need to press שמירה).
+- **Housing menus:** the apartments (שלום שבזי 7 / מונה) are the fixed top tab bar (`.hs-top`); סקירה כללית / ציר זמן are each
+  apartment's in-flow sub-menu (`.hs-nav`). (`.hs-subtab-btn` is still used by the timeline category chips.)
+
+---
+
 ## Color palette
 
 | Token | Hex | Used for |

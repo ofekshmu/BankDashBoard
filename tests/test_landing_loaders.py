@@ -116,7 +116,7 @@ def test_register_default_loaders(monkeypatch):
     from routes import landing_routes as lr
     monkeypatch.setattr(lr, 'LOADERS', {})
     ll.register_default_loaders()
-    assert set(lr.LOADERS) == {'cards', 'timeline', 'bills', 'spotify', 'plants', 'recurring', 'tagger', 'files'}
+    assert set(lr.LOADERS) == {'cards', 'timeline', 'mona', 'bills', 'spotify', 'plants', 'recurring', 'tagger', 'files'}
 
 
 def test_load_month_keys_sorted_keys_from_bank_transactions(monkeypatch):

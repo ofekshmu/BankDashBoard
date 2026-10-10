@@ -40,6 +40,7 @@ class AppManagerUtils:
             utils.log("No card transactions found for the selected month.", "warning")
         else:
             _card_base = ['ID','TableName','CardID','Name','Executed_Date','Charge_Date',
+                          'Original_Executed_Date',
                           'Charge_Value','Charge_Currency','Value_Currency','Final_Value',
                           'Category','Relevance','Source_file','Extra_Info','Description',
                           'Transaction_Type']

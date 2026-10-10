@@ -1,0 +1,126 @@
+"""Pure date logic for the plant tracker (מעקב עציצים) — no DB, no Flask."""
+from datetime import timedelta
+
+PLANT_TYPES = ('cactus', 'monstera', 'fern', 'succulent', 'herb', 'flower', 'tree', 'sprout',
+               # drawn from specific plants' look
+               'kalanchoe', 'geranium', 'petunia', 'adansonii', 'orchid', 'oregano', 'rosemary', 'basil',
+               'chives', 'thyme', 'pentas', 'angelonia', 'zz', 'birdsnest', 'philodendron', 'snake', 'scaevola',
+               # by shape, for plants whose species isn't known
+               'spiky', 'strap', 'conifer', 'shrub')
+IRRIGATION_MODES = ('manual', 'auto')
+SOIL_STATUSES = ('dry', 'humid', 'wet')
+EVENT_TYPES = ('water', 'fertilize', 'repot', 'prune', 'pest')
+TIMELINE_DAYS = 14
+
+
+def is_auto_expected(day, anchor, interval_days):
+    """True when `day` falls on the auto schedule counted from `anchor` (anchor itself excluded)."""
+    gap = (day - anchor).days
+    return gap >= interval_days and gap % interval_days == 0
+
+
+def weekday_index(day):
+    """Sun=0 … Sat=6 (the browser's getDay() order, used for config weekdays)."""
+    return day.isoweekday() % 7
+
+
+def plant_schedule(plant):
+    """The schedule an auto plant has without a config: every `interval_days` at `auto_time`."""
+    return {'style': 'interval', 'interval_days': plant['interval_days'], 'weekdays': None,
+            'time': plant.get('auto_time'), 'start_date': None}
+
+
+def is_expected_on(schedule, plant, day, water_dates):
+    """Whether an automatic watering is scheduled on `day`.
+
+    weekdays: the day's weekday is selected. Every N days with a start date: a fixed rhythm from that
+    date, like a real timer (manual waterings don't shift it). Without a start date (older plans):
+    N days after the plant's last watering before `day`, or after its creation.
+    """
+    if schedule['style'] == 'weekdays':
+        return weekday_index(day) in schedule['weekdays']
+    start = schedule.get('start_date')
+    if start:
+        gap = (day - start).days
+        return gap >= 0 and gap % schedule['interval_days'] == 0
+    anchor = _last_water_before(water_dates, day) or plant['created_at']
+    return is_auto_expected(day, anchor, schedule['interval_days'])
+
+
+def _last_water_before(water_dates, day):
+    prior = [d for d in water_dates if d < day]
+    return max(prior) if prior else None
+
+
+def materialize_rows(plant, last_day, today, water_dates, schedule=None):
+    """PlantDays rows for every day after `last_day` (or from creation) through `today`.
+
+    `schedule` (an irrigation config) decides auto_expected for auto plants; without one the plant's
+    own interval is used. Soil status is never carried forward — a new day starts unknown.
+    """
+    schedule = schedule or plant_schedule(plant)
+    d = last_day + timedelta(days=1) if last_day else plant['created_at']
+    rows = []
+    while d <= today:
+        expected = plant['irrigation_mode'] == 'auto' and is_expected_on(schedule, plant, d, water_dates)
+        rows.append({'plant_id': plant['id'], 'day': d, 'soil_status': None,
+                     'watered': d in water_dates, 'auto_expected': expected,
+                     'auto_confirmed': False})
+        d += timedelta(days=1)
+    return rows
+
+
+def plant_status(plant, last_water, today):
+    """(days since last watering — or since creation if never watered, status)."""
+    since = (today - (last_water or plant['created_at'])).days
+    if since > plant['interval_days']:
+        return since, 'overdue'
+    if since == plant['interval_days']:
+        return since, 'due'
+    return since, 'ok'
+
+
+CHECKED_SOILS = ('humid', 'wet')   # soil that, checked today, means "no watering today"
+
+
+def soil_checked_status(status, today_row):
+    """'checked' when a plant that should be watered (due/overdue) had its soil checked today and
+    found moist or wet, without a watering — the user looked and decided it doesn't need water today.
+    Any other status, dry soil, no check, or a watering that day keeps `status` as it is.
+    Tomorrow there is a new day row, so the plant is due/overdue again unless checked again."""
+    if status not in ('due', 'overdue') or not today_row:
+        return status
+    if today_row.get('soil_status') in CHECKED_SOILS and not today_row.get('watered'):
+        return 'checked'
+    return status
+
+
+def season_key(day):
+    """'YYYY-summer' for Jun–Sep, 'YYYY-winter' for Dec–Feb (Dec belongs to next year), else None."""
+    if 6 <= day.month <= 9:
+        return f'{day.year}-summer'
+    if day.month == 12:
+        return f'{day.year + 1}-winter'
+    if day.month <= 2:
+        return f'{day.year}-winter'
+    return None
+
+
+def timeline_window(today):
+    return [today - timedelta(days=i) for i in range(TIMELINE_DAYS - 1, -1, -1)]
+
+
+def build_summary(plants, days_by_plant, today):
+    """Counts for the page header. `plants` entries carry `status` and `irrigation_mode`; auto plants have
+    status 'auto' so they never count as due/overdue. `auto_today` counts the automatic plants whose
+    schedule watered them today (rows of plants switched to manual, or not in the list, are ignored)."""
+    auto_ids = {p['id'] for p in plants if p.get('irrigation_mode') == 'auto'}
+    auto_today = sum(
+        1 for pid, rows in days_by_plant.items() if pid in auto_ids
+        if any(r['day'] == today and r['auto_expected'] and r['watered'] for r in rows)
+    )
+    return {
+        'due_today': sum(1 for p in plants if p['status'] == 'due'),
+        'overdue': sum(1 for p in plants if p['status'] == 'overdue'),
+        'auto_today': auto_today,
+    }

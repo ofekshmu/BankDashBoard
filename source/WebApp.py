@@ -24,10 +24,14 @@ import threading
 import time as _time
 import json as _json
 import builtins as _builtins
+import urllib.parse
 
 import re as _re
-from flask import Flask, Response, request, jsonify, send_file, redirect
+import secrets as _secrets
+from datetime import timedelta as _timedelta
+from flask import Flask, Response, request, jsonify, send_file, redirect, session
 import regen_tracker as _regen_tracker
+from db_pool import PoolGate
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 _HERE                  = os.path.dirname(os.path.abspath(__file__))
@@ -51,9 +55,13 @@ ORGANIZER_HTML         = os.path.join(_HERE, 'html', 'Organizer_Table.html')
 if os.getenv('VERCEL'):  # Vercel: /var/task is read-only; use /tmp
     GENERAL_ANALYSIS_DIR  = '/tmp/general_analysis'
     CATEGORY_ANALYSIS_DIR = '/tmp/category_analysis'
+    RECURRING_HTML        = '/tmp/recurring_charges.html'
+    RECURRING_DATA_JSON   = '/tmp/recurring_charges_data.json'
 else:
     GENERAL_ANALYSIS_DIR  = os.path.join(_PROJECT_DIR, 'Outputs', 'general_analysis')
     CATEGORY_ANALYSIS_DIR = os.path.join(_PROJECT_DIR, 'Outputs', 'category_analysis')
+    RECURRING_HTML        = os.path.join(_PROJECT_DIR, 'Outputs', 'recurring_charges.html')
+    RECURRING_DATA_JSON   = os.path.join(_PROJECT_DIR, 'Outputs', 'recurring_charges_data.json')
 TAGGER_HTML            = os.path.join(_HERE, 'html', 'Tagger.html')
 FILES_HTML             = os.path.join(_HERE, 'html', 'Files.html')
 
@@ -67,7 +75,16 @@ _global_data_cache: dict = {}   # keyed by yyyy_mm (most-recent) or 'global'
 _accounts_cache: dict = {}      # {'data': {...}} in-memory cache for accounts panel
 _housing_cache: dict = {}       # {'ts': float, 'data': dict} in-memory cache for housing panel
 
-_ACCOUNTS_JSON = os.path.join(os.path.dirname(__file__), '..', 'Outputs', 'accounts_data.json')
+# The project dir is read-only on Vercel — writes here silently no-op (see the
+# try/except in _compute_accounts below), which used to mean the accounts
+# cache file could never advance past whatever snapshot happened to be
+# committed to git, permanently masking real account updates that had
+# already saved correctly to the database. Redirect to /tmp on Vercel, same
+# fix already applied to _AT_PATH / _CATEGORIES_JSON_PATH / _DB_PATH. A cold
+# instance with no /tmp copy yet now falls through to a fresh DB read
+# instead of silently serving a stale bundled file.
+_ACCOUNTS_JSON = '/tmp/accounts_data.json' if os.getenv('VERCEL') \
+    else os.path.join(os.path.dirname(__file__), '..', 'Outputs', 'accounts_data.json')
 
 
 def _load_accounts_disk():
@@ -78,6 +95,27 @@ def _load_accounts_disk():
     except Exception:
         pass
     return None
+
+
+def _accounts_disk_mtime():
+    try:
+        return os.path.getmtime(_ACCOUNTS_JSON)
+    except OSError:
+        return 0.0
+
+
+def _accounts_cached_payload():
+    """The in-memory accounts payload, transparently refreshed from disk when
+    another process (or an out-of-band write) has produced a newer
+    accounts_data.json. Without this, a process that never handled the mutation
+    keeps serving its own stale snapshot forever."""
+    disk_mtime = _accounts_disk_mtime()
+    if disk_mtime and disk_mtime > _accounts_cache.get('mtime', 0.0):
+        disk = _load_accounts_disk()
+        if disk:
+            _accounts_cache['data'] = disk
+            _accounts_cache['mtime'] = disk_mtime
+    return _accounts_cache.get('data')
 
 
 def _compute_accounts(progress_callback=None):
@@ -100,6 +138,7 @@ def _compute_accounts(progress_callback=None):
     except Exception:
         pass
     _accounts_cache['data'] = payload
+    _accounts_cache['mtime'] = _accounts_disk_mtime()
     return payload
 
 def _make_slug(type_: str, name: str) -> str:
@@ -107,6 +146,37 @@ def _make_slug(type_: str, name: str) -> str:
     import re as _re2
     safe = _re2.sub(r'[^\w\u0590-\u05FF]', '_', name).strip('_')
     return f"{type_}_{safe}"
+
+
+def _build_slug_map(names, type_: str) -> dict:
+    """Returns {name: slug}, resolving collisions where two distinct names
+    strip down to the same slug (e.g. 'PAYPAL *NETFLIX COM' and
+    'PAYPAL  NETFLIX COM' both punctuation-strip to 'PAYPAL__NETFLIX_COM') by
+    appending a short stable hash to every name sharing a base slug.
+
+    Without this, the two names would silently share one generated HTML
+    file and one manifest/regen_tracker entry \u2014 whichever got generated
+    first "wins" the shared slug, and the other business/category's card
+    on /categories would show as already generated (same file path) despite
+    never having its own analysis actually run, or a regen for one would
+    resolve to the other's name via the old first-match reverse lookup.
+    The hash (not a sort-order index) keeps each name's slug stable even as
+    other names are added/removed, so a previously-generated file for a
+    disambiguated name is never orphaned by an unrelated data change."""
+    import hashlib
+    groups = {}
+    for name in names:
+        groups.setdefault(_make_slug(type_, name), []).append(name)
+    result = {}
+    for base, group_names in groups.items():
+        if len(set(group_names)) <= 1:
+            for n in group_names:
+                result[n] = base
+        else:
+            for n in group_names:
+                h = hashlib.md5(n.encode('utf-8')).hexdigest()[:6]
+                result[n] = f'{base}_{h}'
+    return result
 
 # ── Log capture via stdout tee ────────────────────────────────────────────────
 _log_queue: queue.Queue = queue.Queue()
@@ -266,6 +336,85 @@ def _save_manifest(html_path: str, deps: dict, db_mtime: float):
         pass
 
 
+def _build_recurring_data(db, groups: list, history_alerts: dict = None) -> dict:
+    """Build the JSON-serializable data payload (groups/hidden/kpis/trend)
+    shared by both the cached-HTML render and the /api/recurring/data endpoint.
+    history_alerts, if given, is {'introduced': [...], 'removed': [...],
+    'status_changed': [...]} from RecurringCharges.apply_history_tracking() —
+    only computed during a real regen, so callers that skip regen (rare
+    fallbacks) get an empty default."""
+    from datetime import date as _d
+
+    total_monthly = sum(g['current_amount'] for g in groups)
+
+    db.ensure_recurring_tables()
+    dismissed_keys = db.get_recurring_dismissed()
+
+    # Re-fetch dismissed groups' display info: since they're excluded from
+    # get_recurring_groups(), recompute the full candidate set without the
+    # dismissed-filter to list them for the "hidden groups" restore UI.
+    from RecurringCharges import (
+        fetch_candidate_transactions, cluster_transactions, build_group_from_cluster
+    )
+    all_transactions = fetch_candidate_transactions(db)
+    all_clusters = cluster_transactions(all_transactions)
+    hidden_groups = []
+    for c in all_clusters:
+        if c['norm_key'] not in dismissed_keys:
+            continue
+        g = build_group_from_cluster(c, today=_d.today())
+        if g:
+            hidden_groups.append({'group_key': g['group_key'], 'name': g['name']})
+
+    # 12-month trend: total recurring spend per month across all active groups
+    trend_totals = {}
+    for g in groups:
+        for occ in g['occurrences']:
+            trend_totals[occ['month']] = trend_totals.get(occ['month'], 0) + occ['amount']
+    trend_months = sorted(trend_totals.keys())[-12:]
+    trend = [{'month': m, 'total': round(trend_totals[m], 2)} for m in trend_months]
+
+    return {
+        'groups': groups,
+        'hidden_groups': hidden_groups,
+        'kpis': {'total_monthly': round(total_monthly, 2)},
+        'trend': trend,
+        'history_alerts': history_alerts or {'introduced': [], 'removed': [], 'status_changed': []},
+    }
+
+
+def _recurring_data_json(data: dict) -> str:
+    from datetime import date as _d
+
+    def _default(o):
+        if isinstance(o, _d):
+            return o.isoformat()
+        raise TypeError(f'not JSON serializable: {o!r}')
+
+    return _json.dumps(data, default=_default, ensure_ascii=False)
+
+
+def _render_recurring_html(data_json: str) -> str:
+    """Render the RecurringCharges.html template with a given JSON data blob
+    (either real computed data, or the literal string 'null' for the initial
+    loading state — same page shell either way, never a separate screen)."""
+    html_path = os.path.join(_HERE, 'html', 'RecurringCharges.html')
+    with open(html_path, encoding='utf-8') as f:
+        template = f.read()
+    return template.replace('__RC_DATA_JSON__', data_json)
+
+
+def _render_card_analysis_html(data_json: str) -> str:
+    """Render the CardAnalysis.html template with a given JSON data blob
+    (the literal string 'null' for the page shell — the page's own JS fetches
+    /api/card-analysis/data itself and renders in place, so a slow or
+    unavailable DB never blocks the page from rendering)."""
+    html_path = os.path.join(_HERE, 'html', 'CardAnalysis.html')
+    with open(html_path, encoding='utf-8') as f:
+        template = f.read()
+    return template.replace('__CARD_ANALYSIS_DATA_JSON__', data_json)
+
+
 def _is_stale_manifest(html_path: str) -> bool:
     """True if any dependency recorded in the manifest has changed since generation.
 
@@ -331,6 +480,65 @@ def _web_cc_confirm(row_bank_dict: dict) -> bool:
 app = Flask(__name__)
 app.config['JSON_AS_ASCII'] = False
 
+# Session signing key — falls back to a process-local random key so sessions
+# still work without FLASK_SECRET_KEY set, at the cost of invalidating all
+# sessions on restart (acceptable for this single-user app; setting
+# FLASK_SECRET_KEY in .env avoids that).
+app.secret_key = os.environ.get('FLASK_SECRET_KEY')
+if not app.secret_key:
+    print("WARNING: FLASK_SECRET_KEY not set — using a random per-process key; "
+          "logins won't survive a server restart until it's set in .env.", file=sys.stderr)
+    app.secret_key = _secrets.token_hex(32)
+app.config['PERMANENT_SESSION_LIFETIME'] = _timedelta(days=7)
+
+# Paths reachable without a valid session — the landing page itself, the
+# password-check endpoint it calls, and cosmetic static assets that carry no
+# personal/financial data. Every other route (page or API) requires auth.
+_PUBLIC_PATHS = {
+    '/', '/favicon.ico', '/favicon.svg',
+    '/apple-touch-icon.png', '/apple-touch-icon-precomposed.png',
+    '/manifest.json', '/design-system.css', '/nav.js',
+    '/api/auth/verify', '/api/auth/check', '/api/version',
+}
+
+
+@app.before_request
+def _require_auth():
+    """Gate every route behind the landing-page password.
+
+    Previously only the client-side JS on index.html enforced this (via
+    localStorage), so navigating straight to e.g. /housing or /api/... bypassed
+    the password entirely. This makes the server the source of truth.
+    """
+    path = request.path
+    if path in _PUBLIC_PATHS or path.startswith('/static/'):
+        return None
+    if session.get('authenticated'):
+        return None
+    if path.startswith('/api/'):
+        return jsonify({'ok': False, 'error': 'unauthorized'}), 401
+    # Page request with no valid server session. The landing page's own
+    # client-side check (localStorage flag) can disagree with the server —
+    # e.g. after a restart regenerates the signing key — which otherwise looks
+    # like an unexplained bounce from "/" straight back to "/". Hand the landing
+    # page enough context to auto-open the password modal and forward the user
+    # to where they were headed once they sign in.
+    _dest = request.path
+    if request.query_string:
+        _dest += '?' + request.query_string.decode('latin-1')
+    return redirect('/?auth=required&next=' + urllib.parse.quote(_dest, safe=''))
+
+
+@app.teardown_request
+def _release_db_connection(exc):
+    """Return this request's pooled DB connection so the next request
+    (handled by a different thread) can reuse it instead of reconnecting."""
+    try:
+        from database import DataBase
+        DataBase.release_thread_connection()
+    except Exception:
+        pass
+
 
 @app.route('/api/auth/verify', methods=['POST'])
 def api_auth_verify():
@@ -340,7 +548,29 @@ def api_auth_verify():
     pw       = str(body.get('password', ''))
     expected = os.environ.get('ADMIN_PASSWORD') or os.environ.get('DASHBOARD_PASSWORD', 'ofek')
     ok = hmac.compare_digest(pw, expected)
+    if ok:
+        session.permanent = True
+        session['authenticated'] = True
     return jsonify({'ok': ok})
+
+
+@app.route('/api/auth/logout', methods=['POST'])
+def api_auth_logout():
+    """Clear the server-side session (client also clears its localStorage flag)."""
+    session.clear()
+    return jsonify({'ok': True})
+
+
+@app.route('/api/auth/check')
+def api_auth_check():
+    """Report whether this browser's session is authenticated server-side.
+
+    The landing page calls this on load to reconcile its localStorage flag with
+    the real session — the two drift apart whenever the signing key changes
+    (every restart, when FLASK_SECRET_KEY is unset) and a stale localStorage
+    flag would otherwise send month links bouncing back to the landing page.
+    """
+    return jsonify({'authenticated': bool(session.get('authenticated'))})
 
 
 @app.errorhandler(404)
@@ -357,14 +587,14 @@ def index():
     # Check project-root index.html first (landing page with auth)
     for candidate in [
         os.path.join(_PROJECT_DIR, 'index.html'),
-        os.path.join(_HERE, 'html', 'index.html'),
         '/var/task/index.html',
     ]:
         try:
             p = os.path.abspath(candidate)
             if os.path.isfile(p):
                 with open(p, encoding='utf-8') as f:
-                    return f.read(), 200, {'Content-Type': 'text/html; charset=utf-8'}
+                    # no-store: a browser must never show a stale landing page after an update
+                    return f.read(), 200, {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store'}
         except Exception:
             continue
     # Fallback: redirect to most recent dashboard
@@ -389,12 +619,46 @@ def serve_favicon_svg():
     return send_file(svg_path, mimetype='image/svg+xml')
 
 
+@app.route('/nav.js')
+def serve_nav_js():
+    """The side-menu links every page renders (source/html/nav.js). Public: the landing page
+    loads it before sign-in, and it holds only page names. Never cached, so a menu change
+    shows on the next page load."""
+    resp = send_file(os.path.join(_HERE, 'html', 'nav.js'), mimetype='text/javascript', max_age=0)
+    resp.headers['Cache-Control'] = 'no-cache'
+    return resp
+
+
 @app.route('/favicon.ico')
 def serve_favicon_ico():
     ico_path = os.path.join(_PROJECT_DIR, 'bankproject.ico')
     if os.path.isfile(ico_path):
         return send_file(ico_path, mimetype='image/x-icon')
     return serve_favicon_svg()
+
+
+@app.route('/apple-touch-icon.png')
+@app.route('/apple-touch-icon-precomposed.png')
+def serve_apple_touch_icon():
+    png_path = os.path.join(_HERE, 'html', 'logo.png')
+    return send_file(png_path, mimetype='image/png')
+
+
+@app.route('/manifest.json')
+def serve_manifest():
+    manifest = {
+        'name': 'BankDash',
+        'short_name': 'BankDash',
+        'start_url': '/',
+        'display': 'standalone',
+        'background_color': '#f4f6f9',
+        'theme_color': '#1e2a4a',
+        'icons': [
+            {'src': '/favicon.svg', 'sizes': 'any', 'type': 'image/svg+xml'},
+            {'src': '/apple-touch-icon.png', 'sizes': '256x256', 'type': 'image/png'},
+        ],
+    }
+    return jsonify(manifest)
 
 
 @app.route('/design-system.css')
@@ -406,6 +670,7 @@ def serve_design_system():
 @app.route('/outputs/<path:filename>')
 def serve_outputs(filename):
     """Serve static files from the Outputs directory (e.g. mortgage PNGs)."""
+    filename = _normalize_percent_encoded(filename)
     outputs_dir = os.path.join(_PROJECT_DIR, 'Outputs')
     file_path = os.path.join(outputs_dir, filename)
     if not os.path.abspath(file_path).startswith(os.path.abspath(outputs_dir)):
@@ -504,6 +769,15 @@ def regen_progress_api(yyyy_mm):
     return jsonify({'pct': pct, 'done': bool(p['done'])})
 
 
+@app.route('/monthly')
+def monthly_page():
+    """Redirect to the most recent monthly analysis page (used by sidebar nav)."""
+    latest_key = _get_latest_yyyy_mm()
+    if latest_key:
+        return redirect(f'/general/{latest_key}')
+    return redirect('/')
+
+
 @app.route('/accounts')
 def accounts_page():
     """Redirect to the latest monthly page with ?panel=accounts."""
@@ -519,6 +793,15 @@ def housing_page():
     latest_key = _get_latest_yyyy_mm()
     if latest_key:
         return redirect(f'/general/{latest_key}?panel=housing')
+    return redirect('/')
+
+
+@app.route('/timeline')
+def general_timeline_page():
+    """Redirect to the latest monthly page with ?panel=timeline."""
+    latest_key = _get_latest_yyyy_mm()
+    if latest_key:
+        return redirect(f'/general/{latest_key}?panel=timeline')
     return redirect('/')
 
 
@@ -566,6 +849,7 @@ def search_transactions():
     q_source   = (request.args.get('source')   or 'all').strip()  # 'bank' | 'card' | 'all'
 
     results = []
+    conn = None
     try:
         conn = _pg_conn()
 
@@ -576,10 +860,10 @@ def search_transactions():
             for r in conn.execute(
                 "SELECT Original_ID, Original_Table FROM TransactionSplits"
             ).fetchall():
-                if r['Original_Table'] == 'BankTransactions':
-                    split_ids_bank.add(r['Original_ID'])
+                if r['original_table'] == 'BankTransactions':
+                    split_ids_bank.add(r['original_id'])
                 else:
-                    split_ids_card.add(r['Original_ID'])
+                    split_ids_card.add(r['original_id'])
 
         # ── BankTransactions ──────────────────────────────────────────
         bank_where = []
@@ -589,14 +873,20 @@ def search_transactions():
             bank_where.append("ID = ?")
             bank_params.append(q_id)
         if q_keyword:
-            bank_where.append("(Name LIKE ? OR Description LIKE ? OR Extra_Info LIKE ?)")
-            like = f'%{q_keyword}%'
-            bank_params += [like, like, like]
+            # Each whitespace-separated token must appear SOMEWHERE in Name /
+            # Description / Extra_Info (independently, any field, any order) —
+            # not just as one contiguous substring of the whole query — so
+            # "netflix paypal" still matches "PAYPAL *NETFLIX COM" and a name
+            # split across Name/Description still matches on either half.
+            for tok in q_keyword.split():
+                bank_where.append("(Name ILIKE ? OR Description ILIKE ? OR Extra_Info ILIKE ?)")
+                like = f'%{tok}%'
+                bank_params += [like, like, like]
         if q_category:
             bank_where.append("Category = ?")
             bank_params.append(q_category)
         if q_business:
-            bank_where.append("Name LIKE ?")
+            bank_where.append("Name ILIKE ?")
             bank_params.append(f'%{q_business}%')
         if q_from:
             bank_where.append("Date >= ?")
@@ -621,21 +911,21 @@ def search_transactions():
         bank_sql += " ORDER BY Date DESC LIMIT 2000"
 
         for row in (conn.execute(bank_sql, bank_params) if q_source != 'card' else []):
-            amount = float(row['Income'] or 0) - float(row['Out'] or 0)
+            amount = float(row['income'] or 0) - float(row['out'] or 0)
             if q_min is not None and abs(amount) < q_min:
                 continue
             if q_max is not None and abs(amount) > q_max:
                 continue
-            is_split = row['ID'] in split_ids_bank
+            is_split = row['id'] in split_ids_bank
             if q_split == 'split'    and not is_split: continue
             if q_split == 'nonsplit' and     is_split: continue
             results.append({
-                'tx_id':       row['ID'],
-                'date':        (row['Date'] or '')[:10],
-                'name':        row['Name'] or '',
-                'category':    row['Category'] or '',
+                'tx_id':       row['id'],
+                'date':        str(row['date'])[:10] if row['date'] else '',
+                'name':        row['name'] or '',
+                'category':    row['category'] or '',
                 'amount':      amount,
-                'description': row['Description'] or '',
+                'description': row['description'] or '',
                 'source':      'bank',
                 'card_id':     None,
                 'is_split':    is_split,
@@ -649,14 +939,15 @@ def search_transactions():
             card_where.append("ID = ?")
             card_params.append(q_id)
         if q_keyword:
-            card_where.append("(Name LIKE ? OR Description LIKE ? OR Extra_Info LIKE ?)")
-            like = f'%{q_keyword}%'
-            card_params += [like, like, like]
+            for tok in q_keyword.split():
+                card_where.append("(Name ILIKE ? OR Description ILIKE ? OR Extra_Info ILIKE ?)")
+                like = f'%{tok}%'
+                card_params += [like, like, like]
         if q_category:
             card_where.append("Category = ?")
             card_params.append(q_category)
         if q_business:
-            card_where.append("Name LIKE ?")
+            card_where.append("Name ILIKE ?")
             card_params.append(f'%{q_business}%')
         if q_from:
             card_where.append("Executed_Date >= ?")
@@ -681,42 +972,49 @@ def search_transactions():
         card_sql += " ORDER BY Executed_Date DESC LIMIT 2000"
 
         for row in (conn.execute(card_sql, card_params) if q_source != 'bank' else []):
-            amount = -float(row['Transaction_Value'] or 0)  # negate: positive charge → negative (expense)
+            amount = -float(row['transaction_value'] or 0)  # negate: positive charge → negative (expense)
             if q_min is not None and abs(amount) < q_min:
                 continue
             if q_max is not None and abs(amount) > q_max:
                 continue
-            is_split = row['ID'] in split_ids_card
+            is_split = row['id'] in split_ids_card
             if q_split == 'split'    and not is_split: continue
             if q_split == 'nonsplit' and     is_split: continue
             results.append({
-                'tx_id':       row['ID'],
-                'date':        (row['Executed_Date'] or '')[:10],
-                'name':        row['Name'] or '',
-                'category':    row['Category'] or '',
+                'tx_id':       row['id'],
+                'date':        str(row['executed_date'])[:10] if row['executed_date'] else '',
+                'name':        row['name'] or '',
+                'category':    row['category'] or '',
                 'amount':      amount,
-                'description': row['Description'] or '',
+                'description': row['description'] or '',
                 'source':      'card',
-                'card_id':     row['CardID'],
+                'card_id':     row['cardid'],
                 'is_split':    is_split,
             })
 
-        conn.close()
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e), 'results': []}), 500
+    finally:
+        if conn:
+            try: conn.close()
+            except Exception: pass
 
     # ── Apply splits: hide originals, surface split rows ─────────────────────
+    split_conn = None
     try:
         split_conn = _pg_conn()
         split_rows_db = split_conn.execute(
             'SELECT ID, Original_Table, Original_ID, Amount, Description, Category FROM TransactionSplits'
         ).fetchall()
-        split_conn.close()
     except Exception:
         split_rows_db = []
+    finally:
+        if split_conn:
+            try: split_conn.close()
+            except Exception: pass
 
     if split_rows_db:
-        split_orig_keys = set((r['Original_Table'], r['Original_ID']) for r in split_rows_db)
+        split_orig_keys = set((r['original_table'], r['original_id']) for r in split_rows_db)
         # Remove split originals from results
         results = [r for r in results
                    if not (('bank' if r['source'] == 'bank' else 'card') == 'bank'
@@ -726,10 +1024,11 @@ def search_transactions():
         # Add split rows (using original row metadata)
         orig_meta_cache = {}
         for split_r in split_rows_db:
-            orig_table = split_r['Original_Table']
-            orig_id    = split_r['Original_ID']
+            orig_table = split_r['original_table']
+            orig_id    = split_r['original_id']
             key        = (orig_table, orig_id)
             if key not in orig_meta_cache:
+                c2 = None
                 try:
                     c2 = _pg_conn()
                     if orig_table == 'BankTransactions':
@@ -737,25 +1036,28 @@ def search_transactions():
                             'SELECT Name, Date FROM BankTransactions WHERE ID=%s', (orig_id,)
                         ).fetchone()
                         orig_meta_cache[key] = {
-                            'name': meta['Name'] if meta else '', 'source': 'bank',
-                            'date': (meta['Date'] or '')[:10] if meta else '', 'card_id': None,
+                            'name': meta['name'] if meta else '', 'source': 'bank',
+                            'date': str(meta['date'])[:10] if meta and meta['date'] else '', 'card_id': None,
                         }
                     else:
                         meta = c2.execute(
                             'SELECT Name, Executed_Date, CardID FROM CardTransactions WHERE ID=%s', (orig_id,)
                         ).fetchone()
                         orig_meta_cache[key] = {
-                            'name': meta['Name'] if meta else '', 'source': 'card',
-                            'date': (meta['Executed_Date'] or '')[:10] if meta else '',
-                            'card_id': meta['CardID'] if meta else None,
+                            'name': meta['name'] if meta else '', 'source': 'card',
+                            'date': str(meta['executed_date'])[:10] if meta and meta['executed_date'] else '',
+                            'card_id': meta['cardid'] if meta else None,
                         }
-                    c2.close()
                 except Exception:
                     orig_meta_cache[key] = {'name': '', 'source': 'bank', 'date': '', 'card_id': None}
+                finally:
+                    if c2:
+                        try: c2.close()
+                        except Exception: pass
 
             meta = orig_meta_cache[key]
             # Apply all filters to split rows (date, keyword, category, type, amount)
-            amount = float(split_r['Amount'])
+            amount = float(split_r['amount'])
             if q_from and meta['date'] and meta['date'] < q_from: continue
             if q_to   and meta['date'] and meta['date'] > q_to:   continue
             if q_type == 'income' and amount <= 0: continue
@@ -763,23 +1065,46 @@ def search_transactions():
             if q_min is not None and abs(amount) < q_min: continue
             if q_max is not None and abs(amount) > q_max: continue
             if q_keyword:
-                hay = (meta['name'] + ' ' + (split_r['Description'] or '')).lower()
+                hay = (meta['name'] + ' ' + (split_r['description'] or '')).lower()
                 if q_keyword.lower() not in hay: continue
-            if q_category and split_r['Category'] != q_category: continue
+            if q_category and split_r['category'] != q_category: continue
             results.append({
-                'tx_id':       split_r['ID'],
+                'tx_id':       split_r['id'],
                 'date':        meta['date'],
                 'name':        meta['name'],
-                'category':    split_r['Category'],
+                'category':    split_r['category'],
                 'amount':      amount,
-                'description': split_r['Description'] or '',
+                'description': split_r['description'] or '',
                 'source':      meta['source'],
                 'card_id':     meta['card_id'],
                 'is_split':    True,
-                'split_id':    split_r['ID'],
+                'split_id':    split_r['id'],
                 'orig_id':     orig_id,
                 'orig_table':  orig_table,
             })
+
+    # Flag transactions already linked to a bill entry — the bills-page transaction
+    # pickers use this to mark them "Matched" and block re-selecting them, so the
+    # same real transaction can't end up linked to two different bill entries.
+    try:
+        bill_conn = _pg_conn()
+        try:
+            linked_rows = bill_conn.execute(
+                "SELECT Transaction_Table, Transaction_ID FROM BillEntries WHERE Transaction_ID IS NOT NULL"
+                " UNION ALL "
+                "SELECT Secondary_Transaction_Table, Secondary_Transaction_ID FROM BillEntries"
+                " WHERE Secondary_Transaction_ID IS NOT NULL"
+            ).fetchall()
+        finally:
+            bill_conn.close()
+        linked_bank_ids = {r[1] for r in linked_rows if r[0] == 'BankTransactions'}
+        linked_card_ids = {r[1] for r in linked_rows if r[0] == 'CardTransactions'}
+        for r in results:
+            r['bill_matched'] = (r['tx_id'] in linked_bank_ids if r['source'] == 'bank'
+                                  else r['tx_id'] in linked_card_ids)
+    except Exception:
+        for r in results:
+            r['bill_matched'] = False
 
     # Sort combined results by date desc
     results.sort(key=lambda x: x['date'] or '', reverse=True)
@@ -789,6 +1114,7 @@ def search_transactions():
 @app.route('/api/search/categories')
 def search_categories():
     """Return distinct category names for the search filter dropdown."""
+    conn = None
     try:
         conn = _pg_conn()
         cats = set()
@@ -796,10 +1122,13 @@ def search_categories():
             cats.add(row[0])
         for row in conn.execute("SELECT DISTINCT Category FROM CardTransactions WHERE Category IS NOT NULL AND Category != ''"):
             cats.add(row[0])
-        conn.close()
         return jsonify({'categories': sorted(cats)})
     except Exception as e:
         return jsonify({'categories': [], 'error': str(e)})
+    finally:
+        if conn:
+            try: conn.close()
+            except Exception: pass
 
 
 @app.route('/api/general/list')
@@ -863,6 +1192,7 @@ def categories_page():
 
     def _item_html(name, type_, slug):
         from urllib.parse import quote as _quote
+        from html import escape as _esc
         fpath = os.path.join(CATEGORY_ANALYSIS_DIR, f'{slug}.html')
         has   = os.path.exists(fpath)
         dot   = f'<span style="width:8px;height:8px;border-radius:50%;background:{"#1e9d8b" if has else "#ccc"};display:inline-block;margin-left:8px;flex-shrink:0"></span>'
@@ -871,8 +1201,15 @@ def categories_page():
         # Include original name as query-param so serve_category can pass it to
         # the auto-trigger without losing special chars like " and /
         name_qs = _quote(name, safe='')
+        name_attr = _esc(name, quote=True)
+        # data-has drives handleCatClick: generated items navigate straight through
+        # (href stays as a working fallback for no-JS / middle-click-new-tab); items
+        # that still need generating are intercepted and run inline via a popup on
+        # this page instead of redirecting to a separate loading page.
         return (
-            f'<a href="/category/{slug}?name={name_qs}" class="cat-item" data-name="{name}"'
+            f'<a href="/category/{slug}?name={name_qs}" class="cat-item" data-name="{name_attr}"'
+            f' data-slug="{slug}" data-type="{type_}" data-has="{1 if has else 0}"'
+            f' onclick="return handleCatClick(event, this)"'
             f' style="display:flex;align-items:center;padding:12px 16px;'
             f'background:#fff;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.06);'
             f'text-decoration:none;color:#1e2a4a;transition:box-shadow .18s,transform .18s;'
@@ -880,16 +1217,18 @@ def categories_page():
             f' onmouseout="this.style.transform=\'\';this.style.boxShadow=\'0 2px 8px rgba(0,0,0,.06)\'">'
             f'{dot}'
             f'<span style="flex:1;font-weight:600;font-size:.9em">{name}</span>'
-            f'<span style="font-size:.7em;font-weight:700;color:#fff;background:{badge_color};'
+            f'<span class="cat-item-badge" style="font-size:.7em;font-weight:700;color:#fff;background:{badge_color};'
             f'padding:2px 8px;border-radius:10px">{label}</span>'
             f'</a>'
         )
 
     items_html = ''
+    cat_slugs = _build_slug_map(cats, 'cat')
+    biz_slugs = _build_slug_map(bizs, 'biz')
     for c in sorted(cats):
-        items_html += _item_html(c, 'category', _make_slug('cat', c))
+        items_html += _item_html(c, 'category', cat_slugs[c])
     for b in sorted(bizs):
-        items_html += _item_html(b, 'business', _make_slug('biz', b))
+        items_html += _item_html(b, 'business', biz_slugs[b])
     total = len(cats) + len(bizs)
 
     return f'''<!DOCTYPE html>
@@ -898,6 +1237,7 @@ def categories_page():
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>ניתוח קטגוריות</title>
+{_log_float_style()}
 <style>
 *{{box-sizing:border-box;margin:0;padding:0}}
 body{{font-family:'Segoe UI',Arial,sans-serif;background:#f4f6f9;color:#1e2a4a;direction:rtl;display:flex;min-height:100vh}}
@@ -909,7 +1249,7 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:#f4f6f9;color:#1e2a4a;d
 .sidebar{{position:fixed;top:0;right:0;height:100vh;width:230px;background:#fff;z-index:395;transform:translate3d(100%,0,0);transition:transform .22s cubic-bezier(.4,0,.2,1);will-change:transform;box-shadow:-4px 0 24px rgba(0,0,0,.09);display:flex;flex-direction:column}}
 .sidebar.open{{transform:translate3d(0,0,0)}}
 .sidebar-header{{display:flex;align-items:center;padding:20px 20px 16px;border-bottom:1px solid #eef0f6;flex-shrink:0}}
-.sidebar-app-name{{font-size:.95em;font-weight:700;color:#1e2a4a}}
+.sidebar-app-name{{display:flex;align-items:center;gap:10px;text-decoration:none;font-size:.95em;font-weight:700;color:#1e2a4a}}
 .sidebar-close-btn{{margin-right:auto;background:none;border:none;cursor:pointer;font-size:1.1em;color:#555;line-height:1;padding:4px 6px;border-radius:6px;transition:background .12s,color .12s}}
 .sidebar-close-btn:hover{{background:#e8f7f5;color:#1e9d8b}}
 .sidebar-scroll{{flex:1;overflow-y:auto;overflow-x:hidden;padding:8px 0 16px}}
@@ -932,6 +1272,14 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:#f4f6f9;color:#1e2a4a;d
 .cat-search:focus{{border-color:#1e9d8b;box-shadow:0 0 0 3px rgba(30,157,139,.12)}}
 .search-count{{font-size:.78em;color:#888;white-space:nowrap;flex-shrink:0}}
 .no-results{{text-align:center;padding:40px;color:#aaa;font-size:.9em;display:none}}
+.cat-item.generating{{opacity:1;pointer-events:none}}
+.cat-item-progress{{display:flex;align-items:center;gap:7px;flex:1;min-width:0}}
+.cip-spinner{{width:13px;height:13px;border:2px solid #d8f3dc;border-top-color:#1e9d8b;
+  border-radius:50%;flex-shrink:0;animation:cip-spin .7s linear infinite}}
+@keyframes cip-spin{{to{{transform:rotate(360deg)}}}}
+.cip-bar-track{{flex:1;height:6px;background:#eef0f6;border-radius:3px;overflow:hidden;min-width:0}}
+.cip-bar-fill{{height:100%;width:0%;background:#1e9d8b;border-radius:3px;transition:width .3s ease}}
+.cip-pct{{font-size:.72em;font-weight:700;color:#1e9d8b;min-width:2.8em;text-align:left;flex-shrink:0}}
 </style>
 </head>
 <body>
@@ -945,24 +1293,10 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:#f4f6f9;color:#1e2a4a;d
 <div class="nav-overlay" id="nav-overlay" onclick="toggleNav()"></div>
 <nav class="sidebar" id="sidebar">
   <div class="sidebar-header">
-    <span class="sidebar-app-name">Menu</span>
+    <a class="sidebar-app-name" href="/" title="דף הבית">Menu</a>
     <button class="sidebar-close-btn" onclick="closeNav()" aria-label="סגור תפריט">✕</button>
   </div>
-  <div class="sidebar-scroll">
-    <a class="nav-item" href="/">ניתוח חודשי</a>
-    <a class="nav-item" href="/">עסקאות</a>
-    <div class="nav-sep"></div>
-    <a class="nav-item" href="/accounts">חשבונות</a>
-    <a class="nav-item" href="/housing">דיור</a>
-    <a class="nav-item" href="/organizer">ארגונית</a>
-    <a class="nav-item active" href="/categories">ניתוח קטגוריאלי</a>
-    <a class="nav-item" href="/search">חיפוש</a>
-    <div class="nav-sep"></div>
-    <a class="nav-item" href="/tagger">תייגן</a>
-    <a class="nav-item" href="/files">קבצים</a>
-    <div class="nav-sep"></div>
-    <a class="nav-item" href="/gym">💪 Gym Tracker</a>
-  </div>
+  <div class="sidebar-scroll" data-nav="categories"></div>
   <div class="sidebar-footer" style="padding:12px 16px;border-top:1px solid #eef0f6;flex-shrink:0">
     <div id="app-version-badge-1" style="text-align:center;font-size:.7em;color:#b0bec5;margin-bottom:8px;letter-spacing:.03em;">v—</div>
     <button onclick="restartServer(this)" style="width:100%;padding:8px 12px;border:1.5px dashed #eef0f6;border-radius:8px;background:none;color:#888;font-size:.78em;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:7px;justify-content:center;transition:background .15s,color .15s,border-color .15s" onmouseover="this.style.background='#fff3f3';this.style.color='#e53935';this.style.borderColor='#e53935'" onmouseout="this.style.background='none';this.style.color='#888';this.style.borderColor='#eef0f6'">
@@ -971,6 +1305,7 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:#f4f6f9;color:#1e2a4a;d
     </button>
   </div>
 </nav>
+<script src="/nav.js"></script>
 <div class="main">
   <div class="page-header"><h1>ניתוח קטגוריות ועסקים</h1></div>
   <div class="search-wrap">
@@ -980,7 +1315,103 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:#f4f6f9;color:#1e2a4a;d
   <div class="grid" id="cat-grid">{items_html}</div>
   <div class="no-results" id="no-results">לא נמצאו תוצאות תואמות</div>
 </div>
+{_log_float_html()}
 <script>
+{_log_float_js()}
+// Intercept clicks on not-yet-generated items: run the analysis inline
+// instead of navigating away to a separate loading page. Progress is
+// surfaced through the app's single main logger window (the same
+// debug-fab/debug-panel + /api/debug-logs stream every other page uses —
+// print() output from the analysis is already tee'd there automatically),
+// not a bespoke popup. Already-generated items fall through to the normal
+// <a href> navigation.
+function openDebugPanel() {{
+  var panel = document.getElementById('debug-panel');
+  if (panel && !panel.classList.contains('open')) toggleDebugPanel();
+}}
+function _dbgLine(text, cls) {{
+  var feed = document.getElementById('debug-feed');
+  if (!feed) return;
+  var el = document.createElement('div');
+  el.className = 'debug-line' + (cls ? ' ' + cls : '');
+  el.textContent = text;
+  feed.appendChild(el);
+  feed.scrollTop = feed.scrollHeight;
+}}
+function _catProgressShow(el) {{
+  var badge = el.querySelector('.cat-item-badge');
+  if (badge) badge.style.display = 'none';
+  var prog = document.createElement('div');
+  prog.className = 'cat-item-progress';
+  prog.innerHTML = '<span class="cip-spinner"></span><div class="cip-bar-track"><div class="cip-bar-fill"></div></div><span class="cip-pct">0%</span>';
+  el.appendChild(prog);
+}}
+function _catProgressSet(el, pct) {{
+  var fill = el.querySelector('.cip-bar-fill');
+  var pctEl = el.querySelector('.cip-pct');
+  if (fill) fill.style.width = pct + '%';
+  if (pctEl) pctEl.textContent = pct + '%';
+}}
+function _catProgressHide(el) {{
+  var prog = el.querySelector('.cat-item-progress');
+  if (prog) prog.remove();
+  var badge = el.querySelector('.cat-item-badge');
+  if (badge) badge.style.display = '';
+}}
+var _catStreamSlug = null;
+function handleCatClick(event, el) {{
+  if (el.dataset.has === '1') return true;
+  event.preventDefault();
+  if (_catStreamSlug) return false;  // a regen is already running client-side
+  var slug = el.dataset.slug, type = el.dataset.type, name = el.dataset.name;
+  _catStreamSlug = slug;
+  el.classList.add('generating');
+  _catProgressShow(el);
+  openDebugPanel();
+  _dbgLine('▸ מריץ ניתוח: ' + name + '…');
+  var qs = '?slug=' + encodeURIComponent(slug) + '&type=' + encodeURIComponent(type) + '&name=' + encodeURIComponent(name);
+  var es = new EventSource('/api/category/stream' + qs);
+  function _stop() {{
+    clearTimeout(tid); es.close(); _catStreamSlug = null;
+    el.classList.remove('generating'); _catProgressHide(el);
+  }}
+  var tid = setTimeout(function() {{
+    if (es.readyState !== EventSource.CLOSED) {{
+      _stop();
+      _dbgLine('✗ תם הזמן — נסה שוב', 'err');
+    }}
+  }}, 300000);
+  es.onmessage = function(e) {{
+    if (!e.data || e.data === '__CONNECTED__') return;
+    if (e.data.indexOf('__PROGRESS__:') === 0) {{
+      var pct = parseInt(e.data.slice('__PROGRESS__:'.length), 10);
+      if (!isNaN(pct)) _catProgressSet(el, pct);
+      return;
+    }}
+    if (e.data.indexOf('__DONE__') === 0) {{
+      _catProgressSet(el, 100);
+      _stop();
+      _dbgLine('✓ הניתוח הסתיים — טוען…', 'ok');
+      setTimeout(function() {{ location.href = '/category/' + slug; }}, 400);
+      return;
+    }}
+    if (e.data.indexOf('__ERROR__') === 0) {{
+      _stop();
+      var msg = e.data === '__ERROR__:busy' ? 'ניתוח אחר כבר רץ — נסה שוב בעוד רגע'
+        : e.data.length > '__ERROR__:'.length ? e.data.slice('__ERROR__:'.length)
+        : 'שגיאה בניתוח — פרטים למעלה';
+      _dbgLine('✗ ' + msg, 'err');
+      return;
+    }}
+    // regular progress lines already arrive via /api/debug-logs (same tee as
+    // every other page) — no need to duplicate them here.
+  }};
+  es.onerror = function() {{
+    _stop();
+    _dbgLine('✗ החיבור נותק', 'err');
+  }};
+  return false;
+}}
 function restartServer(btn){{btn.disabled=true;btn.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg> מפעיל מחדש…';fetch('/api/restart',{{method:'POST'}}).catch(function(){{}}).finally(function(){{var t=setInterval(function(){{fetch('/').then(function(r){{if(r.ok){{clearInterval(t);location.reload();}}}}).catch(function(){{}});}},800);}});}}
 function openNav(){{var s=document.getElementById('sidebar'),o=document.getElementById('nav-overlay'),b=document.getElementById('ham-btn');s.classList.add('open');o.classList.add('open');b.classList.add('open');}}
 function closeNav(){{var s=document.getElementById('sidebar'),o=document.getElementById('nav-overlay'),b=document.getElementById('ham-btn');s.classList.remove('open');o.classList.remove('open');b.classList.remove('open');}}
@@ -1007,12 +1438,18 @@ function filterCats(q) {{
 
 @app.route('/category/<path:slug>')
 def serve_category(slug):
+    # <path:slug> arrives still percent-encoded on Vercel (path params, unlike
+    # query-string args, aren't decoded there) — undecoded, a Hebrew slug like
+    # 'cat_ביטוחים' shows up as the literal 'cat_%D7%91%D7%99...', which then
+    # misses the cache-file lookup below and falls through to auto-regen with
+    # this garbled text used as the fallback name, corrupting the whole page.
+    slug = _normalize_percent_encoded(slug)
     html_path = os.path.join(CATEGORY_ANALYSIS_DIR, f'{slug}.html')
     if os.path.exists(html_path):
         return send_file(html_path)
     # Auto-trigger generation — pass original name (from query param) so special
     # chars (חו"ל, השקעה/חיסכון) are preserved in the analysis request
-    name = request.args.get('name', '')
+    name = _normalize_percent_encoded(request.args.get('name', ''))
     return _not_generated_category_html(slug, name=name)
 
 
@@ -1022,9 +1459,11 @@ def category_list():
     from datetime import datetime as _dt
     cats = DataBase().get_all_category_names() or []
     bizs = DataBase().get_all_business_names() or []
+    cat_slugs = _build_slug_map(cats, 'cat')
+    biz_slugs = _build_slug_map(bizs, 'biz')
     result = []
     for name in sorted(cats):
-        slug  = _make_slug('cat', name)
+        slug  = cat_slugs[name]
         fpath = os.path.join(CATEGORY_ANALYSIS_DIR, f'{slug}.html')
         has   = os.path.exists(fpath)
         result.append({
@@ -1032,7 +1471,7 @@ def category_list():
             'generated': _dt.fromtimestamp(os.path.getmtime(fpath)).strftime('%d/%m/%Y %H:%M') if has else None
         })
     for name in sorted(bizs):
-        slug  = _make_slug('biz', name)
+        slug  = biz_slugs[name]
         fpath = os.path.join(CATEGORY_ANALYSIS_DIR, f'{slug}.html')
         has   = os.path.exists(fpath)
         result.append({
@@ -1059,20 +1498,27 @@ def run_category():
     slug = body.get('slug', '')
     type_ = body.get('type', 'category')  # 'category' | 'business'
 
-    # Derive name: prefer explicit name from client, then verify against the real DB list.
-    # The slug→name fallback is lossy (special chars like " and / become spaces), so we
-    # cross-check against all known names and pick an exact slug match if found.
-    prefix = 'cat_' if type_ == 'category' else 'biz_'
-    client_name = (body.get('name') or '').strip()
-    try:
-        from database import DataBase as _DB
-        all_names = (_DB().get_all_category_names() if type_ == 'category'
-                     else _DB().get_all_business_names()) or []
-        # Find the name whose slug matches exactly
-        matched = next((n for n in all_names if _make_slug(prefix.rstrip('_'), n) == slug), None)
-        name = matched or client_name or (slug[len(prefix):].replace('_', ' ') if slug.startswith(prefix) else slug)
-    except Exception:
-        name = client_name or (slug[len(prefix):].replace('_', ' ') if slug.startswith(prefix) else slug)
+    # Derive name: the client always sends the exact name it clicked (from that
+    # item's own data-name attribute), so it's authoritative — trust it first.
+    # Only when it's missing do we fall back to reversing the slug, using the
+    # same collision-aware map categories_page built the slug from in the
+    # first place (a plain first-match search would resolve two names that
+    # share a slug — e.g. "PAYPAL *NETFLIX COM" vs "PAYPAL  NETFLIX COM" — to
+    # whichever happened to come first, silently running analysis for the
+    # wrong business).
+    prefix_type = 'cat' if type_ == 'category' else 'biz'
+    prefix = f'{prefix_type}_'
+    client_name = _normalize_percent_encoded((body.get('name') or '').strip())
+    name = client_name
+    if not name:
+        try:
+            from database import DataBase as _DB
+            all_names = (_DB().get_all_category_names() if type_ == 'category'
+                         else _DB().get_all_business_names()) or []
+            inverse = {v: k for k, v in _build_slug_map(all_names, prefix_type).items()}
+            name = inverse.get(slug) or (slug[len(prefix):].replace('_', ' ') if slug.startswith(prefix) else slug)
+        except Exception:
+            name = slug[len(prefix):].replace('_', ' ') if slug.startswith(prefix) else slug
 
     def _worker():
         global _analysis_running
@@ -1110,7 +1556,7 @@ def run_category_stream():
     global _analysis_running
     slug        = request.args.get('slug', '')
     type_val    = request.args.get('type', 'category')
-    client_name = (request.args.get('name') or '').strip()
+    client_name = _normalize_percent_encoded((request.args.get('name') or '').strip())
 
     with _analysis_lock:
         if _analysis_running:
@@ -1120,17 +1566,28 @@ def run_category_stream():
                             headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'})
         _analysis_running = True
 
-    prefix = 'cat_' if type_val == 'category' else 'biz_'
-    try:
-        from database import DataBase as _DB
-        all_names = (_DB().get_all_category_names() if type_val == 'category'
-                     else _DB().get_all_business_names()) or []
-        matched = next((n for n in all_names if _make_slug(prefix.rstrip('_'), n) == slug), None)
-        name = matched or client_name or (slug[len(prefix):].replace('_', ' ') if slug.startswith(prefix) else slug)
-    except Exception:
-        name = client_name or (slug[len(prefix):].replace('_', ' ') if slug.startswith(prefix) else slug)
+    # See run_category()'s comment: client_name is authoritative (it's the
+    # exact name that item's card was rendered with); the slug-reversal is
+    # only a fallback for a request with no name, and must use the same
+    # collision-aware map the slug was built from, or two names sharing a
+    # base slug resolve to whichever comes first — silently running the
+    # wrong business's analysis.
+    prefix_type = 'cat' if type_val == 'category' else 'biz'
+    prefix = f'{prefix_type}_'
+    name = client_name
+    if not name:
+        try:
+            from database import DataBase as _DB
+            all_names = (_DB().get_all_category_names() if type_val == 'category'
+                         else _DB().get_all_business_names()) or []
+            inverse = {v: k for k, v in _build_slug_map(all_names, prefix_type).items()}
+            name = inverse.get(slug) or (slug[len(prefix):].replace('_', ' ') if slug.startswith(prefix) else slug)
+        except Exception:
+            name = slug[len(prefix):].replace('_', ' ') if slug.startswith(prefix) else slug
 
     local_q: queue.Queue = queue.Queue()
+    _regen_tracker.init(slug)
+    _regen_tracker.set_callback(slug, lambda pct: local_q.put(f'__PROGRESS__:{pct}'))
 
     def _worker():
         global _analysis_running
@@ -1139,21 +1596,27 @@ def run_category_stream():
             from AppManager import AppManager
             def _do():
                 if type_val == 'category':
-                    AppManager(skip_parser=True).category_analysis(category=name)
+                    AppManager(skip_parser=True).category_analysis(category=name, page_id=slug)
                 else:
-                    AppManager(skip_parser=True).category_analysis(business=name)
+                    AppManager(skip_parser=True).category_analysis(business=name, page_id=slug)
             deps, db_mtime = _capture_deps_and_run(_do)
             html_path = os.path.join(CATEGORY_ANALYSIS_DIR, f'{slug}.html')
             if os.path.exists(html_path):
                 _save_manifest(html_path, deps, db_mtime)
+            _regen_tracker.done(slug)
             local_q.put(f'__DONE__:{slug}')
         except Exception as exc:
             import traceback
             _log_error(exc, traceback.format_exc())
-            local_q.put('__ERROR__')
+            # Carry the exception summary on the message itself so the client can
+            # show something useful immediately, instead of relying on the
+            # separate /api/debug-logs stream (a different SSE connection) to have
+            # already delivered the full traceback by the time this arrives.
+            local_q.put(f'__ERROR__:{type(exc).__name__}: {str(exc)[:200]}')
         finally:
             with _analysis_lock:
                 _analysis_running = False
+            _regen_tracker.clear_callback(slug)
 
     threading.Thread(target=_worker, daemon=True, name='cat-stream-worker').start()
 
@@ -1167,7 +1630,7 @@ def run_category_stream():
                 continue
             safe = msg.replace('\r\n', '↵').replace('\n', '↵').replace('\r', '↵')
             yield f'data: {safe}\n\n'
-            if msg.startswith('__DONE__') or msg == '__ERROR__':
+            if msg.startswith('__DONE__') or msg.startswith('__ERROR__'):
                 break
 
     return Response(
@@ -1420,6 +1883,11 @@ def _not_generated_category_html(slug: str, name: str = '') -> str:
     }}, 300000);
     es.onmessage = function(e) {{
       if (!e.data || e.data === '__CONNECTED__') return;
+      if (e.data.indexOf('__PROGRESS__:') === 0) {{
+        var pct = parseInt(e.data.slice('__PROGRESS__:'.length), 10);
+        if (!isNaN(pct)) document.getElementById('lf-title').textContent = 'מנתח קטגוריה… ' + pct + '%';
+        return;
+      }}
       if (e.data.startsWith('__DONE__')) {{
         clearTimeout(_tid); es.close();
         appendLog('✓ הניתוח הסתיים — טוען…', 'done');
@@ -1427,13 +1895,21 @@ def _not_generated_category_html(slug: str, name: str = '') -> str:
         setTimeout(function() {{ location.href = '/category/' + {slug_js}; }}, 1100);
         return;
       }}
-      if (e.data === '__ERROR__') {{
+      if (e.data.indexOf('__ERROR__') === 0) {{
         clearTimeout(_tid); es.close();
-        appendLog('✗ שגיאה בניתוח', 'err');
+        var msg = e.data === '__ERROR__:busy' ? 'ניתוח אחר כבר רץ — נסה שוב בעוד רגע'
+          : e.data.length > '__ERROR__:'.length ? e.data.slice('__ERROR__:'.length)
+          : 'שגיאה בניתוח';
+        appendLog('✗ ' + msg, 'err');
         hideLogFloat(3000);
         return;
       }}
       appendLog(e.data);
+    }};
+    es.onerror = function() {{
+      clearTimeout(_tid); es.close();
+      appendLog('✗ החיבור נותק', 'err');
+      hideLogFloat(3000);
     }};
   }})();
 </script>
@@ -1468,19 +1944,23 @@ if os.getenv('VERCEL'):
     GENERAL_ANALYSIS_DIR  = '/tmp/general_analysis'
     CATEGORY_ANALYSIS_DIR = '/tmp/category_analysis'
     OUTPUT_HTML           = '/tmp/output.html'
+    ORGANIZER_HTML        = '/tmp/Organizer_Table.html'
     os.makedirs(GENERAL_ANALYSIS_DIR, exist_ok=True)
     os.makedirs(CATEGORY_ANALYSIS_DIR, exist_ok=True)
 
-GYM_HTML = os.path.join(_HERE, 'html', 'Gym.html')
-
 
 class _PGConn:
-    """Thin wrapper around psycopg2 connection that mimics sqlite3's conn.execute() API."""
+    """Thin wrapper around psycopg2 connection that mimics sqlite3's conn.execute() API.
+
+    A pooled connection goes back to the pool on close(); a wrapper dropped without close()
+    (an exception path that skipped it) returns it when garbage-collected, so it never leaks.
+    """
 
     def __init__(self, raw_conn, pool=None):
         import psycopg2.extras
         self._conn = raw_conn
         self._pool = pool
+        self._returned = False
         self._factory = psycopg2.extras.DictCursor
 
     def _sql(self, sql):
@@ -1498,20 +1978,34 @@ class _PGConn:
     def rollback(self): self._conn.rollback()
 
     def close(self):
+        """Return the connection to the pool (idempotent); a broken one is closed instead."""
         if self._pool is None:
             self._conn.close()
             return
-        broken = bool(self._conn.closed)
-        if not broken:
-            try:
-                self._conn.rollback()  # reset any open transaction before returning
-            except Exception:
-                broken = True
+        if self._returned:
+            return
+        self._returned = True
         try:
-            self._pool.putconn(self._conn, close=broken)
+            broken = bool(self._conn.closed)
+            if not broken:
+                try:
+                    self._conn.rollback()  # reset any open transaction before returning
+                except Exception:
+                    broken = True
+            try:
+                self._pool.putconn(self._conn, close=broken)
+            except Exception:
+                try: self._conn.close()
+                except Exception: pass
+        finally:
+            _pg_gate.release()
+
+    def __del__(self):
+        try:
+            if self._pool is not None and not self._returned:
+                self.close()
         except Exception:
-            try: self._conn.close()
-            except Exception: pass
+            pass
 
     def cursor(self):
         import psycopg2.extras
@@ -1521,6 +2015,8 @@ class _PGConn:
 # ── Persistent Postgres connection pool ───────────────────────────────────────
 _pg_pool      = None
 _pg_pool_lock = _threading.Lock()
+_PG_POOL_MAX  = 10
+_pg_gate      = PoolGate(_PG_POOL_MAX, timeout=30)   # borrowers wait for a free connection (db_pool.py)
 
 def _get_pg_pool():
     global _pg_pool
@@ -1530,7 +2026,7 @@ def _get_pg_pool():
         if _pg_pool is None:
             import psycopg2.pool
             _pg_pool = psycopg2.pool.ThreadedConnectionPool(
-                minconn=1, maxconn=5,
+                minconn=1, maxconn=_PG_POOL_MAX,
                 dsn=os.environ.get('DATABASE_URL', ''),
                 connect_timeout=10,
             )
@@ -1538,93 +2034,49 @@ def _get_pg_pool():
 
 
 def _pg_conn():
-    """Return a _PGConn backed by a pooled connection — no new TCP handshake per request."""
-    import psycopg2
-    pool = _get_pg_pool()
-    raw  = pool.getconn()
-    if raw.closed:
-        # Stale slot — discard and open a fresh one
-        pool.putconn(raw, close=True)
-        raw = pool.getconn()
-    raw.autocommit = False
-    return _PGConn(raw, pool=pool)
+    """Return a _PGConn backed by a pooled connection — no new TCP handshake per request.
+
+    Waits (PoolGate) for a free connection when all are in use.
+    """
+    def _get():
+        pool = _get_pg_pool()
+        raw  = pool.getconn()
+        if raw.closed:
+            # Stale slot — discard and open a fresh one
+            pool.putconn(raw, close=True)
+            raw = pool.getconn()
+        raw.autocommit = False
+        return _PGConn(raw, pool=pool)
+    return _pg_gate.borrow(_get)
 
 
 def _get_latest_yyyy_mm():
-    """Return the latest month key (e.g. '2026_05') that has data in the DB.
+    """Return the latest month key (e.g. '2026_10') that has bank data.
 
-    Check order: (1) filesystem HTML files, (2) in-memory API cache,
-    (3) DB MAX(Date) query — so this works both locally and on Vercel.
+    The database is the source of truth (the month of MAX(Date) in BankTransactions — the same
+    months the landing page offers). Generated HTML files in GENERAL_ANALYSIS_DIR are leftovers
+    from before monthly pages were served live and can be months old, so they — and the
+    in-memory API cache — are only a fallback when the database can't be read: the newer of the two.
     """
     from datetime import datetime as _dt
     import logging as _log
 
-    # 1. Filesystem (populated locally when HTML output is generated)
-    if os.path.isdir(GENERAL_ANALYSIS_DIR):
-        files = sorted(
-            f for f in os.listdir(GENERAL_ANALYSIS_DIR)
-            if _re.match(r'^\d{4}_\d{2}\.html$', f)
-        )
-        if files:
-            return files[-1].replace('.html', '')
-
-    # 2. In-memory API cache (populated after the first data request)
-    if _monthly_data_cache:
-        return max(_monthly_data_cache.keys())
-
-    # 3. DB query fallback (works on Vercel / API-first)
     try:
-        if os.getenv('DATABASE_URL'):
-            conn = _pg_conn()
-            try:
-                row = conn.execute("SELECT MAX(Date) FROM BankTransactions").fetchone()
-            finally:
-                conn.close()
-        else:
-            from database import DataBase
-            row = DataBase().cursor.execute(
-                "SELECT MAX(Date) FROM BankTransactions"
-            ).fetchone()
+        conn = _pg_conn()
+        try:
+            row = conn.execute("SELECT MAX(Date) FROM BankTransactions").fetchone()
+        finally:
+            conn.close()
         if row and row[0]:
-            d_str = str(row[0])[:10]
-            d = _dt.strptime(d_str, '%Y-%m-%d')
+            d = _dt.strptime(str(row[0])[:10], '%Y-%m-%d')
             return f'{d.year:04d}_{d.month:02d}'
     except Exception as _e:
         _log.getLogger(__name__).warning('_get_latest_yyyy_mm DB query failed: %s', _e)
 
-    return None
-
-
-def _gym_db():
-    """Return a _PGConn connection with gym tables guaranteed to exist."""
-    conn = _pg_conn()
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS GymParticipants (
-            id             SERIAL PRIMARY KEY,
-            name           TEXT    NOT NULL,
-            is_active      INTEGER DEFAULT 1,
-            insertion_date TEXT    NOT NULL
-        )
-    """)
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS GymSessions (
-            id             SERIAL PRIMARY KEY,
-            date           TEXT    NOT NULL,
-            product_price  REAL    NOT NULL,
-            payer_id       INTEGER NOT NULL REFERENCES GymParticipants(id),
-            notes          TEXT,
-            insertion_date TEXT    NOT NULL
-        )
-    """)
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS GymSessionParticipants (
-            session_id     INTEGER REFERENCES GymSessions(id),
-            participant_id INTEGER REFERENCES GymParticipants(id),
-            PRIMARY KEY (session_id, participant_id)
-        )
-    """)
-    conn.commit()
-    return conn
+    keys = set(_monthly_data_cache.keys())
+    if os.path.isdir(GENERAL_ANALYSIS_DIR):
+        keys.update(f[:-5] for f in os.listdir(GENERAL_ANALYSIS_DIR) if _re.match(r'^\d{4}_\d{2}\.html$', f))
+    return max(keys) if keys else None
 
 
 def _acct_db():
@@ -1637,6 +2089,16 @@ def _run_acct_migrations():
     try:
         conn = _pg_conn()
         try:
+            # ALTER TABLE needs an ACCESS EXCLUSIVE lock. If some other
+            # connection is sitting idle-in-transaction (a read-only handler
+            # elsewhere in the app that never committed) this would otherwise
+            # queue indefinitely — and Postgres then queues every *other*
+            # connection's ordinary queries on this table behind it too,
+            # stalling the whole app. Fail fast instead of cascading.
+            conn.execute("SET lock_timeout = '3s'")
+        except Exception:
+            pass
+        try:
             conn.execute("ALTER TABLE OtherAccountStatus ADD COLUMN IF NOT EXISTS Currency TEXT NOT NULL DEFAULT 'ILS'")
             conn.commit()
         except Exception:
@@ -1646,6 +2108,27 @@ def _run_acct_migrations():
             conn.commit()
         except Exception:
             conn.rollback()
+        conn.close()
+    except Exception:
+        pass
+
+
+def _run_tagger_migrations():
+    """One-time DDL migrations for tag-timestamp tracking. Called once at startup."""
+    try:
+        conn = _pg_conn()
+        try:
+            # See _run_acct_migrations — avoid queueing behind (and then
+            # blocking behind us) a lingering idle-in-transaction connection.
+            conn.execute("SET lock_timeout = '3s'")
+        except Exception:
+            pass
+        for tbl in ('BankTransactions', 'CardTransactions'):
+            try:
+                conn.execute(f"ALTER TABLE {tbl} ADD COLUMN IF NOT EXISTS Tagged_At TIMESTAMP")
+                conn.commit()
+            except Exception:
+                conn.rollback()
         conn.close()
     except Exception:
         pass
@@ -1717,6 +2200,8 @@ def accounts_add_status():
             conn.commit()
         finally:
             conn.close()
+        if float(value) != 0:
+            _reactivate_if_inactive(name)   # money in an inactive account makes it active again
         _compute_accounts()
         return jsonify({'ok': True})
     except Exception as e:
@@ -1804,6 +2289,7 @@ def cash_by_currency():
         return jsonify({'ok': True, 'data': _cash_pie_cache, 'cached': True})
 
     import re as _re2
+    conn = None
     try:
         _SYM = {'ILS': '₪', 'USD': '$', 'EUR': '€', 'GBP': '£', 'JPY': '¥'}
         totals = {}   # currency_code → running balance
@@ -1823,8 +2309,6 @@ def cash_by_currency():
             code = m.group(1) if m else (cur_raw or 'ILS')
             totals[code] = totals.get(code, 0) + float(amount or 0)
 
-        conn.close()
-
         result = [
             {
                 'currency': code,
@@ -1837,13 +2321,17 @@ def cash_by_currency():
         return jsonify({'ok': True, 'data': result})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)})
+    finally:
+        if conn is not None:
+            conn.close()
 
 
-def _cash_balance_map():
+def _cash_balance_map(strict=False):
     """Return {currency_code: balance} for the current cash on hand.
     Shared by cash_by_currency() and cash_reconcile()."""
     import re as _re2
     totals = {}
+    conn = None
     try:
         conn = _pg_conn()
         bank_out = conn.execute("SELECT SUM(Out) FROM BankTransactions WHERE Category = 'withdrawal'").fetchone()[0] or 0
@@ -1852,25 +2340,141 @@ def _cash_balance_map():
             m    = _re2.match(r'([A-Z]+)', (cur_raw or '').strip())
             code = m.group(1) if m else (cur_raw or 'ILS')
             totals[code] = totals.get(code, 0) + float(amount or 0)
-        conn.close()
     except Exception:
-        pass
+        if strict:
+            raise
+    finally:
+        if conn is not None:
+            conn.close()
     return totals
+
+
+_ACCOUNTS_WITHOUT_SETTINGS = {'Cash', 'Main Bank'}   # everyday accounts: no owner/info/inactive
+_ACCOUNT_OWNER_MAX = 60
+_ACCOUNT_INFO_MAX = 2000
+
+
+def _account_settings():
+    """{account name: {inactive, owner, info}} for the accounts page, or {} when it can't be read
+    (the page then shows every account as active with no owner/info instead of failing)."""
+    from database import DataBase
+    try:
+        db = DataBase()
+        db.ensure_account_settings_table()
+        return db.get_account_settings()
+    except Exception as e:
+        print(f'[accounts] settings unavailable: {e}')
+        return {}
+
+
+def _reactivate_if_inactive(name):
+    """Clear the inactive flag of `name` if it is set (called when a non-zero balance is added)."""
+    from database import DataBase
+    try:
+        if _account_settings().get(name, {}).get('inactive'):
+            DataBase().update_account_settings(name, inactive=False)
+    except Exception as e:
+        print(f'[accounts] could not reactivate {name!r}: {e}')
+
+
+def _account_last_balance(accounts, name):
+    """The latest value of an account's series in the accounts payload, or None if unknown."""
+    pts = sorted((accounts or {}).get(name) or [])
+    return float(pts[-1][1] or 0) if pts else None
+
+
+def _accounts_with_projects(payload):
+    """The accounts payload plus the new-build apartments' assets (נכס מונה) and the Total including
+    them. Added per request, not stored in the cached payload, so price/growth/payment edits on the
+    housing page show up on the accounts page at once. Never raises: without them it is `payload`."""
+    import housing_project_service
+    from database import DataBase
+    from datetime import date as _date
+    try:
+        return housing_project_service.overlay_accounts(payload, DataBase(), _date.today())
+    except Exception as e:
+        print(f'[accounts] housing projects unavailable: {e}')
+        return payload
+
+
+@app.route('/api/accounts/settings', methods=['POST'])
+def accounts_update_settings():
+    """Set an account's owner, info and/or inactive flag.
+
+    Body: {name, owner?, info?, inactive?}. The account must exist in the accounts payload; it can
+    be made inactive only while its latest balance is 0 (reactivating is always allowed)."""
+    body = request.get_json(silent=True) or {}
+    name = (body.get('name') or '').strip() if isinstance(body.get('name'), str) else ''
+    accounts = _accounts_with_projects(_accounts_cached_payload() or _compute_accounts()).get('accounts') or {}
+    if not name or name == 'Total' or name not in accounts:
+        return jsonify({'ok': False, 'error': 'unknown account'}), 400
+    if name in _ACCOUNTS_WITHOUT_SETTINGS:
+        return jsonify({'ok': False, 'error': 'לחשבון הזה אין בעלים, מידע או מצב לא פעיל'}), 400
+    fields = {}
+    for key, limit in (('owner', _ACCOUNT_OWNER_MAX), ('info', _ACCOUNT_INFO_MAX)):
+        if key in body:
+            if not isinstance(body[key], str) or len(body[key].strip()) > limit:
+                return jsonify({'ok': False, 'error': f'{key} must be text up to {limit} characters'}), 400
+            fields[key] = body[key].strip()
+    if 'inactive' in body:
+        if not isinstance(body['inactive'], bool):
+            return jsonify({'ok': False, 'error': 'inactive must be true or false'}), 400
+        if body['inactive'] and abs(_account_last_balance(accounts, name) or 0) >= 0.005:
+            return jsonify({'ok': False, 'error': 'אפשר להפוך חשבון ללא פעיל רק כשהיתרה שלו 0'}), 400
+        fields['inactive'] = body['inactive']
+    if not fields:
+        return jsonify({'ok': False, 'error': 'nothing to change'}), 400
+    from database import DataBase
+    try:
+        db = DataBase()
+        db.ensure_account_settings_table()
+        db.update_account_settings(name, **fields)
+        settings = db.get_account_settings().get(name, {'inactive': False, 'owner': '', 'info': ''})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+    return jsonify({'ok': True, 'settings': settings})
+
+
+def _accounts_cash_ils_total():
+    """Cash on hand in ILS, same sum as the cash pie (landing_service.cash_ils_total), or
+    None when it can't be known right now (DB error, FX rates not loaded yet). Sent with
+    the accounts payload so the page's first render already has the right grand total
+    instead of jumping by the cash difference once the pie loads."""
+    import landing_service
+    try:
+        return landing_service.cash_ils_total(_cash_balance_map(strict=True), _get_fx_rates())
+    except Exception:
+        return None
 
 
 @app.route('/api/accounts/data')
 def accounts_data_api():
-    """Serve cached accounts+meta payload for the חשבונות panel."""
+    """Serve the accounts+meta payload for the חשבונות panel, plus cash_ils_total
+    (computed per request — cash changes don't touch the accounts cache).
+
+    Default: instant — the cached payload (in-memory, auto-refreshed from disk
+    when another process wrote a newer one).
+    ?fresh=1: re-derive from the database (used by the client to revalidate in
+    the background so the panel never blocks on a full recompute)."""
     _no_cache = {'Cache-Control': 'no-store'}
-    if _accounts_cache.get('data'):
-        return jsonify({**_accounts_cache['data'], 'ok': True, 'cached': True}), 200, _no_cache
-    disk = _load_accounts_disk()
-    if disk:
-        _accounts_cache['data'] = disk
-        return jsonify({**disk, 'ok': True, 'cached': True}), 200, _no_cache
+    want_fresh = request.args.get('fresh') in ('1', 'true', 'yes')
+
+    def _live():   # computed per request: cash and account settings change without an accounts recompute
+        return {'cash_ils_total': _accounts_cash_ils_total(), 'account_settings': _account_settings()}
+
+    if want_fresh:
+        try:
+            data = _accounts_with_projects(_compute_accounts())
+            return jsonify({**data, 'ok': True, 'cached': False, **_live()}), 200, _no_cache
+        except Exception as e:
+            return jsonify({'ok': False, 'error': str(e)}), 500, _no_cache
+
+    cached = _accounts_cached_payload()
+    if cached:
+        return jsonify({**_accounts_with_projects(cached), 'ok': True, 'cached': True, **_live()}), 200, _no_cache
     try:
-        data = _compute_accounts()
-        return jsonify({**data, 'ok': True, 'cached': False}), 200, _no_cache
+        data = _accounts_with_projects(_compute_accounts())
+        return jsonify({**data, 'ok': True, 'cached': False, **_live()}), 200, _no_cache
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 500, _no_cache
 
@@ -1956,6 +2560,7 @@ def cash_add_transaction():
 @app.route('/api/cash/monthly-history')
 def cash_monthly_history_api():
     """Return accumulated cash balance (ILS) sampled at the first of each month."""
+    conn = None
     try:
         import re as _re2, urllib.request as _ureq, json as _json_fx
         from datetime import date as _date, datetime as _dt
@@ -1992,8 +2597,6 @@ def cash_monthly_history_api():
             except Exception:
                 pass
 
-        conn.close()
-
         if not events:
             return jsonify({'ok': True, 'data': []})
 
@@ -2028,6 +2631,9 @@ def cash_monthly_history_api():
         return jsonify({'ok': True, 'data': result})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)})
+    finally:
+        if conn is not None:
+            conn.close()
 
 
 @app.route('/api/cash/reconcile', methods=['POST'])
@@ -2087,7 +2693,9 @@ def version():
             v = f.read().strip()
     except Exception:
         v = '—'
-    return jsonify({'version': v})
+    resp = jsonify({'version': v})
+    resp.headers['Cache-Control'] = 'no-store'   # the badge must reflect the running code, never a cached reply
+    return resp
 
 
 @app.route('/api/stale-all')
@@ -2285,7 +2893,7 @@ def run_analysis():
         global _analysis_running, _active_regen_key
         key = None
         try:
-            from AppManager import AppManager
+            from AppManager import AppManager, NoTransactionDataError
             from datetime import datetime
             from dateutil.relativedelta import relativedelta
             from src_utils.utils import utils as _utils
@@ -2319,6 +2927,9 @@ def run_analysis():
 
             _regen_tracker.done(key)
             _log_queue.put(f'__DONE__:{key}')
+
+        except NoTransactionDataError:
+            _log_queue.put(f'__ERROR__:no_data:{key}')
 
         except Exception as exc:
             import traceback
@@ -2363,7 +2974,7 @@ def run_analysis_stream():
         _thread_log_queue.queue = local_q
         key = None
         try:
-            from AppManager import AppManager
+            from AppManager import AppManager, NoTransactionDataError
             from datetime import datetime
             from dateutil.relativedelta import relativedelta
             from src_utils.utils import utils as _utils
@@ -2396,6 +3007,8 @@ def run_analysis_stream():
 
             _regen_tracker.done(key)
             local_q.put(f'__DONE__:{key}')
+        except NoTransactionDataError:
+            local_q.put(f'__ERROR__:no_data:{key}')
         except Exception as exc:
             import traceback
             _log_error(exc, traceback.format_exc())
@@ -2450,7 +3063,7 @@ def log_stream():
             safe = msg.replace('\r\n', '↵').replace('\n', '↵').replace('\r', '↵')
             yield f"data: {safe}\n\n"
 
-            if msg.startswith('__DONE__') or msg == '__ERROR__':
+            if msg.startswith('__DONE__') or msg.startswith('__ERROR__'):
                 break
 
     return Response(
@@ -2829,7 +3442,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--na
 .sidebar{position:fixed;top:0;right:0;height:100vh;width:230px;background:var(--white);z-index:395;transform:translate3d(100%,0,0);transition:transform .22s cubic-bezier(.4,0,.2,1);will-change:transform;box-shadow:-4px 0 24px rgba(0,0,0,.09);display:flex;flex-direction:column}
 .sidebar.open{transform:translate3d(0,0,0)}
 .sidebar-header{display:flex;align-items:center;padding:20px 20px 16px;border-bottom:1px solid var(--border);flex-shrink:0}
-.sidebar-app-name{font-size:.95em;font-weight:700;color:var(--navy)}
+.sidebar-app-name{display:flex;align-items:center;gap:10px;text-decoration:none;font-size:.95em;font-weight:700;color:var(--navy)}
 .sidebar-close-btn{margin-right:auto;background:none;border:none;cursor:pointer;font-size:1.1em;color:#555;padding:4px 6px;border-radius:6px;transition:background .12s,color .12s}
 .sidebar-close-btn:hover{background:var(--teal-light);color:var(--teal)}
 .sidebar-scroll{flex:1;overflow-y:auto;overflow-x:hidden;padding:8px 0 16px}
@@ -2951,24 +3564,10 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--na
 <div class="nav-overlay" id="nav-overlay" onclick="toggleNav()"></div>
 <nav class="sidebar" id="sidebar">
   <div class="sidebar-header">
-    <span class="sidebar-app-name">ניהול כספים</span>
+    <a class="sidebar-app-name" href="/" title="דף הבית">ניהול כספים</a>
     <button class="sidebar-close-btn" onclick="closeNav()" aria-label="סגור תפריט">✕</button>
   </div>
-  <div class="sidebar-scroll">
-    <a class="nav-item" href="/">ניתוח חודשי</a>
-    <div class="nav-sep"></div>
-    <a class="nav-item" href="/accounts">חשבונות</a>
-    <a class="nav-item" href="/housing">דיור</a>
-    <a class="nav-item active" href="/organizer">ארגונית</a>
-    <a class="nav-item" href="/bills">מעקב חשבונות</a>
-    <a class="nav-item" href="/categories">ניתוח קטגוריאלי</a>
-    <a class="nav-item" href="/search">חיפוש</a>
-    <a class="nav-item" href="/spotify">Spotify Tracker</a>
-    <a class="nav-item" href="/gym">💪 Gym Tracker</a>
-    <div class="nav-sep"></div>
-    <a class="nav-item" href="/tagger">תייגן</a>
-    <a class="nav-item" href="/files">קבצים</a>
-  </div>
+  <div class="sidebar-scroll" data-nav="organizer"></div>
   <div class="sidebar-footer">
     <button class="nav-restart-btn" onclick="restartServer(this)">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
@@ -2977,6 +3576,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--na
     <div class="app-version-badge" id="app-version-badge-2">v—</div>
   </div>
 </nav>
+<script src="/nav.js"></script>
 
 <div id="hm-tooltip" class="hm-tooltip"></div>
 
@@ -3040,19 +3640,27 @@ function toggleDebugPanel() {
   var p = document.getElementById('debug-panel');
   if (!p) return;
   var open = p.classList.toggle('open');
-  if (open && !_dbgEs) {
-    _dbgEs = new EventSource('/api/logs');
-    _dbgEs.onmessage = function(e) {
-      var feed = document.getElementById('debug-feed');
-      if (!feed) return;
-      var d = document.createElement('div');
-      d.className = 'debug-line' + (e.data.match(/error|Error|ERROR/) ? ' err' : e.data.match(/warn|Warn|WARN/) ? ' warn' : '');
-      d.textContent = e.data;
-      feed.appendChild(d);
-      feed.scrollTop = feed.scrollHeight;
-    };
-  }
+  if (open && !_dbgEs) _startDebugStream();
 }
+function _startDebugStream() {
+  if (_dbgEs) return;
+  _dbgEs = new EventSource('/api/debug-logs');
+  _dbgEs.onmessage = function(e) {
+    if (!e.data || !e.data.trim()) return;
+    var feed = document.getElementById('debug-feed');
+    if (!feed) return;
+    var d = document.createElement('div');
+    d.className = 'debug-line' + (e.data.match(/error|Error|ERROR/) ? ' err' : e.data.match(/warn|Warn|WARN/) ? ' warn' : '');
+    d.textContent = e.data;
+    feed.appendChild(d);
+    feed.scrollTop = feed.scrollHeight;
+  };
+  _dbgEs.onerror = function() {
+    if (_dbgEs) { _dbgEs.close(); _dbgEs = null; }
+    setTimeout(_startDebugStream, 4000);
+  };
+}
+document.addEventListener('DOMContentLoaded', function() { _startDebugStream(); });
 function clearDebugPanel() { var f=document.getElementById('debug-feed'); if(f) f.innerHTML=''; }
 function copyDebugPanel() { var f=document.getElementById('debug-feed'); if(f) navigator.clipboard.writeText(f.innerText).catch(function(){}); }
 function toggleOlder() {
@@ -3696,7 +4304,33 @@ def tagger_high_value():
         return jsonify({'ok': False, 'error': str(e)})
 
 
-_AT_PATH = os.path.join(_PROJECT_DIR, 'personal information', 'auto_tagger.json')
+@app.route('/api/tagger/auto-tag', methods=['POST'])
+def tagger_auto_tag():
+    """Manually trigger the same auto_tagger.json rule pass that normally runs
+    after a file import, and report back what (if anything) got tagged."""
+    from src_utils.utils import utils as _utils
+    try:
+        tagged = _utils.tagger_refresh()
+        return jsonify({'ok': True, 'tagged': tagged})
+    except Exception as e:
+        import traceback
+        print(f'[tagger] auto-tag pass failed: {e}\n{traceback.format_exc()}')
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+# The project dir is read-only on Vercel (/var/task) — writes must go to the
+# /tmp copy set up earlier (see the `if os.getenv('VERCEL')` block above),
+# same as _Paths.AUTO_TAGGER_JSON. Writing to the raw project-dir path here
+# raised "OSError: [Errno 30] Read-only file system" on every tag-all-by-name
+# / save-rule / remap call in production — the single-transaction tag it
+# follows had already committed by then, so the DB write silently succeeded
+# while the request still came back as a failure.
+_AT_PATH = os.path.join(_TMP_PERSONAL, 'auto_tagger.json') if os.getenv('VERCEL') \
+    else os.path.join(_PROJECT_DIR, 'personal information', 'auto_tagger.json')
+
+# Same read-only-on-Vercel reasoning as _AT_PATH above, for categories.json.
+_CATEGORIES_JSON_PATH = os.path.join(_TMP_PERSONAL, 'categories.json') if os.getenv('VERCEL') \
+    else os.path.join(_PROJECT_DIR, 'personal information', 'categories.json')
 
 def _read_at() -> dict:
     import json as _j
@@ -3733,6 +4367,8 @@ def tagger_tag():
             DataBase().set_transaction_description(description, table, int(id_))
         return jsonify({'ok': True})
     except Exception as e:
+        import traceback
+        print(f'[tagger] tag failed for {table}#{id_} -> "{cat}": {e}\n{traceback.format_exc()}')
         return jsonify({'ok': False, 'error': str(e)})
 
 
@@ -3759,6 +4395,8 @@ def tagger_tag_all_by_name():
         _write_at(at)
         return jsonify({'ok': True, 'tagged': count})
     except Exception as e:
+        import traceback
+        print(f'[tagger] tag-all-by-name failed for "{name}" -> "{cat}": {e}\n{traceback.format_exc()}')
         return jsonify({'ok': False, 'error': str(e)})
 
 
@@ -3798,7 +4436,7 @@ def tagger_save_rule():
 def tagger_categories():
     import json as _json
     try:
-        cats_path = os.path.join(_PROJECT_DIR, 'Personal Information', 'categories.json')
+        cats_path = _CATEGORIES_JSON_PATH
         with open(cats_path, encoding='utf-8-sig') as f:
             cats = _json.load(f)
         db = None
@@ -3815,6 +4453,22 @@ def tagger_categories():
         return jsonify({'ok': False, 'error': str(e)})
 
 
+@app.route('/api/tagger/card-colors')
+def tagger_card_colors():
+    """Return {card_id: hex_color}, matching the same palette assignment used
+    for card_color_dict in the monthly/general analysis charts, so a card's
+    color stays consistent across the whole app."""
+    try:
+        from database import DataBase
+        from Constants import Local
+        card_ids = DataBase().get_card_ids()
+        color_list = Local.Colors[:len(card_ids)]
+        colors = {str(cid): color for cid, color in zip(card_ids, color_list)}
+        return jsonify({'ok': True, 'colors': colors})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
 @app.route('/api/tagger/categories/add', methods=['POST'])
 def tagger_categories_add():
     import json as _json
@@ -3823,7 +4477,7 @@ def tagger_categories_add():
     if not name:
         return jsonify({'ok': False, 'error': 'missing name'})
     try:
-        cats_path = os.path.join(_PROJECT_DIR, 'Personal Information', 'categories.json')
+        cats_path = _CATEGORIES_JSON_PATH
         with open(cats_path, encoding='utf-8-sig') as f:
             cats = _json.load(f)
         if name in cats:
@@ -3833,6 +4487,91 @@ def tagger_categories_add():
             _json.dump(cats, f, ensure_ascii=False, indent=2)
         return jsonify({'ok': True})
     except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/tagger/categories/rename', methods=['POST'])
+def tagger_categories_rename():
+    """Rename a category everywhere: every transaction table, categories.json,
+    any auto_tagger.json rule pointing at it, and the stale cached analysis
+    page for its old slug. Reserved category names the app's own logic
+    depends on (NotCategorized, credit-card-charge, investment, withdrawal,
+    excluded, filler) can't be renamed — doing so would silently break the
+    string comparisons that drive that logic elsewhere in the app."""
+    import json as _json
+    from Constants import ReservedNames, INVESTMENT_CATEGORY
+    from database import DataBase
+
+    RESERVED = {
+        'NotCategorized',
+        ReservedNames.EXCLUDED_CATEGORY,
+        ReservedNames.FILLER_CATEGORY,
+        ReservedNames.CASH_FILLER_CATEGORY,
+        ReservedNames.WHITDRAWAL_CATEGORY,
+        ReservedNames.CC_CHARGE_CATEGORY_NAME,
+        INVESTMENT_CATEGORY,
+    }
+
+    body = request.get_json() or {}
+    old  = (body.get('old') or '').strip()
+    new  = (body.get('new') or '').strip()
+    if not old or not new:
+        return jsonify({'ok': False, 'error': 'missing fields'})
+    if old == new:
+        return jsonify({'ok': False, 'error': 'השם החדש זהה לשם הקיים'})
+    if old in RESERVED or new in RESERVED:
+        return jsonify({'ok': False, 'error': 'לא ניתן לשנות שם לקטגוריה זו'})
+
+    cats_path = _CATEGORIES_JSON_PATH
+    try:
+        with open(cats_path, encoding='utf-8-sig') as f:
+            cats = _json.load(f)
+        if old not in cats:
+            return jsonify({'ok': False, 'error': 'הקטגוריה לא נמצאה'})
+        if new in cats:
+            return jsonify({'ok': False, 'error': 'שם הקטגוריה כבר קיים'})
+
+        # Slug of the OLD name, computed against the list that still contains
+        # it, so a name that only collides with another via slugification
+        # still resolves to the exact cached file that's actually on disk.
+        old_slug = _build_slug_map(cats, 'cat').get(old) or _make_slug('cat', old)
+
+        # 1. Every table that stores a Category value.
+        counts = DataBase().replace_category(frm=old, to=new)
+        DataBase().commit_changes()
+
+        # 2. Master category list.
+        cats = [new if c == old else c for c in cats]
+        with open(cats_path, 'w', encoding='utf-8') as f:
+            _json.dump(cats, f, ensure_ascii=False, indent=2)
+
+        # 3. Auto-tag rules pointing at the old name.
+        at = _read_at()
+        remapped_rules = 0
+        for rule_name, rule_cat in list(at.items()):
+            if rule_cat == old:
+                at[rule_name] = new
+                remapped_rules += 1
+        if remapped_rules:
+            _write_at(at)
+
+        # 4. Stale cached analysis page for the old name/slug.
+        for ext in ('.html', '.manifest.json'):
+            stale = os.path.join(CATEGORY_ANALYSIS_DIR, old_slug + ext)
+            try:
+                if os.path.exists(stale):
+                    os.remove(stale)
+            except Exception:
+                pass
+
+        # 5. Cached monthly/global payloads still keyed by the old name.
+        _monthly_data_cache.clear()
+        _global_data_cache.clear()
+
+        return jsonify({'ok': True, 'counts': counts, 'rules_remapped': remapped_rules})
+    except Exception as e:
+        import traceback
+        print(f'[tagger] category rename failed "{old}" -> "{new}": {e}\n{traceback.format_exc()}')
         return jsonify({'ok': False, 'error': str(e)})
 
 
@@ -3866,7 +4605,7 @@ def tagger_rules_remap():
     new_cat = (body.get('new_category') or '').strip()
     if not name or not new_cat:
         return jsonify({'ok': False, 'error': 'missing fields'})
-    cats_path = os.path.join(_PROJECT_DIR, 'Personal Information', 'categories.json')
+    cats_path = _CATEGORIES_JSON_PATH
     try:
         with open(cats_path, encoding='utf-8-sig') as f:
             cats = _json.load(f)
@@ -3897,8 +4636,12 @@ def tagger_search_tagged():
 
 # ── Files routes ──────────────────────────────────────────────────────────────
 
-_INPUT_FOLDER   = os.path.join(_PROJECT_DIR, 'ShmuelFamiliy_Inputs')
-_VERIFIED_FOLDER = os.path.join(_PROJECT_DIR, 'Verified_ShmuelFamiliy_Inputs')
+if os.getenv('VERCEL'):  # Vercel: /var/task is read-only; use /tmp
+    _INPUT_FOLDER    = '/tmp/ShmuelFamiliy_Inputs'
+    _VERIFIED_FOLDER = '/tmp/Verified_ShmuelFamiliy_Inputs'
+else:
+    _INPUT_FOLDER    = os.path.join(_PROJECT_DIR, 'ShmuelFamiliy_Inputs')
+    _VERIFIED_FOLDER = os.path.join(_PROJECT_DIR, 'Verified_ShmuelFamiliy_Inputs')
 _INSERT_LOCK = threading.Lock()  # prevent concurrent parses
 
 
@@ -3935,13 +4678,16 @@ def files_scan():
         # Pre-load all known filenames from the DB so we don't rely solely on
         # the parser (which can't open locked files).
         _db_known = {}   # fname -> format
+        _conn = None
         try:
             _conn = _pg_conn()
             for _row in _conn.execute("SELECT File_Name, Format FROM File"):
                 _db_known[_row[0]] = _row[1]
-            _conn.close()
         except Exception:
             pass
+        finally:
+            if _conn is not None:
+                _conn.close()
 
         if os.path.isdir(_INPUT_FOLDER):
             for fname in sorted(os.listdir(_INPUT_FOLDER)):
@@ -4032,7 +4778,7 @@ def files_insert():
                     f'{f}: {r}' for f, r in reasons if r != 'matched'
                 ) or 'לא ניתן לאבחן'
                 utils.log(f'קובץ לא מזוהה: {filename} — {details}', 'error')
-                _log_queue.put('__ERROR__')
+                _log_queue.put(f'__ERROR__:קובץ לא מזוהה — {details}')
                 return
 
             fmt_data   = Formats.FORMATS[fmt]
@@ -4047,7 +4793,7 @@ def files_insert():
                 context.setFile(Card(filename, fmt_data))
             else:
                 utils.log('סוג קובץ לא נתמך', 'error')
-                _log_queue.put('__ERROR__')
+                _log_queue.put('__ERROR__:סוג קובץ לא נתמך')
                 return
 
             Context.counter += 1
@@ -4055,14 +4801,15 @@ def files_insert():
 
             if success:
                 utils.handle_withdrawals()
+                utils.handle_direct_bank_withdrawals()
                 utils.tagger_refresh()
 
-            _log_queue.put(f'__DONE__:{filename}' if success else '__ERROR__')
+            _log_queue.put(f'__DONE__:{filename}' if success else '__ERROR__:העיבוד נכשל')
 
         except Exception as e:
             import traceback
             _log_error(e, traceback.format_exc())
-            _log_queue.put('__ERROR__')
+            _log_queue.put(f'__ERROR__:{str(e)[:200] or type(e).__name__}')
         finally:
             _bt.input = _orig_input
             _INSERT_LOCK.release()
@@ -4124,6 +4871,7 @@ def files_insert_all():
 
             if any(r['ok'] for r in results):
                 utils.handle_withdrawals()
+                utils.handle_direct_bank_withdrawals()
                 utils.tagger_refresh()
 
             return jsonify({'ok': True, 'results': results})
@@ -4142,17 +4890,23 @@ def files_upload():
     if not f or not f.filename:
         return jsonify({'ok': False, 'error': 'no file'})
     fname = os.path.basename(f.filename)
+    # Strip characters invalid on Windows/most filesystems; keep Hebrew/Unicode intact
+    fname = _re.sub(r'[<>:"|?*\x00-\x1f]', '_', fname).strip(' .')
     if not fname:
         return jsonify({'ok': False, 'error': 'invalid filename'})
-    os.makedirs(_INPUT_FOLDER, exist_ok=True)
-    dest = os.path.join(_INPUT_FOLDER, fname)
-    f.save(dest)
+    try:
+        os.makedirs(_INPUT_FOLDER, exist_ok=True)
+        dest = os.path.join(_INPUT_FOLDER, fname)
+        f.save(dest)
+    except OSError as e:
+        return jsonify({'ok': False, 'error': f'שגיאה בשמירת הקובץ: {e}'})
     return jsonify({'ok': True, 'filename': fname})
 
 
 @app.route('/api/files/db-files')
 def files_db_list():
     """Return all rows from the File table (files already in the database)."""
+    conn = None
     try:
         conn = _pg_conn()
         rows = conn.execute('''
@@ -4161,7 +4915,6 @@ def files_db_list():
             FROM File
             ORDER BY Date DESC, Last_update DESC
         ''').fetchall()
-        conn.close()
 
         files = []
         total_tx = 0
@@ -4183,6 +4936,9 @@ def files_db_list():
         return jsonify({'ok': True, 'files': files, 'total_transactions': total_tx})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)})
+    finally:
+        if conn is not None:
+            conn.close()
 
 
 @app.route('/api/transactions/split-info')
@@ -4192,6 +4948,7 @@ def tx_split_info():
     oid = request.args.get('id', type=int)
     if tbl not in ('BankTransactions', 'CardTransactions') or oid is None:
         return jsonify({'ok': False, 'error': 'invalid table or id'})
+    conn = None
     try:
         conn = _pg_conn()
         # Fetch original row
@@ -4200,7 +4957,7 @@ def tx_split_info():
                 'SELECT ID, Name, Category, Description, Out, Income, Date FROM BankTransactions WHERE ID=%s', (oid,)
             ).fetchone()
             if not row:
-                conn.close(); return jsonify({'ok': False, 'error': 'not found'})
+                return jsonify({'ok': False, 'error': 'not found'})
             amount = float(row['income'] or 0) - float(row['out'] or 0)
             orig = {'id': row['id'], 'name': row['name'], 'category': row['category'] or '',
                     'description': row['description'] or '', 'amount': amount,
@@ -4210,7 +4967,7 @@ def tx_split_info():
                 'SELECT ID, Name, Category, Description, Transaction_Value, Executed_Date FROM CardTransactions WHERE ID=%s', (oid,)
             ).fetchone()
             if not row:
-                conn.close(); return jsonify({'ok': False, 'error': 'not found'})
+                return jsonify({'ok': False, 'error': 'not found'})
             orig = {'id': row['id'], 'name': row['name'], 'category': row['category'] or '',
                     'description': row['description'] or '',
                     'amount': float(row['transaction_value'] or 0),
@@ -4220,12 +4977,14 @@ def tx_split_info():
             'SELECT ID, Amount, Description, Category FROM TransactionSplits WHERE Original_Table=%s AND Original_ID=%s ORDER BY ID',
             (tbl, oid)
         ).fetchall()
-        conn.close()
         splits = [{'id': r['id'], 'amount': float(r['amount']),
                    'description': r['description'] or '', 'category': r['category']} for r in splits_rows]
         return jsonify({'ok': True, 'original': orig, 'splits': splits})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)})
+    finally:
+        if conn is not None:
+            conn.close()
 
 
 def _regen_month_for_tx(tbl: str, tx_id: int) -> None:
@@ -4233,11 +4992,11 @@ def _regen_month_for_tx(tbl: str, tx_id: int) -> None:
     Background helper: look up the transaction date, then regenerate the
     monthly HTML so split changes are reflected on the next page load.
     """
+    conn = None
     try:
         col  = 'Date' if tbl == 'BankTransactions' else 'Executed_Date'
         conn = _pg_conn()
         row  = conn.execute(f'SELECT {col} FROM {tbl} WHERE ID=%s', (tx_id,)).fetchone()
-        conn.close()
         if not row or not row[0]:
             return
         from datetime import datetime as _dt2
@@ -4246,6 +5005,9 @@ def _regen_month_for_tx(tbl: str, tx_id: int) -> None:
         _AM(skip_parser=True).general_analysis(t=t)
     except Exception as _e:
         print(f'[split regen] {_e}')
+    finally:
+        if conn is not None:
+            conn.close()
 
 
 @app.route('/api/transactions/split', methods=['POST'])
@@ -4404,6 +5166,8 @@ def api_bills_entries():
         )
         if overlap:
             return jsonify({'ok': False, 'error': overlap})
+        # is_filler is derived, never trusted from the client — a bar is only
+        # ever "real" (colored) once it actually has a matched transaction.
         eid = db.add_bill_entry(
             bill_type_id      = int(body['bill_type_id']),
             start_month       = body['start_month'],
@@ -4412,8 +5176,11 @@ def api_bills_entries():
             transaction_id    = body.get('transaction_id'),
             amount            = body.get('amount'),
             note              = body.get('note', ''),
-            is_filler         = bool(body.get('is_filler', False)),
+            is_filler         = body.get('transaction_id') is None,
         )
+        if eid is None:
+            # A concurrent request already created an entry for this exact span.
+            return jsonify({'ok': False, 'error': 'רשומה עם אותו טווח חודשים כבר קיימת'})
         db.commit_changes()
         return jsonify({'ok': True, 'id': eid})
     except Exception as e:
@@ -4436,26 +5203,280 @@ def api_bills_entry(entry_id):
             return jsonify({'ok': False, 'error': str(e)})
     body = request.get_json(force=True) or {}
     try:
-        # Need the bill_type_id of this entry to check overlap
-        row = db.cursor.execute(
-            "SELECT BillType_ID FROM BillEntries WHERE ID=?", (entry_id,)
+        current = db.cursor.execute(
+            "SELECT BillType_ID, Transaction_Table, Transaction_ID, Amount, Note, "
+            "Secondary_Transaction_Table, Secondary_Transaction_ID, Start_Month, End_Month "
+            "FROM BillEntries WHERE ID=%s", (entry_id,)
         ).fetchone()
-        if row:
+        if not current:
+            return jsonify({'ok': False, 'error': 'רשומה לא נמצאה'})
+
+        # A field's absence from the request body means "leave it alone", not
+        # "clear it" — editing just the note or dragging the dates must not
+        # silently detach an already-linked transaction (and its amount).
+        transaction_table = body['transaction_table'] if 'transaction_table' in body else current[1]
+        transaction_id    = body['transaction_id']    if 'transaction_id'    in body else current[2]
+        amount            = body['amount']            if 'amount'            in body else current[3]
+        note              = body['note']              if 'note'             in body else current[4]
+        sec_table = body['secondary_transaction_table'] if 'secondary_transaction_table' in body else current[5]
+        sec_id    = body['secondary_transaction_id']    if 'secondary_transaction_id'    in body else current[6]
+        # The only rule for the secondary transaction: it can't exist without a
+        # primary one. If the primary is being cleared (or was never set),
+        # silently drop the secondary too rather than erroring out.
+        if transaction_id is None:
+            sec_table, sec_id = None, None
+        # is_filler is derived here, never trusted from the client — a bar is
+        # only ever "real" (colored) when it actually has a matched
+        # transaction; setting a price/note alone can't flip it.
+        is_filler = transaction_id is None
+
+        # Only re-check neighbour overlap when the entry is actually being moved.
+        # If Start/End month are unchanged, the entry already legitimately holds
+        # that span — linking/unlinking a transaction or editing note/amount
+        # must not be blocked by some other entry that already overlaps it.
+        span_unchanged = (str(body['start_month']) == str(current[7])
+                          and str(body['end_month']) == str(current[8]))
+        if not span_unchanged:
             overlap = db.check_bill_entry_overlap(
-                row[0], body['start_month'], body['end_month'], exclude_id=entry_id
+                current[0], body['start_month'], body['end_month'], exclude_id=entry_id
             )
             if overlap:
                 return jsonify({'ok': False, 'error': overlap})
+
         db.update_bill_entry(
             entry_id,
             start_month       = body['start_month'],
             end_month         = body['end_month'],
-            note              = body.get('note'),
-            transaction_table = body.get('transaction_table'),
-            transaction_id    = body.get('transaction_id'),
-            amount            = body.get('amount'),
-            is_filler         = body.get('is_filler'),
+            note              = note,
+            transaction_table = transaction_table,
+            transaction_id    = transaction_id,
+            amount            = amount,
+            is_filler         = is_filler,
+            secondary_transaction_table = sec_table,
+            secondary_transaction_id    = sec_id,
         )
+        db.commit_changes()
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+# ── Timeline (housing panel) routes ─────────────────────────────────────────
+
+# Palette for new timeline categories — picked to sit alongside the seeded
+# blue/amber/purple and the app's teal/navy. Once exhausted, _tl_pick_color
+# generates further hues on the same saturation/lightness band.
+TIMELINE_COLOR_PALETTE = (
+    '#1e9d8b', '#ec4899', '#10b981', '#0ea5e9',
+    '#f97316', '#6366f1', '#84cc16', '#ef4444',
+)
+
+
+def _tl_pick_color(used_colors):
+    import colorsys
+    used = {c.lower() for c in used_colors}
+    for c in TIMELINE_COLOR_PALETTE:
+        if c not in used:
+            return c
+    # Golden-angle hue walk keeps generated colours well apart.
+    for i in range(1, 360):
+        h = (i * 137.508) % 360 / 360.0
+        r, g, b = colorsys.hls_to_rgb(h, 0.55, 0.70)
+        c = '#%02x%02x%02x' % (int(r * 255), int(g * 255), int(b * 255))
+        if c not in used:
+            return c
+    return '#1e9d8b'
+
+
+def _tl_next_color(db):
+    return _tl_pick_color(c['color'] for c in db.get_timeline_categories())
+
+
+@app.route('/api/timeline/categories', methods=['GET', 'POST'])
+def api_timeline_categories():
+    from database import DataBase
+    try:
+        db = DataBase()
+        db.ensure_timeline_tables()
+        if request.method == 'GET':
+            include_deleted = request.args.get('include_deleted') == '1'
+            return jsonify({
+                'ok': True,
+                'categories': db.get_timeline_categories(include_deleted=include_deleted),
+                'next_color': _tl_next_color(db),
+            })
+        body  = request.get_json(force=True) or {}
+        label = (body.get('label') or '').strip()
+        if not label:
+            return jsonify({'ok': False, 'error': 'נא להזין שם קטגוריה'})
+        if len(label) > 30:
+            return jsonify({'ok': False, 'error': 'שם הקטגוריה ארוך מדי'})
+        for c in db.get_timeline_categories(include_deleted=True):
+            if c['label'] == label:
+                if c['deleted']:
+                    return jsonify({'ok': False, 'error': 'קטגוריה בשם זה נמחקה — ניתן לשחזר אותה ברשימת הפריטים שנמחקו'})
+                return jsonify({'ok': False, 'error': 'קטגוריה בשם זה כבר קיימת'})
+        key = 'cat_' + _secrets.token_hex(4)
+        color = _tl_next_color(db)
+        db.add_timeline_category(key, label, color)
+        db.commit_changes()
+        return jsonify({'ok': True, 'key': key, 'color': color})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/timeline/categories/<key>', methods=['DELETE'])
+def api_timeline_category_delete(key):
+    from database import DataBase
+    try:
+        db = DataBase()
+        db.ensure_timeline_tables()
+        if key in db.TIMELINE_PROTECTED_CATEGORIES:
+            return jsonify({'ok': False, 'error': 'לא ניתן למחוק קטגוריה זו'})
+        if not db.timeline_category_exists(key):
+            return jsonify({'ok': False, 'error': 'קטגוריה לא נמצאה'})
+        db.delete_timeline_category(key)
+        db.commit_changes()
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/timeline/categories/<key>/restore', methods=['POST'])
+def api_timeline_category_restore(key):
+    from database import DataBase
+    try:
+        db = DataBase()
+        db.ensure_timeline_tables()
+        if not db.timeline_category_exists(key, active_only=False):
+            return jsonify({'ok': False, 'error': 'קטגוריה לא נמצאה'})
+        db.restore_timeline_category(key)
+        db.commit_changes()
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/timeline/deleted', methods=['GET'])
+def api_timeline_deleted():
+    from database import DataBase
+    try:
+        db = DataBase()
+        db.ensure_timeline_tables()
+        cats = [c for c in db.get_timeline_categories(include_deleted=True) if c['deleted']]
+        return jsonify({'ok': True, 'categories': cats, 'events': db.get_deleted_timeline_events()})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/timeline/events/<int:event_id>/restore', methods=['POST'])
+def api_timeline_event_restore(event_id):
+    from database import DataBase
+    try:
+        db = DataBase()
+        db.ensure_timeline_tables()
+        db.restore_timeline_event(event_id)
+        db.commit_changes()
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/timeline/events', methods=['GET', 'POST'])
+def api_timeline_events():
+    from database import DataBase
+    try:
+        db = DataBase()
+        db.ensure_timeline_tables()
+        if request.method == 'GET':
+            category = (request.args.get('category') or '').strip()
+            if category and not db.timeline_category_exists(category):
+                return jsonify({'ok': False, 'error': 'Invalid category'})
+            if not category:
+                category = None
+            return jsonify({'ok': True, 'events': db.get_timeline_events(category=category)})
+        body     = request.get_json(force=True) or {}
+        name     = (body.get('name') or '').strip()
+        date     = (body.get('event_date') or '').strip()
+        color    = (body.get('color') or '#1e9d8b').strip()
+        desc     = (body.get('description') or '').strip()
+        category = (body.get('category') or '').strip()
+        if not name:
+            return jsonify({'ok': False, 'error': 'Name required'})
+        if not date:
+            return jsonify({'ok': False, 'error': 'Date required'})
+        if category and not db.timeline_category_exists(category):
+            return jsonify({'ok': False, 'error': 'Invalid category'})
+        if not category:
+            category = 'general'
+        eid = db.add_timeline_event(name, date, desc, color, category)
+        db.commit_changes()
+        return jsonify({'ok': True, 'id': eid})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/timeline/events/<int:event_id>', methods=['PUT', 'DELETE'])
+def api_timeline_event(event_id):
+    from database import DataBase
+    try:
+        db = DataBase()
+        db.ensure_timeline_tables()
+        if request.method == 'PUT':
+            body     = request.get_json(force=True) or {}
+            name     = (body.get('name') or '').strip()
+            date     = (body.get('event_date') or '').strip()
+            color    = (body.get('color') or '#1e9d8b').strip()
+            desc     = (body.get('description') or '').strip()
+            category = (body.get('category') or '').strip()
+            if not name:
+                return jsonify({'ok': False, 'error': 'Name required'})
+            if not date:
+                return jsonify({'ok': False, 'error': 'Date required'})
+            if category and not db.timeline_category_exists(category):
+                return jsonify({'ok': False, 'error': 'Invalid category'})
+            if not category:
+                category = 'general'
+            db.update_timeline_event(event_id, name, date, desc, color, category)
+            db.commit_changes()
+            return jsonify({'ok': True})
+        db.delete_timeline_event(event_id)
+        db.commit_changes()
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/timeline/events/<int:event_id>/transactions', methods=['POST'])
+def api_timeline_event_add_transaction(event_id):
+    from database import DataBase
+    try:
+        db = DataBase()
+        db.ensure_timeline_tables()
+        body  = request.get_json(force=True) or {}
+        table = (body.get('transaction_table') or '').strip()
+        tx_id = body.get('transaction_id')
+        note  = (body.get('note') or '').strip()
+        if table not in ('BankTransactions', 'CardTransactions') or tx_id is None:
+            return jsonify({'ok': False, 'error': 'Invalid transaction reference'})
+        link_id = db.add_timeline_link(event_id, table, int(tx_id), note)
+        db.commit_changes()
+        return jsonify({'ok': True, 'link_id': link_id})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/timeline/events/<int:event_id>/transactions/<int:link_id>', methods=['PUT', 'DELETE'])
+def api_timeline_event_transaction(event_id, link_id):
+    from database import DataBase
+    try:
+        db = DataBase()
+        if request.method == 'PUT':
+            body = request.get_json(force=True) or {}
+            db.update_timeline_link_note(link_id, (body.get('note') or '').strip())
+            db.commit_changes()
+            return jsonify({'ok': True})
+        db.delete_timeline_link(link_id)
         db.commit_changes()
         return jsonify({'ok': True})
     except Exception as e:
@@ -4485,6 +5506,9 @@ def api_bills_suggestions():
 
         already = conn.execute(
             "SELECT Transaction_Table, Transaction_ID FROM BillEntries WHERE Transaction_Table IS NOT NULL"
+            " UNION ALL "
+            "SELECT Secondary_Transaction_Table, Secondary_Transaction_ID FROM BillEntries"
+            " WHERE Secondary_Transaction_ID IS NOT NULL"
         ).fetchall()
         linked_bank = {r[1] for r in already if r[0] == 'BankTransactions'}
         linked_card = {r[1] for r in already if r[0] == 'CardTransactions'}
@@ -4552,6 +5576,508 @@ def api_bills_suggestions_dismiss():
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)})
 
+
+# ── Card Analysis routes ────────────────────────────────────────────────────
+
+@app.route('/card-analysis')
+def card_analysis_page():
+    # Page shell only, RC_DATA-null style (see recurring_page) — the DB call
+    # happens client-side via /api/card-analysis/data so a slow/unavailable
+    # DB never blocks the page itself from rendering.
+    return _render_card_analysis_html('null')
+
+
+@app.route('/api/card-analysis/data')
+def card_analysis_data():
+    from database import DataBase
+    from CardAnalysis import get_card_analysis_data
+    try:
+        db = DataBase()
+        db.ensure_card_limits_table()
+        month = (request.args.get('month') or '').strip() or None
+        data = get_card_analysis_data(db, month)
+        return jsonify({'ok': True, **data})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+@app.route('/api/card-analysis/progress')
+def card_analysis_progress():
+    """SSE variant of /api/card-analysis/data — streams real progress ticks
+    from get_card_analysis_data's own progress_callback (one per pipeline
+    stage, plus one per card verified) instead of returning the finished
+    payload in one shot, then carries that same payload in the final 'done'
+    message so the page never needs a second request."""
+    import queue as _q
+    from database import DataBase
+    month = (request.args.get('month') or '').strip() or None
+    pq = _q.Queue()
+
+    def _run():
+        try:
+            db = DataBase()
+            db.ensure_card_limits_table()
+
+            def _report(pct, label):
+                pq.put({'progress': pct, 'label': label})
+
+            from CardAnalysis import get_card_analysis_data
+            data = get_card_analysis_data(db, month, progress_callback=_report)
+            pq.put({'progress': 100, 'label': 'הושלם', 'done': True, 'payload': data})
+        except Exception as exc:
+            import traceback
+            _log_error(exc, traceback.format_exc())
+            pq.put({'error': str(exc)})
+
+    threading.Thread(target=_run, daemon=True).start()
+
+    def _generate():
+        while True:
+            val = pq.get()
+            yield f'data: {_json.dumps(val, ensure_ascii=False)}\n\n'
+            if val.get('done') or val.get('error'):
+                break
+
+    return Response(
+        _generate(),
+        mimetype='text/event-stream',
+        headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'},
+    )
+
+
+@app.route('/api/card-analysis/limits/<card_id>', methods=['POST'])
+def card_analysis_set_limit(card_id):
+    from database import DataBase
+    try:
+        card_id = _normalize_percent_encoded(card_id)
+        body = request.get_json(force=True) or {}
+        amount = body.get('amount')
+        if amount is None:
+            return jsonify({'ok': False, 'error': 'amount נדרש'})
+        amount = float(amount)
+        if amount <= 0:
+            return jsonify({'ok': False, 'error': 'הסכום חייב להיות חיובי'})
+        db = DataBase()
+        db.ensure_card_limits_table()
+        db.set_card_limit(card_id, amount)
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/card-analysis/limits/<card_id>', methods=['DELETE'])
+def card_analysis_clear_limit(card_id):
+    from database import DataBase
+    try:
+        card_id = _normalize_percent_encoded(card_id)
+        db = DataBase()
+        db.ensure_card_limits_table()
+        db.clear_card_limit(card_id)
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+# ── Recurring Charges routes ──────────────────────────────────────────────────
+
+@app.route('/recurring')
+def recurring_page():
+    from database import DataBase
+    db = DataBase()
+    db.ensure_recurring_tables()
+    cached = db.get_recurring_cache()
+    if cached:
+        # Cached data, current page shell: template changes (menu, layout) show without a
+        # regeneration. The stored html column is still written for older deployments.
+        return _render_recurring_html(cached['data_json'])
+    # No cache yet — serve the SAME page shell with no data embedded (RC_DATA
+    # = null). The page's own JS shows animated skeleton placeholders and
+    # auto-starts the regen SSE stream itself; there is no separate "loading"
+    # screen and no redirect/reload once it's done.
+    return _render_recurring_html('null')
+
+
+@app.route('/api/recurring/staleness')
+def recurring_staleness():
+    """Whether the cached recurring-charges page predates the last file
+    import or tag edit — the page never auto-refreshes on its own (the
+    regen button is manual), so without this the user has no way to know
+    new data is waiting to be picked up."""
+    from database import DataBase
+    try:
+        db = DataBase()
+        db.ensure_recurring_tables()
+        cached = db.get_recurring_cache()
+        last_change = db.get_last_data_change()
+        if not cached or not last_change:
+            return jsonify({'ok': True, 'stale': False})
+        stale = last_change > cached['generated_at']
+        return jsonify({
+            'ok': True, 'stale': stale,
+            'generated_at': str(cached['generated_at']),
+            'last_change': str(last_change),
+        })
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/recurring/data')
+def recurring_data():
+    """Return the cached data payload (groups/hidden/kpis/trend) as JSON,
+    without regenerating. Used by the frontend to refresh in place after a
+    regen completes, instead of a full page reload."""
+    try:
+        from database import DataBase
+        db = DataBase()
+        db.ensure_recurring_tables()
+        cached = db.get_recurring_cache()
+        if cached:
+            return Response(cached['data_json'], mimetype='application/json')
+        # Fallback: nothing cached yet — compute fresh (rare; regen normally
+        # writes the cache before the SSE stream reports 'done').
+        from RecurringCharges import get_recurring_groups
+        groups = get_recurring_groups(db)
+        data = _build_recurring_data(db, groups)
+        return Response(_recurring_data_json(data), mimetype='application/json')
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+@app.route('/api/recurring/regenerate')
+def recurring_regenerate():
+    import queue as _q
+    from database import DataBase
+    pq = _q.Queue()
+
+    def _run():
+        try:
+            db = DataBase()
+            db.ensure_recurring_tables()
+            pq.put(10)
+
+            from RecurringCharges import get_recurring_groups, apply_history_tracking
+            groups = get_recurring_groups(db)
+            pq.put(40)
+
+            history_alerts = apply_history_tracking(db, groups)
+            pq.put(50)
+
+            data = _build_recurring_data(db, groups, history_alerts)
+            data_json = _recurring_data_json(data)
+            pq.put(70)
+
+            html = _render_recurring_html(data_json)
+            # Postgres is the authoritative cache — persists across Vercel
+            # serverless cold starts, unlike /tmp. The local HTML/JSON files
+            # are also written for local-dev convenience/inspection only.
+            db.save_recurring_cache(html, data_json)
+            try:
+                os.makedirs(os.path.dirname(RECURRING_HTML), exist_ok=True)
+                with open(RECURRING_HTML, 'w', encoding='utf-8') as f:
+                    f.write(html)
+                with open(RECURRING_DATA_JSON, 'w', encoding='utf-8') as f:
+                    f.write(data_json)
+                _save_manifest(RECURRING_HTML, {}, 0.0)
+            except Exception:
+                pass  # local file cache is best-effort only
+            pq.put(90)
+            pq.put('done')
+        except Exception as exc:
+            import traceback
+            _log_error(exc, traceback.format_exc())
+            pq.put(f'error:{exc}')
+
+    threading.Thread(target=_run, daemon=True).start()
+
+    def _generate():
+        while True:
+            val = pq.get()
+            if val == 'done':
+                yield 'data: 100\n\n'
+                yield 'data: done\n\n'
+                break
+            elif isinstance(val, str) and val.startswith('error:'):
+                yield f'data: {val}\n\n'
+                break
+            else:
+                yield f'data: {val}\n\n'
+
+    return Response(
+        _generate(),
+        mimetype='text/event-stream',
+        headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'},
+    )
+
+
+def _normalize_percent_encoded(value: str) -> str:
+    """Defensively URL-decode a path segment or query-string value that may
+    have arrived still percent-encoded. Werkzeug's dev server always hands
+    routes/args already-decoded, but some serverless WSGI environments
+    (observed in production, including Vercel's Services model) don't decode
+    first — so a Hebrew value like 'משיכת שיק' or 'מצרכים' arrived here as
+    the literal string '%D7%9E%D7%A9...' and got persisted as garbage
+    (breaking dismiss/restore/folder-assign, or baking the garbled text into
+    a generated category/business report with zero matching transactions).
+    Decoding an already-plain string is a no-op, so this is safe everywhere."""
+    if '%' not in value:
+        return value
+    try:
+        decoded = urllib.parse.unquote(value)
+        return decoded if decoded != value else value
+    except Exception:
+        return value
+
+
+def _normalize_group_key(group_key: str) -> str:
+    return _normalize_percent_encoded(group_key)
+
+
+@app.route('/api/recurring/groups/<path:group_key>/dismiss', methods=['POST'])
+def recurring_dismiss(group_key):
+    from database import DataBase
+    try:
+        group_key = _normalize_group_key(group_key)
+        db = DataBase()
+        db.ensure_recurring_tables()
+        db.dismiss_recurring_group(group_key)
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/recurring/groups/<path:group_key>/restore', methods=['POST'])
+def recurring_restore(group_key):
+    from database import DataBase
+    try:
+        group_key = _normalize_group_key(group_key)
+        db = DataBase()
+        db.ensure_recurring_tables()
+        db.restore_recurring_group(group_key)
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/recurring/groups/merge', methods=['POST'])
+def recurring_merge():
+    from database import DataBase
+    try:
+        body = request.get_json(force=True) or {}
+        secondary_key = (body.get('secondary_key') or '').strip()
+        primary_key = (body.get('primary_key') or '').strip()
+        if not secondary_key or not primary_key:
+            return jsonify({'ok': False, 'error': 'missing keys'})
+        db = DataBase()
+        db.ensure_recurring_tables()
+        db.add_recurring_merge(secondary_key, primary_key)
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/recurring/groups/<path:group_key>/exclude-tx', methods=['POST'])
+def recurring_exclude_tx(group_key):
+    from database import DataBase
+    try:
+        body = request.get_json(force=True) or {}
+        table = (body.get('table') or '').strip()
+        tx_id = body.get('tx_id')
+        if table not in ('BankTransactions', 'CardTransactions') or tx_id is None:
+            return jsonify({'ok': False, 'error': 'invalid table/tx_id'})
+        db = DataBase()
+        db.ensure_recurring_tables()
+        db.exclude_recurring_tx(table, int(tx_id))
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/recurring/folders', methods=['GET'])
+def recurring_folders_list():
+    """Returns folders + assignments — fetched independently of the
+    detection cache so moving a bill between folders never needs a regen
+    and a stale cached page still reflects the current organization."""
+    from database import DataBase
+    try:
+        db = DataBase()
+        db.ensure_recurring_tables()
+        return jsonify({
+            'ok': True,
+            'folders': db.get_recurring_folders(),
+            'assignments': db.get_recurring_folder_assignments(),
+        })
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/recurring/folders', methods=['POST'])
+def recurring_folders_create():
+    from database import DataBase
+    try:
+        body = request.get_json(force=True) or {}
+        name = (body.get('name') or '').strip()
+        if not name:
+            return jsonify({'ok': False, 'error': 'שם קבוצה נדרש'})
+        db = DataBase()
+        db.ensure_recurring_tables()
+        folder_id = db.create_recurring_folder(name)
+        return jsonify({'ok': True, 'id': folder_id})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': 'קבוצה בשם זה כבר קיימת' if 'unique' in str(e).lower() else str(e)})
+
+
+@app.route('/api/recurring/folders/<int:folder_id>/rename', methods=['POST'])
+def recurring_folders_rename(folder_id):
+    from database import DataBase
+    try:
+        body = request.get_json(force=True) or {}
+        name = (body.get('name') or '').strip()
+        if not name:
+            return jsonify({'ok': False, 'error': 'שם קבוצה נדרש'})
+        db = DataBase()
+        db.ensure_recurring_tables()
+        db.rename_recurring_folder(folder_id, name)
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': 'קבוצה בשם זה כבר קיימת' if 'unique' in str(e).lower() else str(e)})
+
+
+@app.route('/api/recurring/folders/<int:folder_id>/delete', methods=['POST'])
+def recurring_folders_delete(folder_id):
+    from database import DataBase
+    try:
+        db = DataBase()
+        db.ensure_recurring_tables()
+        db.delete_recurring_folder(folder_id)
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/recurring/groups/<path:group_key>/assign-folder', methods=['POST'])
+def recurring_assign_folder(group_key):
+    from database import DataBase
+    try:
+        group_key = _normalize_group_key(group_key)
+        body = request.get_json(force=True) or {}
+        folder_id = body.get('folder_id')
+        if folder_id is None:
+            return jsonify({'ok': False, 'error': 'missing folder_id'})
+        db = DataBase()
+        db.ensure_recurring_tables()
+        db.set_recurring_folder_assignment(group_key, int(folder_id))
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/recurring/display-names', methods=['GET'])
+def recurring_display_names_list():
+    """Returns every user-made-up display name — fetched independently of the
+    detection cache, same as folders, so renaming a bill never needs a regen."""
+    from database import DataBase
+    try:
+        db = DataBase()
+        db.ensure_recurring_tables()
+        return jsonify({'ok': True, 'display_names': db.get_recurring_display_names()})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/recurring/groups/<path:group_key>/display-name', methods=['POST'])
+def recurring_set_display_name(group_key):
+    from database import DataBase
+    try:
+        group_key = _normalize_group_key(group_key)
+        body = request.get_json(force=True) or {}
+        name = (body.get('name') or '').strip()
+        if not name:
+            return jsonify({'ok': False, 'error': 'שם נדרש'})
+        db = DataBase()
+        db.ensure_recurring_tables()
+        db.set_recurring_display_name(group_key, name)
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/recurring/groups/<path:group_key>/display-name', methods=['DELETE'])
+def recurring_clear_display_name(group_key):
+    from database import DataBase
+    try:
+        group_key = _normalize_group_key(group_key)
+        db = DataBase()
+        db.ensure_recurring_tables()
+        db.clear_recurring_display_name(group_key)
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+# ── Plant tracker (מעקב עציצים) — routes live in routes/plant_routes.py ──────
+from routes.plant_routes import plants_bp
+app.register_blueprint(plants_bp)
+
+# ── New-build apartments (Mona) on /housing — routes in routes/housing_project_routes.py
+from routes.housing_project_routes import housing_projects_bp
+app.register_blueprint(housing_projects_bp)
+
+# ── Landing dashboard — routes in routes/landing_routes.py, KPI builders in landing_service.py
+from routes.landing_routes import landing_bp, register_loader as _landing_register
+import landing_service as _landing_svc
+from landing_loaders import register_default_loaders as _landing_defaults, load_month_keys as _landing_month_keys
+from landing_loaders import load_card_validation_misses as _landing_card_misses
+app.register_blueprint(landing_bp)
+_landing_defaults()
+
+
+def _view_json(rv):
+    """(json, status) from a view's return value: Response or (Response, status[, headers])."""
+    resp, status = (rv[0], rv[1]) if isinstance(rv, tuple) else (rv, rv.status_code)
+    return resp.get_json(), status
+
+
+def _landing_monthly(today):
+    months = _landing_month_keys()
+    key = _landing_svc.pick_month(months, today)
+    payload = None
+    if key:
+        # key comes from months that have BankTransactions, so a non-200 here is a
+        # failure (isolated, uncached 500) — not a grey "no analysis" cached for 5 min.
+        data, status = _view_json(monthly_data_api(key))
+        if status != 200:
+            raise RuntimeError((data or {}).get('error') or f'monthly data for {key} failed ({status})')
+        payload = data
+    try:
+        card_misses = _landing_card_misses(today)
+    except Exception as e:   # the alert is extra; never let it take the monthly block down
+        print(f'[landing] card validation check failed: {e}')
+        card_misses = None
+    return _landing_svc.build_monthly(months, key, payload, today, card_misses=card_misses)
+
+
+def _landing_accounts(today):
+    import psycopg2
+    payload = _accounts_with_projects(_accounts_cached_payload() or _compute_accounts())
+    try:
+        cash_map = _cash_balance_map(strict=True)
+    except (psycopg2.OperationalError, psycopg2.InterfaceError):
+        # Neon drops idle pooled connections; the broken one was discarded by
+        # _PGConn.close(), so one retry gets a live connection.
+        cash_map = _cash_balance_map(strict=True)
+    return _landing_svc.build_accounts(payload, cash_map, _get_fx_rates(), today)
+
+
+def _landing_housing(today):
+    data, status = _view_json(housing_data_api())
+    if status != 200:
+        raise RuntimeError((data or {}).get('error', 'housing data failed'))
+    return _landing_svc.build_housing(data.get('mortgage'))
+
+
+_landing_register('monthly', _landing_monthly)
+_landing_register('accounts', _landing_accounts)
+_landing_register('housing', _landing_housing)
 
 SPOTIFY_HTML = os.path.join(_HERE, 'html', 'SpotifyTracker.html')
 
@@ -4790,211 +6316,6 @@ def api_spotify_report():
         return jsonify({'ok': False, 'error': str(e)})
 
 
-# ── Gym Expense Splitter ──────────────────────────────────────────────────────
-
-@app.route('/gym')
-def gym_page():
-    if os.path.exists(GYM_HTML):
-        return send_file(GYM_HTML)
-    return 'Gym page not found', 404
-
-
-@app.route('/api/gym/participants', methods=['GET'])
-def api_gym_participants():
-    conn = _gym_db()
-    try:
-        rows = conn.execute(
-            "SELECT id, name, is_active FROM GymParticipants ORDER BY name"
-        ).fetchall()
-        return jsonify({'ok': True, 'participants': [
-            {'id': r[0], 'name': r[1], 'is_active': bool(r[2])} for r in rows
-        ]})
-    except Exception as e:
-        return jsonify({'ok': False, 'error': str(e)})
-    finally:
-        conn.close()
-
-
-@app.route('/api/gym/participants', methods=['POST'])
-def api_gym_add_participant():
-    body = request.get_json(force=True)
-    name = (body.get('name') or '').strip()
-    if not name:
-        return jsonify({'ok': False, 'error': 'name is required'})
-    from datetime import datetime as _dt
-    conn = _gym_db()
-    try:
-        cur = conn.execute(
-            "INSERT INTO GymParticipants(name, is_active, insertion_date) VALUES(%s,1,%s) RETURNING id",
-            (name, _dt.now().strftime('%Y-%m-%d'))
-        )
-        pid = cur.fetchone()[0]
-        conn.commit()
-        return jsonify({'ok': True, 'id': pid})
-    except Exception as e:
-        return jsonify({'ok': False, 'error': str(e)})
-    finally:
-        conn.close()
-
-
-@app.route('/api/gym/participants/<int:pid>', methods=['PATCH'])
-def api_gym_update_participant(pid):
-    body = request.get_json(force=True)
-    conn = _gym_db()
-    try:
-        if 'name' in body:
-            new_name = body['name'].strip()
-            if not new_name:
-                return jsonify({'ok': False, 'error': 'name cannot be empty'})
-            conn.execute("UPDATE GymParticipants SET name=? WHERE id=?",
-                         (new_name, pid))
-        if 'is_active' in body:
-            conn.execute("UPDATE GymParticipants SET is_active=? WHERE id=?",
-                         (1 if body['is_active'] else 0, pid))
-        conn.commit()
-        return jsonify({'ok': True})
-    except Exception as e:
-        return jsonify({'ok': False, 'error': str(e)})
-    finally:
-        conn.close()
-
-
-@app.route('/api/gym/participants/<int:pid>', methods=['DELETE'])
-def api_gym_delete_participant(pid):
-    conn = _gym_db()
-    try:
-        # Remove from sessions first to satisfy FK constraints
-        conn.execute("DELETE FROM GymSessionParticipants WHERE participant_id=?", (pid,))
-        conn.execute("DELETE FROM GymParticipants WHERE id=?", (pid,))
-        conn.commit()
-        return jsonify({'ok': True})
-    except Exception as e:
-        return jsonify({'ok': False, 'error': str(e)})
-    finally:
-        conn.close()
-
-
-@app.route('/api/gym/summary', methods=['GET'])
-def api_gym_summary():
-    conn = _gym_db()
-    try:
-        # debt summary per person
-        debts = conn.execute("""
-            SELECT
-                p.id, p.name, p.is_active,
-                COALESCE(SUM(CASE WHEN s.payer_id = p.id
-                    THEN (cnt.c - 1) * s.product_price ELSE 0 END), 0) AS fronted,
-                COALESCE(SUM(CASE WHEN s.payer_id != p.id
-                    THEN s.product_price ELSE 0 END), 0) AS owed,
-                COALESCE(SUM(CASE WHEN s.payer_id = p.id
-                    THEN (cnt.c - 1) * s.product_price
-                    ELSE -s.product_price END), 0) AS net,
-                COALESCE(SUM(CASE WHEN s.payer_id = p.id
-                    THEN s.product_price * cnt.c ELSE 0 END), 0) AS total_paid,
-                COUNT(DISTINCT gsp.session_id) AS sessions
-            FROM GymParticipants p
-            LEFT JOIN GymSessionParticipants gsp ON gsp.participant_id = p.id
-            LEFT JOIN GymSessions s ON s.id = gsp.session_id
-            LEFT JOIN (SELECT session_id, COUNT(*) c FROM GymSessionParticipants GROUP BY session_id) cnt
-                ON cnt.session_id = s.id
-            GROUP BY p.id, p.name, p.is_active
-            ORDER BY net ASC
-        """).fetchall()
-
-        # session history
-        sessions_raw = conn.execute("""
-            SELECT s.id, s.date, s.product_price, p.name AS payer, s.notes,
-                   (SELECT COUNT(*) FROM GymSessionParticipants WHERE session_id=s.id) AS cnt
-            FROM GymSessions s
-            JOIN GymParticipants p ON p.id = s.payer_id
-            ORDER BY s.date DESC, s.id DESC
-            LIMIT 50
-        """).fetchall()
-
-        sessions = []
-        for row in sessions_raw:
-            parts = conn.execute("""
-                SELECT p.name FROM GymSessionParticipants gsp
-                JOIN GymParticipants p ON p.id = gsp.participant_id
-                WHERE gsp.session_id = ?
-            """, (row[0],)).fetchall()
-            sessions.append({
-                'id': row[0], 'date': row[1], 'price': row[2],
-                'payer': row[3], 'notes': row[4] or '',
-                'count': row[5], 'total': round(row[2] * row[5], 2),
-                'attendees': [r[0] for r in parts],
-            })
-
-        last_price = conn.execute(
-            "SELECT product_price FROM GymSessions ORDER BY id DESC LIMIT 1"
-        ).fetchone()
-
-        return jsonify({
-            'ok': True,
-            'debts': [{'id': r[0], 'name': r[1], 'is_active': bool(r[2]),
-                        'fronted': round(r[3], 2), 'owed': round(r[4], 2),
-                        'net': round(r[5], 2), 'total_paid': round(r[6], 2),
-                        'sessions': r[7]} for r in debts],
-            'sessions': sessions,
-            'last_price': last_price[0] if last_price else 25.0,
-        })
-    except Exception as e:
-        return jsonify({'ok': False, 'error': str(e)})
-    finally:
-        conn.close()
-
-
-@app.route('/api/gym/sessions', methods=['POST'])
-def api_gym_add_session():
-    body = request.get_json(force=True)
-    from datetime import datetime as _dt, date as _date
-    date_str  = (body.get('date') or _date.today().isoformat()).strip()
-    price     = float(body.get('price', 25.0))
-    payer_id  = int(body.get('payer_id', 0))
-    attendees = [int(x) for x in body.get('attendees', [])]
-    notes     = (body.get('notes') or '').strip()
-    if not attendees or not payer_id:
-        return jsonify({'ok': False, 'error': 'payer_id and attendees are required'})
-    if price <= 0:
-        return jsonify({'ok': False, 'error': 'price must be positive'})
-    # Payer must be an attendee for the debt formula to balance correctly
-    if payer_id not in attendees:
-        attendees = [payer_id] + attendees
-    conn = _gym_db()
-    try:
-        cur = conn.execute(
-            "INSERT INTO GymSessions(date, product_price, payer_id, notes, insertion_date) VALUES(%s,%s,%s,%s,%s) RETURNING id",
-            (date_str, price, payer_id, notes, _dt.now().strftime('%Y-%m-%d %H:%M:%S'))
-        )
-        sid = cur.fetchone()[0]
-        for pid in attendees:
-            conn.execute(
-                "INSERT INTO GymSessionParticipants(session_id, participant_id) VALUES(%s,%s) ON CONFLICT DO NOTHING",
-                (sid, pid)
-            )
-        conn.commit()
-        return jsonify({'ok': True, 'session_id': sid})
-    except Exception as e:
-        conn.rollback()
-        return jsonify({'ok': False, 'error': str(e)})
-    finally:
-        conn.close()
-
-
-@app.route('/api/gym/sessions/<int:sid>', methods=['DELETE'])
-def api_gym_delete_session(sid):
-    conn = _gym_db()
-    try:
-        conn.execute("DELETE FROM GymSessionParticipants WHERE session_id=?", (sid,))
-        conn.execute("DELETE FROM GymSessions WHERE id=?", (sid,))
-        conn.commit()
-        return jsonify({'ok': True})
-    except Exception as e:
-        return jsonify({'ok': False, 'error': str(e)})
-    finally:
-        conn.close()
-
-
 @app.route('/admin/upload-db', methods=['GET', 'POST'])
 def admin_upload_db():
     """Upload a local ShmuelFamiliy.db to /tmp so Vercel has real data.
@@ -5058,6 +6379,7 @@ def start(port: int = 5050, open_browser: bool = True):
     import webbrowser
     os.environ['BANKAPP_WEB'] = '1'
     _run_acct_migrations()
+    _run_tagger_migrations()
     if open_browser:
         threading.Timer(1.2, lambda: webbrowser.open(f'http://localhost:{port}')).start()
     app.run(host='127.0.0.1', port=port, threaded=True, debug=False, use_reloader=False)

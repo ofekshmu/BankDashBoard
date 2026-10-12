@@ -1086,11 +1086,6 @@ body {
 .ms-kind.price { background:#e0f4f1; color:#14796c; } .ms-kind.cost { background:#fff0d9; color:#a35f00; }
 .ms-kind.income { background:#e6f4ea; color:#2e7d32; } .ms-kind.refund { background:#e8eefc; color:#2f5bb7; }
 .ms-kind:hover { filter:brightness(.95); } .ms-kind.manual { box-shadow:0 0 0 1.5px currentColor inset; }
-select.ms-kind { appearance:none; -webkit-appearance:none; padding-inline-end:22px; text-align:start;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23666' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E");
-  background-repeat:no-repeat; background-position:left 8px center; }
-select.ms-kind.price { background-color:#e0f4f1; } select.ms-kind.cost { background-color:#fff0d9; }
-select.ms-kind.income { background-color:#e6f4ea; } select.ms-kind.refund { background-color:#e8eefc; }
 .ms-empty { padding:22px; text-align:center; color:var(--text-muted); font-size:0.88em; }
 .ms-chart { position:relative; height:260px; }
 @media (max-width: 700px) {
@@ -8761,21 +8756,21 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       html += '<div class="housing-txn-table card">' +
         '<div class="housing-txn-hdr"><div class="card-title">' + _esc(m.mortgage_category || 'עסקאות נכס') + '</div>' +
         '<div class="panel-count">' + txns.length + ' עסקאות</div></div>' +
-        '<div class="ms-note" style="margin:10px 0 0">בחרו לכל תנועה את סוגה: <b>בשווי הדירה (השקעה)</b> מוצגת בניתוח החודשי כהשקעה ולא כהוצאה; ברירת המחדל היא הוצאה / הכנסה.</div>' +
+        '<div class="ms-note" style="margin:10px 0 0">לחצו על הסוג של תנועה כדי להחליף: <b>בשווי הדירה (השקעה)</b> מוצגת בניתוח החודשי כהשקעה ולא כהוצאה; ברירת המחדל היא הוצאה / הכנסה.</div>' +
         '<div style="overflow-x:auto"><table class="milestone-table housing-txn"><thead><tr><th>תאריך</th><th>שם</th><th>הוצאה</th><th>הכנסה</th><th>סוג</th></tr></thead><tbody>' +
         txns.map(function(tx) {
           var d = String(tx.date || '').slice(0, 10);
           var name = tx.name || '';
           var desc = tx.description || '';
           var kinds = tx.out > 0 ? ['price', 'cost'] : ['income', 'refund'];
-          var kind = kinds.indexOf(tx.kind) !== -1 ? tx.kind : kinds[tx.out > 0 ? 1 : 0];
+          var def = tx.out > 0 ? 'cost' : 'income';
+          var kind = kinds.indexOf(tx.kind) !== -1 ? tx.kind : def;
           return '<tr><td>' + d + '</td>' +
             '<td class="housing-txn-name-cell" data-name="' + _esc(name) + '" data-desc="' + _esc(desc) + '" data-showing="name" onclick="_hsToggleTxName(this)">' + _esc(name) + '</td>' +
             '<td style="color:#e74c3c">' + (tx.out    ? _n(tx.out, 2)    : '') + '</td>' +
             '<td style="color:#1e9d8b">' + (tx.income ? _n(tx.income, 2) : '') + '</td>' +
-            '<td>' + (tx.key ? '<select class="ms-kind hs-kind ' + kind + '" data-key="' + _esc(tx.key) + '" data-default="' + (tx.out > 0 ? 'cost' : 'income') + '" onchange="_hsSetKind(this)" aria-label="סוג התנועה">' +
-              kinds.map(function(k) { return '<option value="' + k + '"' + (k === kind ? ' selected' : '') + '>' + _HS_KIND_LABEL[k] + '</option>'; }).join('') +
-              '</select>' : '') + '</td></tr>';
+            '<td>' + (tx.key ? '<button class="ms-kind hs-kind ' + kind + (kind !== def ? ' manual' : '') + '" data-key="' + _esc(tx.key) + '" data-kind="' + kind + '" data-default="' + def +
+              '" data-other="' + (kind === kinds[0] ? kinds[1] : kinds[0]) + '" onclick="_hsToggleKind(this)" title="לחצו להחלפה">' + _HS_KIND_LABEL[kind] + '</button>' : '') + '</td></tr>';
         }).join('') + '</tbody></table></div>' +
         '<div class="txn-footer"><span>סה״כ</span>' +
         '<span><span class="txn-footer-sum neg">' + _n(totalOut, 2) + '</span> / <span class="txn-footer-sum pos">' + _n(totalIn, 2) + '</span></span>' +
@@ -9012,33 +9007,37 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   // The housing data is cached for a while, so the user's choices are read fresh after it is drawn.
   var _HS_KIND_LABEL = { price: 'בשווי הדירה (השקעה)', cost: 'הוצאה', income: 'הכנסה', refund: 'החזר' };
 
-  function _hsPaintKind(sel, kind) {
-    sel.value = kind;
-    sel.className = 'ms-kind hs-kind ' + kind + (kind !== sel.getAttribute('data-default') ? ' manual' : '');
+  // A kind button knows its two choices: data-kind is the one shown, data-other the one a click switches to.
+  function _hsPaintKind(btn, kind) {
+    var pair = [btn.getAttribute('data-kind'), btn.getAttribute('data-other')];
+    var other = pair[0] === kind ? pair[1] : pair[0];
+    btn.setAttribute('data-kind', kind);
+    btn.setAttribute('data-other', other);
+    btn.className = 'ms-kind hs-kind ' + kind + (kind !== btn.getAttribute('data-default') ? ' manual' : '');
+    btn.textContent = _HS_KIND_LABEL[kind];
   }
 
   function _hsLoadKinds() {
     fetch('/api/housing/shabazi/tx-kinds').then(function(r) { return r.json(); }).then(function(d) {
       if (!d.ok) return;
-      Array.prototype.forEach.call(document.querySelectorAll('select.hs-kind'), function(sel) {
-        var chosen = d.kinds[sel.getAttribute('data-key')];
-        var ok = chosen && Array.prototype.some.call(sel.options, function(o) { return o.value === chosen; });
-        _hsPaintKind(sel, ok ? chosen : sel.getAttribute('data-default'));
+      Array.prototype.forEach.call(document.querySelectorAll('button.hs-kind'), function(btn) {
+        var chosen = d.kinds[btn.getAttribute('data-key')];
+        var allowed = [btn.getAttribute('data-kind'), btn.getAttribute('data-other')];
+        _hsPaintKind(btn, chosen && allowed.indexOf(chosen) !== -1 ? chosen : btn.getAttribute('data-default'));
       });
     }).catch(function() {});
   }
 
-  function _hsSetKind(sel) {
-    var previous = sel.className.split(' ').filter(function(c) { return _HS_KIND_LABEL[c]; })[0] || sel.getAttribute('data-default');
-    var next = sel.value, def = sel.getAttribute('data-default');
-    _hsPaintKind(sel, next);
+  function _hsToggleKind(btn) {
+    var previous = btn.getAttribute('data-kind'), next = btn.getAttribute('data-other'), def = btn.getAttribute('data-default');
+    _hsPaintKind(btn, next);
     fetch('/api/housing/shabazi/tx-kind', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ key: sel.getAttribute('data-key'), kind: next === def ? null : next })
+      body: JSON.stringify({ key: btn.getAttribute('data-key'), kind: next === def ? null : next })
     }).then(function(r) { return r.json(); }).then(function(d) {
       if (!d.ok) throw new Error(d.error || 'שגיאה');
     }).catch(function(e) {
-      _hsPaintKind(sel, previous);
+      _hsPaintKind(btn, previous);
       alert('השינוי לא נשמר: ' + e.message);
     });
   }
@@ -9718,7 +9717,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       return;
     }
     el.innerHTML = head +
-      '<div class="ms-note" style="margin-top:12px">בחרו לכל תנועה את סוג ההוצאה: <b>בשווי הדירה</b> נספר כנכס (הון עצמי) וחוזר במכירה; ' +
+      '<div class="ms-note" style="margin-top:12px">לחצו על הסוג כדי להחליף: <b>בשווי הדירה</b> נספר כנכס (הון עצמי) וחוזר במכירה; ' +
       '<b>הוצאה נלווית</b> (ליווי, עו״ד, מיסים) הוא כסף שיצא ואינו נכס. מסגרת בצבע = בחירה ידנית.</div>' +
       '<div style="overflow-x:auto"><table class="milestone-table housing-txn"><thead><tr><th>תאריך</th><th>שם</th><th>סכום</th><th>סוג</th></tr></thead><tbody>' +
       txs.map(function(t, i) {
@@ -9726,11 +9725,8 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         return '<tr><td>' + _msDate(t.date) + '</td>' +
           '<td class="housing-txn-name-cell" data-name="' + _esc(t.name) + '" data-desc="' + _esc(t.description || '') + '" data-showing="name" onclick="_hsToggleTxName(this)">' + _esc(t.name) + '</td>' +
           '<td style="color:' + (isOut ? '#e74c3c' : '#1e9d8b') + '">' + _msLtr((isOut ? '−' : '+') + _msN(amount, 2)) + '</td>' +
-          '<td><select class="ms-kind ' + t.kind + (t.kind !== t.auto_kind ? ' manual' : '') + '" onchange="monaSetKind(' + i + ', this.value)" aria-label="סוג ההוצאה" title="' +
-            (t.kind !== t.auto_kind ? 'נבחר ידנית' : 'נקבע אוטומטית') + '">' +
-            (isOut ? ['price', 'cost'] : ['income', 'refund']).map(function(k) {
-              return '<option value="' + k + '"' + (k === t.kind ? ' selected' : '') + '>' + _MS_KIND_LABEL[k] + '</option>';
-            }).join('') + '</select></td></tr>';
+          '<td><button class="ms-kind ' + t.kind + (t.kind !== t.auto_kind ? ' manual' : '') + '" onclick="monaToggleKind(' + i + ')" title="' +
+            (t.kind !== t.auto_kind ? 'נבחר ידנית — לחיצה לשינוי' : 'נקבע אוטומטית — לחיצה לשינוי') + '">' + _MS_KIND_LABEL[t.kind] + '</button></td></tr>';
       }).join('') + '</tbody></table></div>' +
       '<div class="txn-footer"><span>סה״כ</span><span dir="ltr"><span class="txn-footer-sum neg">' + _msN(totalOut, 2) +
       '</span> / <span class="txn-footer-sum pos">' + _msN(totalIn, 2) + '</span></span></div>';
@@ -9761,10 +9757,11 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     return _monaQueue;
   }
 
-  /** The user picked the expense type of payment `i` from its dropdown. */
-  function monaSetKind(i, next) {
+  /** A click on a payment's type flips it: into the price <-> extra cost (money out), income <-> refund (money in). */
+  function monaToggleKind(i) {
     var t = _monaData && _monaData.transactions[i];
-    if (!t || next === t.kind) return;
+    if (!t) return;
+    var next = t.out > 0 ? (t.kind === 'price' ? 'cost' : 'price') : (t.kind === 'income' ? 'refund' : 'income');
     t.kind = next;   // shown at once
     _monaPaintNumbers();
     _monaPaintCharts();
@@ -11249,7 +11246,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   window._switchHousingProperty = _switchHousingProperty;
   window._switchMonaTab       = _switchMonaTab;
   window._loadMonaProject     = _loadMonaProject;
-  window.monaSetKind          = monaSetKind;
+  window.monaToggleKind       = monaToggleKind;
   window.monaSaveSettings     = monaSaveSettings;
   window.housingInfoToggle    = housingInfoToggle;
   window.housingInfoClose     = housingInfoClose;
@@ -11260,7 +11257,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   window.housingInfoSave      = housingInfoSave;
   window.housingInfoCopy      = housingInfoCopy;
   window._hsToggleTxName      = _hsToggleTxName;
-  window._hsSetKind           = _hsSetKind;
+  window._hsToggleKind        = _hsToggleKind;
   window._tlToggleMinimize     = _tlToggleMinimize;
   window._tlOpenAddModal  = _tlOpenAddModal;
   window._tlOpenEditModal = _tlOpenEditModal;

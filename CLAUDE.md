@@ -151,12 +151,12 @@ A second property next to שבזי on the housing page. Code: `source/src_utils/
 Mona seeded). Tests: `tests/test_housing_project*.py`, `tests/test_housing_projects_js.py`.
 
 - **Payments** come from the bank/card transactions tagged with the project's tag (the **"Mona"** category from `categories.json` — whatever is tagged
-  Mona shows in the tab's payments table, where each payment's expense type is picked from a dropdown; the tag is editable in the tab and is saved
+  Mona shows in the tab's payments table, where each payment's expense type is flipped by a click on its type button; the tag is editable in the tab and is saved
   spelled as in `categories.json`, since transactions match on the exact spelling; the older **"דירת קבלן"** tag is no longer read);
   the timeline is the category labelled MONA (found by label, then remembered).
 - **Every payment has a kind:** `price` (goes into the apartment price → builds equity, comes back on a sale, an *investment* in the monthly analysis),
   `cost` (extra expense: fees, taxes — spent, never an asset), `income` (rent etc.) or `refund`. **The default is `cost`** (income for money in) —
-  nothing is assumed to be part of the value (`classify_kind`); the user says so with a dropdown on the housing page (`HousingTxKinds`, key `Table:id` or
+  nothing is assumed to be part of the value (`classify_kind`); the user says so with a click on the type button on the housing page (flips price ↔ cost) (`HousingTxKinds`, key `Table:id` or
   `split:id`) or **in the tagger**: for an apartment category (Mona, שלום שבאזי 7 — `GET /api/tagger/apartment-categories`) the row shows a small switch
   "הוצאה נלווית / בשווי הנכס" and `POST /api/tagger/tag` (and `tag-all-by-name`, the search re-tag and the change-category dialog) carries `kind`;
   `housing_project_service.apply_tag_kind` stores it (only `price` is stored, only for money out), drops a choice when the payment is tagged to another

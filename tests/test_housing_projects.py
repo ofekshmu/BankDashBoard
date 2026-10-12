@@ -18,20 +18,21 @@ T = date(2026, 10, 9)
 
 
 def tx(day, name='העברה מהחשבון', out=0.0, income=0.0, desc='', kind=None, key=None):
+    """A payment as the service hands it over. These tests are about the money maths, so unless a kind is
+    given an outgoing payment is one the user marked as going into the price — except a "ליווי" fee."""
     auto = hp.classify_kind(name, desc, out, income)
+    if kind is None and out > 0 and 'ליווי' not in f'{name} {desc}':
+        kind = 'price'
     return {'key': key or f'BankTransactions:{name}:{day}:{out}:{income}', 'table': 'BankTransactions', 'id': 1,
             'date': day, 'name': name, 'description': desc, 'out': out, 'income': income,
             'auto_kind': auto, 'kind': kind or auto}
 
 
 # ── classification ─────────────────────────────────────────────────────────
-def test_outgoing_defaults_to_price_and_fees_default_to_cost():
-    assert hp.classify_kind('העברה מהחשבון', '', 15000, 0) == 'price'
-    assert hp.classify_kind('קבוצת בר סרוסי השקעו', 'פעימה ראשונה - ליווי', 5000, 0) == 'cost'
-    assert hp.classify_kind('עו"ד כהן', '', 3000, 0) == 'cost'
-    assert hp.classify_kind('עו״ד כהן', '', 3000, 0) == 'cost'            # gershayim variant
-    assert hp.classify_kind('מס רכישה', '', 9000, 0) == 'cost'
-    assert hp.classify_kind('תשלום עוד אחד', '', 9000, 0) == 'price'     # the word "עוד" is not "עו"ד"
+def test_every_outgoing_payment_defaults_to_an_extra_cost():
+    for name, desc in (('העברה מהחשבון', ''), ('קבוצת בר סרוסי השקעו', 'פעימה ראשונה - ליווי'), ('עו"ד כהן', ''),
+                       ('רכישת נכס', ''), ('תשלום עוד אחד', '')):
+        assert hp.classify_kind(name, desc, 5000, 0) == 'cost', name       # only the user says "went into the price"
 
 
 def test_incoming_defaults_to_income():

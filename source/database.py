@@ -957,7 +957,7 @@ class DataBase:
 
     def get_all_category_transactions(self, category: str) -> pd.DataFrame:
         """Return all transactions (bank + card, with splits applied) for a category.
-        Returns columns: Date, Name, Out, Income, Description."""
+        Returns columns: Key ('Table:ID' / 'split:ID'), Date, Name, Out, Income, Description."""
         from src_utils.calculations import SimpleMath
         from datetime import datetime as _dt
 
@@ -969,17 +969,26 @@ class DataBase:
         card_raw = self.apply_splits_to_df(card_raw)
         card_raw = card_raw[card_raw['Category'] == category].reset_index(drop=True)
 
+        def _key(table, ids, split_col):
+            """The housing-page key of each row: 'Table:ID', or 'split:ID' for a part of a split."""
+            return [f"split:{int(i)}" if s else f"{table}:{int(i)}" for i, s in zip(ids, split_col)]
+
+        bank_split = bank_raw['_split_orig_id'].notna() if '_split_orig_id' in bank_raw.columns else [False] * len(bank_raw)
         bank_df = pd.DataFrame({
+            'Key':         _key('BankTransactions', bank_raw['ID'], bank_split),
             'Date':        bank_raw['Date'],
             'Name':        bank_raw['Name'],
             'Out':         bank_raw['Out'],
             'Income':      bank_raw['Income'],
             'Description': bank_raw['Description'] if 'Description' in bank_raw.columns else '',
-        }) if not bank_raw.empty else pd.DataFrame(columns=['Date', 'Name', 'Out', 'Income', 'Description'])
+        }) if not bank_raw.empty else pd.DataFrame(columns=['Key', 'Date', 'Name', 'Out', 'Income', 'Description'])
 
         if not card_raw.empty:
             card_proc = SimpleMath.process_prices(card_raw, date=_dt.now(), general_analysis=False)
+            card_split = (set(card_raw.loc[card_raw['_split_orig_id'].notna(), 'ID'])
+                          if '_split_orig_id' in card_raw.columns else set())
             card_result = pd.DataFrame({
+                'Key':         _key('CardTransactions', card_proc['ID'], [i in card_split for i in card_proc['ID']]),
                 'Date':        card_proc['Executed_Date'],
                 'Name':        card_proc['Name'],
                 'Out':         card_proc['Final_Value'].apply(lambda v: abs(float(v)) if v < 0 else 0.0),
@@ -3959,7 +3968,20 @@ class DataBase:
                 INSERT INTO HousingTxKinds (ProjectKey, Tx_Key, Kind) VALUES (%s, %s, %s)
                 ON CONFLICT (ProjectKey, Tx_Key) DO UPDATE SET Kind = EXCLUDED.Kind
             """, (key, tx_key, kind))
+        self.commit_changes()       # the monthly analysis shows price payments as investments: its pages are now stale
+
+    def is_outgoing(self, table: str, tx_id: int) -> bool:
+        """True when the transaction is money going out (a bank debit / a card charge), False for money in or
+        when the row is not found."""
+        if table == 'BankTransactions':
+            sql = "SELECT Out > 0 FROM BankTransactions WHERE ID = %s"
+        elif table == 'CardTransactions':
+            sql = "SELECT Transaction_Value > 0 FROM CardTransactions WHERE ID = %s"
+        else:
+            return False
+        row = self.cursor.execute(sql, (int(tx_id),)).fetchone()
         self.connection.commit()
+        return bool(row and row[0])
 
     def canonical_category(self, name: str) -> str:
         """`name` spelled as the category is in categories.json ("MONA" -> "Mona"); unchanged when there is

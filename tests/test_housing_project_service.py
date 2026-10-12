@@ -16,6 +16,7 @@ class FakeDB:
                         'delivery_date': None, 'growth_pct': 3.0}
         self.project.update(settings)
         self.kinds = {}
+        self.shabazi_kinds = {}
         self.txs = [
             {'table': 'BankTransactions', 'id': 737, 'key': 'BankTransactions:737', 'date': date(2026, 7, 8),
              'name': 'העברה מהחשבון', 'description': '', 'out': 15000.0, 'income': 0.0},
@@ -42,13 +43,24 @@ class FakeDB:
         return [dict(self.project)]
 
     def update_housing_project(self, key, **fields): self.project.update(fields)
-    def get_housing_tx_kinds(self, key): return dict(self.kinds)
+    def get_housing_tx_kinds(self, key): return dict(self.shabazi_kinds if key == 'shabazi' else self.kinds)
 
     def set_housing_tx_kind(self, key, tx_key, kind):
+        target = self.shabazi_kinds if key == 'shabazi' else self.kinds
         if kind is None:
-            self.kinds.pop(tx_key, None)
+            target.pop(tx_key, None)
         else:
-            self.kinds[tx_key] = kind
+            target[tx_key] = kind
+
+    def is_outgoing(self, table, tx_id):
+        return {'BankTransactions:13': False}.get(f'{table}:{tx_id}', True)
+
+    def get_all_category_transactions(self, category):
+        import pandas as pd
+        rows = [('BankTransactions:11', 2500.0, 0.0), ('CardTransactions:12', 80.0, 0.0), ('BankTransactions:13', 0.0, 2800.0)]
+        if category != 'שלום שבאזי 7':
+            rows = []
+        return pd.DataFrame(rows, columns=['Key', 'Out', 'Income'])
 
     def get_project_transactions(self, category): return [dict(t) for t in self.txs] if category == 'דירת קבלן' else []
     def get_timeline_categories(self, include_deleted=False): return list(self.categories)
@@ -59,12 +71,13 @@ class FakeDB:
 # ── loading ────────────────────────────────────────────────────────────────
 def test_payload_for_mona_reads_the_existing_tag_and_finds_the_timeline_by_label():
     db = FakeDB()
+    db.kinds = {'BankTransactions:737': 'price'}      # the user marked the 15,000 transfer as going into the price
     p = svc.project_payload(db, 'mona', T)
     assert p['tx_category'] == 'דירת קבלן' and p['account_name'] == 'נכס מונה'
     assert p['timeline_category'] == 'cat_mona' and db.project['timeline_category'] == 'cat_mona'   # remembered
     assert [e['name'] for e in p['events']] == ['חתימה על בקשת רכישה']
     kinds = {t['key']: (t['auto_kind'], t['kind']) for t in p['transactions']}
-    assert kinds == {'BankTransactions:737': ('price', 'price'), 'CardTransactions:2340': ('cost', 'cost')}
+    assert kinds == {'BankTransactions:737': ('cost', 'price'), 'CardTransactions:2340': ('cost', 'cost')}   # cost unless chosen
     assert p['money']['paid_price'] == 15000 and p['money']['extra_costs'] == 5000
     assert p['growth_start'] == '2026-10-09' and p['growth_start_source'] == 'timeline'
 
@@ -86,8 +99,8 @@ def test_user_kind_overrides_the_automatic_one():
     db.kinds = {'CardTransactions:2340': 'price', 'BankTransactions:737': 'refund'}   # refund doesn't fit an outgoing row
     p = svc.project_payload(db, 'mona', T)
     kinds = {t['key']: (t['auto_kind'], t['kind']) for t in p['transactions']}
-    assert kinds == {'BankTransactions:737': ('price', 'price'), 'CardTransactions:2340': ('cost', 'price')}
-    assert p['money']['paid_price'] == 20000 and p['money']['extra_costs'] == 0
+    assert kinds == {'BankTransactions:737': ('cost', 'cost'), 'CardTransactions:2340': ('cost', 'price')}
+    assert p['money']['paid_price'] == 5000 and p['money']['extra_costs'] == 15000
 
 
 # ── editing the settings ───────────────────────────────────────────────────
@@ -170,22 +183,24 @@ def test_delivery_is_checked_against_the_saved_contract_date_too():
 # ── per-payment kinds ──────────────────────────────────────────────────────
 def test_set_tx_kind_saves_clears_and_validates():
     db = FakeDB()
+    db.kinds = {'BankTransactions:737': 'price'}      # the user marked the 15,000 transfer as going into the price
     p = svc.set_tx_kind(db, 'mona', 'CardTransactions:2340', 'price', T)
-    assert db.kinds == {'CardTransactions:2340': 'price'} and p['money']['paid_price'] == 20000
+    assert db.kinds == {'BankTransactions:737': 'price', 'CardTransactions:2340': 'price'} and p['money']['paid_price'] == 20000
     p = svc.set_tx_kind(db, 'mona', 'CardTransactions:2340', None, T)
-    assert db.kinds == {} and p['money']['paid_price'] == 15000
+    assert db.kinds == {'BankTransactions:737': 'price'} and p['money']['paid_price'] == 15000
     with pytest.raises(svc.ProjectError):
         svc.set_tx_kind(db, 'mona', 'BankTransactions:737', 'refund', T)      # outgoing row
     with pytest.raises(svc.ProjectError):
         svc.set_tx_kind(db, 'mona', 'BankTransactions:999', 'price', T)       # not one of the project's payments
     with pytest.raises(svc.ProjectError):
         svc.set_tx_kind(db, 'mona', 'BankTransactions:737', 'bogus', T)
-    assert db.kinds == {}
+    assert db.kinds == {'BankTransactions:737': 'price'}
 
 
 # ── the asset on the accounts page ─────────────────────────────────────────
 def test_account_assets_use_price_payments_only():
     db = FakeDB(price=1_000_000.0, contract_date=date(2026, 7, 1))
+    db.kinds = {'BankTransactions:737': 'price'}      # the user marked the 15,000 transfer as going into the price
     assets = svc.account_assets(db, T)
     series = assets['נכס מונה']
     assert series[0][0] == '2026-07-08' and series[-1][0] == '2026-10-09'
@@ -196,10 +211,12 @@ def test_account_assets_are_empty_before_any_price_payment():
     db = FakeDB()
     db.txs = db.txs[1:]                                    # only the "ליווי" fee
     assert svc.account_assets(db, T) == {}
+    assert svc.account_assets(FakeDB(), T) == {}           # and nothing is a price payment until the user says so
 
 
 def test_overlay_adds_the_asset_to_the_accounts_payload():
     db = FakeDB()
+    db.kinds = {'BankTransactions:737': 'price'}      # the user marked the 15,000 transfer as going into the price
     payload = {'accounts': {'Main Bank': [['2026-09-01', 100.0]], 'Total': [['2026-09-01', 100.0]]}}
     out = svc.overlay_accounts(payload, db, T)
     assert out['accounts']['נכס מונה'][-1] == ['2026-10-09', 15000.0]
@@ -212,3 +229,79 @@ def test_overlay_never_breaks_the_accounts_page():
     db.fail = True
     payload = {'accounts': {'Total': [['2026-09-01', 100.0]]}}
     assert svc.overlay_accounts(payload, db, T) is payload
+
+
+# ── the monthly analysis: payments that went into an apartment's value ─────
+def test_investment_keys_are_the_mona_price_payments_and_the_marked_shabazi_ones():
+    db = FakeDB()
+    assert svc.investment_keys(db) == set()                                    # nothing is an investment until the user says so
+    db.kinds = {'BankTransactions:737': 'price'}
+    assert svc.investment_keys(db) == {'BankTransactions:737'}
+    db.kinds = {'CardTransactions:2340': 'price', 'BankTransactions:737': 'cost'}
+    assert svc.investment_keys(db) == {'CardTransactions:2340'}
+    db.shabazi_kinds = {'BankTransactions:11': 'price', 'CardTransactions:12': 'cost'}
+    assert svc.investment_keys(db) == {'CardTransactions:2340', 'BankTransactions:11'}
+
+
+def test_a_refund_of_apartment_money_is_part_of_the_investment_too():
+    db = FakeDB()
+    db.shabazi_kinds = {'BankTransactions:13': 'refund'}
+    assert 'BankTransactions:13' in svc.investment_keys(db)
+
+
+def test_attach_kinds_defaults_to_expense_and_income_and_respects_the_direction():
+    db = FakeDB()
+    df = db.get_all_category_transactions('שלום שבאזי 7')
+    assert list(svc.attach_kinds(df, {})['Kind']) == ['cost', 'cost', 'income']
+    chosen = {'BankTransactions:11': 'price', 'BankTransactions:13': 'price'}      # price does not fit an income row
+    assert list(svc.attach_kinds(df, chosen)['Kind']) == ['price', 'cost', 'income']
+    assert 'Kind' not in df.columns                                                    # the input is not modified
+
+
+def test_set_shabazi_tx_kind_saves_clears_and_validates():
+    db = FakeDB()
+    assert svc.set_shabazi_tx_kind(db, 'BankTransactions:11', 'price') == {'BankTransactions:11': 'price'}
+    assert svc.set_shabazi_tx_kind(db, 'BankTransactions:11', None) == {}
+    for key, kind in (('BankTransactions:99', 'price'), (None, 'price'), ('BankTransactions:11', 'refund'),
+                      ('BankTransactions:13', 'price'), ('BankTransactions:11', 'bogus')):
+        with pytest.raises(svc.ProjectError):
+            svc.set_shabazi_tx_kind(db, key, kind)
+    assert db.shabazi_kinds == {} and db.kinds == {}
+
+
+# ── the expense type chosen while tagging ──────────────────────────────────
+def test_apartment_categories_are_monas_tag_and_shabazis():
+    assert svc.apartment_categories(FakeDB()) == {'שלום שבאזי 7': 'shabazi', 'דירת קבלן': 'mona'}
+
+
+def test_tagging_with_the_value_choice_marks_the_payment_and_costs_clears_it():
+    db = FakeDB()
+    svc.apply_tag_kind(db, 'BankTransactions', 737, 'דירת קבלן', 'price')
+    assert db.kinds == {'BankTransactions:737': 'price'}
+    svc.apply_tag_kind(db, 'BankTransactions', 737, 'דירת קבלן', 'cost')       # back to the default: nothing is stored
+    assert db.kinds == {}
+    svc.apply_tag_kind(db, 'BankTransactions', 11, 'שלום שבאזי 7', 'price')
+    assert db.shabazi_kinds == {'BankTransactions:11': 'price'}
+    svc.apply_tag_kind(db, 'BankTransactions', 11, 'שלום שבאזי 7', None)
+    assert db.shabazi_kinds == {}
+
+
+def test_a_choice_is_dropped_when_the_payment_is_tagged_elsewhere():
+    db = FakeDB()
+    db.kinds = {'BankTransactions:737': 'price'}
+    db.shabazi_kinds = {'BankTransactions:11': 'price'}
+    svc.apply_tag_kind(db, 'BankTransactions', 737, 'מצרכים', 'price')          # not an apartment category: ignored + cleaned
+    svc.apply_tag_kind(db, 'BankTransactions', 11, 'דירת קבלן', 'cost')         # moved from שבזי to Mona
+    assert db.kinds == {} and db.shabazi_kinds == {}
+
+
+def test_money_coming_in_never_goes_into_the_value():
+    db = FakeDB()
+    svc.apply_tag_kind(db, 'BankTransactions', 13, 'שלום שבאזי 7', 'price')
+    assert db.shabazi_kinds == {}
+
+
+def test_a_marked_shabazi_payment_that_was_retagged_stops_counting_as_an_investment():
+    db = FakeDB()
+    db.shabazi_kinds = {'BankTransactions:11': 'price', 'BankTransactions:77': 'price'}   # 77 is no longer tagged שבזי
+    assert svc.investment_keys(db) == {'BankTransactions:11'}

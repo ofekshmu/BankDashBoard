@@ -156,6 +156,98 @@ def set_tx_kind(db, key, tx_key, kind, today):
     return project_payload(db, key, today)
 
 
+# ── the monthly analysis: payments that went into an apartment's value ─────
+SHABAZI = 'shabazi'                       # the existing apartment: no project row, only per-payment kinds
+INVESTMENT_KINDS = (hp.KIND_PRICE, hp.KIND_REFUND)
+
+
+def shabazi_category():
+    from src_utils.mortgage import MORTGAGE_CATEGORY
+    return MORTGAGE_CATEGORY
+
+
+def investment_keys(db):
+    """Keys ('Table:ID' / 'split:ID') of every payment that went into an apartment's value — a Mona payment of
+    kind price (or a refund of such money) and any שבזי payment the user marked so. The monthly analysis shows
+    them as investments instead of expenses (src_utils/property_investments.py)."""
+    db.ensure_housing_project_tables()
+    keys = set()
+    settings = db.get_housing_project('mona')
+    if settings:
+        for t in _with_kinds(db, settings['key'], db.get_project_transactions(settings['tx_category'])):
+            if t['kind'] in INVESTMENT_KINDS:
+                keys.add(t['key'])
+    marked = {k for k, kind in db.get_housing_tx_kinds(SHABAZI).items() if kind in INVESTMENT_KINDS}
+    if marked:       # a payment re-tagged elsewhere since it was marked is no longer the apartment's
+        current = db.get_all_category_transactions(shabazi_category())
+        marked &= set(current['Key']) if 'Key' in current.columns else set()
+    keys.update(marked)
+    return keys
+
+
+def apartment_categories(db):
+    """{category name: apartment key} for the categories whose payments can go into an apartment's value:
+    the Mona project's tag and שבזי's. The tagger offers the expense-type choice for exactly these."""
+    db.ensure_housing_project_tables()
+    out = {shabazi_category(): SHABAZI}
+    settings = db.get_housing_project('mona')
+    if settings:
+        out[settings['tx_category']] = 'mona'
+    return out
+
+
+def apply_tag_kind(db, table, tx_id, category, kind, explicit=True):
+    """Right after a transaction was tagged with `category`: remember whether it went into the apartment's value
+    (`kind` 'price') or is an extra expense (anything else = the default). A choice left over from an earlier
+    apartment tag is dropped when the transaction is tagged elsewhere. Money coming in cannot go into the value,
+    so only outgoing payments keep 'price'. With `explicit` False (the request said nothing about the type — e.g. a
+    description edit) the payment's own apartment choice is left as it is."""
+    key = f'{table}:{tx_id}'
+    project = apartment_categories(db).get(category)
+    for pkey in ('mona', SHABAZI):
+        if pkey != project and key in db.get_housing_tx_kinds(pkey):
+            db.set_housing_tx_kind(pkey, key, None)
+    if not project or not explicit:
+        return
+    wanted = hp.KIND_PRICE if kind == hp.KIND_PRICE and db.is_outgoing(table, tx_id) else None
+    if (db.get_housing_tx_kinds(project).get(key) or None) != wanted:
+        db.set_housing_tx_kind(project, key, wanted)
+
+
+def shabazi_default_kind(out):
+    """A שבזי payment is an expense (or income) until the user says it went into the apartment's value."""
+    return hp.KIND_COST if out and out > 0 else hp.KIND_INCOME
+
+
+def attach_kinds(df, chosen):
+    """`df` (housing transactions with Key / Out) with a Kind column: the user's choice when it fits the payment's
+    direction, else the default."""
+    if df is None or df.empty or 'Key' not in df.columns:
+        return df
+    df = df.copy()
+    df['Kind'] = [hp.apply_override(shabazi_default_kind(out), chosen.get(key), bool(out and out > 0))
+                  for key, out in zip(df['Key'], df['Out'])]
+    return df
+
+
+def set_shabazi_tx_kind(db, tx_key, kind):
+    """Remember that a שבזי payment went into the apartment's value / is an expense (outgoing) or income / a refund
+    (incoming); None goes back to the default. Returns {key: kind} of all the user's choices."""
+    if not isinstance(tx_key, str):
+        raise ProjectError('התנועה לא שייכת לנכס')
+    db.ensure_housing_project_tables()
+    rows = db.get_all_category_transactions(shabazi_category())
+    match = rows[rows['Key'] == tx_key] if 'Key' in rows.columns else rows.iloc[0:0]
+    if match.empty:
+        raise ProjectError('התנועה לא שייכת לנכס')
+    if kind is not None:
+        allowed = hp.OUT_KINDS if float(match.iloc[0]['Out'] or 0) > 0 else hp.IN_KINDS
+        if kind not in allowed:
+            raise ProjectError('סוג לא מתאים לתנועה')
+    db.set_housing_tx_kind(SHABAZI, tx_key, kind)
+    return db.get_housing_tx_kinds(SHABAZI)
+
+
 # ── the asset on the accounts page ─────────────────────────────────────────
 def account_assets(db, today):
     """{account name: [[iso date, equity], ...]} for every project that has money in its price."""

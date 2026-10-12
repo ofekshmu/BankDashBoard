@@ -6942,7 +6942,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
             var d = String(it.date || '');
             var ddmm = d.length >= 10 ? d.slice(8, 10) + '/' + d.slice(5, 7) : d;
             var src  = it.table === 'BankTransactions' ? 'בנק' : (String(it.card || ''));
-            meta.textContent = (it.ref ? '#' + it.ref + ' · ' : '') + ddmm + ' · ' + src;
+            meta.textContent = (it.ref ? '#' + it.ref + ' · ' : '') + ddmm + ' · ' + src + (it.property ? ' · ' + it.property : '');
             var name = document.createElement('span');
             name.className = 'inv-tx-name';
             name.textContent = it.name || '';
@@ -8444,7 +8444,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   }
 
   // ── Housing / Mortgage ─────────────────────────────────────────────────
-  var _HS_CACHE_KEY = 'hs_v1';
+  var _HS_CACHE_KEY = 'hs_v2';   // v2: housing transactions carry key + kind
   var _HS_CACHE_TTL = 30 * 60 * 1000; // 30 min
   var _housingActiveTab = 'overview';
   var _timelineEvents   = null;
@@ -8761,23 +8761,29 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       html += '<div class="housing-txn-table card">' +
         '<div class="housing-txn-hdr"><div class="card-title">' + _esc(m.mortgage_category || 'עסקאות נכס') + '</div>' +
         '<div class="panel-count">' + txns.length + ' עסקאות</div></div>' +
-        '<table class="milestone-table housing-txn"><thead><tr><th>תאריך</th><th>שם</th><th>הוצאה</th><th>הכנסה</th></tr></thead><tbody>' +
+        '<div class="ms-note" style="margin:10px 0 0">בחרו לכל תנועה את סוגה: <b>בשווי הדירה (השקעה)</b> מוצגת בניתוח החודשי כהשקעה ולא כהוצאה; ברירת המחדל היא הוצאה / הכנסה.</div>' +
+        '<div style="overflow-x:auto"><table class="milestone-table housing-txn"><thead><tr><th>תאריך</th><th>שם</th><th>הוצאה</th><th>הכנסה</th><th>סוג</th></tr></thead><tbody>' +
         txns.map(function(tx) {
           var d = String(tx.date || '').slice(0, 10);
           var name = tx.name || '';
           var desc = tx.description || '';
+          var kinds = tx.out > 0 ? ['price', 'cost'] : ['income', 'refund'];
+          var kind = kinds.indexOf(tx.kind) !== -1 ? tx.kind : kinds[tx.out > 0 ? 1 : 0];
           return '<tr><td>' + d + '</td>' +
             '<td class="housing-txn-name-cell" data-name="' + _esc(name) + '" data-desc="' + _esc(desc) + '" data-showing="name" onclick="_hsToggleTxName(this)">' + _esc(name) + '</td>' +
             '<td style="color:#e74c3c">' + (tx.out    ? _n(tx.out, 2)    : '') + '</td>' +
-            '<td style="color:#1e9d8b">' + (tx.income ? _n(tx.income, 2) : '') + '</td></tr>';
-        }).join('') +
-        '</tbody></table>' +
+            '<td style="color:#1e9d8b">' + (tx.income ? _n(tx.income, 2) : '') + '</td>' +
+            '<td>' + (tx.key ? '<select class="ms-kind hs-kind ' + kind + '" data-key="' + _esc(tx.key) + '" data-default="' + (tx.out > 0 ? 'cost' : 'income') + '" onchange="_hsSetKind(this)" aria-label="סוג התנועה">' +
+              kinds.map(function(k) { return '<option value="' + k + '"' + (k === kind ? ' selected' : '') + '>' + _HS_KIND_LABEL[k] + '</option>'; }).join('') +
+              '</select>' : '') + '</td></tr>';
+        }).join('') + '</tbody></table></div>' +
         '<div class="txn-footer"><span>סה״כ</span>' +
         '<span><span class="txn-footer-sum neg">' + _n(totalOut, 2) + '</span> / <span class="txn-footer-sum pos">' + _n(totalIn, 2) + '</span></span>' +
         '</div></div>';
     }
 
     panel.innerHTML = _hsShell(html);
+    _hsLoadKinds();
 
     // ── Rate slider interactivity ──────────────────────────────────────────
     var slider = document.getElementById('hs-rate-slider');
@@ -9002,6 +9008,41 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   // transaction's name and its description, and back on the next click. A
   // transaction with no description has nothing to flip to, so it shakes in
   // place instead as a "nothing here" cue rather than silently doing nothing.
+  // ── שבזי payments: which ones went into the apartment's value ───────────────
+  // The housing data is cached for a while, so the user's choices are read fresh after it is drawn.
+  var _HS_KIND_LABEL = { price: 'בשווי הדירה (השקעה)', cost: 'הוצאה', income: 'הכנסה', refund: 'החזר' };
+
+  function _hsPaintKind(sel, kind) {
+    sel.value = kind;
+    sel.className = 'ms-kind hs-kind ' + kind + (kind !== sel.getAttribute('data-default') ? ' manual' : '');
+  }
+
+  function _hsLoadKinds() {
+    fetch('/api/housing/shabazi/tx-kinds').then(function(r) { return r.json(); }).then(function(d) {
+      if (!d.ok) return;
+      Array.prototype.forEach.call(document.querySelectorAll('select.hs-kind'), function(sel) {
+        var chosen = d.kinds[sel.getAttribute('data-key')];
+        var ok = chosen && Array.prototype.some.call(sel.options, function(o) { return o.value === chosen; });
+        _hsPaintKind(sel, ok ? chosen : sel.getAttribute('data-default'));
+      });
+    }).catch(function() {});
+  }
+
+  function _hsSetKind(sel) {
+    var previous = sel.className.split(' ').filter(function(c) { return _HS_KIND_LABEL[c]; })[0] || sel.getAttribute('data-default');
+    var next = sel.value, def = sel.getAttribute('data-default');
+    _hsPaintKind(sel, next);
+    fetch('/api/housing/shabazi/tx-kind', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: sel.getAttribute('data-key'), kind: next === def ? null : next })
+    }).then(function(r) { return r.json(); }).then(function(d) {
+      if (!d.ok) throw new Error(d.error || 'שגיאה');
+    }).catch(function(e) {
+      _hsPaintKind(sel, previous);
+      alert('השינוי לא נשמר: ' + e.message);
+    });
+  }
+
   function _hsToggleTxName(el) {
     var desc = el.getAttribute('data-desc') || '';
     if (!desc.trim()) {
@@ -11219,6 +11260,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   window.housingInfoSave      = housingInfoSave;
   window.housingInfoCopy      = housingInfoCopy;
   window._hsToggleTxName      = _hsToggleTxName;
+  window._hsSetKind           = _hsSetKind;
   window._tlToggleMinimize     = _tlToggleMinimize;
   window._tlOpenAddModal  = _tlOpenAddModal;
   window._tlOpenEditModal = _tlOpenEditModal;

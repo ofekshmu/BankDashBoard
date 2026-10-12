@@ -21,7 +21,8 @@ def env(monkeypatch):
 
 
 def test_get_returns_the_project(env):
-    client, _ = env
+    client, db = env
+    db.kinds = {'BankTransactions:737': 'price'}
     r = client.get('/api/housing/projects/mona')
     d = r.get_json()
     assert r.status_code == 200 and d['ok'] and d['project']['account_name'] == 'נכס מונה'
@@ -52,7 +53,7 @@ def test_invalid_settings_are_400_with_a_message_and_nothing_is_saved(env):
 def test_tx_kind_endpoint(env):
     client, db = env
     r = client.post('/api/housing/projects/mona/tx-kind', json={'key': 'CardTransactions:2340', 'kind': 'price'})
-    assert r.status_code == 200 and r.get_json()['project']['money']['paid_price'] == 20000
+    assert r.status_code == 200 and r.get_json()['project']['money']['paid_price'] == 5000     # costs unless chosen
     assert db.kinds == {'CardTransactions:2340': 'price'}
     r = client.post('/api/housing/projects/mona/tx-kind', json={'key': 'CardTransactions:2340', 'kind': None})
     assert r.status_code == 200 and db.kinds == {}
@@ -66,3 +67,15 @@ def test_unexpected_errors_are_500_without_leaking_details(env):
     db.fail = True
     r = client.get('/api/housing/projects/mona')
     assert r.status_code == 500 and 'db down' not in r.get_data(as_text=True)
+
+
+def test_shabazi_kinds_endpoints(env):
+    client, db = env
+    r = client.post('/api/housing/shabazi/tx-kind', json={'key': 'BankTransactions:11', 'kind': 'price'})
+    assert r.status_code == 200 and r.get_json() == {'ok': True, 'kinds': {'BankTransactions:11': 'price'}}
+    assert client.get('/api/housing/shabazi/tx-kinds').get_json() == {'ok': True, 'kinds': {'BankTransactions:11': 'price'}}
+    assert client.post('/api/housing/shabazi/tx-kind', json={'key': 'BankTransactions:11', 'kind': None}).status_code == 200
+    assert db.shabazi_kinds == {}
+    assert client.post('/api/housing/shabazi/tx-kind', json={'key': 'BankTransactions:99', 'kind': 'price'}).status_code == 400
+    assert client.post('/api/housing/shabazi/tx-kind', json={'key': 'BankTransactions:11', 'kind': 5}).status_code == 400
+    assert db.kinds == {}                                                    # Mona's choices are separate

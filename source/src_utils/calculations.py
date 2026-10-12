@@ -106,6 +106,14 @@ class SimpleMath:
                 use_bulk = False
 
         import warnings as _w
+        property_keys = None
+        if category is None and business is None:
+            # the same rule as the month's own analysis: apartment-value payments are investments
+            from src_utils import property_investments
+            try:
+                property_keys = property_investments.load_keys()
+            except Exception:
+                property_keys = None
         for i in range(initial_delta, shift):
             calculated_date = current_date - pd.DateOffset(months=i)
             m, y = calculated_date.month, calculated_date.year
@@ -137,6 +145,10 @@ class SimpleMath:
                     DataBase().query_monthly_transactions(
                         date=calculated_date, tables=['BankTransactions', 'CardTransactions']),
                     date=calculated_date)
+
+            if property_keys:
+                from src_utils import property_investments
+                df_i = property_investments.mark_from_db(df_i, keys=property_keys)
 
             # category/business were only ever used above to pick the bulk vs.
             # per-month query path — df_i itself was never actually filtered

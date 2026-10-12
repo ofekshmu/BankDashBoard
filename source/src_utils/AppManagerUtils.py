@@ -60,4 +60,9 @@ class AppManagerUtils:
         import warnings as _w
         with _w.catch_warnings():
             _w.simplefilter('ignore', FutureWarning)
-            return pd.concat([proceessed_bank_transactions_df, proceessed_card_transactions_df], ignore_index=True)
+            combined = pd.concat([proceessed_bank_transactions_df, proceessed_card_transactions_df], ignore_index=True)
+        if general_analysis:
+            # payments that went into an apartment's value are investments, not expenses
+            from src_utils import property_investments
+            combined = property_investments.mark_from_db(combined)
+        return combined

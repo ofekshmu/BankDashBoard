@@ -16,7 +16,6 @@ The page recomputes `derive` / `sums` in JavaScript while the growth slider move
 copies are checked against each other in tests/test_housing_projects_js.py.
 """
 import calendar
-import re
 from datetime import date, timedelta
 
 DEFAULT_GROWTH_PCT = 3.0
@@ -29,21 +28,12 @@ KIND_PRICE, KIND_COST, KIND_INCOME, KIND_REFUND = 'price', 'cost', 'income', 're
 OUT_KINDS = (KIND_PRICE, KIND_COST)
 IN_KINDS = (KIND_INCOME, KIND_REFUND)
 
-# Outgoing payments whose name/description mention one of these are extra costs by default
-# (fees and taxes around the purchase). Every payment can be flipped on the page.
-_COST_WORDS = ('ליווי', 'עורך דין', 'שמאי', 'מס רכישה', 'יועץ', 'ייעוץ', 'תיווך', 'מתווך',
-               'עמלה', 'ביטוח', 'דמי טיפול', 'אגרה')
-_LAWYER = re.compile('עו["״]ד')   # עו"ד / עו״ד — not the word "עוד"
-
-
 def classify_kind(name, description, out, income):
-    """Automatic kind of one payment: incoming → income; outgoing → cost for fee-like names, else price."""
-    if not (out and out > 0):
-        return KIND_INCOME
-    text = f'{name or ""} {description or ""}'
-    if _LAWYER.search(text) or any(w in text for w in _COST_WORDS):
-        return KIND_COST
-    return KIND_PRICE
+    """Default kind of one payment: incoming → income; outgoing → cost (an extra expense).
+
+    Nothing is assumed to go into the apartment's value: the user says so — when tagging the payment (the
+    tagger) or on the housing page — and only then is it `price`, an investment."""
+    return KIND_COST if (out and out > 0) else KIND_INCOME
 
 
 def apply_override(auto, override, is_out):

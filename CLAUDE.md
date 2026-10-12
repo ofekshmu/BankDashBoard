@@ -154,9 +154,13 @@ Mona seeded). Tests: `tests/test_housing_project*.py`, `tests/test_housing_proje
   Mona shows in the tab's payments table, where each payment's expense type is picked from a dropdown; the tag is editable in the tab and is saved
   spelled as in `categories.json`, since transactions match on the exact spelling; the older **"דירת קבלן"** tag is no longer read);
   the timeline is the category labelled MONA (found by label, then remembered).
-- **Every payment has a kind:** `price` (goes into the apartment price → builds equity, comes back on a sale), `cost` (fees/taxes:
-  spent, never an asset), `income` (rent etc.: not an asset), `refund`. Defaults come from `classify_kind` (fee-like words such as
-  ליווי / עו"ד → cost); the user flips any payment on the page (`HousingTxKinds`, key `Table:id` or `split:id`).
+- **Every payment has a kind:** `price` (goes into the apartment price → builds equity, comes back on a sale, an *investment* in the monthly analysis),
+  `cost` (extra expense: fees, taxes — spent, never an asset), `income` (rent etc.) or `refund`. **The default is `cost`** (income for money in) —
+  nothing is assumed to be part of the value (`classify_kind`); the user says so with a dropdown on the housing page (`HousingTxKinds`, key `Table:id` or
+  `split:id`) or **in the tagger**: for an apartment category (Mona, שלום שבאזי 7 — `GET /api/tagger/apartment-categories`) the row shows a small switch
+  "הוצאה נלווית / בשווי הנכס" and `POST /api/tagger/tag` (and `tag-all-by-name`, the search re-tag and the change-category dialog) carries `kind`;
+  `housing_project_service.apply_tag_kind` stores it (only `price` is stored, only for money out), drops a choice when the payment is tagged to another
+  category, and leaves it alone when a request has no `kind`.
 - **Financing plan (settings):** `down_pct` (initial payment, default 10 %) and `mortgage_pct` (share the mortgage covers at
   delivery, default 75 %). Own money before the loan = 100 − `mortgage_pct` (25 % = the 10 % now + another 15 % at delivery);
   `expected_mortgage` = price − max(paid so far, that share). `down_pct` may not exceed the own-money share.
@@ -172,6 +176,13 @@ Mona seeded). Tests: `tests/test_housing_project*.py`, `tests/test_housing_proje
   so `/housing` opens the Mona tab (the דיור block sets `shabazi`).
 - **Settings form autosaves** on field `change` (no need to press שמירה).
 - **"מידע חיוני" box** (both apartments): floating button bottom-left of `/housing` (`#housing-info-fab`, shown only on the housing panel) opening name : detail rows kept in table `HousingInfo` (`database.py`, seeded once on creation; שבזי got the details restored from the unmerged branch `claude/apartment-info-copy-button-mljshs`). Validation in `source/housing_info_service.py`, endpoints `GET/PUT /api/housing/info/<shabazi|mona>` in `housing_project_routes.py`, UI (`housingInfo*`) next to the Mona code in `Base_template.html`. Tests: `tests/test_housing_info.py`.
+- **Monthly analysis:** a payment tagged with an apartment category is an expense by default, but one that went into the apartment's value is an
+  *investment*: Mona payments of kind `price` (and `refund`s of such money) and any שבזי payment the user marks "בשווי הדירה (השקעה)" in the
+  housing table (`HousingTxKinds`, project key `shabazi`; `POST /api/housing/shabazi/tx-kind`). `src_utils/property_investments.py` moves those rows to
+  `INVESTMENT_CATEGORY` (the original category stays in `Property_Category`, shown on the investment item) inside
+  `AppManagerUtils.retrieve_and_initialize_data(general_analysis=True)` and `SimpleMath.get_monthly_shifted` (no category/business filter), so the month's
+  charts and the 12-month history agree. Keys are `Table:ID` / `split:ID` (`DataBase.get_all_category_transactions` returns them as `Key`).
+  Changing a kind marks the DB changed (stale monthly pages). The housing page's session cache key is `hs_v2` — bump it when its payload shape changes.
 - **Housing menus:** the apartments (שלום שבזי 7 / מונה) are the fixed top tab bar (`.hs-top`); סקירה כללית / ציר זמן are each
   apartment's in-flow sub-menu (`.hs-nav`). (`.hs-subtab-btn` is still used by the timeline category chips.)
 

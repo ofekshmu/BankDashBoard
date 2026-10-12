@@ -4345,6 +4345,26 @@ def _write_at(d: dict):
         _j.dump(d, _f, ensure_ascii=False)
 
 
+def _apply_tag_kind(db, table, tx_id, category, kind, explicit=True):
+    """Record the expense type chosen in the tagger for an apartment category; never fails the tagging itself."""
+    import housing_project_service as _hps
+    try:
+        _hps.apply_tag_kind(db, table, tx_id, category, kind, explicit)
+    except Exception as e:
+        print(f'[tagger] expense type of {table}#{tx_id} was not saved: {e}')
+
+
+@app.route('/api/tagger/apartment-categories')
+def tagger_apartment_categories():
+    """{categories: [names]} — the categories for which the tagger offers "extra expense / part of the value"."""
+    import housing_project_service as _hps
+    from database import DataBase
+    try:
+        return jsonify({'ok': True, 'categories': sorted(_hps.apartment_categories(DataBase()))})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
 @app.route('/api/tagger/tag', methods=['POST'])
 def tagger_tag():
     """Tag a single transaction by id."""
@@ -4356,6 +4376,7 @@ def tagger_tag():
     is_auto = bool(body.get('auto', False))
 
     description = (body.get('description') or '').strip()
+    kind = body.get('kind')          # for an apartment category: 'price' (went into its value) or 'cost' (extra expense)
 
     if not table or id_ is None or not cat:
         return jsonify({'ok': False, 'error': 'missing fields'})
@@ -4365,6 +4386,7 @@ def tagger_tag():
         DataBase().set_category_ui(table, int(id_), cat, is_auto=is_auto)
         if description:
             DataBase().set_transaction_description(description, table, int(id_))
+        _apply_tag_kind(DataBase(), table, int(id_), cat, kind, explicit='kind' in body)
         return jsonify({'ok': True})
     except Exception as e:
         import traceback
@@ -4388,6 +4410,7 @@ def tagger_tag_all_by_name():
         for row in rows:
             if row['name'] == name:
                 db.set_category_ui(row['table_name'], row['id'], cat, is_auto=False)
+                _apply_tag_kind(db, row['table_name'], row['id'], cat, body.get('kind'), explicit='kind' in body)
                 count += 1
         # Save rule to auto_tagger.json
         at = _read_at()

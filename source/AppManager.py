@@ -10,6 +10,7 @@ from front.Graphics import Graphics
 from src_utils.calculations import SimpleMath
 from src_utils.ExcelReader import ExcelManager
 from src_utils.AppManagerUtils import AppManagerUtils
+import housing_project_service
 import webbrowser
 import re
 from Configurations.Formats import Formats, Context_class
@@ -1311,6 +1312,7 @@ class AppManager:
                     'desc':  str(_desc).strip() if _has_desc else None,
                     'amount': round(float(_row['_abs']), 2),
                     'dir':   'out' if _row['Final_Value'] < 0 else 'in',
+                    'property': (str(_row['Property_Category']) if pd.notna(_row.get('Property_Category')) else None),
                 })
             data['investments_items'] = _inv_items
         else:
@@ -1553,6 +1555,7 @@ class AppManager:
         from dateutil.relativedelta import relativedelta as _rdelta
 
         _housing_txns = DataBase().get_all_category_transactions(MORTGAGE_CATEGORY)
+        _housing_txns = housing_project_service.attach_kinds(_housing_txns, DataBase().get_housing_tx_kinds('shabazi'))
 
         # Cashflow chart: aggregate actual transactions by month, then append
         # projected months for the next 6 months after today.
@@ -1882,6 +1885,8 @@ class AppManager:
                         txns = []
                         for _, row in v.iterrows():
                             txns.append({
+                                'key':         str(row.get('Key', '')),
+                                'kind':        str(row.get('Kind', '')),
                                 'date':        str(row.get('Date', '')),
                                 'name':        str(row.get('Name', '')),
                                 'out':         _safe(row.get('Out', 0)),
@@ -2127,6 +2132,7 @@ class AppManager:
                     'desc':   str(_desc).strip() if _has_desc else None,
                     'amount': round(float(_row['_abs']), 2),
                     'dir':    'out' if _row['Final_Value'] < 0 else 'in',
+                    'property': (str(_row['Property_Category']) if pd.notna(_row.get('Property_Category')) else None),
                 })
             data['investments_items'] = _inv_items
         else:
@@ -2445,6 +2451,7 @@ class AppManager:
                 "track_type": str(_tg_r["track_type"].iloc[0]),
             }
         _housing_txns = DataBase().get_all_category_transactions(MORTGAGE_CATEGORY)
+        _housing_txns = housing_project_service.attach_kinds(_housing_txns, DataBase().get_housing_tx_kinds('shabazi'))
         _pc(74, 'Housing transactions loaded ✓')
 
         def _build_housing_pie(df: pd.DataFrame, value_col: str, top_n: int = 8) -> list:
@@ -2821,7 +2828,8 @@ class AppManager:
             for k, v in mortgage_data.items():
                 if k == 'housing_transactions':
                     if hasattr(v, 'to_dict'):
-                        result[k] = [{'date': str(row.get('Date', '')), 'name': str(row.get('Name', '')),
+                        result[k] = [{'key': str(row.get('Key', '')), 'kind': str(row.get('Kind', '')),
+                                      'date': str(row.get('Date', '')), 'name': str(row.get('Name', '')),
                                       'out': _safe(row.get('Out', 0)), 'income': _safe(row.get('Income', 0)),
                                       'description': str(row.get('Description', '') or '')}
                                      for _, row in v.iterrows()]

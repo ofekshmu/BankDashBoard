@@ -297,6 +297,26 @@ body {
   white-space: nowrap; flex-shrink: 0;
 }
 
+/* Expense type of an apartment payment (shown only for the apartment categories) */
+.kind-seg {
+  display: inline-flex; gap: 2px; padding: 2px; margin-inline-start: auto; flex-shrink: 0;
+  background: #eef0f6; border-radius: 999px;
+}
+.kind-seg[hidden] { display: none; }
+.kind-seg button {
+  border: 0; background: transparent; border-radius: 999px; padding: 3px 11px;
+  font: inherit; font-size: .73em; font-weight: 700; color: var(--text-muted);
+  cursor: pointer; white-space: nowrap; transition: background .15s, color .15s;
+}
+.kind-seg button:hover { color: var(--navy); }
+.kind-seg button.on { background: var(--white); color: var(--navy); box-shadow: 0 1px 3px rgba(0,0,0,.14); }
+.kind-seg button.on[data-k="price"] { background: var(--teal); color: #fff; }
+.kind-seg-modal { display: flex; margin: 0 0 14px; }
+.kind-seg-modal[hidden] { display: none; }
+.kind-seg-modal .kind-seg { margin: 0; }
+.kind-seg-modal span { font-size: .78em; color: var(--text-muted); align-self: center; margin-inline-end: 8px; }
+@media (max-width: 600px) { .tx-desc-row { flex-wrap: wrap; } .kind-seg { margin-inline-start: 0; } }
+
 /* ── Category autocomplete input ─────────────────────────────── */
 .cat-wrap {
   position: relative;
@@ -914,6 +934,10 @@ body {
              id="inp-edit-tag" data-key="edit-tag"/>
       <div class="cat-dropdown" id="dd-edit-tag"></div>
     </div>
+    <div class="kind-seg-modal" id="kind-wrap-edit-tag" hidden>
+      <span>סוג ההוצאה:</span>
+      <div class="kind-seg" id="kind-edit-tag" data-kind="cost" role="radiogroup" aria-label="סוג ההוצאה"><button type="button" class="on" data-k="cost" role="radio" aria-checked="true" onclick="setKind('edit-tag','cost')">הוצאה נלווית</button><button type="button" data-k="price" role="radio" aria-checked="false" onclick="setKind('edit-tag','price')">בשווי הנכס</button></div>
+    </div>
     <div class="modal-msg" id="edit-tag-msg"></div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeEditTagModal()">ביטול</button>
@@ -1105,7 +1129,7 @@ let _lastInteraction = Date.now();
 
 // ── Boot ───────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  Promise.all([loadCategories(), loadCardColors()]).then(() => {
+  Promise.all([loadCategories(), loadCardColors(), loadApartmentCategories()]).then(() => {
     loadUntagged();
     loadHighValue();
     loadTagged();
@@ -1129,6 +1153,60 @@ async function loadCategories() {
   if (!res || !res.ok) return;
   const data = await res.json();
   if (data.ok) _categories = data.categories;
+}
+
+// ── Apartment payments: extra expense / part of the apartment's value ─────
+// The categories of an apartment (Mona, שבזי) get a small switch next to the description. "Extra expense" is
+// the default; "part of the value" makes the payment an investment in the monthly analysis.
+let _apartmentCats = [];
+async function loadApartmentCategories() {
+  const res = await fetch('/api/tagger/apartment-categories').catch(() => null);
+  const data = res ? await res.json().catch(() => null) : null;
+  if (data && data.ok) _apartmentCats = data.categories;
+}
+
+function kindSegButtons(key) {
+  return `<button type="button" class="on" data-k="cost" role="radio" aria-checked="true" onclick="setKind('${esc(key)}','cost')">הוצאה נלווית</button>` +
+         `<button type="button" data-k="price" role="radio" aria-checked="false" onclick="setKind('${esc(key)}','price')">בשווי הנכס</button>`;
+}
+
+function kindSegHtml(key, tx) {
+  const out = tx && tx.charge_value != null && tx.charge_value > 0;
+  if (!out) return '';
+  return `<div class="kind-seg" id="kind-${esc(key)}" data-kind="cost" role="radiogroup" aria-label="סוג ההוצאה" hidden>${kindSegButtons(key)}</div>`;
+}
+
+function setKind(key, kind) {
+  const seg = document.getElementById(`kind-${key}`);
+  if (!seg) return;
+  seg.dataset.kind = kind;
+  seg.querySelectorAll('button').forEach(b => {
+    const on = b.dataset.k === kind;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-checked', on ? 'true' : 'false');
+  });
+  _touchInteraction();
+}
+
+// Show the switch only while the typed/picked category is an apartment's (and the payment is money out).
+function syncKindControl(key) {
+  const seg  = document.getElementById(`kind-${key}`);
+  if (!seg) return;
+  const inp  = document.getElementById(`inp-${key}`);
+  const cat  = resolveCategory(inp ? inp.value : '');
+  const show = !!cat && _apartmentCats.includes(cat);
+  seg.hidden = !show;
+  const wrap = document.getElementById(`kind-wrap-${key}`);
+  if (wrap) wrap.hidden = !show || wrap.dataset.out === '0';
+  if (!show) setKind(key, 'cost');
+}
+
+// The chosen type, or null when the switch is not shown (nothing to tell the server).
+function getKind(key) {
+  const seg = document.getElementById(`kind-${key}`);
+  const wrap = document.getElementById(`kind-wrap-${key}`);
+  if (!seg || seg.hidden || (wrap && wrap.hidden)) return null;
+  return seg.dataset.kind;
 }
 
 // ── Card colors (same palette as monthly-analysis charts) ───────
@@ -1376,6 +1454,7 @@ function buildUntaggedRow(tx, idx) {
              autocomplete="off"
              id="desc-${esc(key)}"
              oninput="_touchInteraction()"/>
+      ${kindSegHtml(key, tx)}
     </div>
   </div>
 </div>`;
@@ -1483,6 +1562,7 @@ function buildHighValRow(tx, idx) {
              autocomplete="off"
              id="desc-${esc(key)}"
              oninput="_touchInteraction()"/>
+      ${kindSegHtml(key, tx)}
     </div>
   </div>
 </div>`;
@@ -1574,6 +1654,7 @@ function buildTaggedRow(tx) {
 
   return `
 <div class="tx-row is-tagged" data-table="${esc(tx.table_name)}" data-id="${tx.id}"
+     data-out="${tx.charge_value != null && tx.charge_value > 0 ? 1 : 0}"
      data-name="${esc(tx.name || '')}" data-category="${esc(tx.category || '')}"
      onclick="openEditTagModal(this)">
   ${typePillHtml(tx)}
@@ -1597,7 +1678,10 @@ function openEditTagModal(rowEl) {
   const name   = rowEl.dataset.name;
   const oldCat = rowEl.dataset.category;
 
-  _editTagPending = { table, id, name, oldCat, newCat: null };
+  _editTagPending = { table, id, name, oldCat, newCat: null, kind: null };
+  const wrap = document.getElementById('kind-wrap-edit-tag');
+  if (wrap) { wrap.dataset.out = rowEl.dataset.out === '0' ? '0' : '1'; }
+  setKind('edit-tag', 'cost');
 
   document.getElementById('edit-tag-name').textContent    = name || '—';
   document.getElementById('edit-tag-current').textContent = `קטגוריה נוכחית: ${oldCat || '—'}`;
@@ -1608,6 +1692,7 @@ function openEditTagModal(rowEl) {
   inp.classList.toggle('valid', !!resolveCategory(oldCat));
   inp.classList.remove('invalid');
   document.getElementById('btn-edit-tag').disabled = !resolveCategory(oldCat);
+  syncKindControl('edit-tag');
 
   document.getElementById('edit-tag-modal-overlay').classList.add('open');
 }
@@ -1632,6 +1717,7 @@ function editTagSave() {
     return;
   }
   _editTagPending.newCat = newCat;
+  _editTagPending.kind   = getKind('edit-tag');
   document.getElementById('edit-tag-modal-overlay').classList.remove('open');
   document.getElementById('edit-tag-confirm-name').textContent =
     `לשנות את הקטגוריה של "${_editTagPending.name}"`;
@@ -1650,7 +1736,7 @@ function backToEditTagPicker() {
 
 async function confirmEditTag() {
   if (!_editTagPending) return;
-  const { table, id, name, oldCat, newCat } = _editTagPending;
+  const { table, id, name, oldCat, newCat, kind } = _editTagPending;
   const btn = document.getElementById('edit-tag-confirm-btn');
   btn.disabled  = true;
   btn.innerHTML = '<span class="spinner"></span>';
@@ -1659,7 +1745,8 @@ async function confirmEditTag() {
   const res  = await fetch('/api/tagger/tag', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({ table, id, category: newCat, auto: false })
+    body: JSON.stringify(kind == null ? { table, id, category: newCat, auto: false }
+                                     : { table, id, category: newCat, auto: false, kind })
   }).catch(() => null);
   const data = res ? await res.json().catch(() => null) : null;
 
@@ -1725,6 +1812,7 @@ function onCatInput(inp, key) {
   inp.classList.toggle('valid', !!match);
   inp.classList.toggle('invalid', q.length > 0 && !match);
   if (btn) btn.disabled = !match;
+  syncKindControl(key);
   renderDropdown(inp, key, q);
 }
 
@@ -1827,6 +1915,7 @@ function pickCategory(key, val) {
   if (inp) { inp.value = val; inp.classList.add('valid'); inp.classList.remove('invalid'); }
   if (btn) btn.disabled = false;
   if (dd)  dd.classList.remove('open');
+  syncKindControl(key);
   _touchInteraction();
 }
 
@@ -1876,12 +1965,14 @@ async function tagRow(key) {
   const category    = resolveCategory(inp ? inp.value : '');
   const descInp     = document.getElementById(`desc-${key}`);
   const description = descInp ? descInp.value.trim() : '';
+  const kind        = getKind(key);
 
   if (!category) {
     showToast('בחר קטגוריה תקינה', 'error');
     return;
   }
   if (inp) inp.value = category;
+  _kindByName[name] = kind;
 
   setRowLoading(key, true);
 
@@ -1893,7 +1984,8 @@ async function tagRow(key) {
   const res  = await fetch('/api/tagger/tag', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({ table, id, category, auto: false, description })
+    body: JSON.stringify(kind === null ? { table, id, category, auto: false, description }
+                                       : { table, id, category, auto: false, description, kind })
   }).catch(() => null);
   const data = res ? await res.json().catch(() => null) : null;
 
@@ -1960,11 +2052,13 @@ async function confirmTagAll(key, name, category, yes) {
   exitRow(key);
 }
 
+const _kindByName = {};   // the expense type picked for a name, applied if the user tags all of that name
 async function _doTagAll(name, category) {
+  const kind = _kindByName[name];
   const res  = await fetch('/api/tagger/tag-all-by-name', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({ name, category })
+    body: JSON.stringify(kind == null ? { name, category } : { name, category, kind })
   }).catch(() => null);
   const data = res ? await res.json().catch(() => null) : null;
   if (!data || !data.ok) {
@@ -2035,7 +2129,7 @@ function setRowLoading(key, on) {
 
 async function refreshAll() {
   animateRefreshBar();
-  await Promise.all([loadCategories(), loadCardColors()]);
+  await Promise.all([loadCategories(), loadCardColors(), loadApartmentCategories()]);
   await Promise.all([loadUntagged(), loadHighValue(), loadTagged()]);
 }
 
@@ -2477,6 +2571,7 @@ function buildSearchResultRow(tx) {
              autocomplete="off"
              id="desc-${esc(key)}"
              oninput="_touchInteraction()"/>
+      ${kindSegHtml(key, tx)}
     </div>
   </div>
 </div>`;
@@ -2833,6 +2928,8 @@ async function retagSearchRow(key) {
 
   const body = { table, id, category, auto: false };
   if (newDesc) body.description = newDesc;
+  const kind = getKind(key);
+  if (kind !== null) body.kind = kind;
 
   const res  = await fetch('/api/tagger/tag', {
     method: 'POST',

@@ -205,6 +205,7 @@ class DataBase:
     __account_settings_ready = False
     __housing_projects_ready = False
     __housing_info_ready = False
+    __file_update_ready = False
     __bootstrap_lock = threading.Lock()
     __tables_bootstrapped = False
     __pool = None
@@ -1498,6 +1499,175 @@ class DataBase:
                                     """, (format_name, card_number,)).fetchall()
         
         return [tup[0] for tup in res] # to get result as list
+
+    # ── Updating a stored credit-card file with a newer copy (file_update_service.py) ──────────
+    def ensure_file_update_columns(self) -> None:
+        """Add the columns that mark a File row as updated over an existing file, once.
+
+        Updated_At: when it was last updated; Update_Kind: 'update' (rows merged, work kept) or
+        'replace' (everything swapped); Update_Added / _Changed / _Removed: the rows that update changed."""
+        if DataBase.__file_update_ready:
+            return
+        for col, typ in (('Updated_At', 'TIMESTAMP'), ('Update_Kind', 'TEXT'), ('Update_Added', 'INT'),
+                         ('Update_Changed', 'INT'), ('Update_Removed', 'INT')):
+            self.cursor.execute(f"ALTER TABLE File ADD COLUMN IF NOT EXISTS {col} {typ}")
+        self.connection.commit()
+        DataBase.__file_update_ready = True
+
+    _FILE_ROW_COLS = ('File_Name', 'Format', 'Card_Number', 'Date', 'New_Transactions', 'Transaction_count',
+                      'Last_update', 'Updated_At')
+
+    def _file_row(self, row) -> dict:
+        return dict(zip(('name', 'format', 'card', 'date', 'new_transactions', 'transaction_count', 'last_update',
+                         'updated_at'), row))
+
+    def get_files_by_name(self, file_name: str) -> list:
+        """The File rows with this name (one per format/card), as dicts: name, format, card, date, ..."""
+        self.ensure_file_update_columns()
+        rows = self.cursor.execute(
+            "SELECT " + ', '.join(self._FILE_ROW_COLS) + " FROM File WHERE File_Name = %s", (file_name,)).fetchall()
+        self.connection.commit()
+        return [self._file_row(r) for r in rows]
+
+    def get_files_by_identity(self, format_name: str, card_number: str, date) -> list:
+        """The File rows of the same format, card and month — the same statement stored under any name."""
+        self.ensure_file_update_columns()
+        rows = self.cursor.execute(
+            "SELECT " + ', '.join(self._FILE_ROW_COLS) + " FROM File WHERE Format = %s AND Card_Number = %s AND Date = %s",
+            (format_name, card_number, date)).fetchall()
+        self.connection.commit()
+        return [self._file_row(r) for r in rows]
+
+    def get_card_file_transactions(self, source_file: str, card_number: str) -> list:
+        """The CardTransactions rows read from `source_file`, oldest ID (= file order) first, as dicts with
+        the compared columns plus id, category, description."""
+        rows = self.cursor.execute("""
+            SELECT ID, CardID, Name, Executed_Date, Charge_Date, Charge_Value, Charge_Currency,
+                   Transaction_Value, Value_Currency, Extra_Info, Category, Description
+            FROM CardTransactions WHERE Source_file = %s AND CardID = %s ORDER BY ID
+        """, (source_file, card_number)).fetchall()
+        self.connection.commit()
+        keys = ('id', 'cardid', 'name', 'executed_date', 'charge_date', 'charge_value', 'charge_currency',
+                'transaction_value', 'value_currency', 'extra_info', 'category', 'description')
+        return [dict(zip(keys, r)) for r in rows]
+
+    def get_card_tx_links(self, ids: list) -> dict:
+        """{transaction id: [what refers to it]} for the card transactions that other features point at —
+        a split, a timeline event, a bill entry, a recurring-charge exclusion, a division, a Spotify
+        payment or a housing payment kind. Deleting such a row would silently break that link."""
+        links = {}
+        if not ids:
+            return links
+
+        def mark(rows, kind):
+            for (tx_id,) in rows:
+                try:
+                    links.setdefault(int(tx_id), []).append(kind)
+                except (TypeError, ValueError):
+                    pass
+
+        q = self.cursor.execute
+        mark(q("SELECT Original_ID FROM TransactionSplits WHERE Original_Table = 'CardTransactions' "
+               "AND Original_ID = ANY(%s)", (ids,)).fetchall(), 'split')
+        mark(q("SELECT Transaction_ID FROM TimelineEventTransactions WHERE Transaction_Table = 'CardTransactions' "
+               "AND Transaction_ID = ANY(%s)", (ids,)).fetchall(), 'timeline')
+        mark(q("SELECT Transaction_ID FROM BillEntries WHERE Transaction_Table = 'CardTransactions' "
+               "AND Transaction_ID = ANY(%s)", (ids,)).fetchall(), 'bill')
+        mark(q("SELECT Secondary_Transaction_ID FROM BillEntries WHERE Secondary_Transaction_Table = 'CardTransactions' "
+               "AND Secondary_Transaction_ID = ANY(%s)", (ids,)).fetchall(), 'bill')
+        mark(q("SELECT Tx_ID FROM RecurringExcludedTransactions WHERE Table_Name = 'CardTransactions' "
+               "AND Tx_ID = ANY(%s)", (ids,)).fetchall(), 'recurring')
+        mark(q("SELECT DevisionOfCard FROM DevisionTransactions WHERE DevisionOfCard = ANY(%s)", (ids,)).fetchall(),
+             'division')
+        mark(q("SELECT Tx_ID FROM SpotifyMemberPayments WHERE Tx_Source = 'CardTransactions' AND Tx_ID = ANY(%s)",
+               (ids,)).fetchall(), 'spotify')
+        self.connection.commit()
+        housing = q("SELECT Tx_Key FROM HousingTxKinds WHERE Tx_Key LIKE 'CardTransactions:%%'").fetchall() \
+            if self._table_exists('housingtxkinds') else []
+        wanted = set(ids)
+        for (key,) in housing:
+            try:
+                tx_id = int(key.split(':', 1)[1])
+            except (IndexError, ValueError):
+                continue
+            if tx_id in wanted:
+                links.setdefault(tx_id, []).append('housing')
+        self.connection.commit()
+        return links
+
+    def _table_exists(self, lower_name: str) -> bool:
+        row = self.cursor.execute("SELECT to_regclass(%s)", (lower_name,)).fetchone()
+        return bool(row and row[0])
+
+    def apply_card_file_update(self, plan: dict) -> None:
+        """Make the stored credit-card file equal to the new one, in one transaction.
+
+        plan (built by file_update_service):
+          old_name / new_name, format, card, date          the stored file and what it becomes
+          keep:    [{'id', 'record' | None}]               rows that stay (record = new values for a changed row)
+          add:     [record]                                new rows to insert
+          delete:  [id]                                    stored rows to remove
+          meta:    [TableMeta dict]                        the new file's tables
+          counts:  {'transactions', 'new', 'added', 'changed', 'removed'}, kind: 'update' | 'replace'
+        Nothing is changed when anything fails (the transaction is rolled back and the error re-raised).
+        """
+        self.ensure_file_update_columns()
+        old, new = plan['old_name'], plan['new_name']
+        fmt, card, date = plan['format'], plan['card'], plan['date']
+        c = self.cursor
+        try:
+            if old != new:
+                c.execute("""INSERT INTO File(File_Name, Format, Card_Number, Date, New_Transactions,
+                                              Transaction_count, Last_update)
+                             VALUES (%s, %s, %s, %s, %s, %s, CURRENT_DATE)""",
+                          (new, fmt, card, date, plan['counts']['new'], plan['counts']['transactions']))
+            else:
+                c.execute("""UPDATE File SET Date = %s, New_Transactions = %s, Transaction_count = %s,
+                                             Last_update = CURRENT_DATE
+                             WHERE File_Name = %s AND Format = %s AND Card_Number = %s""",
+                          (date, plan['counts']['new'], plan['counts']['transactions'], new, fmt, card))
+            c.execute("DELETE FROM TableMeta WHERE File_Name = %s AND Format = %s AND Card_Number = %s",
+                      (old, fmt, card))
+            for m in plan['meta']:
+                c.execute("""INSERT INTO TableMeta(File_Name, Format, Card_Number, Initial_index, Initial_col,
+                                                   Row_count, Bad_rows) VALUES (%s, %s, %s, %s, %s, %s, %s)""",
+                          (new, fmt, card, m['Initial_index'], m['Initial_col'], m['Row_count'], m['Bad_rows']))
+
+            if plan['delete']:
+                c.execute("DELETE FROM TransactionSplits WHERE Original_Table = 'CardTransactions' "
+                          "AND Original_ID = ANY(%s)", (plan['delete'],))
+                c.execute("DELETE FROM CardTransactions WHERE ID = ANY(%s)", (plan['delete'],))
+            kept_ids = [k['id'] for k in plan['keep']]
+            if kept_ids and old != new:
+                c.execute("UPDATE CardTransactions SET Source_file = %s WHERE ID = ANY(%s)", (new, kept_ids))
+            for k in plan['keep']:
+                r = k.get('record')
+                if r:       # same purchase, values corrected by the card company: update in place, keep the work
+                    c.execute("""UPDATE CardTransactions SET Name = %s, Executed_Date = %s, Charge_Date = %s,
+                                        Charge_Value = %s, Charge_Currency = %s, Transaction_Value = %s,
+                                        Value_Currency = %s, Extra_Info = %s WHERE ID = %s""",
+                              (r['name'], r['executed_date'], r['charge_date'], r['charge_value'],
+                               r['charge_currency'], r['transaction_value'], r['value_currency'],
+                               r['extra_info'], k['id']))
+            for r in plan['add']:
+                self.insert_card_transaction(CardID=r['cardid'], Name=r['name'], Executed_Date=r['executed_date'],
+                                             Charge_Date=r['charge_date'], Charge_Value=r['charge_value'],
+                                             Source_file=new, Charge_Currency=r['charge_currency'],
+                                             Transaction_Value=r['transaction_value'],
+                                             Value_Currency=r['value_currency'], Extra_Info=r['extra_info'])
+            if old != new:
+                c.execute("DELETE FROM File WHERE File_Name = %s AND Format = %s AND Card_Number = %s",
+                          (old, fmt, card))
+            n = plan['counts']
+            if plan['kind'] == 'replace' or n['added'] or n['changed'] or n['removed']:
+                c.execute("""UPDATE File SET Updated_At = CURRENT_TIMESTAMP, Update_Kind = %s, Update_Added = %s,
+                                             Update_Changed = %s, Update_Removed = %s
+                             WHERE File_Name = %s AND Format = %s AND Card_Number = %s""",
+                          (plan['kind'], n['added'], n['changed'], n['removed'], new, fmt, card))
+            self.commit_changes()
+        except Exception:
+            self.connection.rollback()
+            raise
 
     def drop_file(self, file_name: str, format_name: str, card_number: str):
         """

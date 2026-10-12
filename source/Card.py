@@ -21,6 +21,66 @@ class Card(File):
         utils.log("Bank number is not being validated for this file", "system")
         return True
 
+    def _read_card_number(self) -> str:
+        text = ExcelManager().read_cell(*self.card_number_cell)
+        if self.card_string_format is None:
+            self.card_string_format = r'\d{4}'
+
+        parsed_text = utils.reg_extract(self.card_string_format, text)
+        if len(parsed_text) != 4:
+            utils.log(f"The card number read does not meat the requirments:\n\
+length is {len(parsed_text)} but should be 4\n\
+The value parsed is {parsed_text}", "error")
+
+        return parsed_text
+
+    def _read_file_date(self) -> datetime:
+        time_stamp = ""
+        date_str = ""
+        from Configurations.Formats import Location
+        from datetime import datetime
+        import re
+
+        match self.time_stamp:
+            case Location.FILE_NAME_DATE:
+                date_str = self.name
+            case Location.INNER_CELL:
+                (r, c) = self.time_stamp_location  # TODO: These code line are being reapted, improve
+                date_str = ExcelManager().read_cell(r, c)
+            case _:
+                utils.log('error', 'error')
+
+        if date_str is None:
+            utils.log('date_st Adittional data field read from the file is None.', 'error')
+        pattern = re.compile(self.time_stamp_format)
+
+        if isinstance(date_str, datetime):
+            time_stamp = date_str
+        elif isinstance(date_str, str):
+            res = re.search(pattern, date_str)
+
+            if res:
+                a = int(res.group(1))
+                b = int(res.group(2))
+                if a <= 12 and a > 0:
+                    month_number, year_number = a, b
+                elif b <= 12 and b > 0:
+                    month_number, year_number = b, a
+                else:
+                    utils.log(f"Problem extrcting month, values received are a={a}, b={b}", 'error')
+                
+                if year_number < 100:
+                    year_number += 2000
+                # produce a pure date (no time component)
+                time_stamp = datetime(year_number, month_number, 1)
+            else:
+                utils.log(f"The given time_stamp_format {self.time_stamp_format} for format {self.format_name} did not yield any result\n\
+                          You can also check the cell read: {date_str}", 'error')
+        else:
+            utils.log(f"Error type for variable date_str, expected str/datetime. got ({date_str}) of type {type(date_str)}")
+
+        return time_stamp
+
     def parse(self) -> bool:
         """
         The parse function for InnerCreditFile updates the following fields:
@@ -28,69 +88,15 @@ class Card(File):
         self.data: table data in a 2d array
         self.card_num: the card_num specified in the file
         """
-        def read_card_number() -> str:
-            text = ExcelManager().read_cell(*self.card_number_cell)
-            if self.card_string_format is None:
-                self.card_string_format = r'\d{4}'
+        self.card_number = self._read_card_number()
+        parsed_date = self._read_file_date()
+        self.file_date = parsed_date
 
-            parsed_text = utils.reg_extract(self.card_string_format, text)
-            if len(parsed_text) != 4:
-                utils.log(f"The card number read does not meat the requirments:\n\
-length is {len(parsed_text)} but should be 4\n\
-The value parsed is {parsed_text}", "error")
+        if self.dry_run:
+            # read-only pass (read_for_compare): only the tables' layout is collected
+            super().parse()
+            return True
 
-            return parsed_text
-            
-        def read_file_date() -> datetime:
-            time_stamp = ""
-            date_str = ""
-            from Configurations.Formats import Location
-            from datetime import datetime
-            import re
-
-            match self.time_stamp:
-                case Location.FILE_NAME_DATE:
-                    date_str = self.name
-                case Location.INNER_CELL:
-                    (r, c) = self.time_stamp_location  # TODO: These code line are being reapted, improve
-                    date_str = ExcelManager().read_cell(r, c)
-                case _:
-                    utils.log('error', 'error')
-
-            if date_str is None:
-                utils.log('date_st Adittional data field read from the file is None.', 'error')
-            pattern = re.compile(self.time_stamp_format)
-
-            if isinstance(date_str, datetime):
-                time_stamp = date_str
-            elif isinstance(date_str, str):
-                res = re.search(pattern, date_str)
-
-                if res:
-                    a = int(res.group(1))
-                    b = int(res.group(2))
-                    if a <= 12 and a > 0:
-                        month_number, year_number = a, b
-                    elif b <= 12 and b > 0:
-                        month_number, year_number = b, a
-                    else:
-                        utils.log(f"Problem extrcting month, values received are a={a}, b={b}", 'error')
-                    
-                    if year_number < 100:
-                        year_number += 2000
-                    # produce a pure date (no time component)
-                    time_stamp = datetime(year_number, month_number, 1)
-                else:
-                    utils.log(f"The given time_stamp_format {self.time_stamp_format} for format {self.format_name} did not yield any result\n\
-                              You can also check the cell read: {date_str}", 'error')
-            else:
-                utils.log(f"Error type for variable date_str, expected str/datetime. got ({date_str}) of type {type(date_str)}")
-
-            return time_stamp
-        
-        self.card_number = read_card_number()
-        parsed_date = read_file_date()
-  
         # Before adding file to database, A check to see if the file was already inserted to the database is made:
         def check_duplicate() -> bool:
             """
@@ -119,44 +125,61 @@ The value parsed is {parsed_text}", "error")
         DataBase().set_transaction_count(self.name, self.format_name, self.card_number, valid_rows)
 
         return True
-    
+
+    def read_for_compare(self) -> bool:
+        """
+        Read-only pass over the file in the input folder: opens it, validates the headers, reads the
+        card number, the month and both tables into self.table_1 / self.table_2 and self.meta.
+        Nothing is written to the database. Returns False when the file cannot be read.
+        """
+        self.dry_run = True
+        self.meta = []
+        if not self.load() or not self.validate_headers():
+            return False
+        self.parse()
+        from Constants import Paths
+        self.table_1, self.table_2 = self.read_tables(self.meta, Paths.INPUT_FOLDER)
+        return True
 
     def clean(self):
         """
         """
         return super().clean(flip=True)
 
-    def insert(self) -> bool:
-        
-        if len(self.table_1) > 0:
-            utils.log("Table 1... ", "system", e = "")
+    def records(self) -> list:
+        """
+        The rows of both tables as dicts with the CardTransactions columns (lower-case keys:
+        cardid, name, executed_date, charge_date, charge_value, source_file, charge_currency,
+        transaction_value, value_currency, extra_info) — exactly what insert() stores.
+        """
+        records = []
         for row in self.table_1:
             match self.format_name:
                 case "Leumi-Max":
-                    DataBase().insert_card_transaction(CardID=row[3],
-                                                       Name=row[1],
-                                                       Executed_Date=utils.date_ready(row[0]),
-                                                       Charge_Date=utils.date_ready(row[9]),
-                                                       Charge_Value=row[5],
-                                                       Source_file=self.name,
-                                                       Charge_Currency=row[6],
-                                                       Transaction_Value=row[7],
-                                                       Value_Currency=row[8],
-                                                       Extra_Info=f"Trans type: {row[4]} | \
+                    records.append(dict(cardid=row[3],
+                                                       name=row[1],
+                                                       executed_date=utils.date_ready(row[0]),
+                                                       charge_date=utils.date_ready(row[9]),
+                                                       charge_value=row[5],
+                                                       source_file=self.name,
+                                                       charge_currency=row[6],
+                                                       transaction_value=row[7],
+                                                       value_currency=row[8],
+                                                       extra_info=f"Trans type: {row[4]} | \
                                                                     Method: {row[14]} | \
-                                                                    Notes: {row[10]}")
+                                                                    Notes: {row[10]}"))
                 case "Isra-Card":
 
-                    DataBase().insert_card_transaction(CardID=self.card_number,
-                                                       Name=row[1],
-                                                       Executed_Date=utils.date_ready(row[0]),
-                                                       Charge_Date=utils.date_ready(self.adittional_data_field_value), # self.adittional_data_field_value/ row[1]
-                                                       Charge_Value=row[2],
-                                                       Source_file=self.name,
-                                                       Charge_Currency=row[3],
-                                                       Transaction_Value=row[4],
-                                                       Value_Currency=row[5],
-                                                       Extra_Info=f"Serial: {row[6]} | Info: ({row[7]})")
+                    records.append(dict(cardid=self.card_number,
+                                                       name=row[1],
+                                                       executed_date=utils.date_ready(row[0]),
+                                                       charge_date=utils.date_ready(self.adittional_data_field_value), # self.adittional_data_field_value/ row[1]
+                                                       charge_value=row[2],
+                                                       source_file=self.name,
+                                                       charge_currency=row[3],
+                                                       transaction_value=row[4],
+                                                       value_currency=row[5],
+                                                       extra_info=f"Serial: {row[6]} | Info: ({row[7]})"))
                 case "Isra-Card-2026":
 
                     # According to the format json for isra-card-2026,
@@ -171,52 +194,52 @@ The value parsed is {parsed_text}", "error")
                     
                     charge_data = utils.date_ready(f"{month_day}.{year}")
 
-                    DataBase().insert_card_transaction(CardID=self.card_number,
-                                                       Name=row[1],
-                                                       Executed_Date=utils.date_ready(row[0]),
-                                                       Charge_Date=charge_data,
-                                                       Charge_Value=row[2],
-                                                       Source_file=self.name,
-                                                       Charge_Currency=row[3],
-                                                       Transaction_Value=row[4],
-                                                       Value_Currency=row[5],
-                                                       Extra_Info=f"Serial: {row[6]} | Info: ({row[7]})")
+                    records.append(dict(cardid=self.card_number,
+                                                       name=row[1],
+                                                       executed_date=utils.date_ready(row[0]),
+                                                       charge_date=charge_data,
+                                                       charge_value=row[2],
+                                                       source_file=self.name,
+                                                       charge_currency=row[3],
+                                                       transaction_value=row[4],
+                                                       value_currency=row[5],
+                                                       extra_info=f"Serial: {row[6]} | Info: ({row[7]})"))
                 case "American-Express":
 
-                    DataBase().insert_card_transaction(CardID=self.card_number,
-                                                       Name=row[1],
-                                                       Executed_Date=utils.date_ready(row[0]),
-                                                       Charge_Date=utils.date_ready(self.adittional_data_field_value),
-                                                       Charge_Value=row[2],
-                                                       Source_file=self.name,
-                                                       Charge_Currency=row[3],
-                                                       Transaction_Value=row[4],
-                                                       Value_Currency=row[5],
-                                                       Extra_Info=f"Serial: {row[6]} | Info: ({row[7]})")
+                    records.append(dict(cardid=self.card_number,
+                                                       name=row[1],
+                                                       executed_date=utils.date_ready(row[0]),
+                                                       charge_date=utils.date_ready(self.adittional_data_field_value),
+                                                       charge_value=row[2],
+                                                       source_file=self.name,
+                                                       charge_currency=row[3],
+                                                       transaction_value=row[4],
+                                                       value_currency=row[5],
+                                                       extra_info=f"Serial: {row[6]} | Info: ({row[7]})"))
                 case "Leumi-Card6744":
 
-                    DataBase().insert_card_transaction(CardID="6744",
-                                                       Name=row[1],
-                                                       Executed_Date=row[0],
-                                                       Charge_Date="End of month",
-                                                       Charge_Value=row[2],
-                                                       Source_file=self.name,
-                                                       Charge_Currency="X",
-                                                       Transaction_Value=row[5],
-                                                       Value_Currency="X",
-                                                       Extra_Info=f"Type: {row[3]} | Note: None")
+                    records.append(dict(cardid="6744",
+                                                       name=row[1],
+                                                       executed_date=row[0],
+                                                       charge_date="End of month",
+                                                       charge_value=row[2],
+                                                       source_file=self.name,
+                                                       charge_currency="X",
+                                                       transaction_value=row[5],
+                                                       value_currency="X",
+                                                       extra_info=f"Type: {row[3]} | Note: None"))
                 case "Leumi-Cards":
 
-                    DataBase().insert_card_transaction(CardID=row[0],
-                                                       Name=row[2],
-                                                       Executed_Date=row[1],
-                                                       Charge_Date=row[9],
-                                                       Charge_Value=row[3],
-                                                       Source_file=self.name,
-                                                       Charge_Currency=row[4],
-                                                       Transaction_Value=row[5],
-                                                       Value_Currency=row[6],
-                                                       Extra_Info=f"Type: {row[7]} | Note: None")          
+                    records.append(dict(cardid=row[0],
+                                                       name=row[2],
+                                                       executed_date=row[1],
+                                                       charge_date=row[9],
+                                                       charge_value=row[3],
+                                                       source_file=self.name,
+                                                       charge_currency=row[4],
+                                                       transaction_value=row[5],
+                                                       value_currency=row[6],
+                                                       extra_info=f"Type: {row[7]} | Note: None"))          
                 case "Cal":
                     str_charge_date = utils.reg_extract(r'(\d{2}/\d{2}/\d{4})', self.adittional_data_field_value)
                     charge_date = datetime.strptime(str_charge_date, "%d/%m/%Y")
@@ -224,66 +247,78 @@ The value parsed is {parsed_text}", "error")
                     charge_value, charge_currency = row[2]
                     transaction_value, value_currency = row[3]
 
-                    DataBase().insert_card_transaction(CardID=self.card_number,
-                                                       Name=row[1],
-                                                       Executed_Date=row[0],
-                                                       Charge_Date=charge_date,
-                                                       Charge_Value=charge_value,
-                                                       Source_file=self.name,
-                                                       Charge_Currency=charge_currency,
-                                                       Transaction_Value=transaction_value,
-                                                       Value_Currency=value_currency,
-                                                       Extra_Info=f"Type: {row[4]} - {row[5]} | Note: {row[6]}"
-                                                       )
+                    records.append(dict(cardid=self.card_number,
+                                                       name=row[1],
+                                                       executed_date=row[0],
+                                                       charge_date=charge_date,
+                                                       charge_value=charge_value,
+                                                       source_file=self.name,
+                                                       charge_currency=charge_currency,
+                                                       transaction_value=transaction_value,
+                                                       value_currency=value_currency,
+                                                       extra_info=f"Type: {row[4]} - {row[5]} | Note: {row[6]}"
+                                                       ))
                 case _:
                     utils.log(f"Internal error: The specified format {self.format_name} does not have a matching \
 case in the match-case scope. Card Class, insert function.\
 Check if the 'format_name was typed correctly or the case for the specified format\
 does not exist.", "error")
 
-        utils.log("Completed ", "system")
-        
-        if len(self.table_2) > 0:
-            utils.log("Table 2... ", "system", e = "")
         for row in self.table_2:
             match self.format_name:
                 case "Isra-Card":
 
-                    DataBase().insert_card_transaction(CardID=self.card_number,
-                                                       Name=row[2],
-                                                       Executed_Date=utils.date_ready(row[0]),
-                                                       Charge_Date=utils.date_ready(row[1]),
-                                                       Charge_Value=row[3],
-                                                       Source_file=self.name,
-                                                       Charge_Currency=row[4],
-                                                       Transaction_Value=row[5],
-                                                       Value_Currency=row[6],
-                                                       Extra_Info="Transaction Abroad")
+                    records.append(dict(cardid=self.card_number,
+                                                       name=row[2],
+                                                       executed_date=utils.date_ready(row[0]),
+                                                       charge_date=utils.date_ready(row[1]),
+                                                       charge_value=row[3],
+                                                       source_file=self.name,
+                                                       charge_currency=row[4],
+                                                       transaction_value=row[5],
+                                                       value_currency=row[6],
+                                                       extra_info="Transaction Abroad"))
                 case "Leumi-Cards":
 
-                    DataBase().insert_card_transaction(CardID=row[0],
-                                                       Name=row[2],
-                                                       Executed_Date=row[1],
-                                                       Charge_Date=row[9],
-                                                       Charge_Value=row[3],
-                                                       Source_file=self.name,
-                                                       Charge_Currency=row[4],
-                                                       Transaction_Value=row[5],
-                                                       Value_Currency=row[6],
-                                                       Extra_Info=f"Type: {row[7]} | Note: None")                
+                    records.append(dict(cardid=row[0],
+                                                       name=row[2],
+                                                       executed_date=row[1],
+                                                       charge_date=row[9],
+                                                       charge_value=row[3],
+                                                       source_file=self.name,
+                                                       charge_currency=row[4],
+                                                       transaction_value=row[5],
+                                                       value_currency=row[6],
+                                                       extra_info=f"Type: {row[7]} | Note: None"))                
                 case "American-Express":
 
-                    DataBase().insert_card_transaction(CardID=self.card_number,
-                                                       Name=row[2],
-                                                       Executed_Date=utils.date_ready(row[0]),
-                                                       Charge_Date=utils.date_ready(row[1]),
-                                                       Charge_Value=row[3],
-                                                       Source_file=self.name,
-                                                       Charge_Currency=row[4],
-                                                       Transaction_Value=row[5],
-                                                       Value_Currency=row[6],
-                                                       Extra_Info="Transaction Abroad")
+                    records.append(dict(cardid=self.card_number,
+                                                       name=row[2],
+                                                       executed_date=utils.date_ready(row[0]),
+                                                       charge_date=utils.date_ready(row[1]),
+                                                       charge_value=row[3],
+                                                       source_file=self.name,
+                                                       charge_currency=row[4],
+                                                       transaction_value=row[5],
+                                                       value_currency=row[6],
+                                                       extra_info="Transaction Abroad"))
         
+        return records
+
+    def insert(self) -> bool:
+        records = self.records()
+        utils.log(f"Inserting {len(records)} transactions... ", "system", e = "")
+        for r in records:
+            DataBase().insert_card_transaction(CardID=r['cardid'],
+                                               Name=r['name'],
+                                               Executed_Date=r['executed_date'],
+                                               Charge_Date=r['charge_date'],
+                                               Charge_Value=r['charge_value'],
+                                               Source_file=r['source_file'],
+                                               Charge_Currency=r['charge_currency'],
+                                               Transaction_Value=r['transaction_value'],
+                                               Value_Currency=r['value_currency'],
+                                               Extra_Info=r['extra_info'])
         utils.log("Completed ", "system")
         return True
 

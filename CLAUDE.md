@@ -175,6 +175,38 @@ Mona seeded). Tests: `tests/test_housing_project*.py`, `tests/test_housing_proje
 
 ---
 
+## Files page — updating a stored credit-card file with a newer download
+
+Credit-card formats are `Independent` (no cross-file `clean()`; that overlap logic is bank-only), and a file's identity is
+`File(File_Name, Format, Card_Number)` plus its month. A statement downloaded before the charge date is partial; the full
+one used to be thrown away (`/api/files/scan` deleted any input file whose name was stored) or inserted twice (other name).
+Now (`source/file_update_service.py`, `source/src_utils/file_diff.py`, `source/routes/file_update_routes.py`, `Files.html`):
+
+- **Scan:** a card file whose name is stored is deleted only when the archived copy (`Verified_…/<format>/<name>`) is byte-identical;
+  otherwise it is listed as an update candidate ("השווה ועדכן"). A *new* name for a stored card+month (e.g. `… (1).xlsx`) is caught in the
+  insert worker (`find_identity_conflict` → `__CONFLICT__:<stored name>`) and opens the same comparison.
+- **Analyze (read-only, `POST /api/files/analyze`):** `Card.read_for_compare()` reads the file without any DB write (`File.dry_run`), `Card.records()`
+  is the very mapping `insert()` stores, and `file_diff.compare()` matches those rows with `CardTransactions` of the stored file (amounts rounded like the
+  INTEGER columns; same voucher serial + other values = *changed*). Status: `identical` / `new_transactions` / `missing_rows` / `other`.
+  **`missing_rows` = any stored row absent from the new file** (a newer download only ever adds rows, so this is an anomaly to investigate: wrong
+  file, truncated export, rows deleted or corrected by the issuer). It wins over every other difference except a different card/month/format (`other`).
+  Its report carries an `investigation` block: each missing row in full (id, dates, amount, serial, extra info, category, description, links to other
+  features, closest look-alikes among the new file's unmatched rows), both files' facts (rows, date range, total, size, mtime, when stored) and
+  data-driven hints (are the missing rows the tail/head/a block/scattered, do they predate the new file's range, totals, work at stake).
+  The page can copy it as a text report. Layout differences (header row, columns, header cells of both files when the archived copy exists, rows,
+  tables) are listed for every status.
+- **Decision (`POST /api/files/apply-update`, one DB transaction in `DataBase.apply_card_file_update`):** `update` keeps every row in place (same ID →
+  category, description, splits, timeline/bill/recurring/Spotify/housing links survive), inserts only the new rows and corrects *changed* rows; it never
+  deletes and is **refused while the status is `missing_rows`**. `replace` deletes all stored rows (and their splits) and inserts the new file — the only
+  way forward after investigating. Afterwards the old archived copy moves to
+  `Trash_ShmuelFamiliy_Inputs/<format>/<timestamp>_<name>` and the new file takes its place; `File.Updated_At/Update_Kind/Update_Added/_Changed/_Removed`
+  drive the "⟳ עודכן" badge in the stored-files table.
+- `routes/file_update_routes._format_of` identifies the single file itself when `Parser`'s folder scan skipped it (Parser drops `x.xlsx` when `x (1).xlsx`
+  is in the folder, because it treats a name contained in another as the same file with another extension).
+- Never call `Card.insert()`-style code twice for the same month; when adding a card format, add its mapping in `Card.records()` only.
+
+---
+
 ## Color palette
 
 | Token | Hex | Used for |

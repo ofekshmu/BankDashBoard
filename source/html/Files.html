@@ -605,6 +605,74 @@ body {
   /* 16px minimum on text inputs stops iOS Safari from zooming in on focus */
   .db-search { font-size: 16px; }
 }
+
+/* ── Updated-file comparison ───────────────────────────────────── */
+.upd-badge {
+  background: #e3f2fd; color: #1565c0;
+  border-radius: 20px; padding: 2px 10px;
+  font-size: .73em; font-weight: 700;
+}
+.upd-done {
+  display: inline-block; margin-inline-start: 8px; vertical-align: middle;
+  background: var(--teal-light); color: var(--teal);
+  border-radius: 20px; padding: 1px 9px; font-size: .72em; font-weight: 700; cursor: help;
+}
+.cmp-modal {
+  background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow-md);
+  width: min(780px, 100%); max-height: 90vh; display: flex; flex-direction: column; animation: fadeIn .18s ease;
+}
+.cmp-head { padding: 18px 22px 12px; border-bottom: 1px solid var(--border); }
+.cmp-title { font-size: 1.05em; font-weight: 700; color: var(--navy); }
+.cmp-sub { font-size: .8em; color: var(--text-muted); margin-top: 3px; word-break: break-all; }
+.cmp-body { padding: 16px 22px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
+.cmp-status {
+  display: flex; align-items: center; gap: 10px; border-radius: var(--radius-sm);
+  padding: 10px 14px; font-weight: 700; font-size: .95em;
+}
+.cmp-status small { display: block; font-weight: 500; font-size: .82em; margin-top: 2px; opacity: .9; }
+.cmp-status.identical { background: #f1f3f6; color: #4a5568; }
+.cmp-status.new_transactions { background: #e8f5e9; color: #2e7d32; }
+.cmp-status.missing_rows { background: #fdecea; color: #b42318; border: 1.5px solid #f3b4ae; }
+.cmp-status.other { background: #fdecea; color: #b42318; }
+.cmp-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: 8px; }
+.cmp-kpi { background: var(--bg); border-radius: var(--radius-sm); padding: 9px 10px; text-align: center; }
+.cmp-kpi b { display: block; font-size: 1.25em; color: var(--navy); font-variant-numeric: tabular-nums; }
+.cmp-kpi span { font-size: .72em; color: var(--text-muted); }
+.cmp-kpi.add b { color: #2e7d32; } .cmp-kpi.rem b { color: #b42318; } .cmp-kpi.chg b { color: #b45309; }
+.cmp-warn { background: #fff8e1; border-radius: var(--radius-sm); padding: 8px 12px; font-size: .82em; color: #7a5b00; }
+.cmp-warn div + div { margin-top: 4px; }
+.cmp-sec { font-size: .8em; font-weight: 700; color: var(--navy); margin-bottom: 5px; }
+.cmp-table { width: 100%; border-collapse: collapse; font-size: .82em; }
+.cmp-table th { text-align: right; color: var(--text-muted); font-weight: 600; padding: 4px 8px; border-bottom: 1px solid var(--border); }
+.cmp-table td { padding: 5px 8px; border-bottom: 1px solid var(--border); }
+.cmp-table tr.changed td { background: #fff8e1; font-weight: 600; }
+.cmp-table .num { font-variant-numeric: tabular-nums; direction: ltr; text-align: right; }
+.cmp-det summary { cursor: pointer; font-size: .82em; font-weight: 700; color: var(--teal); padding: 3px 0; }
+.cmp-rows { margin-top: 4px; max-height: 190px; overflow-y: auto; font-size: .8em; }
+.cmp-row { display: grid; grid-template-columns: 78px 1fr auto; gap: 8px; padding: 3px 6px; border-bottom: 1px solid var(--border); }
+.cmp-row .amt { font-variant-numeric: tabular-nums; direction: ltr; }
+.cmp-row .tag { color: #b45309; font-weight: 700; }
+.cmp-actions { padding: 14px 22px 18px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 10px; }
+.cmp-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.cmp-choice { display: flex; flex-direction: column; gap: 6px; }
+.cmp-choice .btn { justify-content: center; }
+.cmp-choice p { font-size: .76em; color: var(--text-muted); line-height: 1.5; }
+.btn-danger-soft { background: #fff; color: #b42318; border: 1.5px solid #f3b4ae; }
+.btn-danger-soft:hover { background: #fdecea; }
+.cmp-foot { display: flex; justify-content: flex-start; gap: 8px; flex-wrap: wrap; }
+.cmp-inv { border: 1.5px solid #f3b4ae; border-radius: var(--radius-sm); padding: 12px 14px; display: flex; flex-direction: column; gap: 12px; background: #fffafa; }
+.cmp-inv h4 { font-size: .9em; color: #b42318; }
+.cmp-hints { margin: 0; padding-inline-start: 18px; font-size: .82em; line-height: 1.6; color: var(--navy); }
+.cmp-gone { border: 1px solid var(--border); background: var(--white); border-radius: var(--radius-sm); padding: 8px 10px; font-size: .8em; }
+.cmp-gone + .cmp-gone { margin-top: 6px; }
+.cmp-gone-head { display: flex; justify-content: space-between; gap: 10px; font-weight: 700; color: var(--navy); }
+.cmp-gone-head .amt { font-variant-numeric: tabular-nums; direction: ltr; white-space: nowrap; }
+.cmp-gone-grid { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; margin-top: 5px; color: var(--text-muted); }
+.cmp-gone-grid b { color: var(--navy); font-weight: 600; word-break: break-all; }
+.cmp-gone .work { color: #b45309; font-weight: 700; }
+.cmp-gone .sim { margin-top: 5px; padding: 4px 8px; background: #fff8e1; border-radius: 6px; color: #7a5b00; }
+.cmp-facts td:first-child { color: var(--text-muted); white-space: nowrap; }
+@media (max-width: 600px) { .cmp-choices { grid-template-columns: 1fr; } .cmp-body { padding: 14px; } }
 /* Regen-style floating refresh button, matching the organizer page's
    recalculate FAB. Stacked above the debug FAB so they don't collide. */
 .files-regen-fab{position:fixed;bottom:22px;right:18px;z-index:500}
@@ -675,6 +743,18 @@ body {
     <div class="summary-actions">
       <button class="btn btn-primary" onclick="closeProcessSummary()">אישור</button>
     </div>
+  </div>
+</div>
+
+<!-- Updated-file comparison modal -->
+<div class="summary-overlay" id="cmp-overlay">
+  <div class="cmp-modal" role="dialog" aria-modal="true" aria-labelledby="cmp-title">
+    <div class="cmp-head">
+      <div class="cmp-title" id="cmp-title">השוואת קובץ מעודכן</div>
+      <div class="cmp-sub" id="cmp-sub"></div>
+    </div>
+    <div class="cmp-body" id="cmp-body"></div>
+    <div class="cmp-actions" id="cmp-actions"></div>
   </div>
 </div>
 
@@ -862,10 +942,14 @@ function renderFiles() {
   }
 
   const recognizedRows = _recognized.map(f => {
-    const statusBadge = f.is_new
+    const statusBadge = f.update
+      ? '<span class="upd-badge">⟳ קובץ קיים — נמצאה גרסה אחרת' + (f.copy === 'missing' ? ' (אין עותק בארכיון)' : '') + '</span>'
+      : f.is_new
       ? '<span class="new-badge">✦ חדש</span>'
       : '<span class="exists-badge">✔ כבר קיים במערכת</span>';
-    const parseBtn = f.is_new
+    const parseBtn = f.update
+      ? `<button class="btn btn-primary parse-btn" data-fname="${esc(f.name)}" onclick="openCompare(this.dataset.fname)">⇄ השווה ועדכן</button>`
+      : f.is_new
       ? `<button class="btn btn-primary parse-btn" id="pbtn-${CSS.escape(f.name)}" data-fname="${esc(f.name)}" onclick="insertFile(this.dataset.fname)">▶ עבד</button>`
       : `<button class="btn btn-ghost parse-btn" disabled title="כבר נמצא בבסיס הנתונים">✓ הוכנס</button>`;
     return `
@@ -958,7 +1042,7 @@ function _processOneFile(filename) {
     let settled = false;
     const es = new EventSource('/api/logs');
 
-    function finish(ok, reason) {
+    function finish(ok, reason, conflict) {
       if (settled) return;
       settled = true;
       es.close();
@@ -971,13 +1055,18 @@ function _processOneFile(filename) {
         appendLog('✗ ' + (reason || 'שגיאה בעיבוד הקובץ'), 'err');
         if (sp) sp.className = 'lf-spinner error';
       }
-      resolve({ filename: filename, ok: ok, reason: ok ? '' : (reason || lastErr || 'שגיאה לא ידועה') });
+      resolve({ filename: filename, ok: ok, conflict: conflict || null, reason: ok ? '' : (reason || lastErr || 'שגיאה לא ידועה') });
     }
 
     es.onmessage = function(evt) {
       const data = evt.data;
       if (!data || data === '__CONNECTED__') return;
       if (data.indexOf('__DONE__') === 0) { finish(true); return; }
+      if (data.indexOf('__CONFLICT__') === 0) {
+        const other = data.slice('__CONFLICT__:'.length);
+        finish(false, 'קיים כבר קובץ לאותו כרטיס וחודש: ' + other + ' — השתמשו בהשוואה ועדכון', other);
+        return;
+      }
       if (data.indexOf('__ERROR__') === 0) {
         finish(false, data.length > '__ERROR__:'.length ? data.slice('__ERROR__:'.length) : '');
         return;
@@ -1014,7 +1103,11 @@ async function insertFile(filename) {
   _parsing = true;
   const r = await _processOneFile(filename);
   _parsing = false;
-  if (r.ok) {
+  if (r.conflict) {
+    hideLogFloat(0);
+    toast('קיים כבר קובץ לאותו כרטיס וחודש — פותח השוואה', 'ok');
+    openCompare(filename, r.conflict);
+  } else if (r.ok) {
     toast(`✅ ${filename} הוכנס בהצלחה`, 'ok');
     hideLogFloat(2000);
     setTimeout(scanFiles, 1200);
@@ -1087,6 +1180,210 @@ function showProcessSummary(results) {
 function closeProcessSummary() {
   document.getElementById('summary-overlay').classList.remove('open');
   scanFiles();   // back to the folder listing
+}
+
+// ── Updated files: compare a newer download with the stored file ─
+let _cmp = null;   // { filename, existing, report }
+
+function updatedBadge(f) {
+  const u = f.updated;
+  if (!u) return '';
+  const parts = [];
+  if (u.added)   parts.push('נוספו ' + u.added);
+  if (u.changed) parts.push('תוקנו ' + u.changed);
+  if (u.removed) parts.push('הוסרו ' + u.removed);
+  const what = u.kind === 'replace' ? 'הוחלף בקובץ חדש' : 'עודכן על גבי קובץ קיים';
+  const tip = what + ' · ' + u.at + (parts.length ? ' · ' + parts.join(' · ') : '');
+  return `<span class="upd-done" title="${esc(tip)}">⟳ ${u.kind === 'replace' ? 'הוחלף' : 'עודכן'}</span>`;
+}
+
+function _fmtAmt(v) {
+  if (v === null || v === undefined || v === '') return '';
+  return (+v).toLocaleString('he-IL', { maximumFractionDigits: 2 });
+}
+function _fmtDate(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || '');
+  return m ? `${m[3]}.${m[2]}.${m[1].slice(2)}` : (iso || '');
+}
+
+function closeCompare() {
+  document.getElementById('cmp-overlay').classList.remove('open');
+  _cmp = null;
+}
+
+async function openCompare(filename, existing) {
+  _cmp = { filename, existing: existing || null, report: null };
+  document.getElementById('cmp-sub').textContent = filename;
+  document.getElementById('cmp-body').innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-muted)">קורא את הקובץ ומשווה לנתונים הקיימים…</div>';
+  document.getElementById('cmp-actions').innerHTML = '<div class="cmp-foot"><button class="btn btn-ghost" onclick="closeCompare()">ביטול</button></div>';
+  document.getElementById('cmp-overlay').classList.add('open');
+  try {
+    const res  = await fetch('/api/files/analyze', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ filename, existing: existing || null })
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'שגיאה');
+    _cmp.report = data.report;
+    renderCompare(data.report);
+  } catch (e) {
+    document.getElementById('cmp-body').innerHTML = `<div class="cmp-warn">${esc(e.message)}</div>`;
+  }
+}
+
+const _CMP_NOTE = {
+  identical:        'כל הפעולות בקובץ החדש כבר קיימות במערכת, ללא שינוי.',
+  new_transactions: 'הקובץ החדש כולל פעולות שאינן קיימות במערכת. כל הפעולות הקיימות נשארו כפי שהיו.',
+  missing_rows:     'בקובץ החדש חסרות פעולות שקיימות כרגע במערכת. קובץ מעודכן אמור רק להוסיף פעולות — זה מצביע על שינוי לא צפוי או תקלה. מומלץ לתחקר לפני כל החלטה.',
+  other:            'יש בקובץ החדש הבדלים ביחס לקיים (פעולות ששונו, או קובץ של כרטיס / חודש אחר) — כדאי לעבור על הפירוט.',
+};
+
+function _rowsList(items, withWork) {
+  return items.map(r => `<div class="cmp-row"><span>${esc(_fmtDate(r.date))}</span><span>${esc(r.name)}${
+    r.fields ? ` <span class="tag">(שונה: ${esc(r.fields.join(', '))})</span>` : ''}${
+    withWork && r.work ? ` <span class="tag">· יישמר (${esc(r.category && r.category !== 'NotCategorized' ? r.category : 'עם עבודה')})</span>` : ''
+  }</span><span class="amt">${esc(_fmtAmt(r.amount))}${r.old_amount !== undefined && r.old_amount !== null ? ` (היה ${esc(_fmtAmt(r.old_amount))})` : ''}</span></div>`).join('');
+}
+
+const _LINK_LABELS = { split: 'פיצול', timeline: 'ציר זמן', bill: 'מעקב חשבונות', recurring: 'חיובים חוזרים',
+                       division: 'חלוקת בנק/כרטיס', spotify: 'Spotify', housing: 'דיור' };
+const _SIM_FIELDS  = { name: 'שם', date: 'תאריך', amount: 'סכום' };
+
+function _bytes(n) { return n == null ? '—' : (n >= 1024 ? (n / 1024).toFixed(1) + ' KB' : n + ' B'); }
+
+function _investigationHtml(inv, r) {
+  const f = inv.files, row = (label, a, b) => `<tr><td>${label}</td><td class="num">${esc(a)}</td><td class="num">${esc(b)}</td></tr>`;
+  const rng = x => x.first_date ? `${_fmtDate(x.first_date)} – ${_fmtDate(x.last_date)}` : '—';
+  const facts = `<table class="cmp-table cmp-facts"><thead><tr><th></th><th>קובץ קיים</th><th>קובץ חדש</th></tr></thead><tbody>` +
+    row('שם', f.stored.name, f.new.name) +
+    row('פעולות', f.stored.rows, f.new.rows) +
+    row('טווח תאריכי רכישה', rng(f.stored), rng(f.new)) +
+    row('סכום חיוב כולל (₪, מעוגל)', _fmtAmt(f.stored.total), _fmtAmt(f.new.total)) +
+    row('גודל הקובץ', f.stored.file ? _bytes(f.stored.file.size) : 'אין עותק בארכיון', f.new.file ? _bytes(f.new.file.size) : '—') +
+    row('נשמר בדיסק', f.stored.file ? f.stored.file.modified : '—', f.new.file ? f.new.file.modified : '—') +
+    row('הוכנס למערכת', f.stored.saved_on || '—', '—') +
+    (f.stored.updated_at ? row('עודכן בעבר', f.stored.updated_at, '—') : '') + '</tbody></table>';
+
+  const hints = inv.hints.length ? '<ul class="cmp-hints">' + inv.hints.map(h => `<li>${esc(h)}</li>`).join('') + '</ul>' : '';
+
+  const gone = inv.missing.map(m => {
+    const links = m.links.length ? m.links.map(k => _LINK_LABELS[k] || k).join(', ') : '';
+    const cat = m.category && m.category !== 'NotCategorized' ? m.category : '';
+    const sims = m.similar.map(s => `<div class="sim">נראה דומה לפעולה #${s.new_position} בקובץ החדש: ${esc(s.name)} · ${esc(_fmtDate(s.date))} · ${esc(_fmtAmt(s.amount))} — זהה ב${s.same.map(x => _SIM_FIELDS[x]).join(' וב')}, שונה ב${s.differs.map(x => _SIM_FIELDS[x]).join(' וב')}</div>`).join('');
+    return `<div class="cmp-gone">
+      <div class="cmp-gone-head"><span>#${m.position} · ${esc(m.name)}</span><span class="amt">${esc(_fmtAmt(m.amount))} ${esc(m.currency || '')}</span></div>
+      <div class="cmp-gone-grid">
+        <span>תאריך רכישה</span><b>${esc(_fmtDate(m.executed_date))}</b>
+        <span>תאריך חיוב</span><b>${esc(_fmtDate(m.charge_date) || '—')}</b>
+        ${m.transaction_value !== m.amount ? `<span>סכום עסקה</span><b>${esc(_fmtAmt(m.transaction_value))} ${esc(m.value_currency || '')}</b>` : ''}
+        <span>מס' שובר</span><b>${esc(m.serial || '—')}</b>
+        <span>מידע נוסף</span><b>${esc(m.extra_info || '—')}</b>
+        <span>מזהה במערכת</span><b>${m.id}</b>
+        <span>קטגוריה</span><b>${cat ? `<span class="work">${esc(cat)}</span>` : 'לא מתויג'}</b>
+        ${m.description ? `<span>תיאור</span><b class="work">${esc(m.description)}</b>` : ''}
+        ${links ? `<span>מקושר ל</span><b class="work">${esc(links)}</b>` : ''}
+      </div>${sims}</div>`;
+  }).join('');
+  const more = inv.missing_total > inv.missing.length ? `<div class="cmp-sub">ועוד ${inv.missing_total - inv.missing.length} פעולות…</div>` : '';
+
+  return `<div class="cmp-inv">
+    <h4>פרטי התחקור — ${inv.missing_total} פעולות חסרות (${esc(_fmtAmt(inv.missing_amount))}₪)</h4>
+    ${hints}
+    <div><div class="cmp-sec">הקבצים</div>${facts}</div>
+    <div><div class="cmp-sec">הפעולות שחסרות בקובץ החדש</div>${gone}${more}</div>
+  </div>`;
+}
+
+function _investigationText(r) {
+  const inv = r.investigation, f = inv.files;
+  const L = [`דוח תחקור — ${r.new.name} מול ${r.existing.name}`, `סטטוס: ${r.status_label}`, '',
+    `קובץ קיים: ${f.stored.rows} פעולות, ${f.stored.first_date || '—'} – ${f.stored.last_date || '—'}, סכום ${f.stored.total}₪` + (f.stored.file ? `, ${_bytes(f.stored.file.size)}, נשמר ${f.stored.file.modified}` : ', אין עותק בארכיון'),
+    `קובץ חדש: ${f.new.rows} פעולות, ${f.new.first_date || '—'} – ${f.new.last_date || '—'}, סכום ${f.new.total}₪` + (f.new.file ? `, ${_bytes(f.new.file.size)}, נשמר ${f.new.file.modified}` : ''),
+    '', 'תובנות:', ...inv.hints.map(h => '- ' + h), '', `פעולות חסרות (${inv.missing_total}):`];
+  inv.missing.forEach(m => {
+    L.push(`#${m.position} id=${m.id} | ${m.executed_date} | ${m.name} | ${m.amount} ${m.currency || ''} | חיוב ${m.charge_date || '—'} | שובר ${m.serial || '—'} | ${m.extra_info}` +
+      ` | קטגוריה: ${m.category || '—'}` + (m.description ? ` | תיאור: ${m.description}` : '') + (m.links.length ? ` | מקושר: ${m.links.join(',')}` : ''));
+    m.similar.forEach(s => L.push(`    דומה ל־#${s.new_position} בחדש: ${s.name} | ${s.date} | ${s.amount} (שונה: ${s.differs.join(',')})`));
+  });
+  return L.join('\n');
+}
+
+async function copyInvestigation() {
+  if (!_cmp || !_cmp.report || !_cmp.report.investigation) return;
+  try { await navigator.clipboard.writeText(_investigationText(_cmp.report)); toast('דוח התחקור הועתק ללוח', 'ok'); }
+  catch (e) { toast('ההעתקה נכשלה', 'err'); }
+}
+
+function renderCompare(r) {
+  const c = r.counts;
+  const kpi = (n, label, cls) => `<div class="cmp-kpi ${cls || ''}"><b>${(+n).toLocaleString('he-IL')}</b><span>${label}</span></div>`;
+  let html = `<div class="cmp-status ${esc(r.status)}"><div>${esc(r.status_label)}<small>${esc(_CMP_NOTE[r.status] || '')}</small></div></div>`;
+  html += '<div class="cmp-kpis">' +
+    kpi(c.existing_rows, 'פעולות בקובץ הקיים') + kpi(c.new_rows, 'פעולות בקובץ החדש') +
+    kpi(c.same, 'זהות') + kpi(c.added, 'פעולות חדשות', 'add') + kpi(c.removed, 'חסרות בחדש', 'rem') +
+    kpi(c.changed, 'שונו', 'chg') + (c.moved ? kpi(c.moved, 'במיקום שונה', 'chg') : '') +
+    kpi(c.tagged_existing, 'מתויגות בקיים') + '</div>';
+  if (r.warnings.length) html += '<div class="cmp-warn">' + r.warnings.map(w => `<div>⚠ ${esc(w)}</div>`).join('') + '</div>';
+
+  html += `<div><div class="cmp-sec">מבנה הקובץ</div><table class="cmp-table"><thead><tr><th></th><th>קובץ קיים<br>${esc(r.existing.name)}</th><th>קובץ חדש<br>${esc(r.new.name)}</th><th></th></tr></thead><tbody>` +
+    r.structure.map(s => `<tr class="${s.changed ? 'changed' : ''}"><td>${esc(s.label)}</td><td class="num">${esc(Array.isArray(s.old) ? s.old.join(', ') : String(s.old))}</td><td class="num">${esc(Array.isArray(s.new) ? s.new.join(', ') : String(s.new))}</td><td>${s.changed ? '⚠' : '✓'}</td></tr>`).join('') +
+    '</tbody></table></div>';
+
+  const det = (title, items, total, withWork) => items.length
+    ? `<details class="cmp-det"${items.length <= 8 ? ' open' : ''}><summary>${title} (${total})</summary><div class="cmp-rows">${_rowsList(items, withWork)}</div>${total > items.length ? `<div class="cmp-row"><span></span><span>ועוד ${total - items.length}…</span><span></span></div>` : ''}</details>` : '';
+  html += det('פעולות חדשות', r.added, c.added, false) + det('פעולות ששונו', r.changed, c.changed, false);
+  if (r.investigation) html += _investigationHtml(r.investigation, r);
+  document.getElementById('cmp-body').innerHTML = html;
+
+  const canUpd = r.can_update;
+  const updNote = !r.identity_ok ? 'לא ניתן לעדכן: הקובץ החדש אינו של אותו כרטיס וחודש.'
+    : r.status === 'missing_rows' ? 'לא ניתן לעדכן כל עוד חסרות בקובץ החדש פעולות שקיימות במערכת. יש לתחקר את הסיבה (ראו פרטי התחקור).'
+    : (r.status === 'identical' && !canUpd) ? 'הקובץ זהה לחלוטין — אין מה לעדכן.'
+    : 'הפעולות הקיימות נשארות עם הקטגוריות והתיאורים שלהן, ונוספות רק הפעולות החדשות. הקובץ הישן יעבור לפח.';
+  document.getElementById('cmp-actions').innerHTML = `
+    <div class="cmp-choices">
+      <div class="cmp-choice">
+        <button class="btn btn-primary" id="cmp-update-btn" ${canUpd ? '' : 'disabled'} onclick="applyUpdate('update')">⟳ עדכן ושמור את העבודה</button>
+        <p>${esc(updNote)}</p>
+      </div>
+      <div class="cmp-choice">
+        <button class="btn btn-danger-soft" id="cmp-replace-btn" onclick="applyUpdate('replace')">⚠ דרוס לחלוטין</button>
+        <p>כל הפעולות של הקובץ הקיים יימחקו — כולל קטגוריות, תיאורים ופיצולים — והקובץ החדש יוכנס מחדש. הקובץ הישן יעבור לפח.</p>
+      </div>
+    </div>
+    <div class="cmp-foot"><button class="btn btn-ghost" onclick="closeCompare()">ביטול</button>${
+      r.investigation ? '<button class="btn btn-ghost" onclick="copyInvestigation()">📋 העתק דוח תחקור</button>' : ''}</div>`;
+}
+
+async function applyUpdate(mode) {
+  if (!_cmp || !_cmp.report) return;
+  const r = _cmp.report, c = r.counts;
+  const msg = mode === 'replace'
+    ? `לדרוס את "${r.existing.name}" לחלוטין?\n\n${c.existing_rows} פעולות קיימות (${c.tagged_existing} מתויגות) יימחקו עם הקטגוריות והתיאורים שלהן, והקובץ החדש (${c.new_rows} פעולות) יוכנס מחדש.` +
+      (r.investigation ? `\n\nשימו לב: ${c.removed} מהפעולות הקיימות לא נמצאות בקובץ החדש (${r.investigation.work.tagged} מתויגות, ${r.investigation.work.linked} מקושרות לתכונות אחרות). מומלץ לתחקר לפני הדריסה.` : '') + `\n\nהפעולה אינה הפיכה.`
+    : `לעדכן את "${r.existing.name}" בקובץ החדש?\n\nיתווספו ${c.added} פעולות${c.changed ? `, יתוקנו ${c.changed}` : ''}. כל הפעולות הקיימות, הקטגוריות והתיאורים נשמרים.`;
+  if (!confirm(msg)) return;
+  const btns = ['cmp-update-btn', 'cmp-replace-btn'].map(id => document.getElementById(id));
+  btns.forEach(b => { if (b) b.disabled = true; });
+  const active = document.getElementById(mode === 'replace' ? 'cmp-replace-btn' : 'cmp-update-btn');
+  if (active) active.innerHTML = '<span class="spin-icon"></span> מעדכן…';
+  try {
+    const res  = await fetch('/api/files/apply-update', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ filename: _cmp.filename, existing: _cmp.existing, mode })
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'שגיאה');
+    const n = data.counts;
+    toast(`✅ ${mode === 'replace' ? 'הקובץ הוחלף' : 'הקובץ עודכן'} · נוספו ${n.added}${n.changed ? ` · תוקנו ${n.changed}` : ''}${n.removed ? ` · הוסרו ${n.removed}` : ''}`, 'ok');
+    (data.warnings || []).forEach(w => toast('⚠ ' + w, 'err'));
+    closeCompare();
+    scanFiles();
+  } catch (e) {
+    toast('העדכון נכשל: ' + e.message, 'err');
+    btns.forEach(b => { if (b) b.disabled = false; });
+    renderCompare(r);
+  }
 }
 
 // ── Upload ──────────────────────────────────────────────────────
@@ -1287,7 +1584,7 @@ function renderDbTable() {
     const newTxt = f.new_transactions > 0 ? `+${f.new_transactions}` : '—';
     const cardAttr = esc(f.card || '');
     return `<tr>
-      <td class="db-fname" title="${esc(f.name)}">${esc(f.name)}</td>
+      <td class="db-fname" title="${esc(f.name)}">${esc(f.name)}${updatedBadge(f)}</td>
       <td><span class="db-fmt ${_fmtClass(f.format)}">${esc(_fmtLabel(f.format))}</span></td>
       <td class="db-card">${card}</td>
       <td class="db-date">${f.date || '—'}</td>

@@ -4642,7 +4642,28 @@ if os.getenv('VERCEL'):  # Vercel: /var/task is read-only; use /tmp
 else:
     _INPUT_FOLDER    = os.path.join(_PROJECT_DIR, 'ShmuelFamiliy_Inputs')
     _VERIFIED_FOLDER = os.path.join(_PROJECT_DIR, 'Verified_ShmuelFamiliy_Inputs')
+# Archived copies replaced by an updated file wait here (never deleted automatically)
+_TRASH_FOLDER = ('/tmp/' if os.getenv('VERCEL') else _PROJECT_DIR + os.sep) + 'Trash_ShmuelFamiliy_Inputs'
 _INSERT_LOCK = threading.Lock()  # prevent concurrent parses
+
+
+def _finish_insert():
+    """After rows were inserted/updated: match ATM withdrawals and auto-tag the new rows."""
+    from src_utils.utils import utils
+    utils.handle_withdrawals()
+    utils.handle_direct_bank_withdrawals()
+    utils.tagger_refresh()
+
+
+def _is_card_format(fmt):
+    from Configurations.Formats import Formats, Context_class
+    return Formats.FORMATS.get(fmt, {}).get('Context') == Context_class.Card
+
+
+import file_update_service as _file_update
+from routes.file_update_routes import file_update_bp, init as _file_update_init
+app.register_blueprint(file_update_bp)
+_file_update_init(_file_update.Folders(_INPUT_FOLDER, _VERIFIED_FOLDER, _TRASH_FOLDER), _INSERT_LOCK, _finish_insert)
 
 
 @app.route('/files')
@@ -4697,6 +4718,21 @@ def files_scan():
 
                 # ── Already in DB? ────────────────────────────────────────
                 db_fmt = _db_known.get(fname)
+                if db_fmt and _is_card_format(db_fmt):
+                    # Same name as a stored credit-card statement: an identical archived copy is just
+                    # cleaned up; anything else is a newer download of that statement and waits for the
+                    # user's decision (compare -> update / replace) instead of being discarded.
+                    state = _file_update.check_input_copy(fname, db_fmt, _file_update.Folders(
+                        _INPUT_FOLDER, _VERIFIED_FOLDER, _TRASH_FOLDER))
+                    if state == 'same':
+                        try:
+                            os.remove(fpath)
+                            continue
+                        except OSError:
+                            pass       # still locked — show it below
+                    recognized.append({'name': fname, 'format': db_fmt, 'is_new': False,
+                                       'update': state != 'same', 'copy': state})
+                    continue
                 if db_fmt:
                     # File was previously processed. Try to move it to Verified.
                     dst_dir  = os.path.join(_VERIFIED_FOLDER, db_fmt)
@@ -4763,6 +4799,7 @@ def files_insert():
             from Configurations.Formats import Formats, Context_class
             from Card import Card
             from Bank import Bank
+            from database import DataBase
             from src_utils.utils import utils
 
             # Reuse the Parser instance from the last scan — re-identifying files
@@ -4796,13 +4833,21 @@ def files_insert():
                 _log_queue.put('__ERROR__:סוג קובץ לא נתמך')
                 return
 
+            if class_type == Context_class.Card:
+                # the same card and month already stored under another name -> let the user compare/update
+                try:
+                    conflict = _file_update.find_identity_conflict(DataBase(), _file_update.read_new_file, filename, fmt)
+                except Exception:
+                    conflict = None
+                if conflict:
+                    _log_queue.put(f"__CONFLICT__:{conflict['name']}")
+                    return
+
             Context.counter += 1
             success = context.render()
 
             if success:
-                utils.handle_withdrawals()
-                utils.handle_direct_bank_withdrawals()
-                utils.tagger_refresh()
+                _finish_insert()
 
             _log_queue.put(f'__DONE__:{filename}' if success else '__ERROR__:העיבוד נכשל')
 
@@ -4838,6 +4883,7 @@ def files_insert_all():
             from Configurations.Formats import Formats, Context_class
             from Card import Card
             from Bank import Bank
+            from database import DataBase
             from src_utils.utils import utils
 
             parser = Parser.getInstance()
@@ -4862,6 +4908,16 @@ def files_insert_all():
                     results.append({'filename': fname, 'ok': False, 'error': 'unsupported type'})
                     continue
 
+                if class_type == Context_class.Card:
+                    try:
+                        conflict = _file_update.find_identity_conflict(DataBase(), _file_update.read_new_file, fname, fmt)
+                    except Exception:
+                        conflict = None
+                    if conflict:
+                        results.append({'filename': fname, 'ok': False,
+                                        'error': f"קיים כבר קובץ לאותו כרטיס וחודש: {conflict['name']} — השתמשו בהשוואה ועדכון"})
+                        continue
+
                 Context.counter += 1
                 try:
                     ok = context.render()
@@ -4870,9 +4926,7 @@ def files_insert_all():
                     results.append({'filename': fname, 'ok': False, 'error': str(ex)})
 
             if any(r['ok'] for r in results):
-                utils.handle_withdrawals()
-                utils.handle_direct_bank_withdrawals()
-                utils.tagger_refresh()
+                _finish_insert()
 
             return jsonify({'ok': True, 'results': results})
         finally:
@@ -4908,10 +4962,16 @@ def files_db_list():
     """Return all rows from the File table (files already in the database)."""
     conn = None
     try:
+        try:
+            from database import DataBase as _DBU
+            _DBU().ensure_file_update_columns()
+        except Exception:
+            pass
         conn = _pg_conn()
         rows = conn.execute('''
             SELECT File_Name, Format, Card_Number, Date,
-                   New_Transactions, Transaction_count, Last_update
+                   New_Transactions, Transaction_count, Last_update,
+                   Updated_At, Update_Kind, Update_Added, Update_Changed, Update_Removed
             FROM File
             ORDER BY Date DESC, Last_update DESC
         ''').fetchall()
@@ -4930,6 +4990,9 @@ def files_db_list():
                 'new_transactions': r['new_transactions'] or 0,
                 'transaction_count': r['transaction_count'] or 0,
                 'last_update':      str(r['last_update'] or '')[:10],
+                'updated': ({'at': str(r['updated_at'])[:16].replace('T', ' '), 'kind': r['update_kind'],
+                             'added': r['update_added'] or 0, 'changed': r['update_changed'] or 0,
+                             'removed': r['update_removed'] or 0} if r['updated_at'] else None),
             })
             total_tx += r['transaction_count'] or 0
 

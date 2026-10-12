@@ -6,13 +6,17 @@ POST /api/housing/projects/<key>            change settings: price, down_pct, gr
 POST /api/housing/projects/<key>/tx-kind    {key, kind}: mark one payment as price/cost (outgoing) or
                                             income/refund (incoming); kind null = automatic
 
-Every endpoint answers {ok, project} so the page can replace its copy in one round trip.
+GET  /api/housing/info/<apartment>          the "מידע חיוני" rows of 'shabazi' / 'mona': {ok, items:[{label, value}]}
+PUT  /api/housing/info/<apartment>          {items: [...]} replaces them; answers the saved rows
+
+The project endpoints answer {ok, project} so the page can replace its copy in one round trip.
 """
 import logging
 from datetime import date
 
 from flask import Blueprint, jsonify, request
 
+import housing_info_service as info_svc
 import housing_project_service as svc
 
 logger = logging.getLogger(__name__)
@@ -65,3 +69,26 @@ def project_tx_kind(key):
     if not isinstance(tx_key, str) or not (kind is None or isinstance(kind, str)):
         return jsonify({'ok': False, 'error': 'בקשה לא תקינה'}), 400
     return _respond(lambda db, today: svc.set_tx_kind(db, key, tx_key, kind, today))
+
+
+def _info_respond(action):
+    try:
+        return jsonify({'ok': True, 'items': action(get_db())})
+    except info_svc.UnknownApartment as e:
+        return jsonify({'ok': False, 'error': str(e)}), 404
+    except info_svc.InfoError as e:
+        return jsonify({'ok': False, 'error': str(e)}), 400
+    except Exception:
+        logger.exception('housing info request failed')
+        return jsonify({'ok': False, 'error': 'שגיאת שרת'}), 500
+
+
+@housing_projects_bp.route('/api/housing/info/<prop>', methods=['GET'])
+def info_get(prop):
+    return _info_respond(lambda db: info_svc.load_info(db, prop))
+
+
+@housing_projects_bp.route('/api/housing/info/<prop>', methods=['PUT'])
+def info_put(prop):
+    items = _body().get('items')
+    return _info_respond(lambda db: info_svc.save_info(db, prop, items))

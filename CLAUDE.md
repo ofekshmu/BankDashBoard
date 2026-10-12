@@ -169,6 +169,7 @@ Mona seeded). Tests: `tests/test_housing_project*.py`, `tests/test_housing_proje
 - **Landing block `mona`** (`landing_service.build_mona`, `landing_loaders.load_mona`): KPI = equity; its link carries `data-hs-prop`
   so `/housing` opens the Mona tab (the דיור block sets `shabazi`).
 - **Settings form autosaves** on field `change` (no need to press שמירה).
+- **"מידע חיוני" box** (both apartments): floating button bottom-left of `/housing` (`#housing-info-fab`, shown only on the housing panel) opening name : detail rows kept in table `HousingInfo` (`database.py`, seeded once on creation; שבזי got the details restored from the unmerged branch `claude/apartment-info-copy-button-mljshs`). Validation in `source/housing_info_service.py`, endpoints `GET/PUT /api/housing/info/<shabazi|mona>` in `housing_project_routes.py`, UI (`housingInfo*`) next to the Mona code in `Base_template.html`. Tests: `tests/test_housing_info.py`.
 - **Housing menus:** the apartments (שלום שבזי 7 / מונה) are the fixed top tab bar (`.hs-top`); סקירה כללית / ציר זמן are each
   apartment's in-flow sub-menu (`.hs-nav`). (`.hs-subtab-btn` is still used by the timeline category chips.)
 

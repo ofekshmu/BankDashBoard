@@ -204,6 +204,7 @@ class DataBase:
     __card_limits_ready = False
     __account_settings_ready = False
     __housing_projects_ready = False
+    __housing_info_ready = False
     __bootstrap_lock = threading.Lock()
     __tables_bootstrapped = False
     __pool = None
@@ -3628,6 +3629,59 @@ class DataBase:
         """)
         self.connection.commit()
         DataBase.__housing_projects_ready = True
+
+    # The details the user wants to remember about each apartment. Seeded once, when the table is first
+    # created (so deleting a row sticks): שבזי gets the information that was once shown on its page
+    # (the branch that had it was never merged), Mona gets the labels its box starts with.
+    _HOUSING_INFO_SEED = {
+        'shabazi': [('כתובת הנכס', 'שבזי שלום 7/18'), ('מספר מונה מים', '70B3D5A9F019A0A9'),
+                    ('מספר מונה חשמל', '349305852'), ('מספר נכס', '1105337'),
+                    ("מס' נכס בחשבון המים", '75508'), ('חוזה חשמל עדכני (אוגוסט 2026)', '349487146')],
+        'mona': [('כתובת', ''), ('מספר מונה חשמל', ''), ('מספר מונה מים', ''), ('איש קשר בחברה', '')],
+    }
+
+    def ensure_housing_info_table(self) -> None:
+        """Create HousingInfo (apartment key, position, name, detail) if absent, seeding it once."""
+        if DataBase.__housing_info_ready:
+            return
+        is_new = self.cursor.execute("SELECT to_regclass('HousingInfo')").fetchone()[0] is None
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS HousingInfo (
+                PropKey  TEXT    NOT NULL,
+                Position INTEGER NOT NULL,
+                Label    TEXT    NOT NULL,
+                Value    TEXT    NOT NULL DEFAULT '',
+                PRIMARY KEY (PropKey, Position)
+            )
+        """)
+        if is_new:
+            for prop, rows in self._HOUSING_INFO_SEED.items():
+                for pos, (label, value) in enumerate(rows):
+                    self.cursor.execute(
+                        "INSERT INTO HousingInfo (PropKey, Position, Label, Value) VALUES (%s, %s, %s, %s)",
+                        (prop, pos, label, value))
+        self.connection.commit()
+        DataBase.__housing_info_ready = True
+
+    def get_housing_info(self, prop: str) -> list:
+        """The apartment's rows in the user's order: [{'label', 'value'}]."""
+        rows = self.cursor.execute(
+            "SELECT Label, Value FROM HousingInfo WHERE PropKey = %s ORDER BY Position", (prop,)).fetchall()
+        self.connection.commit()
+        return [{'label': r[0], 'value': r[1]} for r in rows]
+
+    def replace_housing_info(self, prop: str, items: list) -> None:
+        """Replace all of the apartment's rows with `items` ([{'label', 'value'}]) in one transaction."""
+        try:
+            self.cursor.execute("DELETE FROM HousingInfo WHERE PropKey = %s", (prop,))
+            for pos, item in enumerate(items):
+                self.cursor.execute(
+                    "INSERT INTO HousingInfo (PropKey, Position, Label, Value) VALUES (%s, %s, %s, %s)",
+                    (prop, pos, item['label'], item['value']))
+            self.connection.commit()
+        except Exception:
+            self.connection.rollback()
+            raise
 
     _HOUSING_SELECT = """SELECT ProjectKey, Name, Tx_Category, Timeline_Category, Price, Down_Pct,
                                 Contract_Date, Delivery_Date, Growth_Pct, Mortgage_Pct FROM HousingProjects"""

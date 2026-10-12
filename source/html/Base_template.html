@@ -448,6 +448,66 @@ body {
 }
 .reload-btn.running .reload-btn-pct { display: block; }
 
+/* ── "מידע חיוני" floating button + box (housing page; bottom-left, opposite the refresh button) ── */
+.hi-fab-group { position: fixed; bottom: 22px; left: 18px; z-index: 998; }
+.hi-fab {
+  width: 52px; height: 52px; border-radius: 50%; border: none; cursor: pointer;
+  background: var(--navy); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 18px rgba(30,42,74,0.35);
+  transition: transform .15s, box-shadow .2s, background .2s;
+}
+.hi-fab:hover { transform: translateY(-2px); box-shadow: 0 6px 24px rgba(30,42,74,0.45); }
+.hi-fab[aria-expanded="true"] { background: var(--teal); box-shadow: 0 4px 18px rgba(30,157,139,0.45); }
+.hi-fab:focus-visible, .hi-ibtn:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+.hi-box {
+  position: absolute; bottom: 64px; left: 0;
+  width: min(360px, calc(100vw - 32px)); max-height: min(72vh, 540px);
+  display: flex; flex-direction: column; overflow: hidden;
+  background: var(--white); border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: var(--shadow-md); transform-origin: bottom left;
+  animation: _hiPop .16s ease-out;
+}
+.hi-box[hidden] { display: none; }
+@keyframes _hiPop { from { opacity: 0; transform: translateY(8px) scale(.97); } to { opacity: 1; transform: none; } }
+.hi-head { display: flex; align-items: center; gap: 6px; padding: 12px 14px; border-bottom: 1px solid var(--border); }
+.hi-title { flex: 1; min-width: 0; font-weight: 700; color: var(--navy); font-size: .92em; line-height: 1.25; }
+.hi-title small { display: block; font-weight: 500; color: var(--text-muted); font-size: .82em; }
+.hi-ibtn {
+  width: 28px; height: 28px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border); border-radius: 8px; background: var(--white); color: var(--navy);
+  cursor: pointer; transition: background .15s, color .15s, border-color .15s;
+}
+.hi-ibtn:hover, .hi-ibtn.done { background: var(--teal); color: #fff; border-color: var(--teal); }
+.hi-ibtn.danger:hover { background: #e74c3c; border-color: #e74c3c; }
+.hi-body { overflow-y: auto; padding: 2px 14px 6px; }
+.hi-row {
+  display: grid; grid-template-columns: minmax(0, 38%) minmax(0, 1fr); gap: 10px; align-items: baseline;
+  padding: 9px 0; border-bottom: 1px solid var(--border); font-size: .86em;
+}
+.hi-row:last-child { border-bottom: none; }
+.hi-label { color: var(--text-muted); overflow-wrap: anywhere; }
+.hi-label::after { content: " :"; }
+.hi-value { color: var(--navy); font-weight: 700; text-align: right; overflow-wrap: anywhere; white-space: pre-line; }
+.hi-value.empty { color: var(--text-muted); font-weight: 400; }
+.hi-empty { padding: 22px 6px; text-align: center; color: var(--text-muted); font-size: .85em; line-height: 1.6; }
+.hi-row.editing { grid-template-columns: minmax(0, 38%) minmax(0, 1fr) 28px; align-items: center; padding: 7px 0; }
+.hi-input {
+  width: 100%; min-width: 0; box-sizing: border-box; padding: 7px 9px; font: inherit; font-size: 16px;
+  color: var(--navy); background: var(--white); border: 1px solid var(--border); border-radius: 8px; text-align: right;
+}
+.hi-input:focus { outline: none; border-color: var(--teal); box-shadow: 0 0 0 3px rgba(30,157,139,0.15); }
+.hi-foot { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-top: 1px solid var(--border); background: var(--bg, #f4f6f9); }
+.hi-btn {
+  height: 32px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--white);
+  color: var(--navy); font: inherit; font-size: .84em; font-weight: 600; cursor: pointer;
+}
+.hi-btn.primary { background: var(--teal); border-color: var(--teal); color: #fff; }
+.hi-btn:disabled { opacity: .6; cursor: wait; }
+.hi-add { margin-inline-end: auto; }
+.hi-msg { flex: 1; font-size: .78em; font-weight: 600; color: #e74c3c; }
+@media (max-width: 768px) { .hi-fab-group { bottom: 14px; left: 14px; } }
+
 @media (max-width: 768px) {
   .regen-fab-group { bottom: 14px; right: 14px; }
   .reload-btn { width: 52px; padding: 0; border-radius: 50%; justify-content: center; }
@@ -2627,6 +2687,14 @@ body {
     </button>
   </div>
 
+  <!-- Housing "מידע חיוני": shown only when the housing panel is active -->
+  <div class="hi-fab-group" id="housing-info-fab" style="display:none">
+    <div class="hi-box" id="hi-box" role="dialog" aria-label="מידע חיוני" hidden></div>
+    <button type="button" class="hi-fab" id="hi-fab-btn" onclick="housingInfoToggle()" title="מידע חיוני" aria-label="מידע חיוני" aria-expanded="false" aria-controls="hi-box">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 7.5h.01"/></svg>
+    </button>
+  </div>
+
   <!-- Organizer missing-file alerts (injected by Python) -->
   <div id="organizer-alerts"></div>
 
@@ -2906,6 +2974,9 @@ function _applyPanelUI(name) {
   if (accountsFab) accountsFab.style.display = (name === 'accounts') ? '' : 'none';
   var housingFab = document.getElementById('housing-regen-fab');
   if (housingFab) housingFab.style.display = isHousing ? '' : 'none';
+  var infoFab = document.getElementById('housing-info-fab');
+  if (infoFab) infoFab.style.display = isHousing ? '' : 'none';
+  if (!isHousing && typeof housingInfoClose === 'function') housingInfoClose();
 }
 function showPanel(name, btn) {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
@@ -8898,6 +8969,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   function _switchHousingProperty(prop) {
     _housingProp = prop === 'mona' ? 'mona' : 'shabazi';
     try { localStorage.setItem('hs_prop', _housingProp); } catch (_) {}
+    if (_hiOpen) { _hiEditing = false; _hiMsg = ''; _hiLoad(); }
     var sh = document.getElementById('hs-prop-shabazi'), mo = document.getElementById('hs-prop-mona');
     if (!sh || !mo) return;
     Array.prototype.forEach.call(document.querySelectorAll('.hs-top-btn'), function(b) {
@@ -8937,6 +9009,168 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     el.setAttribute('data-showing', showingName ? 'desc' : 'name');
     el.textContent = showingName ? desc : (el.getAttribute('data-name') || '');
   }
+
+  // ── Housing: "מידע חיוני" — the floating box of name : detail rows for the apartment shown ──
+  // Rows live in the DB per apartment (GET/PUT /api/housing/info/<apartment>). The pencil turns the rows
+  // into inputs; "שמירה" replaces the whole list, so adding, editing, deleting are one atomic save.
+  var _hiCache = {};          // apartment -> [{label, value}]
+  var _hiOpen = false, _hiEditing = false, _hiDraft = [], _hiBusy = false, _hiMsg = '';
+  var _HI_NAMES = { shabazi: 'שלום שבזי 7', mona: 'מונה' };
+  var _HI_ICON = {
+    copy: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
+    edit: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
+    close: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>'
+  };
+
+  function _hiItems() { return _hiCache[_housingProp] || null; }
+
+  function _hiRender() {
+    var box = document.getElementById('hi-box');
+    if (!box) return;
+    var items = _hiItems();
+    var head = '<div class="hi-head"><div class="hi-title">מידע חיוני<small>' + _esc(_HI_NAMES[_housingProp] || '') + '</small></div>' +
+      (_hiEditing ? '' :
+        '<button type="button" class="hi-ibtn" id="hi-copy-btn" onclick="housingInfoCopy()" title="העתק הכול ללוח" aria-label="העתק הכול ללוח">' + _HI_ICON.copy + '</button>' +
+        '<button type="button" class="hi-ibtn" onclick="housingInfoEdit()" title="עריכה" aria-label="עריכה">' + _HI_ICON.edit + '</button>') +
+      '<button type="button" class="hi-ibtn" onclick="housingInfoClose()" title="סגור" aria-label="סגור">' + _HI_ICON.close + '</button></div>';
+    var body, foot = '';
+    if (items === null) {
+      body = '<div class="hi-empty">טוען…</div>';
+    } else if (_hiEditing) {
+      body = _hiDraft.map(function(r, i) {
+        return '<div class="hi-row editing">' +
+          '<input class="hi-input" dir="auto" data-i="' + i + '" data-f="label" maxlength="60" placeholder="שם" value="' + _esc(r.label) + '" aria-label="שם">' +
+          '<input class="hi-input" dir="auto" data-i="' + i + '" data-f="value" maxlength="500" placeholder="פירוט" value="' + _esc(r.value) + '" aria-label="פירוט">' +
+          '<button type="button" class="hi-ibtn danger" onclick="housingInfoDelRow(' + i + ')" title="מחיקת שורה" aria-label="מחיקת שורה">' + _HI_ICON.close + '</button></div>';
+      }).join('');
+      foot = '<div class="hi-foot"><button type="button" class="hi-btn primary" id="hi-save" onclick="housingInfoSave()"' + (_hiBusy ? ' disabled' : '') + '>שמירה</button>' +
+        '<button type="button" class="hi-btn" onclick="housingInfoCancel()"' + (_hiBusy ? ' disabled' : '') + '>ביטול</button>' +
+        '<span class="hi-msg" role="alert">' + _esc(_hiMsg) + '</span>' +
+        '<button type="button" class="hi-btn hi-add" onclick="housingInfoAddRow()">+ שורה</button></div>';
+    } else if (!items.length) {
+      body = '<div class="hi-empty">אין עדיין מידע.<br>לחצו על העיפרון כדי להוסיף בעלי מקצוע, מספרי מונים, טלפונים ועוד.</div>';
+    } else {
+      body = items.map(function(r) {
+        return '<div class="hi-row"><span class="hi-label">' + _esc(r.label) + '</span>' +
+          '<span class="hi-value' + (r.value ? '' : ' empty') + '"><bdi dir="auto">' + (r.value ? _esc(r.value) : '—') + '</bdi></span></div>';
+      }).join('');
+    }
+    box.innerHTML = head + '<div class="hi-body">' + body + '</div>' + foot;
+  }
+
+  function _hiLoad() {
+    var prop = _housingProp;
+    if (_hiCache[prop]) { _hiRender(); return; }
+    _hiRender();
+    fetch('/api/housing/info/' + prop).then(function(r) { return r.json(); }).then(function(d) {
+      if (!d.ok) throw new Error(d.error || '');
+      _hiCache[prop] = d.items;
+    }).catch(function() {
+      _hiCache[prop] = [];
+      _hiMsg = 'הטעינה נכשלה';
+    }).then(function() { if (prop === _housingProp) _hiRender(); });
+  }
+
+  function housingInfoToggle() {
+    if (_hiOpen) { housingInfoClose(); return; }
+    _hiOpen = true;
+    document.getElementById('hi-box').hidden = false;
+    document.getElementById('hi-fab-btn').setAttribute('aria-expanded', 'true');
+    _hiLoad();
+  }
+
+  function housingInfoClose() {
+    if (!_hiOpen) return;
+    _hiOpen = false; _hiEditing = false; _hiMsg = '';
+    var box = document.getElementById('hi-box'), btn = document.getElementById('hi-fab-btn');
+    if (box) box.hidden = true;
+    if (btn) btn.setAttribute('aria-expanded', 'false');
+  }
+
+  function housingInfoEdit() {
+    var items = _hiItems() || [];
+    _hiDraft = items.map(function(r) { return { label: r.label, value: r.value }; });
+    if (!_hiDraft.length) _hiDraft.push({ label: '', value: '' });
+    _hiEditing = true; _hiMsg = '';
+    _hiRender();
+    var first = document.querySelector('#hi-box .hi-input');
+    if (first) first.focus();
+  }
+
+  function housingInfoAddRow() {
+    _hiDraft.push({ label: '', value: '' });
+    _hiRender();
+    var inputs = document.querySelectorAll('#hi-box .hi-input');
+    if (inputs.length >= 2) inputs[inputs.length - 2].focus();
+    var body = document.querySelector('#hi-box .hi-body');
+    if (body) body.scrollTop = body.scrollHeight;
+  }
+
+  function housingInfoDelRow(i) {
+    _hiDraft.splice(i, 1);
+    _hiRender();
+  }
+
+  function housingInfoCancel() {
+    _hiEditing = false; _hiMsg = '';
+    _hiRender();
+  }
+
+  function housingInfoSave() {
+    if (_hiBusy) return;
+    var prop = _housingProp;
+    _hiBusy = true; _hiMsg = '';
+    _hiRender();
+    fetch('/api/housing/info/' + prop, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items: _hiDraft })
+    }).then(function(r) { return r.json().catch(function() { return { ok: false, error: 'שגיאת שרת' }; }); })
+      .catch(function() { return { ok: false, error: 'אין חיבור לשרת' }; })
+      .then(function(d) {
+        _hiBusy = false;
+        if (!d.ok) { _hiMsg = d.error || 'השמירה נכשלה'; }
+        else { _hiCache[prop] = d.items; _hiEditing = false; }
+        if (prop === _housingProp) _hiRender();
+      });
+  }
+
+  function housingInfoCopy() {
+    var text = (_hiItems() || []).map(function(r) { return r.label + ': ' + r.value; }).join('\n');
+    var btn = document.getElementById('hi-copy-btn');
+    var flash = function() {
+      if (!btn) return;
+      btn.classList.add('done');
+      setTimeout(function() { btn.classList.remove('done'); }, 1200);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(flash).catch(function() { _hiCopyFallback(text); flash(); });
+    } else { _hiCopyFallback(text); flash(); }
+  }
+
+  function _hiCopyFallback(text) {
+    var ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); } catch (_) {}
+    document.body.removeChild(ta);
+  }
+
+  // typing in the box keeps the draft; Escape closes (or cancels the edit); a click outside closes unless editing
+  document.addEventListener('input', function(e) {
+    var el = e.target;
+    if (!_hiEditing || !el.classList || !el.classList.contains('hi-input')) return;
+    var row = _hiDraft[Number(el.getAttribute('data-i'))];
+    if (row) row[el.getAttribute('data-f')] = el.value;
+  });
+  document.addEventListener('keydown', function(e) {
+    if (!_hiOpen) return;
+    if (e.key === 'Escape') { _hiEditing ? housingInfoCancel() : housingInfoClose(); }
+    else if (e.key === 'Enter' && _hiEditing && e.target.classList && e.target.classList.contains('hi-input')) {
+      e.preventDefault(); housingInfoSave();
+    }
+  });
+  document.addEventListener('click', function(e) {
+    if (_hiOpen && !_hiEditing && !e.target.closest('#housing-info-fab')) housingInfoClose();
+  });
 
   // ── Housing: new-build apartment project (Mona) ─────────────────────────
   // The money model is src_utils/housing_projects.py. The block between the CALC markers mirrors its
@@ -10968,6 +11202,14 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   window._loadMonaProject     = _loadMonaProject;
   window.monaToggleKind       = monaToggleKind;
   window.monaSaveSettings     = monaSaveSettings;
+  window.housingInfoToggle    = housingInfoToggle;
+  window.housingInfoClose     = housingInfoClose;
+  window.housingInfoEdit      = housingInfoEdit;
+  window.housingInfoAddRow    = housingInfoAddRow;
+  window.housingInfoDelRow    = housingInfoDelRow;
+  window.housingInfoCancel    = housingInfoCancel;
+  window.housingInfoSave      = housingInfoSave;
+  window.housingInfoCopy      = housingInfoCopy;
   window._hsToggleTxName      = _hsToggleTxName;
   window._tlToggleMinimize     = _tlToggleMinimize;
   window._tlOpenAddModal  = _tlOpenAddModal;

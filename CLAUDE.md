@@ -150,7 +150,9 @@ A second property next to שבזי on the housing page. Code: `source/src_utils/
 (`/api/housing/projects/<key>`), DB tables `HousingProjects` + `HousingTxKinds` (`database.py`, created on first use,
 Mona seeded). Tests: `tests/test_housing_project*.py`, `tests/test_housing_projects_js.py`.
 
-- **Payments** come from the bank/card transactions tagged with the project's tag (default **"דירת קבלן"**, editable in the tab);
+- **Payments** come from the bank/card transactions tagged with the project's tag (the **"Mona"** category from `categories.json` — whatever is tagged
+  Mona shows in the tab's payments table, where each payment's expense type is picked from a dropdown; the tag is editable in the tab and is saved
+  spelled as in `categories.json`, since transactions match on the exact spelling; the older **"דירת קבלן"** tag is no longer read);
   the timeline is the category labelled MONA (found by label, then remembered).
 - **Every payment has a kind:** `price` (goes into the apartment price → builds equity, comes back on a sale), `cost` (fees/taxes:
   spent, never an asset), `income` (rent etc.: not an asset), `refund`. Defaults come from `classify_kind` (fee-like words such as
@@ -201,6 +203,11 @@ Now (`source/file_update_service.py`, `source/src_utils/file_diff.py`, `source/r
   way forward after investigating. Afterwards the old archived copy moves to
   `Trash_ShmuelFamiliy_Inputs/<format>/<timestamp>_<name>` and the new file takes its place; `File.Updated_At/Update_Kind/Update_Added/_Changed/_Removed`
   drive the "⟳ עודכן" badge in the stored-files table.
+- **History:** every update/replace writes a `FileUpdateHistory` row (keyed by format + card + month, since the file's name can change): the old file's
+  name, rows, tagged rows, when it was stored, what the update added/changed/removed and whether the old copy went to the trash. Rows of an updated file
+  never keep the old file's name (`Source_file` is the new name), so this table is the only trace of it; `/api/files/db-files` returns it per file
+  (`history`) and the stored-files table shows it under the file. `DataBase.drop_file` deletes the history with the file (and deletes `TableMeta` before
+  `File`, which it must because of the foreign key).
 - `routes/file_update_routes._format_of` identifies the single file itself when `Parser`'s folder scan skipped it (Parser drops `x.xlsx` when `x (1).xlsx`
   is in the folder, because it treats a name contained in another as the same file with another extension).
 - Never call `Card.insert()`-style code twice for the same month; when adding a card format, add its mapping in `Card.records()` only.

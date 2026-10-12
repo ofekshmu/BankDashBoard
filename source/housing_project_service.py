@@ -125,7 +125,7 @@ def update_project(db, key, body, today):
         cat = body['tx_category'].strip() if isinstance(body['tx_category'], str) else ''
         if not cat or len(cat) > MAX_CATEGORY_LEN:
             raise ProjectError('שם הקטגוריה לא תקין')
-        fields['tx_category'] = cat
+        fields['tx_category'] = db.canonical_category(cat)
     if not fields:
         raise ProjectError('אין מה לשנות')
     contract = fields.get('contract_date', current['contract_date'])

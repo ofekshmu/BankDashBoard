@@ -28,6 +28,7 @@ class FakeDB:
         self.fail = False
 
     def ensure_housing_project_tables(self): pass
+    def canonical_category(self, name): return {'mona': 'Mona'}.get(name.strip().casefold(), name)
     def ensure_timeline_tables(self): pass
 
     def get_housing_project(self, key):
@@ -99,6 +100,14 @@ def test_update_saves_valid_settings_and_returns_the_new_payload():
     assert db.project['contract_date'] == date(2026, 10, 1) and db.project['delivery_date'] == date(2029, 3, 1)
     assert db.project['tx_category'] == 'דירת קבלן'
     assert p['settings']['price'] == 1_450_000 and p['growth_start'] == '2026-10-01'
+
+
+def test_the_tag_is_saved_as_the_category_is_spelled():
+    db = FakeDB()
+    svc.update_project(db, 'mona', {'tx_category': ' MONA '}, T)
+    assert db.project['tx_category'] == 'Mona'
+    svc.update_project(db, 'mona', {'tx_category': 'something else'}, T)
+    assert db.project['tx_category'] == 'something else'
 
 
 def test_growth_rate_is_limited_to_zero_through_fifteen():

@@ -273,6 +273,42 @@ def test_update_is_refused_while_stored_rows_are_missing_but_replace_is_allowed(
     assert db.plan['kind'] == 'replace' and sorted(db.plan['delete']) == [100, 101, 102]
 
 
+def test_the_update_records_what_the_old_file_was(folders):
+    put(folders.input, '4603_10_2026 (1).xlsx', b'new')
+    put(folders.verified, '4603_10_2026.xlsx', b'old', FMT)
+    db = FakeDB(tagged=('a', 'b'))
+    svc.apply(db, reader_for('a', 'b', 'c', 'd', 'e'), '4603_10_2026 (1).xlsx', FMT, folders, 'update', now=NOW)
+    assert db.plan['history'] == {'old_rows': 3, 'old_tagged': 2, 'old_saved_on': date(2026, 10, 4), 'new_rows': 5,
+                                  'trash_name': '20261012_203005_4603_10_2026.xlsx'}
+    assert db.plan['old_name'] == '4603_10_2026.xlsx'                        # the name that is about to disappear
+
+
+def test_history_has_no_trash_name_when_there_was_no_archived_copy(folders):
+    put(folders.input, '4603_10_2026.xlsx', b'new')
+    db = FakeDB()
+    svc.apply(db, reader_for('a', 'b', 'c', 'd'), '4603_10_2026.xlsx', FMT, folders, 'update', now=NOW)
+    assert db.plan['history']['trash_name'] is None
+
+
+def test_group_history_keys_by_statement_and_formats_for_json():
+    rows = [
+        {'at': datetime(2026, 10, 12, 20, 30, 5), 'format': FMT, 'card': '4603', 'month': date(2026, 10, 1),
+         'kind': 'update', 'old_name': 'a.xlsx', 'new_name': 'b.xlsx', 'old_rows': 25, 'old_tagged': 25,
+         'old_saved_on': date(2026, 10, 4), 'new_rows': 33, 'added': 8, 'changed': None, 'removed': 0,
+         'trash_name': '20261012_a.xlsx'},
+        {'at': datetime(2026, 10, 1, 9, 0), 'format': FMT, 'card': '6046', 'month': date(2026, 10, 1),
+         'kind': 'replace', 'old_name': 'c.xlsx', 'new_name': 'c.xlsx', 'old_rows': 3, 'old_tagged': 0,
+         'old_saved_on': None, 'new_rows': 4, 'added': 4, 'changed': 0, 'removed': 3, 'trash_name': None},
+    ]
+    out = svc.group_history(rows)
+    assert set(out) == {f'{FMT}|4603|2026-10-01', f'{FMT}|6046|2026-10-01'}
+    e = out[f'{FMT}|4603|2026-10-01'][0]
+    assert e == {'at': '2026-10-12 20:30', 'kind': 'update', 'old_name': 'a.xlsx', 'new_name': 'b.xlsx',
+                 'old_rows': 25, 'old_tagged': 25, 'old_saved_on': '2026-10-04', 'new_rows': 33, 'added': 8,
+                 'changed': 0, 'removed': 0, 'trashed': True}
+    assert out[f'{FMT}|6046|2026-10-01'][0]['old_saved_on'] == '' and out[f'{FMT}|6046|2026-10-01'][0]['trashed'] is False
+
+
 def test_update_corrects_a_changed_row_in_place(folders):
     put(folders.input, '4603_10_2026.xlsx', b'new')
     corrected = dict(R['b'], charge_value=99.0, transaction_value=99.0)

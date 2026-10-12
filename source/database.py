@@ -1511,8 +1511,44 @@ class DataBase:
         for col, typ in (('Updated_At', 'TIMESTAMP'), ('Update_Kind', 'TEXT'), ('Update_Added', 'INT'),
                          ('Update_Changed', 'INT'), ('Update_Removed', 'INT')):
             self.cursor.execute(f"ALTER TABLE File ADD COLUMN IF NOT EXISTS {col} {typ}")
+        # One row per update/replace, kept after the old file's own entry is gone: what the file was
+        # before (name, rows, when stored) and what the update did. Keyed by the statement's identity
+        # (format, card, month) because the file's name can change from one update to the next.
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS FileUpdateHistory (
+                ID            SERIAL    PRIMARY KEY,
+                Updated_At    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                Format        TEXT      NOT NULL,
+                Card_Number   TEXT      NOT NULL,
+                Month_Date    DATE      NOT NULL,
+                Kind          TEXT      NOT NULL,
+                Old_File_Name TEXT      NOT NULL,
+                New_File_Name TEXT      NOT NULL,
+                Old_Rows      INT,
+                Old_Tagged    INT,
+                Old_Saved_On  DATE,
+                New_Rows      INT,
+                Added         INT,
+                Changed       INT,
+                Removed       INT,
+                Trash_Name    TEXT
+            )
+        """)
         self.connection.commit()
         DataBase.__file_update_ready = True
+
+    def get_file_update_history(self) -> list:
+        """Every recorded update, newest first, as dicts (see the FileUpdateHistory table)."""
+        self.ensure_file_update_columns()
+        rows = self.cursor.execute("""
+            SELECT Updated_At, Format, Card_Number, Month_Date, Kind, Old_File_Name, New_File_Name, Old_Rows,
+                   Old_Tagged, Old_Saved_On, New_Rows, Added, Changed, Removed, Trash_Name
+            FROM FileUpdateHistory ORDER BY ID DESC
+        """).fetchall()
+        self.connection.commit()
+        keys = ('at', 'format', 'card', 'month', 'kind', 'old_name', 'new_name', 'old_rows', 'old_tagged',
+                'old_saved_on', 'new_rows', 'added', 'changed', 'removed', 'trash_name')
+        return [dict(zip(keys, r)) for r in rows]
 
     _FILE_ROW_COLS = ('File_Name', 'Format', 'Card_Number', 'Date', 'New_Transactions', 'Transaction_count',
                       'Last_update', 'Updated_At')
@@ -1658,6 +1694,15 @@ class DataBase:
             if old != new:
                 c.execute("DELETE FROM File WHERE File_Name = %s AND Format = %s AND Card_Number = %s",
                           (old, fmt, card))
+            h = plan.get('history')
+            if h:
+                c.execute("""INSERT INTO FileUpdateHistory(Format, Card_Number, Month_Date, Kind, Old_File_Name,
+                                 New_File_Name, Old_Rows, Old_Tagged, Old_Saved_On, New_Rows, Added, Changed,
+                                 Removed, Trash_Name)
+                             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                          (fmt, card, date, plan['kind'], old, new, h['old_rows'], h['old_tagged'],
+                           h['old_saved_on'], h['new_rows'], plan['counts']['added'], plan['counts']['changed'],
+                           plan['counts']['removed'], h['trash_name']))
             n = plan['counts']
             if plan['kind'] == 'replace' or n['added'] or n['changed'] or n['removed']:
                 c.execute("""UPDATE File SET Updated_At = CURRENT_TIMESTAMP, Update_Kind = %s, Update_Added = %s,
@@ -1671,15 +1716,23 @@ class DataBase:
 
     def drop_file(self, file_name: str, format_name: str, card_number: str):
         """
-        Remove the entries associated with the file name from the db.
+        Remove the entries associated with the file name from the db (and its update history).
+        TableMeta has a foreign key onto File, so its rows go first and the File row last.
         """
+        self.ensure_file_update_columns()
+        self.cursor.execute("""
+                            DELETE FROM FileUpdateHistory
+                            WHERE (Format, Card_Number, Month_Date) IN
+                                  (SELECT Format, Card_Number, Date FROM File
+                                   WHERE File_Name = %s AND Format = %s AND Card_Number = %s)
+                            """, (file_name, format_name, card_number,))
         self.cursor.execute("""
                             DELETE
-                            From File
+                            From TableMeta
                             WHERE File_Name = %s
                             AND Format = %s
                             AND Card_Number = %s
-                            """, (file_name, format_name, card_number,))
+                            """, (file_name, format_name, card_number, ))
         self.cursor.execute("""
                             DELETE
                             From BankTransactions
@@ -1693,11 +1746,11 @@ class DataBase:
                             """, (file_name, card_number,))
         self.cursor.execute("""
                             DELETE
-                            From TableMeta
+                            From File
                             WHERE File_Name = %s
                             AND Format = %s
-                            AND Card_Number = %s                            
-                            """, (file_name, format_name, card_number, ))
+                            AND Card_Number = %s
+                            """, (file_name, format_name, card_number,))
 
     def get_untagged(self, table: str = None) -> Tuple[list, list]:
         """
@@ -2471,6 +2524,10 @@ class DataBase:
             rows_affected = self.cursor.rowcount
             counts[table_name] = rows_affected
             utils.log(f"Rows updated in {table_name}: {rows_affected}", 'system')
+        # a housing project reads its payments by this tag (see ensure_housing_project_tables)
+        if self._table_exists('housingprojects'):
+            self.cursor.execute("UPDATE HousingProjects SET Tx_Category = %s WHERE Tx_Category = %s", (to, frm))
+            counts['HousingProjects'] = self.cursor.rowcount
         return counts
     
     def delete_transactions(self, ids: Tuple[list[str], str]):
@@ -3792,10 +3849,10 @@ class DataBase:
                 PRIMARY KEY (ProjectKey, Tx_Key)
             )
         """)
-        # Mona's payments were already tagged "דירת קבלן" before the project existed
+        # Mona's payments are the transactions tagged with the "Mona" category
         self.cursor.execute("""
             INSERT INTO HousingProjects (ProjectKey, Name, Tx_Category)
-            VALUES ('mona', 'מונה', 'דירת קבלן') ON CONFLICT (ProjectKey) DO NOTHING
+            VALUES ('mona', 'מונה', 'Mona') ON CONFLICT (ProjectKey) DO NOTHING
         """)
         self.connection.commit()
         DataBase.__housing_projects_ready = True
@@ -3903,6 +3960,22 @@ class DataBase:
                 ON CONFLICT (ProjectKey, Tx_Key) DO UPDATE SET Kind = EXCLUDED.Kind
             """, (key, tx_key, kind))
         self.connection.commit()
+
+    def canonical_category(self, name: str) -> str:
+        """`name` spelled as the category is in categories.json ("MONA" -> "Mona"); unchanged when there is
+        no such category. Transactions are matched on the exact spelling, so a project must use that one."""
+        import json
+        from Constants import Paths
+        try:
+            with open(Paths.CATEGORY_JSON, encoding='utf-8') as f:
+                categories = json.load(f)
+        except (OSError, ValueError):
+            return name
+        wanted = name.strip().casefold()
+        for c in categories if isinstance(categories, list) else []:
+            if isinstance(c, str) and c.strip().casefold() == wanted:
+                return c
+        return name
 
     def get_project_transactions(self, category: str) -> list:
         """Bank and card payments tagged `category` (splits applied), oldest first, as dicts:

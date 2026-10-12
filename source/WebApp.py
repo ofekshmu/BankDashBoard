@@ -4490,6 +4490,84 @@ def tagger_categories_add():
         return jsonify({'ok': False, 'error': str(e)})
 
 
+def _reserved_categories():
+    """Category names the app's own logic compares against: they can be neither renamed nor merged away."""
+    from Constants import ReservedNames, INVESTMENT_CATEGORY
+    return {
+        'NotCategorized',
+        ReservedNames.EXCLUDED_CATEGORY,
+        ReservedNames.FILLER_CATEGORY,
+        ReservedNames.CASH_FILLER_CATEGORY,
+        ReservedNames.WHITDRAWAL_CATEGORY,
+        ReservedNames.CC_CHARGE_CATEGORY_NAME,
+        INVESTMENT_CATEGORY,
+    }
+
+
+def _merge_categories(frm, into):
+    """Fold category `frm` into the existing category `into`: every transaction, split and housing-project tag
+    moves to `into`, auto-tag rules pointing at `frm` are redirected, `frm` leaves categories.json and its
+    cached analysis page is dropped. Returns {'counts', 'rules_remapped'}; raises ValueError with a Hebrew
+    message when the merge is not allowed."""
+    import json as _json
+    from database import DataBase
+
+    frm, into = (frm or '').strip(), (into or '').strip()
+    if not frm or not into:
+        raise ValueError('חסרים שמות קטגוריות')
+    if frm == into:
+        raise ValueError('אי אפשר לאחד קטגוריה עם עצמה')
+    reserved = _reserved_categories()
+    if frm in reserved or into in reserved:
+        raise ValueError('לא ניתן לאחד קטגוריה שמורה')
+    with open(_CATEGORIES_JSON_PATH, encoding='utf-8-sig') as f:
+        cats = _json.load(f)
+    if frm not in cats or into not in cats:
+        raise ValueError('אחת הקטגוריות לא נמצאה')
+    old_slug = _build_slug_map(cats, 'cat').get(frm) or _make_slug('cat', frm)
+
+    db = DataBase()
+    counts = db.replace_category(frm=frm, to=into)
+    db.commit_changes()
+
+    with open(_CATEGORIES_JSON_PATH, 'w', encoding='utf-8') as f:
+        _json.dump([c for c in cats if c != frm], f, ensure_ascii=False, indent=2)
+
+    at = _read_at()
+    remapped = 0
+    for rule_name, rule_cat in list(at.items()):
+        if rule_cat == frm:
+            at[rule_name] = into
+            remapped += 1
+    if remapped:
+        _write_at(at)
+
+    for ext in ('.html', '.manifest.json'):
+        stale = os.path.join(CATEGORY_ANALYSIS_DIR, old_slug + ext)
+        try:
+            if os.path.exists(stale):
+                os.remove(stale)
+        except Exception:
+            pass
+    _monthly_data_cache.clear()
+    _global_data_cache.clear()
+    return {'counts': counts, 'rules_remapped': remapped}
+
+
+@app.route('/api/tagger/categories/merge', methods=['POST'])
+def tagger_categories_merge():
+    """Merge category `from` into the existing category `into` (see _merge_categories)."""
+    body = request.get_json() or {}
+    try:
+        return jsonify({'ok': True, **_merge_categories(body.get('from'), body.get('into'))})
+    except ValueError as e:
+        return jsonify({'ok': False, 'error': str(e)})
+    except Exception as e:
+        import traceback
+        print(f'[tagger] category merge failed: {e}\n{traceback.format_exc()}')
+        return jsonify({'ok': False, 'error': str(e)})
+
+
 @app.route('/api/tagger/categories/rename', methods=['POST'])
 def tagger_categories_rename():
     """Rename a category everywhere: every transaction table, categories.json,
@@ -4964,9 +5042,9 @@ def files_db_list():
     try:
         try:
             from database import DataBase as _DBU
-            _DBU().ensure_file_update_columns()
+            _history = _file_update.group_history(_DBU().get_file_update_history())
         except Exception:
-            pass
+            _history = {}
         conn = _pg_conn()
         rows = conn.execute('''
             SELECT File_Name, Format, Card_Number, Date,
@@ -4990,6 +5068,7 @@ def files_db_list():
                 'new_transactions': r['new_transactions'] or 0,
                 'transaction_count': r['transaction_count'] or 0,
                 'last_update':      str(r['last_update'] or '')[:10],
+                'history': _history.get(f"{r['format']}|{r['card_number']}|{str(r['date'])[:10]}", []),
                 'updated': ({'at': str(r['updated_at'])[:16].replace('T', ' '), 'kind': r['update_kind'],
                              'added': r['update_added'] or 0, 'changed': r['update_changed'] or 0,
                              'removed': r['update_removed'] or 0} if r['updated_at'] else None),

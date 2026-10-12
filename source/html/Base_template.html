@@ -1086,6 +1086,11 @@ body {
 .ms-kind.price { background:#e0f4f1; color:#14796c; } .ms-kind.cost { background:#fff0d9; color:#a35f00; }
 .ms-kind.income { background:#e6f4ea; color:#2e7d32; } .ms-kind.refund { background:#e8eefc; color:#2f5bb7; }
 .ms-kind:hover { filter:brightness(.95); } .ms-kind.manual { box-shadow:0 0 0 1.5px currentColor inset; }
+select.ms-kind { appearance:none; -webkit-appearance:none; padding-inline-end:22px; text-align:start;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23666' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat; background-position:left 8px center; }
+select.ms-kind.price { background-color:#e0f4f1; } select.ms-kind.cost { background-color:#fff0d9; }
+select.ms-kind.income { background-color:#e6f4ea; } select.ms-kind.refund { background-color:#e8eefc; }
 .ms-empty { padding:22px; text-align:center; color:var(--text-muted); font-size:0.88em; }
 .ms-chart { position:relative; height:260px; }
 @media (max-width: 700px) {
@@ -9672,7 +9677,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       return;
     }
     el.innerHTML = head +
-      '<div class="ms-note" style="margin-top:12px">לחצו על הסוג כדי לשנות: <b>בשווי הדירה</b> נספר כנכס (הון עצמי) וחוזר במכירה; ' +
+      '<div class="ms-note" style="margin-top:12px">בחרו לכל תנועה את סוג ההוצאה: <b>בשווי הדירה</b> נספר כנכס (הון עצמי) וחוזר במכירה; ' +
       '<b>הוצאה נלווית</b> (ליווי, עו״ד, מיסים) הוא כסף שיצא ואינו נכס. מסגרת בצבע = בחירה ידנית.</div>' +
       '<div style="overflow-x:auto"><table class="milestone-table housing-txn"><thead><tr><th>תאריך</th><th>שם</th><th>סכום</th><th>סוג</th></tr></thead><tbody>' +
       txs.map(function(t, i) {
@@ -9680,8 +9685,11 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         return '<tr><td>' + _msDate(t.date) + '</td>' +
           '<td class="housing-txn-name-cell" data-name="' + _esc(t.name) + '" data-desc="' + _esc(t.description || '') + '" data-showing="name" onclick="_hsToggleTxName(this)">' + _esc(t.name) + '</td>' +
           '<td style="color:' + (isOut ? '#e74c3c' : '#1e9d8b') + '">' + _msLtr((isOut ? '−' : '+') + _msN(amount, 2)) + '</td>' +
-          '<td><button class="ms-kind ' + t.kind + (t.kind !== t.auto_kind ? ' manual' : '') + '" onclick="monaToggleKind(' + i + ')" title="' +
-            (t.kind !== t.auto_kind ? 'נבחר ידנית — לחיצה לשינוי' : 'נקבע אוטומטית — לחיצה לשינוי') + '">' + _MS_KIND_LABEL[t.kind] + '</button></td></tr>';
+          '<td><select class="ms-kind ' + t.kind + (t.kind !== t.auto_kind ? ' manual' : '') + '" onchange="monaSetKind(' + i + ', this.value)" aria-label="סוג ההוצאה" title="' +
+            (t.kind !== t.auto_kind ? 'נבחר ידנית' : 'נקבע אוטומטית') + '">' +
+            (isOut ? ['price', 'cost'] : ['income', 'refund']).map(function(k) {
+              return '<option value="' + k + '"' + (k === t.kind ? ' selected' : '') + '>' + _MS_KIND_LABEL[k] + '</option>';
+            }).join('') + '</select></td></tr>';
       }).join('') + '</tbody></table></div>' +
       '<div class="txn-footer"><span>סה״כ</span><span dir="ltr"><span class="txn-footer-sum neg">' + _msN(totalOut, 2) +
       '</span> / <span class="txn-footer-sum pos">' + _msN(totalIn, 2) + '</span></span></div>';
@@ -9712,10 +9720,10 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     return _monaQueue;
   }
 
-  function monaToggleKind(i) {
+  /** The user picked the expense type of payment `i` from its dropdown. */
+  function monaSetKind(i, next) {
     var t = _monaData && _monaData.transactions[i];
-    if (!t) return;
-    var next = t.out > 0 ? (t.kind === 'price' ? 'cost' : 'price') : (t.kind === 'income' ? 'refund' : 'income');
+    if (!t || next === t.kind) return;
     t.kind = next;   // shown at once
     _monaPaintNumbers();
     _monaPaintCharts();
@@ -11200,7 +11208,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
   window._switchHousingProperty = _switchHousingProperty;
   window._switchMonaTab       = _switchMonaTab;
   window._loadMonaProject     = _loadMonaProject;
-  window.monaToggleKind       = monaToggleKind;
+  window.monaSetKind          = monaSetKind;
   window.monaSaveSettings     = monaSaveSettings;
   window.housingInfoToggle    = housingInfoToggle;
   window.housingInfoClose     = housingInfoClose;

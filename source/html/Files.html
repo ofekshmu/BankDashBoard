@@ -612,6 +612,14 @@ body {
   border-radius: 20px; padding: 2px 10px;
   font-size: .73em; font-weight: 700;
 }
+.hist-row td { padding: 0 14px 9px; border-top: none; }
+.upd-hist { display: flex; flex-direction: column; gap: 3px; font-size: .78em; color: var(--text-muted);
+  background: var(--teal-light); border-radius: 8px; padding: 6px 10px;
+  /* the table scrolls sideways on a phone: keep the note in view instead of spanning the whole table */
+  position: sticky; right: 10px; width: min(620px, calc(100vw - 72px)); box-sizing: border-box; }
+.upd-hist b { color: var(--navy); font-weight: 600; word-break: break-all; }
+.upd-hist .add { color: #2e7d32; font-weight: 700; }
+.upd-hist .rem { color: #b42318; font-weight: 700; }
 .upd-done {
   display: inline-block; margin-inline-start: 8px; vertical-align: middle;
   background: var(--teal-light); color: var(--teal);
@@ -1185,6 +1193,27 @@ function closeProcessSummary() {
 // ── Updated files: compare a newer download with the stored file ─
 let _cmp = null;   // { filename, existing, report }
 
+/** The update history of a stored file, one line per update: which file it was before and what changed. */
+function updateHistoryRow(f) {
+  const h = f.history || [];
+  if (!h.length) return '';
+  const lines = h.map(u => {
+    const when = u.at.slice(8, 10) + '.' + u.at.slice(5, 7) + '.' + u.at.slice(2, 4) + ' ' + u.at.slice(11);
+    const old = `<b>${esc(u.old_name)}</b> (${u.old_rows} פעולות${u.old_tagged ? `, ${u.old_tagged} מתויגות` : ''}` +
+      `${u.old_saved_on ? `, הוכנס ${esc(_fmtDate(u.old_saved_on))}` : ''})`;
+    const parts = [];
+    if (u.added)   parts.push(`<span class="add">+${u.added} חדשות</span>`);
+    if (u.changed) parts.push(`${u.changed} תוקנו`);
+    if (u.removed) parts.push(`<span class="rem">${u.removed} הוסרו</span>`);
+    const diff = parts.length ? parts.join(' · ') : 'ללא שינוי בפעולות';
+    const trash = u.trashed ? ' · הקובץ הקודם בפח' : '';
+    return u.kind === 'replace'
+      ? `<div>⟳ ${esc(when)} · הוחלף: ${old} נמחק והקובץ החדש הוכנס מחדש (${u.new_rows} פעולות)${trash}</div>`
+      : `<div>⟳ ${esc(when)} · עודכן על גבי ${old} → ${u.new_rows} פעולות · ${diff}${trash}</div>`;
+  });
+  return `<tr class="hist-row"><td colspan="8"><div class="upd-hist">${lines.join('')}</div></td></tr>`;
+}
+
 function updatedBadge(f) {
   const u = f.updated;
   if (!u) return '';
@@ -1595,7 +1624,7 @@ function renderDbTable() {
         <button class="db-del-btn" title="מחק קובץ"
           onclick="deleteDbFile(${JSON.stringify(f.name).replace(/"/g,'&quot;')},${JSON.stringify(f.format).replace(/"/g,'&quot;')},${JSON.stringify(f.card||'').replace(/"/g,'&quot;')})">🗑</button>
       </td>
-    </tr>`;
+    </tr>${updateHistoryRow(f)}`;
   }).join('') + '</tbody>';
 
   document.getElementById('db-files-body').innerHTML =

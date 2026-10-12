@@ -370,6 +370,20 @@ def _plan(a, mode):
     return {**base, 'keep': keep, 'add': add, 'delete': delete, 'counts': counts}
 
 
+def group_history(rows):
+    """The recorded updates (DataBase.get_file_update_history, newest first) grouped by the statement they
+    belong to: {'<format>|<card>|<YYYY-MM-DD>': [entry, ...]}; dates and times are made JSON-friendly."""
+    out = {}
+    for r in rows:
+        key = f"{r['format']}|{r['card']}|{str(r['month'])[:10]}"
+        out.setdefault(key, []).append({
+            'at': str(r['at'])[:16].replace('T', ' '), 'kind': r['kind'], 'old_name': r['old_name'],
+            'new_name': r['new_name'], 'old_rows': r['old_rows'], 'old_tagged': r['old_tagged'],
+            'old_saved_on': str(r['old_saved_on'] or '')[:10], 'new_rows': r['new_rows'], 'added': r['added'] or 0,
+            'changed': r['changed'] or 0, 'removed': r['removed'] or 0, 'trashed': bool(r['trash_name'])})
+    return out
+
+
 def _trash_name(name, now):
     return f'{now:%Y%m%d_%H%M%S}_{name}'
 
@@ -422,6 +436,12 @@ def apply(db, reader, name, fmt, folders, mode, existing_name=None, now=None):
         if 'division' in {k for ks in linked.values() for k in ks}:
             raise UpdateError('אי אפשר לדרוס: פעולות בקובץ הקיים מחולקות בין בנק לכרטיס (Devision)')
     now = now or datetime.now()
+    old_copy = os.path.join(folders.verified, plan['format'], plan['old_name'])
+    plan['history'] = {
+        'old_rows': len(a.stored),
+        'old_tagged': sum(1 for r in a.stored if (r.get('category') or NOT_CATEGORIZED) != NOT_CATEGORIZED),
+        'old_saved_on': a.existing.get('last_update'), 'new_rows': plan['counts']['transactions'],
+        'trash_name': _trash_name(plan['old_name'], now) if os.path.isfile(old_copy) else None}
     db.apply_card_file_update(plan)
     warnings = _swap_files(plan, folders, now)
     return {'ok': True, 'counts': plan['counts'], 'warnings': warnings}

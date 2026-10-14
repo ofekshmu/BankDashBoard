@@ -116,10 +116,6 @@ body {
 .page-header h1{font-size:1.85em;font-weight:700;color:var(--navy)}
 
 /* KPI row */
-.kpi-row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:20px}
-.kpi-card{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow-sm);padding:16px 20px;flex:1;min-width:160px}
-.kpi-label{font-size:.78em;color:var(--text-muted);margin-bottom:6px}
-.kpi-value{font-size:1.5em;font-weight:700;color:var(--navy);direction:ltr;text-align:right}
 
 /* Attention section */
 .attn-card{background:#fff8ed;border:1px solid #fde3b0;border-radius:var(--radius);padding:14px 18px;margin-bottom:20px}
@@ -285,7 +281,6 @@ body {
 @media(max-width:600px){
   .main{padding:0 12px 90px !important}
   .page-header{padding-top:72px;padding-right:0 !important}
-  .kpi-row{flex-direction:column}
   .rc-stats-grid{grid-template-columns:1fr 1fr}
   .rc-card-top{flex-wrap:wrap}
   .rc-card-name{flex-basis:100%;white-space:normal}
@@ -313,6 +308,7 @@ body {
 .fc-mini-v{order:-1;font-size:1.35em;font-weight:600;margin-bottom:3px;font-variant-numeric:tabular-nums}
 .fc-mini-s{font-size:.74em;color:#9fb0d0;margin-top:2px}
 .fc-mini.wide{grid-column:1/-1;background:rgba(30,157,139,.16)}
+.fc-mini.full{grid-column:1/-1}
 .fc-controls{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow-sm);padding:14px 18px;margin-top:14px}
 .fc-ctl{display:flex;flex-direction:column;gap:4px}
 .fc-ctl label{font-size:.76em;color:var(--text-muted)}
@@ -468,11 +464,6 @@ body {
   </div>
 
   <div id="rc-real-content">
-    <div class="kpi-row">
-      <div class="kpi-card"><div class="kpi-label">חיובים חוזרים פעילים</div><div class="kpi-value" id="kpi-count">—</div></div>
-      <div class="kpi-card"><div class="kpi-label">טעונים תשומת לב</div><div class="kpi-value" id="kpi-attn">—</div></div>
-    </div>
-
     <div class="attn-card" id="attn-card" style="display:none">
       <div class="attn-title">⚠ טעונים תשומת לב</div>
       <div id="attn-list"></div>
@@ -654,13 +645,10 @@ function statusLabel(s) {
 }
 
 function renderKpis() {
-  document.getElementById('kpi-count').textContent = state.groups.length;
-
   // Only bills whose status *just* turned yellow/red since the last regen —
   // one flagged for months on end isn't re-shown every time, to keep this
   // list a signal of what's new, not a standing list of everything imperfect.
   var statusChanged = (state.historyAlerts && state.historyAlerts.status_changed) || [];
-  document.getElementById('kpi-attn').textContent = statusChanged.length;
 
   var attnCard = document.getElementById('attn-card');
   var attnList = document.getElementById('attn-list');
@@ -1573,6 +1561,7 @@ function fcRender() {
     ' — כולל החיובים שמגיעים גם אחרי המשכורת. ' + (sc.tight_date ? 'הנקודה הצפופה: ' + sc.tight_name + ' ב-' + fcShortDate(sc.tight_date) + '. ' : '') +
     'תרחיש מחמיר = כרטיס בחודש הגבוה, משכורת בתאריך המאוחר ובסכום הנמוך; ממוצע = ממוצעי 6 החודשים. כרית ביטחון מופחתת מהסכום. ' + FC_TIP_EST;
   var tipFixed = 'החודש כולו, מה-1 ועד סופו, בין אם כבר שולם ובין אם לא: ' + nAll + ' חיובים חוזרים (' + nBank + ' מהבנק, ' + nCard + ' בכרטיס). לא כולל הערכה של חיובי כרטיס האשראי עצמם.';
+  var tipCount = 'מספר החיובים החוזרים הפעילים (שכירות נספרת כחיוב אחד): ' + nBank + ' משולמים מהבנק ו-' + nCard + ' בכרטיס אשראי.';
   var tipBalance = 'היתרה האחרונה בקובץ הבנק, נכון ל-' + fcShortDate(d.as_of) + '.' +
     (Math.round(sc.balance_now) !== Math.round(d.balance) ? ' אחרי הפעולות שהונחו כבוצעות (עדיין לא בקבצים) היא ' + fcPlain(sc.balance_now) + ' — ממנה מתחיל החישוב.' : '');
   var tipCharges = 'סכום כל החיובים המשוערים (כרטיסים, שכירות וחיובים חוזרים) עד קו המשכורת הראשון בגרף, ב-' + fcShortDate(sc.horizon) + ': ' + charges.length + ' חיובים, כולל חיובים שהונחו כבוצעים.';
@@ -1591,9 +1580,10 @@ function fcRender() {
         '<label class="fc-buf">כרית <input type="number" min="0" inputmode="numeric" value="' + fcParams.buffer + '" placeholder="0" onchange="fcSet(\'buffer\', this.value)">₪</label>' +
         '<button class="fc-reset" onclick="fcReset()" title="איפוס">↺</button></div>' +
     '</div><div class="fc-hero-side">' +
-      kpi('חיוב חודשי חוזר', fcMoney(fixed.total), nAll + ' חיובים', tipFixed, true).replace('class="fc-mini"', 'class="fc-mini wide"') +
+      kpi('חיוב חודשי חוזר', fcMoney(fixed.total), 'החודש כולו', tipFixed, true).replace('class="fc-mini"', 'class="fc-mini wide"') +
+      kpi('סה"כ חיובים חוזרים', nAll, 'מהבנק ' + nBank + ' · בכרטיס ' + nCard, tipCount, false) +
       kpi('יתרה בחשבון', fcMoney(v.balance), 'ב-' + fcShortDate(d.as_of), tipBalance, false) +
-      kpi('חיובים עד המשכורת', fcMoney(sc.totals.all), charges.length + ' חיובים', tipCharges, true) +
+      kpi('חיובים עד המשכורת', fcMoney(sc.totals.all), charges.length + ' חיובים', tipCharges, true).replace('class="fc-mini"', 'class="fc-mini full"') +
     '</div></div>';
 
   var order = ['card', 'rent', 'recurring'];

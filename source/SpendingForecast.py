@@ -89,6 +89,11 @@ def _is_current_month(d: _date, as_of: _date) -> bool:
     return d.year == as_of.year and d.month == as_of.month
 
 
+def _is_late(day: int, as_of: _date, paid: bool) -> bool:
+    """True when this month's usual day (`day`) is already behind as_of and the charge was not paid."""
+    return not paid and _clamp_day(as_of.year, as_of.month, day) <= as_of
+
+
 def _due_now(today: _date, as_of: _date, horizon: _date) -> _date:
     """The date given to a charge that is late (its usual day passed unpaid): right now."""
     return min(max(today, as_of), horizon)
@@ -214,7 +219,7 @@ def build_card_events(profiles: list, all_rows: list, as_of: _date, horizon: _da
                 rows = held_by_month[mk]
                 held = round(sum(r['amount'] for r in rows), 2)
                 events.append(_card_event(p, min(r['date'] for r in rows), max(base, held), held, base, False))
-            elif is_cur and not p['charged_this_month'] and usual <= as_of:
+            elif is_cur and _is_late(p['day'], as_of, p['charged_this_month']):
                 events.append(_card_event(p, _due_now(today, as_of, horizon), base, 0, base, True))
             elif as_of < usual <= horizon and not (is_cur and p['charged_this_month']):
                 events.append(_card_event(p, usual, base, 0, base, False))
@@ -283,13 +288,15 @@ def build_rent_events(profile: dict, as_of: _date, today: _date, horizon: _date)
         if not _is_current_month(d, as_of):
             _ev(d, amount, False)
     remaining = amount - paid
-    if remaining > 0 and paid < amount * RENT_PAID_FRACTION:
-        usual = _clamp_day(as_of.year, as_of.month, profile['day'])
-        if usual > as_of:
+    paid_in_full = paid >= amount * RENT_PAID_FRACTION
+    if remaining > 0 and not paid_in_full:
+        if _is_late(profile['day'], as_of, paid_in_full):
+            if as_of <= horizon:
+                _ev(_due_now(today, as_of, horizon), remaining, True)
+        else:
+            usual = _clamp_day(as_of.year, as_of.month, profile['day'])
             if usual <= horizon:
                 _ev(usual, remaining, False)
-        elif as_of <= horizon:
-            _ev(_due_now(today, as_of, horizon), remaining, True)
     return events
 
 
@@ -329,8 +336,7 @@ def build_recurring_events(groups: list, as_of: _date, today: _date, horizon: _d
                 continue
             events.append({'date': d, 'name': g.get('name'), 'amount': round(amount, 2), 'kind': 'recurring',
                            'late': False, 'group_key': g.get('group_key')})
-        usual_this_month = _clamp_day(as_of.year, as_of.month, day)
-        if usual_this_month <= as_of and not paid_this_month and as_of <= horizon:
+        if _is_late(day, as_of, paid_this_month) and as_of <= horizon:
             events.append({'date': _due_now(today, as_of, horizon), 'name': g.get('name'),
                            'amount': round(amount, 2), 'kind': 'recurring', 'late': True,
                            'group_key': g.get('group_key')})

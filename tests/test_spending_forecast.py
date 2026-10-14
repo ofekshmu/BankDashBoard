@@ -211,7 +211,8 @@ def test_forecast_scenarios_are_both_computed_and_harsh_is_not_looser():
     assert avg['free'] == 30000 - 380 - 5880 - 3650
     assert mx['free'] == 30000 - 480 - 5880 - 3900 and mx['free'] < avg['free']
     assert avg['totals'] == {'card': 3650, 'recurring': 380, 'rent': 5880, 'all': 9910, 'known': 0, 'estimated': 9910}
-    assert [e['name'] for e in avg['events']][-1] == 'כרטיס 4603'
+    charges = [e['name'] for e in avg['events'] if e['kind'] != 'income']
+    assert charges[:3] == ['הראל ביטוח', 'שכירות + ועד בית', 'כרטיס 4603']
     assert not any(e['assumed'] for e in avg['events'])      # everything is still ahead of today
 
 
@@ -222,6 +223,19 @@ def test_monthly_recurring_total_leaves_out_card_paid_stopped_and_rent():
     assert monthly_recurring_total(groups, 'max') == {'total': 480, 'count': 1}
     both = compute_both(_inputs(groups=groups), AS_OF)
     assert both['scenarios']['avg']['fixed_monthly'] == {'recurring': 380, 'count': 1, 'rent': 5880, 'total': 6260}
+
+
+def test_the_chart_looks_a_month_ahead_and_the_free_amount_stops_at_the_salary():
+    f = compute_forecast(_inputs(), AS_OF, 'avg')
+    assert f['chart_end'] == date(2026, 11, 14) and f['horizon'] == date(2026, 11, 10)
+    names = [(e['date'], e['kind'], e['after_salary']) for e in f['events']]
+    assert (date(2026, 11, 10), 'income', False) in names                 # the salary itself is on the chart
+    assert any(e['after_salary'] for e in f['events']) or f['events'][-1]['date'] <= f['horizon']
+    # nothing after the salary is part of the totals or the lowest point
+    assert f['totals']['all'] == sum(e['amount'] for e in f['events'] if not e['after_salary'] and e['kind'] != 'income')
+    # a late-month horizon still shows a full month: salary far away, chart_end earlier than horizon
+    far = compute_forecast(_inputs(salary_rows=_salary(day=28) + _salary(day=28, months=[10])), AS_OF, 'avg')
+    assert far['horizon'] == date(2026, 11, 28) and far['chart_end'] == date(2026, 11, 14)
 
 
 def test_totals_separate_what_is_known_from_what_is_estimated():

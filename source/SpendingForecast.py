@@ -74,6 +74,12 @@ def _months_back(d: _date, n: int) -> str:
     return month_key(_add_months(d, -n))
 
 
+def _plus_month(d: _date) -> _date:
+    """The same day of the next month (the month's last day when it has fewer days)."""
+    nxt = _add_months(d, 1)
+    return _clamp_day(nxt.year, nxt.month, d.day)
+
+
 def _history_start(as_of: _date) -> str:
     """'YYYY-MM' key of the first month of the history window (HISTORY_MONTHS months before as_of's month)."""
     return _months_back(as_of, HISTORY_MONTHS)
@@ -489,18 +495,21 @@ def monthly_recurring_total(groups: list, mode: str) -> dict:
 
 # ── The forecast ────────────────────────────────────────────────────────────────
 
-def compute_free_amount(balance: float, events: list) -> dict:
+def compute_free_amount(balance: float, events: list, horizon: _date = None) -> dict:
     """
     Walks the events in date order (money out are positive amounts, salaries negative) and returns the
     lowest balance reached (spending is assumed to happen right now) — that is the free amount.
-    Each event gets 'balance_after' (the balance with nothing else spent).
+    Each event gets 'balance_after' (the balance with nothing else spent), also after the salary.
+    With `horizon` (the next salary's date) only the stretch up to it counts toward the lowest point:
+    events after it, and the salary arriving on it, lie beyond the money being measured.
     """
     running = balance
     lowest, lowest_at = balance, None
     for ev in sorted(events, key=lambda e: (e['date'], -e['amount'])):
         running -= ev['amount']
         ev['balance_after'] = round(running, 2)
-        if running < lowest:
+        counts = horizon is None or (ev['date'] <= horizon and not (ev['kind'] == 'income' and not ev.get('assumed')))
+        if counts and running < lowest:
             lowest, lowest_at = running, ev
     return {
         'free': round(lowest, 2),
@@ -528,18 +537,22 @@ def compute_forecast(inputs: dict, today: _date, mode: str = 'max') -> dict:
                 'notes': ['לא זוהתה משכורת חוזרת (קטגוריית "משכורת", לפחות 3 חודשים ברצף) — תייג את המשכורת כדי לחשב.']}
 
     horizon = salary['next_date']
+    chart_end = _plus_month(today)           # the chart always looks a month ahead of today
+    window_end = max(horizon, chart_end)
     card_rows = inputs.get('card_rows') or []
     profiles = build_card_profiles(card_rows, as_of)
-    card_events = build_card_events(profiles, card_rows, as_of, horizon, mode)
+    card_events = build_card_events(profiles, card_rows, as_of, window_end, mode)
     rent = build_rent_profile(inputs.get('rent_rows') or [], as_of)
-    rent_events = build_rent_events(rent, as_of, horizon)
-    rec_events, skipped = build_recurring_events(inputs.get('groups') or [], as_of, horizon, mode)
+    rent_events = build_rent_events(rent, as_of, window_end)
+    rec_events, skipped = build_recurring_events(inputs.get('groups') or [], as_of, window_end, mode)
     income_events = [{'date': a['date'], 'name': f'משכורת (יום {a["day"]})', 'amount': -a['amount'], 'kind': 'income'}
-                     for a in salary['assumed'] if a['date'] <= horizon]
+                     for a in salary['assumed'] + [u for u in salary['upcoming'] if u['date'] <= window_end]]
     events = card_events + rent_events + rec_events + income_events
     for e in events:
         e['assumed'] = e['date'] <= today
-    result = compute_free_amount(balance, events)
+        e['after_salary'] = e['date'] > horizon
+    result = compute_free_amount(balance, events, horizon)
+    to_salary = [e for e in events if not e['after_salary']]   # what the free amount is measured against
 
     stale_days = (today - as_of).days
     if stale_days > STALE_BALANCE_DAYS:
@@ -550,10 +563,10 @@ def compute_forecast(inputs: dict, today: _date, mode: str = 'max') -> dict:
     if not rent:
         notes.append('לא זוהתה שכירות חוזרת (קטגוריית "שכירות", לפחות 3 חודשים ברצף) — השכירות אינה נכללת בחישוב.')
 
-    totals = {k: round(sum(e['amount'] for e in events if e['kind'] == k), 2) for k in ('card', 'recurring', 'rent')}
+    totals = {k: round(sum(e['amount'] for e in to_salary if e['kind'] == k), 2) for k in ('card', 'recurring', 'rent')}
     totals['all'] = round(sum(totals.values()), 2)
     # what is known for sure (charges a card already holds) versus what is an estimate (everything projected)
-    totals['known'] = round(sum(e['detail']['held'] for e in events if e['kind'] == 'card'), 2)
+    totals['known'] = round(sum(e['detail']['held'] for e in to_salary if e['kind'] == 'card'), 2)
     totals['estimated'] = round(totals['all'] - totals['known'], 2)
     recurring = monthly_recurring_total(inputs.get('groups') or [], mode)
     fixed_monthly = {'recurring': recurring['total'], 'count': recurring['count'],
@@ -562,7 +575,7 @@ def compute_forecast(inputs: dict, today: _date, mode: str = 'max') -> dict:
         'ok': True,
         'mode': mode,
         'salary': salary,
-        'horizon': horizon, 'days_left': max(1, (horizon - today).days),
+        'horizon': horizon, 'chart_end': chart_end, 'days_left': max(1, (horizon - today).days),
         'cards': [{k: v for k, v in p.items() if k != 'held'} for p in profiles],
         'rent': rent,
         'events': sorted(events, key=lambda e: (e['date'], -e['amount'])),

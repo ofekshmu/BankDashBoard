@@ -300,17 +300,17 @@ body {
 .fc{margin-bottom:26px}
 .fc-hero{background:linear-gradient(135deg,#0f1627 0%,#1a2e52 100%);color:#fff;border-radius:var(--radius);padding:26px 28px;box-shadow:var(--shadow-sm);display:flex;gap:30px;align-items:center;flex-wrap:wrap}
 .fc-hero-main{flex:1.2;min-width:240px}
-.fc-eyebrow{font-size:.82em;letter-spacing:.04em;color:#9fb0d0}
-.fc-big{font-size:3.1em;font-weight:700;line-height:1.1;margin:6px 0 4px;font-variant-numeric:tabular-nums}
+.fc-eyebrow{font-size:.85em;letter-spacing:.04em;color:#9fb0d0}
+.fc-big{font-size:3.1em;font-weight:700;line-height:1.1;margin:0 0 6px;font-variant-numeric:tabular-nums}
 .fc-big.neg{color:#ff8a7a}
 .fc-sub{color:#c6d2ea;font-size:.95em}
 .fc-chip{display:inline-block;margin-top:12px;padding:4px 12px;border-radius:99px;font-size:.82em;font-weight:600;background:rgba(46,204,113,.18);color:#6ee7a0}
 .fc-chip.warn{background:rgba(240,180,41,.18);color:#f7cd6a}
 .fc-chip.bad{background:rgba(231,76,60,.22);color:#ff9a8d}
 .fc-hero-side{flex:1;min-width:240px;display:grid;grid-template-columns:1fr 1fr;gap:14px}
-.fc-mini{background:rgba(255,255,255,.07);border-radius:var(--radius-sm);padding:12px 14px}
+.fc-mini{display:flex;flex-direction:column;background:rgba(255,255,255,.07);border-radius:var(--radius-sm);padding:12px 14px}
 .fc-mini-l{font-size:.78em;color:#9fb0d0}
-.fc-mini-v{font-size:1.25em;font-weight:600;margin-top:2px;font-variant-numeric:tabular-nums}
+.fc-mini-v{order:-1;font-size:1.35em;font-weight:600;margin-bottom:3px;font-variant-numeric:tabular-nums}
 .fc-mini-s{font-size:.74em;color:#9fb0d0;margin-top:2px}
 .fc-controls{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow-sm);padding:14px 18px;margin-top:14px}
 .fc-ctl{display:flex;flex-direction:column;gap:4px}
@@ -353,13 +353,15 @@ body {
 .fc-i:hover::after,.fc-i:focus::after{display:block}
 .fc-asm{display:inline-block;margin-right:6px;padding:1px 7px;border-radius:99px;background:#eef1f7;color:var(--text-sub);font-size:.72em}
 .fc-ev.inc .fc-ev-a{color:var(--teal-dark)}
+.fc-ev.later{opacity:.65}
+.fc-later-title{margin:12px 0 2px;padding-top:10px;border-top:2px dashed var(--border);font-size:.8em;color:var(--text-muted)}
 .fc-sub-rule{font-size:.8em;color:var(--text-muted);padding:2px 0 8px}
 .fc-chart{overflow:visible}
 .fc-chart svg{height:auto}
 
 .fc-est{display:inline-block;margin-right:6px;padding:1px 7px;border-radius:99px;background:rgba(240,180,41,.2);color:#b7791f;font-size:.72em;font-weight:600;vertical-align:middle}
 .fc-hero .fc-est{background:rgba(247,205,106,.2);color:#f7cd6a}
-.fc-mini.wide{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;gap:12px;background:rgba(30,157,139,.16)}
+.fc-mini.wide{grid-column:1/-1;background:rgba(30,157,139,.16)}
 .fc-det{margin:0 0 8px}
 .fc-det summary{cursor:pointer;color:var(--teal-dark);font-size:.8em;padding:2px 0;list-style:none}
 .fc-det summary::before{content:"▸ ";display:inline-block;transition:transform .15s}
@@ -1357,32 +1359,34 @@ function fcView() {
            daily: free > 0 ? free / sc.days_left : 0, events: sc.events };
 }
 
-// Balance over time. The green band is the money free to spend right now: the stretch between the
-// zero line (plus the safety buffer) and the lowest point the balance reaches before the salary.
+// Balance over time, always a month ahead of today. The green band is the money free to spend right now:
+// the stretch between the zero line (plus the safety buffer) and the lowest point the balance reaches
+// before the next salary. Every salary of the month is marked with a vertical line.
 function fcChartSvg(d, v, width) {
-  var evs = v.events, sc = v.sc;
+  var sc = v.sc, evs = v.events;
   var W = Math.max(320, width), H = 250, L = 60, R = 14, T = 44, B = 30;
-  var t0 = new Date(d.today).getTime(), t1 = new Date(sc.horizon).getTime();
+  var t0 = new Date(d.today).getTime(), t1 = new Date(sc.chart_end).getTime(), tH = new Date(sc.horizon).getTime();
   var span = Math.max(t1 - t0, 86400000);
+  var shown = evs.filter(function(e) { return new Date(e.date).getTime() <= t1; });
   var pts = [{ t: t0, b: v.balance }];
-  evs.forEach(function(e) { pts.push({ t: Math.max(new Date(e.date).getTime(), t0), b: e.balance_after, e: e }); });
+  shown.forEach(function(e) { pts.push({ t: Math.max(new Date(e.date).getTime(), t0), b: e.balance_after, e: e }); });
   var hi = Math.max.apply(null, pts.map(function(p) { return p.b; })), lo = Math.min(0, v.lowest);
   var padV = (hi - lo) * 0.06 || 1; hi += padV; if (lo < 0) lo -= padV;
   function X(t) { return L + (W - L - R) * (t - t0) / span; }
   function Y(b) { return T + (H - T - B) * (1 - (b - lo) / (hi - lo)); }
-  var x0 = X(t0), x1 = X(t1), zero = Y(0), low = Y(v.lowest), out = '';
+  var x0 = X(t0), x1 = X(t1), xH = X(Math.min(tH, t1)), zero = Y(0), low = Y(v.lowest), out = '';
 
-  // free band (or the missing amount, in red)
+  // free band (or the missing amount, in red) — from today to the next salary
   if (v.free > 0) {
     var top = Y(v.lowest), bot = Y(v.buffer);
-    out += '<rect x="' + x0 + '" y="' + top + '" width="' + (x1 - x0) + '" height="' + Math.max(bot - top, 0) + '" fill="#2ecc71" opacity=".2"/>';
-    out += '<text x="' + ((x0 + x1) / 2) + '" y="' + (top + (bot - top) / 2 + 4) + '" text-anchor="middle" font-size="13" font-weight="700" fill="#1b7f4a">פנוי לבזבוז (משוער) · ' + fcPlain(v.free) + '</text>';
+    out += '<rect x="' + x0 + '" y="' + top + '" width="' + (xH - x0) + '" height="' + Math.max(bot - top, 0) + '" fill="#2ecc71" opacity=".2"/>';
+    out += '<text x="' + ((x0 + xH) / 2) + '" y="' + (top + (bot - top) / 2 + 4) + '" text-anchor="middle" font-size="13" font-weight="700" fill="#1b7f4a">פנוי לבזבוז (משוער) · ' + fcPlain(v.free) + '</text>';
   } else {
-    out += '<rect x="' + x0 + '" y="' + zero + '" width="' + (x1 - x0) + '" height="' + Math.max(low - zero, 0) + '" fill="#e74c3c" opacity=".16"/>';
-    out += '<text x="' + ((x0 + x1) / 2) + '" y="' + (zero + (low - zero) / 2 + 4) + '" text-anchor="middle" font-size="13" font-weight="700" fill="#c0392b">חסר · ' + fcPlain(-v.free) + '</text>';
+    out += '<rect x="' + x0 + '" y="' + zero + '" width="' + (xH - x0) + '" height="' + Math.max(low - zero, 0) + '" fill="#e74c3c" opacity=".16"/>';
+    out += '<text x="' + ((x0 + xH) / 2) + '" y="' + (zero + (low - zero) / 2 + 4) + '" text-anchor="middle" font-size="13" font-weight="700" fill="#c0392b">חסר · ' + fcPlain(-v.free) + '</text>';
   }
   if (v.buffer > 0 && v.free > 0) {
-    out += '<rect x="' + x0 + '" y="' + Y(v.buffer) + '" width="' + (x1 - x0) + '" height="' + Math.max(zero - Y(v.buffer), 0) + '" fill="#8895ad" opacity=".22"/>';
+    out += '<rect x="' + x0 + '" y="' + Y(v.buffer) + '" width="' + (xH - x0) + '" height="' + Math.max(zero - Y(v.buffer), 0) + '" fill="#8895ad" opacity=".22"/>';
     out += '<text x="' + (x0 + 6) + '" y="' + (zero - 4) + '" font-size="10" fill="#5d6b84">כרית ביטחון ' + fcPlain(v.buffer) + '</text>';
   }
   // zero line + level labels
@@ -1398,29 +1402,38 @@ function fcChartSvg(d, v, width) {
   out += '<path d="' + path + '" fill="none" stroke="#1e9d8b" stroke-width="2.4" stroke-linejoin="round"/>';
   pts.slice(1).forEach(function(p) {
     var e = p.e;
-    out += '<circle cx="' + X(p.t) + '" cy="' + Y(p.b) + '" r="4" fill="' + (p.b < 0 ? '#e74c3c' : FC_COLORS[e.kind]) + '" stroke="#fff" stroke-width="1.2"><title>' + esc(e.name) + ' · ' + fcShortDate(e.date) + ' · ' + fcPlain(e.kind === 'income' ? -e.amount : -e.amount) + '</title></circle>';
+    out += '<circle cx="' + X(p.t) + '" cy="' + Y(p.b) + '" r="4" fill="' + (p.b < 0 ? '#e74c3c' : FC_COLORS[e.kind]) + '" stroke="#fff" stroke-width="1.2"><title>' + esc(e.name) + ' · ' + fcShortDate(e.date) + ' · ' + fcPlain(-e.amount) + '</title></circle>';
   });
   out += '<circle cx="' + x0 + '" cy="' + Y(v.balance) + '" r="5" fill="#fff" stroke="#1e2a4a" stroke-width="2"/>';
 
-  // salary entry: a clear vertical marker with its date and amount
-  out += '<line x1="' + x1 + '" x2="' + x1 + '" y1="' + (T - 4) + '" y2="' + (H - B) + '" stroke="#2e9e5b" stroke-width="2"/>';
-  var label = 'כניסת משכורת משוערת · ' + fcShortDate(sc.horizon) + ' · ' + fcPlain(sc.salary.next_amount, true);
-  var lw = label.length * 6.4 + 18, lx = Math.min(Math.max(x1 - lw, L), W - R - lw);
-  out += '<rect x="' + lx + '" y="6" width="' + lw + '" height="24" rx="12" fill="#2e9e5b"/>';
-  out += '<text x="' + (lx + lw / 2) + '" y="22" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">' + label + '</text>';
-  out += '<polygon points="' + (x1 - 5) + ',' + (T - 12) + ' ' + (x1 + 5) + ',' + (T - 12) + ' ' + x1 + ',' + (T - 4) + '" fill="#2e9e5b"/>';
+  // salary entries: a clear vertical marker with date and amount for each one inside the month
+  var salaries = shown.filter(function(e) { return e.kind === 'income' && !e.assumed; });
+  salaries.forEach(function(e, k) {
+    var x = X(new Date(e.date).getTime());
+    out += '<line x1="' + x + '" x2="' + x + '" y1="' + (T - 4) + '" y2="' + (H - B) + '" stroke="#2e9e5b" stroke-width="2"/>';
+    var label = (k === 0 ? 'כניסת משכורת משוערת · ' : 'משכורת · ') + fcShortDate(e.date) + ' · ' + fcPlain(-e.amount, true);
+    var lw = label.length * 6.4 + 18, lx = Math.min(Math.max(x - lw, L), W - R - lw), ly = k % 2 === 0 ? 6 : 6 + 0;
+    if (k > 0) { lx = Math.min(Math.max(x - lw / 2, L), W - R - lw); }
+    out += '<rect x="' + lx + '" y="' + ly + '" width="' + lw + '" height="24" rx="12" fill="' + (k === 0 ? '#2e9e5b' : '#6fbf8f') + '"/>';
+    out += '<text x="' + (lx + lw / 2) + '" y="' + (ly + 16) + '" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">' + label + '</text>';
+    out += '<polygon points="' + (x - 5) + ',' + (T - 12) + ' ' + (x + 5) + ',' + (T - 12) + ' ' + x + ',' + (T - 4) + '" fill="#2e9e5b"/>';
+  });
+  if (tH > t1) {   // the next salary is further than the chart looks
+    var far = 'משכורת ב-' + fcShortDate(sc.horizon) + ' ›';
+    out += '<text x="' + (W - R) + '" y="22" text-anchor="end" font-size="12" font-weight="700" fill="#2e9e5b">' + far + '</text>';
+  }
 
   // time axis
   out += '<text x="' + x0 + '" y="' + (H - 8) + '" text-anchor="start" font-size="11" fill="#555">היום ' + fcShortDate(d.today) + '</text>';
-  out += '<text x="' + x1 + '" y="' + (H - 8) + '" text-anchor="end" font-size="11" fill="#2e9e5b">' + fcShortDate(sc.horizon) + '</text>';
-  return '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="יתרה לאורך הזמן עד כניסת המשכורת">' + out + '</svg>';
+  out += '<text x="' + x1 + '" y="' + (H - 8) + '" text-anchor="end" font-size="11" fill="#555">' + fcShortDate(sc.chart_end) + '</text>';
+  return '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="יתרה לחודש הקרוב">' + out + '</svg>';
 }
 
 // Everything projected is an estimate; only a card charge the card already holds is known.
 function fcIsEstimate(e) { return !(e.kind === 'card' && e.detail && e.detail.held && e.detail.held >= e.detail.base); }
 
 function fcEventDetail(e, mode) {
-  if (e.kind === 'income') return 'הונחה כנכנסת במועדה';
+  if (e.kind === 'income') return e.assumed ? 'הונחה כנכנסת במועדה' : 'משכורת צפויה';
   if (e.kind === 'card') {
     if (e.detail.held) return 'חיוב ידוע בכרטיס' + (e.detail.held < e.detail.base ? ' + הערכה' : '');
     return mode === 'max' ? 'החודש הגבוה ביותר' : 'ממוצע חודשי';
@@ -1441,13 +1454,13 @@ function fcRender() {
   var chipTxt = neg ? 'חסרים ' + fcMoney(-free) + ' כדי לא להיכנס למינוס' : (chipCls ? 'מצב צפוף — כדאי להיזהר' : 'מצב תקין');
   var tight = sc.tight_date ? 'הנקודה הצפופה: ' + esc(sc.tight_name) + ' · ' + fcShortDate(sc.tight_date) : 'אין חיובים לפני המשכורת';
   var dayLabel = sc.days_left === 1 ? 'יום אחד' : sc.days_left + ' ימים';
-  var charges = v.events.filter(function(e) { return e.kind !== 'income'; });
+  var charges = v.events.filter(function(e) { return e.kind !== 'income' && !e.after_salary; });
   var fixed = sc.fixed_monthly;
 
   var hero =
     '<div class="fc-hero"><div class="fc-hero-main">' +
-      '<div class="fc-eyebrow">פנוי לבזבוז עד המשכורת הבאה · ' + (mode === 'max' ? 'תרחיש מחמיר' : 'תרחיש ממוצע') + fcEst(FC_TIP_EST) + '</div>' +
       '<div class="fc-big' + (neg ? ' neg' : '') + '">' + fcMoney(free) + '</div>' +
+      '<div class="fc-eyebrow">פנוי לבזבוז עד המשכורת הבאה · ' + (mode === 'max' ? 'תרחיש מחמיר' : 'תרחיש ממוצע') + fcEst(FC_TIP_EST) + '</div>' +
       '<div class="fc-sub">עד ' + fcShortDate(sc.horizon) + ' · ' + dayLabel + (free > 0 ? ' · כ-' + fcMoney(v.daily) + ' ליום' : '') + '</div>' +
       '<span class="fc-chip ' + chipCls + '">' + chipTxt + '</span>' +
     '</div><div class="fc-hero-side">' +
@@ -1455,7 +1468,7 @@ function fcRender() {
       '<div class="fc-mini"><div class="fc-mini-l">חיובים עד המשכורת' + fcEst(FC_TIP_TOTAL) + '</div><div class="fc-mini-v">' + fcMoney(sc.totals.all) + '</div><div class="fc-mini-s">ידוע ' + fcMoney(sc.totals.known) + ' · משוער ' + fcMoney(sc.totals.estimated) + '</div></div>' +
       '<div class="fc-mini"><div class="fc-mini-l">משכורת הבאה' + fcEst('משכורת שנקבעה לפי ההפקדות הקודמות: ' + (mode === 'max' ? 'הסכום הנמוך והיום המאוחר שנקלטו.' : 'הסכום והיום הממוצעים.')) + '</div><div class="fc-mini-v">' + fcMoney(sal.next_amount) + '</div><div class="fc-mini-s">ב-' + fcShortDate(sc.horizon) + '</div></div>' +
       '<div class="fc-mini"><div class="fc-mini-l">הנקודה הנמוכה' + fcEst() + '</div><div class="fc-mini-v">' + fcMoney(v.lowest) + '</div><div class="fc-mini-s">' + tight + '</div></div>' +
-      '<div class="fc-mini wide"><div><div class="fc-mini-l">חיוב חודשי חוזר (ללא חיובי כרטיס אשראי)' + fcEst(FC_TIP_FIXED) + '</div><div class="fc-mini-s">' + fixed.count + ' חיובים חוזרים מהבנק + שכירות ' + fcMoney(fixed.rent) + '</div></div><div class="fc-mini-v">' + fcMoney(fixed.total) + '</div></div>' +
+      '<div class="fc-mini wide"><div class="fc-mini-l">חיוב חודשי חוזר (ללא חיובי כרטיס אשראי)' + fcEst(FC_TIP_FIXED) + '</div><div class="fc-mini-v">' + fcMoney(fixed.total) + '</div><div class="fc-mini-s">' + fixed.count + ' חיובים חוזרים מהבנק + שכירות ' + fcMoney(fixed.rent) + '</div></div>' +
     '</div></div>';
 
   var controls =
@@ -1469,18 +1482,23 @@ function fcRender() {
   var split = order.map(function(k) { return sc.totals[k] ? '<i style="width:' + (100 * sc.totals[k] / Math.max(sc.totals.all, 1)) + '%;background:' + FC_COLORS[k] + '"></i>' : ''; }).join('');
   var legend = order.map(function(k) { return '<span><b style="background:' + FC_COLORS[k] + '"></b>' + FC_LABELS[k] + ' ' + fcMoney(sc.totals[k]) + '</span>'; }).join('');
 
-  var rows = v.events.map(function(e) {
+  function fcRow(e, later) {
     var inc = e.kind === 'income';
-    return '<div class="fc-ev' + (inc ? ' inc' : '') + '"><span class="fc-ev-d">' + fcShortDate(e.date) + '</span>' +
+    return '<div class="fc-ev' + (inc ? ' inc' : '') + (later ? ' later' : '') + '"><span class="fc-ev-d">' + fcShortDate(e.date) + '</span>' +
       '<span class="fc-ev-n"><i class="fc-dot" style="background:' + FC_COLORS[e.kind] + '"></i>' + esc(e.name) +
         (e.detail && e.detail.auto ? fcInfo(FC_TIP_AUTO) : '') +
         (e.assumed ? '<span class="fc-asm">הונח כבוצע</span>' + fcInfo(FC_TIP_ASSUMED) : '') +
-        (fcIsEstimate(e) ? '<span class="fc-est">משוער</span>' : '') +
+        (!inc && fcIsEstimate(e) ? '<span class="fc-est">משוער</span>' : '') +
         '<small>' + esc(fcEventDetail(e, mode)) + '</small></span>' +
       '<span class="fc-ev-a">' + fcMoney(-e.amount, true) + '</span>' +
       '<span class="fc-ev-b' + (e.balance_after - v.buffer < 0 ? ' neg' : '') + '">' + fcMoney(e.balance_after) + '</span></div>';
-  }).join('');
+  }
+  var isNextSalary = function(e) { return e.kind === 'income' && !e.assumed && e.date === sc.horizon; };
+  var upto = v.events.filter(function(e) { return !e.after_salary && !isNextSalary(e); });
+  var later = v.events.filter(function(e) { return e.after_salary || isNextSalary(e); }).filter(function(e) { return !isNextSalary(e); });
+  var rows = upto.map(function(e) { return fcRow(e, false); }).join('');
   rows += '<div class="fc-ev sal inc"><span class="fc-ev-d">' + fcShortDate(sc.horizon) + '</span><span class="fc-ev-n"><i class="fc-dot" style="background:' + FC_COLORS.income + '"></i>כניסת משכורת — סוף החישוב</span><span class="fc-ev-a">' + fcMoney(sal.next_amount, true) + '</span><span class="fc-ev-b"></span></div>';
+  if (later.length) rows += '<div class="fc-later-title">אחרי המשכורת — עד סוף החודש הקרוב</div>' + later.map(function(e) { return fcRow(e, true); }).join('');
 
   var chartW = (document.getElementById('fc-body').clientWidth || 640) * (window.innerWidth > 760 ? 0.58 : 0.9);
   var timeline =

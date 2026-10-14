@@ -235,7 +235,10 @@ computed live per request (balance changes with every bank file); the recurring 
 - **Both scenarios in one answer** (`compute_both` → `scenarios.max` harsh / `scenarios.avg`): switching the scenario and the buffer is view-only in the page
   (`fcView`: free = lowest_balance − buffer); no request is made.
 - **Free amount** = lowest balance reached walking the events in date order before the next salary (spending assumed to happen now).
-  The chart shades that stretch (zero line/buffer → lowest point) green and marks the salary entry with a vertical line + pill.
+  The chart **always shows a month ahead of today** (`chart_end` = same day next month, `_plus_month`), whatever the salary date: events and the salaries of the month are
+  computed to `max(horizon, chart_end)`, `after_salary` marks what lies beyond the next salary (kept out of the totals and the lowest point — `compute_free_amount(..., horizon)`).
+  It shades the free stretch (zero line/buffer → lowest point, today → next salary) green and marks every salary with a vertical line + pill.
+  **Layout rule: in the top figures the number comes first, its label/details below** (`.fc-mini-v{order:-1}`, `.fc-big` before the eyebrow).
 - **Only recurring things count** — by the page's own definition (`recurring_months`, reusing `RecurringCharges` thresholds: ≥ 3 consecutive months, amount within 50 % of the
   median, ≤ 3 runs, last one ≤ 6 months before the last completed month). A one-off deposit tagged salary (e.g. a bonus on the 20th) or one payment tagged rent is ignored.
 - **Salary streams:** `BankTransactions` Income tagged `משכורת` (with `Name`), last 6 months, split **by payer** — the deposit names are clustered with `RecurringCharges.cluster_transactions`

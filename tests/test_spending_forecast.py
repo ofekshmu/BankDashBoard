@@ -4,24 +4,23 @@ from datetime import date
 from RecurringCharges import collapse_rent
 from SpendingForecast import (
     build_salary_profile, build_card_profiles, build_card_events, build_rent_profile, build_rent_events,
-    build_recurring_events, compute_free_amount, compute_forecast, compute_both, usual_day, _cluster_days,
-    recurring_months,
+    build_recurring_events, compute_free_amount, compute_forecast, compute_both, usual_day, _pivot_day,
+    recurring_months, monthly_recurring_total,
 )
 
 AS_OF = date(2026, 10, 14)
 HORIZON = date(2026, 11, 10)
 
 
-def _salary(day=10, amount=15000, months=range(4, 10)):
-    return [{'date': date(2026, m, day), 'amount': amount} for m in months]
+def _salary(day=10, amount=15000, months=range(4, 10), name='חברת אלפא'):
+    return [{'date': date(2026, m, day), 'amount': amount, 'name': name} for m in months]
 
 
 def _two_salaries(last_a=10, last_b=11):
     """One salary on the 9th, another that lands at the end of the month / start of the next."""
-    a = [{'date': date(2026, m, 9), 'amount': 15000} for m in range(4, last_a)]
-    b = [{'date': date(2026, 4, 30), 'amount': 9000}, {'date': date(2026, 6, 1), 'amount': 9000},
-         {'date': date(2026, 6, 30), 'amount': 9000}, {'date': date(2026, 7, 31), 'amount': 9000},
-         {'date': date(2026, 9, 1), 'amount': 9000}][: last_b]
+    a = [{'date': date(2026, m, 9), 'amount': 15000, 'name': 'חברת אלפא'} for m in range(4, last_a)]
+    b = [{'date': d, 'amount': 9000, 'name': 'בנק גמא'} for d in
+         (date(2026, 4, 30), date(2026, 6, 1), date(2026, 6, 30), date(2026, 7, 31), date(2026, 9, 1))][: last_b]
     return a + b
 
 
@@ -47,11 +46,24 @@ def test_usual_day_is_never_an_average():
     assert usual_day([]) == 1
 
 
-def test_days_are_split_into_salary_streams_around_the_month_edge():
-    assert _cluster_days([9, 10, 11]) == [[9, 10, 11]]
-    groups = _cluster_days([9, 9, 30, 31, 1])
-    assert sorted(map(sorted, groups)) == [[1, 30, 31], [9]]
-    assert [30, 31, 1] in groups                                   # circular order, starting after the cut
+def test_pivot_day_starts_the_cycle_after_the_widest_gap():
+    assert _pivot_day([9, 10, 11]) == 9
+    assert _pivot_day([30, 31, 1, 2]) == 30                    # the cycle starts on the 30th, 1st/2nd belong to it
+    assert _pivot_day([29, 30, 31, 1, 2, 3]) == 29
+    assert _pivot_day([6, 8, 12]) == 6
+    assert _pivot_day([15]) == 15
+
+
+def test_two_salaries_with_close_days_stay_two_streams_because_payers_differ():
+    """Days jump ±3 days: the start-of-month salary (29..3) and the one around the 9th (6..12) overlap in
+    day-of-month distance, so only the payer's name can tell them apart."""
+    a = [{'date': date(2026, m, d), 'amount': 15000, 'name': 'חברת אלפא'} for m, d in
+         ((4, 6), (5, 12), (6, 9), (7, 7), (8, 10), (9, 8))]
+    b = [{'date': d, 'amount': 9000, 'name': 'בנק גמא'} for d in
+         (date(2026, 4, 30), date(2026, 6, 2), date(2026, 6, 30), date(2026, 7, 29), date(2026, 9, 3), date(2026, 9, 30))]
+    prof = build_salary_profile(a + b, AS_OF, AS_OF, 'avg')
+    assert sorted(st['amount'] for st in prof['streams']) == [9000, 15000]
+    assert len(prof['streams']) == 2
 
 
 def test_one_salary_modes_pick_harsh_or_average_day_and_amount():
@@ -73,7 +85,7 @@ def test_two_salaries_are_two_streams_and_horizon_is_the_nearest():
 
 
 def test_received_salary_waits_for_next_cycle_and_overdue_one_is_assumed():
-    received = _salary() + [{'date': date(2026, 10, 10), 'amount': 15000}]
+    received = _salary() + _salary(months=[10])
     prof = build_salary_profile(received, AS_OF, AS_OF, 'avg')
     assert prof['assumed'] == [] and prof['next_date'] == date(2026, 11, 10)
     overdue = build_salary_profile(_salary(), AS_OF, AS_OF, 'avg')
@@ -92,12 +104,12 @@ def test_recurring_definition_matches_the_recurring_page():
 
 
 def test_a_one_off_deposit_on_the_20th_is_not_a_salary_stream():
-    rows = _salary(day=9, months=range(4, 10)) + [{'date': date(2026, 7, 20), 'amount': 4000}]    # bonus, once
+    rows = _salary(day=9, months=range(4, 10)) + [{'date': date(2026, 7, 20), 'amount': 4000, 'name': 'בונוס חד פעמי'}]    # bonus, once
     for mode in ('max', 'avg'):
         prof = build_salary_profile(rows, AS_OF, AS_OF, mode)
         assert [s['day'] for s in prof['streams']] == [9]
         assert all(u['date'].day == 9 for u in prof['upcoming'])
-    only_once = [{'date': date(2026, 9, 20), 'amount': 4000}]
+    only_once = [{'date': date(2026, 9, 20), 'amount': 4000, 'name': 'בונוס'}]
     assert build_salary_profile(only_once, AS_OF, AS_OF, 'max')['known'] is False
 
 
@@ -184,7 +196,7 @@ def test_free_amount_is_the_lowest_point_and_a_salary_lifts_the_balance():
 
 def _inputs(**kw):
     base = {'balance': 30000, 'balance_date': AS_OF,
-            'salary_rows': _salary() + [{'date': date(2026, 10, 10), 'amount': 15000}],
+            'salary_rows': _salary() + _salary(months=[10]),
             'card_rows': _card('4603', day=10) + [{'card': '4603', 'name': 'כרטיס 4603', 'date': date(2026, 10, 10), 'amount': 3300}],
             'rent_rows': _rent_rows(5880), 'groups': [_bank_group()]}
     base.update(kw)
@@ -198,9 +210,24 @@ def test_forecast_scenarios_are_both_computed_and_harsh_is_not_looser():
     # horizon 11/10: Oct 18 insurance, Nov 1 rent 5880, card 4603 on Nov 10
     assert avg['free'] == 30000 - 380 - 5880 - 3650
     assert mx['free'] == 30000 - 480 - 5880 - 3900 and mx['free'] < avg['free']
-    assert avg['totals'] == {'card': 3650, 'recurring': 380, 'rent': 5880, 'all': 9910}
+    assert avg['totals'] == {'card': 3650, 'recurring': 380, 'rent': 5880, 'all': 9910, 'known': 0, 'estimated': 9910}
     assert [e['name'] for e in avg['events']][-1] == 'כרטיס 4603'
     assert not any(e['assumed'] for e in avg['events'])      # everything is still ahead of today
+
+
+def test_monthly_recurring_total_leaves_out_card_paid_stopped_and_rent():
+    groups = [_bank_group('הראל ביטוח', amount=380), _bank_group('Netflix', amount=50, table='CardTransactions'),
+              dict(_bank_group('Old', amount=99), possibly_stopped=True), _bank_group('שכירות', amount=5880, category='שכירות')]
+    assert monthly_recurring_total(groups, 'avg') == {'total': 380, 'count': 1}
+    assert monthly_recurring_total(groups, 'max') == {'total': 480, 'count': 1}
+    both = compute_both(_inputs(groups=groups), AS_OF)
+    assert both['scenarios']['avg']['fixed_monthly'] == {'recurring': 380, 'count': 1, 'rent': 5880, 'total': 6260}
+
+
+def test_totals_separate_what_is_known_from_what_is_estimated():
+    held = [{'card': '4603', 'name': 'כרטיס 4603', 'date': date(2026, 11, 9), 'amount': 8000}]
+    f = compute_forecast(_inputs(card_rows=_inputs()['card_rows'] + held), AS_OF, 'avg')
+    assert f['totals']['known'] == 8000 and f['totals']['estimated'] == f['totals']['all'] - 8000
 
 
 def test_unseen_things_up_to_today_are_assumed_done_and_overdue_salary_arrives():

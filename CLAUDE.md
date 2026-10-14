@@ -238,9 +238,10 @@ computed live per request (balance changes with every bank file); the recurring 
   The chart shades that stretch (zero line/buffer → lowest point) green and marks the salary entry with a vertical line + pill.
 - **Only recurring things count** — by the page's own definition (`recurring_months`, reusing `RecurringCharges` thresholds: ≥ 3 consecutive months, amount within 50 % of the
   median, ≤ 3 runs, last one ≤ 6 months before the last completed month). A one-off deposit tagged salary (e.g. a bonus on the 20th) or one payment tagged rent is ignored.
-- **Salary streams:** `BankTransactions` Income tagged `משכורת`, last 6 months, split by day of the month (`_cluster_days`, circular, gap > 7 days — a salary on the 9th
-  and another around the month edge are two streams; `_cycle_key` attributes a deposit before the stream's pivot day to the previous month). Per stream harsh = latest
-  position + lowest amount, avg = mean of both. The forecast ends at the earliest upcoming salary of any stream.
+- **Salary streams:** `BankTransactions` Income tagged `משכורת` (with `Name`), last 6 months, split **by payer** — the deposit names are clustered with `RecurringCharges.cluster_transactions`
+  (not by day: days jump ±3 and two salaries can be only a few days apart in day-of-month distance). Each stream's cycle starts on `_pivot_day` (the day after its widest empty stretch of the month),
+  so a salary landing between the 29th and the 3rd stays one cycle (`_cycle_key`). Per stream harsh = latest position + lowest amount, avg = mean of both.
+  The forecast ends at the earliest upcoming salary of any stream. Two salaries from the *same* payer name would merge into one stream.
 - **"Assumed done" rule:** every event dated up to *today* that the data doesn't show (a charge whose usual day passed, a salary of an unreceived cycle) is taken as
   happened on its planned date — charges are deducted, salaries added (`assumed=True`, "הונח כבוצע" badge + (i) explanation). If it didn't happen, the next file
   update shows it and the recurring analysis absorbs it. (`_is_late` / `_usual_date_this_month`.)
@@ -252,6 +253,10 @@ computed live per request (balance changes with every bank file); the recurring 
   completed months, usual day, and what was already paid this month is deducted. `RecurringCharges.collapse_rent` still gives rent one name so it also shows as one
   recurring group; the forecast skips that group to avoid double counting.
 - **Recurring** groups paid from the bank only (card-paid ones are inside the card charge); stopped groups are skipped.
+- **Estimates are labelled:** every projected figure carries a "משוער" tag (`fcEst`); `totals.known` = charges a card already holds, `totals.estimated` = the rest.
+  `fixed_monthly` (top figure) = recurring charges paid from the bank (`monthly_recurring_total`) + the average rent, **without** any credit-card estimate.
+- The old active-bills pie card and the "סה\"כ חיוב חודשי חוזר" KPI were removed from this page; the per-group list below the forecast is unchanged.
+- Rules-of-thumb month lists are collapsed (`<details class="fc-det">`).
 
 ---
 

@@ -145,32 +145,7 @@ body {
 .trend-card h3{font-size:.95em;font-weight:700;margin-bottom:12px}
 .trend-chart-wrap{position:relative;height:220px;overflow-x:auto}
 
-/* Active-bills pie card */
-.rc-pie-card{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow-sm);padding:18px 22px;margin-bottom:20px;display:flex;align-items:center;gap:26px;flex-wrap:wrap}
-.rc-pie-card h3{font-size:.95em;font-weight:700;margin-bottom:12px}
-.rc-pie-chart-wrap{position:relative;width:220px;height:220px;flex-shrink:0;overflow:visible}
-.rc-pie-empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--text-muted);font-size:.85em;padding:20px}
-.rc-pie-tooltip{position:absolute;top:0;left:0;transform:translate(-50%,-100%);opacity:0;pointer-events:none;transition:opacity .1s ease;background:#1f2430;color:#fff;padding:8px 12px;border-radius:8px;font-size:.78em;line-height:1.5;white-space:nowrap;z-index:50;direction:rtl;text-align:right;box-shadow:0 6px 18px rgba(0,0,0,.28)}
-.rc-pie-stats{display:flex;gap:14px;flex:1;flex-wrap:wrap;min-width:220px}
-.rc-pie-stats .kpi-card{margin:0}
-@media (max-width: 640px){ .rc-pie-card{flex-direction:column} .rc-pie-chart-wrap{width:200px;height:200px} }
-
 .hidden{display:none !important}
-.rc-kpi-expandable{cursor:pointer;transition:box-shadow .12s}
-.rc-kpi-expandable:hover{box-shadow:0 2px 10px rgba(0,0,0,.09)}
-.rc-kpi-chevron{display:inline-block;font-size:.9em;color:var(--text-muted);transition:transform .15s}
-.rc-kpi-expandable.open .rc-kpi-chevron{transform:rotate(180deg)}
-/* Rolls open/closed via grid-template-rows (0fr -> 1fr) instead of a hard
-   display:none toggle — the inner wrapper is what actually clips, since a
-   grid track's own overflow can't be animated directly. */
-.rc-kpi-bill-list{display:grid;grid-template-columns:1fr;grid-template-rows:0fr;transition:grid-template-rows .22s ease;cursor:default}
-.rc-kpi-bill-list.open{grid-template-rows:1fr}
-.rc-kpi-bill-list-inner{overflow:hidden;min-height:0;display:flex;flex-direction:column;gap:6px}
-.rc-kpi-bill-list.open .rc-kpi-bill-list-inner{padding-top:10px}
-.rc-kpi-bill-item{font-size:.8em;padding:6px 10px;border-radius:var(--radius-sm);background:var(--bg);display:flex;justify-content:space-between;align-items:center;gap:8px}
-.rc-kpi-bill-name{font-weight:600;color:var(--navy);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
-.rc-kpi-bill-amount{font-weight:700;color:var(--text-sub);white-space:nowrap;direction:ltr;flex-shrink:0}
-.rc-kpi-bill-empty{font-size:.8em;color:var(--text-muted);padding:6px 2px}
 
 /* Search/sort bar */
 .rc-toolbar{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap}
@@ -278,7 +253,6 @@ body {
 .rc-skel{background:var(--border);border-radius:var(--radius-sm);animation:rcShimmer 1.3s ease-in-out infinite}
 .rc-skel-kpi-row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:20px}
 .rc-skel-kpi{height:74px;border-radius:var(--radius);flex:1;min-width:160px}
-.rc-skel-pie{height:200px;border-radius:var(--radius);margin-bottom:20px}
 .rc-skel-trend{height:220px;border-radius:var(--radius);margin-bottom:20px}
 .rc-skel-card{height:96px;border-radius:var(--radius);margin-bottom:10px}
 .rc-loading-banner{display:flex;align-items:center;gap:10px;background:var(--teal-light);color:var(--teal-dark);border-radius:var(--radius-sm);padding:10px 16px;margin-bottom:16px;font-size:.85em;font-weight:600}
@@ -382,6 +356,16 @@ body {
 .fc-sub-rule{font-size:.8em;color:var(--text-muted);padding:2px 0 8px}
 .fc-chart{overflow:visible}
 .fc-chart svg{height:auto}
+
+.fc-est{display:inline-block;margin-right:6px;padding:1px 7px;border-radius:99px;background:rgba(240,180,41,.2);color:#b7791f;font-size:.72em;font-weight:600;vertical-align:middle}
+.fc-hero .fc-est{background:rgba(247,205,106,.2);color:#f7cd6a}
+.fc-mini.wide{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;gap:12px;background:rgba(30,157,139,.16)}
+.fc-det{margin:0 0 8px}
+.fc-det summary{cursor:pointer;color:var(--teal-dark);font-size:.8em;padding:2px 0;list-style:none}
+.fc-det summary::before{content:"▸ ";display:inline-block;transition:transform .15s}
+.fc-det[open] summary::before{transform:rotate(90deg)}
+.fc-det summary::-webkit-details-marker{display:none}
+.fc-det .fc-sub-rule{padding:3px 0 2px 0}
 @keyframes fcsh{to{background-position:-200% 0}}
 @media (max-width: 760px){
   .fc-hero{padding:20px}.fc-big{font-size:2.5em}
@@ -438,7 +422,6 @@ body {
   </div>
 
   <div id="rc-skeleton" style="display:none">
-    <div class="rc-skel rc-skel-pie"></div>
     <div class="rc-skel-kpi-row">
       <div class="rc-skel rc-skel-kpi"></div>
       <div class="rc-skel rc-skel-kpi"></div>
@@ -451,29 +434,7 @@ body {
   </div>
 
   <div id="rc-real-content">
-    <div class="rc-pie-card">
-      <div class="rc-pie-chart-wrap">
-        <canvas id="rc-pie-chart"></canvas>
-        <div class="rc-pie-empty" id="rc-pie-empty" style="display:none">אין עדיין חיובים חוזרים פעילים (חייבים להופיע ב-2 החודשים האחרונים ברצף)</div>
-        <div class="rc-pie-tooltip" id="rc-pie-tooltip"></div>
-      </div>
-      <div class="rc-pie-stats">
-        <div class="kpi-card"><div class="kpi-label">סה"כ חיובים חוזרים פעילים</div><div class="kpi-value" id="pie-stat-total">—</div></div>
-        <div class="kpi-card rc-kpi-expandable" id="rc-left-card" onclick="_rcToggleKpiList('left')">
-          <div class="kpi-label">נותר לתשלום החודש <span class="rc-kpi-chevron" id="rc-left-chevron">▾</span></div>
-          <div class="kpi-value" id="pie-stat-left">—</div>
-          <div class="rc-kpi-bill-list" id="rc-left-list" onclick="event.stopPropagation()"><div class="rc-kpi-bill-list-inner"></div></div>
-        </div>
-        <div class="kpi-card rc-kpi-expandable" id="rc-paid-card" onclick="_rcToggleKpiList('paid')">
-          <div class="kpi-label">שולם החודש <span class="rc-kpi-chevron" id="rc-paid-chevron">▾</span></div>
-          <div class="kpi-value" id="pie-stat-paid">—</div>
-          <div class="rc-kpi-bill-list" id="rc-paid-list" onclick="event.stopPropagation()"><div class="rc-kpi-bill-list-inner"></div></div>
-        </div>
-      </div>
-    </div>
-
     <div class="kpi-row">
-      <div class="kpi-card"><div class="kpi-label">סה"כ חיוב חודשי חוזר</div><div class="kpi-value" id="kpi-total">—</div></div>
       <div class="kpi-card"><div class="kpi-label">חיובים חוזרים פעילים</div><div class="kpi-value" id="kpi-count">—</div></div>
       <div class="kpi-card"><div class="kpi-label">טעונים תשומת לב</div><div class="kpi-value" id="kpi-attn">—</div></div>
     </div>
@@ -659,7 +620,6 @@ function statusLabel(s) {
 }
 
 function renderKpis() {
-  document.getElementById('kpi-total').textContent = fmt(state.kpis.total_monthly);
   document.getElementById('kpi-count').textContent = state.groups.length;
 
   // Only bills whose status *just* turned yellow/red since the last regen —
@@ -950,256 +910,6 @@ function renderTrendChart() {
                    backgroundColor: '#1e9d8b' }]
     },
     options: { responsive: true, maintainAspectRatio: false, scales: { x: { reverse: true } } }
-  });
-}
-
-// ── Active-bills pie chart ──────────────────────────────────────────
-// Recomputed against the *real* current date on every page view (this
-// function runs at script-load time regardless of when the underlying
-// state.groups snapshot was last regenerated) — so "paid this month" and
-// the active-streak window always reflect today, while the cards/trend/KPIs
-// above only change when the user clicks Regen. See CLAUDE.md.
-function _rcPad2(n) { return n < 10 ? '0' + n : '' + n; }
-function _rcMonthKey(y, m) { return y + '-' + _rcPad2(m); }
-function _rcAddMonths(y, m, delta) {
-  var idx = (y * 12 + (m - 1)) + delta;
-  return { y: Math.floor(idx / 12), m: (idx % 12) + 1 };
-}
-function _rcLastDayOfMonth(y, m) { return new Date(y, m, 0).getDate(); } // m is 1-based
-
-// A group counts as "active" for the pie if its last occurrence is no more
-// than 1 month behind the freshest occurrence seen across ALL groups (not
-// behind the real wall-clock date — this app is fed by periodic bank-file
-// imports, not a live feed, so every group's last occurrence normally trails
-// today's real date by an irregular amount that has nothing to do with
-// whether the bill is still active; anchoring to the *data's own* recency
-// ceiling instead absorbs that import lag uniformly). A group trailing the
-// data ceiling by more than 1 month reads as genuinely stopped (e.g. an old
-// subscription with no charge in 6 months), not merely "not imported yet" —
-// exactly the gap this was added to catch. "Paid this month" / "pending" /
-// "owed" below still compares against the real date, since that's
-// specifically about the current partial calendar month.
-function _rcMonthsBetween(aKey, bKey) {
-  var a = aKey.split('-'), b = bKey.split('-');
-  return (parseInt(b[0], 10) * 12 + parseInt(b[1], 10)) - (parseInt(a[0], 10) * 12 + parseInt(a[1], 10));
-}
-function _rcActiveBillsForPie() {
-  var now = new Date();
-  var curY = now.getFullYear(), curM = now.getMonth() + 1;
-  var todayDay = now.getDate();
-  var curKey = _rcMonthKey(curY, curM);
-  var nextM = _rcAddMonths(curY, curM, 1);
-
-  var dataCeiling = null;
-  state.groups.forEach(function(g) {
-    if (!g.occurrences.length) return;
-    var lastMonth = g.occurrences[g.occurrences.length - 1].month;
-    if (!dataCeiling || lastMonth > dataCeiling) dataCeiling = lastMonth;
-  });
-
-  var result = [];
-  state.groups.forEach(function(g) {
-    if (!g.occurrences.length) return;
-    var lastOcc = g.occurrences[g.occurrences.length - 1];
-    if (dataCeiling && _rcMonthsBetween(lastOcc.month, dataCeiling) > 1) return;
-
-    var occByMonth = {};
-    g.occurrences.forEach(function(o) { occByMonth[o.month] = o; });
-
-    var thisMonthOcc = occByMonth[curKey];
-    var paidThisMonth = !!thisMonthOcc;
-    var amount = paidThisMonth ? thisMonthOcc.amount : g.current_amount;
-
-    // Predicted next payment date, for bills already paid this month —
-    // day-of-month taken from the most recent occurrence, projected onto
-    // next month (clamped to that month's real length).
-    var lastDay = parseInt(String(lastOcc.date).split('-')[2], 10);
-    var predictedDay = Math.min(lastDay, _rcLastDayOfMonth(nextM.y, nextM.m));
-    var predictedDate = nextM.y + '-' + _rcPad2(nextM.m) + '-' + _rcPad2(predictedDay);
-
-    // Not charged yet this month — but that doesn't necessarily mean it's
-    // overdue. If today hasn't reached this bill's usual charge day yet
-    // (taken from its last known occurrence), there's simply no data to
-    // expect yet: mark it "pending" (gray) rather than "owed" (colored), and
-    // compute this month's assumed charge date for the tooltip.
-    var pendingThisMonth = false;
-    var expectedDate = null;
-    if (!paidThisMonth) {
-      var usualDay = Math.min(lastDay, _rcLastDayOfMonth(curY, curM));
-      pendingThisMonth = todayDay < usualDay;
-      if (pendingThisMonth) {
-        expectedDate = curY + '-' + _rcPad2(curM) + '-' + _rcPad2(usualDay);
-      }
-    }
-
-    result.push({
-      name: displayNameFor(g),
-      amount: amount,
-      paidThisMonth: paidThisMonth,
-      pendingThisMonth: pendingThisMonth,
-      predictedDate: predictedDate,
-      expectedDate: expectedDate,
-    });
-  });
-  return result;
-}
-
-var _rcPieChart = null;
-var _rcPieBills = [];
-var _rcOpenKpiList = null; // 'left' | 'paid' | null — which KPI's bill list is expanded
-
-function _rcRenderKpiBillList(kind) {
-  var list = (kind === 'left'
-    ? _rcPieBills.filter(function(b) { return b.pendingThisMonth; })
-    : _rcPieBills.filter(function(b) { return b.paidThisMonth; })
-  ).slice().sort(function(a, b) { return b.amount - a.amount; });
-  var el = document.getElementById('rc-' + kind + '-list');
-  if (!el) return;
-  var inner = el.querySelector('.rc-kpi-bill-list-inner');
-  inner.innerHTML = list.length
-    ? list.map(function(b) {
-        return '<div class="rc-kpi-bill-item">' +
-          '<span class="rc-kpi-bill-name">' + esc(b.name) + '</span>' +
-          '<span class="rc-kpi-bill-amount">' + fmt(b.amount) + '</span>' +
-        '</div>';
-      }).join('')
-    : '<div class="rc-kpi-bill-empty">אין חיובים</div>';
-}
-
-function _rcToggleKpiList(kind) {
-  var other = kind === 'left' ? 'paid' : 'left';
-  var listEl      = document.getElementById('rc-' + kind + '-list');
-  var cardEl      = document.getElementById('rc-' + kind + '-card');
-  var otherListEl = document.getElementById('rc-' + other + '-list');
-  var otherCardEl = document.getElementById('rc-' + other + '-card');
-  var willOpen = !listEl.classList.contains('open');
-
-  // Only one list open at a time keeps the KPI row from getting cluttered.
-  // Removing .open (rather than hiding outright) lets the other list roll
-  // back up smoothly instead of just disappearing.
-  otherListEl.classList.remove('open');
-  otherCardEl.classList.remove('open');
-
-  if (willOpen) {
-    _rcRenderKpiBillList(kind);
-    listEl.classList.add('open');
-    cardEl.classList.add('open');
-    _rcOpenKpiList = kind;
-  } else {
-    listEl.classList.remove('open');
-    cardEl.classList.remove('open');
-    _rcOpenKpiList = null;
-  }
-}
-
-// Green = paid this month — matches "שולם החודש". Gray = pending (not due
-// yet, simply no data to expect). Amber = owed (already past its usual
-// charge day and still not paid) — a warning tone, distinct from both.
-var _RC_PIE_PAID_COLOR = '#27ae60';
-var _RC_PIE_OWED_COLOR = '#d9822b';
-var _RC_PIE_PENDING_COLOR = '#9aa1ad';
-
-// Custom HTML tooltip instead of Chart.js's canvas-drawn default — the
-// canvas is small (220x220) and a canvas-drawn tooltip is clipped to the
-// canvas's own pixel bounds, so it visibly cut off or collided with the pie
-// itself near the edges. A real positioned DOM element has no such limit
-// (it can render outside the wrap/card entirely) and lets us set RTL text
-// direction properly instead of fighting Chart.js's own canvas text
-// direction, and skip drawing a color swatch entirely (rather than fighting
-// the displayColors option).
-function _rcPieTooltipHandler(context) {
-  var tooltipEl = document.getElementById('rc-pie-tooltip');
-  if (!tooltipEl) return;
-  var tooltipModel = context.tooltip;
-  if (!tooltipModel || tooltipModel.opacity === 0) {
-    tooltipEl.style.opacity = 0;
-    return;
-  }
-  tooltipEl.innerHTML = '';
-  (tooltipModel.title || []).forEach(function(t) {
-    var titleEl = document.createElement('div');
-    titleEl.style.fontWeight = '700';
-    titleEl.textContent = t;
-    tooltipEl.appendChild(titleEl);
-  });
-  (tooltipModel.body || []).forEach(function(b) {
-    var lineEl = document.createElement('div');
-    lineEl.textContent = b.lines.join(' ');
-    tooltipEl.appendChild(lineEl);
-  });
-  tooltipEl.style.opacity = 1;
-  tooltipEl.style.left = tooltipModel.caretX + 'px';
-  tooltipEl.style.top = (tooltipModel.caretY - 10) + 'px';
-}
-
-function renderPieChart() {
-  var bills = _rcActiveBillsForPie();
-  var total = bills.reduce(function(s, b) { return s + b.amount; }, 0);
-  var paid = bills.filter(function(b) { return b.paidThisMonth; }).reduce(function(s, b) { return s + b.amount; }, 0);
-  // "Left to pay" is forward-looking: only bills whose usual charge day hasn't
-  // arrived yet (pendingThisMonth). A bill whose day already passed without a
-  // matched transaction ("owed", shown amber in the pie) has fallen out of the
-  // expected-this-month window and should no longer count as still left —
-  // it's flagged separately as overdue, not folded into what's still coming.
-  var left = bills.filter(function(b) { return b.pendingThisMonth; }).reduce(function(s, b) { return s + b.amount; }, 0);
-
-  document.getElementById('pie-stat-total').textContent = fmt(total);
-  document.getElementById('pie-stat-left').textContent = fmt(left);
-  document.getElementById('pie-stat-paid').textContent = fmt(paid);
-
-  _rcPieBills = bills;
-  // Refresh an already-open list in place (e.g. after a regen) instead of
-  // leaving it showing a stale snapshot from before the recompute.
-  if (_rcOpenKpiList) _rcRenderKpiBillList(_rcOpenKpiList);
-
-  var emptyEl = document.getElementById('rc-pie-empty');
-  var ctx = document.getElementById('rc-pie-chart');
-  if (_rcPieChart) { _rcPieChart.destroy(); _rcPieChart = null; }
-
-  if (!bills.length) {
-    emptyEl.style.display = 'flex';
-    ctx.style.display = 'none';
-    return;
-  }
-  emptyEl.style.display = 'none';
-  ctx.style.display = '';
-
-  var colors = bills.map(function(b) {
-    if (b.paidThisMonth) return _RC_PIE_PAID_COLOR;
-    if (b.pendingThisMonth) return _RC_PIE_PENDING_COLOR;
-    return _RC_PIE_OWED_COLOR;
-  });
-
-  _rcPieChart = new Chart(ctx, {
-    type: 'pie',
-    data: {
-      labels: bills.map(function(b) { return b.name; }),
-      datasets: [{ data: bills.map(function(b) { return b.amount; }), backgroundColor: colors, borderWidth: 1, borderColor: '#fff' }]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      layout: { padding: 24 },
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          enabled: false,
-          external: _rcPieTooltipHandler,
-          callbacks: {
-            label: function(item) {
-              var b = bills[item.dataIndex];
-              var pct = total > 0 ? (b.amount / total * 100) : 0;
-              if (b.paidThisMonth) {
-                return 'שולם החודש (' + fmt(b.amount) + ') — התשלום הבא צפוי ב-' + fmtDate(b.predictedDate);
-              }
-              if (b.pendingThisMonth) {
-                return 'חיוב צפוי ב-' + fmtDate(b.expectedDate) + ' (' + fmt(b.amount) + ')';
-              }
-              return 'טרם שולם, עבר המועד הרגיל — ' + fmt(b.amount) + ' (' + pct.toFixed(1) + '%)';
-            }
-          }
-        }
-      }
-    }
   });
 }
 
@@ -1542,7 +1252,6 @@ function _rcApplyFreshData(data) {
   renderKpis();
   renderCards();
   renderTrendChart();
-  renderPieChart();
 }
 
 function _rcCheckStaleness() {
@@ -1613,6 +1322,11 @@ function fcSave() { try { localStorage.setItem(FC_KEY, JSON.stringify(fcParams))
 // A small "i" that explains itself on hover / focus (tap on a phone).
 function fcInfo(text) { return '<span class="fc-i" tabindex="0" data-tip="' + esc(text) + '">i</span>'; }
 
+// A "משוער" tag for any figure that is an estimate or an average rather than something already known.
+function fcEst(tip) { return '<span class="fc-est">משוער</span>' + (tip ? fcInfo(tip) : ''); }
+var FC_TIP_EST = 'הסכום מחושב מהיסטוריית ה-6 חודשים האחרונים (ממוצע או החודש הגבוה, לפי התרחיש). רק חיוב שכרטיס כבר מחזיק בעסקאות שלו ידוע בוודאות.';
+var FC_TIP_TOTAL = 'ידוע = חיובים שהכרטיסים כבר מחזיקים עבורם עסקאות. משוער = כל השאר: ממוצע/שיא של הכרטיסים, שכירות ממוצעת וחיובים חוזרים לפי החיוב האחרון.';
+var FC_TIP_FIXED = 'חיובים חוזרים שיורדים ישירות מהבנק, ועוד השכירות (ממוצע חודשי). לא כולל חיובי כרטיסי אשראי, שהם הערכה, ולא כולל חיובים חוזרים שמשולמים בכרטיס.';
 var FC_TIP_AUTO = 'הכרטיס נוסף למערכת אוטומטית ("Auto Insertion") ברגע שנקלט לראשונה קובץ אשראי שלו. זו לא הגדרה שלך — רק סימון שהמערכת יצרה את הכרטיס בעצמה, ואפשר לתת לו תיאור בטבלת Card.';
 var FC_TIP_ASSUMED = 'הפעולה עדיין לא מופיעה בקבצים שהוזנו. מניחים שהיא בוצעה במועד שחושב לה ולכן היא נכללת בחישוב. אם לא בוצעה — נדע בעדכון הקבצים בסוף החודש, והשינוי ישוקלל בחישוב הפעולות החוזרות של החודש הבא.';
 
@@ -1660,7 +1374,7 @@ function fcChartSvg(d, v, width) {
   if (v.free > 0) {
     var top = Y(v.lowest), bot = Y(v.buffer);
     out += '<rect x="' + x0 + '" y="' + top + '" width="' + (x1 - x0) + '" height="' + Math.max(bot - top, 0) + '" fill="#2ecc71" opacity=".2"/>';
-    out += '<text x="' + ((x0 + x1) / 2) + '" y="' + (top + (bot - top) / 2 + 4) + '" text-anchor="middle" font-size="13" font-weight="700" fill="#1b7f4a">פנוי לבזבוז · ' + fcPlain(v.free) + '</text>';
+    out += '<text x="' + ((x0 + x1) / 2) + '" y="' + (top + (bot - top) / 2 + 4) + '" text-anchor="middle" font-size="13" font-weight="700" fill="#1b7f4a">פנוי לבזבוז (משוער) · ' + fcPlain(v.free) + '</text>';
   } else {
     out += '<rect x="' + x0 + '" y="' + zero + '" width="' + (x1 - x0) + '" height="' + Math.max(low - zero, 0) + '" fill="#e74c3c" opacity=".16"/>';
     out += '<text x="' + ((x0 + x1) / 2) + '" y="' + (zero + (low - zero) / 2 + 4) + '" text-anchor="middle" font-size="13" font-weight="700" fill="#c0392b">חסר · ' + fcPlain(-v.free) + '</text>';
@@ -1688,7 +1402,7 @@ function fcChartSvg(d, v, width) {
 
   // salary entry: a clear vertical marker with its date and amount
   out += '<line x1="' + x1 + '" x2="' + x1 + '" y1="' + (T - 4) + '" y2="' + (H - B) + '" stroke="#2e9e5b" stroke-width="2"/>';
-  var label = 'כניסת משכורת · ' + fcShortDate(sc.horizon) + ' · ' + fcPlain(sc.salary.next_amount, true);
+  var label = 'כניסת משכורת משוערת · ' + fcShortDate(sc.horizon) + ' · ' + fcPlain(sc.salary.next_amount, true);
   var lw = label.length * 6.4 + 18, lx = Math.min(Math.max(x1 - lw, L), W - R - lw);
   out += '<rect x="' + lx + '" y="6" width="' + lw + '" height="24" rx="12" fill="#2e9e5b"/>';
   out += '<text x="' + (lx + lw / 2) + '" y="22" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">' + label + '</text>';
@@ -1700,6 +1414,9 @@ function fcChartSvg(d, v, width) {
   return '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="יתרה לאורך הזמן עד כניסת המשכורת">' + out + '</svg>';
 }
 
+// Everything projected is an estimate; only a card charge the card already holds is known.
+function fcIsEstimate(e) { return !(e.kind === 'card' && e.detail && e.detail.held && e.detail.held >= e.detail.base); }
+
 function fcEventDetail(e, mode) {
   if (e.kind === 'income') return 'הונחה כנכנסת במועדה';
   if (e.kind === 'card') {
@@ -1707,7 +1424,7 @@ function fcEventDetail(e, mode) {
     return mode === 'max' ? 'החודש הגבוה ביותר' : 'ממוצע חודשי';
   }
   if (e.kind === 'rent') return e.detail.paid ? 'שולם החודש ' + Math.round(e.detail.paid) + '₪ — ההפרש נותר' : 'ממוצע חודשי';
-  return FC_LABELS[e.kind];
+  return e.kind === 'recurring' ? 'לפי החיוב האחרון' : FC_LABELS[e.kind];
 }
 
 function fcRender() {
@@ -1723,18 +1440,20 @@ function fcRender() {
   var tight = sc.tight_date ? 'הנקודה הצפופה: ' + esc(sc.tight_name) + ' · ' + fcShortDate(sc.tight_date) : 'אין חיובים לפני המשכורת';
   var dayLabel = sc.days_left === 1 ? 'יום אחד' : sc.days_left + ' ימים';
   var charges = v.events.filter(function(e) { return e.kind !== 'income'; });
+  var fixed = sc.fixed_monthly;
 
   var hero =
     '<div class="fc-hero"><div class="fc-hero-main">' +
-      '<div class="fc-eyebrow">פנוי לבזבוז עד המשכורת הבאה · ' + (mode === 'max' ? 'תרחיש מחמיר' : 'תרחיש ממוצע') + '</div>' +
+      '<div class="fc-eyebrow">פנוי לבזבוז עד המשכורת הבאה · ' + (mode === 'max' ? 'תרחיש מחמיר' : 'תרחיש ממוצע') + fcEst(FC_TIP_EST) + '</div>' +
       '<div class="fc-big' + (neg ? ' neg' : '') + '">' + fcMoney(free) + '</div>' +
       '<div class="fc-sub">עד ' + fcShortDate(sc.horizon) + ' · ' + dayLabel + (free > 0 ? ' · כ-' + fcMoney(v.daily) + ' ליום' : '') + '</div>' +
       '<span class="fc-chip ' + chipCls + '">' + chipTxt + '</span>' +
     '</div><div class="fc-hero-side">' +
       '<div class="fc-mini"><div class="fc-mini-l">יתרה בחשבון</div><div class="fc-mini-v">' + fcMoney(v.balance) + '</div><div class="fc-mini-s">נכון ל-' + fcShortDate(d.as_of) + '</div></div>' +
-      '<div class="fc-mini"><div class="fc-mini-l">חיובים עד המשכורת</div><div class="fc-mini-v">' + fcMoney(sc.totals.all) + '</div><div class="fc-mini-s">' + charges.length + ' חיובים</div></div>' +
-      '<div class="fc-mini"><div class="fc-mini-l">משכורת הבאה</div><div class="fc-mini-v">' + fcMoney(sal.next_amount) + '</div><div class="fc-mini-s">ב-' + fcShortDate(sc.horizon) + '</div></div>' +
-      '<div class="fc-mini"><div class="fc-mini-l">הנקודה הנמוכה</div><div class="fc-mini-v">' + fcMoney(v.lowest) + '</div><div class="fc-mini-s">' + tight + '</div></div>' +
+      '<div class="fc-mini"><div class="fc-mini-l">חיובים עד המשכורת' + fcEst(FC_TIP_TOTAL) + '</div><div class="fc-mini-v">' + fcMoney(sc.totals.all) + '</div><div class="fc-mini-s">ידוע ' + fcMoney(sc.totals.known) + ' · משוער ' + fcMoney(sc.totals.estimated) + '</div></div>' +
+      '<div class="fc-mini"><div class="fc-mini-l">משכורת הבאה' + fcEst('משכורת שנקבעה לפי ההפקדות הקודמות: ' + (mode === 'max' ? 'הסכום הנמוך והיום המאוחר שנקלטו.' : 'הסכום והיום הממוצעים.')) + '</div><div class="fc-mini-v">' + fcMoney(sal.next_amount) + '</div><div class="fc-mini-s">ב-' + fcShortDate(sc.horizon) + '</div></div>' +
+      '<div class="fc-mini"><div class="fc-mini-l">הנקודה הנמוכה' + fcEst() + '</div><div class="fc-mini-v">' + fcMoney(v.lowest) + '</div><div class="fc-mini-s">' + tight + '</div></div>' +
+      '<div class="fc-mini wide"><div><div class="fc-mini-l">חיוב חודשי חוזר (ללא חיובי כרטיס אשראי)' + fcEst(FC_TIP_FIXED) + '</div><div class="fc-mini-s">' + fixed.count + ' חיובים חוזרים מהבנק + שכירות ' + fcMoney(fixed.rent) + '</div></div><div class="fc-mini-v">' + fcMoney(fixed.total) + '</div></div>' +
     '</div></div>';
 
   var controls =
@@ -1754,6 +1473,7 @@ function fcRender() {
       '<span class="fc-ev-n"><i class="fc-dot" style="background:' + FC_COLORS[e.kind] + '"></i>' + esc(e.name) +
         (e.detail && e.detail.auto ? fcInfo(FC_TIP_AUTO) : '') +
         (e.assumed ? '<span class="fc-asm">הונח כבוצע</span>' + fcInfo(FC_TIP_ASSUMED) : '') +
+        (fcIsEstimate(e) ? '<span class="fc-est">משוער</span>' : '') +
         '<small>' + esc(fcEventDetail(e, mode)) + '</small></span>' +
       '<span class="fc-ev-a">' + fcMoney(-e.amount, true) + '</span>' +
       '<span class="fc-ev-b' + (e.balance_after - v.buffer < 0 ? ' neg' : '') + '">' + fcMoney(e.balance_after) + '</span></div>';
@@ -1762,25 +1482,25 @@ function fcRender() {
 
   var chartW = (document.getElementById('fc-body').clientWidth || 640) * (window.innerWidth > 760 ? 0.58 : 0.9);
   var timeline =
-    '<div class="fc-card"><h3>מה יורד מהחשבון עד המשכורת</h3>' +
+    '<div class="fc-card"><h3>מה יורד מהחשבון עד המשכורת' + fcEst(FC_TIP_TOTAL) + '</h3>' +
       '<div class="fc-split">' + split + '</div><div class="fc-legend">' + legend + '</div>' +
       '<div class="fc-chart">' + fcChartSvg(d, v, chartW) + '</div>' +
       '<div>' + rows + '</div></div>';
 
   var salRules = sal.streams.map(function(st, i) {
     return '<div class="fc-rule"><span>משכורת' + (sal.streams.length > 1 ? ' ' + (i + 1) : '') + ' · ' + (mode === 'max' ? 'יום ' + st.day + ' (המאוחר ביותר)' : 'יום ' + st.day + ' (ממוצע)') + '</span><b>' + fcMoney(st.amount) + '</b></div>' +
-      '<div class="fc-sub-rule">' + st.months.slice(-6).map(function(m) { return m.month.slice(5) + '/' + m.month.slice(2, 4) + ' · ' + fcMoney(m.amount); }).join(' &nbsp;') + '</div>';
+      '<details class="fc-det"><summary>פירוט ההפקדות</summary><div class="fc-sub-rule">' + st.months.slice(-6).map(function(m) { return m.month.slice(5) + '/' + m.month.slice(2, 4) + ' · ' + fcMoney(m.amount); }).join(' &nbsp;') + '</div></details>';
   }).join('');
   var cards = (sc.cards || []).map(function(c) {
     return '<div class="fc-rule"><span>' + esc(c.name) + (c.auto ? fcInfo(FC_TIP_AUTO) : '') + ' · חיוב ביום ' + c.day + '</span><b>ממוצע ' + fcMoney(c.avg_month) + ' · שיא ' + fcMoney(c.max_month) + '</b></div>';
   }).join('') || '<div class="fc-rule"><span>לא זוהו חיובי כרטיס</span></div>';
   var rentRule = sc.rent
     ? '<div class="fc-rule"><span>שכירות + ועד בית · יום ' + sc.rent.day + ' · ממוצע ' + sc.rent.months + ' חודשים</span><b>' + fcMoney(sc.rent.amount) + '</b></div>' +
-      '<div class="fc-sub-rule">' + sc.rent.monthly.map(function(m) { return m.month.slice(5) + '/' + m.month.slice(2, 4) + ' · ' + fcMoney(m.amount); }).join(' &nbsp;') + '</div>'
+      '<details class="fc-det"><summary>פירוט החודשים</summary><div class="fc-sub-rule">' + sc.rent.monthly.map(function(m) { return m.month.slice(5) + '/' + m.month.slice(2, 4) + ' · ' + fcMoney(m.amount); }).join(' &nbsp;') + '</div></details>'
     : '<div class="fc-rule"><span>שכירות</span><b>לא זוהתה</b></div>';
   var skipped = (sc.skipped || []).reduce(function(a, s) { a[s.reason] = (a[s.reason] || 0) + 1; return a; }, {});
   var rules =
-    '<div class="fc-card"><h3>כללי האצבע שבשימוש</h3>' + salRules + rentRule + cards +
+    '<div class="fc-card"><h3>כללי האצבע שבשימוש' + fcEst(FC_TIP_EST) + '</h3>' + salRules + rentRule + cards +
       '<div class="fc-rule"><span>חיוב כרטיס</span><b>' + (mode === 'max' ? 'החודש הגבוה ב-6 חודשים' : 'ממוצע 6 חודשים') + '</b></div>' +
       (skipped.card ? '<div class="fc-rule"><span>חוזרים בכרטיס (כלולים בחיוב הכרטיס)</span><b>' + skipped.card + '</b></div>' : '') +
       (skipped.stopped ? '<div class="fc-rule"><span>חיובים שנראה שהופסקו (לא נספרו)</span><b>' + skipped.stopped + '</b></div>' : '') +
@@ -1801,8 +1521,7 @@ _rcLoadFolders(function() {
       renderKpis();
       renderCards();
       renderTrendChart();
-      renderPieChart();
-      _rcCheckStaleness();
+          _rcCheckStaleness();
     } else {
       // Never generated yet — show the skeleton in place of real content and
       // auto-start the same regen flow the button uses. No separate page, no

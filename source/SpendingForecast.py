@@ -43,13 +43,13 @@ import statistics
 from RecurringCharges import (
     month_key, _to_plain_date, RENT_CATEGORY, MIN_STREAK_MONTHS, MAX_AMOUNT_DEVIATION, MAX_RUN_COUNT,
     MAX_MONTHS_SINCE_LAST_OCCURRENCE, find_all_runs, find_longest_run, _last_complete_month_key, _months_apart,
+    cluster_transactions,
 )
 
 SALARY_CATEGORY = 'משכורת'
 AUTO_CARD_DESCRIPTION = 'Auto Insertion'   # Card.description of a card the importer created by itself
 
 HISTORY_MONTHS = 6             # months of history behind every rule of thumb
-STREAM_GAP_DAYS = 7            # salary deposits further apart than this (circular day of month) are different salaries
 SALARY_LOOKBACK_DAYS = 25      # an unreceived salary older than this is not assumed to have arrived
 RENT_PAID_FRACTION = 0.9       # this share of the rent paid this month counts as "paid in full"
 STALE_BALANCE_DAYS = 3         # the balance is flagged old when it is older than this
@@ -147,29 +147,20 @@ def recurring_months(months: list, as_of: _date) -> list:
 
 # ── Salary (one or more streams) ────────────────────────────────────────────────
 
-def _cluster_days(days: list) -> list:
+def _pivot_day(days: list) -> int:
     """
-    Splits days of the month (1-31) into groups on a circle, cutting wherever two neighbouring days
-    are more than STREAM_GAP_DAYS apart (so 30, 31, 1, 2 stay together). Each group is listed in
-    circular order starting after the cut, e.g. [29, 30, 1, 2]. One group when nothing is far apart.
+    The day of the month a salary's cycle starts on, from the days its deposits arrived: the day right
+    after the widest empty stretch of the (circular) month. A salary that lands between the 29th and the
+    3rd gets 29, one that lands between the 6th and the 12th gets 6 — the jitter of a few days either
+    way stays inside one cycle.
     """
     ds = sorted(set(days))
     n = len(ds)
+    if n == 1:
+        return ds[0]
     gaps = [(ds[i + 1] - ds[i]) if i < n - 1 else (ds[0] + 31 - ds[-1]) for i in range(n)]
-    cuts = [i for i, g in enumerate(gaps) if g > STREAM_GAP_DAYS]
-    if n == 1 or not cuts:
-        return [ds]
-    groups, cur = [], []
-    start = (cuts[0] + 1) % n
-    for k in range(n):
-        i = (start + k) % n
-        cur.append(ds[i])
-        if i in cuts:
-            groups.append(cur)
-            cur = []
-    if cur:
-        groups.append(cur)
-    return groups
+    widest = max(range(n), key=lambda i: gaps[i])
+    return ds[(widest + 1) % n]
 
 
 def _position(day: int, pivot: int) -> int:
@@ -192,9 +183,10 @@ def _cycle_date(position: int, cycle_start: _date) -> _date:
 
 def build_salary_profile(rows: list, as_of: _date, today: _date, mode: str = 'max') -> dict:
     """
-    rows: [{'date': date, 'amount': float}] salary deposits (Income > 0 tagged as salary).
+    rows: [{'date': date, 'amount': float, 'name': str}] salary deposits (Income > 0 tagged as salary).
 
-    The deposits are split into streams by day of the month (two earners → two streams). A stream's
+    The deposits are split into streams by who pays them (the deposit's name, clustered like the recurring
+    page does — two earners → two streams, however close their days of the month are). A stream's
     month is the sum of its deposits; its day is that of the largest deposit. The harsh mode takes the
     latest position in the month and the lowest amount seen, the average mode the average of both.
 
@@ -207,12 +199,12 @@ def build_salary_profile(rows: list, as_of: _date, today: _date, mode: str = 'ma
     if not rows:
         return {'known': False, 'streams': [], 'assumed': [], 'upcoming': [], 'next_date': None}
 
-    groups = _cluster_days([r['date'].day for r in rows])
+    payers = [c['members'] for c in cluster_transactions(
+        [dict(r, name=r.get('name', '')) for r in rows])]
     cur_key = month_key(as_of)
     streams = []
-    for group in groups:
-        pivot = group[0]
-        mine = [r for r in rows if r['date'].day in group]
+    for mine in payers:
+        pivot = _pivot_day([r['date'].day for r in mine])
         cycles = {}
         for r in mine:
             cycles.setdefault(_cycle_key(r['date'], pivot), []).append(r)
@@ -451,6 +443,23 @@ def build_recurring_events(groups: list, as_of: _date, horizon: _date, mode: str
     return events, skipped
 
 
+def monthly_recurring_total(groups: list, mode: str) -> dict:
+    """
+    What the recurring charges paid straight from the bank cost per month (the same groups the
+    forecast uses, rent aside): {'total', 'count'}. Charges paid by card are left out — they arrive
+    inside the card's charge, which is only an estimate.
+    """
+    total, count = 0.0, 0
+    for g in groups:
+        occs = g.get('occurrences') or []
+        if (not occs or g.get('category') == RENT_CATEGORY or g.get('possibly_stopped')
+                or occs[-1].get('table') != 'BankTransactions'):
+            continue
+        total += float(g.get('max_amount') if mode == 'max' else g.get('current_amount'))
+        count += 1
+    return {'total': round(total, 2), 'count': count}
+
+
 # ── The forecast ────────────────────────────────────────────────────────────────
 
 def compute_free_amount(balance: float, events: list) -> dict:
@@ -516,6 +525,12 @@ def compute_forecast(inputs: dict, today: _date, mode: str = 'max') -> dict:
 
     totals = {k: round(sum(e['amount'] for e in events if e['kind'] == k), 2) for k in ('card', 'recurring', 'rent')}
     totals['all'] = round(sum(totals.values()), 2)
+    # what is known for sure (charges a card already holds) versus what is an estimate (everything projected)
+    totals['known'] = round(sum(e['detail']['held'] for e in events if e['kind'] == 'card'), 2)
+    totals['estimated'] = round(totals['all'] - totals['known'], 2)
+    recurring = monthly_recurring_total(inputs.get('groups') or [], mode)
+    fixed_monthly = {'recurring': recurring['total'], 'count': recurring['count'],
+                     'rent': rent['amount'] if rent else 0, 'total': round(recurring['total'] + (rent['amount'] if rent else 0), 2)}
     return {
         'ok': True,
         'mode': mode,
@@ -525,7 +540,7 @@ def compute_forecast(inputs: dict, today: _date, mode: str = 'max') -> dict:
         'rent': rent,
         'events': sorted(events, key=lambda e: (e['date'], -e['amount'])),
         'skipped': skipped,
-        'totals': totals,
+        'totals': totals, 'fixed_monthly': fixed_monthly,
         'free': result['free'], 'lowest_balance': result['lowest_balance'],
         'tight_date': result['tight_date'], 'tight_name': result['tight_name'],
         'notes': notes,
@@ -562,7 +577,7 @@ def fetch_forecast_inputs(db, groups: list) -> dict:
     balance = _to_float(db.get_latest_Balance())
 
     sal = db.cursor.execute(
-        "SELECT Date, Income FROM BankTransactions WHERE Category = %s AND Income > 0 AND Date >= %s",
+        "SELECT Date, Income, Name FROM BankTransactions WHERE Category = %s AND Income > 0 AND Date >= %s",
         (SALARY_CATEGORY, cutoff)).fetchall()
     rent = db.cursor.execute(
         "SELECT Date, Out FROM BankTransactions WHERE Category = %s AND Out > 0 AND Date >= %s",
@@ -596,7 +611,7 @@ def fetch_forecast_inputs(db, groups: list) -> dict:
     return {
         'balance': balance,
         'balance_date': _to_plain_date(bal_date) if bal_date else None,
-        'salary_rows': [{'date': _to_plain_date(r[0]), 'amount': float(r[1])} for r in sal],
+        'salary_rows': [{'date': _to_plain_date(r[0]), 'amount': float(r[1]), 'name': r[2] or ''} for r in sal],
         'rent_rows': [{'date': _to_plain_date(r[0]), 'amount': float(r[1])} for r in rent],
         'card_rows': card_rows,
         'groups': groups,

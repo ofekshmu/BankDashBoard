@@ -359,7 +359,10 @@ body {
 .fc-chart{overflow:visible}
 .fc-chart svg{height:auto}
 
-.fc-est{display:inline-block;margin-right:6px;padding:1px 7px;border-radius:99px;background:rgba(240,180,41,.2);color:#b7791f;font-size:.72em;font-weight:600;vertical-align:middle}
+.fc-est-foot{display:flex;align-items:center;gap:4px;margin-top:auto;padding-top:8px}
+.fc-hero-main .fc-est-foot{margin-top:14px}
+.fc-ev-n .fc-est-foot{padding-top:3px}
+.fc-est{display:inline-block;padding:1px 7px;border-radius:99px;background:rgba(240,180,41,.2);color:#b7791f;font-size:.72em;font-weight:600;vertical-align:middle}
 .fc-hero .fc-est{background:rgba(247,205,106,.2);color:#f7cd6a}
 .fc-mini.wide{grid-column:1/-1;background:rgba(30,157,139,.16)}
 .fc-det{margin:0 0 8px}
@@ -1327,10 +1330,9 @@ function fcInfo(text) { return '<span class="fc-i" tabindex="0" data-tip="' + es
 // 'MM/YY · amount' for each month, as one line of the collapsed detail.
 function fcMonthList(months) { return months.map(function(m) { return m.month.slice(5) + '/' + m.month.slice(2, 4) + ' · ' + fcMoney(m.amount); }).join(' &nbsp;'); }
 // A "משוער" tag for any figure that is an estimate or an average rather than something already known.
-function fcEst(tip) { return '<span class="fc-est">משוער</span>' + (tip ? fcInfo(tip) : ''); }
-var FC_TIP_EST = 'הסכום מחושב מהיסטוריית ה-6 חודשים האחרונים (ממוצע או החודש הגבוה, לפי התרחיש). רק חיוב שכרטיס כבר מחזיק בעסקאות שלו ידוע בוודאות.';
-var FC_TIP_TOTAL = 'ידוע = חיובים שהכרטיסים כבר מחזיקים עבורם עסקאות. משוער = כל השאר: ממוצע/שיא של הכרטיסים, שכירות ממוצעת וחיובים חוזרים לפי החיוב האחרון.';
-var FC_TIP_FIXED = 'חיובים חוזרים שיורדים ישירות מהבנק, ועוד השכירות (ממוצע חודשי). לא כולל חיובי כרטיסי אשראי, שהם הערכה, ולא כולל חיובים חוזרים שמשולמים בכרטיס.';
+// It always sits at the bottom of its cube (never inside the text); a single one, in the main figure, carries the (i).
+function fcEst(withInfo) { return '<div class="fc-est-foot"><span class="fc-est">משוער</span>' + (withInfo ? fcInfo(FC_TIP_EST) : '') + '</div>'; }
+var FC_TIP_EST = 'משוער = הערכה שמחושבת מהיסטוריית ה-6 חודשים האחרונים (ממוצע, או החודש הגבוה בתרחיש המחמיר). רק חיוב שכרטיס כבר מחזיק בעסקאות שלו ידוע בוודאות. החיוב החודשי החוזר כולל חיובים חוזרים מהבנק ושכירות ממוצעת, ללא חיובי כרטיס אשראי.';
 var FC_TIP_AUTO = 'הכרטיס נוסף למערכת אוטומטית ("Auto Insertion") ברגע שנקלט לראשונה קובץ אשראי שלו. זו לא הגדרה שלך — רק סימון שהמערכת יצרה את הכרטיס בעצמה, ואפשר לתת לו תיאור בטבלת Card.';
 var FC_TIP_ASSUMED = 'הפעולה עדיין לא מופיעה בקבצים שהוזנו. מניחים שהיא בוצעה במועד שחושב לה ולכן היא נכללת בחישוב. אם לא בוצעה — נדע בעדכון הקבצים בסוף החודש, והשינוי ישוקלל בחישוב הפעולות החוזרות של החודש הבא.';
 
@@ -1460,15 +1462,15 @@ function fcRender() {
   var hero =
     '<div class="fc-hero"><div class="fc-hero-main">' +
       '<div class="fc-big' + (neg ? ' neg' : '') + '">' + fcMoney(free) + '</div>' +
-      '<div class="fc-eyebrow">פנוי לבזבוז עד המשכורת הבאה · ' + (mode === 'max' ? 'תרחיש מחמיר' : 'תרחיש ממוצע') + fcEst(FC_TIP_EST) + '</div>' +
+      '<div class="fc-eyebrow">פנוי לבזבוז עד המשכורת הבאה · ' + (mode === 'max' ? 'תרחיש מחמיר' : 'תרחיש ממוצע') + '</div>' +
       '<div class="fc-sub">עד ' + fcShortDate(sc.horizon) + ' · ' + dayLabel + (free > 0 ? ' · כ-' + fcMoney(v.daily) + ' ליום' : '') + '</div>' +
-      '<span class="fc-chip ' + chipCls + '">' + chipTxt + '</span>' +
+      '<span class="fc-chip ' + chipCls + '">' + chipTxt + '</span>' + fcEst(true) +
     '</div><div class="fc-hero-side">' +
       '<div class="fc-mini"><div class="fc-mini-l">יתרה בחשבון</div><div class="fc-mini-v">' + fcMoney(v.balance) + '</div><div class="fc-mini-s">נכון ל-' + fcShortDate(d.as_of) + '</div></div>' +
-      '<div class="fc-mini"><div class="fc-mini-l">חיובים עד המשכורת' + fcEst(FC_TIP_TOTAL) + '</div><div class="fc-mini-v">' + fcMoney(sc.totals.all) + '</div><div class="fc-mini-s">ידוע ' + fcMoney(sc.totals.known) + ' · משוער ' + fcMoney(sc.totals.estimated) + '</div></div>' +
-      '<div class="fc-mini"><div class="fc-mini-l">משכורת הבאה' + fcEst('משכורת שנקבעה לפי ההפקדות הקודמות: ' + (mode === 'max' ? 'הסכום הנמוך והיום המאוחר שנקלטו.' : 'הסכום והיום הממוצעים.')) + '</div><div class="fc-mini-v">' + fcMoney(sal.next_amount) + '</div><div class="fc-mini-s">ב-' + fcShortDate(sc.horizon) + '</div></div>' +
-      '<div class="fc-mini"><div class="fc-mini-l">הנקודה הנמוכה' + fcEst() + '</div><div class="fc-mini-v">' + fcMoney(v.lowest) + '</div><div class="fc-mini-s">' + tight + '</div></div>' +
-      '<div class="fc-mini wide"><div class="fc-mini-l">חיוב חודשי חוזר (ללא חיובי כרטיס אשראי)' + fcEst(FC_TIP_FIXED) + '</div><div class="fc-mini-v">' + fcMoney(fixed.total) + '</div><div class="fc-mini-s">' + fixed.count + ' חיובים חוזרים מהבנק + שכירות ' + fcMoney(fixed.rent) + '</div></div>' +
+      '<div class="fc-mini"><div class="fc-mini-l">חיובים עד המשכורת</div><div class="fc-mini-v">' + fcMoney(sc.totals.all) + '</div><div class="fc-mini-s">ידוע ' + fcMoney(sc.totals.known) + ' · משוער ' + fcMoney(sc.totals.estimated) + '</div>' + fcEst() + '</div>' +
+      '<div class="fc-mini"><div class="fc-mini-l">משכורת הבאה</div><div class="fc-mini-v">' + fcMoney(sal.next_amount) + '</div><div class="fc-mini-s">ב-' + fcShortDate(sc.horizon) + '</div>' + fcEst() + '</div>' +
+      '<div class="fc-mini"><div class="fc-mini-l">הנקודה הנמוכה</div><div class="fc-mini-v">' + fcMoney(v.lowest) + '</div><div class="fc-mini-s">' + tight + '</div>' + fcEst() + '</div>' +
+      '<div class="fc-mini wide"><div class="fc-mini-l">חיוב חודשי חוזר (ללא חיובי כרטיס אשראי)</div><div class="fc-mini-v">' + fcMoney(fixed.total) + '</div><div class="fc-mini-s">' + fixed.count + ' חיובים חוזרים מהבנק + שכירות ' + fcMoney(fixed.rent) + '</div>' + fcEst() + '</div>' +
     '</div></div>';
 
   var controls =
@@ -1488,8 +1490,8 @@ function fcRender() {
       '<span class="fc-ev-n"><i class="fc-dot" style="background:' + FC_COLORS[e.kind] + '"></i>' + esc(e.name) +
         (e.detail && e.detail.auto ? fcInfo(FC_TIP_AUTO) : '') +
         (e.assumed ? '<span class="fc-asm">הונח כבוצע</span>' + fcInfo(FC_TIP_ASSUMED) : '') +
-        (!inc && fcIsEstimate(e) ? '<span class="fc-est">משוער</span>' : '') +
-        '<small>' + esc(fcEventDetail(e, mode)) + '</small></span>' +
+        '<small>' + esc(fcEventDetail(e, mode)) + '</small>' +
+        (!inc && fcIsEstimate(e) ? '<span class="fc-est-foot"><span class="fc-est">משוער</span></span>' : '') + '</span>' +
       '<span class="fc-ev-a">' + fcMoney(-e.amount, true) + '</span>' +
       '<span class="fc-ev-b' + (e.balance_after - v.buffer < 0 ? ' neg' : '') + '">' + fcMoney(e.balance_after) + '</span></div>';
   }
@@ -1502,10 +1504,10 @@ function fcRender() {
 
   var chartW = (document.getElementById('fc-body').clientWidth || 640) * (window.innerWidth > 760 ? 0.58 : 0.9);
   var timeline =
-    '<div class="fc-card"><h3>מה יורד מהחשבון עד המשכורת' + fcEst(FC_TIP_TOTAL) + '</h3>' +
+    '<div class="fc-card"><h3>מה יורד מהחשבון עד המשכורת</h3>' +
       '<div class="fc-split">' + split + '</div><div class="fc-legend">' + legend + '</div>' +
       '<div class="fc-chart">' + fcChartSvg(d, v, chartW) + '</div>' +
-      '<div>' + rows + '</div></div>';
+      '<div>' + rows + '</div>' + fcEst() + '</div>';
 
   var salRules = sal.streams.map(function(st, i) {
     return '<div class="fc-rule"><span>משכורת' + (sal.streams.length > 1 ? ' ' + (i + 1) : '') + ' · ' + (mode === 'max' ? 'יום ' + st.day + ' (המאוחר ביותר)' : 'יום ' + st.day + ' (ממוצע)') + '</span><b>' + fcMoney(st.amount) + '</b></div>' +
@@ -1520,11 +1522,11 @@ function fcRender() {
     : '<div class="fc-rule"><span>שכירות</span><b>לא זוהתה</b></div>';
   var skipped = (sc.skipped || []).reduce(function(a, s) { a[s.reason] = (a[s.reason] || 0) + 1; return a; }, {});
   var rules =
-    '<div class="fc-card"><h3>כללי האצבע שבשימוש' + fcEst(FC_TIP_EST) + '</h3>' + salRules + rentRule + cards +
+    '<div class="fc-card"><h3>כללי האצבע שבשימוש</h3>' + salRules + rentRule + cards +
       '<div class="fc-rule"><span>חיוב כרטיס</span><b>' + (mode === 'max' ? 'החודש הגבוה ב-6 חודשים' : 'ממוצע 6 חודשים') + '</b></div>' +
       (skipped.card ? '<div class="fc-rule"><span>חוזרים בכרטיס (כלולים בחיוב הכרטיס)</span><b>' + skipped.card + '</b></div>' : '') +
       (skipped.stopped ? '<div class="fc-rule"><span>חיובים שנראה שהופסקו (לא נספרו)</span><b>' + skipped.stopped + '</b></div>' : '') +
-      (sc.notes || []).map(function(n) { return '<div class="fc-note">' + esc(n) + '</div>'; }).join('') +
+      (sc.notes || []).map(function(n) { return '<div class="fc-note">' + esc(n) + '</div>'; }).join('') + fcEst() +
     '</div>';
 
   el.innerHTML = hero + controls + '<div class="fc-grid">' + timeline + rules + '</div>';

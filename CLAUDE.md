@@ -256,7 +256,7 @@ computed live per request (balance changes with every bank file); the recurring 
   completed months, usual day, and what was already paid this month is deducted. `RecurringCharges.collapse_rent` still gives rent one name so it also shows as one
   recurring group; the forecast skips that group to avoid double counting.
 - **Recurring** groups paid from the bank only (card-paid ones are inside the card charge); stopped groups are skipped.
-- **Estimates are labelled:** every projected figure carries a "משוער" tag (`fcEst`); `totals.known` = charges a card already holds, `totals.estimated` = the rest.
+- **Estimates are labelled:** every projected figure carries a "משוער" tag, always at the **bottom** of its cube (`fcEst`, `.fc-est-foot`), never inline in the text; only one of them (the main figure) carries the (i) explaining it; `totals.known` = charges a card already holds, `totals.estimated` = the rest.
   `fixed_monthly` (top figure) = recurring charges paid from the bank (`monthly_recurring_total`) + the average rent, **without** any credit-card estimate.
 - The old active-bills pie card and the "סה\"כ חיוב חודשי חוזר" KPI were removed from this page; the per-group list below the forecast is unchanged.
 - Rules-of-thumb month lists are collapsed (`<details class="fc-det">`).

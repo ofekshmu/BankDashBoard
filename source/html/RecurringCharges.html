@@ -1509,7 +1509,12 @@ function fcRender() {
   if (!d || d.ok === false) {
     el.innerHTML = '<div class="fc-card fc-empty">' + esc(d && d.error ? d.error : 'לא ניתן לחשב') + '</div>'; return;
   }
-  if (!d.scenarios.max.ok) { el.innerHTML = '<div class="fc-card fc-empty">' + (d.scenarios.max.notes || []).map(esc).join('<br>') + '</div>'; return; }
+  if (!d.scenarios.max.ok) {
+    var none = d.scenarios.max;
+    el.innerHTML = '<div class="fc-card fc-empty">' + (none.notes || []).map(esc).join('<br>') +
+      (none.diagnostics && none.diagnostics.length ? '<div style="margin-top:10px;text-align:right">' + none.diagnostics.map(function(g) { return '<div class="fc-sub-rule">' + esc(g.name) + ' · ' + g.deposits + ' הפקדות · ימים ' + esc(g.days) + ' · ' + esc(g.status) + '</div>'; }).join('') + '</div>' : '') + '</div>';
+    return;
+  }
   var v = fcView(), sc = v.sc, mode = fcParams.card_mode, sal = sc.salary;
   var free = v.free, neg = free < 0;
   var chipCls = neg ? 'bad' : (free < v.balance * 0.1 ? 'warn' : '');
@@ -1572,6 +1577,10 @@ function fcRender() {
     return '<div class="fc-rule"><span>משכורת' + (sal.streams.length > 1 ? ' ' + (i + 1) : '') + ' · ' + (mode === 'max' ? 'יום ' + st.day + ' (המאוחר ביותר)' : 'יום ' + st.day + ' (ממוצע)') + '</span><b>' + fcMoney(st.amount) + '</b></div>' +
       '<details class="fc-det"><summary>פירוט ההפקדות</summary><div class="fc-sub-rule">שם בבנק: ' + esc(st.name) + '</div><div class="fc-sub-rule">' + fcMonthList(st.months.slice(-6)) + '</div></details>';
   }).join('');
+  var salDiag = (sal.diagnostics && sal.diagnostics.length)
+    ? '<details class="fc-det"><summary>מה זוהה בהפקדות המשכורת</summary>' + sal.diagnostics.map(function(g) {
+        return '<div class="fc-sub-rule">' + esc(g.name) + ' · ' + g.deposits + ' הפקדות · ימים ' + esc(g.days) + ' · ' + esc(g.status) + '</div>';
+      }).join('') + '</details>' : '';
   var cards = (sc.cards || []).map(function(c) {
     return '<div class="fc-rule"><span>' + esc(c.name) + (c.auto ? fcInfo(FC_TIP_AUTO) : '') + ' · חיוב ביום ' + c.day + '</span><b>ממוצע ' + fcMoney(c.avg_month) + ' · שיא ' + fcMoney(c.max_month) + '</b></div>';
   }).join('') || '<div class="fc-rule"><span>לא זוהו חיובי כרטיס</span></div>';
@@ -1583,7 +1592,7 @@ function fcRender() {
     : '<div class="fc-rule"><span>שכירות</span><b>לא זוהתה</b></div>';
   var skipped = (sc.skipped || []).reduce(function(a, s) { a[s.reason] = (a[s.reason] || 0) + 1; return a; }, {});
   var rules =
-    '<div class="fc-card"><h3>כללי האצבע שבשימוש</h3>' + salRules + rentRule + cards +
+    '<div class="fc-card"><h3>כללי האצבע שבשימוש</h3>' + salRules + salDiag + rentRule + cards +
       '<div class="fc-rule"><span>חיוב כרטיס</span><b>' + (mode === 'max' ? 'החודש הגבוה ב-6 חודשים' : 'ממוצע 6 חודשים') + '</b></div>' +
       (skipped.card ? '<div class="fc-rule"><span>חוזרים בכרטיס (כלולים בחיוב הכרטיס)</span><b>' + skipped.card + '</b></div>' : '') +
       (skipped.stopped ? '<div class="fc-rule"><span>חיובים שנראה שהופסקו (לא נספרו)</span><b>' + skipped.stopped + '</b></div>' : '') +

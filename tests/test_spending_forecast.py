@@ -119,6 +119,24 @@ def test_a_salary_that_shifted_from_the_31st_to_the_2nd_is_one_salary_whatever_i
         assert len([u for u in prof['upcoming'] if u['date'] <= date(2026, 11, 14)]) == 1      # one date in the month ahead
 
 
+def test_merging_never_makes_a_salary_vanish_and_varying_pay_is_still_recurring():
+    """Family X pays every month, family Y only in some months, so the merged cycles are 13k or 21k: the amounts are not
+    judged (only the months), the salary stays — and so does the one at the 9th. The diagnostics say what was done."""
+    x = [{'date': date(2026, m, 2), 'amount': 13329, 'name': 'חברת אלפא'} for m in range(4, 10)]
+    y = [{'date': date(2026, m, 30), 'amount': 8437, 'name': 'בנק גמא'} for m in (4, 6, 8)]
+    z = [{'date': date(2026, m, 9), 'amount': 22093, 'name': 'מוסד דלתא'} for m in range(4, 10)]
+    prof = build_salary_profile(x + y + z, AS_OF, AS_OF, 'avg')
+    assert sorted(st['day'] for st in prof['streams'])[-1] == 9 and len(prof['streams']) == 2
+    assert {d['name'] for d in prof['diagnostics']} == {'חברת אלפא', 'בנק גמא', 'מוסד דלתא'}
+    assert any('מוזגו' in d['status'] for d in prof['diagnostics'])
+
+
+def test_a_group_that_is_not_recurring_is_named_in_the_diagnostics():
+    prof = build_salary_profile(_salary(day=9) + [{'date': date(2026, 7, 20), 'amount': 4000, 'name': 'בונוס'}], AS_OF, AS_OF, 'avg')
+    odd = [d for d in prof['diagnostics'] if d['name'] == 'בונוס'][0]
+    assert 'לא חוזרת' in odd['status'] and len(prof['streams']) == 1
+
+
 def test_two_salaries_further_apart_than_the_jitter_stay_two():
     a = [{'date': date(2026, m, 2), 'amount': 13329, 'name': 'חברת אלפא'} for m in range(4, 10)]
     z = [{'date': date(2026, m, 9), 'amount': 22093, 'name': 'בנק גמא'} for m in range(4, 10)]

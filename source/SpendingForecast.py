@@ -157,7 +157,7 @@ def _usual_date_this_month(day: int, as_of: _date) -> _date:
 
 # ── What counts as recurring ────────────────────────────────────────────────────
 
-def recurring_months(months: list, as_of: _date) -> list:
+def recurring_months(months: list, as_of: _date, check_amount: bool = True) -> list:
     """
     The recurring-charges page's own definition of "recurring" (RecurringCharges.build_group_from_cluster),
     applied to a series of months: months = [{'month': 'YYYY-MM', 'amount': float}, ...].
@@ -167,6 +167,8 @@ def recurring_months(months: list, as_of: _date) -> list:
       - no more than MAX_RUN_COUNT separate appear/gap/reappear runs
       - the last one is at most MAX_MONTHS_SINCE_LAST_OCCURRENCE months before the last completed month
     So a one-off deposit or payment never becomes a salary, a rent or a charge of the forecast.
+    With check_amount=False the amounts are not compared (a salary that varies from month to month is still
+    one salary) — only the months count.
     """
     by_month = {}
     for m in months:
@@ -174,7 +176,8 @@ def recurring_months(months: list, as_of: _date) -> list:
     if len(by_month) < MIN_STREAK_MONTHS:
         return []
     median = statistics.median(by_month.values())
-    keep = sorted(mk for mk, a in by_month.items() if median <= 0 or abs(a - median) / median <= MAX_AMOUNT_DEVIATION)
+    keep = sorted(mk for mk, a in by_month.items()
+                  if not check_amount or median <= 0 or abs(a - median) / median <= MAX_AMOUNT_DEVIATION)
     if len(keep) < MIN_STREAK_MONTHS or len(find_longest_run(keep)) < MIN_STREAK_MONTHS:
         return []
     if len(find_all_runs(keep)) > MAX_RUN_COUNT:
@@ -238,21 +241,26 @@ def _is_one_salary(a: list, b: list) -> bool:
 
 
 def _merge_same_salary(groups: list) -> list:
-    """Joins the payer groups that are one salary under different names (see _is_one_salary)."""
-    groups = [list(g) for g in groups]
-    merged = True
-    while merged:
-        merged = False
-        for i in range(len(groups)):
-            for j in range(i + 1, len(groups)):
-                if _is_one_salary(groups[i], groups[j]):
-                    groups[i] += groups[j]
-                    del groups[j]
-                    merged = True
+    """
+    Joins the payer groups that are one salary under different names (see _is_one_salary).
+    Returns [[group, group...], ...]: every item is a salary made of one or more name groups.
+    """
+    merged_groups = [[list(g)] for g in groups]
+    changed = True
+    while changed:
+        changed = False
+        for i in range(len(merged_groups)):
+            for j in range(i + 1, len(merged_groups)):
+                # complete linkage: every part of one must be close to every part of the other, so a chain
+                # of groups can never bridge two salaries that are really further apart
+                if all(_is_one_salary(a, b) for a in merged_groups[i] for b in merged_groups[j]):
+                    merged_groups[i] += merged_groups[j]
+                    del merged_groups[j]
+                    changed = True
                     break
-            if merged:
+            if changed:
                 break
-    return groups
+    return merged_groups
 
 
 def _deposit_near(rows: list, d: _date, amount: float) -> bool:
@@ -282,11 +290,11 @@ def build_salary_profile(rows: list, as_of: _date, today: _date, mode: str = 'ma
     if not rows:
         return {'known': False, 'streams': [], 'assumed': [], 'upcoming': [], 'next_date': None}
 
-    payers = _merge_same_salary([c['members'] for c in cluster_transactions(
-        [dict(r, name=r.get('name', '')) for r in rows])])
+    clusters = [c['members'] for c in cluster_transactions([dict(r, name=r.get('name', '')) for r in rows])]
     cur_key = month_key(as_of)
-    streams = []
-    for mine in payers:
+
+    def build_stream(mine):
+        """One salary stream from its deposits, or None when it is not recurring (months only — pay may vary)."""
         pivot = _pivot_day([r['date'].day for r in mine])
         cycles = _group_by_month(mine, key_fn=lambda r: _cycle_key(r['date'], pivot))
         months = []
@@ -294,9 +302,9 @@ def build_salary_profile(rows: list, as_of: _date, today: _date, mode: str = 'ma
             biggest = max(cycles[ck], key=lambda r: r['amount'])
             months.append({'month': ck, 'amount': _sum_amounts(cycles[ck]),
                            'day': biggest['date'].day, 'position': _position(biggest['date'].day, pivot)})
-        months = recurring_months(months, as_of)
+        months = recurring_months(months, as_of, check_amount=False)
         if not months:
-            continue   # a one-off deposit tagged as salary is not a salary stream
+            return None   # a one-off deposit tagged as salary is not a salary stream
         past = [m for m in months if m['month'] < cur_key] or months
         avg_amount = _mean(m['amount'] for m in past)
         min_amount = min(m['amount'] for m in past)
@@ -304,7 +312,7 @@ def build_salary_profile(rows: list, as_of: _date, today: _date, mode: str = 'ma
         pos_max = max(m['position'] for m in past)
         position = _by_mode(mode, pos_max, pos_avg)
         names = [r.get('name', '') for r in mine]
-        streams.append({
+        return {
             'name': max(set(names), key=names.count),
             'day': ((position - 1) % 31) + 1, 'position': position,
             'day_avg': ((pos_avg - 1) % 31) + 1, 'day_max': ((pos_max - 1) % 31) + 1,
@@ -312,9 +320,30 @@ def build_salary_profile(rows: list, as_of: _date, today: _date, mode: str = 'ma
             'avg_amount': avg_amount, 'min_amount': min_amount,
             'max_amount': max(m['amount'] for m in past),
             'months': months, 'received_cycles': set(cycles),
-        })
+        }
+
+    streams, diagnostics = [], []
+    for parts in _merge_same_salary(clusters):
+        rows_of = lambda ps: [r for g in ps for r in g]
+        stream = build_stream(rows_of(parts))
+        outcome = 'מוזגו למשכורת אחת' if len(parts) > 1 else 'משכורת חוזרת'
+        if stream is None and len(parts) > 1:
+            # merging must never make a salary disappear: judge each name on its own
+            singles = [(g, build_stream(g)) for g in parts]
+            for g, st in singles:
+                if st:
+                    streams.append(st)
+            stream = None
+            outcome = 'לא חזרו ברצף כשמוזגו — נבדקו כל שם לחוד'
+        elif stream is not None:
+            streams.append(stream)
+        for g in parts:
+            ds = sorted(r['date'].day for r in g)
+            diagnostics.append({'name': max({r.get('name', '') for r in g}, key=[r.get('name', '') for r in g].count),
+                                'deposits': len(g), 'days': f'{ds[0]}–{ds[-1]}' if ds[0] != ds[-1] else str(ds[0]),
+                                'status': outcome if (stream is not None or len(parts) > 1) else 'לא חוזרת (פחות מ-3 חודשים ברצף) — לא נכללה'})
     if not streams:
-        return {'known': False, 'streams': [], 'assumed': [], 'upcoming': [], 'next_date': None}
+        return {'known': False, 'streams': [], 'assumed': [], 'upcoming': [], 'next_date': None, 'diagnostics': diagnostics}
     streams.sort(key=lambda s: s['position'])
 
     assumed, upcoming = [], []
@@ -336,7 +365,7 @@ def build_salary_profile(rows: list, as_of: _date, today: _date, mode: str = 'ma
     for s in streams:
         s.pop('received_cycles')
     return {
-        'known': True, 'streams': streams, 'assumed': assumed, 'upcoming': upcoming,
+        'known': True, 'streams': streams, 'assumed': assumed, 'upcoming': upcoming, 'diagnostics': diagnostics,
         'next_date': upcoming[0]['date'] if upcoming else today + _timedelta(days=30),
         'next_amount': upcoming[0]['amount'] if upcoming else 0,
     }
@@ -595,7 +624,7 @@ def compute_forecast(inputs: dict, today: _date, mode: str = 'max') -> dict:
 
     salary = build_salary_profile(inputs.get('salary_rows') or [], as_of, today, mode)
     if not salary['known']:
-        return {'ok': False, 'reason': 'no_salary',
+        return {'ok': False, 'reason': 'no_salary', 'diagnostics': salary.get('diagnostics', []),
                 'notes': ['לא זוהתה משכורת חוזרת (קטגוריית "משכורת", לפחות 3 חודשים ברצף) — תייג את המשכורת כדי לחשב.']}
 
     horizon = salary['next_date']

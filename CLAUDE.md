@@ -273,7 +273,9 @@ computed live per request (balance changes with every bank file); the recurring 
   keep the hero `align-items:flex-start` — a vertically centred hero moved the (i) under the pointer when its panel opened (hover flicker).
 - Salary groups clustered apart by name are merged back into one salary when their **usual days of the month are within ±3 days** (`SALARY_DAY_JITTER`, circular: 31 and 2 are two days apart) —
   that is one operation that shifted a few days, whatever the bank called the deposits or the amounts were; if both pay in the same cycles the merged salary is their sum (instalments).
-  Salaries further apart (e.g. the 2nd and the 9th) stay separate. Chart: no permanent labels — salaries are a line with a marker, details open on hover/tap in the line under the chart.
+  Salaries further apart (e.g. the 2nd and the 9th) stay separate (merging is complete-linkage, so a chain of groups never bridges them).
+  A salary stream is recurring by **months only** (`recurring_months(..., check_amount=False)`: ≥ 3 consecutive cycles; pay may vary), and a merge can never make a salary vanish: when the merged
+  series is not recurring each name is judged on its own. The rules panel lists what was done with every payer name (`diagnostics`: kept / merged / not recurring) — read it first when a salary looks wrong. Chart: no permanent labels — salaries are a line with a marker, details open on hover/tap in the line under the chart.
 
 ---
 

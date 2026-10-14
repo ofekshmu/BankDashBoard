@@ -1470,7 +1470,7 @@ function fcChartSvg(d, v, width) {
   out += '<circle cx="' + x0 + '" cy="' + Y(v.balance) + '" r="5" fill="#fff" stroke="#1e2a4a" stroke-width="2"/>';
 
   // salary entries: a vertical line with a marker on top; its details open on hover / tap (line under the chart)
-  var lastTickEnd = x0 + 62;   // leaves the 'today' label alone
+  var lastTickEnd = x0 + 62;   // leaves the 'today' label (and, below, the end-of-chart label) alone
   salaries.forEach(function(e) {
     var x = X(new Date(e.date).getTime());
     out += '<line x1="' + x + '" x2="' + x + '" y1="' + (T - 4) + '" y2="' + (H - B) + '" stroke="#2e9e5b" stroke-width="2"/>';
@@ -1478,7 +1478,7 @@ function fcChartSvg(d, v, width) {
     out += '<line class="fc-hit-line" data-i="' + fcDots.length + '" x1="' + x + '" x2="' + x + '" y1="' + (T - 16) + '" y2="' + (H - B) + '"/>';
     fcDots.push(e);
     var tx = fcShortDate(e.date);   // the date on the time axis, where it does not cover anything
-    if (x - 18 > lastTickEnd && x + 18 < x1 - 40) {   // and the end-of-chart label out += '<text x="' + x + '" y="' + (H - 8) + '" text-anchor="middle" font-size="11" font-weight="700" fill="#2e9e5b">' + tx + '</text>'; lastTickEnd = x + 18; }
+    if (x - 18 > lastTickEnd && x + 18 < x1 - 40) { out += '<text x="' + x + '" y="' + (H - 8) + '" text-anchor="middle" font-size="11" font-weight="700" fill="#2e9e5b">' + tx + '</text>'; lastTickEnd = x + 18; }
   });
   if (tH > t1) {   // the next salary is further than the chart looks
     var far = 'משכורת ב-' + fcShortDate(sc.horizon) + ' ›';

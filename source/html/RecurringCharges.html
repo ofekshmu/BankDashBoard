@@ -298,8 +298,8 @@ body {
 
 /* ── Spending forecast ("כמה אפשר להוציא") ── */
 .fc{margin-bottom:26px}
-.fc-hero{background:linear-gradient(135deg,#0f1627 0%,#1a2e52 100%);color:#fff;border-radius:var(--radius);padding:26px 28px;box-shadow:var(--shadow-sm);display:flex;gap:30px;align-items:center;flex-wrap:wrap}
-.fc-hero-main{flex:1.2;min-width:240px}
+.fc-hero{background:linear-gradient(135deg,#0f1627 0%,#1a2e52 100%);color:#fff;border-radius:var(--radius);padding:26px 28px;box-shadow:var(--shadow-sm);display:flex;gap:30px;align-items:flex-start;flex-wrap:wrap}
+.fc-hero-main{flex:1.2;min-width:240px;padding-top:34px}
 .fc-eyebrow{font-size:.85em;letter-spacing:.04em;color:#9fb0d0}
 .fc-big{font-size:3.1em;font-weight:700;line-height:1.1;margin:0 0 6px;font-variant-numeric:tabular-nums}
 .fc-big.neg{color:#ff8a7a}
@@ -347,10 +347,14 @@ body {
 .fc-empty{padding:26px;text-align:center;color:var(--text-muted)}
 .fc-skel{height:170px;border-radius:var(--radius);background:linear-gradient(90deg,#e9edf3 25%,#f4f6f9 50%,#e9edf3 75%);background-size:200% 100%;animation:fcsh 1.3s infinite}
 
-.fc-i{position:relative;display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;margin-right:6px;border-radius:50%;background:#e3e8f2;color:var(--text-sub);font:600 10px/1 Georgia,serif;font-style:italic;cursor:help;vertical-align:middle}
-.fc-i:hover,.fc-i:focus{background:var(--teal);color:#fff;outline:none}
-.fc-i::after{content:attr(data-tip);position:absolute;z-index:20;bottom:150%;right:-8px;width:240px;padding:9px 11px;border-radius:var(--radius-sm);background:var(--navy);color:#fff;font:400 12px/1.5 'Segoe UI',Arial,sans-serif;font-style:normal;text-align:right;box-shadow:0 6px 20px rgba(0,0,0,.2);display:none;pointer-events:none;max-width:70vw}
-.fc-i:hover::after,.fc-i:focus::after{display:block}
+.fc-i{position:relative;display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;margin-right:6px;border-radius:50%;background:#e3e8f2;color:var(--text-sub);font:600 10px/1 Georgia,serif;font-style:italic;cursor:pointer;vertical-align:middle;user-select:none}
+.fc-i:hover,.fc-i:focus,.fc-i.on{background:var(--teal);color:#fff;outline:none}
+/* the explanation opens in the flow of the page (pushes the content down) and closes again — never floats over it */
+.fc-i-panel{margin:6px 0 4px;padding:9px 12px;border-radius:var(--radius-sm);background:#eef2f9;color:var(--navy);font:400 12.5px/1.55 'Segoe UI',Arial,sans-serif;font-style:normal;text-align:right;white-space:normal}
+.fc-hero .fc-i-panel{background:rgba(255,255,255,.1);color:#dbe4f5}
+.fc-chart-detail{min-height:2.1em;margin-top:6px;padding:6px 10px;border-radius:var(--radius-sm);background:var(--bg);color:var(--text-sub);font-size:.82em;line-height:1.5}
+.fc-chart-detail.on{background:#eef2f9;color:var(--navy);font-weight:600}
+.fc-hit{fill:transparent;cursor:pointer}
 .fc-asm{display:inline-block;margin-right:6px;padding:1px 7px;border-radius:99px;background:#eef1f7;color:var(--text-sub);font-size:.72em}
 .fc-ev.inc .fc-ev-a{color:var(--teal-dark)}
 .fc-ev.later{opacity:.65}
@@ -1316,7 +1320,7 @@ function regenerate() {
 var FC_KEY = 'rc_forecast_params';
 var fcParams = { buffer: '', card_mode: 'max' };
 try { var _fcs = JSON.parse(localStorage.getItem(FC_KEY) || 'null'); if (_fcs) fcParams = Object.assign(fcParams, _fcs); } catch (e) {}
-var fcData = null, fcResizeTimer = null;
+var fcData = null, fcResizeTimer = null, fcDots = [];
 
 // Amount as an isolated left-to-right run, so the sign and ₪ stay put inside the RTL page.
 function fcMoney(n, plus) { return '<bdi dir="ltr">' + fcPlain(n, plus) + '</bdi>'; }
@@ -1334,6 +1338,58 @@ function fcEst(withInfo) { return '<div class="fc-est-foot"><span class="fc-est"
 var FC_TIP_EST = 'משוער = הערכה שמחושבת מהיסטוריית ה-6 חודשים האחרונים (ממוצע, או החודש הגבוה בתרחיש המחמיר). רק חיוב שכרטיס כבר מחזיק בעסקאות שלו ידוע בוודאות. החיוב החודשי החוזר כולל חיובים חוזרים מהבנק ושכירות ממוצעת, ללא חיובי כרטיס אשראי.';
 var FC_TIP_AUTO = 'הכרטיס נוסף למערכת אוטומטית ("Auto Insertion") ברגע שנקלט לראשונה קובץ אשראי שלו. זו לא הגדרה שלך — רק סימון שהמערכת יצרה את הכרטיס בעצמה, ואפשר לתת לו תיאור בטבלת Card.';
 var FC_TIP_ASSUMED = 'הפעולה עדיין לא מופיעה בקבצים שהוזנו. מניחים שהיא בוצעה במועד שחושב לה ולכן היא נכללת בחישוב. אם לא בוצעה — נדע בעדכון הקבצים בסוף החודש, והשינוי ישוקלל בחישוב הפעולות החוזרות של החודש הבא.';
+
+var FC_DOT_HINT = 'העבר עכבר או גע בנקודה בגרף כדי לראות את הפרטים';
+function fcDotText(e) {
+  var parts = [e.name];
+  if (e.detail && e.detail.payer) parts.push('שם בבנק: ' + e.detail.payer);
+  parts.push(fcShortDate(e.date), fcPlain(-e.amount, true));
+  if (e.assumed) parts.push('הונח כבוצע');
+  return parts.join(' · ');
+}
+
+// Hover (mouse) or tap (touch) opens a window in the flow of the page and closes it again; nothing floats.
+(function() {
+  var host = document.getElementById('fc-body');
+  var canHover = window.matchMedia && window.matchMedia('(hover: hover)').matches;
+  function infoHost(i) { return i.closest('.fc-est-foot, .fc-ev-n, .fc-rule, .fc-eyebrow') || i.parentNode; }
+  function openInfo(i) {
+    if (i._panel) return;
+    var panel = document.createElement('div');
+    panel.className = 'fc-i-panel';
+    panel.textContent = i.getAttribute('data-tip');
+    var h = infoHost(i);
+    if (h.classList.contains('fc-ev-n')) h.appendChild(panel); else h.insertAdjacentElement('afterend', panel);
+    i._panel = panel; i.classList.add('on');
+  }
+  function closeInfo(i) { if (i._panel) { i._panel.remove(); i._panel = null; } i.classList.remove('on'); }
+  function closeAll(except) { host.querySelectorAll('.fc-i.on').forEach(function(i) { if (i !== except) closeInfo(i); }); }
+  function showDot(h) {
+    var box = document.getElementById('fc-chart-detail'), e = fcDots[+h.getAttribute('data-i')];
+    if (box && e) { box.textContent = fcDotText(e); box.classList.add('on'); }
+  }
+  function hideDot() { var box = document.getElementById('fc-chart-detail'); if (box) { box.textContent = FC_DOT_HINT; box.classList.remove('on'); } }
+
+  host.addEventListener('mouseover', function(ev) {
+    if (!canHover) return;
+    var i = ev.target.closest('.fc-i'), h = ev.target.closest('.fc-hit');
+    if (i) openInfo(i); else if (h) showDot(h);
+  });
+  host.addEventListener('mouseout', function(ev) {
+    if (!canHover) return;
+    var i = ev.target.closest('.fc-i'), h = ev.target.closest('.fc-hit');
+    if (i && !(ev.relatedTarget && i.contains(ev.relatedTarget))) closeInfo(i);
+    if (h && !(ev.relatedTarget && ev.relatedTarget.closest && ev.relatedTarget.closest('.fc-hit'))) hideDot();
+  });
+  host.addEventListener('focusin', function(ev) { var i = ev.target.closest('.fc-i'); if (canHover && i) openInfo(i); });   // keyboard; on touch the tap's click does it
+  host.addEventListener('focusout', function(ev) { var i = ev.target.closest('.fc-i'); if (canHover && i) closeInfo(i); });
+  host.addEventListener('click', function(ev) {
+    var i = ev.target.closest('.fc-i'), h = ev.target.closest('.fc-hit');
+    if (i) { if (!canHover) { if (i._panel) closeInfo(i); else { closeAll(i); openInfo(i); } } return; }
+    if (h) { if (!canHover) { var box = document.getElementById('fc-chart-detail'); if (box.classList.contains('on') && box._for === h) { hideDot(); box._for = null; } else { showDot(h); box._for = h; } } return; }
+    if (!canHover) { closeAll(); hideDot(); }
+  });
+})();
 
 function fcLoad() {
   return fetch('/api/recurring/forecast').then(function(r){ return r.json(); }).then(function(d) {
@@ -1369,6 +1425,7 @@ function fcChartSvg(d, v, width) {
   var t0 = new Date(d.today).getTime(), t1 = new Date(sc.chart_end).getTime(), tH = new Date(sc.horizon).getTime();
   var span = Math.max(t1 - t0, 86400000);
   var shown = evs.filter(function(e) { return new Date(e.date).getTime() <= t1; });
+  fcDots = [];
   var pts = [{ t: t0, b: v.balance }];
   shown.forEach(function(e) { pts.push({ t: Math.max(new Date(e.date).getTime(), t0), b: e.balance_after, e: e }); });
   // salary pills: laid out first, one row each time two would overlap, so the plot leaves room above for all rows
@@ -1417,7 +1474,9 @@ function fcChartSvg(d, v, width) {
   out += '<path d="' + path + '" fill="none" stroke="#1e9d8b" stroke-width="2.4" stroke-linejoin="round"/>';
   pts.slice(1).forEach(function(p) {
     var e = p.e;
-    out += '<circle cx="' + X(p.t) + '" cy="' + Y(p.b) + '" r="4" fill="' + (p.b < 0 ? '#e74c3c' : FC_COLORS[e.kind]) + '" stroke="#fff" stroke-width="1.2"><title>' + esc(e.name) + ' · ' + fcShortDate(e.date) + ' · ' + fcPlain(-e.amount) + '</title></circle>';
+    out += '<circle cx="' + X(p.t) + '" cy="' + Y(p.b) + '" r="4" fill="' + (p.b < 0 ? '#e74c3c' : FC_COLORS[e.kind]) + '" stroke="#fff" stroke-width="1.2"/>' +
+           '<circle class="fc-hit" data-i="' + fcDots.length + '" cx="' + X(p.t) + '" cy="' + Y(p.b) + '" r="11"/>';
+    fcDots.push(e);
   });
   out += '<circle cx="' + x0 + '" cy="' + Y(v.balance) + '" r="5" fill="#fff" stroke="#1e2a4a" stroke-width="2"/>';
 
@@ -1513,7 +1572,7 @@ function fcRender() {
   var timeline =
     '<div class="fc-card"><h3>מה יורד מהחשבון עד המשכורת</h3>' +
       '<div class="fc-split">' + split + '</div><div class="fc-legend">' + legend + '</div>' +
-      '<div class="fc-chart">' + fcChartSvg(d, v, chartW) + '</div>' +
+      '<div class="fc-chart"><div class="fc-chart-svg">' + fcChartSvg(d, v, chartW) + '</div><div class="fc-chart-detail" id="fc-chart-detail">' + FC_DOT_HINT + '</div></div>' +
       '<div>' + rows + '</div>' + fcEst() + '</div>';
 
   var salRules = sal.streams.map(function(st, i) {
@@ -1540,7 +1599,7 @@ function fcRender() {
 
   el.innerHTML = hero + controls + '<div class="fc-grid">' + timeline + rules + '</div>';
   // draw the chart at its real width so the text keeps its size
-  var box = el.querySelector('.fc-chart');
+  var box = el.querySelector('.fc-chart-svg');
   if (box && box.clientWidth && Math.abs(box.clientWidth - chartW) > 8) box.innerHTML = fcChartSvg(d, v, box.clientWidth);
 }
 

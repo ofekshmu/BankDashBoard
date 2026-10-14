@@ -131,6 +131,15 @@ def test_a_salary_that_already_landed_under_another_name_is_not_assumed_again():
     assert [x['date'] for x in without['assumed']] == [date(2026, 10, 2)]      # truly missing: still assumed
 
 
+def test_variable_pay_under_two_names_is_still_one_salary():
+    """The amount is not compared (pay that varies is one salary) and one odd month (two deposits in a cycle) is tolerated."""
+    deposits = [(date(2026, 4, 30), 'משכורת אלפא', 6100), (date(2026, 6, 1), 'העברה אלפא בעמ', 15200), (date(2026, 6, 30), 'משכורת אלפא', 9000),
+                (date(2026, 7, 31), 'משכורת אלפא', 7000), (date(2026, 9, 1), 'העברה אלפא בעמ', 14000), (date(2026, 9, 30), 'משכורת אלפא', 8400),
+                (date(2026, 10, 2), 'העברה אלפא בעמ', 3000)]    # a correction on top of the September deposit
+    rows = [{'date': d, 'amount': a, 'name': n} for d, n, a in deposits]
+    assert len(build_salary_profile(rows, AS_OF, AS_OF, 'avg')['streams']) == 1
+
+
 def test_two_real_salaries_are_never_merged_even_when_their_days_are_close():
     a = [{'date': date(2026, m, 1), 'amount': 12000, 'name': 'חברת אלפא'} for m in range(4, 10)]
     b = [{'date': date(2026, m, 3), 'amount': 11000, 'name': 'בנק גמא'} for m in range(4, 10)]

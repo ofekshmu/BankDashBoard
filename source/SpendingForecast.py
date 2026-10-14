@@ -229,22 +229,28 @@ def _circular_gap(days_a: list, days_b: list) -> int:
     return min(min(abs(a - b), 31 - abs(a - b)) for a in days_a for b in days_b)
 
 
+SAME_SALARY_ONE_PER_CYCLE = 0.8   # share of cycles that must hold exactly one deposit for two groups to be one salary
+
+
 def _is_one_salary(a: list, b: list) -> bool:
     """
-    Two groups of deposits (clustered apart by name) that are really one salary whose landing day or
-    description varies: close in day of month, similar in amount, and — put together — exactly one deposit
-    per cycle. Two real salaries both pay in every cycle, so they never pass this test.
+    Two groups of deposits (clustered apart by name) that are really one salary whose landing day,
+    description or amount varies: close in day of month and — put together — one deposit per cycle
+    (SAME_SALARY_ONE_PER_CYCLE of the cycles; one odd month is tolerated). The amount is deliberately
+    not compared: pay that varies is still one salary. Two real salaries both pay in every cycle, so
+    together they hold two deposits per cycle and never pass.
     """
     union = a + b
-    days = [r['date'].day for r in union]
     if _circular_gap([r['date'].day for r in a], [r['date'].day for r in b]) > STREAM_NEAR_DAYS:
         return False
-    pivot = _pivot_day(days)
-    cycles = [_cycle_key(r['date'], pivot) for r in union]
-    if len(set(cycles)) != len(cycles):
+    pivot = _pivot_day([r['date'].day for r in union])
+    per_cycle = {}
+    for r in union:
+        per_cycle[_cycle_key(r['date'], pivot)] = per_cycle.get(_cycle_key(r['date'], pivot), 0) + 1
+    if len(per_cycle) < MIN_STREAK_MONTHS:
         return False
-    amounts = sorted(r['amount'] for r in union)
-    return amounts[0] >= amounts[-1] * (1 - MAX_AMOUNT_DEVIATION)
+    singles = sum(1 for n in per_cycle.values() if n == 1)
+    return singles / len(per_cycle) >= SAME_SALARY_ONE_PER_CYCLE
 
 
 def _merge_same_salary(groups: list) -> list:
@@ -336,7 +342,7 @@ def build_salary_profile(rows: list, as_of: _date, today: _date, mode: str = 'ma
                 continue
             if _deposit_near(rows, d, s['amount']):
                 continue   # a deposit of about that size landed around that date — under another name, but it is this salary
-            item = {'date': d, 'amount': s['amount'], 'day': s['day']}
+            item = {'date': d, 'amount': s['amount'], 'day': s['day'], 'payer': s['name']}
             if d <= today:
                 assumed.append(item)
             else:
@@ -617,7 +623,8 @@ def compute_forecast(inputs: dict, today: _date, mode: str = 'max') -> dict:
     rent = build_rent_profile(inputs.get('rent_rows') or [], as_of)
     rent_events = build_rent_events(rent, as_of, window_end)
     rec_events, skipped = build_recurring_events(inputs.get('groups') or [], as_of, window_end, mode)
-    income_events = [{'date': a['date'], 'name': f'משכורת (יום {a["day"]})', 'amount': -a['amount'], 'kind': 'income'}
+    income_events = [{'date': a['date'], 'name': f'משכורת (יום {a["day"]})', 'amount': -a['amount'], 'kind': 'income',
+                      'detail': {'payer': a['payer']}}
                      for a in salary['assumed'] + [u for u in salary['upcoming'] if u['date'] <= window_end]]
     events = card_events + rent_events + rec_events + income_events
     for e in events:

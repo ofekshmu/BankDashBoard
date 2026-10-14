@@ -268,6 +268,10 @@ computed live per request (balance changes with every bank file); the recurring 
   `fixed_monthly` (top figure) = recurring charges paid from the bank (`monthly_recurring_total`) + the average rent, **without** any credit-card estimate.
 - The old active-bills pie card and the "סה\"כ חיוב חודשי חוזר" KPI were removed from this page; the per-group list below the forecast is unchanged.
 - Rules-of-thumb month lists are collapsed (`<details class="fc-det">`).
+- **No floating messages** on this page (no CSS/`title` tooltips): the (i) opens an in-flow panel (`.fc-i-panel`, inserted after its row/cube) on hover (mouse) or tap (touch) and closes on leave /
+  second tap / tap elsewhere; a chart dot shows its details in the line under the chart (`#fc-chart-detail`). All handled by delegated listeners on `#fc-body` (`canHover` = `(hover: hover)`);
+  keep the hero `align-items:flex-start` — a vertically centred hero moved the (i) under the pointer when its panel opened (hover flicker).
+- Salary groups clustered apart by name are merged back when they look like one salary (`_is_one_salary`: close days of month + ≥ 80 % of cycles with exactly one deposit; the amount is not compared).
 
 ---
 

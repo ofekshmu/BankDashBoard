@@ -230,7 +230,7 @@ Now (`source/file_update_service.py`, `source/src_utils/file_diff.py`, `source/r
 Top of `/recurring` (`#fc` in `RecurringCharges.html`, `fc*` JS) answers "how much can I spend until the next salary without ever going below zero".
 Backend: `source/SpendingForecast.py` (pure functions + `fetch_forecast_inputs`), endpoint `GET /api/recurring/forecast` —
 computed live per request (balance changes with every bank file); the recurring groups come from the cached analysis. Tests: `tests/test_spending_forecast.py` (no DB).
-**Nothing is typed by hand except an optional safety buffer** (balance = latest `BankTransactions.Balance`, rent = average, salary day = from the data).
+**Nothing is typed by hand except an optional safety buffer** (balance = latest `BankTransactions.Balance`, rent = its recurring operations, salary day = from the data).
 
 - **Both scenarios in one answer** (`compute_both` → `scenarios.max` harsh / `scenarios.avg`): switching the scenario and the buffer is view-only in the page
   (`fcView`: free = lowest_balance − buffer); no request is made.
@@ -239,19 +239,16 @@ computed live per request (balance changes with every bank file); the recurring 
   (`compute_free_amount(..., today=...)`). Otherwise an assumed salary lifted the walk and the free amount came out equal to the bare balance.
   The chart **always shows a month ahead of today** (`chart_end` = same day next month, `_plus_month`), whatever the salary date: events and the salaries of the month are
   computed to `max(horizon, chart_end)`, `after_salary` marks what lies beyond the next salary (kept out of the totals and the lowest point — `compute_free_amount(..., horizon)`).
-  It shades the free stretch (zero line/buffer → lowest point, today → next salary) green and marks every salary with a vertical line + pill.
+  It shades the free stretch (zero line/buffer → lowest point, today → next salary) green and marks every salary with a vertical line + marker (no permanent labels; details on hover/tap).
   **Layout rule: in the top figures the number comes first, its label/details below** (`.fc-mini-v{order:-1}`, `.fc-big` before the eyebrow).
 - **Only recurring things count** — by the page's own definition (`recurring_months`, reusing `RecurringCharges` thresholds: ≥ 3 consecutive months, amount within 50 % of the
-  median, ≤ 3 runs, last one ≤ 6 months before the last completed month). A one-off deposit tagged salary (e.g. a bonus on the 20th) or one payment tagged rent is ignored.
+  median — not compared for salaries —, ≤ 3 runs, last one ≤ 6 months before the last completed month). A one-off deposit tagged salary (e.g. a bonus on the 20th) or one payment tagged rent is ignored.
 - **Salary streams:** `BankTransactions` Income tagged `משכורת` (with `Name`), last 6 months, split **by payer** — the deposit names are clustered with `RecurringCharges.cluster_transactions`
   (not by day: days jump ±3 and two salaries can be only a few days apart in day-of-month distance). Each stream's cycle starts on `_pivot_day` (the day after its widest empty stretch of the month),
   so a salary landing between the 29th and the 3rd stays one cycle (`_cycle_key`). Per stream harsh = latest position + lowest amount, avg = mean of both.
   The forecast ends at the earliest upcoming salary of any stream. Two salaries from the *same* payer name would merge into one stream.
-  The opposite case — **one** salary the bank names differently depending on the day it lands (end of month vs the 1st) — is merged back by `_merge_same_salary`/`_is_one_salary`:
-  groups close in day of month, similar in amount, that together give exactly one deposit per cycle (two real salaries pay in every cycle, so they never qualify).
-  Each stream shows its bank name in the rules panel to make a wrong split visible.
+  The opposite case — **one** salary the bank names differently depending on the day it lands (end of month vs the 1st) — is merged back (see the merge rule below).
   An unreceived cycle is only *assumed* when no deposit of about that size (±25 %, `STEP_CHANGE_MAX`) landed within ±3 days (`SALARY_DAY_JITTER`) of its date under **any** payer name (`_deposit_near`).
-  The chart's salary pills are laid out in rows so close salaries never overlap.
 - **"Assumed done" rule:** every event dated up to *today* that the data doesn't show (a charge whose usual day passed, a salary of an unreceived cycle) is taken as
   happened on its planned date — charges are deducted, salaries added (`assumed=True`, "הונח כבוצע" badge + (i) explanation). If it didn't happen, the next file
   update shows it and the recurring analysis absorbs it. (`_is_late` / `_usual_date_this_month`.)
@@ -259,13 +256,13 @@ computed live per request (balance changes with every bank file); the recurring 
   (`usual_day`, never an average); amount = the card's mean month (avg) or largest month (max). A future `Charge_Date` the card already holds is used as the exact
   date and as a floor for the amount. `Card.description == "Auto Insertion"` (set by `insert_card_transaction` for a card the importer created) is not shown as a name;
   the page shows an (i) explaining it.
-- **Rent** (`שכירות`) is treated as recurring operations, not as one sum: the category holds several payments that repeat every month with the same amount (the rent, the building fee…).
+- **Rent** (`שכירות`) is treated as recurring operations, not as one sum (`fixed_monthly` uses the rent total, the latest amount of each operation — not an average): the category holds several payments that repeat every month with the same amount (the rent, the building fee…).
   `RecurringCharges.recurring_operations` splits them **by amount** (`cluster_by_amount`, ±3 %; a rent update is merged into one operation when the amounts never share a month and differ by ≤ 25 % (`STEP_CHANGE_MAX`) — a doubled payment, e.g. 560 after months of 280, is a one-off, not an update),
   `build_rent_profile` keeps each one only if it is recurring by `recurring_months` (a one-off is ignored), and each costs its latest amount on its usual day
   (`items`: "שכירות" = most repeated/biggest, "ועד בית" = the next). `collapse_rent` gives the recurring page the same names (one group per operation); the forecast skips those groups.
 - **Recurring** groups paid from the bank only (card-paid ones are inside the card charge); stopped groups are skipped.
 - **Estimates are labelled:** every projected figure carries a "משוער" tag, always at the **bottom** of its cube (`fcEst`, `.fc-est-foot`), never inline in the text; only one of them (the main figure) carries the (i) explaining it; `totals.known` = charges a card already holds, `totals.estimated` = the rest.
-  `fixed_monthly` (top figure) = recurring charges paid from the bank (`monthly_recurring_total`) + the average rent, **without** any credit-card estimate.
+  `fixed_monthly` (top figure) = recurring charges paid from the bank (`monthly_recurring_total`) + the rent operations, **without** any credit-card estimate.
 - The old active-bills pie card and the "סה\"כ חיוב חודשי חוזר" KPI were removed from this page; the per-group list below the forecast is unchanged.
 - Rules-of-thumb month lists are collapsed (`<details class="fc-det">`).
 - **No floating messages** on this page (no CSS/`title` tooltips): the (i) opens an in-flow panel (`.fc-i-panel`, inserted after its row/cube) on hover (mouse) or tap (touch) and closes on leave /

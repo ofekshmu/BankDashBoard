@@ -107,6 +107,24 @@ def test_recurring_definition_matches_the_recurring_page():
     assert [m['month'] for m in recurring_months(wild, AS_OF)] == ['2026-07', '2026-08', '2026-09']   # outlier dropped
 
 
+def test_one_salary_with_two_names_landing_at_the_month_edge_is_one_stream_not_two():
+    """The salary lands on the last day of the month or on the 1st, and the bank names the two kinds of
+    deposit differently: one deposit per cycle in all, so it is one salary — not an end-of-month one and a
+    start-of-month one."""
+    deposits = [(date(2026, 4, 30), 'משכורת אלפא'), (date(2026, 6, 1), 'העברה אלפא בעמ'), (date(2026, 6, 30), 'משכורת אלפא'),
+                (date(2026, 7, 31), 'משכורת אלפא'), (date(2026, 9, 1), 'העברה אלפא בעמ'), (date(2026, 9, 30), 'משכורת אלפא')]
+    rows = [{'date': d, 'amount': 12000, 'name': n} for d, n in deposits]
+    prof = build_salary_profile(rows, AS_OF, AS_OF, 'avg')
+    assert len(prof['streams']) == 1
+    assert len([u for u in prof['upcoming'] if u['date'] <= date(2026, 11, 14)]) == 1      # one date in the month ahead
+
+
+def test_two_real_salaries_are_never_merged_even_when_their_days_are_close():
+    a = [{'date': date(2026, m, 1), 'amount': 12000, 'name': 'חברת אלפא'} for m in range(4, 10)]
+    b = [{'date': date(2026, m, 3), 'amount': 11000, 'name': 'בנק גמא'} for m in range(4, 10)]
+    assert len(build_salary_profile(a + b, AS_OF, AS_OF, 'avg')['streams']) == 2
+
+
 def test_a_one_off_deposit_on_the_20th_is_not_a_salary_stream():
     rows = _salary(day=9, months=range(4, 10)) + [{'date': date(2026, 7, 20), 'amount': 4000, 'name': 'בונוס חד פעמי'}]    # bonus, once
     for mode in ('max', 'avg'):

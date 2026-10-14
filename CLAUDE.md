@@ -247,6 +247,9 @@ computed live per request (balance changes with every bank file); the recurring 
   (not by day: days jump ±3 and two salaries can be only a few days apart in day-of-month distance). Each stream's cycle starts on `_pivot_day` (the day after its widest empty stretch of the month),
   so a salary landing between the 29th and the 3rd stays one cycle (`_cycle_key`). Per stream harsh = latest position + lowest amount, avg = mean of both.
   The forecast ends at the earliest upcoming salary of any stream. Two salaries from the *same* payer name would merge into one stream.
+  The opposite case — **one** salary the bank names differently depending on the day it lands (end of month vs the 1st) — is merged back by `_merge_same_salary`/`_is_one_salary`:
+  groups close in day of month, similar in amount, that together give exactly one deposit per cycle (two real salaries pay in every cycle, so they never qualify).
+  Each stream shows its bank name in the rules panel to make a wrong split visible.
 - **"Assumed done" rule:** every event dated up to *today* that the data doesn't show (a charge whose usual day passed, a salary of an unreceived cycle) is taken as
   happened on its planned date — charges are deducted, salaries added (`assumed=True`, "הונח כבוצע" badge + (i) explanation). If it didn't happen, the next file
   update shows it and the recurring analysis absorbs it. (`_is_late` / `_usual_date_this_month`.)

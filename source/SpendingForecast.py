@@ -220,6 +220,50 @@ def _cycle_date(position: int, cycle_start: _date) -> _date:
     return _clamp_day(nxt.year, nxt.month, position - 31)
 
 
+STREAM_NEAR_DAYS = 7           # two salary groups this close (circular day of month) may be one salary
+
+
+def _circular_gap(days_a: list, days_b: list) -> int:
+    """The smallest distance between a day of one list and a day of the other, on the circle of the month."""
+    return min(min(abs(a - b), 31 - abs(a - b)) for a in days_a for b in days_b)
+
+
+def _is_one_salary(a: list, b: list) -> bool:
+    """
+    Two groups of deposits (clustered apart by name) that are really one salary whose landing day or
+    description varies: close in day of month, similar in amount, and — put together — exactly one deposit
+    per cycle. Two real salaries both pay in every cycle, so they never pass this test.
+    """
+    union = a + b
+    days = [r['date'].day for r in union]
+    if _circular_gap([r['date'].day for r in a], [r['date'].day for r in b]) > STREAM_NEAR_DAYS:
+        return False
+    pivot = _pivot_day(days)
+    cycles = [_cycle_key(r['date'], pivot) for r in union]
+    if len(set(cycles)) != len(cycles):
+        return False
+    amounts = sorted(r['amount'] for r in union)
+    return amounts[0] >= amounts[-1] * (1 - MAX_AMOUNT_DEVIATION)
+
+
+def _merge_same_salary(groups: list) -> list:
+    """Joins the payer groups that are one salary under different names (see _is_one_salary)."""
+    groups = [list(g) for g in groups]
+    merged = True
+    while merged:
+        merged = False
+        for i in range(len(groups)):
+            for j in range(i + 1, len(groups)):
+                if _is_one_salary(groups[i], groups[j]):
+                    groups[i] += groups[j]
+                    del groups[j]
+                    merged = True
+                    break
+            if merged:
+                break
+    return groups
+
+
 def build_salary_profile(rows: list, as_of: _date, today: _date, mode: str = 'max') -> dict:
     """
     rows: [{'date': date, 'amount': float, 'name': str}] salary deposits (Income > 0 tagged as salary).
@@ -238,8 +282,8 @@ def build_salary_profile(rows: list, as_of: _date, today: _date, mode: str = 'ma
     if not rows:
         return {'known': False, 'streams': [], 'assumed': [], 'upcoming': [], 'next_date': None}
 
-    payers = [c['members'] for c in cluster_transactions(
-        [dict(r, name=r.get('name', '')) for r in rows])]
+    payers = _merge_same_salary([c['members'] for c in cluster_transactions(
+        [dict(r, name=r.get('name', '')) for r in rows])])
     cur_key = month_key(as_of)
     streams = []
     for mine in payers:
@@ -259,7 +303,9 @@ def build_salary_profile(rows: list, as_of: _date, today: _date, mode: str = 'ma
         pos_avg = int(round(_mean(m['position'] for m in past)))
         pos_max = max(m['position'] for m in past)
         position = _by_mode(mode, pos_max, pos_avg)
+        names = [r.get('name', '') for r in mine]
         streams.append({
+            'name': max(set(names), key=names.count),
             'day': ((position - 1) % 31) + 1, 'position': position,
             'day_avg': ((pos_avg - 1) % 31) + 1, 'day_max': ((pos_max - 1) % 31) + 1,
             'amount': _by_mode(mode, min_amount, avg_amount),

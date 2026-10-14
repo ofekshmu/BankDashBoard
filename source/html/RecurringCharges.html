@@ -1509,7 +1509,7 @@ function fcRender() {
 
   var salRules = sal.streams.map(function(st, i) {
     return '<div class="fc-rule"><span>משכורת' + (sal.streams.length > 1 ? ' ' + (i + 1) : '') + ' · ' + (mode === 'max' ? 'יום ' + st.day + ' (המאוחר ביותר)' : 'יום ' + st.day + ' (ממוצע)') + '</span><b>' + fcMoney(st.amount) + '</b></div>' +
-      '<details class="fc-det"><summary>פירוט ההפקדות</summary><div class="fc-sub-rule">' + fcMonthList(st.months.slice(-6)) + '</div></details>';
+      '<details class="fc-det"><summary>פירוט ההפקדות</summary><div class="fc-sub-rule">שם בבנק: ' + esc(st.name) + '</div><div class="fc-sub-rule">' + fcMonthList(st.months.slice(-6)) + '</div></details>';
   }).join('');
   var cards = (sc.cards || []).map(function(c) {
     return '<div class="fc-rule"><span>' + esc(c.name) + (c.auto ? fcInfo(FC_TIP_AUTO) : '') + ' · חיוב ביום ' + c.day + '</span><b>ממוצע ' + fcMoney(c.avg_month) + ' · שיא ' + fcMoney(c.max_month) + '</b></div>';

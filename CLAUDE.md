@@ -228,16 +228,21 @@ Now (`source/file_update_service.py`, `source/src_utils/file_diff.py`, `source/r
 ## Recurring page — spending forecast ("פנוי לבזבוז עד המשכורת")
 
 Top of `/recurring` (`#fc` in `RecurringCharges.html`, `fc*` JS) answers "how much can I spend until the next salary without ever going below zero".
-Backend: `source/SpendingForecast.py` (pure functions + `fetch_forecast_inputs`), endpoint `GET /api/recurring/forecast`
-(`salary_day`, `buffer`, `card_mode=avg|max`, `balance`) — computed live per request (balance changes with every bank file); the recurring
-groups come from the cached analysis. Tests: `tests/test_spending_forecast.py` (no DB).
+Backend: `source/SpendingForecast.py` (pure functions + `fetch_forecast_inputs`), endpoint `GET /api/recurring/forecast` (optional `rent`) —
+computed live per request (balance changes with every bank file); the recurring groups come from the cached analysis. Tests: `tests/test_spending_forecast.py` (no DB).
 
-- **Free amount** = lowest balance reached walking the charges in date order before the salary (spending assumed to happen now) − buffer.
-- **Salary** = `BankTransactions` Income tagged `משכורת`: mean of the last 6 months, mean day (override in the UI); a deposit < 50 % of the usual one doesn't count as received.
-- **Cards** = bank rows tagged `אשראי`, one profile per source name: usual day, mean month (`avg`) or largest month (`max`, default, the harsh mode);
-  never below what `CardTransactions` already hold for that `Charge_Date`. A usual day that passed this month with no charge is *late* → due now.
+- **Both scenarios in one answer** (`compute_both` → `scenarios.max` harsh / `scenarios.avg`): switching the scenario, the safety buffer and a manual balance
+  are view-only in the page (`fcView`: free = lowest_balance + (manual balance − balance) − buffer); only the rent amount asks the server again.
+- **Free amount** = lowest balance reached walking the charges in date order before the salary (spending assumed to happen now).
+- **Salary** = `BankTransactions` Income tagged `משכורת`, last 6 months, nothing typed by hand: harsh = latest day + lowest amount seen, avg = mean day + mean amount;
+  a deposit < 50 % of the usual one doesn't count as received.
+- **Every card on its own day:** `CardTransactions` grouped by `CardID` + `Charge_Date` (withdrawals excluded, refunds subtract). Usual day = most common charge day
+  (`usual_day`, never an average); amount = the card's mean month (avg) or largest month (max). A future `Charge_Date` the card already holds is used as the exact
+  date and as a floor for the amount. A usual day that passed this month with no charge is *late* → due now.
+- **Rent** (`שכירות`) is read straight from the tagged `BankTransactions` rows (`build_rent_profile`), not from the recurring detection: latest month (harsh: highest
+  of the last 3), usual day, and what was already paid this month is deducted. The page lets the user type "שכירות + ועד בית" (kept in localStorage, sent as `rent`).
+  `RecurringCharges.collapse_rent` still gives rent one name so it also shows as one recurring group; the forecast skips that group to avoid double counting.
 - **Recurring** groups paid from the bank only (card-paid ones are inside the card charge); stopped groups are skipped. Unpaid + usual day passed → late → due now.
-- **Rent** (`שכירות`): cheques have different names, so `RecurringCharges.collapse_rent` gives every rent row one name and sums a month's payments → one recurring group.
 - The balance is the latest `BankTransactions.Balance`; events dated before its date are already reflected in it.
 
 ---

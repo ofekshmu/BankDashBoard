@@ -4,7 +4,7 @@ from datetime import date
 from RecurringCharges import collapse_rent
 from SpendingForecast import (
     build_salary_profile, build_card_profiles, build_card_events, build_rent_profile, build_rent_events,
-    build_recurring_events, compute_free_amount, compute_forecast, compute_both, usual_day,
+    build_recurring_events, compute_free_amount, compute_forecast, compute_both, usual_day, _cluster_days,
 )
 
 AS_OF = date(2026, 10, 14)
@@ -13,6 +13,15 @@ HORIZON = date(2026, 11, 10)
 
 def _salary(day=10, amount=15000, months=range(4, 10)):
     return [{'date': date(2026, m, day), 'amount': amount} for m in months]
+
+
+def _two_salaries(last_a=10, last_b=11):
+    """One salary on the 9th, another that lands at the end of the month / start of the next."""
+    a = [{'date': date(2026, m, 9), 'amount': 15000} for m in range(4, last_a)]
+    b = [{'date': date(2026, 4, 30), 'amount': 9000}, {'date': date(2026, 6, 1), 'amount': 9000},
+         {'date': date(2026, 6, 30), 'amount': 9000}, {'date': date(2026, 7, 31), 'amount': 9000},
+         {'date': date(2026, 9, 1), 'amount': 9000}][: last_b]
+    return a + b
 
 
 def _card(card='4603', day=10, base=3000, months=range(4, 10)):
@@ -37,22 +46,38 @@ def test_usual_day_is_never_an_average():
     assert usual_day([]) == 1
 
 
-def test_salary_modes_pick_harsh_or_average_day_and_amount():
+def test_days_are_split_into_salary_streams_around_the_month_edge():
+    assert _cluster_days([9, 10, 11]) == [[9, 10, 11]]
+    groups = _cluster_days([9, 9, 30, 31, 1])
+    assert sorted(map(sorted, groups)) == [[1, 30, 31], [9]]
+    assert [30, 31, 1] in groups                                   # circular order, starting after the cut
+
+
+def test_one_salary_modes_pick_harsh_or_average_day_and_amount():
     rows = [{'date': date(2026, 4, 9), 'amount': 15000}, {'date': date(2026, 5, 10), 'amount': 16000},
             {'date': date(2026, 6, 14), 'amount': 14000}]
-    harsh = build_salary_profile(rows, AS_OF, 'max')
-    avg = build_salary_profile(rows, AS_OF, 'avg')
+    harsh = build_salary_profile(rows, AS_OF, AS_OF, 'max')['streams'][0]
+    avg = build_salary_profile(rows, AS_OF, AS_OF, 'avg')['streams'][0]
     assert harsh['day'] == 14 and harsh['amount'] == 14000          # latest day, lowest salary
     assert avg['day'] == 11 and avg['amount'] == 15000              # mean day, mean salary
-    assert harsh['next_date'] == date(2026, 10, 14)
 
 
-def test_salary_next_month_when_received_and_small_deposit_ignored():
-    rows = _salary() + [{'date': date(2026, 10, 9), 'amount': 15000}]
-    p = build_salary_profile(rows, AS_OF, 'avg')
-    assert p['received_this_month'] and p['next_date'] == date(2026, 11, 10)
-    rows = _salary() + [{'date': date(2026, 10, 9), 'amount': 2000}]
-    assert not build_salary_profile(rows, AS_OF, 'avg')['received_this_month']
+def test_two_salaries_are_two_streams_and_horizon_is_the_nearest():
+    prof = build_salary_profile(_two_salaries(), AS_OF, AS_OF, 'avg')
+    assert [(st['day'], st['amount']) for st in prof['streams']] == [(9, 15000), (31, 9000)]
+    # neither the 9th of October nor the end-of-September salary is in the data yet: both assumed arrived
+    assert [a['date'] for a in prof['assumed']] == [date(2026, 9, 30), date(2026, 10, 9)]
+    assert [u['date'] for u in prof['upcoming']][:2] == [date(2026, 10, 31), date(2026, 11, 9)]
+    assert prof['next_date'] == date(2026, 10, 31)         # the end-of-month salary comes first
+
+
+def test_received_salary_waits_for_next_cycle_and_overdue_one_is_assumed():
+    received = _salary() + [{'date': date(2026, 10, 10), 'amount': 15000}]
+    prof = build_salary_profile(received, AS_OF, AS_OF, 'avg')
+    assert prof['assumed'] == [] and prof['next_date'] == date(2026, 11, 10)
+    overdue = build_salary_profile(_salary(), AS_OF, AS_OF, 'avg')
+    assert [a['date'] for a in overdue['assumed']] == [date(2026, 10, 10)]     # taken as arrived on its date
+    assert overdue['next_date'] == date(2026, 11, 10)
 
 
 def test_every_card_has_its_own_day():
@@ -62,12 +87,12 @@ def test_every_card_has_its_own_day():
     assert [p['card'] for p in prof] == ['1111', '4603']               # ordered by day
 
 
-def test_card_modes_and_late_card():
-    prof = build_card_profiles(_card('4603', day=10), AS_OF)           # October's charge missing
+def test_card_modes_and_unseen_charge_is_taken_on_its_usual_day():
+    prof = build_card_profiles(_card('4603', day=10), AS_OF)           # October's charge missing in the data
     assert prof[0]['avg_month'] == 3000 + 650 and prof[0]['max_month'] == 3900
-    avg = build_card_events(prof, [], AS_OF, HORIZON, 'avg', AS_OF)
-    mx = build_card_events(prof, [], AS_OF, HORIZON, 'max', AS_OF)
-    assert sorted((e['date'], e['late']) for e in avg) == [(AS_OF, True), (date(2026, 11, 10), False)]
+    avg = build_card_events(prof, [], AS_OF, HORIZON, 'avg')
+    mx = build_card_events(prof, [], AS_OF, HORIZON, 'max')
+    assert sorted(e['date'] for e in avg) == [date(2026, 10, 10), date(2026, 11, 10)]
     assert sorted(e['amount'] for e in avg) == [3650, 3650] and sorted(e['amount'] for e in mx) == [3900, 3900]
 
 
@@ -76,62 +101,58 @@ def test_card_charged_this_month_is_skipped_and_held_charge_sets_date_and_floor(
                                      {'card': '4603', 'name': 'כרטיס 4603', 'date': date(2026, 11, 9), 'amount': 8000}]
     prof = build_card_profiles(rows, AS_OF)
     assert prof[0]['charged_this_month']
-    ev = build_card_events(prof, rows, AS_OF, HORIZON, 'avg', AS_OF)
+    ev = build_card_events(prof, rows, AS_OF, HORIZON, 'avg')
     assert [(e['date'], e['amount']) for e in ev] == [(date(2026, 11, 9), 8000)]   # exact Charge_Date, above the average
 
 
 def test_held_charge_of_a_card_without_history_is_its_own_event():
-    rows = [{'card': '9999', 'name': 'כרטיס 9999', 'date': date(2026, 10, 20), 'amount': 700}]
-    ev = build_card_events(build_card_profiles(rows, AS_OF), rows, AS_OF, HORIZON, 'avg', AS_OF)
+    rows = [{'card': '9999', 'name': 'כרטיס 9999', 'date': date(2026, 10, 20), 'amount': 700, 'auto': True}]
+    ev = build_card_events(build_card_profiles(rows, AS_OF), rows, AS_OF, HORIZON, 'avg')
     assert [(e['date'], e['amount']) for e in ev] == [(date(2026, 10, 20), 700)]
+    assert ev[0]['detail']['auto'] is True
 
 
-def test_rent_is_read_from_the_raw_rows_not_from_recurring_groups():
-    p = build_rent_profile(_rent_rows(5880), AS_OF, 'avg')
-    assert p['amount'] == 5880 and p['day'] == 1 and p['paid_this_month'] == 5880
-    assert build_rent_events(p, AS_OF, AS_OF, HORIZON)[0]['date'] == date(2026, 11, 1)   # October is paid
-    assert len(build_rent_events(p, AS_OF, AS_OF, HORIZON)) == 1
+def test_rent_is_the_monthly_average_read_from_the_raw_rows():
+    rows = _rent_rows(5000, months=range(5, 8)) + _rent_rows(6000, months=range(8, 10)) + [{'date': date(2026, 10, 1), 'amount': 5880}]
+    p = build_rent_profile(rows, AS_OF)
+    assert p['amount'] == round((3 * 5000 + 2 * 6000) / 5, 2) and p['day'] == 1   # completed months only
+    assert p['paid_this_month'] == 5880 and [m['month'] for m in p['monthly']][-1] == '2026-10'
+    assert build_rent_profile([], AS_OF) is None
 
 
-def test_rent_unpaid_this_month_is_late_and_partial_payment_is_deducted():
-    p = build_rent_profile(_rent_rows(5880, months=range(5, 10)), AS_OF, 'avg')      # October missing
-    ev = build_rent_events(p, AS_OF, AS_OF, HORIZON)
-    assert sorted((e['date'], e['late'], e['amount']) for e in ev) == [(AS_OF, True, 5880), (date(2026, 11, 1), False, 5880)]
+def test_rent_paid_this_month_waits_for_next_month_and_unpaid_is_taken_on_its_day():
+    p = build_rent_profile(_rent_rows(5880), AS_OF)
+    assert [e['date'] for e in build_rent_events(p, AS_OF, HORIZON)] == [date(2026, 11, 1)]
+    p = build_rent_profile(_rent_rows(5880, months=range(5, 10)), AS_OF)                # October missing
+    ev = sorted(build_rent_events(p, AS_OF, HORIZON), key=lambda e: e['date'])
+    assert [(e['date'], e['amount']) for e in ev] == [(date(2026, 10, 1), 5880), (date(2026, 11, 1), 5880)]
     rows = _rent_rows(5880, months=range(5, 10)) + [{'date': date(2026, 10, 1), 'amount': 4500}]
-    p = build_rent_profile(rows, AS_OF, 'avg', override=5880)                         # building fee still due
-    ev = sorted(build_rent_events(p, AS_OF, AS_OF, HORIZON), key=lambda e: e['date'])
-    assert (ev[0]['late'], ev[0]['amount']) == (True, 1380)
-
-
-def test_rent_override_and_harsh_mode():
-    rows = _rent_rows(4700, months=range(5, 8)) + _rent_rows(4900, months=range(8, 11))
-    assert build_rent_profile(rows, AS_OF, 'avg')['amount'] == 4900
-    rows[-1]['amount'] = 4800
-    assert build_rent_profile(rows, AS_OF, 'max')['amount'] == 4900                   # highest of the last 3
-    over = build_rent_profile(rows, AS_OF, 'avg', override=5880)
-    assert over['amount'] == 5880 and over['overridden'] and over['detected'] == 4800
-    assert build_rent_profile([], AS_OF, 'avg') is None
-    assert build_rent_profile([], AS_OF, 'avg', override=5880)['day'] == 1
+    ev = sorted(build_rent_events(build_rent_profile(rows, AS_OF), AS_OF, HORIZON), key=lambda e: e['date'])
+    assert (ev[0]['date'], ev[0]['amount']) == (date(2026, 10, 1), 1380)               # the part still unpaid
 
 
 def test_bank_groups_card_paid_stopped_and_rent_are_filtered():
     card = _bank_group('Netflix', table='CardTransactions')
     stopped = dict(_bank_group('Old'), possibly_stopped=True)
     rent = _bank_group('שכירות', category='שכירות')
-    ev, skipped = build_recurring_events([card, stopped, rent], AS_OF, AS_OF, HORIZON, 'avg')
+    ev, skipped = build_recurring_events([card, stopped, rent], AS_OF, HORIZON, 'avg')
     assert ev == [] and {s['reason'] for s in skipped} == {'card', 'stopped', 'rent'}
-    ev, _ = build_recurring_events([_bank_group()], AS_OF, AS_OF, HORIZON, 'avg')
+    ev, _ = build_recurring_events([_bank_group()], AS_OF, HORIZON, 'avg')
     assert [e['date'] for e in ev] == [date(2026, 10, 18)]
-    ev, _ = build_recurring_events([_bank_group()], AS_OF, AS_OF, HORIZON, 'max')
+    ev, _ = build_recurring_events([_bank_group()], AS_OF, HORIZON, 'max')
     assert ev[0]['amount'] == 480
+    ev, _ = build_recurring_events([_bank_group(day=5)], AS_OF, HORIZON, 'avg')
+    assert sorted(e['date'] for e in ev) == [date(2026, 10, 5), date(2026, 11, 5)]   # unseen this month: taken on its day
 
 
-def test_free_amount_is_the_lowest_point():
+def test_free_amount_is_the_lowest_point_and_a_salary_lifts_the_balance():
     events = [{'date': date(2026, 10, 20), 'name': 'a', 'amount': 3000, 'kind': 'card'},
               {'date': date(2026, 11, 1), 'name': 'rent', 'amount': 4500, 'kind': 'rent'}]
     r = compute_free_amount(10000, events)
     assert r['free'] == 2500 and r['tight_name'] == 'rent' and events[0]['balance_after'] == 7000
     assert compute_free_amount(5000, events)['free'] == -2500
+    with_income = events + [{'date': date(2026, 10, 25), 'name': 'sal', 'amount': -9000, 'kind': 'income'}]
+    assert compute_free_amount(5000, with_income)['lowest_balance'] == 5000 - 3000   # dip before the salary
 
 
 def _inputs(**kw):
@@ -152,17 +173,15 @@ def test_forecast_scenarios_are_both_computed_and_harsh_is_not_looser():
     assert mx['free'] == 30000 - 480 - 5880 - 3900 and mx['free'] < avg['free']
     assert avg['totals'] == {'card': 3650, 'recurring': 380, 'rent': 5880, 'all': 9910}
     assert [e['name'] for e in avg['events']][-1] == 'כרטיס 4603'
+    assert not any(e['assumed'] for e in avg['events'])      # everything is still ahead of today
 
 
-def test_forecast_rent_override_changes_the_amount_in_both_scenarios():
-    both = compute_both(_inputs(rent_rows=_rent_rows(4700, months=range(5, 10))), AS_OF, rent_override=5880)
-    for sc in both['scenarios'].values():     # October unpaid (late) + November 1st
-        assert sc['rent']['amount'] == 5880 and sc['totals']['rent'] == 2 * 5880
-
-
-def test_overdue_salary_assumes_today():
-    f = compute_forecast(_inputs(salary_rows=_salary()), AS_OF, 'avg')
-    assert f['horizon'] == AS_OF and any('טרם' in n or 'עדיין לא נקלטה' in n for n in f['notes'])
+def test_unseen_things_up_to_today_are_assumed_done_and_overdue_salary_arrives():
+    f = compute_forecast(_inputs(salary_rows=_salary(), rent_rows=_rent_rows(5880, months=range(5, 10))), AS_OF, 'avg')
+    assumed = {e['name']: e for e in f['events'] if e['assumed']}
+    assert assumed['שכירות + ועד בית']['date'] == date(2026, 10, 1)
+    assert assumed['משכורת (יום 10)']['amount'] == -15000 and assumed['משכורת (יום 10)']['kind'] == 'income'
+    assert f['totals']['rent'] == 2 * 5880 and f['horizon'] == date(2026, 11, 10)
 
 
 def test_no_salary_is_reported():

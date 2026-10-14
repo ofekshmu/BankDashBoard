@@ -5912,8 +5912,7 @@ def recurring_data():
 def recurring_forecast():
     """How much money is free to spend until the next salary (see SpendingForecast).
     Returns both scenarios (harsh 'max' and 'avg') at once, so the page switches between them
-    without another request; buffer and manual balance are applied by the page on top.
-    Query: rent (ILS, rent + building fee as the user knows it; replaces the amount found in the data).
+    without another request; the safety buffer is applied by the page on top.
     Computed live from the DB each time, so a new bank file shows at once; the recurring
     groups come from the cached analysis (or are computed when none is cached)."""
     try:
@@ -5927,11 +5926,7 @@ def recurring_forecast():
         else:
             from RecurringCharges import get_recurring_groups
             groups = get_recurring_groups(db)
-        try:
-            rent = float(request.args.get('rent', '').strip() or 0) or None
-        except ValueError:
-            rent = None
-        return Response(_recurring_data_json(get_forecast(db, groups, rent)), mimetype='application/json')
+        return Response(_recurring_data_json(get_forecast(db, groups)), mimetype='application/json')
     except Exception as e:
         import traceback
         _log_error(e, traceback.format_exc())

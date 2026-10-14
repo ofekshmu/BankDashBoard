@@ -2,23 +2,29 @@
 Spending forecast — "how much can I spend until the next salary?"
 
 Combines the bank balance, the recurring bank charges, the rent, every credit card's
-own charge day and the salary date, and works out how much money is *free* so that no
+own charge day and every salary stream, and works out how much money is *free* so that no
 point in time before the next salary goes below zero.
 
 Two scenarios are computed together, so switching between them in the page is only a
 change of view:
-  - 'max' (harsh): the latest salary day / lowest salary seen, every card at its largest
-    month of the history, the rent at its highest of the last three months
-  - 'avg': the average salary day / amount, every card at its average month, the latest rent
+  - 'max' (harsh): the latest day / lowest amount of every salary, every card at its largest
+    month of the history
+  - 'avg': the average day / amount of every salary, every card at its average month
 
 Rules of thumb (from the last HISTORY_MONTHS months of data):
+  - salaries: the deposits tagged as salary are split into streams by their day of the month
+    (e.g. one on the 9th, another at the end/start of the month); the forecast ends at the
+    next salary of any stream
   - each card (CardTransactions, grouped by CardID and Charge_Date) is charged on its own usual
     day of the month; once the card already holds charges for a future Charge_Date that exact date
     is used, and the charge is never below what the card holds
-  - the rent (BankTransactions tagged RENT_CATEGORY, read directly — it does not depend on the
-    recurring-charge detection) is due on its usual day; what was already paid this month is deducted
+  - the rent (BankTransactions tagged RENT_CATEGORY, read directly) is the monthly average of the
+    recent months, due on its usual day; what was already paid this month is deducted
   - recurring charges paid straight from the bank at their usual day-of-month (those paid by card
     are already inside that card's charge)
+  - anything dated up to today that the files do not show yet is assumed to have happened on its
+    planned date (the files are only updated now and then): a charge is deducted, a salary is added.
+    If it did not happen, the next file update shows it and the recurring analysis absorbs the change
   - spending is assumed to happen right now, so the free amount is the lowest balance reached
     along the way — the worst moment before the salary
 
@@ -26,14 +32,16 @@ Pure functions work on plain dicts/dates; only fetch_forecast_inputs() and
 get_forecast() touch the DB.
 """
 import calendar as _cal
-from datetime import date as _date
+from datetime import date as _date, timedelta as _timedelta
 
 from RecurringCharges import month_key, _to_plain_date, RENT_CATEGORY
 
 SALARY_CATEGORY = 'משכורת'
+AUTO_CARD_DESCRIPTION = 'Auto Insertion'   # Card.description of a card the importer created by itself
 
 HISTORY_MONTHS = 6             # months of history behind every rule of thumb
-MIN_SALARY_FRACTION = 0.5      # a deposit below this share of the usual salary is not "the salary"
+STREAM_GAP_DAYS = 7            # salary deposits further apart than this (circular day of month) are different salaries
+SALARY_LOOKBACK_DAYS = 25      # an unreceived salary older than this is not assumed to have arrived
 RENT_PAID_FRACTION = 0.9       # this share of the rent paid this month counts as "paid in full"
 STALE_BALANCE_DAYS = 3         # the balance is flagged old when it is older than this
 MODES = ('avg', 'max')
@@ -94,59 +102,123 @@ def _is_late(day: int, as_of: _date, paid: bool) -> bool:
     return not paid and _clamp_day(as_of.year, as_of.month, day) <= as_of
 
 
-def _due_now(today: _date, as_of: _date, horizon: _date) -> _date:
-    """The date given to a charge that is late (its usual day passed unpaid): right now."""
-    return min(max(today, as_of), horizon)
+def _usual_date_this_month(day: int, as_of: _date) -> _date:
+    """This month's usual date of a charge — where a late (unseen) charge is assumed to have happened."""
+    return _clamp_day(as_of.year, as_of.month, day)
 
 
-# ── Salary ──────────────────────────────────────────────────────────────────────
+# ── Salary (one or more streams) ────────────────────────────────────────────────
 
-def build_salary_profile(rows: list, as_of: _date, mode: str = 'max') -> dict:
+def _cluster_days(days: list) -> list:
+    """
+    Splits days of the month (1-31) into groups on a circle, cutting wherever two neighbouring days
+    are more than STREAM_GAP_DAYS apart (so 30, 31, 1, 2 stay together). Each group is listed in
+    circular order starting after the cut, e.g. [29, 30, 1, 2]. One group when nothing is far apart.
+    """
+    ds = sorted(set(days))
+    n = len(ds)
+    gaps = [(ds[i + 1] - ds[i]) if i < n - 1 else (ds[0] + 31 - ds[-1]) for i in range(n)]
+    cuts = [i for i, g in enumerate(gaps) if g > STREAM_GAP_DAYS]
+    if n == 1 or not cuts:
+        return [ds]
+    groups, cur = [], []
+    start = (cuts[0] + 1) % n
+    for k in range(n):
+        i = (start + k) % n
+        cur.append(ds[i])
+        if i in cuts:
+            groups.append(cur)
+            cur = []
+    if cur:
+        groups.append(cur)
+    return groups
+
+
+def _position(day: int, pivot: int) -> int:
+    """A day's place along a salary's cycle: days before the pivot belong to the next month (+31)."""
+    return day if day >= pivot else day + 31
+
+
+def _cycle_key(d: _date, pivot: int) -> str:
+    """The month a deposit's cycle starts in: a deposit before the pivot day belongs to the previous month."""
+    return month_key(d) if d.day >= pivot else month_key(_add_months(d, -1))
+
+
+def _cycle_date(position: int, cycle_start: _date) -> _date:
+    """The date of a stream's usual position in the cycle that starts in cycle_start's month."""
+    if position <= 31:
+        return _clamp_day(cycle_start.year, cycle_start.month, position)
+    nxt = _add_months(cycle_start, 1)
+    return _clamp_day(nxt.year, nxt.month, position - 31)
+
+
+def build_salary_profile(rows: list, as_of: _date, today: _date, mode: str = 'max') -> dict:
     """
     rows: [{'date': date, 'amount': float}] salary deposits (Income > 0 tagged as salary).
-    Returns the salary rule of thumb plus when the next salary is expected.
 
-    A month's salary is the sum of its deposits; its day is the day of the largest deposit.
-    The harsh mode takes the latest day and the lowest amount seen, the average mode the
-    average of both. 'received_this_month' is true once the current month holds a deposit of
-    at least MIN_SALARY_FRACTION of the usual amount.
+    The deposits are split into streams by day of the month (two earners → two streams). A stream's
+    month is the sum of its deposits; its day is that of the largest deposit. The harsh mode takes the
+    latest position in the month and the lowest amount seen, the average mode the average of both.
+
+    For every stream the cycles around now are checked: a cycle whose usual date is up to `today` and
+    that the data does not show yet is assumed to have arrived on its date ('assumed'); the first
+    usual date after `today` is an upcoming salary. next_date is the earliest upcoming one.
     """
     first_key = _months_back(as_of, HISTORY_MONTHS)
-    by_month = {}
-    for r in rows:
-        mk = month_key(r['date'])
-        if mk >= first_key:
-            by_month.setdefault(mk, []).append(r)
+    rows = [r for r in rows if month_key(r['date']) >= first_key]
+    if not rows:
+        return {'known': False, 'streams': [], 'assumed': [], 'upcoming': [], 'next_date': None}
 
-    months = []
-    for mk in sorted(by_month):
-        biggest = max(by_month[mk], key=lambda r: r['amount'])
-        months.append({'month': mk, 'amount': round(sum(r['amount'] for r in by_month[mk]), 2),
-                       'day': biggest['date'].day})
-
+    groups = _cluster_days([r['date'].day for r in rows])
     cur_key = month_key(as_of)
-    past = [m for m in months if m['month'] != cur_key] or months
-    if not past:
-        return {'known': False, 'months': [], 'received_this_month': False, 'next_date': None}
+    streams = []
+    for group in groups:
+        pivot = group[0]
+        mine = [r for r in rows if r['date'].day in group]
+        cycles = {}
+        for r in mine:
+            cycles.setdefault(_cycle_key(r['date'], pivot), []).append(r)
+        months = []
+        for ck in sorted(cycles):
+            biggest = max(cycles[ck], key=lambda r: r['amount'])
+            months.append({'month': ck, 'amount': round(sum(r['amount'] for r in cycles[ck]), 2),
+                           'day': biggest['date'].day, 'position': _position(biggest['date'].day, pivot)})
+        past = [m for m in months if m['month'] < cur_key] or months
+        avg_amount = round(sum(m['amount'] for m in past) / len(past), 2)
+        min_amount = min(m['amount'] for m in past)
+        pos_avg = int(round(sum(m['position'] for m in past) / len(past)))
+        pos_max = max(m['position'] for m in past)
+        position = pos_max if mode == 'max' else pos_avg
+        streams.append({
+            'day': ((position - 1) % 31) + 1, 'position': position,
+            'day_avg': ((pos_avg - 1) % 31) + 1, 'day_max': ((pos_max - 1) % 31) + 1,
+            'amount': min_amount if mode == 'max' else avg_amount,
+            'avg_amount': avg_amount, 'min_amount': min_amount,
+            'max_amount': max(m['amount'] for m in past),
+            'months': months, 'received_cycles': set(cycles),
+        })
+    streams.sort(key=lambda s: s['position'])
 
-    avg_amount = round(sum(m['amount'] for m in past) / len(past), 2)
-    min_amount = min(m['amount'] for m in past)
-    day_avg = int(round(sum(m['day'] for m in past) / len(past)))
-    day_max = max(m['day'] for m in past)
-    day = day_max if mode == 'max' else day_avg
-    cur = next((m for m in months if m['month'] == cur_key), None)
-    received = bool(cur and cur['amount'] >= avg_amount * MIN_SALARY_FRACTION)
-
-    base = _add_months(as_of, 1 if received else 0)
+    assumed, upcoming = [], []
+    for s in streams:
+        for k in (-1, 0, 1, 2):
+            start = _add_months(as_of, k)
+            d = _cycle_date(s['position'], start)
+            if month_key(start) in s['received_cycles'] or d <= as_of - _timedelta(days=SALARY_LOOKBACK_DAYS):
+                continue
+            item = {'date': d, 'amount': s['amount'], 'day': s['day']}
+            if d <= today:
+                assumed.append(item)
+            else:
+                upcoming.append(item)
+    upcoming.sort(key=lambda u: u['date'])
+    assumed.sort(key=lambda u: u['date'])
+    for s in streams:
+        s.pop('received_cycles')
     return {
-        'known': True,
-        'day': day, 'day_avg': day_avg, 'day_max': day_max,
-        'amount': min_amount if mode == 'max' else avg_amount,
-        'avg_amount': avg_amount, 'min_amount': min_amount,
-        'max_amount': max(m['amount'] for m in past),
-        'months': months,
-        'received_this_month': received,
-        'next_date': _clamp_day(base.year, base.month, day),
+        'known': True, 'streams': streams, 'assumed': assumed, 'upcoming': upcoming,
+        'next_date': upcoming[0]['date'] if upcoming else today + _timedelta(days=30),
+        'next_amount': upcoming[0]['amount'] if upcoming else 0,
     }
 
 
@@ -154,8 +226,8 @@ def build_salary_profile(rows: list, as_of: _date, mode: str = 'max') -> dict:
 
 def build_card_profiles(rows: list, as_of: _date) -> list:
     """
-    rows: [{'card': id, 'name': str, 'date': Charge_Date, 'amount': float}] — what every card is
-    charged on each Charge_Date (dates after as_of are what the card already holds).
+    rows: [{'card': id, 'name': str, 'date': Charge_Date, 'amount': float, 'auto': bool}] — what every
+    card is charged on each Charge_Date (dates after as_of are what the card already holds).
     One profile per card with at least two completed charge months: its usual charge day, average
     and largest month over the last HISTORY_MONTHS months, whether it was charged this month, and
     the future charges it already holds.
@@ -164,7 +236,7 @@ def build_card_profiles(rows: list, as_of: _date) -> list:
     first_key = _months_back(as_of, HISTORY_MONTHS)
     cards = {}
     for r in sorted(rows, key=lambda r: r['date']):
-        c = cards.setdefault(r['card'], {'name': r['name'], 'past': [], 'held': []})
+        c = cards.setdefault(r['card'], {'name': r['name'], 'auto': bool(r.get('auto')), 'past': [], 'held': []})
         if r['date'] > as_of:
             c['held'].append(r)
         elif month_key(r['date']) >= first_key:
@@ -182,6 +254,7 @@ def build_card_profiles(rows: list, as_of: _date) -> list:
         profiles.append({
             'card': card,
             'name': c['name'],
+            'auto': c['auto'],
             'day': usual_day([r['date'].day for r in c['past'] if month_key(r['date']) != cur_key]),
             'avg_month': round(sum(totals) / len(totals), 2),
             'max_month': max(totals),
@@ -193,16 +266,14 @@ def build_card_profiles(rows: list, as_of: _date) -> list:
     return profiles
 
 
-def build_card_events(profiles: list, all_rows: list, as_of: _date, horizon: _date, mode: str,
-                      today: _date = None) -> list:
+def build_card_events(profiles: list, all_rows: list, as_of: _date, horizon: _date, mode: str) -> list:
     """
     Upcoming card charges until `horizon`, each card on its own day.
     For a month in which the card already holds charges, the event sits on that exact Charge_Date and
     is the card's usual amount (average / largest month) but never less than what it holds. Otherwise
-    it sits on the card's usual day. A card whose usual day this month passed with no charge is *late*
-    (due now). Held charges of a card without enough history stay as events of their own.
+    it sits on the card's usual day. A card whose usual day this month passed with no charge in the data
+    is assumed charged on that day. Held charges of a card without enough history stay as events of their own.
     """
-    today = today or as_of
     events, profiled = [], {p['card'] for p in profiles}
     for p in profiles:
         base = p['max_month'] if mode == 'max' else p['avg_month']
@@ -218,99 +289,91 @@ def build_card_events(profiles: list, all_rows: list, as_of: _date, horizon: _da
             if mk in held_by_month:
                 rows = held_by_month[mk]
                 held = round(sum(r['amount'] for r in rows), 2)
-                events.append(_card_event(p, min(r['date'] for r in rows), max(base, held), held, base, False))
+                events.append(_card_event(p, min(r['date'] for r in rows), max(base, held), held, base))
             elif is_cur and _is_late(p['day'], as_of, p['charged_this_month']):
-                events.append(_card_event(p, _due_now(today, as_of, horizon), base, 0, base, True))
+                events.append(_card_event(p, _usual_date_this_month(p['day'], as_of), base, 0, base))
             elif as_of < usual <= horizon and not (is_cur and p['charged_this_month']):
-                events.append(_card_event(p, usual, base, 0, base, False))
+                events.append(_card_event(p, usual, base, 0, base))
             cursor = _add_months(cursor, 1)
     for r in all_rows:
         if r['card'] not in profiled and as_of < r['date'] <= horizon and r['amount'] > 0:
             events.append({'date': r['date'], 'name': r['name'], 'amount': round(r['amount'], 2), 'kind': 'card',
-                           'late': False, 'detail': {'held': round(r['amount'], 2), 'base': 0}})
+                           'detail': {'held': round(r['amount'], 2), 'base': 0, 'auto': bool(r.get('auto'))}})
     return events
 
 
-def _card_event(p: dict, date: _date, amount: float, held: float, base: float, late: bool) -> dict:
+def _card_event(p: dict, date: _date, amount: float, held: float, base: float) -> dict:
     """One upcoming card charge, with how much of it the card already holds."""
-    return {'date': date, 'name': p['name'], 'amount': round(amount, 2), 'kind': 'card', 'late': late,
-            'detail': {'held': round(held, 2), 'base': round(base, 2), 'day': p['day']}}
+    return {'date': date, 'name': p['name'], 'amount': round(amount, 2), 'kind': 'card',
+            'detail': {'held': round(held, 2), 'base': round(base, 2), 'day': p['day'], 'auto': p['auto']}}
 
 
 # ── Rent ────────────────────────────────────────────────────────────────────────
 
-def build_rent_profile(rows: list, as_of: _date, mode: str, override: float = None) -> dict:
+def build_rent_profile(rows: list, as_of: _date) -> dict:
     """
     rows: [{'date': date, 'amount': float}] bank payments tagged RENT_CATEGORY.
-    The rent is the latest month's total (harsh mode: the highest of the last three months with
-    payments); `override` (rent + building fee as the user knows it) replaces the amount. Returns
-    None when there is neither history nor an override.
+    The rent is the monthly average of the completed months of the recent period (the current month
+    only when nothing else exists); what was already paid this month is kept apart. None without history.
     """
     first_key = _months_back(as_of, HISTORY_MONTHS)
     per_month = {}
     for r in sorted(rows, key=lambda r: r['date']):
         if month_key(r['date']) >= first_key:
             per_month.setdefault(month_key(r['date']), []).append(r)
-    if not per_month and not override:
+    if not per_month:
         return None
 
     totals = {mk: round(sum(r['amount'] for r in v), 2) for mk, v in per_month.items()}
-    keys = sorted(totals)
-    detected = (max(totals[k] for k in keys[-3:]) if mode == 'max' else totals[keys[-1]]) if keys else 0
-    amount = float(override) if override else detected
-    days = [r['date'].day for mk in keys for r in per_month[mk]]
+    cur_key = month_key(as_of)
+    basis = [t for mk, t in sorted(totals.items()) if mk != cur_key] or list(totals.values())
+    days = [r['date'].day for mk in sorted(totals) for r in per_month[mk]]
     return {
-        'amount': round(amount, 2),
-        'detected': round(detected, 2),
-        'overridden': bool(override),
-        'day': usual_day(days) if days else 1,
-        'paid_this_month': totals.get(month_key(as_of), 0.0),
-        'months': len(keys),
+        'amount': round(sum(basis) / len(basis), 2),
+        'day': usual_day(days),
+        'paid_this_month': totals.get(cur_key, 0.0),
+        'months': len(basis),
+        'monthly': [{'month': mk, 'amount': totals[mk]} for mk in sorted(totals)],
     }
 
 
-def build_rent_events(profile: dict, as_of: _date, today: _date, horizon: _date) -> list:
+def build_rent_events(profile: dict, as_of: _date, horizon: _date) -> list:
     """
     Rent payments until `horizon`. This month only what is still unpaid counts (the part already
     paid is deducted; a rent paid to RENT_PAID_FRACTION is paid in full); an unpaid rent whose day
-    passed is late — due now.
+    passed is assumed paid on that day.
     """
     if not profile:
         return []
     amount, paid = profile['amount'], profile['paid_this_month']
     events = []
 
-    def _ev(d, value, late):
+    def _ev(d, value):
         events.append({'date': d, 'name': 'שכירות + ועד בית', 'amount': round(value, 2), 'kind': 'rent',
-                       'late': late, 'detail': {'paid': paid, 'source': 'override' if profile['overridden'] else 'data'}})
+                       'detail': {'paid': paid}})
 
     for d in _dates_in_window(profile['day'], as_of, horizon):
         if not _is_current_month(d, as_of):
-            _ev(d, amount, False)
-    remaining = amount - paid
+            _ev(d, amount)
     paid_in_full = paid >= amount * RENT_PAID_FRACTION
-    if remaining > 0 and not paid_in_full:
-        if _is_late(profile['day'], as_of, paid_in_full):
-            if as_of <= horizon:
-                _ev(_due_now(today, as_of, horizon), remaining, True)
-        else:
-            usual = _clamp_day(as_of.year, as_of.month, profile['day'])
-            if usual <= horizon:
-                _ev(usual, remaining, False)
+    remaining = amount - paid
+    usual = _usual_date_this_month(profile['day'], as_of)
+    if remaining > 0 and not paid_in_full and usual <= horizon:
+        _ev(usual, remaining)   # before as_of: assumed paid on its day; after: still ahead
     return events
 
 
 # ── Recurring charges paid from the bank ────────────────────────────────────────
 
-def build_recurring_events(groups: list, as_of: _date, today: _date, horizon: _date, mode: str) -> tuple:
+def build_recurring_events(groups: list, as_of: _date, horizon: _date, mode: str) -> tuple:
     """
     Upcoming charges of recurring groups that are paid straight from the bank, until `horizon`.
     groups: dicts from RecurringCharges (occurrences with 'table', 'date', 'month').
     Returns (events, skipped) — skipped lists groups left out (card-paid, stopped, or rent, which has
     its own profile).
 
-    A group whose usual day this month already passed without a payment is *late*:
-    it is counted as due now, the careful choice for a bill that may still arrive.
+    A group whose usual day this month already passed without a payment in the data is assumed
+    to have been paid on that day.
     """
     events, skipped = [], []
     cur_key = month_key(as_of)
@@ -335,11 +398,10 @@ def build_recurring_events(groups: list, as_of: _date, today: _date, horizon: _d
             if _is_current_month(d, as_of) and paid_this_month:
                 continue
             events.append({'date': d, 'name': g.get('name'), 'amount': round(amount, 2), 'kind': 'recurring',
-                           'late': False, 'group_key': g.get('group_key')})
-        if _is_late(day, as_of, paid_this_month) and as_of <= horizon:
-            events.append({'date': _due_now(today, as_of, horizon), 'name': g.get('name'),
-                           'amount': round(amount, 2), 'kind': 'recurring', 'late': True,
                            'group_key': g.get('group_key')})
+        if _is_late(day, as_of, paid_this_month) and _usual_date_this_month(day, as_of) <= horizon:
+            events.append({'date': _usual_date_this_month(day, as_of), 'name': g.get('name'),
+                           'amount': round(amount, 2), 'kind': 'recurring', 'group_key': g.get('group_key')})
     return events, skipped
 
 
@@ -347,8 +409,8 @@ def build_recurring_events(groups: list, as_of: _date, today: _date, horizon: _d
 
 def compute_free_amount(balance: float, events: list) -> dict:
     """
-    Walks the charges in date order and returns the lowest balance reached
-    (spending is assumed to happen right now) — that is the free amount.
+    Walks the events in date order (money out are positive amounts, salaries negative) and returns the
+    lowest balance reached (spending is assumed to happen right now) — that is the free amount.
     Each event gets 'balance_after' (the balance with nothing else spent).
     """
     running = balance
@@ -366,44 +428,45 @@ def compute_free_amount(balance: float, events: list) -> dict:
     }
 
 
-def compute_forecast(inputs: dict, today: _date, mode: str = 'max', rent_override: float = None) -> dict:
+def compute_forecast(inputs: dict, today: _date, mode: str = 'max') -> dict:
     """
     One scenario. inputs: {'balance', 'balance_date', 'salary_rows', 'card_rows', 'rent_rows', 'groups'}.
-    The free amount here ignores any buffer / manual balance — the page applies both on top
-    (free = lowest_balance + (manual balance − balance) − buffer).
+    The free amount here ignores any buffer — the page subtracts it (free = lowest_balance − buffer).
+    Every event dated up to `today` carries assumed=True (taken as done on its date though the files
+    do not show it yet).
     """
     mode = mode if mode in MODES else 'max'
     as_of = inputs.get('balance_date') or today
     balance = float(inputs.get('balance') or 0)
     notes = []
 
-    salary = build_salary_profile(inputs.get('salary_rows') or [], as_of, mode)
+    salary = build_salary_profile(inputs.get('salary_rows') or [], as_of, today, mode)
     if not salary['known']:
         return {'ok': False, 'reason': 'no_salary',
                 'notes': ['לא נמצאו הפקדות משכורת (קטגוריית "משכורת") — תייג את המשכורת כדי לחשב.']}
 
-    horizon = max(salary['next_date'], today)
-    if salary['next_date'] < today:
-        late = (today - salary['next_date']).days
-        notes.append(f'המשכורת אמורה הייתה להיכנס ב-{salary["next_date"].strftime("%d/%m")} (לפני {late} ימים) ועדיין לא נקלטה — '
-                     'מניחים שתיכנס היום.')
-
+    horizon = salary['next_date']
     card_rows = inputs.get('card_rows') or []
     profiles = build_card_profiles(card_rows, as_of)
-    card_events = build_card_events(profiles, card_rows, as_of, horizon, mode, today)
-    rent = build_rent_profile(inputs.get('rent_rows') or [], as_of, mode, rent_override)
-    rent_events = build_rent_events(rent, as_of, today, horizon)
-    rec_events, skipped = build_recurring_events(inputs.get('groups') or [], as_of, today, horizon, mode)
-    events = card_events + rent_events + rec_events
+    card_events = build_card_events(profiles, card_rows, as_of, horizon, mode)
+    rent = build_rent_profile(inputs.get('rent_rows') or [], as_of)
+    rent_events = build_rent_events(rent, as_of, horizon)
+    rec_events, skipped = build_recurring_events(inputs.get('groups') or [], as_of, horizon, mode)
+    income_events = [{'date': a['date'], 'name': f'משכורת (יום {a["day"]})', 'amount': -a['amount'], 'kind': 'income'}
+                     for a in salary['assumed'] if a['date'] <= horizon]
+    events = card_events + rent_events + rec_events + income_events
+    for e in events:
+        e['assumed'] = e['date'] <= today
     result = compute_free_amount(balance, events)
 
     stale_days = (today - as_of).days
     if stale_days > STALE_BALANCE_DAYS:
-        notes.append(f'היתרה מעודכנת ל-{as_of.strftime("%d/%m")} (לפני {stale_days} ימים) — הורד קובץ בנק עדכני לדיוק.')
+        notes.append(f'היתרה מעודכנת ל-{as_of.strftime("%d/%m")} (לפני {stale_days} ימים). פעולות עד היום שטרם נקלטו בקבצים '
+                     'מחושבות כאילו בוצעו במועדן.')
     if not profiles:
         notes.append('לא זוהו חיובי כרטיס אשראי — חיובי כרטיס אינם נכללים בחישוב.')
     if not rent:
-        notes.append('לא נמצאה שכירות (קטגוריית "שכירות") — הזן שכירות + ועד בית ידנית.')
+        notes.append('לא נמצאה שכירות (קטגוריית "שכירות") — השכירות אינה נכללת בחישוב.')
 
     totals = {k: round(sum(e['amount'] for e in events if e['kind'] == k), 2) for k in ('card', 'recurring', 'rent')}
     totals['all'] = round(sum(totals.values()), 2)
@@ -423,7 +486,7 @@ def compute_forecast(inputs: dict, today: _date, mode: str = 'max', rent_overrid
     }
 
 
-def compute_both(inputs: dict, today: _date, rent_override: float = None) -> dict:
+def compute_both(inputs: dict, today: _date) -> dict:
     """Both scenarios at once, so the page switches between them without asking again."""
     as_of = inputs.get('balance_date') or today
     return {
@@ -431,7 +494,7 @@ def compute_both(inputs: dict, today: _date, rent_override: float = None) -> dic
         'today': today, 'as_of': as_of,
         'balance': round(float(inputs.get('balance') or 0), 2),
         'stale_days': (today - as_of).days,
-        'scenarios': {m: compute_forecast(inputs, today, m, rent_override) for m in MODES},
+        'scenarios': {m: compute_forecast(inputs, today, m) for m in MODES},
     }
 
 
@@ -469,24 +532,31 @@ def fetch_forecast_inputs(db, groups: list) -> dict:
              AND (Category IS NULL OR Category <> %s)
            GROUP BY CardID, Charge_Date""",
         (cutoff, ReservedNames.WHITDRAWAL_CATEGORY)).fetchall()
-    names = {r[0]: r[1] for r in db.cursor.execute("SELECT CardID, description FROM Card").fetchall()}
+    descriptions = {r[0]: (r[1] or '').strip()
+                    for r in db.cursor.execute("SELECT CardID, description FROM Card").fetchall()}
     db.connection.commit()   # read-only, but don't leave the shared connection idle in a transaction
 
-    def _card_name(card_id):
-        desc = (names.get(card_id) or '').strip()
-        return f'כרטיס {str(card_id).strip()}' + (f' · {desc}' if desc else '')
+    def _card_label(card_id):
+        """(display name, created-by-the-importer flag). The importer's own placeholder text is not shown."""
+        desc = descriptions.get(card_id, '')
+        auto = desc == AUTO_CARD_DESCRIPTION
+        return f'כרטיס {str(card_id).strip()}' + (f' · {desc}' if desc and not auto else ''), auto
 
+    card_rows = []
+    for r in cards:
+        name, auto = _card_label(r[0])
+        card_rows.append({'card': str(r[0]).strip(), 'name': name, 'auto': auto,
+                          'date': _to_plain_date(r[1]), 'amount': float(r[2] or 0)})
     return {
         'balance': balance,
         'balance_date': _to_plain_date(bal_date) if bal_date else None,
         'salary_rows': [{'date': _to_plain_date(r[0]), 'amount': float(r[1])} for r in sal],
         'rent_rows': [{'date': _to_plain_date(r[0]), 'amount': float(r[1])} for r in rent],
-        'card_rows': [{'card': str(r[0]).strip(), 'name': _card_name(r[0]), 'date': _to_plain_date(r[1]),
-                       'amount': float(r[2] or 0)} for r in cards],
+        'card_rows': card_rows,
         'groups': groups,
     }
 
 
-def get_forecast(db, groups: list, rent_override: float = None, today: _date = None) -> dict:
+def get_forecast(db, groups: list, today: _date = None) -> dict:
     """Full pipeline for the endpoint: DB inputs -> both scenarios."""
-    return compute_both(fetch_forecast_inputs(db, groups), today or _date.today(), rent_override)
+    return compute_both(fetch_forecast_inputs(db, groups), today or _date.today())

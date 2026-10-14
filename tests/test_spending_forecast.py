@@ -306,6 +306,24 @@ def test_the_chart_looks_a_month_ahead_and_the_free_amount_stops_at_the_salary()
     assert far['horizon'] == date(2026, 11, 28) and far['chart_end'] == date(2026, 11, 14)
 
 
+def test_card_charges_right_after_the_salary_limit_what_can_be_spent_before_it():
+    """Spending 37,000 before the salary would be fine until the salary — but the card bills what was spent
+    just after it, and 20,000 of it comes off right away: the free amount is the lowest point of the whole stretch."""
+    events = [{'date': date(2026, 10, 20), 'name': 'rent', 'amount': 3000, 'kind': 'rent'},
+              {'date': date(2026, 11, 1), 'name': 'משכורת', 'amount': -13000, 'kind': 'income'},
+              {'date': date(2026, 11, 2), 'name': 'כרטיס', 'amount': 20000, 'kind': 'card'}]
+    r = compute_free_amount(40000, events)
+    assert r['free'] == 40000 - 3000 + 13000 - 20000 and r['tight_name'] == 'כרטיס' and r['tight_date'] == date(2026, 11, 2)
+
+
+def test_the_forecast_counts_the_card_that_bills_right_after_the_next_salary():
+    cards = _card('4603', day=2, base=15000) + [{'card': '4603', 'name': 'כרטיס 4603', 'date': date(2026, 10, 2), 'amount': 15000}]
+    f = compute_forecast(_inputs(salary_rows=_salary(day=1) + _salary(day=1, months=[10]), card_rows=cards, groups=[], rent_rows=[]), AS_OF, 'avg')
+    nov2 = [e for e in f['events'] if e['name'] == 'כרטיס 4603'][0]
+    assert nov2['after_salary'] and f['free'] < 30000                     # the Nov 2 charge (after the Nov 1 salary) is in the minimum
+    assert f['tight_name'] == 'כרטיס 4603' or f['free'] == f['lowest_balance']
+
+
 def test_an_assumed_salary_does_not_make_the_free_amount_equal_to_the_balance():
     """The balance 30,000 plus a salary that already arrived (not in the data yet) is what is in the account now;
     the charges still ahead come off that, so the free amount is below it (it used to be the bare balance)."""

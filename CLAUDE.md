@@ -234,11 +234,12 @@ computed live per request (balance changes with every bank file); the recurring 
 
 - **Both scenarios in one answer** (`compute_both` → `scenarios.max` harsh / `scenarios.avg`): switching the scenario and the buffer is view-only in the page
   (`fcView`: free = lowest_balance − buffer); no request is made.
-- **Free amount** = lowest balance reached walking the events in date order before the next salary (spending assumed to happen now).
+- **Free amount** = lowest balance reached walking **all** the events of the month shown (until `chart_end`, salaries included as lifts), spending assumed to happen now: what is spent now is gone
+  for the whole stretch, and the card charges that bill it land right *after* a salary — a free amount measured only up to the salary would let the account go negative on the card day.
   Events dated up to today (the "assumed done" ones, salary included) first move the starting balance (`balance_now`); only what is still ahead is walked for the lowest point
   (`compute_free_amount(..., today=...)`). Otherwise an assumed salary lifted the walk and the free amount came out equal to the bare balance.
   The chart **always shows a month ahead of today** (`chart_end` = same day next month, `_plus_month`), whatever the salary date: events and the salaries of the month are
-  computed to `max(horizon, chart_end)`, `after_salary` marks what lies beyond the next salary (kept out of the totals and the lowest point — `compute_free_amount(..., horizon)`).
+  computed to `max(horizon, chart_end)`; `after_salary` marks what lies beyond the next salary — kept out of the *totals* ("חיובים עד המשכורת") but **inside** the lowest point.
   It shades the free stretch (zero line/buffer → lowest point, today → next salary) green and marks every salary with a vertical line + marker (no permanent labels; details on hover/tap).
   **Layout rule: in the top figures the number comes first, its label/details below** (`.fc-mini-v{order:-1}`, `.fc-big` before the eyebrow).
 - **Only recurring things count** — by the page's own definition (`recurring_months`, reusing `RecurringCharges` thresholds: ≥ 3 consecutive months, amount within 50 % of the

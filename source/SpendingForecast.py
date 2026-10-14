@@ -575,15 +575,16 @@ def monthly_recurring_total(groups: list, mode: str) -> dict:
 
 # ── The forecast ────────────────────────────────────────────────────────────────
 
-def compute_free_amount(balance: float, events: list, horizon: _date = None, today: _date = None) -> dict:
+def compute_free_amount(balance: float, events: list, today: _date = None) -> dict:
     """
     Walks the events in date order (money out are positive amounts, salaries negative) and returns the
-    lowest balance reached (spending is assumed to happen right now) — that is the free amount.
+    lowest balance reached (spending is assumed to happen right now) — that is the free amount: what can be
+    spent now without the balance dipping below zero at any later point. The walk covers every event given,
+    so the credit-card charges that land right *after* the salary — they bill what is spent before it — count.
     Each event gets 'balance_after' (the balance with nothing else spent), also after the salary.
     With `today`, events dated up to it have already happened (the data just doesn't show them): they
     move the starting balance ('balance_now') and are not part of the stretch measured, which only
-    covers what is still ahead. With `horizon` (the next salary's date) that stretch ends there: events
-    after it, and the salary arriving on it, lie beyond the money being measured.
+    covers what is still ahead.
     """
     ordered = sorted(events, key=lambda e: (e['date'], -e['amount']))
     running = balance
@@ -598,8 +599,7 @@ def compute_free_amount(balance: float, events: list, horizon: _date = None, tod
             continue
         running -= ev['amount']
         ev['balance_after'] = round(running, 2)
-        counts = horizon is None or (ev['date'] <= horizon and not (ev['kind'] == 'income' and not ev.get('assumed')))
-        if counts and running < lowest:
+        if running < lowest:
             lowest, lowest_at = running, ev
     return {
         'free': round(lowest, 2),
@@ -643,7 +643,7 @@ def compute_forecast(inputs: dict, today: _date, mode: str = 'max') -> dict:
     for e in events:
         e['assumed'] = e['date'] <= today
         e['after_salary'] = e['date'] > horizon
-    result = compute_free_amount(balance, events, horizon, today)
+    result = compute_free_amount(balance, events, today)
     to_salary = [e for e in events if not e['after_salary']]   # what the free amount is measured against
 
     stale_days = (today - as_of).days

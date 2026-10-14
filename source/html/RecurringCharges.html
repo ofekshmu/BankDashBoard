@@ -1419,7 +1419,7 @@ function fcView() {
 
 // Balance over time, always a month ahead of today. The green band is the money free to spend right now:
 // the stretch between the zero line (plus the safety buffer) and the lowest point the balance reaches
-// before the next salary. Every salary of the month is marked with a vertical line.
+// anywhere in the month shown — the card charges that land right after a salary included. Every salary of the month is marked with a vertical line.
 function fcChartSvg(d, v, width) {
   var sc = v.sc, evs = v.events;
   var W = Math.max(320, width), H = 250, L = 60, R = 14, T = 44, B = 30;
@@ -1435,7 +1435,7 @@ function fcChartSvg(d, v, width) {
   var padV = (hi - lo) * 0.06 || 1; hi += padV; if (lo < 0) lo -= padV;
   function X(t) { return L + (W - L - R) * (t - t0) / span; }
   function Y(b) { return T + (H - T - B) * (1 - (b - lo) / (hi - lo)); }
-  var x0 = X(t0), x1 = X(t1), xH = X(Math.min(tH, t1)), zero = Y(0), low = Y(v.lowest), out = '';
+  var x0 = X(t0), x1 = X(t1), xH = x1, zero = Y(0), low = Y(v.lowest), out = '';   // the band spans the whole month: what is spent now is gone for all of it
 
   // free band (or the missing amount, in red) — from today to the next salary
   if (v.free > 0) {
@@ -1527,8 +1527,9 @@ function fcRender() {
   var hero =
     '<div class="fc-hero"><div class="fc-hero-main">' +
       '<div class="fc-big' + (neg ? ' neg' : '') + '">' + fcMoney(free) + '</div>' +
-      '<div class="fc-eyebrow">פנוי לבזבוז עד המשכורת הבאה · ' + (mode === 'max' ? 'תרחיש מחמיר' : 'תרחיש ממוצע') + '</div>' +
-      '<div class="fc-sub">עד ' + fcShortDate(sc.horizon) + ' · ' + dayLabel + (free > 0 ? ' · כ-' + fcMoney(v.daily) + ' ליום' : '') + '</div>' +
+      '<div class="fc-eyebrow">פנוי לבזבוז בלי להיכנס למינוס בחודש הקרוב · ' + (mode === 'max' ? 'תרחיש מחמיר' : 'תרחיש ממוצע') + '</div>' +
+      '<div class="fc-sub">המשכורת הבאה ב-' + fcShortDate(sc.horizon) + ' · ' + dayLabel + (free > 0 ? ' · כ-' + fcMoney(v.daily) + ' ליום עד אז' : '') + '</div>' +
+      '<div class="fc-sub" style="font-size:.82em;opacity:.8">הסכום כולל את החיובים שמגיעים גם אחרי המשכורת (עד ' + fcShortDate(sc.chart_end) + ')</div>' +
       '<span class="fc-chip ' + chipCls + '">' + chipTxt + '</span>' + fcEst(true) +
     '</div><div class="fc-hero-side">' +
       '<div class="fc-mini"><div class="fc-mini-l">יתרה בחשבון</div><div class="fc-mini-v">' + fcMoney(v.balance) + '</div><div class="fc-mini-s">נכון ל-' + fcShortDate(d.as_of) + (Math.round(sc.balance_now) !== Math.round(d.balance) ? ' · אחרי פעולות שהונחו כבוצעות ' + fcMoney(sc.balance_now) : '') + '</div></div>' +

@@ -1360,7 +1360,8 @@ function fcInfo(text) { return '<span class="fc-i" tabindex="0" data-tip="' + es
 function fcMonthList(months) { return months.map(function(m) { return m.month.slice(5) + '/' + m.month.slice(2, 4) + ' · ' + fcMoney(m.amount); }).join(' &nbsp;'); }
 // A "משוער" tag for any figure that is an estimate or an average rather than something already known.
 // It always sits at the bottom of its cube (never inside the text); a single one, in the main figure, carries the (i).
-function fcEst(withInfo) { return '<div class="fc-est-foot"><span class="fc-est">משוער</span>' + (withInfo ? fcInfo(FC_TIP_EST) : '') + '</div>'; }
+/** The "משוער" tag: a block at the bottom of a cube (default) or an inline span (`inline`); `tip` adds the (i) with that explanation. */
+function fcEst(tip, inline) { var t = inline ? 'span' : 'div'; return '<' + t + ' class="fc-est-foot"><span class="fc-est">משוער</span>' + (tip ? fcInfo(tip) : '') + '</' + t + '>'; }
 var FC_TIP_EST = 'משוער = הערכה שמחושבת מהיסטוריית ה-6 חודשים האחרונים (ממוצע, או החודש הגבוה בתרחיש המחמיר). רק חיוב שכרטיס כבר מחזיק בעסקאות שלו ידוע בוודאות. החיוב החודשי החוזר כולל חיובים חוזרים מהבנק ושכירות ממוצעת, ללא חיובי כרטיס אשראי.';
 var FC_TIP_AUTO = 'הכרטיס נוסף למערכת אוטומטית ("Auto Insertion") ברגע שנקלט לראשונה קובץ אשראי שלו. זו לא הגדרה שלך — רק סימון שהמערכת יצרה את הכרטיס בעצמה, ואפשר לתת לו תיאור בטבלת Card.';
 var FC_TIP_ASSUMED = 'הפעולה עדיין לא מופיעה בקבצים שהוזנו. מניחים שהיא בוצעה במועד שחושב לה ולכן היא נכללת בחישוב. אם לא בוצעה — נדע בעדכון הקבצים בסוף החודש, והשינוי ישוקלל בחישוב הפעולות החוזרות של החודש הבא.';
@@ -1585,7 +1586,7 @@ function fcRender() {
       '<div class="fc-eyebrow">פנוי לבזבוז</div>' +
       '<div class="fc-sub">משכורת ב-' + fcShortDate(sc.horizon) + (free > 0 ? ' · כ-' + fcMoney(v.daily) + ' ליום' : '') + '</div>' +
       '<span class="fc-chip ' + chipCls + '">' + chipTxt + '</span>' +
-      '<div class="fc-est-foot"><span class="fc-est">משוער</span>' + fcInfo(tipMain) + '</div>' +
+      fcEst(tipMain) +
       '<div class="fc-hctl"><div class="fc-seg fc-seg-s"><button class="' + (mode === 'max' ? 'on' : '') + '" onclick="fcSet(\'card_mode\',\'max\')">מחמיר</button><button class="' + (mode === 'avg' ? 'on' : '') + '" onclick="fcSet(\'card_mode\',\'avg\')">ממוצע</button></div>' +
         '<label class="fc-buf">כרית <input type="number" min="0" inputmode="numeric" value="' + fcParams.buffer + '" placeholder="0" onchange="fcSet(\'buffer\', this.value)">₪</label>' +
         '<button class="fc-reset" onclick="fcReset()" title="איפוס">↺</button></div>' +
@@ -1611,7 +1612,7 @@ function fcRender() {
         (e.detail && e.detail.auto ? fcInfo(FC_TIP_AUTO) : '') +
         (e.assumed ? '<span class="fc-asm">הונח כבוצע</span>' + fcInfo(FC_TIP_ASSUMED) : '') +
         '<small>' + esc(fcEventDetail(e, mode)) + '</small>' +
-        (!inc && fcIsEstimate(e) ? '<span class="fc-est-foot"><span class="fc-est">משוער</span></span>' : '') + '</span>' +
+        (!inc && fcIsEstimate(e) ? fcEst(null, true) : '') + '</span>' +
       '<span class="fc-ev-a">' + fcMoney(-e.amount, true) + '</span>' +
       '<span class="fc-ev-b' + (e.balance_after - v.buffer < 0 ? ' neg' : '') + '">' + fcMoney(e.balance_after) + '</span></div>';
   }

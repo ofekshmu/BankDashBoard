@@ -275,9 +275,10 @@ computed live per request (balance changes with every bank file); the recurring 
   (`sal`, `rent`, `cards`, `misc`), and the operations list under the chart (`ops`). **All of them start closed**; what the user opened is kept in `fcOpen` across re-renders (scenario/buffer changes) via a capturing `toggle` listener.
 - The legend under the split bar names only the *types* (כרטיסי אשראי / שכירות — the building fee is part of "שכירות" there / חיובים חוזרים), no values: hover or tap a legend item or a bar segment and its total and
   items open in the details line under the chart (`fcLegTexts`, same box as the chart points, `FC_HIT` selector).
-- **No floating messages** on this page (no CSS/`title` tooltips): the (i) opens an in-flow panel (`.fc-i-panel`, inserted after its row/cube) on hover (mouse) or tap (touch) and closes on leave /
-  second tap / tap elsewhere; a chart dot shows its details in the line under the chart (`#fc-chart-detail`). All handled by delegated listeners on `#fc-body` (`canHover` = `(hover: hover)`);
-  keep the hero `align-items:flex-start` — a vertically centred hero moved the (i) under the pointer when its panel opened (hover flicker).
+- **The (i) opens a hover popover that floats over the page and never pushes content** (`.fc-pop`, `position:fixed`, `pointer-events:none`, appended to `body`, placed from the icon's rect and clamped to the viewport, flipped above near the bottom;
+  mouse: hover / keyboard focus, touch: tap toggles, tap elsewhere / scroll / resize closes). The (i) icon has no fill — only a thin outline (white inside the dark hero), low opacity. No CSS/`title` tooltips. A chart dot shows its details in the line under the chart (`#fc-chart-detail`).
+  Delegated listeners on `#fc-body` (`canHover` = `(hover: hover)`); keep the hero `align-items:flex-start`. The big KPI's order is: number, label, sub, chip, "משוער" (+ its i), then the scenario/buffer controls at the bottom (`.fc-hctl{margin-top:auto}`).
+  The recurring-charge count shown in the KPI and its (i) is one number with the rent counted as one charge (`nAll = count + 1`), not "N + שכירות".
 - Salary groups clustered apart by name are merged back into one salary when their **usual days of the month are within ±3 days** (`SALARY_DAY_JITTER`, circular: 31 and 2 are two days apart) —
   that is one operation that shifted a few days, whatever the bank called the deposits or the amounts were; if both pay in the same cycles the merged salary is their sum (instalments).
   Salaries further apart (e.g. the 2nd and the 9th) stay separate (merging is complete-linkage, so a chain of groups never bridges them).

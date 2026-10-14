@@ -299,7 +299,7 @@ body {
 /* ── Spending forecast ("כמה אפשר להוציא") ── */
 .fc{margin-bottom:26px}
 .fc-hero{background:linear-gradient(135deg,#0f1627 0%,#1a2e52 100%);color:#fff;border-radius:var(--radius);padding:26px 28px;box-shadow:var(--shadow-sm);display:flex;gap:30px;align-items:flex-start;flex-wrap:wrap}
-.fc-hero-main{flex:1.2;min-width:240px;padding-top:34px}
+.fc-hero-main{flex:1.2;min-width:240px;padding-top:34px;display:flex;flex-direction:column;align-items:flex-start}
 .fc-eyebrow{font-size:.85em;letter-spacing:.04em;color:#9fb0d0}
 .fc-big{font-size:3.1em;font-weight:700;line-height:1.1;margin:0 0 6px;font-variant-numeric:tabular-nums}
 .fc-big.neg{color:#ff8a7a}
@@ -348,11 +348,11 @@ body {
 .fc-empty{padding:26px;text-align:center;color:var(--text-muted)}
 .fc-skel{height:170px;border-radius:var(--radius);background:linear-gradient(90deg,#e9edf3 25%,#f4f6f9 50%,#e9edf3 75%);background-size:200% 100%;animation:fcsh 1.3s infinite}
 
-.fc-i{position:relative;display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;margin-right:6px;border-radius:50%;background:#e3e8f2;color:var(--text-sub);font:600 10px/1 Georgia,serif;font-style:italic;cursor:pointer;vertical-align:middle;user-select:none}
-.fc-i:hover,.fc-i:focus,.fc-i.on{background:var(--teal);color:#fff;outline:none}
+.fc-i{position:relative;display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;margin-right:6px;border-radius:50%;background:transparent;border:1px solid currentColor;box-sizing:border-box;opacity:.55;color:var(--text-sub);font:600 10px/1 Georgia,serif;font-style:italic;cursor:pointer;vertical-align:middle;user-select:none}
+.fc-i:hover,.fc-i:focus,.fc-i.on{opacity:.9;outline:none}
+.fc-hero .fc-i{color:#fff}
 /* the explanation opens in the flow of the page (pushes the content down) and closes again — never floats over it */
-.fc-i-panel{margin:6px 0 4px;padding:9px 12px;border-radius:var(--radius-sm);background:#eef2f9;color:var(--navy);font:400 12.5px/1.55 'Segoe UI',Arial,sans-serif;font-style:normal;text-align:right;white-space:normal}
-.fc-hero .fc-i-panel{background:rgba(255,255,255,.1);color:#dbe4f5}
+.fc-pop{position:fixed;z-index:9999;pointer-events:none;max-width:min(320px,90vw);padding:9px 12px;border-radius:var(--radius-sm);background:#1e2a4a;color:#fff;box-shadow:0 6px 20px rgba(15,22,39,.3);font:400 12.5px/1.55 'Segoe UI',Arial,sans-serif;font-style:normal;text-align:right;white-space:normal}
 .fc-chart-detail{min-height:2.1em;margin-top:6px;padding:6px 10px;border-radius:var(--radius-sm);background:var(--bg);color:var(--text-sub);font-size:.82em;line-height:1.5}
 .fc-chart-detail.on{background:#eef2f9;color:var(--navy);font-weight:600}
 .fc-hit{fill:transparent;cursor:pointer}
@@ -391,7 +391,7 @@ body {
 .fc-sec-body{padding:0 0 6px}
 .fc-sec .fc-sec .fc-sec-sum{font-size:.95em}
 
-.fc-hctl{display:flex;align-items:center;gap:8px;margin-top:12px;flex-wrap:wrap}
+.fc-hctl{display:flex;align-items:center;gap:8px;margin-top:auto;padding-top:14px;flex-wrap:wrap}
 .fc-seg-s{border-color:rgba(255,255,255,.22)}
 .fc-seg-s button{padding:3px 10px;font-size:.78em;background:rgba(255,255,255,.08);color:#c6d2ea}
 .fc-seg-s button.on{background:var(--teal);color:#fff}
@@ -1381,22 +1381,31 @@ function fcDotText(e) {
   return parts.join(' · ');
 }
 
-// Hover (mouse) or tap (touch) opens a window in the flow of the page and closes it again; nothing floats.
+// Hover (mouse) or tap (touch) opens a floating popover (position:fixed, pushes nothing) and closes it again.
 (function() {
   var host = document.getElementById('fc-body');
   var canHover = window.matchMedia && window.matchMedia('(hover: hover)').matches;
-  function infoHost(i) { return i.closest('.fc-est-foot, .fc-ev-n, .fc-rule, .fc-eyebrow, .fc-mini-l') || i.parentNode; }
+  var pop = null;
+  /** Show the (i) text in a floating popover over the page (position:fixed, never moves the layout); clamped inside the viewport. */
   function openInfo(i) {
-    if (i._panel) return;
-    var panel = document.createElement('div');
-    panel.className = 'fc-i-panel';
-    panel.textContent = i.getAttribute('data-tip');
-    var h = infoHost(i);
-    if (h.classList.contains('fc-ev-n')) h.appendChild(panel); else h.insertAdjacentElement('afterend', panel);
-    i._panel = panel; i.classList.add('on');
+    if (i._open) return;
+    closeAll(i);
+    pop = document.createElement('div');
+    pop.className = 'fc-pop';
+    pop.textContent = i.getAttribute('data-tip');
+    document.body.appendChild(pop);
+    var r = i.getBoundingClientRect(), w = pop.offsetWidth, h = pop.offsetHeight, vw = document.documentElement.clientWidth, vh = window.innerHeight;
+    var left = Math.max(8, Math.min(vw - w - 8, r.left + r.width / 2 - w / 2));
+    var top = r.bottom + 6; if (top + h > vh - 8) top = Math.max(8, r.top - h - 6);
+    pop.style.left = left + 'px'; pop.style.top = top + 'px';
+    i._open = true; i.classList.add('on');
   }
-  function closeInfo(i) { if (i._panel) { i._panel.remove(); i._panel = null; } i.classList.remove('on'); }
+  /** Remove the popover of the given (i). */
+  function closeInfo(i) { if (pop) { pop.remove(); pop = null; } i._open = false; i.classList.remove('on'); }
+  /** Close every open (i) popover except the given one. */
   function closeAll(except) { host.querySelectorAll('.fc-i.on').forEach(function(i) { if (i !== except) closeInfo(i); }); }
+  window.addEventListener('scroll', function() { closeAll(); }, true);
+  window.addEventListener('resize', function() { closeAll(); });
   function showDot(h) {
     var box = document.getElementById('fc-chart-detail');
     var text = h.getAttribute('data-k') ? fcLegTexts[h.getAttribute('data-k')] : (fcDots[+h.getAttribute('data-i')] ? fcDotText(fcDots[+h.getAttribute('data-i')]) : '');
@@ -1419,7 +1428,7 @@ function fcDotText(e) {
   host.addEventListener('focusout', function(ev) { var i = ev.target.closest('.fc-i'); if (canHover && i) closeInfo(i); });
   host.addEventListener('click', function(ev) {
     var i = ev.target.closest('.fc-i'), h = ev.target.closest(FC_HIT);
-    if (i) { if (!canHover) { if (i._panel) closeInfo(i); else { closeAll(i); openInfo(i); } } return; }
+    if (i) { if (!canHover) { if (i._open) closeInfo(i); else openInfo(i); } return; }
     if (h) { if (!canHover) { var box = document.getElementById('fc-chart-detail'); if (box.classList.contains('on') && box._for === h) { hideDot(); box._for = null; } else { showDot(h); box._for = h; } } return; }
     if (!canHover) { closeAll(); hideDot(); }
   });
@@ -1556,13 +1565,13 @@ function fcRender() {
   var dayLabel = sc.days_left === 1 ? 'יום אחד' : sc.days_left + ' ימים';
   var charges = v.events.filter(function(e) { return e.kind !== 'income' && !e.after_salary; });
   var fixed = sc.fixed_monthly;
+  var nAll = fixed.count + (fixed.rent_items ? 1 : 0), nCard = fixed.by_card_count, nBank = nAll - nCard;   // rent counts as one of the charges
 
   // Short text on the face of every KPI; the full explanation opens from its (i).
   var tipMain = 'פנוי לבזבוז = הסכום שאפשר להוציא עכשיו בלי שהיתרה תרד מתחת לאפס בשום נקודה עד ' + fcShortDate(sc.chart_end) +
     ' — כולל החיובים שמגיעים גם אחרי המשכורת. ' + (sc.tight_date ? 'הנקודה הצפופה: ' + sc.tight_name + ' ב-' + fcShortDate(sc.tight_date) + '. ' : '') +
     'תרחיש מחמיר = כרטיס בחודש הגבוה, משכורת בתאריך המאוחר ובסכום הנמוך; ממוצע = ממוצעי 6 החודשים. כרית ביטחון מופחתת מהסכום. ' + FC_TIP_EST;
-  var tipFixed = 'החודש כולו, מה-1 ועד סופו, בין אם כבר שולם ובין אם לא: ' + fixed.count + ' חיובים חוזרים (' + (fixed.count - fixed.by_card_count) + ' מהבנק, ' +
-    fixed.by_card_count + ' בכרטיס) ועוד שכירות וועד בית ' + fcPlain(fixed.rent) + '. לא כולל הערכה של חיובי כרטיס האשראי עצמם.';
+  var tipFixed = 'החודש כולו, מה-1 ועד סופו, בין אם כבר שולם ובין אם לא: ' + nAll + ' חיובים חוזרים (' + nBank + ' מהבנק, ' + nCard + ' בכרטיס). לא כולל הערכה של חיובי כרטיס האשראי עצמם.';
   var tipBalance = 'היתרה האחרונה בקובץ הבנק, נכון ל-' + fcShortDate(d.as_of) + '.' +
     (Math.round(sc.balance_now) !== Math.round(d.balance) ? ' אחרי הפעולות שהונחו כבוצעות (עדיין לא בקבצים) היא ' + fcPlain(sc.balance_now) + ' — ממנה מתחיל החישוב.' : '');
   var tipCharges = 'סכום כל החיובים המשוערים (כרטיסים, שכירות וחיובים חוזרים) עד קו המשכורת הראשון בגרף, ב-' + fcShortDate(sc.horizon) + ': ' + charges.length + ' חיובים, כולל חיובים שהונחו כבוצעים.';
@@ -1576,12 +1585,12 @@ function fcRender() {
       '<div class="fc-eyebrow">פנוי לבזבוז</div>' +
       '<div class="fc-sub">משכורת ב-' + fcShortDate(sc.horizon) + (free > 0 ? ' · כ-' + fcMoney(v.daily) + ' ליום' : '') + '</div>' +
       '<span class="fc-chip ' + chipCls + '">' + chipTxt + '</span>' +
+      '<div class="fc-est-foot"><span class="fc-est">משוער</span>' + fcInfo(tipMain) + '</div>' +
       '<div class="fc-hctl"><div class="fc-seg fc-seg-s"><button class="' + (mode === 'max' ? 'on' : '') + '" onclick="fcSet(\'card_mode\',\'max\')">מחמיר</button><button class="' + (mode === 'avg' ? 'on' : '') + '" onclick="fcSet(\'card_mode\',\'avg\')">ממוצע</button></div>' +
         '<label class="fc-buf">כרית <input type="number" min="0" inputmode="numeric" value="' + fcParams.buffer + '" placeholder="0" onchange="fcSet(\'buffer\', this.value)">₪</label>' +
         '<button class="fc-reset" onclick="fcReset()" title="איפוס">↺</button></div>' +
-      '<div class="fc-est-foot"><span class="fc-est">משוער</span>' + fcInfo(tipMain) + '</div>' +
     '</div><div class="fc-hero-side">' +
-      kpi('חיוב חודשי חוזר', fcMoney(fixed.total), fixed.count + ' חיובים + שכירות', tipFixed, true).replace('class="fc-mini"', 'class="fc-mini wide"') +
+      kpi('חיוב חודשי חוזר', fcMoney(fixed.total), nAll + ' חיובים', tipFixed, true).replace('class="fc-mini"', 'class="fc-mini wide"') +
       kpi('יתרה בחשבון', fcMoney(v.balance), 'ב-' + fcShortDate(d.as_of), tipBalance, false) +
       kpi('חיובים עד המשכורת', fcMoney(sc.totals.all), charges.length + ' חיובים', tipCharges, true) +
     '</div></div>';

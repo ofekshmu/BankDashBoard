@@ -284,13 +284,14 @@ def test_forecast_scenarios_are_both_computed_and_harsh_is_not_looser():
     assert not any(e['assumed'] for e in avg['events'])      # everything is still ahead of today
 
 
-def test_monthly_recurring_total_leaves_out_card_paid_stopped_and_rent():
+def test_monthly_recurring_total_counts_bank_and_card_paid_but_not_stopped_or_rent():
     groups = [_bank_group('הראל ביטוח', amount=380), _bank_group('Netflix', amount=50, table='CardTransactions'),
               dict(_bank_group('Old', amount=99), possibly_stopped=True), _bank_group('שכירות', amount=5880, category='שכירות')]
-    assert monthly_recurring_total(groups, 'avg') == {'total': 380, 'count': 1}
-    assert monthly_recurring_total(groups, 'max') == {'total': 480, 'count': 1}
+    assert monthly_recurring_total(groups, 'avg') == {'total': 430, 'count': 2, 'by_card_count': 1, 'by_card_total': 50}
+    assert monthly_recurring_total(groups, 'max')['total'] == 480 + 150           # the highest amount of each
     both = compute_both(_inputs(groups=groups), AS_OF)
-    assert both['scenarios']['avg']['fixed_monthly'] == {'recurring': 380, 'count': 1, 'rent': 5880, 'total': 6260}
+    fixed = both['scenarios']['avg']['fixed_monthly']
+    assert (fixed['recurring'], fixed['count'], fixed['by_card_count'], fixed['rent'], fixed['total']) == (430, 2, 1, 5880, 6310)
 
 
 def test_the_chart_looks_a_month_ahead_and_the_free_amount_stops_at_the_salary():
@@ -348,9 +349,9 @@ def test_the_monthly_recurring_figure_is_the_whole_month_whatever_day_it_is_or_w
               _bank_group('Netflix', amount=50, table='CardTransactions')]
     early = compute_forecast(_inputs(groups=groups, balance_date=date(2026, 10, 3), rent_rows=_rent_rows(months=range(5, 10))), date(2026, 10, 3), 'avg')
     late = compute_forecast(_inputs(groups=groups, balance_date=date(2026, 10, 28)), date(2026, 10, 28), 'avg')
-    expected = 380 + 220 + 5600 + 280                    # card-paid Netflix is inside the card charge, not here
+    expected = 380 + 220 + 50 + 5600 + 280              # the card-paid Netflix is a recurring charge too
     assert early['fixed_monthly']['total'] == late['fixed_monthly']['total'] == expected
-    assert early['fixed_monthly'] == {'recurring': 600, 'count': 2, 'rent': 5880, 'total': expected}
+    assert (early['fixed_monthly']['recurring'], early['fixed_monthly']['count'], early['fixed_monthly']['by_card_count']) == (650, 3, 1)
 
 
 def test_totals_separate_what_is_known_from_what_is_estimated():

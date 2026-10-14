@@ -1555,7 +1555,7 @@ function fcRender() {
       '<div class="fc-sub" style="font-size:.82em;opacity:.8">הסכום כולל את החיובים שמגיעים גם אחרי המשכורת (עד ' + fcShortDate(sc.chart_end) + ')</div>' +
       '<span class="fc-chip ' + chipCls + '">' + chipTxt + '</span>' + fcEst(true) +
     '</div><div class="fc-hero-side">' +
-      '<div class="fc-mini wide"><div class="fc-mini-l">חיוב חודשי חוזר (ללא חיובי כרטיס אשראי)</div><div class="fc-mini-v">' + fcMoney(fixed.total) + '</div><div class="fc-mini-s">החודש כולו, מה-1 ועד סופו · ' + fixed.count + ' חיובים חוזרים מהבנק + שכירות ' + fcMoney(fixed.rent) + '</div>' + fcEst() + '</div>' +
+      '<div class="fc-mini wide"><div class="fc-mini-l">חיוב חודשי חוזר</div><div class="fc-mini-v">' + fcMoney(fixed.total) + '</div><div class="fc-mini-s">החודש כולו, מה-1 ועד סופו · ' + fixed.count + ' חיובים חוזרים (' + (fixed.count - fixed.by_card_count) + ' מהבנק · ' + fixed.by_card_count + ' בכרטיס) + שכירות ' + fcMoney(fixed.rent) + '</div><div class="fc-mini-s">לא כולל הערכה של חיובי כרטיס האשראי עצמם</div>' + fcEst() + '</div>' +
       '<div class="fc-mini"><div class="fc-mini-l">יתרה בחשבון</div><div class="fc-mini-v">' + fcMoney(v.balance) + '</div><div class="fc-mini-s">נכון ל-' + fcShortDate(d.as_of) + (Math.round(sc.balance_now) !== Math.round(d.balance) ? ' · אחרי פעולות שהונחו כבוצעות ' + fcMoney(sc.balance_now) : '') + '</div></div>' +
       '<div class="fc-mini"><div class="fc-mini-l">חיובים עד המשכורת</div><div class="fc-mini-v">' + fcMoney(sc.totals.all) + '</div><div class="fc-mini-s">עד כניסת המשכורת ב-' + fcShortDate(sc.horizon) + ' · ' + charges.length + ' חיובים</div>' + fcEst() + '</div>' +
     '</div></div>';

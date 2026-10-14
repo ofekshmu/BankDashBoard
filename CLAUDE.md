@@ -242,7 +242,7 @@ computed live per request (balance changes with every bank file); the recurring 
   computed to `max(horizon, chart_end)`; `after_salary` marks what lies beyond the next salary — kept out of the *totals* ("חיובים עד המשכורת") but **inside** the lowest point.
   It shades the free stretch (zero line/buffer → lowest point, today → next salary) green and marks every salary with a vertical line + marker (no permanent labels; details on hover/tap).
   **Layout rule: in the top figures the number comes first, its label/details below** (`.fc-mini-v{order:-1}`, `.fc-big` before the eyebrow).
-  Top-right block (`.fc-hero-side`): the monthly recurring figure spans the full width on top (`.fc-mini.wide`: the whole month 1st→end, bank-paid recurring charges + rent operations, paid or not,
+  Top-right block (`.fc-hero-side`): the monthly recurring figure spans the full width on top (`.fc-mini.wide`: the whole month 1st→end, all active recurring charges (bank + card) + rent operations, paid or not,
   independent of today's date — tested), under it the pair *balance* | *charges until the next salary* (the sum of the non-income events up to the first salary line of the chart, assumed ones included;
   no known/estimated split, no "lowest point" cube — that value is the main figure's lowest point).
 - **Only recurring things count** — by the page's own definition (`recurring_months`, reusing `RecurringCharges` thresholds: ≥ 3 consecutive months, amount within 50 % of the
@@ -264,9 +264,10 @@ computed live per request (balance changes with every bank file); the recurring 
   `RecurringCharges.recurring_operations` splits them **by amount** (`cluster_by_amount`, ±3 %; a rent update is merged into one operation when the amounts never share a month and differ by ≤ 25 % (`STEP_CHANGE_MAX`) — a doubled payment, e.g. 560 after months of 280, is a one-off, not an update),
   `build_rent_profile` keeps each one only if it is recurring by `recurring_months` (a one-off is ignored), and each costs its latest amount on its usual day
   (`items`: "שכירות" = most repeated/biggest, "ועד בית" = the next). `collapse_rent` gives the recurring page the same names (one group per operation); the forecast skips those groups.
-- **Recurring** groups paid from the bank only (card-paid ones are inside the card charge); stopped groups are skipped.
+- **Recurring** groups paid from the bank are separate events of the free-amount walk (card-paid ones are inside the card charge there); stopped groups are skipped.
 - **Estimates are labelled:** every projected figure carries a "משוער" tag, always at the **bottom** of its cube (`fcEst`, `.fc-est-foot`), never inline in the text; only one of them (the main figure) carries the (i) explaining it; `totals.known` = charges a card already holds, `totals.estimated` = the rest.
-  `fixed_monthly` (top figure) = recurring charges paid from the bank (`monthly_recurring_total`) + the rent operations, **without** any credit-card estimate.
+  `fixed_monthly` (top figure) = **all** the active recurring groups — paid from the bank *and* by card (`monthly_recurring_total`, stopped groups and rent groups left out) — + the rent operations;
+  only the *estimate of the card bills themselves* is not part of it (the forecast's free amount is a different thing: there the card-paid groups are inside the card charge).
 - The old active-bills pie card and the "סה\"כ חיוב חודשי חוזר" KPI were removed from this page; the per-group list below the forecast is unchanged.
 - Rules-of-thumb month lists are collapsed (`<details class="fc-det">`). **Every section collapses** (`fcSection`, `<details class="fc-sec" data-sec=…>`): the whole rules panel (`rules`) and its parts
   (`sal`, `rent`, `cards`, `misc`), and the operations list under the chart (`ops`). What the user closed is kept in `fcOpen` across re-renders (scenario/buffer changes) via a capturing `toggle` listener.

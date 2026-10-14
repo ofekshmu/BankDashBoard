@@ -558,19 +558,23 @@ def _recurring_amount(group: dict, mode: str) -> float:
 
 def monthly_recurring_total(groups: list, mode: str) -> dict:
     """
-    What the recurring charges paid straight from the bank cost per month (the same groups the
-    forecast uses, rent aside): {'total', 'count'}. Charges paid by card are left out — they arrive
-    inside the card's charge, which is only an estimate.
+    What all the active recurring charges cost per month, rent aside (it has its own profile):
+    {'total', 'count', 'by_card_count', 'by_card_total'}. Charges paid by card count too — they are
+    known recurring charges (only the *estimate of the card bills* is not part of this figure); stopped
+    groups do not. The by_card_* part says how much of it is paid through a card.
     """
-    total, count = 0.0, 0
+    total, count, card_total, card_count = 0.0, 0, 0.0, 0
     for g in groups:
         occs = g.get('occurrences') or []
-        if (not occs or g.get('category') == RENT_CATEGORY or g.get('possibly_stopped')
-                or occs[-1].get('table') != 'BankTransactions'):
+        if not occs or g.get('category') == RENT_CATEGORY or g.get('possibly_stopped'):
             continue
-        total += _recurring_amount(g, mode)
+        amount = _recurring_amount(g, mode)
+        total += amount
         count += 1
-    return {'total': round(total, 2), 'count': count}
+        if occs[-1].get('table') != 'BankTransactions':
+            card_total += amount
+            card_count += 1
+    return {'total': round(total, 2), 'count': count, 'by_card_count': card_count, 'by_card_total': round(card_total, 2)}
 
 
 # ── The forecast ────────────────────────────────────────────────────────────────
@@ -661,7 +665,8 @@ def compute_forecast(inputs: dict, today: _date, mode: str = 'max') -> dict:
     totals['known'] = round(sum(e['detail']['held'] for e in to_salary if e['kind'] == 'card'), 2)
     totals['estimated'] = round(totals['all'] - totals['known'], 2)
     recurring = monthly_recurring_total(inputs.get('groups') or [], mode)
-    fixed_monthly = {'recurring': recurring['total'], 'count': recurring['count'],
+    fixed_monthly = {'recurring': recurring['total'], 'count': recurring['count'], 'by_card_count': recurring['by_card_count'],
+                     'rent_items': len(rent['items']) if rent else 0,
                      'rent': rent['amount'] if rent else 0, 'total': round(recurring['total'] + (rent['amount'] if rent else 0), 2)}
     return {
         'ok': True,

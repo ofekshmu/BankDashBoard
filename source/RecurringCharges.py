@@ -385,7 +385,33 @@ def fetch_candidate_transactions(db, months_back: int = 13) -> list:
                 'name': row['Name'], 'amount': abs(float(final_value)), 'category': category,
             })
 
-    return results
+    return collapse_rent(results)
+
+
+RENT_CATEGORY = 'שכירות'
+RENT_NAME = 'שכירות'
+
+
+def collapse_rent(transactions: list) -> list:
+    """
+    Rent is paid by a different cheque each month ("שיק 123456"), so its names never
+    cluster. Every transaction tagged RENT_CATEGORY is given one common name, and
+    several rent payments of the same month become a single transaction (their sum,
+    dated at the first one), so the rent shows up as one steady monthly charge.
+    """
+    rent_by_month, rest = {}, []
+    for tx in transactions:
+        if tx['category'] != RENT_CATEGORY:
+            rest.append(tx)
+            continue
+        rent_by_month.setdefault((tx['table'], month_key(tx['date'])), []).append(tx)
+    for (_table, _mk), txs in rent_by_month.items():
+        txs.sort(key=lambda t: t['date'])
+        first = dict(txs[0])
+        first['name'] = RENT_NAME
+        first['amount'] = sum(t['amount'] for t in txs)
+        rest.append(first)
+    return rest
 
 
 def get_recurring_groups(db, today: _date = None) -> list:

@@ -225,6 +225,23 @@ Now (`source/file_update_service.py`, `source/src_utils/file_diff.py`, `source/r
 
 ---
 
+## Recurring page — spending forecast ("פנוי לבזבוז עד המשכורת")
+
+Top of `/recurring` (`#fc` in `RecurringCharges.html`, `fc*` JS) answers "how much can I spend until the next salary without ever going below zero".
+Backend: `source/SpendingForecast.py` (pure functions + `fetch_forecast_inputs`), endpoint `GET /api/recurring/forecast`
+(`salary_day`, `buffer`, `card_mode=avg|max`, `balance`) — computed live per request (balance changes with every bank file); the recurring
+groups come from the cached analysis. Tests: `tests/test_spending_forecast.py` (no DB).
+
+- **Free amount** = lowest balance reached walking the charges in date order before the salary (spending assumed to happen now) − buffer.
+- **Salary** = `BankTransactions` Income tagged `משכורת`: mean of the last 6 months, mean day (override in the UI); a deposit < 50 % of the usual one doesn't count as received.
+- **Cards** = bank rows tagged `אשראי`, one profile per source name: usual day, mean month (`avg`) or largest month (`max`, default, the harsh mode);
+  never below what `CardTransactions` already hold for that `Charge_Date`. A usual day that passed this month with no charge is *late* → due now.
+- **Recurring** groups paid from the bank only (card-paid ones are inside the card charge); stopped groups are skipped. Unpaid + usual day passed → late → due now.
+- **Rent** (`שכירות`): cheques have different names, so `RecurringCharges.collapse_rent` gives every rent row one name and sums a month's payments → one recurring group.
+- The balance is the latest `BankTransactions.Balance`; events dated before its date are already reflected in it.
+
+---
+
 ## Color palette
 
 | Token | Hex | Used for |

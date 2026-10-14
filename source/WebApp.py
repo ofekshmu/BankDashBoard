@@ -5908,6 +5908,41 @@ def recurring_data():
         return jsonify({'ok': False, 'error': str(e)}), 500
 
 
+@app.route('/api/recurring/forecast')
+def recurring_forecast():
+    """How much money is free to spend until the next salary (see SpendingForecast).
+    Query: salary_day (1-31), buffer (ILS kept aside), card_mode (avg|max), balance (ILS, overrides the bank's).
+    Computed live from the DB each time, so a new bank file shows at once; the recurring
+    groups come from the cached analysis (or are computed when none is cached)."""
+    try:
+        from database import DataBase
+        from SpendingForecast import get_forecast
+        db = DataBase()
+        db.ensure_recurring_tables()
+        cached = db.get_recurring_cache()
+        if cached:
+            groups = _json.loads(cached['data_json']).get('groups', [])
+        else:
+            from RecurringCharges import get_recurring_groups
+            groups = get_recurring_groups(db)
+
+        def _num(name):
+            raw = request.args.get(name, '').strip()
+            try:
+                return float(raw) if raw else None
+            except ValueError:
+                return None
+
+        day = _num('salary_day')
+        params = {'salary_day': int(day) if day else None, 'buffer': _num('buffer') or 0,
+                  'card_mode': request.args.get('card_mode', 'max'), 'balance': _num('balance')}
+        return Response(_recurring_data_json(get_forecast(db, groups, params)), mimetype='application/json')
+    except Exception as e:
+        import traceback
+        _log_error(e, traceback.format_exc())
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
 @app.route('/api/recurring/regenerate')
 def recurring_regenerate():
     import queue as _q

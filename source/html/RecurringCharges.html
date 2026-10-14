@@ -321,6 +321,64 @@ body {
   .rc-folder-header{padding:10px 12px;gap:7px}
   .rc-folder-name{font-size:.92em}
 }
+
+/* ── Spending forecast ("כמה אפשר להוציא") ── */
+.fc{margin-bottom:26px}
+.fc-hero{background:linear-gradient(135deg,#0f1627 0%,#1a2e52 100%);color:#fff;border-radius:var(--radius);padding:26px 28px;box-shadow:var(--shadow-sm);display:flex;gap:30px;align-items:center;flex-wrap:wrap}
+.fc-hero-main{flex:1.2;min-width:240px}
+.fc-eyebrow{font-size:.82em;letter-spacing:.04em;color:#9fb0d0}
+.fc-big{font-size:3.1em;font-weight:700;line-height:1.1;margin:6px 0 4px;font-variant-numeric:tabular-nums}
+.fc-big.neg{color:#ff8a7a}
+.fc-sub{color:#c6d2ea;font-size:.95em}
+.fc-chip{display:inline-block;margin-top:12px;padding:4px 12px;border-radius:99px;font-size:.82em;font-weight:600;background:rgba(46,204,113,.18);color:#6ee7a0}
+.fc-chip.warn{background:rgba(240,180,41,.18);color:#f7cd6a}
+.fc-chip.bad{background:rgba(231,76,60,.22);color:#ff9a8d}
+.fc-hero-side{flex:1;min-width:240px;display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.fc-mini{background:rgba(255,255,255,.07);border-radius:var(--radius-sm);padding:12px 14px}
+.fc-mini-l{font-size:.78em;color:#9fb0d0}
+.fc-mini-v{font-size:1.25em;font-weight:600;margin-top:2px;font-variant-numeric:tabular-nums}
+.fc-mini-s{font-size:.74em;color:#9fb0d0;margin-top:2px}
+.fc-controls{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow-sm);padding:14px 18px;margin-top:14px}
+.fc-ctl{display:flex;flex-direction:column;gap:4px}
+.fc-ctl label{font-size:.76em;color:var(--text-muted)}
+.fc-ctl input{width:110px;padding:7px 10px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:.95em;color:var(--navy);background:var(--bg);font-family:inherit}
+.fc-ctl input:focus{outline:none;border-color:var(--teal)}
+.fc-seg{display:inline-flex;border:1.5px solid var(--border);border-radius:var(--radius-sm);overflow:hidden}
+.fc-seg button{border:0;background:var(--bg);padding:7px 14px;font-size:.9em;color:var(--text-sub);cursor:pointer;font-family:inherit}
+.fc-seg button.on{background:var(--teal);color:#fff}
+.fc-reset{margin-right:auto;border:0;background:none;color:var(--teal);cursor:pointer;font-size:.85em;font-family:inherit}
+.fc-grid{display:grid;grid-template-columns:1.5fr 1fr;gap:14px;margin-top:14px}
+.fc-card{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow-sm);padding:18px 20px;min-width:0}
+.fc-card h3{font-size:1em;margin-bottom:12px;color:var(--navy)}
+.fc-split{display:flex;height:10px;border-radius:99px;overflow:hidden;background:var(--border);margin:4px 0 8px}
+.fc-split i{display:block;height:100%}
+.fc-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:.8em;color:var(--text-sub);margin-bottom:12px}
+.fc-legend b{display:inline-block;width:9px;height:9px;border-radius:50%;margin-left:5px}
+.fc-ev{display:grid;grid-template-columns:54px 1fr auto auto;gap:10px;align-items:center;padding:9px 0;border-top:1px solid var(--border);font-size:.92em}
+.fc-ev:first-of-type{border-top:0}
+.fc-ev-d{color:var(--text-muted);font-variant-numeric:tabular-nums}
+.fc-ev-n small{display:block;color:var(--text-muted);font-size:.78em}
+.fc-ev-a{font-weight:600;font-variant-numeric:tabular-nums}
+.fc-ev-b{color:var(--text-muted);font-size:.85em;min-width:78px;text-align:left;font-variant-numeric:tabular-nums}
+.fc-ev-b.neg{color:var(--red);font-weight:600}
+.fc-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-left:7px}
+.fc-late{display:inline-block;margin-right:6px;padding:1px 7px;border-radius:99px;background:#fdecea;color:var(--red);font-size:.72em}
+.fc-ev.sal{color:var(--teal-dark)}
+.fc-rule{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-top:1px solid var(--border);font-size:.9em}
+.fc-rule:first-of-type{border-top:0}
+.fc-rule span:first-child{color:var(--text-sub)}
+.fc-rule b{font-variant-numeric:tabular-nums}
+.fc-note{margin-top:10px;padding:9px 12px;border-radius:var(--radius-sm);background:#fff8e6;color:#8a6410;font-size:.84em}
+.fc-chart svg{width:100%;height:150px;display:block}
+.fc-empty{padding:26px;text-align:center;color:var(--text-muted)}
+.fc-skel{height:170px;border-radius:var(--radius);background:linear-gradient(90deg,#e9edf3 25%,#f4f6f9 50%,#e9edf3 75%);background-size:200% 100%;animation:fcsh 1.3s infinite}
+@keyframes fcsh{to{background-position:-200% 0}}
+@media (max-width: 760px){
+  .fc-hero{padding:20px}.fc-big{font-size:2.5em}
+  .fc-grid{grid-template-columns:1fr}
+  .fc-ev{grid-template-columns:46px 1fr auto}.fc-ev-b{display:none}
+  .fc-ctl input{width:92px}
+}
 </style>
 <link rel="stylesheet" href="/design-system.css">
 </head>
@@ -354,6 +412,11 @@ body {
 
 <div class="main">
   <div class="page-header"><h1>חיובים חוזרים</h1></div>
+
+  <section class="fc" id="fc">
+    <div id="fc-body"><div class="fc-skel"></div></div>
+  </section>
+  <div class="page-header" style="margin-bottom:14px;padding-top:6px"><h2 style="font-size:1.25em;color:var(--navy)">פירוט החיובים החוזרים</h2></div>
 
   <div class="rc-loading-banner" id="rc-loading-banner" style="display:none">
     <span class="rc-spin"></span>
@@ -1495,6 +1558,7 @@ function regenerate() {
       es.close();
       fetch('/api/recurring/data').then(function(r){ return r.json(); }).then(function(data){
         _rcApplyFreshData(data);
+        fcLoad();
         btn.disabled = false; btn.classList.remove('running'); pct.textContent = '';
       }).catch(function(){
         btn.disabled = false; btn.classList.remove('running'); pct.textContent = '';
@@ -1521,6 +1585,147 @@ function regenerate() {
     _rcShowError('החיבור נותק — נסה ללחוץ על כפתור הרענון שוב');
   };
 }
+
+
+// ── Spending forecast ───────────────────────────────────────────────────────
+var FC_KEY = 'rc_forecast_params';
+var fcParams = { salary_day: '', buffer: '', card_mode: 'max', balance: '' };
+try { var _fcs = JSON.parse(localStorage.getItem(FC_KEY) || 'null'); if (_fcs) fcParams = Object.assign(fcParams, _fcs); } catch (e) {}
+var fcData = null, fcTimer = null;
+
+// Amount as an isolated left-to-right run, so the sign and ₪ stay put inside the RTL page.
+function fcMoney(n, plus) { var r = Math.round(n); return '<bdi dir="ltr">' + (plus && r > 0 ? '+' : '') + r.toLocaleString('en-US').replace('-', '\u2212') + '₪</bdi>'; }
+function fcShortDate(iso) { var p = String(iso).split('-'); return p[2] + '/' + p[1]; }
+function fcSave() { try { localStorage.setItem(FC_KEY, JSON.stringify(fcParams)); } catch (e) {} }
+
+function fcLoad() {
+  var q = [];
+  if (fcParams.salary_day !== '') q.push('salary_day=' + encodeURIComponent(fcParams.salary_day));
+  if (fcParams.buffer !== '') q.push('buffer=' + encodeURIComponent(fcParams.buffer));
+  if (fcParams.balance !== '') q.push('balance=' + encodeURIComponent(fcParams.balance));
+  q.push('card_mode=' + fcParams.card_mode);
+  return fetch('/api/recurring/forecast?' + q.join('&')).then(function(r){ return r.json(); }).then(function(d) {
+    fcData = d; fcRender();
+  }).catch(function() {
+    document.getElementById('fc-body').innerHTML = '<div class="fc-card fc-empty">לא ניתן לחשב כרגע — נסה לרענן</div>';
+  });
+}
+
+function fcSet(key, value) {
+  fcParams[key] = value; fcSave();
+  clearTimeout(fcTimer); fcTimer = setTimeout(fcLoad, 350);
+}
+function fcMode(m) { fcParams.card_mode = m; fcSave(); fcLoad(); }
+function fcReset() { fcParams = { salary_day: '', buffer: '', card_mode: 'max', balance: '' }; fcSave(); fcLoad(); }
+
+var FC_COLORS = { card: '#5b7bd5', rent: '#e0832e', recurring: '#1e9d8b' };
+var FC_LABELS = { card: 'כרטיסי אשראי', rent: 'שכירות', recurring: 'חיובים חוזרים' };
+
+function fcChartSvg(d) {
+  var evs = d.events, W = 600, H = 150, pad = 12;
+  var t0 = new Date(d.today).getTime(), t1 = new Date(d.horizon).getTime();
+  var span = Math.max(t1 - t0, 86400000);
+  var pts = [{ t: t0, b: d.balance }];
+  evs.forEach(function(e) { pts.push({ t: Math.max(new Date(e.date).getTime(), t0), b: e.balance_after, prev: true }); });
+  var lo = Math.min(0, d.lowest_balance), hi = d.balance;
+  var rng = Math.max(hi - lo, 1);
+  function X(t) { return pad + (W - 2 * pad) * (t - t0) / span; }
+  function Y(b) { return pad + (H - 2 * pad) * (1 - (b - lo) / rng); }
+  var path = 'M' + X(pts[0].t) + ',' + Y(pts[0].b), cur = pts[0].b;
+  for (var i = 1; i < pts.length; i++) { path += ' H' + X(pts[i].t) + ' V' + Y(pts[i].b); cur = pts[i].b; }
+  path += ' H' + X(t1);
+  var area = path + ' V' + Y(lo) + ' H' + X(t0) + ' Z';
+  var zero = Y(0);
+  var dots = pts.slice(1).map(function(p, k) {
+    return '<circle cx="' + X(p.t) + '" cy="' + Y(p.b) + '" r="3.5" fill="' + (p.b < 0 ? '#e74c3c' : FC_COLORS[evs[k].kind]) + '"/>';
+  }).join('');
+  return '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" aria-hidden="true">' +
+    '<defs><linearGradient id="fcg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1e9d8b" stop-opacity=".28"/><stop offset="1" stop-color="#1e9d8b" stop-opacity="0"/></linearGradient></defs>' +
+    '<path d="' + area + '" fill="url(#fcg)"/>' +
+    '<line x1="' + pad + '" x2="' + (W - pad) + '" y1="' + zero + '" y2="' + zero + '" stroke="#e74c3c" stroke-dasharray="4 4" stroke-width="1" opacity=".6"/>' +
+    '<path d="' + path + '" fill="none" stroke="#1e9d8b" stroke-width="2.4" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>' +
+    dots + '</svg>';
+}
+
+function fcRender() {
+  var d = fcData, el = document.getElementById('fc-body');
+  if (!d || d.ok === false && d.reason !== 'no_salary') {
+    el.innerHTML = '<div class="fc-card fc-empty">' + esc(d && d.error ? d.error : 'לא ניתן לחשב') + '</div>'; return;
+  }
+  if (d.reason === 'no_salary') {
+    el.innerHTML = '<div class="fc-card fc-empty">' + (d.notes || []).map(esc).join('<br>') + '</div>'; return;
+  }
+  var free = d.free, neg = free < 0;
+  var chipCls = neg ? 'bad' : (free < d.balance * 0.1 ? 'warn' : '');
+  var chipTxt = neg ? 'חסרים ' + fcMoney(-free) + ' כדי לא להיכנס למינוס' : (chipCls ? 'מצב צפוף — כדאי להיזהר' : 'מצב תקין');
+  var tight = d.tight_date ? 'הנקודה הצפופה: ' + esc(d.tight_name) + ' · ' + fcShortDate(d.tight_date) : 'אין חיובים לפני המשכורת';
+  var sal = d.salary, dayLabel = d.days_left === 1 ? 'יום אחד' : d.days_left + ' ימים';
+
+  var hero =
+    '<div class="fc-hero"><div class="fc-hero-main">' +
+      '<div class="fc-eyebrow">פנוי לבזבוז עד המשכורת הבאה</div>' +
+      '<div class="fc-big' + (neg ? ' neg' : '') + '">' + fcMoney(free) + '</div>' +
+      '<div class="fc-sub">עד ' + fcShortDate(d.horizon) + ' · ' + dayLabel + (free > 0 ? ' · כ-' + fcMoney(d.free_daily) + ' ליום' : '') + '</div>' +
+      '<span class="fc-chip ' + chipCls + '">' + chipTxt + '</span>' +
+    '</div><div class="fc-hero-side">' +
+      '<div class="fc-mini"><div class="fc-mini-l">יתרה בחשבון</div><div class="fc-mini-v">' + fcMoney(d.balance) + '</div><div class="fc-mini-s">נכון ל-' + fcShortDate(d.as_of) + '</div></div>' +
+      '<div class="fc-mini"><div class="fc-mini-l">חיובים עד המשכורת</div><div class="fc-mini-v">' + fcMoney(d.totals.all) + '</div><div class="fc-mini-s">' + d.events.length + ' חיובים</div></div>' +
+      '<div class="fc-mini"><div class="fc-mini-l">משכורת צפויה</div><div class="fc-mini-v">' + fcMoney(sal.avg_amount) + '</div><div class="fc-mini-s">ב-' + fcShortDate(sal.next_date) + '</div></div>' +
+      '<div class="fc-mini"><div class="fc-mini-l">הנקודה הנמוכה</div><div class="fc-mini-v">' + fcMoney(d.lowest_balance) + '</div><div class="fc-mini-s">' + tight + '</div></div>' +
+    '</div></div>';
+
+  var p = d.params;
+  var controls =
+    '<div class="fc-controls">' +
+      '<div class="fc-ctl"><label>יום כניסת משכורת' + (p.salary_day_overridden ? '' : ' (ממוצע)') + '</label><input type="number" min="1" max="31" inputmode="numeric" value="' + p.salary_day + '" onchange="fcSet(\'salary_day\', this.value)"></div>' +
+      '<div class="fc-ctl"><label>כרית ביטחון (₪)</label><input type="number" min="0" inputmode="numeric" value="' + (fcParams.buffer) + '" placeholder="0" onchange="fcSet(\'buffer\', this.value)"></div>' +
+      '<div class="fc-ctl"><label>יתרה ידנית (₪)</label><input type="number" inputmode="numeric" value="' + (fcParams.balance) + '" placeholder="' + Math.round(d.balance) + '" onchange="fcSet(\'balance\', this.value)"></div>' +
+      '<div class="fc-ctl"><label>חיוב כרטיס</label><div class="fc-seg"><button class="' + (p.card_mode === 'max' ? 'on' : '') + '" onclick="fcMode(\'max\')">מחמיר</button><button class="' + (p.card_mode === 'avg' ? 'on' : '') + '" onclick="fcMode(\'avg\')">ממוצע</button></div></div>' +
+      '<button class="fc-reset" onclick="fcReset()">איפוס</button>' +
+    '</div>';
+
+  var order = ['card', 'rent', 'recurring'];
+  var split = order.map(function(k) { return d.totals[k] ? '<i style="width:' + (100 * d.totals[k] / Math.max(d.totals.all, 1)) + '%;background:' + FC_COLORS[k] + '"></i>' : ''; }).join('');
+  var legend = order.map(function(k) { return '<span><b style="background:' + FC_COLORS[k] + '"></b>' + FC_LABELS[k] + ' ' + fcMoney(d.totals[k]) + '</span>'; }).join('');
+
+  var rows = d.events.map(function(e) {
+    var det = e.kind === 'card' ? (e.detail.held > e.detail.base ? 'חיוב ידוע בכרטיס' : (p.card_mode === 'max' ? 'החודש הגבוה ביותר' : 'ממוצע חודשי')) : (e.late ? '' : FC_LABELS[e.kind]);
+    return '<div class="fc-ev"><span class="fc-ev-d">' + fcShortDate(e.date) + '</span>' +
+      '<span class="fc-ev-n"><i class="fc-dot" style="background:' + FC_COLORS[e.kind] + '"></i>' + esc(e.name) + (e.late ? '<span class="fc-late">באיחור — צפוי כל רגע</span>' : '') + '<small>' + det + '</small></span>' +
+      '<span class="fc-ev-a">' + fcMoney(-e.amount) + '</span>' +
+      '<span class="fc-ev-b' + (e.balance_after < 0 ? ' neg' : '') + '">' + fcMoney(e.balance_after) + '</span></div>';
+  }).join('');
+  rows += '<div class="fc-ev sal"><span class="fc-ev-d">' + fcShortDate(d.horizon) + '</span><span class="fc-ev-n">משכורת צפויה</span><span class="fc-ev-a">' + fcMoney(sal.avg_amount, true) + '</span><span class="fc-ev-b"></span></div>';
+
+  var timeline =
+    '<div class="fc-card"><h3>מה יורד מהחשבון עד המשכורת</h3>' +
+      '<div class="fc-split">' + split + '</div><div class="fc-legend">' + legend + '</div>' +
+      (d.events.length ? '<div class="fc-chart">' + fcChartSvg(d) + '</div>' : '') +
+      '<div>' + rows + '</div></div>';
+
+  var cards = (d.cards || []).map(function(c) {
+    return '<div class="fc-rule"><span>' + esc(c.name) + ' · יום ' + c.day + '</span><b>ממוצע ' + fcMoney(c.avg_month) + ' · שיא ' + fcMoney(c.max_month) + '</b></div>';
+  }).join('') || '<div class="fc-rule"><span>לא זוהו חיובי כרטיס</span></div>';
+  var salMonths = sal.months.slice(-6).map(function(m) { return m.month.slice(5) + '/' + m.month.slice(2, 4) + ': ' + fcMoney(m.amount); }).join(' · ');
+  var skipped = (d.skipped || []).reduce(function(a, s) { a[s.reason] = (a[s.reason] || 0) + 1; return a; }, {});
+  var rules =
+    '<div class="fc-card"><h3>כללי האצבע שבשימוש</h3>' +
+      '<div class="fc-rule"><span>משכורת ממוצעת</span><b>' + fcMoney(sal.avg_amount) + '</b></div>' +
+      '<div class="fc-rule"><span>טווח משכורות</span><b>' + fcMoney(sal.min_amount) + ' – ' + fcMoney(sal.max_amount) + '</b></div>' +
+      '<div class="fc-rule"><span>יום כניסה ממוצע</span><b>' + sal.day + ' בחודש</b></div>' +
+      '<div class="fc-rule"><span>' + (sal.received_this_month ? 'משכורת החודש נכנסה — הבאה ב-' : 'משכורת הבאה ב-') + '</span><b>' + fcShortDate(sal.next_date) + '</b></div>' +
+      cards +
+      '<div class="fc-rule"><span>חיוב כרטיס</span><b>' + (p.card_mode === 'max' ? 'החודש הגבוה ב-6 חודשים' : 'ממוצע 6 חודשים') + '</b></div>' +
+      (skipped.card ? '<div class="fc-rule"><span>חוזרים בכרטיס (כלולים בחיוב הכרטיס)</span><b>' + skipped.card + '</b></div>' : '') +
+      (skipped.stopped ? '<div class="fc-rule"><span>חיובים שנראה שהופסקו (לא נספרו)</span><b>' + skipped.stopped + '</b></div>' : '') +
+      (salMonths ? '<div class="fc-rule" style="display:block"><span style="font-size:.85em">' + salMonths + '</span></div>' : '') +
+      (d.notes || []).map(function(n) { return '<div class="fc-note">' + esc(n) + '</div>'; }).join('') +
+    '</div>';
+
+  el.innerHTML = hero + controls + '<div class="fc-grid">' + timeline + rules + '</div>';
+}
+
+fcLoad();
 
 _rcLoadFolders(function() {
   _rcLoadDisplayNames(function() {

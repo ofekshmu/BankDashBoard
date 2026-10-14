@@ -242,6 +242,9 @@ computed live per request (balance changes with every bank file); the recurring 
   computed to `max(horizon, chart_end)`; `after_salary` marks what lies beyond the next salary — kept out of the *totals* ("חיובים עד המשכורת") but **inside** the lowest point.
   It shades the free stretch (zero line/buffer → lowest point, today → next salary) green and marks every salary with a vertical line + marker (no permanent labels; details on hover/tap).
   **Layout rule: in the top figures the number comes first, its label/details below** (`.fc-mini-v{order:-1}`, `.fc-big` before the eyebrow).
+  Top-right block (`.fc-hero-side`): the monthly recurring figure spans the full width on top (`.fc-mini.wide`: the whole month 1st→end, bank-paid recurring charges + rent operations, paid or not,
+  independent of today's date — tested), under it the pair *balance* | *charges until the next salary* (the sum of the non-income events up to the first salary line of the chart, assumed ones included;
+  no known/estimated split, no "lowest point" cube — that value is the main figure's lowest point).
 - **Only recurring things count** — by the page's own definition (`recurring_months`, reusing `RecurringCharges` thresholds: ≥ 3 consecutive months, amount within 50 % of the
   median — not compared for salaries —, ≤ 3 runs, last one ≤ 6 months before the last completed month). A one-off deposit tagged salary (e.g. a bonus on the 20th) or one payment tagged rent is ignored.
 - **Salary streams:** `BankTransactions` Income tagged `משכורת` (with `Name`), last 6 months, split **by payer** — the deposit names are clustered with `RecurringCharges.cluster_transactions`

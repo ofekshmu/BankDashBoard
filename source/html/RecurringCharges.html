@@ -312,6 +312,7 @@ body {
 .fc-mini-l{font-size:.78em;color:#9fb0d0}
 .fc-mini-v{order:-1;font-size:1.35em;font-weight:600;margin-bottom:3px;font-variant-numeric:tabular-nums}
 .fc-mini-s{font-size:.74em;color:#9fb0d0;margin-top:2px}
+.fc-mini.wide{grid-column:1/-1;background:rgba(30,157,139,.16)}
 .fc-controls{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow-sm);padding:14px 18px;margin-top:14px}
 .fc-ctl{display:flex;flex-direction:column;gap:4px}
 .fc-ctl label{font-size:.76em;color:var(--text-muted)}
@@ -1554,10 +1555,9 @@ function fcRender() {
       '<div class="fc-sub" style="font-size:.82em;opacity:.8">הסכום כולל את החיובים שמגיעים גם אחרי המשכורת (עד ' + fcShortDate(sc.chart_end) + ')</div>' +
       '<span class="fc-chip ' + chipCls + '">' + chipTxt + '</span>' + fcEst(true) +
     '</div><div class="fc-hero-side">' +
+      '<div class="fc-mini wide"><div class="fc-mini-l">חיוב חודשי חוזר (ללא חיובי כרטיס אשראי)</div><div class="fc-mini-v">' + fcMoney(fixed.total) + '</div><div class="fc-mini-s">החודש כולו, מה-1 ועד סופו · ' + fixed.count + ' חיובים חוזרים מהבנק + שכירות ' + fcMoney(fixed.rent) + '</div>' + fcEst() + '</div>' +
       '<div class="fc-mini"><div class="fc-mini-l">יתרה בחשבון</div><div class="fc-mini-v">' + fcMoney(v.balance) + '</div><div class="fc-mini-s">נכון ל-' + fcShortDate(d.as_of) + (Math.round(sc.balance_now) !== Math.round(d.balance) ? ' · אחרי פעולות שהונחו כבוצעות ' + fcMoney(sc.balance_now) : '') + '</div></div>' +
-      '<div class="fc-mini"><div class="fc-mini-l">חיובים עד המשכורת</div><div class="fc-mini-v">' + fcMoney(sc.totals.all) + '</div><div class="fc-mini-s">ידוע ' + fcMoney(sc.totals.known) + ' · משוער ' + fcMoney(sc.totals.estimated) + '</div>' + fcEst() + '</div>' +
-      '<div class="fc-mini"><div class="fc-mini-l">הנקודה הנמוכה</div><div class="fc-mini-v">' + fcMoney(v.lowest) + '</div><div class="fc-mini-s">' + tight + '</div>' + fcEst() + '</div>' +
-      '<div class="fc-mini"><div class="fc-mini-l">חיוב חודשי חוזר (ללא חיובי כרטיס אשראי)</div><div class="fc-mini-v">' + fcMoney(fixed.total) + '</div><div class="fc-mini-s">' + fixed.count + ' חיובים חוזרים מהבנק + שכירות ' + fcMoney(fixed.rent) + '</div>' + fcEst() + '</div>' +
+      '<div class="fc-mini"><div class="fc-mini-l">חיובים עד המשכורת</div><div class="fc-mini-v">' + fcMoney(sc.totals.all) + '</div><div class="fc-mini-s">עד כניסת המשכורת ב-' + fcShortDate(sc.horizon) + ' · ' + charges.length + ' חיובים</div>' + fcEst() + '</div>' +
     '</div></div>';
 
   var controls =

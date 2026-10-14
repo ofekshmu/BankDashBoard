@@ -342,6 +342,17 @@ def test_an_assumed_charge_lowers_the_balance_now_and_future_ones_come_off_it():
     assert r['balance_now'] == 15000 and r['free'] == 12000 and r['tight_name'] == 'card'
 
 
+def test_the_monthly_recurring_figure_is_the_whole_month_whatever_day_it_is_or_what_was_paid():
+    """All the recurring operations of the month (1st to the end) — bank charges and the rent with its fee — paid or not yet."""
+    groups = [_bank_group('הראל ביטוח', day=18, amount=380), _bank_group('חברת חשמל', day=25, amount=220, category='חשבונות'),
+              _bank_group('Netflix', amount=50, table='CardTransactions')]
+    early = compute_forecast(_inputs(groups=groups, balance_date=date(2026, 10, 3), rent_rows=_rent_rows(months=range(5, 10))), date(2026, 10, 3), 'avg')
+    late = compute_forecast(_inputs(groups=groups, balance_date=date(2026, 10, 28)), date(2026, 10, 28), 'avg')
+    expected = 380 + 220 + 5600 + 280                    # card-paid Netflix is inside the card charge, not here
+    assert early['fixed_monthly']['total'] == late['fixed_monthly']['total'] == expected
+    assert early['fixed_monthly'] == {'recurring': 600, 'count': 2, 'rent': 5880, 'total': expected}
+
+
 def test_totals_separate_what_is_known_from_what_is_estimated():
     held = [{'card': '4603', 'name': 'כרטיס 4603', 'date': date(2026, 11, 9), 'amount': 8000}]
     f = compute_forecast(_inputs(card_rows=_inputs()['card_rows'] + held), AS_OF, 'avg')

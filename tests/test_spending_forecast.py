@@ -5,6 +5,7 @@ from RecurringCharges import collapse_rent
 from SpendingForecast import (
     build_salary_profile, build_card_profiles, build_card_events, build_rent_profile, build_rent_events,
     build_recurring_events, compute_free_amount, compute_forecast, compute_both, usual_day, _cluster_days,
+    recurring_months,
 )
 
 AS_OF = date(2026, 10, 14)
@@ -78,6 +79,32 @@ def test_received_salary_waits_for_next_cycle_and_overdue_one_is_assumed():
     overdue = build_salary_profile(_salary(), AS_OF, AS_OF, 'avg')
     assert [a['date'] for a in overdue['assumed']] == [date(2026, 10, 10)]     # taken as arrived on its date
     assert overdue['next_date'] == date(2026, 11, 10)
+
+
+def test_recurring_definition_matches_the_recurring_page():
+    ms = lambda keys, a=100: [{'month': k, 'amount': a} for k in keys]
+    assert recurring_months(ms(['2026-07', '2026-08', '2026-09']), AS_OF)                    # 3 consecutive months
+    assert recurring_months(ms(['2026-08', '2026-09']), AS_OF) == []                          # only 2
+    assert recurring_months(ms(['2026-05', '2026-07', '2026-09']), AS_OF) == []               # no 3 in a row
+    assert recurring_months(ms(['2025-12', '2026-01', '2026-02']), AS_OF) == []               # stale (last > 6 months before last complete month)
+    wild = ms(['2026-07', '2026-08', '2026-09']) + [{'month': '2026-06', 'amount': 900}]
+    assert [m['month'] for m in recurring_months(wild, AS_OF)] == ['2026-07', '2026-08', '2026-09']   # outlier dropped
+
+
+def test_a_one_off_deposit_on_the_20th_is_not_a_salary_stream():
+    rows = _salary(day=9, months=range(4, 10)) + [{'date': date(2026, 7, 20), 'amount': 4000}]    # bonus, once
+    for mode in ('max', 'avg'):
+        prof = build_salary_profile(rows, AS_OF, AS_OF, mode)
+        assert [s['day'] for s in prof['streams']] == [9]
+        assert all(u['date'].day == 9 for u in prof['upcoming'])
+    only_once = [{'date': date(2026, 9, 20), 'amount': 4000}]
+    assert build_salary_profile(only_once, AS_OF, AS_OF, 'max')['known'] is False
+
+
+def test_rent_must_be_recurring_to_be_assumed():
+    assert build_rent_profile(_rent_rows(5880, months=range(8, 10)), AS_OF) is None            # two months only
+    assert build_rent_profile([{'date': date(2026, 9, 1), 'amount': 20000}], AS_OF) is None   # a single payment (deposit?)
+    assert build_rent_profile(_rent_rows(5880, months=range(7, 10)), AS_OF)['amount'] == 5880
 
 
 def test_every_card_has_its_own_day():

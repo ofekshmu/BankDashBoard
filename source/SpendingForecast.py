@@ -11,6 +11,10 @@ change of view:
     month of the history
   - 'avg': the average day / amount of every salary, every card at its average month
 
+Only recurring things influence the result, by the recurring-charges page's own definition
+(recurring_months: at least 3 consecutive months, a stable amount, not stale). A one-off deposit
+tagged as salary or a one-off payment tagged as rent is ignored.
+
 Rules of thumb (from the last HISTORY_MONTHS months of data):
   - salaries: the deposits tagged as salary are split into streams by their day of the month
     (e.g. one on the 9th, another at the end/start of the month); the forecast ends at the
@@ -34,7 +38,12 @@ get_forecast() touch the DB.
 import calendar as _cal
 from datetime import date as _date, timedelta as _timedelta
 
-from RecurringCharges import month_key, _to_plain_date, RENT_CATEGORY
+import statistics
+
+from RecurringCharges import (
+    month_key, _to_plain_date, RENT_CATEGORY, MIN_STREAK_MONTHS, MAX_AMOUNT_DEVIATION, MAX_RUN_COUNT,
+    MAX_MONTHS_SINCE_LAST_OCCURRENCE, find_all_runs, find_longest_run, _last_complete_month_key, _months_apart,
+)
 
 SALARY_CATEGORY = 'משכורת'
 AUTO_CARD_DESCRIPTION = 'Auto Insertion'   # Card.description of a card the importer created by itself
@@ -105,6 +114,35 @@ def _is_late(day: int, as_of: _date, paid: bool) -> bool:
 def _usual_date_this_month(day: int, as_of: _date) -> _date:
     """This month's usual date of a charge — where a late (unseen) charge is assumed to have happened."""
     return _clamp_day(as_of.year, as_of.month, day)
+
+
+# ── What counts as recurring ────────────────────────────────────────────────────
+
+def recurring_months(months: list, as_of: _date) -> list:
+    """
+    The recurring-charges page's own definition of "recurring" (RecurringCharges.build_group_from_cluster),
+    applied to a series of months: months = [{'month': 'YYYY-MM', 'amount': float}, ...].
+    Returns the months that belong to the recurring series, or [] when it is not recurring:
+      - an amount deviating more than MAX_AMOUNT_DEVIATION from the median is dropped (not part of the series)
+      - at least MIN_STREAK_MONTHS consecutive months remain
+      - no more than MAX_RUN_COUNT separate appear/gap/reappear runs
+      - the last one is at most MAX_MONTHS_SINCE_LAST_OCCURRENCE months before the last completed month
+    So a one-off deposit or payment never becomes a salary, a rent or a charge of the forecast.
+    """
+    by_month = {}
+    for m in months:
+        by_month[m['month']] = max(by_month.get(m['month'], 0), m['amount'])
+    if len(by_month) < MIN_STREAK_MONTHS:
+        return []
+    median = statistics.median(by_month.values())
+    keep = sorted(mk for mk, a in by_month.items() if median <= 0 or abs(a - median) / median <= MAX_AMOUNT_DEVIATION)
+    if len(keep) < MIN_STREAK_MONTHS or len(find_longest_run(keep)) < MIN_STREAK_MONTHS:
+        return []
+    if len(find_all_runs(keep)) > MAX_RUN_COUNT:
+        return []
+    if _months_apart(keep[-1], _last_complete_month_key(as_of)) > MAX_MONTHS_SINCE_LAST_OCCURRENCE:
+        return []
+    return [m for m in months if m['month'] in keep]
 
 
 # ── Salary (one or more streams) ────────────────────────────────────────────────
@@ -183,6 +221,9 @@ def build_salary_profile(rows: list, as_of: _date, today: _date, mode: str = 'ma
             biggest = max(cycles[ck], key=lambda r: r['amount'])
             months.append({'month': ck, 'amount': round(sum(r['amount'] for r in cycles[ck]), 2),
                            'day': biggest['date'].day, 'position': _position(biggest['date'].day, pivot)})
+        months = recurring_months(months, as_of)
+        if not months:
+            continue   # a one-off deposit tagged as salary is not a salary stream
         past = [m for m in months if m['month'] < cur_key] or months
         avg_amount = round(sum(m['amount'] for m in past) / len(past), 2)
         min_amount = min(m['amount'] for m in past)
@@ -197,6 +238,8 @@ def build_salary_profile(rows: list, as_of: _date, today: _date, mode: str = 'ma
             'max_amount': max(m['amount'] for m in past),
             'months': months, 'received_cycles': set(cycles),
         })
+    if not streams:
+        return {'known': False, 'streams': [], 'assumed': [], 'upcoming': [], 'next_date': None}
     streams.sort(key=lambda s: s['position'])
 
     assumed, upcoming = [], []
@@ -314,7 +357,8 @@ def build_rent_profile(rows: list, as_of: _date) -> dict:
     """
     rows: [{'date': date, 'amount': float}] bank payments tagged RENT_CATEGORY.
     The rent is the monthly average of the completed months of the recent period (the current month
-    only when nothing else exists); what was already paid this month is kept apart. None without history.
+    only when nothing else exists); what was already paid this month is kept apart. None unless the rent is
+    recurring by the recurring-charges definition (see recurring_months).
     """
     first_key = _months_back(as_of, HISTORY_MONTHS)
     per_month = {}
@@ -325,6 +369,8 @@ def build_rent_profile(rows: list, as_of: _date) -> dict:
         return None
 
     totals = {mk: round(sum(r['amount'] for r in v), 2) for mk, v in per_month.items()}
+    if not recurring_months([{'month': mk, 'amount': t} for mk, t in totals.items()], as_of):
+        return None   # not a recurring rent (fewer than 3 consecutive months): the forecast does not assume one
     cur_key = month_key(as_of)
     basis = [t for mk, t in sorted(totals.items()) if mk != cur_key] or list(totals.values())
     days = [r['date'].day for mk in sorted(totals) for r in per_month[mk]]
@@ -443,7 +489,7 @@ def compute_forecast(inputs: dict, today: _date, mode: str = 'max') -> dict:
     salary = build_salary_profile(inputs.get('salary_rows') or [], as_of, today, mode)
     if not salary['known']:
         return {'ok': False, 'reason': 'no_salary',
-                'notes': ['לא נמצאו הפקדות משכורת (קטגוריית "משכורת") — תייג את המשכורת כדי לחשב.']}
+                'notes': ['לא זוהתה משכורת חוזרת (קטגוריית "משכורת", לפחות 3 חודשים ברצף) — תייג את המשכורת כדי לחשב.']}
 
     horizon = salary['next_date']
     card_rows = inputs.get('card_rows') or []
@@ -466,7 +512,7 @@ def compute_forecast(inputs: dict, today: _date, mode: str = 'max') -> dict:
     if not profiles:
         notes.append('לא זוהו חיובי כרטיס אשראי — חיובי כרטיס אינם נכללים בחישוב.')
     if not rent:
-        notes.append('לא נמצאה שכירות (קטגוריית "שכירות") — השכירות אינה נכללת בחישוב.')
+        notes.append('לא זוהתה שכירות חוזרת (קטגוריית "שכירות", לפחות 3 חודשים ברצף) — השכירות אינה נכללת בחישוב.')
 
     totals = {k: round(sum(e['amount'] for e in events if e['kind'] == k), 2) for k in ('card', 'recurring', 'rent')}
     totals['all'] = round(sum(totals.values()), 2)

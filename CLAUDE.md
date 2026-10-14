@@ -236,6 +236,8 @@ computed live per request (balance changes with every bank file); the recurring 
   (`fcView`: free = lowest_balance − buffer); no request is made.
 - **Free amount** = lowest balance reached walking the events in date order before the next salary (spending assumed to happen now).
   The chart shades that stretch (zero line/buffer → lowest point) green and marks the salary entry with a vertical line + pill.
+- **Only recurring things count** — by the page's own definition (`recurring_months`, reusing `RecurringCharges` thresholds: ≥ 3 consecutive months, amount within 50 % of the
+  median, ≤ 3 runs, last one ≤ 6 months before the last completed month). A one-off deposit tagged salary (e.g. a bonus on the 20th) or one payment tagged rent is ignored.
 - **Salary streams:** `BankTransactions` Income tagged `משכורת`, last 6 months, split by day of the month (`_cluster_days`, circular, gap > 7 days — a salary on the 9th
   and another around the month edge are two streams; `_cycle_key` attributes a deposit before the stream's pivot day to the previous month). Per stream harsh = latest
   position + lowest amount, avg = mean of both. The forecast ends at the earliest upcoming salary of any stream.

@@ -1,0 +1,1894 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>מעקב עציצים</title>
+<style>
+:root {
+  --teal:       #1e9d8b;
+  --teal-light: #e8f7f5;
+  --teal-dark:  #178878;
+  --teal-glow:  rgba(30,157,139,.28);
+  --navy:       #1e2a4a;
+  --bg:         #f4f6f9;
+  --white:      #ffffff;
+  --border:     #eef0f6;
+  --text-muted: #888;
+  --text-sub:   #555;
+  --red:        #e74c3c;
+  --amber:      #f0b429;
+  --green:      #2ecc71;
+  --shadow-sm:  0 2px 10px rgba(0,0,0,.06);
+  --shadow-md:  0 6px 20px rgba(0,0,0,.10);
+  --radius:     14px;
+  --radius-sm:  8px;
+}
+*,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Segoe UI', Arial, sans-serif;
+  background: var(--bg);
+  min-height: 100vh;
+  direction: rtl;
+  color: var(--navy);
+  font-size: 14px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Hamburger + slide-in nav ─────────────────────────────── */
+.ham-btn {
+  position: fixed; top: 18px; right: 18px;
+  width: 42px; height: 42px;
+  background: var(--white); border: 1.5px solid var(--border);
+  border-radius: 10px; display: flex; align-items: center; justify-content: center;
+  cursor: pointer; color: var(--navy); z-index: 400;
+  box-shadow: 0 2px 10px rgba(0,0,0,.06);
+  transition: background .15s, color .15s, border-color .15s;
+}
+.ham-btn:hover { background: var(--teal-light); color: var(--teal); }
+.nav-overlay {
+  position: fixed; inset: 0;
+  background: rgba(15,22,45,.26);
+  z-index: 1000; opacity: 0; pointer-events: none;
+  transition: opacity .22s ease;
+}
+.nav-overlay.open { opacity: 1; pointer-events: all; }
+.sidebar {
+  position: fixed; top: 0; right: 0;
+  height: 100vh; width: 230px;
+  background: var(--white); z-index: 1002;
+  transform: translate3d(100%, 0, 0);
+  transition: transform .22s cubic-bezier(.4,0,.2,1);
+  will-change: transform;
+  box-shadow: -4px 0 24px rgba(0,0,0,.09);
+  display: flex; flex-direction: column;
+}
+.sidebar.open { transform: translate3d(0, 0, 0); }
+.sidebar-header {
+  display: flex; align-items: center;
+  padding: 20px 20px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.sidebar-app-name { display:flex;align-items:center;gap:10px;text-decoration:none;font-size: .95em; font-weight: 700; color: var(--navy); }
+.sidebar-close-btn {
+  margin-right: auto; background: none; border: none;
+  cursor: pointer; font-size: 1.1em; color: var(--text-sub);
+  line-height: 1; padding: 4px 6px; border-radius: 6px;
+  transition: background .12s, color .12s;
+}
+.sidebar-close-btn:hover { background: var(--teal-light); color: var(--teal); }
+.sidebar-scroll { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 8px 0 16px; }
+.sidebar-footer { padding: 12px 16px; border-top: 1px solid var(--border); flex-shrink: 0; }
+.nav-restart-btn {
+  width: 100%; padding: 8px 12px;
+  border: 1.5px dashed var(--border); border-radius: 8px;
+  background: none; color: var(--text-muted);
+  font-size: .78em; font-weight: 600; cursor: pointer;
+  font-family: inherit; display: flex; align-items: center;
+  gap: 7px; justify-content: center;
+  transition: background .15s, color .15s, border-color .15s;
+}
+.nav-restart-btn:hover { background: #fff3f3; color: #e53935; border-color: #e53935; }
+.nav-restart-btn:disabled { opacity: .5; cursor: default; }
+.nav-item {
+  display: flex; align-items: center; padding: 10px 20px;
+  text-decoration: none; color: var(--text-sub);
+  font-size: .875em; font-weight: 500;
+  transition: background .1s, color .1s;
+  cursor: pointer; border: none; background: none;
+  width: 100%; text-align: right;
+  position: relative; letter-spacing: .1px; font-family: inherit;
+}
+.nav-item::before {
+  content: ''; position: absolute; right: 0; top: 22%; height: 56%;
+  width: 3px; border-radius: 3px 0 0 3px;
+  background: transparent; transition: background .1s;
+}
+.nav-item:hover { background: var(--teal-light); color: var(--teal); }
+.nav-item:hover::before { background: var(--teal); }
+.nav-item.active { color: #b8c0d0; cursor: default; pointer-events: none; }
+.nav-sep { height: 1px; background: var(--border); margin: 8px 16px; }
+
+/* ── Page layout ──────────────────────────────────────────── */
+.page-wrap { flex: 1; display: flex; flex-direction: column; padding-bottom: 60px; }
+
+/* ── Page header ──────────────────────────────────────────── */
+/* The row lines up with the fixed menu button (top 18px, 42px tall): same height, centred on it. */
+.page-header {
+  display: flex; align-items: center; gap: 10px;
+  min-height: 78px; padding: 18px 18px 18px 18px;
+  padding-right: 72px;
+  border-bottom: 1.5px solid var(--border);
+  flex-shrink: 0; background: var(--white);
+}
+.page-title { font-size: 1.05em; font-weight: 700; }
+/* Secondary actions: plain text tabs as tall as the menu button, short light grey dividers between
+   them, and a soft rounded highlight on the one under the pointer */
+.pt-toolbar { display: flex; align-items: center; height: 42px; gap: 1px; }
+.tb-btn {
+  position: relative; height: 36px; border: 0; border-radius: 9px; background: none; padding: 0 14px;
+  font: inherit; font-size: .82em; font-weight: 500; color: var(--text-sub); cursor: pointer; white-space: nowrap;
+  transition: background .13s, color .13s;
+}
+.tb-btn + .tb-btn::before {   /* the divider: a short line, centred, between neighbours (RTL: on the right) */
+  content: ''; position: absolute; right: -1px; top: 50%; width: 1px; height: 18px; transform: translateY(-50%);
+  background: #dfe3ea; pointer-events: none;
+}
+.tb-btn:hover { background: #eef1f5; color: var(--navy); }
+.tb-btn:hover::before, .tb-btn:hover + .tb-btn::before { opacity: 0; }   /* no line touching the highlight */
+.tb-btn:focus-visible { outline: 2px solid var(--teal); outline-offset: -2px; }
+.tb-icon { font-size: 1.05em; padding: 0 12px; }
+.tb-add {
+  height: 42px; padding: 0 16px; border: 0; border-radius: 10px; background: var(--teal); color: #fff;
+  font: inherit; font-size: .82em; font-weight: 700; white-space: nowrap; cursor: pointer;
+  box-shadow: 0 2px 10px rgba(30,157,139,.25); transition: background .13s;
+}
+.tb-add:hover { background: var(--teal-dark); }
+.tb-add:focus-visible { outline: 2px solid var(--teal-dark); outline-offset: 2px; }
+.spacer { flex: 1; }
+
+/* ── Buttons ──────────────────────────────────────────────── */
+.btn {
+  padding: 7px 14px; border: none; border-radius: 8px;
+  cursor: pointer; font-size: 0.82em; font-weight: 600;
+  font-family: inherit;
+  transition: background .13s, transform .08s, box-shadow .13s;
+  display: inline-flex; align-items: center; gap: 5px;
+}
+.btn:hover { transform: translateY(-1px); }
+.btn-primary { background: var(--teal); color: #fff; }
+.btn-primary:hover { background: var(--teal-dark); }
+.btn-ghost {
+  background: none; color: var(--navy);
+  border: 1.5px solid var(--border);
+}
+.btn-ghost:hover { border-color: var(--teal); color: var(--teal); background: var(--teal-light); }
+.btn-sm { padding: 5px 11px; font-size: .8em; }
+.btn-xs { padding: 4px 9px; font-size: .77em; }
+.btn-danger { background: var(--red); color: #fff; }
+.btn-danger:hover { background: #c0392b; }
+/* ── Modals ───────────────────────────────────────────────── */
+.modal-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(15,22,45,.38);
+  z-index: 600; display: none;
+  align-items: center; justify-content: center;
+}
+.modal-backdrop.open { display: flex; }
+.modal {
+  background: var(--white); border-radius: var(--radius);
+  box-shadow: 0 16px 48px rgba(0,0,0,.18);
+  padding: 28px 28px 24px;
+  width: 460px; max-width: calc(100vw - 32px);
+  max-height: 90vh; overflow-y: auto;
+  direction: rtl; position: relative;
+}
+.modal-wide { width: 640px; }
+.modal-title { font-size: 1.05em; font-weight: 700; margin-bottom: 20px; }
+.modal-close-btn {
+  position: absolute; top: 16px; left: 18px;
+  background: none; border: none; cursor: pointer;
+  font-size: 1.1em; color: var(--text-muted);
+  padding: 4px 6px; border-radius: 6px;
+  transition: background .12s, color .12s;
+}
+.modal-close-btn:hover { background: var(--teal-light); color: var(--teal); }
+.modal-footer { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+.field-row { margin-bottom: 14px; }
+.field-label {
+  font-size: .72em; font-weight: 700; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: .5px; margin-bottom: 5px; display: block;
+}
+.field-input {
+  width: 100%; padding: 9px 13px; box-sizing: border-box; height: 38px;
+  border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+  font-size: .88em; color: var(--navy); background: var(--white);
+  outline: none; font-family: inherit; direction: rtl;
+  transition: border-color .18s, box-shadow .18s;
+}
+.field-input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(30,157,139,.12); }
+input[type="date"].field-input { padding: 0 10px; appearance: none; -webkit-appearance: none; }
+.debug-fab{position:fixed;bottom:22px;right:18px;width:42px;height:42px;border-radius:50%;background:#1e2a4a;color:#fff;font-size:.72em;font-family:monospace;font-weight:700;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.3);z-index:997;letter-spacing:-.5px}
+.debug-fab:hover{filter:brightness(1.2)}
+.debug-panel{position:fixed;bottom:72px;right:16px;width:480px;max-width:calc(100vw - 32px);height:340px;background:#12121f;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.55);z-index:996;display:none;flex-direction:column;overflow:hidden;font-family:monospace}
+.debug-panel.open{display:flex}
+.debug-hdr{display:flex;align-items:center;justify-content:space-between;padding:7px 12px;background:#0a0a18;color:#7ec8e3;font-size:.7em;font-weight:700;letter-spacing:.06em;flex-shrink:0;border-bottom:1px solid #222}
+.debug-hdr-btns{display:flex;gap:5px}
+.debug-hdr-btns button{background:none;border:1px solid #333;color:#888;border-radius:4px;padding:2px 8px;font-size:.9em;cursor:pointer;font-family:monospace}
+.debug-hdr-btns button:hover{background:#1e1e2e;color:#eee}
+.debug-feed{flex:1;overflow-y:auto;padding:6px 10px;font-size:.68em;line-height:1.55;color:#c8d8e4}
+.debug-line{white-space:pre-wrap;word-break:break-all;padding:1px 0;border-bottom:1px solid #1a1a2a}
+.debug-line.err{color:#ff6b6b}
+.debug-line.warn{color:#ffa94d}
+
+/* ── Plant tracker ─────────────────────────────────────────── */
+.pt-main { width: 100%; max-width: 1100px; margin: 0 auto; padding: 18px 16px 40px; display: flex; flex-direction: column; gap: 16px; }
+.pt-card { background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow-sm); padding: 16px 18px; }
+/* Summary: three equal tiles across the full width, the water-all button as a full-width row below */
+.pt-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.pt-stat { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-width: 0;
+  min-height: 80px; padding: 12px 8px; border: 1.5px solid transparent; border-radius: 12px; background: var(--bg);
+  font-size: .85em; color: var(--text-sub); text-align: center; line-height: 1.25; }
+.pt-stat b { font-size: 2em; font-weight: 800; line-height: 1.05; color: var(--navy); font-variant-numeric: tabular-nums; }
+.pt-water-all { grid-column: 1 / -1; justify-content: center; width: 100%; padding: 10px 14px; font-size: .86em; border-radius: 10px; }
+.pt-water-all:disabled { opacity: .45; cursor: default; transform: none; }
+.pt-stat.due b { color: var(--teal); }
+.pt-stat.overdue b { color: var(--red); }
+.pt-stat.auto b { color: #2f8fd8; }
+/* "להשקות היום" doubles as the needs-watering filter: clickable, glowing while plants wait */
+button.pt-stat { border: 1.5px solid transparent; font: inherit; font-size: .85em; cursor: pointer; transition: border-color .15s, background .15s; }
+button.pt-stat:hover { border-color: var(--teal); }
+button.pt-stat:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+.pt-stat.due.glow { border-color: rgba(30,157,139,.55); animation: pt-glow 1.8s ease-in-out infinite; }
+.pt-stat.due.on { background: var(--teal-light); border-color: var(--teal); color: var(--teal); font-weight: 700; }
+@keyframes pt-glow { 0%, 100% { box-shadow: 0 0 0 0 rgba(30,157,139,.0); } 50% { box-shadow: 0 0 0 5px rgba(30,157,139,.22), 0 0 14px rgba(30,157,139,.35); } }
+@media (prefers-reduced-motion: reduce) { .pt-stat.due.glow { animation: none; box-shadow: 0 0 0 3px rgba(30,157,139,.25); } }
+.pt-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 14px; font-size: .74em; color: var(--text-muted);
+  margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); }
+.pt-legend[hidden] { display: none; }
+.pt-legend span { display: inline-flex; align-items: center; gap: 4px; }
+.pt-swatch { width: 12px; height: 6px; border-radius: 3px; display: inline-block; }
+.pt-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+.pt-sugg { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 9px 12px; border-radius: 10px; border-right: 4px solid var(--teal); background: var(--teal-light); font-size: .84em; }
+.pt-sugg.warn { border-color: var(--amber); background: #fff8e6; }
+.pt-sugg.alert { border-color: var(--red); background: #fdeeee; }
+.pt-sugg-text { flex: 1; min-width: 180px; }
+.pt-sugg-btns { display: flex; gap: 6px; flex-shrink: 0; }
+.pt-empty { text-align: center; color: var(--text-muted); padding: 40px 10px; font-size: .9em; }
+.pt-rows { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; }
+.pt-room-head { grid-column: 1 / -1; }
+.pt-pcard { background: var(--white); border: 1.5px solid var(--border); border-radius: 16px; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; box-shadow: var(--shadow-sm); min-width: 0; }
+.pt-plant { display: flex; align-items: center; gap: 10px; width: 100%; cursor: pointer; border: none; background: none; font-family: inherit; text-align: right; padding: 0; color: inherit; }
+.pt-plant svg { flex-shrink: 0; }
+.pt-plant > div { flex: 1; min-width: 0; }
+.pt-plant-name { font-weight: 700; font-size: .95em; }
+.pt-plant-meta { font-size: .72em; color: var(--text-muted); margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pt-pill { flex-shrink: 0; padding: 3px 10px; border-radius: 20px; font-size: .72em; font-weight: 700; white-space: nowrap; background: var(--bg); color: var(--text-sub); }
+.pt-pill.ok { background: var(--teal-light); color: var(--teal-dark); }
+.pt-pill.due { background: #fff8e6; color: #9a6b00; }
+.pt-pill.overdue { background: #fdeeee; color: #c0392b; }
+.pt-pill.auto { background: #e8f0fb; color: #2f6fb0; }
+.pt-pill.checked { background: #eef1f6; color: #4d5b78; }   /* soil checked moist/wet today — no watering needed */
+/* 7 days in view, the rest a scroll away (wheel on desktop, swipe on phones); snaps to whole days */
+.pt-cells { --gap: 4px; display: grid; grid-auto-flow: column; grid-auto-columns: calc((100% - 6 * var(--gap)) / 7);
+  gap: var(--gap); overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; overscroll-behavior-x: contain;
+  scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.pt-cells::-webkit-scrollbar { display: none; }
+/* soft fade on an edge that has more days behind it (RTL: today on the right, older days to the left) */
+/* gradients start at the edge they fade: "to right" starts at the left (older days), "to left" at the right (today) */
+.pt-cells.more-older { -webkit-mask-image: linear-gradient(to right, transparent 0, #000 26px); mask-image: linear-gradient(to right, transparent 0, #000 26px); }
+.pt-cells.more-newer { -webkit-mask-image: linear-gradient(to left, transparent 0, #000 26px); mask-image: linear-gradient(to left, transparent 0, #000 26px); }
+.pt-cells.more-older.more-newer { -webkit-mask-image: linear-gradient(to right, transparent 0, #000 26px, #000 calc(100% - 26px), transparent 100%); mask-image: linear-gradient(to right, transparent 0, #000 26px, #000 calc(100% - 26px), transparent 100%); }
+.pt-cell { scroll-snap-align: start; }
+.pt-cell { min-width: 0; height: 62px; border-radius: 8px; border: 1px solid transparent; background: var(--bg); display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 0 0; cursor: pointer; font-family: inherit; overflow: hidden; color: var(--navy); }
+.pt-cell:hover { border-color: var(--teal); }
+.pt-cell.today { background: var(--teal-light); border-color: var(--teal); }
+.pt-cell.blank { cursor: default; opacity: .4; }
+.pt-cell-date { font-size: .68em; color: var(--text-muted); line-height: 1.15; text-align: center; }
+.pt-cell-date b { display: block; font-weight: 600; color: var(--text-sub); }
+.pt-marks { display: flex; gap: 2px; height: 4px; }
+.pt-mark { width: 4px; height: 4px; border-radius: 50%; }
+.pt-soil { width: 70%; height: 4px; border-radius: 2px; background: #dfe3ea; margin-top: auto; margin-bottom: 5px; }
+.pt-soil.dry { background: #d8b47a; }
+.pt-soil.humid { background: #8fd3c7; }
+.pt-soil.wet { background: #2f6fb0; }
+.pt-drop { width: 12px; height: 14px; }
+.pt-drop.watered path { fill: #2f8fd8; stroke: #2f8fd8; }
+.pt-drop.none path { fill: none; stroke: #c9ced8; }
+.pt-tips { display: flex; flex-direction: column; gap: 6px; }
+.pt-tips .pt-sugg { padding: 7px 10px; font-size: .8em; }
+.pt-fab { position: fixed; bottom: 22px; left: 18px; z-index: 900; width: 52px; height: 52px; border-radius: 50%; border: none; padding: 0; display: flex; align-items: center; justify-content: center; background: var(--teal); box-shadow: 0 6px 18px rgba(30,157,139,.35); cursor: pointer; transition: background .2s, box-shadow .2s, transform .15s; }
+.pt-fab:hover { transform: translateY(-2px); }
+.pt-fab:active { transform: scale(.94); }
+.pt-fab:focus-visible { outline: 3px solid var(--teal-glow); outline-offset: 3px; }
+.pt-fab svg { width: 26px; height: 26px; stroke: #fff; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.pt-fab.off { background: #8a94a6; box-shadow: 0 4px 12px rgba(30,42,74,.2); }
+.pt-seg { display: flex; gap: 6px; flex-wrap: wrap; }
+.pt-seg button { flex: 1; min-width: 64px; padding: 8px 6px; border-radius: 8px; border: 1.5px solid var(--border); background: var(--white); cursor: pointer; font-family: inherit; font-size: .82em; color: var(--navy); }
+.pt-seg button.on { border-color: var(--teal); background: var(--teal-light); color: var(--teal); font-weight: 700; }
+.pt-types { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 8px; max-height: 248px; overflow-y: auto; padding: 2px; }
+.pt-types button { border: 2px solid transparent; border-radius: 12px; background: var(--bg); padding: 6px 2px 4px; cursor: pointer; font-family: inherit; font-size: .7em; color: var(--text-sub); display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.pt-types button.on { border-color: var(--teal); background: var(--teal-light); }
+.pt-colors { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.pt-colors button { width: 26px; height: 26px; border-radius: 50%; border: 3px solid transparent; cursor: pointer; }
+.pt-colors button.on { border-color: var(--navy); }
+.pt-colors input[type="color"] { width: 30px; height: 30px; border: none; background: none; cursor: pointer; padding: 0; }
+.pt-inline { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
+.pt-inline .field-input { flex: 1; min-width: 120px; }
+.pt-evlist { display: flex; flex-direction: column; gap: 6px; }
+.pt-ev { display: flex; align-items: center; gap: 8px; font-size: .82em; padding: 6px 10px; border-radius: 8px; background: var(--bg); }
+.pt-ev span { flex: 1; }
+.pt-ev button { background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 1em; }
+.pt-ev button:hover { color: var(--red); }
+.pt-toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--navy); color: #fff; padding: 10px 18px; border-radius: 10px; font-size: .85em; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 2000; max-width: calc(100vw - 32px); }
+.pt-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.pt-toast.err { background: var(--red); }
+.pt-toast.ok { background: var(--teal-dark); font-weight: 600; box-shadow: 0 6px 20px rgba(23,122,108,.35); }
+.pt-toast.pending { background: var(--navy); opacity: .92; }
+.pt-toast.pending::before { content: ''; display: inline-block; width: 10px; height: 10px; margin-left: 8px; vertical-align: -1px;
+  border: 2px solid rgba(255,255,255,.35); border-top-color: #fff; border-radius: 50%; animation: pt-spin .8s linear infinite; }
+@keyframes pt-spin { to { transform: rotate(360deg); } }
+.btn.done { background: var(--teal-dark); border-color: var(--teal-dark); color: #fff; }
+.btn.dirty { background: var(--amber); border-color: var(--amber); color: var(--navy); box-shadow: 0 0 0 3px rgba(240,180,41,.25); }
+.pt-unsaved { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; background: #fff8e6; border: 1.5px solid var(--amber); border-radius: 10px; padding: 10px 12px; margin: 22px 0 14px; font-size: .85em; font-weight: 600; color: #7a5600; }
+.pt-unsaved span { flex: 1 0 100%; }
+.pt-pcard.pending { opacity: .65; pointer-events: none; }
+.pt-photo { border-radius: 28%; object-fit: cover; display: block; flex-shrink: 0; background: var(--bg); }
+.pt-care { font-size: .8em; color: var(--text-sub); background: #f3f8f1; border-radius: 10px; padding: 7px 10px; }
+.pt-care summary { cursor: pointer; font-weight: 600; color: #3d6b35; list-style: none; }
+.pt-care summary::-webkit-details-marker { display: none; }
+.pt-care summary::after { content: ' ▾'; color: var(--text-muted); }
+.pt-care[open] summary::after { content: ' ▴'; }
+.pt-care-body { margin-top: 6px; line-height: 1.7; }
+.pt-care-inline { margin-top: 8px; }
+.pt-prompt { position: fixed; bottom: 76px; left: 50%; transform: translateX(-50%); z-index: 2000; display: none; align-items: center; flex-wrap: wrap; gap: 8px; max-width: calc(100vw - 32px); background: var(--white); border: 1.5px solid var(--teal); border-radius: 12px; padding: 10px 14px; box-shadow: var(--shadow-md); font-size: .85em; }
+.pt-prompt.show { display: flex; }
+.pt-prompt span { flex: 1 1 220px; }
+.pt-arch-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.pt-arch-row > div { flex: 1; min-width: 0; }
+.pt-arch-row svg { filter: grayscale(.85); opacity: .8; flex-shrink: 0; }
+.pt-arch-note { font-size: .78em; color: var(--text-sub); margin-top: 3px; }
+.pt-restore-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: .88em; }
+.pt-restore-row span { flex: 1; }
+.pt-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.pt-chips:empty { display: none; }
+.pt-chip { border: 1.5px solid var(--border); background: var(--white); border-radius: 20px; padding: 5px 12px; font-size: .8em; cursor: pointer; font-family: inherit; color: var(--text-sub); display: inline-flex; gap: 6px; align-items: center; }
+.pt-chip b { color: var(--text-muted); font-size: .9em; }
+.pt-chip.on { border-color: var(--teal); background: var(--teal-light); color: var(--teal); font-weight: 700; }
+.pt-room-head { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: .88em; color: var(--navy); padding: 4px 0; border-bottom: 1.5px solid var(--border); margin-top: 6px; }
+.pt-room-head:first-child { margin-top: 0; }
+.pt-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 12px; }
+.pt-tools[hidden] { display: none; }
+.pt-search { flex: 1 1 220px; min-width: 0; position: relative; }
+.pt-search svg { position: absolute; right: 11px; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; stroke: var(--text-muted); fill: none; stroke-width: 2; stroke-linecap: round; pointer-events: none; }
+.pt-search input { width: 100%; padding: 8px 34px 8px 30px; border: 1.5px solid var(--border); border-radius: 20px; font: inherit; font-size: .85em; color: var(--navy); background: var(--white); outline: none; }
+.pt-search input:focus { border-color: var(--teal); }
+.pt-search input::-webkit-search-cancel-button { display: none; }
+.pt-search-clear { position: absolute; left: 6px; top: 50%; transform: translateY(-50%); width: 22px; height: 22px; border: 0; border-radius: 50%; background: var(--bg); color: var(--text-muted); cursor: pointer; font-size: .75em; line-height: 1; }
+.pt-search-clear[hidden] { display: none; }
+.pt-sort, .pt-group { display: inline-flex; align-items: center; gap: 6px; font-size: .8em; color: var(--text-sub); white-space: nowrap; cursor: pointer; }
+.pt-sort select { padding: 6px 8px; border: 1.5px solid var(--border); border-radius: 10px; font: inherit; color: var(--navy); background: var(--white); cursor: pointer; }
+.pt-group input { accent-color: var(--teal); width: 15px; height: 15px; margin: 0; }
+.pt-result-count { font-size: .78em; color: var(--text-muted); white-space: nowrap; }
+.pt-room-count { background: var(--bg); color: var(--text-muted); border-radius: 20px; padding: 0 8px; font-size: .85em; font-weight: 600; }
+.pt-room-row { display: flex; gap: 8px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border); }
+.pt-room-row .field-input { flex: 1; min-width: 0; }
+.pt-cfg-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.pt-cfg-row > div { flex: 1; min-width: 0; }
+.pt-cfg-name { font-weight: 700; font-size: .9em; }
+.pt-days { display: flex; gap: 5px; flex-wrap: wrap; }
+.pt-days button { width: 34px; height: 34px; border-radius: 50%; border: 1.5px solid var(--border); background: var(--white); cursor: pointer; font-family: inherit; font-size: .85em; color: var(--navy); }
+.pt-days button.on { border-color: var(--teal); background: var(--teal); color: #fff; font-weight: 700; }
+.pt-pick { max-height: 220px; overflow-y: auto; border: 1.5px solid var(--border); border-radius: var(--radius-sm); padding: 4px 8px; }
+.pt-pick label { display: flex; align-items: center; gap: 8px; padding: 5px 0; font-size: .85em; cursor: pointer; }
+.pt-pick label small { color: var(--text-muted); margin-right: auto; }
+@media (max-width: 720px) {
+  .pt-main { padding: 14px 16px 40px; }
+  .pt-rows { grid-template-columns: minmax(0, 1fr); }
+  .page-header { flex-wrap: wrap; row-gap: 10px; padding: 18px 16px 12px; }
+  .page-title { margin-right: 56px; line-height: 42px; }          /* only the title row clears the menu button */
+  .page-header .spacer { flex-basis: 100%; height: 0; }            /* toolbar moves under the title, full width */
+  .tb-add { order: 1; margin-right: auto; }                         /* beside the title, at the far edge */
+  .page-header .spacer { order: 2; }
+  .pt-toolbar { order: 3; flex: 1 1 auto; overflow-x: auto; scrollbar-width: none; justify-content: space-between; }
+  .pt-toolbar::-webkit-scrollbar { display: none; }
+  .tb-btn { flex: 1 0 auto; padding: 0 7px; font-size: .78em; }
+  .pt-stat { min-height: 72px; padding: 10px 4px; font-size: .8em; }
+  .pt-stat b { font-size: 1.8em; }
+  .pt-pcard { padding: 12px; }
+  .pt-types { grid-template-columns: repeat(4, 1fr); }
+}
+</style>
+<link rel="stylesheet" href="/design-system.css">
+</head>
+<body>
+
+<!-- Nav overlay -->
+<div class="nav-overlay" id="nav-overlay" onclick="toggleNav()"></div>
+
+<!-- Sidebar -->
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-app-name" href="/" title="דף הבית">ניהול כספים</a>
+    <button class="sidebar-close-btn" onclick="closeNav()" aria-label="סגור תפריט">✕</button>
+  </div>
+  <div class="sidebar-scroll" data-nav="plants"></div>
+  <div class="sidebar-footer">
+    <button class="nav-restart-btn" onclick="restartServer(this)">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
+      הפעל שרת מחדש
+    </button>
+    <div id="app-version-badge-2" style="margin-top:8px;text-align:center;font-size:.72em;color:var(--text-muted);letter-spacing:.03em;opacity:.7;user-select:none">v—</div>
+  </div>
+</nav>
+<script src="/nav.js"></script>
+
+<div class="page-wrap">
+  <div class="page-header">
+    <button class="ham-btn" id="ham-btn" onclick="toggleNav()" aria-label="תפריט">
+      <svg width="18" height="14" viewBox="0 0 18 14" fill="none">
+        <rect width="18" height="2" rx="1" fill="currentColor"/>
+        <rect y="6" width="18" height="2" rx="1" fill="currentColor"/>
+        <rect y="12" width="18" height="2" rx="1" fill="currentColor"/>
+      </svg>
+    </button>
+    <span class="page-title">מעקב עציצים</span>
+    <span class="spacer"></span>
+    <div class="pt-toolbar" role="toolbar" aria-label="פעולות">
+      <button class="tb-btn tb-icon" onclick="refresh()" title="רענון מהשרת" aria-label="רענון מהשרת">↻</button>
+      <button class="tb-btn" onclick="openConfigs()">תוכניות השקיה</button>
+      <button class="tb-btn" onclick="openRooms()">חדרים</button>
+      <button class="tb-btn" onclick="openArchive()">ארכיון</button>
+      <button class="tb-btn" onclick="openDeleted()">נמחקו</button>
+    </div>
+    <button class="tb-add" onclick="openPlantModal(null)">+ עציץ חדש</button>
+  </div>
+
+  <main class="pt-main">
+    <section class="pt-card">
+      <div class="pt-summary" id="pt-summary"></div>
+      <div class="pt-legend" id="pt-legend">
+        <span><svg class="pt-drop watered" viewBox="0 0 16 18"><path d="M8 1.5C8 1.5 2.5 8 2.5 11.5a5.5 5.5 0 0 0 11 0C13.5 8 8 1.5 8 1.5z" stroke-width="1.6"/></svg>הושקה</span>
+        <span><i class="pt-swatch" style="background:#d8b47a"></i>יבשה</span>
+        <span><i class="pt-swatch" style="background:#8fd3c7"></i>לחה</span>
+        <span><i class="pt-swatch" style="background:#2f6fb0"></i>רטובה</span>
+        <span><i class="pt-dot" style="background:#d9822b"></i>דישון</span>
+        <span><i class="pt-dot" style="background:#7a5bc4"></i>העברת עציץ</span>
+        <span><i class="pt-dot" style="background:#4f8a3c"></i>גיזום</span>
+        <span><i class="pt-dot" style="background:#c2577a"></i>מזיקים</span>
+      </div>
+    </section>
+
+    <section class="pt-card">
+      <div class="pt-tools" id="pt-tools" hidden>
+        <div class="pt-search">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-5-5"/></svg>
+          <input id="pt-search" type="search" placeholder="חיפוש לפי שם, סוג או חדר" aria-label="חיפוש עציץ" autocomplete="off"
+                 oninput="setSearch(this.value)" onkeydown="if(event.key==='Escape'&&this.value){event.stopPropagation();setSearch('');}">
+          <button class="pt-search-clear" id="pt-search-clear" type="button" onclick="setSearch('');document.getElementById('pt-search').focus()" aria-label="ניקוי חיפוש" hidden>✕</button>
+        </div>
+        <label class="pt-sort">מיון
+          <select id="pt-sort" onchange="setSort(this.value)">
+            <option value="status">לפי דחיפות</option>
+            <option value="water_asc">השקיה אחרונה · ישנה קודם</option>
+            <option value="water_desc">השקיה אחרונה · חדשה קודם</option>
+            <option value="name">שם</option>
+            <option value="type">סוג</option>
+          </select>
+        </label>
+        <label class="pt-group"><input type="checkbox" id="pt-group" onchange="setGrouped(this.checked)">קיבוץ לפי חדר</label>
+        <span class="pt-result-count" id="pt-result-count" aria-live="polite"></span>
+      </div>
+      <div class="pt-chips" id="pt-room-chips"></div>
+      <div class="pt-rows" id="pt-rows"><div class="pt-empty">טוען…</div></div>
+    </section>
+  </main>
+</div>
+
+<div class="modal-backdrop" id="day-modal" onclick="if(event.target===this)closeModal('day-modal')">
+  <div class="modal"><button class="modal-close-btn" onclick="closeModal('day-modal')" aria-label="סגור">✕</button><div id="day-body"></div></div>
+</div>
+<div class="modal-backdrop" id="plant-modal" onclick="if(event.target===this)requestLeave('plant-modal')">
+  <div class="modal"><button class="modal-close-btn" onclick="requestLeave('plant-modal')" aria-label="סגור">✕</button><div id="plant-body"></div></div>
+</div>
+<div class="modal-backdrop" id="deleted-modal" onclick="if(event.target===this)closeModal('deleted-modal')">
+  <div class="modal"><button class="modal-close-btn" onclick="closeModal('deleted-modal')" aria-label="סגור">✕</button>
+    <div class="modal-title">עציצים שנמחקו</div><div id="deleted-body"></div></div>
+</div>
+<div class="modal-backdrop" id="configs-modal" onclick="if(event.target===this)requestLeave('configs-modal')">
+  <div class="modal"><button class="modal-close-btn" onclick="requestLeave('configs-modal')" aria-label="סגור">✕</button>
+    <div id="configs-body"></div></div>
+</div>
+<div class="modal-backdrop" id="rooms-modal" onclick="if(event.target===this)requestLeave('rooms-modal')">
+  <div class="modal"><button class="modal-close-btn" onclick="requestLeave('rooms-modal')" aria-label="סגור">✕</button>
+    <div class="modal-title">חדרים</div><div id="rooms-body"></div></div>
+</div>
+<button class="pt-fab" id="pt-fab" onclick="toggleSugg()" style="display:none" aria-pressed="true" aria-label="הסתר המלצות" title="הסתר המלצות"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.3 1.1 2.2h5c0-.9.4-1.6 1.1-2.2A6 6 0 0 0 12 3z"/></svg></button>
+<div class="modal-backdrop" id="dead-modal" onclick="if(event.target===this)requestLeave('dead-modal')">
+  <div class="modal"><button class="modal-close-btn" onclick="requestLeave('dead-modal')" aria-label="סגור">✕</button>
+    <div id="dead-body"></div></div>
+</div>
+<div class="modal-backdrop" id="archive-modal" onclick="if(event.target===this)closeModal('archive-modal')">
+  <div class="modal"><button class="modal-close-btn" onclick="closeModal('archive-modal')" aria-label="סגור">✕</button>
+    <div class="modal-title">ארכיון — עציצים שמתו</div><div id="archive-body"></div></div>
+</div>
+<div class="pt-prompt" id="pt-prompt" role="alertdialog"></div>
+<div class="pt-toast" id="pt-toast"></div>
+
+<script>
+'use strict';
+fetch('/api/version').then(function(r){return r.json();}).then(function(d){var b=document.getElementById('app-version-badge-2');if(b&&d.version)b.textContent='v'+d.version;}).catch(function(){});
+function restartServer(btn) {
+  btn.disabled = true;
+  var spinSvg = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>';
+  btn.innerHTML = spinSvg + ' מאתחל…';
+
+  // Step 1: capture current server's startup timestamp
+  fetch('/api/status', {cache:'no-store'})
+    .then(function(r){ return r.json(); })
+    .then(function(s){ return s.started_at || 0; })
+    .catch(function(){ return 0; })
+    .then(function(oldTs){
+      // Step 2: send restart
+      fetch('/api/restart', {method:'POST'}).catch(function(){});
+      btn.innerHTML = spinSvg + ' מפעיל מחדש…';
+
+      // Step 3: poll until started_at changes (new process) or timeout
+      var deadline = Date.now() + 30000;
+      var t = setInterval(function(){
+        if(Date.now() > deadline){
+          clearInterval(t);
+          btn.disabled = false;
+          btn.innerHTML = spinSvg + ' נסה שוב';
+          return;
+        }
+        fetch('/api/status', {cache:'no-store'})
+          .then(function(r){ return r.json(); })
+          .then(function(s){
+            if(s.started_at && s.started_at !== oldTs){
+              clearInterval(t);
+              location.reload();
+            }
+          })
+          .catch(function(){}); // server still down — keep waiting
+      }, 700);
+    });
+}
+function openNav(){
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('nav-overlay').classList.add('open');
+  document.getElementById('ham-btn').classList.add('open');
+}
+function closeNav(){
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('nav-overlay').classList.remove('open');
+  document.getElementById('ham-btn').classList.remove('open');
+}
+function toggleNav(){
+  document.getElementById('sidebar').classList.contains('open') ? closeNav() : openNav();
+}
+document.addEventListener('keydown', function(e){ if(e.key==='Escape'){ closeNav(); closeAllModals(); } });
+
+// ── Constants ──────────────────────────────────────────────────
+var PLANT_TYPES = [['monstera','מונסטרה'],['fern','שרך'],['cactus','קקטוס'],['succulent','סוקולנט'],
+                   ['herb','תבלין'],['flower','פרח'],['tree','עץ'],['sprout','נבט'],
+                   ['kalanchoe','קלנכואה'],
+                   ['geranium','גרניום'],
+                   ['petunia','פטוניה'],
+                   ['adansonii','אדנסוני'],
+                   ['orchid','סחלב'],
+                   ['oregano','אורגנו'],
+                   ['rosemary','רוזמרין'],
+                   ['basil','ריחן'],
+                   ['chives','עירית'],
+                   ['thyme','טימין'],
+                   ['pentas','פנטס'],
+                   ['angelonia','אנג\'לוניה'],
+                   ['zz','זמיוקולקס'],
+                   ['birdsnest','אספלניום'],
+                   ['philodendron','פילודנדרון'],
+                   ['snake','סנסיווריה'],
+                   ['scaevola','סקאבולה'],
+                   ['spiky','עלים דוקרניים'],
+                   ['strap','עלים מאורכים'],
+                   ['conifer','מחטני'],
+                   ['shrub','שיח']];
+var PALETTE = ['#1e9d8b','#2f6fb0','#7a5bc4','#c2577a','#d9822b','#4f8a3c','#b0503a','#3b8f9e'];
+var SOIL_LABELS = {dry: 'יבשה', humid: 'לחה', wet: 'רטובה'};
+var EVENT_LABELS = {water: 'השקיה', fertilize: 'דישון', repot: 'העברת עציץ', prune: 'גיזום', pest: 'טיפול במזיקים'};
+var EVENT_COLORS = {fertilize: '#d9822b', repot: '#7a5bc4', prune: '#4f8a3c', pest: '#c2577a'};
+var ACTION_LABELS = {water_now: 'השקה עכשיו', fertilize_now: 'סמן דישון', set_soil: 'עדכן אדמה'};
+var AUTO_SOURCES = ['auto', 'auto_confirmed'];   // waterings recorded by a plant's irrigation schedule
+var WEEKDAYS = ['א','ב','ג','ד','ה','ו','ש'];
+var DROP = '<path d="M8 1.5C8 1.5 2.5 8 2.5 11.5a5.5 5.5 0 0 0 11 0C13.5 8 8 1.5 8 1.5z" stroke-width="1.6"/>';
+var GLYPHS = {
+  cactus:    '<path d="M21 34V14a3 3 0 0 1 6 0v20"/><path d="M21 26h-4a2 2 0 0 1-2-2v-5"/><path d="M27 22h4a2 2 0 0 0 2-2v-4"/><path d="M15 34h18l-2 6H17z"/>',
+  monstera:  '<path d="M24 38C12 34 9 22 14 12c6 2 14 0 18-4 4 10 2 24-8 30z"/><path d="M24 38c-2-10-2-18 2-26"/><path d="M15 21l5 2M16 29l5-1M30 17l-5 3M29 26l-5 1"/>',
+  fern:      '<path d="M14 40C20 30 24 20 32 9"/><path d="M18 34l-5-2M19 31l5 1M21 27l-5-3M22 24l5 0M24 20l-4-4M26 17l5-1M28 13l-2-4"/>',
+  succulent: '<path d="M24 35c-3-4-3-10 0-15 3 5 3 11 0 15z"/><path d="M22 34c-4-2-7-6-7-11 4 1 7 4 8 8"/><path d="M26 34c4-2 7-6 7-11-4 1-7 4-8 8"/><path d="M14 35h20l-2 5H16z"/>',
+  herb:      '<path d="M24 40V14"/><path d="M24 31c-4-1-7-4-8-8 4 0 7 3 8 8z"/><path d="M24 24c4-1 7-4 8-8-4 0-7 3-8 8z"/><path d="M24 17c-2-3-2-6 0-9 2 3 2 6 0 9z"/>',
+  flower:    '<path d="M24 40V24"/><path d="M24 34c-4 0-7-3-8-6 4 0 7 2 8 6z"/><circle cx="24" cy="11.5" r="3.5"/><circle cx="30.5" cy="18" r="3.5"/><circle cx="17.5" cy="18" r="3.5"/><circle cx="24" cy="24.5" r="3.5"/><circle cx="24" cy="18" r="2" fill="#fff"/>',
+  tree:      '<path d="M24 8c-7 0-12 5-12 11 0 5 4 9 9 9h6c5 0 9-4 9-9 0-6-5-11-12-11z"/><path d="M24 28v12M24 34l-4-3M24 32l4-3"/>',
+  sprout:    '<path d="M24 40V24"/><path d="M24 26c0-6-4-10-11-10 0 6 4 10 11 10z"/><path d="M24 22c0-6 4-10 11-10 0 6-4 10-11 10z"/><path d="M14 40h20"/>',
+  kalanchoe: '<path d="M17 40h14l-1.5-5h-11z"/><path d="M24 35V22M24 29c-3-2-5-3-7-3.5M24 27c3-2 5-3.5 7-4.5"/><circle cx="24" cy="18" r="3.6"/><circle cx="16.5" cy="22.5" r="3.6"/><circle cx="31.5" cy="19.5" r="3.6"/><circle cx="19" cy="12.5" r="3.6"/><circle cx="29" cy="12" r="3.6"/>',
+  geranium:  '<path d="M27 15C26 22 24 27 22 33M22 33c-2-1-4-1-6 0M22 33c2 0 4 0 6 1"/><circle cx="27" cy="7.5" r="3"/><circle cx="31" cy="11" r="3"/><circle cx="27" cy="14.5" r="3"/><circle cx="23" cy="11" r="3"/><circle cx="27" cy="11" r="1.2" fill="#fff"/><circle cx="13.5" cy="33" r="4.5"/><circle cx="31" cy="34" r="4.5"/>',
+  petunia:   '<path d="M13 10c3-3.5 19-3.5 22 0c-2.5 2-5.5 4-7.5 10h-7C18.5 14 15.5 12 13 10z"/><path d="M24 8.5v10M19 9.5l2.6 8.5M29 9.5l-2.6 8.5"/><path d="M24 20v20M24 33c-5 0-8-2-9-6 4 0 7 2 9 6zM24 30c5 0 8-2 9-6-4 0-7 2-9 6z"/>',
+  adansonii: '<path d="M24 39C13 33 10 21 15 10c4 2 7 2 9 0 2 2 5 2 9 0 5 11 2 23-9 29z"/><path d="M24 39V12"/><ellipse cx="18.5" cy="20" rx="1.6" ry="3"/><ellipse cx="29.5" cy="20" rx="1.6" ry="3"/><ellipse cx="19.5" cy="29" rx="1.4" ry="2.4"/><ellipse cx="28.5" cy="29" rx="1.4" ry="2.4"/>',
+  orchid:    '<path d="M20 40V9M28 40V14"/><path d="M20 15c-4-1-7-4-8-8M20 23c4-1 7-3 9-7M20 31c-4-1-7-3-8-7M28 20c4 0 7-2 9-6M28 28c4 0 6-2 8-5"/>',
+  oregano:   '<path d="M18 40C18 30 16 21 13.5 11M27 40C27 30 29 20 32.5 10"/><circle cx="12" cy="14.5" r="2"/><circle cx="16.5" cy="16" r="2"/><circle cx="13" cy="21.5" r="2"/><circle cx="18.5" cy="23" r="2"/><circle cx="15.5" cy="29" r="2"/><circle cx="30.5" cy="13" r="2"/><circle cx="35" cy="14.5" r="2"/><circle cx="28.5" cy="19.5" r="2"/><circle cx="33" cy="21.5" r="2"/><circle cx="28" cy="27" r="2"/>',
+  rosemary:  '<path d="M24 40V8M24 12l-4 -3M24 12l4 -3M24 17l-5 -3M24 17l5 -3M24 22l-6 -3M24 22l6 -3M24 27l-6 -3M24 27l6 -3M24 32l-5 -3M24 32l5 -3"/>',
+  basil:     '<path d="M24 40V14"/><path d="M24 22c-6 0-10-3-11-8 6-1 10 2 11 8zM24 22c6 0 10-3 11-8-6-1-10 2-11 8z"/><path d="M24 15c-3-1-5-4-5-8 3 1 5 4 5 8zM24 15c3-1 5-4 5-8-3 1-5 4-5 8z"/><path d="M24 32c-6 0-9-2-10-6 5-1 9 1 10 6zM24 32c6 0 9-2 10-6-5-1-9 1-10 6z"/>',
+  chives:    '<path d="M15 40h18l-1.5-6h-15z"/><path d="M20 34C19 24 17 16 14 8M23 34C23 24 23 15 22 6M26 34C27 24 29 16 32 9M21 34C19 27 15 22 10 20M27 34C29 28 32 24 37 23"/>',
+  thyme:     '<path d="M24 38C20 30 14 26 9 25M24 38C24 28 26 18 30 10M24 38C28 32 33 30 38 31"/><circle cx="12" cy="24" r="1.4"/><circle cx="16" cy="26.5" r="1.4"/><circle cx="13" cy="28.5" r="1.4"/><circle cx="24.5" cy="25" r="1.4"/><circle cx="27" cy="18" r="1.4"/><circle cx="25.5" cy="21.5" r="1.4"/><circle cx="29.5" cy="13" r="1.4"/><circle cx="31" cy="17" r="1.4"/><circle cx="31" cy="30.5" r="1.4"/><circle cx="35" cy="29.5" r="1.4"/>',
+  pentas:    '<path d="M24 9l0 -2.6M24 9l2.5 -0.8M24 9l1.5 2.1M24 9l-1.5 2.1M24 9l-2.5 -0.8M18.5 12l0 -2.6M18.5 12l2.5 -0.8M18.5 12l1.5 2.1M18.5 12l-1.5 2.1M18.5 12l-2.5 -0.8M29.5 12l0 -2.6M29.5 12l2.5 -0.8M29.5 12l1.5 2.1M29.5 12l-1.5 2.1M29.5 12l-2.5 -0.8M21 17l0 -2.6M21 17l2.5 -0.8M21 17l1.5 2.1M21 17l-1.5 2.1M21 17l-2.5 -0.8M27 17l0 -2.6M27 17l2.5 -0.8M27 17l1.5 2.1M27 17l-1.5 2.1M27 17l-2.5 -0.8M24 13l0 -2.6M24 13l2.5 -0.8M24 13l1.5 2.1M24 13l-1.5 2.1M24 13l-2.5 -0.8"/><path d="M24 20v20M24 32c-5-1-9-4-10-9 5 1 9 4 10 9zM24 30c5-1 9-4 10-9-5 1-9 4-10 9z"/>',
+  angelonia: '<path d="M25 40V6M16 40V18M25 34c4-1 7-3 9-7"/><circle cx="22.5" cy="8.5" r="2"/><circle cx="27.5" cy="11" r="2"/><circle cx="22.5" cy="14" r="2"/><circle cx="27.5" cy="17" r="2"/><circle cx="22.5" cy="20" r="2"/><circle cx="27.5" cy="23" r="2"/><circle cx="14" cy="21" r="1.7"/><circle cx="18" cy="24" r="1.7"/><circle cx="14" cy="27" r="1.7"/>',
+  spiky:     '<path d="M18 40h12l-1-4h-10z"/><path d="M24 36Q15.7 32.8 9.9 30.9M24 36Q14.7 29.4 8.2 25.4M24 36Q14.9 25.4 8.6 18.9M24 36Q16.8 21.8 11.8 13M24 36Q20 19.2 17.2 8.8M24 36Q24 17.4 24 6M24 36Q28 19.2 30.8 8.8M24 36Q31.2 21.8 36.2 13M24 36Q33.1 25.4 39.4 18.9M24 36Q33.3 29.4 39.8 25.4M24 36Q32.3 32.8 38.1 30.9"/>',
+  strap:     '<path d="M16 40h16l-1.5-5h-13z"/><path d="M24 35Q17.3 22.4 11.3 14.6M24 35Q19.8 17.7 16 7.1M24 35Q24 15.8 24 4M24 35Q28.2 17.7 32 7.1M24 35Q30.7 22.4 36.7 14.6"/>',
+  conifer:   '<path d="M24 5l-4 8h3l-5 9h3l-6 9h18l-6-9h3l-5-9h3z"/><path d="M24 31v4M19 40h10l-1-5h-8z"/>',
+  shrub:     '<path d="M24 38V12M24 30l-8-10M24 26l8-12M24 22l-6-8M16 20l-3-6M32 14l2-6"/><path d="M16 20l-3 1M24 17l3-2M28 20l3 1M20 25l-3-1M19 16l-3-1"/>',
+  zz:           '<path d="M16 40h16l-1.5-5h-13z"/><path d="M20 35C19 26 17 18 13 10M24 35V7M28 35C29 26 31 18 35 11"/><ellipse cx="21" cy="11" rx="1.7" ry="3.2" transform="rotate(-45 21 11)"/><ellipse cx="27" cy="11" rx="1.7" ry="3.2" transform="rotate(45 27 11)"/><ellipse cx="21" cy="18" rx="1.7" ry="3.2" transform="rotate(-45 21 18)"/><ellipse cx="27" cy="18" rx="1.7" ry="3.2" transform="rotate(45 27 18)"/><ellipse cx="21" cy="25" rx="1.7" ry="3.2" transform="rotate(-45 21 25)"/><ellipse cx="27" cy="25" rx="1.7" ry="3.2" transform="rotate(45 27 25)"/><ellipse cx="13.5" cy="15.5" rx="1.7" ry="3.2" transform="rotate(-60 13.5 15.5)"/><ellipse cx="17.5" cy="22" rx="1.7" ry="3.2" transform="rotate(-60 17.5 22)"/><ellipse cx="34.5" cy="16.5" rx="1.7" ry="3.2" transform="rotate(60 34.5 16.5)"/><ellipse cx="30.5" cy="23" rx="1.7" ry="3.2" transform="rotate(60 30.5 23)"/>',
+  birdsnest:    '<path d="M16 40h16l-1.5-5h-13z"/><path d="M24 35Q18.8 25.8 9.1 21.6Q14.3 30.8 24 35z"/><path d="M24 35L12.1 24.3"/><path d="M24 35Q21.8 21.7 13.4 11.2Q15.6 24.5 24 35z"/><path d="M24 35L15.5 16"/><path d="M24 35Q27.4 20.5 24 6Q20.6 20.5 24 35z"/><path d="M24 35L24 11.8"/><path d="M24 35Q32.4 24.5 34.6 11.2Q26.2 21.7 24 35z"/><path d="M24 35L32.5 16"/><path d="M24 35Q33.7 30.8 38.9 21.6Q29.2 25.8 24 35z"/><path d="M24 35L35.9 24.3"/>',
+  philodendron: '<path d="M24 40V6"/><path d="M17 30.4c-5.7 -3.8 -8.5 -8.5 -6.6 -12.3c0.9 -2.8 4.8 -3.8 6.6 -0.9c1.9 -2.8 5.7 -1.9 6.6 0.9c1.9 3.8 -0.9 8.5 -6.6 12.3z"/><path d="M31 17.4c-4.8 -3.2 -7.2 -7.2 -5.6 -10.4c0.8 -2.4 4 -3.2 5.6 -0.8c1.6 -2.4 4.8 -1.6 5.6 0.8c1.6 3.2 -0.8 7.2 -5.6 10.4z"/><path d="M24 36c-3-1-5-3-7-5.5M24 22c2-1 4-3 7-4.6M24 30c3 0 5 1 6 3"/>',
+  snake:        '<path d="M16 40h16l-1.5-5h-13z"/><path d="M19 35C17 25 16 16 18 7C20 16 22 25 22 35z"/><path d="M24 35C22.5 23 22.5 12 25 3C27 12 27.5 23 26.5 35z"/><path d="M28 35C30 26 32 18 34 11C34 19 33 27 31 35z"/><path d="M23.4 11h3M23.2 17h3.6M23.2 23h3.6M23.4 29h3"/>',
+  scaevola:     '<path d="M24 20V40M16 29c1 5 4 8 8 11"/><ellipse cx="18.2" cy="17.4" rx="1.7" ry="3.4" transform="rotate(-75 18.2 17.4)"/><ellipse cx="20.3" cy="14.3" rx="1.7" ry="3.4" transform="rotate(-38 20.3 14.3)"/><ellipse cx="24" cy="13" rx="1.7" ry="3.4" transform="rotate(0 24 13)"/><ellipse cx="27.7" cy="14.3" rx="1.7" ry="3.4" transform="rotate(38 27.7 14.3)"/><ellipse cx="29.8" cy="17.4" rx="1.7" ry="3.4" transform="rotate(75 29.8 17.4)"/><ellipse cx="11.9" cy="26.9" rx="1.3" ry="2.5" transform="rotate(-75 11.9 26.9)"/><ellipse cx="13.8" cy="24.4" rx="1.3" ry="2.5" transform="rotate(-32 13.8 24.4)"/><ellipse cx="16.7" cy="23.9" rx="1.3" ry="2.5" transform="rotate(10 16.7 23.9)"/><ellipse cx="19.3" cy="25.4" rx="1.3" ry="2.5" transform="rotate(52 19.3 25.4)"/><path d="M24 33c4-1 7-3 8-7-4 0-7 2-8 7zM24 37c-4 0-6-2-7-5 4 0 6 2 7 5z"/>'
+};
+
+// ── Helpers ────────────────────────────────────────────────────
+/** Saved per-browser preference, or `fallback` when missing or storage is unavailable. */
+function prefGet(key, fallback){
+  try { var v = localStorage.getItem(key); return v == null ? fallback : v; } catch (_) { return fallback; }
+}
+/** Save a per-browser preference; storage failures (private mode, blocked storage) are ignored. */
+function prefSet(key, value){ try { localStorage.setItem(key, String(value)); } catch (_) {} }
+function pad(n){ return (n < 10 ? '0' : '') + n; }
+function localDate(d){ return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+function localDateTime(d){ return localDate(d) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes()); }
+function parseDay(s){ var p = s.split('-'); return new Date(+p[0], +p[1] - 1, +p[2]); }
+function esc(s){
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+    return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c];
+  });
+}
+function fmtDay(s){ var d = parseDay(s); return 'יום ' + WEEKDAYS[d.getDay()] + "' " + d.getDate() + '/' + (d.getMonth() + 1); }
+/** Bottom message. kind: 'ok' (default) | 'err' | 'pending' — a pending message stays until the next one. */
+function toast(msg, kind){
+  kind = kind === true ? 'err' : (kind || 'ok');
+  var t = document.getElementById('pt-toast');
+  t.textContent = msg;
+  t.className = 'pt-toast show ' + kind;
+  clearTimeout(toast._t);
+  if (kind !== 'pending') toast._t = setTimeout(function(){ t.className = 'pt-toast'; }, kind === 'ok' ? 3200 : 4200);
+}
+// Esc: every open popup closes, but an edit popup with unsaved changes asks first.
+function closeAllModals(){ document.querySelectorAll('.modal-backdrop.open').forEach(function(m){ requestLeave(m.id); }); }
+function closeModal(id){
+  var m = document.getElementById(id);
+  m.classList.remove('open');
+  var bar = m.querySelector('.pt-unsaved');
+  if (bar) bar.remove();
+}
+function openModal(id){ document.getElementById(id).classList.add('open'); }
+function isOpen(id){ return document.getElementById(id).classList.contains('open'); }
+
+function plantIcon(type, color, name, size){
+  var initial = esc(String(name || '?').trim().charAt(0) || '?');
+  return '<svg viewBox="0 0 48 48" width="' + size + '" height="' + size + '" aria-hidden="true">' +
+    '<rect x="1" y="1" width="46" height="46" rx="13" fill="' + esc(color) + '"/>' +
+    '<g fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">' + (GLYPHS[type] || GLYPHS.sprout) + '</g>' +
+    '<circle cx="40" cy="40" r="7" fill="#fff"/>' +
+    '<text x="40" y="43.5" text-anchor="middle" font-size="10" font-weight="700" font-family="Segoe UI, Arial" fill="' + esc(color) + '">' + initial + '</text></svg>';
+}
+
+// The plant's photo when it has one (a local preview first, while it uploads), else its drawn icon.
+function plantBadge(p, size){
+  var src = p.photo_local || (p.photo && p.id > 0 ? '/api/plants/' + p.id + '/photo?v=' + p.photo : null);
+  if (src) return '<img class="pt-photo" src="' + esc(src) + '" width="' + size + '" height="' + size + '" alt="' + esc(p.name) + '" loading="lazy">';
+  return plantIcon(p.plant_type, p.color, p.name, size);
+}
+
+// ── Care notes, per plant type (Israeli conditions) ─────────────
+var CARE = {"cactus": {"s": "שמש מלאה · השקיה נדירה", "l": "כמה שיותר שמש; מרפסת דרומית מושלמת", "w": "רק כשהאדמה יבשה לגמרי; בחורף פעם בחודש או פחות", "f": "מצע לקקטוסים עם ניקוז מצוין; דשן לסוקולנטים פעמיים בקיץ", "x": "בסיס רך או כהה = ריקבון מהשקיית יתר"}, "monstera": {"s": "אור בהיר לא ישיר · להשקות כשהעליון יבש", "l": "אור בהיר ומפוזר; שמש צהריים ישירה שורפת עלים", "w": "כש-3–5 ס\"מ עליונים יבשים; בחורף בתדירות נמוכה יותר", "f": "מצע אוורירי (פרלייט/קליפות); דשן כל 3–4 שבועות באביב-קיץ", "x": "עלים מצהיבים = לרוב השקיית יתר; ניגוב אבק מהעלים עוזר"}, "fern": {"s": "צל חלקי · אדמה לחה תמיד", "l": "אור עקיף, בלי שמש ישירה", "w": "לשמור לחה אך לא בוצית; לא לתת להתייבש לגמרי", "f": "מצע עשיר; דשן מדולל פעם בחודש בעונת הצמיחה", "x": "קצוות חומים ופריכים = אוויר יבש או התייבשות"}, "succulent": {"s": "אור חזק · להשקות רק כשיבש לגמרי", "l": "שמש בוקר או אור חזק; צמח מתארך ודליל = חסר אור", "w": "השקיה עמוקה ואז לחכות לייבוש מלא; בחורף מעט מאוד", "f": "מצע לסוקולנטים ועציץ עם חור ניקוז", "x": "עלים שקופים ורכים = יותר מדי מים; עלים מקומטים = צמא"}, "herb": {"s": "שמש · השקיה סדירה", "l": "4–6 שעות שמש ביום", "w": "כשהשכבה העליונה מתייבשת", "f": "מצע מנוקז; דשן קל פעם בחודש", "x": "קטיף קבוע מעודד צמיחה צפופה"}, "flower": {"s": "שמש · השקיה סדירה · הסרת פרחים נבולים", "l": "לפחות שמש בוקר", "w": "לחות מתונה, יותר בקיץ", "f": "דשן לפריחה כל 2–3 שבועות בעונה", "x": "הסרת פרחים נבולים מאריכה את הפריחה"}, "tree": {"s": "אור טוב · השקיה עמוקה ומרווחת", "l": "אור בהיר; לסובב את העציץ מדי פעם לצמיחה ישרה", "w": "השקיה עמוקה כשהשכבה העליונה יבשה", "f": "דשן כל חודש באביב-קיץ", "x": "נשירת עלים פתאומית = שינוי מיקום או טמפרטורה"}, "sprout": {"s": "אור בהיר · לחות אחידה", "l": "אור בהיר בלי שמש צהריים חזקה", "w": "לשמור לחה באופן אחיד", "f": "מצע קל; בלי דשן בשבועות הראשונים", "x": "גבעול ארוך ודק = חסר אור"}, "kalanchoe": {"s": "אור חזק · מעט מים", "l": "אור חזק או שמש בוקר", "w": "רק כשהאדמה יבשה – זה סוקולנט", "f": "מצע מנוקז; אחרי הפריחה לגזום את גבעולי הפרחים", "x": "כדי לפרוח שוב צריכה לילות ארוכים וחשוכים בסתיו"}, "geranium": {"s": "שמש מלאה · לתת להתייבש מעט", "l": "6 שעות שמש ומעלה", "w": "כשהשכבה העליונה יבשה; לא אוהב רגליים רטובות", "f": "דשן לפריחה כל שבועיים בעונה", "x": "עלים מצהיבים = יותר מדי מים; להסיר פרחים נבולים"}, "petunia": {"s": "שמש מלאה · השקיה תכופה בקיץ", "l": "שמש מלאה", "w": "עציץ קטן מתייבש מהר – לבדוק כל יום-יומיים בקיץ", "f": "דשן לפריחה פעם בשבוע", "x": "לגזום ענפים מתארכים באמצע הקיץ לחידוש הפריחה"}, "adansonii": {"s": "אור בהיר לא ישיר · לחות", "l": "אור מפוזר; שמש ישירה מצהיבה עלים", "w": "כשהשכבה העליונה יבשה", "f": "מצע אוורירי; תמיכה לטיפוס עוזרת לעלים גדולים", "x": "אוהבת לחות אוויר – לרסס או להחזיק ליד צמחים אחרים"}, "orchid": {"s": "אור בהיר · להשקות כשהמצע כמעט יבש", "l": "אור בהיר, מעט שמש בוקר", "w": "השקיה ואז ניקוז מלא – אסור שמים יעמדו בתחתית", "f": "מצע קליפות; דשן לסחלבים בחצי ריכוז", "x": "קנים רכים או שחורים = ריקבון מהשקיית יתר"}, "oregano": {"s": "שמש מלאה · מעדיף יבש", "l": "שמש מלאה", "w": "כשהאדמה כמעט יבשה", "f": "בלי הרבה דשן – זה מחזק את הטעם", "x": "השקיית יתר מחלישה את הריח ומרקיבה שורשים"}, "rosemary": {"s": "שמש מלאה · לתת להתייבש", "l": "כמה שיותר שמש", "w": "כשהשכבה העליונה יבשה היטב", "f": "מצע מנוקז מאוד, אפשר עם חול", "x": "רגיש מאוד להשקיית יתר; קצוות משחירים = רטיבות"}, "basil": {"s": "שמש · מים סדירים", "l": "6 שעות שמש", "w": "לא לתת להתייבש לגמרי בקיץ", "f": "דשן קל כל 2–3 שבועות", "x": "לקטוף את ניצני הפרחים כדי להאריך את חיי הצמח"}, "chives": {"s": "שמש · אדמה לחה", "l": "שמש או חצי צל", "w": "לשמור לחה במידה", "f": "דשן קל אחרי קציר", "x": "לקצוץ כ-3 ס\"מ מעל הבסיס לצמיחה מחודשת; קצוות צהובים = צמא"}, "thyme": {"s": "שמש מלאה · יבש", "l": "שמש מלאה", "w": "רק כשהאדמה יבשה", "f": "מצע דל ומנוקז", "x": "לגזום קלות אחרי פריחה כדי שלא יתעצה"}, "pentas": {"s": "שמש · השקיה סדירה", "l": "שמש מלאה עד חלקית", "w": "לשמור לחה במידה, יותר בחום", "f": "דשן לפריחה כל שבועיים", "x": "להסיר אשכולות נבולים; אוהב חום, רגיש לקור"}, "angelonia": {"s": "שמש מלאה · עמידה לחום", "l": "שמש מלאה", "w": "כשהשכבה העליונה מתייבשת", "f": "דשן לפריחה כל 2–3 שבועות", "x": "לגזום בשליש אחרי גל פריחה לפריחה חוזרת"}, "zz": {"s": "כמעט כל אור · השקיה נדירה", "l": "אור בינוני עד בהיר; מסתדר גם עם מעט אור", "w": "רק כשהאדמה יבשה לגמרי – הפקעות אוגרות מים", "f": "דשן מדולל פעמיים-שלוש בשנה", "x": "השקיית יתר מרקיבה את הפקעות – הטעות הנפוצה"}, "birdsnest": {"s": "אור עקיף · לחות", "l": "אור עקיף, בלי שמש ישירה", "w": "להשקות סביב השושנה ולא לתוך המרכז", "f": "דשן מדולל פעם בחודש בקיץ", "x": "לא לגעת בעלים הצעירים במרכז – הם עדינים"}, "philodendron": {"s": "אור עקיף · להשקות כשהעליון יבש", "l": "אור בהיר לא ישיר", "w": "כש-2–3 ס\"מ עליונים יבשים", "f": "דשן חודשי באביב-קיץ", "x": "עלים קטנים וחיוורים = חסר אור"}, "snake": {"s": "כל אור · השקיה נדירה", "l": "מאור נמוך ועד שמש חלקית", "w": "כל 2–4 שבועות, בחורף פחות", "f": "מצע לסוקולנטים", "x": "הטעות הנפוצה: השקיית יתר – עלים רכים בבסיס"}, "spiky": {"s": "אור בהיר · להשקות כשהעליון יבש", "l": "אור בהיר; שמש אחר-צהריים חזקה שורפת", "w": "כש-2–3 ס\"מ עליונים יבשים", "f": "דשן חודשי בקיץ", "x": "קצוות חומים = מלחים במי הברז או אוויר יבש"}, "strap": {"s": "שמש · השקיה סדירה בעונת הצמיחה", "l": "שמש מלאה עד חלקית", "w": "לשמור לחה במידה באביב-קיץ", "f": "דשן כל 3–4 שבועות בעונה", "x": "להסיר עלים יבשים מהבסיס"}, "conifer": {"s": "שמש · לא לתת להתייבש", "l": "שמש מלאה", "w": "בעציץ מתייבש מהר – לבדוק לעיתים קרובות בקיץ", "f": "דשן אביבי אחד מספיק", "x": "השחמה פנימית = התייבשות; מחטניים לא מתאוששים מהתייבשות מלאה"}, "shrub": {"s": "אור טוב · השקיה סדירה", "l": "שמש בוקר או אור בהיר", "w": "כשהשכבה העליונה מתייבשת", "f": "דשן חודשי בעונת הצמיחה", "x": "גיזום קל מעודד צמיחה צפופה"}, "scaevola": {"s": "שמש מלאה · לתת להתייבש מעט", "l": "שמש מלאה; עמידה לחום הקיץ ולרוח במרפסת", "w": "כשהשכבה העליונה מתייבשת; לא אוהבת רטיבות קבועה – לבדוק את תזמון הטפטפת", "f": "מצע מנוקז; דשן לפריחה כל 2–3 שבועות בעונה", "x": "אין צורך להסיר פרחים נבולים; לגזום קצוות ארוכים וחשופים כדי שתישאר מלאה"}};
+function careBody(type){
+  var c = CARE[type];
+  return c ? '☀️ ' + esc(c.l) + '<br>💧 ' + esc(c.w) + '<br>🌱 ' + esc(c.f) + '<br>⚠️ ' + esc(c.x) : '';
+}
+function careHtml(type){
+  var c = CARE[type];
+  return c ? '<details class="pt-care"><summary>🌿 ' + esc(c.s) + '</summary><div class="pt-care-body">' + careBody(type) + '</div></details>' : '';
+}
+
+// ── Data + once-a-day cache ────────────────────────────────────
+var CACHE_KEY = 'plants_cache_v2';
+var TODAY = localDate(new Date());
+var state = null;
+
+function readCache(){
+  try {
+    var c = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
+    return c && c.date === TODAY ? c.payload : null;
+  } catch (_) { return null; }
+}
+function writeCache(p){ try { localStorage.setItem(CACHE_KEY, JSON.stringify({date: TODAY, payload: p})); } catch (_) {} }
+
+// POST/PUT/DELETE/GET one request; resolves to the JSON payload, rejects with the server's message.
+function send(method, url, body){
+  // A tab left visible past midnight must send the new date, not the one it loaded with.
+  var now = localDate(new Date());
+  if (now !== TODAY) TODAY = now;
+  var opts = {method: method, headers: {'Content-Type': 'application/json'}};
+  if (method === 'GET') url += (url.indexOf('?') < 0 ? '?' : '&') + 'today=' + TODAY;
+  else opts.body = JSON.stringify(Object.assign({today: TODAY}, body || {}));
+  return fetch(url, opts)
+    .then(function(r){ return r.json().catch(function(){ return {ok: false, error: 'שגיאת שרת'}; }); })
+    .then(function(d){ if (!d.ok) throw new Error(d.error || 'שגיאה'); return d; });
+}
+function adopt(d){ if (d && d.plants && d.summary) { state = d; writeCache(d); render(); } }
+// Reads (and the initial load): resolves to the response, or null after an error toast.
+function api(method, url, body){
+  return send(method, url, body).then(function(d){ adopt(d); return d; })
+    .catch(function(e){ toast(e.message || 'שגיאת רשת', true); return null; });
+}
+
+// ── Optimistic writes ──────────────────────────────────────────
+// The page changes the moment you click and a "… · שומר" message shows right away; the request
+// follows in the background, one at a time in click order (the server can take a few seconds).
+// When the last queued request answers, the server's full payload replaces the local guess
+// (bringing summary and suggestions up to date) and a "✓ … · נשמר" message confirms it.
+// A failure shows "✗ …" and reloads the real state, so nothing unsaved stays on screen.
+var writeQueue = Promise.resolve(), pendingWrites = 0, tempSeq = -1;
+function mutate(method, url, body, optimistic, okMsg){
+  if (optimistic) {
+    try { optimistic(state); } catch (e) { console.error(e); }
+    recountSummary(state);
+    render();
+  }
+  toast((okMsg || 'השינוי') + ' · שומר…', 'pending');
+  pendingWrites++;
+  var req = writeQueue.then(function(){ return send(method, url, body); });
+  writeQueue = req.then(function(){}, function(){});
+  return req.then(function(d){
+    pendingWrites--;
+    if (!pendingWrites) adopt(d);
+    toast('✓ ' + (okMsg ? okMsg + ' · נשמר' : 'נשמר'));
+    return d;
+  }, function(e){
+    pendingWrites--;
+    toast('✗ לא נשמר — ' + (e.message || 'שגיאת רשת'), true);
+    writeQueue = writeQueue.then(refresh);
+    return null;
+  });
+}
+function stillSaving(id){
+  if (id < 0) { toast('רגע — עדיין נשמר…'); return true; }
+  return false;
+}
+function findIn(list, id){ for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i]; return null; }
+function rowOf(st, pid, day){
+  var rows = st.days[String(pid)] || (st.days[String(pid)] = []);
+  for (var i = 0; i < rows.length; i++) if (rows[i].day === day) return rows[i];
+  var r = {day: day, soil_status: null, watered: false, auto_expected: false, auto_confirmed: false};
+  rows.push(r);
+  rows.sort(function(a, b){ return a.day < b.day ? -1 : 1; });
+  return r;
+}
+function daysBetween(a, b){ return Math.round((parseDay(b) - parseDay(a)) / 864e5); }
+function localStatus(p){
+  if (p.irrigation_mode === 'auto') return 'auto';
+  var s = p.days_since_water > p.interval_days ? 'overdue' : p.days_since_water === p.interval_days ? 'due' : 'ok';
+  return soilChecked(s, p.id);
+}
+// Mirrors plant_logic.soil_checked_status: soil checked today and found moist/wet, no watering →
+// 'checked' (the user decided it needs no water today), so it stops counting as "should water".
+var CHECKED_SOILS = ['humid', 'wet'];
+function soilChecked(status, pid){
+  if (status !== 'due' && status !== 'overdue') return status;
+  var r = dayRow(pid, state.today);
+  return r && CHECKED_SOILS.indexOf(r.soil_status) >= 0 && !r.watered ? 'checked' : status;
+}
+function addEventLocal(st, pid, type, at, source, note){
+  (st.events[String(pid)] || (st.events[String(pid)] = []))
+    .push({id: tempSeq--, event_type: type, event_at: at, source: source || 'manual', note: note || null});
+}
+function markWatered(st, pid, day){
+  rowOf(st, pid, day).watered = true;
+  var p = findIn(st.plants, pid);
+  if (p && (!p.last_water || p.last_water < day)) {
+    p.last_water = day;
+    p.days_since_water = daysBetween(day, st.today);
+    p.status = localStatus(p);
+  }
+}
+function dropSuggestions(st, pid, kinds){
+  st.suggestions = st.suggestions.filter(function(x){ return !(x.plant_id === pid && (!kinds || kinds.indexOf(x.kind) >= 0)); });
+}
+// Same counts the server computes, so the header moves with the click too.
+function recountSummary(st){
+  var auto = {};
+  st.plants.forEach(function(p){ if (p.irrigation_mode === 'auto') auto[p.id] = true; });
+  var autoToday = 0;
+  Object.keys(st.days).forEach(function(pid){
+    if (auto[pid] && st.days[pid].some(function(r){ return r.day === st.today && r.auto_expected && r.watered; })) autoToday++;
+  });
+  st.summary = {
+    due_today: st.plants.filter(function(p){ return p.status === 'due'; }).length,
+    overdue: st.plants.filter(function(p){ return p.status === 'overdue'; }).length,
+    auto_today: autoToday
+  };
+}
+
+// ── Unsaved-changes guard for edit popups ──────────────────────
+// Each guarded popup says whether it has unsaved edits, how to save them all, and how to drop them.
+var GUARDS = {
+  'plant-modal':   {dirty: function(){ return plantDirty(); }, save: function(){ return savePlant(); }, discard: function(){ editCtx = null; }},
+  'configs-modal': {dirty: function(){ return cfgDirty(); },   save: function(){ return saveConfig(); }, discard: function(){ cfgCtx = null; }},
+  'rooms-modal':   {dirty: function(){ return roomsDirty(); }, save: function(){ return saveAllRooms(); }, discard: function(){}},
+  'dead-modal':    {dirty: function(){ return deadDirty(); },  save: function(){ return saveDead(); },   discard: function(){ deadCtx = null; }}
+};
+// Leave a popup (close it, or go back inside it); with unsaved edits, ask first.
+function requestLeave(id, leave){
+  leave = leave || function(){ closeModal(id); };
+  var g = GUARDS[id];
+  if (g && isOpen(id) && g.dirty()) { showUnsaved(id, leave); return; }
+  leave();
+}
+function showUnsaved(id, leave){
+  var box = document.getElementById(id).querySelector('.modal');
+  var bar = box.querySelector('.pt-unsaved');
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.className = 'pt-unsaved';
+    bar.setAttribute('role', 'alert');
+    box.insertBefore(bar, box.children[1] || null);
+  }
+  bar.innerHTML = '<span>יש שינויים שלא נשמרו</span>' +
+    '<button class="btn btn-primary btn-xs" data-a="save">שמור הכל</button>' +
+    '<button class="btn btn-ghost btn-xs" data-a="discard">סגור בלי לשמור</button>' +
+    '<button class="btn btn-ghost btn-xs" data-a="stay">המשך לערוך</button>';
+  bar.onclick = function(ev){
+    var a = ev.target.getAttribute('data-a');
+    if (!a) return;
+    bar.remove();
+    if (a === 'save') { if (GUARDS[id].save() !== false) leave(); }
+    else if (a === 'discard') { GUARDS[id].discard(); leave(); }
+  };
+  box.scrollTop = 0;
+}
+function setDirtyClass(btnId, on){ var b = document.getElementById(btnId); if (b) b.classList.toggle('dirty', !!on); }
+
+function refresh(){
+  return api('GET', '/api/plants').then(function(d){
+    if (!d && !state) document.getElementById('pt-rows').innerHTML = '<div class="pt-empty">שגיאה בטעינת הנתונים</div>';
+    return d;
+  });
+}
+function init(){
+  var cached = readCache();
+  if (cached) { state = cached; render(); } else { refresh(); }
+}
+// A tab left open past midnight refreshes when it becomes visible again.
+document.addEventListener('visibilitychange', function(){
+  if (document.visibilityState !== 'visible') return;
+  var now = localDate(new Date());
+  if (now !== TODAY) { TODAY = now; refresh(); }
+});
+
+// ── Lookups ────────────────────────────────────────────────────
+function plantById(id){ for (var i = 0; i < state.plants.length; i++) if (state.plants[i].id === id) return state.plants[i]; return null; }
+function dayRow(pid, day){ var rows = state.days[String(pid)] || []; for (var i = 0; i < rows.length; i++) if (rows[i].day === day) return rows[i]; return null; }
+function dayEvents(pid, day){ return (state.events[String(pid)] || []).filter(function(e){ return e.event_at.slice(0, 10) === day; }); }
+
+// ── Render ─────────────────────────────────────────────────────
+function render(){
+  renderSummary();
+  renderSuggestions();
+  renderTools();
+  renderRooms();
+  renderRows();
+  if (dayCtx && isOpen('day-modal')) renderDay();
+  if (isOpen('rooms-modal')) renderRoomsManager();
+  if (isOpen('configs-modal') && !cfgCtx) renderConfigList();
+  if (isOpen('deleted-modal')) renderDeletedList();
+  if (isOpen('archive-modal')) renderArchiveList();
+}
+
+function renderSummary(){
+  var s = state.summary, due = s.due_today + s.overdue;
+  // the "להשקות היום" card is the needs-watering filter (due + overdue); it glows while plants wait
+  document.getElementById('pt-summary').innerHTML =
+    '<button type="button" class="pt-stat due' + (s.due_today > 0 ? ' glow' : '') + (needsWaterOnly ? ' on' : '') + '"' +
+      ' onclick="setNeedsWater(!needsWaterOnly)" aria-pressed="' + needsWaterOnly + '"' +
+      ' title="' + (needsWaterOnly ? 'הצג את כל העציצים' : 'הצג רק עציצים שצריך להשקות') + '"><b>' + s.due_today + '</b><span>להשקות היום</span></button>' +
+    '<div class="pt-stat overdue"><b>' + s.overdue + '</b><span>באיחור</span></div>' +
+    '<div class="pt-stat auto"><b>' + s.auto_today + '</b><span>הושקו אוטומטית היום</span></div>' +
+    '<button class="btn btn-primary pt-water-all" onclick="waterAllDue()"' + (due ? '' : ' disabled') + '>💧 השקה לכל הממתינים (' + due + ')</button>';
+}
+function waterAllDue(){
+  var n = state.summary.due_today + state.summary.overdue;
+  if (!n || !confirm('לסמן השקה עכשיו ל-' + n + ' עציצים?')) return;
+  var at = localDateTime(new Date());
+  mutate('POST', '/api/plants/water-due', {event_at: at}, function(st){
+    st.plants.forEach(function(p){
+      if (p.status !== 'due' && p.status !== 'overdue') return;
+      addEventLocal(st, p.id, 'water', at);
+      markWatered(st, p.id, at.slice(0, 10));
+      dropSuggestions(st, p.id, ['overdue']);
+    });
+  }, 'סומנה השקה ל-' + n + ' עציצים');
+}
+
+var suggOpen = prefGet('plants_sugg_open', '1') !== '0';
+function toggleSugg(){
+  suggOpen = !suggOpen;
+  prefSet('plants_sugg_open', suggOpen ? '1' : '0');
+  renderSuggestions();
+  renderRows();
+}
+// The floating button: count of tips and whether they are shown inside the plant cards.
+function renderSuggestions(){
+  var fab = document.getElementById('pt-fab'), label = suggOpen ? 'הסתר המלצות וטיפים' : 'הצג המלצות וטיפים';
+  fab.style.display = state.plants.length ? '' : 'none';   // it also toggles the care notes, so any plant counts
+  fab.className = 'pt-fab' + (suggOpen ? '' : ' off');
+  fab.setAttribute('aria-pressed', suggOpen ? 'true' : 'false');
+  fab.setAttribute('aria-label', label);
+  fab.title = label;
+  document.getElementById('pt-legend').hidden = !suggOpen;   // the legend comes and goes with the tips
+}
+function plantTipsHtml(pid){
+  if (!suggOpen) return '';
+  var html = state.suggestions.map(function(s, i){
+    if (s.plant_id !== pid) return '';
+    var a = s.action, btns = '';
+    if (a) {
+      var label = a.type === 'set_interval' ? 'החל (' + a.value + ' ימים)' : ACTION_LABELS[a.type];
+      btns += '<button class="btn btn-primary btn-xs" onclick="applySuggestion(' + i + ')">' + label + '</button>';
+    }
+    if (s.kind === 'seasonal') btns += '<button class="btn btn-ghost btn-xs" onclick="dismissSeason(' + s.plant_id + ')">התעלם</button>';
+    // the card already shows the plant name, so drop the "name: " prefix
+    var text = s.text.indexOf(':') > 0 ? s.text.slice(s.text.indexOf(':') + 1).trim() : s.text;
+    return '<div class="pt-sugg ' + s.level + '"><span class="pt-sugg-text">💡 ' + esc(text) + '</span><span class="pt-sugg-btns">' + btns + '</span></div>';
+  }).join('');
+  return html ? '<div class="pt-tips">' + html + '</div>' : '';
+}
+function applySuggestion(i){
+  var s = state.suggestions[i], a = s.action, pid = s.plant_id, now = localDateTime(new Date());
+  if (stillSaving(pid)) return;
+  if (a.type === 'set_interval') {
+    var body = {interval_days: a.value};
+    if (a.season_key) body.season_ack = a.season_key;
+    mutate('PUT', '/api/plants/' + pid, body, function(st){
+      var p = findIn(st.plants, pid);
+      p.interval_days = a.value;
+      p.status = localStatus(p);
+      dropSuggestions(st, pid, ['dries_fast', 'overwater', 'seasonal']);
+    }, 'המרווח עודכן');
+  } else if (a.type === 'water_now') {
+    mutate('POST', '/api/plants/' + pid + '/events', {event_type: 'water', event_at: now}, function(st){
+      addEventLocal(st, pid, 'water', now);
+      markWatered(st, pid, now.slice(0, 10));
+      dropSuggestions(st, pid, ['overdue']);
+    }, 'סומנה השקה');
+  } else if (a.type === 'fertilize_now') {
+    mutate('POST', '/api/plants/' + pid + '/events', {event_type: 'fertilize', event_at: now}, function(st){
+      addEventLocal(st, pid, 'fertilize', now);
+      dropSuggestions(st, pid, ['fertilize']);
+    }, 'סומן דישון');
+  } else if (a.type === 'set_soil') {
+    openDay(pid, TODAY);
+  }
+}
+function dismissSeason(pid){
+  if (stillSaving(pid)) return;
+  mutate('POST', '/api/plants/' + pid + '/dismiss-season', {}, function(st){ dropSuggestions(st, pid, ['seasonal']); }, 'ההמלצה הוסתרה');
+}
+
+function renderRows(){
+  var el = document.getElementById('pt-rows');
+  if (!state.plants.length) {
+    el.innerHTML = '<div class="pt-empty">עדיין אין עציצים — לחצו "+ עציץ חדש" כדי להתחיל 🌱</div>';
+    return;
+  }
+  var days = state.window.slice().reverse();  // today first = RTL leading edge
+  var groups = roomGroups(state.plants.filter(function(p){ return matchesSearch(p) && (!needsWaterOnly || needsWater(p)); }))
+    .filter(function(g){ return roomFilter === 'all' || g.key === roomFilter; });
+  var shown = groups.reduce(function(n, g){ return n + g.plants.length; }, 0);
+  renderResultCount(shown);
+  if (!shown) {
+    el.innerHTML = needsWaterOnly && !searchText
+      ? '<div class="pt-empty">אין עציצים שצריך להשקות כרגע 🎉 — <button class="btn btn-ghost btn-xs" onclick="setNeedsWater(false)">הצג הכל</button></div>'
+      : '<div class="pt-empty">לא נמצאו עציצים' + (searchText ? ' התואמים ל"' + esc(searchText) + '"' : ' בחדר זה') +
+        (searchText ? ' — <button class="btn btn-ghost btn-xs" onclick="setSearch(\'\')">ניקוי חיפוש</button>' : '') + '</div>';
+    return;
+  }
+  if (!grouped) {
+    // one flat list across rooms (the room chips still filter it)
+    groups = [{key: 'flat', name: null, plants: [].concat.apply([], groups.map(function(g){ return g.plants; }))}];
+  }
+  el.innerHTML = groups.map(function(g){
+    var head = g.name == null ? '' :
+      '<div class="pt-room-head"><span>' + esc(g.name) + '</span><span class="pt-room-count">' + g.plants.length + '</span></div>';
+    return head + g.plants.slice().sort(comparePlants).map(function(p){ return plantRowHtml(p, days); }).join('');
+  }).join('');
+  restoreDayStrips(el);
+}
+
+// ── Day strips: 7 days in view, scrolled by wheel (desktop) or swipe (phones) ──
+var stripScroll = {};   // plant id → how far its strip is scrolled back (px), kept across re-renders
+/** How far a strip is scrolled away from today (RTL scrollLeft is 0 or negative depending on the browser). */
+function stripOffset(s){ return Math.abs(s.scrollLeft); }
+/** Fade the edges that have more days behind them. */
+function updateStripFades(s){
+  var off = stripOffset(s), max = s.scrollWidth - s.clientWidth;
+  s.classList.toggle('more-newer', off > 3);
+  s.classList.toggle('more-older', off < max - 3);
+}
+function restoreDayStrips(root){
+  root.querySelectorAll('.pt-cells').forEach(function(s){
+    var off = stripScroll[s.getAttribute('data-pid')];
+    if (off) s.scrollLeft = -off;   // RTL: older days are to the left (negative scrollLeft)
+    updateStripFades(s);
+  });
+}
+(function wireDayStrips(){
+  var rows = document.getElementById('pt-rows'), acc = 0;
+  // scroll events don't bubble — listen in the capture phase for every strip
+  rows.addEventListener('scroll', function(e){
+    var s = e.target;
+    if (!s.classList || !s.classList.contains('pt-cells')) return;
+    stripScroll[s.getAttribute('data-pid')] = stripOffset(s);
+    updateStripFades(s);
+  }, true);
+  // a vertical mouse wheel over a strip moves it one day per notch; at either end the page scrolls as usual
+  rows.addEventListener('wheel', function(e){
+    var s = e.target.closest && e.target.closest('.pt-cells');
+    if (!s || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;   // horizontal trackpad swipes scroll natively
+    var older = e.deltaY > 0, off = stripOffset(s), max = s.scrollWidth - s.clientWidth;
+    if ((older && off >= max - 3) || (!older && off <= 3)) return;   // snapping can stop a pixel or two short
+    e.preventDefault();
+    acc += e.deltaY;
+    if (Math.abs(acc) < 40) return;   // trackpads send many tiny deltas; mice ~100 per notch
+    acc = 0;
+    var day = s.firstElementChild ? s.firstElementChild.getBoundingClientRect().width + 4 : s.clientWidth / 7;
+    s.scrollBy({left: older ? -day : day, behavior: 'smooth'});   // RTL: older = leftwards
+  }, {passive: false});
+  window.addEventListener('resize', function(){ document.querySelectorAll('.pt-cells').forEach(updateStripFades); });
+})();
+
+// ── Search & sort ──────────────────────────────────────────────
+var SORT_KEY = 'plants_sort', GROUP_KEY = 'plants_grouped';
+var SORTS = ['status', 'water_asc', 'water_desc', 'name', 'type'];
+var STATUS_RANK = {overdue: 0, due: 1, checked: 2, ok: 3, auto: 4};
+var sortBy = prefGet(SORT_KEY, 'status'), grouped = prefGet(GROUP_KEY, '1') !== '0', searchText = '';
+if (sortBy === 'last_water') sortBy = 'water_asc';   // the single "last watering" sort before it had two directions
+if (SORTS.indexOf(sortBy) < 0) sortBy = 'status';
+/** When the plant was last watered, as a sortable 'YYYY-MM-DDTHH:MM' ('' = never): the last_water
+ *  day, with the time of that day's latest watering event when it is in the loaded window. */
+function lastWaterKey(p){
+  if (!p.last_water) return '';
+  var t = '00:00';
+  (state.events[String(p.id)] || []).forEach(function(e){
+    if (e.event_type === 'water' && e.event_at.slice(0, 10) === p.last_water && e.event_at.slice(11, 16) > t) t = e.event_at.slice(11, 16);
+  });
+  return p.last_water + 'T' + t;
+}
+var NEEDS_WATER_KEY = 'plants_needs_water';
+var needsWaterOnly = prefGet(NEEDS_WATER_KEY, '0') === '1';
+/** Plants waiting for a manual watering: due today or overdue (automatic plants never are). */
+function needsWater(p){ return p.status === 'due' || p.status === 'overdue'; }
+function setNeedsWater(on){
+  needsWaterOnly = !!on;
+  prefSet(NEEDS_WATER_KEY, needsWaterOnly ? '1' : '0');
+  renderSummary();
+  renderRows();
+}
+
+/** Hebrew label of a plant type key (falls back to the key). */
+function typeLabel(type){
+  for (var i = 0; i < PLANT_TYPES.length; i++) if (PLANT_TYPES[i][0] === type) return PLANT_TYPES[i][1];
+  return type || '';
+}
+/** Lower-cased, trimmed text for case-insensitive matching. */
+function normText(s){ return String(s == null ? '' : s).toLowerCase().trim(); }
+/** True when the plant's name, type label or room name contains the search text. */
+function matchesSearch(p){
+  var q = normText(searchText);
+  if (!q) return true;
+  var room = p.room_id != null ? roomById(p.room_id) : null;
+  return [p.name, typeLabel(p.plant_type), room ? room.name : ''].some(function(x){ return normText(x).indexOf(q) >= 0; });
+}
+/** Days past (positive) or before (negative) the plant's interval; never-watered plants count from creation. */
+function urgency(p){ return (p.days_since_water == null ? Infinity : p.days_since_water) - p.interval_days; }
+function byName(a, b){ return a.name.localeCompare(b.name, 'he'); }
+/** Comparator for the chosen sort; ties fall back to the plant name. */
+function comparePlants(a, b){
+  var d = 0;
+  if (sortBy === 'status') {
+    d = (STATUS_RANK[a.status] != null ? STATUS_RANK[a.status] : 9) - (STATUS_RANK[b.status] != null ? STATUS_RANK[b.status] : 9);
+    if (!d && a.status !== 'auto') d = urgency(b) - urgency(a) || 0;
+  } else if (sortBy === 'water_asc' || sortBy === 'water_desc') {
+    // ascending: never watered first, then the oldest watering; descending: the newest watering first
+    var ka = lastWaterKey(a), kb = lastWaterKey(b);
+    d = ka < kb ? -1 : ka > kb ? 1 : 0;
+    if (sortBy === 'water_desc') d = -d;
+  } else if (sortBy === 'type') {
+    d = typeLabel(a.plant_type).localeCompare(typeLabel(b.plant_type), 'he');
+  }
+  return d || byName(a, b);
+}
+function setSearch(v){
+  searchText = v;
+  var input = document.getElementById('pt-search');
+  if (input.value !== v) input.value = v;
+  document.getElementById('pt-search-clear').hidden = !v;
+  renderRows();
+}
+function setSort(v){
+  sortBy = SORTS.indexOf(v) >= 0 ? v : 'status';
+  prefSet(SORT_KEY, sortBy);
+  renderRows();
+}
+function setGrouped(on){
+  grouped = !!on;
+  prefSet(GROUP_KEY, grouped ? '1' : '0');
+  renderRows();
+}
+/** Toolbar visibility and control state, kept in sync with the saved choices. */
+function renderTools(){
+  document.getElementById('pt-tools').hidden = !state.plants.length;
+  document.getElementById('pt-sort').value = sortBy;
+  document.getElementById('pt-group').checked = grouped;
+}
+function renderResultCount(shown){
+  var total = state.plants.length, out = document.getElementById('pt-result-count');
+  out.textContent = shown === total ? '' : shown + ' מתוך ' + total;
+}
+// "/" jumps to the search box (unless typing somewhere or a popup is open).
+document.addEventListener('keydown', function(e){
+  if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey) return;
+  var t = e.target, tag = t && t.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (t && t.isContentEditable)) return;
+  if (document.querySelector('.modal-backdrop.open') || document.getElementById('pt-tools').hidden) return;
+  e.preventDefault();
+  document.getElementById('pt-search').focus();
+});
+function plantRowHtml(p, days){
+  var cfg = p.config_id != null ? configById(p.config_id) : null;
+  var room = p.room_id != null ? roomById(p.room_id) : null;
+  var mode = cfg ? 'אוטומטי · ' + esc(cfg.name) + ' · ' + scheduleText(cfg)
+           : p.irrigation_mode === 'auto' ? 'אוטומטי · כל ' + p.interval_days + ' ימים · ' + esc(p.auto_time || '')
+           : 'ידני · כל ' + p.interval_days + ' ימים';
+  var last = !p.last_water ? 'טרם הושקה' : p.days_since_water === 0 ? 'הושקה היום'
+           : p.days_since_water === 1 ? 'הושקה אתמול' : 'הושקה לפני ' + p.days_since_water + ' ימים';
+  var pill = p.status === 'overdue' ? '<span class="pt-pill overdue">באיחור · ' + last + '</span>'
+           : p.status === 'due' ? '<span class="pt-pill due">להשקות היום</span>'
+           : p.status === 'checked' ? '<span class="pt-pill checked" title="' + esc(last) + '">נבדק · אדמה ' +
+               ((dayRow(p.id, state.today) || {}).soil_status === 'wet' ? 'רטובה' : 'לחה') + '</span>'
+           : p.status === 'auto' ? '<span class="pt-pill auto">' + last + '</span>'
+           : '<span class="pt-pill ok">' + last + '</span>';
+  return '<div class="pt-pcard' + (p.id < 0 ? ' pending' : '') + '">' +
+    '<button class="pt-plant" onclick="openPlantModal(' + p.id + ')" title="עריכת עציץ">' + plantBadge(p, 44) +
+      '<div><div class="pt-plant-name">' + esc(p.name) + '</div>' +
+      '<div class="pt-plant-meta">' + mode + (room ? ' · ' + esc(room.name) : '') + '</div></div>' + pill + '</button>' +
+    '<div class="pt-cells" data-pid="' + p.id + '">' + days.map(function(day){ return cellHtml(p, day); }).join('') + '</div>' +
+    plantTipsHtml(p.id) + (suggOpen ? careHtml(p.plant_type) : '') + '</div>';
+}
+
+// ── Rooms: filter chips + grouping ─────────────────────────────
+var ROOM_FILTER_KEY = 'plants_room_filter';
+var roomFilter = prefGet(ROOM_FILTER_KEY, '') || 'all';  // 'all' | 'none' | '<room id>'
+function setRoomFilter(v){
+  roomFilter = v;
+  prefSet(ROOM_FILTER_KEY, v);
+  renderRooms();
+  renderRows();
+}
+function roomById(id){ var rs = state.rooms || []; for (var i = 0; i < rs.length; i++) if (rs[i].id === id) return rs[i]; return null; }
+// Groups in room order with unassigned plants last; rooms without plants are skipped.
+function roomGroups(plants){
+  var groups = (state.rooms || []).map(function(r){ return {key: String(r.id), name: r.name, plants: []}; });
+  var none = {key: 'none', name: 'ללא חדר', plants: []};
+  var byKey = {};
+  groups.forEach(function(g){ byKey[g.key] = g; });
+  (plants || state.plants).forEach(function(p){ ((p.room_id != null && byKey[String(p.room_id)]) || none).plants.push(p); });
+  return groups.concat([none]).filter(function(g){ return g.plants.length; });
+}
+function renderRooms(){
+  var groups = roomGroups();
+  if (roomFilter !== 'all' && !groups.some(function(g){ return g.key === roomFilter; })) roomFilter = 'all';
+  var chips = [{key: 'all', name: 'הכל', n: state.plants.length}].concat(groups.map(function(g){
+    return {key: g.key, name: g.name, n: g.plants.length};
+  }));
+  document.getElementById('pt-room-chips').innerHTML = state.plants.length ? chips.map(function(c){
+    return '<button class="pt-chip' + (c.key === roomFilter ? ' on' : '') + '" onclick="setRoomFilter(\'' + c.key + '\')">' +
+      esc(c.name) + ' <b>' + c.n + '</b></button>';
+  }).join('') : '';
+}
+function cellHtml(p, day){
+  var d = parseDay(day), label = WEEKDAYS[d.getDay()] + '<b>' + d.getDate() + '</b>';
+  var r = dayRow(p.id, day);
+  if (!r) return '<div class="pt-cell blank"><span class="pt-cell-date">' + label + '</span></div>';
+  var drop = r.watered ? 'watered' : 'none';
+  var marks = dayEvents(p.id, day).filter(function(e){ return e.event_type !== 'water'; })
+    .map(function(e){ return '<span class="pt-mark" style="background:' + EVENT_COLORS[e.event_type] + '"></span>'; }).join('');
+  var tip = fmtDay(day) + (r.soil_status ? ' · אדמה ' + SOIL_LABELS[r.soil_status] : '') +
+            (r.watered ? (r.auto_confirmed ? ' · הושקה אוטומטית' : ' · הושקה') : '');
+  return '<button class="pt-cell' + (day === state.today ? ' today' : '') + '" title="' + esc(tip) + '" onclick="openDay(' + p.id + ',\'' + day + '\')">' +
+    '<span class="pt-cell-date">' + label + '</span>' +
+    '<svg class="pt-drop ' + drop + '" viewBox="0 0 16 18">' + DROP + '</svg>' +
+    '<span class="pt-marks">' + marks + '</span>' +
+    '<span class="pt-soil ' + (r.soil_status || '') + '"></span></button>';
+}
+
+// ── Day editor ─────────────────────────────────────────────────
+var dayCtx = null;
+function openDay(pid, day){ dayCtx = {pid: pid, day: day}; renderDay(); openModal('day-modal'); }
+function renderDay(){
+  var p = plantById(dayCtx.pid);
+  if (!p) { closeModal('day-modal'); dayCtx = null; return; }
+  var day = dayCtx.day, r = dayRow(p.id, day) || {}, evs = dayEvents(p.id, day);
+  var now = localDateTime(new Date());
+  var defAt = day === TODAY ? now : day + 'T12:00';
+  var soil = ['dry', 'humid', 'wet'].map(function(k){
+    return '<button class="' + (r.soil_status === k ? 'on' : '') + '" onclick="setSoil(\'' + k + '\')">' + SOIL_LABELS[k] + '</button>';
+  }).join('') + '<button class="' + (!r.soil_status ? 'on' : '') + '" onclick="setSoil(null)">לא ידוע</button>';
+  var types = Object.keys(EVENT_LABELS).filter(function(k){ return k !== 'water'; })
+    .map(function(k){ return '<option value="' + k + '">' + EVENT_LABELS[k] + '</option>'; }).join('');
+  var list = evs.length ? evs.map(function(e){
+    return '<div class="pt-ev"><span>' + EVENT_LABELS[e.event_type] + ' · ' + e.event_at.slice(11, 16) +
+      (AUTO_SOURCES.indexOf(e.source) >= 0 ? ' (אוטומטי)' : '') + (e.note ? ' — ' + esc(e.note) : '') + '</span>' +
+      '<button onclick="deleteEvent(' + e.id + ')" title="מחיקה" aria-label="מחיקה">✕</button></div>';
+  }).join('') : '<div class="pt-plant-meta">אין אירועים ביום זה</div>';
+  document.getElementById('day-body').innerHTML =
+    '<div class="modal-title" style="display:flex;align-items:center;gap:10px">' + plantBadge(p, 34) +
+      '<span>' + esc(p.name) + ' · ' + fmtDay(day) + '</span></div>' +
+    '<div class="field-row"><span class="field-label">מצב אדמה</span><div class="pt-seg">' + soil + '</div></div>' +
+    '<div class="field-row"><label class="field-label" for="day-at">מועד (ברירת מחדל: עכשיו)</label><div class="pt-inline">' +
+      '<input type="datetime-local" class="field-input" id="day-at" value="' + defAt + '" max="' + now + '">' +
+      '<button class="btn btn-primary" id="day-water-btn" onclick="addWater()">💧 סמן השקה</button></div></div>' +
+    '<div class="field-row"><span class="field-label">אירוע נוסף באותו מועד</span><div class="pt-inline">' +
+      '<select class="field-input" id="day-ev-type">' + types + '</select>' +
+      '<input class="field-input" id="day-ev-note" placeholder="הערה (לא חובה)" maxlength="200">' +
+      '<button class="btn btn-ghost" onclick="addOtherEvent()">הוסף</button></div></div>' +
+    '<div class="field-row"><span class="field-label">אירועים ביום זה</span><div class="pt-evlist">' + list + '</div></div>';
+}
+function eventAt(){ return document.getElementById('day-at').value; }
+/** Instant click feedback: the button turns green with `text` for a moment (the save goes on in the background). */
+function flashDone(id, text){
+  var b = document.getElementById(id);
+  if (!b) return;
+  var orig = b.innerHTML;
+  b.classList.add('done');
+  b.innerHTML = text;
+  setTimeout(function(){
+    var now = document.getElementById(id);   // a re-render may have replaced it — then it is already fresh
+    if (now === b) { b.classList.remove('done'); b.innerHTML = orig; }
+  }, 1500);
+}
+function setSoil(k){
+  var pid = dayCtx.pid, day = dayCtx.day;
+  mutate('PUT', '/api/plants/' + pid + '/soil', {day: day, soil_status: k}, function(st){
+    rowOf(st, pid, day).soil_status = k;
+    if (k) dropSuggestions(st, pid, ['no_soil']);
+    var p = findIn(st.plants, pid);
+    if (p && day === st.today) {   // a moist/wet check today turns "should water" off (and back on)
+      p.status = localStatus(p);
+      if (p.status === 'checked') dropSuggestions(st, pid, ['overdue']);
+    }
+  }, 'מצב האדמה עודכן');
+}
+function addWater(){
+  var pid = dayCtx.pid, at = eventAt();
+  mutate('POST', '/api/plants/' + pid + '/events', {event_type: 'water', event_at: at}, function(st){
+    addEventLocal(st, pid, 'water', at);
+    markWatered(st, pid, at.slice(0, 10));
+    dropSuggestions(st, pid, ['overdue']);
+  }, 'סומנה השקה');
+  flashDone('day-water-btn', '💧 סומנה ✓');
+}
+function addOtherEvent(){
+  var pid = dayCtx.pid, at = eventAt(), type = document.getElementById('day-ev-type').value,
+      note = document.getElementById('day-ev-note').value;
+  mutate('POST', '/api/plants/' + pid + '/events', {event_type: type, event_at: at, note: note}, function(st){
+    addEventLocal(st, pid, type, at, 'manual', note.trim());
+    if (type === 'fertilize') dropSuggestions(st, pid, ['fertilize']);
+  }, 'האירוע נוסף');
+}
+function deleteEvent(id){
+  var ev = null;
+  Object.keys(state.events).forEach(function(pid){ ev = ev || findIn(state.events[pid], id); });
+  var isAuto = ev && AUTO_SOURCES.indexOf(ev.source) >= 0;
+  if (stillSaving(id) || !confirm(isAuto ? 'לבטל את ההשקה האוטומטית של יום זה? היא לא תירשם שוב.' : 'למחוק את האירוע?')) return;
+  mutate('DELETE', '/api/plants/events/' + id, {}, function(st){
+    Object.keys(st.events).forEach(function(pid){
+      var e = findIn(st.events[pid], id);
+      if (!e) return;
+      st.events[pid] = st.events[pid].filter(function(x){ return x.id !== id; });
+      var day = e.event_at.slice(0, 10);
+      var stillWatered = st.events[pid].some(function(x){ return x.event_type === 'water' && x.event_at.slice(0, 10) === day; });
+      var r = rowOf(st, Number(pid), day);
+      if (e.event_type === 'water' && !stillWatered) r.watered = false;
+      if (AUTO_SOURCES.indexOf(e.source) >= 0) { r.auto_confirmed = false; r.auto_expected = false; }   // skipped day
+    });
+  }, isAuto ? 'ההשקה האוטומטית בוטלה' : 'האירוע נמחק');
+}
+
+// ── Plant add / edit ───────────────────────────────────────────
+var editCtx = null, editOrig = null;
+function plantSnapshot(e){
+  return e ? JSON.stringify([String(e.name).trim(), e.plant_type, e.color, e.irrigation_mode, String(e.interval_days),
+                             e.room_id, e.irrigation_mode === 'auto' ? e.config_id : null,
+                             e.id ? '' : !!e.photo_local]) : '';   // a new plant's chosen photo is part of the unsaved form
+}
+function plantDirty(){ return !!editCtx && plantSnapshot(editCtx) !== editOrig; }
+function pmDirty(){ setDirtyClass('pm-save', plantDirty()); }
+function openPlantModal(pid){
+  if (pid && stillSaving(pid)) return;
+  var p = pid ? plantById(pid) : null;
+  editCtx = p
+    ? {id: p.id, name: p.name, plant_type: p.plant_type, color: p.color, irrigation_mode: p.irrigation_mode,
+       interval_days: p.interval_days, auto_time: p.auto_time || '07:00', room_id: p.room_id,
+       config_id: p.config_id, photo: p.photo, photo_local: p.photo_local || null}
+    : {id: null, name: '', plant_type: 'monstera', color: PALETTE[(state ? state.plants.length : 0) % PALETTE.length],
+       irrigation_mode: 'manual', interval_days: 3, auto_time: '07:00',
+       room_id: /^\d+$/.test(roomFilter) ? Number(roomFilter) : null, config_id: null,  // default: the room being viewed
+       photo: null, photo_local: null};
+  editOrig = plantSnapshot(editCtx);
+  renderPlantModal();
+  openModal('plant-modal');
+  setTimeout(function(){ var n = document.getElementById('pm-name'); if (n) n.focus(); }, 50);
+}
+function pmSet(k, v){ editCtx[k] = v; renderPlantModal(); }
+function renderPlantModal(){
+  var e = editCtx;
+  var types = PLANT_TYPES.map(function(t){
+    return '<button class="' + (e.plant_type === t[0] ? 'on' : '') + '" onclick="pmSet(\'plant_type\',\'' + t[0] + '\')">' +
+      plantIcon(t[0], e.color, e.name || t[1], 40) + t[1] + '</button>';
+  }).join('');
+  var colors = PALETTE.map(function(c){
+    return '<button class="' + (e.color === c ? 'on' : '') + '" style="background:' + c + '" onclick="pmSet(\'color\',\'' + c + '\')" aria-label="' + c + '"></button>';
+  }).join('') + '<input type="color" value="' + esc(e.color) + '" onchange="pmSet(\'color\', this.value)" title="צבע מותאם">';
+  var rooms = '<option value="">ללא חדר</option>' + (state.rooms || []).map(function(r){
+    return '<option value="' + r.id + '"' + (e.room_id === r.id ? ' selected' : '') + '>' + esc(r.name) + '</option>';
+  }).join('');
+  var modes = '<button class="' + (e.irrigation_mode === 'manual' ? 'on' : '') + '" onclick="pmSet(\'irrigation_mode\',\'manual\')">ידנית</button>' +
+              '<button class="' + (e.irrigation_mode === 'auto' ? 'on' : '') + '" onclick="pmSet(\'irrigation_mode\',\'auto\')">אוטומטית</button>';
+  document.getElementById('plant-body').innerHTML =
+    '<div class="modal-title" style="display:flex;align-items:center;gap:10px">' + plantBadge(e, 40) +
+      '<span>' + (e.id ? 'עריכת עציץ' : 'עציץ חדש') + '</span></div>' +
+    '<div class="field-row"><label class="field-label" for="pm-name">שם</label>' +
+      '<input class="field-input" id="pm-name" maxlength="40" value="' + esc(e.name) + '" oninput="editCtx.name=this.value;pmDirty()"></div>' +
+    '<div class="field-row"><label class="field-label" for="pm-room">חדר</label>' +
+      '<select class="field-input" id="pm-room" onchange="editCtx.room_id = this.value ? Number(this.value) : null;pmDirty()">' + rooms + '</select></div>' +
+    '<div class="field-row"><span class="field-label">📷 תמונה</span><div class="pt-inline">' +
+      '<label class="btn btn-ghost btn-sm">' + (e.photo || e.photo_local ? 'החלפת תמונה' : 'העלאת תמונה') +
+        '<input type="file" accept="image/*" hidden onchange="pickPhoto(this)"></label>' +
+      (e.photo || e.photo_local ? '<button class="btn btn-ghost btn-sm" onclick="removePhoto()">הסרה</button>' : '') +
+      '<span class="pt-plant-meta">' + (e.id ? 'התמונה מחליפה את הסמל' : 'התמונה תישמר עם העציץ') + '</span></div></div>' +
+    '<div class="field-row"><span class="field-label">סוג (קובע את הסמל ואת טיפ הטיפול)</span><div class="pt-types">' + types + '</div>' +
+      (CARE[e.plant_type] ? '<div class="pt-care pt-care-inline"><b>🌿 ' + esc(CARE[e.plant_type].s) + '</b><div class="pt-care-body">' + careBody(e.plant_type) + '</div></div>' : '') +
+    '</div>' +
+    '<div class="field-row"><span class="field-label">צבע</span><div class="pt-colors">' + colors + '</div></div>' +
+    '<div class="field-row"><span class="field-label">השקיה</span><div class="pt-seg">' + modes + '</div></div>' +
+    (e.irrigation_mode === 'auto'
+      ? '<div class="field-row"><label class="field-label" for="pm-config">תוכנית השקיה</label>' +
+          ((state.configs || []).length
+            ? '<select class="field-input" id="pm-config" onchange="editCtx.config_id = this.value ? Number(this.value) : null;pmDirty()">' +
+                '<option value="">בחרו תוכנית…</option>' + state.configs.map(function(c){
+                  return '<option value="' + c.id + '"' + (e.config_id === c.id ? ' selected' : '') + '>' +
+                    esc(c.name) + ' · ' + scheduleText(c) + '</option>';
+                }).join('') + '</select>'
+            : '<div class="pt-plant-meta">אין עדיין תוכניות השקיה.</div>') +
+          '<button class="btn btn-ghost btn-xs" style="margin-top:6px" onclick="requestLeave(\'plant-modal\', function(){ closeModal(\'plant-modal\'); editConfig(null); })">+ תוכנית חדשה</button></div>'
+      : '<div class="field-row"><label class="field-label" for="pm-interval">כל כמה ימים</label>' +
+          '<input class="field-input" type="number" min="1" max="60" id="pm-interval" value="' + e.interval_days + '" oninput="editCtx.interval_days=this.value;pmDirty()"></div>') +
+    '<div class="modal-footer">' +
+      (e.id ? '<button class="btn btn-danger" onclick="deletePlant()">מחיקה</button>' +
+              '<button class="btn btn-ghost" style="margin-left:auto" onclick="requestLeave(\'plant-modal\', function(){ var id = editCtx.id; closeModal(\'plant-modal\'); openDead(id); })">🥀 סמן כמת</button>' : '') +
+      '<button class="btn btn-ghost" onclick="requestLeave(\'plant-modal\')">ביטול</button>' +
+      '<button id="pm-save" class="btn btn-primary' + (plantDirty() ? ' dirty' : '') + '" onclick="savePlant()">שמירה</button></div>';
+}
+// Returns false when the form is invalid (the popup then stays open).
+function savePlant(){
+  var e = editCtx;
+  if (!e) return true;
+  var interval = parseInt(e.interval_days, 10);
+  var body = {name: String(e.name).trim(), plant_type: e.plant_type, color: e.color,
+              irrigation_mode: e.irrigation_mode, interval_days: interval, room_id: e.room_id};
+  if (!body.name) { toast('יש להזין שם', true); return false; }
+  if (e.irrigation_mode === 'auto') {
+    if (e.config_id == null) { toast('בחרו תוכנית השקיה', true); return false; }
+    body.config_id = e.config_id;
+  } else if (!(interval >= 1 && interval <= 60)) { toast('מרווח השקיה חייב להיות 1-60 ימים', true); return false; }
+  var auto = e.irrigation_mode === 'auto';
+  if (e.id) {
+    mutate('PUT', '/api/plants/' + e.id, body, function(st){
+      var p = findIn(st.plants, e.id);
+      Object.assign(p, {name: body.name, plant_type: body.plant_type, color: body.color, irrigation_mode: body.irrigation_mode,
+                        interval_days: auto ? p.interval_days : interval, room_id: body.room_id,
+                        config_id: auto ? body.config_id : null});
+      p.status = localStatus(p);
+    }, 'העציץ עודכן');
+  } else {
+    var photo = e.photo_local;
+    mutate('POST', '/api/plants', body, function(st){
+      var id = tempSeq--;
+      st.plants.push({id: id, name: body.name, plant_type: body.plant_type, color: body.color, irrigation_mode: body.irrigation_mode,
+                      interval_days: auto ? 3 : interval, auto_time: null, season_ack: null, created_at: st.today,
+                      last_water: null, days_since_water: 0, status: auto ? 'auto' : 'ok',
+                      room_id: body.room_id, config_id: auto ? body.config_id : null, photo: null, photo_local: photo});
+      rowOf(st, id, st.today);
+    }, 'העציץ נוסף').then(function(d){ if (d && photo) uploadPhoto(d.created_id, photo); });
+  }
+  editCtx = null;
+  closeModal('plant-modal');
+  return true;
+}
+// Centre-crop to a square and shrink to a small JPEG before upload (a phone photo becomes ~30-50 KB).
+function resizeImage(file, size){
+  return new Promise(function(resolve, reject){
+    var url = URL.createObjectURL(file), img = new Image();
+    img.onload = function(){
+      var side = Math.min(img.naturalWidth, img.naturalHeight), c = document.createElement('canvas');
+      c.width = c.height = size;
+      c.getContext('2d').drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side, 0, 0, size, size);
+      URL.revokeObjectURL(url);
+      var q = 0.85, out = c.toDataURL('image/jpeg', q);
+      while (out.length > 380000 && q > 0.45) { q -= 0.1; out = c.toDataURL('image/jpeg', q); }
+      resolve(out);
+    };
+    img.onerror = function(){ URL.revokeObjectURL(url); reject(new Error('לא ניתן לקרוא את התמונה')); };
+    img.src = url;
+  });
+}
+function pickPhoto(input){
+  var file = input.files && input.files[0];
+  input.value = '';
+  if (!file || !editCtx) return;
+  resizeImage(file, 320).then(function(data){
+    if (!editCtx) return;
+    editCtx.photo_local = data;
+    if (editCtx.id) uploadPhoto(editCtx.id, data);   // an existing plant: save right away
+    renderPlantModal();
+    pmDirty();
+  }).catch(function(e){ toast(e.message, true); });
+}
+function uploadPhoto(pid, data){
+  mutate('PUT', '/api/plants/' + pid + '/photo', {data: data}, function(st){
+    var p = findIn(st.plants, pid);
+    if (p) p.photo_local = data;
+  }, 'התמונה נשמרה');
+}
+function removePhoto(){
+  var e = editCtx;
+  if (!e) return;
+  if (!e.id) { e.photo_local = null; renderPlantModal(); pmDirty(); return; }
+  if (!confirm('להסיר את התמונה ולחזור לסמל?')) return;
+  e.photo = null; e.photo_local = null;
+  mutate('DELETE', '/api/plants/' + e.id + '/photo', {}, function(st){
+    var p = findIn(st.plants, e.id);
+    if (p) { p.photo = null; p.photo_local = null; }
+  }, 'התמונה הוסרה');
+  renderPlantModal();
+}
+function deletePlant(){
+  var e = editCtx;
+  if (!confirm('למחוק את "' + e.name + '"? אפשר לשחזר מתוך "נמחקו".')) return;
+  var gone = plantById(e.id);
+  mutate('DELETE', '/api/plants/' + e.id, {}, function(st){
+    st.plants = st.plants.filter(function(p){ return p.id !== e.id; });
+    dropSuggestions(st, e.id);
+    if (gone) deletedPlants.unshift(gone);
+  }, 'העציץ נמחק');
+  editCtx = null;
+  closeModal('plant-modal');
+}
+
+// ── Deleted / restore ──────────────────────────────────────────
+var deletedPlants = [];
+function renderDeletedList(){
+  document.getElementById('deleted-body').innerHTML = deletedPlants.length ? deletedPlants.map(function(p){
+    return '<div class="pt-restore-row">' + plantBadge(p, 30) + '<span>' + esc(p.name) + '</span>' +
+      '<button class="btn btn-ghost btn-sm" onclick="restorePlant(' + p.id + ')">שחזור</button></div>';
+  }).join('') : '<div class="pt-plant-meta">אין עציצים שנמחקו</div>';
+}
+function openDeleted(){
+  renderDeletedList();
+  openModal('deleted-modal');
+  fetch('/api/plants/deleted').then(function(r){ return r.json(); }).then(function(d){
+    if (!d.ok) throw new Error(d.error);
+    deletedPlants = d.plants;
+    renderDeletedList();
+  }).catch(function(e){ toast(e.message || 'שגיאה', true); });
+}
+function restorePlant(id){
+  var p = findIn(deletedPlants, id);
+  mutate('POST', '/api/plants/' + id + '/restore', {}, function(st){
+    deletedPlants = deletedPlants.filter(function(x){ return x.id !== id; });
+    if (p && !findIn(st.plants, id)) st.plants.push(p);
+  }, 'העציץ שוחזר');
+}
+
+// ── Dead plants → archive ──────────────────────────────────────
+var CAUSE_LABELS = {overwater: 'השקיית יתר', underwater: 'חוסר מים', pests: 'מזיקים', temperature: 'חום / קור', unknown: 'לא ידוע'};
+var deadCtx = null, archivePlants = [];
+function deadDirty(){ return !!deadCtx && (deadCtx.died_at !== TODAY || deadCtx.cause !== 'unknown' || deadCtx.note.trim() !== ''); }
+function deadMarkDirty(){ setDirtyClass('dead-save', deadDirty()); }
+function openDead(pid){
+  if (stillSaving(pid)) return;
+  deadCtx = {id: pid, died_at: TODAY, cause: 'unknown', note: ''};
+  renderDead();
+  openModal('dead-modal');
+}
+function deadSet(k, v){ deadCtx[k] = v; renderDead(); }
+function renderDead(){
+  var c = deadCtx, p = plantById(c.id);
+  if (!p) { closeModal('dead-modal'); deadCtx = null; return; }
+  var causes = Object.keys(CAUSE_LABELS).map(function(k){
+    return '<button class="' + (c.cause === k ? 'on' : '') + '" onclick="deadSet(\'cause\',\'' + k + '\')">' + CAUSE_LABELS[k] + '</button>';
+  }).join('');
+  document.getElementById('dead-body').innerHTML =
+    '<div class="modal-title" style="display:flex;align-items:center;gap:10px">' + plantBadge(p, 36) +
+      '<span>🥀 ' + esc(p.name) + ' — העברה לארכיון</span></div>' +
+    '<div class="field-row"><label class="field-label" for="dead-date">תאריך</label>' +
+      '<input class="field-input" type="date" id="dead-date" value="' + c.died_at + '" min="' + p.created_at + '" max="' + TODAY + '" ' +
+      'oninput="deadCtx.died_at=this.value;deadMarkDirty()"></div>' +
+    '<div class="field-row"><span class="field-label">סיבה</span><div class="pt-seg">' + causes + '</div></div>' +
+    '<div class="field-row"><label class="field-label" for="dead-note">הערה (לא חובה)</label>' +
+      '<input class="field-input" id="dead-note" maxlength="200" placeholder="מה למדנו?" value="' + esc(c.note) + '" ' +
+      'oninput="deadCtx.note=this.value;deadMarkDirty()"></div>' +
+    '<div class="pt-plant-meta" style="white-space:normal">העציץ יוסר מהדף, ההיסטוריה שלו נשמרת ואפשר להחיות אותו מהארכיון.</div>' +
+    '<div class="modal-footer"><button class="btn btn-ghost" onclick="requestLeave(\'dead-modal\')">ביטול</button>' +
+      '<button id="dead-save" class="btn btn-danger' + (deadDirty() ? ' dirty' : '') + '" onclick="saveDead()">העבר לארכיון</button></div>';
+}
+// Returns false when the form is invalid (the popup then stays open).
+function saveDead(){
+  var c = deadCtx;
+  if (!c) return true;
+  if (!c.died_at || c.died_at > TODAY) { toast('תאריך לא תקין', true); return false; }
+  var p = plantById(c.id), note = c.note.trim();
+  mutate('POST', '/api/plants/' + c.id + '/dead', {died_at: c.died_at, cause: c.cause, note: note}, function(st){
+    st.plants = st.plants.filter(function(x){ return x.id !== c.id; });
+    dropSuggestions(st, c.id);
+    if (p) archivePlants.unshift(Object.assign({}, p, {died_at: c.died_at, cause: c.cause, note: note || null,
+      lifespan_days: daysBetween(p.created_at, c.died_at), waterings: null}));
+  }, (p ? p.name : 'העציץ') + ' הועבר לארכיון');
+  deadCtx = null;
+  closeModal('dead-modal');
+  return true;
+}
+function fmtDate(iso){ var d = parseDay(iso); return d.getDate() + '/' + (d.getMonth() + 1) + '/' + d.getFullYear(); }
+function fmtLifespan(n){ return n < 60 ? n + ' ימים' : n < 730 ? Math.round(n / 30.4) + ' חודשים' : (n / 365).toFixed(1) + ' שנים'; }
+function renderArchiveList(){
+  document.getElementById('archive-body').innerHTML = archivePlants.length ? archivePlants.map(function(p){
+    return '<div class="pt-arch-row">' + plantBadge(p, 36) +
+      '<div><div class="pt-cfg-name">' + esc(p.name) + '</div>' +
+      '<div class="pt-plant-meta">🥀 ' + fmtDate(p.died_at) + ' · חי ' + fmtLifespan(p.lifespan_days) +
+        ' · ' + CAUSE_LABELS[p.cause || 'unknown'] + (p.waterings != null ? ' · ' + p.waterings + ' השקיות' : '') + '</div>' +
+      (p.note ? '<div class="pt-arch-note">' + esc(p.note) + '</div>' : '') + '</div>' +
+      '<button class="btn btn-ghost btn-sm" onclick="revivePlant(' + p.id + ')">החייאה</button></div>';
+  }).join('') : '<div class="pt-plant-meta">הארכיון ריק 🌱</div>';
+}
+function openArchive(){
+  renderArchiveList();
+  openModal('archive-modal');
+  fetch('/api/plants/archive').then(function(r){ return r.json(); }).then(function(d){
+    if (!d.ok) throw new Error(d.error);
+    archivePlants = d.plants;
+    renderArchiveList();
+  }).catch(function(e){ toast(e.message || 'שגיאה', true); });
+}
+function revivePlant(id){
+  var p = findIn(archivePlants, id);
+  mutate('POST', '/api/plants/' + id + '/revive', {}, function(st){
+    archivePlants = archivePlants.filter(function(x){ return x.id !== id; });
+    if (p && !findIn(st.plants, id)) {
+      var alive = Object.assign({}, p);
+      ['died_at', 'cause', 'note', 'lifespan_days', 'waterings'].forEach(function(k){ delete alive[k]; });
+      st.plants.push(alive);
+    }
+  }, (p ? p.name : 'העציץ') + ' חזר לחיים 🌱');
+}
+
+// ── Irrigation configs ─────────────────────────────────────────
+var DAY_LETTERS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];  // Sun=0 … Sat=6
+function configById(id){ var cs = state.configs || []; for (var i = 0; i < cs.length; i++) if (cs[i].id === id) return cs[i]; return null; }
+function scheduleText(c){
+  var when = c.style === 'weekdays'
+    ? c.weekdays.map(function(d){ return DAY_LETTERS[d] + "׳"; }).join(' ')
+    : 'כל ' + c.interval_days + ' ימים';
+  return when + ' ' + esc(c.time) + (c.style === 'interval' && c.start_date ? ' · מ-' + fmtShort(c.start_date) : '');
+}
+function fmtShort(iso){ var d = parseDay(iso); return d.getDate() + '/' + (d.getMonth() + 1); }
+function countOn(cid){ return state.plants.filter(function(p){ return p.irrigation_mode === 'auto' && p.config_id === cid; }).length; }
+var cfgCtx = null, cfgOrig = null;
+function cfgSnapshot(c){
+  return c ? JSON.stringify([String(c.name).trim(), c.style, c.style === 'interval' ? String(c.interval_days) : '',
+                             c.style === 'weekdays' ? c.weekdays.slice().sort() : [], c.time, c.plant_ids.slice().sort(),
+                             c.style === 'interval' ? c.start_date : '']) : '';
+}
+function cfgDirty(){ return !!cfgCtx && cfgSnapshot(cfgCtx) !== cfgOrig; }
+function cfgMarkDirty(){ setDirtyClass('cfg-save', cfgDirty()); }
+function renderConfigList(){
+  var list = state.configs || [];
+  document.getElementById('configs-body').innerHTML =
+    '<div class="modal-title">תוכניות השקיה</div>' +
+    (list.length ? list.map(function(c){
+      return '<div class="pt-cfg-row"><div><div class="pt-cfg-name">' + esc(c.name) + '</div>' +
+        '<div class="pt-plant-meta">' + scheduleText(c) + ' · ' + countOn(c.id) + ' עציצים</div></div>' +
+        '<button class="btn btn-ghost btn-sm" onclick="editConfig(' + c.id + ')">עריכה</button>' +
+        '<button class="btn btn-ghost btn-sm" onclick="deleteConfig(' + c.id + ')" title="מחיקה" aria-label="מחיקה">✕</button></div>';
+    }).join('') : '<div class="pt-plant-meta">עוד אין תוכניות. תוכנית אחת יכולה לשמש עציצים רבים.</div>') +
+    '<div class="modal-footer"><button class="btn btn-primary" onclick="editConfig(null)">+ תוכנית חדשה</button></div>';
+}
+function openConfigs(){
+  cfgCtx = null;
+  renderConfigList();
+  openModal('configs-modal');
+}
+function editConfig(id){
+  if (id != null && stillSaving(id)) return;
+  var c = id != null ? configById(id) : null;
+  cfgCtx = c
+    ? {id: c.id, name: c.name, style: c.style, interval_days: c.interval_days || 2, weekdays: c.weekdays.slice(), time: c.time,
+       start_date: c.start_date || '',
+       plant_ids: state.plants.filter(function(p){ return p.config_id === c.id; }).map(function(p){ return p.id; })}
+    : {id: null, name: '', style: 'interval', interval_days: 2, weekdays: [], time: '07:00', plant_ids: [], start_date: TODAY};
+  cfgOrig = cfgSnapshot(cfgCtx);
+  renderConfigEditor();
+  openModal('configs-modal');
+}
+function cfgSet(k, v){ cfgCtx[k] = v; renderConfigEditor(); }
+function cfgToggleDay(d){
+  var i = cfgCtx.weekdays.indexOf(d);
+  if (i < 0) cfgCtx.weekdays.push(d); else cfgCtx.weekdays.splice(i, 1);
+  renderConfigEditor();
+}
+function cfgTogglePlant(pid, on){
+  cfgCtx.plant_ids = cfgCtx.plant_ids.filter(function(x){ return x !== pid; });
+  if (on) cfgCtx.plant_ids.push(pid);
+  cfgMarkDirty();
+}
+function renderConfigEditor(){
+  var c = cfgCtx;
+  var styles = '<button class="' + (c.style === 'interval' ? 'on' : '') + '" onclick="cfgSet(\'style\',\'interval\')">כל כמה ימים</button>' +
+               '<button class="' + (c.style === 'weekdays' ? 'on' : '') + '" onclick="cfgSet(\'style\',\'weekdays\')">ימים בשבוע</button>';
+  var when = c.style === 'interval'
+    ? '<input class="field-input" type="number" min="1" max="60" id="cfg-interval" value="' + c.interval_days + '" oninput="cfgCtx.interval_days=this.value;cfgMarkDirty()">' +
+      '<label class="field-label" for="cfg-start" style="margin-top:10px">תאריך התחלה — יום השקיה של הטיימר</label>' +
+      '<input class="field-input" type="date" id="cfg-start" value="' + esc(c.start_date || '') + '" oninput="cfgCtx.start_date=this.value;cfgMarkDirty()">' +
+      (c.start_date ? '' : '<div class="pt-plant-meta" style="white-space:normal">בלי תאריך: הספירה מתחילה מההשקיה האחרונה של כל עציץ.</div>')
+    : '<div class="pt-days">' + DAY_LETTERS.map(function(l, d){
+        return '<button class="' + (c.weekdays.indexOf(d) >= 0 ? 'on' : '') + '" onclick="cfgToggleDay(' + d + ')">' + l + '</button>';
+      }).join('') + '</div>';
+  var plants = state.plants.filter(function(p){ return p.id > 0; }).map(function(p){
+    var other = p.config_id != null && p.config_id !== c.id ? configById(p.config_id) : null;
+    return '<label><input type="checkbox"' + (c.plant_ids.indexOf(p.id) >= 0 ? ' checked' : '') +
+      ' onchange="cfgTogglePlant(' + p.id + ', this.checked)">' + plantBadge(p, 24) + esc(p.name) +
+      (other ? '<small>כעת: ' + esc(other.name) + '</small>' : '') + '</label>';
+  }).join('');
+  document.getElementById('configs-body').innerHTML =
+    '<div class="modal-title">' + (c.id ? 'עריכת תוכנית' : 'תוכנית השקיה חדשה') + '</div>' +
+    '<div class="field-row"><label class="field-label" for="cfg-name">שם</label>' +
+      '<input class="field-input" id="cfg-name" maxlength="30" placeholder="טפטפת מרפסת" value="' + esc(c.name) + '" oninput="cfgCtx.name=this.value;cfgMarkDirty()"></div>' +
+    '<div class="field-row"><span class="field-label">מתי</span><div class="pt-seg">' + styles + '</div></div>' +
+    '<div class="field-row">' + when + '</div>' +
+    '<div class="field-row"><label class="field-label" for="cfg-time">שעה</label>' +
+      '<input class="field-input" type="time" id="cfg-time" value="' + esc(c.time) + '" oninput="cfgCtx.time=this.value;cfgMarkDirty()"></div>' +
+    '<div class="field-row"><span class="field-label">עציצים בתוכנית (יעברו להשקיה אוטומטית)</span>' +
+      '<div class="pt-pick">' + (plants || '<div class="pt-plant-meta">אין עציצים</div>') + '</div></div>' +
+    '<div class="modal-footer"><button class="btn btn-ghost" onclick="requestLeave(\'configs-modal\', openConfigs)">חזרה</button>' +
+      '<button id="cfg-save" class="btn btn-primary' + (cfgDirty() ? ' dirty' : '') + '" onclick="saveConfig()">שמירה</button></div>';
+}
+// Returns false when the form is invalid (the popup then stays open).
+function saveConfig(){
+  var c = cfgCtx;
+  if (!c) return true;
+  var body = {name: String(c.name).trim(), style: c.style, time: c.time, plant_ids: c.plant_ids.slice()};
+  if (!body.name) { toast('יש להזין שם לתוכנית', true); return false; }
+  if ((state.configs || []).some(function(x){ return x.name === body.name && x.id !== c.id; })) { toast('קיימת כבר תוכנית בשם זה', true); return false; }
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(body.time || '')) { toast('שעת השקיה לא תקינה', true); return false; }
+  if (c.style === 'interval') {
+    body.interval_days = parseInt(c.interval_days, 10);
+    if (!(body.interval_days >= 1 && body.interval_days <= 60)) { toast('מרווח השקיה חייב להיות 1-60 ימים', true); return false; }
+    body.start_date = c.start_date || null;
+  } else {
+    body.weekdays = c.weekdays.slice().sort();
+    if (!body.weekdays.length) { toast('יש לבחור לפחות יום אחד', true); return false; }
+  }
+  function assignLocal(st, cid){
+    st.plants.forEach(function(p){
+      var on = body.plant_ids.indexOf(p.id) >= 0;
+      if (on) { p.irrigation_mode = 'auto'; p.config_id = cid; }
+      else if (p.config_id === cid) { p.irrigation_mode = 'manual'; p.config_id = null; }
+      p.status = localStatus(p);
+    });
+  }
+  var fields = {name: body.name, style: body.style, time: body.time,
+                interval_days: body.style === 'interval' ? body.interval_days : null,
+                weekdays: body.style === 'weekdays' ? body.weekdays : [],
+                start_date: body.style === 'interval' ? body.start_date : null};
+  var req;
+  if (c.id) {
+    req = mutate('PUT', '/api/plants/configs/' + c.id, body, function(st){
+      Object.assign(findIn(st.configs, c.id), fields);
+      assignLocal(st, c.id);
+    }, 'התוכנית עודכנה');
+  } else {
+    req = mutate('POST', '/api/plants/configs', body, function(st){
+      var id = tempSeq--;
+      st.configs.push(Object.assign({id: id, plant_count: body.plant_ids.length}, fields));
+      assignLocal(st, id);
+    }, 'התוכנית נוצרה');
+  }
+  // Once the plan is saved, offer to bring the timeline's past days in line with it.
+  if (body.plant_ids.length) req.then(function(d){ if (d) askRealign(c.id || d.created_id, body.name); });
+  openConfigs();
+  return true;
+}
+// Same rule as the server's is_expected_on; null = an older plan without a start date (server decides).
+function expectedOn(cfg, day){
+  if (cfg.style === 'weekdays') return cfg.weekdays.indexOf(parseDay(day).getDay()) >= 0;
+  if (cfg.start_date) { var g = daysBetween(cfg.start_date, day); return g >= 0 && g % cfg.interval_days === 0; }
+  return null;
+}
+function askRealign(cid, name){
+  var el = document.getElementById('pt-prompt');
+  el.innerHTML = '<span>ליישר את 14 הימים האחרונים בציר הזמן לפי "' + esc(name) + '"? השקיות שהזנתם בעצמכם לא ישתנו.</span>' +
+    '<button class="btn btn-primary btn-xs" id="pt-realign-yes">יישר</button>' +
+    '<button class="btn btn-ghost btn-xs" id="pt-realign-no">לא עכשיו</button>';
+  el.className = 'pt-prompt show';
+  document.getElementById('pt-realign-no').onclick = function(){ el.className = 'pt-prompt'; };
+  document.getElementById('pt-realign-yes').onclick = function(){ el.className = 'pt-prompt'; realignConfig(cid); };
+}
+function realignConfig(cid){
+  mutate('POST', '/api/plants/configs/' + cid + '/realign', {}, function(st){
+    var cfg = findIn(st.configs, cid);
+    if (!cfg) return;
+    st.plants.forEach(function(p){
+      if (p.irrigation_mode !== 'auto' || p.config_id !== cid) return;
+      var evs = st.events[String(p.id)] || [];
+      (st.days[String(p.id)] || []).forEach(function(r){
+        var water = evs.filter(function(e){ return e.event_type === 'water' && e.event_at.slice(0, 10) === r.day; });
+        if (water.some(function(e){ return e.source !== 'auto'; })) return;   // the user's own record — never changed
+        var want = expectedOn(cfg, r.day);
+        if (want === null) return;                                            // the server decides
+        if (!want && water.length) {                                          // the plan no longer waters this day
+          st.events[String(p.id)] = evs = evs.filter(function(e){ return water.indexOf(e) < 0; });
+          r.watered = r.auto_confirmed = false;
+        } else if (want && !r.watered) {                                      // recorded right away, like the server
+          addEventLocal(st, p.id, 'water', r.day + 'T' + cfg.time, 'auto');
+          evs = st.events[String(p.id)];
+          r.watered = r.auto_confirmed = true;
+        }
+        r.auto_expected = want;
+      });
+    });
+  }, 'ציר הזמן יושר לפי התוכנית');
+}
+function deleteConfig(id){
+  if (stillSaving(id)) return;
+  var c = configById(id), used = countOn(id);
+  if (used) { toast('התוכנית בשימוש ב-' + used + ' עציצים — העבירו אותם לתוכנית אחרת או להשקיה ידנית', true); return; }
+  if (!confirm('למחוק את התוכנית "' + (c ? c.name : '') + '"?')) return;
+  mutate('DELETE', '/api/plants/configs/' + id, {}, function(st){
+    st.configs = st.configs.filter(function(x){ return x.id !== id; });
+  }, 'התוכנית נמחקה');
+}
+
+// ── Room manager ───────────────────────────────────────────────
+// Rendered from state, so it follows every change instantly; typed-but-unsaved names survive re-renders.
+var deletedRooms = [];
+function roomInputValue(id){ var el = document.getElementById('room-name-' + id); return el ? el.value : null; }
+function newRoomName(){ var el = document.getElementById('room-new'); return el ? el.value.trim() : ''; }
+function dirtyRoomIds(){
+  return (state.rooms || []).filter(function(r){
+    var v = roomInputValue(r.id);
+    return v !== null && v.trim() !== r.name;
+  }).map(function(r){ return r.id; });
+}
+function roomsDirty(){ return isOpen('rooms-modal') && (dirtyRoomIds().length > 0 || newRoomName() !== ''); }
+function roomInput(id){ var r = roomById(id); setDirtyClass('room-save-' + id, !!r && roomInputValue(id).trim() !== r.name); }
+function newRoomInput(){ setDirtyClass('room-add', newRoomName() !== ''); }
+function renderRoomsManager(){
+  var typed = {}, typedNew = (document.getElementById('room-new') || {}).value || '';
+  (state.rooms || []).forEach(function(r){ var v = roomInputValue(r.id); if (v !== null) typed[r.id] = v; });
+  var counts = {};
+  state.plants.forEach(function(p){ if (p.room_id != null) counts[p.room_id] = (counts[p.room_id] || 0) + 1; });
+  document.getElementById('rooms-body').innerHTML =
+    (state.rooms || []).map(function(r){
+      var v = typed.hasOwnProperty(r.id) ? typed[r.id] : r.name, dirty = v.trim() !== r.name, temp = r.id < 0;
+      return '<div class="pt-room-row"><input class="field-input" id="room-name-' + r.id + '" maxlength="30" value="' + esc(v) + '"' +
+          (temp ? ' disabled' : ' oninput="roomInput(' + r.id + ')"') + '>' +
+        '<span class="pt-room-count" title="עציצים בחדר">' + (counts[r.id] || 0) + '</span>' +
+        '<button id="room-save-' + r.id + '" class="btn btn-ghost btn-sm' + (dirty ? ' dirty' : '') + '" onclick="renameRoom(' + r.id + ')"' + (temp ? ' disabled' : '') + '>שמירה</button>' +
+        '<button class="btn btn-ghost btn-sm" onclick="deleteRoom(' + r.id + ')" title="מחיקה" aria-label="מחיקה"' + (temp ? ' disabled' : '') + '>✕</button></div>';
+    }).join('') +
+    '<div class="pt-room-row"><input class="field-input" id="room-new" maxlength="30" placeholder="חדר חדש" value="' + esc(typedNew) + '" oninput="newRoomInput()">' +
+      '<button id="room-add" class="btn btn-primary btn-sm' + (typedNew.trim() ? ' dirty' : '') + '" onclick="addRoom()">+ הוסף</button></div>' +
+    (deletedRooms.length
+      ? '<div class="field-label" style="margin-top:16px">חדרים שנמחקו</div>' + deletedRooms.map(function(r){
+          return '<div class="pt-restore-row"><span>' + esc(r.name) + '</span>' +
+            '<button class="btn btn-ghost btn-sm" onclick="restoreRoom(' + r.id + ')">שחזור</button></div>';
+        }).join('')
+      : '');
+}
+function openRooms(){
+  var body = document.getElementById('rooms-body');
+  body.innerHTML = '';   // fresh form: no leftover typing from a discarded session
+  renderRoomsManager();
+  openModal('rooms-modal');
+  fetch('/api/plants/rooms').then(function(r){ return r.json(); }).then(function(d){
+    if (!d.ok) throw new Error(d.error);
+    deletedRooms = d.deleted;
+    if (isOpen('rooms-modal')) renderRoomsManager();
+  }).catch(function(e){ toast(e.message || 'שגיאה', true); });
+}
+function roomNameError(name, exceptId){
+  if (!name || name.length > 30) return 'שם חדר חייב להכיל 1-30 תווים';
+  if ((state.rooms || []).some(function(r){ return r.name === name && r.id !== exceptId; })) return 'קיים כבר חדר בשם זה';
+  return '';
+}
+function addRoom(){
+  var name = newRoomName(), err = roomNameError(name, null);
+  if (err) { toast(err, true); return false; }
+  document.getElementById('room-new').value = '';
+  mutate('POST', '/api/plants/rooms', {name: name}, function(st){ st.rooms.push({id: tempSeq--, name: name}); }, 'החדר נוסף');
+  return true;
+}
+function renameRoom(id){
+  if (stillSaving(id)) return true;
+  var r = roomById(id), name = (roomInputValue(id) || '').trim();
+  if (!r || name === r.name) return true;
+  var err = roomNameError(name, id);
+  if (err) { toast(err, true); return false; }
+  mutate('PUT', '/api/plants/rooms/' + id, {name: name}, function(st){ findIn(st.rooms, id).name = name; }, 'שם החדר עודכן');
+  return true;
+}
+function saveAllRooms(){
+  var ok = true;
+  dirtyRoomIds().forEach(function(id){ if (renameRoom(id) === false) ok = false; });
+  if (newRoomName() && addRoom() === false) ok = false;
+  return ok;
+}
+function deleteRoom(id){
+  if (stillSaving(id)) return;
+  var r = roomById(id);
+  if (!confirm('למחוק את החדר "' + (r ? r.name : '') + '"? העציצים שבו יופיעו תחת "ללא חדר" עד שתשחזרו אותו.')) return;
+  mutate('DELETE', '/api/plants/rooms/' + id, {}, function(st){
+    st.rooms = st.rooms.filter(function(x){ return x.id !== id; });
+    st.plants.forEach(function(p){ if (p.room_id === id) p.room_id = null; });
+    if (r) deletedRooms.unshift({id: r.id, name: r.name});
+  }, 'החדר נמחק');
+}
+function restoreRoom(id){
+  var r = findIn(deletedRooms, id);
+  if (r && (state.rooms || []).some(function(x){ return x.name === r.name; })) { toast('קיים כבר חדר בשם זה', true); return; }
+  mutate('POST', '/api/plants/rooms/' + id + '/restore', {}, function(st){
+    deletedRooms = deletedRooms.filter(function(x){ return x.id !== id; });
+    if (r) st.rooms.push({id: r.id, name: r.name});
+  }, 'החדר שוחזר');
+}
+
+init();
+</script>
+
+<button class="debug-fab" id="debug-fab" onclick="toggleDebugPanel()" title="App logs">&lt;/&gt;</button>
+<div class="debug-panel" id="debug-panel">
+  <div class="debug-hdr"><span>&#9658; app logs</span><div class="debug-hdr-btns"><button onclick="copyDebugPanel()">copy</button><button onclick="clearDebugPanel()">clear</button><button onclick="toggleDebugPanel()">&#x2715;</button></div></div>
+  <div class="debug-feed" id="debug-feed"></div>
+</div>
+<script>
+var _dbgEs=null;
+function toggleDebugPanel(){var p=document.getElementById('debug-panel');var open=p.classList.toggle('open');if(open&&!_dbgEs)_startDebugStream()}
+function _startDebugStream(){if(_dbgEs)return;_dbgEs=new EventSource('/api/debug-logs');_dbgEs.onmessage=function(e){if(!e.data||!e.data.trim())return;var f=document.getElementById('debug-feed');if(!f)return;var d=document.createElement('div');d.className='debug-line'+(e.data.toLowerCase().indexOf('error')>=0?' err':e.data.toLowerCase().indexOf('warn')>=0?' warn':'');d.textContent=e.data;f.appendChild(d);f.scrollTop=f.scrollHeight};_dbgEs.onerror=function(){if(_dbgEs){_dbgEs.close();_dbgEs=null}setTimeout(_startDebugStream,4000)}}
+// Delayed: /api/debug-logs never returns (true SSE stream); starting it at
+// the same instant as the page's real data fetches can starve them of a
+// serverless execution slot. Server buffers logs regardless of client
+// connection, so delaying costs no history.
+document.addEventListener('DOMContentLoaded',function(){setTimeout(_startDebugStream,3000)});
+function clearDebugPanel(){document.getElementById('debug-feed').innerHTML=''}
+function copyDebugPanel(){var f=document.getElementById('debug-feed');navigator.clipboard.writeText(Array.from(f.children).map(function(e){return e.textContent}).join('\n')).catch(function(){})}
+</script>
+</body>
+</html>

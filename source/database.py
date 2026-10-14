@@ -1,6 +1,11 @@
 import os
+import threading
+import time
+import weakref
 import psycopg2
+import psycopg2.pool
 from dotenv import load_dotenv
+from db_pool import PoolGate
 
 load_dotenv()
 from datetime import datetime
@@ -59,10 +64,26 @@ class _ChainableCursor:
     Creates a new underlying psycopg2 cursor on every execute() call so that
     a failed query (which puts the transaction in an error state) never leaves
     the shared cursor in a broken state for subsequent queries.
+
+    The active cursor is kept in thread-local storage. The DataBase instance
+    (and this wrapper) is a process-wide singleton shared across Flask's
+    worker threads (threaded=True); without thread-local storage, concurrent
+    requests race on the single shared `_c` attribute — one thread's execute()
+    can overwrite another's cursor before it fetches, raising
+    "no results to fetch".
     """
-    def __init__(self, conn):
+    def __init__(self, conn, owner):
         self._conn = conn
-        self._c = None
+        self._owner = owner
+        self._local = threading.local()
+
+    @property
+    def _c(self):
+        return getattr(self._local, 'c', None)
+
+    @_c.setter
+    def _c(self, value):
+        self._local.c = value
 
     def execute(self, sql, params=()):
         # If a prior query left the connection in an aborted transaction, roll
@@ -73,15 +94,22 @@ class _ChainableCursor:
                 self._conn.rollback()
             except Exception:
                 pass
+        # Only a statement that starts a new transaction can be safely replayed on a fresh
+        # connection; mid-transaction, the earlier statements died with the old connection.
+        starts_transaction = (not self._conn.closed and self._conn.get_transaction_status() ==
+                              psycopg2.extensions.TRANSACTION_STATUS_IDLE)
         try:
             self._c = self._conn.cursor()
             self._c.execute(sql, params)
-        except psycopg2.OperationalError:
-            # Neon (and other cloud Postgres) closes idle SSL connections
-            # server-side without updating psycopg2's connection.closed flag.
-            # Force a fresh connection and retry the query once.
-            DataBase._connect()
-            self._conn = DataBase._DataBase__instance.connection
+        except psycopg2.Error as e:
+            # Neon closes idle SSL connections server-side (pooler idle timeout,
+            # compute auto-suspend) without updating psycopg2's state until the
+            # next query fails — as OperationalError ("SSL connection has been
+            # closed unexpectedly") or DatabaseError ("SSL SYSCALL error").
+            if not (starts_transaction and _connection_lost(self._conn, e)):
+                raise
+            self._owner._replace_thread_connection()
+            self._conn = self._owner.connection
             self._c = self._conn.cursor()
             self._c.execute(sql, params)
         return self
@@ -104,6 +132,26 @@ class _ChainableCursor:
         if self._c is not None:
             return getattr(self._c, name)
         raise AttributeError(name)
+
+
+def _connection_lost(conn, error):
+    """True when `error` means the connection itself is gone (not a bad query).
+
+    A dropped SSL connection doesn't always mark the connection closed and may surface as a plain
+    DatabaseError ("SSL SYSCALL error"), so: an error carrying a SQLSTATE came from a live server
+    (the query was bad); anything else is confirmed with a ping.
+    """
+    if conn.closed:
+        return True
+    if getattr(error, 'pgcode', None):
+        return False
+    try:
+        probe = conn.cursor()
+        probe.execute('SELECT 1')
+        probe.close()
+        return False
+    except psycopg2.Error:
+        return True
 
 
 # ----------------------------------------------------------------------
@@ -138,18 +186,162 @@ def check_for_empty_df(func):
 # ----------------------------------------------------------------------
 # ----------------------------------------------------------------------
 
+class _Lease:
+    """Marks a pooled connection as borrowed by one thread (kept in that thread's local storage).
+
+    When the thread ends without returning its connection — background workers, streamed responses
+    whose generator runs after teardown_request — its thread-local storage is freed, the lease is
+    collected, and a weakref finalizer hands the connection back to the pool.
+    """
+    __slots__ = ('holder', '__weakref__')
+
+
 class DataBase:
 
     __instance = None
     __spotify_tables_ready = False
-    connection: psycopg2.extensions.connection
-    cursor: psycopg2.extensions.cursor
+    __recurring_tables_ready = False
+    __card_limits_ready = False
+    __account_settings_ready = False
+    __housing_projects_ready = False
+    __housing_info_ready = False
+    __file_update_ready = False
+    __bootstrap_lock = threading.Lock()
+    __tables_bootstrapped = False
+    __pool = None
+    __pool_lock = threading.Lock()
+    POOL_MIN, POOL_MAX = 6, 10
+    _gate = PoolGate(POOL_MAX, timeout=30)   # borrowers wait for a free connection (db_pool.py)
 
     @classmethod
-    def _connect(cls):
-        """Create a fresh connection and attach it to the singleton instance."""
-        cls.__instance.connection = psycopg2.connect(os.environ['DATABASE_URL'])
-        cls.__instance.connection.autocommit = False
+    def _get_pool(cls):
+        """Lazily create the process-wide connection pool.
+
+        A single shared connection serialized every concurrent request behind
+        it (measured: 5 parallel API calls each taking 900ms-1.4s instead of
+        running concurrently) because psycopg2/libpq can only process one
+        query at a time per connection. A plain "one connection per OS
+        thread" fix doesn't work either: Flask's dev server (threaded=True)
+        spawns a brand-new thread per request, so thread-local caching would
+        force every single request to pay a fresh TCP+SSL handshake to Neon
+        (measured ~550ms) instead of reusing a warm connection.
+        A connection pool solves both: requests borrow an already-open
+        connection (fast, no handshake) and concurrent requests get distinct
+        connections (no serialization), up to maxconn.
+        """
+        if cls.__pool is None:
+            with cls.__pool_lock:
+                if cls.__pool is None:
+                    # minconn is pre-created eagerly here (outside any
+                    # per-request lock); getconn() only opens a fresh
+                    # connection on-demand — while holding the pool's
+                    # internal lock — once minconn connections are all
+                    # checked out. A low minconn meant a cold concurrent
+                    # burst (e.g. this app's pages firing several parallel
+                    # fetches on load) mostly serialized on that lock anyway,
+                    # each paying a full connect() while blocking the rest.
+                    # minconn=6 covers the app's largest known burst (the
+                    # Spotify page's 5 parallel fetches) with headroom.
+                    # TCP keepalives let the OS notice a dropped connection
+                    # quickly instead of hanging on it.
+                    cls.__pool = psycopg2.pool.ThreadedConnectionPool(
+                        cls.POOL_MIN, cls.POOL_MAX, os.environ['DATABASE_URL'],
+                        keepalives=1, keepalives_idle=30, keepalives_interval=10, keepalives_count=3,
+                    )
+        return cls.__pool
+
+    # A pooled connection idle longer than this is checked with SELECT 1 before use: Neon drops
+    # idle connections server-side (pooler idle timeout, compute auto-suspend after a few minutes),
+    # and the first query on such a connection fails with "SSL connection has been closed
+    # unexpectedly". Recently used connections skip the check (no extra round-trip).
+    STALE_AFTER_SECONDS = 30
+    __idle_since = {}          # id(connection) -> time.monotonic() when it went back to the pool
+
+    @classmethod
+    def _mark_idle_since(cls, conn, when):
+        cls.__idle_since[id(conn)] = when
+
+    @classmethod
+    def _discard(cls, conn):
+        """Close a dead connection and free its pool slot."""
+        cls.__idle_since.pop(id(conn), None)
+        try:
+            cls._get_pool().putconn(conn, close=True)
+        except Exception:
+            pass
+
+    @classmethod
+    def _checkout(cls, verify_all=False):
+        """Borrow a working connection, waiting (PoolGate) for a free one.
+
+        Stale connections are pinged and dead ones discarded. verify_all: ping even recently used
+        connections — after one connection turned out dead, the rest of the pool was likely
+        dropped at the same time (e.g. Neon compute suspend). The caller owns one gate permit
+        for the returned connection until _give_back().
+        """
+        return cls._gate.borrow(lambda: cls._checkout_unlocked(verify_all))
+
+    @classmethod
+    def _checkout_unlocked(cls, verify_all):
+        """The pool part of _checkout (the caller already holds a gate permit)."""
+        pool = cls._get_pool()
+        last_error = None
+        for _ in range(pool.maxconn + 1):      # enough to cycle through every pooled connection
+            conn = pool.getconn()
+            idle_since = cls.__idle_since.pop(id(conn), None)
+            if conn.closed:
+                cls._discard(conn)
+                continue
+            if not verify_all and idle_since is not None and time.monotonic() - idle_since < cls.STALE_AFTER_SECONDS:
+                return conn
+            try:
+                probe = conn.cursor()
+                probe.execute('SELECT 1')
+                probe.close()
+                conn.rollback()
+                return conn
+            except psycopg2.Error as e:
+                last_error = e
+                cls._discard(conn)
+        raise psycopg2.OperationalError(f'no working database connection: {last_error}')
+
+    @classmethod
+    def _give_back(cls, conn, close=False):
+        """Return a borrowed connection to the pool (or close it) and free its gate permit."""
+        try:
+            if close or conn.closed:
+                cls._discard(conn)
+            else:
+                cls._mark_idle_since(conn, time.monotonic())
+                try:
+                    cls._get_pool().putconn(conn)
+                except Exception:
+                    pass
+        finally:
+            cls._gate.release()
+
+    @classmethod
+    def _reclaim(cls, holder):
+        """Lease finalizer: the borrowing thread ended without returning its connection."""
+        conn, holder[0] = holder[0], None
+        if conn is not None:
+            cls._give_back(conn)
+
+    def _take_thread_connection(self):
+        """Detach the current thread's connection (None if it has none) and cancel its lease."""
+        lease = getattr(self._local, 'lease', None)
+        if lease is not None:
+            lease.holder[0] = None
+        conn = getattr(self._local, 'connection', None)
+        self._local.connection = None
+        self._local.cursor = None
+        self._local.lease = None
+        return conn
+
+    def _connect_thread(self, verify_all=False):
+        """Borrow a (verified) connection from the pool for the CURRENT thread."""
+        conn = DataBase._checkout(verify_all)
+        conn.autocommit = False
         # Return numeric/decimal columns as float instead of decimal.Decimal so
         # existing arithmetic (Decimal + float) doesn't raise TypeError.
         _DEC2FLOAT = psycopg2.extensions.new_type(
@@ -157,32 +349,112 @@ class DataBase:
             'DEC2FLOAT',
             lambda v, c: float(v) if v is not None else None,
         )
-        psycopg2.extensions.register_type(_DEC2FLOAT, cls.__instance.connection)
-        cls.__instance.cursor = _ChainableCursor(cls.__instance.connection)
+        psycopg2.extensions.register_type(_DEC2FLOAT, conn)
+        lease = _Lease()
+        lease.holder = [conn]     # the finalizer gets the holder, not the lease (or it would never be collected)
+        weakref.finalize(lease, DataBase._reclaim, lease.holder).atexit = False
+        self._local.connection = conn
+        self._local.cursor = _ChainableCursor(conn, self)
+        self._local.lease = lease
+
+    @classmethod
+    def release_thread_connection(cls):
+        """Return this thread's borrowed connection to the pool.
+
+        Call at the end of each request (e.g. via Flask's teardown_request)
+        so the next request — handled by a different OS thread — can reuse
+        it instead of opening a brand-new connection.
+        """
+        inst = cls.__instance
+        if inst is None or not hasattr(inst, '_local'):
+            return
+        conn = inst._take_thread_connection()
+        if conn is not None:
+            cls._give_back(conn)
+
+    def _replace_thread_connection(self):
+        """Drop this thread's (dead) connection and borrow a working one."""
+        conn = self._take_thread_connection()
+        if conn is not None:
+            DataBase._give_back(conn, close=True)
+        self._connect_thread(verify_all=True)
+
+    @property
+    def connection(self):
+        return getattr(self._local, 'connection', None)
+
+    @property
+    def cursor(self):
+        return getattr(self._local, 'cursor', None)
 
     def __new__(cls):
         if cls.__instance is None:
             cls.__instance = super().__new__(cls)
-            cls._connect()
-        elif not hasattr(cls.__instance, 'connection') or cls.__instance.connection is None:
-            # _connect() failed on a prior call — retry
-            cls._connect()
-        elif cls.__instance.connection.get_transaction_status() == psycopg2.extensions.TRANSACTION_STATUS_INERROR:
-            # Previous request left the shared connection in an aborted-transaction
-            # state.  Roll back to recover without a full reconnect.
+            cls.__instance._local = threading.local()
+        self = cls.__instance
+
+        needs_probe = False
+        conn = self.connection
+        if conn is None:
+            self._connect_thread()
+        elif conn.get_transaction_status() == psycopg2.extensions.TRANSACTION_STATUS_INERROR:
+            # Previous request left this thread's connection in an aborted-
+            # transaction state. Roll back to recover without a full reconnect.
             try:
-                cls.__instance.connection.rollback()
+                conn.rollback()
             except Exception:
-                cls._connect()
-        elif cls.__instance.connection.closed:
+                self._replace_thread_connection()
+        elif conn.closed:
+            pass  # handled by the block below (kept separate: it also recreates tables)
+        else:
+            needs_probe = True
+
+        if needs_probe:
+            # A connection reaching here isn't locally known to be dead, but many
+            # read-only DataBase methods leave the connection idle-in-
+            # transaction (or plain idle) after they return, and Neon kills
+            # idle/idle-in-transaction connections server-side to allow
+            # scale-to-zero — psycopg2's local .closed flag doesn't reflect that
+            # until an operation is actually attempted and fails. Left unchecked,
+            # that first failing operation is whatever unrelated route happens to
+            # run next, surfacing as a generic, hard-to-explain error there.
+            # Probe explicitly so a server-killed connection is replaced
+            # transparently instead of failing whatever call happens to be next.
+            try:
+                probe = self.connection.cursor()
+                probe.execute("SELECT 1")
+                probe.close()
+            except Exception:
+                try:
+                    self.connection.rollback()
+                except Exception:
+                    pass
+                self._replace_thread_connection()
+
+        if self.connection.closed:
             # Connection dropped (e.g. Neon idle timeout) — reconnect transparently.
-            cls._connect()
-            cls.__instance.cursor.execute("""
+            self._replace_thread_connection()
+
+        with DataBase.__bootstrap_lock:
+            if not DataBase.__tables_bootstrapped:
+                self._bootstrap_tables()
+                DataBase.__tables_bootstrapped = True
+
+        return cls.__instance
+
+    def _bootstrap_tables(self):
+        """Create the base tables if they don't exist yet. Runs at most once
+        per process (guarded by __bootstrap_lock/__tables_bootstrapped), not
+        on every reconnect — table creation is idempotent but each statement
+        is a network round-trip, so re-running it per thread/reconnect would
+        add needless latency."""
+        if True:
+            self.cursor.execute("""
                 CREATE TABLE IF NOT EXISTS Card (
                 CardID          CHAR(4)     PRIMARY KEY,
                 description     TEXT
                 );""")
-            cls.__instance.cursor.execute("""
+            self.cursor.execute("""
                 CREATE TABLE IF NOT EXISTS File (
                 File_Name           CHAR        NOT NULL,
                 Format              CHAR        NOT NULL,
@@ -195,7 +467,7 @@ class DataBase:
                 );""") # Should also add card as primary key for 2 holders of the same format, trying to upload
                 # a file for the same month for 2 different cards
 
-            cls.__instance.cursor.execute("""
+            self.cursor.execute("""
                 CREATE TABLE IF NOT EXISTS CashTransactions (
                 ID                  SERIAL          PRIMARY KEY,
                 Name                CHAR            NOT NULL    ,
@@ -207,7 +479,7 @@ class DataBase:
                 Description         CHAR                                                                       
                 );""")
             
-            cls.__instance.cursor.execute("""
+            self.cursor.execute("""
                 CREATE TABLE IF NOT EXISTS TableMeta (
                 ID                  SERIAL          PRIMARY KEY,
                 File_Name           CHAR            NOT NULL    ,
@@ -220,7 +492,7 @@ class DataBase:
                 FOREIGN KEY(File_Name, Format, Card_Number)    REFERENCES File(File_Name, Format, Card_Number)
                 );""")
 
-            cls.__instance.cursor.execute("""
+            self.cursor.execute("""
                 CREATE TABLE IF NOT EXISTS BankTransactions (
                 ID                  SERIAL      PRIMARY KEY,
                 Date                DATE        NOT NULL    ,
@@ -237,7 +509,7 @@ class DataBase:
                 Reserved            INT
                 );""")
 
-            cls.__instance.cursor.execute("""
+            self.cursor.execute("""
                 CREATE TABLE IF NOT EXISTS CardTransactions (
                 ID                  SERIAL      PRIMARY KEY,
                 CardID              CHAR        NOT NULL    ,
@@ -256,7 +528,7 @@ class DataBase:
                 FOREIGN KEY(CardID)         REFERENCES Card(CardID)
                 );""")
 
-            cls.__instance.cursor.execute("""
+            self.cursor.execute("""
                 CREATE TABLE IF NOT EXISTS DevisionTransactions (
                 ID                  SERIAL          PRIMARY KEY,
                 DevisionOfBank      INT             NOT NULL    ,
@@ -272,14 +544,14 @@ class DataBase:
                 );""")
             # Charge value - The initial value/ The total sum of payments of the transaction.
             # Transaction value - The actual amount credited for
-            cls.__instance.cursor.execute("""
+            self.cursor.execute("""
                 CREATE TABLE IF NOT EXISTS BillTypes (
                     ID        SERIAL  PRIMARY KEY,
                     Name      TEXT    NOT NULL,
                     Color     TEXT    NOT NULL DEFAULT '#1e9d8b',
                     BillGroup TEXT
                 )""")
-            cls.__instance.cursor.execute("""
+            self.cursor.execute("""
                 CREATE TABLE IF NOT EXISTS BillEntries (
                     ID                SERIAL   PRIMARY KEY,
                     BillType_ID       INTEGER  NOT NULL REFERENCES BillTypes(ID) ON DELETE CASCADE,
@@ -291,11 +563,11 @@ class DataBase:
                     Note              TEXT,
                     Is_Filler         INTEGER  DEFAULT 0
                 )""")
-            cls.__instance.cursor.execute("""
+            self.cursor.execute("""
                 CREATE TABLE IF NOT EXISTS BillSuggestionsDismissed (
                     Name TEXT PRIMARY KEY
                 )""")
-            cls.__instance.cursor.execute("""
+            self.cursor.execute("""
                 CREATE TABLE IF NOT EXISTS SpotifyMembers (
                     ID             SERIAL  PRIMARY KEY,
                     Name           TEXT    NOT NULL,
@@ -303,7 +575,7 @@ class DataBase:
                     Is_Active      INTEGER DEFAULT 1,
                     Insertion_Date TEXT    NOT NULL
                 )""")
-            cls.__instance.cursor.execute("""
+            self.cursor.execute("""
                 CREATE TABLE IF NOT EXISTS SpotifyMonthlyCharge (
                     ID           SERIAL  PRIMARY KEY,
                     Month        TEXT    NOT NULL,
@@ -312,7 +584,7 @@ class DataBase:
                     TX_ID        INTEGER,
                     Confirmed    INTEGER DEFAULT 1
                 )""")
-            cls.__instance.cursor.execute("""
+            self.cursor.execute("""
                 CREATE TABLE IF NOT EXISTS SpotifyMemberPayments (
                     ID           SERIAL  PRIMARY KEY,
                     Member_ID    INTEGER NOT NULL REFERENCES SpotifyMembers(ID) ON DELETE CASCADE,
@@ -323,9 +595,9 @@ class DataBase:
                     Note         TEXT,
                     Dismissed    INTEGER DEFAULT 0
                 )""")
-            cls.__instance.connection.commit()
+            self.connection.commit()
 
-        return cls.__instance
+
 
     def insert_bank_transaction(self,
                                 Date: datetime,
@@ -482,6 +754,17 @@ class DataBase:
                              'file_name': file_name})
         return True
 
+    def set_transaction_count(self, file_name: str, format_name: str, card_number: str, count: int) -> bool:
+        """Update Transaction_count once the real row count is known (see insert_file placeholder)."""
+        self.cursor.execute("""UPDATE File
+                               SET Transaction_count = %(count)s
+                               WHERE File_Name = %(file_name)s AND Format = %(format_name)s AND Card_Number = %(card_number)s""",
+                            {'count': count,
+                             'file_name': file_name,
+                             'format_name': format_name,
+                             'card_number': card_number})
+        return True
+
     @try_catch
     def is_card_exists(self, cardID: str) -> bool:
         ans = self.cursor.execute("""
@@ -559,7 +842,9 @@ class DataBase:
         '''
         Close The connection to the database.
         '''
-        self.connection.close()
+        conn = self._take_thread_connection()
+        if conn is not None:
+            DataBase._give_back(conn, close=True)
         DataBase.__instance = None
 
     # TODO: this function is currently not being used anywhere.
@@ -672,7 +957,7 @@ class DataBase:
 
     def get_all_category_transactions(self, category: str) -> pd.DataFrame:
         """Return all transactions (bank + card, with splits applied) for a category.
-        Returns columns: Date, Name, Out, Income, Description."""
+        Returns columns: Key ('Table:ID' / 'split:ID'), Date, Name, Out, Income, Description."""
         from src_utils.calculations import SimpleMath
         from datetime import datetime as _dt
 
@@ -684,17 +969,26 @@ class DataBase:
         card_raw = self.apply_splits_to_df(card_raw)
         card_raw = card_raw[card_raw['Category'] == category].reset_index(drop=True)
 
+        def _key(table, ids, split_col):
+            """The housing-page key of each row: 'Table:ID', or 'split:ID' for a part of a split."""
+            return [f"split:{int(i)}" if s else f"{table}:{int(i)}" for i, s in zip(ids, split_col)]
+
+        bank_split = bank_raw['_split_orig_id'].notna() if '_split_orig_id' in bank_raw.columns else [False] * len(bank_raw)
         bank_df = pd.DataFrame({
+            'Key':         _key('BankTransactions', bank_raw['ID'], bank_split),
             'Date':        bank_raw['Date'],
             'Name':        bank_raw['Name'],
             'Out':         bank_raw['Out'],
             'Income':      bank_raw['Income'],
             'Description': bank_raw['Description'] if 'Description' in bank_raw.columns else '',
-        }) if not bank_raw.empty else pd.DataFrame(columns=['Date', 'Name', 'Out', 'Income', 'Description'])
+        }) if not bank_raw.empty else pd.DataFrame(columns=['Key', 'Date', 'Name', 'Out', 'Income', 'Description'])
 
         if not card_raw.empty:
             card_proc = SimpleMath.process_prices(card_raw, date=_dt.now(), general_analysis=False)
+            card_split = (set(card_raw.loc[card_raw['_split_orig_id'].notna(), 'ID'])
+                          if '_split_orig_id' in card_raw.columns else set())
             card_result = pd.DataFrame({
+                'Key':         _key('CardTransactions', card_proc['ID'], [i in card_split for i in card_proc['ID']]),
                 'Date':        card_proc['Executed_Date'],
                 'Name':        card_proc['Name'],
                 'Out':         card_proc['Final_Value'].apply(lambda v: abs(float(v)) if v < 0 else 0.0),
@@ -1215,17 +1509,239 @@ class DataBase:
         
         return [tup[0] for tup in res] # to get result as list
 
+    # ── Updating a stored credit-card file with a newer copy (file_update_service.py) ──────────
+    def ensure_file_update_columns(self) -> None:
+        """Add the columns that mark a File row as updated over an existing file, once.
+
+        Updated_At: when it was last updated; Update_Kind: 'update' (rows merged, work kept) or
+        'replace' (everything swapped); Update_Added / _Changed / _Removed: the rows that update changed."""
+        if DataBase.__file_update_ready:
+            return
+        for col, typ in (('Updated_At', 'TIMESTAMP'), ('Update_Kind', 'TEXT'), ('Update_Added', 'INT'),
+                         ('Update_Changed', 'INT'), ('Update_Removed', 'INT')):
+            self.cursor.execute(f"ALTER TABLE File ADD COLUMN IF NOT EXISTS {col} {typ}")
+        # One row per update/replace, kept after the old file's own entry is gone: what the file was
+        # before (name, rows, when stored) and what the update did. Keyed by the statement's identity
+        # (format, card, month) because the file's name can change from one update to the next.
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS FileUpdateHistory (
+                ID            SERIAL    PRIMARY KEY,
+                Updated_At    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                Format        TEXT      NOT NULL,
+                Card_Number   TEXT      NOT NULL,
+                Month_Date    DATE      NOT NULL,
+                Kind          TEXT      NOT NULL,
+                Old_File_Name TEXT      NOT NULL,
+                New_File_Name TEXT      NOT NULL,
+                Old_Rows      INT,
+                Old_Tagged    INT,
+                Old_Saved_On  DATE,
+                New_Rows      INT,
+                Added         INT,
+                Changed       INT,
+                Removed       INT,
+                Trash_Name    TEXT
+            )
+        """)
+        self.connection.commit()
+        DataBase.__file_update_ready = True
+
+    def get_file_update_history(self) -> list:
+        """Every recorded update, newest first, as dicts (see the FileUpdateHistory table)."""
+        self.ensure_file_update_columns()
+        rows = self.cursor.execute("""
+            SELECT Updated_At, Format, Card_Number, Month_Date, Kind, Old_File_Name, New_File_Name, Old_Rows,
+                   Old_Tagged, Old_Saved_On, New_Rows, Added, Changed, Removed, Trash_Name
+            FROM FileUpdateHistory ORDER BY ID DESC
+        """).fetchall()
+        self.connection.commit()
+        keys = ('at', 'format', 'card', 'month', 'kind', 'old_name', 'new_name', 'old_rows', 'old_tagged',
+                'old_saved_on', 'new_rows', 'added', 'changed', 'removed', 'trash_name')
+        return [dict(zip(keys, r)) for r in rows]
+
+    _FILE_ROW_COLS = ('File_Name', 'Format', 'Card_Number', 'Date', 'New_Transactions', 'Transaction_count',
+                      'Last_update', 'Updated_At')
+
+    def _file_row(self, row) -> dict:
+        return dict(zip(('name', 'format', 'card', 'date', 'new_transactions', 'transaction_count', 'last_update',
+                         'updated_at'), row))
+
+    def get_files_by_name(self, file_name: str) -> list:
+        """The File rows with this name (one per format/card), as dicts: name, format, card, date, ..."""
+        self.ensure_file_update_columns()
+        rows = self.cursor.execute(
+            "SELECT " + ', '.join(self._FILE_ROW_COLS) + " FROM File WHERE File_Name = %s", (file_name,)).fetchall()
+        self.connection.commit()
+        return [self._file_row(r) for r in rows]
+
+    def get_files_by_identity(self, format_name: str, card_number: str, date) -> list:
+        """The File rows of the same format, card and month — the same statement stored under any name."""
+        self.ensure_file_update_columns()
+        rows = self.cursor.execute(
+            "SELECT " + ', '.join(self._FILE_ROW_COLS) + " FROM File WHERE Format = %s AND Card_Number = %s AND Date = %s",
+            (format_name, card_number, date)).fetchall()
+        self.connection.commit()
+        return [self._file_row(r) for r in rows]
+
+    def get_card_file_transactions(self, source_file: str, card_number: str) -> list:
+        """The CardTransactions rows read from `source_file`, oldest ID (= file order) first, as dicts with
+        the compared columns plus id, category, description."""
+        rows = self.cursor.execute("""
+            SELECT ID, CardID, Name, Executed_Date, Charge_Date, Charge_Value, Charge_Currency,
+                   Transaction_Value, Value_Currency, Extra_Info, Category, Description
+            FROM CardTransactions WHERE Source_file = %s AND CardID = %s ORDER BY ID
+        """, (source_file, card_number)).fetchall()
+        self.connection.commit()
+        keys = ('id', 'cardid', 'name', 'executed_date', 'charge_date', 'charge_value', 'charge_currency',
+                'transaction_value', 'value_currency', 'extra_info', 'category', 'description')
+        return [dict(zip(keys, r)) for r in rows]
+
+    def get_card_tx_links(self, ids: list) -> dict:
+        """{transaction id: [what refers to it]} for the card transactions that other features point at —
+        a split, a timeline event, a bill entry, a recurring-charge exclusion, a division, a Spotify
+        payment or a housing payment kind. Deleting such a row would silently break that link."""
+        links = {}
+        if not ids:
+            return links
+
+        def mark(rows, kind):
+            for (tx_id,) in rows:
+                try:
+                    links.setdefault(int(tx_id), []).append(kind)
+                except (TypeError, ValueError):
+                    pass
+
+        q = self.cursor.execute
+        mark(q("SELECT Original_ID FROM TransactionSplits WHERE Original_Table = 'CardTransactions' "
+               "AND Original_ID = ANY(%s)", (ids,)).fetchall(), 'split')
+        mark(q("SELECT Transaction_ID FROM TimelineEventTransactions WHERE Transaction_Table = 'CardTransactions' "
+               "AND Transaction_ID = ANY(%s)", (ids,)).fetchall(), 'timeline')
+        mark(q("SELECT Transaction_ID FROM BillEntries WHERE Transaction_Table = 'CardTransactions' "
+               "AND Transaction_ID = ANY(%s)", (ids,)).fetchall(), 'bill')
+        mark(q("SELECT Secondary_Transaction_ID FROM BillEntries WHERE Secondary_Transaction_Table = 'CardTransactions' "
+               "AND Secondary_Transaction_ID = ANY(%s)", (ids,)).fetchall(), 'bill')
+        mark(q("SELECT Tx_ID FROM RecurringExcludedTransactions WHERE Table_Name = 'CardTransactions' "
+               "AND Tx_ID = ANY(%s)", (ids,)).fetchall(), 'recurring')
+        mark(q("SELECT DevisionOfCard FROM DevisionTransactions WHERE DevisionOfCard = ANY(%s)", (ids,)).fetchall(),
+             'division')
+        mark(q("SELECT Tx_ID FROM SpotifyMemberPayments WHERE Tx_Source = 'CardTransactions' AND Tx_ID = ANY(%s)",
+               (ids,)).fetchall(), 'spotify')
+        self.connection.commit()
+        housing = q("SELECT Tx_Key FROM HousingTxKinds WHERE Tx_Key LIKE 'CardTransactions:%%'").fetchall() \
+            if self._table_exists('housingtxkinds') else []
+        wanted = set(ids)
+        for (key,) in housing:
+            try:
+                tx_id = int(key.split(':', 1)[1])
+            except (IndexError, ValueError):
+                continue
+            if tx_id in wanted:
+                links.setdefault(tx_id, []).append('housing')
+        self.connection.commit()
+        return links
+
+    def _table_exists(self, lower_name: str) -> bool:
+        row = self.cursor.execute("SELECT to_regclass(%s)", (lower_name,)).fetchone()
+        return bool(row and row[0])
+
+    def apply_card_file_update(self, plan: dict) -> None:
+        """Make the stored credit-card file equal to the new one, in one transaction.
+
+        plan (built by file_update_service):
+          old_name / new_name, format, card, date          the stored file and what it becomes
+          keep:    [{'id', 'record' | None}]               rows that stay (record = new values for a changed row)
+          add:     [record]                                new rows to insert
+          delete:  [id]                                    stored rows to remove
+          meta:    [TableMeta dict]                        the new file's tables
+          counts:  {'transactions', 'new', 'added', 'changed', 'removed'}, kind: 'update' | 'replace'
+        Nothing is changed when anything fails (the transaction is rolled back and the error re-raised).
+        """
+        self.ensure_file_update_columns()
+        old, new = plan['old_name'], plan['new_name']
+        fmt, card, date = plan['format'], plan['card'], plan['date']
+        c = self.cursor
+        try:
+            if old != new:
+                c.execute("""INSERT INTO File(File_Name, Format, Card_Number, Date, New_Transactions,
+                                              Transaction_count, Last_update)
+                             VALUES (%s, %s, %s, %s, %s, %s, CURRENT_DATE)""",
+                          (new, fmt, card, date, plan['counts']['new'], plan['counts']['transactions']))
+            else:
+                c.execute("""UPDATE File SET Date = %s, New_Transactions = %s, Transaction_count = %s,
+                                             Last_update = CURRENT_DATE
+                             WHERE File_Name = %s AND Format = %s AND Card_Number = %s""",
+                          (date, plan['counts']['new'], plan['counts']['transactions'], new, fmt, card))
+            c.execute("DELETE FROM TableMeta WHERE File_Name = %s AND Format = %s AND Card_Number = %s",
+                      (old, fmt, card))
+            for m in plan['meta']:
+                c.execute("""INSERT INTO TableMeta(File_Name, Format, Card_Number, Initial_index, Initial_col,
+                                                   Row_count, Bad_rows) VALUES (%s, %s, %s, %s, %s, %s, %s)""",
+                          (new, fmt, card, m['Initial_index'], m['Initial_col'], m['Row_count'], m['Bad_rows']))
+
+            if plan['delete']:
+                c.execute("DELETE FROM TransactionSplits WHERE Original_Table = 'CardTransactions' "
+                          "AND Original_ID = ANY(%s)", (plan['delete'],))
+                c.execute("DELETE FROM CardTransactions WHERE ID = ANY(%s)", (plan['delete'],))
+            kept_ids = [k['id'] for k in plan['keep']]
+            if kept_ids and old != new:
+                c.execute("UPDATE CardTransactions SET Source_file = %s WHERE ID = ANY(%s)", (new, kept_ids))
+            for k in plan['keep']:
+                r = k.get('record')
+                if r:       # same purchase, values corrected by the card company: update in place, keep the work
+                    c.execute("""UPDATE CardTransactions SET Name = %s, Executed_Date = %s, Charge_Date = %s,
+                                        Charge_Value = %s, Charge_Currency = %s, Transaction_Value = %s,
+                                        Value_Currency = %s, Extra_Info = %s WHERE ID = %s""",
+                              (r['name'], r['executed_date'], r['charge_date'], r['charge_value'],
+                               r['charge_currency'], r['transaction_value'], r['value_currency'],
+                               r['extra_info'], k['id']))
+            for r in plan['add']:
+                self.insert_card_transaction(CardID=r['cardid'], Name=r['name'], Executed_Date=r['executed_date'],
+                                             Charge_Date=r['charge_date'], Charge_Value=r['charge_value'],
+                                             Source_file=new, Charge_Currency=r['charge_currency'],
+                                             Transaction_Value=r['transaction_value'],
+                                             Value_Currency=r['value_currency'], Extra_Info=r['extra_info'])
+            if old != new:
+                c.execute("DELETE FROM File WHERE File_Name = %s AND Format = %s AND Card_Number = %s",
+                          (old, fmt, card))
+            h = plan.get('history')
+            if h:
+                c.execute("""INSERT INTO FileUpdateHistory(Format, Card_Number, Month_Date, Kind, Old_File_Name,
+                                 New_File_Name, Old_Rows, Old_Tagged, Old_Saved_On, New_Rows, Added, Changed,
+                                 Removed, Trash_Name)
+                             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                          (fmt, card, date, plan['kind'], old, new, h['old_rows'], h['old_tagged'],
+                           h['old_saved_on'], h['new_rows'], plan['counts']['added'], plan['counts']['changed'],
+                           plan['counts']['removed'], h['trash_name']))
+            n = plan['counts']
+            if plan['kind'] == 'replace' or n['added'] or n['changed'] or n['removed']:
+                c.execute("""UPDATE File SET Updated_At = CURRENT_TIMESTAMP, Update_Kind = %s, Update_Added = %s,
+                                             Update_Changed = %s, Update_Removed = %s
+                             WHERE File_Name = %s AND Format = %s AND Card_Number = %s""",
+                          (plan['kind'], n['added'], n['changed'], n['removed'], new, fmt, card))
+            self.commit_changes()
+        except Exception:
+            self.connection.rollback()
+            raise
+
     def drop_file(self, file_name: str, format_name: str, card_number: str):
         """
-        Remove the entries associated with the file name from the db.
+        Remove the entries associated with the file name from the db (and its update history).
+        TableMeta has a foreign key onto File, so its rows go first and the File row last.
         """
+        self.ensure_file_update_columns()
+        self.cursor.execute("""
+                            DELETE FROM FileUpdateHistory
+                            WHERE (Format, Card_Number, Month_Date) IN
+                                  (SELECT Format, Card_Number, Date FROM File
+                                   WHERE File_Name = %s AND Format = %s AND Card_Number = %s)
+                            """, (file_name, format_name, card_number,))
         self.cursor.execute("""
                             DELETE
-                            From File
+                            From TableMeta
                             WHERE File_Name = %s
                             AND Format = %s
                             AND Card_Number = %s
-                            """, (file_name, format_name, card_number,))
+                            """, (file_name, format_name, card_number, ))
         self.cursor.execute("""
                             DELETE
                             From BankTransactions
@@ -1239,11 +1755,11 @@ class DataBase:
                             """, (file_name, card_number,))
         self.cursor.execute("""
                             DELETE
-                            From TableMeta
+                            From File
                             WHERE File_Name = %s
                             AND Format = %s
-                            AND Card_Number = %s                            
-                            """, (file_name, format_name, card_number, ))
+                            AND Card_Number = %s
+                            """, (file_name, format_name, card_number,))
 
     def get_untagged(self, table: str = None) -> Tuple[list, list]:
         """
@@ -1274,7 +1790,9 @@ class DataBase:
                                     WHERE Category = 'NotCategorized'
                                     ORDER BY ID DESC
                                 """).fetchall()
-            return res, [d[0] for d in self.cursor.description]
+            desc = [d[0] for d in self.cursor.description]
+            self.connection.commit()
+            return res, desc
         elif table == "CardTransactions":
             res = self.cursor.execute("""
                                     SELECT
@@ -1292,7 +1810,9 @@ class DataBase:
                                     WHERE Category = 'NotCategorized'
                                     ORDER BY ID DESC
                                 """).fetchall()
-            return res, [d[0] for d in self.cursor.description]
+            desc = [d[0] for d in self.cursor.description]
+            self.connection.commit()
+            return res, desc
         else:
             res1 = self.cursor.execute("""
                                     SELECT
@@ -1329,7 +1849,9 @@ class DataBase:
             # Sortion order is made for better handling of tagging
             # x[2] is the location of the Date
             sorted_list = sorted(res1 + res2, key=lambda x: x[2], reverse=True)
-            return sorted_list, [d[0] for d in self.cursor.description]
+            desc = [d[0] for d in self.cursor.description]
+            self.connection.commit()
+            return sorted_list, desc
 
     @validate_table_name
     def set_category(self, table_name: str, id: int, category: str):
@@ -1340,17 +1862,44 @@ class DataBase:
             case "CardTransactions":
                 self.cursor.execute("""
                                     UPDATE CardTransactions
-                                    SET Category = %s
+                                    SET Category = %s, Tagged_At = CURRENT_TIMESTAMP
                                     WHERE ID = %s
                                     """, (category, id,))
             case "BankTransactions":
                 self.cursor.execute("""
                                     UPDATE BankTransactions
-                                    SET Category = %s
+                                    SET Category = %s, Tagged_At = CURRENT_TIMESTAMP
                                     WHERE ID = %s
                                     """, (category, id,))
             case _:
                 utils.log(f"Bad input {table_name} in 'set_category' in DataBase class", "error")
+
+    def tag_direct_bank_withdrawals(self, since_date, keywords: list, category: str) -> int:
+        """
+        Tag BankTransactions rows that are themselves direct (no-card) cash
+        withdrawals — e.g. a branch machine ("סניפומט") withdrawal, which never
+        has a matching "משיכת מזומנים" row in CardTransactions and so is invisible
+        to the card<->bank withdrawal matcher.
+
+        Only touches rows dated on/after @since_date (not retroactive) that are
+        still NotCategorized, have money actually leaving the account (Out > 0),
+        and whose Name contains one of @keywords. Returns the number tagged.
+        """
+        if not keywords:
+            return 0
+        name_conditions = ' OR '.join(['Name ILIKE %s'] * len(keywords))
+        params = [category, since_date] + [f'%{kw}%' for kw in keywords]
+        self.cursor.execute(f"""
+            UPDATE BankTransactions
+            SET Category = %s, Tagged_At = CURRENT_TIMESTAMP
+            WHERE Category = 'NotCategorized'
+              AND Out > 0
+              AND Date >= %s
+              AND ({name_conditions})
+        """, params)
+        count = self.cursor.rowcount
+        self.commit_changes()
+        return count
 
     @validate_table_name
     def set_description(self, table_name: str, id: int, description: str):
@@ -1799,6 +2348,48 @@ class DataBase:
         df['Date'] = pd.to_datetime(df['Date'])
         return df
 
+    def upsert_auto_account_status(self, account_name: str, year: int, month: int,
+                                   status_date: str, value: float) -> None:
+        """Keep exactly one auto-generated balance point for (account, year, month).
+
+        Used by general_analysis() to backfill 'Main Bank' (from the bank file)
+        and 'Cash' (from cash history) so the accounts panel stays current
+        without manual entry — including the in-progress current month, which is
+        refreshed on every run.
+
+        - A manual entry for that month always wins: if any non-auto row exists
+          for (account, year, month), this does nothing.
+        - Otherwise the month's single Source='auto' row is updated in place, or
+          inserted if absent.
+
+        Auto rows are hidden from the manage-entries UI
+        (WHERE Source IS NULL OR Source != 'auto'). Caller commits.
+        """
+        has_manual = self.cursor.execute(
+            "SELECT 1 FROM OtherAccountStatus "
+            "WHERE AccountName = %s "
+            "  AND CAST(EXTRACT(YEAR  FROM StatusDate) AS INTEGER) = %s "
+            "  AND CAST(EXTRACT(MONTH FROM StatusDate) AS INTEGER) = %s "
+            "  AND (Source IS NULL OR Source <> 'auto') LIMIT 1",
+            (account_name, year, month)
+        ).fetchone()
+        if has_manual:
+            return
+        updated = self.cursor.execute(
+            "UPDATE OtherAccountStatus SET StatusDate = %s, Value = %s "
+            "WHERE AccountName = %s AND Source = 'auto' "
+            "  AND CAST(EXTRACT(YEAR  FROM StatusDate) AS INTEGER) = %s "
+            "  AND CAST(EXTRACT(MONTH FROM StatusDate) AS INTEGER) = %s",
+            (status_date, float(value), account_name, year, month)
+        ).rowcount
+        if not updated:
+            self.cursor.execute(
+                "INSERT INTO OtherAccountStatus "
+                "(AccountName, StatusDate, Value, TransactionID, Currency, Source) "
+                "VALUES (%s, %s, %s, %s, %s, %s)",
+                (account_name, status_date, float(value), None, 'ILS', 'auto')
+            )
+
     def get_all_account_names(self) -> list[str]:
         """
         Get list of all accounts from OtherAccountStatus table
@@ -1923,22 +2514,30 @@ class DataBase:
         utils.log(f"Before: {prev}")
         utils.log(f"After: {after}")        
 
-    def replace_category(self, frm: str, to: str):
+    def replace_category(self, frm: str, to: str) -> dict:
         """
         The function receives 2 categories, an existing category to change
         and another category (could be a new category or an existing one) to change to.
-        the number of affected rows in each table is printed.
+        Updates every table that stores a Category value. Returns a dict of
+        {table_name: rows_affected} and also logs it, same as before.
         """
-        for table_name in ['BankTransactions', 'CardTransactions']:
-            
+        counts = {}
+        for table_name in ['BankTransactions', 'CardTransactions', 'CashTransactions', 'TransactionSplits']:
+
             self.cursor.execute(f"""
                     UPDATE {table_name}
                     SET category = %s
                     WHERE category = %s
                 """, (to, frm,))
-            
+
             rows_affected = self.cursor.rowcount
+            counts[table_name] = rows_affected
             utils.log(f"Rows updated in {table_name}: {rows_affected}", 'system')
+        # a housing project reads its payments by this tag (see ensure_housing_project_tables)
+        if self._table_exists('housingprojects'):
+            self.cursor.execute("UPDATE HousingProjects SET Tx_Category = %s WHERE Tx_Category = %s", (to, frm))
+            counts['HousingProjects'] = self.cursor.rowcount
+        return counts
     
     def delete_transactions(self, ids: Tuple[list[str], str]):
         """
@@ -2438,12 +3037,52 @@ class DataBase:
                 Is_Filler         INTEGER  DEFAULT 0
             )
         """)
+        # Secondary transaction — a second, unrelated transaction attached to the
+        # same entry (e.g. a bill paid by the house owner and reimbursed by the
+        # resident). It carries none of the primary's date/overlap rules; the
+        # only rule is that it can only be set once a primary transaction exists.
+        self.cursor.execute(
+            "ALTER TABLE BillEntries ADD COLUMN IF NOT EXISTS Secondary_Transaction_Table TEXT"
+        )
+        self.cursor.execute(
+            "ALTER TABLE BillEntries ADD COLUMN IF NOT EXISTS Secondary_Transaction_ID INTEGER"
+        )
         self.cursor.execute("""
             CREATE TABLE IF NOT EXISTS BillSuggestionsDismissed (
                 name TEXT PRIMARY KEY
             )
         """)
         self.connection.commit()
+
+        # A check-then-insert race in the "add bill entry" path (no lock, no DB
+        # constraint) could store two identical entries for the same bill-type
+        # month span — both then block each other from ever being filled. Drop
+        # the empty duplicates (keep the lowest ID, never touch one that already
+        # carries a transaction) and enforce span-uniqueness at the DB so it
+        # can't recur.
+        self.cursor.execute("""
+            DELETE FROM BillEntries a
+            USING BillEntries b
+            WHERE a.BillType_ID = b.BillType_ID
+              AND a.Start_Month = b.Start_Month
+              AND a.End_Month   = b.End_Month
+              AND a.ID <> b.ID
+              AND a.Transaction_ID IS NULL
+              AND a.Secondary_Transaction_ID IS NULL
+              AND (b.Transaction_ID IS NOT NULL OR b.ID < a.ID)
+        """)
+        self.connection.commit()
+        try:
+            self.cursor.execute("""
+                CREATE UNIQUE INDEX IF NOT EXISTS ux_billentries_span
+                ON BillEntries (BillType_ID, Start_Month, End_Month)
+            """)
+            self.connection.commit()
+        except Exception:
+            # Only reachable if duplicates remain that BOTH carry a transaction —
+            # can't be auto-resolved. Leave the index off rather than break
+            # bill-table setup for everything else.
+            self.connection.rollback()
 
     def get_bill_types(self) -> list:
         c = self.connection.cursor()
@@ -2471,19 +3110,111 @@ class DataBase:
     def get_bill_entries(self) -> list:
         c = self.connection.cursor()
         c.execute("""
-            SELECT ID, BillType_ID, Start_Month, End_Month,
-                   Transaction_Table, Transaction_ID, Amount, Note, Is_Filler
-            FROM BillEntries ORDER BY Start_Month DESC
+            SELECT
+                e.id, e.billtype_id, e.start_month, e.end_month,
+                e.transaction_table, e.transaction_id, e.amount, e.note, e.is_filler,
+                CASE WHEN e.transaction_table='BankTransactions' THEN b.name
+                     WHEN e.transaction_table='CardTransactions' THEN cc.name
+                END AS tx_name,
+                CASE WHEN e.transaction_table='BankTransactions' THEN CAST(b.date AS text)
+                     WHEN e.transaction_table='CardTransactions' THEN CAST(cc.executed_date AS text)
+                END AS tx_date,
+                CAST(b.value_date AS text)   AS tx_value_date,
+                CAST(cc.charge_date AS text) AS tx_charge_date,
+                cc.charge_value              AS tx_charge_value,
+                cc.charge_currency           AS tx_charge_currency,
+                CASE WHEN e.transaction_table='BankTransactions' THEN (b.income - b.out)
+                     WHEN e.transaction_table='CardTransactions' THEN cc.transaction_value
+                END AS tx_amount,
+                CASE WHEN e.transaction_table='BankTransactions' THEN b.category
+                     WHEN e.transaction_table='CardTransactions' THEN cc.category
+                END AS tx_category,
+                b.ref          AS tx_ref,
+                cc.cardid      AS tx_card_id,
+                b.balance      AS tx_balance,
+                CASE WHEN e.transaction_table='BankTransactions' THEN b.description
+                     WHEN e.transaction_table='CardTransactions' THEN cc.description
+                END AS tx_description,
+                CASE WHEN e.transaction_table='BankTransactions' THEN b.extra_info
+                     WHEN e.transaction_table='CardTransactions' THEN cc.extra_info
+                END AS tx_extra_info,
+                e.secondary_transaction_table, e.secondary_transaction_id,
+                CASE WHEN e.secondary_transaction_table='BankTransactions' THEN sb.name
+                     WHEN e.secondary_transaction_table='CardTransactions' THEN scc.name
+                END AS sec_tx_name,
+                CASE WHEN e.secondary_transaction_table='BankTransactions' THEN CAST(sb.date AS text)
+                     WHEN e.secondary_transaction_table='CardTransactions' THEN CAST(scc.executed_date AS text)
+                END AS sec_tx_date,
+                CAST(sb.value_date AS text)   AS sec_tx_value_date,
+                CAST(scc.charge_date AS text) AS sec_tx_charge_date,
+                scc.charge_value               AS sec_tx_charge_value,
+                scc.charge_currency            AS sec_tx_charge_currency,
+                CASE WHEN e.secondary_transaction_table='BankTransactions' THEN (sb.income - sb.out)
+                     WHEN e.secondary_transaction_table='CardTransactions' THEN scc.transaction_value
+                END AS sec_tx_amount,
+                CASE WHEN e.secondary_transaction_table='BankTransactions' THEN sb.category
+                     WHEN e.secondary_transaction_table='CardTransactions' THEN scc.category
+                END AS sec_tx_category,
+                sb.ref         AS sec_tx_ref,
+                scc.cardid     AS sec_tx_card_id,
+                sb.balance     AS sec_tx_balance,
+                CASE WHEN e.secondary_transaction_table='BankTransactions' THEN sb.description
+                     WHEN e.secondary_transaction_table='CardTransactions' THEN scc.description
+                END AS sec_tx_description,
+                CASE WHEN e.secondary_transaction_table='BankTransactions' THEN sb.extra_info
+                     WHEN e.secondary_transaction_table='CardTransactions' THEN scc.extra_info
+                END AS sec_tx_extra_info
+            FROM BillEntries e
+            LEFT JOIN BankTransactions b
+                ON e.transaction_table='BankTransactions' AND e.transaction_id=b.id
+            LEFT JOIN CardTransactions cc
+                ON e.transaction_table='CardTransactions' AND e.transaction_id=cc.id
+            LEFT JOIN BankTransactions sb
+                ON e.secondary_transaction_table='BankTransactions' AND e.secondary_transaction_id=sb.id
+            LEFT JOIN CardTransactions scc
+                ON e.secondary_transaction_table='CardTransactions' AND e.secondary_transaction_id=scc.id
+            ORDER BY e.start_month DESC
         """)
         rows = c.fetchall()
         c.close()
+        def _f(v):
+            try: return float(v) if v is not None else None
+            except: return None
         return [
             {
                 'id': r[0], 'bill_type_id': r[1],
                 'start_month': r[2], 'end_month': r[3],
                 'transaction_table': r[4], 'transaction_id': r[5],
-                'amount': float(r[6]) if r[6] is not None else None,
+                'amount':             _f(r[6]),
                 'note': r[7] or '', 'is_filler': bool(r[8]),
+                'tx_name':            r[9],
+                'tx_date':            str(r[10])[:10] if r[10] else None,
+                'tx_value_date':      str(r[11])[:10] if r[11] else None,
+                'tx_charge_date':     str(r[12])[:10] if r[12] else None,
+                'tx_charge_value':    _f(r[13]),
+                'tx_charge_currency': r[14],
+                'tx_amount':          _f(r[15]),
+                'tx_category':        r[16],
+                'tx_ref':             r[17],
+                'tx_card_id':         r[18],
+                'tx_balance':         _f(r[19]),
+                'tx_description':     r[20],
+                'tx_extra_info':      r[21],
+                'secondary_transaction_table': r[22],
+                'secondary_transaction_id':    r[23],
+                'sec_tx_name':                 r[24],
+                'sec_tx_date':                 str(r[25])[:10] if r[25] else None,
+                'sec_tx_value_date':           str(r[26])[:10] if r[26] else None,
+                'sec_tx_charge_date':          str(r[27])[:10] if r[27] else None,
+                'sec_tx_charge_value':         _f(r[28]),
+                'sec_tx_charge_currency':      r[29],
+                'sec_tx_amount':               _f(r[30]),
+                'sec_tx_category':             r[31],
+                'sec_tx_ref':                  r[32],
+                'sec_tx_card_id':              r[33],
+                'sec_tx_balance':              _f(r[34]),
+                'sec_tx_description':          r[35],
+                'sec_tx_extra_info':           r[36],
             }
             for r in rows
         ]
@@ -2491,14 +3222,21 @@ class DataBase:
     def check_bill_entry_overlap(
         self, bill_type_id: int, start_month: str, end_month: str, exclude_id: int = None
     ) -> str:
+        # Mirrors the client's clientOverlapCheck() exactly: "YYYY-MM" is padded to a
+        # whole-month span ("-01".."-31") and mid-month markers ("YYYY-MM-15") are left
+        # as-is, then compared with STRICT inequalities so entries that merely touch at
+        # a month boundary or at the same mid-month point are not treated as overlapping.
+        norm_start = start_month if len(start_month) > 7 else start_month + '-01'
+        norm_end   = end_month   if len(end_month)   > 7 else end_month   + '-31'
         sql = """
             SELECT ID FROM BillEntries
             WHERE BillType_ID = %s
-              AND Start_Month <= %s AND End_Month >= %s
+              AND (CASE WHEN LENGTH(Start_Month) = 7 THEN Start_Month || '-01' ELSE Start_Month END) < %s
+              AND (CASE WHEN LENGTH(End_Month)   = 7 THEN End_Month   || '-31' ELSE End_Month   END) > %s
               {exclude}
             LIMIT 1
         """
-        params = [bill_type_id, end_month, start_month]
+        params = [bill_type_id, norm_end, norm_start]
         if exclude_id is not None:
             sql = sql.format(exclude="AND ID <> %s")
             params.append(exclude_id)
@@ -2517,11 +3255,16 @@ class DataBase:
         transaction_table=None, transaction_id=None, amount=None,
         note: str = '', is_filler: bool = False,
     ) -> int:
+        # ON CONFLICT closes the check-then-insert race window: if a concurrent
+        # request already inserted the same (bill type, span) between the
+        # caller's overlap check and here, this insert is a no-op and returns
+        # no row. Caller must treat a None return as "duplicate, rejected".
         row = self.cursor.execute("""
             INSERT INTO BillEntries
                 (BillType_ID, Start_Month, End_Month, Transaction_Table,
                  Transaction_ID, Amount, Note, Is_Filler)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (BillType_ID, Start_Month, End_Month) DO NOTHING
             RETURNING ID
         """, (
             bill_type_id, start_month, end_month,
@@ -2529,24 +3272,27 @@ class DataBase:
             float(amount) if amount is not None else None,
             note or None, int(is_filler),
         )).fetchone()
-        return row[0]
+        return row[0] if row else None
 
     def update_bill_entry(
         self, entry_id: int, start_month: str, end_month: str,
         note=None, transaction_table=None, transaction_id=None,
         amount=None, is_filler=None,
+        secondary_transaction_table=None, secondary_transaction_id=None,
     ) -> None:
         self.cursor.execute("""
             UPDATE BillEntries SET
                 Start_Month=%s, End_Month=%s, Note=%s,
                 Transaction_Table=%s, Transaction_ID=%s,
-                Amount=%s, Is_Filler=%s
+                Amount=%s, Is_Filler=%s,
+                Secondary_Transaction_Table=%s, Secondary_Transaction_ID=%s
             WHERE ID=%s
         """, (
             start_month, end_month, note or None,
             transaction_table, transaction_id,
             float(amount) if amount is not None else None,
             int(is_filler) if is_filler is not None else 0,
+            secondary_transaction_table, secondary_transaction_id,
             entry_id,
         ))
 
@@ -2582,6 +3328,245 @@ class DataBase:
             "INSERT INTO BillSuggestionsDismissed (name) VALUES (%s) ON CONFLICT DO NOTHING",
             (name,)
         )
+
+    # ── Timeline events (housing panel) ─────────────────────────────────────
+
+    def ensure_timeline_tables(self) -> None:
+        """Create TimelineEvents and TimelineEventTransactions if absent."""
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS TimelineEvents (
+                ID          SERIAL    PRIMARY KEY,
+                Name        TEXT      NOT NULL,
+                Event_Date  DATE      NOT NULL,
+                Description TEXT,
+                Color       TEXT      NOT NULL DEFAULT '#1e9d8b',
+                Created_At  TIMESTAMP DEFAULT now()
+            )
+        """)
+        self.cursor.execute(
+            "ALTER TABLE TimelineEvents ADD COLUMN IF NOT EXISTS Category TEXT NOT NULL DEFAULT 'mortgage'"
+        )
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS TimelineEventTransactions (
+                ID                SERIAL  PRIMARY KEY,
+                Event_ID          INTEGER NOT NULL REFERENCES TimelineEvents(ID) ON DELETE CASCADE,
+                Transaction_Table TEXT    NOT NULL,
+                Transaction_ID    INTEGER NOT NULL,
+                Note              TEXT
+            )
+        """)
+        # Soft delete: rows are never removed, Deleted_At hides them and a
+        # restore just clears it again.
+        self.cursor.execute(
+            "ALTER TABLE TimelineEvents ADD COLUMN IF NOT EXISTS Deleted_At TIMESTAMP"
+        )
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS TimelineCategories (
+                Key         TEXT      PRIMARY KEY,
+                Label       TEXT      NOT NULL,
+                Color       TEXT      NOT NULL,
+                Sort_Order  INTEGER   NOT NULL DEFAULT 0,
+                Deleted_At  TIMESTAMP,
+                Created_At  TIMESTAMP DEFAULT now()
+            )
+        """)
+        for key, label, color, order in self.TIMELINE_SEED_CATEGORIES:
+            self.cursor.execute("""
+                INSERT INTO TimelineCategories (Key, Label, Color, Sort_Order)
+                VALUES (%s, %s, %s, %s) ON CONFLICT (Key) DO NOTHING
+            """, (key, label, color, order))
+        self.connection.commit()
+
+    # Built-in categories seeded on first run. mortgage/general are protected:
+    # the housing tab is pinned to 'mortgage' and 'general' is the add-event
+    # fallback when the "all" filter is selected.
+    TIMELINE_SEED_CATEGORIES = (
+        ('mortgage', 'שבזי',   '#3b82f6', 1),
+        ('general',  'כללי',   '#f59e0b', 2),
+        ('eliana',   'אליאנה', '#a855f7', 3),
+    )
+    TIMELINE_PROTECTED_CATEGORIES = ('mortgage', 'general')
+
+    def get_timeline_categories(self, include_deleted: bool = False) -> list:
+        c = self.connection.cursor()
+        c.execute("""
+            SELECT c.Key, c.Label, c.Color, c.Sort_Order, c.Deleted_At,
+                   (SELECT COUNT(*) FROM TimelineEvents e
+                     WHERE e.Category = c.Key AND e.Deleted_At IS NULL)
+            FROM TimelineCategories c
+            ORDER BY c.Sort_Order ASC, c.Created_At ASC
+        """)
+        rows = c.fetchall()
+        c.close()
+        out = []
+        for r in rows:
+            if r[4] is not None and not include_deleted:
+                continue
+            out.append({
+                'key': r[0], 'label': r[1], 'color': r[2], 'sort_order': r[3],
+                'deleted': r[4] is not None,
+                'deleted_at': str(r[4])[:16] if r[4] else None,
+                'event_count': int(r[5] or 0),
+                'protected': r[0] in self.TIMELINE_PROTECTED_CATEGORIES,
+            })
+        return out
+
+    def timeline_category_exists(self, key: str, active_only: bool = True) -> bool:
+        c = self.connection.cursor()
+        sql = "SELECT 1 FROM TimelineCategories WHERE Key=%s"
+        if active_only:
+            sql += " AND Deleted_At IS NULL"
+        c.execute(sql, (key,))
+        found = c.fetchone() is not None
+        c.close()
+        return found
+
+    def add_timeline_category(self, key: str, label: str, color: str) -> None:
+        self.cursor.execute("""
+            INSERT INTO TimelineCategories (Key, Label, Color, Sort_Order)
+            VALUES (%s, %s, %s, (SELECT COALESCE(MAX(Sort_Order), 0) + 1 FROM TimelineCategories))
+        """, (key, label, color))
+
+    def delete_timeline_category(self, key: str) -> None:
+        self.cursor.execute(
+            "UPDATE TimelineCategories SET Deleted_At=now() WHERE Key=%s AND Deleted_At IS NULL", (key,)
+        )
+
+    def restore_timeline_category(self, key: str) -> None:
+        self.cursor.execute("UPDATE TimelineCategories SET Deleted_At=NULL WHERE Key=%s", (key,))
+
+    def get_deleted_timeline_events(self) -> list:
+        """Events deleted individually (not ones only hidden by a deleted category)."""
+        c = self.connection.cursor()
+        c.execute("""
+            SELECT e.ID, e.Name, e.Event_Date, e.Category, e.Deleted_At, c.Label, c.Color
+            FROM TimelineEvents e
+            LEFT JOIN TimelineCategories c ON c.Key = e.Category
+            WHERE e.Deleted_At IS NOT NULL
+            ORDER BY e.Deleted_At DESC
+        """)
+        rows = c.fetchall()
+        c.close()
+        return [{
+            'id': r[0], 'name': r[1],
+            'event_date': str(r[2])[:10] if r[2] else None,
+            'category': r[3], 'deleted_at': str(r[4])[:16] if r[4] else None,
+            'category_label': r[5] or r[3], 'category_color': r[6] or '#94a3b8',
+        } for r in rows]
+
+    def restore_timeline_event(self, event_id: int) -> None:
+        """Restore an event, and its category too if that was deleted."""
+        self.cursor.execute("UPDATE TimelineEvents SET Deleted_At=NULL WHERE ID=%s", (event_id,))
+        self.cursor.execute("""
+            UPDATE TimelineCategories SET Deleted_At=NULL
+            WHERE Key = (SELECT Category FROM TimelineEvents WHERE ID=%s)
+        """, (event_id,))
+
+    def get_timeline_events(self, category: str = None) -> list:
+        c = self.connection.cursor()
+        if category:
+            c.execute("""
+                SELECT e.ID, e.Name, e.Event_Date, e.Description, e.Color, e.Category
+                FROM TimelineEvents e
+                LEFT JOIN TimelineCategories tc ON tc.Key = e.Category
+                WHERE e.Deleted_At IS NULL AND tc.Deleted_At IS NULL
+                  AND e.Category = %s
+                ORDER BY e.Event_Date ASC, e.ID ASC
+            """, (category,))
+        else:
+            c.execute("""
+                SELECT e.ID, e.Name, e.Event_Date, e.Description, e.Color, e.Category
+                FROM TimelineEvents e
+                LEFT JOIN TimelineCategories tc ON tc.Key = e.Category
+                WHERE e.Deleted_At IS NULL AND tc.Deleted_At IS NULL
+                ORDER BY e.Event_Date ASC, e.ID ASC
+            """)
+        events = {}
+        order = []
+        for r in c.fetchall():
+            events[r[0]] = {
+                'id': r[0],
+                'name': r[1],
+                'event_date': str(r[2])[:10] if r[2] else None,
+                'description': r[3] or '',
+                'color': r[4] or '#1e9d8b',
+                'category': r[5],
+                'transactions': [],
+            }
+            order.append(r[0])
+        c.execute("""
+            SELECT
+                l.ID, l.Event_ID, l.Transaction_Table, l.Transaction_ID, l.Note,
+                CASE WHEN l.Transaction_Table='BankTransactions' THEN b.name
+                     WHEN l.Transaction_Table='CardTransactions' THEN cc.name
+                END AS tx_name,
+                CASE WHEN l.Transaction_Table='BankTransactions' THEN CAST(b.date AS text)
+                     WHEN l.Transaction_Table='CardTransactions' THEN CAST(cc.executed_date AS text)
+                END AS tx_date,
+                CASE WHEN l.Transaction_Table='BankTransactions' THEN (b.income - b.out)
+                     -- CardTransactions.Transaction_Value is positive for a charge
+                     -- (expense) — negate it to match the app-wide sign convention
+                     -- (negative = expense, positive = income) used everywhere else,
+                     -- e.g. /api/search/transactions and Final_Value.
+                     WHEN l.Transaction_Table='CardTransactions' THEN -cc.transaction_value
+                END AS tx_amount
+            FROM TimelineEventTransactions l
+            LEFT JOIN BankTransactions b
+                ON l.Transaction_Table='BankTransactions' AND l.Transaction_ID=b.id
+            LEFT JOIN CardTransactions cc
+                ON l.Transaction_Table='CardTransactions' AND l.Transaction_ID=cc.id
+            ORDER BY l.ID ASC
+        """)
+        for r in c.fetchall():
+            ev = events.get(r[1])
+            if ev is None:
+                continue
+            ev['transactions'].append({
+                'link_id': r[0],
+                'transaction_table': r[2],
+                'transaction_id': r[3],
+                'note': r[4] or '',
+                'tx_name': r[5],
+                'tx_date': str(r[6])[:10] if r[6] else None,
+                'tx_amount': float(r[7]) if r[7] is not None else None,
+            })
+        c.close()
+        return [events[eid] for eid in order]
+
+    def add_timeline_event(self, name: str, event_date: str, description: str = '', color: str = '#1e9d8b', category: str = 'general') -> int:
+        row = self.cursor.execute("""
+            INSERT INTO TimelineEvents (Name, Event_Date, Description, Color, Category)
+            VALUES (%s, %s, %s, %s, %s) RETURNING ID
+        """, (name, event_date, description or None, color, category)).fetchone()
+        return row[0]
+
+    def update_timeline_event(self, event_id: int, name: str, event_date: str, description: str = '', color: str = '#1e9d8b', category: str = 'general') -> None:
+        self.cursor.execute("""
+            UPDATE TimelineEvents SET Name=%s, Event_Date=%s, Description=%s, Color=%s, Category=%s
+            WHERE ID=%s
+        """, (name, event_date, description or None, color, category, event_id))
+
+    def delete_timeline_event(self, event_id: int) -> None:
+        # Soft delete — kept in the DB so it can be restored.
+        self.cursor.execute(
+            "UPDATE TimelineEvents SET Deleted_At=now() WHERE ID=%s AND Deleted_At IS NULL", (event_id,)
+        )
+
+    def add_timeline_link(self, event_id: int, transaction_table: str, transaction_id: int, note: str = '') -> int:
+        row = self.cursor.execute("""
+            INSERT INTO TimelineEventTransactions (Event_ID, Transaction_Table, Transaction_ID, Note)
+            VALUES (%s, %s, %s, %s) RETURNING ID
+        """, (event_id, transaction_table, transaction_id, note or None)).fetchone()
+        return row[0]
+
+    def update_timeline_link_note(self, link_id: int, note: str = '') -> None:
+        self.cursor.execute(
+            "UPDATE TimelineEventTransactions SET Note=%s WHERE ID=%s",
+            (note or None, link_id)
+        )
+
+    def delete_timeline_link(self, link_id: int) -> None:
+        self.cursor.execute("DELETE FROM TimelineEventTransactions WHERE ID=%s", (link_id,))
 
     # ── Spotify Tracker ────────────────────────────────────────────────────────
 
@@ -2631,6 +3616,597 @@ class DataBase:
         )
         self.connection.commit()
         DataBase.__spotify_tables_ready = True
+
+    def ensure_recurring_tables(self) -> None:
+        """Create Recurring Charges override tables if they don't exist yet."""
+        if DataBase.__recurring_tables_ready:
+            return
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS RecurringDismissed (
+                Group_Key    TEXT      PRIMARY KEY,
+                Dismissed_At TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS RecurringMerges (
+                ID            SERIAL    PRIMARY KEY,
+                Secondary_Key TEXT      NOT NULL,
+                Primary_Key   TEXT      NOT NULL,
+                Created_At    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS RecurringExcludedTransactions (
+                Table_Name   TEXT      NOT NULL,
+                TX_ID        INTEGER   NOT NULL,
+                Excluded_At  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (Table_Name, TX_ID)
+            )
+        """)
+        # Cache lives in Postgres (not just the /tmp HTML file) so a fresh
+        # Vercel serverless instance — whose /tmp is not guaranteed to
+        # persist across invocations — doesn't see "no data yet" and
+        # auto-regenerate on every single page load.
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS RecurringCache (
+                ID           INTEGER   PRIMARY KEY DEFAULT 1,
+                Html         TEXT      NOT NULL,
+                Data_Json    TEXT      NOT NULL,
+                Generated_At TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                CHECK (ID = 1)
+            )
+        """)
+        # Tracks every group_key ever seen qualifying as recurring, across
+        # regens, so we can tell "genuinely newly introduced" apart from
+        # "was already recurring" and detect bills that silently stopped
+        # qualifying (Last_Seen_Month keeps whatever month it was last
+        # confirmed recurring in, even after it drops out of the live set).
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS RecurringHistory (
+                Group_Key       TEXT      PRIMARY KEY,
+                Name            TEXT      NOT NULL,
+                First_Seen_Month TEXT     NOT NULL,
+                Last_Seen_Month  TEXT     NOT NULL,
+                Updated_At       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        # Last_Status ('active'/'changed'/'stopped' as of the last regen) —
+        # added after the table already existed in some deployments, hence
+        # the separate defensive ALTER rather than folding it into the
+        # CREATE TABLE above. Lets us detect a bill *newly* turning
+        # yellow/red (status changed since last regen) instead of
+        # re-alerting on every regen for as long as it stays flagged.
+        self.cursor.execute("""
+            ALTER TABLE RecurringHistory ADD COLUMN IF NOT EXISTS Last_Status TEXT
+        """)
+        # User-organized folders (purely organizational — independent of the
+        # detection algorithm/cache, so moving a bill between folders never
+        # needs a regen). Every bill not explicitly assigned lives in the
+        # default folder, resolved at read time from the absence of a row in
+        # RecurringFolderAssignments rather than written eagerly for every bill.
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS RecurringFolders (
+                ID         SERIAL    PRIMARY KEY,
+                Name       TEXT      NOT NULL UNIQUE,
+                Is_Default BOOLEAN   NOT NULL DEFAULT FALSE,
+                Sort_Order INTEGER   NOT NULL DEFAULT 0,
+                Created_At TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        self.cursor.execute("""
+            INSERT INTO RecurringFolders (Name, Is_Default, Sort_Order)
+            SELECT 'כללי', TRUE, 0
+            WHERE NOT EXISTS (SELECT 1 FROM RecurringFolders WHERE Is_Default = TRUE)
+        """)
+        # Assignments cascade-delete with their folder — deleting a
+        # non-default folder simply drops these rows, and the affected bills
+        # fall back to the default folder automatically at read time.
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS RecurringFolderAssignments (
+                Group_Key  TEXT      PRIMARY KEY,
+                Folder_Id  INTEGER   NOT NULL REFERENCES RecurringFolders(ID) ON DELETE CASCADE,
+                Updated_At TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        # A user-made-up display name for a bill — purely a page-local label
+        # overlay, never touches the underlying transaction Name column, so
+        # it has no effect anywhere outside this page (search, tagger, etc.).
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS RecurringDisplayNames (
+                Group_Key   TEXT      PRIMARY KEY,
+                Custom_Name TEXT      NOT NULL,
+                Updated_At  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        self.connection.commit()
+        DataBase.__recurring_tables_ready = True
+
+    def get_recurring_cache(self):
+        """Returns {'html': str, 'data_json': str, 'generated_at': datetime} or None."""
+        row = self.cursor.execute(
+            "SELECT Html, Data_Json, Generated_At FROM RecurringCache WHERE ID=1"
+        ).fetchone()
+        if not row:
+            return None
+        return {'html': row[0], 'data_json': row[1], 'generated_at': row[2]}
+
+    def save_recurring_cache(self, html: str, data_json: str) -> None:
+        self.cursor.execute("""
+            INSERT INTO RecurringCache (ID, Html, Data_Json, Generated_At)
+            VALUES (1, %s, %s, CURRENT_TIMESTAMP)
+            ON CONFLICT (ID) DO UPDATE SET Html=%s, Data_Json=%s, Generated_At=CURRENT_TIMESTAMP
+        """, (html, data_json, html, data_json))
+        self.connection.commit()
+
+    def get_last_data_change(self):
+        """Latest known "the underlying data changed" timestamp: the newest
+        File.Last_update (a file import) or transaction Tagged_At (a
+        category/tag edit), whichever is more recent. Used to tell whether a
+        cached page (recurring charges, etc.) was generated before or after
+        the data it reflects last changed — the basis for a staleness
+        indicator on manual-regen pages, since none of them auto-detect this
+        on their own otherwise."""
+        row = self.cursor.execute("""
+            SELECT GREATEST(
+                COALESCE((SELECT MAX(Last_update) FROM File), '1970-01-01'::date)::timestamp,
+                COALESCE((SELECT MAX(Tagged_At) FROM BankTransactions), '1970-01-01'::timestamp),
+                COALESCE((SELECT MAX(Tagged_At) FROM CardTransactions), '1970-01-01'::timestamp)
+            )
+        """).fetchone()
+        return row[0] if row else None
+
+    # ── Card Analysis ────────────────────────────────────────────────────────
+
+    def ensure_card_limits_table(self) -> None:
+        """Create the CardLimits table if absent. One row per card the user
+        has set a credit limit for — no other table in the schema tracks
+        this, so a card with no row here simply has no "available balance"
+        figure shown on the Card Analysis page."""
+        if DataBase.__card_limits_ready:
+            return
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS CardLimits (
+                CardID       TEXT      PRIMARY KEY,
+                Credit_Limit NUMERIC   NOT NULL,
+                Updated_At   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        self.connection.commit()
+        DataBase.__card_limits_ready = True
+
+    def get_card_limits(self) -> dict:
+        """Returns {CardID: credit_limit} — only cards the user has set a
+        limit for have a row here."""
+        rows = self.cursor.execute(
+            "SELECT CardID, Credit_Limit FROM CardLimits"
+        ).fetchall()
+        return {r[0]: float(r[1]) for r in rows}
+
+    def set_card_limit(self, card_id: str, amount: float) -> None:
+        self.cursor.execute("""
+            INSERT INTO CardLimits (CardID, Credit_Limit) VALUES (%s, %s)
+            ON CONFLICT (CardID) DO UPDATE SET Credit_Limit=%s, Updated_At=CURRENT_TIMESTAMP
+        """, (card_id, amount, amount))
+        self.connection.commit()
+
+    def clear_card_limit(self, card_id: str) -> None:
+        self.cursor.execute("DELETE FROM CardLimits WHERE CardID=%s", (card_id,))
+        self.connection.commit()
+
+    def ensure_account_settings_table(self) -> None:
+        """Create the AccountSettings table if absent: per-account choices made on the accounts
+        page (inactive flag, owner name, free-text info), keyed by the account name exactly as
+        the accounts payload shows it. An account with no row is active, with no owner or info."""
+        if DataBase.__account_settings_ready:
+            return
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS AccountSettings (
+                AccountName TEXT      PRIMARY KEY,
+                Inactive    BOOLEAN   NOT NULL DEFAULT FALSE,
+                Owner       TEXT,
+                Info        TEXT,
+                Updated_At  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        self.connection.commit()
+        DataBase.__account_settings_ready = True
+
+    def get_account_settings(self) -> dict:
+        """{account name: {'inactive': bool, 'owner': str, 'info': str}} for accounts with a row."""
+        rows = self.cursor.execute(
+            "SELECT AccountName, Inactive, Owner, Info FROM AccountSettings"
+        ).fetchall()
+        self.connection.commit()   # read-only, but don't leave the shared connection idle in a transaction
+        return {r[0]: {'inactive': bool(r[1]), 'owner': r[2] or '', 'info': r[3] or ''} for r in rows}
+
+    # ── New-build housing projects (Mona) ──────────────────────────────────
+    _HOUSING_COLS = {'name': 'Name', 'tx_category': 'Tx_Category', 'timeline_category': 'Timeline_Category',
+                     'price': 'Price', 'down_pct': 'Down_Pct', 'contract_date': 'Contract_Date',
+                     'delivery_date': 'Delivery_Date', 'growth_pct': 'Growth_Pct', 'mortgage_pct': 'Mortgage_Pct'}
+
+    def ensure_housing_project_tables(self) -> None:
+        """Create the housing-project tables if absent, and the Mona project with its defaults.
+
+        HousingProjects: one row per project (price, down-payment %, signing/delivery dates, yearly
+        growth %, and which transaction tag holds its payments). HousingTxKinds: the user's choice
+        for a payment — goes into the apartment price, or an extra cost — keyed by project and a
+        transaction key ('BankTransactions:12', 'CardTransactions:7', 'split:3')."""
+        if DataBase.__housing_projects_ready:
+            return
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS HousingProjects (
+                ProjectKey        TEXT      PRIMARY KEY,
+                Name              TEXT      NOT NULL,
+                Tx_Category       TEXT      NOT NULL,
+                Timeline_Category TEXT,
+                Price             NUMERIC,
+                Down_Pct          NUMERIC   NOT NULL DEFAULT 10,
+                Contract_Date     DATE,
+                Delivery_Date     DATE,
+                Growth_Pct        NUMERIC   NOT NULL DEFAULT 3,
+                Updated_At        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        # share of the price the mortgage will cover at delivery (own funds = the rest)
+        self.cursor.execute(
+            "ALTER TABLE HousingProjects ADD COLUMN IF NOT EXISTS Mortgage_Pct NUMERIC NOT NULL DEFAULT 75")
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS HousingTxKinds (
+                ProjectKey TEXT NOT NULL,
+                Tx_Key     TEXT NOT NULL,
+                Kind       TEXT NOT NULL,
+                PRIMARY KEY (ProjectKey, Tx_Key)
+            )
+        """)
+        # Mona's payments are the transactions tagged with the "Mona" category
+        self.cursor.execute("""
+            INSERT INTO HousingProjects (ProjectKey, Name, Tx_Category)
+            VALUES ('mona', 'מונה', 'Mona') ON CONFLICT (ProjectKey) DO NOTHING
+        """)
+        self.connection.commit()
+        DataBase.__housing_projects_ready = True
+
+    # The details the user wants to remember about each apartment. Seeded once, when the table is first
+    # created (so deleting a row sticks): שבזי gets the information that was once shown on its page
+    # (the branch that had it was never merged), Mona gets the labels its box starts with.
+    _HOUSING_INFO_SEED = {
+        'shabazi': [('כתובת הנכס', 'שבזי שלום 7/18'), ('מספר מונה מים', '70B3D5A9F019A0A9'),
+                    ('מספר מונה חשמל', '349305852'), ('מספר נכס', '1105337'),
+                    ("מס' נכס בחשבון המים", '75508'), ('חוזה חשמל עדכני (אוגוסט 2026)', '349487146')],
+        'mona': [('כתובת', ''), ('מספר מונה חשמל', ''), ('מספר מונה מים', ''), ('איש קשר בחברה', '')],
+    }
+
+    def ensure_housing_info_table(self) -> None:
+        """Create HousingInfo (apartment key, position, name, detail) if absent, seeding it once."""
+        if DataBase.__housing_info_ready:
+            return
+        is_new = self.cursor.execute("SELECT to_regclass('HousingInfo')").fetchone()[0] is None
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS HousingInfo (
+                PropKey  TEXT    NOT NULL,
+                Position INTEGER NOT NULL,
+                Label    TEXT    NOT NULL,
+                Value    TEXT    NOT NULL DEFAULT '',
+                PRIMARY KEY (PropKey, Position)
+            )
+        """)
+        if is_new:
+            for prop, rows in self._HOUSING_INFO_SEED.items():
+                for pos, (label, value) in enumerate(rows):
+                    self.cursor.execute(
+                        "INSERT INTO HousingInfo (PropKey, Position, Label, Value) VALUES (%s, %s, %s, %s)",
+                        (prop, pos, label, value))
+        self.connection.commit()
+        DataBase.__housing_info_ready = True
+
+    def get_housing_info(self, prop: str) -> list:
+        """The apartment's rows in the user's order: [{'label', 'value'}]."""
+        rows = self.cursor.execute(
+            "SELECT Label, Value FROM HousingInfo WHERE PropKey = %s ORDER BY Position", (prop,)).fetchall()
+        self.connection.commit()
+        return [{'label': r[0], 'value': r[1]} for r in rows]
+
+    def replace_housing_info(self, prop: str, items: list) -> None:
+        """Replace all of the apartment's rows with `items` ([{'label', 'value'}]) in one transaction."""
+        try:
+            self.cursor.execute("DELETE FROM HousingInfo WHERE PropKey = %s", (prop,))
+            for pos, item in enumerate(items):
+                self.cursor.execute(
+                    "INSERT INTO HousingInfo (PropKey, Position, Label, Value) VALUES (%s, %s, %s, %s)",
+                    (prop, pos, item['label'], item['value']))
+            self.connection.commit()
+        except Exception:
+            self.connection.rollback()
+            raise
+
+    _HOUSING_SELECT = """SELECT ProjectKey, Name, Tx_Category, Timeline_Category, Price, Down_Pct,
+                                Contract_Date, Delivery_Date, Growth_Pct, Mortgage_Pct FROM HousingProjects"""
+
+    @staticmethod
+    def _housing_project_dict(row) -> dict:
+        return {'key': row[0], 'name': row[1], 'tx_category': row[2], 'timeline_category': row[3],
+                'price': float(row[4]) if row[4] is not None else None, 'down_pct': float(row[5]),
+                'contract_date': row[6], 'delivery_date': row[7], 'growth_pct': float(row[8]),
+                'mortgage_pct': float(row[9])}
+
+    def get_housing_project(self, key: str):
+        """The project's settings as a dict (numbers as floats, dates as date objects), or None."""
+        row = self.cursor.execute(self._HOUSING_SELECT + " WHERE ProjectKey = %s", (key,)).fetchone()
+        self.connection.commit()   # read-only: don't leave the shared connection idle in a transaction
+        return self._housing_project_dict(row) if row else None
+
+    def list_housing_projects(self) -> list:
+        """Every project's settings, in creation order of their keys."""
+        rows = self.cursor.execute(self._HOUSING_SELECT + " ORDER BY ProjectKey").fetchall()
+        self.connection.commit()
+        return [self._housing_project_dict(r) for r in rows]
+
+    def update_housing_project(self, key: str, **fields) -> None:
+        """Set the given fields (see _HOUSING_COLS; None clears) of an existing project."""
+        fields = {k: v for k, v in fields.items() if k in self._HOUSING_COLS}
+        if not fields:
+            return
+        sets = ', '.join(f'{self._HOUSING_COLS[k]} = %s' for k in fields)
+        self.cursor.execute(
+            f"UPDATE HousingProjects SET {sets}, Updated_At = CURRENT_TIMESTAMP WHERE ProjectKey = %s",
+            list(fields.values()) + [key])
+        self.connection.commit()
+
+    def get_housing_tx_kinds(self, key: str) -> dict:
+        """{transaction key: kind} the user chose for the project's payments."""
+        rows = self.cursor.execute(
+            "SELECT Tx_Key, Kind FROM HousingTxKinds WHERE ProjectKey = %s", (key,)).fetchall()
+        self.connection.commit()
+        return {r[0]: r[1] for r in rows}
+
+    def set_housing_tx_kind(self, key: str, tx_key: str, kind) -> None:
+        """Remember the user's kind for one payment; None goes back to the automatic one."""
+        if kind is None:
+            self.cursor.execute("DELETE FROM HousingTxKinds WHERE ProjectKey = %s AND Tx_Key = %s", (key, tx_key))
+        else:
+            self.cursor.execute("""
+                INSERT INTO HousingTxKinds (ProjectKey, Tx_Key, Kind) VALUES (%s, %s, %s)
+                ON CONFLICT (ProjectKey, Tx_Key) DO UPDATE SET Kind = EXCLUDED.Kind
+            """, (key, tx_key, kind))
+        self.commit_changes()       # the monthly analysis shows price payments as investments: its pages are now stale
+
+    def is_outgoing(self, table: str, tx_id: int) -> bool:
+        """True when the transaction is money going out (a bank debit / a card charge), False for money in or
+        when the row is not found."""
+        if table == 'BankTransactions':
+            sql = "SELECT Out > 0 FROM BankTransactions WHERE ID = %s"
+        elif table == 'CardTransactions':
+            sql = "SELECT Transaction_Value > 0 FROM CardTransactions WHERE ID = %s"
+        else:
+            return False
+        row = self.cursor.execute(sql, (int(tx_id),)).fetchone()
+        self.connection.commit()
+        return bool(row and row[0])
+
+    def canonical_category(self, name: str) -> str:
+        """`name` spelled as the category is in categories.json ("MONA" -> "Mona"); unchanged when there is
+        no such category. Transactions are matched on the exact spelling, so a project must use that one."""
+        import json
+        from Constants import Paths
+        try:
+            with open(Paths.CATEGORY_JSON, encoding='utf-8') as f:
+                categories = json.load(f)
+        except (OSError, ValueError):
+            return name
+        wanted = name.strip().casefold()
+        for c in categories if isinstance(categories, list) else []:
+            if isinstance(c, str) and c.strip().casefold() == wanted:
+                return c
+        return name
+
+    def get_project_transactions(self, category: str) -> list:
+        """Bank and card payments tagged `category` (splits applied), oldest first, as dicts:
+        key, table, id, date, name, description, out, income.
+
+        Card payments go through the same price processing as the housing page's table. `key`
+        identifies the row for the user's per-payment choices; a split row has its own id space,
+        so its key is 'split:<id>'. Only the tagged rows are read (not the whole tables)."""
+        from src_utils.calculations import SimpleMath
+        from datetime import datetime as _dt
+
+        def _as_date(v):
+            return v.date() if isinstance(v, _dt) else v if hasattr(v, 'year') else pd.to_datetime(v).date()
+
+        # an original tagged elsewhere can still have a split row tagged `category`
+        split_origs = {}
+        for s in self.get_all_splits():
+            if s['category'] == category:
+                split_origs.setdefault(s['orig_table'], set()).add(s['orig_id'])
+
+        out = []
+        for table in ('BankTransactions', 'CardTransactions'):
+            raw = self.get_transactions(table, category_filter=category, name_filter=None)
+            ids = split_origs.get(table)
+            if ids:
+                rows = self.cursor.execute(
+                    f"SELECT *, '{table}' AS TableName FROM {table} WHERE ID = ANY(%s)", (sorted(ids),)).fetchall()
+                more = pd.DataFrame(rows, columns=[d[0] for d in self.cursor.description])
+                raw = pd.concat([raw, more], ignore_index=True).drop_duplicates(subset=['ID'])
+            raw = self.apply_splits_to_df(raw)
+            if raw.empty:
+                continue
+            raw = raw[raw['Category'] == category].reset_index(drop=True)
+            if raw.empty:
+                continue
+            is_split = raw['_split_orig_id'].notna() if '_split_orig_id' in raw.columns else pd.Series(False, index=raw.index)
+            if table == 'BankTransactions':
+                for i, r in raw.iterrows():
+                    out.append({'table': table, 'id': int(r['ID']), 'split': bool(is_split[i]),
+                                'date': _as_date(r['Date']), 'name': str(r['Name'] or ''),
+                                'description': str(r.get('Description') or ''),
+                                'out': float(r['Out'] or 0), 'income': float(r['Income'] or 0)})
+            else:
+                proc = SimpleMath.process_prices(raw, date=_dt.now(), general_analysis=False)
+                split_ids = set(raw.loc[is_split, 'ID']) if is_split.any() else set()
+                for _, r in proc.iterrows():
+                    v = float(r['Final_Value'])
+                    out.append({'table': table, 'id': int(r['ID']), 'split': r['ID'] in split_ids,
+                                'date': _as_date(r['Executed_Date']), 'name': str(r['Name'] or ''),
+                                'description': str(r.get('Description') or ''),
+                                'out': abs(v) if v < 0 else 0.0, 'income': v if v > 0 else 0.0})
+        for t in out:
+            t['key'] = f"split:{t['id']}" if t.pop('split') else f"{t['table']}:{t['id']}"
+        return sorted(out, key=lambda t: (t['date'], t['key']))
+
+    def update_account_settings(self, name: str, **fields) -> None:
+        """Upsert the given fields (inactive / owner / info) for one account; others keep their value."""
+        cols = {'inactive': 'Inactive', 'owner': 'Owner', 'info': 'Info'}
+        fields = {k: v for k, v in fields.items() if k in cols}
+        if not fields:
+            return
+        names = [cols[k] for k in fields]
+        values = list(fields.values())
+        sets = ', '.join(f'{c}=EXCLUDED.{c}' for c in names)
+        self.cursor.execute(
+            f"INSERT INTO AccountSettings (AccountName, {', '.join(names)}) "
+            f"VALUES (%s, {', '.join(['%s'] * len(names))}) "
+            f"ON CONFLICT (AccountName) DO UPDATE SET {sets}, Updated_At=CURRENT_TIMESTAMP",
+            [name] + values)
+        self.connection.commit()
+
+    def get_recurring_history(self) -> dict:
+        """Returns {group_key: {'name', 'first_seen_month', 'last_seen_month', 'last_status'}}.
+        last_status is None for rows written before this column existed, or
+        for any group never yet processed by apply_history_tracking's status
+        tracking (treated as "no baseline to compare against" there)."""
+        rows = self.cursor.execute(
+            "SELECT Group_Key, Name, First_Seen_Month, Last_Seen_Month, Last_Status FROM RecurringHistory"
+        ).fetchall()
+        return {
+            r[0]: {'name': r[1], 'first_seen_month': r[2], 'last_seen_month': r[3], 'last_status': r[4]}
+            for r in rows
+        }
+
+    def upsert_recurring_history(self, group_key: str, name: str,
+                                  first_seen_month: str, last_seen_month: str,
+                                  last_status: str = None) -> None:
+        """Insert a new history row, or update Name/Last_Seen_Month (and
+        Last_Status, when given) for an existing one (First_Seen_Month never
+        changes once recorded). Does not commit — caller commits once after
+        the whole batch."""
+        self.cursor.execute("""
+            INSERT INTO RecurringHistory (Group_Key, Name, First_Seen_Month, Last_Seen_Month, Last_Status)
+            VALUES (%s, %s, %s, %s, %s)
+            ON CONFLICT (Group_Key) DO UPDATE SET
+                Name=%s, Last_Seen_Month=%s,
+                Last_Status=COALESCE(%s, RecurringHistory.Last_Status),
+                Updated_At=CURRENT_TIMESTAMP
+        """, (group_key, name, first_seen_month, last_seen_month, last_status,
+              name, last_seen_month, last_status))
+
+    def get_recurring_dismissed(self) -> set:
+        rows = self.cursor.execute("SELECT Group_Key FROM RecurringDismissed").fetchall()
+        return {r[0] for r in rows}
+
+    def dismiss_recurring_group(self, group_key: str) -> None:
+        self.cursor.execute(
+            "INSERT INTO RecurringDismissed (Group_Key) VALUES (%s) ON CONFLICT DO NOTHING",
+            (group_key,)
+        )
+        self.connection.commit()
+
+    def restore_recurring_group(self, group_key: str) -> None:
+        self.cursor.execute("DELETE FROM RecurringDismissed WHERE Group_Key=%s", (group_key,))
+        self.connection.commit()
+
+    def get_recurring_merges(self) -> dict:
+        """Returns {secondary_key: primary_key}."""
+        rows = self.cursor.execute("SELECT Secondary_Key, Primary_Key FROM RecurringMerges").fetchall()
+        return {r[0]: r[1] for r in rows}
+
+    def add_recurring_merge(self, secondary_key: str, primary_key: str) -> None:
+        self.cursor.execute(
+            "DELETE FROM RecurringMerges WHERE Secondary_Key=%s", (secondary_key,)
+        )
+        self.cursor.execute(
+            "INSERT INTO RecurringMerges (Secondary_Key, Primary_Key) VALUES (%s, %s)",
+            (secondary_key, primary_key)
+        )
+        self.connection.commit()
+
+    def get_recurring_excluded_tx(self) -> set:
+        """Returns a set of (table_name, tx_id) tuples."""
+        rows = self.cursor.execute(
+            "SELECT Table_Name, TX_ID FROM RecurringExcludedTransactions"
+        ).fetchall()
+        return {(r[0], r[1]) for r in rows}
+
+    def exclude_recurring_tx(self, table_name: str, tx_id: int) -> None:
+        self.cursor.execute(
+            "INSERT INTO RecurringExcludedTransactions (Table_Name, TX_ID) VALUES (%s, %s) "
+            "ON CONFLICT DO NOTHING",
+            (table_name, int(tx_id))
+        )
+        self.connection.commit()
+
+    def get_recurring_folders(self) -> list:
+        """Returns [{'id', 'name', 'is_default', 'sort_order'}, ...] ordered for display."""
+        rows = self.cursor.execute(
+            "SELECT ID, Name, Is_Default, Sort_Order FROM RecurringFolders ORDER BY Is_Default, Sort_Order, ID"
+        ).fetchall()
+        return [{'id': r[0], 'name': r[1], 'is_default': bool(r[2]), 'sort_order': r[3]} for r in rows]
+
+    def create_recurring_folder(self, name: str) -> int:
+        row = self.cursor.execute(
+            "INSERT INTO RecurringFolders (Name) VALUES (%s) RETURNING ID", (name,)
+        ).fetchone()
+        self.connection.commit()
+        return row[0]
+
+    def rename_recurring_folder(self, folder_id: int, name: str) -> None:
+        self.cursor.execute(
+            "UPDATE RecurringFolders SET Name=%s WHERE ID=%s AND Is_Default=FALSE",
+            (name, int(folder_id))
+        )
+        self.connection.commit()
+
+    def delete_recurring_folder(self, folder_id: int) -> None:
+        """Deletes a non-default folder. Bills assigned to it fall back to the
+        default folder automatically — their RecurringFolderAssignments row
+        cascade-deletes with the folder, and "no row" reads as default."""
+        self.cursor.execute(
+            "DELETE FROM RecurringFolders WHERE ID=%s AND Is_Default=FALSE", (int(folder_id),)
+        )
+        self.connection.commit()
+
+    def get_recurring_folder_assignments(self) -> dict:
+        """Returns {group_key: folder_id} — only bills explicitly moved out of
+        the default folder have a row here."""
+        rows = self.cursor.execute(
+            "SELECT Group_Key, Folder_Id FROM RecurringFolderAssignments"
+        ).fetchall()
+        return {r[0]: r[1] for r in rows}
+
+    def set_recurring_folder_assignment(self, group_key: str, folder_id: int) -> None:
+        self.cursor.execute("""
+            INSERT INTO RecurringFolderAssignments (Group_Key, Folder_Id) VALUES (%s, %s)
+            ON CONFLICT (Group_Key) DO UPDATE SET Folder_Id=%s, Updated_At=CURRENT_TIMESTAMP
+        """, (group_key, int(folder_id), int(folder_id)))
+        self.connection.commit()
+
+    def get_recurring_display_names(self) -> dict:
+        """Returns {group_key: custom_name} — only bills the user has
+        given a made-up display name have a row here."""
+        rows = self.cursor.execute(
+            "SELECT Group_Key, Custom_Name FROM RecurringDisplayNames"
+        ).fetchall()
+        return {r[0]: r[1] for r in rows}
+
+    def set_recurring_display_name(self, group_key: str, name: str) -> None:
+        self.cursor.execute("""
+            INSERT INTO RecurringDisplayNames (Group_Key, Custom_Name) VALUES (%s, %s)
+            ON CONFLICT (Group_Key) DO UPDATE SET Custom_Name=%s, Updated_At=CURRENT_TIMESTAMP
+        """, (group_key, name, name))
+        self.connection.commit()
+
+    def clear_recurring_display_name(self, group_key: str) -> None:
+        self.cursor.execute("DELETE FROM RecurringDisplayNames WHERE Group_Key=%s", (group_key,))
+        self.connection.commit()
 
     def get_spotify_members(self) -> list:
         rows = self.cursor.execute(
@@ -2774,6 +4350,10 @@ class DataBase:
                 'currency': r[6] or 'ILS', 'value_currency': r[7] or 'ILS', 'card_id': r[8],
             })
         result.sort(key=lambda x: x.get('exec_date') or '', reverse=True)
+        # Read-only, but the shared connection has autocommit off — without this,
+        # the transaction sits idle after we return, Neon eventually kills it, and
+        # the next unrelated request (e.g. a tag UPDATE) fails on the dead connection.
+        self.connection.commit()
         return result[:limit]
 
     def count_untagged_total(self) -> int:
@@ -2783,21 +4363,22 @@ class DataBase:
         c = self.cursor.execute(
             "SELECT COUNT(*) FROM CardTransactions WHERE Category='NotCategorized'"
         ).fetchone()[0] or 0
+        self.connection.commit()
         return b + c
 
     def get_recently_tagged(self, limit: int = 30) -> list:
         bank = self.cursor.execute("""
-            SELECT ID, Name, Date, Out, Income, Category, Reserved
+            SELECT ID, Name, Date, Out, Income, Category, Reserved, Tagged_At
             FROM BankTransactions
             WHERE Category IS NOT NULL AND Category != 'NotCategorized'
-            ORDER BY ID DESC LIMIT %s
+            ORDER BY Tagged_At DESC NULLS LAST, ID DESC LIMIT %s
         """, (limit,)).fetchall()
         card = self.cursor.execute("""
             SELECT ID, Name, Executed_Date, Charge_Value, Transaction_Value,
-                   Charge_Currency, Value_Currency, CardID, Category, Reserved
+                   Charge_Currency, Value_Currency, CardID, Category, Reserved, Tagged_At
             FROM CardTransactions
             WHERE Category IS NOT NULL AND Category != 'NotCategorized'
-            ORDER BY ID DESC LIMIT %s
+            ORDER BY Tagged_At DESC NULLS LAST, ID DESC LIMIT %s
         """, (limit,)).fetchall()
         result = []
         for r in bank:
@@ -2807,7 +4388,7 @@ class DataBase:
                 'charge_value': float(r[3]) if r[3] is not None else None,
                 'transaction_value': float(r[4]) if r[4] is not None else None,
                 'currency': 'ILS', 'value_currency': 'ILS', 'card_id': None,
-                'category': r[5] or '', 'reserved': r[6],
+                'category': r[5] or '', 'reserved': r[6], 'tagged_at': r[7],
             })
         for r in card:
             result.append({
@@ -2816,9 +4397,14 @@ class DataBase:
                 'charge_value': float(r[3]) if r[3] is not None else None,
                 'transaction_value': float(r[4]) if r[4] is not None else None,
                 'currency': r[5] or 'ILS', 'value_currency': r[6] or 'ILS',
-                'card_id': r[7], 'category': r[8] or '', 'reserved': r[9],
+                'card_id': r[7], 'category': r[8] or '', 'reserved': r[9], 'tagged_at': r[10],
             })
-        result.sort(key=lambda x: x.get('id') or 0, reverse=True)
+        # Sort by tagged time (most recent first); rows never re-tagged since the
+        # Tagged_At column was added fall back to ID so they still land in a
+        # sensible (insertion) order instead of all clumping at the bottom.
+        _min_dt = datetime.min
+        result.sort(key=lambda x: (x.get('tagged_at') or _min_dt, x.get('id') or 0), reverse=True)
+        self.connection.commit()
         return result[:limit]
 
     def get_high_value_untagged(self, threshold: float = 500) -> list:
@@ -2854,6 +4440,7 @@ class DataBase:
                 'transaction_value': float(r[5]) if r[5] is not None else None,
                 'currency': r[6] or 'ILS', 'value_currency': r[7] or 'ILS', 'card_id': r[8],
             })
+        self.connection.commit()
         return result
 
     def count_category_usages(self) -> dict:
@@ -2866,6 +4453,7 @@ class DataBase:
                 WHERE Category IS NOT NULL AND Category != 'NotCategorized'
             ) t GROUP BY Category
         """).fetchall()
+        self.connection.commit()
         return {r[0]: r[1] for r in rows}
 
     def count_auto_tagged_per_name(self) -> dict:
@@ -2876,6 +4464,7 @@ class DataBase:
                 SELECT Name FROM CardTransactions WHERE Reserved = 1
             ) t GROUP BY Name
         """).fetchall()
+        self.connection.commit()
         return {r[0]: r[1] for r in rows}
 
     def search_tagged(self, q: str) -> list:
@@ -2926,12 +4515,13 @@ class DataBase:
                 'currency': r[5] or 'ILS', 'value_currency': r[6] or 'ILS',
                 'card_id': r[7], 'category': r[8] or '', 'reserved': r[9],
             })
+        self.connection.commit()
         return result
 
     def set_category_ui(self, table: str, id_: int, category: str, is_auto: bool = False) -> None:
         reserved = 1 if is_auto else 0
         self.cursor.execute(
-            f"UPDATE {table} SET Category=%s, Reserved=%s WHERE ID=%s",
+            f"UPDATE {table} SET Category=%s, Reserved=%s, Tagged_At=CURRENT_TIMESTAMP WHERE ID=%s",
             (category, reserved, int(id_))
         )
         self.connection.commit()

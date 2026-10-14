@@ -7,12 +7,13 @@ from database import DataBase
 
 def test_spotify_tables_exist():
     db = DataBase()
-    tables = {r[0] for r in db.cursor.execute(
-        "SELECT name FROM sqlite_master WHERE type='table'"
+    # Postgres lowercases unquoted identifiers, so compare case-insensitively.
+    tables = {r[0].lower() for r in db.cursor.execute(
+        "SELECT table_name FROM information_schema.tables WHERE table_schema='public'"
     ).fetchall()}
-    assert 'SpotifyMembers' in tables, "SpotifyMembers table missing"
-    assert 'SpotifyMonthlyCharge' in tables, "SpotifyMonthlyCharge table missing"
-    assert 'SpotifyMemberPayments' in tables, "SpotifyMemberPayments table missing"
+    assert 'spotifymembers' in tables, "SpotifyMembers table missing"
+    assert 'spotifymonthlycharge' in tables, "SpotifyMonthlyCharge table missing"
+    assert 'spotifymemberpayments' in tables, "SpotifyMemberPayments table missing"
 
 
 def test_member_crud():
@@ -44,18 +45,21 @@ def test_charge_crud():
     db.commit_changes()
 
     cid = db.add_spotify_charge(month='2099-01', total_amount=149.90, member_count=5, tx_id=None, confirmed=1)
-    assert isinstance(cid, int)
+    try:
+        assert isinstance(cid, int)
 
-    charges = db.get_spotify_charges()
-    assert any(c['month'] == '2099-01' for c in charges)
+        charges = db.get_spotify_charges()
+        assert any(c['month'] == '2099-01' for c in charges)
 
-    db.update_spotify_charge(cid, total_amount=159.90, member_count=5, confirmed=1)
-    charges = db.get_spotify_charges()
-    updated = next(c for c in charges if c['month'] == '2099-01')
-    assert updated['total_amount'] == 159.90
-
-    db.cursor.execute("DELETE FROM SpotifyMonthlyCharge WHERE ID = ?", (cid,))
-    db.commit_changes()
+        db.update_spotify_charge(cid, total_amount=159.90, member_count=5, confirmed=1)
+        charges = db.get_spotify_charges()
+        updated = next(c for c in charges if c['month'] == '2099-01')
+        assert updated['total_amount'] == 159.90
+    finally:
+        # Cleanup — runs even if an assertion above failed, so this test
+        # never leaves a fake charge behind in the (production) DB.
+        db.cursor.execute("DELETE FROM SpotifyMonthlyCharge WHERE ID = %s", (cid,))
+        db.commit_changes()
     print("PASS: charge CRUD")
 
 
@@ -123,38 +127,43 @@ def test_full_balance_flow():
     db = DataBase()
 
     # Setup: 3 members (1 exempt, 2 paying), 2 months of charges
-    db.cursor.execute("DELETE FROM SpotifyMemberPayments WHERE Member_ID IN (SELECT ID FROM SpotifyMembers WHERE Name LIKE 'E2E_%')")
-    db.cursor.execute("DELETE FROM SpotifyMembers WHERE Name LIKE 'E2E_%'")
+    db.cursor.execute("DELETE FROM SpotifyMemberPayments WHERE Member_ID IN (SELECT ID FROM SpotifyMembers WHERE Name LIKE %s)", ('E2E_%',))
+    db.cursor.execute("DELETE FROM SpotifyMembers WHERE Name LIKE %s", ('E2E_%',))
     db.cursor.execute("DELETE FROM SpotifyMonthlyCharge WHERE Month IN ('2099-03','2099-04')")
     db.commit_changes()
 
-    owner_id = db.add_spotify_member('E2E_Owner', is_exempt=1)
-    alice_id = db.add_spotify_member('E2E_Alice', is_exempt=0)
-    bob_id   = db.add_spotify_member('E2E_Bob',   is_exempt=0)
+    owner_id = alice_id = bob_id = None
+    try:
+        owner_id = db.add_spotify_member('E2E_Owner', is_exempt=1)
+        alice_id = db.add_spotify_member('E2E_Alice', is_exempt=0)
+        bob_id   = db.add_spotify_member('E2E_Bob',   is_exempt=0)
 
-    # 2 months, 3 members → share = 120/3 = 40 per person
-    db.add_spotify_charge('2099-03', total_amount=120.0, member_count=3, confirmed=1)
-    db.add_spotify_charge('2099-04', total_amount=120.0, member_count=3, confirmed=1)
+        # 2 months, 3 members → share = 120/3 = 40 per person
+        db.add_spotify_charge('2099-03', total_amount=120.0, member_count=3, confirmed=1)
+        db.add_spotify_charge('2099-04', total_amount=120.0, member_count=3, confirmed=1)
 
-    # Alice pays for both months (80 total — even)
-    db.add_spotify_payment(alice_id, 80.0, '2099-03-10')
+        # Alice pays for both months (80 total — even)
+        db.add_spotify_payment(alice_id, 80.0, '2099-03-10')
 
-    # Bob pays only once (40 — owes 1 month)
-    db.add_spotify_payment(bob_id, 40.0, '2099-03-15')
+        # Bob pays only once (40 — owes 1 month)
+        db.add_spotify_payment(bob_id, 40.0, '2099-03-15')
 
-    balances = compute_all_balances(db)
-    bal_by_name = {b['name']: b for b in balances}
+        balances = compute_all_balances(db)
+        bal_by_name = {b['name']: b for b in balances}
 
-    assert 'E2E_Owner' not in bal_by_name, "Exempt member must not appear in balances"
-    assert bal_by_name['E2E_Alice']['status'] == 'even',  f"Alice should be even, got {bal_by_name['E2E_Alice']}"
-    assert bal_by_name['E2E_Bob']['status']   == 'owes',  f"Bob should owe, got {bal_by_name['E2E_Bob']}"
-    assert bal_by_name['E2E_Bob']['months_status'] == -1, f"Bob should owe 1 month, got {bal_by_name['E2E_Bob']['months_status']}"
-
-    # Cleanup
-    db.cursor.execute("DELETE FROM SpotifyMemberPayments WHERE Member_ID IN (?,?)", (alice_id, bob_id))
-    db.cursor.execute("DELETE FROM SpotifyMembers WHERE ID IN (?,?,?)", (owner_id, alice_id, bob_id))
-    db.cursor.execute("DELETE FROM SpotifyMonthlyCharge WHERE Month IN ('2099-03','2099-04')")
-    db.commit_changes()
+        assert 'E2E_Owner' not in bal_by_name, "Exempt member must not appear in balances"
+        assert bal_by_name['E2E_Alice']['status'] == 'even',  f"Alice should be even, got {bal_by_name['E2E_Alice']}"
+        assert bal_by_name['E2E_Bob']['status']   == 'owes',  f"Bob should owe, got {bal_by_name['E2E_Bob']}"
+        assert bal_by_name['E2E_Bob']['months_status'] == -1, f"Bob should owe 1 month, got {bal_by_name['E2E_Bob']['months_status']}"
+    finally:
+        # Cleanup — runs even if an assertion above failed, so this test
+        # never leaves fake members/charges behind in the (production) DB.
+        ids = tuple(i for i in (owner_id, alice_id, bob_id) if i is not None)
+        if ids:
+            db.cursor.execute("DELETE FROM SpotifyMemberPayments WHERE Member_ID IN %s", (ids,))
+            db.cursor.execute("DELETE FROM SpotifyMembers WHERE ID IN %s", (ids,))
+        db.cursor.execute("DELETE FROM SpotifyMonthlyCharge WHERE Month IN ('2099-03','2099-04')")
+        db.commit_changes()
     print("PASS: full balance flow e2e")
 
 

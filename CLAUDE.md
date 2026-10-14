@@ -265,7 +265,8 @@ computed live per request (balance changes with every bank file); the recurring 
 - **Estimates are labelled:** every projected figure carries a "משוער" tag, always at the **bottom** of its cube (`fcEst`, `.fc-est-foot`), never inline in the text; only one of them (the main figure) carries the (i) explaining it; `totals.known` = charges a card already holds, `totals.estimated` = the rest.
   `fixed_monthly` (top figure) = recurring charges paid from the bank (`monthly_recurring_total`) + the rent operations, **without** any credit-card estimate.
 - The old active-bills pie card and the "סה\"כ חיוב חודשי חוזר" KPI were removed from this page; the per-group list below the forecast is unchanged.
-- Rules-of-thumb month lists are collapsed (`<details class="fc-det">`).
+- Rules-of-thumb month lists are collapsed (`<details class="fc-det">`). **Every section collapses** (`fcSection`, `<details class="fc-sec" data-sec=…>`): the whole rules panel (`rules`) and its parts
+  (`sal`, `rent`, `cards`, `misc`), and the operations list under the chart (`ops`). What the user closed is kept in `fcOpen` across re-renders (scenario/buffer changes) via a capturing `toggle` listener.
 - The legend under the split bar names only the *types* (כרטיסי אשראי / שכירות — the building fee is part of "שכירות" there / חיובים חוזרים), no values: hover or tap a legend item or a bar segment and its total and
   items open in the details line under the chart (`fcLegTexts`, same box as the chart points, `FC_HIT` selector).
 - **No floating messages** on this page (no CSS/`title` tooltips): the (i) opens an in-flow panel (`.fc-i-panel`, inserted after its row/cube) on hover (mouse) or tap (touch) and closes on leave /

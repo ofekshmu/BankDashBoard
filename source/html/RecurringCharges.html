@@ -378,6 +378,17 @@ body {
 .fc-det[open] summary::before{transform:rotate(90deg)}
 .fc-det summary::-webkit-details-marker{display:none}
 .fc-det .fc-sub-rule{padding:3px 0 2px 0}
+
+.fc-sec{border-top:1px solid var(--border)}
+.fc-sec-main{border-top:0}
+.fc-sec-sum{display:flex;align-items:center;gap:10px;padding:9px 0;cursor:pointer;list-style:none;font-weight:600;color:var(--navy)}
+.fc-sec-sum::-webkit-details-marker{display:none}
+.fc-sec-sum::before{content:"▾";display:inline-block;color:var(--text-muted);font-size:.8em;transition:transform .15s}
+.fc-sec:not([open])>.fc-sec-sum::before{transform:rotate(90deg)}
+.fc-sec-sum h3{margin:0}
+.fc-sec-sum small{margin-right:auto;color:var(--text-muted);font-weight:400;font-size:.82em}
+.fc-sec-body{padding:0 0 6px}
+.fc-sec .fc-sec .fc-sec-sum{font-size:.95em}
 @keyframes fcsh{to{background-position:-200% 0}}
 @media (max-width: 760px){
   .fc-hero{padding:20px}.fc-big{font-size:2.5em}
@@ -1324,7 +1335,7 @@ function regenerate() {
 var FC_KEY = 'rc_forecast_params';
 var fcParams = { buffer: '', card_mode: 'max' };
 try { var _fcs = JSON.parse(localStorage.getItem(FC_KEY) || 'null'); if (_fcs) fcParams = Object.assign(fcParams, _fcs); } catch (e) {}
-var fcData = null, fcResizeTimer = null, fcDots = [];
+var fcData = null, fcResizeTimer = null, fcDots = [], fcOpen = {};   // fcOpen: which rules sections the user closed
 
 // Amount as an isolated left-to-right run, so the sign and ₪ stay put inside the RTL page.
 function fcMoney(n, plus) { return '<bdi dir="ltr">' + fcPlain(n, plus) + '</bdi>'; }
@@ -1343,6 +1354,11 @@ var FC_TIP_EST = 'משוער = הערכה שמחושבת מהיסטוריית ה
 var FC_TIP_AUTO = 'הכרטיס נוסף למערכת אוטומטית ("Auto Insertion") ברגע שנקלט לראשונה קובץ אשראי שלו. זו לא הגדרה שלך — רק סימון שהמערכת יצרה את הכרטיס בעצמה, ואפשר לתת לו תיאור בטבלת Card.';
 var FC_TIP_ASSUMED = 'הפעולה עדיין לא מופיעה בקבצים שהוזנו. מניחים שהיא בוצעה במועד שחושב לה ולכן היא נכללת בחישוב. אם לא בוצעה — נדע בעדכון הקבצים בסוף החודש, והשינוי ישוקלל בחישוב הפעולות החוזרות של החודש הבא.';
 
+// remember which sections of the rules panel are open (the 'toggle' event does not bubble: listen while capturing)
+document.getElementById('fc-body').addEventListener('toggle', function(ev) {
+  var sec = ev.target.getAttribute && ev.target.getAttribute('data-sec');
+  if (sec) fcOpen[sec] = ev.target.open;
+}, true);
 var FC_DOT_HINT = 'העבר עכבר או גע בנקודה בגרף, או בסוג חיוב במקרא, כדי לראות פרטים';
 var FC_HIT = '.fc-hit, .fc-hit-line, .fc-leg, .fc-split i';   // everything that opens its details in the line under the chart
 var fcLegTexts = {};
@@ -1583,7 +1599,7 @@ function fcRender() {
     '<div class="fc-card"><h3>מה יורד מהחשבון עד המשכורת</h3>' +
       '<div class="fc-split">' + split + '</div><div class="fc-legend">' + legend + '</div>' +
       '<div class="fc-chart"><div class="fc-chart-svg">' + fcChartSvg(d, v, chartW) + '</div><div class="fc-chart-detail" id="fc-chart-detail">' + FC_DOT_HINT + '</div></div>' +
-      '<div>' + rows + '</div>' + fcEst() + '</div>';
+      fcSection('ops', 'פירוט הפעולות', rows, charges.length + ' חיובים') + fcEst() + '</div>';
 
   var salRules = sal.streams.map(function(st, i) {
     return '<div class="fc-rule"><span>משכורת' + (sal.streams.length > 1 ? ' ' + (i + 1) : '') + ' · ' + (mode === 'max' ? 'יום ' + st.day + ' (המאוחר ביותר)' : 'יום ' + st.day + ' (ממוצע)') + '</span><b>' + fcMoney(st.amount) + '</b></div>' +
@@ -1603,13 +1619,23 @@ function fcRender() {
       }).join('') + (sc.rent.items.length > 1 ? '<div class="fc-rule"><span>סה"כ שכירות</span><b>' + fcMoney(sc.rent.amount) + '</b></div>' : '')
     : '<div class="fc-rule"><span>שכירות</span><b>לא זוהתה</b></div>';
   var skipped = (sc.skipped || []).reduce(function(a, s) { a[s.reason] = (a[s.reason] || 0) + 1; return a; }, {});
+  // every part of the rules panel opens and closes (and the whole panel too); what the user opened stays that way
+  function fcSection(key, title, body, summary) {
+    return '<details class="fc-sec" data-sec="' + key + '"' + (fcOpen[key] === false ? '' : ' open') + '><summary class="fc-sec-sum"><span>' + title + '</span>' +
+      (summary ? '<small>' + summary + '</small>' : '') + '</summary><div class="fc-sec-body">' + body + '</div></details>';
+  }
+  var cardModeRule = '<div class="fc-rule"><span>חיוב כרטיס</span><b>' + (mode === 'max' ? 'החודש הגבוה ב-6 חודשים' : 'ממוצע 6 חודשים') + '</b></div>';
+  var misc = (skipped.card ? '<div class="fc-rule"><span>חוזרים בכרטיס (כלולים בחיוב הכרטיס)</span><b>' + skipped.card + '</b></div>' : '') +
+    (skipped.stopped ? '<div class="fc-rule"><span>חיובים שנראה שהופסקו (לא נספרו)</span><b>' + skipped.stopped + '</b></div>' : '') +
+    (sc.notes || []).map(function(n) { return '<div class="fc-note">' + esc(n) + '</div>'; }).join('');
   var rules =
-    '<div class="fc-card"><h3>כללי האצבע שבשימוש</h3>' + salRules + salDiag + rentRule + cards +
-      '<div class="fc-rule"><span>חיוב כרטיס</span><b>' + (mode === 'max' ? 'החודש הגבוה ב-6 חודשים' : 'ממוצע 6 חודשים') + '</b></div>' +
-      (skipped.card ? '<div class="fc-rule"><span>חוזרים בכרטיס (כלולים בחיוב הכרטיס)</span><b>' + skipped.card + '</b></div>' : '') +
-      (skipped.stopped ? '<div class="fc-rule"><span>חיובים שנראה שהופסקו (לא נספרו)</span><b>' + skipped.stopped + '</b></div>' : '') +
-      (sc.notes || []).map(function(n) { return '<div class="fc-note">' + esc(n) + '</div>'; }).join('') + fcEst() +
-    '</div>';
+    '<div class="fc-card"><details class="fc-sec fc-sec-main" data-sec="rules"' + (fcOpen.rules === false ? '' : ' open') + '><summary class="fc-sec-sum"><h3>כללי האצבע שבשימוש</h3></summary><div class="fc-sec-body">' +
+      fcSection('sal', 'משכורות', salRules + salDiag, sal.streams.length + (sal.streams.length === 1 ? ' משכורת' : ' משכורות')) +
+      fcSection('rent', 'שכירות', rentRule, sc.rent ? fcPlain(sc.rent.amount) : '') +
+      fcSection('cards', 'כרטיסי אשראי', cards + cardModeRule, (sc.cards || []).length + ' כרטיסים') +
+      (misc ? fcSection('misc', 'הנחות והערות', misc, '') : '') +
+      fcEst() +
+    '</div></details></div>';
 
   el.innerHTML = hero + controls + '<div class="fc-grid">' + timeline + rules + '</div>';
   // draw the chart at its real width so the text keeps its size

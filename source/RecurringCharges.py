@@ -392,6 +392,8 @@ RENT_CATEGORY = 'שכירות'
 RENT_NAME = 'שכירות'
 RENT_EXTRA_NAME = 'ועד בית'
 AMOUNT_CLUSTER_TOLERANCE = 0.03   # payments within this share of each other's amount are "the same amount"
+STEP_CHANGE_MAX = 0.25            # a later amount within this share of an earlier one is the same operation after an update
+                                  # (a doubled payment — two months paid at once — is not an update)
 
 
 def cluster_by_amount(rows: list, tolerance: float = AMOUNT_CLUSTER_TOLERANCE) -> list:
@@ -416,7 +418,7 @@ def recurring_operations(rows: list, tolerance: float = AMOUNT_CLUSTER_TOLERANCE
     Splits payments of one category into the separate operations that repeat in it (rent, building fee…),
     by amount: each operation is one payment a month of the same amount. An operation whose amount
     changed over time (a rent update) is one operation, not two: clusters that never share a month and
-    differ by at most MAX_AMOUNT_DEVIATION are merged.
+    differ by at most STEP_CHANGE_MAX are merged.
     Returns [{'rows': [...], 'months': {'YYYY-MM': row}}], the most-repeated operation first, then the
     biggest. Whether an operation is really recurring is for the caller to decide (≥ MIN_STREAK_MONTHS...).
     """
@@ -435,7 +437,7 @@ def recurring_operations(rows: list, tolerance: float = AMOUNT_CLUSTER_TOLERANCE
                 ref_a = a['months'][max(a['months'])]['amount']
                 ref_b = b['months'][max(b['months'])]['amount']
                 if (not set(a['months']) & set(b['months']) and ref_a and ref_b
-                        and abs(ref_a - ref_b) / max(ref_a, ref_b) <= MAX_AMOUNT_DEVIATION):
+                        and abs(ref_a - ref_b) / max(ref_a, ref_b) <= STEP_CHANGE_MAX):
                     a['rows'] += b['rows']
                     a['months'].update(b['months'])
                     del ops[j]

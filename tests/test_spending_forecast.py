@@ -119,6 +119,18 @@ def test_one_salary_with_two_names_landing_at_the_month_edge_is_one_stream_not_t
     assert len([u for u in prof['upcoming'] if u['date'] <= date(2026, 11, 14)]) == 1      # one date in the month ahead
 
 
+def test_a_salary_that_already_landed_under_another_name_is_not_assumed_again():
+    """Stream A (the 2nd, named 'חברת אלפא') has no October deposit under its own name, but a deposit of about
+    that size landed on Oct 1 under a different name: that is the October salary, not one to assume."""
+    a = [{'date': date(2026, m, 2), 'amount': 13329, 'name': 'חברת אלפא'} for m in range(4, 10)]
+    b = [{'date': date(2026, m, 30), 'amount': 8437, 'name': 'בנק גמא'} for m in range(4, 10)]
+    oct1 = [{'date': date(2026, 10, 1), 'amount': 13329, 'name': 'העברה מחברת אלפא'}]
+    with_deposit = build_salary_profile(a + b + oct1, AS_OF, AS_OF, 'avg')
+    assert [x['date'] for x in with_deposit['assumed']] == []
+    without = build_salary_profile(a + b, AS_OF, AS_OF, 'avg')
+    assert [x['date'] for x in without['assumed']] == [date(2026, 10, 2)]      # truly missing: still assumed
+
+
 def test_two_real_salaries_are_never_merged_even_when_their_days_are_close():
     a = [{'date': date(2026, m, 1), 'amount': 12000, 'name': 'חברת אלפא'} for m in range(4, 10)]
     b = [{'date': date(2026, m, 3), 'amount': 11000, 'name': 'בנק גמא'} for m in range(4, 10)]
@@ -181,6 +193,13 @@ def test_a_rent_update_is_one_operation_and_a_one_off_payment_is_ignored():
     assert build_rent_profile(_rent_rows(5880, months=range(5, 8), fee=0) + [{'date': date(2026, 9, 12), 'amount': 20000}], AS_OF)['amount'] == 5880
     assert build_rent_profile([{'date': date(2026, 9, 1), 'amount': 20000}], AS_OF) is None       # a single payment (deposit?)
     assert build_rent_profile(_rent_rows(5600, months=range(8, 10), fee=0), AS_OF) is None       # two months only
+
+
+def test_a_doubled_payment_is_not_a_rent_update():
+    """Two months of building fee paid at once (560 after six months of 280) is a one-off, not a new amount."""
+    rows = _rent_rows(fee=280, months=range(5, 10)) + [{'date': date(2026, 10, 1), 'amount': 5600}, {'date': date(2026, 10, 5), 'amount': 560}]
+    p = build_rent_profile(rows, AS_OF)
+    assert [(i['name'], i['amount']) for i in p['items']] == [('שכירות', 5600), ('ועד בית', 280)] and p['amount'] == 5880
 
 
 def test_rent_events_each_operation_on_its_own_day_and_unpaid_ones_are_assumed_paid_on_their_day():

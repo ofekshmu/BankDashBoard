@@ -44,7 +44,7 @@ import statistics
 from RecurringCharges import (
     month_key, _to_plain_date, RENT_CATEGORY, MIN_STREAK_MONTHS, MAX_AMOUNT_DEVIATION, MAX_RUN_COUNT,
     MAX_MONTHS_SINCE_LAST_OCCURRENCE, find_all_runs, find_longest_run, _last_complete_month_key, _months_apart,
-    cluster_transactions, recurring_operations, RENT_NAME, RENT_EXTRA_NAME,
+    cluster_transactions, recurring_operations, RENT_NAME, RENT_EXTRA_NAME, STEP_CHANGE_MAX,
 )
 
 SALARY_CATEGORY = 'משכורת'
@@ -221,6 +221,7 @@ def _cycle_date(position: int, cycle_start: _date) -> _date:
 
 
 STREAM_NEAR_DAYS = 7           # two salary groups this close (circular day of month) may be one salary
+SALARY_DAY_JITTER = 3          # a salary lands up to this many days either side of its usual date
 
 
 def _circular_gap(days_a: list, days_b: list) -> int:
@@ -262,6 +263,15 @@ def _merge_same_salary(groups: list) -> list:
             if merged:
                 break
     return groups
+
+
+def _deposit_near(rows: list, d: _date, amount: float) -> bool:
+    """
+    True when some salary deposit (of any payer name) of about `amount` (within STEP_CHANGE_MAX — a different
+    salary of another size nearby does not count) landed within SALARY_DAY_JITTER days of d.
+    """
+    return any(abs((r['date'] - d).days) <= SALARY_DAY_JITTER and r['amount'] >= amount * (1 - STEP_CHANGE_MAX)
+               for r in rows)
 
 
 def build_salary_profile(rows: list, as_of: _date, today: _date, mode: str = 'max') -> dict:
@@ -324,6 +334,8 @@ def build_salary_profile(rows: list, as_of: _date, today: _date, mode: str = 'ma
             d = _cycle_date(s['position'], start)
             if month_key(start) in s['received_cycles'] or d <= as_of - _timedelta(days=SALARY_LOOKBACK_DAYS):
                 continue
+            if _deposit_near(rows, d, s['amount']):
+                continue   # a deposit of about that size landed around that date — under another name, but it is this salary
             item = {'date': d, 'amount': s['amount'], 'day': s['day']}
             if d <= today:
                 assumed.append(item)

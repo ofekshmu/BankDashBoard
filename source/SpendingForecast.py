@@ -220,37 +220,21 @@ def _cycle_date(position: int, cycle_start: _date) -> _date:
     return _clamp_day(nxt.year, nxt.month, position - 31)
 
 
-STREAM_NEAR_DAYS = 7           # two salary groups this close (circular day of month) may be one salary
 SALARY_DAY_JITTER = 3          # a salary lands up to this many days either side of its usual date
-
-
-def _circular_gap(days_a: list, days_b: list) -> int:
-    """The smallest distance between a day of one list and a day of the other, on the circle of the month."""
-    return min(min(abs(a - b), 31 - abs(a - b)) for a in days_a for b in days_b)
-
-
-SAME_SALARY_ONE_PER_CYCLE = 0.8   # share of cycles that must hold exactly one deposit for two groups to be one salary
 
 
 def _is_one_salary(a: list, b: list) -> bool:
     """
-    Two groups of deposits (clustered apart by name) that are really one salary whose landing day,
-    description or amount varies: close in day of month and — put together — one deposit per cycle
-    (SAME_SALARY_ONE_PER_CYCLE of the cycles; one odd month is tolerated). The amount is deliberately
-    not compared: pay that varies is still one salary. Two real salaries both pay in every cycle, so
-    together they hold two deposits per cycle and never pass.
+    Two groups of deposits (clustered apart by name) are one recurring salary when their usual days of the
+    month are within SALARY_DAY_JITTER days of each other, either side of the month's edge: a salary
+    that landed on the 31st one month and on the 2nd another is one operation that shifted a few days,
+    whatever the bank called each deposit and whatever the amounts. (If both pay in the same cycles the
+    merged salary is simply their sum — a salary paid in two instalments.)
     """
-    union = a + b
-    if _circular_gap([r['date'].day for r in a], [r['date'].day for r in b]) > STREAM_NEAR_DAYS:
-        return False
-    pivot = _pivot_day([r['date'].day for r in union])
-    per_cycle = {}
-    for r in union:
-        per_cycle[_cycle_key(r['date'], pivot)] = per_cycle.get(_cycle_key(r['date'], pivot), 0) + 1
-    if len(per_cycle) < MIN_STREAK_MONTHS:
-        return False
-    singles = sum(1 for n in per_cycle.values() if n == 1)
-    return singles / len(per_cycle) >= SAME_SALARY_ONE_PER_CYCLE
+    def usual(rows):
+        return usual_day([r['date'].day for r in sorted(rows, key=lambda r: r['date'])])
+    ua, ub = usual(a), usual(b)
+    return min(abs(ua - ub), 31 - abs(ua - ub)) <= SALARY_DAY_JITTER
 
 
 def _merge_same_salary(groups: list) -> list:

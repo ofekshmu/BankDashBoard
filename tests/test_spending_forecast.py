@@ -107,23 +107,30 @@ def test_recurring_definition_matches_the_recurring_page():
     assert [m['month'] for m in recurring_months(wild, AS_OF)] == ['2026-07', '2026-08', '2026-09']   # outlier dropped
 
 
-def test_one_salary_with_two_names_landing_at_the_month_edge_is_one_stream_not_two():
-    """The salary lands on the last day of the month or on the 1st, and the bank names the two kinds of
-    deposit differently: one deposit per cycle in all, so it is one salary — not an end-of-month one and a
-    start-of-month one."""
-    deposits = [(date(2026, 4, 30), 'משכורת אלפא'), (date(2026, 6, 1), 'העברה אלפא בעמ'), (date(2026, 6, 30), 'משכורת אלפא'),
-                (date(2026, 7, 31), 'משכורת אלפא'), (date(2026, 9, 1), 'העברה אלפא בעמ'), (date(2026, 9, 30), 'משכורת אלפא')]
-    rows = [{'date': d, 'amount': 12000, 'name': n} for d, n in deposits]
-    prof = build_salary_profile(rows, AS_OF, AS_OF, 'avg')
-    assert len(prof['streams']) == 1
-    assert len([u for u in prof['upcoming'] if u['date'] <= date(2026, 11, 14)]) == 1      # one date in the month ahead
+def test_a_salary_that_shifted_from_the_31st_to_the_2nd_is_one_salary_whatever_it_is_called():
+    """Usual days 31 and 2 are two days apart across the month's edge: one operation that moved a few days —
+    even when the bank names the deposits differently, the amounts differ, and each family has its own run of months."""
+    deposits = [(date(2026, 4, 2), 'משכורת אלפא', 13329), (date(2026, 5, 3), 'משכורת אלפא', 13400), (date(2026, 6, 2), 'משכורת אלפא', 13250),
+                (date(2026, 7, 31), 'העברה אלפא בעמ', 8437), (date(2026, 8, 31), 'העברה אלפא בעמ', 8500), (date(2026, 9, 30), 'העברה אלפא בעמ', 8400)]
+    rows = [{'date': d, 'amount': a, 'name': n} for d, n, a in deposits]
+    for mode in ('avg', 'max'):
+        prof = build_salary_profile(rows, AS_OF, AS_OF, mode)
+        assert len(prof['streams']) == 1
+        assert len([u for u in prof['upcoming'] if u['date'] <= date(2026, 11, 14)]) == 1      # one date in the month ahead
+
+
+def test_two_salaries_further_apart_than_the_jitter_stay_two():
+    a = [{'date': date(2026, m, 2), 'amount': 13329, 'name': 'חברת אלפא'} for m in range(4, 10)]
+    z = [{'date': date(2026, m, 9), 'amount': 22093, 'name': 'בנק גמא'} for m in range(4, 10)]
+    prof = build_salary_profile(a + z, AS_OF, AS_OF, 'avg')
+    assert sorted(st['day'] for st in prof['streams']) == [2, 9]            # 7 days apart: different salaries
 
 
 def test_a_salary_that_already_landed_under_another_name_is_not_assumed_again():
     """Stream A (the 2nd, named 'חברת אלפא') has no October deposit under its own name, but a deposit of about
     that size landed on Oct 1 under a different name: that is the October salary, not one to assume."""
     a = [{'date': date(2026, m, 2), 'amount': 13329, 'name': 'חברת אלפא'} for m in range(4, 10)]
-    b = [{'date': date(2026, m, 30), 'amount': 8437, 'name': 'בנק גמא'} for m in range(4, 10)]
+    b = [{'date': date(2026, m, 20), 'amount': 8437, 'name': 'בנק גמא'} for m in range(4, 10)]
     oct1 = [{'date': date(2026, 10, 1), 'amount': 13329, 'name': 'העברה מחברת אלפא'}]
     with_deposit = build_salary_profile(a + b + oct1, AS_OF, AS_OF, 'avg')
     assert [x['date'] for x in with_deposit['assumed']] == []
@@ -131,19 +138,11 @@ def test_a_salary_that_already_landed_under_another_name_is_not_assumed_again():
     assert [x['date'] for x in without['assumed']] == [date(2026, 10, 2)]      # truly missing: still assumed
 
 
-def test_variable_pay_under_two_names_is_still_one_salary():
-    """The amount is not compared (pay that varies is one salary) and one odd month (two deposits in a cycle) is tolerated."""
-    deposits = [(date(2026, 4, 30), 'משכורת אלפא', 6100), (date(2026, 6, 1), 'העברה אלפא בעמ', 15200), (date(2026, 6, 30), 'משכורת אלפא', 9000),
-                (date(2026, 7, 31), 'משכורת אלפא', 7000), (date(2026, 9, 1), 'העברה אלפא בעמ', 14000), (date(2026, 9, 30), 'משכורת אלפא', 8400),
-                (date(2026, 10, 2), 'העברה אלפא בעמ', 3000)]    # a correction on top of the September deposit
-    rows = [{'date': d, 'amount': a, 'name': n} for d, n, a in deposits]
-    assert len(build_salary_profile(rows, AS_OF, AS_OF, 'avg')['streams']) == 1
-
-
-def test_two_real_salaries_are_never_merged_even_when_their_days_are_close():
-    a = [{'date': date(2026, m, 1), 'amount': 12000, 'name': 'חברת אלפא'} for m in range(4, 10)]
-    b = [{'date': date(2026, m, 3), 'amount': 11000, 'name': 'בנק גמא'} for m in range(4, 10)]
-    assert len(build_salary_profile(a + b, AS_OF, AS_OF, 'avg')['streams']) == 2
+def test_two_deposits_within_the_jitter_every_month_are_one_salary_paid_in_instalments():
+    first = [{'date': date(2026, m, 2), 'amount': 13329, 'name': 'חברת אלפא'} for m in range(4, 10)]
+    second = [{'date': date(2026, m, 31 if m in (5, 7, 8) else 30), 'amount': 8437, 'name': 'העברה אלפא'} for m in range(4, 10)]
+    prof = build_salary_profile(first + second, AS_OF, AS_OF, 'avg')
+    assert len(prof['streams']) == 1 and prof['streams'][0]['max_amount'] == 13329 + 8437       # a full cycle's deposits add up
 
 
 def test_a_one_off_deposit_on_the_20th_is_not_a_salary_stream():

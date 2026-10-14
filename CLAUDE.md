@@ -271,7 +271,9 @@ computed live per request (balance changes with every bank file); the recurring 
 - **No floating messages** on this page (no CSS/`title` tooltips): the (i) opens an in-flow panel (`.fc-i-panel`, inserted after its row/cube) on hover (mouse) or tap (touch) and closes on leave /
   second tap / tap elsewhere; a chart dot shows its details in the line under the chart (`#fc-chart-detail`). All handled by delegated listeners on `#fc-body` (`canHover` = `(hover: hover)`);
   keep the hero `align-items:flex-start` — a vertically centred hero moved the (i) under the pointer when its panel opened (hover flicker).
-- Salary groups clustered apart by name are merged back when they look like one salary (`_is_one_salary`: close days of month + ≥ 80 % of cycles with exactly one deposit; the amount is not compared).
+- Salary groups clustered apart by name are merged back into one salary when their **usual days of the month are within ±3 days** (`SALARY_DAY_JITTER`, circular: 31 and 2 are two days apart) —
+  that is one operation that shifted a few days, whatever the bank called the deposits or the amounts were; if both pay in the same cycles the merged salary is their sum (instalments).
+  Salaries further apart (e.g. the 2nd and the 9th) stay separate. Chart: no permanent labels — salaries are a line with a marker, details open on hover/tap in the line under the chart.
 
 ---
 

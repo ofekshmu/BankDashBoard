@@ -498,17 +498,27 @@ def monthly_recurring_total(groups: list, mode: str) -> dict:
 
 # ── The forecast ────────────────────────────────────────────────────────────────
 
-def compute_free_amount(balance: float, events: list, horizon: _date = None) -> dict:
+def compute_free_amount(balance: float, events: list, horizon: _date = None, today: _date = None) -> dict:
     """
     Walks the events in date order (money out are positive amounts, salaries negative) and returns the
     lowest balance reached (spending is assumed to happen right now) — that is the free amount.
     Each event gets 'balance_after' (the balance with nothing else spent), also after the salary.
-    With `horizon` (the next salary's date) only the stretch up to it counts toward the lowest point:
-    events after it, and the salary arriving on it, lie beyond the money being measured.
+    With `today`, events dated up to it have already happened (the data just doesn't show them): they
+    move the starting balance ('balance_now') and are not part of the stretch measured, which only
+    covers what is still ahead. With `horizon` (the next salary's date) that stretch ends there: events
+    after it, and the salary arriving on it, lie beyond the money being measured.
     """
+    ordered = sorted(events, key=lambda e: (e['date'], -e['amount']))
     running = balance
-    lowest, lowest_at = balance, None
-    for ev in sorted(events, key=lambda e: (e['date'], -e['amount'])):
+    for ev in ordered:
+        if today is not None and ev['date'] <= today:
+            running -= ev['amount']
+            ev['balance_after'] = round(running, 2)
+    balance_now = running
+    lowest, lowest_at = balance_now, None
+    for ev in ordered:
+        if today is not None and ev['date'] <= today:
+            continue
         running -= ev['amount']
         ev['balance_after'] = round(running, 2)
         counts = horizon is None or (ev['date'] <= horizon and not (ev['kind'] == 'income' and not ev.get('assumed')))
@@ -517,6 +527,7 @@ def compute_free_amount(balance: float, events: list, horizon: _date = None) -> 
     return {
         'free': round(lowest, 2),
         'lowest_balance': round(lowest, 2),
+        'balance_now': round(balance_now, 2),
         'tight_date': lowest_at['date'] if lowest_at else None,
         'tight_name': lowest_at['name'] if lowest_at else None,
     }
@@ -554,7 +565,7 @@ def compute_forecast(inputs: dict, today: _date, mode: str = 'max') -> dict:
     for e in events:
         e['assumed'] = e['date'] <= today
         e['after_salary'] = e['date'] > horizon
-    result = compute_free_amount(balance, events, horizon)
+    result = compute_free_amount(balance, events, horizon, today)
     to_salary = [e for e in events if not e['after_salary']]   # what the free amount is measured against
 
     stale_days = (today - as_of).days
@@ -584,7 +595,7 @@ def compute_forecast(inputs: dict, today: _date, mode: str = 'max') -> dict:
         'events': sorted(events, key=lambda e: (e['date'], -e['amount'])),
         'skipped': skipped,
         'totals': totals, 'fixed_monthly': fixed_monthly,
-        'free': result['free'], 'lowest_balance': result['lowest_balance'],
+        'free': result['free'], 'lowest_balance': result['lowest_balance'], 'balance_now': result['balance_now'],
         'tight_date': result['tight_date'], 'tight_name': result['tight_name'],
         'notes': notes,
     }

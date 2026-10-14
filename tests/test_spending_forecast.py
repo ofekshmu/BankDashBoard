@@ -243,6 +243,24 @@ def test_the_chart_looks_a_month_ahead_and_the_free_amount_stops_at_the_salary()
     assert far['horizon'] == date(2026, 11, 28) and far['chart_end'] == date(2026, 11, 14)
 
 
+def test_an_assumed_salary_does_not_make_the_free_amount_equal_to_the_balance():
+    """The balance 30,000 plus a salary that already arrived (not in the data yet) is what is in the account now;
+    the charges still ahead come off that, so the free amount is below it (it used to be the bare balance)."""
+    f = compute_forecast(_inputs(salary_rows=_salary(), card_rows=_card('4603', day=10) + [
+        {'card': '4603', 'name': 'כרטיס 4603', 'date': date(2026, 10, 10), 'amount': 3300}]), AS_OF, 'avg')
+    assert [e['name'] for e in f['events'] if e['assumed']] == ['משכורת (יום 10)']
+    assert f['balance_now'] == 30000 + 15000                                  # the assumed salary is part of "now"
+    ahead = sum(e['amount'] for e in f['events'] if not e['assumed'] and not e['after_salary'] and e['kind'] != 'income')
+    assert ahead > 0 and f['free'] == 30000 + 15000 - ahead and f['free'] < f['balance_now']
+
+
+def test_an_assumed_charge_lowers_the_balance_now_and_future_ones_come_off_it():
+    events = [{'date': date(2026, 10, 12), 'name': 'rent', 'amount': 5000, 'kind': 'rent', 'assumed': True},
+              {'date': date(2026, 10, 20), 'name': 'card', 'amount': 3000, 'kind': 'card', 'assumed': False}]
+    r = compute_free_amount(20000, events, today=AS_OF)
+    assert r['balance_now'] == 15000 and r['free'] == 12000 and r['tight_name'] == 'card'
+
+
 def test_totals_separate_what_is_known_from_what_is_estimated():
     held = [{'card': '4603', 'name': 'כרטיס 4603', 'date': date(2026, 11, 9), 'amount': 8000}]
     f = compute_forecast(_inputs(card_rows=_inputs()['card_rows'] + held), AS_OF, 'avg')

@@ -1465,7 +1465,7 @@ function fcRender() {
       '<div class="fc-sub">עד ' + fcShortDate(sc.horizon) + ' · ' + dayLabel + (free > 0 ? ' · כ-' + fcMoney(v.daily) + ' ליום' : '') + '</div>' +
       '<span class="fc-chip ' + chipCls + '">' + chipTxt + '</span>' + fcEst(true) +
     '</div><div class="fc-hero-side">' +
-      '<div class="fc-mini"><div class="fc-mini-l">יתרה בחשבון</div><div class="fc-mini-v">' + fcMoney(v.balance) + '</div><div class="fc-mini-s">נכון ל-' + fcShortDate(d.as_of) + '</div></div>' +
+      '<div class="fc-mini"><div class="fc-mini-l">יתרה בחשבון</div><div class="fc-mini-v">' + fcMoney(v.balance) + '</div><div class="fc-mini-s">נכון ל-' + fcShortDate(d.as_of) + (Math.round(sc.balance_now) !== Math.round(d.balance) ? ' · אחרי פעולות שהונחו כבוצעות ' + fcMoney(sc.balance_now) : '') + '</div></div>' +
       '<div class="fc-mini"><div class="fc-mini-l">חיובים עד המשכורת</div><div class="fc-mini-v">' + fcMoney(sc.totals.all) + '</div><div class="fc-mini-s">ידוע ' + fcMoney(sc.totals.known) + ' · משוער ' + fcMoney(sc.totals.estimated) + '</div>' + fcEst() + '</div>' +
       '<div class="fc-mini"><div class="fc-mini-l">הנקודה הנמוכה</div><div class="fc-mini-v">' + fcMoney(v.lowest) + '</div><div class="fc-mini-s">' + tight + '</div>' + fcEst() + '</div>' +
       '<div class="fc-mini"><div class="fc-mini-l">חיוב חודשי חוזר (ללא חיובי כרטיס אשראי)</div><div class="fc-mini-v">' + fcMoney(fixed.total) + '</div><div class="fc-mini-s">' + fixed.count + ' חיובים חוזרים מהבנק + שכירות ' + fcMoney(fixed.rent) + '</div>' + fcEst() + '</div>' +

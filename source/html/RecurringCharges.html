@@ -390,6 +390,16 @@ body {
 .fc-sec-sum small{margin-right:auto;color:var(--text-muted);font-weight:400;font-size:.82em}
 .fc-sec-body{padding:0 0 6px}
 .fc-sec .fc-sec .fc-sec-sum{font-size:.95em}
+
+.fc-hctl{display:flex;align-items:center;gap:8px;margin-top:12px;flex-wrap:wrap}
+.fc-seg-s{border-color:rgba(255,255,255,.22)}
+.fc-seg-s button{padding:3px 10px;font-size:.78em;background:rgba(255,255,255,.08);color:#c6d2ea}
+.fc-seg-s button.on{background:var(--teal);color:#fff}
+.fc-buf{display:inline-flex;align-items:center;gap:4px;font-size:.78em;color:#c6d2ea}
+.fc-buf input{width:64px;padding:3px 6px;border:1px solid rgba(255,255,255,.22);border-radius:6px;background:rgba(255,255,255,.08);color:#fff;font-size:1em;font-family:inherit}
+.fc-buf input:focus{outline:none;border-color:var(--teal)}
+.fc-hero .fc-reset{margin:0;padding:2px 6px;color:#9fd8cf;font-size:1em}
+.fc-hero .fc-i{margin-right:5px}
 @keyframes fcsh{to{background-position:-200% 0}}
 @media (max-width: 760px){
   .fc-hero{padding:20px}.fc-big{font-size:2.5em}
@@ -1336,7 +1346,7 @@ function regenerate() {
 var FC_KEY = 'rc_forecast_params';
 var fcParams = { buffer: '', card_mode: 'max' };
 try { var _fcs = JSON.parse(localStorage.getItem(FC_KEY) || 'null'); if (_fcs) fcParams = Object.assign(fcParams, _fcs); } catch (e) {}
-var fcData = null, fcResizeTimer = null, fcDots = [], fcOpen = {};   // fcOpen: which rules sections the user closed
+var fcData = null, fcResizeTimer = null, fcDots = [], fcOpen = {};   // fcOpen: which sections the user opened — all of them start closed
 
 // Amount as an isolated left-to-right run, so the sign and ₪ stay put inside the RTL page.
 function fcMoney(n, plus) { return '<bdi dir="ltr">' + fcPlain(n, plus) + '</bdi>'; }
@@ -1375,7 +1385,7 @@ function fcDotText(e) {
 (function() {
   var host = document.getElementById('fc-body');
   var canHover = window.matchMedia && window.matchMedia('(hover: hover)').matches;
-  function infoHost(i) { return i.closest('.fc-est-foot, .fc-ev-n, .fc-rule, .fc-eyebrow') || i.parentNode; }
+  function infoHost(i) { return i.closest('.fc-est-foot, .fc-ev-n, .fc-rule, .fc-eyebrow, .fc-mini-l') || i.parentNode; }
   function openInfo(i) {
     if (i._panel) return;
     var panel = document.createElement('div');
@@ -1547,25 +1557,34 @@ function fcRender() {
   var charges = v.events.filter(function(e) { return e.kind !== 'income' && !e.after_salary; });
   var fixed = sc.fixed_monthly;
 
+  // Short text on the face of every KPI; the full explanation opens from its (i).
+  var tipMain = 'פנוי לבזבוז = הסכום שאפשר להוציא עכשיו בלי שהיתרה תרד מתחת לאפס בשום נקודה עד ' + fcShortDate(sc.chart_end) +
+    ' — כולל החיובים שמגיעים גם אחרי המשכורת. ' + (sc.tight_date ? 'הנקודה הצפופה: ' + sc.tight_name + ' ב-' + fcShortDate(sc.tight_date) + '. ' : '') +
+    'תרחיש מחמיר = כרטיס בחודש הגבוה, משכורת בתאריך המאוחר ובסכום הנמוך; ממוצע = ממוצעי 6 החודשים. כרית ביטחון מופחתת מהסכום. ' + FC_TIP_EST;
+  var tipFixed = 'החודש כולו, מה-1 ועד סופו, בין אם כבר שולם ובין אם לא: ' + fixed.count + ' חיובים חוזרים (' + (fixed.count - fixed.by_card_count) + ' מהבנק, ' +
+    fixed.by_card_count + ' בכרטיס) ועוד שכירות וועד בית ' + fcPlain(fixed.rent) + '. לא כולל הערכה של חיובי כרטיס האשראי עצמם.';
+  var tipBalance = 'היתרה האחרונה בקובץ הבנק, נכון ל-' + fcShortDate(d.as_of) + '.' +
+    (Math.round(sc.balance_now) !== Math.round(d.balance) ? ' אחרי הפעולות שהונחו כבוצעות (עדיין לא בקבצים) היא ' + fcPlain(sc.balance_now) + ' — ממנה מתחיל החישוב.' : '');
+  var tipCharges = 'סכום כל החיובים המשוערים (כרטיסים, שכירות וחיובים חוזרים) עד קו המשכורת הראשון בגרף, ב-' + fcShortDate(sc.horizon) + ': ' + charges.length + ' חיובים, כולל חיובים שהונחו כבוצעים.';
+  function kpi(label, value, sub, tip, est) {
+    return '<div class="fc-mini"><div class="fc-mini-l">' + label + fcInfo(tip) + '</div><div class="fc-mini-v">' + value + '</div>' +
+      '<div class="fc-mini-s">' + sub + '</div>' + (est ? fcEst() : '') + '</div>';
+  }
   var hero =
     '<div class="fc-hero"><div class="fc-hero-main">' +
       '<div class="fc-big' + (neg ? ' neg' : '') + '">' + fcMoney(free) + '</div>' +
-      '<div class="fc-eyebrow">פנוי לבזבוז בלי להיכנס למינוס בחודש הקרוב · ' + (mode === 'max' ? 'תרחיש מחמיר' : 'תרחיש ממוצע') + '</div>' +
-      '<div class="fc-sub">המשכורת הבאה ב-' + fcShortDate(sc.horizon) + ' · ' + dayLabel + (free > 0 ? ' · כ-' + fcMoney(v.daily) + ' ליום עד אז' : '') + '</div>' +
-      '<div class="fc-sub" style="font-size:.82em;opacity:.8">הסכום כולל את החיובים שמגיעים גם אחרי המשכורת (עד ' + fcShortDate(sc.chart_end) + ')</div>' +
-      '<span class="fc-chip ' + chipCls + '">' + chipTxt + '</span>' + fcEst(true) +
+      '<div class="fc-eyebrow">פנוי לבזבוז</div>' +
+      '<div class="fc-sub">משכורת ב-' + fcShortDate(sc.horizon) + (free > 0 ? ' · כ-' + fcMoney(v.daily) + ' ליום' : '') + '</div>' +
+      '<span class="fc-chip ' + chipCls + '">' + chipTxt + '</span>' +
+      '<div class="fc-hctl"><div class="fc-seg fc-seg-s"><button class="' + (mode === 'max' ? 'on' : '') + '" onclick="fcSet(\'card_mode\',\'max\')">מחמיר</button><button class="' + (mode === 'avg' ? 'on' : '') + '" onclick="fcSet(\'card_mode\',\'avg\')">ממוצע</button></div>' +
+        '<label class="fc-buf">כרית <input type="number" min="0" inputmode="numeric" value="' + fcParams.buffer + '" placeholder="0" onchange="fcSet(\'buffer\', this.value)">₪</label>' +
+        '<button class="fc-reset" onclick="fcReset()" title="איפוס">↺</button></div>' +
+      '<div class="fc-est-foot"><span class="fc-est">משוער</span>' + fcInfo(tipMain) + '</div>' +
     '</div><div class="fc-hero-side">' +
-      '<div class="fc-mini wide"><div class="fc-mini-l">חיוב חודשי חוזר</div><div class="fc-mini-v">' + fcMoney(fixed.total) + '</div><div class="fc-mini-s">החודש כולו, מה-1 ועד סופו · ' + fixed.count + ' חיובים חוזרים (' + (fixed.count - fixed.by_card_count) + ' מהבנק · ' + fixed.by_card_count + ' בכרטיס) + שכירות ' + fcMoney(fixed.rent) + '</div><div class="fc-mini-s">לא כולל הערכה של חיובי כרטיס האשראי עצמם</div>' + fcEst() + '</div>' +
-      '<div class="fc-mini"><div class="fc-mini-l">יתרה בחשבון</div><div class="fc-mini-v">' + fcMoney(v.balance) + '</div><div class="fc-mini-s">נכון ל-' + fcShortDate(d.as_of) + (Math.round(sc.balance_now) !== Math.round(d.balance) ? ' · אחרי פעולות שהונחו כבוצעות ' + fcMoney(sc.balance_now) : '') + '</div></div>' +
-      '<div class="fc-mini"><div class="fc-mini-l">חיובים עד המשכורת</div><div class="fc-mini-v">' + fcMoney(sc.totals.all) + '</div><div class="fc-mini-s">עד כניסת המשכורת ב-' + fcShortDate(sc.horizon) + ' · ' + charges.length + ' חיובים</div>' + fcEst() + '</div>' +
+      kpi('חיוב חודשי חוזר', fcMoney(fixed.total), fixed.count + ' חיובים + שכירות', tipFixed, true).replace('class="fc-mini"', 'class="fc-mini wide"') +
+      kpi('יתרה בחשבון', fcMoney(v.balance), 'ב-' + fcShortDate(d.as_of), tipBalance, false) +
+      kpi('חיובים עד המשכורת', fcMoney(sc.totals.all), charges.length + ' חיובים', tipCharges, true) +
     '</div></div>';
-
-  var controls =
-    '<div class="fc-controls">' +
-      '<div class="fc-ctl"><label>תרחיש</label><div class="fc-seg"><button class="' + (mode === 'max' ? 'on' : '') + '" onclick="fcSet(\'card_mode\',\'max\')">מחמיר</button><button class="' + (mode === 'avg' ? 'on' : '') + '" onclick="fcSet(\'card_mode\',\'avg\')">ממוצע</button></div></div>' +
-      '<div class="fc-ctl"><label>כרית ביטחון (₪)</label><input type="number" min="0" inputmode="numeric" value="' + fcParams.buffer + '" placeholder="0" onchange="fcSet(\'buffer\', this.value)"></div>' +
-      '<button class="fc-reset" onclick="fcReset()">איפוס</button>' +
-    '</div>';
 
   var order = ['card', 'rent', 'recurring'];
   var split = order.map(function(k) { return sc.totals[k] ? '<i data-k="' + k + '" style="width:' + (100 * sc.totals[k] / Math.max(sc.totals.all, 1)) + '%;background:' + FC_COLORS[k] + '"></i>' : ''; }).join('');
@@ -1621,7 +1640,7 @@ function fcRender() {
   var skipped = (sc.skipped || []).reduce(function(a, s) { a[s.reason] = (a[s.reason] || 0) + 1; return a; }, {});
   // every part of the rules panel opens and closes (and the whole panel too); what the user opened stays that way
   function fcSection(key, title, body, summary) {
-    return '<details class="fc-sec" data-sec="' + key + '"' + (fcOpen[key] === false ? '' : ' open') + '><summary class="fc-sec-sum"><span>' + title + '</span>' +
+    return '<details class="fc-sec" data-sec="' + key + '"' + (fcOpen[key] ? ' open' : '') + '><summary class="fc-sec-sum"><span>' + title + '</span>' +
       (summary ? '<small>' + summary + '</small>' : '') + '</summary><div class="fc-sec-body">' + body + '</div></details>';
   }
   var cardModeRule = '<div class="fc-rule"><span>חיוב כרטיס</span><b>' + (mode === 'max' ? 'החודש הגבוה ב-6 חודשים' : 'ממוצע 6 חודשים') + '</b></div>';
@@ -1629,7 +1648,7 @@ function fcRender() {
     (skipped.stopped ? '<div class="fc-rule"><span>חיובים שנראה שהופסקו (לא נספרו)</span><b>' + skipped.stopped + '</b></div>' : '') +
     (sc.notes || []).map(function(n) { return '<div class="fc-note">' + esc(n) + '</div>'; }).join('');
   var rules =
-    '<div class="fc-card"><details class="fc-sec fc-sec-main" data-sec="rules"' + (fcOpen.rules === false ? '' : ' open') + '><summary class="fc-sec-sum"><h3>כללי האצבע שבשימוש</h3></summary><div class="fc-sec-body">' +
+    '<div class="fc-card"><details class="fc-sec fc-sec-main" data-sec="rules"' + (fcOpen.rules ? ' open' : '') + '><summary class="fc-sec-sum"><h3>כללי האצבע שבשימוש</h3></summary><div class="fc-sec-body">' +
       fcSection('sal', 'משכורות', salRules + salDiag, sal.streams.length + (sal.streams.length === 1 ? ' משכורת' : ' משכורות')) +
       fcSection('rent', 'שכירות', rentRule, sc.rent ? fcPlain(sc.rent.amount) : '') +
       fcSection('cards', 'כרטיסי אשראי', cards + cardModeRule, (sc.cards || []).length + ' כרטיסים') +
@@ -1637,7 +1656,7 @@ function fcRender() {
       fcEst() +
     '</div></details></div>';
 
-  el.innerHTML = hero + controls + '<div class="fc-grid">' + timeline + rules + '</div>';
+  el.innerHTML = hero + '<div class="fc-grid">' + timeline + rules + '</div>';
   // draw the chart at its real width so the text keeps its size
   var box = el.querySelector('.fc-chart-svg');
   if (box && box.clientWidth && Math.abs(box.clientWidth - chartW) > 8) box.innerHTML = fcChartSvg(d, v, box.clientWidth);

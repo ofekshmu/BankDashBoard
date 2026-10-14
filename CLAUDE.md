@@ -242,6 +242,8 @@ computed live per request (balance changes with every bank file); the recurring 
   computed to `max(horizon, chart_end)`; `after_salary` marks what lies beyond the next salary — kept out of the *totals* ("חיובים עד המשכורת") but **inside** the lowest point.
   It shades the free stretch (zero line/buffer → lowest point, today → next salary) green and marks every salary with a vertical line + marker (no permanent labels; details on hover/tap).
   **Layout rule: in the top figures the number comes first, its label/details below** (`.fc-mini-v{order:-1}`, `.fc-big` before the eyebrow).
+  **KPI text is minimal on the face, the full explanation opens from the KPI's own (i)** (`kpi()` / `tip*` in `fcRender`); the scenario switch and the safety buffer live inside the big KPI as small
+  controls (`.fc-hctl`: a compact segmented control, a 64px input, a reset arrow) — there is no separate controls bar.
   Top-right block (`.fc-hero-side`): the monthly recurring figure spans the full width on top (`.fc-mini.wide`: the whole month 1st→end, all active recurring charges (bank + card) + rent operations, paid or not,
   independent of today's date — tested), under it the pair *balance* | *charges until the next salary* (the sum of the non-income events up to the first salary line of the chart, assumed ones included;
   no known/estimated split, no "lowest point" cube — that value is the main figure's lowest point).
@@ -270,7 +272,7 @@ computed live per request (balance changes with every bank file); the recurring 
   only the *estimate of the card bills themselves* is not part of it (the forecast's free amount is a different thing: there the card-paid groups are inside the card charge).
 - The old active-bills pie card and the "סה\"כ חיוב חודשי חוזר" KPI were removed from this page; the per-group list below the forecast is unchanged.
 - Rules-of-thumb month lists are collapsed (`<details class="fc-det">`). **Every section collapses** (`fcSection`, `<details class="fc-sec" data-sec=…>`): the whole rules panel (`rules`) and its parts
-  (`sal`, `rent`, `cards`, `misc`), and the operations list under the chart (`ops`). What the user closed is kept in `fcOpen` across re-renders (scenario/buffer changes) via a capturing `toggle` listener.
+  (`sal`, `rent`, `cards`, `misc`), and the operations list under the chart (`ops`). **All of them start closed**; what the user opened is kept in `fcOpen` across re-renders (scenario/buffer changes) via a capturing `toggle` listener.
 - The legend under the split bar names only the *types* (כרטיסי אשראי / שכירות — the building fee is part of "שכירות" there / חיובים חוזרים), no values: hover or tap a legend item or a bar segment and its total and
   items open in the details line under the chart (`fcLegTexts`, same box as the chart points, `FC_HIT` selector).
 - **No floating messages** on this page (no CSS/`title` tooltips): the (i) opens an in-flow panel (`.fc-i-panel`, inserted after its row/cube) on hover (mouse) or tap (touch) and closes on leave /

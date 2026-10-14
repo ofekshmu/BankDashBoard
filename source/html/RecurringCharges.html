@@ -355,6 +355,9 @@ body {
 .fc-chart-detail{min-height:2.1em;margin-top:6px;padding:6px 10px;border-radius:var(--radius-sm);background:var(--bg);color:var(--text-sub);font-size:.82em;line-height:1.5}
 .fc-chart-detail.on{background:#eef2f9;color:var(--navy);font-weight:600}
 .fc-hit{fill:transparent;cursor:pointer}
+.fc-leg{cursor:pointer;padding:2px 4px;border-radius:6px}
+.fc-leg:hover{background:var(--bg)}
+.fc-split i{cursor:pointer}
 .fc-hit-line{stroke:transparent;stroke-width:16;cursor:pointer}
 .fc-asm{display:inline-block;margin-right:6px;padding:1px 7px;border-radius:99px;background:#eef1f7;color:var(--text-sub);font-size:.72em}
 .fc-ev.inc .fc-ev-a{color:var(--teal-dark)}
@@ -1340,7 +1343,9 @@ var FC_TIP_EST = 'משוער = הערכה שמחושבת מהיסטוריית ה
 var FC_TIP_AUTO = 'הכרטיס נוסף למערכת אוטומטית ("Auto Insertion") ברגע שנקלט לראשונה קובץ אשראי שלו. זו לא הגדרה שלך — רק סימון שהמערכת יצרה את הכרטיס בעצמה, ואפשר לתת לו תיאור בטבלת Card.';
 var FC_TIP_ASSUMED = 'הפעולה עדיין לא מופיעה בקבצים שהוזנו. מניחים שהיא בוצעה במועד שחושב לה ולכן היא נכללת בחישוב. אם לא בוצעה — נדע בעדכון הקבצים בסוף החודש, והשינוי ישוקלל בחישוב הפעולות החוזרות של החודש הבא.';
 
-var FC_DOT_HINT = 'העבר עכבר או גע בנקודה בגרף כדי לראות את הפרטים';
+var FC_DOT_HINT = 'העבר עכבר או גע בנקודה בגרף, או בסוג חיוב במקרא, כדי לראות פרטים';
+var FC_HIT = '.fc-hit, .fc-hit-line, .fc-leg, .fc-split i';   // everything that opens its details in the line under the chart
+var fcLegTexts = {};
 function fcDotText(e) {
   var parts = [e.kind === 'income' && !e.assumed ? 'כניסת משכורת משוערת' : e.name];
   if (e.detail && e.detail.payer) parts.push('שם בבנק: ' + e.detail.payer);
@@ -1366,26 +1371,27 @@ function fcDotText(e) {
   function closeInfo(i) { if (i._panel) { i._panel.remove(); i._panel = null; } i.classList.remove('on'); }
   function closeAll(except) { host.querySelectorAll('.fc-i.on').forEach(function(i) { if (i !== except) closeInfo(i); }); }
   function showDot(h) {
-    var box = document.getElementById('fc-chart-detail'), e = fcDots[+h.getAttribute('data-i')];
-    if (box && e) { box.textContent = fcDotText(e); box.classList.add('on'); }
+    var box = document.getElementById('fc-chart-detail');
+    var text = h.getAttribute('data-k') ? fcLegTexts[h.getAttribute('data-k')] : (fcDots[+h.getAttribute('data-i')] ? fcDotText(fcDots[+h.getAttribute('data-i')]) : '');
+    if (box && text) { box.textContent = text; box.classList.add('on'); }
   }
   function hideDot() { var box = document.getElementById('fc-chart-detail'); if (box) { box.textContent = FC_DOT_HINT; box.classList.remove('on'); } }
 
   host.addEventListener('mouseover', function(ev) {
     if (!canHover) return;
-    var i = ev.target.closest('.fc-i'), h = ev.target.closest('.fc-hit, .fc-hit-line');
+    var i = ev.target.closest('.fc-i'), h = ev.target.closest(FC_HIT);
     if (i) openInfo(i); else if (h) showDot(h);
   });
   host.addEventListener('mouseout', function(ev) {
     if (!canHover) return;
-    var i = ev.target.closest('.fc-i'), h = ev.target.closest('.fc-hit, .fc-hit-line');
+    var i = ev.target.closest('.fc-i'), h = ev.target.closest(FC_HIT);
     if (i && !(ev.relatedTarget && i.contains(ev.relatedTarget))) closeInfo(i);
-    if (h && !(ev.relatedTarget && ev.relatedTarget.closest && ev.relatedTarget.closest('.fc-hit'))) hideDot();
+    if (h && !(ev.relatedTarget && ev.relatedTarget.closest && ev.relatedTarget.closest(FC_HIT))) hideDot();
   });
   host.addEventListener('focusin', function(ev) { var i = ev.target.closest('.fc-i'); if (canHover && i) openInfo(i); });   // keyboard; on touch the tap's click does it
   host.addEventListener('focusout', function(ev) { var i = ev.target.closest('.fc-i'); if (canHover && i) closeInfo(i); });
   host.addEventListener('click', function(ev) {
-    var i = ev.target.closest('.fc-i'), h = ev.target.closest('.fc-hit, .fc-hit-line');
+    var i = ev.target.closest('.fc-i'), h = ev.target.closest(FC_HIT);
     if (i) { if (!canHover) { if (i._panel) closeInfo(i); else { closeAll(i); openInfo(i); } } return; }
     if (h) { if (!canHover) { var box = document.getElementById('fc-chart-detail'); if (box.classList.contains('on') && box._for === h) { hideDot(); box._for = null; } else { showDot(h); box._for = h; } } return; }
     if (!canHover) { closeAll(); hideDot(); }
@@ -1406,7 +1412,7 @@ function fcReset() { fcParams = { buffer: '', card_mode: 'max' }; fcSave(); fcRe
 window.addEventListener('resize', function() { clearTimeout(fcResizeTimer); fcResizeTimer = setTimeout(function() { if (fcData && fcData.ok) fcRender(); }, 200); });
 
 var FC_COLORS = { card: '#5b7bd5', rent: '#e0832e', recurring: '#1e9d8b', income: '#2e9e5b' };
-var FC_LABELS = { card: 'כרטיסי אשראי', rent: 'שכירות + ועד בית', recurring: 'חיובים חוזרים', income: 'משכורת' };
+var FC_LABELS = { card: 'כרטיסי אשראי', rent: 'שכירות', recurring: 'חיובים חוזרים', income: 'משכורת' };
 
 // The chosen scenario with the buffer applied (a subtraction, no recalculation).
 function fcView() {
@@ -1546,8 +1552,13 @@ function fcRender() {
     '</div>';
 
   var order = ['card', 'rent', 'recurring'];
-  var split = order.map(function(k) { return sc.totals[k] ? '<i style="width:' + (100 * sc.totals[k] / Math.max(sc.totals.all, 1)) + '%;background:' + FC_COLORS[k] + '"></i>' : ''; }).join('');
-  var legend = order.map(function(k) { return '<span><b style="background:' + FC_COLORS[k] + '"></b>' + FC_LABELS[k] + ' ' + fcMoney(sc.totals[k]) + '</span>'; }).join('');
+  var split = order.map(function(k) { return sc.totals[k] ? '<i data-k="' + k + '" style="width:' + (100 * sc.totals[k] / Math.max(sc.totals.all, 1)) + '%;background:' + FC_COLORS[k] + '"></i>' : ''; }).join('');
+  var legend = order.map(function(k) { return '<span class="fc-leg" data-k="' + k + '"><b style="background:' + FC_COLORS[k] + '"></b>' + FC_LABELS[k] + '</span>'; }).join('');
+  fcLegTexts = {};   // the values live in the details line: the type's total and what it is made of
+  order.forEach(function(k) {
+    var items = v.events.filter(function(e) { return e.kind === k && !e.after_salary; });
+    fcLegTexts[k] = FC_LABELS[k] + ' · סה"כ ' + fcPlain(sc.totals[k]) + (items.length ? ' · ' + items.map(function(e) { return e.name + ' ' + fcPlain(e.amount) + ' (' + fcShortDate(e.date) + ')'; }).join(' · ') : '');
+  });
 
   function fcRow(e, later) {
     var inc = e.kind === 'income';
@@ -1589,7 +1600,7 @@ function fcRender() {
     ? sc.rent.items.map(function(it) {
         return '<div class="fc-rule"><span>' + esc(it.name) + ' · חיוב קבוע ביום ' + it.day + '</span><b>' + fcMoney(it.amount) + '</b></div>' +
           '<details class="fc-det"><summary>פירוט החודשים</summary><div class="fc-sub-rule">' + fcMonthList(it.monthly) + '</div></details>';
-      }).join('') + (sc.rent.items.length > 1 ? '<div class="fc-rule"><span>סה"כ שכירות + ועד בית</span><b>' + fcMoney(sc.rent.amount) + '</b></div>' : '')
+      }).join('') + (sc.rent.items.length > 1 ? '<div class="fc-rule"><span>סה"כ שכירות</span><b>' + fcMoney(sc.rent.amount) + '</b></div>' : '')
     : '<div class="fc-rule"><span>שכירות</span><b>לא זוהתה</b></div>';
   var skipped = (sc.skipped || []).reduce(function(a, s) { a[s.reason] = (a[s.reason] || 0) + 1; return a; }, {});
   var rules =

@@ -266,6 +266,8 @@ computed live per request (balance changes with every bank file); the recurring 
   `fixed_monthly` (top figure) = recurring charges paid from the bank (`monthly_recurring_total`) + the rent operations, **without** any credit-card estimate.
 - The old active-bills pie card and the "סה\"כ חיוב חודשי חוזר" KPI were removed from this page; the per-group list below the forecast is unchanged.
 - Rules-of-thumb month lists are collapsed (`<details class="fc-det">`).
+- The legend under the split bar names only the *types* (כרטיסי אשראי / שכירות — the building fee is part of "שכירות" there / חיובים חוזרים), no values: hover or tap a legend item or a bar segment and its total and
+  items open in the details line under the chart (`fcLegTexts`, same box as the chart points, `FC_HIT` selector).
 - **No floating messages** on this page (no CSS/`title` tooltips): the (i) opens an in-flow panel (`.fc-i-panel`, inserted after its row/cube) on hover (mouse) or tap (touch) and closes on leave /
   second tap / tap elsewhere; a chart dot shows its details in the line under the chart (`#fc-chart-detail`). All handled by delegated listeners on `#fc-body` (`canHover` = `(hover: hover)`);
   keep the hero `align-items:flex-start` — a vertically centred hero moved the (i) under the pointer when its panel opened (hover flicker).

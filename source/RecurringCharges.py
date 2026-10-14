@@ -390,27 +390,78 @@ def fetch_candidate_transactions(db, months_back: int = 13) -> list:
 
 RENT_CATEGORY = 'שכירות'
 RENT_NAME = 'שכירות'
+RENT_EXTRA_NAME = 'ועד בית'
+AMOUNT_CLUSTER_TOLERANCE = 0.03   # payments within this share of each other's amount are "the same amount"
+
+
+def cluster_by_amount(rows: list, tolerance: float = AMOUNT_CLUSTER_TOLERANCE) -> list:
+    """
+    Groups payments of (nearly) the same amount — the way to tell apart operations whose names never
+    match, such as rent paid by a different cheque each month ("שיק 123456"). Returns lists of rows.
+    """
+    clusters = []
+    for r in sorted(rows, key=lambda r: -r['amount']):
+        for c in clusters:
+            ref = sum(x['amount'] for x in c) / len(c)
+            if ref and abs(r['amount'] - ref) / ref <= tolerance:
+                c.append(r)
+                break
+        else:
+            clusters.append([r])
+    return clusters
+
+
+def recurring_operations(rows: list, tolerance: float = AMOUNT_CLUSTER_TOLERANCE) -> list:
+    """
+    Splits payments of one category into the separate operations that repeat in it (rent, building fee…),
+    by amount: each operation is one payment a month of the same amount. An operation whose amount
+    changed over time (a rent update) is one operation, not two: clusters that never share a month and
+    differ by at most MAX_AMOUNT_DEVIATION are merged.
+    Returns [{'rows': [...], 'months': {'YYYY-MM': row}}], the most-repeated operation first, then the
+    biggest. Whether an operation is really recurring is for the caller to decide (≥ MIN_STREAK_MONTHS...).
+    """
+    ops = []
+    for c in cluster_by_amount(rows, tolerance):
+        months = {}
+        for r in sorted(c, key=lambda r: r['date']):
+            months.setdefault(month_key(r['date']), r)   # one payment a month per operation
+        ops.append({'rows': c, 'months': months})
+    merged = True
+    while merged:
+        merged = False
+        for i in range(len(ops)):
+            for j in range(i + 1, len(ops)):
+                a, b = ops[i], ops[j]
+                ref_a = a['months'][max(a['months'])]['amount']
+                ref_b = b['months'][max(b['months'])]['amount']
+                if (not set(a['months']) & set(b['months']) and ref_a and ref_b
+                        and abs(ref_a - ref_b) / max(ref_a, ref_b) <= MAX_AMOUNT_DEVIATION):
+                    a['rows'] += b['rows']
+                    a['months'].update(b['months'])
+                    del ops[j]
+                    merged = True
+                    break
+            if merged:
+                break
+    ops.sort(key=lambda o: (-len(o['months']), -o['months'][max(o['months'])]['amount']))
+    return ops
 
 
 def collapse_rent(transactions: list) -> list:
     """
-    Rent is paid by a different cheque each month ("שיק 123456"), so its names never
-    cluster. Every transaction tagged RENT_CATEGORY is given one common name, and
-    several rent payments of the same month become a single transaction (their sum,
-    dated at the first one), so the rent shows up as one steady monthly charge.
+    The payments tagged RENT_CATEGORY are several operations that repeat every month (the rent, the
+    building fee…) but each rent cheque has another name, so by name they never cluster. They are split
+    by amount (recurring_operations) and every operation gets one name — RENT_NAME for the most repeated
+    / biggest, RENT_EXTRA_NAME for the next, "שכירות <amount>" for any other — so each shows up as its
+    own steady monthly charge.
     """
-    rent_by_month, rest = {}, []
-    for tx in transactions:
-        if tx['category'] != RENT_CATEGORY:
-            rest.append(tx)
-            continue
-        rent_by_month.setdefault((tx['table'], month_key(tx['date'])), []).append(tx)
-    for (_table, _mk), txs in rent_by_month.items():
-        txs.sort(key=lambda t: t['date'])
-        first = dict(txs[0])
-        first['name'] = RENT_NAME
-        first['amount'] = sum(t['amount'] for t in txs)
-        rest.append(first)
+    rent = [t for t in transactions if t['category'] == RENT_CATEGORY]
+    rest = [t for t in transactions if t['category'] != RENT_CATEGORY]
+    for k, op in enumerate(recurring_operations(rent)):
+        for tx in op['months'].values():
+            named = dict(tx)
+            named['name'] = RENT_NAME if k == 0 else RENT_EXTRA_NAME if k == 1 else f"{RENT_NAME} {round(tx['amount'])}"
+            rest.append(named)
     return rest
 
 

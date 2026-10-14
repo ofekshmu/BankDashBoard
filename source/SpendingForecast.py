@@ -22,8 +22,9 @@ Rules of thumb (from the last HISTORY_MONTHS months of data):
   - each card (CardTransactions, grouped by CardID and Charge_Date) is charged on its own usual
     day of the month; once the card already holds charges for a future Charge_Date that exact date
     is used, and the charge is never below what the card holds
-  - the rent (BankTransactions tagged RENT_CATEGORY, read directly) is the monthly average of the
-    recent months, due on its usual day; what was already paid this month is deducted
+  - the rent category (BankTransactions tagged RENT_CATEGORY) holds several operations that repeat every
+    month with the same amount (the rent, the building fee…): told apart by amount, each must be recurring
+    by the recurring-charges definition, each costs its latest amount on its usual day
   - recurring charges paid straight from the bank at their usual day-of-month (those paid by card
     are already inside that card's charge)
   - anything dated up to today that the files do not show yet is assumed to have happened on its
@@ -43,7 +44,7 @@ import statistics
 from RecurringCharges import (
     month_key, _to_plain_date, RENT_CATEGORY, MIN_STREAK_MONTHS, MAX_AMOUNT_DEVIATION, MAX_RUN_COUNT,
     MAX_MONTHS_SINCE_LAST_OCCURRENCE, find_all_runs, find_longest_run, _last_complete_month_key, _months_apart,
-    cluster_transactions,
+    cluster_transactions, recurring_operations, RENT_NAME, RENT_EXTRA_NAME,
 )
 
 SALARY_CATEGORY = 'משכורת'
@@ -51,7 +52,6 @@ AUTO_CARD_DESCRIPTION = 'Auto Insertion'   # Card.description of a card the impo
 
 HISTORY_MONTHS = 6             # months of history behind every rule of thumb
 SALARY_LOOKBACK_DAYS = 25      # an unreceived salary older than this is not assumed to have arrived
-RENT_PAID_FRACTION = 0.9       # this share of the rent paid this month counts as "paid in full"
 STALE_BALANCE_DAYS = 3         # the balance is flagged old when it is older than this
 MODES = ('avg', 'max')
 
@@ -380,52 +380,55 @@ def _card_event(p: dict, date: _date, amount: float, held: float, base: float) -
 def build_rent_profile(rows: list, as_of: _date) -> dict:
     """
     rows: [{'date': date, 'amount': float}] bank payments tagged RENT_CATEGORY.
-    The rent is the monthly average of the completed months of the recent period (the current month
-    only when nothing else exists); what was already paid this month is kept apart. None unless the rent is
-    recurring by the recurring-charges definition (see recurring_months).
-    """
-    per_month = _group_by_month(rows, since_key=_history_start(as_of))
-    if not per_month:
-        return None
+    The category holds separate operations that repeat every month with the same amount (the rent, the
+    building fee…). They are told apart by amount (RecurringCharges.recurring_operations) and each one must
+    be recurring by the recurring-charges definition (recurring_months) — a one-off payment is ignored.
+    Every operation costs its latest amount, due on its usual day. None when nothing recurs.
 
-    totals = {mk: _sum_amounts(v) for mk, v in per_month.items()}
-    if not recurring_months([{'month': mk, 'amount': t} for mk, t in totals.items()], as_of):
-        return None   # not a recurring rent (fewer than 3 consecutive months): the forecast does not assume one
+    {'amount': total per month, 'items': [{'name', 'amount', 'day', 'paid_this_month', 'monthly'}], ...}
+    """
+    since = _history_start(as_of)
+    recent = [r for r in rows if month_key(r['date']) >= since]
     cur_key = month_key(as_of)
-    basis = [t for mk, t in sorted(totals.items()) if mk != cur_key] or list(totals.values())
-    days = [r['date'].day for mk in sorted(totals) for r in per_month[mk]]
-    return {
-        'amount': _mean(basis),
-        'day': usual_day(days),
-        'paid_this_month': totals.get(cur_key, 0.0),
-        'months': len(basis),
-        'monthly': [{'month': mk, 'amount': totals[mk]} for mk in sorted(totals)],
-    }
+    items = []
+    for op in recurring_operations(recent):
+        series = [{'month': mk, 'amount': r['amount']} for mk, r in sorted(op['months'].items())]
+        if not recurring_months(series, as_of):
+            continue
+        latest = op['months'][max(op['months'])]
+        items.append({
+            'amount': round(latest['amount'], 2),
+            'day': usual_day([r['date'].day for r in sorted(op['rows'], key=lambda r: r['date'])]),
+            'paid_this_month': cur_key in op['months'],
+            'months': len(series),
+            'monthly': series,
+        })
+    if not items:
+        return None
+    items.sort(key=lambda i: (-i['months'], -i['amount']))
+    for k, it in enumerate(items):
+        it['name'] = RENT_NAME if k == 0 else RENT_EXTRA_NAME if k == 1 else f"{RENT_NAME} {round(it['amount'])}"
+    return {'amount': round(sum(i['amount'] for i in items), 2), 'items': items}
 
 
 def build_rent_events(profile: dict, as_of: _date, horizon: _date) -> list:
     """
-    Rent payments until `horizon`. This month only what is still unpaid counts (the part already
-    paid is deducted; a rent paid to RENT_PAID_FRACTION is paid in full); an unpaid rent whose day
-    passed is assumed paid on that day.
+    Payments of every rent operation until `horizon`: the rent, the building fee… each on its usual day.
+    An operation not yet paid this month whose day already passed is assumed paid on that day.
     """
     if not profile:
         return []
-    amount, paid = profile['amount'], profile['paid_this_month']
     events = []
-
-    def _ev(d, value):
-        events.append({'date': d, 'name': 'שכירות + ועד בית', 'amount': round(value, 2), 'kind': 'rent',
-                       'detail': {'paid': paid}})
-
-    for d in _dates_in_window(profile['day'], as_of, horizon):
-        if not _is_current_month(d, as_of):
-            _ev(d, amount)
-    paid_in_full = paid >= amount * RENT_PAID_FRACTION
-    remaining = amount - paid
-    usual = _usual_date_this_month(profile['day'], as_of)
-    if remaining > 0 and not paid_in_full and usual <= horizon:
-        _ev(usual, remaining)   # before as_of: assumed paid on its day; after: still ahead
+    for it in profile['items']:
+        def _ev(d, it=it):
+            events.append({'date': d, 'name': it['name'], 'amount': it['amount'], 'kind': 'rent',
+                           'detail': {'paid': it['paid_this_month']}})
+        for d in _dates_in_window(it['day'], as_of, horizon):
+            if not _is_current_month(d, as_of):
+                _ev(d)
+        usual = _usual_date_this_month(it['day'], as_of)
+        if not it['paid_this_month'] and usual <= horizon:
+            _ev(usual)   # before as_of: assumed paid on its day; after: still ahead
     return events
 
 

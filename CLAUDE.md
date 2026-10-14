@@ -252,9 +252,10 @@ computed live per request (balance changes with every bank file); the recurring 
   (`usual_day`, never an average); amount = the card's mean month (avg) or largest month (max). A future `Charge_Date` the card already holds is used as the exact
   date and as a floor for the amount. `Card.description == "Auto Insertion"` (set by `insert_card_transaction` for a card the importer created) is not shown as a name;
   the page shows an (i) explaining it.
-- **Rent** (`שכירות`) is read straight from the tagged `BankTransactions` rows (`build_rent_profile`), not from the recurring detection: the monthly average of the
-  completed months, usual day, and what was already paid this month is deducted. `RecurringCharges.collapse_rent` still gives rent one name so it also shows as one
-  recurring group; the forecast skips that group to avoid double counting.
+- **Rent** (`שכירות`) is treated as recurring operations, not as one sum: the category holds several payments that repeat every month with the same amount (the rent, the building fee…).
+  `RecurringCharges.recurring_operations` splits them **by amount** (`cluster_by_amount`, ±3 %; a rent update is merged into one operation when the amounts never share a month),
+  `build_rent_profile` keeps each one only if it is recurring by `recurring_months` (a one-off is ignored), and each costs its latest amount on its usual day
+  (`items`: "שכירות" = most repeated/biggest, "ועד בית" = the next). `collapse_rent` gives the recurring page the same names (one group per operation); the forecast skips those groups.
 - **Recurring** groups paid from the bank only (card-paid ones are inside the card charge); stopped groups are skipped.
 - **Estimates are labelled:** every projected figure carries a "משוער" tag, always at the **bottom** of its cube (`fcEst`, `.fc-est-foot`), never inline in the text; only one of them (the main figure) carries the (i) explaining it; `totals.known` = charges a card already holds, `totals.estimated` = the rest.
   `fixed_monthly` (top figure) = recurring charges paid from the bank (`monthly_recurring_total`) + the average rent, **without** any credit-card estimate.

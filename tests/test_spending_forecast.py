@@ -29,8 +29,12 @@ def _card(card='4603', day=10, base=3000, months=range(4, 10)):
     return [{'card': card, 'name': f'כרטיס {card}', 'date': date(2026, m, day), 'amount': base + m * 100} for m in months]
 
 
-def _rent_rows(amount=5880, day=1, months=range(5, 11)):
-    return [{'date': date(2026, m, day), 'amount': amount} for m in months]
+def _rent_rows(amount=5600, day=1, months=range(5, 11), fee=280, fee_day=5):
+    """The rent (a different cheque each month) and the building fee, both in the rent category."""
+    rows = [{'date': date(2026, m, day), 'amount': amount} for m in months]
+    if fee:
+        rows += [{'date': date(2026, m, fee_day), 'amount': fee} for m in months]
+    return rows
 
 
 def _bank_group(name='הראל ביטוח', day=18, amount=380, category='ביטוחים', table='BankTransactions'):
@@ -113,12 +117,6 @@ def test_a_one_off_deposit_on_the_20th_is_not_a_salary_stream():
     assert build_salary_profile(only_once, AS_OF, AS_OF, 'max')['known'] is False
 
 
-def test_rent_must_be_recurring_to_be_assumed():
-    assert build_rent_profile(_rent_rows(5880, months=range(8, 10)), AS_OF) is None            # two months only
-    assert build_rent_profile([{'date': date(2026, 9, 1), 'amount': 20000}], AS_OF) is None   # a single payment (deposit?)
-    assert build_rent_profile(_rent_rows(5880, months=range(7, 10)), AS_OF)['amount'] == 5880
-
-
 def test_every_card_has_its_own_day():
     rows = _card('4603', day=10) + _card('1111', day=2, base=5000)
     prof = build_card_profiles(rows, AS_OF)
@@ -151,23 +149,30 @@ def test_held_charge_of_a_card_without_history_is_its_own_event():
     assert ev[0]['detail']['auto'] is True
 
 
-def test_rent_is_the_monthly_average_read_from_the_raw_rows():
-    rows = _rent_rows(5000, months=range(5, 8)) + _rent_rows(6000, months=range(8, 10)) + [{'date': date(2026, 10, 1), 'amount': 5880}]
-    p = build_rent_profile(rows, AS_OF)
-    assert p['amount'] == round((3 * 5000 + 2 * 6000) / 5, 2) and p['day'] == 1   # completed months only
-    assert p['paid_this_month'] == 5880 and [m['month'] for m in p['monthly']][-1] == '2026-10'
+def test_rent_and_building_fee_are_two_recurring_operations_told_apart_by_amount():
+    p = build_rent_profile(_rent_rows(), AS_OF)
+    assert [(i['name'], i['amount'], i['day']) for i in p['items']] == [('שכירות', 5600, 1), ('ועד בית', 280, 5)]
+    assert p['amount'] == 5880 and all(i['paid_this_month'] for i in p['items'])
     assert build_rent_profile([], AS_OF) is None
 
 
-def test_rent_paid_this_month_waits_for_next_month_and_unpaid_is_taken_on_its_day():
-    p = build_rent_profile(_rent_rows(5880), AS_OF)
-    assert [e['date'] for e in build_rent_events(p, AS_OF, HORIZON)] == [date(2026, 11, 1)]
-    p = build_rent_profile(_rent_rows(5880, months=range(5, 10)), AS_OF)                # October missing
+def test_a_rent_update_is_one_operation_and_a_one_off_payment_is_ignored():
+    rows = _rent_rows(5600, months=range(5, 8), fee=0) + _rent_rows(5880, months=range(8, 11), fee=0)
+    p = build_rent_profile(rows, AS_OF)
+    assert [(i['name'], i['amount']) for i in p['items']] == [('שכירות', 5880)]               # the latest amount
+    assert build_rent_profile(_rent_rows(5880, months=range(5, 8), fee=0) + [{'date': date(2026, 9, 12), 'amount': 20000}], AS_OF)['amount'] == 5880
+    assert build_rent_profile([{'date': date(2026, 9, 1), 'amount': 20000}], AS_OF) is None       # a single payment (deposit?)
+    assert build_rent_profile(_rent_rows(5600, months=range(8, 10), fee=0), AS_OF) is None       # two months only
+
+
+def test_rent_events_each_operation_on_its_own_day_and_unpaid_ones_are_assumed_paid_on_their_day():
+    p = build_rent_profile(_rent_rows(), AS_OF)                                                # October is paid
     ev = sorted(build_rent_events(p, AS_OF, HORIZON), key=lambda e: e['date'])
-    assert [(e['date'], e['amount']) for e in ev] == [(date(2026, 10, 1), 5880), (date(2026, 11, 1), 5880)]
-    rows = _rent_rows(5880, months=range(5, 10)) + [{'date': date(2026, 10, 1), 'amount': 4500}]
+    assert [(e['date'], e['name'], e['amount']) for e in ev] == [(date(2026, 11, 1), 'שכירות', 5600), (date(2026, 11, 5), 'ועד בית', 280)]
+    assert [e['name'] for e in build_rent_events(p, AS_OF, date(2026, 11, 3))] == ['שכירות']       # the fee is past the horizon
+    rows = _rent_rows(months=range(5, 10)) + [{'date': date(2026, 10, 1), 'amount': 5600}]   # fee missing in October
     ev = sorted(build_rent_events(build_rent_profile(rows, AS_OF), AS_OF, HORIZON), key=lambda e: e['date'])
-    assert (ev[0]['date'], ev[0]['amount']) == (date(2026, 10, 1), 1380)               # the part still unpaid
+    assert [(e['date'], e['name'], e['amount']) for e in ev] == [(date(2026, 10, 5), 'ועד בית', 280), (date(2026, 11, 1), 'שכירות', 5600), (date(2026, 11, 5), 'ועד בית', 280)]
 
 
 def test_bank_groups_card_paid_stopped_and_rent_are_filtered():
@@ -198,7 +203,7 @@ def _inputs(**kw):
     base = {'balance': 30000, 'balance_date': AS_OF,
             'salary_rows': _salary() + _salary(months=[10]),
             'card_rows': _card('4603', day=10) + [{'card': '4603', 'name': 'כרטיס 4603', 'date': date(2026, 10, 10), 'amount': 3300}],
-            'rent_rows': _rent_rows(5880), 'groups': [_bank_group()]}
+            'rent_rows': _rent_rows(), 'groups': [_bank_group()]}
     base.update(kw)
     return base
 
@@ -207,12 +212,12 @@ def test_forecast_scenarios_are_both_computed_and_harsh_is_not_looser():
     both = compute_both(_inputs(), AS_OF)
     avg, mx = both['scenarios']['avg'], both['scenarios']['max']
     assert both['ok'] and avg['mode'] == 'avg' and mx['mode'] == 'max'
-    # horizon 11/10: Oct 18 insurance, Nov 1 rent 5880, card 4603 on Nov 10
-    assert avg['free'] == 30000 - 380 - 5880 - 3650
-    assert mx['free'] == 30000 - 480 - 5880 - 3900 and mx['free'] < avg['free']
+    # horizon 11/10: Oct 18 insurance, Nov 1 rent 5600, Nov 5 building fee 280, card 4603 on Nov 10
+    assert avg['free'] == 30000 - 380 - 5600 - 280 - 3650
+    assert mx['free'] == 30000 - 480 - 5600 - 280 - 3900 and mx['free'] < avg['free']
     assert avg['totals'] == {'card': 3650, 'recurring': 380, 'rent': 5880, 'all': 9910, 'known': 0, 'estimated': 9910}
     charges = [e['name'] for e in avg['events'] if e['kind'] != 'income']
-    assert charges[:3] == ['הראל ביטוח', 'שכירות + ועד בית', 'כרטיס 4603']
+    assert charges[:4] == ['הראל ביטוח', 'שכירות', 'ועד בית', 'כרטיס 4603']
     assert not any(e['assumed'] for e in avg['events'])      # everything is still ahead of today
 
 
@@ -245,11 +250,11 @@ def test_totals_separate_what_is_known_from_what_is_estimated():
 
 
 def test_unseen_things_up_to_today_are_assumed_done_and_overdue_salary_arrives():
-    f = compute_forecast(_inputs(salary_rows=_salary(), rent_rows=_rent_rows(5880, months=range(5, 10))), AS_OF, 'avg')
+    f = compute_forecast(_inputs(salary_rows=_salary(), rent_rows=_rent_rows(months=range(5, 10))), AS_OF, 'avg')
     assumed = {e['name']: e for e in f['events'] if e['assumed']}
-    assert assumed['שכירות + ועד בית']['date'] == date(2026, 10, 1)
+    assert assumed['שכירות']['date'] == date(2026, 10, 1) and assumed['ועד בית']['date'] == date(2026, 10, 5)
     assert assumed['משכורת (יום 10)']['amount'] == -15000 and assumed['משכורת (יום 10)']['kind'] == 'income'
-    assert f['totals']['rent'] == 2 * 5880 and f['horizon'] == date(2026, 11, 10)
+    assert f['totals']['rent'] == 2 * 5880 and f['horizon'] == date(2026, 11, 10)   # October's and November's, fee included
 
 
 def test_no_salary_is_reported():
@@ -257,10 +262,12 @@ def test_no_salary_is_reported():
     assert f['scenarios']['avg']['ok'] is False and f['scenarios']['avg']['reason'] == 'no_salary'
 
 
-def test_collapse_rent_merges_cheques_of_a_month():
-    tx = [{'table': 'BankTransactions', 'id': i, 'date': date(2026, 9, d), 'name': f'שיק {i}', 'amount': a, 'category': 'שכירות'}
-          for i, (d, a) in enumerate([(1, 3000), (3, 1500)])]
-    tx.append({'table': 'BankTransactions', 'id': 9, 'date': date(2026, 9, 5), 'name': 'x', 'amount': 10, 'category': 'מצרכים'})
+def test_collapse_rent_names_each_recurring_amount_as_its_own_charge():
+    tx = [{'table': 'BankTransactions', 'id': m * 10 + k, 'date': date(2026, m, d), 'name': f'שיק {m}{k}', 'amount': a, 'category': 'שכירות'}
+          for m in range(6, 10) for k, (d, a) in enumerate([(1, 5600), (5, 280)])]
+    tx.append({'table': 'BankTransactions', 'id': 99, 'date': date(2026, 9, 12), 'name': 'x', 'amount': 15000, 'category': 'שכירות'})   # one-off
+    tx.append({'table': 'BankTransactions', 'id': 98, 'date': date(2026, 9, 5), 'name': 'מכולת', 'amount': 10, 'category': 'מצרכים'})
     out = collapse_rent(tx)
-    rent = [t for t in out if t['category'] == 'שכירות']
-    assert len(rent) == 1 and rent[0]['amount'] == 4500 and rent[0]['name'] == 'שכירות' and len(out) == 2
+    names = sorted(t['name'] for t in out if t['category'] == 'שכירות')
+    assert names.count('שכירות') == 4 and names.count('ועד בית') == 4 and names.count('שכירות 15000') == 1   # the one-off stays apart
+    assert len([t for t in out if t['category'] != 'שכירות']) == 1

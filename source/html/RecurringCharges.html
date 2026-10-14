@@ -364,7 +364,6 @@ body {
 .fc-ev-n .fc-est-foot{padding-top:3px}
 .fc-est{display:inline-block;padding:1px 7px;border-radius:99px;background:rgba(240,180,41,.2);color:#b7791f;font-size:.72em;font-weight:600;vertical-align:middle}
 .fc-hero .fc-est{background:rgba(247,205,106,.2);color:#f7cd6a}
-.fc-mini.wide{grid-column:1/-1;background:rgba(30,157,139,.16)}
 .fc-det{margin:0 0 8px}
 .fc-det summary{cursor:pointer;color:var(--teal-dark);font-size:.8em;padding:2px 0;list-style:none}
 .fc-det summary::before{content:"▸ ";display:inline-block;transition:transform .15s}
@@ -1440,7 +1439,7 @@ function fcEventDetail(e, mode) {
     if (e.detail.held) return 'חיוב ידוע בכרטיס' + (e.detail.held < e.detail.base ? ' + הערכה' : '');
     return mode === 'max' ? 'החודש הגבוה ביותר' : 'ממוצע חודשי';
   }
-  if (e.kind === 'rent') return e.detail.paid ? 'שולם החודש ' + Math.round(e.detail.paid) + '₪ — ההפרש נותר' : 'ממוצע חודשי';
+  if (e.kind === 'rent') return 'חיוב חוזר קבוע';
   return e.kind === 'recurring' ? 'לפי החיוב האחרון' : FC_LABELS[e.kind];
 }
 
@@ -1468,9 +1467,8 @@ function fcRender() {
     '</div><div class="fc-hero-side">' +
       '<div class="fc-mini"><div class="fc-mini-l">יתרה בחשבון</div><div class="fc-mini-v">' + fcMoney(v.balance) + '</div><div class="fc-mini-s">נכון ל-' + fcShortDate(d.as_of) + '</div></div>' +
       '<div class="fc-mini"><div class="fc-mini-l">חיובים עד המשכורת</div><div class="fc-mini-v">' + fcMoney(sc.totals.all) + '</div><div class="fc-mini-s">ידוע ' + fcMoney(sc.totals.known) + ' · משוער ' + fcMoney(sc.totals.estimated) + '</div>' + fcEst() + '</div>' +
-      '<div class="fc-mini"><div class="fc-mini-l">משכורת הבאה</div><div class="fc-mini-v">' + fcMoney(sal.next_amount) + '</div><div class="fc-mini-s">ב-' + fcShortDate(sc.horizon) + '</div>' + fcEst() + '</div>' +
       '<div class="fc-mini"><div class="fc-mini-l">הנקודה הנמוכה</div><div class="fc-mini-v">' + fcMoney(v.lowest) + '</div><div class="fc-mini-s">' + tight + '</div>' + fcEst() + '</div>' +
-      '<div class="fc-mini wide"><div class="fc-mini-l">חיוב חודשי חוזר (ללא חיובי כרטיס אשראי)</div><div class="fc-mini-v">' + fcMoney(fixed.total) + '</div><div class="fc-mini-s">' + fixed.count + ' חיובים חוזרים מהבנק + שכירות ' + fcMoney(fixed.rent) + '</div>' + fcEst() + '</div>' +
+      '<div class="fc-mini"><div class="fc-mini-l">חיוב חודשי חוזר (ללא חיובי כרטיס אשראי)</div><div class="fc-mini-v">' + fcMoney(fixed.total) + '</div><div class="fc-mini-s">' + fixed.count + ' חיובים חוזרים מהבנק + שכירות ' + fcMoney(fixed.rent) + '</div>' + fcEst() + '</div>' +
     '</div></div>';
 
   var controls =
@@ -1517,8 +1515,10 @@ function fcRender() {
     return '<div class="fc-rule"><span>' + esc(c.name) + (c.auto ? fcInfo(FC_TIP_AUTO) : '') + ' · חיוב ביום ' + c.day + '</span><b>ממוצע ' + fcMoney(c.avg_month) + ' · שיא ' + fcMoney(c.max_month) + '</b></div>';
   }).join('') || '<div class="fc-rule"><span>לא זוהו חיובי כרטיס</span></div>';
   var rentRule = sc.rent
-    ? '<div class="fc-rule"><span>שכירות + ועד בית · יום ' + sc.rent.day + ' · ממוצע ' + sc.rent.months + ' חודשים</span><b>' + fcMoney(sc.rent.amount) + '</b></div>' +
-      '<details class="fc-det"><summary>פירוט החודשים</summary><div class="fc-sub-rule">' + fcMonthList(sc.rent.monthly) + '</div></details>'
+    ? sc.rent.items.map(function(it) {
+        return '<div class="fc-rule"><span>' + esc(it.name) + ' · חיוב קבוע ביום ' + it.day + '</span><b>' + fcMoney(it.amount) + '</b></div>' +
+          '<details class="fc-det"><summary>פירוט החודשים</summary><div class="fc-sub-rule">' + fcMonthList(it.monthly) + '</div></details>';
+      }).join('') + (sc.rent.items.length > 1 ? '<div class="fc-rule"><span>סה"כ שכירות + ועד בית</span><b>' + fcMoney(sc.rent.amount) + '</b></div>' : '')
     : '<div class="fc-rule"><span>שכירות</span><b>לא זוהתה</b></div>';
   var skipped = (sc.skipped || []).reduce(function(a, s) { a[s.reason] = (a[s.reason] || 0) + 1; return a; }, {});
   var rules =

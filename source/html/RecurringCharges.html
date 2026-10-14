@@ -1322,6 +1322,8 @@ function fcSave() { try { localStorage.setItem(FC_KEY, JSON.stringify(fcParams))
 // A small "i" that explains itself on hover / focus (tap on a phone).
 function fcInfo(text) { return '<span class="fc-i" tabindex="0" data-tip="' + esc(text) + '">i</span>'; }
 
+// 'MM/YY · amount' for each month, as one line of the collapsed detail.
+function fcMonthList(months) { return months.map(function(m) { return m.month.slice(5) + '/' + m.month.slice(2, 4) + ' · ' + fcMoney(m.amount); }).join(' &nbsp;'); }
 // A "משוער" tag for any figure that is an estimate or an average rather than something already known.
 function fcEst(tip) { return '<span class="fc-est">משוער</span>' + (tip ? fcInfo(tip) : ''); }
 var FC_TIP_EST = 'הסכום מחושב מהיסטוריית ה-6 חודשים האחרונים (ממוצע או החודש הגבוה, לפי התרחיש). רק חיוב שכרטיס כבר מחזיק בעסקאות שלו ידוע בוודאות.';
@@ -1489,14 +1491,14 @@ function fcRender() {
 
   var salRules = sal.streams.map(function(st, i) {
     return '<div class="fc-rule"><span>משכורת' + (sal.streams.length > 1 ? ' ' + (i + 1) : '') + ' · ' + (mode === 'max' ? 'יום ' + st.day + ' (המאוחר ביותר)' : 'יום ' + st.day + ' (ממוצע)') + '</span><b>' + fcMoney(st.amount) + '</b></div>' +
-      '<details class="fc-det"><summary>פירוט ההפקדות</summary><div class="fc-sub-rule">' + st.months.slice(-6).map(function(m) { return m.month.slice(5) + '/' + m.month.slice(2, 4) + ' · ' + fcMoney(m.amount); }).join(' &nbsp;') + '</div></details>';
+      '<details class="fc-det"><summary>פירוט ההפקדות</summary><div class="fc-sub-rule">' + fcMonthList(st.months.slice(-6)) + '</div></details>';
   }).join('');
   var cards = (sc.cards || []).map(function(c) {
     return '<div class="fc-rule"><span>' + esc(c.name) + (c.auto ? fcInfo(FC_TIP_AUTO) : '') + ' · חיוב ביום ' + c.day + '</span><b>ממוצע ' + fcMoney(c.avg_month) + ' · שיא ' + fcMoney(c.max_month) + '</b></div>';
   }).join('') || '<div class="fc-rule"><span>לא זוהו חיובי כרטיס</span></div>';
   var rentRule = sc.rent
     ? '<div class="fc-rule"><span>שכירות + ועד בית · יום ' + sc.rent.day + ' · ממוצע ' + sc.rent.months + ' חודשים</span><b>' + fcMoney(sc.rent.amount) + '</b></div>' +
-      '<details class="fc-det"><summary>פירוט החודשים</summary><div class="fc-sub-rule">' + sc.rent.monthly.map(function(m) { return m.month.slice(5) + '/' + m.month.slice(2, 4) + ' · ' + fcMoney(m.amount); }).join(' &nbsp;') + '</div></details>'
+      '<details class="fc-det"><summary>פירוט החודשים</summary><div class="fc-sub-rule">' + fcMonthList(sc.rent.monthly) + '</div></details>'
     : '<div class="fc-rule"><span>שכירות</span><b>לא זוהתה</b></div>';
   var skipped = (sc.skipped || []).reduce(function(a, s) { a[s.reason] = (a[s.reason] || 0) + 1; return a; }, {});
   var rules =

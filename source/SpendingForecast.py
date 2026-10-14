@@ -74,6 +74,39 @@ def _months_back(d: _date, n: int) -> str:
     return month_key(_add_months(d, -n))
 
 
+def _history_start(as_of: _date) -> str:
+    """'YYYY-MM' key of the first month of the history window (HISTORY_MONTHS months before as_of's month)."""
+    return _months_back(as_of, HISTORY_MONTHS)
+
+
+def _group_by_month(rows: list, key_fn=None, since_key: str = None) -> dict:
+    """
+    {'YYYY-MM': [rows]} in date order. The month is that of the row's date unless key_fn(row) says
+    otherwise (a salary's cycle); since_key keeps only months from that key on.
+    """
+    key_fn = key_fn or (lambda r: month_key(r['date']))
+    out = {}
+    for r in sorted(rows, key=lambda r: r['date']):
+        mk = key_fn(r)
+        if since_key is None or mk >= since_key:
+            out.setdefault(mk, []).append(r)
+    return out
+
+
+def _sum_amounts(rows: list) -> float:
+    return round(sum(r['amount'] for r in rows), 2)
+
+
+def _mean(values) -> float:
+    values = list(values)
+    return round(sum(values) / len(values), 2)
+
+
+def _by_mode(mode: str, harsh, average):
+    """The harsh scenario's figure for 'max', the average scenario's otherwise."""
+    return harsh if mode == 'max' else average
+
+
 def usual_day(days: list) -> int:
     """
     The usual day-of-month of a charge, from days listed oldest first: the most common
@@ -194,7 +227,7 @@ def build_salary_profile(rows: list, as_of: _date, today: _date, mode: str = 'ma
     that the data does not show yet is assumed to have arrived on its date ('assumed'); the first
     usual date after `today` is an upcoming salary. next_date is the earliest upcoming one.
     """
-    first_key = _months_back(as_of, HISTORY_MONTHS)
+    first_key = _history_start(as_of)
     rows = [r for r in rows if month_key(r['date']) >= first_key]
     if not rows:
         return {'known': False, 'streams': [], 'assumed': [], 'upcoming': [], 'next_date': None}
@@ -205,27 +238,25 @@ def build_salary_profile(rows: list, as_of: _date, today: _date, mode: str = 'ma
     streams = []
     for mine in payers:
         pivot = _pivot_day([r['date'].day for r in mine])
-        cycles = {}
-        for r in mine:
-            cycles.setdefault(_cycle_key(r['date'], pivot), []).append(r)
+        cycles = _group_by_month(mine, key_fn=lambda r: _cycle_key(r['date'], pivot))
         months = []
         for ck in sorted(cycles):
             biggest = max(cycles[ck], key=lambda r: r['amount'])
-            months.append({'month': ck, 'amount': round(sum(r['amount'] for r in cycles[ck]), 2),
+            months.append({'month': ck, 'amount': _sum_amounts(cycles[ck]),
                            'day': biggest['date'].day, 'position': _position(biggest['date'].day, pivot)})
         months = recurring_months(months, as_of)
         if not months:
             continue   # a one-off deposit tagged as salary is not a salary stream
         past = [m for m in months if m['month'] < cur_key] or months
-        avg_amount = round(sum(m['amount'] for m in past) / len(past), 2)
+        avg_amount = _mean(m['amount'] for m in past)
         min_amount = min(m['amount'] for m in past)
-        pos_avg = int(round(sum(m['position'] for m in past) / len(past)))
+        pos_avg = int(round(_mean(m['position'] for m in past)))
         pos_max = max(m['position'] for m in past)
-        position = pos_max if mode == 'max' else pos_avg
+        position = _by_mode(mode, pos_max, pos_avg)
         streams.append({
             'day': ((position - 1) % 31) + 1, 'position': position,
             'day_avg': ((pos_avg - 1) % 31) + 1, 'day_max': ((pos_max - 1) % 31) + 1,
-            'amount': min_amount if mode == 'max' else avg_amount,
+            'amount': _by_mode(mode, min_amount, avg_amount),
             'avg_amount': avg_amount, 'min_amount': min_amount,
             'max_amount': max(m['amount'] for m in past),
             'months': months, 'received_cycles': set(cycles),
@@ -268,7 +299,7 @@ def build_card_profiles(rows: list, as_of: _date) -> list:
     the future charges it already holds.
     """
     cur_key = month_key(as_of)
-    first_key = _months_back(as_of, HISTORY_MONTHS)
+    first_key = _history_start(as_of)
     cards = {}
     for r in sorted(rows, key=lambda r: r['date']):
         c = cards.setdefault(r['card'], {'name': r['name'], 'auto': bool(r.get('auto')), 'past': [], 'held': []})
@@ -279,19 +310,17 @@ def build_card_profiles(rows: list, as_of: _date) -> list:
 
     profiles = []
     for card, c in cards.items():
-        per_month = {}
-        for r in c['past']:
-            per_month.setdefault(month_key(r['date']), []).append(r)
+        per_month = _group_by_month(c['past'])
         done = {mk: v for mk, v in per_month.items() if mk != cur_key}
         if len(done) < 2:
             continue   # not enough history to call it a monthly charge
-        totals = [round(sum(r['amount'] for r in v), 2) for v in done.values()]
+        totals = [_sum_amounts(v) for v in done.values()]
         profiles.append({
             'card': card,
             'name': c['name'],
             'auto': c['auto'],
             'day': usual_day([r['date'].day for r in c['past'] if month_key(r['date']) != cur_key]),
-            'avg_month': round(sum(totals) / len(totals), 2),
+            'avg_month': _mean(totals),
             'max_month': max(totals),
             'months': len(done),
             'charged_this_month': cur_key in per_month,
@@ -311,11 +340,8 @@ def build_card_events(profiles: list, all_rows: list, as_of: _date, horizon: _da
     """
     events, profiled = [], {p['card'] for p in profiles}
     for p in profiles:
-        base = p['max_month'] if mode == 'max' else p['avg_month']
-        held_by_month = {}
-        for r in p['held']:
-            if r['date'] <= horizon:
-                held_by_month.setdefault(month_key(r['date']), []).append(r)
+        base = _by_mode(mode, p['max_month'], p['avg_month'])
+        held_by_month = _group_by_month([r for r in p['held'] if r['date'] <= horizon])
         cursor = _date(as_of.year, as_of.month, 1)
         while cursor <= horizon:
             mk = month_key(cursor)
@@ -323,7 +349,7 @@ def build_card_events(profiles: list, all_rows: list, as_of: _date, horizon: _da
             is_cur = _is_current_month(cursor, as_of)
             if mk in held_by_month:
                 rows = held_by_month[mk]
-                held = round(sum(r['amount'] for r in rows), 2)
+                held = _sum_amounts(rows)
                 events.append(_card_event(p, min(r['date'] for r in rows), max(base, held), held, base))
             elif is_cur and _is_late(p['day'], as_of, p['charged_this_month']):
                 events.append(_card_event(p, _usual_date_this_month(p['day'], as_of), base, 0, base))
@@ -352,22 +378,18 @@ def build_rent_profile(rows: list, as_of: _date) -> dict:
     only when nothing else exists); what was already paid this month is kept apart. None unless the rent is
     recurring by the recurring-charges definition (see recurring_months).
     """
-    first_key = _months_back(as_of, HISTORY_MONTHS)
-    per_month = {}
-    for r in sorted(rows, key=lambda r: r['date']):
-        if month_key(r['date']) >= first_key:
-            per_month.setdefault(month_key(r['date']), []).append(r)
+    per_month = _group_by_month(rows, since_key=_history_start(as_of))
     if not per_month:
         return None
 
-    totals = {mk: round(sum(r['amount'] for r in v), 2) for mk, v in per_month.items()}
+    totals = {mk: _sum_amounts(v) for mk, v in per_month.items()}
     if not recurring_months([{'month': mk, 'amount': t} for mk, t in totals.items()], as_of):
         return None   # not a recurring rent (fewer than 3 consecutive months): the forecast does not assume one
     cur_key = month_key(as_of)
     basis = [t for mk, t in sorted(totals.items()) if mk != cur_key] or list(totals.values())
     days = [r['date'].day for mk in sorted(totals) for r in per_month[mk]]
     return {
-        'amount': round(sum(basis) / len(basis), 2),
+        'amount': _mean(basis),
         'day': usual_day(days),
         'paid_this_month': totals.get(cur_key, 0.0),
         'months': len(basis),
@@ -429,7 +451,7 @@ def build_recurring_events(groups: list, as_of: _date, horizon: _date, mode: str
             skipped.append({'name': g.get('name'), 'reason': 'card'})   # inside the card charge already
             continue
         day = usual_day([_to_plain_date(o['date']).day for o in occs])
-        amount = float(g.get('max_amount') if mode == 'max' else g.get('current_amount'))
+        amount = _recurring_amount(g, mode)
         paid_this_month = any(o['month'] == cur_key for o in occs)
 
         for d in _dates_in_window(day, as_of, horizon):
@@ -441,6 +463,11 @@ def build_recurring_events(groups: list, as_of: _date, horizon: _date, mode: str
             events.append({'date': _usual_date_this_month(day, as_of), 'name': g.get('name'),
                            'amount': round(amount, 2), 'kind': 'recurring', 'group_key': g.get('group_key')})
     return events, skipped
+
+
+def _recurring_amount(group: dict, mode: str) -> float:
+    """What a recurring group is expected to cost: its highest amount (harsh) or its latest (average)."""
+    return float(_by_mode(mode, group.get('max_amount'), group.get('current_amount')))
 
 
 def monthly_recurring_total(groups: list, mode: str) -> dict:
@@ -455,7 +482,7 @@ def monthly_recurring_total(groups: list, mode: str) -> dict:
         if (not occs or g.get('category') == RENT_CATEGORY or g.get('possibly_stopped')
                 or occs[-1].get('table') != 'BankTransactions'):
             continue
-        total += float(g.get('max_amount') if mode == 'max' else g.get('current_amount'))
+        total += _recurring_amount(g, mode)
         count += 1
     return {'total': round(total, 2), 'count': count}
 

@@ -294,7 +294,7 @@ body {
 /* ── Spending forecast ("כמה אפשר להוציא") ── */
 .fc{margin-bottom:26px}
 .fc-hero{background:linear-gradient(135deg,#0f1627 0%,#1a2e52 100%);color:#fff;border-radius:var(--radius);padding:26px 28px;box-shadow:var(--shadow-sm);display:flex;gap:30px;align-items:flex-start;flex-wrap:wrap}
-.fc-hero-main{flex:1.2;min-width:240px;padding-top:34px;display:flex;flex-direction:column;align-items:flex-start}
+.fc-hero-main{flex:1.2;min-width:240px;padding-top:34px;display:flex;flex-direction:column;align-items:flex-start;align-self:stretch}
 .fc-eyebrow{font-size:.85em;letter-spacing:.04em;color:#9fb0d0}
 .fc-big{font-size:3.1em;font-weight:700;line-height:1.1;margin:0 0 6px;font-variant-numeric:tabular-nums}
 .fc-big.neg{color:#ff8a7a}
@@ -1564,26 +1564,26 @@ function fcRender() {
   var tipCount = 'מספר החיובים החוזרים הפעילים (שכירות נספרת כחיוב אחד): ' + nBank + ' משולמים מהבנק ו-' + nCard + ' בכרטיס אשראי.';
   var tipBalance = 'היתרה האחרונה בקובץ הבנק, נכון ל-' + fcShortDate(d.as_of) + '.' +
     (Math.round(sc.balance_now) !== Math.round(d.balance) ? ' אחרי הפעולות שהונחו כבוצעות (עדיין לא בקבצים) היא ' + fcPlain(sc.balance_now) + ' — ממנה מתחיל החישוב.' : '');
-  var tipCharges = 'סכום כל החיובים המשוערים (כרטיסים, שכירות וחיובים חוזרים) עד קו המשכורת הראשון בגרף, ב-' + fcShortDate(sc.horizon) + ': ' + charges.length + ' חיובים, כולל חיובים שהונחו כבוצעים.';
+  var left = sc.month_left;
+  var tipCharges = 'סכום החיובים המשוערים שעוד לא יצאו (כרטיסי אשראי, שכירות וחיובים חוזרים) מהיום ועד סוף החודש, ב-' + fcShortDate(left.end) + ': ' + left.count + ' חיובים.';
   function kpi(label, value, sub, tip, est) {
     return '<div class="fc-mini"><div class="fc-mini-l">' + label + fcInfo(tip) + '</div><div class="fc-mini-v">' + value + '</div>' +
-      '<div class="fc-mini-s">' + sub + '</div>' + (est ? fcEst() : '') + '</div>';
+      (sub ? '<div class="fc-mini-s">' + sub + '</div>' : '') + (est ? fcEst() : '') + '</div>';
   }
   var hero =
     '<div class="fc-hero"><div class="fc-hero-main">' +
       '<div class="fc-big' + (neg ? ' neg' : '') + '">' + fcMoney(free) + '</div>' +
       '<div class="fc-eyebrow">פנוי לבזבוז</div>' +
-      '<div class="fc-sub">משכורת ב-' + fcShortDate(sc.horizon) + (free > 0 ? ' · כ-' + fcMoney(v.daily) + ' ליום' : '') + '</div>' +
       '<span class="fc-chip ' + chipCls + '">' + chipTxt + '</span>' +
       fcEst(tipMain) +
       '<div class="fc-hctl"><div class="fc-seg fc-seg-s"><button class="' + (mode === 'max' ? 'on' : '') + '" onclick="fcSet(\'card_mode\',\'max\')">מחמיר</button><button class="' + (mode === 'avg' ? 'on' : '') + '" onclick="fcSet(\'card_mode\',\'avg\')">ממוצע</button></div>' +
         '<label class="fc-buf">כרית <input type="number" min="0" inputmode="numeric" value="' + fcParams.buffer + '" placeholder="0" onchange="fcSet(\'buffer\', this.value)">₪</label>' +
         '<button class="fc-reset" onclick="fcReset()" title="איפוס">↺</button></div>' +
     '</div><div class="fc-hero-side">' +
-      kpi('חיוב חודשי חוזר', fcMoney(fixed.total), 'החודש כולו', tipFixed, true).replace('class="fc-mini"', 'class="fc-mini wide"') +
-      kpi('סה"כ חיובים חוזרים', nAll, 'מהבנק ' + nBank + ' · בכרטיס ' + nCard, tipCount, false) +
+      kpi('חיוב חודשי חוזר', fcMoney(fixed.total), '', tipFixed, true).replace('class="fc-mini"', 'class="fc-mini wide"') +
+      kpi('סה"כ חיובים חוזרים', nAll, '', tipCount, false) +
       kpi('יתרה בחשבון', fcMoney(v.balance), 'ב-' + fcShortDate(d.as_of), tipBalance, false) +
-      kpi('חיובים עד המשכורת', fcMoney(sc.totals.all), charges.length + ' חיובים', tipCharges, true).replace('class="fc-mini"', 'class="fc-mini full"') +
+      kpi('חיובים שנותרו החודש', fcMoney(left.total), left.count + ' חיובים', tipCharges, true).replace('class="fc-mini"', 'class="fc-mini full"') +
     '</div></div>';
 
   var order = ['card', 'rent', 'recurring'];

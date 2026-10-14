@@ -271,6 +271,13 @@ def _inputs(**kw):
     return base
 
 
+def test_month_left_counts_only_charges_after_today_until_the_month_end():
+    """Of the charges ahead (Oct 18 insurance, Nov 1 rent, Nov 5 fee, Nov 10 card) only the Oct 18 one falls in AS_OF's month."""
+    f = compute_both(_inputs(), AS_OF)['scenarios']['avg']
+    left = f['month_left']
+    assert left['end'] == AS_OF.replace(day=31) and left['count'] == 1 and left['total'] == 380
+
+
 def test_forecast_scenarios_are_both_computed_and_harsh_is_not_looser():
     both = compute_both(_inputs(), AS_OF)
     avg, mx = both['scenarios']['avg'], both['scenarios']['max']

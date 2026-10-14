@@ -664,6 +664,10 @@ def compute_forecast(inputs: dict, today: _date, mode: str = 'max') -> dict:
     # what is known for sure (charges a card already holds) versus what is an estimate (everything projected)
     totals['known'] = round(sum(e['detail']['held'] for e in to_salary if e['kind'] == 'card'), 2)
     totals['estimated'] = round(totals['all'] - totals['known'], 2)
+    # what is still to be paid before the month ends (events after today; the "assumed done" ones are already behind us)
+    month_end = today.replace(day=_cal.monthrange(today.year, today.month)[1])
+    left = [e for e in events if e['kind'] != 'income' and today < e['date'] <= month_end]
+    month_left = {'end': month_end, 'total': round(sum(e['amount'] for e in left), 2), 'count': len(left)}
     recurring = monthly_recurring_total(inputs.get('groups') or [], mode)
     fixed_monthly = {'recurring': recurring['total'], 'count': recurring['count'], 'by_card_count': recurring['by_card_count'],
                      'rent_items': len(rent['items']) if rent else 0,
@@ -677,7 +681,7 @@ def compute_forecast(inputs: dict, today: _date, mode: str = 'max') -> dict:
         'rent': rent,
         'events': sorted(events, key=lambda e: (e['date'], -e['amount'])),
         'skipped': skipped,
-        'totals': totals, 'fixed_monthly': fixed_monthly,
+        'totals': totals, 'month_left': month_left, 'fixed_monthly': fixed_monthly,
         'free': result['free'], 'lowest_balance': result['lowest_balance'], 'balance_now': result['balance_now'],
         'tight_date': result['tight_date'], 'tight_name': result['tight_name'],
         'notes': notes,

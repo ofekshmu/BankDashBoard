@@ -244,9 +244,9 @@ computed live per request (balance changes with every bank file); the recurring 
   **Layout rule: in the top figures the number comes first, its label/details below** (`.fc-mini-v{order:-1}`, `.fc-big` before the eyebrow).
   **KPI text is minimal on the face, the full explanation opens from the KPI's own (i)** (`kpi()` / `tip*` in `fcRender`); the scenario switch and the safety buffer live inside the big KPI as small
   controls (`.fc-hctl`: a compact segmented control, a 64px input, a reset arrow) — there is no separate controls bar.
-  Top-right block (`.fc-hero-side`): the monthly recurring figure spans the full width on top (`.fc-mini.wide`: the whole month 1st→end, all active recurring charges (bank + card) + rent operations, paid or not,
-  independent of today's date — tested), under it the pair *balance* | *charges until the next salary* (the sum of the non-income events up to the first salary line of the chart, assumed ones included;
-  no known/estimated split, no "lowest point" cube — that value is the main figure's lowest point).
+  The main figure shows only the number, "פנוי לבזבוז" and the status chip — no next-salary date, no per-day figure. Top-right block (`.fc-hero-side`): the monthly recurring figure spans the full width on top (`.fc-mini.wide`: the whole month 1st→end, all active recurring charges (bank + card) + rent operations, paid or not,
+  independent of today's date — tested; no sub-text), under it *balance* | *total recurring charges* (a count, rent as one; no bank/card split), then *חיובים שנותרו החודש* full width: the non-income events dated after today up to the month's end
+  (`month_left` = `{end,total,count}` — assumed-done ones are already behind us; no known/estimated split, no "lowest point" cube — that value is the main figure's lowest point).
 - **Only recurring things count** — by the page's own definition (`recurring_months`, reusing `RecurringCharges` thresholds: ≥ 3 consecutive months, amount within 50 % of the
   median — not compared for salaries —, ≤ 3 runs, last one ≤ 6 months before the last completed month). A one-off deposit tagged salary (e.g. a bonus on the 20th) or one payment tagged rent is ignored.
 - **Salary streams:** `BankTransactions` Income tagged `משכורת` (with `Name`), last 6 months, split **by payer** — the deposit names are clustered with `RecurringCharges.cluster_transactions`
@@ -277,7 +277,7 @@ computed live per request (balance changes with every bank file); the recurring 
   items open in the details line under the chart (`fcLegTexts`, same box as the chart points, `FC_HIT` selector).
 - **The (i) opens a hover popover that floats over the page and never pushes content** (`.fc-pop`, `position:fixed`, `pointer-events:none`, appended to `body`, placed from the icon's rect and clamped to the viewport, flipped above near the bottom;
   mouse: hover / keyboard focus, touch: tap toggles, tap elsewhere / scroll / resize closes). The (i) icon has no fill — only a thin outline (white inside the dark hero), low opacity. No CSS/`title` tooltips. A chart dot shows its details in the line under the chart (`#fc-chart-detail`).
-  Delegated listeners on `#fc-body` (`canHover` = `(hover: hover)`); keep the hero `align-items:flex-start`. The big KPI's order is: number, label, sub, chip, "משוער" (+ its i), then the scenario/buffer controls at the bottom (`.fc-hctl{margin-top:auto}`).
+  Delegated listeners on `#fc-body` (`canHover` = `(hover: hover)`); keep the hero `align-items:flex-start`. The big KPI's order is: number, label, sub, chip, "משוער" (+ its i), then the scenario/buffer controls pinned to the block's bottom edge (`.fc-hero-main{align-self:stretch}` + `.fc-hctl{margin-top:auto}`).
   The recurring-charge count shown in the KPI and its (i) is one number with the rent counted as one charge (`nAll = count + 1`), not "N + שכירות".
 - Salary groups clustered apart by name are merged back into one salary when their **usual days of the month are within ±3 days** (`SALARY_DAY_JITTER`, circular: 31 and 2 are two days apart) —
   that is one operation that shifted a few days, whatever the bank called the deposits or the amounts were; if both pay in the same cycles the merged salary is their sum (instalments).

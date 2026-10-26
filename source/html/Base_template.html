@@ -2273,6 +2273,9 @@ body {
   border: 1.5px solid var(--border); border-radius: 8px; resize: vertical; }
 .acct-extra-input:focus { outline: none; border-color: var(--teal); }
 /* Inactive accounts: one collapsed section */
+.acct-zero-btn { flex-shrink: 0; border: 1px solid var(--border); background: var(--white); color: var(--navy);
+  border-radius: 8px; padding: 7px 12px; font: inherit; font-size: 0.82em; font-weight: 700; cursor: pointer; }
+.acct-zero-btn:hover { background: var(--teal); border-color: var(--teal); color: #fff; }
 .acct-inactive { margin: 4px 0 10px; border: 1px solid var(--border); border-radius: 12px; background: #fafbfd; }
 .acct-inactive > summary { cursor: pointer; padding: 10px 14px; font-size: 0.82em; font-weight: 700; color: #5a6a8a; }
 .acct-inactive-count { display: inline-block; min-width: 20px; padding: 0 6px; margin-right: 6px; border-radius: 10px;
@@ -2823,6 +2826,9 @@ body {
       <div id="acct-new-name-wrap" style="display:none">
         <div class="acct-modal-label">שם חשבון חדש</div>
         <input class="acct-modal-input" id="acct-new-name-input" type="text" placeholder="שם החשבון">
+        <div class="acct-modal-label" style="margin-top:10px">בעלים <span style="font-weight:400;color:#8a94ab">(לא חובה)</span></div>
+        <input class="acct-modal-input" id="acct-new-owner-input" type="text" maxlength="60" placeholder="למשל: דנה">
+        <div style="font-size:0.74em;color:#8a94ab;margin-top:4px;line-height:1.5">שני חשבונות יכולים לשאת אותו שם כשהבעלים שונה — החשבון יוצג כ«שם (בעלים)».</div>
       </div>
       <div>
         <div class="acct-modal-label">תאריך</div>
@@ -2839,7 +2845,8 @@ body {
       <div>
         <div class="acct-modal-label">יתרה</div>
         <div style="display:flex;gap:8px;align-items:center">
-          <input class="acct-modal-input" id="acct-value-input" type="number" placeholder="0" style="flex:1">
+          <input class="acct-modal-input" id="acct-value-input" type="number" placeholder="יתרה" style="flex:1">
+          <button type="button" class="acct-zero-btn" onclick="acctSetZero('acct-value-input')" title="קבע יתרה 0 (החשבון התרוקן)">אפס</button>
           <select class="acct-modal-select" id="acct-currency-input" style="width:80px;flex-shrink:0">
             <option value="ILS">₪ ILS</option>
             <option value="USD">$ USD</option>
@@ -2909,7 +2916,8 @@ body {
       <div>
         <div class="acct-modal-label">יתרה</div>
         <div style="display:flex;gap:8px;align-items:center">
-          <input class="acct-modal-input" id="acct-qa-value-input" type="number" placeholder="0" style="flex:1">
+          <input class="acct-modal-input" id="acct-qa-value-input" type="number" placeholder="יתרה" style="flex:1">
+          <button type="button" class="acct-zero-btn" onclick="acctSetZero('acct-qa-value-input')" title="קבע יתרה 0 (החשבון התרוקן)">אפס</button>
           <select class="acct-modal-select" id="acct-qa-currency-input" style="width:80px;flex-shrink:0">
             <option value="ILS">₪ ILS</option>
             <option value="USD">$ USD</option>
@@ -4366,6 +4374,7 @@ function acctStartNewAccount() {
       acctNameChanged();
       var input = document.getElementById('acct-new-name-input');
       input.value = '';
+      document.getElementById('acct-new-owner-input').value = '';
       setTimeout(function() { input.focus(); }, 100);
     });
 }
@@ -4418,6 +4427,12 @@ function acctNameChanged() {
   var wrap = document.getElementById('acct-new-name-wrap');
   wrap.style.display = sel.value === '__new__' ? 'block' : 'none';
 }
+/** The "אפס" button: put 0 in a balance field (the balance of an emptied account). */
+function acctSetZero(inputId) {
+  var el = document.getElementById(inputId);
+  el.value = '0';
+  el.focus();
+}
 function acctDateToggle() {
   var custom = document.querySelector('input[name="acct-date-radio"][value="custom"]').checked;
   document.getElementById('acct-date-input').style.display = custom ? 'block' : 'none';
@@ -4453,7 +4468,7 @@ function acctQuickAddSubmit() {
   if (!date) { acctSetStatus('acct-qa-status', 'יש לבחור תאריך', 'err'); return; }
   var value    = parseFloat(document.getElementById('acct-qa-value-input').value);
   var currency = document.getElementById('acct-qa-currency-input').value || 'ILS';
-  if (isNaN(value)) { acctSetStatus('acct-qa-status', 'יתרה לא תקינה', 'err'); return; }
+  if (isNaN(value)) { acctSetStatus('acct-qa-status', 'יש להזין יתרה — גם 0 מותר (כפתור «אפס»)', 'err'); return; }
 
   _acctOptimisticTableUpdate(name, value, currency);
   _acctOptimisticChartUpdate(name, date, value, currency);
@@ -4549,11 +4564,17 @@ function _acctOptimisticChartUpdate(name, date, value, currency) {
 }
 
 function acctSubmitStatus() {
-  var sel  = document.getElementById('acct-sel-name');
-  var name = sel.value === '__new__'
-    ? document.getElementById('acct-new-name-input').value.trim()
-    : sel.value;
+  var sel   = document.getElementById('acct-sel-name');
+  var isNew = sel.value === '__new__';
+  var name  = isNew ? document.getElementById('acct-new-name-input').value.trim() : sel.value;
+  var owner = isNew ? document.getElementById('acct-new-owner-input').value.trim() : '';
   if (!name) { acctSetStatus('acct-status-add', 'יש להזין שם חשבון', 'err'); return; }
+  // A new account is stored as "name (owner)" — the owner is what tells two same-named accounts apart.
+  var key = owner ? name + ' (' + owner + ')' : name;
+  if (isNew) {
+    var taken = Array.prototype.some.call(sel.options, function(o) { return o.value !== '__new__' && o.value === key; });
+    if (taken && !confirm('כבר קיים חשבון בשם "' + key + '".\nלהוסיף את היתרה לחשבון הקיים?\n\n(לפתיחת חשבון נפרד — ציינו בעלים אחר.)')) return;
+  }
   var dateRadio = document.querySelector('input[name="acct-date-radio"]:checked').value;
   var date = dateRadio === 'today'
     ? new Date().toISOString().slice(0, 10)
@@ -4561,22 +4582,23 @@ function acctSubmitStatus() {
   if (!date) { acctSetStatus('acct-status-add', 'יש לבחור תאריך', 'err'); return; }
   var value    = parseFloat(document.getElementById('acct-value-input').value);
   var currency = document.getElementById('acct-currency-input').value || 'ILS';
-  if (isNaN(value)) { acctSetStatus('acct-status-add', 'יתרה לא תקינה', 'err'); return; }
+  if (isNaN(value)) { acctSetStatus('acct-status-add', 'יש להזין יתרה — גם 0 מותר (כפתור «אפס»)', 'err'); return; }
 
   // Optimistic update — update table and chart immediately while the request is in flight
-  _acctOptimisticTableUpdate(name, value, currency);
-  _acctOptimisticChartUpdate(name, date, value, currency);
+  _acctOptimisticTableUpdate(key, value, currency);
+  _acctOptimisticChartUpdate(key, date, value, currency);
   acctSetStatus('acct-status-add', 'שומר…', 'ok');
 
   fetch('/api/accounts/status', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({name: name, date: date, value: value, currency: currency})
+    body: JSON.stringify({name: name, owner: owner, date: date, value: value, currency: currency})
   }).then(function(r) { return r.json(); })
     .then(function(d) {
       if (d.ok) {
-        acctSetStatus('acct-status-add', 'נוסף בהצלחה ✓', 'ok');
+        acctSetStatus('acct-status-add', d.created ? 'החשבון נוצר ✓' : 'נוסף בהצלחה ✓', 'ok');
         document.getElementById('acct-value-input').value = '';
+        if (isNew) { document.getElementById('acct-new-name-input').value = ''; document.getElementById('acct-new-owner-input').value = ''; }
         acctLoadNames();
         // The server already recomputed the accounts payload (fresh 'stale'
         // flags, totals, etc.) when saving the status — pull it in now so the
@@ -8074,7 +8096,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     var rich = {};
     Object.keys(data.accounts).forEach(function(name) {
       if (name === 'Total') return;
-      var pts = (data.accounts[name] || []).slice().sort(function(a,b){return a[0]<b[0]?-1:1;});
+      var pts = (data.accounts[name] || []).slice().sort(function(a,b){return a[0]<b[0]?-1:(a[0]>b[0]?1:0);});
       if (!pts.length) return;
       var last = pts[pts.length-1];
       var lastDate = new Date(last[0]);
@@ -8336,7 +8358,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
    *  shows no Cash card (last point 0). Shared by the table and the chart's Total line. */
   function _accountsCashDelta(data) {
     var cashTotal = (data.cash_ils_total != null) ? data.cash_ils_total : _cashIlsTotal;
-    var pts = ((data.accounts || {})['Cash'] || []).slice().sort(function(a,b){return a[0]<b[0]?-1:1;});
+    var pts = ((data.accounts || {})['Cash'] || []).slice().sort(function(a,b){return a[0]<b[0]?-1:(a[0]>b[0]?1:0);});
     if (cashTotal == null || !pts.length || pts[pts.length-1][1] === 0) return null;
     return cashTotal - pts[pts.length-1][1];
   }
@@ -8375,7 +8397,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     Object.keys(data.accounts).forEach(function(name) {
       var pts = data.accounts[name] || [];
       if (!pts.length) return;
-      var lastPt = pts.slice().sort(function(a,b){return a[0]<b[0]?-1:1;})[pts.length - 1];
+      var lastPt = pts.slice().sort(function(a,b){return a[0]<b[0]?-1:(a[0]>b[0]?1:0);})[pts.length - 1];
       if (_acctIsInactive(acctSettings, name, lastPt[1])) return;   // inactive accounts leave the chart
       var indexed = {};
       var shift = name === 'Total' ? totalShift : 0;

@@ -2177,33 +2177,60 @@ def accounts_names():
         conn.close()
 
 
+def account_key(name, owner=''):
+    """The name an account is stored under. Accounts are told apart by name, so an owner makes a separate
+    account of the same name: 'חיסכון' with owner 'דנה' is 'חיסכון (דנה)'; without an owner it is just the name."""
+    name, owner = (name or '').strip(), (owner or '').strip()
+    return f'{name} ({owner})' if owner else name
+
+
 @app.route('/api/accounts/status', methods=['POST'])
 def accounts_add_status():
+    """Add a balance entry to an account. Body: {name, date, value, currency?, owner?}. With an `owner` the entry
+    goes to the account `name (owner)` — created when it is new, and its owner saved — so two accounts can share a
+    name when their owners differ. Answers {ok, account, created}. A balance of 0 is a balance like any other."""
     from datetime import datetime as _dt
     body     = request.get_json() or {}
     name     = (body.get('name')     or '').strip()
+    owner    = body.get('owner')
     date     = (body.get('date')     or '').strip()
     value    = body.get('value')
     currency = (body.get('currency') or 'ILS').strip().upper()
     if currency not in ('ILS', 'USD', 'EUR', 'JPY'):
         currency = 'ILS'
+    if owner is not None and (not isinstance(owner, str) or len(owner.strip()) > _ACCOUNT_OWNER_MAX):
+        return jsonify({'ok': False, 'error': f'owner must be text up to {_ACCOUNT_OWNER_MAX} characters'})
+    owner = (owner or '').strip()
     if not name or not date or value is None:
         return jsonify({'ok': False, 'error': 'missing fields'})
+    key = account_key(name, owner)
+    if name == 'Total':
+        return jsonify({'ok': False, 'error': 'שם לא תקין'})
     try:
         _dt.strptime(date, '%Y-%m-%d')
         conn = _acct_db()
         try:
+            created = conn.execute(
+                "SELECT 1 FROM OtherAccountStatus WHERE AccountName = ? LIMIT 1", (key,)).fetchone() is None
             conn.execute(
                 "INSERT INTO OtherAccountStatus (AccountName, StatusDate, Value, TransactionID, Currency) VALUES (?, ?, ?, ?, ?)",
-                (name, date, float(value), None, currency)
+                (key, date, float(value), None, currency)
             )
             conn.commit()
         finally:
             conn.close()
+        if owner and created:
+            try:
+                from database import DataBase
+                db = DataBase()
+                db.ensure_account_settings_table()
+                db.update_account_settings(key, owner=owner)
+            except Exception as e:
+                print(f'[accounts] owner of {key!r} was not saved: {e}')
         if float(value) != 0:
-            _reactivate_if_inactive(name)   # money in an inactive account makes it active again
+            _reactivate_if_inactive(key)   # money in an inactive account makes it active again
         _compute_accounts()
-        return jsonify({'ok': True})
+        return jsonify({'ok': True, 'account': key, 'created': created})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)})
 
@@ -2379,8 +2406,8 @@ def _reactivate_if_inactive(name):
 
 def _account_last_balance(accounts, name):
     """The latest value of an account's series in the accounts payload, or None if unknown."""
-    pts = sorted((accounts or {}).get(name) or [])
-    return float(pts[-1][1] or 0) if pts else None
+    from src_utils.account_series import latest_value
+    return latest_value((accounts or {}).get(name))
 
 
 def _accounts_with_projects(payload):

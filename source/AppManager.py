@@ -11,6 +11,7 @@ from src_utils.calculations import SimpleMath
 from src_utils.ExcelReader import ExcelManager
 from src_utils.AppManagerUtils import AppManagerUtils
 import housing_project_service
+from src_utils.account_series import collapse_same_day
 import webbrowser
 import re
 from Configurations.Formats import Formats, Context_class
@@ -1133,7 +1134,7 @@ class AppManager:
                 # the live value with that stale snapshot.
                 if account == 'Main Bank':
                     continue
-                account_df = other_accounts_df[other_accounts_df['AccountName'] == account].sort_values('Date')
+                account_df = other_accounts_df[other_accounts_df['AccountName'] == account].sort_values('Date', kind='stable')   # entry order (ID) decides between same-day entries
                 # Build ILS-converted history (for totals / charts)
                 entries = []
                 for _, row in account_df.iterrows():
@@ -1142,7 +1143,7 @@ class AppManager:
                     if cur != 'ILS':
                         val = val * _fx_to_ils.get(cur, 1.0)
                     entries.append((row['Date'], val))
-                accounts_data[account] = entries
+                accounts_data[account] = collapse_same_day(entries)   # a same-day correction replaces the earlier entry
 
                 # Build raw metadata for display
                 last_row = account_df.iloc[-1]
@@ -2372,7 +2373,7 @@ class AppManager:
                 # overwrite it here.
                 if account == 'Main Bank':
                     continue
-                account_df = other_accounts_df[other_accounts_df['AccountName'] == account].sort_values('Date')
+                account_df = other_accounts_df[other_accounts_df['AccountName'] == account].sort_values('Date', kind='stable')   # entry order (ID) decides between same-day entries
                 entries = []
                 for _, row in account_df.iterrows():
                     val = float(row['Value'])
@@ -2380,7 +2381,7 @@ class AppManager:
                     if cur != 'ILS':
                         val = val * _fx_to_ils.get(cur, 1.0)
                     entries.append((row['Date'], val))
-                accounts_data[account] = entries
+                accounts_data[account] = collapse_same_day(entries)   # a same-day correction replaces the earlier entry
                 last_row = account_df.iloc[-1]
                 last_cur = (str(last_row.get('Currency', 'ILS') or 'ILS')).strip().upper()
                 last_val = float(last_row['Value'])

@@ -103,6 +103,9 @@ def test_a_new_non_zero_balance_reactivates_an_inactive_account(client, monkeypa
         def execute(self, *a):
             return self
 
+        def fetchone(self):
+            return (1,)      # the account already has entries
+
         def commit(self):
             pass
 

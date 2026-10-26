@@ -2333,7 +2333,7 @@ class DataBase:
             FROM OtherAccountStatus
             WHERE StatusDate >= %s
             {}
-            ORDER BY StatusDate ASC
+            ORDER BY StatusDate ASC, ID ASC
         """
 
         if account_name:

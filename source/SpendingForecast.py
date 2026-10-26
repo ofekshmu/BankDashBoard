@@ -536,7 +536,9 @@ def build_recurring_events(groups: list, as_of: _date, horizon: _date, mode: str
         if occs[-1].get('table') != 'BankTransactions':
             skipped.append({'name': g.get('name'), 'reason': 'card'})   # inside the card charge already
             continue
-        day = usual_day([_to_plain_date(o['date']).day for o in occs])
+        # The day a charge falls on changes over the years (16th → 10th): only the recent payments say where
+        # it lands now — the whole history would keep voting for the old day.
+        day = usual_day([_to_plain_date(o['date']).day for o in occs[-HISTORY_MONTHS:]])
         amount = _recurring_amount(g, mode)
         paid_this_month = any(o['month'] == cur_key for o in occs)
 

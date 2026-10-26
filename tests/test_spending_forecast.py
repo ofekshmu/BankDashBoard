@@ -389,3 +389,12 @@ def test_collapse_rent_names_each_recurring_amount_as_its_own_charge():
     names = sorted(t['name'] for t in out if t['category'] == 'שכירות')
     assert names.count('שכירות') == 4 and names.count('ועד בית') == 4 and names.count('שכירות 15000') == 1   # the one-off stays apart
     assert len([t for t in out if t['category'] != 'שכירות']) == 1
+
+
+def test_a_charge_that_moved_to_another_day_is_expected_on_its_new_day():
+    """The usual day comes from the recent payments: 8 payments on the 16th and then 6 on the 10th is "the 10th"."""
+    old = [{'month': f'2025-{m:02d}', 'date': date(2025, m, 16), 'amount': 1000, 'table': 'BankTransactions'} for m in range(1, 9)]
+    new = [{'month': f'2026-{m:02d}', 'date': date(2026, m, 10), 'amount': 1000, 'table': 'BankTransactions'} for m in range(5, 11)]
+    group = dict(_bank_group('אנליסט קופ"ג', category='השקעה/חיסכון'), occurrences=old + new)
+    ev, _ = build_recurring_events([group], AS_OF, HORIZON, 'avg')      # paid on 10.10 already: the next one is 10.11
+    assert [e['date'] for e in ev] == [date(2026, 11, 10)]

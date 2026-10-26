@@ -287,6 +287,19 @@ computed live per request (balance changes with every bank file); the recurring 
 
 ---
 
+## Accounts page — account identity and balances
+
+- An account is its **name** in `OtherAccountStatus.AccountName`. An owner makes a separate account of the same name: `POST /api/accounts/status`
+  takes an optional `owner` and stores the entry under `account_key(name, owner)` = `"name (owner)"` (no owner → just the name), saving the owner in
+  `AccountSettings` when the account is new. The creation box has an owner field; typing an existing name with no owner asks before adding to the
+  existing account. Same name + same owner = the same account.
+- **A balance of 0 is a balance** (it is what lets an account be marked inactive). The balance field's grey "0" was only a placeholder — submitting it empty
+  was refused as "invalid" — so it now says "יתרה", an "אפס" button fills 0, and an empty field explains that 0 is allowed.
+- **One value per day:** an account given several balances on the same day shows the one entered last (`src_utils/account_series.collapse_same_day`,
+  entries are read ordered by date then ID; `latest_value` for the settings check). Page sorts must be stable for equal dates.
+
+---
+
 ## Color palette
 
 | Token | Hex | Used for |

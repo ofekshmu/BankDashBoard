@@ -48,6 +48,11 @@ class File:
         self.table_2 = []
         self.flip_table_location = False
 
+        # Read-only mode (see Card.read_for_compare): parse() keeps the tables' meta data in
+        # self.meta instead of writing it, and nothing is inserted into the database.
+        self.dry_run = False
+        self.meta = []
+
     def load(self) -> bool:
         '''
 
@@ -279,13 +284,17 @@ class File:
 
             bad_indexes = ', '.join([str(i) for i in bad_indexes])
 
-            DataBase().insert_table_meta_data(self.name,
-                                              self.format_name,
-                                              self.card_number,
-                                              header_row_idx + 1,
-                                              col_idx,
-                                              row_counter,
-                                              bad_indexes)
+            self.meta.append({'File_Name': self.name, 'Format': self.format_name, 'Card_Number': self.card_number,
+                              'Initial_index': header_row_idx + 1, 'Initial_col': col_idx,
+                              'Row_count': row_counter, 'Bad_rows': bad_indexes})
+            if not self.dry_run:
+                DataBase().insert_table_meta_data(self.name,
+                                                  self.format_name,
+                                                  self.card_number,
+                                                  header_row_idx + 1,
+                                                  col_idx,
+                                                  row_counter,
+                                                  bad_indexes)
 
             valid_rows = row_counter - len(bad_indexes.split(",")) if len(bad_indexes) >= 1 else row_counter
             utils.log(f'Meta data saved. Table data:\n\
@@ -384,6 +393,81 @@ class File:
         """
         
 
+    def read_and_merge(self, meta_data: list[dict], root: str) -> tuple[list, list]:
+        """
+        Reads one or two transaction tables from their Excel files and returns them as a pair.
+
+        'Merge' refers to collecting both tables (primary and secondary) so they can later
+        be inserted into the same database table. The tables are not combined here.
+
+        Args:
+            meta_data: List of 1 or 2 metadata dicts produced during parsing, each containing
+                       the file name, starting row/col, row count, and bad-row indexes needed
+                       to locate and clean the table in its Excel file.
+            root:      Filesystem root path under which the Excel file is stored.
+
+        Returns:
+            (table_1, table_2): Both are lists of rows with bad rows removed.
+                                table_2 is [] when the file has only one table.
+                                For single-table files with cell_currency enabled, columns listed
+                                in cell_currency_headers are returned as (value, currency) tuples
+                                instead of raw values.
+                                Important!: this should be handled properly by the insert function of each file type.
+        """
+        def normalize(table: list, row_count: int) -> list:
+            # ExcelManager returns a flat list (not a list of rows) when row_count == 1.
+            return [table] if row_count == 1 else table
+
+        def filter_bad_rows(table: list, bad_rows_str: str) -> list:
+            # note: bad_rows_str indexes are relative to the first data row, not the Excel row number.
+            if not bad_rows_str.strip():
+                return table
+            bad_indexes = {int(i) for i in bad_rows_str.strip().split(',')}
+            return [row for i, row in enumerate(table) if i not in bad_indexes]
+
+        def read_table(meta: dict, headers: list) -> list:
+            sheet_args = (meta['Initial_index'], meta['Row_count'], meta['Initial_col'], len(headers))
+            table = ExcelManager().set_active_sheet(root + "\\" + meta['File_Name'])\
+                                  .read_sheet(*sheet_args)
+            table = normalize(table, meta['Row_count'])
+            return filter_bad_rows(table, meta['Bad_rows'])
+
+        if self.double_tables:
+            [meta_0, meta_1] = meta_data
+            return read_table(meta_0, self.headers), read_table(meta_1, self.secondary_headers)
+        else:
+            [meta] = meta_data
+            table = read_table(meta, self.headers)
+
+            if self.cell_currency:
+                # Some formats encode the currency (e.g. USD, EUR) inside the cell's number format
+                # string rather than as a separate column. Re-read the same sheet with type="format"
+                # to get the format string for each cell, then extract the currency symbol from the
+                # relevant columns (cell_currency_headers) and bundle it with the cell value as a
+                # (value, currency) tuple, replacing the raw value in-place.
+                sheet_args = (meta['Initial_index'], meta['Row_count'], meta['Initial_col'], len(self.headers))
+                # Note: read_sheet(type="format") always returns a 2D list, so normalize is not needed.
+                formats = filter_bad_rows(
+                    ExcelManager().set_active_sheet(root + "\\" + meta['File_Name'])\
+                                  .read_sheet(*sheet_args, type="format"),
+                    meta['Bad_rows']
+                )
+                col_indexes = [self.headers.index(h) for h in self.cell_currency_headers]
+                for row, fmt_row in zip(table, formats):
+                    for col_idx in col_indexes:
+                        currency = ExcelManager.extract_currency_from_number_format(fmt_row[col_idx] or "")
+                        row[col_idx] = (row[col_idx], currency)  # (value, currency)
+
+            return table, []
+
+    def read_tables(self, meta_data: list[dict], root: str) -> tuple[list, list]:
+        """read_and_merge() with the tables put in the order the file's format lists them
+        (a format whose secondary table comes first is flipped)."""
+        table_1, table_2 = self.read_and_merge(meta_data, root)
+        if self.flip_table_location:
+            table_1, table_2 = table_2, table_1
+        return table_1, table_2
+
     def clean(self, flip: bool = False) -> bool:
         """
         Function will clean the read data.
@@ -424,72 +508,7 @@ class File:
                 else:
                     return i, row
 
-        def read_and_merge(meta_data: list[dict], root: str) -> tuple[list, list]:
-            """
-            Reads one or two transaction tables from their Excel files and returns them as a pair.
-
-            'Merge' refers to collecting both tables (primary and secondary) so they can later
-            be inserted into the same database table. The tables are not combined here.
-
-            Args:
-                meta_data: List of 1 or 2 metadata dicts produced during parsing, each containing
-                           the file name, starting row/col, row count, and bad-row indexes needed
-                           to locate and clean the table in its Excel file.
-                root:      Filesystem root path under which the Excel file is stored.
-
-            Returns:
-                (table_1, table_2): Both are lists of rows with bad rows removed.
-                                    table_2 is [] when the file has only one table.
-                                    For single-table files with cell_currency enabled, columns listed
-                                    in cell_currency_headers are returned as (value, currency) tuples
-                                    instead of raw values.
-                                    Important!: this should be handled properly by the insert function of each file type.
-            """
-            def normalize(table: list, row_count: int) -> list:
-                # ExcelManager returns a flat list (not a list of rows) when row_count == 1.
-                return [table] if row_count == 1 else table
-
-            def filter_bad_rows(table: list, bad_rows_str: str) -> list:
-                # note: bad_rows_str indexes are relative to the first data row, not the Excel row number.
-                if not bad_rows_str.strip():
-                    return table
-                bad_indexes = {int(i) for i in bad_rows_str.strip().split(',')}
-                return [row for i, row in enumerate(table) if i not in bad_indexes]
-
-            def read_table(meta: dict, headers: list) -> list:
-                sheet_args = (meta['Initial_index'], meta['Row_count'], meta['Initial_col'], len(headers))
-                table = ExcelManager().set_active_sheet(root + "\\" + meta['File_Name'])\
-                                      .read_sheet(*sheet_args)
-                table = normalize(table, meta['Row_count'])
-                return filter_bad_rows(table, meta['Bad_rows'])
-
-            if self.double_tables:
-                [meta_0, meta_1] = meta_data
-                return read_table(meta_0, self.headers), read_table(meta_1, self.secondary_headers)
-            else:
-                [meta] = meta_data
-                table = read_table(meta, self.headers)
-
-                if self.cell_currency:
-                    # Some formats encode the currency (e.g. USD, EUR) inside the cell's number format
-                    # string rather than as a separate column. Re-read the same sheet with type="format"
-                    # to get the format string for each cell, then extract the currency symbol from the
-                    # relevant columns (cell_currency_headers) and bundle it with the cell value as a
-                    # (value, currency) tuple, replacing the raw value in-place.
-                    sheet_args = (meta['Initial_index'], meta['Row_count'], meta['Initial_col'], len(self.headers))
-                    # Note: read_sheet(type="format") always returns a 2D list, so normalize is not needed.
-                    formats = filter_bad_rows(
-                        ExcelManager().set_active_sheet(root + "\\" + meta['File_Name'])\
-                                      .read_sheet(*sheet_args, type="format"),
-                        meta['Bad_rows']
-                    )
-                    col_indexes = [self.headers.index(h) for h in self.cell_currency_headers]
-                    for row, fmt_row in zip(table, formats):
-                        for col_idx in col_indexes:
-                            currency = ExcelManager.extract_currency_from_number_format(fmt_row[col_idx] or "")
-                            row[col_idx] = (row[col_idx], currency)  # (value, currency)
-
-                return table, []
+        read_and_merge = self.read_and_merge
 
         # -----------------------------------------------------------------
         #                      Function's main starts here

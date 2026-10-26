@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>ניתוח: א.מ. יותר אחזקות בע"</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --teal:#1e9d8b;--teal-light:#e8f7f5;--teal-glow:rgba(30,157,139,.30);
+  --navy:#1e2a4a;--bg:#f4f6f9;--white:#ffffff;--border:#eef0f6;
+  --text-muted:#888;--red:#e74c3c;--green:#2ecc71;--amber:#f0b429;
+  --shadow-sm:0 2px 10px rgba(0,0,0,.06);--shadow-md:0 6px 20px rgba(0,0,0,.10);
+  --radius:14px;--radius-sm:8px;
+}
+body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;
+     min-height:100vh;direction:rtl;color:var(--navy);font-size:14px}
+
+/* Hamburger sidebar — matches app-wide unified nav */
+.ham-btn{position:fixed;top:18px;right:18px;width:42px;height:42px;background:var(--white);border:1.5px solid var(--border);border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:400;box-shadow:var(--shadow-sm);color:var(--navy);transition:background .15s,color .15s,border-color .15s}
+.ham-btn:hover{background:var(--teal);border-color:var(--teal);color:#fff}
+.ham-btn.open{opacity:0;pointer-events:none}
+.nav-overlay{position:fixed;inset:0;background:rgba(15,22,45,.26);z-index:390;opacity:0;pointer-events:none;transition:opacity .22s ease}
+.nav-overlay.open{opacity:1;pointer-events:all}
+.sidebar{position:fixed;top:0;right:0;height:100vh;width:230px;background:var(--white);z-index:395;transform:translate3d(100%,0,0);transition:transform .22s cubic-bezier(.4,0,.2,1);will-change:transform;box-shadow:-4px 0 24px rgba(0,0,0,.09);display:flex;flex-direction:column}
+.sidebar.open{transform:translate3d(0,0,0)}
+.sidebar-header{display:flex;align-items:center;padding:20px 20px 16px;border-bottom:1px solid var(--border);flex-shrink:0}
+.sidebar-app-name{font-size:.95em;font-weight:700;color:var(--navy)}
+.sidebar-close-btn{margin-right:auto;background:none;border:none;cursor:pointer;font-size:1.1em;color:var(--text-sub);line-height:1;padding:4px 6px;border-radius:6px;transition:background .12s,color .12s;font-family:inherit}
+.sidebar-close-btn:hover{background:var(--teal-light);color:var(--teal)}
+.sidebar-scroll{flex:1;overflow-y:auto;overflow-x:hidden;padding:8px 0 16px}
+.nav-item{display:flex;align-items:center;padding:10px 20px;text-decoration:none;color:var(--text-sub);font-size:.875em;font-weight:500;transition:background .1s,color .1s;cursor:pointer;border:none;background:none;width:100%;text-align:right;position:relative;letter-spacing:.1px;font-family:inherit}
+.nav-item::before{content:'';position:absolute;right:0;top:22%;height:56%;width:3px;border-radius:3px 0 0 3px;background:transparent;transition:background .1s}
+.nav-item:hover{background:var(--teal-light);color:var(--teal)}
+.nav-item:hover::before{background:var(--teal)}
+.nav-item.active{color:#b8c0d0;cursor:default;pointer-events:none}
+.nav-sep{height:1px;background:var(--border);margin:8px 16px}
+.nav-restart-btn{width:100%;padding:8px 12px;border:1.5px dashed var(--border);border-radius:8px;background:none;color:var(--text-sub);font-size:.78em;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:7px;justify-content:center;transition:background .15s,color .15s,border-color .15s}
+.nav-restart-btn:hover{background:#fff3f3;color:#e53935;border-color:#e53935}
+.nav-restart-btn:disabled{opacity:.5;cursor:default}
+/* Back button — fixed top-left, bold arrow only */
+.back-btn{position:fixed;top:18px;left:18px;width:42px;height:42px;padding:0;background:var(--white);border:1.5px solid var(--border);border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:400;box-shadow:var(--shadow-sm);color:var(--text-sub);font-size:1.25em;font-weight:900;text-decoration:none;transition:background .15s,color .15s,border-color .15s;line-height:1}
+.back-btn:hover{background:var(--teal-light);border-color:var(--teal);color:var(--teal)}
+
+/* Main */
+.main{flex:1;padding:0 28px 60px;min-width:0}
+
+/* Category roller — matches month-roller styling */
+.cat-roller{width:100%;overflow:hidden;position:sticky;top:0;z-index:50;
+  padding:14px 0;margin-bottom:18px;background:var(--bg);box-shadow:0 2px 8px rgba(0,0,0,.06)}
+.cat-roller::before,.cat-roller::after{content:'';position:absolute;top:0;bottom:0;
+  width:100px;z-index:3;pointer-events:none}
+.cat-roller::before{left:0;background:linear-gradient(to right,var(--bg) 30%,transparent)}
+.cat-roller::after{right:0;background:linear-gradient(to left,var(--bg) 30%,transparent)}
+.roller-track{display:flex;align-items:center;direction:ltr;will-change:transform}
+.cm-item{flex-shrink:0;width:140px;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;padding:6px 4px;cursor:pointer;user-select:none;
+  border-radius:10px;opacity:.2;transform:scale(.82);
+  transition:opacity .35s ease,transform .35s ease,background .18s,filter .12s}
+.cm-item:not(.active):hover{background:rgba(30,157,139,.12);filter:brightness(1.04)}
+.cm-item:not(.active):active{background:rgba(30,157,139,.22);filter:brightness(.9);
+  transition:background .05s,filter .05s}
+@keyframes cmTap{0%{filter:brightness(1)}30%{filter:brightness(.82)}100%{filter:brightness(1)}}
+.cm-item.tapped{animation:cmTap .28s ease}
+.cm-item.dist-2{opacity:.45;transform:scale(.88)}
+.cm-item.dist-1{opacity:.68;transform:scale(.94)}
+.cm-item.active{opacity:1;transform:scale(1.08);cursor:default;background:rgba(30,157,139,.08)}
+.cm-item.active:hover{background:rgba(30,157,139,.16);filter:brightness(1.03)}
+.cm-label{font-size:.78em;font-weight:600;color:#999;text-align:center;
+  line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px;
+  transition:color .35s ease,font-size .35s ease}
+.cm-type-tag{font-size:.6em;color:#bbb;margin-top:1px}
+.cm-item.dist-1 .cm-label{color:#666;font-size:.80em}
+.cm-item.dist-2 .cm-label{color:#888;font-size:.78em}
+.cm-item.active .cm-label{color:var(--teal);font-size:.90em;font-weight:700}
+.cm-item.active .cm-type-tag{color:var(--teal)}
+.cm-dot{width:5px;height:5px;border-radius:50%;margin-top:5px;background:#d0d4e0;
+  transition:background .3s,width .3s,height .3s}
+.cm-item.has-file .cm-dot{background:var(--teal)}
+.cm-item.active.has-file .cm-dot{width:7px;height:7px}
+
+/* Page header */
+.page-header{display:flex;justify-content:space-between;align-items:center;
+  margin-bottom:20px;flex-wrap:wrap;gap:10px}
+.page-header h1{font-size:1.7em;font-weight:700;color:var(--navy)}
+.type-badge{display:inline-block;background:var(--teal);color:#fff;
+  padding:3px 12px;border-radius:14px;font-size:.72em;font-weight:600;margin-right:10px}
+.page-header-right{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.generated-label{font-size:.72em;color:var(--text-muted);white-space:nowrap}
+.reload-btn{padding:5px 14px;border:1.5px solid var(--teal);border-radius:20px;
+  background:var(--white);color:var(--teal);font-size:.78em;font-weight:600;
+  cursor:pointer;transition:background .15s,color .15s;white-space:nowrap;display:none}
+.reload-btn:hover{background:var(--teal);color:#fff}
+.reload-btn.running{opacity:.6;cursor:wait}
+
+/* KPI grid */
+.kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:22px}
+@media(max-width:900px){.kpi-grid{grid-template-columns:1fr 1fr}}
+.kpi-card{background:var(--white);border-radius:var(--radius);padding:18px 20px 16px;
+  box-shadow:var(--shadow-sm);display:flex;flex-direction:column;gap:7px;
+  transition:transform .18s,box-shadow .18s}
+.kpi-card:hover{transform:translateY(-3px);box-shadow:var(--shadow-md)}
+.kpi-dot{width:10px;height:10px;border-radius:50%;display:inline-block;
+  margin-left:7px;flex-shrink:0}
+.kpi-label{font-size:.76em;color:var(--text-muted);display:flex;align-items:center;font-weight:500}
+.kpi-value{font-size:1.45em;font-weight:700;color:var(--navy);line-height:1.1}
+.kpi-value.neg{color:var(--red)}
+.kpi-value.pos{color:var(--teal)}
+.kpi-sublabel{font-size:.68em;color:var(--text-muted);margin-top:4px}
+
+/* Charts row */
+.charts-2col{display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:22px}
+@media(max-width:900px){.charts-2col{grid-template-columns:1fr}}
+.chart-card{background:var(--white);border-radius:var(--radius);
+  padding:20px 22px;box-shadow:var(--shadow-sm)}
+.chart-card-title{font-size:.82em;font-weight:700;color:var(--text-muted);
+  text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px;
+  display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.chart-card-sub{font-size:.78em;font-weight:400;text-transform:none;
+  letter-spacing:0;color:#b0b8c8}
+.chart-wrap{position:relative;height:220px}
+.charts-1col{display:grid;grid-template-columns:1fr;gap:14px;margin-bottom:22px}
+.pie-col{display:flex;flex-direction:column;gap:14px}
+
+/* Transactions panel */
+.panel{background:var(--white);border-radius:var(--radius);
+  padding:20px 22px;box-shadow:var(--shadow-sm)}
+.panel-header{font-size:.82em;font-weight:700;color:var(--text-muted);
+  text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px;
+  display:flex;justify-content:space-between;align-items:center}
+.panel-count{font-size:.9em;color:var(--navy);font-weight:600}
+.txn-table-wrap{overflow-x:auto;max-height:420px;overflow-y:auto}
+.txn-table{width:100%;border-collapse:collapse;font-size:.84em}
+.txn-table th{padding:8px 12px;text-align:right;font-weight:600;color:var(--text-muted);
+  border-bottom:2px solid var(--border);position:sticky;top:0;background:var(--white);
+  user-select:none}
+.txn-table th.th-sortable{cursor:pointer;white-space:nowrap}
+.txn-table th.th-sortable:hover{color:var(--teal)}
+.th-sort-icon{display:inline-block;margin-right:4px;font-size:.75em;opacity:.35;
+  transition:opacity .15s}
+.txn-table th.sort-asc .th-sort-icon,
+.txn-table th.sort-desc .th-sort-icon{opacity:1;color:var(--teal)}
+.txn-table td{padding:8px 12px;border-bottom:1px solid var(--border);vertical-align:middle}
+.txn-table tr:last-child td{border-bottom:none}
+.txn-table tr:hover td{background:#fafbfd}
+.td-id{color:#b0b8c8;font-size:.75em;font-family:monospace;white-space:nowrap;
+  text-align:right;padding-right:6px;min-width:40px}
+.td-date{color:var(--text-muted);white-space:nowrap;font-size:.9em;text-align:right}
+.td-date-badge{display:inline-block;font-size:.6em;font-weight:700;border-radius:4px;
+  padding:1px 5px;margin-right:5px;vertical-align:middle;letter-spacing:.3px}
+.td-bank{background:#e8f4ff;color:#3498db}
+.td-card{background:#fef3e8;color:#e67e22}
+.td-charge{display:block;font-size:.72em;color:#b0b8c8;margin-top:1px}
+.td-name{max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.td-val{font-weight:600;white-space:nowrap;text-align:right}
+.td-val.neg{color:var(--red)}
+.td-val.pos{color:var(--teal)}
+.td-cat{font-size:.85em;color:var(--text-muted);text-align:right}
+/* Analytics extras */
+.kpi-trend{font-size:.95em;font-weight:700}
+
+/* Search bar */
+.txn-search-wrap{margin-bottom:12px}
+.txn-search{width:100%;padding:8px 14px;border:1.5px solid var(--border);
+  border-radius:8px;font-size:.84em;color:var(--navy);background:var(--white);
+  outline:none;transition:border-color .18s,box-shadow .18s;direction:rtl}
+.txn-search:focus{border-color:var(--teal);box-shadow:0 0 0 3px var(--teal-light)}
+.txn-no-results{text-align:center;padding:28px;color:var(--text-muted);
+  font-size:.85em;display:none}
+.txn-footer{display:flex;justify-content:space-between;align-items:center;
+  padding:8px 12px;margin-top:6px;border-top:2px solid var(--border);
+  font-size:.82em;font-weight:600;color:var(--navy);background:var(--bg);
+  border-radius:0 0 8px 8px}
+.txn-footer-sum.neg{color:var(--red)}
+.txn-footer-sum.pos{color:var(--teal)}
+
+/* Log drawer */
+.log-drawer{position:fixed;bottom:0;left:0;right:0;background:var(--navy);
+  z-index:300;max-height:220px;display:flex;flex-direction:column;
+  transition:transform .3s ease;transform:translateY(calc(100% - 36px))}
+.log-drawer.expanded{transform:translateY(0)}
+.log-drawer-header{display:flex;align-items:center;gap:8px;padding:8px 16px;
+  cursor:pointer;flex-shrink:0}
+.log-drawer-title{font-size:.8em;color:#aaa;font-weight:600;flex:1}
+.log-drawer-toggle{color:#aaa;font-size:.75em}
+.log-drawer-body{overflow-y:auto;flex:1;padding:6px 16px 10px;font-size:.75em;
+  color:#cdd;font-family:monospace;line-height:1.6}
+.log-ind{width:8px;height:8px;border-radius:50%;background:#555;flex-shrink:0}
+.log-ind.active{background:#1e9d8b;animation:pulse 1s infinite}
+.log-ind.error{background:var(--red)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* ── Mobile compatibility ──────────────────────────────────── */
+@media(max-width:600px){
+  .main{padding:56px 14px 70px !important}
+  .page-header{gap:8px}
+  .page-header h1{font-size:1.3em}
+  .kpi-grid{grid-template-columns:1fr 1fr;gap:8px}
+  .kpi-card{padding:12px 14px 10px}
+  .kpi-value{font-size:clamp(1.05em,5.5vw,1.3em)}
+  .chart-card,.panel{padding:14px}
+  .chart-wrap{height:190px}
+  .txn-table thead{display:none}
+  .txn-table,.txn-table tbody,.txn-table tr,.txn-table td{display:block;width:100%}
+  .txn-table tr{background:var(--white);border:1px solid var(--border);border-radius:10px;
+    margin-bottom:10px;padding:10px 12px;box-shadow:var(--shadow-sm)}
+  .txn-table td{border-bottom:none;padding:4px 0;display:flex;justify-content:space-between;
+    align-items:center;gap:10px;text-align:left;max-width:none;white-space:normal}
+  .txn-table td::before{content:attr(data-label);font-size:.7em;font-weight:600;
+    color:var(--text-muted);text-transform:uppercase;letter-spacing:.3px;flex-shrink:0;margin-left:8px}
+  .txn-table-wrap{overflow-x:visible;max-height:60vh}
+}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+</head>
+<body data-slug="biz_א_מ__יותר_אחזקות_בע" data-generated="29/07/2026 08:59" data-type="business" data-name="א.מ. יותר אחזקות בע\"">
+
+<!-- Hamburger -->
+<button class="ham-btn" id="ham-btn" onclick="toggleNav()" aria-label="תפריט">
+  <svg width="18" height="14" viewBox="0 0 18 14" fill="none">
+    <rect width="18" height="2" rx="1" fill="currentColor"/>
+    <rect y="6" width="18" height="2" rx="1" fill="currentColor"/>
+    <rect y="12" width="18" height="2" rx="1" fill="currentColor"/>
+  </svg>
+</button>
+<a class="back-btn" href="/categories" title="חזרה לקטגוריות">&#8592;</a>
+<div class="nav-overlay" id="nav-overlay" onclick="toggleNav()"></div>
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <span class="sidebar-app-name">Menu</span>
+    <button class="sidebar-close-btn" onclick="closeNav()">✕</button>
+  </div>
+  <div class="sidebar-scroll">
+    <a class="nav-item" href="/monthly" onclick="try{var k=localStorage.getItem('lv_month');if(k){event.preventDefault();location.href='/general/'+k;}}catch(_){}">ניתוח חודשי</a>
+    <div class="nav-sep"></div>
+    <a class="nav-item" href="/accounts">חשבונות</a>
+    <a class="nav-item" href="/housing">דיור</a>
+    <a class="nav-item" href="/organizer">ארגונית</a>
+    <a class="nav-item" href="/bills">מעקב חשבונות</a>
+    <a class="nav-item active" href="/categories">ניתוח קטגוריאלי</a>
+    <a class="nav-item" href="/search">חיפוש</a>
+    <a class="nav-item" href="/spotify">Spotify Tracker</a>
+    <div class="nav-sep"></div>
+    <a class="nav-item" href="/tagger">תייגן</a>
+    <a class="nav-item" href="/files">קבצים</a>
+  </div>
+  <div class="sidebar-footer" style="padding:12px 16px;border-top:1px solid var(--border);flex-shrink:0">
+    <button class="nav-restart-btn" onclick="restartServer(this)">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
+      הפעל שרת מחדש
+    </button>
+    <div id="app-version-badge-2" style="margin-top:8px;text-align:center;font-size:.72em;color:var(--text-sub);letter-spacing:.03em;opacity:.7;user-select:none">v—</div>
+  </div>
+</nav>
+
+<!-- Log drawer -->
+<div class="log-drawer" id="log-drawer">
+  <div class="log-drawer-header" onclick="toggleLogDrawer()">
+    <span class="log-ind" id="log-ind"></span>
+    <span class="log-drawer-title">לוג מערכת</span>
+    <span class="log-drawer-toggle">▲</span>
+  </div>
+  <div class="log-drawer-body" id="log-body"></div>
+</div>
+
+<!-- Main -->
+<div class="main">
+
+  <!-- Category roller -->
+  <div class="cat-roller" id="cat-roller" style="display:none">
+    <div class="roller-track" id="roller-track"></div>
+  </div>
+
+  <div class="page-header">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <h1>א.מ. יותר אחזקות בע"</h1>
+      <span class="type-badge">עסק</span>
+    </div>
+    <div class="page-header-right">
+      <span class="generated-label" id="generated-label">נוצר: 29/07/2026 08:59</span>
+      <button class="reload-btn" id="reload-btn" onclick="reloadCurrent()">&#8635; חשב מחדש</button>
+    </div>
+  </div>
+
+  <!-- KPI cards -->
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-label"><span class="kpi-dot" style="background:#1e9d8b"></span>ממוצע חודשי</div>
+      <div class="kpi-value neg">(4) ₪</div>
+      <div class="kpi-sublabel">על פני כל הזמן</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label"><span class="kpi-dot" style="background:#f0b429"></span>ממוצע אחרון</div>
+      <div class="kpi-value pos">0 ₪</div>
+      <div class="kpi-sublabel">5 חודשים אחרונים</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label"><span class="kpi-dot" style="background:#9b59b6"></span>סטיית תקן חודשית</div>
+      <div class="kpi-value">—</div>
+      <div class="kpi-sublabel">אין מספיק נתונים</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label"><span class="kpi-dot" style="background:#e74c3c"></span>סה"כ הוצאות</div>
+      <div class="kpi-value neg">(30) ₪</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label"><span class="kpi-dot" style="background:#2ecc71"></span>סה"כ הכנסות</div>
+      <div class="kpi-value pos">0 ₪</div>
+    </div>
+  </div>
+
+  <!-- Charts -->
+  <div class="charts-1col">
+    <div class="chart-card">
+      <div class="chart-card-title">הוצאות והכנסות — 6 חודשים אחרונים</div>
+      <div class="chart-wrap"><canvas id="monthly-chart"></canvas></div>
+    </div>
+    
+  </div>
+
+  <!-- Transactions panel -->
+  <div class="panel">
+    <div class="panel-header">
+      עסקאות
+      <span class="panel-count" id="panel-count">1 עסקאות</span>
+    </div>
+    <div class="txn-search-wrap">
+      <input class="txn-search" id="txn-search" type="text" placeholder="חיפוש עסקה..." oninput="filterTxns(this.value)">
+    </div>
+    <div class="txn-table-wrap">
+      <table class="txn-table" id="txn-table">
+        <thead><tr>
+          <th class="td-id" style="color:var(--text-muted)">מזהה</th>
+          <th class="th-sortable" id="th-date" onclick="sortTxns('date')">תאריך <span class="th-sort-icon">▼</span></th>
+          <th>שם</th>
+          <th class="th-sortable" id="th-val" onclick="sortTxns('val')">סכום <span class="th-sort-icon">▼</span></th>
+          <th>קטגוריה</th>
+        </tr></thead>
+        <tbody>
+<tr><td class="td-id" data-label="מזהה">1880</td><td class="td-date" data-label="תאריך">29/12/2025<span class="td-date-badge td-card">אשראי</span><span class="td-charge">חיוב 02/01/2026</span></td><td class="td-name" data-label="שם">חנייה</td><td class="td-val neg" data-label="סכום">(30) ₪</td><td class="td-cat" data-label="קטגוריה">רכב</td></tr>
+        </tbody>
+      </table>
+      <div class="txn-no-results" id="txn-no-results">לא נמצאו עסקאות תואמות</div>
+    </div>
+    <div class="txn-footer" id="txn-footer">
+      <span class="txn-footer-sum" id="txn-footer-sum"></span>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── Nav helpers ───────────────────────────────────────────
+function openNav() {
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('nav-overlay').classList.add('open');
+  document.getElementById('ham-btn').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeNav() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('nav-overlay').classList.remove('open');
+  document.getElementById('ham-btn').classList.remove('open');
+  document.body.style.overflow = '';
+}
+function toggleNav() {
+  var sidebar = document.getElementById('sidebar');
+  if (sidebar.classList.contains('open')) { closeNav(); } else { openNav(); }
+}
+document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeNav(); });
+
+// ── Embedded data ──────────────────────────────────────────
+const MONTHLY_DATA   = [{"month": "02/2026", "spending": 28269.43, "income": 29208.57}, {"month": "03/2026", "spending": 24590.73, "income": 44340.0}, {"month": "04/2026", "spending": 55663.95, "income": 31085.63}, {"month": "05/2026", "spending": 38144.61, "income": 45079.81}, {"month": "06/2026", "spending": 45931.95, "income": 58114.65}, {"month": "07/2026", "spending": 28784.32, "income": 28855.54}];
+const SPEND_PIE_DATA = [{"name": "רכב", "value": 30.0}];
+const EARN_PIE_DATA  = [];
+const SLUG           = "biz_א_מ__יותר_אחזקות_בע";
+const TYPE           = "business";
+const NAME           = "א.מ. יותר אחזקות בע\"";
+
+// ── Chart.js — Monthly bar ────────────────────────────────
+(function() {
+  var ctx = document.getElementById('monthly-chart');
+  if (!ctx || !MONTHLY_DATA.length) return;
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: MONTHLY_DATA.map(function(d) { return d.month; }),
+      datasets: [
+        {
+          label: 'הוצאות',
+          data: MONTHLY_DATA.map(function(d) { return d.spending; }),
+          backgroundColor: 'rgba(231,76,60,0.75)',
+          borderColor: 'rgba(231,76,60,1)',
+          borderWidth: 1,
+          borderRadius: 5,
+          order: 1
+        },
+        {
+          label: 'הכנסות',
+          data: MONTHLY_DATA.map(function(d) { return d.income; }),
+          backgroundColor: 'rgba(46,204,113,0.72)',
+          borderColor: 'rgba(46,204,113,1)',
+          borderWidth: 1,
+          borderRadius: 5,
+          order: 2
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { position: 'top', labels: { font: { size: 11 } } } },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+        y: { beginAtZero: true, ticks: { font: { size: 11 }, callback: function(v) { return v.toLocaleString() + ' ₪'; } } }
+      }
+    }
+  });
+})();
+
+// ── Chart.js — Doughnut distributions ────────────────────
+(function() {
+  var COLORS = ['#e74c3c','#f0b429','#e67e22','#c0392b','#d35400','#e91e63','#9c27b0','#ff5722','#95a5a6'];
+  function makePie(canvasId, pieData) {
+    var ctx = document.getElementById(canvasId);
+    if (!ctx || !pieData || pieData.length < 2) return;
+    new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: pieData.map(function(d) { return d.name; }),
+        datasets: [{
+          data: pieData.map(function(d) { return d.value; }),
+          backgroundColor: COLORS.slice(0, pieData.length),
+          borderWidth: 2,
+          borderColor: '#fff'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'bottom', labels: { font: { size: 10 }, boxWidth: 12, padding: 8 } },
+          tooltip: {
+            callbacks: {
+              label: function(c) {
+                var total = c.dataset.data.reduce(function(a,b){return a+b;},0);
+                var pct = total > 0 ? (c.parsed / total * 100).toFixed(1) : 0;
+                return ' ' + c.parsed.toLocaleString() + ' ₪ (' + pct + '%)';
+              }
+            }
+          }
+        }
+      }
+    });
+  }
+  makePie('pie-spend', SPEND_PIE_DATA);
+  var earnColors = ['#1e9d8b','#3498db','#2ecc71','#1abc9c','#27ae60','#2980b9','#16a085','#8e44ad','#95a5a6'];
+  var ctx2 = document.getElementById('pie-earn');
+  if (ctx2 && EARN_PIE_DATA && EARN_PIE_DATA.length >= 2) {
+    new Chart(ctx2, {
+      type: 'doughnut',
+      data: {
+        labels: EARN_PIE_DATA.map(function(d) { return d.name; }),
+        datasets: [{
+          data: EARN_PIE_DATA.map(function(d) { return d.value; }),
+          backgroundColor: earnColors.slice(0, EARN_PIE_DATA.length),
+          borderWidth: 2, borderColor: '#fff'
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'bottom', labels: { font: { size: 10 }, boxWidth: 12, padding: 8 } },
+          tooltip: {
+            callbacks: {
+              label: function(c) {
+                var total = c.dataset.data.reduce(function(a,b){return a+b;},0);
+                var pct = total > 0 ? (c.parsed / total * 100).toFixed(1) : 0;
+                return ' ' + c.parsed.toLocaleString() + ' ₪ (' + pct + '%)';
+              }
+            }
+          }
+        }
+      }
+    });
+  }
+})();
+
+// ── Category roller ───────────────────────────────────────
+var _activeIdx   = -1;
+var _viewIdx     = -1;   // currently centred item (may differ from active when wheel-browsing)
+var _rollerList  = [];
+var _idleTimer   = null;
+var _ITEM_W      = 140;
+var _currentSlug = SLUG;
+
+function _buildRoller(list) {
+  var track = document.getElementById('roller-track');
+  if (!track) return;
+  track.innerHTML = '';
+  _activeIdx = -1;
+  _rollerList = list;
+
+  list.forEach(function(item, i) {
+    var el = document.createElement('div');
+    el.className = 'cm-item' + (item.hasFile ? ' has-file' : '');
+    el.dataset.slug = item.slug;
+
+    var lbl = document.createElement('span');
+    lbl.className = 'cm-label';
+    lbl.textContent = item.name;
+    lbl.title = item.name;
+
+    var tag = document.createElement('span');
+    tag.className = 'cm-type-tag';
+    tag.textContent = item.type === 'category' ? 'קטגוריה' : 'עסק';
+
+    var dot = document.createElement('span');
+    dot.className = 'cm-dot';
+
+    el.appendChild(lbl);
+    el.appendChild(tag);
+    el.appendChild(dot);
+
+    el.addEventListener('click', function() {
+      if (item.slug === _currentSlug) return;
+      el.classList.add('tapped');
+      setTimeout(function() {
+        location.href = '/category/' + encodeURIComponent(item.slug) + '?name=' + encodeURIComponent(item.name);
+      }, 200);
+    });
+
+    track.appendChild(el);
+    if (item.slug === _currentSlug) _activeIdx = i;
+  });
+
+  _viewIdx = _activeIdx;
+
+  var roller = document.getElementById('cat-roller');
+  if (roller) {
+    roller.style.display = '';
+    // Attach wheel listener once (same pattern as month roller)
+    if (!roller._wheelBound) {
+      roller._wheelBound = true;
+      roller.addEventListener('wheel', function(e) {
+        e.preventDefault();
+        var delta = e.deltaY > 0 ? 1 : -1;
+        _viewIdx = Math.max(0, Math.min(_rollerList.length - 1, _viewIdx + delta));
+        _positionToView(_viewIdx, true);
+        _applyDist();
+        // Snap back to active after 5 s idle
+        clearTimeout(_idleTimer);
+        if (_viewIdx !== _activeIdx) {
+          _idleTimer = setTimeout(function() {
+            _viewIdx = _activeIdx;
+            _centerActive(true);
+            _applyDist();
+          }, 5000);
+        }
+      }, { passive: false });
+    }
+  }
+  _applyDist();
+  _centerActive(false);
+}
+
+function _applyDist() {
+  var items = document.querySelectorAll('#roller-track .cm-item');
+  items.forEach(function(el, i) {
+    var dView   = Math.abs(i - _viewIdx);
+    var isActive = (i === _activeIdx);
+    el.classList.remove('active','dist-1','dist-2');
+    if (isActive)      el.classList.add('active');
+    if (dView === 1)   el.classList.add('dist-1');
+    if (dView === 2)   el.classList.add('dist-2');
+  });
+}
+
+function _positionToView(idx, animate) {
+  var track  = document.getElementById('roller-track');
+  var roller = document.getElementById('cat-roller');
+  if (!track || !roller || idx < 0) return;
+  var offset = roller.offsetWidth / 2 - idx * _ITEM_W - _ITEM_W / 2;
+  track.style.transition = animate ? 'transform .45s cubic-bezier(.25,.46,.45,.94)' : 'none';
+  track.style.transform  = 'translateX(' + offset + 'px)';
+  if (!animate) { void track.offsetWidth; track.style.transition = 'transform .45s cubic-bezier(.25,.46,.45,.94)'; }
+}
+
+function _centerActive(animate) {
+  _positionToView(_activeIdx, animate);
+}
+
+window.addEventListener('resize', function() { _viewIdx = _activeIdx; _centerActive(false); });
+
+// ── Reload current ────────────────────────────────────────
+function reloadCurrent() {
+  var btn = document.getElementById('reload-btn');
+  btn.classList.add('running'); btn.disabled = true;
+  var drawer = document.getElementById('log-drawer');
+  if (!drawer.classList.contains('expanded')) toggleLogDrawer();
+  document.getElementById('log-body').innerHTML = '';
+  setLogInd('active');
+
+  fetch('/api/category/run', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({slug: SLUG, type: TYPE, name: NAME})
+  }).then(function(r) {
+    if (r.status === 409) { btn.classList.remove('running'); btn.disabled = false; return; }
+    var es = new EventSource('/api/logs');
+    es.onmessage = function(evt) {
+      var d = evt.data;
+      if (!d || d === '__CONNECTED__') return;
+      if (d.startsWith('__DONE__')) {
+        es.close(); setLogInd('');
+        btn.classList.remove('running'); btn.disabled = false;
+        setTimeout(function() { location.reload(); }, 600);
+        return;
+      }
+      if (d === '__ERROR__') { es.close(); setLogInd('error'); btn.classList.remove('running'); btn.disabled = false; return; }
+      appendLog(d);
+    };
+    es.onerror = function() { es.close(); btn.classList.remove('running'); btn.disabled = false; };
+  });
+}
+
+// ── Log helpers ───────────────────────────────────────────
+function toggleLogDrawer() {
+  document.getElementById('log-drawer').classList.toggle('expanded');
+}
+function setLogInd(state) {
+  var el = document.getElementById('log-ind');
+  el.className = 'log-ind' + (state ? ' ' + state : '');
+}
+function appendLog(msg) {
+  var body = document.getElementById('log-body');
+  var line = document.createElement('div');
+  line.textContent = msg;
+  body.appendChild(line);
+  body.scrollTop = body.scrollHeight;
+}
+
+// ── Transaction sort ──────────────────────────────────────
+var _sortCol = 'date';
+var _sortDir = -1;  // -1 = desc (newest first by default)
+
+function sortTxns(col) {
+  if (_sortCol === col) {
+    _sortDir = -_sortDir;
+  } else {
+    _sortCol = col;
+    _sortDir = col === 'date' ? -1 : 1;
+  }
+
+  // Update header indicators
+  ['th-date','th-val'].forEach(function(id) {
+    var th = document.getElementById(id);
+    if (!th) return;
+    th.classList.remove('sort-asc','sort-desc');
+    var icon = th.querySelector('.th-sort-icon');
+    if (icon) icon.textContent = '▼';
+  });
+  var activeId = col === 'date' ? 'th-date' : 'th-val';
+  var activeTh = document.getElementById(activeId);
+  if (activeTh) {
+    activeTh.classList.add(_sortDir === 1 ? 'sort-asc' : 'sort-desc');
+    var icon = activeTh.querySelector('.th-sort-icon');
+    if (icon) icon.textContent = _sortDir === 1 ? '▲' : '▼';
+  }
+
+  var tbody = document.querySelector('#txn-table tbody');
+  if (!tbody) return;
+  var rows = Array.from(tbody.querySelectorAll('tr'));
+  rows.sort(function(a, b) {
+    var aEl, bEl, aVal, bVal;
+    if (col === 'date') {
+      aEl = a.querySelector('.td-date'); bEl = b.querySelector('.td-date');
+      // Parse dd/mm/yyyy → comparable string yyyymmdd
+      function parseDate(s) {
+        if (!s) return '';
+        var p = (s.textContent || s).trim().split('/');
+        return p.length === 3 ? p[2] + p[1] + p[0] : s;
+      }
+      aVal = parseDate(aEl); bVal = parseDate(bEl);
+      return _sortDir * (aVal < bVal ? -1 : aVal > bVal ? 1 : 0);
+    } else {
+      aEl = a.querySelector('.td-val'); bEl = b.querySelector('.td-val');
+      aVal = _parseTxnAmt((aEl || {}).textContent || '');
+      bVal = _parseTxnAmt((bEl || {}).textContent || '');
+      return _sortDir * (aVal - bVal);
+    }
+  });
+  rows.forEach(function(r) { tbody.appendChild(r); });
+  filterTxns(document.getElementById('txn-search').value || '');
+}
+
+// ── Transaction search ────────────────────────────────────
+function _parseTxnAmt(text) {
+  text = (text || '').trim().replace('₪','').replace(/\s/g,'');
+  if (!text || text === '—') return 0;
+  if (text.startsWith('(') && text.endsWith(')'))
+    return -(parseFloat(text.slice(1,-1).replace(/,/g,'')) || 0);
+  return parseFloat(text.replace(/,/g,'')) || 0;
+}
+function _fmtSum(n) {
+  var abs = Math.abs(n).toLocaleString('he-IL', {minimumFractionDigits:0, maximumFractionDigits:0});
+  return n < 0 ? '(' + abs + ') ₪' : abs + ' ₪';
+}
+function filterTxns(q) {
+  q = q.trim().toLowerCase();
+  var rows = document.querySelectorAll('.txn-table tbody tr');
+  var visible = 0; var sum = 0;
+  rows.forEach(function(row) {
+    var name = (row.querySelector('.td-name') || document.createElement('td')).textContent || '';
+    var date = (row.querySelector('.td-date') || document.createElement('td')).textContent || '';
+    var match = !q || name.toLowerCase().indexOf(q) !== -1 || date.indexOf(q) !== -1;
+    row.style.display = match ? '' : 'none';
+    if (match) {
+      visible++;
+      var valEl = row.querySelector('.td-val');
+      if (valEl) sum += _parseTxnAmt(valEl.textContent);
+    }
+  });
+  var count = document.getElementById('panel-count');
+  if (count) count.textContent = visible + ' עסקאות';
+  var noRes = document.getElementById('txn-no-results');
+  if (noRes) noRes.style.display = (visible === 0 && q) ? '' : 'none';
+  var fc = document.getElementById('txn-footer-count');
+  if (fc) fc.textContent = visible + ' עסקאות';
+  var fs = document.getElementById('txn-footer-sum');
+  if (fs) { fs.textContent = 'סה"כ: ' + _fmtSum(sum); fs.className = 'txn-footer-sum ' + (sum < 0 ? 'neg' : 'pos'); }
+}
+function _initTxnFooter() {
+  var rows = document.querySelectorAll('.txn-table tbody tr');
+  var sum = 0;
+  rows.forEach(function(row) {
+    var valEl = row.querySelector('.td-val');
+    if (valEl) sum += _parseTxnAmt(valEl.textContent);
+  });
+  var fc = document.getElementById('txn-footer-count');
+  if (fc) fc.textContent = rows.length + ' עסקאות';
+  var fs = document.getElementById('txn-footer-sum');
+  if (fs) { fs.textContent = 'סה"כ: ' + _fmtSum(sum); fs.className = 'txn-footer-sum ' + (sum < 0 ? 'neg' : 'pos'); }
+}
+document.addEventListener('DOMContentLoaded', _initTxnFooter);
+
+// ── Flask detection ───────────────────────────────────────
+(function detectFlask() {
+  fetch('/api/status', {method: 'GET'})
+    .then(function(r) { return r.json(); })
+    .then(function() {
+      document.getElementById('reload-btn').style.display = 'inline-block';
+      var _lt = document.getElementById('log-toggle-btn'); if (_lt) _lt.style.display = '';
+      fetch('/api/category/list')
+        .then(function(r) { return r.json(); })
+        .then(function(list) { _buildRoller(list); })
+        .catch(function() {});
+    })
+    .catch(function() {});
+})();
+fetch('/api/version').then(function(r){return r.json();}).then(function(d){var b=document.getElementById('app-version-badge-2');if(b&&d.version)b.textContent='v'+d.version;}).catch(function(){});
+function restartServer(btn){
+  btn.disabled=true;
+  btn.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg> מפעיל מחדש…';
+  fetch('/api/restart',{method:'POST'}).catch(function(){}).finally(function(){setTimeout(function(){btn.disabled=false;btn.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg> הפעל שרת מחדש';},3000);});
+}
+</script>
+</body>
+</html>

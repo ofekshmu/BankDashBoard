@@ -1,0 +1,1687 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>חיובים חוזרים</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  --teal:       #1e9d8b;
+  --teal-light: #e8f7f5;
+  --teal-dark:  #178878;
+  --navy:       #1e2a4a;
+  --bg:         #f4f6f9;
+  --white:      #ffffff;
+  --border:     #eef0f6;
+  --text-muted: #888;
+  --text-sub:   #555;
+  --red:        #e74c3c;
+  --amber:      #f0b429;
+  --green:      #2ecc71;
+  --shadow-sm:  0 2px 10px rgba(0,0,0,.06);
+  --radius:     14px;
+  --radius-sm:  8px;
+}
+*,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Segoe UI', Arial, sans-serif;
+  background: var(--bg);
+  min-height: 100vh;
+  direction: rtl;
+  color: var(--navy);
+  font-size: 14px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Hamburger + slide-in nav (copied verbatim from SpotifyTracker.html) ── */
+.ham-btn {
+  position: fixed; top: 18px; right: 18px;
+  width: 42px; height: 42px;
+  background: var(--white); border: 1.5px solid var(--border);
+  border-radius: 10px; display: flex; align-items: center; justify-content: center;
+  cursor: pointer; color: var(--navy); z-index: 400;
+  box-shadow: 0 2px 10px rgba(0,0,0,.06);
+  transition: background .15s, color .15s, border-color .15s;
+}
+.ham-btn:hover { background: var(--teal-light); color: var(--teal); }
+.nav-overlay {
+  position: fixed; inset: 0;
+  background: rgba(15,22,45,.26);
+  z-index: 1000; opacity: 0; pointer-events: none;
+  transition: opacity .22s ease;
+}
+.nav-overlay.open { opacity: 1; pointer-events: all; }
+.sidebar {
+  position: fixed; top: 0; right: 0;
+  height: 100vh; width: 230px;
+  background: var(--white); z-index: 1002;
+  transform: translate3d(100%, 0, 0);
+  transition: transform .22s cubic-bezier(.4,0,.2,1);
+  will-change: transform;
+  box-shadow: -4px 0 24px rgba(0,0,0,.09);
+  display: flex; flex-direction: column;
+}
+.sidebar.open { transform: translate3d(0, 0, 0); }
+.sidebar-header {
+  display: flex; align-items: center;
+  padding: 20px 20px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.sidebar-app-name { display:flex;align-items:center;gap:10px;text-decoration:none;font-size: .95em; font-weight: 700; color: var(--navy); }
+.sidebar-close-btn {
+  margin-right: auto; background: none; border: none;
+  cursor: pointer; font-size: 1.1em; color: var(--text-sub);
+  line-height: 1; padding: 4px 6px; border-radius: 6px;
+  transition: background .12s, color .12s;
+}
+.sidebar-close-btn:hover { background: var(--teal-light); color: var(--teal); }
+.sidebar-scroll { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 8px 0 16px; }
+.sidebar-footer { padding: 12px 16px; border-top: 1px solid var(--border); flex-shrink: 0; }
+.nav-restart-btn {
+  width: 100%; padding: 8px 12px;
+  border: 1.5px dashed var(--border); border-radius: 8px;
+  background: none; color: var(--text-muted);
+  font-size: .78em; font-weight: 600; cursor: pointer;
+  font-family: inherit; display: flex; align-items: center;
+  gap: 7px; justify-content: center;
+  transition: background .15s, color .15s, border-color .15s;
+}
+.nav-restart-btn:hover { background: #fff3f3; color: #e53935; border-color: #e53935; }
+.nav-restart-btn:disabled { opacity: .5; cursor: default; }
+.nav-item {
+  display: flex; align-items: center; padding: 10px 20px;
+  text-decoration: none; color: var(--text-sub);
+  font-size: .875em; font-weight: 500;
+  transition: background .1s, color .1s;
+  cursor: pointer; border: none; background: none;
+  width: 100%; text-align: right;
+  position: relative; letter-spacing: .1px; font-family: inherit;
+}
+.nav-item::before {
+  content: ''; position: absolute; right: 0; top: 22%; height: 56%;
+  width: 3px; border-radius: 3px 0 0 3px;
+  background: transparent; transition: background .1s;
+}
+.nav-item:hover { background: var(--teal-light); color: var(--teal); }
+.nav-item:hover::before { background: var(--teal); }
+.nav-item.active { color: #b8c0d0; cursor: default; pointer-events: none; }
+.nav-sep { height: 1px; background: var(--border); margin: 8px 16px; }
+
+/* ── Page layout ──────────────────────────────────────────── */
+.main{margin-right:0;flex:1;padding:0 28px 90px;min-width:0}
+.page-header{display:flex;align-items:center;margin-bottom:24px;padding-top:26px;gap:12px;padding-right:62px}
+.page-header h1{font-size:1.85em;font-weight:700;color:var(--navy)}
+
+/* KPI row */
+
+/* Attention section */
+.attn-card{background:#fff8ed;border:1px solid #fde3b0;border-radius:var(--radius);padding:14px 18px;margin-bottom:20px}
+.attn-title{font-size:.85em;font-weight:700;color:#a86a00;margin-bottom:8px}
+#attn-list,#intro-list,#removed-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px}
+.attn-item{font-size:.85em;padding:8px 12px;border-radius:var(--radius-sm);background:rgba(255,255,255,.5);cursor:pointer;transition:background .12s;display:flex;flex-direction:column;gap:3px}
+.attn-item:hover{background:rgba(255,255,255,.9)}
+.attn-item-name{font-weight:700;color:var(--navy)}
+.attn-item-status{font-weight:600}
+.attn-item-status.stopped{color:var(--red)}
+.attn-item-status.changed{color:var(--amber)}
+.attn-item-status.introduced{color:var(--teal-dark)}
+.attn-item-status.removed{color:var(--text-sub)}
+.attn-card.intro{background:var(--teal-light);border-color:#a9e0d8}
+.attn-card.intro .attn-title{color:var(--teal-dark)}
+.attn-card.intro .attn-item{cursor:default}
+.attn-card.removed{background:#f4f6f9;border-color:var(--border)}
+.attn-card.removed .attn-title{color:var(--text-sub)}
+.attn-card.removed .attn-item{cursor:default}
+
+/* Trend chart */
+.trend-card{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow-sm);padding:18px 22px;margin-bottom:20px}
+.trend-card h3{font-size:.95em;font-weight:700;margin-bottom:12px}
+.trend-chart-wrap{position:relative;height:220px;overflow-x:auto}
+
+.hidden{display:none !important}
+
+/* Search/sort bar */
+.rc-toolbar{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.rc-search{flex:1;min-width:180px;padding:10px 14px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:.9em;font-family:inherit;direction:rtl}
+.rc-sort{padding:10px 14px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:.85em;font-family:inherit;background:var(--white)}
+
+/* Group cards */
+.rc-cards{display:flex;flex-direction:column;gap:10px}
+.rc-card{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow-sm);padding:16px 20px}
+.rc-card-top{display:flex;flex-wrap:wrap;align-items:center;gap:10px;cursor:pointer}
+.rc-card-name{font-weight:700;flex:1;min-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rc-card-cat{background:var(--teal-light);color:var(--teal);border-radius:12px;padding:2px 10px;font-size:.75em;font-weight:600;white-space:nowrap}
+.rc-merged-badge{background:#ede7f6;color:#6a3fb5;border-radius:12px;padding:2px 10px;font-size:.72em;font-weight:600;white-space:nowrap;cursor:help}
+.rc-status{font-size:.72em;font-weight:700;border-radius:12px;padding:2px 10px;white-space:nowrap}
+.rc-status.active{background:#e8f7f5;color:var(--teal)}
+.rc-status.changed{background:#fff3e0;color:var(--amber)}
+.rc-status.stopped{background:#fdecea;color:var(--red)}
+.rc-next{font-size:.75em;color:var(--text-muted);white-space:nowrap}
+/* Amount always sits on its own row below the other fields — those vary in
+   length, and keeping the amount inline made its position jump around */
+.rc-card-amount-row{margin-top:8px;text-align:left;cursor:pointer}
+.rc-card-amount{font-weight:700;font-size:1.1em;direction:ltr;white-space:nowrap}
+
+/* Timeline strip — kept LTR regardless of page RTL */
+.rc-timeline{display:flex;gap:3px;direction:ltr;overflow-x:auto;padding:10px 0}
+.rc-tl-seg{width:22px;height:22px;border-radius:5px;flex-shrink:0}
+.rc-tl-seg.paid{background:var(--green)}
+.rc-tl-seg.changed{background:var(--amber)}
+.rc-tl-seg.missing{background:var(--red)}
+.rc-tl-seg.before_start{background:var(--border)}
+
+/* Expanded detail */
+.rc-detail{display:none;margin-top:14px;padding-top:14px;border-top:1px solid var(--border)}
+.rc-detail.open{display:block}
+.rc-stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+.rc-stat{background:var(--white);border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:12px 10px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.04)}
+.rc-stat-label{font-size:.68em;color:var(--teal-dark);font-weight:700;text-transform:uppercase;letter-spacing:.4px;text-align:center;margin-bottom:5px}
+.rc-stat-value{font-size:1.05em;font-weight:700;direction:ltr;text-align:center;color:var(--navy)}
+
+/* Occurrence rows — date (right) / name (middle) / amount (left), no
+   textual separator; a small per-row menu button replaces an inline
+   text-labelled remove button to save horizontal space (mobile especially) */
+.rc-occ-row{display:flex;align-items:center;gap:10px;font-size:.82em;padding:6px 0;border-bottom:1px solid var(--border)}
+.rc-occ-date{flex-shrink:0;color:var(--text-muted);direction:ltr}
+.rc-occ-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;color:var(--text-sub)}
+.rc-occ-amount{flex-shrink:0;direction:ltr;font-weight:600}
+.rc-occ-menu-wrap{position:relative;flex-shrink:0}
+.rc-occ-menu-btn{width:26px;height:26px;border:1.5px solid var(--border);border-radius:6px;background:var(--white);cursor:pointer;font-size:.85em;color:var(--text-muted);display:flex;align-items:center;justify-content:center;line-height:1;font-family:inherit}
+.rc-occ-menu-btn:hover{background:var(--teal-light);border-color:var(--teal);color:var(--teal)}
+.rc-occ-menu{display:none;position:absolute;top:100%;right:0;margin-top:4px;background:var(--white);border:1.5px solid var(--border);border-radius:var(--radius-sm);box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:40;min-width:100px}
+.rc-occ-menu.open{display:block}
+.rc-occ-menu-item{padding:8px 14px;font-size:.85em;cursor:pointer;color:var(--red);white-space:nowrap}
+.rc-occ-menu-item:hover{background:#fdecea}
+
+/* Folders — collapsible user-organized sections above the flat card list */
+.rc-folder-section{margin-bottom:14px}
+.rc-folder-header{display:flex;align-items:center;gap:10px;padding:11px 16px;background:var(--white);border-radius:var(--radius-sm);box-shadow:var(--shadow-sm);cursor:pointer}
+.rc-folder-chevron{display:inline-flex;transition:transform .15s;font-size:.8em;color:var(--text-muted)}
+.rc-folder-header.collapsed .rc-folder-chevron{transform:rotate(-90deg)}
+.rc-folder-name{font-weight:700;color:var(--navy)}
+.rc-folder-count{background:var(--teal-light);color:var(--teal);border-radius:12px;padding:1px 9px;font-size:.75em;font-weight:700}
+.rc-folder-actions{margin-right:auto;display:flex;gap:4px}
+.rc-folder-icon-btn{width:26px;height:26px;border:1.5px solid var(--border);border-radius:6px;background:var(--white);cursor:pointer;font-size:.78em;color:var(--text-muted);display:flex;align-items:center;justify-content:center}
+.rc-folder-icon-btn:hover{background:var(--teal-light);border-color:var(--teal);color:var(--teal)}
+.rc-folder-body{display:flex;flex-direction:column;gap:10px;margin-top:10px}
+.rc-folder-body.collapsed{display:none}
+.rc-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.rc-btn{padding:7px 16px;border-radius:var(--radius-sm);border:1.5px solid var(--border);background:var(--white);font-size:.82em;cursor:pointer;font-family:inherit}
+.rc-btn:hover{background:var(--teal-light);border-color:var(--teal);color:var(--teal)}
+.rc-btn.danger:hover{background:#fdecea;border-color:var(--red);color:var(--red)}
+.rc-btn-primary{padding:7px 16px;border-radius:var(--radius-sm);border:none;background:var(--teal);color:#fff;font-size:.82em;font-weight:600;cursor:pointer;font-family:inherit}
+.rc-btn-primary:hover{background:var(--teal-dark)}
+.rc-btn-primary:disabled{opacity:.5;cursor:default}
+
+/* In-page modal (dropdown-only, no free text) — mirrors SpotifyTracker.html's modal-backdrop/modal */
+.rc-modal-backdrop{position:fixed;inset:0;background:rgba(15,22,45,.38);z-index:600;display:none;align-items:center;justify-content:center}
+.rc-modal-backdrop.open{display:flex}
+.rc-modal{background:var(--white);border-radius:var(--radius);box-shadow:0 16px 48px rgba(0,0,0,.18);padding:28px 28px 24px;width:420px;max-width:calc(100vw - 32px);direction:rtl;position:relative}
+.rc-modal-title{font-size:1.05em;font-weight:700;margin-bottom:18px}
+.rc-modal-close{position:absolute;top:16px;left:18px;background:none;border:none;cursor:pointer;font-size:1.1em;color:var(--text-muted);padding:4px 6px;border-radius:6px;transition:background .12s,color .12s}
+.rc-modal-close:hover{background:var(--teal-light);color:var(--teal)}
+.rc-field-label{font-size:.72em;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;display:block}
+.rc-modal-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:20px}
+.rc-modal-hint{font-size:.78em;color:var(--text-muted);margin-top:8px}
+
+/* Searchable dropdown (used inside the modal instead of a plain <select>) */
+.rc-dd-wrap{position:relative}
+.rc-dd-btn{width:100%;padding:9px 13px;box-sizing:border-box;height:38px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:.88em;color:var(--navy);background:var(--white);outline:none;font-family:inherit;text-align:right;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rc-dd-btn:disabled{opacity:.6;cursor:default;color:var(--text-muted)}
+.rc-dd-btn:focus,.rc-dd-wrap.open .rc-dd-btn{border-color:var(--teal);box-shadow:0 0 0 3px rgba(30,157,139,.12)}
+.rc-dd-menu{display:none;position:absolute;top:100%;right:0;left:0;margin-top:4px;background:var(--white);border:1.5px solid var(--border);border-radius:var(--radius-sm);box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:50;max-height:220px;overflow-y:auto}
+.rc-dd-wrap.open .rc-dd-menu{display:block}
+.rc-dd-search{padding:8px 12px;border:none;border-bottom:1.5px solid var(--border);font-size:.84em;width:100%;box-sizing:border-box;outline:none;color:var(--navy);position:sticky;top:0;background:var(--white);font-family:inherit;direction:rtl}
+.rc-dd-option{padding:7px 14px;cursor:pointer;font-size:.83em;color:var(--navy)}
+.rc-dd-option:hover,.rc-dd-option.active{background:var(--teal-light)}
+.rc-dd-empty{padding:7px 14px;font-size:.83em;color:var(--text-muted);cursor:default}
+
+/* Hidden groups toggle */
+.rc-hidden-toggle{font-size:.82em;color:var(--text-muted);cursor:pointer;margin-top:12px;text-align:center}
+.rc-hidden-toggle:hover{color:var(--teal)}
+
+/* Skeleton loading state — shown in place of real content on first-ever
+   load while the initial regen runs, instead of swapping to a different page */
+@keyframes rcShimmer{0%,100%{opacity:.55}50%{opacity:1}}
+.rc-skel{background:var(--border);border-radius:var(--radius-sm);animation:rcShimmer 1.3s ease-in-out infinite}
+.rc-skel-kpi-row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:20px}
+.rc-skel-kpi{height:74px;border-radius:var(--radius);flex:1;min-width:160px}
+.rc-skel-trend{height:220px;border-radius:var(--radius);margin-bottom:20px}
+.rc-skel-card{height:96px;border-radius:var(--radius);margin-bottom:10px}
+.rc-loading-banner{display:flex;align-items:center;gap:10px;background:var(--teal-light);color:var(--teal-dark);border-radius:var(--radius-sm);padding:10px 16px;margin-bottom:16px;font-size:.85em;font-weight:600}
+.rc-loading-banner .rc-spin{width:14px;height:14px;border-radius:50%;border:2px solid rgba(30,157,139,.3);border-top-color:var(--teal);animation:rcSpin .7s linear infinite;flex-shrink:0}
+@keyframes rcSpin{to{transform:rotate(360deg)}}
+.rc-error-banner{display:none;align-items:center;gap:10px;background:#fdecea;color:#a33;border-radius:var(--radius-sm);padding:10px 16px;margin-bottom:16px;font-size:.85em;font-weight:600}
+.rc-error-banner.show{display:flex}
+
+/* Regen button — mirrors Organizer's org-regen-btn exactly */
+.rc-regen-fab{position:fixed;bottom:22px;right:18px;z-index:500}
+.rc-regen-btn{height:52px;padding:0 22px;background:var(--teal);color:#fff;border:none;border-radius:26px;font-size:.85em;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px;box-shadow:0 4px 18px rgba(30,157,139,.45);white-space:nowrap;transition:box-shadow .2s,opacity .2s}
+.rc-regen-btn:hover{box-shadow:0 6px 24px rgba(30,157,139,.65)}
+.rc-regen-btn:disabled{opacity:.65;cursor:wait}
+.rc-regen-icon{font-size:1.6em;line-height:1;display:flex;align-items:center}
+.rc-regen-btn.running .rc-regen-icon{display:none}
+.rc-regen-pct{font-size:.65em;font-weight:700;color:rgba(255,255,255,.9);display:none;line-height:1;margin-top:2px}
+.rc-regen-btn.running .rc-regen-pct{display:block}
+/* Stale = new file import or tag edit happened after this page was last
+   generated — a visual nudge to click regen, since the page never checks
+   this on its own otherwise. */
+.rc-regen-btn.stale{background:#f0a500;box-shadow:0 4px 18px rgba(240,165,0,.55);animation:rc-regen-pulse 1.8s ease-in-out infinite}
+.rc-regen-btn.stale:hover{box-shadow:0 6px 24px rgba(240,165,0,.75)}
+@keyframes rc-regen-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+
+@media(max-width:768px){
+  .rc-regen-fab{bottom:14px;right:14px}
+  .rc-regen-btn{width:52px;padding:0;border-radius:50%;justify-content:center}
+  .rc-regen-label{display:none}
+}
+@media(max-width:600px){
+  .main{padding:0 12px 90px !important}
+  .page-header{padding-top:72px;padding-right:0 !important}
+  .rc-stats-grid{grid-template-columns:1fr 1fr}
+  .rc-card-top{flex-wrap:wrap}
+  .rc-card-name{flex-basis:100%;white-space:normal}
+  .trend-chart-wrap{overflow-x:auto}
+  .rc-occ-row{gap:6px}
+  .rc-occ-date{font-size:.92em}
+  .rc-folder-header{padding:10px 12px;gap:7px}
+  .rc-folder-name{font-size:.92em}
+}
+
+/* ── Spending forecast ("כמה אפשר להוציא") ── */
+.fc{margin-bottom:26px}
+.fc-hero{background:linear-gradient(135deg,#0f1627 0%,#1a2e52 100%);color:#fff;border-radius:var(--radius);padding:26px 28px;box-shadow:var(--shadow-sm);display:flex;gap:30px;align-items:flex-start;flex-wrap:wrap}
+.fc-hero-main{flex:1.2;min-width:240px;padding-top:34px;display:flex;flex-direction:column;align-items:flex-start;align-self:stretch}
+.fc-eyebrow{font-size:.85em;letter-spacing:.04em;color:#9fb0d0}
+.fc-big{font-size:3.1em;font-weight:700;line-height:1.1;margin:0 0 6px;font-variant-numeric:tabular-nums}
+.fc-big.neg{color:#ff8a7a}
+.fc-sub{color:#c6d2ea;font-size:.95em}
+.fc-chip{display:inline-block;margin-top:12px;padding:4px 12px;border-radius:99px;font-size:.82em;font-weight:600;background:rgba(46,204,113,.18);color:#6ee7a0}
+.fc-chip.warn{background:rgba(240,180,41,.18);color:#f7cd6a}
+.fc-chip.bad{background:rgba(231,76,60,.22);color:#ff9a8d}
+.fc-hero-side{flex:1;min-width:240px;display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.fc-mini{display:flex;flex-direction:column;background:rgba(255,255,255,.07);border-radius:var(--radius-sm);padding:12px 14px}
+.fc-mini-l{font-size:.78em;color:#9fb0d0}
+.fc-mini-v{order:-1;font-size:1.35em;font-weight:600;margin-bottom:3px;font-variant-numeric:tabular-nums}
+.fc-mini-s{font-size:.74em;color:#9fb0d0;margin-top:2px}
+.fc-mini.wide{grid-column:1/-1;background:rgba(30,157,139,.16)}
+.fc-mini.full{grid-column:1/-1}
+.fc-controls{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow-sm);padding:14px 18px;margin-top:14px}
+.fc-ctl{display:flex;flex-direction:column;gap:4px}
+.fc-ctl label{font-size:.76em;color:var(--text-muted)}
+.fc-ctl input{width:110px;padding:7px 10px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:.95em;color:var(--navy);background:var(--bg);font-family:inherit}
+.fc-ctl input:focus{outline:none;border-color:var(--teal)}
+.fc-seg{display:inline-flex;border:1.5px solid var(--border);border-radius:var(--radius-sm);overflow:hidden}
+.fc-seg button{border:0;background:var(--bg);padding:7px 14px;font-size:.9em;color:var(--text-sub);cursor:pointer;font-family:inherit}
+.fc-seg button.on{background:var(--teal);color:#fff}
+.fc-reset{margin-right:auto;border:0;background:none;color:var(--teal);cursor:pointer;font-size:.85em;font-family:inherit}
+.fc-grid{display:grid;grid-template-columns:1.5fr 1fr;gap:14px;margin-top:14px}
+.fc-card{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow-sm);padding:18px 20px;min-width:0}
+.fc-card h3{font-size:1em;margin-bottom:12px;color:var(--navy)}
+.fc-split{display:flex;height:10px;border-radius:99px;overflow:hidden;background:var(--border);margin:4px 0 8px}
+.fc-split i{display:block;height:100%}
+.fc-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:.8em;color:var(--text-sub);margin-bottom:12px}
+.fc-legend b{display:inline-block;width:9px;height:9px;border-radius:50%;margin-left:5px}
+.fc-ev{display:grid;grid-template-columns:54px 1fr auto auto;gap:10px;align-items:center;padding:9px 0;border-top:1px solid var(--border);font-size:.92em}
+.fc-ev:first-of-type{border-top:0}
+.fc-ev-d{color:var(--text-muted);font-variant-numeric:tabular-nums}
+.fc-ev-n small{display:block;color:var(--text-muted);font-size:.78em}
+.fc-ev-a{font-weight:600;font-variant-numeric:tabular-nums}
+.fc-ev-b{color:var(--text-muted);font-size:.85em;min-width:78px;text-align:left;font-variant-numeric:tabular-nums}
+.fc-ev-b.neg{color:var(--red);font-weight:600}
+.fc-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-left:7px}
+.fc-late{display:inline-block;margin-right:6px;padding:1px 7px;border-radius:99px;background:#fdecea;color:var(--red);font-size:.72em}
+.fc-ev.sal{color:var(--teal-dark)}
+.fc-rule{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-top:1px solid var(--border);font-size:.9em}
+.fc-rule:first-of-type{border-top:0}
+.fc-rule span:first-child{color:var(--text-sub)}
+.fc-rule b{font-variant-numeric:tabular-nums}
+.fc-note{margin-top:10px;padding:9px 12px;border-radius:var(--radius-sm);background:#fff8e6;color:#8a6410;font-size:.84em}
+.fc-chart svg{width:100%;display:block;direction:ltr}
+.fc-empty{padding:26px;text-align:center;color:var(--text-muted)}
+.fc-skel{height:170px;border-radius:var(--radius);background:linear-gradient(90deg,#e9edf3 25%,#f4f6f9 50%,#e9edf3 75%);background-size:200% 100%;animation:fcsh 1.3s infinite}
+
+.fc-i{position:relative;display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;margin-right:6px;border-radius:50%;background:transparent;border:1px solid currentColor;box-sizing:border-box;opacity:.55;color:var(--text-sub);font:600 10px/1 Georgia,serif;font-style:italic;cursor:pointer;vertical-align:middle;user-select:none}
+.fc-i:hover,.fc-i:focus,.fc-i.on{opacity:.9;outline:none}
+.fc-hero .fc-i{color:#fff}
+/* the explanation opens in the flow of the page (pushes the content down) and closes again — never floats over it */
+.fc-pop{position:fixed;z-index:9999;pointer-events:none;max-width:min(320px,90vw);padding:9px 12px;border-radius:var(--radius-sm);background:#1e2a4a;color:#fff;box-shadow:0 6px 20px rgba(15,22,39,.3);font:400 12.5px/1.55 'Segoe UI',Arial,sans-serif;font-style:normal;text-align:right;white-space:normal}
+.fc-chart-detail{min-height:2.1em;margin-top:6px;padding:6px 10px;border-radius:var(--radius-sm);background:var(--bg);color:var(--text-sub);font-size:.82em;line-height:1.5}
+.fc-chart-detail.on{background:#eef2f9;color:var(--navy);font-weight:600}
+.fc-hit{fill:transparent;cursor:pointer}
+.fc-leg{cursor:pointer;padding:2px 4px;border-radius:6px}
+.fc-leg:hover{background:var(--bg)}
+.fc-split i{cursor:pointer}
+.fc-hit-line{stroke:transparent;stroke-width:16;cursor:pointer}
+.fc-asm{display:inline-block;margin-right:6px;padding:1px 7px;border-radius:99px;background:#eef1f7;color:var(--text-sub);font-size:.72em}
+.fc-ev.inc .fc-ev-a{color:var(--teal-dark)}
+.fc-ev.later{opacity:.65}
+.fc-later-title{margin:12px 0 2px;padding-top:10px;border-top:2px dashed var(--border);font-size:.8em;color:var(--text-muted)}
+.fc-sub-rule{font-size:.8em;color:var(--text-muted);padding:2px 0 8px}
+.fc-chart{overflow:visible}
+.fc-chart svg{height:auto}
+
+.fc-est-foot{display:flex;align-items:center;gap:4px;margin-top:auto;padding-top:8px}
+.fc-hero-main .fc-est-foot{margin-top:14px}
+.fc-ev-n .fc-est-foot{padding-top:3px}
+.fc-est{display:inline-block;padding:1px 7px;border-radius:99px;background:rgba(240,180,41,.2);color:#b7791f;font-size:.72em;font-weight:600;vertical-align:middle}
+.fc-hero .fc-est{background:rgba(247,205,106,.2);color:#f7cd6a}
+.fc-det{margin:0 0 8px}
+.fc-det summary{cursor:pointer;color:var(--teal-dark);font-size:.8em;padding:2px 0;list-style:none}
+.fc-det summary::before{content:"▸ ";display:inline-block;transition:transform .15s}
+.fc-det[open] summary::before{transform:rotate(90deg)}
+.fc-det summary::-webkit-details-marker{display:none}
+.fc-det .fc-sub-rule{padding:3px 0 2px 0}
+
+.fc-sec{border-top:1px solid var(--border)}
+.fc-sec-main{border-top:0}
+.fc-sec-sum{display:flex;align-items:center;gap:10px;padding:9px 0;cursor:pointer;list-style:none;font-weight:600;color:var(--navy)}
+.fc-sec-sum::-webkit-details-marker{display:none}
+.fc-sec-sum::before{content:"▾";display:inline-block;color:var(--text-muted);font-size:.8em;transition:transform .15s}
+.fc-sec:not([open])>.fc-sec-sum::before{transform:rotate(90deg)}
+.fc-sec-sum h3{margin:0}
+.fc-sec-sum small{margin-right:auto;color:var(--text-muted);font-weight:400;font-size:.82em}
+.fc-sec-body{padding:0 0 6px}
+.fc-sec .fc-sec .fc-sec-sum{font-size:.95em}
+
+.fc-hctl{display:flex;align-items:center;gap:8px;margin-top:auto;padding-top:14px;flex-wrap:wrap}
+.fc-seg-s{border-color:rgba(255,255,255,.22)}
+.fc-seg-s button{padding:3px 10px;font-size:.78em;background:rgba(255,255,255,.08);color:#c6d2ea}
+.fc-seg-s button.on{background:var(--teal);color:#fff}
+.fc-buf{display:inline-flex;align-items:center;gap:4px;font-size:.78em;color:#c6d2ea}
+.fc-buf input{width:64px;padding:3px 6px;border:1px solid rgba(255,255,255,.22);border-radius:6px;background:rgba(255,255,255,.08);color:#fff;font-size:1em;font-family:inherit}
+.fc-buf input:focus{outline:none;border-color:var(--teal)}
+.fc-hero .fc-reset{margin:0;padding:2px 6px;color:#9fd8cf;font-size:1em}
+.fc-hero .fc-i{margin-right:5px}
+@keyframes fcsh{to{background-position:-200% 0}}
+@media (max-width: 760px){
+  .fc-hero{padding:20px}.fc-big{font-size:2.5em}
+  .fc-grid{grid-template-columns:1fr}
+  .fc-ev{grid-template-columns:46px 1fr auto}.fc-ev-b{display:none}
+  .fc-ctl input{width:92px}
+}
+</style>
+<link rel="stylesheet" href="/design-system.css">
+</head>
+<body>
+
+<div class="nav-overlay" id="nav-overlay" onclick="toggleNav()"></div>
+
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-app-name" href="/" title="דף הבית">ניהול כספים</a>
+    <button class="sidebar-close-btn" onclick="closeNav()" aria-label="סגור תפריט">✕</button>
+  </div>
+  <div class="sidebar-scroll" data-nav="recurring"></div>
+  <div class="sidebar-footer">
+    <button class="nav-restart-btn" onclick="restartServer(this)">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
+      הפעל שרת מחדש
+    </button>
+    <div id="app-version-badge-2" style="margin-top:8px;text-align:center;font-size:.72em;color:var(--text-muted);letter-spacing:.03em;opacity:.7;user-select:none">v—</div>
+  </div>
+</nav>
+<script src="/nav.js"></script>
+
+<button class="ham-btn" id="ham-btn" onclick="toggleNav()" aria-label="תפריט">
+  <svg width="18" height="14" viewBox="0 0 18 14" fill="none">
+    <rect width="18" height="2" rx="1" fill="currentColor"/>
+    <rect y="6" width="18" height="2" rx="1" fill="currentColor"/>
+    <rect y="12" width="18" height="2" rx="1" fill="currentColor"/>
+  </svg>
+</button>
+
+<div class="main">
+  <div class="page-header"><h1>חיובים חוזרים</h1></div>
+
+  <section class="fc" id="fc">
+    <div id="fc-body"><div class="fc-skel"></div></div>
+  </section>
+  <div class="page-header" style="margin-bottom:14px;padding-top:6px"><h2 style="font-size:1.25em;color:var(--navy)">פירוט החיובים החוזרים</h2></div>
+
+  <div class="rc-loading-banner" id="rc-loading-banner" style="display:none">
+    <span class="rc-spin"></span>
+    <span id="rc-loading-text">מריץ ניתוח ראשוני…</span>
+  </div>
+  <div class="rc-error-banner" id="rc-error-banner">
+    <span>⚠</span>
+    <span id="rc-error-text"></span>
+  </div>
+
+  <div id="rc-skeleton" style="display:none">
+    <div class="rc-skel-kpi-row">
+      <div class="rc-skel rc-skel-kpi"></div>
+      <div class="rc-skel rc-skel-kpi"></div>
+      <div class="rc-skel rc-skel-kpi"></div>
+    </div>
+    <div class="rc-skel rc-skel-trend"></div>
+    <div class="rc-skel rc-skel-card"></div>
+    <div class="rc-skel rc-skel-card"></div>
+    <div class="rc-skel rc-skel-card"></div>
+  </div>
+
+  <div id="rc-real-content">
+    <div class="attn-card" id="attn-card" style="display:none">
+      <div class="attn-title">⚠ טעונים תשומת לב</div>
+      <div id="attn-list"></div>
+    </div>
+
+    <div class="attn-card intro" id="intro-card" style="display:none">
+      <div class="attn-title">✚ חיובים חוזרים חדשים בשנה האחרונה</div>
+      <div id="intro-list"></div>
+    </div>
+
+    <div class="attn-card removed" id="removed-card" style="display:none">
+      <div class="attn-title">✕ חיובים חוזרים שהופסקו אוטומטית בשנה האחרונה</div>
+      <div id="removed-list"></div>
+    </div>
+
+    <div class="trend-card">
+      <h3>מגמת חיובים חוזרים — 12 חודשים אחרונים</h3>
+      <div class="trend-chart-wrap"><canvas id="trend-chart"></canvas></div>
+    </div>
+
+    <div class="rc-toolbar">
+      <input class="rc-search" id="rc-search" type="text" placeholder="חיפוש לפי שם…" oninput="renderCards()"/>
+      <select class="rc-sort" id="rc-sort" onchange="renderCards()">
+        <option value="amount-desc">סכום (גבוה לנמוך)</option>
+        <option value="amount-asc">סכום (נמוך לגבוה)</option>
+        <option value="name">שם</option>
+        <option value="status">סטטוס</option>
+      </select>
+      <button class="rc-btn" onclick="openFolderCreateModal()">+ קבוצה חדשה</button>
+    </div>
+
+    <div class="rc-cards" id="rc-cards"></div>
+    <div class="rc-hidden-toggle" id="rc-hidden-toggle" onclick="toggleHiddenGroups()">קבוצות מוסתרות (<span id="rc-hidden-count">0</span>)</div>
+    <div class="rc-cards" id="rc-hidden-cards" style="display:none;margin-top:10px"></div>
+  </div>
+</div>
+
+<div class="rc-regen-fab">
+  <button class="rc-regen-btn" id="regen-btn" onclick="regenerate()" title="חשב מחדש">
+    <span class="rc-regen-icon">&#8635;</span>
+    <span class="rc-regen-label">חשב מחדש</span>
+    <span class="rc-regen-pct" id="regen-pct"></span>
+  </button>
+</div>
+
+<div class="rc-modal-backdrop" id="rc-action-modal" onclick="if(event.target===this) closeActionModal()">
+  <div class="rc-modal">
+    <button class="rc-modal-close" onclick="closeActionModal()">✕</button>
+    <div class="rc-modal-title" id="rc-modal-title"></div>
+    <label class="rc-field-label" id="rc-modal-label"></label>
+    <div class="rc-dd-wrap" id="rc-dd-wrap">
+      <button type="button" class="rc-dd-btn" id="rc-dd-btn" onclick="_rcToggleDd(event)">בחר…</button>
+      <div class="rc-dd-menu" id="rc-dd-menu">
+        <input class="rc-dd-search" id="rc-dd-search" type="text" placeholder="חיפוש…" oninput="_rcFilterDd(this.value)">
+        <div id="rc-dd-options"></div>
+      </div>
+    </div>
+    <div class="rc-modal-hint" id="rc-modal-hint" style="display:none"></div>
+    <div class="rc-modal-footer">
+      <button class="rc-btn" onclick="closeActionModal()">ביטול</button>
+      <button class="rc-btn-primary" id="rc-modal-confirm-btn" onclick="confirmActionModal()">אישור</button>
+    </div>
+  </div>
+</div>
+
+<div class="rc-modal-backdrop" id="rc-confirm-modal" onclick="if(event.target===this) _rcCloseConfirm()">
+  <div class="rc-modal" style="width:360px">
+    <button class="rc-modal-close" onclick="_rcCloseConfirm()">✕</button>
+    <div class="rc-modal-title" id="rc-confirm-title"></div>
+    <div id="rc-confirm-msg" style="font-size:.9em;color:var(--text-sub);line-height:1.5"></div>
+    <div class="rc-modal-footer">
+      <button class="rc-btn" onclick="_rcCloseConfirm()">ביטול</button>
+      <button class="rc-btn-primary" id="rc-confirm-yes-btn">אישור</button>
+    </div>
+  </div>
+</div>
+
+<div class="rc-modal-backdrop" id="rc-folder-modal" onclick="if(event.target===this) _rcCloseFolderModal()">
+  <div class="rc-modal" style="width:360px">
+    <button class="rc-modal-close" onclick="_rcCloseFolderModal()">✕</button>
+    <div class="rc-modal-title" id="rc-folder-modal-title">קבוצה חדשה</div>
+    <label class="rc-field-label">שם הקבוצה</label>
+    <input class="rc-search" id="rc-folder-name-input" type="text" placeholder="לדוגמה: מנויים ביתיים" style="width:100%" onkeydown="if(event.key==='Enter') _rcSubmitFolderModal()">
+    <div class="rc-modal-hint" id="rc-folder-modal-error" style="display:none;color:var(--red)"></div>
+    <div class="rc-modal-footer">
+      <button class="rc-btn" onclick="_rcCloseFolderModal()">ביטול</button>
+      <button class="rc-btn-primary" onclick="_rcSubmitFolderModal()">שמור</button>
+    </div>
+  </div>
+</div>
+
+<div class="rc-modal-backdrop" id="rc-rename-modal" onclick="if(event.target===this) _rcCloseRenameModal()">
+  <div class="rc-modal" style="width:360px">
+    <button class="rc-modal-close" onclick="_rcCloseRenameModal()">✕</button>
+    <div class="rc-modal-title">שינוי שם תצוגה</div>
+    <label class="rc-field-label">שם מותאם אישית</label>
+    <input class="rc-search" id="rc-rename-input" type="text" placeholder="לדוגמה: נטפליקס" style="width:100%" onkeydown="if(event.key==='Enter') _rcSubmitRenameModal()">
+    <div class="rc-modal-hint">השם ישמש לתצוגה בעמוד זה בלבד ולא ישנה דבר בעסקאות עצמן.</div>
+    <div class="rc-modal-hint" id="rc-rename-error" style="display:none;color:var(--red)"></div>
+    <div class="rc-modal-footer">
+      <button class="rc-btn" id="rc-rename-reset-btn" style="display:none" onclick="_rcResetRenameModal()">אפס לשם שזוהה</button>
+      <button class="rc-btn" onclick="_rcCloseRenameModal()">ביטול</button>
+      <button class="rc-btn-primary" onclick="_rcSubmitRenameModal()">שמור</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var RC_DATA = __RC_DATA_JSON__;   // replaced server-side at generation time; null if never generated yet
+var state = RC_DATA
+  ? { groups: RC_DATA.groups, hidden: RC_DATA.hidden_groups, kpis: RC_DATA.kpis, trend: RC_DATA.trend, historyAlerts: RC_DATA.history_alerts || {introduced:[], removed:[], status_changed:[]} }
+  : { groups: [], hidden: [], kpis: {total_monthly: 0}, trend: [], historyAlerts: {introduced:[], removed:[], status_changed:[]} };
+// Folder organization is fetched separately from the detection cache (see
+// _rcLoadFolders) — it's a purely organizational overlay, so moving a bill
+// between folders never needs a regen and survives a stale cached page.
+state.folders = [];
+state.folderAssignments = {};
+state.collapsedFolders = {};
+// User-made-up display names — also fetched separately (see
+// _rcLoadDisplayNames), same reasoning as folders: purely a label overlay,
+// never touches the underlying transaction Name column.
+state.displayNames = {};
+
+// ── Nav ──────────────────────────────────────────────────────────
+fetch('/api/version').then(function(r){return r.json();}).then(function(d){var b=document.getElementById('app-version-badge-2');if(b&&d.version)b.textContent='v'+d.version;}).catch(function(){});
+function restartServer(btn) {
+  btn.disabled = true;
+  var spinSvg = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>';
+  btn.innerHTML = spinSvg + ' מפעיל מחדש…';
+  fetch('/api/restart', {method:'POST'}).catch(function(){}).finally(function(){
+    var t = setInterval(function(){
+      fetch('/').then(function(r){ if(r.ok){ clearInterval(t); location.reload(); } }).catch(function(){});
+    }, 800);
+  });
+}
+function openNav(){
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('nav-overlay').classList.add('open');
+  document.getElementById('ham-btn').classList.add('open');
+}
+function closeNav(){
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('nav-overlay').classList.remove('open');
+  document.getElementById('ham-btn').classList.remove('open');
+}
+function toggleNav(){
+  document.getElementById('sidebar').classList.contains('open') ? closeNav() : openNav();
+}
+document.addEventListener('keydown', function(e){ if(e.key==='Escape'){ closeNav(); closeActionModal(); _rcCloseConfirm(); } });
+
+// ── Helpers ──────────────────────────────────────────────────────
+function fmt(n) {
+  var isPos = n >= 0;
+  var abs = Math.abs(n);
+  var isWhole = Math.round(abs * 100) % 100 === 0;   // round to nearest cent first — avoids float noise like 39.900000000000006
+  var opts = isWhole ? {minimumFractionDigits:0, maximumFractionDigits:0} : {minimumFractionDigits:2, maximumFractionDigits:2};
+  return (isPos?'+':'') + abs.toLocaleString('he-IL', opts) + '₪';
+}
+function esc(s){ if(!s) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function fmtDate(d) {
+  var parts = String(d || '').split('-');
+  return parts.length === 3 ? (parts[2] + '/' + parts[1] + '/' + parts[0]) : (d || '');
+}
+function displayNameForKey(key, fallbackName) {
+  var custom = state.displayNames[key];
+  return custom || fallbackName;
+}
+function displayNameFor(g) {
+  return displayNameForKey(g.group_key, g.name);
+}
+
+function statusOf(g) {
+  if (g.possibly_stopped) return 'stopped';
+  if (g.amount_changed) return 'changed';
+  return 'active';
+}
+function statusLabel(s) {
+  return s === 'stopped' ? 'נראה שהופסק' : (s === 'changed' ? 'הסכום השתנה' : 'פעיל');
+}
+
+function renderKpis() {
+  // Only bills whose status *just* turned yellow/red since the last regen —
+  // one flagged for months on end isn't re-shown every time, to keep this
+  // list a signal of what's new, not a standing list of everything imperfect.
+  var statusChanged = (state.historyAlerts && state.historyAlerts.status_changed) || [];
+
+  var attnCard = document.getElementById('attn-card');
+  var attnList = document.getElementById('attn-list');
+  if (statusChanged.length) {
+    attnCard.style.display = '';
+    attnList.innerHTML = statusChanged.map(function(a) {
+      var cls = a.status;   // 'stopped' or 'changed'
+      var text = a.status === 'stopped' ? 'נראה שהופסק' : 'הסכום השתנה';
+      var clickable = state.groups.some(function(g){ return g.group_key === a.group_key; });
+      return '<div class="attn-item"' + (clickable ? ' style="cursor:pointer" onclick="scrollToGroup(\'' + a.group_key + '\')"' : '') + '>' +
+             '<div class="attn-item-name">' + esc(displayNameForKey(a.group_key, a.name)) + '</div>' +
+             '<div class="attn-item-status ' + cls + '">' + text + '</div>' +
+           '</div>';
+    }).join('');
+  } else {
+    attnCard.style.display = 'none';
+  }
+
+  var introCard = document.getElementById('intro-card');
+  var introList = document.getElementById('intro-list');
+  var introduced = (state.historyAlerts && state.historyAlerts.introduced) || [];
+  if (introduced.length) {
+    introCard.style.display = '';
+    introList.innerHTML = introduced.map(function(a) {
+      var clickable = state.groups.some(function(g){ return g.group_key === a.group_key; });
+      return '<div class="attn-item"' + (clickable ? ' style="cursor:pointer" onclick="scrollToGroup(\'' + a.group_key + '\')"' : '') + '>' +
+             '<div class="attn-item-name">' + esc(displayNameForKey(a.group_key, a.name)) + '</div>' +
+             '<div class="attn-item-status introduced">נוסף כחיוב חוזר בחודש ' + a.month + '</div>' +
+           '</div>';
+    }).join('');
+  } else {
+    introCard.style.display = 'none';
+  }
+
+  var removedCard = document.getElementById('removed-card');
+  var removedList = document.getElementById('removed-list');
+  var removed = (state.historyAlerts && state.historyAlerts.removed) || [];
+  if (removed.length) {
+    removedCard.style.display = '';
+    removedList.innerHTML = removed.map(function(a) {
+      return '<div class="attn-item">' +
+             '<div class="attn-item-name">' + esc(displayNameForKey(a.group_key, a.name)) + '</div>' +
+             '<div class="attn-item-status removed">הופסק אוטומטית אחרי חודש ' + a.month + '</div>' +
+           '</div>';
+    }).join('');
+  } else {
+    removedCard.style.display = 'none';
+  }
+}
+
+function scrollToGroup(key) {
+  var el = document.getElementById('card-' + key);
+  if (el) { el.scrollIntoView({behavior:'smooth', block:'center'}); toggleDetail(key, true); }
+}
+
+function renderTimeline(timeline) {
+  return '<div class="rc-timeline">' + timeline.map(function(t) {
+    return '<div class="rc-tl-seg ' + t.status + '" title="' + t.month + '"></div>';
+  }).join('') + '</div>';
+}
+
+function toggleDetail(key, forceOpen) {
+  var el = document.getElementById('detail-' + key);
+  if (!el) return;
+  if (forceOpen) el.classList.add('open');
+  else el.classList.toggle('open');
+}
+
+// ── Fuzzy search — finds similar recurring bills even with typos/partial
+//    text, not just an exact substring match ──
+function _rcLevenshtein(a, b) {
+  var m = a.length, n = b.length;
+  if (m === 0) return n;
+  if (n === 0) return m;
+  var prev = new Array(n + 1), cur = new Array(n + 1);
+  for (var j = 0; j <= n; j++) prev[j] = j;
+  for (var i = 1; i <= m; i++) {
+    cur[0] = i;
+    for (j = 1; j <= n; j++) {
+      var cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost);
+    }
+    var tmp = prev; prev = cur; cur = tmp;
+  }
+  return prev[n];
+}
+function _rcFuzzyScore(query, text) {
+  query = (query || '').toLowerCase();
+  text = (text || '').toLowerCase();
+  if (!query) return 1;
+  if (!text) return 0;
+  if (text.indexOf(query) !== -1) return 1;   // exact substring — best match
+  // Slide a query-sized window across the text and take the best (lowest
+  // edit-distance) match, so partial words / typos anywhere in the name
+  // still surface a good score instead of only a leading-substring match.
+  var best = 0;
+  var winLen = Math.max(query.length, 3);
+  for (var i = 0; i <= Math.max(0, text.length - 1); i++) {
+    var window = text.substr(i, winLen);
+    if (!window) break;
+    var dist = _rcLevenshtein(query, window);
+    var score = 1 - dist / Math.max(query.length, window.length);
+    if (score > best) best = score;
+  }
+  return best;
+}
+var RC_SEARCH_MIN_SCORE = 0.45;
+
+function getSortedFilteredGroups() {
+  var q = document.getElementById('rc-search').value.trim();
+  var sort = document.getElementById('rc-sort').value;
+
+  if (q) {
+    // While actively searching, rank by relevance first — the best/most
+    // similar matches (name or category) rise to the top regardless of
+    // the sort dropdown, which still applies once the search is cleared.
+    return state.groups
+      .map(function(g) { return { g: g, score: Math.max(_rcFuzzyScore(q, displayNameFor(g)), _rcFuzzyScore(q, g.category)) }; })
+      .filter(function(x) { return x.score >= RC_SEARCH_MIN_SCORE; })
+      .sort(function(a, b) { return b.score - a.score; })
+      .map(function(x) { return x.g; });
+  }
+
+  var list = state.groups.slice();
+  if (sort === 'amount-desc') list.sort(function(a,b){ return b.current_amount - a.current_amount; });
+  else if (sort === 'amount-asc') list.sort(function(a,b){ return a.current_amount - b.current_amount; });
+  else if (sort === 'name') list.sort(function(a,b){ return displayNameFor(a).localeCompare(displayNameFor(b)); });
+  else if (sort === 'status') list.sort(function(a,b){ return (b.possibly_stopped||b.amount_changed?1:0) - (a.possibly_stopped||a.amount_changed?1:0); });
+  return list;
+}
+
+function cardHtml(g) {
+  var status = statusOf(g);
+  var isMerged = g.merged_from && g.merged_from.length > 0;
+  var occRows = g.occurrences.map(function(o, idx) {
+    var menuId = 'occm-' + g.group_key + '-' + idx;
+    return '<div class="rc-occ-row">' +
+      '<span class="rc-occ-date">' + o.month + '</span>' +
+      '<span class="rc-occ-name" title="' + esc(o.name) + '">' + esc(o.name) + '</span>' +
+      '<span class="rc-occ-amount">' + fmt(o.amount) + '</span>' +
+      '<div class="rc-occ-menu-wrap">' +
+        '<button type="button" class="rc-occ-menu-btn" onclick="_rcToggleOccMenu(event,\'' + menuId + '\')" aria-label="פעולות">☰</button>' +
+        '<div class="rc-occ-menu" id="' + menuId + '">' +
+          '<div class="rc-occ-menu-item" onclick="excludeTx(\'' + g.group_key + '\',\'' + o.table + '\',' + o.id + ',\'' + o.month + '\',\'' + fmt(o.amount).replace(/'/g,"") + '\')">✕ הסר</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+  var mergedBadge = isMerged
+    ? '<span class="rc-merged-badge" title="מוזג עם: ' + esc(g.merged_from.join(', ')) + '">מוזג</span>'
+    : '';
+  var nextHtml = status !== 'stopped'
+    ? '<span class="rc-next">הבא: ' + g.next_expected + '</span>'
+    : '';
+  var displayName = displayNameFor(g);
+  var isRenamed = displayName !== g.name;
+  return '<div class="rc-card" id="card-' + g.group_key + '">' +
+    '<div class="rc-card-top" onclick="toggleDetail(\'' + g.group_key + '\')">' +
+      '<span class="rc-card-name"' + (isRenamed ? ' title="שם מקורי: ' + esc(g.name) + '"' : '') + '>' + esc(displayName) + '</span>' +
+      '<span class="rc-card-cat">' + esc(g.category) + '</span>' +
+      mergedBadge +
+      '<span class="rc-status ' + status + '">' + statusLabel(status) + '</span>' +
+      nextHtml +
+    '</div>' +
+    '<div class="rc-card-amount-row" onclick="toggleDetail(\'' + g.group_key + '\')">' +
+      '<span class="rc-card-amount">' + fmt(g.current_amount) + '</span>' +
+    '</div>' +
+    renderTimeline(g.timeline) +
+    '<div class="rc-detail" id="detail-' + g.group_key + '">' +
+      '<div class="rc-stats-grid">' +
+        '<div class="rc-stat"><div class="rc-stat-label">ממוצע</div><div class="rc-stat-value">' + fmt(g.average_amount) + '</div></div>' +
+        '<div class="rc-stat"><div class="rc-stat-label">סה"כ שולם</div><div class="rc-stat-value">' + fmt(g.total_spent) + '</div></div>' +
+        '<div class="rc-stat"><div class="rc-stat-label">מס\' תשלומים</div><div class="rc-stat-value">' + g.occurrence_count + '</div></div>' +
+        '<div class="rc-stat"><div class="rc-stat-label">תשלום ראשון</div><div class="rc-stat-value">' + fmtDate(g.first_payment_date) + '</div></div>' +
+        '<div class="rc-stat"><div class="rc-stat-label">תשלום אחרון</div><div class="rc-stat-value">' + fmtDate(g.last_payment_date) + '</div></div>' +
+        '<div class="rc-stat"><div class="rc-stat-label">טווח</div><div class="rc-stat-value">' + fmt(g.min_amount) + ' – ' + fmt(g.max_amount) + '</div></div>' +
+      '</div>' +
+      occRows +
+      '<div class="rc-actions">' +
+        '<button class="rc-btn" onclick="openRenameModal(\'' + g.group_key + '\')">ערוך שם…</button>' +
+        '<button class="rc-btn" onclick="openFolderAssignPrompt(\'' + g.group_key + '\')">העבר לקבוצה…</button>' +
+        '<button class="rc-btn" onclick="openMergePrompt(\'' + g.group_key + '\')">מזג עם…</button>' +
+        '<button class="rc-btn danger" onclick="dismissGroup(\'' + g.group_key + '\')">התעלם</button>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+}
+
+// ── Folders — collapsible organizational sections above the card list ─────
+function folderIdFor(g) {
+  var fid = state.folderAssignments[g.group_key];
+  if (fid !== undefined && fid !== null) return fid;
+  var def = state.folders.find(function(f){ return f.is_default; });
+  return def ? def.id : null;
+}
+
+function folderSectionHtml(f, bills) {
+  var collapsed = !!state.collapsedFolders[f.id];
+  var canManage = !f.is_default;
+  var body = bills.length
+    ? bills.map(cardHtml).join('')
+    : '<div class="rc-card" style="text-align:center;color:var(--text-muted);font-size:.85em">אין חיובים בקבוצה זו</div>';
+  return '<div class="rc-folder-section">' +
+    '<div class="rc-folder-header' + (collapsed ? ' collapsed' : '') + '" onclick="toggleFolderSection(' + f.id + ')">' +
+      '<span class="rc-folder-chevron">▾</span>' +
+      '<span class="rc-folder-name">' + esc(f.name) + '</span>' +
+      '<span class="rc-folder-count">' + bills.length + '</span>' +
+      '<span class="rc-folder-actions">' + (canManage ?
+        '<button class="rc-folder-icon-btn" onclick="event.stopPropagation();openFolderModal(' + f.id + ')" title="שנה שם">✎</button>' +
+        '<button class="rc-folder-icon-btn" onclick="event.stopPropagation();deleteFolder(' + f.id + ',\'' + esc(f.name).replace(/'/g,"") + '\')" title="מחק קבוצה">🗑</button>'
+        : '') + '</span>' +
+    '</div>' +
+    '<div class="rc-folder-body' + (collapsed ? ' collapsed' : '') + '">' + body + '</div>' +
+  '</div>';
+}
+
+function toggleFolderSection(id) {
+  state.collapsedFolders[id] = !state.collapsedFolders[id];
+  renderCards();
+}
+
+function renderCards() {
+  var list = getSortedFilteredGroups();
+  var searching = document.getElementById('rc-search').value.trim().length > 0;
+
+  if (!list.length) {
+    document.getElementById('rc-cards').innerHTML =
+      '<div class="rc-card" style="text-align:center;color:var(--text-muted)">לא נמצאו חיובים חוזרים</div>';
+  } else {
+    var buckets = {};
+    list.forEach(function(g) {
+      var fid = folderIdFor(g);
+      (buckets[fid] = buckets[fid] || []).push(g);
+    });
+    var html = state.folders.map(function(f) {
+      var bills = buckets[f.id] || [];
+      if (!bills.length && searching) return '';   // hide empty folders while searching
+      return folderSectionHtml(f, bills);
+    }).join('');
+    document.getElementById('rc-cards').innerHTML = html;
+  }
+
+  document.getElementById('rc-hidden-count').textContent = state.hidden.length;
+  document.getElementById('rc-hidden-cards').innerHTML = state.hidden.map(function(g) {
+    return '<div class="rc-card"><div class="rc-card-top">' +
+      '<span class="rc-card-name">' + esc(displayNameForKey(g.group_key, g.name)) + '</span>' +
+      '<button class="rc-btn" onclick="restoreGroup(\'' + g.group_key + '\')">שחזר</button>' +
+    '</div></div>';
+  }).join('');
+}
+
+// ── Per-occurrence action menu (hamburger — replaces an inline text button
+//    to keep each row compact, especially on mobile) ────────────────────
+function _rcToggleOccMenu(e, menuId) {
+  e.stopPropagation();
+  var target = document.getElementById(menuId);
+  var wasOpen = target && target.classList.contains('open');
+  document.querySelectorAll('.rc-occ-menu.open').forEach(function(m){ m.classList.remove('open'); });
+  if (target && !wasOpen) target.classList.add('open');
+}
+document.addEventListener('mousedown', function(e) {
+  if (!e.target.closest('.rc-occ-menu-wrap')) {
+    document.querySelectorAll('.rc-occ-menu.open').forEach(function(m){ m.classList.remove('open'); });
+  }
+});
+
+function toggleHiddenGroups() {
+  var el = document.getElementById('rc-hidden-cards');
+  el.style.display = el.style.display === 'none' ? '' : 'none';
+}
+
+var _rcChart = null;
+function renderTrendChart() {
+  var ctx = document.getElementById('trend-chart');
+  if (_rcChart) { _rcChart.destroy(); _rcChart = null; }
+  _rcChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: state.trend.map(function(t){ return t.month; }),
+      datasets: [{ label: 'סה"כ חיובים חוזרים', data: state.trend.map(function(t){ return t.total; }),
+                   backgroundColor: '#1e9d8b' }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, scales: { x: { reverse: true } } }
+  });
+}
+
+// ── Confirmation modal — used before every one-click action ───────
+function _rcConfirm(title, message, onConfirm) {
+  document.getElementById('rc-confirm-title').textContent = title;
+  document.getElementById('rc-confirm-msg').textContent = message;
+  var yesBtn = document.getElementById('rc-confirm-yes-btn');
+  var freshYesBtn = yesBtn.cloneNode(true);   // strip any previously-bound listener
+  yesBtn.parentNode.replaceChild(freshYesBtn, yesBtn);
+  freshYesBtn.addEventListener('click', function() { _rcCloseConfirm(); onConfirm(); });
+  document.getElementById('rc-confirm-modal').classList.add('open');
+}
+function _rcCloseConfirm() {
+  document.getElementById('rc-confirm-modal').classList.remove('open');
+}
+
+// ── Actions ──────────────────────────────────────────────────────
+function dismissGroup(key) {
+  var g = state.groups.find(function(x){ return x.group_key === key; });
+  var name = g ? displayNameFor(g) : key;
+  _rcConfirm('התעלמות מחיוב חוזר', 'להתעלם מ"' + name + '"? ניתן לשחזר בכל עת מרשימת הקבוצות המוסתרות.', function() {
+    // Persist the dismissal for the next real regen, but update the current
+    // view instantly (no auto-regen) — the choice is already known locally.
+    fetch('/api/recurring/groups/' + encodeURIComponent(key) + '/dismiss', {method:'POST'})
+      .then(function(r){return r.json();}).then(function(res){
+        if (!res.ok) { alert('שגיאה: ' + res.error); return; }
+        var idx = state.groups.findIndex(function(x){ return x.group_key === key; });
+        if (idx !== -1) {
+          var removed = state.groups.splice(idx, 1)[0];
+          state.hidden.push({group_key: removed.group_key, name: removed.name});
+          renderKpis();
+          renderCards();
+        }
+      });
+  });
+}
+function restoreGroup(key) {
+  var g = state.hidden.find(function(x){ return x.group_key === key; });
+  var name = g ? displayNameForKey(g.group_key, g.name) : key;
+  _rcConfirm('שחזור חיוב חוזר', 'לשחזר את "' + name + '" לרשימת החיובים החוזרים הפעילים?', function() {
+    fetch('/api/recurring/groups/' + encodeURIComponent(key) + '/restore', {method:'POST'})
+      .then(function(r){return r.json();}).then(function(){ regenerate(); });
+  });
+}
+function excludeTx(key, table, txId, monthStr, amountStr) {
+  _rcConfirm('הסרת עסקה מהקבוצה', 'להסיר את העסקה מ-' + monthStr + ' (' + amountStr + ') מהקבוצה? הפעולה תשפיע על החישוב בהרצה הבאה.', function() {
+    fetch('/api/recurring/groups/' + encodeURIComponent(key) + '/exclude-tx', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({table:table, tx_id:txId})
+    }).then(function(r){return r.json();}).then(function(){ regenerate(); });
+  });
+}
+// ── Action modal (dropdown-only — no free text) ───────────────────
+var _rcModalMode = null;    // 'merge' | 'move-folder'
+var _rcModalGroupKey = null;
+
+// ── Searchable dropdown (replaces plain <select> so results can be
+//    filtered by typing — used for both the tag and merge pickers) ──
+var _rcDdItems = [];      // [{value, label}]
+var _rcDdSelected = null; // currently chosen value, or null
+
+function _rcSetDdItems(items, placeholder) {
+  _rcDdItems = items;
+  _rcDdSelected = null;
+  document.getElementById('rc-dd-btn').textContent = placeholder || 'בחר…';
+  document.getElementById('rc-dd-btn').disabled = !items.length;
+  document.getElementById('rc-modal-confirm-btn').disabled = true;
+}
+
+function _rcRenderDdOptions(filter) {
+  var q = (filter || '').trim().toLowerCase();
+  var box = document.getElementById('rc-dd-options');
+  var items = _rcDdItems.filter(function(it){ return !q || it.label.toLowerCase().indexOf(q) !== -1; });
+  box.innerHTML = items.length
+    ? items.map(function(it){
+        return '<div class="rc-dd-option' + (it.value === _rcDdSelected ? ' active' : '') + '" data-value="' + esc(it.value) + '">' + esc(it.label) + '</div>';
+      }).join('')
+    : '<div class="rc-dd-empty">אין תוצאות</div>';
+}
+
+function _rcOpenDd() {
+  if (!_rcDdItems.length) return;
+  document.getElementById('rc-dd-wrap').classList.add('open');
+  var search = document.getElementById('rc-dd-search');
+  search.value = '';
+  _rcRenderDdOptions('');
+  search.focus();
+}
+function _rcCloseDd() {
+  document.getElementById('rc-dd-wrap').classList.remove('open');
+}
+function _rcToggleDd(e) {
+  if (e) e.stopPropagation();
+  document.getElementById('rc-dd-wrap').classList.contains('open') ? _rcCloseDd() : _rcOpenDd();
+}
+function _rcFilterDd(q) { _rcRenderDdOptions(q); }
+function _rcSelectDd(value, label) {
+  _rcDdSelected = value;
+  document.getElementById('rc-dd-btn').textContent = label;
+  document.getElementById('rc-modal-confirm-btn').disabled = false;
+  _rcCloseDd();
+}
+document.addEventListener('mousedown', function(e) {
+  var opt = e.target.closest ? e.target.closest('.rc-dd-option[data-value]') : null;
+  if (opt) {
+    e.preventDefault();
+    var val = opt.getAttribute('data-value');
+    var item = _rcDdItems.find(function(it){ return it.value === val; });
+    if (item) _rcSelectDd(item.value, item.label);
+    return;
+  }
+  if (!e.target.closest('#rc-dd-wrap')) _rcCloseDd();
+});
+
+function openFolderAssignPrompt(key) {
+  _rcModalMode = 'move-folder';
+  _rcModalGroupKey = key;
+  document.getElementById('rc-modal-title').textContent = 'העבר לקבוצה';
+  document.getElementById('rc-modal-label').textContent = 'קבוצה';
+  document.getElementById('rc-modal-hint').style.display = 'none';
+  var g = state.groups.find(function(x){ return x.group_key === key; });
+  var currentFid = g ? folderIdFor(g) : null;
+  var items = state.folders.map(function(f){ return {value: String(f.id), label: f.name + (f.is_default ? ' (ברירת מחדל)' : '')}; });
+  if (!items.length) {
+    _rcSetDdItems([], 'אין קבוצות זמינות');
+  } else {
+    _rcSetDdItems(items, 'בחר קבוצה…');
+    var cur = items.find(function(it){ return it.value === String(currentFid); });
+    if (cur) _rcSelectDd(cur.value, cur.label);
+  }
+  openActionModal();
+}
+
+function openMergePrompt(key) {
+  _rcModalMode = 'merge';
+  _rcModalGroupKey = key;
+  document.getElementById('rc-modal-title').textContent = 'מזג עם קבוצה אחרת';
+  document.getElementById('rc-modal-label').textContent = 'מזג לתוך';
+  document.getElementById('rc-modal-hint').textContent = 'ההיסטוריה של הקבוצה הנוכחית תועבר אל הקבוצה שנבחרה, וזו תוסתר.';
+  document.getElementById('rc-modal-hint').style.display = '';
+  var others = state.groups.filter(function(g){ return g.group_key !== key; });
+  if (!others.length) {
+    _rcSetDdItems([], 'אין קבוצות אחרות למיזוג');
+  } else {
+    var items = others.map(function(g){ return {value: g.group_key, label: displayNameFor(g) + ' (' + g.category + ')'}; });
+    _rcSetDdItems(items, 'בחר קבוצה…');
+  }
+  openActionModal();
+}
+
+function openActionModal() {
+  document.getElementById('rc-action-modal').classList.add('open');
+}
+function closeActionModal() {
+  document.getElementById('rc-action-modal').classList.remove('open');
+  _rcCloseDd();
+  _rcModalMode = null;
+  _rcModalGroupKey = null;
+}
+
+function confirmActionModal() {
+  var value = _rcDdSelected;
+  if (!value) return;
+  var key = _rcModalGroupKey;
+  var mode = _rcModalMode;
+  closeActionModal();
+
+  if (mode === 'merge') {
+    fetch('/api/recurring/groups/merge', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({secondary_key:key, primary_key:value})
+    }).then(function(r){return r.json();}).then(function(){ regenerate(); });
+  } else if (mode === 'move-folder') {
+    var folderId = parseInt(value, 10);
+    fetch('/api/recurring/groups/' + encodeURIComponent(key) + '/assign-folder', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({folder_id: folderId})
+    }).then(function(r){return r.json();}).then(function(res){
+      if (!res.ok) { alert('שגיאה: ' + res.error); return; }
+      state.folderAssignments[key] = folderId;
+      renderCards();
+    });
+  }
+}
+
+// ── Folder management (create/rename/delete) — the only place free text is
+//    allowed, since a folder name is user-chosen, not a controlled vocabulary ──
+var _rcFolderModalMode = null;   // 'create' | 'rename'
+var _rcFolderModalTargetId = null;
+
+function _rcLoadFolders(cb) {
+  fetch('/api/recurring/folders').then(function(r){ return r.json(); }).then(function(d){
+    if (d.ok) { state.folders = d.folders; state.folderAssignments = d.assignments; }
+    if (cb) cb();
+  }).catch(function(){ if (cb) cb(); });
+}
+
+function openFolderCreateModal() {
+  _rcFolderModalMode = 'create';
+  _rcFolderModalTargetId = null;
+  document.getElementById('rc-folder-modal-title').textContent = 'קבוצה חדשה';
+  var input = document.getElementById('rc-folder-name-input');
+  input.value = '';
+  document.getElementById('rc-folder-modal-error').style.display = 'none';
+  document.getElementById('rc-folder-modal').classList.add('open');
+  input.focus();
+}
+function openFolderModal(folderId) {
+  _rcFolderModalMode = 'rename';
+  _rcFolderModalTargetId = folderId;
+  var f = state.folders.find(function(x){ return x.id === folderId; });
+  document.getElementById('rc-folder-modal-title').textContent = 'שינוי שם קבוצה';
+  var input = document.getElementById('rc-folder-name-input');
+  input.value = f ? f.name : '';
+  document.getElementById('rc-folder-modal-error').style.display = 'none';
+  document.getElementById('rc-folder-modal').classList.add('open');
+  input.focus();
+}
+function _rcCloseFolderModal() {
+  document.getElementById('rc-folder-modal').classList.remove('open');
+}
+function _rcSubmitFolderModal() {
+  var name = document.getElementById('rc-folder-name-input').value.trim();
+  var errEl = document.getElementById('rc-folder-modal-error');
+  if (!name) { errEl.textContent = 'יש להזין שם קבוצה'; errEl.style.display = ''; return; }
+  var url = _rcFolderModalMode === 'create'
+    ? '/api/recurring/folders'
+    : '/api/recurring/folders/' + _rcFolderModalTargetId + '/rename';
+  fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name:name})})
+    .then(function(r){ return r.json(); }).then(function(res){
+      if (!res.ok) { errEl.textContent = res.error || 'שגיאה'; errEl.style.display = ''; return; }
+      _rcCloseFolderModal();
+      _rcLoadFolders(function(){ renderCards(); });
+    });
+}
+function deleteFolder(folderId, name) {
+  _rcConfirm('מחיקת קבוצה', 'למחוק את הקבוצה "' + name + '"? החיובים שבה יעברו לקבוצת ברירת המחדל.', function() {
+    fetch('/api/recurring/folders/' + folderId + '/delete', {method:'POST'})
+      .then(function(r){ return r.json(); }).then(function(res){
+        if (!res.ok) { alert('שגיאה: ' + res.error); return; }
+        delete state.collapsedFolders[folderId];
+        _rcLoadFolders(function(){ renderCards(); });
+      });
+  });
+}
+
+// ── Display-name override — a made-up label for this page only, free text
+//    intentionally allowed since it isn't a controlled vocabulary ──────────
+var _rcRenameTargetKey = null;
+
+function _rcLoadDisplayNames(cb) {
+  fetch('/api/recurring/display-names').then(function(r){ return r.json(); }).then(function(d){
+    if (d.ok) { state.displayNames = d.display_names; }
+    if (cb) cb();
+  }).catch(function(){ if (cb) cb(); });
+}
+
+function openRenameModal(key) {
+  _rcRenameTargetKey = key;
+  var g = state.groups.find(function(x){ return x.group_key === key; });
+  var current = g ? displayNameFor(g) : (state.displayNames[key] || '');
+  var hasOverride = !!state.displayNames[key];
+  var input = document.getElementById('rc-rename-input');
+  input.value = current;
+  document.getElementById('rc-rename-error').style.display = 'none';
+  document.getElementById('rc-rename-reset-btn').style.display = hasOverride ? '' : 'none';
+  document.getElementById('rc-rename-modal').classList.add('open');
+  input.focus();
+  input.select();
+}
+function _rcCloseRenameModal() {
+  document.getElementById('rc-rename-modal').classList.remove('open');
+  _rcRenameTargetKey = null;
+}
+function _rcSubmitRenameModal() {
+  var name = document.getElementById('rc-rename-input').value.trim();
+  var errEl = document.getElementById('rc-rename-error');
+  if (!name) { errEl.textContent = 'יש להזין שם'; errEl.style.display = ''; return; }
+  var key = _rcRenameTargetKey;
+  fetch('/api/recurring/groups/' + encodeURIComponent(key) + '/display-name', {
+    method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name:name})
+  }).then(function(r){ return r.json(); }).then(function(res){
+    if (!res.ok) { errEl.textContent = res.error || 'שגיאה'; errEl.style.display = ''; return; }
+    state.displayNames[key] = name;
+    _rcCloseRenameModal();
+    renderKpis();
+    renderCards();
+  });
+}
+function _rcResetRenameModal() {
+  var key = _rcRenameTargetKey;
+  fetch('/api/recurring/groups/' + encodeURIComponent(key) + '/display-name', {method:'DELETE'})
+    .then(function(r){ return r.json(); }).then(function(res){
+      if (!res.ok) { alert('שגיאה: ' + res.error); return; }
+      delete state.displayNames[key];
+      _rcCloseRenameModal();
+      renderKpis();
+      renderCards();
+    });
+}
+
+// ── Loading state (skeleton shown in place of a separate "not generated
+//    yet" page — same shell throughout, updates in place, never reloads) ──
+function _rcShowSkeleton() {
+  document.getElementById('rc-skeleton').style.display = '';
+  document.getElementById('rc-real-content').style.display = 'none';
+}
+function _rcHideSkeleton() {
+  document.getElementById('rc-skeleton').style.display = 'none';
+  document.getElementById('rc-real-content').style.display = '';
+}
+function _rcShowLoadingBanner(text) {
+  document.getElementById('rc-loading-text').textContent = text || 'מריץ ניתוח…';
+  document.getElementById('rc-loading-banner').style.display = 'flex';
+}
+function _rcHideLoadingBanner() {
+  document.getElementById('rc-loading-banner').style.display = 'none';
+}
+function _rcShowError(msg) {
+  document.getElementById('rc-error-text').textContent = msg;
+  document.getElementById('rc-error-banner').classList.add('show');
+}
+function _rcHideError() {
+  document.getElementById('rc-error-banner').classList.remove('show');
+}
+
+function _rcApplyFreshData(data) {
+  // Update in place (not a wholesale reassignment) so folders/assignments/
+  // collapsed-state — fetched and held separately from this cache — survive
+  // a regen instead of being wiped back to empty defaults.
+  state.groups = data.groups;
+  state.hidden = data.hidden_groups;
+  state.kpis = data.kpis;
+  state.trend = data.trend;
+  state.historyAlerts = data.history_alerts || {introduced:[], removed:[], status_changed:[]};
+  _rcHideSkeleton();
+  _rcHideLoadingBanner();
+  _rcHideError();
+  renderKpis();
+  renderCards();
+  renderTrendChart();
+}
+
+function _rcCheckStaleness() {
+  fetch('/api/recurring/staleness').then(function(r) { return r.json(); }).then(function(d) {
+    var btn = document.getElementById('regen-btn');
+    if (!btn || !d.ok) return;
+    btn.classList.toggle('stale', !!d.stale);
+    btn.title = d.stale
+      ? 'קובץ עודכן מאז החישוב האחרון — לחץ לרענון'
+      : 'חשב מחדש';
+  }).catch(function() {});
+}
+
+function regenerate() {
+  var btn = document.getElementById('regen-btn');
+  var pct = document.getElementById('regen-pct');
+  _rcHideError();
+  btn.classList.remove('stale'); btn.title = 'חשב מחדש';
+  btn.disabled = true; btn.classList.add('running'); pct.textContent = '0%';
+  var es = new EventSource('/api/recurring/regenerate');
+  es.onmessage = function(e) {
+    if (e.data === 'done') {
+      es.close();
+      fetch('/api/recurring/data').then(function(r){ return r.json(); }).then(function(data){
+        _rcApplyFreshData(data);
+        fcLoad();
+        btn.disabled = false; btn.classList.remove('running'); pct.textContent = '';
+      }).catch(function(){
+        btn.disabled = false; btn.classList.remove('running'); pct.textContent = '';
+        _rcHideLoadingBanner();
+        _rcShowError('החישוב הסתיים אך טעינת התוצאות נכשלה — נסה לרענן שוב');
+      });
+    } else if (e.data.indexOf('error') === 0) {
+      es.close();
+      btn.disabled = false; btn.classList.remove('running'); pct.textContent = '';
+      _rcHideLoadingBanner();
+      _rcShowError('שגיאה בחישוב — ' + e.data);
+    } else {
+      var p = parseInt(e.data);
+      if (!isNaN(p)) {
+        pct.textContent = p + '%';
+        _rcShowLoadingBanner('מריץ ניתוח… ' + p + '%');
+      }
+    }
+  };
+  es.onerror = function() {
+    es.close();
+    btn.disabled = false; btn.classList.remove('running'); pct.textContent = '';
+    _rcHideLoadingBanner();
+    _rcShowError('החיבור נותק — נסה ללחוץ על כפתור הרענון שוב');
+  };
+}
+
+
+// ── Spending forecast ───────────────────────────────────────────────────────
+// The server sends both scenarios (מחמיר / ממוצע) in one answer. Switching the scenario and the safety
+// buffer only re-draw from that answer — nothing is asked from the server again.
+var FC_KEY = 'rc_forecast_params';
+var fcParams = { buffer: '', card_mode: 'max' };
+try { var _fcs = JSON.parse(localStorage.getItem(FC_KEY) || 'null'); if (_fcs) fcParams = Object.assign(fcParams, _fcs); } catch (e) {}
+var fcData = null, fcResizeTimer = null, fcDots = [], fcOpen = {};   // fcOpen: which sections the user opened — all of them start closed
+
+// Amount as an isolated left-to-right run, so the sign and ₪ stay put inside the RTL page.
+function fcMoney(n, plus) { return '<bdi dir="ltr">' + fcPlain(n, plus) + '</bdi>'; }
+function fcPlain(n, plus) { var r = Math.round(n); return '\u200E' + (plus && r > 0 ? '+' : '') + r.toLocaleString('en-US').replace('-', '\u2212') + '₪\u200E'; }
+function fcShortDate(iso) { var p = String(iso).split('-'); return p[2] + '/' + p[1]; }
+function fcSave() { try { localStorage.setItem(FC_KEY, JSON.stringify(fcParams)); } catch (e) {} }
+// A small "i" that explains itself on hover / focus (tap on a phone).
+function fcInfo(text) { return '<span class="fc-i" tabindex="0" data-tip="' + esc(text) + '">i</span>'; }
+
+// 'MM/YY · amount' for each month, as one line of the collapsed detail.
+function fcMonthList(months) { return months.map(function(m) { return m.month.slice(5) + '/' + m.month.slice(2, 4) + ' · ' + fcMoney(m.amount); }).join(' &nbsp;'); }
+// A "משוער" tag for any figure that is an estimate or an average rather than something already known.
+// It always sits at the bottom of its cube (never inside the text); a single one, in the main figure, carries the (i).
+/** The "משוער" tag: a block at the bottom of a cube (default) or an inline span (`inline`); `tip` adds the (i) with that explanation. */
+function fcEst(tip, inline) { var t = inline ? 'span' : 'div'; return '<' + t + ' class="fc-est-foot"><span class="fc-est">משוער</span>' + (tip ? fcInfo(tip) : '') + '</' + t + '>'; }
+var FC_TIP_EST = 'משוער = הערכה שמחושבת מהיסטוריית ה-6 חודשים האחרונים (ממוצע, או החודש הגבוה בתרחיש המחמיר). רק חיוב שכרטיס כבר מחזיק בעסקאות שלו ידוע בוודאות. החיוב החודשי החוזר כולל חיובים חוזרים מהבנק ושכירות ממוצעת, ללא חיובי כרטיס אשראי.';
+var FC_TIP_AUTO = 'הכרטיס נוסף למערכת אוטומטית ("Auto Insertion") ברגע שנקלט לראשונה קובץ אשראי שלו. זו לא הגדרה שלך — רק סימון שהמערכת יצרה את הכרטיס בעצמה, ואפשר לתת לו תיאור בטבלת Card.';
+var FC_TIP_ASSUMED = 'הפעולה עדיין לא מופיעה בקבצים שהוזנו. מניחים שהיא בוצעה במועד שחושב לה ולכן היא נכללת בחישוב. אם לא בוצעה — נדע בעדכון הקבצים בסוף החודש, והשינוי ישוקלל בחישוב הפעולות החוזרות של החודש הבא.';
+
+// remember which sections of the rules panel are open (the 'toggle' event does not bubble: listen while capturing)
+document.getElementById('fc-body').addEventListener('toggle', function(ev) {
+  var sec = ev.target.getAttribute && ev.target.getAttribute('data-sec');
+  if (sec) fcOpen[sec] = ev.target.open;
+}, true);
+var FC_DOT_HINT = 'העבר עכבר או גע בנקודה בגרף, או בסוג חיוב במקרא, כדי לראות פרטים';
+var FC_HIT = '.fc-hit, .fc-hit-line, .fc-leg, .fc-split i';   // everything that opens its details in the line under the chart
+var fcLegTexts = {};
+function fcDotText(e) {
+  var parts = [e.kind === 'income' && !e.assumed ? 'כניסת משכורת משוערת' : e.name];
+  if (e.detail && e.detail.payer) parts.push('שם בבנק: ' + e.detail.payer);
+  parts.push(fcShortDate(e.date), fcPlain(-e.amount, true));
+  if (e.assumed) parts.push('הונח כבוצע');
+  return parts.join(' · ');
+}
+
+// Hover (mouse) or tap (touch) opens a floating popover (position:fixed, pushes nothing) and closes it again.
+(function() {
+  var host = document.getElementById('fc-body');
+  var canHover = window.matchMedia && window.matchMedia('(hover: hover)').matches;
+  var pop = null;
+  /** Show the (i) text in a floating popover over the page (position:fixed, never moves the layout); clamped inside the viewport. */
+  function openInfo(i) {
+    if (i._open) return;
+    closeAll(i);
+    pop = document.createElement('div');
+    pop.className = 'fc-pop';
+    pop.textContent = i.getAttribute('data-tip');
+    document.body.appendChild(pop);
+    var r = i.getBoundingClientRect(), w = pop.offsetWidth, h = pop.offsetHeight, vw = document.documentElement.clientWidth, vh = window.innerHeight;
+    var left = Math.max(8, Math.min(vw - w - 8, r.left + r.width / 2 - w / 2));
+    var top = r.bottom + 6; if (top + h > vh - 8) top = Math.max(8, r.top - h - 6);
+    pop.style.left = left + 'px'; pop.style.top = top + 'px';
+    i._open = true; i.classList.add('on');
+  }
+  /** Remove the popover of the given (i). */
+  function closeInfo(i) { if (pop) { pop.remove(); pop = null; } i._open = false; i.classList.remove('on'); }
+  /** Close every open (i) popover except the given one. */
+  function closeAll(except) { host.querySelectorAll('.fc-i.on').forEach(function(i) { if (i !== except) closeInfo(i); }); }
+  window.addEventListener('scroll', function() { closeAll(); }, true);
+  window.addEventListener('resize', function() { closeAll(); });
+  function showDot(h) {
+    var box = document.getElementById('fc-chart-detail');
+    var text = h.getAttribute('data-k') ? fcLegTexts[h.getAttribute('data-k')] : (fcDots[+h.getAttribute('data-i')] ? fcDotText(fcDots[+h.getAttribute('data-i')]) : '');
+    if (box && text) { box.textContent = text; box.classList.add('on'); }
+  }
+  function hideDot() { var box = document.getElementById('fc-chart-detail'); if (box) { box.textContent = FC_DOT_HINT; box.classList.remove('on'); } }
+
+  host.addEventListener('mouseover', function(ev) {
+    if (!canHover) return;
+    var i = ev.target.closest('.fc-i'), h = ev.target.closest(FC_HIT);
+    if (i) openInfo(i); else if (h) showDot(h);
+  });
+  host.addEventListener('mouseout', function(ev) {
+    if (!canHover) return;
+    var i = ev.target.closest('.fc-i'), h = ev.target.closest(FC_HIT);
+    if (i && !(ev.relatedTarget && i.contains(ev.relatedTarget))) closeInfo(i);
+    if (h && !(ev.relatedTarget && ev.relatedTarget.closest && ev.relatedTarget.closest(FC_HIT))) hideDot();
+  });
+  host.addEventListener('focusin', function(ev) { var i = ev.target.closest('.fc-i'); if (canHover && i) openInfo(i); });   // keyboard; on touch the tap's click does it
+  host.addEventListener('focusout', function(ev) { var i = ev.target.closest('.fc-i'); if (canHover && i) closeInfo(i); });
+  host.addEventListener('click', function(ev) {
+    var i = ev.target.closest('.fc-i'), h = ev.target.closest(FC_HIT);
+    if (i) { if (!canHover) { if (i._open) closeInfo(i); else openInfo(i); } return; }
+    if (h) { if (!canHover) { var box = document.getElementById('fc-chart-detail'); if (box.classList.contains('on') && box._for === h) { hideDot(); box._for = null; } else { showDot(h); box._for = h; } } return; }
+    if (!canHover) { closeAll(); hideDot(); }
+  });
+})();
+
+function fcLoad() {
+  return fetch('/api/recurring/forecast').then(function(r){ return r.json(); }).then(function(d) {
+    fcData = d; fcRender();
+  }).catch(function() {
+    document.getElementById('fc-body').innerHTML = '<div class="fc-card fc-empty">לא ניתן לחשב כרגע — נסה לרענן</div>';
+  });
+}
+
+// View-only changes: no request.
+function fcSet(key, value) { fcParams[key] = value; fcSave(); fcRender(); }
+function fcReset() { fcParams = { buffer: '', card_mode: 'max' }; fcSave(); fcRender(); }
+window.addEventListener('resize', function() { clearTimeout(fcResizeTimer); fcResizeTimer = setTimeout(function() { if (fcData && fcData.ok) fcRender(); }, 200); });
+
+var FC_COLORS = { card: '#5b7bd5', rent: '#e0832e', recurring: '#1e9d8b', income: '#2e9e5b' };
+var FC_LABELS = { card: 'כרטיסי אשראי', rent: 'שכירות', recurring: 'חיובים חוזרים', income: 'משכורת' };
+
+// The chosen scenario with the buffer applied (a subtraction, no recalculation).
+function fcView() {
+  var d = fcData, sc = d.scenarios[fcParams.card_mode] || d.scenarios.max;
+  var buf = Math.max(0, Number(fcParams.buffer) || 0);
+  var free = sc.lowest_balance - buf;
+  return { sc: sc, balance: d.balance, free: free, buffer: buf, lowest: sc.lowest_balance,
+           daily: free > 0 ? free / sc.days_left : 0, events: sc.events };
+}
+
+// Balance over time, always a month ahead of today. The green band is the money free to spend right now:
+// the stretch between the zero line (plus the safety buffer) and the lowest point the balance reaches
+// anywhere in the month shown — the card charges that land right after a salary included. Every salary of the month is marked with a vertical line.
+function fcChartSvg(d, v, width) {
+  var sc = v.sc, evs = v.events;
+  var W = Math.max(320, width), H = 250, L = 60, R = 14, T = 44, B = 30;
+  var t0 = new Date(d.today).getTime(), t1 = new Date(sc.chart_end).getTime(), tH = new Date(sc.horizon).getTime();
+  var span = Math.max(t1 - t0, 86400000);
+  var shown = evs.filter(function(e) { return new Date(e.date).getTime() <= t1; });
+  fcDots = [];
+  var pts = [{ t: t0, b: v.balance }];
+  shown.forEach(function(e) { pts.push({ t: Math.max(new Date(e.date).getTime(), t0), b: e.balance_after, e: e }); });
+  var salaries = shown.filter(function(e) { return e.kind === 'income' && !e.assumed; });
+  T = 30;
+  var hi = Math.max.apply(null, pts.map(function(p) { return p.b; })), lo = Math.min(0, v.lowest);
+  var padV = (hi - lo) * 0.06 || 1; hi += padV; if (lo < 0) lo -= padV;
+  function X(t) { return L + (W - L - R) * (t - t0) / span; }
+  function Y(b) { return T + (H - T - B) * (1 - (b - lo) / (hi - lo)); }
+  var x0 = X(t0), x1 = X(t1), xH = x1, zero = Y(0), low = Y(v.lowest), out = '';   // the band spans the whole month: what is spent now is gone for all of it
+
+  // free band (or the missing amount, in red) — from today to the next salary
+  if (v.free > 0) {
+    var top = Y(v.lowest), bot = Y(v.buffer);
+    out += '<rect x="' + x0 + '" y="' + top + '" width="' + (xH - x0) + '" height="' + Math.max(bot - top, 0) + '" fill="#2ecc71" opacity=".2"/>';
+    out += '<text x="' + ((x0 + xH) / 2) + '" y="' + (top + (bot - top) / 2 + 4) + '" text-anchor="middle" font-size="13" font-weight="700" fill="#1b7f4a">פנוי לבזבוז (משוער) · ' + fcPlain(v.free) + '</text>';
+  } else {
+    out += '<rect x="' + x0 + '" y="' + zero + '" width="' + (xH - x0) + '" height="' + Math.max(low - zero, 0) + '" fill="#e74c3c" opacity=".16"/>';
+    out += '<text x="' + ((x0 + xH) / 2) + '" y="' + (zero + (low - zero) / 2 + 4) + '" text-anchor="middle" font-size="13" font-weight="700" fill="#c0392b">חסר · ' + fcPlain(-v.free) + '</text>';
+  }
+  if (v.buffer > 0 && v.free > 0) {
+    out += '<rect x="' + x0 + '" y="' + Y(v.buffer) + '" width="' + (xH - x0) + '" height="' + Math.max(zero - Y(v.buffer), 0) + '" fill="#8895ad" opacity=".22"/>';
+    out += '<text x="' + (x0 + 6) + '" y="' + (zero - 4) + '" font-size="10" fill="#5d6b84">כרית ביטחון ' + fcPlain(v.buffer) + '</text>';
+  }
+  // zero line + level labels
+  out += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + zero + '" y2="' + zero + '" stroke="#e74c3c" stroke-dasharray="4 4" opacity=".7"/>';
+  out += '<text x="' + (L - 6) + '" y="' + (zero + 4) + '" text-anchor="end" font-size="10" fill="#c0392b">0</text>';
+  out += '<text x="' + (L - 6) + '" y="' + (Y(v.balance) + 4) + '" text-anchor="end" font-size="10" fill="#555">' + fcPlain(v.balance) + '</text>';
+  if (Math.abs(low - Y(v.balance)) > 14 && Math.abs(low - zero) > 14) out += '<text x="' + (L - 6) + '" y="' + (low + 4) + '" text-anchor="end" font-size="10" fill="#555">' + fcPlain(v.lowest) + '</text>';
+
+  // balance path
+  var path = 'M' + X(pts[0].t) + ',' + Y(pts[0].b);
+  for (var i = 1; i < pts.length; i++) path += ' H' + X(pts[i].t) + ' V' + Y(pts[i].b);
+  path += ' H' + x1;
+  out += '<path d="' + path + '" fill="none" stroke="#1e9d8b" stroke-width="2.4" stroke-linejoin="round"/>';
+  pts.slice(1).forEach(function(p) {
+    var e = p.e;
+    out += '<circle cx="' + X(p.t) + '" cy="' + Y(p.b) + '" r="4" fill="' + (p.b < 0 ? '#e74c3c' : FC_COLORS[e.kind]) + '" stroke="#fff" stroke-width="1.2"/>' +
+           '<circle class="fc-hit" data-i="' + fcDots.length + '" cx="' + X(p.t) + '" cy="' + Y(p.b) + '" r="11"/>';
+    fcDots.push(e);
+  });
+  out += '<circle cx="' + x0 + '" cy="' + Y(v.balance) + '" r="5" fill="#fff" stroke="#1e2a4a" stroke-width="2"/>';
+
+  // salary entries: a vertical line with a marker on top; its details open on hover / tap (line under the chart)
+  var lastTickEnd = x0 + 62;   // leaves the 'today' label (and, below, the end-of-chart label) alone
+  salaries.forEach(function(e) {
+    var x = X(new Date(e.date).getTime());
+    out += '<line x1="' + x + '" x2="' + x + '" y1="' + (T - 4) + '" y2="' + (H - B) + '" stroke="#2e9e5b" stroke-width="2"/>';
+    out += '<polygon points="' + (x - 6) + ',' + (T - 16) + ' ' + (x + 6) + ',' + (T - 16) + ' ' + x + ',' + (T - 5) + '" fill="#2e9e5b"/>';
+    out += '<line class="fc-hit-line" data-i="' + fcDots.length + '" x1="' + x + '" x2="' + x + '" y1="' + (T - 16) + '" y2="' + (H - B) + '"/>';
+    fcDots.push(e);
+    var tx = fcShortDate(e.date);   // the date on the time axis, where it does not cover anything
+    if (x - 18 > lastTickEnd && x + 18 < x1 - 40) { out += '<text x="' + x + '" y="' + (H - 8) + '" text-anchor="middle" font-size="11" font-weight="700" fill="#2e9e5b">' + tx + '</text>'; lastTickEnd = x + 18; }
+  });
+  if (tH > t1) {   // the next salary is further than the chart looks
+    var far = 'משכורת ב-' + fcShortDate(sc.horizon) + ' ›';
+    out += '<text x="' + (W - R) + '" y="14" text-anchor="end" font-size="12" font-weight="700" fill="#2e9e5b">' + far + '</text>';
+  }
+
+  // time axis
+  out += '<text x="' + x0 + '" y="' + (H - 8) + '" text-anchor="start" font-size="11" fill="#555">היום ' + fcShortDate(d.today) + '</text>';
+  out += '<text x="' + x1 + '" y="' + (H - 8) + '" text-anchor="end" font-size="11" fill="#555">' + fcShortDate(sc.chart_end) + '</text>';
+  return '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="יתרה לחודש הקרוב">' + out + '</svg>';
+}
+
+// Everything projected is an estimate; only a card charge the card already holds is known.
+function fcIsEstimate(e) { return !(e.kind === 'card' && e.detail && e.detail.held && e.detail.held >= e.detail.base); }
+
+function fcEventDetail(e, mode) {
+  if (e.kind === 'income') return e.assumed ? 'הונחה כנכנסת במועדה' : 'משכורת צפויה';
+  if (e.kind === 'card') {
+    if (e.detail.held) return 'חיוב ידוע בכרטיס' + (e.detail.held < e.detail.base ? ' + הערכה' : '');
+    return mode === 'max' ? 'החודש הגבוה ביותר' : 'ממוצע חודשי';
+  }
+  if (e.kind === 'rent') return 'חיוב חוזר קבוע';
+  return e.kind === 'recurring' ? 'לפי החיוב האחרון' : FC_LABELS[e.kind];
+}
+
+function fcRender() {
+  var d = fcData, el = document.getElementById('fc-body');
+  if (!d || d.ok === false) {
+    el.innerHTML = '<div class="fc-card fc-empty">' + esc(d && d.error ? d.error : 'לא ניתן לחשב') + '</div>'; return;
+  }
+  if (!d.scenarios.max.ok) {
+    var none = d.scenarios.max;
+    el.innerHTML = '<div class="fc-card fc-empty">' + (none.notes || []).map(esc).join('<br>') +
+      (none.diagnostics && none.diagnostics.length ? '<div style="margin-top:10px;text-align:right">' + none.diagnostics.map(function(g) { return '<div class="fc-sub-rule">' + esc(g.name) + ' · ' + g.deposits + ' הפקדות · ימים ' + esc(g.days) + ' · ' + esc(g.status) + '</div>'; }).join('') + '</div>' : '') + '</div>';
+    return;
+  }
+  var v = fcView(), sc = v.sc, mode = fcParams.card_mode, sal = sc.salary;
+  var free = v.free, neg = free < 0;
+  var chipCls = neg ? 'bad' : (free < v.balance * 0.1 ? 'warn' : '');
+  var chipTxt = neg ? 'חסרים ' + fcMoney(-free) + ' כדי לא להיכנס למינוס' : (chipCls ? 'מצב צפוף — כדאי להיזהר' : 'מצב תקין');
+  var tight = sc.tight_date ? 'הנקודה הצפופה: ' + esc(sc.tight_name) + ' · ' + fcShortDate(sc.tight_date) : 'אין חיובים לפני המשכורת';
+  var dayLabel = sc.days_left === 1 ? 'יום אחד' : sc.days_left + ' ימים';
+  var charges = v.events.filter(function(e) { return e.kind !== 'income' && !e.after_salary; });
+  var fixed = sc.fixed_monthly;
+  var nAll = fixed.count + (fixed.rent_items ? 1 : 0), nCard = fixed.by_card_count, nBank = nAll - nCard;   // rent counts as one of the charges
+
+  // Short text on the face of every KPI; the full explanation opens from its (i).
+  var tipMain = 'פנוי לבזבוז = הסכום שאפשר להוציא עכשיו בלי שהיתרה תרד מתחת לאפס בשום נקודה עד ' + fcShortDate(sc.chart_end) +
+    ' — כולל החיובים שמגיעים גם אחרי המשכורת. ' + (sc.tight_date ? 'הנקודה הצפופה: ' + sc.tight_name + ' ב-' + fcShortDate(sc.tight_date) + '. ' : '') +
+    'תרחיש מחמיר = כרטיס בחודש הגבוה, משכורת בתאריך המאוחר ובסכום הנמוך; ממוצע = ממוצעי 6 החודשים. כרית ביטחון מופחתת מהסכום. ' + FC_TIP_EST;
+  var tipFixed = 'החודש כולו, מה-1 ועד סופו, בין אם כבר שולם ובין אם לא: ' + nAll + ' חיובים חוזרים (' + nBank + ' מהבנק, ' + nCard + ' בכרטיס). לא כולל הערכה של חיובי כרטיס האשראי עצמם.';
+  var tipCount = 'מספר החיובים החוזרים הפעילים (שכירות נספרת כחיוב אחד): ' + nBank + ' משולמים מהבנק ו-' + nCard + ' בכרטיס אשראי.';
+  var tipBalance = 'היתרה האחרונה בקובץ הבנק, נכון ל-' + fcShortDate(d.as_of) + '.' +
+    (Math.round(sc.balance_now) !== Math.round(d.balance) ? ' אחרי הפעולות שהונחו כבוצעות (עדיין לא בקבצים) היא ' + fcPlain(sc.balance_now) + ' — ממנה מתחיל החישוב.' : '');
+  var left = sc.month_left;
+  var tipCharges = 'סכום החיובים המשוערים שעוד לא יצאו (כרטיסי אשראי, שכירות וחיובים חוזרים) מהיום ועד סוף החודש, ב-' + fcShortDate(left.end) + ': ' + left.count + ' חיובים.';
+  function kpi(label, value, sub, tip, est) {
+    return '<div class="fc-mini"><div class="fc-mini-l">' + label + fcInfo(tip) + '</div><div class="fc-mini-v">' + value + '</div>' +
+      (sub ? '<div class="fc-mini-s">' + sub + '</div>' : '') + (est ? fcEst() : '') + '</div>';
+  }
+  var hero =
+    '<div class="fc-hero"><div class="fc-hero-main">' +
+      '<div class="fc-big' + (neg ? ' neg' : '') + '">' + fcMoney(free) + '</div>' +
+      '<div class="fc-eyebrow">פנוי לבזבוז</div>' +
+      '<span class="fc-chip ' + chipCls + '">' + chipTxt + '</span>' +
+      fcEst(tipMain) +
+      '<div class="fc-hctl"><div class="fc-seg fc-seg-s"><button class="' + (mode === 'max' ? 'on' : '') + '" onclick="fcSet(\'card_mode\',\'max\')">מחמיר</button><button class="' + (mode === 'avg' ? 'on' : '') + '" onclick="fcSet(\'card_mode\',\'avg\')">ממוצע</button></div>' +
+        '<label class="fc-buf">כרית <input type="number" min="0" inputmode="numeric" value="' + fcParams.buffer + '" placeholder="0" onchange="fcSet(\'buffer\', this.value)">₪</label>' +
+        '<button class="fc-reset" onclick="fcReset()" title="איפוס">↺</button></div>' +
+    '</div><div class="fc-hero-side">' +
+      kpi('חיוב חודשי חוזר', fcMoney(fixed.total), '', tipFixed, true).replace('class="fc-mini"', 'class="fc-mini wide"') +
+      kpi('סה"כ חיובים חוזרים', nAll, '', tipCount, false) +
+      kpi('יתרה בחשבון', fcMoney(v.balance), 'ב-' + fcShortDate(d.as_of), tipBalance, false) +
+      kpi('חיובים שנותרו החודש', fcMoney(left.total), left.count + ' חיובים', tipCharges, true).replace('class="fc-mini"', 'class="fc-mini full"') +
+    '</div></div>';
+
+  var order = ['card', 'rent', 'recurring'];
+  var split = order.map(function(k) { return sc.totals[k] ? '<i data-k="' + k + '" style="width:' + (100 * sc.totals[k] / Math.max(sc.totals.all, 1)) + '%;background:' + FC_COLORS[k] + '"></i>' : ''; }).join('');
+  var legend = order.map(function(k) { return '<span class="fc-leg" data-k="' + k + '"><b style="background:' + FC_COLORS[k] + '"></b>' + FC_LABELS[k] + '</span>'; }).join('');
+  fcLegTexts = {};   // the values live in the details line: the type's total and what it is made of
+  order.forEach(function(k) {
+    var items = v.events.filter(function(e) { return e.kind === k && !e.after_salary; });
+    fcLegTexts[k] = FC_LABELS[k] + ' · סה"כ ' + fcPlain(sc.totals[k]) + (items.length ? ' · ' + items.map(function(e) { return e.name + ' ' + fcPlain(e.amount) + ' (' + fcShortDate(e.date) + ')'; }).join(' · ') : '');
+  });
+
+  function fcRow(e, later) {
+    var inc = e.kind === 'income';
+    return '<div class="fc-ev' + (inc ? ' inc' : '') + (later ? ' later' : '') + '"><span class="fc-ev-d">' + fcShortDate(e.date) + '</span>' +
+      '<span class="fc-ev-n"><i class="fc-dot" style="background:' + FC_COLORS[e.kind] + '"></i>' + esc(e.name) +
+        (e.detail && e.detail.auto ? fcInfo(FC_TIP_AUTO) : '') +
+        (e.assumed ? '<span class="fc-asm">הונח כבוצע</span>' + fcInfo(FC_TIP_ASSUMED) : '') +
+        '<small>' + esc(fcEventDetail(e, mode)) + '</small>' +
+        (!inc && fcIsEstimate(e) ? fcEst(null, true) : '') + '</span>' +
+      '<span class="fc-ev-a">' + fcMoney(-e.amount, true) + '</span>' +
+      '<span class="fc-ev-b' + (e.balance_after - v.buffer < 0 ? ' neg' : '') + '">' + fcMoney(e.balance_after) + '</span></div>';
+  }
+  var isNextSalary = function(e) { return e.kind === 'income' && !e.assumed && e.date === sc.horizon; };
+  var upto = v.events.filter(function(e) { return !e.after_salary && !isNextSalary(e); });
+  var later = v.events.filter(function(e) { return e.after_salary || isNextSalary(e); }).filter(function(e) { return !isNextSalary(e); });
+  var rows = upto.map(function(e) { return fcRow(e, false); }).join('');
+  rows += '<div class="fc-ev sal inc"><span class="fc-ev-d">' + fcShortDate(sc.horizon) + '</span><span class="fc-ev-n"><i class="fc-dot" style="background:' + FC_COLORS.income + '"></i>כניסת משכורת — סוף החישוב</span><span class="fc-ev-a">' + fcMoney(sal.next_amount, true) + '</span><span class="fc-ev-b"></span></div>';
+  if (later.length) rows += '<div class="fc-later-title">אחרי המשכורת — עד סוף החודש הקרוב</div>' + later.map(function(e) { return fcRow(e, true); }).join('');
+
+  var chartW = (document.getElementById('fc-body').clientWidth || 640) * (window.innerWidth > 760 ? 0.58 : 0.9);
+  var timeline =
+    '<div class="fc-card"><h3>מה יורד מהחשבון עד המשכורת</h3>' +
+      '<div class="fc-split">' + split + '</div><div class="fc-legend">' + legend + '</div>' +
+      '<div class="fc-chart"><div class="fc-chart-svg">' + fcChartSvg(d, v, chartW) + '</div><div class="fc-chart-detail" id="fc-chart-detail">' + FC_DOT_HINT + '</div></div>' +
+      fcSection('ops', 'פירוט הפעולות', rows, charges.length + ' חיובים') + fcEst() + '</div>';
+
+  var salRules = sal.streams.map(function(st, i) {
+    return '<div class="fc-rule"><span>משכורת' + (sal.streams.length > 1 ? ' ' + (i + 1) : '') + ' · ' + (mode === 'max' ? 'יום ' + st.day + ' (המאוחר ביותר)' : 'יום ' + st.day + ' (ממוצע)') + '</span><b>' + fcMoney(st.amount) + '</b></div>' +
+      '<details class="fc-det"><summary>פירוט ההפקדות</summary><div class="fc-sub-rule">שם בבנק: ' + esc(st.name) + '</div><div class="fc-sub-rule">' + fcMonthList(st.months.slice(-6)) + '</div></details>';
+  }).join('');
+  var salDiag = (sal.diagnostics && sal.diagnostics.length)
+    ? '<details class="fc-det"><summary>מה זוהה בהפקדות המשכורת</summary>' + sal.diagnostics.map(function(g) {
+        return '<div class="fc-sub-rule">' + esc(g.name) + ' · ' + g.deposits + ' הפקדות · ימים ' + esc(g.days) + ' · ' + esc(g.status) + '</div>';
+      }).join('') + '</details>' : '';
+  var cards = (sc.cards || []).map(function(c) {
+    return '<div class="fc-rule"><span>' + esc(c.name) + (c.auto ? fcInfo(FC_TIP_AUTO) : '') + ' · חיוב ביום ' + c.day + '</span><b>ממוצע ' + fcMoney(c.avg_month) + ' · שיא ' + fcMoney(c.max_month) + '</b></div>';
+  }).join('') || '<div class="fc-rule"><span>לא זוהו חיובי כרטיס</span></div>';
+  var rentRule = sc.rent
+    ? sc.rent.items.map(function(it) {
+        return '<div class="fc-rule"><span>' + esc(it.name) + ' · חיוב קבוע ביום ' + it.day + '</span><b>' + fcMoney(it.amount) + '</b></div>' +
+          '<details class="fc-det"><summary>פירוט החודשים</summary><div class="fc-sub-rule">' + fcMonthList(it.monthly) + '</div></details>';
+      }).join('') + (sc.rent.items.length > 1 ? '<div class="fc-rule"><span>סה"כ שכירות</span><b>' + fcMoney(sc.rent.amount) + '</b></div>' : '')
+    : '<div class="fc-rule"><span>שכירות</span><b>לא זוהתה</b></div>';
+  var skipped = (sc.skipped || []).reduce(function(a, s) { a[s.reason] = (a[s.reason] || 0) + 1; return a; }, {});
+  // every part of the rules panel opens and closes (and the whole panel too); what the user opened stays that way
+  function fcSection(key, title, body, summary) {
+    return '<details class="fc-sec" data-sec="' + key + '"' + (fcOpen[key] ? ' open' : '') + '><summary class="fc-sec-sum"><span>' + title + '</span>' +
+      (summary ? '<small>' + summary + '</small>' : '') + '</summary><div class="fc-sec-body">' + body + '</div></details>';
+  }
+  var cardModeRule = '<div class="fc-rule"><span>חיוב כרטיס</span><b>' + (mode === 'max' ? 'החודש הגבוה ב-6 חודשים' : 'ממוצע 6 חודשים') + '</b></div>';
+  var misc = (skipped.card ? '<div class="fc-rule"><span>חוזרים בכרטיס (כלולים בחיוב הכרטיס)</span><b>' + skipped.card + '</b></div>' : '') +
+    (skipped.stopped ? '<div class="fc-rule"><span>חיובים שנראה שהופסקו (לא נספרו)</span><b>' + skipped.stopped + '</b></div>' : '') +
+    (sc.notes || []).map(function(n) { return '<div class="fc-note">' + esc(n) + '</div>'; }).join('');
+  var rules =
+    '<div class="fc-card"><details class="fc-sec fc-sec-main" data-sec="rules"' + (fcOpen.rules ? ' open' : '') + '><summary class="fc-sec-sum"><h3>כללי האצבע שבשימוש</h3></summary><div class="fc-sec-body">' +
+      fcSection('sal', 'משכורות', salRules + salDiag, sal.streams.length + (sal.streams.length === 1 ? ' משכורת' : ' משכורות')) +
+      fcSection('rent', 'שכירות', rentRule, sc.rent ? fcPlain(sc.rent.amount) : '') +
+      fcSection('cards', 'כרטיסי אשראי', cards + cardModeRule, (sc.cards || []).length + ' כרטיסים') +
+      (misc ? fcSection('misc', 'הנחות והערות', misc, '') : '') +
+      fcEst() +
+    '</div></details></div>';
+
+  el.innerHTML = hero + '<div class="fc-grid">' + timeline + rules + '</div>';
+  // draw the chart at its real width so the text keeps its size
+  var box = el.querySelector('.fc-chart-svg');
+  if (box && box.clientWidth && Math.abs(box.clientWidth - chartW) > 8) box.innerHTML = fcChartSvg(d, v, box.clientWidth);
+}
+
+fcLoad();
+
+_rcLoadFolders(function() {
+  _rcLoadDisplayNames(function() {
+    if (RC_DATA) {
+      renderKpis();
+      renderCards();
+      renderTrendChart();
+          _rcCheckStaleness();
+    } else {
+      // Never generated yet — show the skeleton in place of real content and
+      // auto-start the same regen flow the button uses. No separate page, no
+      // reload once it finishes: regenerate() fetches fresh data and renders
+      // it into this same page shell.
+      _rcShowSkeleton();
+      _rcShowLoadingBanner('מריץ ניתוח ראשוני — זה עשוי לקחת מספר שניות…');
+      regenerate();
+    }
+  });
+});
+</script>
+</body>
+</html>

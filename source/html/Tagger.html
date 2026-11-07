@@ -30,7 +30,6 @@
 @keyframes fadeSlideIn { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:none} }
 @keyframes tagPop { 0%{transform:scale(1)} 40%{transform:scale(1.04)} 100%{transform:scale(1)} }
 @keyframes rowExit { to{opacity:0;transform:translateX(-40px);max-height:0;padding:0;margin:0;overflow:hidden} }
-@keyframes spin { to{transform:rotate(360deg)} }
 @keyframes shimmer { 0%{background-position:-400px 0} 100%{background-position:400px 0} }
 
 body {
@@ -519,11 +518,8 @@ body {
 
 /* ── Spinner ─────────────────────────────────────────────────── */
 .spinner {
-  width: 18px; height: 18px;
-  border: 2px solid var(--border);
-  border-top-color: var(--teal);
-  border-radius: 50%;
-  animation: spin .7s linear infinite;
+  width: 16px; height: 16px;
+  background: var(--sq-grad); border-radius: 17%; animation: sq-turn 3.6s infinite;
   flex-shrink: 0;
 }
 
@@ -1057,7 +1053,7 @@ body {
                oninput="filterRules()"/>
       </div>
       <div class="rules-list" id="rules-list">
-        <div class="empty-state"><div class="emoji">⚙️</div>טוען…</div>
+        <div class="sq-loading"><span class="sq-loader"></span>טוען…</div>
       </div>
     </div>
   </div>
@@ -2843,7 +2839,7 @@ function tgOpenRevert(e, tbl, origId) {
   _tgRevertTx = { table: tbl, origId: origId };
   var oEl = document.getElementById('tg-revert-orig');
   var sEl = document.getElementById('tg-revert-splits');
-  if (oEl) oEl.innerHTML = '<span style="color:#888;font-size:.84em">טוען...</span>';
+  if (oEl) oEl.innerHTML = '<div class="sq-loading"><span class="sq-loader"></span>טוען…</div>';
   if (sEl) sEl.innerHTML = '';
   tgSetRevertStatus('', '');
   document.getElementById('tg-revert-overlay').classList.add('open');

@@ -1274,9 +1274,9 @@ body{{font-family:'Segoe UI',Arial,sans-serif;background:#f4f6f9;color:#1e2a4a;d
 .no-results{{text-align:center;padding:40px;color:#aaa;font-size:.9em;display:none}}
 .cat-item.generating{{opacity:1;pointer-events:none}}
 .cat-item-progress{{display:flex;align-items:center;gap:7px;flex:1;min-width:0}}
-.cip-spinner{{width:13px;height:13px;border:2px solid #d8f3dc;border-top-color:#1e9d8b;
-  border-radius:50%;flex-shrink:0;animation:cip-spin .7s linear infinite}}
-@keyframes cip-spin{{to{{transform:rotate(360deg)}}}}
+.cip-spinner{{width:12px;height:12px;background:linear-gradient(135deg,#3fd3bd,#1e9d8b 55%,#157a6c);
+  border-radius:17%;flex-shrink:0;animation:sq-turn 3.6s infinite}}
+@keyframes sq-turn{{0%,9.72%{{transform:rotate(0);border-radius:17%;animation-timing-function:ease-in-out}}17.36%{{transform:rotate(45deg);border-radius:50%}}25%,34.72%{{transform:rotate(90deg);border-radius:17%;animation-timing-function:ease-in-out}}42.36%{{transform:rotate(135deg);border-radius:50%}}50%,59.72%{{transform:rotate(180deg);border-radius:17%;animation-timing-function:ease-in-out}}67.36%{{transform:rotate(225deg);border-radius:50%}}75%,84.72%{{transform:rotate(270deg);border-radius:17%;animation-timing-function:ease-in-out}}92.36%{{transform:rotate(315deg);border-radius:50%}}100%{{transform:rotate(360deg);border-radius:17%}}}}
 .cip-bar-track{{flex:1;height:6px;background:#eef0f6;border-radius:3px;overflow:hidden;min-width:0}}
 .cip-bar-fill{{height:100%;width:0%;background:#1e9d8b;border-radius:3px;transition:width .3s ease}}
 .cip-pct{{font-size:.72em;font-weight:700;color:#1e9d8b;min-width:2.8em;text-align:left;flex-shrink:0}}
@@ -3760,8 +3760,8 @@ def _organizer_splash() -> str:
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f8f9fb;display:flex;align-items:center;justify-content:center;min-height:100vh;flex-direction:column;gap:18px}
-    @keyframes spin{to{transform:rotate(360deg)}}
-    .spinner{width:52px;height:52px;border:4px solid #e2e8f0;border-top-color:#1e9d8b;border-radius:50%;animation:spin .8s linear infinite}
+    @keyframes sq-turn{0%,9.72%{transform:rotate(0);border-radius:17%;animation-timing-function:ease-in-out}17.36%{transform:rotate(45deg);border-radius:50%}25%,34.72%{transform:rotate(90deg);border-radius:17%;animation-timing-function:ease-in-out}42.36%{transform:rotate(135deg);border-radius:50%}50%,59.72%{transform:rotate(180deg);border-radius:17%;animation-timing-function:ease-in-out}67.36%{transform:rotate(225deg);border-radius:50%}75%,84.72%{transform:rotate(270deg);border-radius:17%;animation-timing-function:ease-in-out}92.36%{transform:rotate(315deg);border-radius:50%}100%{transform:rotate(360deg);border-radius:17%}}
+    .spinner{width:44px;height:44px;background:linear-gradient(135deg,#3fd3bd,#1e9d8b 55%,#157a6c);border-radius:17%;box-shadow:0 0 26px rgba(30,157,139,.35);animation:sq-turn 3.6s infinite}
     .label{font-size:.95em;font-weight:600;color:#1a2744}
     .pct{font-size:1.8em;font-weight:700;color:#1e9d8b;min-width:4ch;text-align:center}
   </style>

@@ -147,8 +147,7 @@ body {
 .ca-month-chip.active.open-chip::after{color:#ffd166}
 /* Loading spinner uses ::before (::after is already the open-chip dot) */
 .ca-month-chip.loading{padding-right:26px;position:relative;pointer-events:none}
-.ca-month-chip.loading::before{content:'';position:absolute;right:9px;top:50%;margin-top:-6px;width:12px;height:12px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:ca-chip-spin .6s linear infinite}
-@keyframes ca-chip-spin{to{transform:rotate(360deg)}}
+.ca-month-chip.loading::before{content:'';position:absolute;right:9px;top:50%;margin-top:-6px;width:11px;height:11px;background:currentColor;border-radius:17%;animation:sq-turn 3.6s infinite}
 
 /* Card hero carousel — real pointer-drag swipe, matches the reference app */
 .ca-hero-wrap{position:relative;margin-bottom:8px}

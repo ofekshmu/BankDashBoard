@@ -413,8 +413,7 @@ input[type="date"].field-input { padding: 0 10px; appearance: none; -webkit-appe
 }
 
 /* ── Spinner ──────────────────────────────────────────────── */
-.spinner { width: 28px; height: 28px; border: 3px solid rgba(30,157,139,.2); border-top-color: var(--teal); border-radius: 50%; animation: spin .7s linear infinite; margin: 0 auto; }
-@keyframes spin { to { transform: rotate(360deg); } }
+.spinner { width: 28px; height: 28px; background: var(--sq-grad); border-radius: 17%; animation: sq-turn 3.6s infinite; box-shadow: 0 0 20px var(--sq-glow); margin: 0 auto; }
 .loading-wrap { padding: 40px 0; text-align: center; }
 .loading-label { margin-top: 10px; color: var(--text-muted); font-size: .85em; }
 

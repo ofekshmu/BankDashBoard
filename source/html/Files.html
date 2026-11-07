@@ -28,7 +28,6 @@
 }
 @keyframes _pageIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
 @keyframes fadeIn  { from{opacity:0} to{opacity:1} }
-@keyframes spin    { to{transform:rotate(360deg)} }
 @keyframes shimmer { 0%{background-position:-400px 0} 100%{background-position:400px 0} }
 @keyframes rowIn   { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:none} }
 
@@ -293,11 +292,8 @@ body {
 
 /* ── Spinner ──────────────────────────────────────────────────── */
 .spin-icon {
-  width: 14px; height: 14px;
-  border: 2px solid rgba(0,0,0,.1);
-  border-top-color: var(--teal);
-  border-radius: 50%;
-  animation: spin .7s linear infinite;
+  width: 13px; height: 13px;
+  background: var(--sq-grad); border-radius: 17%; animation: sq-turn 3.6s infinite;
   display: inline-block; flex-shrink: 0;
 }
 
@@ -553,14 +549,10 @@ body {
 }
 .lf-spinner {
   width: 14px; height: 14px;
-  border: 2px solid rgba(30,157,139,0.3);
-  border-top-color: #1e9d8b;
-  border-radius: 50%;
-  animation: lf-spin 0.7s linear infinite; flex-shrink: 0;
+  background: var(--sq-grad); border-radius: 17%; animation: sq-turn 3.6s infinite; flex-shrink: 0;
 }
-.lf-spinner.done  { animation: none; border-color: #2ecc71; }
-.lf-spinner.error { animation: none; border-color: #f56565; }
-@keyframes lf-spin { to { transform: rotate(360deg); } }
+.lf-spinner.done  { animation: none; border-radius: 50%; background: #2ecc71; }
+.lf-spinner.error { animation: none; border-radius: 50%; background: #f56565; }
 .lf-title {
   font-size: 0.8em; font-weight: 600; color: #1e9d8b;
   text-shadow: 0 1px 6px rgba(255,255,255,0.9), 0 0 2px rgba(255,255,255,1);

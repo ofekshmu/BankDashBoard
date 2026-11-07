@@ -159,8 +159,7 @@ input[type="date"].field-input{padding:0 10px;appearance:none;-webkit-appearance
 .results-hint-card{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow-sm);text-align:center;padding:60px 28px;color:var(--text-muted);font-size:.92em}
 .hint-icon{font-size:2.5em;margin-bottom:12px;opacity:.4}
 .spinner-wrap{padding:60px 0;text-align:center}
-.spinner{width:30px;height:30px;border:3px solid rgba(30,157,139,.2);border-top-color:var(--teal);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 12px}
-@keyframes spin{to{transform:rotate(360deg)}}
+.spinner{width:30px;height:30px;background:var(--sq-grad);border-radius:17%;animation:sq-turn 3.6s infinite;box-shadow:0 0 20px var(--sq-glow);margin:0 auto 12px}
 
 /* Result cards */
 .cards-list{display:flex;flex-direction:column;gap:10px}
@@ -1300,7 +1299,7 @@ function srOpenRevert(tbl, origId) {
   _srRevertTx = { table:tbl, origId:origId };
   var oEl = document.getElementById('sr-revert-orig');
   var sEl = document.getElementById('sr-revert-splits');
-  if(oEl) oEl.innerHTML = '<span style="color:#888;font-size:.84em">טוען...</span>';
+  if(oEl) oEl.innerHTML = '<div class="sq-loading"><span class="sq-loader"></span>טוען…</div>';
   if(sEl) sEl.innerHTML = '';
   srSetRevertStatus('','');
   document.getElementById('sr-revert-overlay').classList.add('open');

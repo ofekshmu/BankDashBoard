@@ -593,11 +593,9 @@ body {
   align-items: center; justify-content: center;
 }
 #month-nav-overlay .mnav-spinner {
-  width: 36px; height: 36px; border-radius: 50%;
-  border: 3px solid var(--border); border-top-color: var(--teal);
-  animation: _reloadSpin .7s linear infinite;
+  width: 32px; height: 32px;
+  background: var(--sq-grad); border-radius: 17%; animation: sq-turn 3.6s infinite; box-shadow: 0 0 22px var(--sq-glow);
 }
-@keyframes _reloadSpin { to { transform: rotate(360deg); } }
 
 
 /* ── KPI row — hero left (2fr), 2×2 sub-grid right (1fr) ────── */
@@ -1046,9 +1044,8 @@ body {
 .ms-status.ok { color:var(--teal); } .ms-status.err { color:var(--red); font-weight:600; }
 .ms-status.pending::before {
   content:''; display:inline-block; width:9px; height:9px; margin-left:7px; vertical-align:-1px;
-  border:2px solid #c5cad8; border-top-color:var(--teal); border-radius:50%; animation:ms-spin .8s linear infinite;
+  background:var(--sq-grad); border-radius:17%; animation:sq-turn 3.6s infinite;
 }
-@keyframes ms-spin { to { transform:rotate(360deg); } }
 .ms-sub { font-size:0.8em; color:var(--text-muted); margin:-6px 0 14px; }
 .ms-banner {
   background:#fff8e6; border:1.5px solid #f0b429; color:#8a5a00; border-radius:var(--radius);
@@ -1356,11 +1353,9 @@ body {
 .tl-tx-search-wrap input.tl-tx-search-empty:focus { border-color:var(--red); }
 .tl-tx-search-spinner {
   position:absolute; left:9px; top:50%; margin-top:-7px; width:14px; height:14px;
-  border:2px solid var(--border); border-top-color:var(--teal); border-radius:50%;
-  animation:tl-tx-spin .7s linear infinite;
+  background:var(--sq-grad); border-radius:17%; animation:sq-turn 3.6s infinite;
 }
 .tl-tx-search-spinner.hidden { display:none; }
-@keyframes tl-tx-spin { to { transform:rotate(360deg); } }
 .tl-tx-search-results { max-height:220px; overflow-y:auto; border:1.5px solid var(--teal); border-radius:8px; margin-top:4px; }
 .tl-tx-search-results.hidden { display:none; }
 .tl-tx-search-row {
@@ -2087,15 +2082,11 @@ body {
   gap: 10px; margin-bottom: 10px;
 }
 .lf-spinner {
-  width: 22px; height: 22px;
-  border: 3px solid rgba(30,157,139,0.25);
-  border-top-color: #1e9d8b;
-  border-radius: 50%;
-  animation: lf-spin 0.8s linear infinite; flex-shrink: 0;
+  width: 20px; height: 20px;
+  background: var(--sq-grad); border-radius: 17%; animation: sq-turn 3.6s infinite; flex-shrink: 0; box-shadow: 0 0 12px var(--sq-glow);
 }
-.lf-spinner.done  { animation: none; border-color: #2ecc71; }
-.lf-spinner.error { animation: none; border-color: #f56565; }
-@keyframes lf-spin { to { transform: rotate(360deg); } }
+.lf-spinner.done  { animation: none; border-radius: 50%; background: #2ecc71; box-shadow: none; }
+.lf-spinner.error { animation: none; border-radius: 50%; background: #f56565; box-shadow: none; }
 .lf-title {
   font-size: 0.8em; font-weight: 600; color: #1e9d8b;
   text-shadow: 0 1px 6px rgba(255,255,255,0.9), 0 0 2px rgba(255,255,255,1);
@@ -4745,16 +4736,24 @@ function _loadAccountsData(forceRegen, skipRevalidate) {
   var btn = document.getElementById('accounts-reload-btn');
   var tbl = document.getElementById('accounts-table');
   if (btn) { btn.disabled = true; btn.classList.add('running'); }
-  if (tbl && !_accountsPageData) tbl.innerHTML = '<div style="padding:20px;color:#aaa;text-align:center">טוען...</div>';
+  if (tbl && !_accountsPageData) tbl.innerHTML = '<div class="sq-loading"><span class="sq-loader"></span>טוען…</div>';
+  var _acctChart = document.getElementById('accounts-chart'), _cashWrap = document.getElementById('cash-pie-inner');
+  if (!_accountsPageData) {
+    if (_acctChart) _acctChart.classList.add('sq-pending');
+    if (_cashWrap) _cashWrap.classList.add('sq-pending');
+  }
   fetch('/api/accounts/data', { cache: 'no-store' })
     .then(function(r) { return r.json(); })
     .then(function(d) {
       if (!d.ok) throw new Error(d.error || 'failed');
       _applyAccountsPayload(d);
+      if (_acctChart) _acctChart.classList.remove('sq-pending');
       if (btn) { btn.disabled = false; btn.classList.remove('running'); }
       if (!skipRevalidate) _revalidateAccountsData();
     })
     .catch(function() {
+      if (_acctChart) _acctChart.classList.remove('sq-pending');
+      if (_cashWrap) _cashWrap.classList.remove('sq-pending');
       if (tbl) tbl.innerHTML = '<div style="padding:20px;color:#e74c3c;text-align:center">שגיאה בטעינת נתונים</div>';
       if (btn) { btn.disabled = false; btn.classList.remove('running'); }
     });
@@ -5778,7 +5777,7 @@ function _openRevertModal(tbl, origId) {
   _revertTx = { table: tbl, origId: origId };
   var origEl   = document.getElementById('revert-orig-info');
   var splitsEl = document.getElementById('revert-splits-list');
-  if (origEl)   origEl.innerHTML   = '<div style="color:#888;font-size:.85em">טוען...</div>';
+  if (origEl)   origEl.innerHTML   = '<div class="sq-loading"><span class="sq-loader"></span>טוען…</div>';
   if (splitsEl) splitsEl.innerHTML = '';
   document.getElementById('revert-modal-overlay').classList.add('open');
   _setRevertStatus('', '');
@@ -8491,6 +8490,8 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       })
       .catch(function(e) {
         console.error('Housing data load failed:', e);
+        var _hsLoad = document.getElementById('hs-loading');
+        if (_hsLoad) _hsLoad.innerHTML = 'שגיאה בטעינת נתוני דיור';
       });
   }
 
@@ -8500,6 +8501,11 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     if (btn) { btn.classList.add('running'); btn.disabled = true; }
     if (pctEl) pctEl.textContent = '0%';
     try { sessionStorage.removeItem(_HS_CACHE_KEY); } catch (_) {}
+    // first load: the panel is still empty, so show the loader until _renderHousing fills it
+    var _hsPanel = document.getElementById('panel-housing');
+    if (_hsPanel && !_hsPanel.firstChild) {
+      _hsPanel.innerHTML = '<div class="sq-loading" id="hs-loading" style="padding:80px 16px"><span class="sq-loader"></span>טוען נתוני דיור…</div>';
+    }
 
     var es = new EventSource('/api/housing/regen-stream');
 
@@ -9102,7 +9108,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       '<button type="button" class="hi-ibtn" onclick="housingInfoClose()" title="סגור" aria-label="סגור">' + _HI_ICON.close + '</button></div>';
     var body, foot = '';
     if (items === null) {
-      body = '<div class="hi-empty">טוען…</div>';
+      body = '<div class="sq-loading"><span class="sq-loader"></span>טוען…</div>';
     } else if (_hiEditing) {
       body = _hiDraft.map(function(r, i) {
         return '<div class="hi-row editing">' +
@@ -9341,7 +9347,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
 
   function _loadMonaProject() {
     var el = document.getElementById('mona-overview');
-    if (el && !_monaData) el.innerHTML = '<div class="card ms-empty">טוען את פרויקט מונה…</div>';
+    if (el && !_monaData) el.innerHTML = '<div class="card"><div class="sq-loading"><span class="sq-loader"></span>טוען את פרויקט מונה…</div></div>';
     return fetch('/api/housing/projects/mona', { cache: 'no-store' })
       .then(function(r) { return r.json().catch(function() { return { ok: false, error: 'שגיאת שרת' }; }); })
       .then(function(d) {
@@ -9367,7 +9373,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       if (bOv) bOv.classList.remove('active');
       if (bTl) bTl.classList.add('active');
       var cat = _monaData && _monaData.timeline_category;
-      if (!_monaData) { tl.innerHTML = '<div class="tl-empty">טוען…</div>'; _loadMonaProject(); return; }
+      if (!_monaData) { tl.innerHTML = '<div class="sq-loading"><span class="sq-loader"></span>טוען…</div>'; _loadMonaProject(); return; }
       if (!cat) { tl.innerHTML = '<div class="tl-empty">לא נמצאה קטגוריית ציר זמן בשם MONA. אפשר ליצור אחת בעמוד ציר הזמן (⚙ קטגוריות).</div>'; return; }
       var sh = document.getElementById('housing-timeline');
       if (sh) sh.innerHTML = '';
@@ -9913,7 +9919,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     var tl = document.getElementById(_tlContainerId);
     if (!tl) return;
     var isFirstLoad = !tl.querySelector('#tl-axis-scroll');
-    if (isFirstLoad) tl.innerHTML = '<div class="tl-empty">טוען…</div>';
+    if (isFirstLoad) tl.innerHTML = '<div class="sq-loading"><span class="sq-loader"></span>טוען…</div>';
     var events = [];
     if (!_tlCategoriesLoaded) {
       await _tlLoadCategories();

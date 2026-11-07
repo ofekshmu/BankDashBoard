@@ -790,11 +790,8 @@ body.resize-end    { cursor: ew-resize !important; }
   gap: 14px;
 }
 #bills-loader .spinner {
-  width: 48px; height: 48px;
-  border: 4px solid var(--border);
-  border-top-color: var(--teal);
-  border-radius: 50%;
-  animation: spin .75s linear infinite;
+  width: 44px; height: 44px;
+  background: var(--sq-grad); border-radius: 17%; animation: sq-turn 3.6s infinite; box-shadow: 0 0 26px var(--sq-glow);
 }
 #bills-loader .loader-label {
   font-size: .9rem; color: var(--text-muted); font-weight: 500;
@@ -814,7 +811,6 @@ body.resize-end    { cursor: ew-resize !important; }
 #bills-loader .loader-pct {
   font-size: .75rem; font-weight: 700; color: var(--teal); min-width: 2.8em; text-align: left;
 }
-@keyframes spin { to { transform: rotate(360deg); } }
 
 /* ── debug-fab error dot ──────────────────────────────────────── */
 #debug-fab.has-errors::after {
@@ -1009,7 +1005,7 @@ body.resize-end    { cursor: ew-resize !important; }
         <button class="btn btn-ghost btn-xs" onclick="loadSuggestions()">רענן</button>
       </div>
       <div class="sug-list" id="sug-list">
-        <div class="sug-empty">טוען…</div>
+        <div class="sq-loading"><span class="sq-loader"></span>טוען…</div>
       </div>
     </div>
 
@@ -1596,7 +1592,7 @@ async function loadEntries() {
 }
 
 async function loadSuggestions() {
-  document.getElementById('sug-list').innerHTML = '<div class="sug-empty">טוען…</div>';
+  document.getElementById('sug-list').innerHTML = '<div class="sq-loading"><span class="sq-loader"></span>טוען…</div>';
   try {
     const r = await api('GET', '/api/bills/suggestions');
     if (r.ok) {

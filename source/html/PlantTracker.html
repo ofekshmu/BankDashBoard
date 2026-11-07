@@ -328,8 +328,7 @@ button.pt-stat:focus-visible { outline: 2px solid var(--teal); outline-offset: 2
 .pt-toast.ok { background: var(--teal-dark); font-weight: 600; box-shadow: 0 6px 20px rgba(23,122,108,.35); }
 .pt-toast.pending { background: var(--navy); opacity: .92; }
 .pt-toast.pending::before { content: ''; display: inline-block; width: 10px; height: 10px; margin-left: 8px; vertical-align: -1px;
-  border: 2px solid rgba(255,255,255,.35); border-top-color: #fff; border-radius: 50%; animation: pt-spin .8s linear infinite; }
-@keyframes pt-spin { to { transform: rotate(360deg); } }
+  background: var(--sq-grad); border-radius: 17%; animation: sq-turn 3.6s infinite; }
 .btn.done { background: var(--teal-dark); border-color: var(--teal-dark); color: #fff; }
 .btn.dirty { background: var(--amber); border-color: var(--amber); color: var(--navy); box-shadow: 0 0 0 3px rgba(240,180,41,.25); }
 .pt-unsaved { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; background: #fff8e6; border: 1.5px solid var(--amber); border-radius: 10px; padding: 10px 12px; margin: 22px 0 14px; font-size: .85em; font-weight: 600; color: #7a5600; }
@@ -482,7 +481,7 @@ button.pt-stat:focus-visible { outline: 2px solid var(--teal); outline-offset: 2
         <span class="pt-result-count" id="pt-result-count" aria-live="polite"></span>
       </div>
       <div class="pt-chips" id="pt-room-chips"></div>
-      <div class="pt-rows" id="pt-rows"><div class="pt-empty">טוען…</div></div>
+      <div class="pt-rows" id="pt-rows"><div class="sq-loading"><span class="sq-loader"></span>טוען…</div></div>
     </section>
   </main>
 </div>

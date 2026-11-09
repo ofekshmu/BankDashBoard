@@ -2300,8 +2300,7 @@ function fmtMoney(v, currency) {
   return sym + Math.abs(v).toLocaleString('he-IL', {minimumFractionDigits:0, maximumFractionDigits:2});
 }
 function skeletons(n) {
-  return Array(n).fill('        <div class="sq-loading"><div class="sq-loader"></div></div>
-').join('');
+  return '<div class="sq-loading"><div class="sq-loader"></div></div>';
 }
 function errorState(msg, retryFn) {
   const id = retryFn ? `retry-${Date.now()}` : '';

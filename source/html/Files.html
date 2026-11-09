@@ -1644,8 +1644,7 @@ function esc(s) {
 
 function showSkeleton(listId, n) {
   const el = document.getElementById(listId);
-  if (el) el.innerHTML = Array(n).fill('        <div class="sq-loading"><div class="sq-loader"></div></div>
-').join('');
+  if (el) el.innerHTML = '<div class="sq-loading"><div class="sq-loader"></div></div>';
 }
 
 function showError(listId, msg) {

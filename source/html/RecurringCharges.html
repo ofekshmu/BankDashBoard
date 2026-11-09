@@ -243,14 +243,6 @@ body {
 .rc-hidden-toggle{font-size:.82em;color:var(--text-muted);cursor:pointer;margin-top:12px;text-align:center}
 .rc-hidden-toggle:hover{color:var(--teal)}
 
-/* Skeleton loading state — shown in place of real content on first-ever
-   load while the initial regen runs, instead of swapping to a different page */
-@keyframes rcShimmer{0%,100%{opacity:.55}50%{opacity:1}}
-.rc-skel{background:var(--border);border-radius:var(--radius-sm);animation:rcShimmer 1.3s ease-in-out infinite}
-.rc-skel-kpi-row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:20px}
-.rc-skel-kpi{height:74px;border-radius:var(--radius);flex:1;min-width:160px}
-.rc-skel-trend{height:220px;border-radius:var(--radius);margin-bottom:20px}
-.rc-skel-card{height:96px;border-radius:var(--radius);margin-bottom:10px}
 .rc-loading-banner{display:flex;align-items:center;gap:10px;background:var(--teal-light);color:var(--teal-dark);border-radius:var(--radius-sm);padding:10px 16px;margin-bottom:16px;font-size:.85em;font-weight:600}
 .rc-loading-banner .rc-spin{width:13px;height:13px;background:var(--sq-grad);border-radius:17%;animation:sq-turn 3.6s infinite;flex-shrink:0}
 .rc-error-banner{display:none;align-items:center;gap:10px;background:#fdecea;color:#a33;border-radius:var(--radius-sm);padding:10px 16px;margin-bottom:16px;font-size:.85em;font-weight:600}
@@ -341,7 +333,6 @@ body {
 .fc-note{margin-top:10px;padding:9px 12px;border-radius:var(--radius-sm);background:#fff8e6;color:#8a6410;font-size:.84em}
 .fc-chart svg{width:100%;display:block;direction:ltr}
 .fc-empty{padding:26px;text-align:center;color:var(--text-muted)}
-.fc-skel{height:170px;border-radius:var(--radius);background:linear-gradient(90deg,#e9edf3 25%,#f4f6f9 50%,#e9edf3 75%);background-size:200% 100%;animation:fcsh 1.3s infinite}
 
 .fc-i{position:relative;display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;margin-right:6px;border-radius:50%;background:transparent;border:1px solid currentColor;box-sizing:border-box;opacity:.55;color:var(--text-sub);font:600 10px/1 Georgia,serif;font-style:italic;cursor:pointer;vertical-align:middle;user-select:none}
 .fc-i:hover,.fc-i:focus,.fc-i.on{opacity:.9;outline:none}
@@ -437,7 +428,7 @@ body {
   <div class="page-header"><h1>חיובים חוזרים</h1></div>
 
   <section class="fc" id="fc">
-    <div id="fc-body"><div class="fc-skel"></div></div>
+    <div id="fc-body"><div class="sq-loading"><div class="sq-loader"></div></div></div>
   </section>
   <div class="page-header" style="margin-bottom:14px;padding-top:6px"><h2 style="font-size:1.25em;color:var(--navy)">פירוט החיובים החוזרים</h2></div>
 
@@ -451,15 +442,7 @@ body {
   </div>
 
   <div id="rc-skeleton" style="display:none">
-    <div class="rc-skel-kpi-row">
-      <div class="rc-skel rc-skel-kpi"></div>
-      <div class="rc-skel rc-skel-kpi"></div>
-      <div class="rc-skel rc-skel-kpi"></div>
-    </div>
-    <div class="rc-skel rc-skel-trend"></div>
-    <div class="rc-skel rc-skel-card"></div>
-    <div class="rc-skel rc-skel-card"></div>
-    <div class="rc-skel rc-skel-card"></div>
+    <div class="sq-loading"><div class="sq-loader"></div></div>
   </div>
 
   <div id="rc-real-content">

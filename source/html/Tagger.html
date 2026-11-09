@@ -30,7 +30,6 @@
 @keyframes fadeSlideIn { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:none} }
 @keyframes tagPop { 0%{transform:scale(1)} 40%{transform:scale(1.04)} 100%{transform:scale(1)} }
 @keyframes rowExit { to{opacity:0;transform:translateX(-40px);max-height:0;padding:0;margin:0;overflow:hidden} }
-@keyframes shimmer { 0%{background-position:-400px 0} 100%{background-position:400px 0} }
 
 body {
   font-family: 'Segoe UI', Arial, sans-serif;
@@ -196,14 +195,6 @@ body {
 }
 .section.collapsed .section-chevron { transform: rotate(180deg); }
 .section.collapsed .section-body    { display: none; }
-
-/* ── Skeleton loader ─────────────────────────────────────────── */
-.skeleton-row {
-  height: 80px; border-radius: 10px; margin: 10px 16px;
-  background: linear-gradient(90deg,#f0f2f6 25%,#e8eaee 50%,#f0f2f6 75%);
-  background-size: 800px 100%;
-  animation: shimmer 1.4s infinite linear;
-}
 
 /* ── Transaction row ─────────────────────────────────────────── */
 .tx-list { padding: 8px 0; }
@@ -990,10 +981,8 @@ body {
         <button class="filter-btn" id="usort-price" onclick="setUntaggedSort('price')">סכום<span id="usort-price-arrow"></span></button>
       </div>
       <div class="tx-list" id="untagged-list">
-        <div class="skeleton-row"></div>
-        <div class="skeleton-row"></div>
-        <div class="skeleton-row"></div>
-      </div>
+        <div class="sq-loading"><div class="sq-loader"></div></div>
+</div>
     </div>
   </div>
 
@@ -1008,9 +997,8 @@ body {
     </div>
     <div class="section-body" id="sec-highval-body">
       <div class="tx-list" id="highval-list">
-        <div class="skeleton-row"></div>
-        <div class="skeleton-row"></div>
-      </div>
+        <div class="sq-loading"><div class="sq-loader"></div></div>
+</div>
     </div>
   </div>
 
@@ -1030,9 +1018,8 @@ body {
         <button class="filter-btn"        id="filter-auto"   onclick="setTaggedFilter('auto')">אוטומטי</button>
       </div>
       <div class="tx-list" id="tagged-list">
-        <div class="skeleton-row"></div>
-        <div class="skeleton-row"></div>
-      </div>
+        <div class="sq-loading"><div class="sq-loader"></div></div>
+</div>
     </div>
   </div>
 
@@ -2313,7 +2300,8 @@ function fmtMoney(v, currency) {
   return sym + Math.abs(v).toLocaleString('he-IL', {minimumFractionDigits:0, maximumFractionDigits:2});
 }
 function skeletons(n) {
-  return Array(n).fill('<div class="skeleton-row"></div>').join('');
+  return Array(n).fill('        <div class="sq-loading"><div class="sq-loader"></div></div>
+').join('');
 }
 function errorState(msg, retryFn) {
   const id = retryFn ? `retry-${Date.now()}` : '';

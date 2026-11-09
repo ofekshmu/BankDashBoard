@@ -28,7 +28,6 @@
 }
 @keyframes _pageIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
 @keyframes fadeIn  { from{opacity:0} to{opacity:1} }
-@keyframes shimmer { 0%{background-position:-400px 0} 100%{background-position:400px 0} }
 @keyframes rowIn   { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:none} }
 
 body {
@@ -197,14 +196,6 @@ body {
 .section.collapsed .section-chevron { transform: rotate(180deg); }
 .section.collapsed .section-body    { display: none; }
 .section-body { padding: 8px 0; }
-
-/* ── Skeleton ─────────────────────────────────────────────────── */
-.skeleton-row {
-  height: 68px; border-radius: 10px; margin: 8px 16px;
-  background: linear-gradient(90deg,#f0f2f6 25%,#e8eaee 50%,#f0f2f6 75%);
-  background-size: 800px 100%;
-  animation: shimmer 1.4s infinite linear;
-}
 
 /* ── File row ─────────────────────────────────────────────────── */
 .file-list { padding: 4px 0; }
@@ -830,10 +821,8 @@ body {
       <!-- Table -->
       <div class="db-table-wrap">
         <div id="db-files-body">
-          <div class="skeleton-row" style="margin:12px 16px"></div>
-          <div class="skeleton-row" style="margin:8px 16px"></div>
-          <div class="skeleton-row" style="margin:8px 16px"></div>
-        </div>
+        <div class="sq-loading"><div class="sq-loader"></div></div>
+</div>
       </div>
 
     </div>
@@ -850,10 +839,8 @@ body {
     </div>
     <div class="section-body" id="sec-files-body">
       <div class="file-list" id="files-list">
-        <div class="skeleton-row"></div>
-        <div class="skeleton-row"></div>
-        <div class="skeleton-row"></div>
-      </div>
+        <div class="sq-loading"><div class="sq-loader"></div></div>
+</div>
     </div>
   </div>
 
@@ -1657,7 +1644,8 @@ function esc(s) {
 
 function showSkeleton(listId, n) {
   const el = document.getElementById(listId);
-  if (el) el.innerHTML = Array(n).fill('<div class="skeleton-row"></div>').join('');
+  if (el) el.innerHTML = Array(n).fill('        <div class="sq-loading"><div class="sq-loader"></div></div>
+').join('');
 }
 
 function showError(listId, msg) {

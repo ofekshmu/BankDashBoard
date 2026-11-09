@@ -6389,24 +6389,6 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
      Runs only when <body data-month="yyyy_mm"> is present.
      Fetches /api/general/{month}/data and renders all sections.
 ════════════════════════════════════════════════════════════════════ -->
-<style>
-.skel-card {
-  background: linear-gradient(90deg, #e8eaf0 25%, #f4f6f9 50%, #e8eaf0 75%);
-  background-size: 200% 100%;
-  border-radius: 10px;
-  animation: skel-shimmer 1.5s infinite;
-}
-@keyframes skel-shimmer {
-  0%   { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
-}
-.skel-kpi        { height: 90px; margin: 6px; }
-.skel-chart      { height: 260px; margin: 8px 0; }
-.skel-row        { height: 48px; margin: 4px 0; border-radius: 8px; }
-.skel-chart-sm   { height: 180px; margin: 8px 0; }
-/* Skeleton chart-card: respects the existing chart-card padding/shadow */
-.chart-card.skel-card { box-shadow: none; border: none; padding: 0; }
-</style>
 
 <script>
 (function() {
@@ -6461,34 +6443,15 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
 
   // ── Skeleton placeholders ──────────────────────────────────────────────
   function _showSkeletons() {
+    var L = '<div class="sq-loading"><div class="sq-loader"></div></div>';
     var kr  = document.getElementById('kpi-row');
     var kr2 = document.getElementById('kpi-row-2');
-    var skel3 = '<div class="skel-card skel-row"></div><div class="skel-card skel-row"></div><div class="skel-card skel-row"></div>';
-    var skel5 = skel3 + '<div class="skel-card skel-row"></div><div class="skel-card skel-row"></div>';
-    if (kr)  kr.innerHTML  = '<div class="skel-card skel-kpi"></div><div class="kpi-sub-grid"><div class="skel-card skel-kpi"></div><div class="skel-card skel-kpi"></div><div class="skel-card skel-kpi"></div><div class="skel-card skel-kpi"></div></div>';
+    if (kr)  kr.innerHTML  = L;
     if (kr2) kr2.innerHTML = '';
-
-    var sl = document.getElementById('spendings-list');
-    var el = document.getElementById('earnings-list');
-    if (sl) sl.innerHTML = skel5;
-    if (el) el.innerHTML = skel5;
-
-    // Charts grid — 3 shimmer chart cards
-    var charts = document.getElementById('overview-charts');
-    if (charts) charts.innerHTML =
-      '<div class="skel-card skel-chart" style="border-radius:12px"></div>' +
-      '<div class="skel-card skel-chart" style="border-radius:12px"></div>' +
-      '<div class="skel-card skel-chart" style="border-radius:12px"></div>';
-
-    // Payments grid
-    var pg = document.getElementById('tx-payments-grid');
-    if (pg) pg.innerHTML =
-      '<div class="skel-card skel-chart-sm" style="border-radius:12px"></div>' +
-      '<div class="skel-card skel-chart-sm" style="border-radius:12px"></div>';
-
-    // Accounts table
-    var acct = document.getElementById('accounts-table');
-    if (acct) acct.innerHTML = skel3;
+    ['spendings-list','earnings-list','overview-charts','tx-payments-grid','accounts-table'].forEach(function (id) {
+      var e = document.getElementById(id);
+      if (e) e.innerHTML = L;
+    });
   }
 
   // ── Tooltip markup helper ─────────────────────────────────────────────

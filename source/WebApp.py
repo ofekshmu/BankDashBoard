@@ -497,7 +497,7 @@ app.config['PERMANENT_SESSION_LIFETIME'] = _timedelta(days=7)
 _PUBLIC_PATHS = {
     '/', '/favicon.ico', '/favicon.svg',
     '/apple-touch-icon.png', '/apple-touch-icon-precomposed.png',
-    '/manifest.json', '/design-system.css', '/stagger.css', '/nav.js',
+    '/manifest.json', '/design-system.css', '/stagger.css', '/motion.css', '/nav.js',
     '/api/auth/verify', '/api/auth/check', '/api/version',
 }
 
@@ -665,6 +665,24 @@ def serve_manifest():
 def serve_stagger_css():
     """Staggered entrance of menus, lists and grids (source/html/stagger.css); nav.js links it on every page."""
     resp = send_file(os.path.join(_HERE, 'html', 'stagger.css'), mimetype='text/css', max_age=0)
+    resp.headers['Cache-Control'] = 'no-cache'
+    return resp
+
+
+@app.after_request
+def _revalidate_pages_and_assets(resp):
+    """Pages, stylesheets and scripts are re-checked on every load (a 304 when unchanged). Without this a
+    browser may keep showing an old copy of a served file for a while after it was edited."""
+    if resp.mimetype in ('text/html', 'text/css', 'text/javascript', 'application/javascript') \
+            and 'Cache-Control' not in resp.headers:
+        resp.headers['Cache-Control'] = 'no-cache'
+    return resp
+
+
+@app.route('/motion.css')
+def serve_motion_css():
+    """Expand/collapse motion (source/html/motion.css); nav.js links it on every page."""
+    resp = send_file(os.path.join(_HERE, 'html', 'motion.css'), mimetype='text/css', max_age=0)
     resp.headers['Cache-Control'] = 'no-cache'
     return resp
 

@@ -17,7 +17,6 @@
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 @keyframes _pageIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-@keyframes _cardIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;min-height:100vh;direction:rtl;color:var(--navy);font-size:14px;animation:_pageIn .22s ease}
 
 /* ── Hamburger ─────────────────────────────────────────────── */
@@ -75,7 +74,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);display:flex;m
 .adv-toggle-arrow.open{transform:rotate(180deg)}
 
 /* Advanced panel */
-.adv-panel{overflow:hidden;max-height:0;transition:max-height .28s cubic-bezier(.4,0,.2,1),opacity .22s;opacity:0}
+.adv-panel{overflow:hidden;max-height:0;transition:max-height .35s cubic-bezier(.16,1,.3,1),opacity .22s;opacity:0}
 .adv-panel.open{max-height:300px;opacity:1}
 .adv-inner{padding-top:18px;border-top:1px solid var(--border);margin-top:16px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
 @media(max-width:700px){.adv-inner{grid-template-columns:1fr}}
@@ -163,7 +162,7 @@ input[type="date"].field-input{padding:0 10px;appearance:none;-webkit-appearance
 
 /* Result cards */
 .cards-list{display:flex;flex-direction:column;gap:10px}
-.result-card{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow-sm);padding:18px 22px;display:flex;flex-wrap:wrap;align-items:flex-start;gap:16px;cursor:default;transition:box-shadow .16s,transform .14s;animation:_cardIn .22s ease both}
+.result-card{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow-sm);padding:18px 22px;display:flex;flex-wrap:wrap;align-items:flex-start;gap:16px;cursor:default;transition:box-shadow .16s,transform .14s;animation:rise .4s backwards}
 .result-card:hover{box-shadow:var(--shadow-md);transform:translateY(-1px)}
 
 /* Card left: amount block */
@@ -669,7 +668,7 @@ function renderCards(rows){
     var hasDesc = r.description && r.description.trim() && r.description.trim() !== r.name.trim();
     var primaryText    = hasDesc ? r.description : r.name;
     var secondaryText  = hasDesc ? r.name : '';
-    var delay   = Math.min(i*0.03, 0.3);
+    var delay   = Math.min(i, 12) * 0.04;
 
     var isSplit    = r.is_split ? true : false;
     var splitBadge = isSplit ? '<span class="rc-split-badge">פיצול</span>' : '';

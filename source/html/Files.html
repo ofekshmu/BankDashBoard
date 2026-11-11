@@ -28,7 +28,6 @@
 }
 @keyframes _pageIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
 @keyframes fadeIn  { from{opacity:0} to{opacity:1} }
-@keyframes rowIn   { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:none} }
 
 body {
   font-family: 'Segoe UI', Arial, sans-serif;
@@ -204,7 +203,8 @@ body {
   padding: 12px 20px;
   border-bottom: 1px solid var(--border);
   transition: background .15s;
-  animation: rowIn .2s ease;
+  animation: rise var(--rise-dur, .4s) backwards;
+  animation-delay: calc(var(--i, 0) * 40ms * var(--rise-on, 1));
 }
 .file-row:last-child { border-bottom: none; }
 .file-row:hover { background: #f8faff; }
@@ -469,7 +469,8 @@ body {
 .db-table thead th.sorted .sort-arrow { opacity: 1; color: var(--teal); }
 .db-table tbody tr {
   border-bottom: 1px solid var(--border); transition: background .1s;
-  animation: rowIn .15s ease;
+  animation: rise var(--rise-dur, .4s) backwards;
+  animation-delay: calc(var(--i, 0) * 40ms * var(--rise-on, 1));
 }
 .db-table tbody tr:last-child { border-bottom: none; }
 .db-table tbody tr:hover { background: #f7f9ff; }

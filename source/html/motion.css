@@ -1,0 +1,25 @@
+/* ============================================================
+   Expand / collapse — fast start, soft stop (ease-out, 350ms)
+   An opening panel moves quickly at first and settles gently; the same curve closes it.
+   <details> panels animate their height (browsers without ::details-content, or with
+   prefers-reduced-motion, just open and close at once). Panels toggled with max-height
+   use the same curve in their own rules (var(--ease-expand) is the shared value).
+   Linked by nav.js on every page; the button press feel is also in nav.js.
+   ============================================================ */
+:root {
+  --ease-expand: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-expand: 0.35s;
+  interpolate-size: allow-keywords;
+}
+details::details-content {
+  block-size: 0;
+  overflow: clip;
+  transition: block-size var(--dur-expand) var(--ease-expand),
+              content-visibility var(--dur-expand) allow-discrete;
+}
+details[open]::details-content {
+  block-size: auto;
+}
+@media (prefers-reduced-motion: reduce) {
+  details::details-content { transition: none; }
+}

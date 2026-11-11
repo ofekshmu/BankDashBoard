@@ -204,7 +204,8 @@ body {
   padding: 12px 20px;
   border-bottom: 1px solid var(--border);
   transition: background .15s, opacity .3s, transform .35s, max-height .35s;
-  animation: fadeSlideIn .22s ease;
+  animation: rise var(--rise-dur, .4s) backwards;
+  animation-delay: calc(var(--i, 0) * 40ms * var(--rise-on, 1));
   max-height: none;
   overflow: visible;
   position: relative;
@@ -1427,7 +1428,7 @@ function buildUntaggedRow(tx, idx) {
         <button class="btn btn-primary" onclick="tagRow('${esc(key)}')" disabled id="btn-${esc(key)}">
           תייג
         </button>
-        <button class="tg-split-btn" onclick="tgOpenSplit(event,'${esc(tx.table_name)}',${tx.id},'${esc(tx.name||'')}',${Math.abs(tx.charge_value ?? tx.transaction_value ?? 0)},'${esc(tx.exec_date||'')}')">פצל</button>
+        <button class="tg-split-btn" onclick="tgOpenSplit(event,'${esc(tx.table_name)}',${tx.id},'${escJs(tx.name||'')}',${Math.abs(tx.charge_value ?? tx.transaction_value ?? 0)},'${escJs(tx.exec_date||'')}')">פצל</button>
       </div>
     </div>
     <div class="tx-desc-row">
@@ -1535,7 +1536,7 @@ function buildHighValRow(tx, idx) {
         <button class="btn btn-primary" onclick="tagRow('${esc(key)}')" disabled id="btn-${esc(key)}">
           תייג
         </button>
-        <button class="tg-split-btn" onclick="tgOpenSplit(event,'${esc(tx.table_name)}',${tx.id},'${esc(tx.name||'')}',${Math.abs(tx.charge_value ?? tx.transaction_value ?? 0)},'${esc(tx.exec_date||'')}')">פצל</button>
+        <button class="tg-split-btn" onclick="tgOpenSplit(event,'${esc(tx.table_name)}',${tx.id},'${escJs(tx.name||'')}',${Math.abs(tx.charge_value ?? tx.transaction_value ?? 0)},'${escJs(tx.exec_date||'')}')">פצל</button>
       </div>
     </div>
     <div class="tx-desc-row">
@@ -1841,7 +1842,7 @@ function renderDropdown(inp, key, q) {
     if (!matches.length) { dd.classList.remove('open'); return; }
     dd.innerHTML = matches.slice(0, 13).map((c, i) =>
       `<div class="cat-opt${q && i === 0 ? ' focused' : ''}" data-val="${esc(c.name)}"
-            onMouseDown="pickCategory('${esc(key)}','${esc(c.name)}')"
+            onMouseDown="pickCategory('${esc(key)}','${escJs(c.name)}')"
             id="opt-${esc(key)}-${i}">
          <span>${esc(c.name)}</span>
          <span class="usage-badge">${c.count != null ? c.count : ''}</span>
@@ -1870,7 +1871,7 @@ function renderDropdown(inp, key, q) {
   if (!allMatches.length) { dd.classList.remove('open'); return; }
   dd.innerHTML = allMatches.slice(0, 13).map((c, i) =>
     `<div class="cat-opt${q && i === 0 ? ' focused' : ''}" data-val="${esc(c.name)}"
-          onMouseDown="pickCategory('${esc(key)}','${esc(c.name)}')"
+          onMouseDown="pickCategory('${esc(key)}','${escJs(c.name)}')"
           id="opt-${esc(key)}-${i}">
        <span>${esc(c.name)}</span>
        <span class="usage-badge">${c.count != null ? c.count : '✕'}</span>
@@ -1959,9 +1960,9 @@ async function tagRow(key) {
 
   setRowLoading(key, true);
 
-  // 1. Check if we already have a rule for this name
-  const ruleRes  = await fetch(`/api/tagger/name-rule?name=${encodeURIComponent(name)}`).catch(() => null);
-  const ruleData = ruleRes ? await ruleRes.json().catch(() => null) : null;
+  // 1. Check if we already have a rule for this name — started together with the tag below (they are independent)
+  const rulePromise = fetch(`/api/tagger/name-rule?name=${encodeURIComponent(name)}`)
+    .then(r => r.json()).catch(() => null);
 
   // 2. Tag this single transaction (+ optional description)
   const res  = await fetch('/api/tagger/tag', {
@@ -1971,6 +1972,7 @@ async function tagRow(key) {
                                        : { table, id, category, auto: false, description, kind })
   }).catch(() => null);
   const data = res ? await res.json().catch(() => null) : null;
+  const ruleData = await rulePromise;
 
   if (!data || !data.ok) {
     showToast('שגיאה בתיוג', 'error');
@@ -2002,13 +2004,14 @@ function showTagAllPrompt(key, name, category) {
   const actions = row.querySelector('.tx-actions');
   if (!actions) return;
   const n = esc(name), c = esc(category);
+  const jn = escJs(name), jc = escJs(category);
   actions.innerHTML = `
     <div class="tag-all-prompt">
       <span class="tag-all-q">תייג את כל "<strong>${n}</strong>" כ-"${c}"?</span>
       <button class="btn btn-primary" style="min-width:48px"
-        onclick="confirmTagAll('${esc(key)}','${n}','${c}',true)">כן</button>
+        onclick="confirmTagAll('${esc(key)}','${jn}','${jc}',true)">כן</button>
       <button class="btn btn-ghost"
-        onclick="confirmTagAll('${esc(key)}','${n}','${c}',false)">לא</button>
+        onclick="confirmTagAll('${esc(key)}','${jn}','${jc}',false)">לא</button>
     </div>`;
 }
 
@@ -2021,6 +2024,7 @@ async function confirmTagAll(key, name, category, yes) {
   // This write must be awaited and verified: if it is silently dropped (the
   // old fire-and-forget call), the name stays ruleless and every later
   // transaction with the same name re-triggers this exact prompt.
+  exitRow(key);   // the row is already tagged: it leaves at once, the rule is confirmed after
   const res  = await fetch('/api/tagger/save-rule', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
@@ -2032,12 +2036,15 @@ async function confirmTagAll(key, name, category, yes) {
   } else {
     showToast(`תויג: "${category}"`, 'success');
   }
-  exitRow(key);
 }
 
 const _kindByName = {};   // the expense type picked for a name, applied if the user tags all of that name
 async function _doTagAll(name, category) {
   const kind = _kindByName[name];
+  // Optimistic: the rows leave the screen at once; the server confirms afterwards.
+  const rows = [...document.querySelectorAll('.tx-row')].filter(r => r.dataset.name === name);
+  const t0 = Date.now();
+  rows.forEach(_collapseRow);
   const res  = await fetch('/api/tagger/tag-all-by-name', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
@@ -2045,9 +2052,9 @@ async function _doTagAll(name, category) {
   }).catch(() => null);
   const data = res ? await res.json().catch(() => null) : null;
   if (!data || !data.ok) {
-    // Don't remove anything locally — the server-side tag never actually happened,
-    // so the row would just reappear on the next page load anyway.
-    showToast('שגיאה בתיוג', 'error');
+    // The server-side tag never happened: bring the rows back as they were.
+    rows.forEach(_restoreRow);
+    showToast('שגיאה בתיוג — השורות הוחזרו', 'error');
     return;
   }
   const count = data.tagged ?? 0;
@@ -2055,7 +2062,8 @@ async function _doTagAll(name, category) {
     ? `${count} עסקאות תויגו כ-"${category}"`
     : `תויג: "${category}"`;
   showToast(msg, 'success');
-  _exitAllByName(name);
+  // let the exit animation finish before the lists are redrawn without these rows
+  setTimeout(() => _removeFromLocalState(tx => tx.name === name), Math.max(0, 350 - (Date.now() - t0)));
 }
 
 // ── Local-only updates after tagging — no network refetch of the lists ──
@@ -2068,6 +2076,11 @@ function _collapseRow(row) {
   row.classList.add('exiting');
 }
 
+function _restoreRow(row) {
+  row.classList.remove('exiting');
+  row.style.maxHeight = '';
+}
+
 function exitRow(key) {
   const row = document.querySelector(`[data-key="${key}"]`);
   if (row) _collapseRow(row);
@@ -2075,15 +2088,6 @@ function exitRow(key) {
   const id = parseInt(idStr, 10);
   setTimeout(() => {
     _removeFromLocalState(tx => tx.table_name === table && tx.id === id);
-  }, 350);
-}
-
-function _exitAllByName(name) {
-  document.querySelectorAll('.tx-row').forEach(r => {
-    if (r.dataset.name === name) _collapseRow(r);
-  });
-  setTimeout(() => {
-    _removeFromLocalState(tx => tx.name === name);
   }, 350);
 }
 
@@ -2289,6 +2293,11 @@ function esc(s) {
     .replace(/"/g,'&quot;')
     .replace(/</g,'&lt;')
     .replace(/>/g,'&gt;');
+}
+// For a value inside a quoted JS string in an inline handler (onclick="f('${escJs(name)}')"):
+// a name such as ג'י.די.בי must not close the string. HTML-escaped as well, for the attribute.
+function escJs(s) {
+  return esc(String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'"));
 }
 function fmtDate(d) {
   if (!d) return '—';

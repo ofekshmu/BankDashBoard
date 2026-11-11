@@ -64,13 +64,14 @@
     var spa = current === 'monthly-page';
     var order = 0;
     function stagger(el) { el.style.setProperty('--i', Math.min(order++, STAGGER_MAX)); }
-    if (!document.getElementById('stagger-css')) {   // lists, grids and dropdowns of every page
+    ['stagger', 'motion'].forEach(function (name) {   // lists/menus entrance, expand/collapse — every page
+      if (document.getElementById(name + '-css')) return;
       var lk = document.createElement('link');
-      lk.id = 'stagger-css';
+      lk.id = name + '-css';
       lk.rel = 'stylesheet';
-      lk.href = '/stagger.css';
+      lk.href = '/' + name + '.css';
       document.head.appendChild(lk);
-    }
+    });
     if (!document.getElementById('nav-stagger-style')) {
       var st = document.createElement('style');
       st.id = 'nav-stagger-style';
@@ -226,6 +227,87 @@
     });
     return f;
   }
+
+  /* Button press: sink to 95%, then spring back (a little past 100%, then settle). Every button on every page,
+   * through delegated pointer events and the individual `scale` property, so a button's own transform and
+   * transitions are untouched. Big buttons sink less (98%); the side-menu rows and disabled buttons are skipped. */
+  function initPress() {
+    if (window._pressInit || !document.documentElement.animate) return;
+    window._pressInit = true;
+    var SEL = 'button, [role="button"], input[type="button"], input[type="submit"], .btn';
+    var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)');
+    var held = null;     // { el, anim, from }
+
+    function pressable(el) {
+      var b = el && el.closest && el.closest(SEL);
+      if (!b || b.disabled || b.getAttribute('aria-disabled') === 'true' || b.classList.contains('nav-item')) return null;
+      return b;
+    }
+    function release(springy) {
+      if (!held) return;
+      var h = held;
+      held = null;
+      var now = getComputedStyle(h.el).scale;
+      h.anim.cancel();
+      var start = now === 'none' ? String(h.from) : now;
+      h.el.animate(springy
+        // spring: past 100%, back under it, then settle (each leg eases out)
+        ? [{ scale: start }, { scale: '1.04', offset: .35 }, { scale: '.99', offset: .65 }, { scale: '1.005', offset: .85 }, { scale: '1' }]
+        : [{ scale: start }, { scale: '1' }],
+        { duration: springy ? 520 : 140, easing: 'ease-out' });
+    }
+    document.addEventListener('pointerdown', function (e) {
+      if (reduce && reduce.matches) return;
+      if (e.button > 0) return;
+      var b = pressable(e.target);
+      if (!b) return;
+      release(false);
+      var from = b.getBoundingClientRect().width > 240 ? 0.98 : 0.95;
+      held = { el: b, from: from, anim: b.animate([{ scale: '1' }, { scale: String(from) }],
+        { duration: 120, easing: 'ease-out', fill: 'forwards' }) };
+    }, true);
+    document.addEventListener('pointerup', function () { release(true); }, true);
+    document.addEventListener('pointercancel', function () { release(false); }, true);
+    document.addEventListener('pointerleave', function () { release(false); }, true);
+  }
+  initPress();
+
+  /* A list that is redrawn (rows replaced in one go: after tagging a row, a filter, a search) must not rise
+   * again; only a list going from empty/loading to filled does. The observer marks such a container with
+   * .stg-still, and stagger.css zeroes the animation duration and delays under it. */
+  function initStill() {
+    if (window._stillInit || !window.MutationObserver) return;
+    window._stillInit = true;
+    function placeholder(n) {
+      return n.nodeType !== 1 || n.classList.contains('sq-loading') || n.classList.contains('skel-card');
+    }
+    function hasReal(nodes) {
+      for (var i = 0; i < nodes.length; i++) if (!placeholder(nodes[i])) return true;
+      return false;
+    }
+    function risesItems(r) {   // the new rows are stagger items (they animate with `rise`), so the target is a stagger list
+      for (var i = 0; i < r.addedNodes.length; i++) {
+        var n = r.addedNodes[i];
+        if (n.nodeType === 1) return getComputedStyle(n).animationName === 'rise';
+      }
+      return false;
+    }
+    function hasOtherReal(parent, added) {
+      for (var c = parent.firstElementChild; c; c = c.nextElementSibling) {
+        if (!placeholder(c) && Array.prototype.indexOf.call(added, c) < 0) return true;
+      }
+      return false;
+    }
+    new MutationObserver(function (records) {
+      records.forEach(function (r) {
+        var t = r.target;
+        if (r.type !== 'childList' || t.nodeType !== 1 || !r.addedNodes.length) return;
+        if (hasReal(r.removedNodes)) { if (risesItems(r)) t.classList.add('stg-still'); }   // real rows replaced: a re-render
+        else if (t.classList.contains('stg-still') && !hasOtherReal(t, r.addedNodes)) t.classList.remove('stg-still');  // empty/loading -> filled
+      });
+    }).observe(document.documentElement, { childList: true, subtree: true });
+  }
+  initStill();
 
   var boxes = document.querySelectorAll('.sidebar-scroll[data-nav]');
   for (var i = 0; i < boxes.length; i++) render(boxes[i]);

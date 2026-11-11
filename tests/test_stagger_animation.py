@@ -96,3 +96,12 @@ def test_tag_all_leaves_the_screen_before_the_server_answers():
     assert 'rows.forEach(_restoreRow)' in body       # rolled back when the server refuses
     no = js[js.index('async function confirmTagAll'):js.index('const _kindByName')]
     assert no.index('exitRow(key)') < no.index("fetch('/api/tagger/save-rule'")
+
+
+def test_success_mark_draws_the_circle_then_the_tick():
+    css = _read('motion.css')
+    assert '.ok-draw circle' in css and 'ok-draw-line .3s ease-out forwards' in css
+    assert '.ok-draw path' in css and 'ok-draw-line .17s ease-out .3s forwards' in css    # 300ms + 170ms = the 470ms of the brief
+    assert 'window.okDraw' in _read('nav.js')
+    for page, kind in (('Tagger.html', "type === 'success'"), ('Files.html', "type === 'ok'"), ('PlantTracker.html', "kind === 'ok'")):
+        assert 'okDraw()' in _read(page) and kind in _read(page), page

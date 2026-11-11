@@ -29,6 +29,11 @@
   ];
   var PANEL_BUTTONS = { monthly: 'nav-overview', accounts: 'nav-accounts' };
 
+  /* The success mark every "done" message uses: the circle draws, then the tick (styles in motion.css). */
+  window.okDraw = function () {
+    return '<svg class="ok-draw" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M7.5 12.5l3 3 6-6.5"/></svg>';
+  };
+
   /* Items rise one after another each time the menu opens: one animation (0.4s), each item waits 40ms x its
    * position (--i, capped at 12). Same rule as the lists in design-system.css, kept here because this
    * script is on every page. */
@@ -141,9 +146,11 @@
     '.cp-arc{stroke:#43c98c;stroke-width:2;stroke-linecap:round;stroke-dasharray:88;stroke-dashoffset:88;' +
     'transform:rotate(-90deg);transform-origin:17px 17px}' +
     '.cp-field.ring .cp-arc{stroke-dashoffset:0;transition:stroke-dashoffset .23s ease-out}' +
-    '.cp-check{stroke:#fff;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:20;stroke-dashoffset:20;' +
-    'transition:stroke-dashoffset .12s}' +
-    '.cp-field.done .cp-check{stroke-dashoffset:0;transition-delay:.05s}' +
+    '.cp-check{stroke:#fff;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:20;stroke-dashoffset:20;' +
+    'transition:stroke-dashoffset .17s ease-out}' +
+    '.cp-okc{stroke:#fff;stroke-width:1.8;stroke-dasharray:76;stroke-dashoffset:76;transition:stroke-dashoffset .3s ease-out}' +
+    '.cp-field.done .cp-okc{stroke-dashoffset:0}' +
+    '.cp-field.done .cp-check{stroke-dashoffset:0;transition-delay:.3s}' +
     '.cp-halo{position:absolute;inset:-4px;border-radius:11px;border:2px solid rgba(52,178,123,.6);opacity:0;' +
     'transform:scale(.8);transition:opacity .25s,transform .25s}' +
     '.cp-field.press .cp-halo{opacity:1;transform:scale(1)}' +
@@ -157,7 +164,7 @@
     '.cp-field.done .cp-tip{opacity:1;transform:scale(1);background:#fff;' +
     'transition:transform .15s cubic-bezier(.34,1.56,.64,1),opacity .1s,background .1s}' +
     '.cp-field.done .cp-tip:after{border-top-color:#fff;transition-duration:.1s}' +
-    '.cp-field.fail .cp-chip:before{opacity:0}.cp-field.fail .cp-check{stroke-dashoffset:20}' +
+    '.cp-field.fail .cp-chip:before{opacity:0}.cp-field.fail .cp-check{stroke-dashoffset:20}.cp-field.fail .cp-okc{stroke-dashoffset:76}' +
     '.cp-field.fail .cp-tip{background:#f2c9c9}.cp-field.fail .cp-tip:after{border-top-color:#f2c9c9}' +
     '@media (prefers-reduced-motion:reduce){.cp-field *,.cp-field *:before{transition-duration:.01s!important;transition-delay:0s!important}}';
 
@@ -198,7 +205,7 @@
         '<svg class="cp-glyph" viewBox="0 0 34 34"><rect x="13" y="8" width="12" height="12" rx="3"/><rect x="8" y="13" width="12" height="12" rx="3"/></svg>' +
         '<svg viewBox="0 0 34 34"><circle class="cp-disc" cx="17" cy="17" r="11" fill="rgba(197,208,224,.35)"/>' +
         '<circle class="cp-arc" cx="17" cy="17" r="14"/></svg>' +
-        '<svg viewBox="0 0 34 34"><path class="cp-check" d="M10 17.5l4.5 4.5L24 12"/></svg>' +
+        '<svg viewBox="0 0 34 34"><circle class="cp-okc" cx="17" cy="17" r="12" transform="rotate(-90 17 17)"/><path class="cp-check" d="M11 17.5l4 4 8-8.5"/></svg>' +
         '<span class="cp-halo"></span>' +
       '</span>' +
       '<span class="cp-tip" aria-live="polite">הועתק!</span>';
@@ -217,8 +224,8 @@
           if (ok) f.classList.add('done');
           else { tip.textContent = 'לא הועתק'; f.classList.add('done', 'fail'); }
         }, 500);
-        setTimeout(function () { f.className = 'cp-field'; }, 2100);
-        setTimeout(function () { tip.textContent = 'הועתק!'; busy = false; }, 2450);
+        setTimeout(function () { f.className = 'cp-field'; }, 2300);
+        setTimeout(function () { tip.textContent = 'הועתק!'; busy = false; }, 2650);
       });
     }
     f.addEventListener('click', run);

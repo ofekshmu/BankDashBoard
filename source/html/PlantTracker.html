@@ -657,7 +657,8 @@ function fmtDay(s){ var d = parseDay(s); return 'יום ' + WEEKDAYS[d.getDay()]
 function toast(msg, kind){
   kind = kind === true ? 'err' : (kind || 'ok');
   var t = document.getElementById('pt-toast');
-  t.textContent = msg;
+  if (kind === 'ok' && window.okDraw) t.innerHTML = okDraw() + esc(msg);   // circle, then tick
+  else t.textContent = msg;
   t.className = 'pt-toast show ' + kind;
   clearTimeout(toast._t);
   if (kind !== 'pending') toast._t = setTimeout(function(){ t.className = 'pt-toast'; }, kind === 'ok' ? 3200 : 4200);

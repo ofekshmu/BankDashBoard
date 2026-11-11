@@ -1659,7 +1659,8 @@ function toast(msg, type) {
   const area = document.getElementById('toast-area');
   const el   = document.createElement('div');
   el.className = 'toast' + (type ? ' ' + type : '');
-  el.textContent = msg;
+  if (type === 'ok' && window.okDraw) el.innerHTML = okDraw() + esc(msg);   // circle, then tick
+  else el.textContent = msg;
   area.appendChild(el);
   setTimeout(() => el.remove(), 3500);
 }

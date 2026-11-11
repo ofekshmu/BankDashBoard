@@ -105,3 +105,31 @@ def test_success_mark_draws_the_circle_then_the_tick():
     assert 'window.okDraw' in _read('nav.js')
     for page, kind in (('Tagger.html', "type === 'success'"), ('Files.html', "type === 'ok'"), ('PlantTracker.html', "kind === 'ok'")):
         assert 'okDraw()' in _read(page) and kind in _read(page), page
+
+
+def test_rolling_number_helper_and_where_it_is_used():
+    js = _read('nav.js')
+    assert 'window.rollNumber' in js and 'delay: Math.min(order, 6) * 100' in js and 'duration: 650' in js
+    assert "from !== to" in js                                   # unchanged digits stay still
+    base = _read('Base_template.html')
+    for key in ("'acct-grand'", "'hs-equity'", "'gen-kpi-' + i"):
+        assert key in base, key
+    # the grand-total update reads the figure from aria-label, not from the stacked digit columns
+    assert "getAttribute('aria-label') || totalValEl.textContent" in base
+    assert "rollNumber(kpiEl, d.kpi, 'landing:' + id)" in open(os.path.join(HTML, '..', '..', 'index.html'), encoding='utf-8').read()
+
+
+def test_monthly_kpi_cards_roll_too():
+    base = _read('Base_template.html')
+    assert "rollNumber(el, el.textContent, 'month-kpi-' + i)" in base
+
+
+def test_spotify_figures_roll():
+    page = _read('SpotifyTracker.html')
+    for key in ("'sp-monthly'", "'sp-perperson'", "'sp-outstanding'", "'sp-unmatched'", "'sp-member-' + m.id", "'sp-detail-' + memberId"):
+        assert key in page, key
+
+
+def test_bills_kpis_roll():
+    page = _read('Bills.html')
+    assert "'bills-type-' + card.dataset.tid" in page and "'bills-grp-' + card.dataset.grp" in page

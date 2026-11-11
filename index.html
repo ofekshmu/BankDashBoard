@@ -603,6 +603,8 @@
       (id === 'monthly' ? flowHtml((d.extra || {}).flow) : '') +
       (id === 'accounts' ? trendHtml((d.extra || {}).trend) : '') +
       miniKpisHtml((d.extra || {}).tiles);
+    const kpiEl = body.querySelector('.kpi.kpi-ltr');
+    if (kpiEl && window.rollNumber) rollNumber(kpiEl, d.kpi, 'landing:' + id);   /* digits roll to the new figure */
     if (id === 'monthly') renderMonthPicker(el, d.extra || {});
     paintAge(el, id);
   }

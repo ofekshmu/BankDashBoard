@@ -29,6 +29,70 @@
   ];
   var PANEL_BUTTONS = { monthly: 'nav-overview', accounts: 'nav-accounts' };
 
+  /* Rolling number ("roll, don't jump"): the digits of a figure turn like an odometer to their new values,
+   * one digit after the other (100ms apart), each easing out with a small overshoot (~650ms). Unchanged
+   * digits stay still. rollNumber(el, "1,234₪", key): `key` remembers the last value of a figure whose element
+   * is rebuilt on every render, so only what changed rolls (the first time every digit rolls up from 0).
+   * Text without digits is just set. Skipped under prefers-reduced-motion. */
+  var RN_CSS =
+    '.rn{display:inline-block;direction:ltr;unicode-bidi:isolate;white-space:nowrap;font-variant-numeric:tabular-nums}' +
+    '.rn-d{display:inline-block;height:1.2em;line-height:1.2em;overflow:hidden;vertical-align:top}' +
+    '.rn-c{display:block}.rn-c>i{display:block;height:1.2em;font-style:normal}' +
+    '.rn-s{display:inline-block;height:1.2em;line-height:1.2em;white-space:pre;vertical-align:top}';
+  var RN_PREV = {};
+  window.rollNumber = function (el, text, key) {
+    if (!el) return;
+    text = String(text == null ? '' : text);
+    var prevText = key ? RN_PREV[key] : el._rnText;
+    if (key) RN_PREV[key] = text; else el._rnText = text;
+    var chars = Array.from(text);
+    var isDigit = function (c) { return c >= '0' && c <= '9'; };
+    var digits = chars.filter(isDigit);
+    el.setAttribute('aria-label', text);
+    if (!digits.length) { el.textContent = text; return; }
+    if (prevText === text && el.querySelector('.rn')) return;                 // nothing changed
+    if (!document.getElementById('rn-style')) {
+      var st = document.createElement('style');
+      st.id = 'rn-style';
+      st.textContent = RN_CSS;
+      document.head.appendChild(st);
+    }
+    var prevDigits = prevText ? Array.from(prevText).filter(isDigit) : [];
+    var animate = !!el.animate && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+    var wrap = document.createElement('span');
+    wrap.className = 'rn';
+    wrap.setAttribute('aria-hidden', 'true');
+    var di = 0, order = 0;
+    chars.forEach(function (c) {
+      if (!isDigit(c)) {
+        var s = document.createElement('span');
+        s.className = 'rn-s';
+        s.textContent = c;
+        wrap.appendChild(s);
+        return;
+      }
+      var to = +c;
+      var fromIdx = prevDigits.length - (digits.length - di);                   // aligned from the right
+      var from = fromIdx >= 0 ? +prevDigits[fromIdx] : 0;
+      di++;
+      var d = document.createElement('span');
+      d.className = 'rn-d';
+      var col = document.createElement('span');
+      col.className = 'rn-c';
+      col.innerHTML = '0123456789'.replace(/./g, '<i>$&</i>');
+      col.style.transform = 'translateY(' + (-to * 10) + '%)';
+      d.appendChild(col);
+      wrap.appendChild(d);
+      if (animate && from !== to) {
+        col.animate([{ transform: 'translateY(' + (-from * 10) + '%)' }, { transform: 'translateY(' + (-to * 10) + '%)' }],
+          { duration: 650, delay: Math.min(order, 6) * 100, easing: 'cubic-bezier(.34,1.35,.64,1)', fill: 'backwards' });
+        order++;
+      }
+    });
+    el.textContent = '';
+    el.appendChild(wrap);
+  };
+
   /* The success mark every "done" message uses: the circle draws, then the tick (styles in motion.css). */
   window.okDraw = function () {
     return '<svg class="ok-draw" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M7.5 12.5l3 3 6-6.5"/></svg>';

@@ -1793,7 +1793,7 @@ function renderStatsBar() {
     const accentColor = types[0]?.color || 'var(--teal)';
 
     return `
-      <div class="stats-card" style="--stats-accent:${accentColor}">
+      <div class="stats-card" data-grp="${esc(name || '')}" style="--stats-accent:${accentColor}">
         <div class="stats-card-title">${dots}&nbsp;${name ? esc(name) : 'כללי'}</div>
         <div class="stats-kpi-row">
           <div class="stats-kpi">
@@ -1822,6 +1822,12 @@ function renderStatsBar() {
 
   bar.innerHTML = cards.join('');
   if (barCard) barCard.style.display = '';
+  // the figures roll to their values (months/dates are left as they are); keyed by group so a re-render rolls only what changed
+  if (window.rollNumber) bar.querySelectorAll('.stats-card').forEach(card => {
+    card.querySelectorAll('.stats-kpi-val').forEach((el, i) => {
+      if (!el.textContent.includes('/')) rollNumber(el, el.textContent, 'bills-grp-' + card.dataset.grp + '-' + i);
+    });
+  });
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -1849,7 +1855,7 @@ function renderTypeKpiBar() {
     const monthAvg   = withAmt.length ? total / spanMonths : 0;
     const showInfo   = _firstCard; _firstCard = false;
     return `
-      <div class="type-kpi-card" style="--kpi-color:${type.color}">
+      <div class="type-kpi-card" data-tid="${type.id}" style="--kpi-color:${type.color}">
         <div class="type-kpi-name">${esc(type.name)}</div>
         <div class="type-kpi-main-val">${fmtAmt(monthAvg)}</div>
         <div class="type-kpi-main-lbl">ממוצע חודשי${showInfo ? '<span class="kpi-info" data-tip="סה&quot;כ ÷ חודשי תשלום פעילים&#10;פערים ללא תשלום לא נספרים">i</span>' : ''}</div>
@@ -1897,6 +1903,12 @@ function renderTypeKpiBar() {
   }
 
   kpiBar.innerHTML = html;
+  // the figures roll to their values; keyed by bill type so a re-render rolls only what changed
+  if (window.rollNumber) kpiBar.querySelectorAll('.type-kpi-card').forEach(card => {
+    card.querySelectorAll('.type-kpi-main-val, .type-kpi-val').forEach((el, i) => {
+      rollNumber(el, el.textContent, 'bills-type-' + card.dataset.tid + '-' + i);
+    });
+  });
 }
 
 async function deleteType(id) {

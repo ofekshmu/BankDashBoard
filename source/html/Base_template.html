@@ -4529,8 +4529,9 @@ function _acctOptimisticTableUpdate(name, value, currency) {
   // Update grand total
   var totalValEl = document.querySelector('#accounts-table .acct-cards-total-value');
   if (totalValEl) {
-    var tOld = parseFloat(totalValEl.textContent.replace(/[^\d.-]/g, '')) || 0;
-    totalValEl.textContent = Math.round(tOld + delta).toLocaleString('he-IL') + '₪';
+    var tOld = parseFloat((totalValEl.getAttribute('aria-label') || totalValEl.textContent).replace(/[^\d.-]/g, '')) || 0;   // the rolling figure keeps its text in aria-label
+    var _newTotal = Math.round(tOld + delta).toLocaleString('he-IL') + '₪';
+    if (window.rollNumber) rollNumber(totalValEl, _newTotal, 'acct-grand'); else totalValEl.textContent = _newTotal;
   }
 }
 
@@ -6538,6 +6539,11 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       '</div>';
 
     if (kr2) kr2.innerHTML = '';
+
+    // the figures roll to their values — and, switching months, from the previous month's figure (keyed by card)
+    if (window.rollNumber) kr.querySelectorAll('.kpi-value').forEach(function (el, i) {
+      rollNumber(el, el.textContent, 'month-kpi-' + i);
+    });
   }
 
   // ── Chart helpers ──────────────────────────────────────────────────────
@@ -7147,6 +7153,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         val.id = 'gen-kpi-val-' + i;
         val.style.cssText = 'font-size:1.15em;font-weight:800;color:' + ki.clr + ';white-space:nowrap;';
         val.textContent = _gFmtKpi(ki.val);
+        if (window.rollNumber) rollNumber(val, _gFmtKpi(ki.val), 'gen-kpi-' + i);
         cell.appendChild(lbl); cell.appendChild(val);
         banner.appendChild(cell);
       });
@@ -7516,10 +7523,11 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         var totalInvNet  = Math.round(kpiInvOut.reduce(function(a,b){return a+b;},0) - kpiInvIn.reduce(function(a,b){return a+b;},0));
 
         var meanEl = document.getElementById('gen-kpi-val-0');
-        if (meanEl) { meanEl.textContent = _gFmtKpi(mean); meanEl.style.color = mean >= 0 ? '#1e9d8b' : '#e74c3c'; }
-        var incEl = document.getElementById('gen-kpi-val-1'); if (incEl) incEl.textContent = _gFmtKpi(totalIncome);
-        var outEl = document.getElementById('gen-kpi-val-2'); if (outEl) outEl.textContent = _gFmtKpi(totalOutcome);
-        var invEl = document.getElementById('gen-kpi-val-3'); if (invEl) invEl.textContent = _gFmtKpi(totalInvNet);
+        var _rollKpi = function (el, v, k) { if (window.rollNumber) rollNumber(el, _gFmtKpi(v), k); else el.textContent = _gFmtKpi(v); };
+        if (meanEl) { _rollKpi(meanEl, mean, 'gen-kpi-0'); meanEl.style.color = mean >= 0 ? '#1e9d8b' : '#e74c3c'; }
+        var incEl = document.getElementById('gen-kpi-val-1'); if (incEl) _rollKpi(incEl, totalIncome, 'gen-kpi-1');
+        var outEl = document.getElementById('gen-kpi-val-2'); if (outEl) _rollKpi(outEl, totalOutcome, 'gen-kpi-2');
+        var invEl = document.getElementById('gen-kpi-val-3'); if (invEl) _rollKpi(invEl, totalInvNet, 'gen-kpi-3');
 
         if (_gOlderBtn) {
           var olderDisabled = _mobOffset >= _gMaxOffset;
@@ -8202,6 +8210,8 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     html += '</div>'; // wrap
 
     wrap.innerHTML = html;
+    var _grandEl = wrap.querySelector('.acct-cards-total-value');
+    if (_grandEl && window.rollNumber) rollNumber(_grandEl, _grandEl.textContent, 'acct-grand');   // the grand total rolls to its new value
 
     if (!wrap._acctClickBound) {
       wrap._acctClickBound = true;
@@ -8769,6 +8779,8 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     }
 
     panel.innerHTML = _hsShell(html);
+    var _eqEl = document.getElementById('hs-equity');
+    if (_eqEl && window.rollNumber) rollNumber(_eqEl, _eqEl.textContent, 'hs-equity');   // equity rolls to its figure
     _hsLoadKinds();
 
     // ── Rate slider interactivity ──────────────────────────────────────────

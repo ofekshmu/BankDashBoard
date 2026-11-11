@@ -850,6 +850,11 @@ function fmt(n){
   if(n == null) return '—';
   return '₪' + parseFloat(n).toLocaleString('he-IL', {minimumFractionDigits:2, maximumFractionDigits:2});
 }
+// Figures roll to their new value (nav.js rollNumber); `key` remembers the last value of a re-rendered figure.
+function rollTo(el, text, key){
+  if(!el) return;
+  if(window.rollNumber) rollNumber(el, text, key); else el.textContent = text;
+}
 function fmtDate(s){
   if(!s) return '—';
   var d = new Date(s);
@@ -946,8 +951,8 @@ function renderSummaryBar(){
     avgPerPerson = totalShares / confirmed.length;
   }
 
-  document.getElementById('sumMonthlyCharge').textContent = monthly != null ? fmt(monthly) : '—';
-  document.getElementById('sumPerPerson').textContent = avgPerPerson != null ? fmt(avgPerPerson) : '—';
+  rollTo(document.getElementById('sumMonthlyCharge'), monthly != null ? fmt(monthly) : '—', 'sp-monthly');
+  rollTo(document.getElementById('sumPerPerson'), avgPerPerson != null ? fmt(avgPerPerson) : '—', 'sp-perperson');
   document.getElementById('sumLastChargeMonth').textContent = latestCharge ? fmtMonth(latestCharge.month) : '—';
 
   // total outstanding (sum of positive balances = owes)
@@ -958,8 +963,8 @@ function renderSummaryBar(){
     var amount = typeof v === 'object' ? (v.balance || v.amount || 0) : v;
     if(amount < 0) totalOwed += Math.abs(amount);
   });
-  document.getElementById('sumTotalOutstanding').textContent = fmt(totalOwed);
-  document.getElementById('sumUnmatched').textContent = state.unmatched.length;
+  rollTo(document.getElementById('sumTotalOutstanding'), fmt(totalOwed), 'sp-outstanding');
+  rollTo(document.getElementById('sumUnmatched'), String(state.unmatched.length), 'sp-unmatched');
 }
 
 // ── Charge banner ──────────────────────────────────────────────
@@ -1088,6 +1093,7 @@ function _buildMemberCard(m){
     + monthsHtml
     + '<div class="member-card-meta">' + count + ' תשלומים</div>'
     + (lastPay ? '<div class="member-card-meta">תשלום אחרון: ' + fmtDate(lastPay) + '</div>' : '');
+  rollTo(card.querySelector('.member-card-balance'), fmt(amount), 'sp-member-' + m.id);
 
   card.onclick = function(e){
     // Don't trigger if a button inside was clicked
@@ -1212,7 +1218,7 @@ function dismissUnmatched(txId, btn){
       if(res && res.ok){
         state.unmatched = state.unmatched.filter(function(t){ return t.id !== txId; });
         renderUnmatchedTable();
-        document.getElementById('sumUnmatched').textContent = state.unmatched.length;
+        rollTo(document.getElementById('sumUnmatched'), String(state.unmatched.length), 'sp-unmatched');
       } else {
         btn.disabled = false;
       }
@@ -1332,6 +1338,7 @@ function renderMemberDetail(memberId){
     + '<div class="table-wrap"><table class="data-table"><thead><tr><th>חודש</th><th>סה"כ</th><th>מספר חברים</th><th>חלק לאדם</th></tr></thead>'
     + '<tbody>' + chargeRows + '</tbody></table></div>'
     + '</div></div>';
+  rollTo(panel.querySelector('.balance-card-amount'), fmt(Math.abs(amount)), 'sp-detail-' + memberId);
 }
 
 // ── Assign payment modal ────────────────────────────────────────

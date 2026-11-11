@@ -188,28 +188,11 @@ body {
   to   { opacity: 1; transform: translateY(0); }
 }
 
-@keyframes ds-row-in {
-  from { opacity: 0; transform: translateX(6px); }
-  to   { opacity: 1; transform: translateX(0); }
-}
-
 .ds-animate-in {
   animation: ds-fade-up 0.35s ease both;
 }
 
-/* Staggered table rows — add .ds-stagger to <tbody> */
-.ds-stagger tr {
-  animation: ds-row-in 0.25s ease both;
-}
-.ds-stagger tr:nth-child(1)  { animation-delay: 0.04s; }
-.ds-stagger tr:nth-child(2)  { animation-delay: 0.08s; }
-.ds-stagger tr:nth-child(3)  { animation-delay: 0.12s; }
-.ds-stagger tr:nth-child(4)  { animation-delay: 0.16s; }
-.ds-stagger tr:nth-child(5)  { animation-delay: 0.20s; }
-.ds-stagger tr:nth-child(6)  { animation-delay: 0.24s; }
-.ds-stagger tr:nth-child(7)  { animation-delay: 0.28s; }
-.ds-stagger tr:nth-child(8)  { animation-delay: 0.32s; }
-.ds-stagger tr:nth-child(n+9) { animation-delay: 0.36s; }
+/* Staggered entrance of menus, lists and grids: see stagger.css (loaded by nav.js on every page). */
 
 /* ============================================================
    Turning-square loader — the one loading animation of the app.

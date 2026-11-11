@@ -29,6 +29,17 @@
   ];
   var PANEL_BUTTONS = { monthly: 'nav-overview', accounts: 'nav-accounts' };
 
+  /* Items rise one after another each time the menu opens: one animation (0.4s), each item waits 40ms x its
+   * position (--i, capped at 12). Same rule as the lists in design-system.css, kept here because this
+   * script is on every page. */
+  var STAGGER_CSS =
+    '@keyframes nav-rise{from{opacity:0;transform:translateY(8px)}}' +
+    '.sidebar.open .sidebar-scroll>.nav-item,.sidebar.open .sidebar-scroll>.cp-field{' +
+    'animation:nav-rise .4s backwards;animation-delay:calc(var(--i,0)*40ms)}' +
+    '@media (prefers-reduced-motion:reduce){.sidebar.open .sidebar-scroll>.nav-item,' +
+    '.sidebar.open .sidebar-scroll>.cp-field{animation:none}}';
+  var STAGGER_MAX = 12;
+
   /** Open the last viewed month directly (the server's /monthly picks the latest one). */
   function toLastMonth(e) {
     try {
@@ -51,6 +62,21 @@
   function render(box) {
     var current = box.getAttribute('data-nav') || '';
     var spa = current === 'monthly-page';
+    var order = 0;
+    function stagger(el) { el.style.setProperty('--i', Math.min(order++, STAGGER_MAX)); }
+    if (!document.getElementById('stagger-css')) {   // lists, grids and dropdowns of every page
+      var lk = document.createElement('link');
+      lk.id = 'stagger-css';
+      lk.rel = 'stylesheet';
+      lk.href = '/stagger.css';
+      document.head.appendChild(lk);
+    }
+    if (!document.getElementById('nav-stagger-style')) {
+      var st = document.createElement('style');
+      st.id = 'nav-stagger-style';
+      st.textContent = STAGGER_CSS;
+      document.head.appendChild(st);
+    }
     box.textContent = '';
     ITEMS.forEach(function (item) {
       if (item === '-') {
@@ -69,6 +95,7 @@
       }
       el.className = 'nav-item' + (key === current ? ' active' : '');
       el.textContent = item[1];
+      stagger(el);
       if (key === 'bills') {           // pages light this dot when a bill needs attention
         el.id = 'nav-bills-link';
         var dot = document.createElement('span');
@@ -82,7 +109,9 @@
     var sep = document.createElement('div');
     sep.className = 'nav-sep';
     box.appendChild(sep);
-    box.appendChild(copyLinkButton());
+    var copy = copyLinkButton();
+    stagger(copy);
+    box.appendChild(copy);
   }
 
   /* Copy-link field: the address with a copy chip. On tap the chip morphs copy glyph → circle with a

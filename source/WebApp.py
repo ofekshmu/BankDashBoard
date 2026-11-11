@@ -497,7 +497,7 @@ app.config['PERMANENT_SESSION_LIFETIME'] = _timedelta(days=7)
 _PUBLIC_PATHS = {
     '/', '/favicon.ico', '/favicon.svg',
     '/apple-touch-icon.png', '/apple-touch-icon-precomposed.png',
-    '/manifest.json', '/design-system.css', '/nav.js',
+    '/manifest.json', '/design-system.css', '/stagger.css', '/nav.js',
     '/api/auth/verify', '/api/auth/check', '/api/version',
 }
 
@@ -659,6 +659,14 @@ def serve_manifest():
         ],
     }
     return jsonify(manifest)
+
+
+@app.route('/stagger.css')
+def serve_stagger_css():
+    """Staggered entrance of menus, lists and grids (source/html/stagger.css); nav.js links it on every page."""
+    resp = send_file(os.path.join(_HERE, 'html', 'stagger.css'), mimetype='text/css', max_age=0)
+    resp.headers['Cache-Control'] = 'no-cache'
+    return resp
 
 
 @app.route('/design-system.css')

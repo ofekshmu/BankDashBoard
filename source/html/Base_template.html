@@ -8369,28 +8369,75 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
     Object.keys(data.accounts).forEach(function(name) {
       var pts = data.accounts[name] || [];
       if (!pts.length) return;
-      var lastPt = pts.slice().sort(function(a,b){return a[0]<b[0]?-1:(a[0]>b[0]?1:0);})[pts.length - 1];
-      if (_acctIsInactive(acctSettings, name, lastPt[1])) return;   // inactive accounts leave the chart
+      var sortedPts = pts.slice().sort(function(a,b){return a[0]<b[0]?-1:(a[0]>b[0]?1:0);});
+      var lastPt = sortedPts[sortedPts.length - 1];
+      var inactive = _acctIsInactive(acctSettings, name, lastPt[1]);
+      if (inactive) {
+        // An inactive account stays on the chart up to its last relevant date: its last non-zero balance and the
+        // closing point after it (the drop to 0). Nothing after that.
+        var lastNonZero = -1;
+        sortedPts.forEach(function(p, i) { if (p[1] != null && Math.abs(p[1]) >= 0.005) lastNonZero = i; });
+        if (lastNonZero < 0) return;                                          // never held money: nothing to draw
+        sortedPts = sortedPts.slice(0, Math.min(lastNonZero + 2, sortedPts.length));
+      }
+      pts = sortedPts;
       var indexed = {};
       var shift = name === 'Total' ? totalShift : 0;
       pts.forEach(function(p) { indexed[p[0]] = p[1] == null ? null : p[1] + shift; });
       var color = name === 'Total' ? '#333' : palette[colorIdx++ % palette.length];
+      var shownName = inactive ? name + ' (לא פעיל)' : name;
       datasets.push({
-        label: name,
+        label: shownName,
+        borderDash: inactive ? [5, 4] : [],
         data: labels.map(function(d) { return indexed[d] != null ? indexed[d] : null; }),
         borderColor: color, backgroundColor: 'transparent',
         borderWidth: name === 'Total' ? 2.5 : 1.5, spanGaps: true,
-        pointRadius: 2, tension: 0.3
+        pointRadius: 2, pointHoverRadius: 5, pointHitRadius: 8, tension: 0.3,
+        _series: pts.filter(function(p) { return p[1] != null; })
+                    .map(function(p) { return [p[0], p[1] + shift]; })    // every point (not just the labelled ones), for the year-ago lookup
       });
-      legendDefs.push({ label: name, color: color });
+      legendDefs.push({ label: shownName, color: color });
     });
+
+    // Hover: the value a year before (the point nearest to the same date a year earlier, within a month) and the growth since — when there is one.
+    function _acctTipLines(ds, dateStr, value) {
+      var lines = [];
+      if (!ds._series || value == null) return lines;
+      var d = new Date(dateStr + 'T00:00:00');
+      if (isNaN(d.getTime())) return lines;
+      d.setFullYear(d.getFullYear() - 1);
+      var target = d.getTime(), best = null, bestDiff = Infinity;
+      ds._series.forEach(function (p) {
+        var diff = Math.abs(new Date(p[0] + 'T00:00:00').getTime() - target);
+        if (diff < bestDiff) { bestDiff = diff; best = p; }
+      });
+      if (!best || bestDiff > 31 * 86400000) return lines;
+      var fmt = function (v) { return (v < 0 ? '-' : '') + Math.abs(Math.round(v)).toLocaleString('he-IL') + '₪'; };
+      var diffVal = value - best[1];
+      var sign = diffVal >= 0 ? '+' : '-';
+      var pct = best[1] !== 0 ? diffVal / Math.abs(best[1]) * 100 : null;
+      lines.push('לפני שנה: ' + fmt(best[1]));
+      lines.push((pct == null ? '' : sign + Math.abs(pct).toFixed(1) + '%  ·  ') + sign + Math.abs(Math.round(diffVal)).toLocaleString('he-IL') + '₪');   // +12.3%  ·  +1,234₪
+      return lines;
+    }
 
     new Chart(canvas, {
       type: 'line',
       data: { labels: labels, datasets: datasets },
       options: {
         responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: function (ctx) {
+                var ds = ctx.dataset, v = ctx.parsed.y;
+                var head = ds.label + ': ' + (v == null ? '' : Math.round(v).toLocaleString('he-IL') + '₪');
+                return [head].concat(_acctTipLines(ds, ctx.label, v));
+              }
+            }
+          }
+        },
         scales: {
           x: { ticks:{ maxTicksLimit:12, maxRotation:30 } },
           y: { ticks:{ callback: function(v) { return v.toLocaleString('he-IL'); } } }

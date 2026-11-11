@@ -167,6 +167,13 @@
     .kpi { font-size:28px; font-weight:800; line-height:1.15; font-variant-numeric:tabular-nums;
            overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:4px; }
     .kpi-ltr { direction:ltr; unicode-bidi:isolate; text-align:right; }
+    /* Accounts value: blurred until the eye is pressed (hidden on every load) */
+    .kpi.masked { filter:blur(9px); user-select:none; -webkit-user-select:none; transition:filter .25s ease; }
+    .kpi { transition:filter .25s ease; }
+    .mask-btn { flex:none; width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center; border:0;
+                border-radius:8px; background:transparent; color:var(--muted); cursor:pointer; }
+    .mask-btn:hover { background:var(--teal-light); color:var(--teal-dark); }
+    .mask-btn svg { width:17px; height:17px; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
     .caption { font-size:13px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .details { list-style:none; display:flex; flex-direction:column; gap:3px; margin-top:4px; font-size:12.5px;
                border-top:1px solid var(--border); padding-top:8px; }
@@ -453,6 +460,8 @@
   const EYE = '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>';
   const EYE_OFF = '<path d="M3 3l18 18"/><path d="M10.6 5.1A10 10 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3 3.9M6.6 6.6C3.8 8.4 2 12 2 12s3.5 7 10 7a9.6 9.6 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/>';
 
+  let accountsShown = false;   /* the accounts value is hidden (blurred) by default, on every load */
+
   let layout = loadLayout();
   let editing = false;
   let refreshing = false;
@@ -483,6 +492,7 @@
   /** Forget per-session dashboard state (on sign-in and sign-out). */
   function resetDashState() {
     blockData = {};
+    accountsShown = false;
     pickedMonth = null;
     editing = false;
     refreshing = false;
@@ -503,13 +513,38 @@
     visibleLiveIds().forEach(id => loadBlock(id, false));
   }
 
+  /** The eye button of the accounts value: crossed eye = hidden (blurred), open eye = shown. */
+  function maskBtnHtml() {
+    return '<button type="button" class="mask-btn" data-mask aria-pressed="' + accountsShown + '" aria-label="' +
+      (accountsShown ? 'הסתר' : 'הצג') + ' את סכום החשבונות"><svg viewBox="0 0 24 24" aria-hidden="true">' +
+      (accountsShown ? EYE : EYE_OFF) + '</svg></button>';
+  }
+
+  /** Blur or reveal the accounts value (and keep its title / aria-label from leaking it while hidden). */
+  function applyAccountsMask() {
+    const card = document.getElementById('blk-accounts');
+    if (!card) return;
+    const k = card.querySelector('.kpi');
+    if (k) {
+      k.classList.toggle('masked', !accountsShown);
+      k.title = accountsShown ? (k.dataset.val || '') : '';
+      k.setAttribute('aria-label', accountsShown ? (k.dataset.val || '') : 'מוסתר');
+    }
+    const b = card.querySelector('[data-mask]');
+    if (b) {
+      b.setAttribute('aria-pressed', String(accountsShown));
+      b.setAttribute('aria-label', (accountsShown ? 'הסתר' : 'הצג') + ' את סכום החשבונות');
+      b.querySelector('svg').innerHTML = accountsShown ? EYE : EYE_OFF;
+    }
+  }
+
   /** Card markup for one block; edit controls are added only in edit mode. */
   function cardHtml(id, pos, count) {
     const b = BLOCK_BY_ID[id], hid = isHidden(id);
     const cls = 'card' + (b.live ? '' : ' tile') + (hid ? ' is-hidden' : '');
     const link = b.live
       ? '<a class="card-link" href="' + b.href + '"' + (b.prop ? ' data-hs-prop="' + b.prop + '"' : '') + '>' +
-          '<div class="card-top">' + icon(id) + '<span class="title">' + esc(b.title) + '</span><span class="dot"></span></div>' +
+          '<div class="card-top">' + icon(id) + '<span class="title">' + esc(b.title) + '</span>' + (id === 'accounts' ? maskBtnHtml() : '') + '<span class="dot"></span></div>' +
           '<div class="body"><div class="skel"></div><div class="skel s2"></div></div>' +
           '<div class="updated"></div>' +
         '</a>'
@@ -596,7 +631,7 @@
     const wrap = id === 'timeline' ? ' kpi-wrap' : '';   /* event names show in full */
     const dTones = (d.extra || {}).detail_tones || [];
     body.innerHTML =
-      '<div class="kpi' + ltr + tone + wrap + '" title="' + esc(d.kpi) + '">' + esc(d.kpi) + '</div>' +
+      '<div class="kpi' + ltr + tone + wrap + '" data-val="' + esc(d.kpi) + '" title="' + esc(d.kpi) + '">' + esc(d.kpi) + '</div>' +
       '<div class="caption" title="' + esc(d.caption) + '">' + rich(d.caption) + '</div>' +
       ((d.details || []).length ? '<ul class="details">' + d.details.map((x, i) =>
         '<li' + (dTones[i] === 'neg' ? ' class="neg"' : '') + ' title="' + esc(x) + '">' + rich(x) + '</li>').join('') + '</ul>' : '') +
@@ -605,6 +640,7 @@
       miniKpisHtml((d.extra || {}).tiles);
     const kpiEl = body.querySelector('.kpi.kpi-ltr');
     if (kpiEl && window.rollNumber) rollNumber(kpiEl, d.kpi, 'landing:' + id);   /* digits roll to the new figure */
+    if (id === 'accounts') applyAccountsMask();
     if (id === 'monthly') renderMonthPicker(el, d.extra || {});
     paintAge(el, id);
   }
@@ -866,6 +902,8 @@
   (function wireGrid() {
     const grid = document.getElementById('blocks');   /* KPI grid + shortcut tiles */
     grid.addEventListener('click', e => {
+      /* the eye on the accounts value: toggle blur, never follow the card's link */
+      if (e.target.closest('[data-mask]')) { e.preventDefault(); accountsShown = !accountsShown; applyAccountsMask(); return; }
       /* the housing page remembers its apartment: open the one this block shows */
       const hs = e.target.closest('a[data-hs-prop]');
       if (hs && !editing) { try { localStorage.setItem('hs_prop', hs.dataset.hsProp); } catch (_) {} }

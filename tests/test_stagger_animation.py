@@ -133,3 +133,30 @@ def test_spotify_figures_roll():
 def test_bills_kpis_roll():
     page = _read('Bills.html')
     assert "'bills-type-' + card.dataset.tid" in page and "'bills-grp-' + card.dataset.grp" in page
+
+
+def test_accounts_value_on_the_homepage_is_blurred_by_default_with_an_eye_toggle():
+    page = open(os.path.join(HTML, '..', '..', 'index.html'), encoding='utf-8').read()
+    assert 'let accountsShown = false;' in page and 'accountsShown = false;' in page.split('function resetDashState')[1][:200]
+    assert '.kpi.masked { filter:blur(9px)' in page
+    assert "e.target.closest('[data-mask]')" in page and 'e.preventDefault(); accountsShown = !accountsShown' in page
+    assert "k.title = accountsShown ? (k.dataset.val || '') : ''" in page      # the value must not leak through the tooltip
+
+
+def test_accounts_chart_tooltip_compares_with_a_year_before():
+    base = _read('Base_template.html')
+    assert 'function _acctTipLines(ds, dateStr, value)' in base
+    assert 'd.setFullYear(d.getFullYear() - 1)' in base and 'bestDiff > 31 * 86400000' in base     # only when a point exists near that date
+    assert "'לפני שנה: ' + fmt(best[1])" in base and "sign + Math.abs(pct).toFixed(1) + '%  ·  '" in base
+    assert '_series:' in base and "return [head].concat(_acctTipLines(ds, ctx.label, v));" in base
+
+
+def test_accounts_history_is_read_in_full_and_inactive_accounts_stay_on_the_chart():
+    am = open(os.path.join(HTML, '..', 'AppManager.py'), encoding='utf-8').read()
+    # the helpers default to the last year only; the accounts builders must pass a full-history start
+    assert am.count('from_date=_ACCOUNTS_HISTORY_FROM') == 4
+    assert '_ACCOUNTS_HISTORY_FROM = _datetime(2000, 1, 1)' in am
+    assert 'get_monthly_bank_balances()' not in am and 'get_account_entries_with_dates()' not in am
+    base = _read('Base_template.html')
+    assert "name + ' (לא פעיל)'" in base and 'borderDash: inactive ? [5, 4] : []' in base
+    assert 'if (lastNonZero < 0) return;' in base and 'sortedPts.slice(0, Math.min(lastNonZero + 2, sortedPts.length))' in base

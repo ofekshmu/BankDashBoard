@@ -20,6 +20,11 @@ from os import listdir
 import numpy as np
 from Exporter import Exporter
 
+# The accounts page charts every balance on record. The database helpers default to the last year only,
+# which cut each account's history at the same date and made earlier months look like 0.
+from datetime import datetime as _datetime
+_ACCOUNTS_HISTORY_FROM = _datetime(2000, 1, 1)
+
 
 class NoTransactionDataError(ValueError):
     """Raised when a month has no card/bank transaction data to analyse."""
@@ -1098,7 +1103,7 @@ class AppManager:
             accounts_raw_meta = {}
 
             # Get main bank account data (always ILS)
-            bank_df = DataBase().get_monthly_bank_balances()
+            bank_df = DataBase().get_monthly_bank_balances(from_date=_ACCOUNTS_HISTORY_FROM)
             accounts_data['Main Bank'] = list(zip(bank_df['Date'], bank_df['Balance']))
             _bank_last = float(bank_df['Balance'].iloc[-1]) if len(bank_df) > 0 else 0.0
             accounts_raw_meta['Main Bank'] = {
@@ -1125,7 +1130,7 @@ class AppManager:
             _fx_t.join(timeout=4)  # fallback rates used if not done in 4 s
 
             # Get other accounts data (values stored in original currency, convert to ILS)
-            other_accounts_df = DataBase().get_account_entries_with_dates()
+            other_accounts_df = DataBase().get_account_entries_with_dates(from_date=_ACCOUNTS_HISTORY_FROM)
             for account in other_accounts_df['AccountName'].unique():
                 # 'Main Bank' already got its live, always-current history from bank_df
                 # above. OtherAccountStatus also carries a 'Main Bank' auto-backfill row
@@ -2345,7 +2350,7 @@ class AppManager:
         def get_accounts_data():
             accounts_data = {}
             accounts_raw_meta = {}
-            bank_df = DataBase().get_monthly_bank_balances()
+            bank_df = DataBase().get_monthly_bank_balances(from_date=_ACCOUNTS_HISTORY_FROM)
             accounts_data['Main Bank'] = list(zip(bank_df['Date'], bank_df['Balance']))
             _bank_last = float(bank_df['Balance'].iloc[-1]) if len(bank_df) > 0 else 0.0
             accounts_raw_meta['Main Bank'] = {
@@ -2365,7 +2370,7 @@ class AppManager:
             _fx_t = _thr.Thread(target=_fetch_fx, daemon=True)
             _fx_t.start(); _fx_t.join(timeout=4)
 
-            other_accounts_df = DataBase().get_account_entries_with_dates()
+            other_accounts_df = DataBase().get_account_entries_with_dates(from_date=_ACCOUNTS_HISTORY_FROM)
             for account in other_accounts_df['AccountName'].unique():
                 # See the matching skip in general_analysis()'s get_accounts_data():
                 # the 'Main Bank' auto-backfill row in OtherAccountStatus is stale

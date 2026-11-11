@@ -295,6 +295,11 @@ computed live per request (balance changes with every bank file); the recurring 
   existing account. Same name + same owner = the same account.
 - **A balance of 0 is a balance** (it is what lets an account be marked inactive). The balance field's grey "0" was only a placeholder — submitting it empty
   was refused as "invalid" — so it now says "יתרה", an "אפס" button fills 0, and an empty field explains that 0 is allowed.
+- **Full history:** `get_monthly_bank_balances()` and `get_account_entries_with_dates()` default to the *last year* only, which cut every
+  account at the same date and showed earlier months as 0 — the accounts builders (`AppManager.get_accounts_data` / `get_global_data`) pass
+  `from_date=_ACCOUNTS_HISTORY_FROM`. Don't call them without it for the accounts series. An **inactive** account (flag set and balance 0) stays on the
+  chart as a dashed line "(לא פעיל)" up to its last non-zero balance and the closing point after it.
+
 - **One value per day:** an account given several balances on the same day shows the one entered last (`src_utils/account_series.collapse_same_day`,
   entries are read ordered by date then ID; `latest_value` for the settings check). Page sorts must be stable for equal dates.
 

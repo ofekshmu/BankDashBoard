@@ -204,6 +204,7 @@ class DataBase:
     __spotify_tables_ready = False
     __recurring_tables_ready = False
     __card_limits_ready = False
+    __timeline_ready = False
     __account_settings_ready = False
     __housing_projects_ready = False
     __housing_info_ready = False
@@ -3397,7 +3398,10 @@ class DataBase:
     # ── Timeline events (housing panel) ─────────────────────────────────────
 
     def ensure_timeline_tables(self) -> None:
-        """Create TimelineEvents and TimelineEventTransactions if absent."""
+        """Create TimelineEvents and TimelineEventTransactions if absent (once per process: every timeline
+        endpoint calls this, and the 12 statements below cost a database round trip each)."""
+        if DataBase.__timeline_ready:
+            return
         self.cursor.execute("""
             CREATE TABLE IF NOT EXISTS TimelineEvents (
                 ID          SERIAL    PRIMARY KEY,
@@ -3441,6 +3445,7 @@ class DataBase:
                 VALUES (%s, %s, %s, %s) ON CONFLICT (Key) DO NOTHING
             """, (key, label, color, order))
         self.connection.commit()
+        DataBase.__timeline_ready = True
 
     # Built-in categories seeded on first run. mortgage/general are protected:
     # the housing tab is pinned to 'mortgage' and 'general' is the add-event

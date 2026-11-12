@@ -67,3 +67,29 @@ def test_the_returned_frame_is_a_copy():
         first = DataBase.get_Bank_Transactions(db, 1, 2026)
         first.loc[:, 'Out'] = 0
         assert list(DataBase.get_Bank_Transactions(db, 1, 2026)['Out']) == [10, 20]
+
+
+def test_timeline_schema_check_runs_once_per_process(monkeypatch):
+    """Every timeline endpoint calls ensure_timeline_tables(); its 12 statements must not repeat per request."""
+    class Cur:
+        def __init__(self):
+            self.n = 0
+
+        def execute(self, *a, **k):
+            self.n += 1
+
+    class Conn:
+        def commit(self):
+            pass
+
+    class Db:
+        TIMELINE_SEED_CATEGORIES = DataBase.TIMELINE_SEED_CATEGORIES
+        cursor, connection = Cur(), Conn()
+
+    monkeypatch.setattr(DataBase, '_DataBase__timeline_ready', False)
+    db = Db()
+    DataBase.ensure_timeline_tables(db)
+    first = db.cursor.n
+    assert first >= 8
+    DataBase.ensure_timeline_tables(db)
+    assert db.cursor.n == first

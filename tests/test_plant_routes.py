@@ -260,3 +260,23 @@ def test_every_plant_type_has_a_care_note(client):
     care = json.loads(re.search(r'var CARE = (\{.*?\});\s*$', html, re.M).group(1))
     for t in PLANT_TYPES:
         assert t in care and all(care[t].get(k) for k in ('s', 'l', 'w', 'f', 'x')), f'no care note for {t}'
+
+
+def test_a_plain_read_loads_plants_and_configs_once(client):
+    """The payload (and the daily materialization inside it) share one read of the plants and of the
+    irrigation plans — each extra read is a database round trip."""
+    _create(client)
+    calls = {'plants': 0, 'configs': 0}
+    real_plants, real_configs = client.store.list_plants, client.store.list_configs
+
+    def plants(*a, **k):
+        calls['plants'] += 1
+        return real_plants(*a, **k)
+
+    def configs(*a, **k):
+        calls['configs'] += 1
+        return real_configs(*a, **k)
+
+    client.store.list_plants, client.store.list_configs = plants, configs
+    assert client.get(f'/api/plants?today={TODAY}').get_json()['ok']
+    assert calls == {'plants': 1, 'configs': 1}

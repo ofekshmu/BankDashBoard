@@ -547,17 +547,18 @@ def set_soil(store, pid, body, today):
     store.upsert_day(pid, day, soil_status=soil)
 
 
-def record_auto_waterings(store, today):
+def record_auto_waterings(store, today, plants=None, configs=None):
     """Record every scheduled, not yet recorded automatic watering in the timeline window.
 
     Each becomes a `water` event at the plan's time (source AUTO_SOURCE) and marks the day watered.
     A day is recorded even before its time of day passes — the schedule counts for the whole day.
+    `plants` / `configs` are the lists the caller has just read (saves reading them again).
     Returns how many waterings were recorded.
     """
-    plants = [p for p in store.list_plants() if p['irrigation_mode'] == 'auto']
+    plants = [p for p in (store.list_plants() if plants is None else plants) if p['irrigation_mode'] == 'auto']
     if not plants:
         return 0
-    configs = {c['id']: c for c in store.list_configs()}
+    configs = {c['id']: c for c in (store.list_configs() if configs is None else configs)}
     days = store.get_days([p['id'] for p in plants], timeline_window(today)[0], today)
     count = 0
     for p in plants:
@@ -606,10 +607,12 @@ def _today_rows(store, ids, today):
 # ── Daily materialization + payload ────────────────────────────────────────
 def materialize(store, today):
     """Insert the missing PlantDays rows (through today) for every active plant, then record the
-    automatic waterings they schedule."""
+    automatic waterings they schedule. Returns (plants, configs) as read here, so a caller that needs
+    them next (build_payload) does not query them again."""
     plants = store.list_plants()
     lasts = store.last_materialized_days([p['id'] for p in plants])
-    configs = {c['id']: c for c in store.list_configs()}
+    config_list = store.list_configs()
+    configs = {c['id']: c for c in config_list}
     rows = []
     for p in plants:
         last = lasts.get(p['id'])
@@ -618,7 +621,8 @@ def materialize(store, today):
         rows.extend(materialize_rows(p, last, today, set(store.water_dates(p['id'])),
                                      _schedule(_plant_config(p, configs))))
     store.insert_days(rows)
-    record_auto_waterings(store, today)
+    record_auto_waterings(store, today, plants, config_list)
+    return plants, config_list
 
 
 def _plant_json(p, last_water=None, since=None, status=None, active_rooms=(), cfg=None, photo=None):
@@ -646,8 +650,7 @@ def _event_json(e):
 
 
 def build_payload(store, today):
-    materialize(store, today)
-    plants = store.list_plants()
+    plants, configs = materialize(store, today)
     ids = [p['id'] for p in plants]
     window = timeline_window(today)
     days = store.get_days(ids, window[0], today)
@@ -655,7 +658,6 @@ def build_payload(store, today):
     lasts = store.last_event_dates(ids, today)
     rooms = store.list_rooms()
     active_rooms = {r['id'] for r in rooms}
-    configs = store.list_configs()
     configs_by_id = {c['id']: c for c in configs}
     photos = store.photo_versions(ids)
     out, suggestions = [], []

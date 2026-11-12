@@ -60,7 +60,8 @@ def _respond(action=None):
     try:
         store = get_store()
         today = _today()
-        svc.materialize(store, today)  # before the action so a new day's gap is filled first
+        if action:
+            svc.materialize(store, today)  # before the action so a new day's gap is filled first
         extra = action(store, today) if action else None
         payload = svc.build_payload(store, today)
         if extra:

@@ -322,11 +322,13 @@
     } catch (e) { return false; }
   }
 
+  let signInLocked = false;
   async function trySignIn(pw) {
     try {
       const r = await fetch('/api/auth/verify', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: pw }),
       });
+      signInLocked = r.status === 429;     /* too many wrong passwords: the server refuses for a few minutes */
       if ((await r.json()).ok) { setLocalFlag(true); return true; }
     } catch (e) {}
     return false;
@@ -372,7 +374,7 @@
     inp.value = '';
     void inp.offsetWidth;
     inp.classList.add('err');
-    err.textContent = 'סיסמה שגויה, נסו שוב';
+    err.textContent = signInLocked ? 'יותר מדי ניסיונות — נסו שוב בעוד כמה דקות' : 'סיסמה שגויה, נסו שוב';
   }
 
   /* ── Slide-in menu ── */

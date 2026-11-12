@@ -490,6 +490,14 @@ if not app.secret_key:
           "logins won't survive a server restart until it's set in .env.", file=sys.stderr)
     app.secret_key = _secrets.token_hex(32)
 app.config['PERMANENT_SESSION_LIFETIME'] = _timedelta(days=7)
+# The session cookie: never readable from page scripts, not sent on cross-site sub-requests, and (on Vercel, which
+# is always https) only sent over https. Locally the app runs on plain http, where a Secure cookie would not stick.
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_SECURE'] = bool(os.getenv('VERCEL'))
+if not (os.environ.get('ADMIN_PASSWORD') or os.environ.get('DASHBOARD_PASSWORD')):
+    print("WARNING: neither ADMIN_PASSWORD nor DASHBOARD_PASSWORD is set — the built-in default password is in use. "
+          "Set ADMIN_PASSWORD in .env and in the Vercel project settings.", file=sys.stderr)
 
 # Paths reachable without a valid session — the landing page itself, the
 # password-check endpoint it calls, and cosmetic static assets that carry no
@@ -540,17 +548,53 @@ def _release_db_connection(exc):
         pass
 
 
+# Password guessing is slowed down: after AUTH_MAX_FAILURES wrong passwords from one address within
+# AUTH_WINDOW_SECONDS, that address is refused (HTTP 429) for AUTH_LOCK_SECONDS — even with the right password.
+# In-process memory: on a serverless host each instance counts on its own, which still stops a simple guessing loop.
+AUTH_MAX_FAILURES  = 5
+AUTH_WINDOW_SECONDS = 600
+AUTH_LOCK_SECONDS  = 300
+_auth_failures: dict = {}      # address -> [timestamps of recent failures]
+_auth_locked_until: dict = {}  # address -> time the lock ends
+
+
+def _auth_now():
+    """Wall-clock seconds; a function so tests can move time."""
+    return _time.time()
+
+
+def _client_address():
+    """The caller's address: the first X-Forwarded-For entry behind Vercel's proxy, else the socket peer."""
+    fwd = request.headers.get('X-Forwarded-For', '')
+    return (fwd.split(',')[0].strip() if fwd else '') or request.remote_addr or 'unknown'
+
+
 @app.route('/api/auth/verify', methods=['POST'])
 def api_auth_verify():
     """Check password against ADMIN_PASSWORD / DASHBOARD_PASSWORD env var."""
     import hmac
+    now, who = _auth_now(), _client_address()
+    until = _auth_locked_until.get(who, 0)
+    if until > now:
+        resp = jsonify({'ok': False, 'error': 'too many attempts — try again later'})
+        resp.status_code = 429
+        resp.headers['Retry-After'] = str(int(until - now) + 1)
+        return resp
     body     = request.get_json(force=True) or {}
     pw       = str(body.get('password', ''))
     expected = os.environ.get('ADMIN_PASSWORD') or os.environ.get('DASHBOARD_PASSWORD', 'ofek')
     ok = hmac.compare_digest(pw, expected)
     if ok:
+        _auth_failures.pop(who, None)
+        _auth_locked_until.pop(who, None)
         session.permanent = True
         session['authenticated'] = True
+    else:
+        recent = [t for t in _auth_failures.get(who, []) if now - t < AUTH_WINDOW_SECONDS] + [now]
+        _auth_failures[who] = recent
+        if len(recent) >= AUTH_MAX_FAILURES:
+            _auth_locked_until[who] = now + AUTH_LOCK_SECONDS
+            _auth_failures.pop(who, None)
     return jsonify({'ok': ok})
 
 
@@ -676,6 +720,10 @@ def _revalidate_pages_and_assets(resp):
     if resp.mimetype in ('text/html', 'text/css', 'text/javascript', 'application/javascript') \
             and 'Cache-Control' not in resp.headers:
         resp.headers['Cache-Control'] = 'no-cache'
+    # Browser-side hardening: no content-type guessing, no framing by other sites, no referrer sent cross-site.
+    resp.headers.setdefault('X-Content-Type-Options', 'nosniff')
+    resp.headers.setdefault('X-Frame-Options', 'SAMEORIGIN')
+    resp.headers.setdefault('Referrer-Policy', 'same-origin')
     return resp
 
 

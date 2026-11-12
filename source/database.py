@@ -102,6 +102,7 @@ class _ChainableCursor:
         try:
             self._c = self._conn.cursor()
             self._c.execute(sql, params)
+            self._owner._local.verified_at = time.monotonic()      # a statement just ran: the connection is alive
         except psycopg2.Error as e:
             # Neon closes idle SSL connections server-side (pooler idle timeout,
             # compute auto-suspend) without updating psycopg2's state until the
@@ -113,6 +114,7 @@ class _ChainableCursor:
             self._conn = self._owner.connection
             self._c = self._conn.cursor()
             self._c.execute(sql, params)
+            self._owner._local.verified_at = time.monotonic()
         return self
 
     def fetchall(self):     return self._c.fetchall() if self._c else []
@@ -200,6 +202,11 @@ class _Lease:
 class DataBase:
 
     _prefetch = threading.local()   # per-thread month_prefetch() store; see there
+    # A connection that ran a statement within this many seconds is not probed again by DataBase() (Neon closes
+    # idle connections after minutes, so this is well inside that; the cursor wrapper also retries a lost connection
+    # when the statement starts a new transaction). Kept short on purpose: a connection left idle in a transaction
+    # cannot be replayed, so the longer this is, the longer such a connection could fail instead of being replaced.
+    _PROBE_AFTER_IDLE_SECONDS = 5
     __instance = None
     __spotify_tables_ready = False
     __recurring_tables_ready = False
@@ -359,6 +366,7 @@ class DataBase:
         self._local.connection = conn
         self._local.cursor = _ChainableCursor(conn, self)
         self._local.lease = lease
+        self._local.verified_at = time.monotonic()
 
     @classmethod
     def release_thread_connection(cls):
@@ -410,7 +418,9 @@ class DataBase:
         elif conn.closed:
             pass  # handled by the block below (kept separate: it also recreates tables)
         else:
-            needs_probe = True
+            # DataBase() is constructed many times per request; probing every time costs a network round trip
+            # each (on a remote database, ~60 ms). A connection that ran a statement a moment ago is alive.
+            needs_probe = (time.monotonic() - getattr(self._local, 'verified_at', 0.0)) > DataBase._PROBE_AFTER_IDLE_SECONDS
 
         if needs_probe:
             # A connection reaching here isn't locally known to be dead, but many
@@ -427,6 +437,7 @@ class DataBase:
                 probe = self.connection.cursor()
                 probe.execute("SELECT 1")
                 probe.close()
+                self._local.verified_at = time.monotonic()
             except Exception:
                 try:
                     self.connection.rollback()

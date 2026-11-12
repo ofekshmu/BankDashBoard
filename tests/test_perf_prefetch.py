@@ -107,3 +107,15 @@ def test_splits_are_not_read_again_when_the_caller_passes_them():
               {'split_id': 11, 'orig_table': 'BankTransactions', 'orig_id': 1, 'amount': 40, 'description': 'b', 'category': 'q'}]
     out = DataBase.apply_splits_to_df(Db(), df, splits)
     assert sorted(out['ID']) == [2, 10, 11] and sorted(out['Out']) == [5, 40, 60]
+
+
+def test_a_recently_used_connection_is_not_probed_on_every_construction():
+    """DataBase() is built many times per request; probing each time cost a round trip per construction
+    (the card analysis page built it 13 times: ~700 ms of its 1.2 s). The probe now only runs on a connection
+    that has been idle, and every successful statement marks the connection verified."""
+    import inspect
+    assert 0 < DataBase._PROBE_AFTER_IDLE_SECONDS <= 10          # short: an idle-in-transaction connection cannot be replayed
+    src = inspect.getsource(DataBase.__new__)
+    assert 'verified_at' in src and '_PROBE_AFTER_IDLE_SECONDS' in src
+    from database import _ChainableCursor
+    assert 'verified_at' in inspect.getsource(_ChainableCursor.execute)

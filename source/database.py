@@ -201,6 +201,10 @@ class _Lease:
 
 class DataBase:
 
+    # The tables _bootstrap_tables() creates (lower-case, as the catalogue stores them).
+    _BASE_TABLES = ('card', 'file', 'cashtransactions', 'tablemeta', 'banktransactions', 'cardtransactions',
+                    'devisiontransactions', 'billtypes', 'billentries', 'billsuggestionsdismissed', 'spotifymembers',
+                    'spotifymonthlycharge', 'spotifymemberpayments')
     _prefetch = threading.local()   # per-thread month_prefetch() store; see there
     # A connection that ran a statement within this many seconds is not probed again by DataBase() (Neon closes
     # idle connections after minutes, so this is well inside that; the cursor wrapper also retries a lost connection
@@ -461,7 +465,16 @@ class DataBase:
         per process (guarded by __bootstrap_lock/__tables_bootstrapped), not
         on every reconnect — table creation is idempotent but each statement
         is a network round-trip, so re-running it per thread/reconnect would
-        add needless latency."""
+        add needless latency.
+
+        On a serverless host every cold start runs this, so when all the base tables are already there (the normal
+        case) one catalogue query replaces the thirteen CREATE TABLE IF NOT EXISTS round trips."""
+        found = self.cursor.execute(
+            "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = current_schema() "
+            "AND table_name = ANY(%s)", (list(DataBase._BASE_TABLES),)).fetchone()
+        if found and found[0] == len(DataBase._BASE_TABLES):
+            self.connection.commit()
+            return
         if True:
             self.cursor.execute("""
                 CREATE TABLE IF NOT EXISTS Card (

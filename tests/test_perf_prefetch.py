@@ -119,3 +119,37 @@ def test_a_recently_used_connection_is_not_probed_on_every_construction():
     assert 'verified_at' in src and '_PROBE_AFTER_IDLE_SECONDS' in src
     from database import _ChainableCursor
     assert 'verified_at' in inspect.getsource(_ChainableCursor.execute)
+
+
+def test_bootstrap_skips_the_thirteen_ddl_statements_when_every_base_table_exists():
+    import inspect
+    import re
+
+    class Cur:
+        def __init__(self, found):
+            self.found, self.sql = found, []
+
+        def execute(self, sql, params=()):
+            self.sql.append(' '.join(sql.split()))
+            return self
+
+        def fetchone(self):
+            return (self.found,)
+
+    class Conn:
+        def commit(self):
+            pass
+
+    class Db:
+        def __init__(self, found):
+            self.cursor, self.connection = Cur(found), Conn()
+
+    full, partial = Db(len(DataBase._BASE_TABLES)), Db(3)
+    DataBase._bootstrap_tables(full)
+    assert len(full.cursor.sql) == 1                                  # just the catalogue check
+    DataBase._bootstrap_tables(partial)
+    assert len(partial.cursor.sql) == 1 + len(DataBase._BASE_TABLES)  # a missing table: everything is (re)created
+
+    # the list of tables to look for is exactly the list the method creates
+    created = re.findall(r'CREATE TABLE IF NOT EXISTS (\w+)\s*\(', inspect.getsource(DataBase._bootstrap_tables))
+    assert sorted(t.lower() for t in created) == sorted(DataBase._BASE_TABLES)

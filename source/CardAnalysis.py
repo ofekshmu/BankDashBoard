@@ -242,10 +242,15 @@ def get_card_analysis_data(db, month_key: str = None, progress_callback=None) ->
 
     _report(15, 'שולף עסקאות כרטיסים ותנועות בנק…')
     cache = {}
-    overview = _month_overview(db, month_start, cards_meta, cache, progress_callback=_report)
+    # The months below (the viewed one, the trend and the expected-date lookback) are read many times by several
+    # helpers: fetch the whole window with two range queries instead of a query per month and helper.
+    first = month_start - relativedelta(months=EXPECTED_DATE_LOOKBACK_MONTHS + 1)
+    last = month_start + relativedelta(months=1)
+    with db.month_prefetch((first.year, first.month), (last.year, last.month)):
+        overview = _month_overview(db, month_start, cards_meta, cache, progress_callback=_report)
 
-    _report(75, 'בונה מגמה של 6 חודשים אחרונים…')
-    trend, per_card_trend, trend_month_keys = _trend(db, month_start, TREND_MONTHS_DEFAULT, cache)
+        _report(75, 'בונה מגמה של 6 חודשים אחרונים…')
+        trend, per_card_trend, trend_month_keys = _trend(db, month_start, TREND_MONTHS_DEFAULT, cache)
     overview['trend'] = trend
     for c in overview['cards']:
         series = per_card_trend.get(c['card_id'], {})

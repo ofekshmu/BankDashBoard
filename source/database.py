@@ -1,3 +1,4 @@
+import contextlib
 import os
 import threading
 import time
@@ -198,6 +199,7 @@ class _Lease:
 
 class DataBase:
 
+    _prefetch = threading.local()   # per-thread month_prefetch() store; see there
     __instance = None
     __spotify_tables_ready = False
     __recurring_tables_ready = False
@@ -2015,6 +2017,9 @@ class DataBase:
         will include in a charge for that month — even old installments from many months ago.
         Used by card_charge_validation in the organizer to match card sums against bank debits.
         """
+        pre = DataBase._prefetch.__dict__.get('cards')
+        if pre is not None and (int(year), int(month)) in pre['span']:
+            return pre['rows'].get((int(year), int(month)), pre['empty']).copy()
         m = '0' + str(month) if month < 10 else str(month)
         y = str(year)
         data = self.cursor.execute("""
@@ -2038,6 +2043,9 @@ class DataBase:
         Get all bank transactions of month @month and year @year,
         day is not relevant.
         """
+        pre = DataBase._prefetch.__dict__.get('bank')
+        if pre is not None and (int(year), int(month)) in pre['span']:
+            return pre['rows'].get((int(year), int(month)), pre['empty']).copy()
         str_month = str(month)
         if len(str_month) == 1:
             str_month = '0' + str_month
@@ -2049,6 +2057,63 @@ class DataBase:
                             """, (str_month, str(year), )).fetchall()
                             # AND strftime('%d', Date) = %s
         return pd.DataFrame(data=data, columns=[d[0] for d in self.cursor.description])
+
+    @contextlib.contextmanager
+    def month_prefetch(self, first_ym, last_ym):
+        """Answer get_Bank_Transactions / get_cards_by_charge_date for every month from first_ym to last_ym
+        (inclusive, (year, month) pairs) from two range queries instead of one query per month.
+
+        A page that walks many months (card analysis: 12+ months, each read by several helpers) used to pay a
+        database round trip per month and helper — on a remote database that is the whole response time. The
+        results are the same rows the per-month queries return; months outside the span, and every thread
+        other than this one, still query normally. The store is dropped when the block ends."""
+        months = []
+        y, m = first_ym
+        while (y, m) <= tuple(last_ym):
+            months.append((y, m))
+            y, m = (y + 1, 1) if m == 12 else (y, m + 1)
+        if not months:
+            yield
+            return
+        start = '%04d-%02d-01' % months[0]
+        ly, lm = months[-1]
+        end = '%04d-%02d-01' % ((ly + 1, 1) if lm == 12 else (ly, lm + 1))
+        span = set(months)
+
+        def _split(frame, date_col):
+            by = {}
+            if not frame.empty:
+                dates = pd.to_datetime(frame[date_col])
+                for key, part in frame.groupby([dates.dt.year, dates.dt.month]):
+                    by[(int(key[0]), int(key[1]))] = part.reset_index(drop=True)
+            return by
+
+        bank = self.cursor.execute(
+            "SELECT ID, Name, Date, Ref, Out, Category FROM BankTransactions "
+            "WHERE Date::date >= %s::date AND Date::date < %s::date", (start, end)).fetchall()
+        bank_df = pd.DataFrame(data=bank, columns=[d[0] for d in self.cursor.description])
+        cards = self.cursor.execute("""
+            SELECT 'CardTransactions' AS "TableName",
+                   CardID,
+                   Executed_Date AS "Date/Executed_Date",
+                   Charge_Date AS "Value_Date/Charge_Date",
+                   Charge_Value AS "Income/Charge_Value",
+                   Charge_Currency AS "Description/Charge_Currency",
+                   Value_Currency AS "Reserved/Value_Currency",
+                   Transaction_Value AS "Out/Transaction_value",
+                   Category
+            FROM CardTransactions
+            WHERE Charge_Date::date >= %s::date AND Charge_Date::date < %s::date
+        """, (start, end)).fetchall()
+        cards_df = pd.DataFrame(cards, columns=[d[0] for d in self.cursor.description])
+        DataBase._prefetch.bank = {'span': span, 'rows': _split(bank_df, 'Date'), 'empty': bank_df.iloc[0:0]}
+        DataBase._prefetch.cards = {'span': span, 'rows': _split(cards_df, 'Value_Date/Charge_Date'),
+                                    'empty': cards_df.iloc[0:0]}
+        try:
+            yield
+        finally:
+            DataBase._prefetch.bank = None
+            DataBase._prefetch.cards = None
 
     def get_card_ids(self) -> list:
         """

@@ -93,3 +93,17 @@ def test_timeline_schema_check_runs_once_per_process(monkeypatch):
     assert first >= 8
     DataBase.ensure_timeline_tables(db)
     assert db.cursor.n == first
+
+
+def test_splits_are_not_read_again_when_the_caller_passes_them():
+    import pandas as pd
+
+    class Db:                                    # no get_all_splits: reading would raise
+        pass
+
+    df = pd.DataFrame([{'TableName': 'BankTransactions', 'ID': 1, 'Out': 100, 'Income': 0, 'Category': 'x', 'Description': ''},
+                       {'TableName': 'BankTransactions', 'ID': 2, 'Out': 5, 'Income': 0, 'Category': 'x', 'Description': ''}])
+    splits = [{'split_id': 10, 'orig_table': 'BankTransactions', 'orig_id': 1, 'amount': 60, 'description': 'a', 'category': 'p'},
+              {'split_id': 11, 'orig_table': 'BankTransactions', 'orig_id': 1, 'amount': 40, 'description': 'b', 'category': 'q'}]
+    out = DataBase.apply_splits_to_df(Db(), df, splits)
+    assert sorted(out['ID']) == [2, 10, 11] and sorted(out['Out']) == [5, 40, 60]

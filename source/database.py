@@ -901,11 +901,15 @@ class DataBase:
                  'amount': r[3], 'description': r[4] or '', 'category': r[5]}
                 for r in rows]
 
-    def apply_splits_to_df(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Replace split-original rows with their individual split rows."""
+    def apply_splits_to_df(self, df: pd.DataFrame, all_splits: list = None) -> pd.DataFrame:
+        """Replace split-original rows with their individual split rows.
+
+        `all_splits` is get_all_splits() when the caller already has it: a caller that splits several
+        frames (bank and card) passes it once instead of paying a query per frame."""
         if df.empty:
             return df
-        all_splits = self.get_all_splits()
+        if all_splits is None:
+            all_splits = self.get_all_splits()
         if not all_splits:
             return df
         if 'TableName' not in df.columns or 'ID' not in df.columns:
@@ -964,12 +968,13 @@ class DataBase:
         from src_utils.calculations import SimpleMath
         from datetime import datetime as _dt
 
+        splits = self.get_all_splits()      # read once for both frames
         bank_raw = self.get_transactions('BankTransactions', category_filter=None, name_filter=None)
-        bank_raw = self.apply_splits_to_df(bank_raw)
+        bank_raw = self.apply_splits_to_df(bank_raw, splits)
         bank_raw = bank_raw[bank_raw['Category'] == category].reset_index(drop=True)
 
         card_raw = self.get_transactions('CardTransactions', category_filter=None, name_filter=None)
-        card_raw = self.apply_splits_to_df(card_raw)
+        card_raw = self.apply_splits_to_df(card_raw, splits)
         card_raw = card_raw[card_raw['Category'] == category].reset_index(drop=True)
 
         def _key(table, ids, split_col):
@@ -4084,7 +4089,8 @@ class DataBase:
 
         # an original tagged elsewhere can still have a split row tagged `category`
         split_origs = {}
-        for s in self.get_all_splits():
+        splits = self.get_all_splits()      # read once: the tagged-elsewhere lookup and both frames below
+        for s in splits:
             if s['category'] == category:
                 split_origs.setdefault(s['orig_table'], set()).add(s['orig_id'])
 
@@ -4097,7 +4103,7 @@ class DataBase:
                     f"SELECT *, '{table}' AS TableName FROM {table} WHERE ID = ANY(%s)", (sorted(ids),)).fetchall()
                 more = pd.DataFrame(rows, columns=[d[0] for d in self.cursor.description])
                 raw = pd.concat([raw, more], ignore_index=True).drop_duplicates(subset=['ID'])
-            raw = self.apply_splits_to_df(raw)
+            raw = self.apply_splits_to_df(raw, splits)
             if raw.empty:
                 continue
             raw = raw[raw['Category'] == category].reset_index(drop=True)

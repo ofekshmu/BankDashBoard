@@ -90,7 +90,7 @@ td.amount,
 
 /* --- Background warm-up --- */
 body {
-  background-color: var(--bg) !important;
+  background-color: var(--page-bg, var(--bg)) !important;
 }
 
 /* Bottom nav removed — sidebar (☰) is the sole nav on all viewports */
@@ -188,25 +188,53 @@ body {
   to   { opacity: 1; transform: translateY(0); }
 }
 
-@keyframes ds-row-in {
-  from { opacity: 0; transform: translateX(6px); }
-  to   { opacity: 1; transform: translateX(0); }
-}
-
 .ds-animate-in {
   animation: ds-fade-up 0.35s ease both;
 }
 
-/* Staggered table rows — add .ds-stagger to <tbody> */
-.ds-stagger tr {
-  animation: ds-row-in 0.25s ease both;
+/* Staggered entrance of menus, lists and grids: see stagger.css (loaded by nav.js on every page). */
+
+/* ============================================================
+   Turning-square loader — the one loading animation of the app.
+   A rounded square turns 90deg clockwise every 0.9s, rounding into a circle
+   at the midpoint, then holds ~0.35s. The gradient is fixed to the shape, so
+   it turns with it (the only visible cue of the turn). One keyframe spans four
+   turns (3.6s) so the gradient never jumps back.
+   Use class "sq-loader", or on an existing element:
+     background: var(--sq-grad); border-radius: 17%; animation: sq-turn 3.6s infinite;
+   ============================================================ */
+:root {
+  --sq-grad: linear-gradient(135deg, #3fd3bd, #1e9d8b 55%, #157a6c);
+  --sq-glow: rgba(30, 157, 139, 0.35);
 }
-.ds-stagger tr:nth-child(1)  { animation-delay: 0.04s; }
-.ds-stagger tr:nth-child(2)  { animation-delay: 0.08s; }
-.ds-stagger tr:nth-child(3)  { animation-delay: 0.12s; }
-.ds-stagger tr:nth-child(4)  { animation-delay: 0.16s; }
-.ds-stagger tr:nth-child(5)  { animation-delay: 0.20s; }
-.ds-stagger tr:nth-child(6)  { animation-delay: 0.24s; }
-.ds-stagger tr:nth-child(7)  { animation-delay: 0.28s; }
-.ds-stagger tr:nth-child(8)  { animation-delay: 0.32s; }
-.ds-stagger tr:nth-child(n+9) { animation-delay: 0.36s; }
+@keyframes sq-turn {
+  0%, 9.72%    { transform: rotate(0deg);   border-radius: 17%; animation-timing-function: ease-in-out; }
+  17.36%       { transform: rotate(45deg);  border-radius: 50%; }
+  25%, 34.72%  { transform: rotate(90deg);  border-radius: 17%; animation-timing-function: ease-in-out; }
+  42.36%       { transform: rotate(135deg); border-radius: 50%; }
+  50%, 59.72%  { transform: rotate(180deg); border-radius: 17%; animation-timing-function: ease-in-out; }
+  67.36%       { transform: rotate(225deg); border-radius: 50%; }
+  75%, 84.72%  { transform: rotate(270deg); border-radius: 17%; animation-timing-function: ease-in-out; }
+  92.36%       { transform: rotate(315deg); border-radius: 50%; }
+  100%         { transform: rotate(360deg); border-radius: 17%; }
+}
+.sq-loader {
+  display: block; width: 28px; height: 28px; flex-shrink: 0;
+  background: var(--sq-grad); border-radius: 17%;
+  box-shadow: 0 0 20px var(--sq-glow);
+  animation: sq-turn 3.6s infinite;
+}
+@media (prefers-reduced-motion: reduce) { .sq-loader { animation-duration: 7.2s; } }
+/* "Loading…" placeholder: the loader with its label, centred in the space it will fill */
+.sq-loading {
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+  padding: 28px 16px; width: 100%; box-sizing: border-box;
+  color: var(--text-muted); font-size: .88em;
+}
+.sq-loading .sq-loader { width: 22px; height: 22px; box-shadow: 0 0 14px var(--sq-glow); }
+/* An empty container that is waiting for content shows the loader itself (add .sq-pending; it vanishes once content arrives) */
+.sq-pending:empty { display: flex; align-items: center; justify-content: center; }
+.sq-pending:empty::before {
+  content: ''; width: 28px; height: 28px; background: var(--sq-grad); border-radius: 17%;
+  box-shadow: 0 0 20px var(--sq-glow); animation: sq-turn 3.6s infinite;
+}

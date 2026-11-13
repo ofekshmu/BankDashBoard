@@ -9,6 +9,7 @@ setup.cfg
 # *.txt - commented out to allow requirements.txt
 *.cmd
 *.png
+!source/html/logo.png
 *csv
 output.html
 Inputs Yuval

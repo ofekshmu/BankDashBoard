@@ -106,6 +106,14 @@ class SimpleMath:
                 use_bulk = False
 
         import warnings as _w
+        property_keys = None
+        if category is None and business is None:
+            # the same rule as the month's own analysis: apartment-value payments are investments
+            from src_utils import property_investments
+            try:
+                property_keys = property_investments.load_keys()
+            except Exception:
+                property_keys = None
         for i in range(initial_delta, shift):
             calculated_date = current_date - pd.DateOffset(months=i)
             m, y = calculated_date.month, calculated_date.year
@@ -137,6 +145,19 @@ class SimpleMath:
                     DataBase().query_monthly_transactions(
                         date=calculated_date, tables=['BankTransactions', 'CardTransactions']),
                     date=calculated_date)
+
+            if property_keys:
+                from src_utils import property_investments
+                df_i = property_investments.mark_from_db(df_i, keys=property_keys)
+
+            # category/business were only ever used above to pick the bulk vs.
+            # per-month query path — df_i itself was never actually filtered
+            # down to them, so a category's chart silently showed the overall
+            # monthly totals across every category instead of just its own.
+            if category is not None:
+                df_i = df_i[df_i['Category'] == category]
+            elif business is not None:
+                df_i = df_i[df_i['Name'] == business]
 
             spendings_lst.append(df_i['Final_Value'][(df_i['Final_Value'] < 0)].sum())
             spendings_net_lst.append(df_i['Final_Value'][(df_i['Final_Value'] < 0) & (df_i['Category'] != INVESTMENT_CATEGORY)].sum())
@@ -357,7 +378,21 @@ class SimpleMath:
             df['Transaction_Type'] = pd.Series(dtype='object')
             return df
         
-        df[['Executed_Date', 'Final_Value', 'Transaction_Type', 'Relevance']]  = df.apply(classify_and_handle, axis=1)
+        # Preserve the transaction's true original execution date before
+        # classify_and_handle overwrites 'Executed_Date' with the charge date
+        # for installment payments — otherwise there is no way to later show
+        # the user when an installment purchase actually happened. Only card
+        # rows have an 'Executed_Date' column at this point (bank rows still
+        # use 'Date', renamed to 'Executed_Date' only after this function
+        # returns) — bank transactions never classify as payments anyway.
+        if 'Executed_Date' in df.columns:
+            df['Original_Executed_Date'] = df['Executed_Date']
+
+        # result_type='expand' forces a proper (row x 4) frame regardless of
+        # row count — without it, pandas' apply(axis=1) misbehaves when df has
+        # exactly one row (a very common case for one-off businesses), raising
+        # "Columns must be same length as key" instead of assigning correctly.
+        df[['Executed_Date', 'Final_Value', 'Transaction_Type', 'Relevance']]  = df.apply(classify_and_handle, axis=1, result_type='expand')
         df['Final_Value'] = pd.to_numeric(df['Final_Value'], errors='coerce')
         
         utils.log(f"Processed transactions for given date {date} are:\n{utils.df_to_markdown(df)}","debug")      

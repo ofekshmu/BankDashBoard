@@ -9,7 +9,7 @@
                                    #E2551F Volcano Orange, #3D2BFF Electric Indigo.
    DERIVED (source hex unverified; names/descriptions only — a proposal, replace when verified):
      Pale Pistachio #DCE8BE, Bitter Cocoa #2E1B14, Lipstick Red #C8173F,
-     Warm Concrete #B4ADA2, Toasted Cream #F6E8D2.
+     Warm Concrete #B4ADA2, Toasted Cream #FBF3E4.
    Other derived helpers (card/inset tints, borders, hover shades) are marked "helper".
    Brand colour != status colour: --red/--green/--amber (status) are NOT re-assigned here.
 
@@ -68,15 +68,19 @@ html[data-palette="gunmetal-concrete-gold"] {
   --sq-glow: rgba(255,184,0,.35);
 }
 
-/* ---- 3. Orange / Cream / Indigo ---- */
+/* ---- 3. Cream / Orange / Indigo ----
+   The loud colours are the RAREST ones: cream is the canvas and the cards, orange is limited to small brand
+   touches (top stripe, menu button, menu header), indigo to actions and selection. */
 html[data-palette="volcano-cream-indigo"] {
-  --page-bg: #E2551F;            /* main: Volcano Orange (verified) */
-  --bg: #F0DFC4;                 /* helper: inset fill */
-  --white: #F6E8D2;              /* secondary: Toasted Cream (derived) — cards, sidebar */
-  --bg-white: #F6E8D2;
+  --page-bg: #EFDDBF;            /* helper: canvas, a shade deeper than the cards */
+  --bg: #F3E6CF;                 /* helper: inset fill */
+  --white: #FBF3E4;              /* secondary: Toasted Cream (derived, lightened) — cards, sidebar */
+  --bg-white: #FBF3E4;
   --border: #E0CBA8;             /* helper */
   --border-focus: #3D2BFF;
-  --ink: #1E1410;                /* helper: dark text (4.78:1 on the orange) */
+  --brand: #E2551F;              /* Volcano Orange (verified): small brand touches only */
+  --on-brand: #1E1410;           /* ink on orange is 4.78:1 (white would be 3.78:1) */
+  --ink: #1E1410;                /* helper: dark text */
   --navy: #1E1410;
   --text-sub: #4A3A2C;
   --text-muted: #6B5846;
@@ -90,6 +94,14 @@ html[data-palette="volcano-cream-indigo"] {
   --sq-grad: linear-gradient(135deg, #6D5FFF, #3D2BFF 55%, #2F1FD0);
   --sq-glow: rgba(61,43,255,.35);
 }
+html[data-palette="volcano-cream-indigo"] body::before {   /* thin orange stripe at the top of every page */
+  content: ''; position: fixed; top: 0; left: 0; right: 0; height: 5px;
+  background: var(--brand); z-index: 1500; pointer-events: none;
+}
+html[data-palette="volcano-cream-indigo"] .ham-btn { background: var(--brand); border-color: var(--brand); color: var(--on-brand); }
+html[data-palette="volcano-cream-indigo"] .sidebar-header { background: var(--brand); border-bottom-color: var(--brand); }
+html[data-palette="volcano-cream-indigo"] .sidebar-header .sidebar-app-name,
+html[data-palette="volcano-cream-indigo"] .sidebar-header .sidebar-close-btn { color: var(--on-brand); }
 
 /* ---- Shared: the page canvas follows --page-bg in every palette ---- */
 html[data-palette]:not([data-palette="default"]),
@@ -123,13 +135,13 @@ html[data-palette="gunmetal-concrete-gold"] textarea {
 /* 60/30/10 swatch bar — direction:ltr so the order is the same in RTL pages */
 .pal-sw { direction: ltr; display: flex; flex: 0 0 54px; height: 18px; border-radius: 5px; overflow: hidden; box-shadow: 0 0 0 1px rgba(0,0,0,.12); }
 .pal-sw i { display: block; height: 100%; }
-.pal-sw i:nth-child(1) { flex: 60; background: var(--s1); }
-.pal-sw i:nth-child(2) { flex: 30; background: var(--s2); }
-.pal-sw i:nth-child(3) { flex: 10; background: var(--s3); }
+.pal-sw i:nth-child(1) { flex: var(--f1, 60); background: var(--s1); }
+.pal-sw i:nth-child(2) { flex: var(--f2, 30); background: var(--s2); }
+.pal-sw i:nth-child(3) { flex: var(--f3, 10); background: var(--s3); }
 .pal-opt[data-pal="default"]               { --s1:#f7f6f2; --s2:#1e2a4a; --s3:#1e9d8b; }
 .pal-opt[data-pal="pistachio-cocoa-red"]   { --s1:#DCE8BE; --s2:#2E1B14; --s3:#C8173F; }
 .pal-opt[data-pal="gunmetal-concrete-gold"]{ --s1:#2C3440; --s2:#B4ADA2; --s3:#FFB800; }
-.pal-opt[data-pal="volcano-cream-indigo"]  { --s1:#E2551F; --s2:#F6E8D2; --s3:#3D2BFF; }
+.pal-opt[data-pal="volcano-cream-indigo"]  { --s1:#EFDDBF; --s2:#E2551F; --s3:#3D2BFF; --f1:70; --f2:20; --f3:10; }
 
 /* Current page in the side menu: the base pages grey it out (#b8c0d0, unreadable on the tinted surfaces) */
 html[data-palette]:not([data-palette="default"]) .nav-item.active { color: var(--teal); font-weight: 700; }

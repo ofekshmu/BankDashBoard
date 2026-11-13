@@ -96,7 +96,7 @@ body {
 }
 .nav-overlay {
   position: fixed; inset: 0;
-  background: rgba(15,22,45,.26);
+  background: color-mix(in srgb, var(--c-alt, rgb(15,22,45)) 26%, transparent);
   z-index: 1000;
   opacity: 0; pointer-events: none;
   transition: opacity .22s ease;
@@ -125,7 +125,7 @@ body {
 .sidebar-scroll { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 8px 0 16px; }
 .sidebar-footer{padding:12px 16px;border-top:1px solid var(--border);flex-shrink:0}
 .nav-restart-btn{width:100%;padding:8px 12px;border:1.5px dashed var(--border);border-radius:8px;background:none;color:var(--text-muted);font-size:.78em;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:7px;justify-content:center;transition:background .15s,color .15s,border-color .15s}
-.nav-restart-btn:hover{background:#fff3f3;color:#e53935;border-color:#e53935}
+.nav-restart-btn:hover{background:var(--c-neg-bg, #fff3f3);color:var(--c-neg, #e53935);border-color:var(--c-neg, #e53935)}
 .nav-restart-btn:disabled{opacity:.5;cursor:default}
 .app-version-badge{margin-top:8px;text-align:center;font-size:.72em;color:var(--text-muted);letter-spacing:.03em;opacity:.7;user-select:none;}
 /* ── Debug log panel ─────────────────────────────────────── */
@@ -135,15 +135,15 @@ body {
 .debug-panel{position:fixed;bottom:132px;right:16px;width:480px;max-width:calc(100vw - 32px);height:340px;background:#12121f;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.55);z-index:996;display:none;flex-direction:column;overflow:hidden;font-family:monospace;}
 .debug-panel.open{display:flex;}
 @media(max-width:768px){.debug-panel{bottom:124px;right:8px;left:8px;width:auto;}}
-.debug-hdr{display:flex;align-items:center;justify-content:space-between;padding:7px 12px;background:#0a0a18;color:#7ec8e3;font-size:.7em;font-weight:700;letter-spacing:.06em;flex-shrink:0;border-bottom:1px solid #222;}
+.debug-hdr{display:flex;align-items:center;justify-content:space-between;padding:7px 12px;background:var(--c-alt, #0a0a18);color:var(--c-alt, #7ec8e3);font-size:.7em;font-weight:700;letter-spacing:.06em;flex-shrink:0;border-bottom:1px solid #222;}
 .debug-hdr-btns{display:flex;gap:5px;}
 .debug-hdr-btns button{background:none;border:1px solid #333;color:#888;border-radius:4px;padding:2px 8px;font-size:.9em;cursor:pointer;font-family:monospace;}
 .debug-hdr-btns button:hover{background:#1e1e2e;color:#eee;}
-.debug-feed{flex:1;overflow-y:auto;padding:6px 10px;font-size:.68em;line-height:1.55;color:#c8d8e4;}
+.debug-feed{flex:1;overflow-y:auto;padding:6px 10px;font-size:.68em;line-height:1.55;color:var(--c-alt-bg, #c8d8e4);}
 .debug-line{white-space:pre-wrap;word-break:break-all;padding:1px 0;border-bottom:1px solid #1a1a2a;}
-.debug-line.err{color:#ff6b6b;}
-.debug-line.warn{color:#ffa94d;}
-.debug-line.ok{color:#69db7c;}
+.debug-line.err{color:var(--c-neg, #ff6b6b);}
+.debug-line.warn{color:var(--c-neg, #ffa94d);}
+.debug-line.ok{color:var(--c-pos, #69db7c);}
 .nav-item {
   display: flex; align-items: center;
   padding: 10px 20px;
@@ -163,12 +163,12 @@ body {
 }
 .nav-item:hover { background: var(--teal-light); color: var(--teal); }
 .nav-item:hover::before { background: var(--teal); }
-.nav-item.active { color: #b8c0d0; cursor: default; pointer-events: none; }
+.nav-item.active { color: var(--c-alt-bg, #b8c0d0); cursor: default; pointer-events: none; }
 .nav-sep { height: 1px; background: var(--border); margin: 8px 16px; }
 .nav-alert-dot {
   width: 8px; height: 8px;
   border-radius: 50%;
-  background: var(--amber, #f59e0b);
+  background: var(--amber, var(--c-neg, #f59e0b));
   margin-inline-start: auto;
   flex-shrink: 0;
   box-shadow: 0 0 0 2px var(--white, #fff);
@@ -205,7 +205,7 @@ body {
   padding: 10px 16px; border-radius: 8px; margin-bottom: 8px;
   border: 1.5px solid; font-size: 0.83em; line-height: 1.4;
 }
-.org-missing-card.type-blue { background:#eff6ff; border-color:#93c5fd; color:#1e40af; }
+.org-missing-card.type-blue { background:var(--c-alt-bg, #eff6ff); border-color:var(--c-alt, #93c5fd); color:var(--c-alt, #1e40af); }
 .org-missing-icon { flex-shrink: 0; font-size: 1em; }
 .org-missing-label { font-weight: 700; }
 .org-missing-detail { opacity: 0.8; font-size: 0.92em; margin-top: 2px; }
@@ -260,8 +260,8 @@ body {
   opacity: 1;
   pointer-events: auto;
 }
-.roller-return-btn:hover { background: #178a7a; transform: translateY(-50%) scale(1.04); }
-.roller-return-btn:active { background: #136e62; transform: translateY(-50%) scale(0.97); }
+.roller-return-btn:hover { background: var(--teal, #178a7a); transform: translateY(-50%) scale(1.04); }
+.roller-return-btn:active { background: var(--teal, #136e62); transform: translateY(-50%) scale(0.97); }
 
 .roller-track {
   display: flex;
@@ -333,11 +333,11 @@ body {
   width: 5px; height: 5px;
   border-radius: 50%;
   margin-top: 5px;
-  background: #d0d4e0;
+  background: var(--c-alt-bg, #d0d4e0);
   transition: background 0.3s, width 0.3s, height 0.3s;
 }
-.cm-item.status-fresh .cm-dot { background: #22c55e; }
-.cm-item.status-stale .cm-dot { background: #f59e0b; }
+.cm-item.status-fresh .cm-dot { background: var(--c-pos, #22c55e); }
+.cm-item.status-stale .cm-dot { background: var(--c-neg, #f59e0b); }
 .cm-item.active.status-fresh .cm-dot { width: 7px; height: 7px; }
 
 /* Future months — not yet available */
@@ -363,23 +363,23 @@ body {
 }
 .cm-item.generating .cm-gen-pct,
 .cm-item.loading    .cm-gen-pct { opacity: 1; height: 1.1em; }
-.cm-item.gen-done   .cm-gen-pct { opacity: 1; height: 1.1em; color: #22c55e; }
+.cm-item.gen-done   .cm-gen-pct { opacity: 1; height: 1.1em; color: var(--c-pos, #22c55e); }
 
 /* Queued-for-background-regen roller item */
-.cm-item.gen-queued .cm-label { color: #f59e0b; }
+.cm-item.gen-queued .cm-label { color: var(--c-neg, #f59e0b); }
 .cm-item.gen-queued .cm-dot   { display: none !important; }
-.cm-item.gen-queued .cm-gen-pct { opacity: 1; height: 1.1em; color: #f59e0b; }
+.cm-item.gen-queued .cm-gen-pct { opacity: 1; height: 1.1em; color: var(--c-neg, #f59e0b); }
 
 /* Done glow on roller item */
 @keyframes _genDoneGlow {
-  0%,100% { box-shadow: inset 0 0 0 1.5px rgba(34,197,94,0.5), 0 0 8px 3px rgba(34,197,94,0.35); }
-  50%     { box-shadow: inset 0 0 0 1.5px rgba(34,197,94,0.9), 0 0 16px 6px rgba(34,197,94,0.2); }
+  0%,100% { box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--c-pos, rgb(34,197,94)) 50%, transparent), 0 0 8px 3px color-mix(in srgb, var(--c-pos, rgb(34,197,94)) 35%, transparent); }
+  50%     { box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--c-pos, rgb(34,197,94)) 90%, transparent), 0 0 16px 6px color-mix(in srgb, var(--c-pos, rgb(34,197,94)) 20%, transparent); }
 }
 .cm-item.gen-done {
-  background: rgba(34,197,94,0.08) !important;
+  background: color-mix(in srgb, var(--c-pos, rgb(34,197,94)) 8%, transparent) !important;
   animation: _genDoneGlow 1.2s ease-in-out 4;
 }
-.cm-item.gen-done .cm-dot { background: #22c55e !important; }
+.cm-item.gen-done .cm-dot { background: var(--c-pos, #22c55e) !important; }
 
 /* ── Regeneration FAB group (fixed wrapper — panel slides from behind button) ── */
 .regen-fab-group {
@@ -406,27 +406,27 @@ body {
 
 /* Stale: DB changed → amber pulse */
 @keyframes _reloadGlowAmber {
-  0%, 100% { box-shadow: 0 4px 18px rgba(240,173,78,0.55), 0 0 0 0   rgba(240,173,78,0.45); }
-  50%       { box-shadow: 0 4px 18px rgba(240,173,78,0.55), 0 0 0 10px rgba(240,173,78,0); }
+  0%, 100% { box-shadow: 0 4px 18px color-mix(in srgb, var(--c-neg, rgb(240,173,78)) 55%, transparent), 0 0 0 0   color-mix(in srgb, var(--c-neg, rgb(240,173,78)) 45%, transparent); }
+  50%       { box-shadow: 0 4px 18px color-mix(in srgb, var(--c-neg, rgb(240,173,78)) 55%, transparent), 0 0 0 10px color-mix(in srgb, var(--c-neg, rgb(240,173,78)) 0%, transparent); }
 }
 .reload-btn.stale-db {
-  background: #e6971a; color: #fff;
-  box-shadow: 0 4px 18px rgba(240,173,78,0.45);
+  background: var(--c-neg, #e6971a); color: #fff;
+  box-shadow: 0 4px 18px color-mix(in srgb, var(--c-neg, rgb(240,173,78)) 45%, transparent);
   animation: _reloadGlowAmber 1.6s ease-in-out infinite;
 }
-.reload-btn.stale-db:hover { box-shadow: 0 6px 24px rgba(240,173,78,0.75); }
+.reload-btn.stale-db:hover { box-shadow: 0 6px 24px color-mix(in srgb, var(--c-neg, rgb(240,173,78)) 75%, transparent); }
 
 /* Stale: code changed → red pulse */
 @keyframes _reloadGlowRed {
-  0%, 100% { box-shadow: 0 4px 18px rgba(231,76,60,0.55), 0 0 0 0   rgba(231,76,60,0.45); }
-  50%       { box-shadow: 0 4px 18px rgba(231,76,60,0.55), 0 0 0 10px rgba(231,76,60,0); }
+  0%, 100% { box-shadow: 0 4px 18px color-mix(in srgb, var(--c-neg, rgb(231,76,60)) 55%, transparent), 0 0 0 0   color-mix(in srgb, var(--c-neg, rgb(231,76,60)) 45%, transparent); }
+  50%       { box-shadow: 0 4px 18px color-mix(in srgb, var(--c-neg, rgb(231,76,60)) 55%, transparent), 0 0 0 10px color-mix(in srgb, var(--c-neg, rgb(231,76,60)) 0%, transparent); }
 }
 .reload-btn.stale-code {
-  background: #e74c3c; color: #fff;
-  box-shadow: 0 4px 18px rgba(231,76,60,0.45);
+  background: var(--c-neg, #e74c3c); color: #fff;
+  box-shadow: 0 4px 18px color-mix(in srgb, var(--c-neg, rgb(231,76,60)) 45%, transparent);
   animation: _reloadGlowRed 1.6s ease-in-out infinite;
 }
-.reload-btn.stale-code:hover { box-shadow: 0 6px 24px rgba(231,76,60,0.75); }
+.reload-btn.stale-code:hover { box-shadow: 0 6px 24px color-mix(in srgb, var(--c-neg, rgb(231,76,60)) 75%, transparent); }
 
 .reload-btn-icon { font-size: 1.6em; line-height: 1; display: flex; align-items: center; }
 .reload-btn.running .reload-btn-icon { display: none; }
@@ -471,7 +471,7 @@ body {
   width: calc(var(--btn-half, 65px) + 210px);
   padding: 0 calc(var(--btn-half, 65px) + 14px) 0 22px;
   box-sizing: border-box;
-  color: #0a4a40;
+  color: var(--teal, #0a4a40);
   font-size: .78em; direction: rtl;
   display: flex; flex-direction: column; gap: 7px;
   white-space: nowrap;
@@ -557,8 +557,8 @@ body {
   transition: transform 0.18s, box-shadow 0.18s;
 }
 #panel-housing .kpi-card {
-  border: 1px solid #dde2ef;
-  box-shadow: 0 2px 8px rgba(30,42,74,0.13);
+  border: 1px solid var(--c-alt-bg, #dde2ef);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--c-alt, rgb(30,42,74)) 13%, transparent);
   text-align: center;
   align-items: center;
 }
@@ -573,7 +573,7 @@ body {
   padding: 26px 28px;
 }
 .kpi-card.hero.neg-hero {
-  background: linear-gradient(135deg, #a33030 0%, #b03535 60%, #c04040 100%);
+  background: linear-gradient(135deg, var(--c-neg, #a33030) 0%, var(--c-neg, #b03535) 60%, var(--c-neg, #c04040) 100%);
 }
 .kpi-card.hero .kpi-label { color: rgba(255,255,255,0.75); }
 .kpi-card.hero .kpi-dot   { background: rgba(255,255,255,0.6) !important; }
@@ -610,7 +610,7 @@ body {
 .kpi-info-icon {
   width: 14px; height: 14px;
   border-radius: 50%;
-  background: #c5cad8;
+  background: var(--c-alt-bg, #c5cad8);
   color: #fff;
   font-size: 10px;
   font-style: normal;
@@ -665,9 +665,9 @@ body {
 
 /* Muted card — zero-value investment KPIs */
 .kpi-card.muted { opacity: 0.45; pointer-events: none; }
-.kpi-card.muted .kpi-value { color: #9aa3bb !important; }
-.kpi-card.muted .kpi-label { color: #b0b8cc !important; }
-.kpi-card.muted .kpi-dot   { background: #c5cad8 !important; }
+.kpi-card.muted .kpi-value { color: var(--c-alt, #9aa3bb) !important; }
+.kpi-card.muted .kpi-label { color: var(--c-alt-bg, #b0b8cc) !important; }
+.kpi-card.muted .kpi-dot   { background: var(--c-alt-bg, #c5cad8) !important; }
 
 /* Stacked cash card separator */
 .kpi-sep { border: none; border-top: 1px solid var(--border); margin: 10px 0; }
@@ -746,7 +746,7 @@ body {
   gap: 2px;
 }
 .equity-bar-eq  { background: var(--teal); transition: width 0.35s ease; border-radius: 6px 0 0 6px; }
-.equity-bar-mtg { background: #e74c3c; transition: width 0.35s ease; border-radius: 0 6px 6px 0; flex: 1; }
+.equity-bar-mtg { background: var(--c-neg, #e74c3c); transition: width 0.35s ease; border-radius: 0 6px 6px 0; flex: 1; }
 .equity-bar-seg { height: 100%; transition: width 0.35s ease; min-width: 0; border-radius: 3px; }
 .equity-bar-seg:first-child { border-radius: 4px 3px 3px 4px; }
 .equity-bar-seg:last-child  { border-radius: 3px 4px 4px 3px; }
@@ -831,11 +831,11 @@ body {
 .cf-kpi-label { font-size: 0.72em; color: var(--text-muted); margin-bottom: 5px; line-height: 1.3; }
 .cf-kpi-value { font-size: 1.05em; font-weight: 700; color: var(--ink, var(--navy)); }
 .cf-kpi-value.pos { color: var(--teal); }
-.cf-kpi-value.neg { color: #e74c3c; }
+.cf-kpi-value.neg { color: var(--c-neg, #e74c3c); }
 
 .housing-alert-banner {
-  background: #fff5f5; border: 1.5px solid #e74c3c; border-radius: var(--radius);
-  color: #c0392b; font-weight: 600; font-size: 0.9em;
+  background: #fff5f5; border: 1.5px solid var(--c-neg, #e74c3c); border-radius: var(--radius);
+  color: var(--c-neg, #c0392b); font-weight: 600; font-size: 0.9em;
   padding: 12px 18px; margin-bottom: 16px; direction: rtl;
 }
 .milestone-table {
@@ -848,7 +848,7 @@ body {
 }
 .milestone-table td { padding: 7px 12px; border-bottom: 1px solid var(--border); color: var(--text-sub); }
 .milestone-table tr.track-total td { font-weight: 700; background: var(--bg); border-top: 2px solid var(--border); }
-.milestone-table tr:hover td { background: #f0f7ff; }
+.milestone-table tr:hover td { background: var(--c-alt-bg, #f0f7ff); }
 
 /* ── Housing: mobile responsive ─────────────────────────── */
 @media (max-width: 700px) {
@@ -1036,7 +1036,7 @@ body {
   white-space: nowrap; font-family: inherit;
 }
 .cash-action-btn { background: var(--teal); color: var(--on-accent, #fff); border: none; }
-.cash-action-btn:hover { background: #178a79; }
+.cash-action-btn:hover { background: var(--teal, #178a79); }
 .cash-action-btn--outline { background: #fff; color: var(--teal); border: 1.5px solid var(--teal); }
 .cash-action-btn--outline:hover { background: var(--teal-light); }
 /* ── Cash modals ── */
@@ -1110,19 +1110,19 @@ body {
   padding: 9px 20px; border: none; border-radius: 8px;
   background: var(--teal); color: var(--on-accent, #fff); cursor: pointer; font-size: .84em; font-weight: 600; font-family: inherit;
 }
-.cash-btn-submit:hover { background: #178a79; }
+.cash-btn-submit:hover { background: var(--teal, #178a79); }
 .cash-modal-status { font-size: .8em; margin-top: 10px; min-height: 1.2em; }
 .cash-modal-status.ok  { color: var(--teal); }
 .cash-modal-status.err { color: var(--red); }
 .cash-info-icon {
   display:inline-flex;align-items:center;justify-content:center;
-  width:14px;height:14px;border-radius:50%;background:#b0bec5;color:#fff;
+  width:14px;height:14px;border-radius:50%;background:var(--c-alt, #b0bec5);color:#fff;
   font-size:.65em;font-weight:700;cursor:help;margin-right:4px;
   vertical-align:middle;flex-shrink:0;position:relative;font-style:normal;
 }
 .cash-info-icon::after {
   content:attr(data-tip);position:absolute;bottom:calc(100% + 6px);right:0;
-  background:#1e2a4a;color:#fff;font-size:.78em;font-weight:400;
+  background:var(--navy, #1e2a4a);color:#fff;font-size:.78em;font-weight:400;
   padding:5px 9px;border-radius:6px;white-space:nowrap;
   opacity:0;pointer-events:none;transition:opacity .15s;z-index:999;
 }
@@ -1290,7 +1290,7 @@ body {
 
 .tx-scroll { max-height: 58vh; overflow-y: auto; padding-left: 2px; }
 .tx-scroll::-webkit-scrollbar { width: 4px; }
-.tx-scroll::-webkit-scrollbar-thumb { background: #dde1eb; border-radius: 4px; }
+.tx-scroll::-webkit-scrollbar-thumb { background: var(--c-alt-bg, #dde1eb); border-radius: 4px; }
 
 /* transaction row */
 .num {
@@ -1305,7 +1305,7 @@ body {
 .num.hidden { display: none; }
 .color-box { width: 6px; height: 34px; border-radius: 4px; }
 .num h3 { margin: 0; overflow: hidden; display: flex; flex-direction: column; justify-content: center; }
-.num .tx-primary { font-size: 0.84em; font-weight: 500; color: #2c3e50; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.num .tx-primary { font-size: 0.84em; font-weight: 500; color: var(--c-alt, #2c3e50); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .num .tx-secondary { font-size: 0.71em; font-weight: 400; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
 .num .date {
   font-size: 0.78em; color: var(--red); font-weight: 600;
@@ -1314,14 +1314,14 @@ body {
 /* Income transactions show in green */
 #earnings-list .num .date { color: var(--green); }
 .num .cat {
-  font-size: 0.69em; color: #9aa3bb;
+  font-size: 0.69em; color: var(--c-alt, #9aa3bb);
   background: #f0f2f8; border-radius: 10px;
   padding: 2px 7px; white-space: nowrap;
   text-align: center; overflow: hidden; text-overflow: ellipsis;
   order: 5;
 }
 .num .element4 {
-  font-size: 0.69em; color: #b0b8cc;
+  font-size: 0.69em; color: var(--c-alt-bg, #b0b8cc);
   text-align: center; white-space: nowrap;
   order: 4;
 }
@@ -1335,20 +1335,20 @@ body {
 .num { cursor: pointer; }
 .split-badge {
   display: inline-block; font-size: .58em; font-weight: 700;
-  background: #ede7f6; color: #7b1fa2; border-radius: 6px;
+  background: var(--c-alt-bg, #ede7f6); color: var(--c-alt, #7b1fa2); border-radius: 6px;
   padding: 1px 6px; margin-right: 5px; vertical-align: middle;
   white-space: nowrap; flex-shrink: 0;
 }
-.num .tx-id { font-size: .60em; color: #c5ccd8; font-family: monospace; margin-top: 1px; white-space: nowrap; }
+.num .tx-id { font-size: .60em; color: var(--c-alt-bg, #c5ccd8); font-family: monospace; margin-top: 1px; white-space: nowrap; }
 .manual-cash-badge {
   display: block; font-size: .55em; font-weight: 700;
-  background: var(--teal-light); color: var(--teal); border: 1px solid #b2dfdb; border-radius: 6px;
+  background: var(--teal-light); color: var(--teal); border: 1px solid var(--teal-light, #b2dfdb); border-radius: 6px;
   padding: 1px 6px; margin-top: 2px;
   white-space: nowrap; width: fit-content;
 }
 .auto-cash-badge {
   display: block; font-size: .55em; font-weight: 700;
-  background: #fef9e7; color: #b7860b; border: 1px solid #f9e0a2; border-radius: 6px;
+  background: var(--c-neg-bg, #fef9e7); color: var(--c-neg, #b7860b); border: 1px solid var(--c-neg, #f9e0a2); border-radius: 6px;
   padding: 1px 6px; margin-top: 2px;
   white-space: nowrap; width: fit-content;
 }
@@ -1368,9 +1368,9 @@ body {
 .inv-tx-row:hover { background: #f5f5f8; }
 .inv-tx-dot  { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
 .inv-tx-meta { color: #9aa; white-space: nowrap; font-size: 0.88em; }
-.inv-tx-name { color: #2d3a5e; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.inv-tx-out  { color: #E8900C; font-weight: 700; white-space: nowrap; }
-.inv-tx-in   { color: #C8A000; font-weight: 700; white-space: nowrap; }
+.inv-tx-name { color: var(--c-alt, #2d3a5e); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.inv-tx-out  { color: var(--c-neg, #E8900C); font-weight: 700; white-space: nowrap; }
+.inv-tx-in   { color: var(--c-neg, #C8A000); font-weight: 700; white-space: nowrap; }
 /* Split / Revert modal */
 .split-modal-overlay {
   display: none; position: fixed; inset: 0;
@@ -1422,7 +1422,7 @@ body {
 }
 .split-row-input:focus { border-color: var(--teal); }
 @keyframes lockGlow{0%{box-shadow:0 0 0 0 color-mix(in srgb, var(--teal) 65%, transparent)}60%{box-shadow:0 0 0 9px color-mix(in srgb, var(--teal) 0%, transparent)}100%{box-shadow:0 0 0 0 color-mix(in srgb, var(--teal) 0%, transparent)}}
-@keyframes lockFail{0%{box-shadow:0 0 0 0 rgba(231,76,60,.7)}60%{box-shadow:0 0 0 9px rgba(231,76,60,0)}100%{box-shadow:0 0 0 0 rgba(231,76,60,0)}}
+@keyframes lockFail{0%{box-shadow:0 0 0 0 color-mix(in srgb, var(--c-neg, rgb(231,76,60)) 70%, transparent)}60%{box-shadow:0 0 0 9px color-mix(in srgb, var(--c-neg, rgb(231,76,60)) 0%, transparent)}100%{box-shadow:0 0 0 0 color-mix(in srgb, var(--c-neg, rgb(231,76,60)) 0%, transparent)}}
 .split-locked{border-color:var(--teal) !important;background:var(--teal-light) !important}
 .split-lock-flash{animation:lockGlow .55s ease-out forwards}
 .split-lock-fail{animation:lockFail .55s ease-out forwards;border-color:var(--red) !important}
@@ -1433,7 +1433,7 @@ body {
   display: flex; align-items: center; justify-content: center;
   transition: background .12s, color .12s;
 }
-.split-row-remove:hover { background: #fff0f0; color: var(--red); }
+.split-row-remove:hover { background: var(--c-neg-bg, #fff0f0); color: var(--red); }
 .split-add-btn {
   background: none; border: 1.5px dashed var(--border); border-radius: 8px;
   color: var(--teal); font-size: .82em; font-weight: 600; cursor: pointer;
@@ -1464,10 +1464,10 @@ body {
 .revert-split-desc   { font-size: .82em; color: var(--text-sub); flex: 1; }
 .split-btn-danger {
   padding: 9px 20px; border: none; border-radius: 8px;
-  background: #e53935; color: #fff; cursor: pointer;
+  background: var(--c-neg, #e53935); color: #fff; cursor: pointer;
   font-size: .84em; font-weight: 600; font-family: inherit;
 }
-.split-btn-danger:hover { background: #c62828; }
+.split-btn-danger:hover { background: var(--c-neg, #c62828); }
 
 /* ── Alerts ──────────────────────────────────────────────── */
 .alerts-header {
@@ -1510,7 +1510,7 @@ body {
 }
 .alert-item:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.10); }
 .alert-icon { font-size: 1.15em; margin-left: 10px; flex-shrink: 0; margin-top: 2px; }
-.alert-body strong { display: block; font-size: 0.87em; color: #2c3e50; margin-bottom: 4px; font-weight: 600; }
+.alert-body strong { display: block; font-size: 0.87em; color: var(--c-alt, #2c3e50); margin-bottom: 4px; font-weight: 600; }
 .alert-body p { margin: 0; font-size: 0.79em; color: #555; line-height: 1.45; }
 
 /* Legend — full-width separated section */
@@ -1564,7 +1564,7 @@ body {
   font-weight: 700; background: #f8fafc;
   border-top: 2px solid var(--border); border-bottom: none;
 }
-.acct-wrap tr:hover td { background: #f0f7ff; }
+.acct-wrap tr:hover td { background: var(--c-alt-bg, #f0f7ff); }
 .acct-wrap tr.acct-virtual td { background: var(--teal-light); color: var(--teal); font-style: italic; }
 .acct-wrap tr.acct-virtual td:first-child::after { content: " ✦"; font-style: normal; font-size: 0.75em; opacity: 0.6; }
 .acct-wrap tr.acct-total td { font-weight: 700; background: #f8fafc; border-top: 2px solid var(--border); border-bottom: none; }
@@ -1596,8 +1596,8 @@ body {
   border-radius: 50%;
   animation: lf-spin 0.8s linear infinite; flex-shrink: 0;
 }
-.lf-spinner.done  { animation: none; border-color: #2ecc71; }
-.lf-spinner.error { animation: none; border-color: #f56565; }
+.lf-spinner.done  { animation: none; border-color: var(--c-pos, #2ecc71); }
+.lf-spinner.error { animation: none; border-color: var(--c-neg, #f56565); }
 @keyframes lf-spin { to { transform: rotate(360deg); } }
 .lf-title {
   font-size: 0.8em; font-weight: 600; color: var(--teal);
@@ -1623,12 +1623,12 @@ body {
 }
 /* keep old drawer hidden but don't break anything that references it */
 .log-drawer { display: none !important; }
-.log-line.info { color: #c8d0e8; }
+.log-line.info { color: var(--c-alt-bg, #c8d0e8); }
 
 /* ── Credit-card confirmation modal ─────────────────────── */
 .cc-modal-overlay {
   position: fixed; inset: 0;
-  background: rgba(15,22,45,.55);
+  background: color-mix(in srgb, var(--c-alt, rgb(15,22,45)) 55%, transparent);
   z-index: 10000;
   display: flex; align-items: center; justify-content: center;
 }
@@ -1651,9 +1651,9 @@ body {
 .cc-btn { border: none; border-radius: 8px; padding: 8px 22px; font-size: .88em;
           font-weight: 600; cursor: pointer; transition: background .15s; font-family: inherit; }
 .cc-btn-yes { background: var(--teal); color: var(--on-accent, #fff); }
-.cc-btn-yes:hover { background: #189080; }
+.cc-btn-yes:hover { background: var(--teal, #189080); }
 .cc-btn-no  { background: #f0f2f6; color: var(--text-sub); }
-.cc-btn-no:hover  { background: #e2e5ed; }
+.cc-btn-no:hover  { background: var(--c-alt-bg, #e2e5ed); }
 
 /* ── Empty state ─────────────────────────────────────────── */
 .empty-state {
@@ -1665,10 +1665,10 @@ body {
 /* ── Accounts enhancements ───────────────────────────────── */
 /* Group header row */
 .acct-wrap tr.acct-group-header td {
-  background: #eef4fb;
+  background: var(--c-alt-bg, #eef4fb);
   font-weight: 700;
   font-size: 0.78em;
-  color: #4a6085;
+  color: var(--c-alt, #4a6085);
   padding: 6px 14px;
   border-top: 1.5px solid var(--border);
   letter-spacing: 0.4px;
@@ -1683,13 +1683,13 @@ body {
   border-top: 1px solid var(--border);
 }
 /* Change column — positive/negative */
-.acct-change-pos { color: #43a047; font-weight: 600; font-size: 0.82em; white-space: nowrap; }
-.acct-change-neg { color: #e53935; font-weight: 600; font-size: 0.82em; white-space: nowrap; }
+.acct-change-pos { color: var(--c-pos, #43a047); font-weight: 600; font-size: 0.82em; white-space: nowrap; }
+.acct-change-neg { color: var(--c-neg, #e53935); font-weight: 600; font-size: 0.82em; white-space: nowrap; }
 .acct-change-neu { color: #888;    font-weight: 500; font-size: 0.82em; white-space: nowrap; }
 /* Exchange rate column */
-.acct-rate-cell  { color: #9aa3bb; font-size: 0.78em; white-space: nowrap; direction: ltr; text-align: center; }
+.acct-rate-cell  { color: var(--c-alt, #9aa3bb); font-size: 0.78em; white-space: nowrap; direction: ltr; text-align: center; }
 /* Stale row (data > 30 days old) */
-.acct-wrap tr.acct-stale td { background: #fffde7; }
+.acct-wrap tr.acct-stale td { background: var(--c-pos-bg, #fffde7); }
 .acct-wrap tr.acct-stale td:first-child::before {
   content: "⚠ "; color: var(--amber); font-size: 0.85em;
 }
@@ -1707,7 +1707,7 @@ body {
 .acct-cards-section { margin-bottom: 10px; }
 .acct-cards-group-label {
   font-size: 0.78em; font-weight: 700; letter-spacing: 0.04em;
-  color: #5a6a8a; text-transform: uppercase;
+  color: var(--c-alt, #5a6a8a); text-transform: uppercase;
   padding: 10px 4px 6px; border-bottom: 1px solid var(--border);
   margin-bottom: 8px;
 }
@@ -1725,9 +1725,9 @@ body {
   display: flex; flex-direction: column; gap: 4px;
   transition: box-shadow 0.15s;
 }
-.acct-card:hover { box-shadow: 0 2px 10px rgba(30,42,74,0.09); }
-.acct-card.acct-card-stale { background: #fffde7; border-color: #ffe082; }
-.acct-card.acct-card-virtual { background: var(--teal-light); border-color: #b2dfdb; }
+.acct-card:hover { box-shadow: 0 2px 10px color-mix(in srgb, var(--c-alt, rgb(30,42,74)) 9%, transparent); }
+.acct-card.acct-card-stale { background: var(--c-pos-bg, #fffde7); border-color: var(--c-neg, #ffe082); }
+.acct-card.acct-card-virtual { background: var(--teal-light); border-color: var(--teal-light, #b2dfdb); }
 .acct-card-header {
   display: flex; align-items: flex-start;
   justify-content: space-between; gap: 8px;
@@ -1755,7 +1755,7 @@ body {
   padding: 6px 2px 2px; border-top: 1px solid var(--border);
   margin-top: 4px;
 }
-.acct-cards-subtotal-label { float: right; direction: rtl; font-weight: 600; color: #5a6a8a; }
+.acct-cards-subtotal-label { float: right; direction: rtl; font-weight: 600; color: var(--c-alt, #5a6a8a); }
 .acct-cards-total {
   background: #f8fafc; border: 2px solid var(--border);
   border-radius: 10px; padding: 12px 16px;
@@ -1792,8 +1792,8 @@ body {
   padding: 1px 7px; border-radius: 10px;
   font-size: 0.80em; font-weight: 700;
 }
-.acct-pct-pos { background: #e8f5e9; color: #2e7d32; }
-.acct-pct-neg { background: #ffebee; color: #c62828; }
+.acct-pct-pos { background: var(--c-pos-bg, #e8f5e9); color: var(--c-pos, #2e7d32); }
+.acct-pct-neg { background: var(--c-neg-bg, #ffebee); color: var(--c-neg, #c62828); }
 
 /* ── Account manager button ──────────────────────────────── */
 .acct-manage-btn {
@@ -1848,12 +1848,12 @@ body {
   transition: background 0.15s, border-color 0.15s;
 }
 .acct-modal-menu-btn:hover { background: var(--teal-light); border-color: var(--teal); }
-.acct-modal-menu-btn.danger:hover { background: #fff0f0; border-color: #e53935; }
+.acct-modal-menu-btn.danger:hover { background: var(--c-neg-bg, #fff0f0); border-color: var(--c-neg, #e53935); }
 .acct-modal-label {
   font-size: 0.80em; color: var(--text-muted); font-weight: 600; margin-bottom: 3px;
 }
 .acct-modal-select, .acct-modal-input {
-  width: 100%; padding: 8px 10px; border: 1.5px solid #c9d0e0;
+  width: 100%; padding: 8px 10px; border: 1.5px solid var(--c-alt-bg, #c9d0e0);
   border-radius: var(--radius-sm); font-size: 0.90em;
   color: var(--ink, var(--navy)); background: var(--white);
   box-sizing: border-box; direction: rtl;
@@ -1877,7 +1877,7 @@ body {
   transition: opacity 0.15s; white-space: nowrap;
 }
 .acct-modal-submit:hover { opacity: 0.85; }
-.acct-modal-submit.danger { background: #e53935; }
+.acct-modal-submit.danger { background: var(--c-neg, #e53935); }
 .acct-modal-back {
   font-size: 0.82em; color: var(--teal); cursor: pointer;
   background: none; border: none; padding: 0; text-decoration: underline;
@@ -1885,8 +1885,8 @@ body {
 .acct-modal-status {
   font-size: 0.82em; min-height: 1.3em; text-align: center;
 }
-.acct-modal-status.ok  { color: #43a047; }
-.acct-modal-status.err { color: #e53935; }
+.acct-modal-status.ok  { color: var(--c-pos, #43a047); }
+.acct-modal-status.err { color: var(--c-neg, #e53935); }
 .acct-entries-list {
   max-height: 170px; overflow-y: auto; font-size: 0.80em;
   border: 1px solid var(--border); border-radius: var(--radius-sm);
@@ -1902,7 +1902,7 @@ body {
   padding: 6px 0;
   border-top: 1.5px solid var(--border);
   cursor: pointer;
-  color: #aab0c0;
+  color: var(--c-alt, #aab0c0);
   font-size: 0.78em; font-weight: 600; letter-spacing: 0.02em;
   user-select: none;
   transition: color 0.15s;
@@ -1972,7 +1972,7 @@ body {
 /* ── Transaction detail bottom-sheet (mobile) ─────────────── */
 .tx-detail-overlay {
   position: fixed; inset: 0;
-  background: rgba(15,22,45,.45);
+  background: color-mix(in srgb, var(--c-alt, rgb(15,22,45)) 45%, transparent);
   z-index: 1200;
   display: none; align-items: flex-end; justify-content: center;
   touch-action: none;
@@ -1988,13 +1988,13 @@ body {
   max-height: 80vh; overflow-y: auto;
 }
 @keyframes _txSlide { from { transform: translateY(50px); opacity:0; } to { transform:translateY(0); opacity:1; } }
-.tx-detail-handle { width:36px; height:4px; border-radius:2px; background:#d0d4e0; margin:0 auto 14px; }
+.tx-detail-handle { width:36px; height:4px; border-radius:2px; background:var(--c-alt-bg, #d0d4e0); margin:0 auto 14px; }
 .tx-detail-top { display:flex; align-items:flex-start; gap:12px; margin-bottom:14px; padding-bottom:14px; border-bottom:1px solid var(--border); }
 .tx-detail-color { width:6px; min-height:52px; border-radius:4px; flex-shrink:0; }
 .tx-detail-names { flex:1; min-width:0; }
 .tx-detail-primary { font-size:1.0em; font-weight:700; color:var(--ink, var(--navy)); line-height:1.35; }
 .tx-detail-secondary { font-size:0.78em; color:var(--text-muted); margin-top:3px; }
-.tx-detail-tid { font-size:0.68em; color:#c5ccd8; font-family:monospace; margin-top:2px; }
+.tx-detail-tid { font-size:0.68em; color:var(--c-alt-bg, #c5ccd8); font-family:monospace; margin-top:2px; }
 .tx-detail-amount { font-size:1.55em; font-weight:800; flex-shrink:0; color:var(--red); }
 .tx-detail-amount.income { color:var(--green); }
 .tx-detail-rows { display:flex; flex-direction:column; gap:9px; margin-bottom:18px; }
@@ -2015,8 +2015,8 @@ body {
 .cat-pills-toggle-btn:hover { background:var(--teal); color:var(--on-accent, #fff); }
 .cat-pill.pills-hidden { display:none; }
 .kpi-dimmed { background: #f2f3f5 !important; }
-.kpi-dimmed .kpi-label { color: #b0b5c1; }
-.kpi-dimmed .kpi-value { color: #b0b5c1 !important; }
+.kpi-dimmed .kpi-label { color: var(--c-alt, #b0b5c1); }
+.kpi-dimmed .kpi-value { color: var(--c-alt, #b0b5c1) !important; }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js">
   </script>
@@ -2238,7 +2238,7 @@ body {
    <div class="kpi-row" id="kpi-row">
     <div class="kpi-card hero">
      <div class="kpi-label">
-      <span class="kpi-dot" style="background:#f0b429">
+      <span class="kpi-dot" style="background:var(--c-neg, #f0b429)">
       </span>
       Overall Net Income
       <span class="kpi-info-wrap">
@@ -2258,7 +2258,7 @@ body {
     </div>
     <div class="kpi-card">
      <div class="kpi-label">
-      <span class="kpi-dot" style="background:#1e9d8b">
+      <span class="kpi-dot" style="background:var(--teal, #1e9d8b)">
       </span>
       Balance
       <span class="kpi-info-wrap">
@@ -2279,7 +2279,7 @@ body {
     </div>
     <div class="kpi-card kpi-balance-card">
      <div class="kpi-label">
-      <span class="kpi-dot" style="background:#1e9d8b">
+      <span class="kpi-dot" style="background:var(--teal, #1e9d8b)">
       </span>
       יתרה חודשית
       <span class="kpi-info-wrap">
@@ -2304,7 +2304,7 @@ body {
    <div class="kpi-row-2" id="kpi-row-2">
     <div class="kpi-card">
      <div class="kpi-label">
-      <span class="kpi-dot" style="background:#D4A017">
+      <span class="kpi-dot" style="background:var(--c-neg, #D4A017)">
       </span>
       הפקדה לחיסכון/השקעה
       <span class="kpi-info-wrap">
@@ -2318,13 +2318,13 @@ body {
        </span>
       </span>
      </div>
-     <div class="kpi-value neg" style="color:#D4A017">
+     <div class="kpi-value neg" style="color:var(--c-neg, #D4A017)">
       1,000.00₪
      </div>
     </div>
     <div class="kpi-card">
      <div class="kpi-label">
-      <span class="kpi-dot" style="background:#E8900C">
+      <span class="kpi-dot" style="background:var(--c-neg, #E8900C)">
       </span>
       משיכה מחסכון
       <span class="kpi-info-wrap">
@@ -2423,7 +2423,7 @@ body {
       </div>
       <div class="cat-legend-grid" id="chart-spendings-donut-legend">
        <div class="cat-legend-row" data-cid="chart-spendings-donut" data-idx="18">
-        <span class="cat-dot" style="background:#ffb74d">
+        <span class="cat-dot" style="background:var(--c-neg, #ffb74d)">
         </span>
         <span class="cat-name">
          שלום שבאזי 7
@@ -2433,7 +2433,7 @@ body {
         </span>
        </div>
        <div class="cat-legend-row" data-cid="chart-spendings-donut" data-idx="17">
-        <span class="cat-dot" style="background:#f06292">
+        <span class="cat-dot" style="background:var(--c-neg, #f06292)">
         </span>
         <span class="cat-name">
          שכירות
@@ -2443,7 +2443,7 @@ body {
         </span>
        </div>
        <div class="cat-legend-row" data-cid="chart-spendings-donut" data-idx="1">
-        <span class="cat-dot" style="background:#ffab91">
+        <span class="cat-dot" style="background:var(--c-neg, #ffab91)">
         </span>
         <span class="cat-name">
          withdrawal
@@ -2453,7 +2453,7 @@ body {
         </span>
        </div>
        <div class="cat-legend-row" data-cid="chart-spendings-donut" data-idx="13">
-        <span class="cat-dot" style="background:#ffe082">
+        <span class="cat-dot" style="background:var(--c-neg, #ffe082)">
         </span>
         <span class="cat-name">
          מצרכים
@@ -2463,7 +2463,7 @@ body {
         </span>
        </div>
        <div class="cat-legend-row" data-cid="chart-spendings-donut" data-idx="16">
-        <span class="cat-dot" style="background:#ffd54f">
+        <span class="cat-dot" style="background:var(--c-neg, #ffd54f)">
         </span>
         <span class="cat-name">
          רכב
@@ -2473,7 +2473,7 @@ body {
         </span>
        </div>
        <div class="cat-legend-row" data-cid="chart-spendings-donut" data-idx="15">
-        <span class="cat-dot" style="background:#ff8a65">
+        <span class="cat-dot" style="background:var(--c-neg, #ff8a65)">
         </span>
         <span class="cat-name">
          רהיטים ובית
@@ -2483,7 +2483,7 @@ body {
         </span>
        </div>
        <div class="cat-legend-row" data-cid="chart-spendings-donut" data-idx="2">
-        <span class="cat-dot" style="background:#ffcc80">
+        <span class="cat-dot" style="background:var(--c-neg, #ffcc80)">
         </span>
         <span class="cat-name">
          אוכל בחוץ
@@ -2493,7 +2493,7 @@ body {
         </span>
        </div>
        <div class="cat-legend-row" data-cid="chart-spendings-donut" data-idx="8">
-        <span class="cat-dot" style="background:#ffb74d">
+        <span class="cat-dot" style="background:var(--c-neg, #ffb74d)">
         </span>
         <span class="cat-name">
          הלוואה
@@ -2503,7 +2503,7 @@ body {
         </span>
        </div>
        <div class="cat-legend-row" data-cid="chart-spendings-donut" data-idx="3">
-        <span class="cat-dot" style="background:#ffe082">
+        <span class="cat-dot" style="background:var(--c-neg, #ffe082)">
         </span>
         <span class="cat-name">
          אחר
@@ -2513,7 +2513,7 @@ body {
         </span>
        </div>
        <div class="cat-legend-row" data-cid="chart-spendings-donut" data-idx="10">
-        <span class="cat-dot" style="background:#ef9a9a">
+        <span class="cat-dot" style="background:var(--c-neg, #ef9a9a)">
         </span>
         <span class="cat-name">
          חשבונות
@@ -2523,7 +2523,7 @@ body {
         </span>
        </div>
        <div class="cat-legend-row" data-cid="chart-spendings-donut" data-idx="9">
-        <span class="cat-dot" style="background:#e57373">
+        <span class="cat-dot" style="background:var(--c-neg, #e57373)">
         </span>
         <span class="cat-name">
          השכלה ולימודים
@@ -2533,7 +2533,7 @@ body {
         </span>
        </div>
        <div class="cat-legend-row" data-cid="chart-spendings-donut" data-idx="5">
-        <span class="cat-dot" style="background:#ff8a65">
+        <span class="cat-dot" style="background:var(--c-neg, #ff8a65)">
         </span>
         <span class="cat-name">
          בילויים
@@ -2543,7 +2543,7 @@ body {
         </span>
        </div>
        <div class="cat-legend-row" data-cid="chart-spendings-donut" data-idx="6">
-        <span class="cat-dot" style="background:#ffd54f">
+        <span class="cat-dot" style="background:var(--c-neg, #ffd54f)">
         </span>
         <span class="cat-name">
          בריאות וכושר
@@ -2553,7 +2553,7 @@ body {
         </span>
        </div>
        <div class="cat-legend-row" data-cid="chart-spendings-donut" data-idx="19">
-        <span class="cat-dot" style="background:#e57373">
+        <span class="cat-dot" style="background:var(--c-neg, #e57373)">
         </span>
         <span class="cat-name">
          תחבורה ציבורית
@@ -2563,7 +2563,7 @@ body {
         </span>
        </div>
        <div class="cat-legend-row" data-cid="chart-spendings-donut" data-idx="7">
-        <span class="cat-dot" style="background:#f06292">
+        <span class="cat-dot" style="background:var(--c-neg, #f06292)">
         </span>
         <span class="cat-name">
          הלבשה
@@ -2573,7 +2573,7 @@ body {
         </span>
        </div>
        <div class="cat-legend-row" data-cid="chart-spendings-donut" data-idx="14">
-        <span class="cat-dot" style="background:#f48fb1">
+        <span class="cat-dot" style="background:var(--c-neg, #f48fb1)">
         </span>
         <span class="cat-name">
          מתנות
@@ -2583,7 +2583,7 @@ body {
         </span>
        </div>
        <div class="cat-legend-row" data-cid="chart-spendings-donut" data-idx="11">
-        <span class="cat-dot" style="background:#ffab91">
+        <span class="cat-dot" style="background:var(--c-neg, #ffab91)">
         </span>
         <span class="cat-name">
          מוצרי חשמל
@@ -2593,7 +2593,7 @@ body {
         </span>
        </div>
        <div class="cat-legend-row" data-cid="chart-spendings-donut" data-idx="0">
-        <span class="cat-dot" style="background:#ef9a9a">
+        <span class="cat-dot" style="background:var(--c-neg, #ef9a9a)">
         </span>
         <span class="cat-name">
          NotCategorized
@@ -2603,7 +2603,7 @@ body {
         </span>
        </div>
        <div class="cat-legend-row" data-cid="chart-spendings-donut" data-idx="4">
-        <span class="cat-dot" style="background:#f48fb1">
+        <span class="cat-dot" style="background:var(--c-neg, #f48fb1)">
         </span>
         <span class="cat-name">
          ביטוח בריאות
@@ -2613,7 +2613,7 @@ body {
         </span>
        </div>
        <div class="cat-legend-row" data-cid="chart-spendings-donut" data-idx="12">
-        <span class="cat-dot" style="background:#ffcc80">
+        <span class="cat-dot" style="background:var(--c-neg, #ffcc80)">
         </span>
         <span class="cat-name">
          מנויים
@@ -2623,7 +2623,7 @@ body {
         </span>
        </div>
        <div class="cat-legend-row" data-cid="chart-spendings-donut" data-idx="20">
-        <span class="cat-dot" style="background:#ef9a9a">
+        <span class="cat-dot" style="background:var(--c-neg, #ef9a9a)">
         </span>
         <span class="cat-name">
          תחביבים ופנאי
@@ -2733,7 +2733,7 @@ body {
       </div>
       <div class="cat-legend-grid" id="chart-earnings-donut-legend">
        <div class="cat-legend-row" data-cid="chart-earnings-donut" data-idx="1">
-        <span class="cat-dot" style="background:#80cbc4">
+        <span class="cat-dot" style="background:var(--teal, #80cbc4)">
         </span>
         <span class="cat-name">
          משכורת
@@ -2743,7 +2743,7 @@ body {
         </span>
        </div>
        <div class="cat-legend-row" data-cid="chart-earnings-donut" data-idx="3">
-        <span class="cat-dot" style="background:#80deea">
+        <span class="cat-dot" style="background:var(--teal, #80deea)">
         </span>
         <span class="cat-name">
          שלום שבאזי 7
@@ -2753,7 +2753,7 @@ body {
         </span>
        </div>
        <div class="cat-legend-row" data-cid="chart-earnings-donut" data-idx="2">
-        <span class="cat-dot" style="background:#90caf9">
+        <span class="cat-dot" style="background:var(--c-alt, #90caf9)">
         </span>
         <span class="cat-name">
          שיעורים פרטיים
@@ -2763,7 +2763,7 @@ body {
         </span>
        </div>
        <div class="cat-legend-row" data-cid="chart-earnings-donut" data-idx="0">
-        <span class="cat-dot" style="background:#a5d6a7">
+        <span class="cat-dot" style="background:var(--c-pos-bg, #a5d6a7)">
         </span>
         <span class="cat-name">
          אחר
@@ -2860,7 +2860,7 @@ body {
       </script>
       <ul class="inv-tx-list">
        <li class="inv-tx-row">
-        <span class="inv-tx-dot" style="background:#9B5DE5">
+        <span class="inv-tx-dot" style="background:var(--c-alt, #9B5DE5)">
         </span>
         <span class="inv-tx-meta">
          #696 · 10/05 · בנק
@@ -2873,7 +2873,7 @@ body {
         </span>
        </li>
        <li class="inv-tx-row">
-        <span class="inv-tx-dot" style="background:#9B5DE5">
+        <span class="inv-tx-dot" style="background:var(--c-alt, #9B5DE5)">
         </span>
         <span class="inv-tx-meta">
          #685 · 24/05 · בנק
@@ -2965,7 +2965,7 @@ body {
       </div>
       <div class="cat-legend-grid" id="chart-cash-donut-legend">
        <div class="cat-legend-row" data-cid="chart-cash-donut" data-idx="0">
-        <span class="cat-dot" style="background:#a5d6a7">
+        <span class="cat-dot" style="background:var(--c-pos-bg, #a5d6a7)">
         </span>
         <span class="cat-name">
          הכנסה  ₪4,000
@@ -2975,7 +2975,7 @@ body {
         </span>
        </div>
        <div class="cat-legend-row" data-cid="chart-cash-donut" data-idx="1">
-        <span class="cat-dot" style="background:#ef9a9a">
+        <span class="cat-dot" style="background:var(--c-neg, #ef9a9a)">
         </span>
         <span class="cat-name">
          הוצאה  ₪0
@@ -3014,7 +3014,7 @@ body {
         <div style="font-size:0.72em;font-weight:600;color:#888;margin-bottom:3px;">
          ממוצע נטו חודשי
         </div>
-        <div data-neg-clr="#e74c3c" data-pos-clr="#1e9d8b" id="gen-kpi-val-0" style="font-size:1.15em;font-weight:800;color:#1e9d8b;">
+        <div data-neg-clr="#e74c3c" data-pos-clr="#1e9d8b" id="gen-kpi-val-0" style="font-size:1.15em;font-weight:800;color:var(--teal, #1e9d8b);">
          3,877₪
         </div>
        </div>
@@ -3022,7 +3022,7 @@ body {
         <div style="font-size:0.72em;font-weight:600;color:#888;margin-bottom:3px;">
          סה"כ הכנסות
         </div>
-        <div id="gen-kpi-val-1" style="font-size:1.15em;font-weight:800;color:#43a047;">
+        <div id="gen-kpi-val-1" style="font-size:1.15em;font-weight:800;color:var(--c-pos, #43a047);">
          427,407₪
         </div>
        </div>
@@ -3030,7 +3030,7 @@ body {
         <div style="font-size:0.72em;font-weight:600;color:#888;margin-bottom:3px;">
          סה"כ הוצאות
         </div>
-        <div id="gen-kpi-val-2" style="font-size:1.15em;font-weight:800;color:#ef5350;">
+        <div id="gen-kpi-val-2" style="font-size:1.15em;font-weight:800;color:var(--c-neg, #ef5350);">
          408,065₪
         </div>
        </div>
@@ -3038,7 +3038,7 @@ body {
         <div style="font-size:0.72em;font-weight:600;color:#888;margin-bottom:3px;">
          סה"כ השקעות נטו
         </div>
-        <div id="gen-kpi-val-3" style="font-size:1.15em;font-weight:800;color:#e8a020;">
+        <div id="gen-kpi-val-3" style="font-size:1.15em;font-weight:800;color:var(--c-neg, #e8a020);">
          28,532₪
         </div>
        </div>
@@ -3340,7 +3340,7 @@ body {
       </div>
       <div class="tx-scroll" id="spendings-list">
        <div class="num" data-tx-table="BankTransactions" data-value="665">
-        <div class="color-box" style="background-color:#9B5DE5">
+        <div class="color-box" style="background-color:var(--c-alt, #9B5DE5)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -3360,7 +3360,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="BankTransactions" data-value="667">
-        <div class="color-box" style="background-color:#9B5DE5">
+        <div class="color-box" style="background-color:var(--c-alt, #9B5DE5)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -3380,7 +3380,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="BankTransactions" data-value="668">
-        <div class="color-box" style="background-color:#9B5DE5">
+        <div class="color-box" style="background-color:var(--c-alt, #9B5DE5)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -3400,7 +3400,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2274">
-        <div class="color-box" style="background-color:#FFD166">
+        <div class="color-box" style="background-color:var(--c-neg, #FFD166)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -3420,7 +3420,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2267">
-        <div class="color-box" style="background-color:#26547C">
+        <div class="color-box" style="background-color:var(--c-alt, #26547C)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -3440,7 +3440,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2273">
-        <div class="color-box" style="background-color:#FFD166">
+        <div class="color-box" style="background-color:var(--c-neg, #FFD166)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -3463,7 +3463,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2214">
-        <div class="color-box" style="background-color:#26547C">
+        <div class="color-box" style="background-color:var(--c-alt, #26547C)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -3483,7 +3483,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2215">
-        <div class="color-box" style="background-color:#26547C">
+        <div class="color-box" style="background-color:var(--c-alt, #26547C)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -3503,7 +3503,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2304">
-        <div class="color-box" style="background-color:#EF476F">
+        <div class="color-box" style="background-color:var(--c-neg, #EF476F)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -3523,7 +3523,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2305">
-        <div class="color-box" style="background-color:#EF476F">
+        <div class="color-box" style="background-color:var(--c-neg, #EF476F)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -3546,7 +3546,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2306">
-        <div class="color-box" style="background-color:#EF476F">
+        <div class="color-box" style="background-color:var(--c-neg, #EF476F)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -3569,7 +3569,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2216">
-        <div class="color-box" style="background-color:#26547C">
+        <div class="color-box" style="background-color:var(--c-alt, #26547C)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -3589,7 +3589,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2217">
-        <div class="color-box" style="background-color:#26547C">
+        <div class="color-box" style="background-color:var(--c-alt, #26547C)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -3609,7 +3609,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2301">
-        <div class="color-box" style="background-color:#EF476F">
+        <div class="color-box" style="background-color:var(--c-neg, #EF476F)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -3629,7 +3629,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2302">
-        <div class="color-box" style="background-color:#EF476F">
+        <div class="color-box" style="background-color:var(--c-neg, #EF476F)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -3649,7 +3649,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2303">
-        <div class="color-box" style="background-color:#EF476F">
+        <div class="color-box" style="background-color:var(--c-neg, #EF476F)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -3669,7 +3669,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2219">
-        <div class="color-box" style="background-color:#26547C">
+        <div class="color-box" style="background-color:var(--c-alt, #26547C)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -3692,7 +3692,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2218">
-        <div class="color-box" style="background-color:#26547C">
+        <div class="color-box" style="background-color:var(--c-alt, #26547C)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -3715,7 +3715,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="BankTransactions" data-value="699">
-        <div class="color-box" style="background-color:#9B5DE5">
+        <div class="color-box" style="background-color:var(--c-alt, #9B5DE5)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -3735,7 +3735,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2220">
-        <div class="color-box" style="background-color:#26547C">
+        <div class="color-box" style="background-color:var(--c-alt, #26547C)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -3755,7 +3755,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2221">
-        <div class="color-box" style="background-color:#26547C">
+        <div class="color-box" style="background-color:var(--c-alt, #26547C)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -3775,7 +3775,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2268">
-        <div class="color-box" style="background-color:#26547C">
+        <div class="color-box" style="background-color:var(--c-alt, #26547C)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -3797,7 +3797,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2300">
-        <div class="color-box" style="background-color:#EF476F">
+        <div class="color-box" style="background-color:var(--c-neg, #EF476F)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -3817,7 +3817,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2222">
-        <div class="color-box" style="background-color:#26547C">
+        <div class="color-box" style="background-color:var(--c-alt, #26547C)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -3840,7 +3840,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="BankTransactions" data-value="697">
-        <div class="color-box" style="background-color:#9B5DE5">
+        <div class="color-box" style="background-color:var(--c-alt, #9B5DE5)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -3863,7 +3863,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2223">
-        <div class="color-box" style="background-color:#26547C">
+        <div class="color-box" style="background-color:var(--c-alt, #26547C)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -3883,7 +3883,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2224">
-        <div class="color-box" style="background-color:#26547C">
+        <div class="color-box" style="background-color:var(--c-alt, #26547C)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -3903,7 +3903,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2299">
-        <div class="color-box" style="background-color:#EF476F">
+        <div class="color-box" style="background-color:var(--c-neg, #EF476F)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -3923,7 +3923,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="BankTransactions" data-value="695">
-        <div class="color-box" style="background-color:#9B5DE5">
+        <div class="color-box" style="background-color:var(--c-alt, #9B5DE5)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -3943,7 +3943,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2272">
-        <div class="color-box" style="background-color:#FFD166">
+        <div class="color-box" style="background-color:var(--c-neg, #FFD166)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -3966,7 +3966,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2225">
-        <div class="color-box" style="background-color:#26547C">
+        <div class="color-box" style="background-color:var(--c-alt, #26547C)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -3986,7 +3986,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2298">
-        <div class="color-box" style="background-color:#EF476F">
+        <div class="color-box" style="background-color:var(--c-neg, #EF476F)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -4006,7 +4006,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2227">
-        <div class="color-box" style="background-color:#26547C">
+        <div class="color-box" style="background-color:var(--c-alt, #26547C)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -4026,7 +4026,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2230">
-        <div class="color-box" style="background-color:#26547C">
+        <div class="color-box" style="background-color:var(--c-alt, #26547C)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -4046,7 +4046,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2229">
-        <div class="color-box" style="background-color:#26547C">
+        <div class="color-box" style="background-color:var(--c-alt, #26547C)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -4066,7 +4066,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2228">
-        <div class="color-box" style="background-color:#26547C">
+        <div class="color-box" style="background-color:var(--c-alt, #26547C)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -4086,7 +4086,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2226">
-        <div class="color-box" style="background-color:#26547C">
+        <div class="color-box" style="background-color:var(--c-alt, #26547C)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -4106,7 +4106,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2232">
-        <div class="color-box" style="background-color:#26547C">
+        <div class="color-box" style="background-color:var(--c-alt, #26547C)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -4126,7 +4126,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2231">
-        <div class="color-box" style="background-color:#26547C">
+        <div class="color-box" style="background-color:var(--c-alt, #26547C)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -4149,7 +4149,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2297">
-        <div class="color-box" style="background-color:#EF476F">
+        <div class="color-box" style="background-color:var(--c-neg, #EF476F)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -4169,7 +4169,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2296">
-        <div class="color-box" style="background-color:#EF476F">
+        <div class="color-box" style="background-color:var(--c-neg, #EF476F)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -4189,7 +4189,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2233">
-        <div class="color-box" style="background-color:#26547C">
+        <div class="color-box" style="background-color:var(--c-alt, #26547C)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -4209,7 +4209,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2294">
-        <div class="color-box" style="background-color:#EF476F">
+        <div class="color-box" style="background-color:var(--c-neg, #EF476F)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -4229,7 +4229,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2295">
-        <div class="color-box" style="background-color:#EF476F">
+        <div class="color-box" style="background-color:var(--c-neg, #EF476F)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -4249,7 +4249,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="BankTransactions" data-value="692">
-        <div class="color-box" style="background-color:#9B5DE5">
+        <div class="color-box" style="background-color:var(--c-alt, #9B5DE5)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -4269,7 +4269,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="BankTransactions" data-value="691">
-        <div class="color-box" style="background-color:#9B5DE5">
+        <div class="color-box" style="background-color:var(--c-alt, #9B5DE5)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -4292,7 +4292,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2293">
-        <div class="color-box" style="background-color:#EF476F">
+        <div class="color-box" style="background-color:var(--c-neg, #EF476F)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -4312,7 +4312,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2234">
-        <div class="color-box" style="background-color:#26547C">
+        <div class="color-box" style="background-color:var(--c-alt, #26547C)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -4332,7 +4332,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2235">
-        <div class="color-box" style="background-color:#26547C">
+        <div class="color-box" style="background-color:var(--c-alt, #26547C)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -4355,7 +4355,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2292">
-        <div class="color-box" style="background-color:#EF476F">
+        <div class="color-box" style="background-color:var(--c-neg, #EF476F)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -4378,7 +4378,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2291">
-        <div class="color-box" style="background-color:#EF476F">
+        <div class="color-box" style="background-color:var(--c-neg, #EF476F)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -4398,7 +4398,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2290">
-        <div class="color-box" style="background-color:#EF476F">
+        <div class="color-box" style="background-color:var(--c-neg, #EF476F)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -4421,7 +4421,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2238">
-        <div class="color-box" style="background-color:#26547C">
+        <div class="color-box" style="background-color:var(--c-alt, #26547C)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -4441,7 +4441,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2237">
-        <div class="color-box" style="background-color:#26547C">
+        <div class="color-box" style="background-color:var(--c-alt, #26547C)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -4461,7 +4461,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2236">
-        <div class="color-box" style="background-color:#26547C">
+        <div class="color-box" style="background-color:var(--c-alt, #26547C)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -4481,7 +4481,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="BankTransactions" data-value="688">
-        <div class="color-box" style="background-color:#9B5DE5">
+        <div class="color-box" style="background-color:var(--c-alt, #9B5DE5)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -4504,7 +4504,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2289">
-        <div class="color-box" style="background-color:#EF476F">
+        <div class="color-box" style="background-color:var(--c-neg, #EF476F)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -4527,7 +4527,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2288">
-        <div class="color-box" style="background-color:#EF476F">
+        <div class="color-box" style="background-color:var(--c-neg, #EF476F)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -4547,7 +4547,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2240">
-        <div class="color-box" style="background-color:#26547C">
+        <div class="color-box" style="background-color:var(--c-alt, #26547C)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -4567,7 +4567,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2239">
-        <div class="color-box" style="background-color:#26547C">
+        <div class="color-box" style="background-color:var(--c-alt, #26547C)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -4587,7 +4587,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2269">
-        <div class="color-box" style="background-color:#26547C">
+        <div class="color-box" style="background-color:var(--c-alt, #26547C)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -4609,7 +4609,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2285">
-        <div class="color-box" style="background-color:#EF476F">
+        <div class="color-box" style="background-color:var(--c-neg, #EF476F)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -4632,7 +4632,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2287">
-        <div class="color-box" style="background-color:#EF476F">
+        <div class="color-box" style="background-color:var(--c-neg, #EF476F)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -4655,7 +4655,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2241">
-        <div class="color-box" style="background-color:#26547C">
+        <div class="color-box" style="background-color:var(--c-alt, #26547C)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -4678,7 +4678,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2242">
-        <div class="color-box" style="background-color:#26547C">
+        <div class="color-box" style="background-color:var(--c-alt, #26547C)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -4701,7 +4701,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2243">
-        <div class="color-box" style="background-color:#26547C">
+        <div class="color-box" style="background-color:var(--c-alt, #26547C)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -4724,7 +4724,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2244">
-        <div class="color-box" style="background-color:#26547C">
+        <div class="color-box" style="background-color:var(--c-alt, #26547C)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -4747,7 +4747,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2286">
-        <div class="color-box" style="background-color:#EF476F">
+        <div class="color-box" style="background-color:var(--c-neg, #EF476F)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -4770,7 +4770,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2245">
-        <div class="color-box" style="background-color:#26547C">
+        <div class="color-box" style="background-color:var(--c-alt, #26547C)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -4793,7 +4793,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2271">
-        <div class="color-box" style="background-color:#FFD166">
+        <div class="color-box" style="background-color:var(--c-neg, #FFD166)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -4813,7 +4813,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2284">
-        <div class="color-box" style="background-color:#EF476F">
+        <div class="color-box" style="background-color:var(--c-neg, #EF476F)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -4836,7 +4836,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2270">
-        <div class="color-box" style="background-color:#26547C">
+        <div class="color-box" style="background-color:var(--c-alt, #26547C)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -4856,7 +4856,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2246">
-        <div class="color-box" style="background-color:#26547C">
+        <div class="color-box" style="background-color:var(--c-alt, #26547C)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -4876,7 +4876,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2247">
-        <div class="color-box" style="background-color:#26547C">
+        <div class="color-box" style="background-color:var(--c-alt, #26547C)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -4896,7 +4896,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2248">
-        <div class="color-box" style="background-color:#26547C">
+        <div class="color-box" style="background-color:var(--c-alt, #26547C)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -4919,7 +4919,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2249">
-        <div class="color-box" style="background-color:#26547C">
+        <div class="color-box" style="background-color:var(--c-alt, #26547C)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -4939,7 +4939,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2250">
-        <div class="color-box" style="background-color:#26547C">
+        <div class="color-box" style="background-color:var(--c-alt, #26547C)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -4959,7 +4959,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2283">
-        <div class="color-box" style="background-color:#EF476F">
+        <div class="color-box" style="background-color:var(--c-neg, #EF476F)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -4979,7 +4979,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2282">
-        <div class="color-box" style="background-color:#EF476F">
+        <div class="color-box" style="background-color:var(--c-neg, #EF476F)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -4999,7 +4999,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2251">
-        <div class="color-box" style="background-color:#26547C">
+        <div class="color-box" style="background-color:var(--c-alt, #26547C)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -5022,7 +5022,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2252">
-        <div class="color-box" style="background-color:#26547C">
+        <div class="color-box" style="background-color:var(--c-alt, #26547C)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -5042,7 +5042,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2254">
-        <div class="color-box" style="background-color:#26547C">
+        <div class="color-box" style="background-color:var(--c-alt, #26547C)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -5062,7 +5062,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2253">
-        <div class="color-box" style="background-color:#26547C">
+        <div class="color-box" style="background-color:var(--c-alt, #26547C)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -5082,7 +5082,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2255">
-        <div class="color-box" style="background-color:#26547C">
+        <div class="color-box" style="background-color:var(--c-alt, #26547C)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -5102,7 +5102,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2257">
-        <div class="color-box" style="background-color:#26547C">
+        <div class="color-box" style="background-color:var(--c-alt, #26547C)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -5122,7 +5122,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2256">
-        <div class="color-box" style="background-color:#26547C">
+        <div class="color-box" style="background-color:var(--c-alt, #26547C)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -5142,7 +5142,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2258">
-        <div class="color-box" style="background-color:#26547C">
+        <div class="color-box" style="background-color:var(--c-alt, #26547C)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -5165,7 +5165,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2281">
-        <div class="color-box" style="background-color:#EF476F">
+        <div class="color-box" style="background-color:var(--c-neg, #EF476F)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -5185,7 +5185,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2259">
-        <div class="color-box" style="background-color:#26547C">
+        <div class="color-box" style="background-color:var(--c-alt, #26547C)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -5205,7 +5205,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2260">
-        <div class="color-box" style="background-color:#26547C">
+        <div class="color-box" style="background-color:var(--c-alt, #26547C)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -5225,7 +5225,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2261">
-        <div class="color-box" style="background-color:#26547C">
+        <div class="color-box" style="background-color:var(--c-alt, #26547C)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -5248,7 +5248,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2262">
-        <div class="color-box" style="background-color:#26547C">
+        <div class="color-box" style="background-color:var(--c-alt, #26547C)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -5268,7 +5268,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2280">
-        <div class="color-box" style="background-color:#EF476F">
+        <div class="color-box" style="background-color:var(--c-neg, #EF476F)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -5288,7 +5288,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2264">
-        <div class="color-box" style="background-color:#26547C">
+        <div class="color-box" style="background-color:var(--c-alt, #26547C)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -5308,7 +5308,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2263">
-        <div class="color-box" style="background-color:#26547C">
+        <div class="color-box" style="background-color:var(--c-alt, #26547C)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -5328,7 +5328,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2265">
-        <div class="color-box" style="background-color:#26547C">
+        <div class="color-box" style="background-color:var(--c-alt, #26547C)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -5348,7 +5348,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2276">
-        <div class="color-box" style="background-color:#EF476F">
+        <div class="color-box" style="background-color:var(--c-neg, #EF476F)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -5371,7 +5371,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2277">
-        <div class="color-box" style="background-color:#EF476F">
+        <div class="color-box" style="background-color:var(--c-neg, #EF476F)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -5394,7 +5394,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2278">
-        <div class="color-box" style="background-color:#EF476F">
+        <div class="color-box" style="background-color:var(--c-neg, #EF476F)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -5417,7 +5417,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2279">
-        <div class="color-box" style="background-color:#EF476F">
+        <div class="color-box" style="background-color:var(--c-neg, #EF476F)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -5440,7 +5440,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2266">
-        <div class="color-box" style="background-color:#26547C">
+        <div class="color-box" style="background-color:var(--c-alt, #26547C)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -5463,7 +5463,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2275">
-        <div class="color-box" style="background-color:#EF476F">
+        <div class="color-box" style="background-color:var(--c-neg, #EF476F)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -5483,7 +5483,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="BankTransactions" data-value="683">
-        <div class="color-box" style="background-color:#9B5DE5">
+        <div class="color-box" style="background-color:var(--c-alt, #9B5DE5)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -5503,7 +5503,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="CardTransactions" data-value="2307">
-        <div class="color-box" style="background-color:#EF476F">
+        <div class="color-box" style="background-color:var(--c-neg, #EF476F)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -5566,7 +5566,7 @@ body {
       </div>
       <div class="tx-scroll" id="earnings-list">
        <div class="num" data-tx-table="BankTransactions" data-value="666">
-        <div class="color-box" style="background-color:#9B5DE5">
+        <div class="color-box" style="background-color:var(--c-alt, #9B5DE5)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -5586,7 +5586,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="BankTransactions" data-value="694">
-        <div class="color-box" style="background-color:#9B5DE5">
+        <div class="color-box" style="background-color:var(--c-alt, #9B5DE5)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -5606,7 +5606,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="BankTransactions" data-value="693">
-        <div class="color-box" style="background-color:#9B5DE5">
+        <div class="color-box" style="background-color:var(--c-alt, #9B5DE5)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -5626,7 +5626,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="BankTransactions" data-value="689">
-        <div class="color-box" style="background-color:#9B5DE5">
+        <div class="color-box" style="background-color:var(--c-alt, #9B5DE5)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -5649,7 +5649,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="BankTransactions" data-value="690">
-        <div class="color-box" style="background-color:#9B5DE5">
+        <div class="color-box" style="background-color:var(--c-alt, #9B5DE5)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -5672,7 +5672,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="BankTransactions" data-value="687">
-        <div class="color-box" style="background-color:#9B5DE5">
+        <div class="color-box" style="background-color:var(--c-alt, #9B5DE5)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -5692,7 +5692,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="BankTransactions" data-value="686">
-        <div class="color-box" style="background-color:#9B5DE5">
+        <div class="color-box" style="background-color:var(--c-alt, #9B5DE5)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -5715,7 +5715,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="BankTransactions" data-value="685">
-        <div class="color-box" style="background-color:#9B5DE5">
+        <div class="color-box" style="background-color:var(--c-alt, #9B5DE5)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -5735,7 +5735,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="BankTransactions" data-value="684">
-        <div class="color-box" style="background-color:#9B5DE5">
+        <div class="color-box" style="background-color:var(--c-alt, #9B5DE5)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -5755,7 +5755,7 @@ body {
         </p>
        </div>
        <div class="num" data-tx-table="BankTransactions" data-value="682">
-        <div class="color-box" style="background-color:#9B5DE5">
+        <div class="color-box" style="background-color:var(--c-alt, #9B5DE5)">
         </div>
         <h3>
          <span class="tx-primary">
@@ -5808,7 +5808,7 @@ body {
       </span>
      </div>
      <div class="alerts-matrix">
-      <div class="alert-item" style="border-color:#e74c3c;background-color:#fff5f5;">
+      <div class="alert-item" style="border-color:var(--c-neg, #e74c3c);background-color:#fff5f5;">
        <span class="alert-icon">
         ⬆
        </span>
@@ -5821,7 +5821,7 @@ body {
         </p>
        </div>
       </div>
-      <div class="alert-item" style="border-color:#2ecc71;background-color:#f0fff4;">
+      <div class="alert-item" style="border-color:var(--c-pos, #2ecc71);background-color:var(--c-pos-bg, #f0fff4);">
        <span class="alert-icon">
         ⬇
        </span>
@@ -5834,7 +5834,7 @@ body {
         </p>
        </div>
       </div>
-      <div class="alert-item" style="border-color:#e74c3c;background-color:#fff5f5;">
+      <div class="alert-item" style="border-color:var(--c-neg, #e74c3c);background-color:#fff5f5;">
        <span class="alert-icon">
         ⬆
        </span>
@@ -5847,7 +5847,7 @@ body {
         </p>
        </div>
       </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
+      <div class="alert-item" style="border-color:var(--c-neg, #f0b429);background-color:var(--c-neg-bg, #fffbeb);">
        <span class="alert-icon">
         ❓
        </span>
@@ -5860,7 +5860,7 @@ body {
         </p>
        </div>
       </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
+      <div class="alert-item" style="border-color:var(--c-neg, #f0b429);background-color:var(--c-neg-bg, #fffbeb);">
        <span class="alert-icon">
         ❓
        </span>
@@ -5873,7 +5873,7 @@ body {
         </p>
        </div>
       </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
+      <div class="alert-item" style="border-color:var(--c-neg, #f0b429);background-color:var(--c-neg-bg, #fffbeb);">
        <span class="alert-icon">
         ❓
        </span>
@@ -5886,7 +5886,7 @@ body {
         </p>
        </div>
       </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
+      <div class="alert-item" style="border-color:var(--c-neg, #f0b429);background-color:var(--c-neg-bg, #fffbeb);">
        <span class="alert-icon">
         ⚡
        </span>
@@ -5899,7 +5899,7 @@ body {
         </p>
        </div>
       </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
+      <div class="alert-item" style="border-color:var(--c-neg, #f0b429);background-color:var(--c-neg-bg, #fffbeb);">
        <span class="alert-icon">
         ⚡
        </span>
@@ -5912,7 +5912,7 @@ body {
         </p>
        </div>
       </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
+      <div class="alert-item" style="border-color:var(--c-neg, #f0b429);background-color:var(--c-neg-bg, #fffbeb);">
        <span class="alert-icon">
         ⚡
        </span>
@@ -5925,7 +5925,7 @@ body {
         </p>
        </div>
       </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
+      <div class="alert-item" style="border-color:var(--c-neg, #f0b429);background-color:var(--c-neg-bg, #fffbeb);">
        <span class="alert-icon">
         ⚡
        </span>
@@ -5938,7 +5938,7 @@ body {
         </p>
        </div>
       </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
+      <div class="alert-item" style="border-color:var(--c-neg, #f0b429);background-color:var(--c-neg-bg, #fffbeb);">
        <span class="alert-icon">
         ⚡
        </span>
@@ -5951,7 +5951,7 @@ body {
         </p>
        </div>
       </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
+      <div class="alert-item" style="border-color:var(--c-neg, #f0b429);background-color:var(--c-neg-bg, #fffbeb);">
        <span class="alert-icon">
         ⚡
        </span>
@@ -5964,7 +5964,7 @@ body {
         </p>
        </div>
       </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
+      <div class="alert-item" style="border-color:var(--c-neg, #f0b429);background-color:var(--c-neg-bg, #fffbeb);">
        <span class="alert-icon">
         🆕
        </span>
@@ -5977,7 +5977,7 @@ body {
         </p>
        </div>
       </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
+      <div class="alert-item" style="border-color:var(--c-neg, #f0b429);background-color:var(--c-neg-bg, #fffbeb);">
        <span class="alert-icon">
         🆕
        </span>
@@ -5990,7 +5990,7 @@ body {
         </p>
        </div>
       </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
+      <div class="alert-item" style="border-color:var(--c-neg, #f0b429);background-color:var(--c-neg-bg, #fffbeb);">
        <span class="alert-icon">
         🆕
        </span>
@@ -6003,7 +6003,7 @@ body {
         </p>
        </div>
       </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
+      <div class="alert-item" style="border-color:var(--c-neg, #f0b429);background-color:var(--c-neg-bg, #fffbeb);">
        <span class="alert-icon">
         🆕
        </span>
@@ -6016,7 +6016,7 @@ body {
         </p>
        </div>
       </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
+      <div class="alert-item" style="border-color:var(--c-neg, #f0b429);background-color:var(--c-neg-bg, #fffbeb);">
        <span class="alert-icon">
         🆕
        </span>
@@ -6029,7 +6029,7 @@ body {
         </p>
        </div>
       </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
+      <div class="alert-item" style="border-color:var(--c-neg, #f0b429);background-color:var(--c-neg-bg, #fffbeb);">
        <span class="alert-icon">
         🆕
        </span>
@@ -6042,7 +6042,7 @@ body {
         </p>
        </div>
       </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
+      <div class="alert-item" style="border-color:var(--c-neg, #f0b429);background-color:var(--c-neg-bg, #fffbeb);">
        <span class="alert-icon">
         🆕
        </span>
@@ -6055,7 +6055,7 @@ body {
         </p>
        </div>
       </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
+      <div class="alert-item" style="border-color:var(--c-neg, #f0b429);background-color:var(--c-neg-bg, #fffbeb);">
        <span class="alert-icon">
         🆕
        </span>
@@ -6068,7 +6068,7 @@ body {
         </p>
        </div>
       </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
+      <div class="alert-item" style="border-color:var(--c-neg, #f0b429);background-color:var(--c-neg-bg, #fffbeb);">
        <span class="alert-icon">
         🆕
        </span>
@@ -6081,7 +6081,7 @@ body {
         </p>
        </div>
       </div>
-      <div class="alert-item" style="border-color:#f0b429;background-color:#fffbeb;">
+      <div class="alert-item" style="border-color:var(--c-neg, #f0b429);background-color:var(--c-neg-bg, #fffbeb);">
        <span class="alert-icon">
         🆕
        </span>
@@ -6094,7 +6094,7 @@ body {
         </p>
        </div>
       </div>
-      <div class="alert-item" style="border-color:#e74c3c;background-color:#fff5f5;">
+      <div class="alert-item" style="border-color:var(--c-neg, #e74c3c);background-color:#fff5f5;">
        <span class="alert-icon">
         📊
        </span>
@@ -6107,7 +6107,7 @@ body {
         </p>
        </div>
       </div>
-      <div class="alert-item" style="border-color:#e74c3c;background-color:#fff5f5;">
+      <div class="alert-item" style="border-color:var(--c-neg, #e74c3c);background-color:#fff5f5;">
        <span class="alert-icon">
         📊
        </span>
@@ -6120,7 +6120,7 @@ body {
         </p>
        </div>
       </div>
-      <div class="alert-item" style="border-color:#e74c3c;background-color:#fff5f5;">
+      <div class="alert-item" style="border-color:var(--c-neg, #e74c3c);background-color:#fff5f5;">
        <span class="alert-icon">
         📊
        </span>
@@ -6133,7 +6133,7 @@ body {
         </p>
        </div>
       </div>
-      <div class="alert-item" style="border-color:#e74c3c;background-color:#fff5f5;">
+      <div class="alert-item" style="border-color:var(--c-neg, #e74c3c);background-color:#fff5f5;">
        <span class="alert-icon">
         📊
        </span>
@@ -6146,7 +6146,7 @@ body {
         </p>
        </div>
       </div>
-      <div class="alert-item" style="border-color:#e74c3c;background-color:#fff5f5;">
+      <div class="alert-item" style="border-color:var(--c-neg, #e74c3c);background-color:#fff5f5;">
        <span class="alert-icon">
         💰
        </span>
@@ -6159,7 +6159,7 @@ body {
         </p>
        </div>
       </div>
-      <div class="alert-item" style="border-color:#e74c3c;background-color:#fff5f5;">
+      <div class="alert-item" style="border-color:var(--c-neg, #e74c3c);background-color:#fff5f5;">
        <span class="alert-icon">
         💰
        </span>
@@ -6172,7 +6172,7 @@ body {
         </p>
        </div>
       </div>
-      <div class="alert-item" style="border-color:#e74c3c;background-color:#fff5f5;">
+      <div class="alert-item" style="border-color:var(--c-neg, #e74c3c);background-color:#fff5f5;">
        <span class="alert-icon">
         💰
        </span>
@@ -6185,7 +6185,7 @@ body {
         </p>
        </div>
       </div>
-      <div class="alert-item" style="border-color:#e74c3c;background-color:#fff5f5;">
+      <div class="alert-item" style="border-color:var(--c-neg, #e74c3c);background-color:#fff5f5;">
        <span class="alert-icon">
         💰
        </span>
@@ -6198,7 +6198,7 @@ body {
         </p>
        </div>
       </div>
-      <div class="alert-item" style="border-color:#e74c3c;background-color:#fff5f5;">
+      <div class="alert-item" style="border-color:var(--c-neg, #e74c3c);background-color:#fff5f5;">
        <span class="alert-icon">
         💰
        </span>
@@ -6211,7 +6211,7 @@ body {
         </p>
        </div>
       </div>
-      <div class="alert-item" style="border-color:#e74c3c;background-color:#fff5f5;">
+      <div class="alert-item" style="border-color:var(--c-neg, #e74c3c);background-color:#fff5f5;">
        <span class="alert-icon">
         💰
        </span>
@@ -6224,7 +6224,7 @@ body {
         </p>
        </div>
       </div>
-      <div class="alert-item" style="border-color:#e74c3c;background-color:#fff5f5;">
+      <div class="alert-item" style="border-color:var(--c-neg, #e74c3c);background-color:#fff5f5;">
        <span class="alert-icon">
         💰
        </span>
@@ -6237,7 +6237,7 @@ body {
         </p>
        </div>
       </div>
-      <div class="alert-item" style="border-color:#e74c3c;background-color:#fff5f5;">
+      <div class="alert-item" style="border-color:var(--c-neg, #e74c3c);background-color:#fff5f5;">
        <span class="alert-icon">
         💰
        </span>
@@ -6250,7 +6250,7 @@ body {
         </p>
        </div>
       </div>
-      <div class="alert-item" style="border-color:#e74c3c;background-color:#fff5f5;">
+      <div class="alert-item" style="border-color:var(--c-neg, #e74c3c);background-color:#fff5f5;">
        <span class="alert-icon">
         💰
        </span>
@@ -6263,7 +6263,7 @@ body {
         </p>
        </div>
       </div>
-      <div class="alert-item" style="border-color:#e74c3c;background-color:#fff5f5;">
+      <div class="alert-item" style="border-color:var(--c-neg, #e74c3c);background-color:#fff5f5;">
        <span class="alert-icon">
         💰
        </span>
@@ -6276,7 +6276,7 @@ body {
         </p>
        </div>
       </div>
-      <div class="alert-item" style="border-color:#e74c3c;background-color:#fff5f5;">
+      <div class="alert-item" style="border-color:var(--c-neg, #e74c3c);background-color:#fff5f5;">
        <span class="alert-icon">
         💰
        </span>
@@ -6289,7 +6289,7 @@ body {
         </p>
        </div>
       </div>
-      <div class="alert-item" style="border-color:#e74c3c;background-color:#fff5f5;">
+      <div class="alert-item" style="border-color:var(--c-neg, #e74c3c);background-color:#fff5f5;">
        <span class="alert-icon">
         💰
        </span>
@@ -6927,7 +6927,7 @@ body {
         </span>
        </span>
       </div>
-      <div class="kpi-value" style="color:#e74c3c">
+      <div class="kpi-value" style="color:var(--c-neg, #e74c3c)">
        703,398₪
       </div>
      </div>
@@ -6951,7 +6951,7 @@ body {
           </span>
          </span>
         </div>
-        <div class="kpi-value" id="hs-ownership-val" style="color:#5b8dee">
+        <div class="kpi-value" id="hs-ownership-val" style="color:var(--c-alt, #5b8dee)">
          286,024₪
         </div>
         <div class="kpi-sublabel">
@@ -6975,7 +6975,7 @@ body {
           </span>
          </span>
         </div>
-        <div class="kpi-value" id="hs-equity" style="color:#1e9d8b">
+        <div class="kpi-value" id="hs-equity" style="color:var(--teal, #1e9d8b)">
          310,786₪
         </div>
         <div class="kpi-sublabel">
@@ -6985,26 +6985,26 @@ body {
       </div>
       <div class="equity-bar-wrap">
        <div class="equity-bar">
-        <div class="equity-bar-seg" id="hs-bar-down" style="width:76.42%;background:#81c784" title="מקדמה ₪237,500">
+        <div class="equity-bar-seg" id="hs-bar-down" style="width:76.42%;background:var(--c-pos, #81c784)" title="מקדמה ₪237,500">
         </div>
-        <div class="equity-bar-seg" id="hs-bar-prin" style="width:2.93%;background:#4db6ac" title="קרן שנפרעה ₪9,102">
+        <div class="equity-bar-seg" id="hs-bar-prin" style="width:2.93%;background:var(--teal, #4db6ac)" title="קרן שנפרעה ₪9,102">
         </div>
-        <div class="equity-bar-seg" id="hs-bar-appr" style="width:12.68%;background:#64b5f6" title="עליית ערך ₪39,422">
+        <div class="equity-bar-seg" id="hs-bar-appr" style="width:12.68%;background:var(--c-alt, #64b5f6)" title="עליית ערך ₪39,422">
         </div>
-        <div class="equity-bar-seg" id="hs-bar-inc" style="width:7.97%;background:#aed581" title="סה״כ הכנסות ₪24,762">
+        <div class="equity-bar-seg" id="hs-bar-inc" style="width:7.97%;background:var(--c-pos, #aed581)" title="סה״כ הכנסות ₪24,762">
         </div>
        </div>
        <div class="equity-bar-labels equity-bar-labels-4">
-        <span id="hs-lbl-down" style="color:#81c784">
+        <span id="hs-lbl-down" style="color:var(--c-pos, #81c784)">
          ● מקדמה ₪237,500
         </span>
-        <span id="hs-lbl-prin" style="color:#4db6ac">
+        <span id="hs-lbl-prin" style="color:var(--teal, #4db6ac)">
          ● קרן שנפרעה ₪9,102
         </span>
-        <span id="hs-lbl-appr" style="color:#64b5f6">
+        <span id="hs-lbl-appr" style="color:var(--c-alt, #64b5f6)">
          ● עליית ערך ₪39,422
         </span>
-        <span id="hs-lbl-inc" style="color:#aed581">
+        <span id="hs-lbl-inc" style="color:var(--c-pos, #aed581)">
          ● הכנסות ₪24,762
         </span>
        </div>
@@ -7038,7 +7038,7 @@ body {
         </span>
        </span>
       </div>
-      <div class="kpi-value" style="color:#1a3a5c">
+      <div class="kpi-value" style="color:var(--c-alt, #1a3a5c)">
        950,000₪
       </div>
      </div>
@@ -7055,7 +7055,7 @@ body {
         </span>
        </span>
       </div>
-      <div class="kpi-value" id="hs-monthly-appr" style="color:#1e9d8b">
+      <div class="kpi-value" id="hs-monthly-appr" style="color:var(--teal, #1e9d8b)">
        +4,031₪
       </div>
       <div class="kpi-sublabel">
@@ -7075,7 +7075,7 @@ body {
         </span>
        </span>
       </div>
-      <div class="kpi-value" id="hs-appr-price" style="color:#5b8dee">
+      <div class="kpi-value" id="hs-appr-price" style="color:var(--c-alt, #5b8dee)">
        989,422₪
       </div>
       <div class="kpi-sublabel">
@@ -7107,7 +7107,7 @@ body {
         </span>
        </span>
       </div>
-      <div class="kpi-value" id="hs-total-return" style="color:#e74c3c">
+      <div class="kpi-value" id="hs-total-return" style="color:var(--c-neg, #e74c3c)">
        -15.2%
       </div>
       <div class="kpi-sublabel" id="hs-return-sublabel">
@@ -7127,7 +7127,7 @@ body {
         </span>
        </span>
       </div>
-      <div class="kpi-value" id="hs-annual-return" style="color:#e74c3c">
+      <div class="kpi-value" id="hs-annual-return" style="color:var(--c-neg, #e74c3c)">
        -18.0%
       </div>
       <div class="kpi-sublabel">
@@ -7154,26 +7154,26 @@ body {
         </span>
        </span>
       </div>
-      <div class="kpi-value" style="color:#e74c3c">
+      <div class="kpi-value" style="color:var(--c-neg, #e74c3c)">
        366,545.73₪
       </div>
       <div class="equity-bar-wrap">
        <div class="equity-bar">
-        <div class="equity-bar-seg" style="width:10.99%;background:#e57373" title="תשלומי משכנתא ₪40,294">
+        <div class="equity-bar-seg" style="width:10.99%;background:var(--c-neg, #e57373)" title="תשלומי משכנתא ₪40,294">
         </div>
-        <div class="equity-bar-seg" style="width:64.79%;background:#ef9a9a" title="תשלום ראשוני לדירה ₪237,500">
+        <div class="equity-bar-seg" style="width:64.79%;background:var(--c-neg, #ef9a9a)" title="תשלום ראשוני לדירה ₪237,500">
         </div>
-        <div class="equity-bar-seg" style="width:24.21%;background:#ffb74d" title="הוצאות אחרות ₪88,752">
+        <div class="equity-bar-seg" style="width:24.21%;background:var(--c-neg, #ffb74d)" title="הוצאות אחרות ₪88,752">
         </div>
        </div>
        <div class="equity-bar-labels-4">
-        <span style="color:#e57373">
+        <span style="color:var(--c-neg, #e57373)">
          ● תשלומי משכנתא ₪40,294
         </span>
-        <span style="color:#ef9a9a">
+        <span style="color:var(--c-neg, #ef9a9a)">
          ● תשלום ראשוני ₪237,500
         </span>
-        <span style="color:#ffb74d">
+        <span style="color:var(--c-neg, #ffb74d)">
          ● הוצאות אחרות ₪88,752
         </span>
        </div>
@@ -7192,7 +7192,7 @@ body {
         </span>
        </span>
       </div>
-      <div class="kpi-value" style="color:#1e9d8b">
+      <div class="kpi-value" style="color:var(--teal, #1e9d8b)">
        24,762.00₪
       </div>
      </div>
@@ -7556,7 +7556,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         —
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         112.00
        </td>
        <td>
@@ -7573,7 +7573,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         —
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         3,710.68
        </td>
        <td>
@@ -7590,7 +7590,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         —
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         61.15
        </td>
        <td>
@@ -7607,7 +7607,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         —
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         50.00
        </td>
        <td>
@@ -7624,7 +7624,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         איתור כתובת דייר - זיר איאד
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         20.00
        </td>
        <td>
@@ -7644,7 +7644,7 @@ body {
        <td>
         —
        </td>
-       <td style="color:#1e9d8b; font-weight:600;">
+       <td style="color:var(--teal, #1e9d8b); font-weight:600;">
         2,800.00
        </td>
       </tr>
@@ -7661,7 +7661,7 @@ body {
        <td>
         —
        </td>
-       <td style="color:#1e9d8b; font-weight:600;">
+       <td style="color:var(--teal, #1e9d8b); font-weight:600;">
         2,800.00
        </td>
       </tr>
@@ -7678,7 +7678,7 @@ body {
        <td>
         —
        </td>
-       <td style="color:#1e9d8b; font-weight:600;">
+       <td style="color:var(--teal, #1e9d8b); font-weight:600;">
         500.00
        </td>
       </tr>
@@ -7692,7 +7692,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         —
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         31.15
        </td>
        <td>
@@ -7709,7 +7709,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         שיפוץ העברה ראשונה
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         8,850.00
        </td>
        <td>
@@ -7726,7 +7726,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         —
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         112.00
        </td>
        <td>
@@ -7743,7 +7743,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         —
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         60.00
        </td>
        <td>
@@ -7760,7 +7760,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         —
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         3,696.51
        </td>
        <td>
@@ -7780,7 +7780,7 @@ body {
        <td>
         —
        </td>
-       <td style="color:#1e9d8b; font-weight:600;">
+       <td style="color:var(--teal, #1e9d8b); font-weight:600;">
         500.00
        </td>
       </tr>
@@ -7797,7 +7797,7 @@ body {
        <td>
         —
        </td>
-       <td style="color:#1e9d8b; font-weight:600;">
+       <td style="color:var(--teal, #1e9d8b); font-weight:600;">
         310.00
        </td>
       </tr>
@@ -7811,7 +7811,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         —
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         31.03
        </td>
        <td>
@@ -7831,7 +7831,7 @@ body {
        <td>
         —
        </td>
-       <td style="color:#1e9d8b; font-weight:600;">
+       <td style="color:var(--teal, #1e9d8b); font-weight:600;">
         67.00
        </td>
       </tr>
@@ -7845,7 +7845,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         החזר לארי - חשבונות מיים
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         217.00
        </td>
        <td>
@@ -7862,7 +7862,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         —
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         309.00
        </td>
        <td>
@@ -7879,7 +7879,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         —
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         112.00
        </td>
        <td>
@@ -7896,7 +7896,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         —
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         60.00
        </td>
        <td>
@@ -7913,7 +7913,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         —
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         3,714.37
        </td>
        <td>
@@ -7933,7 +7933,7 @@ body {
        <td>
         —
        </td>
-       <td style="color:#1e9d8b; font-weight:600;">
+       <td style="color:var(--teal, #1e9d8b); font-weight:600;">
         150.00
        </td>
       </tr>
@@ -7947,7 +7947,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         —
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         30.97
        </td>
        <td>
@@ -7964,7 +7964,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         —
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         112.00
        </td>
        <td>
@@ -7981,7 +7981,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         —
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         3,666.15
        </td>
        <td>
@@ -8001,7 +8001,7 @@ body {
        <td>
         —
        </td>
-       <td style="color:#1e9d8b; font-weight:600;">
+       <td style="color:var(--teal, #1e9d8b); font-weight:600;">
         2,800.00
        </td>
       </tr>
@@ -8015,7 +8015,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         —
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         59.00
        </td>
        <td>
@@ -8032,7 +8032,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         —
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         31.06
        </td>
        <td>
@@ -8049,7 +8049,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         —
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         112.00
        </td>
        <td>
@@ -8069,7 +8069,7 @@ body {
        <td>
         —
        </td>
-       <td style="color:#1e9d8b; font-weight:600;">
+       <td style="color:var(--teal, #1e9d8b); font-weight:600;">
         2,800.00
        </td>
       </tr>
@@ -8083,7 +8083,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         —
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         59.00
        </td>
        <td>
@@ -8100,7 +8100,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         —
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         3,720.93
        </td>
        <td>
@@ -8117,7 +8117,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         —
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         31.06
        </td>
        <td>
@@ -8134,7 +8134,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         —
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         112.00
        </td>
        <td>
@@ -8154,7 +8154,7 @@ body {
        <td>
         —
        </td>
-       <td style="color:#1e9d8b; font-weight:600;">
+       <td style="color:var(--teal, #1e9d8b); font-weight:600;">
         2,800.00
        </td>
       </tr>
@@ -8168,7 +8168,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         —
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         59.00
        </td>
        <td>
@@ -8185,7 +8185,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         —
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         3,743.22
        </td>
        <td>
@@ -8202,7 +8202,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         —
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         31.21
        </td>
        <td>
@@ -8219,7 +8219,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         —
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         112.00
        </td>
        <td>
@@ -8236,7 +8236,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         —
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         59.00
        </td>
        <td>
@@ -8253,7 +8253,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         —
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         3,748.28
        </td>
        <td>
@@ -8273,7 +8273,7 @@ body {
        <td>
         —
        </td>
-       <td style="color:#1e9d8b; font-weight:600;">
+       <td style="color:var(--teal, #1e9d8b); font-weight:600;">
         2,800.00
        </td>
       </tr>
@@ -8287,7 +8287,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         השתתפות עצמית צנרת
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         300.00
        </td>
        <td>
@@ -8304,7 +8304,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         —
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         31.06
        </td>
        <td>
@@ -8321,7 +8321,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         השתתפות עצמית ביטוח צנרת
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         200.00
        </td>
        <td>
@@ -8338,7 +8338,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         ביטוח דייר זיר איאד
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         112.00
        </td>
        <td>
@@ -8355,7 +8355,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         שילוח שיקים דייר
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         85.00
        </td>
        <td>
@@ -8372,7 +8372,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         —
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         472.00
        </td>
        <td>
@@ -8389,7 +8389,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         —
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         59.00
        </td>
        <td>
@@ -8406,7 +8406,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         —
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         3,772.45
        </td>
        <td>
@@ -8423,7 +8423,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         —
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         31.24
        </td>
        <td>
@@ -8443,7 +8443,7 @@ body {
        <td>
         —
        </td>
-       <td style="color:#1e9d8b; font-weight:600;">
+       <td style="color:var(--teal, #1e9d8b); font-weight:600;">
         80.00
        </td>
       </tr>
@@ -8457,7 +8457,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         —
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         3,752.00
        </td>
        <td>
@@ -8474,7 +8474,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         —
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         59.00
        </td>
        <td>
@@ -8491,7 +8491,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         שיפוץ,נורות,ברזים,אסלה
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         3,300.00
        </td>
        <td>
@@ -8508,7 +8508,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         —
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         58.00
        </td>
        <td>
@@ -8525,7 +8525,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         ניקיון דירה
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         700.00
        </td>
        <td>
@@ -8545,7 +8545,7 @@ body {
        <td>
         —
        </td>
-       <td style="color:#1e9d8b; font-weight:600;">
+       <td style="color:var(--teal, #1e9d8b); font-weight:600;">
         435.00
        </td>
       </tr>
@@ -8559,7 +8559,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         —
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         59.00
        </td>
        <td>
@@ -8576,7 +8576,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         —
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         3,772.49
        </td>
        <td>
@@ -8593,7 +8593,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         —
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         57.00
        </td>
        <td>
@@ -8613,7 +8613,7 @@ body {
        <td>
         —
        </td>
-       <td style="color:#1e9d8b; font-weight:600;">
+       <td style="color:var(--teal, #1e9d8b); font-weight:600;">
         4,100.00
        </td>
       </tr>
@@ -8627,7 +8627,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         ביטוח דירה
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         58.00
        </td>
        <td>
@@ -8644,7 +8644,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         —
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         2,996.82
        </td>
        <td>
@@ -8661,7 +8661,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         תשלום אגרות דרך ספיר עורכת הדין
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         406.00
        </td>
        <td>
@@ -8681,7 +8681,7 @@ body {
        <td>
         —
        </td>
-       <td style="color:#1e9d8b; font-weight:600;">
+       <td style="color:var(--teal, #1e9d8b); font-weight:600;">
         900.00
        </td>
       </tr>
@@ -8698,7 +8698,7 @@ body {
        <td>
         —
        </td>
-       <td style="color:#1e9d8b; font-weight:600;">
+       <td style="color:var(--teal, #1e9d8b); font-weight:600;">
         1,000.00
        </td>
       </tr>
@@ -8712,7 +8712,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         עמלה חתימה על משכנתא
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         12.00
        </td>
        <td>
@@ -8729,7 +8729,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         עמלה חתימת משכנתא
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         12.00
        </td>
        <td>
@@ -8746,7 +8746,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         עמלה חתימת משכנתא
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         185.00
        </td>
        <td>
@@ -8763,7 +8763,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         הון ראשון לחשבון המוכרים
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         9,460.00
        </td>
        <td>
@@ -8780,7 +8780,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         הון ראשוני לסגירת משכנתא של המוכרים
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         28,040.20
        </td>
        <td>
@@ -8797,7 +8797,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         הון ראשוני לסגירת משכנתא של המוכרים
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         100,000.00
        </td>
        <td>
@@ -8814,7 +8814,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         ביטוח מבנה
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         52.00
        </td>
        <td>
@@ -8831,7 +8831,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         משלוח דואר לעורכת דין
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         64.00
        </td>
        <td>
@@ -8848,7 +8848,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         נוטריון
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         316.00
        </td>
        <td>
@@ -8865,7 +8865,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         תשלום לספיר עורכת דין ואגרות
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         6,226.00
        </td>
        <td>
@@ -8882,7 +8882,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         ייעוץ משכנתא
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         6,500.00
        </td>
        <td>
@@ -8899,7 +8899,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         —
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         12,000.00
        </td>
        <td>
@@ -8916,7 +8916,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         תיווך קניית דירה
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         23,600.00
        </td>
        <td>
@@ -8933,7 +8933,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         שיק בנקאי
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         100,000.00
        </td>
        <td>
@@ -8950,7 +8950,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         —
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         13.70
        </td>
        <td>
@@ -8967,7 +8967,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         שמאות
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         2,950.00
        </td>
        <td>
@@ -8984,7 +8984,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         ליווי ניראל פעימה שנייה
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         15,000.00
        </td>
        <td>
@@ -9001,7 +9001,7 @@ body {
        <td style="color:#888; font-size:.88em;">
         ליווי ניראל פעימה ראשונה
        </td>
-       <td style="color:#e74c3c; font-weight:600;">
+       <td style="color:var(--c-neg, #e74c3c); font-weight:600;">
         5,000.00
        </td>
        <td>
@@ -10904,7 +10904,7 @@ function _flashAccountsUpdated() {
     n = document.createElement('div');
     n.id = 'accounts-updated-note';
     n.textContent = '✓ עודכן';
-    n.style.cssText = 'position:absolute;top:6px;left:6px;background:#1e9d8b;color:#fff;font-size:.72em;font-weight:700;padding:3px 9px;border-radius:10px;opacity:0;transition:opacity .25s;z-index:5;pointer-events:none';
+    n.style.cssText = 'position:absolute;top:6px;left:6px;background:var(--teal, #1e9d8b);color:#fff;font-size:.72em;font-weight:700;padding:3px 9px;border-radius:10px;opacity:0;transition:opacity .25s;z-index:5;pointer-events:none';
     if (getComputedStyle(p).position === 'static') p.style.position = 'relative';
     p.appendChild(n);
   }
@@ -10928,7 +10928,7 @@ function _loadAccountsData(forceRegen, skipRevalidate) {
       if (!skipRevalidate) _revalidateAccountsData();
     })
     .catch(function() {
-      if (tbl) tbl.innerHTML = '<div style="padding:20px;color:#e74c3c;text-align:center">שגיאה בטעינת נתונים</div>';
+      if (tbl) tbl.innerHTML = '<div style="padding:20px;color:var(--c-neg, #e74c3c);text-align:center">שגיאה בטעינת נתונים</div>';
       if (btn) { btn.disabled = false; btn.classList.remove('running'); }
     });
 }
@@ -12618,7 +12618,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         _kpiCard('Balance', monthlyBal, monthlyBal >= 0, false, '#1e9d8b',
           k.balance_date ? _esc(k.balance_date) : '') +
         '<div class="kpi-card kpi-balance-card">' +
-          '<div class="kpi-label"><span class="kpi-dot" style="background:#1e9d8b"></span>יתרה חודשית' +
+          '<div class="kpi-label"><span class="kpi-dot" style="background:var(--teal, #1e9d8b)"></span>יתרה חודשית' +
           _tipHtml(_KPI_TT['יתרה חודשית']) +
           '</div>' +
           '<div class="kpi-value ' + (balance >= 0 ? 'pos' : 'neg') + '">' +
@@ -13978,7 +13978,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         '<div class="kpi-label">הון עצמי<span class="kpi-info-wrap"><span class="kpi-info-icon">i</span>' +
           '<span class="kpi-tooltip">הון עצמי = מקדמה + קרן שנפרעה + עליית ערך + הכנסות\n' +
           '  מקדמה: ' + _n(initPay) + '\n  קרן שנפרעה: ' + _n(principalPaid) + '\n  עליית ערך: ' + _n(apprGain) + '\n  הכנסות: ' + _n(allInc) + '\n  = סה״כ: ' + _n(eqWithInc) + '</span></span></div>' +
-        '<div class="kpi-value" id="hs-equity" style="color:#1e9d8b">' + _n(eqWithInc) + '</div>' +
+        '<div class="kpi-value" id="hs-equity" style="color:var(--teal, #1e9d8b)">' + _n(eqWithInc) + '</div>' +
         '<div class="kpi-sublabel">כולל עליית ערך והכנסות</div>' +
         '<div class="equity-bar-wrap" style="margin-top:12px">' +
           '<div class="equity-bar" style="direction:rtl;height:14px">' +
@@ -14006,7 +14006,7 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
       '<div class="kpi-card hs-full-col">' +
         '<div class="kpi-label">סה״כ הוצאות<span class="kpi-info-wrap"><span class="kpi-info-icon">i</span>' +
           '<span class="kpi-tooltip">תשלומי משכנתא: ' + _n(allMort) + '\nתשלום ראשוני: ' + _n(initPay) + '\nהוצאות אחרות: ' + _n(atOther) + '</span></span></div>' +
-        '<div class="kpi-value" style="color:#e74c3c">' + _n(allOut, 2) + '</div>' +
+        '<div class="kpi-value" style="color:var(--c-neg, #e74c3c)">' + _n(allOut, 2) + '</div>' +
         '<div class="equity-bar-wrap">' +
           '<div class="equity-bar">' +
             '<div class="equity-bar-seg" style="width:' + spMort.toFixed(1)  + '%;background:' + SC_MORT  + '" title="תשלומי משכנתא ' + _n(allMort) + '"></div>' +
@@ -14104,8 +14104,8 @@ fetch('/api/bills/suggestions').then(r => r.json()).then(d => {
         txns.map(function(tx) {
           var d = String(tx.date || '').slice(0, 10);
           return '<tr><td>' + d + '</td><td>' + _esc(tx.name || '') + '</td>' +
-            '<td style="color:#e74c3c">' + (tx.out    ? _n(tx.out, 2)    : '') + '</td>' +
-            '<td style="color:#1e9d8b">' + (tx.income ? _n(tx.income, 2) : '') + '</td></tr>';
+            '<td style="color:var(--c-neg, #e74c3c)">' + (tx.out    ? _n(tx.out, 2)    : '') + '</td>' +
+            '<td style="color:var(--teal, #1e9d8b)">' + (tx.income ? _n(tx.income, 2) : '') + '</td></tr>';
         }).join('') +
         '</tbody></table>' +
         '<div class="txn-footer"><span>סה״כ</span>' +

@@ -49,7 +49,7 @@ body {
 .ham-btn:hover { background: var(--teal-light); color: var(--teal); }
 .nav-overlay {
   position: fixed; inset: 0;
-  background: rgba(15,22,45,.26);
+  background: color-mix(in srgb, var(--c-alt, rgb(15,22,45)) 26%, transparent);
   z-index: 1000; opacity: 0; pointer-events: none;
   transition: opacity .22s ease;
 }
@@ -90,7 +90,7 @@ body {
   gap: 7px; justify-content: center;
   transition: background .15s, color .15s, border-color .15s;
 }
-.nav-restart-btn:hover { background: #fff3f3; color: #e53935; border-color: #e53935; }
+.nav-restart-btn:hover { background: var(--c-neg-bg, #fff3f3); color: var(--c-neg, #e53935); border-color: var(--c-neg, #e53935); }
 .nav-restart-btn:disabled { opacity: .5; cursor: default; }
 .nav-item {
   display: flex; align-items: center; padding: 10px 20px;
@@ -108,7 +108,7 @@ body {
 }
 .nav-item:hover { background: var(--teal-light); color: var(--teal); }
 .nav-item:hover::before { background: var(--teal); }
-.nav-item.active { color: #b8c0d0; cursor: default; pointer-events: none; }
+.nav-item.active { color: var(--c-alt-bg, #b8c0d0); cursor: default; pointer-events: none; }
 .nav-sep { height: 1px; background: var(--border); margin: 8px 16px; }
 
 /* ── Page layout ──────────────────────────────────────────── */
@@ -144,18 +144,18 @@ body {
 .btn-sm { padding: 5px 11px; font-size: .8em; }
 .btn-xs { padding: 4px 9px; font-size: .77em; }
 .btn-danger { background: var(--red); color: #fff; }
-.btn-danger:hover { background: #c0392b; }
+.btn-danger:hover { background: var(--c-neg, #c0392b); }
 
 /* ── Charge banner ────────────────────────────────────────── */
 .charge-banner {
-  background: #fffbea;
+  background: var(--c-neg-bg, #fffbea);
   border-bottom: 2px solid var(--amber);
   padding: 10px 20px;
   display: flex; align-items: center; gap: 12px;
   font-size: .88em; font-weight: 500;
 }
 .charge-banner-icon { font-size: 1.3em; }
-.charge-banner-text { flex: 1; color: #7a5100; }
+.charge-banner-text { flex: 1; color: var(--c-neg, #7a5100); }
 
 /* ── Summary bar ──────────────────────────────────────────── */
 .summary-bar {
@@ -174,8 +174,8 @@ body {
   font-size: 1.3em; font-weight: 700; color: #fff;
   font-variant-numeric: tabular-nums;
 }
-.summary-chip.red .chip-val { color: #ff8a8a; }
-.summary-chip.amber .chip-val { color: #ffc34d; }
+.summary-chip.red .chip-val { color: var(--c-neg, #ff8a8a); }
+.summary-chip.amber .chip-val { color: var(--c-neg, #ffc34d); }
 
 /* ── Tabs ─────────────────────────────────────────────────── */
 .tabs-bar {
@@ -201,8 +201,8 @@ body {
   font-size: .75em; font-weight: 700; border-radius: 12px;
   padding: 1px 7px;
 }
-.tab-badge.owes { background: rgba(231,76,60,.12); color: var(--red); }
-.tab-badge.even { background: rgba(46,204,113,.12); color: #1a7a40; }
+.tab-badge.owes { background: color-mix(in srgb, var(--c-neg, rgb(231,76,60)) 12%, transparent); color: var(--red); }
+.tab-badge.even { background: color-mix(in srgb, var(--c-pos, rgb(46,204,113)) 12%, transparent); color: var(--c-pos, #1a7a40); }
 .tab-badge.ahead { background: color-mix(in srgb, var(--teal) 12%, transparent); color: var(--teal); }
 
 /* ── Tab panels ───────────────────────────────────────────── */
@@ -284,8 +284,8 @@ body {
   border-radius: 10px; padding: 12px;
   display: flex; flex-direction: column; gap: 4px;
 }
-.balance-card.owes { background: rgba(231,76,60,.1); }
-.balance-card.even { background: rgba(46,204,113,.1); }
+.balance-card.owes { background: color-mix(in srgb, var(--c-neg, rgb(231,76,60)) 10%, transparent); }
+.balance-card.even { background: color-mix(in srgb, var(--c-pos, rgb(46,204,113)) 10%, transparent); }
 .balance-card.ahead { background: color-mix(in srgb, var(--teal) 10%, transparent); }
 .balance-card-label { font-size: .72em; font-weight: 700; color: var(--text-muted); text-transform: uppercase; }
 .balance-card-amount {
@@ -315,7 +315,7 @@ body {
 /* ── Modals ───────────────────────────────────────────────── */
 .modal-backdrop {
   position: fixed; inset: 0;
-  background: rgba(15,22,45,.38);
+  background: color-mix(in srgb, var(--c-alt, rgb(15,22,45)) 38%, transparent);
   z-index: 600; display: none;
   align-items: center; justify-content: center;
 }
@@ -421,23 +421,23 @@ input[type="date"].field-input { padding: 0 10px; appearance: none; -webkit-appe
 .amount-neg { color: var(--red); font-weight: 700; font-variant-numeric: tabular-nums; }
 .amount-pos { color: var(--green); font-weight: 700; font-variant-numeric: tabular-nums; }
 .btn-icon-del { background: none; border: none; cursor: pointer; color: var(--text-muted); padding: 3px 6px; border-radius: 5px; font-size: .9em; transition: color .12s, background .12s; }
-.btn-icon-del:hover { color: var(--red); background: rgba(231,76,60,.08); }
+.btn-icon-del:hover { color: var(--red); background: color-mix(in srgb, var(--c-neg, rgb(231,76,60)) 8%, transparent); }
 @media (max-width: 600px) {
   .main { padding: 56px 12px 80px !important; }
   .page-header { padding-right: 0 !important; }
 }
-.debug-fab{position:fixed;bottom:22px;right:18px;width:42px;height:42px;border-radius:50%;background:#1e2a4a;color:#fff;font-size:.72em;font-family:monospace;font-weight:700;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.3);z-index:997;letter-spacing:-.5px}
+.debug-fab{position:fixed;bottom:22px;right:18px;width:42px;height:42px;border-radius:50%;background:var(--navy, #1e2a4a);color:#fff;font-size:.72em;font-family:monospace;font-weight:700;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.3);z-index:997;letter-spacing:-.5px}
 .debug-fab:hover{filter:brightness(1.2)}
 .debug-panel{position:fixed;bottom:72px;right:16px;width:480px;max-width:calc(100vw - 32px);height:340px;background:#12121f;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.55);z-index:996;display:none;flex-direction:column;overflow:hidden;font-family:monospace}
 .debug-panel.open{display:flex}
-.debug-hdr{display:flex;align-items:center;justify-content:space-between;padding:7px 12px;background:#0a0a18;color:#7ec8e3;font-size:.7em;font-weight:700;letter-spacing:.06em;flex-shrink:0;border-bottom:1px solid #222}
+.debug-hdr{display:flex;align-items:center;justify-content:space-between;padding:7px 12px;background:var(--c-alt, #0a0a18);color:var(--c-alt, #7ec8e3);font-size:.7em;font-weight:700;letter-spacing:.06em;flex-shrink:0;border-bottom:1px solid #222}
 .debug-hdr-btns{display:flex;gap:5px}
 .debug-hdr-btns button{background:none;border:1px solid #333;color:#888;border-radius:4px;padding:2px 8px;font-size:.9em;cursor:pointer;font-family:monospace}
 .debug-hdr-btns button:hover{background:#1e1e2e;color:#eee}
-.debug-feed{flex:1;overflow-y:auto;padding:6px 10px;font-size:.68em;line-height:1.55;color:#c8d8e4}
+.debug-feed{flex:1;overflow-y:auto;padding:6px 10px;font-size:.68em;line-height:1.55;color:var(--c-alt-bg, #c8d8e4)}
 .debug-line{white-space:pre-wrap;word-break:break-all;padding:1px 0;border-bottom:1px solid #1a1a2a}
-.debug-line.err{color:#ff6b6b}
-.debug-line.warn{color:#ffa94d}
+.debug-line.err{color:var(--c-neg, #ff6b6b)}
+.debug-line.warn{color:var(--c-neg, #ffa94d)}
 </style>
 <link rel="stylesheet" href="/design-system.css">
 <script>try{var _p=localStorage.getItem("bd-palette");if(_p)document.documentElement.setAttribute("data-palette",_p)}catch(e){}</script>
@@ -518,15 +518,15 @@ input[type="date"].field-input { padding: 0 10px; appearance: none; -webkit-appe
 
       <!-- Missing months alert banner -->
       <div id="missingMonthsSection" style="display:none;
-        background:#fffbea; border:1.5px solid #e6a817; border-radius:12px;
+        background:var(--c-neg-bg, #fffbea); border:1.5px solid var(--c-neg, #e6a817); border-radius:12px;
         padding:13px 18px; margin-bottom:18px;
         display:none; align-items:center; gap:12px; direction:rtl">
-        <span style="flex:1;font-size:.88em;font-weight:500;color:#7a5100">
+        <span style="flex:1;font-size:.88em;font-weight:500;color:var(--c-neg, #7a5100)">
           <span style="margin-left:6px">⚠</span>
           <span id="missingMonthsList"></span>
         </span>
         <button onclick="document.getElementById('missingMonthsSection').style.display='none'"
-          style="background:none;border:none;cursor:pointer;color:#b07a20;font-size:1em;
+          style="background:none;border:none;cursor:pointer;color:var(--c-neg, #b07a20);font-size:1em;
           line-height:1;padding:2px 4px;flex-shrink:0;border-radius:4px"
           title="סגור">✕</button>
       </div>

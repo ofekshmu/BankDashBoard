@@ -380,6 +380,68 @@
   }
   initStill();
 
+
+  /* Palette-aware chart colours. Chart.js / canvas colours live in JS, so CSS variables cannot reach them:
+   *  - bdCat(colors)  categorical lists (pie slices, legend dots): in a palette, index i -> the palette's ramp[i]
+   *    (tints of its three colours), so the chart and its DOM legend (built from the same list) match.
+   *  - a Chart.js plugin recolours every dataset colour (keeping alpha): reds/oranges/yellows -> --c-neg,
+   *    greens -> --c-pos, teals -> --teal, blues/purples -> --c-alt, neutrals untouched; lists use the ramp.
+   * With no palette both are no-ops. Switching palette reloads a page that has charts. */
+  var RAMPS = {
+    'pistachio-cocoa-red':    ['#C8173F', '#2E1B14', '#E0788F', '#6A5646', '#EFB3C0', '#9A8A7A', '#A41234', '#B5BFA0'],
+    'gunmetal-concrete-gold': ['#FFB800', '#B4ADA2', '#FFD666', '#8C867D', '#FFE6A3', '#D9D4CC', '#E0A000', '#5B6676'],
+    'volcano-cream-indigo':   ['#3D2BFF', '#E2551F', '#8F85FF', '#F29A74', '#1E1410', '#B9B2FF', '#6B5846', '#2F1FD0']
+  };
+  function activeRamp() { return RAMPS[document.documentElement.getAttribute('data-palette')] || null; }
+  window.bdCat = function (colors) {
+    var r = activeRamp();
+    return r ? colors.map(function (_, i) { return r[i % r.length]; }) : colors;
+  };
+  function cssVar(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+  function parseColor(c) {
+    var m = /^#([0-9a-f]{6})$/i.exec(c);
+    if (m) return [parseInt(m[1].slice(0, 2), 16), parseInt(m[1].slice(2, 4), 16), parseInt(m[1].slice(4), 16), 1];
+    m = /^#([0-9a-f]{3})$/i.exec(c);
+    if (m) return [0, 1, 2].map(function (i) { return parseInt(m[1][i] + m[1][i], 16); }).concat(1);
+    m = /^rgba?\(\s*(\d+)[\s,]+(\d+)[\s,]+(\d+)(?:[\s,/]+([\d.]+))?\s*\)$/i.exec(c);
+    return m ? [+m[1], +m[2], +m[3], m[4] == null ? 1 : +m[4]] : null;
+  }
+  function recolor(c) {
+    var p = typeof c === 'string' ? parseColor(c.trim()) : null;
+    if (!p) return c;
+    var r = p[0] / 255, g = p[1] / 255, b = p[2] / 255, mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+    if (mx === 0 || d / mx < 0.045 || (mx < 0.30 && d / mx < 0.5)) return c;       // neutral: keep
+    var h = d === 0 ? 0 : mx === r ? ((g - b) / d + 6) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+    h *= 60;
+    var role = (h <= 50 || h >= 325) ? '--c-neg' : h < 160 ? '--c-pos' : h <= 195 ? '--teal' : '--c-alt';
+    var t = parseColor(cssVar(role));
+    return t ? 'rgba(' + t[0] + ',' + t[1] + ',' + t[2] + ',' + p[3] + ')' : c;
+  }
+  var CHART_PROPS = ['backgroundColor', 'borderColor', 'pointBackgroundColor', 'pointBorderColor', 'hoverBackgroundColor', 'hoverBorderColor'];
+  function initChartPalette() {
+    if (!window.Chart || window._bdChartInit || !activeRamp()) return;
+    window._bdChartInit = true;
+    var ramp = activeRamp();
+    Chart.defaults.color = cssVar('--text-sub') || Chart.defaults.color;
+    Chart.defaults.borderColor = cssVar('--border') || Chart.defaults.borderColor;
+    Chart.register({
+      id: 'bdPalette',
+      beforeUpdate: function (chart) {
+        chart.data.datasets.forEach(function (ds) {
+          var done = ds._bdDone || (ds._bdDone = {});
+          CHART_PROPS.forEach(function (k) {
+            var v = ds[k];
+            if (v == null || done[k] === v) return;
+            var out = Array.isArray(v) ? v.map(function (_, i) { return ramp[i % ramp.length]; })
+                                       : typeof v === 'string' ? recolor(v) : v;
+            ds[k] = out; done[k] = out;
+          });
+        });
+      }
+    });
+  }
+  initChartPalette();
+
   /* Colour-palette picker: one button per palette in the side menu (above the footer). The choice is kept in
    * localStorage ("bd-palette"; absent = the original look) and set as <html data-palette>; the colours live in
    * palettes.css, and each page's <head> re-applies the saved value before first paint. */
@@ -400,6 +462,7 @@
     try { if (id === 'default') localStorage.removeItem('bd-palette'); else localStorage.setItem('bd-palette', id); } catch (e) {}
     var btns = document.querySelectorAll('.pal-opt');
     for (var i = 0; i < btns.length; i++) btns[i].setAttribute('aria-pressed', String(btns[i].getAttribute('data-pal') === id));
+    if (window.Chart) location.reload();      // chart colours are set in JS: redraw the page with the new palette
   }
   /* Build the picker block and place it before the sidebar footer (or at the end of the sidebar). */
   function initPalettePicker() {

@@ -49,7 +49,7 @@ body {
 .ham-btn:hover { background: var(--teal-light); color: var(--teal); }
 .nav-overlay {
   position: fixed; inset: 0;
-  background: rgba(15,22,45,.26);
+  background: color-mix(in srgb, var(--c-alt, rgb(15,22,45)) 26%, transparent);
   z-index: 1000; opacity: 0; pointer-events: none;
   transition: opacity .22s ease;
 }
@@ -90,7 +90,7 @@ body {
   gap: 7px; justify-content: center;
   transition: background .15s, color .15s, border-color .15s;
 }
-.nav-restart-btn:hover { background: #fff3f3; color: #e53935; border-color: #e53935; }
+.nav-restart-btn:hover { background: var(--c-neg-bg, #fff3f3); color: var(--c-neg, #e53935); border-color: var(--c-neg, #e53935); }
 .nav-restart-btn:disabled { opacity: .5; cursor: default; }
 .nav-item {
   display: flex; align-items: center; padding: 10px 20px;
@@ -108,7 +108,7 @@ body {
 }
 .nav-item:hover { background: var(--teal-light); color: var(--teal); }
 .nav-item:hover::before { background: var(--teal); }
-.nav-item.active { color: #b8c0d0; cursor: default; pointer-events: none; }
+.nav-item.active { color: var(--c-alt-bg, #b8c0d0); cursor: default; pointer-events: none; }
 .nav-sep { height: 1px; background: var(--border); margin: 8px 16px; }
 
 /* ── Page layout ──────────────────────────────────────────── */
@@ -120,7 +120,7 @@ body {
 .hidden{display:none !important}
 
 /* Error banner */
-.ca-error-banner{display:none;align-items:center;gap:10px;background:#fdecea;border:1px solid #f6c6c1;color:#c0392b;border-radius:var(--radius-sm);padding:12px 16px;margin-bottom:16px;font-size:.88em}
+.ca-error-banner{display:none;align-items:center;gap:10px;background:var(--c-neg-bg, #fdecea);border:1px solid var(--c-neg-bg, #f6c6c1);color:var(--c-neg, #c0392b);border-radius:var(--radius-sm);padding:12px 16px;margin-bottom:16px;font-size:.88em}
 .ca-empty{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow-sm);padding:30px 20px;text-align:center;color:var(--text-muted);font-size:.9em}
 
 /* Loading progress panel — replaces the old static shimmer with real,
@@ -144,7 +144,7 @@ body {
 .ca-month-chip:hover{border-color:var(--teal);color:var(--teal)}
 .ca-month-chip.active{background:var(--navy);border-color:var(--navy);color:#fff}
 .ca-month-chip.open-chip::after{content:' •';color:var(--amber)}
-.ca-month-chip.active.open-chip::after{color:#ffd166}
+.ca-month-chip.active.open-chip::after{color:var(--c-neg, #ffd166)}
 /* Loading spinner uses ::before (::after is already the open-chip dot) */
 .ca-month-chip.loading{padding-right:26px;position:relative;pointer-events:none}
 .ca-month-chip.loading::before{content:'';position:absolute;right:9px;top:50%;margin-top:-6px;width:11px;height:11px;background:currentColor;border-radius:17%;animation:sq-turn 3.6s infinite}
@@ -162,7 +162,7 @@ body {
    cancel the pointer sequence in favor of their own scroll/nav handling. */
 .ca-hero-viewport{overflow:hidden;border-radius:var(--radius);direction:ltr;touch-action:pan-y}
 .ca-hero-track{display:flex;will-change:transform}
-.ca-hero-panel{flex:0 0 100%;max-width:100%;box-sizing:border-box;padding:22px 22px 20px;background:var(--white);box-shadow:0 10px 28px rgba(30,42,74,.14),0 2px 8px rgba(30,42,74,.08);border-radius:var(--radius);border-top:4px solid var(--teal);min-height:150px;direction:rtl}
+.ca-hero-panel{flex:0 0 100%;max-width:100%;box-sizing:border-box;padding:22px 22px 20px;background:var(--white);box-shadow:0 10px 28px color-mix(in srgb, var(--c-alt, rgb(30,42,74)) 14%, transparent),0 2px 8px color-mix(in srgb, var(--c-alt, rgb(30,42,74)) 8%, transparent);border-radius:var(--radius);border-top:4px solid var(--teal);min-height:150px;direction:rtl}
 .ca-hero-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
 .ca-hero-card-id{display:flex;align-items:center;gap:8px}
 .ca-hero-swatch{width:12px;height:12px;border-radius:50%;flex-shrink:0}
@@ -170,9 +170,9 @@ body {
 .ca-hero-card-sub{font-size:.8em;color:var(--text-muted);margin-top:2px;margin-right:20px}
 .ca-status-badge{font-size:.72em;font-weight:700;border-radius:12px;padding:3px 11px;white-space:nowrap;flex-shrink:0}
 .ca-status-badge.verified{background:var(--teal-light);color:var(--teal)}
-.ca-status-badge.not_verified{background:#fff3e0;color:var(--amber)}
-.ca-status-badge.not_found{background:#eceff3;color:#6b7280}
-.ca-status-badge.open{background:#eaf2fb;color:#2f6fb0}
+.ca-status-badge.not_verified{background:var(--c-neg-bg, #fff3e0);color:var(--amber)}
+.ca-status-badge.not_found{background:#eceff3;color:var(--c-alt, #6b7280)}
+.ca-status-badge.open{background:var(--c-alt-bg, #eaf2fb);color:var(--c-alt, #2f6fb0)}
 .ca-hero-amount{font-size:2.1em;font-weight:700;color:var(--ink, var(--navy));margin-top:16px;direction:ltr;text-align:left}
 .ca-hero-limit-row{margin-top:14px}
 .ca-hero-limit-track{height:8px;border-radius:6px;background:var(--bg);overflow:hidden}
@@ -200,7 +200,7 @@ body {
 .ca-hero-arrow:disabled{opacity:.3;cursor:default}
 
 .ca-dots{display:flex;justify-content:center;gap:6px;margin-top:12px;margin-bottom:20px}
-.ca-dot{width:7px;height:7px;border-radius:50%;background:#c5cbd8;cursor:pointer;transition:background .15s,transform .15s;border:none;padding:0}
+.ca-dot{width:7px;height:7px;border-radius:50%;background:var(--c-alt-bg, #c5cbd8);cursor:pointer;transition:background .15s,transform .15s;border:none;padding:0}
 .ca-dot.active{background:var(--teal);transform:scale(1.35)}
 
 /* Trend chart */

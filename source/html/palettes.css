@@ -42,6 +42,12 @@ html[data-palette="pistachio-cocoa-red"] {
   --shadow-teal: 0 4px 16px rgba(200,23,63,.20);
   --sq-grad: linear-gradient(135deg, #E0486B, #C8173F 55%, #A41234);
   --sq-glow: rgba(200,23,63,.35);
+  /* roles for what used to be red / green / blue-purple: only palette colours (tints of them) */
+  --c-neg: #C8173F; --c-pos: #2E1B14; --c-alt: #6A5646;
+  --c-neg-bg: color-mix(in srgb, #C8173F 12%, transparent);
+  --c-pos-bg: color-mix(in srgb, #2E1B14 8%, transparent);
+  --c-alt-bg: color-mix(in srgb, #6A5646 10%, transparent);
+  --red: var(--c-neg); --green: var(--c-pos);
 }
 
 /* ---- 2. Gunmetal / Concrete / Gold (dark) ---- */
@@ -69,6 +75,11 @@ html[data-palette="gunmetal-concrete-gold"] {
   --shadow-teal: 0 4px 16px rgba(255,184,0,.20);
   --sq-grad: linear-gradient(135deg, #FFD15C, #FFB800 55%, #E0A000);
   --sq-glow: rgba(255,184,0,.35);
+  --c-neg: #FFB800; --c-pos: #B4ADA2; --c-alt: #8C867D;
+  --c-neg-bg: color-mix(in srgb, #FFB800 14%, transparent);
+  --c-pos-bg: color-mix(in srgb, #B4ADA2 14%, transparent);
+  --c-alt-bg: color-mix(in srgb, #8C867D 16%, transparent);
+  --red: var(--c-neg); --green: var(--c-pos);
 }
 
 /* ---- 3. Cream / Orange / Indigo ----
@@ -97,6 +108,11 @@ html[data-palette="volcano-cream-indigo"] {
   --shadow-teal: 0 4px 16px rgba(61,43,255,.22);
   --sq-grad: linear-gradient(135deg, #6D5FFF, #3D2BFF 55%, #2F1FD0);
   --sq-glow: rgba(61,43,255,.35);
+  --c-neg: #C2481A; --c-pos: #3D2BFF; --c-alt: #6B5846;   /* #C2481A = Volcano Orange darkened for text contrast */
+  --c-neg-bg: color-mix(in srgb, #E2551F 14%, transparent);
+  --c-pos-bg: color-mix(in srgb, #3D2BFF 10%, transparent);
+  --c-alt-bg: color-mix(in srgb, #6B5846 10%, transparent);
+  --red: var(--c-neg); --green: var(--c-pos);
 }
 html[data-palette="volcano-cream-indigo"] body::before {   /* thin orange stripe at the top of every page */
   content: ''; position: fixed; top: 0; left: 0; right: 0; height: 5px;

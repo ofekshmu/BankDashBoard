@@ -13,7 +13,7 @@
 body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--ink, var(--navy));direction:rtl;display:flex;min-height:100vh}
 .ham-btn{position:fixed;top:18px;right:18px;width:42px;height:42px;background:var(--white);border:1.5px solid var(--border);border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:400;box-shadow:0 2px 10px rgba(0,0,0,.06);color:var(--ink, var(--navy));transition:background .15s,color .15s,border-color .15s}
 .ham-btn:hover,.ham-btn.open{background:var(--teal);border-color:var(--teal);color:var(--on-accent, #fff)}
-.nav-overlay{position:fixed;inset:0;background:rgba(15,22,45,.26);z-index:390;opacity:0;pointer-events:none;transition:opacity .22s ease}
+.nav-overlay{position:fixed;inset:0;background:color-mix(in srgb, var(--c-alt, rgb(15,22,45)) 26%, transparent);z-index:390;opacity:0;pointer-events:none;transition:opacity .22s ease}
 .nav-overlay.open{opacity:1;pointer-events:all}
 .sidebar{position:fixed;top:0;right:0;height:100vh;width:230px;background:var(--white);z-index:395;transform:translate3d(100%,0,0);transition:transform .22s cubic-bezier(.4,0,.2,1);will-change:transform;box-shadow:-4px 0 24px rgba(0,0,0,.09);display:flex;flex-direction:column}
 .sidebar.open{transform:translate3d(0,0,0)}
@@ -24,14 +24,14 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--in
 .sidebar-scroll{flex:1;overflow-y:auto;overflow-x:hidden;padding:8px 0 16px}
 .sidebar-footer{padding:12px 16px;border-top:1px solid var(--border);flex-shrink:0}
 .nav-restart-btn{width:100%;padding:8px 12px;border:1.5px dashed var(--border);border-radius:8px;background:none;color:var(--text-muted);font-size:.78em;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:7px;justify-content:center;transition:background .15s,color .15s,border-color .15s}
-.nav-restart-btn:hover{background:#fff3f3;color:#e53935;border-color:#e53935}
+.nav-restart-btn:hover{background:var(--c-neg-bg, #fff3f3);color:var(--c-neg, #e53935);border-color:var(--c-neg, #e53935)}
 .nav-restart-btn:disabled{opacity:.5;cursor:default}
 .app-version-badge{margin-top:8px;text-align:center;font-size:.72em;color:var(--text-muted);letter-spacing:.03em;opacity:.7;user-select:none}
 .nav-item{display:flex;align-items:center;padding:10px 20px;text-decoration:none;color:#555;font-size:.875em;font-weight:500;transition:background .1s,color .1s;cursor:pointer;border:none;background:none;width:100%;text-align:right;position:relative;letter-spacing:.1px}
 .nav-item::before{content:'';position:absolute;right:0;top:22%;height:56%;width:3px;border-radius:3px 0 0 3px;background:transparent;transition:background .1s}
 .nav-item:hover{background:var(--teal-light);color:var(--teal)}
 .nav-item:hover::before{background:var(--teal)}
-.nav-item.active{color:#b8c0d0;cursor:default;pointer-events:none}
+.nav-item.active{color:var(--c-alt-bg, #b8c0d0);cursor:default;pointer-events:none}
 .nav-sep{height:1px;background:#eef0f6;margin:8px 16px}
 .main{margin-right:0;flex:1;padding:72px 32px 60px;min-width:0;overflow-x:hidden}
 .page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px}
@@ -46,28 +46,28 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--in
 .org-regen-pct{font-size:.65em;font-weight:700;color:rgba(255,255,255,.9);display:none;line-height:1;margin-top:2px;letter-spacing:.02em}
 .org-regen-btn.running .org-regen-pct{display:block}
 @media(max-width:768px){.org-regen-fab{bottom:14px;right:14px}.org-regen-btn{width:52px;padding:0;border-radius:50%;justify-content:center}.org-regen-label{display:none}}
-.debug-fab{position:fixed;bottom:88px;right:18px;width:42px;height:42px;border-radius:50%;background:#1e2a4a;color:#fff;font-size:.72em;font-family:monospace;font-weight:700;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.3);z-index:997;letter-spacing:-.5px}
+.debug-fab{position:fixed;bottom:88px;right:18px;width:42px;height:42px;border-radius:50%;background:var(--navy, #1e2a4a);color:#fff;font-size:.72em;font-family:monospace;font-weight:700;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.3);z-index:997;letter-spacing:-.5px}
 .debug-fab:hover{filter:brightness(1.2)}
 .debug-panel{position:fixed;bottom:138px;right:16px;width:480px;max-width:calc(100vw - 32px);height:340px;background:#12121f;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.55);z-index:996;display:none;flex-direction:column;overflow:hidden;font-family:monospace}
 .debug-panel.open{display:flex}
-.debug-hdr{display:flex;align-items:center;justify-content:space-between;padding:7px 12px;background:#0a0a18;color:#7ec8e3;font-size:.7em;font-weight:700;letter-spacing:.06em;flex-shrink:0;border-bottom:1px solid #222}
+.debug-hdr{display:flex;align-items:center;justify-content:space-between;padding:7px 12px;background:var(--c-alt, #0a0a18);color:var(--c-alt, #7ec8e3);font-size:.7em;font-weight:700;letter-spacing:.06em;flex-shrink:0;border-bottom:1px solid #222}
 .debug-hdr-btns{display:flex;gap:5px}
 .debug-hdr-btns button{background:none;border:1px solid #333;color:#888;border-radius:4px;padding:2px 8px;font-size:.9em;cursor:pointer;font-family:monospace}
 .debug-hdr-btns button:hover{background:#1e1e2e;color:#eee}
-.debug-feed{flex:1;overflow-y:auto;padding:6px 10px;font-size:.68em;line-height:1.55;color:#c8d8e4}
+.debug-feed{flex:1;overflow-y:auto;padding:6px 10px;font-size:.68em;line-height:1.55;color:var(--c-alt-bg, #c8d8e4)}
 .debug-line{white-space:pre-wrap;word-break:break-all;padding:1px 0;border-bottom:1px solid #1a1a2a}
-.debug-line.err{color:#ff6b6b}
-.debug-line.warn{color:#ffa94d}
+.debug-line.err{color:var(--c-neg, #ff6b6b)}
+.debug-line.warn{color:var(--c-neg, #ffa94d)}
 /* Alert panel */
 .alert-panel{background:var(--white);border-radius:var(--radius);padding:20px 24px;margin-bottom:22px;box-shadow:0 2px 12px rgba(0,0,0,.07)}
 .alert-section-title{font-size:.7em;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px}
 .alert-chips{display:flex;flex-wrap:wrap;gap:7px}
 .alert-chip{display:inline-flex;align-items:center;gap:5px;padding:4px 11px;border-radius:20px;font-size:.77em;font-weight:600;cursor:default}
-.chip-red{background:#fef2f2;color:#991b1b;border:1px solid #fecaca}
-.chip-yellow{background:#fefce8;color:#854d0e;border:1px solid #fde68a}
-.chip-blue{background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe}
-.chip-blue2{background:#f0f9ff;color:#0c4a6e;border:1px solid #bae6fd}
-.all-good{display:flex;align-items:center;gap:10px;color:#166534;font-weight:700;font-size:.95em}
+.chip-red{background:var(--c-neg-bg, #fef2f2);color:var(--c-neg, #991b1b);border:1px solid var(--c-neg-bg, #fecaca)}
+.chip-yellow{background:var(--c-pos-bg, #fefce8);color:var(--c-neg, #854d0e);border:1px solid var(--c-neg, #fde68a)}
+.chip-blue{background:var(--c-alt-bg, #eff6ff);color:var(--c-alt, #1e40af);border:1px solid var(--c-alt-bg, #bfdbfe)}
+.chip-blue2{background:var(--c-alt-bg, #f0f9ff);color:var(--c-alt, #0c4a6e);border:1px solid var(--c-alt-bg, #bae6fd)}
+.all-good{display:flex;align-items:center;gap:10px;color:var(--c-pos, #166534);font-weight:700;font-size:.95em}
 .all-good-icon{font-size:1.3em}
 .all-good-sub{font-size:.8em;color:var(--text-muted);font-weight:400;margin-right:4px}
 .older-toggle{background:none;border:none;color:var(--teal);font-size:.78em;font-weight:600;cursor:pointer;padding:10px 0 0;display:block;text-align:right}
@@ -83,14 +83,14 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--in
 .hm-label.recent{color:var(--ink, var(--navy));font-weight:700}
 .hm-cell{width:20px;height:20px;border-radius:4px;position:relative;cursor:crosshair}
 .hm-green{background:var(--teal)}
-.hm-yellow{background:#f59e0b}
-.hm-red{background:#ef4444}
-.hm-blue2{background:#93c5fd}
+.hm-yellow{background:var(--c-neg, #f59e0b)}
+.hm-red{background:var(--c-neg, #ef4444)}
+.hm-blue2{background:var(--c-alt, #93c5fd)}
 .hm-gray{background:#e5e7eb}
-.hm-darkgray{background:#9ca3af}
+.hm-darkgray{background:var(--c-alt, #9ca3af)}
 .hm-cell.has-problem::after{content:'';position:absolute;top:2px;left:2px;width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.85)}
 .hm-divider-row td{border-top:2px solid var(--border);padding-top:5px}
-.hm-tooltip{position:fixed;background:#1e2a4a;color:#e8edf5;padding:8px 12px;border-radius:9px;font-size:.72em;line-height:1.6;pointer-events:none;z-index:9999;display:none;max-width:230px;box-shadow:0 4px 20px rgba(0,0,0,.4)}
+.hm-tooltip{position:fixed;background:var(--navy, #1e2a4a);color:var(--c-alt-bg, #e8edf5);padding:8px 12px;border-radius:9px;font-size:.72em;line-height:1.6;pointer-events:none;z-index:9999;display:none;max-width:230px;box-shadow:0 4px 20px rgba(0,0,0,.4)}
 .hm-tip-label{font-weight:700;font-size:1.05em;margin-bottom:2px}
 .hm-tip-status{opacity:.85}
 .hm-tip-date{opacity:.6;font-size:.9em}
@@ -103,8 +103,8 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--in
 .bt-cells{display:flex;gap:2px}
 .bt-cell{width:14px;height:22px;border-radius:3px;flex-shrink:0;cursor:crosshair}
 .bt-cell.covered{background:var(--teal)}
-.bt-cell.warn{background:#f59e0b}
-.bt-cell.gap{background:#ef4444}
+.bt-cell.warn{background:var(--c-neg, #f59e0b)}
+.bt-cell.gap{background:var(--c-neg, #ef4444)}
 .bt-cell.na{background:#e5e7eb;opacity:.4}
 .bt-lbl-cell{width:14px;height:18px;flex-shrink:0;font-size:.55em;color:var(--text-muted);position:relative;overflow:visible}
 .bt-lbl-cell span{position:absolute;left:50%;transform:translateX(-50%);white-space:nowrap;top:4px}
@@ -112,9 +112,9 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--in
 .bt-title-row .bt-title{margin-bottom:0}
 .bt-info-btn{width:17px;height:17px;border-radius:50%;background:var(--text-muted);color:#fff;font-size:.65em;font-weight:700;border:none;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;line-height:1;position:relative}
 .bt-info-btn:hover{background:var(--navy)}
-.bt-info-popup{display:none;position:absolute;top:22px;right:0;background:#1e2a4a;color:#e8edf5;padding:13px 15px;border-radius:10px;font-size:.74em;line-height:1.7;z-index:1001;width:270px;box-shadow:0 6px 24px rgba(0,0,0,.45);white-space:normal;font-weight:400;text-align:right;cursor:default}
+.bt-info-popup{display:none;position:absolute;top:22px;right:0;background:var(--navy, #1e2a4a);color:var(--c-alt-bg, #e8edf5);padding:13px 15px;border-radius:10px;font-size:.74em;line-height:1.7;z-index:1001;width:270px;box-shadow:0 6px 24px rgba(0,0,0,.45);white-space:normal;font-weight:400;text-align:right;cursor:default}
 .bt-info-btn:hover .bt-info-popup,.bt-info-popup:hover{display:block}
-.bt-info-popup b{color:#7ec8e3}
+.bt-info-popup b{color:var(--c-alt, #7ec8e3)}
 /* Legend collapsible */
 .legend-toggle{background:none;border:none;color:var(--text-muted);font-size:.72em;cursor:pointer;padding:0;margin-top:16px;display:flex;align-items:center;gap:4px}
 .legend-toggle:hover{color:var(--ink, var(--navy))}
@@ -122,8 +122,8 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--in
 .legend-body.open{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:8px 32px}
 .legend-item{display:flex;align-items:center;gap:8px;font-size:.78em}
 .legend-dot{width:10px;height:10px;border-radius:3px;flex-shrink:0}
-.ld-green{background:#22c55e}.ld-yellow{background:#f59e0b}.ld-red{background:#ef4444}
-.ld-blue2{background:#93c5fd}.ld-gray{background:#e5e7eb}.ld-darkgray{background:#9ca3af}
+.ld-green{background:var(--c-pos, #22c55e)}.ld-yellow{background:var(--c-neg, #f59e0b)}.ld-red{background:var(--c-neg, #ef4444)}
+.ld-blue2{background:var(--c-alt, #93c5fd)}.ld-gray{background:#e5e7eb}.ld-darkgray{background:var(--c-alt, #9ca3af)}
 .legend-label{font-weight:600;color:var(--ink, var(--navy));white-space:nowrap}
 .legend-sep{color:var(--text-muted);margin:0 2px}
 .legend-desc{color:var(--text-muted)}
@@ -190,7 +190,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--in
     </div>
   </div>
 
-  <div class="bank-timeline"><div class="bt-title-row"><span class="bt-title">כיסוי בנק לאומי</span><button class="bt-info-btn" tabindex="-1">i<div class="bt-info-popup"><b>כיצד מחושב הכיסוי?</b><br>הגרף מציג כיסוי לפי <b>עסקאות</b> שנמצאות בטבלת BankTransactions.<br><br><b style="color:#22c55e">&#x2713; ירוק</b> — ייבאת קובץ בנק (FibiSave*.xls) לחודש זה; העמודה מציגה את שם הקובץ.<br><b style="color:#f59e0b">&#x26A0; כתום</b> — יש עסקאות בנק אך נמצאה אי-התאמה בולנס — ייתכן שחסרות עסקאות.<br><b style="color:#ef4444">&#x2717; אדום</b> — יש נתוני כרטיסים לחודש אך אין עסקאות בנק — קובץ לא יובא.<br><b style="color:#9ca3af">&#x2014; אפור</b> — אין נתונים כלל לחודש זה.<br><br>עמודות ה-Bank וה-Bank Range הוסרו מהטבלה המרכזית כי לא היו מיוצגות שם כראוי — הגרף הזה מחליף אותן.</div></button></div><div class="bt-chart"><div class="bt-track"><span class="bt-track-lbl"></span><div class="bt-cells"><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"><span>2024</span></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"><span>2025</span></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"><span>2026</span></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div></div></div><div class="bt-track"><span class="bt-track-lbl">עסקאות</span><div class="bt-cells"><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1706045288567.xls|November, 2023"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1706045288567.xls|December, 2023"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1707838748654.xls|January, 2024"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1709579888115.xls|February, 2024"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1712125213771.xls|March, 2024"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1714662270661.xls|April, 2024"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1719849196400.xls|May, 2024"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1719849196400.xls|June, 2024"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1722874428114.xls|July, 2024"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1727283902756.xls|August, 2024"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1735386124258.xls|September, 2024"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1735386124258.xls|October, 2024"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1735386124258.xls|November, 2024"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1736098710878.xls|December, 2024"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1739015198032.xls|January, 2025"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1741102808556.xls|February, 2025"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1743752836404.xls|March, 2025"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1746299447064.xls|April, 2025"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1748894500786.xls|May, 2025"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1751637279988.xls|June, 2025"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1755451312972.xls|July, 2025"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1757173546450.xls|August, 2025"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1759700913524.xls|September, 2025"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1763923036415.xls|October, 2025"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1764830942029.xls|November, 2025"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1767358417296.xls|December, 2025"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1772357327574.xls|January, 2026"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1772357327574.xls|February, 2026"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1775421082992.xls|March, 2026"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1777907433504.xls|April, 2026"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1780567473709.xls|May, 2026"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1783065207663.xls|June, 2026"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1785821960413.xls|July, 2026"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1788452052944.xls|August, 2026"></div></div></div></div></div>
+  <div class="bank-timeline"><div class="bt-title-row"><span class="bt-title">כיסוי בנק לאומי</span><button class="bt-info-btn" tabindex="-1">i<div class="bt-info-popup"><b>כיצד מחושב הכיסוי?</b><br>הגרף מציג כיסוי לפי <b>עסקאות</b> שנמצאות בטבלת BankTransactions.<br><br><b style="color:var(--c-pos, #22c55e)">&#x2713; ירוק</b> — ייבאת קובץ בנק (FibiSave*.xls) לחודש זה; העמודה מציגה את שם הקובץ.<br><b style="color:var(--c-neg, #f59e0b)">&#x26A0; כתום</b> — יש עסקאות בנק אך נמצאה אי-התאמה בולנס — ייתכן שחסרות עסקאות.<br><b style="color:var(--c-neg, #ef4444)">&#x2717; אדום</b> — יש נתוני כרטיסים לחודש אך אין עסקאות בנק — קובץ לא יובא.<br><b style="color:var(--c-alt, #9ca3af)">&#x2014; אפור</b> — אין נתונים כלל לחודש זה.<br><br>עמודות ה-Bank וה-Bank Range הוסרו מהטבלה המרכזית כי לא היו מיוצגות שם כראוי — הגרף הזה מחליף אותן.</div></button></div><div class="bt-chart"><div class="bt-track"><span class="bt-track-lbl"></span><div class="bt-cells"><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"><span>2024</span></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"><span>2025</span></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"><span>2026</span></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div><div class="bt-lbl-cell"></div></div></div><div class="bt-track"><span class="bt-track-lbl">עסקאות</span><div class="bt-cells"><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1706045288567.xls|November, 2023"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1706045288567.xls|December, 2023"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1707838748654.xls|January, 2024"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1709579888115.xls|February, 2024"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1712125213771.xls|March, 2024"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1714662270661.xls|April, 2024"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1719849196400.xls|May, 2024"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1719849196400.xls|June, 2024"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1722874428114.xls|July, 2024"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1727283902756.xls|August, 2024"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1735386124258.xls|September, 2024"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1735386124258.xls|October, 2024"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1735386124258.xls|November, 2024"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1736098710878.xls|December, 2024"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1739015198032.xls|January, 2025"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1741102808556.xls|February, 2025"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1743752836404.xls|March, 2025"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1746299447064.xls|April, 2025"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1748894500786.xls|May, 2025"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1751637279988.xls|June, 2025"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1755451312972.xls|July, 2025"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1757173546450.xls|August, 2025"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1759700913524.xls|September, 2025"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1763923036415.xls|October, 2025"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1764830942029.xls|November, 2025"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1767358417296.xls|December, 2025"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1772357327574.xls|January, 2026"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1772357327574.xls|February, 2026"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1775421082992.xls|March, 2026"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1777907433504.xls|April, 2026"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1780567473709.xls|May, 2026"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1783065207663.xls|June, 2026"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1785821960413.xls|July, 2026"></div><div class="bt-cell covered" data-tip="בנק לאומי|✓ מכוסה — FibiSave1788452052944.xls|August, 2026"></div></div></div></div></div>
 
   <div class="heatmap-section">
     <table class="hm-table">
